@@ -4850,6 +4850,23 @@ diagnosis, the numbers and the candidate knobs stay in the tuning file at the se
   is no longer "the largest available throughput change" — D-T34 is.** The live runner shows
   `-c 8192 -np 2` = 4096 PER SLOT, confirming KV scales as `num_ctx × slots`, so 4 slots at 2048
   would cost today's KV — ⛔ **but only AFTER D-T35's prompt trim, never before.** → *tuning §D-T30*
+- **D-T40 · ⛔ THE EDITOR IS THE NEXT D-T35 — 45.5–68.1% OF ITS CALLS OVERFLOW 4096 DURING
+  GENERATION.** Measured 2026-08-08 23:40 on ministral against 26,837 real `built_prompt` rows.
+  **Fixed cost before any article text: 1,985 tok** = 554 template + **1,431 system prompt** (8,312
+  chars) = **48% of the window**; +900 `num_predict` leaves **1,211 tok ≈ 5,700 chars** for the
+  article — while `EDITOR_MAX_MODEL_CHARS` admits **9,000** and p50 is 7,314. p90 = 4,038 tok (+456
+  output = over by 398); **p100 reports EXACTLY 4,096 — clamped, ~646 tokens dropped silently.**
+  ⛔ **`editor/mod.rs:42-43` claims "1,147 tokens of headroom" and is wrong twice** — gemma's
+  tokenizer on a ministral runner, and it never counts the system prompt at all. ⚠ Editor article
+  text runs **~4.6–4.75 chars/token on ministral**, ≈ gemma's ratio — **the "32% denser" figure was
+  voice-prompt text; don't assume it for bodies** (not a same-text test, so a caution, not a
+  refutation of D-T31). ⚠ **The D-T35 secret-code probe FAILED here and proves nothing** (not echoed
+  even at a 2,022-tok control — the JSON contract overrode it); the numeric case stands alone.
+  ✅ **An Editor prompt bump is RETROACTIVELY FREE** — `contract_version` is a T1 cache key
+  (`read_is_current`) but **only Go's ingest enqueues editor work**, so a bump re-reads nothing.
+  **The Editor is the cheapest character to tune as well as the first.** **Fix order is forced:
+  trim the system prompt → re-derive MAX_MODEL_CHARS → only then touch ctx** (lowering 4096 now
+  makes it worse, and it drags graph + Insider via `route::LOCAL_STAGE_NUM_CTX`). → *tuning §D-T40*
 - **D-T39 · ⛔ EVERY RUST PRODUCTION BINARY UNTIL 2026-08-08 22:55 EDT WAS AN UNOPTIMIZED `debug`
   BUILD.** Found by a size check during the 217 deploy: staged **23,280,384 B** vs the running
   **300,966,352 B** (12.9×), and `rust/target/debug/scoracle-cognition` matches the old size exactly.

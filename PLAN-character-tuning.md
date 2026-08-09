@@ -3036,6 +3036,81 @@ including the Go/API path's own Rust bins (`statcommentary`, 248 MB, is still a 
 in `rust/bin/` right now). Fixing them is a one-line change in each plus the `target/debug` →
 `target/release` staging path, and it wants its own deploy and its own measurement. → *rail Appendix D D-T39*
 
+### D-T40 — ⛔ **THE EDITOR IS THE NEXT D-T35, AND ITS OWN CODE COMMENT SAYS THE OPPOSITE.** (measured 2026-08-08 23:40 EDT, on ministral, on live production prompts)
+
+**Scott asked to start character tuning at the Editor and to drive ctx down. The measurement
+inverts the second half of that: the Editor's window is not too big — its PROMPT is too big for
+the window.** Measured from `cognition_ledger.built_prompt` (26,837 real calls, 7-day window) with
+`prompt_eval_count` read back from the live ministral runner at production's `num_ctx=4096`.
+
+**THE FIXED COST, BEFORE ONE WORD OF ARTICLE:**
+| | tokens |
+|---|---|
+| chat-template floor (empty call) | **554** |
+| `EDITOR_SYSTEM_PROMPT` (8,312 chars) | **1,431** |
+| **subtotal, paid on every one of ~27k calls** | **1,985 — 48% of the 4,096 window** |
+| `EDITOR_NUM_PREDICT` output | **900** |
+| **left for the article** | **1,211 tokens ≈ ~5,700 chars** |
+
+**But `EDITOR_MAX_MODEL_CHARS` admits 9,000 chars of body, and the measured prompt p50 is 7,314
+chars.** The budget and the cap disagree by roughly a factor of two, and the cap wins.
+
+**MEASURED PROMPT SIZES (`system` + user + template, as production sends them):**
+| percentile | user chars | `prompt_eval_count` | + observed output | vs 4096 |
+|---|---|---|---|---|
+| tiny (control) | 56 | 2,022 | +288 | fits |
+| p50 | 7,314 | 3,548 | +365 = 3,913 | fits, 183 spare |
+| p90 | 9,316 | 4,038 | +456 = 4,494 | ⛔ **over by 398** |
+| p100 | 10,185 | **4,096 exactly** | +900 = 4,996 | ⛔ **prompt itself CLAMPED** |
+
+**p100 landing on 4,096 EXACTLY is the signature.** Its true length is ~4,742 tokens
+(554 + 1,431 + 2,757); the runner reported exactly the window size. **~646 tokens were discarded
+silently, `error: None`** — D-T35's mechanism, on the top of the funnel.
+
+**EXPOSURE, bounded honestly rather than to the scarier number:** overflow depends on how long the
+reply actually is (measured 365–900 tokens). **45.5% of calls** overflow at a typical ~450-token
+reply; **68.1%** if the full 900 reservation is used. **The prompt alone is clamped on 0.01%.**
+Either way this is not a tail — it is the common case.
+
+⛔ **THE CODE COMMENT AT `editor/mod.rs:42-43` IS WRONG TWICE** and would have sent the next
+session the wrong way: *"largest 24h prompt 9,731 chars = 2,049 tokens through gemma3's tokenizer,
++ 900 = 2,949, leaving 1,147 tokens of headroom."* It (a) is computed on **gemma's** tokenizer for a
+runner that is now **ministral**, and (b) **never counts the system prompt at all** — the single
+largest fixed term. There is no 1,147-token headroom; at p90 there are **82** tokens, and then it
+goes negative during generation.
+
+⚠ **A STANDING ASSUMPTION NEEDS A CAUTION, NOT YET A CORRECTION.** Editor article text tokenizes at
+**~4.6–4.75 chars/token under ministral** — essentially the same ratio D-T35 measured for gemma.
+The "ministral is 32% denser" figure (D-T31: 2,705 vs 2,049) was measured on **voice-prompt text**,
+which is more structured. **This is not a same-text comparison, so it does not refute D-T31 — but
+do not assume the 32% penalty applies to article bodies.** Measure per prompt family.
+
+⚠ **THE BEHAVIOURAL PROBE FAILED AND PROVES NOTHING — recorded so nobody re-runs it expecting an
+answer.** D-T35's secret-code-in-the-head trick was repeated here; the code was **not echoed at ANY
+size, including the 2,022-token control that comfortably fits.** The Editor's system prompt drives
+hard toward a JSON envelope and simply overrode the injected instruction. **The numeric evidence
+above stands on its own and does not depend on this probe.** A working probe would have to hide the
+marker INSIDE the required JSON contract (e.g. a mandated field value), not fight it.
+
+✅ **THE GOOD NEWS, AND IT DECIDES THE ORDER: AN EDITOR PROMPT BUMP IS RETROACTIVELY FREE.**
+`read_is_current` (editor/mod.rs:761) makes `contract_version` a T1 cache key, so `ep1→ep2`
+invalidates every stored read — **but nothing re-enqueues on it.** The Editor's `pipeline_work` item
+is written **only by Go at ingest**, for fresh articles, under D-T21's cap (`news.go:capFreshReads`);
+there is no contract-version sweep. **So a bump changes how NEW arrivals are read and re-reads
+nothing.** This is the opposite of narratives, where the debounce hash regenerates the whole fleet
+(§S-NEW). **The Editor is both the top of the funnel and the cheapest character to tune — start
+here, exactly as Scott said.**
+
+**WHAT THE FIX IS, IN ORDER (D-T35's law applies with force — TRIM BEFORE SHRINKING):**
+1. **Trim `EDITOR_SYSTEM_PROMPT` (1,431 tok, 8,312 chars).** Paid on every call, ~48% of the fixed
+   cost. Every token removed is bought back for the article on all 27k calls.
+2. **Re-derive `EDITOR_MAX_MODEL_CHARS`** from the budget that is left instead of the 9,000 it
+   asserts today — the two currently contradict each other.
+3. **Only then** revisit `EDITOR_NUM_CTX`. ⛔ **Lowering 4096 today would make this strictly worse**,
+   and any change moves `route::LOCAL_STAGE_NUM_CTX` for graph and the Insider too (shared runner).
+4. Score every step on `eval --task editor --fixtures` — the gate exists and the fixtures are
+   two-directional (7 cases, both accept and reject).
+
 ### S-NEW · PHASE 9 LEFT TWO TUNING-SHAPED ITEMS BEHIND (2026-08-08, from the 9.1 demolition)
 
 **Both are here rather than in the rail file because both are MEASURED changes wearing a deletion's

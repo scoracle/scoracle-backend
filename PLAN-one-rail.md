@@ -32,6 +32,21 @@ unaffected; any wall-clock reading across 22:55 is confounded.** `overflow-check
 seed-composition question, (c) D-T38's tag-share after-picture. **The deploy was the enabler; the
 reading is the point.**
 
+✅ **THEN, SAME SESSION: PHASE 9's RUST DEMOLITION IS DONE — 3,179 LINES DELETED, 144 ADDED**
+(23:14 EDT; commits `6a62af6`/`e0f785f`/`61ccc17`, `cargo test` green after each; rollback tag
+`pre-phase9-demolition`). `article_reader`, `scrub`, `novelty`, `ScrubConfig`, `Role::ArticleReader`,
+both legacy `Stage` variants and the `article_reader` eval task are gone. ⛔ **NOT DEPLOYED, ON
+PURPOSE** — it would be a third change riding the already-bundled 22:55 binary (D-T39) and would
+confound the 02:00 reading. **Deploy it as its own act after the reading**, together with archbox's
+`COGNITION_ROUTE_ARTICLE_READER` removal and its stale unit-file `COGNITION_STAGES`.
+⛔ **TWO THINGS THE DEMOLITION FOUND THAT CHANGE WHAT'S LEFT: (1)** two `article_reader` functions
+were a **live narratives cache key** and had to be extracted verbatim, not deleted — deleting them
+is a `NARRATIVES_PROMPT_VERSION` bump by another name. **(2)** Appendix A's **embedder/`threads`
+clustering item is NOT deletion-only** — it moves the narratives hash too, so it is **still open and
+owes its own measured session**. **Still open in 9.1: the SQL block (gated to Aug 13, the 7-day
+rollback window), the env removals, 9.5's cron split.** 30,222 parked `article_read` rows measured
+and deliberately left as data.
+
 *(23:00 STATE, superseded 2026-08-08 23:05 — Scott's "the time for tinkering is over" session. Itself
 superseded the 16:10 block below, which stays for its detail.)*
 **Scott's weekend order, given 2026-08-08 ~22:30: (A) flip to the new rail — ⚠ ALREADY TRUE,
@@ -4237,7 +4252,13 @@ here; it is not load-bearing for anything above, and no theory is offered for it
 
 ## Phase 9 — Demolition, rebaseline, and the record
 
-- [ ] **9.1** Execute Appendix A top to bottom (Go, Rust, SQL, cron, env). Each bullet is its
+- [~] **9.1** *(RUST BLOCK DONE 2026-08-08 23:14 EDT — **3,179 lines deleted, 144 added**, in three
+      tight commits, `cargo test` green after each. Go block was already done in 8.8. **SQL block NOT
+      done — Appendix A gates it on the 7-day rollback window, which closes 2026-08-13** (flip was
+      Aug 6); env/cron remainder listed in the Log. **NOT DEPLOYED — deliberately.** It builds and
+      tests clean, but deploying tonight would put a THIRD change on top of D-T39's already-bundled
+      22:55 binary and confound the 02:00 reading. Deploy is its own act, after the reading.)*
+      Execute Appendix A top to bottom (Go, Rust, SQL, cron, env). Each bullet is its
       own commit or tight group; `go test ./...` + `cargo test` green after every group. The
       legacy voice-prompt consts (n16/v16/t11/is3/s16/momentum-s13/or8) die here with the RAIL
       scoping — the diet versions are the only prompts left.
@@ -4272,7 +4293,63 @@ here; it is not load-bearing for anything above, and no theory is offered for it
 **Commit:** `rail: phase 9 — demolition complete; one rail`.
 
 ### Log (phase 9)
-*(executor fills)*
+
+#### 9.1 — THE RUST DEMOLITION (2026-08-08, 22:20–23:14 EDT). 3,179 lines deleted, 144 added.
+
+**Three commits, `cargo test` green after each:** `6a62af6` (extract survivors), `e0f785f`
+(article_reader, −2,296), `61ccc17` (scrub, −865). Pre-demolition state tagged
+**`pre-phase9-demolition`** and pushed — the Rust half of a `RAIL=legacy` rollback now needs a
+rebuild from that tag rather than an env flip, and a rebuild measured 29.5 s.
+
+**⛔ THE ONE REAL STOP, AND IT WOULD HAVE BEEN EXPENSIVE.** Appendix A says "the whole
+`junctions/article_reader/` module". **Grep-by-symbol found four live callers**, and one was
+load-bearing in a way deletion would have hidden: `journalist::build_narratives_input_components`
+folds `article_readings_hash` into the **narratives debounce pre-image**. `reading_fingerprint` and
+`build_article_reading_input_components` are therefore **a live CACHE KEY, not legacy machinery**.
+Deleting them — or "tidying" their `none`/empty/`0` fallbacks — changes every entity's `input_hash`
+at once, which is **functionally identical to a `NARRATIVES_PROMPT_VERSION` bump: one forced regen
+of the whole fleet**, the exact act 7.11 is held for. **Moved verbatim into `journalist` instead, so
+the demolition cost ZERO model calls.** The pre-image tests pin the exact string and still pass.
+*(This is the 8.8 lesson repeating: the inventory's line offsets rot, and its symbol lists are a
+starting point, not a closed set. Grep by symbol, then check every caller before deleting.)*
+
+**Also extracted rather than deleted:** `ARTICLE_NUM_CTX` was borrowed by `graph` and the Insider's
+transfer call **from inside the dying module**. Re-anchored as **`route::LOCAL_STAGE_NUM_CTX`**,
+value unchanged at 4096, beside the voice windows it is argued against; the editor/graph
+shared-runner agreement test now pins there. **No number moved in this whole block.**
+
+**What died:** `junctions/article_reader/` (mod 1,488 + prompt 204 + tests 306), `scrub.rs` (440),
+`novelty.rs` (310 — `novelty::gate`/`article_text` were scrub's only callers), `ScrubConfig` + its
+`COGNITION_NOVELTY_*` reader + `Harness.scrub` + `config::env_f32` (orphaned in turn),
+`Role::ArticleReader` (**`Role::all()` is 11 seats, not 12**), the `article_reader` eval task with
+`render_entity_roles` and four tests, `Stage::Scrub`/`Stage::ArticleRead`, and the main.rs handler
+registrations. Fixtures retired to `rust/fixtures/_retired_article_reader/` (9.2).
+
+**Kept deliberately, because a caller survives:** the `Expect` rubric fields (`article_relevant`,
+`key_facts_include`/`_exclude`, `reader_vetted`) — **`EditorTask` scores them at its own call
+sites**, so the rail did not lose its relevance coverage with the reader.
+
+**RETIRED, not removed:** `scrub` and `article_read` moved to `parse_enabled_stages`' **`RETIRED`
+list**, which warns and boots rather than failing closed. **This was not hypothetical — archbox's
+unit file hardcodes `COGNITION_STAGES=scrub,graph,editor,article_read,…`**, and `.env.local`
+(loading later) is what actually keeps the live set correct. Without the RETIRED entry a stale unit
+would have failed the boot. The committed unit is now fixed; **archbox's copy and its inert
+`COGNITION_ROUTE_ARTICLE_READER=ministral-3:3b` are left for the demolition deploy** — both are
+next-restart-effective and buy nothing before the drain.
+
+**⛔ MEASURED BEFORE DELETING — `pipeline_work` still holds 30,222 pending + 2 failed `article_read`
+rows.** They are **DATA and they stay**: the plan counts them in the rollback surface, and a row
+delete is a data write owing a rehearsed transaction (§0 rule 7). **Their disposition belongs to the
+`2xx_demolition` migration.** Nothing claims them now — no handler, no enum variant.
+
+**⛔ ONE APPENDIX A ITEM DELIBERATELY NOT DONE — IT IS NOT DELETION-ONLY.** The **BGE/embedder +
+`threads` cosine clustering in the narratives path**. Retiring it changes *what narratives reads*,
+which changes both its output **and its debounce hash** — the same fleet-wide regen the extraction
+above was done to avoid. **It is a measured change, not a deletion, and it owes its own session**
+(one change, one measurement). `main.rs`'s embedder comment now says so at the code.
+
+**Still open in 9.1:** the SQL block (gated to **Aug 13**, the 7-day rollback window), the env
+removals on both machines, and 9.5's cron split.
 
 ---
 
@@ -4294,20 +4371,26 @@ block; Phase 9 skips it.** For the record, what it said and what happened:
 - ~~Tests: `news_test.go` regex cases, `news_live_test.go`~~ — 13 tests deleted with their
   subjects, named individually in the Phase 8 Log.
 
-**Rust:**
-- Stage `article_read`: the whole `junctions/article_reader/` module (renamed from
-  `junctions/editor/` in 3.0; fetch already extracted to `fetch.rs`) — handler, co-mention
-  verdict application, vetted clearing, `derive_relevance`, bucket + routing_tags writers.
-  `junctions/editor/` (the character's module) is the survivor.
-- Stage `scrub` (`rust/src/scrub.rs`) — vetted is the Editor's fact now.
-- `Role::ArticleReader` + `COGNITION_ROUTE_ARTICLE_READER` (env removed on BOTH machines —
-  coordinated config change), `Role::all()` shrinks.
-- BGE/embedder + `threads` cosine clustering in the narratives path (the novelty gate's
-  embedding branch; exact-title dedup mig 196 + URL dedup STAY — they are deterministic).
-  `narrative_threads.centroid` stops being written.
-- `ARTICLE_READ_*` consts, `ar*` prompt-version namespace (T1 retires with the cache it keyed).
-- Eval task `article_reader` (renamed in 3.0; the task name `editor` now belongs to the
-  greenfield junction) — unregister it; retire its fixtures dir per 9.2.
+**Rust — ✅ DONE 2026-08-08 in 9.1 except the one item marked ⛔ below. Full detail in the Phase 9
+Log; `pre-phase9-demolition` is the rollback tag.**
+- ~~Stage `article_read`: the whole `junctions/article_reader/` module~~ — deleted (1,998 lines).
+  ⚠ **NOT "the whole module": TWO FUNCTIONS HAD TO SURVIVE.** `reading_fingerprint` +
+  `build_article_reading_input_components` are part of the **narratives debounce key** and moved
+  verbatim into `journalist`; deleting them = a fleet-wide regen. `ARTICLE_NUM_CTX` likewise moved
+  to `route::LOCAL_STAGE_NUM_CTX` (graph + Insider borrowed it). **Grep by symbol, then check every
+  caller** — the same lesson 8.8 logged.
+- ~~Stage `scrub` (`rust/src/scrub.rs`)~~ — deleted, and with it `novelty.rs`, `ScrubConfig`,
+  `Harness.scrub`, `config::env_f32`, `Stage::Scrub`/`Stage::ArticleRead`.
+- ~~`Role::ArticleReader`~~ — deleted; `Role::all()` is 11. ⚠ **`COGNITION_ROUTE_ARTICLE_READER` is
+  STILL SET on archbox** (inert) — removed with the demolition deploy, not before.
+- ⛔ **NOT DONE — BGE/embedder + `threads` cosine clustering in the narratives path.** **This one is
+  NOT deletion-only:** it changes what narratives reads, hence its output AND its debounce hash —
+  a fleet-wide regen. **It owes its own measured session** (§0 rule 4). `narrative_threads.centroid`
+  therefore still gets written. (exact-title dedup mig 196 + URL dedup STAY regardless — deterministic.)
+- ~~`ARTICLE_READ_*` consts, `ar*` prompt-version namespace~~ — died with the module.
+- ~~Eval task `article_reader`~~ — unregistered, with `render_entity_roles` and four tests; fixtures
+  moved to `rust/fixtures/_retired_article_reader/`. **The `Expect` rubric fields STAY — `EditorTask`
+  scores them.**
 
 **SQL** (migration `2xx_demolition`, after 7-day rollback window):
 - DROP trigger `enqueue_voices_on_routing_tags` (article-grain; packet-grain trigger from mig

@@ -3036,6 +3036,31 @@ including the Go/API path's own Rust bins (`statcommentary`, 248 MB, is still a 
 in `rust/bin/` right now). Fixing them is a one-line change in each plus the `target/debug` →
 `target/release` staging path, and it wants its own deploy and its own measurement. → *rail Appendix D D-T39*
 
+### S-NEW · PHASE 9 LEFT TWO TUNING-SHAPED ITEMS BEHIND (2026-08-08, from the 9.1 demolition)
+
+**Both are here rather than in the rail file because both are MEASURED changes wearing a deletion's
+clothes.** §0 rule 4 applies to each on its own.
+
+**1. The embedder / `threads` cosine clustering in the narratives path — Appendix A's last Rust
+item, deliberately NOT executed.** Retiring it changes *what narratives reads* (its pre-model corpus
+clustering and thread-identity centroid), so it changes narratives' OUTPUT **and** its
+`input_hash` — a **fleet-wide regen**, the same cost the 9.1 extraction was done specifically to
+avoid. **The measurement it owes, before anyone deletes a line:** how many corpus items does the
+clustering actually collapse per entity today, and what does narratives produce for the same entity
+with it off? `narrative_threads.centroid` keeps being written until that is answered.
+⚠ **It is also the last consumer of the CPU embedder**, so this item — not any model change — is
+what decides whether `Harness.embedder` and the candle dependency can leave the tree.
+
+**2. The narratives debounce pre-image is now a NAMED, DEFENDED thing — treat it as a contract.**
+9.1 found `reading_fingerprint` + `build_article_reading_input_components` living inside the module
+it was demolishing, feeding `article_readings_hash` into
+`journalist::build_narratives_input_components`. **Anything that changes that string re-runs
+narratives for every entity**, exactly like a `NARRATIVES_PROMPT_VERSION` bump, and it does so
+*without* looking like a prompt change in the diff. The functions now sit in `journalist/mod.rs`
+under a ⛔ comment saying so. **Relevant to the voice diet (D-order item D): when the narratives
+prompt is trimmed, the version bump and any pre-image change should land in ONE act, so the fleet
+regenerates once rather than twice.**
+
 ### WHY THE TAG SYSTEM IS THE REFERENCE SHAPE
 
 **Scott, 2026-08-06:** *"The tag system is pretty dramatically better than our old one. Much more

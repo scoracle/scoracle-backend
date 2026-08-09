@@ -28,14 +28,16 @@ EnvironmentFile=-__SCORACLE_REPO_ROOT__/.env.local
 # same stages. PEAK is drained by the Rust daemon; `rust/bin/statcommentary` produces nightly PEAK work and handles explicit backfill.
 # NOTE: .env.local also sets COGNITION_STAGES and, loading later, OVERRIDES this line —
 # keep the two in sync (this one documents the production set for a fresh install).
-# `editor` is the greenfield Editor in SHADOW (PLAN-one-rail 3.8, 2026-08-02): it reads
-# every arrival on ep1 and writes editor_reads + news_articles.full_text only; the legacy
-# article_read keeps running until the Phase 8 cutover. Registration order is fixed in
-# main.rs (editor before article_read), not by this list's order.
+# `editor` is THE reader since the Phase 8 flip (RAIL=packet, 2026-08-06): it reads every
+# arrival on ep1 and writes editor_reads + news_articles.full_text.
+# `scrub` and `article_read` — the legacy rail's two stages — were demolished in Phase 9
+# (9.1, 2026-08-08) and are GONE from this list. main.rs tolerates them as RETIRED names
+# (warn, then boot) precisely so a box running a stale copy of this file does not fail
+# closed, but nothing claims them: leaving them here would enqueue nothing and mislead.
 # `investigate_entity` is the Investigator's discovery stage (PLAN-one-rail 5.3/5.9,
 # 2026-08-04): drains entity_candidates via Wikidata structured claims (zero model calls
 # in v1), max_in_flight 1, registered after the editor — the Editor outranks it.
-Environment=COGNITION_STAGES=scrub,graph,editor,article_read,investigate_entity,peak,momentum,transfers,narratives,vibe,sigil
+Environment=COGNITION_STAGES=graph,editor,investigate_entity,peak,momentum,transfers,narratives,vibe,sigil
 ExecStart=__SCORACLE_REPO_ROOT__/rust/bin/scoracle-cognition
 Restart=always
 RestartSec=3

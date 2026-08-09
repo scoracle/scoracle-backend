@@ -76,6 +76,14 @@ pub struct Candidate {
     /// The storyline's dominant member story type (mode; NULL for a storyline whose members
     /// never carried one).
     pub dominant_type: Option<String>,
+    /// WHICH seed participants this read shares, as `entity_type:entity_id` — the observation
+    /// behind `person_overlap`/`team_overlap` rather than its count.
+    ///
+    /// Carried for the record only: `score` and `covers_seed` read the counts, never this, so a
+    /// change here cannot move an attachment. It exists because 6.7 was told to "inspect attach
+    /// scores" against a table that stored none, and a count cannot answer WHICH entity pulled an
+    /// article in. Persisted to `storyline_articles.matched_entities` (mig 217).
+    pub matched: Vec<String>,
     /// `as_of - storylines.last_seen_at`, in seconds. Never negative for a candidate (the
     /// query refuses storylines from the future — see [`candidates`]).
     pub age_secs: i64,
@@ -189,6 +197,11 @@ pub async fn attach_read(
     )
     .await?;
     let chosen = pick(&candidates, &read.story_type);
+    // The winner, for the record columns only (mig 217). Looked up rather than returned by `pick`
+    // so the scoring rule keeps its signature and its tests: 6.7 is a QUALITY finding and this
+    // commit is instrumentation, so nothing in the attachment decision may move here.
+    // Unambiguous — `candidates` is GROUP BY storyline_id, so at most one row can match.
+    let winner = chosen.and_then(|(id, _)| candidates.iter().find(|c| c.storyline_id == id));
     let tx = &mut *conn;
 
     let (storyline_id, opened, score) = match chosen {
@@ -230,8 +243,9 @@ pub async fn attach_read(
     sqlx::query(
         r#"
         INSERT INTO public.storyline_articles
-            (storyline_id, article_id, attached_at, attach_method)
-        VALUES ($1, $2, COALESCE(to_timestamp($3), NOW()), $4)
+            (storyline_id, article_id, attached_at, attach_method,
+             attach_score, matched_entities, seed_size, candidate_count)
+        VALUES ($1, $2, COALESCE(to_timestamp($3), NOW()), $4, $5, $6, $7, $8)
         ON CONFLICT (storyline_id, article_id) DO NOTHING
         "#,
     )
@@ -239,6 +253,15 @@ pub async fn attach_read(
     .bind(article_id)
     .bind(as_of_epoch.map(|e| e as f64))
     .bind(method.as_str())
+    // NULL on an opening article, on all four of the winner-derived columns: there was no
+    // candidate, so there is no score, no matched seed and no seed size to report. Writing 0
+    // would read back as "scored zero", which is a different and false claim (mig 217).
+    .bind(winner.map(|_| score))
+    .bind(winner.map(|c| c.matched.clone()))
+    .bind(winner.map(|c| c.seed_size))
+    // Written on EVERY row, opening included — "N were scored and none cleared the bar" is
+    // exactly the observation that separates no candidates from candidates rejected.
+    .bind(candidates.len() as i32)
     .execute(&mut *tx)
     .await
     .with_context(|| format!("attach article {article_id} to storyline {storyline_id}"))?;
@@ -425,6 +448,9 @@ async fn candidates(
                      FILTER (WHERE se.entity_type <> 'team')::int AS person_overlap,
                    count(DISTINCT (se.entity_type, se.entity_id))
                      FILTER (WHERE se.entity_type =  'team')::int AS team_overlap,
+                   -- The same overlap the two counts above measure, named rather than tallied
+                   -- (mig 217). Ordered so a replay of one corpus writes one array.
+                   array_agg(DISTINCT se.entity_type || ':' || se.entity_id::text) AS matched,
                    EXTRACT(EPOCH FROM (c.as_of - s.last_seen_at))::bigint AS age_secs
               FROM public.storylines s
               CROSS JOIN clock c
@@ -444,7 +470,7 @@ async fn candidates(
                AND s.last_seen_at <= c.as_of
              GROUP BY s.id, s.last_seen_at, c.as_of
         )
-        SELECT cand.id, cand.person_overlap, cand.team_overlap, cand.age_secs,
+        SELECT cand.id, cand.person_overlap, cand.team_overlap, cand.matched, cand.age_secs,
                (SELECT count(*)::int
                   FROM public.storyline_entities se3
                  WHERE se3.storyline_id = cand.id
@@ -480,6 +506,7 @@ async fn candidates(
             person_overlap: r.get("person_overlap"),
             team_overlap: r.get("team_overlap"),
             dominant_type: r.get("dominant_type"),
+            matched: r.get("matched"),
             age_secs: r.get("age_secs"),
         })
         .collect())
@@ -687,6 +714,7 @@ mod tests {
                         person_overlap: shared.iter().filter(|(t, _)| t != "team").count() as i32,
                         team_overlap: shared.iter().filter(|(t, _)| t == "team").count() as i32,
                         dominant_type: dominant(&s.types),
+                        matched: shared.iter().map(|(t, i)| format!("{t}:{i}")).collect(),
                         age_secs: r.at - s.last_seen,
                     }
                 })
@@ -877,6 +905,7 @@ mod tests {
             person_overlap: 1,
             team_overlap: 0,
             dominant_type: Some("transfer".into()),
+            matched: vec!["player:1".into()],
             age_secs: HOUR,
         };
         assert!(covers_seed(&narrow), "1 of 2 is half");
@@ -914,6 +943,8 @@ mod tests {
             person_overlap: person,
             team_overlap: team,
             dominant_type: dominant.map(str::to_string),
+            // Unread by `score`/`covers_seed`/`pick` — the record column only (mig 217).
+            matched: Vec::new(),
             age_secs,
         }
     }
@@ -952,6 +983,7 @@ mod tests {
             person_overlap: 1,
             team_overlap: 1,
             dominant_type: Some("transfer".into()),
+            matched: vec!["player:1".into(), "team:3468".into()],
             age_secs: 40 * HOUR,
         };
         let fresher = Candidate {

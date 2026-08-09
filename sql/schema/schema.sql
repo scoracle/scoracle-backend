@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict DfSp3a1Gb7jl5sv5voTdq1gXzrSgJJgFjV6OZTzfcH5Q8Zi3rsiPeLlZvNreeVf
+\restrict NQRVJUhjZsM2wmJGC8sLdcsK1nbq0wL5gaKHS6jnWCs7y1cXTuNbdtxJvZZ43Dc
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -10538,6 +10538,10 @@ CREATE TABLE public.storyline_articles (
     article_id bigint NOT NULL,
     attached_at timestamp with time zone DEFAULT now() NOT NULL,
     attach_method text NOT NULL,
+    attach_score integer,
+    matched_entities text[],
+    seed_size integer,
+    candidate_count integer,
     CONSTRAINT storyline_articles_attach_method_check CHECK ((attach_method = ANY (ARRAY['auto'::text, 'backfill'::text])))
 );
 
@@ -10547,6 +10551,34 @@ CREATE TABLE public.storyline_articles (
 --
 
 COMMENT ON TABLE public.storyline_articles IS 'Membership edge: which articles a storyline is made of. Attachment is deterministic and logged (§1b scoring rule); ''auto'' is the live path, ''backfill'' a deliberate repair.';
+
+
+--
+-- Name: COLUMN storyline_articles.attach_score; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.storyline_articles.attach_score IS 'The winning score from editor/storyline.rs `pick` (weighted entity overlap + 1 story_type match + 1 recency), as measured at attach time. NULL when this article OPENED the storyline (no candidate won, so there is no score to record) and NULL on every row written before migration 217. Never read NULL as zero.';
+
+
+--
+-- Name: COLUMN storyline_articles.matched_entities; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.storyline_articles.matched_entities IS 'Which of the storyline''s SEED participants this article actually shared, as `entity_type:entity_id`. THE column 6.7 needed and could not query: it names WHY the merge happened. Note the join key is the FROZEN SEED (storyline_entities at min(joined_at)), not the storyline''s full participant set — so a storyline carrying 169 entities still matches on its original 3-5. NULL on an opening article and on pre-217 rows.';
+
+
+--
+-- Name: COLUMN storyline_articles.seed_size; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.storyline_articles.seed_size IS 'The winning storyline''s seed cast size at attach time — the denominator of covers_seed (shared * 2 >= seed_size). Recorded because the gate is a RATIO: a seed of 4 admits any article sharing 2, and when those 4 include two hot clubs that is a large slice of a day''s transfer stream. NULL on an opening article and on pre-217 rows.';
+
+
+--
+-- Name: COLUMN storyline_articles.candidate_count; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.storyline_articles.candidate_count IS 'How many open storylines were scored for this article. Written on EVERY row, including openings — on an opening it reads "N candidates existed and none cleared the bar", which is the observation that separates "no candidates" from "candidates rejected". NULL only on pre-217 rows.';
 
 
 --
@@ -14142,5 +14174,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict DfSp3a1Gb7jl5sv5voTdq1gXzrSgJJgFjV6OZTzfcH5Q8Zi3rsiPeLlZvNreeVf
+\unrestrict NQRVJUhjZsM2wmJGC8sLdcsK1nbq0wL5gaKHS6jnWCs7y1cXTuNbdtxJvZZ43Dc
 

@@ -2861,6 +2861,44 @@ fact — only re-derived by re-running the scoring code against a moving corpus.
 converts an impossible instruction into a query, and it is the prerequisite for D-T36's tuning — do
 not touch an attach threshold before it exists, or the change cannot be measured either.
 
+#### ✅ SHIPPED 2026-08-08 22:45 — migration 217 + `editor/storyline.rs`
+
+```
+storyline_articles(storyline_id, article_id, attached_at, attach_method,
+                   attach_score, matched_entities, seed_size, candidate_count)
+```
+
+* `attach_score` — the winning score from `pick`. **It was always computed and discarded at the
+  INSERT** (`storyline.rs:194` binds it, `:299` logs it to `debug!`, the write dropped it).
+* `matched_entities text[]` — WHICH seed participants matched, as `entity_type:entity_id`. A new
+  `array_agg(DISTINCT …)` in the candidates CTE; `Candidate.matched` carries it. **Unread by
+  `score`/`covers_seed`/`pick`** — record-only, so it cannot move an attachment.
+* `seed_size` — the `covers_seed` denominator, because the gate is a **ratio** and the numerator
+  alone is unreadable.
+* `candidate_count` — written on **every** row including openings ("N scored, none cleared").
+
+**NULL discipline: nullable, no backfill.** Pre-217 rows (19,920) and opening articles read NULL.
+`attach_score IS NULL` means *pre-217 or opened*, **never "scored 0"**. Rows begin landing at the
+next cognition deploy.
+
+#### ⛔ AND THE MECHANISM IN D-T36 WAS WRONG — RETRACTED THE SAME NIGHT
+
+Writing the instrumentation meant reading the candidate query, which **falsifies the feedback loop**
+D-T36 was filed with. The join is constrained to the **frozen seed**
+(`storyline.rs:436`, `se.joined_at = min(joined_at)`), so a storyline's 169 entities never widen its
+own matching. **Measured seeds: 4 / 3 / 5** on storylines 7474 / 7477 / 8012.
+
+**It is SEED COMPOSITION.** 7474's seed is `{Vinicius, Real Madrid, Arsenal, Espanyol}`;
+`covers_seed` needs `shared*2 >= 4`, i.e. **2 of 4**; a same-week transfer piece naming Real Madrid
+and Arsenal scores `1+1+1+1 = 4 > 3` and joins. `covers_seed` was built against an **11-name NBA
+listicle** — it guards big seeds and leaves small hot seeds wide open (a 2-entity seed has a bar of
+**one**). The intruders are all `attach_method='auto'`, so this is live behavior, not backfill.
+
+**Candidates to measure once 217 has rows** (none chosen, none applied): weight seed entities by
+corpus frequency so Real Madrid counts less than Vinicius; require the seed's `subject` to be among
+the matched rather than any 2; scale the bar with seed hotness. **⛔ Still no global threshold
+change — p50=1, p90=3.**
+
 **This is the third instance in one day of the same failure class** — the phantom archbox mirror, the
 `OLLAMA_NUM_PARALLEL` misread, and now this. **We keep being asked to read an observation we never
 recorded.** T2 says the model describes and code judges; **this is the corollary — when code judges,

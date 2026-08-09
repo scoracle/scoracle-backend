@@ -2781,7 +2781,38 @@ confirmations, the final extension). **That is exactly what 6.7 was built to pro
 Madrid or Arsenal gets pulled in.** *(Checked and RULED OUT: 7474 and 7477 share **zero** articles,
 so this is not double-attachment — they are separate articles on overlapping topics.)*
 
-##### THE MECHANISM — AND IT IS A FEEDBACK LOOP, WHICH IS WHY THE TAIL RUNS AWAY
+##### ⛔ THE MECHANISM BELOW WAS RETRACTED 90 MINUTES LATER — READ THE CORRECTION FIRST
+
+**Measured 2026-08-08 22:40, against the code and the live DB. The feedback loop described in the
+next block DOES NOT EXIST, because the candidate join never reads the fattened entity set.**
+`storyline.rs:436` constrains the join to `se.joined_at = (SELECT min(joined_at) …)` — **the FROZEN
+SEED.** Seeds on the three runaways measure **4, 3 and 5**, not 169/127/84.
+
+| storyline | articles (auto/backfill) | all entities | **seed** |
+|---|---|---|---|
+| 7474 | 62 / 109 | 169 | **4** |
+| 7477 | 61 / 109 | 127 | **3** |
+| 8012 | 53 / 22 | 84 | **5** |
+
+**THE REAL MECHANISM IS SEED COMPOSITION.** 7474's seed is
+`{player 600687 (Vinicius), Real Madrid, Arsenal, Espanyol}`. `covers_seed` is a **ratio**
+(`shared * 2 >= seed_size`), so a seed of 4 admits **anything sharing 2** — and a recent transfer
+article naming Real Madrid *and* Arsenal scores `1 + 1 + 1 (type) + 1 (recency) = 4 > 3` and
+attaches. That is exactly the observed pattern (*"anything in the transfer-news stream touching Real
+Madrid or Arsenal gets pulled in"*), and it needs no feedback loop to explain it.
+
+**`covers_seed`'s own doc comment says it was built against an 11-entity NBA listicle** — it defends
+against a seed that is too BIG. **A small seed made of hot entities is the unguarded case**, and the
+common seed the comment calls typical (two entities) has a bar of **one**.
+
+**Also confirmed: the intruders are `attach_method='auto'`** — live rail, not backfill residue
+(checked by headline: Norgaard, Buonanotte, Brahim Díaz, Betis, Mbappé, Diomande all `auto`).
+
+**Still not fixed, deliberately (§0 rule 3).** The candidates — weight the seed by entity frequency,
+require the seed's SUBJECT to match rather than any 2, raise the bar for hot entities — are
+unmeasured, and mig 217 is what makes measuring them possible.
+
+##### *(RETRACTED)* THE MECHANISM — AND IT IS A FEEDBACK LOOP, WHICH IS WHY THE TAIL RUNS AWAY
 
 **`storyline_entities` for the three biggest storylines:**
 
@@ -2807,6 +2838,13 @@ discriminates nothing.
 **A wrong merge therefore cannot be audited after the fact — only re-derived by re-running the code.**
 **This is the first thing to fix, before any threshold is touched:** persisting the score and the
 matched entity turns "inspect the attach scores" from an impossible instruction into a query.
+
+> ✅ **DONE 2026-08-08 22:45 — migration 217** adds `attach_score`, `matched_entities`, `seed_size`
+> and `candidate_count` to `storyline_articles`, and `editor/storyline.rs` writes them (the score was
+> already computed by `pick` and thrown away at the INSERT). **Instrumentation only — the attachment
+> rule is byte-for-byte unchanged and all 15 storyline tests still pass.** All four columns are
+> nullable with **no backfill**: the 19,920 pre-217 rows read NULL because a reconstructed score
+> would be a theory wearing a measurement's clothes. **Rows land from the next cognition deploy.**
 **It is also a schema item — belongs in Appendix S** (`PLAN-character-tuning.md`), and it is the same
 lesson as D-T30/the archbox mirror: **we keep being asked to read an observation we never recorded.**
 
@@ -4700,13 +4738,21 @@ diagnosis, the numbers and the candidate knobs stay in the tuning file at the se
   6.7's reading (2026-08-08 22:10) failed clause 2: **top cluster 62 vs a 15–25 band**, and the hand
   read found **~8 wrong merges** in the 62-article Vinicius saga (Norgaard→Everton, Vlahović→Beşiktaş,
   Buonanotte→Elche…). **p50 = 1 and p90 = 3, so this is a TAIL failure — 3,890 of 3,893 storylines are
-  fine; a global threshold change would break them to fix three.** Mechanism is a **feedback loop**:
-  `storyline_entities` carries **169 entities** on one player's contract story, each attached article
-  donating more, a fatter set matching more articles. ⛔ **Blocked on instrumentation before any
-  tuning — `storyline_articles` keeps NO score** (4 cols; `attach_method='auto'` on all 7,349 rows),
-  so "inspect attach scores" is impossible. **Persist score + matched entity first.** Quality, not
-  plumbing: **does not gate the rail, does not justify rollback — but it does keep Phase 6 OPEN.**
-  → *phase 6 Log, "6.7 — THE 72h READING"*
+  fine; a global threshold change would break them to fix three.** ⛔ **THE FEEDBACK-LOOP MECHANISM
+  FIRST WRITTEN HERE IS WRONG — MEASURED AND RETRACTED 2026-08-08 22:40; DO NOT ACT ON IT.** The
+  candidate join uses ONLY the **frozen seed** (`storyline.rs:436`, `se.joined_at = min(joined_at)`),
+  so the 169 entities never widen the match: **seeds measured 4 / 3 / 5** on the three runaways
+  (7474 / 7477 / 8012). **The real mechanism is SEED COMPOSITION.** 7474's seed is
+  `{Vinicius, Real Madrid, Arsenal, Espanyol}`, and `covers_seed` is a RATIO (`shared*2 >= seed_size`)
+  — so **2 of those 4 is the whole bar**, and any recent transfer piece naming Real Madrid *and*
+  Arsenal scores `1+1+1(type)+1(recency) = 4 > 3` and attaches. **`covers_seed` was designed against
+  an 11-name NBA listicle — it defends against BIG seeds and does nothing against a SMALL seed of HOT
+  entities.** Also measured: the intruders are **`auto`, not backfill** (7474 = 62 auto / 109
+  backfill), so this is live behavior. ✅ **INSTRUMENTATION SHIPPED — mig 217** adds
+  `attach_score, matched_entities, seed_size, candidate_count`; the score was always computed and
+  discarded at the INSERT. **Nullable, no backfill: `attach_score IS NULL` means "pre-217", never
+  "scored 0".** Quality, not plumbing: **does not gate the rail, does not justify rollback.**
+  → *phase 6 Log, "6.7 — THE 72h READING"; tuning §S-NEW*
 - **D-T35 · ⛔ THE SILENT SYSTEM-PROMPT EVICTION IS LIVE, AND IT IS THE MOST SERIOUS FINDING OF
   2026-08-08.** A `narratives`-scale prompt (**7,192 tok**) at production's `num_ctx=4096` was
   evaluated at **`prompt_eval_count` 2,051 — 5,141 tokens (71.5%) DISCARDED**, the head evicted, and

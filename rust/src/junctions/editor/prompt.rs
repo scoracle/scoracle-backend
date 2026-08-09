@@ -49,7 +49,19 @@ use crate::util::truncate;
 /// role words leaked into `descriptor` on 8.45% of name entries against ep1's 0.50%.
 /// ep3 restores those semantics in PROSE (~40 tok) rather than restoring the 981-char template,
 /// keeping most of the trim. **The lesson is general: a grammar constrains SHAPE, never MEANING.**
-pub const EDITOR_CONTRACT_VERSION: &str = "ep3";
+///
+/// `ep4` (2026-08-09): the STRUCTURAL form of the ep3 fix — `source_language` became an **enum of
+/// 63 ISO 639-1 codes + `unknown`** in [`super::EDITOR_FORMAT_SCHEMA_RAW`], so the format is now
+/// pinned by constrained decoding instead of asked for in prose. This kills a class ep3 could only
+/// discourage: 35,288 ep1 reads contained `al`, `ge`, `md` and `me` — COUNTRY codes, not language
+/// codes, which no amount of prompt text prevents. The enum costs **zero prompt tokens** (the
+/// schema travels in `format_schema_raw`, not the context), so ep4 also drops ep3's ISO-639-1
+/// explanation and code list, buying back ~25 tok.
+/// ⚠ **The prose clause "`unknown` only when it genuinely cannot be told" MUST STAY: `unknown` is
+/// a legal enum member, so the grammar cannot stop the model choosing it lazily — which is exactly
+/// what ep2 did on 100% of reads.** Structure pins the value SET; only prose can discourage a
+/// legal-but-lazy choice within it.
+pub const EDITOR_CONTRACT_VERSION: &str = "ep4";
 
 pub const EDITOR_SYSTEM_PROMPT: &str = r#"Task: read one fetched sports article and describe it for the newsroom: what shape the page is, who is in it, what happened, and how it feels.
 
@@ -96,7 +108,7 @@ Then the facts and the evidence card. key_facts: one claim per fact, each attrib
 
 Other rules:
 - Use only the article text and the hypothesis entities.
-- source_language: detect the article's own language and give its ISO 639-1 two-letter code — en, de, es, fr, pt, it, nl. Use "unknown" only when the language genuinely cannot be told. Translate meaning into English before writing the evidence card.
+- source_language: the language the ARTICLE ITSELF is written in. Use "unknown" only when it genuinely cannot be told — never as a default. Translate meaning into English before writing the evidence card.
 - evidence_blurb, key_facts, story_type, and caveats must be English.
 - Preserve names, teams, dates, injuries, transactions, quotes-as-claims, scores, and reported uncertainty.
 - Do not invent context, implications, or sourcing.

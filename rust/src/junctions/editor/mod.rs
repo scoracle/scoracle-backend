@@ -75,7 +75,13 @@ pub fn editor_opts() -> GenerateOptions {
 pub const EDITOR_FORMAT_SCHEMA_RAW: &str = r#"{
     "type": "object",
     "properties": {
-        "source_language": { "type": "string" },
+        "source_language": { "type": "string", "enum": [
+            "af", "ar", "az", "bg", "bn", "bs", "ca", "cs", "cy", "da", "de", "el", "en", "es",
+            "et", "eu", "fa", "fi", "fr", "ga", "gl", "he", "hi", "hr", "hu", "hy", "id", "is",
+            "it", "ja", "ka", "kk", "ko", "lt", "lv", "mk", "ml", "ms", "mt", "ne", "nl", "no",
+            "pl", "pt", "ro", "ru", "sk", "sl", "sq", "sr", "sv", "sw", "ta", "th", "tk", "tl",
+            "tr", "ug", "uk", "ur", "uz", "vi", "zh", "unknown"
+        ] },
         "page_kind": { "type": "string", "enum": [
             "article", "score_table", "listing_or_schedule", "video_clip", "roundup", "other"
         ] },

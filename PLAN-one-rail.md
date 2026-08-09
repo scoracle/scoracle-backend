@@ -4094,7 +4094,9 @@ here; it is not load-bearing for anything above, and no theory is offered for it
       unchanged; add `rail-cutover-check.sh` renamed `rail-health-check.sh` weekly.
 - [ ] **9.6** Write `HANDOFF-one-rail.md`: what shipped, the new baselines, the open decisions
       (Appendix B leftovers: F4 injury gates, national teams, out-of-scope clubs, the front
-      page), and mark this plan **DONE** in the STATE line.
+      page, the memory follow-ups D-7/D-8/D-9 — D-8's graph-demolition guard especially —
+      and the D-10 Postgres 19 adoption window), and mark this plan **DONE** in the STATE
+      line.
 
 **Commit:** `rail: phase 9 — demolition complete; one rail`.
 
@@ -4200,6 +4202,88 @@ typed-links/episodes/seal rollups stay — they feed every memory card. `NEWS_SC
   rule's spirit applies). When Scott picks a surface, the package is a `front_pages` table +
   one day-close pick-by-number call per sport (`Role::Editor`, D3 closed-list discipline) —
   about a half-day of work sitting behind the decision.
+
+*(D-7 through D-9 added 2026-08-08 from Scott's memory-substrate consultation session — a
+review of whether the card architecture is right for "telling an entity's part of a story."
+Verdict: the substrate is right — typed, compiled, provenance-partitioned cards beat
+vector/RAG recall and transcript replay for this use case, and all three findings below are
+extensions the current substrate accepts without redesign. None are phase gates.)*
+
+- **D-7 · Memory retrieval ranks by recency only — salience is banked but never ranks.**
+  Every memory-card lens serves newest-first under a cap (sealed 6 / open 5 / moves 3 /
+  figures 4, lenses 3/2/2/2/1 — migs 163/179), and ground-truth moves age out on a window
+  (120d in `narrative_context_for_pair`). A defining beat — the CONFIRMED move, the all-time
+  `peak_strength` saga — can be evicted from the card by a run of recent low-grade fizzles,
+  which is exactly backwards for telling an entity's part of a story: the biography leads
+  with the trade that happened, not the three rumors from last month. The salience signals
+  are already banked (`outcome`, `peak_strength`, `source_count`); they just don't rank.
+  Candidate: 1–2 reserved DEFINING lines per card (any `outcome=confirmed` episode ever;
+  the highest-peak sealed episode), age-labeled, rendered ahead of the recency window —
+  additive, continuity-only, no binary change (loaders render whatever the fn returns;
+  memory is deliberately not part of input_hash, so it serves on natural regen).
+  **Default: deferred post-cutover; schedule with the D-5 mini-plan family after Phase 9,
+  measured as a card-length/token cost question in `PLAN-character-tuning.md`.**
+- **D-8 · Sealed storylines must bank into durable memory before the graph loop ever thins.**
+  The storyline lens (mig 211, 7.10) renders OPEN storylines only; long-term story memory
+  still rides on graph-sealed `narrative_episodes` — 9.5 splits the cron precisely to keep
+  `roll_narrative_episodes` alive because it feeds every memory card. But when a storyline
+  resolves (`storylines.resolution`), nothing banks the resolved story itself as biography.
+  Harmless while both substrates run; silent memory loss the day any future plan retires the
+  graph rollups. **Default: no action in this plan — 9.5 already preserves the episode loop.
+  The ruling to carry forward: any future graph-demolition plan MUST ship a
+  sealed-storyline banking step first (resolution → durable memory line, the sibling of the
+  episode seal). Related open thread: mig 168's deliberately-deferred banking of junction
+  verdicts as events — the authored-memory moat arc in mig 179's header.**
+- **D-9 · Memory expressiveness is taxonomy work, not card work.** A beat with no
+  `story_type`/`link_type` home — a feud, an injury saga, a quote that follows a player — is
+  invisible to memory forever. That is the schema-discipline feature, not a bug (it is why
+  memory is auditable), but it means the ceiling on how rich a voice's biography gets is the
+  tagging vocabulary, never the card machinery. **Default: no schema change. When a wanted
+  memory cannot be expressed, the fix is a `story_type`/`link_type` addition, never a
+  free-text or embedding memory lane (T9 write-gate law stands inside memory too).**
+- **D-10 · Postgres 19 adoption window (added 2026-08-08; PG 19 is in beta — beta 1
+  2026-06-04, beta 2 July; GA expected H2 2026; we run 18.4).** A major-version DB upgrade is
+  exactly the destabilizer this plan forbids mid-rail — nothing here moves before Phase 9 is
+  DONE. What 19 offers this codebase, banked now so the upgrade session doesn't rediscover it:
+  - **`INSERT ... ON CONFLICT DO SELECT`** (atomic get-or-create) retires the racy CTE dance
+    — `WITH existing AS (SELECT ...), ins AS (INSERT ... RETURNING id) SELECT ... UNION ALL`
+    — at the person resolve (`rust/src/junctions/graph/mod.rs` ~L470) and the storyline
+    get-or-create (`rust/src/junctions/editor/storyline.rs` ~L217); grep
+    `UNION ALL SELECT id FROM ins` for the class. **CAUTION, the survivor pattern:** the
+    mention insert right below the person resolve (`graph/mod.rs:497`,
+    `ON CONFLICT DO NOTHING RETURNING person_id`) uses no-row-on-conflict as its
+    "was it NEW?" signal to gate the counter bump — that is deliberate and STAYS. Rewrites
+    are per-site commits with rehearsed rollback (§0.7), only after the upgrade lands.
+  - **`REPACK`** — online table rebuild (no VACUUM FULL lock). First real bloat tool for
+    `news_articles` (`full_text` grows ~23 MB/day) and the churny queue tables
+    (`pipeline_work` deletes completed rows). Candidate for a monthly cron slot, measured
+    before scheduling.
+  - **`pg_plan_advice`** — plan pinning; the mig-199 incident class (stale stats flipped a
+    2.3 ms bitmap scan to a 38 ms seq scan) gets a surgical tool instead of ANALYZE-and-hope.
+  - **Parallel autovacuum + smarter autovacuum scheduling + ~2× faster inserts under FK
+    load** — free ingest wins, no action. (19's autovacuum gains a scoring system that
+    prioritizes the neediest tables plus parallel index workers — the churny
+    `pipeline_work`/`news_articles` pair is exactly the beneficiary shape. Knobs exist
+    (`autovacuum_max_parallel_workers` + six tuning GUCs); touch none until a measurement
+    asks.)
+  - **`WAIT FOR LSN` (durability/read-your-writes modes) + online logical replication
+    setup — N/A, recorded so the upgrade session doesn't re-litigate:** both only matter
+    with a standby/replica, and scoracle is one primary on archbox by design. Durability
+    here is backups/PITR, not replication wait modes. The one future hook: online logical
+    replication makes a zero-downtime logical-replication upgrade path cheaper someday,
+    but for a single small box `pg_upgrade` stays the default. Same doctrine note for
+    "scheduling": 19 ships NO built-in job scheduler, and we wouldn't route to one anyway —
+    Go tickers replaced pg_cron deliberately; scheduling is app-side.
+  - **SQL/PGQ property-graph queries over `narrative_links`/`narrative_episodes`** —
+    tempting, REJECTED by default: the memory-card functions are stable, measured PL/pgSQL;
+    a syntax rewrite is churn with no measurement win (§0.4, one change one measurement).
+  - Not gated on 19: `lz4` TOAST compression (19's new default) is already available on 18 —
+    `default_toast_compression = 'lz4'` is a config knob the upgrade session can set early
+    if `full_text` TOAST CPU ever shows up in a measurement.
+  **Default: upgrade at 19.1 (first minor after GA), post-Phase-9, as its own mini-plan
+  session — pg_upgrade on archbox, schema snapshot re-baselined, the DO SELECT rewrites as
+  follow-up commits behind it. If 19.1 hasn't shipped by the time Phase 9 closes, wait; 18.4
+  is healthy and nothing above is blocking.**
 
 ---
 

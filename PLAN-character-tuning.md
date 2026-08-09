@@ -956,6 +956,14 @@ structural mismatch; a separate slot group frees it entirely; (b) tighten the 5.
 letter); (c) run the investigator through GPU rest windows (the card rests; HTTP doesn't need
 it) — interacts with the pause-timer design; (d) raise `max_in_flight` only after (a).
 
+✅ **(a) SHIPPED 2026-08-09** (the ep6 session, on Scott's "we move on to the Investigator"):
+`slot_group()` → `None` in `entity.rs` — the stage no longer queues behind the Editor for a card
+it never touches, and it keeps running through the Editor's drain. `max_in_flight` stays 1 ON
+PURPOSE: the binding constraint is now the polite 2s Wikimedia spacing (~900/day ceiling), so
+(d) needs a faster evidence source, not a bigger slot count. The route pin means membership
+stays wrong even when 5.4's prose arm lands — `Role::Investigator` is the 14B on the OTHER
+host. Watch the drain rate against the ~70/day starvation baseline.
+
 **The compounding upside already measured:** the 8 overnight accepts collected 102 resolver
 links onto `persons` rows within the same day (Xabi Alonso 59, Andoni Iraola 23) — every
 accepted person immediately stops being an unresolved name. Drain rate is the direct multiplier

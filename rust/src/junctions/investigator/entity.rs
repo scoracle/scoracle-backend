@@ -25,7 +25,7 @@ use super::gate::{
 };
 use crate::fetch::{BudgetedFetcher, FetchPolicy};
 use crate::harness::Harness;
-use crate::stage::{StageHandler, ARCHBOX_GEMMA_SLOTS};
+use crate::stage::StageHandler;
 use crate::work::{Item, Stage};
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
@@ -64,12 +64,23 @@ impl StageHandler for InvestigateEntityHandler {
         Stage::InvestigateEntity
     }
 
+    /// One at a time — but NOT because of the card any more. The binding constraint is the
+    /// polite 2s Wikimedia spacing in `wikimedia_policy()` (D-T10: even unblocked, that budget
+    /// caps drain at ~900/day), which serializes the fetches whatever the concurrency. Raise
+    /// this only with a faster evidence source.
     fn max_in_flight(&self) -> usize {
-        1 // the Editor outranks the Investigator on the shared card (5.3)
+        1
     }
 
+    /// D-T10 knob (a), applied 2026-08-09: NO slot group. The v1 Investigator makes ZERO model
+    /// calls — discovery is Wikidata HTTP, the gate is code — so holding an
+    /// `ARCHBOX_GEMMA_SLOTS` slot for pure HTTP work was the structural mismatch behind the
+    /// measured 57h starvation: it queued behind the Editor's drain for a card it never used.
+    /// When 5.4's prose arm lands, its model calls ride `Role::Investigator` — routed to the
+    /// 14B on the OTHER host — so membership in the archbox group stays wrong even then; the
+    /// 14B host has its own governor.
     fn slot_group(&self) -> Option<(&'static str, usize)> {
-        Some(ARCHBOX_GEMMA_SLOTS)
+        None
     }
 
     async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {

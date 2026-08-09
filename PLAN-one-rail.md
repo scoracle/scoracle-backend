@@ -4740,7 +4740,10 @@ sessions. Rail sessions append to both as findings surface; they fix nothing mid
   FOOTBALL rosters when that season starts. Run as its own follow-up session(s) on
   Scott's go.
 - **D-T10 · investigator starvation under the daily ingest batch (measured 2026-08-04,
-  5.10 interim).** The facts: ingest is one ~7–9k-article batch at 02:00 EDT daily; the
+  5.10 interim). ✅ knob (a) SHIPPED 2026-08-09: `slot_group` → `None` — the zero-model-call
+  stage no longer queues behind the Editor for a card it never touches; the binding constraint
+  is now the 2s Wikimedia spacing (~900/day), so watch drain vs the ~70/day baseline
+  (→ tuning §3).** The facts: ingest is one ~7–9k-article batch at 02:00 EDT daily; the
   Editor needs ~19h of wall (incl. rest pauses) to digest it, so shared-slot card idle
   is ≤1h/day; the investigator (max_in_flight 1, registered after the Editor) logged 0
   acquisition_runs in its first 16.6h against 3,462 enqueued items. Day-1 nominations

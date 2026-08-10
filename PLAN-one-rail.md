@@ -4970,6 +4970,21 @@ diagnosis, the numbers and the candidate knobs stay in the tuning file at the se
   is no longer "the largest available throughput change" — D-T34 is.** The live runner shows
   `-c 8192 -np 2` = 4096 PER SLOT, confirming KV scales as `num_ctx × slots`, so 4 slots at 2048
   would cost today's KV — ⛔ **but only AFTER D-T35's prompt trim, never before.** → *tuning §D-T30*
+- **D-T49 · ✅ THE JOURNALIST'S n18 — THE ELOQUENCE PASS: THE ATHLETIC-BEAT-WRITER REGISTER,
+  AND PUBLICATIONS ARE CITED IN PROSE (2026-08-09, same session as D-T48).** Scott's register,
+  verbatim in the tuning file: a dedicated team writer who "relishes telling the story" but knows
+  "the facts are the story" — plus a new requirement, cite which publications contribute. Gate
+  FIRST: `sources_any` (≥1 body names ≥1 corpus publication; authored on 7 of 9 — the two
+  file-nothing fixtures exempt) and `total_sentences_max` (padding ceiling, 10). Prompt: voice
+  paragraph rewritten to the register; the n17 "no source lists" prohibition inverted to
+  "credited in prose, never dumped as a list" — the first contract to ASK for source names; arc
+  voicing must be the writer's own words (the before-probe had "The arc is NEW" verbatim in a
+  body); ONE worked-example storyline carries the register (ep6's lesson). ⚠ One stale axis fell
+  to the new idiom: ongoing-saga's `body_excludes:first reported` (anti-scoop intent) conflicted
+  with legitimate "first reported by Record" attribution — the intent survives via the
+  continuation-voicing axis + "out of nowhere"; the two phrase excludes removed. **Reading:
+  110/110 on oMLX unconstrained**; the after-exhibit names five outlets across three sentences
+  and voices "gathering real momentum after weeks of speculation." → *tuning §D-T49*
 - **D-T48 · ✅ THE JOURNALIST'S n17 — THE SEPARATION PASS, AND THE GATE LEARNED TO SEE
   card_score (2026-08-09).** Scott's brief: transfers and vibe/emotional are separate seats now.
   n16 had already removed the per-article transfer tagging; n17 removes the transfer-heat INPUT

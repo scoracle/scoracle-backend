@@ -295,6 +295,16 @@ pub struct Expect {
     /// is ungrounded and dropped downstream.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub all_cite_articles: Option<bool>,
+    /// Citation (n18, OR-semantics, case-insensitive): at least one returned body names at least
+    /// one of these publications — the fixture lists its corpus's `[source]` tags. The register
+    /// weaves the name into prose ("first reported by ESPN"); this axis only asserts a name
+    /// appears, never how.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sources_any: Option<Vec<String>>,
+    /// Edition budget (n18): total sentences across ALL returned bodies must not exceed this.
+    /// Counted crudely (terminal .!? runs) — a ceiling against padding, not a style meter.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub total_sentences_max: Option<i32>,
     /// The Journalist's card_score (n12 busyness verdict, 1-99): the reply must carry one inside
     /// this band. Authored in the n17 pass — the field had been gate-invisible since n12 (the
     /// D-T45 rule). A missing card_score FAILS any band check: the fixture asserting the band is
@@ -934,6 +944,53 @@ impl LensTask for NarrativeTask {
                     name: "narratives_le".into(),
                     pass: n <= max,
                     detail: format!("count={n} ≤ {max}"),
+                });
+            }
+            // Citation OR-check (n18): any body names any listed publication, case-insensitive.
+            if let Some(srcs) = &x.sources_any {
+                let lowered: Vec<String> = items.iter().map(|(_, b, _)| b.to_lowercase()).collect();
+                let hit: Vec<&str> = srcs
+                    .iter()
+                    .filter(|s| {
+                        let needle = s.to_lowercase();
+                        lowered.iter().any(|b| b.contains(&needle))
+                    })
+                    .map(|s| s.as_str())
+                    .collect();
+                checks.push(PropertyCheck {
+                    name: format!("sources_any:[{}]", srcs.join("|")),
+                    pass: !hit.is_empty(),
+                    detail: if hit.is_empty() {
+                        "no body cites any listed publication".to_string()
+                    } else {
+                        format!("cited {}", hit.join(", "))
+                    },
+                });
+            }
+            // Edition-budget ceiling (n18): terminal-punctuation runs across all bodies.
+            if let Some(max) = x.total_sentences_max {
+                let total: i32 = items
+                    .iter()
+                    .map(|(_, b, _)| {
+                        let mut n = 0;
+                        let mut in_run = false;
+                        for c in b.chars() {
+                            if matches!(c, '.' | '!' | '?') {
+                                if !in_run {
+                                    n += 1;
+                                }
+                                in_run = true;
+                            } else {
+                                in_run = false;
+                            }
+                        }
+                        n
+                    })
+                    .sum();
+                checks.push(PropertyCheck {
+                    name: "total_sentences_le".into(),
+                    pass: total <= max,
+                    detail: format!("sentences={total} ≤ {max}"),
                 });
             }
             // card_score band (one check per bound, mirroring narratives_min/max). A reply with

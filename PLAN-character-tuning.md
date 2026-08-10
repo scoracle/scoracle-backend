@@ -3473,6 +3473,39 @@ vocabulary is unmeasured against real descriptors; (3) the executive/agent class
 structural Wikidata claim like P1830 — they ride description/occupation words only; (4) the
 corroborated-enrichment recovery rate — the re-run of the NBA 50 is the measurement.
 
+### D-T49 — ✅ **THE JOURNALIST'S n18 — THE ELOQUENCE PASS.** (2026-08-09, same session as D-T48)
+
+**Scott's register, verbatim:** *"We want the voice of one of the Athletic's dedicated writers
+for a team. This is a good writer, who takes pride in their craft. They relish telling the story,
+but they understand the facts are the story."* Same-session addition: *"It should also cite which
+publications are contributing to the narrative."*
+
+**Gate first:** `sources_any` (OR-check, case-insensitive: ≥1 body names ≥1 of the fixture's
+corpus `[source]` tags; authored on 7 of 9 — vague-hype and off-entity file nothing, so no
+citation demand) and `total_sentences_max: 10` (a padding backstop over the 8-sentence edition
+budget; crude terminal-punctuation count). Both landed BEFORE the prompt edit.
+
+**The edit:** the voice paragraph rewritten to the register (facts carry every line; attribution
+woven in — "first reported by ESPN, since matched by Marca"); the n17 "no source lists"
+prohibition INVERTED to "credited in prose, never dumped as a list"; arc voicing must be the
+writer's own words, never a pasted label — the before-probe (frozen surge fixture, temp 0) had
+**"The arc is NEW" verbatim inside a body** and "confirmed by multiple outlets" with none named.
+A single worked-example storyline carries the register (ep6: the example teaches what prose
+cannot); generic subjects (Leeds/Braga/Carvalho) so it cannot leak content.
+
+**One axis fell to the new idiom, deliberately:** ongoing-saga's `body_excludes:
+first reported/first reports` (anti-scoop: a third-month saga must not read as breaking) now
+conflicts with legitimate origin attribution ("what Record first reported in June…"). The prose
+that tripped it ALSO passed the continuation-voicing axis — the intent is covered there and by
+the surviving "out of nowhere" exclude; the two phrase excludes are removed and noted here.
+
+**Reading: 110/110 on oMLX unconstrained (D-T47 path), fixtures re-frozen at n18.** Before/after
+on the surge fixture: n17 filed one unnamed-sourced storyline ending "The arc is NEW, with the
+last 48 hours…"; n18 files "first reported by Fabrizio Romano and since matched by Kicker and
+Bild… Flamengo, meanwhile, is fielding multiple European bids, per ESPN… with Globo noting the
+transfer now gathering real momentum after weeks of speculation." Five outlets, three sentences,
+arc voiced. Exhibits in the session scratchpad; the production reading rides the post-flip drain.
+
 ### D-T48 — ✅ **THE JOURNALIST'S n17 (THE SEPARATION PASS) + THE INVESTIGATOR'S TOPOLOGY CORRECTION.** (2026-08-09, the voices session)
 
 **Scott's brief:** *"remove the legacy work of it needing to tag transfers and pass down
@@ -3908,4 +3941,5 @@ the right-shape question with a worked example attached.
 ## S2 · LOGGED DURING THE VOICE SESSION
 
 *(Append below as you go. Nothing here yet — the voice session has not started.)*
+
 

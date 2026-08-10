@@ -3505,6 +3505,18 @@ the ~7k-row backlog is ~27 GPU-hours — days, not weeks — and the daily stead
 duty cycle with room; the D-T54 diets and the prefix cache (re-testable now that memory
 breathes) push it further.
 
+⚠ **THE SUSTAINED-PRODUCTION CORRECTION (taken the same evening — a burst cell is not a
+drain):** the 255/h was a 30-request burst. Under CONTINUOUS saturation the fat production
+prompts (the census tail the survivor-biased cell corpus under-represents: vibe to 7.8k tok,
+packets + memory sections) trip the guard ~1/min regardless of concurrency — measured at 6, 4,
+AND 3 (same 180/h, same ~7 fails/6min at 3 and 4; ceiling raised 10.5→11.2 en route, worth
+~15%). **Shipped: concurrency 4, ceiling 11.2 — sustained ~180 req/h with ~1/min fat-tail
+retries** (backoff; the fattest rows may park until their seat's diet). Still the best
+sustained number of any configuration measured today (14B/ollama's 165/h was itself a burst
+cell). **The D-T54 diets are now the unlock for BOTH the failures and the next step up** — a
+≤2k-token fleet stops the guard cold and re-opens 6 concurrent; they move to the front of the
+voice queue.
+
 **THE QUEUE AFTER THE SWITCH (the voices, on the 8B):** (1) the 8B mini-tunes — rating's
 plain-text prominence, narratives' card budget; (2) **Scott's card-surface brief lands in
 every voice** (his words: *"All of these outputs surface on a tarot card. So we need the total

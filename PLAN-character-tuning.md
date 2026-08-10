@@ -3535,6 +3535,37 @@ survivors, under-representing the monster prompts for both engines; (c) oMLX sta
 re-test on >16GB hardware or after upstream fixes the enforcer/cache behavior, where its 2×
 per-request speed would win outright.
 
+**✅ THE FLIP WAS EXECUTED THE SAME DAY (Scott: "Restore the Ollama approach"), inside the
+12:00 rest window.** Mac: LaunchAgent `com.scoracle.ollama` (`OLLAMA_HOST=0.0.0.0:11434`,
+`NUM_PARALLEL=2`, `FLASH_ATTENTION=1`, `KV_CACHE_TYPE=q8_0`, `KEEP_ALIVE=60m`); oMLX stopped,
+kept installed. Archbox: five character routes → `192.168.1.77:11434` / `ministral-3:14b`,
+`_BACKEND` lines removed (ollama is the default), concurrency map `11434=3`; backup
+`.env.local.bak-20260810-preflipback`. Binary unchanged (`71dbfdb`).
+* **Scott's 4-concurrent target was measured and does NOT hold: `-np 4`/client-4 read 30/30 but
+  134 req/h — a regression vs `-np 2`/client-3's 165 (D-T30's M4 bandwidth finding repeats,
+  now with q8_0 KV in play). `-np 2`/client-3 ships.**
+* ⚠ **Found while flipping: stale `launchctl setenv` leftovers** — `OLLAMA_NUM_PARALLEL=1`,
+  `OLLAMA_CONTEXT_LENGTH=16384`, `KEEP_ALIVE=24h` were sitting in the user launchd environment
+  from a pre-flip era and would have overridden/underridden any LaunchAgent. **Cleared. If the
+  pre-flip Mac was actually serving `-np 1`, the D-T30-era "the Mac serves two" premise and
+  every concurrency reading of that era deserve a squint.**
+* **The narratives n18 gate on ollama: 107/110** (oMLX read 110/110) — the three misses are
+  judgment-band, not shape: `card_score` 90 vs ≤75 and 1 vs ≥10 on the two band fixtures, one
+  extra storyline on vague-hype. The Q4_K_M↔MLX-4bit quant difference showing up as busyness
+  calibration; watch it in the ep6/production reading before any Journalist touch-up.
+  v17/s17/s14 gates on ollama: 51/53, 90/91, 79/81 — same residual classes as oMLX.
+
+**THE oMLX FIX QUESTION (Scott: "is there a fix to the oMLX issue?") — a plausible, UNTESTED
+recipe exists, for the record:** (1) `--max-concurrent-requests` defaults to **8** — the server
+over-admits regardless of our client cap; set 2-3. (2) `--memory-guard-gb` pins a FIXED ceiling
+(e.g. ~10.5) — replaces the dynamic ceiling that shrinks when other Mac apps take RAM, which is
+what fed the enforcer oscillation. (3) `--hot-cache-max-size` (e.g. 1GB) or `--no-cache` stops
+the in-RAM prefix-cache/pool RSS bloat — the cache delivered ~one partial hit per day here, so
+disabling it costs nothing. (4) `scheduler.chunked_prefill: true` (currently false) bounds the
+~1GB single-request prefill spikes. Worth exactly one rest-window experiment if oMLX is ever
+revisited (or on >16GB hardware); the upstream reports still owed are the D-T47 tekken-grammar
+corruption and now the enforcer cache-wipe behavior.
+
 ### D-T52 — ✅ **THE ANALYST'S s14 — THE NIMBLE-PROP-TRADER REGISTER RETURNS; THE DIRECTION FIXTURES EXIST AT LAST; THE PROMPT GOES ON THE DIET.** (2026-08-10, same session as D-T50/51)
 
 **Scott's register, verbatim option:** *"Watches the tape (PEAK trajectory) as price action and

@@ -5010,8 +5010,16 @@ diagnosis, the numbers and the candidate knobs stay in the tuning file at the se
   llama.cpp's slot cache served repeats at 0.09s. A/B on 30 real ledger prompts: ollama
   **30/30 ok** at @2 and @3 (165 req/h @3, scales positively); oMLX fails 11-16/30 fresh and
   @3 collapses into mass-507 in ~90s. Tuned voices re-gated on ollama: 51/53 / 90/91 / 79/81 —
-  they transfer. **Recommendation: flip the Mac back to ollama (`-np 2`, client 3); Scott's
-  call.** → *tuning §D-T53*
+  they transfer. **Recommendation: flip the Mac back to ollama (`-np 2`, client 3) — and Scott
+  said GO; the flip executed same-day in the 12:00 rest window** (LaunchAgent
+  `com.scoracle.ollama`, np2/flash-attn/q8_0; archbox routes → `:11434`/`ministral-3:14b`,
+  client 3, backup `.env.local.bak-20260810-preflipback`). Scott's 4-concurrent target
+  measured as a REGRESSION (134 vs 165 req/h — D-T30's M4 bandwidth wall repeats). Stale
+  `launchctl setenv` leftovers (NUM_PARALLEL=1! CONTEXT_LENGTH=16384) found and cleared — the
+  pre-flip era may have been serving `-np 1` all along. Narratives gate on ollama 107/110
+  (band drifts, not shape — watch in the production reading). oMLX fix recipe recorded in the
+  tuning file (server over-admission default 8, fixed guard ceiling, cache off, chunked
+  prefill), untested. → *tuning §D-T53*
 - **D-T52 · ✅ THE ANALYST'S s14 — THE PROP-TRADER REGISTER RETURNS (Scott reinstates what s6
   retired); THE DIRECTION FIXTURES EXIST; THE DIET LANDS (2026-08-10).** Gate first: all 8
   fixtures had decided STEADY — rising/falling fixtures now exist; `prose_no_digits` axis; s13

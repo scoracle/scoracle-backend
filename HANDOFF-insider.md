@@ -4,14 +4,20 @@ Read `PLAN-one-rail.md` STATE (2026-08-10) + `PLAN-character-tuning.md` §D-T50/
 register passes — the method now five-times proven, and TWICE burned by its own shortcuts this
 session) before anything else.
 
-**STANDING STATE:** Production LIVE @ `71dbfdb`: archbox 1070 Ti / ollama / pinned
-`ministral-3:3b` (Editor + utility + Investigator, NUM_PARALLEL=6); Mac / oMLX /
-`ministral-3-14b` (six characters, grammar suppressed per D-T47). ⛔ **Mac client concurrency is
-2** (was 6 — the 08-10 thrash incident, STATE ⛔ block; 6 and 4 both fail the 16GB memory
-arithmetic at real prompt sizes). Duty-cycle timers: drain pauses at 00/03/06/09/12/15/18/21:00,
-resumes one hour later — **the rest hours are the eval windows.** All 1,985 failed Mac-stage rows
-requeued post-deploy and draining. Voices tuned so far: Journalist n18, Influencer v17, Scout
-s17, Analyst s14 (registers per Scott, quoted verbatim in the D-Ts).
+**STANDING STATE (updated after the D-T53 flip, 2026-08-10 ~13:00):** Production LIVE @
+`71dbfdb`: archbox 1070 Ti / ollama / pinned `ministral-3:3b` (Editor + utility + Investigator,
+NUM_PARALLEL=6); ⭐ **Mac is BACK ON OLLAMA** (D-T53's A/B: ollama 30/30 at 165 req/h vs oMLX
+failing a third of the workload) — LaunchAgent `com.scoracle.ollama` (`OLLAMA_HOST=0.0.0.0:11434`,
+`NUM_PARALLEL=2`, flash-attn, `q8_0` KV, keep_alive 60m), `ministral-3:14b`, client concurrency
+**3** (the measured best: `-np 4`/client-4 re-measured as a REGRESSION, 134 req/h — D-T30
+repeats). Routes flipped in archbox `.env.local` (backup `.env.local.bak-20260810-preflipback`);
+`_BACKEND` lines removed (ollama is the default). oMLX is stopped but installed
+(`brew services`), with stale `launchctl setenv` OLLAMA_* leftovers now cleared. Grammar stays
+OFF everywhere — the voices are validated grammarless. Duty-cycle timers: drain pauses at
+00/03/06/09/…, resumes one hour later — **the rest hours are the eval windows.** All 1,985
+failed Mac-stage rows requeued and draining. Voices tuned: Journalist n18, Influencer v17,
+Scout s17, Analyst s14 (registers per Scott, verbatim in the D-Ts; v17/s17/s14 gates re-read
+GREEN on ollama, narratives checked at flip time).
 
 ## 1 · THE INSIDER (transfers) — next voice
 

@@ -5002,6 +5002,16 @@ diagnosis, the numbers and the candidate knobs stay in the tuning file at the se
   is no longer "the largest available throughput change" — D-T34 is.** The live runner shows
   `-c 8192 -np 2` = 4096 PER SLOT, confirming KV scales as `num_ctx × slots`, so 4 slots at 2048
   would cost today's KV — ⛔ **but only AFTER D-T35's prompt trim, never before.** → *tuning §D-T30*
+- **D-T56 · ⭐⭐ THE SWITCH — PRODUCTION IS 14B → 8B ON oMLX @6: 255 req/h, 30/30, ZERO ERRORS
+  (2026-08-10).** Cells: 8B/oMLX@6 **255/h 30-30** > 8B/oMLX@4 220 > 8B/ollama@4 172 >
+  14B/ollama@3 165 (the morning's production) — +55%, and oMLX beats ollama +49% on the same
+  8B (D-T34's win was real; the 14B never left it room on 16GB). Shipped: `com.scoracle.omlx`
+  LaunchAgent (brew record flaky, stopped; ollama plist kept as fallback), settings
+  max_concurrent 6 / guard 10.5 / chunked / cache off; archbox routes `ministral-3-8b@:8000`
+  omlx, map=6 (backup `.env.local.bak-20260810-pre8b`); topology + ledger completions
+  verified. Backlog at 255/h ≈ 27 GPU-hours. Queue: 8B mini-tunes (rating plain-text,
+  narratives card budget), Scott's card-surface injection all voices, Insider pass + hot/cold
+  verdict, Oracle pass (single-peer broken 4× on the 14B too). → *tuning §D-T56*
 - **D-T55 · ⭐ THE 8B GATE — `ministral-3:8b` AT PARITY ACROSS 508 CHECKS, WINNING THE CROWN
   AND THE VIBE OUTRIGHT (2026-08-10).** Weights 6.0GB gguf / 5.60GB MLX vs 8.83/8.24 → on the
   oMLX-fixed ceiling, KV headroom 2.3→4.9GB: today's un-dieted workload fits at 6-8 concurrent,

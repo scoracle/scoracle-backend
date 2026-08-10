@@ -4,6 +4,23 @@ Read `PLAN-one-rail.md` STATE (2026-08-10) + `PLAN-character-tuning.md` §D-T50/
 register passes — the method now five-times proven, and TWICE burned by its own shortcuts this
 session) before anything else.
 
+**STANDING STATE (updated again after D-T56, 2026-08-10 ~17:00 — SUPERSEDES the block below):**
+⭐⭐ **Production is `ministral-3-8b` on oMLX at 6 concurrent** (255 req/h, 30/30, zero errors —
+D-T56; quality cleared at D-T55: 490/508, the 8B WINS the crown and the vibe). Mac: LaunchAgent
+`com.scoracle.omlx` (the brew record is flaky — bootstrap error 5 — and stopped;
+`com.scoracle.ollama` plist kept as fallback at NUM_PARALLEL=4, model `ministral-3:8b` already
+pulled); oMLX settings: max_concurrent 6, guard custom 10.5GB, chunked prefill, **cache off**
+(re-testing the prefix cache is now worthwhile — memory finally breathes). Archbox routes:
+six character seats → `ministral-3-8b@http://192.168.1.77:8000` backend omlx, map `:8000=6`
+(backup `.env.local.bak-20260810-pre8b`). **THE VOICE QUEUE (all on the 8B now):** (1) 8B
+mini-tunes: rating plain-text prominence (it bolds labels), narratives card budget (one
+52-sentence edition); (2) Scott's CARD-SURFACE brief into every voice (output = one tarot
+card; Journalist/Insider budgets are per-CARD across multiple entries); (3) the Insider pass +
+the HOT/COLD verdict (contract addition — gate first); (4) the Oracle pass (single-peer rule —
+the 14B broke it 4×, the 8B once). Ask Scott for Insider/Oracle register briefs. Also owed:
+`contains_ci` diacritic folding (Sørensen), and the D-T54 diets as optimization.
+
+*(The 13:00 block below is superseded by the above.)*
 **STANDING STATE (updated after the D-T53 flip, 2026-08-10 ~13:00):** Production LIVE @
 `71dbfdb`: archbox 1070 Ti / ollama / pinned `ministral-3:3b` (Editor + utility + Investigator,
 NUM_PARALLEL=6); ⭐ **Mac is BACK ON OLLAMA** (D-T53's A/B: ollama 30/30 at 165 req/h vs oMLX

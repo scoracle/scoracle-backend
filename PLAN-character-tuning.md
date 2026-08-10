@@ -3473,6 +3473,47 @@ vocabulary is unmeasured against real descriptors; (3) the executive/agent class
 structural Wikidata claim like P1830 — they ride description/occupation words only; (4) the
 corroborated-enrichment recovery rate — the re-run of the NBA 50 is the measurement.
 
+### D-T56 — ⭐⭐ **THE SWITCH: PRODUCTION MOVES 14B → 8B ON oMLX AT 6 CONCURRENT — 255 req/h, 30/30, ZERO ERRORS. THE DAY'S ARC CLOSES.** (2026-08-10, same session; Scott: "this is the break we were looking for… move immediately", "whichever engine wins — I'm not married to oMLX")
+
+**THE CELLS (same 30 real ledger prompts as every cell today, quiet GPU, real per-stage
+system prompts + max_tokens):**
+
+| model / engine | conc | completed | req/h | note |
+|---|---|---|---|---|
+| **8B / oMLX-fixed** | **6** | **30/30** | **255** | ⭐ **the winner** — zero errors, scales |
+| 8B / oMLX-fixed | 4 | 30/30 | 220 | zero errors |
+| 8B / ollama (`-np 4`) | 4 | 30/30 | 172 | |
+| 14B / ollama (`-np 2`) | 3 | 30/30 | 165 | the morning's production |
+| 14B / oMLX-fixed | 3 | 18/30 | (248) | fat third dies — D-T54 |
+| 14B / ollama (`-np 4`) | 4 | 30/30 | 134 | D-T30's regression repeats |
+
+**+55% over the 14B production baseline, with the D-T34 concurrency promise finally realized
+on the right-sized model** (oMLX beats ollama by +49% on the SAME 8B — the MLX batching win was
+always real; the 14B's weights just never left it room to breathe on 16GB). The 8B at 4-bit is
+5.6GB; under the 10.5GB fixed guard that leaves ~4.9GB of KV — the whole un-dieted census
+workload ran twice (60 requests) without a single guard rejection. Quality was cleared at the
+gate BEFORE the flip (D-T55: 490/508, wins the crown and the vibe outright).
+
+**WHAT SHIPPED:** Mac — new managed LaunchAgent `com.scoracle.omlx` (`omlx serve`, RunAtLoad,
+KeepAlive; the homebrew.mxcl record was flaky — bootstrap error 5 recurring — and is stopped;
+`com.scoracle.ollama` is booted out but its plist stays as the fallback, NUM_PARALLEL now 4);
+oMLX settings: max_concurrent 6, guard custom 10.5GB, chunked prefill, cache off. Archbox —
+six character routes → `ministral-3-8b @ http://192.168.1.77:8000`, `_BACKEND=omlx`,
+concurrency map `:8000=6` (backup `.env.local.bak-20260810-pre8b`). Boot ping verified the
+topology; first ledger completions confirmed post-flip. **The 6-hour-day arithmetic:** at 255/h
+the ~7k-row backlog is ~27 GPU-hours — days, not weeks — and the daily steady-state fits the
+duty cycle with room; the D-T54 diets and the prefix cache (re-testable now that memory
+breathes) push it further.
+
+**THE QUEUE AFTER THE SWITCH (the voices, on the 8B):** (1) the 8B mini-tunes — rating's
+plain-text prominence, narratives' card budget; (2) **Scott's card-surface brief lands in
+every voice** (his words: *"All of these outputs surface on a tarot card. So we need the total
+output to fit onto a card. The Journalist and Insider will have multiple entries in most cases,
+so it should factor that in."*); (3) the Insider register pass + **the hot/cold verdict**
+(Scott: *"the Insider should comment on if the entity is hot or cold overall in the transfer
+realm"*) — contract addition, gate-first; (4) the Oracle pass (its single-peer rule needs work
+on BOTH models — the 14B broke it 4×). Register briefs to collect from Scott at each pass.
+
 ### D-T55 — ⭐ **THE 8B GATE: `ministral-3:8b` READS AT PARITY WITH THE 14B ACROSS 508 CHECKS — AND WINS THE CROWN AND THE VIBE OUTRIGHT.** (2026-08-10, same session; Scott: "14B may have been overkill for this early work… the output we can tune with the 8B")
 
 **Why it was run (Scott's two questions):** another harness, and would an 8B solve the weight

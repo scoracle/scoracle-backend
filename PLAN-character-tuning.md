@@ -3455,10 +3455,23 @@ connect-under-another-name accept, the club-page triage, the honest wrong-sport 
 8/8 was read with the daemon RUNNING (voices share the Mac runner), so it is a first reading,
 not a determinism-grade baseline — D-T19's condition applies to any future per-check diff.
 
+⭐ **THE FIRST ENRICHMENT SMOKE (100 players, 50/league) READ 11% — AND 83 OF THE 89 REFUSALS
+WERE ONE FINDING: WIKIDATA'S CLAIMS LAG ITS PROSE.** `Ambiguous { survivor_idxs: [i] }` with
+exactly ONE survivor, en masse — the Aaron Gordon class: the one name-agreed, sport-relevant
+item whose P54 stops at a previous club (Gordon's carries Arizona + Orlando; nobody added the
+2021 Denver stint), so the current-team discriminator fails through no fault of ours. **The
+fix composes the arm we built the same day:** the single survivor earns one `ip1` prose read of
+its OWN enwiki page (`prose_team_corroborates`), and the containment-verified team names must
+resolve onto the player's current team — the same discriminator, taken from the fresher of the
+encyclopedia's two layers. Everything else still refuses; cost is one summary fetch + one model
+call, only in the single-survivor case. `investigate.sh enrich` also re-opens non-pending work
+rows so refused players re-queue (the metadata-gap filter already drops enriched ones).
+
 ⚠ **STILL OWED:** (1) the live reading once the nomination sweep refills `investigate_entity` —
 the Jerry Jones manual queue is the first live datapoint; (2) `descriptor_role_class`'s
 vocabulary is unmeasured against real descriptors; (3) the executive/agent classes have no
-structural Wikidata claim like P1830 — they ride description/occupation words only.
+structural Wikidata claim like P1830 — they ride description/occupation words only; (4) the
+corroborated-enrichment recovery rate — the re-run of the NBA 50 is the measurement.
 
 ### D-T41 — **oMLX IS A PROGRAM, NOT "MLX SERVING". RESEARCHED 2026-08-09 00:20 EDT, ON SCOTT'S CORRECTION.**
 

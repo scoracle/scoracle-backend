@@ -52,7 +52,9 @@ WHERE p.sport = :'sport' AND p.team_id IS NOT NULL
   AND (p.date_of_birth IS NULL OR p.photo_url IS NULL OR p.weight IS NULL)
 ORDER BY p.tier, p.name
 LIMIT :'lim'
-ON CONFLICT (stage, entity_type, entity_id, sport) DO NOTHING;
+ON CONFLICT (stage, entity_type, entity_id, sport) DO UPDATE SET
+    status = 'pending', attempts = 0, available_at = NOW(), updated_at = NOW(), last_error = NULL
+WHERE pipeline_work.status NOT IN ('pending', 'running');
 SELECT count(*) AS queued FROM pipeline_work
 WHERE stage = 'investigate_entity' AND status = 'pending' AND sport = :'sport';
 SQL

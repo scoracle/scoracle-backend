@@ -556,6 +556,63 @@ async fn investigate_candidate_prose(
 /// namesake-tie shape without spending the Mac's slots on long-tail hits.
 const MAX_PROSE_PAGES: usize = 2;
 
+/// prose_team_corroborates is the enrichment fallback's whole question: does the
+/// survivor's OWN Wikipedia page, read on the ip1 verbatim contract, tie this person to
+/// the player's CURRENT team? Every screen is the prose arm's: person-kind, evidence
+/// containment, team containment, sport-scoped unique surface resolution. One summary
+/// fetch + one model call, only ever for the single-survivor case.
+async fn prose_team_corroborates(
+    hx: &Harness,
+    fetcher: &BudgetedFetcher,
+    it: &WikidataItem,
+    sport: &str,
+    name: &str,
+    team_id: Option<i32>,
+) -> Result<bool> {
+    let Some(team_id) = team_id else {
+        return Ok(false);
+    };
+    let Some(title) = it.enwiki_title.as_deref() else {
+        return Ok(false);
+    };
+    let policy = wikimedia_policy();
+    let fetched = wikipedia_summary(fetcher, &hx.pool, &policy, title).await?;
+    let body: serde_json::Value =
+        serde_json::from_str(&fetched.body).context("parse corroboration summary")?;
+    let page_title = body
+        .get("title")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or(title);
+    let description = body
+        .get("description")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("");
+    let extract = body
+        .get("extract")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("");
+    let text = page_text(page_title, description, extract);
+
+    let prompt = build_prose_prompt(name, None, sport, page_title, description, extract);
+    let extracted = hx
+        .extract(Role::Investigator, &prompt, &prose_opts(), &ProseReadParser)
+        .await?;
+    let Some(read) = extracted.value else {
+        return Ok(false);
+    };
+    if read.subject_kind != "person" || !contains_normalized(&text, &read.sought_name_evidence) {
+        return Ok(false);
+    }
+    let verified: Vec<String> = read
+        .team_names
+        .iter()
+        .filter(|t| contains_normalized(&text, t))
+        .cloned()
+        .collect();
+    let our = resolve_team_names(&hx.pool, sport, &verified).await?;
+    Ok(our.contains(&team_id))
+}
+
 /// resolve_team_names maps VERBATIM team phrases onto OUR team ids — sport-scoped exact
 /// `nrm()` surface match, unique-only (two teams sharing a normalized surface refuse,
 /// never a coin flip). The prose twin of `resolve_team_qids`.
@@ -921,9 +978,40 @@ async fn enrich_player(hx: &Harness, fetcher: &BudgetedFetcher, item: &Item) -> 
         .collect();
     let verdict = decide(&sport, &d.items, &d.name_agreed, &matched);
 
-    let Verdict::Accept { item_idx, .. } = verdict else {
-        info!(player_id, %name, ?verdict, "enrichment refused (no unique discriminated item)");
-        return Ok(());
+    let item_idx = match verdict {
+        Verdict::Accept { item_idx, .. } => item_idx,
+        // The Aaron Gordon class (measured on the first smoke batch, 2026-08-09: 83 of 89
+        // refusals were Ambiguous with EXACTLY ONE survivor): the one name-agreed,
+        // sport-relevant item whose P54 simply STOPS at a previous club — Gordon's carries
+        // Arizona and Orlando, and nobody has added the 2021 Denver stint. Wikidata's
+        // structured claims lag; its PROSE does not. So the single survivor earns one ip1
+        // prose read of its own enwiki page, and the containment-verified team names must
+        // resolve onto THIS player's current team — the same discriminator, taken from the
+        // fresher of the encyclopedia's two layers. Everything else still refuses.
+        Verdict::Ambiguous { ref survivor_idxs } if survivor_idxs.len() == 1 => {
+            let i = survivor_idxs[0];
+            match prose_team_corroborates(hx, fetcher, &d.items[i], &sport, &name, team_id).await {
+                Ok(true) => {
+                    info!(player_id, %name, qid = %d.items[i].qid,
+                        "enrichment: stale-claims survivor corroborated by page prose");
+                    i
+                }
+                Ok(false) => {
+                    info!(player_id, %name, ?verdict,
+                        "enrichment refused (single survivor; prose did not corroborate the team)");
+                    return Ok(());
+                }
+                Err(e) => {
+                    warn!(player_id, %name, error = %format!("{e:#}"),
+                        "enrichment prose corroboration errored; refusing");
+                    return Ok(());
+                }
+            }
+        }
+        _ => {
+            info!(player_id, %name, ?verdict, "enrichment refused (no unique discriminated item)");
+            return Ok(());
+        }
     };
     let it = &d.items[item_idx];
     if !provenance_holds(&hx.pool, it).await? {

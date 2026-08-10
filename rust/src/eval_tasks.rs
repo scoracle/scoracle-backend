@@ -37,6 +37,9 @@ use crate::junctions::editor::{
     build_editor_prompt_for_eval, derive as editor_derive, editor_opts, EditorRead,
     EditorReadParser, EDITOR_CONTRACT_VERSION,
 };
+use crate::junctions::investigator::prompt::{
+    prose_opts, ProseReadParser, INVESTIGATOR_PROSE_CONTRACT_VERSION,
+};
 use crate::junctions::graph::{
     build_graph_prompt, graph_opts, load_graph_article_context, GraphCandidate, GraphParser,
     GRAPH_PROMPT_VERSION,
@@ -174,6 +177,12 @@ pub fn lens_parameters(name: &str) -> Option<LensParameters> {
             operator: "The Editor",
             mandate: "Read every arrival's full text and describe it richly for the newsroom — shape, names with descriptors, roles, result line, register, facts — so code can derive everything downstream.",
             credibility_guard: "Describe, never judge: no relevance verdicts, no invented names or results — only what the text contains, with the descriptor copied from the text.",
+        }),
+        "investigator" => Some(LensParameters {
+            rail: Rail::EmotionalNews,
+            operator: "The Investigator",
+            mandate: "Read one Wikipedia page summary and quote verbatim what it says about a name the news wrote differently — the connecting name form, the occupation phrase, the teams — so code can verify every quote by containment and decide.",
+            credibility_guard: "Copy, never conclude: a field that is not a contiguous run of page text is discarded by the gate; only this page, never model knowledge of the person.",
         }),
         "graph" => Some(LensParameters {
             rail: Rail::EmotionalNews,
@@ -405,6 +414,20 @@ pub struct Expect {
     /// discriminates well since the ar5 collapse was fixed, so only rule-bearing cases pin it.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub story_type_is: Option<String>,
+    // The Investigator's prose contract (`ip1`) axes — verbatim-quote fields, checked as
+    // fragments of what the model copied (containment against the page is the GATE's job;
+    // the fixture asserts the model quoted the right things at all).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subject_kind_is: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub evidence_includes: Option<Vec<String>>,
+    /// `true` asserts the model connected NOTHING — the negative-page discipline.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub evidence_empty: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub occupation_includes: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prose_teams_include: Option<Vec<String>>,
     /// ep1 discovery kinds: each listed name must be emitted with exactly this `kind_hint`
     /// (`{"Kyle Shanahan": "person"}`). The kind gate is what routes an unknown coach to
     /// person-discovery instead of a fuzzy player match (T9), so it is scored, not assumed.
@@ -540,6 +563,7 @@ pub fn resolve_task(name: &str) -> Option<Box<dyn LensTask>> {
         "momentum" => Some(Box::new(MomentumTask)),
         "graph" => Some(Box::new(GraphTask)),
         "editor" => Some(Box::new(EditorTask)),
+        "investigator" => Some(Box::new(InvestigatorTask)),
         _ => None,
     }
 }
@@ -555,6 +579,7 @@ pub fn all_task_names() -> &'static [&'static str] {
         "momentum",
         "graph",
         "editor",
+        "investigator",
     ]
 }
 
@@ -1987,6 +2012,114 @@ impl LensTask for EditorTask {
                 read.key_facts.len(),
                 read.story_type,
                 read.register,
+            ),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// investigator — the prose-triage contract (`ip1`), fixture-driven (D-T46)
+// ---------------------------------------------------------------------------
+
+pub struct InvestigatorTask;
+
+#[async_trait]
+impl LensTask for InvestigatorTask {
+    fn name(&self) -> &'static str {
+        "investigator"
+    }
+    fn role(&self) -> Role {
+        Role::Investigator
+    }
+    fn prompt_version(&self) -> &'static str {
+        INVESTIGATOR_PROSE_CONTRACT_VERSION
+    }
+    fn gen_options(&self, temperature: f64) -> GenerateOptions {
+        let mut o = prose_opts();
+        o.temperature = Some(temperature);
+        o
+    }
+    /// Fixture-driven on purpose: the production prompt is built from a LIVE Wikipedia
+    /// search + summary fetch for a candidate row, which is exactly what a frozen fixture
+    /// exists to pin down. Capture new fixtures from `acquisition_runs.query_plan` (the
+    /// prose arm records every page it read) rather than re-fetching a moving encyclopedia.
+    async fn build_prompt(&self, _hx: &Harness, _e: &EntitySpec) -> Result<Option<String>> {
+        anyhow::bail!(
+            "investigator evals are fixture-driven (eval --task investigator --fixtures); \
+             live prompts depend on a Wikipedia fetch — freeze pages into fixtures instead"
+        )
+    }
+    fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
+        let parsed = ProseReadParser.parse(raw).ok().flatten();
+        let Some(read) = parsed else {
+            return CaseVerdict {
+                parsed: false,
+                abs_err: None,
+                checks: Vec::new(),
+                display: "unparseable (fail-closed)".into(),
+            };
+        };
+        let mut checks = Vec::new();
+        if let Some(x) = expect {
+            if let Some(want) = &x.subject_kind_is {
+                checks.push(PropertyCheck {
+                    name: format!("subject_kind[{want}]"),
+                    pass: read.subject_kind.eq_ignore_ascii_case(want),
+                    detail: format!("subject_kind={:?}", read.subject_kind),
+                });
+            }
+            if let Some(incl) = &x.evidence_includes {
+                for frag in incl {
+                    checks.push(PropertyCheck {
+                        name: format!("evidence_has[{frag}]"),
+                        pass: read
+                            .sought_name_evidence
+                            .to_lowercase()
+                            .contains(&frag.to_lowercase()),
+                        detail: format!("evidence={:?}", read.sought_name_evidence),
+                    });
+                }
+            }
+            if x.evidence_empty == Some(true) {
+                checks.push(PropertyCheck {
+                    name: "evidence_empty".into(),
+                    pass: read.sought_name_evidence.trim().is_empty(),
+                    detail: format!("evidence={:?}", read.sought_name_evidence),
+                });
+            }
+            if let Some(incl) = &x.occupation_includes {
+                for frag in incl {
+                    checks.push(PropertyCheck {
+                        name: format!("occupation_has[{frag}]"),
+                        pass: read
+                            .occupation_phrase
+                            .to_lowercase()
+                            .contains(&frag.to_lowercase()),
+                        detail: format!("occupation={:?}", read.occupation_phrase),
+                    });
+                }
+            }
+            if let Some(incl) = &x.prose_teams_include {
+                let teams = read.team_names.join(" | ");
+                for frag in incl {
+                    checks.push(PropertyCheck {
+                        name: format!("team_named[{frag}]"),
+                        pass: teams.to_lowercase().contains(&frag.to_lowercase()),
+                        detail: format!("teams=[{teams}]"),
+                    });
+                }
+            }
+        }
+        CaseVerdict {
+            parsed: true,
+            abs_err: None,
+            checks,
+            display: format!(
+                "kind={:?} evidence={:?} occupation={:?} teams=[{}]",
+                read.subject_kind,
+                truncate(&read.sought_name_evidence, 60),
+                truncate(&read.occupation_phrase, 60),
+                read.team_names.join(", "),
             ),
         }
     }

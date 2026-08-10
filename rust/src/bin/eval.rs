@@ -758,6 +758,12 @@ fn expected_property_count(x: &Expect) -> usize {
     n += x.names_exclude.as_ref().map_or(0, Vec::len);
     n += x.register_is.is_some() as usize;
     n += x.story_type_is.is_some() as usize;
+    // The investigator's prose axes (ip1).
+    n += x.subject_kind_is.is_some() as usize;
+    n += x.evidence_includes.as_ref().map_or(0, Vec::len);
+    n += (x.evidence_empty == Some(true)) as usize;
+    n += x.occupation_includes.as_ref().map_or(0, Vec::len);
+    n += x.prose_teams_include.as_ref().map_or(0, Vec::len);
     n += x.name_kind_is.as_ref().map_or(0, |m| m.len());
     n += x.name_descriptor_nonempty.as_ref().map_or(0, Vec::len);
     n += x.result_line_includes.as_ref().map_or(0, Vec::len);

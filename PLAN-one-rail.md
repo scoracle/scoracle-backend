@@ -4983,9 +4983,10 @@ diagnosis, the numbers and the candidate knobs stay in the tuning file at the se
   owner/executive words outrank the bare "manager"; a sport-scoped team match unlocks prose role
   words with no sport keyword; P18 Commons images are everyone's fallback `photo_url` (NFL's
   only headshot source); `scripts/investigate.sh` queues a name / a sport's metadata gaps on
-  demand. ⚠ Owed: `investigator` eval task + fixtures (D-T45's rule: the gate must see it
-  before anyone tunes it), the live reading when nominations refill the queue, and structural
-  claims for the executive/agent classes (nothing like P1830 exists for them).
+  demand. ✅ The gate exists: `eval --task investigator --fixtures`, 5 new Expect axes, 3 frozen
+  fixtures from the probe set — **8/8 on first run** (daemon running; a first reading, not a
+  baseline). ⚠ Owed: the live reading when nominations refill the queue, and structural claims
+  for the executive/agent classes (nothing like P1830 exists for them).
   → *tuning §D-T46*
 - **D-T45 · ✅ THE GATE READ ep5, BOUGHT `ep6`, AND CORRECTED D-T44: THE TRIM HAD COST QUALITY THE
   GATE COULDN'T SEE (2026-08-09).** ⛔ The on-disk fixtures were frozen at ep5, so the first "ep1

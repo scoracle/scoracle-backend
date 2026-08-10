@@ -3445,11 +3445,19 @@ code 2026-08-07**. The manual queue reopened him; the owner class **accepted in 
 `owner_of` relationship, `wikidata Q1280022` + `enwiki` external ids — and Wikidata's aliases
 rode along free, so "Jerral Wayne Jones Sr." now resolves too.
 
-⚠ **OWED:** (1) an `investigator` eval task + authored fixtures — the D-T45 rule says the gate
-must see this contract before anyone TUNES it; the three probe cases above are the seed set;
-(2) the live reading once the nomination sweep refills `investigate_entity` (the queue is empty
-today) — the Jerry Jones manual queue is the first live datapoint; (3) `descriptor_role_class`'s
-vocabulary is unmeasured against real descriptors; (4) the executive/agent classes have no
+✅ **THE GATE EXISTS (same session): `eval --task investigator --fixtures` — 8/8 on first run.**
+The task registers in `eval_tasks.rs` (fixture-driven by design: live prompts depend on a
+Wikipedia fetch, so pages are FROZEN into fixtures; capture new ones from
+`acquisition_runs.query_plan`, which records every page the prose arm read). Five new `Expect`
+axes (`subject_kind_is`, `evidence_includes`, `evidence_empty`, `occupation_includes`,
+`prose_teams_include`); three fixtures frozen 2026-08-09 from the probe set — the
+connect-under-another-name accept, the club-page triage, the honest wrong-sport quote. ⚠ The
+8/8 was read with the daemon RUNNING (voices share the Mac runner), so it is a first reading,
+not a determinism-grade baseline — D-T19's condition applies to any future per-check diff.
+
+⚠ **STILL OWED:** (1) the live reading once the nomination sweep refills `investigate_entity` —
+the Jerry Jones manual queue is the first live datapoint; (2) `descriptor_role_class`'s
+vocabulary is unmeasured against real descriptors; (3) the executive/agent classes have no
 structural Wikidata claim like P1830 — they ride description/occupation words only.
 
 ### D-T41 — **oMLX IS A PROGRAM, NOT "MLX SERVING". RESEARCHED 2026-08-09 00:20 EDT, ON SCOTT'S CORRECTION.**

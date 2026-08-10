@@ -5,8 +5,11 @@ register passes — the method now five-times proven, and TWICE burned by its ow
 session) before anything else.
 
 **STANDING STATE (updated again after D-T56, 2026-08-10 ~17:00 — SUPERSEDES the block below):**
-⭐⭐ **Production is `ministral-3-8b` on oMLX at 6 concurrent** (255 req/h, 30/30, zero errors —
-D-T56; quality cleared at D-T55: 490/508, the 8B WINS the crown and the vibe). Mac: LaunchAgent
+⭐⭐ **Production is `ministral-3-8b` on oMLX at client concurrency 4, guard ceiling 11.2GB**
+(D-T56 + its sustained correction: burst cells read 255/h @6 with 30/30, but SUSTAINED drain is
+~180 req/h at 3, 4, or 6 alike with ~1/min fat-tail guard retries — the census tail, not
+concurrency, is the binding constraint, so 4 ships and THE DIETS ARE THE UNLOCK; quality
+cleared at D-T55: 490/508, the 8B WINS the crown and the vibe). Mac: LaunchAgent
 `com.scoracle.omlx` (the brew record is flaky — bootstrap error 5 — and stopped;
 `com.scoracle.ollama` plist kept as fallback at NUM_PARALLEL=4, model `ministral-3:8b` already
 pulled); oMLX settings: max_concurrent 6, guard custom 10.5GB, chunked prefill, **cache off**

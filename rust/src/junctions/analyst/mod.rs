@@ -44,9 +44,11 @@ pub const MOMENTUM_STEADY_BAND: f64 = 10.0;
 const MOMENTUM_WORK_PREFIX: &str = "momentum:s";
 
 /// Storylines rendered into one momentum prompt (7.8). The READ is about a direction, not about
-/// the news — two live stories are ample grounding for "what is actually moving", and the 4096
-/// window has five other sections to hold.
-const MAX_MOMENTUM_PACKETS: i64 = 2;
+/// the news — and s14 (the diet pass) cut this 2→1: each packet renders under a ~2,000-token
+/// budget, and two of them were the single largest driver of the prompts the oMLX prefill guard
+/// killed on 2026-08-10 (86 rejections that morning). The hottest story is ample grounding for
+/// "what is actually moving"; the vibe pillar already summarizes the feeling across the rest.
+const MAX_MOMENTUM_PACKETS: i64 = 1;
 
 #[derive(Clone, Debug)]
 pub struct MomentumContext {

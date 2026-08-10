@@ -4970,6 +4970,15 @@ diagnosis, the numbers and the candidate knobs stay in the tuning file at the se
   is no longer "the largest available throughput change" — D-T34 is.** The live runner shows
   `-c 8192 -np 2` = 4096 PER SLOT, confirming KV scales as `num_ctx × slots`, so 4 slots at 2048
   would cost today's KV — ⛔ **but only AFTER D-T35's prompt trim, never before.** → *tuning §D-T30*
+- **D-T52 · ✅ THE ANALYST'S s14 — THE PROP-TRADER REGISTER RETURNS (Scott reinstates what s6
+  retired); THE DIRECTION FIXTURES EXIST; THE DIET LANDS (2026-08-10).** Gate first: all 8
+  fixtures had decided STEADY — rising/falling fixtures now exist; `prose_no_digits` axis; s13
+  baseline 78/81 caught a live banned phrase + a digit. The busy server's 79/81 proved to be
+  the GPU's number (same bytes: byte-stable 74/81 quiet) — eval discipline vindicated. The
+  fix for the trader register's hedge resurrection was a SECOND worked example (a steady read
+  that lands on what IS). Diet: `MAX_MOMENTUM_PACKETS` 2→1 + vibe prose capped 600B — worst
+  case ~7k → <5k tok (86 prefill kills on 08-10 alone). **Reading 80/79 of 81 across two
+  stability runs vs s13's 78; re-frozen at momentum-s14.** → *tuning §D-T52*
 - **D-T51 · ✅ THE SCOUT'S s17 — THE VETERAN-ADVANCE-SCOUT REGISTER; SECTION SHAPE + NOTATION
   BAN GATED; PLAIN-TEXT GUARD (2026-08-10, same session as D-T50).** Gate grew first (labels,
   " · " ban, word floors on all 8, `total_sentences_max` wired into the evaluate); s16 baseline

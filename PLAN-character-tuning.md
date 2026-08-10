@@ -3473,6 +3473,47 @@ vocabulary is unmeasured against real descriptors; (3) the executive/agent class
 structural Wikidata claim like P1830 — they ride description/occupation words only; (4) the
 corroborated-enrichment recovery rate — the re-run of the NBA 50 is the measurement.
 
+### D-T52 — ✅ **THE ANALYST'S s14 — THE NIMBLE-PROP-TRADER REGISTER RETURNS; THE DIRECTION FIXTURES EXIST AT LAST; THE PROMPT GOES ON THE DIET.** (2026-08-10, same session as D-T50/51)
+
+**Scott's register, verbatim option:** *"Watches the tape (PEAK trajectory) as price action and
+the feed (Vibe/news) as sentiment; positions with conviction, cuts losers without romance, never
+marries a thesis. States the read like a desk note."* This REINSTATES, on Scott's word, the
+trader identity s6 retired; the jargon guard keeps the stance out of the vocabulary ("the seeker
+reads a sports card, not a ticker").
+
+**Gate first:** three blindnesses closed BEFORE the edit — (1) **all 8 fixtures decided steady**
+(even `clean-decline-falling`, score −3.2, inside the ±10 band), so every commit-to-the-move rule
+was ungated: `rising-confirmed` (+28.4) and `falling-confirmed` (−31.6) are the set's first
+non-steady cases; (2) the "emit NO number" rule had no check: new `prose_no_digits` axis; (3)
+no-markdown + sentence ceiling authored set-wide. **s13 baseline: 78/81** — the grown gate caught
+"isn't a collapse" firing LIVE, a digit in a READ, and s13 failing to voice "falling" on the new
+fixture.
+
+**The measurement discipline mattered more than ever here.** A mid-session reading of 79/81 taken
+on the busy/degraded server later proved to be the GPU's number, not the model's: the same bytes
+read a byte-stable 74/81 on the quiet server (two identical runs) — the harness's "VALID ONLY
+WITH THE DAEMON STOPPED" warning, vindicated in both directions. And the s13 lesson repeated
+EXACTLY: a rule-1 salience nudge ("a READ that never says PEAK … is a miss") resurrected the
+hedge closers (74-76/81) and was reverted same-day. What actually fixed the hedges was a SECOND
+worked example: the trader register's first example was a rising read, steady cases had no model
+of honest flatness and reached for "isn't a collapse" — a compact steady example ("lands on what
+IS, never on what it is not"; Nadia Kerr, invented) took banned-phrase hits from 4 to 0-1.
+
+**The diet (the prefill debt, same pass):** `MAX_MOMENTUM_PACKETS` 2→1 (each packet renders under
+a ~2,000-token budget — two of them were the largest driver of the prompts the oMLX guard killed:
+86 momentum prefill rejections on 08-10 alone) and the vibe prose is capped at 600 bytes in the
+momentum prompt (parity with the scouting read's cap; v17's stands-alone rule puts the signal in
+the body's opening). Ledger measurement: packet-era p90 built prompts had grown 3k→9-10.5k chars
+(successful calls only — the killed tail never reaches the ledger). Worst case drops ~7k → under
+~5k tokens.
+
+**Reading: 80/81 and 79/81 across two stability runs (quiet server), vs s13's 78/81 on the same
+81-check denominator; fixtures re-frozen at momentum-s14.** Residuals, both honest-negation
+adjacency flickering across draws: "not falling"-style phrasing on a steady read trips the
+pre-existing `falling` exclude, and "isn't a collapse" flickers on one draw in two. The 320
+markdown-prose production failures trace to the READ shape having no worked example — s14 now
+pins it twice.
+
 ### D-T51 — ✅ **THE SCOUT'S s17 — THE VETERAN-ADVANCE-SCOUT REGISTER; THE SECTION SHAPE AND THE NOTATION BAN ARE GATED; THE PLAIN-TEXT GUARD LANDS.** (2026-08-10, same session as D-T50)
 
 **Scott's register, verbatim option:** *"Sharpen toward the 30-year advance scout: economical,

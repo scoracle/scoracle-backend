@@ -252,6 +252,11 @@ pub struct Expect {
     /// presence is `hook_nonempty`/`hook_max_words`'s job.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hook_excludes: Option<Vec<String>>,
+    /// momentum s14: the contract's "emit NO number" rule, gated — no ASCII digit anywhere in
+    /// the READ. (The decided-direction line hands the model a signed score; echoing it is the
+    /// exact violation this catches.)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prose_no_digits: Option<bool>,
     // sigil panel-disagreement rubric.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub convergence_min: Option<i32>,
@@ -1576,6 +1581,24 @@ impl LensTask for MomentumTask {
                     name: "prose_words_le".into(),
                     pass: word_count <= max,
                     detail: format!("words={word_count} ≤ {max}"),
+                });
+            }
+            // s14 gate growth (D-T45): the "emit NO number" rule and the 8-sentence allowance
+            // had no check of any kind.
+            if x.prose_no_digits == Some(true) {
+                let digit = reply.blurb.chars().find(|c| c.is_ascii_digit());
+                checks.push(PropertyCheck {
+                    name: "prose_no_digits".into(),
+                    pass: digit.is_none(),
+                    detail: digit.map_or_else(String::new, |d| format!("found digit {d:?}")),
+                });
+            }
+            if let Some(max) = x.total_sentences_max {
+                let total = sentence_runs(&reply.blurb);
+                checks.push(PropertyCheck {
+                    name: "total_sentences_le".into(),
+                    pass: total <= max,
+                    detail: format!("sentences={total} ≤ {max}"),
                 });
             }
         }

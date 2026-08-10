@@ -13,6 +13,38 @@
 > late; that is what the drift costs.) **§0 rule 3 — plumbing gates phases; a phase may CITE the
 > ledger, it may never HALT on it.**
 
+**STATE (2026-08-10 — THE INFLUENCER/SCOUT/ANALYST session. Supersedes every block below, which
+stay for their detail.)**
+✅ **THREE VOICES TUNED ON THE METHOD, ONE COMMIT EACH, DEPLOYED @ `71dbfdb`:** the Influencer
+v17 (D-T50, platform-native creator, the VIBE body gated at last, 52/53), the Scout s17 (D-T51,
+veteran advance scout, section shape + notation ban gated, plain-text guard, 90/91), the Analyst
+s14 (D-T52, the prop-trader register REINSTATED on Scott's word, the set's first rising/falling
+fixtures, `prose_no_digits`, the DIET — packets 2→1 + vibe 600B — 80/79 of 81 vs s13's 78).
+Scott's register briefs are quoted verbatim in each D-T. **All 1,985 failed rows across
+momentum/vibe/narratives/sigil were requeued post-deploy** (the 320-row markdown-prose momentum
+class + the 08-10 prefill casualties); backlogs at requeue: momentum ~2.7k, narratives ~2.1k,
+vibe ~1.9k, sigil ~0.5k pending.
+⛔ **THE MORNING'S INCIDENT, AND WHAT IT TAUGHT:** at the 08:00 duty-cycle resume (the timers:
+2h on / 1h rest — pause 00/03/06/…, resume one hour later) concurrency 6 met the 16GB Mac and
+oMLX THRASHED — prefill-guard rejections at 198/10min, the enforcer evicting the 14B itself
+(the HTTP 507s), ~330 rows failed by 08:25. The arithmetic: 8.24GB model + ~1GB KV/SDPA per
+~7k-token prefill vs a DYNAMIC ceiling (11.8GB shrinking toward 11.3 as other Mac apps take
+RAM). Dropped to 4 (Scott-approved) — still thrashed — then **2 (Scott-approved), where it
+holds. The owed 6→8 reading is answered: NO.** oMLX itself was restarted once to clear ~3GB of
+accumulated pool/prefix-cache bloat (launchd needed a bootout+kickstart — `brew services
+restart` alone left it down). ⚠ **Scott's parked directive (his words): "we're doing something
+wrong with concurrency… the 8.5 tok/s is way off what we tested. We need to dive into that" —
+AFTER the voices are cleaned up.** The eval discipline was vindicated twice in one session: a
+busy-server 79/81 was the GPU's number (same bytes: 74/81 quiet, byte-stable ×2) — readings are
+valid ONLY with the daemon stopped, and the rest windows (xx:00 every third hour) are the free
+slots.
+⚠ **STILL OWED (carried):** the Insider + Oracle voice passes (the sweep's remainder); the ep6
+production reading (D-T45's list); the frontend entity-sync build (design done, HANDOFF §2.1
+2026-08-10-prior); the upstream `jundot/omlx` grammar bug report (Scott's call); the
+concurrency/throughput deep-dive above; re-raising Mac concurrency past 2 only WITH a measured
+saturated-window reading now that the diet is in.
+
+*(Superseded 2026-08-09 STATE follows.)*
 **STATE (2026-08-09 — THE ep6 GATE session. Supersedes every block below, which stay for their
 detail.)**
 ⏭ **NEXT SESSION: THE VOICES — read `HANDOFF-voices.md` FIRST.** Scott's order: phase zero is

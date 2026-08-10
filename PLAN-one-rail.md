@@ -15,6 +15,11 @@
 
 **STATE (2026-08-09 — THE ep6 GATE session. Supersedes every block below, which stay for their
 detail.)**
+⏭ **NEXT SESSION: THE VOICES — read `HANDOFF-voices.md` FIRST.** Scott's order: phase zero is
+the Mac's runtime swap, Ollama → **oMLX** (D-T41; `--with-grammar` is load-bearing — FOUR seats
+carry schema contracts now), then crank Mac concurrency (everything downstream is ≤4096 since
+ep6), then the voices on the D-T45/D-T46 method, then Appendix S. Two archbox to-dos ride in
+the handoff §0 (the `OLLAMA_NUM_PARALLEL=6` sudo + password rotation).
 ✅ **THE READING D-T44 OWED WAS TAKEN ON THE FIXTURE GATE, AND IT BOUGHT `ep6` (D-T45).**
 ⛔ **First, the correction: D-T44's "the trim lost nothing" was WRONG.** The true ep1 prompt
 (recovered from git — the on-disk fixtures had been re-frozen at ep5, so the session's first

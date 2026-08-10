@@ -176,7 +176,7 @@ impl EmbedConfig {
 /// `OpenAi` is named for the PROTOCOL, not the vendor — nothing external is called. It speaks
 /// `/v1/chat/completions`, which is what oMLX (and vLLM, when it comes) serves.
 /// ⛔ **It cannot carry `num_ctx` or `think`** — neither exists in that protocol. See `openai.rs`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Backend {
     Ollama,
     OpenAi,

@@ -25,7 +25,7 @@ use scoracle_cognition::junctions::{
     analyst, editor, graph, influencer, insider, journalist, oracle, scout,
 };
 use scoracle_cognition::junctions::investigator::boxscore;
-use scoracle_cognition::{config, db, embed, ollama, stage, worker};
+use scoracle_cognition::{config, db, embed, ollama, openai, stage, worker};
 use std::collections::HashSet;
 use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
@@ -54,16 +54,17 @@ async fn main() -> Result<()> {
     // failure by far is that machine being asleep — which should be one obvious WARN at boot
     // rather than a slow trickle of failed items an hour later. Still non-fatal: a host that
     // comes back mid-run heals on the next claim.
-    let mut hosts: Vec<&str> = cfg
+    // Ping each host with ITS backend's protocol: an oMLX host 404s an ollama-style ping and
+    // the boot line then cries wolf about a healthy server (observed at the D-T47 cutover).
+    let mut hosts: Vec<(&str, config::Backend)> = cfg
         .route
         .roles
         .values()
-        .map(|s| s.base_url.as_str())
+        .map(|s| (s.base_url.as_str(), s.backend))
         .collect();
     hosts.sort_unstable();
     hosts.dedup();
-    for host in &hosts {
-        let ping_client = ollama::OllamaClient::new(*host, &cfg.ollama_model, cfg.ollama_timeout)?;
+    for (host, backend) in &hosts {
         // A host's concurrency budget is its own; log it beside the ping so the resolved
         // topology is legible from the boot lines alone.
         let permits = cfg
@@ -72,10 +73,24 @@ async fn main() -> Result<()> {
             .get(*host)
             .copied()
             .unwrap_or(cfg.ollama_max_concurrent);
-        match ping_client.ping().await {
-            Ok(()) => info!(base_url = %host, max_concurrent = permits, "ollama reachable"),
+        let (kind, pinged) = match backend {
+            config::Backend::Ollama => (
+                "ollama",
+                ollama::OllamaClient::new(*host, &cfg.ollama_model, cfg.ollama_timeout)?
+                    .ping()
+                    .await,
+            ),
+            config::Backend::OpenAi => (
+                "openai",
+                openai::OpenAiClient::new(*host, &cfg.ollama_model, cfg.ollama_timeout)?
+                    .ping()
+                    .await,
+            ),
+        };
+        match pinged {
+            Ok(()) => info!(base_url = %host, backend = kind, max_concurrent = permits, "model host reachable"),
             Err(e) => {
-                warn!(error = %e, base_url = %host, max_concurrent = permits, "ollama NOT reachable (continuing; roles on this host will fail until it is)")
+                warn!(error = %e, base_url = %host, backend = kind, max_concurrent = permits, "model host NOT reachable (continuing; roles on this host will fail until it is)")
             }
         }
     }

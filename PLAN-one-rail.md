@@ -4970,6 +4970,15 @@ diagnosis, the numbers and the candidate knobs stay in the tuning file at the se
   is no longer "the largest available throughput change" — D-T34 is.** The live runner shows
   `-c 8192 -np 2` = 4096 PER SLOT, confirming KV scales as `num_ctx × slots`, so 4 slots at 2048
   would cost today's KV — ⛔ **but only AFTER D-T35's prompt trim, never before.** → *tuning §D-T30*
+- **D-T51 · ✅ THE SCOUT'S s17 — THE VETERAN-ADVANCE-SCOUT REGISTER; SECTION SHAPE + NOTATION
+  BAN GATED; PLAIN-TEXT GUARD (2026-08-10, same session as D-T50).** Gate grew first (labels,
+  " · " ban, word floors on all 8, `total_sentences_max` wired into the evaluate); s16 baseline
+  86/91 caught a live " · " copy and a "play physical" generic call. Register pass (thirty
+  years of advance work, "a generic call is a wasted line") + plain-text guard (the model was
+  bolding labels) + z-rule tightened (usage artifact leaves the brief entirely) read **90/91**,
+  fixtures re-frozen at s17. Sentence ceiling removed same-day — the clipped register is many
+  short sentences BY DESIGN (s15). Residual: the s14 `giveaway` honesty-gap axis. → *tuning
+  §D-T51*
 - **D-T50 · ✅ THE INFLUENCER'S v17 — THE PLATFORM-NATIVE-CREATOR REGISTER, AND THE VIBE BODY
   IS FINALLY GATED (2026-08-10).** The VIBE prose had ZERO checks since v6; the gate grew first
   (prose axes wired into `VibeTask::evaluate` + new `hook_max_words`/`hook_excludes` axes,

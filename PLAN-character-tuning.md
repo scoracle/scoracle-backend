@@ -3473,6 +3473,41 @@ vocabulary is unmeasured against real descriptors; (3) the executive/agent class
 structural Wikidata claim like P1830 — they ride description/occupation words only; (4) the
 corroborated-enrichment recovery rate — the re-run of the NBA 50 is the measurement.
 
+### D-T51 — ✅ **THE SCOUT'S s17 — THE VETERAN-ADVANCE-SCOUT REGISTER; THE SECTION SHAPE AND THE NOTATION BAN ARE GATED; THE PLAIN-TEXT GUARD LANDS.** (2026-08-10, same session as D-T50)
+
+**Scott's register, verbatim option:** *"Sharpen toward the 30-year advance scout: economical,
+specific, film-room shorthand, respect in the details — same structure, more craft pride like the
+Journalist got."* Same three-section structure deliberately; NO worked example (the card-driven
+shape makes one a leak risk — the card supplies the content an example would teach).
+
+**Gate first:** the entire three-section shape was ungated (no fixture asserted the labels exist),
+the " · " notation ban had no check, and 6 of 8 fixtures had no word floor. Authored on all 8:
+`prose_includes` grows the three exact labels, `prose_excludes` grows " · ", floors land
+(30; the two rich profiles keep 50), and `total_sentences_max` was wired into
+`RatingTask::evaluate`. **s16 baseline: 86/91** — the new gates caught a LIVE " · " card-notation
+copy and a "play physical" generic call the old gate never saw.
+
+**Two check corrections by probe (the D-T50 lesson repeating):** (1) the whole-body sentence
+ceiling was REMOVED same-day — the clipped register is MANY short sentences BY DESIGN (s15:
+"Short sentences, not few of them"), a 34-sentence brief is the voice working, and the 420-word
+cap already bounds padding; the evaluate wiring stays for seats where a ceiling fits. (2) The
+model bolded the section labels (`**Strengths to respect:**`) — rating had NO plain-text guard
+(vibe has had one since v15); the guard landed in the prompt and `prose_excludes:"**"` on all 8.
+
+**The edit:** voice paragraph rewritten — thirty years of advance work, film-room shorthand,
+"a generic call is a wasted line and you do not waste lines." The z-rule tightened after a batch
+draw called 5th-pct/-0.2z giveaways "a red flag": a usage artifact is now excluded from the brief
+*entirely*, not merely as an exploit.
+
+**Reading: 90/91 on oMLX unconstrained, temp 0, fixtures re-frozen at s17.** The register pass
+itself cleared four of the five baseline misses (the " · " copy, the generic call, both padded
+briefs). The one residual is `usage-artifact-not-exploit`'s pre-existing `giveaway` exclude
+(s14, the Drake London precedent): batch draws mention giveaways as an honest dismissal
+("usage artifact — not a target"), solo draws omit it — the axis cannot distinguish
+mention-to-dismiss from mention-as-target and stays red as the documented honesty gap.
+Cross-seat note: `z_trajectory_label` (the Analyst coupling, D-T48's warning) is deterministic
+code and was untouched.
+
 ### D-T50 — ✅ **THE INFLUENCER'S v17 — THE PLATFORM-NATIVE-CREATOR REGISTER, AND THE VIBE BODY IS FINALLY GATED.** (2026-08-10, the Influencer/Scout/Analyst session)
 
 **Scott's register, verbatim option:** *"The creator who lives in the feed: reads the room

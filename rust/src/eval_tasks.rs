@@ -1446,6 +1446,16 @@ impl LensTask for RatingTask {
                     detail: format!("words={word_count} ≤ {max}"),
                 });
             }
+            // s17 gate growth: a crude whole-body sentence ceiling (the shared n18 counter) —
+            // a padding backstop over the Summary's 8-sentence allowance, not a style meter.
+            if let Some(max) = x.total_sentences_max {
+                let total = sentence_runs(&reply.body);
+                checks.push(PropertyCheck {
+                    name: "total_sentences_le".into(),
+                    pass: total <= max,
+                    detail: format!("sentences={total} ≤ {max}"),
+                });
+            }
         }
 
         CaseVerdict {

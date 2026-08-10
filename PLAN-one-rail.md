@@ -5002,6 +5002,17 @@ diagnosis, the numbers and the candidate knobs stay in the tuning file at the se
   is no longer "the largest available throughput change" — D-T34 is.** The live runner shows
   `-c 8192 -np 2` = 4096 PER SLOT, confirming KV scales as `num_ctx × slots`, so 4 slots at 2048
   would cost today's KV — ⛔ **but only AFTER D-T35's prompt trim, never before.** → *tuning §D-T30*
+- **D-T54 · ⭐ THE CONTEXT CENSUS + THE oMLX FIX EXPERIMENT (2026-08-10).** Exact per-junction
+  usage (150 ledger prompts via `prompt_eval_count`): system prompts ALONE are 1,116-1,726 tok
+  (55-85% of a 2048 budget); totals p50 vibe 3,315 (the fattest seat — 4-packet allowance),
+  sigil 3,028, narratives 2,259, momentum 2,003 (diet visible), rating 2,000, transfers 1,475
+  (fits already). **Every measured prompt exceeds the 2048-window budget (prompt ≤ ~1,348 with
+  the ≤700 reservation) — the 2048 win needs system diets (~600-800 targets) + user caps;
+  3072 is the reachable intermediate.** The oMLX fix recipe (concurrent 3, fixed 10.5GB guard,
+  chunked prefill, cache off): STABILIZES — no collapse/evictions at @3 (unfixed died in 90 s)
+  — but still rejects the fat third (11-12/30 guard 400s). **oMLX's 2.13× returns exactly when
+  the diet program lands; do the diets, then re-test. Ollama stays production.** → *tuning
+  §D-T54*
 - **D-T53 · ⭐ THE THROUGHPUT DIVE SOLVED — oMLX's ENFORCER NEVER LETS A CACHE WARM ON 16GB;
   THE PRODUCTION-SHAPED A/B SAYS OLLAMA CLEARS THE DRAIN (2026-08-10).** Scott was right on
   every count: avg prompt 1,633 tok (11/224 over 2k); "8.5 tok/s" included prefill and D-T34's

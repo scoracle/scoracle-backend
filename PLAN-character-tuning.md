@@ -3473,6 +3473,55 @@ vocabulary is unmeasured against real descriptors; (3) the executive/agent class
 structural Wikidata claim like P1830 — they ride description/occupation words only; (4) the
 corroborated-enrichment recovery rate — the re-run of the NBA 50 is the measurement.
 
+### D-T54 — ⭐ **THE CONTEXT CENSUS (exact, per junction) + THE oMLX FIX EXPERIMENT: THE RECIPE STABILIZES BUT THE FAT THIRD STILL DIES — THE 2048 WINDOW NEEDS SYSTEM-PROMPT DIETS FIRST.** (2026-08-10, same session; drain paused on Scott's word — "2.3x is worth fully exploring")
+
+**THE CENSUS (the first EXACT numbers — ollama `prompt_eval_count` on 150 recent ledger
+prompts, 25/stage, requests striped across stages so the slot cache cannot undercount a
+repeated system prefix; total = system + user + template):**
+
+| stage | system alone | p50 | p90 | max | >2,000 of 25 |
+|---|---|---|---|---|---|
+| vibe | 1,268 | **3,315** | 5,459 | **7,808** | 24 |
+| sigil | 1,726 | 3,028 | 3,618 | 3,854 | 25 |
+| narratives | 1,232 | 2,259 | 2,848 | 5,930 | 16 |
+| momentum (post-D-T52 diet) | 1,451 | 2,003 | 2,672 | 3,958 | 13 |
+| rating | 1,370 | 2,000 | 2,376 | 2,496 | 12 |
+| transfers | 1,116 | 1,475 | 1,953 | 1,986 | **0** |
+
+**THE VERDICT ON SCOTT'S 2048 TARGET:** a 2048 window must hold prompt + the ≤700 generation
+reservation → prompt budget ≈ **1,348** — and **every one of the 150 measured prompts exceeds
+it, in every stage**, because **the fixed SYSTEM prompts alone are 1,116-1,726 tokens (55-85%
+of the whole 2048 budget)**. The "under 2,000 total" framing needs BOTH: (a) system-prompt
+diets to ~600-800 tokens each (the register passes grew them; the worked examples alone are
+~150-300 tok each and are load-bearing — this is a compression pass, not a deletion pass), and
+(b) user-side caps (vibe is the FATTEST seat — its 4-packet allowance + narratives + memory;
+the D-T52 momentum treatment, packets 4→1-2 + section caps, applies directly). **3072 is the
+reachable intermediate: transfers fits TODAY (max 1,986), rating and momentum are near (p90
+2,376/2,672), sigil/vibe/narratives need their user diets.** Surprises for the record: vibe,
+assumed light, is the heaviest; and momentum's diet already shows (p50 2,003 vs the pre-diet
+9-10.5k-char era). Also caught live: pre-s17 `divined_peak` rows carry Markdown bold
+(`PEAK label: **Dribbling**`) into downstream prompts — s17 stops new ones; old rows wash out
+on regeneration.
+
+**THE oMLX FIX EXPERIMENT (settings backed up `settings.json.bak-20260810-prefix`; applied:
+`max_concurrent_requests` 8→3, `memory_guard` custom **10.5GB** fixed ceiling,
+`chunked_prefill` on, prefix/SSD cache **off**):**
+
+| cell | completed | errors | batch wall | req/h | vs unfixed |
+|---|---|---|---|---|---|
+| oMLX-fixed @2 | 19/30 | 11 (all guard 400s) | 368 s | 186 | same failures, no thrash |
+| oMLX-fixed @3 | 18/30 | 12 | 262 s | 248 | **no collapse** (unfixed: 14/30 then mass-507 in ~90 s) |
+
+**Reading: the recipe WORKS for stability — the enforcer death-spiral and model evictions are
+gone (wall_max ~52 s, repeat probes steady) — but the guard still rejects the fat third of the
+REAL workload**, because 10.5GB − 8.24GB model leaves ~2.3GB for KV+scratch and the 3-8k-token
+prompts (the census's sigil/vibe/narratives tails) still exceed per-prefill headroom. **oMLX's
+2.13× is not recoverable on this 16GB box at TODAY'S prompt sizes. It becomes recoverable
+exactly when the census's diet program lands** — all prompts ≤~2k would fit the guard with
+room for 3-4 concurrent streams. The two efforts converge on the same work: **do the diets,
+then re-test oMLX with this config.** Until then ollama (D-T53: 30/30, 165 req/h) remains
+production. oMLX settings stay at the fixed config for the eventual re-test.
+
 ### D-T53 — ⭐ **THE THROUGHPUT DIVE (Scott: "something's not adding up") — SOLVED. oMLX's MEMORY ENFORCER NEVER LETS A CACHE WARM ON 16GB, AND THE PRODUCTION-SHAPED A/B SAYS OLLAMA CLEARS THE DRAIN.** (2026-08-10, same session, drain paused ~50 min on Scott's approval)
 
 **Scott's frame, verbatim:** *"If Ollama has better throughput, we want to go back to that. But we

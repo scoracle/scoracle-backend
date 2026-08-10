@@ -4970,6 +4970,22 @@ diagnosis, the numbers and the candidate knobs stay in the tuning file at the se
   is no longer "the largest available throughput change" — D-T34 is.** The live runner shows
   `-c 8192 -np 2` = 4096 PER SLOT, confirming KV scales as `num_ctx × slots`, so 4 slots at 2048
   would cost today's KV — ⛔ **but only AFTER D-T35's prompt trim, never before.** → *tuning §D-T30*
+- **D-T47 · ⛔ oMLX'S GRAMMAR CORRUPTS TEKKEN OUTPUT — THE FLIP SHIPS WITH `response_format`
+  WITHHELD, CONTRACTS RIDE THE FAIL-CLOSED PARSERS (2026-08-09, the voices session).** The
+  investigator fixture gate read 4/8 on oMLX (frozen 8/8 on ollama) and the misses were
+  CHARACTER-level: "basketball" → "basketbal" **mid-word**, "Utah Jazz" → "Jazz", strings closed
+  early then whitespace-looped to `max_tokens`. Deterministic (byte-identical reruns), cross-model
+  (the 3B, told to emit the exact phrase, dropped the same letter), and in EVERY constrained mode
+  (`json_schema`, `json_object`, vLLM `structured_outputs`); the same prompt unconstrained is
+  byte-perfect, escapes interior quotes correctly, and passes. **So D-T41's "enforces or errors, no
+  quiet middle" was WRONG — corrupted constrained output is the quiet middle**, and it would have
+  poisoned the verbatim-containment contracts (`ip1`) worst of all. `OpenAiClient` now withholds
+  `response_format` by default (`with_constraint(true)` keeps the wire-path tested for the day
+  upstream fixes it); parsers were already fail-closed + fence-tolerant. ⛔ Deploy order: the
+  archbox binary MUST carry this commit before the daemon restarts on the oMLX routes. ⚠ With
+  grammar off, D-T43's "the grammar pins shape for free" no longer holds on the Mac — enum/shape
+  drift becomes VISIBLE parse failures; per-voice fixture gates are the instrument as each voice
+  is tuned. → *tuning §D-T47*
 - **D-T46 · ✅ THE INVESTIGATOR'S PROSE ARM (5.4's deferred fallback, `ip1`) IS BUILT — THE SEAT'S
   FIRST MODEL PATH (2026-08-09).** For the D-T8 class ("Airious Bailey" vs "Ace Bailey"):
   Wikipedia FULL-TEXT search (validated live: the target page is rank 1 for the legal name) →

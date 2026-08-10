@@ -10,7 +10,7 @@
 //! Targets `POST {base_url}/v1/chat/completions`. Works against any OpenAI-compatible server;
 //! oMLX is the one it was measured against.
 //!
-//! ## Three differences from ollama that callers must know
+//! ## Four differences from ollama that callers must know
 //!
 //! 1. ⛔ **`num_ctx` HAS NO EQUIVALENT AND IS DROPPED.** OpenAI's schema has no context-window
 //!    field — `max_tokens` bounds OUTPUT only. On oMLX this is not the silent-degradation trap it
@@ -20,12 +20,23 @@
 //!    moves from silently-wrong to loudly-failed**, which is the direction worth having — but it
 //!    means an oversized prompt now DIES instead of degrading, so the voice diet (D-T35) is a
 //!    precondition of routing a stage here, not an optimisation.
-//! 2. **Property order is preserved deliberately.** `format_schema_raw` exists because §1a makes
+//! 2. ⛔ **GRAMMAR CONSTRAINTS ARE NOT SENT — measured off, not designed off (2026-08-09).**
+//!    oMLX 0.5.7's xgrammar path deterministically CORRUPTS constrained output on the tekken
+//!    tokenizer family (both Ministral sizes): "basketball" → "basketbal" mid-string, "Utah Jazz"
+//!    → "Jazz", strings closed early then whitespace-looped to `max_tokens`. The same model, same
+//!    prompt, unconstrained, is byte-perfect — so `response_format` is withheld by default and
+//!    every contract rides the fail-closed parser + balanced-brace salvager it already rides.
+//!    D-T41's "enforces or errors, no quiet middle" was WRONG: corrupted-but-conforming-looking
+//!    output IS the quiet middle, and it would have poisoned the verbatim-containment contracts.
+//!    `with_constraint(true)` keeps the grammar wire-path alive (and pinned by tests) for the day
+//!    the upstream bug is fixed; `json_object`/`json_schema`/vLLM `structured_outputs` all ride
+//!    the same broken compiler today, so there is no partial re-enable worth having.
+//! 3. **Property order is preserved deliberately.** `format_schema_raw` exists because §1a makes
 //!    property ORDER part of the contract and `serde_json::Value` is BTreeMap-backed, so a schema
 //!    that travels as a `Value` arrives alphabetised and the grammar then enforces that accidental
 //!    order. The raw string is embedded byte-for-byte here for exactly the same reason it is on the
 //!    ollama path.
-//! 3. **`think` is not sent.** It is an ollama extension; a reasoning model behind an
+//! 4. **`think` is not sent.** It is an ollama extension; a reasoning model behind an
 //!    OpenAI-compatible server exposes no such switch. Roles that need it must stay on ollama.
 
 use crate::ollama::{GenerateOptions, GenerateResult};
@@ -39,6 +50,10 @@ pub struct OpenAiClient {
     base_url: String,
     model: String,
     http: reqwest::Client,
+    /// Whether to send `response_format` (grammar-constrained decoding). False in production:
+    /// oMLX 0.5.7's xgrammar path corrupts tekken-tokenizer output (module note §2). The field
+    /// and the wire-path tests survive so re-enabling on a fixed server is a one-line change.
+    constrain: bool,
 }
 
 #[derive(Serialize)]
@@ -125,7 +140,15 @@ impl OpenAiClient {
             base_url: base_url.into().trim_end_matches('/').to_string(),
             model: model.into(),
             http,
+            constrain: false,
         })
+    }
+
+    /// with_constraint re-enables the `response_format` grammar wire-path — test-and-probe only
+    /// until oMLX's tekken corruption (module note §2) is fixed upstream.
+    pub fn with_constraint(mut self, constrain: bool) -> Self {
+        self.constrain = constrain;
+        self
     }
 
     /// response_format for this call, as raw JSON text.
@@ -180,7 +203,12 @@ impl OpenAiClient {
             temperature: opts.temperature,
             // Same rule as the ollama path: omitted when unset, so the server's own default applies.
             max_tokens: (opts.num_predict > 0).then_some(opts.num_predict),
-            response_format: Self::response_format(opts)?,
+            // Withheld unless `constrain` — the grammar corrupts on this server (module note §2).
+            response_format: if self.constrain {
+                Self::response_format(opts)?
+            } else {
+                None
+            },
         })
     }
 
@@ -312,6 +340,31 @@ mod tests {
         OpenAiClient::new("http://voice-host:8000/", "ministral-3-14b", Duration::ZERO).unwrap()
     }
 
+    /// The grammar wire-path under test — NOT what production sends today.
+    fn constrained_client() -> OpenAiClient {
+        client().with_constraint(true)
+    }
+
+    /// ⛔ The production default: even a schema-carrying request sends NO `response_format` —
+    /// oMLX 0.5.7's grammar corrupts tekken output, so the contract rides the fail-closed
+    /// parser instead. If this test ever needs changing, the upstream bug had better be fixed.
+    #[test]
+    fn schema_is_withheld_by_default() {
+        let opts = GenerateOptions {
+            json_mode: true,
+            format_schema: Some(serde_json::json!({"type":"object"})),
+            format_schema_raw: Some(r#"{"type":"object"}"#.into()),
+            ..Default::default()
+        };
+        let body = client().request_body("x", &opts);
+        assert!(
+            body.get("response_format").is_none(),
+            "response_format leaked from the default client: {body}"
+        );
+        let wire = client().wire_body("x", &opts).unwrap();
+        assert!(!wire.contains("response_format"), "wire: {wire}");
+    }
+
     #[test]
     fn base_url_trailing_slash_is_trimmed() {
         assert_eq!(client().base_url, "http://voice-host:8000");
@@ -351,7 +404,7 @@ mod tests {
             json_mode: true,
             ..Default::default()
         };
-        let body = client().request_body("x", &opts);
+        let body = constrained_client().request_body("x", &opts);
         assert_eq!(body["response_format"]["type"], "json_object");
     }
 
@@ -372,7 +425,7 @@ mod tests {
             ),
             ..Default::default()
         };
-        let wire = client().wire_body("x", &opts).expect("serializes");
+        let wire = constrained_client().wire_body("x", &opts).expect("serializes");
         assert!(wire.contains(r#""type":"json_schema""#), "wire: {wire}");
         assert!(wire.contains(r#""strict":true"#), "wire: {wire}");
         let zebra = wire.find("zebra").expect("zebra present");
@@ -395,7 +448,7 @@ mod tests {
             ),
             ..Default::default()
         };
-        let c = client();
+        let c = constrained_client();
         let ledger = serde_json::to_string(&c.request_body("x", &opts)).unwrap();
         let wire = c.wire_body("x", &opts).unwrap();
         assert!(
@@ -417,7 +470,7 @@ mod tests {
             format_schema: Some(serde_json::json!({"type":"object"})),
             ..Default::default()
         };
-        let body = client().request_body("x", &opts);
+        let body = constrained_client().request_body("x", &opts);
         assert_eq!(body["response_format"]["type"], "json_schema");
         assert_eq!(body["response_format"]["json_schema"]["schema"]["type"], "object");
     }

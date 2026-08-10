@@ -3473,6 +3473,71 @@ vocabulary is unmeasured against real descriptors; (3) the executive/agent class
 structural Wikidata claim like P1830 — they ride description/occupation words only; (4) the
 corroborated-enrichment recovery rate — the re-run of the NBA 50 is the measurement.
 
+### D-T47 — ⛔ **oMLX'S xgrammar PATH CORRUPTS TEKKEN-TOKENIZER OUTPUT AT THE CHARACTER LEVEL — GRAMMAR IS OFF FOR THE OPENAI BACKEND, AND D-T41'S "NO QUIET MIDDLE" IS CORRECTED.** (2026-08-09, the voices session, found by the investigator fixture gate during the flip)
+
+**THE INSTRUMENT WAS THE GATE, EXACTLY AS DESIGNED.** First grammar smoke of the flip:
+`eval --task investigator --fixtures` against oMLX (client: the shipped `Backend::OpenAi`,
+`json_schema strict` on the wire) read **4/8 — the frozen ollama baseline is 8/8** — and every
+miss was a corruption INSIDE a grammar-constrained string:
+
+| fixture | expected (verbatim contract) | oMLX constrained emitted |
+|---|---|---|
+| legal-name accept | "American professional basketball player" | "American professional **basketbal** player" |
+| legal-name accept | teams ["Utah Jazz"] | ["Rutgers", "Scarlet", "Jazz", …] — "Utah" dropped, "Scarlet Knights" split |
+| wrong-sport refusal | occupation "ice hockey…" quoted | "ice" — string closed early |
+| legal-name accept | `Airious "Ace" Bailey` | "Airious" — closed before the quoted nickname |
+
+**THE PINNING PROBES:**
+* **Deterministic:** two eval runs byte-identical on the corrupted fields (the array tail varied
+  — batching nondeterminism, the known D-T19 caveat — but "basketbal" never wavered).
+* **Cross-model, same tokenizer family:** the 3B, instructed to emit the exact phrase, produced
+  the same missing letter: `{"occupation": "American professional basketbal player"}`. Both
+  Ministrals ride mistral's tekken tokenizer → the fault is the constrained-decoding path's token
+  masking against that vocabulary, not the 14B or its quant.
+* **Every constrained mode is the same path:** `json_schema strict`, `json_object`, and the
+  vLLM-style `structured_outputs` field all corrupt; `guided_json` is silently ignored. The bug
+  is even self-documenting: the 3B once emitted the corrupted value in its answer field and the
+  CORRECT spelling in a free-prose note field of the same constrained response — inside one
+  generation, the mask bit specific token sequences, not the vocabulary.
+* ⭐ **The control that decides everything: the SAME frozen fixture prompt, unconstrained, at
+  temp 0, is byte-perfect** — `Airious "Ace" Bailey` with the interior quotes properly escaped,
+  "American professional basketball player" whole, `["Utah Jazz"]` exact, valid JSON in a
+  ` ```json ` fence. The model was never the problem.
+
+⛔ **THE CORRECTION D-T41 IS OWED: "oMLX structured output either enforces the grammar or errors —
+there is no quiet middle" is FALSE.** The quiet middle is corrupted output that still LOOKS
+schema-shaped — the worst possible failure for verbatim-containment contracts (`ip1` discards any
+field that fails containment against page text, so every corrupted quote would read as a
+hallucination and the arm would silently refuse everything it exists to accept). D-T41's own probe
+passed because its crown schema happened not to cross a poisoned token sequence — a reminder that
+one conforming probe is a smoke, not a warrant.
+
+**THE DECISION: `response_format` IS WITHHELD BY THE `OpenAiClient` (default), contracts ride the
+fail-closed parsers.** Grounds: (1) the unconstrained output is byte-perfect on the very contract
+that found the bug; (2) every junction already parses fail-closed behind the balanced-brace
+salvager (fences tolerated — `find('{')`/`rfind('}')`); (3) a parse/enum failure without grammar
+is VISIBLE (failed work row → backoff → dead-letter), where the corruption was silent.
+`with_constraint(true)` keeps the grammar wire-path built and test-pinned
+(`schema_is_withheld_by_default` locks the production shape) for the day upstream fixes it —
+re-enable is a one-line change plus THIS gate re-run.
+
+⚠ **WHAT GRAMMAR-OFF COSTS, NAMED HONESTLY:** D-T43's third clause ("the grammar pins shape,
+prose carries meaning — token-free") no longer holds for Mac-routed seats. Enum values and shape
+are pinned by NOTHING but the prompt and the parser now: narratives (`format_schema`), sigil
+(`format_schema`), transfers (`json_mode`), investigator (`format_schema_raw`). The voices were
+already due per-voice tuning THIS session — each voice's pass must now also (a) audit its prompt
+for enum/shape guidance the D-T43 era deleted as redundant, and (b) read its fixture gate on the
+unconstrained path before its backlog drains. Integer fields should also carry `minimum`/`maximum`
+bounds in their schemas for re-enable day — an unbounded constrained integer digit-looped to
+`max_tokens` in probing (grammar-legal, still garbage).
+
+**Deploy order (⛔ before any daemon restart):** archbox's routes now name
+`_BACKEND=omlx` / `:8000` / `ministral-3-14b` (backup `.env.local.bak-20260809-preomlx`), so the
+running binary must include this commit — an OLD binary would send the corrupted grammar path to
+production. Upstream: file against `jundot/omlx` with the 3B one-liner repro; xgrammar 0.2.3→0.2.4
+in the venv changed nothing (and needed a `/opt/homebrew/lib/libtvm_ffi.dylib` symlink to load —
+rolled into the venv as-is, server holds the working state).
+
 ### D-T41 — **oMLX IS A PROGRAM, NOT "MLX SERVING". RESEARCHED 2026-08-09 00:20 EDT, ON SCOTT'S CORRECTION.**
 
 ⚠ **Written because this session got it wrong first.** D-T34 quotes Scott saying *"switch to oMLX"*
@@ -3496,6 +3561,10 @@ a macOS **menu-bar app AND headless inference server** for Apple Silicon, curren
 * Install: `brew tap jundot/omlx https://github.com/jundot/omlx && brew install omlx`, or a signed +
   notarized DMG. `omlx serve` / `omlx start|stop|restart`; the formula ships a `service` block, so
   `brew services` can run it headless. Requires macOS 15+, **Python 3.11–3.13**.
+
+*(⛔ Superseded 2026-08-09 same day, D-T47: the grammar path CORRUPTS tekken output at the
+character level — "structured output works" below was one lucky probe, and grammar is now OFF for
+the OpenAI backend. Kept verbatim for the record.)*
 
 ✅ **THE STRUCTURED-OUTPUT ANSWER WAS IN THE FORMULA, NOT THE DOCS — AND IT IS OPT-IN:**
 `option "with-grammar", "Install xgrammar for structured output (requires torch, ~2GB)"`.

@@ -3473,6 +3473,44 @@ vocabulary is unmeasured against real descriptors; (3) the executive/agent class
 structural Wikidata claim like P1830 — they ride description/occupation words only; (4) the
 corroborated-enrichment recovery rate — the re-run of the NBA 50 is the measurement.
 
+### D-T50 — ✅ **THE INFLUENCER'S v17 — THE PLATFORM-NATIVE-CREATOR REGISTER, AND THE VIBE BODY IS FINALLY GATED.** (2026-08-10, the Influencer/Scout/Analyst session)
+
+**Scott's register, verbatim option:** *"The creator who lives in the feed: reads the room
+instantly, translates crowd emotion into one clean take. Feels first, but never fakes —
+sincerity stays the craft."*
+
+**Gate first (the D-T45 rule, worst case yet):** the VIBE prose field had **ZERO checks of any
+kind since v6** — `VibeTask::evaluate` understood only `score_min`/`score_max`/`hook_nonempty`.
+The evaluate now reads the shared prose axes (`prose_includes/excludes`, `prose_min_words/max`,
+`total_sentences_max` via the extracted `sentence_runs` helper the Journalist's n18 counter now
+shares) plus two NEW `Expect` axes: `hook_max_words` (missing hook fails — asserting the cap
+asserts presence) and `hook_excludes` (":" = the Topic:Subtitle construction, "?" = bait). All
+authored across the 5 fixtures BEFORE the prompt edit; the v16 baseline then read **43/46**, and
+all three misses were one real defect the gate had never seen: **the body leans on pronouns and
+never names the subject when the HOOK already did** — which matters because the Analyst renders
+`Vibe prompt:` WITHOUT the hook (`analyst/prompt.rs:149-158`), so a pronoun-opening body degrades
+momentum's input.
+
+**The edit:** voice paragraph rewritten to the register (lives in the feed, reads the room before
+the room reads itself, one clean take); a worked example lands — vibe's first ever (the ep6/n18
+lesson) — with invented entities (Marchetti / Union Verde / Riva Nova) so it cannot leak content;
+and the new stands-alone rule: *"The VIBE stands alone: it travels downstream without the HOOK,
+so name the entity by name inside the body itself."* HOOK cap restated as a hard cap.
+
+**Two gate checks were themselves corrected by the probes (checks can be wrong too):**
+`quiet-mixed`'s `prose_excludes:"surge"` tripped on *"It's not a surge, but it's not a slump
+either"* — honest negation; the score band already gates inflation; removed. `clearly-positive`'s
+`"trick"` relaxed to `"goals"` (the model grounds the thread as "three goals" — equally
+corpus-true). One phrasing lesson: "twelve words at the absolute most — cut it down, never cram"
+made hooks LONGER (9→14 words on clearly-negative); the terse "Twelve is a hard cap — count the
+words" recovered it.
+
+**Reading: 52/53 on oMLX unconstrained, temp 0, fixtures re-frozen at v17.** The one residual:
+`continuity-deliberate-move`'s hook runs 13 words ("Morrow's streak just hit a wall and the room
+is holding its breath") — good prose one word over, the documented honesty gap (the ep6/Fortuna
+precedent; production temp 0.7 varies the draw). Bodies now name Vale/Fenn/Morrow/Sharks/Trent
+and stand alone.
+
 ### D-T49 — ✅ **THE JOURNALIST'S n18 — THE ELOQUENCE PASS.** (2026-08-09, same session as D-T48)
 
 **Scott's register, verbatim:** *"We want the voice of one of the Athletic's dedicated writers

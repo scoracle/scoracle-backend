@@ -242,6 +242,16 @@ pub struct Expect {
     /// v13 Influencer card contract: the HOOK line (card title) must materialize.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hook_nonempty: Option<bool>,
+    /// v17 hook discipline: the HOOK's own stated caps, gated (the D-T45 rule — a field the
+    /// gate cannot see is a field a prompt edit can quietly break). Word ceiling ("under
+    /// twelve words"); a missing hook fails the ceiling — asserting the cap asserts presence.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hook_max_words: Option<i32>,
+    /// v17 hook discipline: banned substrings, case-insensitive ("?" = question-mark bait,
+    /// ":" = the Topic: Subtitle construction). A missing hook passes trivially —
+    /// presence is `hook_nonempty`/`hook_max_words`'s job.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hook_excludes: Option<Vec<String>>,
     // sigil panel-disagreement rubric.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub convergence_min: Option<i32>,
@@ -698,6 +708,66 @@ impl LensTask for VibeTask {
                             detail: format!("hook={}", hook.as_deref().unwrap_or("(absent)")),
                         });
                     }
+                    // v17 gate growth (the D-T45 rule): the VIBE body had carried ZERO checks
+                    // of any kind since v6 — the prose axes and the hook's stated caps land
+                    // BEFORE the register pass so the pass cannot quietly break them.
+                    if let Some(max) = x.hook_max_words {
+                        let n = hook
+                            .as_deref()
+                            .map(|h| h.split_whitespace().count() as i32);
+                        checks.push(PropertyCheck {
+                            name: "hook_words_le".into(),
+                            pass: n.is_some_and(|n| n <= max),
+                            detail: match n {
+                                Some(n) => format!("hook words={n} ≤ {max}"),
+                                None => "hook=MISSING".to_string(),
+                            },
+                        });
+                    }
+                    for s in x.hook_excludes.iter().flatten() {
+                        checks.push(PropertyCheck {
+                            name: format!("hook_excludes:{s}"),
+                            pass: !hook.as_deref().is_some_and(|h| contains_ci(h, s)),
+                            detail: format!("hook={}", hook.as_deref().unwrap_or("(absent)")),
+                        });
+                    }
+                    for s in x.prose_includes.iter().flatten() {
+                        checks.push(PropertyCheck {
+                            name: format!("prose_includes:{s}"),
+                            pass: contains_ci(&v, s),
+                            detail: String::new(),
+                        });
+                    }
+                    for s in x.prose_excludes.iter().flatten() {
+                        checks.push(PropertyCheck {
+                            name: format!("prose_excludes:{s}"),
+                            pass: !contains_ci(&v, s),
+                            detail: String::new(),
+                        });
+                    }
+                    let word_count = v.split_whitespace().count() as i32;
+                    if let Some(min) = x.prose_min_words {
+                        checks.push(PropertyCheck {
+                            name: "prose_words_ge".into(),
+                            pass: word_count >= min,
+                            detail: format!("words={word_count} ≥ {min}"),
+                        });
+                    }
+                    if let Some(max) = x.prose_max_words {
+                        checks.push(PropertyCheck {
+                            name: "prose_words_le".into(),
+                            pass: word_count <= max,
+                            detail: format!("words={word_count} ≤ {max}"),
+                        });
+                    }
+                    if let Some(max) = x.total_sentences_max {
+                        let total = sentence_runs(&v);
+                        checks.push(PropertyCheck {
+                            name: "total_sentences_le".into(),
+                            pass: total <= max,
+                            detail: format!("sentences={total} ≤ {max}"),
+                        });
+                    }
                 }
                 CaseVerdict {
                     parsed: true,
@@ -969,24 +1039,7 @@ impl LensTask for NarrativeTask {
             }
             // Edition-budget ceiling (n18): terminal-punctuation runs across all bodies.
             if let Some(max) = x.total_sentences_max {
-                let total: i32 = items
-                    .iter()
-                    .map(|(_, b, _)| {
-                        let mut n = 0;
-                        let mut in_run = false;
-                        for c in b.chars() {
-                            if matches!(c, '.' | '!' | '?') {
-                                if !in_run {
-                                    n += 1;
-                                }
-                                in_run = true;
-                            } else {
-                                in_run = false;
-                            }
-                        }
-                        n
-                    })
-                    .sum();
+                let total: i32 = items.iter().map(|(_, b, _)| sentence_runs(b)).sum();
                 checks.push(PropertyCheck {
                     name: "total_sentences_le".into(),
                     pass: total <= max,
@@ -1556,6 +1609,26 @@ fn empty_dash(s: &str) -> &str {
 /// make those checks mean something different.
 fn contains_ci(haystack: &str, needle: &str) -> bool {
     fold_quotes(haystack).contains(&fold_quotes(needle))
+}
+
+/// Crude sentence count: runs of terminal punctuation (`.` `!` `?`), a run of several counting
+/// once ("..." is one stop). A ceiling against padding, not a style meter — the same counter the
+/// Journalist's n18 edition budget uses, shared here so every prose lens measures length the
+/// same way.
+fn sentence_runs(text: &str) -> i32 {
+    let mut n = 0;
+    let mut in_run = false;
+    for c in text.chars() {
+        if matches!(c, '.' | '!' | '?') {
+            if !in_run {
+                n += 1;
+            }
+            in_run = true;
+        } else {
+            in_run = false;
+        }
+    }
+    n
 }
 
 /// How many DISTINCT peers a reading names. The Oracle may name at most one, and only when that

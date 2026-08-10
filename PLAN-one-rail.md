@@ -4970,6 +4970,13 @@ diagnosis, the numbers and the candidate knobs stay in the tuning file at the se
   is no longer "the largest available throughput change" — D-T34 is.** The live runner shows
   `-c 8192 -np 2` = 4096 PER SLOT, confirming KV scales as `num_ctx × slots`, so 4 slots at 2048
   would cost today's KV — ⛔ **but only AFTER D-T35's prompt trim, never before.** → *tuning §D-T30*
+- **D-T50 · ✅ THE INFLUENCER'S v17 — THE PLATFORM-NATIVE-CREATOR REGISTER, AND THE VIBE BODY
+  IS FINALLY GATED (2026-08-10).** The VIBE prose had ZERO checks since v6; the gate grew first
+  (prose axes wired into `VibeTask::evaluate` + new `hook_max_words`/`hook_excludes` axes,
+  authored on all 5 fixtures), the v16 baseline read 43/46 and exposed a real defect — bodies
+  never name the subject, and the Analyst renders the body WITHOUT the hook — then the register
+  pass landed (worked example, invented entities; the stands-alone rule) and read **52/53**,
+  fixtures re-frozen at v17. Residual: one 13-word hook, documented. → *tuning §D-T50*
 - **D-T49 · ✅ THE JOURNALIST'S n18 — THE ELOQUENCE PASS: THE ATHLETIC-BEAT-WRITER REGISTER,
   AND PUBLICATIONS ARE CITED IN PROSE (2026-08-09, same session as D-T48).** Scott's register,
   verbatim in the tuning file: a dedicated team writer who "relishes telling the story" but knows

@@ -35,7 +35,7 @@ fn req(name: &str, sport: &str, etype: &str) -> NarrativesReq {
 // --- build_narratives_prompt byte-fixtures: deterministic prompt assembly. ----------------------
 
 #[test]
-fn prompt_numbered_news_no_heat() {
+fn prompt_numbered_news() {
     let news = vec![
         item(
             10,
@@ -49,7 +49,6 @@ fn prompt_numbered_news_no_heat() {
     let p = build_narratives_prompt(
         &req("Bukayo Saka", "FOOTBALL", "player"),
         &news,
-        &[],
         None,
         None,
         None,
@@ -61,7 +60,6 @@ fn prompt_numbered_news_no_heat() {
     let with_mem = build_narratives_prompt(
         &req("Bukayo Saka", "FOOTBALL", "player"),
         &news,
-        &[],
         Some("Prior story: Real Madrid — fizzled (Jun 2026, peak coverage 82/100).\nGround truth: Bukayo Saka completed a confirmed move to Arsenal on Jul 01 2026."),
         None,
         None,
@@ -75,40 +73,6 @@ fn prompt_numbered_news_no_heat() {
 \nRecent news (numbered):\n\
 1. [BBC] Saka shines again — A strong display in the win.\n\
 2. Arsenal eye a new winger\n\
-\nReturn the JSON object now."
-    );
-}
-
-#[test]
-fn prompt_with_heat_section() {
-    let news = vec![item(20, "ESPN", "Trade buzz grows", "", None)];
-    let heat = vec![
-        HeatItem {
-            counterparty: "Lakers".to_string(),
-            heat: 80,
-            stage: "advanced talks".to_string(),
-            direction: "incoming".to_string(),
-            summary: "Lakers in advanced talks per ESPN".to_string(),
-            confidence: Some(0.8),
-        },
-        HeatItem {
-            counterparty: "Heat".to_string(),
-            heat: 40,
-            stage: String::new(),
-            direction: String::new(),
-            summary: String::new(),
-            confidence: None,
-        },
-    ];
-    let p = build_narratives_prompt(&req("Some Team", "NBA", "team"), &news, &heat, None, None, None);
-    assert_eq!(
-        p,
-        "Entity: Some Team (NBA team)\n\
-\nRecent news (numbered):\n\
-1. [ESPN] Trade buzz grows\n\
-\nKnown transfer/trade activity (vetted facts — ground any transfer storyline in these, do not contradict them):\n\
-- Lakers — heat 80, incoming, advanced talks (confidence 0.8) — \"Lakers in advanced talks per ESPN\"\n\
-- Heat — heat 40\n\
 \nReturn the JSON object now."
     );
 }
@@ -204,7 +168,6 @@ fn article_context_prefers_article_read_then_body_then_description() {
     let p = build_narratives_prompt(
         &req("Bukayo Saka", "FOOTBALL", "player"),
         &[read],
-        &[],
         None,
         None,
         None,
@@ -216,26 +179,12 @@ fn article_context_prefers_article_read_then_body_then_description() {
 
 #[test]
 fn input_components_are_stable_across_input_order() {
-    // Same articles + heat in a different order ⇒ identical pre-image (sorted), and the
-    // heat SUMMARY/CONFIDENCE never enter it (derived commentary — a re-worded transfer
-    // summary alone must not regenerate narratives).
+    // Same articles in a different order ⇒ identical pre-image (sorted). n17: transfer heat is
+    // no longer an input, so no heat term exists to enter it — heat movement alone must NOT
+    // regenerate narratives (the separation pass).
     let a = |id: i64| item(id, "ESPN", "t", "", None);
-    let h = |cp: &str, heat: i32, summary: &str| HeatItem {
-        counterparty: cp.to_string(),
-        heat,
-        stage: "speculation".to_string(),
-        direction: "incoming".to_string(),
-        summary: summary.to_string(),
-        confidence: Some(0.5),
-    };
-    let one = build_narratives_input_components(
-        &[a(3), a(1)],
-        &[h("B", 40, "worded one way"), h("A", 70, "x")],
-    );
-    let two = build_narratives_input_components(
-        &[a(1), a(3)],
-        &[h("A", 70, "y"), h("B", 40, "worded another way")],
-    );
+    let one = build_narratives_input_components(&[a(3), a(1)]);
+    let two = build_narratives_input_components(&[a(1), a(3)]);
     assert_eq!(one, two);
     let article_readings_hash = build_article_reading_input_components(&[
         (1, "none::0".to_string()),
@@ -246,16 +195,7 @@ fn input_components_are_stable_across_input_order() {
     assert_eq!(
         one,
         format!(
-            r#"{{"prompt_version":"{NARRATIVES_PROMPT_VERSION}","article_ids":[1,3],"article_readings_hash":"{article_readings_hash}","transfer_heat":["A:70:incoming:speculation","B:40:incoming:speculation"]}}"#
-        )
-    );
-    // No heat ⇒ no transfer_heat key (mirrors sigil's conditional-key convention).
-    let single_article_readings_hash =
-        build_article_reading_input_components(&[(1, "none::0".to_string())]);
-    assert_eq!(
-        build_narratives_input_components(&[a(1)], &[]),
-        format!(
-            r#"{{"prompt_version":"{NARRATIVES_PROMPT_VERSION}","article_ids":[1],"article_readings_hash":"{single_article_readings_hash}"}}"#
+            r#"{{"prompt_version":"{NARRATIVES_PROMPT_VERSION}","article_ids":[1,3],"article_readings_hash":"{article_readings_hash}"}}"#
         )
     );
 
@@ -264,8 +204,8 @@ fn input_components_are_stable_across_input_order() {
     read.article_read_content_hash = Some("body-a".to_string());
     read.article_read_updated_epoch = Some(10);
     assert_ne!(
-        build_narratives_input_components(&[read], &[]),
-        build_narratives_input_components(&[a(1)], &[])
+        build_narratives_input_components(&[read]),
+        build_narratives_input_components(&[a(1)])
     );
 }
 
@@ -345,7 +285,6 @@ fn prompt_score_context_renders_last_before_reply_instruction() {
     let p = build_narratives_prompt(
         &req("Bukayo Saka", "FOOTBALL", "player"),
         &news,
-        &[],
         None,
         Some("SIGNALS (deterministic tally for your card score): 1 article(s) after dedup · 1 distinct source(s)\nYOUR PRIOR CARD READS (memory — your own previous card scores; continuity, not new evidence):\nCard scores (newest first): 58 (Jul 18) · 55 (Jul 12)"),
         None,
@@ -361,7 +300,6 @@ fn prompt_score_context_renders_last_before_reply_instruction() {
     let bare = build_narratives_prompt(
         &req("Bukayo Saka", "FOOTBALL", "player"),
         &news,
-        &[],
         None,
         None,
         None,
@@ -536,13 +474,13 @@ fn impact_recency_buckets() {
 fn legacy_rail_prompt_is_byte_identical_to_the_no_framing_prompt() {
     let news = vec![item(10, "BBC", "Saka shines again", "A strong display.", None)];
     let entity = req("Bukayo Saka", "FOOTBALL", "player");
-    let legacy = build_narratives_prompt(&entity, &news, &[], None, None, None);
+    let legacy = build_narratives_prompt(&entity, &news, None, None, None);
     // An empty or whitespace framing must be indistinguishable from no framing: a packet with
     // nothing to frame must not leave a dangling header in the prompt.
     for empty in ["", "   ", "\n"] {
         assert_eq!(
             legacy,
-            build_narratives_prompt(&entity, &news, &[], None, None, Some(empty)),
+            build_narratives_prompt(&entity, &news, None, None, Some(empty)),
             "an empty framing block changed the prompt"
         );
     }
@@ -558,7 +496,6 @@ fn packet_framing_precedes_the_numbered_evidence() {
     let p = build_narratives_prompt(
         &req("Vinicius Junior", "FOOTBALL", "player"),
         &news,
-        &[],
         None,
         None,
         Some("STORY: Vinicius Junior and Arsenal: where the deal stands\nENTITY: Vinicius Junior (subject) — in this story 2026-08-02 → 2026-08-05\nPREVIOUSLY: Arsenal open talks for Vinicius"),
@@ -600,7 +537,6 @@ fn the_packet_rail_keeps_the_memory_block() {
     let p = build_narratives_prompt(
         &entity,
         &news,
-        &[],
         Some(memory),
         Some("SIGNALS (deterministic tally for your card score): 1 article(s) after dedup"),
         Some(framing),
@@ -612,7 +548,7 @@ fn the_packet_rail_keeps_the_memory_block() {
 
     // The debounce hash is blind to memory and to the framing by construction — it is computed
     // from the material fact (what evidence exists) alone, on both rails.
-    let with = build_narratives_input_components(&news, &[]);
+    let with = build_narratives_input_components(&news);
     assert!(!with.contains("Prior story"));
     assert!(!with.contains("STORY:"));
 }

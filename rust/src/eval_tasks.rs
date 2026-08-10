@@ -295,6 +295,14 @@ pub struct Expect {
     /// is ungrounded and dropped downstream.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub all_cite_articles: Option<bool>,
+    /// The Journalist's card_score (n12 busyness verdict, 1-99): the reply must carry one inside
+    /// this band. Authored in the n17 pass — the field had been gate-invisible since n12 (the
+    /// D-T45 rule). A missing card_score FAILS any band check: the fixture asserting the band is
+    /// asserting the verdict exists at all.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub card_score_min: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub card_score_max: Option<i32>,
     /// Grounding: no cited article number may fall outside `1..=max` — an out-of-range number is an
     /// invented reference. The fixture sets this to its numbered-corpus length.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -877,7 +885,6 @@ impl LensTask for NarrativeTask {
         if corpus.is_empty() {
             return Ok(None);
         }
-        let heat = load_transfer_heat(&hx.pool, &e.entity_type, e.entity_id, &sport).await?;
         // Direct builder, mirroring VibeTask/SigilTask: the embedder-only near-duplicate dedup is a
         // live value-add outside the deterministic prompt contract, so the eval scores the same
         // grounded prompt on every run.
@@ -888,9 +895,7 @@ impl LensTask for NarrativeTask {
             sport: e.sport.clone(),
             trigger_type: "periodic".to_string(),
         };
-        Ok(Some(build_narratives_prompt(
-            &req, &corpus, &heat, None, None, None,
-        ))) // evals pin the memory-free, score-context-free, legacy-rail prompt shape
+        Ok(Some(build_narratives_prompt(&req, &corpus, None, None, None))) // evals pin the memory-free, score-context-free, legacy-rail prompt shape
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
         // Compose the stage's tolerant salvager so the eval scores exactly the storylines the pipeline
@@ -929,6 +934,26 @@ impl LensTask for NarrativeTask {
                     name: "narratives_le".into(),
                     pass: n <= max,
                     detail: format!("count={n} ≤ {max}"),
+                });
+            }
+            // card_score band (one check per bound, mirroring narratives_min/max). A reply with
+            // no card_score fails the bound outright — asserting a band asserts presence.
+            let score_detail = || match doc.card_score() {
+                Some(s) => format!("card_score={s}"),
+                None => "card_score=MISSING".to_string(),
+            };
+            if let Some(min) = x.card_score_min {
+                checks.push(PropertyCheck {
+                    name: "card_score_ge".into(),
+                    pass: doc.card_score().is_some_and(|s| i32::from(s) >= min),
+                    detail: format!("{} ≥ {min}", score_detail()),
+                });
+            }
+            if let Some(max) = x.card_score_max {
+                checks.push(PropertyCheck {
+                    name: "card_score_le".into(),
+                    pass: doc.card_score().is_some_and(|s| i32::from(s) <= max),
+                    detail: format!("{} ≤ {max}", score_detail()),
                 });
             }
             for s in x.title_includes.iter().flatten() {

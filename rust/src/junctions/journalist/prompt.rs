@@ -36,11 +36,11 @@
 //! headline — and n13's one change is to prefer that card when it exists. Articles The Editor never
 //! reached still arrive, on their headline alone. Reading is an upgrade, never a precondition.
 //!
-//! Transfer facts, likewise, are handed down vetted. The heat section renders known direction and
-//! stage as ground truth; the instruction is to ground any transfer storyline in those facts and
-//! never contradict them. The whole section is omitted when there is no heat — not rendered as
-//! "(none)" the way The Influencer's is — because Go's original `if len(heat) > 0` did that, and
-//! this prompt is byte-compatible with it.
+//! Transfer truth, since n17, is not this seat's input at all. The Insider owns the transfer
+//! rail end-to-end; the Journalist files a transfer story from the news corpus exactly as it
+//! files any other story. (The n16-era heat section rendered the Insider's vetted
+//! direction/stage as ground truth here — the last cross-seat coupling, removed as the
+//! separation pass.)
 //!
 //! ## Memory is continuity, not corroboration
 //!
@@ -57,7 +57,6 @@
 //! the spacing here and you have changed the contract, whether or not you meant to.
 
 use super::{CorpusItem, NarrativesReq, article_context};
-use crate::corpus::{HeatItem, write_heat_lines};
 use crate::util::truncate_bytes;
 
 /// System prompt for The Journalist: group recent vetted news into distinct storylines and voice
@@ -77,7 +76,7 @@ use crate::util::truncate_bytes;
 /// lands a required 1-99 busyness verdict — volume-of-noise, not
 /// good-vs-bad. Grounded by the deterministic SIGNALS line and the prior-card-reads memory the
 /// user prompt renders (both prompt-only, outside the input_hash).
-pub const NARRATIVES_SYSTEM_PROMPT: &str = r#"Task: you are The Journalist — the one at the table who has read everything. Your beat is ONE sports entity. File the record: group the recent vetted news into the distinct storylines actually developing around this entity.
+pub const NARRATIVES_SYSTEM_PROMPT: &str = r#"Task: you are The Journalist — the seasoned writer at the table, the one who has read everything. Your beat is ONE sports entity, and your column is the developing narratives around it. File the record: group the recent vetted news into the distinct storylines actually developing.
 
 Voice: informed, sourced, measured. You quote nothing out of context and you never write past your sourcing. You notice how widely a story is actually reported — a single-source whisper is not a chorus — and you say the difference plainly. Freshness, stakes, and trajectory are your native vocabulary: a story is NEW or CONTINUING, and its coverage is heating up, cooling, or steady. No hype, no source lists, no invented facts.
 
@@ -106,8 +105,6 @@ THEN, THE CARD SCORE — an integer 1 to 99, your one-number read of how BUSY th
 - YOUR PRIOR CARD READS is memory, not a reset: move deliberately from your previous card score, and hold unless the corpus justifies a change.
 - A quiet week is an honest answer: filing zero storylines earns a low card score, never a missing one.
 
-If a "Known transfer/trade activity" list is given, treat it as vetted truth for transfer/trade storylines: take counterparties, direction, and stage from it, never contradict it, and never report a more advanced stage than it shows. The word "heat" and its numbers are internal; never mention them.
-
 The relational memory is your own archive — use it for arc and continuity only (what fizzled before, what is live now, what actually happened). A prior story is never evidence for a new one: today's claims stand on today's sources or they do not run.
 
 Do not turn a story about another team drafting, signing, or scheming around someone alongside/against this entity into a storyline about this entity moving teams or entering a draft. Never quote headlines verbatim, dump source names or URLs, or state anything the sources do not."#;
@@ -115,7 +112,7 @@ Do not turn a story about another team drafting, signing, or scheming around som
 /// Bump when the prompt materially changes (traced in `news_summaries.prompt_version`).
 /// Rollout is free: prompt_version sits inside the generation `input_hash`, so an n-bump forces
 /// exactly one regen per news-active entity on the next sweep — no reconcile binary.
-pub const NARRATIVES_PROMPT_VERSION: &str = "n16"; // n16 — THE ASSIGNMENT-DESK PASS: `article_buckets` is gone. The Journalist labelled every corpus article transfer/non-transfer as the tail of its generation, which made its output scale with the CORPUS instead of with the story — measured, the prose of a full six-storyline generation never passed 887 tokens while the generation reached 2,567. Labelling is sorting work; it belongs to The Editor, which already emits `story_type`, reads the FULL body rather than a 900-byte blurb of it, and runs on the card with headroom. What is left here is the job: voice the developing story. n15 was the ALLOWANCE pass: the ceiling goes to eight sentences and is reframed as a platform allowance rather than a target. Measured cause: at a 5-6 floor the model reached for length, and the manufactured closing hedges then dragged the verdict (momentum scored -1 on a RISING entity off 'for now, this isn't a surge'). Brevity is now explicitly blessed — two sentences is a complete read. The Journalist's eight sentences are a TOTAL edition budget across all storylines, not per storyline. n14: the peer-length pass — each storyline body grows from 1-2 to 5-6 sentences. The old ceiling was a 1070 Ti budget, not an editorial choice; the Journalist is a peer with an equal share of the story and now has the column inches to file it. n13: prefer Editor evidence cards when present; n12: the Journalist's card_score (tarot deck) — required 1-99 busyness verdict after the storylines
+pub const NARRATIVES_PROMPT_VERSION: &str = "n17"; // n17 — THE SEPARATION PASS: the transfer-heat input section is gone (Scott: transfers and vibe/emotional are completely separate seats now). The Insider owns transfer truth end-to-end; the Journalist files transfer stories from the corpus like any other story, and heat left the input_hash components, so heat movement alone no longer re-triggers the stage. The voice line now names the seat what it is: the seasoned writer on the developing narratives around the entity. n16 — THE ASSIGNMENT-DESK PASS: `article_buckets` is gone. The Journalist labelled every corpus article transfer/non-transfer as the tail of its generation, which made its output scale with the CORPUS instead of with the story — measured, the prose of a full six-storyline generation never passed 887 tokens while the generation reached 2,567. Labelling is sorting work; it belongs to The Editor, which already emits `story_type`, reads the FULL body rather than a 900-byte blurb of it, and runs on the card with headroom. What is left here is the job: voice the developing story. n15 was the ALLOWANCE pass: the ceiling goes to eight sentences and is reframed as a platform allowance rather than a target. Measured cause: at a 5-6 floor the model reached for length, and the manufactured closing hedges then dragged the verdict (momentum scored -1 on a RISING entity off 'for now, this isn't a surge'). Brevity is now explicitly blessed — two sentences is a complete read. The Journalist's eight sentences are a TOTAL edition budget across all storylines, not per storyline. n14: the peer-length pass — each storyline body grows from 1-2 to 5-6 sentences. The old ceiling was a 1070 Ti budget, not an editorial choice; the Journalist is a peer with an equal share of the story and now has the column inches to file it. n13: prefer Editor evidence cards when present; n12: the Journalist's card_score (tarot deck) — required 1-99 busyness verdict after the storylines
 
 /// The JSON schema Ollama's constrained decoding enforces on the narratives reply (Phase 5).
 /// Grammar-level guarantees the free-text contract could only ask for: the top-level object
@@ -156,8 +153,8 @@ pub fn narratives_format_schema() -> serde_json::Value {
 
 /// build_narratives_prompt assembles the user prompt, byte-for-byte the same as Go's
 /// `buildNarrativesPrompt` while `full_text` is NULL (the current state) and no `score_context`
-/// is given. The `—` (U+2014) bytes are significant. The heat section is OMITTED entirely when
-/// there is no transfer heat (unlike vibe's "(none)" line), matching Go's `if len(heat) > 0`.
+/// is given. The `—` (U+2014) bytes are significant. (n17: the heat section is gone —
+/// see the module note.)
 /// `packet_framing` (7.3) is the storyline block on the packet rail and `None` on the legacy rail,
 /// where this function stays byte-identical to what it emitted before Phase 7.
 /// `score_context` (n12) is the pre-rendered SIGNALS line + prior-card-reads memory block that
@@ -167,7 +164,6 @@ pub fn narratives_format_schema() -> serde_json::Value {
 pub fn build_narratives_prompt(
     req: &NarrativesReq,
     news: &[CorpusItem],
-    heat: &[HeatItem],
     memory: Option<&str>,
     score_context: Option<&str>,
     packet_framing: Option<&str>,
@@ -198,13 +194,6 @@ pub fn build_narratives_prompt(
             b.push_str(&truncate_bytes(body, body_cap));
         }
         b.push('\n');
-    }
-    // Vetted transfer facts (when any) — the structured truth behind any transfer storyline. The
-    // narrator uses these names/direction/stage rather than guessing from a headline. The whole
-    // section is omitted when empty (Go's `if len(heat) > 0`).
-    if !heat.is_empty() {
-        b.push_str("\nKnown transfer/trade activity (vetted facts — ground any transfer storyline in these, do not contradict them):\n");
-        write_heat_lines(&mut b, heat);
     }
     // Relational memory card (n8, mig 163): the graph's per-entity history — prior
     // stories with outcomes, current stories with likelihood, ground-truth moves.

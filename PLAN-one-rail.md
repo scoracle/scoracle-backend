@@ -4970,6 +4970,19 @@ diagnosis, the numbers and the candidate knobs stay in the tuning file at the se
   is no longer "the largest available throughput change" — D-T34 is.** The live runner shows
   `-c 8192 -np 2` = 4096 PER SLOT, confirming KV scales as `num_ctx × slots`, so 4 slots at 2048
   would cost today's KV — ⛔ **but only AFTER D-T35's prompt trim, never before.** → *tuning §D-T30*
+- **D-T48 · ✅ THE JOURNALIST'S n17 — THE SEPARATION PASS, AND THE GATE LEARNED TO SEE
+  card_score (2026-08-09).** Scott's brief: transfers and vibe/emotional are separate seats now.
+  n16 had already removed the per-article transfer tagging; n17 removes the transfer-heat INPUT
+  (the "Known transfer/trade activity" section, its two contract paragraphs, the loader read, and
+  the input_hash term — heat movement alone no longer re-triggers the stage), and the voice line
+  now names the seat: the seasoned writer on the developing narratives around the entity. Gate
+  first (the D-T45 rule): `card_score` had been gate-invisible since n12 — `card_score_min/max`
+  axes authored across all 9 fixtures BEFORE the edit. Readings on oMLX unconstrained (D-T47
+  path): n16 baseline **78/78**, n17 after **96/96** (18 new card checks; surge 78, hype-only 12,
+  fizzled 5 — the verdict tracks busyness directionally). Fixtures re-frozen at n17 (2 carried
+  heat blocks, stripped). ⚠ TOPOLOGY, Scott's correction mid-session: the Investigator moves BACK
+  to archbox's pinned 3B (it had ridden the Mac's 14B since D-T46) — `ip1` read **8/8 on the 3B**,
+  verbatim quotes intact; the Mac's 14B serves the six characters only. → *tuning §D-T48*
 - **D-T47 · ⛔ oMLX'S GRAMMAR CORRUPTS TEKKEN OUTPUT — THE FLIP SHIPS WITH `response_format`
   WITHHELD, CONTRACTS RIDE THE FAIL-CLOSED PARSERS (2026-08-09, the voices session).** The
   investigator fixture gate read 4/8 on oMLX (frozen 8/8 on ollama) and the misses were

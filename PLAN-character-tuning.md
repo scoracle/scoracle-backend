@@ -3473,6 +3473,39 @@ vocabulary is unmeasured against real descriptors; (3) the executive/agent class
 structural Wikidata claim like P1830 — they ride description/occupation words only; (4) the
 corroborated-enrichment recovery rate — the re-run of the NBA 50 is the measurement.
 
+### D-T48 — ✅ **THE JOURNALIST'S n17 (THE SEPARATION PASS) + THE INVESTIGATOR'S TOPOLOGY CORRECTION.** (2026-08-09, the voices session)
+
+**Scott's brief:** *"remove the legacy work of it needing to tag transfers and pass down
+vibes/emotional work. Those are completely separate now. The Journalist is the seasoned best
+writer who's writing on the developing narratives around the entity."* The trace found the output
+side already clean (n16 removed `article_buckets`; no emotional instructions existed) — the live
+coupling was the INPUT: the heat section rendered the Insider's vetted direction/stage as ground
+truth. Scott's call: remove entirely.
+
+**n17:** heat section + both contract paragraphs gone from the prompt; `load_transfer_heat` gone
+from the loader (single load, no join); `transfer_heat` gone from the input-hash components —
+heat movement alone no longer re-triggers narratives (the Insider-side waker now debounces to a
+no-op; removing that waker is an open simplification). Voice line reframed: "the seasoned writer
+at the table … your column is the developing narratives around it." Vibe's heat usage untouched.
+
+**Gate first (the D-T45 rule):** `card_score` had NO fixture check since n12 — three prompt
+variants could have drifted it invisibly. `card_score_min`/`card_score_max` axes now exist
+(`ParsedNarratives::card_score()` accessor; a missing score fails any band), authored across all
+9 fixtures with deliberately loose direction-asserting bands; `established-story-background` was
+still frozen at n10 and re-froze with the rest.
+
+**Readings (oMLX, unconstrained D-T47 path, temp 0):** n16 baseline **78/78** — the first voice
+validated on the new runtime — then n17 **96/96** (the 78 carried checks + 18 card bands; surge
+78, hype-only 12, fizzled 5, saga 42). Fixtures re-frozen at n17 (2 of 9 carried heat blocks in
+their frozen user prompts, stripped).
+
+⚠ **THE TOPOLOGY CORRECTION (Scott, mid-session):** the Investigator belongs on archbox's pinned
+3B — easy 3B work on the 1070 Ti, the SIX CHARACTERS alone on the Mac's 14B. It had ridden the
+Mac since D-T46 built `ip1` there. Re-routed (`COGNITION_ROUTE_INVESTIGATOR=ministral-3:3b`, no
+overrides) and the gate read on the 3B: **8/8** — `Airious "Ace" Bailey` quoted verbatim with
+escapes, full occupation phrases, the club-page triage right. The D-T46 cost note ("never
+archbox") is superseded by this measured pass.
+
 ### D-T47 — ⛔ **oMLX'S xgrammar PATH CORRUPTS TEKKEN-TOKENIZER OUTPUT AT THE CHARACTER LEVEL — GRAMMAR IS OFF FOR THE OPENAI BACKEND, AND D-T41'S "NO QUIET MIDDLE" IS CORRECTED.** (2026-08-09, the voices session, found by the investigator fixture gate during the flip)
 
 **THE INSTRUMENT WAS THE GATE, EXACTLY AS DESIGNED.** First grammar smoke of the flip:

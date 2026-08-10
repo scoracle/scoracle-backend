@@ -5,8 +5,8 @@
 //!
 //! Rust implementation of the news narrative stage:
 //! - `load_packet_corpus` reads the entity's compiled packets from Postgres.
-//! - `build_narratives_prompt` is deterministic and shares the transfer-heat grounding lines with
-//!   vibe via [`corpus::write_heat_lines`].
+//! - `build_narratives_prompt` is deterministic. (n17: the transfer-heat grounding section is
+//!   gone — The Insider owns transfer truth end-to-end; heat lines remain vibe's concern only.)
 //! - The n13 system prompt is model-neutral and schema-first for smaller local models.
 //! - `parse_narratives` uses a tolerant balanced-brace salvager: a truncated tail drops its last
 //!   incomplete object; an empty `{"narratives": []}` is a successful parse -> marker.
@@ -22,7 +22,7 @@
 //! transfer heat and source freshness are folded here before Vibe and Sigil consume the result.
 
 use crate::corpus::{
-    dedupe_i64, load_transfer_heat, lookup_entity_name, HeatItem,
+    dedupe_i64, lookup_entity_name,
 };
 use crate::harness::{EntityKey, Harness, Parser, Provenance, Vector};
 use crate::ledger::{insert_cognition_ledger_best_effort, CognitionLedgerEntry};
@@ -246,6 +246,13 @@ impl ParsedNarratives {
         self.narratives
             .iter()
             .map(|n| (n.title.as_str(), n.body.as_str(), n.articles.as_slice()))
+    }
+
+    /// The n12 busyness verdict, for the eval's `card_score_*` axes (D-T47 follow-through: a
+    /// field the gate cannot see is a field a prompt edit can quietly break — this one was
+    /// invisible from n12 until the n17 pass).
+    pub fn card_score(&self) -> Option<i16> {
+        self.card_score
     }
 }
 
@@ -915,8 +922,8 @@ pub fn build_article_reading_input_components(items: &[(i64, String)]) -> String
 
 /// build_narratives_input_components is the canonical debounce pre-image: the `prompt_version` (so a
 /// contract bump forces exactly one regen — see below), the vetted corpus article ids (pre-dedup —
-/// the material fact is WHAT NEWS EXISTS, not what the embedder kept), plus the transfer-heat facts in
-/// sigil's `counterparty:heat:direction:stage` convention. The heat summary/confidence are
+/// the material fact is WHAT NEWS EXISTS, not what the embedder kept). (n17: the transfer-heat
+/// term is GONE with the heat input itself — the separation pass. The former summary/confidence note:
 /// deliberately excluded — derived commentary, not material facts. Same canonical-JSON discipline as
 /// `sigil::build_synthesis_input_components`.
 ///
@@ -925,7 +932,7 @@ pub fn build_article_reading_input_components(items: &[(i64, String)]) -> String
 /// the new contract. Including the version changes every entity's hash exactly once at cutover → one
 /// forced regen each → then it stabilizes.
 /// The regen also re-points vibe for free (the narratives handler enqueues vibe post-persist).
-pub fn build_narratives_input_components(corpus: &[CorpusItem], heat: &[HeatItem]) -> String {
+pub fn build_narratives_input_components(corpus: &[CorpusItem]) -> String {
     let mut ids: Vec<i64> = corpus.iter().map(|c| c.id).collect();
     ids.sort_unstable();
     let mut out = format!(
@@ -956,21 +963,6 @@ pub fn build_narratives_input_components(corpus: &[CorpusItem], heat: &[HeatItem
     out.push_str(&crate::util::go_json_string(
         &build_article_reading_input_components(&article_readings),
     ));
-    if !heat.is_empty() {
-        let mut lines: Vec<String> = heat
-            .iter()
-            .map(|t| format!("{}:{}:{}:{}", t.counterparty, t.heat, t.direction, t.stage))
-            .collect();
-        lines.sort();
-        out.push_str(",\"transfer_heat\":[");
-        for (i, line) in lines.iter().enumerate() {
-            if i > 0 {
-                out.push(',');
-            }
-            out.push_str(&crate::util::go_json_string(line));
-        }
-        out.push(']');
-    }
     out.push('}');
     out
 }
@@ -1002,7 +994,6 @@ pub struct NarrativesReady {
 pub struct NarrativesMaterial {
     pub corpus: Vec<CorpusItem>,
     pub corpus_exclusions: CorpusExclusions,
-    pub heat: Vec<HeatItem>,
     /// SHA over [`build_narratives_input_components`] — the debounce key.
     pub input_hash: String,
     /// The storyline framing block, on the packet rail only (7.3). `None` under `RAIL=legacy`,
@@ -1017,57 +1008,32 @@ pub async fn load_narratives_material(
 ) -> Result<NarrativesMaterial> {
     let sport_up = req.sport.to_uppercase();
 
-    // The corpus+exclusions read and load_transfer_heat are independent — run them concurrently
-    // (plan A3). The heat error-swallowing stays INSIDE the joined future so "a heat-read failure
-    // must NEVER block the narrative (the corpus is the primary signal)" survives; a corpus error
-    // still aborts the join. Note: heat now runs on the no-corpus path too (the early return moved
-    // below the join) — no output change, just an extra read on that branch.
-    // The rail decides WHAT the corpus is (7.1/7.3) — resolved once at boot, carried on the
-    // harness, never re-read here. Legacy loads vetted articles; packet loads compiled
-    // storylines. Both return the same `(Vec<CorpusItem>, CorpusExclusions)`, so everything from
-    // the debounce hash down is shared code and the cutover is one branch wide.
-    let ((corpus, corpus_exclusions, packet_framing), heat) = tokio::try_join!(
-        async {
-            let (c, e, f) = load_packet_corpus(
-                &hx.pool,
-                &req.entity_type,
-                req.entity_id,
-                &sport_up,
-                &req.entity_name,
-            )
-            .await?;
-            Ok::<_, anyhow::Error>((c, e, Some(f)))
-        },
-        async {
-            Ok::<Vec<HeatItem>, anyhow::Error>(
-                match load_transfer_heat(&hx.pool, &req.entity_type, req.entity_id, &sport_up).await
-                {
-                    Ok(h) => h,
-                    Err(e) => {
-                        warn!(
-                            entity_type = %req.entity_type,
-                            entity_id = req.entity_id,
-                            sport = %sport_up,
-                            error = %e,
-                            "narratives: transfer heat load failed (continuing ungrounded)"
-                        );
-                        Vec::new()
-                    }
-                },
-            )
-        },
-    )?;
+    // n17: the transfer-heat load is GONE (the separation pass — The Insider owns transfer
+    // truth end-to-end, and the Journalist files transfer stories from the corpus like any other
+    // story). The rail decides WHAT the corpus is (7.1/7.3) — resolved once at boot, carried on
+    // the harness, never re-read here.
+    let (corpus, corpus_exclusions, packet_framing) = {
+        let (c, e, f) = load_packet_corpus(
+            &hx.pool,
+            &req.entity_type,
+            req.entity_id,
+            &sport_up,
+            &req.entity_name,
+        )
+        .await?;
+        (c, e, Some(f))
+    };
 
-    // The debounce keys on the material fact — what vetted, canonical news exists (plus the heat
-    // facts) — AND the prompt_version, so an n-bump forces exactly one regen per entity at cutover
+    // The debounce keys on the material fact — what vetted, canonical news exists — AND the
+    // prompt_version, so an n-bump forces exactly one regen per entity at cutover
     // (see build_narratives_input_components); otherwise unchanged-corpus entities never run n9.
-    let input_hash =
-        crate::util::hash_components(&build_narratives_input_components(&corpus, &heat));
+    // (n17: heat left the components, so heat movement alone no longer re-triggers this stage —
+    // the insider-side waker that fires on heat change now lands in the debounce as a no-op.)
+    let input_hash = crate::util::hash_components(&build_narratives_input_components(&corpus));
 
     Ok(NarrativesMaterial {
         corpus,
         corpus_exclusions,
-        heat,
         input_hash,
         packet_framing,
     })
@@ -1086,7 +1052,6 @@ pub async fn finish_narratives_build(
     let NarrativesMaterial {
         corpus,
         corpus_exclusions,
-        heat,
         input_hash,
         packet_framing,
     } = material;
@@ -1141,7 +1106,6 @@ pub async fn finish_narratives_build(
     let built_prompt = build_narratives_prompt(
         req,
         &corpus,
-        &heat,
         memory.as_deref(),
         Some(&score_context),
         packet_framing.as_deref(),

@@ -3473,6 +3473,68 @@ vocabulary is unmeasured against real descriptors; (3) the executive/agent class
 structural Wikidata claim like P1830 — they ride description/occupation words only; (4) the
 corroborated-enrichment recovery rate — the re-run of the NBA 50 is the measurement.
 
+### D-T53 — ⭐ **THE THROUGHPUT DIVE (Scott: "something's not adding up") — SOLVED. oMLX's MEMORY ENFORCER NEVER LETS A CACHE WARM ON 16GB, AND THE PRODUCTION-SHAPED A/B SAYS OLLAMA CLEARS THE DRAIN.** (2026-08-10, same session, drain paused ~50 min on Scott's approval)
+
+**Scott's frame, verbatim:** *"If Ollama has better throughput, we want to go back to that. But we
+should be under 2000 tokens per junction on the Mac, so I don't know why we're thrashing so much.
+We are down a healthy amount from before when we were running 3 concurrent on Ollama on the same
+machine with the same OS stuff going on."* And: the Journalist ran OVER 4096 before, now under
+2,048. **He was right on every count — the workload got LIGHTER while throughput fell.**
+
+**THE THREE STACKED FACTS (measured, not theorized):**
+1. **The workload is what Scott thinks it is:** today's completions averaged **1,633 prompt
+   tokens; only 11 of 224 exceeded 2,000** (oMLX server log). The 5-7k monsters are a thin,
+   mostly-sigil/narratives tail (and the guard kills them, so they never even reach the ledger).
+2. **"8.5 tok/s" was never comparable to the D-T34 test.** oMLX's per-completion log rate is
+   output-tokens over TOTAL wall including prefill; D-T34's 35.2 @4 was decode-only — and it was
+   measured on **`mlx_lm.server`, not oMLX**, on an idle box (D-T41 warned "do not book it until
+   measured" — it was booked anyway). A 1,900-token uncached prefill at ~126 tok/s is ~15 s
+   before the first output token; that alone reproduces every "slow" number we've seen.
+3. **⛔ THE KILLER: oMLX's memory enforcer on 16GB never lets any cache survive.** In 90 min of
+   drain: **19 "Deep reset — all caches cleared" events (one per ~5 min) and 618 adaptive
+   prefill-throttle pauses.** The prefix cache is permanently cold — a byte-identical repeat
+   request re-prefilled at full price (19.1 s → 16.7 s; a hit should be ~1-3 s), and exactly one
+   partial-reuse line appears in the whole day's log. Meanwhile llama.cpp's slot cache served
+   repeat prefixes at **0.09 s** (D-T34's own measurement). **The ollama era amortized the
+   1.5-2k-token fixed system prompts; the oMLX era pays them on every call.** Server RSS also
+   grows ~3GB (pool/prefix bloat) until the enforcer evicts the MODEL (the 507s).
+
+**THE PRODUCTION-SHAPED A/B (30 real `cognition_ledger` prompts — 10 momentum, 10 narratives,
+6 vibe, 4 sigil — real per-stage system prompts + `max_tokens`, temp 0.7, drain paused, oMLX
+restarted fresh before each of its cells):**
+
+| cell | completed | errors | batch wall | ok-req/hour | p50 wall/req |
+|---|---|---|---|---|---|
+| oMLX @2 (fresh) | 19/30 | **11** (prefill-guard 400s + a 507) | 297 s | 230* | 25.0 s |
+| oMLX @3 (fresh) | 14/30 | **16** — collapses into mass-507 after ~90 s | 103 s† | — | 19.2 s |
+| ollama @2 (`-np 2`, num_ctx 4096) | **30/30** | 0 | 757 s | 142.6 | 50.5 s |
+| ollama @3 (`-np 2`, 1 queues) | **30/30** | 0 | 654 s | **165.1** | 66.3 s |
+
+*\*counts survivors only — the 11 failures return as production retries (re-paying prefill,
+often re-failing) or park as dead-letters, which is precisely the 08-06→08-10 failed-row debt.
+†"finished" fast because most of the batch failed in milliseconds.*
+
+**The honest reading: oMLX is ~2× faster per request it completes, and it cannot complete the
+workload.** Fresh-server @3 collapsed inside two minutes — reproducing this morning's incident
+on demand. Ollama is slower per request, completes EVERYTHING, scales positively 2→3, and its
+static memory envelope (model + fixed slot KV, allocated once) is immune to the dynamic-ceiling
+/ enforcer thrash — same machine, same OS pressure.
+
+**The tuned voices transfer:** all fixture gates re-read against ollama (`ministral-3:14b`,
+unconstrained) — vibe **51/53**, rating **90/91**, momentum **79/81** — the same scores within
+the same flickering residual classes as oMLX. (narratives timed out mid-gate at the session's
+10-min limit; re-read it before or at the flip.)
+
+**RECOMMENDATION (decision is Scott's):** flip the Mac back to ollama — routes `_BACKEND` →
+ollama / `:11434` / `ministral-3:14b`, `OLLAMA_NUM_PARALLEL=2`, client concurrency 3, restore
+the LaunchDaemon; contracts stay on the fail-closed parsers exactly as tuned (grammar stays off
+— D-T47 was an oMLX bug but the voices are validated grammarless). Costs named honestly:
+(a) num_ctx 4096 means the >4k tail is silently TRUNCATED rather than killed — finish the
+narratives/sigil diet regardless (momentum's is done, D-T52); (b) the A/B corpus was ledger
+survivors, under-representing the monster prompts for both engines; (c) oMLX stays installed —
+re-test on >16GB hardware or after upstream fixes the enforcer/cache behavior, where its 2×
+per-request speed would win outright.
+
 ### D-T52 — ✅ **THE ANALYST'S s14 — THE NIMBLE-PROP-TRADER REGISTER RETURNS; THE DIRECTION FIXTURES EXIST AT LAST; THE PROMPT GOES ON THE DIET.** (2026-08-10, same session as D-T50/51)
 
 **Scott's register, verbatim option:** *"Watches the tape (PEAK trajectory) as price action and

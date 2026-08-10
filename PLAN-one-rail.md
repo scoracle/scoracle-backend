@@ -5002,6 +5002,16 @@ diagnosis, the numbers and the candidate knobs stay in the tuning file at the se
   is no longer "the largest available throughput change" — D-T34 is.** The live runner shows
   `-c 8192 -np 2` = 4096 PER SLOT, confirming KV scales as `num_ctx × slots`, so 4 slots at 2048
   would cost today's KV — ⛔ **but only AFTER D-T35's prompt trim, never before.** → *tuning §D-T30*
+- **D-T53 · ⭐ THE THROUGHPUT DIVE SOLVED — oMLX's ENFORCER NEVER LETS A CACHE WARM ON 16GB;
+  THE PRODUCTION-SHAPED A/B SAYS OLLAMA CLEARS THE DRAIN (2026-08-10).** Scott was right on
+  every count: avg prompt 1,633 tok (11/224 over 2k); "8.5 tok/s" included prefill and D-T34's
+  35.2 was decode-only on mlx_lm.server, not oMLX; the killer is 19 cache-wiping deep resets +
+  618 prefill throttles in 90 min — a byte-identical repeat re-prefills at full price while
+  llama.cpp's slot cache served repeats at 0.09s. A/B on 30 real ledger prompts: ollama
+  **30/30 ok** at @2 and @3 (165 req/h @3, scales positively); oMLX fails 11-16/30 fresh and
+  @3 collapses into mass-507 in ~90s. Tuned voices re-gated on ollama: 51/53 / 90/91 / 79/81 —
+  they transfer. **Recommendation: flip the Mac back to ollama (`-np 2`, client 3); Scott's
+  call.** → *tuning §D-T53*
 - **D-T52 · ✅ THE ANALYST'S s14 — THE PROP-TRADER REGISTER RETURNS (Scott reinstates what s6
   retired); THE DIRECTION FIXTURES EXIST; THE DIET LANDS (2026-08-10).** Gate first: all 8
   fixtures had decided STEADY — rising/falling fixtures now exist; `prose_no_digits` axis; s13

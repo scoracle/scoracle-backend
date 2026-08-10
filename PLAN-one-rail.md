@@ -5002,6 +5002,16 @@ diagnosis, the numbers and the candidate knobs stay in the tuning file at the se
   is no longer "the largest available throughput change" — D-T34 is.** The live runner shows
   `-c 8192 -np 2` = 4096 PER SLOT, confirming KV scales as `num_ctx × slots`, so 4 slots at 2048
   would cost today's KV — ⛔ **but only AFTER D-T35's prompt trim, never before.** → *tuning §D-T30*
+- **D-T55 · ⭐ THE 8B GATE — `ministral-3:8b` AT PARITY ACROSS 508 CHECKS, WINNING THE CROWN
+  AND THE VIBE OUTRIGHT (2026-08-10).** Weights 6.0GB gguf / 5.60GB MLX vs 8.83/8.24 → on the
+  oMLX-fixed ceiling, KV headroom 2.3→4.9GB: today's un-dieted workload fits at 6-8 concurrent,
+  decode ~1.6-1.9× faster — the diets become optimization. Gates (same conditions): vibe
+  **53/53** vs 51/53 (8B wins), rating 86/91 vs 90/91 (bolding — prominence pass), momentum
+  78/81 vs 79-80/81 (parity), narratives 104/110 vs 107/110 (padding pass needed), oracle
+  **97/98 vs 94/98 (8B wins — the 14B roll-calls peers 4×)**, transfer 72/75 tie (+ a harness
+  diacritic-fold gap found). Totals 490 vs 493-494 of 508. Exhibits sent to Scott. Path:
+  Scott's read → mini-tune rating+narratives on 8B → oMLX-fixed + mlx_lm.server throughput
+  cells @2/4/6 → flip on the winner. Routes stay 14B until Scott's call. → *tuning §D-T55*
 - **D-T54 · ⭐ THE CONTEXT CENSUS + THE oMLX FIX EXPERIMENT (2026-08-10).** Exact per-junction
   usage (150 ledger prompts via `prompt_eval_count`): system prompts ALONE are 1,116-1,726 tok
   (55-85% of a 2048 budget); totals p50 vibe 3,315 (the fattest seat — 4-packet allowance),

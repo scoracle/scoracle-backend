@@ -3473,6 +3473,47 @@ vocabulary is unmeasured against real descriptors; (3) the executive/agent class
 structural Wikidata claim like P1830 — they ride description/occupation words only; (4) the
 corroborated-enrichment recovery rate — the re-run of the NBA 50 is the measurement.
 
+### D-T55 — ⭐ **THE 8B GATE: `ministral-3:8b` READS AT PARITY WITH THE 14B ACROSS 508 CHECKS — AND WINS THE CROWN AND THE VIBE OUTRIGHT.** (2026-08-10, same session; Scott: "14B may have been overkill for this early work… the output we can tune with the 8B")
+
+**Why it was run (Scott's two questions):** another harness, and would an 8B solve the weight
+problem? Harness answer: on Apple silicon the engines are llama.cpp-Metal and MLX; everything
+else wraps one of them. The strongest untried wrapper is **`mlx_lm.server`** (D-T34's 2.13× was
+measured on IT, with none of oMLX's enforcer pathology; cons: no memory guard at all, and the
+`fix_mistral_regex` tokenizer warning is unresolved). But the binding constraint was always the
+16GB holding 8.24GB of weights — which the 8B dissolves directly.
+
+**The weights:** `ministral-3:8b` = **6.0GB gguf / 5.60GB MLX-4bit** (measured from the pull and
+the HF blobs) vs the 14B's 8.83GB loaded / 8.24GB. On the oMLX-fixed 10.5GB ceiling, KV/scratch
+headroom goes **2.3GB → 4.9GB (2.2×)**, per-token KV is ~30-40% cheaper, decode ~1.6-1.9×
+faster — **today's un-dieted census workload fits with 6-8 concurrent streams**; the D-T54 diet
+program becomes optimization, not prerequisite.
+
+**THE GATES (all six voices, same conditions: ollama, temp 0, frozen fixtures, quiet GPU):**
+
+| seat | 14B | 8B | note |
+|---|---|---|---|
+| vibe (v17) | 51/53 | **53/53** | **8B wins** — respects the hook cap the 14B keeps breaking |
+| rating (s17) | 90/91 | 86/91 | 8B bolds section labels (4×) — the s17 plain-text guard needs the momentum-style prominence treatment on the 8B |
+| momentum (s14) | 79-80/81 | 78/81 | parity; identical residual classes (falling flicker, hedge closers) |
+| narratives (n18) | 107/110 | 104/110 | 8B PADS — one 52-sentence edition, card_score 1, one off-entity name; needs an edition-budget + calibration pass |
+| oracle (crown) | 94/98 | **97/98** | **8B wins** — the 14B breaks the single-peer rule on FOUR fixtures, the 8B on one |
+| transfer | 72/75 | 72/75 | exact tie; both trip the `Sørensen` ø→o fold artifact (a HARNESS gap — `fold_quotes` should fold diacritics) |
+| **total** | **493-494/508** | **490/508** | **statistical parity; two outright 8B wins including the crown** |
+
+**Exhibits delivered to Scott** (same fixture per seat, both replies side-by-side — his ask:
+"actually read an output for each character"). The reading-sheet draw itself echoed the gates:
+the 8B's vibe reply was tighter and fully green where the 14B ran 11 sentences and dropped an
+axis.
+
+**THE TUNING WORKLIST IF THE 8B IS ADOPTED (small, known classes):** (1) rating: plain-text
+guard prominence on the 8B; (2) narratives: edition-budget enforcement + card_score calibration;
+(3) oracle: the single-peer rule (the 14B needs it MORE); (4) harness: fold diacritics in
+`contains_ci`. **THE PATH:** Scott reads the exhibits → if approved: mini-tune rating+narratives
+on the 8B (gate-first, per the method) → throughput cells on oMLX-fixed with the 8B @2/@4/@6
+(the D-T54 recipe stands ready, `settings.json` already carries it) and an `mlx_lm.server` cell
+alongside → flip the Mac routes to the 8B on the winner → requeue → the 6-hour-day arithmetic
+gets its reading. Model flip is Scott's call; routes stay 14B/ollama until then.
+
 ### D-T54 — ⭐ **THE CONTEXT CENSUS (exact, per junction) + THE oMLX FIX EXPERIMENT: THE RECIPE STABILIZES BUT THE FAT THIRD STILL DIES — THE 2048 WINDOW NEEDS SYSTEM-PROMPT DIETS FIRST.** (2026-08-10, same session; drain paused on Scott's word — "2.3x is worth fully exploring")
 
 **THE CENSUS (the first EXACT numbers — ollama `prompt_eval_count` on 150 recent ledger

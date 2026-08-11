@@ -127,21 +127,6 @@ go vet ./...
 go test ./...
 ```
 
-## Python Style
-
-- Use snake_case for functions and variables.
-- Use PascalCase for classes.
-- Use type hints on function signatures and dataclasses.
-- Group imports as standard library, third-party, then internal.
-- Keep seeder code focused on ingestion and upsert behavior.
-
-Useful commands:
-
-```bash
-cd seed
-pytest
-```
-
 ## SQL Style
 
 - Use sport schemas for sport-specific data.
@@ -159,5 +144,4 @@ pytest
 - `go/internal/config/config.go` - environment resolution.
 - `go/internal/db/db.go` - prepared statements.
 - `rust/` - Rust cognition harness and rating batch.
-- `seed/` - Python provider ingestion.
 - `sql/` - schema, migrations, functions, views, and snapshots.

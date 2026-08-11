@@ -296,7 +296,7 @@ Runs on every main-bound change; five jobs:
 - **python** — compile + offline `pytest`.
 - **shell** — `bash -n` + ShellCheck (`--severity=warning -x`).
 - **docker** — `docker build go/` (the serving artifact). Note: `docker compose build` would fail on
-  the `seed` service — `seed/Dockerfile` doesn't exist (F-043, minor).
+  the seed service (F-043, minor — seed/Dockerfile was removed during dockers/purge)
 - **schema** — static: every migration ⊆ snapshot lineage.
 
 DB-backed Go tests gate on `TEST_DATABASE_URL` and skip when unset, so local `go test ./...` /

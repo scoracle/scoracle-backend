@@ -6,7 +6,7 @@
 // The release path stamps these:
 //
 //	scripts/hosting/release.sh   (self-hosted systemd/cron deployment)
-//	go/Dockerfile                (container build, via --build-arg)
+//
 //
 // Session 1 of the launch-hardening audit found the deployed binaries carried
 // no embedded VCS revision (`go version -m` reported `(devel)`), so a running

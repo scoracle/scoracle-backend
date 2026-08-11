@@ -11,4 +11,4 @@
 -- those features are ready for the frontend.
 --
 -- When implemented, add 'platform' to PGRST_DB_SCHEMAS in the PostgREST
--- Dockerfile: PGRST_DB_SCHEMAS=nba,nfl,football,platform
+-- PGRST_DB_SCHEMAS=nba,nfl,football,platform (Docker config removed during dockers/purge)

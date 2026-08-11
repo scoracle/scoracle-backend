@@ -112,11 +112,10 @@ Add client repos only for contract-consumer verification. Add `../scoracle-token
 
 ## Architecture
 
-Scoracle runs as a Go API + Rust cognition layer backed by PostgreSQL, plus a Python seeder.
+Scoracle runs as a Go API + Rust cognition layer backed by PostgreSQL.
 
 - **Go API (`:8000`)** serves curated sport data pages and health/docs endpoints from precomputed Postgres tables. It runs SQL-only maintenance/notification workers and the ingest funnel wiring, but does not execute model inference.
 - **Rust Cognition Harness (`rust/`)** owns all model inference stages (scrub, transfers, narratives, vibe, sigil) via `pipeline_work`, plus the `statcommentary` rating batch.
-- **Python Seeder (`seed/`)** ingests provider data and upserts raw rows to PostgreSQL.
 - **PostgreSQL (`sql/`)** is the source of truth for schema, derived stats, percentiles, views, and API-shaping SQL.
 
 > Operating the backend (release/rollback, backup/restore, jobs, durable work queue + repair commands): see **[`RUNBOOK.md`](RUNBOOK.md)**.
@@ -131,7 +130,6 @@ Canonical cross-repo flow: [../scoracle-wiki/DATA_FLOW.md](../scoracle-wiki/DATA
 |---|---|---|
 | Go API | Public HTTP API, caching, ETags, CORS, rate limiting, mobile auth, SQL-only maintenance + notifications | `go/` |
 | Rust Cognition Harness | Queue-stage model inference + rating batch (`statcommentary`) | `rust/` |
-| Python Seeder | Provider ingestion and fixture processing | `seed/` |
 | PostgreSQL | Data model, stat normalization, derived metrics, percentile logic, shaping views/functions | `sql/` |
 
 ## API Surface
@@ -208,31 +206,19 @@ AI-layer work should start in [rust/README.md](rust/README.md).
 
 ```text
 scoracle-backend/
-├── README.md
-├── ENDPOINTS.md
-├── docker-compose.yml
-├── sql/                    # Postgres schemas, views, functions, triggers
-├── go/                     # Unified public API service
+├ README.md
+├ ENDPOINTS.md
+├ sql/                    # Postgres schemas, views, functions, triggers
+├ go/                     # Unified public API service
 │   ├── cmd/api/
 │   ├── internal/
 │   ├── docs/
-│   ├── Dockerfile
 │   └── go.mod
-├── rust/                   # Rust Cognition Harness: queue-stage model inference + rating batch
-└── seed/                   # Python seeder and provider clients
+├ rust/                   # Rust Cognition Harness: queue-stage model inference + rating batch
+└── scripts/              # Hosting scripts, cron, release management
 ```
 
 ## Quick Start
-
-### Docker Compose
-
-```bash
-cp .env .env.local  # fill in real values
-docker compose up --build
-docker compose run --rm seed event process --max 50
-```
-
-Local URL: `http://localhost:8000`
 
 ### Run Components Manually
 
@@ -242,18 +228,6 @@ Go API:
 cd go
 go build -o bin/scoracle-api ./cmd/api
 ./bin/scoracle-api
-```
-
-Python seeder:
-
-```bash
-cd seed
-pip install -e .
-
-scoracle-seed event load-fixtures nba --season 2025 --from-date 2025-10-01 --to-date 2025-10-31
-scoracle-seed event process --sport nba --season 2025 --max 50
-scoracle-seed roster seed nba --season 2025
-scoracle-seed meta seed nba --season 2025
 ```
 
 Seeder boundary: `roster seed` owns season-scoped player discovery via

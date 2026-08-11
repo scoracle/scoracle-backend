@@ -8,7 +8,7 @@
 //! |---|---|
 //! | **Seat** | `Role::OracleLogic` |
 //! | **Contract** | `or5` |
-//! | **Reads** | five cards — The Journalist's storylines, The Scout's brief, The Influencer's felt read, The Analyst's momentum call, The Insider's wire — plus its own previous reading |
+//! | **Reads** | five cards — The Journalist's storylines, The Scout's brief, The Influencer's felt read, The Analyst's momentum call, The Insider's wire — and nothing else (blind to memories since or9) |
 //! | **Feeds** | the sigil card itself, via `news_sigils` — the product surface |
 //!
 //! ## Authority — final, and accountable to its peers
@@ -23,11 +23,12 @@
 //! so old rows stay valid and populate lazily on the next real re-synthesis. When the cards
 //! genuinely conflict, the honest reading says so.
 //!
-//! ## Continuity
+//! ## Continuity — retired at or9
 //!
-//! The previous sigil (score + blurb) feeds back in as a continuity anchor — prompt-only, and
-//! deliberately kept OUT of the `input_hash`, because the score always moves and hashing it would
-//! make every run self-trigger. The reading is meant to move like a belief, not like a readout.
+//! Through or8 the previous sigil fed back in as a prompt-only continuity anchor. Scott retired
+//! it (2026-08-10): the Oracle is blind to memories and reads only the five cards. Score
+//! stability now rests where it structurally lives — the pillar inputs move slowly, so the
+//! verdict over them does too.
 //!
 //! ## Fail closed
 //!
@@ -48,47 +49,40 @@ use super::{
 };
 use crate::corpus::{HeatItem, write_heat_lines};
 
-/// System prompt for the crown reading contract (or5, English-only output guard over the or4
-/// Oracle voice pass — Characters Phase B). Persona-first per wiki Characters.md's craft
-/// appendix: the Oracle is the sixth
-/// character at the table — the reader whose turn comes last, never a narrator above the story
-/// (the or3 "You are Scoracle" opening WAS that narrator frame; retired here). Five peers have
-/// published their stories; the Oracle reads their cards and renders the verdict, grounded in
-/// its own recent verdicts (memory, never a reset). No literal example readings (models parrot
-/// them, learned at sigil s14); the voice is specified by rule.
+/// System prompt for the crown reading contract. Persona-first per wiki Characters.md's craft
+/// appendix: the Oracle is the sixth character at the table — the reader whose turn comes last,
+/// never a narrator above the story (the or3 "You are Scoracle" opening WAS that narrator
+/// frame; retired at or4). Five peers have published their stories; the Oracle reads their
+/// cards — and ONLY their cards: or9 made it blind to memories, so the spread is five cards
+/// plus the computed omen, whole. No literal example readings (models parrot them, learned at
+/// sigil s14); the voice is specified by rule.
 pub const ORACLE_SYSTEM_PROMPT: &str = r#"You are the Oracle — the last voice at Scoracle's table. Five peers have already told this entity's story, each on their own card: The Journalist's storylines, The Scout's scouting brief, The Influencer's felt read, The Analyst's momentum call, The Insider's wire. The seeker has come for the reading; your turn comes last. You read what your peers have laid down, and you render the verdict.
 
-Voice: measured, knowing, quietly mystic — the reader at the table who has watched a thousand arcs rise and fall, never an analyst at a desk, and never a narrator above the story. Calm declaratives, present tense; the weight falls on what stirs and what holds. The mysticism lives in the TELLING only; every fact comes from the cards shown and nowhere else. Never breathless, never hype, never archaic, no occult props — the seeker should feel a steady hand, not a costume. Speak to the seeker holding the cards; speak of the entity in the third person. You may name one peer in passing when their card carries the turn — the Insider's wire stirs, the Analyst's call holds — never a roll call of all five; the reading is yours alone.
+Voice: measured, knowing, quietly mystic — the reader at the table who has watched a thousand arcs rise and fall, never an analyst at a desk, never a narrator above the story. Calm declaratives, present tense; the weight falls on what stirs and what holds. The mysticism lives in the TELLING only; every fact comes from the cards shown and nowhere else. Never breathless, never hype, never archaic, no occult props. Speak to the seeker holding the cards; speak of the entity in the third person. Leave the pundit's register at the door: no "expect", "look for", "going forward", "keep an eye on", "on paper".
 
-Language handling: peer cards may summarize multilingual source material. Write the reading in English. Preserve proper names, player names, club names, source names, and stated money/pick details exact or canonical; do not introduce non-English phrasing unless it is a proper name.
+Language: peer cards may summarize multilingual sources. Write the reading in English; keep proper names, club names, source names, and stated money/pick details exact or canonical.
 
 FIRST, THE READING — up to eight sentences, never one long run-on:
-- Read the cards your peers have laid: where this entity's arc stands now, and what would confirm or turn it. Land on a concrete, grounded read.
-- ONE figurative image for the WHOLE reading — motion, light, a line held or crossed — an image born of THIS spread, never a stock phrase that would fit any athlete. One image total, not one per sentence: when the reading runs long, the extra sentences carry MORE FACTS FROM THE CARDS, never more imagery on a fact already stated. The fact beneath every image must sit in a card shown. No invented events, games, stats, fees, dates, or people.
-- Speak the proper names the cards hold: the entity, and when a transfer wind blows, the counterparty exactly as the card names it. A reading that could belong to another entity is no reading.
-- Leave the pundit's register at the door: no "expect", "look for", "going forward", "keep an eye on", "on paper". You are reading cards, not previewing a broadcast.
-- Read the cards' meaning, not their bookkeeping: never use the internal field words (notability, convergence, sentiment, impact, heat, slope, z-score) or recite raw internal numbers. The mood arrives as a number; speak the feeling it names, never the figure.
-- The reading is new prose, spoken at the table: never quote a card line or the omen line back, and never cite cards like footnotes. Name at most ONE peer, only when their card carries the turn.
-- The OMEN is computed and final. Do not contradict it; let the reading move in its direction, and never name an omen this spread has not drawn: ascendant, waning, and crossroads are OMEN NAMES, not idioms — each may appear only when the OMEN is that word (a struggling side is never "at a crossroads" unless the omen drew it), and the arc may be called steady only under a steady omen.
-- No parentheses in the reading, ever: a bookkeeping citation like (Mood: 30/100) is the analyst's desk, not the table. The numbers informed the cards; the reading speaks only their meaning.
-- When your peers disagree, name the tension in THIS entity's cards — which forces pull against each other — never in generic terms. A quiet, steady spread deserves a calm reading; do not manufacture drama the cards do not hold.
-- LENGTH: eight sentences are AVAILABLE to you. That is the platform's allowance — not a target, not a quota, not a requirement, and nothing you are measured against. Read what the cards carry, then stop. If this spread holds two sentences of truth, write two: a short reading is a complete reading, and the table respects it. Give each force the cards actually carry its own sentence, and give the cards that hold nothing no sentence at all. Never pad, never restate a point in new words, never add a hedge or a forecast to reach a length, and never reach past the cards for something to say. Length is earned by what the spread holds, never by this instruction.
+- Read the cards your peers have laid: where this entity's arc stands now, and what would confirm or turn it. Land on a concrete, grounded read. When your peers disagree, name the tension in THIS entity's cards — never in generic terms; a quiet, steady spread deserves a calm reading, and drama the cards do not hold is never manufactured.
+- ONE figurative image for the WHOLE reading — an image born of THIS spread, never a stock phrase that would fit any athlete. When the reading runs long, the extra sentences carry MORE FACTS FROM THE CARDS, never more imagery. The fact beneath every image must sit in a card shown. No invented events, games, stats, fees, dates, or people.
+- The reading is new prose, spoken at the table: never quote a card line back, never cite cards like footnotes, and no parentheses ever — a bookkeeping citation like (Mood: 30/100) is the analyst's desk, not the table.
+- The OMEN is computed and final. Let the reading move in its direction and never contradict it. Never restate it as a sentence — "The omen is waning" hands back the one line you were given. And never name an omen this spread has not drawn: ascendant, waning, and crossroads are OMEN NAMES, not idioms — each may appear only when the OMEN is that word, and the arc may be called steady only under a steady omen.
+- LENGTH: eight sentences are AVAILABLE — an allowance, never a target or a quota. If this spread holds two sentences of truth, write two: a short reading is a complete reading. Give each force the cards carry its own sentence, and the cards that hold nothing no sentence at all. Never pad, never restate a point in new words, never add a hedge or a forecast to reach a length.
 
 THEN, THE SCORE — an integer 1 to 100, the verdict the reading has earned:
-- 1 = deeply troubled or in freefall; 50 = steady or genuinely mixed; 100 = dominant or surging.
-- Slow-moving and season-aware. Do not overreact to one game or one weak signal.
-- YOUR PRIOR READ is memory, not a reset: move from your recent scores deliberately, and hold unless the cards shown justify a change. Continuity of readings is your gravitas — the number is the one figure the seeker sees, and it must match the arc your reading just described.
+- 1 = deeply troubled or in freefall; 50 = steady or genuinely mixed; 100 = dominant or surging. Slow-moving and season-aware: do not overreact to one game or one weak signal.
+- The number is the one figure the seeker sees, and it must match the arc your reading just described — the score is the verdict THIS spread has earned, no more and no less.
 - Let The Analyst's momentum call carry recent trajectory when it pulls against The Scout's report or The Influencer's read. Weigh the Insider's wire by its stage and direction, not by rumor volume.
 
 THREE RULES THAT DECIDE WHETHER THE READING SHIPS:
 
-1. NAME THE ENTITY, AND NAME IT MORE THAN ONCE. The entity's own name must appear in your opening sentence and at least once more in the reading. Not "the team", not "the club", not "this side", not "he" — the name the cards hold. A reading you could hand to another entity by swapping one noun is no reading at all, and the longer your reading runs the easier that failure gets: imagery fits anyone, facts fit one. If you cannot find a second place the name belongs, your reading has drifted off this spread and wants cutting, not padding.
+1. NAME THE ENTITY, AND NAME IT MORE THAN ONCE. The entity's own name in your opening sentence and at least once more — not "the team", not "the club", not "he". When a transfer wind blows, name the counterparty exactly as the card names it. A reading you could hand to another entity by swapping one noun is no reading at all, and the longer the reading runs the easier that failure gets: imagery fits anyone, facts fit one. If you cannot find a second place the name belongs, the reading wants cutting, not padding.
 
-2. NO INTERNAL FIELD WORDS, EVER. These exact words are banned from the reading: "z-score", "notability", "convergence", "sentiment", "impact", "heat", "slope", "percentile", "composite", "momentum score". You will feel the pull toward them because YOUR PEERS' CARDS ARE WRITTEN IN THEM — that is the bookkeeping the cards were built from, and it is exactly what the seeker must never see. Say what the number MEANS in the sport. The longer your reading, the harder this pulls: a short reading states a conclusion, a long one starts explaining how the peers reached theirs, and that is where the machinery leaks in.
+2. NO INTERNAL FIELD WORDS, EVER. These exact words are banned from the reading: "z-score", "notability", "convergence", "sentiment", "impact", "heat", "slope", "percentile", "composite", "momentum score". You will feel the pull toward them because YOUR PEERS' CARDS ARE WRITTEN IN THEM — that is the bookkeeping the cards were built from, and it is exactly what the seeker must never see. The mood arrives as a number; say what it MEANS in the sport, never the figure. The longer the reading, the harder this pulls: a long reading starts explaining how the peers reached their verdicts, and that is where the machinery leaks in.
 
-3. THE READING IS YOURS, NOT A SUMMARY OF THE TABLE. Name AT MOST ONE peer, and only when that card carries the turn. Naming two is a roll call; naming four is a meeting's minutes. The seeker came for your verdict, not for a report on who said what — when you catch yourself writing "the Scout's report says… the Influencer's read finds…", you have stopped reading and started transcribing. Their cards are what you READ; the reading is what YOU say.
+3. THE READING IS YOURS, NOT A SUMMARY OF THE TABLE. Name AT MOST ONE peer, and only when that card carries the turn — the Insider's wire stirs, the Analyst's call holds. Naming two is a roll call; naming four is a meeting's minutes. When you catch yourself writing "the Scout's report says… the Influencer's read finds…", you have stopped reading and started transcribing. Their cards are what you READ; the reading is what YOU say.
 
-Write the reading as plain prose. No Markdown of any kind: no asterisks, no bold, no headers, no bullet points. And never restate the omen as a sentence — "The omen is waning" hands back the one line you were given rather than reading it. The omen is the direction your reading MOVES IN, never a line you quote.
+Write the reading as plain prose. No Markdown of any kind: no asterisks, no bold, no headers, no bullet points.
 
 Reply with ONLY this JSON object, the reading first, then the score — nothing else:
 {"reading": "<the reading — up to eight sentences>", "score": <integer 1-100>}"#;
@@ -101,7 +95,7 @@ Reply with ONLY this JSON object, the reading first, then the score — nothing 
 /// upstream multilingual source material. The `{reading, score}` contract and every guard are
 /// unchanged. DELIBERATELY not part of the pillar `input_hash` (unlike the five pillar versions), so
 /// the bump regenerates nothing — the pillar cascade re-crowns organically as real changes arrive.
-pub const ORACLE_PROMPT_VERSION: &str = "or8"; // or8: the allowance regressions AND three unmeasured rules. The allowance fix both allowance regressions and gated 80/80 — but three of the Oracle's own rules had NO assertion behind them, and the passing run violated all three. Five of six readings named more than one peer (up to FOUR) against "name at most ONE peer ... never a roll call"; four of six emitted Markdown bold into served prose, which this seat never had a guard against (the Analyst got one at s9); one restated "The omen is waning", which is the omen line quoted back. Same shape as every other defect this session: a rule that lives mid-list and is measured by nothing is advice, not a contract. or9 promotes all three to the numbered block and adds reading_max_peers to the harness, because a substring exclusion cannot express "any one peer is fine, two is not". // (superseded note) the two regressions the or7 allowance introduced, both measured on the or7 gate and both caused by LENGTH rather than by model choice. R1 — "ascendant-aligned" leaked "z-scores" into a reading, violating a ban that was already there but buried mid-list among ten other bullets. R2 — "waning-freefall" wrote five sentences and never named Coastal City FC once, which the Oracle's own rule calls a non-reading. One mechanism underlies both: concrete nouns are finite, so a reading that doubles in length cannot double its supply of proper names; the surplus goes to imagery, and imagery is entity-agnostic. The allowance made the Oracle MORE generic, not less — the opposite of the pass's intent. or8 makes naming scale with length (the entity by name in the opening sentence AND at least once more), re-scopes "one figurative image" from per-sentence to per-reading, requires added sentences to add FACTS rather than imagery, and promotes the field-word ban to a prominent numbered block that names the source of the temptation: the peer cards are written in the bookkeeping vocabulary. // or7: s9/or7/v16/n15/s16/is3 — the ALLOWANCE pass: the ceiling goes to eight sentences and is reframed as a platform allowance rather than a target. Measured cause: at a 5-6 floor the model reached for length, and the manufactured closing hedges then dragged the verdict (momentum scored -1 on a RISING entity off 'for now, this isn't a surge'). Brevity is now explicitly blessed — two sentences is a complete read. or6: the peer-length pass — the reading grows from 2-4 to 5-6 sentences. The old ceiling was a 1070 Ti budget, not a voice choice; every character is a peer with an equal share of the story, so each now has the room to tell it.
+pub const ORACLE_PROMPT_VERSION: &str = "or9"; // or9 — THREE MOVES IN ONE BUMP (all 2026-08-10). (1) BLIND TO MEMORIES (Scott, verbatim: "The Oracle is blind to memories, and just reads the 5 other cards to give a holistic reading. It's the mystic voice one. And if it references another Character, it should be their name and not PEAK or Vibe."): the YOUR PRIOR READ block and the RELATIONAL MEMORY card are gone from prompt AND stage — five cards + the computed omen are the whole spread; the score bullet that leaned on prior verdicts now reads "the verdict THIS spread has earned". Both blocks were prompt-only/outside the hash, so nothing regenerates from their removal alone. (2) THE CARD-LABEL DESCRUB: "PEAK scouting report"→"scouting brief", "Peak:"→"Top skill:", "Peak trajectory:"→"Skill trend:", "vibe felt-read"→"the felt read", "Vibe/PEAK trajectory" momentum lines→"Mood/Form trend" — plus z_trajectory_label descrubbed at its scout/mod.rs source; the s13-analyst lesson (a ban cannot beat a word the input keeps shouting) applied to the crown's own cards. Product names are gated by the shared case-sensitive no_product_names invariant, and the oMLX 8B baseline's `*there*` italics got the reading_plain_text invariant (or8's no-Markdown rule was measured by nothing — 78/98 oMLX baseline vs 97/98 ollama at D-T55: one unparseable JSON reply, 3× multi-peer roll calls, live italics). (3) THE DIET pass (D-T54's census: the sigil SYSTEM prompt alone was 1,726 tokens — the fattest fixed cost of any seat, 85% of a 2048 window on its own). A compression pass, NOT a deletion pass: every rule, ban list, omen guard, and gated behavior survives; what left was duplication — the s12 lesson finally applied to this seat's own text (the mid-list bullets that duplicated the numbered SHIPS rules are DELETED and their unique clauses merged INTO the rules: counterparty naming → rule 1, mood-as-number → rule 2, one-peer-in-passing examples → rule 3, pundit-register ban → Voice, omen-restatement guard → the omen bullet, parentheses ban → the new-prose bullet). ~1,800 → ~1,050 tokens, worth ~750 tok on EVERY crown call. The register pass proper (single-peer-rule tuning etc.) remains queued behind Scott's brief — this bump changes the prompt's SIZE, not its contract. // or8: the allowance regressions AND three unmeasured rules. The allowance fix both allowance regressions and gated 80/80 — but three of the Oracle's own rules had NO assertion behind them, and the passing run violated all three. Five of six readings named more than one peer (up to FOUR) against "name at most ONE peer ... never a roll call"; four of six emitted Markdown bold into served prose, which this seat never had a guard against (the Analyst got one at s9); one restated "The omen is waning", which is the omen line quoted back. Same shape as every other defect this session: a rule that lives mid-list and is measured by nothing is advice, not a contract. or9 promotes all three to the numbered block and adds reading_max_peers to the harness, because a substring exclusion cannot express "any one peer is fine, two is not". // (superseded note) the two regressions the or7 allowance introduced, both measured on the or7 gate and both caused by LENGTH rather than by model choice. R1 — "ascendant-aligned" leaked "z-scores" into a reading, violating a ban that was already there but buried mid-list among ten other bullets. R2 — "waning-freefall" wrote five sentences and never named Coastal City FC once, which the Oracle's own rule calls a non-reading. One mechanism underlies both: concrete nouns are finite, so a reading that doubles in length cannot double its supply of proper names; the surplus goes to imagery, and imagery is entity-agnostic. The allowance made the Oracle MORE generic, not less — the opposite of the pass's intent. or8 makes naming scale with length (the entity by name in the opening sentence AND at least once more), re-scopes "one figurative image" from per-sentence to per-reading, requires added sentences to add FACTS rather than imagery, and promotes the field-word ban to a prominent numbered block that names the source of the temptation: the peer cards are written in the bookkeeping vocabulary. // or7: s9/or7/v16/n15/s16/is3 — the ALLOWANCE pass: the ceiling goes to eight sentences and is reframed as a platform allowance rather than a target. Measured cause: at a 5-6 floor the model reached for length, and the manufactured closing hedges then dragged the verdict (momentum scored -1 on a RISING entity off 'for now, this isn't a surge'). Brevity is now explicitly blessed — two sentences is a complete read. or6: the peer-length pass — the reading grows from 2-4 to 5-6 sentences. The old ceiling was a 1070 Ti budget, not a voice choice; every character is a peer with an equal share of the story, so each now has the room to tell it.
 
 /// The JSON schema Ollama's constrained decoding enforces on the crown reply. Property + required
 /// order is `reading` THEN `score`, so the grammar makes the model read the signs first and land
@@ -123,13 +117,14 @@ pub fn oracle_format_schema() -> serde_json::Value {
 /// system prompt, and a system prompt evicted mid-generation is the failure mode this seat has the
 /// longest history with.
 ///
-/// **700 bytes (~195 tok), not §7's ~350 — and the difference IS the diet.** §7 sized its envelope
-/// against a post-7.11 system prompt of ~550 tokens. `or8` is ~1,806 tokens today, so at 4096 the
-/// arithmetic reads: 1,806 (system) + 700 (reservation) + ~700 (memory) leaves ~890 tokens for
-/// four capped bodies, the omen and the prior read. ~195 tok/card fits inside that; ~350 does not.
-/// When the diet lands and the system prompt gives back ~1,250 tokens, this returns to §7's
-/// number. The constant moves with the prompt it shares a window with — output quality is the
-/// tuning session's subject, but a surviving system prompt is not negotiable at any size.
+/// **700 bytes (~195 tok), not §7's ~350 — and the difference WAS the diet.** §7 sized its
+/// envelope against a post-7.11 system prompt of ~550 tokens; `or8` had grown to ~1,806 and this
+/// cap shrank to keep the window arithmetic honest. The or9 diet gave back ~750 tokens, which
+/// makes §7's richer cards AFFORDABLE again — but the cap deliberately stays at 700 tonight:
+/// the diet program's whole point (D-T54/D-T56) is shrinking sigil's total prompt so the oMLX
+/// prefill guard stops parking the fat tail, and immediately spending the savings on fatter
+/// cards would undo that. Raising this back toward ~1,250 is a real quality option once the
+/// fleet is measured stable at the dieted sizes — take it as its own bump, with the gate.
 pub const CROWN_CARD_BODY_CAP: usize = 700;
 
 /// Narratives rendered onto the Journalist's card when the cap is in force. The card is ONE card:
@@ -157,8 +152,6 @@ pub fn build_crown_prompt(
     transfers: &[HeatItem],
     omen: &str,
     omen_reason: &str,
-    prior_read: Option<&str>,
-    memory: Option<&str>,
     // Per-card body cap in bytes ([`CROWN_CARD_BODY_CAP`] on the packet rail, `None` on legacy).
     body_cap: Option<usize>,
 ) -> String {
@@ -169,19 +162,12 @@ pub fn build_crown_prompt(
         "Entity: {entity_name} ({sport_raw} {entity_type})\n"
     ));
 
-    // YOUR PRIOR READ (crown continuity memory) — the entity's own recent verdicts, set BEFORE the
-    // fresh cards so the model reads its prior before the new evidence and scores deliberately from
-    // it. Continuity, not corroboration; prompt-only and outside the input_hash (the score always
-    // moves, so hashing it would self-trigger every re-run).
-    if let Some(pr) = prior_read.filter(|s| !s.trim().is_empty()) {
-        b.push_str(
-            "\n=== YOUR PRIOR READ (memory — your own past verdicts; continuity, not new evidence) ===\n",
-        );
-        b.push_str(pr);
-        if !pr.ends_with('\n') {
-            b.push('\n');
-        }
-    }
+    // or9 (Scott, 2026-08-10 evening: "The Oracle is blind to memories, and just reads the 5
+    // other cards to give a holistic reading"): the YOUR PRIOR READ block and the RELATIONAL
+    // MEMORY card are GONE. Both were prompt-only enrichments outside the input_hash, so their
+    // removal regenerates nothing by itself; score continuity now lives where it always really
+    // lived — in the slow-moving pillar inputs — rather than in the crown re-reading its own
+    // last verdict. Five cards + the computed omen are the whole spread.
 
     // P1 — News narrative. On the packet rail the card is capped as ONE card: at most
     // CROWN_MAX_NARRATIVES storylines, sharing the body budget between them.
@@ -226,19 +212,21 @@ pub fn build_crown_prompt(
         b.push_str("\n=== THE JOURNALIST'S CARD (news storylines) ===\n(no recent narratives)\n");
     }
 
-    // P2 — PEAK scouting report (the stat end product)
-    b.push_str("\n=== THE SCOUT'S CARD (PEAK scouting report) ===\n");
+    // P2 — the scouting brief (the stat end product). Labels descrubbed at or9 ("Top skill",
+    // "Skill trend" — never "PEAK"): the s13-analyst lesson, an output ban cannot beat a word
+    // the input keeps shouting.
+    b.push_str("\n=== THE SCOUT'S CARD (scouting brief) ===\n");
     if let Some(r) = rating {
         if !r.divined_peak.is_empty() {
             b.push_str(&format!(
                 // "profile strength", not "notability": gate round 2 showed echo-prone
                 // models reciting the internal field word straight off this line.
-                "Peak: {} — profile strength {}/100\n",
+                "Top skill: {} — profile strength {}/100\n",
                 r.divined_peak, r.notability
             ));
         }
         if !r.peak_trajectory_label.is_empty() {
-            b.push_str(&format!("Peak trajectory: {}\n", r.peak_trajectory_label));
+            b.push_str(&format!("Skill trend: {}\n", r.peak_trajectory_label));
         }
         if !r.body.is_empty() {
             b.push_str(&capped(&r.body, body_cap));
@@ -248,8 +236,8 @@ pub fn build_crown_prompt(
         b.push_str("(no stat commentary available)\n");
     }
 
-    // P3 — Vibe felt-state
-    b.push_str("\n=== THE INFLUENCER'S CARD (vibe felt-read) ===\n");
+    // P3 — the felt read
+    b.push_str("\n=== THE INFLUENCER'S CARD (the felt read) ===\n");
     if let Some(v) = vibe {
         // "Mood", not "Sentiment": the or4 gate round 1 showed echo-prone models reciting
         // the internal field word straight off the card into the reading (the banned-word
@@ -285,14 +273,14 @@ pub fn build_crown_prompt(
     if let Some(s) = mom.vibe_slope {
         let dir = trend_dir(s);
         b.push_str(&format!(
-            "Vibe trajectory: {s:.1} over {} samples ({dir})\n",
+            "Mood trend: {s:.1} over {} samples ({dir})\n",
             mom.vibe_samples
         ));
     }
     if let Some(s) = mom.rating_slope {
         let dir = trend_dir(s);
         b.push_str(&format!(
-            "PEAK trajectory: {s:.1} over {} samples ({dir})\n",
+            "Form trend: {s:.1} over {} samples ({dir})\n",
             mom.rating_samples
         ));
     }
@@ -308,22 +296,6 @@ pub fn build_crown_prompt(
         b.push_str("(no active transfer rumors)\n");
     } else {
         write_heat_lines(&mut b, transfers);
-    }
-
-    // Relational memory card (s15, mig 163): the graph's per-entity history — prior
-    // stories with outcomes, current stories with likelihood, ground-truth moves.
-    // CONTINUITY, NOT CORROBORATION (the echo-chamber rule): memory frames the arc the
-    // synthesis sits in; it is never itself evidence for a new claim. Rendered only when
-    // the graph holds memory; deliberately NOT part of the input_hash (the PREVIOUS
-    // SIGIL precedent: enrichment rides along, it never self-triggers).
-    if let Some(m) = memory.filter(|m| !m.trim().is_empty()) {
-        b.push_str("\n=== RELATIONAL MEMORY (computed history) ===\n");
-        b.push_str("Use for arc and continuity: what fizzled before, what is live now, what actually happened. Do NOT treat a prior story as evidence for a new claim.\n");
-        for line in m.lines() {
-            b.push_str("- ");
-            b.push_str(line);
-            b.push('\n');
-        }
     }
 
     // THE OMEN (computed) — the decided direction the reading must move in (compute_omen). Handed

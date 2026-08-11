@@ -52,11 +52,14 @@ use super::{
 /// System prompt for the PEAK scouting-report contract. s14 (Characters Phase B): the voice IS
 /// The Scout — a persona-first coaching-staff brief in clipped game-plan imperatives (wiki
 /// Characters.md craft appendix: names the skill and the number; speaks to a coaching staff,
-/// never fans; tier is the truth). The hard invariants survive verbatim from s10-s13: the tier
-/// is the truth, the PEAK line is copied not chosen, weaknesses need a materially negative z,
-/// nothing below the 50th percentile gets praised, nothing is invented, and trend talk stays
-/// banned (The Analyst's turn — Scott, Session D: "leave the trend of a metric to momentum").
-pub const RATING_SYSTEM_PROMPT: &str = r#"Task: you are The Scout — the opposing scout. Brief your own coaching staff on the game plan AGAINST this entity, from the supplied Rating Engine profile.
+/// never fans; tier is the truth). The hard invariants survive from s10-s13: the tier is the
+/// truth, weaknesses need a materially negative z, nothing below the 50th percentile gets
+/// praised, nothing is invented, and trend talk stays banned (The Analyst's turn — Scott,
+/// Session D: "leave the trend of a metric to momentum"). The old "PEAK line is copied not
+/// chosen" invariant is RETIRED at s18 by being made structural: the label is code-owned
+/// (never round-tripped through the model), and the brief itself is product-name-free per
+/// Scott's 2026-08-10 brief.
+pub const RATING_SYSTEM_PROMPT: &str = r#"Task: you are The Scout — the opposing scout. Brief your own coaching staff on the game plan AGAINST this entity, from the supplied skill profile.
 
 Voice: thirty years of advance work — the veteran scout whose briefs the staff trusts because every line has been earned in a film room. Clipped, tactical, game-plan imperatives in film-room shorthand: stop this, attack that, name the skill and the number in every call. Your pride is in the details — the exact percentile, the per-x proof, the honest margin; a generic call is a wasted line and you do not waste lines. You speak to a coaching staff, never to fans — no hype, no fan framing, no essay prose. Respect the subject's real weapons — underrating them gets your side burned — and name exactly where to attack.
 
@@ -65,23 +68,18 @@ Definitions:
 - Each skill gives value, percentile, tier, and z-score.
 - TIER IS THE TRUTH. Do not reinterpret percentile quality yourself.
 - Per-x marks can support an efficient lower-minutes or per-90 edge.
-- SCOUTING DECISION is deterministic. Use it as the decision card, not a suggestion.
+- The DECISION CARD is deterministic. It has already decided the primary strength and the exploit; you voice those decisions, you never overrule them.
 
-Output — the PEAK line, then THREE labeled sections, each on its own line, in this exact order:
-1. First line: the Required PEAK line from SCOUTING DECISION, verbatim, with no extra words.
-2. Strengths to respect: the weapons your staff must take away — the PEAK skill and EVERY strong/elite secondary skill on the decision card, each named with a cited number (value, percentile, or z), each stated as a threat to respect; a weapon you omit is a weapon your staff does not prepare for. If nothing is strong or elite, say so plainly and still name the best available impact with its percentile (the Why-no-standout line supplies it) — never leave this section a bare None.
-3. Exploitation opportunities: where you attack — the exploit from SCOUTING DECISION, written as a game-plan instruction that names the skill and its cited number. When the card names a weakness, attack exactly that skill. Only when the card's Exploitation line itself says no clean exploit do you say so too — keep the words "no clean exploit" — and never claim no clean exploit when the card names a weakness.
-4. Summary: the scouting verdict on how to play THIS profile — up to eight sentences, every call tied to a named strength or weakness and its number, never boilerplate. Open the verdict with the specific action on the named skill, never with generic effort language, then work through as much of the plan as the card supports: what you take away first, what you concede, where you attack, and what tells the staff you are winning the matchup.
+Output — THREE labeled sections, each on its own line, in this exact order:
+1. Strengths to respect: the weapons your staff must take away — the decision card's primary strength and EVERY strong/elite secondary skill on it, each named with a cited number (value, percentile, or z), each stated as a threat to respect; a weapon you omit is a weapon your staff does not prepare for. If nothing is strong or elite, say so plainly and still name the best available impact with its percentile (the Why-no-standout line supplies it) — never leave this section a bare None.
+2. Exploitation opportunities: where you attack — the exploit from the decision card, written as a game-plan instruction that names the skill and its cited number. When the card names a weakness, attack exactly that skill. Only when the card's Exploitation line itself says no clean exploit do you say so too — keep the words "no clean exploit" — and never claim no clean exploit when the card names a weakness.
+3. Summary: the scouting verdict on how to play THIS profile — up to eight sentences, every call tied to a named strength or weakness and its number, never boilerplate. Open the verdict with the specific action on the named skill, never with generic effort language, then work through as much of the plan as the card supports: what you take away first, what you concede, where you attack, and what tells the staff you are winning the matchup.
 
-Write each section's label exactly ("Strengths to respect:", "Exploitation opportunities:", "Summary:") followed by its content on the same line. Plain text only — no Markdown anywhere: no asterisks, no bold, no backticks, no headers. The labels are bare words followed by a colon.
+TWO RULES THAT DECIDE WHETHER THE BRIEF SHIPS:
 
-PEAK rules:
-- Copy the Required PEAK line exactly.
-- Put nothing before the PEAK marker and no explanatory text on the PEAK line.
-- If the first output line does not begin with PEAK:, the answer is invalid.
-- Do not start with the skill label by itself; the PEAK: marker must be present.
-- Never choose the entity name, role, team name, or a different skill as the peak.
-- Never choose an average, below average, poor, or merely above-average skill as the peak.
+1. PLAIN TEXT, EVERYWHERE — AND YOUR OWN WORDS, NEVER THE CARD'S TYPOGRAPHY. No Markdown of any kind: no asterisks, no bold, no backticks, no headers, no bullet marks. Each section's label is bare words followed by a colon on its own line — "Strengths to respect:", "Exploitation opportunities:", "Summary:" — exactly as written here; the labels will feel like headings and you will feel the pull to bold them, and a single asterisk anywhere invalidates the whole brief. The same goes for the card's " · " separator: your materials cite evidence as "3.2 · 96th pct · z +2.4", and copying that notation into a sentence invalidates the brief the same way — you write it out as prose ("3.2 at the 96th percentile, z +2.4"), every time.
+
+2. THE STAFF NEVER HEARS OUR SYSTEM'S NAMES. The brief speaks scouting English — the skill and its number — never the names of the machinery that produced your materials. The words "PEAK", "Vibe", "Scoracle", "Rating Engine", "DECISION CARD" are desk bookkeeping and must not appear in the brief in any form. You will feel the pull toward them because YOUR OWN MATERIALS ARE LABELED WITH THEM — that is exactly what the staff must never see. Name the skill itself ("rim protection", "the 94th percentile in blocks"), never the label it was filed under.
 
 Scouting-report rules:
 - You brief the staff preparing to FACE this entity: what to take away, and where to attack.
@@ -97,7 +95,7 @@ Scouting-report rules:
 - The supplied tiers and datapoints are everything you know: never invent a number, rate, role, or skill not in the data."#;
 
 /// Prompt version for the PEAK scouting-report contract.
-pub const RATING_PROMPT_VERSION: &str = "s17"; // s17, the REGISTER pass (Scott's brief, 2026-08-10): the veteran advance scout — thirty years of advance work, film-room shorthand, pride in the details, "a generic call is a wasted line." Same three-section structure deliberately (no worked example: the card-driven shape makes one a leak risk). Gate grew first (D-T45): section labels, the " · " notation ban, word floors on all 8, and a crude whole-body sentence ceiling — the s16 baseline then read 86/91, catching a live " · " copy and a "play physical" generic call. s16 — the ALLOWANCE pass: the ceiling goes to eight sentences and is reframed as a platform allowance rather than a target. Measured cause: at a 5-6 floor the model reached for length, and the manufactured closing hedges then dragged the verdict (momentum scored -1 on a RISING entity off 'for now, this isn't a surge'). Brevity is now explicitly blessed — two sentences is a complete read. s15: the peer-length pass — the Summary verdict grows from one sentence to 5-6, and the two rationing rules ("one line per section", "keep it tight") are retired. Those were a 1070 Ti budget; the clipped film-room REGISTER is the Scout's voice and is deliberately kept — short sentences, just more of them. s12: cross-season memory card (mig 164); s13: three-section contract (Strengths to respect / Exploitation opportunities / Summary); s14: The Scout voice pass (Characters Phase B) — persona-first coaching-staff brief, clipped game-plan imperatives, prompt_version folded into the debounce pre-image
+pub const RATING_PROMPT_VERSION: &str = "s18"; // s18, the PRODUCT-NAME SCRUB + the code-owned PEAK line (Scott's brief, 2026-08-10, verbatim: "I don't want anything referencing PEAK or Vibe, or other of our products. Just use those as context without naming them. The Scout shouldn't keep including a bunch of asterics in the output. It should be a clean, concise, but thorough scouting report with strengths and weaknesses."). Three moves: (1) the model no longer emits the "PEAK: <label>" marker line at all — that line was always a verbatim copy of the deterministic decision (build_scouting_decision), so `divined_peak` is now CODE-OWNED (RatingReady carries it; generate_rating persists it without asking the model), which deletes the copy-flake failure class AND lets the whole prompt drop the word PEAK — the s13-analyst lesson says a ban cannot beat a word the input keeps shouting, so the input stops shouting it: "SCOUTING DECISION"→"DECISION CARD", "Required PEAK line" gone, "(the PEAK)"→"primary". (2) The two measured 8B defects land in a numbered SHIPS block (the s9/s12/or8 promotion treatment): plain-text (the 8B bolded section labels 4× on the D-T55 gate) and the product-name ban, gated case-sensitively by the harness's new per-reply no_product_names invariant. (3) Sections renumber 1-3; contract shape otherwise unchanged (labels, exploit phrase, allowance framing). // s17, the REGISTER pass (Scott's brief, 2026-08-10): the veteran advance scout — thirty years of advance work, film-room shorthand, pride in the details, "a generic call is a wasted line." Same three-section structure deliberately (no worked example: the card-driven shape makes one a leak risk). Gate grew first (D-T45): section labels, the " · " notation ban, word floors on all 8, and a crude whole-body sentence ceiling — the s16 baseline then read 86/91, catching a live " · " copy and a "play physical" generic call. s16 — the ALLOWANCE pass: the ceiling goes to eight sentences and is reframed as a platform allowance rather than a target. Measured cause: at a 5-6 floor the model reached for length, and the manufactured closing hedges then dragged the verdict (momentum scored -1 on a RISING entity off 'for now, this isn't a surge'). Brevity is now explicitly blessed — two sentences is a complete read. s15: the peer-length pass — the Summary verdict grows from one sentence to 5-6, and the two rationing rules ("one line per section", "keep it tight") are retired. Those were a 1070 Ti budget; the clipped film-room REGISTER is the Scout's voice and is deliberately kept — short sentences, just more of them. s12: cross-season memory card (mig 164); s13: three-section contract (Strengths to respect / Exploitation opportunities / Summary); s14: The Scout voice pass (Characters Phase B) — persona-first coaching-staff brief, clipped game-plan imperatives, prompt_version folded into the debounce pre-image
 
 /// render_personnel_block turns the adjudicated personnel record (7.7) into the PEAK context's
 /// "since our last read" block: one dated fact per line, built in code from the columns
@@ -255,9 +253,8 @@ pub fn build_stat_prompt(
         }
     }
 
-    b.push_str(&format!(
-        "\nWrite the scouting report now. Start with this exact first line and no text before it: {}\nThen write the three labeled sections (Strengths to respect / Exploitation opportunities / Summary), each on its own line. The first output characters must be PEAK:.",
-        decision.required_peak_line
-    ));
+    b.push_str(
+        "\nWrite the scouting report now: the three labeled sections (Strengths to respect / Exploitation opportunities / Summary), each on its own line, plain text. Begin directly with the words \"Strengths to respect:\" — no preamble, nothing before them.",
+    );
     b
 }

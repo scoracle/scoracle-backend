@@ -308,16 +308,14 @@ fn prompt_player_composite_datapoints_and_scoped_position() {
         "Entity: Test Player (NBA player, Guard)\n\
 \nProfile distinctiveness: 70/100 (higher = more standout skills — let a richer profile earn a fuller read).\n\
 \nComposite (how WELL overall — T-score, 50 = average): 67\n\
-\nSCOUTING DECISION\n\
-Required PEAK line: PEAK: Scoring\n\
-Strength to respect (the PEAK): Scoring: 24 · 95th pct (elite) · z +3.1 [position: 88th, strong]\n\
+\nDECISION CARD\n\
+Primary strength to respect: Scoring: 24 · 95th pct (elite) · z +3.1 [position: 88th, strong]\n\
 Secondary strengths to respect: None supplied.\n\
 Exploitation opportunity: Defense: 2.5 · 40th pct (below average) · z -0.5\n\
 \nDatapoints — value · percentile + TIER (the percentile mapped to elite/strong/above average/average/below average/poor; THIS TIER IS THE TRUTH) · z (standard deviations above the mean: the scarcity/scale of the edge; a high z is a rarer, more premium skill); [position] percentile shown when present:\n\
 - Scoring: 24 · 95th pct (elite) · z +3.1 [position: 88th, strong]\n\
 - Defense: 2.5 · 40th pct (below average) · z -0.5\n\
-\nWrite the scouting report now. Start with this exact first line and no text before it: PEAK: Scoring\n\
-Then write the three labeled sections (Strengths to respect / Exploitation opportunities / Summary), each on its own line. The first output characters must be PEAK:."
+\nWrite the scouting report now: the three labeled sections (Strengths to respect / Exploitation opportunities / Summary), each on its own line, plain text. Begin directly with the words \"Strengths to respect:\" — no preamble, nothing before them."
     );
 }
 
@@ -340,16 +338,25 @@ fn prompt_team_no_composite_no_position() {
         prompt,
         "Entity: Test FC (FOOTBALL team)\n\
 \nProfile distinctiveness: 55/100 (higher = more standout skills — let a richer profile earn a fuller read).\n\
-\nSCOUTING DECISION\n\
-Required PEAK line: PEAK: Defense\n\
-Strength to respect (the PEAK): Defense: 0.38 · 78th pct (strong) · z +1.2\n\
+\nDECISION CARD\n\
+Primary strength to respect: Defense: 0.38 · 78th pct (strong) · z +1.2\n\
 Secondary strengths to respect: None supplied.\n\
 Exploitation opportunity: None — this profile offers no clean exploit.\n\
 \nDatapoints — value · percentile + TIER (the percentile mapped to elite/strong/above average/average/below average/poor; THIS TIER IS THE TRUTH) · z (standard deviations above the mean: the scarcity/scale of the edge; a high z is a rarer, more premium skill); [position] percentile shown when present:\n\
 - Defense: 0.38 · 78th pct (strong) · z +1.2\n\
-\nWrite the scouting report now. Start with this exact first line and no text before it: PEAK: Defense\n\
-Then write the three labeled sections (Strengths to respect / Exploitation opportunities / Summary), each on its own line. The first output characters must be PEAK:."
+\nWrite the scouting report now: the three labeled sections (Strengths to respect / Exploitation opportunities / Summary), each on its own line, plain text. Begin directly with the words \"Strengths to respect:\" — no preamble, nothing before them."
     );
+}
+
+#[test]
+fn descrub_memory_card_rewrites_mig164_internal_vocabulary() {
+    let raw = "Our prior read: season 2025 PEAK was \"Shooting\" (notability 98/100).\nConfirmed move: joined Test FC (Jul 12).";
+    let clean = descrub_memory_card(raw);
+    assert!(!clean.contains("PEAK"), "descrubbed: {clean}");
+    assert!(!clean.contains("notability"), "descrubbed: {clean}");
+    assert!(clean.contains("the top skill read was \"Shooting\" (profile distinctiveness 98/100)"));
+    // Unrecognized lines pass through untouched.
+    assert!(clean.contains("Confirmed move: joined Test FC (Jul 12)."));
 }
 
 #[test]
@@ -358,10 +365,12 @@ fn cross_season_memory_renders_before_the_write_cue() {
     // tier-truth guard in the header; None pins the s11 byte shape (the byte-fixtures
     // above). Blank memory ⇒ no section.
     let p = profile_player();
-    let mem = "Our prior read: season 2025 PEAK was \"Shooting\" (notability 98/100).\nMatchup memory: pts vs Test Rivals — 22.8/game vs a 16.0 baseline (adjusted +4.7), n=13 games, reliability 44/100.";
+    // The mem string is the DESCRUBBED form (s18): production runs mig 164's card through
+    // descrub_memory_card in load_stat_memory before it gets here.
+    let mem = "Our prior read: season 2025 the top skill read was \"Shooting\" (profile distinctiveness 98/100).\nMatchup memory: pts vs Test Rivals — 22.8/game vs a 16.0 baseline (adjusted +4.7), n=13 games, reliability 44/100.";
     let prompt = build_stat_prompt(&req("NBA", "player", "Test Player"), &p, 70, Some(mem), None);
     assert!(prompt.contains("\nCross-season memory (computed history — arc context only"));
-    assert!(prompt.contains("- Our prior read: season 2025 PEAK was \"Shooting\""));
+    assert!(prompt.contains("- Our prior read: season 2025 the top skill read was \"Shooting\""));
     assert!(prompt.contains("- Matchup memory: pts vs Test Rivals"));
     let mem_pos = prompt.find("Cross-season memory").unwrap();
     let cue_pos = prompt.find("Write the scouting report now").unwrap();
@@ -493,7 +502,7 @@ fn peak_trajectory_buckets_and_labels_recent_form() {
     assert_eq!(trajectory_key(linear_slope(&[0.7, 0.8, 0.75])), "steady");
     assert_eq!(
         z_trajectory_label("falling", "falling", "falling"),
-        "Composite and PEAK z-scores trending down over recent games"
+        "overall scores and the top skill trending down over recent games"
     );
 }
 
@@ -501,7 +510,7 @@ fn peak_trajectory_buckets_and_labels_recent_form() {
 fn peak_trajectory_labels_divergent_z_score_tracks() {
     assert_eq!(
         z_trajectory_label("steady", "rising", "falling"),
-        "Composite z-score rising; PEAK z-score falling over recent games"
+        "overall scores rising; the top skill falling over recent games"
     );
 }
 

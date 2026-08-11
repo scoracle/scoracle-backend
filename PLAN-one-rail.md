@@ -13,8 +13,33 @@
 > late; that is what the drift costs.) **§0 rule 3 — plumbing gates phases; a phase may CITE the
 > ledger, it may never HALT on it.**
 
-**STATE (2026-08-10 — THE INFLUENCER/SCOUT/ANALYST session. Supersedes every block below, which
+**STATE (2026-08-10 EVENING — THE FIVE-VOICE PASS session. Supersedes every block below, which
 stay for their detail.)**
+⭐ **FIVE VOICES BUMPED IN ONE GATED SWEEP (D-T57): s18 / momentum-s15 / or9 / v18 / n19** — Scott's
+three evening briefs (Scout product-name-free + plain-text; Oracle blind to memories, five cards +
+omen only; Analyst speaks "the form"/"the emotion around the club", never PEAK/Vibe) plus the D-T54
+diets (vibe packets 4→2, sigil system ~1,806→~1,050 tok) and the D-T56 card brief (Journalist's
+edition budget grounded in the CARD). The Scout's PEAK line is CODE-OWNED now (never round-tripped
+through the model); `z_trajectory_label` descrubbed at source. **First full baselines on the
+PRODUCTION engine (oMLX/8B): the engine mattered** — the crown read 78/98 there vs 97/98 on ollama
+(D-T55), and the gap was a real bug: unconstrained oMLX replies carry literal newlines inside JSON
+strings; the parser salvage now folds them (18 production sigil rows carried exactly that error).
+Post-edit gates, quiet, two byte-stable runs each: vibe 53/53, narratives 110/110, momentum 87/91
+(from 77/91), oracle 108/110 (from 87/108; residual = the single-peer rule, the queued register
+item), rating 94/95 after the notation-ban promotion (re-gated same window; the SHIPS treatment's
+fourth consecutive win) — 452/464 total, every residual a named class. Harness grew
+first: diacritic fold, shared case-sensitive `no_product_names` invariant (rating/momentum/oracle),
+`reading_plain_text`, `prose_includes_any` groups. ⛔ **Generator-drift trap closed** (twice in one
+evening: on-disk gate growth silently missing from generators; all generators now faithful by
+construction). Junctions-layer AUDIT delivered (13 DEAD / 8 calls / 12 misleading docs). **NEXT
+(Scott's plan, in memory):** deploy via release.sh + requeue → finish/complete the rail plan →
+voice-tuning cleanup → schema audit → HANDS-OFF until Sat 2026-08-15 afternoon → debug if needed →
+prune old rail + old seeding layer + junk. Queued behind that: Insider pass + hot/cold field,
+Oracle register pass (single-peer), per-metric z-trajectory design (Scott's brief in D-T57 notes),
+the 8B fabricated-statistics class (recorded, un-gated).
+
+*(Superseded morning STATE follows.)*
+**STATE (2026-08-10 — THE INFLUENCER/SCOUT/ANALYST session.)**
 ✅ **THREE VOICES TUNED ON THE METHOD, ONE COMMIT EACH, DEPLOYED @ `71dbfdb`:** the Influencer
 v17 (D-T50, platform-native creator, the VIBE body gated at last, 52/53), the Scout s17 (D-T51,
 veteran advance scout, section shape + notation ban gated, plain-text guard, 90/91), the Analyst
@@ -5002,6 +5027,19 @@ diagnosis, the numbers and the candidate knobs stay in the tuning file at the se
   is no longer "the largest available throughput change" — D-T34 is.** The live runner shows
   `-c 8192 -np 2` = 4096 PER SLOT, confirming KV scales as `num_ctx × slots`, so 4 slots at 2048
   would cost today's KV — ⛔ **but only AFTER D-T35's prompt trim, never before.** → *tuning §D-T30*
+- **D-T57 · ⭐⭐ THE FIVE-VOICE PASS — s18/s15/or9/v18/n19 IN ONE GATED SWEEP; THE CROWN'S oMLX
+  PARSE BUG DIES (2026-08-10 evening).** Scott's briefs: Scout product-name-free (PEAK line now
+  CODE-OWNED, prompt de-PEAKed at the source), Analyst rule 1 INVERTED ("the form"/"the emotion
+  around the club", inputs renamed first — the s13 lesson as design), Oracle BLIND TO MEMORIES
+  (five cards + omen; prior-read/relational-memory gone from prompt AND stage) + or9 diet
+  (~1,806→~1,050 tok system), vibe packets 4→2, Journalist card-budget SHIPS block. First
+  PRODUCTION-engine baselines (oMLX ≠ ollama: crown 78/98 vs 97/98) exposed the parse bug —
+  literal newlines inside unconstrained JSON strings, 18 live sigil failures, parser salvage
+  folds them. Gates ×2 byte-stable: vibe 53/53, narratives 110/110, momentum 77→87/91, oracle
+  87/108→108/110 (residual: single-peer, the queued register item), rating + notation-ban
+  addendum. Harness: diacritic fold, case-sensitive no_product_names (3 seats),
+  reading_plain_text, prose_includes_any. Generator-drift trap CLOSED (caught 2× in one
+  evening). Junctions audit delivered (13 DEAD/8 calls/12 misleading). → *tuning §D-T57*
 - **D-T56 · ⭐⭐ THE SWITCH — PRODUCTION IS 14B → 8B ON oMLX @6: 255 req/h, 30/30, ZERO ERRORS
   (2026-08-10).** Cells: 8B/oMLX@6 **255/h 30-30** > 8B/oMLX@4 220 > 8B/ollama@4 172 >
   14B/ollama@3 165 (the morning's production) — +55%, and oMLX beats ollama +49% on the same

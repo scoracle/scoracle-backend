@@ -169,8 +169,8 @@ pub fn lens_parameters(name: &str) -> Option<LensParameters> {
         "oracle" => Some(LensParameters {
             rail: Rail::Synthesis,
             operator: "the Oracle",
-            mandate: "Read the five pillar cards aloud, deliver the entity's reading in the house voice, then render the Sigil verdict grounded in the entity's own prior reads.",
-            credibility_guard: "The mysticism lives in the telling, never the facts — every claim traces to a card; nothing invented; the score moves deliberately from prior verdicts.",
+            mandate: "Read the five pillar cards, deliver the entity's reading in the house voice, then render the Sigil verdict — the score this spread has earned (blind to memories since or9).",
+            credibility_guard: "The mysticism lives in the telling, never the facts — every claim traces to a card shown; nothing invented; no internal field or product names.",
         }),
         "editor" => Some(LensParameters {
             rail: Rail::EmotionalNews,
@@ -369,6 +369,14 @@ pub struct Expect {
     /// describe prose richness without changing storyline semantics.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prose_includes: Option<Vec<String>>,
+    /// ANY-of groups over the reply prose: each entry is ONE check — a pipe-delimited synonym
+    /// group ("form|tape|performances") that passes when at least one alternative appears
+    /// (contains_ci each). Multiple entries = multiple independent checks, so a fixture can
+    /// require BOTH signals named ("form|tape…", "mood|emotion…"). Added for momentum s15,
+    /// where "name the signal" stopped meaning a product name ("PEAK") and started meaning the
+    /// sport's own words — which legitimately vary.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prose_includes_any: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prose_excludes: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -857,8 +865,6 @@ impl LensTask for OracleTask {
             omen,
             &omen_reason,
             None,
-            None,
-            None,
         )))
     }
     fn evaluate(&self, raw: &str, label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
@@ -873,6 +879,20 @@ impl LensTask for OracleTask {
         let reading = reply.reading;
         let sentences = count_sentences(&reading);
         let mut checks = Vec::new();
+
+        // Contract-level invariants on every reading (the momentum no_banned_phrases shape).
+        // (1) Product names: Scott, 2026-08-10 — "if it references another Character, it should
+        // be their name and not PEAK or Vibe". Case-sensitive; see PRODUCT_NAME_BANS.
+        checks.push(product_name_check(&reading));
+        // (2) Plain prose: the or8 no-Markdown rule had NO assertion behind it, and the 8B/oMLX
+        // baseline (2026-08-10) served `*there*` — italics in crown prose — through a green gate.
+        // A rule measured by nothing is advice, not a contract.
+        let md = ['*', '#', '`'].iter().find(|c| reading.contains(**c));
+        checks.push(PropertyCheck {
+            name: "reading_plain_text".into(),
+            pass: md.is_none(),
+            detail: md.map_or_else(String::new, |c| format!("found {c:?}")),
+        });
 
         if let Some(x) = expect {
             if let Some(min) = x.reading_min_sentences {
@@ -1408,6 +1428,11 @@ impl LensTask for RatingTask {
         let mut checks = Vec::new();
         let word_count = reply.body.split_whitespace().count() as i32;
 
+        // Contract-level invariant, asserted whether or not this case carries an `expect` (the
+        // momentum no_banned_phrases shape): product names are banned from every brief, not from
+        // the fixtures that happened to trip one. Case-sensitive — see PRODUCT_NAME_BANS.
+        checks.push(product_name_check(&reply.body));
+
         if let Some(x) = expect {
             for s in x.peak_includes.iter().flatten() {
                 checks.push(PropertyCheck {
@@ -1542,7 +1567,7 @@ impl LensTask for MomentumTask {
         let mut checks = Vec::new();
         let word_count = reply.blurb.split_whitespace().count() as i32;
 
-        // Contract-level invariant, asserted whether or not this case carries an `expect`: the
+        // Contract-level invariants, asserted whether or not this case carries an `expect`: the
         // banned phrasings are banned for every READ, not for the fixtures that happened to trip
         // one. See MOMENTUM_BANNED_PHRASES for why this is one check and not one per phrase.
         let banned = MOMENTUM_BANNED_PHRASES
@@ -1553,6 +1578,11 @@ impl LensTask for MomentumTask {
             pass: banned.is_none(),
             detail: banned.map_or_else(String::new, |p| format!("found {p:?}")),
         });
+        // s15 (Scott, 2026-08-10): the READ speaks the sport's words — "the form", "the emotion
+        // around the club" — never the desk's product names. Case-sensitive; see PRODUCT_NAME_BANS.
+        // At the s14 baseline this check is EXPECTED red on most fixtures: s14's rule 1 mandated
+        // the product names, and this invariant is the measured record of that contract inverting.
+        checks.push(product_name_check(&reply.blurb));
 
         if let Some(x) = expect {
             for s in x.prose_includes.iter().flatten() {
@@ -1560,6 +1590,23 @@ impl LensTask for MomentumTask {
                     name: format!("prose_includes:{s}"),
                     pass: contains_ci(&reply.blurb, s),
                     detail: String::new(),
+                });
+            }
+            // ANY-of groups (s15): "name the signal" in the sport's words, which legitimately
+            // vary. Each entry is one pipe-delimited group and one check.
+            for group in x.prose_includes_any.iter().flatten() {
+                let hit: Vec<&str> = group
+                    .split('|')
+                    .filter(|s| !s.is_empty() && contains_ci(&reply.blurb, s))
+                    .collect();
+                checks.push(PropertyCheck {
+                    name: format!("prose_includes_any:[{group}]"),
+                    pass: !hit.is_empty(),
+                    detail: if hit.is_empty() {
+                        "no listed synonym voiced".into()
+                    } else {
+                        format!("voiced {hit:?}")
+                    },
                 });
             }
             for s in x.prose_excludes.iter().flatten() {
@@ -1628,7 +1675,8 @@ fn empty_dash(s: &str) -> &str {
     }
 }
 
-/// Case-insensitive substring match, with typographic punctuation folded to ASCII first.
+/// Case-insensitive substring match, with typographic punctuation AND Latin diacritics folded
+/// to ASCII first.
 ///
 /// The folding is not cosmetic — it is what makes a banned-phrase check real. Fixture expects are
 /// hand-written with ASCII quotes (`isn't a surge`), while chat-tuned models emit the typographic
@@ -1637,11 +1685,16 @@ fn empty_dash(s: &str) -> &str {
 /// and it hid a live momentum regression through the whole of s10 — the phrase ban added in s10 was
 /// reported as "10 → 0 occurrences" by a grep that could not match the model's own apostrophe.
 ///
-/// Only quote characters are folded. Dashes are deliberately left alone: an em dash is a real
-/// stylistic signal some checks may legitimately want to assert on, and folding it to `-` would
-/// make those checks mean something different.
+/// The diacritic fold closes the mirror-image hazard on the INCLUDES side: a fixture asserting
+/// `Sørensen` false-failed both the 8B and the 14B when the model wrote the honest ASCII form
+/// "Sorensen" (D-T55 — the transfer gate's one harness artifact). Names are folded on both sides,
+/// so `Sørensen` matches `Sorensen` and vice versa.
+///
+/// Only quotes and letter diacritics are folded. Dashes are deliberately left alone: an em dash is
+/// a real stylistic signal some checks may legitimately want to assert on, and folding it to `-`
+/// would make those checks mean something different.
 fn contains_ci(haystack: &str, needle: &str) -> bool {
-    fold_quotes(haystack).contains(&fold_quotes(needle))
+    fold_for_match(haystack).contains(&fold_for_match(needle))
 }
 
 /// Crude sentence count: runs of terminal punctuation (`.` `!` `?`), a run of several counting
@@ -1692,6 +1745,40 @@ fn count_named_peers(reading: &str) -> usize {
 /// Deliberately specific. Bare "the engine" is banned in the prompt but NOT here: a football READ
 /// can legitimately say "the engine room of midfield", and a check that fails on correct prose
 /// trains everyone to ignore it.
+/// Product / internal-system names banned from SERVED prose (Scott's brief, 2026-08-10: *"I
+/// don't want anything referencing PEAK or Vibe, or other of our products. Just use those as
+/// context without naming them"*, extended the same evening to the Analyst — *"it should
+/// reference Vibe output as something like 'the emotion around the club' versus 'Vibe'. Same
+/// with the PEAK"* — and the Oracle — *"if it references another Character, it should be their
+/// name and not PEAK or Vibe"*). Checked on EVERY reply of the wired seats (rating, momentum,
+/// oracle) as one invariant each — the [`MOMENTUM_BANNED_PHRASES`] shape: a global contract
+/// rule belongs in one check per reply, not one per fixture.
+///
+/// CASE-SENSITIVE deliberately, unlike every `contains_ci` axis: lowercase "peak" is legitimate
+/// English ("at the peak of his powers") and banning it would fail honest prose. The product
+/// names as the prompts' own vocabulary sets them — "PEAK", "DECISION CARD" — are what an
+/// echoing model copies, caps and all. For rating the check runs on the parsed BODY only: the
+/// structural "PEAK: <label>" marker line is stripped by `RatingParser` and never serves.
+pub const PRODUCT_NAME_BANS: &[&str] = &[
+    "PEAK",
+    "Vibe",
+    "Scoracle",
+    "Rating Engine",
+    "SCOUTING DECISION",
+    "DECISION CARD",
+];
+
+/// One shared invariant check over a served-prose field: the first product name found, as a
+/// `PropertyCheck` every wired seat pushes unconditionally.
+fn product_name_check(prose: &str) -> PropertyCheck {
+    let named = PRODUCT_NAME_BANS.iter().find(|p| prose.contains(*p));
+    PropertyCheck {
+        name: "no_product_names".into(),
+        pass: named.is_none(),
+        detail: named.map_or_else(String::new, |p| format!("found {p:?}")),
+    }
+}
+
 pub const MOMENTUM_BANNED_PHRASES: &[&str] = &[
     "isn't a surge",
     "isn't a collapse",
@@ -1702,16 +1789,45 @@ pub const MOMENTUM_BANNED_PHRASES: &[&str] = &[
     "steady band",
 ];
 
-/// Lowercase and fold the typographic quote characters to their ASCII equivalents.
-fn fold_quotes(s: &str) -> String {
-    s.chars()
-        .map(|c| match c {
-            '\u{2018}' | '\u{2019}' | '\u{201B}' | '\u{02BC}' => '\'',
-            '\u{201C}' | '\u{201D}' | '\u{201F}' => '"',
-            other => other,
+/// Lowercase, fold the typographic quote characters to their ASCII equivalents, and fold Latin
+/// letter diacritics to their base letters (ø→o, é→e, ß→ss …). The table is curated for the
+/// scripts sports names actually arrive in (Latin-1/Latin-2 European), not a full Unicode
+/// normalization — NFD decomposition isn't in std, and a dependency for this would be the tail
+/// wagging the dog. Lowercasing runs FIRST so the table only needs lowercase entries.
+fn fold_for_match(s: &str) -> String {
+    s.to_lowercase()
+        .chars()
+        .flat_map(|c| {
+            let one = |c: char| std::iter::once(c).chain(None);
+            let two = |a: char, b: char| std::iter::once(a).chain(Some(b));
+            match c {
+                '\u{2018}' | '\u{2019}' | '\u{201B}' | '\u{02BC}' => one('\''),
+                '\u{201C}' | '\u{201D}' | '\u{201F}' => one('"'),
+                'à' | 'á' | 'â' | 'ã' | 'ä' | 'å' | 'ā' | 'ă' | 'ą' => one('a'),
+                'ç' | 'ć' | 'č' => one('c'),
+                'ď' => one('d'),
+                'è' | 'é' | 'ê' | 'ë' | 'ē' | 'ĕ' | 'ė' | 'ę' | 'ě' => one('e'),
+                'ğ' | 'ģ' => one('g'),
+                'ì' | 'í' | 'î' | 'ï' | 'ī' | 'į' | 'ı' => one('i'),
+                'ķ' => one('k'),
+                'ĺ' | 'ļ' | 'ľ' | 'ł' => one('l'),
+                'ñ' | 'ń' | 'ņ' | 'ň' => one('n'),
+                'ò' | 'ó' | 'ô' | 'õ' | 'ö' | 'ø' | 'ō' | 'ő' => one('o'),
+                'ŕ' | 'ř' => one('r'),
+                'ś' | 'ş' | 'š' | 'ș' => one('s'),
+                'ţ' | 'ť' | 'ț' => one('t'),
+                'ù' | 'ú' | 'û' | 'ü' | 'ū' | 'ů' | 'ű' | 'ų' => one('u'),
+                'ý' | 'ÿ' => one('y'),
+                'ź' | 'ż' | 'ž' => one('z'),
+                'æ' => two('a', 'e'),
+                'œ' => two('o', 'e'),
+                'ß' => two('s', 's'),
+                'þ' => two('t', 'h'),
+                'ð' => one('d'),
+                other => one(other),
+            }
         })
-        .collect::<String>()
-        .to_lowercase()
+        .collect()
 }
 
 // ---------------------------------------------------------------------------
@@ -2707,10 +2823,19 @@ mod tests {
     }
 
     #[test]
-    fn fold_quotes_leaves_dashes_and_ordinary_text_alone() {
-        assert_eq!(fold_quotes("A\u{2014}B"), "a\u{2014}b");
-        assert_eq!(fold_quotes("\u{201C}quoted\u{201D}"), "\"quoted\"");
-        assert_eq!(fold_quotes("It\u{2019}s"), "it's");
+    fn fold_for_match_leaves_dashes_and_ordinary_text_alone() {
+        assert_eq!(fold_for_match("A\u{2014}B"), "a\u{2014}b");
+        assert_eq!(fold_for_match("\u{201C}quoted\u{201D}"), "\"quoted\"");
+        assert_eq!(fold_for_match("It\u{2019}s"), "it's");
+    }
+
+    #[test]
+    fn fold_for_match_folds_diacritics_both_directions() {
+        // The D-T55 artifact: fixture says Sørensen, honest model output says Sorensen.
+        assert!(contains_ci("a bid for Sorensen is live", "Sørensen"));
+        assert!(contains_ci("a bid for Sørensen is live", "Sorensen"));
+        assert!(contains_ci("Müller and Sánchez", "muller"));
+        assert_eq!(fold_for_match("Nikšić ØRSTED ß"), "niksic orsted ss");
     }
 
     // --- rating / stats-lens rubric ---------------------------------------------
@@ -2734,6 +2859,28 @@ mod tests {
     }
 
     #[test]
+    fn rating_product_name_ban_is_case_sensitive_and_body_scoped() {
+        // The marker line's own "PEAK:" is stripped by the parser and must not trip the ban;
+        // lowercase "peak" is honest English and must not trip it either.
+        let clean = "PEAK: Rim protection\nStill at the peak of his powers: an elite rim protector at the 94th percentile in blocks who anchors the paint without fouling, and the defensive identity is clear.";
+        let v = RatingTask.evaluate(clean, None, None);
+        assert!(
+            v.checks.iter().all(|c| c.pass),
+            "clean body tripped: {:?}",
+            v.checks
+        );
+        // An echoed product name in the body is exactly what the check exists to catch.
+        let echo = "PEAK: Rim protection\nHis PEAK skill is rim protection and the staff must scheme away from it, forcing the ball to the perimeter.";
+        let v = RatingTask.evaluate(echo, None, None);
+        let ban = v
+            .checks
+            .iter()
+            .find(|c| c.name == "no_product_names")
+            .expect("invariant check present");
+        assert!(!ban.pass, "echoed PEAK not caught: {:?}", v.checks);
+    }
+
+    #[test]
     fn rating_rubric_catches_generic_peak_and_thin_prose() {
         let x = Expect {
             peak_includes: Some(vec!["Rim protection".into()]),
@@ -2743,7 +2890,14 @@ mod tests {
         };
         let v = RatingTask.evaluate("PEAK: No standout skill\nAverage profile.", None, Some(&x));
         assert!(v.parsed);
-        assert_eq!(v.checks_passed(), 0, "checks: {:?}", v.checks);
+        // Every expect-driven check fails; the no_product_names invariant rightly passes on a
+        // body with no product names, so it is excluded from the count.
+        let expect_passed = v
+            .checks
+            .iter()
+            .filter(|c| c.name != "no_product_names" && c.pass)
+            .count();
+        assert_eq!(expect_passed, 0, "checks: {:?}", v.checks);
     }
 
     // --- momentum fixture-first trajectory rubric ---------------------------------
@@ -2762,15 +2916,30 @@ mod tests {
     fn momentum_rubric_scores_prose() {
         // s11: the signed-band assertions are gone — the score is no longer the model's to
         // get wrong. `momentum_conviction_from_score` is unit-tested in the junction instead.
+        // s15: the compliant READ speaks the sport's words — product names now trip the
+        // no_product_names invariant, and "name the signal" is an any-of over honest synonyms.
         let x = Expect {
-            prose_includes: Some(vec!["Vibe".into()]),
+            prose_includes_any: Some(vec!["mood|emotion|feeling".into()]),
             prose_excludes: Some(vec!["surging".into()]),
             ..Default::default()
         };
-        let raw = "READ: Vibe is pulling the profile down despite a steadier PEAK read.";
+        let raw = "READ: The mood around the club is pulling the profile down despite steadier recent form.";
         let v = MomentumTask.evaluate(raw, None, Some(&x));
         assert!(v.parsed);
         assert!(v.all_checks_pass(), "checks: {:?}", v.checks);
+    }
+
+    #[test]
+    fn momentum_product_names_trip_the_invariant() {
+        // The s14-era register itself: exactly what the s15 contract inverts.
+        let raw = "READ: Vibe is pulling the profile down despite a steadier PEAK read.";
+        let v = MomentumTask.evaluate(raw, None, None);
+        let ban = v
+            .checks
+            .iter()
+            .find(|c| c.name == "no_product_names")
+            .expect("invariant present");
+        assert!(!ban.pass, "checks: {:?}", v.checks);
     }
 
     #[test]

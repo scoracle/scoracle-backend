@@ -1,15 +1,20 @@
 //! rating_s14_fixtures — regenerate the hand-authored Scout eval fixtures.
 //!
-//! s14 is the Characters Phase B voice pass: the system prompt now speaks The Scout's
-//! telling (persona-first, from wiki/Characters.md's craft appendix — clipped, tactical,
-//! game-plan imperatives; speaks to a coaching staff, never fans; names the skill and the
-//! number; tier is the truth). The s13 CONTRACT — verbatim PEAK line + three labeled
-//! sections (Strengths to respect / Exploitation opportunities / Summary) — is unchanged.
-//! The four s11-era scenarios (PEAK specificity, no-standout restraint, per-x
-//! corroboration, fixed-budget richness) carry over as the regression floor; s14 adds four
-//! Scout-refusal guards: the no-clean-exploit contract phrase, the usage-artifact z-rule
-//! (the Drake London precedent), a team profile with trend-talk exclusions, and
-//! secondary-strength number coverage.
+//! s18 retires the verbatim PEAK marker line: the divined peak is code-owned
+//! (`RatingReady.divined_peak`), the model emits only the three labeled sections, and the
+//! brief is product-name-free (Scott's 2026-08-10 brief; gated by the harness's per-reply
+//! `no_product_names` invariant). The old `peak_includes`/`peak_excludes` axes asserted the
+//! copy step and are retired with it — the specificity they guarded moves into
+//! `prose_includes`: the Strengths section must name the decision card's primary skill.
+//!
+//! s14 was the Characters Phase B voice pass: the system prompt speaks The Scout's telling
+//! (persona-first — clipped, tactical, game-plan imperatives; speaks to a coaching staff,
+//! never fans; names the skill and the number; tier is the truth). The four s11-era
+//! scenarios (specificity, no-standout restraint, per-x corroboration, fixed-budget
+//! richness) carry over as the regression floor; s14 added four Scout-refusal guards: the
+//! no-clean-exploit contract phrase, the usage-artifact z-rule (the Drake London
+//! precedent), a team profile with trend-talk exclusions, and secondary-strength number
+//! coverage.
 //!
 //! Each scenario holds a RatingProfile and renders through the REAL production builder
 //! (`build_stat_prompt` + `RATING_SYSTEM_PROMPT` + the deterministic scouting decision),
@@ -65,6 +70,25 @@ fn dp_pos(label: &str, value: f64, z: f64, pct: f64, pos_pct: f64) -> RatingData
     d
 }
 
+/// The D-T51 (s17) gate, shared by every rating fixture: the three exact section labels, the
+/// " · " card-notation ban, the plain-text guard, and the word floor. Adopted into the
+/// generator at s18 — until then this gate lived ONLY in the on-disk JSON, and a regen would
+/// have silently dropped it (the momentum-generator lesson, caught the same evening).
+fn rating_gate(includes: &[&str], excludes: &[&str], min_words: i64) -> serde_json::Value {
+    let mut inc: Vec<String> = includes.iter().map(|s| s.to_string()).collect();
+    inc.extend(
+        ["Strengths to respect:", "Exploitation opportunities:", "Summary:"].map(String::from),
+    );
+    let mut exc: Vec<String> = excludes.iter().map(|s| s.to_string()).collect();
+    exc.extend([" · ", "**"].map(String::from));
+    json!({
+        "prose_includes": inc,
+        "prose_excludes": exc,
+        "prose_min_words": min_words,
+        "prose_max_words": 420,
+    })
+}
+
 fn scenarios() -> Vec<Scenario> {
     vec![
         Scenario {
@@ -79,8 +103,7 @@ fn scenarios() -> Vec<Scenario> {
                 dp("Turnovers", 2.8, -1.2, 28.0),
             ],
             rate_modes: HashMap::new(),
-            expect: json!({"peak_includes": ["rim protection"], "peak_excludes": ["no standout"],
-                           "prose_includes": ["96th", "turnover"], "prose_max_words": 420}),
+            expect: rating_gate(&["rim protection", "96th", "turnover"], &[], 30),
         },
         Scenario {
             name: "no-standout-restraint",
@@ -93,9 +116,7 @@ fn scenarios() -> Vec<Scenario> {
                 dp("Turnovers", 3.7, -1.4, 23.0),
             ],
             rate_modes: HashMap::new(),
-            expect: json!({"peak_includes": ["No standout"], "peak_excludes": ["shooting"],
-                           "prose_includes": ["64th", "turnover"],
-                           "prose_excludes": ["play physical"], "prose_max_words": 420}),
+            expect: rating_gate(&["64th", "turnover"], &["play physical"], 30),
         },
         Scenario {
             name: "rate-adjusted-limited-minutes",
@@ -111,9 +132,7 @@ fn scenarios() -> Vec<Scenario> {
                 "per_36".to_string(),
                 vec![dp("Paint finishing", 7.8, 1.9, 91.0)],
             )]),
-            expect: json!({"peak_includes": ["finishing"], "peak_excludes": ["No standout"],
-                           "prose_includes": ["82", "per-36", "foul"],
-                           "prose_excludes": ["play physical"], "prose_max_words": 420}),
+            expect: rating_gate(&["finishing", "82", "per-36", "foul"], &["play physical"], 30),
         },
         Scenario {
             name: "fixed-budget-rich-profile",
@@ -128,9 +147,7 @@ fn scenarios() -> Vec<Scenario> {
                 dp("Fouls committed", 2.4, -1.3, 22.0),
             ],
             rate_modes: HashMap::new(),
-            expect: json!({"peak_includes": ["high press"],
-                           "prose_includes": ["94th", "shot creation", "foul"],
-                           "prose_min_words": 50, "prose_max_words": 420}),
+            expect: rating_gate(&["high press", "94th", "shot creation", "foul"], &[], 50),
         },
         Scenario {
             name: "no-clean-exploit",
@@ -144,8 +161,7 @@ fn scenarios() -> Vec<Scenario> {
                 dp("Mid-range volume", 3.3, -0.1, 52.0),
             ],
             rate_modes: HashMap::new(),
-            expect: json!({"peak_includes": ["pick-and-roll"],
-                           "prose_includes": ["93", "no clean exploit"], "prose_max_words": 420}),
+            expect: rating_gate(&["pick-and-roll", "93", "no clean exploit"], &[], 30),
         },
         Scenario {
             name: "usage-artifact-not-exploit",
@@ -159,9 +175,7 @@ fn scenarios() -> Vec<Scenario> {
                 dp("Drop rate", 9.8, -1.4, 31.0),
             ],
             rate_modes: HashMap::new(),
-            expect: json!({"peak_includes": ["yards after catch"],
-                           "prose_includes": ["drop", "31"], "prose_excludes": ["giveaway"],
-                           "prose_max_words": 420}),
+            expect: rating_gate(&["yards after catch", "drop", "31"], &["giveaway"], 30),
         },
         Scenario {
             name: "team-profile-clipped",
@@ -174,9 +188,7 @@ fn scenarios() -> Vec<Scenario> {
                 dp("Build-up progression", 42.7, -1.0, 33.0),
             ],
             rate_modes: HashMap::new(),
-            expect: json!({"peak_includes": ["suppression"],
-                           "prose_includes": ["91", "progression"],
-                           "prose_excludes": ["momentum", "trending"], "prose_max_words": 420}),
+            expect: rating_gate(&["suppression", "91", "progression"], &["momentum", "trending"], 30),
         },
         Scenario {
             name: "secondary-strengths-coverage",
@@ -190,9 +202,7 @@ fn scenarios() -> Vec<Scenario> {
                 dp("Defensive rebounds", 3.1, -0.9, 34.0),
             ],
             rate_modes: HashMap::new(),
-            expect: json!({"peak_includes": ["pull-up"],
-                           "prose_includes": ["95th", "playmaking", "steal"],
-                           "prose_min_words": 50, "prose_max_words": 420}),
+            expect: rating_gate(&["pull-up", "95th", "playmaking", "steal"], &[], 50),
         },
     ]
 }

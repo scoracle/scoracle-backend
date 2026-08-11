@@ -1,8 +1,8 @@
-//! crown_probe — eyeball the folded crown (Oracle) BEFORE deploying it. For a sample of real
+//! crown_probe — eyeball the crown (Oracle) BEFORE deploying it. For a sample of real
 //! entities it runs the EXACT production path — load_pillars → deterministic convergence + omen →
-//! YOUR PRIOR READ memory + relational memory → the one OracleLogic call → {reading, score} — and
+//! the one OracleLogic call → {reading, score} (blind to memories since or9) — and
 //! prints the reading, score, omen, and convergence. Lets us read the actual voice + verdict and
-//! tune the or3 system prompt before it ships.
+//! tune the system prompt before it ships.
 //!
 //! SAFETY: read-only. Never claims pipeline_work, never writes any table.
 //!
@@ -16,12 +16,12 @@ use scoracle_cognition::config::Config;
 use scoracle_cognition::corpus::lookup_entity_name;
 use scoracle_cognition::db;
 use scoracle_cognition::harness::Harness;
-use scoracle_cognition::junctions::journalist::load_entity_memory;
+
 use scoracle_cognition::ollama::GenerateOptions;
 use scoracle_cognition::ollama::OllamaClient;
 use scoracle_cognition::route::{Role, Router};
 use scoracle_cognition::junctions::oracle::{
-    build_crown_prompt, build_pillar_divergence, compute_omen, load_pillars, load_prior_read,
+    build_crown_prompt, build_pillar_divergence, compute_omen, load_pillars,
     oracle_format_schema, pillar_convergence, CrownParser, ORACLE_NUM_PREDICT,
     ORACLE_PROMPT_VERSION, ORACLE_SYSTEM_PROMPT, ORACLE_TEMPERATURE,
 };
@@ -117,13 +117,7 @@ async fn main() -> Result<()> {
             build_pillar_divergence(&narratives, rating.as_ref(), vibe.as_ref(), &momentum);
         let convergence = pillar_convergence(&comparisons);
         let (omen, omen_reason) = compute_omen(convergence, rating.as_ref(), &momentum);
-        let prior_read = load_prior_read(&harness.pool, &entity_type, entity_id, &sport, _season)
-            .await
-            .unwrap_or(None);
-        let memory = load_entity_memory(&harness.pool, &sport, &entity_type, entity_id)
-            .await
-            .unwrap_or(None);
-
+        // or9: the crown is blind to memories — no prior-read or relational-memory load.
         let prompt = build_crown_prompt(
             &entity_type,
             &name,
@@ -135,8 +129,6 @@ async fn main() -> Result<()> {
             &transfers,
             omen,
             &omen_reason,
-            prior_read.as_deref(),
-            memory.as_deref(),
             None,
         );
         // Probe knob: CROWN_PROBE_NUM_CTX lets us test the context-window hypothesis. 0 keeps the
@@ -171,9 +163,8 @@ async fn main() -> Result<()> {
         }
 
         print!(
-            "── {name} ({sport} {entity_type})  omen={omen}  convergence={}  prior_read={}\n   prompt: {} user chars + {} sys chars ≈ {} input tokens, ~{} needed w/ response (window {})\n",
+            "── {name} ({sport} {entity_type})  omen={omen}  convergence={}\n   prompt: {} user chars + {} sys chars ≈ {} input tokens, ~{} needed w/ response (window {})\n",
             convergence.map(|c| c.to_string()).unwrap_or_else(|| "–".into()),
-            if prior_read.is_some() { "yes" } else { "no" },
             prompt.len(), sys_chars, est_input, est_ctx_needed,
             if num_ctx > 0 { num_ctx.to_string() } else { "default~4096".into() },
         );

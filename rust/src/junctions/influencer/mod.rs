@@ -373,7 +373,15 @@ pub async fn load_vibe_context(
 
 /// Packets read per entity per vibe run. The felt read is about the entity's MOMENT, so a
 /// handful of live storylines is the whole of it; the rest are archive.
-const MAX_VIBE_PACKETS: i64 = 4;
+///
+/// **4→2 at v18 (the D-T54 diet).** The exact census read vibe as the FATTEST seat — p50 3,315
+/// tokens, max 7,808, 24 of 25 sampled prompts over 2,000 — and each packet renders under a
+/// ~2,000-token budget, so the 4-packet allowance was most of the tail. That tail is what trips
+/// the oMLX prefill guard ~1/min under sustained drain (D-T56): the guard prices CURRENT pool
+/// pressure + the new prefill, so the fattest prompts park and retry. Two packets keep her
+/// first-voice-capable on the two liveliest stories (D-T52 set momentum's to 1; hers stays 2
+/// because packets are her PRIMARY material, not corroboration).
+const MAX_VIBE_PACKETS: i64 = 2;
 
 /// load_vibe_packets renders the entity's live packets for the Influencer (7.6).
 ///

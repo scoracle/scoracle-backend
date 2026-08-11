@@ -134,6 +134,31 @@ fn write_fixture(dir: &Path, fx: &Fixture, note: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// The D-T50 (v17) gate, shared by every vibe fixture: the hook caps (12 words, no colon
+/// constructions, no question-mark bait), the plain-text guard, the prose length floors, and
+/// the sentence ceiling. Adopted into the generator at v18 — until then this gate lived ONLY in
+/// the on-disk JSON, and a regen would have silently dropped it (the momentum-generator lesson,
+/// caught the same evening).
+fn vibe_gate(
+    prose_includes: &[&str],
+    score_min: Option<i32>,
+    score_max: Option<i32>,
+) -> Expect {
+    Expect {
+        score_min,
+        score_max,
+        hook_nonempty: Some(true),
+        hook_max_words: Some(12),
+        hook_excludes: Some(vec![":".into(), "?".into()]),
+        prose_includes: Some(prose_includes.iter().map(|s| s.to_string()).collect()),
+        prose_excludes: Some(vec!["**".into()]),
+        prose_min_words: Some(40),
+        prose_max_words: Some(320),
+        total_sentences_max: Some(10),
+        ..Default::default()
+    }
+}
+
 fn main() -> anyhow::Result<()> {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/vibe");
     std::fs::create_dir_all(&dir)?;
@@ -168,11 +193,7 @@ fn main() -> anyhow::Result<()> {
         &[],
         None,
         None,
-        Expect {
-            score_max: Some(40),
-            hook_nonempty: Some(true),
-            ..Default::default()
-        },
+        vibe_gate(&["Vale"], None, Some(40)),
     );
     write_fixture(
         &dir,
@@ -215,11 +236,7 @@ fn main() -> anyhow::Result<()> {
         )],
         None,
         None,
-        Expect {
-            score_min: Some(60),
-            hook_nonempty: Some(true),
-            ..Default::default()
-        },
+        vibe_gate(&["Fenn", "goals"], Some(60), None),
     );
     write_fixture(
         &dir,
@@ -246,12 +263,7 @@ fn main() -> anyhow::Result<()> {
         &[],
         None,
         None,
-        Expect {
-            score_min: Some(35),
-            score_max: Some(65),
-            hook_nonempty: Some(true),
-            ..Default::default()
-        },
+        vibe_gate(&["Sharks"], Some(35), Some(65)),
     );
     write_fixture(
         &dir,
@@ -283,12 +295,7 @@ fn main() -> anyhow::Result<()> {
         &[],
         Some(&prev),
         None,
-        Expect {
-            score_min: Some(40),
-            score_max: Some(70),
-            hook_nonempty: Some(true),
-            ..Default::default()
-        },
+        vibe_gate(&["Morrow"], Some(40), Some(70)),
     );
     write_fixture(
         &dir,
@@ -317,11 +324,7 @@ fn main() -> anyhow::Result<()> {
         &[],
         None,
         Some(memory),
-        Expect {
-            score_max: Some(45),
-            hook_nonempty: Some(true),
-            ..Default::default()
-        },
+        vibe_gate(&["Trent"], None, Some(45)),
     );
     write_fixture(
         &dir,

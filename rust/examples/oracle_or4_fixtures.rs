@@ -310,10 +310,8 @@ fn main() -> anyhow::Result<()> {
             &s.transfers,
             omen,
             &omen_reason,
-            // Fixtures pin the memory-free shape (the eval discipline: fresh-card contract
-            // only; prior-read continuity is a live-path rider).
-            None,
-            None,
+            // or9: the crown is blind to memories by CONTRACT now — the memory-free shape the
+            // fixtures always pinned is simply the shape.
             None,
         );
         let v = json!({

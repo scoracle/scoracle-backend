@@ -677,12 +677,15 @@ pub fn build_scouting_decision(p: &RatingProfile) -> ScoutingDecision {
 
 fn render_scouting_decision(d: &ScoutingDecision) -> String {
     let mut b = String::new();
-    b.push_str("\nSCOUTING DECISION\n");
-    b.push_str(&format!("Required PEAK line: {}\n", d.required_peak_line));
+    // s18: the card's own labels stopped saying "PEAK"/"SCOUTING DECISION" — the s13-analyst
+    // lesson is that an output ban cannot beat a word the input keeps shouting, so the input
+    // stopped shouting it. The required-line render is gone with the model's copy step: the
+    // divined peak is code-owned now (RatingReady.divined_peak), never round-tripped.
+    b.push_str("\nDECISION CARD\n");
     match &d.primary_strength_to_stop {
-        Some(f) => b.push_str(&format!("Strength to respect (the PEAK): {}\n", f.evidence)),
+        Some(f) => b.push_str(&format!("Primary strength to respect: {}\n", f.evidence)),
         None => {
-            b.push_str("Strength to respect (the PEAK): None; no strong/elite skill exists.\n");
+            b.push_str("Primary strength to respect: None; no strong/elite skill exists.\n");
         }
     }
     if d.secondary_strengths.is_empty() {
@@ -734,7 +737,18 @@ pub async fn load_stat_memory(
         .fetch_one(pool)
         .await
         .context("stat_context_for_entity")?;
-    Ok(row.0)
+    Ok(row.0.map(|card| descrub_memory_card(&card)))
+}
+
+/// descrub_memory_card rewrites mig 164's internal vocabulary out of the memory card before it
+/// reaches the prompt (s18): the SQL renders `... PEAK was "X" (notability N/100)`, and the
+/// s13-analyst lesson is that an output ban cannot beat a word the input keeps shouting. The
+/// card is prompt-only enrichment — never hashed, never user-exposed — so a Rust-side rewrite
+/// is safe and cheaper than a migration; if mig 164's format ever changes, these replaces
+/// become no-ops rather than errors.
+fn descrub_memory_card(card: &str) -> String {
+    card.replace("PEAK was", "the top skill read was")
+        .replace("(notability ", "(profile distinctiveness ")
 }
 
 /// One adjudicated personnel change, as the DB describes it — dates already labeled by
@@ -1063,17 +1077,24 @@ fn z_trend_phrase(key: &str) -> &'static str {
     }
 }
 
+/// s15/or9 descrub: this label renders into the ANALYST's prompt ("Form trend: …") and the
+/// ORACLE's card ("Skill trend: …"), and its old wording ("Composite and PEAK z-scores trending
+/// up") was the measured source of bookkeeping vocabulary leaking into both seats' served prose
+/// — two banned-word attempts failed against it (the analyst s13 postmortem: a rule cannot beat
+/// a phrase sitting in the data). The label now speaks the sport's words at the source.
 fn z_trajectory_label(key: &str, composite_key: &str, peak_key: &str) -> String {
     if composite_key == peak_key {
         return match key {
-            "rising" => "Composite and PEAK z-scores trending up over recent games".to_string(),
-            "falling" => "Composite and PEAK z-scores trending down over recent games".to_string(),
-            _ => "Composite and PEAK z-scores holding steady over recent games".to_string(),
+            "rising" => "overall scores and the top skill trending up over recent games".to_string(),
+            "falling" => {
+                "overall scores and the top skill trending down over recent games".to_string()
+            }
+            _ => "overall scores and the top skill holding steady over recent games".to_string(),
         };
     }
 
     format!(
-        "Composite z-score {}; PEAK z-score {} over recent games",
+        "overall scores {}; the top skill {} over recent games",
         z_trend_phrase(composite_key),
         z_trend_phrase(peak_key)
     )
@@ -1276,6 +1297,12 @@ pub enum RatingBuild {
 /// can never drift from what is POSTed.
 pub struct RatingReady {
     pub season: i32,
+    /// The code-owned divined peak (s18): the decision card's label, minus the "PEAK: " prefix
+    /// the retired copy-contract used to carry. Persisted directly — the model is never asked
+    /// to round-trip it, so the copy-flake class ("chose a different skill", "dropped the
+    /// marker") is structurally dead. Same stored values as before, including the literal
+    /// "No standout skill".
+    pub divined_peak: String,
     pub notability: i32,
     pub notability_components: serde_json::Value,
     pub peak_trajectory: PeakTrajectory,
@@ -1435,6 +1462,10 @@ pub async fn build_rating_request(
 
     Ok(RatingBuild::Ready(Box::new(RatingReady {
         season: profile.season,
+        divined_peak: decision
+            .required_peak_line
+            .trim_start_matches("PEAK: ")
+            .to_string(),
         notability,
         notability_components,
         peak_trajectory,
@@ -1600,7 +1631,10 @@ pub async fn generate_rating(
         skipped_no_stats: false,
         skipped_unchanged: false,
         body: Some(reply.body),
-        divined_peak: (!reply.divined_peak.is_empty()).then_some(reply.divined_peak),
+        // s18: code-owned — the decision card's label, never the model's copy. The parser still
+        // strips a "PEAK: " marker line if a model emits one (transition tolerance), but what it
+        // strips is discarded; only the body survives the parse.
+        divined_peak: Some(ready.divined_peak),
         notability: Some(ready.notability),
         notability_components: ready.notability_components,
         peak_trajectory: Some(ready.peak_trajectory.key),

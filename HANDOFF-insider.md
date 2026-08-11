@@ -4,6 +4,29 @@ Read `PLAN-one-rail.md` STATE (2026-08-10) + `PLAN-character-tuning.md` §D-T50/
 register passes — the method now five-times proven, and TWICE burned by its own shortcuts this
 session) before anything else.
 
+**STANDING STATE (updated after D-T57, 2026-08-10 evening — SUPERSEDES both blocks below):**
+⭐ **The five-voice pass is GATED AND SHIPPING: s18 (Scout, PEAK line code-owned, product-name-free,
+plain-text SHIPS block), momentum-s15 (Analyst rule 1 inverted — "the form"/"the emotion around the
+club", inputs renamed at source incl. z_trajectory_label), or9 (Oracle BLIND TO MEMORIES — five
+cards + omen only — plus card-label descrub and the ~1,806→~1,050-tok system diet), v18 (packets
+4→2), n19 (card-budget SHIPS block).** The crown's oMLX parse bug (literal newlines inside
+unconstrained JSON strings; 18 live sigil failures) is fixed in `parse_crown_reply`. Harness:
+diacritic fold, shared case-sensitive `no_product_names` (rating/momentum/oracle),
+`reading_plain_text`, `prose_includes_any`; ⛔ generator-drift trap closed — every fixture
+generator is faithful by construction now (it was not: caught twice). Production-engine gates ×2
+byte-stable: vibe 53/53 · narratives 110/110 · momentum 87/91 · oracle 108/110 · rating 94/95
+(452/464, every residual a named class). **SCOTT'S PLAN (in agent memory, `post-rail-completion-plan`): after release.sh +
+requeue → (1) finish/complete PLAN-one-rail, (2) voice-tuning cleanup/annotation (the audit's 13
+DEAD + 12 misleading-docs lists are the inventory), (3) schema audit for the new contracts — then
+HANDS-OFF until Sat 2026-08-15 afternoon, then debug-if-needed, then prune the old rail + old
+seeding layer + junk.** Queued behind: Insider register pass + hot/cold contract field, Oracle
+register pass (single-peer — the crown's ONLY residual gate defect now, one disagreement fixture
+at peers=4), per-metric z-trajectory design (Scott: Scout tracks ALL z-metric trajectories,
+Analyst tracks overall-z with outlier attention, fed by the Scout's rich output incl.
+injuries/suspensions — needs a data-layer build; revises the Session-D no-trend-talk doctrine),
+and the 8B fabricated-statistics class (un-gated, recorded in D-T57).
+
+*(The ~17:00 block below is superseded by the above.)*
 **STANDING STATE (updated again after D-T56, 2026-08-10 ~17:00 — SUPERSEDES the block below):**
 ⭐⭐ **Production is `ministral-3-8b` on oMLX at client concurrency 4, guard ceiling 11.2GB**
 (D-T56 + its sustained correction: burst cells read 255/h @6 with 30/30, but SUSTAINED drain is

@@ -922,58 +922,10 @@ pub fn compute_omen(
 }
 
 // ---------------------------------------------------------------------------
-// The crown reading prompt — the model reads the signs (all five cards + its own prior reads),
-// then renders the verdict.
-// ---------------------------------------------------------------------------
-
-/// How many of the entity-season's own recent verdicts feed the crown as continuity memory. Kept
-/// short for Phase 1; Phase 6 deepens the continuity trail deliberately.
-const PRIOR_READ_LIMIT: i64 = 4;
-
-/// load_prior_read renders the crown's OWN recent verdicts as a continuity memory card — the last
-/// reading plus a short score trail with dates. Source-tagged as our prior read so it anchors the
-/// new verdict (memory, never a reset) without becoming corroborating evidence (the echo-chamber
-/// rule). Reads only real scored rows (markers are skipped). `None` for a first-ever read.
-pub async fn load_prior_read(
-    pool: &PgPool,
-    entity_type: &str,
-    entity_id: i32,
-    sport: &str,
-    season: i32,
-) -> Result<Option<String>> {
-    let rows: Vec<(i16, Option<String>, String)> = sqlx::query_as(
-        r#"
-        SELECT score, reading, to_char(generated_at, 'Mon DD')
-        FROM sigil_synthesis
-        WHERE entity_type = $1 AND entity_id = $2 AND sport = $3 AND season = $4
-          AND score IS NOT NULL
-        ORDER BY generated_at DESC
-        LIMIT $5
-        "#,
-    )
-    .bind(entity_type)
-    .bind(entity_id)
-    .bind(sport)
-    .bind(season)
-    .bind(PRIOR_READ_LIMIT)
-    .fetch_all(pool)
-    .await
-    .with_context(|| format!("load prior read {entity_type}/{entity_id}"))?;
-    if rows.is_empty() {
-        return Ok(None);
-    }
-    let mut card = String::new();
-    if let Some(reading) = rows[0].1.as_deref().filter(|r| !r.trim().is_empty()) {
-        card.push_str(&format!("Last reading ({}): {}\n", rows[0].2, reading));
-    }
-    let trail: Vec<String> = rows.iter().map(|(s, _, d)| format!("{s} ({d})")).collect();
-    card.push_str(&format!(
-        "Recent verdicts (newest first): {}",
-        trail.join(" · ")
-    ));
-    Ok(Some(card))
-}
-
+// The crown reading prompt — the model reads the signs (the five cards + the omen),
+// then renders the verdict. (`load_prior_read` and its continuity card were DELETED at or9 —
+// the crown is blind to memories, and the audit confirmed the fn had no other caller: the
+// serving read path is Go's, not this crate's.)
 // ---------------------------------------------------------------------------
 // Output parsing — the crown reply is a bare {reading, score} object under format_schema.
 // ---------------------------------------------------------------------------
@@ -1002,16 +954,27 @@ fn parse_crown_score(v: &serde_json::Value) -> Option<i32> {
     Some(n.clamp(1, 100) as i32)
 }
 
-/// parse_crown_reply extracts `{reading, score}` from the JSON reply. `format_schema` makes a bare
-/// object the only thing the live route emits; the balanced-brace salvage keeps the offline/eval
-/// path tolerant of a prose-wrapped object. Reading whitespace is collapsed to one clean paragraph.
-/// `None` when there is no non-empty reading or no coercible score (fail-closed → the item backs off).
+/// parse_crown_reply extracts `{reading, score}` from the JSON reply. On the ollama path
+/// `format_schema` makes a bare object the only thing the live route emits; the balanced-brace
+/// salvage keeps the offline/eval path tolerant of a prose-wrapped object. Reading whitespace is
+/// collapsed to one clean paragraph. `None` when there is no non-empty reading or no coercible
+/// score (fail-closed → the item backs off).
+///
+/// **The control-char fold in the salvage path (or9, measured 2026-08-10):** on oMLX the
+/// OpenAI backend deliberately withholds `response_format` (the tekken corruption finding), so
+/// the crown reply is UNCONSTRAINED — and the 8B writes paragraph breaks as literal newlines
+/// INSIDE the JSON string, which is illegal JSON and failed a complete, well-formed reply
+/// (finish_reason stop, closing brace present) on both parse paths. Folding `\n\r\t` to spaces
+/// inside the brace span is semantics-preserving here: structural whitespace is insignificant
+/// to JSON, and in-string whitespace is collapsed by the reading normalizer two lines down
+/// anyway. The strict path stays first, untouched.
 pub fn parse_crown_reply(raw: &str) -> Option<CrownReply> {
     let trimmed = raw.trim();
     let parsed: Option<serde_json::Value> = serde_json::from_str(trimmed).ok().or_else(|| {
         let start = trimmed.find('{')?;
         let end = trimmed.rfind('}')?;
-        serde_json::from_str(&trimmed[start..=end]).ok()
+        let span = trimmed[start..=end].replace(['\n', '\r', '\t'], " ");
+        serde_json::from_str(&span).ok()
     });
     let v = parsed?;
     let reading = v.get("reading")?.as_str()?.trim();
@@ -1304,39 +1267,11 @@ impl StageHandler for SigilHandler {
         let convergence = pillar_convergence(&comparisons);
         let (omen, omen_reason) = compute_omen(convergence, rating.as_ref(), &momentum);
 
-        // Crown continuity memory (both loaded after the hash gate — a skip never pays for them,
-        // and a load failure degrades to an unenriched prompt; the pillars are the primary signal):
-        //   * YOUR PRIOR READ — the crown's OWN recent verdicts (Scott 2026-07-21: the Oracle
-        //     stays grounded by reading its past verdicts before scoring anew).
-        //   * RELATIONAL MEMORY (s15) — the graph's per-entity arc history.
-        let prior_read =
-            match load_prior_read(&hx.pool, &item.entity_type, entity_id, &sport, season).await {
-                Ok(pr) => pr,
-                Err(e) => {
-                    tracing::warn!(
-                        entity_type = %item.entity_type, entity_id, sport = %sport, error = %e,
-                        "crown: prior-read load failed (continuing without it)"
-                    );
-                    None
-                }
-            };
-        let memory = match crate::junctions::journalist::load_entity_memory(
-            &hx.pool,
-            &sport,
-            &item.entity_type,
-            entity_id,
-        )
-        .await
-        {
-            Ok(m) => m,
-            Err(e) => {
-                tracing::warn!(
-                    entity_type = %item.entity_type, entity_id, sport = %sport, error = %e,
-                    "crown: relational memory load failed (continuing without memory)"
-                );
-                None
-            }
-        };
+        // or9 (Scott, 2026-08-10 evening): the crown is BLIND TO MEMORIES — the prior-read and
+        // relational-memory loads are gone with their prompt blocks (and `load_prior_read` is
+        // deleted outright: its only caller was here). Both were prompt-only and outside the
+        // input_hash, so removing them regenerates nothing by itself; the reading is the five
+        // cards + the omen, whole.
 
         // The 4096 envelope (7.8): in a SMALL window every pillar body is capped and the
         // reservation shrinks, because the crown is the ONE seat that reads five cards at once
@@ -1347,7 +1282,7 @@ impl StageHandler for SigilHandler {
         let small = crate::route::small_voice_window(hx.voice_num_ctx);
         let body_cap = small.then_some(prompt::CROWN_CARD_BODY_CAP);
 
-        // The one crown call (OracleLogic): read the cards + the omen + our prior reads, then emit
+        // The one crown call (OracleLogic): read the cards + the omen, then emit
         // {reading, score}. Fail-closed lives in CrownParser (unparseable → Err → the item backs off).
         let prompt = build_crown_prompt(
             &item.entity_type,
@@ -1360,8 +1295,6 @@ impl StageHandler for SigilHandler {
             &transfers,
             omen,
             &omen_reason,
-            prior_read.as_deref(),
-            memory.as_deref(),
             body_cap,
         );
         let opts = GenerateOptions {

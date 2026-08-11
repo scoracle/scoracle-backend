@@ -42,6 +42,18 @@ fn crown_salvages_prose_wrapped_json_and_collapses_whitespace() {
 }
 
 #[test]
+fn crown_salvages_fenced_json_with_literal_newlines_in_string() {
+    // The measured oMLX class (2026-08-10): unconstrained decoding fences the object AND writes
+    // a paragraph break as a LITERAL newline inside the JSON string — illegal JSON that failed a
+    // complete reply. The salvage folds control chars in the brace span; the reading normalizer
+    // collapses the whitespace.
+    let raw = "```json\n{\n  \"reading\": \"The arc climbs.\n\nThe rim is a fortress.\",\n  \"score\": 92\n}\n```";
+    let r = parse_crown_reply(raw).unwrap();
+    assert_eq!(r.reading, "The arc climbs. The rim is a fortress.");
+    assert_eq!(r.score, 92);
+}
+
+#[test]
 fn crown_score_coercions_and_clamp() {
     // Float, "N/100" string, and out-of-range all coerce + clamp to 1-100.
     assert_eq!(
@@ -384,19 +396,18 @@ fn crown_prompt_renders_cards_and_omen() {
         "steady",
         "the arc holds its line",
         None,
-        None,
-        None,
     );
     assert!(p.starts_with("Entity: Test Player (NBA player)\n"));
     assert!(!p.contains("YOUR PRIOR READ"));
+    assert!(!p.contains("RELATIONAL MEMORY"));
     assert!(p.contains("=== THE JOURNALIST'S CARD (news storylines) ===\n[impact 7, Heating up, 3 sources, latest 1d ago] Trade buzz\ndetails"));
     assert!(p.contains(
-        "=== THE SCOUT'S CARD (PEAK scouting report) ===\n(no stat commentary available)"
+        "=== THE SCOUT'S CARD (scouting brief) ===\n(no stat commentary available)"
     ));
     assert!(
-        p.contains("=== THE INFLUENCER'S CARD (vibe felt-read) ===\nMood: 62/100\nOn the rise")
+        p.contains("=== THE INFLUENCER'S CARD (the felt read) ===\nMood: 62/100\nOn the rise")
     );
-    assert!(p.contains("=== THE ANALYST'S CARD (momentum) ===\nMomentum score: 1 (rising)\nVibe trajectory: 0.5 over 4 samples (trending up)"));
+    assert!(p.contains("=== THE ANALYST'S CARD (momentum) ===\nMomentum score: 1 (rising)\nMood trend: 0.5 over 4 samples (trending up)"));
     assert!(
         p.contains("=== THE INSIDER'S CARD (transfer wire) ===\n(no active transfer rumors)")
     );
@@ -441,11 +452,11 @@ fn packet_rail_caps_every_pillar_body_and_names_what_it_dropped() {
 
     let uncapped = build_crown_prompt(
         "player", "Test Player", "NBA", &narratives, Some(&rating), Some(&vibe), &mom, &[],
-        "ascendant", "the arc climbs", None, None, None,
+        "ascendant", "the arc climbs", None,
     );
     let capped = build_crown_prompt(
         "player", "Test Player", "NBA", &narratives, Some(&rating), Some(&vibe), &mom, &[],
-        "ascendant", "the arc climbs", None, None, Some(CROWN_CARD_BODY_CAP),
+        "ascendant", "the arc climbs", Some(CROWN_CARD_BODY_CAP),
     );
 
     // Legacy truncates nothing — that is the behaviour a 16,384-token window allowed, and it is
@@ -552,8 +563,6 @@ fn crown_prompt_no_momentum_data_line() {
         "steady",
         "r",
         None,
-        None,
-        None,
     );
     assert!(
         p.contains("=== THE JOURNALIST'S CARD (news storylines) ===\n(no recent narratives)")
@@ -588,17 +597,14 @@ fn crown_prompt_transfer_heat_renders() {
         "steady",
         "r",
         None,
-        None,
-        None,
     );
     assert!(p.contains("=== THE INSIDER'S CARD (transfer wire) ===\n- Liverpool — heat 66, incoming, advanced_talks\n"));
 }
 
 #[test]
-fn crown_prompt_prior_read_renders_as_continuity_lead_in() {
-    // The crown's OWN recent verdicts render right after the Entity line, BEFORE the cards —
-    // the Oracle reads its prior verdicts before scoring anew (Scott 2026-07-21).
-    let prior = "Last reading (Jul 18): The arc holds.\nRecent verdicts (newest first): 72 (Jul 18) · 71 (Jul 14)";
+fn crown_prompt_is_blind_to_memories() {
+    // or9 (Scott, 2026-08-10): the crown reads the five cards + the omen, whole — no prior-read
+    // block, no relational-memory card. The cards follow the Entity line directly.
     let p = build_crown_prompt(
         "player",
         "Test Player",
@@ -610,54 +616,13 @@ fn crown_prompt_prior_read_renders_as_continuity_lead_in() {
         &[],
         "steady",
         "r",
-        Some(prior),
-        None,
         None,
     );
     assert!(p.starts_with(
-        "Entity: Test Player (NBA player)\n\n=== YOUR PRIOR READ (memory — your own past verdicts; continuity, not new evidence) ===\nLast reading (Jul 18): The arc holds.\nRecent verdicts (newest first): 72 (Jul 18) · 71 (Jul 14)\n\n=== THE JOURNALIST'S CARD (news storylines) ==="
+        "Entity: Test Player (NBA player)\n\n=== THE JOURNALIST'S CARD (news storylines) ==="
     ));
-}
-
-#[test]
-fn crown_prompt_relational_memory_renders_before_omen() {
-    // The s15 memory card renders after the pillars (evidence placement) with the echo-chamber
-    // instruction line + bullets, immediately before the OMEN. None/blank ⇒ no section.
-    let mem = "Prior story: Real Madrid — fizzled (Jun 2026, peak coverage 82/100).\nGround truth: completed a confirmed move to Arsenal on Jul 01 2026.";
-    let p = build_crown_prompt(
-        "player",
-        "Test Player",
-        "FOOTBALL",
-        &[],
-        None,
-        None,
-        &SynthMomentum::default(),
-        &[],
-        "steady",
-        "the arc holds its line",
-        None,
-        Some(mem),
-        None,
-    );
-    assert!(p.contains(
-        "=== RELATIONAL MEMORY (computed history) ===\nUse for arc and continuity: what fizzled before, what is live now, what actually happened. Do NOT treat a prior story as evidence for a new claim.\n- Prior story: Real Madrid — fizzled (Jun 2026, peak coverage 82/100).\n- Ground truth: completed a confirmed move to Arsenal on Jul 01 2026.\n\n=== THE OMEN (computed) ==="
-    ));
-    let blank = build_crown_prompt(
-        "player",
-        "Test Player",
-        "FOOTBALL",
-        &[],
-        None,
-        None,
-        &SynthMomentum::default(),
-        &[],
-        "steady",
-        "r",
-        None,
-        Some("  \n "),
-        None,
-    );
-    assert!(!blank.contains("RELATIONAL MEMORY"));
+    assert!(!p.contains("YOUR PRIOR READ"));
+    assert!(!p.contains("RELATIONAL MEMORY"));
 }
 
 #[test]

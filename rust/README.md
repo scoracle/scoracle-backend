@@ -4,13 +4,15 @@ Rust Cognition Harness for Scoracle: the AI derivation layer that empowers local
 
 This folder is not a side experiment. It is the production cognition layer for Scoracle.
 
-Post the **Step-3 cutover (2026-06-28)** and the **Narratives news-hub fold-in (2026-07-03)**, the Go LLM derive stages are retired into Rust:
+Post the **Step-3 cutover (2026-06-28)**, the **junctions refactor**, and the **Phase-9 demolition
+(2026-08-08)**, Rust owns every LLM stage, organized as CHARACTER JUNCTIONS (`src/junctions/`):
 
-- **6 live queue stages** — `scrub` → `peak` → `transfers` → `narratives` → `vibe` → `sigil` —
-  drained by the long-running **`scoracle-cognition`** daemon. Transfer heat and breaking-story
-  urgency enrich both `narratives` and the final `sigil` panel read.
-- **rating / PEAK** is produced by durable `pipeline_work(peak)` in nightly mode; the
-  **`statcommentary`** bin remains the current-season producer and explicit historical backfill tool.
+- **10 live queue stages** — `graph` → `editor` → `investigate_entity` / `fixture_boxscore` →
+  `peak` → `momentum` → `transfers` → `narratives` → `vibe` → `sigil` — drained by the
+  long-running **`scoracle-cognition`** daemon on the packet rail (the legacy rail was demolished
+  in Phase 9; `RAIL` is no longer a knob).
+- **rating / PEAK** also runs as the **`statcommentary`** batch binary (current-season producer
+  and explicit historical backfill tool).
 
 ## Start Here
 
@@ -66,10 +68,11 @@ For this folder, that means:
 
 ## Current Production Shape
 
-Post Step-3 cutover, Rust owns every live LLM queue stage:
+Rust owns every live LLM queue stage:
 
 ```text
-scrub -> transfers -> narratives -> vibe -> sigil
+graph -> editor -> investigate_entity / fixture_boxscore
+      -> peak -> momentum -> transfers -> narratives -> vibe -> sigil
 ```
 
 The long-running daemon is:
@@ -114,18 +117,27 @@ failed past retry cap -> dead-letter for human repair
 
 ## Stage Map
 
-| Stage | File | Input | Output | Notes |
-|---|---|---|---|---|
-| `scrub` | `src/scrub.rs` | `news_articles`, entity context | `news_article_entities.vetted` | Article-keyed ID gate; uses embedding-assisted resolve. |
-| `transfers` | `src/transfer.rs` | vetted news/entity pairs | `transfer_rumors` | Transfer/trade truth and heat, with shared source freshness and trajectory markers; fail closed on uncertain validity. |
-| `narratives` | `src/narratives.rs` | vetted/link clusters + transfer heat | `news_summaries` | Storyline grouping, source freshness, and trajectory markers. |
-| `vibe` | `src/vibe.rs` | narrative/corpus context | `vibe_scores` | Emotional rail end product. |
-| `momentum` | `src/momentum.rs` | PEAK, Vibe, deterministic momentum snapshot | `momentum_summaries` | Generated trajectory direction/score/blurb; keeps `momentum_scores` as numeric backbone. |
-| `sigil` | `src/sigil.rs` | Stats, narrative, transfer, momentum, previous Sigil | `sigil_synthesis` | Panel convergence; event-driven and debounced by `input_hash`. |
-| `peak` | `src/rating.rs`, `src/bin/statcommentary.rs` | stats/rating context | `stat_summaries` | Statistical rail model read plus deterministic Composite/PEAK z-score trajectory; need-based `pipeline_work` stage for current season. |
+Stage code lives in CHARACTER JUNCTIONS — `src/junctions/<character>/` with `mod.rs` (stage),
+`prompt.rs` (contract + version), `tests.rs`. The junction roster table in
+`src/junctions/mod.rs` is the authoritative seat map; prompt versions live in each junction's
+`prompt.rs` and rot fast in any doc that copies them, so none are copied here.
+
+| Stage | Junction (character) | Input | Output |
+|---|---|---|---|
+| `graph` | `graph` (typed extraction) | article full text | graph entities/claims |
+| `editor` | `editor` (The Editor) | article full text | evidence cards, `story_type`, packets, routing |
+| `investigate_entity` | `investigator` (The Investigator) | encyclopedia summaries | identity verdicts |
+| `fixture_boxscore` | `investigator/boxscore` | fixture pages | box-score facts |
+| `peak` | `scout` (The Scout) | rating profile + decision card | `stat_summaries` (body + code-owned `divined_peak`) |
+| `momentum` | `analyst` (The Analyst) | form/mood trends + snapshot | `momentum_summaries` |
+| `transfers` | `insider` (The Insider) | vetted pair context | `transfer_rumors` |
+| `narratives` | `journalist` (The Journalist) | packet corpus + evidence cards | `news_summaries` (+ `card_score`) |
+| `vibe` | `influencer` (The Influencer) | packets, narratives, heat | `vibe_scores` (SCORE/HOOK/VIBE) |
+| `sigil` | `oracle` (the Oracle) | the five pillar cards + computed omen — nothing else (blind to memories since or9) | `sigil_synthesis` |
 
 Momentum's generated card is a queue stage. Its deterministic `/momentum` numeric backbone remains
-`momentum_scores` / `latest_momentum_scores_per_entity`.
+`momentum_scores` / `latest_momentum_scores_per_entity`. Rating (`peak`) also runs as the
+`statcommentary` batch.
 
 ## Rail / Lens / Stage / Role Map
 
@@ -139,35 +151,25 @@ The Multi-Lens Cognition Panel uses three related words deliberately:
 - **Role** is the model-routing job sent to `Route`; it decides which concrete model/backend serves
   the call.
 
-Current mapping:
+Current mapping — every character seat owns its role (the identity split), and roles resolve to
+concrete models/hosts via `COGNITION_ROUTE_<ROLE>` (see `src/route.rs` for the authoritative
+role list; `src/eval_tasks.rs::lens_parameters` for the operator frames):
 
 | Rail | Lens | Stage or batch | Route role | Product / ledger surface |
 |---|---|---|---|---|
-| Stats/analytical | Rating / PEAK | rating batch | `StatsLogic` | `stat_summaries`, rating ledger rows, rating fixtures |
-| Stats/analytical | Momentum | `momentum` | `StatsLogic` | `momentum_summaries`, `latest_momentum_scores_per_entity`, `/momentum`, momentum fixtures |
-| Emotional/news | Narratives | `narratives` | `EmotionalNews` | `news_summaries`, narrative ledger rows, narrative fixtures |
-| Emotional/news | Transfers | `transfers` | `EmotionalNews` | `transfer_rumors`, transfer ledger rows, transfer fixtures |
-| Emotional/news | Vibe | `vibe` | `EmotionalNews` | `vibe_scores`, vibe ledger rows, vibe fixtures |
-| Synthesis | Sigil synthesis | `sigil` | `StatsLogic` today | `sigil_synthesis`, sigil ledger rows, sigil fixtures |
+| Stats/analytical | Rating / PEAK | `peak` + rating batch | `StatsLogic` | `stat_summaries`, rating fixtures |
+| Stats/analytical | Momentum | `momentum` | `MomentumLogic` | `momentum_summaries`, momentum fixtures |
+| Emotional/news | Narratives | `narratives` | `NarrativeLogic` | `news_summaries`, narrative fixtures |
+| Emotional/news | Transfers | `transfers` | `TransferLogic` | `transfer_rumors`, transfer fixtures |
+| Emotional/news | Vibe | `vibe` | `VibeLogic` | `vibe_scores`, vibe fixtures |
+| Emotional/news | Evidence / routing | `editor` | `Editor` | evidence cards, packets, editor fixtures |
+| Emotional/news | Identity | `investigate_entity` | `Investigator` | identity verdicts, investigate fixtures |
+| Synthesis | The crown reading | `sigil` | `OracleLogic` | `sigil_synthesis`, oracle fixtures |
 
-`scrub` is upstream evidence gating, not a lens. Transfer still routes through
-`Role::EmotionalNews`; the measured local bakeoff kept `mistral:7b` as the transfer baseline, so a
-separate `TransferLogic` role remains deferred until fixtures and live pair captures justify it.
-Momentum has a generated production card on the incumbent `StatsLogic` route. The `momentum` eval
-task remains the route gate for Qwen/Gemma-style analytical candidates; broaden fixtures and live
-captures before introducing a dedicated `MomentumLogic` split. Sigil stays on `StatsLogic` until
-synthesis fixtures justify a `SynthesisLogic` split.
-
-Current lens operating parameters:
-
-| Lens | Operator frame | Mandate | Credibility guard |
-|---|---|---|---|
-| Narratives | beat writer | Compile the stories swirling around the entity. | Group what sources actually say; do not inflate vague hype or off-entity noise. |
-| Transfers | transfer expert | Get movement predictions out quickly while preserving long-term credibility. | Fail closed on name-drops, stale links, weak sourcing, and misleading heat. |
-| Vibe | content creator | Read the current vibe so a creator can piggyback on the conversation. | Separate interactable mood from durable truth; do not invent a narrative hook. |
-| Rating / PEAK | opposing team scout | Name the greatest strength to stop and greatest weakness to exploit. | Use supplied tiers and datapoints only; never turn average marks into strengths. |
-| Momentum | nimble trader | Read PEAK/rating trajectory as price action and Vibe/news as investor sentiment, then decide whether momentum is rising, falling, or a hold. | Stay detached and results-only; do not chase sentiment hype or cling to stale PEAK strength. |
-| Sigil synthesis | reasoned expert network panelist | Summarize all pillars into the final Scoracle read. | Preserve real disagreement between pillars instead of flattening it. |
+One doctrine note that shapes every seat: served prose never names the internal machinery. The
+product names ("PEAK", "Vibe") and field words (notability, sentiment, z-score …) are desk
+bookkeeping; the gate enforces this with the case-sensitive `no_product_names` invariant on the
+Scout, the Analyst, and the Oracle (D-T57).
 
 ## Repository Layout
 
@@ -176,31 +178,37 @@ rust/
 ├── Cargo.toml
 ├── README.md
 ├── build.rs
+├── fixtures/                # frozen eval fixtures, one dir per eval task (regenerate via examples/)
+├── examples/                # fixture GENERATORS (the regeneration path) + read-only probes
 └── src/
     ├── main.rs              # the scoracle-cognition daemon: boots Harness, registers handlers, runs Worker
     ├── lib.rs               # library exports
     ├── buildinfo.rs         # exposes BUILD_COMMIT / BUILD_TIME (set by build.rs via env!)
     ├── config.rs            # env config; mirrors Go var names (.env.local)
     ├── db.rs                # sqlx Postgres pool (bounded — the GPU is the real ceiling)
-    ├── work.rs              # pipeline_work client: claim/complete/fail/requeue_stale/enqueue + the Stage enum
+    ├── work.rs              # pipeline_work client: claim/complete/fail/requeue_stale/enqueue
     ├── ollama.rs            # local Ollama HTTP client
+    ├── openai.rs            # OpenAI-compatible client (oMLX/MLX backends; response_format withheld by default)
     ├── stage.rs             # StageHandler trait — the per-stage plug-in point
     ├── worker.rs            # LISTEN(pipeline_work_ready) + safety-net drain loop
-    ├── route.rs             # the model-call seam (Role → concrete model); the GPU governor lives here
-    ├── harness.rs           # Harness context + the capability primitives: extract, persist, debounce, resolve, embed, cluster (Plan §1)
+    ├── route.rs             # the model-call seam (Role → concrete model/host); the GPU governor lives here
+    ├── harness.rs           # Harness context + the capability primitives: extract, persist, debounce, embed
     ├── util.rs              # shared helpers: truncate, canonical JSON formatting, hash_components
     ├── embed.rs             # candle CPU embedder (BGE-small default) + cosine_similarity
-    ├── resolve.rs           # the asymmetric embedding-hybrid relevance gate (resolve_set + resolve_one)
-    ├── scrub.rs             # news-scrub stage handler (asymmetric gate, writes news_article_entities.vetted)
-    ├── transfer.rs          # transfers stage: per-(team,player) rumor vetting with the t6 prompt
-    ├── narratives.rs        # narratives stage: news storyline clustering + summarization
-    ├── rating.rs            # rating stage per-entity core (the cmd/statcommentary batch body)
-    ├── vibe.rs              # vibe stage: the sentiment + felt-read
-    ├── sigil.rs             # sigil stage: panel convergence over stats, narrative, transfer, momentum, memory
+    ├── corpus.rs            # shared corpus loaders + heat-line rendering
+    ├── ledger.rs            # cognition_ledger provenance writes
+    ├── eval_tasks.rs        # the per-lens eval TASK REGISTRY (fixtures, Expect axes, invariants)
+    ├── judge.rs             # reading-sheet / voice-spec judge support
+    ├── bucket.rs, threads.rs, trajectory.rs, fetch.rs   # supporting modules
+    ├── junctions/           # THE CHARACTER LAYER — one junction per seat:
+    │   ├── mod.rs           #   the junction roster (authoritative seat map)
+    │   ├── editor/  investigator/  journalist/  insider/
+    │   ├── influencer/  analyst/  scout/  oracle/  graph/
+    │   └── <each>: mod.rs (stage) + prompt.rs (contract + version) + tests.rs
     └── bin/
+        ├── eval.rs          # fixture gate + live A/B harness
         ├── statcommentary.rs
-        ├── eval.rs
-        └── bucketlabel.rs
+        └── remap.rs, storylinefill.rs, bucketlabel.rs   # spent one-shot backfills (prune candidates)
 ```
 
 ## Core Primitives
@@ -234,11 +242,8 @@ role -> request -> model reply -> Parser<T> -> Option<T> or failure
 - optional `input_hash`
 - `generated_at`
 
-`Resolve` is asymmetric:
-
-- CPU cosine can fast-track an obvious keep.
-- Ambiguous cases go to the model.
-- Do not let a cheap heuristic exclude real truth unless the measured policy explicitly supports it.
+(The `Resolve` primitive and the `scrub` stage were demolished with the legacy rail in Phase 9 —
+relevance belongs to The Editor now. The embedder survives for narratives near-duplicate dedup.)
 
 ## Change Workflow
 
@@ -324,9 +329,9 @@ Offline bins are for evaluation and operator-support work. They must not claim l
 
 | Binary | Purpose |
 |---|---|
-| `eval` | Role/model A/B eval harness. |
-| `bucketlabel` | One-shot article bucket labeling TSV generator. |
+| `eval` | Role/model A/B eval harness + the frozen-fixture gate (`--task <T> --fixtures`). |
 | `statcommentary` | Live rating batch binary. |
+| `remap` / `storylinefill` / `bucketlabel` | Spent one-shot backfills — their runs are on the record; prune candidates (2026-08-10 audit). |
 
 Before changing a prompt, loader, parser, or shared JSON/hash utility, add or refresh focused tests/fixtures and consider whether `eval` should cover the behavior.
 

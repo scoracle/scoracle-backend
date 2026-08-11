@@ -1,5 +1,5 @@
 //! bucketlabel — one-shot overnight GPU labeling batch for the F2 bucket classifier
-//! (planning_docs/DATA_FLOW_FRICTION_PRUNE_PLAN.md, F2 verify).
+//! (scoracle-wiki/progress_docs/scoracle-backend/DATA_FLOW_FRICTION_PRUNE_PLAN.md (archived), F2 verify).
 //!
 //! Labels a stratified-random sample of vetted articles as `transfer` vs `other` using
 //! the configured local model (title + description, temperature 0, JSON mode). The

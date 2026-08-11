@@ -857,8 +857,10 @@ mod tests {
     ///
     /// `scrub` and `article_read` left this table with the legacy rail — the shared group is now
     /// graph + editor. The ceiling arithmetic below is unchanged in KIND (a group still counts
-    /// once, at its budget); only the single-slot count moved, 7 → 7: dropping scrub's slot and
-    /// gaining `investigate_entity`, which registered after this fixture was last written.
+    /// once, at its budget). The single-slot roster here trails production by one — main.rs also
+    /// registers `fixture_boxscore` — so the ceiling this asserts is one stage BELOW the live
+    /// ceiling: still a valid lower-bound regression check, noted so nobody scores it as exact
+    /// (2026-08-10 audit).
     const GEMMA: Option<(&'static str, usize)> = Some(ARCHBOX_GEMMA_SLOTS);
     /// Grouped caps mirror production's `max_in_flight()` = `ARCHBOX_GEMMA_SLOTS.1`, DERIVED so a
     /// re-size of the card's slot budget (4 → 6 on 2026-08-09) cannot strand this fixture.

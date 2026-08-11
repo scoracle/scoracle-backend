@@ -1707,8 +1707,9 @@ impl StageHandler for NarrativesHandler {
 
         // Phase 3 hand-off: narratives now feeds Vibe (mirroring vibe → momentum). Vibe reads this
         // generation's storylines + the transfer heat, so enqueue it once that material has moved.
-        // (The scrub `vetted` trigger no longer enqueues vibe — mig 174.) Any transfers routing
-        // rides the news_articles.bucket write in persist_narratives (mig 175 trigger).
+        // (The scrub `vetted` trigger no longer enqueues vibe — mig 174.) Transfers routing rides
+        // the Editor's `news_articles.bucket` write (from `story_type`, n16) + the mig 175
+        // trigger — no bucket write happens in this junction any more.
         //
         // **THE JOURNALIST DOES NOT WAKE THE INFLUENCER (7.6/E3).** She is woken by the packet's
         // `charged` tag through mig 206's subscription fan-out, and may file BEFORE this handler

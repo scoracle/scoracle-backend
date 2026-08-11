@@ -11,17 +11,21 @@
 //! become part of the narratives debounce key — and its `num_ctx` anchor moved to
 //! `route::LOCAL_STAGE_NUM_CTX`.
 //!
-//! | junction | module | seat | contract |
+//! | junction | module | seat | contract (see each `prompt.rs` — versions rot in copies) |
 //! |---|---|---|---|
-//! | **The Editor** | [`editor`] | the greenfield rail's reader (shadow until cutover) | `ep1` |
-//! | **The Investigator** | [`investigator`] | verification: box scores + entity discovery (no memory, no voice) | `fbf1` + `investigate-entity-wikidata-v1` |
-//! | **The Journalist** | [`journalist`] | narrative memory | `n13` |
-//! | **The Oracle** | [`oracle`] | the sigil card's voice | `or5` |
-//! | **The Insider** | [`insider`] | transfer/trade vetting | `t11` + `is1` |
-//! | **The Influencer** | [`influencer`] | emotional/news rail | `v14` |
-//! | **The Analyst** | [`analyst`] | momentum | `momentum-s7` |
-//! | **The Scout** | [`scout`] | stat commentary | `s14` |
-//! | *(not a character)* | [`graph`] | typed entity extraction | `g3` |
+//! | **The Editor** | [`editor`] | the rail's one reader (relevance, evidence, routing) | `*_PROMPT_VERSION` in `editor/prompt.rs` |
+//! | **The Investigator** | [`investigator`] | verification: box scores + entity discovery (no memory, no voice) | `investigator/…` |
+//! | **The Journalist** | [`journalist`] | narrative memory + the card score | `journalist/prompt.rs` |
+//! | **The Oracle** | [`oracle`] | the sigil card's voice — blind to memories since or9: five cards + omen, whole | `oracle/prompt.rs` |
+//! | **The Insider** | [`insider`] | transfer/trade vetting | `insider/prompt.rs` |
+//! | **The Influencer** | [`influencer`] | the felt read (SCORE/HOOK/VIBE) | `influencer/prompt.rs` |
+//! | **The Analyst** | [`analyst`] | momentum — speaks "the form"/"the mood", never product names (s15) | `analyst/prompt.rs` |
+//! | **The Scout** | [`scout`] | stat commentary — `divined_peak` is code-owned since s18 | `scout/prompt.rs` |
+//! | *(not a character)* | [`graph`] | typed entity extraction | `graph/…` |
+//!
+//! (This table stopped copying version strings on 2026-08-10: it had rotted six-for-six —
+//! `ep1/or5/n13/v14/momentum-s7/s14` against live `ep6/or9/n19/v18/momentum-s15/s18` — and a
+//! roster that lies about versions is worse than one that names where the truth lives.)
 //!
 //! ## What lives here, and what does not
 //!

@@ -22,7 +22,8 @@
 //! link. So bucket can only ever influence transfers on an article the Editor has already read —
 //! the labels on unread articles (14,059 of 16,395 in the week before the move) were dead weight.
 //!
-//! Written by the article_read junction, read by the transfers stage and serving. A change to
+//! Written by the EDITOR's `story_type` path (the article_read junction that originally owned the
+//! write was demolished in Phase 9), read by the transfers stage and serving. A change to
 //! 'transfer' also fires the mig-175 trigger, which enqueues transfers for the article's teams.
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -626,10 +626,10 @@ fn crown_prompt_is_blind_to_memories() {
 }
 
 #[test]
-fn continuity_reads_are_prompt_only_not_hashed() {
-    // The continuity reads (prior_read, relational memory) must never touch the debounce hash:
-    // build_synthesis_input_components takes only pillar inputs, so the hash pre-image is
-    // structurally independent of any prior read.
+fn synthesis_hash_preimage_is_pillar_inputs_only() {
+    // The debounce hash pre-image is built from pillar inputs alone and is deterministic. (This
+    // test's old name asserted the continuity reads stayed OUT of the hash; or9 deleted those
+    // reads entirely, and what remains worth pinning is the pre-image's shape + determinism.)
     let mom = SynthMomentum::default();
     let a = build_synthesis_input_components(&[], None, None, &mom, &[]);
     let b = build_synthesis_input_components(&[], None, None, &mom, &[]);

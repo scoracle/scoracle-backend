@@ -237,8 +237,8 @@ impl Harness {
     /// identical `... ORDER BY generated_at DESC LIMIT 1` over the same row (plan A1), a consistent
     /// (non-torn) read of one prior synthesis. `debounce_unchanged` stays as the standalone bool
     /// gate for callers that only need the skip decision. (The prior BLURB rode along here in the
-    /// panel era; it was dropped in the crown fold — prior READINGS now load as memory via
-    /// `sigil::load_prior_read`.)
+    /// panel era; it was dropped in the crown fold. The prior-READING memory that replaced it was
+    /// itself retired at or9 — the crown is blind to memories now.)
     ///
     /// Both columns are read nullable and returned already flattened: a no-row entity and a marker
     /// row (NULL score / NULL hash) are semantically identical to the consumers — score `None` ⇒ 0

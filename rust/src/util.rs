@@ -94,8 +94,8 @@ pub fn round1(x: f64) -> f64 {
 // matches Go's `hashComponents` byte-for-byte (the strict debounce parity axis: sigil's `input_hash`,
 // rating's `input_hash`). Each stage assembles its OWN canonical JSON (the structure differs), but
 // the leaf encoding (string escaping, float form) + the hash MUST be identical, so they live here.
-// First single-homed for L12 (rating); sigil.rs still carries byte-identical private copies — a
-// noted one-line cleanup (migrate sigil to these), deferred to avoid perturbing the proven L3 stage.
+// First single-homed for L12 (rating); the sigil/oracle migration to these happened with the
+// junctions refactor (oracle/mod.rs imports them from here — the once-deferred cleanup is done).
 // ---------------------------------------------------------------------------
 
 /// go_json_string quotes + escapes a string EXACTLY as Go's `encoding/json` does by default

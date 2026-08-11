@@ -42,12 +42,12 @@
 //!   eval                                          # print the resolved route table + usage
 //!   eval player:237:NBA team:14:NBA               # vibe (default): label-free quality+throughput A/B
 //!   eval player:237:NBA=72                        # + MAE vs a human label
-//!   eval --task sigil player:237:NBA              # a different lens (live)
+//!   eval --task oracle player:237:NBA              # a different lens (live)
 //!   eval --task transfer team:14:player:237:NBA   # transfer live pair A/B
-//!   eval --task sigil --fixtures                  # frozen-fixture gate (reproducible)
-//!   eval --capture --task sigil player:237:NBA    # emit a fixture skeleton to stdout
-//!   eval --capture-ledger 123 --task sigil         # fixture skeleton from cognition_ledger row 123
-//!   COGNITION_ROUTE_STATS_LOGIC_CANDIDATE=mistral:7b eval --task sigil player:237:NBA  # A/B a challenger
+//!   eval --task oracle --fixtures                  # frozen-fixture gate (reproducible)
+//!   eval --capture --task oracle player:237:NBA    # emit a fixture skeleton to stdout
+//!   eval --capture-ledger 123 --task oracle         # fixture skeleton from cognition_ledger row 123
+//!   COGNITION_ROUTE_ORACLE_LOGIC_CANDIDATE=mistral:7b eval --task oracle player:237:NBA  # A/B a challenger
 //!   COGNITION_ROUTE_STATS_LOGIC_CANDIDATE=qwen3:8b eval --task rating --fixtures
 //!   COGNITION_ROUTE_STATS_LOGIC_CANDIDATE=qwen3:8b eval --task momentum --fixtures
 
@@ -211,7 +211,7 @@ fn parse_args(argv: impl Iterator<Item = String>) -> Result<Args> {
             "--task" => {
                 task_name = it
                     .next()
-                    .ok_or_else(|| anyhow!("--task needs a value (e.g. --task sigil)"))?;
+                    .ok_or_else(|| anyhow!("--task needs a value (e.g. --task oracle)"))?;
             }
             "--fixtures" => {
                 // Optional filename-substring filter: the next arg iff it is not another flag.
@@ -263,9 +263,9 @@ async fn run_live(cfg: &Config, task: &dyn LensTask, cases: &[EvalCase]) -> Resu
              tasks: {}\n  \
              eval player:237:NBA team:14:NBA            (vibe, label-free quality+throughput A/B)\n  \
              eval player:237:NBA=72                     (+ MAE vs a human label)\n  \
-             eval --task sigil --fixtures               (frozen-fixture regression gate)\n  \
-             eval --capture --task sigil player:237:NBA (emit a fixture skeleton to stdout)\n  \
-             eval --capture-ledger 123 --task sigil      (emit a fixture skeleton from cognition_ledger)\n  \
+             eval --task oracle --fixtures               (frozen-fixture regression gate)\n  \
+             eval --capture --task oracle player:237:NBA (emit a fixture skeleton to stdout)\n  \
+             eval --capture-ledger 123 --task oracle      (emit a fixture skeleton from cognition_ledger)\n  \
              eval --task transfer team:14:player:237:NBA (transfer live pair A/B)\n  \
              eval --task rating --fixtures               (PEAK/stat reasoning fixture gate)\n  \
              eval --task momentum --fixtures             (trajectory reasoning fixture gate)\n  \

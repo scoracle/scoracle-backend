@@ -13,6 +13,24 @@
 > late; that is what the drift costs.) **§0 rule 3 — plumbing gates phases; a phase may CITE the
 > ledger, it may never HALT on it.**
 
+# ✅ THE BUILD IS COMPLETE (Scott's ruling, 2026-08-10 evening)
+
+**Every phase is closed or dispositioned: 0–3, 5, 7 closed on their verifies; 4 closed-as-parked
+(box-score target URLs wait for a live season — a seasonal follow-up, not a rail item); 6 closed by
+ruling with the attach-tail quality item instrumented (mig 217), MEASURED at close (420 scored
+attaches; mechanism confirmed: seed-of-2 bar admits one shared hot entity — storyline 16983's 18
+attaches all rode `{person:418}` at score 4), and handed to the debug window; 8's cutover is live
+(`RAIL=packet` since 2026-08-06, the D-T32 cap over-reach recorded as an ops finding); 9 is
+dispositioned by ruling (see the Phase 9 banner): the prune = post-Saturday, the rebaseline = the
+hands-off window itself.**
+
+**THE SCHEDULE: hands-off 2026-08-11 → Saturday 2026-08-15 afternoon (the rail does its thing; the
+window IS 9.3's rebaseline). Saturday: debug if needed (the 6.7 attach tail is the known
+candidate, now query-auditable). Then: the prune — old rail SQL (Appendix A, rollback window closes
+08-13), old seeding layer, and the D-T57 audit's junk inventory — then 9.4/9.6 close the record.**
+
+*(The running STATE blocks below stay for their detail; the newest follows.)*
+
 **STATE (2026-08-10 EVENING — THE FIVE-VOICE PASS session. Supersedes every block below, which
 stay for their detail.)**
 ⭐ **FIVE VOICES BUMPED IN ONE GATED SWEEP (D-T57): s18 / momentum-s15 / or9 / v18 / n19** — Scott's
@@ -3081,6 +3099,23 @@ lesson as D-T30/the archbox mirror: **we keep being asked to read an observation
   instead of entity-set intersection — are **unmeasured and belong to a session with the scoring code
   open.**
 
+##### ✅ 6.7 CLOSED BY RULING, 2026-08-10 ~21:50 — WITH THE MIG-217 READING ATTACHED
+
+**Scott's ruling (2026-08-10 evening): "Finish the rail plan. Button it down, wrap it up, mark it
+complete… we're going to let this new rail do its thing until afternoon this coming Saturday
+[2026-08-15]. At which time, if needed, we'll debug."** Phase 6's PLUMBING was never in question
+(§0 rule 3; the 6.7 text itself: "It does NOT block the rail"); what stayed open was the attach-tail
+QUALITY item, and it now moves — instrumented and measured — to the Saturday debug window.
+
+**The mig-217 instrumentation reading (taken at close, 420 scored attaches, 2026-08-09→10):**
+seed sizes 2-4 dominate (216/420); scores hug the bar (seed-2 avg 4.3, seed-4 avg 4.9); the
+biggest post-instrumentation cluster is 18 attaches in ~2 days (inside the 15-25 band — no 62-style
+runaway inside the window, but growing). **The mechanism is CONFIRMED live and now auditable by
+query:** storyline 16983 (seed_size 2) accreted all 18 via `matched_entities = {person:418}` at
+score 4, every row — the seed-of-2 bar of ONE shared entity, exactly the 6.7 hand-read's pattern.
+The Saturday debug has what 6.7's band verdict asked for and never had: recorded scores, matched
+entities, and seed sizes for every candidate fix to be measured against.
+
 ---
 
 ## Phase 7 — Brain: the voices read packets, keep their memories, and go on a diet
@@ -4425,6 +4460,17 @@ here; it is not load-bearing for anything above, and no theory is offered for it
 ---
 
 ## Phase 9 — Demolition, rebaseline, and the record
+
+> **✅ PHASE 9 DISPOSITIONED BY RULING, 2026-08-10 ~21:55 (Scott, verbatim: "we're going to let
+> this new rail do it's thing until afternoon this coming Saturday. At which time, if needed,
+> we'll debug. Once anything has been debugged, we'll prune the old rail, the old seeding layer,
+> and anything left that's junk").** The mapping: **9.1's SQL block + 9.2 + 9.5's cron split =
+> the post-Saturday PRUNE** (the Appendix A rollback window closes 2026-08-13 anyway, before the
+> debug window opens — the ordering is naturally safe). **9.3's rebaseline (T7) = the hands-off
+> window itself**: 2026-08-11 → 08-15 IS the 7-day-grade quiet stretch the fresh baselines want;
+> read them at the Saturday close. **9.4 (wiki) + 9.6 (HANDOFF-one-rail.md, mark DONE) = the
+> Saturday close-out acts.** The 2026-08-10 junctions-layer audit (D-T57) is the prune's
+> inventory for "anything left that's junk" — 13 DEAD, 8 judgment calls, 12 misleading docs.
 
 - [~] **9.1** *(RUST BLOCK DONE 2026-08-08 23:14 EDT — **3,179 lines deleted, 144 added**, in three
       tight commits, `cargo test` green after each. Go block was already done in 8.8. **SQL block NOT

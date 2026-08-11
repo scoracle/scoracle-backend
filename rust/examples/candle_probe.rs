@@ -1,5 +1,5 @@
 //! candle_probe — offline measurement harness for the F2/F8 candle extensions in
-//! planning_docs/DATA_FLOW_FRICTION_PRUNE_PLAN.md.
+//! scoracle-wiki/progress_docs/scoracle-backend/DATA_FLOW_FRICTION_PRUNE_PLAN.md (archived).
 //!
 //! Tests, against LIVE labeled data (read-only):
 //!   1. F2 bucket classification — cosine of article (title+description) vs a

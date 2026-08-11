@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict NQRVJUhjZsM2wmJGC8sLdcsK1nbq0wL5gaKHS6jnWCs7y1cXTuNbdtxJvZZ43Dc
+\restrict 8s7OYE4UoV8vU323CFUQmuUyRhT2QDf7mPajwIhRIlnD2v2kRgwg01dlknBcbIg
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -3394,7 +3394,7 @@ own_transfer AS (
 own_vibe AS (
     -- The vibe lens's own recent sentiment reads (vibe_scores). No source names banked;
     -- tag with the article count instead.
-    SELECT format('Our prior read (vibe, %s): sentiment %s/100%s.',
+    SELECT format('Our prior read (mood, %s): mood %s/100%s.',
                to_char(v.generated_at, 'Mon DD'),
                v.sentiment,
                CASE WHEN array_length(v.input_news_ids, 1) > 0
@@ -3424,7 +3424,7 @@ own_momentum AS (
 own_peak AS (
     -- The PEAK lens's latest banked read (stat_summaries). Least-weighted (stats-heavy) —
     -- the tail line. Season-keyed, so just the latest.
-    SELECT format('Our prior read (PEAK, season %s): "%s" (notability %s/100)%s.',
+    SELECT format('Our prior read (top skill, season %s): "%s" (profile distinctiveness %s/100)%s.',
                s.season, s.divined_peak, s.notability,
                CASE WHEN COALESCE(s.peak_trajectory_label, '') <> ''
                     THEN '; ' || s.peak_trajectory_label ELSE '' END) AS line
@@ -6387,7 +6387,7 @@ CREATE FUNCTION public.stat_context_for_entity(p_sport text, p_entity_type text,
     LANGUAGE sql STABLE
     AS $$
 WITH prior_read AS (
-    SELECT format('Our prior read: season %s PEAK was "%s" (notability %s/100)%s.',
+    SELECT format('Our prior read: season %s the top skill read was "%s" (profile distinctiveness %s/100)%s.',
                s.season, s.divined_peak, s.notability,
                CASE WHEN COALESCE(s.peak_trajectory_label, '') <> ''
                     THEN '; ' || s.peak_trajectory_label ELSE '' END) AS line
@@ -6443,7 +6443,7 @@ $$;
 -- Name: FUNCTION stat_context_for_entity(p_sport text, p_entity_type text, p_entity_id integer, p_season integer); Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON FUNCTION public.stat_context_for_entity(p_sport text, p_entity_type text, p_entity_id integer, p_season integer) IS 'Stats-side memory card for the PEAK/statcommentary junction (rating s12): prior-season PEAK read (Our prior read: — banked output, echo-chamber rule), confirmed moves 180d (Ground truth:), and reliability-framed matchup edges (Matchup memory: — presented, not gatekept). NULL = no memory. Kills the season cold-start; in-season recency windows survive. Model-facing only.';
+COMMENT ON FUNCTION public.stat_context_for_entity(p_sport text, p_entity_type text, p_entity_id integer, p_season integer) IS 'Stats-side memory card for the peak/statcommentary junction (rating s12; vocabulary descrubbed mig 218): prior-season top-skill read (banked output, echo-chamber rule), confirmed moves, reliability-framed matchup edges. Model-facing only; never user-exposed; outside input_hash.';
 
 
 --
@@ -14174,5 +14174,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict NQRVJUhjZsM2wmJGC8sLdcsK1nbq0wL5gaKHS6jnWCs7y1cXTuNbdtxJvZZ43Dc
+\unrestrict 8s7OYE4UoV8vU323CFUQmuUyRhT2QDf7mPajwIhRIlnD2v2kRgwg01dlknBcbIg
 

@@ -4316,6 +4316,34 @@ the right-shape question with a worked example attached.
 
 ## S2 · LOGGED DURING THE VOICE SESSION
 
-*(Append below as you go. Nothing here yet — the voice session has not started.)*
+### S2.a — THE D-T57 SCHEMA AUDIT (2026-08-10 evening; Scott's step 3). Verdict: the schema FITS the new contracts, with one vocabulary migration shipped and two Saturday verifies.
+
+- [x] **mig 218 `descrub_memory_card_vocabulary` — SHIPPED.** The junctions stopped shouting the
+      desk's words (s18/s15/or9), but TWO SQL functions still rendered them into the memory cards
+      every voice reads: `narrative_context_for_entity` ("Our prior read (vibe, …): sentiment
+      N/100", "(PEAK, season …) … (notability N/100)") and `stat_context_for_entity` ("PEAK was …
+      (notability …)"). Neither was gate-visible (fixtures pin memory-free shapes) — the exact
+      blind spot the method warns about. 218 re-states both with the sport's words; the
+      `stat_context` strings match `scout::descrub_memory_card`'s output EXACTLY, so the Rust shim
+      is now a no-op kept as the contract note. Memory cards are unhashed → nothing regenerates.
+- [ ] **SATURDAY VERIFY 1 — the old-label washout:** 8,555 `stat_summaries` rows still carry
+      "…PEAK z-scores…" in `peak_trajectory_label` (the pre-s18 wording, rendered into
+      analyst/oracle prompts via passthrough). The s18 bump regenerates the fleet organically
+      (version is in the hash pre-image; `pipeline_work(peak)` pending = 0 tonight, so the sweep
+      drives it). At the Saturday close: `SELECT count(*) FROM stat_summaries WHERE
+      peak_trajectory_label LIKE '%PEAK z-scores%'` should be ≈0; a stall is a finding.
+- [ ] **SATURDAY VERIFY 2 — mig 217 is the 6.7 debug's instrument:** 420 scored attach rows at
+      close (seed 2-4 dominant, scores hugging the bar; storyline 16983 = the confirmed live
+      mechanism). The debug measures candidate fixes against these columns.
+- [x] **or9 leaves no schema orphan:** `sigil_synthesis` prior-read consumption was Rust-only
+      (`load_prior_read`, deleted); serving reads unchanged. `stat_summaries.divined_peak` column
+      unchanged at s18 (still written, now deterministic — same values incl. "No standout skill").
+- [ ] **UPCOMING (design-time, not now):** the Insider's hot/cold verdict (Scott's queued contract
+      addition) will want a product column on the transfer surface — decide shape AT the Insider
+      pass, gate-first. The per-metric z-trajectory design (D-T57 notes) implies a per-skill
+      trajectory store the schema does not have — that pass's data-layer build owns it.
+- [ ] **S1 carried untouched** (the deliberate discipline): the index/function items above ride
+      the post-Saturday prune — the Python-prune set especially now that Scott has scheduled the
+      old seeding layer's removal.
 
 

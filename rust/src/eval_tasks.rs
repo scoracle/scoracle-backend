@@ -257,22 +257,6 @@ pub struct Expect {
     /// exact violation this catches.)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prose_no_digits: Option<bool>,
-    // sigil panel-disagreement rubric.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub convergence_min: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub convergence_max: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub disagreement_nonempty: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub why_now_nonempty: Option<bool>,
-    /// Catches example-parroting / asserts the real conflict is named. Scored against the parsed
-    /// `disagreement`, which `parse_synthesis_response` already normalizes (N/A → None, quotes
-    /// stripped), so the eval reflects exactly what gets persisted + served.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub disagreement_includes: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub disagreement_excludes: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub blurb_includes: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -561,7 +545,7 @@ pub struct Fixture {
 /// (`build_prompt` boxed by `async_trait`), so tasks dispatch through `Box<dyn LensTask>`.
 #[async_trait]
 pub trait LensTask: Send + Sync {
-    /// Registry key (`"vibe"`, `"sigil"`) — also the `fixtures/<name>/` dir.
+    /// Registry key (`"vibe"`, `"oracle"`) — also the `fixtures/<name>/` dir.
     fn name(&self) -> &'static str;
     /// Product operating parameters for the lens. Not used for routing; useful for eval reports and
     /// prompt/fixture review.
@@ -2965,7 +2949,7 @@ mod tests {
         assert_eq!(fx.name, "crown-read");
         assert_eq!(fx.expect.reading_min_sentences, Some(2));
         assert_eq!(fx.expect.score_min, Some(60));
-        assert_eq!(fx.expect.convergence_min, None); // defaulted
+        assert_eq!(fx.expect.score_max, None); // defaulted
                                                      // A fixture may omit expect entirely.
         let bare = r#"{"name":"n","task":"oracle","prompt_version":"or3","system":"s","user_prompt":"u","temperature":0.0}"#;
         let fx2: Fixture = serde_json::from_str(bare).unwrap();

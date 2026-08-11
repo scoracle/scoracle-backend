@@ -704,12 +704,6 @@ fn expected_property_count(x: &Expect) -> usize {
     let mut n = 0usize;
     n += x.score_min.is_some() as usize;
     n += x.score_max.is_some() as usize;
-    n += x.convergence_min.is_some() as usize;
-    n += x.convergence_max.is_some() as usize;
-    n += x.disagreement_nonempty.is_some() as usize;
-    n += x.why_now_nonempty.is_some() as usize;
-    n += x.disagreement_includes.as_ref().map_or(0, Vec::len);
-    n += x.disagreement_excludes.as_ref().map_or(0, Vec::len);
     n += x.blurb_includes.as_ref().map_or(0, Vec::len);
     n += x.blurb_excludes.as_ref().map_or(0, Vec::len);
     n += x.narratives_min.is_some() as usize;
@@ -1216,12 +1210,12 @@ mod tests {
     #[test]
     fn parse_args_accepts_capture_ledger() {
         let args = parse_args(
-            ["--capture-ledger", "42", "--task", "sigil"]
+            ["--capture-ledger", "42", "--task", "oracle"]
                 .into_iter()
                 .map(String::from),
         )
         .unwrap();
-        assert_eq!(args.task_name, "sigil");
+        assert_eq!(args.task_name, "oracle");
         assert!(args.cases.is_empty());
         match args.mode {
             Mode::CaptureLedger { ledger_id } => assert_eq!(ledger_id, 42),
@@ -1232,7 +1226,7 @@ mod tests {
     #[test]
     fn ledger_match_accepts_transfer_stage_plural() {
         assert!(ledger_row_matches_task("transfer", "transfers", "transfer"));
-        assert!(!ledger_row_matches_task("sigil", "transfers", "transfer"));
+        assert!(!ledger_row_matches_task("oracle", "transfers", "transfer"));
     }
 
     #[test]

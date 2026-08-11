@@ -4326,12 +4326,14 @@ the right-shape question with a worked example attached.
       blind spot the method warns about. 218 re-states both with the sport's words; the
       `stat_context` strings match `scout::descrub_memory_card`'s output EXACTLY, so the Rust shim
       is now a no-op kept as the contract note. Memory cards are unhashed → nothing regenerates.
-- [ ] **SATURDAY VERIFY 1 — the old-label washout:** 8,555 `stat_summaries` rows still carry
-      "…PEAK z-scores…" in `peak_trajectory_label` (the pre-s18 wording, rendered into
-      analyst/oracle prompts via passthrough). The s18 bump regenerates the fleet organically
-      (version is in the hash pre-image; `pipeline_work(peak)` pending = 0 tonight, so the sweep
-      drives it). At the Saturday close: `SELECT count(*) FROM stat_summaries WHERE
-      peak_trajectory_label LIKE '%PEAK z-scores%'` should be ≈0; a stall is a finding.
+- [ ] **SATURDAY VERIFY 1 — the old-value washout (three artifacts, one regen):** 8,555
+      `stat_summaries` rows still carry "…PEAK z-scores…" in `peak_trajectory_label`; the mig-218
+      smoke also surfaced pre-s17 `divined_peak` values wrapped in literal Markdown bold
+      (`"**No standout skill**"`) riding into memory cards. All wash via the s18 fleet regen
+      (version in the hash pre-image; s18's code-owned labels can never bold). At the Saturday
+      close: `SELECT count(*) FILTER (WHERE peak_trajectory_label LIKE '%PEAK z-scores%'),
+      count(*) FILTER (WHERE divined_peak LIKE '%**%') FROM stat_summaries` — both ≈0; a stall
+      is a finding.
 - [ ] **SATURDAY VERIFY 2 — mig 217 is the 6.7 debug's instrument:** 420 scored attach rows at
       close (seed 2-4 dominant, scores hugging the bar; storyline 16983 = the confirmed live
       mechanism). The debug measures candidate fixes against these columns.

@@ -682,6 +682,70 @@ func (h *Handler) GetEntityMomentum(w http.ResponseWriter, r *http.Request) {
 	h.serveStatementJSON(w, r, "entity_momentum", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id, season)
 }
 
+// GetStories returns the STORIES page list — the first story-scoped surface
+// (AppTray, 2026-08-12). Default: open storylines ranked by the cast's banked
+// character scores (Journalist card_score, Influencer sentiment as tie-break)
+// so a busy saga outranks a quiet big-club week. ?status=resolved|dormant
+// serves the recency-ordered archive instead.
+// @Summary Get the stories list
+// @Description Open storylines ranked by cast heat (banked character scores); ?status=resolved|dormant for the archive by recency.
+// @Tags data
+// @Produce json
+// @Param sport path string true "Sport" Enums(nba, nfl, football)
+// @Param status query string false "Archive scope" Enums(resolved, dormant)
+// @Param limit query int false "Max storylines (default 50, cap 200)"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} respond.ErrorResponse
+// @Failure 500 {object} respond.ErrorResponse
+// @Router /{sport}/stories [get]
+func (h *Handler) GetStories(w http.ResponseWriter, r *http.Request) {
+	sport, ok := parseSport(w, r)
+	if !ok {
+		return
+	}
+	limit, ok := optionalIntQuery(w, r, "limit")
+	if !ok {
+		return
+	}
+	status := optionalTextQuery(r, "status")
+	if status == nil {
+		h.serveStatementJSON(w, r, "story_list", dataCacheKey(r), cache.TTLNews, false, sport, limit)
+		return
+	}
+	if status != "resolved" && status != "dormant" {
+		respond.WriteError(w, http.StatusBadRequest, "INVALID_QUERY_PARAM", "status must be resolved or dormant")
+		return
+	}
+	h.serveStatementJSON(w, r, "story_archive", dataCacheKey(r), cache.TTLNews, false, sport, status, limit)
+}
+
+// GetStory returns the STORY page — one storyline whole: cast with roles and
+// lifespans (departed members included), the packet headline history (the
+// evolving story), one full latest packet, attached articles with provenance,
+// and voice-product endpoint pointers for the active cast.
+// @Summary Get a story page
+// @Description One storyline: cast (roles + lifespans), packet headline history, full latest packet, attached articles, voice-product pointers.
+// @Tags data
+// @Produce json
+// @Param sport path string true "Sport" Enums(nba, nfl, football)
+// @Param id path int true "Storyline ID"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} respond.ErrorResponse
+// @Failure 404 {object} respond.ErrorResponse
+// @Failure 500 {object} respond.ErrorResponse
+// @Router /{sport}/story/{id} [get]
+func (h *Handler) GetStory(w http.ResponseWriter, r *http.Request) {
+	sport, ok := parseSport(w, r)
+	if !ok {
+		return
+	}
+	id, ok := parsePathID(w, r, "id", "storyline id")
+	if !ok {
+		return
+	}
+	h.serveStatementJSON(w, r, "story_page", dataCacheKey(r), cache.TTLNews, true, sport, id)
+}
+
 // GetEntityStats returns the entity's STATS product — the full season rating
 // (Composite breakdown, modes, fantasy, template, scoped ranks) + available
 // seasons. The Stats card + the ContentShell control strip read this. The

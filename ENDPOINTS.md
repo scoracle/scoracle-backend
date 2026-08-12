@@ -1,6 +1,6 @@
 # Scoracle API Endpoints
 
-> Last updated: 2026-07-05 (Leaderboard is the DB-first ranking surface; profile is entity drill-down; roster moved to leaderboard team scope).
+> Last updated: 2026-08-12 (Stories page: `/stories` + `/story/{id}`, the first story-scoped surface over the one-rail storylines/packets).
 
 Single public API base URL:
 
@@ -23,6 +23,8 @@ The only source of truth is `go/internal/api/server.go`. Every route wired there
 | `GET /api/v1/{sport}/{entityType}/{id}/meta` | per-entity identity (page header); 404 if unknown |
 | `GET /api/v1/{sport}/team/{id}/results` · `/roster` | finalized scorelines · legacy roster compatibility |
 | `GET /api/v1/{sport}/meta` · `/autofill` · `/health` | legacy sport-wide metadata/search payload · legacy sport autofill · freshness |
+| `GET /api/v1/{sport}/stories` | Stories page list: open storylines ranked by cast heat (banked character scores); `?status=resolved\|dormant` for the archive, `?limit=` (default 50, cap 200) |
+| `GET /api/v1/{sport}/story/{id}` | one storyline whole: cast (roles + lifespans), packet headline history, full latest packet, attached articles, voice-product pointers; 404 if unknown |
 | `GET /api/v1/{sport}/leaderboard` | comprehensive ranked research database; `?board=rating\|vibes\|sigil\|news\|transfers\|momentum` (`trending` legacy alias) |
 | `GET /api/v1/{sport}/leaderboard/{vibes,sigil,news,transfers,momentum}` | dedicated boards (`trending` legacy alias remains wired) |
 | `GET /api/v1/{sport}/leagues/{leagueId}/{momentum,results,meta,health}` | league-scoped variants |

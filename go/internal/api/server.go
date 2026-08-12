@@ -170,6 +170,11 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 			// sport/profile-specific consumers; not the universal home search DB.
 			r.Get("/autofill", h.GetAutofill)
 			r.Get("/health", h.GetSportHealthPage)
+			// Stories page (AppTray, 2026-08-12): the story-scoped surface over
+			// the one-rail storylines/packets. /stories is the ranked list
+			// (cast-heat order; ?status= for archive), /story/{id} the detail.
+			r.Get("/stories", h.GetStories)
+			r.Get("/story/{id}", h.GetStory)
 			r.Get("/leaderboard", h.GetLeaderboard)
 			r.Get("/leaderboard/vibes", h.GetVibesLeaderboard)
 			r.Get("/leaderboard/sigil", h.GetSigilLeaderboard)

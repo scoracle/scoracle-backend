@@ -1633,6 +1633,246 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				(SELECT COUNT(*)::int FROM football.team) AS team_profiles
 		) health`,
 
+		// Stories page (AppTray surface, 2026-08-12) — the first readers of the
+		// one-rail storylines/packets tables (mig 200/202). The list ranks open
+		// storylines by the cast's banked character scores ("the characters
+		// decide"): the Journalist's card_score is "how much story is here", the
+		// Influencer's sentiment is emotional heat — so a busy mid-table saga
+		// outranks a quiet big-club week. Subject-role cast scores win; a
+		// storyline with no subjects falls back to its whole active cast.
+		// $1 sport · $2 limit (NULL ⇒ 50, cap 200).
+		"story_list": `WITH req AS (
+			SELECT upper($1::text) AS sport, LEAST(COALESCE($2::int, 50), 200) AS lim
+		),
+		active AS (
+			SELECT s.id, s.title, s.status, s.last_seen_at
+			FROM public.storylines s CROSS JOIN req
+			WHERE s.sport = req.sport AND s.status = 'open'
+			  AND s.last_seen_at > NOW() - INTERVAL '14 days'
+		),
+		latest_packet AS (
+			SELECT DISTINCT ON (p.storyline_id)
+			       p.storyline_id, p.headline, p.story_types, p.register
+			FROM public.packets p
+			WHERE p.storyline_id IN (SELECT id FROM active)
+			ORDER BY p.storyline_id, p.compiled_at DESC, p.id DESC
+		),
+		cast_scores AS (
+			SELECT se.storyline_id, se.role,
+			       (SELECT ns.card_score FROM public.news_summaries ns
+			         WHERE ns.entity_type = se.entity_type AND ns.entity_id = se.entity_id
+			           AND ns.sport = se.sport AND ns.card_score IS NOT NULL
+			         ORDER BY ns.generated_at DESC LIMIT 1) AS card_score,
+			       (SELECT vs.sentiment FROM public.vibe_scores vs
+			         WHERE vs.entity_type = se.entity_type AND vs.entity_id = se.entity_id
+			           AND vs.sport = se.sport AND vs.sentiment IS NOT NULL
+			         ORDER BY vs.generated_at DESC LIMIT 1) AS vibe
+			FROM public.storyline_entities se
+			WHERE se.storyline_id IN (SELECT id FROM active)
+			  AND se.left_at IS NULL AND se.entity_type IN ('player','team')
+		),
+		-- THE HEAT KNOB: max subject card_score, vibe as tie-break. A taste
+		-- parameter, expected to be tweaked — keep the formula here and only here.
+		heat AS (
+			SELECT storyline_id,
+			       COALESCE(max(card_score) FILTER (WHERE role = 'subject'), max(card_score)) AS heat,
+			       COALESCE(max(vibe) FILTER (WHERE role = 'subject'), max(vibe)) AS vibe_heat
+			FROM cast_scores GROUP BY storyline_id
+		),
+		report_counts AS (
+			SELECT sa.storyline_id, count(*)::int AS report_count
+			FROM public.storyline_articles sa
+			WHERE sa.storyline_id IN (SELECT id FROM active)
+			GROUP BY sa.storyline_id
+		),
+		cast_display AS (
+			SELECT storyline_id, json_agg(json_build_object(
+			           'entity_type', entity_type, 'entity_id', entity_id,
+			           'name', name, 'role', role)
+			         ORDER BY role_rank, joined_at) AS cast
+			FROM (
+				SELECT se.storyline_id, se.entity_type, se.entity_id, se.role, se.joined_at,
+				       CASE se.role WHEN 'subject' THEN 0 WHEN 'opponent' THEN 1 ELSE 2 END AS role_rank,
+				       COALESCE(pl.name, tm.name, pe.full_name) AS name,
+				       row_number() OVER (PARTITION BY se.storyline_id
+				         ORDER BY CASE se.role WHEN 'subject' THEN 0 WHEN 'opponent' THEN 1 ELSE 2 END, se.joined_at) AS rn
+				FROM public.storyline_entities se
+				LEFT JOIN public.players pl ON se.entity_type = 'player' AND pl.id = se.entity_id AND pl.sport = se.sport
+				LEFT JOIN public.teams tm ON se.entity_type = 'team' AND tm.id = se.entity_id AND tm.sport = se.sport
+				LEFT JOIN public.persons pe ON se.entity_type = 'person' AND pe.id = se.entity_id
+				WHERE se.storyline_id IN (SELECT id FROM active) AND se.left_at IS NULL
+			) c WHERE rn <= 6
+			GROUP BY storyline_id
+		),
+		ranked AS (
+			SELECT a.id, a.title, a.status, a.last_seen_at, h.heat, h.vibe_heat,
+			       lp.headline, lp.story_types, lp.register,
+			       COALESCE(rc.report_count, 0) AS report_count, cd.cast
+			FROM active a
+			LEFT JOIN heat h ON h.storyline_id = a.id
+			LEFT JOIN latest_packet lp ON lp.storyline_id = a.id
+			LEFT JOIN report_counts rc ON rc.storyline_id = a.id
+			LEFT JOIN cast_display cd ON cd.storyline_id = a.id
+			ORDER BY h.heat DESC NULLS LAST, h.vibe_heat DESC NULLS LAST, a.last_seen_at DESC, a.id DESC
+			LIMIT (SELECT lim FROM req)
+		)
+		SELECT json_build_object(
+			'page', 'stories',
+			'sport', lower((SELECT sport FROM req)),
+			'scope', 'active',
+			'stories', COALESCE((SELECT json_agg(json_build_object(
+				'storyline_id', r.id,
+				'title', r.title,
+				'status', r.status,
+				'heat', r.heat,
+				'headline', r.headline,
+				'story_types', r.story_types,
+				'register', r.register,
+				'report_count', r.report_count,
+				'last_seen_at', r.last_seen_at,
+				'cast', COALESCE(r.cast, '[]'::json))
+				ORDER BY r.heat DESC NULLS LAST, r.vibe_heat DESC NULLS LAST, r.last_seen_at DESC, r.id DESC)
+			FROM ranked r), '[]'::json)
+		)`,
+		// Story archive — resolved/dormant storylines by recency, no heat ranking.
+		// $1 sport · $2 status (resolved|dormant, handler-validated) · $3 limit.
+		"story_archive": `WITH req AS (
+			SELECT upper($1::text) AS sport, lower($2::text) AS status,
+			       LEAST(COALESCE($3::int, 50), 200) AS lim
+		),
+		picked AS (
+			SELECT s.id, s.title, s.status, s.first_seen_at, s.last_seen_at, s.resolved_at
+			FROM public.storylines s CROSS JOIN req
+			WHERE s.sport = req.sport AND s.status = req.status
+			ORDER BY s.last_seen_at DESC, s.id DESC
+			LIMIT (SELECT lim FROM req)
+		),
+		latest_packet AS (
+			SELECT DISTINCT ON (p.storyline_id) p.storyline_id, p.headline
+			FROM public.packets p
+			WHERE p.storyline_id IN (SELECT id FROM picked)
+			ORDER BY p.storyline_id, p.compiled_at DESC, p.id DESC
+		),
+		report_counts AS (
+			SELECT sa.storyline_id, count(*)::int AS report_count
+			FROM public.storyline_articles sa
+			WHERE sa.storyline_id IN (SELECT id FROM picked)
+			GROUP BY sa.storyline_id
+		),
+		cast_counts AS (
+			SELECT se.storyline_id, count(*)::int AS cast_count
+			FROM public.storyline_entities se
+			WHERE se.storyline_id IN (SELECT id FROM picked)
+			GROUP BY se.storyline_id
+		)
+		SELECT json_build_object(
+			'page', 'stories',
+			'sport', lower((SELECT sport FROM req)),
+			'scope', (SELECT status FROM req),
+			'stories', COALESCE((SELECT json_agg(json_build_object(
+				'storyline_id', p.id,
+				'title', p.title,
+				'status', p.status,
+				'headline', lp.headline,
+				'report_count', COALESCE(rc.report_count, 0),
+				'cast_count', COALESCE(cc.cast_count, 0),
+				'first_seen_at', p.first_seen_at,
+				'last_seen_at', p.last_seen_at,
+				'resolved_at', p.resolved_at)
+				ORDER BY p.last_seen_at DESC, p.id DESC)
+			FROM picked p
+			LEFT JOIN latest_packet lp ON lp.storyline_id = p.id
+			LEFT JOIN report_counts rc ON rc.storyline_id = p.id
+			LEFT JOIN cast_counts cc ON cc.storyline_id = p.id), '[]'::json)
+		)`,
+		// Story page — one storyline whole: the cast with roles AND lifespans
+		// (departed members stay — D5, the part has its own lifespan), the packet
+		// headline history (the append-only supersedes chain IS the evolving
+		// story), one full latest packet, attached articles with mig-217
+		// provenance, and derived voice-product endpoint pointers per active
+		// player/team cast member (persons have no voice products). A `takes` key
+		// slots in here when story-scoped voice takes ship (Phase 2).
+		// Zero rows for a missing/wrong-sport id ⇒ handler serves 404.
+		// $1 sport · $2 storyline id.
+		"story_page": `WITH req AS (
+			SELECT upper($1::text) AS sport, $2::bigint AS id
+		),
+		s AS (
+			SELECT st.id, st.sport, st.title, st.status, st.first_seen_at,
+			       st.last_seen_at, st.resolved_at, st.resolution
+			FROM public.storylines st CROSS JOIN req
+			WHERE st.id = req.id AND st.sport = req.sport
+		),
+		cast_rows AS (
+			SELECT se.entity_type, se.entity_id, se.role, se.joined_at,
+			       se.last_seen_at, se.left_at, se.exit_reason,
+			       COALESCE(pl.name, tm.name, pe.full_name) AS name,
+			       CASE se.role WHEN 'subject' THEN 0 WHEN 'opponent' THEN 1 ELSE 2 END AS role_rank
+			FROM public.storyline_entities se
+			JOIN s ON se.storyline_id = s.id
+			LEFT JOIN public.players pl ON se.entity_type = 'player' AND pl.id = se.entity_id AND pl.sport = se.sport
+			LEFT JOIN public.teams tm ON se.entity_type = 'team' AND tm.id = se.entity_id AND tm.sport = se.sport
+			LEFT JOIN public.persons pe ON se.entity_type = 'person' AND pe.id = se.entity_id
+		),
+		packet_history AS (
+			SELECT p.id, p.day, p.compiled_at, p.headline, p.story_types, p.register
+			FROM public.packets p JOIN s ON p.storyline_id = s.id
+			ORDER BY p.compiled_at DESC, p.id DESC LIMIT 50
+		),
+		latest AS (
+			SELECT p.id, p.day, p.compiled_at, p.headline, p.claims, p.facts,
+			       p.quotes, p.register, p.register_phrase
+			FROM public.packets p JOIN s ON p.storyline_id = s.id
+			ORDER BY p.compiled_at DESC, p.id DESC LIMIT 1
+		),
+		story_articles AS (
+			SELECT na.id, na.title, na.source, na.url, na.published_at,
+			       sa.attached_at, sa.attach_score, sa.matched_entities
+			FROM public.storyline_articles sa
+			JOIN s ON sa.storyline_id = s.id
+			JOIN public.news_articles na ON na.id = sa.article_id
+			ORDER BY COALESCE(na.published_at, sa.attached_at) DESC LIMIT 20
+		)
+		SELECT json_build_object(
+			'page', 'story',
+			'sport', lower(s.sport),
+			'storyline_id', s.id,
+			'title', s.title,
+			'status', s.status,
+			'first_seen_at', s.first_seen_at,
+			'last_seen_at', s.last_seen_at,
+			'resolved_at', s.resolved_at,
+			'resolution', s.resolution,
+			'cast', COALESCE((SELECT json_agg(json_build_object(
+				'entity_type', c.entity_type, 'entity_id', c.entity_id,
+				'name', c.name, 'role', c.role, 'joined_at', c.joined_at,
+				'last_seen_at', c.last_seen_at, 'left_at', c.left_at,
+				'exit_reason', c.exit_reason)
+				ORDER BY c.role_rank, c.joined_at) FROM cast_rows c), '[]'::json),
+			'packets', COALESCE((SELECT json_agg(json_build_object(
+				'id', ph.id, 'day', ph.day, 'compiled_at', ph.compiled_at,
+				'headline', ph.headline, 'story_types', ph.story_types,
+				'register', ph.register)
+				ORDER BY ph.compiled_at DESC, ph.id DESC) FROM packet_history ph), '[]'::json),
+			'latest_packet', (SELECT row_to_json(l) FROM latest l),
+			'articles', COALESCE((SELECT json_agg(json_build_object(
+				'article_id', a.id, 'title', a.title, 'source', a.source,
+				'url', a.url, 'published_at', a.published_at,
+				'attached_at', a.attached_at, 'attach_score', a.attach_score,
+				'matched_entities', a.matched_entities)
+				ORDER BY COALESCE(a.published_at, a.attached_at) DESC) FROM story_articles a), '[]'::json),
+			'voice_products', COALESCE((SELECT json_agg(json_build_object(
+				'entity_type', c.entity_type, 'entity_id', c.entity_id, 'name', c.name,
+				'endpoints', json_build_object(
+					'news', format('/api/v1/%s/%s/%s/news', lower(s.sport), c.entity_type, c.entity_id),
+					'transfers', format('/api/v1/%s/%s/%s/transfers', lower(s.sport), c.entity_type, c.entity_id),
+					'momentum', format('/api/v1/%s/%s/%s/momentum/summary', lower(s.sport), c.entity_type, c.entity_id),
+					'sigil', format('/api/v1/%s/%s/%s/sigil', lower(s.sport), c.entity_type, c.entity_id)))
+				ORDER BY c.role_rank, c.joined_at)
+			FROM cast_rows c
+			WHERE c.left_at IS NULL AND c.entity_type IN ('player','team')), '[]'::json)
+		) FROM s`,
+
 		// Entity name lookup (news handlers + notifications)
 		"team_name_lookup": "SELECT name FROM teams WHERE id = $1 AND sport = $2",
 		// O12: player_news_lookup + team_news_lookup removed with the live-RSS serving

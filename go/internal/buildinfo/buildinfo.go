@@ -7,7 +7,6 @@
 //
 //	scripts/hosting/release.sh   (self-hosted systemd/cron deployment)
 //
-//
 // Session 1 of the launch-hardening audit found the deployed binaries carried
 // no embedded VCS revision (`go version -m` reported `(devel)`), so a running
 // process could not be mapped to one source commit without binary-hash

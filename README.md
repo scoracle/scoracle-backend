@@ -230,14 +230,9 @@ go build -o bin/scoracle-api ./cmd/api
 ./bin/scoracle-api
 ```
 
-Seeder boundary: `roster seed` owns season-scoped player discovery via
-`team_rosters`; `meta seed` only enriches that roster. This avoids BDL's
-historical player-list payloads becoming the metadata universe.
-
 ## Testing
 
 ```bash
-(cd go && go test ./...)
 (cd go && go build -o bin/scoracle-api ./cmd/api)
 (cd rust && cargo test --lib)
 (cd rust && cargo build --bin scoracle-cognition --bin statcommentary)
@@ -298,14 +293,14 @@ Known risks:
 
 ## Environment Variables
 
-See `.env` (committed template) and copy to `.env.local` (gitignored) for real values.
+`.env.local` (gitignored) is the only env file — the committed `.env` template and every
+third-party provider credential were deleted with the seeder purge (2026-08-11); Google News
+RSS is the only ingestion source, so no provider key is needed at all.
 DB URL priority (per `go/internal/config/config.go`): `DATABASE_PRIVATE_URL` > `DATABASE_URL`.
 
 Required for local operation:
 
 - `DATABASE_PRIVATE_URL` (or `DATABASE_URL`)
-- `BALLDONTLIE_API_KEY` (seeder, NBA/NFL)
-- `SPORTMONKS_API_TOKEN` (seeder, football)
 
 Common optional (full list + defaults in `config.go`):
 
@@ -315,7 +310,7 @@ Common optional (full list + defaults in `config.go`):
 - Rust cognition (read by Rust config, not Go): `OLLAMA_BASE_URL`, `OLLAMA_MODEL` (default `mistral:7b`), `OLLAMA_TIMEOUT_SECONDS`, `OLLAMA_MAX_CONCURRENT`
 - Go workers: `PIPELINE_STATS_INTERVAL_MINUTES`
 - Mobile auth: `JWT_SECRET` (unset ⇒ `/auth/*` returns 503), `JWT_ACCESS_TTL_MINUTES`, `JWT_REFRESH_TTL_DAYS`
-- `FIREBASE_CREDENTIALS_FILE`; seeder third key `API_SPORTS_KEY`
+- `FIREBASE_CREDENTIALS_FILE`
 
 ## Trademarks & Nominative Fair Use
 

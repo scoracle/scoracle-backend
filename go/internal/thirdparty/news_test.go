@@ -17,14 +17,11 @@ const ingestCronPeriodHours = 24
 // pipeline_work to reveal it. Widening is safe (already-seen URLs dedupe);
 // narrowing below the cron period is the direction that loses data silently.
 func TestRSSLookbackCoversIngestCronPeriod(t *testing.T) {
-	if len(timeWindows) != 1 {
-		t.Fatalf("timeWindows = %#v, want exactly one window", timeWindows)
-	}
-	if timeWindows[0] < ingestCronPeriodHours {
+	if rssLookbackHours < ingestCronPeriodHours {
 		t.Fatalf(
-			"timeWindows = %#v, but the ingest cron runs every %dh -- a window narrower "+
+			"rssLookbackHours = %d, but the ingest cron runs every %dh -- a window narrower "+
 				"than the cron period silently drops the news in between",
-			timeWindows, ingestCronPeriodHours,
+			rssLookbackHours, ingestCronPeriodHours,
 		)
 	}
 }
@@ -182,24 +179,6 @@ func TestRSSEditionsForFootballTeams(t *testing.T) {
 	}
 	if got[0].hl != "en-GB" {
 		t.Fatalf("football teams should lead with en-GB (British outlets cover all five leagues): %#v", got)
-	}
-}
-
-func TestBuildSearchName(t *testing.T) {
-	tests := []struct {
-		full, first, last, want string
-	}{
-		{"Neymar da Silva Santos Junior", "Neymar", "Junior", "Neymar Junior"},
-		{"LeBron James", "LeBron", "James", "LeBron James"},
-		{"Robert Lewandowski", "Robert", "Lewandowski", "Robert Lewandowski"},
-		{"Saquon Barkley Jr", "", "", "Saquon Jr"},
-	}
-
-	for _, tt := range tests {
-		got := buildSearchName(tt.full, tt.first, tt.last)
-		if got != tt.want {
-			t.Errorf("buildSearchName(%q, %q, %q) = %q, want %q", tt.full, tt.first, tt.last, got, tt.want)
-		}
 	}
 }
 

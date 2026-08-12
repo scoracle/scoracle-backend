@@ -12,8 +12,8 @@ What you need during an incident or a machine rebuild. Companion to:
 `go/internal/config/config.go` for env, `scripts/hosting/crontab.example` for cron,
 `scripts/hosting/release.sh` for the build). Where a doc and the code disagree, the code wins.
 
-Prod runs on **archbox** (Arch desktop): Postgres 18 (system unit), Ollama (default model
-`mistral:7b`, `systemd --user`), the Go API (`systemd --user`, `scoracle-api.service`), the Rust
+Prod runs on **archbox** (Arch desktop): Postgres 18 (system unit), Ollama (the small busy-work
+model, `systemd --user`), the Go API (`systemd --user`, `scoracle-api.service`), the Rust
 Cognition Harness daemon (`systemd --user`, `scoracle-cognition.service`), cron jobs, and a
 Cloudflare Tunnel exposing `api.scoracle.com`.
 
@@ -28,31 +28,47 @@ SQL-only maintenance/notification workers.
 
 ```
                        cron (crontab.example)            systemd --user
-  providers ──► seeder ──► Postgres 18 ◄──────────────── scoracle-api.service
- (BDL/SM)     (Python)     │   │   ▲                       ├─ HTTP serving (read-only, precomputed)
-                           │   │   │  NOTIFY               ├─ SQL maintenance (news-scrub enqueue,
-                           │   │   └──── pipeline_work ────┤   pipeline-stats)
-                           │   │              ready        │  notifications/listener (FCM + enqueue)
-                           │   └──────► scoracle-cognition.service  ◄── durable queue stages:
-                           │                     │                scrub, transfers, narratives,
-                           │                     ▼                vibe, sigil
-                           │                 statcommentary (cron batch)
-                           ▼
-                        Ollama (single 8GB GPU, OLLAMA_MAX_CONCURRENT=1)
+ Google News ──► pipeline ──► Postgres 18 ◄──────────── scoracle-api.service
+   (RSS)         (Go)        │   │   ▲                      ├─ HTTP serving (read-only, precomputed)
+                             │   │   │  NOTIFY              ├─ SQL maintenance (pipeline-stats,
+                             │   │   └──── pipeline_work ───┤   ranks, cohorts, cleanup)
+                             │   │              ready       │  notifications/listener (FCM + enqueue)
+                             │   └──────► scoracle-cognition.service  ◄── durable queue stages:
+                             │                     │                editor, investigate_entity, graph,
+                             │                     ▼                transfers, narratives, vibe,
+                             │                 statcommentary        peak, momentum, sigil
+                             │                  (cron batch)
+                             ▼
+              Ollama (archbox 1070 Ti) + Mac mini model host (§1.1)
 ```
+
+### 1.1 Model topology — two machines, two models, model-agnostic by design
+
+The cognition daemon routes each seat to a model@host resolved from the
+`COGNITION_ROUTE_<ROLE>[_BASE_URL]` env keys (`rust/src/route.rs`) — nothing about
+a specific model is compiled in. The CURRENT pinning is a hardware-constrained
+choice, not a contract: as hardware improves, any seat can move model or machine
+by config alone, and the fixture gates (`eval --task <seat> --fixtures`,
+`scripts/hosting/model-gate.sh`) exist to prove a candidate model keeps the voice
+before it ships.
+
+| Machine | Hardware | Model | Seats |
+|---|---|---|---|
+| **archbox** | 1070 Ti (Ollama, `localhost:11434`) | `ministral-3:3b` | the LOW-THOUGHT BUSY WORK: Editor (`editor`), Investigator (`investigator`), Graph (`emotional-news`), plus utility roles (`sql`, `multilang`) |
+| **Mac mini** | `192.168.1.77:8000` | `ministral-3:8b` | the CHARACTER WORK THAT SURFACES: Journalist (`narrative-logic`), Insider (`transfer-logic`), Influencer (`vibe-logic`), Analyst (`momentum-logic`), Scout (`stats-logic`), Oracle (`oracle-logic`) |
 
 Five deployed binaries, all built from one commit by `release.sh` (3 Go + 2 Rust):
 
 | Binary | Role | Lifecycle |
 |---|---|---|
-| `scoracle-api` | HTTP serving (precomputed) + enqueue scrub work + maintenance tickers | `scoracle-api.service` (always on) |
-| `pipeline` | RSS ingest funnel (`-mode ingest`; the Go LLM drainer is retired) | cron (`cron-pipeline.sh`) |
+| `scoracle-api` | HTTP serving (precomputed) + enqueue Editor reads at ingest + maintenance tickers | `scoracle-api.service` (always on) |
+| `pipeline` | the ONLY data ingestion layer: nightly Google News RSS sweep (persist + enqueue the Editor's read) | cron (`cron-pipeline.sh`) |
 | `vibesynth` | nightly Sigil reconciliation backstop (DB-only; enqueues durable `sigil` work) | cron (`cron-vibesynth.sh`) |
-| `scoracle-cognition` | the Rust daemon: drains scrub → transfers → narratives → vibe → sigil | `scoracle-cognition.service` (always on, GPU box) |
+| `scoracle-cognition` | the Rust daemon: drains editor → investigate_entity → graph → transfers → narratives → vibe → peak → momentum → sigil | `scoracle-cognition.service` (always on, GPU box) |
 | `statcommentary` | Rust rating batch (single / nightly / backfill, NOT a queue stage) | cron (`cron-rust-statcommentary.sh`) |
 
-The Python seeder runs from the host venv via `cron-scoseed.sh` / `cron-live-fixtures.sh` — it is
-ingestion-only and is **not** a `release.sh` binary.
+Google does the relevancy work at fetch time; the Rust junctions curate everything
+downstream. There is no other ingestion path — no provider clients, no live polling.
 
 The running API reports its build at `GET /` (`{"commit": "...", "build_time": "..."}`) and logs it
 at startup — the authoritative "what's deployed" check for the Go side. The Rust daemon has no HTTP
@@ -204,11 +220,10 @@ depends on an ephemeral notification for correctness — every stage hands off t
 
 | Job | Cadence | Role |
 |---|---|---|
-| `cron-live-fixtures.sh` (NBA/NFL refresh + process) | refresh 08:xx; process every 30m / :15,:45 | live ingestion (current-season-aware; serializes the shared BDL key) |
-| `cron-live-fixtures.sh football-process` | daily 23:00 | drain finished European matches |
-| `cron-live-fixtures.sh football-refresh/-meta` | weekly Mon 23:00 | schedule + roster/meta refresh |
-| `cron-pipeline.sh -mode ingest` | daily 00:00 | RSS ingest sweep only; writes corpus rows and lets durable queue stages derive products |
-| `cron-statcommentary.sh -mode nightly -limit 400` | daily 03:00 | stats-rail commentary + PEAK trajectory metadata; regenerates only when a rating snapshot's `input_hash` changed |
+| `cron-pipeline.sh -mode ingest` | daily 02:00 | THE ONLY DATA INGESTION LAYER: RSS sweep, persist + enqueue the Editor's read; durable queue stages derive the products |
+| `cron-narrative-links.sh` | daily 02:45 | narrative-graph co-mention refresh (pure SQL); cadence is the heating/cooling baseline |
+| `cron-rust-statcommentary.sh -mode nightly -limit 400` | daily 03:00 | stats-rail commentary + PEAK trajectory metadata; regenerates only when a rating snapshot's `input_hash` changed |
+| `cron-stat-matchups.sh` | daily 03:30 | stat-matchup refresh (pure SQL) |
 | `cron-vibesynth.sh -mode nightly -limit 500` | daily 05:00 | **Sigil BACKSTOP only** — enqueues current-season entities whose Sigil is missing/stale for Rust to drain; no inline synthesis, no unchanged-Sigil duplicates |
 | `recompute-tiers.sh` | weekly Mon 02:00 | entity tier recompute (drives vibe scheduling) |
 | `backup-postgres.sh` | daily 04:00 | nightly dump + off-disk mirror (§4) |
@@ -242,12 +257,12 @@ the queue retries) · `1` systemic (enumeration/stage failure, or dead-lettered 
 The once-daily `cmd/pipeline -mode ingest` run feeds the durable queue; Rust drains the stages:
 
 ```
-sweep ingest -> enqueue/notify -> scrub -> transfers -> narratives -> vibe -> sigil
+sweep ingest -> enqueue/notify -> editor -> investigate_entity -> graph -> transfers -> narratives -> vibe -> peak -> momentum -> sigil
 ```
 
 1. **Compile (sweep):** RSS-sweep every team in NBA/NFL/FOOTBALL (no fixture/tier filter, so
-   offseason coverage doesn't collapse); persist to `news_articles` / `news_article_entities`.
-   Returns the articles that gained a **fresh** link this run.
+   offseason coverage doesn't collapse); persist to `news_articles` and enqueue the Editor's
+   read in the same transaction.
 2. **Enqueue:** vetted transitions (and other stage handoffs) enqueue durable `pipeline_work` rows.
 3. **Derive:** `scoracle-cognition` claims → runs → completes/fails each queued stage in declared
    order (claim → run → complete/fail), with retry + stale-lease recovery.
@@ -288,15 +303,13 @@ cron exit `1` with `dead-letters` non-empty is the signal something needs a huma
 
 ## 9. CI gate (S16 — `.github/workflows/ci.yml`)
 
-Runs on every main-bound change; five jobs:
+Runs on every main-bound change; three jobs (the python and docker jobs died with
+the seeder/Docker purge of 2026-08-11):
 
 - **go** — `gofmt`/`vet`/build + `go test -race` (incl. DB-gated queue tests) + `validate-stmts`
   against a `postgres:18` provisioned **from `sql/schema/schema.sql`** (the F-025/F-039 "prepared
   statements register against a migrated test DB" check; `CREATE ROLE web_user` before loading).
-- **python** — compile + offline `pytest`.
 - **shell** — `bash -n` + ShellCheck (`--severity=warning -x`).
-- **docker** — `docker build go/` (the serving artifact). Note: `docker compose build` would fail on
-  the seed service (F-043, minor — seed/Dockerfile was removed during dockers/purge)
 - **schema** — static: every migration ⊆ snapshot lineage.
 
 DB-backed Go tests gate on `TEST_DATABASE_URL` and skip when unset, so local `go test ./...` /
@@ -321,7 +334,7 @@ psql "$DATABASE_PRIVATE_URL" -c "SELECT * FROM pipeline_runs_latest;"
 go run ./cmd/work status                   # from go/ — derive queue health
 
 # Cron logs (plaintext, logrotated):
-tail -f logs/cron-nba.log logs/pipeline-ingest.log logs/statcommentary.log logs/vibesynth.log logs/backup.log
+tail -f logs/pipeline-ingest.log logs/narrative-links.log logs/statcommentary.log logs/vibesynth.log logs/backup.log
 ```
 
 Common incidents:
@@ -341,7 +354,7 @@ Common incidents:
 Full first-time setup + rationale: `../scoracle-wiki/progress_docs/scoracle-backend/SELF_HOSTING_OPS.md`. Mechanics:
 `scripts/hosting/README.md`. Short path:
 
-1. Install Postgres 18, Ollama + `mistral:7b`, Go toolchain, the Python venv.
+1. Install Postgres 18, Ollama + the busy-work model (§1.1), Go toolchain, Rust toolchain.
 2. Clone the repo; create `.env.local` — **the only env file** (see §11.1 for the key list).
 3. Restore the latest **off-disk/off-site** dump (§4) and `sql/migrate.sh` it to the latest schema.
 4. `scripts/hosting/install.sh` (renders systemd units), `loginctl enable-linger sheneveld`,

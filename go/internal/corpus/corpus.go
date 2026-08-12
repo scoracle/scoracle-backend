@@ -26,15 +26,10 @@ type Team struct {
 	Aliases   []string
 }
 
-// Sweep RSS-fetches every team in scope, writing through to news_article_entities
-// (cross-entity linking pulls in co-mentioned players for free). It returns two
-// handoffs:
-//
-//   - runStart: the watermark captured before the sweep.
-//   - affected: article_id → sport for every article that gained a FRESH link
-//     this run. This is the explicit batch the queueing layer derives from.
-//
-// ok/fail count the RSS calls. Honors ctx cancellation between teams.
+// Sweep RSS-fetches every team in scope. Each team's matched articles are
+// persisted to news_articles with the Editor's read enqueued in the same
+// transaction (thirdparty.NewsService write-through). ok/fail count the RSS
+// calls. Honors ctx cancellation between teams.
 //
 // Observability: every team's fetch funnel is folded into a per-sport and a
 // per-run total (thirdparty.Funnel). The rolled-up lines land at Info as each
@@ -42,10 +37,10 @@ type Team struct {
 // Debug. The per-sport line is deliberately emitted before the run total: a
 // sweep that is killed mid-flight — which has happened — still leaves evidence
 // of where its articles went.
-func Sweep(ctx context.Context, pool *pgxpool.Pool, sports []string, rssLimit, rssPauseMs int, logger *slog.Logger) (runStart time.Time, affected map[int64]string, ok, fail int) {
+func Sweep(ctx context.Context, pool *pgxpool.Pool, sports []string, rssLimit, rssPauseMs int, logger *slog.Logger) (ok, fail int) {
 	news := thirdparty.NewNewsService(pool, logger)
-	runStart = time.Now().UTC()
-	affected = make(map[int64]string)
+	runStart := time.Now().UTC()
+	fresh := 0 // articles handed to the Editor this run
 
 	var runFunnel thirdparty.Funnel
 
@@ -65,10 +60,10 @@ func Sweep(ctx context.Context, pool *pgxpool.Pool, sports []string, rssLimit, r
 				logSportFunnel(logger, sport, len(teams), i, sportFunnel, zeroAdmitted)
 				runFunnel.Add(sportFunnel)
 				logRunFunnel(logger, runFunnel)
-				return runStart, affected, ok, fail
+				return ok, fail
 			}
 			tctx, cancel := context.WithTimeout(ctx, sweepTimeout)
-			_, ids, funnel, err := news.GetEntityNews(tctx, "team", t.ID, t.Name, t.Sport, "", rssLimit, "", "", t.Aliases)
+			ids, funnel, err := news.GetEntityNews(tctx, "team", t.ID, t.Name, t.Sport, rssLimit, t.Aliases)
 			cancel()
 
 			sportFunnel.Add(funnel)
@@ -82,9 +77,7 @@ func Sweep(ctx context.Context, pool *pgxpool.Pool, sports []string, rssLimit, r
 				logger.Warn("corpus: rss fetch failed", "sport", sport, "team", t.Name, "id", t.ID, "error", err)
 			} else {
 				ok++
-				for _, id := range ids {
-					affected[id] = t.Sport
-				}
+				fresh += len(ids)
 			}
 			if (i+1)%sweepProgressEvery == 0 {
 				logger.Info("corpus: rss sweep progress",
@@ -103,11 +96,11 @@ func Sweep(ctx context.Context, pool *pgxpool.Pool, sports []string, rssLimit, r
 	// read from an article it just stored, so the two are printed side by side. A sweep that
 	// says `fresh_articles=0 reads_withheld=788` did real work; one that says `0 0` did not.
 	logger.Info("corpus: rss sweep complete",
-		"ok", ok, "fail", fail, "fresh_articles", len(affected),
+		"ok", ok, "fail", fail, "fresh_articles", fresh,
 		"reads_withheld", runFunnel.ReadsWithheld,
 		"elapsed", time.Since(runStart).Round(time.Second))
 	logRunFunnel(logger, runFunnel)
-	return runStart, affected, ok, fail
+	return ok, fail
 }
 
 // sweepProgressEvery is how often the running per-sport funnel is echoed at Info

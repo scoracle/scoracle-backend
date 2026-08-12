@@ -1,10 +1,9 @@
 // pipeline — the RSS ingest sweep for the Scoracle corpus.
 //
-// Fetch articles via Google News RSS, normalize, and write news_articles +
-// news_article_entities. Every LLM
-// derivation stage (scrub, transfers, narratives, vibe, sigil, rating) lives
-// in the Rust Cognition Harness (rust/src), which drains the durable
-// pipeline_work queue. This binary performs no model work.
+// Fetch articles via Google News RSS, normalize, write news_articles, and
+// enqueue the Editor's read. Every LLM derivation stage lives in the Rust
+// Cognition Harness (rust/src), which drains the durable pipeline_work queue.
+// This binary performs no model work.
 //
 //	go run ./cmd/pipeline -mode ingest
 //	go run ./cmd/pipeline -mode ingest -sport FOOTBALL   # one-sport smoke
@@ -47,7 +46,7 @@ func main() {
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: parseLogLevel(*logLevel)}))
 
-	_ = godotenv.Load(".env.local", ".env")
+	_ = godotenv.Load(".env.local")
 	cfg, err := config.Load()
 	if err != nil {
 		logger.Error("config load failed", "error", err)
@@ -90,7 +89,7 @@ func runIngestOnly(pool *pgxpool.Pool, sportArg string, rssLimit, rssPauseMs int
 		sports = []string{strings.ToUpper(sportArg)}
 	}
 	ctx := context.Background()
-	_, _, ok, fail := corpus.Sweep(ctx, pool, sports, rssLimit, rssPauseMs, logger)
+	ok, fail := corpus.Sweep(ctx, pool, sports, rssLimit, rssPauseMs, logger)
 	logger.Info("pipeline ingest: complete", "sports", sports, "rss_ok", ok, "rss_fail", fail)
 	if ok == 0 && fail > 0 {
 		return 1

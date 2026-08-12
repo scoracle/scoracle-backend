@@ -29,23 +29,23 @@ import (
 // ---------------------------------------------------------------------------
 
 const (
-	newsMinArticles = 3
-	newsRSSTimeout  = 15 * time.Second
+	newsRSSTimeout = 15 * time.Second
 	// Allow a small overlap around the cron boundary so a slightly late run does
 	// not miss items published just before the lookback boundary.
 	newsLookbackSlack = 15 * time.Minute
 )
 
-// RSS query lookback windows (hours). This MUST cover the ingest cron's period or
-// the sweep is blind between runs: the window is both the `when:` token handed to
-// Google News and the client-side `filterArticlesByLookback` cutoff, so anything
-// older than it is dropped twice over and never reaches news_articles at all.
+// rssLookbackHours is the single query lookback window. It MUST cover the ingest
+// cron's period or the sweep is blind between runs: the window is both the `when:`
+// token handed to Google News and the client-side `filterArticlesByLookback`
+// cutoff, so anything older than it is dropped twice over and never reaches
+// news_articles at all.
 //
 // 24h to match the daily 02:00 ingest (2026-07-26). The pairing has moved together
 // every time: 6h window with the six-hour cron, 12h when that went twelve-hourly.
 // A day's news now arrives in one sweep, and per-entity volume is bounded by
 // `-rss-limit` (one Google page) rather than by how often the cron happens to fire.
-var timeWindows = []int{24}
+const rssLookbackHours = 24
 
 // Sport-specific search term suffixes for RSS.
 var sportTerms = map[string]string{
@@ -93,21 +93,17 @@ var footballTeamRSSEditions = []rssEdition{
 	{name: "en-gb", hl: "en-GB", gl: "GB", ceid: "GB:en"},
 }
 
-const broadTeamPrimaryConfidence = 0.95
-
 // ---------------------------------------------------------------------------
 // Article — normalized article shape
 // ---------------------------------------------------------------------------
 
 // Article is a normalized news article.
 type Article struct {
-	Title       string  `json:"title"`
-	Description string  `json:"description"`
-	URL         string  `json:"url"`
-	Source      string  `json:"source"`
-	PublishedAt string  `json:"published_at"`
-	ImageURL    *string `json:"image_url"`
-	Author      *string `json:"author,omitempty"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	URL         string `json:"url"`
+	Source      string `json:"source"`
+	PublishedAt string `json:"published_at"`
 
 	// FeedRank is this article's 0-based position in the RSS payload Google returned — its own
 	// ranking of what matters most for the query. Captured at parse time, before any reordering
@@ -144,8 +140,8 @@ const defaultRSSBaseURL = "https://news.google.com/rss/search"
 
 // NewsService fetches entity news from Google News RSS.
 //
-// When constructed with a non-nil pool, every matched article is also
-// persisted to news_articles + news_article_entities as a write-through.
+// When constructed with a non-nil pool, matched articles are persisted to
+// news_articles (with the Editor's read enqueued in the same transaction).
 // That populates the long-term corpus consumed by the cognition layer.
 type NewsService struct {
 	httpClient *http.Client
@@ -154,9 +150,9 @@ type NewsService struct {
 	logger     *slog.Logger
 }
 
-// NewNewsService creates a news service. If pool is non-nil, fetched
-// articles are written to news_articles / news_article_entities on each
-// successful entity match. If logger is nil, a default no-op logger is used.
+// NewNewsService creates a news service. If pool is non-nil, fetched articles
+// are written to news_articles on each sweep. If logger is nil, a default
+// no-op logger is used.
 func NewNewsService(pool *pgxpool.Pool, logger *slog.Logger) *NewsService {
 	if logger == nil {
 		logger = slog.Default()
@@ -168,14 +164,6 @@ func NewNewsService(pool *pgxpool.Pool, logger *slog.Logger) *NewsService {
 		rssBaseURL: defaultRSSBaseURL,
 		pool:       pool,
 		logger:     logger,
-	}
-}
-
-// Status returns service configuration status.
-func (s *NewsService) Status() map[string]interface{} {
-	return map[string]interface{}{
-		"rss_available":  true,
-		"primary_source": "google_news_rss",
 	}
 }
 
@@ -244,40 +232,37 @@ func capFreshReads(fresh []int64, already, cap int) (kept []int64, withheld int)
 	return fresh[:remaining], len(fresh) - remaining
 }
 
-// GetEntityNews fetches news for an entity via Google News RSS.
-// entityType ("player"|"team") and entityID drive the write-through —
-// matched articles are linked back to the requested entity in
-// news_article_entities. Pass entityType="" / entityID=0 to skip write-through.
+// GetEntityNews sweeps Google News RSS for one entity and persists what it
+// matched. entityType/entityID drive the write-through (news_articles + the
+// Editor's read, in one transaction); pass entityType="" / entityID=0 to fetch
+// without persisting.
 //
-// The second return is the article IDs HANDED TO THE EDITOR on this call. Before D-T21 that
-// was the same set as "freshly inserted"; with the per-entity daily cap armed the two diverge,
-// and this is the smaller one — an article can be inserted and kept while its read is withheld.
-// Read it with `Funnel.ReadsWithheld`, which carries the difference. It is informational —
-// persistArticles already enqueues the read in its own transaction — and it is nil when
-// write-through is skipped or the persist failed.
+// The first return is the article IDs HANDED TO THE EDITOR on this call. With the
+// per-entity daily cap armed that can be fewer than "freshly inserted" — an article
+// can be inserted and kept while its read is withheld. `Funnel.ReadsWithheld`
+// carries the difference. It is informational — persistArticles already enqueues
+// the read in its own transaction — and it is nil when write-through is skipped
+// or the persist failed.
 //
-// The third return is the fetch funnel for this entity: how much of the query
+// The second return is the fetch funnel for this entity: how much of the query
 // grid ran and what each filter stage discarded. It is returned even on error,
 // because a sweep that times out mid-fetch still did (and dropped) real work.
 func (s *NewsService) GetEntityNews(
 	ctx context.Context,
 	entityType string,
 	entityID int,
-	entityName, sport, team string,
+	entityName, sport string,
 	limit int,
-	firstName, lastName string,
 	aliases []string,
-) (map[string]interface{}, []int64, Funnel, error) {
-	result, matched, funnel, err := s.fetchFromRSS(ctx, entityType, entityName, sport, team, limit, firstName, lastName, aliases)
+) ([]int64, Funnel, error) {
+	matched, funnel, err := s.fetchFromRSS(ctx, entityType, entityName, sport, limit, aliases)
 	if err != nil {
-		return nil, nil, funnel, err
+		return nil, funnel, err
 	}
 
-	// Write-through: persist the matched articles and link them to this entity
-	// (persistArticles also enqueues the Editor's read in-txn).
-	// Non-fatal — a failed persist shouldn't break the response. affected is the
-	// set of articles that gained a NEW link this call; it stays nil on the
-	// serving path / on persist failure.
+	// Write-through: persist the matched articles (persistArticles also enqueues
+	// the Editor's read in-txn). Non-fatal — a failed persist must not break the
+	// sweep; the caller logs and moves on.
 	var affected []int64
 	if s.pool != nil && entityType != "" && entityID > 0 && len(matched) > 0 {
 		ids, withheld, perr := s.persistArticles(ctx, sport, entityType, entityID, matched)
@@ -292,7 +277,7 @@ func (s *NewsService) GetEntityNews(
 		}
 	}
 
-	return result, affected, funnel, nil
+	return affected, funnel, nil
 }
 
 // persistArticles writes the articles this sweep found, and nothing else.
@@ -570,7 +555,6 @@ func (s *NewsService) fetchRSS(ctx context.Context, query string, hoursBack int,
 			URL:         item.Link,
 			Source:      source,
 			PublishedAt: item.PubDate,
-			ImageURL:    nil,
 			// Google's own ordering, captured before anything re-sorts. Position 0 is the
 			// result Google ranked first for this query — the cheapest quality signal in the
 			// pipeline and the only one that costs nothing to produce.
@@ -587,13 +571,11 @@ func (s *NewsService) fetchRSS(ctx context.Context, query string, hoursBack int,
 func (s *NewsService) fetchFromRSS(
 	ctx context.Context,
 	entityType string,
-	entityName, sport, team string,
+	entityName, sport string,
 	limit int,
-	firstName, lastName string,
 	aliases []string,
-) (map[string]interface{}, []Article, Funnel, error) {
-	searchName := buildSearchName(entityName, firstName, lastName)
-	searchQueries := buildRSSSearchQueries(searchName, sport, aliases)
+) ([]Article, Funnel, error) {
+	searchQueries := buildRSSSearchQueries(entityName, sport, aliases)
 	editions := rssEditionsForEntity(entityType, sport)
 
 	var allArticles []Article
@@ -614,58 +596,46 @@ func (s *NewsService) fetchFromRSS(
 		f.EditionsQueried++
 		for queryIdx, query := range searchQueries {
 			f.QueriesRun++
-			for _, hours := range timeWindows {
-				if err := ctx.Err(); err != nil {
-					return nil, nil, f, err
-				}
-				f.RSSCalls++
-				articles, err := s.fetchRSS(ctx, query, hours, edition, &f)
-				if err != nil {
-					f.RSSErrors++
-					s.logger.Warn("RSS fetch error", "edition", edition.name, "window_hours", hours, "error", err)
-					continue
-				}
-
-				// Stamp query provenance here, the only place the lane index is
-				// known. deduplicateArticles below keeps the first occurrence, so
-				// the stamp survives cross-lane collisions with the earliest lane.
-				lane := "primary"
-				if queryIdx > 0 {
-					lane = fmt.Sprintf("alias%d", queryIdx)
-				}
-				for i := range articles {
-					articles[i].queryTerm = query
-					articles[i].queryLane = lane
-					articles[i].queryEdition = edition.ceid
-					articles[i].queryWindow = rssWhenToken(hours)
-				}
-
-				// No relevance filter here. This used to run an entity matcher over
-				// title+description and drop whatever did not name the entity — 4,859 of
-				// 9,694 articles on the 2026-07-26 sweep, half of everything Google
-				// returned, and fifteen clubs (Nice, Spezia, Leganés, Huesca …) admitted
-				// nothing at all because their names are short or ambiguous.
-				//
-				// It was re-deriving something the query already established: we asked
-				// Google for this entity, so the link IS the query. Relevance is decided
-				// once, downstream, by something that reads the body instead of
-				// pattern-matching a headline. The matcher itself is gone as of 8.8, and
-				// with it the funnel's MatchRejected counter — a filter returning here
-				// would owe the Residual invariant a counter of its own.
-				beforeDedup := len(allArticles) + len(articles)
-				allArticles = deduplicateArticles(append(allArticles, articles...))
-				f.DedupCollapsed += beforeDedup - len(allArticles)
-
-				if limit > 0 && len(allArticles) >= limit {
-					break
-				}
-				if len(allArticles) >= newsMinArticles {
-					break
-				}
-				if err := sleepContext(ctx, 100*time.Millisecond); err != nil {
-					return nil, nil, f, err
-				}
+			if err := ctx.Err(); err != nil {
+				return nil, f, err
 			}
+			f.RSSCalls++
+			articles, err := s.fetchRSS(ctx, query, rssLookbackHours, edition, &f)
+			if err != nil {
+				f.RSSErrors++
+				s.logger.Warn("RSS fetch error", "edition", edition.name, "window_hours", rssLookbackHours, "error", err)
+				continue
+			}
+
+			// Stamp query provenance here, the only place the lane index is
+			// known. deduplicateArticles below keeps the first occurrence, so
+			// the stamp survives cross-lane collisions with the earliest lane.
+			lane := "primary"
+			if queryIdx > 0 {
+				lane = fmt.Sprintf("alias%d", queryIdx)
+			}
+			for i := range articles {
+				articles[i].queryTerm = query
+				articles[i].queryLane = lane
+				articles[i].queryEdition = edition.ceid
+				articles[i].queryWindow = rssWhenToken(rssLookbackHours)
+			}
+
+			// No relevance filter here. This used to run an entity matcher over
+			// title+description and drop whatever did not name the entity — 4,859 of
+			// 9,694 articles on the 2026-07-26 sweep, half of everything Google
+			// returned, and fifteen clubs (Nice, Spezia, Leganés, Huesca …) admitted
+			// nothing at all because their names are short or ambiguous.
+			//
+			// It was re-deriving something the query already established: we asked
+			// Google for this entity, so the link IS the query. Relevance is decided
+			// once, downstream, by something that reads the body instead of
+			// pattern-matching a headline. The matcher itself is gone as of 8.8, and
+			// with it the funnel's MatchRejected counter — a filter returning here
+			// would owe the Residual invariant a counter of its own.
+			beforeDedup := len(allArticles) + len(articles)
+			allArticles = deduplicateArticles(append(allArticles, articles...))
+			f.DedupCollapsed += beforeDedup - len(allArticles)
 		}
 	}
 
@@ -692,17 +662,7 @@ func (s *NewsService) fetchFromRSS(
 		}
 	}
 
-	return map[string]interface{}{
-		"query":    entityName,
-		"sport":    sport,
-		"articles": allArticles,
-		"provider": "google_news_rss",
-		"meta": map[string]interface{}{
-			"total_results": totalResults,
-			"returned":      len(allArticles),
-			"source":        "google_news_rss",
-		},
-	}, allArticles, f, nil
+	return allArticles, f, nil
 }
 
 // buildRSSSearchQueries returns ONE Google query per name we know this entity by: the canonical
@@ -852,36 +812,6 @@ func limitRSSArticles(articles []Article, limit int) (int, []Article) {
 	return total, articles
 }
 
-func sleepContext(ctx context.Context, d time.Duration) error {
-	timer := time.NewTimer(d)
-	defer timer.Stop()
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-timer.C:
-		return nil
-	}
-}
-
-func buildSearchName(fullName, firstName, lastName string) string {
-	parts := strings.Fields(fullName)
-
-	// Long names (4+ parts): use first + last.
-	if len(parts) >= 4 && firstName != "" && lastName != "" {
-		return firstName + " " + lastName
-	}
-
-	// Names ending in Jr/Junior/II/III: use first + suffix.
-	if len(parts) >= 3 {
-		suffix := strings.ToLower(parts[len(parts)-1])
-		if suffix == "jr" || suffix == "jr." || suffix == "junior" || suffix == "ii" || suffix == "iii" {
-			return parts[0] + " " + parts[len(parts)-1]
-		}
-	}
-
-	return fullName
-}
-
 // deduplicateArticles removes duplicate articles by normalized source key.
 func deduplicateArticles(articles []Article) []Article {
 	seen := make(map[string]bool)
@@ -943,4 +873,3 @@ func sortArticlesByFeedRank(articles []Article) {
 		return articles[i].FeedRank < articles[j].FeedRank
 	})
 }
-

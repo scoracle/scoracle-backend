@@ -56,13 +56,13 @@ the cron binaries or the daemon on a different commit than the API.
 | `../systemd/scoracle-api-restart.service` | oneshot restart helper fired by the path watcher |
 | `../systemd/cloudflared.service` | CF Tunnel runner |
 | `release.sh` | single release command — build all 5 binaries (3 Go + 2 Rust) from one commit, install, restart, verify |
-| `cron-scoseed.sh` | wrapper that loads `.venv` + env vars so cron can invoke `scoracle-seed` |
-| `cron-live-fixtures.sh` | current-season-aware live polling wrapper for NBA/NFL/Football fixture jobs |
-| `cron-pipeline.sh` | wrapper for the Go ingestion binary (`-mode ingest` — RSS sweep only post Step-3 cutover) |
+| `cron-pipeline.sh` | wrapper for the Go ingestion binary (`-mode ingest` — the only data ingestion layer; RSS sweep, Rust curates) |
+| `cron-narrative-links.sh` | nightly narrative-graph co-mention refresh (pure SQL, mig 154) |
 | `cron-rust-statcommentary.sh` | wrapper for the Rust stats-rail rating batch (the post Step-3 cutover path) |
+| `cron-stat-matchups.sh` | nightly stat-matchup refresh (pure SQL, mig 156) |
 | `cron-vibesynth.sh` | wrapper for nightly Sigil reconciliation (DB-only enqueue) |
 | `recompute-tiers.sh` | weekly entity-tier recomputation |
-| `crontab.example` | paste-ready crontab — NBA/NFL polling, football refresh/drain, nightly backup |
+| `crontab.example` | paste-ready crontab — nightly ingest/derive window, weekly tiers, nightly backup |
 | `backup-postgres.sh` | nightly `pg_dump` with 14-daily + 12-monthly retention |
 | `restore-drill.sh` | tests a backup restore into a throwaway DB and diffs row counts |
 | `tunnel-smoke.sh` | endpoint smoke test (local or via CF Tunnel) |
@@ -90,9 +90,10 @@ long-running tests.
 journalctl --user -u scoracle-api -f
 
 # Cron (plaintext, rotated by logrotate)
-tail -f logs/cron-nba.log
-tail -f logs/cron-nfl.log
-tail -f logs/cron-football.log
+tail -f logs/pipeline-ingest.log
+tail -f logs/narrative-links.log
+tail -f logs/statcommentary.log
+tail -f logs/vibesynth.log
 tail -f logs/backup.log
 
 # Cloudflare Tunnel

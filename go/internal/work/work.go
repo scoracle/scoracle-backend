@@ -21,27 +21,23 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// Stage names the derivation step a work item belongs to. Most stages are per-entity
-// (player/team); StageScrub and StageArticleRead are ARTICLE-keyed (entity_type='article',
-// entity_id=news_articles.id), and StageFixtureBoxscore is FIXTURE-keyed
-// (entity_type='fixture', entity_id=fixtures.id). Rust drains them; Go only
-// enqueues rows from ingest/listener/maintenance paths.
+// Stage names the derivation step a work item belongs to. Go enqueues exactly
+// these three from its ingest/listener/reconciler paths; Rust drains them (and
+// enqueues its own inter-stage handoffs). StageEditor is ARTICLE-keyed
+// (entity_type='article', entity_id=news_articles.id); the rest are per-entity
+// (player/team).
 type Stage string
 
 const (
-	StageScrub           Stage = "scrub"
-	StageArticleRead     Stage = "article_read"
-	// StageEditor is the greenfield Editor (PLAN-one-rail Phase 3) — article-keyed like
-	// StageArticleRead, whose seat it shadows until cutover. Enqueued once per NEW article
-	// at ingest; drained only where COGNITION_STAGES includes 'editor' (archbox).
-	StageEditor          Stage = "editor"
-	StageFixtureBoxscore Stage = "fixture_boxscore"
-	StagePeak            Stage = "peak"
-	StageTransfers       Stage = "transfers"
-	StageNarratives      Stage = "narratives"
-	StageVibe            Stage = "vibe"
-	StageMomentum        Stage = "momentum"
-	StageSigil           Stage = "sigil"
+	// StageEditor is the Editor junction, enqueued once per NEW article at
+	// ingest; it reads the article and decides what it is about.
+	StageEditor Stage = "editor"
+	// StagePeak is enqueued by the percentile listener on significant rating
+	// movement.
+	StagePeak Stage = "peak"
+	// StageSigil is enqueued by the vibesynth reconciler for missing/stale
+	// current-season crowns.
+	StageSigil Stage = "sigil"
 )
 
 // Querier is the subset of pgx shared by *pgxpool.Pool and pgx.Tx, so Enqueue

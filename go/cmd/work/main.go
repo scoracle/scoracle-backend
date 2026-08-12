@@ -30,7 +30,7 @@ func main() {
 		usage()
 	}
 
-	_ = godotenv.Load(".env.local", ".env")
+	_ = godotenv.Load(".env.local")
 	cfg, err := config.Load()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "config load failed: %v\n", err)

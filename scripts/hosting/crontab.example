@@ -35,63 +35,30 @@ TZ=America/New_York
 # daemon are the Rust LLM stages; vibesynth nightly reconcile is DB-only.
 
 # ---------------------------------------------------------------------------
-# NBA / NFL live polling — current-season-aware, bounded, and offset
-# ---------------------------------------------------------------------------
-# `cron-live-fixtures.sh` resolves sports.current_season at runtime, so the
-# jobs roll over with the DB instead of the crontab. NBA/NFL share one BDL key,
-# so the wrapper serializes all BDL jobs; an overlapping tick exits cleanly.
-#
-# Schedule refresh is cheap because it only reloads a bounded date window:
-#   NBA: yesterday .. +10 days   (~1 BDL /games page on a normal week)
-#   NFL: 3 days ago .. +21 days  (~1 BDL /games page on a normal week)
-#
-# Completed-fixture drains run every 30 minutes. The seeder stops the whole
-# run with exit 2 on a provider 429 without incrementing fixture retry counts,
-# so the next tick resumes cleanly once the quota window clears.
-7 8 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-live-fixtures.sh nba-refresh >> /home/sheneveld/scoracle/scoracle-backend/logs/cron-nba.log 2>&1
-12 8 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-live-fixtures.sh nfl-refresh >> /home/sheneveld/scoracle/scoracle-backend/logs/cron-nfl.log 2>&1
-*/30 * * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-live-fixtures.sh nba-process >> /home/sheneveld/scoracle/scoracle-backend/logs/cron-nba.log 2>&1
-15,45 * * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-live-fixtures.sh nfl-process >> /home/sheneveld/scoracle/scoracle-backend/logs/cron-nfl.log 2>&1
-
-# ---------------------------------------------------------------------------
-# Football event draining — daily
-# ---------------------------------------------------------------------------
-# Runs at 23:00 ET. Late enough that every European match of the day has
-# finished AND SportMonks has finalized lineup data. The wrapper resolves the
-# live football season from Postgres, so there is no year rollover edit.
-0 23 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-live-fixtures.sh football-process >> /home/sheneveld/scoracle/scoracle-backend/logs/cron-football.log 2>&1
-
-# ---------------------------------------------------------------------------
-# Football schedule + roster refresh — weekly (Monday 23:00 ET)
-# ---------------------------------------------------------------------------
-# Catches postponements, new signings, jersey changes. Larger call count
-# (~400 SportMonks req) but only once a week.
-0 23 * * 1 /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-live-fixtures.sh football-refresh >> /home/sheneveld/scoracle/scoracle-backend/logs/cron-football.log 2>&1
-30 23 * * 1 /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-live-fixtures.sh football-meta >> /home/sheneveld/scoracle/scoracle-backend/logs/cron-football.log 2>&1
-
-# ---------------------------------------------------------------------------
 # Postgres backup — nightly 04:00 local
 # ---------------------------------------------------------------------------
-# Scheduled after the seeder so nightly backups capture the latest data.
+# Scheduled after the ingest + derive window so nightly backups capture the
+# latest data.
 0 4 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/backup-postgres.sh >> /home/sheneveld/scoracle/scoracle-backend/logs/backup.log 2>&1
 
 # ---------------------------------------------------------------------------
-# Corpus ingest — daily at 02:00 (Go funnel; Rust derives)
+# Corpus ingest — daily at 02:00 (Go funnel; Rust curates)
 # ---------------------------------------------------------------------------
-# RSS-sweeps every team in NBA/NFL/FOOTBALL (no fixture/tier filter, so coverage
-# does not collapse in the offseason). This is ingest-only: the Rust Cognition
-# Harness owns scrub -> transfers -> narratives -> vibe -> sigil from the durable
-# pipeline_work queue. Do not run `-mode corpus` after the Step-3 cutover; that is
-# the legacy Go LLM chain.
+# THE ONLY DATA INGESTION LAYER. RSS-sweeps every team in NBA/NFL/FOOTBALL
+# (no fixture/tier filter, so coverage does not collapse in the offseason):
+# Google does the relevancy work, Go persists news_articles and enqueues the
+# Editor's read in one transaction, and the Rust Cognition Harness curates
+# everything downstream from the durable pipeline_work queue.
 #
-# The Go RSS query window (`timeWindows` in internal/thirdparty/news.go) is 24h and
-# MUST stay >= this cron's period. It is both the `when:` token sent to Google News
-# and the client-side freshness cutoff, so a gap between runs wider than the window
-# is news that is dropped twice and never ingested by any later sweep.
+# The Go RSS query window (`rssLookbackHours` in internal/thirdparty/news.go)
+# is 24h and MUST stay >= this cron's period. It is both the `when:` token sent
+# to Google News and the client-side freshness cutoff, so a gap between runs
+# wider than the window is news that is dropped twice and never ingested by any
+# later sweep.
 #
-# Per-entity volume is bounded by `-rss-limit` (default 12), not by cron frequency:
-# one daily sweep taking the top 12 per entity is the intended shape. Raise the
-# cadence only after the cognition harness is measured able to drain what it adds.
+# Per-entity volume is bounded by `-rss-limit` (default 100, one Google News
+# page), not by cron frequency. Raise the cadence only after the cognition
+# harness is measured able to drain what it adds.
 0 2 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-pipeline.sh -mode ingest >> /home/sheneveld/scoracle/scoracle-backend/logs/pipeline-ingest.log 2>&1
 
 # ---------------------------------------------------------------------------
@@ -99,8 +66,9 @@ TZ=America/New_York
 # ---------------------------------------------------------------------------
 # Recomputes narrative_links co_mention edges from the vetted news rail. Pure
 # set-based SQL, sub-second per sport, no model calls. Runs 45 min after the
-# daily ingest so the cognition daemon has scrubbed the sweep; each link's
-# heating_up/cooling_off is its strength delta vs the previous run.
+# daily ingest so the cognition daemon has read the sweep; each link's
+# heating_up/cooling_off is its strength delta vs the previous run — the
+# cadence IS the trajectory baseline, so cadence changes change the semantics.
 45 2 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-narrative-links.sh >> /home/sheneveld/scoracle/scoracle-backend/logs/narrative-links.log 2>&1
 
 # ---------------------------------------------------------------------------
@@ -111,12 +79,12 @@ TZ=America/New_York
 # selected current-season stats row is newer than their latest stat_summaries row,
 # or whose latest summary has no input_hash. The input_hash debounce still skips
 # non-material recomputes before any model call. Offseason nights should therefore
-# find little or no stats-rail GPU work. Runs at 03:00, after the news pipeline
-# (six-hour RSS cadence) and the football drain (23:00) so ratings are fresh, and
-# offset to ease the shared Archbox GPU. -limit caps GENERATIONS (model calls) per night, NOT
-# entities scanned; the initial fill is bounded to ~400 writes/night
-# (undone-first, so it progresses) and steady state rarely hits the cap.
-# Deep/previous seasons are deferred — backfilled in batches out of band (-mode backfill).
+# find little or no stats-rail GPU work. Runs at 03:00, after the ingest + Editor
+# window, and offset to ease the shared Archbox GPU. -limit caps GENERATIONS
+# (model calls) per night, NOT entities scanned; the initial fill is bounded to
+# ~400 writes/night (undone-first, so it progresses) and steady state rarely
+# hits the cap. Deep/previous seasons are deferred — backfilled in batches out
+# of band (-mode backfill).
 0 3 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-rust-statcommentary.sh -mode nightly -limit 400 >> /home/sheneveld/scoracle/scoracle-backend/logs/statcommentary.log 2>&1
 
 # ---------------------------------------------------------------------------
@@ -125,15 +93,14 @@ TZ=America/New_York
 # Pairwise player-vs-team performance edges with reliability scores (presented,
 # not gatekept). Pure set-based SQL, seconds per stat, no model calls; stats only
 # move on game days so offseason runs are no-ops in effect. 03:30 = after the
-# football drain (23:00) and NBA/NFL processing, alongside statcommentary (03:00).
+# ingest + Editor window, alongside statcommentary (03:00).
 30 3 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-stat-matchups.sh >> /home/sheneveld/scoracle/scoracle-backend/logs/stat-matchups.log 2>&1
 
 # ---------------------------------------------------------------------------
 # Entity tier recomputation — weekly (Monday 02:00 ET)
 # ---------------------------------------------------------------------------
 # Rankings shift as the season progresses. One cheap SQL function call per
-# sport (<1s). Scheduled before the Monday weekly meta refresh so the new
-# tiers inform that run.
+# sport (<1s).
 0 2 * * 1 /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/recompute-tiers.sh >> /home/sheneveld/scoracle/scoracle-backend/logs/tier-recompute.log 2>&1
 
 # ---------------------------------------------------------------------------
@@ -145,8 +112,3 @@ TZ=America/New_York
 # Sigil is missing or stale for the derive worker to drain (no inline synthesis, no
 # unchanged-Sigil duplicates, no Ollama). -limit caps items enqueued per run.
 0 5 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-vibesynth.sh -mode nightly -limit 500 >> /home/sheneveld/scoracle/scoracle-backend/logs/vibesynth.log 2>&1
-
-# ---------------------------------------------------------------------------
-# Future: BDL webhooks can replace the polling drains once implemented.
-# Until then, the cron jobs above are the durable live-ingestion path.
-# ---------------------------------------------------------------------------

@@ -83,8 +83,8 @@ func TestFunnelAccountsForEveryDrop(t *testing.T) {
 
 	// limit 0 = uncapped, so the whole edition x query grid runs and nothing is
 	// truncated. Manchester United is a football team: 8 editions.
-	_, _, f, err := s.GetEntityNews(context.Background(), "team", 1,
-		"Manchester United", "FOOTBALL", "", 0, "", "", []string{"Man United", "MUN"})
+	_, f, err := s.GetEntityNews(context.Background(), "team", 1,
+		"Manchester United", "FOOTBALL", 0, []string{"Man United", "MUN"})
 	if err != nil {
 		t.Fatalf("GetEntityNews: %v", err)
 	}
@@ -136,8 +136,8 @@ func TestFunnelSurvivesFetchErrors(t *testing.T) {
 		http.Error(w, "upstream sad", http.StatusBadGateway)
 	})
 
-	_, _, f, err := s.GetEntityNews(context.Background(), "team", 1,
-		"Chicago Bulls", "NBA", "", 0, "", "", nil)
+	_, f, err := s.GetEntityNews(context.Background(), "team", 1,
+		"Chicago Bulls", "NBA", 0, nil)
 	if err != nil {
 		t.Fatalf("GetEntityNews: %v", err)
 	}

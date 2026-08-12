@@ -45,7 +45,7 @@ func main() {
 	} else {
 		// Only fall back to .env files when no explicit target was passed.
 		// godotenv.Load never overrides an env var that is already set.
-		_ = godotenv.Load(".env.local", ".env")
+		_ = godotenv.Load(".env.local")
 	}
 
 	cfg, err := config.Load()

@@ -17,7 +17,6 @@ import (
 	"github.com/albapepper/scoracle-data/internal/buildinfo"
 	"github.com/albapepper/scoracle-data/internal/cache"
 	"github.com/albapepper/scoracle-data/internal/config"
-	"github.com/albapepper/scoracle-data/internal/thirdparty"
 )
 
 // errNoPool reports that the handler has no database pool (degraded startup).
@@ -28,7 +27,6 @@ type Handler struct {
 	pool   *pgxpool.Pool
 	cache  *cache.Cache
 	cfg    *config.Config
-	news   *thirdparty.NewsService
 	auth   *auth.Tokens
 	flight singleflight.Group // coalesces concurrent cache-miss loads by cache key
 }
@@ -39,7 +37,6 @@ func New(pool *pgxpool.Pool, c *cache.Cache, cfg *config.Config, tokens *auth.To
 		pool:  pool,
 		cache: c,
 		cfg:   cfg,
-		news:  thirdparty.NewNewsService(pool, nil),
 		auth:  tokens,
 	}
 }

@@ -37,7 +37,7 @@ func main() {
 	flag.Parse()
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
-	_ = godotenv.Load(".env.local", ".env")
+	_ = godotenv.Load(".env.local")
 	cfg, err := config.Load()
 	if err != nil {
 		logger.Error("config load failed", "error", err)

@@ -14,12 +14,6 @@ import (
 // them isolated from real rows.
 const testSport = "ZZ_WORK_TEST"
 
-func TestStageFixtureBoxscoreLiteral(t *testing.T) {
-	if StageFixtureBoxscore != "fixture_boxscore" {
-		t.Fatalf("StageFixtureBoxscore = %q", StageFixtureBoxscore)
-	}
-}
-
 func testPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	url := os.Getenv("TEST_DATABASE_URL")
@@ -90,11 +84,11 @@ func TestEnqueueDedups(t *testing.T) {
 	pool := testPool(t)
 
 	for i := 0; i < 3; i++ {
-		if err := Enqueue(ctx, pool, item(StageNarratives, 1, "v1")); err != nil {
+		if err := Enqueue(ctx, pool, item(StageEditor, 1, "v1")); err != nil {
 			t.Fatalf("enqueue: %v", err)
 		}
 	}
-	status, inputVersion, n := rowState(t, pool, StageNarratives, 1)
+	status, inputVersion, n := rowState(t, pool, StageEditor, 1)
 	if n != 1 {
 		t.Fatalf("want 1 row after duplicate enqueues, got %d", n)
 	}
@@ -107,13 +101,13 @@ func TestChangedInputReopensPendingRow(t *testing.T) {
 	ctx := context.Background()
 	pool := testPool(t)
 
-	if err := Enqueue(ctx, pool, item(StageMomentum, 3, "v1")); err != nil {
+	if err := Enqueue(ctx, pool, item(StagePeak, 3, "v1")); err != nil {
 		t.Fatalf("enqueue v1: %v", err)
 	}
-	if err := Enqueue(ctx, pool, item(StageMomentum, 3, "v2")); err != nil {
+	if err := Enqueue(ctx, pool, item(StagePeak, 3, "v2")); err != nil {
 		t.Fatalf("enqueue v2: %v", err)
 	}
-	status, inputVersion, n := rowState(t, pool, StageMomentum, 3)
+	status, inputVersion, n := rowState(t, pool, StagePeak, 3)
 	if n != 1 || status != "pending" || inputVersion != "v2" {
 		t.Fatalf("want one pending v2 row, got n=%d status=%q version=%q", n, status, inputVersion)
 	}
@@ -145,10 +139,10 @@ func TestDeadLettersReportsParkedRows(t *testing.T) {
 	ctx := context.Background()
 	pool := testPool(t)
 
-	if err := Enqueue(ctx, pool, item(StageNarratives, 42, "")); err != nil {
+	if err := Enqueue(ctx, pool, item(StageEditor, 42, "")); err != nil {
 		t.Fatalf("enqueue dead: %v", err)
 	}
-	if err := Enqueue(ctx, pool, item(StageNarratives, 43, "")); err != nil {
+	if err := Enqueue(ctx, pool, item(StageEditor, 43, "")); err != nil {
 		t.Fatalf("enqueue retryable: %v", err)
 	}
 	if _, err := pool.Exec(ctx, `
@@ -156,7 +150,7 @@ func TestDeadLettersReportsParkedRows(t *testing.T) {
 		   SET status='failed', attempts=1, last_error='boom',
 		       available_at = NOW() + INTERVAL '100 years'
 		 WHERE stage=$1 AND entity_id=$2 AND sport=$3`,
-		string(StageNarratives), 42, testSport); err != nil {
+		string(StageEditor), 42, testSport); err != nil {
 		t.Fatalf("park dead row: %v", err)
 	}
 	if _, err := pool.Exec(ctx, `
@@ -164,7 +158,7 @@ func TestDeadLettersReportsParkedRows(t *testing.T) {
 		   SET status='failed', attempts=1, last_error='transient',
 		       available_at = NOW() + INTERVAL '1 minute'
 		 WHERE stage=$1 AND entity_id=$2 AND sport=$3`,
-		string(StageNarratives), 43, testSport); err != nil {
+		string(StageEditor), 43, testSport); err != nil {
 		t.Fatalf("mark retryable row: %v", err)
 	}
 

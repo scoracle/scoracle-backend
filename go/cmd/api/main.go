@@ -45,9 +45,9 @@ func main() {
 	slog.SetDefault(logger)
 	logger.Info("Scoracle Data API build", "commit", buildinfo.Commit, "built", buildinfo.BuildTime)
 
-	// Load .env.local (real values, gitignored) then .env (committed template).
-	// godotenv does not overwrite already-set vars, so .env.local wins.
-	_ = godotenv.Load(".env.local", ".env")
+	// Load .env.local (the only env file; gitignored). godotenv does not
+	// overwrite already-set vars, so the real environment always wins.
+	_ = godotenv.Load(".env.local")
 
 	// Load configuration
 	cfg, err := config.Load()
@@ -118,12 +118,6 @@ func main() {
 		// peer cohorts, momentum dirty-queue drain).
 		mc := maintenance.DefaultConfig()
 		mc.StatsInterval = cfg.PipelineStatsInterval
-		if !cfg.BoxscoreBackfillEnabled {
-			mc.BoxscoreBackfillInterval = 0
-		} else {
-			mc.BoxscoreBackfillInterval = cfg.BoxscoreBackfillInterval
-			mc.BoxscoreBackfillBatch = cfg.BoxscoreBackfillBatch
-		}
 		go maintenance.Start(ctx, dbPool, mc, logger)
 	} else {
 		logger.Warn("Database-backed background workers disabled in degraded mode")

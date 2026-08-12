@@ -40,12 +40,6 @@ type Config struct {
 	// Pipeline stats: the daily pipeline_stats corpus snapshot (pure SQL). 0 disables.
 	PipelineStatsInterval time.Duration
 
-	// Fixture box score fetch backfill. SQL-only enqueue path; Rust drains the
-	// fixture_boxscore stage.
-	BoxscoreBackfillEnabled  bool
-	BoxscoreBackfillInterval time.Duration
-	BoxscoreBackfillBatch    int
-
 	// Cache
 	CacheEnabled bool
 
@@ -98,10 +92,6 @@ func Load() (*Config, error) {
 		RateLimitInternalKey: envOr("RATE_LIMIT_INTERNAL_KEY", ""),
 
 		PipelineStatsInterval: time.Duration(envInt("PIPELINE_STATS_INTERVAL_MINUTES", 1440)) * time.Minute,
-
-		BoxscoreBackfillEnabled:  envBool("BOXSCORE_BACKFILL_ENABLED", true),
-		BoxscoreBackfillInterval: time.Duration(envInt("BOXSCORE_BACKFILL_INTERVAL_MINUTES", 360)) * time.Minute,
-		BoxscoreBackfillBatch:    envInt("BOXSCORE_BACKFILL_BATCH", 100),
 
 		CacheEnabled: envBool("CACHE_ENABLED", true),
 

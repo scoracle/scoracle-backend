@@ -9,7 +9,7 @@
 //! | **Seat** | `Role::NarrativeLogic` |
 //! | **Contract** | `n16` |
 //! | **Reads** | the vetted corpus, The Editor's evidence cards, The Insider's vetted transfer heat, the relational memory card, its own prior card reads |
-//! | **Feeds** | The Influencer, The Oracle, and `narrative_threads`, via `news_summaries` |
+//! | **Feeds** | The Influencer, The Oracle, and the entity's parts in its storylines, via `news_summaries` |
 //!
 //! ## Authority — it defines what counts as a story
 //!

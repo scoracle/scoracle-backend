@@ -26,14 +26,17 @@ fi
 
 # Order matters: refresh links (now-state), seal confirmed outcomes from roster ground
 # truth (mig 157 — MUST precede the roll so confirmation beats same-night quiet-seal),
-# roll episodes (open/peak/quiet-seal), seal narrative THREADS (mig 181 — resolves
-# ground-truth-confirmed storylines first, then fades >=21d-quiet ones; the function
-# orders those internally), promote established threads (mig 183 — source growth past
-# the authority gate flips continuity → established; after the thread seal so a fresh
-# ground-truth resolve promotes same-night), score transfer likelihood on the fresh open
-# set (mig 161 — after roll so new stories get scored same-night), re-measure source
-# performance, then promote persons (mig 166 — evidence accumulated by the graph stage
-# earns candidate → active; promoted figures serve on team memory cards).
+# roll episodes (open/peak/quiet-seal), fill chapter→storyline derivations (mig 219 —
+# converges news_summaries written thread-only by the pre-cutover binary; precedes the
+# part lifecycle so the night's seal/promote sees the freshest chapters), seal
+# STORYLINES (mig 219 — ground-truth-confirmed stories resolve and D5 closes every
+# other part in one stroke; dormancy is mark_dormant's job in the worker, not here),
+# promote established parts (mig 219 — source growth past the authority gate flips
+# continuity → established; after the seal so a fresh ground-truth resolve promotes
+# same-night), score transfer likelihood on the fresh open set (mig 161 — after roll
+# so new stories get scored same-night), re-measure source performance, then promote
+# persons (mig 166 — evidence accumulated by the graph stage earns candidate → active;
+# promoted figures serve on team memory cards).
 exec psql "$DB" -v ON_ERROR_STOP=1 -c "
 SELECT 'FOOTBALL' AS sport, now() AS ran_at, * FROM refresh_co_mention_links('FOOTBALL')
 UNION ALL
@@ -56,33 +59,46 @@ SELECT 'NBA', now(), * FROM roll_narrative_episodes('NBA')
 UNION ALL
 SELECT 'NFL', now(), * FROM roll_narrative_episodes('NFL')" -c "
 DO \$\$
-DECLARE r record;
+DECLARE n int;
 BEGIN
-    -- Guarded: seal_narrative_threads arrives with mig 181. PL/pgSQL resolves the call at
-    -- first execution, so the IF lets this cron run (and be installed) before the migration.
-    IF to_regprocedure('public.seal_narrative_threads(text)') IS NOT NULL THEN
-        FOR r IN SELECT s.sport, t.resolved_count, t.faded_count
-                 FROM (VALUES ('FOOTBALL'),('NBA'),('NFL')) s(sport),
-                 LATERAL public.seal_narrative_threads(s.sport) t LOOP
-            RAISE NOTICE 'seal_narrative_threads % resolved=% faded=%',
-                r.sport, r.resolved_count, r.faded_count;
-        END LOOP;
+    -- Guarded: fill_news_summaries_storylines arrives with mig 219 (the threads →
+    -- storyline-parts collapse, step A). Fills news_summaries.storyline_id for chapters
+    -- the pre-cutover binary wrote thread-only; inert once the Rust cutover writes
+    -- storyline_id directly (and dropped with step B).
+    IF to_regprocedure('public.fill_news_summaries_storylines()') IS NOT NULL THEN
+        n := public.fill_news_summaries_storylines();
+        RAISE NOTICE 'fill_news_summaries_storylines filled=%', n;
     ELSE
-        RAISE NOTICE 'seal_narrative_threads not installed yet (mig 181) — skipped';
+        RAISE NOTICE 'fill_news_summaries_storylines not installed yet (mig 219) — skipped';
     END IF;
 END \$\$;" -c "
 DO \$\$
 DECLARE r record;
 BEGIN
-    -- Guarded: promote_established_threads arrives with mig 183 (Phase D authority).
-    -- AFTER the seal sweep so a same-night ground-truth resolve promotes immediately.
-    IF to_regprocedure('public.promote_established_threads(text)') IS NOT NULL THEN
-        FOR r IN SELECT s.sport, public.promote_established_threads(s.sport) AS promoted
+    -- Guarded: seal_storylines arrives with mig 219. PL/pgSQL resolves the call at
+    -- first execution, so the IF lets this cron run (and be installed) before the migration.
+    IF to_regprocedure('public.seal_storylines(text)') IS NOT NULL THEN
+        FOR r IN SELECT s.sport, public.seal_storylines(s.sport) AS resolved
                  FROM (VALUES ('FOOTBALL'),('NBA'),('NFL')) s(sport) LOOP
-            RAISE NOTICE 'promote_established_threads % promoted=%', r.sport, r.promoted;
+            RAISE NOTICE 'seal_storylines % resolved=%', r.sport, r.resolved;
         END LOOP;
     ELSE
-        RAISE NOTICE 'promote_established_threads not installed yet (mig 183) — skipped';
+        RAISE NOTICE 'seal_storylines not installed yet (mig 219) — skipped';
+    END IF;
+END \$\$;" -c "
+DO \$\$
+DECLARE r record;
+BEGIN
+    -- Guarded: promote_established_parts arrives with mig 219 (the collapse's authority
+    -- promotion). AFTER the seal sweep so a same-night ground-truth resolve promotes
+    -- immediately.
+    IF to_regprocedure('public.promote_established_parts(text)') IS NOT NULL THEN
+        FOR r IN SELECT s.sport, public.promote_established_parts(s.sport) AS promoted
+                 FROM (VALUES ('FOOTBALL'),('NBA'),('NFL')) s(sport) LOOP
+            RAISE NOTICE 'promote_established_parts % promoted=%', r.sport, r.promoted;
+        END LOOP;
+    ELSE
+        RAISE NOTICE 'promote_established_parts not installed yet (mig 219) — skipped';
     END IF;
 END \$\$;" -c "
 SELECT 'FOOTBALL' AS sport, now() AS ran_at, score_transfer_likelihood('FOOTBALL') AS scored

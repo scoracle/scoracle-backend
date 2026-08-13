@@ -24,12 +24,12 @@
 use crate::corpus::{
     dedupe_i64, lookup_entity_name,
 };
-use crate::harness::{EntityKey, Harness, Parser, Provenance, Vector};
+use crate::harness::{EntityKey, Harness, Parser, Provenance};
 use crate::ledger::{insert_cognition_ledger_best_effort, CognitionLedgerEntry};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
 use crate::stage::StageHandler;
-use crate::threads::{attach_generation, AttachItem, AttachOutcome};
+use crate::story_parts::{mode_storyline, progress_generation, PartItem};
 use crate::trajectory::DEFAULT_TRAJECTORY;
 use crate::work::{Item, Stage};
 use anyhow::{anyhow, Context, Result};
@@ -1350,7 +1350,7 @@ fn narratives_parser_outcome(out: &NarrativesOutput) -> &'static str {
 }
 
 /// One persisted storyline row: the narrative, its classified trajectory, the
-/// trajectory_components audit json, and the thread it attached to (None = un-threaded).
+/// trajectory_components audit json, and the storyline it progressed (None = unresolved).
 type ClassifiedRow<'a> = (&'a Narrative, &'static str, serde_json::Value, Option<i64>);
 
 /// persist_narratives writes ONE news_summaries row per narrative (all sharing the transaction's
@@ -1359,12 +1359,12 @@ type ClassifiedRow<'a> = (&'a Narrative, &'static str, serde_json::Value, Option
 /// `null` — Go marshals the nil trigger map). (The `source_attribution` column — always NULL here
 /// — was dropped in mig 139, plan C7.)
 ///
-/// Phase C (mig 181): storyline identity is the THREAD, not the title string. Each narrative is
-/// embedded (title+body) and attached to the entity's best-matching open thread (cosine >= 0.80)
-/// or opens a new one; `classify_delta` anchors on the thread's last_impact, so heating_up /
-/// cooling_off survive title drift (the F5 seam this replaced reset ALL trajectories on the
-/// 07-22 n10 re-title wave). Without an embedder (offline callers) rows persist un-threaded:
-/// thread identity is embedding-defined — there is deliberately no title-match fallback.
+/// Mig 219 (the narrative_threads collapse): storyline identity is a FACT on the packet rail,
+/// not a match. Every corpus article reached this generation through a packet of a storyline
+/// the entity participates in, and every article belongs to exactly one storyline — so each
+/// narrative's storyline is the mode of its cited articles' storylines, and `classify_delta`
+/// anchors on the part's last_impact (storyline_entities), so heating_up / cooling_off survive
+/// any re-titling. The Journalist updates parts; it never creates story identity.
 pub async fn persist_narratives(
     hx: &Harness,
     entity_type: &str,
@@ -1378,83 +1378,80 @@ pub async fn persist_narratives(
     let prov = out.provenance().with_trigger_payload(trigger_payload);
     let trigger_json = prov.trigger_payload_json("null");
 
-    // Embed OUTSIDE the transaction (CPU-bound, block_in_place) — one batch for the generation.
-    let vectors: Option<Vec<Vector>> = if out.narratives.is_empty() {
-        None
-    } else if hx.embedder.is_some() {
-        let texts: Vec<String> = out
-            .narratives
-            .iter()
-            .map(|n| format!("{}\n{}", n.title, n.body))
-            .collect();
-        Some(hx.embed(&texts).await?)
-    } else {
-        warn!(
-            entity_type,
-            entity_id, sport, "narratives: no embedder loaded, persisting without thread attach"
-        );
-        None
-    };
-
     // NOW() is constant within a transaction (transaction_timestamp), so every row of this generation
     // shares one generated_at — Go's `res.GeneratedAt`, without needing a datetime crate to bind it.
-    // The thread attach runs in the SAME transaction: the thread progression and the rows citing it
-    // commit atomically (at_epoch None → thread timestamps are the same transaction NOW()).
+    // The part progression runs in the SAME transaction: the part updates and the rows citing them
+    // commit atomically.
     let mut tx = pool.begin().await.context("begin narratives tx")?;
 
-    let outcomes: Option<Vec<AttachOutcome>> = match &vectors {
-        Some(vs) => {
-            let items: Vec<AttachItem> = out
-                .narratives
-                .iter()
-                .zip(vs)
-                .map(|(n, v)| AttachItem {
-                    title: &n.title,
-                    impact: n.impact,
-                    source_names: &n.source_names,
-                    vector: v.clone(),
-                })
-                .collect();
-            Some(attach_generation(&mut tx, sport, entity_type, entity_id, &items, None).await?)
-        }
-        None => None,
+    // The citation → storyline map for everything this generation cites (one query).
+    let article_ids: Vec<i64> = out
+        .narratives
+        .iter()
+        .flat_map(|n| n.input_news_ids.iter().copied())
+        .collect();
+    let storyline_of: std::collections::HashMap<i64, i64> = if article_ids.is_empty() {
+        std::collections::HashMap::new()
+    } else {
+        sqlx::query(
+            "SELECT article_id, storyline_id FROM storyline_articles WHERE article_id = ANY($1)",
+        )
+        .bind(&article_ids)
+        .fetch_all(&mut *tx)
+        .await
+        .context("load article storylines")?
+        .into_iter()
+        .map(|r| (r.get("article_id"), r.get("storyline_id")))
+        .collect()
     };
+
+    let items: Vec<PartItem> = out
+        .narratives
+        .iter()
+        .map(|n| {
+            let cited: Vec<i64> = n
+                .input_news_ids
+                .iter()
+                .filter_map(|a| storyline_of.get(a).copied())
+                .collect();
+            PartItem {
+                storyline_id: mode_storyline(&cited),
+                impact: n.impact,
+                source_names: &n.source_names,
+            }
+        })
+        .collect();
+    let outcomes = progress_generation(&mut tx, sport, entity_type, entity_id, &items).await?;
 
     let classified: Vec<ClassifiedRow> = out
         .narratives
         .iter()
-        .enumerate()
-        .map(
-            |(idx, n)| match outcomes.as_ref().and_then(|o| o.get(idx)) {
-                Some(o) => {
-                    let reason = match o.delta_reason {
-                        "up" => "impact_up",
-                        "down" => "impact_down",
-                        "stable" => "impact_stable",
-                        other => other,
-                    };
-                    let components = json!({
-                        "previous_impact": o.previous_impact,
-                        "current_impact": n.impact,
-                        "impact_delta": o.impact_delta,
-                        "reason": reason,
-                        "thread_id": o.thread_id,
-                        "thread_action": if o.opened { "opened" } else { "attached" },
-                        "thread_cosine": o.cosine,
-                    });
-                    (n, o.trajectory, components, Some(o.thread_id))
-                }
-                None => {
-                    let components = json!({
-                        "previous_impact": serde_json::Value::Null,
-                        "current_impact": n.impact,
-                        "impact_delta": serde_json::Value::Null,
-                        "reason": "thread_attach_unavailable",
-                    });
-                    (n, DEFAULT_TRAJECTORY, components, None)
-                }
-            },
-        )
+        .zip(&outcomes)
+        .map(|(n, o)| {
+            let reason = match o.delta_reason {
+                "up" => "impact_up",
+                "down" => "impact_down",
+                "stable" => "impact_stable",
+                other => other,
+            };
+            let components = if o.unresolved {
+                json!({
+                    "previous_impact": serde_json::Value::Null,
+                    "current_impact": n.impact,
+                    "impact_delta": serde_json::Value::Null,
+                    "reason": "storyline_unresolved",
+                })
+            } else {
+                json!({
+                    "previous_impact": o.previous_impact,
+                    "current_impact": n.impact,
+                    "impact_delta": o.impact_delta,
+                    "reason": reason,
+                    "storyline_id": o.storyline_id,
+                })
+            };
+            (n, o.trajectory, components, o.storyline_id)
+        })
         .collect();
 
     const INSERT: &str = r#"
@@ -1464,7 +1461,7 @@ pub async fn persist_narratives(
             input_news_ids,
             narrative_updated_at, source_count, source_names, source_latest_at, source_oldest_at,
             trajectory, trajectory_components,
-            model_version, prompt_version, input_hash, thread_id,
+            model_version, prompt_version, input_hash, storyline_id,
             card_score, card_score_prev, generated_at
         ) VALUES (
             $1,$2,$3,$4,$5::jsonb, $6,$7,$8,$9::jsonb, $10,
@@ -1497,11 +1494,11 @@ pub async fn persist_narratives(
         let source_latest_at: Option<i64>;
         let source_oldest_at: Option<i64>;
         let trajectory: &str;
-        let thread_id: Option<i64>;
+        let storyline_id: Option<i64>;
         let context: &str;
 
         match &row {
-            Some((n, row_trajectory, row_trajectory_components, row_thread_id)) => {
+            Some((n, row_trajectory, row_trajectory_components, row_storyline_id)) => {
                 impact_components_json = n.impact_components.to_string();
                 trajectory_json = row_trajectory_components.to_string();
                 title = Some(n.title.as_str());
@@ -1516,7 +1513,7 @@ pub async fn persist_narratives(
                 source_latest_at = n.source_latest_epoch;
                 source_oldest_at = n.source_oldest_epoch;
                 trajectory = row_trajectory;
-                thread_id = *row_thread_id;
+                storyline_id = *row_storyline_id;
                 context = "persist narrative row";
             }
             None => {
@@ -1532,7 +1529,7 @@ pub async fn persist_narratives(
                 source_latest_at = Option::<i64>::None;
                 source_oldest_at = Option::<i64>::None;
                 trajectory = DEFAULT_TRAJECTORY;
-                thread_id = None;
+                storyline_id = None;
                 context = "persist narratives marker";
             }
         }
@@ -1558,7 +1555,7 @@ pub async fn persist_narratives(
             .bind(prov.model_version.as_str())
             .bind(prov.prompt_version)
             .bind(prov.input_hash.as_deref())
-            .bind(thread_id)
+            .bind(storyline_id)
             // n12: generation-level card score — the SAME value on every row of the generation
             // (scored storylines AND the called-empty marker); NULL only for no-corpus/pre-n12.
             .bind(out.card_score)

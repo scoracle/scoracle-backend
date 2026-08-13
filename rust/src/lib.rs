@@ -48,7 +48,7 @@ pub mod worker;
 pub mod bucket;
 pub mod buildinfo;
 pub mod corpus;
-pub mod threads;
+pub mod story_parts;
 pub mod trajectory;
 pub mod util;
 

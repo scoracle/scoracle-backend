@@ -48,3 +48,7 @@ logs/
 # The single env file is .env.local. A second .env is what caused the
 # load-order confusion; do not recreate it (RUNBOOK 11.1).
 .env
+
+# Adjacent project with its own .git — lives in the working dir, never part of
+# the backend. Ignored so git status stays quiet.
+openlens-qr/

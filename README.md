@@ -119,6 +119,7 @@ Scoracle runs as a Go API + Rust cognition layer backed by PostgreSQL.
 - **PostgreSQL (`sql/`)** is the source of truth for schema, derived stats, percentiles, views, and API-shaping SQL.
 
 > Operating the backend (release/rollback, backup/restore, jobs, durable work queue + repair commands): see **[`RUNBOOK.md`](RUNBOOK.md)**.
+> Optional dev tooling: the local OpenCode Server UI is exposed at `opencode.scoracle.com` through the Go API (**disabled by default**) — see `RUNBOOK.md` §11.2.
 
 The frontend calls one API origin and receives page-shaped JSON payloads designed for direct rendering.
 

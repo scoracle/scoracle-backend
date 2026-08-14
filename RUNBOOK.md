@@ -402,6 +402,33 @@ third-party provider credential is needed at all: `API_SPORTS_KEY`, `BALLDONTLIE
 (`rust/src/config.rs:265`), so a plain grep for them finds nothing — **do not "clean them up" as
 unused.** `DERIVE_WORKER_ENABLED` is likewise referenced outside `rust/src`.
 
+### 11.2 Optional: OpenCode tunnel (off unless needed)
+
+An optional Cloudflare Tunnel exposes the local OpenCode Server UI at
+`opencode.scoracle.com`, intentionally separate from the production
+`api.scoracle.com` tunnel so the OpenCode surface can stay off unless it is
+needed. **Currently stopped and disabled (since 2026-07-03)** — only the
+system-level production tunnel should be running.
+
+The user-level config is `/home/sheneveld/.cloudflared/config.yml` (do **not**
+touch `/etc/cloudflared/config.yml`, which carries the production tunnel):
+
+```yaml
+- hostname: opencode.scoracle.com
+  service: http://localhost:8000   # the Go API; it proxies to OpenCode at 127.0.0.1:4096
+```
+
+- Start: `systemctl --user enable --now cloudflared.service`
+- Stop: `systemctl --user disable --now cloudflared.service`
+- Logs: `journalctl --user -u cloudflared.service -f`
+- Smoke prod after a stop: `scripts/hosting/tunnel-smoke.sh https://api.scoracle.com https://scoracle.com` (expect `19 passed`)
+
+Safety: `systemctl --user … cloudflared.service` controls the OpenCode tunnel;
+`systemctl … cloudflared.service` (no `--user`) is the production tunnel carrying
+`api.scoracle.com` — never stop that one just to turn off OpenCode. With OpenCode
+off, exactly one `cloudflared` process should remain (the system-level one running
+with `--config /etc/cloudflared/config.yml`).
+
 ---
 
 ## 12. Launch-gate carryovers (tracked, not yet done)

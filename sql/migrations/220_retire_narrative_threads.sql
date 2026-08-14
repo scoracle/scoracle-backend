@@ -37,6 +37,13 @@
 
 BEGIN;
 
+-- 0. Lock discipline: news_summaries is HOT (the narratives drain writes it
+--    continuously). Every statement here is metadata-only (fast), but the DROP
+--    COLUMN still takes ACCESS EXCLUSIVE and would queue every writer behind a
+--    long-running persist transaction. Fail loud and retry later instead of
+--    stalling the drain indefinitely.
+SET LOCAL lock_timeout = '30s';
+
 -- 1. The gate. The cutover instant is the story_parts daemon's start (release of 76002d7);
 --    the old binary cannot write after it.
 DO $$

@@ -5,13 +5,12 @@
 
 use super::*;
 
-fn rating(peak_trajectory: &str, notability: i32) -> SynthRating {
+fn rating(rating_trajectory: &str, notability: i32) -> SynthRating {
     SynthRating {
-        divined_peak: "Playmaking".into(),
         body: "b".into(),
         notability,
-        peak_trajectory: peak_trajectory.into(),
-        peak_trajectory_label: String::new(),
+        rating_trajectory: rating_trajectory.into(),
+        rating_trajectory_label: String::new(),
     }
 }
 
@@ -25,8 +24,8 @@ fn momentum(direction: &str) -> SynthMomentum {
 
 #[test]
 fn crown_parses_reading_and_score() {
-    let r = parse_crown_reply(r#"{"reading": "The arc holds. Winter stirs.", "score": 73}"#)
-        .unwrap();
+    let r =
+        parse_crown_reply(r#"{"reading": "The arc holds. Winter stirs.", "score": 73}"#).unwrap();
     assert_eq!(r.reading, "The arc holds. Winter stirs.");
     assert_eq!(r.score, 73);
 }
@@ -146,31 +145,19 @@ fn pillar_convergence_is_agree_ratio_floored_to_db_contract() {
 #[test]
 fn omen_crossroads_when_half_or_more_disagree() {
     // convergence ≤ 50 ⇒ crossroads regardless of direction (half-or-more disagree).
-    assert_eq!(
-        compute_omen(Some(50), Some(&rating("rising", 72)), &momentum("rising")).0,
-        "crossroads"
-    );
-    assert_eq!(
-        compute_omen(Some(40), Some(&rating("rising", 72)), &momentum("rising")).0,
-        "crossroads"
-    );
+    assert_eq!(compute_omen(Some(50), &momentum("rising")).0, "crossroads");
+    assert_eq!(compute_omen(Some(40), &momentum("rising")).0, "crossroads");
 }
 
 #[test]
-fn omen_momentum_leads_peak_seconds() {
-    // Momentum rising (weight 2) beats PEAK falling (weight 1) → ascendant.
-    assert_eq!(
-        compute_omen(Some(80), Some(&rating("falling", 72)), &momentum("rising")).0,
-        "ascendant"
-    );
-    // Momentum falling with PEAK steady → waning.
-    assert_eq!(
-        compute_omen(None, Some(&rating("steady", 72)), &momentum("falling")).0,
-        "waning"
-    );
+fn omen_momentum_decides_alone() {
+    // or10: Momentum's decided sign is the sole direction input.
+    assert_eq!(compute_omen(Some(80), &momentum("rising")).0, "ascendant");
+    // Momentum falling → waning.
+    assert_eq!(compute_omen(None, &momentum("falling")).0, "waning");
     // Nothing directional → steady.
     assert_eq!(
-        compute_omen(Some(90), None, &SynthMomentum::default()).0,
+        compute_omen(Some(90), &SynthMomentum::default()).0,
         "steady"
     );
 }
@@ -260,11 +247,10 @@ fn input_components_use_stable_go_json_shape() {
         },
     ];
     let rating = SynthRating {
-        divined_peak: "Rim Protector".into(),
         body: "z".into(),
         notability: 88,
-        peak_trajectory: "falling".into(),
-        peak_trajectory_label: "Composite and PEAK z-scores trending down over recent games"
+        rating_trajectory: "falling".into(),
+        rating_trajectory_label: "Composite and PEAK z-scores trending down over recent games"
             .into(),
     };
     let mom = SynthMomentum {
@@ -281,8 +267,7 @@ fn input_components_use_stable_go_json_shape() {
         sentiment: 60,
         prompt: "Quietly surging".into(),
     };
-    let got =
-        build_synthesis_input_components(&narratives, Some(&rating), Some(&vibe), &mom, &[]);
+    let got = build_synthesis_input_components(&narratives, Some(&rating), Some(&vibe), &mom, &[]);
     // "B & C"'s ampersand is HTML-escaped (the backslash-u form), exactly as Go's
     // json.Marshal emits it. Built via format! with a runtime backslash (bs) so the
     // source carries no literal backslash-u token (the editor would decode it).
@@ -291,7 +276,7 @@ fn input_components_use_stable_go_json_shape() {
     // vibe contributes only vibe_sentiment, momentum its material-only summary hash.
     let bs = '\\';
     let want = format!(
-        r#"{{"divined_peak":"Rim Protector","momentum_rating_samples":5,"momentum_rating_slope":0,"momentum_score":2.5,"momentum_summary_hash":"a1b2c3d4e5f60718293a4b5c6d7e8f90","momentum_vibe_samples":4,"momentum_vibe_slope":1,"narrative_titles":["Alpha","B {bs}u0026 C"],"narrative_trajectories":["Alpha:developing_story","B {bs}u0026 C:heating_up"],"notability":88,"peak_trajectory":"falling","peak_trajectory_label":"Composite and PEAK z-scores trending down over recent games","vibe_sentiment":60}}"#
+        r#"{{"momentum_rating_samples":5,"momentum_rating_slope":0,"momentum_score":2.5,"momentum_summary_hash":"a1b2c3d4e5f60718293a4b5c6d7e8f90","momentum_vibe_samples":4,"momentum_vibe_slope":1,"narrative_titles":["Alpha","B {bs}u0026 C"],"narrative_trajectories":["Alpha:developing_story","B {bs}u0026 C:heating_up"],"notability":88,"vibe_sentiment":60}}"#
     );
     assert_eq!(got, want);
 }
@@ -300,30 +285,23 @@ fn input_components_use_stable_go_json_shape() {
 fn input_components_narrative_titles_always_present() {
     // Rating-only entity: narrative_titles is still present as [] by contract.
     let rating = SynthRating {
-        divined_peak: "Spacer".into(),
         body: "b".into(),
         notability: 40,
-        peak_trajectory: "steady".into(),
-        peak_trajectory_label: String::new(),
+        rating_trajectory: "steady".into(),
+        rating_trajectory_label: String::new(),
     };
-    let got = build_synthesis_input_components(
-        &[],
-        Some(&rating),
-        None,
-        &SynthMomentum::default(),
-        &[],
-    );
+    let got =
+        build_synthesis_input_components(&[], Some(&rating), None, &SynthMomentum::default(), &[]);
     assert_eq!(
         got,
-        r#"{"divined_peak":"Spacer","narrative_titles":[],"narrative_trajectories":[],"notability":40,"peak_trajectory":"steady"}"#
+        r#"{"narrative_titles":[],"narrative_trajectories":[],"notability":40}"#
     );
 }
 
 #[test]
 fn transfer_heat_enters_components_only_when_present() {
     // No transfers → NO transfer_heat key at all (so a pre-Phase-5.1 entity keeps its hash).
-    let without =
-        build_synthesis_input_components(&[], None, None, &SynthMomentum::default(), &[]);
+    let without = build_synthesis_input_components(&[], None, None, &SynthMomentum::default(), &[]);
     assert_eq!(
         without,
         r#"{"narrative_titles":[],"narrative_trajectories":[]}"#
@@ -349,13 +327,8 @@ fn transfer_heat_enters_components_only_when_present() {
             confidence: None,
         },
     ];
-    let with = build_synthesis_input_components(
-        &[],
-        None,
-        None,
-        &SynthMomentum::default(),
-        &transfers,
-    );
+    let with =
+        build_synthesis_input_components(&[], None, None, &SynthMomentum::default(), &transfers);
     assert_eq!(
         with,
         r#"{"narrative_titles":[],"narrative_trajectories":[],"transfer_heat":["Arsenal:40:incoming:speculation","Real Madrid:71:outgoing:advanced_talks"]}"#
@@ -401,18 +374,14 @@ fn crown_prompt_renders_cards_and_omen() {
     assert!(!p.contains("YOUR PRIOR READ"));
     assert!(!p.contains("RELATIONAL MEMORY"));
     assert!(p.contains("=== THE JOURNALIST'S CARD (news storylines) ===\n[impact 7, Heating up, 3 sources, latest 1d ago] Trade buzz\ndetails"));
-    assert!(p.contains(
-        "=== THE SCOUT'S CARD (scouting brief) ===\n(no stat commentary available)"
-    ));
-    assert!(
-        p.contains("=== THE INFLUENCER'S CARD (the felt read) ===\nMood: 62/100\nOn the rise")
-    );
+    assert!(p.contains("=== THE SCOUT'S CARD (scouting brief) ===\n(no stat commentary available)"));
+    assert!(p.contains("=== THE INFLUENCER'S CARD (the felt read) ===\nMood: 62/100\nOn the rise"));
     assert!(p.contains("=== THE ANALYST'S CARD (momentum) ===\nMomentum score: 1 (rising)\nMood trend: 0.5 over 4 samples (trending up)"));
-    assert!(
-        p.contains("=== THE INSIDER'S CARD (transfer wire) ===\n(no active transfer rumors)")
-    );
+    assert!(p.contains("=== THE INSIDER'S CARD (transfer wire) ===\n(no active transfer rumors)"));
     assert!(p.contains("=== THE OMEN (computed) ===\nOmen: steady — the arc holds its line\n"));
-    assert!(p.ends_with("\nYour peers have spoken; the table is yours. Read their cards, then render the score."));
+    assert!(p.ends_with(
+        "\nYour peers have spoken; the table is yours. Read their cards, then render the score."
+    ));
 }
 
 /// 7.8, the 4096 envelope: on the packet rail every pillar body is capped and the Journalist's
@@ -434,10 +403,9 @@ fn packet_rail_caps_every_pillar_body_and_names_what_it_dropped() {
         .collect();
     let rating = SynthRating {
         body: long.clone(),
-        divined_peak: "Ascendant".into(),
         notability: 71,
-        peak_trajectory: "rising".into(),
-        peak_trajectory_label: "Composite trending up over recent games".into(),
+        rating_trajectory: "rising".into(),
+        rating_trajectory_label: "Composite trending up over recent games".into(),
     };
     let vibe = SynthVibe {
         sentiment: 62,
@@ -451,12 +419,30 @@ fn packet_rail_caps_every_pillar_body_and_names_what_it_dropped() {
     };
 
     let uncapped = build_crown_prompt(
-        "player", "Test Player", "NBA", &narratives, Some(&rating), Some(&vibe), &mom, &[],
-        "ascendant", "the arc climbs", None,
+        "player",
+        "Test Player",
+        "NBA",
+        &narratives,
+        Some(&rating),
+        Some(&vibe),
+        &mom,
+        &[],
+        "ascendant",
+        "the arc climbs",
+        None,
     );
     let capped = build_crown_prompt(
-        "player", "Test Player", "NBA", &narratives, Some(&rating), Some(&vibe), &mom, &[],
-        "ascendant", "the arc climbs", Some(CROWN_CARD_BODY_CAP),
+        "player",
+        "Test Player",
+        "NBA",
+        &narratives,
+        Some(&rating),
+        Some(&vibe),
+        &mom,
+        &[],
+        "ascendant",
+        "the arc climbs",
+        Some(CROWN_CARD_BODY_CAP),
     );
 
     // Legacy truncates nothing — that is the behaviour a 16,384-token window allowed, and it is
@@ -471,7 +457,10 @@ fn packet_rail_caps_every_pillar_body_and_names_what_it_dropped() {
     );
     assert!(capped.contains("(+2 more storyline(s) not shown — budget)"));
     assert!(capped.contains("Storyline 0"));
-    assert!(!capped.contains("Storyline 3"), "the card is capped as ONE card");
+    assert!(
+        !capped.contains("Storyline 3"),
+        "the card is capped as ONE card"
+    );
     // Every card still SPEAKS — a cap that silences a pillar would change the verdict, not the
     // window. All five headers stand, and the omen still closes.
     for header in [
@@ -491,11 +480,10 @@ fn pillar_divergence_names_the_rail_conflict() {
     // The fixture-measured sigil failure: strong-but-falling PEAK, positive vibe, falling
     // momentum. The card must hand the model both DISAGREE pairs deterministically.
     let rating = SynthRating {
-        divined_peak: "Rim protection".into(),
         body: "b".into(),
         notability: 88,
-        peak_trajectory: "falling".into(),
-        peak_trajectory_label: String::new(),
+        rating_trajectory: "falling".into(),
+        rating_trajectory_label: String::new(),
     };
     let vibe = SynthVibe {
         sentiment: 75,
@@ -508,24 +496,18 @@ fn pillar_divergence_names_the_rail_conflict() {
     };
     let c = build_pillar_divergence(&[], Some(&rating), Some(&vibe), &mom);
     let rendered: Vec<(String, bool)> = c.into_iter().map(|x| (x.label, x.agree)).collect();
+    // or10: the raw trajectory marker left the crown's math — only Vibe/Momentum and the two
+    // Profile-strength LEVEL pairs remain.
     assert_eq!(
         rendered,
         vec![
-            (
-                "PEAK trajectory (negative) vs Momentum (negative)".to_string(),
-                true
-            ),
             ("Vibe (positive) vs Momentum (negative)".to_string(), false),
             (
-                "PEAK trajectory (negative) vs Vibe (positive)".to_string(),
+                "Profile strength (strong) vs Momentum (negative)".to_string(),
                 false
             ),
             (
-                "PEAK strength (strong) vs Momentum (negative)".to_string(),
-                false
-            ),
-            (
-                "PEAK strength (strong) vs Vibe (positive)".to_string(),
+                "Profile strength (strong) vs Vibe (positive)".to_string(),
                 true
             ),
         ]
@@ -564,13 +546,9 @@ fn crown_prompt_no_momentum_data_line() {
         "r",
         None,
     );
-    assert!(
-        p.contains("=== THE JOURNALIST'S CARD (news storylines) ===\n(no recent narratives)")
-    );
+    assert!(p.contains("=== THE JOURNALIST'S CARD (news storylines) ===\n(no recent narratives)"));
     assert!(p.contains("=== THE ANALYST'S CARD (momentum) ===\n(no momentum data)"));
-    assert!(
-        p.contains("=== THE INSIDER'S CARD (transfer wire) ===\n(no active transfer rumors)")
-    );
+    assert!(p.contains("=== THE INSIDER'S CARD (transfer wire) ===\n(no active transfer rumors)"));
 }
 
 #[test]

@@ -1,4 +1,6 @@
-//! Momentum stage — the generated trajectory card over PEAK, Vibe, and deterministic slopes.
+//! Momentum stage — the generated trajectory card over the Scout's rating read, Vibe, and
+//! deterministic slopes. (s16: the Analyst is the seat that LEANS on the deterministic
+//! recent-form marker; the Scout shades with it and the Oracle is blind to it.)
 //!
 //! `momentum_scores` remains the numeric backbone for leaderboards and ranking. This stage adds the
 //! client-surfaced read: a direction, a signed ±5 conviction, and the blurb with provenance,
@@ -8,10 +10,10 @@
 //! [`momentum_conviction_from_score`] for why the magnitude stopped being asked for.
 
 use crate::harness::{EntityKey, Harness, Parser};
+use crate::junctions::oracle::{self, SynthMomentum, SynthRating, SynthVibe};
 use crate::ledger::{insert_cognition_ledger_best_effort, CognitionLedgerEntry};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
-use crate::junctions::oracle::{self, SynthMomentum, SynthRating, SynthVibe};
 use crate::stage::StageHandler;
 use crate::util::{go_json_float, go_json_string, hash_components, round1};
 use crate::work::{self, Item, Stage};
@@ -24,7 +26,7 @@ use tracing::{debug, warn};
 // builder — lives in `prompt.rs`, so a change to what this character is asked is a one-file
 // diff. Re-exported here so call sites and the ledger keep reading it from the stage module.
 pub mod prompt;
-pub use prompt::{MOMENTUM_PROMPT_VERSION, MOMENTUM_SYSTEM_PROMPT, build_momentum_prompt};
+pub use prompt::{build_momentum_prompt, MOMENTUM_PROMPT_VERSION, MOMENTUM_SYSTEM_PROMPT};
 
 /// Output contract captured separately in the diagnostic ledger.
 pub const MOMENTUM_OUTPUT_CONTRACT_VERSION: &str = "momentum-summary-v1";
@@ -277,13 +279,14 @@ fn build_momentum_input_components(
     let mut pairs: Vec<(&'static str, String)> =
         vec![("prompt_version", go_json_string(MOMENTUM_PROMPT_VERSION))];
     if let Some(r) = rating {
-        pairs.push(("divined_peak", go_json_string(&r.divined_peak)));
+        // s16 (the PEAK retirement): divined_peak left the product; the trajectory keys carry
+        // the rating_* names. The key change is part of the intended one-time regen wave.
         pairs.push(("notability", r.notability.to_string()));
-        pairs.push(("peak_trajectory", go_json_string(&r.peak_trajectory)));
-        if !r.peak_trajectory_label.is_empty() {
+        pairs.push(("rating_trajectory", go_json_string(&r.rating_trajectory)));
+        if !r.rating_trajectory_label.is_empty() {
             pairs.push((
-                "peak_trajectory_label",
-                go_json_string(&r.peak_trajectory_label),
+                "rating_trajectory_label",
+                go_json_string(&r.rating_trajectory_label),
             ));
         }
     }
@@ -368,7 +371,6 @@ fn strip_prefix_ci<'a>(s: &'a str, prefix: &str) -> Option<&'a str> {
         .map(|_| &s[prefix.len()..])
 }
 
-
 fn clean_joined_lines(lines: &[String]) -> String {
     lines
         .iter()
@@ -413,12 +415,11 @@ async fn persist_momentum_summary(
     Ok(row.get("id"))
 }
 
-
 fn momentum_included_evidence(ctx: &MomentumContext) -> serde_json::Value {
     serde_json::json!({
         "input_components": serde_json::from_str::<serde_json::Value>(&ctx.input_components_json)
             .unwrap_or_else(|_| serde_json::json!({"raw_input_components": ctx.input_components_json})),
-        "has_peak": ctx.rating.is_some(),
+        "has_rating": ctx.rating.is_some(),
         "has_vibe": ctx.vibe.is_some(),
         "has_momentum_snapshot": !ctx.snapshot.empty(),
     })

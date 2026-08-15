@@ -112,8 +112,16 @@ fn prompt_carries_the_decided_direction_line() {
         momentum_score: Some(50.7),
         ..SynthMomentum::default()
     };
-    let prompt =
-        build_momentum_prompt("player", "Test Player", "FOOTBALL", None, None, &mom, None, &[]);
+    let prompt = build_momentum_prompt(
+        "player",
+        "Test Player",
+        "FOOTBALL",
+        None,
+        None,
+        &mom,
+        None,
+        &[],
+    );
     assert!(prompt.contains(
         "Direction (decided upstream, final): rising (momentum score +50.7, steady band ±10)"
     ));
@@ -130,9 +138,8 @@ fn prompt_carries_the_decided_direction_line() {
         None,
         &[],
     );
-    assert!(empty.contains(
-        "Direction (decided upstream, final): steady (no durable momentum snapshot)"
-    ));
+    assert!(empty
+        .contains("Direction (decided upstream, final): steady (no durable momentum snapshot)"));
 }
 
 /// 7.8: the compiled storylines render as CONTEXT — after the memory card, before the decided
@@ -144,8 +151,16 @@ fn packet_context_renders_before_the_decided_direction_and_never_on_legacy() {
         momentum_score: Some(-22.4),
         ..SynthMomentum::default()
     };
-    let legacy =
-        build_momentum_prompt("player", "Test Player", "FOOTBALL", None, None, &mom, None, &[]);
+    let legacy = build_momentum_prompt(
+        "player",
+        "Test Player",
+        "FOOTBALL",
+        None,
+        None,
+        &mom,
+        None,
+        &[],
+    );
     assert!(!legacy.contains("THE STORIES BEHIND THE MOVE"));
 
     let block = "STORY: The winger's future at Real Madrid\nENTITY: Test Player (subject) — in this story 2026-08-02 → 2026-08-05\nREPORTED (newest first):\n- ESPN: he is set to stay\n";
@@ -164,7 +179,10 @@ fn packet_context_renders_before_the_decided_direction_and_never_on_legacy() {
         .expect("packet section");
     let dir = packet.find("Direction (decided upstream, final)").unwrap();
     let cue = packet.find("Write the Momentum read now").unwrap();
-    assert!(story < dir && dir < cue, "the decided fact stays last and final");
+    assert!(
+        story < dir && dir < cue,
+        "the decided fact stays last and final"
+    );
     assert!(packet.contains("STORY: The winger's future at Real Madrid"));
     // The Influencer's register is hers alone — the Analyst's render must not carry it.
     assert!(!packet.contains("MOOD:"));
@@ -189,9 +207,7 @@ fn relational_memory_renders_before_the_decided_direction() {
         Some(mem),
         &[],
     );
-    assert!(
-        p.contains("=== RELATIONAL MEMORY (computed history) ===\nArc context for the READ")
-    );
+    assert!(p.contains("=== RELATIONAL MEMORY (computed history) ===\nArc context for the READ"));
     assert!(p.contains("- Prior story: Real Madrid — fizzled"));
     let mem_pos = p.find("RELATIONAL MEMORY").unwrap();
     let dir_pos = p.find("Direction (decided upstream, final)").unwrap();
@@ -214,11 +230,10 @@ fn relational_memory_renders_before_the_decided_direction() {
 #[test]
 fn input_components_are_stable_and_sorted() {
     let rating = SynthRating {
-        divined_peak: "Rim protection".to_string(),
         body: "body".to_string(),
         notability: 88,
-        peak_trajectory: "rising".to_string(),
-        peak_trajectory_label: "Composite rising".to_string(),
+        rating_trajectory: "rising".to_string(),
+        rating_trajectory_label: "Composite rising".to_string(),
     };
     let vibe = SynthVibe {
         sentiment: 62,
@@ -239,8 +254,7 @@ fn input_components_are_stable_and_sorted() {
     assert_eq!(
         build_momentum_input_components(Some(&rating), Some(&vibe), &mom),
         format!(
-            r#"{{"divined_peak":"Rim protection","momentum_rating_samples":6,"momentum_rating_slope":1.2,"momentum_score":1.2,"momentum_vibe_samples":4,"momentum_vibe_slope":-0,"notability":88,"peak_trajectory":"rising","peak_trajectory_label":"Composite rising","prompt_version":"{MOMENTUM_PROMPT_VERSION}","vibe_sentiment":62}}"#
+            r#"{{"momentum_rating_samples":6,"momentum_rating_slope":1.2,"momentum_score":1.2,"momentum_vibe_samples":4,"momentum_vibe_slope":-0,"notability":88,"prompt_version":"{MOMENTUM_PROMPT_VERSION}","rating_trajectory":"rising","rating_trajectory_label":"Composite rising","vibe_sentiment":62}}"#
         )
     );
 }
-

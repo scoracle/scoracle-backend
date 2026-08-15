@@ -69,11 +69,10 @@ fn rating(
     body: &str,
 ) -> Option<SynthRating> {
     Some(SynthRating {
-        divined_peak: peak.to_string(),
         body: body.to_string(),
         notability,
-        peak_trajectory: trajectory.to_string(),
-        peak_trajectory_label: label.to_string(),
+        rating_trajectory: trajectory.to_string(),
+        rating_trajectory_label: label.to_string(),
     })
 }
 
@@ -293,7 +292,7 @@ fn main() -> anyhow::Result<()> {
             &s.momentum,
         );
         let convergence = pillar_convergence(&comparisons);
-        let (omen, omen_reason) = compute_omen(convergence, s.rating.as_ref(), &s.momentum);
+        let (omen, omen_reason) = compute_omen(convergence, &s.momentum);
         assert_eq!(
             omen, s.expect_omen,
             "scenario {}: authored pillars drew omen {omen}, expected {}",

@@ -1,9 +1,11 @@
-//! Rating stage — the stats-rail PEAK scouting report.
+//! Rating stage — the stats-rail scouting report.
 //!
-//! Rust owns both PEAK shapes: the per-entity core here, and a `PeakHandler` queue stage for
-//! current-season need-based PEAK work. `cmd/statcommentary` remains the operator/batch entry
-//! point: nightly mode enqueues durable PEAK work, while explicit backfill can still run the core
-//! inline for historical seasons.
+//! Rust owns both rating shapes: the per-entity core here, and a `PeakHandler` queue stage for
+//! current-season need-based rating work. `cmd/statcommentary` remains the operator/batch entry
+//! point: nightly mode enqueues durable rating work, while explicit backfill can still run the
+//! core inline for historical seasons. (s19 PEAK retirement: the specialist lens is gone — the
+//! rating is the z-score synthesis, and the Scout's brief surfaces specialists as prose, not as a
+//! divined label. The queue stage keeps its legacy "peak" string until the Wave B migration.)
 //!
 //! Composition (Plan §1.2 + §4): `route(StatsLogic) + extract + persist`. Rating is the FIRST
 //! `Role::StatsLogic` consumer (vibe/transfers are `EmotionalNews`). The deterministic parts stay
@@ -42,19 +44,20 @@ use tracing::debug;
 // diff. Re-exported here so call sites and the ledger keep reading it from the stage module.
 pub mod prompt;
 pub use prompt::{
-    RATING_PROMPT_VERSION, RATING_SYSTEM_PROMPT, build_stat_prompt, render_personnel_block,
+    build_stat_prompt, render_personnel_block, RATING_PROMPT_VERSION, RATING_SYSTEM_PROMPT,
 };
 
 /// Output contract captured separately in the Phase 2 diagnostic ledger.
-pub const RATING_OUTPUT_CONTRACT_VERSION: &str = "peak-commentary-v2";
+pub const RATING_OUTPUT_CONTRACT_VERSION: &str = "rating-commentary-v1"; // was peak-commentary-v2; s19 PEAK retirement — body-only output, no divined label
 
 /// Production rating temperature.
 pub const RATING_TEMPERATURE: f64 = 0.6;
 
-/// Token cap for the PEAK line plus one identity paragraph.
+/// Token cap for the scouting brief.
 pub const RATING_NUM_PREDICT: i32 = 2000;
 
-/// Durable PEAK queue input_version prefix. The queue key is entity/sport-scoped for historical
+/// Durable rating queue input_version prefix (legacy "peak" string until the Wave B stage
+/// rename migration). The queue key is entity/sport-scoped for historical
 /// compatibility; the season is carried in the version so the handler can drain explicit
 /// current-season demands without re-resolving the wrong season.
 const PEAK_WORK_PREFIX: &str = "peak:s";
@@ -136,19 +139,18 @@ where
         .collect())
 }
 
-/// The entity's scrubbed rating profile — mirrors `ratingProfile`. `composite_score`/`peak_score`
-/// come from the numeric/float8 COLUMN (cast `::float8` on read — the sqlx numeric landmine); the
+/// The entity's scrubbed rating profile — mirrors `ratingProfile`. `composite_score` comes from
+/// the numeric/float8 COLUMN (cast `::float8` on read — the sqlx numeric landmine); the
 /// breakdown/scoped/modes are JSONB. The breakdown's ARRAY ORDER is preserved (jsonb keeps array
 /// order), which `input_components` relies on (it walks the breakdown in stored order, unlike the
-/// prompt which sorts by pct).
+/// prompt which sorts by pct). (s19: the specialist columns — peak_score/peak_label — are retired;
+/// the breakdown IS the full z-score surface.)
 #[derive(Clone, Debug)]
 pub struct RatingProfile {
     pub entity_type: String,
     pub season: i32,
     pub position: String, // players only ("" for teams)
     pub composite_score: Option<f64>,
-    pub peak_score: Option<f64>,
-    pub peak_label: String,
     pub breakdown: Vec<RatingDatapoint>,
     pub scoped_ranks: HashMap<String, f64>,
     pub rate_modes: HashMap<String, Vec<RatingDatapoint>>,
@@ -163,13 +165,13 @@ pub struct RateStandout {
 }
 
 #[derive(Clone, Debug)]
-pub struct PeakTrajectory {
+pub struct RatingTrajectory {
     pub key: String,
     pub label: Option<String>,
     pub components: serde_json::Value,
 }
 
-impl PeakTrajectory {
+impl RatingTrajectory {
     fn steady(reason: &str) -> Self {
         Self {
             key: "steady".to_string(),
@@ -200,7 +202,6 @@ pub struct ScoutingDecisionFact {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ScoutingDecision {
-    pub required_peak_line: String,
     pub primary_strength_to_stop: Option<ScoutingDecisionFact>,
     pub secondary_strengths: Vec<ScoutingDecisionFact>,
     pub primary_weakness_to_exploit: Option<ScoutingDecisionFact>,
@@ -247,7 +248,7 @@ pub async fn load_rating_profile(
     let q = format!(
         r#"
         SELECT season, {pos_select},
-               rating_composite_score::float8, rating_specialist_score::float8, COALESCE(rating_specialty, ''),
+               rating_composite_score::float8,
                COALESCE(rating_breakdown, '[]'::jsonb)::text,
                COALESCE(rating_scoped_ranks, '{{}}'::jsonb)::text,
                {modes_select}
@@ -274,11 +275,9 @@ pub async fn load_rating_profile(
     let season: i32 = row.get(0);
     let position: String = row.get(1);
     let composite_score: Option<f64> = row.get(2);
-    let peak_score: Option<f64> = row.get(3);
-    let peak_label: String = row.get(4);
-    let breakdown_raw: String = row.get(5);
-    let scoped_raw: String = row.get(6);
-    let modes_raw: String = row.get(7);
+    let breakdown_raw: String = row.get(3);
+    let scoped_raw: String = row.get(4);
+    let modes_raw: String = row.get(5);
 
     let breakdown: Vec<RatingDatapoint> =
         serde_json::from_str(&breakdown_raw).context("unmarshal rating_breakdown")?;
@@ -291,8 +290,6 @@ pub async fn load_rating_profile(
         season,
         position,
         composite_score,
-        peak_score,
-        peak_label,
         breakdown,
         scoped_ranks,
         rate_modes,
@@ -329,32 +326,33 @@ fn parse_rate_modes(raw: &str) -> HashMap<String, Vec<RatingDatapoint>> {
 /// IS implicitly a parity axis via built_prompt). Mirrors `computeNotability`. Order-independent (the
 /// rate-mode loop only takes a max), so the HashMap iteration order does not affect the result.
 pub fn compute_notability(p: &RatingProfile) -> (i32, serde_json::Value) {
-    let mut peak = 0.0_f64;
+    let mut top_pct = 0.0_f64;
     let mut elite_count = 0_i64;
     for d in &p.breakdown {
-        if d.pct > peak {
-            peak = d.pct;
+        if d.pct > top_pct {
+            top_pct = d.pct;
         }
         if d.pct >= 85.0 {
             elite_count += 1;
         }
     }
-    // The per-x lens counts toward PEAK (an elite-per-36 limited-minutes player earns a fuller read)
-    // but NOT toward elite_count (avoid double-counting one skill across modes).
+    // The per-x lens counts toward the top percentile (an elite-per-36 limited-minutes player
+    // earns a fuller read) but NOT toward elite_count (avoid double-counting one skill across modes).
     for dps in p.rate_modes.values() {
         for d in dps {
-            if d.pct > peak {
-                peak = d.pct;
+            if d.pct > top_pct {
+                top_pct = d.pct;
             }
         }
     }
     let comp = p.composite_score.unwrap_or(50.0); // average T-score anchor when no composite
-    let score = 0.6 * peak
+    let score = 0.6 * top_pct
         + (elite_count as f64 * 10.0).min(30.0)
         + clamp_f(-10.0, 10.0, (comp - 50.0) * 0.4);
     let n = clamp_f(0.0, 100.0, score).round() as i32;
     let comps = serde_json::json!({
-        "peak_pct": round1(peak),
+        // key renamed from "peak_pct" at s19 (PEAK retirement); formula unchanged.
+        "top_pct": round1(top_pct),
         "elite_count": elite_count,
         "composite": round1(comp),
     });
@@ -612,15 +610,10 @@ pub fn build_scouting_decision(p: &RatingProfile) -> ScoutingDecision {
     let facts = ordered_facts_unbounded(&p.breakdown);
     let primary = facts.first().filter(|d| is_strong_or_elite(d));
 
-    let required_peak_line = match primary {
-        Some(d) => format!("PEAK: {}", d.label),
-        None => "PEAK: No standout skill".to_string(),
-    };
-
     let mut primary_strength_to_stop = primary.map(decision_fact);
     // Per-x corroboration rides the strength line itself (s14): echo-prone models speak the
     // card but skipped the separate rate-standouts section (gate rounds 1-2), so the proof
-    // the edge is real at low minutes must sit where the PEAK evidence is.
+    // the edge is real at low minutes must sit where the primary-strength evidence is.
     if let Some(f) = primary_strength_to_stop.as_mut() {
         if let Some(r) = collect_rate_standouts(p)
             .iter()
@@ -667,7 +660,6 @@ pub fn build_scouting_decision(p: &RatingProfile) -> ScoutingDecision {
     };
 
     ScoutingDecision {
-        required_peak_line,
         primary_strength_to_stop,
         secondary_strengths,
         primary_weakness_to_exploit,
@@ -679,8 +671,8 @@ fn render_scouting_decision(d: &ScoutingDecision) -> String {
     let mut b = String::new();
     // s18: the card's own labels stopped saying "PEAK"/"SCOUTING DECISION" — the s13-analyst
     // lesson is that an output ban cannot beat a word the input keeps shouting, so the input
-    // stopped shouting it. The required-line render is gone with the model's copy step: the
-    // divined peak is code-owned now (RatingReady.divined_peak), never round-tripped.
+    // stopped shouting it. (s19 retired the divined label outright: the card carries strengths
+    // and weaknesses; specialist-ness is something the brief SAYS when true, not a field.)
     b.push_str("\nDECISION CARD\n");
     match &d.primary_strength_to_stop {
         Some(f) => b.push_str(&format!("Primary strength to respect: {}\n", f.evidence)),
@@ -715,11 +707,11 @@ fn render_scouting_decision(d: &ScoutingDecision) -> String {
 }
 
 /// build_stat_prompt assembles the user prompt. s9 reframes this as a deterministic opposing-scout
-/// decision card plus supporting datapoints: the model explains the prepared PEAK choice instead of
+/// decision card plus supporting datapoints: the model explains the prepared decisions instead of
 /// inferring the structured label from the list. The `·` (U+00B7) and `—` (U+2014) are significant
 /// bytes; the tier labels are pctBand's deterministic output.
 /// load_stat_memory fetches the cross-season stats memory card (`stat_context_for_entity`,
-/// mig 164): prior-season PEAK read, confirmed moves, reliability-framed matchup edges.
+/// mig 164): prior-season top-skill read, confirmed moves, reliability-framed matchup edges.
 /// `None` = no memory, no prompt section. Model-facing enrichment only — the relational
 /// layer is never user-exposed.
 pub async fn load_stat_memory(
@@ -749,6 +741,61 @@ pub async fn load_stat_memory(
 fn descrub_memory_card(card: &str) -> String {
     card.replace("PEAK was", "the top skill read was")
         .replace("(notability ", "(profile distinctiveness ")
+}
+
+/// Season-over-season movement threshold (s19): a per-skill percentile move of at least this
+/// many points earns "improved"/"slipped"; anything smaller is "held".
+const Z_MEMORY_MOVE_PCT_POINTS: f64 = 8.0;
+/// Cap on movement lines rendered into the prompt (top by current pct — the A5 rule does not
+/// apply: unmatched skills are new-season datapoints, not dropped evidence).
+const Z_MEMORY_MAX_LINES: usize = 10;
+
+/// build_z_memory_lines renders the per-skill season-over-season movement block (s19): for each
+/// current datapoint with a matching prior-season label, one line carrying both percentiles,
+/// both tiers, and a DECIDED movement word — the L8/ScoutingDecision discipline applied to
+/// trajectory (the model voices a decided move, it never infers direction from raw numbers).
+/// Pure for testability; `None` when no skill matches across seasons.
+pub fn build_z_memory_lines(current: &RatingProfile, prior: &RatingProfile) -> Option<String> {
+    let prior_by_label: HashMap<&str, f64> = prior
+        .breakdown
+        .iter()
+        .map(|d| (d.label.as_str(), d.pct))
+        .collect();
+    let mut facts: Vec<(&RatingDatapoint, f64)> = current
+        .breakdown
+        .iter()
+        .filter_map(|d| prior_by_label.get(d.label.as_str()).map(|p| (d, *p)))
+        .collect();
+    facts.sort_by(|a, b| {
+        b.0.pct
+            .partial_cmp(&a.0.pct)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    facts.truncate(Z_MEMORY_MAX_LINES);
+    if facts.is_empty() {
+        return None;
+    }
+    let mut out = String::new();
+    for (d, prior_pct) in facts {
+        let delta = d.pct - prior_pct;
+        let movement = if delta >= Z_MEMORY_MOVE_PCT_POINTS {
+            "improved"
+        } else if delta <= -Z_MEMORY_MOVE_PCT_POINTS {
+            "slipped"
+        } else {
+            "held"
+        };
+        out.push_str(&format!(
+            "{}: {:.0}th pct ({}) — last season {:.0}th ({}); {}\n",
+            d.label,
+            d.pct,
+            pct_band(d.pct),
+            prior_pct,
+            pct_band(prior_pct),
+            movement
+        ));
+    }
+    Some(out)
 }
 
 /// One adjudicated personnel change, as the DB describes it — dates already labeled by
@@ -822,7 +869,7 @@ pub async fn load_personnel_changes(
         Option<i32>,
         Option<i32>,
     )> = sqlx::query_as(
-            r#"
+        r#"
         WITH since AS (
             SELECT greatest(
                        COALESCE(
@@ -863,15 +910,15 @@ pub async fn load_personnel_changes(
             OR ($2 = 'team' AND ($3 = c.new_team_id OR $3 = c.old_team_id))
          ORDER BY c.at DESC
         "#,
-        )
-        .bind(sport)
-        .bind(entity_type)
-        .bind(entity_id)
-        .bind(PERSONNEL_FIRST_READ_DAYS)
-        .bind(PERSONNEL_MAX_DAYS)
-        .fetch_all(pool)
-        .await
-        .with_context(|| format!("load personnel changes {entity_type}/{entity_id}"))?;
+    )
+    .bind(sport)
+    .bind(entity_type)
+    .bind(entity_id)
+    .bind(PERSONNEL_FIRST_READ_DAYS)
+    .bind(PERSONNEL_MAX_DAYS)
+    .fetch_all(pool)
+    .await
+    .with_context(|| format!("load personnel changes {entity_type}/{entity_id}"))?;
 
     let total = rows.len();
     let changes = rows
@@ -961,12 +1008,13 @@ impl GoJson {
     }
 }
 
-/// input_components returns the canonical input-components JSON — the exact bytes Go's
-/// `json.Marshal(orEmptyMap(ic))` produces (its SHA-256 is `input_hash`). Mirrors
-/// `(*ratingProfile).inputComponents`: `season`/`peak_label`/`datapoints` are ALWAYS present; the rest
-/// (rate_standouts, composite_score, peak_score, position) are conditional. `pct` values are `round1`'d.
-/// Wave 5 deliberately removes the old `is_specialty` flag from each datapoint so the scouting
-/// report surfaces specialist traits from the full metric spread rather than a pre-labeled axis.
+/// input_components returns the canonical input-components JSON (its SHA-256 is `input_hash`).
+/// `season`/`datapoints` are ALWAYS present; the rest (rate_standouts, composite_score, position)
+/// are conditional. `pct` values are `round1`'d. Wave 5 deliberately removed the old
+/// `is_specialty` flag from each datapoint, and s19 removes the specialist pre-image entries
+/// (`peak_label`/`peak_score`) with the columns themselves — the pre-image is the z-score surface
+/// the Scout actually reads. (The Go-parity note is historical: since the Step-3 cutover Rust is
+/// the sole producer, and the s19 hash change regenerates every entity once, by design.)
 pub fn input_components(p: &RatingProfile) -> String {
     let datapoints: Vec<GoJson> = p
         .breakdown
@@ -988,7 +1036,6 @@ pub fn input_components(p: &RatingProfile) -> String {
             GoJson::Str(RATING_PROMPT_VERSION.to_string()),
         ),
         ("season".to_string(), GoJson::Int(p.season as i64)),
-        ("peak_label".to_string(), GoJson::Str(p.peak_label.clone())),
         ("datapoints".to_string(), GoJson::Arr(datapoints)),
     ];
 
@@ -1008,9 +1055,6 @@ pub fn input_components(p: &RatingProfile) -> String {
     }
     if let Some(c) = p.composite_score {
         top.push(("composite_score".to_string(), GoJson::Float(round1(c))));
-    }
-    if let Some(ps) = p.peak_score {
-        top.push(("peak_score".to_string(), GoJson::Float(round1(ps))));
     }
     if !p.position.is_empty() {
         top.push(("position".to_string(), GoJson::Str(p.position.clone())));
@@ -1069,134 +1113,133 @@ fn trajectory_key(slope: f64) -> &'static str {
     }
 }
 
-fn z_trend_phrase(key: &str) -> &'static str {
+/// s15/or9 descrub, simplified at s19 (composite-only): this label renders into the ANALYST's
+/// prompt ("Form trend: …") and the SCOUT's context line, and its old wording ("Composite and
+/// PEAK z-scores trending up") was the measured source of bookkeeping vocabulary leaking into
+/// served prose — two banned-word attempts failed against it (the analyst s13 postmortem: a rule
+/// cannot beat a phrase sitting in the data). The label speaks the sport's words at the source.
+fn z_trajectory_label(key: &str) -> String {
     match key {
-        "rising" => "rising",
-        "falling" => "falling",
-        _ => "steady",
+        "rising" => "overall scores trending up over recent games".to_string(),
+        "falling" => "overall scores trending down over recent games".to_string(),
+        _ => "overall scores holding steady over recent games".to_string(),
     }
-}
-
-/// s15/or9 descrub: this label renders into the ANALYST's prompt ("Form trend: …") and the
-/// ORACLE's card ("Skill trend: …"), and its old wording ("Composite and PEAK z-scores trending
-/// up") was the measured source of bookkeeping vocabulary leaking into both seats' served prose
-/// — two banned-word attempts failed against it (the analyst s13 postmortem: a rule cannot beat
-/// a phrase sitting in the data). The label now speaks the sport's words at the source.
-fn z_trajectory_label(key: &str, composite_key: &str, peak_key: &str) -> String {
-    if composite_key == peak_key {
-        return match key {
-            "rising" => "overall scores and the top skill trending up over recent games".to_string(),
-            "falling" => {
-                "overall scores and the top skill trending down over recent games".to_string()
-            }
-            _ => "overall scores and the top skill holding steady over recent games".to_string(),
-        };
-    }
-
-    format!(
-        "overall scores {}; the top skill {} over recent games",
-        z_trend_phrase(composite_key),
-        z_trend_phrase(peak_key)
-    )
 }
 
 fn rounded_series(vals: &[f64]) -> Vec<f64> {
     vals.iter().copied().map(round1).collect()
 }
 
-async fn load_peak_trajectory(
+/// Fraction of the entity's scored events that forms the trajectory window (s19). The old fixed
+/// `LIMIT 8` was an NBA-calibrated constant (~10% of an 82-game season) that read far too wide
+/// for NFL/FOOTBALL calendars. The window now scales with how much the entity actually plays:
+/// 10% of its scored events this season, clamped to [3, 16] — 3 is the slope minimum, 16 keeps
+/// the read recent on long calendars.
+const TRAJECTORY_WINDOW_PCT: f64 = 0.10;
+const TRAJECTORY_WINDOW_MIN: i64 = 3;
+const TRAJECTORY_WINDOW_MAX: i64 = 16;
+
+async fn load_rating_trajectory(
     pool: &PgPool,
     entity_type: &str,
     entity_id: i32,
     sport: &str,
     profile: &RatingProfile,
-) -> Result<PeakTrajectory> {
+) -> Result<RatingTrajectory> {
     let (table, id_col) = match entity_type {
         "player" => ("event_box_scores", "player_id"),
         "team" => ("event_team_stats", "team_id"),
-        _ => return Ok(PeakTrajectory::steady("unknown_entity_type")),
+        _ => return Ok(RatingTrajectory::steady("unknown_entity_type")),
     };
+
+    // The dynamic window (s19): how many scored events the entity has this season decides how
+    // many "recent" means for it — a marker, not a verdict (the Analyst leans on it; the Scout
+    // reads it as context; the Oracle is blind to it and reads their outputs instead).
+    let count_q = format!(
+        r#"
+        SELECT COUNT(*)
+        FROM public.{table} e
+        WHERE e.{id_col} = $1 AND e.sport = $2 AND e.season = $3
+          AND e.rating_composite IS NOT NULL
+        "#
+    );
+    let events_played: i64 = sqlx::query_scalar(&count_q)
+        .bind(entity_id)
+        .bind(sport)
+        .bind(profile.season)
+        .fetch_one(pool)
+        .await
+        .with_context(|| format!("count trajectory events {entity_type}/{entity_id}"))?;
+    let window_size = ((events_played as f64 * TRAJECTORY_WINDOW_PCT).round() as i64)
+        .clamp(TRAJECTORY_WINDOW_MIN, TRAJECTORY_WINDOW_MAX);
+
+    if events_played < TRAJECTORY_WINDOW_MIN {
+        let mut out = RatingTrajectory::steady("sparse_recent_events");
+        out.components = serde_json::json!({
+            "reason": "sparse_recent_events",
+            "events_played": events_played,
+            "window_pct": TRAJECTORY_WINDOW_PCT,
+            "source": "event_rating_z_scores",
+            "metrics": ["rating_composite"],
+        });
+        return Ok(out);
+    }
 
     let q = format!(
         r#"
-        SELECT e.rating_composite::float8, e.rating_specialist::float8
+        SELECT e.rating_composite::float8
         FROM public.{table} e
         JOIN public.fixtures f ON f.id = e.fixture_id
         WHERE e.{id_col} = $1
           AND e.sport = $2
           AND e.season = $3
-          AND (e.rating_composite IS NOT NULL OR e.rating_specialist IS NOT NULL)
+          AND e.rating_composite IS NOT NULL
         ORDER BY f.start_time DESC
-        LIMIT 8
+        LIMIT $4
         "#
     );
-    let events_desc: Vec<(Option<f64>, Option<f64>)> = sqlx::query_as(&q)
+    let composite_desc: Vec<f64> = sqlx::query_scalar(&q)
         .bind(entity_id)
         .bind(sport)
         .bind(profile.season)
+        .bind(window_size)
         .fetch_all(pool)
         .await
-        .with_context(|| format!("load peak trajectory {entity_type}/{entity_id}"))?;
+        .with_context(|| format!("load rating trajectory {entity_type}/{entity_id}"))?;
 
-    if events_desc.len() < 3 {
-        let mut out = PeakTrajectory::steady("sparse_recent_events");
-        out.components = serde_json::json!({
-            "reason": "sparse_recent_events",
-            "recent_event_count": events_desc.len(),
-            "source": "event_rating_z_scores",
-            "metrics": ["rating_composite", "rating_peak"],
-        });
-        return Ok(out);
-    }
-
-    let composite_desc: Vec<f64> = events_desc.iter().filter_map(|(v, _)| *v).collect();
-    let peak_desc: Vec<f64> = events_desc.iter().filter_map(|(_, v)| *v).collect();
-    if composite_desc.len() < 3 && peak_desc.len() < 3 {
-        let mut out = PeakTrajectory::steady("sparse_z_score_events");
+    if composite_desc.len() < TRAJECTORY_WINDOW_MIN as usize {
+        let mut out = RatingTrajectory::steady("sparse_z_score_events");
         out.components = serde_json::json!({
             "reason": "sparse_z_score_events",
-            "recent_event_count": events_desc.len(),
+            "events_played": events_played,
+            "window_pct": TRAJECTORY_WINDOW_PCT,
+            "window_size": window_size,
             "composite_sample_size": composite_desc.len(),
-            "peak_sample_size": peak_desc.len(),
             "source": "event_rating_z_scores",
-            "metrics": ["rating_composite", "rating_peak"],
+            "metrics": ["rating_composite"],
         });
         return Ok(out);
     }
 
     let mut composite_chrono = composite_desc.clone();
     composite_chrono.reverse();
-    let mut peak_chrono = peak_desc.clone();
-    peak_chrono.reverse();
     let composite_slope = linear_slope(&composite_chrono);
-    let peak_slope = linear_slope(&peak_chrono);
-    let combined_slope = match (!composite_desc.is_empty(), !peak_desc.is_empty()) {
-        (true, true) => (composite_slope + peak_slope) / 2.0,
-        (true, false) => composite_slope,
-        (false, true) => peak_slope,
-        (false, false) => 0.0,
-    };
-    let key = trajectory_key(combined_slope).to_string();
-    let composite_key = trajectory_key(composite_slope);
-    let peak_key = trajectory_key(peak_slope);
-    let label = Some(z_trajectory_label(&key, composite_key, peak_key));
+    let key = trajectory_key(composite_slope).to_string();
+    let label = Some(z_trajectory_label(&key));
 
-    Ok(PeakTrajectory {
+    Ok(RatingTrajectory {
         key,
         label,
         components: serde_json::json!({
             "source": "event_rating_z_scores",
-            "metrics": ["rating_composite", "rating_peak"],
-            "recent_event_count": events_desc.len(),
+            "metrics": ["rating_composite"],
+            "events_played": events_played,
+            "window_pct": TRAJECTORY_WINDOW_PCT,
+            "window_size": window_size,
             "composite_sample_size": composite_desc.len(),
-            "peak_sample_size": peak_desc.len(),
-            "combined_z_slope": round1(combined_slope),
             "composite_z_slope": round1(composite_slope),
-            "peak_z_slope": round1(peak_slope),
             "latest_composite_z": composite_desc.first().copied().map(round1),
-            "latest_peak_z": peak_desc.first().copied().map(round1),
             "recent_composite_z": rounded_series(&composite_desc),
-            "recent_peak_z": rounded_series(&peak_desc),
         }),
     })
 }
@@ -1209,28 +1252,27 @@ async fn load_peak_trajectory(
 /// line) + the cleaned identity-analysis body. The `T` in `Parser<T>`.
 #[derive(Clone, Debug)]
 pub struct RatingReply {
-    pub divined_peak: String, // "" if the model omitted the marker line
     pub body: String,
 }
 
-/// RatingParser splits the model reply into (divined_peak, body) and cleans the body. It NEVER returns
+/// RatingParser strips any legacy marker line and cleans the body. It NEVER returns
 /// `Ok(None)` (like `VibeParser`): rating has no post-model fail-closed marker — an empty body is a
-/// hard error the caller raises (Go returns an error too), and the only marker is the PRE-model
-/// no-stats path. Mirrors `parsePeakCommentary` + `cleanCommentary`.
+/// hard error the caller raises, and the only marker is the PRE-model no-stats path.
 pub struct RatingParser;
 
 impl Parser<RatingReply> for RatingParser {
     fn parse(&self, raw: &str) -> Result<Option<RatingReply>> {
-        let (divined_peak, raw_body) = parse_peak_commentary(raw);
+        let (_legacy_label, raw_body) = parse_rating_commentary(raw);
         let body = clean_commentary(&raw_body);
-        Ok(Some(RatingReply { divined_peak, body }))
+        Ok(Some(RatingReply { body }))
     }
 }
 
-/// parse_peak_commentary extracts the divined peak label from the first line ("PEAK: <label>") and
-/// returns (divined_peak, body) — the body is everything after. Omitted marker ⇒ the whole response is
-/// the body, divined_peak "". The legacy "SIGIL: " prefix is still accepted (forward-only s5 rename).
-fn parse_peak_commentary(raw: &str) -> (String, String) {
+/// parse_rating_commentary strips a legacy marker first line ("PEAK: <label>" / "SIGIL: <label>")
+/// if a model still emits one (transition tolerance — what it strips is discarded since s18/s19)
+/// and returns (stripped_label, body) — the body is everything after. No marker ⇒ the whole
+/// response is the body.
+fn parse_rating_commentary(raw: &str) -> (String, String) {
     let trimmed = raw.trim();
     if let Some(idx) = trimmed.find('\n') {
         let first_line = trimmed[..idx].trim();
@@ -1242,8 +1284,8 @@ fn parse_peak_commentary(raw: &str) -> (String, String) {
     }
     // Single-line response. A bare `PEAK: Rim protection` still has no body and remains invalid to
     // the caller, but some local models put the entire scouting report on the marker line despite
-    // the two-line instruction. Salvage that prose as the body while leaving `divined_peak` empty:
-    // the product gets usable commentary, and the eval can still mark PEAK-label specificity red.
+    // the old two-line instruction. Salvage that prose as the body (the stripped label is
+    // discarded either way since s19): the product gets usable commentary.
     if let Some(label) = trim_marker(trimmed) {
         if looks_like_inline_commentary(label) {
             return (String::new(), label.to_string());
@@ -1297,15 +1339,9 @@ pub enum RatingBuild {
 /// can never drift from what is POSTed.
 pub struct RatingReady {
     pub season: i32,
-    /// The code-owned divined peak (s18): the decision card's label, minus the "PEAK: " prefix
-    /// the retired copy-contract used to carry. Persisted directly — the model is never asked
-    /// to round-trip it, so the copy-flake class ("chose a different skill", "dropped the
-    /// marker") is structurally dead. Same stored values as before, including the literal
-    /// "No standout skill".
-    pub divined_peak: String,
     pub notability: i32,
     pub notability_components: serde_json::Value,
-    pub peak_trajectory: PeakTrajectory,
+    pub rating_trajectory: RatingTrajectory,
     pub input_components: String, // the canonical JSON (also the hash pre-image)
     pub input_hash: String,
     pub exclusions: RatingExclusions,
@@ -1368,7 +1404,7 @@ pub async fn build_rating_request(
         degenerate_zero_stat_labels,
         display_tier_stat_labels,
     };
-    let peak_trajectory = load_peak_trajectory(
+    let rating_trajectory = load_rating_trajectory(
         &hx.pool,
         &req.entity_type,
         req.entity_id,
@@ -1411,12 +1447,9 @@ pub async fn build_rating_request(
     // the news.
     let personnel = if with_enrichment {
         match load_personnel_changes(&hx.pool, &req.sport, &req.entity_type, req.entity_id).await {
-            Ok((changes, total)) => prompt::render_personnel_block(
-                &req.entity_type,
-                req.entity_id,
-                &changes,
-                total,
-            ),
+            Ok((changes, total)) => {
+                prompt::render_personnel_block(&req.entity_type, req.entity_id, &changes, total)
+            }
             Err(e) => {
                 tracing::warn!(
                     entity_type = %req.entity_type,
@@ -1431,12 +1464,57 @@ pub async fn build_rating_request(
     } else {
         None
     };
+    // s19: season-over-season movement lines — the Scout's trajectory material (labeled
+    // deltas against last season's percentiles, decided in code). Same enrichment discipline
+    // as the memory card: best-effort, prompt-only, outside `input_components`/`input_hash`.
+    let z_memory = if with_enrichment {
+        match load_rating_profile(
+            &hx.pool,
+            &req.entity_type,
+            req.entity_id,
+            &req.sport,
+            Some(profile.season - 1),
+        )
+        .await
+        {
+            Ok(Some(mut prior)) => {
+                // The same signal-only view the current profile gets: off-facet, degenerate-zero,
+                // and display-tier datapoints never enter a movement comparison.
+                let _ = drop_off_facet_datapoints(&mut prior);
+                let _ = drop_degenerate_zero_datapoints(&mut prior);
+                let _ = drop_display_tier_datapoints(&mut prior);
+                build_z_memory_lines(&profile, &prior)
+            }
+            Ok(None) => None,
+            Err(e) => {
+                tracing::warn!(
+                    entity_type = %req.entity_type,
+                    entity_id = req.entity_id,
+                    sport = %req.sport,
+                    error = %e,
+                    "rating: prior-season profile load failed (continuing without movement lines)"
+                );
+                None
+            }
+        }
+    } else {
+        None
+    };
+    // The recent-form marker rides the same enrichment flag: shading context in production,
+    // absent on the parity/eval bare shape.
+    let form_trend = if with_enrichment {
+        rating_trajectory.label.clone()
+    } else {
+        None
+    };
     let built_prompt = build_stat_prompt(
         req,
         &profile,
         notability,
         memory.as_deref(),
         personnel.as_deref(),
+        z_memory.as_deref(),
+        form_trend.as_deref(),
     );
     let opts = GenerateOptions {
         system: Some(RATING_SYSTEM_PROMPT.to_string()),
@@ -1462,13 +1540,9 @@ pub async fn build_rating_request(
 
     Ok(RatingBuild::Ready(Box::new(RatingReady {
         season: profile.season,
-        divined_peak: decision
-            .required_peak_line
-            .trim_start_matches("PEAK: ")
-            .to_string(),
         notability,
         notability_components,
-        peak_trajectory,
+        rating_trajectory,
         input_components,
         input_hash,
         exclusions,
@@ -1486,13 +1560,12 @@ pub struct RatingOutput {
     pub season: i32,
     pub skipped_no_stats: bool,
     pub skipped_unchanged: bool,
-    pub body: Option<String>,         // None for a marker
-    pub divined_peak: Option<String>, // None when absent/empty (Go: empty ⇒ NULL)
+    pub body: Option<String>, // None for a marker
     pub notability: Option<i32>,
     pub notability_components: serde_json::Value,
-    pub peak_trajectory: Option<String>,
-    pub peak_trajectory_label: Option<String>,
-    pub peak_trajectory_components: serde_json::Value,
+    pub rating_trajectory: Option<String>,
+    pub rating_trajectory_label: Option<String>,
+    pub rating_trajectory_components: serde_json::Value,
     pub input_components: String, // "{}" for a marker
     pub input_hash: Option<String>,
     pub exclusions: RatingExclusions,
@@ -1543,12 +1616,11 @@ pub async fn generate_rating(
                 skipped_no_stats: true,
                 skipped_unchanged: false,
                 body: None,
-                divined_peak: None,
                 notability: None,
                 notability_components: serde_json::json!({}),
-                peak_trajectory: None,
-                peak_trajectory_label: None,
-                peak_trajectory_components: serde_json::json!({}),
+                rating_trajectory: None,
+                rating_trajectory_label: None,
+                rating_trajectory_components: serde_json::json!({}),
                 input_components: "{}".to_string(),
                 input_hash: None,
                 exclusions: RatingExclusions::default(),
@@ -1586,12 +1658,11 @@ pub async fn generate_rating(
                     skipped_no_stats: false,
                     skipped_unchanged: true,
                     body: None,
-                    divined_peak: None,
                     notability: None,
                     notability_components: serde_json::json!({}),
-                    peak_trajectory: Some(ready.peak_trajectory.key.clone()),
-                    peak_trajectory_label: ready.peak_trajectory.label.clone(),
-                    peak_trajectory_components: ready.peak_trajectory.components.clone(),
+                    rating_trajectory: Some(ready.rating_trajectory.key.clone()),
+                    rating_trajectory_label: ready.rating_trajectory.label.clone(),
+                    rating_trajectory_components: ready.rating_trajectory.components.clone(),
                     input_components: ready.input_components,
                     input_hash: Some(ready.input_hash),
                     exclusions: ready.exclusions,
@@ -1631,15 +1702,11 @@ pub async fn generate_rating(
         skipped_no_stats: false,
         skipped_unchanged: false,
         body: Some(reply.body),
-        // s18: code-owned — the decision card's label, never the model's copy. The parser still
-        // strips a "PEAK: " marker line if a model emits one (transition tolerance), but what it
-        // strips is discarded; only the body survives the parse.
-        divined_peak: Some(ready.divined_peak),
         notability: Some(ready.notability),
         notability_components: ready.notability_components,
-        peak_trajectory: Some(ready.peak_trajectory.key),
-        peak_trajectory_label: ready.peak_trajectory.label,
-        peak_trajectory_components: ready.peak_trajectory.components,
+        rating_trajectory: Some(ready.rating_trajectory.key),
+        rating_trajectory_label: ready.rating_trajectory.label,
+        rating_trajectory_components: ready.rating_trajectory.components,
         input_components: ready.input_components,
         input_hash: Some(ready.input_hash),
         exclusions: ready.exclusions,
@@ -1652,7 +1719,8 @@ pub async fn generate_rating(
     })
 }
 
-/// peak_work_input_version is the durable queue fingerprint for a PEAK card demand.
+/// peak_work_input_version is the durable queue fingerprint for a rating-card demand
+/// (legacy "peak" prefix until the Wave B stage rename).
 /// It includes the season, the PROMPT CONTRACT, and the rating input hash (or an explicit
 /// marker token), so repeated enqueue attempts collapse while changed scouting input — or a
 /// changed contract — reopens the outstanding row. The prompt-version leg (s11) is what lets
@@ -1704,9 +1772,8 @@ async fn last_commentary_provenance(
 }
 
 /// persist_stat_summary writes ONE row to the LIVE stat_summaries table — the scored commentary and
-/// the no-stats marker, which differ only in the bound values (body/notability/divined_peak NULL for
-/// the marker; model_version is set for both). Mirrors `rating.go::persist`. Written + compiles;
-/// NOT run this session (offline) — its first live run is the Step-3 cutover batch bin.
+/// the no-stats marker, which differ only in the bound values (body/notability NULL for
+/// the marker; model_version is set for both).
 pub async fn persist_stat_summary(
     pool: &PgPool,
     entity_type: &str,
@@ -1721,17 +1788,20 @@ pub async fn persist_stat_summary(
     let prov = out.provenance().with_trigger_payload(trigger_payload);
     let trigger_json = prov.trigger_payload_json("{}");
     let ncomp_json = out.notability_components.to_string();
-    let peak_components_json = out.peak_trajectory_components.to_string();
+    let trajectory_components_json = out.rating_trajectory_components.to_string();
 
+    // s19: divined_peak is retired (never written; column dropped in the Wave B migration).
+    // The trajectory still writes to the legacy peak_trajectory* column names until that same
+    // migration renames them to rating_trajectory*.
     let row = sqlx::query(
         r#"
         INSERT INTO stat_summaries (
             entity_type, entity_id, sport, season, trigger_type, trigger_payload,
             body, notability, notability_components, input_components, input_hash,
-            model_version, prompt_version, generated_at, divined_peak,
+            model_version, prompt_version, generated_at,
             peak_trajectory, peak_trajectory_label, peak_trajectory_components
-        ) VALUES ($1,$2,$3,$4,$5,$6::jsonb, $7,$8,$9::jsonb,$10::jsonb,$11, $12,$13,NOW(),$14,
-                  $15,$16,$17::jsonb)
+        ) VALUES ($1,$2,$3,$4,$5,$6::jsonb, $7,$8,$9::jsonb,$10::jsonb,$11, $12,$13,NOW(),
+                  $14,$15,$16::jsonb)
         RETURNING id
         "#,
     )
@@ -1748,10 +1818,9 @@ pub async fn persist_stat_summary(
     .bind(prov.input_hash.as_deref())
     .bind(prov.model_version.as_str())
     .bind(prov.prompt_version)
-    .bind(out.divined_peak.as_deref())
-    .bind(out.peak_trajectory.as_deref())
-    .bind(out.peak_trajectory_label.as_deref())
-    .bind(&peak_components_json)
+    .bind(out.rating_trajectory.as_deref())
+    .bind(out.rating_trajectory_label.as_deref())
+    .bind(&trajectory_components_json)
     .fetch_one(pool)
     .await
     .context("persist stat summary")?;
@@ -1798,7 +1867,6 @@ pub async fn persist_stat_summary(
     Ok(())
 }
 
-
 async fn current_season(pool: &PgPool, sport: &str) -> Result<i32> {
     sqlx::query_scalar("SELECT current_season FROM public.sports WHERE id = $1")
         .bind(sport)
@@ -1807,9 +1875,10 @@ async fn current_season(pool: &PgPool, sport: &str) -> Result<i32> {
         .with_context(|| format!("current season {sport}"))
 }
 
-/// PeakHandler drains the durable `peak` stage. It is the queue-owned form of the stats rail:
-/// generate/persist the PEAK scouting card only when the rating input hash moved, then enqueue
-/// Momentum as the downstream consumer of the fresh PEAK pillar.
+/// PeakHandler drains the durable `peak` stage (legacy stage string until the Wave B rename).
+/// It is the queue-owned form of the stats rail: generate/persist the scouting card only when
+/// the rating input hash moved, then enqueue Momentum as the downstream consumer of the fresh
+/// rating pillar.
 pub struct PeakHandler;
 
 impl PeakHandler {
@@ -1871,8 +1940,13 @@ impl StageHandler for PeakHandler {
             &out,
         )
         .await?;
-        crate::junctions::analyst::enqueue_momentum_if_needed(hx, &item.entity_type, entity_id, &sport)
-            .await?;
+        crate::junctions::analyst::enqueue_momentum_if_needed(
+            hx,
+            &item.entity_type,
+            entity_id,
+            &sport,
+        )
+        .await?;
         Ok(())
     }
 }
@@ -1890,10 +1964,9 @@ fn rating_included_evidence(out: &RatingOutput) -> serde_json::Value {
         "input_components": rating_input_components_value(out),
         "notability": out.notability,
         "notability_components": &out.notability_components,
-        "peak_trajectory": &out.peak_trajectory,
-        "peak_trajectory_label": &out.peak_trajectory_label,
-        "peak_trajectory_components": &out.peak_trajectory_components,
-        "divined_peak": &out.divined_peak,
+        "rating_trajectory": &out.rating_trajectory,
+        "rating_trajectory_label": &out.rating_trajectory_label,
+        "rating_trajectory_components": &out.rating_trajectory_components,
     })
 }
 

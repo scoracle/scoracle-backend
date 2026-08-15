@@ -19,7 +19,7 @@ use std::time::Duration;
 /// per-entity (player/team); `Scrub` is the exception — it is ARTICLE-keyed (entity_type='article',
 /// entity_id=`news_articles.id`) and is the news ID-gate that, on writing `vetted`, fires the mig-103
 /// trigger enqueuing the per-entity derive stages (Plan §8, L6 option (i)). `Momentum` is the
-/// generated trajectory card over PEAK/Vibe plus deterministic momentum scores. The Rust handlers
+/// generated trajectory card over the rating read/Vibe plus deterministic momentum scores. The Rust handlers
 /// drain these stages; Go only enqueues/operates queue rows.
 ///
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -463,5 +463,4 @@ mod tests {
         );
         assert!(!PILLAR_STAGES.contains(&Stage::Sigil));
     }
-
 }

@@ -56,11 +56,10 @@ const MOOD_WORDS: &str = "mood|emotion|feeling|the room|the feed";
 
 fn rating(peak: &str, notability: i32, label: &str, body: &str) -> Option<SynthRating> {
     Some(SynthRating {
-        divined_peak: peak.to_string(),
         body: body.to_string(),
         notability,
-        peak_trajectory: String::new(), // the prompt renders the label; the enum is unused here
-        peak_trajectory_label: label.to_string(),
+        rating_trajectory: String::new(), // the prompt renders the label; the enum is unused here
+        rating_trajectory_label: label.to_string(),
     })
 }
 

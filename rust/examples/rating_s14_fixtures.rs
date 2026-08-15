@@ -77,7 +77,12 @@ fn dp_pos(label: &str, value: f64, z: f64, pct: f64, pos_pct: f64) -> RatingData
 fn rating_gate(includes: &[&str], excludes: &[&str], min_words: i64) -> serde_json::Value {
     let mut inc: Vec<String> = includes.iter().map(|s| s.to_string()).collect();
     inc.extend(
-        ["Strengths to respect:", "Exploitation opportunities:", "Summary:"].map(String::from),
+        [
+            "Strengths to respect:",
+            "Exploitation opportunities:",
+            "Summary:",
+        ]
+        .map(String::from),
     );
     let mut exc: Vec<String> = excludes.iter().map(|s| s.to_string()).collect();
     exc.extend([" · ", "**"].map(String::from));
@@ -218,8 +223,6 @@ fn main() -> anyhow::Result<()> {
             season: 2025,
             position: s.position.to_string(),
             composite_score: Some(s.composite),
-            peak_score: None,
-            peak_label: String::new(),
             breakdown: s.breakdown,
             scoped_ranks: HashMap::new(),
             rate_modes: s.rate_modes,
@@ -236,7 +239,7 @@ fn main() -> anyhow::Result<()> {
         // reads matches what production would say about this exact profile.
         let (notability, _) = compute_notability(&profile);
         // Fixtures pin the memory-free shape (the s12/n8 eval discipline).
-        let prompt = build_stat_prompt(&req, &profile, notability, None, None);
+        let prompt = build_stat_prompt(&req, &profile, notability, None, None, None, None);
         let v = json!({
             "name": s.name,
             "task": "rating",

@@ -1,8 +1,8 @@
 //! Sigil stage — the crown convergence and Oracle reading.
 //!
 //! Sigil = `read pillars + route(OracleLogic) + extract(SigilParser) + persist`, with a
-//! `debounce_unchanged` gate on the pillar `input_hash`. The prompt composes PEAK, Vibe,
-//! Momentum, transfers, and current narratives as distinct pillars.
+//! `debounce_unchanged` gate on the pillar `input_hash`. The prompt composes the Scout's
+//! rating read, Vibe, Momentum, transfers, and current narratives as distinct pillars.
 //! Phase 5.1 adds a fifth: the transfer-heat pillar (the transfer lens the trigger gate already
 //! watches), so the synthesis can finally see the served rumors that can fire its own re-run.
 //! Phase 5.2 feeds the previous Sigil (score + blurb) back into the prompt as continuity — a
@@ -41,7 +41,10 @@ use tracing::debug;
 // builder — lives in `prompt.rs`, so a change to what this character is asked is a one-file
 // diff. Re-exported here so call sites and the ledger keep reading it from the stage module.
 pub mod prompt;
-pub use prompt::{CROWN_CARD_BODY_CAP, ORACLE_PROMPT_VERSION, ORACLE_SYSTEM_PROMPT, build_crown_prompt, oracle_format_schema};
+pub use prompt::{
+    build_crown_prompt, oracle_format_schema, CROWN_CARD_BODY_CAP, ORACLE_PROMPT_VERSION,
+    ORACLE_SYSTEM_PROMPT,
+};
 
 /// Output contract captured in the diagnostic ledger, distinct from prompt_version. v1 was the
 /// reading-only reply; v2 adds the emitted `score` (the crown fold).
@@ -81,15 +84,16 @@ pub struct SynthNarrative {
     pub source_age_days: Option<i32>,
 }
 
-/// The PEAK scouting-report pillar (P2). `None` (suppressed) when there is no
-/// commentary row, or when the latest generation is a no-stats marker (`body` NULL).
+/// The Scout's rating pillar (P2). `None` (suppressed) when there is no commentary row, or when
+/// the latest generation is a no-stats marker (`body` NULL). The trajectory fields ride along
+/// for the ANALYST (which leans on the deterministic marker); the Oracle itself is blind to the
+/// marker since or10 — it reads the Scout's and Analyst's OUTPUTS, never the raw tracker.
 #[derive(Clone, Debug)]
 pub struct SynthRating {
-    pub divined_peak: String,
     pub body: String,
     pub notability: i32,
-    pub peak_trajectory: String,
-    pub peak_trajectory_label: String,
+    pub rating_trajectory: String,
+    pub rating_trajectory_label: String,
 }
 
 /// The vibe pillar (P3): the latest felt-read product, distinct from the Momentum trajectory.
@@ -314,10 +318,11 @@ pub async fn load_rating_pillar(
     sport: &str,
     season: Option<i32>,
 ) -> Result<Option<SynthRating>> {
-    // COALESCE(notability, 0): int2 coalesced with int4 → int4 → scan i32 (Go: `var notability int`).
-    let row: Option<(String, Option<String>, i32, String, String)> = sqlx::query_as(
+    // COALESCE(notability, 0): int2 coalesced with int4 → int4 → scan i32.
+    // (Legacy column names peak_trajectory* until the Wave B rename migration.)
+    let row: Option<(Option<String>, i32, String, String)> = sqlx::query_as(
         r#"
-        SELECT COALESCE(divined_peak, ''), body, COALESCE(notability, 0),
+        SELECT body, COALESCE(notability, 0),
                COALESCE(peak_trajectory, 'steady'), COALESCE(peak_trajectory_label, '')
         FROM stat_summaries
         WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
@@ -335,15 +340,14 @@ pub async fn load_rating_pillar(
     .with_context(|| format!("load rating pillar {entity_type}/{entity_id}"))?;
 
     match row {
-        None => Ok(None),                     // pgx.ErrNoRows → pillar absent
-        Some((_, None, _, _, _)) => Ok(None), // latest generation is a marker (body NULL) → suppressed
-        Some((divined_peak, Some(body), notability, peak_trajectory, peak_trajectory_label)) => {
+        None => Ok(None),                  // pgx.ErrNoRows → pillar absent
+        Some((None, _, _, _)) => Ok(None), // latest generation is a marker (body NULL) → suppressed
+        Some((Some(body), notability, rating_trajectory, rating_trajectory_label)) => {
             Ok(Some(SynthRating {
-                divined_peak,
                 body,
                 notability,
-                peak_trajectory,
-                peak_trajectory_label,
+                rating_trajectory,
+                rating_trajectory_label,
             }))
         }
     }
@@ -624,15 +628,11 @@ pub fn build_synthesis_input_components(
     pairs.push(("narrative_trajectories", trajectory_json));
 
     if let Some(r) = rating {
-        pairs.push(("divined_peak", go_json_string(&r.divined_peak)));
+        // or10 (the PEAK retirement): the crown is blind to the raw trajectory marker — it
+        // reads the Scout's and Analyst's OUTPUTS for form. Only the profile-strength level
+        // remains in the pre-image (divined_peak and the trajectory pairs are gone; that hash
+        // change is the intended one-time regen wave).
         pairs.push(("notability", r.notability.to_string()));
-        pairs.push(("peak_trajectory", go_json_string(&r.peak_trajectory)));
-        if !r.peak_trajectory_label.is_empty() {
-            pairs.push((
-                "peak_trajectory_label",
-                go_json_string(&r.peak_trajectory_label),
-            ));
-        }
     }
     if let Some(v) = vibe {
         // Sentiment only — the vibe felt-read prose is PROMPT-ONLY (F1, material-only
@@ -761,13 +761,15 @@ pub fn build_pillar_divergence(
 ) -> Vec<PillarComparison> {
     let mut out = Vec::new();
 
-    let peak_sign = rating.and_then(|r| trajectory_sign(&r.peak_trajectory));
+    // or10 (the PEAK retirement): the raw trajectory marker leaves the crown's math — the
+    // Oracle is blind to the tracker and reads the Scout's and Analyst's OUTPUTS. Momentum
+    // (the Analyst's deterministic direction) is the sole direction signal here.
     let vibe_sign = vibe.and_then(|v| sentiment_sign(v.sentiment));
     let mom_sign = mom.direction.as_deref().and_then(trajectory_sign);
-    // PEAK strength: the LEVEL sign (is this an elite or a weak profile), distinct from the
-    // trajectory sign. The classic rails conflict the fixtures measure — "strong PEAK vs
+    // Profile strength: the LEVEL sign (is this an elite or a weak profile), distinct from the
+    // direction sign. The classic rails conflict the fixtures measure — "strong profile vs
     // sliding momentum and negative narrative" — is a LEVEL-vs-direction disagreement that
-    // trajectory pairs alone cannot see. (Narrative heating_up/cooling_off is deliberately NOT
+    // direction pairs alone cannot see. (Narrative heating_up/cooling_off is deliberately NOT
     // compared: it measures story intensity, not valence — a negative story heating up must
     // not read as "positive narrative".)
     let strength_sign = rating.and_then(|r| {
@@ -791,17 +793,6 @@ pub fn build_pillar_divergence(
         });
     };
 
-    if let (Some(p), Some(m)) = (peak_sign, mom_sign) {
-        push(
-            format!(
-                "PEAK trajectory ({}) vs Momentum ({})",
-                sign_word(p),
-                sign_word(m)
-            ),
-            p,
-            m,
-        );
-    }
     if let (Some(v), Some(m)) = (vibe_sign, mom_sign) {
         push(
             format!("Vibe ({}) vs Momentum ({})", sign_word(v), sign_word(m)),
@@ -809,21 +800,10 @@ pub fn build_pillar_divergence(
             m,
         );
     }
-    if let (Some(p), Some(v)) = (peak_sign, vibe_sign) {
-        push(
-            format!(
-                "PEAK trajectory ({}) vs Vibe ({})",
-                sign_word(p),
-                sign_word(v)
-            ),
-            p,
-            v,
-        );
-    }
     if let (Some(s), Some(m)) = (strength_sign, mom_sign) {
         push(
             format!(
-                "PEAK strength ({}) vs Momentum ({})",
+                "Profile strength ({}) vs Momentum ({})",
                 strength_word(s),
                 sign_word(m)
             ),
@@ -834,7 +814,7 @@ pub fn build_pillar_divergence(
     if let (Some(s), Some(v)) = (strength_sign, vibe_sign) {
         push(
             format!(
-                "PEAK strength ({}) vs Vibe ({})",
+                "Profile strength ({}) vs Vibe ({})",
                 strength_word(s),
                 sign_word(v)
             ),
@@ -883,13 +863,10 @@ pub fn pillar_convergence(comparisons: &[PillarComparison]) -> Option<i32> {
 /// rendered into the prompt:
 /// - a split spread (convergence ≤ 50 — half or more of the directional pairs disagree) is a
 ///   `crossroads` regardless of net direction — the contested arc IS the story;
-/// - otherwise Momentum leads (weight 2) and the PEAK trajectory seconds (weight 1): net positive
-///   ⇒ `ascendant`, net negative ⇒ `waning`, nothing directional ⇒ `steady`.
-pub fn compute_omen(
-    convergence: Option<i32>,
-    rating: Option<&SynthRating>,
-    mom: &SynthMomentum,
-) -> (&'static str, String) {
+/// - otherwise Momentum decides alone (or10: the raw trajectory marker left the crown's math —
+///   the Oracle reads the Analyst's decided direction, never the tracker): positive ⇒
+///   `ascendant`, negative ⇒ `waning`, nothing directional ⇒ `steady`.
+pub fn compute_omen(convergence: Option<i32>, mom: &SynthMomentum) -> (&'static str, String) {
     if let Some(c) = convergence {
         if c <= 50 {
             return (
@@ -898,11 +875,7 @@ pub fn compute_omen(
             );
         }
     }
-    let mom_sign = mom.direction.as_deref().map(direction_sign).unwrap_or(0);
-    let peak_sign = rating
-        .map(|r| direction_sign(&r.peak_trajectory))
-        .unwrap_or(0);
-    let net = mom_sign * 2 + peak_sign;
+    let net = mom.direction.as_deref().map(direction_sign).unwrap_or(0);
     if net > 0 {
         (
             "ascendant",
@@ -1265,7 +1238,7 @@ impl StageHandler for SigilHandler {
         let comparisons =
             build_pillar_divergence(&narratives, rating.as_ref(), vibe.as_ref(), &momentum);
         let convergence = pillar_convergence(&comparisons);
-        let (omen, omen_reason) = compute_omen(convergence, rating.as_ref(), &momentum);
+        let (omen, omen_reason) = compute_omen(convergence, &momentum);
 
         // or9 (Scott, 2026-08-10 evening): the crown is BLIND TO MEMORIES — the prior-read and
         // relational-memory loads are gone with their prompt blocks (and `load_prior_read` is
@@ -1300,7 +1273,11 @@ impl StageHandler for SigilHandler {
         let opts = GenerateOptions {
             system: Some(ORACLE_SYSTEM_PROMPT.to_string()),
             temperature: Some(ORACLE_TEMPERATURE),
-            num_predict: if small { SMALL_WINDOW_NUM_PREDICT } else { ORACLE_NUM_PREDICT },
+            num_predict: if small {
+                SMALL_WINDOW_NUM_PREDICT
+            } else {
+                ORACLE_NUM_PREDICT
+            },
             num_ctx: hx.voice_num_ctx,
             json_mode: false,
             format_schema: Some(oracle_format_schema()),

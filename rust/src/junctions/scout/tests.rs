@@ -5,14 +5,7 @@
 
 use super::*;
 
-fn dp(
-    label: &str,
-    value: f64,
-    z: f64,
-    pct: f64,
-    sign: i32,
-    specialty: bool,
-) -> RatingDatapoint {
+fn dp(label: &str, value: f64, z: f64, pct: f64, sign: i32, specialty: bool) -> RatingDatapoint {
     RatingDatapoint {
         label: label.to_string(),
         value,
@@ -43,8 +36,6 @@ fn profile_player() -> RatingProfile {
         season: 2025,
         position: "Guard".to_string(),
         composite_score: Some(67.0),
-        peak_score: None,
-        peak_label: "Scoring".to_string(),
         breakdown: vec![scoring, dp("Defense", 2.5, -0.5, 40.0, 1, false)],
         scoped_ranks: HashMap::new(),
         rate_modes: HashMap::new(),
@@ -63,8 +54,6 @@ fn nfl_profile(position: &str, breakdown: Vec<RatingDatapoint>) -> RatingProfile
         season: 2025,
         position: position.to_string(),
         composite_score: Some(60.0),
-        peak_score: None,
-        peak_label: String::new(),
         breakdown,
         scoped_ranks: HashMap::new(),
         rate_modes: HashMap::new(),
@@ -209,9 +198,23 @@ fn retired_metric_never_reaches_prompt_preimage_or_crown() {
     drop_display_tier_datapoints(&mut p);
 
     let decision = build_scouting_decision(&p);
-    assert_eq!(decision.required_peak_line, "PEAK: Interceptions");
+    assert_eq!(
+        decision
+            .primary_strength_to_stop
+            .as_ref()
+            .map(|f| f.label.as_str()),
+        Some("Interceptions")
+    );
 
-    let prompt = build_stat_prompt(&req("FOOTBALL", "player", "Test Defender"), &p, 60, None, None);
+    let prompt = build_stat_prompt(
+        &req("FOOTBALL", "player", "Test Defender"),
+        &p,
+        60,
+        None,
+        None,
+        None,
+        None,
+    );
     for retired in ["Clearances", "Duels"] {
         assert!(
             !prompt.contains(retired),
@@ -302,12 +305,20 @@ fn scouting_decision_weakness_is_positional_after_filter() {
 #[test]
 fn prompt_player_composite_datapoints_and_scoped_position() {
     let p = profile_player();
-    let prompt = build_stat_prompt(&req("NBA", "player", "Test Player"), &p, 70, None, None);
+    let prompt = build_stat_prompt(
+        &req("NBA", "player", "Test Player"),
+        &p,
+        70,
+        None,
+        None,
+        None,
+        None,
+    );
     assert_eq!(
         prompt,
         "Entity: Test Player (NBA player, Guard)\n\
 \nProfile distinctiveness: 70/100 (higher = more standout skills — let a richer profile earn a fuller read).\n\
-\nComposite (how WELL overall — T-score, 50 = average): 67\n\
+\nOverall score (how WELL overall — T-score, 50 = average): 67\n\
 \nDECISION CARD\n\
 Primary strength to respect: Scoring: 24 · 95th pct (elite) · z +3.1 [position: 88th, strong]\n\
 Secondary strengths to respect: None supplied.\n\
@@ -327,13 +338,19 @@ fn prompt_team_no_composite_no_position() {
         season: 2025,
         position: String::new(),
         composite_score: None,
-        peak_score: None,
-        peak_label: "Defense".to_string(),
         breakdown: vec![dp("Defense", 0.38, 1.2, 78.0, 1, false)],
         scoped_ranks: HashMap::new(),
         rate_modes: HashMap::new(),
     };
-    let prompt = build_stat_prompt(&req("FOOTBALL", "team", "Test FC"), &p, 55, None, None);
+    let prompt = build_stat_prompt(
+        &req("FOOTBALL", "team", "Test FC"),
+        &p,
+        55,
+        None,
+        None,
+        None,
+        None,
+    );
     assert_eq!(
         prompt,
         "Entity: Test FC (FOOTBALL team)\n\
@@ -368,7 +385,15 @@ fn cross_season_memory_renders_before_the_write_cue() {
     // The mem string is the DESCRUBBED form (s18): production runs mig 164's card through
     // descrub_memory_card in load_stat_memory before it gets here.
     let mem = "Our prior read: season 2025 the top skill read was \"Shooting\" (profile distinctiveness 98/100).\nMatchup memory: pts vs Test Rivals — 22.8/game vs a 16.0 baseline (adjusted +4.7), n=13 games, reliability 44/100.";
-    let prompt = build_stat_prompt(&req("NBA", "player", "Test Player"), &p, 70, Some(mem), None);
+    let prompt = build_stat_prompt(
+        &req("NBA", "player", "Test Player"),
+        &p,
+        70,
+        Some(mem),
+        None,
+        None,
+        None,
+    );
     assert!(prompt.contains("\nCross-season memory (computed history — arc context only"));
     assert!(prompt.contains("- Our prior read: season 2025 the top skill read was \"Shooting\""));
     assert!(prompt.contains("- Matchup memory: pts vs Test Rivals"));
@@ -376,7 +401,15 @@ fn cross_season_memory_renders_before_the_write_cue() {
     let cue_pos = prompt.find("Write the scouting report now").unwrap();
     let dp_pos = prompt.find("Datapoints — value").unwrap();
     assert!(dp_pos < mem_pos && mem_pos < cue_pos);
-    let blank = build_stat_prompt(&req("NBA", "player", "Test Player"), &p, 70, Some(" \n "), None);
+    let blank = build_stat_prompt(
+        &req("NBA", "player", "Test Player"),
+        &p,
+        70,
+        Some(" \n "),
+        None,
+        None,
+        None,
+    );
     assert!(!blank.contains("Cross-season memory"));
 }
 
@@ -387,8 +420,6 @@ fn scouting_decision_requires_no_standout_when_top_is_only_above_average() {
         season: 2025,
         position: "SG".to_string(),
         composite_score: Some(49.0),
-        peak_score: None,
-        peak_label: String::new(),
         breakdown: vec![
             dp("Spot-up shooting", 38.1, 0.5, 64.0, 1, false),
             dp("Turnovers", 3.7, -1.4, 23.0, 1, false),
@@ -397,7 +428,7 @@ fn scouting_decision_requires_no_standout_when_top_is_only_above_average() {
         rate_modes: HashMap::new(),
     };
     let d = build_scouting_decision(&p);
-    assert_eq!(d.required_peak_line, "PEAK: No standout skill");
+    // s19: no divined label — no-standout is asserted structurally below.
     assert!(d.primary_strength_to_stop.is_none());
     assert_eq!(
         d.primary_weakness_to_exploit
@@ -416,15 +447,15 @@ fn scouting_decision_requires_no_standout_when_top_is_only_above_average() {
 #[test]
 fn input_components_matches_go_marshal_bytes() {
     // Datapoints walk the breakdown in STORED order (NOT pct-sorted): Scoring then Defense.
-    // Top keys sorted: composite_score, datapoints, peak_label, position, prompt_version,
-    // season. Datapoint keys sorted: label, pct. composite round1(67.0)=67 → "67"; pct round1
+    // Top keys sorted: composite_score, datapoints, position, prompt_version, season
+    // (s19: the specialist entries peak_label/peak_score left the pre-image with the concept). Datapoint keys sorted: label, pct. composite round1(67.0)=67 → "67"; pct round1
     // → "95"/"40". prompt_version is interpolated from the const (single-sourced: an s-bump
     // changes the pre-image by design and must not need a hand-edit here).
     let ic = input_components(&profile_player());
     assert_eq!(
         ic,
         format!(
-            r#"{{"composite_score":67,"datapoints":[{{"label":"Scoring","pct":95}},{{"label":"Defense","pct":40}}],"peak_label":"Scoring","position":"Guard","prompt_version":"{RATING_PROMPT_VERSION}","season":2025}}"#
+            r#"{{"composite_score":67,"datapoints":[{{"label":"Scoring","pct":95}},{{"label":"Defense","pct":40}}],"position":"Guard","prompt_version":"{RATING_PROMPT_VERSION}","season":2025}}"#
         )
     );
     // The hash is a deterministic function of those exact bytes.
@@ -433,24 +464,20 @@ fn input_components_matches_go_marshal_bytes() {
 
 #[test]
 fn input_components_omits_absent_optional_keys() {
-    // No composite, no position, no peak_score, no rate modes → only season/peak_label/datapoints.
+    // No composite, no position, no rate modes → only season/datapoints (+ version).
     let p = RatingProfile {
         entity_type: "team".to_string(),
         season: 2024,
         position: String::new(),
         composite_score: None,
-        peak_score: None,
-        peak_label: String::new(),
         breakdown: vec![],
         scoped_ranks: HashMap::new(),
         rate_modes: HashMap::new(),
     };
-    // Empty breakdown → "datapoints":[] (Go marshals a non-nil empty slice as []); peak_label "".
+    // Empty breakdown → "datapoints":[] (a non-nil empty slice marshals as []).
     assert_eq!(
         input_components(&p),
-        format!(
-            r#"{{"datapoints":[],"peak_label":"","prompt_version":"{RATING_PROMPT_VERSION}","season":2024}}"#
-        )
+        format!(r#"{{"datapoints":[],"prompt_version":"{RATING_PROMPT_VERSION}","season":2024}}"#)
     );
 }
 
@@ -501,26 +528,18 @@ fn peak_trajectory_buckets_and_labels_recent_form() {
     assert_eq!(trajectory_key(linear_slope(&[2.2, 1.7, 1.1])), "falling");
     assert_eq!(trajectory_key(linear_slope(&[0.7, 0.8, 0.75])), "steady");
     assert_eq!(
-        z_trajectory_label("falling", "falling", "falling"),
-        "overall scores and the top skill trending down over recent games"
-    );
-}
-
-#[test]
-fn peak_trajectory_labels_divergent_z_score_tracks() {
-    assert_eq!(
-        z_trajectory_label("steady", "rising", "falling"),
-        "overall scores rising; the top skill falling over recent games"
+        z_trajectory_label("falling"),
+        "overall scores trending down over recent games"
     );
 }
 
 #[test]
 fn compute_notability_known_case() {
-    // peak 95, elite_count 1 (only Scoring ≥ 85), comp 67.
+    // top_pct 95, elite_count 1 (only Scoring ≥ 85), comp 67.
     // score = 0.6*95 + min(30, 10) + clamp(-10,10,(67-50)*0.4=6.8) = 57 + 10 + 6.8 = 73.8 → 74.
     let (n, comps) = compute_notability(&profile_player());
     assert_eq!(n, 74);
-    assert_eq!(comps["peak_pct"], 95.0);
+    assert_eq!(comps["top_pct"], 95.0);
     assert_eq!(comps["elite_count"], 1);
     assert_eq!(comps["composite"], 67.0);
 }
@@ -532,8 +551,6 @@ fn ordered_facts_sorts_desc_and_truncates() {
         season: 2025,
         position: String::new(),
         composite_score: None,
-        peak_score: None,
-        peak_label: String::new(),
         breakdown: vec![
             dp("low", 1.0, 0.0, 20.0, 1, false),
             dp("high", 1.0, 0.0, 90.0, 1, false),
@@ -549,33 +566,33 @@ fn ordered_facts_sorts_desc_and_truncates() {
     );
 }
 
-// --- output parsing (mirror Go parsePeakCommentary / cleanCommentary) ---------------------------
+// --- output parsing (marker strip is transition tolerance since s18/s19) ------------------------
 
 #[test]
-fn parse_peak_commentary_splits_marker_and_body() {
-    let (peak, body) = parse_peak_commentary("PEAK: Elite scoring\nA lethal scorer who...");
+fn parse_rating_commentary_splits_marker_and_body() {
+    let (peak, body) = parse_rating_commentary("PEAK: Elite scoring\nA lethal scorer who...");
     assert_eq!(peak, "Elite scoring");
     assert_eq!(body, "A lethal scorer who...");
 }
 
 #[test]
-fn parse_peak_commentary_accepts_legacy_sigil_prefix() {
-    let (peak, body) = parse_peak_commentary("SIGIL: Rim protection\nDominant inside.");
+fn parse_rating_commentary_accepts_legacy_sigil_prefix() {
+    let (peak, body) = parse_rating_commentary("SIGIL: Rim protection\nDominant inside.");
     assert_eq!(peak, "Rim protection");
     assert_eq!(body, "Dominant inside.");
 }
 
 #[test]
-fn parse_peak_commentary_no_marker_is_all_body() {
-    let (peak, body) = parse_peak_commentary("Just prose, no marker line\nsecond line");
+fn parse_rating_commentary_no_marker_is_all_body() {
+    let (peak, body) = parse_rating_commentary("Just prose, no marker line\nsecond line");
     assert_eq!(peak, "");
     assert_eq!(body, "Just prose, no marker line\nsecond line");
 }
 
 #[test]
-fn parse_peak_commentary_salvages_inline_peak_paragraph_as_body() {
+fn parse_rating_commentary_salvages_inline_peak_paragraph_as_body() {
     let raw = "PEAK: Nia Torres showcases elite rim protection at the 96th percentile and anchors the paint.";
-    let (peak, body) = parse_peak_commentary(raw);
+    let (peak, body) = parse_rating_commentary(raw);
     assert_eq!(peak, "");
     assert_eq!(
         body,
@@ -617,7 +634,7 @@ fn rating_parser_never_fails_closed() {
         .parse("PEAK: X\nbody")
         .unwrap()
         .expect("always Some");
-    assert_eq!(reply.divined_peak, "X");
+    // s19: a legacy marker line is stripped and DISCARDED; only the body survives.
     assert_eq!(reply.body, "body");
     assert!(RatingParser.parse("").unwrap().is_some());
 }
@@ -626,7 +643,13 @@ fn rating_parser_never_fails_closed() {
 // T4 holds by construction here — every field the renderer reads is a date, a resolved name, or
 // the adjudicated `event_type` enum. There is no path by which news prose reaches this seat.
 
-fn change(kind: &str, date: &str, player: &str, old: Option<&str>, new: Option<&str>) -> PersonnelChange {
+fn change(
+    kind: &str,
+    date: &str,
+    player: &str,
+    old: Option<&str>,
+    new: Option<&str>,
+) -> PersonnelChange {
     PersonnelChange {
         kind: kind.to_string(),
         date_label: date.to_string(),
@@ -644,7 +667,13 @@ fn a_player_move_names_both_clubs_and_the_date() {
     let out = render_personnel_block(
         "player",
         37922937,
-        &[change("applied", "Jul 29", "Test Player", Some("Old FC"), Some("New FC"))],
+        &[change(
+            "applied",
+            "Jul 29",
+            "Test Player",
+            Some("Old FC"),
+            Some("New FC"),
+        )],
         1,
     )
     .expect("a move renders");
@@ -658,7 +687,13 @@ fn a_player_move_without_a_known_old_club_still_renders() {
     let out = render_personnel_block(
         "player",
         1,
-        &[change("applied", "Jul 16", "Test Player", None, Some("New FC"))],
+        &[change(
+            "applied",
+            "Jul 16",
+            "Test Player",
+            None,
+            Some("New FC"),
+        )],
         1,
     )
     .unwrap();
@@ -673,21 +708,39 @@ fn a_team_sees_arrivals_and_departures_decided_by_id() {
     let arrival = render_personnel_block(
         "team",
         3468,
-        &[change("applied", "Jul 29", "Test Player", Some("Old FC"), Some("New FC"))],
+        &[change(
+            "applied",
+            "Jul 29",
+            "Test Player",
+            Some("Old FC"),
+            Some("New FC"),
+        )],
         1,
     )
     .unwrap();
-    assert_eq!(arrival, "- Jul 29: signed Test Player from Old FC (transfer).\n");
+    assert_eq!(
+        arrival,
+        "- Jul 29: signed Test Player from Old FC (transfer).\n"
+    );
 
     // Same row, read by the OTHER club: a departure.
     let departure = render_personnel_block(
         "team",
         277,
-        &[change("applied", "Jul 29", "Test Player", Some("Old FC"), Some("New FC"))],
+        &[change(
+            "applied",
+            "Jul 29",
+            "Test Player",
+            Some("Old FC"),
+            Some("New FC"),
+        )],
         1,
     )
     .unwrap();
-    assert_eq!(departure, "- Jul 29: lost Test Player to New FC (transfer).\n");
+    assert_eq!(
+        departure,
+        "- Jul 29: lost Test Player to New FC (transfer).\n"
+    );
 }
 
 /// A revert is the fact the ground-truth view can never carry (it filters `reverted_at IS NULL`),
@@ -698,7 +751,13 @@ fn a_revert_renders_as_a_correction_not_a_move() {
     let player = render_personnel_block(
         "player",
         1,
-        &[change("reverted", "Aug 02", "Test Player", Some("Old FC"), Some("New FC"))],
+        &[change(
+            "reverted",
+            "Aug 02",
+            "Test Player",
+            Some("Old FC"),
+            Some("New FC"),
+        )],
         1,
     )
     .unwrap();
@@ -711,7 +770,13 @@ fn a_revert_renders_as_a_correction_not_a_move() {
     let team = render_personnel_block(
         "team",
         3468,
-        &[change("reverted", "Aug 02", "Test Player", Some("Old FC"), Some("New FC"))],
+        &[change(
+            "reverted",
+            "Aug 02",
+            "Test Player",
+            Some("Old FC"),
+            Some("New FC"),
+        )],
         1,
     )
     .unwrap();
@@ -724,7 +789,15 @@ fn a_revert_renders_as_a_correction_not_a_move() {
 #[test]
 fn the_cap_names_what_it_dropped() {
     let rows: Vec<PersonnelChange> = (0..MAX_PERSONNEL_LINES)
-        .map(|i| change("applied", "Jul 29", &format!("Player {i}"), Some("Old FC"), Some("New FC")))
+        .map(|i| {
+            change(
+                "applied",
+                "Jul 29",
+                &format!("Player {i}"),
+                Some("Old FC"),
+                Some("New FC"),
+            )
+        })
         .collect();
     let out = render_personnel_block("team", 3468, &rows, MAX_PERSONNEL_LINES + 4).unwrap();
     assert_eq!(out.lines().count(), MAX_PERSONNEL_LINES + 1);
@@ -742,7 +815,15 @@ fn the_cap_names_what_it_dropped() {
 fn nothing_moved_renders_no_section_at_all() {
     assert!(render_personnel_block("player", 1, &[], 0).is_none());
     let p = profile_player();
-    let prompt = build_stat_prompt(&req("NBA", "player", "Test Player"), &p, 70, None, None);
+    let prompt = build_stat_prompt(
+        &req("NBA", "player", "Test Player"),
+        &p,
+        70,
+        None,
+        None,
+        None,
+        None,
+    );
     assert!(!prompt.contains("Personnel changes"));
 }
 
@@ -754,7 +835,13 @@ fn the_personnel_block_sits_between_the_datapoints_and_the_memory_card() {
     let personnel = render_personnel_block(
         "player",
         1,
-        &[change("applied", "Jul 29", "Test Player", Some("Old FC"), Some("New FC"))],
+        &[change(
+            "applied",
+            "Jul 29",
+            "Test Player",
+            Some("Old FC"),
+            Some("New FC"),
+        )],
         1,
     )
     .unwrap();
@@ -765,9 +852,13 @@ fn the_personnel_block_sits_between_the_datapoints_and_the_memory_card() {
         70,
         Some(mem),
         Some(&personnel),
+        None,
+        None,
     );
     let dp = prompt.find("Datapoints — value").unwrap();
-    let pers = prompt.find("Personnel changes since our last read").unwrap();
+    let pers = prompt
+        .find("Personnel changes since our last read")
+        .unwrap();
     let memp = prompt.find("Cross-season memory").unwrap();
     let cue = prompt.find("Write the scouting report now").unwrap();
     assert!(dp < pers && pers < memp && memp < cue);
@@ -776,6 +867,14 @@ fn the_personnel_block_sits_between_the_datapoints_and_the_memory_card() {
     assert!(prompt.contains("these do NOT alter any tier or number above"));
 
     // Blank personnel ⇒ no section, same as blank memory.
-    let blank = build_stat_prompt(&req("NBA", "player", "Test Player"), &p, 70, None, Some(" \n "));
+    let blank = build_stat_prompt(
+        &req("NBA", "player", "Test Player"),
+        &p,
+        70,
+        None,
+        Some(" \n "),
+        None,
+        None,
+    );
     assert!(!blank.contains("Personnel changes"));
 }

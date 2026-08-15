@@ -9,7 +9,7 @@
 //!
 //! Every CHARACTER task owns its role (identity splits: 2026-07-11 momentum, 07-12 narratives +
 //! sigil, 07-22 transfers + vibe), so no route change silently flips a sibling's voice:
-//! `rating`/PEAK on `Role::StatsLogic` (The Scout), `momentum` on `Role::MomentumLogic`
+//! `rating` on `Role::StatsLogic` (The Scout), `momentum` on `Role::MomentumLogic`
 //! (The Analyst), `narratives` on `Role::NarrativeLogic` (The Journalist), `transfer` on
 //! `Role::TransferLogic` (The Insider), `vibe` on `Role::VibeLogic` (The Influencer), and
 //! `sigil` on `Role::OracleLogic` (the Oracle). `graph` stays on `Role::EmotionalNews` —
@@ -32,47 +32,47 @@
 //! build a prompt and POST to the model; they NEVER claim `pipeline_work` or write a product table.
 
 use crate::corpus::{load_transfer_heat, lookup_entity_name};
-use crate::util::truncate;
+use crate::harness::{Harness, Parser};
+use crate::junctions::analyst::{
+    build_momentum_prompt, parse_momentum_reply, MOMENTUM_NUM_PREDICT, MOMENTUM_PROMPT_VERSION,
+    MOMENTUM_SYSTEM_PROMPT,
+};
 use crate::junctions::editor::{
     build_editor_prompt_for_eval, derive as editor_derive, editor_opts, EditorRead,
     EditorReadParser, EDITOR_CONTRACT_VERSION,
-};
-use crate::junctions::investigator::prompt::{
-    prose_opts, ProseReadParser, INVESTIGATOR_PROSE_CONTRACT_VERSION,
 };
 use crate::junctions::graph::{
     build_graph_prompt, graph_opts, load_graph_article_context, GraphCandidate, GraphParser,
     GRAPH_PROMPT_VERSION,
 };
-use crate::harness::{Harness, Parser};
-use crate::junctions::analyst::{
-    build_momentum_prompt, parse_momentum_reply, MOMENTUM_NUM_PREDICT, MOMENTUM_PROMPT_VERSION,
-    MOMENTUM_SYSTEM_PROMPT,
+use crate::junctions::influencer::{
+    build_sentiment_prompt, load_latest_narratives, parse_vibe_reply, VIBE_NUM_PREDICT,
+    VIBE_PROMPT_VERSION, VIBE_SYSTEM_PROMPT,
+};
+use crate::junctions::insider::{
+    build_pair_request, load_candidates, transfer_system_prompt, PairBuild, TransferParser,
+    TRANSFER_DEFAULT_MIN_ARTICLES, TRANSFER_NUM_PREDICT, TRANSFER_PROMPT_VERSION,
+};
+use crate::junctions::investigator::prompt::{
+    prose_opts, ProseReadParser, INVESTIGATOR_PROSE_CONTRACT_VERSION,
 };
 use crate::junctions::journalist::{
     build_narratives_prompt, load_packet_corpus, NarrativesParser, NarrativesReq,
     NARRATIVES_NUM_CTX, NARRATIVES_NUM_PREDICT, NARRATIVES_PROMPT_VERSION,
     NARRATIVES_SYSTEM_PROMPT,
 };
-use crate::ollama::GenerateOptions;
-use crate::junctions::scout::{
-    build_rating_request, RatingBuild, RatingParser, RatingReq, RATING_NUM_PREDICT,
-    RATING_PROMPT_VERSION, RATING_SYSTEM_PROMPT,
-};
-use crate::route::Role;
 use crate::junctions::oracle::{
     build_crown_prompt, build_pillar_divergence, compute_omen, count_sentences, load_pillars,
     oracle_format_schema, parse_crown_reply, pillar_convergence, ORACLE_NUM_PREDICT,
     ORACLE_PROMPT_VERSION, ORACLE_SYSTEM_PROMPT,
 };
-use crate::junctions::insider::{
-    build_pair_request, load_candidates, transfer_system_prompt, PairBuild, TransferParser,
-    TRANSFER_DEFAULT_MIN_ARTICLES, TRANSFER_NUM_PREDICT, TRANSFER_PROMPT_VERSION,
+use crate::junctions::scout::{
+    build_rating_request, RatingBuild, RatingParser, RatingReq, RATING_NUM_PREDICT,
+    RATING_PROMPT_VERSION, RATING_SYSTEM_PROMPT,
 };
-use crate::junctions::influencer::{
-    build_sentiment_prompt, load_latest_narratives, parse_vibe_reply, VIBE_NUM_PREDICT,
-    VIBE_PROMPT_VERSION, VIBE_SYSTEM_PROMPT,
-};
+use crate::ollama::GenerateOptions;
+use crate::route::Role;
+use crate::util::truncate;
 use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -163,8 +163,8 @@ pub fn lens_parameters(name: &str) -> Option<LensParameters> {
         "momentum" => Some(LensParameters {
             rail: Rail::StatsAnalytical,
             operator: "The Analyst",
-            mandate: "Read the directional force of form (PEAK/rating trajectory) and feeling (Vibe/news), then narrate the decided direction with conviction.",
-            credibility_guard: "Stay detached and results-only; do not chase sentiment hype or cling to stale PEAK strength.",
+            mandate: "Read the directional force of form (the rating trajectory) and feeling (the news mood), then narrate the decided direction with conviction.",
+            credibility_guard: "Stay detached and results-only; do not chase sentiment hype or cling to stale profile strength.",
         }),
         "oracle" => Some(LensParameters {
             rail: Rail::Synthesis,
@@ -343,7 +343,8 @@ pub struct Expect {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub confidence_max: Option<f64>,
     // rating / stats-lens specificity + prose richness rubric.
-    /// PEAK identity specificity: the first-line PEAK label should name the actual standout skill,
+    /// Identity specificity (s19: asserted on the brief's prose — the divined label is retired):
+    /// the brief should name the actual standout skill,
     /// not a generic role or an average datapoint.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub peak_includes: Option<Vec<String>>,
@@ -709,9 +710,7 @@ impl LensTask for VibeTask {
                     // of any kind since v6 — the prose axes and the hook's stated caps land
                     // BEFORE the register pass so the pass cannot quietly break them.
                     if let Some(max) = x.hook_max_words {
-                        let n = hook
-                            .as_deref()
-                            .map(|h| h.split_whitespace().count() as i32);
+                        let n = hook.as_deref().map(|h| h.split_whitespace().count() as i32);
                         checks.push(PropertyCheck {
                             name: "hook_words_le".into(),
                             pass: n.is_some_and(|n| n <= max),
@@ -836,7 +835,7 @@ impl LensTask for OracleTask {
         let comparisons =
             build_pillar_divergence(&narratives, rating.as_ref(), vibe.as_ref(), &momentum);
         let convergence = pillar_convergence(&comparisons);
-        let (omen, omen_reason) = compute_omen(convergence, rating.as_ref(), &momentum);
+        let (omen, omen_reason) = compute_omen(convergence, &momentum);
         Ok(Some(build_crown_prompt(
             &e.entity_type,
             &name,
@@ -984,7 +983,9 @@ impl LensTask for NarrativeTask {
             sport: e.sport.clone(),
             trigger_type: "periodic".to_string(),
         };
-        Ok(Some(build_narratives_prompt(&req, &corpus, None, None, None))) // evals pin the memory-free, score-context-free, legacy-rail prompt shape
+        Ok(Some(build_narratives_prompt(
+            &req, &corpus, None, None, None,
+        ))) // evals pin the memory-free, score-context-free, legacy-rail prompt shape
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
         // Compose the stage's tolerant salvager so the eval scores exactly the storylines the pipeline
@@ -1236,7 +1237,8 @@ impl LensTask for TransferTask {
             })?;
 
         let relationship =
-            crate::junctions::insider::team_relationship(&hx.pool, e.entity_id, player_id, &sport).await?;
+            crate::junctions::insider::team_relationship(&hx.pool, e.entity_id, player_id, &sport)
+                .await?;
         match build_pair_request(
             hx,
             e.entity_id,
@@ -1353,7 +1355,7 @@ impl LensTask for TransferTask {
 }
 
 // ---------------------------------------------------------------------------
-// RatingTask — stats/analytical rail, PEAK identity specificity + prose richness.
+// RatingTask — stats/analytical rail, identity specificity + prose richness.
 // ---------------------------------------------------------------------------
 
 pub struct RatingTask;
@@ -1418,18 +1420,21 @@ impl LensTask for RatingTask {
         checks.push(product_name_check(&reply.body));
 
         if let Some(x) = expect {
+            // s19: the peak_includes/peak_excludes label assertions are gone with divined_peak —
+            // identity specificity is asserted on the brief's own prose (prose_includes names the
+            // standout skill; the decision card that used to feed the label is unchanged).
             for s in x.peak_includes.iter().flatten() {
                 checks.push(PropertyCheck {
-                    name: format!("peak_includes:{s}"),
-                    pass: contains_ci(&reply.divined_peak, s),
-                    detail: format!("peak={}", empty_dash(&reply.divined_peak)),
+                    name: format!("prose_names_skill:{s}"),
+                    pass: contains_ci(&reply.body, s),
+                    detail: String::new(),
                 });
             }
             for s in x.peak_excludes.iter().flatten() {
                 checks.push(PropertyCheck {
-                    name: format!("peak_excludes:{s}"),
-                    pass: !contains_ci(&reply.divined_peak, s),
-                    detail: format!("peak={}", empty_dash(&reply.divined_peak)),
+                    name: format!("prose_avoids_skill:{s}"),
+                    pass: !contains_ci(&reply.body, s),
+                    detail: String::new(),
                 });
             }
             for s in x.prose_includes.iter().flatten() {
@@ -1476,7 +1481,7 @@ impl LensTask for RatingTask {
             parsed: true,
             abs_err: None,
             checks,
-            display: format!("peak={} | {}", empty_dash(&reply.divined_peak), reply.body),
+            display: reply.body.clone(),
         }
     }
 }
@@ -2212,7 +2217,11 @@ impl LensTask for EditorTask {
                 };
                 for (list, want, label) in [
                     (&x.resolver_links_include, "linked", "resolver_links"),
-                    (&x.resolver_unresolved_include, "unresolved", "resolver_unresolved"),
+                    (
+                        &x.resolver_unresolved_include,
+                        "unresolved",
+                        "resolver_unresolved",
+                    ),
                     (&x.resolver_refused_include, "refused", "resolver_refused"),
                 ] {
                     if let Some(incl) = list {
@@ -2829,7 +2838,8 @@ mod tests {
     #[test]
     fn rating_rubric_scores_peak_specificity_and_prose_richness() {
         let x = Expect {
-            peak_includes: Some(vec!["Rim protection".into()]),
+            // s19: asserted on the brief's prose (the divined label is retired).
+            peak_includes: Some(vec!["rim protector".into()]),
             peak_excludes: Some(vec!["No standout".into()]),
             prose_includes: Some(vec!["94th percentile".into(), "defensive identity".into()]),
             prose_excludes: Some(vec!["triple-double".into()]),
@@ -2867,8 +2877,10 @@ mod tests {
     #[test]
     fn rating_rubric_catches_generic_peak_and_thin_prose() {
         let x = Expect {
+            // s19: prose-anchored — the include names a skill the thin body lacks, the
+            // exclude names a phrase the thin body contains.
             peak_includes: Some(vec!["Rim protection".into()]),
-            peak_excludes: Some(vec!["No standout".into()]),
+            peak_excludes: Some(vec!["Average".into()]),
             prose_min_words: Some(20),
             ..Default::default()
         };
@@ -2893,7 +2905,11 @@ mod tests {
         let raw = "MOMENTUM: rising\nSCORE: 3\nREAD: PEAK is rising while Vibe is steady, so the current direction is modestly positive.";
         let parsed = parse_momentum_reply(raw).unwrap();
         assert!(parsed.blurb.contains("PEAK is rising"));
-        assert!(!parsed.blurb.contains('3'), "SCORE leaked into the blurb: {}", parsed.blurb);
+        assert!(
+            !parsed.blurb.contains('3'),
+            "SCORE leaked into the blurb: {}",
+            parsed.blurb
+        );
     }
 
     #[test]
@@ -2950,7 +2966,7 @@ mod tests {
         assert_eq!(fx.expect.reading_min_sentences, Some(2));
         assert_eq!(fx.expect.score_min, Some(60));
         assert_eq!(fx.expect.score_max, None); // defaulted
-                                                     // A fixture may omit expect entirely.
+                                               // A fixture may omit expect entirely.
         let bare = r#"{"name":"n","task":"oracle","prompt_version":"or3","system":"s","user_prompt":"u","temperature":0.0}"#;
         let fx2: Fixture = serde_json::from_str(bare).unwrap();
         assert_eq!(fx2.expect.reading_min_sentences, None);
@@ -3027,7 +3043,8 @@ mod tests {
                 .unwrap_or_else(|e| panic!("fixture {} failed to parse: {e}", p.display()));
             assert_eq!(fx.task, "editor", "{} has wrong task", p.display());
             assert_eq!(
-                fx.prompt_version, EDITOR_CONTRACT_VERSION,
+                fx.prompt_version,
+                EDITOR_CONTRACT_VERSION,
                 "{} frozen under a different contract",
                 p.display()
             );
@@ -3048,8 +3065,14 @@ mod tests {
             "both directions must stay pinned (rejects={rejects}, accepts={accepts})"
         );
         assert!(refused, "no fixture pins a resolver refusal (namesake tie)");
-        assert!(unresolved, "no fixture pins resolver discovery (coach shape)");
-        assert!(never_links, "no fixture pins the descriptor/kind gate (place collision)");
+        assert!(
+            unresolved,
+            "no fixture pins resolver discovery (coach shape)"
+        );
+        assert!(
+            never_links,
+            "no fixture pins the descriptor/kind gate (place collision)"
+        );
         assert!(result_parses, "no fixture pins a parsing result_line");
     }
 

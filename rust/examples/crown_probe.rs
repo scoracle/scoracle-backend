@@ -17,14 +17,14 @@ use scoracle_cognition::corpus::lookup_entity_name;
 use scoracle_cognition::db;
 use scoracle_cognition::harness::Harness;
 
+use scoracle_cognition::junctions::oracle::{
+    build_crown_prompt, build_pillar_divergence, compute_omen, load_pillars, oracle_format_schema,
+    pillar_convergence, CrownParser, ORACLE_NUM_PREDICT, ORACLE_PROMPT_VERSION,
+    ORACLE_SYSTEM_PROMPT, ORACLE_TEMPERATURE,
+};
 use scoracle_cognition::ollama::GenerateOptions;
 use scoracle_cognition::ollama::OllamaClient;
 use scoracle_cognition::route::{Role, Router};
-use scoracle_cognition::junctions::oracle::{
-    build_crown_prompt, build_pillar_divergence, compute_omen, load_pillars,
-    oracle_format_schema, pillar_convergence, CrownParser, ORACLE_NUM_PREDICT,
-    ORACLE_PROMPT_VERSION, ORACLE_SYSTEM_PROMPT, ORACLE_TEMPERATURE,
-};
 use sqlx::Row;
 
 #[tokio::main]
@@ -116,7 +116,7 @@ async fn main() -> Result<()> {
         let comparisons =
             build_pillar_divergence(&narratives, rating.as_ref(), vibe.as_ref(), &momentum);
         let convergence = pillar_convergence(&comparisons);
-        let (omen, omen_reason) = compute_omen(convergence, rating.as_ref(), &momentum);
+        let (omen, omen_reason) = compute_omen(convergence, &momentum);
         // or9: the crown is blind to memories — no prior-read or relational-memory load.
         let prompt = build_crown_prompt(
             &entity_type,

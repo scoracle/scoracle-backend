@@ -1,17 +1,17 @@
 //! Rust stats-rail commentary entry point.
 //!
-//! Nightly mode is now the PEAK producer: it enumerates stale current-season stat profiles and
+//! Nightly mode is the rating-card producer: it enumerates stale current-season stat profiles and
 //! enqueues durable `pipeline_work(peak)` rows. Backfill remains an inline historical generation
 //! path because the live queue is current-season/entity-scoped.
 
 use anyhow::{anyhow, Context, Result};
 use scoracle_cognition::config::Config;
 use scoracle_cognition::harness::Harness;
-use scoracle_cognition::ollama::OllamaClient;
 use scoracle_cognition::junctions::scout::{
     build_rating_request, generate_rating, peak_work_input_version, persist_stat_summary,
     RatingBuild, RatingOutput, RatingReq, RATING_PROMPT_VERSION, RATING_TEMPERATURE,
 };
+use scoracle_cognition::ollama::OllamaClient;
 use scoracle_cognition::route::Router;
 use scoracle_cognition::{corpus, db, work};
 use sqlx::{PgPool, Postgres, Row};

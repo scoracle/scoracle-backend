@@ -7,9 +7,9 @@
 //! | | |
 //! |---|---|
 //! | **Seat** | `Role::StatsLogic` — the first consumer of that route |
-//! | **Contract** | `s14` |
+//! | **Contract** | `s19` |
 //! | **Reads** | the Postgres-computed rating profile (composite, T-score, `rating_breakdown` percentiles), plus a cross-season memory card |
-//! | **Feeds** | The Analyst and The Oracle, via `rating_summaries` |
+//! | **Feeds** | The Analyst and The Oracle, via `stat_summaries` |
 //!
 //! ## Authority — it verbalizes a tier it is not allowed to assign
 //!
@@ -39,23 +39,17 @@
 //! `Ok(None)`.
 
 use super::{
-    PersonnelChange,
-    RatingProfile,
-    RatingReq,
-    build_scouting_decision,
-    collect_rate_standouts,
-    format_datapoint_evidence,
-    ordered_facts,
-    render_scouting_decision,
+    build_scouting_decision, collect_rate_standouts, format_datapoint_evidence, ordered_facts,
+    render_scouting_decision, PersonnelChange, RatingProfile, RatingReq,
 };
 
-/// System prompt for the PEAK scouting-report contract. s14 (Characters Phase B): the voice IS
+/// System prompt for the rating scouting-report contract. s14 (Characters Phase B): the voice IS
 /// The Scout — a persona-first coaching-staff brief in clipped game-plan imperatives (wiki
 /// Characters.md craft appendix: names the skill and the number; speaks to a coaching staff,
 /// never fans; tier is the truth). The hard invariants survive from s10-s13: the tier is the
 /// truth, weaknesses need a materially negative z, nothing below the 50th percentile gets
-/// praised, nothing is invented, and trend talk stays banned (The Analyst's turn — Scott,
-/// Session D: "leave the trend of a metric to momentum"). The old "PEAK line is copied not
+/// praised, nothing is invented. (The old blanket trend-talk ban was replaced at s19 by the
+/// season-over-season movement contract — see the version note.) The old "PEAK line is copied not
 /// chosen" invariant is RETIRED at s18 by being made structural: the label is code-owned
 /// (never round-tripped through the model), and the brief itself is product-name-free per
 /// Scott's 2026-08-10 brief.
@@ -64,7 +58,7 @@ pub const RATING_SYSTEM_PROMPT: &str = r#"Task: you are The Scout — the opposi
 Voice: thirty years of advance work — the veteran scout whose briefs the staff trusts because every line has been earned in a film room. Clipped, tactical, game-plan imperatives in film-room shorthand: stop this, attack that, name the skill and the number in every call. Your pride is in the details — the exact percentile, the per-x proof, the honest margin; a generic call is a wasted line and you do not waste lines. You speak to a coaching staff, never to fans — no hype, no fan framing, no essay prose. Respect the subject's real weapons — underrating them gets your side burned — and name exactly where to attack.
 
 Definitions:
-- COMPOSITE = how well the entity performs overall.
+- OVERALL SCORE = how well the entity performs overall.
 - Each skill gives value, percentile, tier, and z-score.
 - TIER IS THE TRUTH. Do not reinterpret percentile quality yourself.
 - Per-x marks can support an efficient lower-minutes or per-90 edge.
@@ -90,14 +84,14 @@ Scouting-report rules:
 - TIER IS THE TRUTH: never inflate an average mark into a strength, and nothing below the 50th percentile gets praise.
 - Name a weakness only when a skill is below average or poor AND its z is meaningfully negative. A poor percentile with a near-zero z is a usage artifact, not a liability — do not present it as an exploit, a red flag, or a concern of any kind; leave it out of the brief entirely.
 - A profile with no standout still gets a full brief: say plainly that nothing stands out, then work the margins the card does give you. Honest thinness is not the same as a short brief.
-- This is a static profile: no trajectory, trend, or momentum talk — the trend read is another character's turn, never yours.
+- Skill development is yours to call: where a season-over-season movement line shows a move, say it — improved, slipped, held — beside this season's number, in the sport's words. The recent-form marker is shading, not a verdict to restate. The week-to-week momentum story remains another character's turn: voice no live-form narrative beyond what the movement lines and the marker support.
 - LENGTH: eight sentences are AVAILABLE to the Summary. That is the platform's allowance — not a target, not a quota, not a requirement, and nothing you are measured against. Brief every weapon and every exploit the card actually carries, then stop. A thin card is often a two-sentence verdict, and two sentences is a complete brief — the staff would rather have three true calls than eight, and no one is counting. Never pad, never restate a call in new words, and never invent a skill or number to fill the space. Length is earned by what the card carries, never by this instruction.
 - The supplied tiers and datapoints are everything you know: never invent a number, rate, role, or skill not in the data."#;
 
-/// Prompt version for the PEAK scouting-report contract.
-pub const RATING_PROMPT_VERSION: &str = "s18"; // s18, the PRODUCT-NAME SCRUB + the code-owned PEAK line (Scott's brief, 2026-08-10, verbatim: "I don't want anything referencing PEAK or Vibe, or other of our products. Just use those as context without naming them. The Scout shouldn't keep including a bunch of asterics in the output. It should be a clean, concise, but thorough scouting report with strengths and weaknesses."). Three moves: (1) the model no longer emits the "PEAK: <label>" marker line at all — that line was always a verbatim copy of the deterministic decision (build_scouting_decision), so `divined_peak` is now CODE-OWNED (RatingReady carries it; generate_rating persists it without asking the model), which deletes the copy-flake failure class AND lets the whole prompt drop the word PEAK — the s13-analyst lesson says a ban cannot beat a word the input keeps shouting, so the input stops shouting it: "SCOUTING DECISION"→"DECISION CARD", "Required PEAK line" gone, "(the PEAK)"→"primary". (2) The two measured 8B defects land in a numbered SHIPS block (the s9/s12/or8 promotion treatment): plain-text (the 8B bolded section labels 4× on the D-T55 gate) and the product-name ban, gated case-sensitively by the harness's new per-reply no_product_names invariant. (3) Sections renumber 1-3; contract shape otherwise unchanged (labels, exploit phrase, allowance framing). // s17, the REGISTER pass (Scott's brief, 2026-08-10): the veteran advance scout — thirty years of advance work, film-room shorthand, pride in the details, "a generic call is a wasted line." Same three-section structure deliberately (no worked example: the card-driven shape makes one a leak risk). Gate grew first (D-T45): section labels, the " · " notation ban, word floors on all 8, and a crude whole-body sentence ceiling — the s16 baseline then read 86/91, catching a live " · " copy and a "play physical" generic call. s16 — the ALLOWANCE pass: the ceiling goes to eight sentences and is reframed as a platform allowance rather than a target. Measured cause: at a 5-6 floor the model reached for length, and the manufactured closing hedges then dragged the verdict (momentum scored -1 on a RISING entity off 'for now, this isn't a surge'). Brevity is now explicitly blessed — two sentences is a complete read. s15: the peer-length pass — the Summary verdict grows from one sentence to 5-6, and the two rationing rules ("one line per section", "keep it tight") are retired. Those were a 1070 Ti budget; the clipped film-room REGISTER is the Scout's voice and is deliberately kept — short sentences, just more of them. s12: cross-season memory card (mig 164); s13: three-section contract (Strengths to respect / Exploitation opportunities / Summary); s14: The Scout voice pass (Characters Phase B) — persona-first coaching-staff brief, clipped game-plan imperatives, prompt_version folded into the debounce pre-image
+/// Prompt version for the rating scouting-report contract.
+pub const RATING_PROMPT_VERSION: &str = "s19"; // s19, the PEAK RETIREMENT + z-MEMORY pass (Scott's brief, 2026-08-14, verbatim: "Just an emphasis on each z-score and the memory of each. Rather than a sample size, we empower the Scout to determine using memories how the trajectory is going"). Five moves: (1) PEAK/specialist is retired project-wide — the divined label leaves the contract, the storage path, and the hash pre-image (`peak_label`/`peak_score` gone from input_components; the specialist columns stop being read), so the pre-image is the z-score surface the Scout actually reads. Fleet-wide regen by design. (2) SEASON-OVER-SEASON MOVEMENT: a new prompt block of per-skill labeled deltas computed in code against last season's percentiles (±8 pct-point threshold → improved/slipped/held, top 10 by current pct) — the L8/ScoutingDecision discipline applied to trajectory: the movement word is decided, the Scout voices which moves matter. The static-profile rule is REPLACED by the skill-development rule (development is the Scout's to call from the movement lines; week-to-week momentum stays the Analyst's turn). (3) The deterministic recent-form marker is DEMOTED to shading context in this brief (it remains the Analyst's lean and the API's metadata) and its window goes dynamic: 10% of the entity's scored events this season, clamped [3,16] — the fixed LIMIT 8 was NBA-calibrated and read wrong for NFL/FOOTBALL calendars. Composite-only: the specialist z series is gone with the concept. (4) "Composite" → "Overall score" in the materials (the same input-stops-shouting rule that removed PEAK from them at s18). (5) Output contract renamed peak-commentary-v2 → rating-commentary-v1 (body-only; the parser's marker strip is transition tolerance, its yield discarded). // s18, the PRODUCT-NAME SCRUB + the code-owned PEAK line (Scott's brief, 2026-08-10, verbatim: "I don't want anything referencing PEAK or Vibe, or other of our products. Just use those as context without naming them. The Scout shouldn't keep including a bunch of asterics in the output. It should be a clean, concise, but thorough scouting report with strengths and weaknesses."). Three moves: (1) the model no longer emits the "PEAK: <label>" marker line at all — that line was always a verbatim copy of the deterministic decision (build_scouting_decision), so `divined_peak` is now CODE-OWNED (RatingReady carries it; generate_rating persists it without asking the model), which deletes the copy-flake failure class AND lets the whole prompt drop the word PEAK — the s13-analyst lesson says a ban cannot beat a word the input keeps shouting, so the input stops shouting it: "SCOUTING DECISION"→"DECISION CARD", "Required PEAK line" gone, "(the PEAK)"→"primary". (2) The two measured 8B defects land in a numbered SHIPS block (the s9/s12/or8 promotion treatment): plain-text (the 8B bolded section labels 4× on the D-T55 gate) and the product-name ban, gated case-sensitively by the harness's new per-reply no_product_names invariant. (3) Sections renumber 1-3; contract shape otherwise unchanged (labels, exploit phrase, allowance framing). // s17, the REGISTER pass (Scott's brief, 2026-08-10): the veteran advance scout — thirty years of advance work, film-room shorthand, pride in the details, "a generic call is a wasted line." Same three-section structure deliberately (no worked example: the card-driven shape makes one a leak risk). Gate grew first (D-T45): section labels, the " · " notation ban, word floors on all 8, and a crude whole-body sentence ceiling — the s16 baseline then read 86/91, catching a live " · " copy and a "play physical" generic call. s16 — the ALLOWANCE pass: the ceiling goes to eight sentences and is reframed as a platform allowance rather than a target. Measured cause: at a 5-6 floor the model reached for length, and the manufactured closing hedges then dragged the verdict (momentum scored -1 on a RISING entity off 'for now, this isn't a surge'). Brevity is now explicitly blessed — two sentences is a complete read. s15: the peer-length pass — the Summary verdict grows from one sentence to 5-6, and the two rationing rules ("one line per section", "keep it tight") are retired. Those were a 1070 Ti budget; the clipped film-room REGISTER is the Scout's voice and is deliberately kept — short sentences, just more of them. s12: cross-season memory card (mig 164); s13: three-section contract (Strengths to respect / Exploitation opportunities / Summary); s14: The Scout voice pass (Characters Phase B) — persona-first coaching-staff brief, clipped game-plan imperatives, prompt_version folded into the debounce pre-image
 
-/// render_personnel_block turns the adjudicated personnel record (7.7) into the PEAK context's
+/// render_personnel_block turns the adjudicated personnel record (7.7) into the rating context's
 /// "since our last read" block: one dated fact per line, built in code from the columns
 /// `load_personnel_changes` described. `None` when nothing moved — an empty section is worse
 /// than no section, because a heading with nothing under it reads as an assertion that nothing
@@ -178,13 +172,19 @@ pub fn render_personnel_block(
 /// build_stat_prompt assembles the user prompt. `memory` is the cross-season memory card
 /// (s12, mig 164) — `None` when the graph holds none, and for the parity/eval paths
 /// (which pin the memory-free shape). `personnel` is 7.7's adjudicated personnel block, already
-/// rendered by `render_personnel_block` and `None` on the same paths.
+/// rendered by `render_personnel_block` and `None` on the same paths. `z_memory` (s19) is the
+/// season-over-season per-skill movement block — code-computed labeled deltas the Scout voices
+/// (the L8 discipline: the movement word is decided, never inferred). `form_trend` (s19) is the
+/// deterministic recent-form marker label, demoted to shading context. All four are prompt-only
+/// enrichment, outside `input_components`/`input_hash`.
 pub fn build_stat_prompt(
     req: &RatingReq,
     p: &RatingProfile,
     notability: i32,
     memory: Option<&str>,
     personnel: Option<&str>,
+    z_memory: Option<&str>,
+    form_trend: Option<&str>,
 ) -> String {
     let mut b = String::new();
 
@@ -200,8 +200,10 @@ pub fn build_stat_prompt(
     ));
 
     if let Some(comp) = p.composite_score {
+        // s19 descrub: "Overall score", never the product noun "Composite" — the same
+        // input-stops-shouting rule that removed PEAK from these materials.
         b.push_str(&format!(
-            "\nComposite (how WELL overall — T-score, 50 = average): {comp:.0}\n"
+            "\nOverall score (how WELL overall — T-score, 50 = average): {comp:.0}\n"
         ));
     }
 
@@ -226,6 +228,27 @@ pub fn build_stat_prompt(
                 r.pct
             ));
         }
+    }
+
+    // Season-over-season movement (s19): per-skill labeled deltas, computed in code from last
+    // season's percentiles (the ScoutingDecision/L8 discipline — the movement word is decided,
+    // the Scout voices which moves matter). This is the Scout's trajectory material; the
+    // deterministic recent-form marker below is demoted to shading.
+    if let Some(zm) = z_memory.filter(|m| !m.trim().is_empty()) {
+        b.push_str("\nSeason-over-season movement (computed against last season's percentiles — the movement word on each line is decided; voice the moves that matter to a staff, in the sport's words, beside this season's number):\n");
+        for line in zm.lines() {
+            b.push_str("- ");
+            b.push_str(line);
+            b.push('\n');
+        }
+    }
+
+    // The recent-form marker (s19): the deterministic window read, demoted to context. The
+    // Scout shades with it; the week-to-week momentum story belongs to another character.
+    if let Some(ft) = form_trend.filter(|t| !t.trim().is_empty()) {
+        b.push_str(&format!(
+            "\nRecent-form marker (computed shading only — not yours to restate as a verdict; the week-to-week momentum story is another character's turn): {ft}\n"
+        ));
     }
 
     // Personnel changes since our last read (7.7) — the Scout's SECOND confirmed-fact road,

@@ -20,11 +20,11 @@
 use anyhow::{anyhow, Result};
 use scoracle_cognition::buildinfo;
 use scoracle_cognition::harness::Harness;
-use scoracle_cognition::route::Router;
+use scoracle_cognition::junctions::investigator::boxscore;
 use scoracle_cognition::junctions::{
     analyst, editor, graph, influencer, insider, journalist, oracle, scout,
 };
-use scoracle_cognition::junctions::investigator::boxscore;
+use scoracle_cognition::route::Router;
 use scoracle_cognition::{config, db, embed, ollama, openai, stage, worker};
 use std::collections::HashSet;
 use tracing::{info, warn};
@@ -88,7 +88,9 @@ async fn main() -> Result<()> {
             ),
         };
         match pinged {
-            Ok(()) => info!(base_url = %host, backend = kind, max_concurrent = permits, "model host reachable"),
+            Ok(()) => {
+                info!(base_url = %host, backend = kind, max_concurrent = permits, "model host reachable")
+            }
             Err(e) => {
                 warn!(error = %e, base_url = %host, backend = kind, max_concurrent = permits, "model host NOT reachable (continuing; roles on this host will fail until it is)")
             }
@@ -180,12 +182,12 @@ async fn main() -> Result<()> {
     if enabled.contains("vibe") {
         handlers.push(Box::new(influencer::VibeHandler::new()));
     }
-    // PEAK feeds Momentum/Sigil, but it does not feed the news rail. Keep it after
+    // The rating stage feeds Momentum/Sigil, but not the news rail. Keep it after
     // the news-product stages so a nightly stat backlog cannot delay The Journalist.
     if enabled.contains("peak") {
         handlers.push(Box::new(scout::PeakHandler::new()));
     }
-    // momentum consumes PEAK + vibe, so it registers after both: a vibe hand-off
+    // momentum consumes the rating card + vibe, so it registers after both: a vibe hand-off
     // (enqueue_momentum_if_needed) drains in the same tick pass instead of waiting
     // for the next NOTIFY/safety-net wake.
     if enabled.contains("momentum") {

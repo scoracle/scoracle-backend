@@ -27,8 +27,10 @@
 # Optional: set WATCHDOG_ALERT_URL in .env.local (e.g. an ntfy.sh topic) and
 # alarms are POSTed there as plain text.
 #
-# Cron: twice daily, after the nightly window and mid-evening:
-#   0 8,20 * * * .../cron-watchdog.sh >> .../logs/watchdog.log 2>&1
+# Cron: twice daily at :30 of an ON hour (cognition runs 1-on/1-off, even hours
+# on) — drain_alive samples the last 30 min of production, so the run must sit
+# ≥30 min inside an on-block or a resting daemon reads as a dead one:
+#   30 8,20 * * * .../cron-watchdog.sh >> .../logs/watchdog.log 2>&1
 
 set -euo pipefail
 cd /home/sheneveld/scoracle/scoracle-backend

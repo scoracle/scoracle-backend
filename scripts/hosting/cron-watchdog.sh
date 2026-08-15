@@ -17,7 +17,9 @@
 #                      (the voices are producing, not just queued)
 #   packet_compile   — newest packets.compiled_at within 36h (the rail compiles)
 #   dead_letters     — pipeline_work failed at the attempt cap (>25 = ALARM)
-#   queue_stall      — claimable work older than 6h (daemon down/stuck)
+#   drain_alive      — claimable work exists but NOTHING produced in 30 min
+#                      (a dead/wedged daemon; depth alone is recovery, not failure)
+#   queue_depth      — claimable count sanity bound (>20k = runaway inflow)
 #
 # Reporting: one pipeline_runs row per run (job='watchdog'; status failed +
 # the alarm lines in error), so `SELECT * FROM pipeline_runs_latest` shows it
@@ -66,10 +68,14 @@ dead AS (
   SELECT count(*) AS n FROM pipeline_work
    WHERE status = 'failed' AND attempts >= 5 AND stage <> 'peak'
 ),
-stall AS (
+recent AS (
+  SELECT count(*) AS produced FROM cognition_ledger
+   WHERE generated_at > now() - interval '30 minutes'
+),
+claimable AS (
   SELECT count(*) AS n, min(available_at) AS oldest FROM pipeline_work
    WHERE status IN ('pending','failed') AND attempts < 5 AND stage <> 'peak'
-     AND available_at < now() - interval '6 hours'
+     AND available_at < now()
 )
 SELECT 'ingest_recency',
        CASE WHEN newest > now() - interval '26 hours' THEN 'OK' ELSE 'ALARM' END,
@@ -96,10 +102,18 @@ SELECT 'dead_letters',
        n || ' at attempt cap'
   FROM dead
 UNION ALL
-SELECT 'queue_stall',
-       CASE WHEN n <= 500 THEN 'OK' ELSE 'ALARM' END,
-       n || ' claimable >6h (oldest ' || coalesce(oldest::text, 'n/a') || ')'
-  FROM stall;
+-- A deep queue draining at speed is recovery, not failure (the 08-15 backlog
+-- morning): stall means claimable work exists AND nothing was produced in 30
+-- minutes — a dead or wedged daemon, whatever the depth.
+SELECT 'drain_alive',
+       CASE WHEN c.n = 0 OR r.produced > 0 THEN 'OK' ELSE 'ALARM' END,
+       r.produced || ' products/30m vs ' || c.n || ' claimable (oldest ' || coalesce(c.oldest::text, 'n/a') || ')'
+  FROM claimable c, recent r
+UNION ALL
+SELECT 'queue_depth',
+       CASE WHEN n <= 20000 THEN 'OK' ELSE 'ALARM' END,
+       n || ' claimable'
+  FROM claimable;
 SQL
 )"
 

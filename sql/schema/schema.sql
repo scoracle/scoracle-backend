@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict UXTprOw2esXNsSnAl6GTzqF2OYeJG4Rhk4bweUPb5vo9WuBUbnUqa1foOczdhea
+\restrict 2BwZReBmcK1KweNjcpAsn1q8tzaIDWLaSN7SRzMaRag2jcfKm6ckwHbktTtgVgz
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -1441,7 +1441,7 @@ $$;
 -- Name: _compute_rating_bundle(text, integer, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public._compute_rating_bundle(p_sport text, p_season integer, p_rate_mode text) RETURNS TABLE(player_id integer, league_id integer, composite numeric, composite_rank numeric, composite_score numeric, specialist numeric, specialist_rank numeric, specialist_score numeric, specialty text, breakdown jsonb, scoped_ranks jsonb, scoped_scores jsonb)
+CREATE FUNCTION public._compute_rating_bundle(p_sport text, p_season integer, p_rate_mode text) RETURNS TABLE(player_id integer, league_id integer, composite numeric, composite_rank numeric, composite_score numeric, breakdown jsonb, scoped_ranks jsonb, scoped_scores jsonb)
     LANGUAGE sql STABLE
     AS $$
     WITH lasp AS (
@@ -1506,12 +1506,6 @@ CREATE FUNCTION public._compute_rating_bundle(p_sport text, p_season integer, p_
     comp AS (
         SELECT player_id, league_id, composite FROM comp_flat
     ),
-    sp AS (
-        SELECT DISTINCT ON (player_id, league_id)
-               player_id, league_id, zr AS specialist, label AS specialty
-        FROM z WHERE in_spec
-        ORDER BY player_id, league_id, zr DESC, label
-    ),
     rk AS (
         SELECT DISTINCT player_id, league_id, is_ranked FROM z
     ),
@@ -1542,35 +1536,34 @@ CREATE FUNCTION public._compute_rating_bundle(p_sport text, p_season integer, p_
         FROM z u WHERE NOT u.is_ranked
     ),
     bd AS (
+        -- (mig 221) the specialty flag leaves the datapoint with the concept. A client
+        -- that ever wants a hero row can take max(z); the Scout names standouts in prose.
+        -- (Spelling the retired key out here would trip this migration's own proof gate.)
         SELECT s.player_id, s.league_id,
                jsonb_agg(jsonb_build_object(
                    'label', s.label, 'value', s.value, 'z', ROUND(s.zr, 4), 'pct', s.pct,
                    'in_comp', s.in_comp, 'in_spec', s.in_spec, 'sign', s.sign, 'facet', s.facet,
-                   'is_specialty', (sp.specialty IS NOT DISTINCT FROM s.label),
                    'scoped_pct', jsonb_strip_nulls(jsonb_build_object(
                        'position', s.pct_position, 'conference', s.pct_conference,
                        'division', s.pct_division, 'league', s.pct_league))
                ) ORDER BY s.label) AS breakdown
         FROM scored s
-        LEFT JOIN sp USING (player_id, league_id)
         GROUP BY s.player_id, s.league_id
     ),
     base AS (
+        -- (mig 221) the specialist CTE was an INNER join here; without it an entity is
+        -- rated on its composite alone, which is what the rating always was.
         SELECT c.player_id, c.league_id,
-               ROUND(c.composite, 4)  AS composite,
-               ROUND(sp.specialist, 4) AS specialist,
-               sp.specialty, bd.breakdown, rk.is_ranked
+               ROUND(c.composite, 4) AS composite,
+               bd.breakdown, rk.is_ranked
         FROM comp c
-        JOIN sp USING (player_id, league_id)
         JOIN bd USING (player_id, league_id)
         JOIN rk USING (player_id, league_id)
     ),
     ranks AS (
         SELECT player_id, league_id, is_ranked,
-               CASE WHEN is_ranked THEN ROUND((percent_rank() OVER (PARTITION BY is_ranked ORDER BY composite  ASC))::numeric * 100, 1) END AS composite_rank,
-               CASE WHEN is_ranked THEN ROUND((percent_rank() OVER (PARTITION BY is_ranked ORDER BY specialist ASC))::numeric * 100, 1) END AS specialist_rank,
-               CASE WHEN is_ranked THEN public.rating_score(composite,  AVG(composite)  OVER(PARTITION BY is_ranked), STDDEV_POP(composite)  OVER(PARTITION BY is_ranked)) END AS composite_score,
-               CASE WHEN is_ranked THEN public.rating_score(specialist, AVG(specialist) OVER(PARTITION BY is_ranked), STDDEV_POP(specialist) OVER(PARTITION BY is_ranked)) END AS specialist_score
+               CASE WHEN is_ranked THEN ROUND((percent_rank() OVER (PARTITION BY is_ranked ORDER BY composite ASC))::numeric * 100, 1) END AS composite_rank,
+               CASE WHEN is_ranked THEN public.rating_score(composite, AVG(composite) OVER(PARTITION BY is_ranked), STDDEV_POP(composite) OVER(PARTITION BY is_ranked)) END AS composite_score
         FROM base
     ),
     scoped AS (
@@ -1593,8 +1586,6 @@ CREATE FUNCTION public._compute_rating_bundle(p_sport text, p_season integer, p_
     SELECT b.player_id, b.league_id,
            CASE WHEN b.is_ranked THEN b.composite END AS composite,
            r.composite_rank, r.composite_score,
-           CASE WHEN b.is_ranked THEN b.specialist END AS specialist, r.specialist_rank, r.specialist_score,
-           CASE WHEN b.is_ranked THEN b.specialty END AS specialty,
            b.breakdown,
            NULLIF(jsonb_strip_nulls(jsonb_build_object(
                'position', sc.pos_pct, 'conference', sc.conf_pct,
@@ -2162,9 +2153,9 @@ DECLARE
     v_balanced BOOLEAN := FALSE;
 BEGIN
     UPDATE event_box_scores
-       SET rating_composite = NULL, rating_specialist = NULL, rating_specialty = NULL
+       SET rating = NULL
      WHERE sport = p_sport AND season = p_season
-       AND (rating_composite IS NOT NULL OR rating_specialist IS NOT NULL);
+       AND rating IS NOT NULL;
 
     DROP TABLE IF EXISTS _starline_dp;
     CREATE TEMP TABLE _starline_dp (
@@ -2185,7 +2176,7 @@ BEGIN
         FROM _starline_dp GROUP BY label
     ),
     z AS (
-        SELECT d.event_id, d.label, d.in_comp, d.in_spec, d.sign, d.facet,
+        SELECT d.event_id, d.label, d.in_comp, d.sign, d.facet,
                COALESCE((d.value - p.mean) / p.sd, 0) AS zr
         FROM _starline_dp d JOIN pop p USING (label)
     ),
@@ -2205,19 +2196,9 @@ BEGIN
         SELECT event_id, composite FROM comp_flat  WHERE NOT v_balanced
         UNION ALL
         SELECT event_id, composite FROM comp_facet WHERE     v_balanced
-    ),
-    spec AS (
-        SELECT DISTINCT ON (event_id)
-               event_id, zr AS specialist, label AS specialty
-        FROM z WHERE in_spec
-        ORDER BY event_id, zr DESC
     )
-    UPDATE event_box_scores e SET
-        rating_composite  = ROUND(c.composite,  4),
-        rating_specialist = ROUND(s.specialist, 4),
-        rating_specialty  = s.specialty
+    UPDATE event_box_scores e SET rating = ROUND(c.composite, 4)
     FROM composite c
-    JOIN spec s USING (event_id)
     WHERE e.id = c.event_id;
     GET DIAGNOSTICS v_updated = ROW_COUNT;
 
@@ -2241,13 +2222,11 @@ DECLARE
         ARRAY[]::TEXT[]);
 BEGIN
     UPDATE player_stats
-       SET rating_composite = NULL, rating_specialist = NULL, rating_specialty = NULL,
-           rating_composite_rank = NULL, rating_specialist_rank = NULL,
-           rating_composite_score = NULL, rating_specialist_score = NULL, rating_scoped_scores = NULL,
+       SET rating = NULL, rating_rank = NULL, rating_score = NULL,
+           rating_scoped_scores = NULL,
            rating_breakdown = NULL, rating_scoped_ranks = NULL, rating_modes = NULL
      WHERE sport = p_sport AND season = p_season
-       AND (rating_composite IS NOT NULL OR rating_specialist IS NOT NULL
-            OR rating_composite_rank IS NOT NULL OR rating_modes IS NOT NULL);
+       AND (rating IS NOT NULL OR rating_rank IS NOT NULL OR rating_modes IS NOT NULL);
 
     FOREACH v_mode IN ARRAY v_modes LOOP
         IF v_mode = 'total' THEN
@@ -2255,16 +2234,12 @@ BEGIN
                 SELECT * FROM _compute_rating_bundle(p_sport, p_season, 'total')
             )
             UPDATE player_stats ps SET
-                rating_composite       = b.composite,
-                rating_specialist      = b.specialist,
-                rating_specialty       = b.specialty,
-                rating_composite_rank  = b.composite_rank,
-                rating_specialist_rank = b.specialist_rank,
-                rating_composite_score = b.composite_score,
-                rating_specialist_score= b.specialist_score,
-                rating_breakdown       = public.rating_breakdown_without_specialty(b.breakdown),
-                rating_scoped_ranks    = b.scoped_ranks,
-                rating_scoped_scores   = b.scoped_scores
+                rating               = b.composite,
+                rating_rank          = b.composite_rank,
+                rating_score         = b.composite_score,
+                rating_breakdown     = b.breakdown,
+                rating_scoped_ranks  = b.scoped_ranks,
+                rating_scoped_scores = b.scoped_scores
             FROM b
             WHERE ps.player_id = b.player_id AND ps.sport = p_sport AND ps.season = p_season
               AND COALESCE(ps.league_id, 0) = b.league_id;
@@ -2276,18 +2251,14 @@ BEGIN
             UPDATE player_stats ps SET
                 rating_modes = COALESCE(ps.rating_modes, '{}'::jsonb) || jsonb_build_object(
                     v_mode,
-                    public.rating_mode_peak_payload(jsonb_build_object(
-                        'composite',        b.composite,
-                        'composite_rank',   b.composite_rank,
-                        'composite_score',  b.composite_score,
-                        'peak',             b.specialist,
-                        'peak_rank',        b.specialist_rank,
-                        'peak_score',       b.specialist_score,
-                        'peak_label',       b.specialty,
-                        'breakdown',        b.breakdown,
-                        'scoped_ranks',     b.scoped_ranks,
-                        'scoped_scores',    b.scoped_scores
-                    )))
+                    jsonb_build_object(
+                        'rating',        b.composite,
+                        'rating_rank',   b.composite_rank,
+                        'rating_score',  b.composite_score,
+                        'breakdown',     b.breakdown,
+                        'scoped_ranks',  b.scoped_ranks,
+                        'scoped_scores', b.scoped_scores
+                    ))
             FROM b
             WHERE ps.player_id = b.player_id AND ps.sport = p_sport AND ps.season = p_season
               AND COALESCE(ps.league_id, 0) = b.league_id;
@@ -2310,9 +2281,9 @@ DECLARE
     v_updated INTEGER := 0;
 BEGIN
     UPDATE event_team_stats
-       SET rating_composite = NULL, rating_specialist = NULL, rating_specialty = NULL
+       SET rating = NULL
      WHERE sport = p_sport AND season = p_season
-       AND (rating_composite IS NOT NULL OR rating_specialist IS NOT NULL);
+       AND rating IS NOT NULL;
 
     DROP TABLE IF EXISTS _team_starline_dp;
     CREATE TEMP TABLE _team_starline_dp (
@@ -2331,22 +2302,15 @@ BEGIN
         FROM _team_starline_dp GROUP BY label
     ),
     z AS (
-        SELECT d.event_id, d.in_comp, d.in_spec, d.sign, d.label,
+        SELECT d.event_id, d.in_comp, d.sign, d.label,
                COALESCE((d.value - p.mean) / p.sd, 0) AS zr
         FROM _team_starline_dp d JOIN pop p USING (label)
     ),
     composite AS (
         SELECT event_id, SUM(sign * zr) AS composite FROM z WHERE in_comp GROUP BY event_id
-    ),
-    spec AS (
-        SELECT DISTINCT ON (event_id) event_id, zr AS specialist, label AS specialty
-        FROM z WHERE in_spec ORDER BY event_id, zr DESC
     )
-    UPDATE event_team_stats e SET
-        rating_composite  = ROUND(c.composite,  4),
-        rating_specialist = ROUND(s.specialist, 4),
-        rating_specialty  = s.specialty
-    FROM composite c JOIN spec s USING (event_id)
+    UPDATE event_team_stats e SET rating = ROUND(c.composite, 4)
+    FROM composite c
     WHERE e.id = c.event_id;
     GET DIAGNOSTICS v_updated = ROW_COUNT;
 
@@ -2366,13 +2330,11 @@ DECLARE
     v_updated INTEGER := 0;
 BEGIN
     UPDATE team_stats
-       SET rating_composite = NULL, rating_specialist = NULL, rating_specialty = NULL,
-           rating_composite_rank = NULL, rating_specialist_rank = NULL,
-           rating_composite_score = NULL, rating_specialist_score = NULL, rating_scoped_scores = NULL,
+       SET rating = NULL, rating_rank = NULL, rating_score = NULL,
+           rating_scoped_scores = NULL,
            rating_categories = NULL, rating_scoped_ranks = NULL, rating_breakdown = NULL
      WHERE sport = p_sport AND season = p_season
-       AND (rating_composite IS NOT NULL OR rating_specialist IS NOT NULL
-            OR rating_composite_rank IS NOT NULL);
+       AND (rating IS NOT NULL OR rating_rank IS NOT NULL);
 
     DROP TABLE IF EXISTS _team_dp;
     CREATE TEMP TABLE _team_dp (
@@ -2392,26 +2354,16 @@ BEGIN
         FROM _team_dp GROUP BY label
     ),
     z AS (
-        SELECT d.team_id, d.league_id, d.in_comp, d.in_spec, d.sign, d.label,
+        SELECT d.team_id, d.league_id, d.in_comp, d.sign, d.label,
                COALESCE((d.value - p.mean) / p.sd, 0) AS zr
         FROM _team_dp d JOIN pop p USING (label)
     ),
     composite AS (
         SELECT team_id, league_id, SUM(sign * zr) AS composite
         FROM z WHERE in_comp GROUP BY team_id, league_id
-    ),
-    spec AS (
-        SELECT DISTINCT ON (team_id, league_id)
-               team_id, league_id, zr AS specialist, label AS specialty
-        FROM z WHERE in_spec
-        ORDER BY team_id, league_id, zr DESC
     )
-    UPDATE team_stats ts SET
-        rating_composite  = ROUND(c.composite,  4),
-        rating_specialist = ROUND(s.specialist, 4),
-        rating_specialty  = s.specialty
+    UPDATE team_stats ts SET rating = ROUND(c.composite, 4)
     FROM composite c
-    JOIN spec s USING (team_id, league_id)
     WHERE ts.team_id = c.team_id AND ts.sport = p_sport AND ts.season = p_season
       AND COALESCE(ts.league_id, 0) = c.league_id;
     GET DIAGNOSTICS v_updated = ROW_COUNT;
@@ -2442,19 +2394,16 @@ BEGIN
     UPDATE team_stats ts SET rating_breakdown = a.breakdown
     FROM agg a
     WHERE ts.team_id = a.team_id AND ts.sport = p_sport AND ts.season = p_season
-      AND COALESCE(ts.league_id, 0) = a.league_id AND ts.rating_composite IS NOT NULL;
+      AND COALESCE(ts.league_id, 0) = a.league_id AND ts.rating IS NOT NULL;
 
     WITH r AS (
         SELECT team_id, league_id,
-               ROUND((percent_rank() OVER (ORDER BY rating_composite  ASC))::numeric * 100, 1) AS crank,
-               ROUND((percent_rank() OVER (ORDER BY rating_specialist ASC))::numeric * 100, 1) AS srank,
-               public.rating_score(rating_composite,  AVG(rating_composite)  OVER(), STDDEV_POP(rating_composite)  OVER()) AS cscore,
-               public.rating_score(rating_specialist, AVG(rating_specialist) OVER(), STDDEV_POP(rating_specialist) OVER()) AS sscore
+               ROUND((percent_rank() OVER (ORDER BY rating ASC))::numeric * 100, 1) AS crank,
+               public.rating_score(rating, AVG(rating) OVER(), STDDEV_POP(rating) OVER()) AS cscore
         FROM team_stats
-        WHERE sport = p_sport AND season = p_season AND rating_composite IS NOT NULL
+        WHERE sport = p_sport AND season = p_season AND rating IS NOT NULL
     )
-    UPDATE team_stats ts SET rating_composite_rank = r.crank, rating_specialist_rank = r.srank,
-                             rating_composite_score = r.cscore, rating_specialist_score = r.sscore
+    UPDATE team_stats ts SET rating_rank = r.crank, rating_score = r.cscore
     FROM r
     WHERE ts.team_id = r.team_id AND ts.sport = p_sport AND ts.season = p_season
       AND COALESCE(ts.league_id, 0) = r.league_id;
@@ -3135,11 +3084,11 @@ CREATE FUNCTION public.mark_momentum_refresh_from_event_rating() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
-    IF NEW.rating_composite_pct IS NULL THEN
+    IF NEW.rating_pct IS NULL THEN
         RETURN NEW;
     END IF;
 
-    IF TG_OP = 'INSERT' OR OLD.rating_composite_pct IS DISTINCT FROM NEW.rating_composite_pct THEN
+    IF TG_OP = 'INSERT' OR OLD.rating_pct IS DISTINCT FROM NEW.rating_pct THEN
         PERFORM public.mark_momentum_refresh_needed(NEW.sport, 'rating');
     END IF;
     RETURN NEW;
@@ -3425,16 +3374,17 @@ own_momentum AS (
     ORDER BY m.generated_at DESC
     LIMIT 2
 ),
-own_peak AS (
-    -- The PEAK lens's latest banked read (stat_summaries). Least-weighted (stats-heavy) —
-    -- the tail line. Season-keyed, so just the latest.
-    SELECT format('Our prior read (top skill, season %s): "%s" (profile distinctiveness %s/100)%s.',
-               s.season, s.divined_peak, s.notability,
-               CASE WHEN COALESCE(s.peak_trajectory_label, '') <> ''
-                    THEN '; ' || s.peak_trajectory_label ELSE '' END) AS line
+own_rating AS (
+    -- (mig 221) The rating lens's latest banked read (stat_summaries). Least-weighted
+    -- (stats-heavy) — the tail line. Season-keyed, so just the latest. The divined
+    -- top-skill label retired with PEAK; distinctiveness and the trajectory remain.
+    SELECT format('Our prior read (rating, season %s): profile distinctiveness %s/100%s.',
+               s.season, s.notability,
+               CASE WHEN COALESCE(s.rating_trajectory_label, '') <> ''
+                    THEN '; ' || s.rating_trajectory_label ELSE '' END) AS line
     FROM stat_summaries s
     WHERE s.sport = p_sport AND s.entity_type = p_entity_type AND s.entity_id = p_entity_id
-      AND s.body IS NOT NULL AND COALESCE(s.divined_peak, '') <> ''
+      AND s.body IS NOT NULL AND s.notability IS NOT NULL
     ORDER BY s.season DESC, s.generated_at DESC
     LIMIT 1
 )
@@ -3448,7 +3398,7 @@ SELECT NULLIF(concat_ws(E'\n',
     (SELECT string_agg(line, E'\n' ORDER BY ord DESC) FROM own_transfer),
     (SELECT string_agg(line, E'\n' ORDER BY ord DESC) FROM own_vibe),
     (SELECT string_agg(line, E'\n' ORDER BY ord DESC) FROM own_momentum),
-    (SELECT line FROM own_peak)), '');
+    (SELECT line FROM own_rating)), '');
 $$;
 
 
@@ -3814,23 +3764,6 @@ COMMENT ON FUNCTION public.promote_narrative_persons(p_sport text) IS 'Nightly c
 
 
 --
--- Name: rating_breakdown_without_specialty(jsonb); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.rating_breakdown_without_specialty(p_breakdown jsonb) RETURNS jsonb
-    LANGUAGE sql IMMUTABLE
-    AS $$
-    SELECT CASE
-        WHEN p_breakdown IS NULL THEN NULL
-        ELSE COALESCE((
-            SELECT jsonb_agg(e - 'is_specialty' ORDER BY ord)
-            FROM jsonb_array_elements(p_breakdown) WITH ORDINALITY AS x(e, ord)
-        ), '[]'::jsonb)
-    END;
-$$;
-
-
---
 -- Name: rating_datapoints(text, jsonb, text, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -4053,27 +3986,6 @@ CREATE FUNCTION public.rating_datapoints_team(p_sport text, p_stats jsonb) RETUR
         ('Cards',                COALESCE(NULLIF(p_stats->>'yellow_cards_total','')::numeric,0)
                                + COALESCE(NULLIF(p_stats->>'red_cards_total','')::numeric,0),   TRUE, FALSE, -1, 'defense')
     ) v(label, value, in_comp, in_spec, sign, facet) WHERE p_sport = 'FOOTBALL';
-$$;
-
-
---
--- Name: rating_mode_peak_payload(jsonb); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.rating_mode_peak_payload(p_mode jsonb) RETURNS jsonb
-    LANGUAGE sql IMMUTABLE
-    AS $$
-    SELECT CASE
-        WHEN p_mode IS NULL THEN NULL
-        ELSE (p_mode - 'specialist' - 'specialist_rank' - 'specialist_score' - 'specialty' - 'breakdown')
-             || jsonb_strip_nulls(jsonb_build_object(
-                    'peak',       COALESCE(p_mode->'peak',       p_mode->'specialist'),
-                    'peak_rank',  COALESCE(p_mode->'peak_rank',  p_mode->'specialist_rank'),
-                    'peak_score', COALESCE(p_mode->'peak_score', p_mode->'specialist_score'),
-                    'peak_label', COALESCE(p_mode->'peak_label', p_mode->'specialty'),
-                    'breakdown',  public.rating_breakdown_without_specialty(p_mode->'breakdown')
-                ))
-    END;
 $$;
 
 
@@ -4401,38 +4313,34 @@ CREATE FUNCTION public.recalculate_event_rating_pct(p_sport text, p_season integ
 BEGIN
     -- Player events: clear stale pct, then percent_rank the live z's.
     UPDATE event_box_scores
-       SET rating_composite_pct = NULL, rating_specialist_pct = NULL
+       SET rating_pct = NULL
      WHERE sport = p_sport AND season = p_season
-       AND (rating_composite_pct IS NOT NULL OR rating_specialist_pct IS NOT NULL);
+       AND rating_pct IS NOT NULL;
 
     WITH ranked AS (
         SELECT id,
-               ROUND((percent_rank() OVER (ORDER BY rating_composite  ASC))::numeric * 100, 1) AS cpct,
-               ROUND((percent_rank() OVER (ORDER BY rating_specialist ASC))::numeric * 100, 1) AS spct
+               ROUND((percent_rank() OVER (ORDER BY rating ASC))::numeric * 100, 1) AS cpct
         FROM event_box_scores
-        WHERE sport = p_sport AND season = p_season AND rating_composite IS NOT NULL
+        WHERE sport = p_sport AND season = p_season AND rating IS NOT NULL
     )
     UPDATE event_box_scores e
-       SET rating_composite_pct  = r.cpct,
-           rating_specialist_pct = r.spct
+       SET rating_pct = r.cpct
     FROM ranked r WHERE e.id = r.id;
 
     -- Team events (same, no position dimension to begin with — already flat).
     UPDATE event_team_stats
-       SET rating_composite_pct = NULL, rating_specialist_pct = NULL
+       SET rating_pct = NULL
      WHERE sport = p_sport AND season = p_season
-       AND (rating_composite_pct IS NOT NULL OR rating_specialist_pct IS NOT NULL);
+       AND rating_pct IS NOT NULL;
 
     WITH ranked AS (
         SELECT id,
-               ROUND((percent_rank() OVER (ORDER BY rating_composite  ASC))::numeric * 100, 1) AS cpct,
-               ROUND((percent_rank() OVER (ORDER BY rating_specialist ASC))::numeric * 100, 1) AS spct
+               ROUND((percent_rank() OVER (ORDER BY rating ASC))::numeric * 100, 1) AS cpct
         FROM event_team_stats
-        WHERE sport = p_sport AND season = p_season AND rating_composite IS NOT NULL
+        WHERE sport = p_sport AND season = p_season AND rating IS NOT NULL
     )
     UPDATE event_team_stats e
-       SET rating_composite_pct  = r.cpct,
-           rating_specialist_pct = r.spct
+       SET rating_pct = r.cpct
     FROM ranked r WHERE e.id = r.id;
 END;
 $$;
@@ -5040,7 +4948,7 @@ BEGIN
     -- bye weeks and schedule gaps cannot starve it.
     player_ranked AS (
         SELECT e.player_id AS entity_id, e.sport, e.season,
-               e.rating_composite_pct, f.start_time,
+               e.rating_pct, f.start_time,
                row_number() OVER (
                    PARTITION BY e.player_id, e.sport
                    ORDER BY f.start_time DESC
@@ -5048,12 +4956,12 @@ BEGIN
         FROM public.event_box_scores e
         JOIN public.fixtures f ON f.id = e.fixture_id
         JOIN target_sports ts ON ts.sport = e.sport
-        WHERE e.rating_composite_pct IS NOT NULL
+        WHERE e.rating_pct IS NOT NULL
           AND e.season IN (ts.current_season, ts.current_season - 1)
     ),
     team_ranked AS (
         SELECT e.team_id AS entity_id, e.sport, e.season,
-               e.rating_composite_pct, f.start_time,
+               e.rating_pct, f.start_time,
                row_number() OVER (
                    PARTITION BY e.team_id, e.sport
                    ORDER BY f.start_time DESC
@@ -5061,14 +4969,14 @@ BEGIN
         FROM public.event_team_stats e
         JOIN public.fixtures f ON f.id = e.fixture_id
         JOIN target_sports ts ON ts.sport = e.sport
-        WHERE e.rating_composite_pct IS NOT NULL
+        WHERE e.rating_pct IS NOT NULL
           AND e.season IN (ts.current_season, ts.current_season - 1)
     ),
     player_rating AS (
         SELECT 'player'::text AS entity_type, pr.entity_id, pr.sport,
                max(pr.season) AS season,
-               ((array_agg(pr.rating_composite_pct ORDER BY pr.start_time DESC))[1]
-                - (array_agg(pr.rating_composite_pct ORDER BY pr.start_time ASC))[1])::numeric AS rating_slope,
+               ((array_agg(pr.rating_pct ORDER BY pr.start_time DESC))[1]
+                - (array_agg(pr.rating_pct ORDER BY pr.start_time ASC))[1])::numeric AS rating_slope,
                count(*)::int AS rating_samples,
                min(pr.start_time) AS rating_window_start,
                max(pr.start_time) AS rating_window_end
@@ -5080,8 +4988,8 @@ BEGIN
     team_rating AS (
         SELECT 'team'::text AS entity_type, tr.entity_id, tr.sport,
                max(tr.season) AS season,
-               ((array_agg(tr.rating_composite_pct ORDER BY tr.start_time DESC))[1]
-                - (array_agg(tr.rating_composite_pct ORDER BY tr.start_time ASC))[1])::numeric AS rating_slope,
+               ((array_agg(tr.rating_pct ORDER BY tr.start_time DESC))[1]
+                - (array_agg(tr.rating_pct ORDER BY tr.start_time ASC))[1])::numeric AS rating_slope,
                count(*)::int AS rating_samples,
                min(tr.start_time) AS rating_window_start,
                max(tr.start_time) AS rating_window_end
@@ -6226,16 +6134,14 @@ BEGIN
     -- Players
     INSERT INTO public.rating_history (
         entity_type, entity_id, sport, season, league_id,
-        rating_composite, rating_composite_score, rating_composite_rank,
-        rating_specialist, rating_specialist_score, rating_specialist_rank, rating_specialty,
+        rating, rating_score, rating_rank,
         season_composite_rank_alltime, rating_modes, trigger_type)
     SELECT 'player', ps.player_id, ps.sport, ps.season, ps.league_id,
-        ps.rating_composite, ps.rating_composite_score, ps.rating_composite_rank,
-        ps.rating_specialist, ps.rating_specialist_score, ps.rating_specialist_rank, ps.rating_specialty,
+        ps.rating, ps.rating_score, ps.rating_rank,
         ps.season_composite_rank_alltime, ps.rating_modes, p_trigger
     FROM player_stats ps
     WHERE ps.sport = p_sport AND ps.season = p_season
-      AND ps.rating_composite IS NOT NULL
+      AND ps.rating IS NOT NULL
       AND NOT EXISTS (
           SELECT 1 FROM public.rating_history rh
           WHERE rh.entity_type = 'player' AND rh.entity_id = ps.player_id
@@ -6244,10 +6150,8 @@ BEGIN
                 SELECT max(rh2.generated_at) FROM public.rating_history rh2
                 WHERE rh2.entity_type = 'player' AND rh2.entity_id = ps.player_id
                   AND rh2.sport = ps.sport AND rh2.season = ps.season)
-            AND rh.rating_composite        IS NOT DISTINCT FROM ps.rating_composite
-            AND rh.rating_composite_score  IS NOT DISTINCT FROM ps.rating_composite_score
-            AND rh.rating_specialist       IS NOT DISTINCT FROM ps.rating_specialist
-            AND rh.rating_specialist_score IS NOT DISTINCT FROM ps.rating_specialist_score
+            AND rh.rating       IS NOT DISTINCT FROM ps.rating
+            AND rh.rating_score IS NOT DISTINCT FROM ps.rating_score
       );
     GET DIAGNOSTICS v_count = ROW_COUNT;
     v_inserted := v_inserted + v_count;
@@ -6255,16 +6159,14 @@ BEGIN
     -- Teams (team_stats has no rating_modes column → NULL)
     INSERT INTO public.rating_history (
         entity_type, entity_id, sport, season, league_id,
-        rating_composite, rating_composite_score, rating_composite_rank,
-        rating_specialist, rating_specialist_score, rating_specialist_rank, rating_specialty,
+        rating, rating_score, rating_rank,
         season_composite_rank_alltime, rating_modes, trigger_type)
     SELECT 'team', ts.team_id, ts.sport, ts.season, ts.league_id,
-        ts.rating_composite, ts.rating_composite_score, ts.rating_composite_rank,
-        ts.rating_specialist, ts.rating_specialist_score, ts.rating_specialist_rank, ts.rating_specialty,
+        ts.rating, ts.rating_score, ts.rating_rank,
         ts.season_composite_rank_alltime, NULL::jsonb, p_trigger
     FROM team_stats ts
     WHERE ts.sport = p_sport AND ts.season = p_season
-      AND ts.rating_composite IS NOT NULL
+      AND ts.rating IS NOT NULL
       AND NOT EXISTS (
           SELECT 1 FROM public.rating_history rh
           WHERE rh.entity_type = 'team' AND rh.entity_id = ts.team_id
@@ -6273,10 +6175,8 @@ BEGIN
                 SELECT max(rh2.generated_at) FROM public.rating_history rh2
                 WHERE rh2.entity_type = 'team' AND rh2.entity_id = ts.team_id
                   AND rh2.sport = ts.sport AND rh2.season = ts.season)
-            AND rh.rating_composite        IS NOT DISTINCT FROM ts.rating_composite
-            AND rh.rating_composite_score  IS NOT DISTINCT FROM ts.rating_composite_score
-            AND rh.rating_specialist       IS NOT DISTINCT FROM ts.rating_specialist
-            AND rh.rating_specialist_score IS NOT DISTINCT FROM ts.rating_specialist_score
+            AND rh.rating       IS NOT DISTINCT FROM ts.rating
+            AND rh.rating_score IS NOT DISTINCT FROM ts.rating_score
       );
     GET DIAGNOSTICS v_count = ROW_COUNT;
     v_inserted := v_inserted + v_count;
@@ -6340,14 +6240,14 @@ CREATE FUNCTION public.stat_context_for_entity(p_sport text, p_entity_type text,
     LANGUAGE sql STABLE
     AS $$
 WITH prior_read AS (
-    SELECT format('Our prior read: season %s the top skill read was "%s" (profile distinctiveness %s/100)%s.',
-               s.season, s.divined_peak, s.notability,
-               CASE WHEN COALESCE(s.peak_trajectory_label, '') <> ''
-                    THEN '; ' || s.peak_trajectory_label ELSE '' END) AS line
+    SELECT format('Our prior read: season %s scored this profile %s/100 for distinctiveness%s.',
+               s.season, s.notability,
+               CASE WHEN COALESCE(s.rating_trajectory_label, '') <> ''
+                    THEN '; ' || s.rating_trajectory_label ELSE '' END) AS line
     FROM stat_summaries s
     WHERE s.entity_type = p_entity_type AND s.entity_id = p_entity_id
       AND s.sport = p_sport AND s.season < p_season
-      AND s.body IS NOT NULL AND COALESCE(s.divined_peak, '') <> ''
+      AND s.body IS NOT NULL AND s.notability IS NOT NULL
     ORDER BY s.season DESC, s.generated_at DESC
     LIMIT 1
 ),
@@ -6738,16 +6638,12 @@ CREATE TABLE public.player_stats (
     season_composite_rank_alltime numeric,
     season_composite_rank_absolute numeric,
     season_composite_rank_alltime_absolute numeric,
-    rating_composite numeric,
-    rating_specialist numeric,
-    rating_specialty text,
-    rating_composite_rank numeric,
-    rating_specialist_rank numeric,
+    rating numeric,
+    rating_rank numeric,
     rating_breakdown jsonb,
     rating_scoped_ranks jsonb,
     rating_modes jsonb,
-    rating_composite_score numeric,
-    rating_specialist_score numeric,
+    rating_score numeric,
     rating_scoped_scores jsonb
 );
 
@@ -6936,16 +6832,12 @@ CREATE TABLE public.team_stats (
     season_composite_score numeric,
     season_composite_rank numeric,
     season_composite_rank_alltime numeric,
-    rating_composite numeric,
-    rating_specialist numeric,
-    rating_specialty text,
-    rating_composite_rank numeric,
-    rating_specialist_rank numeric,
+    rating numeric,
+    rating_rank numeric,
     rating_breakdown jsonb,
     rating_categories jsonb,
     rating_scoped_ranks jsonb,
-    rating_composite_score numeric,
-    rating_specialist_score numeric,
+    rating_score numeric,
     rating_scoped_scores jsonb
 );
 
@@ -8289,11 +8181,8 @@ CREATE TABLE public.event_box_scores (
     "position" text,
     percentiles jsonb DEFAULT '{}'::jsonb NOT NULL,
     composite_score numeric,
-    rating_composite numeric,
-    rating_specialist numeric,
-    rating_specialty text,
-    rating_composite_pct numeric,
-    rating_specialist_pct numeric
+    rating numeric,
+    rating_pct numeric
 );
 
 
@@ -8334,11 +8223,8 @@ CREATE TABLE public.event_team_stats (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     percentiles jsonb DEFAULT '{}'::jsonb NOT NULL,
     composite_score numeric,
-    rating_composite numeric,
-    rating_specialist numeric,
-    rating_specialty text,
-    rating_composite_pct numeric,
-    rating_specialist_pct numeric
+    rating numeric,
+    rating_pct numeric
 );
 
 
@@ -10140,13 +10026,9 @@ CREATE TABLE public.rating_history (
     sport text NOT NULL,
     season integer NOT NULL,
     league_id integer DEFAULT 0 NOT NULL,
-    rating_composite numeric,
-    rating_composite_score numeric,
-    rating_composite_rank numeric,
-    rating_specialist numeric,
-    rating_specialist_score numeric,
-    rating_specialist_rank numeric,
-    rating_specialty text,
+    rating numeric,
+    rating_score numeric,
+    rating_rank numeric,
     season_composite_rank_alltime numeric,
     rating_modes jsonb,
     trigger_type text DEFAULT 'recompute'::text NOT NULL,
@@ -10511,13 +10393,12 @@ CREATE TABLE public.stat_summaries (
     generated_at timestamp with time zone DEFAULT now() NOT NULL,
     season integer,
     input_hash text,
-    divined_peak text,
-    peak_trajectory text,
-    peak_trajectory_label text,
-    peak_trajectory_components jsonb DEFAULT '{}'::jsonb NOT NULL,
+    rating_trajectory text,
+    rating_trajectory_label text,
+    rating_trajectory_components jsonb DEFAULT '{}'::jsonb NOT NULL,
     CONSTRAINT stat_summaries_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
     CONSTRAINT stat_summaries_notability_check CHECK (((notability IS NULL) OR ((notability >= 0) AND (notability <= 100)))),
-    CONSTRAINT stat_summaries_peak_trajectory_check CHECK ((peak_trajectory = ANY (ARRAY['rising'::text, 'falling'::text, 'steady'::text]))),
+    CONSTRAINT stat_summaries_rating_trajectory_check CHECK ((rating_trajectory = ANY (ARRAY['rising'::text, 'falling'::text, 'steady'::text]))),
     CONSTRAINT stat_summaries_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['stat_change'::text, 'periodic'::text, 'manual'::text])))
 );
 
@@ -10544,31 +10425,24 @@ COMMENT ON COLUMN public.stat_summaries.input_hash IS 'Hash of input_components 
 
 
 --
--- Name: COLUMN stat_summaries.divined_peak; Type: COMMENT; Schema: public; Owner: -
+-- Name: COLUMN stat_summaries.rating_trajectory; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.stat_summaries.divined_peak IS 'Model-divined peak-strength label (e.g. "Rim Protection"), parsed from the rating prompt''s "PEAK: <label>" first line; the Rating card hero label. Was divined_sigil pre-convergence.';
-
-
---
--- Name: COLUMN stat_summaries.peak_trajectory; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.stat_summaries.peak_trajectory IS 'Deterministic recent-form marker for the stats rail z-score values: rising, falling, or steady.';
+COMMENT ON COLUMN public.stat_summaries.rating_trajectory IS 'Deterministic recent-form marker for the stats rail z-score values: rising, falling, or steady.';
 
 
 --
--- Name: COLUMN stat_summaries.peak_trajectory_label; Type: COMMENT; Schema: public; Owner: -
+-- Name: COLUMN stat_summaries.rating_trajectory_label; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.stat_summaries.peak_trajectory_label IS 'Human label for the rating z-score trajectory, e.g. Composite and PEAK z-scores trending down over recent games.';
+COMMENT ON COLUMN public.stat_summaries.rating_trajectory_label IS 'Human label for the rating z-score trajectory, e.g. Composite and PEAK z-scores trending down over recent games.';
 
 
 --
--- Name: COLUMN stat_summaries.peak_trajectory_components; Type: COMMENT; Schema: public; Owner: -
+-- Name: COLUMN stat_summaries.rating_trajectory_components; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.stat_summaries.peak_trajectory_components IS 'Transparent PEAK trajectory inputs: recent Composite/PEAK z-score samples, slopes, and sample sizes.';
+COMMENT ON COLUMN public.stat_summaries.rating_trajectory_components IS 'Transparent PEAK trajectory inputs: recent Composite/PEAK z-score samples, slopes, and sample sizes.';
 
 
 --
@@ -12797,28 +12671,14 @@ CREATE INDEX idx_player_stats_position ON public.player_stats USING btree (sport
 -- Name: idx_player_stats_rated_enum; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_player_stats_rated_enum ON public.player_stats USING btree (sport, season, player_id) WHERE (rating_composite_score IS NOT NULL);
+CREATE INDEX idx_player_stats_rated_enum ON public.player_stats USING btree (sport, season, player_id) WHERE (rating_score IS NOT NULL);
 
 
 --
--- Name: idx_player_stats_rating_composite; Type: INDEX; Schema: public; Owner: -
+-- Name: idx_player_stats_rating; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_player_stats_rating_composite ON public.player_stats USING btree (sport, season, rating_composite DESC) WHERE (rating_composite IS NOT NULL);
-
-
---
--- Name: idx_player_stats_rating_specialist; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_player_stats_rating_specialist ON public.player_stats USING btree (sport, season, rating_specialist DESC) WHERE (rating_specialist IS NOT NULL);
-
-
---
--- Name: idx_player_stats_rating_specialty; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_player_stats_rating_specialty ON public.player_stats USING btree (sport, season, rating_specialty) WHERE (rating_specialty IS NOT NULL);
+CREATE INDEX idx_player_stats_rating ON public.player_stats USING btree (sport, season, rating DESC) WHERE (rating IS NOT NULL);
 
 
 --
@@ -12941,10 +12801,10 @@ CREATE INDEX idx_stat_summaries_entity_recent ON public.stat_summaries USING btr
 
 
 --
--- Name: idx_stat_summaries_peak_trajectory; Type: INDEX; Schema: public; Owner: -
+-- Name: idx_stat_summaries_rating_trajectory; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_stat_summaries_peak_trajectory ON public.stat_summaries USING btree (sport, peak_trajectory, generated_at DESC) WHERE ((body IS NOT NULL) AND (peak_trajectory IS NOT NULL));
+CREATE INDEX idx_stat_summaries_rating_trajectory ON public.stat_summaries USING btree (sport, rating_trajectory, generated_at DESC) WHERE ((body IS NOT NULL) AND (rating_trajectory IS NOT NULL));
 
 
 --
@@ -13021,21 +12881,14 @@ CREATE INDEX idx_team_stats_points ON public.team_stats USING btree ((((stats ->
 -- Name: idx_team_stats_rated_enum; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_team_stats_rated_enum ON public.team_stats USING btree (sport, season, team_id) WHERE (rating_composite_score IS NOT NULL);
+CREATE INDEX idx_team_stats_rated_enum ON public.team_stats USING btree (sport, season, team_id) WHERE (rating_score IS NOT NULL);
 
 
 --
--- Name: idx_team_stats_rating_composite; Type: INDEX; Schema: public; Owner: -
+-- Name: idx_team_stats_rating; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_team_stats_rating_composite ON public.team_stats USING btree (sport, season, rating_composite DESC) WHERE (rating_composite IS NOT NULL);
-
-
---
--- Name: idx_team_stats_rating_specialist; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_team_stats_rating_specialist ON public.team_stats USING btree (sport, season, rating_specialist DESC) WHERE (rating_specialist IS NOT NULL);
+CREATE INDEX idx_team_stats_rating ON public.team_stats USING btree (sport, season, rating DESC) WHERE (rating IS NOT NULL);
 
 
 --
@@ -13231,14 +13084,14 @@ CREATE TRIGGER fixture_boxscore_enqueue_on_provider_map AFTER INSERT OR UPDATE O
 -- Name: event_box_scores mark_momentum_refresh_event_box_scores; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER mark_momentum_refresh_event_box_scores AFTER INSERT OR UPDATE OF rating_composite_pct ON public.event_box_scores FOR EACH ROW EXECUTE FUNCTION public.mark_momentum_refresh_from_event_rating();
+CREATE TRIGGER mark_momentum_refresh_event_box_scores AFTER INSERT OR UPDATE OF rating_pct ON public.event_box_scores FOR EACH ROW EXECUTE FUNCTION public.mark_momentum_refresh_from_event_rating();
 
 
 --
 -- Name: event_team_stats mark_momentum_refresh_event_team_stats; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER mark_momentum_refresh_event_team_stats AFTER INSERT OR UPDATE OF rating_composite_pct ON public.event_team_stats FOR EACH ROW EXECUTE FUNCTION public.mark_momentum_refresh_from_event_rating();
+CREATE TRIGGER mark_momentum_refresh_event_team_stats AFTER INSERT OR UPDATE OF rating_pct ON public.event_team_stats FOR EACH ROW EXECUTE FUNCTION public.mark_momentum_refresh_from_event_rating();
 
 
 --
@@ -14119,5 +13972,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict UXTprOw2esXNsSnAl6GTzqF2OYeJG4Rhk4bweUPb5vo9WuBUbnUqa1foOczdhea
+\unrestrict 2BwZReBmcK1KweNjcpAsn1q8tzaIDWLaSN7SRzMaRag2jcfKm6ckwHbktTtgVgz
 

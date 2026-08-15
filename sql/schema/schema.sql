@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 2BwZReBmcK1KweNjcpAsn1q8tzaIDWLaSN7SRzMaRag2jcfKm6ckwHbktTtgVgz
+\restrict iepd2juhSlAdU9XAPZZ8bGnFJfgmxYzitpHjmArtm8CF7MqpQ5NDgyXaEr15OoC
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -1807,7 +1807,8 @@ CREATE FUNCTION public.assert_provenance_firewall() RETURNS void
 DECLARE
     -- The measurement-side readers of narrative_events. Each MUST filter origin='extraction'
     -- so junction-authored events (mig 170) stay invisible to the numeric feedback loop.
-    v_consumers text[] := ARRAY['refresh_typed_links', 'score_transfer_likelihood'];
+    -- (222: score_transfer_likelihood retired with the old rail's episode layer.)
+    v_consumers text[] := ARRAY['refresh_typed_links'];
     v_name  text;
     v_body  text;
     v_norm  text;
@@ -1815,7 +1816,6 @@ DECLARE
     v_absent  text[] := ARRAY[]::text[];
 BEGIN
     FOREACH v_name IN ARRAY v_consumers LOOP
-        -- Concatenate all overloads' definitions (there is normally one live overload).
         SELECT string_agg(pg_get_functiondef(p.oid), E'\n')
           INTO v_body
           FROM pg_proc p
@@ -1827,8 +1827,6 @@ BEGIN
             CONTINUE;
         END IF;
 
-        -- A consumer that no longer reads narrative_events at all is not a leak; only flag
-        -- one that reads the table WITHOUT the extraction filter.
         v_norm := regexp_replace(lower(v_body), '\s+', '', 'g');
         IF position('narrative_events' IN v_norm) > 0
            AND position('origin=''extraction''' IN v_norm) = 0 THEN
@@ -1856,134 +1854,6 @@ $$;
 --
 
 COMMENT ON FUNCTION public.assert_provenance_firewall() IS 'Provenance firewall guard (mig 172, plan decision 1): RAISEs if any measurement consumer of narrative_events (refresh_typed_links, score_transfer_likelihood) reads the table without an origin=''extraction'' filter, which would let junction-authored events (mig 170) re-enter the numeric loop. Call PERFORM public.assert_provenance_firewall() at the end of any future migration that rebuilds a measurement consumer.';
-
-
---
--- Name: backfill_narrative_episodes(text, date, date, integer, integer, integer, integer); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.backfill_narrative_episodes(p_sport text, p_start date, p_end date, p_step_days integer DEFAULT 7, p_open_threshold integer DEFAULT 40, p_close_threshold integer DEFAULT 15, p_min_articles integer DEFAULT 3, OUT episodes_minted integer) RETURNS integer
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-    v_run timestamptz := clock_timestamp();
-    v_d timestamptz;
-BEGIN
-    CREATE TEMP TABLE _bf_grid (
-        subject_type text, subject_id integer, object_type text, object_id integer,
-        asof timestamptz, strength smallint
-    ) ON COMMIT DROP;
-
-    -- Replay the live formula (refresh_co_mention_links) at each grid date.
-    FOR v_d IN
-        SELECT generate_series(p_start::timestamptz, p_end::timestamptz,
-                               make_interval(days => p_step_days))
-    LOOP
-        INSERT INTO _bf_grid
-        WITH corpus AS (
-            SELECT e1.entity_type AS subject_type, e1.entity_id AS subject_id,
-                   e2.entity_type AS object_type, e2.entity_id AS object_id,
-                   a.source AS src, a.published_at AS ts
-            FROM news_articles a
-            JOIN news_article_entities e1 ON e1.article_id = a.id
-                 AND e1.sport = p_sport
-            JOIN news_article_entities e2 ON e2.article_id = a.id
-                 AND e2.sport = p_sport
-            WHERE a.published_at > v_d - interval '90 days'
-              AND a.published_at <= v_d
-              AND (e1.entity_type, e1.entity_id) < (e2.entity_type, e2.entity_id)
-        ),
-        agg AS (
-            SELECT c.subject_type, c.subject_id, c.object_type, c.object_id,
-                   count(*) AS total,
-                   count(DISTINCT c.src) AS distinct_sources,
-                   count(*) FILTER (WHERE c.ts > v_d - interval '14 days') AS recent14,
-                   max(c.ts) AS newest,
-                   COALESCE(MAX(st.weight), 0.3) AS tier_weight
-            FROM corpus c
-            LEFT JOIN source_tiers st ON lower(st.source) = lower(c.src) AND st.kind = 'news'
-            GROUP BY 1, 2, 3, 4
-        )
-        SELECT subject_type, subject_id, object_type, object_id, v_d,
-               GREATEST(0, LEAST(100, round(
-                   100 * tier_weight
-                       * exp(-(EXTRACT(EPOCH FROM (v_d - newest)) / 86400.0) / 21.0)
-                       * (0.6 * LEAST(1.0, distinct_sources::numeric / 5.0)
-                          + 0.4 * recent14::numeric / GREATEST(total, 1)))))::smallint
-        FROM agg;
-    END LOOP;
-
-    -- Mint sealed 'fizzled' episodes for notable pre-graph stories.
-    WITH peaks AS (
-        SELECT DISTINCT ON (subject_type, subject_id, object_type, object_id)
-               subject_type, subject_id, object_type, object_id,
-               strength AS peak_strength, asof AS peaked_at
-        FROM _bf_grid
-        ORDER BY subject_type, subject_id, object_type, object_id, strength DESC, asof ASC
-    ),
-    spans AS (
-        -- True coverage span from the rail itself (not grid-quantized).
-        SELECT pk.*, sp.first_art, sp.last_art, sp.arts, sp.srcs
-        FROM peaks pk,
-        LATERAL (
-            SELECT min(a.published_at) AS first_art, max(a.published_at) AS last_art,
-                   count(*) AS arts, count(DISTINCT a.source) AS srcs
-            FROM news_articles a
-            JOIN news_article_entities e1 ON e1.article_id = a.id
-                 AND e1.sport = p_sport
-                 AND e1.entity_type = pk.subject_type AND e1.entity_id = pk.subject_id
-            JOIN news_article_entities e2 ON e2.article_id = a.id
-                 AND e2.sport = p_sport
-                 AND e2.entity_type = pk.object_type AND e2.entity_id = pk.object_id
-            WHERE a.published_at <= p_end::timestamptz
-        ) sp
-        WHERE pk.peak_strength >= p_open_threshold
-    )
-    INSERT INTO narrative_episodes
-        (sport, link_type, subject_type, subject_id, object_type, object_id,
-         status, outcome, season, started_at, peaked_at, ended_at,
-         peak_strength, last_strength, article_count, distinct_sources, event_count,
-         peak_components, evidence, created_at, updated_at)
-    SELECT p_sport, 'co_mention', s.subject_type, s.subject_id, s.object_type, s.object_id,
-           'sealed', 'fizzled', sp.current_season,
-           s.first_art, s.peaked_at, s.last_art,
-           s.peak_strength, NULL,
-           s.arts, s.srcs, 0,
-           jsonb_build_object('backfill_peak_strength', s.peak_strength),
-           jsonb_build_object('backfill', jsonb_build_object(
-               'window_start', p_start, 'window_end', p_end,
-               'step_days', p_step_days,
-               'peak_granularity_days', p_step_days,
-               'minted_at', v_run)),
-           v_run, v_run
-    FROM spans s
-    JOIN sports sp ON sp.id = p_sport
-    WHERE s.arts >= p_min_articles
-      AND s.first_art IS NOT NULL
-      AND NOT EXISTS (
-          SELECT 1 FROM narrative_episodes e
-          WHERE e.sport = p_sport AND e.link_type = 'co_mention'
-            AND e.subject_type = s.subject_type AND e.subject_id = s.subject_id
-            AND e.object_type = s.object_type AND e.object_id = s.object_id)
-      AND NOT (s.subject_type = 'player' AND s.object_type = 'team'
-               AND EXISTS (
-                   SELECT 1 FROM player_current_identity pci
-                   WHERE pci.sport = p_sport
-                     AND pci.player_id = s.subject_id
-                     AND pci.team_id = s.object_id));
-
-    GET DIAGNOSTICS episodes_minted = ROW_COUNT;
-
-    DROP TABLE _bf_grid;
-END;
-$$;
-
-
---
--- Name: FUNCTION backfill_narrative_episodes(p_sport text, p_start date, p_end date, p_step_days integer, p_open_threshold integer, p_close_threshold integer, p_min_articles integer, OUT episodes_minted integer); Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON FUNCTION public.backfill_narrative_episodes(p_sport text, p_start date, p_end date, p_step_days integer, p_open_threshold integer, p_close_threshold integer, p_min_articles integer, OUT episodes_minted integer) IS 'As-of replay over the news rail: mints sealed fizzled episodes for stories that rose and died before the graph existed (peak from a step_days grid, span from the rail). Idempotent — skips pairs with any existing episode. Run seal_confirmed_episodes afterward so ground truth upgrades backfilled fizzles to confirmed.';
 
 
 --
@@ -3148,53 +3018,35 @@ $$;
 CREATE FUNCTION public.narrative_context_for_entity(p_sport text, p_entity_type text, p_entity_id integer) RETURNS text
     LANGUAGE sql STABLE
     AS $$
-WITH eps AS (
-    SELECT e.*,
-           CASE WHEN e.subject_type = p_entity_type AND e.subject_id = p_entity_id
-                THEN e.object_type ELSE e.subject_type END AS other_type,
-           CASE WHEN e.subject_type = p_entity_type AND e.subject_id = p_entity_id
-                THEN e.object_id ELSE e.subject_id END AS other_id
-    FROM narrative_episodes e
-    WHERE e.sport = p_sport AND e.link_type = 'co_mention'
-      AND ((e.subject_type = p_entity_type AND e.subject_id = p_entity_id)
-        OR (e.object_type = p_entity_type AND e.object_id = p_entity_id))
-),
-named AS (
-    SELECT eps.*, COALESCE(pl.name, tm.name, 'unknown') AS other_name
-    FROM eps
-    LEFT JOIN players pl ON eps.other_type = 'player' AND pl.id = eps.other_id
-         AND pl.sport = p_sport
-    LEFT JOIN teams tm ON eps.other_type = 'team' AND tm.id = eps.other_id
-         AND tm.sport = p_sport
-),
-sealed AS (
-    SELECT format('Prior story: %s — %s (%s, peak coverage %s/100).',
-               other_name,
-               CASE WHEN outcome = 'confirmed' THEN 'ended in a CONFIRMED move'
-                    ELSE 'fizzled' END,
-               CASE WHEN to_char(started_at, 'Mon YYYY') = to_char(ended_at, 'Mon YYYY')
-                    THEN to_char(started_at, 'Mon YYYY')
-                    ELSE to_char(started_at, 'Mon YYYY') || ' - ' || to_char(ended_at, 'Mon YYYY')
+WITH prior_parts AS (
+    -- (222) The old sealed/open episode sections, re-sourced from the rail that runs:
+    -- resolved and dormant storylines this entity had a part in. Resolution carries the
+    -- confirmed outcome; dormancy (14 quiet days) is the fizzle. Departed parts still
+    -- remember — a story you were written out of is still a story you were in.
+    SELECT format('Prior story: "%s" — %s (%s, %s report%s).',
+               COALESCE(NULLIF(p.headline, ''), NULLIF(s.title, ''), 'untitled'),
+               CASE WHEN s.status = 'resolved'
+                    THEN 'RESOLVED' || COALESCE(': ' || replace(s.resolution->>'outcome', '_', ' '), '')
+                    ELSE 'went quiet' END,
+               CASE WHEN to_char(s.first_seen_at, 'Mon YYYY') = to_char(COALESCE(s.resolved_at, s.last_seen_at), 'Mon YYYY')
+                    THEN to_char(s.first_seen_at, 'Mon YYYY')
+                    ELSE to_char(s.first_seen_at, 'Mon YYYY') || ' - ' || to_char(COALESCE(s.resolved_at, s.last_seen_at), 'Mon YYYY')
                END,
-               peak_strength) AS line,
-            ended_at
-    FROM named
-    WHERE status = 'sealed'
-    ORDER BY ended_at DESC
-    LIMIT 6
-),
-open_eps AS (
-    SELECT format('Current story: %s — tracked since %s, peak coverage %s/100%s.',
-               n.other_name, to_char(n.started_at, 'Mon DD'), n.peak_strength,
-               COALESCE(', computed likelihood ' || n.likelihood || '/100', '')) AS line,
-            COALESCE(n.likelihood, n.peak_strength) AS rank
-    FROM named n
-    WHERE n.status = 'open'
-      AND NOT (p_entity_type = 'player' AND n.other_type = 'team' AND EXISTS (
-          SELECT 1 FROM player_current_identity pci
-          WHERE pci.sport = p_sport AND pci.player_id = p_entity_id
-            AND pci.team_id = n.other_id))
-    ORDER BY rank DESC
+               m.n, CASE WHEN m.n = 1 THEN '' ELSE 's' END) AS line,
+           COALESCE(s.resolved_at, s.last_seen_at) AS ended_at
+    FROM storyline_entities se
+    JOIN storylines s ON s.id = se.storyline_id
+    LEFT JOIN LATERAL (
+        SELECT pk.headline FROM packets pk
+        WHERE pk.storyline_id = s.id
+        ORDER BY pk.compiled_at DESC, pk.id DESC LIMIT 1
+    ) p ON true
+    CROSS JOIN LATERAL (
+        SELECT count(*) AS n FROM storyline_articles sa WHERE sa.storyline_id = s.id
+    ) m
+    WHERE se.sport = p_sport AND se.entity_type = p_entity_type AND se.entity_id = p_entity_id
+      AND s.status IN ('resolved', 'dormant')
+    ORDER BY COALESCE(s.resolved_at, s.last_seen_at) DESC
     LIMIT 5
 ),
 moves AS (
@@ -3212,16 +3064,11 @@ moves AS (
     LIMIT 3
 ),
 story_parts AS (
-    -- (mig 219) The collapse of the thread lenses: one row per OPEN storyline
-    -- this entity is an ACTIVE participant in (left_at IS NULL — D5: a part has
-    -- its own lifespan, and an entity written out of a story stops remembering
-    -- it), carrying the headline (latest packet's, falling back to the
-    -- storyline's display title — packets are append-only snapshots, so the
-    -- newest is the current state of the story), the membership report count,
-    -- and the part's progression state (entries/sources/authority). One scan,
-    -- two renderings below. Provenance-labeled continuity, NOT corroboration:
-    -- it tells a voice which stories it is already inside, never that a claim
-    -- is true. Membership counts are breadth, not measurement.
+    -- (mig 219) One row per OPEN storyline this entity is an ACTIVE participant in
+    -- (left_at IS NULL — D5: a part has its own lifespan), carrying the headline
+    -- (latest packet's, falling back to the storyline's display title), the membership
+    -- report count, and the part's progression state. Provenance-labeled continuity,
+    -- NOT corroboration.
     SELECT se.storyline_id, se.role, se.joined_at, se.entry_count,
            se.distinct_sources, se.authority,
            COALESCE(se.last_progressed_at, s.last_seen_at) AS ord,
@@ -3244,12 +3091,9 @@ story_parts AS (
       AND s.status = 'open'
 ),
 established AS (
-    -- (mig 183 lineage, rebuilt mig 219) ESTABLISHED parts: source growth past
-    -- the authority gate. They graduate OUT of the "Our story so far" block and
-    -- render as one-line BACKGROUND FACTS — settled context the model may speak
-    -- from, deliberately carrying NO impact/likelihood figures (source count +
-    -- opening date are breadth and tenure, not measurement). Open storylines
-    -- only: a resolved story's confirmation already renders as Ground truth.
+    -- (mig 183 lineage, rebuilt mig 219) ESTABLISHED parts render as one-line
+    -- BACKGROUND FACTS — settled context, deliberately carrying NO impact/likelihood
+    -- figures. Open storylines only: a resolved story renders under Prior story.
     SELECT format('Established story (our archive, %s sources, since %s): "%s".',
                sp.distinct_sources,
                to_char(sp.joined_at, 'Mon DD'),
@@ -3261,12 +3105,9 @@ established AS (
     LIMIT 2
 ),
 own_story AS (
-    -- (mig 182/211 lineage, rebuilt mig 219) CONTINUITY parts as progression:
-    -- a header — headline, joined date, totals — plus the last 3 chapters,
-    -- newest-first, each tagged with its OWN cited source count. A part the
-    -- Journalist has not told yet renders the flat membership line (the mig 211
-    -- shape) so a freshly-opened story is still remembered. Chapters join on
-    -- (storyline_id, entity) — one entity's part in one story.
+    -- (mig 182/211 lineage, rebuilt mig 219) CONTINUITY parts as progression: a header
+    -- plus the last 3 chapters, newest-first, each tagged with its OWN cited source
+    -- count. An untold part renders the flat membership line.
     SELECT CASE WHEN steps.txt IS NULL THEN
                format('Our story so far ("%s", opened %s, %s report%s%s).',
                    sp.headline,
@@ -3309,9 +3150,7 @@ own_story AS (
     LIMIT 3
 ),
 figures AS (
-    -- Promoted (ACTIVE) news-derived people tied to this team — coaches, agents,
-    -- executives the provider never seeds (mig 166). News-derived accumulation:
-    -- graph-derived context, never ground truth.
+    -- Promoted (ACTIVE) news-derived people tied to this team (mig 166).
     SELECT format('Team figure: %s (%s, news-derived, %s sources).',
                p.name, p.kind, p.distinct_sources) AS line,
             p.mention_count
@@ -3322,12 +3161,10 @@ figures AS (
     LIMIT 4
 ),
 -- ------------------------------------------------------------------------------
--- OUR OWN SELF-HISTORY (outputs-as-memories, mig 168 + Phase 6): four lenses, all
--- provenance-labeled continuity, NEVER corroboration. Source-tagged where the lens banks it.
+-- OUR OWN SELF-HISTORY (outputs-as-memories, mig 168 + Phase 6): provenance-labeled
+-- continuity, NEVER corroboration. Source-tagged where the lens banks it.
 -- ------------------------------------------------------------------------------
 own_transfer AS (
-    -- The transfer lens's own recent staged reads (transfer_rumors). Players only.
-    -- Freshest two = the recent read trajectory, source-tagged.
     SELECT format('Our prior read (transfer, %s%s): staged %s as %s%s.',
                to_char(r.generated_at, 'Mon DD'),
                CASE WHEN r.source_count > 0
@@ -3345,8 +3182,6 @@ own_transfer AS (
     LIMIT 2
 ),
 own_vibe AS (
-    -- The vibe lens's own recent sentiment reads (vibe_scores). No source names banked;
-    -- tag with the article count instead.
     SELECT format('Our prior read (mood, %s): mood %s/100%s.',
                to_char(v.generated_at, 'Mon DD'),
                v.sentiment,
@@ -3362,7 +3197,6 @@ own_vibe AS (
     LIMIT 2
 ),
 own_momentum AS (
-    -- The momentum lens's own recent reads (momentum_summaries).
     SELECT format('Our prior read (momentum, %s): %s%s.',
                to_char(m.generated_at, 'Mon DD'),
                m.direction,
@@ -3375,9 +3209,7 @@ own_momentum AS (
     LIMIT 2
 ),
 own_rating AS (
-    -- (mig 221) The rating lens's latest banked read (stat_summaries). Least-weighted
-    -- (stats-heavy) — the tail line. Season-keyed, so just the latest. The divined
-    -- top-skill label retired with PEAK; distinctiveness and the trajectory remain.
+    -- (mig 221) The rating lens's latest banked read. Least-weighted — the tail line.
     SELECT format('Our prior read (rating, season %s): profile distinctiveness %s/100%s.',
                s.season, s.notability,
                CASE WHEN COALESCE(s.rating_trajectory_label, '') <> ''
@@ -3389,8 +3221,7 @@ own_rating AS (
     LIMIT 1
 )
 SELECT NULLIF(concat_ws(E'\n',
-    (SELECT string_agg(line, E'\n' ORDER BY ended_at DESC) FROM sealed),
-    (SELECT string_agg(line, E'\n' ORDER BY rank DESC) FROM open_eps),
+    (SELECT string_agg(line, E'\n' ORDER BY ended_at DESC) FROM prior_parts),
     (SELECT string_agg(line, E'\n' ORDER BY applied_at DESC) FROM moves),
     (SELECT string_agg(line, E'\n' ORDER BY ord DESC) FROM established),
     (SELECT string_agg(line, E'\n' ORDER BY ord DESC) FROM own_story),
@@ -3416,39 +3247,52 @@ COMMENT ON FUNCTION public.narrative_context_for_entity(p_sport text, p_entity_t
 CREATE FUNCTION public.narrative_context_for_pair(p_sport text, p_player_id integer, p_team_id integer) RETURNS text
     LANGUAGE sql STABLE
     AS $$
-WITH sealed AS (
-    SELECT format(
-               'Prior %s: %s, peak coverage %s/100.',
-               CASE WHEN e.outcome = 'confirmed' THEN 'story ended in a CONFIRMED move'
-                    ELSE 'flirtation fizzled' END,
-               CASE WHEN to_char(e.started_at, 'Mon YYYY') = to_char(e.ended_at, 'Mon YYYY')
-                    THEN to_char(e.started_at, 'Mon YYYY')
-                    ELSE to_char(e.started_at, 'Mon YYYY') || ' - ' || to_char(e.ended_at, 'Mon YYYY')
-               END,
-               e.peak_strength) AS line,
-           e.ended_at
-    FROM narrative_episodes e
-    WHERE e.sport = p_sport AND e.link_type = 'co_mention' AND e.status = 'sealed'
-      AND e.subject_type = 'player' AND e.subject_id = p_player_id
-      AND e.object_type = 'team' AND e.object_id = p_team_id
-    ORDER BY e.ended_at DESC
+WITH pair_stories AS (
+    -- (222) Stories BOTH parties had a part in — the storyline junction's own record of
+    -- the flirtation. Departed parts count: history is history.
+    SELECT s.id, s.status, s.resolution->>'outcome' AS outcome, s.first_seen_at, s.last_seen_at, s.resolved_at,
+           COALESCE(NULLIF(p.headline, ''), NULLIF(s.title, ''), 'untitled') AS headline
+    FROM storylines s
+    JOIN storyline_entities spl ON spl.storyline_id = s.id AND spl.sport = p_sport
+         AND spl.entity_type = 'player' AND spl.entity_id = p_player_id
+    JOIN storyline_entities stm ON stm.storyline_id = s.id AND stm.sport = p_sport
+         AND stm.entity_type = 'team' AND stm.entity_id = p_team_id
+    LEFT JOIN LATERAL (
+        SELECT pk.headline FROM packets pk
+        WHERE pk.storyline_id = s.id
+        ORDER BY pk.compiled_at DESC, pk.id DESC LIMIT 1
+    ) p ON true
+),
+sealed AS (
+    SELECT format('Prior story: "%s" — %s (%s).',
+               headline,
+               CASE WHEN status = 'resolved'
+                    THEN 'RESOLVED' || COALESCE(': ' || replace(outcome, '_', ' '), '')
+                    ELSE 'went quiet' END,
+               CASE WHEN to_char(first_seen_at, 'Mon YYYY') = to_char(COALESCE(resolved_at, last_seen_at), 'Mon YYYY')
+                    THEN to_char(first_seen_at, 'Mon YYYY')
+                    ELSE to_char(first_seen_at, 'Mon YYYY') || ' - ' || to_char(COALESCE(resolved_at, last_seen_at), 'Mon YYYY')
+               END) AS line,
+           COALESCE(resolved_at, last_seen_at) AS ended_at
+    FROM pair_stories
+    WHERE status IN ('resolved', 'dormant')
+    ORDER BY ended_at DESC
     LIMIT 3
 ),
 open_ep AS (
-    SELECT format(
-               'Current story: tracked since %s, peak coverage %s/100%s%s.',
-               to_char(e.started_at, 'Mon DD'),
-               e.peak_strength,
-               COALESCE(', computed likelihood ' || e.likelihood || '/100', ''),
+    -- The live narrative_links co-mention edge still colors the current story's
+    -- trajectory (heating up / cooling off) — links are current-rail, refreshed nightly.
+    SELECT format('Current story: "%s" — tracked since %s%s.',
+               ps.headline,
+               to_char(ps.first_seen_at, 'Mon DD'),
                COALESCE(' (' || replace(l.trajectory, '_', ' ') || ')', '')) AS line
-    FROM narrative_episodes e
+    FROM pair_stories ps
     LEFT JOIN narrative_links l
-      ON l.sport = e.sport AND l.link_type = 'co_mention'
-     AND l.subject_type = e.subject_type AND l.subject_id = e.subject_id
-     AND l.object_type = e.object_type AND l.object_id = e.object_id
-    WHERE e.sport = p_sport AND e.link_type = 'co_mention' AND e.status = 'open'
-      AND e.subject_type = 'player' AND e.subject_id = p_player_id
-      AND e.object_type = 'team' AND e.object_id = p_team_id
+      ON l.sport = p_sport AND l.link_type = 'co_mention'
+     AND l.subject_type = 'player' AND l.subject_id = p_player_id
+     AND l.object_type = 'team' AND l.object_id = p_team_id
+    WHERE ps.status = 'open'
+    ORDER BY ps.last_seen_at DESC
     LIMIT 1
 ),
 recent_move AS (
@@ -3499,37 +3343,6 @@ $$;
 --
 
 COMMENT ON FUNCTION public.narrative_context_for_pair(p_sport text, p_player_id integer, p_team_id integer) IS 'The graph''s memory for one (player, team) pair as compact prompt lines: prior sealed stories with outcomes, the current open story + likelihood/trajectory, recent confirmed moves, and (mig 168) the junction''s own first + latest staged reads as "Our prior read:" continuity lines. NULL = no memory. Consumed by cognition-stage prompt builders (transfer t8) — model-facing, never user-facing.';
-
-
---
--- Name: narrative_persons_track_affiliation(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.narrative_persons_track_affiliation() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-    IF TG_OP = 'UPDATE' AND NEW.team_id IS NOT DISTINCT FROM OLD.team_id THEN
-        RETURN NEW;
-    END IF;
-    UPDATE narrative_person_affiliations
-       SET is_current = FALSE, valid_until = now()
-     WHERE person_id = NEW.id
-       AND entity_type = 'team'
-       AND is_current
-       AND (NEW.team_id IS NULL OR entity_id <> NEW.team_id);
-    IF NEW.team_id IS NOT NULL THEN
-        INSERT INTO narrative_person_affiliations
-            (person_id, sport, entity_type, entity_id, role, season, evidence)
-        SELECT NEW.id, NEW.sport, 'team', NEW.team_id, NEW.kind, s.current_season,
-               jsonb_build_object('source', 'narrative_persons.team_id')
-        FROM sports s WHERE s.id = NEW.sport
-        ON CONFLICT (person_id, entity_type, entity_id, role) WHERE is_current
-        DO NOTHING;
-    END IF;
-    RETURN NEW;
-END;
-$$;
 
 
 --
@@ -5630,398 +5443,6 @@ $$;
 
 
 --
--- Name: roll_narrative_episodes(text, integer, integer, integer); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.roll_narrative_episodes(p_sport text, p_open_threshold integer DEFAULT 40, p_close_threshold integer DEFAULT 15, p_quiet_days integer DEFAULT 14, OUT episodes_opened integer, OUT episodes_updated integer, OUT episodes_sealed integer) RETURNS record
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-    v_run timestamptz := clock_timestamp();
-BEGIN
-    -- Open: a link crossing the notability threshold with no open episode starts one —
-    -- EXCEPT a player's own current team (employment coverage, not a story; and the
-    -- post-transfer reopen loop, mig 159). started_at prefers the current window's
-    -- oldest article (components.window_oldest) over all-time first_seen_at.
-    INSERT INTO narrative_episodes
-        (sport, link_type, subject_type, subject_id, object_type, object_id,
-         status, season, started_at, peaked_at, peak_strength, last_strength,
-         article_count, distinct_sources, event_count, peak_components,
-         created_at, updated_at)
-    SELECT l.sport, l.link_type, l.subject_type, l.subject_id,
-           l.object_type, l.object_id,
-           'open', s.current_season,
-           COALESCE((l.components->>'window_oldest')::timestamptz,
-                    l.first_seen_at, v_run),
-           v_run, l.strength, l.strength,
-           l.article_count, l.distinct_sources, l.event_count, l.components,
-           v_run, v_run
-    FROM narrative_links l
-    JOIN sports s ON s.id = l.sport
-    WHERE l.sport = p_sport
-      AND l.strength >= p_open_threshold
-      AND NOT (l.link_type = 'co_mention'
-               AND l.subject_type = 'player' AND l.object_type = 'team'
-               AND EXISTS (
-                   SELECT 1 FROM player_current_identity pci
-                   WHERE pci.sport = l.sport
-                     AND pci.player_id = l.subject_id
-                     AND pci.team_id = l.object_id))
-    ON CONFLICT (sport, link_type, subject_type, subject_id, object_type, object_id)
-        WHERE status = 'open'
-    DO NOTHING;
-
-    GET DIAGNOSTICS episodes_opened = ROW_COUNT;
-
-    -- Freshen every open episode from its link (unchanged from mig 155).
-    UPDATE narrative_episodes e
-    SET last_strength = l.strength,
-        article_count = GREATEST(e.article_count, l.article_count),
-        distinct_sources = GREATEST(e.distinct_sources, l.distinct_sources),
-        event_count = GREATEST(e.event_count, l.event_count),
-        peak_strength = GREATEST(e.peak_strength, l.strength),
-        peaked_at = CASE WHEN l.strength > e.peak_strength THEN v_run
-                         ELSE e.peaked_at END,
-        peak_components = CASE WHEN l.strength > e.peak_strength THEN l.components
-                               ELSE e.peak_components END,
-        updated_at = v_run
-    FROM narrative_links l
-    WHERE e.sport = p_sport AND e.status = 'open'
-      AND l.sport = e.sport AND l.link_type = e.link_type
-      AND l.subject_type = e.subject_type AND l.subject_id = e.subject_id
-      AND l.object_type = e.object_type AND l.object_id = e.object_id;
-
-    GET DIAGNOSTICS episodes_updated = ROW_COUNT;
-
-    -- Seal: weak AND quiet (unchanged from mig 155).
-    UPDATE narrative_episodes e
-    SET status = 'sealed',
-        outcome = 'fizzled',
-        ended_at = COALESCE(l.last_event_at, e.updated_at),
-        last_strength = l.strength,
-        evidence = e.evidence || jsonb_build_object('sealed', jsonb_build_object(
-            'at', v_run,
-            'reason', 'quiet',
-            'final_strength', l.strength,
-            'close_threshold', p_close_threshold,
-            'quiet_days', p_quiet_days)),
-        updated_at = v_run
-    FROM narrative_links l
-    WHERE e.sport = p_sport AND e.status = 'open'
-      AND l.sport = e.sport AND l.link_type = e.link_type
-      AND l.subject_type = e.subject_type AND l.subject_id = e.subject_id
-      AND l.object_type = e.object_type AND l.object_id = e.object_id
-      AND l.strength < p_close_threshold
-      AND (l.last_event_at IS NULL
-           OR l.last_event_at < now() - make_interval(days => p_quiet_days));
-
-    GET DIAGNOSTICS episodes_sealed = ROW_COUNT;
-END;
-$$;
-
-
---
--- Name: FUNCTION roll_narrative_episodes(p_sport text, p_open_threshold integer, p_close_threshold integer, p_quiet_days integer, OUT episodes_opened integer, OUT episodes_updated integer, OUT episodes_sealed integer); Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON FUNCTION public.roll_narrative_episodes(p_sport text, p_open_threshold integer, p_close_threshold integer, p_quiet_days integer, OUT episodes_opened integer, OUT episodes_updated integer, OUT episodes_sealed integer) IS 'Episode lifecycle over narrative_links state: open at strength >= open_threshold, track peak while open, seal as fizzled when strength < close_threshold AND quiet for quiet_days. Link_type-generic. Run after refresh_co_mention_links each night (cron-narrative-links.sh); the thresholds are the notability dial.';
-
-
---
--- Name: score_transfer_likelihood(text, integer, integer, integer, numeric); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.score_transfer_likelihood(p_sport text, p_max_rise_uncorroborated integer DEFAULT 10, p_max_fall integer DEFAULT 8, p_corrob_sources integer DEFAULT 3, p_corrob_tier numeric DEFAULT 0.7, OUT episodes_scored integer) RETURNS integer
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-    v_run timestamptz := clock_timestamp();
-BEGIN
-    WITH open_eps AS (
-        SELECT e.id, e.sport, e.subject_id AS player_id, e.object_id AS team_id,
-               e.likelihood AS prev, e.likelihood_history AS hist
-        FROM narrative_episodes e
-        WHERE e.sport = p_sport AND e.status = 'open'
-          AND e.link_type = 'co_mention'
-          AND e.subject_type = 'player' AND e.object_type = 'team'
-    ),
-    linked AS (
-        SELECT o.*, COALESCE(l.strength, 0) AS link_strength, l.trajectory
-        FROM open_eps o
-        LEFT JOIN narrative_links l
-          ON l.sport = o.sport AND l.link_type = 'co_mention'
-         AND l.subject_type = 'player' AND l.subject_id = o.player_id
-         AND l.object_type = 'team' AND l.object_id = o.team_id
-    ),
-    rumor AS (
-        SELECT r.player_id, r.team_id,
-               max(CASE r.stage WHEN 'here_we_go' THEN 4 WHEN 'advanced_talks' THEN 3
-                                WHEN 'concrete_interest' THEN 2 WHEN 'speculation' THEN 1
-                                ELSE 0 END) AS stage_rank,
-               max(r.confidence) FILTER (WHERE r.stage IS NOT NULL) AS best_conf,
-               max(r.generated_at) FILTER (WHERE r.stage IS NOT NULL) AS latest_staged,
-               max(r.source_count) AS recent_source_count
-        FROM transfer_rumors r
-        WHERE r.sport = p_sport AND r.generated_at > now() - interval '30 days'
-        GROUP BY 1, 2
-    ),
-    typed AS (
-        SELECT ne.subject_id AS player_id, ne.object_id AS team_id,
-               max(CASE WHEN ne.predicate = 'trade_confirmed' THEN 4
-                        WHEN ne.predicate = 'trade_rumor'
-                             AND ne.confidence = 'reported' THEN 2
-                        WHEN ne.predicate = 'trade_rumor' THEN 1
-                        ELSE 0 END) AS typed_rank,
-               max(ne.event_date) AS latest_typed
-        FROM narrative_events ne
-        WHERE ne.sport = p_sport
-          AND ne.origin = 'extraction'
-          AND ne.event_date > now() - interval '30 days'
-          AND ne.subject_type = 'player' AND ne.object_type = 'team'
-          AND ne.predicate IN ('trade_rumor', 'trade_confirmed')
-        GROUP BY 1, 2
-    ),
-    perf AS (
-        SELECT r.player_id, r.team_id,
-               max(spf.early_confirmed * spf.reliability / 100.0) AS early_cred
-        FROM transfer_rumors r
-        CROSS JOIN LATERAL unnest(r.source_names) AS s(source)
-        JOIN source_performance spf ON spf.sport = r.sport AND spf.source = s.source
-        WHERE r.sport = p_sport AND r.generated_at > now() - interval '30 days'
-        GROUP BY 1, 2
-    ),
-    calc AS (
-        SELECT li.*,
-               COALESCE(ru.stage_rank, 0) AS stage_rank,
-               COALESCE(ru.best_conf, 0.5) AS stage_conf,
-               CASE WHEN ru.latest_staged IS NULL THEN 0
-                    ELSE exp(-(EXTRACT(EPOCH FROM (now() - ru.latest_staged)) / 86400.0) / 14.0)
-               END AS stage_recency,
-               COALESCE(ty.typed_rank, 0) AS typed_rank,
-               CASE WHEN ty.latest_typed IS NULL THEN 0
-                    ELSE exp(-(EXTRACT(EPOCH FROM (now() - ty.latest_typed)) / 86400.0) / 14.0)
-               END AS typed_recency,
-               COALESCE(ru.recent_source_count, 0) AS recent_sources,
-               LEAST(5, round(COALESCE(pf.early_cred, 0)))::int AS perf_bonus,
-               CASE li.trajectory WHEN 'heating_up' THEN 100
-                                  WHEN 'cooling_off' THEN 0 ELSE 50 END AS traj_score
-        FROM linked li
-        LEFT JOIN rumor ru ON ru.player_id = li.player_id AND ru.team_id = li.team_id
-        LEFT JOIN typed ty ON ty.player_id = li.player_id AND ty.team_id = li.team_id
-        LEFT JOIN perf pf ON pf.player_id = li.player_id AND pf.team_id = li.team_id
-    ),
-    langs AS (
-        SELECT c.*,
-               100 * (c.stage_rank / 4.0) * c.stage_conf * c.stage_recency AS legacy_lang,
-               100 * (c.typed_rank / 4.0) * 0.85 * c.typed_recency AS typed_lang
-        FROM calc c
-    ),
-    scored AS (
-        SELECT l.*,
-               LEAST(100, GREATEST(0, round(
-                   0.45 * l.link_strength
-                 + 0.40 * GREATEST(l.legacy_lang, l.typed_lang)
-                 + 0.15 * l.traj_score
-               ) + l.perf_bonus))::smallint AS raw,
-               (l.recent_sources >= p_corrob_sources) AS corroborated
-        FROM langs l
-    ),
-    final AS (
-        SELECT s.*,
-               CASE
-                   WHEN s.prev IS NULL THEN s.raw
-                   WHEN s.raw > s.prev AND s.corroborated THEN s.raw
-                   WHEN s.raw > s.prev THEN LEAST(s.raw, s.prev + p_max_rise_uncorroborated)::smallint
-                   WHEN s.raw < s.prev THEN GREATEST(s.raw, s.prev - p_max_fall)::smallint
-                   ELSE s.prev
-               END AS served
-        FROM scored s
-    )
-    UPDATE narrative_episodes e
-    SET likelihood = f.served,
-        likelihood_components = jsonb_build_object(
-            'raw', f.raw,
-            'served', f.served,
-            'previous', f.prev,
-            'coverage', f.link_strength,
-            'stage_rank', f.stage_rank,
-            'stage_conf', f.stage_conf,
-            'stage_recency', round(f.stage_recency::numeric, 3),
-            'typed_rank', f.typed_rank,
-            'typed_recency', round(f.typed_recency::numeric, 3),
-            'language_source', CASE
-                WHEN f.typed_lang = 0 AND f.legacy_lang = 0 THEN 'none'
-                WHEN f.typed_lang > f.legacy_lang THEN 'typed'
-                ELSE 'legacy' END,
-            'traj', f.traj_score,
-            'perf_bonus', f.perf_bonus,
-            'recent_sources', f.recent_sources,
-            'corroborated', f.corroborated),
-        likelihood_history = CASE
-            WHEN f.prev IS DISTINCT FROM f.served
-                 OR e.likelihood_updated_at IS NULL
-                 OR e.likelihood_updated_at < now() - interval '1 day'
-            THEN e.likelihood_history
-                 || jsonb_build_array(jsonb_build_object('d', to_char(v_run, 'YYYY-MM-DD'),
-                                                         'v', f.served))
-            ELSE e.likelihood_history END,
-        likelihood_updated_at = v_run
-    FROM final f
-    WHERE e.id = f.id;
-
-    GET DIAGNOSTICS episodes_scored = ROW_COUNT;
-END;
-$$;
-
-
---
--- Name: FUNCTION score_transfer_likelihood(p_sport text, p_max_rise_uncorroborated integer, p_max_fall integer, p_corrob_sources integer, p_corrob_tier numeric, OUT episodes_scored integer); Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON FUNCTION public.score_transfer_likelihood(p_sport text, p_max_rise_uncorroborated integer, p_max_fall integer, p_corrob_sources integer, p_corrob_tier numeric, OUT episodes_scored integer) IS 'Fuses coverage + language (GREATEST of legacy rumor-stage and typed-event signal) + trajectory (+ earned early-caller bonus) into the served transfer likelihood on each open player-team episode, with hysteresis. Static source tiers are ignored; source performance can still appear as organic memory.';
-
-
---
--- Name: seal_confirmed_episodes(text, integer, integer); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.seal_confirmed_episodes(p_sport text, p_lag_days integer DEFAULT 60, p_retro_article_floor integer DEFAULT 3, OUT episodes_confirmed integer, OUT episodes_upgraded integer, OUT episodes_reverted integer, OUT episodes_retroactive integer) RETURNS record
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-    v_run timestamptz := clock_timestamp();
-    v_rev2 integer;
-BEGIN
-    UPDATE narrative_episodes e
-    SET status = 'sealed',
-        outcome = 'confirmed',
-        ended_at = g.applied_at,
-        evidence = e.evidence || jsonb_build_object('confirmed', jsonb_build_object(
-            'ledger', g.ledger, 'ref_id', g.ref_id, 'applied_at', g.applied_at)),
-        updated_at = v_run
-    FROM transfer_ground_truth g
-    WHERE e.sport = p_sport AND e.status = 'open'
-      AND g.sport = e.sport
-      AND e.subject_type = 'player' AND e.subject_id = g.player_id
-      AND e.object_type = 'team' AND e.object_id = g.team_id
-      AND e.started_at <= g.applied_at
-      -- Same ground-truth event never confirms twice (mig 159); a future NEW move for
-      -- the pair has a new ref and earns its own episode.
-      AND NOT EXISTS (
-          SELECT 1 FROM narrative_episodes e2
-          WHERE e2.sport = e.sport AND e2.link_type = e.link_type
-            AND e2.subject_type = e.subject_type AND e2.subject_id = e.subject_id
-            AND e2.object_type = e.object_type AND e2.object_id = e.object_id
-            AND e2.outcome = 'confirmed'
-            AND e2.evidence->'confirmed'->>'ledger' = g.ledger
-            AND (e2.evidence->'confirmed'->>'ref_id')::bigint = g.ref_id);
-
-    GET DIAGNOSTICS episodes_confirmed = ROW_COUNT;
-
-    UPDATE narrative_episodes e
-    SET outcome = 'confirmed',
-        evidence = e.evidence || jsonb_build_object('confirmed', jsonb_build_object(
-            'ledger', g.ledger, 'ref_id', g.ref_id, 'applied_at', g.applied_at,
-            'upgraded_from', 'fizzled')),
-        updated_at = v_run
-    FROM transfer_ground_truth g
-    WHERE e.sport = p_sport AND e.status = 'sealed' AND e.outcome = 'fizzled'
-      AND e.evidence->'confirmed' IS NULL
-      AND g.sport = e.sport
-      AND e.subject_type = 'player' AND e.subject_id = g.player_id
-      AND e.object_type = 'team' AND e.object_id = g.team_id
-      AND g.applied_at >= e.ended_at
-      AND g.applied_at <= e.ended_at + make_interval(days => p_lag_days)
-      AND NOT EXISTS (
-          SELECT 1 FROM narrative_episodes e2
-          WHERE e2.sport = e.sport AND e2.link_type = e.link_type
-            AND e2.subject_type = e.subject_type AND e2.subject_id = e.subject_id
-            AND e2.object_type = e.object_type AND e2.object_id = e.object_id
-            AND e2.outcome = 'confirmed'
-            AND e2.evidence->'confirmed'->>'ledger' = g.ledger
-            AND (e2.evidence->'confirmed'->>'ref_id')::bigint = g.ref_id);
-
-    GET DIAGNOSTICS episodes_upgraded = ROW_COUNT;
-
-    UPDATE narrative_episodes e
-    SET outcome = 'fizzled',
-        evidence = e.evidence || jsonb_build_object('confirmation_reverted', jsonb_build_object(
-            'reverted_at', a.reverted_at, 'noticed_at', v_run)),
-        updated_at = v_run
-    FROM transfer_identity_applications a
-    WHERE e.sport = p_sport AND e.outcome = 'confirmed'
-      AND e.evidence->'confirmation_reverted' IS NULL
-      AND COALESCE(e.evidence->'confirmed'->>'ledger', 'application') = 'application'
-      AND COALESCE((e.evidence->'confirmed'->>'ref_id')::bigint,
-                   (e.evidence->'confirmed'->>'application_id')::bigint) = a.id
-      AND a.reverted_at IS NOT NULL;
-
-    GET DIAGNOSTICS episodes_reverted = ROW_COUNT;
-
-    UPDATE narrative_episodes e
-    SET outcome = 'fizzled',
-        evidence = e.evidence || jsonb_build_object('confirmation_reverted', jsonb_build_object(
-            'reverted_at', o.reverted_at, 'noticed_at', v_run)),
-        updated_at = v_run
-    FROM player_current_identity_overrides o
-    WHERE e.sport = p_sport AND e.outcome = 'confirmed'
-      AND e.evidence->'confirmation_reverted' IS NULL
-      AND e.evidence->'confirmed'->>'ledger' = 'override'
-      AND (e.evidence->'confirmed'->>'ref_id')::bigint = o.id
-      AND o.reverted_at IS NOT NULL;
-
-    GET DIAGNOSTICS v_rev2 = ROW_COUNT;
-    episodes_reverted := episodes_reverted + v_rev2;
-
-    INSERT INTO narrative_episodes
-        (sport, link_type, subject_type, subject_id, object_type, object_id,
-         status, outcome, season, started_at, peaked_at, ended_at,
-         peak_strength, last_strength, article_count, distinct_sources, event_count,
-         peak_components, evidence, created_at, updated_at)
-    SELECT g.sport, 'co_mention', 'player', g.player_id, 'team', g.team_id,
-           'sealed', 'confirmed', s.current_season,
-           l.first_seen_at,
-           COALESCE(l.last_event_at, g.applied_at),
-           GREATEST(g.applied_at, l.first_seen_at),
-           COALESCE(l.strength, 0), COALESCE(l.strength, 0),
-           l.article_count, l.distinct_sources, l.event_count,
-           l.components,
-           jsonb_build_object(
-               'confirmed', jsonb_build_object(
-                   'ledger', g.ledger, 'ref_id', g.ref_id, 'applied_at', g.applied_at),
-               'retroactive', jsonb_build_object(
-                   'minted_at', v_run,
-                   'peak_is_lower_bound', true,
-                   'reason', 'story predates the graph or never crossed the open threshold')),
-           v_run, v_run
-    FROM transfer_ground_truth g
-    JOIN sports s ON s.id = g.sport
-    JOIN narrative_links l
-      ON l.sport = g.sport AND l.link_type = 'co_mention'
-     AND l.subject_type = 'player' AND l.subject_id = g.player_id
-     AND l.object_type = 'team' AND l.object_id = g.team_id
-    WHERE g.sport = p_sport
-      AND l.article_count >= p_retro_article_floor
-      AND l.first_seen_at IS NOT NULL
-      AND NOT EXISTS (
-          SELECT 1 FROM narrative_episodes e
-          WHERE e.sport = g.sport AND e.link_type = 'co_mention'
-            AND e.subject_type = 'player' AND e.subject_id = g.player_id
-            AND e.object_type = 'team' AND e.object_id = g.team_id);
-
-    GET DIAGNOSTICS episodes_retroactive = ROW_COUNT;
-END;
-$$;
-
-
---
--- Name: FUNCTION seal_confirmed_episodes(p_sport text, p_lag_days integer, p_retro_article_floor integer, OUT episodes_confirmed integer, OUT episodes_upgraded integer, OUT episodes_reverted integer, OUT episodes_retroactive integer); Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON FUNCTION public.seal_confirmed_episodes(p_sport text, p_lag_days integer, p_retro_article_floor integer, OUT episodes_confirmed integer, OUT episodes_upgraded integer, OUT episodes_reverted integer, OUT episodes_retroactive integer) IS 'Episode outcomes from transfer_ground_truth (both ledgers): seal open episodes, upgrade announcement-lag fizzles, downgrade reverts, and retroactively mint sealed confirmed episodes for moves whose coverage predates the graph (peak = lower bound, flagged in evidence). Run BEFORE roll_narrative_episodes.';
-
-
---
 -- Name: seal_storylines(text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -6069,7 +5490,7 @@ BEGIN
                    'sealed_by', 'seal_storylines')
           FROM hits h
          WHERE s.id = h.storyline_id
-         RETURNING s.id, h.player_id
+         RETURNING s.id AS storyline_id, h.player_id
     ),
     -- Data-modifying CTEs run exactly once and to completion, so the edge
     -- close lands in the same statement (and the same snapshot) as the
@@ -8727,98 +8148,6 @@ ALTER SEQUENCE public.momentum_summaries_id_seq OWNED BY public.momentum_summari
 
 
 --
--- Name: narrative_episodes; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.narrative_episodes (
-    id bigint NOT NULL,
-    sport text NOT NULL,
-    link_type text NOT NULL,
-    subject_type text NOT NULL,
-    subject_id integer NOT NULL,
-    object_type text NOT NULL,
-    object_id integer NOT NULL,
-    status text DEFAULT 'open'::text NOT NULL,
-    outcome text,
-    season integer,
-    started_at timestamp with time zone NOT NULL,
-    peaked_at timestamp with time zone NOT NULL,
-    ended_at timestamp with time zone,
-    peak_strength smallint NOT NULL,
-    last_strength smallint,
-    article_count integer DEFAULT 0 NOT NULL,
-    distinct_sources integer DEFAULT 0 NOT NULL,
-    event_count integer DEFAULT 0 NOT NULL,
-    peak_components jsonb DEFAULT '{}'::jsonb NOT NULL,
-    evidence jsonb DEFAULT '{}'::jsonb NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    likelihood smallint,
-    likelihood_components jsonb DEFAULT '{}'::jsonb NOT NULL,
-    likelihood_history jsonb DEFAULT '[]'::jsonb NOT NULL,
-    likelihood_updated_at timestamp with time zone,
-    CONSTRAINT narrative_episodes_last_strength_check CHECK (((last_strength IS NULL) OR ((last_strength >= 0) AND (last_strength <= 100)))),
-    CONSTRAINT narrative_episodes_likelihood_check CHECK (((likelihood IS NULL) OR ((likelihood >= 0) AND (likelihood <= 100)))),
-    CONSTRAINT narrative_episodes_link_type_check CHECK ((link_type = ANY (ARRAY['co_mention'::text, 'trade_rumor'::text, 'trade_confirmed'::text, 'injury'::text, 'contract_dispute'::text, 'praise'::text, 'criticism'::text]))),
-    CONSTRAINT narrative_episodes_no_self_loop_check CHECK ((NOT ((subject_type = object_type) AND (subject_id = object_id)))),
-    CONSTRAINT narrative_episodes_object_type_check CHECK ((object_type = ANY (ARRAY['player'::text, 'team'::text, 'person'::text]))),
-    CONSTRAINT narrative_episodes_open_ended_check CHECK (((status = 'open'::text) = (ended_at IS NULL))),
-    CONSTRAINT narrative_episodes_open_outcome_check CHECK (((status = 'open'::text) = (outcome IS NULL))),
-    CONSTRAINT narrative_episodes_outcome_check CHECK (((outcome IS NULL) OR (outcome = ANY (ARRAY['confirmed'::text, 'fizzled'::text])))),
-    CONSTRAINT narrative_episodes_peak_strength_check CHECK (((peak_strength >= 0) AND (peak_strength <= 100))),
-    CONSTRAINT narrative_episodes_status_check CHECK ((status = ANY (ARRAY['open'::text, 'sealed'::text]))),
-    CONSTRAINT narrative_episodes_subject_type_check CHECK ((subject_type = ANY (ARRAY['player'::text, 'team'::text, 'person'::text])))
-);
-
-
---
--- Name: TABLE narrative_episodes; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.narrative_episodes IS 'Bounded, outcome-tagged spans of narrative association — the graph''s long-term memory ("this is a place team A flirted with back in 2025"). Opened/peaked/sealed by roll_narrative_episodes() over narrative_links state; links forget by design, episodes are what remain. One open episode per edge (partial unique index); sealed rows accumulate per edge across seasons. outcome=confirmed is reserved for the event-driven path (e.g. a trade_confirmed narrative_event sealing a trade_rumor episode) — the mechanical quiet-seal only ever writes fizzled.';
-
-
---
--- Name: COLUMN narrative_episodes.season; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.narrative_episodes.season IS 'sports.current_season at open time — the era anchor for "back in 2025" retrieval. A span crossing seasons keeps its opening season.';
-
-
---
--- Name: COLUMN narrative_episodes.likelihood; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.narrative_episodes.likelihood IS 'Served transfer likelihood 0-100 for open player-team stories: hysteresis-smoothed fusion of coverage, language stage, source tier, and trajectory (breakdown in likelihood_components). Frozen at seal — final value + history vs outcome is the calibration dataset.';
-
-
---
--- Name: COLUMN narrative_episodes.likelihood_history; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.narrative_episodes.likelihood_history IS 'Append-only [{d, v}] daily series of the served likelihood while open. Bounded by episode lifetime (stories run weeks, not years).';
-
-
---
--- Name: narrative_episodes_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.narrative_episodes_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: narrative_episodes_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.narrative_episodes_id_seq OWNED BY public.narrative_episodes.id;
-
-
---
 -- Name: narrative_events; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -8944,56 +8273,6 @@ CREATE TABLE public.narrative_links (
 --
 
 COMMENT ON TABLE public.narrative_links IS 'The narrative graph''s edge state: one row per (subject, object, link_type) with strength 0-100 + components breakdown (compute_transfer_heat house pattern) and the shared ±10-bucket trajectory vocabulary. co_mention rows are mechanical derivations from the vetted news rail (refresh_co_mention_links); typed rows aggregate narrative_events. Directed as stored; co_mention is symmetric and canonically ordered. A player''s own-team edge is legitimately strong — display layers filter current-roster pairs via player_current_identity, the graph does not.';
-
-
---
--- Name: narrative_person_affiliations; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.narrative_person_affiliations (
-    id integer NOT NULL,
-    person_id integer NOT NULL,
-    sport text NOT NULL,
-    entity_type text NOT NULL,
-    entity_id integer NOT NULL,
-    role text NOT NULL,
-    season integer,
-    valid_from timestamp with time zone DEFAULT now() NOT NULL,
-    valid_until timestamp with time zone,
-    is_current boolean DEFAULT true NOT NULL,
-    evidence jsonb DEFAULT '{}'::jsonb NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT narrative_person_affiliations_current_check CHECK ((is_current = (valid_until IS NULL))),
-    CONSTRAINT narrative_person_affiliations_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
-    CONSTRAINT narrative_person_affiliations_role_check CHECK ((role = ANY (ARRAY['coach'::text, 'agent'::text, 'executive'::text, 'family'::text, 'other'::text])))
-);
-
-
---
--- Name: TABLE narrative_person_affiliations; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.narrative_person_affiliations IS 'Interval-valued affiliation history for news-derived people, mirroring player_team_history ("he coached team B in 2019"). Entity-generic: a coach ties to a team, an agent ties to a player. The narrative_persons.team_id trigger maintains the automatic now-path; backdated intervals from extraction evidence insert directly with explicit valid_from/valid_until.';
-
-
---
--- Name: narrative_person_affiliations_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.narrative_person_affiliations_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: narrative_person_affiliations_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.narrative_person_affiliations_id_seq OWNED BY public.narrative_person_affiliations.id;
 
 
 --
@@ -9914,30 +9193,6 @@ ALTER SEQUENCE public.player_team_history_id_seq OWNED BY public.player_team_his
 
 
 --
--- Name: provider_entity_map; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.provider_entity_map (
-    provider text NOT NULL,
-    sport text NOT NULL,
-    entity_type text NOT NULL,
-    provider_entity_id text NOT NULL,
-    canonical_entity_id integer NOT NULL,
-    meta jsonb DEFAULT '{}'::jsonb NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT provider_entity_map_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text])))
-);
-
-
---
--- Name: TABLE provider_entity_map; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.provider_entity_map IS 'DRIVER: seed/shared/upsert.py:upsert_provider_entity_map(), called from seed/services/{roster,meta}/cli.py via cron-live-fixtures.sh. NO Rust, Go, SQL function or view names it — D-T22 pass 2 listed it as a TRUE ORPHAN and it is NOT one; Python was the missing leg. 436,729 lifetime updates. Last write 2026-08-01 because the provider feeds are off-season/disconnected, not because the writer died. PYTHON PRUNE SET: retire WITH the seed layer, not before.';
-
-
---
 -- Name: provider_fixture_map; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -10100,26 +9355,6 @@ COMMENT ON TABLE public.schema_migrations IS 'Applied migration versions (file b
 
 
 --
--- Name: season_recompute_needed; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.season_recompute_needed (
-    sport text NOT NULL,
-    season integer NOT NULL,
-    requested_at timestamp with time zone DEFAULT now() NOT NULL,
-    last_error text,
-    attempts integer DEFAULT 0 NOT NULL
-);
-
-
---
--- Name: TABLE season_recompute_needed; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.season_recompute_needed IS 'DRIVER: seed/shared/upsert.py — mark_season_recompute_needed() / clear_season_recompute_needed(). NO Rust, Go, SQL function or view names it — D-T22 pass 2 listed it as a TRUE ORPHAN and it is NOT one; Python was the missing leg. It is EMPTY and has never been written because it is a durable safety queue for a failure that has not yet occurred — 0 rows is the healthy state, not evidence of death. Dropping it would break upsert.py exactly when a recompute fails. PYTHON PRUNE SET: retire WITH the seed layer, not before.';
-
-
---
 -- Name: sigil_synthesis; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -10240,28 +9475,6 @@ CREATE TABLE public.source_performance (
 --
 
 COMMENT ON TABLE public.source_performance IS 'DRIVER (write): refresh_source_performance(), which has NO Rust or Go caller — it is invoked from a psql heredoc in scripts/hosting/cron-narrative-links.sh, cron 45 */6 * * *. That path is invisible to a Rust grep, a Go grep AND a repo grep for the table name. DRIVER (read): source_reliability_for_pair(), called per pair by the Insider (rust/src/junctions/insider/mod.rs). Refresh is DELETE-then-INSERT per sport, so high n_tup_del is normal churn, not deletion of live data.';
-
-
---
--- Name: source_tiers; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.source_tiers (
-    source text NOT NULL,
-    kind text NOT NULL,
-    tier smallint NOT NULL,
-    weight numeric(4,2) NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT source_tiers_kind_check CHECK ((kind = 'news'::text)),
-    CONSTRAINT source_tiers_tier_check CHECK (((tier >= 1) AND (tier <= 3)))
-);
-
-
---
--- Name: TABLE source_tiers; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.source_tiers IS 'DRIVER: backfill_narrative_episodes() only. SQL-only — NO application caller in any language. A grep of the Rust and Go will find nothing; the table is still live.';
 
 
 --
@@ -10563,26 +9776,6 @@ ALTER SEQUENCE public.storylines_id_seq OWNED BY public.storylines.id;
 
 
 --
--- Name: topic_heat_embeddings; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.topic_heat_embeddings (
-    article_id bigint NOT NULL,
-    fingerprint bigint NOT NULL,
-    model text NOT NULL,
-    embedding bytea NOT NULL,
-    embedded_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: TABLE topic_heat_embeddings; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.topic_heat_embeddings IS 'Cognition refactor Phase 2 (mig 177): repurposed into the novelty gate''s article-embedding store — the CANONICAL article context embeddings the scrub gate compares new arrivals against (article_id, fingerprint=text hash, model=embedder identity, embedding=LE f32 bytes). Was the topic-heat write-through cache (mig 151). Reproducible from news_articles text; safe to truncate.';
-
-
---
 -- Name: transfer_identity_applications; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -10858,44 +10051,6 @@ CREATE TABLE public.users (
 
 
 --
--- Name: v_transfer_likelihood; Type: VIEW; Schema: public; Owner: -
---
-
-CREATE VIEW public.v_transfer_likelihood AS
- SELECT e.sport,
-    e.id AS episode_id,
-    e.subject_id AS player_id,
-    p.name AS player_name,
-    e.object_id AS team_id,
-    t.name AS team_name,
-    e.likelihood,
-    e.likelihood_components,
-    trajectory_hint.trajectory,
-    e.started_at,
-    e.peak_strength,
-    e.article_count,
-    e.distinct_sources,
-    e.season,
-    e.likelihood_updated_at
-   FROM (((public.narrative_episodes e
-     JOIN public.players p ON (((p.id = e.subject_id) AND (p.sport = e.sport))))
-     JOIN public.teams t ON (((t.id = e.object_id) AND (t.sport = e.sport))))
-     LEFT JOIN LATERAL ( SELECT l.trajectory
-           FROM public.narrative_links l
-          WHERE ((l.sport = e.sport) AND (l.link_type = 'co_mention'::text) AND (l.subject_type = 'player'::text) AND (l.subject_id = e.subject_id) AND (l.object_type = 'team'::text) AND (l.object_id = e.object_id))) trajectory_hint ON (true))
-  WHERE ((e.status = 'open'::text) AND (e.link_type = 'co_mention'::text) AND (e.subject_type = 'player'::text) AND (e.object_type = 'team'::text) AND (e.likelihood IS NOT NULL) AND (NOT (EXISTS ( SELECT 1
-           FROM public.player_current_identity pci
-          WHERE ((pci.sport = e.sport) AND (pci.player_id = e.subject_id) AND (pci.team_id = e.object_id))))));
-
-
---
--- Name: VIEW v_transfer_likelihood; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON VIEW public.v_transfer_likelihood IS 'Serving surface for the likelihood board: open player-team stories with the served score, full component receipts, and link trajectory. The Go endpoint reads this.';
-
-
---
 -- Name: vibe_scores; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -11078,24 +10233,10 @@ ALTER TABLE ONLY public.momentum_summaries ALTER COLUMN id SET DEFAULT nextval('
 
 
 --
--- Name: narrative_episodes id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.narrative_episodes ALTER COLUMN id SET DEFAULT nextval('public.narrative_episodes_id_seq'::regclass);
-
-
---
 -- Name: narrative_events id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.narrative_events ALTER COLUMN id SET DEFAULT nextval('public.narrative_events_id_seq'::regclass);
-
-
---
--- Name: narrative_person_affiliations id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.narrative_person_affiliations ALTER COLUMN id SET DEFAULT nextval('public.narrative_person_affiliations_id_seq'::regclass);
 
 
 --
@@ -11500,14 +10641,6 @@ ALTER TABLE ONLY public.momentum_summaries
 
 
 --
--- Name: narrative_episodes narrative_episodes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.narrative_episodes
-    ADD CONSTRAINT narrative_episodes_pkey PRIMARY KEY (id);
-
-
---
 -- Name: narrative_events narrative_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -11521,14 +10654,6 @@ ALTER TABLE ONLY public.narrative_events
 
 ALTER TABLE ONLY public.narrative_links
     ADD CONSTRAINT narrative_links_pkey PRIMARY KEY (sport, link_type, subject_type, subject_id, object_type, object_id);
-
-
---
--- Name: narrative_person_affiliations narrative_person_affiliations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.narrative_person_affiliations
-    ADD CONSTRAINT narrative_person_affiliations_pkey PRIMARY KEY (id);
 
 
 --
@@ -11692,14 +10817,6 @@ ALTER TABLE ONLY public.players
 
 
 --
--- Name: provider_entity_map provider_entity_map_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.provider_entity_map
-    ADD CONSTRAINT provider_entity_map_pkey PRIMARY KEY (provider, sport, entity_type, provider_entity_id);
-
-
---
 -- Name: provider_fixture_map provider_fixture_map_fixture_id_provider_sport_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -11764,14 +10881,6 @@ ALTER TABLE ONLY public.schema_migrations
 
 
 --
--- Name: season_recompute_needed season_recompute_needed_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.season_recompute_needed
-    ADD CONSTRAINT season_recompute_needed_pkey PRIMARY KEY (sport, season);
-
-
---
 -- Name: sigil_synthesis sigil_synthesis_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -11793,14 +10902,6 @@ ALTER TABLE ONLY public.source_documents
 
 ALTER TABLE ONLY public.source_performance
     ADD CONSTRAINT source_performance_pkey PRIMARY KEY (sport, source);
-
-
---
--- Name: source_tiers source_tiers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.source_tiers
-    ADD CONSTRAINT source_tiers_pkey PRIMARY KEY (kind, source);
 
 
 --
@@ -11913,14 +11014,6 @@ ALTER TABLE ONLY public.team_stats
 
 ALTER TABLE ONLY public.teams
     ADD CONSTRAINT teams_pkey PRIMARY KEY (id, sport);
-
-
---
--- Name: topic_heat_embeddings topic_heat_embeddings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.topic_heat_embeddings
-    ADD CONSTRAINT topic_heat_embeddings_pkey PRIMARY KEY (article_id);
 
 
 --
@@ -12297,41 +11390,6 @@ CREATE INDEX idx_momentum_summaries_input_hash ON public.momentum_summaries USIN
 
 
 --
--- Name: idx_narrative_episodes_object; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_narrative_episodes_object ON public.narrative_episodes USING btree (sport, object_type, object_id, started_at DESC);
-
-
---
--- Name: idx_narrative_episodes_one_open; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE UNIQUE INDEX idx_narrative_episodes_one_open ON public.narrative_episodes USING btree (sport, link_type, subject_type, subject_id, object_type, object_id) WHERE (status = 'open'::text);
-
-
---
--- Name: idx_narrative_episodes_season; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_narrative_episodes_season ON public.narrative_episodes USING btree (sport, season);
-
-
---
--- Name: idx_narrative_episodes_subject; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_narrative_episodes_subject ON public.narrative_episodes USING btree (sport, subject_type, subject_id, started_at DESC);
-
-
---
--- Name: idx_narrative_episodes_type_status; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_narrative_episodes_type_status ON public.narrative_episodes USING btree (sport, link_type, status);
-
-
---
 -- Name: idx_narrative_events_article; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -12378,27 +11436,6 @@ CREATE INDEX idx_narrative_links_object ON public.narrative_links USING btree (s
 --
 
 CREATE INDEX idx_narrative_links_strength ON public.narrative_links USING btree (sport, strength DESC) WHERE ((strength IS NOT NULL) AND (strength > 0));
-
-
---
--- Name: idx_narrative_person_affiliations_entity; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_narrative_person_affiliations_entity ON public.narrative_person_affiliations USING btree (sport, entity_type, entity_id);
-
-
---
--- Name: idx_narrative_person_affiliations_one_current; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE UNIQUE INDEX idx_narrative_person_affiliations_one_current ON public.narrative_person_affiliations USING btree (person_id, entity_type, entity_id, role) WHERE is_current;
-
-
---
--- Name: idx_narrative_person_affiliations_person; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_narrative_person_affiliations_person ON public.narrative_person_affiliations USING btree (person_id, valid_from DESC);
 
 
 --
@@ -12728,13 +11765,6 @@ CREATE INDEX idx_players_team ON public.players USING btree (team_id);
 --
 
 CREATE INDEX idx_players_tier_sport ON public.players USING btree (tier, sport);
-
-
---
--- Name: idx_provider_entity_map_canonical; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_provider_entity_map_canonical ON public.provider_entity_map USING btree (sport, entity_type, canonical_entity_id);
 
 
 --
@@ -13137,13 +12167,6 @@ CREATE TRIGGER trg_football_derived_stats BEFORE INSERT OR UPDATE ON public.play
 
 
 --
--- Name: narrative_persons trg_narrative_persons_affiliation; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER trg_narrative_persons_affiliation AFTER INSERT OR UPDATE OF team_id ON public.narrative_persons FOR EACH ROW EXECUTE FUNCTION public.narrative_persons_track_affiliation();
-
-
---
 -- Name: player_stats trg_nba_player_derived_stats; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -13418,14 +12441,6 @@ ALTER TABLE ONLY public.leagues
 
 
 --
--- Name: narrative_episodes narrative_episodes_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.narrative_episodes
-    ADD CONSTRAINT narrative_episodes_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
-
-
---
 -- Name: narrative_events narrative_events_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -13439,22 +12454,6 @@ ALTER TABLE ONLY public.narrative_events
 
 ALTER TABLE ONLY public.narrative_links
     ADD CONSTRAINT narrative_links_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
-
-
---
--- Name: narrative_person_affiliations narrative_person_affiliations_person_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.narrative_person_affiliations
-    ADD CONSTRAINT narrative_person_affiliations_person_id_fkey FOREIGN KEY (person_id) REFERENCES public.narrative_persons(id) ON DELETE CASCADE;
-
-
---
--- Name: narrative_person_affiliations narrative_person_affiliations_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.narrative_person_affiliations
-    ADD CONSTRAINT narrative_person_affiliations_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
 
 
 --
@@ -13658,14 +12657,6 @@ ALTER TABLE ONLY public.players
 
 
 --
--- Name: provider_entity_map provider_entity_map_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.provider_entity_map
-    ADD CONSTRAINT provider_entity_map_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
-
-
---
 -- Name: provider_fixture_map provider_fixture_map_fixture_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -13834,14 +12825,6 @@ ALTER TABLE ONLY public.teams
 
 
 --
--- Name: topic_heat_embeddings topic_heat_embeddings_article_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.topic_heat_embeddings
-    ADD CONSTRAINT topic_heat_embeddings_article_id_fkey FOREIGN KEY (article_id) REFERENCES public.news_articles(id) ON DELETE CASCADE;
-
-
---
 -- Name: transfer_identity_applications transfer_identity_applications_new_team_id_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -13972,5 +12955,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 2BwZReBmcK1KweNjcpAsn1q8tzaIDWLaSN7SRzMaRag2jcfKm6ckwHbktTtgVgz
+\unrestrict iepd2juhSlAdU9XAPZZ8bGnFJfgmxYzitpHjmArtm8CF7MqpQ5NDgyXaEr15OoC
 

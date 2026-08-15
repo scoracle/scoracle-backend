@@ -24,19 +24,20 @@ if [[ -z "$DB" ]]; then
     exit 1
 fi
 
-# Order matters: refresh links (now-state), seal confirmed outcomes from roster ground
-# truth (mig 157 — MUST precede the roll so confirmation beats same-night quiet-seal),
-# roll episodes (open/peak/quiet-seal), fill chapter→storyline derivations (mig 219 —
-# converges news_summaries written thread-only by the pre-cutover binary; precedes the
-# part lifecycle so the night's seal/promote sees the freshest chapters), seal
-# STORYLINES (mig 219 — ground-truth-confirmed stories resolve and D5 closes every
+# Order matters: refresh links (now-state), fill chapter→storyline derivations
+# (mig 219 — converges news_summaries written thread-only by the pre-cutover binary;
+# precedes the part lifecycle so the night's seal/promote sees the freshest chapters),
+# seal STORYLINES (mig 219 — ground-truth-confirmed stories resolve and D5 closes every
 # other part in one stroke; dormancy is mark_dormant's job in the worker, not here),
 # promote established parts (mig 219 — source growth past the authority gate flips
 # continuity → established; after the seal so a fresh ground-truth resolve promotes
-# same-night), score transfer likelihood on the fresh open set (mig 161 — after roll
-# so new stories get scored same-night), re-measure source performance, then promote
-# persons (mig 166 — evidence accumulated by the graph stage earns candidate → active;
-# promoted figures serve on team memory cards).
+# same-night), re-measure source performance, then promote persons (mig 166 — evidence
+# accumulated by the graph stage earns candidate → active; promoted figures serve on
+# team memory cards).
+#
+# (222) The episode lifecycle — seal_confirmed_episodes, roll_narrative_episodes,
+# score_transfer_likelihood — left with the old-rail demolition: storyline sealing
+# (mig 219, below) is the outcome path now, and the memory cards read storylines.
 exec psql "$DB" -v ON_ERROR_STOP=1 -c "
 SELECT 'FOOTBALL' AS sport, now() AS ran_at, * FROM refresh_co_mention_links('FOOTBALL')
 UNION ALL
@@ -48,16 +49,6 @@ UNION ALL
 SELECT 'NBA', now(), * FROM refresh_typed_links('NBA')
 UNION ALL
 SELECT 'NFL', now(), * FROM refresh_typed_links('NFL')" -c "
-SELECT 'FOOTBALL' AS sport, now() AS ran_at, * FROM seal_confirmed_episodes('FOOTBALL')
-UNION ALL
-SELECT 'NBA', now(), * FROM seal_confirmed_episodes('NBA')
-UNION ALL
-SELECT 'NFL', now(), * FROM seal_confirmed_episodes('NFL')" -c "
-SELECT 'FOOTBALL' AS sport, now() AS ran_at, * FROM roll_narrative_episodes('FOOTBALL')
-UNION ALL
-SELECT 'NBA', now(), * FROM roll_narrative_episodes('NBA')
-UNION ALL
-SELECT 'NFL', now(), * FROM roll_narrative_episodes('NFL')" -c "
 DO \$\$
 DECLARE n int;
 BEGIN
@@ -101,11 +92,6 @@ BEGIN
         RAISE NOTICE 'promote_established_parts not installed yet (mig 219) — skipped';
     END IF;
 END \$\$;" -c "
-SELECT 'FOOTBALL' AS sport, now() AS ran_at, score_transfer_likelihood('FOOTBALL') AS scored
-UNION ALL
-SELECT 'NBA', now(), score_transfer_likelihood('NBA')
-UNION ALL
-SELECT 'NFL', now(), score_transfer_likelihood('NFL')" -c "
 SELECT 'FOOTBALL' AS sport, now() AS ran_at, refresh_source_performance('FOOTBALL') AS sources
 UNION ALL
 SELECT 'NBA', now(), refresh_source_performance('NBA')

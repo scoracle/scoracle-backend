@@ -552,3 +552,41 @@ fn the_packet_rail_keeps_the_memory_block() {
     assert!(!with.contains("Prior story"));
     assert!(!with.contains("STORY:"));
 }
+
+// --- n20: the news-block char budget ----------------------------------------------------------
+
+#[test]
+fn news_budget_keeps_the_newest_and_names_the_cut() {
+    // Mega-storyline shape (measured 2026-08-15: ~160 items, 63 KB): items are
+    // newest-first, so the budget must keep the head and NAME the tail.
+    let corpus: Vec<CorpusItem> = (0..40)
+        .map(|i| {
+            item(
+                i,
+                "Fixture Wire",
+                &format!("Claim number {i} carrying a headline of realistic length for a claim"),
+                "Second and third claims joined here as the body of the numbered evidence item.",
+                Some(1_700_000_000),
+            )
+        })
+        .collect();
+
+    let (kept, dropped) = apply_news_budget(corpus, 2_000);
+
+    assert!(!kept.is_empty(), "the budget must never empty the corpus");
+    assert!(!dropped.is_empty(), "40 long items cannot fit 2,000 chars");
+    assert_eq!(kept.len() + dropped.len(), 40);
+    // Prefix kept, in order; the drop is exactly the tail ids.
+    assert_eq!(kept[0].id, 0);
+    assert_eq!(dropped[0], kept.len() as i64);
+}
+
+#[test]
+fn news_budget_always_keeps_at_least_one_item() {
+    // One oversized item still renders — an edition with evidence beats an empty prompt,
+    // and build_narratives_prompt caps the rendered body anyway.
+    let corpus = vec![item(7, "Wire", &"t".repeat(500), &"d".repeat(5_000), None)];
+    let (kept, dropped) = apply_news_budget(corpus, 100);
+    assert_eq!(kept.len(), 1);
+    assert!(dropped.is_empty());
+}

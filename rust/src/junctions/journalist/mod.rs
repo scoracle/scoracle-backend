@@ -411,9 +411,46 @@ pub async fn load_packet_corpus(
         })
         .collect();
 
+    // The n20 char budget. MAX_PACKETS_PER_ENTITY bounds how many STORIES are read, but a
+    // mega-storyline is one story with a hundred member articles — measured 2026-08-15, the
+    // news block alone reached 63 KB (~160 items) inside a 4,096-token window that also holds
+    // an ~830-token system prompt, the framing, the memory card and the reply reservation.
+    // Everything past the window was silently truncated before the model saw it (11% of
+    // editions that day). Items are newest-packet-first, newest-claim-first, so the budget
+    // keeps the freshest evidence and the cut articles are NAMED (A5) like every other cut.
+    let (corpus, over_budget) = apply_news_budget(corpus, PACKET_NEWS_BUDGET_CHARS);
+    exclusions.budget_truncated_ids.extend(over_budget);
+
     exclusions.budget_truncated_ids.sort_unstable();
     exclusions.budget_truncated_ids.dedup();
     Ok((corpus, exclusions, framing))
+}
+
+/// The rendered-size allowance for the numbered news block, in prompt CHARS (≈ tokens×4).
+/// The 4,096 window's arithmetic: ~830 tok of system prompt + ~600 of framing (≤5 packets)
+/// + ~500 of memory/SIGNALS + ~500 reserved for the reply leaves ~1,500 tok ≈ 6,000 chars
+/// of evidence — about 15 packet items, roughly double the legacy small-window article cap.
+const PACKET_NEWS_BUDGET_CHARS: usize = 6_000;
+
+/// apply_news_budget keeps the corpus prefix whose PROJECTED render cost (the same title +
+/// capped-context arithmetic `build_narratives_prompt` spends) fits `budget`, returning the
+/// dropped items' ids for the exclusions band. Order is preserved — the caller already sorts
+/// newest-first, so the cut is the oldest evidence.
+fn apply_news_budget(corpus: Vec<CorpusItem>, budget: usize) -> (Vec<CorpusItem>, Vec<i64>) {
+    let mut spent = 0usize;
+    let mut kept = Vec::with_capacity(corpus.len());
+    let mut dropped = Vec::new();
+    for item in corpus {
+        let (body, cap) = article_context(&item);
+        let cost = 8 + item.source.len() + item.title.len() + body.len().min(cap);
+        if spent + cost > budget && !kept.is_empty() {
+            dropped.push(item.id);
+            continue;
+        }
+        spent += cost;
+        kept.push(item);
+    }
+    (kept, dropped)
 }
 
 /// One member article's claims, while `load_packet_corpus` groups them.

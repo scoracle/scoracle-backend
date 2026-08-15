@@ -326,3 +326,30 @@ fn input_hash_ignores_narrative_ordering() {
     let reversed = build_vibe_input_components(&[b, a], &[], &[]);
     assert_eq!(hash_components(&forward), hash_components(&reversed));
 }
+
+// --- v19: the per-block char budget -----------------------------------------------------------
+
+#[test]
+fn packet_block_depth_is_bounded_in_the_prompt() {
+    // A mega-storyline's single block ran ~2k tokens of claims (measured 2026-08-15) — the
+    // prompt spends at most PACKET_BLOCK_TRUNCATE chars per block, keeping the top (newest
+    // claims render first). A normal block is untouched.
+    let mut big = packet_block(1);
+    big.text = format!(
+        "STORY: The saga\nMOOD: weary — \"here we go again\"\nREPORTED (newest first):\n{}",
+        "- Outlet: a long claim line repeated far past any reasonable allowance.\n".repeat(400)
+    );
+    let p = build_sentiment_prompt("team", "Test FC", "FOOTBALL", &[], &[], &[big], None, None);
+    let story_at = p.find("STORY: The saga").expect("block renders");
+    let narratives_at = p.find("Narratives forming").expect("next section renders");
+    assert!(
+        narratives_at - story_at <= PACKET_BLOCK_TRUNCATE + 8,
+        "block spent {} chars, allowance is {}",
+        narratives_at - story_at,
+        PACKET_BLOCK_TRUNCATE
+    );
+
+    let small = packet_block(2);
+    let q = build_sentiment_prompt("team", "Test FC", "FOOTBALL", &[], &[], &[small.clone()], None, None);
+    assert!(q.contains(small.text.trim_end()), "a normal block renders whole");
+}

@@ -58,6 +58,13 @@ pub const VIBE_NUM_PREDICT: i32 = 1100;
 /// Body truncation in the prompt.
 const BODY_TRUNCATE: usize = 280;
 
+/// v19: one story block's rendered allowance in the vibe prompt, in chars (~750 tokens).
+/// MAX_VIBE_PACKETS bounds how many stories she reads; this bounds how DEEP each one runs —
+/// a mega-storyline's single block reached ~2k tokens of claims and kept the seat's p95 over
+/// the 4,096 window after the v18 diet. Two blocks at this cap spend ~1.5k tokens, which the
+/// window arithmetic (system ~700 + narratives + heat + memory + reply room) actually affords.
+const PACKET_BLOCK_TRUNCATE: usize = 3_000;
+
 /// One narrative from the entity's latest generation (news_summaries).
 #[derive(Clone, Debug)]
 pub struct Narrative {

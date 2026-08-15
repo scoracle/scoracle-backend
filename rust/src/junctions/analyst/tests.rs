@@ -56,6 +56,42 @@ fn stray_momentum_line_is_tolerated_and_ignored() {
 }
 
 #[test]
+fn parses_the_defiant_fable_relabelings_the_2026_08_14_swap() {
+    // Verbatim shapes from pipeline_work.last_error after the 08-14 swap to
+    // defiant-fable:9b. Shape one: the whole reply on a `Momentum:` line, prose after
+    // the direction/score echo — the echo goes, the prose is the READ.
+    let one_line = parse_momentum_reply(
+        "Momentum: Steady (-8.8/±10). The camp narrative remains fixture-focused with no new directional shift.",
+    )
+    .expect("a one-line Momentum: reply with prose must parse");
+    assert_eq!(
+        one_line.blurb,
+        "The camp narrative remains fixture-focused with no new directional shift."
+    );
+
+    // Shape two: a `Momentum Read:` headline echo, the read in the paragraph below.
+    let headline = parse_momentum_reply(
+        "Momentum Read: Indianapolis Colts — Falling (-22.4)\n\nThe Colts are trending down as camp momentum shifts elsewhere.",
+    )
+    .expect("a Momentum Read: headline reply must parse");
+    assert_eq!(
+        headline.blurb,
+        "The Colts are trending down as camp momentum shifts elsewhere."
+    );
+
+    // Prose on the relabeled line itself is kept too.
+    let inline = parse_momentum_reply(
+        "MOMENTUM READ: Falling (-22.4). The tape shows the drop across both windows.",
+    )
+    .unwrap();
+    assert_eq!(inline.blurb, "The tape shows the drop across both windows.");
+
+    // A bare echo with nothing under it still fails closed.
+    assert!(parse_momentum_reply("Momentum: Steady (-8.8/±10).").is_none());
+    assert!(parse_momentum_reply("MOMENTUM: sideways").is_none());
+}
+
+#[test]
 fn direction_is_decided_by_band_not_model() {
     // ±MOMENTUM_STEADY_BAND on the ±100-scale momentum_score; None (no durable
     // snapshot) is honestly steady.

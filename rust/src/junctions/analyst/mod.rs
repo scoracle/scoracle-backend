@@ -335,10 +335,34 @@ pub fn parse_momentum_reply(raw: &str) -> Option<MomentumReply> {
         if trimmed.is_empty() {
             continue;
         }
+        // 2026-08-14 model swap (defiant-fable): the new voice relabels the contract line
+        // as `MOMENTUM READ:` — sometimes a bare headline echo ("<club> — Falling (-22.4)")
+        // with the read in the paragraphs below, sometimes with prose after the echo. A
+        // relabeled read is a read (the 07-26 rule: a model swap must not silently cost the
+        // junction); a bare echo opens the read so the paragraphs under it are kept.
+        if let Some(rest) = strip_prefix_ci(trimmed, "MOMENTUM READ:") {
+            let prose = strip_direction_echo(rest);
+            if !prose.is_empty() {
+                read_lines.push(prose.to_string());
+            }
+            in_read = true;
+            continue;
+        }
         // s4 dropped the MOMENTUM line from the contract (direction is decided in code),
         // but a model echoing the decided direction back is not an error — skip the line.
-        if strip_prefix_ci(trimmed, "MOMENTUM:").is_some() {
-            in_read = false;
+        // The 08-14 swap also writes whole one-line replies here ("Momentum: Steady
+        // (-8.8/±10). The camp narrative …"): prose past the echo IS the read; only a
+        // bare echo is skipped.
+        if let Some(rest) = strip_prefix_ci(trimmed, "MOMENTUM:") {
+            let prose = strip_direction_echo(rest);
+            // A word or two past the echo is still an echo ("MOMENTUM: sideways");
+            // a read is a sentence. Fail toward skipping, as s4 always did.
+            if prose.contains(' ') {
+                read_lines.push(prose.to_string());
+                in_read = true;
+            } else {
+                in_read = false;
+            }
             continue;
         }
         // s11 dropped SCORE from the contract (the magnitude is computed, like the direction
@@ -369,6 +393,38 @@ fn strip_prefix_ci<'a>(s: &'a str, prefix: &str) -> Option<&'a str> {
     s.get(..prefix.len())
         .filter(|head| head.eq_ignore_ascii_case(prefix))
         .map(|_| &s[prefix.len()..])
+}
+
+/// Strip a leading direction/score echo — `[<club/entity> —] <Direction> [(…)]` — and
+/// return whatever prose follows (empty when the line was ONLY the echo). The direction
+/// vocabulary is the decided set plus the legacy Conflict; the echo is located by token
+/// so "Indianapolis Colts — Falling (-22.4)" and "Steady (-8.8/±10). The camp…" both
+/// resolve. Anything without a direction token is returned untouched: unfamiliar text is
+/// prose, and the caller's contract (non-empty read or fail closed) still governs.
+fn strip_direction_echo(rest: &str) -> &str {
+    const DIRECTIONS: [&str; 4] = ["rising", "falling", "steady", "conflict"];
+    let lower = rest.to_ascii_lowercase();
+    for dir in DIRECTIONS {
+        for (pos, _) in lower.match_indices(dir) {
+            let before_ok = pos == 0
+                || !lower[..pos].chars().next_back().is_some_and(char::is_alphanumeric);
+            let after = pos + dir.len();
+            let after_ok =
+                !lower[after..].chars().next().is_some_and(char::is_alphanumeric);
+            if !before_ok || !after_ok {
+                continue;
+            }
+            let mut tail = rest[after..].trim_start();
+            if tail.starts_with('(') {
+                match tail.find(')') {
+                    Some(close) => tail = tail[close + 1..].trim_start(),
+                    None => return "", // unclosed echo parens: the line is all echo
+                }
+            }
+            return tail.trim_start_matches(['.', ':', ',', '—', '-', ' ']).trim();
+        }
+    }
+    rest.trim()
 }
 
 fn clean_joined_lines(lines: &[String]) -> String {

@@ -110,7 +110,7 @@ NEXT (non-SQL — a migration cannot carry these):
   1. Deploy the cognition binary from a commit >= 523dbcd (graph stage + all memory cards
      + junction-event producer). scripts/hosting/release.sh builds + restarts it.
   2. Ensure COGNITION_STAGES includes `graph`:
-       scrub,graph,peak,momentum,transfers,narratives,vibe,sigil
+       scrub,graph,rating,momentum,transfers,narratives,vibe,sigil
      Check the systemd unit AND any .env / .env.local override on the target.
   3. Install the relational crons (cron-narrative-links.sh at :45 every 6 hours,
      cron-stat-matchups.sh @ 03:30) — see scripts/hosting/crontab.example.

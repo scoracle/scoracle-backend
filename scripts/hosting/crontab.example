@@ -104,6 +104,16 @@ TZ=America/New_York
 0 2 * * 1 /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/recompute-tiers.sh >> /home/sheneveld/scoracle/scoracle-backend/logs/tier-recompute.log 2>&1
 
 # ---------------------------------------------------------------------------
+# Freshness watchdog — twice daily (after the nightly window, and evening)
+# ---------------------------------------------------------------------------
+# Reads the DATA, not the process list: ingest recency, stored-but-never-read
+# share per sport (the D-T21 cap-collision signature), voice output freshness,
+# packet compiles, dead letters, queue stalls. One pipeline_runs row per run
+# (job='watchdog'); non-zero exit on any alarm; optional WATCHDOG_ALERT_URL
+# in .env.local POSTs alarms as plain text (e.g. an ntfy.sh topic).
+0 8,20 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-watchdog.sh >> /home/sheneveld/scoracle/scoracle-backend/logs/watchdog.log 2>&1
+
+# ---------------------------------------------------------------------------
 # Sigil (crown) reconciliation — nightly, bounded (FIRST-GPT-AUDIT Session 12)
 # ---------------------------------------------------------------------------
 # Event-driven, debounced convergence is the normal generation path (news

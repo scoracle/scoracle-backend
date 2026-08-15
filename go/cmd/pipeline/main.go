@@ -24,6 +24,7 @@ import (
 
 	"github.com/albapepper/scoracle-data/internal/config"
 	"github.com/albapepper/scoracle-data/internal/corpus"
+	"github.com/albapepper/scoracle-data/internal/jobrun"
 )
 
 func main() {
@@ -64,7 +65,7 @@ func main() {
 	}
 	defer pool.Close()
 
-	os.Exit(runIngestOnly(pool, *sport, *rssLimit, *rssPauseMs, logger))
+	os.Exit(runIngestOnly(pool, cfg.DatabaseURL, *sport, *rssLimit, *rssPauseMs, logger))
 }
 
 // parseLogLevel maps the -log-level flag onto slog. An unrecognized value falls
@@ -83,19 +84,44 @@ func parseLogLevel(s string) slog.Level {
 	}
 }
 
-func runIngestOnly(pool *pgxpool.Pool, sportArg string, rssLimit, rssPauseMs int, logger *slog.Logger) int {
+func runIngestOnly(pool *pgxpool.Pool, dbURL, sportArg string, rssLimit, rssPauseMs int, logger *slog.Logger) int {
 	sports := []string{"NBA", "NFL", "FOOTBALL"}
 	if s := strings.ToLower(strings.TrimSpace(sportArg)); s != "" && s != "all" {
 		sports = []string{strings.ToUpper(sportArg)}
 	}
 	ctx := context.Background()
-	ok, fail := corpus.Sweep(ctx, pool, sports, rssLimit, rssPauseMs, logger)
-	logger.Info("pipeline ingest: complete", "sports", sports, "rss_ok", ok, "rss_fail", fail)
-	if ok == 0 && fail > 0 {
+
+	// The durable run record + overlap lock (jobrun) — dropped by mistake in the
+	// lean sweep (f4c9556), which left pipeline_runs_latest showing the LAST
+	// pre-sweep run (Jun 28) forever while ingest ran nightly. The watchdog reads
+	// data freshness so it survived the gap, but the run ledger is the place a
+	// human asks first; it must not lie.
+	run, acquired, err := jobrun.Guard(ctx, pool, dbURL, "pipeline")
+	if err != nil {
+		logger.Error("pipeline ingest: run-guard failed", "error", err)
 		return 1
 	}
-	if fail > 0 {
-		return 3
+	if !acquired {
+		logger.Warn("pipeline ingest: another pipeline run holds the lock - exiting cleanly")
+		return 0
 	}
-	return 0
+	defer run.Close()
+
+	ok, fail := corpus.Sweep(ctx, pool, sports, rssLimit, rssPauseMs, logger)
+	logger.Info("pipeline ingest: complete", "sports", sports, "rss_ok", ok, "rss_fail", fail)
+
+	status, exit := jobrun.StatusSuccess, 0
+	var runErr error
+	switch {
+	case ok == 0 && fail > 0:
+		status, exit = jobrun.StatusFailed, 1
+		runErr = fmt.Errorf("every RSS sweep failed (%d)", fail)
+	case fail > 0:
+		status, exit = jobrun.StatusPartial, 3
+		runErr = fmt.Errorf("%d RSS sweep(s) failed (retryable next run)", fail)
+	}
+	if ferr := run.Finish(ctx, status, jobrun.Counts{Attempted: ok + fail, Succeeded: ok, Failed: fail}, runErr); ferr != nil {
+		logger.Warn("pipeline ingest: record run failed", "error", ferr)
+	}
+	return exit
 }

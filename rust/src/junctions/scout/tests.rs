@@ -5,14 +5,13 @@
 
 use super::*;
 
-fn dp(label: &str, value: f64, z: f64, pct: f64, sign: i32, specialty: bool) -> RatingDatapoint {
+fn dp(label: &str, value: f64, z: f64, pct: f64, sign: i32) -> RatingDatapoint {
     RatingDatapoint {
         label: label.to_string(),
         value,
         z,
         pct,
         sign,
-        is_specialty: specialty,
         ..Default::default()
     }
 }
@@ -29,21 +28,21 @@ fn req(sport: &str, entity_type: &str, name: &str) -> RatingReq {
 }
 
 fn profile_player() -> RatingProfile {
-    let mut scoring = dp("Scoring", 24.0, 3.1, 95.0, 1, true);
+    let mut scoring = dp("Scoring", 24.0, 3.1, 95.0, 1);
     scoring.scoped_pct.insert("position".to_string(), 88.0);
     RatingProfile {
         entity_type: "player".to_string(),
         season: 2025,
         position: "Guard".to_string(),
         composite_score: Some(67.0),
-        breakdown: vec![scoring, dp("Defense", 2.5, -0.5, 40.0, 1, false)],
+        breakdown: vec![scoring, dp("Defense", 2.5, -0.5, 40.0, 1)],
         scoped_ranks: HashMap::new(),
         rate_modes: HashMap::new(),
     }
 }
 
 fn faceted(label: &str, pct: f64, facet: &str) -> RatingDatapoint {
-    let mut d = dp(label, 1.0, 0.0, pct, 1, false);
+    let mut d = dp(label, 1.0, 0.0, pct, 1);
     d.facet = facet.to_string();
     d
 }
@@ -138,7 +137,7 @@ fn off_facet_filter_noops_without_nfl_facets() {
 // -----------------------------------------------------------------------------------------------
 
 fn tiered(label: &str, pct: f64, in_comp: bool, in_spec: bool) -> RatingDatapoint {
-    let mut d = dp(label, 10.0, 1.0, pct, 1, false);
+    let mut d = dp(label, 10.0, 1.0, pct, 1);
     d.in_comp = in_comp;
     d.in_spec = in_spec;
     d
@@ -149,9 +148,9 @@ fn display_tier_filter_drops_retired_metrics_from_breakdown_and_modes() {
     let mut p = nfl_profile(
         "",
         vec![
-            tiered("Goalscoring", 70.0, true, true), // composite+specialist: stays
+            tiered("Goalscoring", 70.0, true, true), // composite + in-spec: stays
             tiered("On-Court Impact", 60.0, true, false), // composite-only: stays
-            tiered("Penalties Won", 88.0, false, true), // specialist-only: stays
+            tiered("Penalties Won", 88.0, false, true), // in-spec only: stays
             tiered("Clearances", 96.0, false, false), // display tier: dropped
             tiered("Duels", 90.0, false, false),     // display tier: dropped
         ],
@@ -338,7 +337,7 @@ fn prompt_team_no_composite_no_position() {
         season: 2025,
         position: String::new(),
         composite_score: None,
-        breakdown: vec![dp("Defense", 0.38, 1.2, 78.0, 1, false)],
+        breakdown: vec![dp("Defense", 0.38, 1.2, 78.0, 1)],
         scoped_ranks: HashMap::new(),
         rate_modes: HashMap::new(),
     };
@@ -366,25 +365,14 @@ Exploitation opportunity: None — this profile offers no clean exploit.\n\
 }
 
 #[test]
-fn descrub_memory_card_rewrites_mig164_internal_vocabulary() {
-    let raw = "Our prior read: season 2025 PEAK was \"Shooting\" (notability 98/100).\nConfirmed move: joined Test FC (Jul 12).";
-    let clean = descrub_memory_card(raw);
-    assert!(!clean.contains("PEAK"), "descrubbed: {clean}");
-    assert!(!clean.contains("notability"), "descrubbed: {clean}");
-    assert!(clean.contains("the top skill read was \"Shooting\" (profile distinctiveness 98/100)"));
-    // Unrecognized lines pass through untouched.
-    assert!(clean.contains("Confirmed move: joined Test FC (Jul 12)."));
-}
-
-#[test]
 fn cross_season_memory_renders_before_the_write_cue() {
     // The s12 memory card renders as the last content section, bulleted, with the
     // tier-truth guard in the header; None pins the s11 byte shape (the byte-fixtures
     // above). Blank memory ⇒ no section.
     let p = profile_player();
-    // The mem string is the DESCRUBBED form (s18): production runs mig 164's card through
-    // descrub_memory_card in load_stat_memory before it gets here.
-    let mem = "Our prior read: season 2025 the top skill read was \"Shooting\" (profile distinctiveness 98/100).\nMatchup memory: pts vs Test Rivals — 22.8/game vs a 16.0 baseline (adjusted +4.7), n=13 games, reliability 44/100.";
+    // The mem string is what mig 221's stat_context_for_entity renders — the divined label
+    // retired with PEAK, so the prior read carries distinctiveness and the trajectory.
+    let mem = "Our prior read: season 2025 scored this profile 98/100 for distinctiveness.\nMatchup memory: pts vs Test Rivals — 22.8/game vs a 16.0 baseline (adjusted +4.7), n=13 games, reliability 44/100.";
     let prompt = build_stat_prompt(
         &req("NBA", "player", "Test Player"),
         &p,
@@ -395,7 +383,7 @@ fn cross_season_memory_renders_before_the_write_cue() {
         None,
     );
     assert!(prompt.contains("\nCross-season memory (computed history — arc context only"));
-    assert!(prompt.contains("- Our prior read: season 2025 the top skill read was \"Shooting\""));
+    assert!(prompt.contains("- Our prior read: season 2025 scored this profile 98/100"));
     assert!(prompt.contains("- Matchup memory: pts vs Test Rivals"));
     let mem_pos = prompt.find("Cross-season memory").unwrap();
     let cue_pos = prompt.find("Write the scouting report now").unwrap();
@@ -421,8 +409,8 @@ fn scouting_decision_requires_no_standout_when_top_is_only_above_average() {
         position: "SG".to_string(),
         composite_score: Some(49.0),
         breakdown: vec![
-            dp("Spot-up shooting", 38.1, 0.5, 64.0, 1, false),
-            dp("Turnovers", 3.7, -1.4, 23.0, 1, false),
+            dp("Spot-up shooting", 38.1, 0.5, 64.0, 1),
+            dp("Turnovers", 3.7, -1.4, 23.0, 1),
         ],
         scoped_ranks: HashMap::new(),
         rate_modes: HashMap::new(),
@@ -523,7 +511,7 @@ fn trim_float_formats_like_go() {
 }
 
 #[test]
-fn peak_trajectory_buckets_and_labels_recent_form() {
+fn rating_trajectory_buckets_and_labels_recent_form() {
     assert_eq!(trajectory_key(linear_slope(&[0.1, 0.5, 1.0])), "rising");
     assert_eq!(trajectory_key(linear_slope(&[2.2, 1.7, 1.1])), "falling");
     assert_eq!(trajectory_key(linear_slope(&[0.7, 0.8, 0.75])), "steady");
@@ -552,9 +540,9 @@ fn ordered_facts_sorts_desc_and_truncates() {
         position: String::new(),
         composite_score: None,
         breakdown: vec![
-            dp("low", 1.0, 0.0, 20.0, 1, false),
-            dp("high", 1.0, 0.0, 90.0, 1, false),
-            dp("mid", 1.0, 0.0, 55.0, 1, false),
+            dp("low", 1.0, 0.0, 20.0, 1),
+            dp("high", 1.0, 0.0, 90.0, 1),
+            dp("mid", 1.0, 0.0, 55.0, 1),
         ],
         scoped_ranks: HashMap::new(),
         rate_modes: HashMap::new(),
@@ -611,19 +599,19 @@ fn clean_commentary_strips_fences_and_labels() {
 }
 
 #[test]
-fn peak_work_token_carries_contract_and_still_parses_season() {
-    // The s11 token format: peak:s<season>:<prompt_version>:<hash|no-stats>. The
-    // prompt-version leg is what reopens a done queue row on a persona change; the
+fn rating_work_token_carries_contract_and_still_parses_season() {
+    // The s11 token format, renamed by mig 221: rating:s<season>:<prompt_version>:<hash|no-stats>.
+    // The prompt-version leg is what reopens a done queue row on a persona change; the
     // season parse must survive the extra segment.
-    let v = peak_work_input_version(2025, Some("abc123"));
-    assert_eq!(v, format!("peak:s2025:{RATING_PROMPT_VERSION}:abc123"));
-    assert_eq!(peak_work_season(Some(&v)), Some(2025));
+    let v = rating_work_input_version(2025, Some("abc123"));
+    assert_eq!(v, format!("rating:s2025:{RATING_PROMPT_VERSION}:abc123"));
+    assert_eq!(rating_work_season(Some(&v)), Some(2025));
     assert_eq!(
-        peak_work_input_version(2025, None),
-        format!("peak:s2025:{RATING_PROMPT_VERSION}:no-stats")
+        rating_work_input_version(2025, None),
+        format!("rating:s2025:{RATING_PROMPT_VERSION}:no-stats")
     );
-    // Old-format tokens (pre-s11 rows still in pipeline_work) parse their season too.
-    assert_eq!(peak_work_season(Some("peak:s2024:deadbeef")), Some(2024));
+    // Short-form tokens (the migration rewrote every stored prefix) parse their season too.
+    assert_eq!(rating_work_season(Some("rating:s2024:deadbeef")), Some(2024));
 }
 
 #[test]

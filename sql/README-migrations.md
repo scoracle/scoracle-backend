@@ -37,7 +37,7 @@ data-dependent gates (e.g. `045`/`046`/`048` smoke checks) that assume real rows
 
 ## Writing a new migration
 Start from `sql/migration_template.sql` (copy it to `sql/migrations/NNN_….sql`). Then:
-1. Name it `NNN_short_description.sql` (next number; keep it unique). **Next free = 107.**
+1. Name it `NNN_short_description.sql` (next number; keep it unique). **Next free = 222.**
 2. Wrap in `BEGIN; … COMMIT;`. Prefer idempotent DDL (`CREATE … IF NOT EXISTS`,
    `CREATE OR REPLACE`). For data backfills, add a parity/smoke gate (see `045`).
 3. **Rebuilding an existing function** (e.g. `finalize_fixture`): derive it from the CURRENT

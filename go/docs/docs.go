@@ -410,7 +410,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Rating scope: composite (default), specialist, fantasy, or a specialist label (e.g. Sacks)",
+                        "description": "Rating scope: rating (default) or fantasy",
                         "name": "scope",
                         "in": "query"
                     },
@@ -488,14 +488,14 @@ const docTemplate = `{
         },
         "/{sport}/leaderboard/momentum": {
             "get": {
-                "description": "Entities ranked by their stored momentum snapshot slope (newest minus oldest sample; vibe = 21 calendar days, rating = last ~10%-of-season games, season-spanning). metric=vibe (default) or rating. /trending remains a legacy alias.",
+                "description": "Entities ranked by their stored momentum snapshot slope (newest minus oldest sample; vibe = 21 calendar days, rating = last ~10%-of-season games, season-spanning). metric=vibe (default) or rating. direction=up (default, risers) or down (fallers). /trending remains a legacy alias.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "data"
                 ],
-                "summary": "Momentum leaderboard (risers)",
+                "summary": "Momentum leaderboard (risers / fallers)",
                 "parameters": [
                     {
                         "enum": [
@@ -513,6 +513,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Trajectory: vibe (default) or rating",
                         "name": "metric",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Movers: up (default, risers) or down (fallers)",
+                        "name": "direction",
                         "in": "query"
                     },
                     {
@@ -1291,6 +1297,129 @@ const docTemplate = `{
                 }
             }
         },
+        "/{sport}/stories": {
+            "get": {
+                "description": "Open storylines ranked by cast heat (banked character scores); ?status=resolved|dormant for the archive by recency.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "data"
+                ],
+                "summary": "Get the stories list",
+                "parameters": [
+                    {
+                        "enum": [
+                            "nba",
+                            "nfl",
+                            "football"
+                        ],
+                        "type": "string",
+                        "description": "Sport",
+                        "name": "sport",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "resolved",
+                            "dormant"
+                        ],
+                        "type": "string",
+                        "description": "Archive scope",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Max storylines (default 50, cap 200)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/respond.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/respond.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/{sport}/story/{id}": {
+            "get": {
+                "description": "One storyline: cast (roles + lifespans), packet headline history, full latest packet, attached articles, voice-product pointers.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "data"
+                ],
+                "summary": "Get a story page",
+                "parameters": [
+                    {
+                        "enum": [
+                            "nba",
+                            "nfl",
+                            "football"
+                        ],
+                        "type": "string",
+                        "description": "Sport",
+                        "name": "sport",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Storyline ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/respond.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/respond.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/respond.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/{sport}/team/{id}/results": {
             "get": {
                 "description": "Returns the team's list of finalized fixtures (status completed/seeded) for a season, framed from the team's perspective with opponent identity and W/L/D.",
@@ -1359,7 +1488,7 @@ const docTemplate = `{
         },
         "/{sport}/team/{id}/roster": {
             "get": {
-                "description": "Players on the team's season roster with season Composite/Sigil (+ ranks + sigil label), ordered by the Composite+Sigil sum. Player names link to the player profile.",
+                "description": "Players on the team's season roster with their season rating (+ rank + score), ordered by rating. Player names link to the player profile.",
                 "produces": [
                     "application/json"
                 ],
@@ -1565,6 +1694,77 @@ const docTemplate = `{
                 }
             }
         },
+        "/{sport}/{entityType}/{id}/momentum/summary": {
+            "get": {
+                "description": "The entity's generated momentum summary — direction, score (-5..5), blurb — plus the numeric vibe/rating slopes it was derived from. Null fields when no summary exists yet.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "data"
+                ],
+                "summary": "Get the entity momentum summary (generated product)",
+                "parameters": [
+                    {
+                        "enum": [
+                            "nba",
+                            "nfl",
+                            "football"
+                        ],
+                        "type": "string",
+                        "description": "Sport",
+                        "name": "sport",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "player",
+                            "team"
+                        ],
+                        "type": "string",
+                        "description": "Entity type",
+                        "name": "entityType",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Entity ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Season year (default current)",
+                        "name": "season",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/respond.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/respond.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/{sport}/{entityType}/{id}/news": {
             "get": {
                 "description": "The entity's latest precomputed narratives (hottest first) ranked by per-narrative impact.",
@@ -1638,14 +1838,14 @@ const docTemplate = `{
         },
         "/{sport}/{entityType}/{id}/rating": {
             "get": {
-                "description": "The entity's positionless magnitude score, divined PEAK, and precomputed PEAK scouting-report blurb.",
+                "description": "The entity's positionless magnitude score and its precomputed scouting-report blurb.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "data"
                 ],
-                "summary": "Get the entity rating (magnitude + PEAK + scouting report)",
+                "summary": "Get the entity rating (score + scouting report)",
                 "parameters": [
                     {
                         "enum": [

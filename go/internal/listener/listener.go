@@ -105,22 +105,23 @@ func listenLoop(ctx context.Context, dbURL string, pool *pgxpool.Pool, sender *n
 	}
 }
 
-// handlePercentileChange enqueues stats-rail PEAK work on a large composite
+// handlePercentileChange enqueues stats-rail rating work on a large rating
 // shift (a durable concern, independent of followers), then dispatches FCM push
 // notifications to any followers (a separate delivery concern).
 func handlePercentileChange(ctx context.Context, pool *pgxpool.Pool, sender *notifications.FCMSender, event PercentileChangeEvent, logger *slog.Logger) {
-	// A significant composite move means the PEAK card may be stale. Enqueue PEAK
-	// first; the Rust PeakHandler persists a fresh card and then enqueues Sigil.
+	// A significant rating move means the scouting card may be stale. Enqueue the
+	// rating stage first; the Rust RatingHandler persists a fresh card and then
+	// enqueues Sigil.
 	if math.Abs(event.NewPercentile-event.OldPercentile) >= 10 {
-		iv := fmt.Sprintf("peak:s%d:composite:%.0f", event.Season, event.NewPercentile)
+		iv := fmt.Sprintf("rating:s%d:rating:%.0f", event.Season, event.NewPercentile)
 		if err := work.Enqueue(ctx, pool, work.Item{
-			Stage:        work.StagePeak,
+			Stage:        work.StageRating,
 			EntityType:   event.EntityType,
 			EntityID:     event.EntityID,
 			Sport:        event.Sport,
 			InputVersion: iv,
 		}); err != nil {
-			logger.Warn("listener: enqueue peak (composite_shift) failed",
+			logger.Warn("listener: enqueue rating (rating_shift) failed",
 				"entity_type", event.EntityType, "entity_id", event.EntityID, "sport", event.Sport, "error", err)
 		}
 	}

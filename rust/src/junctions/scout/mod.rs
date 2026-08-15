@@ -1,6 +1,6 @@
 //! Rating stage — the stats-rail scouting report.
 //!
-//! Rust owns both rating shapes: the per-entity core here, and a `PeakHandler` queue stage for
+//! Rust owns both rating shapes: the per-entity core here, and a `RatingHandler` queue stage for
 //! current-season need-based rating work. `cmd/statcommentary` remains the operator/batch entry
 //! point: nightly mode enqueues durable rating work, while explicit backfill can still run the
 //! core inline for historical seasons. (s19 PEAK retirement: the specialist lens is gone — the
@@ -56,11 +56,11 @@ pub const RATING_TEMPERATURE: f64 = 0.6;
 /// Token cap for the scouting brief.
 pub const RATING_NUM_PREDICT: i32 = 2000;
 
-/// Durable rating queue input_version prefix (legacy "peak" string until the Wave B stage
-/// rename migration). The queue key is entity/sport-scoped for historical
-/// compatibility; the season is carried in the version so the handler can drain explicit
-/// current-season demands without re-resolving the wrong season.
-const PEAK_WORK_PREFIX: &str = "peak:s";
+/// Durable rating queue input_version prefix. The queue key is entity/sport-scoped for
+/// historical compatibility; the season is carried in the version so the handler can drain
+/// explicit current-season demands without re-resolving the wrong season. (mig 221 renamed
+/// the stage and this prefix from the retired "peak".)
+const RATING_WORK_PREFIX: &str = "rating:s";
 
 /// maxStatFacts bounds the breakdown datapoints fed to the prompt.
 const MAX_STAT_FACTS: usize = 14;
@@ -105,10 +105,6 @@ pub struct RatingDatapoint {
     pub sign: i32,
     #[serde(default, deserialize_with = "null_to_default")]
     pub facet: String,
-    #[serde(default, deserialize_with = "null_to_default")]
-    /// Legacy DB key from the old specialist-credit framing. Still tolerated on read for old rows,
-    /// but Wave 5 stops emitting it into model-facing input components.
-    pub is_specialty: bool,
     #[serde(default, deserialize_with = "null_tolerant_map")]
     pub scoped_pct: HashMap<String, f64>,
 }
@@ -248,7 +244,7 @@ pub async fn load_rating_profile(
     let q = format!(
         r#"
         SELECT season, {pos_select},
-               rating_composite_score::float8,
+               rating_score::float8,
                COALESCE(rating_breakdown, '[]'::jsonb)::text,
                COALESCE(rating_scoped_ranks, '{{}}'::jsonb)::text,
                {modes_select}
@@ -729,18 +725,9 @@ pub async fn load_stat_memory(
         .fetch_one(pool)
         .await
         .context("stat_context_for_entity")?;
-    Ok(row.0.map(|card| descrub_memory_card(&card)))
-}
-
-/// descrub_memory_card rewrites mig 164's internal vocabulary out of the memory card before it
-/// reaches the prompt (s18): the SQL renders `... PEAK was "X" (notability N/100)`, and the
-/// s13-analyst lesson is that an output ban cannot beat a word the input keeps shouting. The
-/// card is prompt-only enrichment — never hashed, never user-exposed — so a Rust-side rewrite
-/// is safe and cheaper than a migration; if mig 164's format ever changes, these replaces
-/// become no-ops rather than errors.
-fn descrub_memory_card(card: &str) -> String {
-    card.replace("PEAK was", "the top skill read was")
-        .replace("(notability ", "(profile distinctiveness ")
+    // mig 221 rewrote stat_context_for_entity to render the retired vocabulary out at
+    // source, which retires the s18 Rust-side descrub shim: the card arrives clean.
+    Ok(row.0)
 }
 
 /// Season-over-season movement threshold (s19): a per-skill percentile move of at least this
@@ -1011,8 +998,8 @@ impl GoJson {
 /// input_components returns the canonical input-components JSON (its SHA-256 is `input_hash`).
 /// `season`/`datapoints` are ALWAYS present; the rest (rate_standouts, composite_score, position)
 /// are conditional. `pct` values are `round1`'d. Wave 5 deliberately removed the old
-/// `is_specialty` flag from each datapoint, and s19 removes the specialist pre-image entries
-/// (`peak_label`/`peak_score`) with the columns themselves — the pre-image is the z-score surface
+/// `is_specialty` flag from the pre-image, s19 removed the specialist entries
+/// (`peak_label`/`peak_score`), and mig 221 dropped the flag from the stored breakdown itself — the pre-image is the z-score surface
 /// the Scout actually reads. (The Go-parity note is historical: since the Step-3 cutover Rust is
 /// the sole producer, and the s19 hash change regenerates every entity once, by design.)
 pub fn input_components(p: &RatingProfile) -> String {
@@ -1160,7 +1147,7 @@ async fn load_rating_trajectory(
         SELECT COUNT(*)
         FROM public.{table} e
         WHERE e.{id_col} = $1 AND e.sport = $2 AND e.season = $3
-          AND e.rating_composite IS NOT NULL
+          AND e.rating IS NOT NULL
         "#
     );
     let events_played: i64 = sqlx::query_scalar(&count_q)
@@ -1180,20 +1167,20 @@ async fn load_rating_trajectory(
             "events_played": events_played,
             "window_pct": TRAJECTORY_WINDOW_PCT,
             "source": "event_rating_z_scores",
-            "metrics": ["rating_composite"],
+            "metrics": ["rating"],
         });
         return Ok(out);
     }
 
     let q = format!(
         r#"
-        SELECT e.rating_composite::float8
+        SELECT e.rating::float8
         FROM public.{table} e
         JOIN public.fixtures f ON f.id = e.fixture_id
         WHERE e.{id_col} = $1
           AND e.sport = $2
           AND e.season = $3
-          AND e.rating_composite IS NOT NULL
+          AND e.rating IS NOT NULL
         ORDER BY f.start_time DESC
         LIMIT $4
         "#
@@ -1214,9 +1201,9 @@ async fn load_rating_trajectory(
             "events_played": events_played,
             "window_pct": TRAJECTORY_WINDOW_PCT,
             "window_size": window_size,
-            "composite_sample_size": composite_desc.len(),
+            "sample_size": composite_desc.len(),
             "source": "event_rating_z_scores",
-            "metrics": ["rating_composite"],
+            "metrics": ["rating"],
         });
         return Ok(out);
     }
@@ -1232,14 +1219,14 @@ async fn load_rating_trajectory(
         label,
         components: serde_json::json!({
             "source": "event_rating_z_scores",
-            "metrics": ["rating_composite"],
+            "metrics": ["rating"],
             "events_played": events_played,
             "window_pct": TRAJECTORY_WINDOW_PCT,
             "window_size": window_size,
-            "composite_sample_size": composite_desc.len(),
-            "composite_z_slope": round1(composite_slope),
-            "latest_composite_z": composite_desc.first().copied().map(round1),
-            "recent_composite_z": rounded_series(&composite_desc),
+            "sample_size": composite_desc.len(),
+            "rating_z_slope": round1(composite_slope),
+            "latest_rating_z": composite_desc.first().copied().map(round1),
+            "recent_rating_z": rounded_series(&composite_desc),
         }),
     })
 }
@@ -1719,24 +1706,23 @@ pub async fn generate_rating(
     })
 }
 
-/// peak_work_input_version is the durable queue fingerprint for a rating-card demand
-/// (legacy "peak" prefix until the Wave B stage rename).
+/// rating_work_input_version is the durable queue fingerprint for a rating-card demand.
 /// It includes the season, the PROMPT CONTRACT, and the rating input hash (or an explicit
 /// marker token), so repeated enqueue attempts collapse while changed scouting input — or a
 /// changed contract — reopens the outstanding row. The prompt-version leg (s11) is what lets
 /// a persona change reopen an already-done queue row: `work::enqueue`'s ON CONFLICT update
 /// only fires when input_version moved, so without it a quiet entity's done row would absorb
 /// the enqueue and the new voice would never ship there.
-pub fn peak_work_input_version(season: i32, input_hash: Option<&str>) -> String {
+pub fn rating_work_input_version(season: i32, input_hash: Option<&str>) -> String {
     format!(
-        "{PEAK_WORK_PREFIX}{season}:{RATING_PROMPT_VERSION}:{}",
+        "{RATING_WORK_PREFIX}{season}:{RATING_PROMPT_VERSION}:{}",
         input_hash.filter(|s| !s.is_empty()).unwrap_or("no-stats")
     )
 }
 
-fn peak_work_season(input_version: Option<&str>) -> Option<i32> {
+fn rating_work_season(input_version: Option<&str>) -> Option<i32> {
     let raw = input_version?;
-    let rest = raw.strip_prefix(PEAK_WORK_PREFIX)?;
+    let rest = raw.strip_prefix(RATING_WORK_PREFIX)?;
     let (season, _) = rest.split_once(':')?;
     season.parse::<i32>().ok().filter(|s| *s > 0)
 }
@@ -1790,16 +1776,15 @@ pub async fn persist_stat_summary(
     let ncomp_json = out.notability_components.to_string();
     let trajectory_components_json = out.rating_trajectory_components.to_string();
 
-    // s19: divined_peak is retired (never written; column dropped in the Wave B migration).
-    // The trajectory still writes to the legacy peak_trajectory* column names until that same
-    // migration renames them to rating_trajectory*.
+    // s19 retired divined_peak (never written); mig 221 dropped the column and renamed the
+    // trajectory trio out of the PEAK vocabulary.
     let row = sqlx::query(
         r#"
         INSERT INTO stat_summaries (
             entity_type, entity_id, sport, season, trigger_type, trigger_payload,
             body, notability, notability_components, input_components, input_hash,
             model_version, prompt_version, generated_at,
-            peak_trajectory, peak_trajectory_label, peak_trajectory_components
+            rating_trajectory, rating_trajectory_label, rating_trajectory_components
         ) VALUES ($1,$2,$3,$4,$5,$6::jsonb, $7,$8,$9::jsonb,$10::jsonb,$11, $12,$13,NOW(),
                   $14,$15,$16::jsonb)
         RETURNING id
@@ -1875,34 +1860,34 @@ async fn current_season(pool: &PgPool, sport: &str) -> Result<i32> {
         .with_context(|| format!("current season {sport}"))
 }
 
-/// PeakHandler drains the durable `peak` stage (legacy stage string until the Wave B rename).
+/// RatingHandler drains the durable `rating` stage (named `peak` until mig 221).
 /// It is the queue-owned form of the stats rail: generate/persist the scouting card only when
 /// the rating input hash moved, then enqueue Momentum as the downstream consumer of the fresh
 /// rating pillar.
-pub struct PeakHandler;
+pub struct RatingHandler;
 
-impl PeakHandler {
+impl RatingHandler {
     pub fn new() -> Self {
-        PeakHandler
+        RatingHandler
     }
 }
 
-impl Default for PeakHandler {
+impl Default for RatingHandler {
     fn default() -> Self {
         Self::new()
     }
 }
 
 #[async_trait]
-impl StageHandler for PeakHandler {
+impl StageHandler for RatingHandler {
     fn stage(&self) -> Stage {
-        Stage::Peak
+        Stage::Rating
     }
 
     async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {
         let entity_id = item.entity_id_i32()?;
         let sport = item.sport.to_uppercase();
-        let season = match peak_work_season(item.input_version.as_deref()) {
+        let season = match rating_work_season(item.input_version.as_deref()) {
             Some(season) => season,
             None => current_season(&hx.pool, &sport).await?,
         };
@@ -1925,7 +1910,7 @@ impl StageHandler for PeakHandler {
                 entity_id = item.entity_id,
                 sport = %sport,
                 season = out.season,
-                "peak: skipped unchanged rating input"
+                "rating: skipped unchanged rating input"
             );
             return Ok(());
         }

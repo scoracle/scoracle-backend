@@ -32,9 +32,9 @@ const (
 	// StageEditor is the Editor junction, enqueued once per NEW article at
 	// ingest; it reads the article and decides what it is about.
 	StageEditor Stage = "editor"
-	// StagePeak is enqueued by the percentile listener on significant rating
-	// movement.
-	StagePeak Stage = "peak"
+	// StageRating is enqueued by the percentile listener on significant rating
+	// movement. (Named "peak" until mig 221 retired the concept.)
+	StageRating Stage = "rating"
 	// StageSigil is enqueued by the vibesynth reconciler for missing/stale
 	// current-season crowns.
 	StageSigil Stage = "sigil"

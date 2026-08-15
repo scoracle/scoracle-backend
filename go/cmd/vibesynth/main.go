@@ -172,10 +172,10 @@ func enumStaleSigil(ctx context.Context, pool *pgxpool.Pool, sport string, seaso
 	rows, err := pool.Query(qctx, `
 		WITH rated AS (
 		    SELECT 'player'::text AS et, player_id AS id FROM player_stats
-		     WHERE sport = $1 AND season = $2 AND rating_composite_score IS NOT NULL GROUP BY player_id
+		     WHERE sport = $1 AND season = $2 AND rating_score IS NOT NULL GROUP BY player_id
 		    UNION ALL
 		    SELECT 'team'::text, team_id FROM team_stats
-		     WHERE sport = $1 AND season = $2 AND rating_composite_score IS NOT NULL GROUP BY team_id
+		     WHERE sport = $1 AND season = $2 AND rating_score IS NOT NULL GROUP BY team_id
 		),
 		sig AS (
 		    SELECT entity_type AS et, entity_id AS id, max(generated_at) AS g

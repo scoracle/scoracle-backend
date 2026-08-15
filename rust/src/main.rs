@@ -116,7 +116,7 @@ async fn main() -> Result<()> {
     // retired. To revert Step 3 in an emergency, set
     // DERIVE_WORKER_ENABLED=true (re-arm Go) and stop this service — see RUNBOOK.md §3 rollback.
     let enabled = parse_enabled_stages(&std::env::var("COGNITION_STAGES").unwrap_or_else(|_| {
-        "graph,editor,investigate_entity,fixture_boxscore,peak,momentum,transfers,narratives,vibe,sigil"
+        "graph,editor,investigate_entity,fixture_boxscore,rating,momentum,transfers,narratives,vibe,sigil"
             .to_string()
     }))?;
 
@@ -184,8 +184,8 @@ async fn main() -> Result<()> {
     }
     // The rating stage feeds Momentum/Sigil, but not the news rail. Keep it after
     // the news-product stages so a nightly stat backlog cannot delay The Journalist.
-    if enabled.contains("peak") {
-        handlers.push(Box::new(scout::PeakHandler::new()));
+    if enabled.contains("rating") {
+        handlers.push(Box::new(scout::RatingHandler::new()));
     }
     // momentum consumes the rating card + vibe, so it registers after both: a vibe hand-off
     // (enqueue_momentum_if_needed) drains in the same tick pass instead of waiting
@@ -244,7 +244,7 @@ fn parse_enabled_stages(raw: &str) -> Result<HashSet<String>> {
         "editor",
         "investigate_entity",
         "fixture_boxscore",
-        "peak",
+        "rating",
         "momentum",
         "transfers",
         "narratives",
@@ -291,14 +291,14 @@ mod tests {
     #[test]
     fn parse_enabled_stages_normalizes_and_dedupes() {
         let stages = parse_enabled_stages(
-            " Graph, editor, fixture_boxscore, peak, momentum, vibe, VIBE ,,sigil ",
+            " Graph, editor, fixture_boxscore, rating, momentum, vibe, VIBE ,,sigil ",
         )
         .unwrap();
         assert_eq!(stages.len(), 7);
         assert!(stages.contains("graph"));
         assert!(stages.contains("editor"));
         assert!(stages.contains("fixture_boxscore"));
-        assert!(stages.contains("peak"));
+        assert!(stages.contains("rating"));
         assert!(stages.contains("momentum"));
         assert!(stages.contains("vibe"));
         assert!(stages.contains("sigil"));

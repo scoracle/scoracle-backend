@@ -15,7 +15,7 @@ The only source of truth is `go/internal/api/server.go`. Every route wired there
 |---|---|
 | `GET /api/v1/entities` · `/autofill` | universal, cross-sport, text-only player/team directory for home search |
 | `GET /api/v1/{sport}/{entityType}/{id}/stats` | season Composite rating + per-event series + `available_seasons` |
-| `GET /api/v1/{sport}/{entityType}/{id}/rating` | model-divined stat read + PEAK trajectory metadata (was `/special`) |
+| `GET /api/v1/{sport}/{entityType}/{id}/rating` | model-written stat read + rating trajectory metadata (was `/special`) |
 | `GET /api/v1/{sport}/{entityType}/{id}/momentum` | Rating × Vibe trajectory (was `/trends`) |
 | `GET /api/v1/{sport}/{entityType}/{id}/sigil` | Sigil crown synthesis (was per-entity `/vibes`) |
 | `GET /api/v1/{sport}/{entityType}/{id}/news` | scoped model narratives with source freshness and trajectory markers |
@@ -424,19 +424,24 @@ note below.
 ### What the rating engine computes
 
 Every entity is rated **positionlessly** by the z-score of each de-duped box-score
-datapoint against the whole population. Two complementary scores, **never merged**:
+datapoint against the whole population. **One number, comprised of z-scores:**
 
-- **`rating_composite`** — Σ z (breadth → all-rounders/grinders). Raw z-sum (e.g. ~12.5
-  for the best player). For **NFL players** the Composite is **category-balanced**
+- **`rating`** — Σ z (breadth → all-rounders/grinders). Raw z-sum (e.g. ~12.5
+  for the best player). For **NFL players** the rating is **category-balanced**
   (offense / defense / special-teams facets, mean-of-z per facet, summed) so recording
   granularity doesn't silently weight defense 2×. NBA + football players and **all teams
   are flat** (Σ z) — a team is multi-phase, so no facet-balancing.
-- **`rating_peak`** — peak z over the positive counting set (irreplaceability →
-  difference-makers).
-- **`rating_peak_label`** — the argmax datapoint label (e.g. `"Rim Protection"`,
-  `"Sacks"`, `"Goalscoring"`; teams e.g. `"Steals"`, `"Goals For"`).
-- **`rating_composite_rank` / `rating_peak_rank`** — positionless `percent_rank` ×
-  100 (0–100), a friendly headline number; the raw z drives ordering.
+- **`rating_rank`** — positionless `percent_rank` × 100 (0–100), a friendly headline
+  number; the raw z drives ordering.
+- **`rating_score`** — the standardized 0–100 score derived from the same z-sum.
+- **`rating_breakdown`** — the per-skill z-score surface. A single elite skill is read
+  off this (`max(z)`); the Scout names standouts in prose.
+
+> **Retired 2026-08-14 (mig 221).** `rating_peak`, `rating_peak_label`,
+> `rating_peak_rank`, `rating_peak_score`, `divined_peak` and the per-skill
+> (`specialist`/specialty) leaderboard scopes are **gone**, and the
+> `rating_composite*` surface renamed to `rating*`. PEAK existed to surface
+> specialists before an LLM character did that work; the Scout's brief does it now.
 
 No weighting, no hand-picked baselines — the z-score *is* the scarcity weighting (a rare
 skill sits further from the mean → larger z). Floors: NBA ≥30 GP & ≥20 MPG; football ≥15
@@ -448,9 +453,8 @@ The DB-first ranking surface. `/leaderboard` is the comprehensive ranked researc
 database; `/profile` is the deep drill-down for one selected entity. Roster discovery
 is now a leaderboard scope (`entity_type=player&team_id=...`), not a team profile tab.
 
-The default board is **Rating**. Rating rows carry both Composite and Specialist
-(+ specialty); product boards use the same cohort controls and rank their own DB
-signal.
+The default board is **Rating**. Rating rows carry the rating (+ rank + score);
+product boards use the same cohort controls and rank their own DB signal.
 
 Hierarchy is top-down: sport → league/conference → division → team → player.
 Football does not use conference/division, so those filters naturally pass through
@@ -474,7 +478,7 @@ boards.
 | Param | Type | Default | Notes |
 |---|---|---|---|
 | `entity_type` | string | `player` | `player` or `team`. **The type differentiator** — team calls return the team board (`team_stats`), player calls the player board (`player_stats`). |
-| `scope` | string | `composite` | `composite`, `specialist`, or a **specialty label** (e.g. `Sacks`, `3PT Shooting`) for a per-skill board (rows whose top skill matches, ordered by peak z). Case-insensitive. |
+| `scope` | string | `rating` | `rating` or `fantasy`. Case-insensitive. (The `specialist` and per-skill specialty scopes retired with PEAK, mig 221.) |
 | `season` | integer | latest rated | Season year. |
 | `position` | string | — | Player boards only — the position scope ("best Center / QB"). |
 | `position_group` | string | — | Player boards only — normalized group such as `Guard`, `Forward`, `Goalkeeper`. |
@@ -492,7 +496,7 @@ boards.
   "sport": "nba",
   "entity_type": "player",          // echoes the request
   "season": 2025,
-  "scope": "composite",
+  "scope": "rating",
   "count": 3,
   "leaders": [
     {
@@ -506,11 +510,9 @@ boards.
       "team_code": "SAS",
       "team_logo": "https://…",
       "league_id": null,
-      "rating_composite": 12.5226,
-      "rating_peak": 6.1058,
-      "rating_peak_label": "Rim Protection",
-      "rating_composite_rank": 100.0,
-      "rating_peak_rank": 100.0,
+      "rating": 12.5226,
+      "rating_rank": 100.0,
+      "rating_score": 99.0,
       "rank": 1
     }
   ]
@@ -518,10 +520,9 @@ boards.
 ```
 
 Examples:
-- `GET /api/v1/nba/leaderboard` → top 50 NBA players by Composite, latest season.
+- `GET /api/v1/nba/leaderboard` → top 50 NBA players by rating, latest season.
 - `GET /api/v1/nba/leaderboard?entity_type=team` → the NBA **team** board.
-- `GET /api/v1/nfl/leaderboard?scope=specialist&limit=10` → the irreplaceables board.
-- `GET /api/v1/nba/leaderboard?scope=3PT%20Shooting` → the 3-point-specialist board.
+- `GET /api/v1/nfl/leaderboard?scope=fantasy&limit=10` → the fantasy-points board.
 
 ### `GET /api/v1/{sport}/leaderboard/vibes`
 
@@ -741,8 +742,7 @@ discovery. That leaderboard scope includes the full active/current roster from
 with nullable metric/rank fields.
 
 This route remains temporarily for older clients. It returns rated players whose
-`player_stats.team_id` is this team for the season and orders them by the sum of
-Composite + Specialist.
+`player_stats.team_id` is this team for the season and orders them by `rating`.
 
 #### Path / query parameters
 
@@ -767,12 +767,10 @@ Composite + Specialist.
       "name": "Shai Gilgeous-Alexander",
       "image": null,                   // player photo_url (may be null)
       "position": "G",
-      "rating_composite": 8.6853,
-      "rating_peak": 3.0034,
-      "rating_peak_label": "Scoring",
-      "rating_composite_rank": 98.4,
-      "rating_peak_rank": 94.4,
-      "rank": 1                          // 1-based, by (rating_composite + rating_peak) DESC
+      "rating": 8.6853,
+      "rating_rank": 98.4,
+      "rating_score": 91.2,
+      "rank": 1                          // 1-based, by rating DESC
     }
   ]
 }
@@ -783,23 +781,22 @@ Composite + Specialist.
 
 > **Shared shape — board ⇄ roster.** `leaderboard.leaders[]` and `roster.players[]`
 > are the **same rating-row shape** (`id`, `name`, `image`, `position`,
-> `rating_composite` / `rating_peak` `(+ _rank)`, `rating_peak_label`,
-> `rank`). Roster is just that player board narrowed to one team and re-sorted by
-> the Composite+Specialist sum — which is exactly why one frontend list component
+> `rating`, `rating_rank`, `rating_score`, `rank`). Roster is just that player
+> board narrowed to one team and re-sorted by rating — which is exactly why one frontend list component
 > (`RatingList`) renders both. Any future "board over a different slice" (a
 > conference board, a draft-class board, …) is the same recipe: identical row,
 > different `WHERE` filter + `ORDER BY`.
 
 ### `GET /api/v1/{sport}/{entityType}/{id}/stats` &nbsp;·&nbsp; `/rating` &nbsp;(stats source)
 
-> **Convergence rename (O14):** `/special` is gone — its lean specialist projection + the
-> Model stat `commentary` folded into **`/rating`** (the "divined" statistical read). The
+> **Convergence rename (O14):** `/special` is gone — its lean rating projection + the
+> Model stat `commentary` folded into **`/rating`** (the statistical read). The
 > retired `/sparkline` + `/starline` (2026-06-15) were split into the per-product stats
 > source: `/stats` carries the rating + `available_seasons` + the per-event `events` series;
 > `/momentum` carries the season sparkline (rating series × vibe series). The query
 > parameters + rating/event field shapes below are unchanged.
 
-The dedicated rating dataset for **one entity**: the season Composite/Specialist (the
+The dedicated rating dataset for **one entity**: the season rating (the
 numbers a meta card shows), **that season's team**, **and** the per-event dual-sparkline
 series. `entityType` (`player` or `team`) comes from the path — team stats read
 `event_team_stats`, player stats `event_box_scores`.
@@ -827,28 +824,23 @@ series. `entityType` (`player` or `team`) comes from the path — team stats rea
     "team": {                        // that SEASON's team (season-aware) — for players, the
       "id": 27, "name": "San Antonio Spurs", "short_code": "SAS", "logo_url": "https://…"
     },                               //   team they played for that year; teams: themselves. null if unknown.
-    "rating_composite": 12.5226,
-    "rating_composite_rank": 100.0,
-    "rating_peak": 6.1058,
-    "rating_peak_rank": 100.0,
-    "rating_peak_label": "Rim Protection",
+    "rating": 12.5226,
+    "rating_rank": 100.0,
+    "rating_score": 100.0,
     "rating_categories": null,       // TEAMS ONLY: {facet → {z, pct}} ready-made, e.g.
                                      // {"offense":{"z":0.60,"pct":86.2},"defense":{"z":0.93,"pct":93.1}}
     "rating_breakdown": [            // per-datapoint transparency (migrations 030/037/038)
       { "label": "Rim Protection", "value": 3.8, "z": 6.1058, "pct": 100.0,
-        "in_comp": true, "in_spec": true, "sign": 1, "facet": "all",
-        "is_specialty": true },
+        "in_comp": true, "in_spec": true, "sign": 1, "facet": "all" },
       { "label": "Ball Security", "value": 1.9, "z": 0.9999, "pct": 15.1,
-        "in_comp": true, "in_spec": false, "sign": -1, "facet": "all",
-        "is_specialty": false }
+        "in_comp": true, "in_spec": false, "sign": -1, "facet": "all" }
       // … one object per datapoint. `value` = raw volume. Teams: facet is
       // 'offense'/'defense' (+ display-only 'discipline'/'squad' in football).
     ]
   },
   "events": [                        // the dual-sparkline series, chronological
     { "fixture_id": 12345, "start_time": "2025-10-26T…",
-      "rating_composite": 16.015, "rating_peak": 6.85, "rating_peak_label": "Rim Protection",
-      "rating_composite_pct": 99.4, "rating_peak_pct": 96.2 }
+      "rating": 16.015, "rating_pct": 99.4 }
   ]
 }
 ```
@@ -856,14 +848,14 @@ series. `entityType` (`player` or `team`) comes from the path — team stats rea
 `rating` is `null` and `events` is `[]` if the entity has no rated season.
 
 **`rating.rating_breakdown`** (migration 030) is the per-datapoint transparency
-behind the Composite/Specialist scores — one object per datapoint the engine
+behind the rating — one object per datapoint the engine
 z-scores. Each carries the raw `z`, its 0–100 `pct` (`percent_rank` of `sign*z`
 within the `(sport, season, label)` population, so negative datapoints like
-turnovers read correctly: low raw value → high pct), the `in_comp` / `in_spec` /
-`sign` / `facet` config, and `is_specialty` (the single peak skill — exactly one
-per entity, matching `rating_peak_label`). **Stored as raw z, served as a
-percentile** — `pct` is what the UI draws (the Composite tab pizzas the `in_comp`
-rows by `pct`; the Specialist tab heros the `is_specialty` row). Each datapoint also
+turnovers read correctly: low raw value → high pct) and the `in_comp` / `in_spec` /
+`sign` / `facet` config. (`is_specialty` retired with PEAK, mig 221 — a client
+that wants a hero row takes `max(z)`.) **Stored as raw z, served as a
+percentile** — `pct` is what the UI draws (the rating card pizzas the `in_comp`
+rows by `pct`). Each datapoint also
 carries **`value`** (migration 038) — the raw volume behind the z (e.g. `27.3` ppg),
 so the UI shows the underlying counting stat next to its percentile.
 
@@ -875,21 +867,21 @@ is the mean of `sign*z` over that facet's `in_comp` datapoints and `pct` its
 (football cards/injuries) which carry no category score. Margins (point/goal
 differential) are intentionally **not** rated — teams are scored on the HOW, not outcomes.
 
-Each event also carries **`rating_composite_pct` / `rating_peak_pct`**
-(migration 029): the **0–100 positionless percentile** of that event's z within the
+Each event also carries **`rating_pct`**
+(migration 029, renamed mig 221): the **0–100 positionless percentile** of that event's z within the
 `(sport, season)` event population — a `percent_rank × 100` over the per-event z's,
-the same normalization the season ranks use. These let the per-event lines be drawn
+the same normalization the season ranks use. It lets the per-event line be drawn
 on the same **0–100 axis** as the vibe series (the frontend Trends sparkline plots
-Composite + Specialist + Vibes together). The raw `rating_composite` /
-`rating_peak` z's are unchanged; the pct columns sit beside them.
+rating + vibes together). The raw `rating` z is unchanged; the pct column sits beside it.
 
 ### `GET /api/v1/{sport}/{entityType}/{id}/rating`
 
 The stats-rail **end product** (convergence rename O14 — absorbed the old `/special`): the
-lean specialist projection plus the model's "divined" stat commentary. The commentary now carries
-deterministic PEAK trajectory metadata from recent event Composite and PEAK z-score values, so
-consumers can surface direction from the same metrics used by the ranking engine without asking the
-model to infer form. Same path params and `season`/`league_id` query params as `/stats`.
+lean rating projection plus the model's stat commentary. The commentary carries
+deterministic rating-trajectory metadata computed from recent event rating z-scores, so
+consumers can surface direction from the same metric the ranking engine uses without asking the
+model to infer form. The window is dynamic — 10% of the entity's scored events this
+season, clamped to [3, 16]. Same path params and `season`/`league_id` query params as `/stats`.
 
 ```jsonc
 {
@@ -898,24 +890,26 @@ model to infer form. Same path params and `season`/`league_id` query params as `
   "entity_type": "player",
   "entity_id": 56677822,
   "season": 2025,
-  "rating": {                        // the lean specialist projection (no fantasy/template/datapoints)
-    "rating_composite": 12.5226, "rating_composite_score": 100.0, "rating_composite_rank": 100.0,
-    "rating_peak": 6.1058, "rating_peak_rank": 100.0, "rating_peak_score": 100.0,
-    "rating_peak_label": "Rim Protection", "rating_breakdown": [ /* … */ ], "rating_modes": { /* … */ }
+  "rating": {                        // the lean rating projection (no fantasy/template/datapoints)
+    "season": 2025, "position": "F-C",
+    "rating": 12.5226, "rating_rank": 100.0, "rating_score": 100.0,
+    "rating_breakdown": [ /* … */ ], "rating_modes": { /* … */ }
   },
   "commentary": {                    // latest stat_summaries generation that carries a body; null otherwise
     "body": "…", "notability": 88, "notability_components": {}, "season": 2025,
-    "prompt_version": "…", "generated_at": "2026-06-20T…", "divined_peak": "Rim Protection",
-    "peak_trajectory": "falling",
-    "peak_trajectory_label": "Composite and PEAK z-scores trending down over recent games",
-    "peak_trajectory_components": {
+    "prompt_version": "…", "generated_at": "2026-06-20T…",
+    "rating_trajectory": "falling",
+    "rating_trajectory_label": "overall scores trending down over recent games",
+    "rating_trajectory_components": {
       "source": "event_rating_z_scores",
-      "metrics": ["rating_composite", "rating_peak"],
-      "combined_z_slope": -0.5,
-      "composite_z_slope": -0.4,
-      "peak_z_slope": -0.6,
-      "recent_composite_z": [2.1, 1.8, 1.1],
-      "recent_peak_z": [1.7, 1.0, 0.4]
+      "metrics": ["rating"],
+      "events_played": 41,
+      "window_pct": 0.1,
+      "window_size": 4,
+      "sample_size": 4,
+      "rating_z_slope": -0.4,
+      "latest_rating_z": 1.1,
+      "recent_rating_z": [1.1, 1.8, 2.1]
     }
   }
 }
@@ -923,9 +917,9 @@ model to infer form. Same path params and `season`/`league_id` query params as `
 
 `commentary` is `null` when the latest `stat_summaries` generation for the entity-season is a
 no-stats marker (body `NULL`) — the canonical latest-generation rule (Session 11) clears stale
-prose rather than serving it. `divined_peak` is the commentary's headline skill (renamed from
-`divined_sigil` by migration 094). `peak_trajectory` is one of `rising`, `falling`, or `steady`;
+prose rather than serving it. `rating_trajectory` is one of `rising`, `falling`, or `steady`;
 the label is nullable when the recent event z-score sample is too sparse to make a useful claim.
+(`divined_peak` and the `peak_trajectory*` fields retired with PEAK — mig 221.)
 
 ## League-Scoped Endpoints
 

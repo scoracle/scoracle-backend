@@ -139,6 +139,57 @@ paths:
       summary: Get momentum (rating + vibe trajectory)
       tags:
       - data
+  /{sport}/{entityType}/{id}/momentum/summary:
+    get:
+      description: The entity's generated momentum summary — direction, score (-5..5),
+        blurb — plus the numeric vibe/rating slopes it was derived from. Null fields
+        when no summary exists yet.
+      parameters:
+      - description: Sport
+        enum:
+        - nba
+        - nfl
+        - football
+        in: path
+        name: sport
+        required: true
+        type: string
+      - description: Entity type
+        enum:
+        - player
+        - team
+        in: path
+        name: entityType
+        required: true
+        type: string
+      - description: Entity ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Season year (default current)
+        in: query
+        name: season
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+      summary: Get the entity momentum summary (generated product)
+      tags:
+      - data
   /{sport}/{entityType}/{id}/news:
     get:
       description: The entity's latest precomputed narratives (hottest first) ranked
@@ -192,8 +243,8 @@ paths:
       - data
   /{sport}/{entityType}/{id}/rating:
     get:
-      description: The entity's positionless magnitude score, divined PEAK, and precomputed
-        PEAK scouting-report blurb.
+      description: The entity's positionless magnitude score and its precomputed scouting-report
+        blurb.
       parameters:
       - description: Sport
         enum:
@@ -241,7 +292,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/respond.ErrorResponse'
-      summary: Get the entity rating (magnitude + PEAK + scouting report)
+      summary: Get the entity rating (score + scouting report)
       tags:
       - data
   /{sport}/{entityType}/{id}/sigil:
@@ -498,8 +549,7 @@ paths:
         in: query
         name: board
         type: string
-      - description: 'Rating scope: composite (default), specialist, fantasy, or a
-          specialist label (e.g. Sacks)'
+      - description: 'Rating scope: rating (default) or fantasy'
         in: query
         name: scope
         type: string
@@ -559,8 +609,8 @@ paths:
     get:
       description: Entities ranked by their stored momentum snapshot slope (newest
         minus oldest sample; vibe = 21 calendar days, rating = last ~10%-of-season
-        games, season-spanning). metric=vibe (default) or rating. /trending remains
-        a legacy alias.
+        games, season-spanning). metric=vibe (default) or rating. direction=up (default,
+        risers) or down (fallers). /trending remains a legacy alias.
       parameters:
       - description: Sport
         enum:
@@ -574,6 +624,10 @@ paths:
       - description: 'Trajectory: vibe (default) or rating'
         in: query
         name: metric
+        type: string
+      - description: 'Movers: up (default, risers) or down (fallers)'
+        in: query
+        name: direction
         type: string
       - description: 'Filter: player or team (default both)'
         in: query
@@ -623,7 +677,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/respond.ErrorResponse'
-      summary: Momentum leaderboard (risers)
+      summary: Momentum leaderboard (risers / fallers)
       tags:
       - data
   /{sport}/leaderboard/news:
@@ -1113,6 +1167,92 @@ paths:
       summary: Get legacy sport metadata/search payload
       tags:
       - data
+  /{sport}/stories:
+    get:
+      description: Open storylines ranked by cast heat (banked character scores);
+        ?status=resolved|dormant for the archive by recency.
+      parameters:
+      - description: Sport
+        enum:
+        - nba
+        - nfl
+        - football
+        in: path
+        name: sport
+        required: true
+        type: string
+      - description: Archive scope
+        enum:
+        - resolved
+        - dormant
+        in: query
+        name: status
+        type: string
+      - description: Max storylines (default 50, cap 200)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+      summary: Get the stories list
+      tags:
+      - data
+  /{sport}/story/{id}:
+    get:
+      description: 'One storyline: cast (roles + lifespans), packet headline history,
+        full latest packet, attached articles, voice-product pointers.'
+      parameters:
+      - description: Sport
+        enum:
+        - nba
+        - nfl
+        - football
+        in: path
+        name: sport
+        required: true
+        type: string
+      - description: Storyline ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+      summary: Get a story page
+      tags:
+      - data
   /{sport}/team/{id}/results:
     get:
       description: Returns the team's list of finalized fixtures (status completed/seeded)
@@ -1162,9 +1302,8 @@ paths:
       - data
   /{sport}/team/{id}/roster:
     get:
-      description: Players on the team's season roster with season Composite/Sigil
-        (+ ranks + sigil label), ordered by the Composite+Sigil sum. Player names
-        link to the player profile.
+      description: Players on the team's season roster with their season rating (+
+        rank + score), ordered by rating. Player names link to the player profile.
       parameters:
       - description: Sport
         enum:

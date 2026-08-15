@@ -36,7 +36,7 @@ var validEntityTypes = map[string]struct{}{
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
 // @Param entity_type query string false "Board type: player (default) or team"
 // @Param board query string false "Board: rating (default), vibes, sigil, news, transfers, momentum (trending legacy alias)"
-// @Param scope query string false "Rating scope: composite (default), specialist, fantasy, or a specialist label (e.g. Sacks)"
+// @Param scope query string false "Rating scope: rating (default) or fantasy"
 // @Param season query int false "Season year (defaults to the latest rated season)"
 // @Param position query string false "Filter to a position (player boards only)"
 // @Param position_group query string false "Filter to a normalized position group (player boards only)"
@@ -501,10 +501,10 @@ func (h *Handler) GetTeamResults(w http.ResponseWriter, r *http.Request) {
 	h.serveStatementJSON(w, r, stmt, dataCacheKey(r), cache.TTLData, false, id, season, leagueID)
 }
 
-// GetRoster returns a team's roster with each player's season Composite +
-// Specialist rating, ranked by the sum of the two.
+// GetRoster returns a team's roster with each player's season rating,
+// ranked by rating.
 // @Summary Get team roster (rating)
-// @Description Players on the team's season roster with season Composite/Sigil (+ ranks + sigil label), ordered by the Composite+Sigil sum. Player names link to the player profile.
+// @Description Players on the team's season roster with their season rating (+ rank + score), ordered by rating. Player names link to the player profile.
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
@@ -789,11 +789,11 @@ func (h *Handler) GetEntityStats(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetEntityRating returns the entity's RATING product — the statistical rail's end
-// product: the positionless magnitude score + the divined PEAK + the
-// precomputed PEAK scouting-report blurb. The Rating card reads this. Served at
-// /rating; the /sigil path serves the crown synthesis.
-// @Summary Get the entity rating (magnitude + PEAK + scouting report)
-// @Description The entity's positionless magnitude score, divined PEAK, and precomputed PEAK scouting-report blurb.
+// product: the positionless magnitude score plus the precomputed scouting-report
+// blurb. The Rating card reads this. Served at /rating; the /sigil path serves
+// the crown synthesis.
+// @Summary Get the entity rating (score + scouting report)
+// @Description The entity's positionless magnitude score and its precomputed scouting-report blurb.
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)

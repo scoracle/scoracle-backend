@@ -108,7 +108,7 @@ so a restart against a drifted schema **refuses to boot** instead of serving deg
 
 After any migration, refresh the versioned schema snapshot and commit it:
 `scripts/hosting/snapshot-schema.sh` (keeps `sql/schema/` == live; the CI schema job and the restore
-drill both diff against it). **Next free migration number = 107.**
+drill both diff against it). **Next free migration number = 222.**
 
 ---
 

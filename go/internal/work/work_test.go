@@ -101,13 +101,13 @@ func TestChangedInputReopensPendingRow(t *testing.T) {
 	ctx := context.Background()
 	pool := testPool(t)
 
-	if err := Enqueue(ctx, pool, item(StagePeak, 3, "v1")); err != nil {
+	if err := Enqueue(ctx, pool, item(StageRating, 3, "v1")); err != nil {
 		t.Fatalf("enqueue v1: %v", err)
 	}
-	if err := Enqueue(ctx, pool, item(StagePeak, 3, "v2")); err != nil {
+	if err := Enqueue(ctx, pool, item(StageRating, 3, "v2")); err != nil {
 		t.Fatalf("enqueue v2: %v", err)
 	}
-	status, inputVersion, n := rowState(t, pool, StagePeak, 3)
+	status, inputVersion, n := rowState(t, pool, StageRating, 3)
 	if n != 1 || status != "pending" || inputVersion != "v2" {
 		t.Fatalf("want one pending v2 row, got n=%d status=%q version=%q", n, status, inputVersion)
 	}

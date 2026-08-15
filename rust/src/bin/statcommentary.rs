@@ -8,7 +8,7 @@ use anyhow::{anyhow, Context, Result};
 use scoracle_cognition::config::Config;
 use scoracle_cognition::harness::Harness;
 use scoracle_cognition::junctions::scout::{
-    build_rating_request, generate_rating, peak_work_input_version, persist_stat_summary,
+    build_rating_request, generate_rating, persist_stat_summary, rating_work_input_version,
     RatingBuild, RatingOutput, RatingReq, RATING_PROMPT_VERSION, RATING_TEMPERATURE,
 };
 use scoracle_cognition::ollama::OllamaClient;
@@ -165,7 +165,7 @@ async fn run_corpus(hx: &Harness, db_url: &str, args: &Args, nightly: bool) -> R
                 Err(e) => {
                     c.failed += 1;
                     eprintln!(
-                        "statcommentary: enqueue peak failed sport={} {}/{} season={} error={e:#}",
+                        "statcommentary: enqueue rating failed sport={} {}/{} season={} error={e:#}",
                         t.sport, t.entity_type, t.entity_id, t.season
                     );
                 }
@@ -228,18 +228,18 @@ async fn enqueue_peak_target(hx: &Harness, t: &Target) -> Result<()> {
     // with_memory=false: this build only mints the input_version (hash + season) for the
     // queue row — the prompt is discarded, so the memory query would be pure waste.
     let input_version = match build_rating_request(hx, &req, RATING_TEMPERATURE, false).await? {
-        RatingBuild::NoStats { season } => peak_work_input_version(season, None),
-        RatingBuild::Ready(r) => peak_work_input_version(r.season, Some(&r.input_hash)),
+        RatingBuild::NoStats { season } => rating_work_input_version(season, None),
+        RatingBuild::Ready(r) => rating_work_input_version(r.season, Some(&r.input_hash)),
     };
-    let peak = work::Item {
-        stage: work::Stage::Peak,
+    let rating = work::Item {
+        stage: work::Stage::Rating,
         entity_type: t.entity_type.clone(),
         entity_id: i64::from(t.entity_id),
         sport: t.sport.clone(),
         input_version: Some(input_version),
         attempts: 0,
     };
-    work::enqueue(&hx.pool, &peak).await
+    work::enqueue(&hx.pool, &rating).await
 }
 
 async fn run_target(hx: &Harness, t: &Target, skip_unchanged: bool) -> Result<RatingOutput> {
@@ -312,7 +312,7 @@ fn enum_current_season_sql() -> &'static str {
                                     COALESCE(league_id, 0) ASC
                        ) AS rn
                 FROM player_stats
-                WHERE sport = $1 AND season = $2 AND rating_composite_score IS NOT NULL
+                WHERE sport = $1 AND season = $2 AND rating_score IS NOT NULL
             ) p
             WHERE rn = 1
             UNION ALL
@@ -325,7 +325,7 @@ fn enum_current_season_sql() -> &'static str {
                                     COALESCE(league_id, 0) ASC
                        ) AS rn
                 FROM team_stats
-                WHERE sport = $1 AND season = $2 AND rating_composite_score IS NOT NULL
+                WHERE sport = $1 AND season = $2 AND rating_score IS NOT NULL
             ) t
             WHERE rn = 1
         ),
@@ -359,11 +359,11 @@ async fn enum_missing(pool: &PgPool, sport: &str) -> Result<Vec<Target>> {
         r#"
         SELECT c.et, c.id, c.season FROM (
             SELECT 'player'::text AS et, player_id AS id, season FROM player_stats
-             WHERE sport = $1 AND rating_composite_score IS NOT NULL
+             WHERE sport = $1 AND rating_score IS NOT NULL
              GROUP BY player_id, season
             UNION ALL
             SELECT 'team'::text, team_id, season FROM team_stats
-             WHERE sport = $1 AND rating_composite_score IS NOT NULL
+             WHERE sport = $1 AND rating_score IS NOT NULL
              GROUP BY team_id, season
         ) c
         WHERE NOT EXISTS (

@@ -319,11 +319,10 @@ pub async fn load_rating_pillar(
     season: Option<i32>,
 ) -> Result<Option<SynthRating>> {
     // COALESCE(notability, 0): int2 coalesced with int4 → int4 → scan i32.
-    // (Legacy column names peak_trajectory* until the Wave B rename migration.)
     let row: Option<(Option<String>, i32, String, String)> = sqlx::query_as(
         r#"
         SELECT body, COALESCE(notability, 0),
-               COALESCE(peak_trajectory, 'steady'), COALESCE(peak_trajectory_label, '')
+               COALESCE(rating_trajectory, 'steady'), COALESCE(rating_trajectory_label, '')
         FROM stat_summaries
         WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
           AND ($4::int IS NULL OR season = $4)

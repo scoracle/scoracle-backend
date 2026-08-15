@@ -34,7 +34,9 @@ pub enum Stage {
     InvestigateEntity,
     FixtureBoxscore,
     Graph,
-    Peak,
+    /// The Scout's stats rail. Named `peak` until mig 221 retired the concept
+    /// project-wide; the stage is the rating now, as it always was.
+    Rating,
     Momentum,
     Transfers,
     Narratives,
@@ -51,7 +53,7 @@ impl Stage {
             Stage::InvestigateEntity => "investigate_entity",
             Stage::FixtureBoxscore => "fixture_boxscore",
             Stage::Graph => "graph",
-            Stage::Peak => "peak",
+            Stage::Rating => "rating",
             Stage::Momentum => "momentum",
             Stage::Transfers => "transfers",
             Stage::Narratives => "narratives",
@@ -211,11 +213,11 @@ pub async fn complete(pool: &PgPool, it: &Item) -> Result<()> {
 }
 
 /// The five pillar stages the Oracle reads before it can crown an entity — one per character:
-/// `narratives` (The Journalist), `peak` (The Scout), `vibe` (The Influencer), `momentum`
+/// `narratives` (The Journalist), `rating` (The Scout), `vibe` (The Influencer), `momentum`
 /// (The Analyst), `transfers` (The Insider).
 pub const PILLAR_STAGES: [Stage; 5] = [
     Stage::Narratives,
-    Stage::Peak,
+    Stage::Rating,
     Stage::Vibe,
     Stage::Momentum,
     Stage::Transfers,
@@ -459,7 +461,7 @@ mod tests {
         let names: Vec<&str> = PILLAR_STAGES.iter().map(|s| s.as_str()).collect();
         assert_eq!(
             names,
-            vec!["narratives", "peak", "vibe", "momentum", "transfers"]
+            vec!["narratives", "rating", "vibe", "momentum", "transfers"]
         );
         assert!(!PILLAR_STAGES.contains(&Stage::Sigil));
     }

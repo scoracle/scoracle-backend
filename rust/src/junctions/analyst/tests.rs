@@ -92,6 +92,18 @@ fn parses_the_defiant_fable_relabelings_the_2026_08_14_swap() {
 }
 
 #[test]
+fn foreign_script_leak_fails_closed_the_3b_delegation_glitch() {
+    // Verbatim class from the 2026-08-15 delegation to ministral-3:3b: an Arabic run
+    // mid-word in card-facing prose. The reply is well-formed by the label contract, so
+    // only a content check catches it — reject and let the retry re-roll.
+    assert!(parse_momentum_reply("READ: His playmaking has زمنed in Milwaukee.").is_none());
+    // Latin diacritics are names, not leaks.
+    let ok = parse_momentum_reply("READ: Éder Militão's form is falling, and the tape backs the drop.")
+        .expect("diacritics must pass");
+    assert!(ok.blurb.contains("Militão"));
+}
+
+#[test]
 fn direction_is_decided_by_band_not_model() {
     // ±MOMENTUM_STEADY_BAND on the ±100-scale momentum_score; None (no durable
     // snapshot) is honestly steady.

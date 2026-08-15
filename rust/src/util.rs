@@ -2,6 +2,29 @@
 
 use sha2::{Digest, Sha256};
 
+/// has_foreign_script reports whether card-facing English prose carries a run of a
+/// non-Latin writing system — the ministral-3:3b multilingual leak ("his playmaking
+/// has زمنed in Milwaukee", measured at ~2% of Analyst READs on 2026-08-15, 0% on the
+/// 9B). Parsers that own free prose call this and fail closed so the retry re-rolls;
+/// at a 2% leak rate a second attempt lands clean essentially always.
+///
+/// Latin diacritics (Militão, Éder, Müller) and typographic punctuation pass — only
+/// Arabic, CJK, Hangul, Cyrillic, Devanagari, Thai, and Hebrew code points trip it.
+pub fn has_foreign_script(s: &str) -> bool {
+    s.chars().any(|c| {
+        matches!(c as u32,
+            0x0400..=0x04FF   // Cyrillic
+            | 0x0590..=0x05FF // Hebrew
+            | 0x0600..=0x06FF // Arabic
+            | 0x0900..=0x097F // Devanagari
+            | 0x0E00..=0x0E7F // Thai
+            | 0x3040..=0x30FF // Hiragana + Katakana
+            | 0x4E00..=0x9FFF // CJK unified
+            | 0xAC00..=0xD7AF // Hangul
+        )
+    })
+}
+
 /// strip_markdown_emphasis removes Markdown decoration from ONE line of a labeled model reply,
 /// so a `KEY:` parser matches whether or not the model dressed the label up.
 ///

@@ -291,8 +291,8 @@ func (s *NewsService) GetEntityNews(
 // reconcile with, which is the shape that silently lost articles' whole link sets (8.10).
 //
 // The hypothesis is not lost, because it was never really a link: which entity's sweep surfaced an
-// article is recorded in `news_articles.raw` (`q`, `lane`, `edition`, `window`, `query_team_id`) on
-// INSERT, and the Editor reads it from there. One writer per fact.
+// article is recorded in `news_articles.raw` (`q`, `lane`, `edition`, `window`, `query_team_id`,
+// `query_sport`) on INSERT, and the Editor reads it from there. One writer per fact.
 //
 // So ingest's job is now exactly: write the article, enqueue the read. Google ranked it, the Editor
 // decides what it is about.
@@ -349,6 +349,13 @@ func (s *NewsService) persistArticles(
 			}
 			if isTeamEntity(primaryEntityType) {
 				prov["query_team_id"] = primaryEntityID
+				// The sport RIDES WITH the team id: ids are per-sport namespaces
+				// (NBA 18, NFL 18 and FOOTBALL 18 are three teams), so provenance
+				// without the sport is ambiguous — and the D-T21 cap count below
+				// keys on this pair. Without it, the sweep order (NBA→NFL→FOOTBALL)
+				// let NBA's low ids spend football's whole allowance (the Aug-7→14
+				// starvation of every Premier League club).
+				prov["query_sport"] = sportUpper
 			}
 			if b, jerr := json.Marshal(prov); jerr == nil {
 				rawProv = b
@@ -385,6 +392,12 @@ func (s *NewsService) persistArticles(
 	// cap is defined over. Only team sweeps carry `query_team_id`, so only they are capped —
 	// that is a stated limit of the rule, not an oversight (31% of arrivals carry no team
 	// provenance and stay uncapped).
+	//
+	// The count keys on (team id, SPORT): team ids are per-sport namespaces, and the sweep
+	// runs NBA→NFL→FOOTBALL, so an id-only count let the earlier sports spend a football
+	// club's whole allowance (every Premier League club starved Aug 7–14, 2026). Rows from
+	// before the query_sport provenance existed don't match the pair and are excluded —
+	// one deploy-day allowance reset, self-correcting on the next sweep.
 	withheld := 0
 	if capN := editorReadsPerEntityDay(); capN > 0 && isTeamEntity(primaryEntityType) {
 		var already int
@@ -392,8 +405,9 @@ func (s *NewsService) persistArticles(
 			SELECT count(*)
 			  FROM news_articles
 			 WHERE (raw->>'query_team_id')::int = $1
+			   AND raw->>'query_sport' = $2
 			   AND fetched_at >= date_trunc('day', now())
-		`, primaryEntityID).Scan(&already); err != nil {
+		`, primaryEntityID, sportUpper).Scan(&already); err != nil {
 			return nil, 0, fmt.Errorf("count today's reads for entity: %w", err)
 		}
 		// `already` includes the rows just inserted above, which ARE this sweep's fresh set —

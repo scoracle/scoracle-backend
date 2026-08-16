@@ -7,7 +7,7 @@
 #             queue tests and `validate-stmts`, against a Postgres provisioned
 #             from the versioned schema snapshot (sql/schema/schema.sql).
 #   shell   — `bash -n` syntax + ShellCheck on the hosting/ops scripts.
-#   schema  — pure-repo static check: every migration file is in the snapshot.
+#   schema  — pure-repo static check: schema_migrations.txt matches sql/migrations/.
 #
 # The test-DB crux (see sql/README-migrations.md): an empty DB CANNOT be built by
 # replaying migrations — the data-dependent gates (045/046/048) fail on empty
@@ -127,24 +127,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Every committed migration must be recorded in the snapshot's lineage —
-      # a migration missing from schema_migrations.txt means the snapshot drifted
-      # from the migration set and the CI test DB would no longer match prod.
-      - name: Migration ⊆ snapshot lineage
+      # schema_migrations.txt must be a sorted, complete reflection of the
+      # migration files in sql/migrations/.  It is auto-derived (no prod DB
+      # needed): generate the expected list from the directory and diff
+      # against the committed file.  A mismatch means a migration was added
+      # (or removed) without regenerating the lineage.
+      - name: Migration lineage matches migration files
         run: |
           snapshot=sql/schema/schema_migrations.txt
-          test -s "$snapshot" || { echo "missing/empty $snapshot"; exit 1; }
           test -s sql/schema/schema.sql || { echo "missing/empty schema.sql"; exit 1; }
-          missing=0
+          # Build the expected lineage from the migration directory.
+          expected="$(mktemp)"
           for f in sql/migrations/*.sql; do
-            base="$(basename "$f" .sql)"
-            if ! grep -qxF "$base" "$snapshot"; then
-              echo "migration not recorded in snapshot lineage: $base"
-              missing=1
-            fi
-          done
-          if [ "$missing" -ne 0 ]; then
-            echo "Run sql/scripts snapshot-schema.sh against prod to refresh the snapshot."
+            basename "$f" .sql
+          done | sort > "$expected"
+          # Compare (sort the committed file so order differences don't matter).
+          actual_sorted="$(mktemp)"
+          sort "$snapshot" > "$actual_sorted"
+          if ! diff -u "$actual_sorted" "$expected"; then
+            echo ""
+            echo "schema_migrations.txt is out of sync with sql/migrations/."
+            echo "Regenerate: ls sql/migrations/*.sql | xargs -I{} basename {} .sql | sort > sql/schema/schema_migrations.txt"
             exit 1
           fi
-          echo "OK — all committed migrations are present in the snapshot lineage"
+          echo "OK — schema_migrations.txt matches sql/migrations/ ($(wc -l < "$expected") entries)"

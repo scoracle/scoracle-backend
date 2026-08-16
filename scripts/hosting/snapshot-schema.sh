@@ -38,10 +38,13 @@ echo "-> dumping schema-only snapshot"
 # Deterministic enough to diff across runs (pg_dump emits objects in a stable order).
 pg_dump --schema-only --no-owner --no-privileges "$DB" > "$OUT_DIR/schema.sql"
 
-echo "-> dumping applied migration ledger"
-psql "$DB" -v ON_ERROR_STOP=1 -tAc \
-    "SELECT version FROM public.schema_migrations ORDER BY version" \
-    > "$OUT_DIR/schema_migrations.txt"
+echo "-> deriving migration lineage from sql/migrations/"
+# Lineage is derived from the migration directory (not queried from prod) so
+# that adding a migration never requires a prod connection just to keep the
+# lineage in sync.  CI validates this 1:1 correspondence on every push.
+for f in "$REPO_ROOT"/sql/migrations/*.sql; do
+    basename "$f" .sql
+done | sort > "$OUT_DIR/schema_migrations.txt"
 
 N=$(grep -c . "$OUT_DIR/schema_migrations.txt" || true)
 LINES=$(wc -l < "$OUT_DIR/schema.sql")

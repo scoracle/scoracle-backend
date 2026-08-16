@@ -51,6 +51,10 @@ Start from `sql/migration_template.sql` (copy it to `sql/migrations/NNN_….sql`
    so it can't self-record atomically; the runner records it in the same process instead.)
 5. After applying, refresh the versioned schema snapshot (`scripts/hosting/snapshot-schema.sh`)
    and commit it alongside the migration, so `sql/schema/` keeps describing live prod.
+   The lineage file (`schema_migrations.txt`) is auto-derived from `sql/migrations/` —
+   no prod query needed for that part. If you only added a migration (no schema.sql
+   refresh needed), regenerate it with:
+   `ls sql/migrations/*.sql | xargs -I{} basename {} .sql | sort > sql/schema/schema_migrations.txt`
 
 ## Notes
 - Duplicate-number history: `042_rating_modes` + `042a_auth_refresh_tokens` (the auth one was

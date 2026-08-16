@@ -126,8 +126,13 @@ pub const CROWN_CARD_BODY_CAP: usize = 700;
 /// three storylines share the budget rather than each claiming it.
 const CROWN_MAX_NARRATIVES: usize = 3;
 
-/// Apply an optional body cap. `None` — the legacy rail — returns the body untouched, which is
-/// what keeps the legacy crown prompt byte-identical.
+/// Apply an optional body cap. `None` returns the body untouched.
+///
+/// The `None` arm existed to keep the legacy crown prompt byte-identical across the cutover.
+/// That rail is gone (Phase 9.1), so in production the budget is always `Some` — but the arm
+/// stays, because the fixture generators and the parity paths pin the uncapped shape, and
+/// because collapsing it would rewrite prompts and therefore every `input_hash` that quotes
+/// them. Dead-looking is not the same as dead; see PLAN-one-rail 9.1's stop note.
 fn capped(s: &str, budget: Option<usize>) -> String {
     match budget {
         Some(max) => crate::util::truncate_bytes(s, max),

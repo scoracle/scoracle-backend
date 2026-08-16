@@ -213,10 +213,11 @@ pub fn build_transfer_prompt(
         }
     }
 
-    // The compiled storyline this pair sits in (7.5, packet rail only). It is FRAMING, not
-    // evidence: the claims below are still the only thing a stage may be read off. Absent under
-    // `RAIL=legacy`, which is what keeps the legacy prompt byte-identical — and an EMPTY framing
-    // is resolved to absent HERE, once, so every branch below agrees about which rail this is.
+    // The compiled storyline this pair sits in (7.5). It is FRAMING, not evidence: the claims
+    // below are still the only thing a stage may be read off. Present on every production call
+    // now that the packet rail is the only rail; the absent case is the fixture/parity shape
+    // that pinned the pre-cutover prompt byte-for-byte. An EMPTY framing is resolved to absent
+    // HERE, once, so every branch below agrees about which shape it is building.
     let packet_framing = packet_framing.filter(|f| !f.trim().is_empty());
     if let Some(f) = packet_framing {
         b.push_str("\nThe story these reports belong to (assembled from the reads — framing, not evidence):\n");

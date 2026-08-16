@@ -128,8 +128,9 @@ pub fn build_sentiment_prompt(
         }
     }
 
-    // The live storylines, rendered for HER (7.6, packet rail only — empty under legacy, so this
-    // whole section is absent and the legacy prompt stays byte-identical). Placed ABOVE the
+    // The live storylines, rendered for HER (7.6). Non-empty on every production call now that
+    // the packet rail is the only rail; the empty case is the fixture/parity shape, which is why
+    // the section is still conditional rather than unconditional. Placed ABOVE the
     // narratives because on the packet rail this is her primary material and The Journalist's
     // card may not exist yet: E3 makes her first-voice-capable, and a first voice reads the story
     // itself, not someone else's write-up of it. `MOOD:` appears only here, and only for her.

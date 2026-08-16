@@ -160,8 +160,10 @@ pub fn narratives_format_schema() -> serde_json::Value {
 /// `buildNarrativesPrompt` while `full_text` is NULL (the current state) and no `score_context`
 /// is given. The `—` (U+2014) bytes are significant. (n17: the heat section is gone —
 /// see the module note.)
-/// `packet_framing` (7.3) is the storyline block on the packet rail and `None` on the legacy rail,
-/// where this function stays byte-identical to what it emitted before Phase 7.
+/// `packet_framing` (7.3) is the storyline block. It is `Some` on every production call now that
+/// the packet rail is the only rail; the `None` arm is what kept this byte-identical to the
+/// pre-Phase-7 prompt across the cutover, and it is retained for the fixtures and tests that
+/// pin that shape — not because a second rail can still select it.
 /// `score_context` (n12) is the pre-rendered SIGNALS line + prior-card-reads memory block that
 /// grounds the card score — rendered last, just before the reply instruction, so the verdict
 /// lands after the signs are read. Like the relational memory it is prompt-only: deliberately

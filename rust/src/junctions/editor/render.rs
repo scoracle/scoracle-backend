@@ -1,9 +1,10 @@
 //! The packet renderer (PLAN-one-rail 7.2): `(packet, entity, voice) → context block`.
 //!
-//! This is the seam the cutover flips. Under `RAIL=legacy` every voice still loads the article
-//! corpus it has always loaded; under `RAIL=packet` it loads a *rendered packet* instead — the
-//! same storyline the Desk assembled in Phase 6, written down for one entity, for one voice, in a
-//! hard budget.
+//! This was the seam the cutover flipped, and the flip is finished: the `RAIL` switch is gone,
+//! the legacy article-corpus path was demolished in Phase 9.1, and migs 222/223 took its SQL.
+//! **There is one rail.** Every voice loads a *rendered packet* — the storyline the Desk
+//! assembled in Phase 6, written down for one entity, for one voice, in a hard budget. Comments
+//! below that still name `RAIL=legacy` are describing history, not a branch you can take.
 //!
 //! Three laws shape every line below:
 //!

@@ -61,10 +61,11 @@ pub struct Config {
     ///
     /// Storyline assembly (6.1) is always on: it writes only greenfield tables nothing else
     /// reads. Packet compilation is not, because `INSERT ON packets` fires mig 206's fan-out,
-    /// whose Journalist arm is unconditional by design — under `RAIL=legacy` that arm and the
-    /// legacy `article_read` seat would alternate one `pipeline_work` row's `input_version`
-    /// forever (the mig-197 churn loop). This switch holds that door until the seam is ruled on;
-    /// Phase 7.1's `RAIL` is what finally owns it.
+    /// whose Journalist arm is unconditional by design. The door this switch held is now shut
+    /// from the other side: the seam WAS ruled on, `RAIL` is gone, and the legacy `article_read`
+    /// seat it would have fought over the same `pipeline_work` row (the mig-197 churn loop) was
+    /// demolished in Phase 9.1. The switch survives as an ops brake on compile cost, not as a
+    /// rail selector.
     pub packet_compile: bool,
     /// The context window EVERY voice on this host requests (`VOICE_NUM_CTX`, else the rail's
     /// size). Resolved once at boot beside the rail, for the same reason: two items in one drain

@@ -304,10 +304,11 @@ impl Desk {
     ///     in SQL (`packet::compile_dirty`), so a story arriving as a burst compiles once. OFF
     ///     unless `COGNITION_PACKET_COMPILE` says otherwise: `INSERT ON packets` fires mig 206's
     ///     voice fan-out, whose `narratives` arm was unconditional until mig 212 gated it on a
-    ///     subscription — before that gate, compiling under `RAIL=legacy` would have fought the
-    ///     legacy `article_read` enqueue over the same `pipeline_work` row (the mig-197 churn
-    ///     loop). With the subscription table empty the trigger is inert and this is a shadow
-    ///     compile.
+    ///     subscription — before that gate, and while a legacy rail still existed, compiling
+    ///     would have fought the `article_read` enqueue over the same `pipeline_work` row (the
+    ///     mig-197 churn loop). Both are history: that seat was demolished in Phase 9.1 and there
+    ///     is one rail. With the subscription table empty the trigger is inert and this is a
+    ///     shadow compile.
     ///
     /// Failure is logged and swallowed, like the dedup sweep: the Desk is downstream of reads
     /// that are already persisted, and it must never take the process down.

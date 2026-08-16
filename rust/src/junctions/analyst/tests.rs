@@ -306,3 +306,98 @@ fn input_components_are_stable_and_sorted() {
         )
     );
 }
+
+// ── PARTIAL SPREADS ─────────────────────────────────────────────────────────────────────
+// The doctrine (Scott, 2026-08-15): "If the Analyst receives no info, it won't have an
+// output, but gracefully skip. If it only has vibe instead of rating, then it will build an
+// output on that. Work with what we have, don't fabricate, not having something to say is an
+// acceptable answer."
+//
+// The seat ALREADY does exactly this, and that is the problem these tests fix: the behaviour
+// rested entirely on `MomentumContext::empty()` being `&&` rather than `||`, and nothing
+// asserted it. Every one of the ten momentum fixtures carries BOTH rails, so flipping that
+// operator would have deleted the vibe-only read — the whole "build an output on that" half
+// of the brief — while the gate stayed green. A rule measured by nothing is advice (or8).
+//
+// This is the NORMAL path, not an edge case: the DB grows by fetch-and-upsert with no
+// bootstrap, so entities arrive with nothing and fill in over weeks.
+
+fn ctx(rating: Option<SynthRating>, vibe: Option<SynthVibe>, snap: SynthMomentum) -> MomentumContext {
+    MomentumContext {
+        season: 2025,
+        rating,
+        vibe,
+        snapshot: snap,
+        input_components_json: String::new(),
+        input_hash: String::new(),
+    }
+}
+
+fn a_rating() -> SynthRating {
+    SynthRating {
+        body: "Chances created have held their line.".to_string(),
+        notability: 71,
+        rating_trajectory: "steady".to_string(),
+        rating_trajectory_label: "overall scores holding steady over recent games".to_string(),
+    }
+}
+
+fn a_vibe() -> SynthVibe {
+    SynthVibe {
+        sentiment: 64,
+        prompt: "The room is warm after the cup run.".to_string(),
+    }
+}
+
+#[test]
+fn only_a_totally_empty_context_is_empty_the_load_bearing_and() {
+    // All three absent — the graceful-skip case. The handler returns Ok(()) and writes no
+    // row: silence is a valid output, not a failure.
+    assert!(ctx(None, None, SynthMomentum::default()).empty());
+
+    // ...and every PARTIAL spread is NOT empty, so the seat proceeds and reads on whatever
+    // survived. These four are the assertions that pin `&&`: under `||` all of them flip to
+    // `empty()` == true and the seat would fall silent on entities it can genuinely read.
+    assert!(
+        !ctx(None, Some(a_vibe()), SynthMomentum::default()).empty(),
+        "vibe with no rating must still produce a read — the brief's explicit case"
+    );
+    assert!(
+        !ctx(Some(a_rating()), None, SynthMomentum::default()).empty(),
+        "rating with no vibe must still produce a read"
+    );
+    let snap_only = SynthMomentum {
+        momentum_score: Some(1.4),
+        ..SynthMomentum::default()
+    };
+    assert!(
+        !ctx(None, None, snap_only).empty(),
+        "a trajectory snapshot alone is material enough to read"
+    );
+    assert!(!ctx(Some(a_rating()), Some(a_vibe()), SynthMomentum::default()).empty());
+}
+
+#[test]
+fn a_vibe_only_context_builds_a_prompt_that_claims_no_form() {
+    // The second half of the brief: vibe-without-rating builds an output ON THE VIBE. The
+    // prompt must carry the felt read and must NOT hand the model a form/trajectory line it
+    // could then narrate a direction from — the Ipswich failure mode, one seat over.
+    let p = build_momentum_prompt(
+        "team",
+        "Ipswich Town",
+        "FOOTBALL",
+        None,
+        Some(&a_vibe()),
+        &SynthMomentum::default(),
+        None,
+        &[],
+    );
+    assert!(
+        p.contains("cup run"),
+        "the surviving vibe card must reach the prompt: {p}"
+    );
+    assert!(
+        !p.contains("holding steady over recent games"),
+        "no rating card was supplied, so no trajectory label may appear: {p}"
+    );
+}

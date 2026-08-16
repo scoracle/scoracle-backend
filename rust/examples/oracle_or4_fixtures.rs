@@ -274,6 +274,72 @@ fn scenarios() -> Vec<Scenario> {
                            "reading_max_peers": 1,
                            "reading_min_sentences": 2, "reading_max_sentences": 9}),
         },
+        // ── PARTIAL SPREADS ──────────────────────────────────────────────────────────────
+        // The doctrine (Scott, 2026-08-15): "if it only has 3 cards instead of 5, it will
+        // build its output using those 3. Work with what we have, don't fabricate, not having
+        // something to say is an acceptable answer."
+        //
+        // This is the NORMAL path, not an edge case: the DB grows by fetch-and-upsert with no
+        // bootstrap, so every entity arrives empty and fills in. Ipswich Town had no stats at
+        // all and its live or5 crown invented "the tension between the Vibe's intensity and
+        // the PEAK's decline" — a direction read off a card that does not exist. or7's
+        // allowance rule is what forbids that ("the cards that hold nothing no sentence at
+        // all"), and until these two scenarios there was no fixture below four cards to hold
+        // it to account.
+        //
+        // THE ASSERTION IS THE SENTENCE CEILING, and that is deliberate. A substring ban is
+        // the wrong instrument here: the honest reading of a thin spread NAMES the absence,
+        // so banning "form" would fail correct prose (ascendant-thin-hype's own momentum
+        // blurb reads "form has no card to show"). What fabrication actually looks like is
+        // PADDING — reaching eight sentences on a spread that holds three. So the ceiling
+        // scales with the cards: fewer cards, fewer sentences available. That is the or7 rule
+        // stated mechanically, and it is the same reasoning that gave reading_max_peers its
+        // own check instead of an exclusion.
+        Scenario {
+            name: "three-card-newcomer",
+            note: "THE PARTIAL SPREAD, three cards: a just-promoted side with news, a transfer wire and a felt read, but NO scouting brief and NO momentum — the shape every newly-arrived entity presents before its stats accumulate. The reading must build on the three cards it holds and stay silent on form and trajectory rather than infer them. Short is correct here; the ceiling is the assertion.",
+            entity: "Ipswich Town", entity_type: "team", sport: "FOOTBALL",
+            expect_omen: "steady",
+            narratives: vec![narrative(
+                "Promotion side reshapes its spine",
+                "Two confirmed signings have arrived to rebuild the defensive line before the opener.",
+                5.0, "developing_story", 3,
+            )],
+            rating: None,
+            vibe: vibe(62, "Cautious optimism around the rebuild; the room likes the business but wants to see it on grass."),
+            momentum: SynthMomentum::default(),
+            transfers: vec![HeatItem {
+                counterparty: "Fulham".to_string(),
+                heat: 62,
+                stage: "confirmed".to_string(),
+                direction: "incoming".to_string(),
+                summary: "The move for Issa Diop is done and the paperwork is filed.".to_string(),
+                confidence: Some(0.9),
+            }],
+            expect: json!({"reading_includes": ["Ipswich"],
+                           "reading_excludes": base_excludes("steady"),
+                           "reading_max_peers": 1,
+                           "reading_min_sentences": 2, "reading_max_sentences": 5}),
+        },
+        Scenario {
+            name: "near-empty-quiet-wire",
+            note: "THE PARTIAL SPREAD, floor case: one card. No brief, no felt read, no momentum, no wire — a single quiet storyline is the whole spread. 'Not having something to say is an acceptable answer': two or three sentences is the complete reading, and anything longer is manufactured. This is the fixture that would have caught Ipswich's or5 fabrication.",
+            entity: "Venezia", entity_type: "team", sport: "FOOTBALL",
+            expect_omen: "steady",
+            narratives: vec![narrative(
+                "Squad reports back for preseason",
+                "The squad returned for preseason testing this week; no further detail has surfaced.",
+                2.0, "developing_story", 1,
+            )],
+            rating: None,
+            vibe: None,
+            momentum: SynthMomentum::default(),
+            transfers: vec![],
+            expect: json!({"reading_includes": ["Venezia"],
+                           "reading_excludes": base_excludes("steady"),
+                           "reading_max_peers": 1,
+                           "reading_min_sentences": 2, "reading_max_sentences": 3}),
+        },
     ]
 }
 

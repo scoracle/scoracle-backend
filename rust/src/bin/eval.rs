@@ -281,9 +281,8 @@ async fn run_live(cfg: &Config, task: &dyn LensTask, cases: &[EvalCase]) -> Resu
     let candidate = harness.router.candidate_for(task.role());
 
     println!(
-        "eval — task={} rail={} role={} n={} temp={} (deterministic)",
+        "eval — task={} role={} n={} temp={} (deterministic)",
         task.name(),
-        task.parameters().rail.as_str(),
         task.role().as_str(),
         cases.len(),
         EVAL_TEMPERATURE
@@ -469,9 +468,9 @@ async fn run_fixtures(
     }
 
     println!(
-        "fixtures — task={} rail={} n={} dir={}/  incumbent={}",
+        "fixtures — task={} role={} n={} dir={}/  incumbent={}",
         task.name(),
-        task.parameters().rail.as_str(),
+        task.role().as_str(),
         fixtures.len(),
         dir.display(),
         incumbent.model()

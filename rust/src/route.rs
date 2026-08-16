@@ -101,8 +101,8 @@ pub const VOICE_NUM_CTX_PACKET: i32 = 4096;
 ///
 /// **Every output reservation and every context cap in the six voices keys on THIS.** It survived
 /// the Phase 9 rail prune deliberately: the window is set by `VOICE_NUM_CTX`, not by which corpus
-/// a voice reads, so it stayed a live knob when `Rail` did not. The arithmetic it defends is
-/// unchanged and rail-agnostic — a `num_predict` larger than the window is the silent
+/// a voice reads, so it stayed a live knob when the rail taxonomy did not (that `Rail` enum is
+/// now deleted outright). The arithmetic it defends is unchanged and rail-agnostic — a `num_predict` larger than the window is the silent
 /// system-prompt eviction `NARRATIVES_NUM_CTX` has documented since it was written (and D-T40
 /// re-measured on the Editor).
 pub fn small_voice_window(num_ctx: i32) -> bool {

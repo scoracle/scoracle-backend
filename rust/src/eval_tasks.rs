@@ -101,91 +101,70 @@ impl EntitySpec {
     }
 }
 
-/// The broad model-family lane a lens belongs to. This is product taxonomy, not a new route: roles
-/// remain the serving primitive until evals prove a split.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Rail {
-    EmotionalNews,
-    StatsAnalytical,
-    Synthesis,
-}
-
-impl Rail {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Rail::EmotionalNews => "emotional/news",
-            Rail::StatsAnalytical => "stats/analytical",
-            Rail::Synthesis => "synthesis",
-        }
-    }
-}
-
 /// Product-level operating parameters for a lens. These are the "who is thinking?" and "what must
 /// they optimize for?" notes that should shape prompts, fixtures, and adoption decisions without
 /// hard-coding a model id.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct LensParameters {
-    pub rail: Rail,
     pub operator: &'static str,
     pub mandate: &'static str,
     pub credibility_guard: &'static str,
 }
 
-/// lens_parameters is the code home for the current six-lens taxonomy. `operator` carries the
-/// character identity (the cast locked in wiki/Characters.md, 2026-07-21); the junction's system
-/// prompt is that character's voice, so a voice change is a prompt change, never a rename here.
+/// lens_parameters is the code home for the lens taxonomy — the six public characters plus the
+/// three internal seats (editor, investigator, graph). `operator` carries the character identity
+/// (the cast locked in wiki/Characters.md, 2026-07-21); the junction's system prompt is that
+/// character's voice, so a voice change is a prompt change, never a rename here.
+///
+/// There is no `rail` here any more. It was product taxonomy from the two-rail era — a guess that
+/// lenses would eventually route by model family — and its own doc admitted roles were the serving
+/// primitive "until evals prove a split". The split never came: routing is per-`Role`
+/// (`COGNITION_ROUTE_<ROLE>`), and the real topology is two HOSTS, not two rails. It had also gone
+/// wrong on its own terms, filing the Editor, the Investigator and graph under "emotional/news"
+/// because a two-rail world had nowhere else to put a seat that reads text.
 pub fn lens_parameters(name: &str) -> Option<LensParameters> {
     match name {
         "narratives" => Some(LensParameters {
-            rail: Rail::EmotionalNews,
             operator: "The Journalist",
             mandate: "Compile the stories swirling around the entity into grounded storylines.",
             credibility_guard: "Group what sources actually say; do not inflate vague hype or off-entity noise.",
         }),
         "transfer" => Some(LensParameters {
-            rail: Rail::EmotionalNews,
             operator: "The Insider",
             mandate: "Get movement predictions out quickly while preserving long-term credibility.",
             credibility_guard: "Fail closed on name-drops, stale links, weak sourcing, and misleading heat.",
         }),
         "vibe" => Some(LensParameters {
-            rail: Rail::EmotionalNews,
             operator: "The Influencer",
             mandate: "Farm the engagement: find the emotion running through the entity's narratives and ride it into the felt read of the moment.",
             credibility_guard: "Separate interactable mood from durable truth; the emotion must trace to the corpus — do not invent a narrative hook.",
         }),
         "rating" => Some(LensParameters {
-            rail: Rail::StatsAnalytical,
             operator: "The Scout",
             mandate: "Prepare for the entity by naming the greatest strength to stop and the greatest weakness to exploit.",
             credibility_guard: "Use supplied tiers and datapoints only; never turn average marks into strengths.",
         }),
         "momentum" => Some(LensParameters {
-            rail: Rail::StatsAnalytical,
             operator: "The Analyst",
             mandate: "Read the directional force of form (the rating trajectory) and feeling (the news mood), then narrate the decided direction with conviction.",
             credibility_guard: "Stay detached and results-only; do not chase sentiment hype or cling to stale profile strength.",
         }),
         "oracle" => Some(LensParameters {
-            rail: Rail::Synthesis,
             operator: "the Oracle",
             mandate: "Read the five pillar cards, deliver the entity's reading in the house voice, then render the Sigil verdict — the score this spread has earned (blind to memories since or9).",
             credibility_guard: "The mysticism lives in the telling, never the facts — every claim traces to a card shown; nothing invented; no internal field or product names.",
         }),
         "editor" => Some(LensParameters {
-            rail: Rail::EmotionalNews,
             operator: "The Editor",
             mandate: "Read every arrival's full text and describe it richly for the newsroom — shape, names with descriptors, roles, result line, register, facts — so code can derive everything downstream.",
             credibility_guard: "Describe, never judge: no relevance verdicts, no invented names or results — only what the text contains, with the descriptor copied from the text.",
         }),
         "investigator" => Some(LensParameters {
-            rail: Rail::EmotionalNews,
             operator: "The Investigator",
             mandate: "Read one Wikipedia page summary and quote verbatim what it says about a name the news wrote differently — the connecting name form, the occupation phrase, the teams — so code can verify every quote by containment and decide.",
             credibility_guard: "Copy, never conclude: a field that is not a contiguous run of page text is discarded by the gate; only this page, never model knowledge of the person.",
         }),
         "graph" => Some(LensParameters {
-            rail: Rail::EmotionalNews,
             operator: "narrative archivist",
             mandate: "Extract the typed relations and person discoveries one vetted article actually states into the graph.",
             credibility_guard: "Closed candidate list only; attach each relation to the true counterparty; an empty extraction beats an invented one.",
@@ -2459,7 +2438,6 @@ mod tests {
         // The cast is an identity lock (wiki/Characters.md, 2026-07-21) — a rename here is a
         // product decision, not a refactor.
         let rating = lens_parameters("rating").unwrap();
-        assert_eq!(rating.rail, Rail::StatsAnalytical);
         assert_eq!(rating.operator, "The Scout");
         assert!(rating.mandate.contains("greatest strength"));
 
@@ -2471,12 +2449,15 @@ mod tests {
         assert_eq!(lens_parameters("vibe").unwrap().operator, "The Influencer");
         assert_eq!(lens_parameters("momentum").unwrap().operator, "The Analyst");
 
-        let transfer = lens_parameters("transfer").unwrap();
-        assert_eq!(transfer.rail, Rail::EmotionalNews);
+        assert_eq!(lens_parameters("oracle").unwrap().operator, "the Oracle");
 
-        let oracle = lens_parameters("oracle").unwrap();
-        assert_eq!(oracle.rail, Rail::Synthesis);
-        assert_eq!(oracle.operator, "the Oracle");
+        // The internal seats carry the cast too — and no longer have to be filed under a rail
+        // that never described them.
+        assert_eq!(lens_parameters("editor").unwrap().operator, "The Editor");
+        assert_eq!(
+            lens_parameters("investigator").unwrap().operator,
+            "The Investigator"
+        );
     }
 
     #[test]

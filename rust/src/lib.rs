@@ -12,11 +12,19 @@
 //! modules compose those capabilities over SQL-backed inputs. Canonical doc:
 //! `scoracle-wiki/wiki/Architecture/Rust Cognition Harness.md`.
 //!
-//! The product model is three rails with six accountable lenses:
+//! The product model is **nine lenses, six of them accountable characters the seeker meets**:
 //!
-//! - Stats/analytical rail: Rating/PEAK plus Momentum trajectory.
-//! - Emotional/news rail: Narratives, Transfers, and Vibe.
-//! - Synthesis rail: Sigil — The Oracle reads the other five cards and renders the verdict.
+//! - The Scout (`rating`) and The Analyst (`momentum`) read the stats material.
+//! - The Journalist (`narratives`), The Insider (`transfers`) and The Influencer (`vibe`) read
+//!   the news material.
+//! - The Oracle (`sigil`) reads the other five cards and renders the verdict.
+//! - Three internal seats never surface as a character: The Editor, The Investigator, and graph.
+//!
+//! Those groupings describe **which material a seat reads**, and nothing more. They were once a
+//! `Rail` enum on every lens, on the theory that lenses would eventually route by model family;
+//! that enum is deleted (2026-08-15). Routing is per-`Role` (`COGNITION_ROUTE_<ROLE>`) and the
+//! real topology is two HOSTS, not two rails — and the grouping never described the internal
+//! seats anyway, which it filed under "news" for want of anywhere else to put them.
 //!
 //! Momentum is now a queue stage: deterministic `momentum_scores` stays the numeric backbone, while
 //! `momentum_summaries` stores the generated direction/blurb product consumed by Sigil. The eval
@@ -27,7 +35,7 @@
 //! stale current projections without deleting history, and they still carry the configured
 //! model and prompt versions rather than `NULL` provenance.
 
-/// The seven model-calling seats, one directory each. See [`junctions`] for the roster.
+/// The nine model-calling seats, one directory each. See [`junctions`] for the roster.
 pub mod junctions;
 
 // Infrastructure — the machinery every junction composes over.

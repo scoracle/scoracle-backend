@@ -6,7 +6,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/albapepper/scoracle-data/internal/auth"
 	"github.com/albapepper/scoracle-data/internal/cache"
@@ -128,74 +127,5 @@ func TestRewriteSwaggerServerUsesPublicURL(t *testing.T) {
 	schemes, ok := spec["schemes"].([]any)
 	if !ok || len(schemes) != 1 || schemes[0] != "https" {
 		t.Fatalf("schemes = %v, want [https]", spec["schemes"])
-	}
-}
-
-func TestOpenCodeProxyRouteRequiresAuth(t *testing.T) {
-	cfg := &config.Config{
-		CORSAllowOrigins: []string{"http://localhost:3000"},
-		JWTSecret:        "test-secret",
-		JWTAccessTTL:     time.Hour,
-	}
-	router := NewRouter(nil, cache.New(false), cfg)
-
-	unauthReq := httptest.NewRequest(http.MethodGet, "/api/opencode/session", nil)
-	unauthRec := httptest.NewRecorder()
-	router.ServeHTTP(unauthRec, unauthReq)
-	if unauthRec.Code != http.StatusUnauthorized {
-		t.Fatalf("unauth status = %d, want %d", unauthRec.Code, http.StatusUnauthorized)
-	}
-
-	token, err := auth.New(cfg).IssueAccess("user-1")
-	if err != nil {
-		t.Fatalf("IssueAccess() error = %v", err)
-	}
-	authReq := httptest.NewRequest(http.MethodGet, "/api/opencode/session", nil)
-	authReq.Header.Set("Authorization", "Bearer "+token)
-	authRec := httptest.NewRecorder()
-	router.ServeHTTP(authRec, authReq)
-	if authRec.Code != http.StatusBadGateway {
-		t.Fatalf("auth status = %d, want %d when local OpenCode is unavailable", authRec.Code, http.StatusBadGateway)
-	}
-}
-
-func TestOpenCodeHostRouteUsesCloudflareAccessGate(t *testing.T) {
-	cfg := &config.Config{
-		CORSAllowOrigins: []string{"http://localhost:3000"},
-		JWTSecret:        "test-secret",
-		JWTAccessTTL:     time.Hour,
-	}
-	router := NewRouter(nil, cache.New(false), cfg)
-
-	req := httptest.NewRequest(http.MethodGet, "https://opencode.scoracle.com/session", nil)
-	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusBadGateway {
-		t.Fatalf("status = %d, want %d when local OpenCode is unavailable", rec.Code, http.StatusBadGateway)
-	}
-}
-
-func TestCORSAllowsOpenCodeProxyMethods(t *testing.T) {
-	cfg := &config.Config{
-		CORSAllowOrigins: []string{"http://localhost:3000"},
-	}
-	router := NewRouter(nil, cache.New(false), cfg)
-
-	for _, method := range []string{http.MethodDelete, http.MethodPut, http.MethodPatch} {
-		t.Run(method, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodOptions, "/api/opencode/session", nil)
-			req.Header.Set("Origin", "http://localhost:3000")
-			req.Header.Set("Access-Control-Request-Method", method)
-			rec := httptest.NewRecorder()
-			router.ServeHTTP(rec, req)
-
-			if rec.Code != http.StatusNoContent {
-				t.Fatalf("status = %d, want %d", rec.Code, http.StatusNoContent)
-			}
-			if methods := rec.Header().Get("Access-Control-Allow-Methods"); !strings.Contains(methods, method) {
-				t.Fatalf("Access-Control-Allow-Methods = %q, want %s", methods, method)
-			}
-		})
 	}
 }

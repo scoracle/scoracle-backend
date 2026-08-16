@@ -1870,6 +1870,27 @@ async fn maybe_apply_transfer_identity(
             .execute(&hx.pool)
             .await
             .context("mark sport autofill refreshing")?;
+        // THIS is the threshold: the move just stopped being a rumor and became a roster fact.
+        // Tell the Scout, whose brief is about to describe a squad that no longer exists — it is
+        // the one seat with no trigger of its own beyond the rating snapshot, so without this it
+        // would wait for stats that may never move. Best-effort: an enqueue failure must never
+        // undo an adjudication that already committed.
+        if let Err(e) = crate::junctions::scout::enqueue_rating_for_applied_transfer(
+            &hx.pool,
+            sport,
+            c.player_id,
+            old_team_id,
+            Some(team_id),
+            application_id,
+        )
+        .await
+        {
+            warn!(
+                application_id,
+                player = c.player_id,
+                "transfers: applied move did not reach the Scout: {e:#}"
+            );
+        }
         return Ok(true);
     }
     Ok(false)

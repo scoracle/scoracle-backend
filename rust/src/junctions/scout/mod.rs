@@ -37,7 +37,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Deserializer};
 use sqlx::{PgPool, Row};
 use std::collections::{HashMap, HashSet};
-use tracing::debug;
+use tracing::{debug, warn};
 
 // This junction's contract with its model — system prompt, contract version, and prompt
 // builder — lives in `prompt.rs`, so a change to what this character is asked is a one-file
@@ -1720,6 +1720,49 @@ pub fn rating_work_input_version(season: i32, input_hash: Option<&str>) -> Strin
     )
 }
 
+/// The marker that says this rating row was opened by a transfer crossing the concrete
+/// threshold, not by the stats moving. Sits in the `input_hash` slot of the work row's
+/// `input_version`, so `rating_work_season` still parses the season out of the prefix.
+const RATING_WORK_TRANSFER_MARK: &str = "xfer";
+
+/// Work-row `input_version` for a rating opened by an ADJUDICATED transfer (Scott's brief,
+/// 2026-08-15: "We need the Scout to be aware of when a transfer crossed the threshold and is
+/// considered concrete").
+///
+/// Two problems have to be solved together, and the application id solves both:
+///
+/// 1. **Reopening.** `work::enqueue`'s conflict policy only reopens a `done` row when the
+///    `input_version` CHANGED. A transfer does not move the rating snapshot, so re-enqueuing
+///    with the ordinary stats-derived version collapses into the existing row and nothing runs.
+///    Keying on `application_id` makes each newly-applied move its own version — the same trick
+///    `enqueue_sigil_for_transfer` plays with the persisted rumor id.
+/// 2. **The debounce.** `generate_rating`'s `skip_unchanged` compares the last row's
+///    `input_hash`, and personnel is deliberately NOT in that pre-image. So even a reopened row
+///    would short-circuit before the model call. `RatingHandler` reads this marker and turns the
+///    debounce off for exactly these items.
+///
+/// **Why not simply put personnel in `input_components`.** That is the obvious fix and it is the
+/// wrong one: changing the hash pre-image re-mints the `input_hash` of every entity in the fleet
+/// and triggers a full regeneration — the s19 tail we are still draining. This keeps the pre-image
+/// byte-identical, so nobody who did not sign anybody regenerates.
+pub fn rating_work_input_version_for_transfer(season: i32, application_id: i64) -> String {
+    format!(
+        "{RATING_WORK_PREFIX}{season}:{RATING_PROMPT_VERSION}:{RATING_WORK_TRANSFER_MARK}{application_id}"
+    )
+}
+
+/// True when this work row was opened by a concrete transfer rather than by moved stats.
+fn rating_work_is_transfer_triggered(input_version: Option<&str>) -> bool {
+    input_version
+        .and_then(|raw| raw.strip_prefix(RATING_WORK_PREFIX))
+        .and_then(|rest| rest.split_once(':'))
+        .map(|(_, tail)| match tail.split_once(':') {
+            Some((_, hash)) => hash.starts_with(RATING_WORK_TRANSFER_MARK),
+            None => false,
+        })
+        .unwrap_or(false)
+}
+
 fn rating_work_season(input_version: Option<&str>) -> Option<i32> {
     let raw = input_version?;
     let rest = raw.strip_prefix(RATING_WORK_PREFIX)?;
@@ -1852,6 +1895,61 @@ pub async fn persist_stat_summary(
     Ok(())
 }
 
+/// enqueue_rating_for_applied_transfer — the Scout's transfer trigger (Scott's brief,
+/// 2026-08-15). Called by the Insider the moment an identity application reaches `applied`,
+/// which is the threshold where a move stops being a rumor and becomes a roster fact.
+///
+/// Until now the stats rail had exactly one trigger — the rating snapshot — which made it the
+/// only seat that could not react to anything else. The consequence was not a thinner brief but
+/// NO brief: an entity whose stats never move (a promoted side with no scored events, an
+/// offseason club) could sign three players and its scouting brief would still describe a squad
+/// that no longer exists, because nothing could ask the Scout to look again.
+///
+/// All three affected entities are offered: the player, the club they left, and the club they
+/// joined. A departure changes who a staff will face just as much as an arrival does, and the
+/// personnel block already renders both sides ("signed X from Y" / "lost X to Y").
+///
+/// Best-effort by design — a failure to enqueue must never fail the adjudication that earned it.
+/// The nightly batch remains the backstop.
+pub async fn enqueue_rating_for_applied_transfer(
+    pool: &PgPool,
+    sport: &str,
+    player_id: i32,
+    old_team_id: Option<i32>,
+    new_team_id: Option<i32>,
+    application_id: i64,
+) -> Result<()> {
+    let sport = sport.to_uppercase();
+    let season = current_season(pool, &sport).await?;
+    let input_version = rating_work_input_version_for_transfer(season, application_id);
+
+    let mut targets: Vec<(&str, i64)> = vec![("player", i64::from(player_id))];
+    for team in [old_team_id, new_team_id].into_iter().flatten() {
+        targets.push(("team", i64::from(team)));
+    }
+
+    for (entity_type, entity_id) in targets {
+        let item = Item {
+            stage: Stage::Rating,
+            entity_type: entity_type.to_string(),
+            entity_id,
+            sport: sport.clone(),
+            input_version: Some(input_version.clone()),
+            attempts: 0,
+        };
+        if let Err(e) = crate::work::enqueue(pool, &item).await {
+            warn!(
+                application_id,
+                entity_type,
+                entity_id,
+                sport = %sport,
+                "rating: could not enqueue on applied transfer: {e:#}"
+            );
+        }
+    }
+    Ok(())
+}
+
 async fn current_season(pool: &PgPool, sport: &str) -> Result<i32> {
     sqlx::query_scalar("SELECT current_season FROM public.sports WHERE id = $1")
         .bind(sport)
@@ -1894,16 +1992,21 @@ impl StageHandler for RatingHandler {
         let name =
             crate::corpus::lookup_entity_name(&hx.pool, &item.entity_type, entity_id, &sport)
                 .await?;
+        // A move that crossed the concrete threshold is its own trigger, and it must not be
+        // debounced away: the stats have not changed, so the input_hash has not changed, and the
+        // ordinary `skip_unchanged` gate would short-circuit before the model call. The personnel
+        // block is what changed, and it reaches the prompt through `with_enrichment`.
+        let by_transfer = rating_work_is_transfer_triggered(item.input_version.as_deref());
         let req = RatingReq {
             entity_type: item.entity_type.clone(),
             entity_id,
             entity_name: name,
             sport: sport.clone(),
             season: Some(season),
-            trigger_type: "periodic".to_string(),
+            trigger_type: if by_transfer { "transfer" } else { "periodic" }.to_string(),
         };
 
-        let out = generate_rating(hx, &req, RATING_TEMPERATURE, true, true).await?;
+        let out = generate_rating(hx, &req, RATING_TEMPERATURE, !by_transfer, true).await?;
         if out.skipped_unchanged {
             debug!(
                 entity_type = %item.entity_type,

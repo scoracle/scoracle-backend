@@ -615,6 +615,33 @@ fn rating_work_token_carries_contract_and_still_parses_season() {
 }
 
 #[test]
+fn a_transfer_triggered_rating_token_is_distinguishable_and_still_parses_season() {
+    // Scott's brief, 2026-08-15: the Scout has to know when a transfer crossed the threshold
+    // and became concrete. The application id rides in the hash slot, which does two jobs at
+    // once — it makes each applied move its OWN input_version (so work::enqueue reopens a done
+    // row instead of collapsing into it), and it marks the item so RatingHandler turns the
+    // skip_unchanged debounce off. The stats have not moved, so without that second half the
+    // reopened row would short-circuit before the model call and the brief would still describe
+    // a squad that no longer exists.
+    let v = rating_work_input_version_for_transfer(2025, 4211);
+    assert_eq!(v, format!("rating:s2025:{RATING_PROMPT_VERSION}:xfer4211"));
+
+    // The season parse must survive the marker — the handler reads the season from this token.
+    assert_eq!(rating_work_season(Some(&v)), Some(2025));
+    assert!(rating_work_is_transfer_triggered(Some(&v)));
+
+    // ...and an ordinary stats-driven token must NOT be mistaken for one, or every periodic
+    // rating in the fleet would bypass the debounce and regenerate on every enumeration.
+    let stats = rating_work_input_version(2025, Some("abc123"));
+    assert!(!rating_work_is_transfer_triggered(Some(&stats)));
+    assert!(!rating_work_is_transfer_triggered(Some(
+        &rating_work_input_version(2025, None)
+    )));
+    assert!(!rating_work_is_transfer_triggered(Some("rating:s2024:deadbeef")));
+    assert!(!rating_work_is_transfer_triggered(None));
+}
+
+#[test]
 fn rating_parser_never_fails_closed() {
     // Even garbage parses to Some (rating's only marker is pre-model); an empty body is the
     // caller's hard error, not a served UNKNOWN.

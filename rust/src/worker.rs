@@ -37,7 +37,7 @@ use crate::harness::Harness;
 use crate::junctions::editor;
 use crate::stage::StageHandler;
 use crate::work::{self, retry_backoff, Stage, MAX_ATTEMPTS};
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use futures::stream::{FuturesUnordered, StreamExt};
 use sqlx::postgres::PgListener;
 use sqlx::PgPool;

@@ -10,9 +10,13 @@
 #
 # Checks (each one line in the log, OK or ALARM):
 #   ingest_recency   — newest news_articles.fetched_at within 26h (sweep ran)
-#   editor_reads     — per sport: of yesterday's team-swept articles, the share
-#                      with a news_article_readings row. <20% read = the
-#                      "stored but never read" signature (cap bug class)
+#   editor_reads     — per sport: of yesterday's SWEPT TEAMS, the share with at
+#                      least one editor_reads row. Team coverage, not article
+#                      share: the D-T21 cap deliberately reads only ~10 of a
+#                      team's articles a day (NFL sweeps ~70/team, so article
+#                      share sits at ~15% BY DESIGN). The failure this hunts is
+#                      whole teams at zero — the Aug 7-14 starvation signature.
+#                      <80% of teams covered = ALARM.
 #   voice_output     — per sport: newest vibe_scores.generated_at within 48h
 #                      (the voices are producing, not just queued)
 #   packet_compile   — newest packets.compiled_at within 36h (the rail compiles)
@@ -52,14 +56,20 @@ WITH ingest AS (
 reads AS (
   -- editor_reads is the one-rail Editor's ledger; news_article_readings was the
   -- legacy rail's (dropped in mig 224). Checking the dead table made this alarm
-  -- fire forever on a healthy pipeline (Aug 15-16, 2026).
-  SELECT a.raw->>'query_sport' AS sport,
-         count(*) AS swept,
-         count(er.article_id) AS read
-    FROM news_articles a
-    LEFT JOIN editor_reads er ON er.article_id = a.id
-   WHERE a.fetched_at BETWEEN now() - interval '36 hours' AND now() - interval '12 hours'
-     AND a.raw ? 'query_team_id' AND a.raw ? 'query_sport'
+  -- fire forever on a healthy pipeline (Aug 15-16, 2026). Counted per TEAM, not
+  -- per article: the D-T21 cap holds article share at ~15% for high-volume
+  -- sports on purpose, but a swept team with ZERO reads is the starvation bug.
+  SELECT sport, count(*) AS swept, count(*) FILTER (WHERE read_n > 0) AS read
+    FROM (
+      SELECT a.raw->>'query_sport' AS sport,
+             a.raw->>'query_team_id' AS team,
+             count(er.article_id) AS read_n
+        FROM news_articles a
+        LEFT JOIN editor_reads er ON er.article_id = a.id
+       WHERE a.fetched_at BETWEEN now() - interval '36 hours' AND now() - interval '12 hours'
+         AND a.raw ? 'query_team_id' AND a.raw ? 'query_sport'
+       GROUP BY 1, 2
+    ) per_team
    GROUP BY 1
 ),
 vibes AS (
@@ -88,8 +98,8 @@ SELECT 'ingest_recency',
   FROM ingest
 UNION ALL
 SELECT 'editor_reads[' || sport || ']',
-       CASE WHEN swept = 0 OR read * 100 >= swept * 20 THEN 'OK' ELSE 'ALARM' END,
-       read || '/' || swept || ' swept articles read'
+       CASE WHEN swept = 0 OR read * 100 >= swept * 80 THEN 'OK' ELSE 'ALARM' END,
+       read || '/' || swept || ' swept teams have a read'
   FROM reads
 UNION ALL
 SELECT 'voice_output[' || sport || ']',

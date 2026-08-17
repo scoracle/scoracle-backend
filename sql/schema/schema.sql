@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict iepd2juhSlAdU9XAPZZ8bGnFJfgmxYzitpHjmArtm8CF7MqpQ5NDgyXaEr15OoC
+\restrict kBIFguJLrHgvgP2mPVpkgRPiZJkiRZx0qCioDtweabptRBAgXN6MmSfiLeBmnPd
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -1927,8 +1927,8 @@ BEGIN
                    regexp_replace(a.title, '[^a-zA-Z0-9 ]', '', 'g'), ' +', ' ', 'g'))) AS norm,
                EXISTS (SELECT 1 FROM public.news_article_entities e
                         WHERE e.article_id = a.id) AS corpus_visible,
-               EXISTS (SELECT 1 FROM public.news_article_readings r
-                        WHERE r.article_id = a.id) AS already_read
+               EXISTS (SELECT 1 FROM public.editor_reads er
+                        WHERE er.article_id = a.id) AS already_read
           FROM public.news_articles a
          WHERE a.published_at > now() - p_lookback
            AND a.title <> ''
@@ -8393,51 +8393,6 @@ COMMENT ON TABLE public.news_article_entities IS 'Which entities an article is a
 
 
 --
--- Name: news_article_readings; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.news_article_readings (
-    article_id bigint NOT NULL,
-    status text NOT NULL,
-    final_url text,
-    final_domain text,
-    content_hash text,
-    extracted_words integer DEFAULT 0 NOT NULL,
-    evidence_blurb text,
-    evidence jsonb DEFAULT '{}'::jsonb NOT NULL,
-    model_version text,
-    prompt_version text,
-    parser_outcome text DEFAULT 'no_call'::text NOT NULL,
-    last_error text,
-    fetched_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT news_article_readings_extracted_words_check CHECK ((extracted_words >= 0)),
-    CONSTRAINT news_article_readings_status_check CHECK ((status = ANY (ARRAY['success'::text, 'irrelevant'::text, 'not_allowlisted'::text, 'duplicate'::text, 'no_vetted_entities'::text, 'paywall'::text, 'blocked'::text, 'empty_body'::text, 'fetch_failed'::text, 'parse_failed'::text])))
-);
-
-
---
--- Name: TABLE news_article_readings; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.news_article_readings IS 'DRIVER: collapse_exact_title_duplicates(), called from rust/src/worker.rs — LIVE during every ingest. Also the legacy article_read output and the rollback surface for the 30,224 parked article_read rows. PHASE 9 OWNS THIS TABLE — do not drop it ahead of that demolition.';
-
-
---
--- Name: COLUMN news_article_readings.content_hash; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.news_article_readings.content_hash IS 'SHA-256 prefix over cleaned fetched article text. Used with status/model fields as the Narratives debounce fingerprint so richer article reads reopen the Journalist.';
-
-
---
--- Name: COLUMN news_article_readings.evidence_blurb; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.news_article_readings.evidence_blurb IS 'Compact source-grounded blurb rendered into the Narratives prompt. NULL means the Journalist falls back to the RSS description.';
-
-
---
 -- Name: news_articles; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -10681,14 +10636,6 @@ ALTER TABLE ONLY public.news_article_entities
 
 
 --
--- Name: news_article_readings news_article_readings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.news_article_readings
-    ADD CONSTRAINT news_article_readings_pkey PRIMARY KEY (article_id);
-
-
---
 -- Name: news_articles news_articles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -11471,20 +11418,6 @@ CREATE INDEX idx_narrative_persons_sport_kind_status ON public.narrative_persons
 --
 
 CREATE INDEX idx_narrative_persons_team ON public.narrative_persons USING btree (team_id, sport) WHERE (team_id IS NOT NULL);
-
-
---
--- Name: idx_news_article_readings_domain; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_news_article_readings_domain ON public.news_article_readings USING btree (final_domain) WHERE (final_domain IS NOT NULL);
-
-
---
--- Name: idx_news_article_readings_status; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_news_article_readings_status ON public.news_article_readings USING btree (status, updated_at DESC);
 
 
 --
@@ -12521,14 +12454,6 @@ ALTER TABLE ONLY public.news_article_entities
 
 
 --
--- Name: news_article_readings news_article_readings_article_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.news_article_readings
-    ADD CONSTRAINT news_article_readings_article_id_fkey FOREIGN KEY (article_id) REFERENCES public.news_articles(id) ON DELETE CASCADE;
-
-
---
 -- Name: news_articles news_articles_duplicate_of_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -12955,5 +12880,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict iepd2juhSlAdU9XAPZZ8bGnFJfgmxYzitpHjmArtm8CF7MqpQ5NDgyXaEr15OoC
+\unrestrict kBIFguJLrHgvgP2mPVpkgRPiZJkiRZx0qCioDtweabptRBAgXN6MmSfiLeBmnPd
 

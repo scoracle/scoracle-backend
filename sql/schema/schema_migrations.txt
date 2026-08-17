@@ -39,8 +39,8 @@
 039_rating_scoped_ranks
 040_penalties_rating
 041_penalties_won
-042a_auth_refresh_tokens
 042_rating_modes
+042a_auth_refresh_tokens
 043_scoped_breakdown
 044_autofill_position
 045_uniform_scopes

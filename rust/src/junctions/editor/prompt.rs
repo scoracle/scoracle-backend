@@ -81,7 +81,14 @@ use crate::util::truncate;
 /// gap. System prompt: 6,384 ch = **914 tok measured** (ep5 692, ep1 1,431): ep6 beats ep1's
 /// gate score at 64% of its token cost, and `EDITOR_MAX_MODEL_CHARS` was re-derived below to
 /// keep the worst case inside the window.
-pub const EDITOR_CONTRACT_VERSION: &str = "ep6";
+///
+/// `ep7` (2026-08-16) — the discovery cap raise. Schema `names.maxItems` 12 → 24, parser
+/// `.take(12)` → `.take(24)`. The Investigator's entity-discovery channel was silently dropping
+/// names the model listed beyond 12 (a long match report naming 20 people lost 8 from the
+/// discovery pipeline). Constrained decoding makes the schema budget free, so this costs tokens
+/// only when the model emits more names — which is exactly when the Investigator needs them.
+/// Prompt updated to match: "three to twelve, and a long feature can yield two dozen."
+pub const EDITOR_CONTRACT_VERSION: &str = "ep7";
 
 pub const EDITOR_SYSTEM_PROMPT: &str = r#"Read one fetched sports article and describe it for the newsroom: what the page is, who is in it, what happened, and how it feels. Describe only — code turns your description into every decision, so never state a verdict.
 
@@ -95,7 +102,7 @@ page_kind — what the page IS, judged by its body and not its headline:
 - roundup: a link list, tag page or "related stories" aggregation.
 - other: anything else.
 
-names — WHO IS IN THIS TEXT. Every person and every club it actually involves: the clubs playing or negotiating, every player, every coach or manager, anyone it quotes, every executive it names. Work through the whole text and do not stop at the first name — a typical report yields three to eight, and a list naming a club but none of its people is wrong. Names we do not already know are how new people enter the system, so list them even when they look unfamiliar. Example shape, from an imaginary story: [{"name":"Feyenoord","kind_hint":"club","descriptor":"selling club"},{"name":"Santiago Gimenez","kind_hint":"person","descriptor":"Feyenoord striker"}]
+names — WHO IS IN THIS TEXT. Every person and every club it actually involves: the clubs playing or negotiating, every player, every coach or manager, anyone it quotes, every executive it names. Work through the whole text and do not stop at the first name — a typical report yields three to twelve, and a long feature can yield two dozen. A list naming a club but none of its people is wrong. Names we do not already know are how new people enter the system, so list them even when they look unfamiliar. Example shape, from an imaginary story: [{"name":"Feyenoord","kind_hint":"club","descriptor":"selling club"},{"name":"Santiago Gimenez","kind_hint":"person","descriptor":"Feyenoord striker"}]
 - name: as the text writes it, in full — "Bukayo Saka", not "Saka". Name the club, never its city: "Paris Saint-Germain", not "Paris". A city is never a club; if the text is about the city itself — an event, a race, a venue — it does not belong here at all, and never as club.
 - kind_hint: what the name ITSELF is, never its affiliation — a "Rangers defender" is a person, and his club is its own entry in this list. Anything that is not a person or a club — a city, a competition — is other, never club.
 - descriptor: up to 6 words COPIED FROM THE TEXT giving the role or context — "Real Madrid manager", "PSG sporting director". Never your own knowledge, and never a role word from entity_roles. Empty string if the text gives none.

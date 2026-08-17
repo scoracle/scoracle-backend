@@ -377,7 +377,7 @@ pub async fn attach_best_effort(
     read: &EditorRead,
     resolved: &Resolved,
 ) {
-    if let Err(e) = attach_in_tx(
+    match attach_in_tx(
         pool,
         sport,
         article_id,
@@ -389,11 +389,29 @@ pub async fn attach_best_effort(
     )
     .await
     {
-        tracing::warn!(
-            article_id,
-            error = %format!("{e:#}"),
-            "storyline attach failed (read already persisted; continuing)"
-        );
+        Ok(Some(attachment)) => {
+            // Friction 2 observability: log attach decisions to surface fragmentation patterns
+            tracing::info!(
+                article_id,
+                sport,
+                storyline_id = attachment.storyline_id,
+                opened = attachment.opened,
+                score = attachment.score,
+                candidates = attachment.candidates,
+                story_type = %read.story_type,
+                "storyline attach"
+            );
+        }
+        Ok(None) => {
+            // No attachment - either no resolved links or already attached (normal, no log)
+        }
+        Err(e) => {
+            tracing::warn!(
+                article_id,
+                error = %format!("{e:#}"),
+                "storyline attach failed (read already persisted; continuing)"
+            );
+        }
     }
 }
 

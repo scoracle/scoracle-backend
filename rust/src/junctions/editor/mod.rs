@@ -93,7 +93,7 @@ pub const EDITOR_FORMAT_SCHEMA_RAW: &str = r#"{
         ] },
         "names": {
             "type": "array",
-            "maxItems": 12,
+            "maxItems": 24,
             "items": {
                 "type": "object",
                 "properties": {
@@ -288,7 +288,7 @@ impl Parser<EditorRead> for EditorReadParser<'_> {
                 n
             })
             .filter(|n| !n.name.is_empty())
-            .take(12)
+            .take(24)
             .collect();
         read.entity_roles.retain(|r| !r.entity.trim().is_empty());
         // Register is DERIVED-normalized, not trusted (the C2 discipline): the prompt states
@@ -517,34 +517,25 @@ impl StageHandler for EditorHandler {
             &resolved,
         )
         .await;
-        // The G1 seam (7.13): on the packet rail the Editor hands graph its article, because the
-        // legacy `article_read` seat that enqueues it today (mig 193) is what Phase 8 turns off.
-        // Gated, so until the flip graph keeps riding article_read and this is dead code with a
-        // live test — the alternative, wiring it at flip time, is a seam nobody has ever run.
-        //
-        // AFTER the link writes on purpose: graph's candidate list is
-        // `news_article_entities WHERE vetted`, so an enqueue that beat the links would extract
-        // against an empty candidate set and fail closed for a reason that has nothing to do with
-        // the article.
+        // Graph hand-off: the Editor enqueues graph work for this article after writing links.
+        // Link writes must come first: graph's candidate list is `news_article_entities WHERE vetted`,
+        // so an enqueue that beat the links would extract against an empty candidate set and fail
+        // closed for a reason that has nothing to do with the article.
+        if let Err(e) =
+            write_links(&hx.pool, article_id, &item.sport, read.relevant, &resolved).await
         {
-            // 8.5, and it must come FIRST: the link writes are what `enqueue_graph_for_article`
-            // below reads as its candidate set.
-            if let Err(e) =
-                write_links(&hx.pool, article_id, &item.sport, read.relevant, &resolved).await
-            {
-                tracing::warn!(
-                    article_id,
-                    error = %format!("{e:#}"),
-                    "editor link write failed (read already persisted; continuing)"
-                );
-            }
-            if let Err(e) = enqueue_graph_for_article(&hx.pool, article_id, &item.sport).await {
-                tracing::warn!(
-                    article_id,
-                    error = %format!("{e:#}"),
-                    "graph enqueue failed (read already persisted; continuing)"
-                );
-            }
+            tracing::warn!(
+                article_id,
+                error = %format!("{e:#}"),
+                "editor link write failed (read already persisted; continuing)"
+            );
+        }
+        if let Err(e) = enqueue_graph_for_article(&hx.pool, article_id, &item.sport).await {
+            tracing::warn!(
+                article_id,
+                error = %format!("{e:#}"),
+                "graph enqueue failed (read already persisted; continuing)"
+            );
         }
         Ok(())
     }

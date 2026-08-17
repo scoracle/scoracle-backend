@@ -49,6 +49,36 @@ use tokio::signal::unix::{signal, SignalKind};
 use tokio::sync::Notify;
 use tracing::{debug, error, info, warn};
 
+/// Query how many storylines were updated in the last hour to determine velocity.
+async fn storyline_velocity(pool: &PgPool) -> Result<i64> {
+    let count: i64 = sqlx::query_scalar(
+        r#"
+        SELECT COUNT(*) 
+        FROM storylines 
+        WHERE last_article_at > NOW() - INTERVAL '1 hour'
+        "#,
+    )
+    .fetch_one(pool)
+    .await
+    .context("query storyline velocity")?;
+    
+    Ok(count)
+}
+
+/// Calculate the next desk interval based on storyline velocity.
+/// 
+/// High velocity (>10 storylines/hour) = 120 seconds (less frequent, save resources)
+/// Medium velocity (3-10 storylines/hour) = 60 seconds (baseline)
+/// Low velocity (<3 storylines/hour) = 30 seconds (more responsive)
+fn velocity_adaptive_interval(velocity: i64) -> Duration {
+    match velocity {
+        v if v > 10 => Duration::from_secs(120),
+        v if v < 3 => Duration::from_secs(30),
+        _ => Duration::from_secs(60),
+    }
+}
+
+
 const NOTIFY_CHANNEL: &str = "pipeline_work_ready";
 
 /// Supervisor cadence for watchdog progress checks.
@@ -344,8 +374,11 @@ impl Desk {
     }
 }
 
-/// desk_loop sweeps on [`DESK_INTERVAL`] until shutdown. The first sweep runs immediately, so a
-/// restart compiles what settled while the process was down instead of waiting a full interval.
+/// desk_loop sweeps with velocity-aware scheduling until shutdown. The first sweep runs
+/// immediately, so a restart compiles what settled while the process was down instead of waiting
+/// a full interval. The cadence adapts based on storyline velocity: high activity (>10/hour) uses
+/// 120s intervals to conserve resources, low activity (<3/hour) uses 30s intervals for faster
+/// responsiveness, and baseline activity uses 60s.
 async fn desk_loop(desk: Desk) {
     let mut cause = "startup";
     loop {
@@ -355,7 +388,19 @@ async fn desk_loop(desk: Desk) {
         }
         desk.sweep(cause).await;
         cause = "interval";
-        tokio::time::sleep(DESK_INTERVAL).await;
+        
+        // Query velocity and adapt the cadence
+        let velocity = match storyline_velocity(&desk.pool).await {
+            Ok(v) => v,
+            Err(e) => {
+                warn!(error = %format!("{e:#}"), "failed to query storyline velocity, using baseline interval");
+                5 // default to baseline
+            }
+        };
+        let interval = velocity_adaptive_interval(velocity);
+        debug!(velocity, interval_secs = interval.as_secs(), "desk loop cadence");
+        
+        tokio::time::sleep(interval).await;
     }
 }
 

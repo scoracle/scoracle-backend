@@ -11,6 +11,8 @@ use anyhow::{Context, Result};
 use serde_json::json;
 use sqlx::{PgPool, Row};
 use std::collections::BTreeMap;
+use tracing::debug;
+use tracing::debug;
 
 /// `page_kind` values whose BODY is not reporting, whatever the headline promised. A page of this
 /// shape cannot be materially about an entity because it is not materially about anything.
@@ -61,9 +63,24 @@ pub fn derive_relevance(
     // that role's vote — the descriptor outranks the role label (it is copied from the text;
     // the label is a guess).
     let described_as_place = |entity: &str| {
-        names
+        let hit = names
             .iter()
-            .any(|n| n.name.eq_ignore_ascii_case(entity.trim()) && descriptor_names_place(&n.descriptor))
+            .any(|n| n.name.eq_ignore_ascii_case(entity.trim()) && descriptor_names_place(&n.descriptor));
+        // Friction 1 observability: log when the descriptor arm fires so we can measure whether
+        // it's still needed on ministral-3:3b (originally measured on gemma3:4b, 2026-08-01).
+        if hit {
+            let descriptor = names
+                .iter()
+                .find(|n| n.name.eq_ignore_ascii_case(entity.trim()))
+                .map(|n| n.descriptor.as_str())
+                .unwrap_or("");
+            debug!(
+                entity = %entity,
+                descriptor = %descriptor,
+                "descriptor_names_place arm fired (relevance gate)"
+            );
+        }
+        hit
     };
     // A `passing_mention` vote with no matching names[] entry is a label with no referent
     // (measured 2026-08-01: hypothesis "Fortuna" gets a passing_mention on a page whose only
@@ -82,13 +99,50 @@ pub fn derive_relevance(
         .filter(|r| entity_matches(hypothesis, &r.entity))
         .peekable();
     if placed.peek().is_some() {
-        return placed.any(|r| {
-            !r.role.eq_ignore_ascii_case("absent") && !described_as_place(&r.entity) && supported(r)
+        let result = placed.any(|r| {
+            let not_absent = !r.role.eq_ignore_ascii_case("absent");
+            let place = described_as_place(&r.entity);
+            let sup = supported(r);
+            
+            // Observability: log when descriptor arm fires (unmeasured on ministral-3:3b)
+            if place && not_absent {
+                let descriptor = names
+                    .iter()
+                    .find(|n| n.name.eq_ignore_ascii_case(r.entity.trim()))
+                    .map(|n| n.descriptor.as_str())
+                    .unwrap_or("");
+                debug!(
+                    entity = %r.entity,
+                    role = %r.role,
+                    descriptor,
+                    "descriptor_names_place arm fired (relevance rejected)"
+                );
+            }
+            
+            not_absent && !place && sup
         });
+        return result;
     }
-    names
+    
+    // Fallback path: check names[] when entity_roles is empty
+    let result = names
         .iter()
-        .any(|n| entity_matches(hypothesis, &n.name) && !descriptor_names_place(&n.descriptor))
+        .any(|n| {
+            let matches = entity_matches(hypothesis, &n.name);
+            let place = descriptor_names_place(&n.descriptor);
+            
+            // Observability: log when descriptor arm fires in fallback path
+            if matches && place {
+                debug!(
+                    entity = %n.name,
+                    descriptor = %n.descriptor,
+                    "descriptor_names_place arm fired in fallback (relevance rejected)"
+                );
+            }
+            
+            matches && !place
+        });
+    result
 }
 
 /// descriptor_names_place is the descriptor arm of the resolver's gate (§1a: "the descriptor is

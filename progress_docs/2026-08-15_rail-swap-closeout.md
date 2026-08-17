@@ -1,7 +1,9 @@
 # Rail Swap Closeout — the one-rail is the only rail
 
-**Date:** 2026-08-15
-**Status:** CLOSED. The swap plan is complete; this doc is the circle-back checklist.
+**Date:** 2026-08-15 · circled back 2026-08-16
+**Status:** CLOSED. The swap plan is complete; the 08-16 circle-back ran the checklist,
+found two real defects behind "my teams still show July", fixed both, and dropped the
+last legacy table. See the 08-16 addendum at the bottom.
 
 ## What the swap turned out to be (Aug 14–15)
 
@@ -86,3 +88,33 @@ Ask these in order; each has a one-query answer:
   `defiant-fable:9b`
 - Eval harness: `rust/target/release/eval` — the Oracle A/B invocation is in the
   usage header of `rust/src/bin/eval.rs`
+
+## 08-16 circle-back — what the checklist actually found
+
+Scott's report: "my teams all have data from the end of July." Chelsea's news/vibe
+were dated Jul 25, sigil Jul 27 — while players shipped 999 news products in 48h.
+Two distinct defects, both fixed same-day:
+
+1. **The watchdog cried wolf** — `editor_reads[*] 0/N` was joining
+   `news_article_readings`, the LEGACY rail's read ledger (frozen Aug 5). The one-rail
+   Editor writes `editor_reads` and had read 1,539 articles in the prior 24h. Repointed;
+   and the check now measures TEAM coverage (swept teams with ≥1 read, alarm <80%)
+   instead of article share, which the D-T21 cap deliberately holds near 15% for
+   high-volume sports (NFL sweeps ~70 articles/team, reads 10).
+2. **Queue starvation inversion** — enqueue's ON CONFLICT restamped
+   `available_at = NOW()` on still-pending rows. Claiming is FIFO on `available_at`, so
+   every entity re-noticed with new input went to the BACK of the line. Hot teams get
+   fresh articles nightly → re-stamped daily → never reached the head of a ~2,200-deep
+   queue; quiet players aged to the front and took every slot. The entities Scott
+   watches daily were structurally the least fresh. Fixes (e382a13): pending rows keep
+   their FIFO place, and narratives/vibe/sigil claim teams before players (~200 bounded
+   team rows — the player tail cannot starve in return).
+
+Prune completed with it (8a3c790, mig 224): `news_article_readings` dropped;
+`collapse_exact_title_duplicates` tiebreak repointed to `editor_reads`; the graph
+junction's G1 legacy fallback removed; `bin/remap` (one-shot Jul backfill) and
+`scripts/ops/article_read_drain_monitor.sh` deleted. Watchdog runs all-OK post-fix.
+
+Checklist deltas for next circle-back: query 1's alarm text now reads
+"N/M swept teams have a read"; the queue query (2) counts should show the player
+backlog draining behind a permanently-fresh team set.

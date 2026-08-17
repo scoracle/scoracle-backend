@@ -655,7 +655,10 @@ async fn enqueue_graph_for_article(pool: &sqlx::PgPool, article_id: i64, sport: 
         ON CONFLICT (stage, entity_type, entity_id, sport) DO UPDATE SET
             status        = 'pending',
             attempts      = 0,
-            available_at  = NOW(),
+            -- Pending rows keep their FIFO place (see work::enqueue).
+            available_at  = CASE WHEN public.pipeline_work.status = 'pending'
+                                 THEN public.pipeline_work.available_at
+                                 ELSE NOW() END,
             updated_at    = NOW(),
             last_error    = NULL,
             input_version = EXCLUDED.input_version

@@ -75,7 +75,13 @@ func Enqueue(ctx context.Context, q Querier, it Item) error {
 		ON CONFLICT (stage, entity_type, entity_id, sport) DO UPDATE SET
 		    status        = 'pending',
 		    attempts      = 0,
-		    available_at  = NOW(),
+		    -- A still-pending row keeps its place in the FIFO. Restamping to NOW()
+		    -- sent every re-noticed entity to the back of the line, so the hottest
+		    -- entities (teams, re-noticed nightly) starved behind quiet ones that
+		    -- aged to the front (Chelsea frozen Jul 25–Aug 16 while players churned).
+		    available_at  = CASE WHEN pipeline_work.status = 'pending'
+		                         THEN pipeline_work.available_at
+		                         ELSE NOW() END,
 		    updated_at    = NOW(),
 		    last_error    = NULL,
 		    input_version = EXCLUDED.input_version

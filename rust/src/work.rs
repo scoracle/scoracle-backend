@@ -72,12 +72,18 @@ impl Stage {
     /// backlog rows from displacing a fresh top hit.
     fn claim_order(self) -> &'static str {
         match self {
-            // The Editor drains best-first for the same reason ArticleRead does: when a backlog
-            // exists, order decides which articles get a model call, and Google already ranked
-            // them.
+            // The Editor drains best-first: when a backlog exists, order decides which
+            // articles get a model call, and Google already ranked them.
             Stage::Editor => {
                 "(SELECT a.feed_rank FROM public.news_articles a WHERE a.id = pipeline_work.entity_id) \
                  ASC NULLS LAST, available_at"
+            }
+            // Teams before players on the product stages. Teams are the pages Scott and
+            // subscribers check daily, and they are bounded (~200 rows vs thousands of
+            // players), so this cannot starve the player tail — it just guarantees every
+            // team card refreshes within the first minutes of an on-hour.
+            Stage::Narratives | Stage::Vibe | Stage::Sigil => {
+                "CASE entity_type WHEN 'team' THEN 0 ELSE 1 END, available_at"
             }
             _ => "available_at",
         }
@@ -420,7 +426,12 @@ pub async fn enqueue(pool: &PgPool, it: &Item) -> Result<()> {
         ON CONFLICT (stage, entity_type, entity_id, sport) DO UPDATE SET
             status        = 'pending',
             attempts      = 0,
-            available_at  = NOW(),
+            -- A still-pending row keeps its place in the FIFO (mirrors Go): restamping
+            -- to NOW() sent every re-noticed entity to the back of the line, starving
+            -- the hottest entities behind quiet ones that aged to the front.
+            available_at  = CASE WHEN pipeline_work.status = 'pending'
+                                 THEN pipeline_work.available_at
+                                 ELSE NOW() END,
             updated_at    = NOW(),
             last_error    = NULL,
             input_version = EXCLUDED.input_version

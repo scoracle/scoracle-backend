@@ -33,14 +33,6 @@ path = "src/bin/statcommentary.rs"
 name = "bucketlabel"
 path = "src/bin/bucketlabel.rs"
 
-# B4 re-mapping backfill over the 07-27 incident cohort (PLAN-ingest-simplification.md). Maps the
-# Editor's emitted name strings back to entities by exact normalized match — zero model calls.
-# Dry-run by default; the flip pass suppresses the vetted trigger so restoring links does not
-# re-arm the articles (trap T10).
-[[bin]]
-name = "remap"
-path = "src/bin/remap.rs"
-
 # One-shot storyline backfill over the shadow period's editor_reads (PLAN-one-rail 6.2). Pure
 # code — zero model calls, zero packets, so mig 206's fan-out cannot fire from it. Dry-run
 # (rehearse-and-rollback) by default; -apply commits in batches.

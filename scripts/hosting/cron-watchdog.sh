@@ -50,11 +50,14 @@ WITH ingest AS (
   SELECT max(fetched_at) AS newest FROM news_articles
 ),
 reads AS (
+  -- editor_reads is the one-rail Editor's ledger; news_article_readings was the
+  -- legacy rail's (dropped in mig 224). Checking the dead table made this alarm
+  -- fire forever on a healthy pipeline (Aug 15-16, 2026).
   SELECT a.raw->>'query_sport' AS sport,
          count(*) AS swept,
-         count(r.article_id) AS read
+         count(er.article_id) AS read
     FROM news_articles a
-    LEFT JOIN news_article_readings r ON r.article_id = a.id
+    LEFT JOIN editor_reads er ON er.article_id = a.id
    WHERE a.fetched_at BETWEEN now() - interval '36 hours' AND now() - interval '12 hours'
      AND a.raw ? 'query_team_id' AND a.raw ? 'query_sport'
    GROUP BY 1

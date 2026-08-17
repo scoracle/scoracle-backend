@@ -55,7 +55,7 @@ async fn storyline_velocity(pool: &PgPool) -> Result<i64> {
         r#"
         SELECT COUNT(*) 
         FROM storylines 
-        WHERE last_article_at > NOW() - INTERVAL '1 hour'
+        WHERE last_seen_at > NOW() - INTERVAL '1 hour'
         "#,
     )
     .fetch_one(pool)

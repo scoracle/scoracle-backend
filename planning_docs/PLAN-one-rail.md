@@ -13,6 +13,19 @@
 > late; that is what the drift costs.) **§0 rule 3 — plumbing gates phases; a phase may CITE the
 > ledger, it may never HALT on it.**
 
+# ✅✅ THE PLAN IS DONE (closed 2026-08-18 — Phase 9.6's stamp)
+
+**Every phase is closed, including Phase 9's close-out acts.** The prune went further than
+9.2's freeze: on Scott's rip-the-bandaid order (08-16), the legacy artifacts were DROPPED,
+not archived — `narrative_threads` (mig 220), the episode lifecycle + four dead tables
+(mig 222), `news_article_readings` (mig 224, the last legacy-rail table). 9.3's rebaseline
+numbers, 9.4's wiki updates (scoracle-wiki `a90f56e`), and 9.5's crontab verdict
+(superseded — post-222 the memory card reads the co-mention edge on purpose) are recorded
+in **`HANDOFF-one-rail.md`**, the 9.6 hand-off. The operational record of the swap's final
+week — the starvation-inversion fix, the watchdog repoint, the adjudication grammar — is
+`progress_docs/2026-08-15_rail-swap-closeout.md`. **This file is history from here; the
+tuning ledger continues in `PLAN-character-tuning.md`.**
+
 # ✅ THE BUILD IS COMPLETE (Scott's ruling, 2026-08-10 evening)
 
 **Every phase is closed or dispositioned: 0–3, 5, 7 closed on their verifies; 4 closed-as-parked

@@ -118,3 +118,26 @@ junction's G1 legacy fallback removed; `bin/remap` (one-shot Jul backfill) and
 Checklist deltas for next circle-back: query 1's alarm text now reads
 "N/M swept teams have a read"; the queue query (2) counts should show the player
 backlog draining behind a permanently-fresh team set.
+
+## 08-18 follow-up — the resolved archive was starving too
+
+Two days of green watchdogs and current-week team cards confirmed the 08-16 fixes.
+One new defect found chasing "storylines resolved stuck at 4": **every identity
+adjudication since Aug 17 failed closed** ("invalid identity adjudication JSON").
+The EmotionalNews seat now resolves to ministral-3:3b, which misses the bare
+`json_mode` shape 4/5 times — so nothing reached `transfer_identity_applications`
+(applied), the `transfer_ground_truth` view stayed empty (newest row Jul 29), and
+`seal_storylines` resolved 0 nightly with nothing to seal against. Fix (6850b2c):
+the adjudication contract became a format schema (the Editor's own D-T43 pattern on
+the same model), and fail-closed rows now store the model's verbatim reply instead
+of "" — the Aug-17 failures were undiagnosable from the database.
+
+Also re-frozen: the 12 editor eval fixtures the friction-audit ep7 bump left at ep6
+(bf6bc4b, regenerated through the real builder; diff = the contract delta only).
+
+**The one open watch-item is capacity**: pending grew 7,012 → 8,874 in two days
+(player products, ~800/day net). Teams stay permanently fresh by construction, so
+the product face is unaffected — but the player tail lags further behind each day.
+The levers, when Scott wants one: more on-hours in the duty cycle, higher parallel
+on the 3b lane, or trimming player product inflow (only enqueue players the Editor
+actually placed in a storyline that cycle).

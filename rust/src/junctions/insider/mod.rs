@@ -178,6 +178,28 @@ pub struct TransferIdentityAdjudication {
     pub evidence_spans: Vec<String>,
 }
 
+/// The adjudication reply as a grammar (D-T43): field order matches the contract stated in
+/// `transfer_identity_adjudication_system_prompt`, and the enums/bounds live here where they
+/// are free instead of in prose. Added 2026-08-18: on free `json_mode` the 3b failed the shape
+/// 4/5 times after the seat moved off gemma (Aug 17 `failed_closed` run) — the same model emits
+/// the Editor's far larger contract reliably because a schema constrains it. RAW literal, not
+/// `json!`, for the same reason as `EDITOR_FORMAT_SCHEMA_RAW`: a `Value` schema reaches Ollama
+/// alphabetized.
+pub const TRANSFER_IDENTITY_ADJUDICATION_SCHEMA_RAW: &str = r#"{
+    "type": "object",
+    "properties": {
+        "decision": { "type": "string", "enum": ["apply", "reject"] },
+        "event_type": { "type": "string", "enum": [
+            "transfer", "trade", "loan", "signing", "extension", "rumor", "false_positive"
+        ] },
+        "old_team_id": { "type": ["integer", "null"] },
+        "new_team_id": { "type": "integer" },
+        "reason": { "type": "string", "maxLength": 500 },
+        "evidence_spans": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 6 }
+    },
+    "required": ["decision", "event_type", "old_team_id", "new_team_id", "reason", "evidence_spans"]
+}"#;
+
 pub struct TransferIdentityAdjudicationParser;
 
 impl Parser<TransferIdentityAdjudication> for TransferIdentityAdjudicationParser {
@@ -1765,9 +1787,14 @@ async fn maybe_apply_transfer_identity(
         // had not run. The value must track whatever The Editor asks for; the voices' 16384 here
         // would put that KV allocation on an 8 GB card.
         num_ctx: crate::route::LOCAL_STAGE_NUM_CTX,
-        json_mode: true,
-        format_schema: None,
-        format_schema_raw: None,
+        // Grammar-constrained like the Editor, not free json_mode: the 3b that took this seat
+        // failed the bare-JSON shape 4/5 times (Aug 17); under a schema it cannot.
+        json_mode: false,
+        format_schema: Some(
+            serde_json::from_str(TRANSFER_IDENTITY_ADJUDICATION_SCHEMA_RAW)
+                .expect("TRANSFER_IDENTITY_ADJUDICATION_SCHEMA_RAW is valid JSON (unit-tested)"),
+        ),
+        format_schema_raw: Some(TRANSFER_IDENTITY_ADJUDICATION_SCHEMA_RAW.to_string()),
     };
     // Identity adjudication is a utility call (no character voice), so it stays on
     // `EmotionalNews` — NOT `TransferLogic`, which is The Insider's voice seam only.
@@ -1818,7 +1845,9 @@ async fn maybe_apply_transfer_identity(
             persisted_rumor_id,
             identity_heat,
             deterministic_confidence,
-            "",
+            // The verbatim reply, NOT "" — a fail-closed row whose raw is empty is
+            // undiagnosable from the database (the Aug-17 lesson).
+            &generated.raw_response,
             &generated.model,
             "invalid identity adjudication JSON",
         )

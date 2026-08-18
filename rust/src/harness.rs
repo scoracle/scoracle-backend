@@ -83,6 +83,10 @@ pub trait Parser<T> {
 pub struct Extracted<T> {
     /// `None` = the fail-closed marker.
     pub value: Option<T>,
+    /// The model's verbatim response text. When `value` is `None` this is the ONLY record of
+    /// what the model actually said — persist it with the failure marker, or the fail-closed
+    /// path is undiagnosable from the database (the Aug-17 adjudication failures stored "").
+    pub raw_response: String,
     /// Which concrete model answered (echoed in the `GenerateResult`).
     pub model: String,
     /// The exact user prompt sent to the model.
@@ -116,6 +120,7 @@ impl Harness {
         let value = parser.parse(&gen.response)?;
         Ok(Extracted {
             value,
+            raw_response: gen.response,
             model: gen.model,
             built_prompt: prompt.to_string(),
             request_body,

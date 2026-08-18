@@ -759,3 +759,57 @@ fn past_fires_only_once_the_deadline_has_arrived() {
     assert!(past(Some(now - Duration::from_millis(1))));
     assert!(!past(Some(now + Duration::from_secs(30))));
 }
+
+#[test]
+fn transfer_identity_adjudication_schema_matches_parser_contract() {
+    // The raw literal must be valid JSON, and its required list must cover every key the
+    // parser demands — a schema-approved reply must never fail the parser's key check.
+    let schema: serde_json::Value =
+        serde_json::from_str(TRANSFER_IDENTITY_ADJUDICATION_SCHEMA_RAW).expect("valid JSON");
+    let required: Vec<&str> = schema["required"]
+        .as_array()
+        .expect("required array")
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+    for key in [
+        "decision",
+        "event_type",
+        "old_team_id",
+        "new_team_id",
+        "reason",
+        "evidence_spans",
+    ] {
+        assert!(required.contains(&key), "schema must require {key}");
+    }
+    // The enums the parser re-checks are the same sets the grammar enforces.
+    assert_eq!(
+        schema["properties"]["decision"]["enum"],
+        serde_json::json!(["apply", "reject"])
+    );
+    assert_eq!(
+        schema["properties"]["event_type"]["enum"],
+        serde_json::json!([
+            "transfer",
+            "trade",
+            "loan",
+            "signing",
+            "extension",
+            "rumor",
+            "false_positive"
+        ])
+    );
+}
+
+#[test]
+fn transfer_identity_adjudication_parser_accepts_schema_shaped_reply() {
+    let reply = r#"{"decision":"apply","event_type":"transfer","old_team_id":null,
+        "new_team_id":18,"reason":"official club statement","evidence_spans":["signed"]}"#;
+    let parsed = TransferIdentityAdjudicationParser
+        .parse(reply)
+        .expect("no parser error")
+        .expect("schema-shaped reply parses");
+    assert_eq!(parsed.decision, "apply");
+    assert_eq!(parsed.new_team_id, 18);
+    assert_eq!(parsed.old_team_id, None);
+}

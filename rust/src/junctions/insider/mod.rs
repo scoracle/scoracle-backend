@@ -328,12 +328,13 @@ pub struct TransferPairOutput {
 }
 
 // ---------------------------------------------------------------------------
-// Loaders — byte-for-byte the SQL transfer.go runs (same query ⇒ same rows).
+// Loaders — ported byte-for-byte from the deleted Go `transfer.go` (same query ⇒ same rows
+// at the handover; Rust is the sole owner now).
 // ---------------------------------------------------------------------------
 
 /// load_candidates returns the team's co-mention candidate players with identity cards — the Rust
-/// port of `transfer.go::loadCandidates` (current club from `player_current_identity`; both vetted
-/// links required).
+/// port of the deleted `transfer.go::loadCandidates` (current club from
+/// `player_current_identity`; both articles' links required).
 ///
 /// The mig-033 title-proximity gate is GONE (PLAN-one-rail 8.8). It required the team and the
 /// player to appear within 50 title characters of each other, and it was a crutch for a regex that
@@ -781,7 +782,7 @@ fn clamp_conf(c: f64) -> f64 {
 }
 
 /// row_from_verdict builds the persistable columns from a (post-gate) verdict, mirroring the
-/// branching in `transfer.go::persist`:
+/// branching of the deleted `transfer.go::persist`:
 ///
 ///   * `verdict == None`        → UNKNOWN: is_rumor NULL, direction kept (audit), model NULL.
 ///   * is_rumor == Some(true)   → a vetted rumor: direction/stage/summary/confidence/model set.
@@ -1344,8 +1345,8 @@ fn transfer_excluded_evidence(out: &TransferPairOutput, row: &TransferRow) -> se
 }
 
 /// persist_transfer_row writes ONE row to the LIVE transfer_rumors table — the scored rumor, the
-/// cleared row, and the UNKNOWN marker, which differ only in the bound values. Mirrors
-/// `transfer.go::persist` (generated_at defaults NOW()).
+/// cleared row, and the UNKNOWN marker, which differ only in the bound values. Mirrors the
+/// deleted `transfer.go::persist` (generated_at defaults NOW()).
 /// `confidence` is bound float8 then cast to the numeric(3,2) column (sqlx has no numeric encode
 /// without the decimal feature — the dual of the scrub `::float8` read landmine).
 #[allow(clippy::too_many_arguments)]

@@ -231,11 +231,3 @@ pub fn build_momentum_prompt(
     b.push_str("\nWrite the Momentum read now.");
     b
 }
-
-fn empty_dash(s: &str) -> &str {
-    if s.trim().is_empty() {
-        "-"
-    } else {
-        s
-    }
-}

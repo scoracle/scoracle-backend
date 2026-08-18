@@ -3,7 +3,6 @@
 //! the same `.env.local`. DB URL precedence matches Go: DATABASE_PRIVATE_URL
 //! wins over DATABASE_URL.
 
-use crate::embed::Pooling;
 use crate::route::Role;
 use anyhow::{anyhow, Context, Result};
 use std::collections::HashMap;
@@ -34,12 +33,8 @@ pub struct Config {
     /// `ollama_model` on `ollama_base_url`, so an un-configured deploy is single-local-model;
     /// `COGNITION_ROUTE_*` overrides per role.
     pub route: RouteConfig,
-    /// Embedding-model config (the Embed primitive, Plan §1.4) — `COGNITION_EMBED_*`. Read by
-    /// the experiment harness and (once the hybrid Resolve gate lands) the service; the model
-    /// is named here, never in stage code (the same boundary the router holds for generation).
-    pub embed: EmbedConfig,
     /// Per-item ceiling on one stage handler run. A wedged await inside a handler (model
-    /// call, DB acquire, embed) fails the item after this long instead of stalling the
+    /// call, DB acquire) fails the item after this long instead of stalling the
     /// drain forever (2026-07-15 incident follow-up). Zero disables.
     pub handler_timeout: Duration,
     /// The worker supervisor's no-progress threshold: a busy drain whose heartbeat is
@@ -67,9 +62,9 @@ pub struct Config {
     /// demolished in Phase 9.1. The switch survives as an ops brake on compile cost, not as a
     /// rail selector.
     pub packet_compile: bool,
-    /// The context window EVERY voice on this host requests (`VOICE_NUM_CTX`, else the rail's
-    /// size). Resolved once at boot beside the rail, for the same reason: two items in one drain
-    /// must not disagree about the window, or the shared runner reloads between them.
+    /// The context window EVERY voice on this host requests (`VOICE_NUM_CTX`, else the 4096
+    /// packet envelope). Resolved once at boot because two items in one drain must not disagree
+    /// about the window, or the shared runner reloads between them.
     pub voice_num_ctx: i32,
 }
 
@@ -116,7 +111,6 @@ impl Config {
             // 1800s = 30 min = Go derive.StaleLease.
             stale_lease: Duration::from_secs(env_u64("COGNITION_STALE_LEASE_SECONDS", 1800)?),
             route,
-            embed: EmbedConfig::from_env()?,
             // 1200s = 20 min: generous over the slowest observed item (a narratives batch
             // item ran ~4-7 min under the 07-15 catch-up load) yet still under stale-lease,
             // with room for the semaphore wait a concurrent drain adds on a busy host.
@@ -136,34 +130,6 @@ impl Config {
             },
             packet_compile: env_bool("COGNITION_PACKET_COMPILE", false),
             voice_num_ctx,
-        })
-    }
-}
-
-/// EmbedConfig names the embedding model the Embed primitive loads (Plan §1.4). The default is
-/// BGE-small-en-v1.5 (BERT-arch, strong English, fast on CPU) with its correct `Cls` pooling;
-/// `nomic-embed-text` is the multilingual upgrade (it also unlocks the §1.5 Multilang HORIZON),
-/// swapped via `COGNITION_EMBED_MODEL` + `COGNITION_EMBED_POOLING=mean` — config, never code.
-#[derive(Clone, Debug)]
-pub struct EmbedConfig {
-    /// HF repo id, e.g. `BAAI/bge-small-en-v1.5`.
-    pub model_repo: String,
-    /// Git revision / branch to pin (`main` by default).
-    pub revision: String,
-    /// The model's pooling (BGE → `Cls`; MiniLM/nomic → `Mean`).
-    pub pooling: Pooling,
-    /// Truncate inputs to this many tokens (a news title+blurb is short; bounds CPU cost).
-    pub max_tokens: usize,
-}
-
-impl EmbedConfig {
-    /// from_env reads `COGNITION_EMBED_*`, defaulting to BGE-small-en-v1.5 / cls / 256 tokens.
-    pub fn from_env() -> Result<Self> {
-        Ok(Self {
-            model_repo: env_or("COGNITION_EMBED_MODEL", "BAAI/bge-small-en-v1.5"),
-            revision: env_or("COGNITION_EMBED_REVISION", "main"),
-            pooling: Pooling::from_str_or_cls(&env_or("COGNITION_EMBED_POOLING", "cls")),
-            max_tokens: env_usize("COGNITION_EMBED_MAX_TOKENS", 256)?,
         })
     }
 }
@@ -417,18 +383,6 @@ mod tests {
         let err = env_u64(key, 60).unwrap_err();
         std::env::remove_var(key);
         assert!(format!("{err:#}").contains(key));
-    }
-
-    // --- the rail switch (7.1) ---
-
-    #[test]
-    fn rail_parses_both_values_case_insensitively() {
-    }
-
-    /// A typo must not silently put a box on the packet rail, and must not fail its boot: it
-    /// resolves to the default, which the boot line then states.
-    #[test]
-    fn rail_falls_back_to_legacy_on_anything_else() {
     }
 
     // --- the topology split: per-host concurrency budgets ---

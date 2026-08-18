@@ -13,7 +13,8 @@
     "reader_vetted": [
       "West Ham United"
     ],
-    "register_is": "neutral"
+    "register_is": "neutral",
+    "story_type_is": "injury"
   },
   "name": "opponent-only-mention",
   "note": "KEPT since ar7, deliberately — the stale fixture trap: an opponent-only story used to be rejected, and that narrower rule is what collapsed the legacy Editor's yield 73% -> 2%. A match against us is news about us. The discovery axis rides along: the squad-news names must surface with person kinds.",

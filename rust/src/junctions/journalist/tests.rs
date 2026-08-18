@@ -11,14 +11,7 @@ fn item(id: i64, source: &str, title: &str, desc: &str, epoch: Option<i64>) -> C
         title: title.to_string(),
         description: desc.to_string(),
         source: source.to_string(),
-        url: String::new(),
         published_at_epoch: epoch,
-        fetched_at_epoch: epoch,
-        full_text: None,
-        article_read_blurb: None,
-        article_read_status: None,
-        article_read_content_hash: None,
-        article_read_updated_epoch: None,
     }
 }
 
@@ -127,10 +120,10 @@ fn description_adds_nothing_is_token_based() {
     ));
 }
 
-// --- article_read/full_text corpus seam --------------------------------------------------------
+// --- description corpus seam -------------------------------------------------------------------
 
 #[test]
-fn article_context_prefers_article_read_then_body_then_description() {
+fn article_context_renders_a_description_that_adds_content() {
     let none = item(
         1,
         "BBC",
@@ -140,39 +133,14 @@ fn article_context_prefers_article_read_then_body_then_description() {
     );
     assert_eq!(article_context(&none).0, "A strong display in the win.");
 
-    let mut read = item(4, "BBC", "Title", "short blurb", None);
-    read.full_text = Some("The full article body with much more detail.".to_string());
-    read.article_read_status = Some("success".to_string());
-    read.article_read_blurb = Some(
-        "Evidence card: Saka scored, Arsenal won, and Arteta discussed his workload."
-            .to_string(),
-    );
-    assert_eq!(
-        article_context(&read).0,
-        "Evidence card: Saka scored, Arsenal won, and Arteta discussed his workload."
-    );
-
-    // Some(non-empty): the fetched body wins over the provider blurb when no reader card exists.
-    let mut full = item(2, "BBC", "Title", "short blurb", None);
-    full.full_text = Some("The full article body with much more detail.".to_string());
-    assert_eq!(
-        article_context(&full).0,
-        "The full article body with much more detail."
-    );
-
-    // Some(blank): whitespace-only body is not a body — fall back to description.
-    let mut blank = item(3, "BBC", "Title", "blurb here", None);
-    blank.full_text = Some("   \n ".to_string());
-    assert_eq!(article_context(&blank).0, "blurb here");
-
     let p = build_narratives_prompt(
         &req("Bukayo Saka", "FOOTBALL", "player"),
-        &[read],
+        &[none],
         None,
         None,
         None,
     );
-    assert!(p.contains("Evidence card: Saka scored"));
+    assert!(p.contains("A strong display in the win."));
 }
 
 // --- input components: the debounce pre-image ---------------------------------------------------
@@ -186,9 +154,11 @@ fn input_components_are_stable_across_input_order() {
     let one = build_narratives_input_components(&[a(3), a(1)]);
     let two = build_narratives_input_components(&[a(1), a(3)]);
     assert_eq!(one, two);
+    // The readings term is a constant per article now (see READING_FINGERPRINT_NONE) — carried
+    // byte-for-byte so the field strip cost zero regens. This pin is what "byte-for-byte" means.
     let article_readings_hash = build_article_reading_input_components(&[
-        (1, "none::0".to_string()),
-        (3, "none::0".to_string()),
+        (1, READING_FINGERPRINT_NONE.to_string()),
+        (3, READING_FINGERPRINT_NONE.to_string()),
     ]);
     // prompt_version leads the pre-image (single-sourced from the const, so a bump can't silently
     // rot this pin) — an n-bump changes every entity's hash once, forcing the cutover regen.
@@ -198,15 +168,7 @@ fn input_components_are_stable_across_input_order() {
             r#"{{"prompt_version":"{NARRATIVES_PROMPT_VERSION}","article_ids":[1,3],"article_readings_hash":"{article_readings_hash}"}}"#
         )
     );
-
-    let mut read = a(1);
-    read.article_read_status = Some("success".to_string());
-    read.article_read_content_hash = Some("body-a".to_string());
-    read.article_read_updated_epoch = Some(10);
-    assert_ne!(
-        build_narratives_input_components(&[read]),
-        build_narratives_input_components(&[a(1)])
-    );
+    assert_eq!(READING_FINGERPRINT_NONE, "none::0");
 }
 
 // --- parse_narratives: the tolerant salvager ---------------------------------------------------
@@ -507,14 +469,14 @@ fn packet_framing_precedes_the_numbered_evidence() {
     assert!(p.contains("1. [Football365] Arsenal agreed personal terms"));
 }
 
-/// The WINDOW decides the reservation (not the rail): a 4,000-token reservation inside a 4,096
-/// window leaves nothing for the prompt, whichever corpus produced it. §7's envelope is 4096 with
-/// a 700 reservation, and pinning `VOICE_NUM_CTX=4096` under `RAIL=legacy` must land there too.
+/// The WINDOW decides the reservation: a 4,000-token reservation inside a 4,096 window leaves
+/// nothing for the prompt. §7's envelope is 4096 with a 700 reservation; a pinned-large window
+/// (`VOICE_NUM_CTX=16384`) gets the large reservation back.
 #[test]
-fn decode_budget_follows_the_window_not_the_rail() {
+fn decode_budget_follows_the_window() {
     assert_eq!(
-        narratives_decode_budget(crate::route::VOICE_NUM_CTX),
-        (NARRATIVES_NUM_CTX, NARRATIVES_NUM_PREDICT)
+        narratives_decode_budget(16384),
+        (16384, NARRATIVES_NUM_PREDICT)
     );
     assert_eq!(narratives_decode_budget(crate::route::VOICE_NUM_CTX_PACKET), (4096, 700));
     // The packet reservation must fit §7's ≤800 share, and the prompt budget must leave room for

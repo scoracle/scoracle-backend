@@ -6,7 +6,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/albapepper/scoracle-data/internal/auth"
 	"github.com/albapepper/scoracle-data/internal/cache"
 	"github.com/albapepper/scoracle-data/internal/config"
 )

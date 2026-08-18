@@ -1,5 +1,6 @@
 //! Graph — the typed narrative extraction primitive (Plan - Narrative Graph, roadmap
-//! item 4). Reads one scrubbed article plus its ALREADY-VETTED entities and extracts:
+//! item 4). Reads one Editor-read article plus its ALREADY-LINKED entities
+//! (`news_article_entities`, the Editor sole author) and extracts:
 //!
 //!   * typed relations among the listed entities (the six-predicate vocabulary of
 //!     `narrative_events`, mig 154) with sentiment and confidence — the language signal
@@ -9,9 +10,9 @@
 //!     from the seeded entity world (`narrative_persons` candidates).
 //!
 //! CLOSED CANDIDATE LIST: the model never resolves free-text entity names. It picks
-//! subjects/objects by NUMBER from the vetted list (the resolve.rs trick), so the
+//! subjects/objects by NUMBER from the linked list (the resolve.rs trick), so the
 //! Stage-6 entity-resolution risk of the original kickoff plan simply does not exist
-//! here — scrub already did the resolving, and the ONLY novel names the model may emit
+//! here — the Editor already did the resolving, and the ONLY novel names the model may emit
 //! are person discoveries, which land as narrative_persons CANDIDATES (evidence-gated
 //! promotion, never direct entityhood).
 //!
@@ -127,10 +128,10 @@ pub struct GraphArticle {
     pub description: String,
 }
 
-/// load_graph_article_context loads one article + its scrub-vetted entities as the
+/// load_graph_article_context loads one article + its Editor-linked entities as the
 /// closed candidate list (players with identity-card descriptors, teams by name) — the
 /// shared deterministic prefix of the probe, the eval lens, and the stage handler.
-/// `Ok(None)` when the article is missing or has no vetted entities (nothing to extract
+/// `Ok(None)` when the article is missing or has no linked entities (nothing to extract
 /// against — the fail-closed empty path).
 pub async fn load_graph_article_context(
     pool: &PgPool,
@@ -140,7 +141,7 @@ pub async fn load_graph_article_context(
     // `duplicate_of IS NULL` is a belt-and-braces guard, not the primary control. Mig 193 stopped
     // graph being enqueued for suppressed articles at the source; this makes a stale queue row or a
     // hand-enqueued repair fall through the same `Ok(None)` path as a missing article rather than
-    // spending a model call on something scrub already threw away.
+    // spending a model call on something the dedup sweep already suppressed.
     // The article's context text prefers the Editor's evidence blurb and falls back to the
     // RSS description — kept last because it is 99.7% the title repeated (the measured
     // duplication behind the retired embedder's double-counted headlines).
@@ -350,7 +351,8 @@ impl Parser<GraphExtraction> for GraphParser<'_> {
 // ---------------------------------------------------------------------------
 // The stage handler — wired 2026-07-19 AFTER the fixture gate measured 12/12 at g2
 // (fixtures/graph/: object attachment, person discovery, over-extraction, unary).
-// Article-keyed, downstream of scrub via the mig-165 vetted-trigger enqueue.
+// Article-keyed, enqueued by the Editor after it writes the links (the mig-165
+// scrub-trigger path it originally rode died with the legacy rail).
 // ---------------------------------------------------------------------------
 
 /// build_graph_input_components is the canonical debounce pre-image: the article's

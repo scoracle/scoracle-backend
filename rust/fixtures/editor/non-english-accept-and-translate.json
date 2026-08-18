@@ -10,7 +10,8 @@
     ],
     "reader_vetted": [
       "Real Madrid"
-    ]
+    ],
+    "story_type_is": "contract"
   },
   "name": "non-english-accept-and-translate",
   "note": "The multilingual half of the contract: a Spanish article materially about the entity must be ACCEPTED and the card written in English — dropping it, or echoing Spanish prose into key_facts, both fail.",

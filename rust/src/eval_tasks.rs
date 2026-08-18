@@ -58,7 +58,7 @@ use crate::junctions::investigator::prompt::{
 };
 use crate::junctions::journalist::{
     build_narratives_prompt, load_packet_corpus, NarrativesParser, NarrativesReq,
-    NARRATIVES_NUM_CTX, NARRATIVES_NUM_PREDICT, NARRATIVES_PROMPT_VERSION,
+    NARRATIVES_PROMPT_VERSION,
     NARRATIVES_SYSTEM_PROMPT,
 };
 use crate::junctions::oracle::{
@@ -322,13 +322,14 @@ pub struct Expect {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub confidence_max: Option<f64>,
     // rating / stats-lens specificity + prose richness rubric.
-    /// Identity specificity (s19: asserted on the brief's prose — the divined label is retired):
-    /// the brief should name the actual standout skill,
-    /// not a generic role or an average datapoint.
+    /// Identity specificity, asserted on the brief's prose: the brief should name the actual
+    /// standout skill, not a generic role or an average datapoint. (Named `peak_includes`/
+    /// `peak_excludes` until the PEAK-era vocabulary sweep; no frozen fixture carried the old
+    /// keys.)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub peak_includes: Option<Vec<String>>,
+    pub skill_includes: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub peak_excludes: Option<Vec<String>>,
+    pub skill_excludes: Option<Vec<String>>,
     /// Scouting-report body checks. Kept separate from narrative `body_*` so stats fixtures can
     /// describe prose richness without changing storyline semantics.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -930,8 +931,11 @@ impl LensTask for NarrativeTask {
         GenerateOptions {
             system: Some(NARRATIVES_SYSTEM_PROMPT.to_string()),
             temperature: Some(temperature),
-            num_predict: NARRATIVES_NUM_PREDICT,
-            num_ctx: NARRATIVES_NUM_CTX,
+            // The production envelope, not the legacy 16384/4000 pair: an eval generating in a
+            // window the live stage never runs would measure the wrong thing — and asking the
+            // pinned runner for 16384 evicts it besides.
+            num_predict: crate::junctions::journalist::NARRATIVES_NUM_PREDICT_PACKET,
+            num_ctx: crate::route::VOICE_NUM_CTX_PACKET,
             json_mode: false,
             // Grammar-constrained, matching the live stage (Phase 5).
             format_schema: Some(crate::junctions::journalist::narratives_format_schema()),
@@ -1399,17 +1403,16 @@ impl LensTask for RatingTask {
         checks.push(product_name_check(&reply.body));
 
         if let Some(x) = expect {
-            // s19: the peak_includes/peak_excludes label assertions are gone with divined_peak —
-            // identity specificity is asserted on the brief's own prose (prose_includes names the
-            // standout skill; the decision card that used to feed the label is unchanged).
-            for s in x.peak_includes.iter().flatten() {
+            // Identity specificity is asserted on the brief's own prose (the divined label these
+            // once matched against retired at s19; the decision card is unchanged).
+            for s in x.skill_includes.iter().flatten() {
                 checks.push(PropertyCheck {
                     name: format!("prose_names_skill:{s}"),
                     pass: contains_ci(&reply.body, s),
                     detail: String::new(),
                 });
             }
-            for s in x.peak_excludes.iter().flatten() {
+            for s in x.skill_excludes.iter().flatten() {
                 checks.push(PropertyCheck {
                     name: format!("prose_avoids_skill:{s}"),
                     pass: !contains_ci(&reply.body, s),
@@ -2820,8 +2823,8 @@ mod tests {
     fn rating_rubric_scores_peak_specificity_and_prose_richness() {
         let x = Expect {
             // s19: asserted on the brief's prose (the divined label is retired).
-            peak_includes: Some(vec!["rim protector".into()]),
-            peak_excludes: Some(vec!["No standout".into()]),
+            skill_includes: Some(vec!["rim protector".into()]),
+            skill_excludes: Some(vec!["No standout".into()]),
             prose_includes: Some(vec!["94th percentile".into(), "defensive identity".into()]),
             prose_excludes: Some(vec!["triple-double".into()]),
             prose_min_words: Some(20),
@@ -2860,8 +2863,8 @@ mod tests {
         let x = Expect {
             // s19: prose-anchored — the include names a skill the thin body lacks, the
             // exclude names a phrase the thin body contains.
-            peak_includes: Some(vec!["Rim protection".into()]),
-            peak_excludes: Some(vec!["Average".into()]),
+            skill_includes: Some(vec!["Rim protection".into()]),
+            skill_excludes: Some(vec!["Average".into()]),
             prose_min_words: Some(20),
             ..Default::default()
         };

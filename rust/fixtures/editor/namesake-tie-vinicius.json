@@ -21,7 +21,8 @@
         "entity_type": "player",
         "name": "Vinicius"
       }
-    ]
+    ],
+    "story_type_is": "performance"
   },
   "name": "namesake-tie-vinicius",
   "note": "The T9 tie: the article writes a bare 'Vinicius', and TWO same-sport players carry that exact surface. Exact match fires twice, and the resolver must REFUSE — never a coin flip; a refused tie always nominates (5.2). The fixture declares both surfaces so the production grouping is what gets scored.",

@@ -25,7 +25,7 @@ use scoracle_cognition::junctions::{
     analyst, editor, graph, influencer, insider, journalist, oracle, scout,
 };
 use scoracle_cognition::route::Router;
-use scoracle_cognition::{config, db, embed, ollama, openai, stage, worker};
+use scoracle_cognition::{config, db, ollama, openai, stage, worker};
 use std::collections::HashSet;
 use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
@@ -120,25 +120,13 @@ async fn main() -> Result<()> {
             .to_string()
     }))?;
 
-    // The CPU embedder (candle, Plan §1.4) now has exactly ONE consumer left: narratives, for its
-    // pre-model corpus clustering and its thread-identity centroid cosine. Scrub's own relevance and
-    // novelty gates were deleted in the teardown (§2.1/§2.2) and the stage itself in Phase 9.
-    // Appendix A's remaining embedder item — retiring the narratives clustering — is NOT a deletion:
-    // it changes what narratives reads and therefore its debounce hash, so it owes its own measured
-    // session. Until then this block and `Harness.embedder` stay.
-    let embedder = if enabled.contains("narratives") {
-        info!(model = %cfg.embed.model_repo, "loading embedder (CPU) for narratives");
-        Some(embed::Embedder::from_config(&cfg.embed)?)
-    } else {
-        None
-    };
-
     // The capability context handed to every stage: the config-driven router (role → local model
-    // from COGNITION_ROUTE_*), the embedder (Some only for narratives), the pool.
+    // from COGNITION_ROUTE_*) plus the pool. (The CPU embedder that used to load here for
+    // narratives' pre-packet corpus clustering left with the embed layer — the packet corpus
+    // loader (7.3) reads compiled claims, and nothing embeds anything on the one rail.)
     let harness = Harness {
         pool,
         router: Router::from_config(&cfg.route, cfg.ollama_timeout, cfg.ollama_max_concurrent)?,
-        embedder,
         // The same ceiling the worker enforces, handed to the handlers so a multi-call stage can
         // land inside it under its own power rather than being cancelled at it.
         handler_budget: cfg.handler_timeout,
@@ -175,7 +163,6 @@ async fn main() -> Result<()> {
     if enabled.contains("transfers") {
         handlers.push(Box::new(insider::TransferHandler::new()));
     }
-    // narratives needs the CPU embedder loaded above for its near-duplicate dedup step.
     if enabled.contains("narratives") {
         handlers.push(Box::new(journalist::NarrativesHandler::new()));
     }

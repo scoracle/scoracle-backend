@@ -14,7 +14,9 @@
     ],
     "reader_vetted": [
       "Arsenal"
-    ]
+    ],
+    "register_is": "neutral",
+    "story_type_is": "injury"
   },
   "name": "injury-report-accept-no-invention",
   "note": "Accept + no-invention. The article gives a timeline and a cause; the return date is explicitly unconfirmed, so the card must not harden it into a fact. 'Do not invent context, implications, or sourcing.'",

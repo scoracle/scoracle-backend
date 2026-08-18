@@ -2,26 +2,23 @@
 //!
 //! `Harness` is the one capability context handed to every stage composition (Plan §1.0): it
 //! generalizes the `(pool, ollama)` pair the old `StageHandler` received — the pool stays, the
-//! single `OllamaClient` is replaced by the `Router` (role → model), and the CPU-bound
-//! `Embedder` hangs off here too. Built once at boot (`main.rs`) and shared by every stage.
+//! single `OllamaClient` is replaced by the `Router` (role → model). Built once at boot
+//! (`main.rs`) and shared by every stage.
 //!
-//! The six primitives are *methods on `Harness`* (or a free fn, for `cluster`), not six
-//! `dyn` traits — the primitives aren't swapped at runtime, the *models* and *parsers* are.
-//! The only two real traits are the genuine swap points: `Inference` (the model backend, in
-//! [`crate::route`]) and `Parser<T>` (the per-stage output plug-in, here).
+//! The primitives are *methods on `Harness`*, not `dyn` traits — the primitives aren't swapped
+//! at runtime, the *models* and *parsers* are. The only two real traits are the genuine swap
+//! points: `Inference` (the model backend, in [`crate::route`]) and `Parser<T>` (the per-stage
+//! output plug-in, here).
 //!
-//! L0/L1 ships REAL impls for the three vibe needs — **Route** (via the `Router`), **Extract**
-//! (`Harness::extract`), and **Persist** (the `Provenance` envelope + `debounce_unchanged`).
-//! **Resolve**, **Embed**, and **Normalize** are shaped stubs (`unimplemented!()` bodies with
-//! real signatures + types), so the floor is drawn for the HORIZON stages without building
-//! infrastructure on speculation. See Plan §1.
+//! The live primitives are **Route** (via the `Router`), **Extract** (`Harness::extract`), and
+//! **Persist** (the `Provenance` envelope + `debounce_unchanged`). The Resolve/Embed/Normalize
+//! shaped stubs (Plan §1.3–1.5) were deleted with the embed layer once the legacy rail's
+//! relevance and novelty gates — their only consumers — were demolished (Phase 9).
 
-use crate::embed::{cosine_similarity, Embedder};
 use crate::ollama::{GenerateOptions, GenerateResult};
 use crate::route::{Role, Router};
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use sqlx::PgPool;
-use std::collections::HashMap;
 use std::time::Duration;
 
 /// Harness — the capability context handed to every stage composition. Built once at boot.
@@ -31,16 +28,6 @@ pub struct Harness {
     pub pool: PgPool,
     /// Route primitive — owns the `Inference` backend(s) per role.
     pub router: Router,
-    /// Embed+cluster capability (candle, CPU — Plan §1.4). `Option` because the model is a
-    /// heavy resource not every entry point needs: the service and embed-aware experiments
-    /// construct it with `Some`; eval/input-build paths that never embed leave it `None`.
-    /// Loading it is `Embedder::from_config`.
-    ///
-    /// SHRINKING: the relevance gate and the novelty gate no longer embed anything (teardown
-    /// §2.1/§2.2). The last two consumers are `narratives`' pre-model corpus clustering and
-    /// `threads`' centroid cosine — both retire in Phase 3, when The Journalist declares thread
-    /// identity itself and the embedder can be deleted outright.
-    pub embedder: Option<Embedder>,
     /// The worker's per-item ceiling (`COGNITION_HANDLER_TIMEOUT_SECONDS`), exposed so a handler
     /// that makes N *sequential* model calls can stop itself before the axe falls instead of being
     /// cancelled mid-loop. `Duration::ZERO` means unbounded, matching the worker's own reading of
@@ -53,10 +40,10 @@ pub struct Harness {
     /// target, so its wall clock is a queue depth — it hit 1200s on 18 teams on 2026-07-27, and
     /// the half it lost was always the wrap, which runs last.
     pub handler_budget: Duration,
-    /// The context window every voice on this host requests (`VOICE_NUM_CTX`, else the rail's
-    /// size — [`crate::route::resolve_voice_num_ctx`]). Carried beside the rail so the two can
-    /// never disagree inside one drain, and so every output reservation and context cap can key
-    /// on the WINDOW (the arithmetic that must hold) rather than on the rail (the corpus choice).
+    /// The context window every voice on this host requests (`VOICE_NUM_CTX`, else the 4096
+    /// packet envelope — [`crate::route::resolve_voice_num_ctx`]). Resolved once at boot so two
+    /// items in one drain can never disagree about the window, and so every output reservation
+    /// and context cap keys on the WINDOW — the arithmetic that must hold.
     pub voice_num_ctx: i32,
 }
 
@@ -341,224 +328,5 @@ impl Harness {
             )
         })?;
         Ok(latest.flatten())
-    }
-}
-
-// ===========================================================================
-// Resolve (Plan §1.3) — REAL. Embedding-hybrid impl lives in `crate::resolve` (it drops in
-// BEHIND these types' signatures with no change to them — the §5 "library drawn right" test).
-// The types (the primitive's vocabulary) stay here; the methods are `impl Harness` in resolve.rs.
-// ===========================================================================
-
-/// EntityType discriminates the two resolvable kinds. (The work queue carries the type as a
-/// string; Resolve and its candidates use this enum.)
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum EntityType {
-    Player,
-    Team,
-}
-
-impl EntityType {
-    /// as_str is the DB/queue string form (`news_article_entities.entity_type`, `pipeline_work`).
-    pub fn as_str(self) -> &'static str {
-        match self {
-            EntityType::Player => "player",
-            EntityType::Team => "team",
-        }
-    }
-
-    /// from_db_str maps the DB string to the enum; an unknown value (e.g. the article-keyed scrub
-    /// stage's `'article'`, which is never a Resolve candidate) ⇒ `None`.
-    pub fn from_db_str(s: &str) -> Option<Self> {
-        match s {
-            "player" => Some(EntityType::Player),
-            "team" => Some(EntityType::Team),
-            _ => None,
-        }
-    }
-}
-
-/// IdentityCard holds the disambiguators that break a same-name tie. `current_club` is the
-/// strongest signal (see `news_scrub.go` / `transfer.go`). Sparse-tolerant — any field may
-/// be absent.
-#[derive(Clone, Debug, Default)]
-pub struct IdentityCard {
-    pub nationality: Option<String>,
-    pub current_club: Option<String>,
-    pub position: Option<String>,
-}
-
-/// Candidate is a known entity plus its identity-card disambiguators — one option Resolve
-/// chooses among.
-#[derive(Clone, Debug)]
-pub struct Candidate {
-    pub entity_type: EntityType,
-    pub entity_id: i32,
-    pub name: String,
-    pub identity: IdentityCard,
-}
-
-/// Resolution is the per-candidate kept/dropped verdict `resolve_set` returns (the news-scrub
-/// gate shape — vet WHICH linked candidates the text is genuinely about).
-#[derive(Clone, Debug)]
-pub struct Resolution {
-    pub entity_id: i32,
-    pub entity_type: EntityType,
-    pub kept: bool,
-}
-
-// `impl Harness { resolve_set }` is in `crate::resolve` — the embedding-hybrid recipe.
-
-// ===========================================================================
-// Embed + cluster (Plan §1.4) — both REAL: Embed (candle, CPU) + cluster (deterministic).
-// ===========================================================================
-
-/// A dense embedding vector.
-pub type Vector = Vec<f32>;
-
-/// Cluster groups input indices the model should treat as one storyline.
-#[derive(Clone, Debug)]
-pub struct Cluster {
-    /// Indices into the `embed` input that fall in this cluster.
-    pub members: Vec<usize>,
-}
-
-impl Harness {
-    /// embed vectorizes texts on the CPU (candle, batched — Plan §1.4) via the loaded
-    /// [`Embedder`]. CPU-bound work, so it is wrapped in `block_in_place` to keep it off the
-    /// async reactor (it never contends with the generation GPU). Errors if no embedder is loaded —
-    /// a programming error (only embed-using stages should call this, and they construct the
-    /// `Harness` with `Some(embedder)`).
-    pub async fn embed(&self, texts: &[String]) -> Result<Vec<Vector>> {
-        let embedder = self.embedder.as_ref().ok_or_else(|| {
-            anyhow!("embed called but no Embedder loaded (Harness.embedder is None)")
-        })?;
-        tokio::task::block_in_place(|| embedder.embed_batch(texts))
-    }
-}
-
-/// uf_find is union-find with path halving — the cluster() merge helper.
-fn uf_find(parent: &mut [usize], mut x: usize) -> usize {
-    while parent[x] != x {
-        parent[x] = parent[parent[x]];
-        x = parent[x];
-    }
-    x
-}
-
-/// cluster groups vectors by cosine similarity — DETERMINISTIC math (single-link agglomerative
-/// merge via union-find), NOT a model call. Two items join the same cluster when their cosine ≥
-/// `threshold`; transitively-linked items merge into one storyline chain. It stays in Rust, not
-/// Postgres, ONLY because it is *transient compute feeding a model* (storyline grouping + near-dup
-/// dedup for narratives), never a stored derived stat — the one careful §1.4 boundary. O(n²)
-/// pairwise, right for a per-entity corpus (tens–hundreds of articles). Deterministic output:
-/// members sorted ascending, clusters ordered by smallest member — so a caller can diff runs.
-pub fn cluster(vectors: &[Vector], threshold: f32) -> Vec<Cluster> {
-    let n = vectors.len();
-    let mut parent: Vec<usize> = (0..n).collect();
-    for i in 0..n {
-        for j in (i + 1)..n {
-            if cosine_similarity(&vectors[i], &vectors[j]) >= threshold {
-                let (ri, rj) = (uf_find(&mut parent, i), uf_find(&mut parent, j));
-                if ri != rj {
-                    parent[ri] = rj;
-                }
-            }
-        }
-    }
-    let mut groups: HashMap<usize, Vec<usize>> = HashMap::new();
-    for i in 0..n {
-        let root = uf_find(&mut parent, i);
-        groups.entry(root).or_default().push(i);
-    }
-    let mut out: Vec<Cluster> = groups
-        .into_values()
-        .map(|mut members| {
-            members.sort_unstable();
-            Cluster { members }
-        })
-        .collect();
-    // Every index lands in exactly one group, so members is non-empty; order by first member.
-    out.sort_by_key(|c| c.members[0]);
-    out
-}
-
-// ===========================================================================
-// Normalize (Plan §1.5) — SHAPED STUB. multilang = normalize + (narratives).
-// ===========================================================================
-
-/// RawMention is an entity surface-form found in normalized text (to be resolved downstream).
-#[derive(Clone, Debug)]
-pub struct RawMention {
-    pub text: String,
-}
-
-/// NormalizedText is any-language text rendered to English + the entity mentions in it.
-#[derive(Clone, Debug)]
-pub struct NormalizedText {
-    pub english: String,
-    pub entities: Vec<RawMention>,
-    pub source_lang: String,
-}
-
-impl Harness {
-    /// normalize is `route(Multilang) + extract` — any-language text → English-normalized +
-    /// entity-tagged. SHAPED STUB; the impl waits on the router's A/B eval choosing a
-    /// multilang model on a measured win (HORIZON — see Plan §1.5).
-    pub async fn normalize(&self, _text: &str) -> Result<NormalizedText> {
-        unimplemented!("Normalize primitive — route(Multilang)+extract (HORIZON); Plan §1.5")
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // cluster() is pure deterministic math — fully offline-testable (no model).
-
-    #[test]
-    fn cluster_groups_similar_separates_dissimilar() {
-        // Two tight pairs along different axes + one singleton.
-        let v = vec![
-            vec![1.0, 0.0, 0.0],   // 0 ─┐ axis x
-            vec![0.99, 0.01, 0.0], // 1 ─┘
-            vec![0.0, 1.0, 0.0],   // 2 ─┐ axis y
-            vec![0.0, 0.98, 0.02], // 3 ─┘
-            vec![0.0, 0.0, 1.0],   // 4    axis z (alone)
-        ];
-        let clusters = cluster(&v, 0.9);
-        assert_eq!(clusters.len(), 3);
-        assert_eq!(clusters[0].members, vec![0, 1]);
-        assert_eq!(clusters[1].members, vec![2, 3]);
-        assert_eq!(clusters[2].members, vec![4]);
-    }
-
-    #[test]
-    fn cluster_single_link_is_transitive() {
-        // a–b cosine 0.8, b–c cosine 0.6, a–c cosine 0.0. At threshold 0.55 the chain merges
-        // all three even though a and c are not directly similar — the single-link property.
-        let a = vec![1.0_f32, 0.0];
-        let b = vec![0.8_f32, 0.6];
-        let c = vec![0.0_f32, 1.0];
-        let clusters = cluster(&[a, b, c], 0.55);
-        assert_eq!(clusters.len(), 1);
-        assert_eq!(clusters[0].members, vec![0, 1, 2]);
-    }
-
-    #[test]
-    fn cluster_threshold_separates_the_chain() {
-        // Same three, but threshold 0.7 breaks the b–c link (0.6 < 0.7): {a,b} and {c}.
-        let a = vec![1.0_f32, 0.0];
-        let b = vec![0.8_f32, 0.6];
-        let c = vec![0.0_f32, 1.0];
-        let clusters = cluster(&[a, b, c], 0.7);
-        assert_eq!(clusters.len(), 2);
-        assert_eq!(clusters[0].members, vec![0, 1]);
-        assert_eq!(clusters[1].members, vec![2]);
-    }
-
-    #[test]
-    fn cluster_empty_is_empty() {
-        assert!(cluster(&[], 0.5).is_empty());
     }
 }

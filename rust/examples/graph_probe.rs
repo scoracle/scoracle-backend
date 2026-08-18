@@ -36,7 +36,6 @@ async fn main() -> Result<()> {
     let harness = Harness {
         pool,
         router: Router::from_config(&cfg.route, cfg.ollama_timeout, 1)?,
-        embedder: None,
         // Unbounded: a probe is not a queue item and has no worker timeout to land inside.
         handler_budget: std::time::Duration::ZERO,
         voice_num_ctx: cfg.voice_num_ctx,

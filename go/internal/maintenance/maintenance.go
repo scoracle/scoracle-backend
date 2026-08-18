@@ -505,9 +505,12 @@ func writePipelineStats(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 		) tr,
 		(
 		    WITH in_scope AS (
+		        -- Post-mig-214 a link row's EXISTENCE is the verdict; the vetted column is
+		        -- gone, and the old predicate here broke this upsert silently (the Warn below
+		        -- swallowed it) from 08-06 until the friction audit caught it.
 		        SELECT DISTINCT nae.entity_type, nae.entity_id
 		        FROM news_article_entities nae JOIN news_articles a ON a.id = nae.article_id
-		        WHERE nae.sport = $1 AND nae.vetted IS TRUE
+		        WHERE nae.sport = $1
 		          AND (a.published_at IS NULL OR a.published_at > NOW() - INTERVAL '72 hours')
 		    ),
 		    lv AS (

@@ -73,18 +73,6 @@ sha2 = "0.10"
 hex = "0.4"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-# --- Cognition candle layer (L4): CPU sentence-embeddings, OFF the GPU ---
-# candle is Rust-native ML; we use the CPU backend (gemm → AVX2+FMA on Archbox's
-# i7-7700; NO cuda feature) so embeddings run on the otherwise-idle CPU and never
-# contend with the local model GPU. Powers the Embed primitive (§1.4) + the
-# embedding-backed Resolve hybrid (§1.3). Default embedding model: BGE-small-en-v1.5
-# (BERT-arch → candle-transformers' BertModel).
-candle-core = "0.10"
-candle-nn = "0.10"
-candle-transformers = "0.10"
-# hf-hub downloads + caches model weights (safetensors) + tokenizer.json to
-# ~/.cache/huggingface. tokenizers pinned to 0.22 to MATCH candle-transformers'
-# transitive dep (one copy in the tree); no default features → no onig C-lib, which
-# the BERT WordPiece tokenizer does not need.
-hf-hub = "0.5"
-tokenizers = { version = "0.22", default-features = false }
+# (The candle CPU-embedding layer — candle-core/nn/transformers, hf-hub, tokenizers —
+# left with the embed primitive: the legacy rail's relevance/novelty gates were its only
+# consumers, and the packet corpus loader reads compiled claims, not vectors.)

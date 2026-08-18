@@ -1,7 +1,7 @@
 //! Rust stats-rail commentary entry point.
 //!
 //! Nightly mode is the rating-card producer: it enumerates stale current-season stat profiles and
-//! enqueues durable `pipeline_work(peak)` rows. Backfill remains an inline historical generation
+//! enqueues durable `pipeline_work(rating)` rows. Backfill remains an inline historical generation
 //! path because the live queue is current-season/entity-scoped.
 
 use anyhow::{anyhow, Context, Result};
@@ -66,10 +66,12 @@ async fn main() -> Result<()> {
     let harness = Harness {
         pool,
         router: Router::from_config(&cfg.route, cfg.ollama_timeout, cfg.ollama_max_concurrent)?,
-        embedder: None,
         // Unbounded: a backfill is not a queue item and has no worker timeout to land inside.
         handler_budget: Duration::ZERO,
-        voice_num_ctx: scoracle_cognition::route::VOICE_NUM_CTX,
+        // The same resolved window the service runs (4096 packet envelope unless VOICE_NUM_CTX
+        // pins it) — a backfill asking for the legacy 16384 would evict the pinned production
+        // runner on every alternation with the drain.
+        voice_num_ctx: cfg.voice_num_ctx,
     };
 
     match args.mode.as_str() {

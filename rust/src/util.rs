@@ -206,8 +206,8 @@ mod tests {
         // Verbatim from pipeline_work.last_error after the topology split.
         assert_eq!(strip_markdown_emphasis("**SCORE: -1**"), "SCORE: -1");
         assert_eq!(
-            strip_markdown_emphasis("**READ:** Clark's **PEAK** remains flat"),
-            "READ: Clark's PEAK remains flat"
+            strip_markdown_emphasis("**READ:** Clark's **form** remains flat"),
+            "READ: Clark's form remains flat"
         );
     }
 

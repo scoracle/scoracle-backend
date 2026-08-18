@@ -34,24 +34,15 @@ use scoracle_cognition::junctions::journalist::{
     NARRATIVES_SYSTEM_PROMPT,
 };
 
-/// One corpus article. The prompt render only reads source/title/description, so ids/urls/epochs are
-/// inert here — set to placeholders that never reach the frozen prompt.
+/// One corpus article. The prompt render only reads source/title/description, so the id/epoch
+/// are inert here — placeholders that never reach the frozen prompt.
 fn ci(id: i64, source: &str, title: &str, description: &str) -> CorpusItem {
     CorpusItem {
         id,
         title: title.to_string(),
         description: description.to_string(),
         source: source.to_string(),
-        url: String::new(),
         published_at_epoch: None,
-        fetched_at_epoch: None,
-        full_text: None,
-        // Fixtures pin the reader-free corpus shape (no article_read evidence card), the same
-        // rule as the memory-free/score-context-free prompt pins above.
-        article_read_blurb: None,
-        article_read_status: None,
-        article_read_content_hash: None,
-        article_read_updated_epoch: None,
     }
 }
 

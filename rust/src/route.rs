@@ -3,7 +3,7 @@
 //! A stage names a **role** (the model's JOB), never a model name; the `Router` resolves
 //! that role to a concrete backend. Every CHARACTER stage owns its role (the identity split:
 //! a character's voice must never silently flip with a sibling's route change), while utility
-//! calls (scrub-resolve, graph extraction, identity adjudication) share `EmotionalNews`.
+//! calls (graph extraction, identity adjudication) share `EmotionalNews`.
 //! This is the *swap seam*: the three swaps the Hardware
 //! Roadmap brings — identity (`e4b` → `31B`), topology (one model → two concurrent → one
 //! unified fine-tune), backend (Ollama → vLLM) — all land here, and stage code never moves.
@@ -30,59 +30,17 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Semaphore;
 
-/// Role names a model's JOB, not its name. Stages address a `Role`; the `Router` maps it to
-/// a concrete model. The one place a model id may appear is the router config (L2) — never
-/// in stage code. `StatsLogic` backs Rating/PEAK; `MomentumLogic` backs Momentum — split out of
-/// `StatsLogic` (2026-07-11) as an *identity* split so the earned PEAK route change (qwen3 22/22
-/// vs mistral 18/22 on the drilldown fixtures) cannot silently flip Momentum (3 fixtures, too
-/// thin to earn it); un-configured it still resolves to the default model, so the split alone
-/// moves zero behavior. `NarrativeLogic` backs narratives (split 2026-07-12 on its earned 31/31
-/// sweep win); `TransferLogic` backs transfers and `VibeLogic` backs vibe (split 2026-07-22 —
-/// the six-characters identity isolation: The Insider's and The Influencer's voices each get
-/// their own route seam; un-configured both resolve to the default model, zero behavior moved).
-/// `EmotionalNews` is UTILITY-only after that split: scrub-resolve, graph extraction, and
-/// transfer identity adjudication — calls with no character voice. `Multilang` is the HORIZON
-/// normalize role; `Sql` is the SQLCoder role. Derives `Hash` for the L2 role→model map.
-/// `OracleLogic` backs the crown (the Sigil): the ONE call that reads the five pillar cards and
-/// emits the reading + score (the panel's `SynthesisLogic` was folded in and retired, 2026-07-21).
-/// Identity split from day one (2026-07-12): the persona voice must never silently flip with
-/// another rail's route change; un-configured it resolves to the default model.
-/// *(The `ArticleReader` role — the post-scrub, pre-Journalist compressor — was deleted in Phase 9
-/// (9.1) with the legacy rail. `Role::all()` is 11 seats now, not 12.)*
-/// The context window EVERY character-voice role must request, because they share one runner.
-///
-/// ollama keys a loaded runner on its context size, so two roles on the same host and model asking
-/// for different sizes force an unload-and-reload on every alternation between them. That is a
-/// settled diagnosis, not a theory: it is what `graph` (`num_ctx: 0`) did against The Editor's 8192
-/// on the local card, and matching them took Archbox's reloads to zero.
-///
-/// The same defect was then measured on the Mac on 2026-07-26, where it costs far more because the
-/// model is ~9 GB. Of the six voices, `narratives` alone sent an explicit `num_ctx` (8192) and the
-/// other five sent nothing, taking the Mac's 16384 default — so the runner alternated between a
-/// 8.76 GB/8192 and a 9.49 GB/16384 configuration, fully unloading in between. Observed under
-/// untouched production load: two reloads per six-stage rotation at 24-39s of measured
-/// `load_duration` each, against a ~4.5 min rotation — roughly a fifth of the host's wall clock
-/// spent loading weights it already had.
-///
-/// 16384 rather than 8192 because it is what five of the six already ran at, so no voice loses
-/// context it has today, and because it fixes a second measured bug on the way past: narratives'
-/// prompt plus its 3000 `num_predict` exceeded 8192 on **153 of 8,899** calls (1.7%), and its own
-/// constant documents what that does — the system prompt is silently evicted mid-generation. At
-/// 16384 that tail falls to 6 calls (0.07%).
-///
-/// **This is for voices on the character host only.** `EmotionalNews`, `Multilang` and `Sql` are
-/// utility roles that resolve LOCALLY to the archbox model, where the shared runner is The Editor's
-/// and the agreed size is [`LOCAL_STAGE_NUM_CTX`]. Sending this value there would put a 16384 KV
-/// allocation on an 8 GB card and reintroduce exactly the thrash described above.
-pub const VOICE_NUM_CTX: i32 = 16384;
-
 /// The window every ARCHBOX-LOCAL model stage requests — the Editor, graph and the Insider's
 /// transfer call alike.
 ///
-/// **The uniformity is the point, not the number.** `VOICE_NUM_CTX`'s note above is the whole
-/// argument: roles that share one runner and DISAGREE about `num_ctx` force a reload per rotation.
-/// These stages share archbox's single runner (`MAX_LOADED_MODELS=1`), so they move together or not
-/// at all.
+/// **The uniformity is the point, not the number.** ollama keys a loaded runner on its context
+/// size, so two roles on the same host and model asking for different sizes force an
+/// unload-and-reload on every alternation between them. That is a settled diagnosis, not a
+/// theory: it is what `graph` (`num_ctx: 0`) did against The Editor's 8192 on the local card
+/// (matching them took Archbox's reloads to zero), and what the Mac's mixed 8192/16384 era cost
+/// before [`VOICE_NUM_CTX_PACKET`] unified the voices — roughly a fifth of the host's wall clock
+/// spent reloading weights it already had (measured 2026-07-26). These stages share archbox's
+/// single runner (`MAX_LOADED_MODELS=1`), so they move together or not at all.
 ///
 /// Anchored here in Phase 9 (9.1). It previously lived as `article_reader::ARTICLE_NUM_CTX` and was
 /// borrowed across the tree from inside the legacy reader; when that module was demolished the
@@ -91,9 +49,13 @@ pub const VOICE_NUM_CTX: i32 = 16384;
 /// `EDITOR_NUM_CTX` still exists as the Editor's own name for it and is pinned equal by test.
 pub const LOCAL_STAGE_NUM_CTX: i32 = 4096;
 
-/// The packet rail's window (§7's envelope): prompt + memory + packet render + reservation, all
-/// inside 4096. This is the number the whole diet is sized against — a voice that still needed
-/// 16384 on the packet rail would mean the render or the memory block had quietly grown back.
+/// The window EVERY character voice requests (§7's envelope): prompt + memory + packet render +
+/// reservation, all inside 4096. This is the number the whole diet is sized against — a voice
+/// that still needed the legacy 16384 would mean the render or the memory block had quietly
+/// grown back. The voices share one pinned runner on the Mac, so the uniformity argument on
+/// [`LOCAL_STAGE_NUM_CTX`] applies with ~9 GB stakes: one window, or the runner reloads on
+/// every alternation. (The legacy 16384 constant this replaced left with the legacy corpus —
+/// the 08-06 rail cutover; `VOICE_NUM_CTX` survives only as the env override's name.)
 pub const VOICE_NUM_CTX_PACKET: i32 = 4096;
 
 /// Whether an effective voice window is a SMALL one — the 4096 envelope rather than the 16384 the
@@ -103,7 +65,7 @@ pub const VOICE_NUM_CTX_PACKET: i32 = 4096;
 /// the Phase 9 rail prune deliberately: the window is set by `VOICE_NUM_CTX`, not by which corpus
 /// a voice reads, so it stayed a live knob when the rail taxonomy did not (that `Rail` enum is
 /// now deleted outright). The arithmetic it defends is unchanged and rail-agnostic — a `num_predict` larger than the window is the silent
-/// system-prompt eviction `NARRATIVES_NUM_CTX` has documented since it was written (and D-T40
+/// system-prompt eviction `narratives_decode_budget` has documented since it was written (and D-T40
 /// re-measured on the Editor).
 pub fn small_voice_window(num_ctx: i32) -> bool {
     num_ctx <= VOICE_NUM_CTX_PACKET
@@ -139,6 +101,21 @@ impl Inference for OpenAiClient {
     }
 }
 
+/// Role names a model's JOB, not its name. Stages address a `Role`; the `Router` maps it to
+/// a concrete model. The one place a model id may appear is the router config (L2) — never
+/// in stage code. Derives `Hash` for the L2 role→model map.
+///
+/// The character voices each hold their own route seam as an *identity* split — an earned route
+/// change for one voice must never silently flip another (`MomentumLogic` out of `StatsLogic`
+/// 2026-07-11, `NarrativeLogic` 2026-07-12, `TransferLogic`/`VibeLogic` 2026-07-22,
+/// `OracleLogic` from day one; un-configured, every seat resolves to the default model, so each
+/// split alone moved zero behavior). `OracleLogic` backs the crown (the Sigil): the ONE call
+/// that reads the five pillar cards and emits the reading + score (the panel's `SynthesisLogic`
+/// was folded in and retired, 2026-07-21). `EmotionalNews` is UTILITY-only: graph extraction
+/// and transfer identity adjudication — calls with no character voice. `Multilang` is the
+/// HORIZON normalize role; `Sql` is the SQLCoder role.
+/// *(The `ArticleReader` role — the legacy rail's reader seat — was deleted in Phase 9 (9.1);
+/// `Role::all()` is 11 seats now, not 12.)*
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Role {
     StatsLogic,
@@ -478,7 +455,7 @@ mod tests {
     fn small_window_is_a_property_of_the_window() {
         assert!(small_voice_window(VOICE_NUM_CTX_PACKET));
         assert!(small_voice_window(2048));
-        assert!(!small_voice_window(VOICE_NUM_CTX));
+        assert!(!small_voice_window(16384)); // the legacy corpus's window
         assert!(small_voice_window(resolve_voice_num_ctx(Some("4096"))));
     }
 

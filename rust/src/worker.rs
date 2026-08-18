@@ -167,9 +167,10 @@ type StageCaps = Vec<StageCap>;
 ///
 /// Getting this wrong starves a machine rather than merely slowing it. Sizing the ceiling to the
 /// topology's total GPU permits (4 local + 1 Mac = 5) looks right and is not: the drain claims in
-/// DAG order, so scrub and the two gemma3 stages fill all 5 and the six Mac stages get nothing at
-/// all until the local backlog — 2,580 items at the time of writing — is empty. The Mac would idle
-/// for hours while Archbox worked, which is the exact inversion of the goal.
+/// DAG order, so the archbox stages fill all 5 and the Mac stages get nothing at all until the
+/// local backlog is empty (measured at 2,580 items in the two-rail era, when scrub plus the two
+/// gemma3 stages did exactly this). The Mac would idle for hours while Archbox worked, which is
+/// the exact inversion of the goal.
 ///
 /// Grouped stages contribute their GROUP's budget once, not each stage's ceiling. The Editor and
 /// graph may each claim up to 4, but only 4 between them, so summing both would inflate the global
@@ -430,9 +431,9 @@ pub struct Worker {
     /// Latest tick cause, written by the supervisor with each request.
     cause: Arc<StdMutex<&'static str>>,
     /// Unix seconds of the last exact-title dedup sweep, 0 until the first runs. The sweep is
-    /// hourly, not per-tick: it closes a RACE (two copies scrubbed before either has vetted
-    /// membership are invisible to each other in `novelty::gate`), so it only has work to do
-    /// after a scrub batch has settled. Running it every tick would be pure write amplification.
+    /// hourly, not per-tick: it only has work to do after an ingest sweep has landed a batch,
+    /// so running it every tick would be pure write amplification. See
+    /// `sweep_exact_title_duplicates` — it is the rail's ONLY cross-source dedup.
     last_dedup_sweep: Arc<AtomicI64>,
     /// Unix seconds of the last Desk sweep (PLAN-one-rail 6.4), 0 until the first runs. Hourly
     /// for the same reason as the dedup sweep: dormancy is a 14-day fact, so a per-tick pass
@@ -562,15 +563,15 @@ impl Worker {
 
     /// Collapse byte-identical CROSS-SOURCE articles onto one canonical copy, at most hourly.
     ///
-    /// This closes a race `novelty::gate` structurally cannot: that gate compares a freshly
-    /// scrubbed article against recent canonical coverage of its OWN VETTED ENTITIES, so two
-    /// copies scrubbed in the same pass — before either has vetted membership — are invisible to
-    /// each other. Measured 2026-07-28: 2,057 of 32,016 corpus-visible articles in a 14-day window
-    /// were exact-title duplicates of another corpus-visible article, which is 6.4% of every
-    /// busyness verdict counting one story twice.
+    /// This is the rail's ONLY cross-source dedup — the legacy novelty gate that used to share
+    /// the job died with the legacy rail, and it structurally missed this case anyway (two
+    /// copies arriving in the same pass were invisible to each other). Measured 2026-07-28:
+    /// 2,057 of 32,016 corpus-visible articles in a 14-day window were exact-title duplicates
+    /// of another corpus-visible article, which is 6.4% of every busyness verdict counting one
+    /// story twice.
     ///
-    /// A sweep is the only thing that can fix a race, and hourly is the right cadence: it has work
-    /// only after a scrub batch has settled, so per-tick would be pure write amplification.
+    /// Hourly is the right cadence: the sweep has work only after the nightly ingest lands a
+    /// batch, so per-tick would be pure write amplification.
     ///
     /// The guards live in `collapse_exact_title_duplicates` (mig 196) — cross-source only, a
     /// minimum title length, and a canonical that prefers the corpus-visible copy. Failure is
@@ -674,9 +675,9 @@ impl Worker {
                 let stage = handler.stage();
                 // The per-stage cap is what keeps the DAG order from becoming a priority
                 // order. Without it the first stage with a deep queue and a big
-                // `rotation_batch` takes every slot: scrub claims 256, graph and the Editor
-                // claim 8, and with a budget of 5 whichever registers first starves the rest —
-                // including starving the GPU entirely behind model-free scrub work.
+                // `rotation_batch` takes every slot and starves the rest (on the legacy rail
+                // that was model-free scrub claiming 256 and starving the GPU entirely; the
+                // failure shape survives any stage roster).
                 let running = *per_stage.get(stage.as_str()).unwrap_or(&0);
                 let mut room = stage_room(handler.max_in_flight(), running, budget - inflight.len());
                 // A grouped stage is additionally bounded by what its co-tenants have left. This

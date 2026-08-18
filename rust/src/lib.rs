@@ -41,7 +41,6 @@ pub mod junctions;
 // Infrastructure — the machinery every junction composes over.
 pub mod config;
 pub mod db;
-pub mod embed;
 pub mod fetch;
 pub mod harness;
 pub mod ledger;

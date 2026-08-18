@@ -5,15 +5,6 @@
 
 use super::*;
 
-fn rating(rating_trajectory: &str, notability: i32) -> SynthRating {
-    SynthRating {
-        body: "b".into(),
-        notability,
-        rating_trajectory: rating_trajectory.into(),
-        rating_trajectory_label: String::new(),
-    }
-}
-
 fn momentum(direction: &str) -> SynthMomentum {
     SynthMomentum {
         direction: Some(direction.into()),

@@ -14,9 +14,9 @@
 //!   + recency) byte-for-byte — like rating's `pctBand`, deterministic stage-shaping mirrored in Rust,
 //!     NOT moved to Postgres (it scores a MODEL-selected article subset, so it can't be a pure SQL stat).
 //!
-//! The **embed+cluster dedup** changes the input corpus before the model call. This is deliberately
-//! transient compute inside Rust, not a stored derived stat. It runs only when an `Embedder` is
-//! loaded; deterministic request/eval paths can build a harness with `embedder: None`.
+//! (The embed+cluster near-duplicate dedup that used to reshape the corpus before the model call
+//! left with the embed layer: the packet corpus is compiled claims, deduped upstream by the
+//! Editor's read and the worker's exact-title sweep.)
 //!
 //! `NarrativesHandler` is a live queue stage gated by `COGNITION_STAGES`. It is the News hub stage:
 //! transfer heat and source freshness are folded here before Vibe and Sigil consume the result.
@@ -60,26 +60,15 @@ pub const NARRATIVES_OUTPUT_CONTRACT_VERSION: &str = "narratives-v3-schema";
 /// deterministic-axes diff); production narrates at 0.6.
 pub const NARRATIVES_TEMPERATURE: f64 = 0.6;
 
-/// Several multi-sentence narratives; the prompt caps count + body length.
+/// The Journalist's reservation inside a LARGE window — several multi-sentence narratives; the
+/// prompt caps count + body length. Reachable only when `VOICE_NUM_CTX` pins a window above the
+/// 4096 packet envelope (`narratives_decode_budget` keys on the window); production runs the
+/// packet reservation below. The arithmetic lesson that sized this pair is permanent: a
+/// reservation the window cannot hold silently evicts the system prompt mid-generation, and the
+/// failure looks like a model that stopped obeying its rules (L9; measured 153/8,899 calls at
+/// the old 8192 window). (The legacy `NARRATIVES_NUM_CTX` constant this rode beside — the
+/// 16384 window the legacy corpus was sized for — left with the legacy rail.)
 pub const NARRATIVES_NUM_PREDICT: i32 = 4000;
-
-/// Context window for the narratives call — now [`crate::route::VOICE_NUM_CTX`], the size EVERY
-/// character voice requests, because they share one runner and disagreement reloads it.
-///
-/// The original reasoning still holds and is why this constant exists: narratives' prompt plus
-/// `NARRATIVES_NUM_PREDICT` (3000) overflows a small context, and overflowing silently evicts the
-/// system prompt mid-generation — consistent with the long-standing "under-obeys explicit rules"
-/// failures (L9, the red off-entity-and-hype-contamination fixture). What changed is the arithmetic
-/// on both sides.
-///
-/// The old value of 8192 was set against Ollama's 4096 default with the note "every other stage
-/// stays on the 4096 default". On the Mac that note is false — the default there is 16384, so this
-/// was the only voice asking for something SMALLER than its peers, which (a) reloaded a ~9 GB model
-/// on every alternation into and out of narratives, and (b) still overflowed: measured over 8,899
-/// calls, prompt + 3000 exceeded 8192 on **153 of them (1.7%)**, p99 alone being ~7.1k prompt
-/// tokens. At 16384 that tail is 6 calls (0.07%). So the shared value is both the faster and the
-/// more correct one, and narratives no longer sets its own.
-pub const NARRATIVES_NUM_CTX: i32 = crate::route::VOICE_NUM_CTX;
 
 /// The Journalist's output reservation on the packet rail (§7's envelope: ≤800, his share 700).
 ///
@@ -106,7 +95,6 @@ pub fn narratives_decode_budget(num_ctx: i32) -> (i32, i32) {
 
 /// Per-article description cap rendered into the prompt (Go's `truncate(desc, 200)`).
 const DESC_TRUNCATE: usize = 200;
-const ARTICLE_READ_BLURB_TRUNCATE: usize = 900;
 
 /// Ceiling on how many articles reach one Journalist prompt.
 ///
@@ -115,9 +103,9 @@ const ARTICLE_READ_BLURB_TRUNCATE: usize = 900;
 /// day and this query would hand every one of them to a 16,384-token context shared by all six
 /// voices — failing as silent truncation inside the prompt rather than as a number in a log.
 ///
-/// 40 is deliberately generous against the observed shape: read articles render at
-/// `ARTICLE_READ_BLURB_TRUNCATE` and the rest at `DESC_TRUNCATE`, so a full 40 with the usual four
-/// read is about 4*900 + 36*200 ≈ 11 KB — expansive, and still well clear of the ceiling.
+/// 40 is deliberately generous against the observed shape: articles render at `DESC_TRUNCATE`
+/// (read articles rendered at 900 chars on the legacy rail), so a full 40 with the usual four
+/// read was about 4*900 + 36*200 ≈ 11 KB — expansive, and still well clear of the ceiling.
 ///
 /// The exact number is a VOICE decision, not a plumbing one: it trades breadth of evidence against
 /// room for the reply, and that trade belongs to the prompt-tuning session. Env-tunable so that
@@ -164,25 +152,21 @@ pub struct NarrativesReq {
     pub trigger_type: String,
 }
 
-/// CorpusItem is one vetted news article in the entity's recent corpus. Mirrors `newsItem`; the
-/// prompt uses title/description/source, `published_at_epoch` (Unix seconds, NULL when the article
-/// has no publish time) feeds the deterministic recency in `compute_news_impact`.
+/// CorpusItem is one member article of the entity's packet corpus: `title` is the article's
+/// headline claim, `description` the rest of its claims, joined. The prompt uses
+/// title/description/source; `published_at_epoch` (Unix seconds, NULL when the article has no
+/// publish time) feeds the deterministic recency in `compute_news_impact`.
+///
+/// (The legacy rail's per-article baggage — `url`, `full_text`, the `article_read_*` evidence
+/// card and its fingerprint fields — was stripped once `load_packet_corpus` became the only
+/// loader: every one of those fields was hardwired to empty/`None` on the packet rail.)
 #[derive(Clone, Debug)]
 pub struct CorpusItem {
     pub id: i64,
     pub title: String,
     pub description: String,
     pub source: String,
-    pub url: String,
     pub published_at_epoch: Option<i64>,
-    pub fetched_at_epoch: Option<i64>,
-    /// Full article body (mig 171), retained as a fallback if a reader stage is not available.
-    pub full_text: Option<String>,
-    /// Compact article_read evidence card rendered into the prompt when status is success.
-    pub article_read_blurb: Option<String>,
-    pub article_read_status: Option<String>,
-    pub article_read_content_hash: Option<String>,
-    pub article_read_updated_epoch: Option<i64>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -392,21 +376,14 @@ pub async fn load_packet_corpus(
             // exactly as it is on the legacy rail.
             let mut facts = art.facts.into_iter();
             let title = facts.next().unwrap_or_default();
+            // The packet rail carries NO bodies. That is the diet: the Editor already read the
+            // article, and re-sending its prose is the redundancy this whole rail removes.
             CorpusItem {
                 id,
                 title,
                 description: facts.collect::<Vec<_>>().join(" · "),
                 source: art.source,
-                url: String::new(),
                 published_at_epoch: art.published_at_epoch,
-                fetched_at_epoch: None,
-                // The packet rail carries NO bodies. That is the diet: the Editor already read the
-                // article, and re-sending its prose is the redundancy this whole rail removes.
-                full_text: None,
-                article_read_blurb: None,
-                article_read_status: None,
-                article_read_content_hash: None,
-                article_read_updated_epoch: None,
             }
         })
         .collect();
@@ -465,34 +442,19 @@ struct PacketArticle {
 // compressor now, so narratives sees the widened, canonical-only corpus straight from the loader).
 // ---------------------------------------------------------------------------
 
-/// article_context is the model-visible text for one corpus item, rendered AFTER its headline (the
-/// caller always writes `[source] title` first). Successful Editor cards win; direct
-/// full_text remains a fallback; the RSS description is used only when it actually says something
-/// the headline did not.
+/// article_context is the model-visible text for one corpus item, rendered AFTER its headline
+/// (the caller always writes `[source] title` first). On the packet corpus that text is the
+/// article's remaining claims, and it is used only when it actually says something the headline
+/// did not.
 ///
-/// **Headline passthrough.** An article the Editor could not read — paywalled, fetch-failed, or
-/// simply never budgeted for — is not dropped and is not summarized from nothing. It travels on its
-/// headline, which is what a headline is written to do. What must NOT happen is the old behaviour:
-/// falling through to the RSS description, which is 99.7% the title repeated plus the outlet name,
-/// producing `[Sky Sports] Arsenal sign Tzolis — Arsenal sign Tzolis Sky Sports`. That is the same
-/// duplication that made the retired embedder judge headlines counted twice; here it wasted prompt
-/// budget and read as corroboration the corpus does not have.
-///
-/// Returning an empty context is therefore a real answer, not a failure: the headline above it is
-/// the evidence, and reading is an upgrade applied to it rather than a precondition for carrying it.
+/// **Headline passthrough.** Returning an empty context is a real answer, not a failure: the
+/// headline above it is the evidence. What must NOT happen is the legacy-rail behaviour of
+/// falling through to an RSS description that is 99.7% the title repeated plus the outlet name,
+/// producing `[Sky Sports] Arsenal sign Tzolis — Arsenal sign Tzolis Sky Sports` — wasted prompt
+/// budget that read as corroboration the corpus does not have. (The Editor-card and `full_text`
+/// branches that used to come first left with the legacy loader: the packet corpus never
+/// carries either.)
 fn article_context(c: &CorpusItem) -> (&str, usize) {
-    if c.article_read_status.as_deref() == Some("success") {
-        if let Some(t) = c
-            .article_read_blurb
-            .as_deref()
-            .filter(|t| !t.trim().is_empty())
-        {
-            return (t, ARTICLE_READ_BLURB_TRUNCATE);
-        }
-    }
-    if let Some(t) = c.full_text.as_deref().filter(|t| !t.trim().is_empty()) {
-        return (t, ARTICLE_READ_BLURB_TRUNCATE);
-    }
     if description_adds_nothing(&c.description, &c.title, &c.source) {
         return ("", DESC_TRUNCATE);
     }
@@ -640,10 +602,7 @@ fn render_signals_line(corpus: &[CorpusItem], now_epoch: i64) -> String {
         corpus.len(),
         sources.len()
     );
-    let freshest = corpus
-        .iter()
-        .filter_map(|c| c.published_at_epoch.or(c.fetched_at_epoch))
-        .max();
+    let freshest = corpus.iter().filter_map(|c| c.published_at_epoch).max();
     if let Some(f) = freshest {
         let age_h = (now_epoch - f).max(0) / 3600;
         if age_h < 48 {
@@ -871,7 +830,7 @@ fn compute_news_impact(news: &[CorpusItem], now_epoch: i64) -> (i32, serde_json:
 }
 
 fn source_epoch(item: &CorpusItem) -> Option<i64> {
-    item.published_at_epoch.or(item.fetched_at_epoch)
+    item.published_at_epoch
 }
 
 fn source_metadata(news: &[CorpusItem]) -> (i32, Vec<String>, Option<i64>, Option<i64>) {
@@ -914,31 +873,22 @@ pub enum NarrativesBuild {
     Ready(Box<NarrativesReady>),
 }
 
-/// reading_fingerprint — MOVED HERE VERBATIM from `junctions/article_reader` in Phase 9 (9.1), when
-/// that module was demolished. **It is NOT legacy-reader machinery any more; it is part of the
-/// narratives debounce pre-image**, and that is the whole reason it survived the demolition.
+/// The per-article reading fingerprint, as the debounce pre-image has always spelled it. On the
+/// packet corpus there is no reading state on the item any more, so every article fingerprints
+/// to this constant — which makes `article_readings_hash` a pure function of the article-id set
+/// (already in the pre-image as `article_ids`). It is carried anyway, byte-for-byte.
 ///
-/// ⛔ **DO NOT "TIDY" THIS FORMAT.** The output feeds `build_article_reading_input_components` →
-/// `hash_components` → the narratives `input_hash`. Any change to the shape — including dropping
-/// the `none`/empty/`0` fallbacks — changes every entity's hash at once, which is EXACTLY a
-/// `NARRATIVES_PROMPT_VERSION` bump by another route: one forced regen of the whole fleet. The
-/// demolition preserved it byte-for-byte so that Phase 9 cost zero model calls.
-pub fn reading_fingerprint(
-    status: Option<&str>,
-    content_hash: Option<&str>,
-    updated_epoch: Option<i64>,
-) -> String {
-    format!(
-        "{}:{}:{}",
-        status.unwrap_or("none"),
-        content_hash.unwrap_or(""),
-        updated_epoch.unwrap_or(0)
-    )
-}
+/// ⛔ **DO NOT "TIDY" THIS OUT OF THE PRE-IMAGE.** Dropping the term — or changing this string —
+/// changes every entity's hash at once, which is EXACTLY a `NARRATIVES_PROMPT_VERSION` bump by
+/// another route: one forced regen of the whole fleet. (The Phase 9 demolition preserved the
+/// legacy `reading_fingerprint(status, hash, epoch)` format the same way, for the same reason.)
+/// The term can be retired for free only by riding the NEXT deliberate n-bump, which forces the
+/// one regen anyway.
+pub const READING_FINGERPRINT_NONE: &str = "none::0";
 
-/// build_article_reading_input_components — also moved verbatim from `article_reader` in 9.1. Sorts
-/// by article id so corpus ordering cannot move the hash, then hashes the canonical pairs. See the
-/// warning on [`reading_fingerprint`]: this is a live cache key, not dead legacy code.
+/// build_article_reading_input_components — moved verbatim from `article_reader` in 9.1. Sorts
+/// by article id so corpus ordering cannot move the hash, then hashes the canonical pairs. See
+/// the warning on [`READING_FINGERPRINT_NONE`]: this is a live cache key, not dead legacy code.
 pub fn build_article_reading_input_components(items: &[(i64, String)]) -> String {
     let mut pairs = items.to_vec();
     pairs.sort_by_key(|(id, _)| *id);
@@ -985,16 +935,7 @@ pub fn build_narratives_input_components(corpus: &[CorpusItem]) -> String {
     out.push(']');
     let article_readings: Vec<(i64, String)> = corpus
         .iter()
-        .map(|c| {
-            (
-                c.id,
-                reading_fingerprint(
-                    c.article_read_status.as_deref(),
-                    c.article_read_content_hash.as_deref(),
-                    c.article_read_updated_epoch,
-                ),
-            )
-        })
+        .map(|c| (c.id, READING_FINGERPRINT_NONE.to_string()))
         .collect();
     out.push_str(",\"article_readings_hash\":");
     out.push_str(&crate::util::go_json_string(
@@ -1355,7 +1296,7 @@ fn narratives_excluded_evidence(out: &NarrativesOutput) -> serde_json::Value {
         .as_ref()
         .and_then(|b| b.pointer("/options/num_ctx"))
         .and_then(|v| v.as_i64())
-        .unwrap_or(crate::route::VOICE_NUM_CTX as i64) as i32;
+        .unwrap_or(crate::route::VOICE_NUM_CTX_PACKET as i64) as i32;
     let mut excluded = Vec::new();
     if !out.stale_news_ids.is_empty() {
         excluded.push(json!({
@@ -1629,14 +1570,14 @@ pub async fn persist_narratives(
             included_evidence: narratives_included_evidence(out),
             excluded_evidence: narratives_excluded_evidence(out),
             // Read off the EXACT wire body rather than restated from constants: the decode
-            // budget is rail-scoped now (`narratives_decode_budget`), and a ledger that reported
-            // the legacy numbers for a packet-rail call would be the one place the flip was
-            // invisible. Falls back to the legacy constants if the body ever lacks options.
+            // budget is window-scoped (`narratives_decode_budget`), and a ledger that reported
+            // the wrong envelope for a call would be the one place a flip was invisible. Falls
+            // back to the packet envelope if the body ever lacks options.
             context_budget: json!({
                 "num_predict": out.request_body.as_ref().and_then(|b| b.pointer("/options/num_predict"))
-                    .and_then(|v| v.as_i64()).unwrap_or(NARRATIVES_NUM_PREDICT as i64),
+                    .and_then(|v| v.as_i64()).unwrap_or(NARRATIVES_NUM_PREDICT_PACKET as i64),
                 "num_ctx": out.request_body.as_ref().and_then(|b| b.pointer("/options/num_ctx"))
-                    .and_then(|v| v.as_i64()).unwrap_or(NARRATIVES_NUM_CTX as i64),
+                    .and_then(|v| v.as_i64()).unwrap_or(crate::route::VOICE_NUM_CTX_PACKET as i64),
                 "eval_count": out.eval_count,
                 "wall_ms": out.wall_ms,
             }),

@@ -20,7 +20,8 @@
     "reader_vetted": [
       "Aston Villa"
     ],
-    "result_line_parses": false
+    "result_line_parses": false,
+    "story_type_is": "transfer"
   },
   "name": "transfer-report-accept-and-ground",
   "note": "The recall half of the gate: an unambiguous transfer story about the hypothesis entity must be ACCEPTED and compressed with its facts intact. Without cases like this a model that rejects everything would score 100%.",

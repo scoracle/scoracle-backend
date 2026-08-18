@@ -722,8 +722,8 @@ fn expected_property_count(x: &Expect) -> usize {
     n += x.summary_excludes.as_ref().map_or(0, Vec::len);
     n += x.confidence_min.is_some() as usize;
     n += x.confidence_max.is_some() as usize;
-    n += x.peak_includes.as_ref().map_or(0, Vec::len);
-    n += x.peak_excludes.as_ref().map_or(0, Vec::len);
+    n += x.skill_includes.as_ref().map_or(0, Vec::len);
+    n += x.skill_excludes.as_ref().map_or(0, Vec::len);
     n += x.prose_includes.as_ref().map_or(0, Vec::len);
     n += x.prose_excludes.as_ref().map_or(0, Vec::len);
     n += x.prose_min_words.is_some() as usize;
@@ -942,7 +942,7 @@ fn fixture_raw_excerpt(raw: &str) -> String {
     out
 }
 
-/// build_harness constructs the read-only harness (pool + router; no embedder).
+/// build_harness constructs the read-only harness (pool + router).
 /// Single-flight, so the GPU governor is moot; pin 1.
 async fn build_harness(cfg: &Config) -> Result<Harness> {
     let pool = db::build_pool(&cfg.database_url, cfg.db_max_conns).await?;
@@ -950,11 +950,12 @@ async fn build_harness(cfg: &Config) -> Result<Harness> {
     Ok(Harness {
         pool,
         router,
-        embedder: None,
         // Unbounded: an inspection run drives its entity to completion. Nothing here is racing a
         // worker timeout, and a truncated eval would be a worse artifact than a slow one.
         handler_budget: Duration::ZERO,
-        voice_num_ctx: scoracle_cognition::route::VOICE_NUM_CTX,
+        // The same resolved window production runs — an eval generating in a window the live
+        // stage never uses would measure the wrong thing.
+        voice_num_ctx: cfg.voice_num_ctx,
     })
 }
 

@@ -15,18 +15,18 @@ use anyhow::{Context, Result};
 use sqlx::PgPool;
 use std::time::Duration;
 
-/// Stage names the derivation step a work item belongs to, held in `pipeline_work`. Most stages are
-/// per-entity (player/team); `Scrub` is the exception — it is ARTICLE-keyed (entity_type='article',
-/// entity_id=`news_articles.id`) and is the news ID-gate that, on writing `vetted`, fires the mig-103
-/// trigger enqueuing the per-entity derive stages (Plan §8, L6 option (i)). `Momentum` is the
-/// generated trajectory card over the rating read/Vibe plus deterministic momentum scores. The Rust handlers
-/// drain these stages; Go only enqueues/operates queue rows.
+/// Stage names the derivation step a work item belongs to, held in `pipeline_work`. Most stages
+/// are per-entity (player/team); `Editor` and `Graph` are the exceptions — ARTICLE-keyed
+/// (entity_type='article', entity_id=`news_articles.id`). `Momentum` is the generated trajectory
+/// card over the rating read/Vibe plus deterministic momentum scores. The Rust handlers drain
+/// these stages; Go only enqueues/operates queue rows. (The legacy rail's `Scrub` and
+/// `ArticleRead` variants were demolished with it in Phase 9.)
 ///
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Stage {
-    /// The greenfield Editor (PLAN-one-rail Phase 3) — article-keyed like `ArticleRead`, whose
-    /// seat it shadows until cutover. Writes ONLY greenfield tables (`editor_reads`,
-    /// `news_articles.full_text`).
+    /// The Editor (PLAN-one-rail Phase 3) — the rail's sole reader: reads every article once,
+    /// writes `editor_reads` + `news_articles.full_text`, authors the links, and fans out
+    /// graph/nomination/storyline work.
     Editor,
     /// The Investigator's entity-discovery stage (PLAN-one-rail Phase 5) — candidate-keyed
     /// (`entity_type='candidate'`, entity_id = `entity_candidates.id`). Enqueued by the

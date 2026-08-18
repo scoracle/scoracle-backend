@@ -106,7 +106,8 @@ fn scenarios() -> Vec<Scenario> {
                 "article_relevant": true,
                 "names_include": ["Dragojevic", "Clement", "Rangers"],
                 "name_kind_is": {"Dragojevic": "person", "Rangers": "club"},
-                "register_is": "neutral"
+                "register_is": "neutral",
+                "story_type_is": "injury"
             }),
         },
         Scenario {
@@ -124,7 +125,8 @@ fn scenarios() -> Vec<Scenario> {
                 "name_kind_is": {"Buendia": "person"},
                 "blurb_includes": ["Villa"],
                 "blurb_excludes": ["not materially about"],
-                "result_line_parses": false
+                "result_line_parses": false,
+                "story_type_is": "transfer"
             }),
         },
         Scenario {
@@ -139,7 +141,9 @@ fn scenarios() -> Vec<Scenario> {
                 "article_relevant": true,
                 "key_facts_include": ["hamstring"],
                 "key_facts_exclude": ["surgery", "season-ending"],
-                "names_include": ["Saka", "Arteta"]
+                "names_include": ["Saka", "Arteta"],
+                "register_is": "neutral",
+                "story_type_is": "injury"
             }),
         },
         Scenario {
@@ -156,7 +160,8 @@ fn scenarios() -> Vec<Scenario> {
                 // Accented Spanish-only forms: bare "confirma" is a substring of the English
                 // "confirmation", which a correct English blurb may legitimately use (measured
                 // false red, 2026-08-01 iter11).
-                "blurb_excludes": ["confirmó", "renovación"]
+                "blurb_excludes": ["confirmó", "renovación"],
+                "story_type_is": "contract"
             }),
         },
         Scenario {
@@ -207,7 +212,8 @@ fn scenarios() -> Vec<Scenario> {
                 "article_relevant": true,
                 "result_line_includes": ["2-1"],
                 "result_line_parses": true,
-                "names_include": ["Bellingham"]
+                "names_include": ["Bellingham"],
+                "story_type_is": "performance"
             }),
         },
         Scenario {
@@ -225,7 +231,8 @@ fn scenarios() -> Vec<Scenario> {
                     {"name": "Vinicius", "entity_type": "player", "entity_id": 600687},
                     {"name": "Vinicius", "entity_type": "player", "entity_id": 831044}
                 ],
-                "resolver_refused_include": ["Vinicius"]
+                "resolver_refused_include": ["Vinicius"],
+                "story_type_is": "performance"
             }),
         },
     ]

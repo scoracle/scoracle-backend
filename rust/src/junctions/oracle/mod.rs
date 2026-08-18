@@ -59,8 +59,8 @@ pub const ORACLE_TEMPERATURE: f64 = 0.6;
 pub const ORACLE_NUM_PREDICT: i32 = 1100;
 
 /// The reservation inside a SMALL voice window (§7's ≤800 share). Every voice that reserves more
-/// than this drops to it at 4096, for the arithmetic reason `NARRATIVES_NUM_CTX` has documented
-/// since it was written: a reservation the window cannot hold evicts the system prompt silently,
+/// than this drops to it at 4096, for the arithmetic reason `narratives_decode_budget` has
+/// documented since it was written: a reservation the window cannot hold evicts the system prompt silently,
 /// mid-generation, and the failure looks like a model that stopped obeying its rules.
 pub const SMALL_WINDOW_NUM_PREDICT: i32 = 700;
 

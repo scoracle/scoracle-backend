@@ -10,7 +10,8 @@
     "result_line_includes": [
       "2-1"
     ],
-    "result_line_parses": true
+    "result_line_parses": true,
+    "story_type_is": "performance"
   },
   "name": "result-line-verbatim-score",
   "note": "The verbatim-or-empty shape: a completed result stated in the text must come back as the copyable line, and the PRODUCTION parse_result_line must consume it — Phase 4's box-score fork feeds on exactly this. The model never computes; it copies.",

@@ -1,10 +1,12 @@
 //! Shared article fetcher — resolve, fetch, and clean one publisher page.
 //!
-//! Extracted from the legacy reader junction (`junctions/article_reader`, formerly `editor/`) in
-//! Phase 3.1 of PLAN-one-rail so the greenfield Editor and the legacy `article_read` stage fetch
-//! through ONE implementation: Google-News wrapper resolution, the HTTP fetch, the
-//! headless-Chrome fallback, and HTML-to-text cleaning. Behavior is identical to the code it was
-//! cut from; both stages call these functions.
+//! Extracted from the legacy reader junction (`junctions/article_reader`) in Phase 3.1 of
+//! PLAN-one-rail so the Editor and the legacy `article_read` stage fetched through ONE
+//! implementation: Google-News wrapper resolution, the HTTP fetch, the headless-Chrome
+//! fallback, and HTML-to-text cleaning. The legacy stage is demolished (Phase 9); the Editor is
+//! the sole caller now. (`ARTICLE_READ_CHROME_ENABLED` keeps its legacy name deliberately — it
+//! is a deployed env knob on archbox, and renaming it here would silently disable the Chrome
+//! fallback wherever the old name is still set.)
 //!
 //! Infrastructure rule (see `junctions/mod.rs`): junctions may depend on this module; this module
 //! must not depend on any junction.

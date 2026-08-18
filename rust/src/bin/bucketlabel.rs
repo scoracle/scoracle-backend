@@ -100,17 +100,19 @@ async fn main() -> Result<()> {
         done.len()
     );
 
-    // Stratified-random over the population scrub actually buckets: articles with at
-    // least one vetted link. md5 ordering is deterministic across runs, so the resume
-    // set and the sample line up night over night.
+    // Stratified-random over the population the Editor actually buckets: articles with at
+    // least one link (post-mig-214 a link row's EXISTENCE is the verdict — the tri-state
+    // `vetted` column left with the legacy rail, and this query broke until it caught up).
+    // md5 ordering is deterministic across runs, so the resume set and the sample line up
+    // night over night.
     let rows = sqlx::query(
         "SELECT a.id,
                 (SELECT min(nae.sport) FROM news_article_entities nae
-                  WHERE nae.article_id = a.id AND nae.vetted IS TRUE) AS sport,
+                  WHERE nae.article_id = a.id) AS sport,
                 a.title, coalesce(a.description,'')
            FROM news_articles a
           WHERE EXISTS (SELECT 1 FROM news_article_entities nae
-                         WHERE nae.article_id = a.id AND nae.vetted IS TRUE)
+                         WHERE nae.article_id = a.id)
           ORDER BY md5(a.id::text)
           LIMIT $1",
     )

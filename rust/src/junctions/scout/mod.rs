@@ -5,7 +5,7 @@
 //! point: nightly mode enqueues durable rating work, while explicit backfill can still run the
 //! core inline for historical seasons. (s19 PEAK retirement: the specialist lens is gone — the
 //! rating is the z-score synthesis, and the Scout's brief surfaces specialists as prose, not as a
-//! divined label. The queue stage keeps its legacy "peak" string until the Wave B migration.)
+//! divined label. The queue stage is `rating` everywhere since mig 221 — Wave B is done.)
 //!
 //! Composition (Plan §1.2 + §4): `route(StatsLogic) + extract + persist`. Rating is the FIRST
 //! `Role::StatsLogic` consumer (vibe/transfers are `EmotionalNews`). The deterministic parts stay
@@ -1232,11 +1232,13 @@ async fn load_rating_trajectory(
 }
 
 // ---------------------------------------------------------------------------
-// Output parsing — mirrors parsePeakCommentary / trimMarker / cleanCommentary.
+// Output parsing — the body-only rating-commentary-v1 contract (s19), with the
+// legacy marker strip kept as a serving guard.
 // ---------------------------------------------------------------------------
 
-/// RatingReply is the parsed model output: the divined PEAK label (from the "PEAK: <label>" first
-/// line) + the cleaned identity-analysis body. The `T` in `Parser<T>`.
+/// RatingReply is the parsed model output: the cleaned identity-analysis body. The `T` in
+/// `Parser<T>`. (The divined PEAK label this used to carry retired at s19; any marker line a
+/// model still emits is stripped and discarded so bookkeeping vocabulary can never serve.)
 #[derive(Clone, Debug)]
 pub struct RatingReply {
     pub body: String,

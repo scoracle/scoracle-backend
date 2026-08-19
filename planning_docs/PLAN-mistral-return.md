@@ -1,9 +1,50 @@
 # PLAN — the Mistral return: direction work → lean-8B gate → MLX
 
 *(Opened 2026-08-19. Doctrine: `DOCTRINE-directing.md`. Evidence base:
-`progress_docs/2026-08-18_seat-and-reader-gates.md`. Goal: quality holds, and the Mac
-lane reaches the 354–443/hr band (4–5h daily clear) via ministral-3:8b lean quant
-(~1.19× bytes) × MLX batching (~1.5–2×) ≈ 1.8–2.4× lane throughput.)*
+`progress_docs/2026-08-18_seat-and-reader-gates.md`.)*
+
+## ⚑ DECIDED (Scott, 2026-08-19 evening) — supersedes the decision gates below
+
+**The Mac lane runs ministral-3:8b pinned on MLX-LM Server** (the Apple-built stack:
+MLX → MLX-LM → `mlx_lm.server`, OpenAI-compatible API) for the four characters that
+need the smarter model — vanilla Ministral-3-8B-Instruct-2512 if that's what it takes.
+**The 1070 stays ministral-3:3b pinned on Ollama** for the card-directed work. The 9B
+"has been fun, and it may test a little better, but my gut and the MLX part of the
+equation all point me back to Mistral products. I'm making the decision and then we'll
+focus on optimizing." Target: **4 concurrent streams on the Mac mini → the 354–443/hr
+band → the 4–5h daily clear.**
+
+Consequences for this plan: the phases below stop being seat-selection gates and become
+the OPTIMIZATION program for the decided config. The gates still run — as adaptation
+feedback and regression floors, not as vetoes. The named quality risks stay named
+(vibe calibration → momentum coupling; oracle discretion) and are now WORK ITEMS:
+direction (v20 anchors, live guards) plus prompt adaptation close them on the 8B, and
+the violation-rate telemetry measures progress. Rollback stays cheap (the 9B remains
+pulled on Ollama; routes are env lines).
+
+Bring-up sequence (replaces Phases 2–4):
+1. **Server bring-up** (rest windows): install mlx-lm, fetch
+   `mlx-community/Ministral-3-8B-Instruct-2512-4bit`, run `mlx_lm.server`; wire via the
+   existing `openai.rs` backend (`_BACKEND=openai` + `_BASE_URL` env lines — no new code).
+2. **D-T53 acceptance bench**: 30/30 completion at sustained req/h; aggregate tok/s at
+   2/3/4/6 concurrent (target: the 2.13×-class batching win at 4); RSS growth over a
+   long run (oMLX grew ~3GB); **structured-output probe on the tekken tokenizer** — the
+   Journalist's live path requires grammar (card_score schema), so this is the one
+   load-bearing validation; fallback exists (tolerant salvager + best-effort card_score)
+   but measure before relying on it. `num_ctx` is server-side now (set at launch);
+   `think` is moot (ministral doesn't think).
+3. **Voice adaptation on the decided engine**: run the four voice gates against the
+   MLX 8B; close the calibration + discretion gaps via prompt adaptation with the v20
+   anchors and guards doing their jobs. The re-pinned baselines (vibe 42/43, oracle
+   74/76, rating 86/87) are the regression floors to converge toward.
+4. **Cutover** per D-T57: `.env.local` route flip, launch agent for the server
+   (memory-envelope rules: one model, desktop apps quit, RSS watched), watchdog eyes on
+   the first duty cycles. Note: the bartowski IQ4_XS GGUF pull is moot for the Mac now
+   (MLX uses its own 4-bit); keep or delete at leisure.
+
+---
+
+*(Original plan below, kept as the record of how the decision was reached.)*
 
 **Backlog context:** the lane does ~180–190/hr on defiant-fable:9b and the queue grows
 ~800/day. Phase 2 alone (~1.19×, no engine risk) slows the bleed; Phase 3 clears it.

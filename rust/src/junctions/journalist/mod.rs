@@ -1642,6 +1642,15 @@ impl StageHandler for NarrativesHandler {
         Stage::Narratives
     }
 
+    // MLX cutover (2026-08-19): the four Mac voice stages share the batched server's slots —
+    // see `stage::MAC_MLX_SLOTS` for the measurement and the two-knob rule.
+    fn max_in_flight(&self) -> usize {
+        3
+    }
+    fn slot_group(&self) -> Option<(&'static str, usize)> {
+        Some(crate::stage::MAC_MLX_SLOTS)
+    }
+
     async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {
         let entity_id = item.entity_id_i32()?;
         // nameOf uses the queue's raw sport value (drainNarratives), as does the prompt's req.Sport.

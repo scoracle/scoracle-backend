@@ -47,10 +47,10 @@ pub trait StageHandler: Send + Sync {
     /// slots — its items do no model work, so every slot it holds is a slot the GPU cannot use.
     ///
     /// Default 1. Raise it only for a stage that must keep MULTIPLE slots of one backend busy:
-    /// locally that is The Editor and graph, the two stages on gemma3:4b, which between them have
-    /// to fill Archbox's 4 parallel slots. A remote stage should stay at 1 — the Mac runs
-    /// one request at a time by design, so extra in-flight items there only queue on its
-    /// semaphore, holding leases and burning their handler-timeout clock for no throughput.
+    /// locally The Editor and graph fill the 1070's parallel slots, and since the MLX cutover
+    /// (2026-08-19) the four Mac voice stages share [`MAC_MLX_SLOTS`] — batched decode made
+    /// concurrent Mac requests nearly free (measured 2.2–3× aggregate at 4 streams), inverting
+    /// the ollama-era rule that a remote stage should stay at 1.
     ///
     /// For a stage in a [`slot_group`], this is its ceiling *within* that group, not its
     /// guarantee: the group budget binds first.
@@ -90,3 +90,16 @@ pub trait StageHandler: Send + Sync {
 /// — this constant, `COGNITION_BACKEND_CONCURRENCY`'s localhost entry, and the systemd unit's
 /// `OLLAMA_NUM_PARALLEL` — move together or not at all.
 pub const ARCHBOX_GEMMA_SLOTS: (&str, usize) = ("archbox-gemma3", 6);
+
+/// The MLX server on the Mac mini (`mlx_lm.server`, port 8090), shared by the four voice stages
+/// — narratives, vibe, rating, sigil — since the 2026-08-19 cutover.
+///
+/// **Six is a batching derivation, not a guess:** batched decode shares one weight pass across
+/// all streams (measured on cutover day: 1 stream = 20.7 tok/s, 4 streams = 45–62 aggregate,
+/// 2.2–3×; the server's own `--decode-concurrency` default is 32, so it is never the binder).
+/// The group lets a busy voice expand into an idle voice's slots — the editor/graph lesson —
+/// instead of pinning 4 stages at fixed shares the queue mix rarely matches. Two knobs move
+/// together or not at all: this constant and `COGNITION_BACKEND_CONCURRENCY`'s `:8090` entry.
+/// The per-stream costs are modest (KV in unified memory, slightly longer per-request walls)
+/// and the ceiling to respect is RAM, not compute — raise past 6 only with an RSS reading.
+pub const MAC_MLX_SLOTS: (&str, usize) = ("mac-mlxlm", 6);

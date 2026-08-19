@@ -144,14 +144,13 @@ fn vibe_gate(
     score_min: Option<i32>,
     score_max: Option<i32>,
 ) -> Expect {
+    // (The hook contract and the `**` body ban left the per-fixture expects 08-19: they are
+    // GLOBAL invariants now — `hook_contract`/`no_banned_phrases` checks in `VibeTask`, the
+    // same rules `VibeParser` enforces in production via `guards`.)
     Expect {
         score_min,
         score_max,
-        hook_nonempty: Some(true),
-        hook_max_words: Some(12),
-        hook_excludes: Some(vec![":".into(), "?".into()]),
         prose_includes: Some(prose_includes.iter().map(|s| s.to_string()).collect()),
-        prose_excludes: Some(vec!["**".into()]),
         prose_min_words: Some(40),
         prose_max_words: Some(320),
         total_sentences_max: Some(10),

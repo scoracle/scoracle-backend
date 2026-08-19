@@ -644,7 +644,7 @@ impl Parser<VibeReply> for VibeParser {
             tracing::warn!(guard = "product_name", name = p, "vibe body rejected");
             bail!("vibe: body names product {p:?}");
         }
-        if crate::util::has_foreign_script(&vibe_prompt) {
+        if crate::guards::has_foreign_script(&vibe_prompt) {
             tracing::warn!(guard = "foreign_script", "vibe body rejected");
             bail!("vibe: body carries a foreign-script run");
         }

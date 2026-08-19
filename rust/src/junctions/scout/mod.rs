@@ -1271,7 +1271,7 @@ impl Parser<RatingReply> for RatingParser {
             tracing::warn!(guard = "product_name", name = p, "rating body rejected");
             anyhow::bail!("rating: body names product {p:?}");
         }
-        if crate::util::has_foreign_script(&body) {
+        if crate::guards::has_foreign_script(&body) {
             tracing::warn!(guard = "foreign_script", "rating body rejected");
             anyhow::bail!("rating: body carries a foreign-script run");
         }

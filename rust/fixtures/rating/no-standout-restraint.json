@@ -1,9 +1,7 @@
 {
   "expect": {
     "prose_excludes": [
-      "play physical",
-      " · ",
-      "**"
+      "play physical"
     ],
     "prose_includes": [
       "64th",

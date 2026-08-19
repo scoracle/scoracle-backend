@@ -84,8 +84,10 @@ fn rating_gate(includes: &[&str], excludes: &[&str], min_words: i64) -> serde_js
         ]
         .map(String::from),
     );
-    let mut exc: Vec<String> = excludes.iter().map(|s| s.to_string()).collect();
-    exc.extend([" · ", "**"].map(String::from));
+    // (` · ` and `**` left the per-fixture excludes 08-19: they are the global
+    // `no_banned_phrases` invariant now — `guards::RATING_BODY_BANS`, enforced in
+    // production by `RatingParser`.)
+    let exc: Vec<String> = excludes.iter().map(|s| s.to_string()).collect();
     json!({
         "prose_includes": inc,
         "prose_excludes": exc,

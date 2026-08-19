@@ -1,9 +1,6 @@
 {
   "expect": {
-    "prose_excludes": [
-      " · ",
-      "**"
-    ],
+    "prose_excludes": [],
     "prose_includes": [
       "rim protection",
       "96th",

@@ -218,19 +218,9 @@ pub struct Expect {
     pub score_min: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub score_max: Option<i32>,
-    /// v13 Influencer card contract: the HOOK line (card title) must materialize.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub hook_nonempty: Option<bool>,
-    /// v17 hook discipline: the HOOK's own stated caps, gated (the D-T45 rule — a field the
-    /// gate cannot see is a field a prompt edit can quietly break). Word ceiling ("under
-    /// twelve words"); a missing hook fails the ceiling — asserting the cap asserts presence.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub hook_max_words: Option<i32>,
-    /// v17 hook discipline: banned substrings, case-insensitive ("?" = question-mark bait,
-    /// ":" = the Topic: Subtitle construction). A missing hook passes trivially —
-    /// presence is `hook_nonempty`/`hook_max_words`'s job.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub hook_excludes: Option<Vec<String>>,
+    // (The v13/v17 `hook_nonempty`/`hook_max_words`/`hook_excludes` axes retired 08-19: the
+    // hook contract is a GLOBAL invariant — one `hook_contract` check per reply via
+    // `guards::hook_violation`, the same rule `VibeParser` enforces in production.)
     /// momentum s14: the contract's "emit NO number" rule, gated — no ASCII digit anywhere in
     /// the READ. (The decided-direction line hands the model a signed score; echoing it is the
     /// exact violation this catches.)
@@ -482,15 +472,11 @@ pub struct Expect {
     pub reading_min_sentences: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reading_max_sentences: Option<i32>,
-    /// Ceiling on how many DISTINCT peers the reading may name ("the Analyst", "the Insider", …).
-    ///
-    /// The Oracle prompt has always said "name at most ONE peer … never a roll call of all five;
-    /// the reading is yours alone", and nothing ever asserted it. The or8 gate passed 80/80 while
-    /// five of six readings named two, three, or four peers — the check did not exist, so the rule
-    /// was advice. A substring exclusion cannot express this: any ONE peer is legal, and only the
-    /// count is wrong, so it needs its own check.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub reading_max_peers: Option<i32>,
+    // (The `reading_max_peers` axis retired 08-19: every oracle fixture carried `1`, i.e. the
+    // rule was global — it is now one unconditional invariant check per reading, the same rule
+    // `CrownParser` rejects on. Its history — "the or8 gate passed 80/80 while five of six
+    // readings named two, three, or four peers; a rule measured by nothing is advice" — lives
+    // with `guards::count_named_peers`.)
     // momentum / trajectory reasoning rubric: PROSE ONLY.
     // momentum_score_min/max were removed in s11 — the Analyst no longer emits a score, so
     // there was nothing left for them to assert. Both numbers (direction and the ±5
@@ -664,6 +650,28 @@ impl LensTask for VibeTask {
         match parse_vibe_reply(raw) {
             Ok((s, hook, v)) => {
                 let mut checks = Vec::new();
+                // Contract-level invariants (the MOMENTUM_BANNED_PHRASES shape, folded 08-19):
+                // the HOOK contract and the body's global bans are enforced in production by
+                // `VibeParser`'s guards — the gate asserts the SAME rules, one check each,
+                // instead of the per-fixture `hook_*` expect entries they replaced. (Those
+                // axes carried the v17 D-T45 gate growth; the invariants inherit that duty.)
+                let hook_rule = hook.as_deref().map(crate::guards::hook_violation);
+                checks.push(PropertyCheck {
+                    name: "hook_contract".into(),
+                    pass: matches!(hook_rule, Some(None)),
+                    detail: match (&hook, hook_rule.flatten()) {
+                        (None, _) => "hook=MISSING".into(),
+                        (Some(h), Some(rule)) => format!("{rule} (hook={h:?})"),
+                        (Some(_), None) => String::new(),
+                    },
+                });
+                let banned = crate::guards::first_banned_phrase(&v, crate::guards::VIBE_BODY_BANS);
+                checks.push(PropertyCheck {
+                    name: "no_banned_phrases".into(),
+                    pass: banned.is_none(),
+                    detail: banned.map_or_else(String::new, |p| format!("found {p:?}")),
+                });
+                checks.push(product_name_check(&v));
                 if let Some(x) = expect {
                     if let Some(min) = x.score_min {
                         checks.push(PropertyCheck {
@@ -677,34 +685,6 @@ impl LensTask for VibeTask {
                             name: "score_le".into(),
                             pass: s <= max,
                             detail: format!("score={s} ≤ {max}"),
-                        });
-                    }
-                    if x.hook_nonempty == Some(true) {
-                        checks.push(PropertyCheck {
-                            name: "hook_nonempty".into(),
-                            pass: hook.is_some(),
-                            detail: format!("hook={}", hook.as_deref().unwrap_or("(absent)")),
-                        });
-                    }
-                    // v17 gate growth (the D-T45 rule): the VIBE body had carried ZERO checks
-                    // of any kind since v6 — the prose axes and the hook's stated caps land
-                    // BEFORE the register pass so the pass cannot quietly break them.
-                    if let Some(max) = x.hook_max_words {
-                        let n = hook.as_deref().map(|h| h.split_whitespace().count() as i32);
-                        checks.push(PropertyCheck {
-                            name: "hook_words_le".into(),
-                            pass: n.is_some_and(|n| n <= max),
-                            detail: match n {
-                                Some(n) => format!("hook words={n} ≤ {max}"),
-                                None => "hook=MISSING".to_string(),
-                            },
-                        });
-                    }
-                    for s in x.hook_excludes.iter().flatten() {
-                        checks.push(PropertyCheck {
-                            name: format!("hook_excludes:{s}"),
-                            pass: !hook.as_deref().is_some_and(|h| contains_ci(h, s)),
-                            detail: format!("hook={}", hook.as_deref().unwrap_or("(absent)")),
                         });
                     }
                     for s in x.prose_includes.iter().flatten() {
@@ -856,6 +836,26 @@ impl LensTask for OracleTask {
             pass: md.is_none(),
             detail: md.map_or_else(String::new, |c| format!("found {c:?}")),
         });
+        // (3) The reading's global vocabulary bans — internal metric names, mechanism words,
+        // the verdict formula — one check per reply via the SAME list `CrownParser` enforces
+        // in production (`guards::ORACLE_READING_BANS`). Folded 08-19 from per-fixture
+        // `reading_excludes` entries; the fixture axis now carries only spread-contextual
+        // exclusions (the wrong omen words).
+        let banned = crate::guards::first_banned_phrase(&reading, crate::guards::ORACLE_READING_BANS);
+        checks.push(PropertyCheck {
+            name: "no_banned_phrases".into(),
+            pass: banned.is_none(),
+            detail: banned.map_or_else(String::new, |p| format!("found {p:?}")),
+        });
+        // (4) The peer roll-call cap (or10: "name at most ONE peer … never a roll call") — was
+        // a per-fixture `reading_max_peers: 1` on every oracle fixture, i.e. global; now one
+        // invariant, same rule `CrownParser` rejects on.
+        let named = count_named_peers(&reading);
+        checks.push(PropertyCheck {
+            name: "reading_max_peers".into(),
+            pass: named <= 1,
+            detail: format!("peers={named} ≤ 1"),
+        });
 
         if let Some(x) = expect {
             if let Some(min) = x.reading_min_sentences {
@@ -887,14 +887,6 @@ impl LensTask for OracleTask {
                     name: format!("reading_excludes:{s}"),
                     pass: !contains_ci(&reading, s),
                     detail: String::new(),
-                });
-            }
-            if let Some(max) = x.reading_max_peers {
-                let named = count_named_peers(&reading);
-                checks.push(PropertyCheck {
-                    name: "reading_max_peers".into(),
-                    pass: named as i32 <= max,
-                    detail: format!("peers={named} ≤ {max}"),
                 });
             }
         }
@@ -1403,6 +1395,14 @@ impl LensTask for RatingTask {
         // momentum no_banned_phrases shape): product names are banned from every brief, not from
         // the fixtures that happened to trip one. Case-sensitive — see PRODUCT_NAME_BANS.
         checks.push(product_name_check(&reply.body));
+        // The brief's decoration bans (` · ` bullets, `**`) — folded 08-19 from per-fixture
+        // `prose_excludes` entries; same list `RatingParser` rejects on in production.
+        let banned = crate::guards::first_banned_phrase(&reply.body, crate::guards::RATING_BODY_BANS);
+        checks.push(PropertyCheck {
+            name: "no_banned_phrases".into(),
+            pass: banned.is_none(),
+            detail: banned.map_or_else(String::new, |p| format!("found {p:?}")),
+        });
 
         if let Some(x) = expect {
             // Identity specificity is asserted on the brief's own prose (the divined label these
@@ -1672,24 +1672,10 @@ fn empty_dash(s: &str) -> &str {
 use crate::guards::{contains_ci, count_named_peers};
 pub use crate::guards::{MOMENTUM_BANNED_PHRASES, PRODUCT_NAME_BANS};
 
-/// Crude sentence count: runs of terminal punctuation (`.` `!` `?`), a run of several counting
-/// once ("..." is one stop). A ceiling against padding, not a style meter — the same counter the
-/// Journalist's n18 edition budget uses, shared here so every prose lens measures length the
-/// same way.
+// (sentence_runs folded into `guards::count_sentences` 08-19 — one counter for every prose
+// lens; the crude version miscounted decimals as sentence stops.)
 fn sentence_runs(text: &str) -> i32 {
-    let mut n = 0;
-    let mut in_run = false;
-    for c in text.chars() {
-        if matches!(c, '.' | '!' | '?') {
-            if !in_run {
-                n += 1;
-            }
-            in_run = true;
-        } else {
-            in_run = false;
-        }
-    }
-    n
+    crate::guards::count_sentences(text) as i32
 }
 
 /// One shared invariant check over a served-prose field: the first product name found, as a
@@ -2442,30 +2428,26 @@ mod tests {
             ..Default::default()
         };
         assert!(VibeTask
-            .evaluate("SCORE: 30\nVIBE: grim", None, Some(&x))
+            .evaluate("SCORE: 30\nHOOK: The slide is real\nVIBE: grim", None, Some(&x))
             .all_checks_pass());
         assert!(!VibeTask
-            .evaluate("SCORE: 70\nVIBE: bright", None, Some(&x))
+            .evaluate("SCORE: 70\nHOOK: The room is up\nVIBE: bright", None, Some(&x))
             .all_checks_pass());
     }
 
     #[test]
-    fn vibe_hook_nonempty_check() {
-        // v13 card contract: hook_nonempty fails a hook-less (v12-shape) reply, passes a
-        // three-line one.
-        let x = Expect {
-            hook_nonempty: Some(true),
-            ..Default::default()
-        };
+    fn vibe_hook_contract_is_a_global_invariant() {
+        // The hook contract is unconditional (08-19): present, ≤12 words, no colon or
+        // question mark — the same `guards::hook_violation` rule `VibeParser` enforces.
+        // No expect needed: a hook-less (v12-shape) reply fails, a clean three-line passes.
         assert!(VibeTask
-            .evaluate(
-                "SCORE: 30\nHOOK: The slide is real\nVIBE: grim",
-                None,
-                Some(&x)
-            )
+            .evaluate("SCORE: 30\nHOOK: The slide is real\nVIBE: grim", None, None)
             .all_checks_pass());
         assert!(!VibeTask
-            .evaluate("SCORE: 30\nVIBE: grim", None, Some(&x))
+            .evaluate("SCORE: 30\nVIBE: grim", None, None)
+            .all_checks_pass());
+        assert!(!VibeTask
+            .evaluate("SCORE: 30\nHOOK: Breaking: a move\nVIBE: grim", None, None)
             .all_checks_pass());
     }
 
@@ -2763,12 +2745,12 @@ mod tests {
         };
         let v = RatingTask.evaluate("PEAK: No standout skill\nAverage profile.", None, Some(&x));
         assert!(v.parsed);
-        // Every expect-driven check fails; the no_product_names invariant rightly passes on a
-        // body with no product names, so it is excluded from the count.
+        // Every expect-driven check fails; the global invariants (no product names, no
+        // decoration) rightly pass on this clean-if-thin body, so they are excluded.
         let expect_passed = v
             .checks
             .iter()
-            .filter(|c| c.name != "no_product_names" && c.pass)
+            .filter(|c| c.name != "no_product_names" && c.name != "no_banned_phrases" && c.pass)
             .count();
         assert_eq!(expect_passed, 0, "checks: {:?}", v.checks);
     }

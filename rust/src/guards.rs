@@ -62,8 +62,15 @@ pub const MOMENTUM_BANNED_PHRASES: &[&str] = &[
 
 /// Vocabulary the Oracle's reading may never carry, whatever the spread: internal metric names,
 /// mechanism words, and the verdict formula ("the omen is" — the omen is DECLARED in its field,
-/// never narrated). The omen words themselves (`ascendant`/`waning`/`crossroads`) are NOT here:
+/// never narrated). The "(" ban pins the no-parentheses rule mechanically — the measured failure
+/// mode was bookkeeping citations like "(Mood: 30/100)" folded into otherwise-passing readings.
+/// The omen words themselves (`ascendant`/`waning`/`crossroads`) are NOT here:
 /// the right one is legitimate in its own spread — that expectation is fixture-contextual.
+/// Also deliberately absent: "impact", "heat", "slope" — the prompt bans the field-name sense,
+/// but each is ordinary sporting English ("the impact of the injury", "the heat of a title
+/// race"), and a check that fails on correct prose gets ignored — an ignored check is worse
+/// than none (the same reason the momentum list asserts "the engine sees this as", never bare
+/// "the engine").
 pub const ORACLE_READING_BANS: &[&str] = &[
     "notability",
     "convergence",
@@ -126,6 +133,56 @@ pub fn hook_violation(hook: &str) -> Option<&'static str> {
 /// words; a digit in the READ is internals pasted into the card.
 pub fn has_ascii_digit(s: &str) -> bool {
     s.bytes().any(|b| b.is_ascii_digit())
+}
+
+/// has_foreign_script reports whether card-facing English prose carries a run of a
+/// non-Latin writing system — the ministral-3:3b multilingual leak ("his playmaking
+/// has زمنed in Milwaukee", measured at ~2% of Analyst READs on 2026-08-15, 0% on the
+/// 9B). Parsers that own free prose call this and fail closed so the retry re-rolls;
+/// at a 2% leak rate a second attempt lands clean essentially always. The founding
+/// guard — moved here from `util` when guards got their own home (08-19).
+///
+/// Latin diacritics (Militão, Éder, Müller) and typographic punctuation pass — only
+/// Arabic, CJK, Hangul, Cyrillic, Devanagari, Thai, and Hebrew code points trip it.
+pub fn has_foreign_script(s: &str) -> bool {
+    s.chars().any(|c| {
+        matches!(c as u32,
+            0x0400..=0x04FF   // Cyrillic
+            | 0x0590..=0x05FF // Hebrew
+            | 0x0600..=0x06FF // Arabic
+            | 0x0900..=0x097F // Devanagari
+            | 0x0E00..=0x0E7F // Thai
+            | 0x3040..=0x30FF // Hiragana + Katakana
+            | 0x4E00..=0x9FFF // CJK unified
+            | 0xAC00..=0xD7AF // Hangul
+        )
+    })
+}
+
+/// count_sentences approximates a prose field's sentence count for the contract budgets: a
+/// sentence ends at a run of `.` / `!` / `?` followed by whitespace or end-of-text. A decimal
+/// point ("a 2.5 assist bump") is followed by a digit, so it never counts. THE sentence
+/// counter — the eval's cruder `sentence_runs` (which miscounted decimals) folded into this
+/// one 08-19 so every prose lens measures length the same way.
+pub fn count_sentences(text: &str) -> usize {
+    let chars: Vec<char> = text.chars().collect();
+    let mut n = 0;
+    let mut i = 0;
+    while i < chars.len() {
+        if matches!(chars[i], '.' | '!' | '?') {
+            let mut j = i + 1;
+            while j < chars.len() && matches!(chars[j], '.' | '!' | '?') {
+                j += 1;
+            }
+            if j >= chars.len() || chars[j].is_whitespace() {
+                n += 1;
+            }
+            i = j;
+        } else {
+            i += 1;
+        }
+    }
+    n
 }
 
 /// Case-insensitive, fold-aware contains — the matcher behind every `*_excludes`/`*_includes`

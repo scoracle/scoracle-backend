@@ -1,16 +1,6 @@
 {
   "expect": {
     "reading_excludes": [
-      "notability",
-      "convergence",
-      "sentiment",
-      "z-score",
-      "percentile",
-      "composite",
-      "momentum score",
-      "(",
-      "**",
-      "the omen is",
       "ascendant",
       "waning",
       "crossroads"
@@ -18,7 +8,6 @@
     "reading_includes": [
       "Ipswich"
     ],
-    "reading_max_peers": 1,
     "reading_max_sentences": 5,
     "reading_min_sentences": 2
   },

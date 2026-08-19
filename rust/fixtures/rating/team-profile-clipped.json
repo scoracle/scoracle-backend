@@ -2,9 +2,7 @@
   "expect": {
     "prose_excludes": [
       "momentum",
-      "trending",
-      " · ",
-      "**"
+      "trending"
     ],
     "prose_includes": [
       "suppression",

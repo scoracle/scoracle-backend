@@ -407,7 +407,7 @@ pub fn parse_momentum_reply(raw: &str) -> Option<MomentumReply> {
     }
     // The 3b delegation leak (2026-08-15): a READ with a foreign-script run is a
     // model glitch, not a read — reject it so the item retries for a clean roll.
-    if crate::util::has_foreign_script(&blurb) {
+    if crate::guards::has_foreign_script(&blurb) {
         return None;
     }
     Some(MomentumReply { blurb })

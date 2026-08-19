@@ -958,29 +958,9 @@ pub fn parse_crown_reply(raw: &str) -> Option<CrownReply> {
     Some(CrownReply { reading, score })
 }
 
-/// count_sentences approximates the reading's sentence count for the eval budget checks: a
-/// sentence ends at a run of `.` / `!` / `?` followed by whitespace or end-of-text. A decimal
-/// point ("a 2.5 assist bump") is followed by a digit, so it never counts. (Folded from oracle.rs.)
-pub fn count_sentences(text: &str) -> usize {
-    let chars: Vec<char> = text.chars().collect();
-    let mut n = 0;
-    let mut i = 0;
-    while i < chars.len() {
-        if matches!(chars[i], '.' | '!' | '?') {
-            let mut j = i + 1;
-            while j < chars.len() && matches!(chars[j], '.' | '!' | '?') {
-                j += 1;
-            }
-            if j >= chars.len() || chars[j].is_whitespace() {
-                n += 1;
-            }
-            i = j;
-        } else {
-            i += 1;
-        }
-    }
-    n
-}
+// (count_sentences moved to `crate::guards` 08-19 — THE shared sentence counter; re-exported
+// here for its historical import path.)
+pub use crate::guards::count_sentences;
 
 /// CrownParser is the crown stage's `Parser` plug-in behind the `Parser<T>` seam. It never returns
 /// the fail-closed `Ok(None)` — the crown's only fail-closed path is the pre-model no-pillar marker;
@@ -1010,7 +990,7 @@ impl Parser<CrownReply> for CrownParser {
                     tracing::warn!(guard = "product_name", name = p, "reading rejected");
                     bail!("crown: reading names product {p:?}");
                 }
-                if crate::util::has_foreign_script(&r.reading) {
+                if crate::guards::has_foreign_script(&r.reading) {
                     tracing::warn!(guard = "foreign_script", "reading rejected");
                     bail!("crown: reading carries a foreign-script run");
                 }

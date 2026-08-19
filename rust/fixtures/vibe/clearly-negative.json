@@ -1,14 +1,5 @@
 {
   "expect": {
-    "hook_excludes": [
-      ":",
-      "?"
-    ],
-    "hook_max_words": 12,
-    "hook_nonempty": true,
-    "prose_excludes": [
-      "**"
-    ],
     "prose_includes": [
       "Vale"
     ],

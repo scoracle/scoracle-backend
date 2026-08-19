@@ -732,9 +732,6 @@ fn expected_property_count(x: &Expect) -> usize {
     n += x.reading_excludes.as_ref().map_or(0, Vec::len);
     n += x.reading_min_sentences.is_some() as usize;
     n += x.reading_max_sentences.is_some() as usize;
-    n += x.reading_max_peers.is_some() as usize;
-    // `hook_nonempty` mirrors its evaluator exactly: only `Some(true)` pushes a check.
-    n += (x.hook_nonempty == Some(true)) as usize;
     // One check for the whole synonym set, not one per word.
     n += x.body_includes_any.is_some() as usize;
     // The graph axes.

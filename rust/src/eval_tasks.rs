@@ -67,7 +67,7 @@ use crate::junctions::oracle::{
     ORACLE_PROMPT_VERSION, ORACLE_SYSTEM_PROMPT,
 };
 use crate::junctions::scout::{
-    build_rating_request, RatingBuild, RatingParser, RatingReq, RATING_NUM_PREDICT,
+    build_rating_request, RatingBuild, RatingReply, RatingReq, RATING_NUM_PREDICT,
     RATING_PROMPT_VERSION, RATING_SYSTEM_PROMPT,
 };
 use crate::ollama::GenerateOptions;
@@ -1383,17 +1383,19 @@ impl LensTask for RatingTask {
         }
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
-        let reply = match RatingParser.parse(raw) {
-            Ok(Some(r)) if !r.body.trim().is_empty() => r,
-            _ => {
-                return CaseVerdict {
-                    parsed: false,
-                    abs_err: None,
-                    checks: Vec::new(),
-                    display: "unparseable".into(),
-                }
-            }
-        };
+        // Shape-only parse (NOT `RatingParser`): the gate must see a guard-violating body's
+        // prose and score it red on the invariant checks — production's guards would reject it
+        // before any check could run. Same lists either way (`crate::guards`).
+        let body = crate::junctions::scout::parse_rating_body(raw);
+        if body.trim().is_empty() {
+            return CaseVerdict {
+                parsed: false,
+                abs_err: None,
+                checks: Vec::new(),
+                display: "unparseable".into(),
+            };
+        }
+        let reply = RatingReply { body };
         let mut checks = Vec::new();
         let word_count = reply.body.split_whitespace().count() as i32;
 
@@ -1664,9 +1666,11 @@ fn empty_dash(s: &str) -> &str {
 /// Only quotes and letter diacritics are folded. Dashes are deliberately left alone: an em dash is
 /// a real stylistic signal some checks may legitimately want to assert on, and folding it to `-`
 /// would make those checks mean something different.
-fn contains_ci(haystack: &str, needle: &str) -> bool {
-    fold_for_match(haystack).contains(&fold_for_match(needle))
-}
+// The matcher and the global ban vocabularies moved to `crate::guards` (2026-08-19, the
+// eval→guard migration): production parsers and the gate now read the SAME lists — see
+// `guards.rs` for the "one list, one home" ruling and the doc comments that moved with them.
+use crate::guards::{contains_ci, count_named_peers};
+pub use crate::guards::{MOMENTUM_BANNED_PHRASES, PRODUCT_NAME_BANS};
 
 /// Crude sentence count: runs of terminal punctuation (`.` `!` `?`), a run of several counting
 /// once ("..." is one stop). A ceiling against padding, not a style meter — the same counter the
@@ -1688,61 +1692,13 @@ fn sentence_runs(text: &str) -> i32 {
     n
 }
 
-/// How many DISTINCT peers a reading names. The Oracle may name at most one, and only when that
-/// card carries the turn — a roll call makes the reading a summary of the table rather than the
-/// Oracle's own verdict.
-///
-/// Matches "the Analyst"-style references only. A bare sport word ("the scout said") would be a
-/// false positive, so the definite article is required, which is how the prompt's own examples are
-/// written ("the Insider's wire stirs", "the Analyst's call holds").
-fn count_named_peers(reading: &str) -> usize {
-    const PEERS: [&str; 5] = ["analyst", "insider", "scout", "influencer", "journalist"];
-    let lower = reading.to_lowercase();
-    PEERS
-        .iter()
-        .filter(|p| lower.contains(&format!("the {p}")))
-        .count()
-}
-
-/// Phrases the momentum contract bans outright, checked on EVERY momentum reply as a single
-/// invariant rather than as a per-fixture expectation.
-///
-/// It began as `prose_excludes` entries injected into all eight fixtures — 6 phrases x 8 fixtures =
-/// 48 checks, which tripled the denominator, mostly fired where the phrase was never at risk, and
-/// made scores incomparable between revisions because the denominator moved whenever the list did.
-/// The ban is global, so it belongs in one place. One check per reply, with the offending phrase in
-/// the detail, says exactly as much and costs 8 checks instead of 48.
-///
-/// Deliberately specific. Bare "the engine" is banned in the prompt but NOT here: a football READ
-/// can legitimately say "the engine room of midfield", and a check that fails on correct prose
-/// trains everyone to ignore it.
-/// Product / internal-system names banned from SERVED prose (Scott's brief, 2026-08-10: *"I
-/// don't want anything referencing PEAK or Vibe, or other of our products. Just use those as
-/// context without naming them"*, extended the same evening to the Analyst — *"it should
-/// reference Vibe output as something like 'the emotion around the club' versus 'Vibe'. Same
-/// with the PEAK"* — and the Oracle — *"if it references another Character, it should be their
-/// name and not PEAK or Vibe"*). Checked on EVERY reply of the wired seats (rating, momentum,
-/// oracle) as one invariant each — the [`MOMENTUM_BANNED_PHRASES`] shape: a global contract
-/// rule belongs in one check per reply, not one per fixture.
-///
-/// CASE-SENSITIVE deliberately, unlike every `contains_ci` axis: lowercase "peak" is legitimate
-/// English ("at the peak of his powers") and banning it would fail honest prose. The product
-/// names as the prompts' own vocabulary sets them — "PEAK", "DECISION CARD" — are what an
-/// echoing model copies, caps and all. For rating the check runs on the parsed BODY only: the
-/// structural "PEAK: <label>" marker line is stripped by `RatingParser` and never serves.
-pub const PRODUCT_NAME_BANS: &[&str] = &[
-    "PEAK",
-    "Vibe",
-    "Scoracle",
-    "Rating Engine",
-    "SCOUTING DECISION",
-    "DECISION CARD",
-];
-
 /// One shared invariant check over a served-prose field: the first product name found, as a
-/// `PropertyCheck` every wired seat pushes unconditionally.
+/// `PropertyCheck` every wired seat pushes unconditionally. For rating the check runs on the
+/// parsed BODY only: the structural "PEAK: <label>" marker line is stripped by `RatingParser`
+/// and never serves. (The list itself lives in [`crate::guards::PRODUCT_NAME_BANS`] — production
+/// enforces the same vocabulary.)
 fn product_name_check(prose: &str) -> PropertyCheck {
-    let named = PRODUCT_NAME_BANS.iter().find(|p| prose.contains(*p));
+    let named = crate::guards::first_product_name(prose);
     PropertyCheck {
         name: "no_product_names".into(),
         pass: named.is_none(),
@@ -1750,56 +1706,7 @@ fn product_name_check(prose: &str) -> PropertyCheck {
     }
 }
 
-pub const MOMENTUM_BANNED_PHRASES: &[&str] = &[
-    "isn't a surge",
-    "isn't a collapse",
-    "the tape calls this",
-    "the engine sees this as",
-    "the momentum engine",
-    "the numbers say",
-    "steady band",
-];
-
-/// Lowercase, fold the typographic quote characters to their ASCII equivalents, and fold Latin
-/// letter diacritics to their base letters (ø→o, é→e, ß→ss …). The table is curated for the
-/// scripts sports names actually arrive in (Latin-1/Latin-2 European), not a full Unicode
-/// normalization — NFD decomposition isn't in std, and a dependency for this would be the tail
-/// wagging the dog. Lowercasing runs FIRST so the table only needs lowercase entries.
-fn fold_for_match(s: &str) -> String {
-    s.to_lowercase()
-        .chars()
-        .flat_map(|c| {
-            let one = |c: char| std::iter::once(c).chain(None);
-            let two = |a: char, b: char| std::iter::once(a).chain(Some(b));
-            match c {
-                '\u{2018}' | '\u{2019}' | '\u{201B}' | '\u{02BC}' => one('\''),
-                '\u{201C}' | '\u{201D}' | '\u{201F}' => one('"'),
-                'à' | 'á' | 'â' | 'ã' | 'ä' | 'å' | 'ā' | 'ă' | 'ą' => one('a'),
-                'ç' | 'ć' | 'č' => one('c'),
-                'ď' => one('d'),
-                'è' | 'é' | 'ê' | 'ë' | 'ē' | 'ĕ' | 'ė' | 'ę' | 'ě' => one('e'),
-                'ğ' | 'ģ' => one('g'),
-                'ì' | 'í' | 'î' | 'ï' | 'ī' | 'į' | 'ı' => one('i'),
-                'ķ' => one('k'),
-                'ĺ' | 'ļ' | 'ľ' | 'ł' => one('l'),
-                'ñ' | 'ń' | 'ņ' | 'ň' => one('n'),
-                'ò' | 'ó' | 'ô' | 'õ' | 'ö' | 'ø' | 'ō' | 'ő' => one('o'),
-                'ŕ' | 'ř' => one('r'),
-                'ś' | 'ş' | 'š' | 'ș' => one('s'),
-                'ţ' | 'ť' | 'ț' => one('t'),
-                'ù' | 'ú' | 'û' | 'ü' | 'ū' | 'ů' | 'ű' | 'ų' => one('u'),
-                'ý' | 'ÿ' => one('y'),
-                'ź' | 'ż' | 'ž' => one('z'),
-                'æ' => two('a', 'e'),
-                'œ' => two('o', 'e'),
-                'ß' => two('s', 's'),
-                'þ' => two('t', 'h'),
-                'ð' => one('d'),
-                other => one(other),
-            }
-        })
-        .collect()
-}
+// (fold_for_match moved to `crate::guards` with the ban vocabularies — imported above.)
 
 // ---------------------------------------------------------------------------
 // Graph — the typed-extraction lens (junction rollout step 5). Fixture-gated BEFORE the
@@ -2799,21 +2706,7 @@ mod tests {
         assert!(v.all_checks_pass(), "checks: {:?}", v.checks);
     }
 
-    #[test]
-    fn fold_for_match_leaves_dashes_and_ordinary_text_alone() {
-        assert_eq!(fold_for_match("A\u{2014}B"), "a\u{2014}b");
-        assert_eq!(fold_for_match("\u{201C}quoted\u{201D}"), "\"quoted\"");
-        assert_eq!(fold_for_match("It\u{2019}s"), "it's");
-    }
-
-    #[test]
-    fn fold_for_match_folds_diacritics_both_directions() {
-        // The D-T55 artifact: fixture says Sørensen, honest model output says Sorensen.
-        assert!(contains_ci("a bid for Sorensen is live", "Sørensen"));
-        assert!(contains_ci("a bid for Sørensen is live", "Sorensen"));
-        assert!(contains_ci("Müller and Sánchez", "muller"));
-        assert_eq!(fold_for_match("Nikšić ØRSTED ß"), "niksic orsted ss");
-    }
+    // (fold_for_match / contains_ci tests moved to `guards::tests` with the functions.)
 
     // --- rating / stats-lens rubric ---------------------------------------------
 

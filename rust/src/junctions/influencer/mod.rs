@@ -625,6 +625,29 @@ impl Parser<VibeReply> for VibeParser {
     fn parse(&self, raw: &str) -> Result<Option<VibeReply>> {
         let (sentiment, hook, vibe_prompt) = parse_vibe_reply(raw)
             .with_context(|| format!("parse sentiment (raw={:?})", truncate(raw, 120)))?;
+        // The eval→guard migration (2026-08-19, DOCTRINE-directing.md): the HOOK contract and
+        // the body's global invariants fail closed in production — same rules as the gate
+        // (`crate::guards`); a violation re-rolls through the queue for a clean read.
+        if let Some(h) = hook.as_deref() {
+            if let Some(rule) = crate::guards::hook_violation(h) {
+                tracing::warn!(guard = rule, hook = h, "vibe HOOK rejected");
+                bail!("vibe: HOOK violates {rule} (hook={h:?})");
+            }
+        }
+        if let Some(p) =
+            crate::guards::first_banned_phrase(&vibe_prompt, crate::guards::VIBE_BODY_BANS)
+        {
+            tracing::warn!(guard = "vibe_body_ban", phrase = p, "vibe body rejected");
+            bail!("vibe: body carries banned {p:?}");
+        }
+        if let Some(p) = crate::guards::first_product_name(&vibe_prompt) {
+            tracing::warn!(guard = "product_name", name = p, "vibe body rejected");
+            bail!("vibe: body names product {p:?}");
+        }
+        if crate::util::has_foreign_script(&vibe_prompt) {
+            tracing::warn!(guard = "foreign_script", "vibe body rejected");
+            bail!("vibe: body carries a foreign-script run");
+        }
         Ok(Some(VibeReply {
             sentiment,
             hook,

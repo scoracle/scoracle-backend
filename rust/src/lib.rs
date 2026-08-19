@@ -61,4 +61,5 @@ pub mod util;
 
 // Non-junction stages and offline tooling.
 pub mod eval_tasks;
+pub mod guards;
 pub mod judge;

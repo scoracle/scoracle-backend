@@ -100,12 +100,31 @@ impl Parser<MomentumReply> for MomentumParser {
     fn parse(&self, raw: &str) -> Result<Option<MomentumReply>> {
         // Carry a raw excerpt in the error: a dozen live items sat failed with only
         // "invalid response", leaving nothing to diagnose which contract line broke.
-        parse_momentum_reply(raw).map(Some).ok_or_else(|| {
+        let reply = parse_momentum_reply(raw).ok_or_else(|| {
             anyhow!(
                 "momentum: invalid response (raw={:?})",
                 crate::util::truncate_bytes(raw.trim(), 160)
             )
-        })
+        })?;
+        // The eval→guard migration (2026-08-19, DOCTRINE-directing.md): the gate's global READ
+        // invariants fail closed in PRODUCTION here — the guards live in the Parser seam, not
+        // in `parse_momentum_reply`, so the eval gate (which parses the raw fn directly) still
+        // sees a violating reply's prose and scores it red instead of losing the sample.
+        if let Some(p) =
+            crate::guards::first_banned_phrase(&reply.blurb, crate::guards::MOMENTUM_BANNED_PHRASES)
+        {
+            tracing::warn!(guard = "momentum_banned_phrase", phrase = p, "momentum READ rejected");
+            anyhow::bail!("momentum: READ carries banned phrase {p:?}");
+        }
+        if let Some(p) = crate::guards::first_product_name(&reply.blurb) {
+            tracing::warn!(guard = "product_name", name = p, "momentum READ rejected");
+            anyhow::bail!("momentum: READ names product {p:?}");
+        }
+        if crate::guards::has_ascii_digit(&reply.blurb) {
+            tracing::warn!(guard = "digits_in_read", "momentum READ rejected");
+            anyhow::bail!("momentum: READ carries ASCII digits");
+        }
+        Ok(Some(reply))
     }
 }
 

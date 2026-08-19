@@ -259,6 +259,17 @@ impl Parser<ParsedNarratives> for NarrativesParser {
                 crate::util::truncate(raw, 200)
             ));
         }
+        // The eval→guard migration (2026-08-19, DOCTRINE-directing.md): served storyline prose
+        // never names a product. Scans the parsed titles+bodies (the served fields), not the raw
+        // document — preamble the salvager discards must not fail a clean edition.
+        for n in &narratives {
+            if let Some(p) = crate::guards::first_product_name(&n.title)
+                .or_else(|| crate::guards::first_product_name(&n.body))
+            {
+                tracing::warn!(guard = "product_name", name = p, "narratives edition rejected");
+                return Err(anyhow!("narratives: storyline names product {p:?}"));
+            }
+        }
         // card_score (n12) is best-effort the same way: missing → None (NULL row → Veil), never
         // a parse failure. The grammar makes it required on the live path; this tolerance covers
         // truncated tails and the offline bins replaying pre-n12 output.

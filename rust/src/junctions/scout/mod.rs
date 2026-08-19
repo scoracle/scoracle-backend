@@ -1247,12 +1247,34 @@ pub struct RatingReply {
 /// RatingParser strips any legacy marker line and cleans the body. It NEVER returns
 /// `Ok(None)` (like `VibeParser`): rating has no post-model fail-closed marker — an empty body is a
 /// hard error the caller raises, and the only marker is the PRE-model no-stats path.
+/// Since the eval→guard migration (2026-08-19) it DOES fail closed (`Err` → retry) on the brief's
+/// global invariants: bullet/Markdown decoration, product names, foreign script.
 pub struct RatingParser;
+
+/// parse_rating_body is the shape-only view (marker stripped, body cleaned). The eval gate
+/// parses through THIS so a guard-violating reply still shows its prose in the side-by-side
+/// and scores red on the invariant checks; production goes through [`RatingParser`], which
+/// adds the fail-closed guards on top.
+pub fn parse_rating_body(raw: &str) -> String {
+    let (_legacy_label, raw_body) = parse_rating_commentary(raw);
+    clean_commentary(&raw_body)
+}
 
 impl Parser<RatingReply> for RatingParser {
     fn parse(&self, raw: &str) -> Result<Option<RatingReply>> {
-        let (_legacy_label, raw_body) = parse_rating_commentary(raw);
-        let body = clean_commentary(&raw_body);
+        let body = parse_rating_body(raw);
+        if let Some(p) = crate::guards::first_banned_phrase(&body, crate::guards::RATING_BODY_BANS) {
+            tracing::warn!(guard = "rating_body_ban", phrase = p, "rating body rejected");
+            anyhow::bail!("rating: body carries banned {p:?}");
+        }
+        if let Some(p) = crate::guards::first_product_name(&body) {
+            tracing::warn!(guard = "product_name", name = p, "rating body rejected");
+            anyhow::bail!("rating: body names product {p:?}");
+        }
+        if crate::util::has_foreign_script(&body) {
+            tracing::warn!(guard = "foreign_script", "rating body rejected");
+            anyhow::bail!("rating: body carries a foreign-script run");
+        }
         Ok(Some(RatingReply { body }))
     }
 }

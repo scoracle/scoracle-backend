@@ -990,7 +990,32 @@ pub struct CrownParser;
 impl Parser<CrownReply> for CrownParser {
     fn parse(&self, raw: &str) -> Result<Option<CrownReply>> {
         match parse_crown_reply(raw) {
-            Some(r) => Ok(Some(r)),
+            Some(r) => {
+                // The eval→guard migration (2026-08-19, DOCTRINE-directing.md): the reading's
+                // global invariants fail closed in production — internal vocabulary, the verdict
+                // formula, a peer roll call, product names, foreign script. Same lists as the
+                // gate (`crate::guards`); the retry re-rolls for a discreet reading.
+                if let Some(p) =
+                    crate::guards::first_banned_phrase(&r.reading, crate::guards::ORACLE_READING_BANS)
+                {
+                    tracing::warn!(guard = "oracle_reading_ban", phrase = p, "reading rejected");
+                    bail!("crown: reading carries banned vocabulary {p:?}");
+                }
+                let peers = crate::guards::count_named_peers(&r.reading);
+                if peers > 1 {
+                    tracing::warn!(guard = "peer_roll_call", peers, "reading rejected");
+                    bail!("crown: reading names {peers} peer seats (max 1)");
+                }
+                if let Some(p) = crate::guards::first_product_name(&r.reading) {
+                    tracing::warn!(guard = "product_name", name = p, "reading rejected");
+                    bail!("crown: reading names product {p:?}");
+                }
+                if crate::util::has_foreign_script(&r.reading) {
+                    tracing::warn!(guard = "foreign_script", "reading rejected");
+                    bail!("crown: reading carries a foreign-script run");
+                }
+                Ok(Some(r))
+            }
             None => bail!(
                 "crown: could not parse reading+score from response (raw={:?})",
                 truncate(raw, 200)

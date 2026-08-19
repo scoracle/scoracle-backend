@@ -470,7 +470,9 @@ fn packet_framing_precedes_the_numbered_evidence() {
 }
 
 /// The WINDOW decides the reservation: a 4,000-token reservation inside a 4,096 window leaves
-/// nothing for the prompt. §7's envelope is 4096 with a 700 reservation; a pinned-large window
+/// nothing for the prompt. §7's envelope was 4096 with a 700 reservation; the MLX cutover
+/// (n21, 2026-08-19) raised the packet share to 900 — the openai path has no grammar, so the
+/// edition pays JSON structural overhead the constrained path never did. A pinned-large window
 /// (`VOICE_NUM_CTX=16384`) gets the large reservation back.
 #[test]
 fn decode_budget_follows_the_window() {
@@ -478,12 +480,13 @@ fn decode_budget_follows_the_window() {
         narratives_decode_budget(16384),
         (16384, NARRATIVES_NUM_PREDICT)
     );
-    assert_eq!(narratives_decode_budget(crate::route::VOICE_NUM_CTX_PACKET), (4096, 700));
-    // The packet reservation must fit §7's ≤800 share, and the prompt budget must leave room for
-    // it: a window that cannot hold its own reservation is the silent-eviction bug.
+    assert_eq!(narratives_decode_budget(crate::route::VOICE_NUM_CTX_PACKET), (4096, 900));
+    // The prompt budget must still clear the p99 prompt envelope — and on MLX the binding
+    // ceiling is the ~4k PROMPT boundary (the ministral3 mask crash), which ctx−predict
+    // keeps prompts safely under. 4096−900 = 3196 ≥ the measured ~3.1k p99.
     let (ctx, predict) = narratives_decode_budget(crate::route::VOICE_NUM_CTX_PACKET);
-    assert!(predict <= 800);
-    assert!(ctx - predict >= 3_300, "no room for the p99 prompt envelope");
+    assert!(predict <= 1_000);
+    assert!(ctx - predict >= 3_100, "no room for the p99 prompt envelope");
 }
 
 /// 7.9: the packet render replaces the CORPUS, never the memory. A packet-rail prompt still

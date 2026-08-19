@@ -70,13 +70,20 @@ pub const NARRATIVES_TEMPERATURE: f64 = 0.6;
 /// 16384 window the legacy corpus was sized for — left with the legacy rail.)
 pub const NARRATIVES_NUM_PREDICT: i32 = 4000;
 
-/// The Journalist's output reservation on the packet rail (§7's envelope: ≤800, his share 700).
+/// The Journalist's output reservation on the packet rail (§7's envelope: ≤800, his share 700 —
+/// raised to 900 at the MLX cutover).
 ///
 /// 4000 was sized for a corpus of twenty article bodies and a narrator asked to cover all of it.
 /// The packet rail hands him ONE storyline, already assembled, so the job is to narrate a story
-/// rather than to survey a feed — and 700 tokens is a card, not a truncation. The legacy value is
-/// untouched beside it: under `RAIL=legacy` this constant is not read at all.
-pub const NARRATIVES_NUM_PREDICT_PACKET: i32 = 700;
+/// rather than to survey a feed — and ~700 tokens of PROSE is a card, not a truncation.
+///
+/// 900 (2026-08-19): the MLX openai path has no grammar, so the edition rides unconstrained and
+/// pays JSON structural overhead the ollama grammar path never did — measured on cutover day, a
+/// pretty-printed fenced edition exhausted 700 mid-first-narrative and parsed to zero storylines.
+/// n21's compactness directive claws most of that back; the 200-token margin absorbs the rest.
+/// (No window arithmetic lost: MLX has no 4,096 eviction window — the binding ceiling there is
+/// the ~4k PROMPT boundary, which this reservation does not touch.)
+pub const NARRATIVES_NUM_PREDICT_PACKET: i32 = 900;
 
 /// The narratives call's window and output reservation on this rail. Both move together, because
 /// the reservation is part of what has to fit inside the window — the failure this pair exists to

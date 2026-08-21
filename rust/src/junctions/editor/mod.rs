@@ -14,7 +14,7 @@ use crate::harness::{Harness, Parser};
 use crate::ledger::{insert_cognition_ledger_best_effort, CognitionLedgerEntry};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
-use crate::stage::{StageHandler, ARCHBOX_GEMMA_SLOTS};
+use crate::stage::{StageHandler, ARCHBOX_SLOTS};
 use crate::util::truncate;
 use crate::work::{Item, Stage};
 use anyhow::{Context, Result};
@@ -345,14 +345,14 @@ impl StageHandler for EditorHandler {
     }
 
     /// Up to the whole local card when its group-mates are idle; bounded by
-    /// [`ARCHBOX_GEMMA_SLOTS`], so graph and the Insider reclaim their share the moment they
+    /// [`ARCHBOX_SLOTS`], so graph and the voices reclaim their share the moment they
     /// have work.
     fn max_in_flight(&self) -> usize {
-        ARCHBOX_GEMMA_SLOTS.1
+        ARCHBOX_SLOTS.1
     }
 
     fn slot_group(&self) -> Option<(&'static str, usize)> {
-        Some(ARCHBOX_GEMMA_SLOTS)
+        Some(ARCHBOX_SLOTS)
     }
 
     async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {

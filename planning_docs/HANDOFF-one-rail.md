@@ -19,10 +19,12 @@ tag + backups.
 - **Stories as product:** storylines resolve against transfer ground truth
   (`seal_storylines`, nightly 02:45) and `/stories` serves the archive; the tray page
   shipped 08-15.
-- **Two-host topology:** prose voices on the Mac's pinned `defiant-fable:9b`
-  (parallel 6, num_ctx 4096 everywhere, char-budgeted prompts, cut evidence NAMED);
-  editor/graph/momentum/transfers/investigator on the 1070's `ministral-3:3b`.
-  Duty cycle 1h-on/1h-off (even hours ON), both machines rest.
+- **Single-host topology (2026-08-20 consolidation):** every seat on archbox's
+  `ministral-3:3b` (Ollama, parallel 4, num_ctx 4096 everywhere, char-budgeted
+  prompts, cut evidence NAMED). The Mac lane (9b, then 8b/MLX, then 8b/Ollama)
+  is retired from production. Duty cycle retired too: cognition runs work-driven
+  under the 135W power cap + 4-slot ceiling — empty queue is the rest window.
+  See `progress_docs/2026-08-20_single-box-consolidation.md`.
 - **The watchdog** (08:30/20:30) reads the DATA — ingest recency, per-team editor-read
   coverage, voice output, packet compiles, dead letters, drain-alive, queue depth —
   into `pipeline_runs`, non-zero exit on alarm. `WATCHDOG_ALERT_URL` still unset.
@@ -43,10 +45,11 @@ tag + backups.
   blocked/duplicate/empty/fetch/parse — the chaos tail retries itself.
 - Products: watchdog-green means every swept team has a read and every voice produced
   within 48h. Teams refresh within a day by construction (team-first claiming).
-- Queue: ~7–9k pending is the current normal; **player products accrue ~800/day faster
-  than the duty-cycled drain clears them** — the standing capacity question (levers:
-  more on-hours, higher 3b parallel, or trimming player inflow to storyline-placed
-  players).
+- Queue: ~7–9k pending is the current normal; **player products accrued ~800/day faster
+  than the duty-cycled drain cleared them** — the 08-20 consolidation answered with the
+  biggest lever (duty cycle retired; the drain now runs until the work is done).
+  Remaining levers if the deficit persists: trimming player inflow to storyline-placed
+  players, or ctx ↓ toward 2048 to buy back slots.
 - Storylines: ~6k open / ~4k dormant; resolved grows only as ground truth lands
   (the seal is correct; the feed was the 08-18 fix).
 

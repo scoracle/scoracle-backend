@@ -84,7 +84,7 @@ impl StageHandler for InvestigateEntityHandler {
 
     /// D-T10 knob (a), applied 2026-08-09: NO slot group. The v1 Investigator makes ZERO model
     /// calls — discovery is Wikidata HTTP, the gate is code — so holding an
-    /// `ARCHBOX_GEMMA_SLOTS` slot for pure HTTP work was the structural mismatch behind the
+    /// `ARCHBOX_SLOTS` slot for pure HTTP work was the structural mismatch behind the
     /// measured 57h starvation: it queued behind the Editor's drain for a card it never used.
     /// When 5.4's prose arm lands, its model calls ride `Role::Investigator` — routed to the
     /// 14B on the OTHER host — so membership in the archbox group stays wrong even then; the

@@ -47,10 +47,9 @@ pub trait StageHandler: Send + Sync {
     /// slots — its items do no model work, so every slot it holds is a slot the GPU cannot use.
     ///
     /// Default 1. Raise it only for a stage that must keep MULTIPLE slots of one backend busy:
-    /// locally The Editor and graph fill the 1070's parallel slots, and since the MLX cutover
-    /// (2026-08-19) the four Mac voice stages share [`MAC_MLX_SLOTS`] — batched decode made
-    /// concurrent Mac requests nearly free (measured 2.2–3× aggregate at 4 streams), inverting
-    /// the ollama-era rule that a remote stage should stay at 1.
+    /// The Editor and graph fill the 1070's parallel slots outright, and since the 2026-08-20
+    /// consolidation the four voice stages share [`ARCHBOX_SLOTS`] too, each capped below the
+    /// group total so one long decode cannot take the whole card.
     ///
     /// For a stage in a [`slot_group`], this is its ceiling *within* that group, not its
     /// guarantee: the group budget binds first.
@@ -79,27 +78,18 @@ pub trait StageHandler: Send + Sync {
     }
 }
 
-/// The ministral card on Archbox (1070 Ti), shared by The Editor and graph. Six parallel slots
-/// (`max_concurrent=6`), allocated on demand rather than split down the middle.
+/// The ministral card on Archbox (1070 Ti) — since the 2026-08-20 consolidation, the whole
+/// fleet: The Editor, graph, and the four voices (narratives, vibe, rating, sigil) all share
+/// these slots, allocated on demand rather than split down the middle.
 ///
-/// **Six is a VRAM derivation, not a guess (2026-08-09):** at `num_ctx` 4096 the measured load
-/// is 6,072 MiB with 4 slots — weights+overhead plus ~570 MiB of KV per slot — so 6 slots lands
-/// ~7.2 GiB of the card's 8,192 and **8 would cross it**, spilling layers to CPU silently (the
-/// D-T35 failure class; `ollama ps` must say `100% GPU` after any change here). Raising this
-/// beyond the server's `OLLAMA_NUM_PARALLEL` only queues requests inside Ollama; the three knobs
-/// — this constant, `COGNITION_BACKEND_CONCURRENCY`'s localhost entry, and the systemd unit's
+/// **Four is a longevity choice sitting under a VRAM ceiling (2026-08-20):** the measured
+/// derivation (2026-08-09) still stands — at `num_ctx` 4096, weights+overhead plus ~570 MiB of
+/// KV per slot puts 6 slots at ~7.2 GiB of the card's 8,192 and **8 would cross it**, spilling
+/// layers to CPU silently (the D-T35 failure class; `ollama ps` must say `100% GPU` after any
+/// change here). We run 4, not the 6 the VRAM allows: this is a 2017 card carrying every seat,
+/// and the protection stack is the 135W power cap + this ceiling + work-driven operation
+/// (empty queue = rest; the duty-cycle timers are gone). Raising this beyond the server's
+/// `OLLAMA_NUM_PARALLEL` only queues requests inside Ollama; the three knobs — this constant,
+/// `COGNITION_BACKEND_CONCURRENCY`'s localhost entry, and the systemd unit's
 /// `OLLAMA_NUM_PARALLEL` — move together or not at all.
-pub const ARCHBOX_GEMMA_SLOTS: (&str, usize) = ("archbox-gemma3", 6);
-
-/// The MLX server on the Mac mini (`mlx_lm.server`, port 8090), shared by the four voice stages
-/// — narratives, vibe, rating, sigil — since the 2026-08-19 cutover.
-///
-/// **Six is a batching derivation, not a guess:** batched decode shares one weight pass across
-/// all streams (measured on cutover day: 1 stream = 20.7 tok/s, 4 streams = 45–62 aggregate,
-/// 2.2–3×; the server's own `--decode-concurrency` default is 32, so it is never the binder).
-/// The group lets a busy voice expand into an idle voice's slots — the editor/graph lesson —
-/// instead of pinning 4 stages at fixed shares the queue mix rarely matches. Two knobs move
-/// together or not at all: this constant and `COGNITION_BACKEND_CONCURRENCY`'s `:8090` entry.
-/// The per-stream costs are modest (KV in unified memory, slightly longer per-request walls)
-/// and the ceiling to respect is RAM, not compute — raise past 6 only with an RSS reading.
-pub const MAC_MLX_SLOTS: (&str, usize) = ("mac-mlxlm", 6);
+pub const ARCHBOX_SLOTS: (&str, usize) = ("archbox-3b", 4);

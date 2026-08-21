@@ -30,7 +30,7 @@ use crate::harness::{Harness, Parser};
 use crate::ledger::{insert_cognition_ledger_best_effort, CognitionLedgerEntry};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
-use crate::stage::{StageHandler, ARCHBOX_GEMMA_SLOTS};
+use crate::stage::{StageHandler, ARCHBOX_SLOTS};
 use crate::util::{go_json_string, hash_components};
 use crate::work::{Item, Stage};
 use anyhow::{anyhow, Context, Result};
@@ -554,16 +554,16 @@ impl StageHandler for GraphHandler {
         8
     }
 
-    /// graph and The Editor are the only stages on the local gemma3:4b and now share its slots on
-    /// demand rather than splitting them 2 + 2. graph registers BEFORE the Editor, so the drain
-    /// offers it slots first on every top-up pass: a burst of graph work reclaims the card within
-    /// one pass instead of waiting on the Editor's backlog.
+    /// graph shares the archbox card's slots on demand rather than taking a fixed split.
+    /// graph registers BEFORE the Editor, so the drain offers it slots first on every top-up
+    /// pass: a burst of graph work reclaims the card within one pass instead of waiting on the
+    /// Editor's backlog.
     fn max_in_flight(&self) -> usize {
-        ARCHBOX_GEMMA_SLOTS.1
+        ARCHBOX_SLOTS.1
     }
 
     fn slot_group(&self) -> Option<(&'static str, usize)> {
-        Some(ARCHBOX_GEMMA_SLOTS)
+        Some(ARCHBOX_SLOTS)
     }
 
     async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {

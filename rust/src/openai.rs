@@ -1,5 +1,10 @@
 //! OpenAI-compatible chat-completions client — the second inference backend.
 //!
+//! ⚠ **Currently unused in production (2026-08-20):** the Mac lane is retired and every seat
+//! runs on archbox's Ollama. This module stays as the proven plug point for any future
+//! OpenAI-compatible server (vLLM, a returning MLX host); the notes below record what was
+//! measured while it carried the four voices.
+//!
 //! Added for **oMLX** (`jundot/omlx`, D-T41), the MLX server on the voice host. `route.rs` has
 //! carried a `Backend` enum and an `Arc<dyn Inference>` seam since L2 with the note that *"a second
 //! impl (vLLM) waits until it is real, not built on speculation."* It is real now, and this is that

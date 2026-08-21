@@ -3,6 +3,17 @@
 *(Opened 2026-08-19. Doctrine: `DOCTRINE-directing.md`. Evidence base:
 `progress_docs/2026-08-18_seat-and-reader-gates.md`.)*
 
+## ⚑⚑ SUPERSEDED (Scott, 2026-08-20) — the Mac lane is retired
+
+The decision below lasted one day. The MLX cutover shipped 08-19, hit the ~4k-prompt
+crash boundary, rolled back to Mac-Ollama the same evening — and the next morning
+Scott called the landing: **all voices consolidate onto the 1070's ministral-3:3b.**
+One machine, one pinned Apache 2.0 model, one self-sustaining pipeline; quality
+tradeoff accepted, no gate (plumbing over benchmarks). The Mac leaves production and
+becomes a standalone LLM/agent box. The duty cycle is retired with it — cognition is
+work-driven (135W power cap + 4-slot ceiling; empty queue = rest).
+See `progress_docs/2026-08-20_single-box-consolidation.md`.
+
 ## ⚑ DECIDED (Scott, 2026-08-19 evening) — supersedes the decision gates below
 
 **The Mac lane runs ministral-3:8b pinned on MLX-LM Server** (the Apple-built stack:

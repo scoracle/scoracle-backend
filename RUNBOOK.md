@@ -42,20 +42,22 @@ SQL-only maintenance/notification workers.
               Ollama (archbox 1070 Ti) + Mac mini model host (§1.1)
 ```
 
-### 1.1 Model topology — two machines, two models, model-agnostic by design
+### 1.1 Model topology — one machine, one model, model-agnostic by design
 
 The cognition daemon routes each seat to a model@host resolved from the
 `COGNITION_ROUTE_<ROLE>[_BASE_URL]` env keys (`rust/src/route.rs`) — nothing about
-a specific model is compiled in. The CURRENT pinning is a hardware-constrained
-choice, not a contract: as hardware improves, any seat can move model or machine
-by config alone, and the fixture gates (`eval --task <seat> --fixtures`,
-`scripts/hosting/model-gate.sh`) exist to prove a candidate model keeps the voice
-before it ships.
+a specific model is compiled in. Since the 2026-08-20 consolidation every seat
+runs on one pinned model on one machine; the route seams remain the re-expansion
+point if a seat ever moves again (any seat can change model or machine by config
+alone; `scripts/hosting/model-gate.sh` and `eval --task <seat> --fixtures` exist
+to audition a candidate).
 
 | Machine | Hardware | Model | Seats |
 |---|---|---|---|
-| **archbox** | 1070 Ti (Ollama, `localhost:11434`) | `ministral-3:3b` | the LOW-THOUGHT BUSY WORK: Editor (`editor`), Investigator (`investigator`), Graph (`emotional-news`), plus utility roles (`sql`, `multilang`) |
-| **Mac mini** | `192.168.1.77:8000` | `ministral-3:8b` | the CHARACTER WORK THAT SURFACES: Journalist (`narrative-logic`), Insider (`transfer-logic`), Influencer (`vibe-logic`), Analyst (`momentum-logic`), Scout (`stats-logic`), Oracle (`oracle-logic`) |
+| **archbox** | 1070 Ti @ 135W (Ollama, `localhost:11434`, 4 parallel slots) | `ministral-3:3b` | ALL of them: Editor (`editor`), Investigator (`investigator`), Graph (`emotional-news`), Journalist (`narrative-logic`), Insider (`transfer-logic`), Influencer (`vibe-logic`), Analyst (`momentum-logic`), Scout (`stats-logic`), Oracle (`oracle-logic`), plus utility roles (`sql`, `multilang`) |
+
+The Mac mini lane (ministral-3:8b) was retired from production 2026-08-20; the
+machine remains a standalone LLM/agent box, not attached to the pipeline.
 
 Five deployed binaries, all built from one commit by `release.sh` (3 Go + 2 Rust):
 
@@ -396,7 +398,7 @@ third-party provider credential is needed at all: `API_SPORTS_KEY`, `BALLDONTLIE
 | Rate limiting | `RATE_LIMIT_ENABLED`, `RATE_LIMIT_REQUESTS`, `RATE_LIMIT_WINDOW`, `RATE_LIMIT_INTERNAL_KEY` |
 | Cache | `CACHE_ENABLED` |
 | Ollama | `OLLAMA_BASE_URL`, `OLLAMA_MODEL`, `OLLAMA_TIMEOUT_SECONDS`, `OLLAMA_MAX_CONCURRENT` |
-| Cognition | `COGNITION_STAGES`, `COGNITION_BACKEND_CONCURRENCY`, `COGNITION_HANDLER_TIMEOUT_SECONDS`, `COGNITION_ARTICLE_READ_TOP_K`, `DERIVE_WORKER_ENABLED`, and the per-role routes `COGNITION_ROUTE_<ROLE>[_BASE_URL]` (12 keys today) |
+| Cognition | `COGNITION_STAGES`, `COGNITION_BACKEND_CONCURRENCY`, `COGNITION_HANDLER_TIMEOUT_SECONDS`, `COGNITION_ARTICLE_READ_TOP_K`, `DERIVE_WORKER_ENABLED`, and the per-role routes `COGNITION_ROUTE_<ROLE>` (9 model keys today; the `_BASE_URL`/`_BACKEND` suffixes are unset since the single-box consolidation — every role rides the default `localhost:11434`) |
 
 `COGNITION_ROUTE_*` keys are built at runtime by `format!("COGNITION_ROUTE_{}", role.env_suffix())`
 (`rust/src/config.rs:265`), so a plain grep for them finds nothing — **do not "clean them up" as

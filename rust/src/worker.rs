@@ -878,7 +878,7 @@ fn note_supervisor_exit(exit: std::result::Result<(), tokio::task::JoinError>) {
 
 #[cfg(test)]
 mod tests {
-    use crate::stage::ARCHBOX_GEMMA_SLOTS;
+    use crate::stage::ARCHBOX_SLOTS;
     use super::*;
 
     #[test]
@@ -899,38 +899,38 @@ mod tests {
         ));
     }
 
-    /// Production's shape after the Phase 9 demolition (9.1): graph and the Editor share the
-    /// archbox card's 4 slots rather than splitting them, then the single-slot stages.
+    /// Production's shape after the 2026-08-20 consolidation: every model stage shares the
+    /// archbox card — graph and the Editor at the full group budget, the four voices capped
+    /// at 2 within it — then the single-slot stages (investigate/transfers/momentum).
     ///
-    /// `scrub` and `article_read` left this table with the legacy rail — the shared group is now
-    /// graph + editor. The ceiling arithmetic below is unchanged in KIND (a group still counts
-    /// once, at its budget). The single-slot roster here trails production by one — main.rs also
-    /// registers `fixture_boxscore` — so the ceiling this asserts is one stage BELOW the live
-    /// ceiling: still a valid lower-bound regression check, noted so nobody scores it as exact
+    /// The ceiling arithmetic below is unchanged in KIND (a group still counts once, at its
+    /// budget). The single-slot roster here trails production by one — main.rs also registers
+    /// `fixture_boxscore` — so the ceiling this asserts is one stage BELOW the live ceiling:
+    /// still a valid lower-bound regression check, noted so nobody scores it as exact
     /// (2026-08-10 audit).
-    const GEMMA: Option<(&'static str, usize)> = Some(ARCHBOX_GEMMA_SLOTS);
-    /// Grouped caps mirror production's `max_in_flight()` = `ARCHBOX_GEMMA_SLOTS.1`, DERIVED so a
-    /// re-size of the card's slot budget (4 → 6 on 2026-08-09) cannot strand this fixture.
+    const CARD: Option<(&'static str, usize)> = Some(ARCHBOX_SLOTS);
+    /// Grouped caps mirror production's `max_in_flight()`, DERIVED from `ARCHBOX_SLOTS.1` where
+    /// production derives, so a re-size of the card's slot budget cannot strand this fixture.
     const LIVE_CAPS: &[StageCap] = &[
-        (ARCHBOX_GEMMA_SLOTS.1, GEMMA), // graph
-        (ARCHBOX_GEMMA_SLOTS.1, GEMMA), // editor
-        (1, None),                      // investigate_entity
-        (1, None),                      // transfers
-        (1, None),                      // narratives
-        (1, None),                      // vibe
-        (1, None),                      // peak
-        (1, None),                      // momentum
-        (1, None),                      // sigil
+        (ARCHBOX_SLOTS.1, CARD), // graph
+        (ARCHBOX_SLOTS.1, CARD), // editor
+        (1, None),               // investigate_entity
+        (1, None),               // transfers
+        (2, CARD),               // narratives
+        (2, CARD),               // vibe
+        (2, CARD),               // peak
+        (1, None),               // momentum
+        (2, CARD),               // sigil
     ];
 
     #[test]
     fn unset_drain_concurrency_counts_a_shared_group_once() {
-        // The whole archbox card once + 7 single-slot stages — the card's capacity does not
-        // change with membership, only who may use it. Summing both grouped stages would admit
+        // The whole archbox card once + 3 single-slot stages — the card's capacity does not
+        // change with membership, only who may use it. Summing the grouped stages would admit
         // claims the host cannot run.
         assert_eq!(
             resolve_drain_concurrency(None, LIVE_CAPS),
-            ARCHBOX_GEMMA_SLOTS.1 + 7
+            ARCHBOX_SLOTS.1 + 3
         );
     }
 
@@ -958,7 +958,7 @@ mod tests {
 
     #[test]
     fn a_shared_group_lends_idle_slots_and_takes_them_back() {
-        let (_, budget) = ARCHBOX_GEMMA_SLOTS;
+        let (_, budget) = ARCHBOX_SLOTS;
 
         // graph idle: the Editor may take the whole card. This is the change — it was pinned to 2
         // while 5,852 reads queued against a card that was half asleep.

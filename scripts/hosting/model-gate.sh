@@ -1,16 +1,13 @@
 #!/usr/bin/env bash
-# Run a fixture gate against a CANDIDATE character model, on the Mac, inside a GPU rest window.
+# Run a fixture gate against a CANDIDATE character model on the local Ollama.
 #
-# WHY A REST WINDOW: the gate needs the Mac's GPU, and production needs the same one. The
-# 2h-on/1h-off stagger (scoracle-cognition-{pause,resume}.timer on Archbox) leaves the Mac idle
-# for a full hour every three, which is exactly when a gate can run without competing with the
-# drain or being slowed by it. Rest windows open at 00,03,06,09,12,15,18,21:00 local.
+# Since the 2026-08-20 single-box consolidation there are no scheduled rest windows (cognition
+# is work-driven; the duty-cycle timers are gone). Run this on archbox when the drain is quiet
+# — it competes with production for the same card otherwise — or on any box with Ollama and the
+# model pulled (OLLAMA_MAX_LOADED_MODELS=1 makes every incumbent/candidate swap a full reload).
 #
-# WHY THIS EXISTS: decode on the M4 is memory-bandwidth-bound and measured at ~98% of the chip's
-# 120 GB/s, so model SIZE is the only speed lever left on this box -- and a smaller model also
-# frees the KV bytes that currently pin the Mac to max_concurrent=1, which is what serializes the
-# six voices. The question is never "is it faster" (it is, in proportion to bytes) but "does the
-# voice survive". That is what the gate answers, against a known baseline.
+# WHY THIS EXISTS: the question is never "is it faster" but "does the voice survive" — a
+# candidate model runs the same fixtures as the incumbent, against a known baseline.
 #
 # Usage:  model-gate.sh <task> <incumbent> [candidate]
 #   model-gate.sh momentum ministral-3:14b mistral-nemo:12b   # A/B, side by side
@@ -39,7 +36,7 @@ case "$TASK" in
     *)        echo "unknown task '$TASK'" >&2; exit 2 ;;
 esac
 
-REPO=/Users/scotty/scoracle/scoracle-backend
+REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 OUT_DIR="$REPO/logs/model-eval"
 mkdir -p "$OUT_DIR"
 STAMP=$(date +%Y%m%d-%H%M)

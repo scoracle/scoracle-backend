@@ -31,9 +31,11 @@
 # Optional: set WATCHDOG_ALERT_URL in .env.local (e.g. an ntfy.sh topic) and
 # alarms are POSTed there as plain text.
 #
-# Cron: twice daily at :30 of an ON hour (cognition runs 1-on/1-off, even hours
-# on) — drain_alive samples the last 30 min of production, so the run must sit
-# ≥30 min inside an on-block or a resting daemon reads as a dead one:
+# Cron: twice daily. Cognition runs continuously since the 2026-08-20
+# consolidation (work-driven, no duty cycle — empty queue is the rest window),
+# so there is no on-hours constraint; drain_alive only fires when claimable
+# work exists but nothing was produced in 30 min, which a running daemon with
+# an empty queue never trips:
 #   30 8,20 * * * .../cron-watchdog.sh >> .../logs/watchdog.log 2>&1
 
 set -euo pipefail

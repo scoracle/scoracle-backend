@@ -171,8 +171,23 @@ func enumStaleSigil(ctx context.Context, pool *pgxpool.Pool, sport string, seaso
 	defer cancel()
 	rows, err := pool.Query(qctx, `
 		WITH rated AS (
+		    -- Player inflow trim (2026-08-21, Scott): reconcile Sigils only for
+		    -- storyline-PLACED players; teams stay unconditional. Mirrors the same
+		    -- predicate in statcommentary's enumerator — the two nightly enumerators
+		    -- are the only unconditional bulk player producers.
 		    SELECT 'player'::text AS et, player_id AS id FROM player_stats
-		     WHERE sport = $1 AND season = $2 AND rating_score IS NOT NULL GROUP BY player_id
+		     WHERE sport = $1 AND season = $2 AND rating_score IS NOT NULL
+		       AND EXISTS (
+		           SELECT 1
+		           FROM storyline_entities se
+		           JOIN storylines sl ON sl.id = se.storyline_id
+		           WHERE se.entity_type = 'player'
+		             AND se.entity_id = player_id
+		             AND se.sport = $1
+		             AND se.left_at IS NULL
+		             AND sl.status = 'open'
+		       )
+		     GROUP BY player_id
 		    UNION ALL
 		    SELECT 'team'::text, team_id FROM team_stats
 		     WHERE sport = $1 AND season = $2 AND rating_score IS NOT NULL GROUP BY team_id

@@ -315,6 +315,21 @@ fn enum_current_season_sql() -> &'static str {
                        ) AS rn
                 FROM player_stats
                 WHERE sport = $1 AND season = $2 AND rating_score IS NOT NULL
+                  -- Player inflow trim (2026-08-21, Scott): only storyline-PLACED players
+                  -- get nightly rating work; teams stay unconditional. This is the inflow
+                  -- lever HANDOFF-one-rail named — rating is the head of the player
+                  -- rating→momentum→sigil chain, so the whole chain thins with it. A player
+                  -- who joins a storyline later re-enters here on the next nightly pass.
+                  AND EXISTS (
+                      SELECT 1
+                      FROM storyline_entities se
+                      JOIN storylines sl ON sl.id = se.storyline_id
+                      WHERE se.entity_type = 'player'
+                        AND se.entity_id = player_id
+                        AND se.sport = $1
+                        AND se.left_at IS NULL
+                        AND sl.status = 'open'
+                  )
             ) p
             WHERE rn = 1
             UNION ALL

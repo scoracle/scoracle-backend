@@ -15,12 +15,12 @@ pub struct Config {
     pub ollama_base_url: String,
     pub ollama_model: String,
     pub ollama_timeout: Duration,
-    /// The GPU governor — the max concurrent model calls the Router permits across ALL roles
-    /// (one shared semaphore, since there is one GPU). Reads `OLLAMA_MAX_CONCURRENT`, the SAME
-    /// var the Go worker's model gate reads, so Go derive and the Rust worker agree on the box's
-    /// concurrency budget during a transition overlap. Default 1 (the single-GPU governor); the
-    /// worker's sequential drain is an implicit 1, so this only bites under future parallelism or
-    /// a brief Go+Rust overlap. Clamped to ≥1 (0 would dead-lock every call).
+    /// FALLBACK governor budget for a host NOT listed in `COGNITION_BACKEND_CONCURRENCY`
+    /// (reads `OLLAMA_MAX_CONCURRENT`, default 1, clamped ≥1 — 0 would dead-lock every call).
+    /// In the single-box deploy every role resolves to the one configured localhost entry, so
+    /// this is INERT — it is not one of the three coupled slot knobs (`stage.rs`); it exists so
+    /// a rollback host added by `_BASE_URL` alone gets a conservative serial budget instead of
+    /// an unbounded one. (The Go model gate that once shared this var is long gone.)
     pub ollama_max_concurrent: usize,
     /// Periodic drain even without a NOTIFY (Go worker default: 30s).
     pub safety_net: Duration,

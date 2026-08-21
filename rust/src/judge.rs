@@ -13,9 +13,12 @@
 //!
 //! STRICTLY OFF the production path: only `bin/eval --judge` constructs a judge backend
 //! (`COGNITION_JUDGE_MODEL`, default `gemma3:4b` — deliberately a model that serves NO
-//! production role, so neither production model grades its own homework). The judge never
-//! competes for the GPU during live drains and its verdicts are advisory eval output, never
-//! persisted product truth.
+//! production role, so neither production model grades its own homework; post-consolidation
+//! that reasoning only strengthened). NOTE the default is no longer kept pulled — the
+//! 2026-08-20 disk cleanup removed all non-production models from archbox, so run
+//! `ollama pull gemma3:4b` before a `--judge` session (and `ollama rm` it after, if disk
+//! is tight). The judge never competes for the GPU during live drains and its verdicts are
+//! advisory eval output, never persisted product truth.
 
 use crate::ollama::GenerateOptions;
 use crate::route::Inference;

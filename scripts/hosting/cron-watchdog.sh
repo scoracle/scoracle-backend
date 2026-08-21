@@ -48,9 +48,7 @@ set +a
 
 STAMP="$(date '+%Y-%m-%dT%H:%M:%S%z')"
 
-# One SQL pass; every check emits: name|status|detail. The 'peak' stage is
-# excluded from queue checks while its removal (Waves A/B, mig 221) drains
-# the last rows out of pipeline_work.
+# One SQL pass; every check emits: name|status|detail.
 RESULT="$(psql "$DATABASE_URL" -X -q -A -t -F'|' <<'SQL'
 WITH ingest AS (
   SELECT max(fetched_at) AS newest FROM news_articles
@@ -83,7 +81,7 @@ pack AS (
 ),
 dead AS (
   SELECT count(*) AS n FROM pipeline_work
-   WHERE status = 'failed' AND attempts >= 5 AND stage <> 'peak'
+   WHERE status = 'failed' AND attempts >= 5
 ),
 recent AS (
   SELECT count(*) AS produced FROM cognition_ledger
@@ -91,7 +89,7 @@ recent AS (
 ),
 claimable AS (
   SELECT count(*) AS n, min(available_at) AS oldest FROM pipeline_work
-   WHERE status IN ('pending','failed') AND attempts < 5 AND stage <> 'peak'
+   WHERE status IN ('pending','failed') AND attempts < 5
      AND available_at < now()
 )
 SELECT 'ingest_recency',

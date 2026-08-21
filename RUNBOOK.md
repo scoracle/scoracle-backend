@@ -36,10 +36,10 @@ SQL-only maintenance/notification workers.
                              │   └──────► scoracle-cognition.service  ◄── durable queue stages:
                              │                     │                editor, investigate_entity, graph,
                              │                     ▼                transfers, narratives, vibe,
-                             │                 statcommentary        peak, momentum, sigil
+                             │                 statcommentary        rating, momentum, sigil
                              │                  (cron batch)
                              ▼
-              Ollama (archbox 1070 Ti) + Mac mini model host (§1.1)
+                    Ollama (archbox 1070 Ti — §1.1)
 ```
 
 ### 1.1 Model topology — one machine, one model, model-agnostic by design
@@ -66,7 +66,7 @@ Five deployed binaries, all built from one commit by `release.sh` (3 Go + 2 Rust
 | `scoracle-api` | HTTP serving (precomputed) + enqueue Editor reads at ingest + maintenance tickers | `scoracle-api.service` (always on) |
 | `pipeline` | the ONLY data ingestion layer: nightly Google News RSS sweep (persist + enqueue the Editor's read) | cron (`cron-pipeline.sh`) |
 | `vibesynth` | nightly Sigil reconciliation backstop (DB-only; enqueues durable `sigil` work) | cron (`cron-vibesynth.sh`) |
-| `scoracle-cognition` | the Rust daemon: drains editor → investigate_entity → graph → transfers → narratives → vibe → peak → momentum → sigil | `scoracle-cognition.service` (always on, GPU box) |
+| `scoracle-cognition` | the Rust daemon: drains editor → investigate_entity → graph → transfers → narratives → vibe → rating → momentum → sigil | `scoracle-cognition.service` (always on, GPU box) |
 | `statcommentary` | Rust rating batch (single / nightly / backfill, NOT a queue stage) | cron (`cron-rust-statcommentary.sh`) |
 
 Google does the relevancy work at fetch time; the Rust junctions curate everything
@@ -346,8 +346,10 @@ Common incidents:
   prepared statement.
 - **Derived products stale** → check `cmd/work status` / `dead-letters`; check `scoracle-cognition`
   service health and Ollama reachability; a cold model load can time out, then retry/re-drain.
-- **GPU thrash** → `OLLAMA_MAX_CONCURRENT=1` serializes model calls; the systemd drop-in
-  `OLLAMA_NUM_PARALLEL=1` + `OLLAMA_MAX_LOADED_MODELS=1` is **not yet set** (F-035, needs sudo).
+- **GPU thrash** → lower the slot budget: drop `COGNITION_BACKEND_CONCURRENCY`'s localhost
+  count and the systemd drop-in's `OLLAMA_NUM_PARALLEL` together (the three-knob rule in
+  `rust/src/stage.rs`). `OLLAMA_MAX_CONCURRENT` is inert here — it is only the fallback cap
+  for a host NOT listed in `COGNITION_BACKEND_CONCURRENCY`.
 
 ---
 
@@ -441,8 +443,9 @@ These surfaced during the audit and are pre-launch work (see `../scoracle-wiki/p
   Sigils. Run larger reconciliation passes (`vibesynth -mode nightly` with a higher `-limit`) before launch.
 - **F-040** — pick the off-SITE backup target (cloud/NAS); mechanism is ready via
   `OFFHOST_BACKUP_DIR`.
-- **F-035** — set the Ollama systemd drop-in `OLLAMA_NUM_PARALLEL=1` + `OLLAMA_MAX_LOADED_MODELS=1`
-  (needs sudo).
+- **F-035** — CLOSED (superseded) 2026-08-20: the drop-in exists with `OLLAMA_MAX_LOADED_MODELS=1`
+  and `OLLAMA_NUM_PARALLEL` deliberately at the slot budget (4, the three-knob rule) — the
+  original `NUM_PARALLEL=1` prescription predates concurrent slots and would collapse the card.
 - **F-046 🟠 (security) — reopened and largely closed 2026-08-01.** The 2026-06-24 plan was never
   executed: rotation never happened and the history purge never ran, so **the leaked archbox
   `scoracle` Postgres password was still the live one** as of 2026-08-01. It then got worse — a

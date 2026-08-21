@@ -52,10 +52,10 @@ pub const LOCAL_STAGE_NUM_CTX: i32 = 4096;
 /// The window EVERY character voice requests (§7's envelope): prompt + memory + packet render +
 /// reservation, all inside 4096. This is the number the whole diet is sized against — a voice
 /// that still needed the legacy 16384 would mean the render or the memory block had quietly
-/// grown back. The voices share one pinned runner on the Mac, so the uniformity argument on
-/// [`LOCAL_STAGE_NUM_CTX`] applies with ~9 GB stakes: one window, or the runner reloads on
-/// every alternation. (The legacy 16384 constant this replaced left with the legacy corpus —
-/// the 08-06 rail cutover; `VOICE_NUM_CTX` survives only as the env override's name.)
+/// grown back. All seats share archbox's one pinned runner (single-box, 2026-08-20), so the
+/// uniformity argument on [`LOCAL_STAGE_NUM_CTX`] applies directly: one window, or the runner
+/// reloads on every alternation. (The legacy 16384 constant this replaced left with the legacy
+/// corpus — the 08-06 rail cutover; `VOICE_NUM_CTX` survives only as the env override's name.)
 pub const VOICE_NUM_CTX_PACKET: i32 = 4096;
 
 /// Whether an effective voice window is a SMALL one — the 4096 envelope rather than the 16384 the
@@ -73,7 +73,7 @@ pub fn small_voice_window(num_ctx: i32) -> bool {
 
 /// The effective voice window: the `VOICE_NUM_CTX` env override when set, else `VOICE_NUM_CTX_PACKET`.
 ///
-/// The override exists because the Mac runs one runner and wants ONE window — uniformity is what
+/// The override exists because a pinned single-runner host wants ONE window — uniformity is what
 /// keeps it loaded (§3). An unparseable or absurd value resolves to the default rather than
 /// failing a boot, the same total-parse discipline `RAIL` used to carry.
 pub fn resolve_voice_num_ctx(raw: Option<&str>) -> i32 {
@@ -127,8 +127,8 @@ pub enum Role {
     /// `COGNITION_ROUTE_ARTICLE_READER` retired with it on BOTH machines.
     Editor,
     /// The Investigator (PLAN-one-rail Phases 4–5): box-score retrieval and entity discovery.
-    /// Rides the SAME pinned gemma3:4b as the Editor (§3 — `MAX_LOADED_MODELS=1` makes any other
-    /// tag evict the incumbent); `COGNITION_ROUTE_INVESTIGATOR` on archbox. Its only v1 model
+    /// Rides the SAME pinned archbox model as the Editor (§3 — `MAX_LOADED_MODELS=1` makes any
+    /// other tag evict the incumbent); `COGNITION_ROUTE_INVESTIGATOR`. Its only v1 model
     /// calls are describe-only page triage — numbers never enter rows through this role.
     Investigator,
     TransferLogic,
@@ -243,9 +243,8 @@ impl Inference for OllamaClient {
 /// names) — a decorator over any [`Inference`] backend that acquires a SHARED semaphore permit
 /// before each `generate`. The Router wraps every backend it builds in this, sharing ONE
 /// semaphore (`OLLAMA_MAX_CONCURRENT`), so the total in-flight model calls across ALL roles and
-/// models never exceeds the budget — there is one GPU, so one budget. The worker's sequential
-/// drain is already an implicit 1; this makes the bound explicit so a brief Go+Rust transition
-/// overlap (Go's own model gate + the Rust worker) and any future parallel drain stay bounded,
+/// models never exceeds the budget — there is one GPU, so one budget. It makes the bound
+/// explicit so the concurrent drain stays bounded no matter how stages multiply,
 /// and it sits at the model-call SEAM so no caller can bypass it (every `for_role(_).generate`
 /// is governed, unlike a check in one handler). `model`/`request_body` are pure/local (no GPU),
 /// so they delegate WITHOUT a permit — only `generate`, the call that hits the GPU, is gated.
@@ -310,11 +309,13 @@ impl Router {
     /// machine, sized from `COGNITION_BACKEND_CONCURRENCY` with `max_concurrent`
     /// (`OLLAMA_MAX_CONCURRENT`) as the fallback. Clamped to ≥1 (0 would block forever).
     ///
-    /// It was one global semaphore until the topology split, on the reasoning "one GPU → one
-    /// budget". That premise dies the moment a role lives on another machine: a single permit
-    /// shared across two hosts makes them take turns, so the remote box idles while the local
-    /// one works and the split buys nothing. Keyed by host, the two drain concurrently — which
-    /// is the entire point of moving a role away.
+    /// It was one global semaphore until the 2026-08 two-host era, on the reasoning "one GPU →
+    /// one budget". That premise dies the moment a role lives on another machine: a single
+    /// permit shared across two hosts makes them take turns, so the remote box idles while the
+    /// local one works and the split buys nothing. Keyed by host, the two drain concurrently.
+    /// The per-host keying is KEPT post-consolidation (2026-08-20, single box): it is the
+    /// env-only rollback/re-expansion path — add a role's `_BASE_URL` and its host gets its
+    /// own governor with no code change.
     ///
     /// Single-host deploys are unaffected: every role resolves to one `base_url`, so one
     /// semaphore is built and the behaviour is byte-identical to the global-budget version.

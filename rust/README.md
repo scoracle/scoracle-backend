@@ -365,17 +365,6 @@ COGNITION_ROUTE_<ROLE>
 COGNITION_ROUTE_<ROLE>_CANDIDATE
 ```
 
-Embeddings and resolve:
-
-```text
-COGNITION_EMBED_MODEL
-COGNITION_EMBED_REVISION
-COGNITION_EMBED_POOLING
-COGNITION_EMBED_MAX_TOKENS
-COGNITION_RESOLVE_KEEP_THRESHOLD
-COGNITION_RESOLVE_DROP_THRESHOLD
-```
-
 Defaults are configured for one local Ollama model and one GPU. Raise concurrency only when the hardware and live workload justify it.
 
 ## Operations

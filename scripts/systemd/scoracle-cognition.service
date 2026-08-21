@@ -20,23 +20,21 @@ WorkingDirectory=__SCORACLE_REPO_ROOT__
 # scoracle-api reads, so both processes see one config. Do not re-add a second file:
 # the old .env/.env.local overlay made a key's value depend on load order.
 EnvironmentFile=-__SCORACLE_REPO_ROOT__/.env.local
-# Step 3 full cutover + headlines fold-in: Rust owns every live pipeline_work LLM stage
-# (scrub → graph/article_read → peak → transfers → narratives → vibe → sigil); Go is ingest + serve. The sigil
-# stage is terminal and runs decide → voice in-process (the oracle stage folded in,
-# Session B 2026-07-16; a stale 'oracle' in this list is warned about and ignored).
-# Keep DERIVE_WORKER_ENABLED=false in .env.local so the Go API does not claim these
-# same stages. PEAK is drained by the Rust daemon; `rust/bin/statcommentary` produces nightly PEAK work and handles explicit backfill.
+# Rust owns every live pipeline_work LLM stage; Go is ingest + serve. The list below IS
+# the production set (single-box consolidation, 2026-08-20 — all stages on archbox's
+# ministral-3:3b). `rating` is the renamed `peak` (mig 221); `rust/bin/statcommentary`
+# produces its nightly work and handles explicit backfill. The sigil stage is terminal
+# and runs decide → voice in-process. Keep DERIVE_WORKER_ENABLED=false in .env.local so
+# the Go API does not claim these same stages.
 # NOTE: .env.local also sets COGNITION_STAGES and, loading later, OVERRIDES this line —
 # keep the two in sync (this one documents the production set for a fresh install).
-# `editor` is THE reader since the Phase 8 flip (RAIL=packet, 2026-08-06): it reads every
-# arrival on ep1 and writes editor_reads + news_articles.full_text.
-# `scrub` and `article_read` — the legacy rail's two stages — were demolished in Phase 9
-# (9.1, 2026-08-08) and are GONE from this list. main.rs tolerates them as RETIRED names
-# (warn, then boot) precisely so a box running a stale copy of this file does not fail
-# closed, but nothing claims them: leaving them here would enqueue nothing and mislead.
-# `investigate_entity` is the Investigator's discovery stage (PLAN-one-rail 5.3/5.9,
-# 2026-08-04): drains entity_candidates via Wikidata structured claims (zero model calls
-# in v1), max_in_flight 1, registered after the editor — the Editor outranks it.
+# main.rs tolerates RETIRED stage names (oracle/scrub/article_read/peak: warn, then boot)
+# precisely so a box running a stale copy of this file does not fail closed — but nothing
+# claims them; do not re-add them here.
+# `editor` is THE reader: it reads every arrival on ep1 and writes editor_reads +
+# news_articles.full_text. `investigate_entity` is the Investigator's discovery stage
+# (Wikidata structured claims, zero model calls in v1), registered after the editor —
+# the Editor outranks it.
 Environment=COGNITION_STAGES=graph,editor,investigate_entity,rating,momentum,transfers,narratives,vibe,sigil
 ExecStart=__SCORACLE_REPO_ROOT__/rust/bin/scoracle-cognition
 Restart=always

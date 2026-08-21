@@ -1,5 +1,9 @@
 # PLAN — One Rail
 
+> ## ✅ CLOSED 2026-08-15 (`HANDOFF-one-rail.md`: "the one-rail pipeline is the only pipeline")
+> The phases are done and the legacy rail is deleted. **Appendix D (the D-T ledger) stays
+> LIVE** — active code comments cite its numbers; read it there, don't re-derive.
+
 > **COMPANION FILE — `PLAN-character-tuning.md`.** These two are one document split by *kind*, not
 > by topic, and a session usually needs both:
 > * **This file is the RAIL** — phases, plumbing, migrations, cutover. **Appendix D at the bottom is

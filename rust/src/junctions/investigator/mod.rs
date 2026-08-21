@@ -5,10 +5,10 @@
 //! stage `fixture_boxscore`, a live wire name that predates the character and does NOT rename),
 //! entity discovery second (Phase 5, stage `investigate_entity`).
 //!
-//! `Role::Investigator` is pinned to `ministral-3:14b` on the Mac host
-//! (`COGNITION_ROUTE_INVESTIGATOR`, 2026-08-09 — deliberately NOT the archbox 3B). The seat
-//! idles in v1: every live decision is code over Wikidata's structured claims, zero model
-//! calls. The seat's first real load is 5.4's deferred prose-triage arm (D-T8's class — names
+//! `Role::Investigator` rides `ministral-3:3b` on archbox like every seat since the
+//! 2026-08-20 single-box consolidation (`COGNITION_ROUTE_INVESTIGATOR`; the 2026-08-09
+//! Mac-14B pinning is history). The seat idles in v1: every live decision is code over
+//! Wikidata's structured claims, zero model calls. The seat's first real load is 5.4's deferred prose-triage arm (D-T8's class — names
 //! Wikimedia knows under a different legal name), and the design rule for it is already fixed
 //! (PLAN-one-rail T2 note): the model QUOTES the occupation phrase verbatim, code matches it
 //! against sport vocabulary and thresholds on independent-source count — never self-reported

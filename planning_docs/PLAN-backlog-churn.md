@@ -1,5 +1,10 @@
 # Plan — churn through the pipeline_work backlog
 
+> ## ⚠️ SUPERSEDED 2026-08-20 — the checkpoint below was delivered and the plan's levers are moot
+> `VOICE_NUM_CTX` 16384→8192 happened and kept going (4096 everywhere); the capacity question
+> was answered by the single-box consolidation (run-until-done, no duty cycle). The qsample
+> timer it installed still feeds `logs/queue-depth.csv` and remains useful for drain reads.
+
 > ## ⏰ STANDING CHECKPOINT: status update to Scott at **21:00, Mon 2026-07-27**
 > This survives context loss. If you are picking this file up cold, the checkpoint is the
 > commitment — deliver it even if nothing else here has progressed. What it must answer is in

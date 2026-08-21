@@ -15,7 +15,7 @@
 //!
 //! | | |
 //! |---|---|
-//! | **Seat** | `Role::Investigator` — `ministral-3:14b` on the Mac host (never archbox) |
+//! | **Seat** | `Role::Investigator` — `ministral-3:3b` on archbox (all seats, since 2026-08-20) |
 //! | **Reads** | one Wikipedia REST page summary (title + description + extract) |
 //! | **Writes** | nothing — [`super::gate::decide_prose`] and the handler own every write |
 
@@ -70,7 +70,7 @@ pub fn prose_opts() -> GenerateOptions {
         system: Some(INVESTIGATOR_PROSE_SYSTEM_PROMPT.to_string()),
         temperature: Some(0.1),
         num_predict: 300,
-        num_ctx: 4096,
+        num_ctx: crate::route::LOCAL_STAGE_NUM_CTX,
         json_mode: false,
         format_schema: Some(
             serde_json::from_str(INVESTIGATOR_PROSE_SCHEMA_RAW)

@@ -6,7 +6,7 @@
 //!
 //! Handlers register from `COGNITION_STAGES` (comma-separated; default = every stage).
 //! Post Step-3 cutover (2026-06-28) the Rust daemon owns all LLM queue stages —
-//! graph, editor, investigate_entity, peak, momentum, transfers, narratives, vibe, sigil — and the Go API's derive worker is retired
+//! graph, editor, investigate_entity, rating, momentum, transfers, narratives, vibe, sigil — and the Go API's derive worker is retired
 //! (`DERIVE_WORKER_ENABLED=false` keeps it off). The committed systemd unit
 //! (`scripts/systemd/scoracle-cognition.service`) hardcodes the production set, so this
 //! default only fires when the unit isn't the one starting the process (a fresh-box boot
@@ -242,9 +242,10 @@ fn parse_enabled_stages(raw: &str) -> Result<HashSet<String>> {
     // COGNITION_STAGES in a unit override or .env must not take prod down at a cutover.
     // `oracle` folded into the sigil stage 2026-07-16 (Session B).
     // `scrub` and `article_read` are the legacy rail's two stages, demolished in Phase 9 (9.1).
+    // `peak` was renamed `rating` at mig 221 — the likeliest stale name in an old env.
     // They land HERE rather than simply disappearing precisely because this list exists: an
     // archbox unit or a stale .env still naming them must warn and boot, not fail closed.
-    const RETIRED: &[&str] = &["oracle", "scrub", "article_read"];
+    const RETIRED: &[&str] = &["oracle", "scrub", "article_read", "peak"];
 
     let mut stages = HashSet::new();
     let mut unknown = Vec::new();

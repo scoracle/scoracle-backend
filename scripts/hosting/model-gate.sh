@@ -10,8 +10,8 @@
 # candidate model runs the same fixtures as the incumbent, against a known baseline.
 #
 # Usage:  model-gate.sh <task> <incumbent> [candidate]
-#   model-gate.sh momentum ministral-3:14b mistral-nemo:12b   # A/B, side by side
-#   model-gate.sh momentum mistral-nemo:12b                   # single model vs the baselines below
+#   model-gate.sh momentum ministral-3:3b some-candidate:3b   # A/B, side by side
+#   model-gate.sh momentum some-candidate:3b                  # single model vs the incumbent's floor
 #
 # With a CANDIDATE the eval binary runs both over the same fixtures and prints its own side-by-side
 # report -- that is what `EvalReport` exists for ("the side-by-side the human reads"). It runs
@@ -22,9 +22,12 @@
 # phrases) say the contract holds; they cannot say the voice is right. That judgment is the whole
 # point of running two models over identical inputs.
 #
-# Baselines (2026-07-26, ministral-3:14b):
-#   momentum s13 : 36/37   -- the one red is a genuine `steady band` leak
-#   oracle   or8 : 94/98   -- all four reds are `reading_max_peers`, left red on purpose
+# HISTORICAL baselines (2026-07-26, ministral-3:14b — a retired model at retired prompt
+# versions; kept only as provenance). Establish a fresh floor by running the current
+# incumbent (ministral-3:3b) over the fixtures FIRST, then compare candidates to that —
+# a baseline that predates the prompt it gates cannot detect a regression:
+#   momentum s13 : 36/37   -- the one red was a genuine `steady band` leak
+#   oracle   or8 : 94/98   -- all four reds were `reading_max_peers`, left red on purpose
 set -uo pipefail
 
 TASK="${1:?usage: model-gate.sh <task> <incumbent> [candidate]}"

@@ -165,12 +165,12 @@ type StageCaps = Vec<StageCap>;
 /// `COGNITION_DRAIN_CONCURRENCY` wins; otherwise it is derived from the stages' own caps, which
 /// by construction can never bind.
 ///
-/// Getting this wrong starves a machine rather than merely slowing it. Sizing the ceiling to the
-/// topology's total GPU permits (4 local + 1 Mac = 5) looks right and is not: the drain claims in
-/// DAG order, so the archbox stages fill all 5 and the Mac stages get nothing at all until the
-/// local backlog is empty (measured at 2,580 items in the two-rail era, when scrub plus the two
-/// gemma3 stages did exactly this). The Mac would idle for hours while Archbox worked, which is
-/// the exact inversion of the goal.
+/// Getting this wrong starves a stage rather than merely slowing it — a lesson measured in the
+/// two-host era: sizing the ceiling to the topology's total GPU permits (then 4 local + 1 Mac
+/// = 5) looked right and was not, because the drain claims in DAG order, so the early stages
+/// filled all 5 and the late stages got nothing until the local backlog emptied (measured at
+/// 2,580 items when scrub plus two local stages did exactly this). The derivation below exists
+/// so the ceiling can never bind before the per-stage caps do.
 ///
 /// Grouped stages contribute their GROUP's budget once, not each stage's ceiling. The Editor and
 /// graph may each claim up to 4, but only 4 between them, so summing both would inflate the global
@@ -629,16 +629,14 @@ impl Worker {
     /// in flight at once.
     ///
     /// This was a strictly sequential `for handler { for item { handle().await } }` until the
-    /// topology split made it the bottleneck: with The Editor and graph local on gemma3:4b and
-    /// the six character voices on the Mac, a sequential drain meant Archbox idled through every
-    /// Mac generation and the Mac idled through every local one. Measured 255 calls/hour against
-    /// a 310 baseline (-18%) with the Mac at ~89% utilisation — nothing broken, just half-used.
+    /// 2026-08 two-host era made it the bottleneck (each machine idled through the other's
+    /// generations; measured 255 calls/hour against a 310 baseline, -18%). The concurrent
+    /// drain outlived that topology because it is what fills the card's parallel slots.
     ///
-    /// **The governor is now the scheduler.** The drain's job is only to keep work OFFERED; the
-    /// per-host semaphores from the topology split (`route.rs::governor_for`) decide what
-    /// actually runs on each machine. Archbox pulls continuously up to its slot count, while the
-    /// Mac's single permit keeps its six voices sequenced — which is the intended shape, not a
-    /// limitation: 16 GB will not hold two KV allocations for a 14B.
+    /// **The governor is the scheduler.** The drain's job is only to keep work OFFERED; the
+    /// per-host semaphores (`route.rs::governor_for` — one host today, more again if a role's
+    /// `_BASE_URL` moves) decide what actually runs. Archbox pulls continuously up to its slot
+    /// count; the per-stage caps and the shared `ARCHBOX_SLOTS` group decide who holds them.
     ///
     /// Registration order still encodes the DAG, and is still the claim order, so a hand-off
     /// enqueued by an item that just finished is picked up on the very next top-up pass.

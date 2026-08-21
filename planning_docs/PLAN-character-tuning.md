@@ -1,5 +1,10 @@
 # PLAN — Character Tuning (session notes)
 
+> ## ✅ CLOSED as a program 2026-08-20 (single-box consolidation: all seats on the 3b, no gates)
+> The seat-selection era is over. **The appendices and D-T detail stay LIVE** — prompt version
+> strings and code comments cite them. New tuning work belongs to the ctx↓2048 / output-
+> simplification chapter (`progress_docs/2026-08-20_single-box-consolidation.md`).
+
 > **COMPANION FILE — `PLAN-one-rail.md`.** These two are one document split by *kind*, not by topic,
 > and a session usually needs both:
 > * **That file is the RAIL** — phases, plumbing, migrations, cutover. **Its §0 working rules bind

@@ -93,6 +93,44 @@ fn crown_parser_is_fail_closed_err_not_none() {
 }
 
 #[test]
+fn crown_parses_optional_headline() {
+    // or11: present + non-empty → folded to one line; absent or empty → None (tolerance,
+    // never a failed generation).
+    let r = parse_crown_reply(
+        r#"{"reading": "The arc holds.", "headline": "  Winter   stirs for Vale ", "score": 73}"#,
+    )
+    .unwrap();
+    assert_eq!(r.headline.as_deref(), Some("Winter stirs for Vale"));
+    let absent =
+        parse_crown_reply(r#"{"reading": "The arc holds.", "score": 73}"#).unwrap();
+    assert!(absent.headline.is_none());
+    let empty = parse_crown_reply(
+        r#"{"reading": "The arc holds.", "headline": "", "score": 73}"#,
+    )
+    .unwrap();
+    assert!(empty.headline.is_none());
+}
+
+#[test]
+fn crown_headline_guard_fails_closed() {
+    // The card title shares the HOOK contract; a violation is Err → the item re-rolls.
+    assert!(CrownParser
+        .parse(r#"{"reading":"x.","headline":"one two three four five six seven eight nine ten eleven twelve thirteen","score":50}"#)
+        .is_err());
+    assert!(CrownParser
+        .parse(r#"{"reading":"x.","headline":"Vale: a crossroads","score":50}"#)
+        .is_err());
+    assert!(CrownParser
+        .parse(r#"{"reading":"x.","headline":"Will winter stir?","score":50}"#)
+        .is_err());
+    let clean = CrownParser
+        .parse(r#"{"reading":"x.","headline":"Winter stirs at the Emirates","score":50}"#)
+        .unwrap()
+        .unwrap();
+    assert_eq!(clean.headline.as_deref(), Some("Winter stirs at the Emirates"));
+}
+
+#[test]
 fn counts_sentences_ignoring_decimals() {
     assert_eq!(count_sentences("One. Two! Three?"), 3);
     assert_eq!(

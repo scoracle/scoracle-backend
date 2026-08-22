@@ -135,7 +135,11 @@ impl SynthMomentum {
 pub struct CrownReply {
     /// The 2-4 sentence reading — the interpretation of the cards, generated FIRST.
     pub reading: String,
-    /// The 1-100 verdict the reading earned, generated SECOND. Clamped to 1-100 at parse.
+    /// The card title (or11, mig 226) — twelve words or fewer, generated SECOND.
+    /// `None` when absent/empty: tolerance never fails a generation, NULL renders
+    /// as "no headline" downstream (boards omit, profiles render reading alone).
+    pub headline: Option<String>,
+    /// The 1-100 verdict the reading earned, generated LAST. Clamped to 1-100 at parse.
     pub score: i32,
 }
 
@@ -160,6 +164,9 @@ pub struct SigilOutput {
     /// no-pillar → the role's configured model name; scored → the model echoed in the response.
     pub model: String,
     pub prompt_version: &'static str,
+    /// The model-emitted card title (or11). `None` for the marker and when the reply
+    /// omitted/emptied it — NULL renders downstream as "no headline", never an error.
+    pub headline: Option<String>,
     /// Deterministic convergence (1-100) from `pillar_convergence` — NOT model-emitted. `None`
     /// for the marker and when no directional pillar pair exists. NOT part of the `input_hash`.
     pub convergence: Option<i32>,
@@ -954,8 +961,19 @@ pub fn parse_crown_reply(raw: &str) -> Option<CrownReply> {
     if reading.is_empty() {
         return None;
     }
+    // The card title (or11): optional by tolerance. Folded to one line; an absent or
+    // empty field persists as NULL rather than failing the generation.
+    let headline = v
+        .get("headline")
+        .and_then(|h| h.as_str())
+        .map(|h| h.split_whitespace().collect::<Vec<_>>().join(" "))
+        .filter(|h| !h.is_empty());
     let score = parse_crown_score(v.get("score")?)?;
-    Some(CrownReply { reading, score })
+    Some(CrownReply {
+        reading,
+        headline,
+        score,
+    })
 }
 
 // (count_sentences moved to `crate::guards` 08-19 — THE shared sentence counter; re-exported
@@ -980,6 +998,19 @@ impl Parser<CrownReply> for CrownParser {
                 {
                     tracing::warn!(guard = "oracle_reading_ban", phrase = p, "reading rejected");
                     bail!("crown: reading carries banned vocabulary {p:?}");
+                }
+                // The card title shares the HOOK contract (guards::hook_violation — twelve
+                // words, no colon, no question mark). Fail-closed like every title guard:
+                // a junk headline re-rolls rather than shipping.
+                if let Some(h) = r.headline.as_deref() {
+                    if let Some(rule) = crate::guards::hook_violation(h) {
+                        tracing::warn!(guard = rule, headline = h, "crown headline rejected");
+                        bail!("crown: headline violates {rule} (headline={h:?})");
+                    }
+                    if crate::guards::has_foreign_script(h) {
+                        tracing::warn!(guard = "foreign_script", "crown headline rejected");
+                        bail!("crown: headline carries a foreign-script run");
+                    }
                 }
                 let peers = crate::guards::count_named_peers(&r.reading);
                 if peers > 1 {
@@ -1072,10 +1103,10 @@ async fn persist_to_sigil_synthesis(
             entity_type, entity_id, sport, season, trigger_type, trigger_payload,
             score, previous_score, input_components, input_hash,
             model_version, prompt_version, convergence,
-            reading, omen, voiced_score,
+            reading, headline, omen, voiced_score,
             voiced_at, voice_model_version, voice_prompt_version
         ) VALUES ($1,$2,$3,$4,'periodic','{}'::jsonb, $5,$6,$7::jsonb,$8, $9,$10,$11,
-            $12,$13,$14,
+            $12,$13,$14,$15,
             CASE WHEN $12 IS NOT NULL THEN NOW() END,
             CASE WHEN $12 IS NOT NULL THEN $9 END,
             CASE WHEN $12 IS NOT NULL THEN $10 END)
@@ -1094,8 +1125,9 @@ async fn persist_to_sigil_synthesis(
     .bind(prov.prompt_version) // $10 (also voice_prompt_version when reading present)
     .bind(convergence) // $11
     .bind(out.reading.as_deref()) // $12
-    .bind(out.omen) // $13
-    .bind(score) // $14  voiced_score = the emitted score (they reconcile)
+    .bind(out.headline.as_deref()) // $13 — the card title (or11); NULL for markers/pre-bump rows
+    .bind(out.omen) // $14
+    .bind(score) // $15  voiced_score = the emitted score (they reconcile)
     .fetch_one(pool)
     .await
     .context("persist sigil")?;
@@ -1202,6 +1234,7 @@ impl StageHandler for SigilHandler {
             let out = SigilOutput {
                 score: None,
                 reading: None,
+                headline: None,
                 season,
                 input_components_json: "{}".to_string(),
                 input_hash: None,
@@ -1307,6 +1340,7 @@ impl StageHandler for SigilHandler {
         let out = SigilOutput {
             score: Some(reply.score),
             reading: Some(reply.reading),
+            headline: reply.headline,
             season,
             input_components_json,
             input_hash: Some(input_hash),

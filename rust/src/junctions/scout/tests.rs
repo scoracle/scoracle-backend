@@ -654,6 +654,35 @@ fn rating_parser_never_fails_closed() {
     assert!(RatingParser.parse("").unwrap().is_some());
 }
 
+#[test]
+fn rating_splits_the_s20_headline_line() {
+    // s20 (mig 226): the contracted closing title line — lifted out of the body, folded.
+    let reply = RatingParser
+        .parse("Strengths to respect: Rim protection at the 96th percentile.\nSummary: Take away the rim first.\nHEADLINE:   Take away the rim against Vale ")
+        .unwrap()
+        .expect("always Some");
+    assert_eq!(
+        reply.headline.as_deref(),
+        Some("Take away the rim against Vale")
+    );
+    assert!(!reply.body.contains("HEADLINE"));
+    assert!(reply.body.contains("Rim protection"));
+
+    // Absent line → None; body untouched.
+    let bare = RatingParser.parse("Summary: The verdict stands.").unwrap().unwrap();
+    assert!(bare.headline.is_none());
+    assert_eq!(bare.body, "Summary: The verdict stands.");
+
+    // Empty title folds to None, never an error.
+    let empty = RatingParser.parse("Summary: x.\nHEADLINE: ").unwrap().unwrap();
+    assert!(empty.headline.is_none());
+
+    // A hook-contract violation fails closed (Err → the item re-rolls).
+    assert!(RatingParser
+        .parse("Summary: x.\nHEADLINE: one two three four five six seven eight nine ten eleven twelve thirteen")
+        .is_err());
+}
+
 // --- 7.7 the personnel block: the Scout's second confirmed-fact road ------------------
 // T4 holds by construction here — every field the renderer reads is a date, a resolved name, or
 // the adjudicated `event_type` enum. There is no path by which news prose reaches this seat.

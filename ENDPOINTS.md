@@ -1,6 +1,6 @@
 # Scoracle API Endpoints
 
-> Last updated: 2026-08-12 (Stories page: `/stories` + `/story/{id}`, the first story-scoped surface over the one-rail storylines/packets).
+> Last updated: 2026-08-21 (Drop 1 of the headline/body contract: voice headlines persist (mig 226), `/stories` ranks editor-natively, the Transfers card serves the Insider's wire read).
 
 Single public API base URL:
 
@@ -23,7 +23,7 @@ The only source of truth is `go/internal/api/server.go`. Every route wired there
 | `GET /api/v1/{sport}/{entityType}/{id}/meta` | per-entity identity (page header); 404 if unknown |
 | `GET /api/v1/{sport}/team/{id}/results` · `/roster` | finalized scorelines · legacy roster compatibility |
 | `GET /api/v1/{sport}/meta` · `/autofill` · `/health` | legacy sport-wide metadata/search payload · legacy sport autofill · freshness |
-| `GET /api/v1/{sport}/stories` | Stories page list: open storylines ranked by cast heat (banked character scores); `?status=resolved\|dormant` for the archive, `?limit=` (default 50, cap 200) |
+| `GET /api/v1/{sport}/stories` | Stories page list: open storylines ranked by editor-native heat (report volume decayed by latest-packet age); `?status=resolved\|dormant` for the archive, `?limit=` (default 50, cap 200) |
 | `GET /api/v1/{sport}/story/{id}` | one storyline whole: cast (roles + lifespans), packet headline history, full latest packet, attached articles, voice-product pointers; 404 if unknown |
 | `GET /api/v1/{sport}/leaderboard` | comprehensive ranked research database; `?board=rating\|vibes\|sigil\|news\|transfers\|momentum` (`trending` legacy alias) |
 | `GET /api/v1/{sport}/leaderboard/{vibes,sigil,news,transfers,momentum}` | dedicated boards (`trending` legacy alias remains wired) |
@@ -978,7 +978,9 @@ Query `scope` defaults to `current_week`; allowed values are `current_week`, `la
 rumor heat list (the pre-narrative data). Transfers use the same historical scope and
 staleness protocol as Narratives; in the current week, cooling-off rows retire after
 three days unless they heat back up. The counterparty is the OTHER entity type: for a
-`team` the linked **players**, for a `player` the **clubs**.
+`team` the linked **players**, for a `player` the **clubs**. The card also serves the
+Insider's own latest wire wrap as `card_score` (wire-busyness 1-99) + `wire_read`
+(the Insider's prose read of the wire — previously internal only).
 
 Query `scope` defaults to `current_week`; allowed values are `current_week`, `last_week`,
 `two_weeks_ago`, `three_weeks_ago`, and `last_month`.

@@ -20,7 +20,7 @@ use crate::work::{self, Item, Stage};
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use sqlx::{PgPool, Row};
-use tracing::{debug, warn};
+use tracing::debug;
 
 // This junction's contract with its model — system prompt, contract version, and prompt
 // builder — lives in `prompt.rs`, so a change to what this character is asked is a one-file
@@ -50,7 +50,6 @@ const MOMENTUM_WORK_PREFIX: &str = "momentum:s";
 /// budget, and two of them were the single largest driver of the prompts the oMLX prefill guard
 /// killed on 2026-08-10 (86 rejections that morning). The hottest story is ample grounding for
 /// "what is actually moving"; the vibe pillar already summarizes the feeling across the rest.
-const MAX_MOMENTUM_PACKETS: i64 = 1;
 
 #[derive(Clone, Debug)]
 pub struct MomentumContext {
@@ -592,62 +591,17 @@ impl StageHandler for MomentumHandler {
         // latest row — the hash it carried into input_version is the admission ticket. The
         // recomputed ctx.input_hash still stamps provenance on the row actually generated.
 
-        // Relational memory card (s5): load failure degrades to an unenriched prompt (the
-        // n8/v12 discipline — the trajectory numbers are the primary signal, memory is
-        // the arc context that keeps the READ entity-specific).
-        let memory = match crate::junctions::journalist::load_entity_memory(
-            &hx.pool,
-            &sport,
-            &item.entity_type,
-            entity_id,
-        )
-        .await
-        {
-            Ok(m) => m,
-            Err(e) => {
-                warn!(
-                    entity_type = %item.entity_type,
-                    entity_id,
-                    sport = %sport,
-                    error = %e,
-                    "momentum: relational memory load failed (continuing without memory)"
-                );
-                None
-            }
-        };
-
-        // The compiled storylines behind the move (7.8, packet rail only). Loaded HERE rather
-        // than in `load_momentum_context` on purpose: the Analyst's trigger is the pillar
-        // cascade — PEAK moved, or the vibe did — and that must not change. The packet is
-        // context for WHY the numbers moved, exactly like the scouting paragraph and the memory
-        // card above it: rendered into the prompt, kept out of the `input_hash`, and degrading
-        // to an unenriched prompt on failure rather than failing the item.
-        let packets = {
-            match crate::junctions::editor::packet::render_packets_for_entity(
-                &hx.pool,
-                &item.entity_type,
-                entity_id,
-                &name,
-                &sport,
-                crate::junctions::editor::render::Voice::Analyst,
-                MAX_MOMENTUM_PACKETS,
-            )
-            .await
-            {
-                Ok(p) => p,
-                Err(e) => {
-                    warn!(
-                        entity_type = %item.entity_type,
-                        entity_id,
-                        sport = %sport,
-                        error = %e,
-                        "momentum: packet load failed (continuing without the story context)"
-                    );
-                    Vec::new()
-                }
-            }
-        };
-        let packet_blocks: Vec<&str> = packets.iter().map(|(_, t)| t.as_str()).collect();
+        // s19: the relational memory card and the story packets are no longer loaded.
+        //
+        // Both were "context for WHY the numbers moved", and WHY is precisely what this seat
+        // stopped reporting. The Analyst's beat is the direction of the two rails and their
+        // relationship to each other; the stories behind a move belong to the three seats that
+        // voice them. Measured cause for the removal is in `build_momentum_prompt`'s docs: with
+        // four seats' material in her prompt she named a trajectory in 57% of reads while
+        // touching the news in 42% and transfers in 28%.
+        //
+        // This also takes the Analyst off the packet rail, which is a saved DB round trip per
+        // momentum item, not just a prompt change.
 
         let prompt = build_momentum_prompt(
             &item.entity_type,
@@ -656,8 +610,6 @@ impl StageHandler for MomentumHandler {
             ctx.rating.as_ref(),
             ctx.vibe.as_ref(),
             &ctx.snapshot,
-            memory.as_deref(),
-            &packet_blocks,
         );
         let opts = GenerateOptions {
             system: Some(MOMENTUM_SYSTEM_PROMPT.to_string()),

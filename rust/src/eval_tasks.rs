@@ -1515,8 +1515,9 @@ impl LensTask for MomentumTask {
         if rating.is_none() && vibe.is_none() && momentum.empty() {
             return Ok(None);
         }
-        // Eval pins the memory-free prompt shape (the s5/n8 precedent): fixtures measure
-        // the fresh-signal contract, not the enrichment rider.
+        // s19: there is no enrichment rider left to pin. The Analyst reads the two rails and
+        // their collision, so the eval prompt and the production prompt are now the same shape
+        // by construction rather than by the eval opting out.
         Ok(Some(build_momentum_prompt(
             &e.entity_type,
             &name,
@@ -1524,8 +1525,6 @@ impl LensTask for MomentumTask {
             rating.as_ref(),
             vibe.as_ref(),
             &momentum,
-            None,
-            &[],
         )))
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {

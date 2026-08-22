@@ -201,8 +201,6 @@ fn prompt_carries_the_decided_direction_line() {
         None,
         None,
         &mom,
-        None,
-        &[],
     );
     // s18: BOTH decided facts arrive as words — the direction line hands the model no
     // figure and no "steady band" to echo (the digit-starvation pass; 50.7 ⇒ conviction
@@ -226,97 +224,82 @@ fn prompt_carries_the_decided_direction_line() {
         None,
         None,
         &SynthMomentum::default(),
-        None,
-        &[],
     );
     assert!(empty
         .contains("Direction (decided upstream, final): steady (no durable momentum snapshot)"));
 }
 
-/// 7.8: the compiled storylines render as CONTEXT — after the memory card, before the decided
-/// direction, which stays adjacent to the reply cue and stays final. Absent on the legacy rail,
-/// where the caller passes no packets at all.
+/// s19's load-bearing test: NOTHING but the two rails reaches this prompt.
+///
+/// It replaces two tests that asserted the opposite — that the compiled storylines and the
+/// relational memory card rendered as context. They did, and that was the defect: measured
+/// across eight well-covered teams, the Analyst named a trajectory in 57% of reads while
+/// touching the stat profile in 42%, the mood in 42%, the news in 42% and transfers in 28%.
+/// She was narrating her inputs. So the inputs went, and this test keeps them gone.
 #[test]
-fn packet_context_renders_before_the_decided_direction_and_never_on_legacy() {
+fn only_the_two_rails_reach_the_prompt() {
     let mom = SynthMomentum {
+        rating_slope: Some(-33.7),
+        rating_samples: 4,
+        vibe_slope: Some(14.0),
+        vibe_samples: 11,
         momentum_score: Some(-22.4),
         ..SynthMomentum::default()
     };
-    let legacy = build_momentum_prompt(
-        "player",
-        "Test Player",
-        "FOOTBALL",
-        None,
-        None,
-        &mom,
-        None,
-        &[],
-    );
-    assert!(!legacy.contains("THE STORIES BEHIND THE MOVE"));
-
-    let block = "STORY: The winger's future at Real Madrid\nENTITY: Test Player (subject) — in this story 2026-08-02 → 2026-08-05\nREPORTED (newest first):\n- ESPN: he is set to stay\n";
-    let packet = build_momentum_prompt(
-        "player",
-        "Test Player",
-        "FOOTBALL",
-        None,
-        None,
-        &mom,
-        None,
-        &[block],
-    );
-    let story = packet
-        .find("=== THE STORIES BEHIND THE MOVE (assembled from the reads) ===")
-        .expect("packet section");
-    let dir = packet.find("Direction (decided upstream, final)").unwrap();
-    let cue = packet.find("Write the Momentum read now").unwrap();
-    assert!(
-        story < dir && dir < cue,
-        "the decided fact stays last and final"
-    );
-    assert!(packet.contains("STORY: The winger's future at Real Madrid"));
-    // The Influencer's register is hers alone — the Analyst's render must not carry it.
-    assert!(!packet.contains("MOOD:"));
-}
-
-#[test]
-fn relational_memory_renders_before_the_decided_direction() {
-    // The s5 memory card sits between the snapshot and the decided-direction line, so
-    // the decided fact stays adjacent to the reply cue. Instruction line + bullets.
-    let mom = SynthMomentum {
-        momentum_score: Some(50.7),
-        ..SynthMomentum::default()
-    };
-    let mem = "Prior story: Real Madrid — fizzled (Jun 2026, peak coverage 82/100).\nCurrent story: Chelsea — tracked since Jun 09, computed likelihood 85/100.";
     let p = build_momentum_prompt(
-        "player",
-        "Test Player",
+        "team",
+        "Test Team",
         "FOOTBALL",
-        None,
-        None,
+        Some(&a_rating()),
+        Some(&a_vibe()),
         &mom,
-        Some(mem),
-        &[],
     );
-    assert!(p.contains("=== RELATIONAL MEMORY (computed history) ===\nArc context for the READ"));
-    assert!(p.contains("- Prior story: Real Madrid — fizzled"));
-    let mem_pos = p.find("RELATIONAL MEMORY").unwrap();
-    let dir_pos = p.find("Direction (decided upstream, final)").unwrap();
-    let cue_pos = p.find("Write the Momentum read now").unwrap();
-    assert!(mem_pos < dir_pos && dir_pos < cue_pos);
-    // Blank memory ⇒ no section.
-    let blank = build_momentum_prompt(
-        "player",
-        "Test Player",
-        "FOOTBALL",
-        None,
-        None,
-        &mom,
-        Some(" \n  "),
-        &[],
+
+    // Both rails, both levels, both directions — and every one of them in WORDS.
+    assert!(p.contains("Form is: moving hard down, on a modest sample"));
+    // ONE statement per rail: her own slope wins, so the Scout's label — measured on HIS window
+    // and saying the opposite here — must not also appear.
+    assert!(
+        !p.contains("overall scores holding steady over recent games"),
+        "her slope and the Scout's label must never both describe the form rail: {p}"
     );
-    assert!(!blank.contains("RELATIONAL MEMORY"));
+    assert!(p.contains("Mood stands: warm"));
+    assert!(p.contains("Mood is: drifting up, on a healthy sample"));
+
+    // NOT ONE DIGIT in the whole prompt body above the entity line. s18 took the figure out of
+    // the direction line and digits_in_read fell from 65% of generations; s19 removed the prose
+    // around the remaining slopes, which promoted them to the most prominent thing left, and the
+    // first probe came back with "a 14-point climb over 11 samples" — four digits, instant
+    // rejection. The input must not shout what the output may not say.
+    assert!(
+        !crate::guards::has_ascii_digit(&p),
+        "no figure may reach the Analyst's prompt: {p}"
+    );
+
+    // No peer PROSE, whatever the cards carry. These two strings are the bodies of
+    // a_rating() and a_vibe(); if either reaches the prompt the seat can narrate it.
+    assert!(
+        !p.contains("Chances created have held their line"),
+        "the Scout's brief must not reach the Analyst: {p}"
+    );
+    assert!(
+        !p.contains("The room is warm after the cup run"),
+        "the Influencer's felt read must not reach the Analyst: {p}"
+    );
+    assert!(!p.contains("Scouting read:"));
+    assert!(!p.contains("Felt read:"));
+    assert!(!p.contains("Profile distinctiveness"));
+
+    // And no story rails at all — she is off the packet rail and reads no memory card.
+    assert!(!p.contains("THE STORIES BEHIND THE MOVE"));
+    assert!(!p.contains("RELATIONAL MEMORY"));
+
+    // The decided fact stays last and adjacent to the reply cue.
+    let dir = p.find("Direction (decided upstream, final)").unwrap();
+    let cue = p.find("Write the Momentum read now").unwrap();
+    assert!(dir < cue, "the decided fact stays final");
 }
+
 
 #[test]
 fn input_components_are_stable_and_sorted() {
@@ -422,9 +405,13 @@ fn only_a_totally_empty_context_is_empty_the_load_bearing_and() {
 
 #[test]
 fn a_vibe_only_context_builds_a_prompt_that_claims_no_form() {
-    // The second half of the brief: vibe-without-rating builds an output ON THE VIBE. The
-    // prompt must carry the felt read and must NOT hand the model a form/trajectory line it
-    // could then narrate a direction from — the Ipswich failure mode, one seat over.
+    // The second half of the brief: vibe-without-rating still builds a prompt, and it must NOT
+    // hand the model a form/trajectory line it could narrate a direction from — the Ipswich
+    // failure mode, one seat over.
+    //
+    // s19 INVERTS this test's first assertion. It used to require the felt read to reach the
+    // prompt; the felt read is the Influencer's prose and is exactly what made the Analyst
+    // narrate the mood instead of its direction. What survives from her card is the LEVEL.
     let p = build_momentum_prompt(
         "team",
         "Ipswich Town",
@@ -432,12 +419,14 @@ fn a_vibe_only_context_builds_a_prompt_that_claims_no_form() {
         None,
         Some(&a_vibe()),
         &SynthMomentum::default(),
-        None,
-        &[],
     );
     assert!(
-        p.contains("cup run"),
-        "the surviving vibe card must reach the prompt: {p}"
+        p.contains("Mood stands: warm"),
+        "the surviving vibe card's LEVEL must reach the prompt, in words: {p}"
+    );
+    assert!(
+        !p.contains("cup run"),
+        "but never its prose — that is the Influencer's card: {p}"
     );
     assert!(
         !p.contains("holding steady over recent games"),

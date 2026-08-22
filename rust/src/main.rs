@@ -25,7 +25,7 @@ use scoracle_cognition::junctions::{
     analyst, editor, graph, influencer, insider, journalist, oracle, scout,
 };
 use scoracle_cognition::route::Router;
-use scoracle_cognition::{config, db, ollama, openai, stage, worker};
+use scoracle_cognition::{config, db, ollama, openai, stage, work, worker};
 use std::collections::HashSet;
 use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
@@ -160,30 +160,33 @@ async fn main() -> Result<()> {
     if enabled.contains("fixture_boxscore") {
         handlers.push(Box::new(boxscore::FixtureBoxscoreHandler::new()));
     }
-    if enabled.contains("transfers") {
-        handlers.push(Box::new(insider::TransferHandler::new()));
-    }
-    if enabled.contains("narratives") {
-        handlers.push(Box::new(journalist::NarrativesHandler::new()));
-    }
-    if enabled.contains("vibe") {
-        handlers.push(Box::new(influencer::VibeHandler::new()));
-    }
-    // The rating stage feeds Momentum/Sigil, but not the news rail. Keep it after
-    // the news-product stages so a nightly stat backlog cannot delay The Journalist.
-    if enabled.contains("rating") {
-        handlers.push(Box::new(scout::RatingHandler::new()));
-    }
-    // momentum consumes the rating card + vibe, so it registers after both: a vibe hand-off
-    // (enqueue_momentum_if_needed) drains in the same tick pass instead of waiting
-    // for the next NOTIFY/safety-net wake.
-    if enabled.contains("momentum") {
-        handlers.push(Box::new(analyst::MomentumHandler::new()));
-    }
-    // sigil is the terminal stage: decide → voice as two internal steps of one work item
-    // (the oracle stage folded in, Session B 2026-07-16).
-    if enabled.contains("sigil") {
-        handlers.push(Box::new(oracle::SigilHandler::new()));
+    // THE VOICES REGISTER IN DEPENDENCY ORDER, AND THAT ORDER IS A CONTRACT.
+    //
+    // The worker tops up "in registration (DAG) order", so this loop's sequence IS the claim
+    // priority. It is driven straight from `work::VOICE_ORDER` — which carries the ordering and
+    // its rationale, and is unit-tested against the dependency rules — so the priority cannot
+    // drift by someone moving a `push` the way the Insider's had drifted to first place.
+    for stage in work::VOICE_ORDER {
+        if !enabled.contains(stage.as_str()) {
+            continue;
+        }
+        handlers.push(match stage {
+            work::Stage::Narratives => Box::new(journalist::NarrativesHandler::new()) as Box<dyn stage::StageHandler>,
+            work::Stage::Vibe => Box::new(influencer::VibeHandler::new()),
+            // The rating stage feeds Momentum/Sigil but not the news rail, so it sits behind the
+            // two news-product voices: a nightly stat backlog must not delay The Journalist.
+            work::Stage::Rating => Box::new(scout::RatingHandler::new()),
+            work::Stage::Transfers => Box::new(insider::TransferHandler::new()),
+            // momentum consumes the rating card + vibe, so a vibe hand-off
+            // (enqueue_momentum_if_needed) drains in the same tick pass instead of waiting for
+            // the next NOTIFY/safety-net wake.
+            work::Stage::Momentum => Box::new(analyst::MomentumHandler::new()),
+            // sigil is terminal: decide → voice as two internal steps of one work item (the
+            // oracle stage folded in, Session B 2026-07-16). It reads all five pillars, so it
+            // is last by dependency and not merely by convention.
+            work::Stage::Sigil => Box::new(oracle::SigilHandler::new()),
+            other => unreachable!("{other} is not a voice; VOICE_ORDER holds the six voices"),
+        });
     }
     info!(stages = ?enabled, handlers = handlers.len(), "registered stage handlers");
     // The Desk's switch is logged loudly, like every other thing that changes what a deploy

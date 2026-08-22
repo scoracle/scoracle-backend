@@ -232,6 +232,39 @@ pub async fn complete(pool: &PgPool, it: &Item) -> Result<()> {
     Ok(())
 }
 
+/// VOICE_ORDER is the claim priority of the six voices, and it is a DEPENDENCY order.
+///
+/// The worker tops up "in registration (DAG) order", so whatever sequence the handlers are
+/// registered in becomes the order stages get first pick of the budget each pass. That makes
+/// this list a contract rather than a preference, and `main.rs` registers straight from it so
+/// the two can never drift.
+///
+/// Scott's ordering (2026-08-22), and why each sits where it does:
+///
+///   1. `Narratives` — The Journalist reads the corpus and depends on no other voice
+///   2. `Vibe`       — The Influencer reads those stories for their emotional charge
+///   3. `Rating`     — The Scout reads the stat rail, independent of the news rail
+///   4. `Transfers`  — The Insider reads the vetted wire
+///   5. `Momentum`   — The Analyst CONSUMES the Scout's card and the Influencer's
+///   6. `Sigil`      — The Oracle CONSUMES all five pillars, so it is terminal
+///
+/// Running a consumer ahead of its producers does not fail. It quietly synthesises yesterday's
+/// cards, which is worse than failing because nothing reports it. Before this was pinned, the
+/// Insider registered FIRST — ahead of all three voices that have no dependencies at all —
+/// while the terminal stage carried the deepest queue on the rail (sigil/player: 3,601 pending
+/// on 2026-08-22, oldest 08-15).
+///
+/// The per-stage caps in `worker::stage_room` keep this an ORDER and not a starvation ladder:
+/// position decides who picks FIRST each pass, never who picks at all.
+pub const VOICE_ORDER: [Stage; 6] = [
+    Stage::Narratives,
+    Stage::Vibe,
+    Stage::Rating,
+    Stage::Transfers,
+    Stage::Momentum,
+    Stage::Sigil,
+];
+
 /// The five pillar stages the Oracle reads before it can crown an entity — one per character:
 /// `narratives` (The Journalist), `rating` (The Scout), `vibe` (The Influencer), `momentum`
 /// (The Analyst), `transfers` (The Insider).
@@ -520,5 +553,41 @@ mod claim_order_tests {
         // The Editor still drains best-first: its budget is finite and Google already ranked
         // the articles, so rank beats grain there.
         assert!(Stage::Editor.claim_order().contains("feed_rank"));
+    }
+}
+
+#[cfg(test)]
+mod voice_order_tests {
+    use super::{Stage, VOICE_ORDER, PILLAR_STAGES};
+
+    /// The order is a dependency order, so the two consumers must sit behind their producers.
+    #[test]
+    fn consumers_register_after_everything_they_read() {
+        let pos = |s: Stage| VOICE_ORDER.iter().position(|x| *x == s).expect("in VOICE_ORDER");
+
+        // The Analyst reads the Scout's card and the Influencer's.
+        assert!(pos(Stage::Momentum) > pos(Stage::Rating));
+        assert!(pos(Stage::Momentum) > pos(Stage::Vibe));
+
+        // The Oracle reads all five pillars, so it is last outright.
+        assert_eq!(pos(Stage::Sigil), VOICE_ORDER.len() - 1);
+        for p in PILLAR_STAGES {
+            assert!(pos(Stage::Sigil) > pos(p), "the Oracle must run after {p}");
+        }
+
+        // And the three voices with no voice-dependencies lead.
+        assert_eq!(
+            [VOICE_ORDER[0], VOICE_ORDER[1], VOICE_ORDER[2]],
+            [Stage::Narratives, Stage::Vibe, Stage::Rating]
+        );
+    }
+
+    /// Every pillar is a voice, and every voice but the Oracle is a pillar.
+    #[test]
+    fn the_roster_matches_the_pillars() {
+        for p in PILLAR_STAGES {
+            assert!(VOICE_ORDER.contains(&p), "{p} is a pillar and must be ordered");
+        }
+        assert_eq!(VOICE_ORDER.len(), PILLAR_STAGES.len() + 1);
     }
 }

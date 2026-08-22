@@ -54,7 +54,11 @@ pub const RATING_OUTPUT_CONTRACT_VERSION: &str = "rating-commentary-v1"; // was 
 pub const RATING_TEMPERATURE: f64 = 0.6;
 
 /// Token cap for the scouting brief.
-pub const RATING_NUM_PREDICT: i32 = 2000;
+// A card, not a report: three short labelled lines plus a twelve-word title is ~200 tokens, and
+// 350 leaves room to finish a sentence rather than truncate mid-clause. Was 2000, sized when the
+// rail ran a 14B and the Summary allowance was eight sentences — that budget alone could ask for
+// half again the whole 4,096 window.
+pub const RATING_NUM_PREDICT: i32 = 350;
 
 /// Durable rating queue input_version prefix. The queue key is entity/sport-scoped for
 /// historical compatibility; the season is carried in the version so the handler can drain

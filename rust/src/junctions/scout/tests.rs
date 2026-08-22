@@ -322,10 +322,10 @@ fn prompt_player_composite_datapoints_and_scoped_position() {
 Headline strength: Scoring: 24 · 95th pct (elite) · z +3.1 [position: 88th, strong]\n\
 Secondary strengths: None supplied.\n\
 Headline limitation: Defense: 2.5 · 40th pct (below average) · z -0.5\n\
-\nDatapoints — value · percentile + TIER (the percentile mapped to elite/strong/above average/average/below average/poor; THIS TIER IS THE TRUTH) · z (standard deviations above the mean: the scarcity/scale of the edge; a high z is a rarer, more premium skill); [position] percentile shown when present:\n\
+\nDatapoints — value · percentile + TIER (the tier is the truth) · z (standard deviations from the mean; a high z is a rarer edge); [position] percentile when present:\n\
 - Scoring: 24 · 95th pct (elite) · z +3.1 [position: 88th, strong]\n\
 - Defense: 2.5 · 40th pct (below average) · z -0.5\n\
-\nWrite the report now: the three labeled sections (Strengths / Limitations / Summary), each on its own line, plain text. Begin directly with the word \"Strengths:\" — no preamble, nothing before it."
+\nWrite the report now: four labelled lines (Strengths / Limitations / Summary / HEADLINE), each on its own line, plain text, no Markdown. Begin directly with the word \"Strengths:\" — no preamble, nothing before it."
     );
 }
 
@@ -358,9 +358,9 @@ fn prompt_team_no_composite_no_position() {
 Headline strength: Defense: 0.38 · 78th pct (strong) · z +1.2\n\
 Secondary strengths: None supplied.\n\
 Headline limitation: None — this profile offers no clean exploit.\n\
-\nDatapoints — value · percentile + TIER (the percentile mapped to elite/strong/above average/average/below average/poor; THIS TIER IS THE TRUTH) · z (standard deviations above the mean: the scarcity/scale of the edge; a high z is a rarer, more premium skill); [position] percentile shown when present:\n\
+\nDatapoints — value · percentile + TIER (the tier is the truth) · z (standard deviations from the mean; a high z is a rarer edge); [position] percentile when present:\n\
 - Defense: 0.38 · 78th pct (strong) · z +1.2\n\
-\nWrite the report now: the three labeled sections (Strengths / Limitations / Summary), each on its own line, plain text. Begin directly with the word \"Strengths:\" — no preamble, nothing before it."
+\nWrite the report now: four labelled lines (Strengths / Limitations / Summary / HEADLINE), each on its own line, plain text, no Markdown. Begin directly with the word \"Strengths:\" — no preamble, nothing before it."
     );
 }
 

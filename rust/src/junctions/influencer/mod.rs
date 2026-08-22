@@ -53,7 +53,9 @@ pub const VIBE_OUTPUT_CONTRACT_VERSION: &str = "vibe-score-v1";
 pub const VIBE_TEMPERATURE: f64 = 0.7;
 
 /// Token cap for the two-line answer.
-pub const VIBE_NUM_PREDICT: i32 = 1100;
+// Second-largest, and for the same reason as The Journalist's: she voices each developing
+// emotional story, so multiple stories means multiple reads. Nuance is her product.
+pub const VIBE_NUM_PREDICT: i32 = 800;
 
 /// Body truncation in the prompt.
 const BODY_TRUNCATE: usize = 280;

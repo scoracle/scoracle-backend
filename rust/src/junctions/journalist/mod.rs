@@ -68,7 +68,11 @@ pub const NARRATIVES_TEMPERATURE: f64 = 0.6;
 /// failure looks like a model that stopped obeying its rules (L9; measured 153/8,899 calls at
 /// the old 8192 window). (The legacy `NARRATIVES_NUM_CTX` constant this rode beside — the
 /// 16384 window the legacy corpus was sized for — left with the legacy rail.)
-pub const NARRATIVES_NUM_PREDICT: i32 = 4000;
+// The LARGEST output budget on the rail, deliberately: The Journalist files one headline+body
+// per developing storyline, so her length scales with how many stories are actually running,
+// unlike the single-read seats. 4000 was still far past any real filing and could alone ask for
+// most of a 4,096 window.
+pub const NARRATIVES_NUM_PREDICT: i32 = 1000;
 
 /// The Journalist's output reservation on the packet rail (§7's envelope: ≤800, his share 700 —
 /// raised to 900 at the MLX cutover).

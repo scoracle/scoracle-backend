@@ -72,7 +72,7 @@ SELECT json_build_object(
 		SELECT row_to_json(v) FROM (
 			-- heat mirrors entity_sigil: the number this card ranks by, named
 			-- the same way across every surface that carries one.
-			SELECT sentiment, sentiment AS heat, headline, body,
+			SELECT sentiment AS heat, headline, body,
 			       trigger_type, generated_at, model_version, prompt_version
 			FROM vibe_cur
 		) v

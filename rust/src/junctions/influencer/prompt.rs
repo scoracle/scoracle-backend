@@ -35,7 +35,7 @@
 
 use crate::trajectory::trajectory_label;
 use super::{BODY_TRUNCATE, Narrative, PACKET_BLOCK_TRUNCATE, PacketBlock, PrevVibe, title_first};
-use crate::corpus::{HeatItem, write_heat_lines};
+use crate::corpus::HeatItem;
 use crate::util::truncate_bytes;
 
 /// System prompt for the Vibe sentiment + felt-read contract.
@@ -93,7 +93,7 @@ HOOK: Marchetti has the whole ground leaning forward again
 VIBE: The mood around Luka Marchetti is warming by the day, and you can feel it in every replay thread. Three straight wins with him running the midfield and the doubters have gone quiet — not convinced yet, but quiet. The Union Verde end sings his name like the slump never happened, and that is the part that carries: belief is back in the building. There is transfer noise humming underneath, Riva Nova circling at heat 40, and the room reads it as flattery rather than threat for now. Nobody is calling this a takeover, and they are right not to — one flat afternoon resets the argument. But the anticipation is real, the replies are arguing about ceilings instead of floors, and that swing is the story of the week. The room wants the next match to start early."#;
 
 /// Prompt version for the Vibe sentiment + felt-read contract.
-pub const VIBE_PROMPT_VERSION: &str = "v21"; // v21, the HOOK-OVERRUN pass (2026-08-22, the fail-rate session): MEASURED 674 HOOK rejections against 1,651 shipped in 24h — 29% of vibe generations burned on retries, essentially all hook_max_words. The failing hooks share one shape: a clean take plus a dash-hung twist (13-18 words, often closing on a question) — the model writes two beats where the title holds one. Three moves: the cap lands at the EMISSION SITE (the reply-contract HOOK line now reads "twelve words or fewer" — the momentum-s12 lesson that the rule must sit where the model writes), the HOOK list gains the one-clause rule (the twist belongs to the VIBE's first sentence, not the title), and "under twelve" aligns to the guard's ≤12 so the prompt and hook_violation() enforce the same number. SCORE, VIBE, register, worked example untouched. // v20, the CALIBRATION pass (the 08-19 seat gates + DOCTRINE-directing.md): scenario anchors added to SCORE — the abstract bands only held for the incumbent that had internalized the scale; a challenger scored 18 where the honest read was ~40, and vibe scores feed momentum, so miscalibration is numeric corruption downstream. Same day the HOOK contract and body invariants became production guards (guards.rs) — the gate and the parser now enforce the same rules. // v19, the BLOCK-BUDGET pass (the ctx-budget doctrine, Scott 2026-08-15: "we want this lean — the ctx budget helps us stay on track"): PACKET_BLOCK_TRUNCATE 3,000 chars per story block. v18 capped how many stories she reads (packets 4→2); a mega-storyline then spent ~2k tokens on ONE block and 12% of vibe prompts still cleared the 4,096 window (measured 08-15) — everything past it silently truncated before the model read it. Depth is now bounded like breadth; system prompt and register untouched. // v18, the DIET pass (D-T54's census, D-T56's sustained correction): MAX_VIBE_PACKETS 4→2. Vibe was measured as the FATTEST seat (p50 3,315 tok, max 7,808 — worse than anyone assumed; the packet allowance was the driver at ~2k tok/packet) and its tail is what feeds the oMLX prefill-guard retries under sustained drain. The system prompt and register are UNTOUCHED — this is a builder-side diet, versioned because the built prompt changes shape and the fixtures re-freeze. Worst case drops ~7.8k → ~4k tok; the room it frees is what re-opens concurrency 6 (the ≤2k fleet goal). // v17, the REGISTER pass (Scott's brief, 2026-08-10): the platform-native creator — lives in the feed, reads the room before the room reads itself, translates crowd emotion into one clean take; feels first, never fakes — sincerity stays the craft. A worked example lands (the ep6/n18 lesson: the example teaches what prose cannot) with invented entities so it cannot leak content. Gate grew first (the D-T45 rule): the VIBE body had ZERO checks since v6 — prose axes + hook caps authored across all 5 fixtures BEFORE this edit. v16, the ALLOWANCE pass — ceiling to eight sentences. The Influencer is the DELIBERATE EXCEPTION to the pass's brevity framing: where the other five are told an allowance is not a target, she is told to TAKE her space. She is strictly emotional — a YouTuber filling her runtime — and for her the feeling IS the content, so a modest cycle still earns a full room's worth of mood. Her limit is relocated from length to FACT: stretch the feeling, never the evidence. v15: the peer-length pass — the VIBE body grows from 2-3 to 5-6 sentences, plus an explicit plain-text/no-Markdown guard (chat-tuned models bold the labels and the three-line parse drops the HOOK); v14: English-only output guard for multilingual upstream source material; v13: The Influencer voice pass + HOOK card title
+pub const VIBE_PROMPT_VERSION: &str = "v22"; // v22, the ROLE pass (2026-08-22, Scott: "these are all getting meshed together into AI slop"). MEASURED across eight well-covered teams: 75% of her felt reads talked TRANSFER MECHANICS — the largest single bleed in the fleet, on the card whose entire job is the emotion in the room. Cause, and it is the same shape as the Analyst's s19: her prompt called `write_heat_lines`, the IDENTICAL function that builds the Insider's own wrap prompt, so she was handed his ledger — every counterparty, direction, stage, confidence and his vetted one-sentence summary per rumour — and she reported it. A seat recites what it is given. So the ledger goes and the TEMPERATURE stays: `transfer_temperature` renders how loud the wire is and whether a departure is in it, in words. She is not cut off from the subject — transfers are among the biggest emotional events in sport, and an emotionally live move still reaches her through the STORIES block, which is MOOD-charged and carries the room's own phrase and the names in it. What she loses is the inventory, which is the part she was reciting. The aggregate is kept deliberately because v20's SCORE anchors are written against it ("low-heat trade chatter", "no departure signal"), and vibe scores feed momentum, so a seat with no transfer signal at all would miscalibrate downstream. Words rather than figures for the momentum-s19 reason: a number in the input is a number the model reaches for. SCORE bands, HOOK contract, register, worked example: untouched. // v21, the HOOK-OVERRUN pass (2026-08-22, the fail-rate session): MEASURED 674 HOOK rejections against 1,651 shipped in 24h — 29% of vibe generations burned on retries, essentially all hook_max_words. The failing hooks share one shape: a clean take plus a dash-hung twist (13-18 words, often closing on a question) — the model writes two beats where the title holds one. Three moves: the cap lands at the EMISSION SITE (the reply-contract HOOK line now reads "twelve words or fewer" — the momentum-s12 lesson that the rule must sit where the model writes), the HOOK list gains the one-clause rule (the twist belongs to the VIBE's first sentence, not the title), and "under twelve" aligns to the guard's ≤12 so the prompt and hook_violation() enforce the same number. SCORE, VIBE, register, worked example untouched. // v20, the CALIBRATION pass (the 08-19 seat gates + DOCTRINE-directing.md): scenario anchors added to SCORE — the abstract bands only held for the incumbent that had internalized the scale; a challenger scored 18 where the honest read was ~40, and vibe scores feed momentum, so miscalibration is numeric corruption downstream. Same day the HOOK contract and body invariants became production guards (guards.rs) — the gate and the parser now enforce the same rules. // v19, the BLOCK-BUDGET pass (the ctx-budget doctrine, Scott 2026-08-15: "we want this lean — the ctx budget helps us stay on track"): PACKET_BLOCK_TRUNCATE 3,000 chars per story block. v18 capped how many stories she reads (packets 4→2); a mega-storyline then spent ~2k tokens on ONE block and 12% of vibe prompts still cleared the 4,096 window (measured 08-15) — everything past it silently truncated before the model read it. Depth is now bounded like breadth; system prompt and register untouched. // v18, the DIET pass (D-T54's census, D-T56's sustained correction): MAX_VIBE_PACKETS 4→2. Vibe was measured as the FATTEST seat (p50 3,315 tok, max 7,808 — worse than anyone assumed; the packet allowance was the driver at ~2k tok/packet) and its tail is what feeds the oMLX prefill-guard retries under sustained drain. The system prompt and register are UNTOUCHED — this is a builder-side diet, versioned because the built prompt changes shape and the fixtures re-freeze. Worst case drops ~7.8k → ~4k tok; the room it frees is what re-opens concurrency 6 (the ≤2k fleet goal). // v17, the REGISTER pass (Scott's brief, 2026-08-10): the platform-native creator — lives in the feed, reads the room before the room reads itself, translates crowd emotion into one clean take; feels first, never fakes — sincerity stays the craft. A worked example lands (the ep6/n18 lesson: the example teaches what prose cannot) with invented entities so it cannot leak content. Gate grew first (the D-T45 rule): the VIBE body had ZERO checks since v6 — prose axes + hook caps authored across all 5 fixtures BEFORE this edit. v16, the ALLOWANCE pass — ceiling to eight sentences. The Influencer is the DELIBERATE EXCEPTION to the pass's brevity framing: where the other five are told an allowance is not a target, she is told to TAKE her space. She is strictly emotional — a YouTuber filling her runtime — and for her the feeling IS the content, so a modest cycle still earns a full room's worth of mood. Her limit is relocated from length to FACT: stretch the feeling, never the evidence. v15: the peer-length pass — the VIBE body grows from 2-3 to 5-6 sentences, plus an explicit plain-text/no-Markdown guard (chat-tuned models bold the labels and the three-line parse drops the HOOK); v14: English-only output guard for multilingual upstream source material; v13: The Influencer voice pass + HOOK card title
 
 /// build_sentiment_prompt assembles the user prompt. `sport` is the original-case value used in
 /// the prompt; the SQL reads use the upper-cased form. `previous` is the prior vibe read for
@@ -101,6 +101,46 @@ pub const VIBE_PROMPT_VERSION: &str = "v21"; // v21, the HOOK-OVERRUN pass (2026
 /// entity's first read. `memory` is the per-entity relational memory card (mig 163) — `None`
 /// when the graph holds none.
 #[allow(clippy::too_many_arguments)]
+
+/// The wire's emotional temperature in words: how loud it is, and whether a departure is in it.
+///
+/// v22. The Influencer needs to know the room has something to be excited or anxious ABOUT; she
+/// does not need the counterparty list to write how that feels. Words rather than figures for the
+/// same reason the Analyst's rails are words (momentum-s19): a number in the input is a number
+/// the model reaches for, and her contract has never wanted her quoting heat.
+fn transfer_temperature(heat: &[HeatItem]) -> String {
+    if heat.is_empty() {
+        return "nothing live — the wire is quiet this cycle".to_string();
+    }
+    let hottest = heat.iter().map(|h| h.heat).max().unwrap_or(0);
+    let loudness = match hottest {
+        0..=19 => "barely a murmur",
+        20..=44 => "low chatter",
+        45..=69 => "warm",
+        70..=84 => "loud",
+        _ => "the loudest thing around them",
+    };
+    let live = heat.len();
+    let threads = if live == 1 {
+        "one live thread".to_string()
+    } else {
+        format!("{live} live threads")
+    };
+    let leaving = heat
+        .iter()
+        .any(|h| h.direction.eq_ignore_ascii_case("outgoing"));
+    let arriving = heat
+        .iter()
+        .any(|h| h.direction.eq_ignore_ascii_case("incoming"));
+    let shape = match (leaving, arriving) {
+        (true, true) => ", movement both ways",
+        (true, false) => ", and someone may be leaving",
+        (false, true) => ", and someone may be arriving",
+        (false, false) => "",
+    };
+    format!("{loudness} — {threads}{shape}")
+}
+
 pub fn build_sentiment_prompt(
     entity_type: &str,
     entity_name: &str,
@@ -182,12 +222,26 @@ pub fn build_sentiment_prompt(
         }
     }
 
-    b.push_str("\nCurrent transfer/trade activity (heat 0-100):\n");
-    if heat.is_empty() {
-        b.push_str("- (none)\n");
-    } else {
-        write_heat_lines(&mut b, heat);
-    }
+    // v22: the TEMPERATURE of the wire, never the wire itself.
+    //
+    // This rendered `write_heat_lines` — the identical function that builds the Insider's own
+    // wrap prompt — so the Influencer was handed his ledger: every counterparty, direction,
+    // stage, confidence and his vetted one-sentence summary per rumour. She then reported it.
+    // Measured across eight well-covered teams (2026-08-22): 75% of her felt reads talked
+    // transfer mechanics, the largest single bleed in the fleet, on a card whose job is the
+    // emotion in the room.
+    //
+    // She is not, however, cut off from the subject. Transfers are one of the biggest emotional
+    // events in sport, and an emotionally live move reaches her through the STORIES block above,
+    // which is already MOOD-charged and carries the room's own phrase and the names in it. What
+    // she loses is the inventory, which is the part she was reciting.
+    //
+    // The aggregate stays because her SCORE calibration is written against it — v20's anchors
+    // speak of "low-heat trade chatter" and "no departure signal", so a seat with no transfer
+    // signal at all would miscalibrate, and vibe scores feed momentum downstream. Direction is
+    // kept for the same reason: a departure carries a different charge from an arrival.
+    b.push_str("\nTransfer/trade chatter — the TEMPERATURE only; the wire itself is another desk's card:\n");
+    b.push_str(&format!("- {}\n", transfer_temperature(heat)));
 
     // Relational memory card (v12, mig 163): the graph's per-entity history — prior
     // stories with outcomes, current stories with likelihood, ground-truth moves.

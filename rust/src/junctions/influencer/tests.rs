@@ -71,7 +71,7 @@ fn builds_prompt_with_empty_sections() {
     let p = build_sentiment_prompt("player", "Test Player", "NBA", &[], &[], &[], None, None);
     assert_eq!(
         p,
-        "Entity: Player Test Player (NBA)\n\nNarratives forming around them (ordered by relevance/topic heat; impact in brackets):\n- (none this cycle)\n\nCurrent transfer/trade activity (heat 0-100):\n- (none)\n\nRespond now (SCORE line, then HOOK line, then VIBE line)."
+        "Entity: Player Test Player (NBA)\n\nNarratives forming around them (ordered by relevance/topic heat; impact in brackets):\n- (none this cycle)\n\nTransfer/trade chatter — the TEMPERATURE only; the wire itself is another desk's card:\n- nothing live — the wire is quiet this cycle\n\nRespond now (SCORE line, then HOOK line, then VIBE line)."
     );
 }
 
@@ -125,7 +125,7 @@ fn memory_card_renders_between_heat_and_reply_cue() {
     assert!(p.contains("\nRelational memory (computed history"));
     assert!(p.contains("- Prior story: Real Madrid — fizzled"));
     assert!(p.contains("- Ground truth: completed"));
-    let heat_pos = p.find("Current transfer/trade activity").unwrap();
+    let heat_pos = p.find("Transfer/trade chatter").unwrap();
     let mem_pos = p.find("Relational memory").unwrap();
     let cue_pos = p.find("Respond now").unwrap();
     assert!(heat_pos < mem_pos && mem_pos < cue_pos);
@@ -352,4 +352,52 @@ fn packet_block_depth_is_bounded_in_the_prompt() {
     let small = packet_block(2);
     let q = build_sentiment_prompt("team", "Test FC", "FOOTBALL", &[], &[], &[small.clone()], None, None);
     assert!(q.contains(small.text.trim_end()), "a normal block renders whole");
+}
+
+/// v22: the Insider's ledger must not reach the Influencer — only its temperature.
+#[test]
+fn the_wire_reaches_her_as_temperature_never_as_a_ledger() {
+    let heat = vec![
+        HeatItem {
+            counterparty: "Tottenham Hotspur".to_string(),
+            heat: 78,
+            direction: "outgoing".to_string(),
+            stage: "advanced".to_string(),
+            confidence: Some(0.9),
+            summary: "Direct pursuit with club-level backing.".to_string(),
+        },
+        HeatItem {
+            counterparty: "Celtic".to_string(),
+            heat: 30,
+            direction: "incoming".to_string(),
+            stage: "speculation".to_string(),
+            confidence: Some(0.3),
+            summary: "Low-confidence tracking only.".to_string(),
+        },
+    ];
+    let p = build_sentiment_prompt("team", "West Ham United", "FOOTBALL", &[], &heat, &[], None, None);
+
+    // The temperature, in words, with the departure signal her SCORE anchors rely on.
+    assert!(
+        p.contains("- loud — 2 live threads, movement both ways"),
+        "the wire's temperature must reach her: {p}"
+    );
+
+    // ...and not one line of the Insider's card. Before v22 this prompt rendered
+    // `write_heat_lines`, the same function that builds HIS wrap, and 75% of her felt reads
+    // came back talking transfer mechanics.
+    for leaked in [
+        "Tottenham Hotspur",
+        "Celtic",
+        "advanced",
+        "speculation",
+        "confidence",
+        "Direct pursuit with club-level backing",
+        "78",
+    ] {
+        assert!(
+            !p.contains(leaked),
+            "the Insider's ledger leaked {leaked:?} into the Influencer's prompt: {p}"
+        );
+    }
 }

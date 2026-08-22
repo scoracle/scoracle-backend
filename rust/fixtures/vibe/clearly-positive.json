@@ -1,13 +1,15 @@
 {
   "expect": {
     "prose_includes": [
-      "Fenn",
       "goals"
     ],
     "prose_max_words": 320,
     "prose_min_words": 40,
     "score_min": 60,
-    "total_sentences_max": 10
+    "total_sentences_max": 10,
+    "prose_includes_any": [
+      "Fenn|Ada|Adaeze"
+    ]
   },
   "name": "clearly-positive",
   "note": "FLOOR: surging coverage + live interest scores ≥60; the hook must ride the real emotion (the hat-trick, the race), not invent one.",

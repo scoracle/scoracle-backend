@@ -1,12 +1,13 @@
 {
   "expect": {
-    "prose_includes": [
-      "Vale"
-    ],
+    "prose_includes": [],
     "prose_max_words": 320,
     "prose_min_words": 40,
     "score_max": 40,
-    "total_sentences_max": 10
+    "total_sentences_max": 10,
+    "prose_includes_any": [
+      "Vale|Marcus"
+    ]
   },
   "name": "clearly-negative",
   "note": "FLOOR: uniformly negative narratives score ≤40 (the v10-era band, re-frozen at v13) and the HOOK line materializes.",

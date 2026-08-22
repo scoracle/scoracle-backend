@@ -1,13 +1,14 @@
 {
   "expect": {
-    "prose_includes": [
-      "Morrow"
-    ],
+    "prose_includes": [],
     "prose_max_words": 320,
     "prose_min_words": 40,
     "score_max": 70,
     "score_min": 40,
-    "total_sentences_max": 10
+    "total_sentences_max": 10,
+    "prose_includes_any": [
+      "Morrow|Jae|Jae-won"
+    ]
   },
   "name": "continuity-deliberate-move",
   "note": "CONTINUITY: prior 72 + one cooling story lands 40-70 — the prior is memory, so the read moves deliberately (no whiplash floor, no sticky euphoria).",

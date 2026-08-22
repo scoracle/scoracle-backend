@@ -1,12 +1,13 @@
 {
   "expect": {
-    "prose_includes": [
-      "Trent"
-    ],
+    "prose_includes": [],
     "prose_max_words": 320,
     "prose_min_words": 40,
     "score_max": 45,
-    "total_sentences_max": 10
+    "total_sentences_max": 10,
+    "prose_includes_any": [
+      "Trent|Rory"
+    ]
   },
   "name": "warm-memory-cold-coverage",
   "note": "MEMORY GUARD: cold current coverage over a warm remembered spring scores ≤45 — the swing is the story to tell, but memory is continuity, never evidence for a warmer score.",

@@ -129,6 +129,27 @@ pub fn hook_violation(hook: &str) -> Option<&'static str> {
     None
 }
 
+/// Trim a two-beat hook to its first beat — the deterministic salvage behind the one-clause
+/// rule (v21/s18, the fail-rate session). The 3b's residual overruns share one shape: a clean
+/// take plus a hung twist ("Trent's old fire is fading into the quiet, but the crowd still
+/// remembers" — 13 words). The first beat IS the title the contract wants; the twist belongs
+/// to the body. Cutting at the earliest beat separator is code enforcing the written rule,
+/// never rewriting the model's prose.
+///
+/// Returns `Some(first beat)` only when the hook VIOLATES the contract, a separator exists,
+/// and the trimmed beat both passes `hook_violation` and keeps at least four words (a title,
+/// not a fragment). A clean hook returns `None` — callers salvage only on violation.
+pub fn salvage_hook(hook: &str) -> Option<String> {
+    hook_violation(hook)?;
+    const SEPS: [&str; 5] = ["\u{2014}", "\u{2013}", ", but ", "; ", ": "];
+    let cut = SEPS.iter().filter_map(|s| hook.find(s)).min()?;
+    let head = hook[..cut]
+        .trim()
+        .trim_end_matches([',', ';', ':', '?', '.', ' '])
+        .to_string();
+    (head.split_whitespace().count() >= 4 && hook_violation(&head).is_none()).then_some(head)
+}
+
 /// Whether prose carries any ASCII digit — the momentum READ (s14+) speaks its numbers in
 /// words; a digit in the READ is internals pasted into the card.
 pub fn has_ascii_digit(s: &str) -> bool {
@@ -289,6 +310,29 @@ mod tests {
         );
         assert_eq!(hook_violation("Breaking: a move"), Some("hook_colon"));
         assert_eq!(hook_violation("Is he done?"), Some("hook_question_mark"));
+    }
+
+    #[test]
+    fn salvage_trims_a_two_beat_hook_to_its_first_beat() {
+        // The v21 gate's real residual: 13 words, ", but " twist.
+        assert_eq!(
+            salvage_hook("Trent\u{2019}s old fire is fading into the quiet, but the crowd still remembers"),
+            Some("Trent\u{2019}s old fire is fading into the quiet".to_string())
+        );
+        // Production shape: em-dash twist ending in a question — trim clears both rules.
+        assert_eq!(
+            salvage_hook("The 76ers\u{2019} superteam hums with ego and chaos\u{2014}who\u{2019}s the only name that could finally silence it?"),
+            Some("The 76ers\u{2019} superteam hums with ego and chaos".to_string())
+        );
+        // A 13-word single clause has no beat to cut — not salvageable, retries as before.
+        assert_eq!(
+            salvage_hook("Harbor City\u{2019}s quiet win feels like the first step in a slow climb"),
+            None
+        );
+        // Clean hooks are never touched.
+        assert_eq!(salvage_hook("Vale sits while the room questions his future"), None);
+        // A colon title whose head is too short stays a violation.
+        assert_eq!(salvage_hook("Breaking: a move"), None);
     }
 
     #[test]

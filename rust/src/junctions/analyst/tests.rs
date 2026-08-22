@@ -204,9 +204,18 @@ fn prompt_carries_the_decided_direction_line() {
         None,
         &[],
     );
+    // s18: BOTH decided facts arrive as words — the direction line hands the model no
+    // figure and no "steady band" to echo (the digit-starvation pass; 50.7 ⇒ conviction
+    // 3 ⇒ "clean and well supported" via momentum_conviction_from_score).
     assert!(prompt.contains(
-        "Direction (decided upstream, final): rising (momentum score +50.7, steady band ±10)"
+        "Direction (decided upstream, final): rising — strength of the move, also decided upstream: clean and well supported"
     ));
+    let direction_line = prompt
+        .lines()
+        .find(|l| l.starts_with("Direction (decided upstream, final):"))
+        .expect("direction line present");
+    assert!(!direction_line.contains("steady band"));
+    assert!(!crate::guards::has_ascii_digit(direction_line));
     // No memory ⇒ no section (s4 byte-shape preserved).
     assert!(!prompt.contains("RELATIONAL MEMORY"));
     // No snapshot → the decided line still exists and is honestly steady.

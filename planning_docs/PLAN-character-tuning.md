@@ -3478,6 +3478,49 @@ vocabulary is unmeasured against real descriptors; (3) the executive/agent class
 structural Wikidata claim like P1830 — they ride description/occupation words only; (4) the
 corroborated-enrichment recovery rate — the re-run of the NBA 50 is the measurement.
 
+### D-T58 — ⭐ **THE DIGIT STARVATION (momentum-s18): 65% OF MOMENTUM GENERATIONS WERE BURNING ON GUARD RETRIES — AND THE PROMPT'S OWN DIRECTION LINE WAS FEEDING THE LEAK.** (2026-08-22, the fail-rate session; Scott: "let's tune the prompts a little to get this fail rate under control")
+
+**MEASURED (24h, production):** 1,223 READ rejections vs 650 shipped cards — nearly two
+generations burned per card. Breakdown of the 870 failed rows: 689 `digits_in_read`, 75
+"steady band", 56 hedge closers/product names, ~10 shape. 98 rows dead-lettered at 5 attempts.
+
+**MECHANISM — the s13/s15 postmortem, again:** the prompt's own direction line rendered
+`Direction (decided upstream, final): rising (momentum score +12.3, steady band ±10)` — a
+figure AND the phrase "steady band" in the very line the READ must restate, while the no-number
+rule sat buried mid-list among eleven bullets (the position s12 proved models ignore).
+
+**SHIPPED (s18):** (a) the direction line goes WORDS-ONLY — strength rendered from the same
+`momentum_conviction_from_score` ladder that owns the persisted ±5 ("rising — strength of the
+move, also decided upstream: modest but real"), so prose and conviction cannot diverge and the
+input hands the model nothing it is banned from echoing; (b) the no-number rule promoted to the
+ships-or-not block (rule 2 of FOUR; the promotion treatment's fourth win) + the READ contract
+line carries "every quantity in words, never a digit" at the emission site; (c) the HEADLINE
+guard completes the s17 fail-open spirit — a violating title is salvaged to its first beat
+(`guards::salvage_hook`) or degrades to NULL; it never kills the READ (the ~4/day
+`hook_colon`/`hook_max_words` bails end here). **Gate: 88/91 on the re-frozen s18 fixtures vs
+87/91 at the D-T57 baseline — digits clean on all 10; the one voice red is a "steady band"
+echo from the model's own vocabulary (the family trait), which the production guard holds.**
+Intended regen on the periodic cadence (prompt_version is in the pre-image, s16 precedent).
+Side-find: s17 shipped without re-freezing the fixtures — they still froze the s16 one-line
+contract; s18's refreeze brings the HEADLINE line under gate for the first time.
+
+### D-T59 — ✅ **THE HOOK OVERRUN (vibe v21 + `salvage_hook`): 29% OF VIBE GENERATIONS RETRIED ON 13-18-WORD TWO-BEAT TITLES — THE FIRST BEAT WAS THE TITLE ALL ALONG.** (2026-08-22, same session)
+
+**MEASURED (24h, production):** 674 HOOK rejections vs 1,651 shipped — essentially all
+`hook_max_words`; 39 dead-letters. The failing hooks share one shape: a clean take plus a
+hung twist ("…ego and chaos—who's the only name that could finally silence it?").
+
+**SHIPPED:** (a) v21 — the cap moves to the EMISSION SITE (`HOOK: <the one-line title —
+twelve words or fewer>`), the HOOK list gains the one-clause rule (the twist is the VIBE's
+first sentence, not the title), "under twelve" aligned to the guard's ≤12; (b) the code tier —
+`guards::salvage_hook` deterministically trims a violating two-beat title at the earliest beat
+separator (em/en-dash, ", but ", "; ", ": ") and ships it iff the first beat passes the full
+hook contract at ≥4 words; unsalvageable hooks still re-roll (the board needs a real title).
+**Gate: 38/43 on the re-frozen v21 fixtures; both residual reds are 13-word hooks and BOTH
+are the salvage's bread and butter in production** (one carries ", but " — shipped trimmed;
+the other is a single 13-word clause — retries as before). Guard tests pin the real
+production and fixture specimens.
+
 ### D-T57 — ⭐⭐ **THE FIVE-VOICE PASS (s18/s15/or9/v18/n19): Scott's evening briefs land as one gated sweep — the Scout's PEAK line goes CODE-OWNED, the Analyst's rule 1 inverts, the Oracle goes blind to memories, and the crown's oMLX parse bug dies with 18 production rows to its name.** (2026-08-10 evening session)
 
 **Scott's briefs, verbatim:** (1) *"I don't want anything referencing PEAK or Vibe, or other of our products. Just use those as context without naming them. The Scout shouldn't keep including a bunch of asterics in the output. It should be a clean, concise, but thorough scouting report with strengths and weaknesses."* (2) *"The Oracle is blind to memories, and just reads the 5 other cards to give a holistic reading. It's the mystic voice one. And if it references another Character, it should be their name and not PEAK or Vibe."* (3) *"For the Analyst, it should refence Vibe output as something like 'the emotion around the club' versus 'Vibe'. Same with the PEAK."* Plus the D-T56 card brief landing on the Journalist.

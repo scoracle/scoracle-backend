@@ -623,15 +623,24 @@ pub struct VibeParser;
 
 impl Parser<VibeReply> for VibeParser {
     fn parse(&self, raw: &str) -> Result<Option<VibeReply>> {
-        let (sentiment, hook, vibe_prompt) = parse_vibe_reply(raw)
+        let (sentiment, mut hook, vibe_prompt) = parse_vibe_reply(raw)
             .with_context(|| format!("parse sentiment (raw={:?})", truncate(raw, 120)))?;
         // The eval→guard migration (2026-08-19, DOCTRINE-directing.md): the HOOK contract and
         // the body's global invariants fail closed in production — same rules as the gate
         // (`crate::guards`); a violation re-rolls through the queue for a clean read.
+        // v21 salvage first (the fail-rate session): a two-beat title deterministically
+        // trimmed to its first beat ships NOW instead of burning a retry — the trim IS the
+        // one-clause rule the prompt states, applied in code. Unsalvageable violations
+        // still re-roll: the board needs a real hook, and the retry usually lands one.
         if let Some(h) = hook.as_deref() {
             if let Some(rule) = crate::guards::hook_violation(h) {
-                tracing::warn!(guard = rule, hook = h, "vibe HOOK rejected");
-                bail!("vibe: HOOK violates {rule} (hook={h:?})");
+                if let Some(trimmed) = crate::guards::salvage_hook(h) {
+                    tracing::info!(guard = rule, hook = h, salvaged = %trimmed, "vibe HOOK salvaged to first beat");
+                    hook = Some(trimmed);
+                } else {
+                    tracing::warn!(guard = rule, hook = h, "vibe HOOK rejected");
+                    bail!("vibe: HOOK violates {rule} (hook={h:?})");
+                }
             }
         }
         if let Some(p) =

@@ -1,6 +1,6 @@
 # Scoracle API Endpoints
 
-> Last updated: 2026-08-22 (Drop 3a — the heat contract, additive: every board row and profile voice card also carries `heat`, the product's own number under one uniform key (native scale; it mirrors the existing per-voice key until the drop-3b break removes the old key zoo). `/stories` and `/story/{id}` serve the Journalist's `recap` (latest storyline-linked chapter — the Editor compiles and ranks but never writes prose) plus packet `routing_tags`. Drop 2 remains live: boards carry `headline` and no prose bodies; profile cards carry `{headline, body}`.)
+> Last updated: 2026-08-22 (Drop 3b — the heat contract is COMPLETE: `heat` is the ONE number key on every board row and profile voice card (native scale); the old per-voice key zoo (`score`, board `impact`-as-score, `card_score`) no longer serves. Rank expressions are product-owned: the vibes board ranks by emotional CHARGE (`ABS(sentiment−50)` — a 3-meltdown outranks a 90-euphoria), the momentum boards default to biggest MOVERS (`ABS(slope)`, either direction; `?direction=up|down` filters one side). From drop 3a: `/stories` + `/story/{id}` serve the Journalist's `recap` + packet `routing_tags`. From drop 2: boards carry `headline` and no prose bodies; profile cards carry `{headline, body, heat}`.)
 
 Single public API base URL:
 
@@ -18,7 +18,7 @@ The only source of truth is `go/internal/api/server.go`. Every route wired there
 | `GET /api/v1/{sport}/{entityType}/{id}/rating` | model-written stat read + rating trajectory metadata (was `/special`) |
 | `GET /api/v1/{sport}/{entityType}/{id}/momentum` | Rating × Vibe trajectory (was `/trends`) |
 | `GET /api/v1/{sport}/{entityType}/{id}/vibe` | **The Influencer's emotional read** — `{headline, body, heat}` + sentiment (1-100) + the 7-day snapshot window. `current: null` (200, never 404) when the entity has never been scored. **Restored 2026-08-22.** |
-| `GET /api/v1/{sport}/{entityType}/{id}/sigil` | Sigil crown synthesis — `{headline, body, heat}` + score/omen (was per-entity `/vibes`) |
+| `GET /api/v1/{sport}/{entityType}/{id}/sigil` | Sigil crown synthesis — `{headline, body, heat}` + omen/convergence (was per-entity `/vibes`) |
 | `GET /api/v1/{sport}/{entityType}/{id}/vibe` | the Influencer's Vibe card — `{headline, body, heat}` + sentiment and the 7-day snapshot feed (route restored 2026-08-22; absent since the O14 rename handed `/vibes` to `/sigil`) |
 | `GET /api/v1/{sport}/{entityType}/{id}/news` | scoped model narratives `{headline, body}` with source freshness and trajectory markers |
 | `GET /api/v1/{sport}/{entityType}/{id}/transfers` | scoped vetted rumor heat, per-pair `headline`s + the Insider's `wire_read`; source freshness and trajectory markers |
@@ -538,10 +538,12 @@ Examples:
 
 ### `GET /api/v1/{sport}/leaderboard/vibes`
 
-The sport-wide **vibe** board — entities ranked by their latest model sentiment score
-(1-100) in the last 48h: the sport-wide hottest-by-sentiment board (same window + filters,
-but each row is joined to `players`/`teams` so it carries `name` / `image` / `team_*` —
-one row shape shared with the news board below.
+The sport-wide **vibe** board — entities ranked by the emotional **charge** of their
+latest sentiment in the last 48h: `ABS(sentiment − 50)`, so crisis and euphoria both
+rank and a 3-meltdown (charge 47) outranks a 90-euphoria (charge 40). `heat` serves
+the raw sentiment (1-100, the voice-native number); the served order is the product
+order. Each row is joined to `players`/`teams` so it carries `name` / `image` /
+`team_*` — one row shape shared with the news board below.
 
 | Param | Type | Default | Notes |
 |---|---|---|---|
@@ -564,8 +566,7 @@ one row shape shared with the news board below.
       "team_name": "Dallas Mavericks",
       "team_code": "DAL",
       "team_logo": "https://…",
-      "score": 92,                     // latest sentiment (1-100)
-      "heat": 92,                      // heat contract (drop 3a): mirrors score until 3b removes it
+      "heat": 92,                      // the latest sentiment (1-100) — rank order is by ABS(heat-50)
       "headline": "…",                 // the Influencer's HOOK — the row's card title
       "generated_at": "2026-06-04T12:04:16-04:00",
       "rank": 1
@@ -603,8 +604,7 @@ entity). Also reachable as `GET /api/v1/{sport}/leaderboard?board=sigil`.
       "team_name": "Milwaukee Bucks",
       "team_code": "MIL",
       "team_logo": "https://…",
-      "score": 95,                     // latest Sigil crown score (1-100)
-      "heat": 95,                      // heat contract (drop 3a): mirrors score until 3b removes it
+      "heat": 95,                      // latest Sigil crown score (1-100) — the rank key
       "previous_score": 91,            // prior crown score (may be null) — for the delta
       "headline": "…",                 // the Oracle's card title (or11+). Rows from before
                                        // the headline contract omit until regenerated.
@@ -648,8 +648,7 @@ card. Supersedes the old mention-count and standalone headlines boards. Also rea
       "team_code": "SAS",
       "team_logo": "https://…",
       "headline": "...",               // the Journalist's narrative title — boards serve titles, never bodies
-      "score": 85,                     // narrative impact
-      "heat": 85,                      // heat contract (drop 3a): mirrors score until 3b removes it
+      "heat": 85,                      // the narrative's impact (0-100) — the rank key
       "updated_at": "2026-07-03T13:47:21-04:00",
       "source_count": 4,
       "source_names": ["BBC Sport", "ESPN"],
@@ -721,8 +720,11 @@ unified into it 2026-06-15).
 
 ### `GET /api/v1/{sport}/leaderboard/momentum`
 
-The sport-wide **Momentum** board — entities whose Vibe or Rating is climbing fastest.
-Pass `?metric=vibe` (default) or `?metric=rating`; the response echoes `"metric"`.
+The sport-wide **Momentum** board — the biggest **movers** on Vibe or Rating. The
+default ranks by `ABS(slope)` so risers and fallers both surface (drop 3b);
+`?direction=up` filters to risers only, `?direction=down` to fallers only (most
+negative first) — `heat`/`slope` keep their sign either way. Pass `?metric=vibe`
+(default) or `?metric=rating`; the response echoes `"metric"`.
 This board reads the latest durable snapshots from `momentum_scores`, so Momentum
 can accumulate as a historical reference instead of being computed inline for each
 request. Upstream Vibe and event-rating writes mark `momentum_refresh_needed` and
@@ -742,9 +744,10 @@ full resolution for 30 days, then thin to one per entity per day, forever.
 
 Same enriched row shape as the other boards (`name` / `image` / `team_*`), plus the
 Analyst's card title as a **nullable `headline`** (latest `momentum_summaries`
-generation per entity) and `heat` (drop 3a: mirrors `score`, the 1-dp slope, until 3b
-removes `score`). Unlike the prose-first boards, momentum rows never omit for a
-missing headline — the numeric slopes are this board's product. Reached
+generation per entity) and `heat` (the signed 1-dp slope; `slope` carries 3-dp
+precision alongside — `score` no longer serves, drop 3b). Unlike the prose-first
+boards, momentum rows never omit for a missing headline — the numeric slopes are
+this board's product. Reached
 via the dedicated path or `/leaderboard?board=momentum`. `entity_type`, shared
 cohort filters, and `limit` query params apply. `/leaderboard/trending` and
 `/leaderboard?board=trending` remain legacy aliases.
@@ -986,7 +989,7 @@ Query `scope` defaults to `current_week`; allowed values are `current_week`, `la
 { "page": "news", "sport": "football", "entity_type": "team", "entity_id": 18,
   "scope": {"key": "current_week", "label": "Current week", "starts_at": "...", "ends_at": "..."},
   "narratives": [
-    {"headline": "...", "body": "...", "impact": 85, "heat": 85, "impact_components": {},
+    {"headline": "...", "body": "...", "heat": 85, "impact_components": {},
      "source_attribution": null, "input_news_ids": [], "updated_at": "...",
      "source_count": 4, "source_names": ["BBC Sport", "ESPN"],
      "source_latest_at": "...", "source_oldest_at": "...",
@@ -994,14 +997,14 @@ Query `scope` defaults to `current_week`; allowed values are `current_week`, `la
      "trajectory_components": {}, "generated_at": "..."}
   ] }
 ```
-`narratives`: latest generation within the selected scope only, ordered by `impact` DESC; `[]` when none.
+`narratives`: latest generation within the selected scope only, ordered by `heat` (the narrative's impact, 0-100) DESC; `[]` when none. (The Journalist's `card_score` retired from serving with drop 3b — per-narrative `heat` is the card's number.)
 
 **`GET /api/v1/{sport}/{entityType}/{id}/transfers`** — the scoped vetted transfer/trade
 rumor heat list (the pre-narrative data). Transfers use the same historical scope and
 staleness protocol as Narratives; in the current week, cooling-off rows retire after
 three days unless they heat back up. The counterparty is the OTHER entity type: for a
 `team` the linked **players**, for a `player` the **clubs**. The card also serves the
-Insider's own latest wire wrap as `card_score` (wire-busyness 1-99) + `wire_read`
+Insider's own latest wire wrap as `heat` (wire-busyness 1-99) + `wire_read`
 (the Insider's prose read of the wire — previously internal only).
 
 Query `scope` defaults to `current_week`; allowed values are `current_week`, `last_week`,
@@ -1009,7 +1012,6 @@ Query `scope` defaults to `current_week`; allowed values are `current_week`, `la
 ```json
 { "page": "transfers", "sport": "football", "entity_type": "team", "entity_id": 18,
   "scope": {"key": "current_week", "label": "Current week", "starts_at": "...", "ends_at": "..."},
-  "card_score": 10,
   "heat": 10,
   "wire_read": "Chelsea's wire shows no advancing calls beyond Tosin Adarabioyo's lingering, unconfirmed interest…",
   "transfers": [
@@ -1018,7 +1020,7 @@ Query `scope` defaults to `current_week`; allowed values are `current_week`, `la
      "trajectory": "developing_story", "trajectory_label": "Developing story...", "trajectory_components": {}, "rank": 1}
   ] }
 ```
-`transfers`: vetted (`is_rumor`, `heat > 0`), latest per pair in the selected scope, ranked by heat (top 25); each row's `headline` is the Insider's one-sentence wire line. `card_score` + `wire_read` are the Insider's latest wrap (score + prose read of the wire); both null when the wire was never wrapped. Top-level `heat` (drop 3a) is the card's uniform number key and mirrors `card_score` until the drop-3b break retires it.
+`transfers`: vetted (`is_rumor`, per-pair `heat > 0`), latest per pair in the selected scope, ranked by heat (top 25); each row's `headline` is the Insider's one-sentence wire line. Top-level `heat` + `wire_read` are the Insider's latest wrap (wire-busyness score + prose read); both null when the wire was never wrapped. (`card_score` retired from serving with drop 3b.)
 
 **`GET /api/v1/{sport}/{entityType}/{id}/vibe`** — the Influencer's **Vibe card**,
 restored to its own route 2026-08-22 (it had been readable only inside the Analyst's
@@ -1030,7 +1032,7 @@ each read carries its prose, latest first — so the card is self-sufficient in 
 request; the season-length sparkline stays on `/momentum`.
 ```json
 { "page": "vibe", "sport": "football", "entity_type": "team", "entity_id": 18,
-  "current": {"sentiment": 58, "heat": 58, "headline": "...", "body": "...",
+  "current": {"heat": 58, "headline": "...", "body": "...",
               "trigger_type": "periodic", "generated_at": "...",
               "model_version": "...", "prompt_version": "..."},
   "window_days": 7,
@@ -1038,7 +1040,7 @@ request; the season-length sparkline stays on `/momentum`.
     {"sentiment": 58, "generated_at": "...", "trigger_type": "periodic", "headline": "...", "body": "..."}
   ] }
 ```
-`current` follows the voice-card contract: `{headline, body}` (the hook + the felt read) with `heat` mirroring `sentiment` (1-100) per drop 3a. `headline` is null on rows predating the hook contract (mig 180/v13). `snapshots` is `[]` when the week was quiet.
+`current` follows the voice-card contract: `{headline, body, heat}` — the hook, the felt read, and the sentiment (1-100) under the uniform number key (drop 3b; the raw `sentiment` key no longer serves on the card — snapshots keep it as time-series data). `headline` is null on rows predating the hook contract (mig 180/v13). `snapshots` is `[]` when the week was quiet.
 
 ### `GET /api/v1/{sport}/{entityType}/{id}/meta`
 

@@ -338,8 +338,12 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			)
 		)`,
 
-		// Vibes leaderboard — the sport-wide sentiment board. Each entity's LATEST
-		// scored row in the 48h window (DISTINCT ON), ranked by sentiment desc. Joined
+		// Vibes leaderboard — the sport-wide CHARGE board (heat contract, drop 3b):
+		// each entity's LATEST scored row in the 48h window (DISTINCT ON), ranked by
+		// ABS(sentiment-50) DESC — emotional charge, not valence, so a 3-meltdown
+		// (charge 47) outranks a 90-euphoria (charge 40). heat serves the raw
+		// sentiment (1-100, the voice-native number); the rank expression alone owns
+		// the product semantics (a taste parameter — keep it here and only here). Joined
 		// to players/teams so the row carries name/image/team (one shape across every
 		// single-entity board the /leaderboard page renders). The inner scan reads
 		// rows regardless of sentiment nullability (the NULL drop happens in
@@ -369,7 +373,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		-- older scored row ranked.
 		latest_raw AS (
 			SELECT DISTINCT ON (vs.entity_type, vs.entity_id)
-			       vs.entity_type, vs.entity_id, vs.sentiment AS score, vs.hook AS headline, vs.generated_at
+			       vs.entity_type, vs.entity_id, vs.sentiment AS heat, vs.hook AS headline, vs.generated_at
 			FROM public.vibe_scores vs, req
 			WHERE vs.sport = req.sport
 			  AND (req.entity_type IS NULL OR vs.entity_type = req.entity_type)
@@ -377,15 +381,15 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			ORDER BY vs.entity_type, vs.entity_id, vs.generated_at DESC
 		),
 		latest AS (
-			SELECT * FROM latest_raw WHERE score IS NOT NULL AND headline IS NOT NULL
+			SELECT * FROM latest_raw WHERE heat IS NOT NULL AND headline IS NOT NULL
 		),
 		ranked AS (
-			SELECT u.*, row_number() OVER (ORDER BY u.score DESC, u.generated_at DESC) AS rank
+			SELECT u.*, row_number() OVER (ORDER BY ABS(u.heat - 50) DESC, u.generated_at DESC) AS rank
 			FROM (
 				-- PLAYER
 				SELECT 'player'::text AS entity_type, p.id, p.name, p.photo_url AS image,
 				       cur.team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
-				       l.score, l.score AS heat, l.headline, l.generated_at
+				       l.heat, l.headline, l.generated_at
 				FROM latest l
 				JOIN public.players p ON p.id = l.entity_id AND p.sport = (SELECT sport FROM req)
 				LEFT JOIN public.player_current_identity cur ON cur.player_id = p.id AND cur.sport = (SELECT sport FROM req)
@@ -399,7 +403,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				-- TEAM
 				SELECT 'team'::text AS entity_type, t.id, t.name, t.logo_url AS image,
 				       t.id AS team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
-				       l.score, l.score AS heat, l.headline, l.generated_at
+				       l.heat, l.headline, l.generated_at
 				FROM latest l
 				JOIN public.teams t ON t.id = l.entity_id AND t.sport = (SELECT sport FROM req)
 				WHERE l.entity_type = 'team'
@@ -408,7 +412,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				  AND ((SELECT conference FROM req) IS NULL OR t.conference = (SELECT conference FROM req))
 				  AND ((SELECT division FROM req) IS NULL OR t.division = (SELECT division FROM req))
 			) u
-			ORDER BY u.score DESC, u.generated_at DESC
+			ORDER BY ABS(u.heat - 50) DESC, u.generated_at DESC
 			LIMIT (SELECT lim FROM req)
 		)
 		SELECT json_build_object(
@@ -485,12 +489,12 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			  AND (req.want_season IS NOT NULL OR lr.generated_at > NOW() - INTERVAL '72 hours')
 		),
 		ranked AS (
-			SELECT u.*, row_number() OVER (ORDER BY u.score DESC, u.generated_at DESC) AS rank
+			SELECT u.*, row_number() OVER (ORDER BY u.heat DESC, u.generated_at DESC) AS rank
 			FROM (
 				-- PLAYER
 				SELECT 'player'::text AS entity_type, p.id, p.name, p.photo_url AS image,
 				       cur.team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
-				       l.score, l.score AS heat, l.previous_score, l.headline, l.generated_at
+				       l.score AS heat, l.previous_score, l.headline, l.generated_at
 				FROM latest l
 				JOIN public.players p ON p.id = l.entity_id AND p.sport = (SELECT sport FROM req)
 				LEFT JOIN public.player_current_identity cur ON cur.player_id = p.id AND cur.sport = (SELECT sport FROM req)
@@ -504,7 +508,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				-- TEAM
 				SELECT 'team'::text AS entity_type, t.id, t.name, t.logo_url AS image,
 				       t.id AS team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
-				       l.score, l.score AS heat, l.previous_score, l.headline, l.generated_at
+				       l.score AS heat, l.previous_score, l.headline, l.generated_at
 				FROM latest l
 				JOIN public.teams t ON t.id = l.entity_id AND t.sport = (SELECT sport FROM req)
 				WHERE l.entity_type = 'team'
@@ -513,7 +517,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				  AND ((SELECT conference FROM req) IS NULL OR t.conference = (SELECT conference FROM req))
 				  AND ((SELECT division FROM req) IS NULL OR t.division = (SELECT division FROM req))
 			) u
-			ORDER BY u.score DESC, u.generated_at DESC
+			ORDER BY u.heat DESC, u.generated_at DESC
 			LIMIT (SELECT lim FROM req)
 		)
 		SELECT json_build_object(
@@ -528,7 +532,10 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			)
 		)`,
 
-		// Momentum leaderboards — the RISERS. Read the maintained current-row
+		// Momentum leaderboards — the MOVERS (heat contract, drop 3b): default ranks
+		// by ABS(slope), so the biggest movers surface in either direction; explicit
+		// ?direction=up/down remains the risers-only / fallers-only filter. Read the
+		// maintained current-row
 		// projection over durable momentum_scores snapshots; the profile /momentum
 		// endpoint still exposes raw trajectory context for one entity.
 		"trending_vibe_leaderboard": `WITH req AS (
@@ -541,10 +548,12 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       NULLIF($7::text, '') AS position_group,
 			       NULLIF($8::text, '') AS conference,
 			       NULLIF($9::text, '') AS division,
-			       -- direction: 'up' (default) ranks risers by slope DESC;
-			       -- 'down' ranks fallers by slope ASC. sgn folds both into
-			       -- one ORDER BY sgn*slope DESC path.
-			       CASE WHEN lower($10::text) = 'down' THEN -1 ELSE 1 END AS sgn
+			       -- direction: omitted ⇒ sgn 0, the MOVERS board — rank by ABS(slope),
+			       -- both directions, zero-slope rows excluded. 'up' ranks risers by
+			       -- slope DESC; 'down' ranks fallers by slope ASC (sgn*slope DESC).
+			       CASE WHEN lower($10::text) = 'down' THEN -1
+			            WHEN lower($10::text) = 'up' THEN 1
+			            ELSE 0 END AS sgn
 		),
 		-- latest_momentum_scores_per_entity is already the current-row projection,
 		-- but keep the old DISTINCT ON boundary so tied top-N output stays
@@ -561,7 +570,9 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		latest AS (
 			-- Filter after latest_raw so an entity whose latest slope turned
 			-- negative or NULL cannot keep ranking on an older positive snapshot.
-			SELECT lr.* FROM latest_raw lr, req WHERE lr.slope IS NOT NULL AND lr.slope * req.sgn > 0
+			SELECT lr.* FROM latest_raw lr, req
+			WHERE lr.slope IS NOT NULL
+			  AND CASE WHEN req.sgn = 0 THEN lr.slope <> 0 ELSE lr.slope * req.sgn > 0 END
 		),
 		-- The Analyst's card title (headline/body contract, drop 2): latest generation
 		-- per entity, whatever its season — the current voice of the trajectory. A
@@ -575,11 +586,12 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			ORDER BY ms.entity_type, ms.entity_id, ms.generated_at DESC
 		),
 		ranked AS (
-			SELECT u.*, row_number() OVER (ORDER BY u.slope * (SELECT sgn FROM req) DESC) AS rank FROM (
+			SELECT u.*, row_number() OVER (ORDER BY
+				CASE WHEN (SELECT sgn FROM req) = 0 THEN ABS(u.slope) ELSE u.slope * (SELECT sgn FROM req) END DESC) AS rank FROM (
 				SELECT 'player'::text AS entity_type, p.id, p.name, p.photo_url AS image,
 				       l.team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
 				       v.headline,
-				       round(l.slope::numeric, 1) AS score, round(l.slope::numeric, 1) AS heat, round(l.slope::numeric, 3) AS slope
+				       round(l.slope::numeric, 1) AS heat, round(l.slope::numeric, 3) AS slope
 				FROM latest l
 				JOIN public.players p ON p.id = l.entity_id AND p.sport = (SELECT sport FROM req)
 				LEFT JOIN public.teams t ON t.id = l.team_id AND t.sport = (SELECT sport FROM req)
@@ -593,7 +605,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				SELECT 'team'::text, t.id, t.name, t.logo_url AS image,
 				       t.id AS team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
 				       v.headline,
-				       round(l.slope::numeric, 1) AS score, round(l.slope::numeric, 1) AS heat, round(l.slope::numeric, 3) AS slope
+				       round(l.slope::numeric, 1) AS heat, round(l.slope::numeric, 3) AS slope
 				FROM latest l
 				JOIN public.teams t ON t.id = l.entity_id AND t.sport = (SELECT sport FROM req)
 				LEFT JOIN voice v ON v.entity_type = l.entity_type AND v.entity_id = l.entity_id
@@ -602,7 +614,9 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				  AND ((SELECT league_id FROM req) IS NULL OR COALESCE(l.league_id, t.league_id, 0) = (SELECT league_id FROM req))
 				  AND ((SELECT conference FROM req) IS NULL OR COALESCE(l.conference, t.conference) = (SELECT conference FROM req))
 				  AND ((SELECT division FROM req) IS NULL OR COALESCE(l.division, t.division) = (SELECT division FROM req))
-			) u ORDER BY u.slope * (SELECT sgn FROM req) DESC LIMIT (SELECT lim FROM req)
+			) u ORDER BY
+				CASE WHEN (SELECT sgn FROM req) = 0 THEN ABS(u.slope) ELSE u.slope * (SELECT sgn FROM req) END DESC
+			LIMIT (SELECT lim FROM req)
 		)
 		SELECT json_build_object(
 			'page', 'trending_leaderboard', 'metric', 'vibe',
@@ -623,7 +637,9 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       NULLIF($8::text, '') AS conference,
 			       NULLIF($9::text, '') AS division,
 			       -- direction sign — see trending_vibe_leaderboard.
-			       CASE WHEN lower($10::text) = 'down' THEN -1 ELSE 1 END AS sgn
+			       CASE WHEN lower($10::text) = 'down' THEN -1
+			            WHEN lower($10::text) = 'up' THEN 1
+			            ELSE 0 END AS sgn
 		),
 		-- Same latest_raw-then-filter shape as the vibe board above; keeping
 		-- DISTINCT ON here preserves tied top-N output while sourcing current rows.
@@ -637,7 +653,9 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			ORDER BY ms.entity_type, ms.entity_id, ms.generated_at DESC
 		),
 		latest AS (
-			SELECT lr.* FROM latest_raw lr, req WHERE lr.slope IS NOT NULL AND lr.slope * req.sgn > 0
+			SELECT lr.* FROM latest_raw lr, req
+			WHERE lr.slope IS NOT NULL
+			  AND CASE WHEN req.sgn = 0 THEN lr.slope <> 0 ELSE lr.slope * req.sgn > 0 END
 		),
 		-- The Analyst's card title — see trending_vibe_leaderboard's voice CTE.
 		voice AS (
@@ -648,11 +666,12 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			ORDER BY ms.entity_type, ms.entity_id, ms.generated_at DESC
 		),
 		ranked AS (
-			SELECT u.*, row_number() OVER (ORDER BY u.slope * (SELECT sgn FROM req) DESC) AS rank FROM (
+			SELECT u.*, row_number() OVER (ORDER BY
+				CASE WHEN (SELECT sgn FROM req) = 0 THEN ABS(u.slope) ELSE u.slope * (SELECT sgn FROM req) END DESC) AS rank FROM (
 				SELECT 'player'::text AS entity_type, p.id, p.name, p.photo_url AS image,
 				       l.team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
 				       v.headline,
-				       round(l.slope::numeric, 1) AS score, round(l.slope::numeric, 1) AS heat, round(l.slope::numeric, 3) AS slope
+				       round(l.slope::numeric, 1) AS heat, round(l.slope::numeric, 3) AS slope
 				FROM latest l
 				JOIN public.players p ON p.id = l.entity_id AND p.sport = (SELECT sport FROM req)
 				LEFT JOIN public.teams t ON t.id = l.team_id AND t.sport = (SELECT sport FROM req)
@@ -666,7 +685,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				SELECT 'team'::text, t.id, t.name, t.logo_url AS image,
 				       t.id AS team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
 				       v.headline,
-				       round(l.slope::numeric, 1) AS score, round(l.slope::numeric, 1) AS heat, round(l.slope::numeric, 3) AS slope
+				       round(l.slope::numeric, 1) AS heat, round(l.slope::numeric, 3) AS slope
 				FROM latest l
 				JOIN public.teams t ON t.id = l.entity_id AND t.sport = (SELECT sport FROM req)
 				LEFT JOIN voice v ON v.entity_type = l.entity_type AND v.entity_id = l.entity_id
@@ -675,7 +694,9 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				  AND ((SELECT league_id FROM req) IS NULL OR COALESCE(l.league_id, t.league_id, 0) = (SELECT league_id FROM req))
 				  AND ((SELECT conference FROM req) IS NULL OR COALESCE(l.conference, t.conference) = (SELECT conference FROM req))
 				  AND ((SELECT division FROM req) IS NULL OR COALESCE(l.division, t.division) = (SELECT division FROM req))
-			) u ORDER BY u.slope * (SELECT sgn FROM req) DESC LIMIT (SELECT lim FROM req)
+			) u ORDER BY
+				CASE WHEN (SELECT sgn FROM req) = 0 THEN ABS(u.slope) ELSE u.slope * (SELECT sgn FROM req) END DESC
+			LIMIT (SELECT lim FROM req)
 		)
 		SELECT json_build_object(
 			'page', 'trending_leaderboard', 'metric', 'rating',
@@ -769,11 +790,11 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			ORDER BY ns.entity_type, ns.entity_id, ns.impact DESC
 		),
 		ranked AS (
-			SELECT u.*, row_number() OVER (ORDER BY u.score DESC, u.generated_at DESC) AS rank
+			SELECT u.*, row_number() OVER (ORDER BY u.heat DESC, u.generated_at DESC) AS rank
 			FROM (
 				SELECT 'player'::text AS entity_type, p.id, p.name, p.photo_url AS image,
 				       cur.team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
-				       l.headline, l.impact AS score, l.impact AS heat,
+				       l.headline, l.impact AS heat,
 				       l.updated_at, l.source_count, l.source_names, l.source_latest_at, l.source_oldest_at,
 				       l.trajectory, l.trajectory_label, l.generated_at
 				FROM latest l
@@ -788,7 +809,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				UNION ALL
 				SELECT 'team'::text AS entity_type, t.id, t.name, t.logo_url AS image,
 				       t.id AS team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
-				       l.headline, l.impact AS score, l.impact AS heat,
+				       l.headline, l.impact AS heat,
 				       l.updated_at, l.source_count, l.source_names, l.source_latest_at, l.source_oldest_at,
 				       l.trajectory, l.trajectory_label, l.generated_at
 				FROM latest l
@@ -799,7 +820,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				  AND ((SELECT conference FROM req) IS NULL OR t.conference = (SELECT conference FROM req))
 				  AND ((SELECT division FROM req) IS NULL OR t.division = (SELECT division FROM req))
 			) u
-			ORDER BY u.score DESC, u.generated_at DESC
+			ORDER BY u.heat DESC, u.generated_at DESC
 			LIMIT (SELECT lim FROM req)
 		)
 		SELECT json_build_object(
@@ -1047,19 +1068,11 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'entity_type', (SELECT entity_type FROM req),
 			'entity_id', (SELECT entity_id FROM req),
 			'scope', (SELECT json_build_object('key', scope_key, 'label', label, 'starts_at', starts_at, 'ends_at', ends_at) FROM scope),
-			-- The Journalist's card score (tarot deck Phase 4, mig 186): scope-INDEPENDENT
-			-- latest-non-NULL — serve-latest like the sigil crown, a stable baseline while the
-			-- scope control moves. Deliberately NOT filtered on body IS NOT NULL: a quiet-week
-			-- marker row legitimately carries the Journalist's own low score. NULL (never
-			-- scored) leaves the JSON null and the card draws the Veil.
-			'card_score', (SELECT ns2.card_score FROM public.news_summaries ns2
-			     WHERE ns2.entity_type = (SELECT entity_type FROM req)
-			       AND ns2.entity_id = (SELECT entity_id FROM req)
-			       AND ns2.sport = (SELECT sport FROM req)
-			       AND ns2.card_score IS NOT NULL
-			     ORDER BY ns2.generated_at DESC LIMIT 1),
-			'narratives', COALESCE((SELECT json_agg(row_to_json(n) ORDER BY n.impact DESC NULLS LAST)
-			     FROM (SELECT headline, body, impact, impact AS heat, impact_components, input_news_ids,
+			-- The Journalist's card_score retired from serving with drop 3b: per-narrative
+			-- heat (=impact) is the card's number now; card_score stays in storage as
+			-- audit + prompt memory (the insider_scores.read precedent, in reverse).
+			'narratives', COALESCE((SELECT json_agg(row_to_json(n) ORDER BY n.heat DESC NULLS LAST)
+			     FROM (SELECT headline, body, impact AS heat, impact_components, input_news_ids,
 			                  updated_at, source_count, source_names, source_latest_at, source_oldest_at,
 			                  trajectory, trajectory_label, trajectory_components,
 			                  model_version, prompt_version, generated_at
@@ -1152,17 +1165,12 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'entity_type', (SELECT entity_type FROM req),
 			'entity_id', (SELECT entity_id FROM req),
 			'scope', (SELECT json_build_object('key', scope_key, 'label', label, 'starts_at', starts_at, 'ends_at', ends_at) FROM scope),
-			-- The Insider's card score (tarot deck Phase 4, mig 187): scope-INDEPENDENT latest
-			-- wrap — score is NOT NULL by table constraint, so latest row IS latest-non-NULL.
-			-- No row (never wrapped / empty wire) leaves the JSON null → the Veil; an emptied
-			-- board renders EmptyCard anyway, so a lingering score never displays.
-			'card_score', (SELECT s.score FROM public.insider_scores s
-			     WHERE s.entity_type = (SELECT entity_type FROM req)
-			       AND s.entity_id = (SELECT entity_id FROM req)
-			       AND s.sport = (SELECT sport FROM req)
-			     ORDER BY s.generated_at DESC LIMIT 1),
-			-- heat contract (drop 3a): the card's uniform number key. Same latest wrap as
-			-- card_score, which retreats to a deprecated alias until the drop-3b break.
+			-- The card's uniform number key (heat contract): the Insider's latest wrap
+			-- (wire-busyness 1-99; tarot deck Phase 4, mig 187) — scope-INDEPENDENT, and
+			-- score is NOT NULL by table constraint so the latest row IS latest-non-NULL.
+			-- No row (never wrapped / empty wire) leaves the JSON null → the Veil; an
+			-- emptied board renders EmptyCard anyway, so a lingering score never displays.
+			-- (card_score retired from serving with drop 3b.)
 			'heat', (SELECT s.score FROM public.insider_scores s
 			     WHERE s.entity_type = (SELECT entity_type FROM req)
 			       AND s.entity_id = (SELECT entity_id FROM req)
@@ -1243,7 +1251,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'entity_type', (SELECT entity_type FROM req),
 			'entity_id', (SELECT entity_id FROM req),
 			'season', COALESCE((SELECT want_season FROM req), (SELECT cur_season FROM req)),
-			'current', (SELECT row_to_json(v) FROM (SELECT score, score AS heat, convergence, previous_score, headline, body, omen, voiced_at, voice_model_version, voice_prompt_version, model_version, prompt_version, generated_at FROM vibe_cur) v),
+			'current', (SELECT row_to_json(v) FROM (SELECT score AS heat, convergence, previous_score, headline, body, omen, voiced_at, voice_model_version, voice_prompt_version, model_version, prompt_version, generated_at FROM vibe_cur) v),
 			'history', COALESCE((SELECT json_agg(json_build_object('score', score, 'generated_at', generated_at) ORDER BY generated_at DESC) FROM vibe_hist), '[]'::json)
 		)`,
 		// Entity momentum summary — the GENERATED Momentum product: direction /
@@ -1263,7 +1271,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       (SELECT current_season FROM public.sports WHERE id = upper($1::text)) AS cur_season
 		),
 		summary AS (
-			SELECT ms.direction, ms.score, ms.score AS heat, ms.headline, ms.blurb AS body, ms.model_version, ms.prompt_version, ms.generated_at
+			SELECT ms.direction, ms.score AS heat, ms.headline, ms.blurb AS body, ms.model_version, ms.prompt_version, ms.generated_at
 			FROM public.momentum_summaries ms, req
 			WHERE ms.entity_type = req.entity_type AND ms.entity_id = req.entity_id AND ms.sport = req.sport
 			  AND ms.season = COALESCE(req.want_season, req.cur_season)

@@ -74,9 +74,16 @@ rating. `card_score` (Journalist) retreats to audit + prompt memory — the
 
 - **Drop 3a — additive, cannot break clients:** /stories + /story gain `recap` and
   `routing_tags`; boards and profiles gain the `heat` key alongside existing keys.
-- **Drop 3b — the coordinated break** (frontend/iOS ready first): old number keys
-  (`score`, `impact`, `sentiment`, `card_score` as serving keys) drop from payloads;
-  rank expressions land (vibes + momentum reorder); ENDPOINTS.md rewritten.
+  **SHIPPED 2026-08-22** (`f729072`, PR #5, deployed same day — see progress doc).
+- **Drop 3b — the coordinated break** (Scott confirmed clients ready 2026-08-22):
+  old number keys (`score`, board `impact`-as-score, `card_score`, vibe-card
+  `sentiment`) drop from payloads; rank expressions land — vibes by charge
+  (`ABS(sentiment−50)`), momentum boards default to MOVERS (`ABS(slope)`, both
+  directions; `?direction=up|down` retained as one-side filters). The rating research
+  board keeps its stat fields (they're the product data, not the zoo) + heat.
+  ENDPOINTS.md rewritten. **BUILT + GATED 2026-08-22** — EXECUTE smokes assert banned
+  keys absent, charge/ABS orderings hold (movers top-30 measured 16 up / 14 down),
+  up/down filters clean, vibe snapshots keep `sentiment` as time-series data.
 
 ## Audit results (run against prod 2026-08-22)
 

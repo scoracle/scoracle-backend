@@ -104,6 +104,40 @@ fn foreign_script_leak_fails_closed_the_3b_delegation_glitch() {
 }
 
 #[test]
+fn parses_the_s17_headline_line() {
+    // s17 (mig 226): HEADLINE after the READ is the contracted position.
+    let parsed = parse_momentum_reply(
+        "READ: The form is rising and the mood confirms it.\nHEADLINE: Form and mood rise together for Vale",
+    )
+    .expect("a contracted headline must parse");
+    assert_eq!(
+        parsed.headline.as_deref(),
+        Some("Form and mood rise together for Vale")
+    );
+    assert_eq!(parsed.blurb, "The form is rising and the mood confirms it.");
+
+    // Absent line → None (tolerance, never a failed generation).
+    let bare = parse_momentum_reply("READ: The tape is steady.").unwrap();
+    assert!(bare.headline.is_none());
+
+    // Order drift (title first) still captures both — a shape quirk, not a failure.
+    let drifted = parse_momentum_reply(
+        "HEADLINE: Kerr holds the line\nREAD: The form is holding while the mood wobbles.",
+    )
+    .unwrap();
+    assert_eq!(drifted.headline.as_deref(), Some("Kerr holds the line"));
+    assert_eq!(drifted.blurb, "The form is holding while the mood wobbles.");
+
+    // A title ends the READ: prose after it belongs to the title, not the read.
+    let trailing = parse_momentum_reply(
+        "READ: First sentence.\nHEADLINE: The title\nSome trailing note.",
+    )
+    .unwrap();
+    assert_eq!(trailing.blurb, "First sentence.");
+    assert_eq!(trailing.headline.as_deref(), Some("The title"));
+}
+
+#[test]
 fn direction_is_decided_by_band_not_model() {
     // ±MOMENTUM_STEADY_BAND on the ±100-scale momentum_score; None (no durable
     // snapshot) is honestly steady.

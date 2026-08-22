@@ -1387,7 +1387,10 @@ impl LensTask for RatingTask {
                 display: "unparseable".into(),
             };
         }
-        let reply = RatingReply { body };
+        let reply = RatingReply {
+            body,
+            headline: None,
+        };
         let mut checks = Vec::new();
         let word_count = reply.body.split_whitespace().count() as i32;
 

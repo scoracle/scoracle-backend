@@ -1236,12 +1236,16 @@ async fn load_rating_trajectory(
 // legacy marker strip kept as a serving guard.
 // ---------------------------------------------------------------------------
 
-/// RatingReply is the parsed model output: the cleaned identity-analysis body. The `T` in
-/// `Parser<T>`. (The divined PEAK label this used to carry retired at s19; any marker line a
-/// model still emits is stripped and discarded so bookkeeping vocabulary can never serve.)
+/// RatingReply is the parsed model output: the cleaned identity-analysis body plus the
+/// optional card title. The `T` in `Parser<T>`. (The divined PEAK label this used to carry
+/// retired at s19; any marker line a model still emits is stripped and discarded so
+/// bookkeeping vocabulary can never serve.)
 #[derive(Clone, Debug)]
 pub struct RatingReply {
     pub body: String,
+    /// The card title (s20, mig 226): twelve words or fewer, contracted as the brief's
+    /// closing line. `None` when absent — NULL renders downstream as "no headline".
+    pub headline: Option<String>,
 }
 
 /// RatingParser strips any legacy marker line and cleans the body. It NEVER returns
@@ -1254,15 +1258,44 @@ pub struct RatingParser;
 /// parse_rating_body is the shape-only view (marker stripped, body cleaned). The eval gate
 /// parses through THIS so a guard-violating reply still shows its prose in the side-by-side
 /// and scores red on the invariant checks; production goes through [`RatingParser`], which
-/// adds the fail-closed guards on top.
+/// adds the fail-closed guards on top. The s20 HEADLINE line is split off here too, so the
+/// shape view never mistakes a title for a section.
 pub fn parse_rating_body(raw: &str) -> String {
     let (_legacy_label, raw_body) = parse_rating_commentary(raw);
-    clean_commentary(&raw_body)
+    let (_headline, body) = split_rating_headline(&raw_body);
+    clean_commentary(&body)
+}
+
+/// split_rating_headline lifts the s20 card-title line out of a raw brief: the FIRST line
+/// beginning `HEADLINE:` is captured (whitespace-folded; empty ⇒ None) and removed, and the
+/// remaining lines are returned in order. Position-tolerant — order drift is a shape quirk,
+/// never a failed generation. Markdown decoration is deliberately NOT stripped before the
+/// match: a decorated title fails the brief's own plain-text guard downstream.
+fn split_rating_headline(raw: &str) -> (Option<String>, String) {
+    let mut headline: Option<String> = None;
+    let mut kept: Vec<&str> = Vec::new();
+    for line in raw.lines() {
+        if headline.is_none() {
+            let trimmed = line.trim();
+            if let Some(rest) = trimmed.strip_prefix("HEADLINE:").or_else(|| trimmed.strip_prefix("Headline:")) {
+                let folded = rest.split_whitespace().collect::<Vec<_>>().join(" ");
+                if !folded.is_empty() {
+                    headline = Some(folded);
+                }
+                continue;
+            }
+        }
+        kept.push(line);
+    }
+    (headline, kept.join("\n"))
 }
 
 impl Parser<RatingReply> for RatingParser {
     fn parse(&self, raw: &str) -> Result<Option<RatingReply>> {
-        let body = parse_rating_body(raw);
+        // Split the card title off FIRST so the body checks never grade it as prose.
+        let (_legacy_label, raw_body) = parse_rating_commentary(raw);
+        let (headline, body_only) = split_rating_headline(&raw_body);
+        let body = clean_commentary(&body_only);
         if let Some(p) = crate::guards::first_banned_phrase(&body, crate::guards::RATING_BODY_BANS) {
             tracing::warn!(guard = "rating_body_ban", phrase = p, "rating body rejected");
             anyhow::bail!("rating: body carries banned {p:?}");
@@ -1275,7 +1308,19 @@ impl Parser<RatingReply> for RatingParser {
             tracing::warn!(guard = "foreign_script", "rating body rejected");
             anyhow::bail!("rating: body carries a foreign-script run");
         }
-        Ok(Some(RatingReply { body }))
+        // The title shares the HOOK contract (twelve words, no colon, no question mark).
+        // Fail-closed like every title guard: a junk headline re-rolls rather than shipping.
+        if let Some(h) = headline.as_deref() {
+            if let Some(rule) = crate::guards::hook_violation(h) {
+                tracing::warn!(guard = rule, headline = h, "rating headline rejected");
+                anyhow::bail!("rating: headline violates {rule} (headline={h:?})");
+            }
+            if crate::guards::has_foreign_script(h) {
+                tracing::warn!(guard = "foreign_script", "rating headline rejected");
+                anyhow::bail!("rating: headline carries a foreign-script run");
+            }
+        }
+        Ok(Some(RatingReply { body, headline }))
     }
 }
 
@@ -1572,6 +1617,8 @@ pub struct RatingOutput {
     pub skipped_no_stats: bool,
     pub skipped_unchanged: bool,
     pub body: Option<String>, // None for a marker
+    /// The card title (s20). `None` for a marker and when the reply omitted the line.
+    pub headline: Option<String>,
     pub notability: Option<i32>,
     pub notability_components: serde_json::Value,
     pub rating_trajectory: Option<String>,
@@ -1627,6 +1674,7 @@ pub async fn generate_rating(
                 skipped_no_stats: true,
                 skipped_unchanged: false,
                 body: None,
+                headline: None,
                 notability: None,
                 notability_components: serde_json::json!({}),
                 rating_trajectory: None,
@@ -1669,6 +1717,7 @@ pub async fn generate_rating(
                     skipped_no_stats: false,
                     skipped_unchanged: true,
                     body: None,
+                    headline: None,
                     notability: None,
                     notability_components: serde_json::json!({}),
                     rating_trajectory: Some(ready.rating_trajectory.key.clone()),
@@ -1713,6 +1762,7 @@ pub async fn generate_rating(
         skipped_no_stats: false,
         skipped_unchanged: false,
         body: Some(reply.body),
+        headline: reply.headline,
         notability: Some(ready.notability),
         notability_components: ready.notability_components,
         rating_trajectory: Some(ready.rating_trajectory.key),
@@ -1849,11 +1899,11 @@ pub async fn persist_stat_summary(
         r#"
         INSERT INTO stat_summaries (
             entity_type, entity_id, sport, season, trigger_type, trigger_payload,
-            body, notability, notability_components, input_components, input_hash,
+            body, headline, notability, notability_components, input_components, input_hash,
             model_version, prompt_version, generated_at,
             rating_trajectory, rating_trajectory_label, rating_trajectory_components
-        ) VALUES ($1,$2,$3,$4,$5,$6::jsonb, $7,$8,$9::jsonb,$10::jsonb,$11, $12,$13,NOW(),
-                  $14,$15,$16::jsonb)
+        ) VALUES ($1,$2,$3,$4,$5,$6::jsonb, $7,$8,$9,$10::jsonb,$11::jsonb,$12, $13,$14,NOW(),
+                  $15,$16,$17::jsonb)
         RETURNING id
         "#,
     )
@@ -1864,6 +1914,7 @@ pub async fn persist_stat_summary(
     .bind(trigger_type)
     .bind(&trigger_json)
     .bind(out.body.as_deref())
+    .bind(out.headline.as_deref()) // the card title (s20); NULL for markers/pre-bump rows
     .bind(notability)
     .bind(&ncomp_json)
     .bind(&out.input_components)

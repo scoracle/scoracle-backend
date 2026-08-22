@@ -76,6 +76,9 @@ pub struct MomentumReply {
     /// The READ, and only the READ. s11 removed `score`: the Analyst voices the momentum, it
     /// does not decide it — see [`momentum_conviction_from_score`].
     pub blurb: String,
+    /// The card title (s17, mig 226): twelve words or fewer, emitted after the READ.
+    /// `None` when the reply omitted it — NULL renders downstream as "no headline".
+    pub headline: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -83,6 +86,8 @@ pub struct MomentumOutput {
     pub direction: String,
     pub score: i32,
     pub blurb: String,
+    /// The model-emitted card title (s17). `None` when the reply omitted it.
+    pub headline: Option<String>,
     pub season: i32,
     pub input_components_json: String,
     pub input_hash: String,
@@ -123,6 +128,19 @@ impl Parser<MomentumReply> for MomentumParser {
         if crate::guards::has_ascii_digit(&reply.blurb) {
             tracing::warn!(guard = "digits_in_read", "momentum READ rejected");
             anyhow::bail!("momentum: READ carries ASCII digits");
+        }
+        // The card title shares the HOOK contract (guards::hook_violation — twelve words,
+        // no colon, no question mark). Fail-closed like every title guard: a junk headline
+        // re-rolls rather than shipping.
+        if let Some(h) = reply.headline.as_deref() {
+            if let Some(rule) = crate::guards::hook_violation(h) {
+                tracing::warn!(guard = rule, headline = h, "momentum headline rejected");
+                anyhow::bail!("momentum: headline violates {rule} (headline={h:?})");
+            }
+            if crate::guards::has_foreign_script(h) {
+                tracing::warn!(guard = "foreign_script", "momentum headline rejected");
+                anyhow::bail!("momentum: headline carries a foreign-script run");
+            }
         }
         Ok(Some(reply))
     }
@@ -344,6 +362,7 @@ fn build_momentum_input_components(
 pub fn parse_momentum_reply(raw: &str) -> Option<MomentumReply> {
     let mut read_lines: Vec<String> = Vec::new();
     let mut in_read = false;
+    let mut headline: Option<String> = None;
 
     for line in raw.lines() {
         // Strip Markdown decoration before matching: `**SCORE: -1**` does not start with
@@ -352,6 +371,17 @@ pub fn parse_momentum_reply(raw: &str) -> Option<MomentumReply> {
         let trimmed_owned = crate::util::strip_markdown_emphasis(line);
         let trimmed = trimmed_owned.as_str();
         if trimmed.is_empty() {
+            continue;
+        }
+        // s17 (mig 226): the card title, contracted AFTER the READ but accepted in any
+        // position — order drift is a shape quirk, not a failed generation. Ends the
+        // READ (trailing prose after the title belongs to the title, not the read).
+        if let Some(rest) = strip_prefix_ci(trimmed, "HEADLINE:") {
+            let title = rest.trim();
+            if !title.is_empty() {
+                headline = Some(title.to_string());
+            }
+            in_read = false;
             continue;
         }
         // 2026-08-14 model swap (defiant-fable): the new voice relabels the contract line
@@ -410,7 +440,7 @@ pub fn parse_momentum_reply(raw: &str) -> Option<MomentumReply> {
     if crate::guards::has_foreign_script(&blurb) {
         return None;
     }
-    Some(MomentumReply { blurb })
+    Some(MomentumReply { blurb, headline })
 }
 
 fn strip_prefix_ci<'a>(s: &'a str, prefix: &str) -> Option<&'a str> {
@@ -471,9 +501,9 @@ async fn persist_momentum_summary(
         r#"
         INSERT INTO public.momentum_summaries (
             entity_type, entity_id, sport, season, trigger_type, trigger_payload,
-            direction, score, blurb, input_components, input_hash,
+            direction, score, blurb, headline, input_components, input_hash,
             model_version, prompt_version, generated_at
-        ) VALUES ($1,$2,$3,$4,'periodic',$5::jsonb,$6,$7,$8,$9::jsonb,$10,$11,$12,NOW())
+        ) VALUES ($1,$2,$3,$4,'periodic',$5::jsonb,$6,$7,$8,$9,$10::jsonb,$11,$12,$13,NOW())
         RETURNING id
         "#,
     )
@@ -485,6 +515,7 @@ async fn persist_momentum_summary(
     .bind(&out.direction)
     .bind(out.score as i16)
     .bind(&out.blurb)
+    .bind(&out.headline) // the card title (s17); NULL when the reply omitted it
     .bind(&out.input_components_json)
     .bind(&out.input_hash)
     .bind(&out.model)
@@ -651,6 +682,7 @@ impl StageHandler for MomentumHandler {
             direction: direction.to_string(),
             score,
             blurb: reply.blurb,
+            headline: reply.headline,
             season: ctx.season,
             input_components_json: ctx.input_components_json.clone(),
             input_hash: ctx.input_hash.clone(),

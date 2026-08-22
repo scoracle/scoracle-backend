@@ -1125,6 +1125,15 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       AND s.entity_id = (SELECT entity_id FROM req)
 			       AND s.sport = (SELECT sport FROM req)
 			     ORDER BY s.generated_at DESC LIMIT 1),
+			-- The Insider's wire read (mig 226 era — drop 1 of the headline/body contract):
+			-- the same latest wrap's prose, previously audit/prompt-memory only. Served as
+			-- the card's body so the Insider's voice is user-visible at zero generation cost;
+			-- NULL together with a null card_score when the wire was never wrapped.
+			'wire_read', (SELECT s.read FROM public.insider_scores s
+			     WHERE s.entity_type = (SELECT entity_type FROM req)
+			       AND s.entity_id = (SELECT entity_id FROM req)
+			       AND s.sport = (SELECT sport FROM req)
+			     ORDER BY s.generated_at DESC LIMIT 1),
 			'transfers', COALESCE((SELECT json_agg(row_to_json(x) ORDER BY x.rank)
 			     FROM (SELECT id, name, image, heat, heat_components, direction, stage, summary, source_attribution,
 			                  updated_at, source_count, source_names, source_latest_at, source_oldest_at,
@@ -1634,38 +1643,28 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		),
 		latest_packet AS (
 			SELECT DISTINCT ON (p.storyline_id)
-			       p.storyline_id, p.headline, p.story_types, p.register
+			       p.storyline_id, p.headline, p.story_types, p.register, p.compiled_at
 			FROM public.packets p
 			WHERE p.storyline_id IN (SELECT id FROM active)
 			ORDER BY p.storyline_id, p.compiled_at DESC, p.id DESC
-		),
-		cast_scores AS (
-			SELECT se.storyline_id, se.role,
-			       (SELECT ns.card_score FROM public.news_summaries ns
-			         WHERE ns.entity_type = se.entity_type AND ns.entity_id = se.entity_id
-			           AND ns.sport = se.sport AND ns.card_score IS NOT NULL
-			         ORDER BY ns.generated_at DESC LIMIT 1) AS card_score,
-			       (SELECT vs.sentiment FROM public.vibe_scores vs
-			         WHERE vs.entity_type = se.entity_type AND vs.entity_id = se.entity_id
-			           AND vs.sport = se.sport AND vs.sentiment IS NOT NULL
-			         ORDER BY vs.generated_at DESC LIMIT 1) AS vibe
-			FROM public.storyline_entities se
-			WHERE se.storyline_id IN (SELECT id FROM active)
-			  AND se.left_at IS NULL AND se.entity_type IN ('player','team')
-		),
-		-- THE HEAT KNOB: max subject card_score, vibe as tie-break. A taste
-		-- parameter, expected to be tweaked — keep the formula here and only here.
-		heat AS (
-			SELECT storyline_id,
-			       COALESCE(max(card_score) FILTER (WHERE role = 'subject'), max(card_score)) AS heat,
-			       COALESCE(max(vibe) FILTER (WHERE role = 'subject'), max(vibe)) AS vibe_heat
-			FROM cast_scores GROUP BY storyline_id
 		),
 		report_counts AS (
 			SELECT sa.storyline_id, count(*)::int AS report_count
 			FROM public.storyline_articles sa
 			WHERE sa.storyline_id IN (SELECT id FROM active)
 			GROUP BY sa.storyline_id
+		),
+		-- THE HEAT KNOB (editor-native): report volume decayed by the age of the latest
+		-- packet — reports ÷ (1 + days since that compile). The Editor's own coverage record
+		-- is the whole input; no voice memory (card_score/sentiment) feeds the ranking. A
+		-- taste parameter — keep the formula here and only here.
+		heat AS (
+			SELECT a.id AS storyline_id,
+			       COALESCE(rc.report_count, 0)::float8
+			         / (1 + EXTRACT(EPOCH FROM (NOW() - COALESCE(lp.compiled_at, a.last_seen_at))) / 86400.0) AS heat
+			FROM active a
+			LEFT JOIN latest_packet lp ON lp.storyline_id = a.id
+			LEFT JOIN report_counts rc ON rc.storyline_id = a.id
 		),
 		cast_display AS (
 			SELECT storyline_id, json_agg(json_build_object(
@@ -1687,15 +1686,15 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			GROUP BY storyline_id
 		),
 		ranked AS (
-			SELECT a.id, a.title, a.status, a.last_seen_at, h.heat, h.vibe_heat,
+			SELECT a.id, a.title, a.status, a.last_seen_at, h.heat,
 			       lp.headline, lp.story_types, lp.register,
 			       COALESCE(rc.report_count, 0) AS report_count, cd.cast
 			FROM active a
-			LEFT JOIN heat h ON h.storyline_id = a.id
+			JOIN heat h ON h.storyline_id = a.id
 			LEFT JOIN latest_packet lp ON lp.storyline_id = a.id
 			LEFT JOIN report_counts rc ON rc.storyline_id = a.id
 			LEFT JOIN cast_display cd ON cd.storyline_id = a.id
-			ORDER BY h.heat DESC NULLS LAST, h.vibe_heat DESC NULLS LAST, a.last_seen_at DESC, a.id DESC
+			ORDER BY h.heat DESC NULLS LAST, a.last_seen_at DESC, a.id DESC
 			LIMIT (SELECT lim FROM req)
 		)
 		SELECT json_build_object(
@@ -1713,7 +1712,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				'report_count', r.report_count,
 				'last_seen_at', r.last_seen_at,
 				'cast', COALESCE(r.cast, '[]'::json))
-				ORDER BY r.heat DESC NULLS LAST, r.vibe_heat DESC NULLS LAST, r.last_seen_at DESC, r.id DESC)
+				ORDER BY r.heat DESC NULLS LAST, r.last_seen_at DESC, r.id DESC)
 			FROM ranked r), '[]'::json)
 		)`,
 		// Story archive — resolved/dormant storylines by recency, no heat ranking.

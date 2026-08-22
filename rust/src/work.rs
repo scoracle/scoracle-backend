@@ -82,7 +82,21 @@ impl Stage {
             // subscribers check daily, and they are bounded (~200 rows vs thousands of
             // players), so this cannot starve the player tail — it just guarantees every
             // team card refreshes within the first minutes of an on-hour.
-            Stage::Narratives | Stage::Vibe | Stage::Sigil => {
+            //
+            // Rating, Momentum and Transfers joined this list on 2026-08-22, and the three
+            // that were already here are the proof it works. MEASURED that day: the
+            // Influencer (Vibe) and the Journalist (Narratives) were serving current team
+            // cards, while the Scout's newest TEAM row was six days old and the Analyst's
+            // teams sat on a contract three revisions behind — with 8,416 items queued and
+            // the newest team work behind thousands of player rows on plain FIFO. The three
+            // stale seats were exactly the three missing from this arm, and the three fresh
+            // seats were exactly the three in it. Same bounded ~200 rows, same argument.
+            Stage::Narratives
+            | Stage::Vibe
+            | Stage::Sigil
+            | Stage::Rating
+            | Stage::Momentum
+            | Stage::Transfers => {
                 "CASE entity_type WHEN 'team' THEN 0 ELSE 1 END, available_at"
             }
             _ => "available_at",
@@ -475,5 +489,36 @@ mod tests {
             vec!["narratives", "rating", "vibe", "momentum", "transfers"]
         );
         assert!(!PILLAR_STAGES.contains(&Stage::Sigil));
+    }
+}
+
+#[cfg(test)]
+mod claim_order_tests {
+    use super::Stage;
+
+    /// Every stage that writes a card a subscriber reads drains teams first.
+    ///
+    /// 2026-08-22: Narratives, Vibe and Sigil had this and their team cards were current;
+    /// Rating, Momentum and Transfers did not and their team cards were up to six days stale
+    /// behind 8,416 queued items, most of them player-grain. The split in behaviour matched
+    /// the split in this function exactly.
+    #[test]
+    fn the_product_stages_all_drain_teams_first() {
+        for s in [
+            Stage::Narratives,
+            Stage::Vibe,
+            Stage::Sigil,
+            Stage::Rating,
+            Stage::Momentum,
+            Stage::Transfers,
+        ] {
+            assert!(
+                s.claim_order().starts_with("CASE entity_type WHEN 'team' THEN 0"),
+                "{s} writes a card and must drain teams first"
+            );
+        }
+        // The Editor still drains best-first: its budget is finite and Google already ranked
+        // the articles, so rank beats grain there.
+        assert!(Stage::Editor.claim_order().contains("feed_rank"));
     }
 }

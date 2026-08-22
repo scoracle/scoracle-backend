@@ -606,6 +606,50 @@ func (h *Handler) GetEntityTransfers(w http.ResponseWriter, r *http.Request) {
 	h.serveStatementJSON(w, r, "entity_transfers", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id, scope)
 }
 
+// GetEntityVibe returns the entity's VIBE product — The Influencer's emotional
+// read. ONE `current` object in the Drop 2 voice-card shape ({headline, body} +
+// score), plus the 7-day snapshot window so a client can render the card from a
+// single request.
+//
+// This route was absent between the O14 convergence rename — which handed the
+// per-entity /vibes path to the Oracle's /sigil — and its restoration here. The
+// Influencer never stopped writing: her rows land in vibe_scores on every
+// milestone, periodic and news-spike trigger, and the vibes leaderboard has been
+// serving them the whole time. What was missing was a per-entity door, leaving
+// her card readable only by digging into the *Analyst's* /momentum payload at
+// vibes.snapshots[0]. Every other voice has its own route; so does she now.
+//
+// Serve-latest, matching /sigil: the latest scored row at ANY age, timestamped
+// client-side rather than hidden behind a freshness window. An entity never
+// scored serves `current: null` with a 200 — the card renders its empty state,
+// exactly as the momentum vibes panel already does. Never a 404.
+// @Summary Get the entity Vibe (The Influencer's emotional read)
+// @Description The entity's Vibe card — the Influencer's headline and body with her sentiment score (1-100), plus the last 7 days of snapshots. `current` is null when the entity has never been scored; the response is still 200.
+// @Tags data
+// @Produce json
+// @Param sport path string true "Sport" Enums(nba, nfl, football)
+// @Param entityType path string true "Entity type" Enums(player, team)
+// @Param id path int true "Entity ID"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} respond.ErrorResponse
+// @Failure 500 {object} respond.ErrorResponse
+// @Router /{sport}/{entityType}/{id}/vibe [get]
+func (h *Handler) GetEntityVibe(w http.ResponseWriter, r *http.Request) {
+	sport, ok := parseSport(w, r)
+	if !ok {
+		return
+	}
+	entityType, ok := parseEntityType(w, r)
+	if !ok {
+		return
+	}
+	id, ok := parsePathID(w, r, "id", "entity id")
+	if !ok {
+		return
+	}
+	h.serveStatementJSON(w, r, "entity_vibe", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id)
+}
+
 // GetEntitySigil returns the entity's SIGIL product — ONE `current` object
 // (Session C): the decided crown synthesis (score 1-100, fusing Rating + Vibe +
 // Momentum) carrying its own Oracle voice (reading + omen + voiced_at — the

@@ -319,13 +319,13 @@ fn prompt_player_composite_datapoints_and_scoped_position() {
 \nProfile distinctiveness: 70/100 (higher = more standout skills — let a richer profile earn a fuller read).\n\
 \nOverall score (how WELL overall — T-score, 50 = average): 67\n\
 \nDECISION CARD\n\
-Primary strength to respect: Scoring: 24 · 95th pct (elite) · z +3.1 [position: 88th, strong]\n\
-Secondary strengths to respect: None supplied.\n\
-Exploitation opportunity: Defense: 2.5 · 40th pct (below average) · z -0.5\n\
+Headline strength: Scoring: 24 · 95th pct (elite) · z +3.1 [position: 88th, strong]\n\
+Secondary strengths: None supplied.\n\
+Headline limitation: Defense: 2.5 · 40th pct (below average) · z -0.5\n\
 \nDatapoints — value · percentile + TIER (the percentile mapped to elite/strong/above average/average/below average/poor; THIS TIER IS THE TRUTH) · z (standard deviations above the mean: the scarcity/scale of the edge; a high z is a rarer, more premium skill); [position] percentile shown when present:\n\
 - Scoring: 24 · 95th pct (elite) · z +3.1 [position: 88th, strong]\n\
 - Defense: 2.5 · 40th pct (below average) · z -0.5\n\
-\nWrite the scouting report now: the three labeled sections (Strengths to respect / Exploitation opportunities / Summary), each on its own line, plain text. Begin directly with the words \"Strengths to respect:\" — no preamble, nothing before them."
+\nWrite the report now: the three labeled sections (Strengths / Limitations / Summary), each on its own line, plain text. Begin directly with the word \"Strengths:\" — no preamble, nothing before it."
     );
 }
 
@@ -355,12 +355,12 @@ fn prompt_team_no_composite_no_position() {
         "Entity: Test FC (FOOTBALL team)\n\
 \nProfile distinctiveness: 55/100 (higher = more standout skills — let a richer profile earn a fuller read).\n\
 \nDECISION CARD\n\
-Primary strength to respect: Defense: 0.38 · 78th pct (strong) · z +1.2\n\
-Secondary strengths to respect: None supplied.\n\
-Exploitation opportunity: None — this profile offers no clean exploit.\n\
+Headline strength: Defense: 0.38 · 78th pct (strong) · z +1.2\n\
+Secondary strengths: None supplied.\n\
+Headline limitation: None — this profile offers no clean exploit.\n\
 \nDatapoints — value · percentile + TIER (the percentile mapped to elite/strong/above average/average/below average/poor; THIS TIER IS THE TRUTH) · z (standard deviations above the mean: the scarcity/scale of the edge; a high z is a rarer, more premium skill); [position] percentile shown when present:\n\
 - Defense: 0.38 · 78th pct (strong) · z +1.2\n\
-\nWrite the scouting report now: the three labeled sections (Strengths to respect / Exploitation opportunities / Summary), each on its own line, plain text. Begin directly with the words \"Strengths to respect:\" — no preamble, nothing before them."
+\nWrite the report now: the three labeled sections (Strengths / Limitations / Summary), each on its own line, plain text. Begin directly with the word \"Strengths:\" — no preamble, nothing before it."
     );
 }
 
@@ -386,7 +386,7 @@ fn cross_season_memory_renders_before_the_write_cue() {
     assert!(prompt.contains("- Our prior read: season 2025 scored this profile 98/100"));
     assert!(prompt.contains("- Matchup memory: pts vs Test Rivals"));
     let mem_pos = prompt.find("Cross-season memory").unwrap();
-    let cue_pos = prompt.find("Write the scouting report now").unwrap();
+    let cue_pos = prompt.find("Write the report now").unwrap();
     let dp_pos = prompt.find("Datapoints — value").unwrap();
     assert!(dp_pos < mem_pos && mem_pos < cue_pos);
     let blank = build_stat_prompt(
@@ -658,7 +658,7 @@ fn rating_parser_never_fails_closed() {
 fn rating_splits_the_s20_headline_line() {
     // s20 (mig 226): the contracted closing title line — lifted out of the body, folded.
     let reply = RatingParser
-        .parse("Strengths to respect: Rim protection at the 96th percentile.\nSummary: Take away the rim first.\nHEADLINE:   Take away the rim against Vale ")
+        .parse("Strengths: Rim protection at the 96th percentile.\nSummary: Take away the rim first.\nHEADLINE:   Take away the rim against Vale ")
         .unwrap()
         .expect("always Some");
     assert_eq!(
@@ -904,7 +904,7 @@ fn the_personnel_block_sits_between_the_datapoints_and_the_memory_card() {
         .find("Personnel changes since our last read")
         .unwrap();
     let memp = prompt.find("Cross-season memory").unwrap();
-    let cue = prompt.find("Write the scouting report now").unwrap();
+    let cue = prompt.find("Write the report now").unwrap();
     assert!(dp < pers && pers < memp && memp < cue);
     assert!(prompt.contains("- Jul 29: joined New FC from Old FC (transfer).\n"));
     // The tier-truth invariant travels with the block.
@@ -921,4 +921,38 @@ fn the_personnel_block_sits_between_the_datapoints_and_the_memory_card() {
         None,
     );
     assert!(!blank.contains("Personnel changes"));
+}
+
+/// s21: the datapoint block must SPAN the entity's range, not crowd its top.
+#[test]
+fn datapoints_span_the_range_rather_than_taking_the_top() {
+    // Forty facets at descending percentiles, 97.5 down to 0.0.
+    let breakdown: Vec<RatingDatapoint> = (0..40)
+        .map(|i| RatingDatapoint {
+            label: format!("Stat {i}"),
+            pct: 97.5 - (i as f64) * 2.5,
+            ..Default::default()
+        })
+        .collect();
+    let got = ordered_facts(&breakdown);
+
+    assert_eq!(got.len(), MAX_STAT_FACTS, "the 4,096-window budget still binds");
+    // Presented high to low.
+    for w in got.windows(2) {
+        assert!(w[0].pct >= w[1].pct, "datapoints stay in pct DESC order");
+    }
+    // Both ends are present. Before s21 this list was facts[0..14] — everything at or below
+    // the 62nd percentile was invisible, so the bottom assertion is the whole point.
+    assert_eq!(got.first().unwrap().pct, 97.5, "the best skill is shown");
+    assert_eq!(got.last().unwrap().pct, 0.0, "and so is the worst");
+    // ...and the middle survives, which top-plus-bottom would also have missed.
+    let middle = got
+        .iter()
+        .filter(|d| d.pct > 20.0 && d.pct < 75.0)
+        .count();
+    assert!(
+        middle >= 3,
+        "the interior of the distribution must be represented, got {middle}: {:?}",
+        got.iter().map(|d| d.pct).collect::<Vec<_>>()
+    );
 }

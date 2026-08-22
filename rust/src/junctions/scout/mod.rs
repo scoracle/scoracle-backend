@@ -387,13 +387,49 @@ fn trim_float(f: f64) -> String {
     }
 }
 
-/// ordered_facts returns the highest-percentile datapoints, bounded to MAX_STAT_FACTS — the prompt's
-/// datapoint order. Stable sort by pct DESC (Rust `slice::sort_by` is stable, like Go `SliceStable`),
-/// so equal-pct ties keep their stored order, matching Go given the same breakdown input order.
+/// ordered_facts returns a datapoint set that SPANS the entity's percentile range, bounded to
+/// MAX_STAT_FACTS and presented in pct DESC order.
+///
+/// s21. This used to sort by pct DESC and truncate, which is top-N: on a forty-facet team the
+/// Scout saw the fourteen things the entity does best and never the bottom of its own
+/// distribution. The only weaknesses that reached him arrived through the decision card as a
+/// finished verdict rather than as evidence he could weigh, so a report meant to be thorough was
+/// built on the top third of the range.
+///
+/// Scott's brief for this seat: a front-office evaluator writing "a detailed, unbiased report on
+/// the target entity... thorough, which is why we have it analyze the z-score range and not just
+/// top and bottom scores." Top-N cannot produce that, and neither can top-plus-bottom: the middle
+/// is where an average team is actually average, and saying so is a finding.
+///
+/// The cap stays — the voices are pinned to a 4,096 window and the datapoint block is the
+/// biggest thing in this prompt — so the budget is SPENT differently instead of raised. Both
+/// ends are taken whole, because that is where the decisions live, and the remainder is an even
+/// stride through the middle so the shape of the distribution survives the sampling.
 fn ordered_facts(breakdown: &[RatingDatapoint]) -> Vec<RatingDatapoint> {
-    let mut facts = ordered_facts_unbounded(breakdown);
-    facts.truncate(MAX_STAT_FACTS);
-    facts
+    let facts = ordered_facts_unbounded(breakdown);
+    if facts.len() <= MAX_STAT_FACTS {
+        return facts;
+    }
+    const ENDS: usize = 5; // the top and bottom five: elite edges and real liabilities
+    let middle_slots = MAX_STAT_FACTS - (ENDS * 2);
+    let mut keep: Vec<usize> = (0..ENDS).collect();
+    // Even stride across the interior, endpoints excluded (they are already taken).
+    let lo = ENDS;
+    let hi = facts.len() - ENDS;
+    if hi > lo && middle_slots > 0 {
+        let span = hi - lo;
+        for i in 0..middle_slots {
+            // +1/(middle_slots+1) spacing keeps the samples off both seams.
+            let idx = lo + ((i + 1) * span) / (middle_slots + 1);
+            if !keep.contains(&idx) {
+                keep.push(idx);
+            }
+        }
+    }
+    keep.extend((facts.len() - ENDS)..facts.len());
+    keep.sort_unstable();
+    keep.dedup();
+    keep.into_iter().map(|i| facts[i].clone()).collect()
 }
 
 fn ordered_facts_unbounded(breakdown: &[RatingDatapoint]) -> Vec<RatingDatapoint> {
@@ -671,13 +707,13 @@ fn render_scouting_decision(d: &ScoutingDecision) -> String {
     // and weaknesses; specialist-ness is something the brief SAYS when true, not a field.)
     b.push_str("\nDECISION CARD\n");
     match &d.primary_strength_to_stop {
-        Some(f) => b.push_str(&format!("Primary strength to respect: {}\n", f.evidence)),
+        Some(f) => b.push_str(&format!("Headline strength: {}\n", f.evidence)),
         None => {
-            b.push_str("Primary strength to respect: None; no strong/elite skill exists.\n");
+            b.push_str("Headline strength: None; no strong/elite skill exists.\n");
         }
     }
     if d.secondary_strengths.is_empty() {
-        b.push_str("Secondary strengths to respect: None supplied.\n");
+        b.push_str("Secondary strengths: None supplied.\n");
     } else {
         let strengths = d
             .secondary_strengths
@@ -685,15 +721,15 @@ fn render_scouting_decision(d: &ScoutingDecision) -> String {
             .map(|f| f.evidence.as_str())
             .collect::<Vec<_>>()
             .join("; ");
-        b.push_str(&format!("Secondary strengths to respect: {strengths}\n"));
+        b.push_str(&format!("Secondary strengths: {strengths}\n"));
     }
     match &d.primary_weakness_to_exploit {
-        Some(f) => b.push_str(&format!("Exploitation opportunity: {}\n", f.evidence)),
+        Some(f) => b.push_str(&format!("Headline limitation: {}\n", f.evidence)),
         // The card says the words the model must speak (s14): echo-prone local models
         // reliably recite the card, so "no clean exploit" lives HERE, not "None supplied"
         // (which they echoed verbatim instead of the contract phrase — gate round 2).
         None => {
-            b.push_str("Exploitation opportunity: None — this profile offers no clean exploit.\n")
+            b.push_str("Headline limitation: None — this profile offers no clean exploit.\n")
         }
     }
     if let Some(reason) = &d.no_standout_reason {
@@ -1376,7 +1412,24 @@ fn clean_commentary(raw: &str) -> String {
             s = rest.trim();
         }
     }
-    s.trim().to_string()
+    // s21: emphasis is STRIPPED, not rejected — the Insider's is4 treatment, for the same
+    // reason and with the same precedent (`guards::salvage_hook`, `util::strip_markdown_emphasis`).
+    //
+    // Measured on the s21 probe: the front-office report bolded every skill name it cited, 144
+    // asterisks in one body, against zero for the same input under s20. `RATING_BODY_BANS` still
+    // carried "**" as a hard fail, so every one of those would have bailed as `rating_body_ban` —
+    // a fail-rate explosion in a seat that had none, on the same day two others were being undone.
+    // Asking a model not to emit Markdown is a request; stripping it is a guarantee, and the
+    // stripped body is exactly the body the report intended.
+    //
+    // Line by line, because the helper is written for ONE line of a labeled reply and this body
+    // is three labeled sections.
+    s.lines()
+        .map(crate::util::strip_markdown_emphasis)
+        .collect::<Vec<_>>()
+        .join("\n")
+        .trim()
+        .to_string()
 }
 
 // ---------------------------------------------------------------------------

@@ -84,9 +84,14 @@ pub const ORACLE_READING_BANS: &[&str] = &[
     "**",
 ];
 
-/// The Scout's brief is prose, never a bullet list and never Markdown — the legacy 7B's ` · `
-/// habit is the measured offender (08-19 gate: 8 of its 9 rating reds were this).
-pub const RATING_BODY_BANS: &[&str] = &[" · ", "**"];
+/// The Scout's report is prose, never a bullet list and never the card's notation — the legacy
+/// 7B's ` · ` habit is the measured offender (08-19 gate: 8 of its 9 rating reds were this).
+///
+/// `"**"` left this list at s21. It is no longer reachable: `clean_commentary` strips emphasis
+/// before the body is graded, the Insider-is4 treatment. Keeping a ban that can never fire reads
+/// as protection and provides none — copying the card's ` · ` notation is a content defect and
+/// stays a hard fail; bolding is typography and is now simply removed.
+pub const RATING_BODY_BANS: &[&str] = &[" · "];
 
 /// Served vibe prose carries no Markdown decoration (the labeled-line `**SCORE:**` case is
 /// stripped by `util::strip_markdown_emphasis` BEFORE parsing; this bans emphasis inside the

@@ -10,7 +10,7 @@
     "prose_no_digits": true,
     "total_sentences_max": 10,
     "prose_includes_any": [
-      "sample|samples|games|handful|thin|few"
+      "sample|samples|game|games|handful|thin|few|fragile|small"
     ]
   },
   "name": "sparse-samples-stay-steady",

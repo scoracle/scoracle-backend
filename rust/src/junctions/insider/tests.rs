@@ -57,6 +57,36 @@ fn insider_score_reply_parses_and_clamps() {
 }
 
 #[test]
+fn insider_score_read_reaches_the_card_undressed() {
+    // is4. The verbatim production shape from `/transfers.wire_read` on 2026-08-22 — the READ
+    // was the only served prose in the fleet with no plain-text rule and no `**` ban, because
+    // it was audit-only when the other seats got theirs.
+    let dressed = parse_insider_score_reply(
+        r#"{"read": "West Ham's wire is **one live, advanced call** — the rest are **speculative interests at minimal momentum**.", "score": 38}"#,
+    )
+    .unwrap();
+    assert_eq!(
+        dressed.read,
+        "West Ham's wire is one live, advanced call — the rest are speculative interests at minimal momentum."
+    );
+    assert_eq!(dressed.score, 38);
+
+    // Stripped, never REJECTED: a dressed read still ships, because a ban here would fail
+    // nearly every wire read until the prompt rule took (the fail-rate lesson of the same-day
+    // momentum-s18 / vibe-v21 pass).
+    assert!(parse_insider_score_reply(r#"{"read": "**Quiet.**", "score": 4}"#).is_some());
+
+    // Leading list/heading decoration goes too, and apostrophes and in-word underscores are
+    // left alone — this is prose hygiene, not a rewrite of what the Insider filed.
+    assert_eq!(
+        parse_insider_score_reply(r#"{"read": "- The board's snake_case tag holds.", "score": 50}"#)
+            .unwrap()
+            .read,
+        "The board's snake_case tag holds."
+    );
+}
+
+#[test]
 fn insider_score_input_components_content_keyed_and_order_stable() {
     // Same board in a different order ⇒ identical pre-image; summary/confidence never enter
     // it (a re-worded summary alone must not re-score the wire).

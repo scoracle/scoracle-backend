@@ -1986,8 +1986,25 @@ pub struct InsiderScoreReply {
 }
 
 /// parse_insider_score_reply mirrors `sigil::parse_crown_reply`: tolerate prose around the
-/// object, fold whitespace in the read, clamp the score to the tarot range. `None` = nothing
-/// salvageable (a genuine failure the caller retries via the `errored` tally).
+/// object, fold whitespace in the read, strip Markdown decoration, clamp the score to the
+/// tarot range. `None` = nothing salvageable (a genuine failure the caller retries via the
+/// `errored` tally).
+///
+/// On the strip (is4, 2026-08-22): the READ ships to the card as `/transfers.wire_read`, and
+/// production was serving it dressed — "West Ham's wire is **one live, advanced call**", four
+/// bold runs in a single read. The Insider is the only served seat with neither a plain-text
+/// prompt rule nor a `**` ban, and the reason is in this module's own history: the READ was
+/// audit-and-memory only, so the hygiene the served seats picked up (Analyst s8, Influencer
+/// v15, `RATING_BODY_BANS`, `VIBE_BODY_BANS`) was never extended to it. Drop 1 began serving
+/// it without carrying the rules across. The reply is JSON-schema constrained, so `read` is a
+/// well-formed string either way — no parse ever broke, and nothing surfaced the leak.
+///
+/// Stripped rather than REJECTED, deliberately. A `**` ban here would fail nearly every wire
+/// read until the prompt rule took, which is the fail-rate mistake the same-day momentum-s18 /
+/// vibe-v21 pass exists to undo. `util::strip_markdown_emphasis`'s own rationale applies
+/// unchanged: asking a model not to emit Markdown is a request, not a guarantee, and every
+/// model swap re-runs the experiment. is4 adds the written rule so the model stops producing
+/// it; this line guarantees the card is clean regardless.
 fn parse_insider_score_reply(raw: &str) -> Option<InsiderScoreReply> {
     let trimmed = raw.trim();
     let parsed: Option<serde_json::Value> = serde_json::from_str(trimmed).ok().or_else(|| {
@@ -1998,6 +2015,9 @@ fn parse_insider_score_reply(raw: &str) -> Option<InsiderScoreReply> {
     let v = parsed?;
     let read = v.get("read")?.as_str()?.trim();
     let read = read.split_whitespace().collect::<Vec<_>>().join(" ");
+    // Fold first, then strip: the helper is written for ONE line of a labeled reply, and the
+    // whitespace fold above is what makes a multi-sentence READ exactly that.
+    let read = crate::util::strip_markdown_emphasis(&read);
     if read.is_empty() {
         return None;
     }

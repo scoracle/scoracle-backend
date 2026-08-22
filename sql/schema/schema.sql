@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 3iUfkJmb3a96AUo7NkLgvZKmSnD0nqny2hT95C4Aedmlo7VmvFA71QEwvWtoNu4
+\restrict rHZyGO46RFey43Sygb6Omfua8CsZ9m5ODXuBgNj2wVbFNi2ndM1GM3obC9CK9H7
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -4723,7 +4723,7 @@ $$;
 -- Name: FUNCTION refresh_latest_momentum_scores_per_entity(); Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON FUNCTION public.refresh_latest_momentum_scores_per_entity() IS 'Statement trigger helper for latest_momentum_scores_per_entity. The source history remains append-only; this refresh moves the current-row projection cost to writes/cleanup instead of every hot leaderboard read.';
+COMMENT ON FUNCTION public.refresh_latest_momentum_scores_per_entity() IS 'Synchronous full rebuild of latest_momentum_scores_per_entity. NO LONGER TRIGGER-WIRED (mig 227): as an AFTER STATEMENT trigger on momentum_scores this held an ACCESS EXCLUSIVE lock on the projection for every write, and single-row reads against its unique index were measured blocking for 19s during the 2026-08-22 drain. The live refresh is now issued CONCURRENTLY by the maintenance drain (internal/maintenance), outside any transaction. Kept for manual/migration-time use where a synchronous rebuild is actually wanted.';
 
 
 --
@@ -8054,7 +8054,7 @@ CREATE MATERIALIZED VIEW public.latest_momentum_scores_per_entity AS
 -- Name: MATERIALIZED VIEW latest_momentum_scores_per_entity; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON MATERIALIZED VIEW public.latest_momentum_scores_per_entity IS 'Current-row projection for momentum_scores. D1 latest-row read optimization: one row per (sport, entity_type, entity_id), refreshed by a statement trigger after momentum_scores changes so /leaderboard/momentum does not sort the full append-only history on every read.';
+COMMENT ON MATERIALIZED VIEW public.latest_momentum_scores_per_entity IS 'Current-row projection for momentum_scores. One row per (sport, entity_type, entity_id). Refreshed CONCURRENTLY by the maintenance drain after refresh_momentum_scores (mig 227); was a blocking statement trigger on momentum_scores from mig 140 until then.';
 
 
 --
@@ -12114,13 +12114,6 @@ CREATE TRIGGER pipeline_work_notify_update AFTER UPDATE ON public.pipeline_work 
 
 
 --
--- Name: momentum_scores refresh_latest_momentum_scores_per_entity; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER refresh_latest_momentum_scores_per_entity AFTER INSERT OR DELETE OR UPDATE OR TRUNCATE ON public.momentum_scores FOR EACH STATEMENT EXECUTE FUNCTION public.refresh_latest_momentum_scores_per_entity();
-
-
---
 -- Name: event_box_scores trg_detect_team_change; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -12915,5 +12908,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 3iUfkJmb3a96AUo7NkLgvZKmSnD0nqny2hT95C4Aedmlo7VmvFA71QEwvWtoNu4
+\unrestrict rHZyGO46RFey43Sygb6Omfua8CsZ9m5ODXuBgNj2wVbFNi2ndM1GM3obC9CK9H7
 

@@ -105,7 +105,7 @@ impl Parser<MomentumReply> for MomentumParser {
     fn parse(&self, raw: &str) -> Result<Option<MomentumReply>> {
         // Carry a raw excerpt in the error: a dozen live items sat failed with only
         // "invalid response", leaving nothing to diagnose which contract line broke.
-        let reply = parse_momentum_reply(raw).ok_or_else(|| {
+        let mut reply = parse_momentum_reply(raw).ok_or_else(|| {
             anyhow!(
                 "momentum: invalid response (raw={:?})",
                 crate::util::truncate_bytes(raw.trim(), 160)
@@ -130,16 +130,25 @@ impl Parser<MomentumReply> for MomentumParser {
             anyhow::bail!("momentum: READ carries ASCII digits");
         }
         // The card title shares the HOOK contract (guards::hook_violation — twelve words,
-        // no colon, no question mark). Fail-closed like every title guard: a junk headline
-        // re-rolls rather than shipping.
+        // no colon, no question mark). s18 completes the s17 fail-open spirit: the READ is
+        // the pillar product and a junk TITLE never kills it. A two-beat title is salvaged
+        // to its first beat in code; anything else degrades to a NULL headline (the same
+        // outcome s17 assigned to an absent line) and the title regenerates next trigger.
         if let Some(h) = reply.headline.as_deref() {
-            if let Some(rule) = crate::guards::hook_violation(h) {
-                tracing::warn!(guard = rule, headline = h, "momentum headline rejected");
-                anyhow::bail!("momentum: headline violates {rule} (headline={h:?})");
-            }
-            if crate::guards::has_foreign_script(h) {
-                tracing::warn!(guard = "foreign_script", "momentum headline rejected");
-                anyhow::bail!("momentum: headline carries a foreign-script run");
+            let violation = crate::guards::hook_violation(h);
+            let foreign = crate::guards::has_foreign_script(h);
+            if violation.is_some() || foreign {
+                let rule = violation.unwrap_or("foreign_script");
+                match crate::guards::salvage_hook(h).filter(|_| !foreign) {
+                    Some(trimmed) => {
+                        tracing::info!(guard = rule, headline = h, salvaged = %trimmed, "momentum headline salvaged to first beat");
+                        reply.headline = Some(trimmed);
+                    }
+                    None => {
+                        tracing::warn!(guard = rule, headline = h, "momentum headline dropped (READ ships without a title)");
+                        reply.headline = None;
+                    }
+                }
             }
         }
         Ok(Some(reply))

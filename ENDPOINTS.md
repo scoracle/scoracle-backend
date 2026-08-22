@@ -1,6 +1,6 @@
 # Scoracle API Endpoints
 
-> Last updated: 2026-08-22 (Drop 2 — the headline/body contract is live: every leaderboard row carries `headline` and no prose bodies; every profile voice card carries `{headline, body}`; the Insider's wire read serves on the Transfers card.)
+> Last updated: 2026-08-22 (Drop 3a — the heat contract, additive: every board row and profile voice card also carries `heat`, the product's own number under one uniform key (native scale; it mirrors the existing per-voice key until the drop-3b break removes the old key zoo). `/stories` and `/story/{id}` serve the Journalist's `recap` (latest storyline-linked chapter — the Editor compiles and ranks but never writes prose) plus packet `routing_tags`. Drop 2 remains live: boards carry `headline` and no prose bodies; profile cards carry `{headline, body}`.)
 
 Single public API base URL:
 
@@ -17,15 +17,16 @@ The only source of truth is `go/internal/api/server.go`. Every route wired there
 | `GET /api/v1/{sport}/{entityType}/{id}/stats` | season Composite rating + per-event series + `available_seasons` |
 | `GET /api/v1/{sport}/{entityType}/{id}/rating` | model-written stat read + rating trajectory metadata (was `/special`) |
 | `GET /api/v1/{sport}/{entityType}/{id}/momentum` | Rating × Vibe trajectory (was `/trends`) |
-| `GET /api/v1/{sport}/{entityType}/{id}/sigil` | Sigil crown synthesis — `{headline, body}` + score/omen (was per-entity `/vibes`) |
+| `GET /api/v1/{sport}/{entityType}/{id}/vibe` | **The Influencer's emotional read** — `{headline, body, heat}` + sentiment (1-100) + the 7-day snapshot window. `current: null` (200, never 404) when the entity has never been scored. **Restored 2026-08-22.** |
+| `GET /api/v1/{sport}/{entityType}/{id}/sigil` | Sigil crown synthesis — `{headline, body, heat}` + score/omen (was per-entity `/vibes`) |
 | `GET /api/v1/{sport}/{entityType}/{id}/news` | scoped model narratives `{headline, body}` with source freshness and trajectory markers |
 | `GET /api/v1/{sport}/{entityType}/{id}/transfers` | scoped vetted rumor heat, per-pair `headline`s + the Insider's `wire_read`; source freshness and trajectory markers |
 | `GET /api/v1/{sport}/{entityType}/{id}/meta` | per-entity identity (page header); 404 if unknown |
 | `GET /api/v1/{sport}/team/{id}/results` · `/roster` | finalized scorelines · legacy roster compatibility |
 | `GET /api/v1/{sport}/meta` · `/autofill` · `/health` | legacy sport-wide metadata/search payload · legacy sport autofill · freshness |
-| `GET /api/v1/{sport}/stories` | Stories page list: open storylines ranked by editor-native heat (report volume decayed by latest-packet age); `?status=resolved\|dormant` for the archive, `?limit=` (default 50, cap 200) |
-| `GET /api/v1/{sport}/story/{id}` | one storyline whole: cast (roles + lifespans), packet headline history, full latest packet, attached articles, voice-product pointers; 404 if unknown |
-| `GET /api/v1/{sport}/leaderboard` | comprehensive ranked research database; `?board=rating\|vibes\|sigil\|news\|transfers\|momentum` (`trending` legacy alias); product boards serve `headline` + score, never prose bodies |
+| `GET /api/v1/{sport}/stories` | Stories page list: open storylines ranked by editor-native heat (report volume decayed by latest-packet age); each row carries the Journalist's `recap` (nullable) + packet `routing_tags`; `?status=resolved\|dormant` for the archive, `?limit=` (default 50, cap 200) |
+| `GET /api/v1/{sport}/story/{id}` | one storyline whole: cast (roles + lifespans), packet headline history, full latest packet (incl. `routing_tags`), the Journalist's `recap`, attached articles, voice-product pointers; 404 if unknown |
+| `GET /api/v1/{sport}/leaderboard` | comprehensive ranked research database; `?board=rating\|vibes\|sigil\|news\|transfers\|momentum` (`trending` legacy alias); product boards serve `headline` + `heat` (the board's own number, native scale), never prose bodies |
 | `GET /api/v1/{sport}/leaderboard/{vibes,sigil,news,transfers,momentum}` | dedicated boards (`trending` legacy alias remains wired) |
 | `GET /api/v1/{sport}/leagues/{leagueId}/{momentum,results,meta,health}` | league-scoped variants |
 | `GET /` · `/health` · `/health/db` · `/health/cache` · `/docs/` · `/docs/go.json` | operational |
@@ -33,7 +34,9 @@ The only source of truth is `go/internal/api/server.go`. Every route wired there
 
 **Removed (no longer wired — kept here so this file matches reality):** the bundled profile
 route `/{sport}/{entityType}/{id}` (O16); the per-entity aliases `/special`, `/trends`,
-`/vibes` (O14 convergence rename); the standalone `/headlines` and `/leaderboard/headlines`
+`/vibes` (O14 convergence rename — the PLURAL alias only. The Vibe **card** returned
+as the singular `/{entityType}/{id}/vibe` on 2026-08-22; it is the Influencer's own
+product with its own contract, not an alias of `/sigil`); the standalone `/headlines` and `/leaderboard/headlines`
 routes (2026-07-03; folded into `/news`); the old live integration routes; the legacy
 `/sparkline`/`/starline`.
 
@@ -520,6 +523,7 @@ regenerates (freshness gates bound the gap).
       "rating": 12.5226,
       "rating_rank": 100.0,
       "rating_score": 99.0,
+      "heat": 12.5226,               // heat contract (drop 3a): the scope's sort metric (rating, or fantasy_points under scope=fantasy)
       "rank": 1
     }
   ]
@@ -560,6 +564,7 @@ one row shape shared with the news board below.
       "team_code": "DAL",
       "team_logo": "https://…",
       "score": 92,                     // latest sentiment (1-100)
+      "heat": 92,                      // heat contract (drop 3a): mirrors score until 3b removes it
       "headline": "…",                 // the Influencer's HOOK — the row's card title
       "generated_at": "2026-06-04T12:04:16-04:00",
       "rank": 1
@@ -598,6 +603,7 @@ entity). Also reachable as `GET /api/v1/{sport}/leaderboard?board=sigil`.
       "team_code": "MIL",
       "team_logo": "https://…",
       "score": 95,                     // latest Sigil crown score (1-100)
+      "heat": 95,                      // heat contract (drop 3a): mirrors score until 3b removes it
       "previous_score": 91,            // prior crown score (may be null) — for the delta
       "headline": "…",                 // the Oracle's card title (or11+). Rows from before
                                        // the headline contract omit until regenerated.
@@ -642,6 +648,7 @@ card. Supersedes the old mention-count and standalone headlines boards. Also rea
       "team_logo": "https://…",
       "headline": "...",               // the Journalist's narrative title — boards serve titles, never bodies
       "score": 85,                     // narrative impact
+      "heat": 85,                      // heat contract (drop 3a): mirrors score until 3b removes it
       "updated_at": "2026-07-03T13:47:21-04:00",
       "source_count": 4,
       "source_names": ["BBC Sport", "ESPN"],
@@ -734,7 +741,8 @@ full resolution for 30 days, then thin to one per entity per day, forever.
 
 Same enriched row shape as the other boards (`name` / `image` / `team_*`), plus the
 Analyst's card title as a **nullable `headline`** (latest `momentum_summaries`
-generation per entity). Unlike the prose-first boards, momentum rows never omit for a
+generation per entity) and `heat` (drop 3a: mirrors `score`, the 1-dp slope, until 3b
+removes `score`). Unlike the prose-first boards, momentum rows never omit for a
 missing headline — the numeric slopes are this board's product. Reached
 via the dedicated path or `/leaderboard?board=momentum`. `entity_type`, shared
 cohort filters, and `limit` query params apply. `/leaderboard/trending` and
@@ -906,6 +914,7 @@ season, clamped to [3, 16]. Same path params and `season`/`league_id` query para
     "rating": 12.5226, "rating_rank": 100.0, "rating_score": 100.0,
     "rating_breakdown": [ /* … */ ], "rating_modes": { /* … */ }
   },
+  "heat": 12.5226,                   // heat contract (drop 3a): the card's uniform number key = the season composite (rating.rating)
   "commentary": {                    // latest stat_summaries generation that carries a body; null otherwise
     "body": "…", "notability": 88, "notability_components": {}, "season": 2025,
     "prompt_version": "…", "generated_at": "2026-06-20T…",
@@ -975,7 +984,7 @@ Query `scope` defaults to `current_week`; allowed values are `current_week`, `la
 { "page": "news", "sport": "football", "entity_type": "team", "entity_id": 18,
   "scope": {"key": "current_week", "label": "Current week", "starts_at": "...", "ends_at": "..."},
   "narratives": [
-    {"headline": "...", "body": "...", "impact": 85, "impact_components": {},
+    {"headline": "...", "body": "...", "impact": 85, "heat": 85, "impact_components": {},
      "source_attribution": null, "input_news_ids": [], "updated_at": "...",
      "source_count": 4, "source_names": ["BBC Sport", "ESPN"],
      "source_latest_at": "...", "source_oldest_at": "...",
@@ -999,6 +1008,7 @@ Query `scope` defaults to `current_week`; allowed values are `current_week`, `la
 { "page": "transfers", "sport": "football", "entity_type": "team", "entity_id": 18,
   "scope": {"key": "current_week", "label": "Current week", "starts_at": "...", "ends_at": "..."},
   "card_score": 10,
+  "heat": 10,
   "wire_read": "Chelsea's wire shows no advancing calls beyond Tosin Adarabioyo's lingering, unconfirmed interest…",
   "transfers": [
     {"id": 448448, "name": "Marc Cucurella", "image": "...", "heat": 53, "heat_components": {}, "direction": "outgoing", "stage": "speculation", "headline": "...", "source_attribution": "...",
@@ -1006,7 +1016,7 @@ Query `scope` defaults to `current_week`; allowed values are `current_week`, `la
      "trajectory": "developing_story", "trajectory_label": "Developing story...", "trajectory_components": {}, "rank": 1}
   ] }
 ```
-`transfers`: vetted (`is_rumor`, `heat > 0`), latest per pair in the selected scope, ranked by heat (top 25); each row's `headline` is the Insider's one-sentence wire line. `card_score` + `wire_read` are the Insider's latest wrap (score + prose read of the wire); both null when the wire was never wrapped.
+`transfers`: vetted (`is_rumor`, `heat > 0`), latest per pair in the selected scope, ranked by heat (top 25); each row's `headline` is the Insider's one-sentence wire line. `card_score` + `wire_read` are the Insider's latest wrap (score + prose read of the wire); both null when the wire was never wrapped. Top-level `heat` (drop 3a) is the card's uniform number key and mirrors `card_score` until the drop-3b break retires it.
 
 ### `GET /api/v1/{sport}/{entityType}/{id}/meta`
 
@@ -1043,7 +1053,12 @@ Team response:
 ### ~~`GET /api/v1/{sport}/vibe/{entityType}/{id}` · `/history` · `/vibe/hottest`~~ (retired 2026-06-15)
 
 The per-entity vibe endpoints were retired and superseded:
-- per-entity vibe → folded into the **`GET /api/v1/{sport}/{entityType}/{id}/sigil`** crown synthesis (the per-entity `/vibes` alias was dropped).
+- per-entity vibe → **`GET /api/v1/{sport}/{entityType}/{id}/vibe`** (restored 2026-08-22).
+  Between O14 and that date this line read "folded into `/sigil`", which was never quite
+  true: the Sigil *consumes* Vibe as one of three inputs, but the Influencer kept writing
+  her own card to `vibe_scores` the entire time and the vibes leaderboard kept serving it.
+  What was actually lost was the per-entity route, leaving her card reachable only inside
+  the Analyst's `/momentum` payload at `vibes.snapshots[0]`.
 - `/vibe/hottest` → **`GET /api/v1/{sport}/leaderboard/vibes`** (the enriched sport-wide hottest-by-sentiment board).
 
 The vibe *data* (vibe_scores) and its writers (CLI / listener / cron) are unchanged — only these read routes moved.

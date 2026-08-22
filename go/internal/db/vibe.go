@@ -48,7 +48,13 @@ vibe_cur AS (
 	LIMIT 1
 ),
 vibe_window AS (
-	SELECT vs.sentiment, vs.generated_at, vs.trigger_type
+	-- Carries the prose, not just the score. The Vibe card is a FEED — "past
+	-- week vibe reads, latest first", up to four of them — so a window of bare
+	-- numbers would quietly reduce it to a single read. This is the same shape
+	-- and volume /momentum already returns; the card is not being asked to
+	-- render anything it was not rendering before.
+	SELECT vs.sentiment, vs.generated_at, vs.trigger_type,
+	       vs.hook AS headline, vs.prompt AS body
 	FROM public.vibe_scores vs, req
 	WHERE vs.entity_type = req.entity_type
 	  AND vs.entity_id = req.entity_id
@@ -76,7 +82,9 @@ SELECT json_build_object(
 		(SELECT json_agg(json_build_object(
 			'sentiment', sentiment,
 			'generated_at', generated_at,
-			'trigger_type', trigger_type
+			'trigger_type', trigger_type,
+			'headline', headline,
+			'body', body
 		) ORDER BY generated_at DESC) FROM vibe_window),
 		'[]'::json
 	)

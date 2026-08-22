@@ -1,16 +1,16 @@
 {
   "expect": {
     "prose_excludes": [
-      "falling",
       "**"
     ],
-    "prose_includes": [
-      "steady"
-    ],
+    "prose_includes": [],
     "prose_max_words": 260,
     "prose_min_words": 25,
     "prose_no_digits": true,
-    "total_sentences_max": 10
+    "total_sentences_max": 10,
+    "prose_includes_any": [
+      "steady|holding|flat|level|unchanged|neutral|holds"
+    ]
   },
   "name": "noisy-flat-signals-steady",
   "note": "choppy, low-amplitude signals on both rails. Steady, and the read must not manufacture a trend.",

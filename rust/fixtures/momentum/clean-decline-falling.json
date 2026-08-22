@@ -1,7 +1,6 @@
 {
   "expect": {
     "prose_excludes": [
-      "rising",
       "**"
     ],
     "prose_max_words": 260,

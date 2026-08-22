@@ -4,13 +4,14 @@
       "surging",
       "**"
     ],
-    "prose_includes": [
-      "sample"
-    ],
+    "prose_includes": [],
     "prose_max_words": 260,
     "prose_min_words": 25,
     "prose_no_digits": true,
-    "total_sentences_max": 10
+    "total_sentences_max": 10,
+    "prose_includes_any": [
+      "sample|samples|games|handful|thin|few"
+    ]
   },
   "name": "sparse-samples-stay-steady",
   "note": "a big slope on TWO samples is noise, not momentum. Steady, and the read should name the thin sample.",

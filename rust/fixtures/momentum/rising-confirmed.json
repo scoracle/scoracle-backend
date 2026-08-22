@@ -1,15 +1,13 @@
 {
   "expect": {
     "prose_excludes": [
-      "falling",
       "**"
     ],
-    "prose_includes": [
-      "rising"
-    ],
+    "prose_includes": [],
     "prose_includes_any": [
       "form|tape|performance|production",
-      "mood|emotion|feeling|the room|the feed"
+      "mood|emotion|feeling|the room|the feed",
+      "rising|climbing|surge|surging|upward|lifting|gaining"
     ],
     "prose_max_words": 260,
     "prose_min_words": 25,

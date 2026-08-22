@@ -1065,6 +1065,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			                  model_version, prompt_version, generated_at
 			           FROM narr) n), '[]'::json)
 		)`,
+		"entity_vibe": entityVibeStatement,
 		"entity_transfers": `WITH req AS (
 			SELECT upper($1::text) AS sport,
 			       lower($2::text) AS entity_type,

@@ -107,16 +107,18 @@ all 13 changed statements against prod data through db.New — ALL GREEN (sigil 
 executes but is empty in prod: zero or11-headline crowns exist yet, see watch item).
 story_list with the recap lateral: 122ms cold / ~55ms warm at limit 50 (~98KB payload).
 
-## ⚠️ Watch item found during gating — sigil junction starved
+## Watch item recalibrated — sigil board refill is trough-gated (by design)
 
 Zero crowns generated since 08-20 20:03 (all or10): 3,681 sigil work rows are ready
-(`available_at <= NOW()`) with ZERO claims. Cause: the drain tops up stages in
-registration (DAG) order and sigil is LAST in the shared archbox slot group; with deep
-narratives/vibe/momentum/transfers backlogs since ~08-21, earlier stages fill every
-shared slot on every pass. The sigil board cannot refill with or11 crowns until the
-pillar backlog drains (~1wk trough forecast) — or the drain reserves sigil a slot.
-Separate signal: momentum guard rejections are heavy today (641 "READ carries ASCII
-digits" among 805 failed) and vibe has 255 failed since 08-21 — worth a look.
+(`available_at <= NOW()`) with zero claims. This is the DAG drain working as designed
+(sigil is terminal, registered last; upstream stages fill every shared archbox slot
+while their backlogs are deep — see backlog-churn watch). The consequence for the
+contract: the **or11 sigil-board refill lands when the trough clears (~1wk)**, not on
+"the next nightly cycles" as the drop-2 progress doc hoped. Not a stall — don't restart
+anything. Lever if Scott wants the board sooner: reserve sigil a slot in the drain, or
+take churn-lever 1 (halved nightly caps) to reach sigil faster.
+Separate signal worth a look: momentum guard rejections are heavy today (641 "READ
+carries ASCII digits" among 805 failed rows) and vibe has 255 failed since 08-21.
 
 ## Gate ladder (unchanged)
 

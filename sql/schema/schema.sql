@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict kBIFguJLrHgvgP2mPVpkgRPiZJkiRZx0qCioDtweabptRBAgXN6MmSfiLeBmnPd
+\restrict 3iUfkJmb3a96AUo7NkLgvZKmSnD0nqny2hT95C4Aedmlo7VmvFA71QEwvWtoNu4
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -2466,7 +2466,10 @@ BEGIN
     ON CONFLICT (stage, entity_type, entity_id, sport) DO UPDATE SET
         status        = 'pending',
         attempts      = 0,
-        available_at  = NOW(),
+        -- FIFO preservation (mig 225, mirrors work.rs/work.go).
+        available_at  = CASE WHEN public.pipeline_work.status = 'pending'
+                             THEN public.pipeline_work.available_at
+                             ELSE NOW() END,
         updated_at    = NOW(),
         last_error    = NULL,
         input_version = EXCLUDED.input_version
@@ -2578,7 +2581,12 @@ BEGIN
     ON CONFLICT (stage, entity_type, entity_id, sport) DO UPDATE SET
         status        = 'pending',
         attempts      = 0,
-        available_at  = NOW(),
+        -- A still-pending row keeps its place in the FIFO (mig 225, mirrors
+        -- work.rs/work.go): restamping to NOW() sent every re-noticed entity to
+        -- the back of the line, starving hot entities behind quiet aged ones.
+        available_at  = CASE WHEN public.pipeline_work.status = 'pending'
+                             THEN public.pipeline_work.available_at
+                             ELSE NOW() END,
         updated_at    = NOW(),
         last_error    = NULL,
         input_version = EXCLUDED.input_version
@@ -2607,7 +2615,10 @@ BEGIN
     ON CONFLICT (stage, entity_type, entity_id, sport) DO UPDATE SET
         status        = 'pending',
         attempts      = 0,
-        available_at  = NOW(),
+        -- FIFO preservation, as above (mig 225).
+        available_at  = CASE WHEN public.pipeline_work.status = 'pending'
+                             THEN public.pipeline_work.available_at
+                             ELSE NOW() END,
         updated_at    = NOW(),
         last_error    = NULL,
         input_version = EXCLUDED.input_version
@@ -8115,6 +8126,7 @@ CREATE TABLE public.momentum_summaries (
     model_version text NOT NULL,
     prompt_version text NOT NULL,
     generated_at timestamp with time zone DEFAULT now() NOT NULL,
+    headline text,
     CONSTRAINT momentum_summaries_direction_check CHECK (((direction IS NULL) OR (direction = ANY (ARRAY['rising'::text, 'falling'::text, 'steady'::text])))),
     CONSTRAINT momentum_summaries_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
     CONSTRAINT momentum_summaries_score_check CHECK (((score IS NULL) OR ((score >= '-5'::integer) AND (score <= 5))))
@@ -8126,6 +8138,13 @@ CREATE TABLE public.momentum_summaries (
 --
 
 COMMENT ON TABLE public.momentum_summaries IS 'Generated Momentum trajectory cards. Numeric trajectory remains in momentum_scores; this table stores the first-class direction/score/blurb product consumed by Sigil.';
+
+
+--
+-- Name: COLUMN momentum_summaries.headline; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.momentum_summaries.headline IS 'The Analyst''s model-emitted card title for this trajectory read (extractive, evidence-traced). NULL = a pre-headline row → momentum board omits until regen.';
 
 
 --
@@ -9335,6 +9354,7 @@ CREATE TABLE public.sigil_synthesis (
     voiced_at timestamp with time zone,
     voice_model_version text,
     voice_prompt_version text,
+    headline text,
     CONSTRAINT sigil_synthesis_convergence_check CHECK (((convergence IS NULL) OR ((convergence >= 1) AND (convergence <= 100)))),
     CONSTRAINT sigil_synthesis_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
     CONSTRAINT sigil_synthesis_omen_check CHECK (((omen IS NULL) OR (omen = ANY (ARRAY['ascendant'::text, 'steady'::text, 'waning'::text, 'crossroads'::text])))),
@@ -9385,6 +9405,13 @@ COMMENT ON COLUMN public.sigil_synthesis.voiced_score IS 'Sigil score the curren
 --
 
 COMMENT ON COLUMN public.sigil_synthesis.voiced_at IS 'When the current reading was actually drawn; older than generated_at on carried-forward rows.';
+
+
+--
+-- Name: COLUMN sigil_synthesis.headline; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.sigil_synthesis.headline IS 'The Oracle''s model-emitted card title for this crown (extractive, evidence-traced). NULL = marker row or a pre-headline row → boards omit, profiles render reading alone. Carried forward verbatim with reading when the re-voice hysteresis skips the model (those rows are already identifiable by voiced_at < generated_at — no extra flag).';
 
 
 --
@@ -9564,6 +9591,7 @@ CREATE TABLE public.stat_summaries (
     rating_trajectory text,
     rating_trajectory_label text,
     rating_trajectory_components jsonb DEFAULT '{}'::jsonb NOT NULL,
+    headline text,
     CONSTRAINT stat_summaries_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
     CONSTRAINT stat_summaries_notability_check CHECK (((notability IS NULL) OR ((notability >= 0) AND (notability <= 100)))),
     CONSTRAINT stat_summaries_rating_trajectory_check CHECK ((rating_trajectory = ANY (ARRAY['rising'::text, 'falling'::text, 'steady'::text]))),
@@ -9611,6 +9639,13 @@ COMMENT ON COLUMN public.stat_summaries.rating_trajectory_label IS 'Human label 
 --
 
 COMMENT ON COLUMN public.stat_summaries.rating_trajectory_components IS 'Transparent PEAK trajectory inputs: recent Composite/PEAK z-score samples, slopes, and sample sizes.';
+
+
+--
+-- Name: COLUMN stat_summaries.headline; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.stat_summaries.headline IS 'The Scout''s model-emitted card title for this read (extractive, evidence-traced). NULL = insufficient-stats marker or a pre-headline row → the rating card renders body alone.';
 
 
 --
@@ -12880,5 +12915,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict kBIFguJLrHgvgP2mPVpkgRPiZJkiRZx0qCioDtweabptRBAgXN6MmSfiLeBmnPd
+\unrestrict 3iUfkJmb3a96AUo7NkLgvZKmSnD0nqny2hT95C4Aedmlo7VmvFA71QEwvWtoNu4
 

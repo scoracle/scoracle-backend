@@ -19,6 +19,7 @@ The only source of truth is `go/internal/api/server.go`. Every route wired there
 | `GET /api/v1/{sport}/{entityType}/{id}/momentum` | Rating × Vibe trajectory (was `/trends`) |
 | `GET /api/v1/{sport}/{entityType}/{id}/vibe` | **The Influencer's emotional read** — `{headline, body, heat}` + sentiment (1-100) + the 7-day snapshot window. `current: null` (200, never 404) when the entity has never been scored. **Restored 2026-08-22.** |
 | `GET /api/v1/{sport}/{entityType}/{id}/sigil` | Sigil crown synthesis — `{headline, body, heat}` + score/omen (was per-entity `/vibes`) |
+| `GET /api/v1/{sport}/{entityType}/{id}/vibe` | the Influencer's Vibe card — `{headline, body, heat}` + sentiment and the 7-day snapshot feed (route restored 2026-08-22; absent since the O14 rename handed `/vibes` to `/sigil`) |
 | `GET /api/v1/{sport}/{entityType}/{id}/news` | scoped model narratives `{headline, body}` with source freshness and trajectory markers |
 | `GET /api/v1/{sport}/{entityType}/{id}/transfers` | scoped vetted rumor heat, per-pair `headline`s + the Insider's `wire_read`; source freshness and trajectory markers |
 | `GET /api/v1/{sport}/{entityType}/{id}/meta` | per-entity identity (page header); 404 if unknown |
@@ -969,10 +970,11 @@ Returns health/freshness payload scoped to a specific league.
 
 The old bundled **news rail** (`/news` = narratives + transfers + vibe in one payload)
 was split into self-contained products on 2026-06-15. `news` is the data
-**source**; each card fetches exactly its own product. Both take the same path
+**source**; each card fetches exactly its own product. All take the same path
 params (`sport` ∈ `nba|nfl|football`, `entityType` ∈ `player|team`, `id`). The
-per-entity **vibe** product is no longer served here — it is folded into the Sigil
-crown synthesis at `GET /api/v1/{sport}/{entityType}/{id}/sigil`.
+per-entity **vibe** product has its own door again as of 2026-08-22 (below); the
+Sigil crown synthesis at `GET /api/v1/{sport}/{entityType}/{id}/sigil` remains the
+Oracle's separate product.
 
 **`GET /api/v1/{sport}/{entityType}/{id}/news`** — the entity's scoped model
 **narratives** (hottest first by `impact`). News is a post-transfers pipeline layer, so
@@ -1017,6 +1019,26 @@ Query `scope` defaults to `current_week`; allowed values are `current_week`, `la
   ] }
 ```
 `transfers`: vetted (`is_rumor`, `heat > 0`), latest per pair in the selected scope, ranked by heat (top 25); each row's `headline` is the Insider's one-sentence wire line. `card_score` + `wire_read` are the Insider's latest wrap (score + prose read of the wire); both null when the wire was never wrapped. Top-level `heat` (drop 3a) is the card's uniform number key and mirrors `card_score` until the drop-3b break retires it.
+
+**`GET /api/v1/{sport}/{entityType}/{id}/vibe`** — the Influencer's **Vibe card**,
+restored to its own route 2026-08-22 (it had been readable only inside the Analyst's
+`/momentum` payload since the O14 rename handed the `/vibes` path to `/sigil`).
+Serve-latest, matching `/sigil`: `current` is the latest scored generation at ANY age,
+timestamped client-side; an entity never scored serves `current: null` with a **200**
+(never a 404) and the card renders its empty state. `snapshots` is the 7-day feed —
+each read carries its prose, latest first — so the card is self-sufficient in one
+request; the season-length sparkline stays on `/momentum`.
+```json
+{ "page": "vibe", "sport": "football", "entity_type": "team", "entity_id": 18,
+  "current": {"sentiment": 58, "heat": 58, "headline": "...", "body": "...",
+              "trigger_type": "periodic", "generated_at": "...",
+              "model_version": "...", "prompt_version": "..."},
+  "window_days": 7,
+  "snapshots": [
+    {"sentiment": 58, "generated_at": "...", "trigger_type": "periodic", "headline": "...", "body": "..."}
+  ] }
+```
+`current` follows the voice-card contract: `{headline, body}` (the hook + the felt read) with `heat` mirroring `sentiment` (1-100) per drop 3a. `headline` is null on rows predating the hook contract (mig 180/v13). `snapshots` is `[]` when the week was quiet.
 
 ### `GET /api/v1/{sport}/{entityType}/{id}/meta`
 

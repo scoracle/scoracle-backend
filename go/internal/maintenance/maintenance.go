@@ -427,6 +427,7 @@ func drainMomentumRefreshNeeded(ctx context.Context, pool *pgxpool.Pool, logger 
 		return
 	}
 
+	refreshedAny := false
 	for _, item := range dirty {
 		momentumRefreshMu.Lock()
 		last, refreshed := momentumLastRefresh[item.sport]
@@ -456,6 +457,32 @@ func drainMomentumRefreshNeeded(ctx context.Context, pool *pgxpool.Pool, logger 
 			continue
 		}
 		logger.Info("Momentum scores refreshed", "sport", item.sport, "snapshots", *n)
+		refreshedAny = true
+	}
+
+	// The current-row projection, refreshed ONCE per drain and CONCURRENTLY (mig 227).
+	//
+	// This used to be an AFTER STATEMENT trigger on momentum_scores running a plain REFRESH
+	// MATERIALIZED VIEW, which takes an ACCESS EXCLUSIVE lock and rebuilds every row for every
+	// sport. Since this drain writes momentum_scores, every drain froze every reader of the
+	// projection — and the Analyst reads it to load her own context, so the momentum stage
+	// blocked on its own pipeline's writes. Measured on 2026-08-22: 19.1s for a single-row
+	// lookup that has a UNIQUE index on exactly its predicate.
+	//
+	// CONCURRENTLY is only legal outside a transaction block, which is precisely why it could
+	// never live in the trigger, and it needs the unique index that has existed since mig 140.
+	// Issued here, on the pool, as a standalone statement.
+	//
+	// Once per drain, not once per sport: the projection is not sport-partitioned, so a rebuild
+	// per dirty sport would repeat identical work while holding the refresh's own lock.
+	if refreshedAny {
+		if _, err := pool.Exec(ctx,
+			`REFRESH MATERIALIZED VIEW CONCURRENTLY public.latest_momentum_scores_per_entity`); err != nil {
+			// Non-fatal by design: the momentum_scores rows are already committed and correct.
+			// A failed projection refresh serves slightly stale current-row reads until the next
+			// drain, which is strictly better than failing a drain that succeeded.
+			logger.Warn("Momentum projection refresh failed (serving stale current-row reads until next drain)", "error", err)
+		}
 	}
 }
 

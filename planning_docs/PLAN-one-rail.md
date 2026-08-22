@@ -5090,6 +5090,20 @@ diagnosis, the numbers and the candidate knobs stay in the tuning file at the se
   is no longer "the largest available throughput change" — D-T34 is.** The live runner shows
   `-c 8192 -np 2` = 4096 PER SLOT, confirming KV scales as `num_ctx × slots`, so 4 slots at 2048
   would cost today's KV — ⛔ **but only AFTER D-T35's prompt trim, never before.** → *tuning §D-T30*
+- **D-T58 · ⭐ THE DIGIT STARVATION — momentum-s18: 65% OF MOMENTUM GENERATIONS BURNED ON GUARD
+  RETRIES (1,223 rejections vs 650 cards/24h), AND THE PROMPT'S OWN DIRECTION LINE FED THE LEAK
+  (2026-08-22).** The line handed the READ "(momentum score +12.3, steady band ±10)" while
+  banning both; s18 renders BOTH decided facts as words (strength off the
+  momentum_conviction_from_score ladder), promotes the no-number rule to the ships-or-not
+  block, and completes s17's fail-open title (salvage-or-NULL, never a failed READ). Gate
+  88/91 vs 87/91, digits clean ×10; fixtures re-frozen at s18 (s17 had never re-frozen them).
+  → *tuning §D-T58*
+- **D-T59 · ✅ THE HOOK OVERRUN — vibe v21 + guards::salvage_hook: 29% OF VIBE GENERATIONS
+  RETRIED ON TWO-BEAT 13-18-WORD TITLES (674 vs 1,651/24h) (2026-08-22).** Cap moved to the
+  emission site + one-clause rule in the prompt; a violating two-beat title is now trimmed to
+  its first beat IN CODE iff the beat passes the full hook contract — unsalvageable hooks
+  still re-roll. Gate 38/43 at v21; both residual reds are the salvage's target shape.
+  → *tuning §D-T59*
 - **D-T57 · ⭐⭐ THE FIVE-VOICE PASS — s18/s15/or9/v18/n19 IN ONE GATED SWEEP; THE CROWN'S oMLX
   PARSE BUG DIES (2026-08-10 evening).** Scott's briefs: Scout product-name-free (PEAK line now
   CODE-OWNED, prompt de-PEAKed at the source), Analyst rule 1 INVERTED ("the form"/"the emotion

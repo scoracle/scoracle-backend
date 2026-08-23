@@ -128,7 +128,7 @@ Stage code lives in CHARACTER JUNCTIONS — `src/junctions/<character>/` with `m
 | `editor` | `editor` (The Editor) | article full text | evidence cards, `story_type`, packets, routing |
 | `investigate_entity` | `investigator` (The Investigator) | encyclopedia summaries | identity verdicts |
 | `fixture_boxscore` | `investigator/boxscore` | fixture pages | box-score facts |
-| `peak` | `scout` (The Scout) | rating profile + decision card | `stat_summaries` (body + code-owned `divined_peak`) |
+| `rating` | `scout` (The Scout) | rating profile + decision card | `stat_summaries` (body + headline) |
 | `momentum` | `analyst` (The Analyst) | form/mood trends + snapshot | `momentum_summaries` |
 | `transfers` | `insider` (The Insider) | vetted pair context | `transfer_rumors` |
 | `narratives` | `journalist` (The Journalist) | packet corpus + evidence cards | `news_summaries` (+ `card_score`) |
@@ -136,8 +136,116 @@ Stage code lives in CHARACTER JUNCTIONS — `src/junctions/<character>/` with `m
 | `sigil` | `oracle` (the Oracle) | the five pillar cards + computed omen — nothing else (blind to memories since or9) | `sigil_synthesis` |
 
 Momentum's generated card is a queue stage. Its deterministic `/momentum` numeric backbone remains
-`momentum_scores` / `latest_momentum_scores_per_entity`. Rating (`peak`) also runs as the
-`statcommentary` batch.
+`momentum_scores` / `latest_momentum_scores_per_entity`. Rating also runs as the `statcommentary`
+batch. (`divined_peak` left the product at s16/or10 with the PEAK concept; the stage was named
+`peak` until mig 221 and is `rating` now.)
+
+## Seat Doctrine
+
+Rewritten 2026-08-22 after a full-fleet role audit. Everything here is measured; the numbers are
+the argument.
+
+### One card, one job
+
+Each seat owns exactly one question, and its value is the part no other seat can supply.
+
+| Seat | Owns | Must not touch |
+|---|---|---|
+| The Journalist | each developing narrative, reported **with attribution** | — (may cover transfers: she reports, the Insider vets) |
+| The Influencer | each developing **emotional** story, focused on now | the transfer ledger, stats, direction |
+| The Scout | the entity's **z-score profile now**, plus developing statistical trends | news, transfers, emotion, overall direction |
+| The Insider | each developing **transfer** story, vetted for stage and credibility | emotion, stats, trajectory |
+| The Analyst | the **direction** of the rating and vibe trajectories, and their relationship | peer prose, news, transfers, stat specifics |
+| The Oracle | the verdict over five cards | being a sixth reporter |
+
+The Analyst's whole value is the interplay: *"the results are poor but the room is high"* is her
+sentence and nobody else's. The Oracle's is that it comes last.
+
+**Measured before this pass** — rows are the seat writing, columns the domain it talked about,
+eight well-covered teams, `[]` marks its own job:
+
+```text
+seat          stat profile  trajectory  emotion  transfers   news
+rating             [100%]        12%      25%        0%      25%
+momentum              42%      [57%]      42%       28%      42%
+vibe                  12%        25%    [87%]       75%      25%
+transfers              0%        25%       0%     [100%]     12%
+news                  25%        12%       0%      100%     [62%]
+```
+
+Off-diagonal average 26%. **No seat was disobeying its contract.** The Analyst's already said
+"narrates the decided direction... and what tension exists between the two" — she was narrating
+her INPUTS, four fifths of which were other seats' output. The Influencer called
+`write_heat_lines`, the identical function that builds the Insider's prompt, so she recited his
+ledger. Fix the input, not the rule.
+
+### The law: a ban loses to the phrase in the input
+
+**A prohibition in a prompt cannot beat the same words sitting in that prompt's own material.**
+Recorded reproductions on this rail:
+
+- Analyst s13 (101/109) and s14 (98/109) — banned vocabulary that the PEAK trajectory label kept
+  supplying.
+- 2026-08-22, the momentum ban list re-added to close 7 production failures: **without it 86/86
+  and zero occurrences; with it 84/86 and the READ writes "the tape calls this"** — the exact
+  phrase the clause forbade. Withdrawn.
+- 2026-08-22, the Oracle's opening line enumerated all five seats by name, then rule 3 forbade
+  naming more than one. It roll-called four. Removing the names fixed what the rule could not.
+
+The corollary is a division of labour: **guards enforce, prompts instruct.** Wherever
+`src/guards.rs` already covers a rule, the prompt states it in a clause or not at all — never an
+essay. The essay is what causes the violation.
+
+### Claim order is a dependency order
+
+`worker` tops up "in registration (DAG) order", so registration order IS priority.
+`work::VOICE_ORDER` holds it, `main.rs` registers by iterating it, and unit tests assert the
+dependency rules rather than the literal list:
+
+```text
+1 Journalist  2 Influencer  3 Scout  4 Insider  5 Analyst  6 Oracle
+```
+
+The Analyst consumes the Scout's card and the Influencer's; the Oracle consumes all five. Running
+a consumer ahead of its producers does not fail — it quietly synthesises yesterday's cards, which
+is worse, because nothing reports it. Per-stage caps in `worker::stage_room` keep this an order
+and not a starvation ladder.
+
+`Stage::claim_order` additionally drains **teams before players** on every card-writing stage.
+The three stages missing from that arm (rating, momentum, transfers) had team cards up to six days
+stale behind thousands of player rows, while the three in it were current.
+
+### Fail open on titles
+
+A junk card title must never discard the card. The Analyst degrades to NULL (s18, "a junk TITLE
+never kills it"), the Influencer salvages (`guards::salvage_hook`), and the Scout joined them on
+2026-08-22 after a complete graded profile was thrown away over a colon — then re-rolled at
+temp=0 to produce the same colon, which is a permanent stall rather than a retry.
+
+### One window for the whole fleet
+
+`MAX_LOADED_MODELS=1` on archbox's single runner, and ollama reloads whenever `num_ctx` changes
+(the mixed-window era cost ~a fifth of wall clock). `VOICE_NUM_CTX_PACKET` and
+`LOCAL_STAGE_NUM_CTX` move together or not at all.
+
+**The Editor sets the floor.** It is the only stage reading a full article and the gatekeeper for
+everything downstream. At 3072 its article budget halves to ~3,700 chars against a 6,142-char
+median body, so the fleet stays at 4096. Trim before shrinking (D-T35).
+
+Token ratios, measured with the live tokenizer: **~7 chars/token** for instructional prose,
+**4.68** for article text. Estimating at 4 inflates a budget table by ~40%.
+
+### Gates test meaning, not keywords
+
+`prose_includes:falling` failed on "a steady slide" and "in decline", which read fine. Lean
+prompts and literal-keyword assertions are incompatible — the gate forces vocabulary stuffing into
+the prose it is meant to protect. Use `prose_includes_any` synonym sets, and reserve exact matches
+for contract tokens the parser actually needs.
+
+`eval --task <seat> --fixtures --live-system` replays frozen fixture inputs against the CURRENT
+source constant. That is the gate for a prompt rewrite; without `--live-system` you are scoring
+the prompt the fixture froze. **Baseline the seat before calling a score a regression** — the
+Oracle's lean prompt read as a failure at 62/76 until the original was measured at 33/60.
 
 ## Rail / Lens / Stage / Role Map
 

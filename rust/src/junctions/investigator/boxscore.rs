@@ -3,7 +3,7 @@
 //! This stage is fixture-keyed (`entity_type='fixture'`) and fetches completed game
 //! box score payloads into `fixture_boxscore_fetches`.
 //!
-//! # State after mig 230 (2026-08-23): the vendor layer is gone, the public one is not built
+//! # State after mig 230 (2026-08-23): the vendor layer is gone, retrieval is wired
 //!
 //! This seat used to read two PAID providers — balldontlie for NBA/NFL, sportmonks for
 //! FOOTBALL — addressed by ids the seeding layer wrote into `provider_fixture_map`. Scott
@@ -12,19 +12,29 @@
 //! API tokens are unset. **All three legs were dead, so the vendor code is deleted rather than
 //! left looking wired.**
 //!
-//! What survives here is the SHELL and the SUBSTRATE: the claim/validate/persist path, the
-//! provenance ledger, the fingerprint, and the family-independent normalization helpers (each
-//! marked `#[allow(dead_code)]` — they await their first parser family, they are not rot).
-//! [`select_source`], [`fetch_source`] and [`parse_fetched_boxscore`] are deliberately inert
-//! and every fixture takes the honest `no_source` terminal path.
+//! The rebuild is discovery → retrieval → interpretation (`discover.rs:1`), and the three
+//! arrive in that order:
 //!
-//! The build that fills them in is discovery → retrieval → interpretation (`discover.rs:1`):
-//! the Investigator discovers public sources into `boxscore_sources`, retrieval goes through
-//! [`crate::fetch::BudgetedFetcher`], and interpretation is a per-family CODE parser.
+//! * **DISCOVERY** — not built. `boxscore_sources` is the registry, and it is EMPTY. Populating
+//!   it is the Investigator's model work, routed to `Role::Investigator` on the other host.
+//! * **RETRIEVAL** — *built, and this is what changed.* [`select_source`] now reads
+//!   `boxscore_sources` and [`fetch_source`] goes through [`crate::fetch::BudgetedFetcher`].
+//!   The seat no longer owns an HTTP client, a spacing rule, or a retry: those are the 4.2
+//!   substrate's, which was founded for this path and until now only entity discovery ever
+//!   used.
+//! * **INTERPRETATION** — not built. [`parse_fetched_boxscore`] is still inert; a source's
+//!   `parser_family` names a CODE parser and the family-independent normalization helpers
+//!   below (each `#[allow(dead_code)]`) are what the first one gets built on.
+//!
+//! **An empty registry still means `no_source`, and that is the current live behaviour.** The
+//! difference is that the emptiness is now the DATA's, not the code's: registering a source is
+//! an INSERT, exactly as mig 208 intended ("adding or suspending a source is data, not a
+//! deploy"). Nothing here needs to be redeployed to bring the first source online.
 //!
 //! It also does not write `event_box_scores` or `event_team_stats` — promoting a validated
 //! fetch into those canonical tables is a deliberate later step, not a side effect.
 
+use crate::fetch::{BudgetedFetchError, BudgetedFetcher, FetchPolicy};
 use crate::stage::StageHandler;
 use crate::util::truncate;
 use crate::work::{Item, Stage};
@@ -36,6 +46,7 @@ use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
 use sqlx::Row;
 use std::collections::{BTreeMap, BTreeSet};
+use std::time::Duration;
 use tracing::warn;
 
 pub const FIXTURE_BOXSCORE_STAGE: &str = "fixture_boxscore";
@@ -44,10 +55,8 @@ pub const FIXTURE_BOXSCORE_OUTPUT_CONTRACT_VERSION: &str = "fixture-boxscore-v1"
 
 /// The fixture's own facts — which, since mig 230, are the ONLY address a box score has.
 ///
-/// `season`, `home_team_name`, `away_team_name`, `round` and `external_id` are unread while
-/// [`select_source`] is inert, and they are kept deliberately: discovery addresses a public
-/// page by teams, competition and round, so these are its query, not leftovers.
-#[allow(dead_code)]
+/// Every field here is a URL-template variable (see [`render_template`]): a public match page
+/// is addressed by teams, date, competition and round, so this row IS the discovery query.
 #[derive(Clone, Debug)]
 struct FixtureRow {
     id: i32,
@@ -63,25 +72,83 @@ struct FixtureRow {
     away_score: Option<i32>,
     round: String,
     external_id: Option<i32>,
+    /// Kickoff as `YYYY-MM-DD`, rendered by Postgres at UTC.
+    ///
+    /// A STRING, and formatted server-side, for the same reason the Scout's availability marker
+    /// is (`scout/mod.rs`): this crate has no date library, and a date rendered from a local
+    /// zone would put a 20:00 kickoff on the wrong calendar day for half the world — which for
+    /// a date-keyed match URL is not a rounding error, it is a 404.
+    event_date: String,
 }
 
+/// One eligible row of `boxscore_sources`, already screened by [`load_sources`].
+#[derive(Clone, Debug)]
+struct BoxscoreSource {
+    id: i64,
+    domain: String,
+    url_template: Option<String>,
+    parser_family: String,
+    trust_state: String,
+    policy: FetchPolicy,
+}
+
+/// Where this fixture's box score will be read from, and under whose budget.
+///
+/// `provider` is the source DOMAIN now rather than a vendor's brand name — the column it lands
+/// in (`fixture_boxscore_fetches.provider`) answers "who told us this", and for a public source
+/// that is the host.
 #[derive(Clone, Debug)]
 pub struct SourcePlan {
     pub provider: String,
     pub provider_fixture_id: Option<String>,
     pub source_urls: Vec<String>,
     pub official_url: Option<String>,
+    /// Which CODE parser reads the retrieved page. Empty when nothing resolved.
+    pub parser_family: String,
+    /// `candidate` until the score-reconciliation gate promotes it; `trusted` after.
+    pub trust_state: String,
+    /// The registry row id, so provenance can name the source that was used.
+    pub source_id: Option<i64>,
+    /// The per-domain budget from `boxscore_sources.fetch_policy`.
+    pub policy: FetchPolicy,
 }
 
-/// A retrieved document. `value` is unread until the first parser family lands — it is the
-/// payload that family will read (mig 230).
+impl SourcePlan {
+    /// The empty plan — no registered source could serve this fixture.
+    fn none() -> Self {
+        Self {
+            provider: "none".to_string(),
+            provider_fixture_id: None,
+            source_urls: vec![],
+            official_url: None,
+            parser_family: String::new(),
+            trust_state: String::new(),
+            source_id: None,
+            policy: FetchPolicy::default(),
+        }
+    }
+}
+
+/// A retrieved document, straight off the budgeted fetcher.
+///
+/// `body` is TEXT, not `serde_json::Value`, and that is the shape change mig 230's rebuild
+/// forced: the vendor era fetched two JSON APIs and could parse eagerly, but a public source is
+/// whatever the page is. Which of JSON-LD, an embedded `__NEXT_DATA__`-style blob, or an HTML
+/// table this holds is the PARSER FAMILY's question, and deciding it here would put
+/// interpretation back inside retrieval — the exact seam `discover.rs:1` draws.
+///
+/// `body` and `document_id` are unread until the first family lands. They are the payload and
+/// the provenance row that proves where it came from.
 #[allow(dead_code)]
 #[derive(Debug)]
-struct FetchedJson {
+struct FetchedDocument {
     source_url: String,
     final_url: String,
     final_domain: Option<String>,
-    value: Value,
+    /// The `source_documents` row this retrieval landed as (or was reused from).
+    document_id: i64,
+    body: String,
+    from_cache: bool,
     warnings: Vec<String>,
 }
 
@@ -112,17 +179,22 @@ struct PersistRecord {
     last_error: Option<String>,
 }
 
-pub struct FixtureBoxscoreHandler;
-
-impl FixtureBoxscoreHandler {
-    pub fn new() -> Self {
-        Self
-    }
+pub struct FixtureBoxscoreHandler {
+    fetcher: BudgetedFetcher,
 }
 
-impl Default for FixtureBoxscoreHandler {
-    fn default() -> Self {
-        Self::new()
+impl FixtureBoxscoreHandler {
+    /// Fallible now: the handler owns ONE [`BudgetedFetcher`], the way
+    /// `InvestigateEntityHandler` does, and building its client can fail.
+    ///
+    /// One per handler is the point, not an accident — the per-domain spacing, the circuit
+    /// breaker and the "concurrency 1 per domain" lock all live in that instance's ledger. A
+    /// fetcher built per fixture would reset every one of them on every call and turn a polite
+    /// crawl into an impolite one that merely looked budgeted.
+    pub fn new() -> Result<Self> {
+        Ok(Self {
+            fetcher: BudgetedFetcher::new()?,
+        })
     }
 }
 
@@ -130,6 +202,25 @@ impl Default for FixtureBoxscoreHandler {
 impl StageHandler for FixtureBoxscoreHandler {
     fn stage(&self) -> Stage {
         Stage::FixtureBoxscore
+    }
+
+    /// NO slot group, deliberately — `entity.rs:85`'s D-T10 lesson (2026-08-09) applies here
+    /// verbatim, and this seat is where it was learned the expensive way. This stage makes ZERO
+    /// model calls: discovery is the other arm, and interpretation is a CODE parser. Holding an
+    /// `ARCHBOX_SLOTS` slot for pure HTTP work is "the structural mismatch behind the measured
+    /// 57h starvation: it queued behind the Editor's drain for a card it never used."
+    ///
+    /// When the discovery arm lands, ITS model calls ride `Role::Investigator` to the 14B on the
+    /// other host, which has its own governor. So this stays `None` even then.
+    fn slot_group(&self) -> Option<(&'static str, usize)> {
+        None
+    }
+
+    /// One at a time. The binding constraint is not the card but the 2s per-domain floor in
+    /// `FetchPolicy` — with a handful of registered sources, extra concurrency here would just
+    /// queue on the fetcher's per-domain lock.
+    fn max_in_flight(&self) -> usize {
+        1
     }
 
     async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {
@@ -159,12 +250,13 @@ impl StageHandler for FixtureBoxscoreHandler {
             return Ok(());
         }
 
-        let plan = select_source(&fixture);
+        let plan = select_source(&hx.pool, &fixture).await?;
         if plan.source_urls.is_empty() {
-            // No registered public source for this fixture. Terminal and honest — this is the
-            // state of every fixture until the Investigator's discovery arm populates
-            // `boxscore_sources` (mig 230). The old branch here tested for the literal provider
-            // "unsupported", which only ever meant "sport outside the vendor match".
+            // No registered public source could serve this fixture. Terminal and honest — and
+            // still the state of every fixture, because `boxscore_sources` is empty until the
+            // discovery arm populates it. What changed with the retrieval wiring is WHERE the
+            // emptiness lives: this is now a query returning no eligible rows, not a function
+            // hardcoded to return nothing.
             persist_record(
                 hx,
                 &fixture,
@@ -172,8 +264,8 @@ impl StageHandler for FixtureBoxscoreHandler {
                     &plan.provider,
                     "no_source",
                     Some(format!(
-                        "no public source registered for sport {}",
-                        fixture.sport
+                        "no eligible source in boxscore_sources for sport {} league {}",
+                        fixture.sport, fixture.league_id
                     )),
                 ),
             )
@@ -181,7 +273,7 @@ impl StageHandler for FixtureBoxscoreHandler {
             return Ok(());
         }
 
-        let fetched = match fetch_source(&fixture, &plan).await {
+        let fetched = match fetch_source(&self.fetcher, &hx.pool, &plan).await {
             Ok(f) => f,
             Err(FetchOutcome {
                 status,
@@ -286,7 +378,13 @@ impl StageHandler for FixtureBoxscoreHandler {
                 period_scoring: payload_for_hash["period_scoring"].clone(),
                 team_stats: payload_for_hash["team_stats"].clone(),
                 player_stats: payload_for_hash["player_stats"].clone(),
-                raw_labels: merge_raw_labels(normalized.raw_labels, fetched.warnings, &plan),
+                raw_labels: merge_raw_labels(
+                    normalized.raw_labels,
+                    fetched.warnings,
+                    &plan,
+                    fetched.document_id,
+                    fetched.from_cache,
+                ),
                 parser_outcome: "deterministic".to_string(),
                 last_error: None,
             },
@@ -340,7 +438,10 @@ async fn load_fixture(pool: &sqlx::PgPool, fixture_id: i32) -> Result<Option<Fix
                COALESCE(at.name, '') AS away_team_name,
                f.status, f.home_score, f.away_score,
                COALESCE(f.round, '') AS round,
-               f.external_id
+               f.external_id,
+               -- Rendered here, at UTC, on purpose: see FixtureRow::event_date. Postgres owns
+               -- the calendar because this crate has no date library to own it with.
+               to_char(f.start_time AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS event_date
         FROM public.fixtures f
         LEFT JOIN public.teams ht
           ON ht.id = f.home_team_id AND ht.sport = f.sport
@@ -368,6 +469,11 @@ async fn load_fixture(pool: &sqlx::PgPool, fixture_id: i32) -> Result<Option<Fix
         away_score: r.get("away_score"),
         round: r.get("round"),
         external_id: r.get("external_id"),
+        // A fixture with no kickoff cannot address a date-keyed page; an empty string renders
+        // a template that will simply not resolve, which is the honest outcome.
+        event_date: r
+            .get::<Option<String>, _>("event_date")
+            .unwrap_or_default(),
     }))
 }
 
@@ -380,17 +486,207 @@ async fn load_fixture(pool: &sqlx::PgPool, fixture_id: i32) -> Result<Option<Fix
 /// the map itself is dropped; and the API tokens are not configured. Scott's ruling: box scores
 /// are public-event facts and get read from public sources.
 ///
-/// The replacement reads `boxscore_sources` — a registry of DISCOVERED public sources carrying
-/// their own `url_template`, `parser_family`, `fetch_policy` and `trust_state`. Until the
-/// Investigator's discovery arm populates it, this returns an empty plan and every fixture takes
-/// the honest `no_source` terminal path rather than pretending a vendor is still there.
-fn select_source(_fixture: &FixtureRow) -> SourcePlan {
-    SourcePlan {
-        provider: "none".to_string(),
-        provider_fixture_id: None,
-        source_urls: vec![],
-        official_url: None,
+/// The replacement reads `boxscore_sources`, mig 208's registry: sources carry their own
+/// `url_template`, `parser_family`, `fetch_policy` and `trust_state`, so bringing one online is
+/// an INSERT rather than a deploy. The registry is EMPTY today, so this still resolves nothing
+/// and every fixture still takes the honest `no_source` path — but the emptiness is now the
+/// data's, which is the whole point of the table.
+///
+/// Only the FIRST eligible source is planned, not all of them. Fanning out across sources for
+/// one fixture would spend several domains' budgets to answer a question the first source
+/// answers, and the score-reconciliation gate — not a quorum — is what decides whether the
+/// answer is right.
+async fn select_source(pool: &sqlx::PgPool, fixture: &FixtureRow) -> Result<SourcePlan> {
+    let sources = load_sources(pool, &fixture.sport, fixture.league_id).await?;
+    for source in sources {
+        let Some(template) = source.url_template.as_deref() else {
+            // `discovery = 'search'` — the source is found by query, not by template. That arm
+            // is the discovery build; skip rather than guess a URL shape for it.
+            continue;
+        };
+        let urls: Vec<String> = template
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty())
+            .filter_map(|line| render_template(line, fixture))
+            .collect();
+        if urls.is_empty() {
+            continue;
+        }
+        return Ok(SourcePlan {
+            provider: source.domain.clone(),
+            provider_fixture_id: None,
+            official_url: urls.first().cloned(),
+            source_urls: urls,
+            parser_family: source.parser_family,
+            trust_state: source.trust_state,
+            source_id: Some(source.id),
+            policy: source.policy,
+        });
     }
+    Ok(SourcePlan::none())
+}
+
+/// load_sources returns the eligible registry rows, best first.
+///
+/// Three screens, each of which is a law this repo already keeps:
+///
+/// 1. **`suspended` is excluded.** mig 208: a family is "suspended — never deleted — when it
+///    misbehaves", so the row must survive the exclusion to carry its own history.
+/// 2. **`terms_review` must record a `pass` verdict.** This is the screen that would be easiest
+///    to leave out and worst to leave out. `terms_review` is a REAL exercised process — the
+///    Wikimedia family "passed the 4.3 terms review with no reservations", and the same review
+///    rejected every other keyless family in both D-4 sports. A discovery arm that proposes
+///    domains must not be able to make one fetchable merely by inserting it; the right to fetch
+///    is a separate, human verdict, and this is where that separation is enforced in CODE.
+/// 3. **League scoping.** `league_id IS NULL` means the family serves the whole sport; a set
+///    value narrows it to one league. Narrower rows sort first — a Premier League specialist
+///    should beat a general football source for a Premier League fixture.
+///
+/// `trusted` outranks `candidate` because a source that has already reconciled against known
+/// final scores is the better first call; candidates stay eligible, because a candidate that is
+/// never fetched can never earn promotion.
+async fn load_sources(
+    pool: &sqlx::PgPool,
+    sport: &str,
+    league_id: i32,
+) -> Result<Vec<BoxscoreSource>> {
+    let rows = sqlx::query(
+        r#"
+        SELECT id, domain, url_template, parser_family, trust_state, fetch_policy
+        FROM public.boxscore_sources
+        WHERE sport = $1
+          AND (league_id IS NULL OR league_id = $2)
+          AND trust_state <> 'suspended'
+          AND terms_review->>'verdict' = 'pass'
+        ORDER BY (trust_state = 'trusted') DESC,
+                 (league_id IS NOT NULL) DESC,
+                 id
+        "#,
+    )
+    .bind(sport)
+    .bind(league_id)
+    .fetch_all(pool)
+    .await
+    .context("load boxscore_sources")?;
+
+    Ok(rows
+        .into_iter()
+        .map(|r| BoxscoreSource {
+            id: r.get("id"),
+            domain: r.get("domain"),
+            url_template: r.get("url_template"),
+            parser_family: r.get("parser_family"),
+            trust_state: r.get("trust_state"),
+            policy: policy_from_json(&r.get::<Value, _>("fetch_policy")),
+        })
+        .collect())
+}
+
+/// policy_from_json reads `boxscore_sources.fetch_policy` into the fetcher's knobs.
+///
+/// The 2s floor is NOT applied here — [`FetchPolicy::new`] applies it, so a policy cannot be
+/// made faster than the 4.2 law by any route, including a bad row in this table. Absent keys
+/// take [`FetchPolicy::default`]'s values rather than zero: an empty `{}` (the column default)
+/// must mean "the polite default", never "no spacing and no cache".
+fn policy_from_json(raw: &Value) -> FetchPolicy {
+    let default = FetchPolicy::default();
+    let secs = |key: &str| raw.get(key).and_then(numeric_value).filter(|n| *n >= 0.0);
+    FetchPolicy::new(
+        secs("min_spacing_secs")
+            .map(Duration::from_secs_f64)
+            .unwrap_or(default.min_spacing),
+        secs("cache_ttl_secs")
+            .map(Duration::from_secs_f64)
+            .unwrap_or(default.cache_ttl),
+    )
+}
+
+/// render_template substitutes the fixture's facts into a `url_template`.
+///
+/// Returns `None` if any placeholder in the template has no value — a URL with a literal
+/// `{date}` left in it is a guaranteed 404 that would still spend the domain's budget and count
+/// a failure against its circuit breaker. Failing to render is cheaper and truthful.
+///
+/// The variables are the fixture's own facts, which since mig 230 are the only address a box
+/// score has. `_slug` forms exist because public match URLs are overwhelmingly slug-keyed
+/// (`/manchester-united-v-arsenal`), and asking every parser family to reinvent that is how
+/// families drift apart.
+fn render_template(template: &str, fixture: &FixtureRow) -> Option<String> {
+    let vars: [(&str, String); 11] = [
+        ("{date}", fixture.event_date.clone()),
+        ("{season}", fixture.season.to_string()),
+        ("{league_id}", fixture.league_id.to_string()),
+        ("{home_team_id}", fixture.home_team_id.to_string()),
+        ("{away_team_id}", fixture.away_team_id.to_string()),
+        ("{home_team}", fixture.home_team_name.clone()),
+        ("{away_team}", fixture.away_team_name.clone()),
+        ("{home_slug}", slugify(&fixture.home_team_name)),
+        ("{away_slug}", slugify(&fixture.away_team_name)),
+        ("{round}", fixture.round.clone()),
+        (
+            "{external_id}",
+            fixture.external_id.map(|i| i.to_string()).unwrap_or_default(),
+        ),
+    ];
+
+    let mut out = template.to_string();
+    for (name, value) in &vars {
+        if out.contains(name) {
+            if value.is_empty() {
+                return None;
+            }
+            out = out.replace(name, value);
+        }
+    }
+    // An unrecognized placeholder is a template bug, not a fetchable URL.
+    if out.contains('{') || out.contains('}') {
+        return None;
+    }
+    Some(out)
+}
+
+/// slugify renders a team name as the lowercase hyphenated form public URLs use.
+///
+/// ASCII-folds the handful of accents that actually appear in the five European leagues we
+/// serve (Atlético, Beşiktaş, Bayern München) — an unfolded `é` percent-encodes into a URL that
+/// most sites will not match.
+fn slugify(name: &str) -> String {
+    let mut out = String::with_capacity(name.len());
+    let mut pending_sep = false;
+    for ch in name.chars() {
+        let folded = match ch {
+            'á' | 'à' | 'â' | 'ä' | 'ã' | 'å' => "a",
+            'é' | 'è' | 'ê' | 'ë' => "e",
+            'í' | 'ì' | 'î' | 'ï' => "i",
+            'ó' | 'ò' | 'ô' | 'ö' | 'õ' | 'ø' => "o",
+            'ú' | 'ù' | 'û' | 'ü' => "u",
+            'ç' => "c",
+            'ñ' => "n",
+            'ş' => "s",
+            'ğ' => "g",
+            'ı' => "i",
+            'ß' => "ss",
+            c if c.is_ascii_alphanumeric() => {
+                if pending_sep && !out.is_empty() {
+                    out.push('-');
+                }
+                pending_sep = false;
+                out.extend(c.to_lowercase());
+                continue;
+            }
+            _ => {
+                pending_sep = true;
+                continue;
+            }
+        };
+        if pending_sep && !out.is_empty() {
+            out.push('-');
+        }
+        pending_sep = false;
+        out.push_str(folded);
+    }
+    out
 }
 
 #[derive(Debug)]
@@ -402,36 +698,94 @@ struct FetchOutcome {
     error: String,
 }
 
-/// fetch_source retrieves the planned document.
+/// fetch_source retrieves the planned document through the budgeted fetcher.
 ///
-/// **It has no implementation right now, and that is the honest state of the seat** (mig 230).
-/// The two vendor clients that used to live here read `BALLDONTLIE_API_KEY` and
-/// `SPORTMONKS_API_TOKEN`, neither of which is configured, against ids from a table that no
-/// longer exists. Leaving them in place would have meant a stage that looks wired and cannot
-/// work — the scar tissue Scott asked to cut.
+/// **It does NOT build its own `reqwest::Client`, and that is the point of this function.** The
+/// two vendor clients that used to live here each had their own timeout, their own retry and
+/// their own idea of politeness. [`crate::fetch::BudgetedFetcher`] already enforces, per domain:
+/// concurrency 1, a 2s minimum spacing (the 4.2 floor), `429`/`Retry-After` honoured as a hold,
+/// a circuit breaker at four consecutive failures for 15 minutes, and a `source_documents`
+/// provenance row for every retrieval with `cache_ttl` reuse.
 ///
-/// **The replacement does NOT build its own `reqwest::Client`.** It goes through
-/// [`crate::fetch::BudgetedFetcher`], which already enforces, per domain: concurrency 1, a 2s
-/// minimum spacing (the 4.2 floor), `429`/`Retry-After` honoured as a hold, a circuit breaker
-/// at four consecutive failures, and a `source_documents` provenance row for every retrieval
-/// with `cache_ttl` reuse. Its policy is loaded from `boxscore_sources.fetch_policy`. That
-/// substrate was FOUNDED for box scores (`fetch.rs`: "founded in Phase 4 (box scores), reused
-/// by Phase 5") and then only ever used by entity discovery — this path went direct to the
-/// vendors instead. Wiring it back is step one of the public-source build.
+/// That substrate was FOUNDED for this path — `fetch.rs:516`: "founded in Phase 4 (box scores),
+/// reused by Phase 5" — and then only ever used by entity discovery, because this seat went
+/// direct to the vendors instead. This function is the wiring-back.
 ///
-/// The stated posture travels with it: *"A domain that blocks direct fetch is a domain we skip
-/// — never stealth, no browser automation on this path."*
+/// The stated posture travels with it and is not negotiable: *"A domain that blocks direct
+/// fetch is a domain we skip — never stealth, no browser automation on this path."* Hence
+/// `DomainSkipped` and a `403` both terminate honestly instead of escalating.
+///
+/// Candidate URLs are tried in order and the FIRST retrieval wins. A later URL is only reached
+/// when an earlier one produced no document, so a source listing several templates costs one
+/// fetch in the normal case.
 async fn fetch_source(
-    _fixture: &FixtureRow,
+    fetcher: &BudgetedFetcher,
+    pool: &sqlx::PgPool,
     plan: &SourcePlan,
-) -> std::result::Result<FetchedJson, FetchOutcome> {
-    Err(FetchOutcome::new(
-        "no_source",
-        plan.source_urls.first().cloned(),
-        None,
-        None,
-        "no public source is registered for this fixture (boxscore_sources is empty)",
-    ))
+) -> std::result::Result<FetchedDocument, FetchOutcome> {
+    let mut warnings: Vec<String> = Vec::new();
+    let mut last: Option<FetchOutcome> = None;
+
+    for url in &plan.source_urls {
+        match fetcher.fetch(pool, url, &plan.policy).await {
+            Ok(doc) => {
+                return Ok(FetchedDocument {
+                    source_url: url.clone(),
+                    final_url: doc.final_url,
+                    final_domain: doc.domain,
+                    document_id: doc.document_id,
+                    body: doc.body,
+                    from_cache: doc.from_cache,
+                    warnings,
+                });
+            }
+            Err(e) => {
+                let outcome = budgeted_fetch_outcome(url, &e);
+                warnings.push(outcome.error.clone());
+                last = Some(outcome);
+            }
+        }
+    }
+
+    Err(last.unwrap_or_else(|| {
+        FetchOutcome::new(
+            "no_source",
+            None,
+            None,
+            None,
+            "source plan carried no candidate URLs",
+        )
+    }))
+}
+
+/// budgeted_fetch_outcome maps a fetcher error onto this stage's terminal vocabulary.
+///
+/// `DomainSkipped` becomes `blocked` rather than a retryable failure on purpose: the circuit is
+/// already open or the domain asked us to hold, so the correct behaviour is to stop and record
+/// why. Re-queueing would be the stage arguing with a budget that exists to stop exactly that.
+fn budgeted_fetch_outcome(url: &str, e: &BudgetedFetchError) -> FetchOutcome {
+    match e {
+        BudgetedFetchError::DomainSkipped { domain, until_secs } => FetchOutcome::new(
+            "blocked",
+            Some(url.to_string()),
+            None,
+            Some(domain.clone()),
+            format!("domain {domain} held by its budget (retry in {until_secs}s)"),
+        ),
+        BudgetedFetchError::Http { status, final_url } => http_fetch_outcome(
+            StatusCode::from_u16(*status).unwrap_or(StatusCode::BAD_GATEWAY),
+            url,
+            final_url,
+            "source",
+        ),
+        BudgetedFetchError::Other(err) => FetchOutcome::new(
+            "fetch_failed",
+            Some(url.to_string()),
+            None,
+            domain_of(url),
+            format!("{err:#}"),
+        ),
+    }
 }
 
 impl FetchOutcome {
@@ -452,7 +806,8 @@ impl FetchOutcome {
     }
 }
 
-#[allow(dead_code)] // parser-family substrate (mig 230)
+/// Live again: [`budgeted_fetch_outcome`] routes every HTTP rejection through this, so the
+/// blocked/not_found/fetch_failed split is decided in one place.
 fn http_fetch_outcome(
     status: StatusCode,
     source_url: &str,
@@ -501,16 +856,21 @@ impl ParseOutcome {
 /// [`normalized_from_parts`], [`extract_numeric_stats`], [`parse_minutes`], [`stats_to_json`]
 /// and friends are family-independent, carry the Go-compatible number formatting, and are what
 /// the first family will be built on top of.
+///
+/// Now that retrieval is wired, this is the LAST inert step: a fixture with a registered source
+/// reaches here with a real document in hand and stops, recording `not_supported` against the
+/// family that has no parser yet. That is a more useful terminal state than the old one — it
+/// says "we fetched it and cannot read it" rather than "we never looked".
 fn parse_fetched_boxscore(
     fixture: &FixtureRow,
     plan: &SourcePlan,
-    _fetched: &FetchedJson,
+    _fetched: &FetchedDocument,
 ) -> std::result::Result<NormalizedBoxscore, ParseOutcome> {
     Err(ParseOutcome::new(
         "not_supported",
         format!(
-            "no parser family registered for source={} sport={}",
-            plan.provider, fixture.sport
+            "no parser implemented for family '{}' (source={} sport={})",
+            plan.parser_family, plan.provider, fixture.sport
         ),
     ))
 }
@@ -858,7 +1218,23 @@ async fn insert_data_fetch_ledger_best_effort(
     }
 }
 
-fn merge_raw_labels(raw_labels: Value, warnings: Vec<String>, plan: &SourcePlan) -> Value {
+/// merge_raw_labels records WHO answered alongside WHAT they said.
+///
+/// The `source` block is the retrieval's provenance: which `boxscore_sources` row was used,
+/// which parser family read it, what trust it carried at read time, and the `source_documents`
+/// id the bytes landed as. That last one is the link back to the retained page — "sources
+/// prove" (mig 205) is only true if the proof is addressable from the record it produced.
+///
+/// `trust_state` is captured AT READ TIME rather than looked up later on purpose: a source that
+/// is trusted today may be suspended next week, and a stored box score has to remember what it
+/// was worth when it was taken.
+fn merge_raw_labels(
+    raw_labels: Value,
+    warnings: Vec<String>,
+    plan: &SourcePlan,
+    document_id: i64,
+    from_cache: bool,
+) -> Value {
     let mut obj = raw_labels.as_object().cloned().unwrap_or_default();
     if !warnings.is_empty() {
         obj.insert("warnings".to_string(), json!(warnings));
@@ -870,6 +1246,16 @@ fn merge_raw_labels(raw_labels: Value, warnings: Vec<String>, plan: &SourcePlan)
             "official": plan.official_url,
         }),
     );
+    obj.insert(
+        "source".to_string(),
+        json!({
+            "boxscore_source_id": plan.source_id,
+            "parser_family": plan.parser_family,
+            "trust_state": plan.trust_state,
+            "source_document_id": document_id,
+            "from_cache": from_cache,
+        }),
+    );
     Value::Object(obj)
 }
 
@@ -879,7 +1265,6 @@ fn boxscore_content_hash(value: &Value) -> String {
     hex::encode(&digest[..16])
 }
 
-#[allow(dead_code)] // parser-family substrate (mig 230)
 fn domain_of(raw_url: &str) -> Option<String> {
     reqwest::Url::parse(raw_url).ok().and_then(|u| {
         u.host_str()
@@ -945,26 +1330,129 @@ mod tests {
             away_score: Some(21),
             round: "Week 9".to_string(),
             external_id: Some(12345),
+            event_date: "2026-08-24".to_string(),
         }
     }
 
-    /// Every sport takes the `no_source` path until `boxscore_sources` has rows.
+    /// The empty plan is what an empty registry yields, and it must stay recognizable.
     ///
-    /// This replaces `source_selection_uses_existing_provider_ids`, which asserted the two
-    /// paid vendors' URL shapes (mig 230 retired them). The assertion that matters now is the
-    /// inverse: NOTHING resolves, for any sport, and the seat says so honestly rather than
-    /// producing a vendor URL it can no longer fetch.
+    /// This replaces `no_sport_resolves_a_source_until_the_registry_is_populated`, whose
+    /// subject was a function hardcoded to return nothing. `select_source` now needs a
+    /// database, so what is unit-testable is the shape it falls back to — and `handle` keys
+    /// the entire `no_source` branch off `source_urls.is_empty()`.
     #[test]
-    fn no_sport_resolves_a_source_until_the_registry_is_populated() {
-        for sport in ["NBA", "NFL", "FOOTBALL"] {
-            let plan = select_source(&fixture(sport));
-            assert!(
-                plan.source_urls.is_empty(),
-                "{sport} resolved a source from an empty registry"
-            );
-            assert_eq!(plan.provider, "none");
-            assert!(plan.provider_fixture_id.is_none());
-        }
+    fn the_empty_plan_is_what_no_eligible_source_looks_like() {
+        let plan = SourcePlan::none();
+        assert!(plan.source_urls.is_empty());
+        assert_eq!(plan.provider, "none");
+        assert!(plan.provider_fixture_id.is_none());
+        assert!(plan.source_id.is_none());
+        assert!(plan.parser_family.is_empty());
+    }
+
+    /// A template renders from the fixture's own facts — the only address mig 230 left it.
+    #[test]
+    fn templates_render_from_the_fixtures_own_facts() {
+        let f = fixture("NFL");
+        assert_eq!(
+            render_template("https://x.test/{date}/{home_team_id}-{away_team_id}", &f).unwrap(),
+            "https://x.test/2026-08-24/8-14"
+        );
+        assert_eq!(
+            render_template("https://x.test/{home_slug}-v-{away_slug}", &f).unwrap(),
+            "https://x.test/buffalo-bills-v-kansas-city-chiefs"
+        );
+        assert_eq!(
+            render_template("https://x.test/{season}/{league_id}/{external_id}", &f).unwrap(),
+            "https://x.test/2025/0/12345"
+        );
+    }
+
+    /// A placeholder with no value must NOT render — a literal `{date}` in a URL is a
+    /// guaranteed 404 that still spends the domain's budget and counts against its breaker.
+    #[test]
+    fn an_unfillable_or_unknown_placeholder_refuses_to_render() {
+        let mut f = fixture("FOOTBALL");
+        f.event_date = String::new();
+        assert!(render_template("https://x.test/{date}/match", &f).is_none());
+
+        f.external_id = None;
+        assert!(render_template("https://x.test/{external_id}", &f).is_none());
+
+        // An unrecognized variable is a template bug, not a fetchable URL.
+        assert!(render_template("https://x.test/{referee}", &fixture("NBA")).is_none());
+
+        // A template needing nothing it lacks still renders.
+        assert_eq!(
+            render_template("https://x.test/fixed", &fixture("NBA")).unwrap(),
+            "https://x.test/fixed"
+        );
+    }
+
+    /// The five leagues we serve are full of accents, and an unfolded `é` percent-encodes into
+    /// a URL most sites will not match.
+    #[test]
+    fn slugs_fold_the_accents_the_european_leagues_actually_carry() {
+        assert_eq!(slugify("Atlético Madrid"), "atletico-madrid");
+        assert_eq!(slugify("Bayern München"), "bayern-munchen");
+        assert_eq!(slugify("Beşiktaş"), "besiktas");
+        assert_eq!(slugify("Borussia Mönchengladbach"), "borussia-monchengladbach");
+        assert_eq!(slugify("Brighton & Hove Albion"), "brighton-hove-albion");
+        assert_eq!(slugify("  Leeds   United  "), "leeds-united");
+    }
+
+    /// An empty `fetch_policy` (the column default) must mean "the polite default", never
+    /// "no spacing and no cache" — and no row may buy its way under the 2s floor.
+    #[test]
+    fn fetch_policy_defaults_are_polite_and_the_floor_is_unbuyable() {
+        let default = FetchPolicy::default();
+        let empty = policy_from_json(&json!({}));
+        assert_eq!(empty.min_spacing, default.min_spacing);
+        assert_eq!(empty.cache_ttl, default.cache_ttl);
+
+        let configured = policy_from_json(&json!({"min_spacing_secs": 30, "cache_ttl_secs": 60}));
+        assert_eq!(configured.min_spacing, Duration::from_secs(30));
+        assert_eq!(configured.cache_ttl, Duration::from_secs(60));
+
+        // The 4.2 law: FetchPolicy::new floors spacing at 2s whatever the row says.
+        let greedy = policy_from_json(&json!({"min_spacing_secs": 0}));
+        assert!(greedy.min_spacing >= Duration::from_secs(2));
+        let negative = policy_from_json(&json!({"min_spacing_secs": -5}));
+        assert!(negative.min_spacing >= Duration::from_secs(2));
+    }
+
+    /// A held domain is `blocked` and terminal — never a retry. The budget exists to stop the
+    /// stage arguing with it.
+    #[test]
+    fn a_held_domain_is_blocked_rather_than_retried() {
+        let skipped = budgeted_fetch_outcome(
+            "https://x.test/a",
+            &BudgetedFetchError::DomainSkipped {
+                domain: "x.test".to_string(),
+                until_secs: 900,
+            },
+        );
+        assert_eq!(skipped.status, "blocked");
+        assert_eq!(skipped.final_domain.as_deref(), Some("x.test"));
+
+        // 403 is the "domain blocks direct fetch" case — we skip, never escalate.
+        let forbidden = budgeted_fetch_outcome(
+            "https://x.test/a",
+            &BudgetedFetchError::Http {
+                status: 403,
+                final_url: "https://x.test/a".to_string(),
+            },
+        );
+        assert_eq!(forbidden.status, "blocked");
+
+        let missing = budgeted_fetch_outcome(
+            "https://x.test/a",
+            &BudgetedFetchError::Http {
+                status: 404,
+                final_url: "https://x.test/a".to_string(),
+            },
+        );
+        assert_eq!(missing.status, "not_found");
     }
 
     #[test]

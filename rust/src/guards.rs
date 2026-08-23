@@ -120,7 +120,8 @@ pub fn first_banned_phrase(prose: &str, list: &[&'static str]) -> Option<&'stati
 
 /// How many DISTINCT peers a reading names. The Oracle may name at most one, and only when that
 /// card carries the turn — a roll call makes the reading a summary of the table rather than the
-/// Oracle's own verdict.
+/// Oracle's own verdict. GATE-ONLY since the 08-23 eval-scar sweep: production no longer bails
+/// on a roll call (voice taste, not mechanics); the eval's `reading_max_peers` still measures it.
 ///
 /// Matches "the Analyst"-style references only. A bare sport word ("the scout said") would be a
 /// false positive, so the definite article is required, which is how the prompt's own examples are
@@ -134,8 +135,10 @@ pub fn count_named_peers(reading: &str) -> usize {
         .count()
 }
 
-/// The Influencer's HOOK contract, v13+: a card title — 12 words or fewer, no colon, no
-/// question mark. Returns the violated rule's name, or `None` when the hook is clean.
+/// THE card-title contract — born as the Influencer's HOOK (v13) and cross-character since
+/// Scott's hook doctrine (2026-08-23: "the one sentence hook to draw the reader in... the same
+/// across characters"): 12 words or fewer, no colon, no question mark. Returns the violated
+/// rule's name, or `None` when the hook is clean.
 pub fn hook_violation(hook: &str) -> Option<&'static str> {
     if hook.split_whitespace().count() > 12 {
         return Some("hook_max_words");
@@ -161,7 +164,11 @@ pub fn hook_violation(hook: &str) -> Option<&'static str> {
 /// not a fragment). A clean hook returns `None` — callers salvage only on violation.
 pub fn salvage_hook(hook: &str) -> Option<String> {
     hook_violation(hook)?;
-    const SEPS: [&str; 5] = ["\u{2014}", "\u{2013}", ", but ", "; ", ": "];
+    // ", and " joined the beat separators in the 08-23 review pass: the or12 gate's first
+    // specimen was "…is a defensive revolution, and the court is watching" — the same hung
+    // twist as ", but ", conjunction swapped. Safe because salvage only ever runs on a
+    // VIOLATING title; an integral "and" inside a clean hook is never touched.
+    const SEPS: [&str; 6] = ["\u{2014}", "\u{2013}", ", but ", ", and ", "; ", ": "];
     let cut = SEPS.iter().filter_map(|s| hook.find(s)).min()?;
     let head = hook[..cut]
         .trim()
@@ -362,6 +369,16 @@ mod tests {
         assert_eq!(salvage_hook("Vale sits while the room questions his future"), None);
         // A colon title whose head is too short stays a violation.
         assert_eq!(salvage_hook("Breaking: a move"), None);
+        // The ", and " twist (the or12 gate shape) trims like ", but ". (The gate's actual
+        // specimen counted exactly twelve words and ships whole — clean hooks are untouched.)
+        assert_eq!(
+            salvage_hook("Kiana Wells\u{2019} rim-dominance is a defensive revolution tonight, and the whole court is watching"),
+            Some("Kiana Wells\u{2019} rim-dominance is a defensive revolution tonight".to_string())
+        );
+        assert_eq!(
+            salvage_hook("Kiana Wells\u{2019} rim-dominance is a defensive revolution, and the court is watching"),
+            None
+        );
     }
 
     #[test]
@@ -431,7 +448,13 @@ pub fn clean_served_prose(s: &str) -> String {
 /// Logs on the seat's behalf so the per-model violation RATE stays visible — that telemetry is
 /// what prices a future model swap, and it was the only reason these bugs were findable at all.
 pub fn settle_title(seat: &str, raw: Option<&str>) -> Option<String> {
-    let t = raw?.trim();
+    // Emphasis is stripped BEFORE the contract runs — the same stripping-not-banning rule as
+    // clean_served_prose, closed 2026-08-23 after the review pass found the gap: a bolded
+    // title with no other violation shipped its asterisks to the card ("**Las Vegas
+    // Raiders…**" reached this fn bold in production), and a bolded two-beat title salvaged
+    // WITH its leading `**` glued to the first word.
+    let t = crate::util::strip_markdown_emphasis(raw?);
+    let t = t.trim();
     if t.is_empty() {
         return None;
     }
@@ -482,6 +505,12 @@ mod served_prose_tests {
         // Absent and empty are simply absent.
         assert_eq!(settle_title("t", None), None);
         assert_eq!(settle_title("t", Some("   ")), None);
+        // Emphasis is stripped before the contract runs (the review-pass gap, 2026-08-23):
+        // a bolded but otherwise clean title ships clean, never with its asterisks.
+        assert_eq!(settle_title("t", Some("**Arsenal hold firm as the window shuts**")).as_deref(),
+                   Some("Arsenal hold firm as the window shuts"));
+        // And emphasis alone is an empty title, not a shipped decoration.
+        assert_eq!(settle_title("t", Some("****")), None);
     }
 
     /// Whatever ships always satisfies the contract — that is the invariant callers rely on.

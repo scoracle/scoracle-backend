@@ -655,14 +655,23 @@ impl LensTask for VibeTask {
                 // `VibeParser`'s guards — the gate asserts the SAME rules, one check each,
                 // instead of the per-fixture `hook_*` expect entries they replaced. (Those
                 // axes carried the v17 D-T45 gate growth; the invariants inherit that duty.)
-                let hook_rule = hook.as_deref().map(crate::guards::hook_violation);
+                // The gate measures what SHIPS (the review-pass alignment, 2026-08-23):
+                // production runs the hook through `settle_title` — a two-beat overrun
+                // salvages to its first beat and serves — so a raw-hook check was redding
+                // titles the card actually carries, clean. Red only when settlement DROPS
+                // the title; name a salvage in the detail so the prose is still visible.
+                let settled = crate::guards::settle_title("gate", hook.as_deref());
                 checks.push(PropertyCheck {
                     name: "hook_contract".into(),
-                    pass: matches!(hook_rule, Some(None)),
-                    detail: match (&hook, hook_rule.flatten()) {
+                    pass: settled.is_some(),
+                    detail: match (&hook, &settled) {
                         (None, _) => "hook=MISSING".into(),
-                        (Some(h), Some(rule)) => format!("{rule} (hook={h:?})"),
-                        (Some(_), None) => String::new(),
+                        (Some(h), None) => format!(
+                            "{} (hook={h:?}, unsalvageable — ships titleless)",
+                            crate::guards::hook_violation(h).unwrap_or("dropped")
+                        ),
+                        (Some(h), Some(s)) if s != h.trim() => format!("salvaged to {s:?}"),
+                        (Some(_), Some(_)) => String::new(),
                     },
                 });
                 let banned = crate::guards::first_banned_phrase(&v, crate::guards::VIBE_BODY_BANS);
@@ -2439,9 +2448,11 @@ mod tests {
 
     #[test]
     fn vibe_hook_contract_is_a_global_invariant() {
-        // The hook contract is unconditional (08-19): present, ≤12 words, no colon or
-        // question mark — the same `guards::hook_violation` rule `VibeParser` enforces.
-        // No expect needed: a hook-less (v12-shape) reply fails, a clean three-line passes.
+        // The hook contract measures what SHIPS (review-pass alignment, 2026-08-23): the
+        // check runs `settle_title`, exactly as `VibeParser` does — a hook-less reply fails,
+        // a clean three-line passes, an unsalvageable violation fails, and a two-beat
+        // overrun that salvages to its first beat PASSES because that beat is the title
+        // the card actually carries.
         assert!(VibeTask
             .evaluate("SCORE: 30\nHOOK: The slide is real\nVIBE: grim", None, None)
             .all_checks_pass());
@@ -2450,6 +2461,13 @@ mod tests {
             .all_checks_pass());
         assert!(!VibeTask
             .evaluate("SCORE: 30\nHOOK: Breaking: a move\nVIBE: grim", None, None)
+            .all_checks_pass());
+        assert!(VibeTask
+            .evaluate(
+                "SCORE: 30\nHOOK: The slide is real now, but the room refuses to see it coming\nVIBE: grim",
+                None,
+                None
+            )
             .all_checks_pass());
     }
 

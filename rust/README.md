@@ -171,10 +171,18 @@ Every card title — the Influencer's HOOK, the Analyst's and Scout's HEADLINE, 
 narrative title, the Insider's wire line, the Oracle's crown title — is the same product object:
 **one sentence, twelve words or fewer, written to make a fan tap the card.** The entity's name
 inside a claim, never a `"Label: description"` taxonomy line — a label files the card; a hook
-sells it. The shared contract is enforced once (`guards::hook_violation` + `settle_title`); the
+sells it. The shared contract lives once (`guards::hook_violation` + `settle_title`); the
 per-seat prompt states it AT THE EMISSION SITE, because a bare "card title" ask begets a label
 (measured 2026-08-23: 138 Analyst + 56 Scout colon-labels dropped in 3h before the asks carried
 the doctrine).
+
+Enforcement coverage, honestly: the Influencer, Analyst, Scout and Oracle titles settle through
+`settle_title` (salvage-or-NULL). The **Journalist's** storyline titles and the **Insider's**
+wire line take the served-prose scrub but NOT the title contract — the Journalist because a NULL
+`narrative_title` means "marker row" in `news_summaries` (dropping a real story's title would
+change its meaning), the Insider because his line is contractually "one tight sentence with the
+counterparties and the fee", which routinely and legitimately exceeds twelve words. Both are
+open calls, not oversights — if either board's scanability suffers, that is where to look.
 
 **Measured before this pass** — rows are the seat writing, columns the domain it talked about,
 eight well-covered teams, `[]` marks its own job:

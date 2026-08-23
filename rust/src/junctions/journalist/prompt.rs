@@ -7,7 +7,7 @@
 //! | | |
 //! |---|---|
 //! | **Seat** | `Role::NarrativeLogic` |
-//! | **Contract** | `n16` |
+//! | **Contract** | [`NARRATIVES_PROMPT_VERSION`] (this table said `n16` until the 08-23 review pass caught it five bumps stale — the constant is the truth) |
 //! | **Reads** | the vetted corpus, The Editor's evidence cards, The Insider's vetted transfer heat, the relational memory card, its own prior card reads |
 //! | **Feeds** | The Influencer, The Oracle, and the entity's parts in its storylines, via `news_summaries` |
 //!

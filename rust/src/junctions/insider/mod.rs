@@ -838,8 +838,12 @@ fn row_from_verdict(
             ),
             Some(true) => {
                 let summary = {
-                    let s = v.summary.trim();
-                    (!s.is_empty()).then(|| truncate_bytes(s, SUMMARY_TRUNCATE))
+                    // The wire line serves AS the transfers board's headline, so it takes the
+                    // shared scrub like every served field — found bare in the 08-23 review
+                    // pass (trimmed and truncated, never emphasis-stripped: a bolded summary
+                    // shipped its asterisks to the board).
+                    let s = crate::guards::clean_served_prose(&v.summary);
+                    (!s.is_empty()).then(|| truncate_bytes(&s, SUMMARY_TRUNCATE))
                 };
                 (
                     TransferRow {

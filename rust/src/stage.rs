@@ -79,8 +79,10 @@ pub trait StageHandler: Send + Sync {
 }
 
 /// The ministral card on Archbox (1070 Ti) — since the 2026-08-20 consolidation, the whole
-/// fleet: The Editor, graph, and the four voices (narratives, vibe, rating, sigil) all share
-/// these slots, allocated on demand rather than split down the middle.
+/// fleet: the archbox-resident seats — The Editor, graph, and the Scout (rating) — share these
+/// slots, allocated on demand rather than split down the middle. (Narratives, vibe, and sigil
+/// moved to [`MAC_SLOTS`] with the 2026-08-23 two-host split; the Insider and the Analyst are
+/// ungrouped, bounded by their own `max_in_flight`.)
 ///
 /// **Four is a longevity choice sitting under a VRAM ceiling (2026-08-20):** the measured
 /// derivation (2026-08-09) still stands — at `num_ctx` 4096, weights+overhead plus ~570 MiB of
@@ -93,3 +95,25 @@ pub trait StageHandler: Send + Sync {
 /// `COGNITION_BACKEND_CONCURRENCY`'s localhost entry, and the systemd unit's
 /// `OLLAMA_NUM_PARALLEL` — move together or not at all.
 pub const ARCHBOX_SLOTS: (&str, usize) = ("archbox-3b", 4);
+
+/// The Mac's slot group — the seats whose model calls the two-host split (2026-08-23) routes to
+/// the M4's Ollama via `COGNITION_ROUTE_<ROLE>_BASE_URL`: the Journalist, the Influencer, and
+/// the Oracle.
+///
+/// This group EXISTS because the split moved the models without moving the budget, and the
+/// result was measured starvation (2026-08-23): the Mac-routed seats kept their `ARCHBOX_SLOTS`
+/// membership, so narratives/vibe — deep-queued and early in `work::VOICE_ORDER` — filled the
+/// four shared slots on every pass with work the archbox card never executes, while the
+/// last-in-order group members (the Scout, the Oracle) claimed zero for days: rating 10 cards in
+/// 12h against 928 ready rows, sigil 0 against 4,245, the or11 board refill stalled behind it.
+/// A slot group rations a CARD; a seat must sit in the group of the card that runs its model.
+///
+/// Four matches the Mac server's `OLLAMA_NUM_PARALLEL=4` (`-c 16384` ⇒ 4,096 per slot, verified
+/// 2026-08-23 on the live launchd plist) — the same move-together rule as the archbox knobs:
+/// raising this past the server's parallelism only queues requests inside Ollama.
+///
+/// THE GROUP FOLLOWS THE ROUTE: if a seat's `_BASE_URL` route is ever removed (the Mac leaves
+/// production again), move that seat back to [`ARCHBOX_SLOTS`] in the same commit — a seat
+/// budgeting against a card that does not run its model is exactly the starvation this constant
+/// was created to end.
+pub const MAC_SLOTS: (&str, usize) = ("mac-3b", 4);

@@ -24,6 +24,12 @@
 #   drain_alive      — claimable work exists but NOTHING produced in 30 min
 #                      (a dead/wedged daemon; depth alone is recovery, not failure)
 #   queue_depth      — claimable count sanity bound (>20k = runaway inflow)
+#   stuck_running    — 'running' rows untouched >2h (orphans of a crashed claim;
+#                      recovery has its own 60s task, so this firing means the
+#                      recovery itself is broken — the 08-23 fetch-panic shape)
+#   stage_starved    — per voice seat: >200 claimable rows while its product
+#                      table has been silent 6h (one dead seat behind a humming
+#                      aggregate — the 08-23 rating/sigil slot-starvation shape)
 #
 # Reporting: one pipeline_runs row per run (job='watchdog'; status failed +
 # the alarm lines in error), so `SELECT * FROM pipeline_runs_latest` shows it
@@ -91,6 +97,34 @@ claimable AS (
   SELECT count(*) AS n, min(available_at) AS oldest FROM pipeline_work
    WHERE status IN ('pending','failed') AND attempts < 5
      AND available_at < now()
+),
+-- 'running' rows untouched for hours are orphans of a crashed claim (the 08-23 fetch-panic
+-- night left 38 of them for four hours). Recovery runs on its own 60s task now, so anything
+-- stale past 2h means recovery itself is broken — the alarm behind the alarm.
+stuck AS (
+  SELECT count(*) AS n, min(updated_at) AS oldest FROM pipeline_work
+   WHERE status = 'running' AND updated_at < now() - interval '2 hours'
+),
+-- Per-SEAT starvation: drain_alive is blind to one dead stage while the rest produce (the
+-- 08-23 shape: rating 10 cards/12h against 928 ready, sigil 0 against 4,245, everything else
+-- humming). A seat with a real queue whose PRODUCT table has been silent for 6h is starved,
+-- whatever the aggregate says.
+stage_prod AS (
+  SELECT s.stage, s.claimable, p.newest
+    FROM (
+      SELECT stage, count(*) AS claimable FROM pipeline_work
+       WHERE status IN ('pending','failed') AND attempts < 5 AND available_at < now()
+       GROUP BY stage
+    ) s
+    LEFT JOIN (
+      SELECT 'narratives' AS stage, max(generated_at) AS newest FROM news_summaries
+      UNION ALL SELECT 'vibe',      max(generated_at) FROM vibe_scores
+      UNION ALL SELECT 'rating',    max(generated_at) FROM stat_summaries
+      UNION ALL SELECT 'momentum',  max(generated_at) FROM momentum_summaries
+      UNION ALL SELECT 'transfers', max(generated_at) FROM transfer_rumors
+      UNION ALL SELECT 'sigil',     max(generated_at) FROM sigil_synthesis
+    ) p ON p.stage = s.stage
+   WHERE s.stage IN ('narratives','vibe','rating','momentum','transfers','sigil')
 )
 SELECT 'ingest_recency',
        CASE WHEN newest > now() - interval '26 hours' THEN 'OK' ELSE 'ALARM' END,
@@ -128,7 +162,17 @@ UNION ALL
 SELECT 'queue_depth',
        CASE WHEN n <= 20000 THEN 'OK' ELSE 'ALARM' END,
        n || ' claimable'
-  FROM claimable;
+  FROM claimable
+UNION ALL
+SELECT 'stuck_running',
+       CASE WHEN n = 0 THEN 'OK' ELSE 'ALARM' END,
+       n || ' running rows untouched >2h (oldest ' || coalesce(oldest::text, 'n/a') || ')'
+  FROM stuck
+UNION ALL
+SELECT 'stage_starved[' || stage || ']',
+       CASE WHEN claimable <= 200 OR newest > now() - interval '6 hours' THEN 'OK' ELSE 'ALARM' END,
+       claimable || ' claimable, newest product ' || coalesce(newest::text, 'none')
+  FROM stage_prod;
 SQL
 )"
 

@@ -618,9 +618,17 @@ fn drop_display_tier_datapoints(p: &mut RatingProfile) -> Vec<String> {
 }
 
 fn format_datapoint_evidence(d: &RatingDatapoint) -> String {
+    // "rating", never "z". Scott, 2026-08-23: "the z-score is our house rating... z-score is
+    // going to be meaningless for 99% of our users. Rating will work for everyone."
+    //
+    // This is also the seventh place the input-shouting law has bitten: the crown died live on
+    // `reading carries banned vocabulary "z-score"` because THIS line handed the Scout a `z`, he
+    // dutifully cited it, and the Oracle read his card. Renaming the label at its source is the
+    // fix that holds; oracle::prompt::descrub_z stays only as a backstop for rows banked before
+    // this bump.
     let dz = d.sign as f64 * d.z; // sign-adjusted so + is always the good direction
     let mut s = format!(
-        "{}: {} · {:.0}th pct ({}) · z {:+.1}",
+        "{}: {} · {:.0}th pct ({}) · rating {:+.1}",
         d.label,
         trim_float(d.value),
         d.pct,

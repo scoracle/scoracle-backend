@@ -319,12 +319,12 @@ fn prompt_player_composite_datapoints_and_scoped_position() {
 \nProfile distinctiveness: 70/100 (higher = more standout skills — let a richer profile earn a fuller read).\n\
 \nOverall score (how WELL overall — T-score, 50 = average): 67\n\
 \nDECISION CARD\n\
-Headline strength: Scoring: 24 · 95th pct (elite) · z +3.1 [position: 88th, strong]\n\
+Headline strength: Scoring: 24 · 95th pct (elite) · rating +3.1 [position: 88th, strong]\n\
 Secondary strengths: None supplied.\n\
-Headline limitation: Defense: 2.5 · 40th pct (below average) · z -0.5\n\
-\nDatapoints — value · percentile + TIER (the tier is the truth) · z (standard deviations from the mean; a high z is a rarer edge); [position] percentile when present:\n\
-- Scoring: 24 · 95th pct (elite) · z +3.1 [position: 88th, strong]\n\
-- Defense: 2.5 · 40th pct (below average) · z -0.5\n\
+Headline limitation: Defense: 2.5 · 40th pct (below average) · rating -0.5\n\
+\nDatapoints — value · percentile + TIER (the tier is the truth) · rating (how far above or below the average; a higher rating is a rarer edge); [position] percentile when present:\n\
+- Scoring: 24 · 95th pct (elite) · rating +3.1 [position: 88th, strong]\n\
+- Defense: 2.5 · 40th pct (below average) · rating -0.5\n\
 \nWrite the report now: four labelled lines (Strengths / Limitations / Summary / HEADLINE), each on its own line, plain text, no Markdown. Begin directly with the word \"Strengths:\" — no preamble, nothing before it."
     );
 }
@@ -355,11 +355,11 @@ fn prompt_team_no_composite_no_position() {
         "Entity: Test FC (FOOTBALL team)\n\
 \nProfile distinctiveness: 55/100 (higher = more standout skills — let a richer profile earn a fuller read).\n\
 \nDECISION CARD\n\
-Headline strength: Defense: 0.38 · 78th pct (strong) · z +1.2\n\
+Headline strength: Defense: 0.38 · 78th pct (strong) · rating +1.2\n\
 Secondary strengths: None supplied.\n\
 Headline limitation: None — this profile offers no clean exploit.\n\
-\nDatapoints — value · percentile + TIER (the tier is the truth) · z (standard deviations from the mean; a high z is a rarer edge); [position] percentile when present:\n\
-- Defense: 0.38 · 78th pct (strong) · z +1.2\n\
+\nDatapoints — value · percentile + TIER (the tier is the truth) · rating (how far above or below the average; a higher rating is a rarer edge); [position] percentile when present:\n\
+- Defense: 0.38 · 78th pct (strong) · rating +1.2\n\
 \nWrite the report now: four labelled lines (Strengths / Limitations / Summary / HEADLINE), each on its own line, plain text, no Markdown. Begin directly with the word \"Strengths:\" — no preamble, nothing before it."
     );
 }

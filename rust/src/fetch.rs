@@ -271,6 +271,94 @@ const NON_CONTENT_TAGS: &[&str] = &[
     "button", "select", "textarea", "template", "figure",
 ];
 
+/// Phrases that reliably mark the END of the story on a publisher page.
+///
+/// MEASURED 2026-08-22 across `news_articles.full_text` (37,683 rows): p50 6,142 chars but 41%
+/// over `EDITOR_MAX_MODEL_CHARS`, and sampling the tails showed almost none of that length is
+/// journalism. It is a duplicated podcast promo, "Add us as a preferred source on Google", a
+/// modified-date line, a staff-writer biography, a "Home / College Football" breadcrumb — and,
+/// on one publisher, an ENTIRE SECOND ARTICLE from a related-stories feed.
+///
+/// That last one is why this exists at all. The token cost is real, but feeding a second story
+/// into a junction whose whole instruction is "describe THIS page accurately" is a correctness
+/// bug: every fact the Editor extracts from it is attributed to the wrong article.
+///
+/// These are applied ONLY in the tail (see `trim_boilerplate_tail`) because several are ordinary
+/// English that can legitimately appear mid-story.
+const TAIL_MARKERS: &[&str] = &[
+    "this article was translated into english by artificial intelligence",
+    "add us as a preferred source",
+    "partner publisher ·",
+    "read more:",
+    "related stories",
+    "related articles",
+    "more from",
+    "sign up for",
+    "subscribe to",
+    "follow us on",
+    "view comments",
+    "share this article",
+];
+
+/// Where the tail begins. A marker before this point is treated as prose, not furniture: cutting
+/// a story in half because it says "read more:" in its third paragraph is far worse than leaving
+/// some boilerplate on the end.
+const TAIL_SEARCH_FROM: f64 = 0.5;
+
+/// The floor a trim may not cross. If cutting at a marker would leave less than this, the marker
+/// was in real content and the trim is abandoned.
+const TAIL_MIN_KEEP_WORDS: usize = ARTICLE_MIN_WORDS;
+
+/// trim_boilerplate_tail cuts the body at the earliest end-of-story marker in its tail half.
+fn trim_boilerplate_tail(text: &str) -> String {
+    let lower = text.to_lowercase();
+    let from = (lower.len() as f64 * TAIL_SEARCH_FROM) as usize;
+    if from >= lower.len() {
+        return text.to_string();
+    }
+    let cut = TAIL_MARKERS
+        .iter()
+        .filter_map(|m| lower[from..].find(m).map(|i| from + i))
+        .min();
+    match cut {
+        Some(i) if count_words(&text[..i]) >= TAIL_MIN_KEEP_WORDS => text[..i].trim_end().to_string(),
+        _ => text.to_string(),
+    }
+}
+
+/// dedupe_repeated_segments drops a sentence-ish block that has already appeared verbatim.
+///
+/// Publishers repeat promo blocks — the sampled SI page carried its podcast pitch twice, word for
+/// word, inside the article element where no tag strip can reach it. Only blocks long enough to
+/// be furniture are considered: short repeats ("He said.", a scoreline) are ordinary prose.
+const DEDUPE_MIN_SEGMENT_CHARS: usize = 60;
+
+fn dedupe_repeated_segments(text: &str) -> String {
+    let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut out: Vec<&str> = Vec::new();
+    let mut start = 0usize;
+    let bytes = text.as_bytes();
+    for (i, b) in bytes.iter().enumerate() {
+        if *b != b'.' && *b != b'!' && *b != b'?' {
+            continue;
+        }
+        let seg = text[start..=i].trim();
+        if seg.len() >= DEDUPE_MIN_SEGMENT_CHARS {
+            let key = seg.to_lowercase();
+            if !seen.insert(key) {
+                start = i + 1;
+                continue;
+            }
+        }
+        out.push(&text[start..=i]);
+        start = i + 1;
+    }
+    if start < text.len() {
+        out.push(&text[start..]);
+    }
+    out.join("").split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
 /// extract_article_text pulls the READING BODY out of a publisher page.
 ///
 /// **Why this exists, measured 2026-08-09.** [`clean_html`] strips `<script>`/`<style>` and then
@@ -297,11 +385,18 @@ pub fn extract_article_text(html: &str) -> String {
         if let Some(inner) = largest_element_inner(&doc, tag) {
             let text = clean_html(&inner);
             if count_words(&text) >= ARTICLE_MIN_WORDS {
-                return text;
+                return compact_reading(&text);
             }
         }
     }
-    clean_html(&doc)
+    compact_reading(&clean_html(&doc))
+}
+
+/// compact_reading strips what the tag pass cannot see: furniture that lives INSIDE the article
+/// element. Order matters — dedupe first so a repeated promo cannot hide the marker that ends the
+/// story, then cut the tail.
+fn compact_reading(text: &str) -> String {
+    trim_boilerplate_tail(&dedupe_repeated_segments(text))
 }
 
 /// largest_element_inner returns the inner HTML of the LONGEST `<tag>…</tag>` span, nested spans
@@ -986,5 +1081,55 @@ mod tests {
             parse_google_news_resolver_response(body).as_deref(),
             Some("https://www.goal.com/en/news/example")
         );
+    }
+}
+
+#[cfg(test)]
+mod compact_reading_tests {
+    use super::{compact_reading, dedupe_repeated_segments, trim_boilerplate_tail};
+
+    /// The two shapes measured in production tails on 2026-08-22.
+    #[test]
+    fn a_repeated_promo_block_is_kept_once() {
+        let promo = "PODCAST: Listen to the college sports podcast, hosted by Pat Forde, below or on Apple and Spotify. ";
+        let body = format!("Ohio State opened as a two-touchdown favourite and covered comfortably. {promo}{promo}");
+        let got = dedupe_repeated_segments(&body);
+        assert_eq!(got.matches("PODCAST").count(), 1, "the second copy is furniture: {got}");
+        assert!(got.contains("two-touchdown favourite"), "the story survives: {got}");
+    }
+
+    /// The OneFootball case: a whole second article arriving through a related-stories feed. This
+    /// is a CORRECTNESS fix, not a token saving — the Editor is told to describe THIS page.
+    #[test]
+    fn a_related_feed_is_cut_off_the_tail() {
+        let story = "Celtic have agreed personal terms with the midfielder and expect to conclude \
+             the deal this week, with the fee the only outstanding item between the two clubs. \
+             The player travelled on Tuesday and completed a medical on Wednesday morning, and \
+             the manager confirmed afterwards that he expects the paperwork to be lodged before \
+             the window shuts on Friday evening. Talks had stalled twice over the summer, once \
+             on the structure of the instalments and once on a sell-on clause the selling club \
+             wanted set at twenty per cent, but both sides moved in the last week. The midfielder \
+             is expected to be available for the weekend fixture if registration completes. ";
+        let feed = "Related stories CBF mulls new youth tournament, shrinking Copinha, says site. \
+             The Brazilian Football Confederation is discussing significant changes to the calendar.";
+        let got = compact_reading(&format!("{story}{feed}"));
+        assert!(got.contains("agreed personal terms"), "the story survives: {got}");
+        assert!(!got.contains("Copinha"), "the second article must not reach the Editor: {got}");
+    }
+
+    /// A marker in real prose must never cut the story: the floor is the whole point.
+    #[test]
+    fn a_marker_in_the_body_never_truncates_the_story() {
+        let body = "Read more: the manager insisted afterwards that the squad was fit. \
+             He then spent ten minutes explaining why the second half had gone the way it did, \
+             and repeated that the injury list was shorter than reported anywhere that week.";
+        assert_eq!(trim_boilerplate_tail(body), body, "an early marker is prose, not furniture");
+    }
+
+    /// Trimming may never leave a stub — better some boilerplate than half a story.
+    #[test]
+    fn a_trim_that_would_gut_the_body_is_abandoned() {
+        let body = "United won. Subscribe to our newsletter for more coverage of the club and its rivals.";
+        assert_eq!(trim_boilerplate_tail(body), body, "under the word floor, keep the body whole");
     }
 }

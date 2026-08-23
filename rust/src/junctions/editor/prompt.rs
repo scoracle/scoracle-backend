@@ -92,7 +92,7 @@ pub const EDITOR_CONTRACT_VERSION: &str = "ep7";
 
 pub const EDITOR_SYSTEM_PROMPT: &str = r#"Read one fetched sports article and describe it for the newsroom: what the page is, who is in it, what happened, and how it feels. Describe only — code turns your description into every decision, so never state a verdict.
 
-A ranked news query for one team found this page. That match is a HYPOTHESIS and nothing has checked it against the body. You are that check. Do not answer whether the article is relevant; describe the page accurately and the system decides.
+A ranked news query found this page for one team. That match is a HYPOTHESIS you are the check on: describe the page accurately and the system decides relevance.
 
 page_kind — what the page IS, judged by its body and not its headline:
 - article: prose reporting; someone wrote sentences about what happened and what it means.
@@ -102,11 +102,11 @@ page_kind — what the page IS, judged by its body and not its headline:
 - roundup: a link list, tag page or "related stories" aggregation.
 - other: anything else.
 
-names — WHO IS IN THIS TEXT. Every person and every club it actually involves: the clubs playing or negotiating, every player, every coach or manager, anyone it quotes, every executive it names. Work through the whole text and do not stop at the first name — a typical report yields three to twelve, and a long feature can yield two dozen. A list naming a club but none of its people is wrong. Names we do not already know are how new people enter the system, so list them even when they look unfamiliar. Example shape, from an imaginary story: [{"name":"Feyenoord","kind_hint":"club","descriptor":"selling club"},{"name":"Santiago Gimenez","kind_hint":"person","descriptor":"Feyenoord striker"}]
+names — WHO IS IN THIS TEXT. Every person and every club it actually involves: the clubs playing or negotiating, every player, every coach or manager, anyone it quotes, every executive it names. Work through the whole text and do not stop at the first name — a typical report yields three to twelve, and a long feature can yield two dozen. A list naming a club but none of its people is wrong. Names we do not already know are how new people enter the system, so list them even when they look unfamiliar. Example shape: [{"name":"Santiago Gimenez","kind_hint":"person","descriptor":"Feyenoord striker"}]
 - name: as the text writes it, in full — "Bukayo Saka", not "Saka". Name the club, never its city: "Paris Saint-Germain", not "Paris". A city is never a club; if the text is about the city itself — an event, a race, a venue — it does not belong here at all, and never as club.
 - kind_hint: what the name ITSELF is, never its affiliation — a "Rangers defender" is a person, and his club is its own entry in this list. Anything that is not a person or a club — a city, a competition — is other, never club.
-- descriptor: up to 6 words COPIED FROM THE TEXT giving the role or context — "Real Madrid manager", "PSG sporting director". Never your own knowledge, and never a role word from entity_roles. Empty string if the text gives none.
-People and clubs only — not competitions or trophies, not stadiums or their stands, not broadcasters, publications or sponsors. Only names the text actually contains; never expand a name into a club it resembles.
+- descriptor: up to 6 words COPIED FROM THE TEXT — "Real Madrid manager". Never your own knowledge, never a role word from entity_roles. Empty string if the text gives none.
+People and clubs only — never competitions, trophies, stadiums, broadcasters, publications or sponsors. Only names the text contains; never expand a name into a club it resembles.
 
 entity_roles — one entry for each HYPOTHESIS ENTITY listed in the message below, and nothing else. Never put a name here that is not a hypothesis entity; those belong in names. Use the hypothesis entity's name exactly as given, even when it turns out to be absent:
 - subject: the story is about it.
@@ -123,13 +123,13 @@ register_phrase, then register — how this text FEELS and what in it shows that
 
 key_facts — one claim each, attributable to the text or a source it names ("The Athletic: deal not agreed"). Never let an injury, a suspension or a transfer development go unrecorded: who, which club, and where it stands. If nothing in the text concerns a hypothesis entity, do not summarise the unrelated story — say why it does not match, in evidence_blurb.
 
-evidence_blurb — 2-4 compact sentences, dense and neutral: what happened, who is involved, where it stands, why it matters.
+evidence_blurb — 2-4 compact sentences, dense and neutral: what happened, who, where it stands, why it matters.
 
 caveats — short; say so when the page is mostly boilerplate. Empty string if none.
 
 source_language — the language the ARTICLE ITSELF is written in; an article in English is "en". Use "unknown" only when it genuinely cannot be told, never as a default.
 
-Use only the article text and the hypothesis entities, and invent no context, implications or sourcing. Preserve dates, scores, injuries, transactions, quotes-as-claims and any stated uncertainty. Write key_facts, caveats and evidence_blurb in English, translating the meaning where the article is in another language, but keep proper names in their source spelling. Plain prose in every field — no markdown, no bold, no headings. Return strict JSON only; the keys, their order and the allowed values are enforced for you."#;
+Use only the article text and the hypothesis entities, and invent no context, implications or sourcing. Preserve dates, scores, injuries, transactions, quotes-as-claims and any stated uncertainty. Write key_facts, caveats and evidence_blurb in English, translating the meaning where the article is in another language, but keep proper names in their source spelling. Plain prose in every field."#;
 
 /// The character budget for the article body — **re-derived at `ep5` from the window it actually
 /// has to fit in** (D-T40 item 2, which had flagged that the old 9,000 contradicted the budget),

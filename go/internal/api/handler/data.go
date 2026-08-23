@@ -111,10 +111,11 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 		sport, season, scope, position, leagueID, limit, entityType, conference, division, teamID, positionGroup)
 }
 
-// GetVibesLeaderboard returns the sport-wide vibe board: entities ranked by
-// their latest sentiment score (1-100) in the last 48h, enriched with name/image/team.
+// GetVibesLeaderboard returns the sport-wide vibe board: entities ranked by the
+// CHARGE of their latest sentiment in the last 48h (ABS(sentiment-50) — crisis and
+// euphoria both rank; heat contract drop 3b), enriched with name/image/team.
 // @Summary Vibes leaderboard
-// @Description Sport-wide board of entities ranked by latest vibe sentiment (1-100). With the Vibe felt-read blurb.
+// @Description Sport-wide board of entities ranked by emotional charge (distance of the latest 48h sentiment from 50, either direction). Rows serve heat = the raw sentiment (1-100) and the Influencer's hook as headline.
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
@@ -221,15 +222,16 @@ func (h *Handler) GetSigilLeaderboard(w http.ResponseWriter, r *http.Request) {
 // ?metric=rating ranks the rating-percentile trend over the entity's last
 // season_bridge_window(sport) rated games (~10% of the season: NBA 8, NFL 2,
 // FOOTBALL 4), a game-count lookback that naturally spans the season boundary.
-// ?direction=up (default) is the risers board; ?direction=down ranks the fallers
-// (negative slopes, most negative first) — scores keep their sign either way.
-// @Summary Momentum leaderboard (risers / fallers)
-// @Description Entities ranked by their stored momentum snapshot slope (newest minus oldest sample; vibe = 21 calendar days, rating = last ~10%-of-season games, season-spanning). metric=vibe (default) or rating. direction=up (default, risers) or down (fallers). /trending remains a legacy alias.
+// Default is the MOVERS board — ranked by ABS(slope), both directions (heat
+// contract drop 3b); ?direction=up filters to risers, ?direction=down to fallers
+// (most negative first) — heat/slope keep their sign either way.
+// @Summary Momentum leaderboard (movers; risers / fallers filters)
+// @Description Entities ranked by their stored momentum snapshot slope (newest minus oldest sample; vibe = 21 calendar days, rating = last ~10%-of-season games, season-spanning). metric=vibe (default) or rating. Default ranks biggest movers in either direction by ABS(slope); direction=up (risers) or down (fallers) filters one side. /trending remains a legacy alias.
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
 // @Param metric query string false "Trajectory: vibe (default) or rating"
-// @Param direction query string false "Movers: up (default, risers) or down (fallers)"
+// @Param direction query string false "Omit for biggest movers both ways; up = risers only, down = fallers only"
 // @Param entity_type query string false "Filter: player or team (default both)"
 // @Param league_id query int false "Filter to a league"
 // @Param team_id query int false "Filter to a team"
@@ -727,10 +729,11 @@ func (h *Handler) GetEntityMomentum(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetStories returns the STORIES page list — the first story-scoped surface
-// (AppTray, 2026-08-12). Default: open storylines ranked by the cast's banked
-// character scores (Journalist card_score, Influencer sentiment as tie-break)
-// so a busy saga outranks a quiet big-club week. ?status=resolved|dormant
-// serves the recency-ordered archive instead.
+// (AppTray, 2026-08-12). Default: open storylines ranked by editor-native heat
+// (report volume decayed by latest-packet age — drop 1 of the headline/body
+// contract; no voice memory feeds the ranking), each row carrying the
+// Journalist's recap. ?status=resolved|dormant serves the recency-ordered
+// archive instead.
 // @Summary Get the stories list
 // @Description Open storylines ranked by cast heat (banked character scores); ?status=resolved|dormant for the archive by recency.
 // @Tags data

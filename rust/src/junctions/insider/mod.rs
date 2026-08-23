@@ -2019,7 +2019,7 @@ fn parse_insider_score_reply(raw: &str) -> Option<InsiderScoreReply> {
     let read = read.split_whitespace().collect::<Vec<_>>().join(" ");
     // Fold first, then strip: the helper is written for ONE line of a labeled reply, and the
     // whitespace fold above is what makes a multi-sentence READ exactly that.
-    let read = crate::util::strip_markdown_emphasis(&read);
+    let read = crate::guards::clean_served_prose(&read);
     if read.is_empty() {
         return None;
     }

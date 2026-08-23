@@ -261,7 +261,7 @@ pub struct NarrativesParser;
 
 impl Parser<ParsedNarratives> for NarrativesParser {
     fn parse(&self, raw: &str) -> Result<Option<ParsedNarratives>> {
-        let (narratives, ok) = parse_narratives(raw);
+        let (mut narratives, ok) = parse_narratives(raw);
         if !ok {
             // Go: `return nil, fmt.Errorf("parse narratives failed ...")` — a real generation failure
             // that must retry (NOT a no-data marker). generation_failed must never masquerade as no-data.
@@ -269,6 +269,14 @@ impl Parser<ParsedNarratives> for NarrativesParser {
                 "parse narratives failed (raw={:?})",
                 crate::util::truncate(raw, 200)
             ));
+        }
+        // Served prose takes the shared scrub first (guards::clean_served_prose). The
+        // Journalist had NO markdown protection of any kind until 2026-08-23 — not a strip, not
+        // a ban — so a bolded storyline shipped straight to the card. She writes a title and a
+        // body per storyline, and both are served, so both are scrubbed.
+        for n in narratives.iter_mut() {
+            n.title = crate::guards::clean_served_prose(&n.title);
+            n.body = crate::guards::clean_served_prose(&n.body);
         }
         // The eval→guard migration (2026-08-19, DOCTRINE-directing.md): served storyline prose
         // never names a product. Scans the parsed titles+bodies (the served fields), not the raw

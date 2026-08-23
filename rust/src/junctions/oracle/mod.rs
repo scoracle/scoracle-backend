@@ -959,6 +959,10 @@ pub fn parse_crown_reply(raw: &str) -> Option<CrownReply> {
     let v = parsed?;
     let reading = v.get("reading")?.as_str()?.trim();
     let reading = reading.split_whitespace().collect::<Vec<_>>().join(" ");
+    // Served prose, so it takes the shared scrub. The Oracle had none until 2026-08-23, which
+    // is why its own gate reported `reading_plain_text — found '*'`: the prompt asked for plain
+    // text and nothing enforced it.
+    let reading = crate::guards::clean_served_prose(&reading);
     if reading.is_empty() {
         return None;
     }
@@ -989,7 +993,7 @@ pub struct CrownParser;
 impl Parser<CrownReply> for CrownParser {
     fn parse(&self, raw: &str) -> Result<Option<CrownReply>> {
         match parse_crown_reply(raw) {
-            Some(r) => {
+            Some(mut r) => {
                 // The eval→guard migration (2026-08-19, DOCTRINE-directing.md): the reading's
                 // global invariants fail closed in production — internal vocabulary, the verdict
                 // formula, a peer roll call, product names, foreign script. Same lists as the
@@ -1000,19 +1004,11 @@ impl Parser<CrownReply> for CrownParser {
                     tracing::warn!(guard = "oracle_reading_ban", phrase = p, "reading rejected");
                     bail!("crown: reading carries banned vocabulary {p:?}");
                 }
-                // The card title shares the HOOK contract (guards::hook_violation — twelve
-                // words, no colon, no question mark). Fail-closed like every title guard:
-                // a junk headline re-rolls rather than shipping.
-                if let Some(h) = r.headline.as_deref() {
-                    if let Some(rule) = crate::guards::hook_violation(h) {
-                        tracing::warn!(guard = rule, headline = h, "crown headline rejected");
-                        bail!("crown: headline violates {rule} (headline={h:?})");
-                    }
-                    if crate::guards::has_foreign_script(h) {
-                        tracing::warn!(guard = "foreign_script", "crown headline rejected");
-                        bail!("crown: headline carries a foreign-script run");
-                    }
-                }
+                // The title contract, applied by the one shared implementation
+                // (guards::settle_title). It FAILS OPEN — salvage, else no title, never an
+                // error. The comment here used to claim "fail-closed like every title guard",
+                // which was never true of any other seat and cost whole cards on three of them.
+                r.headline = crate::guards::settle_title("oracle", r.headline.as_deref());
                 let peers = crate::guards::count_named_peers(&r.reading);
                 if peers > 1 {
                     tracing::warn!(guard = "peer_roll_call", peers, "reading rejected");

@@ -111,23 +111,43 @@ fn crown_parses_optional_headline() {
     assert!(empty.headline.is_none());
 }
 
+/// The card title FAILS OPEN, via the shared `guards::settle_title` (2026-08-23). This test
+/// asserted the opposite until then — "a violation is Err, the item re-rolls" — which was never
+/// true of any other seat and cost whole cards on three of them before it was noticed.
 #[test]
-fn crown_headline_guard_fails_closed() {
-    // The card title shares the HOOK contract; a violation is Err → the item re-rolls.
-    assert!(CrownParser
-        .parse(r#"{"reading":"x.","headline":"one two three four five six seven eight nine ten eleven twelve thirteen","score":50}"#)
-        .is_err());
-    assert!(CrownParser
-        .parse(r#"{"reading":"x.","headline":"Vale: a crossroads","score":50}"#)
-        .is_err());
-    assert!(CrownParser
-        .parse(r#"{"reading":"x.","headline":"Will winter stir?","score":50}"#)
-        .is_err());
+fn crown_headline_fails_open_and_never_costs_the_reading() {
+    for junk in [
+        r#"{"reading":"The arc holds.","headline":"one two three four five six seven eight nine ten eleven twelve thirteen","score":50}"#,
+        r#"{"reading":"The arc holds.","headline":"Vale: a crossroads","score":50}"#,
+        r#"{"reading":"The arc holds.","headline":"Will winter stir?","score":50}"#,
+    ] {
+        let got = CrownParser
+            .parse(junk)
+            .expect("a junk title must not fail the reading")
+            .expect("a reply");
+        assert!(got.reading.contains("The arc holds"), "the reading survives: {got:?}");
+        assert!(
+            got.headline.as_deref().is_none_or(|h| crate::guards::hook_violation(h).is_none()),
+            "a shipped title always satisfies the contract: {:?}", got.headline
+        );
+    }
     let clean = CrownParser
         .parse(r#"{"reading":"x.","headline":"Winter stirs at the Emirates","score":50}"#)
         .unwrap()
         .unwrap();
     assert_eq!(clean.headline.as_deref(), Some("Winter stirs at the Emirates"));
+}
+
+/// The Oracle had NO markdown protection until 2026-08-23 — not a strip, not a ban — which is
+/// why its own fixture gate reported `reading_plain_text — found '*'`.
+#[test]
+fn the_crown_reading_is_scrubbed_of_emphasis() {
+    let got = CrownParser
+        .parse(r#"{"reading":"The **arc** holds, and the wire is __quiet__.","score":50}"#)
+        .unwrap()
+        .unwrap();
+    assert!(!got.reading.contains("**") && !got.reading.contains("__"), "scrubbed: {:?}", got.reading);
+    assert!(got.reading.contains("The arc holds"), "prose intact: {:?}", got.reading);
 }
 
 #[test]

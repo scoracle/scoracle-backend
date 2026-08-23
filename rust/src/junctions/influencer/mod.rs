@@ -634,36 +634,7 @@ impl Parser<VibeReply> for VibeParser {
         // trimmed to its first beat ships NOW instead of burning a retry — the trim IS the
         // one-clause rule the prompt states, applied in code. Unsalvageable violations
         // still re-roll: the board needs a real hook, and the retry usually lands one.
-        if let Some(h) = hook.as_deref() {
-            if let Some(rule) = crate::guards::hook_violation(h) {
-                if let Some(trimmed) = crate::guards::salvage_hook(h) {
-                    tracing::info!(guard = rule, hook = h, salvaged = %trimmed, "vibe HOOK salvaged to first beat");
-                    hook = Some(trimmed);
-                } else {
-                    // FAIL OPEN (2026-08-23). This used to bail, on the reasoning that "the
-                    // board needs a real hook, and the retry usually lands one". Measured: it
-                    // does not. 39 vibe items dead-lettered at max attempts, and the hooks were
-                    // not junk — they were GOOD titles one to five words long:
-                    //
-                    //   "Brandt walks into the market like a man who's already out of options."
-                    //   "Gomes is the man Marseille built for this 4-0 and the silence after."
-                    //
-                    // Single-clause, so salvage_hook has no beat separator to cut at, and at
-                    // temperature 0.7 the retries keep landing 13-15 words because that is this
-                    // model's natural title length. Each retry discarded the SCORE and the VIBE
-                    // body with it — and the score feeds momentum downstream, so a lost vibe is
-                    // a corrupted trajectory signal, not just a missing card.
-                    //
-                    // The card ships hookless instead: boards omit a row with no title (the
-                    // mig-226 nullable-headline contract) while the card itself renders, and the
-                    // next generation gets another go. Same treatment the Analyst took at s18
-                    // and the Scout on 2026-08-22.
-                    tracing::warn!(guard = rule, hook = h,
-                        "vibe HOOK dropped (card ships without a title)");
-                    hook = None;
-                }
-            }
-        }
+        hook = crate::guards::settle_title("influencer", hook.as_deref());
         // Emphasis is STRIPPED from the body, not banned (2026-08-23) — the fourth and last
         // seat to take this treatment, after the Scout's clean_commentary and the Insider's is4.
         //
@@ -672,13 +643,7 @@ impl Parser<VibeReply> for VibeParser {
         // the SCORE/HOOK/VIBE labels, but the assembled body kept its asterisks and then hit a
         // hard ban — so a good felt read, and the SCORE that momentum depends on, died over
         // typography. Stripping is lossless and the stripped body is exactly the body intended.
-        let vibe_prompt = vibe_prompt
-            .lines()
-            .map(crate::util::strip_markdown_emphasis)
-            .collect::<Vec<_>>()
-            .join("\n")
-            .trim()
-            .to_string();
+        let vibe_prompt = crate::guards::clean_served_prose(&vibe_prompt);
         if let Some(p) = crate::guards::first_product_name(&vibe_prompt) {
             tracing::warn!(guard = "product_name", name = p, "vibe body rejected");
             bail!("vibe: body names product {p:?}");

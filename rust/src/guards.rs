@@ -367,3 +367,117 @@ mod tests {
         assert!(!has_ascii_digit("trending down by one point one over five samples"));
     }
 }
+
+// ---------------------------------------------------------------------------
+// The served-prose pipeline. Two rules that apply to EVERY voice, in one place.
+// ---------------------------------------------------------------------------
+//
+// Added 2026-08-23 after the same two bugs were found and fixed per-seat, in
+// production, four and three times respectively:
+//
+//   markdown reaching a card    Scout (clean_commentary), Insider (is4),
+//                               Influencer — while the Analyst, Journalist and
+//                               Oracle had no protection at all
+//   a junk title killing a card Analyst (s18), Scout, Influencer — each one
+//                               rediscovered by watching dead letters
+//
+// Every instance cost real cards: 89 vibe items died on `**` in a body, 39 on an
+// over-long hook, and a complete graded Scout profile was discarded over a colon.
+// A rule that every voice needs is a rule that belongs where every voice can
+// reach it, which is here — not re-derived in six parsers.
+
+/// clean_served_prose is the scrub every served prose field passes through.
+///
+/// Line by line because `util::strip_markdown_emphasis` is written for ONE line of a labelled
+/// reply, and a card body is many. Stripping rather than banning is deliberate and measured: a
+/// `"**"` ban fails the whole generation, and the model then reproduces the same decoration on
+/// retry at temp=0, so the ban converts a cosmetic flaw into a permanent stall. The stripped
+/// prose is exactly the prose the seat intended.
+pub fn clean_served_prose(s: &str) -> String {
+    s.lines()
+        .map(crate::util::strip_markdown_emphasis)
+        .collect::<Vec<_>>()
+        .join("\n")
+        .trim()
+        .to_string()
+}
+
+/// settle_title applies the card-title contract and returns what should SHIP.
+///
+/// `Some(title)` when it is clean, `Some(first beat)` when a two-beat title salvages, and `None`
+/// when it cannot — never an error. **A junk title costs the title, never the card**, which is
+/// the rule the Analyst reached at s18 ("a junk TITLE never kills it") and the Scout and
+/// Influencer each reached later and separately.
+///
+/// Logs on the seat's behalf so the per-model violation RATE stays visible — that telemetry is
+/// what prices a future model swap, and it was the only reason these bugs were findable at all.
+pub fn settle_title(seat: &str, raw: Option<&str>) -> Option<String> {
+    let t = raw?.trim();
+    if t.is_empty() {
+        return None;
+    }
+    if has_foreign_script(t) {
+        tracing::warn!(seat, guard = "foreign_script", title = t, "title dropped");
+        return None;
+    }
+    match hook_violation(t) {
+        None => Some(t.to_string()),
+        Some(rule) => match salvage_hook(t) {
+            Some(beat) => {
+                tracing::info!(seat, guard = rule, title = t, salvaged = %beat,
+                    "title salvaged to first beat");
+                Some(beat)
+            }
+            None => {
+                tracing::warn!(seat, guard = rule, title = t,
+                    "title dropped (card ships without one)");
+                None
+            }
+        },
+    }
+}
+
+#[cfg(test)]
+mod served_prose_tests {
+    use super::{clean_served_prose, settle_title};
+
+    #[test]
+    fn emphasis_is_stripped_across_lines_and_prose_survives() {
+        let body = "**Brandt** is the story now.\nThe mood is __loud__ in a way it has not been.";
+        let got = clean_served_prose(body);
+        assert!(!got.contains("**") && !got.contains("__"), "stripped: {got}");
+        assert!(got.contains("Brandt is the story now"), "prose intact: {got}");
+        assert!(got.contains("loud in a way"), "prose intact: {got}");
+    }
+
+    #[test]
+    fn a_title_never_costs_the_card() {
+        // Clean titles pass through untouched.
+        assert_eq!(settle_title("t", Some("Arsenal hold firm as the window shuts")).as_deref(),
+                   Some("Arsenal hold firm as the window shuts"));
+        // Two-beat titles salvage to the first beat.
+        assert_eq!(settle_title("t", Some("The room has turned on him — and the window is closing fast")).as_deref(),
+                   Some("The room has turned on him"));
+        // Unsalvageable ones drop to None rather than erroring.
+        assert_eq!(settle_title("t", Some("Brandt walks into the market like a man who is already out of every option")), None);
+        // Absent and empty are simply absent.
+        assert_eq!(settle_title("t", None), None);
+        assert_eq!(settle_title("t", Some("   ")), None);
+    }
+
+    /// Whatever ships always satisfies the contract — that is the invariant callers rely on.
+    #[test]
+    fn a_shipped_title_always_satisfies_the_contract() {
+        for t in [
+            "Arsenal hold firm",
+            "The room has turned on him — and the window is closing fast",
+            "one two three four five six seven eight nine ten eleven twelve thirteen",
+            "Hornets: Elite shooter, poor containment inside the arc",
+        ] {
+            if let Some(shipped) = settle_title("t", Some(t)) {
+                assert!(super::hook_violation(&shipped).is_none(),
+                    "shipped a violating title {shipped:?} from {t:?}");
+            }
+        }
+    }
+}

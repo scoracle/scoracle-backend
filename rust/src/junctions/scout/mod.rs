@@ -1370,27 +1370,7 @@ impl Parser<RatingReply> for RatingParser {
         // A two-beat title salvages to its first beat; anything else ships with no title at all,
         // which is the same outcome an absent HEADLINE line already has, and the next generation
         // gets another go at it.
-        let headline = headline.and_then(|h| {
-            if crate::guards::has_foreign_script(&h) {
-                tracing::warn!(guard = "foreign_script", headline = %h, "rating headline dropped");
-                return None;
-            }
-            match crate::guards::hook_violation(&h) {
-                None => Some(h),
-                Some(rule) => match crate::guards::salvage_hook(&h) {
-                    Some(first_beat) => {
-                        tracing::info!(guard = rule, headline = %h, salvaged = %first_beat,
-                            "rating headline salvaged to first beat");
-                        Some(first_beat)
-                    }
-                    None => {
-                        tracing::warn!(guard = rule, headline = %h,
-                            "rating headline dropped (report ships without a title)");
-                        None
-                    }
-                },
-            }
-        });
+        let headline = crate::guards::settle_title("scout", headline.as_deref());
         Ok(Some(RatingReply { body, headline }))
     }
 }
@@ -1459,12 +1439,7 @@ fn clean_commentary(raw: &str) -> String {
     //
     // Line by line, because the helper is written for ONE line of a labeled reply and this body
     // is three labeled sections.
-    s.lines()
-        .map(crate::util::strip_markdown_emphasis)
-        .collect::<Vec<_>>()
-        .join("\n")
-        .trim()
-        .to_string()
+    crate::guards::clean_served_prose(s)
 }
 
 // ---------------------------------------------------------------------------

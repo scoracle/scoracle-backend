@@ -135,23 +135,7 @@ impl Parser<MomentumReply> for MomentumParser {
         // the pillar product and a junk TITLE never kills it. A two-beat title is salvaged
         // to its first beat in code; anything else degrades to a NULL headline (the same
         // outcome s17 assigned to an absent line) and the title regenerates next trigger.
-        if let Some(h) = reply.headline.as_deref() {
-            let violation = crate::guards::hook_violation(h);
-            let foreign = crate::guards::has_foreign_script(h);
-            if violation.is_some() || foreign {
-                let rule = violation.unwrap_or("foreign_script");
-                match crate::guards::salvage_hook(h).filter(|_| !foreign) {
-                    Some(trimmed) => {
-                        tracing::info!(guard = rule, headline = h, salvaged = %trimmed, "momentum headline salvaged to first beat");
-                        reply.headline = Some(trimmed);
-                    }
-                    None => {
-                        tracing::warn!(guard = rule, headline = h, "momentum headline dropped (READ ships without a title)");
-                        reply.headline = None;
-                    }
-                }
-            }
-        }
+        reply.headline = crate::guards::settle_title("analyst", reply.headline.as_deref());
         Ok(Some(reply))
     }
 }

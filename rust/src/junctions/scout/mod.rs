@@ -1862,6 +1862,14 @@ pub fn rating_work_input_version(season: i32, input_hash: Option<&str>) -> Strin
 /// `input_version`, so `rating_work_season` still parses the season out of the prefix.
 const RATING_WORK_TRANSFER_MARK: &str = "xfer";
 
+/// The marker for a rating opened by an applied injury or suspension (mig 229). Same slot and
+/// same purpose as [`RATING_WORK_TRANSFER_MARK`].
+///
+/// **Both marks are safe to distinguish from a real `input_hash` by prefix** because that slot
+/// otherwise holds a hex digest or the literal `no-stats`: `x` and `v` are not hex digits, so
+/// neither mark can collide with a hash however the digest comes out.
+const RATING_WORK_AVAIL_MARK: &str = "avail";
+
 /// Work-row `input_version` for a rating opened by an ADJUDICATED transfer (Scott's brief,
 /// 2026-08-15: "We need the Scout to be aware of when a transfer crossed the threshold and is
 /// considered concrete").
@@ -1888,16 +1896,78 @@ pub fn rating_work_input_version_for_transfer(season: i32, application_id: i64) 
     )
 }
 
-/// True when this work row was opened by a concrete transfer rather than by moved stats.
-fn rating_work_is_transfer_triggered(input_version: Option<&str>) -> bool {
+/// Work-row `input_version` for a rating opened by an APPLIED injury or suspension (Scott's
+/// brief, 2026-08-23: "we need to make sure on an event day, the Scout is enqueued one time
+/// instead of multiple").
+///
+/// Same two problems as the transfer helper above, plus a third that the transfer path does not
+/// have — and **keying on the DAY rather than the event solves all three at once**:
+///
+/// 1. **Reopening.** An injury does not move the rating snapshot, so an ordinary stats-derived
+///    version collapses into the existing row and nothing runs. A marker in the hash slot makes
+///    this its own version.
+/// 2. **The debounce.** `generate_rating`'s `skip_unchanged` would short-circuit the reopened
+///    row before the model call; [`rating_work_bypasses_debounce`] turns it off for these items.
+/// 3. **Once per event day.** The transfer marker keys on `application_id`, so each move is its
+///    own run — right for transfers, wrong here, because a club can lose three players to knocks
+///    in one afternoon and that is ONE new fact about the squad. Keying on the day means every
+///    event for an entity on that date renders the SAME `input_version`, so `work::enqueue`'s
+///    `WHERE input_version IS DISTINCT FROM EXCLUDED.input_version` collapses them into one row.
+///    The requirement costs nothing: no debounce table, no dedup pass, no new state.
+///
+/// `day` must be the event's `player_availability.event_date` rendered `YYYY-MM-DD`. It is a
+/// DATE in the schema on purpose — a timestamp, or a date taken from a local zone rather than a
+/// fixed one, splits one event day across two versions and the collapse silently stops
+/// collapsing.
+pub fn rating_work_input_version_for_availability(season: i32, day: &str) -> String {
+    format!(
+        "{RATING_WORK_PREFIX}{season}:{RATING_PROMPT_VERSION}:{RATING_WORK_AVAIL_MARK}{day}"
+    )
+}
+
+/// The marker token sitting in the `input_version`'s `input_hash` slot, if the version parses.
+/// Returns the raw slot contents — a mark, a hex digest, or `no-stats`.
+fn rating_work_mark(input_version: Option<&str>) -> Option<&str> {
     input_version
         .and_then(|raw| raw.strip_prefix(RATING_WORK_PREFIX))
         .and_then(|rest| rest.split_once(':'))
-        .map(|(_, tail)| match tail.split_once(':') {
-            Some((_, hash)) => hash.starts_with(RATING_WORK_TRANSFER_MARK),
-            None => false,
-        })
-        .unwrap_or(false)
+        .and_then(|(_, tail)| tail.split_once(':'))
+        .map(|(_, hash)| hash)
+}
+
+/// True when this work row was opened by a concrete transfer rather than by moved stats.
+fn rating_work_is_transfer_triggered(input_version: Option<&str>) -> bool {
+    rating_work_mark(input_version).is_some_and(|h| h.starts_with(RATING_WORK_TRANSFER_MARK))
+}
+
+/// True when this work row was opened by an applied injury or suspension.
+fn rating_work_is_availability_triggered(input_version: Option<&str>) -> bool {
+    rating_work_mark(input_version).is_some_and(|h| h.starts_with(RATING_WORK_AVAIL_MARK))
+}
+
+/// What woke this seat, as the value `stat_summaries.trigger_type` records (mig 228 widened the
+/// CHECK to admit the last two).
+///
+/// This is the ONLY record of which trigger produced a card — the `input_hash` deliberately does
+/// not move for the non-statistical ones — so it is what makes an eval or an incident split
+/// "the nightly batch wrote this" from "an injury did".
+fn rating_trigger_type(input_version: Option<&str>) -> &'static str {
+    match rating_work_mark(input_version) {
+        Some(h) if h.starts_with(RATING_WORK_TRANSFER_MARK) => "transfer",
+        Some(h) if h.starts_with(RATING_WORK_AVAIL_MARK) => "availability",
+        _ => "periodic",
+    }
+}
+
+/// True when the `skip_unchanged` debounce must be turned OFF for this item.
+///
+/// Both non-statistical triggers need this for the same reason: the fact that changed —
+/// personnel, availability — is deliberately absent from the `input_hash` pre-image, so the
+/// debounce would compare equal and short-circuit before the model call. Putting either fact
+/// INTO `input_components` is the obvious fix and the wrong one; see the transfer helper.
+fn rating_work_bypasses_debounce(input_version: Option<&str>) -> bool {
+    rating_work_is_transfer_triggered(input_version)
+        || rating_work_is_availability_triggered(input_version)
 }
 
 fn rating_work_season(input_version: Option<&str>) -> Option<i32> {
@@ -2088,6 +2158,60 @@ pub async fn enqueue_rating_for_applied_transfer(
     Ok(())
 }
 
+/// enqueue_rating_for_applied_availability — the Scout's availability trigger (Scott's brief,
+/// 2026-08-23: "Injuries, suspensions, transfers add to the richness, and is exactly what a real
+/// Scout does"). Called when a `player_availability` row (mig 229) reaches `applied`, which is
+/// the threshold where a reported knock becomes a roster fact.
+///
+/// **`event_day` must arrive as `event_date::text` straight from Postgres** — `YYYY-MM-DD`, the
+/// DATE the schema stores. This crate carries no date library and does not parse one here on
+/// purpose: the day never leaves Postgres as a timestamp, so there is no local zone to render it
+/// through and no way for one event day to split across two `input_version`s. That split is the
+/// only thing that can break Scott's once-per-day rule, and this signature is what forecloses it.
+///
+/// Two targets, not the transfer path's three: the player and the club they are at. An injury has
+/// no old/new club — the squad that loses availability is one squad.
+///
+/// Best-effort by design, exactly like the transfer trigger: a failure to enqueue must never fail
+/// the adjudication that earned it, and the nightly batch remains the backstop.
+pub async fn enqueue_rating_for_applied_availability(
+    pool: &PgPool,
+    sport: &str,
+    player_id: i32,
+    team_id: Option<i32>,
+    event_day: &str,
+) -> Result<()> {
+    let sport = sport.to_uppercase();
+    let season = current_season(pool, &sport).await?;
+    let input_version = rating_work_input_version_for_availability(season, event_day);
+
+    let mut targets: Vec<(&str, i64)> = vec![("player", i64::from(player_id))];
+    if let Some(team) = team_id {
+        targets.push(("team", i64::from(team)));
+    }
+
+    for (entity_type, entity_id) in targets {
+        let item = Item {
+            stage: Stage::Rating,
+            entity_type: entity_type.to_string(),
+            entity_id,
+            sport: sport.clone(),
+            input_version: Some(input_version.clone()),
+            attempts: 0,
+        };
+        if let Err(e) = crate::work::enqueue(pool, &item).await {
+            warn!(
+                event_day,
+                entity_type,
+                entity_id,
+                sport = %sport,
+                "rating: could not enqueue on applied availability: {e:#}"
+            );
+        }
+    }
+    Ok(())
+}
+
 async fn current_season(pool: &PgPool, sport: &str) -> Result<i32> {
     sqlx::query_scalar("SELECT current_season FROM public.sports WHERE id = $1")
         .bind(sport)
@@ -2140,21 +2264,22 @@ impl StageHandler for RatingHandler {
         let name =
             crate::corpus::lookup_entity_name(&hx.pool, &item.entity_type, entity_id, &sport)
                 .await?;
-        // A move that crossed the concrete threshold is its own trigger, and it must not be
-        // debounced away: the stats have not changed, so the input_hash has not changed, and the
-        // ordinary `skip_unchanged` gate would short-circuit before the model call. The personnel
-        // block is what changed, and it reaches the prompt through `with_enrichment`.
-        let by_transfer = rating_work_is_transfer_triggered(item.input_version.as_deref());
+        // A move that crossed the concrete threshold — or an applied injury or suspension — is
+        // its own trigger, and it must not be debounced away: the stats have not changed, so the
+        // input_hash has not changed, and the ordinary `skip_unchanged` gate would short-circuit
+        // before the model call. What changed is the personnel block, and it reaches the prompt
+        // through `with_enrichment`, outside the hash pre-image.
+        let bypass = rating_work_bypasses_debounce(item.input_version.as_deref());
         let req = RatingReq {
             entity_type: item.entity_type.clone(),
             entity_id,
             entity_name: name,
             sport: sport.clone(),
+            trigger_type: rating_trigger_type(item.input_version.as_deref()).to_string(),
             season: Some(season),
-            trigger_type: if by_transfer { "transfer" } else { "periodic" }.to_string(),
         };
 
-        let out = generate_rating(hx, &req, RATING_TEMPERATURE, !by_transfer, true).await?;
+        let out = generate_rating(hx, &req, RATING_TEMPERATURE, !bypass, true).await?;
         if out.skipped_unchanged {
             debug!(
                 entity_type = %item.entity_type,

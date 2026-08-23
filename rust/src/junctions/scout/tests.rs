@@ -642,6 +642,67 @@ fn a_transfer_triggered_rating_token_is_distinguishable_and_still_parses_season(
 }
 
 #[test]
+fn every_availability_event_on_one_day_collapses_to_a_single_work_row() {
+    // Scott's constraint, 2026-08-23: "on an event day, the Scout is enqueued one time instead
+    // of multiple." This is the whole mechanism — the marker keys on the DAY, so N events for
+    // one entity on one date render the IDENTICAL input_version, and work::enqueue's
+    // `WHERE input_version IS DISTINCT FROM EXCLUDED.input_version` collapses them into one row.
+    // No debounce table, no dedup pass. If this assertion ever fails, a club losing three
+    // players to knocks in an afternoon burns three model calls on the fleet's slowest seat.
+    let first = rating_work_input_version_for_availability(2025, "2026-08-23");
+    let second = rating_work_input_version_for_availability(2025, "2026-08-23");
+    assert_eq!(first, second);
+    assert_eq!(first, format!("rating:s2025:{RATING_PROMPT_VERSION}:avail2026-08-23"));
+
+    // A DIFFERENT day must reopen — otherwise a fresh injury the next morning is absorbed by
+    // yesterday's done row and the Scout never looks again.
+    let next_day = rating_work_input_version_for_availability(2025, "2026-08-24");
+    assert_ne!(first, next_day);
+
+    // The season parse survives the marker, as it must for the transfer mark (the handler reads
+    // the season back out of this token).
+    assert_eq!(rating_work_season(Some(&first)), Some(2025));
+}
+
+#[test]
+fn the_two_non_statistical_triggers_are_distinguishable_from_each_other_and_from_stats() {
+    let avail = rating_work_input_version_for_availability(2025, "2026-08-23");
+    let xfer = rating_work_input_version_for_transfer(2025, 4211);
+    let stats = rating_work_input_version(2025, Some("abc123"));
+    let no_stats = rating_work_input_version(2025, None);
+
+    // Mutually exclusive. A mark that answered to both predicates would make trigger_type
+    // meaningless, and trigger_type is the ONLY record of what woke the seat — the input_hash
+    // deliberately does not move for either of these.
+    assert!(rating_work_is_availability_triggered(Some(&avail)));
+    assert!(!rating_work_is_transfer_triggered(Some(&avail)));
+    assert!(rating_work_is_transfer_triggered(Some(&xfer)));
+    assert!(!rating_work_is_availability_triggered(Some(&xfer)));
+
+    // A real hash can never be mistaken for a mark: the slot otherwise holds a hex digest or
+    // `no-stats`, and neither 'x' (xfer) nor 'v' (avail) is a hex digit.
+    for token in [&stats, &no_stats] {
+        assert!(!rating_work_is_availability_triggered(Some(token)));
+        assert!(!rating_work_is_transfer_triggered(Some(token)));
+    }
+
+    // The debounce bypass covers both and ONLY both. If a periodic token ever bypassed, every
+    // rating in the fleet would regenerate on every enumeration.
+    assert!(rating_work_bypasses_debounce(Some(&avail)));
+    assert!(rating_work_bypasses_debounce(Some(&xfer)));
+    assert!(!rating_work_bypasses_debounce(Some(&stats)));
+    assert!(!rating_work_bypasses_debounce(None));
+
+    // The three-way that lands in stat_summaries.trigger_type. Every one of these values must
+    // be admitted by the mig 228 CHECK — a value outside it fails the INSERT *after* the model
+    // call, which is the bug mig 228 exists to close.
+    assert_eq!(rating_trigger_type(Some(&avail)), "availability");
+    assert_eq!(rating_trigger_type(Some(&xfer)), "transfer");
+    assert_eq!(rating_trigger_type(Some(&stats)), "periodic");
+    assert_eq!(rating_trigger_type(None), "periodic");
+}
+
+#[test]
 fn rating_parser_never_fails_closed() {
     // Even garbage parses to Some (rating's only marker is pre-model); an empty body is the
     // caller's hard error, not a served UNKNOWN.

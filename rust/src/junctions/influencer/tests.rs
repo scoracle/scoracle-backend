@@ -401,3 +401,33 @@ fn the_wire_reaches_her_as_temperature_never_as_a_ledger() {
         );
     }
 }
+
+/// An unsalvageable hook costs the title, never the card. Measured 2026-08-23: 39 vibe items
+/// dead-lettered at max attempts on hooks that were GOOD, merely one to five words long and
+/// single-clause, so salvage_hook had no beat separator to cut at. Each retry discarded the
+/// SCORE too — and the score feeds momentum, so a lost vibe corrupts a downstream trajectory.
+#[test]
+fn an_unsalvageable_hook_never_costs_the_card() {
+    let reply = "SCORE: 62\n\
+                 HOOK: Brandt walks into the market like a man who's already out of options.\n\
+                 VIBE: The room around Brandt has gone quiet in the way rooms do when everyone \
+                 already knows. Nobody is arguing about his future any more.";
+    let got = VibeParser
+        .parse(reply)
+        .expect("a long single-clause hook must not fail the card")
+        .expect("a reply");
+
+    assert_eq!(got.sentiment, 62, "the score survives, and momentum reads it");
+    assert!(got.vibe_prompt.contains("gone quiet"), "the body survives: {:?}", got.vibe_prompt);
+    assert!(
+        got.hook.as_deref().is_none_or(|h| crate::guards::hook_violation(h).is_none()),
+        "a shipped hook always satisfies the contract: {:?}", got.hook
+    );
+
+    // A two-beat hook still salvages to its first beat rather than dropping.
+    let salvaged = VibeParser
+        .parse("SCORE: 40\nHOOK: The room has turned on him — and the window is closing fast\nVIBE: Flat.")
+        .expect("salvageable")
+        .expect("a reply");
+    assert_eq!(salvaged.hook.as_deref(), Some("The room has turned on him"));
+}

@@ -310,15 +310,24 @@ const TAIL_SEARCH_FROM: f64 = 0.5;
 const TAIL_MIN_KEEP_WORDS: usize = ARTICLE_MIN_WORDS;
 
 /// trim_boilerplate_tail cuts the body at the earliest end-of-story marker in its tail half.
+///
+/// Byte-searched via [`find_ascii_ci`], never through a `to_lowercase()` copy. The previous
+/// implementation sliced `lower[from..]` with a midpoint byte index — any article whose midpoint
+/// landed inside a multibyte char panicked ("not a char boundary; inside 'á'"), and it indexed
+/// the ORIGINAL text with offsets measured on the lowercased copy, the exact
+/// `strip_element_blocks` incident shape (2026-07-26). 23 harness-killing panics on the night of
+/// 2026-08-23 came from this line. The markers are ASCII, so ASCII-case-insensitive byte search
+/// is sufficient, length-true, and boundary-safe by construction: `from` may land mid-char, but
+/// a marker match can never START on a UTF-8 continuation byte, and every returned offset points
+/// at an ASCII byte — always a char boundary.
 fn trim_boilerplate_tail(text: &str) -> String {
-    let lower = text.to_lowercase();
-    let from = (lower.len() as f64 * TAIL_SEARCH_FROM) as usize;
-    if from >= lower.len() {
+    let from = (text.len() as f64 * TAIL_SEARCH_FROM) as usize;
+    if from >= text.len() {
         return text.to_string();
     }
     let cut = TAIL_MARKERS
         .iter()
-        .filter_map(|m| lower[from..].find(m).map(|i| from + i))
+        .filter_map(|m| find_ascii_ci(text, m, from))
         .min();
     match cut {
         Some(i) if count_words(&text[..i]) >= TAIL_MIN_KEEP_WORDS => text[..i].trim_end().to_string(),
@@ -1131,5 +1140,39 @@ mod compact_reading_tests {
     fn a_trim_that_would_gut_the_body_is_abandoned() {
         let body = "United won. Subscribe to our newsletter for more coverage of the club and its rivals.";
         assert_eq!(trim_boilerplate_tail(body), body, "under the word floor, keep the body whole");
+    }
+
+    /// The 2026-08-23 crashloop: a multibyte char straddling the midpoint byte index panicked
+    /// the whole harness 23 times overnight ("start byte index N is not a char boundary;
+    /// it is inside 'á' / '🫶' / '’'"). The trim must survive any midpoint and still cut the
+    /// tail marker past it.
+    #[test]
+    fn a_multibyte_midpoint_never_panics_and_the_tail_still_trims() {
+        // Enough words to clear TAIL_MIN_KEEP_WORDS, dense with multibyte chars so the
+        // 50% byte offset lands inside one for a range of lengths.
+        let sentence = "Álvaro’s header sealed it — señor Peña’s side flew 🫶 past their rivals again and again. ";
+        let story = sentence.repeat(12);
+        let body = format!("{story}Subscribe to our newsletter for daily coverage.");
+        let got = trim_boilerplate_tail(&body);
+        assert!(got.contains("Álvaro’s header"), "the story survives: {got}");
+        assert!(!got.contains("Subscribe to"), "the tail marker still trims: {got}");
+        // And a body that is ONLY multibyte prose with no marker passes through untouched.
+        let clean = "café généreux naïve résumé — ".repeat(40);
+        assert_eq!(trim_boilerplate_tail(&clean), clean);
+    }
+
+    /// A byte-exact match of a valid UTF-8 needle always begins on a char boundary, so
+    /// `find_ascii_ci` is boundary-safe for any marker — but it can only case-fold ASCII
+    /// letters. Pin that no marker carries a non-ASCII LETTER (e.g. "publicité"), which would
+    /// silently never match its cased variants. Non-letter symbols like the "·" separator are
+    /// fine: they have no case to fold.
+    #[test]
+    fn tail_markers_carry_no_non_ascii_letters() {
+        for m in super::TAIL_MARKERS {
+            assert!(
+                m.chars().all(|c| c.is_ascii() || !c.is_alphabetic()),
+                "TAIL_MARKERS letters must be ASCII (find_ascii_ci can only fold ASCII case): {m:?}"
+            );
+        }
     }
 }

@@ -1654,14 +1654,15 @@ impl StageHandler for NarrativesHandler {
         Stage::Narratives
     }
 
-    // Consolidation (2026-08-20): every drain stage shares the archbox card — see
-    // `stage::ARCHBOX_SLOTS` for the ceiling and the three-knob rule. Capped at 2 so one
-    // long voice decode cannot take the whole card from The Editor.
+    // Two-host split (2026-08-23): the Journalist's model runs on the Mac
+    // (`COGNITION_ROUTE_NARRATIVE_LOGIC_BASE_URL`), so it budgets against `MAC_SLOTS`, not the
+    // archbox card — see that constant for the measured starvation the wrong group caused.
+    // Capped at 2 so one deep narratives queue cannot take the Mac from the Influencer/Oracle.
     fn max_in_flight(&self) -> usize {
         2
     }
     fn slot_group(&self) -> Option<(&'static str, usize)> {
-        Some(crate::stage::ARCHBOX_SLOTS)
+        Some(crate::stage::MAC_SLOTS)
     }
 
     async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {

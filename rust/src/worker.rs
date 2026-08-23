@@ -111,6 +111,18 @@ const STAGE_ROTATION_BATCH: i64 = 1;
 /// answering it would mask exactly the stall the watchdog exists to catch.
 const DESK_INTERVAL: Duration = Duration::from_secs(60);
 
+/// How often stale-lease recovery runs, on its OWN task, independent of the drain.
+///
+/// The Desk's lesson (see [`DESK_INTERVAL`]), relearned 2026-08-23: recovery used to run at the
+/// top of `tick()`, and `tick` runs `drain_all` — which does not return while ANY stage has
+/// claimable work. With a deep backlog that is hours-to-days, so recovery ran exactly once per
+/// boot. The night's fetch panics orphaned 38 rows in 'running' at 04:30 and they sat
+/// unrecovered for four hours under a 30-minute lease, trapping the Editor's claim pool, while
+/// the drain — the very thing starving the recovery — hummed along beside them. A
+/// queue-length-dependent cadence is not a cadence. DB-only (one indexed UPDATE), so it is safe
+/// off the supervisor's task for the same reason the Desk is.
+const STALE_RECOVERY_INTERVAL: Duration = Duration::from_secs(60);
+
 /// Pulse is the drain's progress instrument, shared with the supervisor. The drain
 /// beats it at every step boundary (claim, per-item handle, bookkeeping);
 /// the supervisor reads it to tell a long-but-alive drain (beats keep advancing) from
@@ -520,6 +532,34 @@ impl Worker {
             }));
         }
 
+        // Stale-lease recovery on its own task — every seat, unconditionally: a crashed or
+        // aborted claim must recover on the LEASE's clock, never the drain's (see
+        // STALE_RECOVERY_INTERVAL for the 2026-08-23 incident this closes).
+        {
+            let pool = self.pool.clone();
+            let lease = self.stale_lease;
+            let shutdown = self.shutdown.clone();
+            info!(
+                interval_secs = STALE_RECOVERY_INTERVAL.as_secs(),
+                lease_secs = lease.as_secs(),
+                "stale-lease recovery loop starting (own task, independent of the drain)"
+            );
+            tokio::spawn(async move {
+                loop {
+                    if shutdown.load(Ordering::Acquire) {
+                        debug!("stale-lease recovery loop stopped cleanly");
+                        return;
+                    }
+                    match work::requeue_stale(&pool, lease).await {
+                        Ok(n) if n > 0 => info!(recovered = n, "requeued stale work"),
+                        Ok(_) => {}
+                        Err(e) => error!(error = %format!("{e:#}"), "requeue stale failed"),
+                    }
+                    tokio::time::sleep(STALE_RECOVERY_INTERVAL).await;
+                }
+            });
+        }
+
         // The boot recover-and-drain rides the normal request path, so even startup
         // recovery runs under full signal + watchdog coverage.
         *self.cause.lock().unwrap() = "startup";
@@ -611,12 +651,11 @@ impl Worker {
             debug!(cause, "tick: no handlers registered; nothing to do");
             return;
         }
-        pulse.begin("requeue-stale");
-        match work::requeue_stale(&self.pool, self.stale_lease).await {
-            Ok(n) if n > 0 => info!(recovered = n, cause, "requeued stale work"),
-            Ok(_) => {}
-            Err(e) => error!(error = %format!("{e:#}"), cause, "requeue stale failed"),
-        }
+        // Stale-lease recovery left this spot 2026-08-23 for its own task (see
+        // STALE_RECOVERY_INTERVAL): here it ran once per drain COMPLETION, and a deep backlog
+        // means the drain completes ~never. The duplicate-title sweep below shares that cadence
+        // and knowingly keeps it — it is a tidiness pass, and a late sweep costs a duplicate
+        // headline, not a wedged claim pool.
         self.sweep_exact_title_duplicates(cause, pulse).await;
         self.drain_all(cause, pulse).await;
         // The Desk used to run here, after the drain. It now has its own task (`desk_loop`),

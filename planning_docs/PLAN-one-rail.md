@@ -5090,6 +5090,20 @@ diagnosis, the numbers and the candidate knobs stay in the tuning file at the se
   is no longer "the largest available throughput change" — D-T34 is.** The live runner shows
   `-c 8192 -np 2` = 4096 PER SLOT, confirming KV scales as `num_ctx × slots`, so 4 slots at 2048
   would cost today's KV — ⛔ **but only AFTER D-T35's prompt trim, never before.** → *tuning §D-T30*
+- **D-T60 · ⭐ THE EVAL-SCAR SWEEP + THE HOOK DOCTRINE (2026-08-23, Scott: "the guards allow the
+  model freedom" / "the hook should be the one sentence hook to draw the reader in... the same
+  across characters").** Guards trimmed to the MECHANICAL FLOOR (doctrine written into
+  guards.rs): ORACLE_READING_BANS 10→1 (the vocabulary list was rejecting 13 of 14 crowns
+  Scott judged fine; "(" citations stay), momentum hedge-closers/authority formulas →
+  fixture-contextual gate expects (fourth-wall + "steady band" stay), peer roll-call leaves
+  production (gate keeps it). Hook doctrine lands at the Analyst/Scout emission sites
+  (momentum-s20, s24 — 138+56 colon-label drops/3h before) + Seat Doctrine README. Fallout
+  fixed en route: the rating generator still carried pre-s21 labels (regen clobbered the
+  hand-updated JSONs — the fixture-expects-live-in-the-generator trap, sprung again) and the
+  momentum fixtures carried old-era slope data incoherent with their scores (the s19 word
+  ladder rendered a RISING fixture's rails "flat" and the READ dutifully contradicted the
+  direction) — snapshot() now ASSERTS score = slope average. Gates: momentum 93/95 (2 honest
+  reds), rating 84/87 vs the 82/87 baseline. → *tuning §D-T60*
 - **D-T58 · ⭐ THE DIGIT STARVATION — momentum-s18: 65% OF MOMENTUM GENERATIONS BURNED ON GUARD
   RETRIES (1,223 rejections vs 650 cards/24h), AND THE PROMPT'S OWN DIRECTION LINE FED THE LEAK
   (2026-08-22).** The line handed the READ "(momentum score +12.3, steady band ±10)" while

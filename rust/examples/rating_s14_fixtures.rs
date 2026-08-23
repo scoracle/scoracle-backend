@@ -76,14 +76,12 @@ fn dp_pos(label: &str, value: f64, z: f64, pct: f64, pos_pct: f64) -> RatingData
 /// have silently dropped it (the momentum-generator lesson, caught the same evening).
 fn rating_gate(includes: &[&str], excludes: &[&str], min_words: i64) -> serde_json::Value {
     let mut inc: Vec<String> = includes.iter().map(|s| s.to_string()).collect();
-    inc.extend(
-        [
-            "Strengths to respect:",
-            "Exploitation opportunities:",
-            "Summary:",
-        ]
-        .map(String::from),
-    );
+    // s21 renamed the sections (the FRONT-OFFICE pass: "Strengths to respect"/"Exploitation
+    // opportunities" → "Strengths"/"Limitations"), and its refreeze updated the on-disk JSON
+    // by hand while THIS helper kept the old labels — the exact drift this helper's own doc
+    // warns about, sprung 2026-08-23 when a regen clobbered the hand-updates and the gate
+    // read 68/87 against an 82/87 baseline. The generator is the home of every expect.
+    inc.extend(["Strengths:", "Limitations:", "Summary:"].map(String::from));
     // (` · ` and `**` left the per-fixture excludes 08-19: they are the global
     // `no_banned_phrases` invariant now — `guards::RATING_BODY_BANS`, enforced in
     // production by `RatingParser`.)

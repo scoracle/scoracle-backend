@@ -3478,6 +3478,45 @@ vocabulary is unmeasured against real descriptors; (3) the executive/agent class
 structural Wikidata claim like P1830 — they ride description/occupation words only; (4) the
 corroborated-enrichment recovery rate — the re-run of the NBA 50 is the measurement.
 
+### D-T60 — ⭐ **THE EVAL-SCAR SWEEP + THE HOOK DOCTRINE: guards trim to the mechanical floor, and every seat's title becomes the click-hook.** (2026-08-23, second session)
+
+**Scott's rulings, verbatim:** *"Those Oracle crowns seem fine. Let's clean up the overbearing
+guards"* · *"we built the original evals and the language limitations on an eval model... a lot
+of those eval params were copy+pasted over to the guards and they're more restrictive than they
+need to be. The guards allow the model freedom, which is our goal"* · *"the hook should be the
+one sentence hook to draw the reader in. That should be the same across characters. This is key
+on the leaderboard because it's what leads the user to click."*
+
+**MEASURED before:** the Oracle rejected 13 of 14 crowns in 3h ("percentile" 15, "the omen is"
+12 over 24h) the day sigil finally started claiming; momentum style bans burned ~30 READs/day
+("steady band" 32, "isn't a collapse" 26); the Analyst dropped 138 colon-label titles in 3h and
+the Scout 56 ("Team: description" — unsalvageable one-word heads) because both HEADLINE asks
+said only "card title" and a bare title ask begets a label.
+
+**SHIPPED:** (1) the MECHANICAL-FLOOR rule written into the guards module header — a production
+guard is contract shape, integrity, or product leak; style/vocabulary taste lives in the gate
+where a red is information, not a lost generation. ORACLE_READING_BANS 10→1 ("(" only; "**"
+unreachable via clean_served_prose); MOMENTUM_BANNED_PHRASES 7→3 (fourth-wall + "steady band"
+stay; hedge closers/authority formulas become fixture-contextual expects pinned to their
+historical defect fixtures); peer roll-call out of production, kept in the gate. (2) The hook
+doctrine at both offending emission sites (momentum-s20, rating s24: "one sentence written to
+make a fan tap the card... no colon at all") + the cross-character rule in rust/README.md
+§ Seat Doctrine.
+
+**FALLOUT FIXED EN ROUTE (both fixture-infrastructure traps):** the rating generator's
+`rating_gate` still asserted pre-s21 labels ("Strengths to respect:") — s21's refreeze had
+hand-patched the JSONs, and a regen clobbered them (gate read 68/87 until the generator was
+made the home of the expects again); the momentum fixtures carried old-display-era slopes
+(±2) against ±100-scale scores, so s19's rail word-ladder rendered a decided-RISING fixture's
+rails as "flat" and the model faithfully contradicted the direction line — `snapshot()` now
+asserts score = slope average so the class cannot re-freeze. Literal direction-word checks
+became synonym groups per the D-T50 probe rule ("freefall/decline/collapse" is an honest
+falling read).
+
+**Gates (daemon stopped, temp=0):** momentum 93/95 — the 2 reds are HONEST (sparse-samples
+READ neither names the thin sample nor clears the word floor; kept red as information);
+rating **84/87 vs the 82/87 s21 baseline** with the hook line in. cargo test 422/422.
+
 ### D-T58 — ⭐ **THE DIGIT STARVATION (momentum-s18): 65% OF MOMENTUM GENERATIONS WERE BURNING ON GUARD RETRIES — AND THE PROMPT'S OWN DIRECTION LINE WAS FEEDING THE LEAK.** (2026-08-22, the fail-rate session; Scott: "let's tune the prompts a little to get this fail rate under control")
 
 **MEASURED (24h, production):** 1,223 READ rejections vs 650 shipped cards — nearly two

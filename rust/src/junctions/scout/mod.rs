@@ -1348,18 +1348,41 @@ impl Parser<RatingReply> for RatingParser {
             tracing::warn!(guard = "foreign_script", "rating body rejected");
             anyhow::bail!("rating: body carries a foreign-script run");
         }
-        // The title shares the HOOK contract (twelve words, no colon, no question mark).
-        // Fail-closed like every title guard: a junk headline re-rolls rather than shipping.
-        if let Some(h) = headline.as_deref() {
-            if let Some(rule) = crate::guards::hook_violation(h) {
-                tracing::warn!(guard = rule, headline = h, "rating headline rejected");
-                anyhow::bail!("rating: headline violates {rule} (headline={h:?})");
+        // The title shares the HOOK contract (twelve words, no colon, no question mark), and it
+        // FAILS OPEN — salvage, then degrade to no title, never throw the report away.
+        //
+        // The comment here used to say "fail-closed like every title guard", and that was never
+        // true of any other seat: the Analyst salvages then drops to NULL (s18, "a junk TITLE
+        // never kills it") and the Influencer salvages (v21, guards::salvage_hook). The Scout
+        // was the lone hold-out, and it cost whole reports — measured 2026-08-22, a live failure
+        // reading `rating: headline violates hook_colon (headline="Hornets: Elite shooter...")`.
+        // An expensive, correct, fully-graded profile was discarded over a punctuation mark in
+        // its title, then re-rolled at temp=0 to produce the same title again.
+        //
+        // A two-beat title salvages to its first beat; anything else ships with no title at all,
+        // which is the same outcome an absent HEADLINE line already has, and the next generation
+        // gets another go at it.
+        let headline = headline.and_then(|h| {
+            if crate::guards::has_foreign_script(&h) {
+                tracing::warn!(guard = "foreign_script", headline = %h, "rating headline dropped");
+                return None;
             }
-            if crate::guards::has_foreign_script(h) {
-                tracing::warn!(guard = "foreign_script", "rating headline rejected");
-                anyhow::bail!("rating: headline carries a foreign-script run");
+            match crate::guards::hook_violation(&h) {
+                None => Some(h),
+                Some(rule) => match crate::guards::salvage_hook(&h) {
+                    Some(first_beat) => {
+                        tracing::info!(guard = rule, headline = %h, salvaged = %first_beat,
+                            "rating headline salvaged to first beat");
+                        Some(first_beat)
+                    }
+                    None => {
+                        tracing::warn!(guard = rule, headline = %h,
+                            "rating headline dropped (report ships without a title)");
+                        None
+                    }
+                },
             }
-        }
+        });
         Ok(Some(RatingReply { body, headline }))
     }
 }

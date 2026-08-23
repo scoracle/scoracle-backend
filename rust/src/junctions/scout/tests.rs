@@ -677,10 +677,15 @@ fn rating_splits_the_s20_headline_line() {
     let empty = RatingParser.parse("Summary: x.\nHEADLINE: ").unwrap().unwrap();
     assert!(empty.headline.is_none());
 
-    // A hook-contract violation fails closed (Err → the item re-rolls).
-    assert!(RatingParser
+    // A hook-contract violation FAILS OPEN (2026-08-22): an over-long title with no beat
+    // separator cannot be salvaged, so it degrades to no title and the report still ships.
+    // It used to return Err and discard a complete graded profile over its own title.
+    let long = RatingParser
         .parse("Summary: x.\nHEADLINE: one two three four five six seven eight nine ten eleven twelve thirteen")
-        .is_err());
+        .expect("a junk title never fails the report")
+        .expect("a reply");
+    assert!(long.headline.is_none(), "unsalvageable title drops: {:?}", long.headline);
+    assert_eq!(long.body, "Summary: x.");
 }
 
 // --- 7.7 the personnel block: the Scout's second confirmed-fact road ------------------
@@ -954,5 +959,31 @@ fn datapoints_span_the_range_rather_than_taking_the_top() {
         middle >= 3,
         "the interior of the distribution must be represented, got {middle}: {:?}",
         got.iter().map(|d| d.pct).collect::<Vec<_>>()
+    );
+}
+
+/// A junk title never costs the report. Measured 2026-08-22: a live generation died on
+/// `hook_colon (headline="Hornets: Elite shooter...")`, discarding a complete graded profile
+/// over punctuation in its title — the only seat still failing closed on a title.
+#[test]
+fn a_bad_headline_never_throws_the_report_away() {
+    let body = "Strengths: Blocked shots are elite at the 98th percentile.\nLimitations: Shots on target allowed sit at the 4th percentile.\nSummary: A spiky defensive profile.";
+
+    // A colon title salvages to its first beat rather than killing the read.
+    let salvaged = RatingParser
+        .parse(&format!("{body}\nHEADLINE: Hornets — elite shooting, poor containment"))
+        .expect("a two-beat title must not fail the report")
+        .expect("a reply");
+    assert!(salvaged.body.contains("Strengths:"), "the report survives");
+
+    // An unsalvageable title degrades to no title, and the report still ships.
+    let dropped = RatingParser
+        .parse(&format!("{body}\nHEADLINE: Hornets: Elite shooter, poor containment inside"))
+        .expect("an unsalvageable title must not fail the report")
+        .expect("a reply");
+    assert!(dropped.body.contains("Limitations:"), "the report survives: {:?}", dropped.body);
+    assert!(
+        dropped.headline.as_deref().is_none_or(|h| crate::guards::hook_violation(h).is_none()),
+        "a shipped title always satisfies the contract: {:?}", dropped.headline
     );
 }

@@ -887,9 +887,16 @@ impl StageHandler for VibeHandler {
     // Two-host split (2026-08-23): the Influencer's model runs on the Mac
     // (`COGNITION_ROUTE_VIBE_LOGIC_BASE_URL`), so she budgets against `MAC_SLOTS`, not the
     // archbox card — see that constant for the measured starvation the wrong group caused.
-    // Capped at 2 so a vibe backlog cannot take the Mac from the Journalist/Oracle.
+    //
+    // Capped at 1, not 2, and the cap is the Mac group's FAIRNESS ARITHMETIC: top-up claims in
+    // VOICE_ORDER with no rotation, so with the Journalist at 2 and this seat at 2 the two of
+    // them fill all four Mac slots on every pass while their queues run deep, and the Oracle —
+    // last in order — claims zero. Measured within minutes of the split deploy (2026-08-23):
+    // sigil stayed at zero WITH the right group, because 2+2 left it no room. 2(Journalist)
+    // + 1(here) ≤ 3 guarantees the Oracle a slot whenever the group saturates; the vibe queue
+    // is the shallowest of the three, so hers is the cheapest slot to give back.
     fn max_in_flight(&self) -> usize {
-        2
+        1
     }
     fn slot_group(&self) -> Option<(&'static str, usize)> {
         Some(crate::stage::MAC_SLOTS)

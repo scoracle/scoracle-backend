@@ -1009,11 +1009,10 @@ impl Parser<CrownReply> for CrownParser {
                 // error. The comment here used to claim "fail-closed like every title guard",
                 // which was never true of any other seat and cost whole cards on three of them.
                 r.headline = crate::guards::settle_title("oracle", r.headline.as_deref());
-                let peers = crate::guards::count_named_peers(&r.reading);
-                if peers > 1 {
-                    tracing::warn!(guard = "peer_roll_call", peers, "reading rejected");
-                    bail!("crown: reading names {peers} peer seats (max 1)");
-                }
+                // The peer roll-call rule left production 2026-08-23 (the eval-scar sweep:
+                // guards are the MECHANICAL floor; naming two peers is a voice question, and
+                // the gate's reading_max_peers check still measures it). It was burning a
+                // finished crown over taste.
                 if let Some(p) = crate::guards::first_product_name(&r.reading) {
                     tracing::warn!(guard = "product_name", name = p, "reading rejected");
                     bail!("crown: reading names product {p:?}");

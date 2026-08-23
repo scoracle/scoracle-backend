@@ -71,6 +71,17 @@ fn vibe(sentiment: i32, prompt: &str) -> Option<SynthVibe> {
 }
 
 fn snapshot(score: f64, r_slope: f64, r_n: i32, v_slope: f64, v_n: i32) -> SynthMomentum {
+    // Production's momentum_score IS the average of the two slopes, and since s19 the rails
+    // render as WORDS off the ±100 ladder — incoherent fixture data now produces a prompt
+    // that argues with its own direction line. Caught 2026-08-23: the rising-confirmed
+    // fixture carried slopes from the old small-number display era (2.1/1.4) against a
+    // ±100-scale score of 28.4, the rails rendered "flat", and the READ dutifully
+    // contradicted the decided direction. The generator refuses to freeze that class again.
+    assert!(
+        (score - (r_slope + v_slope) / 2.0).abs() < 0.35,
+        "incoherent fixture data: momentum_score {score} is not the slope average of \
+         ({r_slope}, {v_slope}) — production derives it, so fixtures must too"
+    );
     SynthMomentum {
         momentum_score: Some(score),
         rating_slope: Some(r_slope),
@@ -90,7 +101,7 @@ fn scenarios() -> Vec<Scenario> {
             rating: rating(83, "overall scores and the top skill trending up over recent games",
                 "High-usage creator whose efficiency and rim pressure are climbing; the shot profile keeps improving."),
             vibe: vibe(39, "Efficiency is climbing, but coverage has turned sour after public frustration with the rotation."),
-            momentum: snapshot(0.2, 0.9, 6, -0.8, 5),
+            momentum: snapshot(3.4, 12.5, 6, -5.7, 5),
             expect: json!({"prose_includes_any": [FORM_WORDS, MOOD_WORDS], "prose_excludes": ["**"],
                            "prose_no_digits": true, "total_sentences_max": 10,
                            "prose_min_words": 25, "prose_max_words": 260}),
@@ -102,8 +113,8 @@ fn scenarios() -> Vec<Scenario> {
             rating: rating(79, "recent overall marks are choppy with no clear sustained move",
                 "Reliable separator on money downs; recent games alternate strong and quiet without a direction."),
             vibe: vibe(55, "Beat coverage is balanced: one strong practice week, one quiet game, and no larger storyline."),
-            momentum: snapshot(0.6, 0.2, 5, -0.1, 4),
-            expect: json!({"prose_includes": ["steady"], "prose_excludes": ["falling", "**"],
+            momentum: snapshot(0.6, 0.7, 5, 0.5, 4),
+            expect: json!({"prose_includes_any": ["steady|flat|holding|still|stagnant"], "prose_excludes": ["falling", "**"],
                            "prose_no_digits": true, "total_sentences_max": 10,
                            "prose_min_words": 25, "prose_max_words": 260}),
         },
@@ -114,7 +125,7 @@ fn scenarios() -> Vec<Scenario> {
             rating: rating(88, "overall scores and the top skill trending up over recent games",
                 "The press is winning the ball higher and more often; underlying numbers back the run of wins."),
             vibe: vibe(63, "Coverage is mostly calm; the tactical press is getting more praise after a run of wins."),
-            momentum: snapshot(3.1, 1.4, 7, 0.2, 4),
+            momentum: snapshot(8.5, 16.1, 7, 0.9, 4),
             expect: json!({"prose_includes_any": [FORM_WORDS], "prose_excludes": ["falling", "**"],
                            "prose_no_digits": true, "total_sentences_max": 10,
                            "prose_min_words": 25, "prose_max_words": 260}),
@@ -138,8 +149,11 @@ fn scenarios() -> Vec<Scenario> {
             rating: rating(81, "overall defensive scores and the top skill trending down over recent matches",
                 "Season-long elite at limiting chances, but the last stretch shows real defensive slippage."),
             vibe: vibe(68, "Supporter and local coverage is warming after a young forward's breakout week."),
-            momentum: snapshot(-0.3, -1.1, 6, 0.9, 5),
-            expect: json!({"prose_includes_any": [FORM_WORDS, MOOD_WORDS], "prose_excludes": ["**"],
+            momentum: snapshot(-0.3, -8.3, 6, 7.7, 5),
+            // "the tape calls this" was THIS fixture's s13 defect ("the tape calls this a
+            // holding pattern"); fixture-contextual since the 08-23 eval-scar sweep.
+            expect: json!({"prose_includes_any": [FORM_WORDS, MOOD_WORDS],
+                           "prose_excludes": ["**", "the tape calls this"],
                            "prose_no_digits": true, "total_sentences_max": 10,
                            "prose_min_words": 25, "prose_max_words": 260}),
         },
@@ -150,7 +164,7 @@ fn scenarios() -> Vec<Scenario> {
             rating: rating(86, "overall scores and the top skill steady over recent games",
                 "Anchor defender; the production has not moved even as the noise around her has."),
             vibe: vibe(35, "Local coverage has turned negative after late-game benchings and visible frustration."),
-            momentum: snapshot(-1.4, 0.0, 6, -1.2, 5),
+            momentum: snapshot(-4.1, 0.4, 6, -8.6, 5),
             expect: json!({"prose_includes_any": [MOOD_WORDS], "prose_excludes": ["**"],
                            "prose_no_digits": true, "total_sentences_max": 10,
                            "prose_min_words": 25, "prose_max_words": 260}),
@@ -162,7 +176,7 @@ fn scenarios() -> Vec<Scenario> {
             rating: rating(77, "overall scores and the top skill flat over recent matches",
                 "Press-resistant carrier whose underlying numbers have not moved in a month."),
             vibe: vibe(75, "A burst of transfer rumor chatter has coverage buzzing, though nothing on the pitch has changed."),
-            momentum: snapshot(0.9, 0.1, 6, 1.8, 3),
+            momentum: snapshot(3.2, 0.1, 6, 6.2, 3),
             expect: json!({"prose_excludes": ["surging", "**"],
                            "prose_no_digits": true, "total_sentences_max": 10,
                            "prose_min_words": 25, "prose_max_words": 260}),
@@ -174,8 +188,10 @@ fn scenarios() -> Vec<Scenario> {
             rating: rating(72, "overall scores and the top skill trending down over recent matches",
                 "The attack has dried up: fewer chances created in each of the last five matches."),
             vibe: vibe(30, "Coverage is grim — a winless month, fan protests, and pressure on the manager."),
-            momentum: snapshot(-3.2, -1.5, 6, -1.1, 5),
-            expect: json!({"prose_excludes": ["rising", "**"],
+            momentum: snapshot(-22.4, -20.6, 9, -24.2, 9),
+            // "isn't a collapse" fired LIVE on exactly this clean-decline shape (s14 note);
+            // fixture-contextual since the 08-23 eval-scar sweep.
+            expect: json!({"prose_excludes": ["rising", "**", "isn't a collapse"],
                            "prose_no_digits": true, "total_sentences_max": 10,
                            "prose_min_words": 25, "prose_max_words": 260}),
         },
@@ -186,9 +202,13 @@ fn scenarios() -> Vec<Scenario> {
             rating: rating(68, "overall scores and the top skill trending up over recent games",
                 "The jumper is falling and the rim pressure is real: efficiency up in each of the last six games with the usage holding."),
             vibe: vibe(76, "The building believes again — a signature road win, the crowd chanting his name, and the beat writers running out of superlatives."),
-            momentum: snapshot(28.4, 2.1, 7, 1.4, 6),
-            expect: json!({"prose_includes": ["rising"], "prose_includes_any": [FORM_WORDS, MOOD_WORDS],
-                           "prose_excludes": ["falling", "**"],
+            momentum: snapshot(28.4, 26.3, 9, 30.5, 10),
+            // "isn't a surge" here is FIXTURE-CONTEXTUAL since the 08-23 eval-scar sweep: the
+            // hedge-closer left the production guard list (style, not mechanics) and lives on
+            // as this fixture's expectation — the s9/s10 defect it pins was a rising read
+            // hedged into nothing.
+            expect: json!({"prose_includes_any": ["rising|climbing|surging|upswing", FORM_WORDS, MOOD_WORDS],
+                           "prose_excludes": ["falling", "**", "isn't a surge"],
                            "prose_no_digits": true, "total_sentences_max": 10,
                            "prose_min_words": 25, "prose_max_words": 260}),
         },
@@ -199,9 +219,12 @@ fn scenarios() -> Vec<Scenario> {
             rating: rating(61, "overall scores and the top skill trending down over recent matches",
                 "The press has collapsed: distances covered and chances created are down in each of the last five matches, and opponents are playing through the midfield at will."),
             vibe: vibe(24, "The mood has curdled — three straight defeats, banners calling for the board, and the away end leaving early."),
-            momentum: snapshot(-31.6, -2.4, 6, -1.7, 5),
-            expect: json!({"prose_includes": ["falling"], "prose_includes_any": [FORM_WORDS, MOOD_WORDS],
-                           "prose_excludes": ["rising", "**"],
+            momentum: snapshot(-31.6, -35.0, 9, -28.2, 10),
+            // "isn't a collapse" — fixture-contextual since the 08-23 eval-scar sweep (see
+            // rising-confirmed); the s14 defect it pins fired on exactly this clean-decline
+            // shape.
+            expect: json!({"prose_includes_any": ["falling|freefall|decline|collapse|sliding|slump", FORM_WORDS, MOOD_WORDS],
+                           "prose_excludes": ["rising", "**", "isn't a collapse"],
                            "prose_no_digits": true, "total_sentences_max": 10,
                            "prose_min_words": 25, "prose_max_words": 260}),
         },
@@ -214,6 +237,9 @@ fn main() -> anyhow::Result<()> {
     let scenarios = scenarios();
     let n = scenarios.len();
     for s in scenarios {
+        // s19 removed packets and the memory card from the builder entirely (the ROLE pass:
+        // the Analyst reads only the two rails), so the memory-free shape the fixtures always
+        // pinned is now the only shape there is.
         let prompt = build_momentum_prompt(
             s.entity_type,
             s.entity,
@@ -221,9 +247,6 @@ fn main() -> anyhow::Result<()> {
             s.rating.as_ref(),
             s.vibe.as_ref(),
             &s.momentum,
-            // Fixtures pin the memory-free shape (the s5 eval discipline).
-            None,
-            &[],
         );
         let v = json!({
             "name": s.name,

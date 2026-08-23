@@ -17,6 +17,16 @@
 //!
 //! Guard rejections should be logged by the rejecting parser (`tracing::warn!` with the guard
 //! name) — the per-model violation RATE is the telemetry that prices future model swaps.
+//!
+//! THE MECHANICAL-FLOOR RULE (2026-08-23, the eval-scar sweep — Scott: "the guards allow the
+//! model freedom, which is our goal"). The first guard lists were copy-pasted from eval-era
+//! language limitations built against a retired model, and they were more restrictive than the
+//! product needs — the Oracle's vocabulary list was rejecting 13 of every 14 crowns Scott
+//! judged fine. A PRODUCTION guard earns its place only as a mechanical floor: contract shape
+//! (the hook rules), integrity (foreign script, digits where numbers are junction-owned),
+//! product leaks (product names, fourth-wall mechanism reveals, bookkeeping citations). Style
+//! and vocabulary taste belong to the GATE's fixture expectations, where a red is information —
+//! in production the same check burns a finished generation.
 
 /// Product / internal-system names banned from SERVED prose (Scott's brief, 2026-08-10: *"I
 /// don't want anything referencing PEAK or Vibe, or other of our products. Just use those as
@@ -44,45 +54,45 @@ pub fn first_product_name(prose: &str) -> Option<&'static str> {
     PRODUCT_NAME_BANS.iter().find(|p| prose.contains(*p)).copied()
 }
 
-/// Phrases the momentum contract bans outright, checked on EVERY momentum READ as a single
-/// invariant rather than as a per-fixture expectation.
+/// Phrases the momentum READ may never carry — trimmed 2026-08-23 (the eval-scar sweep,
+/// Scott: "we built the original evals and the language limitations on an eval model... a lot
+/// of those eval params were copy+pasted over to the guards and they're more restrictive than
+/// they need to be. The guards allow the model freedom").
+///
+/// What remains is the MECHANICAL floor: fourth-wall breaks that reveal the machine to the
+/// seeker ("the momentum engine", "the engine sees this as") and internal bookkeeping
+/// vocabulary ("steady band") — the same family as [`PRODUCT_NAME_BANS`]. What left is the
+/// eval-era style policing: the hedge closers ("isn't a surge"/"isn't a collapse") and the
+/// authority formulas ("the tape calls this"/"the numbers say") were measured defects of
+/// RETIRED models under retired prompts, and in production they were burning ~30 finished
+/// READs a day over taste the current prompt already carries. Style lives in the gate's
+/// fixture expectations, where a red is information instead of a lost generation.
 ///
 /// Deliberately specific. Bare "the engine" is banned in the prompt but NOT here: a football READ
 /// can legitimately say "the engine room of midfield", and a check that fails on correct prose
 /// trains everyone to ignore it.
 pub const MOMENTUM_BANNED_PHRASES: &[&str] = &[
-    "isn't a surge",
-    "isn't a collapse",
-    "the tape calls this",
     "the engine sees this as",
     "the momentum engine",
-    "the numbers say",
     "steady band",
 ];
 
-/// Vocabulary the Oracle's reading may never carry, whatever the spread: internal metric names,
-/// mechanism words, and the verdict formula ("the omen is" — the omen is DECLARED in its field,
-/// never narrated). The "(" ban pins the no-parentheses rule mechanically — the measured failure
-/// mode was bookkeeping citations like "(Mood: 30/100)" folded into otherwise-passing readings.
-/// The omen words themselves (`ascendant`/`waning`/`crossroads`) are NOT here:
-/// the right one is legitimate in its own spread — that expectation is fixture-contextual.
-/// Also deliberately absent: "impact", "heat", "slope" — the prompt bans the field-name sense,
-/// but each is ordinary sporting English ("the impact of the injury", "the heat of a title
-/// race"), and a check that fails on correct prose gets ignored — an ignored check is worse
-/// than none (the same reason the momentum list asserts "the engine sees this as", never bare
-/// "the engine").
-pub const ORACLE_READING_BANS: &[&str] = &[
-    "notability",
-    "convergence",
-    "sentiment",
-    "z-score",
-    "percentile",
-    "composite",
-    "momentum score",
-    "the omen is",
-    "(",
-    "**",
-];
+/// What the Oracle's reading may never carry — trimmed to the one MECHANICAL defect on Scott's
+/// ruling (2026-08-23: "Those Oracle crowns seem fine. Let's clean up the overbearing guards").
+///
+/// The vocabulary list this replaced (notability/convergence/sentiment/z-score/percentile/
+/// composite/"momentum score"/"the omen is") was rejecting 13 of every 14 crowns the day sigil
+/// finally started claiming, and the crowns it rejected read fine — the overbearing-check
+/// failure mode the momentum seat has now recorded THREE withdrawals over (a rule cannot beat
+/// a phrase in the model's input; an ignored or false-positive check is worse than none). The
+/// worst offender words are also leaving at the SOURCE (scout s23 renamed z-score → rating on
+/// the card the Oracle reads), which is the fix that actually takes.
+///
+/// `"("` stays: bookkeeping citations like "(Mood: 30/100)" folded into otherwise-passing
+/// readings are a mechanical defect, not vocabulary taste. `"**"` left with the shared
+/// `clean_served_prose` pipeline — the reading is emphasis-stripped before this list runs, so
+/// the ban could never fire (the vibe/rating precedent).
+pub const ORACLE_READING_BANS: &[&str] = &["("];
 
 /// The Scout's report is prose, never a bullet list and never the card's notation — the legacy
 /// 7B's ` · ` habit is the measured offender (08-19 gate: 8 of its 9 rating reds were this).
@@ -277,26 +287,35 @@ mod tests {
 
     #[test]
     fn banned_phrases_fold_case_and_quotes() {
+        // The fold still matches curly quotes and case on the phrases that REMAIN.
         assert_eq!(
-            first_banned_phrase("this Isn\u{2019}t a Surge by any measure", MOMENTUM_BANNED_PHRASES),
-            Some("isn't a surge")
+            first_banned_phrase("The Momentum Engine ticks over", MOMENTUM_BANNED_PHRASES),
+            Some("the momentum engine")
         );
         assert_eq!(first_banned_phrase("a steady phase", MOMENTUM_BANNED_PHRASES), None);
         assert_eq!(
             first_banned_phrase("holding the steady band", MOMENTUM_BANNED_PHRASES),
             Some("steady band")
         );
+        // The eval-scar sweep (2026-08-23): hedge closers are gate taste, not production
+        // mechanics — a READ carrying one no longer burns the generation.
+        assert_eq!(
+            first_banned_phrase("this isn\u{2019}t a surge by any measure", MOMENTUM_BANNED_PHRASES),
+            None
+        );
     }
 
     #[test]
-    fn oracle_bans_catch_the_verdict_formula_and_internals() {
-        assert_eq!(
-            first_banned_phrase("The Omen Is unequivocally waning", ORACLE_READING_BANS),
-            Some("the omen is")
-        );
+    fn oracle_bans_catch_bookkeeping_citations_and_nothing_else() {
         assert_eq!(
             first_banned_phrase("a mood of 80/100 (rising)", ORACLE_READING_BANS),
             Some("(")
+        );
+        // The 2026-08-23 trim (Scott: "those crowns seem fine"): vocabulary that was rejecting
+        // 13 of 14 crowns no longer fails a reading.
+        assert_eq!(
+            first_banned_phrase("the omen is waning and the percentile tells the story", ORACLE_READING_BANS),
+            None
         );
         assert_eq!(first_banned_phrase("form and feeling move together", ORACLE_READING_BANS), None);
     }

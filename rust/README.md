@@ -161,6 +161,21 @@ Each seat owns exactly one question, and its value is the part no other seat can
 The Analyst's whole value is the interplay: *"the results are poor but the room is high"* is her
 sentence and nobody else's. The Oracle's is that it comes last.
 
+### The title is the hook — every seat, one contract
+
+Scott's ruling (2026-08-23, the headline+body era): *"the hook should be the one sentence hook
+to draw the reader in. That should be the same across characters. This is key on the leaderboard
+because it's what leads the user to click on the entity for more."*
+
+Every card title — the Influencer's HOOK, the Analyst's and Scout's HEADLINE, the Journalist's
+narrative title, the Insider's wire line, the Oracle's crown title — is the same product object:
+**one sentence, twelve words or fewer, written to make a fan tap the card.** The entity's name
+inside a claim, never a `"Label: description"` taxonomy line — a label files the card; a hook
+sells it. The shared contract is enforced once (`guards::hook_violation` + `settle_title`); the
+per-seat prompt states it AT THE EMISSION SITE, because a bare "card title" ask begets a label
+(measured 2026-08-23: 138 Analyst + 56 Scout colon-labels dropped in 3h before the asks carried
+the doctrine).
+
 **Measured before this pass** — rows are the seat writing, columns the domain it talked about,
 eight well-covered teams, `[]` marks its own job:
 

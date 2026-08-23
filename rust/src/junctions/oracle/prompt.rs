@@ -129,6 +129,66 @@ const CROWN_MAX_NARRATIVES: usize = 3;
 /// stays, because the fixture generators and the parity paths pin the uncapped shape, and
 /// because collapsing it would rewrite prompts and therefore every `input_hash` that quotes
 /// them. Dead-looking is not the same as dead; see PLAN-one-rail 9.1's stop note.
+/// descrub_z removes the Scout's z-notation from the brief before the crown reads it.
+///
+/// The Scout cites "Blocked shots at 172 (98th percentile, z +1.8)" because his contract asks
+/// for value, percentile OR z — that is his job. The Oracle's contract bans "z-score" outright,
+/// and on 2026-08-23 a live crown died on exactly that: `crown: reading carries banned
+/// vocabulary "z-score"`. The word was never the Oracle's idea; it was sitting in the card it
+/// was handed.
+///
+/// This file already carries the same fix twice — "notability" rendered as "profile strength"
+/// after gate round 2, "Sentiment" as "Mood" after or4 round 1, both because "echo-prone models
+/// recite the internal field word straight off this line". Those were labelled lines and easy to
+/// rename. The z figures hide inside free prose, which is why they outlived both passes.
+///
+/// Removes `z +1.8` / `z -0.4` / `z 2.0` and the separator in front of them, then tidies the
+/// punctuation the removal strands. Percentiles and raw values are untouched: they are ordinary
+/// sporting evidence and the Oracle may speak them.
+pub(crate) fn descrub_z(brief: &str) -> String {
+    let b = brief.as_bytes();
+    let mut out = String::with_capacity(brief.len());
+    let mut i = 0usize;
+    while i < b.len() {
+        // A z-token is `z` on a word boundary, optional space, optional sign, then a digit.
+        let is_z = (b[i] == b'z' || b[i] == b'Z')
+            && (i == 0 || !b[i - 1].is_ascii_alphanumeric())
+            && {
+                let mut j = i + 1;
+                while j < b.len() && b[j] == b' ' {
+                    j += 1;
+                }
+                if j < b.len() && (b[j] == b'+' || b[j] == b'-') {
+                    j += 1;
+                }
+                j < b.len() && b[j].is_ascii_digit()
+            };
+        if !is_z {
+            let ch = brief[i..].chars().next().map(char::len_utf8).unwrap_or(1);
+            out.push_str(&brief[i..i + ch]);
+            i += ch;
+            continue;
+        }
+        // Drop the token and any separator immediately before it.
+        while out
+            .chars()
+            .next_back()
+            .is_some_and(|c| c == ' ' || c == ',' || c == ';')
+        {
+            out.pop();
+        }
+        i += 1;
+        while i < b.len() && (b[i] == b' ' || b[i] == b'+' || b[i] == b'-') {
+            i += 1;
+        }
+        while i < b.len() && (b[i].is_ascii_digit() || b[i] == b'.') {
+            i += 1;
+        }
+    }
+    // Tidy what the removal stranded: "(98th percentile)" keeps its bracket, "( )" does not.
+    out.replace(" )", ")").replace("()", "").replace(" .", ".").replace(" ,", ",")
+}
+
 fn capped(s: &str, budget: Option<usize>) -> String {
     match budget {
         Some(max) => crate::util::truncate_bytes(s, max),
@@ -217,7 +277,7 @@ pub fn build_crown_prompt(
     if let Some(r) = rating {
         b.push_str(&format!("Profile strength: {}/100\n", r.notability));
         if !r.body.is_empty() {
-            b.push_str(&capped(&r.body, body_cap));
+            b.push_str(&capped(&descrub_z(&r.body), body_cap));
             b.push('\n');
         }
     } else {

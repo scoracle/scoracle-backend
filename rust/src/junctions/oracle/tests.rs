@@ -643,3 +643,30 @@ fn synthesis_hash_preimage_is_pillar_inputs_only() {
     assert_eq!(a, b);
     assert_eq!(a, r#"{"narrative_titles":[],"narrative_trajectories":[]}"#);
 }
+
+/// The Scout's z-notation must not reach the crown. Measured 2026-08-23, a live failure:
+/// `crown: reading carries banned vocabulary "z-score"` — the word was in the card it was
+/// handed, not in the Oracle's head. Same fix this file already applied to "notability" and
+/// "Sentiment"; z survived both because it hides in free prose rather than a labelled line.
+#[test]
+fn the_scouts_z_notation_never_reaches_the_crown() {
+    let brief = "Blocked shots are elite at 172 (98th percentile, z +1.8). \
+                 Shots on target allowed sit at the 4th percentile, z -1.9, the clear liability. \
+                 Interceptions are ordinary at the 54th percentile (z 0.1).";
+    let got = super::prompt::descrub_z(brief);
+
+    assert!(!got.contains(" z "), "z tokens survive: {got}");
+    assert!(!got.contains("z +") && !got.contains("z -"), "signed z survives: {got}");
+
+    // The evidence the Oracle IS allowed to speak stays intact.
+    assert!(got.contains("98th percentile"), "percentiles survive: {got}");
+    assert!(got.contains("4th percentile"), "percentiles survive: {got}");
+    assert!(got.contains("172"), "raw values survive: {got}");
+    assert!(got.contains("elite"), "tiers survive: {got}");
+
+    // And the prose is not left littered with stranded punctuation.
+    assert!(!got.contains(" )") && !got.contains("()") && !got.contains(" ,"), "litter: {got}");
+
+    // A word merely starting with z is not a z-token.
+    assert_eq!(super::prompt::descrub_z("zonal marking at 60th"), "zonal marking at 60th");
+}

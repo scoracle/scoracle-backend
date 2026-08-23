@@ -431,3 +431,24 @@ fn an_unsalvageable_hook_never_costs_the_card() {
         .expect("a reply");
     assert_eq!(salvaged.hook.as_deref(), Some("The room has turned on him"));
 }
+
+/// Markdown in the body costs the decoration, never the card. Measured 2026-08-23: 89 vibe
+/// items dead-lettered on `body carries banned "**"` — the largest failure bucket on the rail,
+/// discarding finished felt reads and the SCORE momentum depends on, over typography.
+#[test]
+fn markdown_in_the_body_is_stripped_not_fatal() {
+    let reply = "SCORE: 71\n\
+                 HOOK: The room has turned\n\
+                 VIBE: **Brandt** is the story now, and the feed knows it. The mood around \
+                 him is __loud__ in a way it has not been all season.";
+    let got = VibeParser
+        .parse(reply)
+        .expect("emphasis must not fail the card")
+        .expect("a reply");
+
+    assert_eq!(got.sentiment, 71, "the score survives for momentum");
+    assert!(!got.vibe_prompt.contains("**"), "emphasis stripped: {:?}", got.vibe_prompt);
+    assert!(!got.vibe_prompt.contains("__"), "emphasis stripped: {:?}", got.vibe_prompt);
+    assert!(got.vibe_prompt.contains("Brandt is the story now"), "prose intact: {:?}", got.vibe_prompt);
+    assert!(got.vibe_prompt.contains("loud in a way"), "prose intact: {:?}", got.vibe_prompt);
+}

@@ -93,10 +93,15 @@ pub const ORACLE_READING_BANS: &[&str] = &[
 /// stays a hard fail; bolding is typography and is now simply removed.
 pub const RATING_BODY_BANS: &[&str] = &[" · "];
 
-/// Served vibe prose carries no Markdown decoration (the labeled-line `**SCORE:**` case is
-/// stripped by `util::strip_markdown_emphasis` BEFORE parsing; this bans emphasis inside the
-/// body itself).
-pub const VIBE_BODY_BANS: &[&str] = &["**"];
+/// Served vibe prose carries no Markdown decoration. EMPTY since 2026-08-23: the body is now
+/// stripped by `util::strip_markdown_emphasis` in the parser, the same treatment the Scout's
+/// `clean_commentary` and the Insider's `parse_insider_score_reply` already take, so a `"**"`
+/// entry here could never fire. It was firing 89 times as a hard bail before that — discarding
+/// a finished felt read, and the SCORE momentum reads, over typography.
+///
+/// Kept as an empty list rather than deleted: it is the seam where a real vibe-body content ban
+/// belongs if one is ever measured, and `first_banned_phrase` handles an empty list.
+pub const VIBE_BODY_BANS: &[&str] = &[];
 
 /// The first phrase from `list` found (case-insensitive, quote/diacritic-folded) in `prose`.
 pub fn first_banned_phrase(prose: &str, list: &[&'static str]) -> Option<&'static str> {

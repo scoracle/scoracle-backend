@@ -664,12 +664,21 @@ impl Parser<VibeReply> for VibeParser {
                 }
             }
         }
-        if let Some(p) =
-            crate::guards::first_banned_phrase(&vibe_prompt, crate::guards::VIBE_BODY_BANS)
-        {
-            tracing::warn!(guard = "vibe_body_ban", phrase = p, "vibe body rejected");
-            bail!("vibe: body carries banned {p:?}");
-        }
+        // Emphasis is STRIPPED from the body, not banned (2026-08-23) — the fourth and last
+        // seat to take this treatment, after the Scout's clean_commentary and the Insider's is4.
+        //
+        // MEASURED: 89 vibe items dead-lettered on `body carries banned "**"`, the largest
+        // failure bucket on the rail. parse_vibe_reply already strips emphasis per LINE to find
+        // the SCORE/HOOK/VIBE labels, but the assembled body kept its asterisks and then hit a
+        // hard ban — so a good felt read, and the SCORE that momentum depends on, died over
+        // typography. Stripping is lossless and the stripped body is exactly the body intended.
+        let vibe_prompt = vibe_prompt
+            .lines()
+            .map(crate::util::strip_markdown_emphasis)
+            .collect::<Vec<_>>()
+            .join("\n")
+            .trim()
+            .to_string();
         if let Some(p) = crate::guards::first_product_name(&vibe_prompt) {
             tracing::warn!(guard = "product_name", name = p, "vibe body rejected");
             bail!("vibe: body names product {p:?}");

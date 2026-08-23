@@ -88,11 +88,42 @@ pub const MOMENTUM_BANNED_PHRASES: &[&str] = &[
 /// worst offender words are also leaving at the SOURCE (scout s23 renamed z-score → rating on
 /// the card the Oracle reads), which is the fix that actually takes.
 ///
-/// `"("` stays: bookkeeping citations like "(Mood: 30/100)" folded into otherwise-passing
-/// readings are a mechanical defect, not vocabulary taste. `"**"` left with the shared
-/// `clean_served_prose` pipeline — the reading is emphasis-stripped before this list runs, so
-/// the ban could never fire (the vibe/rating precedent).
-pub const ORACLE_READING_BANS: &[&str] = &["("];
+/// EMPTY since the same day it was trimmed to `"("`: the paren ban was itself measured
+/// over-broad within the hour — rejecting ~1 crown per 2 shipped on honest parenthetical
+/// asides, on the seat with the deepest queue. The mechanical defect it guarded — a
+/// bookkeeping citation like "(Mood: 30/100)" pasted into prose — is what
+/// [`has_bookkeeping_citation`] now catches precisely: a parenthetical CARRYING A DIGIT.
+/// Digits in open prose stay legal for this seat (percentiles and values are ordinary
+/// sporting evidence — see `descrub_z`); digits in parens are the analyst's desk. `"**"` left
+/// with the shared `clean_served_prose` pipeline. Kept as an empty seam, the
+/// [`VIBE_BODY_BANS`] precedent.
+pub const ORACLE_READING_BANS: &[&str] = &[];
+
+/// A parenthetical carrying an ASCII digit — the bookkeeping-citation shape ("(Mood: 30/100)",
+/// "(4th percentile)") that turns a reading into the analyst's desk notes. The paren pair must
+/// close; an unclosed "(" is ordinary broken prose, not a citation, and the retry costs more
+/// than the stray character.
+pub fn has_bookkeeping_citation(prose: &str) -> bool {
+    let mut digit_in_span = false;
+    let mut in_span = false;
+    for c in prose.chars() {
+        match c {
+            '(' => {
+                in_span = true;
+                digit_in_span = false;
+            }
+            ')' if in_span => {
+                if digit_in_span {
+                    return true;
+                }
+                in_span = false;
+            }
+            _ if in_span && c.is_ascii_digit() => digit_in_span = true,
+            _ => {}
+        }
+    }
+    false
+}
 
 /// The Scout's report is prose, never a bullet list and never the card's notation — the legacy
 /// 7B's ` · ` habit is the measured offender (08-19 gate: 8 of its 9 rating reds were this).
@@ -313,18 +344,22 @@ mod tests {
     }
 
     #[test]
-    fn oracle_bans_catch_bookkeeping_citations_and_nothing_else() {
-        assert_eq!(
-            first_banned_phrase("a mood of 80/100 (rising)", ORACLE_READING_BANS),
-            Some("(")
-        );
-        // The 2026-08-23 trim (Scott: "those crowns seem fine"): vocabulary that was rejecting
-        // 13 of 14 crowns no longer fails a reading.
+    fn bookkeeping_citations_are_precise_about_the_defect() {
+        // The measured defect: a digit-bearing parenthetical.
+        assert!(has_bookkeeping_citation("his rim protection holds (Mood: 30/100) even now"));
+        assert!(has_bookkeeping_citation("elite at the line (4th percentile)"));
+        // Honest parenthetical asides pass — the blanket "(" ban was rejecting these
+        // at ~1 per 2 crowns (2026-08-23).
+        assert!(!has_bookkeeping_citation("the crowd turned (and rightly so) before the form did"));
+        // Digits in OPEN prose stay legal for this seat.
+        assert!(!has_bookkeeping_citation("a 96th percentile mark carries the profile"));
+        // An unclosed paren is broken prose, not a citation.
+        assert!(!has_bookkeeping_citation("the wire stirs (fee near 40"));
+        // The vocabulary list is an empty seam; nothing in prose can trip it.
         assert_eq!(
             first_banned_phrase("the omen is waning and the percentile tells the story", ORACLE_READING_BANS),
             None
         );
-        assert_eq!(first_banned_phrase("form and feeling move together", ORACLE_READING_BANS), None);
     }
 
     #[test]

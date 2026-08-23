@@ -1004,6 +1004,14 @@ impl Parser<CrownReply> for CrownParser {
                     tracing::warn!(guard = "oracle_reading_ban", phrase = p, "reading rejected");
                     bail!("crown: reading carries banned vocabulary {p:?}");
                 }
+                // The one mechanical reading defect: a digit-bearing parenthetical — the
+                // "(Mood: 30/100)" citation shape. The blanket "(" ban this replaced was
+                // rejecting honest asides at ~1 per 2 crowns (2026-08-23, within the hour
+                // of the vocabulary trim).
+                if crate::guards::has_bookkeeping_citation(&r.reading) {
+                    tracing::warn!(guard = "bookkeeping_citation", "reading rejected");
+                    bail!("crown: reading carries a bookkeeping citation");
+                }
                 // The title contract, applied by the one shared implementation
                 // (guards::settle_title). It FAILS OPEN — salvage, else no title, never an
                 // error. The comment here used to claim "fail-closed like every title guard",

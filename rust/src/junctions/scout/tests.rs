@@ -770,11 +770,23 @@ fn rating_splits_the_s20_headline_line() {
     let empty = RatingParser.parse("Summary: x.\nHEADLINE: ").unwrap().unwrap();
     assert!(empty.headline.is_none());
 
-    // A hook-contract violation FAILS OPEN (2026-08-22): an over-long title with no beat
-    // separator cannot be salvaged, so it degrades to no title and the report still ships.
-    // It used to return Err and discard a complete graded profile over its own title.
-    let long = RatingParser
+    // Since 2026-08-24 the contract is 140 CHARACTERS and nothing else, so the thirteen-word
+    // title that used to be the canonical violation now ships — it was 91% of the fleet's hook
+    // rejections, and each one burned a finished report's title.
+    let thirteen = RatingParser
         .parse("Summary: x.\nHEADLINE: one two three four five six seven eight nine ten eleven twelve thirteen")
+        .expect("a junk title never fails the report")
+        .expect("a reply");
+    assert_eq!(
+        thirteen.headline.as_deref(),
+        Some("one two three four five six seven eight nine ten eleven twelve thirteen")
+    );
+
+    // A hook-contract violation still FAILS OPEN (2026-08-22): a genuinely over-long title with
+    // no beat separator cannot be salvaged, so it degrades to no title and the report still
+    // ships. It used to return Err and discard a complete graded profile over its own title.
+    let long = RatingParser
+        .parse(&format!("Summary: x.\nHEADLINE: {}", "x".repeat(200)))
         .expect("a junk title never fails the report")
         .expect("a reply");
     assert!(long.headline.is_none(), "unsalvageable title drops: {:?}", long.headline);

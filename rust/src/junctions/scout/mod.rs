@@ -1592,7 +1592,7 @@ impl Parser<RatingReply> for RatingParser {
             tracing::warn!(guard = "foreign_script", "rating body rejected");
             anyhow::bail!("rating: body carries a foreign-script run");
         }
-        // The title shares the HOOK contract (twelve words, no colon, no question mark), and it
+        // The title shares the HOOK contract (THE TWITTER RULE — 140 characters), and it
         // FAILS OPEN — salvage, then degrade to no title, never throw the report away.
         //
         // The comment here used to say "fail-closed like every title guard", and that was never

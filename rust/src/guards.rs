@@ -166,21 +166,60 @@ pub fn count_named_peers(reading: &str) -> usize {
         .count()
 }
 
+/// **THE TWITTER RULE** — the whole of the card-title contract: 140 characters.
+///
+/// Scott, 2026-08-24: *"Mark this 140 character limit 'the Twitter rule' and make it the guard
+/// and framing for headlines. A tweet states an opinion and grabs attention. 140 characters is
+/// well thought out."*
+///
+/// It is a FRAMING before it is a limit, and that is why it replaces three rules with one. A
+/// tweet is a complete thought that earns a tap: it may use a colon, ask a question, land a
+/// twist. What it may not do is run past the space it has. So the guard enforces the space, and
+/// the seats' prompts carry the frame — direction in the prompt, a floor in the guard, which is
+/// the split this module exists to keep.
+///
+/// It replaces a TWELVE-WORD cap plus bans on colons and question marks, and the measurement is
+/// the argument. Over the three days to 2026-08-24 the journal carried **11,272 `hook_max_words`
+/// drops, 931 `hook_colon` and 247 `hook_question_mark`** — 12,450 finished generations burned
+/// and re-rolled through `retry_backoff`, 86% of every guard rejection on the rail.
+///
+/// Same shape as the Oracle vocabulary trim that prompted THE MECHANICAL-FLOOR RULE above: limits
+/// inherited from the eval era, tighter than the product needs, rejecting work Scott judged fine.
+/// A ceiling measured in CHARACTERS also matches what the constraint actually is — the
+/// leaderboard row the title has to fit — where a word count only ever approximated it.
+const HOOK_MAX_CHARS: usize = 140;
+
 /// THE card-title contract — born as the Influencer's HOOK (v13) and cross-character since
-/// Scott's hook doctrine (2026-08-23: "the one sentence hook to draw the reader in... the same
-/// across characters"): 12 words or fewer, no colon, no question mark. Returns the violated
-/// rule's name, or `None` when the hook is clean.
+/// Scott's hook doctrine (2026-08-23). **One rule: [`HOOK_MAX_CHARS`] or fewer.** Returns the
+/// violated rule's name, or `None` when the hook is clean.
+///
+/// # The colon and question-mark bans are RETIRED (2026-08-24)
+///
+/// Scott: *"I think we could have question marks and colons in there. That's part of the model
+/// expressing its voice! 140 character limit should resolve all issues."*
+///
+/// This is THE MECHANICAL-FLOOR RULE at the top of this module applied to its own author. That
+/// rule admits a production guard only for contract shape, integrity, or product leaks, and sends
+/// *"style and vocabulary taste"* to the GATE's fixture expectations — *"where a red is
+/// information; in production the same check burns a finished generation."* A colon and a
+/// question mark are punctuation, which is voice. Length is the only one of the three that is
+/// contract shape: the title has to fit a leaderboard row.
+///
+/// Both bans were also cheap by their own telemetry — 931 and 247 drops against the word cap's
+/// 11,272 — so this is not where the rejections were. It is where the model's range was.
+///
+/// What replaced them is not nothing: the seats' prompts still carry the hook doctrine (one
+/// sentence, the entity's name inside the report's sharpest claim, no "Label: description"
+/// taxonomy). Direction in the prompt, a floor in the guard — the split this module exists to
+/// keep.
+///
+/// The rule NAME stays `hook_max_words` although it now counts characters: it is the telemetry
+/// key that three days of journal history and the eval fixtures already join on, and renaming it
+/// would silently orphan that series exactly when the change most needs measuring.
 pub fn hook_violation(hook: &str) -> Option<&'static str> {
-    if hook.split_whitespace().count() > 12 {
-        return Some("hook_max_words");
-    }
-    if hook.contains(':') {
-        return Some("hook_colon");
-    }
-    if hook.contains('?') {
-        return Some("hook_question_mark");
-    }
-    None
+    // chars(), not len(): a byte count would penalise the accented club names the five European
+    // leagues are full of — "Atlético", "Beşiktaş" — for being spelled correctly.
+    (hook.chars().count() > HOOK_MAX_CHARS).then_some("hook_max_words")
 }
 
 /// Trim a two-beat hook to its first beat — the deterministic salvage behind the one-clause
@@ -208,8 +247,19 @@ pub fn salvage_hook(hook: &str) -> Option<String> {
     (head.split_whitespace().count() >= 4 && hook_violation(&head).is_none()).then_some(head)
 }
 
-/// Whether prose carries any ASCII digit — the momentum READ (s14+) speaks its numbers in
-/// words; a digit in the READ is internals pasted into the card.
+/// Whether prose carries any ASCII digit.
+///
+/// **No longer a production guard.** It gated the momentum READ from s14 until 2026-08-24, on the
+/// reasoning that the seat "speaks its numbers in words, so a digit is internals pasted into the
+/// card". Measured, that cost 1,221 rejections in three days and permanently dead-lettered
+/// momentum player 367 — and the Oracle had already reached the opposite ruling for its own seat
+/// (digits in open prose are "ordinary sporting evidence"; see [`ORACLE_READING_BANS`]). The
+/// defect actually worth catching is a bookkeeping citation, which
+/// [`has_bookkeeping_citation`] catches precisely. `analyst/mod.rs` now calls that instead.
+///
+/// Kept because it is still the right check on the INPUT side: the Analyst's tests assert no
+/// figure reaches her prompt, which stands on its own footing — a narrative seat should not be
+/// handed raw numbers it does not own, whatever it is now permitted to write.
 pub fn has_ascii_digit(s: &str) -> bool {
     s.bytes().any(|b| b.is_ascii_digit())
 }
@@ -372,48 +422,85 @@ mod tests {
         assert_eq!(count_named_peers("a scout would respect it"), 0);
     }
 
+    /// Punctuation is VOICE, and voice is not a production guard's business (2026-08-24).
+    /// Both of these used to burn a finished generation; both now ship.
     #[test]
     fn hook_rules() {
         assert_eq!(hook_violation("Vale sits while the room questions his future"), None);
-        assert_eq!(
-            hook_violation("one two three four five six seven eight nine ten eleven twelve thirteen"),
-            Some("hook_max_words")
-        );
-        assert_eq!(hook_violation("Breaking: a move"), Some("hook_colon"));
-        assert_eq!(hook_violation("Is he done?"), Some("hook_question_mark"));
+        assert_eq!(hook_violation("Breaking: a move"), None);
+        assert_eq!(hook_violation("Is he done?"), None);
+        // Length is the ONLY rule left, so it is the only thing that can be returned.
+        assert_eq!(hook_violation(&"x".repeat(200)), Some("hook_max_words"));
     }
 
+    /// The 140-character ceiling (2026-08-24). The thirteen-word hook that used to be the
+    /// canonical violation now SHIPS — it was 91% of the fleet's hook rejections, and the
+    /// leaderboard row it has to fit is measured in characters, not words.
     #[test]
-    fn salvage_trims_a_two_beat_hook_to_its_first_beat() {
-        // The v21 gate's real residual: 13 words, ", but " twist.
+    fn the_hook_ceiling_is_140_characters_not_twelve_words() {
+        // The old canonical failure: thirteen words, 71 chars. Clean now.
+        let thirteen = "one two three four five six seven eight nine ten eleven twelve thirteen";
+        assert!(thirteen.split_whitespace().count() > 12);
+        assert_eq!(hook_violation(thirteen), None);
+
+        // A real production shape that used to burn a generation.
         assert_eq!(
-            salvage_hook("Trent\u{2019}s old fire is fading into the quiet, but the crowd still remembers"),
-            Some("Trent\u{2019}s old fire is fading into the quiet".to_string())
-        );
-        // Production shape: em-dash twist ending in a question — trim clears both rules.
-        assert_eq!(
-            salvage_hook("The 76ers\u{2019} superteam hums with ego and chaos\u{2014}who\u{2019}s the only name that could finally silence it?"),
-            Some("The 76ers\u{2019} superteam hums with ego and chaos".to_string())
-        );
-        // A 13-word single clause has no beat to cut — not salvageable, retries as before.
-        assert_eq!(
-            salvage_hook("Harbor City\u{2019}s quiet win feels like the first step in a slow climb"),
+            hook_violation(
+                "Trent\u{2019}s old fire is fading into the quiet, but the crowd still remembers"
+            ),
             None
         );
-        // Clean hooks are never touched.
-        assert_eq!(salvage_hook("Vale sits while the room questions his future"), None);
-        // A colon title whose head is too short stays a violation.
-        assert_eq!(salvage_hook("Breaking: a move"), None);
-        // The ", and " twist (the or12 gate shape) trims like ", but ". (The gate's actual
-        // specimen counted exactly twelve words and ships whole — clean hooks are untouched.)
-        assert_eq!(
-            salvage_hook("Kiana Wells\u{2019} rim-dominance is a defensive revolution tonight, and the whole court is watching"),
-            Some("Kiana Wells\u{2019} rim-dominance is a defensive revolution tonight".to_string())
+
+        // Exactly 140 ships; 141 does not.
+        let at_limit = "x".repeat(140);
+        assert_eq!(at_limit.chars().count(), 140);
+        assert_eq!(hook_violation(&at_limit), None);
+        assert_eq!(hook_violation(&"x".repeat(141)), Some("hook_max_words"));
+
+        // Counted in CHARS, not bytes: an accented club name must not be charged double for
+        // being spelled correctly. 140 multi-byte chars is >140 bytes and must still pass.
+        let accented = "é".repeat(140);
+        assert!(accented.len() > 140, "precondition: multi-byte");
+        assert_eq!(hook_violation(&accented), None);
+    }
+
+    /// Salvage after the 140-char rule (2026-08-24). Its whole job narrowed with the guard: it
+    /// used to rescue thirteen-word overruns, em-dash twists ending in a question, and colon
+    /// labels — **all of which are now legal titles that ship untouched.** What is left is the
+    /// genuinely overlong hook, trimmed at its first beat.
+    #[test]
+    fn salvage_trims_only_a_genuinely_overlong_hook() {
+        // Every specimen the old test salvaged is CLEAN now and must be returned untouched.
+        for legal in [
+            "Trent\u{2019}s old fire is fading into the quiet, but the crowd still remembers",
+            "The 76ers\u{2019} superteam hums with ego and chaos\u{2014}who\u{2019}s the only name that could finally silence it?",
+            "Breaking: a move",
+            "Is he done?",
+            "Vale sits while the room questions his future",
+        ] {
+            assert_eq!(salvage_hook(legal), None, "clean hook was touched: {legal}");
+        }
+
+        // Over 140 chars WITH a beat separator: trimmed to the first beat.
+        let long_two_beat = format!(
+            "{}, but the crowd still remembers every last one of them and will not soon forget",
+            "Trent\u{2019}s old fire is fading into the quiet of a season nobody enjoyed watching"
         );
+        assert!(long_two_beat.chars().count() > 140);
         assert_eq!(
-            salvage_hook("Kiana Wells\u{2019} rim-dominance is a defensive revolution, and the court is watching"),
-            None
+            salvage_hook(&long_two_beat),
+            Some(
+                "Trent\u{2019}s old fire is fading into the quiet of a season nobody enjoyed watching"
+                    .to_string()
+            )
         );
+
+        // Over 140 chars with NO beat to cut: not salvageable, retries as before.
+        let long_single_beat = "x".repeat(200);
+        assert_eq!(salvage_hook(&long_single_beat), None);
+
+        // A trim that would leave a fragment is refused rather than shipped.
+        assert_eq!(salvage_hook(&format!("Yes, but {}", "x".repeat(200))), None);
     }
 
     #[test]
@@ -532,11 +619,20 @@ mod served_prose_tests {
         // Clean titles pass through untouched.
         assert_eq!(settle_title("t", Some("Arsenal hold firm as the window shuts")).as_deref(),
                    Some("Arsenal hold firm as the window shuts"));
-        // Two-beat titles salvage to the first beat.
+        // Two-beat titles under 140 chars now SHIP WHOLE (2026-08-24): the twist is the
+        // model's voice, and only length is the guard's business.
         assert_eq!(settle_title("t", Some("The room has turned on him — and the window is closing fast")).as_deref(),
-                   Some("The room has turned on him"));
-        // Unsalvageable ones drop to None rather than erroring.
-        assert_eq!(settle_title("t", Some("Brandt walks into the market like a man who is already out of every option")), None);
+                   Some("The room has turned on him — and the window is closing fast"));
+        // Punctuation is voice too — a colon or a question mark never costs the card now.
+        assert_eq!(settle_title("t", Some("Breaking: the room has turned")).as_deref(),
+                   Some("Breaking: the room has turned"));
+        assert_eq!(settle_title("t", Some("Is the window already shut?")).as_deref(),
+                   Some("Is the window already shut?"));
+        // What used to be "unsalvageable" is a perfectly good title at 74 chars.
+        assert_eq!(settle_title("t", Some("Brandt walks into the market like a man who is already out of every option")).as_deref(),
+                   Some("Brandt walks into the market like a man who is already out of every option"));
+        // Genuinely overlong with no beat to cut still drops to None rather than erroring.
+        assert_eq!(settle_title("t", Some(&"x".repeat(200))), None);
         // Absent and empty are simply absent.
         assert_eq!(settle_title("t", None), None);
         assert_eq!(settle_title("t", Some("   ")), None);

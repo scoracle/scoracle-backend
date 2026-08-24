@@ -424,12 +424,25 @@ fn an_unsalvageable_hook_never_costs_the_card() {
         "a shipped hook always satisfies the contract: {:?}", got.hook
     );
 
-    // A two-beat hook still salvages to its first beat rather than dropping.
-    let salvaged = VibeParser
+    // Since 2026-08-24 a two-beat hook under 140 chars SHIPS WHOLE — the twist is the
+    // Influencer's voice, and the guard's only business is whether it fits a leaderboard row.
+    let two_beat = VibeParser
         .parse("SCORE: 40\nHOOK: The room has turned on him — and the window is closing fast\nVIBE: Flat.")
-        .expect("salvageable")
+        .expect("clean")
         .expect("a reply");
-    assert_eq!(salvaged.hook.as_deref(), Some("The room has turned on him"));
+    assert_eq!(
+        two_beat.hook.as_deref(),
+        Some("The room has turned on him — and the window is closing fast")
+    );
+
+    // Punctuation is voice too: a colon and a question mark both survive to the card.
+    for hook in ["Breaking: the room has turned", "Is the window already shut?"] {
+        let got = VibeParser
+            .parse(&format!("SCORE: 40\nHOOK: {hook}\nVIBE: Flat."))
+            .expect("clean")
+            .expect("a reply");
+        assert_eq!(got.hook.as_deref(), Some(hook), "punctuation cost the hook");
+    }
 }
 
 /// Markdown in the body costs the decoration, never the card. Measured 2026-08-23: 89 vibe

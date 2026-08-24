@@ -433,3 +433,37 @@ fn a_vibe_only_context_builds_a_prompt_that_claims_no_form() {
         "no rating card was supplied, so no trajectory label may appear: {p}"
     );
 }
+
+/// The blanket digit ban is retired; the precise bookkeeping check replaces it (2026-08-24).
+///
+/// The old rule rejected any ASCII digit anywhere in the READ — 1,221 drops in three days, and
+/// the thing that permanently dead-lettered momentum player 367 at five attempts. It had no test
+/// asserting the rejection, so nothing caught its removal. This is that test, for the rule that
+/// replaced it: digits in open prose are ordinary sporting evidence, a parenthetical carrying a
+/// digit is the analyst's desk notes.
+#[test]
+fn momentum_allows_digits_in_prose_but_never_a_bookkeeping_citation() {
+    let read = |blurb: &str| MomentumParser.parse(&format!("READ: {blurb}"));
+
+    // Ships now. Under the old rule every one of these burned a finished READ.
+    for ok in [
+        "Three wins in a row and the room believes again.",
+        "3 wins in a row and the room believes again.",
+        "A 14-point climb over 11 samples, and the shape is holding.",
+    ] {
+        let got = read(ok).expect("digits in prose never fail the card").expect("a reply");
+        assert_eq!(got.blurb, ok);
+    }
+
+    // Still rejected: the desk notes pasted into a card.
+    for bad in [
+        "The slide is real (Mood: 30/100) and nobody is arguing.",
+        "He is climbing (4th percentile) against a soft run.",
+    ] {
+        assert!(read(bad).is_err(), "bookkeeping citation must still fail: {bad}");
+    }
+
+    // A parenthetical WITHOUT a digit is ordinary prose, not a citation.
+    let aside = "The slide is real (and nobody is arguing) this week.";
+    assert_eq!(read(aside).unwrap().unwrap().blurb, aside);
+}

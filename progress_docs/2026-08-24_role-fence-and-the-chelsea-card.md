@@ -80,7 +80,37 @@ were pushed to GitHub but **never deployed to Cloudflare**. Scott confirmed and 
 deployed via `npm run cf:deploy` (version 46b20ccf). The live Chelsea page now SSRs all six
 tabs. Committed the stray `package-lock.json` sync (06c87f1).
 
-## 6. Still open / not this session
+## 6. THE CARD CONTRACT (same session, second act — Scott's brief before merging)
+
+Scott: every direct-to-consumer character is score + headline + body as a CORE structure —
+score top-middle (established), headline = the 140-char tweet hook, body = the voice under
+fit-on-card. The Journalist and Insider were the two seats without an entity-level headline
+(mig 226 called their per-item titles "their own headlines"; overruled — those are body
+furniture). Shipped in the same PR:
+
+- **Mig 232**: `news_summaries.headline` (generation-level, card_score pattern, markers
+  included) + `insider_scores.headline`. Additive, no backfill.
+- **Journalist n21 NOT bumped** (v23 precedent — no fleet regen; heals with movement).
+  **Insider is4→is5 bumped** (is4 precedent — self-backfills one wrap per live-wire entity).
+  Both hooks parse best-effort and settle through `guards::settle_title`.
+- **THE BODY TRAIL** (Scott: "save only the bodies — that way we can better tell the
+  developing story… having these narratives as reference will be a huge enrichment factor",
+  the Palmer/Sanchez Fulham example): both seats' prior-read memory now leads with dated
+  prose — the Insider's recent read bodies (280B each), the Journalist's front-page hooks plus
+  his previous filing's top-3 storylines — and the score TRAIL collapses to the single latest
+  anchor (momentum-s19). Extending the same treatment to the Analyst/Scout/Oracle memory
+  cards is the natural follow-up.
+- **Serving repairs found on the way**: the deck-score ring reads `card_score` on /news and
+  /transfers — drop 3b had retired the former and the latter was serving `heat`, so BOTH
+  cards' scores were broken against the deployed frontend; and /news items served
+  `headline`/`heat` where the frontend `Narrative` type reads `narrative_title`/`impact`, so
+  narrative titles rendered blank. Both payloads now serve both key sets.
+- **The contract is written down** as THE CARD CONTRACT table in `junctions/mod.rs` — where
+  each seat's triple lives.
+- Verified live: Chelsea's first is5 wrap headline — "Chelsea's striker hunt stalls: Delap
+  tests availability, but no deals materialize beyond lingering Adarabioyo track."
+
+## 7. Still open / not this session
 
 - **Relational memory contamination.** The memory card (`narrative_context_for_entity`,
   mig 163) still lists non-subject storylines ("this entity's part: passing_mention") and

@@ -40,9 +40,33 @@ const FOOTER_RESERVE: usize = 20;
 
 /// The voices that may read a packet.
 ///
-/// **The Scout is absent by construction** (T4, and 7.7 names it): confirmed facts reach it by the
-/// stats platform and `transfer_identity_applications`, never by packet prose. There is no
-/// `Voice::Scout` to pass, so the law is enforced by the type, not by a reviewer's memory.
+/// # T4 NARROWED, 2026-08-23 — the Scout gets a variant, and this is exactly what changed
+///
+/// This comment used to read: *"The Scout is absent by construction (T4, and 7.7 names it):
+/// confirmed facts reach it by the stats platform and `transfer_identity_applications`, never by
+/// packet prose. There is no `Voice::Scout` to pass, so the law is enforced by the type."*
+///
+/// Scott's ruling (2026-08-23): *"Editor notices injury/suspension and tags the Scout → the Scout
+/// decides the legitimacy of the report → event is included in the report… I'd like to empower
+/// each model. Guards over evals. We can let the model do the work versus trying to engineer a
+/// rigid process."* A seat cannot judge a report it is forbidden to read, so the type-level ban
+/// is the thing that had to move.
+///
+/// **Repealed:** the Scout may read claims — attributed prose — from a packet.
+///
+/// **Still holding, and still enforced by this type:** he reads ONLY his slice — injury and
+/// suspension claims, nothing else. No general packet prose, no headline framing, and
+/// `sees_register` stays false so the Influencer's charged phrase remains hers alone. No other
+/// voice's slice changes. The alternative on the table — a `player_availability` adjudication
+/// plus a new Editor contract field naming the injured party — was the rigid process this ruling
+/// rejected, and it would have put a code gate in front of a judgement the Scout is better placed
+/// to make from the evidence itself.
+///
+/// The correctness floor moves with it, from the INPUT to the OUTPUT: `mark_contested` still
+/// points mechanically at claims that disagree (it marks, never filters — T3/D6), and `guards.rs`
+/// owns what may not survive into served prose. That is the mechanical-floor rule the guard
+/// module already states in Scott's own words: *"the guards allow the model freedom, which is our
+/// goal."*
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Voice {
     /// `narratives` — the whole packet: every claim, whatever its type.
@@ -59,6 +83,9 @@ pub enum Voice {
     /// reporter instead of the reader of six cards. The variant survives so the register test can
     /// prove even the terminal voice cannot see the Influencer's phrase.
     Oracle,
+    /// `rating` — injury and suspension claims only. The Editor TAGS him and he weighs the
+    /// report himself; see the T4 note on this enum for what that repealed and what it did not.
+    Scout,
 }
 
 impl Voice {
@@ -71,6 +98,7 @@ impl Voice {
             Voice::Influencer => "vibe",
             Voice::Analyst => "momentum",
             Voice::Oracle => "sigil",
+            Voice::Scout => "rating",
         }
     }
 
@@ -81,10 +109,17 @@ impl Voice {
         matches!(self, Voice::Influencer)
     }
 
-    /// The claim slice this voice reads. `None` = every claim.
-    fn slice(self) -> Option<&'static str> {
+    /// The claim slice this voice reads, as the set of `story_type`s admitted. `None` = every
+    /// claim.
+    ///
+    /// A SET rather than one type because the Scout's subject spans two: an injury and a
+    /// suspension are different causes with the same consequence — the player is unavailable —
+    /// and the Editor's contract already emits them as separate `story_type` values. Splitting
+    /// them across two slices would make a club's Saturday read as two unrelated facts.
+    fn slice(self) -> Option<&'static [&'static str]> {
         match self {
-            Voice::Insider => Some("transfer"),
+            Voice::Insider => Some(&["transfer"]),
+            Voice::Scout => Some(&["injury", "suspension"]),
             _ => None,
         }
     }
@@ -347,7 +382,10 @@ fn select_claims(claims: &[RenderClaim], voice: Voice) -> Vec<RenderClaim> {
         None => claims.to_vec(),
         Some(want) => claims
             .iter()
-            .filter(|c| c.story_type.eq_ignore_ascii_case(want))
+            .filter(|c| {
+                want.iter()
+                    .any(|w| c.story_type.eq_ignore_ascii_case(w))
+            })
             .cloned()
             .collect(),
     }

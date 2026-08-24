@@ -213,6 +213,7 @@ fn retired_metric_never_reaches_prompt_preimage_or_crown() {
         None,
         None,
         None,
+        None,
     );
     for retired in ["Clearances", "Duels"] {
         assert!(
@@ -312,6 +313,7 @@ fn prompt_player_composite_datapoints_and_scoped_position() {
         None,
         None,
         None,
+        None,
     );
     assert_eq!(
         prompt,
@@ -349,6 +351,7 @@ fn prompt_team_no_composite_no_position() {
         None,
         None,
         None,
+        None,
     );
     assert_eq!(
         prompt,
@@ -381,6 +384,7 @@ fn cross_season_memory_renders_before_the_write_cue() {
         None,
         None,
         None,
+        None,
     );
     assert!(prompt.contains("\nCross-season memory (computed history — arc context only"));
     assert!(prompt.contains("- Our prior read: season 2025 scored this profile 98/100"));
@@ -394,6 +398,7 @@ fn cross_season_memory_renders_before_the_write_cue() {
         &p,
         70,
         Some(" \n "),
+        None,
         None,
         None,
         None,
@@ -700,6 +705,33 @@ fn the_two_non_statistical_triggers_are_distinguishable_from_each_other_and_from
     assert_eq!(rating_trigger_type(Some(&xfer)), "transfer");
     assert_eq!(rating_trigger_type(Some(&stats)), "periodic");
     assert_eq!(rating_trigger_type(None), "periodic");
+}
+
+/// The Editor's TAG (2026-08-23). A `pk:` rating row is minted by mig 225 from
+/// `slice_fingerprints->>'rating'`, which hashes the injury/suspension claims and nothing else —
+/// so the row exists BECAUSE that news moved.
+///
+/// Both assertions here are load-bearing. If the bypass misses, the enqueue lands and the seat
+/// skips it before the model call, which is precisely how the routing-subscription route was
+/// measured to fail before the rating slice existed. If the trigger type misses, the Editor's
+/// tag is filed under the nightly batch and the one provenance signal separating them is lost.
+#[test]
+fn a_packet_tagged_rating_row_bypasses_the_debounce_and_records_its_trigger() {
+    let packet = "pk:9f8e7d6c5b4a3928";
+
+    assert!(rating_work_bypasses_debounce(Some(packet)));
+    assert_eq!(rating_trigger_type(Some(packet)), "availability");
+
+    // It must not be confusable with the stats-derived versions in either direction: `pk:` rows
+    // carry no season and no mark slot, so the mark readers must simply decline them.
+    assert!(!rating_work_is_transfer_triggered(Some(packet)));
+    assert!(!rating_work_is_availability_triggered(Some(packet)));
+    assert!(rating_work_season(Some(packet)).is_none());
+
+    // And a stats-derived version is never mistaken for a packet one — otherwise the whole
+    // fleet would bypass the debounce on every enumeration.
+    let stats = rating_work_input_version(2026, Some("a1b2c3d4e5f60718"));
+    assert!(!rating_work_bypasses_debounce(Some(&stats)));
 }
 
 #[test]
@@ -1099,6 +1131,94 @@ fn transfers_and_availability_share_one_block_and_each_names_its_drops() {
     assert!(render_personnel_block("team", 3468, &[], 0, &avails, MAX_AVAILABILITY_LINES).is_some());
 }
 
+/// The Editor's TAGGED reports reach the Scout as CLAIMS — attributed, with contradictions
+/// marked by code. Scott's 2026-08-23 ruling in test form: he judges legitimacy, so he must see
+/// who said what and where they disagree. `⇄` is the mark, and BOTH members of a contested pair
+/// are always carried (T3/D6) — collapsing the pair would be deciding for him.
+#[test]
+fn tagged_availability_reports_arrive_attributed_and_contest_marked() {
+    use crate::junctions::editor::render::{mark_contested, RenderClaim};
+
+    let claim = |source: &str, fact: &str| RenderClaim {
+        article_id: 1,
+        source: source.to_string(),
+        fact: fact.to_string(),
+        published_at: Some(100),
+        story_type: "injury".to_string(),
+    };
+
+    // Agreeing claims: attributed, unmarked.
+    let agreeing = mark_contested(&[
+        claim("BBC", "Palmer is out for six weeks"),
+        claim("Sky", "Palmer faces six weeks out"),
+    ]);
+    let out = render_availability_reports(&agreeing).unwrap();
+    assert!(out.contains("- BBC: Palmer is out for six weeks\n"));
+    assert!(!out.contains('⇄'));
+
+    // Contradicting claims: BOTH carried, BOTH marked.
+    let contested = mark_contested(&[
+        claim("BBC", "Palmer will miss the derby"),
+        claim("The Athletic", "Palmer will not miss the derby"),
+    ]);
+    let out = render_availability_reports(&contested).unwrap();
+    assert_eq!(out.matches('⇄').count(), 2, "both sides must be marked");
+    assert!(out.contains("BBC") && out.contains("The Athletic"));
+
+    // KNOWN GAP, asserted so it cannot regress silently. `mark_contested`'s negation list was
+    // tuned for TRANSFER prose and contains "ruled" (as in "ruled out of contention"). On injury
+    // prose "ruled out" therefore reads as negated on BOTH sides, the polarities match, and a
+    // genuine contradiction goes unmarked. The claims are still both carried and both attributed
+    // — the Scout sees the disagreement, he just does not get the pointer. Widening that list is
+    // a change to the Insider's marker too, so it is deliberately NOT done as a side effect here.
+    let unmarked = mark_contested(&[
+        claim("BBC", "Palmer has been ruled out of the derby"),
+        claim("The Athletic", "Palmer has not been ruled out of the derby"),
+    ]);
+    let out = render_availability_reports(&unmarked).unwrap();
+    assert_eq!(out.matches('⇄').count(), 0, "documents the transfer-tuned negation gap");
+    assert!(out.lines().count() == 2, "both claims still reach him regardless");
+
+    // Nothing reported ⇒ no section, same discipline as the personnel block.
+    assert!(render_availability_reports(&[]).is_none());
+}
+
+/// The reports block must not be confusable with the adjudicated record, and the prompt has to
+/// say which is which — a Scout reading a claim as a confirmed fact is the failure this design
+/// exists to avoid.
+#[test]
+fn the_prompt_separates_reported_availability_from_the_confirmed_record() {
+    use crate::junctions::editor::render::{mark_contested, RenderClaim};
+    let p = profile_player();
+    let reports = mark_contested(&[RenderClaim {
+        article_id: 1,
+        source: "BBC".to_string(),
+        fact: "Palmer is out for six weeks".to_string(),
+        published_at: Some(100),
+        story_type: "injury".to_string(),
+    }]);
+    let rendered = render_availability_reports(&reports).unwrap();
+    let prompt = build_stat_prompt(
+        &req("FOOTBALL", "player", "Test Player"),
+        &p,
+        70,
+        None,
+        None,
+        None,
+        None,
+        Some(&rendered),
+    );
+    let reported = prompt.find("Reported availability, NOT yet confirmed").unwrap();
+    let cue = prompt.find("Write the report now").unwrap();
+    assert!(reported < cue);
+    assert!(prompt.contains("- BBC: Palmer is out for six weeks"));
+    // The instructions that make it judgeable rather than quotable.
+    assert!(prompt.contains("These are REPORTS, not the record above"));
+    assert!(prompt.contains("Never state a disputed claim as settled fact"));
+    // And a claim must never be allowed to move a measured number.
+    assert!(prompt.contains("never carry a number from here into a tier or rating above"));
+}
+
 /// No changes ⇒ no section. A heading with nothing under it asserts "nothing moved", which is a
 /// claim the adjudication chain has not made — it may only mean nothing has been adjudicated yet.
 #[test]
@@ -1109,6 +1229,7 @@ fn nothing_moved_renders_no_section_at_all() {
         &req("NBA", "player", "Test Player"),
         &p,
         70,
+        None,
         None,
         None,
         None,
@@ -1146,6 +1267,7 @@ fn the_personnel_block_sits_between_the_datapoints_and_the_memory_card() {
         Some(&personnel),
         None,
         None,
+        None,
     );
     let dp = prompt.find("Datapoints — value").unwrap();
     let pers = prompt
@@ -1165,6 +1287,7 @@ fn the_personnel_block_sits_between_the_datapoints_and_the_memory_card() {
         70,
         None,
         Some(" \n "),
+        None,
         None,
         None,
     );

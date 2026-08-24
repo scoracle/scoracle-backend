@@ -238,8 +238,9 @@ fn main() -> anyhow::Result<()> {
         // Notability comes from the real computation, so the distinctiveness line the model
         // reads matches what production would say about this exact profile.
         let (notability, _) = compute_notability(&profile);
-        // Fixtures pin the memory-free shape (the s12/n8 eval discipline).
-        let prompt = build_stat_prompt(&req, &profile, notability, None, None, None, None);
+        // Fixtures pin the memory-free shape (the s12/n8 eval discipline) — and that now includes
+        // the tagged availability reports: the frozen shape is the one with NO enrichment.
+        let prompt = build_stat_prompt(&req, &profile, notability, None, None, None, None, None);
         let v = json!({
             "name": s.name,
             "task": "rating",

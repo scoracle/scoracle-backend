@@ -44,7 +44,8 @@ use tracing::{debug, warn};
 // diff. Re-exported here so call sites and the ledger keep reading it from the stage module.
 pub mod prompt;
 pub use prompt::{
-    build_stat_prompt, render_personnel_block, RATING_PROMPT_VERSION, RATING_SYSTEM_PROMPT,
+    build_stat_prompt, render_availability_reports, render_personnel_block, RATING_PROMPT_VERSION,
+    RATING_SYSTEM_PROMPT,
 };
 
 /// Output contract captured separately in the Phase 2 diagnostic ledger.
@@ -1159,6 +1160,66 @@ pub async fn load_availability_changes(
     Ok((changes, total))
 }
 
+/// How many reported-availability claims reach the brief. Six, matching the personnel cap: the
+/// 4,096 window still binds, and a busy treatment table must not crowd out the datapoints the
+/// report is actually built on.
+const MAX_AVAILABILITY_CLAIMS: usize = 6;
+
+/// load_availability_reports pulls the Editor's injury/suspension claims for this entity — the
+/// evidence the Scout WEIGHS, as opposed to the adjudicated record he simply reports.
+///
+/// **This is the read Scott's ruling opened** (2026-08-23: *"Editor notices injury/suspension and
+/// tags the Scout → the Scout decides the legitimacy of the report"*). It composes the loader and
+/// the renderer itself rather than calling `render_packets_for_entity`, following the precedent
+/// that doc names: *"Voices whose contract needs the claims as data instead… compose the loader
+/// and the renderer themselves."* The block form would hand him the headline, the role line and
+/// the continuity line — general packet prose, which is broader than the slice this seat is meant
+/// to read.
+///
+/// Two things stay CODE's, and they are the reason a model can be trusted with the rest:
+///
+/// * **The slice** — `Voice::Scout` admits injury- and suspension-typed claims and nothing else.
+///   No model is asked what it should be allowed to read (E1).
+/// * **The contest marker** — `mark_contested` flags claims that say opposite things about the
+///   same subject, mechanically, and marks BOTH (T3/D6). It is a POINTER, never a filter: the
+///   disagreement is exactly what the Scout is being asked to judge, so collapsing it would be
+///   deciding for him.
+///
+/// What he does with a marked pair — believe the better source, report the dispute, or leave it
+/// out — is his call, which is the whole point of tagging him rather than adjudicating for him.
+pub async fn load_availability_reports(
+    pool: &PgPool,
+    entity_type: &str,
+    entity_id: i32,
+    sport: &str,
+) -> Result<Vec<crate::junctions::editor::render::MarkedClaim>> {
+    use crate::junctions::editor::render::{mark_contested, slice_claims, Voice};
+
+    if entity_type != "player" && entity_type != "team" {
+        return Ok(Vec::new());
+    }
+    let loaded = crate::junctions::editor::packet::load_packets_for_entity(
+        pool,
+        entity_type,
+        entity_id,
+        sport,
+        crate::junctions::journalist::PACKET_LOOKBACK_HOURS,
+        MAX_AVAILABILITY_CLAIMS as i64,
+    )
+    .await
+    .with_context(|| format!("load availability reports {entity_type}/{entity_id}"))?;
+
+    let mut claims = Vec::new();
+    for (view, _) in loaded {
+        claims.extend(slice_claims(&view.claims, Voice::Scout));
+    }
+    claims.truncate(MAX_AVAILABILITY_CLAIMS);
+    // Contest-marking runs across the WHOLE set, after the merge — two storylines reporting the
+    // same knock differently is precisely the pair worth marking, and marking per-packet would
+    // miss it.
+    Ok(mark_contested(&claims))
+}
+
 // ---------------------------------------------------------------------------
 // Input components + hash — the debounce key (Provenance.input_hash), the 5th parity axis.
 //
@@ -1789,6 +1850,26 @@ pub async fn build_rating_request(
     } else {
         None
     };
+    // The Editor's TAGGED reports — claims, not record. Same enrichment discipline as everything
+    // else here: best-effort, prompt-only, outside `input_components`/`input_hash`.
+    let availability_reports = if with_enrichment {
+        match load_availability_reports(&hx.pool, &req.entity_type, req.entity_id, &req.sport).await
+        {
+            Ok(claims) => prompt::render_availability_reports(&claims),
+            Err(e) => {
+                tracing::warn!(
+                    entity_type = %req.entity_type,
+                    entity_id = req.entity_id,
+                    sport = %req.sport,
+                    error = %e,
+                    "rating: availability-report load failed (continuing without the block)"
+                );
+                None
+            }
+        }
+    } else {
+        None
+    };
     // s19: season-over-season movement lines — the Scout's trajectory material (labeled
     // deltas against last season's percentiles, decided in code). Same enrichment discipline
     // as the memory card: best-effort, prompt-only, outside `input_components`/`input_hash`.
@@ -1840,6 +1921,7 @@ pub async fn build_rating_request(
         personnel.as_deref(),
         z_memory.as_deref(),
         form_trend.as_deref(),
+        availability_reports.as_deref(),
     );
     let opts = GenerateOptions {
         system: Some(RATING_SYSTEM_PROMPT.to_string()),
@@ -2076,6 +2158,13 @@ const RATING_WORK_TRANSFER_MARK: &str = "xfer";
 /// neither mark can collide with a hash however the digest comes out.
 const RATING_WORK_AVAIL_MARK: &str = "avail";
 
+/// The prefix mig 225's `enqueue_voices_on_packet` stamps on a voice's work row:
+/// `'pk:' || COALESCE(slice_fingerprints->>stage, id::text)`.
+///
+/// For the `rating` stage that slice is the injury/suspension claim hash, so a `pk:` rating row
+/// means one thing only — the Editor tagged this entity because its availability news moved.
+const PACKET_WORK_PREFIX: &str = "pk:";
+
 /// Work-row `input_version` for a rating opened by an ADJUDICATED transfer (Scott's brief,
 /// 2026-08-15: "We need the Scout to be aware of when a transfer crossed the threshold and is
 /// considered concrete").
@@ -2158,6 +2247,14 @@ fn rating_work_is_availability_triggered(input_version: Option<&str>) -> bool {
 /// not move for the non-statistical ones — so it is what makes an eval or an incident split
 /// "the nightly batch wrote this" from "an injury did".
 fn rating_trigger_type(input_version: Option<&str>) -> &'static str {
+    // A packet-triggered row carries no mark slot to read — its whole version is the `pk:`
+    // fingerprint — but it is availability by construction: the `rating` slice hashes the
+    // injury/suspension claims and nothing else, so the row exists because that news moved.
+    // Recording it as 'periodic' would file the Editor's tag under the nightly batch and lose
+    // the one provenance signal that separates them (mig 228 widened the CHECK for exactly this).
+    if rating_work_is_packet_triggered(input_version) {
+        return "availability";
+    }
     match rating_work_mark(input_version) {
         Some(h) if h.starts_with(RATING_WORK_TRANSFER_MARK) => "transfer",
         Some(h) if h.starts_with(RATING_WORK_AVAIL_MARK) => "availability",
@@ -2165,15 +2262,31 @@ fn rating_trigger_type(input_version: Option<&str>) -> &'static str {
     }
 }
 
+/// True when this row was opened by the EDITOR's packet — the `pk:` version minted by mig 225's
+/// `enqueue_voices_on_packet` from `slice_fingerprints->>'rating'`.
+///
+/// That slice hashes the injury/suspension claims, so the row exists precisely because the
+/// availability news for this entity MOVED. Nothing else can mint a `pk:` rating row.
+fn rating_work_is_packet_triggered(input_version: Option<&str>) -> bool {
+    input_version.is_some_and(|raw| raw.starts_with(PACKET_WORK_PREFIX))
+}
+
 /// True when the `skip_unchanged` debounce must be turned OFF for this item.
 ///
-/// Both non-statistical triggers need this for the same reason: the fact that changed —
-/// personnel, availability — is deliberately absent from the `input_hash` pre-image, so the
-/// debounce would compare equal and short-circuit before the model call. Putting either fact
-/// INTO `input_components` is the obvious fix and the wrong one; see the transfer helper.
+/// All three non-statistical triggers need it for the same reason: the fact that changed —
+/// personnel, availability, the news itself — is deliberately absent from the `input_hash`
+/// pre-image, so the debounce compares equal and short-circuits before the model call. Putting
+/// any of them INTO `input_components` is the obvious fix and the wrong one; see the transfer
+/// helper.
+///
+/// The packet arm is what makes the Editor's TAG work end to end: he notices, the slice moves,
+/// the row reopens, and the debounce steps aside so the Scout actually gets to read the claims
+/// and judge them. Without this the enqueue lands and the seat skips it — which is exactly how
+/// the routing-subscription route was measured to fail before the `rating` slice existed.
 fn rating_work_bypasses_debounce(input_version: Option<&str>) -> bool {
     rating_work_is_transfer_triggered(input_version)
         || rating_work_is_availability_triggered(input_version)
+        || rating_work_is_packet_triggered(input_version)
 }
 
 fn rating_work_season(input_version: Option<&str>) -> Option<i32> {

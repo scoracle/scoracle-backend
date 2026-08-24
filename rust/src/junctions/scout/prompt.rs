@@ -42,6 +42,34 @@ use super::{
     build_scouting_decision, collect_rate_standouts, format_datapoint_evidence, ordered_facts,
     render_scouting_decision, AvailabilityChange, PersonnelChange, RatingProfile, RatingReq,
 };
+use crate::junctions::editor::render::MarkedClaim;
+
+/// render_availability_reports turns the Editor's tagged claims into the block the Scout WEIGHS.
+///
+/// Deliberately distinct from the personnel block above, and the difference is the whole design:
+/// that block is the ADJUDICATED record (a fact, reported), this one is REPORTAGE (a claim, to be
+/// judged). Merging them would ask the Scout to treat "The Athletic says he is out six weeks" and
+/// "the transfer was applied on Jul 29" as the same kind of thing, which is what the structured
+/// pipeline would have forced and what Scott's ruling rejected.
+///
+/// `⇄` marks a claim that another claim in the same set contradicts. Both members are always
+/// carried (T3/D6) — the marker points, it never filters, because the disagreement is exactly
+/// what the Scout is here to resolve.
+pub fn render_availability_reports(claims: &[MarkedClaim]) -> Option<String> {
+    if claims.is_empty() {
+        return None;
+    }
+    let mut b = String::new();
+    for c in claims {
+        let mark = if c.marked { "⇄ " } else { "- " };
+        b.push_str(&format!(
+            "{mark}{}: {}\n",
+            c.claim.source,
+            c.claim.fact.trim()
+        ));
+    }
+    Some(b)
+}
 
 /// System prompt for the rating scouting-report contract. s14 (Characters Phase B): the voice IS
 /// The Scout — a persona-first coaching-staff brief in clipped game-plan imperatives (wiki
@@ -237,6 +265,11 @@ pub fn render_personnel_block(
 /// (the L8 discipline: the movement word is decided, never inferred). `form_trend` (s19) is the
 /// deterministic recent-form marker label, demoted to shading context. All four are prompt-only
 /// enrichment, outside `input_components`/`input_hash`.
+// Eight enrichment sources, each independently optional and each nullable on the parity/eval
+// paths that pin the bare shape. Bundling them into a struct would hide exactly the thing every
+// caller has to decide one by one — whether THIS path may see THAT material — so the arity is
+// the contract, not clutter.
+#[allow(clippy::too_many_arguments)]
 pub fn build_stat_prompt(
     req: &RatingReq,
     p: &RatingProfile,
@@ -245,6 +278,7 @@ pub fn build_stat_prompt(
     personnel: Option<&str>,
     z_memory: Option<&str>,
     form_trend: Option<&str>,
+    availability_reports: Option<&str>,
 ) -> String {
     let mut b = String::new();
 
@@ -320,6 +354,14 @@ pub fn build_stat_prompt(
     if let Some(pc) = personnel.filter(|p| !p.trim().is_empty()) {
         b.push_str("\nPersonnel and availability since our last read (confirmed facts from the adjudicated transfer and availability records — dates are when the change took force; a WITHDRAWN record means we no longer claim it happened, not that the player recovered; these do NOT alter any tier or number above, which are this season's measured truth, but they tell you WHO is actually available, which changes how the rest of the profile should be read):\n");
         b.push_str(pc);
+    }
+
+    // REPORTED, not adjudicated — and the difference is stated plainly, because it is the whole
+    // of what the Scout is being asked to do here. `⇄` is code's mark, not the model's: two
+    // claims that contradict each other are BOTH carried and BOTH flagged (T3/D6).
+    if let Some(ar) = availability_reports.filter(|a| !a.trim().is_empty()) {
+        b.push_str("\nReported availability, NOT yet confirmed (injury and suspension claims the desk has collected for this entity, each with the outlet that made it; ⇄ marks a claim another claim here contradicts). These are REPORTS, not the record above — weigh them: who is saying it, whether they agree, and how firm the wording is. Report what you judge sound and attribute it; say a report is disputed where it is; leave out what you do not credit. Never state a disputed claim as settled fact, and never carry a number from here into a tier or rating above:\n");
+        b.push_str(ar);
     }
 
     // Cross-season memory card (s12, mig 164): prior-season PEAK read (banked junction

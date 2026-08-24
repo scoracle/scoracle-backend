@@ -110,7 +110,28 @@ furniture). Shipped in the same PR:
 - Verified live: Chelsea's first is5 wrap headline — "Chelsea's striker hunt stalls: Delap
   tests availability, but no deals materialize beyond lingering Adarabioyo track."
 
-## 7. Still open / not this session
+## 7. THE WEEK ARCHIVE (same session, third act — "I think I've got this unlocked")
+
+The rail gets a clock. Scott's convention, decisions confirmed in-session (merged timeline /
+card-shows-that-generation / Jan-1 week blocks):
+
+- **`GET /{sport}/{type}/{id}/headlines?year=&week=`** — the card contract's index: every
+  seat's (score, headline, body) entries for one week (week 1 = Jan 1–7), merged newest-first.
+  The Journalist's entries carry storylines as `items`; the Scout's archive score is NULL (his
+  number is season state). One statement (`entity_headlines`), UNION over the six product
+  tables, headline-bearing generations only — the archive reaches exactly as far as the
+  mig 226/232 rollout.
+- **Frontend**: a Week dropdown on the conditions line, every card, default "Today". A week
+  replaces the deck with the timeline (day-grouped rows: seat · score · time · headline);
+  tapping deals that generation as a full archive card (score top-middle, hook, body) with a
+  back step. `?week=YYYY-N` in the URL; one fetch powers both levels. New:
+  `WeekArchive.tsx/css`, `lib/utils/week.ts`, `lib/data/headlines.server.ts`.
+- Verified live: Chelsea week 34 serves 31 entries across all six seats; scoracle.com SSRs
+  the full timeline (Thu Aug 20 → Mon Aug 24).
+- Note: the old `newsScope` bucket dropdown still drives the LIVE News/Transfers cards and is
+  hidden in week mode; retiring it in favour of the week axis is a natural follow-up.
+
+## 8. Still open / not this session
 
 - **Relational memory contamination.** The memory card (`narrative_context_for_entity`,
   mig 163) still lists non-subject storylines ("this entity's part: passing_mention") and

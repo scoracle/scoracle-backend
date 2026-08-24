@@ -27,6 +27,34 @@
 //! `ep1/or5/n13/v14/momentum-s7/s14` against live `ep6/or9/n19/v18/momentum-s15/s18` — and a
 //! roster that lies about versions is worse than one that names where the truth lives.)
 //!
+//! ## THE CARD CONTRACT — score + headline + body, every consumer seat (Scott, 2026-08-24)
+//!
+//! Every direct-to-consumer character's product is one card face with exactly three parts:
+//!
+//! - **score** — the seat's own number, top-middle of the card. Its scale is the seat's
+//!   (higher-is-better for some, mid-is-quiet for others) and each seat's prompt owns the
+//!   calibration.
+//! - **headline** — the tweet hook: 140 characters, `guards::settle_title` is the mechanical
+//!   floor (a junk title costs the title, never the card). It is the seat's read of the WHOLE
+//!   entity-cycle, not an item title promoted — a busy day of narratives is the Journalist's
+//!   headline theme; a quiet wire is a legitimate Insider headline, not a missing one.
+//! - **body** — the seat's voice under the fit-on-card constraint, `guards::clean_served_prose`
+//!   as the floor.
+//!
+//! Where each triple lives:
+//!
+//! | seat | score | headline | body |
+//! |---|---|---|---|
+//! | The Scout | rating | `stat_summaries.headline` (mig 226) | `stat_summaries` body |
+//! | The Journalist | `news_summaries.card_score` | `news_summaries.headline` (mig 232, generation-level) | the storylines |
+//! | The Insider | `insider_scores.score` | `insider_scores.headline` (mig 232) | `insider_scores.read` + the rumor rows |
+//! | The Influencer | `vibe_scores.sentiment` | `vibe_scores.hook` | `vibe_scores.prompt` |
+//! | The Analyst | momentum score | `momentum_summaries.headline` (mig 226) | `momentum_summaries` blurb |
+//! | The Oracle | crown score | `sigil_synthesis.headline` (mig 226) | the reading |
+//!
+//! Per-item titles (`narrative_title`, the rumor `model_summary`) are NOT the headline — they
+//! are body furniture. The card-level hook is entity-level, one per generation.
+//!
 //! ## What lives here, and what does not
 //!
 //! Each junction owns one directory: `mod.rs` holds the machinery — claiming work, loading inputs,

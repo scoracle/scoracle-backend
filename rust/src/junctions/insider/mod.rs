@@ -1984,10 +1984,14 @@ pub const INSIDER_SCORE_TEMPERATURE: f64 = 0.3;
 // two story seats: most boards are quiet and an honest filing is short.
 pub const INSIDER_SCORE_NUM_PREDICT: i32 = 600;
 
-/// The validated wrap reply — read + 1-99 score, clamped at parse.
+/// The validated wrap reply — read + entity-level headline + 1-99 score, clamped at parse.
 #[derive(Clone, Debug)]
 pub struct InsiderScoreReply {
     pub read: String,
+    /// The card's hook (is5, mig 232) — already settled through `guards::settle_title`
+    /// ("insider" seat). `None` on a pre-is5 reply shape or a dropped title: a junk title
+    /// costs the title, never the wrap.
+    pub headline: Option<String>,
     pub score: i16,
 }
 
@@ -2040,8 +2044,16 @@ fn parse_insider_score_reply(raw: &str) -> Option<InsiderScoreReply> {
     } else {
         return None;
     };
+    // The entity-level hook (is5) is best-effort — required by the live grammar, tolerated
+    // absent for pre-is5 replays — and settled through the shared title floor at parse, so
+    // what persists is exactly what the card may serve.
+    let headline = crate::guards::settle_title(
+        "insider",
+        v.get("headline").and_then(|h| h.as_str()),
+    );
     Some(InsiderScoreReply {
         read,
+        headline,
         score: n.clamp(1, 99) as i16,
     })
 }
@@ -2099,10 +2111,21 @@ struct PriorInsiderRead {
     card: String,
 }
 
+/// Prompt bytes each remembered read body may spend (the influencer BODY_TRUNCATE precedent):
+/// the memory tells the developing story, it never re-files it.
+const PRIOR_READ_BODY_TRUNCATE: usize = 280;
+
 /// load_prior_insider_read renders the Insider's OWN recent wraps as a continuity memory card —
-/// the last read plus a short score trail with dates, mirroring `sigil::load_prior_read`
-/// (memory, never a reset; the echo-chamber rule). `None` for a first-ever wrap. Prompt-only,
-/// deliberately NOT part of the input_hash.
+/// the recent read BODIES, dated, newest first, plus the single latest score as the continuity
+/// anchor. Mirrors `sigil::load_prior_read` (memory, never a reset; the echo-chamber rule).
+/// `None` for a first-ever wrap. Prompt-only, deliberately NOT part of the input_hash.
+///
+/// THE BODY TRAIL (Scott, 2026-08-24): the memory used to be a score trail plus one body —
+/// numbers first. "Save only the bodies — that way we can better tell the developing story."
+/// The prose is where the story lives, and a trail of numbers in the input is a trail the model
+/// reaches for (the momentum-s19 law). The one latest score stays because the contract's
+/// continuity rule ("move deliberately from your previous score") needs its anchor; the TRAIL
+/// of scores is what goes.
 async fn load_prior_insider_read(
     pool: &PgPool,
     entity_type: &str,
@@ -2129,14 +2152,17 @@ async fn load_prior_insider_read(
         return Ok(None);
     }
     let mut card = String::new();
-    if let Some(read) = rows[0].1.as_deref().filter(|r| !r.trim().is_empty()) {
-        card.push_str(&format!("Last read ({}): {}\n", rows[0].2, read));
+    for (i, (_, read, day)) in rows.iter().enumerate() {
+        let Some(body) = read.as_deref().filter(|r| !r.trim().is_empty()) else {
+            continue;
+        };
+        let label = if i == 0 { "Your last read" } else { "Earlier" };
+        card.push_str(&format!(
+            "{label} ({day}): {}\n",
+            crate::util::truncate_bytes(body, PRIOR_READ_BODY_TRUNCATE)
+        ));
     }
-    let trail: Vec<String> = rows.iter().map(|(s, _, d)| format!("{s} ({d})")).collect();
-    card.push_str(&format!(
-        "Recent scores (newest first): {}",
-        trail.join(" · ")
-    ));
+    card.push_str(&format!("Your latest score: {}", rows[0].0));
     Ok(Some(PriorInsiderRead {
         latest: rows[0].0,
         card,
@@ -2249,9 +2275,9 @@ async fn score_insider_entity(
     let row = sqlx::query(
         r#"
         INSERT INTO insider_scores (
-            sport, entity_type, entity_id, score, previous_score, read,
+            sport, entity_type, entity_id, score, previous_score, read, headline,
             model_version, prompt_version, input_hash, generated_at
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW())
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW())
         RETURNING id
         "#,
     )
@@ -2261,6 +2287,7 @@ async fn score_insider_entity(
     .bind(reply.score)
     .bind(previous_score)
     .bind(reply.read.as_str())
+    .bind(reply.headline.as_deref())
     .bind(extracted.model.as_str())
     .bind(INSIDER_SCORE_PROMPT_VERSION)
     .bind(input_hash.as_str())

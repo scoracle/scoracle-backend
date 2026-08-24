@@ -228,6 +228,11 @@ pub struct ParsedNarratives {
     /// it (pre-n12 salvage, truncated tail) parses to `None`, never a
     /// failure — the row simply persists NULL and the card falls back to the Veil.
     card_score: Option<i16>,
+    /// The entity-level card hook (2026-08-24, the uniform score+headline+body contract) —
+    /// the edition's front-page tweet, already settled through `guards::settle_title`. Best-effort
+    /// exactly like `card_score`: a pre-headline reply parses to `None`, and a junk title costs
+    /// the title, never the edition.
+    headline: Option<String>,
 }
 
 impl ParsedNarratives {
@@ -248,6 +253,12 @@ impl ParsedNarratives {
     /// invisible from n12 until the n17 pass).
     pub fn card_score(&self) -> Option<i16> {
         self.card_score
+    }
+
+    /// The entity-level card hook, post-guard — for the eval's headline axes and the
+    /// generation pipeline.
+    pub fn headline(&self) -> Option<&str> {
+        self.headline.as_deref()
     }
 }
 
@@ -293,9 +304,14 @@ impl Parser<ParsedNarratives> for NarrativesParser {
         // a parse failure. The grammar makes it required on the live path; this tolerance covers
         // truncated tails and the offline bins replaying pre-n12 output.
         let card_score = parse_card_score(raw);
+        // The entity-level hook is best-effort the same way, then settled through the shared
+        // title floor: the tweet contract (140 chars), emphasis stripped, foreign-script and
+        // overlong titles dropped rather than failing the edition.
+        let headline = crate::guards::settle_title("journalist", parse_headline(raw).as_deref());
         Ok(Some(ParsedNarratives {
             narratives,
             card_score,
+            headline,
         }))
     }
 }
@@ -536,6 +552,13 @@ pub async fn load_entity_memory(
 /// mirrors sigil's `PRIOR_READ_LIMIT` (the Oracle's continuity trail).
 const PRIOR_CARD_READS_LIMIT: i64 = 4;
 
+/// Storylines from the previous filing carried into memory as reference (the body trail,
+/// 2026-08-24) — impact-ranked, so the match story that mattered survives the cut.
+const PRIOR_STORY_BODY_LIMIT: i64 = 3;
+/// Prompt bytes each remembered storyline body may spend (the influencer BODY_TRUNCATE
+/// precedent): three truncated bodies ≈ 200 tokens against the 4096 window.
+const PRIOR_STORY_BODY_TRUNCATE: usize = 280;
+
 /// The Journalist's own score memory: the latest non-NULL `card_score` (persisted as
 /// `card_score_prev` on the new generation — the continuity audit) plus the rendered
 /// prompt block.
@@ -556,11 +579,11 @@ pub async fn load_prior_card_reads(
     entity_id: i32,
     sport: &str,
 ) -> Result<Option<PriorCardReads>> {
-    let trail: Vec<(i16, String)> = sqlx::query_as(
+    let trail: Vec<(i16, Option<String>, String)> = sqlx::query_as(
         r#"
-        SELECT card_score, to_char(generated_at, 'Mon DD')
+        SELECT card_score, headline, to_char(generated_at, 'Mon DD')
         FROM (
-            SELECT DISTINCT generated_at, card_score
+            SELECT DISTINCT generated_at, card_score, headline
             FROM news_summaries
             WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
               AND card_score IS NOT NULL
@@ -598,14 +621,59 @@ pub async fn load_prior_card_reads(
     .await
     .with_context(|| format!("load prior generation shape {entity_type}/{entity_id}"))?;
 
+    // The previous filing's storylines themselves — title + a truncated body, impact-ranked
+    // (Scott's Fulham example, 2026-08-24: "Cole Palmer being brilliant and Robert Sanchez
+    // gifting two goals — when they play next, having these narratives as reference will be
+    // a huge enrichment factor"). The last CONTENT generation, not merely the last row set:
+    // a called-empty marker must not blank the memory of the match filed the day before.
+    let prior_stories: Vec<(String, String)> = sqlx::query_as(
+        r#"
+        SELECT narrative_title, body
+        FROM news_summaries
+        WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
+          AND body IS NOT NULL
+          AND generated_at = (
+              SELECT max(generated_at) FROM news_summaries
+              WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
+                AND body IS NOT NULL
+          )
+        ORDER BY impact DESC NULLS LAST
+        LIMIT $4
+        "#,
+    )
+    .bind(entity_type)
+    .bind(entity_id)
+    .bind(sport)
+    .bind(PRIOR_STORY_BODY_LIMIT)
+    .fetch_all(pool)
+    .await
+    .with_context(|| format!("load prior storylines {entity_type}/{entity_id}"))?;
+
     let mut card = String::from(
-        "YOUR PRIOR CARD READS (memory — your own previous card scores; continuity, not new evidence):\n",
+        "YOUR PRIOR CARD READS (memory — your own previous filings; continuity, not new evidence):\n",
     );
-    let scores: Vec<String> = trail.iter().map(|(s, d)| format!("{s} ({d})")).collect();
-    card.push_str(&format!(
-        "Card scores (newest first): {}\n",
-        scores.join(" · ")
-    ));
+    // THE BODY TRAIL, the Journalist's edition (Scott, 2026-08-24: "save only the bodies —
+    // that way we can better tell the developing story"). His body is a multi-storyline
+    // edition already fed back through the packets' PREVIOUSLY lines, so what tells HIS
+    // developing story across days is the front-page hook trail — dated, newest first. The
+    // score TRAIL goes (a trail of numbers in the input is a trail the model reaches for,
+    // momentum-s19); the single latest score stays as the contract's continuity anchor.
+    for (_, headline, day) in &trail {
+        if let Some(h) = headline.as_deref().filter(|h| !h.trim().is_empty()) {
+            card.push_str(&format!("Your front page ({day}): {h}\n"));
+        }
+    }
+    card.push_str(&format!("Your latest card score: {}\n", trail[0].0));
+    // THE BODY TRAIL (Scott, 2026-08-24: "save only the bodies — that way we can better tell
+    // the developing story"): the previous filing's storylines ride as reference, truncated —
+    // the memory tells the story, it never re-files it, and the header's continuity-not-
+    // evidence framing is the echo-chamber guard.
+    for (title, body) in &prior_stories {
+        card.push_str(&format!(
+            "You previously filed \"{title}\": {}\n",
+            crate::util::truncate_bytes(body, PRIOR_STORY_BODY_TRUNCATE)
+        ));
+    }
     match max_impact {
         Some(m) => card.push_str(&format!(
             "Your previous filing: {storylines} storyline(s), max impact {m}"
@@ -745,6 +813,53 @@ fn parse_card_score(raw: &str) -> Option<i16> {
         Err(_) => head.parse::<f64>().ok().filter(|f| f.is_finite())?.round() as i64,
     };
     Some(n.clamp(1, 99) as i16)
+}
+
+/// parse_headline salvages the entity-level `headline` string (2026-08-24) with the same
+/// tolerance as [`parse_card_score`]: a clean whole-document parse first, then a raw key scan
+/// for truncated/prose-wrapped tails. `None` for an absent key or a non-string value — never a
+/// parse failure (pre-headline replays simply persist NULL and the card renders without a hook).
+/// The guard pass ([`crate::guards::settle_title`]) runs at the call site, not here.
+fn parse_headline(raw: &str) -> Option<String> {
+    // Whole-document first: the live path is schema-constrained, so this is the common case.
+    if let Ok(v) = serde_json::from_str::<serde_json::Value>(raw.trim()) {
+        if let Some(h) = v.get("headline").and_then(|h| h.as_str()) {
+            let h = h.trim();
+            if !h.is_empty() {
+                return Some(h.to_string());
+            }
+        }
+        return None;
+    }
+    // Raw scan fallback: find the key, then parse the JSON string that follows the colon.
+    let key = raw.find("\"headline\"")?;
+    let rest = &raw[key + "\"headline\"".len()..];
+    let colon = rest.find(':')?;
+    let after = rest[colon + 1..].trim_start();
+    let mut chars = after.char_indices();
+    let (_, quote) = chars.next()?;
+    if quote != '"' {
+        return None;
+    }
+    let mut out = String::new();
+    let mut escaped = false;
+    for (_, c) in chars {
+        if escaped {
+            match c {
+                'n' | 't' => out.push(' '),
+                other => out.push(other),
+            }
+            escaped = false;
+        } else if c == '\\' {
+            escaped = true;
+        } else if c == '"' {
+            let out = out.trim();
+            return (!out.is_empty()).then(|| out.to_string());
+        } else {
+            out.push(c);
+        }
+    }
+    None
 }
 
 // ---------------------------------------------------------------------------
@@ -1195,6 +1310,11 @@ pub struct NarrativesOutput {
     /// The prior generation's card score (the memory line's value) — the continuity audit,
     /// mirroring `sigil_synthesis.previous_score`. Audit-only, never served.
     pub card_score_prev: Option<i16>,
+    /// The entity-level card hook (mig 232, the uniform score+headline+body contract) —
+    /// generation-level like `card_score`: the SAME value on every row of the generation,
+    /// the called-empty marker included (a quiet week's honest hook is the product). `None`
+    /// on the no-corpus marker (no call), a pre-headline reply, or a dropped title.
+    pub headline: Option<String>,
 }
 
 impl NarrativesOutput {
@@ -1260,6 +1380,7 @@ pub async fn generate_narratives_from_build(
                 // No corpus → no call → no verdict: NULL binds and the card draws the Veil.
                 card_score: None,
                 card_score_prev: None,
+                headline: None,
             });
         }
         NarrativesBuild::Ready(r) => *r,
@@ -1294,6 +1415,7 @@ pub async fn generate_narratives_from_build(
         input_hash: ready.input_hash,
         card_score: parsed.card_score,
         card_score_prev: ready.card_score_prev,
+        headline: parsed.headline,
     })
 }
 
@@ -1470,14 +1592,14 @@ pub async fn persist_narratives(
             narrative_updated_at, source_count, source_names, source_latest_at, source_oldest_at,
             trajectory, trajectory_components,
             model_version, prompt_version, input_hash, storyline_id,
-            card_score, card_score_prev, generated_at
+            card_score, card_score_prev, headline, generated_at
         ) VALUES (
             $1,$2,$3,$4,$5::jsonb, $6,$7,$8,$9::jsonb, $10,
             COALESCE(to_timestamp($11::double precision), NOW()), $12, $13,
             to_timestamp($14::double precision), to_timestamp($15::double precision),
             $16, $17::jsonb,
             $18,$19,$20,$21,
-            $22,$23,NOW()
+            $22,$23,$24,NOW()
         )
         RETURNING id"#;
 
@@ -1568,6 +1690,9 @@ pub async fn persist_narratives(
             // (scored storylines AND the called-empty marker); NULL only for no-corpus/pre-n12.
             .bind(out.card_score)
             .bind(out.card_score_prev)
+            // mig 232: the entity-level hook, generation-level like card_score — every row of
+            // the generation (called-empty marker included) carries the same headline.
+            .bind(out.headline.as_deref())
             .fetch_one(&mut *tx)
             .await
             .context(context)?;

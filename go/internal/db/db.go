@@ -1035,7 +1035,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			-- new story this run", not "erase this week's story". Return the latest
 			-- content generation inside the selected scope; the current-week freshness
 			-- gate below still ages out cooling stories.
-			SELECT ns.narrative_title AS headline, ns.body, ns.impact, ns.impact_components,
+			SELECT ns.narrative_title AS headline, ns.narrative_title, ns.body, ns.impact, ns.impact_components,
 			       ns.input_news_ids,
 			       COALESCE(ns.narrative_updated_at, ns.source_latest_at, ns.generated_at) AS updated_at,
 			       ns.source_count, ns.source_names, ns.source_latest_at, ns.source_oldest_at,
@@ -1046,7 +1046,11 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			         ELSE 'Developing story...'
 			       END AS trajectory_label,
 			       ns.trajectory_components,
-			       ns.model_version, ns.prompt_version, ns.generated_at
+			       ns.model_version, ns.prompt_version, ns.generated_at,
+			       -- mig 232 / uniform card contract: the generation-level score + hook
+			       -- (identical on every row of the generation) ride the CTE for the two
+			       -- top-level keys below; the item subselect deliberately omits them.
+			       ns.card_score AS gen_card_score, ns.headline AS gen_headline
 			FROM public.news_summaries ns CROSS JOIN req CROSS JOIN scope
 			WHERE ns.entity_type = req.entity_type AND ns.entity_id = req.entity_id AND ns.sport = req.sport
 			  AND ns.body IS NOT NULL
@@ -1068,11 +1072,18 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'entity_type', (SELECT entity_type FROM req),
 			'entity_id', (SELECT entity_id FROM req),
 			'scope', (SELECT json_build_object('key', scope_key, 'label', label, 'starts_at', starts_at, 'ends_at', ends_at) FROM scope),
-			-- The Journalist's card_score retired from serving with drop 3b: per-narrative
-			-- heat (=impact) is the card's number now; card_score stays in storage as
-			-- audit + prompt memory (the insider_scores.read precedent, in reverse).
+			-- The uniform card contract (score + headline + body, 2026-08-24): card_score
+			-- returns to serving (drop 3b retired it; the deck-scores ring reads it) and
+			-- the NEW entity-level headline (mig 232) joins it — both generation-level, so
+			-- max() over the served generation is the value itself. NULL until the entity
+			-- regenerates under the headline contract (lazy invalidation, the 226 norm).
+			'card_score', (SELECT max(gen_card_score) FROM narr),
+			'headline', (SELECT max(gen_headline) FROM narr),
+			-- Items serve BOTH key sets: headline/heat (the drop-3b names, kept for any
+			-- consumer already reading them) AND narrative_title/impact (the frontend
+			-- Narrative type's names — the mismatch left titles blank on the card).
 			'narratives', COALESCE((SELECT json_agg(row_to_json(n) ORDER BY n.heat DESC NULLS LAST)
-			     FROM (SELECT headline, body, impact AS heat, impact_components, input_news_ids,
+			     FROM (SELECT headline, narrative_title, body, impact AS heat, impact, impact_components, input_news_ids,
 			                  updated_at, source_count, source_names, source_latest_at, source_oldest_at,
 			                  trajectory, trajectory_label, trajectory_components,
 			                  model_version, prompt_version, generated_at
@@ -1170,8 +1181,21 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			-- score is NOT NULL by table constraint so the latest row IS latest-non-NULL.
 			-- No row (never wrapped / empty wire) leaves the JSON null → the Veil; an
 			-- emptied board renders EmptyCard anyway, so a lingering score never displays.
-			-- (card_score retired from serving with drop 3b.)
 			'heat', (SELECT s.score FROM public.insider_scores s
+			     WHERE s.entity_type = (SELECT entity_type FROM req)
+			       AND s.entity_id = (SELECT entity_id FROM req)
+			       AND s.sport = (SELECT sport FROM req)
+			     ORDER BY s.generated_at DESC LIMIT 1),
+			-- The uniform card contract (2026-08-24): the same wrap score under the key
+			-- the deck-scores ring actually reads ('heat' kept for existing consumers),
+			-- and the Insider's NEW entity-level hook (mig 232/is5) — NULL until the
+			-- entity's wire re-wraps under is5.
+			'card_score', (SELECT s.score FROM public.insider_scores s
+			     WHERE s.entity_type = (SELECT entity_type FROM req)
+			       AND s.entity_id = (SELECT entity_id FROM req)
+			       AND s.sport = (SELECT sport FROM req)
+			     ORDER BY s.generated_at DESC LIMIT 1),
+			'headline', (SELECT s.headline FROM public.insider_scores s
 			     WHERE s.entity_type = (SELECT entity_type FROM req)
 			       AND s.entity_id = (SELECT entity_id FROM req)
 			       AND s.sport = (SELECT sport FROM req)

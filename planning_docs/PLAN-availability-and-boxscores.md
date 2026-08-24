@@ -147,6 +147,60 @@ correct. Turning it on before steps 4–5 drains 159 fixtures into `no_source`.
 
 ---
 
+## Step 7 — the shared worker pool (Scott, 2026-08-24)
+
+> *"What if rather than these fixes, we established a system where work is available for any
+> machine to grab, as long as it's grabbed in order? … we could have one machine connected to the
+> drain or 5 … It would eliminate one machine being idle, and we don't need to worry about one
+> machine stopping."*
+
+**The queue already does this.** `work::claim` is
+`WHERE stage=$1 AND status IN ('pending','failed') AND available_at <= NOW() ORDER BY … FOR UPDATE
+SKIP LOCKED LIMIT $2` — a multi-consumer pool. Postgres guarantees no two workers take the same
+row, and the stale-lease loop (`'running'` → `'pending'`, 1800s) already reclaims a dead worker's
+items. **Nothing about the queue needs building.**
+
+What needs changing is the TOPOLOGY: today ONE worker on archbox makes remote model calls to the
+Mac, so the Mac is an inference endpoint rather than a worker, and a Mac hiccup becomes an ITEM
+failure on archbox. See `progress_docs/2026-08-24_collation-repair-and-the-shared-pool.md` §3 for
+why that is worse than it sounds — **~43 minutes of downtime parks a whole stage's queue for a
+century.**
+
+### What it takes
+
+1. **Postgres must accept remote connections — the real prerequisite, not yet done.** Verified
+   2026-08-24: `listen_addresses = localhost`. Needs `listen_addresses`, a `pg_hba.conf` rule
+   scoped to the LAN, and a deliberate answer on auth/TLS rather than trusting the network.
+2. Run `scoracle-cognition` on the Mac with `OLLAMA_BASE_URL=http://localhost:11434`, and REMOVE
+   the `COGNITION_ROUTE_*_BASE_URL` cross-pointing, so each worker only ever talks to its own GPU.
+3. Config and secrets present on both boxes.
+
+### What it dissolves
+
+The three fixes proposed against the fragility before Scott's answer — don't-burn-attempts, a
+per-backend circuit breaker on the `BudgetedFetcher` pattern, and cross-host failover — **are
+mostly unnecessary once there is no cross-machine model call.** Keep only the first, and only as a
+small safety net: a worker's LOCAL ollama can still fail, and an item still should not spend a
+life on infrastructure. Do NOT build the breaker or the failover for this.
+
+### Caveats to carry
+
+- **"In order" becomes NEAR-order.** `SKIP LOCKED` steps over a row another worker holds, so this
+  is not a strict global FIFO. Fine here — mig 225's FIFO preservation is about not restamping
+  `available_at`, not serialization — but do not describe it as exact ordering.
+- **`ARCHBOX_SLOTS` wants revisiting.** It is a per-process guard for "the card"; with per-machine
+  workers each correctly governs its own, but the name and any one-shared-card assumptions need a
+  look.
+- **Model identity becomes provenance.** Two workers, two GPUs: if they ever run different models,
+  which machine grabbed the item decides which model wrote the card. Harmless while both run
+  `ministral-3:3b`; needs `model_version` honesty the moment they diverge — the same reason the
+  8B split is on hold (archbox's 1070 Ti has 8 GB VRAM against ~6 GB of 8B weights at
+  concurrency 4).
+- **Free win, independent of all this:** stop the Mac sleeping (`caffeinate`/pmset) while it is
+  part of the drain.
+
+---
+
 ## Loose threads, not chased
 
 - **`narratives` looks stalled** — 847 pending, nothing claimed since 09:50 on 2026-08-23 while

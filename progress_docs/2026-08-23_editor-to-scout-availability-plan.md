@@ -1,5 +1,30 @@
 # Editor → Scout: routing injury/suspension events to the scouting card
 
+> ## ⚠ SUPERSEDED the same evening — read `2026-08-23_availability-tag-and-public-source-turn.md`
+>
+> Scott's ruling on 2026-08-23 (evening) retired this plan's central design: *"I think this is a
+> little complicated. Too much rigidity… Editor notices injury/suspension and tags the Scout →
+> the Scout decides the legitimacy of the report → event is included in the report."*
+>
+> **Retired from this document:** the WRITER, the new Editor contract field naming the injured
+> party, and the Rust enqueue helper as the primary path.
+>
+> **Still true and still shipped:** migs 228 and 229 (both now APPLIED to prod), the availability
+> READ, and the transfer-side enqueue. An APPLIED `player_availability` row remains a stronger
+> trigger than a report, and mig 229's record remains the propensity substrate — it is simply no
+> longer a PREREQUISITE for the Scout to learn about an injury.
+>
+> **The two objections below that killed the subscription route were both wrong for one reason:**
+> there was no `rating` key in `packets.slice_fingerprints`. It exists now, hashing the
+> injury/suspension claims, so mig 225 mints `'pk:' || slice_fingerprints->>'rating'` and the
+> enqueue collapses per CHANGE OF FACT rather than per packet — the once-per-event-day rule
+> without a day key, and it re-fires correctly when a prognosis changes.
+> `rating_work_bypasses_debounce` now accepts `pk:` versions, which answers the other objection.
+> `sql/migrations/231_scout_availability_routing.sql` is that INSERT: validated, and deliberately
+> awaiting the deploy it must ship with.
+>
+> Next steps: `planning_docs/PLAN-availability-and-boxscores.md`.
+
 **Status: PARTIALLY BUILT.** This builds out the `NEXT TASK` block of
 `2026-08-23_seat-roles-and-the-guard-pipeline.md`. Read that first for Scott's verbatim design.
 

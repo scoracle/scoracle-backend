@@ -785,6 +785,8 @@ fn a_player_move_names_both_clubs_and_the_date() {
             Some("New FC"),
         )],
         1,
+        &[],
+        0,
     )
     .expect("a move renders");
     assert_eq!(out, "- Jul 29: joined New FC from Old FC (transfer).\n");
@@ -805,6 +807,8 @@ fn a_player_move_without_a_known_old_club_still_renders() {
             Some("New FC"),
         )],
         1,
+        &[],
+        0,
     )
     .unwrap();
     assert_eq!(out, "- Jul 16: joined New FC (transfer).\n");
@@ -826,6 +830,8 @@ fn a_team_sees_arrivals_and_departures_decided_by_id() {
             Some("New FC"),
         )],
         1,
+        &[],
+        0,
     )
     .unwrap();
     assert_eq!(
@@ -845,6 +851,8 @@ fn a_team_sees_arrivals_and_departures_decided_by_id() {
             Some("New FC"),
         )],
         1,
+        &[],
+        0,
     )
     .unwrap();
     assert_eq!(
@@ -869,6 +877,8 @@ fn a_revert_renders_as_a_correction_not_a_move() {
             Some("New FC"),
         )],
         1,
+        &[],
+        0,
     )
     .unwrap();
     assert_eq!(
@@ -888,6 +898,8 @@ fn a_revert_renders_as_a_correction_not_a_move() {
             Some("New FC"),
         )],
         1,
+        &[],
+        0,
     )
     .unwrap();
     assert!(team.contains("Test Player's move REVERTED"));
@@ -909,21 +921,189 @@ fn the_cap_names_what_it_dropped() {
             )
         })
         .collect();
-    let out = render_personnel_block("team", 3468, &rows, MAX_PERSONNEL_LINES + 4).unwrap();
+    let out = render_personnel_block("team", 3468, &rows, MAX_PERSONNEL_LINES + 4, &[], 0).unwrap();
     assert_eq!(out.lines().count(), MAX_PERSONNEL_LINES + 1);
     assert!(out.ends_with("- (+4 older personnel changes in this window, not shown)\n"));
 
     // Nothing dropped ⇒ no drop line at all.
-    let exact = render_personnel_block("team", 3468, &rows, MAX_PERSONNEL_LINES).unwrap();
+    let exact = render_personnel_block("team", 3468, &rows, MAX_PERSONNEL_LINES, &[], 0).unwrap();
     assert_eq!(exact.lines().count(), MAX_PERSONNEL_LINES);
     assert!(!exact.contains("not shown"));
+}
+
+fn avail(
+    kind: &str,
+    date_label: &str,
+    event_kind: &str,
+    player: &str,
+    event_date: &str,
+    expected: Option<&str>,
+) -> AvailabilityChange {
+    AvailabilityChange {
+        kind: kind.to_string(),
+        date_label: date_label.to_string(),
+        event_kind: event_kind.to_string(),
+        player_name: player.to_string(),
+        team_name: Some("New FC".to_string()),
+        team_id: Some(3468),
+        event_date_label: event_date.to_string(),
+        expected_return_label: expected.map(str::to_string),
+    }
+}
+
+/// A newly applied injury renders as a dated fact, and the reported prognosis renders as a
+/// REPORT ("reported back around") rather than as a date the player will return — mig 229:
+/// `expected_return` is a claim, never ground truth.
+#[test]
+fn an_opened_absence_renders_the_prognosis_as_a_report() {
+    let player = render_personnel_block(
+        "player",
+        1,
+        &[],
+        0,
+        &[avail(
+            "opened",
+            "Aug 21",
+            "injury",
+            "Test Player",
+            "Aug 20",
+            Some("Sep 02"),
+        )],
+        1,
+    )
+    .unwrap();
+    assert_eq!(
+        player,
+        "- Aug 20: out with a recorded injury — reported back around Sep 02.\n"
+    );
+
+    // No prognosis ⇒ no clause invented.
+    let bare = render_personnel_block(
+        "player",
+        1,
+        &[],
+        0,
+        &[avail("opened", "Aug 21", "suspension", "Test Player", "Aug 20", None)],
+        1,
+    )
+    .unwrap();
+    assert_eq!(bare, "- Aug 20: out with a recorded suspension.\n");
+    assert!(!bare.contains("reported back"));
+
+    // A team read names WHO is missing.
+    let team = render_personnel_block(
+        "team",
+        3468,
+        &[],
+        0,
+        &[avail("opened", "Aug 21", "injury", "Test Player", "Aug 20", None)],
+        1,
+    )
+    .unwrap();
+    assert_eq!(team, "- Aug 20: Test Player out with a recorded injury.\n");
+}
+
+/// THE distinction mig 229 built two columns to keep: a RETURN is the player coming back, a
+/// REVERT is us withdrawing the claim he was ever hurt. Rendering a revert as a return would tell
+/// the Scout a player is fit on the strength of a record we just retracted.
+#[test]
+fn a_withdrawn_availability_record_never_reads_as_a_return() {
+    let returned = render_personnel_block(
+        "player",
+        1,
+        &[],
+        0,
+        &[avail("returned", "Aug 30", "injury", "Test Player", "Aug 20", None)],
+        1,
+    )
+    .unwrap();
+    assert_eq!(
+        returned,
+        "- Aug 30: available again after the injury recorded Aug 20.\n"
+    );
+
+    let reverted = render_personnel_block(
+        "player",
+        1,
+        &[],
+        0,
+        &[avail("reverted", "Aug 25", "injury", "Test Player", "Aug 20", None)],
+        1,
+    )
+    .unwrap();
+    assert_eq!(
+        reverted,
+        "- Aug 25: the injury recorded Aug 20 was WITHDRAWN — that record is not in force.\n"
+    );
+    // The two must not be confusable in either direction.
+    assert!(!reverted.contains("available again"));
+    assert!(!returned.contains("WITHDRAWN"));
+
+    let team_reverted = render_personnel_block(
+        "team",
+        3468,
+        &[],
+        0,
+        &[avail("reverted", "Aug 25", "suspension", "Test Player", "Aug 20", None)],
+        1,
+    )
+    .unwrap();
+    assert!(team_reverted.contains("Test Player's suspension recorded Aug 20 was WITHDRAWN"));
+    assert!(!team_reverted.contains("available again"));
+}
+
+/// Both halves render into ONE block, transfers first, and each names its own drops (A5).
+#[test]
+fn transfers_and_availability_share_one_block_and_each_names_its_drops() {
+    let rows: Vec<PersonnelChange> = (0..MAX_PERSONNEL_LINES)
+        .map(|i| {
+            change(
+                "applied",
+                "Jul 29",
+                &format!("Player {i}"),
+                Some("Old FC"),
+                Some("New FC"),
+            )
+        })
+        .collect();
+    let avails: Vec<AvailabilityChange> = (0..MAX_AVAILABILITY_LINES)
+        .map(|i| {
+            avail(
+                "opened",
+                "Aug 21",
+                "injury",
+                &format!("Hurt {i}"),
+                "Aug 20",
+                None,
+            )
+        })
+        .collect();
+    let out = render_personnel_block(
+        "team",
+        3468,
+        &rows,
+        MAX_PERSONNEL_LINES + 2,
+        &avails,
+        MAX_AVAILABILITY_LINES + 3,
+    )
+    .unwrap();
+
+    // Transfers, their drop line, availability, then its drop line — in that order.
+    let signed = out.find("signed Player 0").unwrap();
+    let pers_drop = out.find("+2 older personnel changes").unwrap();
+    let hurt = out.find("Hurt 0 out with a recorded injury").unwrap();
+    let avail_drop = out.find("+3 older availability events").unwrap();
+    assert!(signed < pers_drop && pers_drop < hurt && hurt < avail_drop);
+
+    // Availability alone still produces a block — the section is not gated on transfers.
+    assert!(render_personnel_block("team", 3468, &[], 0, &avails, MAX_AVAILABILITY_LINES).is_some());
 }
 
 /// No changes ⇒ no section. A heading with nothing under it asserts "nothing moved", which is a
 /// claim the adjudication chain has not made — it may only mean nothing has been adjudicated yet.
 #[test]
 fn nothing_moved_renders_no_section_at_all() {
-    assert!(render_personnel_block("player", 1, &[], 0).is_none());
+    assert!(render_personnel_block("player", 1, &[], 0, &[], 0).is_none());
     let p = profile_player();
     let prompt = build_stat_prompt(
         &req("NBA", "player", "Test Player"),
@@ -953,6 +1133,8 @@ fn the_personnel_block_sits_between_the_datapoints_and_the_memory_card() {
             Some("New FC"),
         )],
         1,
+        &[],
+        0,
     )
     .unwrap();
     let mem = "Our prior read: season 2025 PEAK was \"Shooting\" (notability 98/100).";
@@ -967,7 +1149,7 @@ fn the_personnel_block_sits_between_the_datapoints_and_the_memory_card() {
     );
     let dp = prompt.find("Datapoints — value").unwrap();
     let pers = prompt
-        .find("Personnel changes since our last read")
+        .find("Personnel and availability since our last read")
         .unwrap();
     let memp = prompt.find("Cross-season memory").unwrap();
     let cue = prompt.find("Write the report now").unwrap();

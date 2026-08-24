@@ -833,6 +833,48 @@ pub fn build_z_memory_lines(current: &RatingProfile, prior: &RatingProfile) -> O
     Some(out)
 }
 
+/// One adjudicated availability event, as the DB describes it — the injury/suspension half of
+/// the personnel record (mig 229), alongside [`PersonnelChange`]'s transfers.
+///
+/// A SEPARATE struct from `PersonnelChange` on purpose, and this is the same judgement mig 229
+/// made in the schema: a transfer is a MOVE (one club to another) and an availability event is a
+/// SPAN (out, then back, or the record withdrawn). Folding a span into the move shape is what
+/// makes a retracted false report and a genuine three-week absence indistinguishable — the exact
+/// corruption `returned_at` and `reverted_at` exist as separate columns to prevent. They render
+/// into one "since our last read" block because that is what the Scout needs to see; they are
+/// two fact shapes in code because that is what they are.
+///
+/// **T4 holds by construction.** Every field is a date, an id resolved to a name, or one of the
+/// two enums. `revert_reason` is prose and is deliberately never selected; `body_part` ships
+/// empty and is never guessed, so it is not read here either.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AvailabilityChange {
+    /// `opened` — newly ruled out; `returned` — availability resumed (a real-world outcome);
+    /// `reverted` — the RECORD was wrong and has been withdrawn (a correction, never a return).
+    pub kind: String,
+    /// When the thing that is NEW happened — the apply, the return, or the withdrawal.
+    pub date_label: String,
+    /// `injury` or `suspension`, the adjudicated enum. Never model prose.
+    pub event_kind: String,
+    pub player_name: String,
+    /// The club the player was at when it happened; `None` when unattached or unresolved.
+    pub team_name: Option<String>,
+    pub team_id: Option<i32>,
+    /// The day the player became unavailable — carried even on a return, because "out Aug 20,
+    /// back Aug 30" is the fact, not "back Aug 30".
+    pub event_date_label: String,
+    /// The prognosis AS REPORTED. Renderable; never ground truth (mig 229).
+    pub expected_return_label: Option<String>,
+}
+
+/// How many availability lines render before the block starts naming drops instead.
+///
+/// Four, against personnel's six, and the two budgets are deliberately separate but summed
+/// against the same ceiling: the rating prompt lives inside one 4,096-token window, and a
+/// deadline-day squad churn plus a treatment-table update must not between them crowd out the
+/// datapoints the report is actually built on.
+const MAX_AVAILABILITY_LINES: usize = 4;
+
 /// One adjudicated personnel change, as the DB describes it — dates already labeled by
 /// `to_char` (the `Mon DD` convention the memory card and 7.10's storyline lens use), names
 /// resolved, nothing rendered. The sentence is built in code (T2: describe, then derive).
@@ -978,6 +1020,139 @@ pub async fn load_personnel_changes(
                 new_team,
                 old_team_id,
                 new_team_id,
+            },
+        )
+        .collect();
+    Ok((changes, total))
+}
+
+/// load_availability_changes reads the adjudicated availability record (mig 229) for everything
+/// that moved since this entity was last read — the injury/suspension arm of the personnel block.
+///
+/// **Why this exists at all:** `load_personnel_changes` selects `transfer_identity_applications`
+/// ONLY, so before this a correctly-woken Scout — one enqueued by
+/// [`enqueue_rating_for_applied_availability`], with the debounce deliberately bypassed and the
+/// model call deliberately made — arrived at a card containing ZERO availability facts. His s21
+/// rule ("Availability is part of the profile… never speculate past what is recorded") then
+/// correctly forbade him from inventing any, so the run produced a card no different from the
+/// periodic one it had just paid to regenerate. The trigger is the last step of Scott's chain;
+/// this is the step that makes the trigger worth pulling.
+///
+/// **Three kinds, because mig 229 kept three columns apart.** `opened` (newly ruled out),
+/// `returned` (`returned_at` — availability actually resumed, a real-world outcome), and
+/// `reverted` (`reverted_at` — the RECORD was wrong, a correction). Rendering a revert as a
+/// return would tell the Scout a player is fit when what actually happened is that we withdrew
+/// the claim that he was ever hurt.
+///
+/// The `since` window is the personnel window exactly — same clamp, same first-read floor — so
+/// the two halves of one block cannot disagree about what "since our last read" means.
+///
+/// Returns newest-first plus the TOTAL that qualified, so the renderer names what the cap
+/// dropped (the A5 rule) instead of silently truncating.
+pub async fn load_availability_changes(
+    pool: &PgPool,
+    sport: &str,
+    entity_type: &str,
+    entity_id: i32,
+) -> Result<(Vec<AvailabilityChange>, usize)> {
+    if entity_type != "player" && entity_type != "team" {
+        return Ok((Vec::new(), 0));
+    }
+    #[allow(clippy::type_complexity)]
+    let rows: Vec<(
+        String,
+        String,
+        String,
+        String,
+        Option<String>,
+        Option<i32>,
+        String,
+        Option<String>,
+    )> = sqlx::query_as(
+        r#"
+        WITH since AS (
+            SELECT greatest(
+                       COALESCE(
+                           (SELECT max(s.generated_at) FROM public.stat_summaries s
+                             WHERE s.entity_type = $2 AND s.entity_id = $3 AND s.sport = $1
+                               AND s.body IS NOT NULL),
+                           now() - make_interval(days => $4)),
+                       now() - make_interval(days => $5)) AS at
+        ),
+        changes AS (
+            -- Newly ruled out. Dated by the APPLY, not the event: an injury adjudicated today
+            -- for a knock last Saturday is new information today.
+            SELECT 'opened'::text AS kind, a.applied_at AS at, a.kind AS event_kind,
+                   a.player_id, a.team_id, a.event_date, a.expected_return
+              FROM public.player_availability a
+             WHERE a.sport = $1 AND a.status = 'applied' AND a.reverted_at IS NULL
+               AND a.applied_at IS NOT NULL AND a.applied_at > (SELECT at FROM since)
+            UNION ALL
+            -- Came back. A real-world outcome, and the propensity denominator.
+            SELECT 'returned', a.returned_at::timestamptz, a.kind,
+                   a.player_id, a.team_id, a.event_date, a.expected_return
+              FROM public.player_availability a
+             WHERE a.sport = $1 AND a.status = 'applied' AND a.reverted_at IS NULL
+               AND a.returned_at IS NOT NULL
+               AND a.returned_at > (SELECT at FROM since)::date
+            UNION ALL
+            -- The record was withdrawn. Dated by WHEN IT WAS UNDONE — that is what is new,
+            -- whatever the original event's date was (the personnel read's own convention).
+            SELECT 'reverted', a.reverted_at, a.kind,
+                   a.player_id, a.team_id, a.event_date, a.expected_return
+              FROM public.player_availability a
+             WHERE a.sport = $1 AND a.reverted_at IS NOT NULL
+               AND a.reverted_at > (SELECT at FROM since)
+        )
+        SELECT c.kind,
+               to_char(c.at, 'Mon DD') AS date_label,
+               c.event_kind,
+               COALESCE(pl.name, 'a player') AS player_name,
+               t.name AS team_name,
+               c.team_id,
+               to_char(c.event_date, 'Mon DD') AS event_date_label,
+               CASE WHEN c.expected_return IS NOT NULL
+                    THEN to_char(c.expected_return, 'Mon DD') END AS expected_return_label
+          FROM changes c
+          JOIN public.players pl ON pl.id = c.player_id AND pl.sport = $1
+          LEFT JOIN public.teams t ON t.id = c.team_id AND t.sport = $1
+         WHERE ($2 = 'player' AND c.player_id = $3)
+            OR ($2 = 'team' AND c.team_id = $3)
+         ORDER BY c.at DESC
+        "#,
+    )
+    .bind(sport)
+    .bind(entity_type)
+    .bind(entity_id)
+    .bind(PERSONNEL_FIRST_READ_DAYS)
+    .bind(PERSONNEL_MAX_DAYS)
+    .fetch_all(pool)
+    .await
+    .with_context(|| format!("load availability changes {entity_type}/{entity_id}"))?;
+
+    let total = rows.len();
+    let changes = rows
+        .into_iter()
+        .take(MAX_AVAILABILITY_LINES)
+        .map(
+            |(
+                kind,
+                date_label,
+                event_kind,
+                player_name,
+                team_name,
+                team_id,
+                event_date_label,
+                expected_return_label,
+            )| AvailabilityChange {
+                kind,
+                date_label,
+                event_kind,
+                player_name,
+                team_name,
+                team_id,
+                event_date_label,
+                expected_return_label,
             },
         )
         .collect();
@@ -1564,22 +1739,53 @@ pub async fn build_rating_request(
     // snapshot (the Analyst's storyline render, 7.8, is out of its hash for exactly this
     // reason). A transfer alone does not re-run the Scout; the next stats-driven regen carries
     // the news.
+    //
+    // The availability half (mig 229) rides the SAME flag and the same discipline, and is loaded
+    // independently so one failing read cannot cost the other its block: a transfer record that
+    // loads fine still reaches the Scout when the availability query errors, and vice versa.
+    // Both stay outside `input_components`/`input_hash` — putting availability in the pre-image
+    // is the obvious fix and the wrong one, because it re-mints every entity's hash fleet-wide.
     let personnel = if with_enrichment {
-        match load_personnel_changes(&hx.pool, &req.sport, &req.entity_type, req.entity_id).await {
-            Ok((changes, total)) => {
-                prompt::render_personnel_block(&req.entity_type, req.entity_id, &changes, total)
-            }
-            Err(e) => {
-                tracing::warn!(
-                    entity_type = %req.entity_type,
-                    entity_id = req.entity_id,
-                    sport = %req.sport,
-                    error = %e,
-                    "rating: personnel-change load failed (continuing without the block)"
-                );
-                None
-            }
-        }
+        let (changes, total) =
+            match load_personnel_changes(&hx.pool, &req.sport, &req.entity_type, req.entity_id)
+                .await
+            {
+                Ok(loaded) => loaded,
+                Err(e) => {
+                    tracing::warn!(
+                        entity_type = %req.entity_type,
+                        entity_id = req.entity_id,
+                        sport = %req.sport,
+                        error = %e,
+                        "rating: personnel-change load failed (continuing without the block)"
+                    );
+                    (Vec::new(), 0)
+                }
+            };
+        let (avail, avail_total) =
+            match load_availability_changes(&hx.pool, &req.sport, &req.entity_type, req.entity_id)
+                .await
+            {
+                Ok(loaded) => loaded,
+                Err(e) => {
+                    tracing::warn!(
+                        entity_type = %req.entity_type,
+                        entity_id = req.entity_id,
+                        sport = %req.sport,
+                        error = %e,
+                        "rating: availability load failed (continuing without those lines)"
+                    );
+                    (Vec::new(), 0)
+                }
+            };
+        prompt::render_personnel_block(
+            &req.entity_type,
+            req.entity_id,
+            &changes,
+            total,
+            &avail,
+            avail_total,
+        )
     } else {
         None
     };

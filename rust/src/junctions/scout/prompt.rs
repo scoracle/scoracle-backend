@@ -40,7 +40,7 @@
 
 use super::{
     build_scouting_decision, collect_rate_standouts, format_datapoint_evidence, ordered_facts,
-    render_scouting_decision, PersonnelChange, RatingProfile, RatingReq,
+    render_scouting_decision, AvailabilityChange, PersonnelChange, RatingProfile, RatingReq,
 };
 
 /// System prompt for the rating scouting-report contract. s14 (Characters Phase B): the voice IS
@@ -86,13 +86,30 @@ pub const RATING_PROMPT_VERSION: &str = "s24"; // s24, the HOOK pass (2026-08-23
 ///
 /// `total` is how many changes qualified before the cap; anything the cap dropped is NAMED on a
 /// final line rather than silently vanishing (the A5 rule).
+///
+/// # The availability half (mig 229)
+///
+/// `avail` carries injuries and suspensions, and they render into THIS block rather than a new
+/// one because the Scout's s21 rule already treats them as one subject: "report a recorded
+/// injury, suspension or personnel change and what it means for reading the rest." Two headings
+/// would ask him to hold one thought in two places inside a 4,096-token window.
+///
+/// **`RATING_PROMPT_VERSION` is deliberately NOT bumped for this.** The contract does not
+/// change — s21 already asks for exactly this and has since 2026-08-22; what changes is that the
+/// material finally exists to answer it. A bump would fold into `input_components` (s14) and
+/// regenerate the entire fleet, which is a drain the Articulator corpus is already waiting
+/// behind — an expensive way to say nothing new to the model. Availability-triggered runs
+/// bypass the debounce on their own marker anyway, so the rows that need this block get it
+/// without a fleet-wide reopen.
 pub fn render_personnel_block(
     entity_type: &str,
     entity_id: i32,
     changes: &[PersonnelChange],
     total: usize,
+    avail: &[AvailabilityChange],
+    avail_total: usize,
 ) -> Option<String> {
-    if changes.is_empty() {
+    if changes.is_empty() && avail.is_empty() {
         return None;
     }
     let mut b = String::new();
@@ -144,14 +161,70 @@ pub fn render_personnel_block(
         b.push_str(&line);
         b.push('\n');
     }
-    if b.is_empty() {
-        return None;
-    }
-    if total > changes.len() {
+    // The drop line is gated on some transfer line having ACTUALLY rendered, not on `changes`
+    // being non-empty: the match above has a `_ => continue` arm, and "(+2 older changes)" under
+    // nothing at all would be a count of an invisible list. This used to be an early
+    // `return None`, which is exactly what an availability-only block must not hit.
+    let personnel_rendered = !b.is_empty();
+    if personnel_rendered && total > changes.len() {
         b.push_str(&format!(
             "- (+{} older personnel changes in this window, not shown)\n",
             total - changes.len()
         ));
+    }
+
+    let before_availability = b.len();
+    for a in avail {
+        // `out` and `back` are stated as facts with dates. A REVERT is stated as a withdrawal of
+        // the record and never as a return: the difference is the whole reason mig 229 keeps
+        // `returned_at` and `reverted_at` in separate columns, and collapsing it here would
+        // reintroduce in prose the corruption the schema refuses in storage.
+        let expected = a
+            .expected_return_label
+            .as_deref()
+            .map(|d| format!(" — reported back around {d}"))
+            .unwrap_or_default();
+        let line = match (entity_type, a.kind.as_str()) {
+            ("player", "opened") => format!(
+                "{}: out with a recorded {}{expected}.",
+                a.event_date_label, a.event_kind
+            ),
+            ("player", "returned") => format!(
+                "{}: available again after the {} recorded {}.",
+                a.date_label, a.event_kind, a.event_date_label
+            ),
+            ("player", _) => format!(
+                "{}: the {} recorded {} was WITHDRAWN — that record is not in force.",
+                a.date_label, a.event_kind, a.event_date_label
+            ),
+            ("team", "opened") => format!(
+                "{}: {} out with a recorded {}{expected}.",
+                a.event_date_label, a.player_name, a.event_kind
+            ),
+            ("team", "returned") => format!(
+                "{}: {} available again after the {} recorded {}.",
+                a.date_label, a.player_name, a.event_kind, a.event_date_label
+            ),
+            ("team", _) => format!(
+                "{}: {}'s {} recorded {} was WITHDRAWN — that record is not in force.",
+                a.date_label, a.player_name, a.event_kind, a.event_date_label
+            ),
+            _ => continue,
+        };
+        b.push_str("- ");
+        b.push_str(&line);
+        b.push('\n');
+    }
+    // Same gate, same reason: only count drops against lines that reached the page.
+    if b.len() > before_availability && avail_total > avail.len() {
+        b.push_str(&format!(
+            "- (+{} older availability events in this window, not shown)\n",
+            avail_total - avail.len()
+        ));
+    }
+
+    if b.is_empty() {
+        return None;
     }
     Some(b)
 }
@@ -245,7 +318,7 @@ pub fn build_stat_prompt(
     // the datapoints, because a tier is still the truth about the player who holds it.
     // Injury/suspension confirmation gates are deliberately absent: Appendix B D-5 owns them.
     if let Some(pc) = personnel.filter(|p| !p.trim().is_empty()) {
-        b.push_str("\nPersonnel changes since our last read (confirmed roster facts from the adjudicated transfer record — dates are when the change took force; these do NOT alter any tier or number above, which are this season's measured truth, but they tell you WHO is actually available, which changes how the rest of the profile should be read):\n");
+        b.push_str("\nPersonnel and availability since our last read (confirmed facts from the adjudicated transfer and availability records — dates are when the change took force; a WITHDRAWN record means we no longer claim it happened, not that the player recovered; these do NOT alter any tier or number above, which are this season's measured truth, but they tell you WHO is actually available, which changes how the rest of the profile should be read):\n");
         b.push_str(pc);
     }
 

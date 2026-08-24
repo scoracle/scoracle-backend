@@ -608,6 +608,57 @@ func (h *Handler) GetEntityTransfers(w http.ResponseWriter, r *http.Request) {
 	h.serveStatementJSON(w, r, "entity_transfers", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id, scope)
 }
 
+// GetEntityHeadlines returns the WEEK ARCHIVE — every consumer seat's
+// (score, headline, body) triples for one week, merged newest-first (the card
+// contract's index, 2026-08-24). Week 1 is Jan 1–7 (Jan-1 blocks); year and
+// week default to today's. Entries exist only where a generation carried a
+// headline, so the archive begins where mig 226/232 rollout reached each seat.
+// @Summary Get the entity week archive (all seats' headlines)
+// @Description Every character card's (score, headline, body) entries for one week of the year, merged newest-first. Week 1 = Jan 1–7. Defaults to the current week.
+// @Tags data
+// @Produce json
+// @Param sport path string true "Sport" Enums(nba, nfl, football)
+// @Param entityType path string true "Entity type" Enums(player, team)
+// @Param id path int true "Entity ID"
+// @Param year query int false "Calendar year (default: current)"
+// @Param week query int false "Week of the year, 1-53, Jan-1 anchored (default: current)"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} respond.ErrorResponse
+// @Failure 500 {object} respond.ErrorResponse
+// @Router /{sport}/{entityType}/{id}/headlines [get]
+func (h *Handler) GetEntityHeadlines(w http.ResponseWriter, r *http.Request) {
+	sport, ok := parseSport(w, r)
+	if !ok {
+		return
+	}
+	entityType, ok := parseEntityType(w, r)
+	if !ok {
+		return
+	}
+	id, ok := parsePathID(w, r, "id", "entity id")
+	if !ok {
+		return
+	}
+	year, ok := optionalIntQuery(w, r, "year")
+	if !ok {
+		return
+	}
+	week, ok := optionalIntQuery(w, r, "week")
+	if !ok {
+		return
+	}
+	// Defaults: today's Jan-1-block week in server time — the same clock the DB
+	// window arithmetic runs on, so "this week" means the same days in both.
+	now := time.Now()
+	if year == nil {
+		year = now.Year()
+	}
+	if week == nil {
+		week = (now.YearDay()-1)/7 + 1
+	}
+	h.serveStatementJSON(w, r, "entity_headlines", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id, year, week)
+}
+
 // GetEntityVibe returns the entity's VIBE product — The Influencer's emotional
 // read. ONE `current` object in the Drop 2 voice-card shape ({headline, body} +
 // score), plus the 7-day snapshot window so a client can render the card from a

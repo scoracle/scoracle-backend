@@ -269,6 +269,17 @@ pub async fn attach_read(
     // D5: an entity's part in a storyline has its own lifespan. A fresh mention bumps
     // `last_seen_at`; it never resurrects an edge a resolution closed (`left_at` stays put —
     // reopening it would undo the close-in-one-stroke this table exists for).
+    //
+    // Two role rules landed 2026-08-24 (the Chelsea card):
+    // - `absent` never attaches. The Editor explicitly said "this entity is not in the text" —
+    //   the hypothesis list is query-derived, so an absent link is a resolver false positive,
+    //   and a participant edge would fan work out to an entity the story never mentioned.
+    // - On conflict the STRONGEST role wins (subject > opponent > passing_mention), replacing
+    //   first-write-wins. A story legitimately becomes ABOUT an entity that entered it as a
+    //   mention, and the packet read now fences on `role = 'subject'`
+    //   (`packet::load_packets_for_entity`), so a role that can never upgrade would freeze an
+    //   entity out of its own story. This is also the forward-heal for the ~12k blank-role rows:
+    //   the next subject-classified article upgrades the edge, no backfill needed.
     sqlx::query(
         r#"
         INSERT INTO public.storyline_entities
@@ -280,13 +291,27 @@ pub async fn attach_read(
                $1, m.entity_type, m.entity_id, $2, NULLIF(m.role, ''),
                COALESCE(to_timestamp($6), NOW()), COALESCE(to_timestamp($6), NOW())
           FROM unnest($3::text[], $4::int[], $5::text[]) AS m(entity_type, entity_id, role)
+         WHERE m.role <> 'absent'
          ORDER BY m.entity_type, m.entity_id,
                   CASE m.role WHEN 'subject' THEN 0 WHEN 'opponent' THEN 1
                               WHEN 'passing_mention' THEN 2 ELSE 3 END
         ON CONFLICT (storyline_id, entity_type, entity_id, sport) DO UPDATE SET
             last_seen_at = GREATEST(public.storyline_entities.last_seen_at,
                                     EXCLUDED.last_seen_at),
-            role = COALESCE(public.storyline_entities.role, EXCLUDED.role)
+            role = CASE
+                WHEN EXCLUDED.role IS NULL THEN public.storyline_entities.role
+                WHEN public.storyline_entities.role IS NULL THEN EXCLUDED.role
+                ELSE (CASE LEAST(
+                        CASE public.storyline_entities.role
+                             WHEN 'subject' THEN 0 WHEN 'opponent' THEN 1
+                             WHEN 'passing_mention' THEN 2 ELSE 3 END,
+                        CASE EXCLUDED.role
+                             WHEN 'subject' THEN 0 WHEN 'opponent' THEN 1
+                             WHEN 'passing_mention' THEN 2 ELSE 3 END)
+                      WHEN 0 THEN 'subject' WHEN 1 THEN 'opponent'
+                      WHEN 2 THEN 'passing_mention'
+                      ELSE public.storyline_entities.role END)
+            END
         "#,
     )
     .bind(storyline_id)

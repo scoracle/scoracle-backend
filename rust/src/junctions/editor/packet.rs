@@ -501,11 +501,23 @@ pub struct PacketView {
 }
 
 /// Load the entity's CURRENT packets — the newest packet of each storyline it is an active
-/// participant in, compiled within `hours` — newest first, with its part in each.
+/// SUBJECT in, compiled within `hours` — newest first, with its part in each.
 ///
 /// One packet per storyline, always the latest: packets are append-only snapshots, so the older
 /// ones are archive (the moat), never context. `left_at IS NULL` honours D5 — an entity written
 /// out of a story stops reading it.
+///
+/// **SUBJECT ONLY (2026-08-24, the Chelsea card).** The Editor classifies every participant's
+/// part (`subject | opponent | passing_mention | absent`) and until now nothing consumed the
+/// verdict: Chelsea's vibe card was built from a Tottenham transfer saga because Enzo Fernandez
+/// was mentioned in passing (vibe_scores 60602 — the "fabricated" Savinho/Marmoush/De Zerbi card
+/// whose every claim was in fact sitting in the packet block). Every voice reads through here,
+/// so the fence is here: an entity reads only the stories it is the SUBJECT of. `opponent` is
+/// deliberately out too — each team has its own query lane, so its real coverage arrives with it
+/// as subject, and the opponent-role blocks measured on the live card were cross-team noise. A
+/// blank role (the attach's fail-to-empty reconstruction) is out for the same law: fail open to
+/// silence, never to a guess. Blank rows heal forward via the strongest-role upsert in
+/// `storyline::attach_read`.
 pub async fn load_packets_for_entity(
     pool: &PgPool,
     entity_type: &str,
@@ -523,6 +535,7 @@ pub async fn load_packets_for_entity(
                AND se.entity_id = $2
                AND se.sport = $3
                AND se.left_at IS NULL
+               AND lower(COALESCE(se.role, '')) = 'subject'
         ),
         latest AS (
             SELECT DISTINCT ON (p.storyline_id)

@@ -2459,8 +2459,18 @@ mod tests {
         assert!(!VibeTask
             .evaluate("SCORE: 30\nVIBE: grim", None, None)
             .all_checks_pass());
-        assert!(!VibeTask
+        // A colon hook PASSES since 2026-08-24 — punctuation is voice, and this gate measures
+        // exactly what production enforces, which is now length alone.
+        assert!(VibeTask
             .evaluate("SCORE: 30\nHOOK: Breaking: a move\nVIBE: grim", None, None)
+            .all_checks_pass());
+        // An overlong hook with no beat to cut is still a failure.
+        assert!(!VibeTask
+            .evaluate(
+                &format!("SCORE: 30\nHOOK: {}\nVIBE: grim", "x".repeat(200)),
+                None,
+                None
+            )
             .all_checks_pass());
         assert!(VibeTask
             .evaluate(

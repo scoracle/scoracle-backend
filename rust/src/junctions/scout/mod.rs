@@ -44,7 +44,8 @@ use tracing::{debug, warn};
 // diff. Re-exported here so call sites and the ledger keep reading it from the stage module.
 pub mod prompt;
 pub use prompt::{
-    build_stat_prompt, render_personnel_block, RATING_PROMPT_VERSION, RATING_SYSTEM_PROMPT,
+    build_stat_prompt, render_availability_reports, render_personnel_block, RATING_PROMPT_VERSION,
+    RATING_SYSTEM_PROMPT,
 };
 
 /// Output contract captured separately in the Phase 2 diagnostic ledger.
@@ -833,6 +834,48 @@ pub fn build_z_memory_lines(current: &RatingProfile, prior: &RatingProfile) -> O
     Some(out)
 }
 
+/// One adjudicated availability event, as the DB describes it — the injury/suspension half of
+/// the personnel record (mig 229), alongside [`PersonnelChange`]'s transfers.
+///
+/// A SEPARATE struct from `PersonnelChange` on purpose, and this is the same judgement mig 229
+/// made in the schema: a transfer is a MOVE (one club to another) and an availability event is a
+/// SPAN (out, then back, or the record withdrawn). Folding a span into the move shape is what
+/// makes a retracted false report and a genuine three-week absence indistinguishable — the exact
+/// corruption `returned_at` and `reverted_at` exist as separate columns to prevent. They render
+/// into one "since our last read" block because that is what the Scout needs to see; they are
+/// two fact shapes in code because that is what they are.
+///
+/// **T4 holds by construction.** Every field is a date, an id resolved to a name, or one of the
+/// two enums. `revert_reason` is prose and is deliberately never selected; `body_part` ships
+/// empty and is never guessed, so it is not read here either.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AvailabilityChange {
+    /// `opened` — newly ruled out; `returned` — availability resumed (a real-world outcome);
+    /// `reverted` — the RECORD was wrong and has been withdrawn (a correction, never a return).
+    pub kind: String,
+    /// When the thing that is NEW happened — the apply, the return, or the withdrawal.
+    pub date_label: String,
+    /// `injury` or `suspension`, the adjudicated enum. Never model prose.
+    pub event_kind: String,
+    pub player_name: String,
+    /// The club the player was at when it happened; `None` when unattached or unresolved.
+    pub team_name: Option<String>,
+    pub team_id: Option<i32>,
+    /// The day the player became unavailable — carried even on a return, because "out Aug 20,
+    /// back Aug 30" is the fact, not "back Aug 30".
+    pub event_date_label: String,
+    /// The prognosis AS REPORTED. Renderable; never ground truth (mig 229).
+    pub expected_return_label: Option<String>,
+}
+
+/// How many availability lines render before the block starts naming drops instead.
+///
+/// Four, against personnel's six, and the two budgets are deliberately separate but summed
+/// against the same ceiling: the rating prompt lives inside one 4,096-token window, and a
+/// deadline-day squad churn plus a treatment-table update must not between them crowd out the
+/// datapoints the report is actually built on.
+const MAX_AVAILABILITY_LINES: usize = 4;
+
 /// One adjudicated personnel change, as the DB describes it — dates already labeled by
 /// `to_char` (the `Mon DD` convention the memory card and 7.10's storyline lens use), names
 /// resolved, nothing rendered. The sentence is built in code (T2: describe, then derive).
@@ -982,6 +1025,199 @@ pub async fn load_personnel_changes(
         )
         .collect();
     Ok((changes, total))
+}
+
+/// load_availability_changes reads the adjudicated availability record (mig 229) for everything
+/// that moved since this entity was last read — the injury/suspension arm of the personnel block.
+///
+/// **Why this exists at all:** `load_personnel_changes` selects `transfer_identity_applications`
+/// ONLY, so before this a correctly-woken Scout — one enqueued by
+/// [`enqueue_rating_for_applied_availability`], with the debounce deliberately bypassed and the
+/// model call deliberately made — arrived at a card containing ZERO availability facts. His s21
+/// rule ("Availability is part of the profile… never speculate past what is recorded") then
+/// correctly forbade him from inventing any, so the run produced a card no different from the
+/// periodic one it had just paid to regenerate. The trigger is the last step of Scott's chain;
+/// this is the step that makes the trigger worth pulling.
+///
+/// **Three kinds, because mig 229 kept three columns apart.** `opened` (newly ruled out),
+/// `returned` (`returned_at` — availability actually resumed, a real-world outcome), and
+/// `reverted` (`reverted_at` — the RECORD was wrong, a correction). Rendering a revert as a
+/// return would tell the Scout a player is fit when what actually happened is that we withdrew
+/// the claim that he was ever hurt.
+///
+/// The `since` window is the personnel window exactly — same clamp, same first-read floor — so
+/// the two halves of one block cannot disagree about what "since our last read" means.
+///
+/// Returns newest-first plus the TOTAL that qualified, so the renderer names what the cap
+/// dropped (the A5 rule) instead of silently truncating.
+pub async fn load_availability_changes(
+    pool: &PgPool,
+    sport: &str,
+    entity_type: &str,
+    entity_id: i32,
+) -> Result<(Vec<AvailabilityChange>, usize)> {
+    if entity_type != "player" && entity_type != "team" {
+        return Ok((Vec::new(), 0));
+    }
+    #[allow(clippy::type_complexity)]
+    let rows: Vec<(
+        String,
+        String,
+        String,
+        String,
+        Option<String>,
+        Option<i32>,
+        String,
+        Option<String>,
+    )> = sqlx::query_as(
+        r#"
+        WITH since AS (
+            SELECT greatest(
+                       COALESCE(
+                           (SELECT max(s.generated_at) FROM public.stat_summaries s
+                             WHERE s.entity_type = $2 AND s.entity_id = $3 AND s.sport = $1
+                               AND s.body IS NOT NULL),
+                           now() - make_interval(days => $4)),
+                       now() - make_interval(days => $5)) AS at
+        ),
+        changes AS (
+            -- Newly ruled out. Dated by the APPLY, not the event: an injury adjudicated today
+            -- for a knock last Saturday is new information today.
+            SELECT 'opened'::text AS kind, a.applied_at AS at, a.kind AS event_kind,
+                   a.player_id, a.team_id, a.event_date, a.expected_return
+              FROM public.player_availability a
+             WHERE a.sport = $1 AND a.status = 'applied' AND a.reverted_at IS NULL
+               AND a.applied_at IS NOT NULL AND a.applied_at > (SELECT at FROM since)
+            UNION ALL
+            -- Came back. A real-world outcome, and the propensity denominator.
+            SELECT 'returned', a.returned_at::timestamptz, a.kind,
+                   a.player_id, a.team_id, a.event_date, a.expected_return
+              FROM public.player_availability a
+             WHERE a.sport = $1 AND a.status = 'applied' AND a.reverted_at IS NULL
+               AND a.returned_at IS NOT NULL
+               AND a.returned_at > (SELECT at FROM since)::date
+            UNION ALL
+            -- The record was withdrawn. Dated by WHEN IT WAS UNDONE — that is what is new,
+            -- whatever the original event's date was (the personnel read's own convention).
+            SELECT 'reverted', a.reverted_at, a.kind,
+                   a.player_id, a.team_id, a.event_date, a.expected_return
+              FROM public.player_availability a
+             WHERE a.sport = $1 AND a.reverted_at IS NOT NULL
+               AND a.reverted_at > (SELECT at FROM since)
+        )
+        SELECT c.kind,
+               to_char(c.at, 'Mon DD') AS date_label,
+               c.event_kind,
+               COALESCE(pl.name, 'a player') AS player_name,
+               t.name AS team_name,
+               c.team_id,
+               to_char(c.event_date, 'Mon DD') AS event_date_label,
+               CASE WHEN c.expected_return IS NOT NULL
+                    THEN to_char(c.expected_return, 'Mon DD') END AS expected_return_label
+          FROM changes c
+          JOIN public.players pl ON pl.id = c.player_id AND pl.sport = $1
+          LEFT JOIN public.teams t ON t.id = c.team_id AND t.sport = $1
+         WHERE ($2 = 'player' AND c.player_id = $3)
+            OR ($2 = 'team' AND c.team_id = $3)
+         ORDER BY c.at DESC
+        "#,
+    )
+    .bind(sport)
+    .bind(entity_type)
+    .bind(entity_id)
+    .bind(PERSONNEL_FIRST_READ_DAYS)
+    .bind(PERSONNEL_MAX_DAYS)
+    .fetch_all(pool)
+    .await
+    .with_context(|| format!("load availability changes {entity_type}/{entity_id}"))?;
+
+    let total = rows.len();
+    let changes = rows
+        .into_iter()
+        .take(MAX_AVAILABILITY_LINES)
+        .map(
+            |(
+                kind,
+                date_label,
+                event_kind,
+                player_name,
+                team_name,
+                team_id,
+                event_date_label,
+                expected_return_label,
+            )| AvailabilityChange {
+                kind,
+                date_label,
+                event_kind,
+                player_name,
+                team_name,
+                team_id,
+                event_date_label,
+                expected_return_label,
+            },
+        )
+        .collect();
+    Ok((changes, total))
+}
+
+/// How many reported-availability claims reach the brief. Six, matching the personnel cap: the
+/// 4,096 window still binds, and a busy treatment table must not crowd out the datapoints the
+/// report is actually built on.
+const MAX_AVAILABILITY_CLAIMS: usize = 6;
+
+/// load_availability_reports pulls the Editor's injury/suspension claims for this entity — the
+/// evidence the Scout WEIGHS, as opposed to the adjudicated record he simply reports.
+///
+/// **This is the read Scott's ruling opened** (2026-08-23: *"Editor notices injury/suspension and
+/// tags the Scout → the Scout decides the legitimacy of the report"*). It composes the loader and
+/// the renderer itself rather than calling `render_packets_for_entity`, following the precedent
+/// that doc names: *"Voices whose contract needs the claims as data instead… compose the loader
+/// and the renderer themselves."* The block form would hand him the headline, the role line and
+/// the continuity line — general packet prose, which is broader than the slice this seat is meant
+/// to read.
+///
+/// Two things stay CODE's, and they are the reason a model can be trusted with the rest:
+///
+/// * **The slice** — `Voice::Scout` admits injury- and suspension-typed claims and nothing else.
+///   No model is asked what it should be allowed to read (E1).
+/// * **The contest marker** — `mark_contested` flags claims that say opposite things about the
+///   same subject, mechanically, and marks BOTH (T3/D6). It is a POINTER, never a filter: the
+///   disagreement is exactly what the Scout is being asked to judge, so collapsing it would be
+///   deciding for him.
+///
+/// What he does with a marked pair — believe the better source, report the dispute, or leave it
+/// out — is his call, which is the whole point of tagging him rather than adjudicating for him.
+pub async fn load_availability_reports(
+    pool: &PgPool,
+    entity_type: &str,
+    entity_id: i32,
+    sport: &str,
+) -> Result<Vec<crate::junctions::editor::render::MarkedClaim>> {
+    use crate::junctions::editor::render::{mark_contested, slice_claims, Voice};
+
+    if entity_type != "player" && entity_type != "team" {
+        return Ok(Vec::new());
+    }
+    let loaded = crate::junctions::editor::packet::load_packets_for_entity(
+        pool,
+        entity_type,
+        entity_id,
+        sport,
+        crate::junctions::journalist::PACKET_LOOKBACK_HOURS,
+        MAX_AVAILABILITY_CLAIMS as i64,
+    )
+    .await
+    .with_context(|| format!("load availability reports {entity_type}/{entity_id}"))?;
+
+    let mut claims = Vec::new();
+    for (view, _) in loaded {
+        claims.extend(slice_claims(&view.claims, Voice::Scout));
+    }
+    claims.truncate(MAX_AVAILABILITY_CLAIMS);
+    // Contest-marking runs across the WHOLE set, after the merge — two storylines reporting the
+    // same knock differently is precisely the pair worth marking, and marking per-packet would
+    // miss it.
+    Ok(mark_contested(&claims))
 }
 
 // ---------------------------------------------------------------------------
@@ -1356,7 +1592,7 @@ impl Parser<RatingReply> for RatingParser {
             tracing::warn!(guard = "foreign_script", "rating body rejected");
             anyhow::bail!("rating: body carries a foreign-script run");
         }
-        // The title shares the HOOK contract (twelve words, no colon, no question mark), and it
+        // The title shares the HOOK contract (THE TWITTER RULE — 140 characters), and it
         // FAILS OPEN — salvage, then degrade to no title, never throw the report away.
         //
         // The comment here used to say "fail-closed like every title guard", and that was never
@@ -1564,18 +1800,69 @@ pub async fn build_rating_request(
     // snapshot (the Analyst's storyline render, 7.8, is out of its hash for exactly this
     // reason). A transfer alone does not re-run the Scout; the next stats-driven regen carries
     // the news.
+    //
+    // The availability half (mig 229) rides the SAME flag and the same discipline, and is loaded
+    // independently so one failing read cannot cost the other its block: a transfer record that
+    // loads fine still reaches the Scout when the availability query errors, and vice versa.
+    // Both stay outside `input_components`/`input_hash` — putting availability in the pre-image
+    // is the obvious fix and the wrong one, because it re-mints every entity's hash fleet-wide.
     let personnel = if with_enrichment {
-        match load_personnel_changes(&hx.pool, &req.sport, &req.entity_type, req.entity_id).await {
-            Ok((changes, total)) => {
-                prompt::render_personnel_block(&req.entity_type, req.entity_id, &changes, total)
-            }
+        let (changes, total) =
+            match load_personnel_changes(&hx.pool, &req.sport, &req.entity_type, req.entity_id)
+                .await
+            {
+                Ok(loaded) => loaded,
+                Err(e) => {
+                    tracing::warn!(
+                        entity_type = %req.entity_type,
+                        entity_id = req.entity_id,
+                        sport = %req.sport,
+                        error = %e,
+                        "rating: personnel-change load failed (continuing without the block)"
+                    );
+                    (Vec::new(), 0)
+                }
+            };
+        let (avail, avail_total) =
+            match load_availability_changes(&hx.pool, &req.sport, &req.entity_type, req.entity_id)
+                .await
+            {
+                Ok(loaded) => loaded,
+                Err(e) => {
+                    tracing::warn!(
+                        entity_type = %req.entity_type,
+                        entity_id = req.entity_id,
+                        sport = %req.sport,
+                        error = %e,
+                        "rating: availability load failed (continuing without those lines)"
+                    );
+                    (Vec::new(), 0)
+                }
+            };
+        prompt::render_personnel_block(
+            &req.entity_type,
+            req.entity_id,
+            &changes,
+            total,
+            &avail,
+            avail_total,
+        )
+    } else {
+        None
+    };
+    // The Editor's TAGGED reports — claims, not record. Same enrichment discipline as everything
+    // else here: best-effort, prompt-only, outside `input_components`/`input_hash`.
+    let availability_reports = if with_enrichment {
+        match load_availability_reports(&hx.pool, &req.entity_type, req.entity_id, &req.sport).await
+        {
+            Ok(claims) => prompt::render_availability_reports(&claims),
             Err(e) => {
                 tracing::warn!(
                     entity_type = %req.entity_type,
                     entity_id = req.entity_id,
                     sport = %req.sport,
                     error = %e,
-                    "rating: personnel-change load failed (continuing without the block)"
+                    "rating: availability-report load failed (continuing without the block)"
                 );
                 None
             }
@@ -1634,6 +1921,7 @@ pub async fn build_rating_request(
         personnel.as_deref(),
         z_memory.as_deref(),
         form_trend.as_deref(),
+        availability_reports.as_deref(),
     );
     let opts = GenerateOptions {
         system: Some(RATING_SYSTEM_PROMPT.to_string()),
@@ -1862,6 +2150,21 @@ pub fn rating_work_input_version(season: i32, input_hash: Option<&str>) -> Strin
 /// `input_version`, so `rating_work_season` still parses the season out of the prefix.
 const RATING_WORK_TRANSFER_MARK: &str = "xfer";
 
+/// The marker for a rating opened by an applied injury or suspension (mig 229). Same slot and
+/// same purpose as [`RATING_WORK_TRANSFER_MARK`].
+///
+/// **Both marks are safe to distinguish from a real `input_hash` by prefix** because that slot
+/// otherwise holds a hex digest or the literal `no-stats`: `x` and `v` are not hex digits, so
+/// neither mark can collide with a hash however the digest comes out.
+const RATING_WORK_AVAIL_MARK: &str = "avail";
+
+/// The prefix mig 225's `enqueue_voices_on_packet` stamps on a voice's work row:
+/// `'pk:' || COALESCE(slice_fingerprints->>stage, id::text)`.
+///
+/// For the `rating` stage that slice is the injury/suspension claim hash, so a `pk:` rating row
+/// means one thing only — the Editor tagged this entity because its availability news moved.
+const PACKET_WORK_PREFIX: &str = "pk:";
+
 /// Work-row `input_version` for a rating opened by an ADJUDICATED transfer (Scott's brief,
 /// 2026-08-15: "We need the Scout to be aware of when a transfer crossed the threshold and is
 /// considered concrete").
@@ -1888,16 +2191,102 @@ pub fn rating_work_input_version_for_transfer(season: i32, application_id: i64) 
     )
 }
 
-/// True when this work row was opened by a concrete transfer rather than by moved stats.
-fn rating_work_is_transfer_triggered(input_version: Option<&str>) -> bool {
+/// Work-row `input_version` for a rating opened by an APPLIED injury or suspension (Scott's
+/// brief, 2026-08-23: "we need to make sure on an event day, the Scout is enqueued one time
+/// instead of multiple").
+///
+/// Same two problems as the transfer helper above, plus a third that the transfer path does not
+/// have — and **keying on the DAY rather than the event solves all three at once**:
+///
+/// 1. **Reopening.** An injury does not move the rating snapshot, so an ordinary stats-derived
+///    version collapses into the existing row and nothing runs. A marker in the hash slot makes
+///    this its own version.
+/// 2. **The debounce.** `generate_rating`'s `skip_unchanged` would short-circuit the reopened
+///    row before the model call; [`rating_work_bypasses_debounce`] turns it off for these items.
+/// 3. **Once per event day.** The transfer marker keys on `application_id`, so each move is its
+///    own run — right for transfers, wrong here, because a club can lose three players to knocks
+///    in one afternoon and that is ONE new fact about the squad. Keying on the day means every
+///    event for an entity on that date renders the SAME `input_version`, so `work::enqueue`'s
+///    `WHERE input_version IS DISTINCT FROM EXCLUDED.input_version` collapses them into one row.
+///    The requirement costs nothing: no debounce table, no dedup pass, no new state.
+///
+/// `day` must be the event's `player_availability.event_date` rendered `YYYY-MM-DD`. It is a
+/// DATE in the schema on purpose — a timestamp, or a date taken from a local zone rather than a
+/// fixed one, splits one event day across two versions and the collapse silently stops
+/// collapsing.
+pub fn rating_work_input_version_for_availability(season: i32, day: &str) -> String {
+    format!(
+        "{RATING_WORK_PREFIX}{season}:{RATING_PROMPT_VERSION}:{RATING_WORK_AVAIL_MARK}{day}"
+    )
+}
+
+/// The marker token sitting in the `input_version`'s `input_hash` slot, if the version parses.
+/// Returns the raw slot contents — a mark, a hex digest, or `no-stats`.
+fn rating_work_mark(input_version: Option<&str>) -> Option<&str> {
     input_version
         .and_then(|raw| raw.strip_prefix(RATING_WORK_PREFIX))
         .and_then(|rest| rest.split_once(':'))
-        .map(|(_, tail)| match tail.split_once(':') {
-            Some((_, hash)) => hash.starts_with(RATING_WORK_TRANSFER_MARK),
-            None => false,
-        })
-        .unwrap_or(false)
+        .and_then(|(_, tail)| tail.split_once(':'))
+        .map(|(_, hash)| hash)
+}
+
+/// True when this work row was opened by a concrete transfer rather than by moved stats.
+fn rating_work_is_transfer_triggered(input_version: Option<&str>) -> bool {
+    rating_work_mark(input_version).is_some_and(|h| h.starts_with(RATING_WORK_TRANSFER_MARK))
+}
+
+/// True when this work row was opened by an applied injury or suspension.
+fn rating_work_is_availability_triggered(input_version: Option<&str>) -> bool {
+    rating_work_mark(input_version).is_some_and(|h| h.starts_with(RATING_WORK_AVAIL_MARK))
+}
+
+/// What woke this seat, as the value `stat_summaries.trigger_type` records (mig 228 widened the
+/// CHECK to admit the last two).
+///
+/// This is the ONLY record of which trigger produced a card — the `input_hash` deliberately does
+/// not move for the non-statistical ones — so it is what makes an eval or an incident split
+/// "the nightly batch wrote this" from "an injury did".
+fn rating_trigger_type(input_version: Option<&str>) -> &'static str {
+    // A packet-triggered row carries no mark slot to read — its whole version is the `pk:`
+    // fingerprint — but it is availability by construction: the `rating` slice hashes the
+    // injury/suspension claims and nothing else, so the row exists because that news moved.
+    // Recording it as 'periodic' would file the Editor's tag under the nightly batch and lose
+    // the one provenance signal that separates them (mig 228 widened the CHECK for exactly this).
+    if rating_work_is_packet_triggered(input_version) {
+        return "availability";
+    }
+    match rating_work_mark(input_version) {
+        Some(h) if h.starts_with(RATING_WORK_TRANSFER_MARK) => "transfer",
+        Some(h) if h.starts_with(RATING_WORK_AVAIL_MARK) => "availability",
+        _ => "periodic",
+    }
+}
+
+/// True when this row was opened by the EDITOR's packet — the `pk:` version minted by mig 225's
+/// `enqueue_voices_on_packet` from `slice_fingerprints->>'rating'`.
+///
+/// That slice hashes the injury/suspension claims, so the row exists precisely because the
+/// availability news for this entity MOVED. Nothing else can mint a `pk:` rating row.
+fn rating_work_is_packet_triggered(input_version: Option<&str>) -> bool {
+    input_version.is_some_and(|raw| raw.starts_with(PACKET_WORK_PREFIX))
+}
+
+/// True when the `skip_unchanged` debounce must be turned OFF for this item.
+///
+/// All three non-statistical triggers need it for the same reason: the fact that changed —
+/// personnel, availability, the news itself — is deliberately absent from the `input_hash`
+/// pre-image, so the debounce compares equal and short-circuits before the model call. Putting
+/// any of them INTO `input_components` is the obvious fix and the wrong one; see the transfer
+/// helper.
+///
+/// The packet arm is what makes the Editor's TAG work end to end: he notices, the slice moves,
+/// the row reopens, and the debounce steps aside so the Scout actually gets to read the claims
+/// and judge them. Without this the enqueue lands and the seat skips it — which is exactly how
+/// the routing-subscription route was measured to fail before the `rating` slice existed.
+fn rating_work_bypasses_debounce(input_version: Option<&str>) -> bool {
+    rating_work_is_transfer_triggered(input_version)
+        || rating_work_is_availability_triggered(input_version)
+        || rating_work_is_packet_triggered(input_version)
 }
 
 fn rating_work_season(input_version: Option<&str>) -> Option<i32> {
@@ -2088,6 +2477,60 @@ pub async fn enqueue_rating_for_applied_transfer(
     Ok(())
 }
 
+/// enqueue_rating_for_applied_availability — the Scout's availability trigger (Scott's brief,
+/// 2026-08-23: "Injuries, suspensions, transfers add to the richness, and is exactly what a real
+/// Scout does"). Called when a `player_availability` row (mig 229) reaches `applied`, which is
+/// the threshold where a reported knock becomes a roster fact.
+///
+/// **`event_day` must arrive as `event_date::text` straight from Postgres** — `YYYY-MM-DD`, the
+/// DATE the schema stores. This crate carries no date library and does not parse one here on
+/// purpose: the day never leaves Postgres as a timestamp, so there is no local zone to render it
+/// through and no way for one event day to split across two `input_version`s. That split is the
+/// only thing that can break Scott's once-per-day rule, and this signature is what forecloses it.
+///
+/// Two targets, not the transfer path's three: the player and the club they are at. An injury has
+/// no old/new club — the squad that loses availability is one squad.
+///
+/// Best-effort by design, exactly like the transfer trigger: a failure to enqueue must never fail
+/// the adjudication that earned it, and the nightly batch remains the backstop.
+pub async fn enqueue_rating_for_applied_availability(
+    pool: &PgPool,
+    sport: &str,
+    player_id: i32,
+    team_id: Option<i32>,
+    event_day: &str,
+) -> Result<()> {
+    let sport = sport.to_uppercase();
+    let season = current_season(pool, &sport).await?;
+    let input_version = rating_work_input_version_for_availability(season, event_day);
+
+    let mut targets: Vec<(&str, i64)> = vec![("player", i64::from(player_id))];
+    if let Some(team) = team_id {
+        targets.push(("team", i64::from(team)));
+    }
+
+    for (entity_type, entity_id) in targets {
+        let item = Item {
+            stage: Stage::Rating,
+            entity_type: entity_type.to_string(),
+            entity_id,
+            sport: sport.clone(),
+            input_version: Some(input_version.clone()),
+            attempts: 0,
+        };
+        if let Err(e) = crate::work::enqueue(pool, &item).await {
+            warn!(
+                event_day,
+                entity_type,
+                entity_id,
+                sport = %sport,
+                "rating: could not enqueue on applied availability: {e:#}"
+            );
+        }
+    }
+    Ok(())
+}
+
 async fn current_season(pool: &PgPool, sport: &str) -> Result<i32> {
     sqlx::query_scalar("SELECT current_season FROM public.sports WHERE id = $1")
         .bind(sport)
@@ -2140,21 +2583,22 @@ impl StageHandler for RatingHandler {
         let name =
             crate::corpus::lookup_entity_name(&hx.pool, &item.entity_type, entity_id, &sport)
                 .await?;
-        // A move that crossed the concrete threshold is its own trigger, and it must not be
-        // debounced away: the stats have not changed, so the input_hash has not changed, and the
-        // ordinary `skip_unchanged` gate would short-circuit before the model call. The personnel
-        // block is what changed, and it reaches the prompt through `with_enrichment`.
-        let by_transfer = rating_work_is_transfer_triggered(item.input_version.as_deref());
+        // A move that crossed the concrete threshold — or an applied injury or suspension — is
+        // its own trigger, and it must not be debounced away: the stats have not changed, so the
+        // input_hash has not changed, and the ordinary `skip_unchanged` gate would short-circuit
+        // before the model call. What changed is the personnel block, and it reaches the prompt
+        // through `with_enrichment`, outside the hash pre-image.
+        let bypass = rating_work_bypasses_debounce(item.input_version.as_deref());
         let req = RatingReq {
             entity_type: item.entity_type.clone(),
             entity_id,
             entity_name: name,
             sport: sport.clone(),
+            trigger_type: rating_trigger_type(item.input_version.as_deref()).to_string(),
             season: Some(season),
-            trigger_type: if by_transfer { "transfer" } else { "periodic" }.to_string(),
         };
 
-        let out = generate_rating(hx, &req, RATING_TEMPERATURE, !by_transfer, true).await?;
+        let out = generate_rating(hx, &req, RATING_TEMPERATURE, !bypass, true).await?;
         if out.skipped_unchanged {
             debug!(
                 entity_type = %item.entity_type,

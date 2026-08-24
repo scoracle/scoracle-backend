@@ -415,52 +415,15 @@ END;
 $$;
 
 -- ============================================================================
--- 8b. PROVIDER MAPS + EVENT BOX SCORE TABLES
+-- 8b. EVENT BOX SCORE TABLES
 -- ============================================================================
-
-CREATE TABLE IF NOT EXISTS provider_entity_map (
-    provider TEXT NOT NULL,
-    sport TEXT NOT NULL REFERENCES sports(id),
-    entity_type TEXT NOT NULL CHECK (entity_type IN ('player', 'team')),
-    provider_entity_id TEXT NOT NULL,
-    canonical_entity_id INTEGER NOT NULL,
-    meta JSONB NOT NULL DEFAULT '{}',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (provider, sport, entity_type, provider_entity_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_provider_entity_map_canonical
-    ON provider_entity_map(sport, entity_type, canonical_entity_id);
-
-CREATE TABLE IF NOT EXISTS provider_fixture_map (
-    provider TEXT NOT NULL,
-    sport TEXT NOT NULL REFERENCES sports(id),
-    provider_fixture_id TEXT NOT NULL,
-    fixture_id INTEGER NOT NULL REFERENCES fixtures(id),
-    meta JSONB NOT NULL DEFAULT '{}',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (provider, sport, provider_fixture_id),
-    UNIQUE(fixture_id, provider, sport)
-);
-
-CREATE INDEX IF NOT EXISTS idx_provider_fixture_map_fixture
-    ON provider_fixture_map(fixture_id);
-
-CREATE OR REPLACE FUNCTION resolve_provider_fixture_id(
-    p_fixture_id INTEGER,
-    p_provider TEXT,
-    p_sport TEXT
-)
-RETURNS TEXT AS $$
-    SELECT provider_fixture_id
-    FROM provider_fixture_map
-    WHERE fixture_id = p_fixture_id
-      AND provider = p_provider
-      AND sport = p_sport
-    LIMIT 1;
-$$ LANGUAGE sql STABLE;
+--
+-- The provider maps that used to head this section are GONE with the paid seeding layer:
+-- `provider_entity_map` in mig 222, `provider_fixture_map` + `resolve_provider_fixture_id`
+-- in mig 230. Box scores are now derived from public sources discovered into
+-- `boxscore_sources`, so a fixture no longer needs a third party's id to be readable.
+-- Do not reintroduce them here — a fresh environment that creates a table the ledger then
+-- drops is exactly the drift `sql/schema/` exists to prevent.
 
 -- Atomic event rows: one player line per fixture
 CREATE TABLE IF NOT EXISTS event_box_scores (

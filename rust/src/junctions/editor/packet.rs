@@ -142,6 +142,23 @@ pub fn compile(members: &[Member], entities: &[PacketEntity]) -> PacketDraft {
         .filter(|c| c.story_type.eq_ignore_ascii_case("transfer"))
         .map(|c| c.to_json())
         .collect();
+    // The Scout's slice: availability. Same shape as the Insider's transfer slice, and it is
+    // what lets the Editor TAG him rather than have the pipeline adjudicate on his behalf.
+    //
+    // The fingerprint is the CLAIMS HASH, which is why this needs no day-key, no debounce table
+    // and no adjudication status: five outlets reporting one knock collapse to the same claim
+    // set and enqueue ONCE, while a genuinely new fact (a return, a longer prognosis) moves the
+    // hash and wakes him again. Scott's once-per-event-day rule falls out of CONTENT rather than
+    // out of a calendar — strictly better, because it also holds across days when nothing new is
+    // said, and re-fires within a day when something is.
+    let availability_claims: Vec<Value> = claims
+        .iter()
+        .filter(|c| {
+            c.story_type.eq_ignore_ascii_case("injury")
+                || c.story_type.eq_ignore_ascii_case("suspension")
+        })
+        .map(|c| c.to_json())
+        .collect();
 
     let result_line = members
         .iter()
@@ -188,6 +205,12 @@ pub fn compile(members: &[Member], entities: &[PacketEntity]) -> PacketDraft {
             "claims": claims_json,
         }).to_string()),
         "transfers": hash_components(&json!({ "claims": transfer_claims }).to_string()),
+        // `rating` is the STAGE the Scout drains, so this key is what mig 225's
+        // `enqueue_voices_on_packet` reads to mint his `pk:` input_version. Before it existed
+        // the lookup fell through to the packet id, which made every injury packet its own
+        // enqueue — the reason the routing subscription was previously judged unusable. It is
+        // usable now.
+        "rating": hash_components(&json!({ "claims": availability_claims }).to_string()),
     });
 
     PacketDraft {
@@ -1023,7 +1046,64 @@ mod tests {
             .unwrap()
             .keys()
             .collect();
-        assert_eq!(keys, vec!["narratives", "transfers", "vibe"]);
+        // `rating` joined 2026-08-23 — the Scout's availability slice. A key here is what mig
+        // 225 reads to mint a voice's `pk:` version, so its ABSENCE was why an injury packet
+        // fell through to the packet id and enqueued him once per packet instead of once per
+        // change of fact.
+        assert_eq!(keys, vec!["narratives", "rating", "transfers", "vibe"]);
+    }
+
+    /// The Scout's slice moves on availability news and ONLY on availability news — that is what
+    /// makes the Editor's tag a tag rather than a firehose.
+    #[test]
+    fn the_rating_slice_tracks_availability_claims_alone() {
+        let base = compile(&[member(1, "A", Some(1), 100, "transfer", &["a"])], &[]);
+        let plus_transfer = compile(
+            &[
+                member(1, "A", Some(1), 100, "transfer", &["a"]),
+                member(2, "B", Some(1), 200, "transfer", &["another move"]),
+            ],
+            &[],
+        );
+        // A transfer moved the Insider's slice but must not wake the Scout.
+        assert_ne!(
+            base.slice_fingerprints["transfers"],
+            plus_transfer.slice_fingerprints["transfers"]
+        );
+        assert_eq!(
+            base.slice_fingerprints["rating"],
+            plus_transfer.slice_fingerprints["rating"]
+        );
+
+        // An injury moves his slice.
+        let plus_injury = compile(
+            &[
+                member(1, "A", Some(1), 100, "transfer", &["a"]),
+                member(3, "C", Some(1), 300, "injury", &["out six weeks"]),
+            ],
+            &[],
+        );
+        assert_ne!(
+            base.slice_fingerprints["rating"],
+            plus_injury.slice_fingerprints["rating"]
+        );
+
+        // So does a suspension — one subject, two causes.
+        let plus_suspension = compile(
+            &[
+                member(1, "A", Some(1), 100, "transfer", &["a"]),
+                member(4, "D", Some(1), 400, "suspension", &["banned three games"]),
+            ],
+            &[],
+        );
+        assert_ne!(
+            base.slice_fingerprints["rating"],
+            plus_suspension.slice_fingerprints["rating"]
+        );
+        assert_ne!(
+            plus_injury.slice_fingerprints["rating"],
+            plus_suspension.slice_fingerprints["rating"]
+        );
     }
 
     #[test]

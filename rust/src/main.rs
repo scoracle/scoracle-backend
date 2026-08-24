@@ -158,7 +158,7 @@ async fn main() -> Result<()> {
         ));
     }
     if enabled.contains("fixture_boxscore") {
-        handlers.push(Box::new(boxscore::FixtureBoxscoreHandler::new()));
+        handlers.push(Box::new(boxscore::FixtureBoxscoreHandler::new()?));
     }
     // THE VOICES REGISTER IN DEPENDENCY ORDER, AND THAT ORDER IS A CONTRACT.
     //

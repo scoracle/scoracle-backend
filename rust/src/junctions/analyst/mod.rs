@@ -126,12 +126,26 @@ impl Parser<MomentumReply> for MomentumParser {
             tracing::warn!(guard = "product_name", name = p, "momentum READ rejected");
             anyhow::bail!("momentum: READ names product {p:?}");
         }
-        if crate::guards::has_ascii_digit(&reply.blurb) {
-            tracing::warn!(guard = "digits_in_read", "momentum READ rejected");
-            anyhow::bail!("momentum: READ carries ASCII digits");
+        // The blanket digit ban RETIRED 2026-08-24, replaced by the precise check — the same
+        // correction the Oracle already made, for the same reason, on the same evidence.
+        //
+        // "No ASCII digit anywhere in the READ" was the second-costliest guard on the rail:
+        // 1,221 rejections in three days, and it is what permanently dead-lettered momentum
+        // player 367 (NBA) at five attempts. But `ORACLE_READING_BANS` already records the
+        // ruling that digits in open prose are "ordinary sporting evidence", and the defect the
+        // ban was actually aimed at — a bookkeeping citation like "(Mood: 30/100)" pasted into
+        // prose — is caught exactly by `has_bookkeeping_citation`: a parenthetical CARRYING a
+        // digit. The blanket ban was the over-broad form of a check that already existed in
+        // precise form, so momentum now uses the precise one.
+        //
+        // Now legal: "three wins in a row" was always fine, "3 wins in a row" is fine too.
+        // Still illegal: "(4th percentile)" — the analyst's desk notes pasted into a card.
+        if crate::guards::has_bookkeeping_citation(&reply.blurb) {
+            tracing::warn!(guard = "bookkeeping_citation", "momentum READ rejected");
+            anyhow::bail!("momentum: READ carries a bookkeeping citation");
         }
-        // The card title shares the HOOK contract (guards::hook_violation — twelve words,
-        // no colon, no question mark). s18 completes the s17 fail-open spirit: the READ is
+        // The card title shares the HOOK contract (guards::hook_violation — THE TWITTER RULE,
+        // 140 characters, and nothing else since 2026-08-24). s18 completes the s17 fail-open spirit: the READ is
         // the pillar product and a junk TITLE never kills it. A two-beat title is salvaged
         // to its first beat in code; anything else degrades to a NULL headline (the same
         // outcome s17 assigned to an absent line) and the title regenerates next trigger.

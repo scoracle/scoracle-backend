@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict rHZyGO46RFey43Sygb6Omfua8CsZ9m5ODXuBgNj2wVbFNi2ndM1GM3obC9CK9H7
+\restrict 1vJdXCxGHav3hFXuqFir8eYrZhbUBX4RYBdKWu5c5w6GX6YHYfTlVK3Xc4Ae4ul
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -2509,20 +2509,6 @@ $$;
 
 
 --
--- Name: enqueue_fixture_boxscore_on_provider_map(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.enqueue_fixture_boxscore_on_provider_map() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-    PERFORM public.enqueue_fixture_boxscore(NEW.fixture_id);
-    RETURN NEW;
-END;
-$$;
-
-
---
 -- Name: enqueue_recent_fixture_boxscores(text, interval, integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -2895,26 +2881,24 @@ $$;
 CREATE FUNCTION public.fixture_boxscore_input_version(p_fixture_id integer) RETURNS text
     LANGUAGE sql STABLE
     AS $$
-    SELECT 'fbf1:' ||
+    SELECT 'fbf2:' ||
            f.sport || ':' ||
            f.season::text || ':' ||
            COALESCE(f.league_id, 0)::text || ':' ||
            f.home_team_id::text || ':' ||
            f.away_team_id::text || ':' ||
            COALESCE(f.home_score::text, '') || ':' ||
-           COALESCE(f.away_score::text, '') || ':' ||
-           COALESCE(
-               (
-                   SELECT string_agg(pfm.provider || '=' || pfm.provider_fixture_id, ',' ORDER BY pfm.provider)
-                   FROM public.provider_fixture_map pfm
-                   WHERE pfm.fixture_id = f.id
-                     AND pfm.sport = f.sport
-               ),
-               ''
-           )
+           COALESCE(f.away_score::text, '')
     FROM public.fixtures f
     WHERE f.id = p_fixture_id;
 $$;
+
+
+--
+-- Name: FUNCTION fixture_boxscore_input_version(p_fixture_id integer); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.fixture_boxscore_input_version(p_fixture_id integer) IS 'Queue fingerprint for a fixture box-score demand: sport, season, league, both teams and the final score. fbf2 (mig 230) dropped the provider-map leg with the seeding layer — the score is what says "this fixture is final and these are its numbers", which is the whole signal the fingerprint needs. Public-source discovery replaces the provider id.';
 
 
 --
@@ -5374,22 +5358,6 @@ BEGIN
         reason = EXCLUDED.reason,
         generated_at = NOW();
 END;
-$$;
-
-
---
--- Name: resolve_provider_fixture_id(integer, text, text); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.resolve_provider_fixture_id(p_fixture_id integer, p_provider text, p_sport text) RETURNS text
-    LANGUAGE sql STABLE
-    AS $$
-    SELECT provider_fixture_id
-    FROM provider_fixture_map
-    WHERE fixture_id = p_fixture_id
-      AND provider = p_provider
-      AND sport = p_sport
-    LIMIT 1;
 $$;
 
 
@@ -9089,6 +9057,96 @@ CREATE VIEW public.pipeline_work_status AS
 
 
 --
+-- Name: player_availability; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.player_availability (
+    id bigint NOT NULL,
+    sport text NOT NULL,
+    player_id integer NOT NULL,
+    team_id integer,
+    kind text NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    event_date date NOT NULL,
+    expected_return date,
+    returned_at date,
+    reverted_at timestamp with time zone,
+    reverted_by text,
+    revert_reason text,
+    body_part text,
+    source_article_id bigint,
+    applied_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT player_availability_expected_after_event CHECK (((expected_return IS NULL) OR (expected_return >= event_date))),
+    CONSTRAINT player_availability_kind_check CHECK ((kind = ANY (ARRAY['injury'::text, 'suspension'::text]))),
+    CONSTRAINT player_availability_returned_after_event CHECK (((returned_at IS NULL) OR (returned_at >= event_date))),
+    CONSTRAINT player_availability_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'applied'::text, 'rejected'::text])))
+);
+
+
+--
+-- Name: TABLE player_availability; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.player_availability IS 'Adjudicated injury and suspension events — the availability half of the Scout''s personnel record, alongside transfer_identity_applications (mig 229). An EVENT LOG, not a status flag: current availability feeds the Scout''s personnel block (the delta since his last read) and closed spans feed injury propensity on the cross-season memory card (the arc). T4 holds — every column here is a date, an id, or an enum; no prose from the Editor reaches the Scout through this table.';
+
+
+--
+-- Name: COLUMN player_availability.event_date; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.player_availability.event_date IS 'The DAY the player became unavailable. A date, not a timestamp: the Scout''s enqueue marker (rating_work_input_version_for_availability) keys on it so every event for an entity on one day collapses to a single work row — Scott''s once-per-event-day rule.';
+
+
+--
+-- Name: COLUMN player_availability.expected_return; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.player_availability.expected_return IS 'The prognosis AS REPORTED at event time. A claim, renderable on the card ("expected back Sep 02"); NEVER ground truth — propensity is computed from returned_at only.';
+
+
+--
+-- Name: COLUMN player_availability.returned_at; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.player_availability.returned_at IS 'Availability actually resumed — a real-world outcome. NULL = still out (open span). This is the propensity denominator, and it is deliberately NOT reverted_at.';
+
+
+--
+-- Name: COLUMN player_availability.reverted_at; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.player_availability.reverted_at IS 'This RECORD was wrong and has been undone — a correction, not a return. Kept distinct from returned_at because conflating them would make a retracted false report and a genuine absence indistinguishable, corrupting every days-out number built on this table.';
+
+
+--
+-- Name: COLUMN player_availability.body_part; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.player_availability.body_part IS 'Ships EMPTY and is never guessed. Recurrence needs it, but the Editor emits story_type as a bare enum with no structured detail, so populating it requires a new field on his contract. Present now so the later backfill is data rather than a migration on a live table.';
+
+
+--
+-- Name: player_availability_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.player_availability_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: player_availability_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.player_availability_id_seq OWNED BY public.player_availability.id;
+
+
+--
 -- Name: player_current_identity_overrides_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -9164,21 +9222,6 @@ CREATE SEQUENCE public.player_team_history_id_seq
 --
 
 ALTER SEQUENCE public.player_team_history_id_seq OWNED BY public.player_team_history.id;
-
-
---
--- Name: provider_fixture_map; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.provider_fixture_map (
-    provider text NOT NULL,
-    sport text NOT NULL,
-    provider_fixture_id text NOT NULL,
-    fixture_id integer NOT NULL,
-    meta jsonb DEFAULT '{}'::jsonb NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
 
 
 --
@@ -9595,7 +9638,7 @@ CREATE TABLE public.stat_summaries (
     CONSTRAINT stat_summaries_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
     CONSTRAINT stat_summaries_notability_check CHECK (((notability IS NULL) OR ((notability >= 0) AND (notability <= 100)))),
     CONSTRAINT stat_summaries_rating_trajectory_check CHECK ((rating_trajectory = ANY (ARRAY['rising'::text, 'falling'::text, 'steady'::text]))),
-    CONSTRAINT stat_summaries_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['stat_change'::text, 'periodic'::text, 'manual'::text])))
+    CONSTRAINT stat_summaries_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['stat_change'::text, 'periodic'::text, 'manual'::text, 'transfer'::text, 'availability'::text])))
 );
 
 
@@ -9604,6 +9647,13 @@ CREATE TABLE public.stat_summaries (
 --
 
 COMMENT ON TABLE public.stat_summaries IS 'Append, one row per generation per entity (latest-per-entity read). The STATS-rail narrative: the local model''s on-field IDENTITY analysis derived from the rating engine''s scrubbed datapoints (composite=how well, peak=how). notability (deterministic, distinctiveness) drives dynamic length + a board; NULL body = insufficient-stats marker. Twin of news_summaries.';
+
+
+--
+-- Name: COLUMN stat_summaries.trigger_type; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.stat_summaries.trigger_type IS 'What kicked off this generation. ''stat_change'' = the percentile_changed listener; ''periodic'' = the nightly batch; ''manual'' = operator-run; ''transfer'' = an adjudicated move crossed the concrete threshold; ''availability'' = an injury or suspension was applied (mig 229). The last two are the non-statistical triggers — they run with the skip_unchanged debounce disabled, because the input_hash deliberately does not move for them, and this column is the only record of which one woke the seat.';
 
 
 --
@@ -10293,6 +10343,13 @@ ALTER TABLE ONLY public.pipeline_stats ALTER COLUMN id SET DEFAULT nextval('publ
 
 
 --
+-- Name: player_availability id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.player_availability ALTER COLUMN id SET DEFAULT nextval('public.player_availability_id_seq'::regclass);
+
+
+--
 -- Name: player_current_identity_overrides id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -10767,6 +10824,14 @@ ALTER TABLE ONLY public.pipeline_work
 
 
 --
+-- Name: player_availability player_availability_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.player_availability
+    ADD CONSTRAINT player_availability_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: player_current_identity_overrides player_current_identity_overrides_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -10796,22 +10861,6 @@ ALTER TABLE ONLY public.player_team_history
 
 ALTER TABLE ONLY public.players
     ADD CONSTRAINT players_pkey PRIMARY KEY (id, sport);
-
-
---
--- Name: provider_fixture_map provider_fixture_map_fixture_id_provider_sport_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.provider_fixture_map
-    ADD CONSTRAINT provider_fixture_map_fixture_id_provider_sport_key UNIQUE (fixture_id, provider, sport);
-
-
---
--- Name: provider_fixture_map provider_fixture_map_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.provider_fixture_map
-    ADD CONSTRAINT provider_fixture_map_pkey PRIMARY KEY (provider, sport, provider_fixture_id);
 
 
 --
@@ -11736,13 +11785,6 @@ CREATE INDEX idx_players_tier_sport ON public.players USING btree (tier, sport);
 
 
 --
--- Name: idx_provider_fixture_map_fixture; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_provider_fixture_map_fixture ON public.provider_fixture_map USING btree (fixture_id);
-
-
---
 -- Name: idx_provider_seasons_lookup; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -12051,6 +12093,34 @@ CREATE INDEX insider_scores_entity_latest ON public.insider_scores USING btree (
 
 
 --
+-- Name: player_availability_natural_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX player_availability_natural_key ON public.player_availability USING btree (sport, player_id, kind, event_date);
+
+
+--
+-- Name: player_availability_open; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX player_availability_open ON public.player_availability USING btree (sport, player_id, event_date DESC) WHERE ((status = 'applied'::text) AND (returned_at IS NULL) AND (reverted_at IS NULL));
+
+
+--
+-- Name: player_availability_player_applied; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX player_availability_player_applied ON public.player_availability USING btree (sport, player_id, applied_at DESC) WHERE (status = 'applied'::text);
+
+
+--
+-- Name: player_availability_team_applied; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX player_availability_team_applied ON public.player_availability USING btree (sport, team_id, applied_at DESC) WHERE ((status = 'applied'::text) AND (team_id IS NOT NULL));
+
+
+--
 -- Name: packets enqueue_voices_on_packet; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -12069,13 +12139,6 @@ CREATE TRIGGER entity_aliases_append_only BEFORE UPDATE ON public.entity_aliases
 --
 
 CREATE TRIGGER fixture_boxscore_enqueue_on_final AFTER INSERT OR UPDATE OF status, home_score, away_score, external_id, home_team_id, away_team_id ON public.fixtures FOR EACH ROW EXECUTE FUNCTION public.enqueue_fixture_boxscore_on_final();
-
-
---
--- Name: provider_fixture_map fixture_boxscore_enqueue_on_provider_map; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER fixture_boxscore_enqueue_on_provider_map AFTER INSERT OR UPDATE OF provider_fixture_id ON public.provider_fixture_map FOR EACH ROW EXECUTE FUNCTION public.enqueue_fixture_boxscore_on_provider_map();
 
 
 --
@@ -12610,22 +12673,6 @@ ALTER TABLE ONLY public.players
 
 
 --
--- Name: provider_fixture_map provider_fixture_map_fixture_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.provider_fixture_map
-    ADD CONSTRAINT provider_fixture_map_fixture_id_fkey FOREIGN KEY (fixture_id) REFERENCES public.fixtures(id);
-
-
---
--- Name: provider_fixture_map provider_fixture_map_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.provider_fixture_map
-    ADD CONSTRAINT provider_fixture_map_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
-
-
---
 -- Name: provider_seasons provider_seasons_league_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -12908,5 +12955,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict rHZyGO46RFey43Sygb6Omfua8CsZ9m5ODXuBgNj2wVbFNi2ndM1GM3obC9CK9H7
+\unrestrict 1vJdXCxGHav3hFXuqFir8eYrZhbUBX4RYBdKWu5c5w6GX6YHYfTlVK3Xc4Ae4ul
 

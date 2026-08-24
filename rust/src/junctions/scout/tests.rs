@@ -213,6 +213,7 @@ fn retired_metric_never_reaches_prompt_preimage_or_crown() {
         None,
         None,
         None,
+        None,
     );
     for retired in ["Clearances", "Duels"] {
         assert!(
@@ -312,6 +313,7 @@ fn prompt_player_composite_datapoints_and_scoped_position() {
         None,
         None,
         None,
+        None,
     );
     assert_eq!(
         prompt,
@@ -349,6 +351,7 @@ fn prompt_team_no_composite_no_position() {
         None,
         None,
         None,
+        None,
     );
     assert_eq!(
         prompt,
@@ -381,6 +384,7 @@ fn cross_season_memory_renders_before_the_write_cue() {
         None,
         None,
         None,
+        None,
     );
     assert!(prompt.contains("\nCross-season memory (computed history — arc context only"));
     assert!(prompt.contains("- Our prior read: season 2025 scored this profile 98/100"));
@@ -394,6 +398,7 @@ fn cross_season_memory_renders_before_the_write_cue() {
         &p,
         70,
         Some(" \n "),
+        None,
         None,
         None,
         None,
@@ -642,6 +647,94 @@ fn a_transfer_triggered_rating_token_is_distinguishable_and_still_parses_season(
 }
 
 #[test]
+fn every_availability_event_on_one_day_collapses_to_a_single_work_row() {
+    // Scott's constraint, 2026-08-23: "on an event day, the Scout is enqueued one time instead
+    // of multiple." This is the whole mechanism — the marker keys on the DAY, so N events for
+    // one entity on one date render the IDENTICAL input_version, and work::enqueue's
+    // `WHERE input_version IS DISTINCT FROM EXCLUDED.input_version` collapses them into one row.
+    // No debounce table, no dedup pass. If this assertion ever fails, a club losing three
+    // players to knocks in an afternoon burns three model calls on the fleet's slowest seat.
+    let first = rating_work_input_version_for_availability(2025, "2026-08-23");
+    let second = rating_work_input_version_for_availability(2025, "2026-08-23");
+    assert_eq!(first, second);
+    assert_eq!(first, format!("rating:s2025:{RATING_PROMPT_VERSION}:avail2026-08-23"));
+
+    // A DIFFERENT day must reopen — otherwise a fresh injury the next morning is absorbed by
+    // yesterday's done row and the Scout never looks again.
+    let next_day = rating_work_input_version_for_availability(2025, "2026-08-24");
+    assert_ne!(first, next_day);
+
+    // The season parse survives the marker, as it must for the transfer mark (the handler reads
+    // the season back out of this token).
+    assert_eq!(rating_work_season(Some(&first)), Some(2025));
+}
+
+#[test]
+fn the_two_non_statistical_triggers_are_distinguishable_from_each_other_and_from_stats() {
+    let avail = rating_work_input_version_for_availability(2025, "2026-08-23");
+    let xfer = rating_work_input_version_for_transfer(2025, 4211);
+    let stats = rating_work_input_version(2025, Some("abc123"));
+    let no_stats = rating_work_input_version(2025, None);
+
+    // Mutually exclusive. A mark that answered to both predicates would make trigger_type
+    // meaningless, and trigger_type is the ONLY record of what woke the seat — the input_hash
+    // deliberately does not move for either of these.
+    assert!(rating_work_is_availability_triggered(Some(&avail)));
+    assert!(!rating_work_is_transfer_triggered(Some(&avail)));
+    assert!(rating_work_is_transfer_triggered(Some(&xfer)));
+    assert!(!rating_work_is_availability_triggered(Some(&xfer)));
+
+    // A real hash can never be mistaken for a mark: the slot otherwise holds a hex digest or
+    // `no-stats`, and neither 'x' (xfer) nor 'v' (avail) is a hex digit.
+    for token in [&stats, &no_stats] {
+        assert!(!rating_work_is_availability_triggered(Some(token)));
+        assert!(!rating_work_is_transfer_triggered(Some(token)));
+    }
+
+    // The debounce bypass covers both and ONLY both. If a periodic token ever bypassed, every
+    // rating in the fleet would regenerate on every enumeration.
+    assert!(rating_work_bypasses_debounce(Some(&avail)));
+    assert!(rating_work_bypasses_debounce(Some(&xfer)));
+    assert!(!rating_work_bypasses_debounce(Some(&stats)));
+    assert!(!rating_work_bypasses_debounce(None));
+
+    // The three-way that lands in stat_summaries.trigger_type. Every one of these values must
+    // be admitted by the mig 228 CHECK — a value outside it fails the INSERT *after* the model
+    // call, which is the bug mig 228 exists to close.
+    assert_eq!(rating_trigger_type(Some(&avail)), "availability");
+    assert_eq!(rating_trigger_type(Some(&xfer)), "transfer");
+    assert_eq!(rating_trigger_type(Some(&stats)), "periodic");
+    assert_eq!(rating_trigger_type(None), "periodic");
+}
+
+/// The Editor's TAG (2026-08-23). A `pk:` rating row is minted by mig 225 from
+/// `slice_fingerprints->>'rating'`, which hashes the injury/suspension claims and nothing else —
+/// so the row exists BECAUSE that news moved.
+///
+/// Both assertions here are load-bearing. If the bypass misses, the enqueue lands and the seat
+/// skips it before the model call, which is precisely how the routing-subscription route was
+/// measured to fail before the rating slice existed. If the trigger type misses, the Editor's
+/// tag is filed under the nightly batch and the one provenance signal separating them is lost.
+#[test]
+fn a_packet_tagged_rating_row_bypasses_the_debounce_and_records_its_trigger() {
+    let packet = "pk:9f8e7d6c5b4a3928";
+
+    assert!(rating_work_bypasses_debounce(Some(packet)));
+    assert_eq!(rating_trigger_type(Some(packet)), "availability");
+
+    // It must not be confusable with the stats-derived versions in either direction: `pk:` rows
+    // carry no season and no mark slot, so the mark readers must simply decline them.
+    assert!(!rating_work_is_transfer_triggered(Some(packet)));
+    assert!(!rating_work_is_availability_triggered(Some(packet)));
+    assert!(rating_work_season(Some(packet)).is_none());
+
+    // And a stats-derived version is never mistaken for a packet one — otherwise the whole
+    // fleet would bypass the debounce on every enumeration.
+    let stats = rating_work_input_version(2026, Some("a1b2c3d4e5f60718"));
+    assert!(!rating_work_bypasses_debounce(Some(&stats)));
+}
+
+#[test]
 fn rating_parser_never_fails_closed() {
     // Even garbage parses to Some (rating's only marker is pre-model); an empty body is the
     // caller's hard error, not a served UNKNOWN.
@@ -677,11 +770,23 @@ fn rating_splits_the_s20_headline_line() {
     let empty = RatingParser.parse("Summary: x.\nHEADLINE: ").unwrap().unwrap();
     assert!(empty.headline.is_none());
 
-    // A hook-contract violation FAILS OPEN (2026-08-22): an over-long title with no beat
-    // separator cannot be salvaged, so it degrades to no title and the report still ships.
-    // It used to return Err and discard a complete graded profile over its own title.
-    let long = RatingParser
+    // Since 2026-08-24 the contract is 140 CHARACTERS and nothing else, so the thirteen-word
+    // title that used to be the canonical violation now ships — it was 91% of the fleet's hook
+    // rejections, and each one burned a finished report's title.
+    let thirteen = RatingParser
         .parse("Summary: x.\nHEADLINE: one two three four five six seven eight nine ten eleven twelve thirteen")
+        .expect("a junk title never fails the report")
+        .expect("a reply");
+    assert_eq!(
+        thirteen.headline.as_deref(),
+        Some("one two three four five six seven eight nine ten eleven twelve thirteen")
+    );
+
+    // A hook-contract violation still FAILS OPEN (2026-08-22): a genuinely over-long title with
+    // no beat separator cannot be salvaged, so it degrades to no title and the report still
+    // ships. It used to return Err and discard a complete graded profile over its own title.
+    let long = RatingParser
+        .parse(&format!("Summary: x.\nHEADLINE: {}", "x".repeat(200)))
         .expect("a junk title never fails the report")
         .expect("a reply");
     assert!(long.headline.is_none(), "unsalvageable title drops: {:?}", long.headline);
@@ -724,6 +829,8 @@ fn a_player_move_names_both_clubs_and_the_date() {
             Some("New FC"),
         )],
         1,
+        &[],
+        0,
     )
     .expect("a move renders");
     assert_eq!(out, "- Jul 29: joined New FC from Old FC (transfer).\n");
@@ -744,6 +851,8 @@ fn a_player_move_without_a_known_old_club_still_renders() {
             Some("New FC"),
         )],
         1,
+        &[],
+        0,
     )
     .unwrap();
     assert_eq!(out, "- Jul 16: joined New FC (transfer).\n");
@@ -765,6 +874,8 @@ fn a_team_sees_arrivals_and_departures_decided_by_id() {
             Some("New FC"),
         )],
         1,
+        &[],
+        0,
     )
     .unwrap();
     assert_eq!(
@@ -784,6 +895,8 @@ fn a_team_sees_arrivals_and_departures_decided_by_id() {
             Some("New FC"),
         )],
         1,
+        &[],
+        0,
     )
     .unwrap();
     assert_eq!(
@@ -808,6 +921,8 @@ fn a_revert_renders_as_a_correction_not_a_move() {
             Some("New FC"),
         )],
         1,
+        &[],
+        0,
     )
     .unwrap();
     assert_eq!(
@@ -827,6 +942,8 @@ fn a_revert_renders_as_a_correction_not_a_move() {
             Some("New FC"),
         )],
         1,
+        &[],
+        0,
     )
     .unwrap();
     assert!(team.contains("Test Player's move REVERTED"));
@@ -848,26 +965,283 @@ fn the_cap_names_what_it_dropped() {
             )
         })
         .collect();
-    let out = render_personnel_block("team", 3468, &rows, MAX_PERSONNEL_LINES + 4).unwrap();
+    let out = render_personnel_block("team", 3468, &rows, MAX_PERSONNEL_LINES + 4, &[], 0).unwrap();
     assert_eq!(out.lines().count(), MAX_PERSONNEL_LINES + 1);
     assert!(out.ends_with("- (+4 older personnel changes in this window, not shown)\n"));
 
     // Nothing dropped ⇒ no drop line at all.
-    let exact = render_personnel_block("team", 3468, &rows, MAX_PERSONNEL_LINES).unwrap();
+    let exact = render_personnel_block("team", 3468, &rows, MAX_PERSONNEL_LINES, &[], 0).unwrap();
     assert_eq!(exact.lines().count(), MAX_PERSONNEL_LINES);
     assert!(!exact.contains("not shown"));
+}
+
+fn avail(
+    kind: &str,
+    date_label: &str,
+    event_kind: &str,
+    player: &str,
+    event_date: &str,
+    expected: Option<&str>,
+) -> AvailabilityChange {
+    AvailabilityChange {
+        kind: kind.to_string(),
+        date_label: date_label.to_string(),
+        event_kind: event_kind.to_string(),
+        player_name: player.to_string(),
+        team_name: Some("New FC".to_string()),
+        team_id: Some(3468),
+        event_date_label: event_date.to_string(),
+        expected_return_label: expected.map(str::to_string),
+    }
+}
+
+/// A newly applied injury renders as a dated fact, and the reported prognosis renders as a
+/// REPORT ("reported back around") rather than as a date the player will return — mig 229:
+/// `expected_return` is a claim, never ground truth.
+#[test]
+fn an_opened_absence_renders_the_prognosis_as_a_report() {
+    let player = render_personnel_block(
+        "player",
+        1,
+        &[],
+        0,
+        &[avail(
+            "opened",
+            "Aug 21",
+            "injury",
+            "Test Player",
+            "Aug 20",
+            Some("Sep 02"),
+        )],
+        1,
+    )
+    .unwrap();
+    assert_eq!(
+        player,
+        "- Aug 20: out with a recorded injury — reported back around Sep 02.\n"
+    );
+
+    // No prognosis ⇒ no clause invented.
+    let bare = render_personnel_block(
+        "player",
+        1,
+        &[],
+        0,
+        &[avail("opened", "Aug 21", "suspension", "Test Player", "Aug 20", None)],
+        1,
+    )
+    .unwrap();
+    assert_eq!(bare, "- Aug 20: out with a recorded suspension.\n");
+    assert!(!bare.contains("reported back"));
+
+    // A team read names WHO is missing.
+    let team = render_personnel_block(
+        "team",
+        3468,
+        &[],
+        0,
+        &[avail("opened", "Aug 21", "injury", "Test Player", "Aug 20", None)],
+        1,
+    )
+    .unwrap();
+    assert_eq!(team, "- Aug 20: Test Player out with a recorded injury.\n");
+}
+
+/// THE distinction mig 229 built two columns to keep: a RETURN is the player coming back, a
+/// REVERT is us withdrawing the claim he was ever hurt. Rendering a revert as a return would tell
+/// the Scout a player is fit on the strength of a record we just retracted.
+#[test]
+fn a_withdrawn_availability_record_never_reads_as_a_return() {
+    let returned = render_personnel_block(
+        "player",
+        1,
+        &[],
+        0,
+        &[avail("returned", "Aug 30", "injury", "Test Player", "Aug 20", None)],
+        1,
+    )
+    .unwrap();
+    assert_eq!(
+        returned,
+        "- Aug 30: available again after the injury recorded Aug 20.\n"
+    );
+
+    let reverted = render_personnel_block(
+        "player",
+        1,
+        &[],
+        0,
+        &[avail("reverted", "Aug 25", "injury", "Test Player", "Aug 20", None)],
+        1,
+    )
+    .unwrap();
+    assert_eq!(
+        reverted,
+        "- Aug 25: the injury recorded Aug 20 was WITHDRAWN — that record is not in force.\n"
+    );
+    // The two must not be confusable in either direction.
+    assert!(!reverted.contains("available again"));
+    assert!(!returned.contains("WITHDRAWN"));
+
+    let team_reverted = render_personnel_block(
+        "team",
+        3468,
+        &[],
+        0,
+        &[avail("reverted", "Aug 25", "suspension", "Test Player", "Aug 20", None)],
+        1,
+    )
+    .unwrap();
+    assert!(team_reverted.contains("Test Player's suspension recorded Aug 20 was WITHDRAWN"));
+    assert!(!team_reverted.contains("available again"));
+}
+
+/// Both halves render into ONE block, transfers first, and each names its own drops (A5).
+#[test]
+fn transfers_and_availability_share_one_block_and_each_names_its_drops() {
+    let rows: Vec<PersonnelChange> = (0..MAX_PERSONNEL_LINES)
+        .map(|i| {
+            change(
+                "applied",
+                "Jul 29",
+                &format!("Player {i}"),
+                Some("Old FC"),
+                Some("New FC"),
+            )
+        })
+        .collect();
+    let avails: Vec<AvailabilityChange> = (0..MAX_AVAILABILITY_LINES)
+        .map(|i| {
+            avail(
+                "opened",
+                "Aug 21",
+                "injury",
+                &format!("Hurt {i}"),
+                "Aug 20",
+                None,
+            )
+        })
+        .collect();
+    let out = render_personnel_block(
+        "team",
+        3468,
+        &rows,
+        MAX_PERSONNEL_LINES + 2,
+        &avails,
+        MAX_AVAILABILITY_LINES + 3,
+    )
+    .unwrap();
+
+    // Transfers, their drop line, availability, then its drop line — in that order.
+    let signed = out.find("signed Player 0").unwrap();
+    let pers_drop = out.find("+2 older personnel changes").unwrap();
+    let hurt = out.find("Hurt 0 out with a recorded injury").unwrap();
+    let avail_drop = out.find("+3 older availability events").unwrap();
+    assert!(signed < pers_drop && pers_drop < hurt && hurt < avail_drop);
+
+    // Availability alone still produces a block — the section is not gated on transfers.
+    assert!(render_personnel_block("team", 3468, &[], 0, &avails, MAX_AVAILABILITY_LINES).is_some());
+}
+
+/// The Editor's TAGGED reports reach the Scout as CLAIMS — attributed, with contradictions
+/// marked by code. Scott's 2026-08-23 ruling in test form: he judges legitimacy, so he must see
+/// who said what and where they disagree. `⇄` is the mark, and BOTH members of a contested pair
+/// are always carried (T3/D6) — collapsing the pair would be deciding for him.
+#[test]
+fn tagged_availability_reports_arrive_attributed_and_contest_marked() {
+    use crate::junctions::editor::render::{mark_contested, RenderClaim};
+
+    let claim = |source: &str, fact: &str| RenderClaim {
+        article_id: 1,
+        source: source.to_string(),
+        fact: fact.to_string(),
+        published_at: Some(100),
+        story_type: "injury".to_string(),
+    };
+
+    // Agreeing claims: attributed, unmarked.
+    let agreeing = mark_contested(&[
+        claim("BBC", "Palmer is out for six weeks"),
+        claim("Sky", "Palmer faces six weeks out"),
+    ]);
+    let out = render_availability_reports(&agreeing).unwrap();
+    assert!(out.contains("- BBC: Palmer is out for six weeks\n"));
+    assert!(!out.contains('⇄'));
+
+    // Contradicting claims: BOTH carried, BOTH marked.
+    let contested = mark_contested(&[
+        claim("BBC", "Palmer will miss the derby"),
+        claim("The Athletic", "Palmer will not miss the derby"),
+    ]);
+    let out = render_availability_reports(&contested).unwrap();
+    assert_eq!(out.matches('⇄').count(), 2, "both sides must be marked");
+    assert!(out.contains("BBC") && out.contains("The Athletic"));
+
+    // KNOWN GAP, asserted so it cannot regress silently. `mark_contested`'s negation list was
+    // tuned for TRANSFER prose and contains "ruled" (as in "ruled out of contention"). On injury
+    // prose "ruled out" therefore reads as negated on BOTH sides, the polarities match, and a
+    // genuine contradiction goes unmarked. The claims are still both carried and both attributed
+    // — the Scout sees the disagreement, he just does not get the pointer. Widening that list is
+    // a change to the Insider's marker too, so it is deliberately NOT done as a side effect here.
+    let unmarked = mark_contested(&[
+        claim("BBC", "Palmer has been ruled out of the derby"),
+        claim("The Athletic", "Palmer has not been ruled out of the derby"),
+    ]);
+    let out = render_availability_reports(&unmarked).unwrap();
+    assert_eq!(out.matches('⇄').count(), 0, "documents the transfer-tuned negation gap");
+    assert!(out.lines().count() == 2, "both claims still reach him regardless");
+
+    // Nothing reported ⇒ no section, same discipline as the personnel block.
+    assert!(render_availability_reports(&[]).is_none());
+}
+
+/// The reports block must not be confusable with the adjudicated record, and the prompt has to
+/// say which is which — a Scout reading a claim as a confirmed fact is the failure this design
+/// exists to avoid.
+#[test]
+fn the_prompt_separates_reported_availability_from_the_confirmed_record() {
+    use crate::junctions::editor::render::{mark_contested, RenderClaim};
+    let p = profile_player();
+    let reports = mark_contested(&[RenderClaim {
+        article_id: 1,
+        source: "BBC".to_string(),
+        fact: "Palmer is out for six weeks".to_string(),
+        published_at: Some(100),
+        story_type: "injury".to_string(),
+    }]);
+    let rendered = render_availability_reports(&reports).unwrap();
+    let prompt = build_stat_prompt(
+        &req("FOOTBALL", "player", "Test Player"),
+        &p,
+        70,
+        None,
+        None,
+        None,
+        None,
+        Some(&rendered),
+    );
+    let reported = prompt.find("Reported availability, NOT yet confirmed").unwrap();
+    let cue = prompt.find("Write the report now").unwrap();
+    assert!(reported < cue);
+    assert!(prompt.contains("- BBC: Palmer is out for six weeks"));
+    // The instructions that make it judgeable rather than quotable.
+    assert!(prompt.contains("These are REPORTS, not the record above"));
+    assert!(prompt.contains("Never state a disputed claim as settled fact"));
+    // And a claim must never be allowed to move a measured number.
+    assert!(prompt.contains("never carry a number from here into a tier or rating above"));
 }
 
 /// No changes ⇒ no section. A heading with nothing under it asserts "nothing moved", which is a
 /// claim the adjudication chain has not made — it may only mean nothing has been adjudicated yet.
 #[test]
 fn nothing_moved_renders_no_section_at_all() {
-    assert!(render_personnel_block("player", 1, &[], 0).is_none());
+    assert!(render_personnel_block("player", 1, &[], 0, &[], 0).is_none());
     let p = profile_player();
     let prompt = build_stat_prompt(
         &req("NBA", "player", "Test Player"),
         &p,
         70,
+        None,
         None,
         None,
         None,
@@ -892,6 +1266,8 @@ fn the_personnel_block_sits_between_the_datapoints_and_the_memory_card() {
             Some("New FC"),
         )],
         1,
+        &[],
+        0,
     )
     .unwrap();
     let mem = "Our prior read: season 2025 PEAK was \"Shooting\" (notability 98/100).";
@@ -903,10 +1279,11 @@ fn the_personnel_block_sits_between_the_datapoints_and_the_memory_card() {
         Some(&personnel),
         None,
         None,
+        None,
     );
     let dp = prompt.find("Datapoints — value").unwrap();
     let pers = prompt
-        .find("Personnel changes since our last read")
+        .find("Personnel and availability since our last read")
         .unwrap();
     let memp = prompt.find("Cross-season memory").unwrap();
     let cue = prompt.find("Write the report now").unwrap();
@@ -922,6 +1299,7 @@ fn the_personnel_block_sits_between_the_datapoints_and_the_memory_card() {
         70,
         None,
         Some(" \n "),
+        None,
         None,
         None,
     );

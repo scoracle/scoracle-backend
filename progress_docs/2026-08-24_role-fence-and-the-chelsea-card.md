@@ -126,12 +126,34 @@ card-shows-that-generation / Jan-1 week blocks):
   tapping deals that generation as a full archive card (score top-middle, hook, body) with a
   back step. `?week=YYYY-N` in the URL; one fetch powers both levels. New:
   `WeekArchive.tsx/css`, `lib/utils/week.ts`, `lib/data/headlines.server.ts`.
-- Verified live: Chelsea week 34 serves 31 entries across all six seats; scoracle.com SSRs
-  the full timeline (Thu Aug 20 → Mon Aug 24).
+- Verified live: Chelsea week 34 serves 31 entries across all six seats.
+- **THE DECK-OF-CARDS CORRECTION** (Scott, same evening: "We CANNOT lose the cards, that's
+  our single most important brand pillar... the deck reflects the week selected"). The first
+  cut rendered the week as a flat merged timeline replacing the deck — wrong surface. Rebuilt:
+  a selected week deals the SAME deck (panes, pile, rail, arrows, swipe untouched); each
+  seat's card face lists ITS headlines for the week (day · time · score · hook, newest
+  first), and tapping one turns the face into that day's card — score top-middle, hook, full
+  body — with a back step. Cards are dealt by archive presence (the Scout filed no headline
+  in week 34, so his card isn't dealt), and all panes share ONE /headlines fetch. The merged
+  cross-seat ordering now exists only in the API payload; if a "whole week at a glance" read
+  is ever wanted, it should be a seventh CARD, never a page.
 - Note: the old `newsScope` bucket dropdown still drives the LIVE News/Transfers cards and is
   hidden in week mode; retiring it in favour of the week axis is a natural follow-up.
 
-## 8. Still open / not this session
+## 8. State at close (2026-08-25 ~00:15Z)
+
+- **PR #12 MERGED** (main `bea6532`) — the role fence, the card contract + mig 232, the
+  body-trail memory, and the week-archive endpoint all landed in one branch. Production
+  released from main same night; API + cognition healthy at `bea65327ed91`. Feature branch
+  deleted everywhere; both checkouts clean on main.
+- Frontend on main at `fd0f954`, deployed to Cloudflare (`9fe4991f`) with the deck-faithful
+  week mode.
+- Follow-ups carried forward: role-fence the mig 206/225/231 fan-out trigger (waste-only);
+  the relational memory card's non-subject leak (mig 163, DB-side); body-trail memory for
+  the Analyst/Scout/Oracle seats; retire `newsScope`; a name-grounding guard for the 3B's
+  occasional invented name; frontend dependabot (1 high).
+
+## 9. Still open / not this session
 
 - **Relational memory contamination.** The memory card (`narrative_context_for_entity`,
   mig 163) still lists non-subject storylines ("this entity's part: passing_mention") and

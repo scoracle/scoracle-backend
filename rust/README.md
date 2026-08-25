@@ -22,8 +22,8 @@ Before working in this folder, read these in order:
 2. `../../scoracle-wiki/PRODUCT_NARRATIVE.md`
 3. `../../scoracle-wiki/DATA_FLOW.md`
 4. This README
-5. `../docs/DEVELOPMENT.md`
-6. `../RUNBOOK.md` for release, rollback, and production operations
+5. `../run_docs/DEVELOPMENT.md`
+6. `../run_docs/RUNBOOK.md` for release, rollback, and production operations
 
 Shared process, vocabulary, and landmark history live in:
 
@@ -395,7 +395,7 @@ git status --short --branch
 ```
 
 3. Identify the owned stage or primitive.
-4. Preserve the product contract. If the contract changes, update `../ENDPOINTS.md`, `../README.md`, and the wiki if it is a landmark.
+4. Preserve the product contract. If the contract changes, update `../run_docs/ENDPOINTS.md`, `../README.md`, and the wiki if it is a landmark.
 5. Add or update focused tests, fixtures, or eval coverage.
 6. Run verification.
 7. Add a progress doc in `../../scoracle-wiki/progress_docs/scoracle-backend/`.
@@ -541,7 +541,7 @@ set DERIVE_WORKER_ENABLED=true for Go fallback where still supported
 restart scoracle-api.service
 ```
 
-See `../RUNBOOK.md` before doing this in production. The rating batch is Rust-only after Step 3.
+See `../run_docs/RUNBOOK.md` before doing this in production. The rating batch is Rust-only after Step 3.
 
 ## Progress Docs
 

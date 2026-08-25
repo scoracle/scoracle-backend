@@ -114,7 +114,7 @@ async fn main() -> Result<()> {
     // narratives, and Phase 9 demolished the legacy rail's two stages, so the news rail is
     // editor -> graph -> transfers -> narratives -> vibe -> momentum -> sigil. The Go derive worker is
     // retired. To revert Step 3 in an emergency, set
-    // DERIVE_WORKER_ENABLED=true (re-arm Go) and stop this service — see RUNBOOK.md §3 rollback.
+    // DERIVE_WORKER_ENABLED=true (re-arm Go) and stop this service — see run_docs/RUNBOOK.md §3 rollback.
     let enabled = parse_enabled_stages(&std::env::var("COGNITION_STAGES").unwrap_or_else(|_| {
         "graph,editor,investigate_entity,fixture_boxscore,rating,momentum,transfers,narratives,vibe,sigil"
             .to_string()

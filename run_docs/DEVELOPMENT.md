@@ -76,7 +76,7 @@ Fresh environments should be created from the current schema snapshot, not by re
 
 Before restarting the Go API, make sure the live schema and prepared statements agree. `db.New` prepares statements at boot and should fail fast against drifted schema.
 
-Full migration operations live in `sql/README-migrations.md` and `RUNBOOK.md`.
+Full migration operations live in `../sql/README-migrations.md` and `RUNBOOK.md`.
 
 ## Cognition memory taxonomy (continuity vs measurement)
 

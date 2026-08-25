@@ -197,24 +197,35 @@ failure), independent of topology.
    loopback, ICMP and established traffic are allowed. Opening `listen_addresses` and
    `pg_hba.conf` is not enough; the packet never reaches Postgres.
 
-   > Two traps, both hit on 2026-08-24.
+   **Edit the FILE, then reload. Do not add the rule at runtime.** `/etc/nftables.conf` opens
+   with `destroy table inet filter`, so `nft -f` tears the table down and rebuilds it from the
+   file — silently discarding anything added with `nft add rule`. Editing the file first makes
+   the reload apply the rule instead of erasing it, and it is persistent in the same step.
+
+   ```bash
+   sudo cp /etc/nftables.conf /etc/nftables.conf.bak
+   sudo sed -i '/tcp dport ssh accept/a\    ip saddr <worker-ip> tcp dport 5432 accept comment "postgres from worker"' /etc/nftables.conf
+   grep -n -B1 -A1 5432 /etc/nftables.conf   # confirm it sits just after the sshd line
+   sudo nft -f /etc/nftables.conf
+   ```
+
+   Placement matters: the rule must precede the chain's `reject`, which is why it is anchored to
+   the sshd line rather than appended.
+
+   > Three traps, all hit on 2026-08-24.
    >
    > **`systemctl is-active nftables` reports `inactive` even when rules are loaded** — it is a
    > oneshot that loads at boot and exits. Never conclude "no firewall" from the service state;
    > read `sudo nft list ruleset`.
    >
-   > **`nft add rule` APPENDS**, which lands the rule after the chain's `reject` and it can
-   > never match. Insert it before the reject.
-
-   ```bash
-   # Insert right after the sshd rule so it precedes the reject
-   H=$(sudo nft -a list chain inet filter input | awk '/tcp dport 22 accept/{print $NF}')
-   sudo nft add rule inet filter input position $H ip saddr <worker-ip> tcp dport 5432 accept
-
-   # Persist — `nft add` is runtime only
-   sudoedit /etc/nftables.conf     # add the same line inside the input chain
-   sudo nft -f /etc/nftables.conf  # confirm the file parses
-   ```
+   > **`nft add rule` APPENDS**, landing the rule after the `reject` where it can never match.
+   >
+   > **`nft -f` on the stock config DESTROYS runtime additions.** Adding a rule live and then
+   > "verifying the file parses" undoes the rule you just added — which looks exactly like the
+   > rule never worked.
+   >
+   > Archbox has no `vi`, so `sudoedit` fails; `nano` is the only editor present. The `sed`
+   > above avoids needing one.
 
    The chain's `reject with icmpx admin-prohibited` means a blocked port surfaces as
    **`ConnectionRefused`, not a timeout** — so "connection refused" here does not mean

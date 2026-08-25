@@ -234,11 +234,41 @@ fn schema_requires_card_score_after_the_storylines() {
     let schema = narratives_format_schema();
     assert_eq!(
         schema["required"],
-        json!(["narratives", "card_score"]),
-        "verdict lands last (sigil doctrine: signs first, verdict second)"
+        json!(["narratives", "headline", "card_score"]),
+        "verdict lands last (sigil doctrine: signs first, the hook second, verdict third)"
     );
     assert_eq!(schema["properties"]["card_score"]["minimum"], json!(1));
     assert_eq!(schema["properties"]["card_score"]["maximum"], json!(99));
+}
+
+#[test]
+fn headline_parses_best_effort_and_takes_the_title_floor() {
+    // The entity-level hook (mig 232): present → settled through guards::settle_title.
+    let parsed = NarrativesParser
+        .parse(r#"{"narratives": [], "headline": "A quiet week around the Bridge", "card_score": 12}"#)
+        .unwrap()
+        .unwrap();
+    assert_eq!(parsed.headline(), Some("A quiet week around the Bridge"));
+    // A pre-headline reply still parses — the hook is simply absent (the card_score pattern).
+    let old = NarrativesParser
+        .parse(r#"{"narratives": [], "card_score": 12}"#)
+        .unwrap()
+        .unwrap();
+    assert_eq!(old.headline(), None);
+    // A junk title costs the title, never the edition: >140 chars with no beat drops to None.
+    let overlong = format!(
+        r#"{{"narratives": [], "headline": "{}", "card_score": 12}}"#,
+        "x".repeat(200)
+    );
+    let dropped = NarrativesParser.parse(&overlong).unwrap().unwrap();
+    assert_eq!(dropped.headline(), None);
+    assert_eq!(dropped.card_score(), Some(12));
+    // The raw-scan fallback holds when prose wraps the object (the salvager's territory).
+    let wrapped = NarrativesParser
+        .parse(r#"Here you go: {"narratives": [], "headline": "Deadline day finds the back door", "card_score": 70} done"#)
+        .unwrap()
+        .unwrap();
+    assert_eq!(wrapped.headline(), Some("Deadline day finds the back door"));
 }
 
 #[test]

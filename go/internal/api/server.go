@@ -125,6 +125,9 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 			r.Get("/team/{id}/roster", h.GetRoster)
 			r.Get("/{entityType:player|team}/{id}/news", h.GetEntityNarratives)
 			r.Get("/{entityType:player|team}/{id}/transfers", h.GetEntityTransfers)
+			// The week archive: every seat's (score, headline, body) for one
+			// week of the year, merged — the card contract's index (2026-08-24).
+			r.Get("/{entityType:player|team}/{id}/headlines", h.GetEntityHeadlines)
 			// Per-entity identity metadata for the page-header island. Frontend
 			// surfaces should hydrate islands from these dedicated endpoints; the
 			// universal /entities directory is the only small local search DB.

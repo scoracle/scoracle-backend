@@ -230,3 +230,5 @@
 228_stat_summaries_trigger_type_widening
 229_player_availability
 230_seeder_era_provider_map_demolition
+231_scout_availability_routing
+232_journalist_insider_headlines

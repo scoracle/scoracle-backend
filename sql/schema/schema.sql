@@ -2,10 +2,10 @@
 -- PostgreSQL database dump
 --
 
-\restrict 1vJdXCxGHav3hFXuqFir8eYrZhbUBX4RYBdKWu5c5w6GX6YHYfTlVK3Xc4Ae4ul
+\restrict 7LAJNvs1hDx4NWbeP0ZBfjjJmBiDqC9qZxDqaIbwVhmT6BWz0tFgfJiImWtQc3b
 
--- Dumped from database version 18.4
--- Dumped by pg_dump version 18.4
+-- Dumped from database version 18.6
+-- Dumped by pg_dump version 18.6
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -7804,6 +7804,7 @@ CREATE TABLE public.insider_scores (
     prompt_version text NOT NULL,
     input_hash text,
     generated_at timestamp with time zone DEFAULT now() NOT NULL,
+    headline text,
     CONSTRAINT insider_scores_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
     CONSTRAINT insider_scores_previous_score_check CHECK (((previous_score IS NULL) OR ((previous_score >= 1) AND (previous_score <= 99)))),
     CONSTRAINT insider_scores_score_check CHECK (((score >= 1) AND (score <= 99)))
@@ -7829,6 +7830,13 @@ COMMENT ON COLUMN public.insider_scores.read IS 'The Insider''s 1-2 sentence wir
 --
 
 COMMENT ON COLUMN public.insider_scores.input_hash IS 'Debounce key: hash over prompt_version + the sorted active board (counterparty:heat:direction:stage per rumor). Content-keyed, not row-id-keyed.';
+
+
+--
+-- Name: COLUMN insider_scores.headline; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.insider_scores.headline IS 'The Insider''s entity-level card hook for this wire wrap (tweet contract: 140 chars, guards::settle_title). NULL = pre-232/is4 row or a dropped title. A dead wire still has no row at all — the Veil stays the no-board answer.';
 
 
 --
@@ -8495,6 +8503,7 @@ CREATE TABLE public.news_summaries (
     card_score smallint,
     card_score_prev smallint,
     storyline_id bigint,
+    headline text,
     CONSTRAINT news_summaries_card_score_check CHECK (((card_score IS NULL) OR ((card_score >= 1) AND (card_score <= 99)))),
     CONSTRAINT news_summaries_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
     CONSTRAINT news_summaries_impact_check CHECK (((impact IS NULL) OR ((impact >= 0) AND (impact <= 100)))),
@@ -8592,6 +8601,13 @@ COMMENT ON COLUMN public.news_summaries.card_score_prev IS 'The previous generat
 --
 
 COMMENT ON COLUMN public.news_summaries.storyline_id IS 'The storyline this telling is a chapter of (mig 219, successor to thread_id). Derived deterministically: on the packet rail a chapter''s storyline is the mode of its cited articles'' storylines (fill_news_summaries_storylines() / the Rust persist). NULL for marker rows and legacy-rail chapters whose articles predate the Desk.';
+
+
+--
+-- Name: COLUMN news_summaries.headline; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.news_summaries.headline IS 'The Journalist''s entity-level card hook (tweet contract: 140 chars, guards::settle_title). Generation-level — identical on every row of a generation, marker rows included (a quiet week hooks as a quiet week). NULL = no-corpus marker, a pre-232 row, or a dropped title (a junk title costs the title, never the card).';
 
 
 --
@@ -12955,5 +12971,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 1vJdXCxGHav3hFXuqFir8eYrZhbUBX4RYBdKWu5c5w6GX6YHYfTlVK3Xc4Ae4ul
+\unrestrict 7LAJNvs1hDx4NWbeP0ZBfjjJmBiDqC9qZxDqaIbwVhmT6BWz0tFgfJiImWtQc3b
 

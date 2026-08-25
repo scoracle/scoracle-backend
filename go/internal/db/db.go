@@ -1035,7 +1035,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			-- new story this run", not "erase this week's story". Return the latest
 			-- content generation inside the selected scope; the current-week freshness
 			-- gate below still ages out cooling stories.
-			SELECT ns.narrative_title AS headline, ns.body, ns.impact, ns.impact_components,
+			SELECT ns.narrative_title AS headline, ns.narrative_title, ns.body, ns.impact, ns.impact_components,
 			       ns.input_news_ids,
 			       COALESCE(ns.narrative_updated_at, ns.source_latest_at, ns.generated_at) AS updated_at,
 			       ns.source_count, ns.source_names, ns.source_latest_at, ns.source_oldest_at,
@@ -1046,7 +1046,11 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			         ELSE 'Developing story...'
 			       END AS trajectory_label,
 			       ns.trajectory_components,
-			       ns.model_version, ns.prompt_version, ns.generated_at
+			       ns.model_version, ns.prompt_version, ns.generated_at,
+			       -- mig 232 / uniform card contract: the generation-level score + hook
+			       -- (identical on every row of the generation) ride the CTE for the two
+			       -- top-level keys below; the item subselect deliberately omits them.
+			       ns.card_score AS gen_card_score, ns.headline AS gen_headline
 			FROM public.news_summaries ns CROSS JOIN req CROSS JOIN scope
 			WHERE ns.entity_type = req.entity_type AND ns.entity_id = req.entity_id AND ns.sport = req.sport
 			  AND ns.body IS NOT NULL
@@ -1068,11 +1072,18 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'entity_type', (SELECT entity_type FROM req),
 			'entity_id', (SELECT entity_id FROM req),
 			'scope', (SELECT json_build_object('key', scope_key, 'label', label, 'starts_at', starts_at, 'ends_at', ends_at) FROM scope),
-			-- The Journalist's card_score retired from serving with drop 3b: per-narrative
-			-- heat (=impact) is the card's number now; card_score stays in storage as
-			-- audit + prompt memory (the insider_scores.read precedent, in reverse).
+			-- The uniform card contract (score + headline + body, 2026-08-24): card_score
+			-- returns to serving (drop 3b retired it; the deck-scores ring reads it) and
+			-- the NEW entity-level headline (mig 232) joins it — both generation-level, so
+			-- max() over the served generation is the value itself. NULL until the entity
+			-- regenerates under the headline contract (lazy invalidation, the 226 norm).
+			'card_score', (SELECT max(gen_card_score) FROM narr),
+			'headline', (SELECT max(gen_headline) FROM narr),
+			-- Items serve BOTH key sets: headline/heat (the drop-3b names, kept for any
+			-- consumer already reading them) AND narrative_title/impact (the frontend
+			-- Narrative type's names — the mismatch left titles blank on the card).
 			'narratives', COALESCE((SELECT json_agg(row_to_json(n) ORDER BY n.heat DESC NULLS LAST)
-			     FROM (SELECT headline, body, impact AS heat, impact_components, input_news_ids,
+			     FROM (SELECT headline, narrative_title, body, impact AS heat, impact, impact_components, input_news_ids,
 			                  updated_at, source_count, source_names, source_latest_at, source_oldest_at,
 			                  trajectory, trajectory_label, trajectory_components,
 			                  model_version, prompt_version, generated_at
@@ -1170,8 +1181,21 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			-- score is NOT NULL by table constraint so the latest row IS latest-non-NULL.
 			-- No row (never wrapped / empty wire) leaves the JSON null → the Veil; an
 			-- emptied board renders EmptyCard anyway, so a lingering score never displays.
-			-- (card_score retired from serving with drop 3b.)
 			'heat', (SELECT s.score FROM public.insider_scores s
+			     WHERE s.entity_type = (SELECT entity_type FROM req)
+			       AND s.entity_id = (SELECT entity_id FROM req)
+			       AND s.sport = (SELECT sport FROM req)
+			     ORDER BY s.generated_at DESC LIMIT 1),
+			-- The uniform card contract (2026-08-24): the same wrap score under the key
+			-- the deck-scores ring actually reads ('heat' kept for existing consumers),
+			-- and the Insider's NEW entity-level hook (mig 232/is5) — NULL until the
+			-- entity's wire re-wraps under is5.
+			'card_score', (SELECT s.score FROM public.insider_scores s
+			     WHERE s.entity_type = (SELECT entity_type FROM req)
+			       AND s.entity_id = (SELECT entity_id FROM req)
+			       AND s.sport = (SELECT sport FROM req)
+			     ORDER BY s.generated_at DESC LIMIT 1),
+			'headline', (SELECT s.headline FROM public.insider_scores s
 			     WHERE s.entity_type = (SELECT entity_type FROM req)
 			       AND s.entity_id = (SELECT entity_id FROM req)
 			       AND s.sport = (SELECT sport FROM req)
@@ -1191,6 +1215,85 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			                  trajectory, trajectory_label, trajectory_components, rank
 			           FROM tr_ranked WHERE rank <= 25) x), '[]'::json)
 		)`,
+		// The WEEK ARCHIVE (the card contract's index, 2026-08-24): every consumer
+		// seat's (score, headline, body) triples for one week of the year, merged
+		// and newest first. Week 1 is Jan 1–7 (Jan-1 blocks, Scott's spec — "week 1
+		// is the first of the year"), computed in the DB's timezone. Entries exist
+		// only where a generation carried a headline, so pre-mig-226/232 rows are
+		// simply absent rather than served blank. The Journalist's entry carries
+		// its storylines as `items` (title+body, impact-ranked); every other seat
+		// is a single body. The Scout's archive score is NULL — his card number is
+		// the rating, which is season-state, not a generation field.
+		// $1 sport · $2 entity_type · $3 entity_id · $4 year · $5 week (1-53).
+		"entity_headlines": `WITH req AS (
+			SELECT upper($1::text) AS sport, lower($2::text) AS entity_type, $3::int AS entity_id,
+			       $4::int AS year, LEAST(GREATEST($5::int, 1), 53) AS week
+		),
+		win AS (
+			SELECT (make_date(req.year, 1, 1) + ((req.week - 1) * 7))::timestamptz AS starts_at,
+			       (make_date(req.year, 1, 1) + (req.week * 7))::timestamptz AS ends_at
+			FROM req
+		),
+		narr_gens AS (
+			SELECT ns.generated_at,
+			       max(ns.headline) AS headline,
+			       max(ns.card_score)::int AS score,
+			       json_agg(json_build_object('title', ns.narrative_title, 'body', ns.body)
+			                ORDER BY ns.impact DESC NULLS LAST)
+			         FILTER (WHERE ns.body IS NOT NULL) AS items
+			FROM public.news_summaries ns, req, win
+			WHERE ns.entity_type = req.entity_type AND ns.entity_id = req.entity_id AND ns.sport = req.sport
+			  AND ns.generated_at >= win.starts_at AND ns.generated_at < win.ends_at
+			  AND ns.headline IS NOT NULL
+			GROUP BY ns.generated_at
+		),
+		entries AS (
+			SELECT 'narratives' AS card, generated_at, score, headline, NULL::text AS body, items
+			FROM narr_gens
+			UNION ALL
+			SELECT 'transfers', s.generated_at, s.score::int, s.headline, s.read, NULL::json
+			FROM public.insider_scores s, req, win
+			WHERE s.entity_type = req.entity_type AND s.entity_id = req.entity_id AND s.sport = req.sport
+			  AND s.generated_at >= win.starts_at AND s.generated_at < win.ends_at
+			  AND s.headline IS NOT NULL
+			UNION ALL
+			SELECT 'vibe', v.generated_at, v.sentiment::int, v.hook, v.prompt, NULL::json
+			FROM public.vibe_scores v, req, win
+			WHERE v.entity_type = req.entity_type AND v.entity_id = req.entity_id AND v.sport = req.sport
+			  AND v.generated_at >= win.starts_at AND v.generated_at < win.ends_at
+			  AND v.hook IS NOT NULL
+			UNION ALL
+			SELECT 'momentum', m.generated_at, m.score::int, m.headline, m.blurb, NULL::json
+			FROM public.momentum_summaries m, req, win
+			WHERE m.entity_type = req.entity_type AND m.entity_id = req.entity_id AND m.sport = req.sport
+			  AND m.generated_at >= win.starts_at AND m.generated_at < win.ends_at
+			  AND m.headline IS NOT NULL
+			UNION ALL
+			SELECT 'sigil', g.generated_at, g.score::int, g.headline, g.reading, NULL::json
+			FROM public.sigil_synthesis g, req, win
+			WHERE g.entity_type = req.entity_type AND g.entity_id = req.entity_id AND g.sport = req.sport
+			  AND g.generated_at >= win.starts_at AND g.generated_at < win.ends_at
+			  AND g.headline IS NOT NULL
+			UNION ALL
+			SELECT 'scouting', st.generated_at, NULL::int, st.headline, st.body, NULL::json
+			FROM public.stat_summaries st, req, win
+			WHERE st.entity_type = req.entity_type AND st.entity_id = req.entity_id AND st.sport = req.sport
+			  AND st.generated_at >= win.starts_at AND st.generated_at < win.ends_at
+			  AND st.headline IS NOT NULL
+		)
+		SELECT json_build_object(
+			'page', 'headlines',
+			'sport', lower((SELECT sport FROM req)),
+			'entity_type', (SELECT entity_type FROM req),
+			'entity_id', (SELECT entity_id FROM req),
+			'year', (SELECT year FROM req),
+			'week', (SELECT week FROM req),
+			'starts_at', (SELECT starts_at FROM win),
+			'ends_at', (SELECT ends_at FROM win),
+			'entries', COALESCE((SELECT json_agg(row_to_json(e) ORDER BY e.generated_at DESC)
+			     FROM entries e), '[]'::json)
+		)`,
+
 		// The Influencer's per-entity Vibe card, restored to its own route after
 		// the O14 rename handed the /vibes path to the Oracle's Sigil. Statement
 		// lives in vibe.go. $1 sport · $2 entity_type · $3 entity_id.

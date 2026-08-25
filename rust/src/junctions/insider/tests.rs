@@ -21,7 +21,12 @@ fn heat_item(cp: &str, heat: i32, direction: &str, stage: &str, summary: &str) -
 #[test]
 fn insider_score_schema_reads_first_lands_1_to_99() {
     let schema = insider_score_format_schema();
-    assert_eq!(schema["required"], serde_json::json!(["read", "score"]));
+    // is5: read → headline → score. The wire is read first, titled second, and the verdict
+    // lands last (sigil doctrine) — the required order IS the generation order.
+    assert_eq!(
+        schema["required"],
+        serde_json::json!(["read", "headline", "score"])
+    );
     assert_eq!(
         schema["properties"]["score"]["minimum"],
         serde_json::json!(1)
@@ -54,6 +59,31 @@ fn insider_score_reply_parses_and_clamps() {
     assert!(parse_insider_score_reply(r#"{"read": "  ", "score": 50}"#).is_none());
     assert!(parse_insider_score_reply(r#"{"read": "x"}"#).is_none());
     assert!(InsiderScoreParser.parse("not a reply").is_err());
+}
+
+#[test]
+fn insider_headline_is_best_effort_and_settled() {
+    // is5: the hook rides the wrap and takes the shared title floor at parse.
+    let with = parse_insider_score_reply(
+        r#"{"read": "The wire is quiet.", "headline": "Nobody is calling about anyone here", "score": 8}"#,
+    )
+    .unwrap();
+    assert_eq!(
+        with.headline.as_deref(),
+        Some("Nobody is calling about anyone here")
+    );
+    // A pre-is5 reply shape (no headline key) still parses — the hook is simply absent.
+    let without =
+        parse_insider_score_reply(r#"{"read": "One advancing call.", "score": 55}"#).unwrap();
+    assert_eq!(without.headline, None);
+    // A junk title costs the title, never the wrap: >140 chars with no beat to cut drops.
+    let overlong = format!(
+        r#"{{"read": "Quiet.", "headline": "{}", "score": 5}}"#,
+        "x".repeat(200)
+    );
+    let settled = parse_insider_score_reply(&overlong).unwrap();
+    assert_eq!(settled.headline, None);
+    assert_eq!(settled.score, 5);
 }
 
 #[test]

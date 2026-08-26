@@ -303,6 +303,8 @@ impl OpenAiClient {
         Ok((
             GenerateResult {
                 response: content,
+                // The OpenAI-compatible path (oMLX) has no thinking channel; empty by contract.
+                thinking: String::new(),
                 model: if parsed.model.is_empty() {
                     self.model.clone()
                 } else {

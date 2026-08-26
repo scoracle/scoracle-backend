@@ -2,11 +2,29 @@
 //!
 //! Targets the local Ollama instance (default http://localhost:11434). No external
 //! providers are used in production; all live inference stays in the Rust cognition layer.
+//!
+//! **`/api/chat`, not `/api/generate` — since 2026-08-25.** The generate endpoint does not
+//! implement thinking separation for granite4.2: `think: true` returned NO `thinking` field
+//! and the model's whole scratchpad arrived in `response` (measured live — a vibe card
+//! shipped as its own word-count deliberation; momentum went unparseable 3/3). `/api/chat`
+//! separates cleanly (`message.thinking` vs `message.content`), which is what makes the
+//! per-role `_THINK` knob usable on the seats where deliberation pays. The visible answer
+//! is `message.content` ALONE — thinking is carried on `GenerateResult` for ledger/eval
+//! inspection and must never be concatenated into served prose. `system` + `prompt` map to
+//! a two-message array; the model template application is equivalent, and the fixture gate
+//! re-froze the equivalence the day of the cutover.
 
 use crate::util::truncate;
 use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
+
+/// Extra `num_predict` granted to a think-enabled call — the reasoning channel's budget,
+/// centralized here because thinking is the CLIENT's property (`ModelSpec.think`), never the
+/// junction's. Sized from the 2026-08-25 measurements: granite4.2's temp-0 scratchpad on card
+/// tasks ran 300-800 tokens, and its ~1.7×-dense tokenizer means 600 tokens carries what
+/// ~1,000 tokens of the prior resident's vocabulary would.
+pub const THINK_NUM_PREDICT_HEADROOM: i32 = 600;
 
 #[derive(Clone)]
 pub struct OllamaClient {
@@ -29,13 +47,17 @@ pub struct OllamaClient {
 /// its own default, ~0.8, NON-deterministic) and `Some(t)` sends exactly `t` —
 /// INCLUDING `Some(0.0)`. `num_predict` is still omitted when `<= 0`.
 ///
-/// `num_ctx` (omitted when `<= 0`) overrides Ollama's server default context window —
-/// 4096 tokens on this box (verified live via `ollama ps`), far below what the models
-/// support (mistral:7b 32k). A prompt + `num_predict` sum that exceeds the window
-/// silently evicts the EARLIEST tokens (the system prompt) mid-generation, degrading
-/// rule-following with no error anywhere. Only set it where the budget genuinely
-/// needs it: KV cache scales with the window, and the GPU fit (L7) was measured at
-/// the 4096 default.
+/// `num_ctx` `<= 0` now sends the 4096 envelope EXPLICITLY rather than omitting the
+/// field. Omission used to mean "Ollama's server default, 4096 on this box" — that
+/// assumption broke on 2026-08-25: a model's own Modelfile parameter outranks the
+/// server default, and granite4.2's ships `num_ctx 131072`, so an omitting call
+/// loaded a 25GB KV monster onto a 16GB host (55/45 CPU-split, and `OLLAMA_KEEP_ALIVE=-1`
+/// pinned it there). Every production junction already passes an explicit window;
+/// the omitting callers were `eval_tasks.rs` fixtures, whose measurements should run
+/// at the production envelope anyway. The general law, same as the per-role `_THINK`
+/// contract: never inherit a model's own default — state the window on every call.
+/// A prompt + `num_predict` sum that exceeds the window still silently evicts the
+/// EARLIEST tokens (the system prompt) mid-generation; size budgets accordingly.
 #[derive(Clone, Debug, Default)]
 pub struct GenerateOptions {
     pub system: Option<String>,
@@ -63,20 +85,34 @@ pub struct GenerateOptions {
 /// GenerateResult holds the text output plus perf metrics. Callers doing
 /// debounce / perf tuning read the metrics; callers that just want the answer
 /// read `response`.
+///
+/// `thinking` is the model's separated reasoning when the role runs `_THINK=true`
+/// (empty otherwise, and empty on models without the capability). It exists for
+/// ledger capture and eval display ONLY — no parser may read it, no card may
+/// carry it. `eval_count` counts thinking + answer tokens together (that shared
+/// budget is why think-enabled roles need `num_predict` headroom).
 #[derive(Clone, Debug)]
 pub struct GenerateResult {
     pub response: String,
+    pub thinking: String,
     pub model: String,
     pub total_duration: Duration,
     pub eval_count: i32,
 }
 
 #[derive(Serialize)]
+struct ChatTurn<'a> {
+    role: &'a str,
+    content: &'a str,
+}
+
+/// The `/api/chat` request. `GenerateOptions::system` becomes the system turn and the
+/// caller's prompt the user turn — the same template application `/api/generate`'s
+/// `system`/`prompt` pair produced, on the endpoint that can separate thinking.
+#[derive(Serialize)]
 struct GenerateRequest<'a> {
     model: &'a str,
-    prompt: &'a str,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    system: Option<&'a str>,
+    messages: Vec<ChatTurn<'a>>,
     stream: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     format: Option<serde_json::Value>,
@@ -89,15 +125,13 @@ struct GenerateRequest<'a> {
 /// The POSTed shape when a caller pins schema property order (`format_schema_raw`): identical
 /// to [`GenerateRequest`] except `format` is `RawValue`, serialized byte-for-byte. A separate
 /// struct because `serde_json::to_value` cannot represent `RawValue` — the ledger/inspection
-/// copy keeps flowing through `GenerateRequest`, whose `Value` form it always stored. For a
+/// copy keeps flowing through [`GenerateRequest`], whose `Value` form it always stored. For a
 /// caller with only `format_schema`, the wire bytes are identical either way (`Value::to_string`
 /// is the same serialization `.json(&req)` performs).
 #[derive(Serialize)]
 struct GenerateRequestWire<'a> {
     model: &'a str,
-    prompt: &'a str,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    system: Option<&'a str>,
+    messages: Vec<ChatTurn<'a>>,
     stream: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     format: Option<&'a serde_json::value::RawValue>,
@@ -107,12 +141,20 @@ struct GenerateRequestWire<'a> {
     options: Option<serde_json::Value>,
 }
 
+#[derive(Deserialize, Default)]
+struct ChatTurnOwned {
+    #[serde(default)]
+    content: String,
+    #[serde(default)]
+    thinking: String,
+}
+
 #[derive(Deserialize)]
 struct GenerateResponse {
     #[serde(default)]
     model: String,
     #[serde(default)]
-    response: String,
+    message: ChatTurnOwned,
     #[serde(default)]
     total_duration: i64, // nanoseconds
     #[serde(default)]
@@ -164,7 +206,7 @@ impl OllamaClient {
         &self.model
     }
 
-    /// build_request assembles the `/api/generate` request body for `(prompt, opts)`.
+    /// build_request assembles the `/api/chat` request body for `(prompt, opts)`.
     /// Single source of truth shared by `generate` (what we actually POST) and
     /// `request_body` (used by request builders and ledger capture), so stored
     /// inspection data cannot drift from the sent request shape.
@@ -178,15 +220,52 @@ impl OllamaClient {
             options.insert("temperature".into(), serde_json::json!(t));
         }
         if opts.num_predict > 0 {
-            options.insert("num_predict".into(), serde_json::json!(opts.num_predict));
+            // Thinking shares num_predict with the answer, and granite4.2's temp-0
+            // deliberation on card tasks runs 300-800 tokens — measured 2026-08-25: at the
+            // seats' own budgets a think-enabled call spent EVERYTHING on the scratchpad
+            // and returned an empty card (0/23 vibe, 0/71 rating on the fixture gate).
+            // The headroom rides the THINK DECISION, not the seat: the card budget stays
+            // the junction's, the channel budget is added here, in the one place that
+            // knows think is on. Granite's ~1.7×-dense tokenizer is what makes this
+            // affordable — 600 tokens holds what ~1,000 ministral-era tokens would.
+            // Callers must still mind the window: prompt + num_predict + headroom over
+            // num_ctx silently evicts the system prompt (see the GenerateOptions doc), so
+            // a window-filling seat (the Scout) wants evidence trim or a bigger window
+            // before think, and the fixture gate is the arbiter per seat.
+            let headroom = if self.think == Some(true) {
+                THINK_NUM_PREDICT_HEADROOM
+            } else {
+                0
+            };
+            options.insert(
+                "num_predict".into(),
+                serde_json::json!(opts.num_predict + headroom),
+            );
         }
-        if opts.num_ctx > 0 {
-            options.insert("num_ctx".into(), serde_json::json!(opts.num_ctx));
+        // Always explicit — an omitted num_ctx inherits the MODEL's Modelfile default
+        // (granite4.2: 131072), not the server's. See the GenerateOptions doc.
+        options.insert(
+            "num_ctx".into(),
+            serde_json::json!(if opts.num_ctx > 0 {
+                opts.num_ctx
+            } else {
+                crate::route::resolve_voice_num_ctx(None)
+            }),
+        );
+        let mut messages = Vec::with_capacity(2);
+        if let Some(system) = opts.system.as_deref() {
+            messages.push(ChatTurn {
+                role: "system",
+                content: system,
+            });
         }
+        messages.push(ChatTurn {
+            role: "user",
+            content: prompt,
+        });
         GenerateRequest {
             model: &self.model,
-            prompt,
-            system: opts.system.as_deref(),
+            messages,
             stream: false,
             format: match (&opts.format_schema, opts.json_mode) {
                 (Some(schema), _) => Some(schema.clone()),
@@ -228,14 +307,20 @@ impl OllamaClient {
             None => None,
         };
 
-        let url = format!("{}/api/generate", self.base_url);
+        let url = format!("{}/api/chat", self.base_url);
         let request = self.http.post(&url);
         let request = match &raw_format {
             Some(raw) => {
                 let wire = GenerateRequestWire {
                     model: req.model,
-                    prompt: req.prompt,
-                    system: req.system,
+                    messages: req
+                        .messages
+                        .iter()
+                        .map(|m| ChatTurn {
+                            role: m.role,
+                            content: m.content,
+                        })
+                        .collect(),
                     stream: req.stream,
                     format: Some(raw),
                     think: req.think,
@@ -268,7 +353,8 @@ impl OllamaClient {
 
         Ok((
             GenerateResult {
-                response: parsed.response,
+                response: parsed.message.content,
+                thinking: parsed.message.thinking,
                 model: parsed.model,
                 total_duration: Duration::from_nanos(parsed.total_duration.max(0) as u64),
                 eval_count: parsed.eval_count,

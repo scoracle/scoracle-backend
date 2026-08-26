@@ -604,6 +604,7 @@ mod tests {
             Ok((
                 GenerateResult {
                     response: String::new(),
+                    thinking: String::new(),
                     model: "mock".to_string(),
                     total_duration: Duration::ZERO,
                     eval_count: 0,

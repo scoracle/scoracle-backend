@@ -14,6 +14,19 @@ Post the **Step-3 cutover (2026-06-28)**, the **junctions refactor**, and the **
 - **rating / PEAK** also runs as the **`statcommentary`** batch binary (current-season producer
   and explicit historical backfill tool).
 
+**The prompt architecture (2026-08-25, THE STORY FORM):** structure is shared, voice is the
+seat's. `src/junctions/form.rs` holds the format every character composes — `STORY_FORM`
+(lead + claim-paragraphs), `CLAIM_SELECTION` (what deserves a statement), `WIRE_COPY` (the AP
+register), `card_face` — and each seat's `prompt.rs` describes the character and its
+invariants. A new model drops into four layers that move independently: engine
+(`COGNITION_ROUTE_*` env, adopted only on a fixture-gate win), structure (`form.rs`), voice
+(seat `prompt.rs`), floor (`guards.rs` + the fixture gate). Model-call transport is
+**`/api/chat`** (see `ollama.rs` — the generate endpoint cannot separate thinking, and every
+role carries an explicit `COGNITION_ROUTE_<ROLE>_THINK`, false fleet-wide on granite4.2:3b,
+measured). The resident-model switch and the day's measurements:
+`../run_docs/2026-08-25_resident-model-switch-granite.md` and
+`../progress_docs/2026-08-25_granite-resident-and-the-story-form.md`.
+
 ## Start Here
 
 Before working in this folder, read these in order:

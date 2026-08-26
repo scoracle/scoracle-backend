@@ -176,7 +176,10 @@ failure), independent of topology.
 ### Prerequisites
 
 1. **The machine has a GPU and its own ollama**, serving the same model tag the roles name
-   (currently `ministral-3:3b` — check `COGNITION_ROUTE_*` on an existing host).
+   (currently `granite4.2:3b` since 2026-08-25 — see
+   `run_docs/2026-08-25_resident-model-switch-granite.md`; check
+   `COGNITION_ROUTE_*` on an existing host, and note every role MUST carry an
+   explicit `COGNITION_ROUTE_<ROLE>_THINK` on granite).
    Verify: `curl -s localhost:11434/api/tags`.
 2. **Postgres accepts connections from it.** On the DB host (`archbox`):
 

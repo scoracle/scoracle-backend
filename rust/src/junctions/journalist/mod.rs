@@ -453,7 +453,12 @@ pub async fn load_packet_corpus(
 /// The 4,096 window's arithmetic: ~830 tok of system prompt + ~600 of framing (≤5 packets)
 /// + ~500 of memory/SIGNALS + ~500 reserved for the reply leaves ~1,500 tok ≈ 6,000 chars
 /// of evidence — about 15 packet items, roughly double the legacy small-window article cap.
-const PACKET_NEWS_BUDGET_CHARS: usize = 6_000;
+///
+/// 6,000 → 5,200 (2026-08-26): n22 composed the form blocks (~200 tok more system prompt)
+/// and the fat tail started 400ing over the window — 7 busy entities failed the wave with
+/// "request (4115 tokens) exceeds the available". The budget yields the margin back; the
+/// newest-first keep rule and the named cut (A5) are unchanged.
+const PACKET_NEWS_BUDGET_CHARS: usize = 5_200;
 
 /// apply_news_budget keeps the corpus prefix whose PROJECTED render cost (the same title +
 /// capped-context arithmetic `build_narratives_prompt` spends) fits `budget`, returning the

@@ -2211,7 +2211,25 @@ async fn score_insider_entity(
 ) -> Result<()> {
     let heat = load_transfer_heat(&hx.pool, entity_type, entity_id, sport).await?;
     if heat.is_empty() {
-        return Ok(());
+        // The Veil, refined (2026-08-26): a wire never scored stays unscored — no board, no
+        // call. But a wire that WAS scored and has since died must file its closing quiet
+        // read ONCE, or the last live read is served forever. Measured: Sunderland's card
+        // carried a **-dressed is3 read from 08-12 for two weeks — its board expired, this
+        // early return blocked every correction, and three prompt bumps (is4 hygiene, is5
+        // headline, is6 form) never reached it. The empty-board pre-image hashes constant,
+        // so after the one quiet filing the debounce below skips until the board revives —
+        // a dead board still pays nothing PER DRAIN, it just no longer skips the funeral.
+        let has_row = sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS(SELECT 1 FROM insider_scores WHERE entity_type = $1 AND entity_id = $2 AND sport = $3)",
+        )
+        .bind(entity_type)
+        .bind(entity_id)
+        .bind(sport)
+        .fetch_one(&hx.pool)
+        .await?;
+        if !has_row {
+            return Ok(());
+        }
     }
     let input_hash = hash_components(&build_insider_score_input_components(&heat));
     let key = EntityKey {

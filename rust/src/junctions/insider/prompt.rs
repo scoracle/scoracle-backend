@@ -409,11 +409,21 @@ pub fn build_insider_score_prompt(
             b.push('\n');
         }
     }
-    b.push_str(&format!(
-        "\nTHE ACTIVE WIRE ({} live vetted rumor(s), latest per counterparty):\n",
-        heat.len()
-    ));
-    write_heat_lines(&mut b, heat);
+    if heat.is_empty() {
+        // The dead-board filing (2026-08-26, the refined Veil in mod.rs): every previously
+        // vetted rumor has expired or resolved, and the card must stop serving the last live
+        // read. The contract already blesses this exact filing — a quiet wire reported
+        // straight, in two sentences, is the honest READ and a real headline.
+        b.push_str(
+            "\nTHE ACTIVE WIRE is empty: every previously vetted rumor has expired or been resolved. File the quiet wire — no live calls, no manufactured movement.\n",
+        );
+    } else {
+        b.push_str(&format!(
+            "\nTHE ACTIVE WIRE ({} live vetted rumor(s), latest per counterparty):\n",
+            heat.len()
+        ));
+        write_heat_lines(&mut b, heat);
+    }
     b.push_str("\nReturn the JSON object now.");
     b
 }

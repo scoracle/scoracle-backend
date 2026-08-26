@@ -414,6 +414,23 @@ mod tests {
     }
 
     #[test]
+    fn an_exact_double_collapses_and_near_doubles_do_not() {
+        // The team:14 momentum shape, measured 2026-08-25: the whole READ repeated inline.
+        let double = "The form is flat, and the mood is drifting up. The tape shows steady \
+                      progress. The form is flat, and the mood is drifting up. The tape shows \
+                      steady progress.";
+        assert_eq!(
+            clean_served_prose(double),
+            "The form is flat, and the mood is drifting up. The tape shows steady progress."
+        );
+        // One changed word = not a double = untouched.
+        let near = "The room waits for a sign. The room waits for the sign.";
+        assert_eq!(clean_served_prose(near), near);
+        // A short deliberate refrain stays (under the 8-word floor).
+        assert_eq!(clean_served_prose("So it holds. So it holds."), "So it holds. So it holds.");
+    }
+
+    #[test]
     fn form_scaffolding_labels_are_stripped_and_meta_parens_truncate() {
         // Measured on the 2026-08-25 deck probes, the day THE STORY FORM shipped.
         let s = "Claim: tension, carried by the back line.\nEvidence: three defeats and a silent bench.\nClose: the room braces for the opener.";
@@ -631,7 +648,39 @@ pub fn clean_served_prose(s: &str) -> String {
         })
         .collect::<Vec<_>>()
         .join("\n");
-    truncate_self_review(&stripped).trim().to_string()
+    collapse_exact_double(truncate_self_review(&stripped).trim())
+}
+
+/// A body that is EXACTLY two identical halves collapses to one — granite4.2's third measured
+/// self-duplication of 2026-08-25 (a momentum READ repeated verbatim inline; a vibe body
+/// restated in full). Word-exact halves only: no honest prose is a perfect double of itself,
+/// so the check cannot fire on a deliberate refrain, and anything short of exact stays
+/// untouched. Runs after the self-review truncation, whose markers introduce most restatements.
+fn collapse_exact_double(prose: &str) -> String {
+    let words: Vec<&str> = prose.split_whitespace().collect();
+    let n = words.len();
+    if n >= 8 && n % 2 == 0 && words[..n / 2] == words[n / 2..] {
+        // Rebuild from the ORIGINAL text so intra-half newlines survive: cut at the byte
+        // offset where the second half's first word begins.
+        let mut seen = 0usize;
+        let mut cut = prose.len();
+        let mut it = prose.char_indices().peekable();
+        let mut in_word = false;
+        while let Some((i, c)) = it.next() {
+            if c.is_whitespace() {
+                in_word = false;
+            } else if !in_word {
+                in_word = true;
+                if seen == n / 2 {
+                    cut = i;
+                    break;
+                }
+                seen += 1;
+            }
+        }
+        return prose[..cut].trim_end().to_string();
+    }
+    prose.to_string()
 }
 
 /// Where a served body stops narrating sport and starts grading its own answer, cut it there.

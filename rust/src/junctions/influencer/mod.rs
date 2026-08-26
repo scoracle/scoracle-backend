@@ -561,12 +561,25 @@ pub fn parse_vibe_reply(raw: &str) -> Result<(i32, Option<String>, String)> {
             prompt = t[5..].trim().to_string();
             for extra in &lines[i + 1..] {
                 let e = extra.trim();
-                if e.is_empty() || e.to_uppercase().starts_with("HOOK:") {
+                if e.to_uppercase().starts_with("HOOK:") {
                     continue;
                 }
-                prompt.push(' ');
+                // THE STORY FORM (2026-08-25): a blank line is a paragraph break and part of
+                // the card — the old join flattened every trailing line into one blurb, which
+                // would silently undo the form at the last step. Runs of blanks collapse to
+                // one break; a leading or trailing break never survives the trims.
+                if e.is_empty() {
+                    if !prompt.is_empty() && !prompt.ends_with("\n\n") {
+                        prompt.push_str("\n\n");
+                    }
+                    continue;
+                }
+                if !prompt.is_empty() && !prompt.ends_with("\n\n") {
+                    prompt.push(' ');
+                }
                 prompt.push_str(e);
             }
+            prompt = prompt.trim_end().to_string();
         }
     }
 

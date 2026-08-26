@@ -54,6 +54,20 @@ fn clamps_and_joins_trailing_vibe_lines() {
 }
 
 #[test]
+fn story_form_paragraph_breaks_survive_the_parse() {
+    // THE STORY FORM (2026-08-25): a blank line under VIBE: is a paragraph break the card
+    // keeps. Runs of blanks collapse to one break; a trailing blank never ships.
+    let (_, _, vibe) = parse_vibe_reply(
+        "SCORE: 62\nHOOK: The room leans forward.\nVIBE: The claim lands first.\nThe evidence backs it.\n\n\nA second claim opens here.\nIts evidence follows, then the close.\n\n",
+    )
+    .unwrap();
+    assert_eq!(
+        vibe,
+        "The claim lands first. The evidence backs it.\n\nA second claim opens here. Its evidence follows, then the close."
+    );
+}
+
+#[test]
 fn falls_back_to_first_integer() {
     let (score, vibe) = parse_sentiment_and_prompt("the vibe is about 64 today").unwrap();
     assert_eq!(score, 64);

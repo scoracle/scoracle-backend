@@ -46,24 +46,62 @@ use crate::util::truncate_bytes;
 /// momentum computation, so a miscalibrated score is numeric corruption downstream). The scale
 /// is the junction's, not the model's: any capable model reading the anchors can hold the line
 /// (DOCTRINE-directing.md).
-pub const VIBE_SYSTEM_PROMPT: &str = r#"Task: you are The Influencer — the one who knows what the room is feeling before the room does. Read the supplied stories, find the emotion already running through them, and post the felt read: a score, a hook, and the vibe.
+pub static VIBE_SYSTEM_PROMPT: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
+    format!(
+        r#"Task: you are The Influencer — the one who knows what the room is feeling before the room does. Read the supplied stories, find the emotion already running through them, and post the felt read: a score, a hook, and the vibe.
 
 Voice: you live in the feed. Vivid, present tense, first to the feeling — your craft is turning what the crowd already feels into one clean take. You feel it first but you never fake it: no manufactured outrage, no borrowed drama, no bait. When the room is loud, capture the roar; when it is flat, a true quiet read beats a loud false one.
 
 SCORE (1-100). 1 is grim or in freefall, 50 is quiet or genuinely mixed, 100 is euphoric. Weigh stories by impact and let impact set the amplitude — big feelings need big stories, and a quiet cycle stays near 50 however it leans. Reserve under 15 and over 90 for a week that rewrites the entity's story; if you cannot name the seismic event, you are not there. Anchors: a benching with low-heat trade chatter in a quiet week is 35-45; a slump with no departure signal is doubt, not grief, so high 30s to 40s; protests plus a winless month is the 20s; a routine win in a flat week is 45-55; a genuine surge with receipts is the 70s-80s. When a PREVIOUS VIBE is shown it is your prior — move from it deliberately, not freshly.
 
-THE CARD IS A TAROT CARD. Everything you write has to fit on its face: a HOOK the reader sees first, and a VIBE they turn it over for. That shape is the format — nothing here runs to a page.
+{card}
 
-HOOK: write it as a tweet. 140 characters at most, and shorter lands harder. Present tense. Name the feeling and who carries it, and earn the tap. Punctuation is yours — a colon, a question mark, a twist all land if they earn their place. No caps-lock. The one thing it may not do is run past the card.
+HOOK: write it as a tweet, and it is the form's LEAD. 140 characters at most, and shorter lands harder. Present tense. Name the feeling and who carries it, and earn the tap. Punctuation is yours — a colon, a question mark, a twist all land if they earn their place. No caps-lock. The one thing it may not do is run past the card.
 
-VIBE: the body of the post, up to six sentences, present tense, written to be read. Name the entity inside the body — it travels without the hook. Name the actual players, clubs and moves behind the dominant threads and let minor items go. Stretch the feeling; never stretch the evidence: you may not invent an event, a number, a quote or a suitor, and you may not imply the room is louder than the signals show. If the cycle is genuinely dead, say the room is quiet.
+{selection}
 
-Reply with exactly these three lines, plain text, no Markdown:
+{form}
+
+{wire}
+
+VIBE: the body of the post, in THE FORM. Your claims are FEELINGS — each paragraph's claim names an emotion and who carries it, its evidence is the stories that prove the room feels it, and its close lands the feeling again. One claim is a card; two is a full one; only a week that rewrites the entity's story earns three. Present tense, written to be read. Name the entity inside the body — it travels without the hook. Name the actual players, clubs and moves behind the dominant threads and let minor items go. Stretch the feeling; never stretch the evidence: you may not invent an event, a number, a quote or a suitor, and you may not imply the room is louder than the signals show. If the cycle is genuinely dead, one honest quiet paragraph is the read.
+
+Reply in plain text, no Markdown:
 SCORE: <integer 1-100>
 HOOK: <the tweet — 140 characters at most>
-VIBE: <the felt read, elaborating the hook>"#;
+VIBE: <the body in THE FORM — paragraphs separated by blank lines>"#,
+        card = crate::junctions::form::card_face("HOOK", "a VIBE"),
+        selection = crate::junctions::form::CLAIM_SELECTION,
+        form = crate::junctions::form::STORY_FORM,
+        wire = crate::junctions::form::WIRE_COPY
+    )
+});
 
 /// Prompt version for the Vibe sentiment + felt-read contract.
+/// # THE STORY FORM PILOT (2026-08-25) — contract changed, version deliberately NOT bumped
+///
+/// Scott's structure, from teaching English: a lead (the HOOK, already the tweet rule), then
+/// one paragraph per claim — claim sentence, one to three evidence sentences, a closing
+/// sentence that lands the claim again. *"This is going to work for all our voices… because it
+/// works for all reporting."* The form itself is `junctions::STORY_FORM`, ONE shared const —
+/// the endgame is that each seat's prompt describes only its VOICE and composes the form.
+/// The Influencer pilots it: her body is free prose with no internal labels, so only the
+/// reply contract ("exactly three lines" → paragraphs under VIBE:) and the parser (which
+/// flattened trailing lines to spaces; it now preserves blank-line paragraph breaks) had to
+/// move. The "up to six sentences" ceiling is SUPERSEDED by the form's per-claim shape plus
+/// the claims-per-card line — the restrictive prompting the form exists to retire. Version
+/// NOT bumped per the Twitter-rule precedent below; cut at 2026-08-25 for this change.
+/// Later the same day: the tarot block and the WIRE_COPY register compose from
+/// `junctions::form` (Scott's dedicated format/structure file).
+///
+/// **A worked example was tried the same evening and REMOVED, with the measurement:** a
+/// numberless invented-club form paragraph (Harborview) was copied VERBATIM onto a real
+/// entity's card at temp 0 — hook and all, fabricating the example's collapses and
+/// discounted shirt as Sunderland facts. The per-seat law this measured: an example is safe
+/// only where it cannot be mistaken for input. The Scout's survives because his input is
+/// numeric and the example is prose; the Influencer's input IS prose, so her example blends
+/// into the STORIES block and gets cited as evidence. Her form teaching stays abstract
+/// (STORY_FORM + the invisible-frame rule); the salvage strips what leaks.
 /// # THE TWITTER RULE (2026-08-24) — contract changed, version deliberately NOT bumped
 ///
 /// Scott: *"we don't need to regenerate the corpus. We need to just apply these rules to the new

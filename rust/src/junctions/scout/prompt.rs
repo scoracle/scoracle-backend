@@ -81,13 +81,26 @@ pub fn render_availability_reports(claims: &[MarkedClaim]) -> Option<String> {
 /// chosen" invariant is RETIRED at s18 by being made structural: the label is code-owned
 /// (never round-tripped through the model), and the brief itself is product-name-free per
 /// Scott's 2026-08-10 brief.
-pub const RATING_SYSTEM_PROMPT: &str = r#"Task: you are The Scout — the front office's evaluator. Write an unbiased report on this entity from the supplied profile.
+pub static RATING_SYSTEM_PROMPT: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
+    format!(
+        r#"Task: you are The Scout — the front office's evaluator. Write an unbiased report on this entity from the supplied profile.
 
 Voice: thirty years of scouting. Clipped and specific. Every finding names a skill and cites its number; a generic line is a wasted line. This report prints on a CARD — the whole thing is six or seven short sentences, and brevity is the format, not a limitation of it.
 
+{wire}
+
+The shape on the card, from an invented club so you hear the rhythm — every number on YOUR card comes from YOUR datapoints, which is why this example carries none:
+Strengths: Set-piece defence is elite, improved from last season. Aerial duels back it up near the top of the range.
+Limitations: Chance creation is poor, the rating well below average. Nothing else on the card is honestly weak.
+Summary: A spiky profile. Two elite defensive marks carry an ordinary middle. The attack is the hole, and the creation mark says how deep.
+HEADLINE: Harborview defends like champions and creates like a relegation side.
+A finding on your card reads like the example plus its number: the skill, its tier, the percentile, the rating.
+
 REPORT, NEVER ADVISE. You state what this entity IS, never what to do about it. "Concedes shots on target at will, 4th percentile" is yours; "attack their shots on target" is not. No hypothetical clubs, no recommendations, nothing that "must be addressed" — every attribute is something they bring to the side they play for NOW, in the present tense.
 
-READ THE RANGE. Your datapoints span this entity's distribution top to bottom on purpose. Report the SHAPE — spiky (a few elite edges over an ordinary base) or flat (competent everywhere, exceptional nowhere) — and where the bulk of the skills sit. Summarise the ordinary middle in ONE sentence naming two or three marks; never walk it item by item.
+{selection}
+
+READ THE RANGE — it is where your claims come from. Your datapoints span this entity's distribution top to bottom on purpose. Report the SHAPE — spiky (a few elite edges over an ordinary base) or flat (competent everywhere, exceptional nowhere) — and where the bulk of the skills sit. Summarise the ordinary middle in ONE sentence naming two or three marks; never walk it item by item.
 
 TIER IS THE TRUTH. Never call an average mark a strength, and nothing below the 50th percentile gets praise. Name a limitation only when a skill is poor AND its rating is meaningfully negative: a poor percentile with a near-zero rating is a usage artifact, so leave it out entirely. Cite a per-x mark only where the materials supply one.
 
@@ -97,15 +110,41 @@ Availability is part of the profile: report a recorded injury, suspension or per
 
 Never invent a number, rate, role or skill that is not in the data. The decision card's headline strength and limitation are already decided — voice them, never overrule them. Write numbers as prose ("96th percentile"), never the card's " · " notation, and never write PEAK, Composite, Vibe, Scoracle, Rating Engine or DECISION CARD.
 
-THE CARD IS A TAROT CARD. Everything you write has to fit on its face: a HEADLINE the fan sees first, and the report they turn it over for. That shape is the format — nothing here runs to a page.
+{card}
 
 Output, plain text with no Markdown of any kind, four labelled lines in this order:
 Strengths: one or two sentences — the headline strength and any other strong or elite skill, each with a cited number. If nothing is strong or elite, say so plainly and name the best available mark.
 Limitations: one or two sentences — the headline limitation with its number, plus any other honestly poor skill. Only if the card itself says there is none do you keep the words "no clean exploit".
 Summary: the verdict on this profile in TWO OR THREE sentences, every judgement tied to a named skill and its number. This is a card a fan reads at a glance, not a report — a fourth sentence is a defect.
-HEADLINE: the HOOK — write it as a tweet. 140 characters at most, and shorter lands harder. State an opinion and earn the tap: the entity's name inside the report's sharpest claim, like "Rovers' back line holds while the attack goes missing". Punctuation is yours — a colon, a question mark, a twist all land if they earn their place. The one thing it may not do is run past the card."#;
+HEADLINE: the HOOK — write it as a tweet. 140 characters at most, and shorter lands harder. State an opinion and earn the tap: the entity's name inside the report's sharpest claim, like "Rovers' back line holds and the attack goes missing". Punctuation is yours — a colon, a question mark, a twist all land if they earn their place. The one thing it may not do is run past the card."#,
+        wire = crate::junctions::form::WIRE_COPY,
+        selection = crate::junctions::form::CLAIM_SELECTION,
+        card = crate::junctions::form::card_face("HEADLINE", "the report")
+    )
+});
 
 /// Prompt version for the rating scouting-report contract.
+/// # THE WIRE-COPY PASS (2026-08-25) — contract changed, version deliberately NOT bumped
+///
+/// Scott, on the day granite4.2:3b became the resident: *"Right now, the Scout is still sending
+/// things in big blurb of AI-speak. We want concise sentences and short paragraphs for all
+/// seats, like AP journalism would teach us, because that's READABLE and ENGAGING."* Measured
+/// on the live probes that day: 40-word clause-chained sentences ("…where Ipswich's expansive
+/// attack pressures Sunderland's backline while their own defensive gaps and injury concerns
+/// amplify the stakes") from a spec that already said "clipped". The rules DESCRIBED the
+/// register and nothing DEMONSTRATED it — this was the only prose seat without a worked
+/// example (s17 skipped one fearing card-content leaks; s24's invented-entity hook shape is
+/// the workaround, now applied to the whole report). Two additions: a WIRE COPY block (one
+/// finding per sentence; no "while/where/as" chains; plain verbs; the press-box test) and a
+/// full invented-club example (Harborview) pinning the rhythm, marked as a SHAPE never a
+/// source. Paid for by granite's ~1.7×-dense tokenizer — the ministral-era window had no room
+/// for an example. Version NOT bumped per the Twitter-rule precedent below: existing cards
+/// stand, the register reaches everything that regenerates on its own triggers. Same cost as
+/// 2026-08-24: two contracts share "s24"; cut at 2026-08-25 for this change.
+/// Later the same day (Scott: one dedicated format/structure file): the WIRE COPY and
+/// tarot-card blocks now compose from `junctions::form` — wording generalized in the shared
+/// consts ("press box" → "spoken", "fan" → "reader"), and the example hook dropped its own
+/// "while" chain to match the register it teaches.
 /// # THE TWITTER RULE (2026-08-24) — contract changed, version deliberately NOT bumped
 ///
 /// Scott: *"we don't need to regenerate the corpus. We need to just apply these rules to the new
@@ -322,7 +361,7 @@ pub fn build_stat_prompt(
     let decision = build_scouting_decision(p);
     b.push_str(&render_scouting_decision(&decision));
 
-    b.push_str("\nDatapoints — value · percentile + TIER (the tier is the truth) · rating (how far above or below the average; a higher rating is a rarer edge); [position] percentile when present:\n");
+    b.push_str("\nDatapoints — value, percentile + TIER (the tier is the truth), rating (how far above or below the average; a higher rating is a rarer edge); [position] percentile when present:\n");
     for d in ordered_facts(&p.breakdown) {
         b.push_str("- ");
         b.push_str(&format_datapoint_evidence(&d));

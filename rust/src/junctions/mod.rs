@@ -77,6 +77,9 @@
 
 pub mod analyst;
 pub mod editor;
+/// The shared format/structure file — STORY_FORM, WIRE_COPY, card_face. Character `prompt.rs`
+/// files compose these and describe VOICE; see `form.rs`'s module doc for the architecture.
+pub mod form;
 pub mod graph;
 pub mod influencer;
 pub mod insider;
@@ -84,3 +87,5 @@ pub mod investigator;
 pub mod journalist;
 pub mod oracle;
 pub mod scout;
+
+pub use form::{card_face, CLAIM_SELECTION, STORY_FORM, WIRE_COPY};

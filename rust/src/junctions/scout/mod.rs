@@ -628,8 +628,15 @@ fn format_datapoint_evidence(d: &RatingDatapoint) -> String {
     // fix that holds; oracle::prompt::descrub_z stays only as a backstop for rows banked before
     // this bump.
     let dz = d.sign as f64 * d.z; // sign-adjusted so + is always the good direction
+    // Commas, never " · " (2026-08-25): the eighth application of the input-shouting law.
+    // The interpunct was the card's notation, the prompt then BANNED echoing it, and the ban
+    // lost the way every ban against the input loses — measured on the 7B (8 of 9 rating
+    // reds, 08-19), on granite4.2 at the fixture gate (7 of 8), and again live the day the
+    // wire-copy pass removed the example numbers and the model reached for the notation
+    // instead. A comma-separated finding echoed into prose is just grammar;
+    // `RATING_BODY_BANS`'s " · " entry stays as the tripwire that should now never fire.
     let mut s = format!(
-        "{}: {} · {:.0}th pct ({}) · rating {:+.1}",
+        "{}: {}, {:.0}th pct ({}), rating {:+.1}",
         d.label,
         trim_float(d.value),
         d.pct,

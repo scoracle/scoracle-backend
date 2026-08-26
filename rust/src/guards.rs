@@ -366,6 +366,69 @@ mod tests {
     use super::*;
 
     #[test]
+    fn self_review_truncates_at_the_measured_markers() {
+        // The three shapes measured live on 2026-08-25 (ctx_ab probes), verbatim heads.
+        let note = "The crowd holds its breath, not from fear. (Note: This stays within 6 \
+                    sentences, present tense, names real players.)";
+        assert_eq!(
+            truncate_self_review(note),
+            "The crowd holds its breath, not from fear."
+        );
+        let but_wait = "No drama, just the quiet tension of a story. But wait—this doesn’t \
+                        quite fit the required format or tone. Let me tighten it.";
+        assert_eq!(
+            truncate_self_review(but_wait),
+            "No drama, just the quiet tension of a story."
+        );
+        let restate = "He’s still the anchor. But the card must stay tight: SCORE: 35 VIBE: \
+                       The room is holding its breath.";
+        assert_eq!(truncate_self_review(restate), "He’s still the anchor.");
+        // Earliest marker wins when several appear.
+        let both = "Solid start. Let me tighten this. (Note: within limits.)";
+        assert_eq!(truncate_self_review(both), "Solid start.");
+    }
+
+    #[test]
+    fn self_review_leaves_honest_prose_alone() {
+        for s in [
+            "But wait — the third act of this transfer saga is still unwritten.",
+            "The count matters: three wins from three, and the away end knows it.",
+            "A revised deal reached the table on Friday, per the Athletic.",
+            "He checks his runs, notes the keeper's line, and finishes low.",
+        ] {
+            assert_eq!(truncate_self_review(s), s);
+        }
+    }
+
+    #[test]
+    fn self_review_opening_marker_empties_the_body_for_the_retry_path() {
+        assert_eq!(truncate_self_review("(Note: entirely meta.)"), "");
+        assert_eq!(clean_served_prose("**(Note: bolded meta.)**"), "");
+    }
+
+    #[test]
+    fn clean_served_prose_strips_then_truncates() {
+        // Marker arrives BOLDED: emphasis strip must run first or the marker hides.
+        let s = "The bench holds space.\n**But wait—this** doesn't fit the rules.";
+        assert_eq!(clean_served_prose(s), "The bench holds space.");
+    }
+
+    #[test]
+    fn form_scaffolding_labels_are_stripped_and_meta_parens_truncate() {
+        // Measured on the 2026-08-25 deck probes, the day THE STORY FORM shipped.
+        let s = "Claim: tension, carried by the back line.\nEvidence: three defeats and a silent bench.\nClose: the room braces for the opener.";
+        assert_eq!(
+            clean_served_prose(s),
+            "tension, carried by the back line.\nthree defeats and a silent bench.\nthe room braces for the opener."
+        );
+        let meta = "The room leans forward, steady and alert.\n\n(One paragraph — claim, evidence, close — as required.)";
+        assert_eq!(clean_served_prose(meta), "The room leans forward, steady and alert.");
+        // Mid-sentence form words are prose, not scaffolding — untouched.
+        let honest = "Their claim to the title rests on the evidence of April.";
+        assert_eq!(clean_served_prose(honest), honest);
+    }
+
+    #[test]
     fn product_names_are_case_sensitive() {
         assert_eq!(first_product_name("at the peak of his powers"), None);
         assert_eq!(first_product_name("the PEAK confirms it"), Some("PEAK"));
@@ -552,12 +615,83 @@ mod tests {
 /// retry at temp=0, so the ban converts a cosmetic flaw into a permanent stall. The stripped
 /// prose is exactly the prose the seat intended.
 pub fn clean_served_prose(s: &str) -> String {
-    s.lines()
-        .map(crate::util::strip_markdown_emphasis)
+    let stripped = s
+        .lines()
+        .map(|l| {
+            let l = crate::util::strip_markdown_emphasis(l);
+            // THE STORY FORM's scaffolding vocabulary, measured leaking as literal labels the
+            // day the form shipped (2026-08-25 deck probes: "Claim: tension, carried by…").
+            // The structure is invisible on the card; the label is decoration, so it takes
+            // the same strip-not-reject treatment as `**`.
+            ["Claim:", "Evidence:", "Close:"]
+                .iter()
+                .find_map(|p| l.strip_prefix(p))
+                .map(|rest| rest.trim_start().to_string())
+                .unwrap_or(l)
+        })
         .collect::<Vec<_>>()
-        .join("\n")
-        .trim()
-        .to_string()
+        .join("\n");
+    truncate_self_review(&stripped).trim().to_string()
+}
+
+/// Where a served body stops narrating sport and starts grading its own answer, cut it there.
+///
+/// Measured on granite4.2:3b the day it became the resident (2026-08-25, live corpus, busy
+/// entities): the model's instruction-following instinct turns inward and it REVIEWS the card
+/// inside the card — "But wait—this doesn't quite fit the required format… Revised VIBE:",
+/// "(Note: This stays within 6 sentences…)", and one card that restated itself in full after
+/// "But the card must stay tight:". The fixtures never provoked it; Lakers-sale-grade live
+/// material does. Thinking mode is NOT the fix for the prose seats — measured the same day:
+/// granite's deliberation scales with the CONTRACT mass, not the material (~2,500 tokens of
+/// rule rehearsal for a 331-char card), against Scott's compression direction — report what's
+/// there, compress abundance, never expand into available space.
+///
+/// So the treatment is the strip-not-reject family, same as `**`: everything before the first
+/// marker is exactly the card the seat intended; everything after is the model grading its
+/// homework. Markers are exact, case-sensitive phrases measured in production output — the
+/// admission rule for the list is "is this phrase about THE ANSWER rather than the sport?",
+/// and it grows only from observed output, never speculatively (a speculative marker is a ban
+/// list by another name). A body that OPENS with a marker truncates to empty, and the seat's
+/// own empty-reply guard then fails it honestly into a retry.
+pub fn truncate_self_review(prose: &str) -> &str {
+    // Measured 2026-08-25: the ctx_ab live probes and the fixture gate's A-sides.
+    const SELF_REVIEW_MARKERS: &[&str] = &[
+        "(Note:",
+        // The form-meta parentheticals: the model narrating THE STORY FORM's own mechanics
+        // back at the card (measured on the 2026-08-25 deck probes: "(One paragraph — claim,
+        // evidence, close — as required.)", "(Blank line before next paragraph if needed…").
+        "(One claim",
+        "(One paragraph",
+        "(Two claims",
+        "(Three claims",
+        "(Blank line",
+        "(The claim:",
+        "But wait—this",
+        "But wait, this",
+        "But the card must stay tight",
+        "Now check constraints",
+        "Now check the constraints",
+        "Check format:",
+        "Check character counts",
+        "Count characters:",
+        "Count words:",
+        "Let me tighten",
+        "Let me rewrite",
+        "Let me revise",
+        "Let me refine",
+        "Revised VIBE",
+        "Revised READ",
+        "Revised HOOK",
+        "Revised final output",
+    ];
+    let cut = SELF_REVIEW_MARKERS
+        .iter()
+        .filter_map(|m| prose.find(m))
+        .min();
+    match cut {
+        Some(i) => prose[..i].trim_end(),
+        None => prose,
+    }
 }
 
 /// settle_title applies the card-title contract and returns what should SHIP.

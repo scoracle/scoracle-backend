@@ -439,7 +439,10 @@ pub fn parse_momentum_reply(raw: &str) -> Option<MomentumReply> {
         }
     }
 
-    let blurb = clean_joined_lines(&read_lines);
+    // Through the shared scrub like every other served body — this parser strips Markdown
+    // per line already, but the self-review truncation (2026-08-25, the granite
+    // grading-in-the-answer-box tic) lives in `clean_served_prose` and the READ is served.
+    let blurb = crate::guards::clean_served_prose(&clean_joined_lines(&read_lines));
     if blurb.is_empty() {
         return None;
     }

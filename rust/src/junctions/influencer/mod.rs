@@ -530,6 +530,30 @@ async fn load_latest_vibe_row(
     Ok(row.unwrap_or((None, None, None)))
 }
 
+/// The latest SCORED row — the read the route actually serves (its `vibe_cur` filters
+/// `sentiment IS NOT NULL`). The funeral clause needs this view and `load_latest_vibe_row`
+/// cannot supply it: for a room already buried under a marker, the LATEST row is the marker
+/// (no continuity, and its empty-material hash seals the debounce) while the SERVED card is
+/// the older vivid read underneath — the exact population the 2026-08-28 tail regen ran
+/// against and silently no-opped on. `None` when the entity has never been scored.
+async fn load_latest_scored_vibe_row(
+    pool: &PgPool,
+    key: &EntityKey,
+) -> Result<Option<(i16, Option<String>)>> {
+    sqlx::query_as(
+        "SELECT sentiment, prompt FROM vibe_scores \
+         WHERE entity_type = $1 AND entity_id = $2 AND sport = $3 \
+           AND sentiment IS NOT NULL \
+         ORDER BY generated_at DESC LIMIT 1",
+    )
+    .bind(&key.entity_type)
+    .bind(key.entity_id)
+    .bind(&key.sport)
+    .fetch_optional(pool)
+    .await
+    .with_context(|| format!("latest scored vibe row {}/{}", key.entity_type, key.entity_id))
+}
+
 /// title_first upper-cases the first character, mirroring `strings.Title` for the
 /// single-word entity types ("player" → "Player", "team" → "Team").
 fn title_first(s: &str) -> String {
@@ -959,9 +983,27 @@ impl StageHandler for VibeHandler {
         };
         // One round-trip for the debounce hash AND the continuity prior (the sigil plan-A1
         // non-torn read). F2 semantics preserved: no row / NULL hash → run.
-        let (prev_sentiment, prev_prompt, latest_hash) =
+        let (latest_sentiment, latest_prompt, latest_hash) =
             load_latest_vibe_row(&hx.pool, &key).await?;
-        if latest_hash.as_deref() == Some(ctx.input_hash.as_str()) {
+        // The continuity prior is the latest SCORED row — the read the route serves. When
+        // the latest row IS scored, it came in the same round trip; when the latest row is
+        // a marker, the served read (if any) sits beneath it, one more query. This is the
+        // funeral clause's second seam (2026-08-28): the old code built `previous` from the
+        // latest row only, so a room already buried under a marker had no prior and
+        // re-markered instead of filing its closing read.
+        let scored = match latest_sentiment {
+            Some(s) => Some((s, latest_prompt.clone())),
+            None if latest_hash.is_some() => load_latest_scored_vibe_row(&hx.pool, &key).await?,
+            None => None,
+        };
+        // The debounce, with the funeral exception: an unchanged hash skips — UNLESS the
+        // latest row is a MARKER lying on top of a scored read. That state means the served
+        // card is stale-vivid and the closing quiet read has never filed (the 2026-08-28
+        // tail: 31 clubs' manual regens completed as exactly this no-op). Once the closing
+        // read lands it is itself the latest SCORED row carrying the empty-material hash,
+        // so the next drain skips here — the funeral fires once per death of the room.
+        let buried = latest_sentiment.is_none() && scored.is_some();
+        if latest_hash.as_deref() == Some(ctx.input_hash.as_str()) && !buried {
             debug!(
                 entity_type = %item.entity_type,
                 entity_id = item.entity_id,
@@ -976,13 +1018,13 @@ impl StageHandler for VibeHandler {
             return Ok(());
         }
 
-        // Previous vibe as prompt-only continuity (v12): built only for a real prior read
-        // (a scored row — a NULL-sentiment marker anchors nothing). Deliberately NOT folded
-        // into input_hash — the read always moves, so hashing it would self-trigger every
+        // Previous vibe as prompt-only continuity (v12): built from the latest SCORED row
+        // (a NULL-sentiment marker anchors nothing). Deliberately NOT folded into
+        // input_hash — the read always moves, so hashing it would self-trigger every
         // re-run; the sigil Phase-5.2 discipline.
-        let previous = prev_sentiment.map(|s| PrevVibe {
+        let previous = scored.map(|(s, p)| PrevVibe {
             sentiment: s as i32,
-            vibe_prompt: prev_prompt.unwrap_or_default(),
+            vibe_prompt: p.unwrap_or_default(),
         });
         // Memory-load failure degrades to an unenriched prompt (the n8 discipline): the
         // corpus is the primary signal, memory is enrichment.

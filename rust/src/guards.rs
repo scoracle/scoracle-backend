@@ -247,6 +247,74 @@ pub fn salvage_hook(hook: &str) -> Option<String> {
     (head.split_whitespace().count() >= 4 && hook_violation(&head).is_none()).then_some(head)
 }
 
+/// Remove `<...>` template spans from prose — the contract's own placeholder notation, copied
+/// out verbatim.
+///
+/// Measured on the 2026-08-26 corpus extract: momentum READs and HEADLINEs across dozens of
+/// entities carried literal `<two to four sentences>` fills and whole `<the HOOK — write it as
+/// a tweet. ...>` lines — granite4.2:3b reads an angle-bracketed hole in the output spec as
+/// text to reproduce, the same instrument-instinct as the self-review tic. The SOURCE fix is in
+/// the prompts (the Analyst's contract no longer uses the notation); this is the floor under
+/// it, strip-not-reject like `**`: no seat's honest sport prose ever contains an
+/// angle-bracketed span, so removal cannot cost a true word. Only MATCHED spans are touched —
+/// a stray `<` with no closing `>` is broken prose, not notation, and stays.
+pub fn strip_template_spans(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut rest = s;
+    let mut removed = false;
+    while let Some(open) = rest.find('<') {
+        match rest[open..].find('>') {
+            Some(close) => {
+                out.push_str(&rest[..open]);
+                rest = &rest[open + close + 1..];
+                removed = true;
+            }
+            None => break,
+        }
+    }
+    if !removed {
+        // Span-free prose passes through byte-identical — this fn must be invisible
+        // to text it has no business touching.
+        return s.to_string();
+    }
+    out.push_str(rest);
+    // Collapse the doubled spaces a mid-sentence excision leaves, per line so the
+    // paragraph breaks the form asks for survive.
+    out.lines()
+        .map(|l| l.split_whitespace().collect::<Vec<_>>().join(" "))
+        .collect::<Vec<_>>()
+        .join("\n")
+        .trim()
+        .to_string()
+}
+
+/// Whether a card title names the entity it is about — the hook doctrine's naming rule
+/// (Scott, s24: the entity's name inside the report's sharpest claim) as a mechanical floor.
+///
+/// Measured need, 2026-08-26 full-fleet extract: 111 of 202 Scout headlines (55%) named an
+/// INVENTED club instead — the worked example's "Harborview…" line verbatim, or a "Rovers"
+/// remix of the contract's inline sample — on real clubs' cards. That is integrity, not style
+/// (a fan reads a fictional team on their club's card), which is what admits a floor under THE
+/// MECHANICAL-FLOOR RULE. The match is deliberately loose: any word of the entity's name of
+/// four or more characters (folded), so "Milan" carries "AC Milan" and "Lakers" carries
+/// "Los Angeles Lakers"; names with no word that long fall back to the whole name. A nickname
+/// the materials never showed the model ("Spurs") fails — acceptable, because the prompt hands
+/// it the name it must use, and a dropped title is the contract's own degraded state.
+pub fn title_names_entity(title: &str, entity_name: &str) -> bool {
+    let t = fold_for_match(title);
+    let name = fold_for_match(entity_name);
+    let mut had_long = false;
+    for w in name.split_whitespace() {
+        if w.chars().count() >= 4 {
+            had_long = true;
+            if t.contains(w) {
+                return true;
+            }
+        }
+    }
+    !had_long && t.contains(name.trim())
+}
+
 /// Whether prose carries any ASCII digit.
 ///
 /// **No longer a production guard.** It gated the momentum READ from s14 until 2026-08-24, on the
@@ -632,6 +700,9 @@ mod tests {
 /// retry at temp=0, so the ban converts a cosmetic flaw into a permanent stall. The stripped
 /// prose is exactly the prose the seat intended.
 pub fn clean_served_prose(s: &str) -> String {
+    // Template spans go first: a `<two to four sentences>` fill is notation, and the label
+    // strip below reasons line-by-line while a span may cross a line.
+    let s = strip_template_spans(s);
     let stripped = s
         .lines()
         .map(|l| {
@@ -759,6 +830,10 @@ pub fn settle_title(seat: &str, raw: Option<&str>) -> Option<String> {
     // Raiders…**" reached this fn bold in production), and a bolded two-beat title salvaged
     // WITH its leading `**` glued to the first word.
     let t = crate::util::strip_markdown_emphasis(raw?);
+    // A title that is (or contains) the contract's own `<the HOOK — …>` placeholder is
+    // notation, not a title; strip the span and let the emptiness check decide. Measured
+    // serving as a real headline on momentum cards, 2026-08-26.
+    let t = strip_template_spans(&t);
     let t = t.trim();
     if t.is_empty() {
         return None;
@@ -786,7 +861,57 @@ pub fn settle_title(seat: &str, raw: Option<&str>) -> Option<String> {
 
 #[cfg(test)]
 mod served_prose_tests {
-    use super::{clean_served_prose, settle_title};
+    use super::{clean_served_prose, settle_title, strip_template_spans, title_names_entity};
+
+    #[test]
+    fn template_spans_are_stripped_and_clean_prose_is_untouched() {
+        // The measured leak shapes (2026-08-26): a mid-prose fill and a whole placeholder line.
+        assert_eq!(
+            strip_template_spans("The form is flat. <two to four sentences> The mood climbs."),
+            "The form is flat. The mood climbs."
+        );
+        assert_eq!(strip_template_spans("<the HOOK — write it as a tweet. 140 characters>"), "");
+        // Span-free prose passes through byte-identical, trailing spaces and all.
+        let honest = "Three straight losses, and the room  knows it.";
+        assert_eq!(strip_template_spans(honest), honest);
+        // An unmatched '<' is broken prose, not notation — untouched.
+        let broken = "the score < what the tape suggested";
+        assert_eq!(strip_template_spans(broken), broken);
+        // Paragraph breaks survive an excision.
+        assert_eq!(
+            strip_template_spans("The claim holds.<x>\n\nThe close lands."),
+            "The claim holds.\n\nThe close lands."
+        );
+    }
+
+    #[test]
+    fn clean_served_prose_strips_template_spans() {
+        let got = clean_served_prose("The mood wobbles day to day. <two to four sentences>");
+        assert_eq!(got, "The mood wobbles day to day.");
+    }
+
+    #[test]
+    fn placeholder_title_settles_to_none() {
+        assert_eq!(settle_title("analyst", Some("<the HOOK — write it as a tweet.>")), None);
+    }
+
+    #[test]
+    fn title_naming_floor() {
+        // The measured fabrications fail…
+        assert!(!title_names_entity(
+            "Harborview defends like champions and creates like a relegation side.",
+            "AC Milan"
+        ));
+        assert!(!title_names_entity("Rovers' back line holds and the attack goes missing.", "Chelsea"));
+        assert!(!title_names_entity("Nadia Kerr steady as the form holds its line", "AFC Bournemouth"));
+        // …and honest naming passes, including partial and diacritic-folded forms.
+        assert!(title_names_entity("Milan's back line holds and the attack goes missing.", "AC Milan"));
+        assert!(title_names_entity("Atletico hold the line again", "Atlético de Madrid"));
+        assert!(title_names_entity("The Lakers are running out of Augusts", "Los Angeles Lakers"));
+        // A name with no word of four letters falls back to the whole name.
+        assert!(title_names_entity("Rio Ave dig in", "Rio Ave"));
+        assert!(!title_names_entity("The wire stays quiet", "Rio Ave"));
+    }
 
     #[test]
     fn emphasis_is_stripped_across_lines_and_prose_survives() {

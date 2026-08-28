@@ -17,9 +17,9 @@ The only source of truth is `go/internal/api/server.go`. Every route wired there
 | `GET /api/v1/{sport}/{entityType}/{id}/stats` | season Composite rating + per-event series + `available_seasons` |
 | `GET /api/v1/{sport}/{entityType}/{id}/rating` | model-written stat read + rating trajectory metadata (was `/special`) |
 | `GET /api/v1/{sport}/{entityType}/{id}/momentum` | Rating × Vibe trajectory (was `/trends`) |
-| `GET /api/v1/{sport}/{entityType}/{id}/vibe` | **The Influencer's emotional read** — `{headline, body, heat}` + sentiment (1-100) + the 7-day snapshot window. `current: null` (200, never 404) when the entity has never been scored. **Restored 2026-08-22.** |
+| `GET /api/v1/{sport}/{entityType}/{id}/vibe` | **The Influencer's emotional read** — `current: {headline, body, heat, …}` where **`heat` IS the sentiment (1-100), renamed on the wire per the drop-3b heat contract; `current` carries NO `sentiment` key** (readers that kept the old key silently read null — the articulator's `profile_slice` did until 2026-08-26). `snapshots[]` (the 7-day window) keeps `sentiment` as its per-row key. `current: null` (200, never 404) when the entity has never been scored. **Restored 2026-08-22.** |
 | `GET /api/v1/{sport}/{entityType}/{id}/sigil` | Sigil crown synthesis — `{headline, body, heat}` + omen/convergence (was per-entity `/vibes`) |
-| `GET /api/v1/{sport}/{entityType}/{id}/vibe` | the Influencer's Vibe card — `{headline, body, heat}` + sentiment and the 7-day snapshot feed (route restored 2026-08-22; absent since the O14 rename handed `/vibes` to `/sigil`) |
+| `GET /api/v1/{sport}/{entityType}/{id}/vibe` | the Influencer's Vibe card — `current: {headline, body, heat}` (`heat` = the sentiment number; see the row above) + the 7-day `snapshots[]` feed (route restored 2026-08-22; absent since the O14 rename handed `/vibes` to `/sigil`) |
 | `GET /api/v1/{sport}/{entityType}/{id}/news` | scoped model narratives `{headline, body}` with source freshness and trajectory markers |
 | `GET /api/v1/{sport}/{entityType}/{id}/transfers` | scoped vetted rumor heat, per-pair `headline`s + the Insider's `wire_read`; source freshness and trajectory markers |
 | `GET /api/v1/{sport}/{entityType}/{id}/meta` | per-entity identity (page header); 404 if unknown |

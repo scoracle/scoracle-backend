@@ -2114,13 +2114,28 @@ pub async fn generate_rating(
             req.sport
         );
     }
+    // The hook doctrine's naming rule as a floor, at the one site that knows the entity
+    // (the parser is stateless by design). Measured 2026-08-26: 55% of live team headlines
+    // named an invented club — the worked example copied verbatim ("Harborview…") or
+    // remixed ("Rovers…") onto real clubs' cards. Integrity, not style: degrade to no
+    // title, the same state an absent HEADLINE line already ships, never a retry — the
+    // report under it is fine.
+    let headline = reply.headline.filter(|t| {
+        let named = crate::guards::title_names_entity(t, &req.entity_name);
+        if !named {
+            tracing::warn!(seat = "scout", guard = "title_entity_absent",
+                entity = %req.entity_name, title = %t,
+                "headline names no form of the entity; dropped");
+        }
+        named
+    });
 
     Ok(RatingOutput {
         season: ready.season,
         skipped_no_stats: false,
         skipped_unchanged: false,
         body: Some(reply.body),
-        headline: reply.headline,
+        headline,
         notability: Some(ready.notability),
         notability_components: ready.notability_components,
         rating_trajectory: Some(ready.rating_trajectory.key),

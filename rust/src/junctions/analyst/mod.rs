@@ -642,11 +642,25 @@ impl StageHandler for MomentumHandler {
         let direction = momentum_direction_from_score(ctx.snapshot.momentum_score);
         let score = momentum_conviction_from_score(ctx.snapshot.momentum_score);
 
+        // The hook doctrine's naming rule as a floor, at the site that knows the entity —
+        // the Scout's `title_entity_absent` treatment on the seat whose measured failure was
+        // its own worked example's invented subject served as a real headline ("Nadia Kerr
+        // steady as the form holds its line", on clubs). Degrade to no title, never retry.
+        let headline = reply.headline.filter(|t| {
+            let named = crate::guards::title_names_entity(t, &name);
+            if !named {
+                tracing::warn!(seat = "analyst", guard = "title_entity_absent",
+                    entity = %name, title = %t,
+                    "headline names no form of the entity; dropped");
+            }
+            named
+        });
+
         let out = MomentumOutput {
             direction: direction.to_string(),
             score,
             blurb: reply.blurb,
-            headline: reply.headline,
+            headline,
             season: ctx.season,
             input_components_json: ctx.input_components_json.clone(),
             input_hash: ctx.input_hash.clone(),

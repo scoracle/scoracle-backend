@@ -109,6 +109,20 @@ impl Voice {
         matches!(self, Voice::Influencer)
     }
 
+    /// Whether this voice sees the packet's compiled STORY headline. False for the Journalist,
+    /// measured 2026-08-26 on the full-fleet corpus extract: her narrative TITLES copied the
+    /// framing's headline verbatim — "Fee gap is all that holds up Carvalho's move to Leeds"
+    /// served byte-identical as HER title on nine-plus different entities' cards (every subject
+    /// of the storyline gets the same framing line), several times over a body about a
+    /// different story entirely. The input-shouting law, ninth application: a headline-shaped
+    /// line in the input beats any rule about writing your own, so the input stops carrying it.
+    /// She keeps the type, the result line, the participants and every claim — the material a
+    /// title is honestly built FROM — and the compiled headline stays context for the voices
+    /// that read the packet as background rather than writing headlines of their own.
+    fn sees_story_headline(self) -> bool {
+        !matches!(self, Voice::Journalist)
+    }
+
     /// The claim slice this voice reads, as the set of `story_type`s admitted. `None` = every
     /// claim.
     ///
@@ -262,10 +276,12 @@ pub fn render(packet: &PacketView, part: Option<&Participation>, voice: Voice) -
 /// numbers the claims himself. Same bytes, two shapes, one source.
 pub fn framing(packet: &PacketView, part: Option<&Participation>, voice: Voice) -> String {
     let mut header = String::new();
-    if let Some(h) = &packet.headline {
-        header.push_str("STORY: ");
-        header.push_str(h.trim());
-        header.push('\n');
+    if voice.sees_story_headline() {
+        if let Some(h) = &packet.headline {
+            header.push_str("STORY: ");
+            header.push_str(h.trim());
+            header.push('\n');
+        }
     }
     if let Some(p) = part {
         header.push_str(&role_line(p));

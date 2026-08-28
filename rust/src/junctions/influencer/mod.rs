@@ -5,10 +5,15 @@
 //! the transient prompt shaping, model call, parsing, fail-closed marker, debounce, and downstream
 //! queue hand-off.
 //!
-//! Fail-closed semantics reproduced verbatim: when an entity has NO narratives AND no
-//! transfer heat, we skip the model and write a NULL-sentiment marker row (the read
-//! path returns "no data"). A completed vibe enqueues Momentum before the terminal Sigil
-//! convergence.
+//! Fail-closed semantics, refined by the funeral clause (2026-08-28, the Insider's
+//! refined-Veil pattern): an entity with NO material and NO real prior read skips the model
+//! and writes a NULL-sentiment marker row (the read path returns "no data" — the true
+//! quiet). An entity whose material emptied AFTER a real read generates ONE closing quiet
+//! read — the route serves latest-SCORED and refuses markers, so without the funeral a room
+//! that died kept its last vivid read forever (measured on the wave's tail: 31 clubs served
+//! v22-ministral prose for days while regens wrote v24 markers behind it). The
+//! empty-material hash debounces every drain after either outcome. A completed vibe
+//! enqueues Momentum before the terminal Sigil convergence.
 //!
 //! F2 (2026-07-12) gives vibe a real debounce: the handler hashes the MATERIAL inputs only —
 //! latest narrative titles/impacts/trajectories + transfer-heat facts, no prose, no
@@ -457,9 +462,12 @@ pub async fn enqueue_vibe_if_needed(
 ) -> Result<bool> {
     let sport = sport.to_uppercase();
     let ctx = load_vibe_context(hx, entity_type, entity_id, entity_name, &sport).await?;
-    if ctx.empty() {
-        return Ok(false);
-    }
+    // No early return on empty material (2026-08-28, the funeral fix): the debounce below
+    // already refuses true quiet (the latest row — marker or prior closing read — carries
+    // the constant empty-material hash), and refusing HERE was what kept the closing quiet
+    // read unreachable: a room that died could never get its funeral enqueued, so the last
+    // vivid read served forever. An entity with no row at all now writes its one marker and
+    // debounces after — one row, then silence, same steady state as before.
     let key = EntityKey {
         entity_type: entity_type.to_string(),
         entity_id,
@@ -731,7 +739,18 @@ async fn generate_vibe_from_context(
     // NULL-sentiment marker (handled by the caller); the read path returns "no data". No
     // model call is made, so the marker's model_version is the role's configured model.
     // The marker still carries the (empty-material) hash so quiet entities debounce.
-    if ctx.empty() {
+    //
+    // `previous.is_none()` is the funeral clause (2026-08-28) — the Insider's refined-Veil
+    // fix on the seat with the identical defect. The route serves the latest SCORED row and
+    // rightly refuses markers, so a room that went quiet kept its last vivid read forever:
+    // measured on the granite+form wave's tail, 31 football clubs served v22-ministral prose
+    // for days while every regen wrote v24 markers behind it. A card never scored still gets
+    // the silent marker (the true quiet — nothing to close); a card with a REAL prior read
+    // gets one closing quiet read — the prompt renders "(none this cycle)" material and her
+    // own contract blesses it ("a true quiet read beats a loud false one") — and the
+    // empty-material hash debounces every drain after, so the funeral costs one model call
+    // per death of the room, not one per cycle.
+    if ctx.empty() && previous.is_none() {
         return Ok(VibeOutput {
             sentiment: None,
             vibe_prompt: None,

@@ -65,7 +65,15 @@ const BODY_TRUNCATE: usize = 280;
 /// a mega-storyline's single block reached ~2k tokens of claims and kept the seat's p95 over
 /// the 4,096 window after the v18 diet. Two blocks at this cap spend ~1.5k tokens, which the
 /// window arithmetic (system ~700 + narratives + heat + memory + reply room) actually affords.
-const PACKET_BLOCK_TRUNCATE: usize = 3_000;
+///
+/// 3,000 → 2,400 (2026-08-28): v24 composed the form blocks into the system prompt (~200 tok,
+/// the same growth 26ce39f repaid for the Journalist) and the fat tail started 400ing over
+/// the window — 20 busy entities stuck failed on "request (4099..4361 tokens) exceeds the
+/// available context size (4096)", among them Chelsea and the Bengals, the entities a vibe
+/// card matters most for. Two blocks now spend ~1.2k tokens; the ~300 the cut frees covers
+/// the measured worst overflow (+265) with margin. Same treatment as
+/// PACKET_NEWS_BUDGET_CHARS 6,000 → 5,200; keep rule unchanged.
+const PACKET_BLOCK_TRUNCATE: usize = 2_400;
 
 /// One narrative from the entity's latest generation (news_summaries).
 #[derive(Clone, Debug)]

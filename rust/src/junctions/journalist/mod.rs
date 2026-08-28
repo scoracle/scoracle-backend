@@ -458,7 +458,13 @@ pub async fn load_packet_corpus(
 /// and the fat tail started 400ing over the window — 7 busy entities failed the wave with
 /// "request (4115 tokens) exceeds the available". The budget yields the margin back; the
 /// newest-first keep rule and the named cut (A5) are unchanged.
-const PACKET_NEWS_BUDGET_CHARS: usize = 5_200;
+///
+/// 5,200 → 5,000 (2026-08-28): one entity still cleared the wall by a hair after the yield —
+/// NBA team 16 stuck failed at "request (4109 tokens)", 13 tokens over. The estimate the
+/// budget projects is ≈chars/4 and the true tokenizer runs a little denser on stat-heavy
+/// claims, so the margin was thinner than the arithmetic said. 200 chars ≈ 50 tok of real
+/// headroom; rules unchanged.
+const PACKET_NEWS_BUDGET_CHARS: usize = 5_000;
 
 /// apply_news_budget keeps the corpus prefix whose PROJECTED render cost (the same title +
 /// capped-context arithmetic `build_narratives_prompt` spends) fits `budget`, returning the

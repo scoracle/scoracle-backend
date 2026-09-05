@@ -1389,6 +1389,11 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			WHERE sw.sport = req.sport
 			  AND (req.want_season IS NULL OR sw.season = req.want_season)
 			  AND sw.starts_at <= NOW()
+			  -- The nav lists the living archive, not deep history: the vendor-era
+			  -- fixture backfill anchors ~25 seasons of calendar, but cards carry
+			  -- headlines only since the mig 226/232 rollout. Newest two seasons.
+			  AND sw.season >= (SELECT COALESCE(MAX(s2.season), 0) - 1
+			                    FROM public.season_weeks s2 WHERE s2.sport = req.sport)
 		)
 		SELECT json_build_object(
 			'page', 'weeks',

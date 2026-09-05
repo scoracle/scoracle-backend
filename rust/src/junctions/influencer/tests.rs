@@ -47,8 +47,7 @@ fn compat_view_drops_hook() {
 
 #[test]
 fn clamps_and_joins_trailing_vibe_lines() {
-    let (score, vibe) =
-        parse_sentiment_and_prompt("SCORE: 250\nVIBE: line one\nline two").unwrap();
+    let (score, vibe) = parse_sentiment_and_prompt("SCORE: 250\nVIBE: line one\nline two").unwrap();
     assert_eq!(score, 100);
     assert_eq!(vibe, "line one line two");
 }
@@ -119,7 +118,16 @@ fn previous_vibe_empty_read_renders_score_only() {
         sentiment: 55,
         vibe_prompt: String::new(),
     };
-    let p = build_sentiment_prompt("team", "Test Team", "NFL", &[], &[], &[], Some(&previous), None);
+    let p = build_sentiment_prompt(
+        "team",
+        "Test Team",
+        "NFL",
+        &[],
+        &[],
+        &[],
+        Some(&previous),
+        None,
+    );
     assert!(p.contains("=== PREVIOUS VIBE ===\nScore: 55/100\n\nNarratives forming"));
 }
 
@@ -302,7 +310,10 @@ fn a_packet_alone_is_material_enough_to_wake_her() {
         packets: Vec::new(),
         ..with_packet
     };
-    assert!(nothing.empty(), "no narratives, no heat, no packet ⇒ marker path");
+    assert!(
+        nothing.empty(),
+        "no narratives, no heat, no packet ⇒ marker path"
+    );
 }
 
 /// Her prompt carries the packet ABOVE the narratives (on this rail his card may not exist yet),
@@ -322,9 +333,14 @@ fn packet_block_renders_above_the_narratives_and_never_on_legacy() {
         None,
         None,
     );
-    let story = packet.find("The stories running around them").expect("packet section");
+    let story = packet
+        .find("The stories running around them")
+        .expect("packet section");
     let narr = packet.find("Narratives forming around them").unwrap();
-    assert!(story < narr, "the story she reads comes before his write-up of it");
+    assert!(
+        story < narr,
+        "the story she reads comes before his write-up of it"
+    );
     // The register and its phrase are hers, and they arrive by the renderer's voice rule.
     assert!(packet.contains("MOOD: anticipation"));
     assert!(packet.contains("holding its breath"));
@@ -364,8 +380,20 @@ fn packet_block_depth_is_bounded_in_the_prompt() {
     );
 
     let small = packet_block(2);
-    let q = build_sentiment_prompt("team", "Test FC", "FOOTBALL", &[], &[], &[small.clone()], None, None);
-    assert!(q.contains(small.text.trim_end()), "a normal block renders whole");
+    let q = build_sentiment_prompt(
+        "team",
+        "Test FC",
+        "FOOTBALL",
+        &[],
+        &[],
+        &[small.clone()],
+        None,
+        None,
+    );
+    assert!(
+        q.contains(small.text.trim_end()),
+        "a normal block renders whole"
+    );
 }
 
 /// v22: the Insider's ledger must not reach the Influencer — only its temperature.
@@ -389,7 +417,16 @@ fn the_wire_reaches_her_as_temperature_never_as_a_ledger() {
             summary: "Low-confidence tracking only.".to_string(),
         },
     ];
-    let p = build_sentiment_prompt("team", "West Ham United", "FOOTBALL", &[], &heat, &[], None, None);
+    let p = build_sentiment_prompt(
+        "team",
+        "West Ham United",
+        "FOOTBALL",
+        &[],
+        &heat,
+        &[],
+        None,
+        None,
+    );
 
     // The temperature, in words, with the departure signal her SCORE anchors rely on.
     assert!(
@@ -431,11 +468,21 @@ fn an_unsalvageable_hook_never_costs_the_card() {
         .expect("a long single-clause hook must not fail the card")
         .expect("a reply");
 
-    assert_eq!(got.sentiment, 62, "the score survives, and momentum reads it");
-    assert!(got.vibe_prompt.contains("gone quiet"), "the body survives: {:?}", got.vibe_prompt);
+    assert_eq!(
+        got.sentiment, 62,
+        "the score survives, and momentum reads it"
+    );
     assert!(
-        got.hook.as_deref().is_none_or(|h| crate::guards::hook_violation(h).is_none()),
-        "a shipped hook always satisfies the contract: {:?}", got.hook
+        got.vibe_prompt.contains("gone quiet"),
+        "the body survives: {:?}",
+        got.vibe_prompt
+    );
+    assert!(
+        got.hook
+            .as_deref()
+            .is_none_or(|h| crate::guards::hook_violation(h).is_none()),
+        "a shipped hook always satisfies the contract: {:?}",
+        got.hook
     );
 
     // Since 2026-08-24 a two-beat hook under 140 chars SHIPS WHOLE — the twist is the
@@ -450,7 +497,10 @@ fn an_unsalvageable_hook_never_costs_the_card() {
     );
 
     // Punctuation is voice too: a colon and a question mark both survive to the card.
-    for hook in ["Breaking: the room has turned", "Is the window already shut?"] {
+    for hook in [
+        "Breaking: the room has turned",
+        "Is the window already shut?",
+    ] {
         let got = VibeParser
             .parse(&format!("SCORE: 40\nHOOK: {hook}\nVIBE: Flat."))
             .expect("clean")
@@ -474,8 +524,24 @@ fn markdown_in_the_body_is_stripped_not_fatal() {
         .expect("a reply");
 
     assert_eq!(got.sentiment, 71, "the score survives for momentum");
-    assert!(!got.vibe_prompt.contains("**"), "emphasis stripped: {:?}", got.vibe_prompt);
-    assert!(!got.vibe_prompt.contains("__"), "emphasis stripped: {:?}", got.vibe_prompt);
-    assert!(got.vibe_prompt.contains("Brandt is the story now"), "prose intact: {:?}", got.vibe_prompt);
-    assert!(got.vibe_prompt.contains("loud in a way"), "prose intact: {:?}", got.vibe_prompt);
+    assert!(
+        !got.vibe_prompt.contains("**"),
+        "emphasis stripped: {:?}",
+        got.vibe_prompt
+    );
+    assert!(
+        !got.vibe_prompt.contains("__"),
+        "emphasis stripped: {:?}",
+        got.vibe_prompt
+    );
+    assert!(
+        got.vibe_prompt.contains("Brandt is the story now"),
+        "prose intact: {:?}",
+        got.vibe_prompt
+    );
+    assert!(
+        got.vibe_prompt.contains("loud in a way"),
+        "prose intact: {:?}",
+        got.vibe_prompt
+    );
 }

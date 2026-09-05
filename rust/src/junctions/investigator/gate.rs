@@ -15,11 +15,17 @@ use super::discover::WikidataItem;
 
 /// Occupation QIDs per sport — the deterministic sport-relevance table. Extended as sports
 /// onboard; an occupation absent here falls back to the description keyword screen.
-fn sport_occupations(sport: &str) -> (&'static [&'static str], &'static [&'static str], &'static str) {
+fn sport_occupations(
+    sport: &str,
+) -> (
+    &'static [&'static str],
+    &'static [&'static str],
+    &'static str,
+) {
     // (player occupation QIDs, coach occupation QIDs, description keyword)
     match sport {
         "NBA" => (
-            &["Q3665646"],  // basketball player
+            &["Q3665646"], // basketball player
             &["Q5137571"], // basketball coach
             "basketball",
         ),
@@ -86,10 +92,18 @@ pub fn classify_role(sport: &str, item: &WikidataItem) -> RoleClass {
     // retired player who coaches NOW (actives never carry the coach occupation), while the
     // reverse order misfiled Spoelstra as player on the 2026-08-03 smoke (his item has no
     // P6087 — the coaching lives only in P106).
-    if item.occupations.iter().any(|q| coaches.contains(&q.as_str())) {
+    if item
+        .occupations
+        .iter()
+        .any(|q| coaches.contains(&q.as_str()))
+    {
         return RoleClass::Coach;
     }
-    if item.occupations.iter().any(|q| players.contains(&q.as_str())) {
+    if item
+        .occupations
+        .iter()
+        .any(|q| players.contains(&q.as_str()))
+    {
         return RoleClass::Player;
     }
     let d = item.description.to_lowercase();
@@ -281,7 +295,9 @@ pub fn prose_role_class(sport: &str, occupation_phrase: &str, team_matched: bool
     // right because those phrases carry no owner/executive word.
     if p.contains("owner") {
         RoleClass::Owner
-    } else if p.contains("general manager") || p.contains("executive") || p.contains("president")
+    } else if p.contains("general manager")
+        || p.contains("executive")
+        || p.contains("president")
         || p.contains("chairman")
     {
         RoleClass::Executive
@@ -305,17 +321,36 @@ pub fn prose_role_class(sport: &str, occupation_phrase: &str, team_matched: bool
 pub fn descriptor_role_class(descriptor: &str) -> RoleClass {
     let d = descriptor.to_lowercase();
     const PLAYER_WORDS: &[&str] = &[
-        "player", "footballer", "striker", "midfielder", "defender", "goalkeeper", "keeper",
-        "winger", "forward", "guard", "center", "centre-back", "full-back", "quarterback",
-        "rookie", "prospect", "signing", "loanee", "freshman",
+        "player",
+        "footballer",
+        "striker",
+        "midfielder",
+        "defender",
+        "goalkeeper",
+        "keeper",
+        "winger",
+        "forward",
+        "guard",
+        "center",
+        "centre-back",
+        "full-back",
+        "quarterback",
+        "rookie",
+        "prospect",
+        "signing",
+        "loanee",
+        "freshman",
     ];
     // Same precedence as prose_role_class: owner, then executive words (which include
     // "general manager"), THEN the bare coach/manager/boss check.
     if d.contains("owner") {
         return RoleClass::Owner;
     }
-    if d.contains("executive") || d.contains("director") || d.contains("president")
-        || d.contains("chairman") || d.contains("general manager")
+    if d.contains("executive")
+        || d.contains("director")
+        || d.contains("president")
+        || d.contains("chairman")
+        || d.contains("general manager")
     {
         return RoleClass::Executive;
     }
@@ -355,7 +390,9 @@ pub struct ProseScreen {
 /// discriminator, exactly-one-survivor. The bar is deliberately the FULL three clauses —
 /// this arm exists to recover honest refusals, not to lower the bar that made them honest.
 pub fn decide_prose(screens: &[ProseScreen]) -> Verdict {
-    let evidenced: Vec<usize> = (0..screens.len()).filter(|&i| screens[i].evidence_ok).collect();
+    let evidenced: Vec<usize> = (0..screens.len())
+        .filter(|&i| screens[i].evidence_ok)
+        .collect();
     if evidenced.is_empty() {
         return Verdict::RejectedInsufficientEvidence;
     }
@@ -489,7 +526,12 @@ mod tests {
         let a = item("Vinícius", "Brazilian footballer", &["Q937857"]);
         let b = item("Vinícius", "Brazilian footballer", &["Q937857"]);
         // Both team-matched → tie → ambiguous (the namesake rule).
-        let v = decide("FOOTBALL", &[a.clone(), b.clone()], &[true, true], &[true, true]);
+        let v = decide(
+            "FOOTBALL",
+            &[a.clone(), b.clone()],
+            &[true, true],
+            &[true, true],
+        );
         assert!(matches!(v, Verdict::Ambiguous { .. }));
         // One matched → accept, carrying the role.
         let v = decide("FOOTBALL", &[a, b], &[true, true], &[true, false]);
@@ -522,19 +564,43 @@ mod tests {
     fn containment_survives_markup_residue_but_never_a_paraphrase() {
         let page = "Airious \u{201C}Ace\u{201D} Bailey Jr. (born August 28, 2006) is an American college basketball player";
         assert!(contains_normalized(page, "Airious \"Ace\" Bailey Jr."));
-        assert!(contains_normalized(page, "american college basketball player"));
-        assert!(!contains_normalized(page, "plays basketball in college"), "paraphrase must fail");
-        assert!(!contains_normalized(page, ""), "empty evidence is no evidence");
+        assert!(contains_normalized(
+            page,
+            "american college basketball player"
+        ));
+        assert!(
+            !contains_normalized(page, "plays basketball in college"),
+            "paraphrase must fail"
+        );
+        assert!(
+            !contains_normalized(page, ""),
+            "empty evidence is no evidence"
+        );
     }
 
     #[test]
     fn prose_role_class_is_sport_gated_like_the_description_screen() {
-        assert_eq!(prose_role_class("NBA", "American college basketball player", false), RoleClass::Player);
-        assert_eq!(prose_role_class("NBA", "American basketball coach", false), RoleClass::Coach);
-        assert_eq!(prose_role_class("NBA", "American author", false), RoleClass::Unknown);
+        assert_eq!(
+            prose_role_class("NBA", "American college basketball player", false),
+            RoleClass::Player
+        );
+        assert_eq!(
+            prose_role_class("NBA", "American basketball coach", false),
+            RoleClass::Coach
+        );
+        assert_eq!(
+            prose_role_class("NBA", "American author", false),
+            RoleClass::Unknown
+        );
         // "footballer" implies the sport without the keyword.
-        assert_eq!(prose_role_class("FOOTBALL", "Scottish footballer", false), RoleClass::Player);
-        assert_eq!(prose_role_class("FOOTBALL", "Spanish football manager", false), RoleClass::Coach);
+        assert_eq!(
+            prose_role_class("FOOTBALL", "Scottish footballer", false),
+            RoleClass::Player
+        );
+        assert_eq!(
+            prose_role_class("FOOTBALL", "Spanish football manager", false),
+            RoleClass::Coach
+        );
         assert_eq!(prose_role_class("NBA", "", false), RoleClass::Unknown);
     }
 
@@ -547,14 +613,20 @@ mod tests {
         assert_eq!(prose_role_class("NFL", jones, false), RoleClass::Unknown);
         // A team anchor with no role word stays Unknown — the anchor relaxes the sport
         // gate, never the role vocabulary.
-        assert_eq!(prose_role_class("NFL", "American businessman", true), RoleClass::Unknown);
+        assert_eq!(
+            prose_role_class("NFL", "American businessman", true),
+            RoleClass::Unknown
+        );
         // GM-without-owner is Executive, not Coach, under either gate.
         assert_eq!(
             prose_role_class("NBA", "general manager of the Los Angeles Lakers", true),
             RoleClass::Executive
         );
         // FOOTBALL's "manager" still reads Coach (no owner/executive word present).
-        assert_eq!(prose_role_class("FOOTBALL", "Spanish football manager", true), RoleClass::Coach);
+        assert_eq!(
+            prose_role_class("FOOTBALL", "Spanish football manager", true),
+            RoleClass::Coach
+        );
     }
 
     #[test]
@@ -586,7 +658,10 @@ mod tests {
     fn descriptor_and_page_are_two_observations_and_a_conflict_refuses() {
         assert_eq!(descriptor_role_class("Rangers defender"), RoleClass::Player);
         assert_eq!(descriptor_role_class("Villa head coach"), RoleClass::Coach);
-        assert_eq!(descriptor_role_class("supporters' trust chair"), RoleClass::Unknown);
+        assert_eq!(
+            descriptor_role_class("supporters' trust chair"),
+            RoleClass::Unknown
+        );
         let ok = ProseScreen {
             evidence_ok: true,
             role: RoleClass::Player,
@@ -595,15 +670,27 @@ mod tests {
         };
         assert_eq!(
             decide_prose(&[ok.clone()]),
-            Verdict::Accept { item_idx: 0, role: RoleClass::Player }
+            Verdict::Accept {
+                item_idx: 0,
+                role: RoleClass::Player
+            }
         );
         // The same page with a conflicting descriptor (news said coach, page says player)
         // must not accept — two independent sources disagree on WHAT this person is.
-        let conflicted = ProseScreen { descriptor_conflict: true, ..ok.clone() };
+        let conflicted = ProseScreen {
+            descriptor_conflict: true,
+            ..ok.clone()
+        };
         assert_eq!(decide_prose(&[conflicted]), Verdict::RejectedNotSport);
         // No team discriminator → ambiguous, never accept (the Pep rule holds on prose).
-        let undiscriminated = ProseScreen { team_matched: false, ..ok.clone() };
-        assert!(matches!(decide_prose(&[undiscriminated]), Verdict::Ambiguous { .. }));
+        let undiscriminated = ProseScreen {
+            team_matched: false,
+            ..ok.clone()
+        };
+        assert!(matches!(
+            decide_prose(&[undiscriminated]),
+            Verdict::Ambiguous { .. }
+        ));
         // Two discriminated survivors → tie.
         assert!(matches!(
             decide_prose(&[ok.clone(), ok]),
@@ -616,24 +703,45 @@ mod tests {
             team_matched: true,
             descriptor_conflict: false,
         };
-        assert_eq!(decide_prose(&[no_evidence]), Verdict::RejectedInsufficientEvidence);
+        assert_eq!(
+            decide_prose(&[no_evidence]),
+            Verdict::RejectedInsufficientEvidence
+        );
     }
 
     #[test]
     fn discovery_prescreen_is_token_presence_not_contiguity() {
         // The D-T8 page shape: the nickname interrupts the sought phrase.
         let page = "Ace Bailey (basketball)\nAmerican basketball player\nAirious \"Ace\" Bailey (born August 13, 2006) is an American professional basketball player";
-        assert!(!contains_normalized(page, "Airious Bailey"), "the strict check must fail here");
-        assert!(mentions_all_tokens(page, "Airious Bailey"), "the prescreen must pass here");
-        assert!(!mentions_all_tokens(page, "Matthew Bailey"), "a missing token drops the page");
-        assert!(!mentions_all_tokens(page, ""), "an empty name matches nothing");
+        assert!(
+            !contains_normalized(page, "Airious Bailey"),
+            "the strict check must fail here"
+        );
+        assert!(
+            mentions_all_tokens(page, "Airious Bailey"),
+            "the prescreen must pass here"
+        );
+        assert!(
+            !mentions_all_tokens(page, "Matthew Bailey"),
+            "a missing token drops the page"
+        );
+        assert!(
+            !mentions_all_tokens(page, ""),
+            "an empty name matches nothing"
+        );
         // Punctuation in the sought form must not block its tokens ("A.J. Green").
-        assert!(mentions_all_tokens("A.J. Green is a receiver", "A.J. Green"));
+        assert!(mentions_all_tokens(
+            "A.J. Green is a receiver",
+            "A.J. Green"
+        ));
     }
 
     #[test]
     fn paren_titles_reduce_to_display_names() {
-        assert_eq!(strip_paren_title("Ace Bailey (basketball, born 2006)"), "Ace Bailey");
+        assert_eq!(
+            strip_paren_title("Ace Bailey (basketball, born 2006)"),
+            "Ace Bailey"
+        );
         assert_eq!(strip_paren_title("Erik Spoelstra"), "Erik Spoelstra");
     }
 
@@ -644,7 +752,10 @@ mod tests {
             Some("https://cdn.nba.com/headshots/nba/latest/1040x760/1629029.png")
         );
         assert_eq!(nba_headshot_url("not-an-id"), None);
-        assert_eq!(wire_date("+1970-11-01T00:00:00Z").as_deref(), Some("1970-11-01"));
+        assert_eq!(
+            wire_date("+1970-11-01T00:00:00Z").as_deref(),
+            Some("1970-11-01")
+        );
         assert_eq!(wire_date("+1970-00-00T00:00:00Z"), None);
         assert_eq!(display_weight("NBA", 104.3), "230 lbs");
         assert_eq!(display_height("NBA", 206.0), "6'9\"");

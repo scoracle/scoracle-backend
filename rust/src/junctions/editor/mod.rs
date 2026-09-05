@@ -28,8 +28,8 @@ pub mod candidates;
 pub mod derive;
 pub mod nominate;
 pub mod packet;
-pub mod render;
 pub mod prompt;
+pub mod render;
 pub mod storyline;
 pub use prompt::{build_editor_prompt_parts, EDITOR_CONTRACT_VERSION, EDITOR_SYSTEM_PROMPT};
 
@@ -442,8 +442,15 @@ impl StageHandler for EditorHandler {
                 Some("editor read parser returned no committed blurb"),
             )
             .await?;
-            ledger_model_call(hx, item, &extracted.model, "fail_closed", &extracted, &body_hash)
-                .await;
+            ledger_model_call(
+                hx,
+                item,
+                &extracted.model,
+                "fail_closed",
+                &extracted,
+                &body_hash,
+            )
+            .await;
             return Ok(());
         };
 
@@ -456,7 +463,11 @@ impl StageHandler for EditorHandler {
             derive::Resolved::default()
         };
 
-        let status = if read.relevant { "success" } else { "irrelevant" };
+        let status = if read.relevant {
+            "success"
+        } else {
+            "irrelevant"
+        };
         persist_read(
             hx,
             article_id,
@@ -494,9 +505,14 @@ impl StageHandler for EditorHandler {
         // candidates + evidence mentions; person-with-descriptor and refused ties enqueue
         // investigate_entity. Irrelevant reads carry an empty Resolved, so this no-ops for
         // them by construction. Best-effort for the same reason as the fixture fork.
-        if let Err(e) =
-            candidates::sweep_candidates(&hx.pool, &item.sport, article_id, &fetched.text, &resolved)
-                .await
+        if let Err(e) = candidates::sweep_candidates(
+            &hx.pool,
+            &item.sport,
+            article_id,
+            &fetched.text,
+            &resolved,
+        )
+        .await
         {
             tracing::warn!(
                 article_id,
@@ -540,7 +556,6 @@ impl StageHandler for EditorHandler {
         Ok(())
     }
 }
-
 
 /// write_links records which entities an article is about. The Editor is the only writer.
 ///
@@ -632,7 +647,11 @@ async fn write_links(
 /// input_version is `g:` || the editor read's content hash, so graph
 /// re-runs when the article's TEXT changed and debounces when it did not — the same contract, off
 /// the table that survives the cutover.
-async fn enqueue_graph_for_article(pool: &sqlx::PgPool, article_id: i64, sport: &str) -> Result<()> {
+async fn enqueue_graph_for_article(
+    pool: &sqlx::PgPool,
+    article_id: i64,
+    sport: &str,
+) -> Result<()> {
     sqlx::query(
         r#"
         INSERT INTO public.pipeline_work

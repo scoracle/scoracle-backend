@@ -186,8 +186,14 @@ async fn main() -> Result<()> {
     match args.mode {
         Mode::Live => run_live(&cfg, task.as_ref(), &args.cases).await,
         Mode::Fixtures { filter } => {
-            run_fixtures(&cfg, task.as_ref(), filter.as_deref(), judge_backend, args.live_system)
-                .await
+            run_fixtures(
+                &cfg,
+                task.as_ref(),
+                filter.as_deref(),
+                judge_backend,
+                args.live_system,
+            )
+            .await
         }
         Mode::Capture => run_capture(&cfg, task.as_ref(), &args.cases).await,
         Mode::CaptureLedger { ledger_id } => {
@@ -512,15 +518,29 @@ async fn run_fixtures(
             println!("  ⚠ WARN {warn}");
         }
         println!("\n[{}]  (temp={})", fx.name, fx.temperature);
-        let (p, t) =
-            run_one_fixture("A", &incumbent, task, judge.as_ref(), &mut inc_judge, fx, live_system)
-                .await;
+        let (p, t) = run_one_fixture(
+            "A",
+            &incumbent,
+            task,
+            judge.as_ref(),
+            &mut inc_judge,
+            fx,
+            live_system,
+        )
+        .await;
         inc_pass += p;
         inc_total += t;
         if let Some(c) = candidate.as_ref() {
-            let (p, t) =
-                run_one_fixture("B", c, task, judge.as_ref(), &mut cand_judge, fx, live_system)
-                    .await;
+            let (p, t) = run_one_fixture(
+                "B",
+                c,
+                task,
+                judge.as_ref(),
+                &mut cand_judge,
+                fx,
+                live_system,
+            )
+            .await;
             cand_pass += p;
             cand_total += t;
         }

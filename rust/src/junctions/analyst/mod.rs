@@ -119,7 +119,11 @@ impl Parser<MomentumReply> for MomentumParser {
         if let Some(p) =
             crate::guards::first_banned_phrase(&reply.blurb, crate::guards::MOMENTUM_BANNED_PHRASES)
         {
-            tracing::warn!(guard = "momentum_banned_phrase", phrase = p, "momentum READ rejected");
+            tracing::warn!(
+                guard = "momentum_banned_phrase",
+                phrase = p,
+                "momentum READ rejected"
+            );
             anyhow::bail!("momentum: READ carries banned phrase {p:?}");
         }
         if let Some(p) = crate::guards::first_product_name(&reply.blurb) {
@@ -472,10 +476,15 @@ fn strip_direction_echo(rest: &str) -> &str {
     for dir in DIRECTIONS {
         for (pos, _) in lower.match_indices(dir) {
             let before_ok = pos == 0
-                || !lower[..pos].chars().next_back().is_some_and(char::is_alphanumeric);
+                || !lower[..pos]
+                    .chars()
+                    .next_back()
+                    .is_some_and(char::is_alphanumeric);
             let after = pos + dir.len();
-            let after_ok =
-                !lower[after..].chars().next().is_some_and(char::is_alphanumeric);
+            let after_ok = !lower[after..]
+                .chars()
+                .next()
+                .is_some_and(char::is_alphanumeric);
             if !before_ok || !after_ok {
                 continue;
             }
@@ -486,7 +495,9 @@ fn strip_direction_echo(rest: &str) -> &str {
                     None => return "", // unclosed echo parens: the line is all echo
                 }
             }
-            return tail.trim_start_matches(['.', ':', ',', '—', '-', ' ']).trim();
+            return tail
+                .trim_start_matches(['.', ':', ',', '—', '-', ' '])
+                .trim();
         }
     }
     rest.trim()

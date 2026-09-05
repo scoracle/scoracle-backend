@@ -616,7 +616,10 @@ fn rating_work_token_carries_contract_and_still_parses_season() {
         format!("rating:s2025:{RATING_PROMPT_VERSION}:no-stats")
     );
     // Short-form tokens (the migration rewrote every stored prefix) parse their season too.
-    assert_eq!(rating_work_season(Some("rating:s2024:deadbeef")), Some(2024));
+    assert_eq!(
+        rating_work_season(Some("rating:s2024:deadbeef")),
+        Some(2024)
+    );
 }
 
 #[test]
@@ -642,7 +645,9 @@ fn a_transfer_triggered_rating_token_is_distinguishable_and_still_parses_season(
     assert!(!rating_work_is_transfer_triggered(Some(
         &rating_work_input_version(2025, None)
     )));
-    assert!(!rating_work_is_transfer_triggered(Some("rating:s2024:deadbeef")));
+    assert!(!rating_work_is_transfer_triggered(Some(
+        "rating:s2024:deadbeef"
+    )));
     assert!(!rating_work_is_transfer_triggered(None));
 }
 
@@ -657,7 +662,10 @@ fn every_availability_event_on_one_day_collapses_to_a_single_work_row() {
     let first = rating_work_input_version_for_availability(2025, "2026-08-23");
     let second = rating_work_input_version_for_availability(2025, "2026-08-23");
     assert_eq!(first, second);
-    assert_eq!(first, format!("rating:s2025:{RATING_PROMPT_VERSION}:avail2026-08-23"));
+    assert_eq!(
+        first,
+        format!("rating:s2025:{RATING_PROMPT_VERSION}:avail2026-08-23")
+    );
 
     // A DIFFERENT day must reopen — otherwise a fresh injury the next morning is absorbed by
     // yesterday's done row and the Scout never looks again.
@@ -762,12 +770,18 @@ fn rating_splits_the_s20_headline_line() {
     assert!(reply.body.contains("Rim protection"));
 
     // Absent line → None; body untouched.
-    let bare = RatingParser.parse("Summary: The verdict stands.").unwrap().unwrap();
+    let bare = RatingParser
+        .parse("Summary: The verdict stands.")
+        .unwrap()
+        .unwrap();
     assert!(bare.headline.is_none());
     assert_eq!(bare.body, "Summary: The verdict stands.");
 
     // Empty title folds to None, never an error.
-    let empty = RatingParser.parse("Summary: x.\nHEADLINE: ").unwrap().unwrap();
+    let empty = RatingParser
+        .parse("Summary: x.\nHEADLINE: ")
+        .unwrap()
+        .unwrap();
     assert!(empty.headline.is_none());
 
     // Since 2026-08-24 the contract is 140 CHARACTERS and nothing else, so the thirteen-word
@@ -789,7 +803,11 @@ fn rating_splits_the_s20_headline_line() {
         .parse(&format!("Summary: x.\nHEADLINE: {}", "x".repeat(200)))
         .expect("a junk title never fails the report")
         .expect("a reply");
-    assert!(long.headline.is_none(), "unsalvageable title drops: {:?}", long.headline);
+    assert!(
+        long.headline.is_none(),
+        "unsalvageable title drops: {:?}",
+        long.headline
+    );
     assert_eq!(long.body, "Summary: x.");
 }
 
@@ -1027,7 +1045,14 @@ fn an_opened_absence_renders_the_prognosis_as_a_report() {
         1,
         &[],
         0,
-        &[avail("opened", "Aug 21", "suspension", "Test Player", "Aug 20", None)],
+        &[avail(
+            "opened",
+            "Aug 21",
+            "suspension",
+            "Test Player",
+            "Aug 20",
+            None,
+        )],
         1,
     )
     .unwrap();
@@ -1040,7 +1065,14 @@ fn an_opened_absence_renders_the_prognosis_as_a_report() {
         3468,
         &[],
         0,
-        &[avail("opened", "Aug 21", "injury", "Test Player", "Aug 20", None)],
+        &[avail(
+            "opened",
+            "Aug 21",
+            "injury",
+            "Test Player",
+            "Aug 20",
+            None,
+        )],
         1,
     )
     .unwrap();
@@ -1057,7 +1089,14 @@ fn a_withdrawn_availability_record_never_reads_as_a_return() {
         1,
         &[],
         0,
-        &[avail("returned", "Aug 30", "injury", "Test Player", "Aug 20", None)],
+        &[avail(
+            "returned",
+            "Aug 30",
+            "injury",
+            "Test Player",
+            "Aug 20",
+            None,
+        )],
         1,
     )
     .unwrap();
@@ -1071,7 +1110,14 @@ fn a_withdrawn_availability_record_never_reads_as_a_return() {
         1,
         &[],
         0,
-        &[avail("reverted", "Aug 25", "injury", "Test Player", "Aug 20", None)],
+        &[avail(
+            "reverted",
+            "Aug 25",
+            "injury",
+            "Test Player",
+            "Aug 20",
+            None,
+        )],
         1,
     )
     .unwrap();
@@ -1088,7 +1134,14 @@ fn a_withdrawn_availability_record_never_reads_as_a_return() {
         3468,
         &[],
         0,
-        &[avail("reverted", "Aug 25", "suspension", "Test Player", "Aug 20", None)],
+        &[avail(
+            "reverted",
+            "Aug 25",
+            "suspension",
+            "Test Player",
+            "Aug 20",
+            None,
+        )],
         1,
     )
     .unwrap();
@@ -1140,7 +1193,9 @@ fn transfers_and_availability_share_one_block_and_each_names_its_drops() {
     assert!(signed < pers_drop && pers_drop < hurt && hurt < avail_drop);
 
     // Availability alone still produces a block — the section is not gated on transfers.
-    assert!(render_personnel_block("team", 3468, &[], 0, &avails, MAX_AVAILABILITY_LINES).is_some());
+    assert!(
+        render_personnel_block("team", 3468, &[], 0, &avails, MAX_AVAILABILITY_LINES).is_some()
+    );
 }
 
 /// The Editor's TAGGED reports reach the Scout as CLAIMS — attributed, with contradictions
@@ -1188,8 +1243,15 @@ fn tagged_availability_reports_arrive_attributed_and_contest_marked() {
         claim("The Athletic", "Palmer has not been ruled out of the derby"),
     ]);
     let out = render_availability_reports(&unmarked).unwrap();
-    assert_eq!(out.matches('⇄').count(), 0, "documents the transfer-tuned negation gap");
-    assert!(out.lines().count() == 2, "both claims still reach him regardless");
+    assert_eq!(
+        out.matches('⇄').count(),
+        0,
+        "documents the transfer-tuned negation gap"
+    );
+    assert!(
+        out.lines().count() == 2,
+        "both claims still reach him regardless"
+    );
 
     // Nothing reported ⇒ no section, same discipline as the personnel block.
     assert!(render_availability_reports(&[]).is_none());
@@ -1220,7 +1282,9 @@ fn the_prompt_separates_reported_availability_from_the_confirmed_record() {
         None,
         Some(&rendered),
     );
-    let reported = prompt.find("Reported availability, NOT yet confirmed").unwrap();
+    let reported = prompt
+        .find("Reported availability, NOT yet confirmed")
+        .unwrap();
     let cue = prompt.find("Write the report now").unwrap();
     assert!(reported < cue);
     assert!(prompt.contains("- BBC: Palmer is out for six weeks"));
@@ -1319,7 +1383,11 @@ fn datapoints_span_the_range_rather_than_taking_the_top() {
         .collect();
     let got = ordered_facts(&breakdown);
 
-    assert_eq!(got.len(), MAX_STAT_FACTS, "the 4,096-window budget still binds");
+    assert_eq!(
+        got.len(),
+        MAX_STAT_FACTS,
+        "the 4,096-window budget still binds"
+    );
     // Presented high to low.
     for w in got.windows(2) {
         assert!(w[0].pct >= w[1].pct, "datapoints stay in pct DESC order");
@@ -1329,10 +1397,7 @@ fn datapoints_span_the_range_rather_than_taking_the_top() {
     assert_eq!(got.first().unwrap().pct, 97.5, "the best skill is shown");
     assert_eq!(got.last().unwrap().pct, 0.0, "and so is the worst");
     // ...and the middle survives, which top-plus-bottom would also have missed.
-    let middle = got
-        .iter()
-        .filter(|d| d.pct > 20.0 && d.pct < 75.0)
-        .count();
+    let middle = got.iter().filter(|d| d.pct > 20.0 && d.pct < 75.0).count();
     assert!(
         middle >= 3,
         "the interior of the distribution must be represented, got {middle}: {:?}",
@@ -1349,19 +1414,31 @@ fn a_bad_headline_never_throws_the_report_away() {
 
     // A colon title salvages to its first beat rather than killing the read.
     let salvaged = RatingParser
-        .parse(&format!("{body}\nHEADLINE: Hornets — elite shooting, poor containment"))
+        .parse(&format!(
+            "{body}\nHEADLINE: Hornets — elite shooting, poor containment"
+        ))
         .expect("a two-beat title must not fail the report")
         .expect("a reply");
     assert!(salvaged.body.contains("Strengths:"), "the report survives");
 
     // An unsalvageable title degrades to no title, and the report still ships.
     let dropped = RatingParser
-        .parse(&format!("{body}\nHEADLINE: Hornets: Elite shooter, poor containment inside"))
+        .parse(&format!(
+            "{body}\nHEADLINE: Hornets: Elite shooter, poor containment inside"
+        ))
         .expect("an unsalvageable title must not fail the report")
         .expect("a reply");
-    assert!(dropped.body.contains("Limitations:"), "the report survives: {:?}", dropped.body);
     assert!(
-        dropped.headline.as_deref().is_none_or(|h| crate::guards::hook_violation(h).is_none()),
-        "a shipped title always satisfies the contract: {:?}", dropped.headline
+        dropped.body.contains("Limitations:"),
+        "the report survives: {:?}",
+        dropped.body
+    );
+    assert!(
+        dropped
+            .headline
+            .as_deref()
+            .is_none_or(|h| crate::guards::hook_violation(h).is_none()),
+        "a shipped title always satisfies the contract: {:?}",
+        dropped.headline
     );
 }

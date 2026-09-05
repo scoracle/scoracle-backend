@@ -471,9 +471,7 @@ async fn load_fixture(pool: &sqlx::PgPool, fixture_id: i32) -> Result<Option<Fix
         external_id: r.get("external_id"),
         // A fixture with no kickoff cannot address a date-keyed page; an empty string renders
         // a template that will simply not resolve, which is the honest outcome.
-        event_date: r
-            .get::<Option<String>, _>("event_date")
-            .unwrap_or_default(),
+        event_date: r.get::<Option<String>, _>("event_date").unwrap_or_default(),
     }))
 }
 
@@ -626,7 +624,10 @@ fn render_template(template: &str, fixture: &FixtureRow) -> Option<String> {
         ("{round}", fixture.round.clone()),
         (
             "{external_id}",
-            fixture.external_id.map(|i| i.to_string()).unwrap_or_default(),
+            fixture
+                .external_id
+                .map(|i| i.to_string())
+                .unwrap_or_default(),
         ),
     ];
 
@@ -1396,7 +1397,10 @@ mod tests {
         assert_eq!(slugify("Atlético Madrid"), "atletico-madrid");
         assert_eq!(slugify("Bayern München"), "bayern-munchen");
         assert_eq!(slugify("Beşiktaş"), "besiktas");
-        assert_eq!(slugify("Borussia Mönchengladbach"), "borussia-monchengladbach");
+        assert_eq!(
+            slugify("Borussia Mönchengladbach"),
+            "borussia-monchengladbach"
+        );
         assert_eq!(slugify("Brighton & Hove Albion"), "brighton-hove-albion");
         assert_eq!(slugify("  Leeds   United  "), "leeds-united");
     }

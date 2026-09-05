@@ -61,12 +61,12 @@ async fn storyline_velocity(pool: &PgPool) -> Result<i64> {
     .fetch_one(pool)
     .await
     .context("query storyline velocity")?;
-    
+
     Ok(count)
 }
 
 /// Calculate the next desk interval based on storyline velocity.
-/// 
+///
 /// High velocity (>10 storylines/hour) = 120 seconds (less frequent, save resources)
 /// Medium velocity (3-10 storylines/hour) = 60 seconds (baseline)
 /// Low velocity (<3 storylines/hour) = 30 seconds (more responsive)
@@ -77,7 +77,6 @@ fn velocity_adaptive_interval(velocity: i64) -> Duration {
         _ => Duration::from_secs(60),
     }
 }
-
 
 const NOTIFY_CHANNEL: &str = "pipeline_work_ready";
 
@@ -401,7 +400,7 @@ async fn desk_loop(desk: Desk) {
         }
         desk.sweep(cause).await;
         cause = "interval";
-        
+
         // Query velocity and adapt the cadence
         let velocity = match storyline_velocity(&desk.pool).await {
             Ok(v) => v,
@@ -411,8 +410,12 @@ async fn desk_loop(desk: Desk) {
             }
         };
         let interval = velocity_adaptive_interval(velocity);
-        debug!(velocity, interval_secs = interval.as_secs(), "desk loop cadence");
-        
+        debug!(
+            velocity,
+            interval_secs = interval.as_secs(),
+            "desk loop cadence"
+        );
+
         tokio::time::sleep(interval).await;
     }
 }
@@ -716,7 +719,8 @@ impl Worker {
                 // that was model-free scrub claiming 256 and starving the GPU entirely; the
                 // failure shape survives any stage roster).
                 let running = *per_stage.get(stage.as_str()).unwrap_or(&0);
-                let mut room = stage_room(handler.max_in_flight(), running, budget - inflight.len());
+                let mut room =
+                    stage_room(handler.max_in_flight(), running, budget - inflight.len());
                 // A grouped stage is additionally bounded by what its co-tenants have left. This
                 // is what lets The Editor spread into graph's idle slots without being able to
                 // oversubscribe the card when graph is working.
@@ -915,8 +919,8 @@ fn note_supervisor_exit(exit: std::result::Result<(), tokio::task::JoinError>) {
 
 #[cfg(test)]
 mod tests {
-    use crate::stage::ARCHBOX_SLOTS;
     use super::*;
+    use crate::stage::ARCHBOX_SLOTS;
 
     #[test]
     fn stalled_requires_busy_and_age_past_threshold() {
@@ -990,7 +994,10 @@ mod tests {
                 None => total += cap,
             }
         }
-        assert!(budget >= total, "budget {budget} would starve; caps total {total}");
+        assert!(
+            budget >= total,
+            "budget {budget} would starve; caps total {total}"
+        );
     }
 
     #[test]

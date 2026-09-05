@@ -21,7 +21,11 @@ fn item_from_json(v: &Value) -> WikidataItem {
             .unwrap_or_default()
     };
     WikidataItem {
-        label: v.get("label").and_then(Value::as_str).unwrap_or("").to_string(),
+        label: v
+            .get("label")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string(),
         description: v
             .get("description")
             .and_then(Value::as_str)
@@ -66,7 +70,10 @@ fn adversarial_fixture_gate_is_one_hundred_percent() {
     let raw = include_str!("../../../fixtures/investigate_entity/cases.json");
     let doc: Value = serde_json::from_str(raw).expect("cases.json parses");
     let cases = doc["cases"].as_array().expect("cases array");
-    assert!(cases.len() >= 10, "the adversarial set must not shrink silently");
+    assert!(
+        cases.len() >= 10,
+        "the adversarial set must not shrink silently"
+    );
 
     let mut failures = Vec::new();
     for case in cases {

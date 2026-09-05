@@ -195,21 +195,34 @@ mod tests {
         assert_eq!(strip_markdown_emphasis("- **SCORE:** 4"), "SCORE: 4");
         assert_eq!(strip_markdown_emphasis("### READ: steady"), "READ: steady");
         assert_eq!(strip_markdown_emphasis("> VIBE: buzzing"), "VIBE: buzzing");
-        assert_eq!(strip_markdown_emphasis("__HOOK:__ big night"), "HOOK: big night");
+        assert_eq!(
+            strip_markdown_emphasis("__HOOK:__ big night"),
+            "HOOK: big night"
+        );
     }
 
     #[test]
     fn leaves_undecorated_lines_byte_identical() {
         // The pre-split shape must be untouched, or this fix would itself be a regression.
-        for s in ["SCORE: 62", "READ: steady form, no change", "HOOK: Arsenal surge"] {
+        for s in [
+            "SCORE: 62",
+            "READ: steady form, no change",
+            "HOOK: Arsenal surge",
+        ] {
             assert_eq!(strip_markdown_emphasis(s), s);
         }
     }
 
     #[test]
     fn preserves_apostrophes_underscores_in_words_and_non_ascii() {
-        assert_eq!(strip_markdown_emphasis("READ: Clark's form"), "READ: Clark's form");
-        assert_eq!(strip_markdown_emphasis("READ: snake_case stays"), "READ: snake_case stays");
+        assert_eq!(
+            strip_markdown_emphasis("READ: Clark's form"),
+            "READ: Clark's form"
+        );
+        assert_eq!(
+            strip_markdown_emphasis("READ: snake_case stays"),
+            "READ: snake_case stays"
+        );
         // Em dash and accents must survive byte-for-byte (the parser slices by byte offset).
         assert_eq!(
             strip_markdown_emphasis("**READ:** Guimarães — flat"),

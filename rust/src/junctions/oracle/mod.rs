@@ -998,9 +998,10 @@ impl Parser<CrownReply> for CrownParser {
                 // global invariants fail closed in production — internal vocabulary, the verdict
                 // formula, a peer roll call, product names, foreign script. Same lists as the
                 // gate (`crate::guards`); the retry re-rolls for a discreet reading.
-                if let Some(p) =
-                    crate::guards::first_banned_phrase(&r.reading, crate::guards::ORACLE_READING_BANS)
-                {
+                if let Some(p) = crate::guards::first_banned_phrase(
+                    &r.reading,
+                    crate::guards::ORACLE_READING_BANS,
+                ) {
                     tracing::warn!(guard = "oracle_reading_ban", phrase = p, "reading rejected");
                     bail!("crown: reading carries banned vocabulary {p:?}");
                 }

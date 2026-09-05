@@ -154,7 +154,11 @@ fn an_unlisted_passing_mention_does_not_count() {
     let read = parse(&ep1_raw(
         "article",
         &[("Baltimore Ravens", "passing_mention")],
-        &[("Baltimore Ravens", "club", "mentioned in the notebook column")],
+        &[(
+            "Baltimore Ravens",
+            "club",
+            "mentioned in the notebook column",
+        )],
     ));
     assert!(read.relevant);
 }
@@ -306,7 +310,10 @@ fn result_line_refuses_what_is_not_a_single_final_result() {
 #[test]
 fn routing_tags_carry_story_type_and_charged() {
     assert_eq!(routing_tags("transfer", "neutral"), vec!["transfer"]);
-    assert_eq!(routing_tags("transfer", "outrage"), vec!["transfer", "charged"]);
+    assert_eq!(
+        routing_tags("transfer", "outrage"),
+        vec!["transfer", "charged"]
+    );
     assert_eq!(routing_tags("", "celebration"), vec!["charged"]);
 }
 
@@ -315,8 +322,14 @@ fn routing_tags_carry_story_type_and_charged() {
 #[test]
 fn a_person_with_a_descriptor_nominates_immediately() {
     assert!(nominates_immediately("person", "Real Madrid manager"));
-    assert!(!nominates_immediately("person", ""), "bare names wait for the floor");
-    assert!(!nominates_immediately("club", "the visitors"), "clubs are not person-discovery");
+    assert!(
+        !nominates_immediately("person", ""),
+        "bare names wait for the floor"
+    );
+    assert!(
+        !nominates_immediately("club", "the visitors"),
+        "clubs are not person-discovery"
+    );
 }
 
 // ── resolver grouping (the pure core of the T9 gate) ────────────────────────────────────────
@@ -354,7 +367,10 @@ fn a_single_kind_compatible_hit_links() {
 fn a_namesake_tie_is_refused_never_flipped() {
     // The Vinicius tie: two same-sport players on one norm. Exact match fires twice → refuse.
     let names = [mention("Vinicius", "person", "Real Madrid forward")];
-    let hits = [hit("Vinicius", "player", 600687), hit("Vinicius", "player", 999)];
+    let hits = [
+        hit("Vinicius", "player", 600687),
+        hit("Vinicius", "player", 999),
+    ];
     let r = group_hits(&names, &hits);
     assert!(r.links.is_empty());
     assert_eq!(r.refused_ambiguous.len(), 1);
@@ -379,7 +395,10 @@ fn a_place_described_club_kind_never_takes_the_team_link() {
     let names = [mention("Paris", "club", "capital city")];
     let hits = [hit("Paris", "team", 4508)];
     let r = group_hits(&names, &hits);
-    assert!(r.links.is_empty(), "the descriptor arm refuses the club link");
+    assert!(
+        r.links.is_empty(),
+        "the descriptor arm refuses the club link"
+    );
     assert_eq!(r.unresolved.len(), 1);
 }
 
@@ -484,10 +503,16 @@ fn a_body_carrying_nul_is_sanitised_before_it_can_reach_a_text_column() {
         final_domain: Some("example.com".to_string()),
         text: "Vinicius \u{0}Junior is \u{0}staying at Real Madrid.\u{0}".to_string(),
     };
-    assert!(fetched.text.contains('\0'), "the fixture must carry the byte under test");
+    assert!(
+        fetched.text.contains('\0'),
+        "the fixture must carry the byte under test"
+    );
 
     let clean = sanitize_fetched(fetched);
-    assert!(!clean.text.contains('\0'), "no NUL may survive into full_text");
+    assert!(
+        !clean.text.contains('\0'),
+        "no NUL may survive into full_text"
+    );
     assert_eq!(clean.text, "Vinicius Junior is staying at Real Madrid.");
     // The derivations that ride the same body must be computable on it.
     assert_eq!(count_words(&clean.text), 7);

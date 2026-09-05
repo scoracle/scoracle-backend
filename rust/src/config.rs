@@ -88,7 +88,8 @@ impl Config {
         // re-reads the environment mid-drain — two items in one drain disagreeing about the
         // window would reload the shared runner between them. (Before the Phase 9 prune this sat
         // beside a `RAIL` switch that chose the corpus; there is one corpus now.)
-        let voice_num_ctx = crate::route::resolve_voice_num_ctx(env_opt("VOICE_NUM_CTX").as_deref());
+        let voice_num_ctx =
+            crate::route::resolve_voice_num_ctx(env_opt("VOICE_NUM_CTX").as_deref());
 
         Ok(Self {
             database_url,
@@ -389,9 +390,7 @@ mod tests {
 
     #[test]
     fn backend_concurrency_parses_a_two_host_split() {
-        let m = parse_backend_concurrency(
-            "http://localhost:11434=3, http://mac-mini:11434=1",
-        );
+        let m = parse_backend_concurrency("http://localhost:11434=3, http://mac-mini:11434=1");
         assert_eq!(m.get("http://localhost:11434"), Some(&3));
         assert_eq!(m.get("http://mac-mini:11434"), Some(&1));
         assert_eq!(m.len(), 2);
@@ -413,7 +412,10 @@ mod tests {
     #[test]
     fn backend_concurrency_clamps_zero_to_one() {
         // 0 permits would block every call to that host forever.
-        assert_eq!(parse_backend_concurrency("http://a:1=0").get("http://a:1"), Some(&1));
+        assert_eq!(
+            parse_backend_concurrency("http://a:1=0").get("http://a:1"),
+            Some(&1)
+        );
     }
 
     #[test]
@@ -421,13 +423,18 @@ mod tests {
         // The budget is looked up by the spec's base_url, so both sides must normalize the
         // same way -- otherwise a trailing slash silently drops the host to the default budget.
         let m = parse_backend_concurrency("http://mac-mini:11434/=2");
-        assert_eq!(m.get(&normalize_base_url("http://mac-mini:11434")), Some(&2));
+        assert_eq!(
+            m.get(&normalize_base_url("http://mac-mini:11434")),
+            Some(&2)
+        );
     }
 
     #[test]
     fn normalize_base_url_collapses_trailing_slashes_and_padding() {
-        assert_eq!(normalize_base_url("  http://mac:11434/  "), "http://mac:11434");
+        assert_eq!(
+            normalize_base_url("  http://mac:11434/  "),
+            "http://mac:11434"
+        );
         assert_eq!(normalize_base_url("http://mac:11434"), "http://mac:11434");
     }
-
 }

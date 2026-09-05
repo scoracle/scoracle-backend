@@ -568,7 +568,11 @@ mod tests {
         let mut candidates = HashMap::new();
         candidates.insert(Role::EmotionalNews, spec("candidate-news:latest"));
         let router = Router::from_config(
-            &RouteConfig { roles, candidates, backend_concurrency: HashMap::new() },
+            &RouteConfig {
+                roles,
+                candidates,
+                backend_concurrency: HashMap::new(),
+            },
             Duration::from_secs(60),
             1,
         )
@@ -680,10 +684,7 @@ mod tests {
         RouteConfig {
             roles: HashMap::new(),
             candidates: HashMap::new(),
-            backend_concurrency: budgets
-                .iter()
-                .map(|(u, n)| (u.to_string(), *n))
-                .collect(),
+            backend_concurrency: budgets.iter().map(|(u, n)| (u.to_string(), *n)).collect(),
         }
     }
 
@@ -698,7 +699,10 @@ mod tests {
         assert!(Arc::ptr_eq(&a, &b), "same host must share one governor");
         // A different host gets its OWN budget — this is what stops the two boxes taking turns.
         let c = governor_for(&mut g, &cfg, &spec_on("mistral", MAC), 1);
-        assert!(!Arc::ptr_eq(&a, &c), "distinct hosts must not share a governor");
+        assert!(
+            !Arc::ptr_eq(&a, &c),
+            "distinct hosts must not share a governor"
+        );
         assert_eq!(g.len(), 2);
     }
 
@@ -709,8 +713,16 @@ mod tests {
         let mut g = HashMap::new();
         let arch = governor_for(&mut g, &cfg, &spec_on("gemma3:4b", ARCHBOX), 1);
         let mac = governor_for(&mut g, &cfg, &spec_on("mistral-nemo:12b", MAC), 1);
-        assert_eq!(arch.available_permits(), 3, "configured host uses its budget");
-        assert_eq!(mac.available_permits(), 1, "unlisted host falls back to the default");
+        assert_eq!(
+            arch.available_permits(),
+            3,
+            "configured host uses its budget"
+        );
+        assert_eq!(
+            mac.available_permits(),
+            1,
+            "unlisted host falls back to the default"
+        );
     }
 
     #[test]

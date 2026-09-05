@@ -52,7 +52,13 @@ use tracing::{debug, info, warn};
 // builder — lives in `prompt.rs`, so a change to what this character is asked is a one-file
 // diff. Re-exported here so call sites and the ledger keep reading it from the stage module.
 pub mod prompt;
-pub use prompt::{INSIDER_SCORE_PROMPT_VERSION, INSIDER_SCORE_SYSTEM_PROMPT, TRANSFER_IDENTITY_ADJUDICATION_PROMPT_VERSION, TRANSFER_PROMPT_VERSION, TRANSFER_PROMPT_VERSION_PERSON, build_insider_score_prompt, build_transfer_identity_adjudication_prompt, build_transfer_prompt, insider_score_format_schema, transfer_identity_adjudication_system_prompt, transfer_system_prompt};
+pub use prompt::{
+    build_insider_score_prompt, build_transfer_identity_adjudication_prompt, build_transfer_prompt,
+    insider_score_format_schema, transfer_identity_adjudication_system_prompt,
+    transfer_system_prompt, INSIDER_SCORE_PROMPT_VERSION, INSIDER_SCORE_SYSTEM_PROMPT,
+    TRANSFER_IDENTITY_ADJUDICATION_PROMPT_VERSION, TRANSFER_PROMPT_VERSION,
+    TRANSFER_PROMPT_VERSION_PERSON,
+};
 
 /// Output schema version for transfer adjudication JSON, distinct from the prompt contract.
 pub const TRANSFER_OUTPUT_CONTRACT_VERSION: &str = "transfer-verdict-v1";
@@ -1262,7 +1268,13 @@ pub async fn analyze_pair(
         PairBuild::Skipped {
             components,
             news_ids,
-        } => Ok(skipped_pair_output(hx, c.player_id, &c.subject_type, components, news_ids)),
+        } => Ok(skipped_pair_output(
+            hx,
+            c.player_id,
+            &c.subject_type,
+            components,
+            news_ids,
+        )),
         PairBuild::Ready(r) => vet_pair(hx, team_id, c.player_id, sport, *r).await,
     }
 }
@@ -2137,10 +2149,8 @@ fn parse_insider_score_reply(raw: &str) -> Option<InsiderScoreReply> {
     // The entity-level hook (is5) is best-effort — required by the live grammar, tolerated
     // absent for pre-is5 replays — and settled through the shared title floor at parse, so
     // what persists is exactly what the card may serve.
-    let headline = crate::guards::settle_title(
-        "insider",
-        v.get("headline").and_then(|h| h.as_str()),
-    );
+    let headline =
+        crate::guards::settle_title("insider", v.get("headline").and_then(|h| h.as_str()));
     Some(InsiderScoreReply {
         read,
         headline,
@@ -2551,7 +2561,9 @@ impl StageHandler for TransferHandler {
                     PairBuild::Skipped {
                         components,
                         news_ids,
-                    } => skipped_pair_output(hx, c.player_id, &c.subject_type, components, news_ids),
+                    } => {
+                        skipped_pair_output(hx, c.player_id, &c.subject_type, components, news_ids)
+                    }
                     PairBuild::Ready(ready) => {
                         // F3: skip the GPU call, the insert, and the ledger row when the pair's
                         // material inputs are unchanged since its latest resolved vetting. The
@@ -2670,13 +2682,9 @@ impl StageHandler for TransferHandler {
                     // stall the team item (the vibe→sigil gate's new_transfer branch and the next
                     // news event are fallbacks).
                     if row.is_rumor == Some(true) {
-                        if let Err(e) = enqueue_sigil_for_transfer(
-                            hx,
-                            c.player_id,
-                            &sport,
-                            persisted_rumor_id,
-                        )
-                        .await
+                        if let Err(e) =
+                            enqueue_sigil_for_transfer(hx, c.player_id, &sport, persisted_rumor_id)
+                                .await
                         {
                             warn!(
                                 team = team_id,

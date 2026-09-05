@@ -184,18 +184,15 @@ pub async fn attach_read(
         return Ok(None);
     }
 
-    let entity_types: Vec<String> = resolved.links.iter().map(|l| l.entity_type.clone()).collect();
+    let entity_types: Vec<String> = resolved
+        .links
+        .iter()
+        .map(|l| l.entity_type.clone())
+        .collect();
     let entity_ids: Vec<i32> = resolved.links.iter().map(|l| l.entity_id).collect();
     let roles = link_roles(&read.names, &read.entity_roles, resolved);
 
-    let candidates = candidates(
-        &mut *conn,
-        sport,
-        &entity_types,
-        &entity_ids,
-        as_of_epoch,
-    )
-    .await?;
+    let candidates = candidates(&mut *conn, sport, &entity_types, &entity_ids, as_of_epoch).await?;
     let chosen = pick(&candidates, &read.story_type);
     // The winner, for the record columns only (mig 217). Looked up rather than returned by `pick`
     // so the scoring rule keeps its signature and its tests: 6.7 is a QUALITY finding and this
@@ -739,11 +736,8 @@ mod tests {
     fn replay(reads: &[Canned]) -> Vec<SimStory> {
         let mut stories: Vec<SimStory> = Vec::new();
         for r in reads {
-            let mine: BTreeSet<(String, i32)> = r
-                .links
-                .iter()
-                .map(|(t, id)| (t.to_string(), *id))
-                .collect();
+            let mine: BTreeSet<(String, i32)> =
+                r.links.iter().map(|(t, id)| (t.to_string(), *id)).collect();
             let candidates: Vec<Candidate> = stories
                 .iter()
                 .filter(|s| {
@@ -926,7 +920,11 @@ mod tests {
         let mut reads = vec![read(&listicle, "performance", 0)];
         // Nine ordinary stories, each about one of the listicle's stars and its club.
         for (i, (t, id)) in listicle.iter().skip(2).enumerate() {
-            reads.push(read(&[(*t, *id), ("team", 20)], "performance", i as i64 + 1));
+            reads.push(read(
+                &[(*t, *id), ("team", 20)],
+                "performance",
+                i as i64 + 1,
+            ));
         }
         let stories = replay(&reads);
         assert!(
@@ -1034,7 +1032,10 @@ mod tests {
             age_secs: 2 * HOUR,
             ..older.clone()
         };
-        assert_eq!(pick(&[older.clone(), fresher.clone()], "transfer"), Some((3, 5)));
+        assert_eq!(
+            pick(&[older.clone(), fresher.clone()], "transfer"),
+            Some((3, 5))
+        );
         // Same score AND same age: the LOWEST id wins — the established storyline, and a
         // deterministic answer either way, which is what a replay of the corpus needs.
         let same_age = Candidate {

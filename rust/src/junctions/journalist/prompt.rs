@@ -56,7 +56,7 @@
 //! NULL and no `score_context` is given. The em-dash (U+2014) separators are load-bearing. Change
 //! the spacing here and you have changed the contract, whether or not you meant to.
 
-use super::{CorpusItem, NarrativesReq, article_context};
+use super::{article_context, CorpusItem, NarrativesReq};
 use crate::util::truncate_bytes;
 
 /// System prompt for The Journalist: group recent vetted news into distinct storylines and voice

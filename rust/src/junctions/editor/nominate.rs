@@ -104,13 +104,12 @@ async fn upsert_nominated_fixture(
 
     // The anchor: when the article says the game happened. Read in-tx so match and upsert
     // see one value.
-    let anchor_exists: Option<bool> = sqlx::query_scalar(
-        "SELECT true FROM public.news_articles WHERE id = $1",
-    )
-    .bind(article_id)
-    .fetch_optional(&mut *tx)
-    .await
-    .context("load nomination anchor article")?;
+    let anchor_exists: Option<bool> =
+        sqlx::query_scalar("SELECT true FROM public.news_articles WHERE id = $1")
+            .bind(article_id)
+            .fetch_optional(&mut *tx)
+            .await
+            .context("load nomination anchor article")?;
     if anchor_exists.is_none() {
         return Err(anyhow!("article {article_id} vanished before nomination"));
     }
@@ -245,7 +244,8 @@ async fn upsert_nominated_fixture(
             "editor nominated NEW fixture from result_line"
         ),
         NominationOutcome::Corrected { fixture_id } => info!(
-            fixture_id, article_id, sport, "editor corrected fixture from result_line"
+            fixture_id,
+            article_id, sport, "editor corrected fixture from result_line"
         ),
         NominationOutcome::AlreadyCorrect { .. } | NominationOutcome::NotNominated(_) => {}
     }

@@ -43,7 +43,7 @@ use tracing::debug;
 // builder — lives in `prompt.rs`, so a change to what this character is asked is a one-file
 // diff. Re-exported here so call sites and the ledger keep reading it from the stage module.
 pub mod prompt;
-pub use prompt::{GRAPH_PROMPT_VERSION, GRAPH_SYSTEM_PROMPT, build_graph_prompt};
+pub use prompt::{build_graph_prompt, GRAPH_PROMPT_VERSION, GRAPH_SYSTEM_PROMPT};
 
 /// The six-predicate vocabulary — MUST mirror the `narrative_events_predicate_check`
 /// constraint (mig 154). Grow both together, by migration, with eval evidence.

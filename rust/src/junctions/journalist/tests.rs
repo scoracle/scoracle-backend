@@ -111,7 +111,11 @@ fn description_adds_nothing_is_token_based() {
     ));
     assert!(description_adds_nothing("", "Any title", "Any source"));
     // A subset of the title is still nothing new.
-    assert!(description_adds_nothing("Arsenal sign", "Arsenal sign Tzolis", ""));
+    assert!(description_adds_nothing(
+        "Arsenal sign",
+        "Arsenal sign Tzolis",
+        ""
+    ));
     // One genuinely new token is enough to keep it.
     assert!(!description_adds_nothing(
         "Arsenal sign Tzolis for 35m",
@@ -245,7 +249,9 @@ fn schema_requires_card_score_after_the_storylines() {
 fn headline_parses_best_effort_and_takes_the_title_floor() {
     // The entity-level hook (mig 232): present → settled through guards::settle_title.
     let parsed = NarrativesParser
-        .parse(r#"{"narratives": [], "headline": "A quiet week around the Bridge", "card_score": 12}"#)
+        .parse(
+            r#"{"narratives": [], "headline": "A quiet week around the Bridge", "card_score": 12}"#,
+        )
         .unwrap()
         .unwrap();
     assert_eq!(parsed.headline(), Some("A quiet week around the Bridge"));
@@ -464,7 +470,13 @@ fn impact_recency_buckets() {
 /// legacy-rail deploy carrying all of Phase 7 sends exactly what the Phase 6 binary sent.
 #[test]
 fn legacy_rail_prompt_is_byte_identical_to_the_no_framing_prompt() {
-    let news = vec![item(10, "BBC", "Saka shines again", "A strong display.", None)];
+    let news = vec![item(
+        10,
+        "BBC",
+        "Saka shines again",
+        "A strong display.",
+        None,
+    )];
     let entity = req("Bukayo Saka", "FOOTBALL", "player");
     let legacy = build_narratives_prompt(&entity, &news, None, None, None);
     // An empty or whitespace framing must be indistinguishable from no framing: a packet with
@@ -484,7 +496,13 @@ fn legacy_rail_prompt_is_byte_identical_to_the_no_framing_prompt() {
 /// those numbers to real article ids.
 #[test]
 fn packet_framing_precedes_the_numbered_evidence() {
-    let news = vec![item(10, "Football365", "Arsenal agreed personal terms", "", None)];
+    let news = vec![item(
+        10,
+        "Football365",
+        "Arsenal agreed personal terms",
+        "",
+        None,
+    )];
     let p = build_narratives_prompt(
         &req("Vinicius Junior", "FOOTBALL", "player"),
         &news,
@@ -494,7 +512,10 @@ fn packet_framing_precedes_the_numbered_evidence() {
     );
     let framing = p.find("The story so far").expect("framing block present");
     let news_block = p.find("Recent news (numbered):").expect("evidence present");
-    assert!(framing < news_block, "the story frames the evidence, not the reverse");
+    assert!(
+        framing < news_block,
+        "the story frames the evidence, not the reverse"
+    );
     assert!(p.contains("PREVIOUSLY: Arsenal open talks"));
     assert!(p.contains("1. [Football365] Arsenal agreed personal terms"));
 }
@@ -510,13 +531,19 @@ fn decode_budget_follows_the_window() {
         narratives_decode_budget(16384),
         (16384, NARRATIVES_NUM_PREDICT)
     );
-    assert_eq!(narratives_decode_budget(crate::route::VOICE_NUM_CTX_PACKET), (4096, 900));
+    assert_eq!(
+        narratives_decode_budget(crate::route::VOICE_NUM_CTX_PACKET),
+        (4096, 900)
+    );
     // The prompt budget must still clear the p99 prompt envelope — and on MLX the binding
     // ceiling is the ~4k PROMPT boundary (the ministral3 mask crash), which ctx−predict
     // keeps prompts safely under. 4096−900 = 3196 ≥ the measured ~3.1k p99.
     let (ctx, predict) = narratives_decode_budget(crate::route::VOICE_NUM_CTX_PACKET);
     assert!(predict <= 1_000);
-    assert!(ctx - predict >= 3_100, "no room for the p99 prompt envelope");
+    assert!(
+        ctx - predict >= 3_100,
+        "no room for the p99 prompt envelope"
+    );
 }
 
 /// 7.9: the packet render replaces the CORPUS, never the memory. A packet-rail prompt still
@@ -536,7 +563,10 @@ fn the_packet_rail_keeps_the_memory_block() {
         Some("SIGNALS (deterministic tally for your card score): 1 article(s) after dedup"),
         Some(framing),
     );
-    assert!(p.contains("Relational memory (computed history"), "memory label intact");
+    assert!(
+        p.contains("Relational memory (computed history"),
+        "memory label intact"
+    );
     assert!(p.contains("- Prior story: Arsenal — fizzled"));
     assert!(p.contains("SIGNALS (deterministic tally"));
     assert!(p.contains("The story so far"));

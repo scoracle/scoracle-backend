@@ -51,7 +51,10 @@ pub const PRODUCT_NAME_BANS: &[&str] = &[
 /// The first product name found in served prose, or `None` when it is clean. Case-sensitive —
 /// see [`PRODUCT_NAME_BANS`].
 pub fn first_product_name(prose: &str) -> Option<&'static str> {
-    PRODUCT_NAME_BANS.iter().find(|p| prose.contains(*p)).copied()
+    PRODUCT_NAME_BANS
+        .iter()
+        .find(|p| prose.contains(*p))
+        .copied()
 }
 
 /// Phrases the momentum READ may never carry — trimmed 2026-08-23 (the eval-scar sweep,
@@ -495,7 +498,10 @@ mod tests {
         let near = "The room waits for a sign. The room waits for the sign.";
         assert_eq!(clean_served_prose(near), near);
         // A short deliberate refrain stays (under the 8-word floor).
-        assert_eq!(clean_served_prose("So it holds. So it holds."), "So it holds. So it holds.");
+        assert_eq!(
+            clean_served_prose("So it holds. So it holds."),
+            "So it holds. So it holds."
+        );
     }
 
     #[test]
@@ -507,7 +513,10 @@ mod tests {
             "tension, carried by the back line.\nthree defeats and a silent bench.\nthe room braces for the opener."
         );
         let meta = "The room leans forward, steady and alert.\n\n(One paragraph — claim, evidence, close — as required.)";
-        assert_eq!(clean_served_prose(meta), "The room leans forward, steady and alert.");
+        assert_eq!(
+            clean_served_prose(meta),
+            "The room leans forward, steady and alert."
+        );
         // Mid-sentence form words are prose, not scaffolding — untouched.
         let honest = "Their claim to the title rests on the evidence of April.";
         assert_eq!(clean_served_prose(honest), honest);
@@ -528,7 +537,10 @@ mod tests {
             first_banned_phrase("The Momentum Engine ticks over", MOMENTUM_BANNED_PHRASES),
             Some("the momentum engine")
         );
-        assert_eq!(first_banned_phrase("a steady phase", MOMENTUM_BANNED_PHRASES), None);
+        assert_eq!(
+            first_banned_phrase("a steady phase", MOMENTUM_BANNED_PHRASES),
+            None
+        );
         assert_eq!(
             first_banned_phrase("holding the steady band", MOMENTUM_BANNED_PHRASES),
             Some("steady band")
@@ -536,7 +548,10 @@ mod tests {
         // The eval-scar sweep (2026-08-23): hedge closers are gate taste, not production
         // mechanics — a READ carrying one no longer burns the generation.
         assert_eq!(
-            first_banned_phrase("this isn\u{2019}t a surge by any measure", MOMENTUM_BANNED_PHRASES),
+            first_banned_phrase(
+                "this isn\u{2019}t a surge by any measure",
+                MOMENTUM_BANNED_PHRASES
+            ),
             None
         );
     }
@@ -544,18 +559,29 @@ mod tests {
     #[test]
     fn bookkeeping_citations_are_precise_about_the_defect() {
         // The measured defect: a digit-bearing parenthetical.
-        assert!(has_bookkeeping_citation("his rim protection holds (Mood: 30/100) even now"));
-        assert!(has_bookkeeping_citation("elite at the line (4th percentile)"));
+        assert!(has_bookkeeping_citation(
+            "his rim protection holds (Mood: 30/100) even now"
+        ));
+        assert!(has_bookkeeping_citation(
+            "elite at the line (4th percentile)"
+        ));
         // Honest parenthetical asides pass — the blanket "(" ban was rejecting these
         // at ~1 per 2 crowns (2026-08-23).
-        assert!(!has_bookkeeping_citation("the crowd turned (and rightly so) before the form did"));
+        assert!(!has_bookkeeping_citation(
+            "the crowd turned (and rightly so) before the form did"
+        ));
         // Digits in OPEN prose stay legal for this seat.
-        assert!(!has_bookkeeping_citation("a 96th percentile mark carries the profile"));
+        assert!(!has_bookkeeping_citation(
+            "a 96th percentile mark carries the profile"
+        ));
         // An unclosed paren is broken prose, not a citation.
         assert!(!has_bookkeeping_citation("the wire stirs (fee near 40"));
         // The vocabulary list is an empty seam; nothing in prose can trip it.
         assert_eq!(
-            first_banned_phrase("the omen is waning and the percentile tells the story", ORACLE_READING_BANS),
+            first_banned_phrase(
+                "the omen is waning and the percentile tells the story",
+                ORACLE_READING_BANS
+            ),
             None
         );
     }
@@ -574,7 +600,10 @@ mod tests {
     /// Both of these used to burn a finished generation; both now ship.
     #[test]
     fn hook_rules() {
-        assert_eq!(hook_violation("Vale sits while the room questions his future"), None);
+        assert_eq!(
+            hook_violation("Vale sits while the room questions his future"),
+            None
+        );
         assert_eq!(hook_violation("Breaking: a move"), None);
         assert_eq!(hook_violation("Is he done?"), None);
         // Length is the ONLY rule left, so it is the only thing that can be returned.
@@ -670,7 +699,9 @@ mod tests {
     #[test]
     fn digit_scan() {
         assert!(has_ascii_digit("trending down 1.1 over five samples"));
-        assert!(!has_ascii_digit("trending down by one point one over five samples"));
+        assert!(!has_ascii_digit(
+            "trending down by one point one over five samples"
+        ));
     }
 }
 
@@ -851,8 +882,12 @@ pub fn settle_title(seat: &str, raw: Option<&str>) -> Option<String> {
                 Some(beat)
             }
             None => {
-                tracing::warn!(seat, guard = rule, title = t,
-                    "title dropped (card ships without one)");
+                tracing::warn!(
+                    seat,
+                    guard = rule,
+                    title = t,
+                    "title dropped (card ships without one)"
+                );
                 None
             }
         },
@@ -870,7 +905,10 @@ mod served_prose_tests {
             strip_template_spans("The form is flat. <two to four sentences> The mood climbs."),
             "The form is flat. The mood climbs."
         );
-        assert_eq!(strip_template_spans("<the HOOK — write it as a tweet. 140 characters>"), "");
+        assert_eq!(
+            strip_template_spans("<the HOOK — write it as a tweet. 140 characters>"),
+            ""
+        );
         // Span-free prose passes through byte-identical, trailing spaces and all.
         let honest = "Three straight losses, and the room  knows it.";
         assert_eq!(strip_template_spans(honest), honest);
@@ -892,7 +930,10 @@ mod served_prose_tests {
 
     #[test]
     fn placeholder_title_settles_to_none() {
-        assert_eq!(settle_title("analyst", Some("<the HOOK — write it as a tweet.>")), None);
+        assert_eq!(
+            settle_title("analyst", Some("<the HOOK — write it as a tweet.>")),
+            None
+        );
     }
 
     #[test]
@@ -902,12 +943,27 @@ mod served_prose_tests {
             "Harborview defends like champions and creates like a relegation side.",
             "AC Milan"
         ));
-        assert!(!title_names_entity("Rovers' back line holds and the attack goes missing.", "Chelsea"));
-        assert!(!title_names_entity("Nadia Kerr steady as the form holds its line", "AFC Bournemouth"));
+        assert!(!title_names_entity(
+            "Rovers' back line holds and the attack goes missing.",
+            "Chelsea"
+        ));
+        assert!(!title_names_entity(
+            "Nadia Kerr steady as the form holds its line",
+            "AFC Bournemouth"
+        ));
         // …and honest naming passes, including partial and diacritic-folded forms.
-        assert!(title_names_entity("Milan's back line holds and the attack goes missing.", "AC Milan"));
-        assert!(title_names_entity("Atletico hold the line again", "Atlético de Madrid"));
-        assert!(title_names_entity("The Lakers are running out of Augusts", "Los Angeles Lakers"));
+        assert!(title_names_entity(
+            "Milan's back line holds and the attack goes missing.",
+            "AC Milan"
+        ));
+        assert!(title_names_entity(
+            "Atletico hold the line again",
+            "Atlético de Madrid"
+        ));
+        assert!(title_names_entity(
+            "The Lakers are running out of Augusts",
+            "Los Angeles Lakers"
+        ));
         // A name with no word of four letters falls back to the whole name.
         assert!(title_names_entity("Rio Ave dig in", "Rio Ave"));
         assert!(!title_names_entity("The wire stays quiet", "Rio Ave"));
@@ -917,28 +973,52 @@ mod served_prose_tests {
     fn emphasis_is_stripped_across_lines_and_prose_survives() {
         let body = "**Brandt** is the story now.\nThe mood is __loud__ in a way it has not been.";
         let got = clean_served_prose(body);
-        assert!(!got.contains("**") && !got.contains("__"), "stripped: {got}");
-        assert!(got.contains("Brandt is the story now"), "prose intact: {got}");
+        assert!(
+            !got.contains("**") && !got.contains("__"),
+            "stripped: {got}"
+        );
+        assert!(
+            got.contains("Brandt is the story now"),
+            "prose intact: {got}"
+        );
         assert!(got.contains("loud in a way"), "prose intact: {got}");
     }
 
     #[test]
     fn a_title_never_costs_the_card() {
         // Clean titles pass through untouched.
-        assert_eq!(settle_title("t", Some("Arsenal hold firm as the window shuts")).as_deref(),
-                   Some("Arsenal hold firm as the window shuts"));
+        assert_eq!(
+            settle_title("t", Some("Arsenal hold firm as the window shuts")).as_deref(),
+            Some("Arsenal hold firm as the window shuts")
+        );
         // Two-beat titles under 140 chars now SHIP WHOLE (2026-08-24): the twist is the
         // model's voice, and only length is the guard's business.
-        assert_eq!(settle_title("t", Some("The room has turned on him — and the window is closing fast")).as_deref(),
-                   Some("The room has turned on him — and the window is closing fast"));
+        assert_eq!(
+            settle_title(
+                "t",
+                Some("The room has turned on him — and the window is closing fast")
+            )
+            .as_deref(),
+            Some("The room has turned on him — and the window is closing fast")
+        );
         // Punctuation is voice too — a colon or a question mark never costs the card now.
-        assert_eq!(settle_title("t", Some("Breaking: the room has turned")).as_deref(),
-                   Some("Breaking: the room has turned"));
-        assert_eq!(settle_title("t", Some("Is the window already shut?")).as_deref(),
-                   Some("Is the window already shut?"));
+        assert_eq!(
+            settle_title("t", Some("Breaking: the room has turned")).as_deref(),
+            Some("Breaking: the room has turned")
+        );
+        assert_eq!(
+            settle_title("t", Some("Is the window already shut?")).as_deref(),
+            Some("Is the window already shut?")
+        );
         // What used to be "unsalvageable" is a perfectly good title at 74 chars.
-        assert_eq!(settle_title("t", Some("Brandt walks into the market like a man who is already out of every option")).as_deref(),
-                   Some("Brandt walks into the market like a man who is already out of every option"));
+        assert_eq!(
+            settle_title(
+                "t",
+                Some("Brandt walks into the market like a man who is already out of every option")
+            )
+            .as_deref(),
+            Some("Brandt walks into the market like a man who is already out of every option")
+        );
         // Genuinely overlong with no beat to cut still drops to None rather than erroring.
         assert_eq!(settle_title("t", Some(&"x".repeat(200))), None);
         // Absent and empty are simply absent.
@@ -946,8 +1026,10 @@ mod served_prose_tests {
         assert_eq!(settle_title("t", Some("   ")), None);
         // Emphasis is stripped before the contract runs (the review-pass gap, 2026-08-23):
         // a bolded but otherwise clean title ships clean, never with its asterisks.
-        assert_eq!(settle_title("t", Some("**Arsenal hold firm as the window shuts**")).as_deref(),
-                   Some("Arsenal hold firm as the window shuts"));
+        assert_eq!(
+            settle_title("t", Some("**Arsenal hold firm as the window shuts**")).as_deref(),
+            Some("Arsenal hold firm as the window shuts")
+        );
         // And emphasis alone is an empty title, not a shipped decoration.
         assert_eq!(settle_title("t", Some("****")), None);
     }
@@ -962,8 +1044,10 @@ mod served_prose_tests {
             "Hornets: Elite shooter, poor containment inside the arc",
         ] {
             if let Some(shipped) = settle_title("t", Some(t)) {
-                assert!(super::hook_violation(&shipped).is_none(),
-                    "shipped a violating title {shipped:?} from {t:?}");
+                assert!(
+                    super::hook_violation(&shipped).is_none(),
+                    "shipped a violating title {shipped:?} from {t:?}"
+                );
             }
         }
     }

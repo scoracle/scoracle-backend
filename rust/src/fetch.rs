@@ -330,7 +330,9 @@ fn trim_boilerplate_tail(text: &str) -> String {
         .filter_map(|m| find_ascii_ci(text, m, from))
         .min();
     match cut {
-        Some(i) if count_words(&text[..i]) >= TAIL_MIN_KEEP_WORDS => text[..i].trim_end().to_string(),
+        Some(i) if count_words(&text[..i]) >= TAIL_MIN_KEEP_WORDS => {
+            text[..i].trim_end().to_string()
+        }
         _ => text.to_string(),
     }
 }
@@ -365,7 +367,10 @@ fn dedupe_repeated_segments(text: &str) -> String {
     if start < text.len() {
         out.push(&text[start..]);
     }
-    out.join("").split_whitespace().collect::<Vec<_>>().join(" ")
+    out.join("")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 /// extract_article_text pulls the READING BODY out of a publisher page.
@@ -702,10 +707,7 @@ impl BudgetedFetcher {
 
         let now = Instant::now();
         if let Some(until_secs) = state.held_for(now) {
-            return Err(BudgetedFetchError::DomainSkipped {
-                domain,
-                until_secs,
-            });
+            return Err(BudgetedFetchError::DomainSkipped { domain, until_secs });
         }
         let wait = state.spacing_wait(now, policy.min_spacing);
         if wait > Duration::ZERO {
@@ -902,9 +904,18 @@ mod tests {
         let html = format!("<p>{turkish}</p><script>bad()</script><p>Tail.</p>");
         let cleaned = clean_html(&html);
 
-        assert!(!cleaned.contains("bad()"), "script block must still be stripped");
-        assert!(cleaned.contains("Tail."), "content after the script must survive");
-        assert!(cleaned.contains("İstanbul"), "original casing must be preserved");
+        assert!(
+            !cleaned.contains("bad()"),
+            "script block must still be stripped"
+        );
+        assert!(
+            cleaned.contains("Tail."),
+            "content after the script must survive"
+        );
+        assert!(
+            cleaned.contains("İstanbul"),
+            "original casing must be preserved"
+        );
     }
 
     /// Tag matching is case-insensitive, and must stay so now that it no longer goes through
@@ -976,7 +987,9 @@ mod tests {
         assert!(held >= CIRCUIT_OPEN.as_secs() - 1);
         // A success (e.g. after the hold expires) closes everything.
         s.record_success(t0 + CIRCUIT_OPEN + Duration::from_secs(1));
-        assert!(s.held_for(t0 + CIRCUIT_OPEN + Duration::from_secs(2)).is_none());
+        assert!(s
+            .held_for(t0 + CIRCUIT_OPEN + Duration::from_secs(2))
+            .is_none());
         assert_eq!(s.consecutive_failures, 0);
     }
 
@@ -1103,8 +1116,15 @@ mod compact_reading_tests {
         let promo = "PODCAST: Listen to the college sports podcast, hosted by Pat Forde, below or on Apple and Spotify. ";
         let body = format!("Ohio State opened as a two-touchdown favourite and covered comfortably. {promo}{promo}");
         let got = dedupe_repeated_segments(&body);
-        assert_eq!(got.matches("PODCAST").count(), 1, "the second copy is furniture: {got}");
-        assert!(got.contains("two-touchdown favourite"), "the story survives: {got}");
+        assert_eq!(
+            got.matches("PODCAST").count(),
+            1,
+            "the second copy is furniture: {got}"
+        );
+        assert!(
+            got.contains("two-touchdown favourite"),
+            "the story survives: {got}"
+        );
     }
 
     /// The OneFootball case: a whole second article arriving through a related-stories feed. This
@@ -1122,8 +1142,14 @@ mod compact_reading_tests {
         let feed = "Related stories CBF mulls new youth tournament, shrinking Copinha, says site. \
              The Brazilian Football Confederation is discussing significant changes to the calendar.";
         let got = compact_reading(&format!("{story}{feed}"));
-        assert!(got.contains("agreed personal terms"), "the story survives: {got}");
-        assert!(!got.contains("Copinha"), "the second article must not reach the Editor: {got}");
+        assert!(
+            got.contains("agreed personal terms"),
+            "the story survives: {got}"
+        );
+        assert!(
+            !got.contains("Copinha"),
+            "the second article must not reach the Editor: {got}"
+        );
     }
 
     /// A marker in real prose must never cut the story: the floor is the whole point.
@@ -1132,14 +1158,23 @@ mod compact_reading_tests {
         let body = "Read more: the manager insisted afterwards that the squad was fit. \
              He then spent ten minutes explaining why the second half had gone the way it did, \
              and repeated that the injury list was shorter than reported anywhere that week.";
-        assert_eq!(trim_boilerplate_tail(body), body, "an early marker is prose, not furniture");
+        assert_eq!(
+            trim_boilerplate_tail(body),
+            body,
+            "an early marker is prose, not furniture"
+        );
     }
 
     /// Trimming may never leave a stub — better some boilerplate than half a story.
     #[test]
     fn a_trim_that_would_gut_the_body_is_abandoned() {
-        let body = "United won. Subscribe to our newsletter for more coverage of the club and its rivals.";
-        assert_eq!(trim_boilerplate_tail(body), body, "under the word floor, keep the body whole");
+        let body =
+            "United won. Subscribe to our newsletter for more coverage of the club and its rivals.";
+        assert_eq!(
+            trim_boilerplate_tail(body),
+            body,
+            "under the word floor, keep the body whole"
+        );
     }
 
     /// The 2026-08-23 crashloop: a multibyte char straddling the midpoint byte index panicked
@@ -1155,7 +1190,10 @@ mod compact_reading_tests {
         let body = format!("{story}Subscribe to our newsletter for daily coverage.");
         let got = trim_boilerplate_tail(&body);
         assert!(got.contains("Álvaro’s header"), "the story survives: {got}");
-        assert!(!got.contains("Subscribe to"), "the tail marker still trims: {got}");
+        assert!(
+            !got.contains("Subscribe to"),
+            "the tail marker still trims: {got}"
+        );
         // And a body that is ONLY multibyte prose with no marker passes through untouched.
         let clean = "café généreux naïve résumé — ".repeat(40);
         assert_eq!(trim_boilerplate_tail(&clean), clean);

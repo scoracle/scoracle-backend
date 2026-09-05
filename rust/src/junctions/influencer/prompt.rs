@@ -33,9 +33,9 @@
 //! before the terminal convergence — and does so even on a debounce-skip, so a previously missed
 //! hand-off self-heals without spending a model call.
 
-use crate::trajectory::trajectory_label;
-use super::{BODY_TRUNCATE, Narrative, PACKET_BLOCK_TRUNCATE, PacketBlock, PrevVibe, title_first};
+use super::{title_first, Narrative, PacketBlock, PrevVibe, BODY_TRUNCATE, PACKET_BLOCK_TRUNCATE};
 use crate::corpus::HeatItem;
+use crate::trajectory::trajectory_label;
 use crate::util::truncate_bytes;
 
 /// System prompt for the Vibe sentiment + felt-read contract.

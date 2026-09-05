@@ -21,9 +21,7 @@
 //! `NarrativesHandler` is a live queue stage gated by `COGNITION_STAGES`. It is the News hub stage:
 //! transfer heat and source freshness are folded here before Vibe and Sigil consume the result.
 
-use crate::corpus::{
-    dedupe_i64, lookup_entity_name,
-};
+use crate::corpus::{dedupe_i64, lookup_entity_name};
 use crate::harness::{EntityKey, Harness, Parser, Provenance};
 use crate::ledger::{insert_cognition_ledger_best_effort, CognitionLedgerEntry};
 use crate::ollama::GenerateOptions;
@@ -44,7 +42,10 @@ use tracing::{debug, warn};
 // builder — lives in `prompt.rs`, so a change to what this character is asked is a one-file
 // diff. Re-exported here so call sites and the ledger keep reading it from the stage module.
 pub mod prompt;
-pub use prompt::{NARRATIVES_PROMPT_VERSION, NARRATIVES_SYSTEM_PROMPT, build_narratives_prompt, narratives_format_schema};
+pub use prompt::{
+    build_narratives_prompt, narratives_format_schema, NARRATIVES_PROMPT_VERSION,
+    NARRATIVES_SYSTEM_PROMPT,
+};
 
 // ---------------------------------------------------------------------------
 // Constants — mirror news_narratives.go.
@@ -296,7 +297,11 @@ impl Parser<ParsedNarratives> for NarrativesParser {
             if let Some(p) = crate::guards::first_product_name(&n.title)
                 .or_else(|| crate::guards::first_product_name(&n.body))
             {
-                tracing::warn!(guard = "product_name", name = p, "narratives edition rejected");
+                tracing::warn!(
+                    guard = "product_name",
+                    name = p,
+                    "narratives edition rejected"
+                );
                 return Err(anyhow!("narratives: storyline names product {p:?}"));
             }
         }
@@ -390,7 +395,11 @@ pub async fn load_packet_corpus(
         if !framing.is_empty() {
             framing.push('\n');
         }
-        framing.push_str(&render::framing(&view, Some(&part), render::Voice::Journalist));
+        framing.push_str(&render::framing(
+            &view,
+            Some(&part),
+            render::Voice::Journalist,
+        ));
 
         for marked in render::mark_contested(&view.claims) {
             let fact = if marked.marked {
@@ -400,7 +409,10 @@ pub async fn load_packet_corpus(
             } else {
                 marked.claim.fact.clone()
             };
-            match by_article.iter_mut().find(|(id, _)| *id == marked.claim.article_id) {
+            match by_article
+                .iter_mut()
+                .find(|(id, _)| *id == marked.claim.article_id)
+            {
                 Some((_, art)) => art.facts.push(fact),
                 None => by_article.push((
                     marked.claim.article_id,

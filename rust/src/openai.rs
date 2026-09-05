@@ -432,7 +432,9 @@ mod tests {
             ),
             ..Default::default()
         };
-        let wire = constrained_client().wire_body("x", &opts).expect("serializes");
+        let wire = constrained_client()
+            .wire_body("x", &opts)
+            .expect("serializes");
         assert!(wire.contains(r#""type":"json_schema""#), "wire: {wire}");
         assert!(wire.contains(r#""strict":true"#), "wire: {wire}");
         let zebra = wire.find("zebra").expect("zebra present");
@@ -479,7 +481,10 @@ mod tests {
         };
         let body = constrained_client().request_body("x", &opts);
         assert_eq!(body["response_format"]["type"], "json_schema");
-        assert_eq!(body["response_format"]["json_schema"]["schema"]["type"], "object");
+        assert_eq!(
+            body["response_format"]["json_schema"]["schema"]["type"],
+            "object"
+        );
     }
 
     /// num_ctx has no OpenAI equivalent and must not leak onto the wire as some invented field.

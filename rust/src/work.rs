@@ -546,7 +546,8 @@ mod claim_order_tests {
             Stage::Transfers,
         ] {
             assert!(
-                s.claim_order().starts_with("CASE entity_type WHEN 'team' THEN 0"),
+                s.claim_order()
+                    .starts_with("CASE entity_type WHEN 'team' THEN 0"),
                 "{s} writes a card and must drain teams first"
             );
         }
@@ -558,12 +559,17 @@ mod claim_order_tests {
 
 #[cfg(test)]
 mod voice_order_tests {
-    use super::{Stage, VOICE_ORDER, PILLAR_STAGES};
+    use super::{Stage, PILLAR_STAGES, VOICE_ORDER};
 
     /// The order is a dependency order, so the two consumers must sit behind their producers.
     #[test]
     fn consumers_register_after_everything_they_read() {
-        let pos = |s: Stage| VOICE_ORDER.iter().position(|x| *x == s).expect("in VOICE_ORDER");
+        let pos = |s: Stage| {
+            VOICE_ORDER
+                .iter()
+                .position(|x| *x == s)
+                .expect("in VOICE_ORDER")
+        };
 
         // The Analyst reads the Scout's card and the Influencer's.
         assert!(pos(Stage::Momentum) > pos(Stage::Rating));
@@ -586,7 +592,10 @@ mod voice_order_tests {
     #[test]
     fn the_roster_matches_the_pillars() {
         for p in PILLAR_STAGES {
-            assert!(VOICE_ORDER.contains(&p), "{p} is a pillar and must be ordered");
+            assert!(
+                VOICE_ORDER.contains(&p),
+                "{p} is a pillar and must be ordered"
+            );
         }
         assert_eq!(VOICE_ORDER.len(), PILLAR_STAGES.len() + 1);
     }

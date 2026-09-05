@@ -58,8 +58,7 @@ use crate::junctions::investigator::prompt::{
 };
 use crate::junctions::journalist::{
     build_narratives_prompt, load_packet_corpus, NarrativesParser, NarrativesReq,
-    NARRATIVES_PROMPT_VERSION,
-    NARRATIVES_SYSTEM_PROMPT,
+    NARRATIVES_PROMPT_VERSION, NARRATIVES_SYSTEM_PROMPT,
 };
 use crate::junctions::oracle::{
     build_crown_prompt, build_pillar_divergence, compute_omen, count_sentences, load_pillars,
@@ -850,7 +849,8 @@ impl LensTask for OracleTask {
         // in production (`guards::ORACLE_READING_BANS`). Folded 08-19 from per-fixture
         // `reading_excludes` entries; the fixture axis now carries only spread-contextual
         // exclusions (the wrong omen words).
-        let banned = crate::guards::first_banned_phrase(&reading, crate::guards::ORACLE_READING_BANS);
+        let banned =
+            crate::guards::first_banned_phrase(&reading, crate::guards::ORACLE_READING_BANS);
         checks.push(PropertyCheck {
             name: "no_banned_phrases".into(),
             pass: banned.is_none(),
@@ -1409,7 +1409,8 @@ impl LensTask for RatingTask {
         checks.push(product_name_check(&reply.body));
         // The brief's decoration bans (` · ` bullets, `**`) — folded 08-19 from per-fixture
         // `prose_excludes` entries; same list `RatingParser` rejects on in production.
-        let banned = crate::guards::first_banned_phrase(&reply.body, crate::guards::RATING_BODY_BANS);
+        let banned =
+            crate::guards::first_banned_phrase(&reply.body, crate::guards::RATING_BODY_BANS);
         checks.push(PropertyCheck {
             name: "no_banned_phrases".into(),
             pass: banned.is_none(),
@@ -2439,10 +2440,18 @@ mod tests {
             ..Default::default()
         };
         assert!(VibeTask
-            .evaluate("SCORE: 30\nHOOK: The slide is real\nVIBE: grim", None, Some(&x))
+            .evaluate(
+                "SCORE: 30\nHOOK: The slide is real\nVIBE: grim",
+                None,
+                Some(&x)
+            )
             .all_checks_pass());
         assert!(!VibeTask
-            .evaluate("SCORE: 70\nHOOK: The room is up\nVIBE: bright", None, Some(&x))
+            .evaluate(
+                "SCORE: 70\nHOOK: The room is up\nVIBE: bright",
+                None,
+                Some(&x)
+            )
             .all_checks_pass());
     }
 

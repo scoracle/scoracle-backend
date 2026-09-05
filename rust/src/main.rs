@@ -171,7 +171,9 @@ async fn main() -> Result<()> {
             continue;
         }
         handlers.push(match stage {
-            work::Stage::Narratives => Box::new(journalist::NarrativesHandler::new()) as Box<dyn stage::StageHandler>,
+            work::Stage::Narratives => {
+                Box::new(journalist::NarrativesHandler::new()) as Box<dyn stage::StageHandler>
+            }
             work::Stage::Vibe => Box::new(influencer::VibeHandler::new()),
             // The rating stage feeds Momentum/Sigil but not the news rail, so it sits behind the
             // two news-product voices: a nightly stat backlog must not delay The Journalist.

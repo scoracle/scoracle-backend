@@ -48,12 +48,7 @@ pub async fn sweep_candidates(
         match mention.kind_hint.to_lowercase().as_str() {
             "person" => {
                 let enq = nominate_one(
-                    pool,
-                    sport,
-                    article_id,
-                    body,
-                    mention,
-                    /* census */ false,
+                    pool, sport, article_id, body, mention, /* census */ false,
                     /* always_enqueue */ false,
                 )
                 .await?;
@@ -258,10 +253,7 @@ async fn record_tie_target(pool: &PgPool, sport: &str, refusal: &RefusedName) ->
 /// name whose fold expands (rare) simply misses and yields None — a lost quote, never a
 /// panic.
 pub(crate) fn slice_quote(body: &str, name: &str) -> Option<String> {
-    let needle: Vec<char> = name
-        .chars()
-        .flat_map(|c| c.to_lowercase().next())
-        .collect();
+    let needle: Vec<char> = name.chars().flat_map(|c| c.to_lowercase().next()).collect();
     if needle.is_empty() {
         return None;
     }
@@ -305,7 +297,11 @@ mod tests {
 
     #[test]
     fn quote_slices_a_window_around_the_first_occurrence() {
-        let body = format!("{} Yan Diomande scored twice. {}", "x".repeat(500), "y".repeat(500));
+        let body = format!(
+            "{} Yan Diomande scored twice. {}",
+            "x".repeat(500),
+            "y".repeat(500)
+        );
         let q = slice_quote(&body, "yan diomande").unwrap();
         assert!(q.contains("Yan Diomande scored twice."));
         // 160 chars each side + the name ≈ bounded window, never the whole body.
@@ -321,7 +317,9 @@ mod tests {
         if let Some(q) = q {
             assert!(q.contains("Galatasaray"));
         }
-        assert!(slice_quote(body, "Galatasaray").unwrap().contains("Galatasaray"));
+        assert!(slice_quote(body, "Galatasaray")
+            .unwrap()
+            .contains("Galatasaray"));
     }
 
     #[test]

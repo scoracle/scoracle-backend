@@ -408,10 +408,7 @@ fn select_claims(claims: &[RenderClaim], voice: Voice) -> Vec<RenderClaim> {
         None => claims.to_vec(),
         Some(want) => claims
             .iter()
-            .filter(|c| {
-                want.iter()
-                    .any(|w| c.story_type.eq_ignore_ascii_case(w))
-            })
+            .filter(|c| want.iter().any(|w| c.story_type.eq_ignore_ascii_case(w)))
             .cloned()
             .collect(),
     }
@@ -472,10 +469,37 @@ fn overlap_coefficient(a: &HashSet<String>, b: &HashSet<String>) -> f32 {
 /// Hedging is not contradiction — a report that a deal "could collapse" does not contest a report
 /// that it is agreed; it is the same story, told softer.
 const NEGATIONS: &[&str] = &[
-    "not", "no", "never", "nor", "denied", "denies", "deny", "rejected", "rejects", "reject",
-    "refused", "refuses", "without", "wont", "isnt", "arent", "hasnt", "havent", "doesnt", "dont",
-    "didnt", "cannot", "cant", "false", "unfounded", "dismissed", "off", "collapsed", "failed",
-    "fails", "ruled",
+    "not",
+    "no",
+    "never",
+    "nor",
+    "denied",
+    "denies",
+    "deny",
+    "rejected",
+    "rejects",
+    "reject",
+    "refused",
+    "refuses",
+    "without",
+    "wont",
+    "isnt",
+    "arent",
+    "hasnt",
+    "havent",
+    "doesnt",
+    "dont",
+    "didnt",
+    "cannot",
+    "cant",
+    "false",
+    "unfounded",
+    "dismissed",
+    "off",
+    "collapsed",
+    "failed",
+    "fails",
+    "ruled",
 ];
 
 /// "yet to reach", "yet to agree" — a negation spelled as two words, and the single most common
@@ -583,11 +607,16 @@ mod tests {
         ]);
         let out = render(&p, Some(&part()), Voice::Journalist);
 
-        assert!(out.text.contains("Football365: Arsenal have reached an agreement"));
+        assert!(out
+            .text
+            .contains("Football365: Arsenal have reached an agreement"));
         assert!(out.text.contains("The Athletic: deal not agreed"));
         assert!(out.text.contains("ESPN: Vinicius Junior is set to stay"));
         assert_eq!(out.claims_rendered, 3, "no claim may be collapsed");
-        assert_eq!(out.contested_marked, 2, "the agreed/not-agreed pair is marked");
+        assert_eq!(
+            out.contested_marked, 2,
+            "the agreed/not-agreed pair is marked"
+        );
         assert!(out.text.contains("⇄ The Athletic: deal not agreed"));
         // ESPN and Football365 disagree in substance but not in POLARITY: both are positive
         // statements, so neither is marked — the marker points at contradiction, not at tension.
@@ -598,8 +627,18 @@ mod tests {
     #[test]
     fn agreeing_claims_are_not_marked() {
         let p = packet(vec![
-            claim(2, "Goal", "Vinicius Junior is determined to stay at Real Madrid", "transfer"),
-            claim(1, "ESPN", "Vinicius Junior is set to stay at Real Madrid", "transfer"),
+            claim(
+                2,
+                "Goal",
+                "Vinicius Junior is determined to stay at Real Madrid",
+                "transfer",
+            ),
+            claim(
+                1,
+                "ESPN",
+                "Vinicius Junior is set to stay at Real Madrid",
+                "transfer",
+            ),
         ]);
         let out = render(&p, Some(&part()), Voice::Journalist);
         assert_eq!(out.contested_marked, 0);
@@ -610,8 +649,18 @@ mod tests {
     #[test]
     fn hedging_is_not_contradiction() {
         let p = packet(vec![
-            claim(2, "Marca", "The move could still collapse before deadline day", "transfer"),
-            claim(1, "Football365", "The move is agreed and will be completed", "transfer"),
+            claim(
+                2,
+                "Marca",
+                "The move could still collapse before deadline day",
+                "transfer",
+            ),
+            claim(
+                1,
+                "Football365",
+                "The move is agreed and will be completed",
+                "transfer",
+            ),
         ]);
         let out = render(&p, Some(&part()), Voice::Journalist);
         assert_eq!(out.contested_marked, 0);
@@ -622,24 +671,45 @@ mod tests {
     fn insider_reads_only_the_transfer_slice() {
         let p = packet(vec![
             claim(3, "ESPN", "Arsenal agreed personal terms", "transfer"),
-            claim(2, "BBC", "He trained fully on Monday after a knock", "injury"),
+            claim(
+                2,
+                "BBC",
+                "He trained fully on Monday after a knock",
+                "injury",
+            ),
         ]);
         let out = render(&p, Some(&part()), Voice::Insider);
         assert_eq!(out.claims_rendered, 1);
         assert!(out.text.contains("Arsenal agreed personal terms"));
-        assert!(!out.text.contains("knock"), "non-transfer claims are not his slice");
+        assert!(
+            !out.text.contains("knock"),
+            "non-transfer claims are not his slice"
+        );
     }
 
     /// 7.6: the register and its phrase are the Influencer's material and nobody else's.
     #[test]
     fn register_reaches_the_influencer_only() {
-        let p = packet(vec![claim(1, "ESPN", "Arsenal agreed personal terms", "transfer")]);
+        let p = packet(vec![claim(
+            1,
+            "ESPN",
+            "Arsenal agreed personal terms",
+            "transfer",
+        )]);
         let hers = render(&p, Some(&part()), Voice::Influencer);
         assert!(hers.text.contains("MOOD: anticipation"));
         assert!(hers.text.contains("holding its breath"));
-        for voice in [Voice::Journalist, Voice::Insider, Voice::Analyst, Voice::Oracle] {
+        for voice in [
+            Voice::Journalist,
+            Voice::Insider,
+            Voice::Analyst,
+            Voice::Oracle,
+        ] {
             let other = render(&p, Some(&part()), voice);
-            assert!(!other.text.contains("MOOD:"), "{voice:?} must not see her register");
+            assert!(
+                !other.text.contains("MOOD:"),
+                "{voice:?} must not see her register"
+            );
             assert!(!other.text.contains("holding its breath"));
         }
     }
@@ -647,7 +717,12 @@ mod tests {
     /// D5: the entity's part has its own lifespan, and the render says so.
     #[test]
     fn role_line_states_the_entitys_span() {
-        let p = packet(vec![claim(1, "ESPN", "Arsenal agreed personal terms", "transfer")]);
+        let p = packet(vec![claim(
+            1,
+            "ESPN",
+            "Arsenal agreed personal terms",
+            "transfer",
+        )]);
         let out = render(&p, Some(&part()), Voice::Journalist);
         assert!(out
             .text
@@ -657,7 +732,12 @@ mod tests {
     /// The continuity line, and only one of it.
     #[test]
     fn prior_packet_contributes_exactly_one_line() {
-        let mut p = packet(vec![claim(1, "ESPN", "Arsenal agreed personal terms", "transfer")]);
+        let mut p = packet(vec![claim(
+            1,
+            "ESPN",
+            "Arsenal agreed personal terms",
+            "transfer",
+        )]);
         p.prior_headline = Some("Arsenal open talks for Vinicius".into());
         let out = render(&p, Some(&part()), Voice::Journalist);
         assert_eq!(
@@ -741,10 +821,18 @@ mod tests {
     /// headline pretending to be a corpus.
     #[test]
     fn a_slice_with_no_claims_renders_nothing_for_that_voice() {
-        let p = packet(vec![claim(1, "BBC", "He trained fully on Monday", "injury")]);
+        let p = packet(vec![claim(
+            1,
+            "BBC",
+            "He trained fully on Monday",
+            "injury",
+        )]);
         let out = render(&p, Some(&part()), Voice::Insider);
         assert_eq!(out.claims_rendered, 0);
-        assert!(out.text.contains("STORY:"), "the Journalist's header still stands");
+        assert!(
+            out.text.contains("STORY:"),
+            "the Journalist's header still stands"
+        );
         let none = render(&packet(vec![]), Some(&part()), Voice::Insider);
         assert_eq!(none.claims_rendered, 0);
     }

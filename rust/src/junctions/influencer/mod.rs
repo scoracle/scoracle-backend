@@ -29,9 +29,7 @@
 //! not-in-input-hash decision as n8/t8). Continuity discipline is the whiplash killer: the
 //! felt read moves like a belief, not a readout of the day's headlines.
 
-use crate::corpus::{
-    dedupe_i64, load_transfer_heat, lookup_entity_name, HeatItem,
-};
+use crate::corpus::{dedupe_i64, load_transfer_heat, lookup_entity_name, HeatItem};
 use crate::harness::{EntityKey, Harness, Parser, Provenance};
 use crate::ledger::{insert_cognition_ledger_best_effort, CognitionLedgerEntry};
 use crate::ollama::GenerateOptions;
@@ -49,7 +47,7 @@ use tracing::{debug, warn};
 // builder — lives in `prompt.rs`, so a change to what this character is asked is a one-file
 // diff. Re-exported here so call sites and the ledger keep reading it from the stage module.
 pub mod prompt;
-pub use prompt::{VIBE_PROMPT_VERSION, VIBE_SYSTEM_PROMPT, build_sentiment_prompt};
+pub use prompt::{build_sentiment_prompt, VIBE_PROMPT_VERSION, VIBE_SYSTEM_PROMPT};
 
 /// Output contract captured separately in the Phase 2 diagnostic ledger.
 pub const VIBE_OUTPUT_CONTRACT_VERSION: &str = "vibe-score-v1";
@@ -551,7 +549,12 @@ async fn load_latest_scored_vibe_row(
     .bind(&key.sport)
     .fetch_optional(pool)
     .await
-    .with_context(|| format!("latest scored vibe row {}/{}", key.entity_type, key.entity_id))
+    .with_context(|| {
+        format!(
+            "latest scored vibe row {}/{}",
+            key.entity_type, key.entity_id
+        )
+    })
 }
 
 /// title_first upper-cases the first character, mirroring `strings.Title` for the
@@ -1013,8 +1016,13 @@ impl StageHandler for VibeHandler {
             // Still hand off: the momentum enqueue is hash-gated and cheap, so a previously
             // lost hand-off self-heals as a no-op — the same shape as sigil's skip-path
             // oracle enqueue.
-            crate::junctions::analyst::enqueue_momentum_if_needed(hx, &item.entity_type, entity_id, &sport)
-                .await?;
+            crate::junctions::analyst::enqueue_momentum_if_needed(
+                hx,
+                &item.entity_type,
+                entity_id,
+                &sport,
+            )
+            .await?;
             return Ok(());
         }
 
@@ -1097,8 +1105,13 @@ impl StageHandler for VibeHandler {
 
         // Vibe now feeds Momentum first; Momentum persists the generated trajectory card and then
         // enqueues Sigil if the Momentum context actually moved.
-        if !crate::junctions::analyst::enqueue_momentum_if_needed(hx, &item.entity_type, entity_id, &sport)
-            .await?
+        if !crate::junctions::analyst::enqueue_momentum_if_needed(
+            hx,
+            &item.entity_type,
+            entity_id,
+            &sport,
+        )
+        .await?
         {
             debug!(
                 entity_type = %item.entity_type,
@@ -1107,7 +1120,6 @@ impl StageHandler for VibeHandler {
                 "vibe: momentum enqueue skipped unchanged/empty context"
             );
         }
-
 
         Ok(())
     }

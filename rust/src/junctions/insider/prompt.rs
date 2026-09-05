@@ -46,8 +46,8 @@
 //! everything downstream reads as if they were. The L9 false-heat rules survive every rewrite:
 //! roundups are not rumors, and never invent a fee or a stage.
 
-use super::{DESC_TRUNCATE, NewsItem, TransferCandidate, TransferEvidence};
-use crate::corpus::{HeatItem, write_heat_lines};
+use super::{NewsItem, TransferCandidate, TransferEvidence, DESC_TRUNCATE};
+use crate::corpus::{write_heat_lines, HeatItem};
 use crate::util::truncate_bytes;
 
 /// Prompt version for the transfer/trade vetting contract.
@@ -359,9 +359,10 @@ pub const INSIDER_SCORE_PROMPT_VERSION: &str = "is6"; // is6, THE FORM + THE WAV
 /// as `/transfers.wire_read`. It used to be true that it was never served, and this sentence
 /// standing here unrevised is why the seat kept audit-grade hygiene while shipping card-grade
 /// prose; see `parse_insider_score_reply` for what came through the gap.
-pub static INSIDER_SCORE_SYSTEM_PROMPT: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
-    format!(
-        r#"Task: you are The Insider — first to the phone, last to burn a source. Your pair verdicts are filed; now wrap the wire: one number for how BUSY this entity's transfer/trade wire is right now.
+pub static INSIDER_SCORE_SYSTEM_PROMPT: std::sync::LazyLock<String> = std::sync::LazyLock::new(
+    || {
+        format!(
+            r#"Task: you are The Insider — first to the phone, last to burn a source. Your pair verdicts are filed; now wrap the wire: one number for how BUSY this entity's transfer/trade wire is right now.
 
 Voice: urgent but guarded. The wrap judges the volume and credibility of movement, never whether the moves would be good. Heat is not evidence and one name-drop is not a story — but a wire full of vetted, advancing calls is exactly what this number names.
 
@@ -385,10 +386,11 @@ THEN, THE SCORE — an integer 1 to 99, the busyness of the wire:
 
 Reply with ONLY this JSON object — the read first, then the headline, then the score — nothing else:
 {{"read": "<the read — up to eight sentences, plain text, no Markdown>", "headline": "<the hook — a tweet, 140 characters at most>", "score": <integer 1-99>}}"#,
-        selection = crate::junctions::form::CLAIM_SELECTION,
-        wire = crate::junctions::form::WIRE_COPY
-    )
-});
+            selection = crate::junctions::form::CLAIM_SELECTION,
+            wire = crate::junctions::form::WIRE_COPY
+        )
+    },
+);
 
 /// The grammar Ollama's constrained decoding enforces on the wrap reply — cloned from
 /// `sigil::oracle_format_schema()`'s shape. Property + required order is `read` THEN

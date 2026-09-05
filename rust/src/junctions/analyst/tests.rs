@@ -98,8 +98,9 @@ fn foreign_script_leak_fails_closed_the_3b_delegation_glitch() {
     // only a content check catches it — reject and let the retry re-roll.
     assert!(parse_momentum_reply("READ: His playmaking has زمنed in Milwaukee.").is_none());
     // Latin diacritics are names, not leaks.
-    let ok = parse_momentum_reply("READ: Éder Militão's form is falling, and the tape backs the drop.")
-        .expect("diacritics must pass");
+    let ok =
+        parse_momentum_reply("READ: Éder Militão's form is falling, and the tape backs the drop.")
+            .expect("diacritics must pass");
     assert!(ok.blurb.contains("Militão"));
 }
 
@@ -129,10 +130,9 @@ fn parses_the_s17_headline_line() {
     assert_eq!(drifted.blurb, "The form is holding while the mood wobbles.");
 
     // A title ends the READ: prose after it belongs to the title, not the read.
-    let trailing = parse_momentum_reply(
-        "READ: First sentence.\nHEADLINE: The title\nSome trailing note.",
-    )
-    .unwrap();
+    let trailing =
+        parse_momentum_reply("READ: First sentence.\nHEADLINE: The title\nSome trailing note.")
+            .unwrap();
     assert_eq!(trailing.blurb, "First sentence.");
     assert_eq!(trailing.headline.as_deref(), Some("The title"));
 }
@@ -194,14 +194,7 @@ fn prompt_carries_the_decided_direction_line() {
         momentum_score: Some(50.7),
         ..SynthMomentum::default()
     };
-    let prompt = build_momentum_prompt(
-        "player",
-        "Test Player",
-        "FOOTBALL",
-        None,
-        None,
-        &mom,
-    );
+    let prompt = build_momentum_prompt("player", "Test Player", "FOOTBALL", None, None, &mom);
     // s18: BOTH decided facts arrive as words — the direction line hands the model no
     // figure and no "steady band" to echo (the digit-starvation pass; 50.7 ⇒ conviction
     // 3 ⇒ "clean and well supported" via momentum_conviction_from_score).
@@ -300,7 +293,6 @@ fn only_the_two_rails_reach_the_prompt() {
     assert!(dir < cue, "the decided fact stays final");
 }
 
-
 #[test]
 fn input_components_are_stable_and_sorted() {
     let rating = SynthRating {
@@ -348,7 +340,11 @@ fn input_components_are_stable_and_sorted() {
 // This is the NORMAL path, not an edge case: the DB grows by fetch-and-upsert with no
 // bootstrap, so entities arrive with nothing and fill in over weeks.
 
-fn ctx(rating: Option<SynthRating>, vibe: Option<SynthVibe>, snap: SynthMomentum) -> MomentumContext {
+fn ctx(
+    rating: Option<SynthRating>,
+    vibe: Option<SynthVibe>,
+    snap: SynthMomentum,
+) -> MomentumContext {
     MomentumContext {
         season: 2025,
         rating,
@@ -451,7 +447,9 @@ fn momentum_allows_digits_in_prose_but_never_a_bookkeeping_citation() {
         "3 wins in a row and the room believes again.",
         "A 14-point climb over 11 samples, and the shape is holding.",
     ] {
-        let got = read(ok).expect("digits in prose never fail the card").expect("a reply");
+        let got = read(ok)
+            .expect("digits in prose never fail the card")
+            .expect("a reply");
         assert_eq!(got.blurb, ok);
     }
 
@@ -460,7 +458,10 @@ fn momentum_allows_digits_in_prose_but_never_a_bookkeeping_citation() {
         "The slide is real (Mood: 30/100) and nobody is arguing.",
         "He is climbing (4th percentile) against a soft run.",
     ] {
-        assert!(read(bad).is_err(), "bookkeeping citation must still fail: {bad}");
+        assert!(
+            read(bad).is_err(),
+            "bookkeeping citation must still fail: {bad}"
+        );
     }
 
     // A parenthetical WITHOUT a digit is ordinary prose, not a citation.

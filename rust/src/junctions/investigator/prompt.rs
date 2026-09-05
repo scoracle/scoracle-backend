@@ -222,8 +222,14 @@ mod tests {
 
     #[test]
     fn prompt_carries_the_descriptor_only_when_present() {
-        let with = build_prose_prompt("Airious Bailey", Some("Tennessee freshman"), "NBA",
-            "Ace Bailey", "American basketball player", "Airious \"Ace\" Bailey Jr. ...");
+        let with = build_prose_prompt(
+            "Airious Bailey",
+            Some("Tennessee freshman"),
+            "NBA",
+            "Ace Bailey",
+            "American basketball player",
+            "Airious \"Ace\" Bailey Jr. ...",
+        );
         assert!(with.contains("How the news article described them: Tennessee freshman"));
         let without = build_prose_prompt("Airious Bailey", None, "NBA", "t", "d", "e");
         assert!(!without.contains("How the news article described"));

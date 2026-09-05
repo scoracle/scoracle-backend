@@ -61,12 +61,7 @@ fn narrative(
     }
 }
 
-fn rating(
-    notability: i32,
-    trajectory: &str,
-    label: &str,
-    body: &str,
-) -> Option<SynthRating> {
+fn rating(notability: i32, trajectory: &str, label: &str, body: &str) -> Option<SynthRating> {
     Some(SynthRating {
         body: body.to_string(),
         notability,

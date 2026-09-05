@@ -183,7 +183,10 @@ mod tests {
 
     #[test]
     fn tags_normalize_case_and_whitespace() {
-        assert_eq!(routing_tags_from_story_type("  TRANSFER  "), vec!["transfer"]);
+        assert_eq!(
+            routing_tags_from_story_type("  TRANSFER  "),
+            vec!["transfer"]
+        );
     }
 
     #[test]
@@ -232,6 +235,9 @@ mod tests {
     fn off_vocabulary_story_types_stay_unjudged() {
         assert_eq!(ArticleBucket::from_story_type("irrelevant"), None);
         assert_eq!(ArticleBucket::from_story_type(""), None);
-        assert_eq!(ArticleBucket::from_story_type("  TRANSFER  "), Some(ArticleBucket::Transfer));
+        assert_eq!(
+            ArticleBucket::from_story_type("  TRANSFER  "),
+            Some(ArticleBucket::Transfer)
+        );
     }
 }

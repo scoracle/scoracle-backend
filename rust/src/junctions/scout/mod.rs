@@ -628,13 +628,13 @@ fn format_datapoint_evidence(d: &RatingDatapoint) -> String {
     // fix that holds; oracle::prompt::descrub_z stays only as a backstop for rows banked before
     // this bump.
     let dz = d.sign as f64 * d.z; // sign-adjusted so + is always the good direction
-    // Commas, never " · " (2026-08-25): the eighth application of the input-shouting law.
-    // The interpunct was the card's notation, the prompt then BANNED echoing it, and the ban
-    // lost the way every ban against the input loses — measured on the 7B (8 of 9 rating
-    // reds, 08-19), on granite4.2 at the fixture gate (7 of 8), and again live the day the
-    // wire-copy pass removed the example numbers and the model reached for the notation
-    // instead. A comma-separated finding echoed into prose is just grammar;
-    // `RATING_BODY_BANS`'s " · " entry stays as the tripwire that should now never fire.
+                                  // Commas, never " · " (2026-08-25): the eighth application of the input-shouting law.
+                                  // The interpunct was the card's notation, the prompt then BANNED echoing it, and the ban
+                                  // lost the way every ban against the input loses — measured on the 7B (8 of 9 rating
+                                  // reds, 08-19), on granite4.2 at the fixture gate (7 of 8), and again live the day the
+                                  // wire-copy pass removed the example numbers and the model reached for the notation
+                                  // instead. A comma-separated finding echoed into prose is just grammar;
+                                  // `RATING_BODY_BANS`'s " · " entry stays as the tripwire that should now never fire.
     let mut s = format!(
         "{}: {}, {:.0}th pct ({}), rating {:+.1}",
         d.label,
@@ -748,9 +748,7 @@ fn render_scouting_decision(d: &ScoutingDecision) -> String {
         // The card says the words the model must speak (s14): echo-prone local models
         // reliably recite the card, so "no clean exploit" lives HERE, not "None supplied"
         // (which they echoed verbatim instead of the contract phrase — gate round 2).
-        None => {
-            b.push_str("Headline limitation: None — this profile offers no clean exploit.\n")
-        }
+        None => b.push_str("Headline limitation: None — this profile offers no clean exploit.\n"),
     }
     if let Some(reason) = &d.no_standout_reason {
         b.push_str(&format!("Why no standout: {reason}\n"));
@@ -1568,7 +1566,10 @@ fn split_rating_headline(raw: &str) -> (Option<String>, String) {
     for line in raw.lines() {
         if headline.is_none() {
             let trimmed = line.trim();
-            if let Some(rest) = trimmed.strip_prefix("HEADLINE:").or_else(|| trimmed.strip_prefix("Headline:")) {
+            if let Some(rest) = trimmed
+                .strip_prefix("HEADLINE:")
+                .or_else(|| trimmed.strip_prefix("Headline:"))
+            {
                 let folded = rest.split_whitespace().collect::<Vec<_>>().join(" ");
                 if !folded.is_empty() {
                     headline = Some(folded);
@@ -1587,8 +1588,13 @@ impl Parser<RatingReply> for RatingParser {
         let (_legacy_label, raw_body) = parse_rating_commentary(raw);
         let (headline, body_only) = split_rating_headline(&raw_body);
         let body = clean_commentary(&body_only);
-        if let Some(p) = crate::guards::first_banned_phrase(&body, crate::guards::RATING_BODY_BANS) {
-            tracing::warn!(guard = "rating_body_ban", phrase = p, "rating body rejected");
+        if let Some(p) = crate::guards::first_banned_phrase(&body, crate::guards::RATING_BODY_BANS)
+        {
+            tracing::warn!(
+                guard = "rating_body_ban",
+                phrase = p,
+                "rating body rejected"
+            );
             anyhow::bail!("rating: body carries banned {p:?}");
         }
         if let Some(p) = crate::guards::first_product_name(&body) {
@@ -2237,9 +2243,7 @@ pub fn rating_work_input_version_for_transfer(season: i32, application_id: i64) 
 /// fixed one, splits one event day across two versions and the collapse silently stops
 /// collapsing.
 pub fn rating_work_input_version_for_availability(season: i32, day: &str) -> String {
-    format!(
-        "{RATING_WORK_PREFIX}{season}:{RATING_PROMPT_VERSION}:{RATING_WORK_AVAIL_MARK}{day}"
-    )
+    format!("{RATING_WORK_PREFIX}{season}:{RATING_PROMPT_VERSION}:{RATING_WORK_AVAIL_MARK}{day}")
 }
 
 /// The marker token sitting in the `input_version`'s `input_hash` slot, if the version parses.

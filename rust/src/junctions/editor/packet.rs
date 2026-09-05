@@ -888,8 +888,22 @@ mod tests {
     #[test]
     fn a_contradiction_survives_compilation_attributed_to_both_sources() {
         let members = vec![
-            member(2, "Marca", Some(1), 200, "transfer", &["Vinicius and Real Madrid have yet to reach agreement"]),
-            member(1, "AS", Some(2), 100, "transfer", &["Vinicius and Real Madrid have reached agreement"]),
+            member(
+                2,
+                "Marca",
+                Some(1),
+                200,
+                "transfer",
+                &["Vinicius and Real Madrid have yet to reach agreement"],
+            ),
+            member(
+                1,
+                "AS",
+                Some(2),
+                100,
+                "transfer",
+                &["Vinicius and Real Madrid have reached agreement"],
+            ),
         ];
         let draft = compile(&members, &[entity("player", 1, "Vinicius")]);
         let facts = claim_facts(&draft);
@@ -909,8 +923,22 @@ mod tests {
     #[test]
     fn only_byte_identical_facts_collapse_and_the_first_filer_keeps_the_credit() {
         let members = vec![
-            member(2, "Copycat Wire", Some(1), 200, "transfer", &["Rodri signs a new deal"]),
-            member(1, "The Athletic", Some(2), 100, "transfer", &["Rodri signs a new deal"]),
+            member(
+                2,
+                "Copycat Wire",
+                Some(1),
+                200,
+                "transfer",
+                &["Rodri signs a new deal"],
+            ),
+            member(
+                1,
+                "The Athletic",
+                Some(2),
+                100,
+                "transfer",
+                &["Rodri signs a new deal"],
+            ),
         ];
         let draft = compile(&members, &[]);
         let claims = draft.claims.as_array().unwrap();
@@ -1007,8 +1035,7 @@ mod tests {
         let after = compile(&charged, &[]);
 
         assert_eq!(
-            before.slice_fingerprints["narratives"],
-            after.slice_fingerprints["narratives"],
+            before.slice_fingerprints["narratives"], after.slice_fingerprints["narratives"],
             "the Journalist's slice did not move"
         );
         assert_eq!(
@@ -1145,7 +1172,10 @@ mod tests {
             Some("Real Madrid 2-1 Arsenal")
         );
         assert_eq!(draft.facts["member_articles"].as_i64(), Some(1));
-        assert_eq!(draft.facts["entities"][0]["name"].as_str(), Some("Real Madrid"));
+        assert_eq!(
+            draft.facts["entities"][0]["name"].as_str(),
+            Some("Real Madrid")
+        );
         // No prose reaches the Scout through here (T4).
         assert!(draft.facts.get("claims").is_none());
         assert!(draft.facts.get("quotes").is_none());

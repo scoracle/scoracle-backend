@@ -242,13 +242,8 @@ fn main() {
     let out: Vec<serde_json::Value> = scenarios()
         .into_iter()
         .map(|s| {
-            let prompt = build_editor_prompt_parts(
-                s.source,
-                s.title,
-                s.description,
-                s.text,
-                &s.hypothesis,
-            );
+            let prompt =
+                build_editor_prompt_parts(s.source, s.title, s.description, s.text, &s.hypothesis);
             // The hypothesis list travels WITH the fixture (as reader_vetted, the field the
             // evaluator already hands to the parser): only hypothesis entities' roles count
             // toward the derived verdict.

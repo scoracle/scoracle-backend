@@ -62,9 +62,9 @@ pub fn derive_relevance(
     // that role's vote — the descriptor outranks the role label (it is copied from the text;
     // the label is a guess).
     let described_as_place = |entity: &str| {
-        let hit = names
-            .iter()
-            .any(|n| n.name.eq_ignore_ascii_case(entity.trim()) && descriptor_names_place(&n.descriptor));
+        let hit = names.iter().any(|n| {
+            n.name.eq_ignore_ascii_case(entity.trim()) && descriptor_names_place(&n.descriptor)
+        });
         // Friction 1 observability: log when the descriptor arm fires so we can measure whether
         // it's still needed on ministral-3:3b (originally measured on gemma3:4b, 2026-08-01).
         if hit {
@@ -102,7 +102,7 @@ pub fn derive_relevance(
             let not_absent = !r.role.eq_ignore_ascii_case("absent");
             let place = described_as_place(&r.entity);
             let sup = supported(r);
-            
+
             // Observability: log when descriptor arm fires (unmeasured on ministral-3:3b)
             if place && not_absent {
                 let descriptor = names
@@ -117,30 +117,28 @@ pub fn derive_relevance(
                     "descriptor_names_place arm fired (relevance rejected)"
                 );
             }
-            
+
             not_absent && !place && sup
         });
         return result;
     }
-    
+
     // Fallback path: check names[] when entity_roles is empty
-    let result = names
-        .iter()
-        .any(|n| {
-            let matches = entity_matches(hypothesis, &n.name);
-            let place = descriptor_names_place(&n.descriptor);
-            
-            // Observability: log when descriptor arm fires in fallback path
-            if matches && place {
-                debug!(
-                    entity = %n.name,
-                    descriptor = %n.descriptor,
-                    "descriptor_names_place arm fired in fallback (relevance rejected)"
-                );
-            }
-            
-            matches && !place
-        });
+    let result = names.iter().any(|n| {
+        let matches = entity_matches(hypothesis, &n.name);
+        let place = descriptor_names_place(&n.descriptor);
+
+        // Observability: log when descriptor arm fires in fallback path
+        if matches && place {
+            debug!(
+                entity = %n.name,
+                descriptor = %n.descriptor,
+                "descriptor_names_place arm fired in fallback (relevance rejected)"
+            );
+        }
+
+        matches && !place
+    });
     result
 }
 
@@ -152,9 +150,25 @@ pub fn derive_relevance(
 pub fn descriptor_names_place(descriptor: &str) -> bool {
     const PLACE_WORDS: &[&str] = &["city", "capital", "town", "village", "municipality"];
     const CLUB_WORDS: &[&str] = &[
-        "club", "team", "side", "fc", "squad", "rivals", "rival", "derby", "manager", "coach",
-        "player", "striker", "keeper", "goalkeeper", "midfielder", "defender", "forward",
-        "winger", "captain",
+        "club",
+        "team",
+        "side",
+        "fc",
+        "squad",
+        "rivals",
+        "rival",
+        "derby",
+        "manager",
+        "coach",
+        "player",
+        "striker",
+        "keeper",
+        "goalkeeper",
+        "midfielder",
+        "defender",
+        "forward",
+        "winger",
+        "captain",
     ];
     let mut saw_place = false;
     for w in descriptor.split(|c: char| !c.is_alphanumeric()) {
@@ -325,11 +339,7 @@ pub struct SurfaceHit {
 /// nothing else (T9 — trigram ranks for review, never writes). `public.nrm()` is called IN SQL
 /// on purpose: the database owns the one normalizer, and a Rust copy that drifts from it is the
 /// failure mode mig 198 exists to avoid.
-pub async fn resolve_names(
-    pool: &PgPool,
-    sport: &str,
-    names: &[NameMention],
-) -> Result<Resolved> {
+pub async fn resolve_names(pool: &PgPool, sport: &str, names: &[NameMention]) -> Result<Resolved> {
     if names.is_empty() {
         return Ok(Resolved::default());
     }

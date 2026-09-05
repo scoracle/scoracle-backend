@@ -101,13 +101,10 @@ fn crown_parses_optional_headline() {
     )
     .unwrap();
     assert_eq!(r.headline.as_deref(), Some("Winter stirs for Vale"));
-    let absent =
-        parse_crown_reply(r#"{"reading": "The arc holds.", "score": 73}"#).unwrap();
+    let absent = parse_crown_reply(r#"{"reading": "The arc holds.", "score": 73}"#).unwrap();
     assert!(absent.headline.is_none());
-    let empty = parse_crown_reply(
-        r#"{"reading": "The arc holds.", "headline": "", "score": 73}"#,
-    )
-    .unwrap();
+    let empty =
+        parse_crown_reply(r#"{"reading": "The arc holds.", "headline": "", "score": 73}"#).unwrap();
     assert!(empty.headline.is_none());
 }
 
@@ -125,17 +122,26 @@ fn crown_headline_fails_open_and_never_costs_the_reading() {
             .parse(junk)
             .expect("a junk title must not fail the reading")
             .expect("a reply");
-        assert!(got.reading.contains("The arc holds"), "the reading survives: {got:?}");
         assert!(
-            got.headline.as_deref().is_none_or(|h| crate::guards::hook_violation(h).is_none()),
-            "a shipped title always satisfies the contract: {:?}", got.headline
+            got.reading.contains("The arc holds"),
+            "the reading survives: {got:?}"
+        );
+        assert!(
+            got.headline
+                .as_deref()
+                .is_none_or(|h| crate::guards::hook_violation(h).is_none()),
+            "a shipped title always satisfies the contract: {:?}",
+            got.headline
         );
     }
     let clean = CrownParser
         .parse(r#"{"reading":"x.","headline":"Winter stirs at the Emirates","score":50}"#)
         .unwrap()
         .unwrap();
-    assert_eq!(clean.headline.as_deref(), Some("Winter stirs at the Emirates"));
+    assert_eq!(
+        clean.headline.as_deref(),
+        Some("Winter stirs at the Emirates")
+    );
 }
 
 /// The Oracle had NO markdown protection until 2026-08-23 — not a strip, not a ban — which is
@@ -146,8 +152,16 @@ fn the_crown_reading_is_scrubbed_of_emphasis() {
         .parse(r#"{"reading":"The **arc** holds, and the wire is __quiet__.","score":50}"#)
         .unwrap()
         .unwrap();
-    assert!(!got.reading.contains("**") && !got.reading.contains("__"), "scrubbed: {:?}", got.reading);
-    assert!(got.reading.contains("The arc holds"), "prose intact: {:?}", got.reading);
+    assert!(
+        !got.reading.contains("**") && !got.reading.contains("__"),
+        "scrubbed: {:?}",
+        got.reading
+    );
+    assert!(
+        got.reading.contains("The arc holds"),
+        "prose intact: {:?}",
+        got.reading
+    );
 }
 
 #[test]
@@ -676,17 +690,29 @@ fn the_scouts_z_notation_never_reaches_the_crown() {
     let got = super::prompt::descrub_z(brief);
 
     assert!(!got.contains(" z "), "z tokens survive: {got}");
-    assert!(!got.contains("z +") && !got.contains("z -"), "signed z survives: {got}");
+    assert!(
+        !got.contains("z +") && !got.contains("z -"),
+        "signed z survives: {got}"
+    );
 
     // The evidence the Oracle IS allowed to speak stays intact.
-    assert!(got.contains("98th percentile"), "percentiles survive: {got}");
+    assert!(
+        got.contains("98th percentile"),
+        "percentiles survive: {got}"
+    );
     assert!(got.contains("4th percentile"), "percentiles survive: {got}");
     assert!(got.contains("172"), "raw values survive: {got}");
     assert!(got.contains("elite"), "tiers survive: {got}");
 
     // And the prose is not left littered with stranded punctuation.
-    assert!(!got.contains(" )") && !got.contains("()") && !got.contains(" ,"), "litter: {got}");
+    assert!(
+        !got.contains(" )") && !got.contains("()") && !got.contains(" ,"),
+        "litter: {got}"
+    );
 
     // A word merely starting with z is not a z-token.
-    assert_eq!(super::prompt::descrub_z("zonal marking at 60th"), "zonal marking at 60th");
+    assert_eq!(
+        super::prompt::descrub_z("zonal marking at 60th"),
+        "zonal marking at 60th"
+    );
 }

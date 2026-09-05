@@ -14,10 +14,10 @@
 use anyhow::{Context, Result};
 use scoracle_cognition::config::Config;
 use scoracle_cognition::db;
+use scoracle_cognition::harness::Harness;
 use scoracle_cognition::junctions::graph::{
     build_graph_prompt, graph_opts, load_graph_article_context, GraphParser, GRAPH_PROMPT_VERSION,
 };
-use scoracle_cognition::harness::Harness;
 use scoracle_cognition::ollama::OllamaClient;
 use scoracle_cognition::route::{Role, Router};
 use sqlx::Row;

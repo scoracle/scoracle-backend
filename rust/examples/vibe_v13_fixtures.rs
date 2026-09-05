@@ -139,11 +139,7 @@ fn write_fixture(dir: &Path, fx: &Fixture, note: &str) -> anyhow::Result<()> {
 /// the sentence ceiling. Adopted into the generator at v18 — until then this gate lived ONLY in
 /// the on-disk JSON, and a regen would have silently dropped it (the momentum-generator lesson,
 /// caught the same evening).
-fn vibe_gate(
-    prose_includes: &[&str],
-    score_min: Option<i32>,
-    score_max: Option<i32>,
-) -> Expect {
+fn vibe_gate(prose_includes: &[&str], score_min: Option<i32>, score_max: Option<i32>) -> Expect {
     // (The hook contract and the `**` body ban left the per-fixture expects 08-19: they are
     // GLOBAL invariants now — `hook_contract`/`no_banned_phrases` checks in `VibeTask`, the
     // same rules `VibeParser` enforces in production via `guards`.)

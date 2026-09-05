@@ -10,8 +10,7 @@ fn candidates() -> Vec<GraphCandidate> {
         GraphCandidate {
             entity_type: "player".into(),
             entity_id: 10,
-            descriptor: "Morgan Rogers, an English midfielder, currently at Aston Villa."
-                .into(),
+            descriptor: "Morgan Rogers, an English midfielder, currently at Aston Villa.".into(),
         },
         GraphCandidate {
             entity_type: "team".into(),

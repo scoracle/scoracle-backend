@@ -39,10 +39,9 @@ fn insider_score_schema_reads_first_lands_1_to_99() {
 
 #[test]
 fn insider_score_reply_parses_and_clamps() {
-    let ok = parse_insider_score_reply(
-        r#"{"read": "The wire holds one advancing call.", "score": 62}"#,
-    )
-    .unwrap();
+    let ok =
+        parse_insider_score_reply(r#"{"read": "The wire holds one advancing call.", "score": 62}"#)
+            .unwrap();
     assert_eq!(ok.read, "The wire holds one advancing call.");
     assert_eq!(ok.score, 62);
     // Prose around the object is tolerated (the crown's salvage rule); scores clamp to 1-99.
@@ -109,9 +108,11 @@ fn insider_score_read_reaches_the_card_undressed() {
     // Leading list/heading decoration goes too, and apostrophes and in-word underscores are
     // left alone — this is prose hygiene, not a rewrite of what the Insider filed.
     assert_eq!(
-        parse_insider_score_reply(r#"{"read": "- The board's snake_case tag holds.", "score": 50}"#)
-            .unwrap()
-            .read,
+        parse_insider_score_reply(
+            r#"{"read": "- The board's snake_case tag holds.", "score": 50}"#
+        )
+        .unwrap()
+        .read,
         "The board's snake_case tag holds."
     );
 }
@@ -260,7 +261,9 @@ fn prompt_none_sourceless_headline() {
         source: String::new(),
     }];
     let evidence = TransferEvidence::from_news(&news, 1, "");
-    let p = build_transfer_prompt("Lakers", &c, "NBA", "none", &news, &evidence, None, None, None);
+    let p = build_transfer_prompt(
+        "Lakers", &c, "NBA", "none", &news, &evidence, None, None, None,
+    );
     assert!(
         !p.contains("Relational memory"),
         "no memory ⇒ no section (t7 byte-shape preserved)"
@@ -421,7 +424,10 @@ fn packet_pair_prompt_carries_the_storyline_framing_above_the_claims() {
     assert!(p.contains("The story these reports belong to"));
     assert!(p.contains("STORY: Vinicius Junior and Arsenal: where the deal stands"));
     assert!(p.contains("What the reports claim (⇄"));
-    assert!(!p.contains("\nNews headlines:\n"), "the header names the material");
+    assert!(
+        !p.contains("\nNews headlines:\n"),
+        "the header names the material"
+    );
     // Both sides of the contradiction stand, attributed (T3/D6) — the Insider is the one voice
     // whose job is to stage a contested claim, so neither may be collapsed on the way in.
     assert!(p.contains("[Football365] ⇄ Arsenal have reached an agreement in principle"));

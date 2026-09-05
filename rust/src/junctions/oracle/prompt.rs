@@ -177,9 +177,8 @@ pub(crate) fn descrub_z(brief: &str) -> String {
     let mut i = 0usize;
     while i < b.len() {
         // A z-token is `z` on a word boundary, optional space, optional sign, then a digit.
-        let is_z = (b[i] == b'z' || b[i] == b'Z')
-            && (i == 0 || !b[i - 1].is_ascii_alphanumeric())
-            && {
+        let is_z =
+            (b[i] == b'z' || b[i] == b'Z') && (i == 0 || !b[i - 1].is_ascii_alphanumeric()) && {
                 let mut j = i + 1;
                 while j < b.len() && b[j] == b' ' {
                     j += 1;
@@ -212,7 +211,10 @@ pub(crate) fn descrub_z(brief: &str) -> String {
         }
     }
     // Tidy what the removal stranded: "(98th percentile)" keeps its bracket, "( )" does not.
-    out.replace(" )", ")").replace("()", "").replace(" .", ".").replace(" ,", ",")
+    out.replace(" )", ")")
+        .replace("()", "")
+        .replace(" .", ".")
+        .replace(" ,", ",")
 }
 
 fn capped(s: &str, budget: Option<usize>) -> String {

@@ -292,11 +292,28 @@ fn resolved_from_json(v: &serde_json::Value) -> Option<Resolved> {
                 .to_string(),
         });
     }
-    for u in v.get("unresolved").and_then(|u| u.as_array()).into_iter().flatten() {
+    for u in v
+        .get("unresolved")
+        .and_then(|u| u.as_array())
+        .into_iter()
+        .flatten()
+    {
         out.unresolved.push(NameMention {
-            name: u.get("name").and_then(|s| s.as_str()).unwrap_or_default().to_string(),
-            kind_hint: u.get("kind_hint").and_then(|s| s.as_str()).unwrap_or_default().to_string(),
-            descriptor: u.get("descriptor").and_then(|s| s.as_str()).unwrap_or_default().to_string(),
+            name: u
+                .get("name")
+                .and_then(|s| s.as_str())
+                .unwrap_or_default()
+                .to_string(),
+            kind_hint: u
+                .get("kind_hint")
+                .and_then(|s| s.as_str())
+                .unwrap_or_default()
+                .to_string(),
+            descriptor: u
+                .get("descriptor")
+                .and_then(|s| s.as_str())
+                .unwrap_or_default()
+                .to_string(),
         });
     }
     for rf in v
@@ -306,9 +323,21 @@ fn resolved_from_json(v: &serde_json::Value) -> Option<Resolved> {
         .flatten()
     {
         out.refused_ambiguous.push(RefusedName {
-            name: rf.get("name").and_then(|s| s.as_str()).unwrap_or_default().to_string(),
-            kind_hint: rf.get("kind_hint").and_then(|s| s.as_str()).unwrap_or_default().to_string(),
-            descriptor: rf.get("descriptor").and_then(|s| s.as_str()).unwrap_or_default().to_string(),
+            name: rf
+                .get("name")
+                .and_then(|s| s.as_str())
+                .unwrap_or_default()
+                .to_string(),
+            kind_hint: rf
+                .get("kind_hint")
+                .and_then(|s| s.as_str())
+                .unwrap_or_default()
+                .to_string(),
+            descriptor: rf
+                .get("descriptor")
+                .and_then(|s| s.as_str())
+                .unwrap_or_default()
+                .to_string(),
             candidates: Vec::new(),
         });
     }

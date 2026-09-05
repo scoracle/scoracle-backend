@@ -62,6 +62,18 @@ TZ=America/New_York
 0 2 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-pipeline.sh -mode ingest >> /home/sheneveld/scoracle/scoracle-backend/logs/pipeline-ingest.log 2>&1
 
 # ---------------------------------------------------------------------------
+# Stats data sweep — daily, before the news sweep (PLAN-weekly-fantasy-rail)
+# ---------------------------------------------------------------------------
+# The gap-driven importer: schedules + rosters from the free feeds, then every
+# fixture the feed marks finished with no stat rows in the DB is fetched and
+# promoted through finalize_fixture() (event_box_scores -> player_stats ->
+# recompute_season). Runs before ingest so the Editor's night reads against
+# fresh fixtures. Idempotent by shape: a night the feed lagged (late MNF stats)
+# is simply still in the gap the next night — no alarm, no manual recovery.
+# NFL (nflverse) today; NBA (stats.nba.com) and FPL land on the same gap query.
+30 1 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-pipeline.sh -mode data >> /home/sheneveld/scoracle/scoracle-backend/logs/pipeline-data.log 2>&1
+
+# ---------------------------------------------------------------------------
 # Narrative-graph co-mention refresh — daily, after ingest (mig 154)
 # ---------------------------------------------------------------------------
 # Recomputes narrative_links co_mention edges from the vetted news rail. Pure

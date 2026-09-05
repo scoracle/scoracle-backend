@@ -1,12 +1,20 @@
-// pipeline — the RSS ingest sweep for the Scoracle corpus.
+// pipeline — the daily sweep for the Scoracle corpus: news in, stats in.
 //
-// Fetch articles via Google News RSS, normalize, write news_articles, and
-// enqueue the Editor's read. Every LLM derivation stage lives in the Rust
-// Cognition Harness (rust/src), which drains the durable pipeline_work queue.
-// This binary performs no model work.
+// -mode ingest: fetch articles via Google News RSS, normalize, write
+// news_articles, and enqueue the Editor's read. Every LLM derivation stage
+// lives in the Rust Cognition Harness (rust/src), which drains the durable
+// pipeline_work queue. This binary performs no model work.
+//
+// -mode data: the gap-driven stats importer (internal/dataimport,
+// PLAN-weekly-fantasy-rail.md). Refresh schedules + rosters from the free
+// feeds, ask the DB which finished fixtures have no stat rows, promote exactly
+// those through finalize_fixture(). The feed detects the event; a miss is
+// still in the gap tomorrow. NFL (nflverse) for now; NBA and FPL follow.
 //
 //	go run ./cmd/pipeline -mode ingest
 //	go run ./cmd/pipeline -mode ingest -sport FOOTBALL   # one-sport smoke
+//	go run ./cmd/pipeline -mode data
+//	go run ./cmd/pipeline -mode data -season 2025        # one-season backfill
 //
 // Env: DATABASE_PRIVATE_URL (or fallbacks) — see config.go.
 package main
@@ -24,12 +32,14 @@ import (
 
 	"github.com/albapepper/scoracle-data/internal/config"
 	"github.com/albapepper/scoracle-data/internal/corpus"
+	"github.com/albapepper/scoracle-data/internal/dataimport"
 	"github.com/albapepper/scoracle-data/internal/jobrun"
 )
 
 func main() {
-	mode := flag.String("mode", "ingest", "compatibility flag; only ingest is supported")
+	mode := flag.String("mode", "ingest", "ingest (RSS sweep) | data (stats gap-fill)")
 	sport := flag.String("sport", "", "NBA | NFL | FOOTBALL | all (default all)")
+	season := flag.Int("season", 0, "[data] import one season only (0 = current + next)")
 	// 100 is one page: Google News RSS returns at most 100 items per request, so this takes
 	// what a single search gives and truncates nothing that was ever offered. At 12 the cap
 	// never bound on a quiet club (Spezia returns 3) and bound ONLY on the entities with the
@@ -53,8 +63,8 @@ func main() {
 		logger.Error("config load failed", "error", err)
 		os.Exit(1)
 	}
-	if *mode != "ingest" {
-		fmt.Fprintf(os.Stderr, "unknown -mode %q; the only supported mode is ingest\n", *mode)
+	if *mode != "ingest" && *mode != "data" {
+		fmt.Fprintf(os.Stderr, "unknown -mode %q; supported modes are ingest and data\n", *mode)
 		os.Exit(2)
 	}
 
@@ -65,6 +75,9 @@ func main() {
 	}
 	defer pool.Close()
 
+	if *mode == "data" {
+		os.Exit(runData(pool, cfg.DatabaseURL, *season, logger))
+	}
 	os.Exit(runIngestOnly(pool, cfg.DatabaseURL, *sport, *rssLimit, *rssPauseMs, logger))
 }
 
@@ -82,6 +95,47 @@ func parseLogLevel(s string) slog.Level {
 	default:
 		return slog.LevelInfo
 	}
+}
+
+// runData is the stats gap-fill under its own jobrun guard ("pipeline-data"),
+// separate from the RSS sweep's lock — the two steps run back to back in cron
+// but neither should ever block the other's retry.
+func runData(pool *pgxpool.Pool, dbURL string, season int, logger *slog.Logger) int {
+	ctx := context.Background()
+	run, acquired, err := jobrun.Guard(ctx, pool, dbURL, "pipeline-data")
+	if err != nil {
+		logger.Error("pipeline data: run-guard failed", "error", err)
+		return 1
+	}
+	if !acquired {
+		logger.Warn("pipeline data: another data run holds the lock - exiting cleanly")
+		return 0
+	}
+	defer run.Close()
+
+	funnel, runErr := dataimport.RunNFL(ctx, pool, season, logger)
+
+	status, exit := jobrun.StatusSuccess, 0
+	switch {
+	case runErr != nil:
+		status, exit = jobrun.StatusFailed, 1
+		logger.Error("pipeline data: run failed", "error", runErr)
+	case funnel.GapsFailed > 0 || funnel.PlayersUnmatched > 0 || funnel.TeamsUnmatched > 0:
+		// Retryable next run by construction: everything skipped is still in the gap.
+		status, exit = jobrun.StatusPartial, 3
+		runErr = fmt.Errorf("gaps_failed=%d players_unmatched=%d teams_unmatched=%d (gap query re-offers next run)",
+			funnel.GapsFailed, funnel.PlayersUnmatched, funnel.TeamsUnmatched)
+	}
+	counts := jobrun.Counts{
+		Attempted: funnel.Gaps,
+		Succeeded: funnel.GapsFilled,
+		Skipped:   funnel.GapsWaiting,
+		Failed:    funnel.GapsFailed,
+	}
+	if ferr := run.Finish(ctx, status, counts, runErr); ferr != nil {
+		logger.Warn("pipeline data: record run failed", "error", ferr)
+	}
+	return exit
 }
 
 func runIngestOnly(pool *pgxpool.Pool, dbURL, sportArg string, rssLimit, rssPauseMs int, logger *slog.Logger) int {

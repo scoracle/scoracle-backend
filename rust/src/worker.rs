@@ -373,6 +373,35 @@ impl Desk {
                 Ok(_) => debug!(cause, "dormancy sweep: nothing quiet enough"),
                 Err(e) => error!(error = %format!("{e:#}"), cause, "dormancy sweep failed"),
             }
+            // The week seal (mig 241, Phase B3) rides the same hourly slot:
+            // deterministic SQL — inside a week's final six hours it enqueues the
+            // closing pass (content debounce keeps it honest), and at the Monday
+            // boundary it stamps the week sealed. Tolerates the function not
+            // being installed yet (pre-mig deploys log and move on).
+            for sport in ["FOOTBALL", "NBA", "NFL"] {
+                match sqlx::query_as::<_, (i32, i32)>(
+                    "SELECT closing_enqueued, weeks_sealed FROM public.seal_weeks($1)",
+                )
+                .bind(sport)
+                .fetch_one(&self.pool)
+                .await
+                {
+                    Ok((enq, sealed)) if enq > 0 || sealed > 0 => {
+                        info!(
+                            sport,
+                            closing_enqueued = enq,
+                            weeks_sealed = sealed,
+                            cause,
+                            "week seal advanced"
+                        );
+                    }
+                    Ok(_) => debug!(sport, cause, "week seal: nothing to close"),
+                    Err(e) => {
+                        debug!(sport, error = %format!("{e:#}"), cause,
+                            "week seal unavailable (mig 241 not applied?)");
+                    }
+                }
+            }
         }
 
         if !self.packet_compile {

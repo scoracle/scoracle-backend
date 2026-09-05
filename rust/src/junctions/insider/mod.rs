@@ -52,7 +52,7 @@ use tracing::{debug, info, warn};
 // builder — lives in `prompt.rs`, so a change to what this character is asked is a one-file
 // diff. Re-exported here so call sites and the ledger keep reading it from the stage module.
 pub mod prompt;
-pub use prompt::{INSIDER_SCORE_PROMPT_VERSION, INSIDER_SCORE_SYSTEM_PROMPT, TRANSFER_IDENTITY_ADJUDICATION_PROMPT_VERSION, TRANSFER_PROMPT_VERSION, build_insider_score_prompt, build_transfer_identity_adjudication_prompt, build_transfer_prompt, insider_score_format_schema, transfer_identity_adjudication_system_prompt, transfer_system_prompt};
+pub use prompt::{INSIDER_SCORE_PROMPT_VERSION, INSIDER_SCORE_SYSTEM_PROMPT, TRANSFER_IDENTITY_ADJUDICATION_PROMPT_VERSION, TRANSFER_PROMPT_VERSION, TRANSFER_PROMPT_VERSION_PERSON, build_insider_score_prompt, build_transfer_identity_adjudication_prompt, build_transfer_prompt, insider_score_format_schema, transfer_identity_adjudication_system_prompt, transfer_system_prompt};
 
 /// Output schema version for transfer adjudication JSON, distinct from the prompt contract.
 pub const TRANSFER_OUTPUT_CONTRACT_VERSION: &str = "transfer-verdict-v1";
@@ -112,8 +112,10 @@ fn past(deadline: Option<Instant>) -> bool {
 const SUMMARY_TRUNCATE: usize = 240;
 const DESC_TRUNCATE: usize = 160;
 
-/// One co-mention candidate player for a team + its identity-card disambiguators. Mirrors
-/// `transferCandidate`.
+/// One co-mention candidate for a team + its identity-card disambiguators. Mirrors
+/// `transferCandidate`. Since mig 235 the subject can be a player OR a person of kind
+/// coach ("coaches are transfer-eligible entities too" — Scott, 2026-09-04): same
+/// vetting, same stage ladder, a manager move is a transfer story with a different noun.
 #[derive(Clone, Debug)]
 pub struct TransferCandidate {
     pub player_id: i32,
@@ -121,6 +123,13 @@ pub struct TransferCandidate {
     pub nationality: String,  // empty when unknown
     pub current_club: String, // canonical current club (player_current_identity)
     pub position: String,
+    /// 'player' → public.players, 'person' → public.persons. Part of the pair key
+    /// everywhere downstream — the two id sequences overlap.
+    pub subject_type: String,
+    /// Person subjects carry their relationship from persons.team_id directly; the
+    /// player batch (`team_relationships`) is player-id keyed and must not see
+    /// person ids (collision). None for players.
+    pub relationship_override: Option<String>,
 }
 
 /// One corpus news item for the (team, player) pair. Mirrors `newsItem` (the prompt uses
@@ -299,6 +308,9 @@ pub struct TransferRow {
 #[derive(Clone, Debug)]
 pub struct TransferPairOutput {
     pub player_id: i32,
+    /// 'player' | 'person' (mig 235) — which table player_id names. Travels with the
+    /// output so persist and the trajectory baseline key the pair correctly.
+    pub subject_type: String,
     pub model: String,
     pub heat: Option<i16>,
     pub components: String, // heat_components jsonb text
@@ -353,23 +365,58 @@ pub async fn load_candidates(
 ) -> Result<Vec<TransferCandidate>> {
     let rows = sqlx::query(
         r#"
-        SELECT pe.entity_id, p.name,
-               COALESCE(p.nationality, '')                    AS nationality,
-               COALESCE(ct.name, '')                          AS current_club,
-               COALESCE(NULLIF(pci.position, 'Unknown'), '')  AS position
-        FROM news_article_entities te
-        JOIN news_article_entities pe
-          ON pe.article_id = te.article_id AND pe.sport = te.sport AND pe.entity_type = 'player'
-        JOIN news_articles a ON a.id = te.article_id
-        JOIN players p ON p.id = pe.entity_id AND p.sport = pe.sport
-        LEFT JOIN public.player_current_identity pci ON pci.player_id = p.id AND pci.sport = p.sport
-        LEFT JOIN teams ct ON ct.id = pci.team_id AND ct.sport = p.sport
-        WHERE te.entity_type = 'team' AND te.entity_id = $1 AND te.sport = $2
-          AND a.bucket IS DISTINCT FROM 'non_transfer'
-          AND te.created_at > NOW() - INTERVAL '14 days'
-        GROUP BY pe.entity_id, p.name, p.nationality, ct.name, pci.position
-        HAVING count(DISTINCT te.article_id) >= $3
-        ORDER BY max(a.topic_heat) DESC NULLS LAST, count(DISTINCT te.article_id) DESC
+        SELECT * FROM (
+            SELECT pe.entity_id, p.name,
+                   COALESCE(p.nationality, '')                    AS nationality,
+                   COALESCE(ct.name, '')                          AS current_club,
+                   COALESCE(NULLIF(pci.position, 'Unknown'), '')  AS position,
+                   'player'::text                                 AS subject_type,
+                   NULL::text                                     AS relationship_override,
+                   max(a.topic_heat)                              AS topic_heat,
+                   count(DISTINCT te.article_id)                  AS article_n
+            FROM news_article_entities te
+            JOIN news_article_entities pe
+              ON pe.article_id = te.article_id AND pe.sport = te.sport AND pe.entity_type = 'player'
+            JOIN news_articles a ON a.id = te.article_id
+            JOIN players p ON p.id = pe.entity_id AND p.sport = pe.sport
+            LEFT JOIN public.player_current_identity pci ON pci.player_id = p.id AND pci.sport = p.sport
+            LEFT JOIN teams ct ON ct.id = pci.team_id AND ct.sport = p.sport
+            WHERE te.entity_type = 'team' AND te.entity_id = $1 AND te.sport = $2
+              AND a.bucket IS DISTINCT FROM 'non_transfer'
+              AND te.created_at > NOW() - INTERVAL '14 days'
+            GROUP BY pe.entity_id, p.name, p.nationality, ct.name, pci.position
+
+            UNION ALL
+
+            -- mig 235: coach-kind persons are transfer-eligible. Same co-mention
+            -- + corroboration gate; identity card from public.persons (position is
+            -- the kind, club from the person's team hint, relationship derived
+            -- here — the player relationship batch must never see a person id).
+            -- Coaches ONLY: executives and agents move the market, they are not
+            -- moved by it.
+            SELECT pe.entity_id, pp.full_name AS name,
+                   ''::text                                       AS nationality,
+                   COALESCE(ct.name, '')                          AS current_club,
+                   'Head Coach'::text                             AS position,
+                   'person'::text                                 AS subject_type,
+                   CASE WHEN pp.team_id = $1 THEN 'current' ELSE 'none' END
+                                                                  AS relationship_override,
+                   max(a.topic_heat)                              AS topic_heat,
+                   count(DISTINCT te.article_id)                  AS article_n
+            FROM news_article_entities te
+            JOIN news_article_entities pe
+              ON pe.article_id = te.article_id AND pe.sport = te.sport AND pe.entity_type = 'person'
+            JOIN news_articles a ON a.id = te.article_id
+            JOIN public.persons pp ON pp.id = pe.entity_id AND pp.sport = pe.sport AND pp.kind = 'coach'
+            LEFT JOIN teams ct ON ct.id = pp.team_id AND ct.sport = pp.sport
+            WHERE te.entity_type = 'team' AND te.entity_id = $1 AND te.sport = $2
+              AND a.bucket IS DISTINCT FROM 'non_transfer'
+              AND te.created_at > NOW() - INTERVAL '14 days'
+            GROUP BY pe.entity_id, pp.full_name, ct.name, pp.team_id
+            HAVING count(DISTINCT te.article_id) >= $3
+        ) u
+        WHERE u.article_n >= $3
+        ORDER BY u.topic_heat DESC NULLS LAST, u.article_n DESC
         LIMIT $4
         "#,
     )
@@ -389,6 +436,8 @@ pub async fn load_candidates(
             nationality: r.get("nationality"),
             current_club: r.get("current_club"),
             position: r.get("position"),
+            subject_type: r.get("subject_type"),
+            relationship_override: r.get("relationship_override"),
         })
         .collect())
 }
@@ -402,14 +451,16 @@ pub async fn compute_pair_heat(
     team_id: i32,
     player_id: i32,
     sport: &str,
+    subject_type: &str,
 ) -> Result<(Option<i16>, String, Vec<i64>)> {
     let row = sqlx::query(
         "SELECT heat, COALESCE(components::text, '{}') AS components, news_ids \
-         FROM compute_transfer_heat($1, $2, $3)",
+         FROM compute_transfer_heat($1, $2, $3, $4)",
     )
     .bind(team_id)
     .bind(player_id)
     .bind(sport)
+    .bind(subject_type)
     .fetch_one(pool)
     .await
     .context("compute transfer heat")?;
@@ -932,16 +983,18 @@ pub async fn pair_unchanged(
     team_id: i32,
     player_id: i32,
     sport: &str,
+    subject_type: &str,
     input_hash: &str,
 ) -> Result<bool> {
     let latest: Option<(Option<String>, Option<bool>)> = sqlx::query_as(
         "SELECT input_hash, is_rumor FROM transfer_rumors \
-         WHERE team_id = $1 AND player_id = $2 AND sport = $3 \
+         WHERE team_id = $1 AND player_id = $2 AND sport = $3 AND subject_type = $4 \
          ORDER BY generated_at DESC LIMIT 1",
     )
     .bind(team_id)
     .bind(player_id)
     .bind(sport)
+    .bind(subject_type)
     .fetch_optional(pool)
     .await
     .with_context(|| format!("transfer debounce check {team_id}/{player_id}"))?;
@@ -966,6 +1019,8 @@ pub enum PairBuild {
 /// call will use, so it can never drift from what is POSTed.
 pub struct PairReady {
     pub heat: i16,
+    /// 'player' | 'person' — carried so vet_pair stamps the output without re-deriving.
+    pub subject_type: String,
     pub components: String,
     pub news_ids: Vec<i64>,
     pub prompted_news_ids: Vec<i64>,
@@ -1044,7 +1099,7 @@ pub async fn build_pair_request(
     temperature: f64,
 ) -> Result<PairBuild> {
     let (heat, components, news_ids) =
-        compute_pair_heat(&hx.pool, team_id, c.player_id, sport).await?;
+        compute_pair_heat(&hx.pool, team_id, c.player_id, sport, &c.subject_type).await?;
     let Some(heat) = heat else {
         return Ok(PairBuild::Skipped {
             components,
@@ -1087,10 +1142,16 @@ pub async fn build_pair_request(
 
     let evidence = TransferEvidence::from_news(&news, news_ids.len(), &attribution);
     // Two independent SQL card reads (story arc + source track record) — load concurrently.
-    let (memory, source_reliability) = tokio::try_join!(
-        load_relational_memory(&hx.pool, sport, c.player_id, team_id),
-        load_source_reliability(&hx.pool, sport, c.player_id, team_id),
-    )?;
+    // Person subjects skip both: those reads are player-id keyed, and the persons/players
+    // id sequences overlap — a coach's id would silently read a same-id player's memory.
+    let (memory, source_reliability) = if c.subject_type == "person" {
+        (None, None)
+    } else {
+        tokio::try_join!(
+            load_relational_memory(&hx.pool, sport, c.player_id, team_id),
+            load_source_reliability(&hx.pool, sport, c.player_id, team_id),
+        )?
+    };
     let built_prompt = build_transfer_prompt(
         team_name,
         c,
@@ -1102,8 +1163,16 @@ pub async fn build_pair_request(
         memory.as_deref(),
         packet_framing.as_deref(),
     );
+    // Person subjects get the same contract with the person noun: a whole-template
+    // "player"→"person" substitution, versioned separately (t11-person). The player
+    // path renders BYTE-IDENTICAL to before — the frozen t11 evals never notice.
+    let system = if c.subject_type == "person" {
+        transfer_system_prompt(sport).replace("player", "person")
+    } else {
+        transfer_system_prompt(sport)
+    };
     let opts = GenerateOptions {
-        system: Some(transfer_system_prompt(sport)),
+        system: Some(system),
         temperature: Some(temperature),
         num_predict: TRANSFER_NUM_PREDICT,
         num_ctx: hx.voice_num_ctx,
@@ -1117,6 +1186,7 @@ pub async fn build_pair_request(
 
     Ok(PairBuild::Ready(Box::new(PairReady {
         heat,
+        subject_type: c.subject_type.clone(),
         components,
         news_ids,
         prompted_news_ids,
@@ -1136,12 +1206,14 @@ pub async fn build_pair_request(
 fn skipped_pair_output(
     hx: &Harness,
     player_id: i32,
+    subject_type: &str,
     components: String,
     news_ids: Vec<i64>,
 ) -> TransferPairOutput {
     let model = hx.router.for_role(Role::TransferLogic).model().to_string();
     TransferPairOutput {
         player_id,
+        subject_type: subject_type.to_string(),
         model,
         heat: None,
         components,
@@ -1155,7 +1227,11 @@ fn skipped_pair_output(
         eval_count: None,
         wall_ms: None,
         identity_apply_news: Vec::new(),
-        prompt_version: TRANSFER_PROMPT_VERSION,
+        prompt_version: if subject_type == "person" {
+            TRANSFER_PROMPT_VERSION_PERSON
+        } else {
+            TRANSFER_PROMPT_VERSION
+        },
         input_hash: None,
     }
 }
@@ -1176,12 +1252,17 @@ pub async fn analyze_pair(
     temperature: f64,
 ) -> Result<TransferPairOutput> {
     // Offline composition loads the relationship per pair; the production handler batches it.
-    let relationship = team_relationship(&hx.pool, team_id, c.player_id, sport).await?;
+    // Person subjects carry their own (persons.team_id-derived) — the player relationship
+    // read must never see a person id.
+    let relationship = match &c.relationship_override {
+        Some(r) => r.clone(),
+        None => team_relationship(&hx.pool, team_id, c.player_id, sport).await?,
+    };
     match build_pair_request(hx, team_id, team_name, c, sport, relationship, temperature).await? {
         PairBuild::Skipped {
             components,
             news_ids,
-        } => Ok(skipped_pair_output(hx, c.player_id, components, news_ids)),
+        } => Ok(skipped_pair_output(hx, c.player_id, &c.subject_type, components, news_ids)),
         PairBuild::Ready(r) => vet_pair(hx, team_id, c.player_id, sport, *r).await,
     }
 }
@@ -1254,8 +1335,14 @@ pub async fn vet_pair(
         &ready.model_configured,
     );
 
+    let prompt_version = if ready.subject_type == "person" {
+        TRANSFER_PROMPT_VERSION_PERSON
+    } else {
+        TRANSFER_PROMPT_VERSION
+    };
     Ok(TransferPairOutput {
         player_id,
+        subject_type: ready.subject_type,
         model,
         heat: Some(ready.heat),
         components: ready.components,
@@ -1269,7 +1356,7 @@ pub async fn vet_pair(
         eval_count,
         wall_ms,
         identity_apply_news: ready.news,
-        prompt_version: TRANSFER_PROMPT_VERSION,
+        prompt_version,
         input_hash: Some(ready.input_hash),
     })
 }
@@ -1377,13 +1464,13 @@ pub async fn persist_transfer_row(
             input_news_ids,
             rumor_updated_at, source_count, source_names, source_latest_at, source_oldest_at,
             trajectory, trajectory_components,
-            model_version, prompt_version, trigger_payload, input_hash
+            model_version, prompt_version, trigger_payload, input_hash, subject_type
         ) VALUES (
             $1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12::float8::numeric,$13,
             COALESCE(to_timestamp($14::double precision), NOW()), $15, $16,
             to_timestamp($17::double precision), to_timestamp($18::double precision),
             $19, $20::jsonb,
-            $21,$22,$23::jsonb,$24
+            $21,$22,$23::jsonb,$24,$25
         )
         RETURNING id
         "#,
@@ -1412,6 +1499,7 @@ pub async fn persist_transfer_row(
     .bind(out.prompt_version)
     .bind(&row.trigger_payload)
     .bind(out.input_hash.as_deref())
+    .bind(&out.subject_type)
     .fetch_one(pool)
     .await
     .context("persist transfer row")?;
@@ -1520,6 +1608,7 @@ async fn classify_transfer_trajectory(
         WHERE team_id = $1
           AND player_id = $2
           AND sport = $3
+          AND subject_type = $4
           AND heat IS NOT NULL
         ORDER BY generated_at DESC
         LIMIT 1
@@ -1528,6 +1617,7 @@ async fn classify_transfer_trajectory(
     .bind(team_id)
     .bind(player_id)
     .bind(sport)
+    .bind(&out.subject_type)
     .fetch_optional(pool)
     .await
     .with_context(|| format!("classify transfer trajectory {team_id}/{player_id}"))?;
@@ -2405,7 +2495,13 @@ impl StageHandler for TransferHandler {
             load_candidates(&hx.pool, team_id, &sport, TRANSFER_DEFAULT_MIN_ARTICLES).await?;
         // Per-team hoists (Phase 2): one batched relationship read for the whole candidate set
         // and one identity-threshold config read, instead of one of each per pair.
-        let player_ids: Vec<i32> = candidates.iter().map(|c| c.player_id).collect();
+        // Player subjects only — person ids collide with player ids, and person
+        // relationships arrive on the candidate itself (relationship_override).
+        let player_ids: Vec<i32> = candidates
+            .iter()
+            .filter(|c| c.subject_type == "player")
+            .map(|c| c.player_id)
+            .collect();
         let (relationships, identity_threshold) = tokio::try_join!(
             team_relationships(&hx.pool, team_id, &player_ids, &sport),
             load_transfer_identity_threshold(&hx.pool, &sport),
@@ -2433,11 +2529,14 @@ impl StageHandler for TransferHandler {
             // infrastructure failures; keep scanning pairs for visibility, then fail the team item.
             let pair = async {
                 // A missing batch row is semantically "none" (no identity row + no stats row),
-                // matching the per-pair COALESCE(false) defaults.
-                let relationship = relationships
-                    .get(&c.player_id)
-                    .cloned()
-                    .unwrap_or_else(|| "none".to_string());
+                // matching the per-pair COALESCE(false) defaults. Person subjects carry
+                // their own relationship (persons.team_id-derived).
+                let relationship = c.relationship_override.clone().unwrap_or_else(|| {
+                    relationships
+                        .get(&c.player_id)
+                        .cloned()
+                        .unwrap_or_else(|| "none".to_string())
+                });
                 let out = match build_pair_request(
                     hx,
                     team_id,
@@ -2452,13 +2551,20 @@ impl StageHandler for TransferHandler {
                     PairBuild::Skipped {
                         components,
                         news_ids,
-                    } => skipped_pair_output(hx, c.player_id, components, news_ids),
+                    } => skipped_pair_output(hx, c.player_id, &c.subject_type, components, news_ids),
                     PairBuild::Ready(ready) => {
                         // F3: skip the GPU call, the insert, and the ledger row when the pair's
                         // material inputs are unchanged since its latest resolved vetting. The
                         // previous row keeps serving and cools off with its sources.
-                        if pair_unchanged(&hx.pool, team_id, c.player_id, &sport, &ready.input_hash)
-                            .await?
+                        if pair_unchanged(
+                            &hx.pool,
+                            team_id,
+                            c.player_id,
+                            &sport,
+                            &c.subject_type,
+                            &ready.input_hash,
+                        )
+                        .await?
                         {
                             debug!(
                                 team = team_id,

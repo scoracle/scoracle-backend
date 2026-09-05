@@ -53,6 +53,11 @@ use crate::util::truncate_bytes;
 /// Prompt version for the transfer/trade vetting contract.
 pub const TRANSFER_PROMPT_VERSION: &str = "t11"; // t11: multilingual source handling + English-only verdict strings; t10: The Insider voice pass, contract + gates unchanged
 
+/// Person-subject variant of t11 (mig 235, coach eligibility): the SAME template with a
+/// whole-text "player"→"person" substitution, versioned apart so ledger rows and evals
+/// can tell the paths apart. The player path stays byte-identical to t11.
+pub const TRANSFER_PROMPT_VERSION_PERSON: &str = "t11-person";
+
 /// transfer_system_prompt is the model-neutral transfer/trade vetting prompt. `noun` is "trade" for
 /// NBA/NFL and "transfer" otherwise.
 ///
@@ -128,9 +133,21 @@ pub fn build_transfer_prompt(
     packet_framing: Option<&str>,
 ) -> String {
     let player_name = &c.player_name;
+    // Person subjects (mig 235: coaches) get the person noun; the player path renders
+    // byte-identical to before — the frozen t11 evals never notice.
+    let noun_cap = if c.subject_type == "person" {
+        "Person"
+    } else {
+        "Player"
+    };
+    let noun = if c.subject_type == "person" {
+        "person"
+    } else {
+        "player"
+    };
     let mut b = String::new();
     b.push_str(&format!(
-        "Sport: {sport}\nTeam: {team_name}\nPlayer: {player_name}\n"
+        "Sport: {sport}\nTeam: {team_name}\n{noun_cap}: {player_name}\n"
     ));
 
     // Identity card — disambiguators that separate same-name people (current club leads).
@@ -146,7 +163,7 @@ pub fn build_transfer_prompt(
     if !c.position.is_empty() {
         ident.push(c.position.clone());
     }
-    b.push_str("Identity (the ONE specific player to judge): ");
+    b.push_str(&format!("Identity (the ONE specific {noun} to judge): "));
     b.push_str(&ident.join(" · "));
     b.push('\n');
 

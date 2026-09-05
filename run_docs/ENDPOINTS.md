@@ -13,7 +13,7 @@ The only source of truth is `go/internal/api/server.go`. Every route wired there
 
 | Route | Notes |
 |---|---|
-| `GET /api/v1/entities` · `/autofill` | universal, cross-sport, text-only player/team directory for home search |
+| `GET /api/v1/entities` · `/autofill` | universal, cross-sport, text-only entity directory for home search: players, teams, and Investigator-vetted persons (coaches, executives, owners, agents — `type: "person"`, kind in the `position` field). Key on `(type, id)` — person and player id sequences overlap. `generated_at` is a computed max-change stamp (stable between real changes; safe to revalidate against) |
 | `GET /api/v1/{sport}/{entityType}/{id}/stats` | season Composite rating + per-event series + `available_seasons` |
 | `GET /api/v1/{sport}/{entityType}/{id}/rating` | model-written stat read + rating trajectory metadata (was `/special`) |
 | `GET /api/v1/{sport}/{entityType}/{id}/momentum` | Rating × Vibe trajectory (was `/trends`) |
@@ -692,7 +692,8 @@ unified into it 2026-06-15).
     {
       "player_id": 154421,
       "player_name": "Erling Haaland",
-      "player_image": "https://…",
+      "player_image": "https://…",       // null for person subjects (persons carry no photo)
+      "subject_type": "player",          // "player" | "person" (mig 235: coach-kind persons are transfer-eligible; player_id then names public.persons — the id sequences overlap, always key on the pair WITH subject_type)
       "team_id": 3468,
       "team_name": "Real Madrid",
       "team_code": "RMA",

@@ -253,7 +253,7 @@ fn main() -> anyhow::Result<()> {
             "task": "momentum",
             "prompt_version": MOMENTUM_PROMPT_VERSION,
             "note": s.note,
-            "system": MOMENTUM_SYSTEM_PROMPT,
+            "system": &*MOMENTUM_SYSTEM_PROMPT,
             "user_prompt": prompt,
             "temperature": 0.0,
             "expect": s.expect,

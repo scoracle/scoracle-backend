@@ -183,6 +183,8 @@ Recent scores (newest first): 62 (Jul 18) · 55 (Jul 12)\n\
 fn cand(name: &str, nat: &str, club: &str, pos: &str) -> TransferCandidate {
     TransferCandidate {
         player_id: 1,
+        subject_type: "player".to_string(),
+        relationship_override: None,
         player_name: name.to_string(),
         nationality: nat.to_string(),
         current_club: club.to_string(),

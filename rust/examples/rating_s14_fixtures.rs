@@ -246,7 +246,7 @@ fn main() -> anyhow::Result<()> {
             "task": "rating",
             "prompt_version": RATING_PROMPT_VERSION,
             "note": s.note,
-            "system": RATING_SYSTEM_PROMPT,
+            "system": &*RATING_SYSTEM_PROMPT,
             "user_prompt": prompt,
             "temperature": 0.0,
             "expect": s.expect,

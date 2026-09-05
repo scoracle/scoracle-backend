@@ -113,10 +113,60 @@ team_rows AS (
 	WHERE t.sport IN ('NBA', 'NFL', 'FOOTBALL')
 	  AND NULLIF(t.name, '') IS NOT NULL
 ),
+person_rows AS (
+	-- Investigator-vetted figures (coaches, executives, owners, agents …) — every
+	-- public.persons row passed the two-arm gate, so the whole table is index-worthy.
+	-- The kind rides in the position slot ("coach") — that is what a search hit
+	-- should say about a non-player. Keyed on (type,id): the persons and players id
+	-- sequences overlap, so id alone is never an entity key (HANDOFF-analyst Fix A).
+	SELECT
+		pe.id::text AS id,
+		'person'::text AS type,
+		lower(pe.sport) AS sport,
+		pe.full_name AS name,
+		t.name AS team,
+		pe.kind AS position,
+		aliases.tokens AS aliases,
+		search.tokens AS search_tokens
+	FROM public.persons pe
+	LEFT JOIN public.teams t ON t.id = pe.team_id AND t.sport = pe.sport
+	LEFT JOIN LATERAL (
+		SELECT COALESCE(array_agg(token ORDER BY token), ARRAY[]::text[]) AS tokens
+		FROM (
+			SELECT DISTINCT token
+			FROM (
+				SELECT NULLIF(lower(trim(v)), '') AS token
+				FROM unnest(COALESCE(pe.search_aliases, ARRAY[]::text[]) || ARRAY[pe.full_name, replace(pe.full_name, ' ', '')]) AS v
+				UNION ALL
+				SELECT NULLIF(unaccent(lower(trim(v))), '') AS token
+				FROM unnest(COALESCE(pe.search_aliases, ARRAY[]::text[]) || ARRAY[pe.full_name, replace(pe.full_name, ' ', '')]) AS v
+			) normalized
+			WHERE token IS NOT NULL
+		) deduped
+	) aliases ON true
+	LEFT JOIN LATERAL (
+		SELECT COALESCE(array_agg(token ORDER BY token), ARRAY[]::text[]) AS tokens
+		FROM (
+			SELECT DISTINCT token
+			FROM (
+				SELECT NULLIF(lower(trim(v)), '') AS token
+				FROM unnest(aliases.tokens || ARRAY[pe.kind, t.name, t.short_code]) AS v
+				UNION ALL
+				SELECT NULLIF(unaccent(lower(trim(v))), '') AS token
+				FROM unnest(aliases.tokens || ARRAY[pe.kind, t.name, t.short_code]) AS v
+			) normalized
+			WHERE token IS NOT NULL
+		) deduped
+	) search ON true
+	WHERE pe.sport IN ('NBA', 'NFL', 'FOOTBALL')
+	  AND NULLIF(pe.full_name, '') IS NOT NULL
+),
 entities AS (
 	SELECT * FROM player_rows
 	UNION ALL
 	SELECT * FROM team_rows
+	UNION ALL
+	SELECT * FROM person_rows
 ),
 entity_json AS (
 	SELECT
@@ -137,7 +187,14 @@ entity_json AS (
 )
 SELECT json_build_object(
 	'page', 'entities',
-	'generated_at', NOW(),
+	-- Fix B (HANDOFF-analyst): a computed max version, not NOW() — the payload's
+	-- ETag goes stable between real changes so frontends can revalidate cheaply.
+	-- persons has only created_at (append-only via the Investigator), which is
+	-- exactly its change signal.
+	'generated_at', (SELECT GREATEST(
+		(SELECT COALESCE(MAX(updated_at), 'epoch'::timestamptz) FROM public.players),
+		(SELECT COALESCE(MAX(updated_at), 'epoch'::timestamptz) FROM public.teams),
+		(SELECT COALESCE(MAX(created_at), 'epoch'::timestamptz) FROM public.persons))),
 	'total_entities', (SELECT COUNT(*)::int FROM entity_json),
 	'entities', COALESCE(
 		(SELECT jsonb_agg(entity ORDER BY type, sport, name) FROM entity_json),
@@ -881,9 +938,10 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		),
 		latest AS (
 			-- Newest row per pair regardless of verdict, so a fresh "cleared"
-			-- supersedes an older heat-only seed row.
-			SELECT DISTINCT ON (tr.team_id, tr.player_id)
-			       tr.team_id, tr.player_id, tr.heat, tr.heat_components,
+			-- supersedes an older heat-only seed row. subject_type is part of the pair
+			-- key (mig 235): person and player id sequences overlap.
+			SELECT DISTINCT ON (tr.team_id, tr.subject_type, tr.player_id)
+			       tr.team_id, tr.player_id, tr.subject_type, tr.heat, tr.heat_components,
 				       tr.direction, tr.stage, tr.model_summary, tr.source_attribution,
 			       tr.is_rumor,
 			       COALESCE(tr.rumor_updated_at, tr.source_latest_at, tr.generated_at) AS updated_at,
@@ -900,10 +958,14 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			WHERE tr.sport = req.sport
 			  AND tr.generated_at >= scope.starts_at
 			  AND tr.generated_at < scope.ends_at
-			ORDER BY tr.team_id, tr.player_id, tr.generated_at DESC
+			ORDER BY tr.team_id, tr.subject_type, tr.player_id, tr.generated_at DESC
 		),
 		ranked AS (
-			SELECT p.id AS player_id, p.name AS player_name, p.photo_url AS player_image,
+			-- Subject-aware identity: players join players, coach-kind persons join
+			-- persons (mig 235). COALESCE picks whichever side matched; a rumor whose
+			-- subject resolves to neither table is dropped rather than misnamed.
+			SELECT l.player_id, COALESCE(p.name, pers.full_name) AS player_name, p.photo_url AS player_image,
+			       l.subject_type,
 			       t.id AS team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
 			       l.heat, l.heat_components, l.direction, l.stage,
 				       l.model_summary AS headline, l.source_attribution,
@@ -911,7 +973,8 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       l.trajectory, l.trajectory_label, l.trajectory_components, l.generated_at,
 			       row_number() OVER (ORDER BY l.heat DESC NULLS LAST, l.generated_at DESC) AS rank
 			FROM latest l
-				JOIN public.players p ON p.id = l.player_id AND p.sport = (SELECT sport FROM req)
+				LEFT JOIN public.players p ON l.subject_type = 'player' AND p.id = l.player_id AND p.sport = (SELECT sport FROM req)
+				LEFT JOIN public.persons pers ON l.subject_type = 'person' AND pers.id = l.player_id AND pers.sport = (SELECT sport FROM req)
 				JOIN public.teams t ON t.id = l.team_id AND t.sport = (SELECT sport FROM req)
 				LEFT JOIN public.player_current_identity pci ON pci.player_id = p.id AND pci.sport = p.sport
 				LEFT JOIN public.teams current_team ON current_team.id = pci.team_id AND current_team.sport = p.sport
@@ -920,6 +983,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				-- AS the row's headline (headline/body contract, drop 2) — a summary-less
 				-- row has nothing to render and omits (measured 0 of 1,428 served rows).
 				WHERE l.is_rumor IS TRUE AND l.heat > 0 AND l.model_summary IS NOT NULL
+				  AND (p.id IS NOT NULL OR pers.id IS NOT NULL)
 				  AND ((SELECT entity_type FROM req) IS NULL
 				       OR ((SELECT entity_type FROM req) = 'player' AND pci.player_id IS NOT NULL)
 				       OR ((SELECT entity_type FROM req) = 'team'))
@@ -1127,8 +1191,11 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			FROM req
 		),
 		tr_latest AS (
-			SELECT DISTINCT ON (tr.team_id, tr.player_id)
-			       tr.team_id, tr.player_id, tr.heat, tr.heat_components, tr.direction, tr.stage,
+			-- subject_type is part of the pair key (mig 235): person/player id
+			-- sequences overlap, and a player page must never surface a same-id
+			-- coach's rumor.
+			SELECT DISTINCT ON (tr.team_id, tr.subject_type, tr.player_id)
+			       tr.team_id, tr.player_id, tr.subject_type, tr.heat, tr.heat_components, tr.direction, tr.stage,
 				       tr.model_summary, tr.source_attribution, tr.is_rumor,
 			       COALESCE(tr.rumor_updated_at, tr.source_latest_at, tr.generated_at) AS updated_at,
 			       tr.source_count, tr.source_names, tr.source_latest_at, tr.source_oldest_at,
@@ -1143,24 +1210,26 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			FROM public.transfer_rumors tr CROSS JOIN req CROSS JOIN scope
 			WHERE tr.sport = req.sport
 			  AND ( (req.entity_type = 'team'   AND tr.team_id   = req.entity_id)
-			     OR (req.entity_type = 'player' AND tr.player_id = req.entity_id) )
+			     OR (req.entity_type = 'player' AND tr.player_id = req.entity_id AND tr.subject_type = 'player') )
 			  AND tr.generated_at >= scope.starts_at
 			  AND tr.generated_at < scope.ends_at
-			ORDER BY tr.team_id, tr.player_id, tr.generated_at DESC
+			ORDER BY tr.team_id, tr.subject_type, tr.player_id, tr.generated_at DESC
 		),
 		tr_ranked AS (
 			SELECT
-			    CASE WHEN (SELECT entity_type FROM req) = 'team' THEN p.id        ELSE t.id       END AS id,
-			    CASE WHEN (SELECT entity_type FROM req) = 'team' THEN p.name      ELSE t.name     END AS name,
+			    CASE WHEN (SELECT entity_type FROM req) = 'team' THEN l.player_id ELSE t.id       END AS id,
+			    CASE WHEN (SELECT entity_type FROM req) = 'team' THEN COALESCE(p.name, pers.full_name) ELSE t.name END AS name,
 			    CASE WHEN (SELECT entity_type FROM req) = 'team' THEN p.photo_url ELSE t.logo_url END AS image,
+			    l.subject_type,
 			    l.heat, l.heat_components, l.direction, l.stage, l.model_summary AS headline, l.source_attribution,
 			    l.updated_at, l.source_count, l.source_names, l.source_latest_at, l.source_oldest_at,
 			    l.trajectory, l.trajectory_label, l.trajectory_components,
 			    row_number() OVER (ORDER BY l.heat DESC NULLS LAST) AS rank
 			FROM tr_latest l
-			LEFT JOIN public.players p ON (SELECT entity_type FROM req) = 'team'   AND p.id = l.player_id AND p.sport = (SELECT sport FROM req)
+			LEFT JOIN public.players p ON (SELECT entity_type FROM req) = 'team'   AND l.subject_type = 'player' AND p.id = l.player_id AND p.sport = (SELECT sport FROM req)
+			LEFT JOIN public.persons pers ON (SELECT entity_type FROM req) = 'team' AND l.subject_type = 'person' AND pers.id = l.player_id AND pers.sport = (SELECT sport FROM req)
 			LEFT JOIN public.teams   t ON (SELECT entity_type FROM req) = 'player' AND t.id = l.team_id   AND t.sport = (SELECT sport FROM req)
-			LEFT JOIN public.player_current_identity pci ON pci.player_id = l.player_id AND pci.sport = (SELECT sport FROM req)
+			LEFT JOIN public.player_current_identity pci ON l.subject_type = 'player' AND pci.player_id = l.player_id AND pci.sport = (SELECT sport FROM req)
 			WHERE l.is_rumor IS TRUE AND l.heat > 0
 			  AND ((SELECT scope_key FROM scope) <> 'current_week'
 			       OR COALESCE(l.trajectory, 'developing_story') <> 'cooling_off'

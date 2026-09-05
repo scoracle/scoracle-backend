@@ -356,7 +356,7 @@ fn main() -> anyhow::Result<()> {
             "prompt_version": ORACLE_PROMPT_VERSION,
             "note": s.note,
             "omen": omen,
-            "system": ORACLE_SYSTEM_PROMPT,
+            "system": &*ORACLE_SYSTEM_PROMPT,
             "user_prompt": prompt,
             "temperature": 0.0,
             "expect": s.expect,

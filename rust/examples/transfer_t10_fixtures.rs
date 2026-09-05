@@ -45,6 +45,8 @@ fn ni(id: i64, source: &str, title: &str, description: &str) -> NewsItem {
 fn cand(name: &str, nationality: &str, current_club: &str, position: &str) -> TransferCandidate {
     TransferCandidate {
         player_id: 0,
+        subject_type: "player".to_string(),
+        relationship_override: None,
         player_name: name.to_string(),
         nationality: nationality.to_string(),
         current_club: current_club.to_string(),

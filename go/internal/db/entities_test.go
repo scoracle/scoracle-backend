@@ -21,12 +21,19 @@ func TestUniversalEntitiesStatementContract(t *testing.T) {
 		"'search_tokens', to_jsonb(search_tokens)",
 		"FROM public.players p",
 		"FROM public.teams t",
+		"FROM public.persons pe",
 		"LEFT JOIN public.leagues l",
 		"p.sport IN ('NBA', 'NFL', 'FOOTBALL')",
 		"t.sport IN ('NBA', 'NFL', 'FOOTBALL')",
+		"pe.sport IN ('NBA', 'NFL', 'FOOTBALL')",
 		"lower(p.sport) AS sport",
 		"lower(t.sport) AS sport",
+		"lower(pe.sport) AS sport",
+		"'person'::text AS type",
 		"UNION ALL",
+		// Fix B: the version stamp must be computed from the source tables, never NOW() —
+		// a churning stamp defeats frontend revalidation.
+		"FROM public.persons)))",
 	}
 	for _, needle := range required {
 		if !strings.Contains(stmt, needle) {

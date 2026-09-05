@@ -59,6 +59,16 @@ week_no, starts_at, ends_at, is_current, sealed}]}`. Future weeks are withheld.
 number — NOT a calendar year / Jan-1 block. Omitting both resolves to the
 current week; the response echoes the resolved pair plus its exact window.
 
+**Week + per-x on the boards (2026-09-05):** `year`+`week` are accepted by
+`/leaderboard/news`, `/leaderboard/transfers`, `/leaderboard/vibes`,
+`/leaderboard/sigil`, and the per-entity `/news` + `/transfers` products —
+a reporting week overrides the rolling scope (and the live freshness gates:
+archives don't age); a week the calendar doesn't know yields an empty window,
+never a silent fallback. The rating `/leaderboard` accepts `rate`
+(`per_36 | per_90 | per_game | per_season`, players only): the board ranks by
+that `rating_modes` block — rank, score, and sort all speak the same per-x
+language.
+
 Supported sport path values:
 - `nba`
 - `nfl`

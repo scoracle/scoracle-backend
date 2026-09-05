@@ -267,7 +267,11 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       NULLIF($8::text, '') AS conference,
 			       NULLIF($9::text, '') AS division,
 			       $10::int AS team_id,
-			       NULLIF($11::text, '') AS position_group
+			       NULLIF($11::text, '') AS position_group,
+			       -- Per-x ranking (the scope collapse, 2026-09-05): rank the board by a
+			       -- rating_modes block (per_36 / per_90 / per_game / per_season) instead
+			       -- of the default composite. Players only — teams carry no rate modes.
+			       COALESCE(NULLIF(lower($12::text), ''), 'default') AS rate
 		),
 		season_pick AS (
 			SELECT COALESCE(
@@ -304,13 +308,20 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 						tr.team_id AS team_id,
 						t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
 					COALESCE(NULLIF(ps.league_id, 0), t.league_id) AS league_id,
-					ps.rating,
-					ps.rating_rank,
-					ps.rating_score,
+					-- Per-x (req.rate): the rating_modes block replaces the default
+					-- composite columns wholesale, so rank/score/sort all speak the
+					-- same per-x language.
+					CASE WHEN req.rate = 'default' THEN ps.rating
+					     ELSE (ps.rating_modes -> req.rate ->> 'rating')::numeric END AS rating,
+					CASE WHEN req.rate = 'default' THEN ps.rating_rank
+					     ELSE (ps.rating_modes -> req.rate ->> 'rating_rank')::numeric END AS rating_rank,
+					CASE WHEN req.rate = 'default' THEN ps.rating_score
+					     ELSE (ps.rating_modes -> req.rate ->> 'rating_score')::numeric END AS rating_score,
 					(ps.stats->>'fantasy_points')::numeric AS fantasy_points,
 					(ps.percentiles->>'fantasy_points')::numeric AS fantasy_rank,
 					CASE WHEN req.scope = 'fantasy' THEN (ps.stats->>'fantasy_points')::numeric
-					     ELSE ps.rating END AS sort_metric
+					     WHEN req.rate = 'default' THEN ps.rating
+					     ELSE (ps.rating_modes -> req.rate ->> 'rating')::numeric END AS sort_metric
 				FROM public.team_rosters tr
 				JOIN public.players p ON p.id = tr.player_id AND p.sport = tr.sport
 				LEFT JOIN public.player_stats ps ON ps.player_id = tr.player_id AND ps.sport = tr.sport AND ps.season = (SELECT season FROM season_pick)
@@ -328,11 +339,17 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				SELECT 'player'::text AS entity_type, p.id, p.name, p.photo_url AS image,
 					ps.position, ps.team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
 					NULLIF(ps.league_id, 0) AS league_id,
-					ps.rating, ps.rating_rank, ps.rating_score,
+					CASE WHEN req.rate = 'default' THEN ps.rating
+					     ELSE (ps.rating_modes -> req.rate ->> 'rating')::numeric END AS rating,
+					CASE WHEN req.rate = 'default' THEN ps.rating_rank
+					     ELSE (ps.rating_modes -> req.rate ->> 'rating_rank')::numeric END AS rating_rank,
+					CASE WHEN req.rate = 'default' THEN ps.rating_score
+					     ELSE (ps.rating_modes -> req.rate ->> 'rating_score')::numeric END AS rating_score,
 					(ps.stats->>'fantasy_points')::numeric AS fantasy_points,
 					(ps.percentiles->>'fantasy_points')::numeric AS fantasy_rank,
 					CASE WHEN req.scope = 'fantasy' THEN (ps.stats->>'fantasy_points')::numeric
-					     ELSE ps.rating END AS sort_metric
+					     WHEN req.rate = 'default' THEN ps.rating
+					     ELSE (ps.rating_modes -> req.rate ->> 'rating')::numeric END AS sort_metric
 				FROM public.player_stats ps
 				JOIN public.players p ON p.id = ps.player_id AND p.sport = ps.sport
 				LEFT JOIN public.teams t ON t.id = ps.team_id AND t.sport = ps.sport
@@ -340,6 +357,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				WHERE req.entity_type = 'player' AND req.team_id IS NULL
 				  AND ps.sport = req.sport AND ps.season = (SELECT season FROM season_pick)
 				  AND ps.rating IS NOT NULL
+				  AND (req.rate = 'default' OR ps.rating_modes ? req.rate)
 				  AND (req.position IS NULL OR ps.position = req.position)
 				  AND (req.position_group IS NULL OR public.position_group(ps.sport, ps.position) = req.position_group)
 				  AND (req.league_id IS NULL OR COALESCE(ps.league_id, 0) = req.league_id)
@@ -419,7 +437,10 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       NULLIF($6::text, '') AS position,
 			       NULLIF($7::text, '') AS position_group,
 			       NULLIF($8::text, '') AS conference,
-			       NULLIF($9::text, '') AS division
+			       NULLIF($9::text, '') AS division,
+			       -- The week archive (mig 237): the board serves that week's latest
+			       -- charge off the week stamps; live view keeps the 48h window.
+			       $10::int AS year, $11::int AS week
 		),
 		-- Canonical latest-generation rule: take each
 		-- entity's latest vibe within the 48h window REGARDLESS of nullability
@@ -434,7 +455,9 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			FROM public.vibe_scores vs, req
 			WHERE vs.sport = req.sport
 			  AND (req.entity_type IS NULL OR vs.entity_type = req.entity_type)
-			  AND vs.generated_at > NOW() - INTERVAL '48 hours'
+			  AND CASE WHEN req.year IS NULL
+			           THEN vs.generated_at > NOW() - INTERVAL '48 hours'
+			           ELSE vs.week_season = req.year AND vs.week_no = COALESCE(req.week, 1) END
 			ORDER BY vs.entity_type, vs.entity_id, vs.generated_at DESC
 		),
 		latest AS (
@@ -510,7 +533,10 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       NULLIF($7::text, '') AS position,
 			       NULLIF($8::text, '') AS position_group,
 			       NULLIF($9::text, '') AS conference,
-			       NULLIF($10::text, '') AS division
+			       NULLIF($10::text, '') AS division,
+			       -- The week archive (mig 237): year+week name a reporting week; the
+			       -- board serves that week's latest crowns off the week stamps.
+			       $11::int AS year, $12::int AS week
 		),
 		-- Canonical latest-generation rule: take each
 		-- entity's latest synthesis REGARDLESS of nullability (latest_raw), then drop
@@ -527,7 +553,9 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			FROM public.sigil_synthesis ss, req
 			WHERE ss.sport = req.sport
 			  AND (req.entity_type IS NULL OR ss.entity_type = req.entity_type)
-			  AND CASE WHEN req.want_season IS NULL
+			  AND CASE WHEN req.year IS NOT NULL
+			           THEN ss.week_season = req.year AND ss.week_no = COALESCE(req.week, 1)
+			           WHEN req.want_season IS NULL
 			           THEN (ss.season = req.cur_season OR ss.season IS NULL)
 			           ELSE ss.season = req.want_season END
 			ORDER BY ss.entity_type, ss.entity_id, ss.generated_at DESC
@@ -543,7 +571,8 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			-- Explicit ?season=N keeps the no-window final-crown behavior.
 			SELECT lr.* FROM latest_raw lr, req
 			WHERE lr.score IS NOT NULL AND lr.reading IS NOT NULL AND lr.headline IS NOT NULL
-			  AND (req.want_season IS NOT NULL OR lr.generated_at > NOW() - INTERVAL '72 hours')
+			  -- An archived week is never "fresh" — the 72h gate is a live-view affair.
+			  AND (req.year IS NOT NULL OR req.want_season IS NOT NULL OR lr.generated_at > NOW() - INTERVAL '72 hours')
 		),
 		ranked AS (
 			SELECT u.*, row_number() OVER (ORDER BY u.heat DESC, u.generated_at DESC) AS rank
@@ -783,31 +812,42 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       NULLIF($7::text, '') AS position,
 			       NULLIF($8::text, '') AS position_group,
 			       NULLIF($9::text, '') AS conference,
-			       NULLIF($10::text, '') AS division
+			       NULLIF($10::text, '') AS division,
+			       -- The week archive (mig 237): year+week override the rolling scope.
+			       $11::int AS year, $12::int AS week
 		),
 		scope AS (
-			SELECT scope_key,
-			       CASE scope_key
-			         WHEN 'last_week' THEN 'Last week'
-			         WHEN 'two_weeks_ago' THEN 'Two weeks ago'
-			         WHEN 'three_weeks_ago' THEN 'Three weeks ago'
-			         WHEN 'last_month' THEN 'Last month'
-			         ELSE 'Current week'
-			       END AS label,
-			       CASE scope_key
-			         WHEN 'last_week' THEN NOW() - INTERVAL '14 days'
-			         WHEN 'two_weeks_ago' THEN NOW() - INTERVAL '21 days'
-			         WHEN 'three_weeks_ago' THEN NOW() - INTERVAL '28 days'
-			         WHEN 'last_month' THEN NOW() - INTERVAL '30 days'
-			         ELSE NOW() - INTERVAL '7 days'
-			       END AS starts_at,
-			       CASE scope_key
-			         WHEN 'last_week' THEN NOW() - INTERVAL '7 days'
-			         WHEN 'two_weeks_ago' THEN NOW() - INTERVAL '14 days'
-			         WHEN 'three_weeks_ago' THEN NOW() - INTERVAL '21 days'
-			         ELSE NOW()
-			       END AS ends_at
+			-- year+week (mig 237) override the rolling scope with a real reporting
+			-- week; a week the calendar doesn't know yields an empty window, never a
+			-- silent fallback. scope_key 'week' also disables the current-week
+			-- freshness gate below — archives don't age.
+			SELECT CASE WHEN req.year IS NOT NULL THEN 'week' ELSE scope_key END AS scope_key,
+			       CASE WHEN req.year IS NOT NULL THEN 'Week ' || COALESCE(req.week, 1)
+			            ELSE CASE scope_key
+			              WHEN 'last_week' THEN 'Last week'
+			              WHEN 'two_weeks_ago' THEN 'Two weeks ago'
+			              WHEN 'three_weeks_ago' THEN 'Three weeks ago'
+			              WHEN 'last_month' THEN 'Last month'
+			              ELSE 'Current week'
+			            END END AS label,
+			       CASE WHEN req.year IS NOT NULL THEN COALESCE(sw.starts_at, 'epoch'::timestamptz)
+			            ELSE CASE scope_key
+			              WHEN 'last_week' THEN NOW() - INTERVAL '14 days'
+			              WHEN 'two_weeks_ago' THEN NOW() - INTERVAL '21 days'
+			              WHEN 'three_weeks_ago' THEN NOW() - INTERVAL '28 days'
+			              WHEN 'last_month' THEN NOW() - INTERVAL '30 days'
+			              ELSE NOW() - INTERVAL '7 days'
+			            END END AS starts_at,
+			       CASE WHEN req.year IS NOT NULL THEN COALESCE(sw.ends_at, 'epoch'::timestamptz)
+			            ELSE CASE scope_key
+			              WHEN 'last_week' THEN NOW() - INTERVAL '7 days'
+			              WHEN 'two_weeks_ago' THEN NOW() - INTERVAL '14 days'
+			              WHEN 'three_weeks_ago' THEN NOW() - INTERVAL '21 days'
+			              ELSE NOW()
+			            END END AS ends_at
 			FROM req
+			LEFT JOIN public.season_weeks sw
+			  ON sw.sport = req.sport AND sw.season = req.year AND sw.week_no = COALESCE(req.week, 1)
 		),
 		-- News is an archive-like product: a later no-narratives marker means "no new
 		-- story this run", not "erase this week's story". Pick the latest content
@@ -910,31 +950,42 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       NULLIF($7::text, '') AS position,
 			       NULLIF($8::text, '') AS position_group,
 			       NULLIF($9::text, '') AS conference,
-			       NULLIF($10::text, '') AS division
+			       NULLIF($10::text, '') AS division,
+			       -- The week archive (mig 237): year+week override the rolling scope.
+			       $11::int AS year, $12::int AS week
 		),
 		scope AS (
-			SELECT scope_key,
-			       CASE scope_key
-			         WHEN 'last_week' THEN 'Last week'
-			         WHEN 'two_weeks_ago' THEN 'Two weeks ago'
-			         WHEN 'three_weeks_ago' THEN 'Three weeks ago'
-			         WHEN 'last_month' THEN 'Last month'
-			         ELSE 'Current week'
-			       END AS label,
-			       CASE scope_key
-			         WHEN 'last_week' THEN NOW() - INTERVAL '14 days'
-			         WHEN 'two_weeks_ago' THEN NOW() - INTERVAL '21 days'
-			         WHEN 'three_weeks_ago' THEN NOW() - INTERVAL '28 days'
-			         WHEN 'last_month' THEN NOW() - INTERVAL '30 days'
-			         ELSE NOW() - INTERVAL '7 days'
-			       END AS starts_at,
-			       CASE scope_key
-			         WHEN 'last_week' THEN NOW() - INTERVAL '7 days'
-			         WHEN 'two_weeks_ago' THEN NOW() - INTERVAL '14 days'
-			         WHEN 'three_weeks_ago' THEN NOW() - INTERVAL '21 days'
-			         ELSE NOW()
-			       END AS ends_at
+			-- year+week (mig 237) override the rolling scope with a real reporting
+			-- week; a week the calendar doesn't know yields an empty window, never a
+			-- silent fallback. scope_key 'week' also disables the current-week
+			-- freshness gate below — archives don't age.
+			SELECT CASE WHEN req.year IS NOT NULL THEN 'week' ELSE scope_key END AS scope_key,
+			       CASE WHEN req.year IS NOT NULL THEN 'Week ' || COALESCE(req.week, 1)
+			            ELSE CASE scope_key
+			              WHEN 'last_week' THEN 'Last week'
+			              WHEN 'two_weeks_ago' THEN 'Two weeks ago'
+			              WHEN 'three_weeks_ago' THEN 'Three weeks ago'
+			              WHEN 'last_month' THEN 'Last month'
+			              ELSE 'Current week'
+			            END END AS label,
+			       CASE WHEN req.year IS NOT NULL THEN COALESCE(sw.starts_at, 'epoch'::timestamptz)
+			            ELSE CASE scope_key
+			              WHEN 'last_week' THEN NOW() - INTERVAL '14 days'
+			              WHEN 'two_weeks_ago' THEN NOW() - INTERVAL '21 days'
+			              WHEN 'three_weeks_ago' THEN NOW() - INTERVAL '28 days'
+			              WHEN 'last_month' THEN NOW() - INTERVAL '30 days'
+			              ELSE NOW() - INTERVAL '7 days'
+			            END END AS starts_at,
+			       CASE WHEN req.year IS NOT NULL THEN COALESCE(sw.ends_at, 'epoch'::timestamptz)
+			            ELSE CASE scope_key
+			              WHEN 'last_week' THEN NOW() - INTERVAL '7 days'
+			              WHEN 'two_weeks_ago' THEN NOW() - INTERVAL '14 days'
+			              WHEN 'three_weeks_ago' THEN NOW() - INTERVAL '21 days'
+			              ELSE NOW()
+			            END END AS ends_at
 			FROM req
+			LEFT JOIN public.season_weeks sw
+			  ON sw.sport = req.sport AND sw.season = req.year AND sw.week_no = COALESCE(req.week, 1)
 		),
 		latest AS (
 			-- Newest row per pair regardless of verdict, so a fresh "cleared"
@@ -1057,7 +1108,8 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		// --- Per-product news source (split from entity_news_rail) ---
 		// One self-contained product per card: /news (narratives), /transfers (the
 		// vetted rumor heat list), and /sigil (crown synthesis). Each card fetches
-		// its own product. $1 sport · $2 entity_type · $3 entity_id · $4 scope.
+		// its own product. $1 sport · $2 entity_type · $3 entity_id · $4 scope ·
+		// $5 year · $6 week (mig 237: a reporting week overrides the rolling scope).
 		"entity_news": `WITH req AS (
 			SELECT upper($1::text) AS sport,
 			       lower($2::text) AS entity_type,
@@ -1068,31 +1120,41 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			         WHEN 'three_weeks_ago' THEN 'three_weeks_ago'
 			         WHEN 'last_month' THEN 'last_month'
 			         ELSE 'current_week'
-			       END AS scope_key
+			       END AS scope_key,
+			       $5::int AS year, $6::int AS week
 		),
 		scope AS (
-			SELECT scope_key,
-			       CASE scope_key
-			         WHEN 'last_week' THEN 'Last week'
-			         WHEN 'two_weeks_ago' THEN 'Two weeks ago'
-			         WHEN 'three_weeks_ago' THEN 'Three weeks ago'
-			         WHEN 'last_month' THEN 'Last month'
-			         ELSE 'Current week'
-			       END AS label,
-			       CASE scope_key
-			         WHEN 'last_week' THEN NOW() - INTERVAL '14 days'
-			         WHEN 'two_weeks_ago' THEN NOW() - INTERVAL '21 days'
-			         WHEN 'three_weeks_ago' THEN NOW() - INTERVAL '28 days'
-			         WHEN 'last_month' THEN NOW() - INTERVAL '30 days'
-			         ELSE NOW() - INTERVAL '7 days'
-			       END AS starts_at,
-			       CASE scope_key
-			         WHEN 'last_week' THEN NOW() - INTERVAL '7 days'
-			         WHEN 'two_weeks_ago' THEN NOW() - INTERVAL '14 days'
-			         WHEN 'three_weeks_ago' THEN NOW() - INTERVAL '21 days'
-			         ELSE NOW()
-			       END AS ends_at
+			-- year+week (mig 237) override the rolling scope with a real reporting
+			-- week; a week the calendar doesn't know yields an empty window, never a
+			-- silent fallback. scope_key 'week' also disables the current-week
+			-- freshness gate below — archives don't age.
+			SELECT CASE WHEN req.year IS NOT NULL THEN 'week' ELSE scope_key END AS scope_key,
+			       CASE WHEN req.year IS NOT NULL THEN 'Week ' || COALESCE(req.week, 1)
+			            ELSE CASE scope_key
+			              WHEN 'last_week' THEN 'Last week'
+			              WHEN 'two_weeks_ago' THEN 'Two weeks ago'
+			              WHEN 'three_weeks_ago' THEN 'Three weeks ago'
+			              WHEN 'last_month' THEN 'Last month'
+			              ELSE 'Current week'
+			            END END AS label,
+			       CASE WHEN req.year IS NOT NULL THEN COALESCE(sw.starts_at, 'epoch'::timestamptz)
+			            ELSE CASE scope_key
+			              WHEN 'last_week' THEN NOW() - INTERVAL '14 days'
+			              WHEN 'two_weeks_ago' THEN NOW() - INTERVAL '21 days'
+			              WHEN 'three_weeks_ago' THEN NOW() - INTERVAL '28 days'
+			              WHEN 'last_month' THEN NOW() - INTERVAL '30 days'
+			              ELSE NOW() - INTERVAL '7 days'
+			            END END AS starts_at,
+			       CASE WHEN req.year IS NOT NULL THEN COALESCE(sw.ends_at, 'epoch'::timestamptz)
+			            ELSE CASE scope_key
+			              WHEN 'last_week' THEN NOW() - INTERVAL '7 days'
+			              WHEN 'two_weeks_ago' THEN NOW() - INTERVAL '14 days'
+			              WHEN 'three_weeks_ago' THEN NOW() - INTERVAL '21 days'
+			              ELSE NOW()
+			            END END AS ends_at
 			FROM req
+			LEFT JOIN public.season_weeks sw
+			  ON sw.sport = req.sport AND sw.season = req.year AND sw.week_no = COALESCE(req.week, 1)
 		),
 		narr AS (
 			-- News is an archive-like product: a later no-narratives marker means "no
@@ -1164,31 +1226,41 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			         WHEN 'three_weeks_ago' THEN 'three_weeks_ago'
 			         WHEN 'last_month' THEN 'last_month'
 			         ELSE 'current_week'
-			       END AS scope_key
+			       END AS scope_key,
+			       $5::int AS year, $6::int AS week
 		),
 		scope AS (
-			SELECT scope_key,
-			       CASE scope_key
-			         WHEN 'last_week' THEN 'Last week'
-			         WHEN 'two_weeks_ago' THEN 'Two weeks ago'
-			         WHEN 'three_weeks_ago' THEN 'Three weeks ago'
-			         WHEN 'last_month' THEN 'Last month'
-			         ELSE 'Current week'
-			       END AS label,
-			       CASE scope_key
-			         WHEN 'last_week' THEN NOW() - INTERVAL '14 days'
-			         WHEN 'two_weeks_ago' THEN NOW() - INTERVAL '21 days'
-			         WHEN 'three_weeks_ago' THEN NOW() - INTERVAL '28 days'
-			         WHEN 'last_month' THEN NOW() - INTERVAL '30 days'
-			         ELSE NOW() - INTERVAL '7 days'
-			       END AS starts_at,
-			       CASE scope_key
-			         WHEN 'last_week' THEN NOW() - INTERVAL '7 days'
-			         WHEN 'two_weeks_ago' THEN NOW() - INTERVAL '14 days'
-			         WHEN 'three_weeks_ago' THEN NOW() - INTERVAL '21 days'
-			         ELSE NOW()
-			       END AS ends_at
+			-- year+week (mig 237) override the rolling scope with a real reporting
+			-- week; a week the calendar doesn't know yields an empty window, never a
+			-- silent fallback. scope_key 'week' also disables the current-week
+			-- freshness gate below — archives don't age.
+			SELECT CASE WHEN req.year IS NOT NULL THEN 'week' ELSE scope_key END AS scope_key,
+			       CASE WHEN req.year IS NOT NULL THEN 'Week ' || COALESCE(req.week, 1)
+			            ELSE CASE scope_key
+			              WHEN 'last_week' THEN 'Last week'
+			              WHEN 'two_weeks_ago' THEN 'Two weeks ago'
+			              WHEN 'three_weeks_ago' THEN 'Three weeks ago'
+			              WHEN 'last_month' THEN 'Last month'
+			              ELSE 'Current week'
+			            END END AS label,
+			       CASE WHEN req.year IS NOT NULL THEN COALESCE(sw.starts_at, 'epoch'::timestamptz)
+			            ELSE CASE scope_key
+			              WHEN 'last_week' THEN NOW() - INTERVAL '14 days'
+			              WHEN 'two_weeks_ago' THEN NOW() - INTERVAL '21 days'
+			              WHEN 'three_weeks_ago' THEN NOW() - INTERVAL '28 days'
+			              WHEN 'last_month' THEN NOW() - INTERVAL '30 days'
+			              ELSE NOW() - INTERVAL '7 days'
+			            END END AS starts_at,
+			       CASE WHEN req.year IS NOT NULL THEN COALESCE(sw.ends_at, 'epoch'::timestamptz)
+			            ELSE CASE scope_key
+			              WHEN 'last_week' THEN NOW() - INTERVAL '7 days'
+			              WHEN 'two_weeks_ago' THEN NOW() - INTERVAL '14 days'
+			              WHEN 'three_weeks_ago' THEN NOW() - INTERVAL '21 days'
+			              ELSE NOW()
+			            END END AS ends_at
 			FROM req
+			LEFT JOIN public.season_weeks sw
+			  ON sw.sport = req.sport AND sw.season = req.year AND sw.week_no = COALESCE(req.week, 1)
 		),
 		tr_latest AS (
 			-- subject_type is part of the pair key (mig 235): person/player id

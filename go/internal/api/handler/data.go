@@ -106,9 +106,12 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	positionGroup := optionalTextQuery(r, "position_group")
+	// Per-x ranking (the scope collapse, 2026-09-05): rate=per_36|per_90|per_game|
+	// per_season ranks the board by that rating_modes block. Players only.
+	rate := optionalTextQuery(r, "rate")
 
 	h.serveStatementJSON(w, r, "leaderboard", dataCacheKey(r), cache.TTLData, false,
-		sport, season, scope, position, leagueID, limit, entityType, conference, division, teamID, positionGroup)
+		sport, season, scope, position, leagueID, limit, entityType, conference, division, teamID, positionGroup, rate)
 }
 
 // GetVibesLeaderboard returns the sport-wide vibe board: entities ranked by the
@@ -156,8 +159,17 @@ func (h *Handler) GetVibesLeaderboard(w http.ResponseWriter, r *http.Request) {
 	conference := optionalTextQuery(r, "conference")
 	division := optionalTextQuery(r, "division")
 
+	year, ok := optionalIntQuery(w, r, "year")
+	if !ok {
+		return
+	}
+	week, ok := optionalIntQuery(w, r, "week")
+	if !ok {
+		return
+	}
+
 	h.serveStatementJSON(w, r, "vibes_leaderboard", dataCacheKey(r), cache.TTLData, false,
-		sport, limit, entityType, leagueID, teamID, position, positionGroup, conference, division)
+		sport, limit, entityType, leagueID, teamID, position, positionGroup, conference, division, year, week)
 }
 
 // GetSigilLeaderboard returns the sport-wide Sigil board: entities ranked by their
@@ -212,8 +224,17 @@ func (h *Handler) GetSigilLeaderboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	year, ok := optionalIntQuery(w, r, "year")
+	if !ok {
+		return
+	}
+	week, ok := optionalIntQuery(w, r, "week")
+	if !ok {
+		return
+	}
+
 	h.serveStatementJSON(w, r, "sigil_leaderboard", dataCacheKey(r), cache.TTLData, false,
-		sport, limit, entityType, season, leagueID, teamID, position, positionGroup, conference, division)
+		sport, limit, entityType, season, leagueID, teamID, position, positionGroup, conference, division, year, week)
 }
 
 // GetTrendingLeaderboard returns the sport-wide Momentum board — the movers: entities
@@ -324,8 +345,17 @@ func (h *Handler) GetNewsLeaderboard(w http.ResponseWriter, r *http.Request) {
 	// Two-rail model: the news board is now the hottest NARRATIVES (ranked by
 	// per-narrative impact), not raw mention counts. narratives_leaderboard
 	// supersedes the old news_leaderboard (which read news_article_entities).
+	year, ok := optionalIntQuery(w, r, "year")
+	if !ok {
+		return
+	}
+	week, ok := optionalIntQuery(w, r, "week")
+	if !ok {
+		return
+	}
+
 	h.serveStatementJSON(w, r, "narratives_leaderboard", dataCacheKey(r), cache.TTLData, false,
-		sport, limit, entityType, scope, leagueID, teamID, position, positionGroup, conference, division)
+		sport, limit, entityType, scope, leagueID, teamID, position, positionGroup, conference, division, year, week)
 }
 
 // GetTransfersLeaderboard returns the sport-wide transfer board: model-vetted
@@ -373,8 +403,17 @@ func (h *Handler) GetTransfersLeaderboard(w http.ResponseWriter, r *http.Request
 	conference := optionalTextQuery(r, "conference")
 	division := optionalTextQuery(r, "division")
 
+	year, ok := optionalIntQuery(w, r, "year")
+	if !ok {
+		return
+	}
+	week, ok := optionalIntQuery(w, r, "week")
+	if !ok {
+		return
+	}
+
 	h.serveStatementJSON(w, r, "transfers_leaderboard", dataCacheKey(r), cache.TTLData, false,
-		sport, limit, scope, entityType, leagueID, teamID, position, positionGroup, conference, division)
+		sport, limit, scope, entityType, leagueID, teamID, position, positionGroup, conference, division, year, week)
 }
 
 // GetTrendsPage returns last-3 entity event averages vs peer-cohort season averages.
@@ -573,7 +612,15 @@ func (h *Handler) GetEntityNarratives(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	scope := optionalTextQuery(r, "scope")
-	h.serveStatementJSON(w, r, "entity_news", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id, scope)
+	year, ok := optionalIntQuery(w, r, "year")
+	if !ok {
+		return
+	}
+	week, ok := optionalIntQuery(w, r, "week")
+	if !ok {
+		return
+	}
+	h.serveStatementJSON(w, r, "entity_news", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id, scope, year, week)
 }
 
 // GetEntityTransfers returns the entity's TRANSFERS product — the vetted rumor
@@ -605,7 +652,15 @@ func (h *Handler) GetEntityTransfers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	scope := optionalTextQuery(r, "scope")
-	h.serveStatementJSON(w, r, "entity_transfers", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id, scope)
+	year, ok := optionalIntQuery(w, r, "year")
+	if !ok {
+		return
+	}
+	week, ok := optionalIntQuery(w, r, "week")
+	if !ok {
+		return
+	}
+	h.serveStatementJSON(w, r, "entity_transfers", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id, scope, year, week)
 }
 
 // GetEntityHeadlines returns the WEEK ARCHIVE — every consumer seat's

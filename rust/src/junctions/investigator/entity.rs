@@ -18,8 +18,7 @@
 //! tuning ledger; the seat (`Role::Investigator`) exists and idles until then.
 
 use super::discover::{
-    wikidata_item, wikidata_search, wikipedia_search, wikipedia_summary, WikidataHit,
-    WikidataItem,
+    wikidata_item, wikidata_search, wikipedia_search, wikipedia_summary, WikidataHit, WikidataItem,
 };
 use super::gate::{
     commons_image_url, contains_normalized, decide, decide_prose, descriptor_role_class,
@@ -97,8 +96,9 @@ impl StageHandler for InvestigateEntityHandler {
         match item.entity_type.as_str() {
             "candidate" => investigate_candidate(hx, &self.fetcher, item).await,
             "player" => enrich_player(hx, &self.fetcher, item).await,
+            "team" => enrich_team(hx, &self.fetcher, item).await,
             other => Err(anyhow!(
-                "investigate_entity got entity_type='{other}' (candidate|player)"
+                "investigate_entity got entity_type='{other}' (candidate|player|team)"
             )),
         }
     }
@@ -129,7 +129,9 @@ async fn discover(
     for hit in hits.iter().take(MAX_ITEMS) {
         match wikidata_item(fetcher, &hx.pool, &policy, &hit.qid).await {
             Ok(it) => items.push(it),
-            Err(e) => warn!(qid = %hit.qid, error = %format!("{e:#}"), "wikidata item fetch failed"),
+            Err(e) => {
+                warn!(qid = %hit.qid, error = %format!("{e:#}"), "wikidata item fetch failed")
+            }
         }
     }
     let mut name_agreed = Vec::with_capacity(items.len());
@@ -199,7 +201,10 @@ async fn resolve_team_qids(
     .await
     .context("load known team qid mappings")?;
     for r in rows {
-        map.insert(r.get::<String, _>("external_id"), r.get::<i32, _>("entity_id"));
+        map.insert(
+            r.get::<String, _>("external_id"),
+            r.get::<i32, _>("entity_id"),
+        );
     }
 
     let unknown: Vec<&String> = qids.iter().filter(|q| !map.contains_key(*q)).collect();
@@ -262,7 +267,9 @@ async fn resolve_team_qids(
                     }
                 }
             }
-            Err(e) => warn!(error = %e, "team label batch fetch failed; discriminators degrade to known mappings"),
+            Err(e) => {
+                warn!(error = %e, "team label batch fetch failed; discriminators degrade to known mappings")
+            }
         }
     }
     Ok(qids.iter().filter_map(|q| map.get(q).copied()).collect())
@@ -362,24 +369,58 @@ async fn investigate_candidate(hx: &Harness, fetcher: &BudgetedFetcher, item: &I
             let it = &d.items[item_idx];
             // Clause (a): the provenance row must contain the label we are trusting.
             if !provenance_holds(&hx.pool, it).await? {
-                finish_candidate(hx, &cand, "rejected_insufficient_evidence", None, &run_plan,
-                    "accept item excerpt missing name form").await?;
+                finish_candidate(
+                    hx,
+                    &cand,
+                    "rejected_insufficient_evidence",
+                    None,
+                    &run_plan,
+                    "accept item excerpt missing name form",
+                )
+                .await?;
                 return Ok(());
             }
             let Some(kind) = role.person_kind() else {
-                finish_candidate(hx, &cand, "rejected_not_sport", None, &run_plan,
-                    "accepted item has no writable kind").await?;
+                finish_candidate(
+                    hx,
+                    &cand,
+                    "rejected_not_sport",
+                    None,
+                    &run_plan,
+                    "accepted item has no writable kind",
+                )
+                .await?;
                 return Ok(());
             };
-            accept_candidate(hx, &cand, &sport, it, kind, role, &d.our_teams[item_idx], &run_plan)
-                .await?;
+            accept_candidate(
+                hx,
+                &cand,
+                &sport,
+                it,
+                kind,
+                role,
+                &d.our_teams[item_idx],
+                &run_plan,
+            )
+            .await?;
         }
         Verdict::Ambiguous { survivor_idxs } => {
-            let reason = format!("{} sport-relevant survivors, no unique discriminator", survivor_idxs.len());
+            let reason = format!(
+                "{} sport-relevant survivors, no unique discriminator",
+                survivor_idxs.len()
+            );
             finish_candidate(hx, &cand, "ambiguous", None, &run_plan, &reason).await?;
         }
         Verdict::RejectedNotSport => {
-            finish_candidate(hx, &cand, "rejected_not_sport", None, &run_plan, "no sport-relevant item").await?;
+            finish_candidate(
+                hx,
+                &cand,
+                "rejected_not_sport",
+                None,
+                &run_plan,
+                "no sport-relevant item",
+            )
+            .await?;
         }
         Verdict::RejectedInsufficientEvidence => {
             // The 5.4 prose arm (D-T8): Wikidata's ENTITY search matches labels and
@@ -416,13 +457,23 @@ async fn investigate_candidate_prose(
     let mentioning: Vec<_> = pages
         .iter()
         .filter(|p| {
-            mentions_all_tokens(&format!("{}\n{}\n{}", p.title, p.description, p.excerpt), sought)
+            mentions_all_tokens(
+                &format!("{}\n{}\n{}", p.title, p.description, p.excerpt),
+                sought,
+            )
         })
         .take(MAX_PROSE_PAGES)
         .collect();
     if mentioning.is_empty() {
-        finish_candidate(hx, cand, "rejected_insufficient_evidence", None, wikidata_run_plan,
-            "no name-agreeing wikidata item; no wikipedia page mentions the name").await?;
+        finish_candidate(
+            hx,
+            cand,
+            "rejected_insufficient_evidence",
+            None,
+            wikidata_run_plan,
+            "no name-agreeing wikidata item; no wikipedia page mentions the name",
+        )
+        .await?;
         return Ok(());
     }
 
@@ -444,12 +495,28 @@ async fn investigate_candidate_prose(
                 continue;
             }
         };
-        let title = body.get("title").and_then(serde_json::Value::as_str).unwrap_or(&page.title);
-        let description = body.get("description").and_then(serde_json::Value::as_str).unwrap_or("");
-        let extract = body.get("extract").and_then(serde_json::Value::as_str).unwrap_or("");
+        let title = body
+            .get("title")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or(&page.title);
+        let description = body
+            .get("description")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("");
+        let extract = body
+            .get("extract")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("");
         let text = page_text(title, description, extract);
 
-        let prompt = build_prose_prompt(sought, cand.descriptor.as_deref(), sport, title, description, extract);
+        let prompt = build_prose_prompt(
+            sought,
+            cand.descriptor.as_deref(),
+            sport,
+            title,
+            description,
+            extract,
+        );
         let extracted = hx
             .extract(Role::Investigator, &prompt, &prose_opts(), &ProseReadParser)
             .await?;
@@ -461,8 +528,8 @@ async fn investigate_candidate_prose(
 
         // Every screen is a CODE check over verbatim text (T2): the model's fields count
         // only where containment proves they came from the page.
-        let evidence_ok = read.subject_kind == "person"
-            && contains_normalized(&text, &read.sought_name_evidence);
+        let evidence_ok =
+            read.subject_kind == "person" && contains_normalized(&text, &read.sought_name_evidence);
         let occupation_ok = contains_normalized(&text, &read.occupation_phrase);
         // Teams resolve BEFORE the role classifies: a sport-scoped team match unlocks the
         // role vocabulary for phrases with no sport keyword (the owner/executive class).
@@ -493,7 +560,13 @@ async fn investigate_candidate_prose(
             team_matched: !our_teams.is_empty(),
             descriptor_conflict,
         });
-        reads.push((read, page.key.clone(), title.to_string(), fetched.document_id, our_teams));
+        reads.push((
+            read,
+            page.key.clone(),
+            title.to_string(),
+            fetched.document_id,
+            our_teams,
+        ));
     }
 
     let run_plan = json!({
@@ -515,8 +588,15 @@ async fn investigate_candidate_prose(
         Verdict::Accept { item_idx, role } => {
             let (read, key, title, doc, our_teams) = &reads[item_idx];
             let Some(kind) = role.person_kind() else {
-                finish_candidate(hx, cand, "rejected_not_sport", None, &run_plan,
-                    "prose accept has no writable kind").await?;
+                finish_candidate(
+                    hx,
+                    cand,
+                    "rejected_not_sport",
+                    None,
+                    &run_plan,
+                    "prose accept has no writable kind",
+                )
+                .await?;
                 return Ok(());
             };
             // The pseudo-item: label from the page title (code-derived, never asked of the
@@ -541,12 +621,26 @@ async fn investigate_candidate_prose(
             finish_candidate(hx, cand, "ambiguous", None, &run_plan, &reason).await?;
         }
         Verdict::RejectedNotSport => {
-            finish_candidate(hx, cand, "rejected_not_sport", None, &run_plan,
-                "prose: page(s) connect the name but not to this sport").await?;
+            finish_candidate(
+                hx,
+                cand,
+                "rejected_not_sport",
+                None,
+                &run_plan,
+                "prose: page(s) connect the name but not to this sport",
+            )
+            .await?;
         }
         Verdict::RejectedInsufficientEvidence => {
-            finish_candidate(hx, cand, "rejected_insufficient_evidence", None, &run_plan,
-                "prose: no page connects the sought name to a person").await?;
+            finish_candidate(
+                hx,
+                cand,
+                "rejected_insufficient_evidence",
+                None,
+                &run_plan,
+                "prose: no page connects the sought name to a person",
+            )
+            .await?;
         }
     }
     Ok(())
@@ -665,6 +759,7 @@ async fn accept_candidate(
     run_plan: &serde_json::Value,
 ) -> Result<()> {
     let team_id = career_team_ids.first().copied();
+    let policy = load_fact_policy(&hx.pool).await?;
     let mut tx = hx.pool.begin().await.context("begin accept")?;
 
     // Resolve-to-existing FIRST (5.5): an exact-surface person/player whose sport matches.
@@ -724,8 +819,15 @@ async fn accept_candidate(
                 let agree = player_team.is_some_and(|pt| career_team_ids.contains(&pt));
                 if !agree {
                     tx.rollback().await.ok();
-                    finish_candidate(hx, cand, "ambiguous", None, run_plan,
-                        "surface matches existing player but team discriminator disagrees").await?;
+                    finish_candidate(
+                        hx,
+                        cand,
+                        "ambiguous",
+                        None,
+                        run_plan,
+                        "surface matches existing player but team discriminator disagrees",
+                    )
+                    .await?;
                     return Ok(());
                 }
             }
@@ -733,13 +835,84 @@ async fn accept_candidate(
         }
         _ => {
             tx.rollback().await.ok();
-            finish_candidate(hx, cand, "ambiguous", None, run_plan,
-                "multiple existing entities share the surface").await?;
+            finish_candidate(
+                hx,
+                cand,
+                "ambiguous",
+                None,
+                run_plan,
+                "multiple existing entities share the surface",
+            )
+            .await?;
             return Ok(());
         }
     };
 
-    // Aliases (append-only ledger) + direct surface mirror, per name form.
+    // The mig 236 refresh: re-accepting onto an existing person REVISES it — the whole
+    // point of the reopen clock. Every mutation asks the policy table; the tiers are:
+    // role/kind evidenced (the gate derived it from the fresh claims), team_affiliation
+    // adjudicated (the career discriminator must have named the team — the same
+    // agreement creation demands). Unlisted facts stay frozen.
+    if resolved_type == "person" {
+        if policy_allows(&policy, "person", "role") {
+            sqlx::query(
+                "UPDATE public.persons SET kind = $2 WHERE id = $1 AND kind IS DISTINCT FROM $2",
+            )
+            .bind(resolved_id)
+            .bind(kind)
+            .execute(&mut *tx)
+            .await
+            .context("refresh person kind")?;
+        }
+        if policy_allows(&policy, "person", "team_affiliation") {
+            if let Some(team) = team_id {
+                sqlx::query(
+                    "UPDATE public.persons SET team_id = $2 WHERE id = $1 AND team_id IS DISTINCT FROM $2",
+                )
+                .bind(resolved_id)
+                .bind(team)
+                .execute(&mut *tx)
+                .await
+                .context("refresh person team affiliation")?;
+            }
+        }
+        // The dossier facts players always had and persons never got.
+        let dob = it.date_of_birth.as_deref().and_then(wire_date);
+        let photo = it.image_file.as_deref().and_then(commons_image_url);
+        for (ft, val) in [
+            ("date_of_birth", dob.as_deref()),
+            ("photo_url", photo.as_deref()),
+        ] {
+            let Some(val) = val else { continue };
+            if !policy_allows(&policy, "person", ft) {
+                continue;
+            }
+            write_fact_superseding(
+                &mut tx,
+                "person",
+                resolved_id,
+                sport,
+                ft,
+                val,
+                it.source_document_id,
+            )
+            .await?;
+        }
+        if let Some(p) = photo.as_deref() {
+            sqlx::query(
+                "UPDATE public.persons SET meta = jsonb_set(COALESCE(meta, '{}'::jsonb), '{photo_url}', to_jsonb($2::text)) WHERE id = $1",
+            )
+            .bind(resolved_id)
+            .bind(p)
+            .execute(&mut *tx)
+            .await
+            .context("refresh person photo meta")?;
+        }
+    }
+
+    // Aliases (append-only ledger) + direct surface mirror, per name form. The ledger
+    // stays append-only, but a re-accept must not re-append forms it already holds —
+    // the reopen clock would otherwise duplicate the whole set monthly.
     let mut forms: Vec<String> = vec![it.label.clone()];
     forms.extend(it.aliases.iter().cloned());
     for form in &forms {
@@ -747,7 +920,12 @@ async fn accept_candidate(
             r#"
             INSERT INTO public.entity_aliases
                 (entity_type, entity_id, sport, alias, norm_alias, source_document_id, state)
-            VALUES ($1, $2, $3, $4, public.nrm($4), $5, 'active')
+            SELECT $1, $2, $3, $4, public.nrm($4), $5, 'active'
+            WHERE NOT EXISTS (
+                SELECT 1 FROM public.entity_aliases
+                WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
+                  AND norm_alias = public.nrm($4) AND state = 'active'
+            )
             "#,
         )
         .bind(&resolved_type)
@@ -806,24 +984,26 @@ async fn accept_candidate(
         .context("insert person external id")?;
     }
 
-    sqlx::query(
-        r#"
-        INSERT INTO public.entity_facts
-            (entity_type, entity_id, sport, fact_type, value_text, source_document_id, state)
-        VALUES ($1, $2, $3, 'role', $4, $5, 'active')
-        "#,
-    )
-    .bind(&resolved_type)
-    .bind(resolved_id)
-    .bind(sport)
-    .bind(kind)
-    .bind(it.source_document_id)
-    .execute(&mut *tx)
-    .await
-    .context("insert role fact")?;
+    // The role fact, policy-gated and superseding (mig 236): a coach who becomes an
+    // executive gets a revision, not a duplicate. (Players have no 'role' policy row —
+    // being a players-table row IS the role — so this now writes for persons only.)
+    if policy_allows(&policy, &resolved_type, "role") {
+        write_fact_superseding(
+            &mut tx,
+            &resolved_type,
+            resolved_id,
+            sport,
+            "role",
+            kind,
+            it.source_document_id,
+        )
+        .await?;
+    }
 
     // Structural role → relationship edge, when a team discriminated. `coach_of` since 5.5;
-    // `owner_of` since the owner class landed (Jerry Jones, 2026-08-09).
+    // `owner_of` since the owner class landed (Jerry Jones, 2026-08-09). A changed team
+    // supersedes the old edge — the story moved, the graph moves with it — and an
+    // unchanged one is not re-inserted.
     let predicate = match role {
         RoleClass::Coach => Some("coach_of"),
         RoleClass::Owner => Some("owner_of"),
@@ -832,11 +1012,33 @@ async fn accept_candidate(
     if let (Some(predicate), Some(team)) = (predicate, team_id) {
         sqlx::query(
             r#"
+            UPDATE public.entity_relationships SET state = 'superseded'
+            WHERE subject_entity_type = $1 AND subject_entity_id = $2 AND subject_sport = $3
+              AND predicate = $4 AND state = 'active'
+              AND (object_entity_type <> 'team' OR object_entity_id <> $5)
+            "#,
+        )
+        .bind(&resolved_type)
+        .bind(resolved_id)
+        .bind(sport)
+        .bind(predicate)
+        .bind(team)
+        .execute(&mut *tx)
+        .await
+        .context("supersede stale role relationship")?;
+        sqlx::query(
+            r#"
             INSERT INTO public.entity_relationships
                 (subject_entity_type, subject_entity_id, subject_sport,
                  predicate, object_entity_type, object_entity_id, object_sport,
                  source_document_id, state)
-            VALUES ($1, $2, $3, $4, 'team', $5, $3, $6, 'active')
+            SELECT $1, $2, $3, $4, 'team', $5, $3, $6, 'active'
+            WHERE NOT EXISTS (
+                SELECT 1 FROM public.entity_relationships
+                WHERE subject_entity_type = $1 AND subject_entity_id = $2 AND subject_sport = $3
+                  AND predicate = $4 AND object_entity_type = 'team' AND object_entity_id = $5
+                  AND state = 'active'
+            )
             "#,
         )
         .bind(&resolved_type)
@@ -906,7 +1108,10 @@ async fn finish_candidate(
     .await
     .context("mark candidate decided")?;
     tx.commit().await.context("commit finish")?;
-    info!(candidate_id = cand.id, state, reason, "investigator decided candidate");
+    info!(
+        candidate_id = cand.id,
+        state, reason, "investigator decided candidate"
+    );
     Ok(())
 }
 
@@ -921,7 +1126,9 @@ async fn record_run(
     // so the ledger columns come from the plan rather than threading two more parameters
     // through every verdict path. The Wikidata arm's plan has neither key → NULL model,
     // wikidata parser version — exactly the pre-5.4 row shape.
-    let model_version = query_plan.get("model").and_then(serde_json::Value::as_str)
+    let model_version = query_plan
+        .get("model")
+        .and_then(serde_json::Value::as_str)
         .filter(|m| !m.is_empty());
     let parser_version = query_plan
         .get("contract")
@@ -953,19 +1160,27 @@ async fn record_run(
 
 async fn enrich_player(hx: &Harness, fetcher: &BudgetedFetcher, item: &Item) -> Result<()> {
     let player_id = item.entity_id_i32()?;
-    let Some(row) = sqlx::query(
-        "SELECT name, sport, team_id FROM public.players WHERE id = $1",
-    )
-    .bind(player_id)
-    .fetch_optional(&hx.pool)
-    .await
-    .context("load player for enrichment")?
+    let Some(row) = sqlx::query("SELECT name, sport, team_id FROM public.players WHERE id = $1")
+        .bind(player_id)
+        .fetch_optional(&hx.pool)
+        .await
+        .context("load player for enrichment")?
     else {
         return Ok(());
     };
     let name: String = row.get("name");
     let sport: String = row.get("sport");
     let team_id: Option<i32> = row.get("team_id");
+
+    // mig 236: stamp the ATTEMPT, not the success — a refusal also waits out the
+    // 30-day refresh cooldown instead of re-queueing every night.
+    sqlx::query(
+        "UPDATE public.players SET meta = jsonb_set(COALESCE(meta, '{}'::jsonb), '{investigated_at}', to_jsonb(NOW())) WHERE id = $1",
+    )
+    .bind(player_id)
+    .execute(&hx.pool)
+    .await
+    .context("stamp player investigated_at")?;
 
     let d = discover(hx, fetcher, &sport, &name).await?;
     // The enrichment discriminator is STRICTER than membership-of-any-our-team: the item's
@@ -1032,10 +1247,12 @@ async fn enrich_player(hx: &Harness, fetcher: &BudgetedFetcher, item: &Item) -> 
         .filter(|_| sport == "NBA")
         .or_else(|| it.image_file.as_deref().and_then(commons_image_url));
 
+    let policy = load_fact_policy(&hx.pool).await?;
     let mut tx = hx.pool.begin().await.context("begin enrichment")?;
 
     // Facts with provenance; a correction is a revision — prior active facts of the same
-    // type are superseded, never overwritten (§4).
+    // type are superseded, never overwritten (§4). Since mig 236 every write asks the
+    // policy table first: an unlisted (entity_type, fact_type) is frozen to model paths.
     let weight_fact = it.weight_kg.map(|k| format!("{k}"));
     let height_fact = it.height_cm.map(|c| format!("{c}"));
     for (ft, val) in [
@@ -1045,40 +1262,19 @@ async fn enrich_player(hx: &Harness, fetcher: &BudgetedFetcher, item: &Item) -> 
         ("photo_url", photo.as_deref()),
     ] {
         let Some(val) = val else { continue };
-        sqlx::query(
-            r#"
-            UPDATE public.entity_facts SET state = 'superseded'
-            WHERE entity_type = 'player' AND entity_id = $1 AND sport = $2
-              AND fact_type = $3 AND state = 'active' AND value_text IS DISTINCT FROM $4
-            "#,
+        if !policy_allows(&policy, "player", ft) {
+            continue;
+        }
+        write_fact_superseding(
+            &mut tx,
+            "player",
+            player_id,
+            &sport,
+            ft,
+            val,
+            it.source_document_id,
         )
-        .bind(player_id)
-        .bind(&sport)
-        .bind(ft)
-        .bind(val)
-        .execute(&mut *tx)
-        .await
-        .context("supersede prior fact")?;
-        sqlx::query(
-            r#"
-            INSERT INTO public.entity_facts
-                (entity_type, entity_id, sport, fact_type, value_text, source_document_id, state)
-            SELECT 'player', $1, $2, $3, $4, $5, 'active'
-            WHERE NOT EXISTS (
-                SELECT 1 FROM public.entity_facts
-                WHERE entity_type = 'player' AND entity_id = $1 AND sport = $2
-                  AND fact_type = $3 AND state = 'active' AND value_text = $4
-            )
-            "#,
-        )
-        .bind(player_id)
-        .bind(&sport)
-        .bind(ft)
-        .bind(val)
-        .bind(it.source_document_id)
-        .execute(&mut *tx)
-        .await
-        .context("insert fact")?;
+        .await?;
     }
 
     // External ids (wikidata + the sport's own id when present).
@@ -1140,6 +1336,232 @@ async fn enrich_player(hx: &Harness, fetcher: &BudgetedFetcher, item: &Item) -> 
         height = height.as_deref().unwrap_or("-"),
         photo = photo.is_some(),
         "investigator enriched player"
+    );
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------------------
+// Mode 3 + the mig 236 substrate: dynamic entity metadata.
+//
+// "Treat all entity types as dynamic" (Scott, 2026-09-04). The policy table is the
+// model's guide AND the guard: a (entity_type, fact_type) row grants write permission
+// at a tier; absence is frozen. The Investigator stays the only junction that mutates
+// the world — the storytelling voices read it, they never edit it.
+// ---------------------------------------------------------------------------------------
+
+/// The write-permission map, loaded per handled item (tiny table, hot cache).
+type FactPolicy = HashMap<(String, String), String>;
+
+async fn load_fact_policy(pool: &PgPool) -> Result<FactPolicy> {
+    let rows = sqlx::query("SELECT entity_type, fact_type, tier FROM public.entity_fact_policy")
+        .fetch_all(pool)
+        .await
+        .context("load entity_fact_policy")?;
+    Ok(rows
+        .into_iter()
+        .map(|r| {
+            (
+                (
+                    r.get::<String, _>("entity_type"),
+                    r.get::<String, _>("fact_type"),
+                ),
+                r.get::<String, _>("tier"),
+            )
+        })
+        .collect())
+}
+
+fn policy_allows(policy: &FactPolicy, entity_type: &str, fact_type: &str) -> bool {
+    policy.contains_key(&(entity_type.to_string(), fact_type.to_string()))
+}
+
+/// The one fact-revision primitive (§4 semantics, generalized from the player loop):
+/// supersede prior active facts of the type whose value differs, insert the new value
+/// unless it is already the active one. Every row cites its source document.
+async fn write_fact_superseding(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    entity_type: &str,
+    entity_id: i32,
+    sport: &str,
+    fact_type: &str,
+    value: &str,
+    source_document_id: i64,
+) -> Result<()> {
+    sqlx::query(
+        r#"
+        UPDATE public.entity_facts SET state = 'superseded'
+        WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
+          AND fact_type = $4 AND state = 'active' AND value_text IS DISTINCT FROM $5
+        "#,
+    )
+    .bind(entity_type)
+    .bind(entity_id)
+    .bind(sport)
+    .bind(fact_type)
+    .bind(value)
+    .execute(&mut **tx)
+    .await
+    .context("supersede prior fact")?;
+    sqlx::query(
+        r#"
+        INSERT INTO public.entity_facts
+            (entity_type, entity_id, sport, fact_type, value_text, source_document_id, state)
+        SELECT $1, $2, $3, $4, $5, $6, 'active'
+        WHERE NOT EXISTS (
+            SELECT 1 FROM public.entity_facts
+            WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
+              AND fact_type = $4 AND state = 'active' AND value_text = $5
+        )
+        "#,
+    )
+    .bind(entity_type)
+    .bind(entity_id)
+    .bind(sport)
+    .bind(fact_type)
+    .bind(value)
+    .bind(source_document_id)
+    .execute(&mut **tx)
+    .await
+    .context("insert fact")?;
+    Ok(())
+}
+
+/// Team enrichment (mig 236). No search, no disambiguation: the team's wikidata QID is
+/// already bound in entity_external_ids (the team resolver bootstraps them), so this
+/// fetches a KNOWN item, screens the name, and revises exactly what the policy allows —
+/// venue_name (P115, current tenure) and logo_url (P154, P18 fallback). City, founding
+/// year, sport, name: absent from the policy, frozen, untouchable from here.
+async fn enrich_team(hx: &Harness, fetcher: &BudgetedFetcher, item: &Item) -> Result<()> {
+    let team_id = item.entity_id_i32()?;
+    let Some(row) = sqlx::query("SELECT name, sport FROM public.teams WHERE id = $1")
+        .bind(team_id)
+        .fetch_optional(&hx.pool)
+        .await
+        .context("load team for enrichment")?
+    else {
+        return Ok(());
+    };
+    let name: String = row.get("name");
+    let sport: String = row.get("sport");
+
+    // Attempt stamp first — a refusal also waits out the refresh cooldown.
+    sqlx::query(
+        "UPDATE public.teams SET meta = jsonb_set(COALESCE(meta, '{}'::jsonb), '{investigated_at}', to_jsonb(NOW())) WHERE id = $1",
+    )
+    .bind(team_id)
+    .execute(&hx.pool)
+    .await
+    .context("stamp team investigated_at")?;
+
+    let Some(qid) = sqlx::query_scalar::<_, String>(
+        r#"
+        SELECT external_id FROM public.entity_external_ids
+        WHERE entity_type = 'team' AND entity_id = $1 AND namespace = 'wikidata'
+        ORDER BY created_at DESC LIMIT 1
+        "#,
+    )
+    .bind(team_id)
+    .fetch_optional(&hx.pool)
+    .await
+    .context("load team wikidata id")?
+    else {
+        info!(team_id, %name, "team enrichment skipped: no wikidata handle");
+        return Ok(());
+    };
+
+    let policy = load_fact_policy(&hx.pool).await?;
+    let fetch_policy = wikimedia_policy();
+    let it = wikidata_item(fetcher, &hx.pool, &fetch_policy, &qid).await?;
+
+    // The same two code gates every acceptance passes: the item must carry our name
+    // form, and the stored excerpt must literally contain it.
+    if !name_forms_agree(&hx.pool, &name, &it).await? {
+        info!(team_id, %name, qid = %it.qid, "team enrichment refused: name disagreement");
+        return Ok(());
+    }
+    if !provenance_holds(&hx.pool, &it).await? {
+        warn!(team_id, qid = %it.qid, "team enrichment fails provenance containment; refusing");
+        return Ok(());
+    }
+
+    // Venue label needs the venue item's own fetch (its wbgetentities doc IS its
+    // provenance, per the standing rule).
+    let venue_name = match it.venue_qid.as_deref() {
+        Some(vq) if policy_allows(&policy, "team", "venue_name") => {
+            match wikidata_item(fetcher, &hx.pool, &fetch_policy, vq).await {
+                Ok(v) if !v.label.is_empty() => Some(v.label),
+                Ok(_) => None,
+                Err(e) => {
+                    warn!(team_id, venue_qid = vq, error = %format!("{e:#}"),
+                        "venue item fetch failed; skipping venue this round");
+                    None
+                }
+            }
+        }
+        _ => None,
+    };
+    let logo = it
+        .logo_file
+        .as_deref()
+        .or(it.image_file.as_deref())
+        .and_then(commons_image_url)
+        .filter(|_| policy_allows(&policy, "team", "logo_url"));
+
+    if venue_name.is_none() && logo.is_none() {
+        info!(team_id, %name, qid = %it.qid, "team enrichment: nothing writable this round");
+        return Ok(());
+    }
+
+    let mut tx = hx.pool.begin().await.context("begin team enrichment")?;
+    if let Some(v) = venue_name.as_deref() {
+        write_fact_superseding(
+            &mut tx,
+            "team",
+            team_id,
+            &sport,
+            "venue_name",
+            v,
+            it.source_document_id,
+        )
+        .await?;
+    }
+    if let Some(l) = logo.as_deref() {
+        write_fact_superseding(
+            &mut tx,
+            "team",
+            team_id,
+            &sport,
+            "logo_url",
+            l,
+            it.source_document_id,
+        )
+        .await?;
+    }
+    // Convenience copies — dynamism means the current value moves WITH the fact.
+    sqlx::query(
+        r#"
+        UPDATE public.teams
+        SET venue_name = COALESCE($2, venue_name),
+            logo_url   = COALESCE($3, logo_url),
+            updated_at = NOW()
+        WHERE id = $1
+        "#,
+    )
+    .bind(team_id)
+    .bind(venue_name.as_deref())
+    .bind(logo.as_deref())
+    .execute(&mut *tx)
+    .await
+    .context("update team convenience columns")?;
+    tx.commit().await.context("commit team enrichment")?;
+
+    info!(
+        team_id,
+        %name,
+        qid = %it.qid,
+        venue = venue_name.as_deref().unwrap_or("-"),
+        logo = logo.is_some(),
+        "investigator enriched team"
     );
     Ok(())
 }

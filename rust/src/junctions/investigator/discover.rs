@@ -59,6 +59,11 @@ pub struct WikidataItem {
     /// (Scott 2026-08-09: NBA/NFL entities have no headshots; NFL has no cdn id property,
     /// Commons covers everyone). Rendered by `gate::commons_image_url`.
     pub image_file: Option<String>,
+    /// P115 home venue target QID, current tenure only — team-shaped (mig 236 dynamic
+    /// metadata); None for person items.
+    pub venue_qid: Option<String>,
+    /// P154 logo image — Commons filename; team-shaped.
+    pub logo_file: Option<String>,
     /// The source_documents row the wbgetentities response landed as.
     pub source_document_id: i64,
 }
@@ -173,6 +178,13 @@ pub fn parse_wikidata_entity(qid: &str, entity: &Value, source_document_id: i64)
         .pointer("/claims/P18/0/mainsnak/datavalue/value")
         .and_then(Value::as_str)
         .map(str::to_string);
+    // Team-shaped claims (mig 236): home venue keeps only the CURRENT tenure (a moved
+    // team must not resurrect its old ground), logo is a Commons filename like P18.
+    item.venue_qid = claim_item_ids(entity, "P115", true).into_iter().next();
+    item.logo_file = entity
+        .pointer("/claims/P154/0/mainsnak/datavalue/value")
+        .and_then(Value::as_str)
+        .map(str::to_string);
     item
 }
 
@@ -211,7 +223,11 @@ fn quantity_in(entity: &Value, prop: &str, accepted: &[(&str, f64)]) -> Option<f
         .iter()
         .find(|(q, _)| *q == unit_qid)
         .map(|(_, f)| *f)?;
-    amount.trim_start_matches('+').parse::<f64>().ok().map(|a| a * factor)
+    amount
+        .trim_start_matches('+')
+        .parse::<f64>()
+        .ok()
+        .map(|a| a * factor)
 }
 
 /// One Wikipedia full-text search result, pre-retrieval.
@@ -386,7 +402,11 @@ mod tests {
             {"mainsnak": {"datavalue": {"value": {"id": "Q169138"}}}}
         ]);
         let item = parse_wikidata_entity("Q1", &e, 1);
-        assert_eq!(item.coach_of_teams, vec!["Q169138"], "only the open tenure survives");
+        assert_eq!(
+            item.coach_of_teams,
+            vec!["Q169138"],
+            "only the open tenure survives"
+        );
         // P54 career history keeps ended stints — the discriminator wants them.
         e["claims"]["P54"] = e["claims"]["P6087"].clone();
         let item = parse_wikidata_entity("Q1", &e, 1);
@@ -415,7 +435,11 @@ mod tests {
             ]
         });
         let pages = parse_wikipedia_search(&body);
-        assert_eq!(pages.len(), 1, "a page without a key cannot be summary-fetched");
+        assert_eq!(
+            pages.len(),
+            1,
+            "a page without a key cannot be summary-fetched"
+        );
         assert_eq!(pages[0].key, "Ace_Bailey_(basketball,_born_2006)");
         assert_eq!(
             pages[0].excerpt,

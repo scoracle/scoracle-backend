@@ -1293,15 +1293,22 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		// its storylines as `items` (title+body, impact-ranked); every other seat
 		// is a single body. The Scout's archive score is NULL — his card number is
 		// the rating, which is season-state, not a generation field.
-		// $1 sport · $2 entity_type · $3 entity_id · $4 year · $5 week (1-53).
+		// $1 sport · $2 entity_type · $3 entity_id · $4 week_season (NULL ⇒ current) ·
+		// $5 week_no. mig 237: the window is a season_weeks row — week 1 = the
+		// sport's opening day (ET) — never Jan-1 arithmetic. NULL params resolve
+		// to the week containing NOW(); the response echoes the resolved pair.
 		"entity_headlines": `WITH req AS (
 			SELECT upper($1::text) AS sport, lower($2::text) AS entity_type, $3::int AS entity_id,
-			       $4::int AS year, LEAST(GREATEST($5::int, 1), 53) AS week
+			       $4::int AS year, $5::int AS week
 		),
 		win AS (
-			SELECT (make_date(req.year, 1, 1) + ((req.week - 1) * 7))::timestamptz AS starts_at,
-			       (make_date(req.year, 1, 1) + (req.week * 7))::timestamptz AS ends_at
-			FROM req
+			SELECT sw.season AS year, sw.week_no AS week, sw.starts_at, sw.ends_at
+			FROM req, public.season_weeks sw
+			WHERE sw.sport = req.sport
+			  AND ( (req.year IS NOT NULL AND sw.season = req.year AND sw.week_no = COALESCE(req.week, 1))
+			     OR (req.year IS NULL AND NOW() >= sw.starts_at AND NOW() < sw.ends_at) )
+			ORDER BY sw.season DESC, sw.week_no DESC
+			LIMIT 1
 		),
 		narr_gens AS (
 			SELECT ns.generated_at,
@@ -1355,12 +1362,41 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'sport', lower((SELECT sport FROM req)),
 			'entity_type', (SELECT entity_type FROM req),
 			'entity_id', (SELECT entity_id FROM req),
-			'year', (SELECT year FROM req),
-			'week', (SELECT week FROM req),
+			'year', (SELECT year FROM win),
+			'week', (SELECT week FROM win),
 			'starts_at', (SELECT starts_at FROM win),
 			'ends_at', (SELECT ends_at FROM win),
 			'entries', COALESCE((SELECT json_agg(row_to_json(e) ORDER BY e.generated_at DESC)
 			     FROM entries e), '[]'::json)
+		)`,
+
+		// The sport's reporting calendar (mig 237): elapsed + current weeks,
+		// newest first. Week 1 = the season's opening day, 00:00 ET; the grid is
+		// derived from fixtures nightly (rebuild_season_weeks). Future weeks are
+		// withheld — there is nothing to browse ahead of the story.
+		// $1 sport · $2 season (NULL ⇒ all).
+		"sport_weeks": `WITH req AS (
+			SELECT upper($1::text) AS sport, $2::int AS want_season
+		),
+		weeks AS (
+			SELECT sw.season, sw.week_no,
+			       sw.starts_at, sw.ends_at,
+			       (NOW() >= sw.starts_at AND NOW() < sw.ends_at) AS is_current,
+			       EXISTS (SELECT 1 FROM public.week_seals ws
+			               WHERE ws.sport = sw.sport AND ws.week_season = sw.season
+			                 AND ws.week_no = sw.week_no) AS sealed
+			FROM public.season_weeks sw, req
+			WHERE sw.sport = req.sport
+			  AND (req.want_season IS NULL OR sw.season = req.want_season)
+			  AND sw.starts_at <= NOW()
+		)
+		SELECT json_build_object(
+			'page', 'weeks',
+			'sport', lower((SELECT sport FROM req)),
+			'current', (SELECT json_build_object('season', season, 'week', week_no)
+			            FROM weeks WHERE is_current LIMIT 1),
+			'weeks', COALESCE((SELECT json_agg(row_to_json(wk)
+			            ORDER BY wk.season DESC, wk.week_no DESC) FROM weeks wk), '[]'::json)
 		)`,
 
 		// The Influencer's per-entity Vibe card, restored to its own route after

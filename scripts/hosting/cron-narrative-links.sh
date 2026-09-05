@@ -133,4 +133,18 @@ BEGIN
     ELSE
         RAISE NOTICE 'refresh_dynamic_entities not installed yet (mig 236) — skipped';
     END IF;
+END \$\$;" -c "
+DO \$\$
+DECLARE r RECORD;
+BEGIN
+    -- mig 237: keep the reporting calendar current — a new season's weeks appear
+    -- the night its schedule lands in fixtures.
+    IF to_regprocedure('public.rebuild_season_weeks(text)') IS NOT NULL THEN
+        FOR r IN SELECT s.sport, public.rebuild_season_weeks(s.sport) AS weeks
+                 FROM (VALUES ('FOOTBALL'),('NBA'),('NFL')) s(sport) LOOP
+            RAISE NOTICE 'rebuild_season_weeks % weeks=%', r.sport, r.weeks;
+        END LOOP;
+    ELSE
+        RAISE NOTICE 'rebuild_season_weeks not installed yet (mig 237) — skipped';
+    END IF;
 END \$\$;"

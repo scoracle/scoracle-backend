@@ -45,6 +45,20 @@ routes (2026-07-03; folded into `/news`); the old live integration routes; the l
 
 All canonical endpoints are sport-scoped under `/api/v1/{sport}`.
 
+### `GET /api/v1/{sport}/weeks` (mig 237)
+
+The sport's reporting calendar: every elapsed + current week, newest first.
+Week 1 opens 00:00 ET on the season's opening day (the season's first fixture);
+7-day blocks run round-the-year until the next season re-anchors. Derived from
+`season_weeks` (rebuilt nightly from fixtures). Optional `?season=` filter.
+Payload: `{page, sport, current: {season, week} | null, weeks: [{season,
+week_no, starts_at, ends_at, is_current, sealed}]}`. Future weeks are withheld.
+
+**`/{entityType}/{id}/headlines` reads the same calendar since mig 237:**
+`year` is the sport-season the week belongs to and `week` is its reporting week
+number — NOT a calendar year / Jan-1 block. Omitting both resolves to the
+current week; the response echoes the resolved pair plus its exact window.
+
 Supported sport path values:
 - `nba`
 - `nfl`

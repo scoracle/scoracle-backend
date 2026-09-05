@@ -647,16 +647,35 @@ func (h *Handler) GetEntityHeadlines(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	// Defaults: today's Jan-1-block week in server time — the same clock the DB
-	// window arithmetic runs on, so "this week" means the same days in both.
-	now := time.Now()
-	if year == nil {
-		year = now.Year()
-	}
-	if week == nil {
-		week = (now.YearDay()-1)/7 + 1
-	}
+	// mig 237: nil year/week resolve IN SQL to the sport's current week on the
+	// season_weeks calendar (week 1 = opening day, ET). The old Jan-1 block
+	// arithmetic retired with the Jan-1 window — the response's year/week echo
+	// the RESOLVED sport-season week, so clients navigate on real weeks.
 	h.serveStatementJSON(w, r, "entity_headlines", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id, year, week)
+}
+
+// GetSportWeeks returns the sport's reporting calendar (mig 237): every elapsed
+// and current week — week 1 anchored at each season's opening day — plus which
+// one is current and which are sealed. This is the frontend week-nav's data
+// source; the Jan-1 week arithmetic it replaces lived client-side.
+// @Summary Get the sport's reporting-week calendar
+// @Description Elapsed + current weeks for the sport (week 1 = opening day, ET), newest first, with the current marker and seal state. Optional season filter.
+// @Tags data
+// @Produce json
+// @Param sport path string true "Sport" Enums(nba, nfl, football)
+// @Param season query int false "Limit to one season"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/{sport}/weeks [get]
+func (h *Handler) GetSportWeeks(w http.ResponseWriter, r *http.Request) {
+	sport, ok := parseSport(w, r)
+	if !ok {
+		return
+	}
+	season, ok := optionalIntQuery(w, r, "season")
+	if !ok {
+		return
+	}
+	h.serveStatementJSON(w, r, "sport_weeks", dataCacheKey(r), cache.TTLNews, false, sport, season)
 }
 
 // GetEntityVibe returns the entity's VIBE product — The Influencer's emotional

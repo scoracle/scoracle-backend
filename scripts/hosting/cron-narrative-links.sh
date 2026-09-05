@@ -101,4 +101,19 @@ SELECT 'FOOTBALL' AS sport, now() AS ran_at, promote_narrative_persons('FOOTBALL
 UNION ALL
 SELECT 'NBA', now(), promote_narrative_persons('NBA')
 UNION ALL
-SELECT 'NFL', now(), promote_narrative_persons('NFL')"
+SELECT 'NFL', now(), promote_narrative_persons('NFL')" -c "
+DO \$\$
+DECLARE r RECORD;
+BEGIN
+    -- mig 234: after promotion, reconcile the graph layer with verified persons —
+    -- link unique surface matches, nominate the rest into the Investigator path.
+    IF to_regprocedure('public.reconcile_narrative_persons(text)') IS NOT NULL THEN
+        FOR r IN SELECT s.sport, rp.linked, rp.nominated
+                 FROM (VALUES ('FOOTBALL'),('NBA'),('NFL')) s(sport),
+                      LATERAL public.reconcile_narrative_persons(s.sport) rp LOOP
+            RAISE NOTICE 'reconcile_narrative_persons % linked=% nominated=%', r.sport, r.linked, r.nominated;
+        END LOOP;
+    ELSE
+        RAISE NOTICE 'reconcile_narrative_persons not installed yet (mig 234) — skipped';
+    END IF;
+END \$\$;"

@@ -72,6 +72,10 @@ pub struct PacketEntity {
     pub sport: String,
     pub role: Option<String>,
     pub name: String,
+    /// Person-kind context, code-assembled ("coach, Real Madrid"). A bare name
+    /// tells a voice nothing; the kind is what makes a person-cast line context
+    /// rather than trivia. None for players/teams — their names carry themselves.
+    pub descriptor: Option<String>,
 }
 
 /// One attributed claim: §1c's four fields plus the `story_type` that produced it.
@@ -174,6 +178,7 @@ pub fn compile(members: &[Member], entities: &[PacketEntity]) -> PacketDraft {
             "sport": e.sport,
             "role": e.role,
             "name": e.name,
+            "descriptor": e.descriptor,
         })).collect::<Vec<_>>(),
         "member_articles": members.len(),
     });
@@ -733,7 +738,13 @@ async fn load_entities(pool: &PgPool, storyline_id: i64) -> Result<Vec<PacketEnt
     let rows = sqlx::query(
         r#"
         SELECT se.entity_type, se.entity_id, se.sport, se.role,
-               COALESCE(p.name, t.name, pe.full_name, '') AS name
+               COALESCE(p.name, t.name, pe.full_name, '') AS name,
+               -- mig 234 companion: a person's kind (+ team hint) travels with the
+               -- name so the cast line reads "Erik ten Hag (coach, Manchester
+               -- United)" instead of a bare name. NULL for players/teams.
+               CASE WHEN se.entity_type = 'person'
+                    THEN pe.kind || COALESCE(', ' || ptm.name, '')
+               END AS descriptor
           FROM public.storyline_entities se
           LEFT JOIN public.players p
             ON se.entity_type = 'player' AND p.id = se.entity_id AND p.sport = se.sport
@@ -741,6 +752,8 @@ async fn load_entities(pool: &PgPool, storyline_id: i64) -> Result<Vec<PacketEnt
             ON se.entity_type = 'team' AND t.id = se.entity_id AND t.sport = se.sport
           LEFT JOIN public.persons pe
             ON se.entity_type = 'person' AND pe.id = se.entity_id
+          LEFT JOIN public.teams ptm
+            ON pe.team_id IS NOT NULL AND ptm.id = pe.team_id AND ptm.sport = se.sport
          WHERE se.storyline_id = $1
            AND se.left_at IS NULL
          ORDER BY se.entity_type, se.entity_id
@@ -759,6 +772,7 @@ async fn load_entities(pool: &PgPool, storyline_id: i64) -> Result<Vec<PacketEnt
             sport: r.get("sport"),
             role: r.get("role"),
             name: r.get("name"),
+            descriptor: r.get("descriptor"),
         })
         .collect())
 }
@@ -855,6 +869,7 @@ mod tests {
             sport: "FOOTBALL".into(),
             role: Some("subject".into()),
             name: name.into(),
+            descriptor: None,
         }
     }
 

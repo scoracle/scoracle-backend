@@ -340,9 +340,19 @@ fn other_participants(facts: &serde_json::Value, part: Option<&Participation>) -
         .and_then(|e| e.as_array())
         .map(|arr| {
             arr.iter()
-                .filter_map(|e| e.get("name").and_then(|n| n.as_str()))
-                .filter(|n| !n.is_empty() && !n.eq_ignore_ascii_case(me))
-                .map(str::to_string)
+                .filter_map(|e| {
+                    let n = e
+                        .get("name")
+                        .and_then(|n| n.as_str())
+                        .filter(|n| !n.is_empty() && !n.eq_ignore_ascii_case(me))?;
+                    // Person casts carry their kind ("coach, Real Madrid") — a bare
+                    // person name is trivia, a described one is context. Absent on
+                    // pre-mig-234 packets and on players/teams.
+                    match e.get("descriptor").and_then(|d| d.as_str()) {
+                        Some(d) if !d.is_empty() => Some(format!("{n} ({d})")),
+                        _ => Some(n.to_string()),
+                    }
+                })
                 .collect()
         })
         .unwrap_or_default();

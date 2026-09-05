@@ -29,6 +29,11 @@ AS $$
 DECLARE
     v_rows integer := 0;
 BEGIN
+    -- Its own statement, NOT a data-modifying CTE: CTEs share one snapshot, so
+    -- an INSERT alongside a DELETE collides with the rows being replaced (the
+    -- mig 237 form only survived because the table was empty then).
+    DELETE FROM public.season_weeks WHERE sport = p_sport;
+
     WITH bound AS (
         SELECT f.season,
                MIN(f.start_time) AS opens,
@@ -67,9 +72,6 @@ BEGIN
         FROM spans s
         CROSS JOIN LATERAL generate_series(1, 60) gs(n)
         WHERE s.opens_at + (gs.n - 1) * interval '7 days' < s.closes_at
-    ),
-    replaced AS (
-        DELETE FROM public.season_weeks WHERE sport = p_sport
     )
     INSERT INTO public.season_weeks (sport, season, week_no, starts_at, ends_at)
     SELECT p_sport, season, week_no, starts_at, starts_at + interval '7 days'

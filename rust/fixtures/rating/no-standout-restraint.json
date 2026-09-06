@@ -9,9 +9,7 @@
     "prose_includes": [
       "64th",
       "turnover"
-    ],
-    "prose_max_words": 420,
-    "prose_min_words": 30
+    ]
   },
   "name": "no-standout-restraint",
   "note": "PEAK restraint (s11 floor). Highest datapoint is only above average, so the PEAK line must not invent a standout, and the modest profile earns one clipped line per section.",

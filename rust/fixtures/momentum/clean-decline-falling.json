@@ -5,10 +5,7 @@
       "**",
       "isn't a collapse"
     ],
-    "prose_max_words": 260,
-    "prose_min_words": 25,
-    "prose_no_digits": true,
-    "total_sentences_max": 10
+    "prose_no_digits": true
   },
   "name": "clean-decline-falling",
   "note": "NEW: both rails clearly negative on healthy samples — the set's first unambiguous falling case.",

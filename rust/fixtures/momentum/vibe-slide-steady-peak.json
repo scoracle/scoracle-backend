@@ -3,13 +3,7 @@
     "prose_excludes": [
       "**"
     ],
-    "prose_includes_any": [
-      "mood|emotion|feeling|the room|the feed"
-    ],
-    "prose_max_words": 260,
-    "prose_min_words": 25,
-    "prose_no_digits": true,
-    "total_sentences_max": 10
+    "prose_no_digits": true
   },
   "name": "vibe-slide-steady-peak",
   "note": "sentiment sliding under steady production: modestly negative, PEAK label not clung to.",

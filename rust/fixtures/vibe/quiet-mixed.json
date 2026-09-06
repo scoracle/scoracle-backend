@@ -2,12 +2,7 @@
   "expect": {
     "prose_includes": [
       "Sharks"
-    ],
-    "prose_max_words": 320,
-    "prose_min_words": 40,
-    "score_max": 65,
-    "score_min": 35,
-    "total_sentences_max": 10
+    ]
   },
   "name": "quiet-mixed",
   "note": "FLOOR: a flat cycle stays in the 35-65 band — The Influencer does not manufacture drama when the room is quiet.",

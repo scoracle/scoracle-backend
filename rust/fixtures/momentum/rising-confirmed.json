@@ -5,15 +5,7 @@
       "**",
       "isn't a surge"
     ],
-    "prose_includes_any": [
-      "rising|climbing|surging|upswing",
-      "form|tape|performance|production",
-      "mood|emotion|feeling|the room|the feed"
-    ],
-    "prose_max_words": 260,
-    "prose_min_words": 25,
-    "prose_no_digits": true,
-    "total_sentences_max": 10
+    "prose_no_digits": true
   },
   "name": "rising-confirmed",
   "note": "s14's first decided-RISING case, adopted into the generator at s15 (it was hand-authored on disk and a regen would have silently dropped it). Both rails up on healthy samples; the READ must voice rising and name both signals in the sport's words.",

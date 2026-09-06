@@ -4,10 +4,7 @@
       "surging",
       "**"
     ],
-    "prose_max_words": 260,
-    "prose_min_words": 25,
-    "prose_no_digits": true,
-    "total_sentences_max": 10
+    "prose_no_digits": true
   },
   "name": "transfer-noise-sentiment-spike",
   "note": "NEW (bakeoff-notes ask): a short, rumor-driven sentiment spike over flat production. Momentum must NOT chase the spike — steady, and the read should attribute the vibe to rumor chatter.",

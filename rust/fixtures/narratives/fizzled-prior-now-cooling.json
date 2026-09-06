@@ -8,21 +8,6 @@
       "heating up",
       "close to a deal"
     ],
-    "body_includes_any": [
-      "cool",
-      "fad",
-      "fizzl",
-      "quiet",
-      "unlikely",
-      "played down",
-      "settled",
-      "not revisit",
-      "moved on",
-      "stall",
-      "no longer"
-    ],
-    "card_score_max": 55,
-    "card_score_min": 1,
     "max_article_num": 2,
     "narratives_max": 2,
     "narratives_min": 1,

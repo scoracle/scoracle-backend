@@ -5,15 +5,7 @@
       "**",
       "isn't a collapse"
     ],
-    "prose_includes_any": [
-      "falling|freefall|decline|collapse|sliding|slump",
-      "form|tape|performance|production",
-      "mood|emotion|feeling|the room|the feed"
-    ],
-    "prose_max_words": 260,
-    "prose_min_words": 25,
-    "prose_no_digits": true,
-    "total_sentences_max": 10
+    "prose_no_digits": true
   },
   "name": "falling-confirmed",
   "note": "s14's first decided-FALLING case, adopted into the generator at s15 (see rising-confirmed). Both rails down on healthy samples; the READ must voice falling and name both signals in the sport's words.",

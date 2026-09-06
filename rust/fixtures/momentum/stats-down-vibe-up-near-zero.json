@@ -4,14 +4,7 @@
       "**",
       "the tape calls this"
     ],
-    "prose_includes_any": [
-      "form|tape|performance|production",
-      "mood|emotion|feeling|the room|the feed"
-    ],
-    "prose_max_words": 260,
-    "prose_min_words": 25,
-    "prose_no_digits": true,
-    "total_sentences_max": 10
+    "prose_no_digits": true
   },
   "name": "stats-down-vibe-up-near-zero",
   "note": "the inverse split: defense declining while sentiment warms. Near zero, both rails named.",

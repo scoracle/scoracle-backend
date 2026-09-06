@@ -6,8 +6,6 @@
       "traded to",
       "joins the"
     ],
-    "card_score_max": 99,
-    "card_score_min": 1,
     "max_article_num": 3,
     "narratives_max": 6,
     "sources_any": [

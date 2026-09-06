@@ -9,23 +9,6 @@
       "unlikely",
       "stalled"
     ],
-    "body_includes_any": [
-      "accelerat",
-      "gathering pace",
-      "gather",
-      "escalat",
-      "picking up",
-      "picked up",
-      "momentum",
-      "intensif",
-      "surg",
-      "heating",
-      "leading the race",
-      "priority",
-      "close"
-    ],
-    "card_score_max": 99,
-    "card_score_min": 45,
     "max_article_num": 5,
     "narratives_max": 6,
     "narratives_min": 1,

@@ -1,7 +1,5 @@
 {
   "expect": {
-    "card_score_max": 39,
-    "card_score_min": 1,
     "max_article_num": 2,
     "narratives_max": 1,
     "title_excludes": [

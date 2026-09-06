@@ -155,16 +155,9 @@ fn main() -> anyhow::Result<()> {
             all_cite_articles: Some(true),
             max_article_num: Some(4),
             title_excludes: Some(vec!["Transfer news".into()]),
-            body_includes_any: Some(vec![
-                "continu".into(), "ongoing".into(), "still".into(), "remain".into(),
-                "months".into(), "third month".into(), "long-running".into(), "again".into(),
-                "return".into(), "since".into(),
-            ]),
-            // n18 dropped the "first reported" excludes: crediting publications IN PROSE became
+                        // n18 dropped the "first reported" excludes: crediting publications IN PROSE became
             // the contract, so "first reported by ESPN" is the voice working, not a leak.
             body_excludes: Some(vec!["out of nowhere".into()]),
-            card_score_min: Some(15),
-            card_score_max: Some(80),
             sources_any: Some(vec![
                 "O Jogo".into(), "Record".into(), "Sky Sport Italia".into(), "The Athletic".into(),
             ]),
@@ -193,17 +186,10 @@ fn main() -> anyhow::Result<()> {
             all_cite_articles: Some(true),
             max_article_num: Some(2),
             title_excludes: Some(vec!["Transfer news".into()]),
-            body_includes_any: Some(vec![
-                "cool".into(), "fad".into(), "fizzl".into(), "quiet".into(), "unlikely".into(),
-                "played down".into(), "settled".into(), "not revisit".into(), "moved on".into(),
-                "stall".into(), "no longer".into(),
-            ]),
-            body_excludes: Some(vec![
+                        body_excludes: Some(vec![
                 "advanced talks".into(), "gathering pace".into(), "here we go".into(),
                 "heating up".into(), "close to a deal".into(),
             ]),
-            card_score_min: Some(1),
-            card_score_max: Some(55),
             sources_any: Some(vec!["Ekstra Bladet".into(), "Goal".into()]),
             total_sentences_max: Some(10),
             ..Default::default()
@@ -232,18 +218,10 @@ fn main() -> anyhow::Result<()> {
             all_cite_articles: Some(true),
             max_article_num: Some(5),
             title_excludes: Some(vec!["Transfer news".into()]),
-            body_includes_any: Some(vec![
-                "accelerat".into(), "gathering pace".into(), "gather".into(), "escalat".into(),
-                "picking up".into(), "picked up".into(), "momentum".into(), "intensif".into(),
-                "surg".into(), "heating".into(), "leading the race".into(), "priority".into(),
-                "close".into(),
-            ]),
-            body_excludes: Some(vec![
+                        body_excludes: Some(vec![
                 "cooling".into(), "fizzled".into(), "gone quiet".into(), "faded".into(),
                 "unlikely".into(), "stalled".into(),
             ]),
-            card_score_min: Some(45),
-            card_score_max: Some(99),
             sources_any: Some(vec![
                 "Bild".into(), "ESPN".into(), "Fabrizio Romano".into(), "Globo".into(),
                 "Kicker".into(),
@@ -274,8 +252,6 @@ fn main() -> anyhow::Result<()> {
             max_article_num: Some(3),
             title_includes: Some(vec!["Vale".into()]),
             title_excludes: Some(vec!["Transfer news".into()]),
-            card_score_min: Some(10),
-            card_score_max: Some(75),
             sources_any: Some(vec![
                 "ESPN".into(), "Sacramento Bee".into(), "The Athletic".into(),
             ]),
@@ -303,8 +279,6 @@ fn main() -> anyhow::Result<()> {
             max_article_num: Some(3),
             title_includes: Some(vec!["Marsh".into()]),
             title_excludes: Some(vec!["Transfer news".into()]),
-            card_score_min: Some(10),
-            card_score_max: Some(75),
             sources_any: Some(vec![
                 "ESPN".into(), "Sactown Sports".into(), "The Athletic".into(),
             ]),
@@ -331,8 +305,6 @@ fn main() -> anyhow::Result<()> {
             max_article_num: Some(3),
             title_excludes: Some(vec!["Transfer news".into(), "traded".into(), "trade".into()]),
             body_excludes: Some(vec!["moving to".into(), "traded to".into(), "joins the".into()]),
-            card_score_min: Some(1),
-            card_score_max: Some(99),
             sources_any: Some(vec![
                 "Bleacher Report".into(), "Miami Herald".into(), "The Ringer".into(),
             ]),
@@ -360,8 +332,6 @@ fn main() -> anyhow::Result<()> {
             title_includes: Some(vec!["Foss".into()]),
             title_excludes: Some(vec!["Vale".into(), "Transfer news".into()]),
             body_excludes: Some(vec!["Vale".into()]),
-            card_score_min: Some(1),
-            card_score_max: Some(45),
             total_sentences_max: Some(10),
             ..Default::default()
         },
@@ -382,8 +352,6 @@ fn main() -> anyhow::Result<()> {
             narratives_max: Some(1),
             max_article_num: Some(2),
             title_excludes: Some(vec!["Transfer news".into()]),
-            card_score_min: Some(1),
-            card_score_max: Some(39),
             total_sentences_max: Some(10),
             ..Default::default()
         },

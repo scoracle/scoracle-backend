@@ -66,15 +66,13 @@ fn rating(notability: i32, trajectory: &str, label: &str, body: &str) -> Option<
         body: body.to_string(),
         notability,
         rating_trajectory: trajectory.to_string(),
-        rating_trajectory_label: label.to_string(),
-    })
+        rating_trajectory_label: label.to_string()})
 }
 
 fn vibe(sentiment: i32, prompt: &str) -> Option<SynthVibe> {
     Some(SynthVibe {
         sentiment,
-        prompt: prompt.to_string(),
-    })
+        prompt: prompt.to_string()})
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -133,8 +131,7 @@ fn scenarios() -> Vec<Scenario> {
                 "Form and feeling are moving together; the rise is backed on both rails."),
             transfers: vec![],
             expect: json!({"reading_includes": ["Wells"],
-                           "reading_excludes": base_excludes("ascendant"),
-                           "reading_min_sentences": 2, "reading_max_sentences": 9}),
+                           "reading_excludes": base_excludes("ascendant")}),
         },
         Scenario {
             name: "ascendant-thin-hype",
@@ -152,8 +149,7 @@ fn scenarios() -> Vec<Scenario> {
                 "Feeling is climbing fast on a thin sample; form has no card to show."),
             transfers: vec![],
             expect: json!({"reading_includes": ["Kovac"],
-                           "reading_excludes": base_excludes("ascendant"),
-                           "reading_min_sentences": 2, "reading_max_sentences": 9}),
+                           "reading_excludes": base_excludes("ascendant")}),
         },
         Scenario {
             name: "crossroads-conflict",
@@ -172,8 +168,7 @@ fn scenarios() -> Vec<Scenario> {
                 "Feeling is dragging the arc down while the production holds its line."),
             transfers: vec![],
             expect: json!({"reading_includes": ["Vale"],
-                           "reading_excludes": base_excludes("crossroads"),
-                           "reading_min_sentences": 2, "reading_max_sentences": 9}),
+                           "reading_excludes": base_excludes("crossroads")}),
         },
         Scenario {
             name: "steady-quiet",
@@ -192,8 +187,7 @@ fn scenarios() -> Vec<Scenario> {
                 "Neither form nor feeling is moving; the line holds."),
             transfers: vec![],
             expect: json!({"reading_includes": ["Harbor City"],
-                           "reading_excludes": base_excludes("steady"),
-                           "reading_min_sentences": 2, "reading_max_sentences": 9}),
+                           "reading_excludes": base_excludes("steady")}),
         },
         Scenario {
             name: "transfer-crossroads",
@@ -219,8 +213,7 @@ fn scenarios() -> Vec<Scenario> {
                 confidence: Some(0.8),
             }],
             expect: json!({"reading_includes": ["Almeida", "Madrid"],
-                           "reading_excludes": base_excludes("crossroads"),
-                           "reading_min_sentences": 2, "reading_max_sentences": 9}),
+                           "reading_excludes": base_excludes("crossroads")}),
         },
         Scenario {
             name: "waning-freefall",
@@ -239,8 +232,7 @@ fn scenarios() -> Vec<Scenario> {
                 "Both rails point down and neither shows a floor yet."),
             transfers: vec![],
             expect: json!({"reading_includes": ["Coastal"],
-                           "reading_excludes": base_excludes("waning"),
-                           "reading_min_sentences": 2, "reading_max_sentences": 9}),
+                           "reading_excludes": base_excludes("waning")}),
         },
         // ── PARTIAL SPREADS ──────────────────────────────────────────────────────────────
         // The doctrine (Scott, 2026-08-15): "if it only has 3 cards instead of 5, it will
@@ -285,8 +277,7 @@ fn scenarios() -> Vec<Scenario> {
                 confidence: Some(0.9),
             }],
             expect: json!({"reading_includes": ["Ipswich"],
-                           "reading_excludes": base_excludes("steady"),
-                           "reading_min_sentences": 2, "reading_max_sentences": 5}),
+                           "reading_excludes": base_excludes("steady")}),
         },
         Scenario {
             name: "near-empty-quiet-wire",
@@ -303,8 +294,7 @@ fn scenarios() -> Vec<Scenario> {
             momentum: SynthMomentum::default(),
             transfers: vec![],
             expect: json!({"reading_includes": ["Venezia"],
-                           "reading_excludes": base_excludes("steady"),
-                           "reading_min_sentences": 2, "reading_max_sentences": 3}),
+                           "reading_excludes": base_excludes("steady")}),
         },
     ]
 }
@@ -354,8 +344,7 @@ fn main() -> anyhow::Result<()> {
             "system": &*ORACLE_SYSTEM_PROMPT,
             "user_prompt": prompt,
             "temperature": 0.0,
-            "expect": s.expect,
-        });
+            "expect": s.expect});
         let path = dir.join(format!("{}.json", s.name));
         std::fs::write(&path, format!("{}\n", serde_json::to_string_pretty(&v)?))?;
         println!(

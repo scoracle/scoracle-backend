@@ -86,11 +86,13 @@ fn rating_gate(includes: &[&str], excludes: &[&str], min_words: i64) -> serde_js
     // production by `RatingParser`.)
     let mut exc: Vec<String> = excludes.iter().map(|s| s.to_string()).collect();
     exc.extend(["Strengths:", "Limitations:", "Summary:"].map(String::from));
+    // THE STRUCTURE+SAFETY PRUNE (2026-09-06): the word floor/cap rubrics leave the gate —
+    // form+prompt own length now. `min_words` stays in the signature so call sites keep
+    // documenting the intended depth, but it no longer grades.
+    let _ = min_words;
     json!({
         "prose_includes": inc,
         "prose_excludes": exc,
-        "prose_min_words": min_words,
-        "prose_max_words": 420,
     })
 }
 

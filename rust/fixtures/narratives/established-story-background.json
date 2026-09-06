@@ -12,26 +12,12 @@
       "nine sources",
       "Nine sources"
     ],
-    "body_includes_any": [
-      "continu",
-      "ongoing",
-      "still",
-      "remain",
-      "months",
-      "third month",
-      "long-running",
-      "since",
-      "standoff",
-      "drag"
-    ],
     "max_article_num": 3,
     "narratives_max": 3,
     "narratives_min": 1,
     "title_excludes": [
       "Transfer news"
     ],
-    "card_score_min": 1,
-    "card_score_max": 99,
     "sources_any": [
       "Cadena SER",
       "Marca",

@@ -3,14 +3,7 @@
     "prose_excludes": [
       "**"
     ],
-    "prose_includes_any": [
-      "form|tape|performance|production",
-      "mood|emotion|feeling|the room|the feed"
-    ],
-    "prose_max_words": 260,
-    "prose_min_words": 25,
-    "prose_no_digits": true,
-    "total_sentences_max": 10
+    "prose_no_digits": true
   },
   "name": "mixed-peak-up-vibe-down",
   "note": "split rails: PEAK improving, sentiment souring. Must hold steady near zero and name the conflict in the READ (never on the MOMENTUM line).",

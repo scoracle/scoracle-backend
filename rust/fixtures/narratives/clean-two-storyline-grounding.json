@@ -1,8 +1,6 @@
 {
   "expect": {
     "all_cite_articles": true,
-    "card_score_max": 75,
-    "card_score_min": 10,
     "max_article_num": 3,
     "narratives_max": 6,
     "narratives_min": 1,

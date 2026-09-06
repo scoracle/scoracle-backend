@@ -10,9 +10,7 @@
       "94th",
       "shot creation",
       "foul"
-    ],
-    "prose_max_words": 420,
-    "prose_min_words": 50
+    ]
   },
   "name": "fixed-budget-rich-profile",
   "note": "prose richness under a fixed budget (s11 floor). Rich profile: the brief must cover the elite peak and the strong secondaries with their numbers, name the foul exploit, and still stay bounded.",

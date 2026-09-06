@@ -4,20 +4,6 @@
     "body_excludes": [
       "out of nowhere"
     ],
-    "body_includes_any": [
-      "continu",
-      "ongoing",
-      "still",
-      "remain",
-      "months",
-      "third month",
-      "long-running",
-      "again",
-      "return",
-      "since"
-    ],
-    "card_score_max": 80,
-    "card_score_min": 15,
     "max_article_num": 4,
     "narratives_max": 6,
     "narratives_min": 1,

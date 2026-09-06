@@ -4,13 +4,7 @@
       "falling",
       "**"
     ],
-    "prose_includes_any": [
-      "form|tape|performance|production"
-    ],
-    "prose_max_words": 260,
-    "prose_min_words": 25,
-    "prose_no_digits": true,
-    "total_sentences_max": 10
+    "prose_no_digits": true
   },
   "name": "rating-surge-vibe-flat",
   "note": "genuine statistical surge with calm coverage: rising on the strength of the PEAK rail alone.",

@@ -11,9 +11,7 @@
       "82",
       "per-36",
       "foul"
-    ],
-    "prose_max_words": 420,
-    "prose_min_words": 30
+    ]
   },
   "name": "rate-adjusted-limited-minutes",
   "note": "PEAK specificity plus per-x corroboration (s11 floor). The strong first datapoint is the peak; the per-36 section is supporting evidence that the edge is real, not an invented larger role.",

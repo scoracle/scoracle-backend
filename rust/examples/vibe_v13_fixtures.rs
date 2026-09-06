@@ -139,17 +139,20 @@ fn write_fixture(dir: &Path, fx: &Fixture, note: &str) -> anyhow::Result<()> {
 /// the sentence ceiling. Adopted into the generator at v18 — until then this gate lived ONLY in
 /// the on-disk JSON, and a regen would have silently dropped it (the momentum-generator lesson,
 /// caught the same evening).
-fn vibe_gate(prose_includes: &[&str], score_min: Option<i32>, score_max: Option<i32>) -> Expect {
+fn vibe_gate(prose_includes: &[&str], _score_min: Option<i32>, _score_max: Option<i32>) -> Expect {
     // (The hook contract and the `**` body ban left the per-fixture expects 08-19: they are
     // GLOBAL invariants now — `hook_contract`/`no_banned_phrases` checks in `VibeTask`, the
     // same rules `VibeParser` enforces in production via `guards`.)
+    //
+    // THE STRUCTURE+SAFETY PRUNE (2026-09-06, Scott: "I feel like we have too many gates and
+    // evals. A few basic guards for safety is fine, but the form+prompt should get us 90%
+    // there"): the style rubrics — word floors/caps, sentence counts, score bands — leave the
+    // gate. What stays is grounding (the includes: does the body name what the material
+    // names) and the global leak/contract invariants. The score-band params are kept in the
+    // signature so the call sites still read as documentation of the intended band, but they
+    // no longer grade.
     Expect {
-        score_min,
-        score_max,
         prose_includes: Some(prose_includes.iter().map(|s| s.to_string()).collect()),
-        prose_min_words: Some(40),
-        prose_max_words: Some(320),
-        total_sentences_max: Some(10),
         ..Default::default()
     }
 }

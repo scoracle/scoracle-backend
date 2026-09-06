@@ -134,7 +134,11 @@ trap cleanup EXIT
 # rust/target/debug/<bin>; we stage from there into STAGE so the final move
 # into rust/bin/ is the same atomic-rename discipline the Go bins get.
 echo "    cargo build --bin ${RUST_BINS[*]}"
-cargo build --manifest-path "$REPO_ROOT/rust/Cargo.toml" --bin "${RUST_BINS[0]}" --bin "${RUST_BINS[1]}"
+# One --bin flag per entry — this line used to hard-code indices 0 and 1, so the
+# third live binary (factsweep, 2026-09-06) built nothing and the cp below failed.
+CARGO_BIN_FLAGS=()
+for bin in "${RUST_BINS[@]}"; do CARGO_BIN_FLAGS+=(--bin "$bin"); done
+cargo build --manifest-path "$REPO_ROOT/rust/Cargo.toml" "${CARGO_BIN_FLAGS[@]}"
 for bin in "${RUST_BINS[@]}"; do
     cp "$REPO_ROOT/rust/target/debug/$bin" "$STAGE/$bin"
 done

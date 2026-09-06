@@ -674,13 +674,30 @@ pub async fn load_packets_for_entity(
                     return None;
                 }
                 if view.claims.len() < before {
+                    // A MIXED story (some claims foreign) also scrubs its cross-entity
+                    // FRAMING: measured on the first fenced Chelsea regen (2026-09-06), the
+                    // claims were clean but the framing still delivered "RESULT: Liverpool
+                    // 2-0 Ipswich | ALSO IN THIS STORY: Andoni Iraola, … +28 more |
+                    // PREVIOUSLY: Liverpool reject £30m Trey Nyoni bid" — the saga's main
+                    // event, mood and cast, which belong to whichever entity anchors it. The
+                    // role line and story TYPE survive (they are this entity's own data); a
+                    // FULLY-admitted story keeps its whole framing.
+                    view.headline = None;
+                    view.result_line = None;
+                    view.prior_headline = None;
+                    view.register = None;
+                    view.register_phrase = None;
+                    if let Some(obj) = view.facts.as_object_mut() {
+                        obj.remove("entities");
+                        obj.remove("result_line");
+                    }
                     tracing::debug!(
                         packet_id = view.packet_id,
                         entity_type,
                         entity_id,
                         kept = view.claims.len(),
                         dropped = before - view.claims.len(),
-                        "claim fence: foreign claims filtered"
+                        "claim fence: foreign claims filtered; mixed-story framing scrubbed"
                     );
                 }
                 Some((view, part))

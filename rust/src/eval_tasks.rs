@@ -643,6 +643,7 @@ impl LensTask for VibeTask {
             &[],
             None,
             None,
+            None,
         )))
     }
     fn evaluate(&self, raw: &str, label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
@@ -816,6 +817,8 @@ impl LensTask for OracleTask {
             omen,
             &omen_reason,
             None,
+        
+            None,
         )))
     }
     fn evaluate(&self, raw: &str, label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
@@ -969,6 +972,8 @@ impl LensTask for NarrativeTask {
         };
         Ok(Some(build_narratives_prompt(
             &req, &corpus, None, None, None,
+        
+            None,
         ))) // evals pin the memory-free, score-context-free, legacy-rail prompt shape
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
@@ -1535,6 +1540,8 @@ impl LensTask for MomentumTask {
             rating.as_ref(),
             vibe.as_ref(),
             &momentum,
+        
+            None,
         )))
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {

@@ -2362,12 +2362,17 @@ async fn score_insider_entity(
             None
         }
     };
+    // Identity card: house records, dated — degrades to absent like memory.
+    let identity = crate::corpus::load_identity_card(&hx.pool, entity_type, entity_id, sport)
+        .await
+        .unwrap_or_default();
     let prompt = build_insider_score_prompt(
         entity_name,
         sport,
         entity_type,
         &heat,
         prior.as_ref().map(|p| p.card.as_str()),
+        identity.as_deref(),
     );
     let opts = GenerateOptions {
         system: Some(INSIDER_SCORE_SYSTEM_PROMPT.to_string()),

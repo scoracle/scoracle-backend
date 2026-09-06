@@ -246,6 +246,7 @@ pub fn build_crown_prompt(
     omen_reason: &str,
     // Per-card body cap in bytes ([`CROWN_CARD_BODY_CAP`] on the packet rail, `None` on legacy).
     body_cap: Option<usize>,
+    identity: Option<&str>,
 ) -> String {
     let mut b = String::new();
 
@@ -253,6 +254,15 @@ pub fn build_crown_prompt(
     b.push_str(&format!(
         "Entity: {entity_name} ({sport_raw} {entity_type})\n"
     ));
+
+    // The identity card (2026-09-06): house records, handed over dated so the character
+    // reconciles them against the stories (corpus::IDENTITY_CARD_FRAMING has the doctrine).
+    // Prompt-only, outside the input_hash — same treatment as memory.
+    if let Some(card) = identity {
+        b.push('\n');
+        b.push_str(card);
+        b.push('\n');
+    }
 
     // or9 (Scott, 2026-08-10 evening: "The Oracle is blind to memories, and just reads the 5
     // other cards to give a holistic reading"): the YOUR PRIOR READ block and the RELATIONAL

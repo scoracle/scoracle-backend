@@ -617,6 +617,11 @@ impl StageHandler for MomentumHandler {
         // This also takes the Analyst off the packet rail, which is a saved DB round trip per
         // momentum item, not just a prompt change.
 
+        // Identity card: house records, dated — degrades to absent like memory.
+        let identity =
+            crate::corpus::load_identity_card(&hx.pool, &item.entity_type, entity_id, &sport)
+                .await
+                .unwrap_or_default();
         let prompt = build_momentum_prompt(
             &item.entity_type,
             &name,
@@ -624,6 +629,7 @@ impl StageHandler for MomentumHandler {
             ctx.rating.as_ref(),
             ctx.vibe.as_ref(),
             &ctx.snapshot,
+            identity.as_deref(),
         );
         let opts = GenerateOptions {
             system: Some(MOMENTUM_SYSTEM_PROMPT.to_string()),

@@ -194,7 +194,7 @@ fn prompt_carries_the_decided_direction_line() {
         momentum_score: Some(50.7),
         ..SynthMomentum::default()
     };
-    let prompt = build_momentum_prompt("player", "Test Player", "FOOTBALL", None, None, &mom);
+    let prompt = build_momentum_prompt("player", "Test Player", "FOOTBALL", None, None, &mom, None);
     // s18: BOTH decided facts arrive as words — the direction line hands the model no
     // figure and no "steady band" to echo (the digit-starvation pass; 50.7 ⇒ conviction
     // 3 ⇒ "clean and well supported" via momentum_conviction_from_score).
@@ -217,7 +217,7 @@ fn prompt_carries_the_decided_direction_line() {
         None,
         None,
         &SynthMomentum::default(),
-    );
+     None);
     assert!(empty
         .contains("Direction (decided upstream, final): steady (no durable momentum snapshot)"));
 }
@@ -246,7 +246,7 @@ fn only_the_two_rails_reach_the_prompt() {
         Some(&a_rating()),
         Some(&a_vibe()),
         &mom,
-    );
+     None);
 
     // Both rails, both levels, both directions — and every one of them in WORDS.
     assert!(p.contains("Form is: moving hard down, on a modest sample"));
@@ -415,7 +415,7 @@ fn a_vibe_only_context_builds_a_prompt_that_claims_no_form() {
         None,
         Some(&a_vibe()),
         &SynthMomentum::default(),
-    );
+     None);
     assert!(
         p.contains("Mood stands: warm"),
         "the surviving vibe card's LEVEL must reach the prompt, in words: {p}"

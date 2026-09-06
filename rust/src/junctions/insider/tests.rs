@@ -165,7 +165,7 @@ fn insider_score_prompt_memory_before_board() {
         "team",
         &board,
         Some("Last read (Jul 18): The wire is warm.\nRecent scores (newest first): 62 (Jul 18) · 55 (Jul 12)"),
-    );
+     None);
     assert_eq!(
         p,
         "Entity: Some Team (NBA team)\n\
@@ -177,7 +177,7 @@ Recent scores (newest first): 62 (Jul 18) · 55 (Jul 12)\n\
 \nReturn the JSON object now."
     );
     // First-ever wrap: no memory section at all.
-    let first = build_insider_score_prompt("Some Team", "NBA", "team", &board, None);
+    let first = build_insider_score_prompt("Some Team", "NBA", "team", &board, None, None);
     assert!(!first.contains("YOUR PRIOR READS"));
 }
 

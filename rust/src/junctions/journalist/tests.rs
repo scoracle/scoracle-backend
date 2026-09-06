@@ -45,7 +45,7 @@ fn prompt_numbered_news() {
         None,
         None,
         None,
-    );
+     None);
     assert!(
         !p.contains("Relational memory"),
         "no memory ⇒ no section (n7 byte-shape preserved)"
@@ -54,6 +54,7 @@ fn prompt_numbered_news() {
         &req("Bukayo Saka", "FOOTBALL", "player"),
         &news,
         Some("Prior story: Real Madrid — fizzled (Jun 2026, peak coverage 82/100).\nGround truth: Bukayo Saka completed a confirmed move to Arsenal on Jul 01 2026."),
+        None,
         None,
         None,
     );
@@ -143,7 +144,7 @@ fn article_context_renders_a_description_that_adds_content() {
         None,
         None,
         None,
-    );
+     None);
     assert!(p.contains("A strong display in the win."));
 }
 
@@ -286,6 +287,7 @@ fn prompt_score_context_renders_last_before_reply_instruction() {
         None,
         Some("SIGNALS (deterministic tally for your card score): 1 article(s) after dedup · 1 distinct source(s)\nYOUR PRIOR CARD READS (memory — your own previous card scores; continuity, not new evidence):\nCard scores (newest first): 58 (Jul 18) · 55 (Jul 12)"),
         None,
+        None,
     );
     let signals = p.find("SIGNALS (deterministic").unwrap();
     let reply = p.find("\nReturn the JSON object now.").unwrap();
@@ -301,7 +303,7 @@ fn prompt_score_context_renders_last_before_reply_instruction() {
         None,
         None,
         None,
-    );
+     None);
     assert!(!bare.contains("SIGNALS"));
 }
 
@@ -478,13 +480,13 @@ fn legacy_rail_prompt_is_byte_identical_to_the_no_framing_prompt() {
         None,
     )];
     let entity = req("Bukayo Saka", "FOOTBALL", "player");
-    let legacy = build_narratives_prompt(&entity, &news, None, None, None);
+    let legacy = build_narratives_prompt(&entity, &news, None, None, None, None);
     // An empty or whitespace framing must be indistinguishable from no framing: a packet with
     // nothing to frame must not leave a dangling header in the prompt.
     for empty in ["", "   ", "\n"] {
         assert_eq!(
             legacy,
-            build_narratives_prompt(&entity, &news, None, None, Some(empty)),
+            build_narratives_prompt(&entity, &news, None, None, Some(empty), None),
             "an empty framing block changed the prompt"
         );
     }
@@ -509,6 +511,7 @@ fn packet_framing_precedes_the_numbered_evidence() {
         None,
         None,
         Some("STORY: Vinicius Junior and Arsenal: where the deal stands\nENTITY: Vinicius Junior (subject) — in this story 2026-08-02 → 2026-08-05\nPREVIOUSLY: Arsenal open talks for Vinicius"),
+        None,
     );
     let framing = p.find("The story so far").expect("framing block present");
     let news_block = p.find("Recent news (numbered):").expect("evidence present");
@@ -562,6 +565,7 @@ fn the_packet_rail_keeps_the_memory_block() {
         Some(memory),
         Some("SIGNALS (deterministic tally for your card score): 1 article(s) after dedup"),
         Some(framing),
+        None,
     );
     assert!(
         p.contains("Relational memory (computed history"),

@@ -175,12 +175,21 @@ pub fn build_narratives_prompt(
     memory: Option<&str>,
     score_context: Option<&str>,
     packet_framing: Option<&str>,
+    identity: Option<&str>,
 ) -> String {
     let mut b = String::new();
     b.push_str(&format!(
         "Entity: {} ({} {})\n",
         req.entity_name, req.sport, req.entity_type
     ));
+    // The identity card (2026-09-06): house records, handed over dated so the character
+    // reconciles them against the stories (corpus::IDENTITY_CARD_FRAMING has the doctrine).
+    // Prompt-only, outside the input_hash — same treatment as memory.
+    if let Some(card) = identity {
+        b.push('\n');
+        b.push_str(card);
+        b.push('\n');
+    }
     // The storyline framing (packet rail only, 7.3) — what story this is, this entity's part in
     // it, and one line of what the prior packet said. `None` under RAIL=legacy, so the legacy
     // prompt is byte-identical to the pre-Phase-7 binary.

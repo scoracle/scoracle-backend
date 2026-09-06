@@ -214,7 +214,7 @@ fn retired_metric_never_reaches_prompt_preimage_or_crown() {
         None,
         None,
         None,
-    );
+     None);
     for retired in ["Clearances", "Duels"] {
         assert!(
             !prompt.contains(retired),
@@ -314,7 +314,7 @@ fn prompt_player_composite_datapoints_and_scoped_position() {
         None,
         None,
         None,
-    );
+     None);
     assert_eq!(
         prompt,
         "Entity: Test Player (NBA player, Guard)\n\
@@ -352,7 +352,7 @@ fn prompt_team_no_composite_no_position() {
         None,
         None,
         None,
-    );
+     None);
     assert_eq!(
         prompt,
         "Entity: Test FC (FOOTBALL team)\n\
@@ -385,7 +385,7 @@ fn cross_season_memory_renders_before_the_write_cue() {
         None,
         None,
         None,
-    );
+     None);
     assert!(prompt.contains("\nCross-season memory (computed history — arc context only"));
     assert!(prompt.contains("- Our prior read: season 2025 scored this profile 98/100"));
     assert!(prompt.contains("- Matchup memory: pts vs Test Rivals"));
@@ -402,7 +402,7 @@ fn cross_season_memory_renders_before_the_write_cue() {
         None,
         None,
         None,
-    );
+     None);
     assert!(!blank.contains("Cross-season memory"));
 }
 
@@ -1281,7 +1281,7 @@ fn the_prompt_separates_reported_availability_from_the_confirmed_record() {
         None,
         None,
         Some(&rendered),
-    );
+     None);
     let reported = prompt
         .find("Reported availability, NOT yet confirmed")
         .unwrap();
@@ -1310,7 +1310,7 @@ fn nothing_moved_renders_no_section_at_all() {
         None,
         None,
         None,
-    );
+     None);
     assert!(!prompt.contains("Personnel changes"));
 }
 
@@ -1344,7 +1344,7 @@ fn the_personnel_block_sits_between_the_datapoints_and_the_memory_card() {
         None,
         None,
         None,
-    );
+     None);
     let dp = prompt.find("Datapoints — value").unwrap();
     let pers = prompt
         .find("Personnel and availability since our last read")
@@ -1366,7 +1366,7 @@ fn the_personnel_block_sits_between_the_datapoints_and_the_memory_card() {
         None,
         None,
         None,
-    );
+     None);
     assert!(!blank.contains("Personnel changes"));
 }
 

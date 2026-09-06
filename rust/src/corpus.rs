@@ -205,6 +205,118 @@ pub fn dedupe_i64(input: Vec<i64>) -> Vec<i64> {
     out
 }
 
+/// The framing line every identity card opens with. HOUSE RECORDS, NOT GOSPEL (Scott,
+/// 2026-09-06, the Iraola trail): our metadata can lag the reporting — the DB had Iraola
+/// coaching Athletic Club while the articles had him winning games for Liverpool — so the card
+/// is handed over as a dated snapshot and the CHARACTER reconciles it against the stories.
+/// *"If it has our house metadata, and an article that states the player has moved or
+/// something like that, then the model decides. We empower the model to make the call because
+/// that enhances simplicity."*
+pub const IDENTITY_CARD_FRAMING: &str = "Your entity, per our house records — a dated snapshot, not gospel. Reporting may have moved past it: when a story and these records disagree, weigh recency and credibility and write what you judge true.";
+
+/// load_identity_card renders the entity's house-record identity line for the prompts: who
+/// this is, where they play, and (teams) the coach on record. Prompt-only and deliberately
+/// OUTSIDE every input_hash — identity context frames the read, it is not evidence, and a
+/// records sync must not reopen a fleet (the same treatment as relational memory).
+///
+/// `None` when the entity is unknown — an absent card is honest; an empty one is noise.
+pub async fn load_identity_card(
+    pool: &sqlx::PgPool,
+    entity_type: &str,
+    entity_id: i32,
+    sport: &str,
+) -> anyhow::Result<Option<String>> {
+    use sqlx::Row;
+    let sport_uc = sport.to_uppercase();
+    let card = match entity_type {
+        "team" => {
+            let row = sqlx::query(
+                r#"
+                SELECT t.name, t.city, t.country, t.venue_name, t.conference, t.division,
+                       l.name AS league_name, l.country AS league_country,
+                       (SELECT pe.full_name FROM public.persons pe
+                         WHERE pe.sport = t.sport AND pe.team_id = t.id AND pe.kind = 'coach'
+                         ORDER BY pe.created_at DESC LIMIT 1) AS coach
+                  FROM public.teams t
+                  LEFT JOIN public.leagues l ON l.id = t.league_id AND l.sport = t.sport
+                 WHERE t.id = $1 AND t.sport = $2
+                "#,
+            )
+            .bind(entity_id)
+            .bind(&sport_uc)
+            .fetch_optional(pool)
+            .await?;
+            row.map(|r| {
+                let name: String = r.get("name");
+                let mut line = name;
+                if let Some(league) = r.get::<Option<String>, _>("league_name") {
+                    line.push_str(&format!(" — {league}"));
+                    if let Some(c) = r.get::<Option<String>, _>("league_country") {
+                        line.push_str(&format!(" ({c})"));
+                    }
+                } else if let Some(conf) = r.get::<Option<String>, _>("conference") {
+                    line.push_str(&format!(" — {conf}"));
+                    if let Some(div) = r.get::<Option<String>, _>("division") {
+                        line.push_str(&format!(" {div}"));
+                    }
+                }
+                if let (Some(venue), Some(city)) = (
+                    r.get::<Option<String>, _>("venue_name"),
+                    r.get::<Option<String>, _>("city"),
+                ) {
+                    line.push_str(&format!(". Home: {venue}, {city}"));
+                }
+                if let Some(coach) = r.get::<Option<String>, _>("coach") {
+                    line.push_str(&format!(". Coach on record: {coach}"));
+                }
+                line.push('.');
+                line
+            })
+        }
+        "player" => {
+            let row = sqlx::query(
+                r#"
+                SELECT p.name, p.nationality,
+                       t.name AS team_name,
+                       l.name AS league_name,
+                       (SELECT ps.position FROM public.player_stats ps
+                         WHERE ps.player_id = p.id AND ps.sport = p.sport
+                           AND ps.position IS NOT NULL
+                         ORDER BY ps.season DESC LIMIT 1) AS position
+                  FROM public.players p
+                  LEFT JOIN public.teams t ON t.id = p.team_id AND t.sport = p.sport
+                  LEFT JOIN public.leagues l ON l.id = COALESCE(p.league_id, t.league_id) AND l.sport = p.sport
+                 WHERE p.id = $1 AND p.sport = $2
+                "#,
+            )
+            .bind(entity_id)
+            .bind(&sport_uc)
+            .fetch_optional(pool)
+            .await?;
+            row.map(|r| {
+                let name: String = r.get("name");
+                let mut line = name;
+                if let Some(pos) = r.get::<Option<String>, _>("position") {
+                    line.push_str(&format!(" — {pos}"));
+                }
+                if let Some(team) = r.get::<Option<String>, _>("team_name") {
+                    line.push_str(&format!(", on record at {team}"));
+                    if let Some(league) = r.get::<Option<String>, _>("league_name") {
+                        line.push_str(&format!(" ({league})"));
+                    }
+                }
+                if let Some(nat) = r.get::<Option<String>, _>("nationality") {
+                    line.push_str(&format!(". Nationality: {nat}"));
+                }
+                line.push('.');
+                line
+            })
+        }
+        _ => None,
+    };
+    Ok(card.map(|c| format!("{IDENTITY_CARD_FRAMING}\n- {c}")))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

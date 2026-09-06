@@ -1926,6 +1926,11 @@ pub async fn build_rating_request(
     } else {
         None
     };
+    // Identity card: house records, dated — degrades to absent like memory.
+    let identity =
+        crate::corpus::load_identity_card(&hx.pool, &req.entity_type, req.entity_id, &req.sport)
+            .await
+            .unwrap_or_default();
     let built_prompt = build_stat_prompt(
         req,
         &profile,
@@ -1935,6 +1940,8 @@ pub async fn build_rating_request(
         z_memory.as_deref(),
         form_trend.as_deref(),
         availability_reports.as_deref(),
+    
+        identity.as_deref(),
     );
     let opts = GenerateOptions {
         system: Some(RATING_SYSTEM_PROMPT.to_string()),

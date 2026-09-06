@@ -176,6 +176,7 @@ pub fn build_sentiment_prompt(
     packets: &[PacketBlock],
     previous: Option<&PrevVibe>,
     memory: Option<&str>,
+    identity: Option<&str>,
 ) -> String {
     let mut b = String::new();
 
@@ -185,6 +186,15 @@ pub fn build_sentiment_prompt(
         entity_name,
         sport
     ));
+
+    // The identity card (2026-09-06): house records, handed over dated so the character
+    // reconciles them against the stories (corpus::IDENTITY_CARD_FRAMING has the doctrine).
+    // Prompt-only, outside the input_hash — same treatment as memory.
+    if let Some(card) = identity {
+        b.push('\n');
+        b.push_str(card);
+        b.push('\n');
+    }
 
     // Previous vibe (v12) — a continuity anchor set BEFORE the fresh signals so the model
     // reads its prior before the new evidence (the sigil Phase-5.2 placement). Omitted

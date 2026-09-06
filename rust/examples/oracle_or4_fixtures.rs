@@ -334,7 +334,7 @@ fn main() -> anyhow::Result<()> {
             // or9: the crown is blind to memories by CONTRACT now — the memory-free shape the
             // fixtures always pinned is simply the shape.
             None,
-        );
+         None);
         let v = json!({
             "name": s.name,
             "task": "oracle",

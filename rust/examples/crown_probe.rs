@@ -129,7 +129,7 @@ async fn main() -> Result<()> {
             omen,
             &omen_reason,
             None,
-        );
+         None);
         // Probe knob: CROWN_PROBE_NUM_CTX lets us test the context-window hypothesis. 0 keeps the
         // current (broken) behavior — Ollama's 2048 default truncates the system prompt.
         let num_ctx: i32 = std::env::var("CROWN_PROBE_NUM_CTX")

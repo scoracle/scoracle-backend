@@ -432,7 +432,7 @@ fn crown_prompt_renders_cards_and_omen() {
         "steady",
         "the arc holds its line",
         None,
-    );
+     None);
     assert!(p.starts_with("Entity: Test Player (NBA player)\n"));
     assert!(!p.contains("YOUR PRIOR READ"));
     assert!(!p.contains("RELATIONAL MEMORY"));
@@ -493,7 +493,7 @@ fn packet_rail_caps_every_pillar_body_and_names_what_it_dropped() {
         "ascendant",
         "the arc climbs",
         None,
-    );
+     None);
     let capped = build_crown_prompt(
         "player",
         "Test Player",
@@ -506,7 +506,7 @@ fn packet_rail_caps_every_pillar_body_and_names_what_it_dropped() {
         "ascendant",
         "the arc climbs",
         Some(CROWN_CARD_BODY_CAP),
-    );
+     None);
 
     // Legacy truncates nothing — that is the behaviour a 16,384-token window allowed, and it is
     // what the legacy rail keeps sending.
@@ -608,7 +608,7 @@ fn crown_prompt_no_momentum_data_line() {
         "steady",
         "r",
         None,
-    );
+     None);
     assert!(p.contains("=== THE JOURNALIST'S CARD (news storylines) ===\n(no recent narratives)"));
     assert!(p.contains("=== THE ANALYST'S CARD (momentum) ===\n(no momentum data)"));
     assert!(p.contains("=== THE INSIDER'S CARD (transfer wire) ===\n(no active transfer rumors)"));
@@ -638,7 +638,7 @@ fn crown_prompt_transfer_heat_renders() {
         "steady",
         "r",
         None,
-    );
+     None);
     assert!(p.contains("=== THE INSIDER'S CARD (transfer wire) ===\n- Liverpool — heat 66, incoming, advanced_talks\n"));
 }
 
@@ -658,7 +658,7 @@ fn crown_prompt_is_blind_to_memories() {
         "steady",
         "r",
         None,
-    );
+     None);
     assert!(p.starts_with(
         "Entity: Test Player (NBA player)\n\n=== THE JOURNALIST'S CARD (news storylines) ==="
     ));

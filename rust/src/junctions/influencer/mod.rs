@@ -755,6 +755,7 @@ pub async fn generate_vibe(
         ctx,
         None,
         None,
+        None,
         temperature,
     )
     .await?;
@@ -770,6 +771,7 @@ async fn generate_vibe_from_context(
     ctx: VibeContext,
     previous: Option<&PrevVibe>,
     memory: Option<&str>,
+    identity: Option<&str>,
     temperature: f64,
 ) -> Result<VibeOutput> {
     // No derived signal (no narratives AND no transfer heat) → no rating. Persist a
@@ -813,6 +815,7 @@ async fn generate_vibe_from_context(
         &ctx.packets,
         previous,
         memory,
+        identity,
     );
     let opts = GenerateOptions {
         system: Some(VIBE_SYSTEM_PROMPT.to_string()),
@@ -1067,6 +1070,16 @@ impl StageHandler for VibeHandler {
             }
         };
 
+        // Identity card: house records, dated — degrades to absent like memory.
+        let identity = crate::corpus::load_identity_card(
+            &hx.pool,
+            &item.entity_type,
+            entity_id,
+            &sport,
+        )
+        .await
+        .unwrap_or_default();
+
         let out = generate_vibe_from_context(
             hx,
             &item.entity_type,
@@ -1075,6 +1088,7 @@ impl StageHandler for VibeHandler {
             ctx,
             previous.as_ref(),
             memory.as_deref(),
+            identity.as_deref(),
             VIBE_TEMPERATURE,
         )
         .await?;

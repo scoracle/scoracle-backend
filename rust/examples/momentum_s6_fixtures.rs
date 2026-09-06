@@ -232,7 +232,7 @@ fn main() -> anyhow::Result<()> {
             s.rating.as_ref(),
             s.vibe.as_ref(),
             &s.momentum,
-        );
+         None);
         let v = json!({
             "name": s.name,
             "task": "momentum",

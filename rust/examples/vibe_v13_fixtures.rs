@@ -97,7 +97,7 @@ fn fixture(
             &[],
             previous,
             memory,
-        ),
+         None),
         temperature: 0.0,
         expect,
     }

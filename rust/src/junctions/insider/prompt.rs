@@ -422,8 +422,18 @@ pub fn build_insider_score_prompt(
     entity_type: &str,
     heat: &[HeatItem],
     prior: Option<&str>,
+    identity: Option<&str>,
 ) -> String {
     let mut b = format!("Entity: {entity_name} ({sport} {entity_type})\n");
+    // The identity card (2026-09-06): house records, handed over dated so the character
+    // reconciles them against the stories (corpus::IDENTITY_CARD_FRAMING has the doctrine).
+    // Prompt-only, outside the input_hash — same treatment as memory.
+    if let Some(card) = identity {
+        b.push('\n');
+        b.push_str(card);
+        b.push('\n');
+    }
+
     if let Some(p) = prior.filter(|s| !s.trim().is_empty()) {
         b.push_str(
             "\nYOUR PRIOR READS (memory — your own past wire wraps; continuity, not new evidence):\n",

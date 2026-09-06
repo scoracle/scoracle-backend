@@ -193,11 +193,21 @@ pub fn build_momentum_prompt(
     rating: Option<&SynthRating>,
     vibe: Option<&SynthVibe>,
     mom: &SynthMomentum,
+    identity: Option<&str>,
 ) -> String {
     let mut b = String::new();
     b.push_str(&format!(
-        "Entity: {entity_name} ({sport} {entity_type})\n\n"
+        "Entity: {entity_name} ({sport} {entity_type})\n"
     ));
+    // The identity card (2026-09-06): house records, handed over dated so the character
+    // reconciles them against the stories (corpus::IDENTITY_CARD_FRAMING has the doctrine).
+    // Prompt-only, outside the input_hash — same treatment as memory.
+    if let Some(card) = identity {
+        b.push('\n');
+        b.push_str(card);
+        b.push('\n');
+    }
+    b.push('\n');
     // s15, still load-bearing: the section headers speak the sport's words ("FORM", "MOOD"),
     // never the desk's ("PEAK", "Vibe"). Two banned-word attempts failed BECAUSE these labels
     // kept shouting the banned vocabulary; the input stopped shouting and the ban finally had

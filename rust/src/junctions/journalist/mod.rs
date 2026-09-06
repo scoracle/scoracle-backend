@@ -1249,12 +1249,17 @@ pub async fn finish_narratives_build(
         score_context.push('\n');
         score_context.push_str(&p.card);
     }
+    // Identity card: house records, dated — degrades to absent like memory.
+    let identity = crate::corpus::load_identity_card(&hx.pool, &req.entity_type, req.entity_id, &req.sport)
+        .await
+        .unwrap_or_default();
     let built_prompt = build_narratives_prompt(
         req,
         &corpus,
         memory.as_deref(),
         Some(&score_context),
         packet_framing.as_deref(),
+        identity.as_deref(),
     );
     let (num_ctx, num_predict) = narratives_decode_budget(hx.voice_num_ctx);
     let opts = GenerateOptions {

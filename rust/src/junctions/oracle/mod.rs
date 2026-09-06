@@ -1311,6 +1311,11 @@ impl StageHandler for SigilHandler {
 
         // The one crown call (OracleLogic): read the cards + the omen, then emit
         // {reading, score}. Fail-closed lives in CrownParser (unparseable → Err → the item backs off).
+        // Identity card: house records, dated — degrades to absent like memory.
+        let identity =
+            crate::corpus::load_identity_card(&hx.pool, &item.entity_type, entity_id, &sport)
+                .await
+                .unwrap_or_default();
         let prompt = build_crown_prompt(
             &item.entity_type,
             &name,
@@ -1323,6 +1328,7 @@ impl StageHandler for SigilHandler {
             omen,
             &omen_reason,
             body_cap,
+            identity.as_deref(),
         );
         let opts = GenerateOptions {
             system: Some(ORACLE_SYSTEM_PROMPT.to_string()),

@@ -340,6 +340,7 @@ pub fn build_stat_prompt(
     z_memory: Option<&str>,
     form_trend: Option<&str>,
     availability_reports: Option<&str>,
+    identity: Option<&str>,
 ) -> String {
     let mut b = String::new();
 
@@ -349,6 +350,15 @@ pub fn build_stat_prompt(
         header.push_str(&p.position);
     }
     b.push_str(&format!("Entity: {} ({header})\n", req.entity_name));
+
+    // The identity card (2026-09-06): house records, handed over dated so the character
+    // reconciles them against the stories (corpus::IDENTITY_CARD_FRAMING has the doctrine).
+    // Prompt-only, outside the input_hash — same treatment as memory.
+    if let Some(card) = identity {
+        b.push('\n');
+        b.push_str(card);
+        b.push('\n');
+    }
 
     b.push_str(&format!(
         "\nProfile distinctiveness: {notability}/100 (higher = more standout skills — let a richer profile earn a fuller read).\n"

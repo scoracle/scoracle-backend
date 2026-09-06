@@ -198,6 +198,23 @@ async fn main() -> Result<()> {
             }
         }
         teams.sort_by(|a, b| a.1.cmp(&b.1));
+        // The corroboration gate's deterministic half: how many evidence articles co-tag
+        // each club. The MODAL club (strict max; ties disqualify) is the frequency prior.
+        let mut counts: HashMap<i32, usize> = HashMap::new();
+        for e in &ev {
+            for (id, _) in &e.teams {
+                *counts.entry(*id).or_insert(0) += 1;
+            }
+        }
+        let modal: Option<i32> = {
+            let max = counts.values().copied().max().unwrap_or(0);
+            let tops: Vec<i32> = counts
+                .iter()
+                .filter(|(_, c)| **c == max)
+                .map(|(id, _)| *id)
+                .collect();
+            (tops.len() == 1).then(|| tops[0])
+        };
         if teams.is_empty() {
             thin += 1;
             stamp_checked(&pool, cand.id, &args.sport, "no co-tagged teams", args.dry_run).await?;
@@ -232,7 +249,16 @@ async fn main() -> Result<()> {
             .current_team_index
             .and_then(|i| usize::try_from(i.checked_sub(1)?).ok())
             .and_then(|i| teams.get(i).cloned());
-        match (&team, confidence >= MIN_CONFIDENCE) {
+        // THE CORROBORATION GATE (measured on the second dry-run, 2026-09-06): granite chose
+        // Ipswich Town for Iraola at 0.80 off "Ipswich 0-2 Liverpool" headlines, and gave two
+        // different 0.80 answers for Demichelis across runs — a 3b confidence number is not a
+        // gate. The model's pick must AGREE with the deterministic frequency prior (the modal
+        // co-tagged club across the evidence); either signal alone can be fooled, agreement
+        // rarely is. Displacing an existing NON-NULL affiliation additionally demands 0.85.
+        let corroborated = matches!((&team, modal), (Some((id, _)), Some(m)) if *id == m);
+        let displacing = matches!(&team, Some((id, _)) if cand.team_id.is_some() && cand.team_id != Some(*id));
+        let confident = confidence >= MIN_CONFIDENCE && (!displacing || confidence >= 0.85);
+        match (&team, corroborated && confident) {
             (Some((team_id, team_name)), true) => {
                 if cand.team_id == Some(*team_id) {
                     println!(
@@ -271,7 +297,7 @@ async fn main() -> Result<()> {
             _ => {
                 unknown += 1;
                 println!(
-                    "  {} ({}): unknown (index {:?}, conf {confidence:.2}) — stays absent",
+                    "  {} ({}): unknown (index {:?}, conf {confidence:.2}, corroborated {corroborated}) — stays absent",
                     cand.full_name, cand.id, verdict.current_team_index
                 );
                 stamp_checked(&pool, cand.id, &args.sport, "adjudicated unknown", args.dry_run)

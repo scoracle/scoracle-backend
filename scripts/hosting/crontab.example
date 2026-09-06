@@ -138,3 +138,6 @@ TZ=America/New_York
 # Sigil is missing or stale for the derive worker to drain (no inline synthesis, no
 # unchanged-Sigil duplicates, no Ollama). -limit caps items enqueued per run.
 0 5 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-vibesynth.sh -mode nightly -limit 500 >> /home/sheneveld/scoracle/scoracle-backend/logs/vibesynth.log 2>&1
+# Dynamic-metadata adjudication sweep (factsweep): person affiliations from news
+# evidence, policy-gated, fail-closed. After statcommentary, before the morning.
+40 3 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-factsweep.sh >> /home/sheneveld/scoracle/scoracle-backend/logs/factsweep.log 2>&1

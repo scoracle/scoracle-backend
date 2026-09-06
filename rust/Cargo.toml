@@ -26,6 +26,13 @@ path = "src/bin/eval.rs"
 name = "statcommentary"
 path = "src/bin/statcommentary.rs"
 
+# The dynamic-metadata adjudication sweep (mig 236's missing producer, Scott 2026-09-06:
+# "all entity metadata should be dynamic … a system that self heals is the unlock").
+# Nightly: adjudicates person affiliations from news evidence, policy-gated, fail-closed.
+[[bin]]
+name = "factsweep"
+path = "src/bin/factsweep.rs"
+
 # One-shot overnight GPU labeling batch for the F2 bucket classifier (friction-prune
 # plan). Read-only on the pipeline; writes ONLY its output TSV. Resumable/idempotent —
 # a completed run no-ops, so it is safe on a cron line.

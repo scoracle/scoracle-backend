@@ -114,7 +114,7 @@ struct Evidence {
 
 #[derive(serde::Deserialize)]
 struct Verdict {
-    current_team: Option<String>,
+    current_team_index: Option<i64>,
     role: Option<String>,
     confidence: Option<f64>,
 }
@@ -123,20 +123,20 @@ const ADJUDICATION_SYSTEM: &str = r#"Task: adjudicate the CURRENT club affiliati
 
 The team must be one the excerpts state the figure CURRENTLY works for — managing it, playing for it, owning it, or representing it in the named role. A past club, an opponent, a rumored or linked destination, or a club they are merely discussed alongside is NOT a current affiliation. When the excerpts do not clearly establish a current club, current_team is null — an honest unknown beats a guess.
 
-Choose current_team EXACTLY from the CANDIDATE TEAMS list or use null; never write a club that is not on the list. role is what the excerpts show the figure to be: coach, player, agent, owner, executive, official, other, or unknown. confidence (0.0-1.0) is how explicitly the reporting states the affiliation — reserve 0.9+ for excerpts that state it outright.
+Choose the club by its NUMBER from the CANDIDATE TEAMS list, or null when no listed club is clearly current. role is what the excerpts show the figure to be: coach, player, agent, owner, executive, official, other, or unknown. confidence (0.0-1.0) is how explicitly the reporting states the affiliation — reserve 0.9+ for excerpts that state it outright.
 
 Reply with ONLY this JSON object:
-{"current_team": "<exact name from CANDIDATE TEAMS or null>", "role": "<role>", "confidence": <0.0-1.0>}"#;
+{"current_team_index": <number from the list, or null>, "role": "<role>", "confidence": <0.0-1.0>}"#;
 
 fn adjudication_schema() -> serde_json::Value {
     serde_json::json!({
         "type": "object",
         "properties": {
-            "current_team": {"type": ["string", "null"]},
+            "current_team_index": {"type": ["integer", "null"]},
             "role": {"type": "string"},
             "confidence": {"type": "number"}
         },
-        "required": ["current_team", "role", "confidence"]
+        "required": ["current_team_index", "role", "confidence"]
     })
 }
 
@@ -184,20 +184,27 @@ async fn main() -> Result<()> {
             stamp_checked(&pool, cand.id, &args.sport, "thin evidence", args.dry_run).await?;
             continue;
         }
-        // Deterministic candidate map: only clubs actually co-tagged on the evidence.
-        let mut team_map: HashMap<String, i32> = HashMap::new();
+        // Deterministic candidates: only clubs actually co-tagged on the evidence,
+        // presented NUMBERED — the model picks an index, never spells a name, so an
+        // embellished "Liverpool FC" can never miss our "Liverpool" (measured on the
+        // first dry-run: three 0.80 verdicts lost to exact-name matching).
+        let mut seen: HashMap<i32, ()> = HashMap::new();
+        let mut teams: Vec<(i32, String)> = Vec::new();
         for e in &ev {
             for (id, name) in &e.teams {
-                team_map.insert(name.clone(), *id);
+                if seen.insert(*id, ()).is_none() {
+                    teams.push((*id, name.clone()));
+                }
             }
         }
-        if team_map.is_empty() {
+        teams.sort_by(|a, b| a.1.cmp(&b.1));
+        if teams.is_empty() {
             thin += 1;
             stamp_checked(&pool, cand.id, &args.sport, "no co-tagged teams", args.dry_run).await?;
             continue;
         }
 
-        let prompt = build_prompt(cand, &ev, &team_map);
+        let prompt = build_prompt(cand, &ev, &teams);
         let opts = GenerateOptions {
             system: Some(ADJUDICATION_SYSTEM.to_string()),
             temperature: Some(0.0),
@@ -222,9 +229,9 @@ async fn main() -> Result<()> {
 
         let confidence = verdict.confidence.unwrap_or(0.0);
         let team = verdict
-            .current_team
-            .as_deref()
-            .and_then(|n| team_map.get(n).map(|id| (*id, n.to_string())));
+            .current_team_index
+            .and_then(|i| usize::try_from(i.checked_sub(1)?).ok())
+            .and_then(|i| teams.get(i).cloned());
         match (&team, confidence >= MIN_CONFIDENCE) {
             (Some((team_id, team_name)), true) => {
                 if cand.team_id == Some(*team_id) {
@@ -264,10 +271,8 @@ async fn main() -> Result<()> {
             _ => {
                 unknown += 1;
                 println!(
-                    "  {} ({}): unknown (team {:?}, conf {confidence:.2}) — stays absent",
-                    cand.full_name,
-                    cand.id,
-                    verdict.current_team.as_deref().unwrap_or("null")
+                    "  {} ({}): unknown (index {:?}, conf {confidence:.2}) — stays absent",
+                    cand.full_name, cand.id, verdict.current_team_index
                 );
                 stamp_checked(&pool, cand.id, &args.sport, "adjudicated unknown", args.dry_run)
                     .await?;
@@ -384,17 +389,13 @@ async fn load_evidence(pool: &PgPool, person_id: i32, sport: &str) -> Result<Vec
         .collect())
 }
 
-fn build_prompt(cand: &Candidate, ev: &[Evidence], team_map: &HashMap<String, i32>) -> String {
+fn build_prompt(cand: &Candidate, ev: &[Evidence], teams: &[(i32, String)]) -> String {
     let mut b = format!(
-        "Figure: {} (on record as: {})\n\nCANDIDATE TEAMS (choose exactly one of these names, or null):\n",
+        "Figure: {} (on record as: {})\n\nCANDIDATE TEAMS (choose one by NUMBER, or null):\n",
         cand.full_name, cand.kind
     );
-    let mut names: Vec<&String> = team_map.keys().collect();
-    names.sort();
-    for n in names {
-        b.push_str("- ");
-        b.push_str(n);
-        b.push('\n');
+    for (i, (_, n)) in teams.iter().enumerate() {
+        b.push_str(&format!("{}. {}\n", i + 1, n));
     }
     b.push_str("\nReporting excerpts (newest first):\n");
     for e in ev {

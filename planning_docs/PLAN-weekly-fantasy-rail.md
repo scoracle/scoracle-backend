@@ -1,6 +1,17 @@
 # PLAN — The Weekly Fantasy Rail (rev 2, simplified)
 
-Date: 2026-09-04. Status: DRAFT rev 2 — leanness pass folded in (Scott: "no extra roads").
+Date: 2026-09-04. Status as of 2026-09-05 evening: **largely SHIPPED** (migs
+233–242 applied; backend fb38d7d + frontend 5b65661 live). Delivered: the NFL
+gap-driven data rail (A, NFL slice), the person-layer bridge + dynamic entity
+metadata (migs 234/236 — grew out of §A2), the season_weeks calendar + week
+stamps + seal + weekly momentum (B), the Scouting/Profile card split + uniform
+prose face + week/per-x boards (C + the scope collapse, §2b). Remaining, in
+order: the weekly prompt posture (supervised tuning + eval refreeze), the NBA
+rail (~Oct, at season start), the FPL rail + mig-233-planned FOOTBALL z-arm
+remap, then the A-demolition and the fantasy-scope retirement it unlocks.
+Running log: progress_docs/2026-09-05_weekly-cycle-shipped.md.
+
+Original rev 2 text follows (Scott: "no extra roads").
 
 The product, in one sentence: routinely run an RSS search for the teams in our DB, fetch
 whatever event and entity data is missing, and tell the ongoing stories of the entities in
@@ -191,6 +202,33 @@ Snapshot thinning: per-week grain after 30 days. Analyst unchanged beyond the we
 - Sealed weeks are immutable → long edge-cache headers.
 
 ---
+
+## 2b. The scope collapse (Scott, 2026-09-05 — the target structure, stated once)
+
+The backend tells the stories AS THEY DEVELOP (the drain never waits for a
+week boundary); they SURFACE weekly — the cadence of a gameweek. That split —
+continuous development, weekly surfacing — is the whole product structure, and
+it collapses the scope hodgepodge to almost nothing:
+
+- **Every card: year + week.** The NavRail week axis is the one time control.
+  The rolling news scopes (current_week/last_week/…) retire into it; season
+  selects retire into it (a week names its season); the freshness gates retire
+  (a sealed week is what it is).
+- **Only the Profile (pizza) card adds scopes**, and only the per-x rate modes
+  (per game / per 36 / per 90) plus cohort cuts — scopes that shape a CHART,
+  never a story.
+- **The fantasy scope retires with the fantasy-built z-scores.** Once the house
+  rating is computed FROM fantasy-sourced data (mig 233 rail; FPL remap next),
+  "fantasy" is not a lens you switch to — it is the substrate. The score-model
+  toggle, the fantasy stat templates as a separate mode, and `rating_modes`'
+  fantasy arm all fall away.
+- **Leaderboards take the same year + week scope**, and their content is the
+  tweet-sized headers — the headline every seat already writes under the card
+  contract. A board is the week's headlines, ranked by the week's scores.
+
+Clean, nimble, durable: one time axis, one card face (header · score · body),
+one chart card with chart scopes. The junctions enrich as better models land;
+the structure does not move.
 
 ## 3. Phase C — cards (polish tier)
 

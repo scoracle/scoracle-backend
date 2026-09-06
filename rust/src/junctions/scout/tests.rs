@@ -328,7 +328,7 @@ Headline limitation: Defense: 2.5, 40th pct (below average), rating -0.5\n\
 \nDatapoints — value, percentile + TIER (the tier is the truth), rating (how far above or below the average; a higher rating is a rarer edge); [position] percentile when present:\n\
 - Scoring: 24, 95th pct (elite), rating +3.1 [position: 88th, strong]\n\
 - Defense: 2.5, 40th pct (below average), rating -0.5\n\
-\nWrite the report now: TWO OR THREE claim paragraphs in THE FORM — the claims the shape of the data supports, every number as evidence inside one of them, NEVER a paragraph per stat — separated by blank lines, no labels, plain text, no Markdown — then the HEADLINE line last. Begin directly with your first claim's first sentence — no preamble, nothing before it."
+\nWrite the report now: TWO OR THREE claim paragraphs in THE FORM — the claims the shape of the data supports, every number as evidence inside one of them, NEVER a paragraph per stat — separated by blank lines, no labels, plain text, no Markdown — then the HEADLINE line last, then STOP. A second or third paragraph exists only if it adds a story the shape line does not already tell; when the shape is the whole story, one paragraph and the HEADLINE is a complete report. Begin directly with your first claim's first sentence — no preamble, nothing before it."
     );
 }
 
@@ -362,10 +362,10 @@ fn prompt_team_no_composite_no_position() {
 Headline strength: Defense: 0.38, 78th pct (strong), rating +1.2\n\
 Secondary strengths: None supplied.\n\
 Headline limitation: None — this profile offers no clean exploit.\n\
-\nTHE SHAPE (computed, final — like the tiers, you voice it, never re-derive it): flat — competent everywhere, exceptional nowhere. The middle: 0 of 1 skills between the 25th and 75th percentile.\n\
+\nTHE SHAPE (computed, final — like the tiers, you voice it, never re-derive it): flat — competent everywhere, exceptional nowhere. Strong: Defense. The middle: 0 of 1 skills between the 25th and 75th percentile.\n\
 \nDatapoints — value, percentile + TIER (the tier is the truth), rating (how far above or below the average; a higher rating is a rarer edge); [position] percentile when present:\n\
 - Defense: 0.38, 78th pct (strong), rating +1.2\n\
-\nWrite the report now: TWO OR THREE claim paragraphs in THE FORM — the claims the shape of the data supports, every number as evidence inside one of them, NEVER a paragraph per stat — separated by blank lines, no labels, plain text, no Markdown — then the HEADLINE line last. Begin directly with your first claim's first sentence — no preamble, nothing before it."
+\nWrite the report now: TWO OR THREE claim paragraphs in THE FORM — the claims the shape of the data supports, every number as evidence inside one of them, NEVER a paragraph per stat — separated by blank lines, no labels, plain text, no Markdown — then the HEADLINE line last, then STOP. A second or third paragraph exists only if it adds a story the shape line does not already tell; when the shape is the whole story, one paragraph and the HEADLINE is a complete report. Begin directly with your first claim's first sentence — no preamble, nothing before it."
     );
 }
 

@@ -87,6 +87,14 @@ pub fn profile_shape_line(facts: &[super::RatingDatapoint]) -> String {
     if !elite.is_empty() {
         line.push_str(&format!(" Elite: {}.", elite.join(", ")));
     }
+    let strong: Vec<&str> = facts
+        .iter()
+        .filter(|d| d.pct >= 75.0 && d.pct < 90.0)
+        .map(|d| d.label.as_str())
+        .collect();
+    if !strong.is_empty() {
+        line.push_str(&format!(" Strong: {}.", strong.join(", ")));
+    }
     if !poor.is_empty() {
         line.push_str(&format!(" Poor: {}.", poor.join(", ")));
     }
@@ -134,11 +142,7 @@ Voice: thirty years of scouting. Clipped and specific. Every finding names a ski
 
 Your claims are WHATEVER THE DATA SUPPORTS. Read the whole range first, then say what it actually shows — a lone elite edge carrying an ordinary base, one broken facet undoing a good profile, a collision between an elite mark and a fatal one, a profile that is aggressively mediocre from top to bottom. "Aggressively mediocre" is a claim; so is "elite at exactly one thing"; so is "the engine is real but the finishing wastes it". Never file "here's what they're good at, here's what they're bad at, summary" by rote — that is a filing cabinet, not a read, and the shape of the data decides the claims every time. A CLAIM IS NEVER ONE DATAPOINT: a stat is evidence INSIDE a claim, and a paragraph per stat is the filing cabinet again at finer grain. Two claims are a full card and three is the ceiling — every number you cite lives inside one of them. Each claim's evidence is the numbers: the skill, its tier, the percentile, the rating. When the card says there is no clean exploit, keep those words.
 
-The rhythm, from an invented club — every number on YOUR card comes from YOUR datapoints, which is why this example carries none. Note the claims are BORN OF THE SHAPE, not slotted into good/bad/summary:
-This is a one-trick side, and the trick is real. Set-piece defence is elite and improved from last season, with aerial duels near the top of the range. Take the back line away and nothing here scares anyone.
-
-Everything else is aggressively mediocre. Chance creation, pressing and ball progression all sit inside the middle band — none honestly weak, none worth planning around. The middle of this card is the story: a side that will not beat itself and will not beat you.
-A finding on your card reads like the example plus its number: the skill, its tier, the percentile, the rating. The example deliberately shows no HEADLINE — yours is built from YOUR entity's name and YOUR report's sharpest claim, never from anyone else's.
+A finding on your card reads as the skill, its tier, the percentile, the rating — inside the claim it evidences. There is deliberately no worked example on this seat: three separate measured leaks (a headline, a body closer, a whole paragraph) proved any example prose ends up on real cards. The form above, the computed SHAPE line below, and your own numbers are the whole pattern.
 
 REPORT, NEVER ADVISE. You state what this entity IS, never what to do about it. "Concedes shots on target at will, 4th percentile" is yours; "attack their shots on target" is not. No hypothetical clubs, no recommendations, nothing that "must be addressed" — every attribute is something they bring to the side they play for NOW, in the present tense.
 
@@ -501,7 +505,7 @@ pub fn build_stat_prompt(
     // that the rule must sit where the model writes; this line said "four labelled lines"
     // after the system prompt stopped asking for them, and the fixtures caught the drift).
     b.push_str(
-        "\nWrite the report now: TWO OR THREE claim paragraphs in THE FORM — the claims the shape of the data supports, every number as evidence inside one of them, NEVER a paragraph per stat — separated by blank lines, no labels, plain text, no Markdown — then the HEADLINE line last. Begin directly with your first claim's first sentence — no preamble, nothing before it.",
+        "\nWrite the report now: TWO OR THREE claim paragraphs in THE FORM — the claims the shape of the data supports, every number as evidence inside one of them, NEVER a paragraph per stat — separated by blank lines, no labels, plain text, no Markdown — then the HEADLINE line last, then STOP. A second or third paragraph exists only if it adds a story the shape line does not already tell; when the shape is the whole story, one paragraph and the HEADLINE is a complete report. Begin directly with your first claim's first sentence — no preamble, nothing before it.",
     );
     b
 }

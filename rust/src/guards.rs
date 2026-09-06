@@ -523,6 +523,29 @@ mod tests {
     }
 
     #[test]
+    fn prompt_echo_truncates_at_the_measured_markers() {
+        // The Chelsea team:18 shape, measured 2026-09-05: felt read, then the
+        // briefing transcribed — narratives block, transfer temperature,
+        // relational memory — all verbatim prompt scaffolding.
+        let s = "The trophy promise remains unbroken, a quiet conviction in every pass.\n\n\
+                 Narratives forming around them (ordered by relevance/topic heat; impact in brackets): - [55, Heating up] …";
+        assert_eq!(
+            truncate_prompt_echo(s),
+            "The trophy promise remains unbroken, a quiet conviction in every pass."
+        );
+        // The highest-frequency marker (710 bodies over 14 days).
+        let s = "No noise. Only consistency.\n\nThe stories running around them right now (assembled from the reads …): …";
+        assert_eq!(truncate_prompt_echo(s), "No noise. Only consistency.");
+        // A body that OPENS with echo empties — the caller re-rolls it.
+        let s = "Transfer/trade chatter — the TEMPERATURE only; the wire itself is another desk's card: - warm";
+        assert_eq!(truncate_prompt_echo(s), "");
+        // Honest prose about the wire survives: the markers are the prompt's
+        // exact scaffolding phrases, not topic words.
+        let honest = "The chatter around the club is warm, and the room leans in.";
+        assert_eq!(truncate_prompt_echo(honest), honest);
+    }
+
+    #[test]
     fn product_names_are_case_sensitive() {
         assert_eq!(first_product_name("at the peak of his powers"), None);
         assert_eq!(first_product_name("the PEAK confirms it"), Some("PEAK"));
@@ -836,6 +859,49 @@ pub fn truncate_self_review(prose: &str) -> &str {
         "Revised final output",
     ];
     let cut = SELF_REVIEW_MARKERS
+        .iter()
+        .filter_map(|m| prose.find(m))
+        .min();
+    match cut {
+        Some(i) => prose[..i].trim_end(),
+        None => prose,
+    }
+}
+
+/// Where a vibe body stops speaking and starts ECHOING its own prompt, cut it there.
+///
+/// Measured on granite4.2:3b (2026-09-05, 14-day live corpus): after finishing the felt read
+/// the model keeps transcribing its input — the packet-section headers and everything under
+/// them land verbatim on the card ("The stories running around them…" in 710 bodies,
+/// "Narratives forming around them…" in 124, the transfer-temperature and relational-memory
+/// headers close behind). The served body then carries the raw briefing the seat was supposed
+/// to digest, and — worse — the PREVIOUS VIBE anchor feeds that contamination forward, so one
+/// echo becomes next cycle's "prior".
+///
+/// Same treatment and admission rule as [`truncate_self_review`]: markers are exact phrases
+/// measured in production output, each one prompt scaffolding that no honest felt read would
+/// ever say; the list grows only from observed output. Everything before the first marker is
+/// the card the seat intended. A body that OPENS with a marker truncates to empty and the
+/// caller fails it into a retry.
+///
+/// Kept OUT of `clean_served_prose` deliberately: these phrases are the INFLUENCER's prompt
+/// vocabulary. On her card they are unambiguous echo; on another seat's card a phrase like
+/// "transfer/trade chatter" could be honest prose, so the vibe parser applies this itself.
+pub fn truncate_prompt_echo(prose: &str) -> &str {
+    // Measured 2026-09-05 against the 14-day vibe corpus (counts in the doc above).
+    const PROMPT_ECHO_MARKERS: &[&str] = &[
+        "The stories running around them",
+        "MOOD is the charge",
+        "Narratives forming around them",
+        "ordered by relevance/topic heat",
+        "Transfer/trade chatter",
+        "the TEMPERATURE only",
+        "Relational memory (",
+        "use for arc and continuity",
+        "PREVIOUS VIBE",
+        "Respond now (SCORE",
+    ];
+    let cut = PROMPT_ECHO_MARKERS
         .iter()
         .filter_map(|m| prose.find(m))
         .min();

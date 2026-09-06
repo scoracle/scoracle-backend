@@ -700,6 +700,16 @@ impl Parser<VibeReply> for VibeParser {
         // hard ban — so a good felt read, and the SCORE that momentum depends on, died over
         // typography. Stripping is lossless and the stripped body is exactly the body intended.
         let vibe_prompt = crate::guards::clean_served_prose(&vibe_prompt);
+        // Prompt echo is truncated AFTER the shared clean (2026-09-05): granite4.2:3b keeps
+        // transcribing its briefing after the felt read — packet-section headers and the
+        // narrative/transfer/memory blocks land verbatim on the card, and the PREVIOUS VIBE
+        // anchor then feeds the contamination forward. Everything before the first echo
+        // marker is the card she intended; a body that OPENS with one empties and re-rolls.
+        let vibe_prompt = crate::guards::truncate_prompt_echo(&vibe_prompt).to_string();
+        if vibe_prompt.is_empty() {
+            tracing::warn!(guard = "prompt_echo", "vibe body rejected: all echo");
+            bail!("vibe: body is prompt echo");
+        }
         if let Some(p) = crate::guards::first_product_name(&vibe_prompt) {
             tracing::warn!(guard = "product_name", name = p, "vibe body rejected");
             bail!("vibe: body names product {p:?}");

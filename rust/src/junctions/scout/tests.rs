@@ -327,7 +327,7 @@ Headline limitation: Defense: 2.5, 40th pct (below average), rating -0.5\n\
 \nDatapoints — value, percentile + TIER (the tier is the truth), rating (how far above or below the average; a higher rating is a rarer edge); [position] percentile when present:\n\
 - Scoring: 24, 95th pct (elite), rating +3.1 [position: 88th, strong]\n\
 - Defense: 2.5, 40th pct (below average), rating -0.5\n\
-\nWrite the report now: four labelled lines (Strengths / Limitations / Summary / HEADLINE), each on its own line, plain text, no Markdown. Begin directly with the word \"Strengths:\" — no preamble, nothing before it."
+\nWrite the report now: your claims in THE FORM — paragraphs separated by blank lines, no labels, plain text, no Markdown — then the HEADLINE line last. Begin directly with the strength claim's first sentence — no preamble, nothing before it."
     );
 }
 
@@ -363,7 +363,7 @@ Secondary strengths: None supplied.\n\
 Headline limitation: None — this profile offers no clean exploit.\n\
 \nDatapoints — value, percentile + TIER (the tier is the truth), rating (how far above or below the average; a higher rating is a rarer edge); [position] percentile when present:\n\
 - Defense: 0.38, 78th pct (strong), rating +1.2\n\
-\nWrite the report now: four labelled lines (Strengths / Limitations / Summary / HEADLINE), each on its own line, plain text, no Markdown. Begin directly with the word \"Strengths:\" — no preamble, nothing before it."
+\nWrite the report now: your claims in THE FORM — paragraphs separated by blank lines, no labels, plain text, no Markdown — then the HEADLINE line last. Begin directly with the strength claim's first sentence — no preamble, nothing before it."
     );
 }
 

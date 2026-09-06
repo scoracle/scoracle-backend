@@ -439,8 +439,12 @@ pub fn build_stat_prompt(
         }
     }
 
+    // s26, the uniform structure: the emission-site instruction matches the system contract —
+    // claim paragraphs of the form, no labels, HEADLINE line last (the momentum-s12 lesson
+    // that the rule must sit where the model writes; this line said "four labelled lines"
+    // after the system prompt stopped asking for them, and the fixtures caught the drift).
     b.push_str(
-        "\nWrite the report now: four labelled lines (Strengths / Limitations / Summary / HEADLINE), each on its own line, plain text, no Markdown. Begin directly with the word \"Strengths:\" — no preamble, nothing before it.",
+        "\nWrite the report now: your claims in THE FORM — paragraphs separated by blank lines, no labels, plain text, no Markdown — then the HEADLINE line last. Begin directly with the strength claim's first sentence — no preamble, nothing before it.",
     );
     b
 }

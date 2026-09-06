@@ -218,12 +218,19 @@ impl RouteConfig {
     pub fn from_env(default_model: &str, base_url: &str) -> Self {
         let mut roles = HashMap::new();
         let mut candidates = HashMap::new();
+        // Think is OFF unless a role opts in (`_THINK=true`). The safety used to live in
+        // twelve `_THINK=false` env lines; when the 2026-09-06 resident-model cleanup ran the
+        // eval without them, an unset flag OMITTED the field and granite thought by default —
+        // every reply spent its whole num_predict deliberating and came back empty. A default
+        // this load-bearing belongs in code, not in env hygiene. `_THINK=omit` is the escape
+        // hatch that restores field omission for a backend/model that rejects an explicit
+        // `think: false`.
         let parse_think = |key: &str| -> Option<bool> {
-            env_opt(key).and_then(|v| match v.to_lowercase().as_str() {
-                "false" | "0" | "no" => Some(false),
-                "true" | "1" | "yes" => Some(true),
-                _ => None,
-            })
+            match env_opt(key).as_deref().map(str::to_lowercase).as_deref() {
+                Some("true" | "1" | "yes") => Some(true),
+                Some("omit") => None,
+                _ => Some(false),
+            }
         };
         for role in Role::all() {
             let key = format!("COGNITION_ROUTE_{}", role.env_suffix());

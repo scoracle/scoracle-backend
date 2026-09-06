@@ -507,7 +507,7 @@ pub fn build_stat_prompt(
     // that the rule must sit where the model writes; this line said "four labelled lines"
     // after the system prompt stopped asking for them, and the fixtures caught the drift).
     b.push_str(
-        "\nWrite the report now: TWO OR THREE claim paragraphs in THE FORM — the claims the shape of the data supports, every number as evidence inside one of them, NEVER a paragraph per stat, PROSE SENTENCES never "Label: value" lines — separated by blank lines, no labels, plain text, no Markdown — then the HEADLINE line last, then STOP. A second or third paragraph exists only if it adds a story the shape line does not already tell; when the shape is the whole story, one paragraph and the HEADLINE is a complete report. Begin directly with your first claim's first sentence — no preamble, nothing before it.",
+        "\nWrite the report now: TWO OR THREE claim paragraphs in THE FORM — the claims the shape of the data supports, every number as evidence inside one of them, NEVER a paragraph per stat, PROSE SENTENCES never “Label: value” lines — separated by blank lines, no labels, plain text, no Markdown — then the HEADLINE line last, then STOP. A second or third paragraph exists only if it adds a story the shape line does not already tell; when the shape is the whole story, one paragraph and the HEADLINE is a complete report. Begin directly with your first claim's first sentence — no preamble, nothing before it.",
     );
     b
 }

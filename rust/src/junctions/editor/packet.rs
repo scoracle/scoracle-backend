@@ -603,6 +603,90 @@ pub async fn load_packets_for_entity(
             },
         ));
     }
+
+    // THE CLAIM FENCE (2026-09-06, the Iraola-coaches-Chelsea trail). Storyline MEMBERSHIP is
+    // deliberately broad — a transfer saga rightly places every club with a stake — but
+    // membership was also the READ, so every subject received EVERY claim in the storyline's
+    // packets: Chelsea's Journalist got Liverpool's match reports (storyline 19770 carried
+    // NINE placed teams), and a summarizer told "your beat is Chelsea" bent the foreign facts
+    // onto its beat ("Chelsea 2-0 win over Ipswich… with Liverpool's Andoni Iraola as head
+    // coach", news_summaries 119706). Every downstream voice then repeated it. The prompt rule
+    // ("never turn a story about another club into this entity's story") loses to material
+    // that shouts, so the fence is code (DOCTRINE-directing.md): placement stays broad, the
+    // read narrows.
+    //
+    // A claim reaches this entity's prompt only if its article is TAGGED to the entity
+    // (news_article_entities), or — for a team — tagged to a player/person whose current team
+    // is this team (match reports are routinely tagged to the people in them and to no club:
+    // the Ipswich 0-2 Liverpool report carried Gakpo/Isak/Iraola and neither team). A packet
+    // left with no admitted claims is dropped whole: that story is not this entity's story
+    // this cycle. Stale rosters can still mis-route an article through a player whose
+    // `team_id` lags a move — a freshness defect, not a fence defect.
+    let mut article_ids: Vec<i64> = out
+        .iter()
+        .flat_map(|(v, _)| v.claims.iter().map(|c| c.article_id))
+        .collect();
+    article_ids.sort_unstable();
+    article_ids.dedup();
+    if !article_ids.is_empty() {
+        let admitted: std::collections::HashSet<i64> = sqlx::query(
+            r#"
+            SELECT DISTINCT nae.article_id
+              FROM public.news_article_entities nae
+             WHERE nae.article_id = ANY($1)
+               AND nae.sport = $4
+               AND (
+                     (nae.entity_type = $2 AND nae.entity_id = $3)
+                  OR ($2 = 'team' AND nae.entity_type = 'player' AND nae.entity_id IN (
+                         SELECT p.id FROM public.players p
+                          WHERE p.sport = $4 AND p.team_id = $3))
+                  OR ($2 = 'team' AND nae.entity_type = 'person' AND nae.entity_id IN (
+                         SELECT pe.id FROM public.persons pe
+                          WHERE pe.sport = $4 AND pe.team_id = $3))
+               )
+            "#,
+        )
+        .bind(&article_ids)
+        .bind(entity_type)
+        .bind(entity_id)
+        .bind(sport.to_uppercase())
+        .fetch_all(pool)
+        .await
+        .with_context(|| format!("claim fence for {entity_type} {entity_id}"))?
+        .into_iter()
+        .map(|r| r.get::<i64, _>("article_id"))
+        .collect();
+
+        out = out
+            .into_iter()
+            .filter_map(|(mut view, part)| {
+                let before = view.claims.len();
+                view.claims.retain(|c| admitted.contains(&c.article_id));
+                if view.claims.is_empty() {
+                    tracing::debug!(
+                        packet_id = view.packet_id,
+                        storyline_id = view.storyline_id,
+                        entity_type,
+                        entity_id,
+                        dropped_claims = before,
+                        "claim fence: packet dropped — no claim's article is tagged to this entity"
+                    );
+                    return None;
+                }
+                if view.claims.len() < before {
+                    tracing::debug!(
+                        packet_id = view.packet_id,
+                        entity_type,
+                        entity_id,
+                        kept = view.claims.len(),
+                        dropped = before - view.claims.len(),
+                        "claim fence: foreign claims filtered"
+                    );
+                }
+                Some((view, part))
+            })
+            .collect();
+    }
     Ok(out)
 }
 

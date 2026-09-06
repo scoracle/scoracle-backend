@@ -84,7 +84,7 @@ fn builds_prompt_with_empty_sections() {
     let p = build_sentiment_prompt("player", "Test Player", "NBA", &[], &[], &[], None, None, None);
     assert_eq!(
         p,
-        "Entity: Player Test Player (NBA)\n\nTransfer/trade chatter — the TEMPERATURE only; the wire itself is another desk's card:\n- nothing live — the wire is quiet this cycle\n\nRespond now (SCORE line, then HOOK line, then VIBE line)."
+        "Entity: Player Test Player (NBA)\n\nRespond now (SCORE line, then HOOK line, then VIBE line)."
     );
 }
 
@@ -108,7 +108,7 @@ fn previous_vibe_renders_as_continuity_lead_in() {
         None,
      None);
     assert!(p.starts_with(
-        "Entity: Player Test Player (NBA)\n\n=== PREVIOUS VIBE ===\nScore: 68/100\nQuietly surging into the playoff race.\n\nTransfer/trade chatter"
+        "Entity: Player Test Player (NBA)\n\n=== PREVIOUS VIBE ===\nScore: 68/100\nQuietly surging into the playoff race.\n\nRespond now"
     ));
 }
 
@@ -128,7 +128,7 @@ fn previous_vibe_empty_read_renders_score_only() {
         Some(&previous),
         None,
      None);
-    assert!(p.contains("=== PREVIOUS VIBE ===\nScore: 55/100\n\nTransfer/trade chatter"));
+    assert!(p.contains("=== PREVIOUS VIBE ===\nScore: 55/100\n\nRespond now"));
 }
 
 #[test]
@@ -147,10 +147,9 @@ fn memory_card_renders_between_heat_and_reply_cue() {
     assert!(p.contains("\nRelational memory (computed history"));
     assert!(p.contains("- Prior story: Real Madrid — fizzled"));
     assert!(p.contains("- Ground truth: completed"));
-    let heat_pos = p.find("Transfer/trade chatter").unwrap();
     let mem_pos = p.find("Relational memory").unwrap();
     let cue_pos = p.find("Respond now").unwrap();
-    assert!(heat_pos < mem_pos && mem_pos < cue_pos);
+    assert!(mem_pos < cue_pos);
 }
 
 #[test]
@@ -336,7 +335,7 @@ fn packet_block_renders_above_the_narratives_and_never_on_legacy() {
     let story = packet
         .find("The stories running around them")
         .expect("packet section");
-    let narr = packet.find("Transfer/trade chatter").unwrap();
+    let narr = packet.find("Respond now").unwrap();
     assert!(
         story < narr,
         "the story she reads comes before his write-up of it"
@@ -371,7 +370,7 @@ fn packet_block_depth_is_bounded_in_the_prompt() {
     );
     let p = build_sentiment_prompt("team", "Test FC", "FOOTBALL", &[], &[], &[big], None, None, None);
     let story_at = p.find("STORY: The saga").expect("block renders");
-    let narratives_at = p.find("Transfer/trade chatter").expect("next section renders");
+    let narratives_at = p.find("Respond now").expect("next section renders");
     assert!(
         narratives_at - story_at <= PACKET_BLOCK_TRUNCATE + 8,
         "block spent {} chars, allowance is {}",
@@ -398,7 +397,7 @@ fn packet_block_depth_is_bounded_in_the_prompt() {
 
 /// v22: the Insider's ledger must not reach the Influencer — only its temperature.
 #[test]
-fn the_wire_reaches_her_as_temperature_never_as_a_ledger() {
+fn the_wire_never_reaches_her_at_all() {
     let heat = vec![
         HeatItem {
             counterparty: "Tottenham Hotspur".to_string(),
@@ -428,10 +427,11 @@ fn the_wire_reaches_her_as_temperature_never_as_a_ledger() {
         None,
      None);
 
-    // The temperature, in words, with the departure signal her SCORE anchors rely on.
+    // v27, the feeds matrix: the wire aggregate is GONE too — Editor-only in. The heat
+    // param still arrives (loaders/hash, transitional) and must render NOTHING.
     assert!(
-        p.contains("- loud — 2 live threads, movement both ways"),
-        "the wire's temperature must reach her: {p}"
+        !p.contains("Transfer/trade chatter") && !p.contains("live threads"),
+        "the wire aggregate must no longer reach her: {p}"
     );
 
     // ...and not one line of the Insider's card. Before v22 this prompt rendered

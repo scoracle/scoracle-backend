@@ -546,6 +546,20 @@ impl StageHandler for EditorHandler {
                 "editor link write failed (read already persisted; continuing)"
             );
         }
+        // The team-tag harvest (2026-09-06, the story-cascade prerequisite): the read names
+        // PEOPLE, and the clubs live in its own descriptors and key facts ("Liverpool head
+        // coach", "Liverpool won 2-0 against Ipswich") — measured on 7 days of match reports,
+        // only 4.4% carried a team tag while the club names sat in the read text the whole
+        // time. Code resolves them deterministically; no contract change, no re-read.
+        if read.relevant {
+            if let Err(e) = harvest_team_links(&hx.pool, article_id, &item.sport, &read).await {
+                tracing::warn!(
+                    article_id,
+                    error = %format!("{e:#}"),
+                    "team-tag harvest failed (links already written; continuing)"
+                );
+            }
+        }
         if let Err(e) = enqueue_graph_for_article(&hx.pool, article_id, &item.sport).await {
             tracing::warn!(
                 article_id,
@@ -640,6 +654,68 @@ async fn write_links(
     }
 
     tx.commit().await.context("commit editor link write")?;
+    Ok(())
+}
+
+/// harvest_team_links resolves CLUB surfaces out of the read's key facts and name descriptors
+/// — the deterministic half of the tag work (the story-cascade prerequisite, 2026-09-06).
+///
+/// The derive contract asks the model to NAME the people; the clubs arrive as context in the
+/// descriptors ("Liverpool head coach") and the key facts ("Liverpool won 2-0 against
+/// Ipswich"), so the resolver never saw them and match reports went team-tagless (measured:
+/// 51 of 1,147 scoreline articles over 7 days carried a team tag). Everything downstream
+/// keys on these tags — the claim fence, factsweep's corroboration, every per-entity story
+/// derivation — so this is the cascade's root fertilizer.
+///
+/// Deterministic and fail-closed: a club links only when its NAME (or an alias longer than
+/// three characters) appears word-bounded in the harvest text the model itself wrote. Regex
+/// metacharacters in names are escaped; short alias junk is excluded by the length floor.
+/// Additive only — never deletes what the resolver wrote; idempotent via the anti-join.
+async fn harvest_team_links(
+    pool: &sqlx::PgPool,
+    article_id: i64,
+    sport: &str,
+    read: &EditorRead,
+) -> Result<()> {
+    let mut harvest = String::new();
+    for f in &read.key_facts {
+        harvest.push_str(f);
+        harvest.push('\n');
+    }
+    for n in &read.names {
+        harvest.push_str(&n.descriptor);
+        harvest.push('\n');
+    }
+    if harvest.trim().is_empty() {
+        return Ok(());
+    }
+    sqlx::query(
+        r#"
+        INSERT INTO public.news_article_entities (article_id, entity_type, entity_id, sport)
+        SELECT DISTINCT $1, 'team', t.id, $2
+          FROM public.teams t
+         WHERE t.sport = $2
+           AND (
+                 $3 ~* ('\m' || regexp_replace(t.name, '([^[:alnum:] ])', '\\\1', 'g') || '\M')
+              OR EXISTS (
+                    SELECT 1 FROM unnest(COALESCE(t.search_aliases, '{}')) AS a(alias)
+                     WHERE length(a.alias) > 3
+                       AND $3 ~* ('\m' || regexp_replace(a.alias, '([^[:alnum:] ])', '\\\1', 'g') || '\M')
+                 )
+           )
+           AND NOT EXISTS (
+                 SELECT 1 FROM public.news_article_entities nae
+                  WHERE nae.article_id = $1 AND nae.entity_type = 'team'
+                    AND nae.entity_id = t.id AND nae.sport = $2
+           )
+        "#,
+    )
+    .bind(article_id)
+    .bind(sport.to_uppercase())
+    .bind(&harvest)
+    .execute(pool)
+    .await
+    .with_context(|| format!("harvest team links for article {article_id}"))?;
     Ok(())
 }
 

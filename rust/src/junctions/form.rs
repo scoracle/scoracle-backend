@@ -64,6 +64,26 @@ pub const WIRE_COPY: &str = r#"WRITE LIKE WIRE COPY. Short, declarative sentence
 /// The tarot-card fit block. `front` and `back` are the seat's own nouns for what the fan
 /// sees first and what they turn the card over for — e.g. `("HOOK", "a VIBE")` or
 /// `("HEADLINE", "the report")`.
+/// The shared HEADLINE contract — THE TWITTER RULE as ONE const (the uniform-structure pass,
+/// Scott 2026-09-06: *"We need a uniform mechanical structure across all characters. The unique
+/// aspect of each junction should just be the individual voice, not the structure of the
+/// output."*). Before this, six seats carried near-copies with drifted wording; the mechanics
+/// live here now and can never drift again.
+///
+/// `label` is the seat's slot name exactly as its reply transport spells it ("HEADLINE",
+/// "HOOK", "`headline`"); `about` is the one clause the seat owns — what its headline is a
+/// headline OF ("the sharpest claim from your READ", "your one-line read of the WHOLE wire").
+pub fn headline_contract(label: &str, about: &str) -> String {
+    format!(
+        "{label}: the card's hook — write it as a tweet. 140 characters at most, and shorter \
+         lands harder. Present tense, no caps-lock. State an opinion and earn the tap: this \
+         entity's name, exactly as the material gives it, inside {about} — a headline about any \
+         other name is a defect and is dropped, and never a compressed summary of everything \
+         you wrote. Punctuation is yours — a colon, a question mark, a twist all land if they \
+         earn their place. The one thing it may not do is run past the card."
+    )
+}
+
 pub fn card_face(front: &str, back: &str) -> String {
     format!(
         "THE CARD IS A TAROT CARD. Everything you write has to fit on its face: a {front} the \

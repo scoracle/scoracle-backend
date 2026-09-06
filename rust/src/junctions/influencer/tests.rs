@@ -84,7 +84,7 @@ fn builds_prompt_with_empty_sections() {
     let p = build_sentiment_prompt("player", "Test Player", "NBA", &[], &[], &[], None, None, None);
     assert_eq!(
         p,
-        "Entity: Player Test Player (NBA)\n\nNarratives forming around them (ordered by relevance/topic heat; impact in brackets):\n- (none this cycle)\n\nTransfer/trade chatter — the TEMPERATURE only; the wire itself is another desk's card:\n- nothing live — the wire is quiet this cycle\n\nRespond now (SCORE line, then HOOK line, then VIBE line)."
+        "Entity: Player Test Player (NBA)\n\nTransfer/trade chatter — the TEMPERATURE only; the wire itself is another desk's card:\n- nothing live — the wire is quiet this cycle\n\nRespond now (SCORE line, then HOOK line, then VIBE line)."
     );
 }
 
@@ -108,7 +108,7 @@ fn previous_vibe_renders_as_continuity_lead_in() {
         None,
      None);
     assert!(p.starts_with(
-        "Entity: Player Test Player (NBA)\n\n=== PREVIOUS VIBE ===\nScore: 68/100\nQuietly surging into the playoff race.\n\nNarratives forming"
+        "Entity: Player Test Player (NBA)\n\n=== PREVIOUS VIBE ===\nScore: 68/100\nQuietly surging into the playoff race.\n\nTransfer/trade chatter"
     ));
 }
 
@@ -128,7 +128,7 @@ fn previous_vibe_empty_read_renders_score_only() {
         Some(&previous),
         None,
      None);
-    assert!(p.contains("=== PREVIOUS VIBE ===\nScore: 55/100\n\nNarratives forming"));
+    assert!(p.contains("=== PREVIOUS VIBE ===\nScore: 55/100\n\nTransfer/trade chatter"));
 }
 
 #[test]
@@ -336,7 +336,7 @@ fn packet_block_renders_above_the_narratives_and_never_on_legacy() {
     let story = packet
         .find("The stories running around them")
         .expect("packet section");
-    let narr = packet.find("Narratives forming around them").unwrap();
+    let narr = packet.find("Transfer/trade chatter").unwrap();
     assert!(
         story < narr,
         "the story she reads comes before his write-up of it"
@@ -371,7 +371,7 @@ fn packet_block_depth_is_bounded_in_the_prompt() {
     );
     let p = build_sentiment_prompt("team", "Test FC", "FOOTBALL", &[], &[], &[big], None, None, None);
     let story_at = p.find("STORY: The saga").expect("block renders");
-    let narratives_at = p.find("Narratives forming").expect("next section renders");
+    let narratives_at = p.find("Transfer/trade chatter").expect("next section renders");
     assert!(
         narratives_at - story_at <= PACKET_BLOCK_TRUNCATE + 8,
         "block spent {} chars, allowance is {}",

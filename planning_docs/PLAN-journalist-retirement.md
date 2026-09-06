@@ -55,10 +55,21 @@ packets are her material whole and alone.
 
 - **Stage 0 — de-dupe (SHIPPED tonight, v26)**: Influencer packets-only. Measure tomorrow:
   do her cards cover the storyline ground the narratives card carried?
-- **Stage 1 — the Editor's desk render**: build the deterministic news payload from packets
-  (Go statement + Rust render reuse); frontend NarrativesCard swaps to it behind the same
-  route. The Journalist still writes (dark) — one release of side-by-side comparison.
-- **Stage 2 — deterministic busyness**: code-compute the score; news board re-ranks.
+- **Stage 1 — stories REPLACE entity narratives** (Scott's refinement, same night: "Since
+  stories are its own output now, maybe that should replace the entity-level narratives.
+  Moves everything narratives related to factual Editorial work. Vibes is just focused on
+  the emotional charge of the stories."): the storyline/packet layer IS the narratives
+  product — no per-entity re-telling in between. Implementation choice, decided here: a
+  DETERMINISTIC RUST WRITER (desk-loop rider), not a Go SQL port — the claim fence and the
+  mixed-story framing scrub live in `load_packets_for_entity`, and the news card must read
+  through the same fence or it re-leaks the cross-entity claims we just killed. The writer
+  renders each entity's fenced packet view (storyline headline where fully-owned, sourced
+  claim lines, cast, per-entity role/impact/trajectory from storyline_entities) into the
+  served product row; Go serves it unchanged in shape where possible so the frontend swap
+  is minimal. The Journalist still writes (dark) — one release of side-by-side.
+- **Stage 2 — deterministic busyness**: code-compute the score from the same tallies the
+  SIGNALS line already does (articles after dedup, distinct sources, packet heat, per-entity
+  impact from storyline_entities); news board re-ranks by it.
 - **Stage 3 — the Oracle's spread**: four cards (or Editor facts line); or-bump.
 - **Stage 4 — the stage retires**: narratives handler unregistered, subscriptions removed,
   `news_summaries` frozen, Influencer's `narratives` param removed end to end (loaders,

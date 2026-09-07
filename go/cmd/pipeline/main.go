@@ -115,6 +115,25 @@ func runData(pool *pgxpool.Pool, dbURL string, season int, logger *slog.Logger) 
 
 	funnel, runErr := dataimport.RunNFL(ctx, pool, season, logger)
 
+	// The football arm (the FPL remap, 2026-09-06). One sport's trouble must
+	// not block the other's fill: FPL failure downgrades the run, never aborts
+	// it, and its funnel folds into the same partial/retry accounting.
+	fplFunnel, fplErr := dataimport.RunFPL(ctx, pool, logger)
+	if fplErr != nil {
+		logger.Error("pipeline data: fpl run failed", "error", fplErr)
+		if runErr == nil {
+			runErr = fplErr
+		}
+	}
+	funnel.Gaps += fplFunnel.Gaps
+	funnel.GapsFilled += fplFunnel.GapsFilled
+	funnel.GapsWaiting += fplFunnel.GapsWaiting
+	funnel.GapsFailed += fplFunnel.GapsFailed
+	funnel.EventPlayers += fplFunnel.EventPlayers
+	funnel.EventTeams += fplFunnel.EventTeams
+	funnel.PlayersUnmatched += fplFunnel.PlayersUnmatched
+	funnel.TeamsUnmatched += fplFunnel.TeamsUnmatched
+
 	status, exit := jobrun.StatusSuccess, 0
 	switch {
 	case runErr != nil:

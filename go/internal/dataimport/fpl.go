@@ -575,11 +575,12 @@ func promoteFPLFixture(ctx context.Context, pool *pgxpool.Pool, res *Resolver,
 			return err
 		}
 		if _, err := tx.Exec(ctx, `
-			INSERT INTO event_box_scores (fixture_id, player_id, team_id, sport, season, league_id, stats, position)
-			VALUES ($1, $2, $3, 'FOOTBALL', $4, $5, $6::jsonb, NULLIF($7, ''))
+			INSERT INTO event_box_scores (fixture_id, player_id, team_id, sport, season, league_id, stats, position, minutes_played)
+			VALUES ($1, $2, $3, 'FOOTBALL', $4, $5, $6::jsonb, NULLIF($7, ''), $8)
 			ON CONFLICT (fixture_id, player_id) DO UPDATE SET
-				team_id = EXCLUDED.team_id, stats = EXCLUDED.stats, position = EXCLUDED.position`,
-			fixtureID, pid, teamID, season, fplLeagueID, string(stats), fplPositions[ln.el.Type]); err != nil {
+				team_id = EXCLUDED.team_id, stats = EXCLUDED.stats, position = EXCLUDED.position,
+				minutes_played = EXCLUDED.minutes_played`,
+			fixtureID, pid, teamID, season, fplLeagueID, string(stats), fplPositions[ln.el.Type], ln.stats["minutes_played"]); err != nil {
 			return fmt.Errorf("event_box_scores player %d: %w", pid, err)
 		}
 		f.EventPlayers++

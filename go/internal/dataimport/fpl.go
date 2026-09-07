@@ -177,16 +177,26 @@ func RunFPL(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) (Funne
 		return f, fmt.Errorf("bootstrap: %w", err)
 	}
 
-	// Teams: resolve every FPL club once; the run cannot meaningfully continue
-	// past a club that will not resolve (its fixtures would all mismatch), so
-	// unmatched clubs are counted and their fixtures skipped.
+	// Teams: resolve every FPL club once. A club the house has never seen is
+	// CREATED, not skipped (Scott, 2026-09-06, the Coventry/Hull debug: "when
+	// the newly promoted teams get read, they should be added by automation,
+	// and then stats should flow"). The healthy gate is the source itself —
+	// the league's own bootstrap is the authoritative membership list, a
+	// different evidence class from a name in an article. Creation closes the
+	// growth loop backward too: the club's name surfaces register so the
+	// Editor resolves future mentions, and its rejected news candidates (the
+	// census wall — "coventry city" sat at 105 mentions, "hull city" at 202)
+	// resolve onto the new row.
 	teamByFPL := map[int]int{}
 	for _, t := range boot.Teams {
 		id, err := resolveFPLTeam(ctx, pool, res, t)
 		if err != nil {
-			f.TeamsUnmatched++
-			logger.Warn("dataimport: fpl team unmatched", "fpl_team", t.Name, "error", err)
-			continue
+			id, err = createFPLTeam(ctx, pool, res, t, logger)
+			if err != nil {
+				f.TeamsUnmatched++
+				logger.Warn("dataimport: fpl team unmatched and uncreatable", "fpl_team", t.Name, "error", err)
+				continue
+			}
 		}
 		teamByFPL[t.ID] = id
 	}
@@ -340,6 +350,74 @@ func resolveFPLTeam(ctx context.Context, pool *pgxpool.Pool, res *Resolver, t fp
 		return id, nil
 	}
 	return 0, fmt.Errorf("no house club for %q/%q", t.Name, t.ShortName)
+}
+
+// createFPLTeam mints the club the league feed presented and the house lacks
+// (teams_id_seq, mig 243), then closes the self-growing loop backward:
+// name surfaces register in entity_name_surfaces (the Editor resolves future
+// mentions and the claim fence routes the club's articles), and any news
+// candidates the census walled off resolve onto the new row. Everything in
+// one transaction — a club either fully joins the graph or does not exist.
+func createFPLTeam(ctx context.Context, pool *pgxpool.Pool, res *Resolver, t fplTeam, logger *slog.Logger) (int, error) {
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx)
+
+	fullName := t.Name
+	if alias, ok := fplTeamAliases[t.Name]; ok && alias != "" {
+		fullName = alias
+	}
+	var id int
+	if err := tx.QueryRow(ctx, `
+		INSERT INTO teams (sport, name, short_code, league_id, search_aliases, meta)
+		VALUES ('FOOTBALL', $1, $2, $3, $4,
+		        jsonb_build_object('created_by', 'dataimport-fpl'))
+		RETURNING id`,
+		fullName, t.ShortName, fplLeagueID,
+		[]string{t.Name, t.ShortName}).Scan(&id); err != nil {
+		return 0, fmt.Errorf("create club %q: %w", fullName, err)
+	}
+
+	// Surfaces: the Editor's resolver and the claim fence key on these.
+	for _, surface := range []string{fullName, t.Name, t.ShortName} {
+		if surface == "" {
+			continue
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO entity_name_surfaces (entity_type, entity_id, sport, norm, surface_kind)
+			VALUES ('team', $1, 'FOOTBALL', public.nrm($2),
+			        CASE WHEN $2 = $3 THEN 'name' ELSE 'alias' END)
+			ON CONFLICT DO NOTHING`,
+			id, surface, fullName); err != nil {
+			return 0, fmt.Errorf("club surface %q: %w", surface, err)
+		}
+	}
+
+	// The census candidates that were counting mentions against the wall
+	// resolve onto the club — the news history joins the row it was about.
+	tag, err := tx.Exec(ctx, `
+		UPDATE entity_candidates
+		SET state = 'accepted', resolved_entity_type = 'team', resolved_entity_id = $1,
+		    decided_at = NOW()
+		WHERE sport = 'FOOTBALL' AND state LIKE 'rejected%'
+		  AND norm_name IN (public.nrm($2), public.nrm($3), public.nrm($4))`,
+		id, fullName, t.Name, t.ShortName)
+	if err != nil {
+		return 0, fmt.Errorf("resolve club candidates: %w", err)
+	}
+
+	if err := res.bind(ctx, tx, "team", strconv.Itoa(t.ID), id); err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return 0, err
+	}
+	res.teams[strconv.Itoa(t.ID)] = id
+	logger.Info("dataimport: fpl club created",
+		"club", fullName, "id", id, "candidates_resolved", tag.RowsAffected())
+	return id, nil
 }
 
 // resolveFPLFixture binds an FPL fixture onto the house schedule by (home,

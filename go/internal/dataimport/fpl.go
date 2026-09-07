@@ -33,6 +33,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -786,16 +787,43 @@ func matchFPLPlayer(ctx context.Context, q querier, res *Resolver, el fplElement
 		return commit(id)
 	}
 
-	// 3. First + last token: the middle-names cut.
+	// 3. First + last token: the middle-names cut. NOT splitName — that
+	// returns first + REST, which re-queries the full name verbatim and cut
+	// nothing (the rung that let "Bruno Borges Fernandes" sail past house
+	// "Bruno Fernandes" into a duplicate row, 2026-09-07).
 	first, last := splitName(fullName)
-	if first != "" && last != "" {
+	tokens := strings.Fields(fullName)
+	if len(tokens) >= 3 {
 		if id, err := unique(`
 			SELECT id, COALESCE(team_id, 0) FROM players
 			WHERE sport = 'FOOTBALL' AND public.nrm(name) = public.nrm($1)`,
-			first+" "+last); err != nil {
+			tokens[0]+" "+tokens[len(tokens)-1]); err != nil {
 			return 0, false, err
 		} else if id != 0 {
 			return commit(id)
+		}
+	}
+
+	// 3b. The mononym rung, team-scoped: Brazilian registrations live in the
+	// house as a single token ("Alisson", "Ederson") that no other rung can
+	// reach — the FPL legal name is two tokens and the web name is initialed
+	// ("A.Becker"). A single-token house name equal to the FPL first OR last
+	// token, within the fixture's team, is that player.
+	if teamID != 0 {
+		for _, tok := range []string{first, last} {
+			if tok == "" || strings.Contains(tok, " ") {
+				continue
+			}
+			if id, err := unique(`
+				SELECT id, COALESCE(team_id, 0) FROM players
+				WHERE sport = 'FOOTBALL' AND team_id = $2
+				  AND public.nrm(name) = public.nrm($1)
+				  AND array_length(string_to_array(public.nrm(name), ' '), 1) = 1`,
+				tok, teamID); err != nil {
+				return 0, false, err
+			} else if id != 0 {
+				return commit(id)
+			}
 		}
 	}
 

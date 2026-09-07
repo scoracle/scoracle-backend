@@ -487,7 +487,11 @@ func promoteFPLFixture(ctx context.Context, pool *pgxpool.Pool, res *Resolver,
 			continue
 		}
 		name := ln.el.FirstName + " " + ln.el.SecondName
-		pid, err := matchFPLPlayer(ctx, tx, res, ln.el, name, teamID)
+		pid, created, err := matchFPLPlayer(ctx, tx, res, ln.el, name, teamID)
+		if created {
+			f.PlayersCreated++
+			logger.Info("dataimport: fpl player created", "player", name, "team", teamID)
+		}
 		if err != nil {
 			f.PlayersUnmatched++
 			logger.Warn("dataimport: fpl player unmatched", "player", name, "web", ln.el.WebName, "error", err)
@@ -599,10 +603,10 @@ func promoteFPLFixture(ctx context.Context, pool *pgxpool.Pool, res *Resolver,
 //
 // Each rung takes a UNIQUE hit (team-narrowed when plural) and binds the FPL
 // element id permanently, so the ladder runs once per player ever.
-func matchFPLPlayer(ctx context.Context, q querier, res *Resolver, el fplElement, fullName string, teamID int) (int, error) {
+func matchFPLPlayer(ctx context.Context, q querier, res *Resolver, el fplElement, fullName string, teamID int) (int, bool, error) {
 	ext := strconv.Itoa(el.ID)
 	if id, ok := res.players[ext]; ok {
-		return id, nil
+		return id, false, nil
 	}
 
 	// sawCandidates distinguishes the two failure classes at the end of the
@@ -652,19 +656,19 @@ func matchFPLPlayer(ctx context.Context, q querier, res *Resolver, el fplElement
 		return 0, nil
 	}
 
-	commit := func(id int) (int, error) {
+	commit := func(id int) (int, bool, error) {
 		if err := res.bind(ctx, q, "player", ext, id); err != nil {
-			return 0, err
+			return 0, false, err
 		}
 		res.players[ext] = id
-		return id, nil
+		return id, false, nil
 	}
 
 	// 1. The full name through the house normalizer.
 	if id, err := unique(`
 		SELECT id, COALESCE(team_id, 0) FROM players
 		WHERE sport = 'FOOTBALL' AND public.nrm(name) = public.nrm($1)`, fullName); err != nil {
-		return 0, err
+		return 0, false, err
 	} else if id != 0 {
 		return commit(id)
 	}
@@ -677,7 +681,7 @@ func matchFPLPlayer(ctx context.Context, q querier, res *Resolver, el fplElement
 			JOIN players p ON p.id = s.entity_id AND p.sport = s.sport
 			WHERE s.entity_type = 'player' AND s.sport = 'FOOTBALL'
 			  AND s.norm = public.nrm($1)`, surface); err != nil {
-			return 0, err
+			return 0, false, err
 		} else if id != 0 {
 			return commit(id)
 		}
@@ -692,7 +696,7 @@ func matchFPLPlayer(ctx context.Context, q querier, res *Resolver, el fplElement
 		WHERE sport = 'FOOTBALL'
 		  AND public.nrm($1) LIKE public.nrm(name) || ' %'
 		  AND length(public.nrm(name)) >= 8`, fullName); err != nil {
-		return 0, err
+		return 0, false, err
 	} else if id != 0 {
 		return commit(id)
 	}
@@ -704,7 +708,7 @@ func matchFPLPlayer(ctx context.Context, q querier, res *Resolver, el fplElement
 			SELECT id, COALESCE(team_id, 0) FROM players
 			WHERE sport = 'FOOTBALL' AND public.nrm(name) = public.nrm($1)`,
 			first+" "+last); err != nil {
-			return 0, err
+			return 0, false, err
 		} else if id != 0 {
 			return commit(id)
 		}
@@ -722,7 +726,7 @@ func matchFPLPlayer(ctx context.Context, q querier, res *Resolver, el fplElement
 				  AND (public.nrm(name) = public.nrm($1)
 				       OR public.nrm(name) LIKE '%% ' || public.nrm($1))`,
 				el.WebName, teamID); err != nil {
-				return 0, err
+				return 0, false, err
 			} else if id != 0 {
 				return commit(id)
 			}
@@ -734,14 +738,14 @@ func matchFPLPlayer(ctx context.Context, q querier, res *Resolver, el fplElement
 			  AND (public.nrm(name) = public.nrm($1)
 			       OR public.nrm(name) LIKE '%% ' || public.nrm($1))`,
 			el.WebName); err != nil {
-			return 0, err
+			return 0, false, err
 		} else if id != 0 {
 			return commit(id)
 		}
 	}
 
 	if sawCandidates {
-		return 0, fmt.Errorf("ambiguous house match for %q (%s) — not creating", fullName, el.WebName)
+		return 0, false, fmt.Errorf("ambiguous house match for %q (%s) — not creating", fullName, el.WebName)
 	}
 
 	// Zero candidates anywhere on the ladder: the player does not exist, and
@@ -756,7 +760,7 @@ func matchFPLPlayer(ctx context.Context, q querier, res *Resolver, el fplElement
 		        jsonb_build_object('position_abbreviation', $6::text, 'created_by', 'dataimport-fpl'))
 		RETURNING id`,
 		fullName, first, last, teamID, fplLeagueID, fplPositions[el.Type]).Scan(&id); err != nil {
-		return 0, fmt.Errorf("create player %q: %w", fullName, err)
+		return 0, false, fmt.Errorf("create player %q: %w", fullName, err)
 	}
 	for _, surface := range []string{fullName, el.WebName} {
 		if surface == "" {
@@ -768,14 +772,17 @@ func matchFPLPlayer(ctx context.Context, q querier, res *Resolver, el fplElement
 			        CASE WHEN $2 = $3 THEN 'name' ELSE 'alias' END)
 			ON CONFLICT DO NOTHING`,
 			id, surface, fullName); err != nil {
-			return 0, fmt.Errorf("player surface %q: %w", surface, err)
+			return 0, false, fmt.Errorf("player surface %q: %w", surface, err)
 		}
 	}
 	if _, err := q.Exec(ctx, `
 		INSERT INTO pipeline_work (stage, entity_type, entity_id, sport, status, available_at, updated_at)
 		VALUES ('investigate_entity', 'player', $1, 'FOOTBALL', 'pending', NOW(), NOW())
 		ON CONFLICT (stage, entity_type, entity_id, sport) DO NOTHING`, id); err != nil {
-		return 0, fmt.Errorf("enqueue investigator for player %d: %w", id, err)
+		return 0, false, fmt.Errorf("enqueue investigator for player %d: %w", id, err)
 	}
-	return commit(id)
+	if _, _, err := commit(id); err != nil {
+		return 0, false, err
+	}
+	return id, true, nil
 }

@@ -508,23 +508,27 @@ func promoteFPLFixture(ctx context.Context, pool *pgxpool.Pool, res *Resolver,
 
 // matchFPLPlayer resolves an element to a house player WITHOUT creating: every
 // PL player exists from the seed, so a miss is a normalization event for the
-// funnel. Match by normalized full name, narrowed by team; web_name is the
-// fallback surface (the form many sources carry).
+// funnel. The first live run (2026-09-06) measured why plain equality fails —
+// FPL carries FULL LEGAL names ("Emiliano Martínez Romero", "João Pedro
+// Loureiro da Costa" for the man the house calls Costinha) with diacritics —
+// so matching runs through the HOUSE normalizer (public.nrm, the Editor's own)
+// and a ladder of surfaces:
+//
+//   1. nrm(full name) exact against players.name
+//   2. entity_name_surfaces (the Editor's known-surface registry): full, web
+//   3. first + last token ("Levi Samuels Colwill" → "levi colwill")
+//   4. within the fixture's team: nrm(name) equal to or suffixed by nrm(web)
+//
+// Each rung takes a UNIQUE hit (team-narrowed when plural) and binds the FPL
+// element id permanently, so the ladder runs once per player ever.
 func matchFPLPlayer(ctx context.Context, q querier, res *Resolver, el fplElement, fullName string, teamID int) (int, error) {
 	ext := strconv.Itoa(el.ID)
 	if id, ok := res.players[ext]; ok {
 		return id, nil
 	}
-	nameExpr := fmt.Sprintf(normNameSQL, "name")
-	for _, candidate := range []string{fullName, el.WebName} {
-		norm := normName(candidate)
-		if norm == "" {
-			continue
-		}
-		rows, err := q.Query(ctx, `
-			SELECT id, COALESCE(team_id, 0) FROM players
-			WHERE sport = 'FOOTBALL' AND (`+nameExpr+` = $1 OR $2 = ANY(COALESCE(search_aliases, '{}')))`,
-			norm, candidate)
+
+	unique := func(sql string, args ...any) (int, error) {
+		rows, err := q.Query(ctx, sql, args...)
 		if err != nil {
 			return 0, err
 		}
@@ -542,28 +546,80 @@ func matchFPLPlayer(ctx context.Context, q querier, res *Resolver, el fplElement
 		if err := rows.Err(); err != nil {
 			return 0, err
 		}
-		var id int
 		switch {
 		case len(cands) == 1:
-			id = cands[0].id
+			return cands[0].id, nil
 		case len(cands) > 1:
-			matched := 0
+			id, matched := 0, 0
 			for _, c := range cands {
 				if c.teamID == teamID {
 					id, matched = c.id, matched+1
 				}
 			}
-			if matched != 1 {
-				continue
+			if matched == 1 {
+				return id, nil
 			}
-		default:
-			continue
 		}
+		return 0, nil
+	}
+
+	commit := func(id int) (int, error) {
 		if err := res.bind(ctx, q, "player", ext, id); err != nil {
 			return 0, err
 		}
 		res.players[ext] = id
 		return id, nil
 	}
+
+	// 1. The full name through the house normalizer.
+	if id, err := unique(`
+		SELECT id, COALESCE(team_id, 0) FROM players
+		WHERE sport = 'FOOTBALL' AND public.nrm(name) = public.nrm($1)`, fullName); err != nil {
+		return 0, err
+	} else if id != 0 {
+		return commit(id)
+	}
+
+	// 2. The Editor's surface registry — full name, then the web name.
+	for _, surface := range []string{fullName, el.WebName} {
+		if id, err := unique(`
+			SELECT s.entity_id, COALESCE(p.team_id, 0)
+			FROM entity_name_surfaces s
+			JOIN players p ON p.id = s.entity_id AND p.sport = s.sport
+			WHERE s.entity_type = 'player' AND s.sport = 'FOOTBALL'
+			  AND s.norm = public.nrm($1)`, surface); err != nil {
+			return 0, err
+		} else if id != 0 {
+			return commit(id)
+		}
+	}
+
+	// 3. First + last token: the middle-names cut.
+	first, last := splitName(fullName)
+	if first != "" && last != "" {
+		if id, err := unique(`
+			SELECT id, COALESCE(team_id, 0) FROM players
+			WHERE sport = 'FOOTBALL' AND public.nrm(name) = public.nrm($1)`,
+			first+" "+last); err != nil {
+			return 0, err
+		} else if id != 0 {
+			return commit(id)
+		}
+	}
+
+	// 4. Within the fixture's own team, the web name as the surname surface.
+	if el.WebName != "" && teamID != 0 {
+		if id, err := unique(`
+			SELECT id, COALESCE(team_id, 0) FROM players
+			WHERE sport = 'FOOTBALL' AND team_id = $2
+			  AND (public.nrm(name) = public.nrm($1)
+			       OR public.nrm(name) LIKE '%% ' || public.nrm($1))`,
+			el.WebName, teamID); err != nil {
+			return 0, err
+		} else if id != 0 {
+			return commit(id)
+		}
+	}
+
 	return 0, fmt.Errorf("no house player for %q (%s)", fullName, el.WebName)
 }

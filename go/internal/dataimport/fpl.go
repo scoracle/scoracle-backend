@@ -605,6 +605,14 @@ func matchFPLPlayer(ctx context.Context, q querier, res *Resolver, el fplElement
 		return id, nil
 	}
 
+	// sawCandidates distinguishes the two failure classes at the end of the
+	// ladder: an AMBIGUOUS miss (rows existed, none uniquely resolvable — the
+	// Bruno Fernandes class, where creating would mint a duplicate) funnels;
+	// a ZERO-CANDIDATE miss (the name simply does not exist — a promoted
+	// club's squad) creates from the stat line (Scott, 2026-09-07: "use the
+	// stats payloads to create players and enqueue the investigator for meta
+	// data" — the nflverse existence-comes-from-data rule, ambiguity-gated).
+	sawCandidates := false
 	unique := func(sql string, args ...any) (int, error) {
 		rows, err := q.Query(ctx, sql, args...)
 		if err != nil {
@@ -623,6 +631,9 @@ func matchFPLPlayer(ctx context.Context, q querier, res *Resolver, el fplElement
 		rows.Close()
 		if err := rows.Err(); err != nil {
 			return 0, err
+		}
+		if len(cands) > 0 {
+			sawCandidates = true
 		}
 		switch {
 		case len(cands) == 1:
@@ -729,5 +740,42 @@ func matchFPLPlayer(ctx context.Context, q querier, res *Resolver, el fplElement
 		}
 	}
 
-	return 0, fmt.Errorf("no house player for %q (%s)", fullName, el.WebName)
+	if sawCandidates {
+		return 0, fmt.Errorf("ambiguous house match for %q (%s) — not creating", fullName, el.WebName)
+	}
+
+	// Zero candidates anywhere on the ladder: the player does not exist, and
+	// the stat line is the evidence of existence. Create, register surfaces
+	// (the Editor resolves future mentions), and enqueue the Investigator for
+	// the metadata dossier (dob/photo/aliases — the vetting-seed player grain).
+	// (first/last already split at rung 3.)
+	var id int
+	if err := q.QueryRow(ctx, `
+		INSERT INTO players (sport, name, first_name, last_name, team_id, league_id, meta)
+		VALUES ('FOOTBALL', $1, $2, $3, NULLIF($4, 0), $5,
+		        jsonb_build_object('position_abbreviation', $6::text, 'created_by', 'dataimport-fpl'))
+		RETURNING id`,
+		fullName, first, last, teamID, fplLeagueID, fplPositions[el.Type]).Scan(&id); err != nil {
+		return 0, fmt.Errorf("create player %q: %w", fullName, err)
+	}
+	for _, surface := range []string{fullName, el.WebName} {
+		if surface == "" {
+			continue
+		}
+		if _, err := q.Exec(ctx, `
+			INSERT INTO entity_name_surfaces (entity_type, entity_id, sport, norm, surface_kind)
+			VALUES ('player', $1, 'FOOTBALL', public.nrm($2),
+			        CASE WHEN $2 = $3 THEN 'name' ELSE 'alias' END)
+			ON CONFLICT DO NOTHING`,
+			id, surface, fullName); err != nil {
+			return 0, fmt.Errorf("player surface %q: %w", surface, err)
+		}
+	}
+	if _, err := q.Exec(ctx, `
+		INSERT INTO pipeline_work (stage, entity_type, entity_id, sport, status, available_at, updated_at)
+		VALUES ('investigate_entity', 'player', $1, 'FOOTBALL', 'pending', NOW(), NOW())
+		ON CONFLICT (stage, entity_type, entity_id, sport) DO NOTHING`, id); err != nil {
+		return 0, fmt.Errorf("enqueue investigator for player %d: %w", id, err)
+	}
+	return commit(id)
 }

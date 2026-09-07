@@ -89,6 +89,54 @@ var fplStatKey = map[string]string{
 	"starts":           "lineups",
 }
 
+// The FULL per-gameweek payload (Scott, 2026-09-07: "make sure that we're
+// using the full EPL fantasy data payload") — the live endpoint's flat stats
+// object, safe to attribute per-fixture only when the element played exactly
+// ONE fixture that gameweek (the 99% case; double gameweeks stay explain-only
+// because the flat object is a GW total). Values arrive as numbers AND as
+// strings ("0.32" xG) — toFPLFloat handles both. Identifiers absent here are
+// dropped BY NAME: total_points/in_dreamteam (pure fantasy bookkeeping),
+// mng_* (manager-mode stats).
+var fplFlatStatKey = map[string]string{
+	"minutes":                        "minutes_played",
+	"goals_scored":                   "goals",
+	"assists":                        "assists",
+	"goals_conceded":                 "goals_conceded",
+	"own_goals":                      "own_goals",
+	"penalties_saved":                "penalties_saved",
+	"penalties_missed":               "penalties_missed",
+	"yellow_cards":                   "yellow_cards",
+	"red_cards":                      "red_cards",
+	"saves":                          "saves",
+	"tackles":                        "tackles",
+	"recoveries":                     "ball_recovery",
+	"starts":                         "lineups",
+	"clean_sheets":                   "clean_sheets",
+	"bonus":                          "bonus_points",
+	"bps":                            "bps",
+	"influence":                      "influence",
+	"creativity":                     "creativity",
+	"threat":                         "threat",
+	"ict_index":                      "ict_index",
+	"expected_goals":                 "expected_goals",
+	"expected_assists":               "expected_assists",
+	"expected_goal_involvements":     "expected_goal_involvements",
+	"expected_goals_conceded":        "expected_goals_conceded",
+	"defensive_contribution":         "defensive_contribution",
+	"clearances_blocks_interceptions": "cbi",
+}
+
+func toFPLFloat(v any) (float64, bool) {
+	switch x := v.(type) {
+	case float64:
+		return x, true
+	case string:
+		f, err := strconv.ParseFloat(x, 64)
+		return f, err == nil
+	}
+	return 0, false
+}
+
 var fplPositions = map[int]string{1: "Goalkeeper", 2: "Defender", 3: "Midfielder", 4: "Forward"}
 
 type fplTeam struct {
@@ -128,7 +176,8 @@ type fplExplainStat struct {
 }
 
 type fplLiveElement struct {
-	ID      int `json:"id"`
+	ID    int            `json:"id"`
+	Stats map[string]any `json:"stats"`
 	Explain []struct {
 		Fixture int              `json:"fixture"`
 		Stats   []fplExplainStat `json:"stats"`
@@ -259,11 +308,32 @@ func RunFPL(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) (Funne
 			logger.Warn("dataimport: fpl live fetch failed", "event", event, "error", err)
 			continue
 		}
-		// Per-fixture player stat lines out of the explain blocks.
+		// Per-fixture player stat lines. A single-fixture element takes the
+		// FULL flat payload (xG, xA, ICT, CBI, defensive contribution — the
+		// curated vocabulary of mig 244); a double-gameweek element stays on
+		// the explain blocks, whose per-fixture split is authoritative but
+		// carries only the scoring identifiers.
 		perFixture := map[int][]playerLine{}
 		for _, el := range live.Elements {
 			meta, ok := elementByID[el.ID]
 			if !ok {
+				continue
+			}
+			if len(el.Explain) == 1 && el.Stats != nil {
+				stats := map[string]float64{}
+				for ident, raw := range el.Stats {
+					key, ok := fplFlatStatKey[ident]
+					if !ok {
+						continue
+					}
+					if v, ok := toFPLFloat(raw); ok && v != 0 {
+						stats[key] += v
+					}
+				}
+				if stats["minutes_played"] > 0 {
+					stats["appearances"] = 1
+					perFixture[el.Explain[0].Fixture] = append(perFixture[el.Explain[0].Fixture], playerLine{el: meta, stats: stats})
+				}
 				continue
 			}
 			for _, ex := range el.Explain {
@@ -558,6 +628,20 @@ func promoteFPLFixture(ctx context.Context, pool *pgxpool.Pool, res *Resolver,
 			}
 		}
 		ts["goal_difference"] = float64(goalsFor - goalsAgainst)
+		if goalsAgainst == 0 {
+			ts["clean_sheets"] = 1
+		}
+		// xG for = own players' sum; xG against = the other side's.
+		otherID := homeID
+		if teamID == homeID {
+			otherID = awayID
+		}
+		if v := sums["expected_goals"]; v != 0 {
+			ts["expected_goals_for"] = v
+		}
+		if v := teamSums[otherID]["expected_goals"]; v != 0 {
+			ts["expected_goals_against"] = v
+		}
 		for src, dst := range map[string]string{
 			"yellow_cards": "yellow_cards_total", "red_cards": "red_cards_total",
 			"saves": "saves", "tackles": "tackles", "ball_recovery": "ball_recovery",

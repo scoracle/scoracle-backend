@@ -594,6 +594,20 @@ func matchFPLPlayer(ctx context.Context, q querier, res *Resolver, el fplElement
 		}
 	}
 
+	// 2b. The house name as a PREFIX of the FPL legal name — the biggest
+	// measured class ("Ezri Konsa Ngoyo" → house "Ezri Konsa", "Alejandro
+	// Garnacho Ferreyra" → "Alejandro Garnacho", "Emiliano Martínez Romero" →
+	// "Emiliano Martínez"): FPL appends family names the house drops.
+	if id, err := unique(`
+		SELECT id, COALESCE(team_id, 0) FROM players
+		WHERE sport = 'FOOTBALL'
+		  AND public.nrm($1) LIKE public.nrm(name) || ' %'
+		  AND length(public.nrm(name)) >= 8`, fullName); err != nil {
+		return 0, err
+	} else if id != 0 {
+		return commit(id)
+	}
+
 	// 3. First + last token: the middle-names cut.
 	first, last := splitName(fullName)
 	if first != "" && last != "" {
@@ -607,14 +621,30 @@ func matchFPLPlayer(ctx context.Context, q querier, res *Resolver, el fplElement
 		}
 	}
 
-	// 4. Within the fixture's own team, the web name as the surname surface.
-	if el.WebName != "" && teamID != 0 {
+	// 4. The web name as the surname surface — first within the fixture's
+	// team, then league-wide requiring a GLOBALLY unique hit (the team rung
+	// alone loses to stale team_ids on recent transfers; a unique surname in
+	// the whole football table is safe without one).
+	if el.WebName != "" {
+		if teamID != 0 {
+			if id, err := unique(`
+				SELECT id, COALESCE(team_id, 0) FROM players
+				WHERE sport = 'FOOTBALL' AND team_id = $2
+				  AND (public.nrm(name) = public.nrm($1)
+				       OR public.nrm(name) LIKE '%% ' || public.nrm($1))`,
+				el.WebName, teamID); err != nil {
+				return 0, err
+			} else if id != 0 {
+				return commit(id)
+			}
+		}
 		if id, err := unique(`
 			SELECT id, COALESCE(team_id, 0) FROM players
-			WHERE sport = 'FOOTBALL' AND team_id = $2
+			WHERE sport = 'FOOTBALL'
+			  AND length(public.nrm($1)) >= 6
 			  AND (public.nrm(name) = public.nrm($1)
 			       OR public.nrm(name) LIKE '%% ' || public.nrm($1))`,
-			el.WebName, teamID); err != nil {
+			el.WebName); err != nil {
 			return 0, err
 		} else if id != 0 {
 			return commit(id)

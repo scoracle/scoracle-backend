@@ -404,6 +404,24 @@ The league-scoped route `/api/v1/{sport}/leagues/{leagueId}/team/{id}/results` i
 }
 ```
 
+### Team Identity Colors
+
+`GET /api/v1/{sport}/{entityType}/{id}/meta` includes nullable
+`primary_color` and `secondary_color` fields, each a `#RRGGBB` string.
+Team responses read canonical `public.teams` metadata. Player responses
+inherit the current team's pair through `player_current_identity`, never a
+client-side lookup against an old roster. Unknown palettes return nulls.
+
+The same fields are included in each legacy sport meta/autofill item's
+`meta` object. The canonical pair and its `color_source` provenance are
+stored together on the team row. Page-specific lightening is a client
+presentation concern and does not alter the stored colors.
+
+Migration 251 seeds the 30 NBA and 32 NFL teams from ESPN's published team
+palette fields, with a per-team source URL and sport/id/name identity checks.
+Football remains unseeded until its club palettes are independently verified:
+the provider's alternate colors can represent away kits or placeholders.
+
 ### `GET /api/v1/{sport}/meta`
 
 Legacy sport-wide metadata/search payload. New frontend surfaces should hydrate page islands from dedicated backend endpoints like `/{sport}/{entityType}/{id}/meta`, `/stats`, `/rating`, `/news`, `/transfers`, `/momentum`, and `/sigil`. Do not use this as a new frontend local metadata DB; home search should use `GET /api/v1/entities`.

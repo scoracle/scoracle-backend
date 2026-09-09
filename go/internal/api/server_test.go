@@ -21,6 +21,8 @@ func TestRouteOwnershipSplit(t *testing.T) {
 	}{
 		{name: "bundled profile route removed (O16)", path: "/api/v1/nba/player/1", wantStatus: http.StatusNotFound},
 		{name: "canonical meta route registered", path: "/api/v1/nba/meta", wantStatus: http.StatusServiceUnavailable},
+		{name: "player meta route registered", path: "/api/v1/nba/player/1/meta", wantStatus: http.StatusServiceUnavailable},
+		{name: "team meta route registered", path: "/api/v1/football/team/1/meta", wantStatus: http.StatusServiceUnavailable},
 		{name: "canonical sport health route registered", path: "/api/v1/nba/health", wantStatus: http.StatusServiceUnavailable},
 		{name: "universal entities route registered", path: "/api/v1/entities", wantStatus: http.StatusServiceUnavailable},
 		{name: "universal autofill alias registered", path: "/api/v1/autofill", wantStatus: http.StatusServiceUnavailable},
@@ -33,9 +35,9 @@ func TestRouteOwnershipSplit(t *testing.T) {
 		{name: "league momentum route registered", path: "/api/v1/football/leagues/8/player/1/momentum", wantStatus: http.StatusServiceUnavailable},
 		{name: "canonical team results route registered", path: "/api/v1/nba/team/1/results", wantStatus: http.StatusServiceUnavailable},
 		{name: "league team results route registered", path: "/api/v1/football/leagues/8/team/1/results", wantStatus: http.StatusServiceUnavailable},
-		{name: "player headlines route retired", path: "/api/v1/nba/player/1/headlines", wantStatus: http.StatusNotFound},
-		{name: "team headlines route retired", path: "/api/v1/nba/team/1/headlines", wantStatus: http.StatusNotFound},
-		{name: "football headlines route retired", path: "/api/v1/football/player/1/headlines", wantStatus: http.StatusNotFound},
+		{name: "player week headlines route registered", path: "/api/v1/nba/player/1/headlines", wantStatus: http.StatusServiceUnavailable},
+		{name: "team week headlines route registered", path: "/api/v1/nba/team/1/headlines", wantStatus: http.StatusServiceUnavailable},
+		{name: "football week headlines route registered", path: "/api/v1/football/player/1/headlines", wantStatus: http.StatusServiceUnavailable},
 		{name: "headlines leaderboard route retired", path: "/api/v1/nba/leaderboard/headlines", wantStatus: http.StatusNotFound},
 	}
 

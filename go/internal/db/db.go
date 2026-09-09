@@ -1594,6 +1594,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'first_name', p.first_name, 'last_name', p.last_name, 'image', p.photo_url,
 			'nationality', p.nationality, 'date_of_birth', p.date_of_birth, 'height', p.height, 'weight', p.weight,
 			'position', NULLIF(pci.position, 'Unknown'), 'tier', p.tier,
+			'primary_color', t.primary_color, 'secondary_color', t.secondary_color,
 			'team', CASE WHEN t.id IS NOT NULL THEN json_build_object('id', t.id, 'name', t.name, 'short_code', t.short_code, 'image', t.logo_url) ELSE NULL END
 		) AS meta
 		FROM public.players p
@@ -1604,6 +1605,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		SELECT json_build_object(
 			'entity_type', 'team', 'id', t.id, 'sport', lower(t.sport), 'name', t.name, 'image', t.logo_url,
 			'short_code', t.short_code, 'country', t.country, 'city', t.city, 'venue', t.venue_name,
+			'primary_color', t.primary_color, 'secondary_color', t.secondary_color,
 			'conference', t.conference, 'division', t.division, 'tier', t.tier
 		)
 		FROM public.teams t
@@ -1806,8 +1808,11 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'current_season', (SELECT current_season FROM meta_info),
 			'total_entities', (SELECT total_entities FROM meta_info),
 			'items', COALESCE((
-				SELECT json_agg(row_to_json(t) ORDER BY t.type, t.name)
+				SELECT json_agg(to_jsonb(t) || jsonb_build_object('meta', COALESCE(t.meta, '{}'::jsonb)
+					|| jsonb_build_object('primary_color', team.primary_color, 'secondary_color', team.secondary_color)) ORDER BY t.type, t.name)
 				FROM nba.autofill_entities t
+				LEFT JOIN public.teams team ON team.sport = 'NBA'
+					AND team.id = CASE WHEN t.type = 'team' THEN t.id ELSE t.team_id END
 			), '[]'::json),
 			'stat_definitions', COALESCE((
 				SELECT json_agg(row_to_json(sd) ORDER BY sd.entity_type, sd.sort_order)
@@ -1833,8 +1838,11 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'current_season', (SELECT current_season FROM meta_info),
 			'total_entities', (SELECT total_entities FROM meta_info),
 			'items', COALESCE((
-				SELECT json_agg(row_to_json(t) ORDER BY t.type, t.name)
+				SELECT json_agg(to_jsonb(t) || jsonb_build_object('meta', COALESCE(t.meta, '{}'::jsonb)
+					|| jsonb_build_object('primary_color', team.primary_color, 'secondary_color', team.secondary_color)) ORDER BY t.type, t.name)
 				FROM nfl.autofill_entities t
+				LEFT JOIN public.teams team ON team.sport = 'NFL'
+					AND team.id = CASE WHEN t.type = 'team' THEN t.id ELSE t.team_id END
 			), '[]'::json),
 			'stat_definitions', COALESCE((
 				SELECT json_agg(row_to_json(sd) ORDER BY sd.entity_type, sd.sort_order)
@@ -1861,8 +1869,11 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'current_season', (SELECT current_season FROM meta_info),
 			'total_entities', (SELECT total_entities FROM meta_info),
 			'items', COALESCE((
-				SELECT json_agg(row_to_json(t) ORDER BY t.type, t.name)
+				SELECT json_agg(to_jsonb(t) || jsonb_build_object('meta', COALESCE(t.meta, '{}'::jsonb)
+					|| jsonb_build_object('primary_color', team.primary_color, 'secondary_color', team.secondary_color)) ORDER BY t.type, t.name)
 				FROM football.autofill_entities t
+				LEFT JOIN public.teams team ON team.sport = 'FOOTBALL'
+					AND team.id = CASE WHEN t.type = 'team' THEN t.id ELSE t.team_id END
 				WHERE ($1::int IS NULL OR COALESCE(t.league_id, 0) = $1::int)
 			), '[]'::json),
 			'stat_definitions', COALESCE((

@@ -125,3 +125,25 @@ func TestSportMetaUsesSportScopedAutofillVersions(t *testing.T) {
 		}
 	}
 }
+
+func TestEntityMetaInheritsCanonicalTeamColors(t *testing.T) {
+	srcBytes, err := os.ReadFile("db.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := string(srcBytes)
+	start := strings.Index(src, `"entity_meta":`)
+	end := strings.Index(src[start:], `"entity_stats":`)
+	meta := src[start : start+end]
+	for _, field := range []string{"'primary_color', t.primary_color", "'secondary_color', t.secondary_color"} {
+		if strings.Count(meta, field) != 2 {
+			t.Fatalf("player and team meta must both expose %s", field)
+		}
+	}
+	if !strings.Contains(meta, "LEFT JOIN public.teams t ON t.id = pci.team_id AND t.sport = p.sport") {
+		t.Fatal("player colors must follow current identity, scoped by sport")
+	}
+	if strings.Count(src, "'primary_color', team.primary_color, 'secondary_color', team.secondary_color") != 3 {
+		t.Fatal("all three sport meta/autofill payloads must expose canonical colors")
+	}
+}

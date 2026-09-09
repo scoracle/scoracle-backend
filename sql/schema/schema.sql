@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 7LAJNvs1hDx4NWbeP0ZBfjjJmBiDqC9qZxDqaIbwVhmT6BWz0tFgfJiImWtQc3b
+\restrict njVrzVZUtLKPxeD7dqVW9C993dMfcLCe8Hcgwgdsytc1ltYqQ12lDlUxHhfxEDa
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -74,176 +74,63 @@ COMMENT ON EXTENSION unaccent IS 'text search dictionary that removes accents';
 
 CREATE FUNCTION football.aggregate_player_season(p_player_id integer, p_season integer, p_league_id integer DEFAULT 0) RETURNS jsonb
     LANGUAGE sql STABLE
-    AS $$
+    AS $_$
 WITH raw AS (
-    SELECT stats, minutes_played
+    SELECT stats,
+           COALESCE(minutes_played, (stats->>'minutes_played')::numeric, 0) AS mins
     FROM public.event_box_scores
     WHERE player_id = p_player_id
       AND sport = 'FOOTBALL'
       AND season = p_season
       AND league_id = p_league_id
-      AND COALESCE(minutes_played, 0) > 0
- ),
-agg AS (
-    SELECT
-        COUNT(*)::numeric AS matches_played,
-        SUM(COALESCE(minutes_played, 0)) AS minutes_sum,
-        -- Scoring (from match events)
-        SUM(COALESCE((stats->>'goals')::numeric, 0)) AS goals,
-        SUM(COALESCE((stats->>'assists')::numeric, 0)) AS assists,
-        SUM(COALESCE((stats->>'penalty_goals')::numeric, 0)) AS penalty_goals,
-        SUM(COALESCE((stats->>'penalties_missed')::numeric, 0)) AS penalties_missed,
-        SUM(COALESCE((stats->>'penalties_won')::numeric, 0)) AS penalties_won,
-        SUM(COALESCE((stats->>'expected_goals')::numeric, 0)) AS expected_goals,
-        SUM(COALESCE((stats->>'own_goals')::numeric, 0)) AS own_goals,
-        -- Shooting
-        SUM(COALESCE((stats->>'shots_total')::numeric, 0)) AS shots_total,
-        SUM(COALESCE((stats->>'shots_on_target')::numeric, 0)) AS shots_on_target,
-        SUM(COALESCE((stats->>'shots_off_target')::numeric, 0)) AS shots_off_target,
-        SUM(COALESCE((stats->>'shots_blocked')::numeric, 0)) AS shots_blocked,
-        SUM(COALESCE((stats->>'hit_woodwork')::numeric, 0)) AS hit_woodwork,
-        SUM(COALESCE((stats->>'big_chances_missed')::numeric, 0)) AS big_chances_missed,
-        -- Passing
-        SUM(COALESCE((stats->>'passes_total')::numeric, 0)) AS passes_total,
-        SUM(COALESCE((stats->>'passes_accurate')::numeric, 0)) AS passes_accurate,
-        SUM(COALESCE((stats->>'key_passes')::numeric, 0)) AS key_passes,
-        SUM(COALESCE((stats->>'big_chances_created')::numeric, 0)) AS big_chances_created,
-        SUM(COALESCE((stats->>'chances_created')::numeric, 0)) AS chances_created,
-        SUM(COALESCE((stats->>'crosses_total')::numeric, 0)) AS crosses_total,
-        SUM(COALESCE((stats->>'crosses_accurate')::numeric, 0)) AS crosses_accurate,
-        SUM(COALESCE((stats->>'long_balls')::numeric, 0)) AS long_balls,
-        SUM(COALESCE((stats->>'long_balls_won')::numeric, 0)) AS long_balls_won,
-        SUM(COALESCE((stats->>'through_balls')::numeric, 0)) AS through_balls,
-        SUM(COALESCE((stats->>'backward_passes')::numeric, 0)) AS backward_passes,
-        SUM(COALESCE((stats->>'passes_in_final_third')::numeric, 0)) AS passes_in_final_third,
-        -- Defensive
-        SUM(COALESCE((stats->>'tackles')::numeric, 0)) AS tackles,
-        SUM(COALESCE((stats->>'tackles_won')::numeric, 0)) AS tackles_won,
-        SUM(COALESCE((stats->>'interceptions')::numeric, 0)) AS interceptions,
-        SUM(COALESCE((stats->>'clearances')::numeric, 0)) AS clearances,
-        SUM(COALESCE((stats->>'blocks')::numeric, 0)) AS blocks,
-        -- Duels & dribbling
-        SUM(COALESCE((stats->>'duels_total')::numeric, 0)) AS duels_total,
-        SUM(COALESCE((stats->>'duels_won')::numeric, 0)) AS duels_won,
-        SUM(COALESCE((stats->>'duels_lost')::numeric, 0)) AS duels_lost,
-        SUM(COALESCE((stats->>'aerials')::numeric, 0)) AS aerials,
-        SUM(COALESCE((stats->>'aeriels_won')::numeric, 0)) AS aeriels_won,
-        SUM(COALESCE((stats->>'aeriels_lost')::numeric, 0)) AS aeriels_lost,
-        SUM(COALESCE((stats->>'dribbles_attempts')::numeric, 0)) AS dribbles_attempts,
-        SUM(COALESCE((stats->>'dribbles_success')::numeric, 0)) AS dribbles_success,
-        SUM(COALESCE((stats->>'dribbled_past')::numeric, 0)) AS dribbled_past,
-        SUM(COALESCE((stats->>'dispossessed')::numeric, 0)) AS dispossessed,
-        SUM(COALESCE((stats->>'possession_lost')::numeric, 0)) AS possession_lost,
-        SUM(COALESCE((stats->>'turn_over')::numeric, 0)) AS turnovers,
-        -- Through balls, errors, penalties, extras
-        SUM(COALESCE((stats->>'through_balls_won')::numeric, 0)) AS through_balls_won,
-        SUM(COALESCE((stats->>'error_lead_to_shot')::numeric, 0)) AS error_lead_to_shot,
-        SUM(COALESCE((stats->>'error_lead_to_goal')::numeric, 0)) AS error_lead_to_goal,
-        SUM(COALESCE((stats->>'last_man_tackle')::numeric, 0)) AS last_man_tackle,
-        SUM(COALESCE((stats->>'clearance_offline')::numeric, 0)) AS clearance_offline,
-        SUM(COALESCE((stats->>'penalties_committed')::numeric, 0)) AS penalties_committed,
-        SUM(COALESCE((stats->>'penalties_scored')::numeric, 0)) AS penalties_scored,
-        SUM(COALESCE((stats->>'offsides_provoked')::numeric, 0)) AS offsides_provoked,
-        SUM(COALESCE((stats->>'yellowred_cards')::numeric, 0)) AS yellowred_cards,
-        SUM(COALESCE((stats->>'man_of_match')::numeric, 0)) AS motm_awards,
-        AVG(NULLIF((stats->>'rating')::numeric, 0)) AS rating_avg,
-        -- General
-        SUM(COALESCE((stats->>'touches')::numeric, 0)) AS touches,
-        SUM(COALESCE((stats->>'ball_recovery')::numeric, 0)) AS ball_recovery,
-        -- Discipline
-        SUM(COALESCE((stats->>'yellow_cards')::numeric, 0)) AS yellow_cards,
-        SUM(COALESCE((stats->>'red_cards')::numeric, 0)) AS red_cards,
-        SUM(COALESCE((stats->>'fouls_committed')::numeric, 0)) AS fouls_committed,
-        SUM(COALESCE((stats->>'fouls_drawn')::numeric, 0)) AS fouls_drawn,
-        SUM(COALESCE((stats->>'offsides')::numeric, 0)) AS offsides,
-        -- Goalkeeper
-        SUM(COALESCE((stats->>'saves')::numeric, 0)) AS saves,
-        SUM(COALESCE((stats->>'saves_insidebox')::numeric, 0)) AS saves_insidebox,
-        SUM(COALESCE((stats->>'goals_conceded')::numeric, 0)) AS goals_conceded,
-        SUM(COALESCE((stats->>'punches')::numeric, 0)) AS punches,
-        SUM(COALESCE((stats->>'good_high_claim')::numeric, 0)) AS good_high_claim,
-        SUM(COALESCE((stats->>'penalties_saved')::numeric, 0)) AS penalties_saved
-    FROM raw
+),
+played AS (SELECT * FROM raw WHERE mins > 0),
+meta AS (
+    SELECT COUNT(*)::numeric AS matches, COALESCE(SUM(mins), 0) AS minutes FROM played
+),
+sums AS (
+    SELECT kv.key,
+           CASE WHEN kv.key ~ '(_pct|percentage|accuracy|rate)$'
+                THEN AVG(kv.value::numeric)
+                ELSE SUM(kv.value::numeric)
+           END AS total
+    FROM played, jsonb_each_text(stats) AS kv(key, value)
+    WHERE kv.value ~ '^-?[0-9]+(\.[0-9]+)?$'
+    GROUP BY kv.key
+),
+base AS (
+    SELECT COALESCE(jsonb_object_agg(key,
+               CASE WHEN ROUND(total, 2) = trunc(total)
+                    THEN to_jsonb(total::bigint)
+                    ELSE to_jsonb(ROUND(total, 2)) END), '{}'::jsonb) AS obj
+    FROM sums
+),
+derived AS (
+    SELECT COALESCE(jsonb_object_agg(d.key_name, to_jsonb(ROUND(
+               CASE WHEN d.key_name LIKE '%\_per\_90'
+                    THEN s.total * 90.0 / NULLIF(m.minutes, 0)
+                    ELSE s.total / NULLIF(m.matches, 0)
+               END, 2))), '{}'::jsonb) AS obj
+    FROM sums s
+    CROSS JOIN meta m
+    JOIN public.stat_definitions d
+      ON d.sport = 'FOOTBALL' AND d.entity_type = 'player' AND d.is_derived
+     AND (d.key_name = s.key || '_per_90' OR d.key_name = s.key || '_per_game')
+    WHERE m.minutes > 0
 )
 SELECT CASE
-    WHEN matches_played = 0 THEN '{}'::jsonb
+    WHEN m.matches = 0 THEN '{}'::jsonb
     ELSE jsonb_strip_nulls(
-        jsonb_build_object(
-            'appearances', matches_played::int,
-            'lineups', matches_played::int,
-            'minutes_played', ROUND(minutes_sum, 1),
-            'goals', goals::int,
-            'assists', assists::int,
-            'penalty_goals', CASE WHEN penalty_goals > 0 THEN penalty_goals::int END,
-            'penalties_missed', CASE WHEN penalties_missed > 0 THEN penalties_missed::int END,
-            'penalties_won', CASE WHEN penalties_won > 0 THEN penalties_won::int END,
-            'expected_goals', ROUND(expected_goals, 2),
-            'own_goals', CASE WHEN own_goals > 0 THEN own_goals::int END,
-            'shots_total', shots_total::int,
-            'shots_on_target', shots_on_target::int,
-            'shots_off_target', shots_off_target::int,
-            'shots_blocked', shots_blocked::int,
-            'hit_woodwork', CASE WHEN hit_woodwork > 0 THEN hit_woodwork::int END,
-            'big_chances_missed', CASE WHEN big_chances_missed > 0 THEN big_chances_missed::int END,
-            'passes_total', passes_total::int,
-            'passes_accurate', passes_accurate::int,
-            'key_passes', key_passes::int,
-            'big_chances_created', CASE WHEN big_chances_created > 0 THEN big_chances_created::int END,
-            'chances_created', chances_created::int,
-            'crosses_total', crosses_total::int,
-            'crosses_accurate', crosses_accurate::int
-        ) || jsonb_build_object(
-            'long_balls', long_balls::int,
-            'long_balls_won', long_balls_won::int,
-            'through_balls', CASE WHEN through_balls > 0 THEN through_balls::int END,
-            'backward_passes', backward_passes::int,
-            'passes_in_final_third', passes_in_final_third::int,
-            'tackles', tackles::int,
-            'tackles_won', tackles_won::int,
-            'interceptions', interceptions::int,
-            'clearances', clearances::int,
-            'blocks', blocks::int,
-            'duels_total', duels_total::int,
-            'duels_won', duels_won::int,
-            'duels_lost', duels_lost::int,
-            'aerials', aerials::int,
-            'aeriels_won', aeriels_won::int,
-            'aeriels_lost', aeriels_lost::int,
-            'dribbles_attempts', dribbles_attempts::int,
-            'dribbles_success', dribbles_success::int,
-            'dribbled_past', dribbled_past::int,
-            'dispossessed', dispossessed::int,
-            'possession_lost', possession_lost::int,
-            'turnovers', turnovers::int,
-            'touches', touches::int,
-            'ball_recovery', ball_recovery::int,
-            'yellow_cards', yellow_cards::int,
-            'red_cards', CASE WHEN red_cards > 0 THEN red_cards::int END,
-            'yellowred_cards', CASE WHEN yellowred_cards > 0 THEN yellowred_cards::int END,
-            'fouls_committed', fouls_committed::int,
-            'fouls_drawn', fouls_drawn::int,
-            'penalties_committed', CASE WHEN penalties_committed > 0 THEN penalties_committed::int END,
-            'penalties_scored', CASE WHEN penalties_scored > 0 THEN penalties_scored::int END,
-            'through_balls_won', CASE WHEN through_balls_won > 0 THEN through_balls_won::int END,
-            'error_lead_to_shot', CASE WHEN error_lead_to_shot > 0 THEN error_lead_to_shot::int END,
-            'error_lead_to_goal', CASE WHEN error_lead_to_goal > 0 THEN error_lead_to_goal::int END,
-            'last_man_tackle', CASE WHEN last_man_tackle > 0 THEN last_man_tackle::int END,
-            'clearance_offline', CASE WHEN clearance_offline > 0 THEN clearance_offline::int END,
-            'offsides', offsides::int,
-            'offsides_provoked', CASE WHEN offsides_provoked > 0 THEN offsides_provoked::int END,
-            'motm_awards', CASE WHEN motm_awards > 0 THEN motm_awards::int END,
-            'rating_avg', CASE WHEN rating_avg IS NOT NULL THEN ROUND(rating_avg, 2) END,
-            'saves', CASE WHEN saves > 0 THEN saves::int END,
-            'saves_insidebox', CASE WHEN saves_insidebox > 0 THEN saves_insidebox::int END,
-            'goals_conceded', goals_conceded::int,
-            'punches', CASE WHEN punches > 0 THEN punches::int END,
-            'good_high_claim', CASE WHEN good_high_claim > 0 THEN good_high_claim::int END,
-            'penalties_saved', CASE WHEN penalties_saved > 0 THEN penalties_saved::int END
-        )
-    )
+        b.obj
+        || COALESCE(d.obj, '{}'::jsonb)
+        || jsonb_build_object(
+               'appearances', m.matches::int,
+               'minutes_played', ROUND(m.minutes, 1))
+        || CASE WHEN b.obj ? 'lineups' THEN '{}'::jsonb
+                ELSE jsonb_build_object('lineups', m.matches::int) END)
 END
-FROM agg;
-$$;
+FROM meta m, base b LEFT JOIN derived d ON true
+$_$;
 
 
 --
@@ -252,254 +139,40 @@ $$;
 
 CREATE FUNCTION football.aggregate_team_season(p_team_id integer, p_season integer, p_league_id integer DEFAULT 0) RETURNS jsonb
     LANGUAGE sql STABLE
-    AS $$
-WITH agg AS (
-    SELECT
-        COUNT(*)::numeric AS matches_played,
-        SUM(CASE WHEN opp.score IS NOT NULL AND ets.score > opp.score THEN 1 ELSE 0 END)::numeric AS wins,
-        SUM(CASE WHEN opp.score IS NOT NULL AND ets.score < opp.score THEN 1 ELSE 0 END)::numeric AS losses,
-        SUM(CASE WHEN opp.score IS NOT NULL AND ets.score = opp.score THEN 1 ELSE 0 END)::numeric AS draws,
-        SUM(COALESCE(ets.score, 0))::numeric AS gf_sum,
-        SUM(COALESCE(opp.score, 0))::numeric AS ga_sum,
-        SUM(
-            CASE
-                WHEN f.home_team_id = ets.team_id THEN CASE WHEN opp.score IS NOT NULL AND ets.score > opp.score THEN 1 ELSE 0 END
-                ELSE 0
-            END
-        )::numeric AS home_won,
-        SUM(
-            CASE
-                WHEN f.home_team_id = ets.team_id THEN CASE WHEN opp.score IS NOT NULL AND ets.score = opp.score THEN 1 ELSE 0 END
-                ELSE 0
-            END
-        )::numeric AS home_draw,
-        SUM(
-            CASE
-                WHEN f.home_team_id = ets.team_id THEN CASE WHEN opp.score IS NOT NULL AND ets.score < opp.score THEN 1 ELSE 0 END
-                ELSE 0
-            END
-        )::numeric AS home_lost,
-        SUM(
-            CASE
-                WHEN f.away_team_id = ets.team_id THEN CASE WHEN opp.score IS NOT NULL AND ets.score > opp.score THEN 1 ELSE 0 END
-                ELSE 0
-            END
-        )::numeric AS away_won,
-        SUM(
-            CASE
-                WHEN f.away_team_id = ets.team_id THEN CASE WHEN opp.score IS NOT NULL AND ets.score = opp.score THEN 1 ELSE 0 END
-                ELSE 0
-            END
-        )::numeric AS away_draw,
-        SUM(
-            CASE
-                WHEN f.away_team_id = ets.team_id THEN CASE WHEN opp.score IS NOT NULL AND ets.score < opp.score THEN 1 ELSE 0 END
-                ELSE 0
-            END
-        )::numeric AS away_lost,
-        SUM(CASE WHEN f.home_team_id = ets.team_id THEN COALESCE(ets.score, 0) ELSE 0 END)::numeric AS home_scored,
-        SUM(CASE WHEN f.home_team_id = ets.team_id THEN COALESCE(opp.score, 0) ELSE 0 END)::numeric AS home_conceded,
-        SUM(CASE WHEN f.away_team_id = ets.team_id THEN COALESCE(ets.score, 0) ELSE 0 END)::numeric AS away_scored,
-        SUM(CASE WHEN f.away_team_id = ets.team_id THEN COALESCE(opp.score, 0) ELSE 0 END)::numeric AS away_conceded,
-        SUM(CASE WHEN f.home_team_id = ets.team_id THEN 1 ELSE 0 END)::numeric AS home_played,
-        SUM(CASE WHEN f.away_team_id = ets.team_id THEN 1 ELSE 0 END)::numeric AS away_played,
-        SUM(COALESCE((ets.stats->>'fouls')::numeric, 0))                  AS fouls_committed,
-        SUM(COALESCE((ets.stats->>'yellow_cards')::numeric, 0))           AS yellow_cards_total,
-        SUM(COALESCE((ets.stats->>'red_cards')::numeric, 0))              AS red_cards_total,
-        SUM(COALESCE((ets.stats->>'fouls_drawn')::numeric, 0))            AS fouls_drawn,
-        SUM(COALESCE((ets.stats->>'penalties_committed')::numeric, 0))    AS penalties_committed,
-        SUM(COALESCE((ets.stats->>'penalties_won')::numeric, 0))          AS penalties_won,
-        SUM(COALESCE((ets.stats->>'tackles')::numeric, 0))                AS tackles,
-        SUM(COALESCE((ets.stats->>'tackles_won')::numeric, 0))            AS tackles_won,
-        SUM(COALESCE((ets.stats->>'interceptions')::numeric, 0))          AS interceptions,
-        SUM(COALESCE((ets.stats->>'clearances')::numeric, 0))             AS clearances,
-        SUM(COALESCE((ets.stats->>'blocked_shots')::numeric, 0))          AS blocked_shots,
-        SUM(COALESCE((ets.stats->>'ball_recovery')::numeric, 0))          AS ball_recovery,
-        SUM(COALESCE((ets.stats->>'dispossessed')::numeric, 0))           AS dispossessed,
-        SUM(COALESCE((ets.stats->>'possession_lost')::numeric, 0))        AS possession_lost,
-        SUM(COALESCE((ets.stats->>'dribbled_past')::numeric, 0))          AS dribbled_past,
-        SUM(COALESCE((ets.stats->>'passes')::numeric, 0))                 AS passes,
-        SUM(COALESCE((ets.stats->>'accurate_passes')::numeric, 0))        AS accurate_passes,
-        SUM(COALESCE((ets.stats->>'key_passes')::numeric, 0))             AS key_passes,
-        SUM(COALESCE((ets.stats->>'backward_passes')::numeric, 0))        AS backward_passes,
-        SUM(COALESCE((ets.stats->>'passes_in_final_third')::numeric, 0))  AS passes_final_third,
-        SUM(COALESCE((ets.stats->>'long_balls')::numeric, 0))             AS long_balls,
-        SUM(COALESCE((ets.stats->>'long_balls_won')::numeric, 0))         AS long_balls_won,
-        SUM(COALESCE((ets.stats->>'through_balls')::numeric, 0))          AS through_balls,
-        SUM(COALESCE((ets.stats->>'total_crosses')::numeric, 0))          AS total_crosses,
-        SUM(COALESCE((ets.stats->>'accurate_crosses')::numeric, 0))       AS accurate_crosses,
-        SUM(COALESCE((ets.stats->>'shots_total')::numeric, 0))            AS shots_total,
-        SUM(COALESCE((ets.stats->>'shots_on_target')::numeric, 0))        AS shots_on_target,
-        SUM(COALESCE((ets.stats->>'shots_off_target')::numeric, 0))       AS shots_off_target,
-        SUM(COALESCE((ets.stats->>'shots_blocked')::numeric, 0))          AS shots_blocked_by_opp,
-        SUM(COALESCE((ets.stats->>'chances_created')::numeric, 0))        AS chances_created,
-        SUM(COALESCE((ets.stats->>'big_chances_created')::numeric, 0))    AS big_chances_created,
-        SUM(COALESCE((ets.stats->>'big_chances_missed')::numeric, 0))     AS big_chances_missed,
-        SUM(COALESCE((ets.stats->>'dribble_attempts')::numeric, 0))       AS dribble_attempts,
-        SUM(COALESCE((ets.stats->>'successful_dribbles')::numeric, 0))    AS successful_dribbles,
-        SUM(COALESCE((ets.stats->>'total_duels')::numeric, 0))            AS total_duels,
-        SUM(COALESCE((ets.stats->>'duels_won')::numeric, 0))              AS duels_won,
-        SUM(COALESCE((ets.stats->>'duels_lost')::numeric, 0))             AS duels_lost,
-        SUM(COALESCE((ets.stats->>'aerials')::numeric, 0))                AS aerials_total,
-        SUM(COALESCE((ets.stats->>'aeriels_won')::numeric, 0))            AS aerials_won,
-        SUM(COALESCE((ets.stats->>'aeriels_lost')::numeric, 0))           AS aerials_lost,
-        SUM(COALESCE((ets.stats->>'touches')::numeric, 0))                AS touches,
-        SUM(COALESCE((ets.stats->>'turn_over')::numeric, 0))              AS turnovers,
-        SUM(COALESCE((ets.stats->>'offsides')::numeric, 0))               AS offsides,
-        SUM(COALESCE((ets.stats->>'offsides_provoked')::numeric, 0))      AS offsides_provoked,
-        SUM(COALESCE((ets.stats->>'saves')::numeric, 0))                  AS saves,
-        SUM(COALESCE((ets.stats->>'saves_insidebox')::numeric, 0))        AS saves_insidebox,
-        SUM(COALESCE((ets.stats->>'good_high_claim')::numeric, 0))        AS good_high_claim,
-        -- Fixture-level team statistics (SportMonks `statistics` include)
-        AVG(NULLIF((ets.stats->>'possession_pct')::numeric, 0))           AS possession_pct,
-        SUM(COALESCE((ets.stats->>'assists')::numeric, 0))                AS team_assists,
-        SUM(COALESCE((ets.stats->>'goal_attempts')::numeric, 0))          AS goal_attempts,
-        SUM(COALESCE((ets.stats->>'hit_woodwork')::numeric, 0))           AS hit_woodwork,
-        SUM(COALESCE((ets.stats->>'shots_insidebox')::numeric, 0))        AS shots_insidebox,
-        SUM(COALESCE((ets.stats->>'shots_outsidebox')::numeric, 0))       AS shots_outsidebox,
-        SUM(COALESCE((ets.stats->>'successful_headers')::numeric, 0))     AS successful_headers,
-        SUM(COALESCE((ets.stats->>'corners')::numeric, 0))                AS corners,
-        SUM(COALESCE((ets.stats->>'attacks')::numeric, 0))                AS attacks,
-        SUM(COALESCE((ets.stats->>'dangerous_attacks')::numeric, 0))      AS dangerous_attacks,
-        SUM(COALESCE((ets.stats->>'ball_safe')::numeric, 0))              AS ball_safe,
-        SUM(COALESCE((ets.stats->>'goal_kicks')::numeric, 0))             AS goal_kicks,
-        SUM(COALESCE((ets.stats->>'free_kicks')::numeric, 0))             AS free_kicks,
-        SUM(COALESCE((ets.stats->>'throw_ins')::numeric, 0))              AS throw_ins,
-        SUM(COALESCE((ets.stats->>'penalties')::numeric, 0))              AS penalties,
-        SUM(COALESCE((ets.stats->>'injuries')::numeric, 0))               AS injuries,
-        SUM(COALESCE((ets.stats->>'substitutions')::numeric, 0))          AS substitutions,
-        -- Opponent production allowed (other team's box score, same fixture) → defensive suppression.
-        SUM(COALESCE((opp.stats->>'shots_on_target')::numeric, 0))        AS opp_sot_sum,
-        SUM(COALESCE((opp.stats->>'shots_total')::numeric, 0))            AS opp_shots_sum,
-        SUM(COALESCE((opp.stats->>'big_chances_created')::numeric, 0))    AS opp_big_chances_sum,
-        AVG(NULLIF((opp.stats->>'possession_pct')::numeric, 0))           AS opp_possession_pct
-    FROM public.event_team_stats ets
-    JOIN public.fixtures f ON f.id = ets.fixture_id
-    LEFT JOIN public.event_team_stats opp
-        ON opp.fixture_id = ets.fixture_id
-       AND opp.sport = ets.sport
-       AND opp.season = ets.season
-       AND opp.league_id = ets.league_id
-       AND opp.team_id <> ets.team_id
-    WHERE ets.team_id = p_team_id
-      AND ets.sport = 'FOOTBALL'
-      AND ets.season = p_season
-      AND ets.league_id = p_league_id
+    AS $_$
+WITH raw AS (
+    SELECT stats
+    FROM public.event_team_stats
+    WHERE team_id = p_team_id
+      AND sport = 'FOOTBALL'
+      AND season = p_season
+      AND league_id = p_league_id
+),
+meta AS (SELECT COUNT(*)::numeric AS matches FROM raw),
+sums AS (
+    SELECT kv.key,
+           CASE WHEN kv.key ~ '(_pct|percentage|accuracy|rate)$'
+                THEN AVG(kv.value::numeric)
+                ELSE SUM(kv.value::numeric)
+           END AS total
+    FROM raw, jsonb_each_text(stats) AS kv(key, value)
+    WHERE kv.value ~ '^-?[0-9]+(\.[0-9]+)?$'
+    GROUP BY kv.key
+),
+base AS (
+    SELECT COALESCE(jsonb_object_agg(key,
+               CASE WHEN ROUND(total, 2) = trunc(total)
+                    THEN to_jsonb(total::bigint)
+                    ELSE to_jsonb(ROUND(total, 2)) END), '{}'::jsonb) AS obj
+    FROM sums
 )
 SELECT CASE
-    WHEN matches_played = 0 THEN '{}'::jsonb
+    WHEN m.matches = 0 THEN '{}'::jsonb
     ELSE jsonb_strip_nulls(
-        jsonb_build_object(
-            'matches_played', matches_played::int,
-            'wins', wins::int,
-            'draws', draws::int,
-            'losses', losses::int,
-            'goals_for', gf_sum::int,
-            'goals_against', ga_sum::int,
-            'goal_difference', (gf_sum - ga_sum)::int,
-            'points', (wins * 3 + draws)::int,
-            'overall_points', (wins * 3 + draws)::int,
-            'home_played', home_played::int,
-            'home_won', home_won::int,
-            'home_draw', home_draw::int,
-            'home_lost', home_lost::int,
-            'home_scored', home_scored::int,
-            'home_conceded', home_conceded::int,
-            'home_points', (home_won * 3 + home_draw)::int,
-            'away_played', away_played::int,
-            'away_won', away_won::int,
-            'away_draw', away_draw::int,
-            'away_lost', away_lost::int,
-            'away_scored', away_scored::int,
-            'away_conceded', away_conceded::int,
-            'away_points', (away_won * 3 + away_draw)::int,
-            'fouls_committed', fouls_committed::int,
-            'yellow_cards_total', yellow_cards_total::int,
-            'red_cards_total', red_cards_total::int,
-            'fouls_drawn', fouls_drawn::int,
-            'penalties_committed', penalties_committed::int,
-            'penalties_won', penalties_won::int,
-            'tackles', tackles::int,
-            'tackles_won', tackles_won::int,
-            'tackles_won_percentage', CASE WHEN tackles > 0 THEN ROUND(tackles_won / tackles * 100, 2) END,
-            'interceptions', interceptions::int,
-            'clearances', clearances::int,
-            'blocked_shots', blocked_shots::int,
-            'ball_recovery', ball_recovery::int,
-            'dispossessed', dispossessed::int,
-            'possession_lost', possession_lost::int,
-            'dribbled_past', dribbled_past::int,
-            'passes', passes::int,
-            'accurate_passes', accurate_passes::int,
-            'pass_accuracy', CASE WHEN passes > 0 THEN ROUND(accurate_passes / passes * 100, 2) END,
-            'key_passes', key_passes::int,
-            'backward_passes', backward_passes::int,
-            'passes_final_third', passes_final_third::int,
-            'long_balls', long_balls::int,
-            'long_balls_won', long_balls_won::int,
-            'long_ball_accuracy', CASE WHEN long_balls > 0 THEN ROUND(long_balls_won / long_balls * 100, 2) END,
-            'through_balls', through_balls::int
-        ) || jsonb_build_object(
-            'total_crosses', total_crosses::int,
-            'accurate_crosses', accurate_crosses::int,
-            'cross_accuracy', CASE WHEN total_crosses > 0 THEN ROUND(accurate_crosses / total_crosses * 100, 2) END,
-            'shots_total', shots_total::int,
-            'shots_on_target', shots_on_target::int,
-            'shots_off_target', shots_off_target::int,
-            'shot_accuracy', CASE WHEN shots_total > 0 THEN ROUND(shots_on_target / shots_total * 100, 2) END,
-            'shots_blocked_by_opp', shots_blocked_by_opp::int,
-            'chances_created', chances_created::int,
-            'big_chances_created', big_chances_created::int,
-            'big_chances_missed', big_chances_missed::int,
-            'dribble_attempts', dribble_attempts::int,
-            'successful_dribbles', successful_dribbles::int,
-            'dribble_success_rate', CASE WHEN dribble_attempts > 0 THEN ROUND(successful_dribbles / dribble_attempts * 100, 2) END,
-            'total_duels', total_duels::int,
-            'duels_won', duels_won::int,
-            'duels_lost', duels_lost::int,
-            'duels_won_percentage', CASE WHEN total_duels > 0 THEN ROUND(duels_won / total_duels * 100, 2) END,
-            'aerials_total', aerials_total::int,
-            'aerials_won', aerials_won::int,
-            'aerials_lost', aerials_lost::int,
-            'aerials_won_percentage', CASE WHEN aerials_total > 0 THEN ROUND(aerials_won / aerials_total * 100, 2) END,
-            'touches', touches::int,
-            'turnovers', turnovers::int,
-            'offsides', offsides::int,
-            'offsides_provoked', offsides_provoked::int,
-            'saves', saves::int,
-            'saves_insidebox', saves_insidebox::int,
-            'good_high_claim', good_high_claim::int
-        ) || jsonb_build_object(
-            'possession_pct', CASE WHEN possession_pct IS NOT NULL THEN ROUND(possession_pct, 2) END,
-            'assists', team_assists::int,
-            'goal_attempts', goal_attempts::int,
-            'hit_woodwork', hit_woodwork::int,
-            'shots_insidebox', shots_insidebox::int,
-            'shots_outsidebox', shots_outsidebox::int,
-            'successful_headers', successful_headers::int,
-            'corners', corners::int,
-            'attacks', attacks::int,
-            'dangerous_attacks', dangerous_attacks::int,
-            'ball_safe', ball_safe::int,
-            'goal_kicks', goal_kicks::int,
-            'free_kicks', free_kicks::int,
-            'throw_ins', throw_ins::int,
-            'penalties', penalties::int,
-            'injuries', injuries::int,
-            'substitutions', substitutions::int,
-            -- Opponent-allowed (defensive suppression, derived from opponent box scores).
-            -- shots_on_target_allowed is the composite −z term (gate-checked distinct, corr ≤0.59
-            -- vs the defensive-action terms); shots_allowed / big_chances_allowed / opp possession
-            -- are display-only.
-            'shots_on_target_allowed', opp_sot_sum::int,
-            'shots_allowed', opp_shots_sum::int,
-            'big_chances_allowed', opp_big_chances_sum::int,
-            'opp_possession_pct', CASE WHEN opp_possession_pct IS NOT NULL THEN ROUND(opp_possession_pct, 2) END
-        )
-    )
+        b.obj || jsonb_build_object('matches_played', m.matches::int))
 END
-FROM agg;
-$$;
+FROM meta m, base b
+$_$;
 
 
 --
@@ -1451,6 +1124,19 @@ CREATE FUNCTION public._compute_rating_bundle(p_sport text, p_season integer, p_
         WHERE sport='FOOTBALL' AND season=p_season AND position='Goalkeeper'
           AND (stats->>'appearances')::numeric >= 15
     ),
+    -- The gate self-scales with the season's progress: half the cohort max,
+    -- never below 1, capped at the configured floor. Early season rates on
+    -- thin evidence rather than not at all; the configured value takes over
+    -- once the cohort has 2x that many appearances.
+    eff AS (
+        SELECT rt.stat_key,
+               LEAST(rt.min_value, GREATEST(1, ceil(0.5 * COALESCE((
+                   SELECT MAX(NULLIF(ps2.stats->>rt.stat_key,'')::numeric)
+                   FROM player_stats ps2
+                   WHERE ps2.sport = p_sport AND ps2.season = p_season), 0)))) AS min_value
+        FROM public.rating_thresholds rt
+        WHERE rt.sport = p_sport
+    ),
     dp AS (
         SELECT ps.player_id, COALESCE(ps.league_id, 0) AS league_id, ps.position,
                tm.conference, tm.division,
@@ -1459,8 +1145,8 @@ CREATE FUNCTION public._compute_rating_bundle(p_sport text, p_season integer, p_
                -- still produce datapoints (for their breakdown); pop/ranks/scoped below
                -- use `WHERE is_ranked` so the rated cohort is unchanged.
                COALESCE((
-                   SELECT bool_and(COALESCE((ps.stats->>rt.stat_key)::numeric, 0) >= rt.min_value)
-                   FROM public.rating_thresholds rt WHERE rt.sport = p_sport
+                   SELECT bool_and(COALESCE((ps.stats->>e.stat_key)::numeric, 0) >= e.min_value)
+                   FROM eff e
                  ), FALSE) AS is_ranked
         FROM player_stats ps
         LEFT JOIN teams tm ON tm.id = ps.team_id AND tm.sport = p_sport
@@ -1486,10 +1172,15 @@ CREATE FUNCTION public._compute_rating_bundle(p_sport text, p_season integer, p_
         FROM dp WHERE is_ranked GROUP BY label
     ),
     z AS (
+        -- p.mean IS NULL = no ranked row carries the label this season (an
+        -- era-dead key). Dropped: an all-tie label percent_ranks everyone to
+        -- 0 and reads as a fabricated liability. Dropped rows contributed
+        -- zr=0, so composites are unchanged.
         SELECT d.player_id, d.league_id, d.position, d.conference, d.division,
                d.label, d.in_comp, d.in_spec, d.sign, d.facet, d.value, d.is_ranked,
                COALESCE((d.value - p.mean) / p.sd, 0) AS zr
         FROM dp d JOIN pop p USING (label)
+        WHERE p.mean IS NOT NULL
     ),
     comp_flat AS (
         SELECT player_id, league_id, SUM(sign * zr) AS composite
@@ -2224,9 +1915,11 @@ BEGIN
         FROM _team_dp GROUP BY label
     ),
     z AS (
+        -- mean IS NULL = era-dead label; see _compute_rating_bundle.
         SELECT d.team_id, d.league_id, d.in_comp, d.sign, d.label,
                COALESCE((d.value - p.mean) / p.sd, 0) AS zr
         FROM _team_dp d JOIN pop p USING (label)
+        WHERE p.mean IS NOT NULL
     ),
     composite AS (
         SELECT team_id, league_id, SUM(sign * zr) AS composite
@@ -2246,6 +1939,7 @@ BEGIN
         SELECT d.team_id, d.league_id, d.label, d.in_comp, d.in_spec, d.sign, d.facet, d.value,
                COALESCE((d.value - p.mean) / p.sd, 0) AS zr
         FROM _team_dp d JOIN pop p USING (label)
+        WHERE p.mean IS NOT NULL
     ),
     scored AS (
         SELECT team_id, league_id, label, in_comp, in_spec, sign, facet, value, zr,
@@ -2290,13 +1984,24 @@ $$;
 CREATE FUNCTION public.compute_transfer_heat(p_team_id integer, p_player_id integer, p_sport text, OUT heat smallint, OUT components jsonb, OUT news_ids bigint[]) RETURNS record
     LANGUAGE sql STABLE
     AS $$
+    SELECT * FROM public.compute_transfer_heat(p_team_id, p_player_id, p_sport, 'player');
+$$;
+
+
+--
+-- Name: compute_transfer_heat(integer, integer, text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.compute_transfer_heat(p_team_id integer, p_subject_id integer, p_sport text, p_subject_type text, OUT heat smallint, OUT components jsonb, OUT news_ids bigint[]) RETURNS record
+    LANGUAGE sql STABLE
+    AS $$
     WITH corpus AS (
         SELECT 'news'::text AS kind, a.id::text AS item_id, a.source AS src, a.published_at AS ts
         FROM news_articles a
         JOIN news_article_entities te ON te.article_id = a.id AND te.entity_type='team'
              AND te.entity_id = p_team_id AND te.sport = p_sport
-        JOIN news_article_entities pe ON pe.article_id = a.id AND pe.entity_type='player'
-             AND pe.entity_id = p_player_id AND pe.sport = p_sport
+        JOIN news_article_entities pe ON pe.article_id = a.id AND pe.entity_type = p_subject_type
+             AND pe.entity_id = p_subject_id AND pe.sport = p_sport
         WHERE a.bucket IS DISTINCT FROM 'non_transfer'
           AND a.published_at > NOW() - INTERVAL '14 days'
     ),
@@ -2430,82 +2135,6 @@ $$;
 --
 
 COMMENT ON FUNCTION public.detect_team_change() IS 'Trigger function that detects when a player appears in box scores for a different team and queues metadata refresh.';
-
-
---
--- Name: enqueue_fixture_boxscore(integer); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.enqueue_fixture_boxscore(p_fixture_id integer) RETURNS boolean
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-    v_sport text;
-    v_status text;
-    v_input_version text;
-BEGIN
-    SELECT sport, status, public.fixture_boxscore_input_version(id)
-      INTO v_sport, v_status, v_input_version
-      FROM public.fixtures
-     WHERE id = p_fixture_id;
-
-    IF v_sport IS NULL THEN
-        RETURN false;
-    END IF;
-    IF v_status NOT IN ('completed', 'seeded') THEN
-        RETURN false;
-    END IF;
-    IF v_input_version IS NULL THEN
-        RETURN false;
-    END IF;
-
-    INSERT INTO public.pipeline_work
-        (stage, entity_type, entity_id, sport, status, input_version, available_at, updated_at)
-    VALUES ('fixture_boxscore', 'fixture', p_fixture_id, v_sport, 'pending',
-            v_input_version, NOW(), NOW())
-    ON CONFLICT (stage, entity_type, entity_id, sport) DO UPDATE SET
-        status        = 'pending',
-        attempts      = 0,
-        -- FIFO preservation (mig 225, mirrors work.rs/work.go).
-        available_at  = CASE WHEN public.pipeline_work.status = 'pending'
-                             THEN public.pipeline_work.available_at
-                             ELSE NOW() END,
-        updated_at    = NOW(),
-        last_error    = NULL,
-        input_version = EXCLUDED.input_version
-    WHERE public.pipeline_work.input_version IS DISTINCT FROM EXCLUDED.input_version
-       OR public.pipeline_work.status = 'failed';
-
-    PERFORM pg_notify('pipeline_work_ready', '');
-    RETURN true;
-END;
-$$;
-
-
---
--- Name: enqueue_fixture_boxscore_on_final(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.enqueue_fixture_boxscore_on_final() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-    IF NEW.status IN ('completed', 'seeded') THEN
-        IF TG_OP = 'INSERT' THEN
-            PERFORM public.enqueue_fixture_boxscore(NEW.id);
-        ELSIF OLD.status IS DISTINCT FROM NEW.status
-           OR OLD.home_score IS DISTINCT FROM NEW.home_score
-           OR OLD.away_score IS DISTINCT FROM NEW.away_score
-           OR OLD.external_id IS DISTINCT FROM NEW.external_id
-           OR OLD.home_team_id IS DISTINCT FROM NEW.home_team_id
-           OR OLD.away_team_id IS DISTINCT FROM NEW.away_team_id
-        THEN
-            PERFORM public.enqueue_fixture_boxscore(NEW.id);
-        END IF;
-    END IF;
-    RETURN NEW;
-END;
-$$;
 
 
 --
@@ -3007,6 +2636,28 @@ $$;
 
 
 --
+-- Name: momentum_week_window(text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.momentum_week_window(p_sport text) RETURNS integer
+    LANGUAGE sql IMMUTABLE PARALLEL SAFE
+    AS $$
+    SELECT CASE upper(p_sport)
+        WHEN 'NBA' THEN 3
+        WHEN 'NFL' THEN 2
+        ELSE 4
+    END;
+$$;
+
+
+--
+-- Name: FUNCTION momentum_week_window(p_sport text); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.momentum_week_window(p_sport text) IS 'The momentum rating lookback in REPORTING WEEKS (mig 242): NBA 3 / NFL 2 / FOOTBALL 4 — season_bridge_window''s ~10%-of-season schedule restated on the season_weeks grid. Weeks without events drop out of the window (the mig 130 bye-week rule).';
+
+
+--
 -- Name: narrative_context_for_entity(text, text, integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -3471,6 +3122,7 @@ CREATE FUNCTION public.position_group(p_sport text, p_position text) RETURNS tex
             WHEN 'Defender'   THEN 'defender'
             WHEN 'Midfielder' THEN 'midfielder'
             WHEN 'Attacker'   THEN 'attacker'
+            WHEN 'Forward'    THEN 'attacker'  -- FPL's word for the same group
             ELSE NULL
         END
         ELSE NULL
@@ -3606,33 +3258,75 @@ CREATE FUNCTION public.rating_datapoints(p_sport text, p_stats jsonb, p_rate_mod
     FROM (SELECT (SELECT rm.suffix FROM public.rate_modes rm
                   WHERE rm.sport = 'FOOTBALL' AND rm.mode = p_rate_mode) AS suffix) rs
     CROSS JOIN LATERAL (VALUES
-        ('Goalscoring',     NULLIF(p_stats->>'goals','')::numeric,            TRUE, TRUE,   1, 'all', 'goals',           'out'),
-        ('Creation',        NULLIF(p_stats->>'assists','')::numeric,          TRUE, TRUE,   1, 'all', 'assists',         'out'),
-        -- Shooting: blended shots + on-target (rate-aware; rate_base NULL = handled inline).
-        ('Shooting',        NULLIF(p_stats->>'shots_on_target','')::numeric,  TRUE, TRUE,   1, 'all', 'shots_on_target', 'out'),
+        ('Goalscoring',     COALESCE(NULLIF(p_stats->>'goals','')::numeric, 0), TRUE, TRUE, 1, 'all', 'goals',           'out'),
+        ('Creation',        COALESCE(NULLIF(p_stats->>'assists','')::numeric, 0), TRUE, TRUE, 1, 'all', 'assists',       'out'),
+        -- Shooting: shots-on-target in the vendor era, xG in the FPL era
+        -- (rate-aware inline; the suffix is '' in total mode so the raw keys
+        -- resolve — rate_base NULL keeps the outer CASE off).
+        ('Shooting',        COALESCE(
+                                NULLIF(p_stats->>('shots_on_target' || COALESCE(rs.suffix,'')),'')::numeric,
+                                NULLIF(p_stats->>('expected_goals'  || COALESCE(rs.suffix,'')),'')::numeric,
+                                NULLIF(p_stats->>'shots_on_target','')::numeric,
+                                NULLIF(p_stats->>'expected_goals','')::numeric, 0),
+                                                                              TRUE, TRUE,   1, 'all', NULL,              'out'),
         ('Passing',         NULLIF(p_stats->>'passes_accurate','')::numeric,  TRUE, TRUE,   1, 'all', 'passes_accurate', 'out'),
-        ('Key Passes',      NULLIF(p_stats->>'key_passes','')::numeric,       TRUE, TRUE,   1, 'all', 'key_passes',      'out'),
+        -- Chance Creation: key passes in the vendor era, xA in the FPL era.
+        ('Chance Creation', COALESCE(
+                                NULLIF(p_stats->>('key_passes'       || COALESCE(rs.suffix,'')),'')::numeric,
+                                NULLIF(p_stats->>('expected_assists' || COALESCE(rs.suffix,'')),'')::numeric,
+                                NULLIF(p_stats->>'key_passes','')::numeric,
+                                NULLIF(p_stats->>'expected_assists','')::numeric, 0),
+                                                                              TRUE, TRUE,   1, 'all', NULL,              'out'),
         ('Dribbling',       NULLIF(p_stats->>'dribbles_success','')::numeric, TRUE, TRUE,   1, 'all', 'dribbles_success','out'),
         ('Duels',           NULLIF(p_stats->>'duels_won','')::numeric,        FALSE, FALSE, 1, 'all', 'duels_won',       'out'),
         ('Tackling',        round(COALESCE(NULLIF(p_stats->>('tackles' || COALESCE(rs.suffix,'')),'')::numeric,
-                                           NULLIF(p_stats->>'tackles','')::numeric)
+                                           NULLIF(p_stats->>'tackles','')::numeric, 0)
                                   * 50.0 / GREATEST(NULLIF(p_stats->>'team_opp_possession','')::numeric, 30), 2),
                                                                               TRUE, TRUE,   1, 'all', NULL,              'out'),
         ('Interceptions',   round(COALESCE(NULLIF(p_stats->>('interceptions' || COALESCE(rs.suffix,'')),'')::numeric,
                                            NULLIF(p_stats->>'interceptions','')::numeric)
                                   * 50.0 / GREATEST(NULLIF(p_stats->>'team_opp_possession','')::numeric, 30), 2),
                                                                               TRUE, TRUE,   1, 'all', NULL,              'out'),
+        -- Defensive Work: FPL's own tackles+CBI+recoveries threshold composite.
+        -- FPL-era-only key, but zero-suppressed within that era, so it 0-fills
+        -- only when the row is demonstrably FPL-shaped (carries appearances +
+        -- an FPL-only sibling key) — a bare NULL would kill the dead-label
+        -- filter for the vendor era.
+        ('Defensive Work',  CASE WHEN p_stats ? 'expected_goals_conceded' OR p_stats ? 'defensive_contribution'
+                                 THEN COALESCE(NULLIF(p_stats->>'defensive_contribution','')::numeric, 0) END,
+                                                                              TRUE, TRUE,   1, 'all', 'defensive_contribution', 'out'),
+        ('CBI',             CASE WHEN p_stats ? 'expected_goals_conceded' OR p_stats ? 'cbi'
+                                 THEN COALESCE(NULLIF(p_stats->>'cbi','')::numeric, 0) END,
+                                                                              FALSE, TRUE,  1, 'all', 'cbi',             'out'),
         ('Clearances',      NULLIF(p_stats->>'clearances','')::numeric,       FALSE, FALSE, 1, 'all', 'clearances',      'out'),
         ('Blocks',          NULLIF(p_stats->>'blocks','')::numeric,           FALSE, FALSE, 1, 'all', 'blocks',          'out'),
-        ('Ball Recovery',   NULLIF(p_stats->>'ball_recovery','')::numeric,    FALSE, FALSE, 1, 'all', 'ball_recovery',   'out'),
+        ('Ball Recovery',   COALESCE(NULLIF(p_stats->>'ball_recovery','')::numeric, 0), FALSE, FALSE, 1, 'all', 'ball_recovery', 'out'),
         ('Drawing Fouls',   NULLIF(p_stats->>'fouls_drawn','')::numeric,      FALSE, FALSE, 1, 'all', 'fouls_drawn',     'out'),
         ('Penalties Won',   NULLIF(p_stats->>'penalties_won','')::numeric,    FALSE, TRUE,  1, 'all', NULL,              'out'),
         ('Possession Lost', NULLIF(p_stats->>'possession_lost','')::numeric,  TRUE, FALSE, -1, 'all', 'possession_lost','out'),
-        ('Shot-Stopping',   NULLIF(p_stats->>'saves','')::numeric,            FALSE, FALSE, 1, 'all', 'saves',           'gk'),
-        ('Goals Prevented', NULLIF(p_stats->>'saves','')::numeric
-                            - (COALESCE(NULLIF(p_stats->>'saves','')::numeric,0) + COALESCE(NULLIF(p_stats->>'goals_conceded','')::numeric,0))
-                              * NULLIF(p_stats->>'league_avg_save_pct','')::numeric / 100.0,
+        -- Cards were captured in both eras but never rated; zero-suppressed
+        -- keys mean absence IS zero here, so COALESCE(,0) is the truth.
+        ('Discipline',      COALESCE(NULLIF(p_stats->>'yellow_cards','')::numeric, 0)
+                          + 3 * COALESCE(NULLIF(p_stats->>'red_cards','')::numeric, 0),
+                                                                              TRUE, FALSE, -1, 'all', NULL,              'out'),
+        ('Shot-Stopping',   COALESCE(NULLIF(p_stats->>'saves','')::numeric, 0), FALSE, FALSE, 1, 'all', 'saves',         'gk'),
+        -- Goals Prevented: xGC minus conceded when the FPL feed carries xGC
+        -- (goals_conceded is zero-suppressed, hence COALESCE inside); the
+        -- vendor league-average-save-pct formula otherwise.
+        ('Goals Prevented', CASE WHEN p_stats ? 'expected_goals_conceded'
+                                 THEN NULLIF(p_stats->>'expected_goals_conceded','')::numeric
+                                      - COALESCE(NULLIF(p_stats->>'goals_conceded','')::numeric, 0)
+                                 ELSE NULLIF(p_stats->>'saves','')::numeric
+                                      - (COALESCE(NULLIF(p_stats->>'saves','')::numeric,0) + COALESCE(NULLIF(p_stats->>'goals_conceded','')::numeric,0))
+                                        * NULLIF(p_stats->>'league_avg_save_pct','')::numeric / 100.0
+                            END,
                                                                               TRUE, TRUE, 1, 'all', NULL, 'gk'),
+        ('Clean Sheets',       CASE WHEN p_stats ? 'expected_goals_conceded' OR p_stats ? 'clean_sheets'
+                                    THEN COALESCE(NULLIF(p_stats->>'clean_sheets','')::numeric, 0) END,
+                                                                                   TRUE, TRUE, 1, 'all', NULL, 'gk'),
+        ('Penalty Saves',      CASE WHEN p_stats ? 'expected_goals_conceded' OR p_stats ? 'penalties_saved'
+                                    THEN COALESCE(NULLIF(p_stats->>'penalties_saved','')::numeric, 0) END,
+                                                                                   FALSE, TRUE, 1, 'all', NULL, 'gk'),
         ('Distribution',       NULLIF(p_stats->>'pass_accuracy','')::numeric,      TRUE, TRUE, 1, 'all', NULL, 'gk'),
         ('Long-Ball Accuracy', NULLIF(p_stats->>'long_ball_accuracy','')::numeric, TRUE, TRUE, 1, 'all', NULL, 'gk')
     ) v(label, raw_value, in_comp, in_spec, sign, facet, rate_base, pos_class)
@@ -3774,15 +3468,26 @@ CREATE FUNCTION public.rating_datapoints_team(p_sport text, p_stats jsonb) RETUR
     SELECT * FROM (VALUES
         ('Goals For',            NULLIF(p_stats->>'goals_for','')::numeric,               TRUE,  TRUE,   1, 'offense'),
         ('Shooting',             NULLIF(p_stats->>'shots_on_target','')::numeric,         TRUE,  TRUE,   1, 'offense'),
-        ('Creation',             NULLIF(p_stats->>'big_chances_created','')::numeric,      TRUE,  TRUE,   1, 'offense'),
+        -- Creation: big chances in the vendor era; the FPL era sums squad assists
+        -- (zero-suppressed, so an FPL-shaped row 0-fills; a vendor row without
+        -- big chances stays NULL for the dead-label filter).
+        ('Creation',             COALESCE(NULLIF(p_stats->>'big_chances_created','')::numeric,
+                                          CASE WHEN p_stats ? 'expected_goals_for'
+                                               THEN COALESCE(NULLIF(p_stats->>'assists','')::numeric, 0) END),
+                                                                                           TRUE,  TRUE,   1, 'offense'),
+        ('xG For',               NULLIF(p_stats->>'expected_goals_for','')::numeric,       TRUE,  TRUE,   1, 'offense'),
         ('Injuries',             NULLIF(p_stats->>'injuries','')::numeric,                TRUE,  FALSE, -1, 'offense'),
         ('Penalties Won',        NULLIF(p_stats->>'penalties_won','')::numeric,           FALSE, FALSE,  1, 'offense'),
         ('Fouls Won',            NULLIF(p_stats->>'fouls_drawn','')::numeric,              FALSE, FALSE,  1, 'offense'),
         ('Possession Lost',      NULLIF(p_stats->>'possession_lost','')::numeric,         TRUE,  FALSE, -1, 'offense'),
         ('Possession %',         NULLIF(p_stats->>'possession_pct','')::numeric,          FALSE, FALSE,  1, 'offense'),
         ('Accurate Passes',      NULLIF(p_stats->>'accurate_passes','')::numeric,         FALSE, FALSE,  1, 'offense'),
-        ('Progression',          COALESCE(NULLIF(p_stats->>'passes_final_third','')::numeric,0)
-                               + COALESCE(NULLIF(p_stats->>'successful_dribbles','')::numeric,0),  TRUE, FALSE,  1, 'offense'),
+        -- Progression: vendor-only sources — no key, no datapoint (a dense 0
+        -- here survives the dead-label filter and draws a zero wedge).
+        ('Progression',          CASE WHEN p_stats ? 'passes_final_third' OR p_stats ? 'successful_dribbles'
+                                      THEN COALESCE(NULLIF(p_stats->>'passes_final_third','')::numeric,0)
+                                         + COALESCE(NULLIF(p_stats->>'successful_dribbles','')::numeric,0)
+                                 END,                                                      TRUE, FALSE,  1, 'offense'),
         ('Tackling',             round(NULLIF(p_stats->>'tackles','')::numeric * 50.0 / GREATEST(NULLIF(p_stats->>'opp_possession_pct','')::numeric, 30)),                 TRUE,  TRUE,   1, 'defense'),
         ('Interceptions',        round(NULLIF(p_stats->>'interceptions','')::numeric * 50.0 / GREATEST(NULLIF(p_stats->>'opp_possession_pct','')::numeric, 30)),           TRUE,  TRUE,   1, 'defense'),
         ('Clearances',           NULLIF(p_stats->>'clearances','')::numeric,              FALSE, FALSE,   1, 'defense'),
@@ -3790,9 +3495,18 @@ CREATE FUNCTION public.rating_datapoints_team(p_sport text, p_stats jsonb) RETUR
         ('Blocked Shots',        NULLIF(p_stats->>'blocked_shots','')::numeric,           FALSE, FALSE,  1, 'defense'),
         ('Big Chances Allowed',  NULLIF(p_stats->>'big_chances_allowed','')::numeric,      TRUE, FALSE, -1, 'defense'),
         ('Goals Against',        NULLIF(p_stats->>'goals_against','')::numeric,           TRUE, FALSE, -1, 'defense'),
+        ('xG Against',           NULLIF(p_stats->>'expected_goals_against','')::numeric,   TRUE, FALSE, -1, 'defense'),
+        ('Clean Sheets',         CASE WHEN p_stats ? 'expected_goals_for'
+                                      THEN COALESCE(NULLIF(p_stats->>'clean_sheets','')::numeric, 0) END,
+                                                                                           TRUE, TRUE,   1, 'defense'),
         ('Fouls Committed',      NULLIF(p_stats->>'fouls_committed','')::numeric,          FALSE, FALSE, -1, 'defense'),
-        ('Cards',                COALESCE(NULLIF(p_stats->>'yellow_cards_total','')::numeric,0)
-                               + COALESCE(NULLIF(p_stats->>'red_cards_total','')::numeric,0),   TRUE, FALSE, -1, 'defense')
+        -- Cards: zero-suppressed in the FPL era, so absence on an FPL-shaped
+        -- row means a genuinely spotless side — 0-fill it; only a row from an
+        -- era that never captured cards stays NULL for the dead-label filter.
+        ('Cards',                CASE WHEN p_stats ? 'expected_goals_for' OR p_stats ? 'yellow_cards_total' OR p_stats ? 'red_cards_total'
+                                      THEN COALESCE(NULLIF(p_stats->>'yellow_cards_total','')::numeric,0)
+                                         + COALESCE(NULLIF(p_stats->>'red_cards_total','')::numeric,0)
+                                 END,                                                      TRUE, FALSE, -1, 'defense')
     ) v(label, value, in_comp, in_spec, sign, facet) WHERE p_sport = 'FOOTBALL';
 $$;
 
@@ -3806,6 +3520,95 @@ CREATE FUNCTION public.rating_score(p_value numeric, p_mean numeric, p_sd numeri
     AS $$
     SELECT CASE WHEN p_value IS NULL OR p_sd IS NULL OR p_sd = 0 THEN NULL
                 ELSE ROUND(LEAST(99.0, GREATEST(1.0, 50 + 10.0 * (p_value - p_mean) / p_sd))::numeric, 1) END;
+$$;
+
+
+--
+-- Name: rebuild_season_weeks(text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.rebuild_season_weeks(p_sport text) RETURNS integer
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_rows integer := 0;
+    v_clock integer;
+BEGIN
+    SELECT clock_league_id INTO v_clock FROM public.sports WHERE id = p_sport;
+
+    DELETE FROM public.season_weeks WHERE sport = p_sport;
+
+    WITH clock AS (
+        -- The nominated league's own opening day (mig 250). Same >= 30 real-
+        -- population floor as `bound`: a junk cluster never mints a season, and
+        -- a league with a partial fixture import falls through to the old
+        -- rules rather than anchoring the sport on three friendlies.
+        SELECT f.season, MIN(f.start_time) AS opens
+        FROM public.fixtures f
+        WHERE f.sport = p_sport
+          AND v_clock IS NOT NULL
+          AND f.league_id = v_clock
+        GROUP BY f.season
+        HAVING COUNT(*) >= 30
+    ),
+    bound AS (
+        SELECT f.season, MIN(f.start_time) AS opens
+        FROM public.fixtures f
+        WHERE f.sport = p_sport
+          AND EXISTS (SELECT 1 FROM public.entity_external_ids x
+                      WHERE x.entity_type = 'fixture' AND x.entity_id = f.id)
+        GROUP BY f.season
+        HAVING COUNT(*) >= 30
+    ),
+    unbound AS (
+        SELECT f.season, MIN(f.start_time) AS opens
+        FROM public.fixtures f
+        WHERE f.sport = p_sport
+        GROUP BY f.season
+        HAVING COUNT(*) >= 100
+    ),
+    -- Every season any rule can speak for. The FULL OUTER JOIN chain mig 240
+    -- used doesn't extend to a third source without the join keys going
+    -- ambiguous, so the season universe is built once and the three rules are
+    -- LEFT JOINed onto it in priority order.
+    seasons AS (
+        SELECT season FROM clock
+        UNION SELECT season FROM bound
+        UNION SELECT season FROM unbound
+    ),
+    anchors AS (
+        -- The Monday (ET) of the week containing opening day (mig 240),
+        -- where "opening day" is now the CLOCK league's, falling back to the
+        -- schedule-authoritative population and then to all fixtures.
+        SELECT s.season,
+               date_trunc('week',
+                   COALESCE(c.opens, b.opens, u.opens) AT TIME ZONE 'America/New_York')
+                   AT TIME ZONE 'America/New_York' AS opens_at
+        FROM seasons s
+        LEFT JOIN clock   c ON c.season = s.season
+        LEFT JOIN bound   b ON b.season = s.season
+        LEFT JOIN unbound u ON u.season = s.season
+    ),
+    spans AS (
+        SELECT season, opens_at,
+               COALESCE(LEAD(opens_at) OVER (ORDER BY season),
+                        opens_at + interval '53 weeks') AS closes_at
+        FROM anchors
+    ),
+    weeks AS (
+        SELECT s.season,
+               gs.n::integer AS week_no,
+               s.opens_at + (gs.n - 1) * interval '7 days' AS starts_at
+        FROM spans s
+        CROSS JOIN LATERAL generate_series(1, 60) gs(n)
+        WHERE s.opens_at + (gs.n - 1) * interval '7 days' < s.closes_at
+    )
+    INSERT INTO public.season_weeks (sport, season, week_no, starts_at, ends_at)
+    SELECT p_sport, season, week_no, starts_at, starts_at + interval '7 days'
+    FROM weeks;
+    GET DIAGNOSTICS v_rows = ROW_COUNT;
+    RETURN v_rows;
+END;
 $$;
 
 
@@ -4458,6 +4261,130 @@ $$;
 
 
 --
+-- Name: reconcile_narrative_persons(text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.reconcile_narrative_persons(p_sport text) RETURNS TABLE(linked integer, nominated integer)
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_linked integer := 0;
+    v_nominated integer := 0;
+BEGIN
+    -- (1) LINK: unique verified-surface match on the one normalizer (mig 198:
+    -- the database owns nrm()). Ambiguous names (two verified persons sharing a
+    -- normalized name) stay unlinked — the Investigator's resolve-to-existing is
+    -- the only judge of that tie, and it gets the case via step 2.
+    UPDATE public.narrative_persons p
+       SET person_id = m.person_id, updated_at = NOW()
+      FROM (
+        SELECT np.id AS np_id, MIN(ens.entity_id) AS person_id
+          FROM public.narrative_persons np
+          JOIN public.entity_name_surfaces ens
+            ON ens.entity_type = 'person'
+           AND (ens.sport = p_sport OR ens.sport IS NULL)
+           AND ens.norm = public.nrm(np.name)
+         WHERE np.sport = p_sport
+           AND np.status = 'active'
+           AND np.merged_into IS NULL
+           AND np.person_id IS NULL
+         GROUP BY np.id
+        HAVING COUNT(DISTINCT ens.entity_id) = 1
+      ) m
+     WHERE p.id = m.np_id;
+    GET DIAGNOSTICS v_linked = ROW_COUNT;
+
+    -- (2) NOMINATE the still-unlinked actives through the standing path. Mirrors
+    -- candidates.rs::nominate_one exactly: same key, same kind_hint COALESCE, same
+    -- 30-day reopen; evidence rows dedupe on (candidate_id, article_id) so the
+    -- nightly rerun is a no-op once carried. The enqueue mirrors work::enqueue
+    -- (mig 225 FIFO preservation: a pending row keeps its place in line).
+    WITH nominees AS (
+        SELECT np.id, np.name, np.kind, np.team_id
+          FROM public.narrative_persons np
+         WHERE np.sport = p_sport
+           AND np.status = 'active'
+           AND np.merged_into IS NULL
+           AND np.person_id IS NULL
+    ),
+    upserted AS (
+        INSERT INTO public.entity_candidates
+            (idempotency_key, norm_name, kind_hint, sport, state, first_seen_at, last_seen_at)
+        SELECT DISTINCT ON (public.nrm(n.name))
+               lower(p_sport) || ':' || public.nrm(n.name), public.nrm(n.name),
+               'person', p_sport, 'pending', NOW(), NOW()
+          FROM nominees n
+         ORDER BY public.nrm(n.name), n.id
+        ON CONFLICT (idempotency_key) DO UPDATE SET
+            last_seen_at = NOW(),
+            kind_hint = COALESCE(public.entity_candidates.kind_hint, EXCLUDED.kind_hint),
+            state = CASE
+                WHEN public.entity_candidates.state NOT IN ('pending', 'accepted')
+                 AND public.entity_candidates.decided_at IS NOT NULL
+                 AND public.entity_candidates.decided_at < NOW() - interval '30 days'
+                THEN 'pending'
+                ELSE public.entity_candidates.state
+            END
+        RETURNING id, norm_name, state
+    ),
+    evidence AS (
+        INSERT INTO public.candidate_mentions
+            (candidate_id, article_id, quote, editor_descriptor, observed_at)
+        SELECT u.id, m.article_id, NULL,
+               n.kind || COALESCE(', ' || t.name, ''),
+               NOW()
+          FROM upserted u
+          JOIN nominees n ON public.nrm(n.name) = u.norm_name
+          JOIN public.narrative_person_mentions m
+            ON m.person_id = n.id AND m.sport = p_sport
+          LEFT JOIN public.teams t
+            ON t.id = n.team_id AND t.sport = p_sport
+        ON CONFLICT (candidate_id, article_id) DO NOTHING
+        RETURNING candidate_id
+    ),
+    counted AS (
+        UPDATE public.entity_candidates c
+           SET mention_count = c.mention_count + e.n
+          FROM (SELECT candidate_id, COUNT(*) AS n FROM evidence GROUP BY 1) e
+         WHERE c.id = e.candidate_id
+        RETURNING c.id
+    ),
+    enq AS (
+        INSERT INTO public.pipeline_work
+            (stage, entity_type, entity_id, sport, status, input_version, available_at, updated_at)
+        SELECT 'investigate_entity', 'candidate', u.id, p_sport, 'pending', NULL, NOW(), NOW()
+          FROM upserted u
+         WHERE u.state = 'pending'
+        ON CONFLICT (stage, entity_type, entity_id, sport) DO UPDATE SET
+            status       = 'pending',
+            attempts     = 0,
+            available_at = CASE WHEN public.pipeline_work.status = 'pending'
+                                THEN public.pipeline_work.available_at
+                                ELSE NOW() END,
+            updated_at   = NOW(),
+            last_error   = NULL
+        WHERE public.pipeline_work.status = 'failed'
+        RETURNING entity_id
+    )
+    SELECT COUNT(*)::integer INTO v_nominated FROM enq;
+
+    IF v_nominated > 0 THEN
+        PERFORM pg_notify('pipeline_work_ready', '');
+    END IF;
+
+    RETURN QUERY SELECT v_linked, v_nominated;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION reconcile_narrative_persons(p_sport text); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.reconcile_narrative_persons(p_sport text) IS 'The mig 234 bridge, nightly after promote_narrative_persons (cron-narrative-links.sh): link active graph figures to verified persons on a unique surface match; nominate the rest into the standing Investigator path with their graph evidence carried as candidate_mentions. Acceptance writes the surfaces that make the next night''s link succeed — the loop closes itself.';
+
+
+--
 -- Name: record_transfer_identity_adjudication_failure(text, integer, integer, integer, bigint, bigint, smallint, numeric, text, text, text, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -4626,6 +4553,135 @@ COMMENT ON FUNCTION public.refresh_co_mention_links(p_sport text, p_window_days 
 
 
 --
+-- Name: refresh_dynamic_entities(text, integer); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.refresh_dynamic_entities(p_sport text, p_limit integer DEFAULT 25) RETURNS TABLE(persons_reopened integer, players_enqueued integer, teams_enqueued integer)
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_persons integer := 0;
+    v_players integer := 0;
+    v_teams   integer := 0;
+BEGIN
+    -- Persons: reopen the accepted candidate; the standing 5.2 enqueue conditions are
+    -- met by construction (accepted candidates all carried mentions), so the reopened
+    -- row re-enters the queue through the same INSERT the other classes use below.
+    WITH due AS (
+        SELECT c.id
+        FROM public.entity_candidates c
+        WHERE c.sport = p_sport
+          AND c.state = 'accepted'
+          AND c.resolved_entity_type = 'person'
+          AND c.decided_at < NOW() - interval '30 days'
+          AND EXISTS (
+              SELECT 1 FROM public.news_article_entities ne
+              WHERE ne.entity_type = 'person' AND ne.entity_id = c.resolved_entity_id
+                AND ne.sport = p_sport AND ne.created_at > NOW() - interval '7 days')
+        ORDER BY c.decided_at
+        LIMIT p_limit
+    ),
+    reopened AS (
+        UPDATE public.entity_candidates c
+           SET state = 'pending', last_seen_at = NOW()
+          FROM due WHERE c.id = due.id
+        RETURNING c.id
+    ),
+    enq AS (
+        INSERT INTO public.pipeline_work
+            (stage, entity_type, entity_id, sport, status, input_version, available_at, updated_at)
+        SELECT 'investigate_entity', 'candidate', r.id, p_sport, 'pending', NULL, NOW(), NOW()
+          FROM reopened r
+        ON CONFLICT (stage, entity_type, entity_id, sport) DO UPDATE SET
+            status = 'pending', attempts = 0,
+            available_at = CASE WHEN public.pipeline_work.status = 'pending'
+                                THEN public.pipeline_work.available_at ELSE NOW() END,
+            updated_at = NOW(), last_error = NULL
+        WHERE public.pipeline_work.status = 'failed'
+        RETURNING entity_id
+    )
+    SELECT COUNT(*)::integer INTO v_persons FROM enq;
+
+    -- Players: the existing enrichment grain, clocked.
+    WITH due AS (
+        SELECT p.id
+        FROM public.players p
+        WHERE p.sport = p_sport
+          AND COALESCE((p.meta->>'investigated_at')::timestamptz, 'epoch'::timestamptz)
+              < NOW() - interval '30 days'
+          AND EXISTS (
+              SELECT 1 FROM public.news_article_entities ne
+              WHERE ne.entity_type = 'player' AND ne.entity_id = p.id
+                AND ne.sport = p_sport AND ne.created_at > NOW() - interval '7 days')
+        ORDER BY COALESCE((p.meta->>'investigated_at')::timestamptz, 'epoch'::timestamptz)
+        LIMIT p_limit
+    ),
+    enq AS (
+        INSERT INTO public.pipeline_work
+            (stage, entity_type, entity_id, sport, status, input_version, available_at, updated_at)
+        SELECT 'investigate_entity', 'player', d.id, p_sport, 'pending', NULL, NOW(), NOW()
+          FROM due d
+        ON CONFLICT (stage, entity_type, entity_id, sport) DO UPDATE SET
+            status = 'pending', attempts = 0,
+            available_at = CASE WHEN public.pipeline_work.status = 'pending'
+                                THEN public.pipeline_work.available_at ELSE NOW() END,
+            updated_at = NOW(), last_error = NULL
+        WHERE public.pipeline_work.status = 'failed'
+        RETURNING entity_id
+    )
+    SELECT COUNT(*)::integer INTO v_players FROM enq;
+
+    -- Teams: only those with a known wikidata handle — enrich_team fetches the KNOWN
+    -- item; a team without one has no team-shaped source and stays as it is.
+    WITH due AS (
+        SELECT t.id
+        FROM public.teams t
+        WHERE t.sport = p_sport
+          AND COALESCE((t.meta->>'investigated_at')::timestamptz, 'epoch'::timestamptz)
+              < NOW() - interval '30 days'
+          AND EXISTS (
+              SELECT 1 FROM public.entity_external_ids x
+              WHERE x.entity_type = 'team' AND x.entity_id = t.id
+                AND x.namespace = 'wikidata')
+          AND EXISTS (
+              SELECT 1 FROM public.news_article_entities ne
+              WHERE ne.entity_type = 'team' AND ne.entity_id = t.id
+                AND ne.sport = p_sport AND ne.created_at > NOW() - interval '7 days')
+        ORDER BY COALESCE((t.meta->>'investigated_at')::timestamptz, 'epoch'::timestamptz)
+        LIMIT p_limit
+    ),
+    enq AS (
+        INSERT INTO public.pipeline_work
+            (stage, entity_type, entity_id, sport, status, input_version, available_at, updated_at)
+        SELECT 'investigate_entity', 'team', d.id, p_sport, 'pending', NULL, NOW(), NOW()
+          FROM due d
+        ON CONFLICT (stage, entity_type, entity_id, sport) DO UPDATE SET
+            status = 'pending', attempts = 0,
+            available_at = CASE WHEN public.pipeline_work.status = 'pending'
+                                THEN public.pipeline_work.available_at ELSE NOW() END,
+            updated_at = NOW(), last_error = NULL
+        WHERE public.pipeline_work.status = 'failed'
+        RETURNING entity_id
+    )
+    SELECT COUNT(*)::integer INTO v_teams FROM enq;
+
+    IF v_persons + v_players + v_teams > 0 THEN
+        PERFORM pg_notify('pipeline_work_ready', '');
+    END IF;
+
+    RETURN QUERY SELECT v_persons, v_players, v_teams;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION refresh_dynamic_entities(p_sport text, p_limit integer); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.refresh_dynamic_entities(p_sport text, p_limit integer) IS 'The mig 236 clock: nightly, evidence-driven re-investigation of news-active entities whose last look is >30 days old — persons via candidate reopen, players/teams via their investigate_entity grains. Leisurely by construction: per-class LIMIT, FIFO queue, the drain sets the pace.';
+
+
+--
 -- Name: refresh_entity_name_surfaces(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -4733,76 +4789,109 @@ BEGIN
         FROM public.sports
         WHERE p_sport IS NULL OR id = upper(p_sport)
     ),
-    -- Vibe window: a plain 21 calendar days. News sentiment flows through the
+    -- The vibe window: the current reporting week + its two predecessors (the
+    -- old 21 calendar days, aligned to the grid). Sentiment flows through the
     -- offseason, so this clock never pauses with the fixture calendar.
+    recent_weeks AS (
+        SELECT sw.sport, sw.season, sw.week_no, sw.starts_at
+        FROM public.season_weeks sw
+        JOIN target_sports ts ON ts.sport = sw.sport
+        WHERE sw.starts_at <= NOW()
+          AND sw.ends_at > NOW() - INTERVAL '21 days'
+    ),
+    vibe_weekly AS (
+        SELECT v.entity_type, v.entity_id, v.sport,
+               rw.starts_at AS wk_start,
+               avg(v.sentiment)::numeric AS wk_avg,
+               count(*)::int AS n,
+               min(v.generated_at) AS wmin,
+               max(v.generated_at) AS wmax
+        FROM public.vibe_scores v
+        JOIN recent_weeks rw
+          ON rw.sport = v.sport AND rw.season = v.week_season AND rw.week_no = v.week_no
+        WHERE v.sentiment IS NOT NULL
+        GROUP BY v.entity_type, v.entity_id, v.sport, rw.starts_at
+    ),
     vibe AS (
         SELECT entity_type, entity_id, sport,
-               ((array_agg(sentiment ORDER BY generated_at DESC))[1]
-                - (array_agg(sentiment ORDER BY generated_at ASC))[1])::numeric AS vibe_slope,
-               count(*)::int AS vibe_samples,
-               min(generated_at) AS vibe_window_start,
-               max(generated_at) AS vibe_window_end
-        FROM public.vibe_scores
-        WHERE sentiment IS NOT NULL
-          AND generated_at > NOW() - INTERVAL '21 days'
-          AND sport IN (SELECT sport FROM target_sports)
+               ((array_agg(wk_avg ORDER BY wk_start DESC))[1]
+                - (array_agg(wk_avg ORDER BY wk_start ASC))[1])::numeric AS vibe_slope,
+               sum(n)::int AS vibe_samples,
+               min(wmin) AS vibe_window_start,
+               max(wmax) AS vibe_window_end
+        FROM vibe_weekly
         GROUP BY entity_type, entity_id, sport
-        HAVING count(*) >= 3
+        HAVING sum(n) >= 3 AND count(*) >= 2
     ),
-    -- Rating lookback: the entity's last season_bridge_window(sport) rated
-    -- games (~10% of the season — the shared mig-025 schedule), across
-    -- (current, previous) seasons so the lookback closes at a season's end
-    -- and resumes at the next season's first game. Game-count, not calendar:
-    -- bye weeks and schedule gaps cannot starve it.
-    player_ranked AS (
+    -- The rating lookback: the entity's last momentum_week_window(sport)
+    -- reporting weeks WITH events, averaged per week, across (current,
+    -- previous) seasons so the lookback closes at a season's end and resumes
+    -- at the next season's first game.
+    player_week AS (
         SELECT e.player_id AS entity_id, e.sport, e.season,
-               e.rating_pct, f.start_time,
-               row_number() OVER (
-                   PARTITION BY e.player_id, e.sport
-                   ORDER BY f.start_time DESC
-               ) AS rn
+               sw.starts_at AS wk_start,
+               avg(e.rating_pct)::numeric AS wk_avg,
+               count(*)::int AS n,
+               min(f.start_time) AS wmin,
+               max(f.start_time) AS wmax
         FROM public.event_box_scores e
         JOIN public.fixtures f ON f.id = e.fixture_id
         JOIN target_sports ts ON ts.sport = e.sport
+        JOIN public.season_weeks sw
+          ON sw.sport = e.sport AND f.start_time >= sw.starts_at AND f.start_time < sw.ends_at
         WHERE e.rating_pct IS NOT NULL
           AND e.season IN (ts.current_season, ts.current_season - 1)
+        GROUP BY e.player_id, e.sport, e.season, sw.starts_at
     ),
-    team_ranked AS (
+    player_ranked AS (
+        SELECT pw.*,
+               row_number() OVER (PARTITION BY pw.entity_id, pw.sport ORDER BY pw.wk_start DESC) AS rn
+        FROM player_week pw
+    ),
+    team_week AS (
         SELECT e.team_id AS entity_id, e.sport, e.season,
-               e.rating_pct, f.start_time,
-               row_number() OVER (
-                   PARTITION BY e.team_id, e.sport
-                   ORDER BY f.start_time DESC
-               ) AS rn
+               sw.starts_at AS wk_start,
+               avg(e.rating_pct)::numeric AS wk_avg,
+               count(*)::int AS n,
+               min(f.start_time) AS wmin,
+               max(f.start_time) AS wmax
         FROM public.event_team_stats e
         JOIN public.fixtures f ON f.id = e.fixture_id
         JOIN target_sports ts ON ts.sport = e.sport
+        JOIN public.season_weeks sw
+          ON sw.sport = e.sport AND f.start_time >= sw.starts_at AND f.start_time < sw.ends_at
         WHERE e.rating_pct IS NOT NULL
           AND e.season IN (ts.current_season, ts.current_season - 1)
+        GROUP BY e.team_id, e.sport, e.season, sw.starts_at
+    ),
+    team_ranked AS (
+        SELECT tw.*,
+               row_number() OVER (PARTITION BY tw.entity_id, tw.sport ORDER BY tw.wk_start DESC) AS rn
+        FROM team_week tw
     ),
     player_rating AS (
         SELECT 'player'::text AS entity_type, pr.entity_id, pr.sport,
                max(pr.season) AS season,
-               ((array_agg(pr.rating_pct ORDER BY pr.start_time DESC))[1]
-                - (array_agg(pr.rating_pct ORDER BY pr.start_time ASC))[1])::numeric AS rating_slope,
-               count(*)::int AS rating_samples,
-               min(pr.start_time) AS rating_window_start,
-               max(pr.start_time) AS rating_window_end
+               ((array_agg(pr.wk_avg ORDER BY pr.wk_start DESC))[1]
+                - (array_agg(pr.wk_avg ORDER BY pr.wk_start ASC))[1])::numeric AS rating_slope,
+               sum(pr.n)::int AS rating_samples,
+               min(pr.wmin) AS rating_window_start,
+               max(pr.wmax) AS rating_window_end
         FROM player_ranked pr
-        WHERE pr.rn <= public.season_bridge_window(pr.sport)
+        WHERE pr.rn <= public.momentum_week_window(pr.sport)
         GROUP BY pr.entity_id, pr.sport
         HAVING count(*) >= 2
     ),
     team_rating AS (
         SELECT 'team'::text AS entity_type, tr.entity_id, tr.sport,
                max(tr.season) AS season,
-               ((array_agg(tr.rating_pct ORDER BY tr.start_time DESC))[1]
-                - (array_agg(tr.rating_pct ORDER BY tr.start_time ASC))[1])::numeric AS rating_slope,
-               count(*)::int AS rating_samples,
-               min(tr.start_time) AS rating_window_start,
-               max(tr.start_time) AS rating_window_end
+               ((array_agg(tr.wk_avg ORDER BY tr.wk_start DESC))[1]
+                - (array_agg(tr.wk_avg ORDER BY tr.wk_start ASC))[1])::numeric AS rating_slope,
+               sum(tr.n)::int AS rating_samples,
+               min(tr.wmin) AS rating_window_start,
+               max(tr.wmax) AS rating_window_end
         FROM team_ranked tr
-        WHERE tr.rn <= public.season_bridge_window(tr.sport)
+        WHERE tr.rn <= public.momentum_week_window(tr.sport)
         GROUP BY tr.entity_id, tr.sport
         HAVING count(*) >= 2
     ),
@@ -5377,6 +5466,51 @@ $$;
 
 
 --
+-- Name: restamp_card_weeks(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.restamp_card_weeks() RETURNS integer
+    LANGUAGE plpgsql
+    AS $_$
+DECLARE
+    t text;
+    v_total integer := 0;
+    v_rows integer;
+BEGIN
+    FOREACH t IN ARRAY ARRAY[
+        'news_summaries', 'vibe_scores', 'insider_scores', 'transfer_rumors',
+        'momentum_summaries', 'stat_summaries', 'sigil_synthesis', 'oracle_readings',
+        'rating_history', 'momentum_scores'
+    ] LOOP
+        EXECUTE format($f$
+            UPDATE public.%I x
+               SET week_season = sw.season, week_no = sw.week_no
+              FROM public.season_weeks sw
+             WHERE sw.sport = x.sport
+               AND x.generated_at >= sw.starts_at AND x.generated_at < sw.ends_at
+               AND (x.week_season IS DISTINCT FROM sw.season
+                    OR x.week_no IS DISTINCT FROM sw.week_no)
+        $f$, t);
+        GET DIAGNOSTICS v_rows = ROW_COUNT;
+        v_total := v_total + v_rows;
+        EXECUTE format($f$
+            UPDATE public.%I x
+               SET week_season = NULL, week_no = NULL
+             WHERE x.week_no IS NOT NULL
+               AND NOT EXISTS (
+                   SELECT 1 FROM public.season_weeks sw
+                   WHERE sw.sport = x.sport
+                     AND x.generated_at >= sw.starts_at AND x.generated_at < sw.ends_at)
+        $f$, t);
+        GET DIAGNOSTICS v_rows = ROW_COUNT;
+        v_total := v_total + v_rows;
+    END LOOP;
+    RETURN v_total;
+END;
+$_$;
+
+
+--
 -- Name: revert_applied_transfer_identity(bigint, text, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -5495,6 +5629,113 @@ $$;
 --
 
 COMMENT ON FUNCTION public.seal_storylines(p_sport text) IS 'Nightly ground-truth resolve for storylines (mig 219; successor to seal_narrative_threads, mig 181): an open storyline with a transfer-flavored member and an applied ground-truth move since it opened resolves, and D5 closes every other active part in the same sweep (winner = the move''s player). Returns the number of storylines resolved. Fading needs no SQL: mark_dormant() (14d, worker) takes a quiet storyline out of the candidate set and the open-only memory card. Cron order: seal_storylines -> promote_established_parts.';
+
+
+--
+-- Name: seal_weeks(text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.seal_weeks(p_sport text) RETURNS TABLE(closing_enqueued integer, weeks_sealed integer)
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_enqueued integer := 0;
+    v_sealed integer := 0;
+    v_week RECORD;
+BEGIN
+    -- (1) The closing pass: the current week, inside its final six hours, not
+    -- yet passed. One pass per week — closing_enqueued_at is the idempotence key.
+    SELECT sw.season, sw.week_no, sw.starts_at, sw.ends_at
+      INTO v_week
+      FROM public.season_weeks sw
+     WHERE sw.sport = p_sport
+       AND NOW() >= sw.ends_at - interval '6 hours'
+       AND NOW() < sw.ends_at
+       AND NOT EXISTS (
+           SELECT 1 FROM public.week_seals ws
+           WHERE ws.sport = p_sport AND ws.week_season = sw.season
+             AND ws.week_no = sw.week_no AND ws.closing_enqueued_at IS NOT NULL)
+     LIMIT 1;
+
+    IF FOUND THEN
+        WITH seats AS (
+            -- Every (stage, entity) that generated inside the closing week. The
+            -- stage names mirror the seat→table map the archive uses.
+            SELECT 'narratives' AS stage, entity_type, entity_id FROM public.news_summaries
+             WHERE sport = p_sport AND week_season = v_week.season AND week_no = v_week.week_no
+            UNION
+            SELECT 'vibe', entity_type, entity_id FROM public.vibe_scores
+             WHERE sport = p_sport AND week_season = v_week.season AND week_no = v_week.week_no
+            UNION
+            SELECT 'transfers', entity_type, entity_id FROM public.insider_scores
+             WHERE sport = p_sport AND week_season = v_week.season AND week_no = v_week.week_no
+            UNION
+            SELECT 'momentum', entity_type, entity_id FROM public.momentum_summaries
+             WHERE sport = p_sport AND week_season = v_week.season AND week_no = v_week.week_no
+            UNION
+            SELECT 'sigil', entity_type, entity_id FROM public.sigil_synthesis
+             WHERE sport = p_sport AND week_season = v_week.season AND week_no = v_week.week_no
+            UNION
+            SELECT 'rating', entity_type, entity_id FROM public.stat_summaries
+             WHERE sport = p_sport AND week_season = v_week.season AND week_no = v_week.week_no
+        ),
+        enq AS (
+            INSERT INTO public.pipeline_work
+                (stage, entity_type, entity_id, sport, status, input_version, available_at, updated_at)
+            SELECT s.stage, s.entity_type, s.entity_id, p_sport, 'pending',
+                   'seal:' || v_week.season || '-' || v_week.week_no, NOW(), NOW()
+              FROM seats s
+             WHERE s.entity_type IN ('player', 'team')
+            ON CONFLICT (stage, entity_type, entity_id, sport) DO UPDATE SET
+                status        = 'pending',
+                attempts      = 0,
+                available_at  = CASE WHEN public.pipeline_work.status = 'pending'
+                                     THEN public.pipeline_work.available_at
+                                     ELSE NOW() END,
+                updated_at    = NOW(),
+                last_error    = NULL,
+                input_version = EXCLUDED.input_version
+            WHERE public.pipeline_work.input_version IS DISTINCT FROM EXCLUDED.input_version
+               OR public.pipeline_work.status = 'failed'
+            RETURNING entity_id
+        )
+        SELECT COUNT(*)::integer INTO v_enqueued FROM enq;
+
+        INSERT INTO public.week_seals (sport, week_season, week_no, closing_enqueued_at, entities_resealed)
+        VALUES (p_sport, v_week.season, v_week.week_no, NOW(), v_enqueued)
+        ON CONFLICT (sport, week_season, week_no) DO UPDATE SET
+            closing_enqueued_at = COALESCE(public.week_seals.closing_enqueued_at, NOW()),
+            entities_resealed   = EXCLUDED.entities_resealed;
+
+        IF v_enqueued > 0 THEN
+            PERFORM pg_notify('pipeline_work_ready', '');
+        END IF;
+    END IF;
+
+    -- (2) The boundary: every fully-elapsed week seals. History and empty weeks
+    -- included — closed is closed.
+    WITH sealed AS (
+        INSERT INTO public.week_seals (sport, week_season, week_no, sealed_at)
+        SELECT sw.sport, sw.season, sw.week_no, NOW()
+          FROM public.season_weeks sw
+         WHERE sw.sport = p_sport AND sw.ends_at <= NOW()
+        ON CONFLICT (sport, week_season, week_no) DO UPDATE SET
+            sealed_at = COALESCE(public.week_seals.sealed_at, NOW())
+        WHERE public.week_seals.sealed_at IS NULL
+        RETURNING 1
+    )
+    SELECT COUNT(*)::integer INTO v_sealed FROM sealed;
+
+    RETURN QUERY SELECT v_enqueued, v_sealed;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION seal_weeks(p_sport text); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.seal_weeks(p_sport text) IS 'The B3 seal, hourly from the Desk: inside a week''s final 6 hours, re-enqueue every seat that generated that week (seal:SEASON-WK input_version; content debounce skips the unchanged); at the boundary, stamp sealed_at for every elapsed week. Idempotent on both phases.';
 
 
 --
@@ -5630,6 +5871,23 @@ $$;
 --
 
 COMMENT ON FUNCTION public.source_reliability_for_pair(p_sport text, p_player_id integer, p_team_id integer) IS 'The measured track record of the sources on one (player, team) pair''s live transfer corpus, as compact prompt lines: for each source shown in the pair''s current News headlines, its GLOBAL per-sport source_performance record — reliability N/100, confirmed/tracked base rate, and early-call count. Sources are the pair''s corpus sources (reuses compute_transfer_heat.news_ids — one corpus definition, no drift); the numbers are each source''s overall record. Ordered most-reliable first, capped at 6. NULL = no corpus source has a measured record. Presented, not gatekept: the transfers voice WEIGHS it for steam vs fizzle, nothing filters by it. Consumed by the transfers prompt builder (t9) — model-facing, never user-facing.';
+
+
+--
+-- Name: stamp_card_week(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.stamp_card_week() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    IF NEW.week_no IS NULL THEN
+        SELECT w.week_season, w.week_no INTO NEW.week_season, NEW.week_no
+        FROM public.week_of(NEW.sport, COALESCE(NEW.generated_at, NOW())) w;
+    END IF;
+    RETURN NEW;
+END;
+$$;
 
 
 --
@@ -5899,6 +6157,8 @@ CREATE FUNCTION public.team_template_block(p_sport text, p_stats jsonb, p_pct js
     LEFT JOIN public.stat_definitions sd
            ON sd.sport = t.sport AND sd.key_name = t.stat_key AND sd.entity_type = 'team'
     WHERE t.sport = upper(p_sport) AND t.position_group = 'team'
+      AND t.variant = CASE WHEN upper(p_sport) = 'FOOTBALL' AND p_stats ? 'expected_goals_for'
+                           THEN 'fpl' ELSE 'vendor' END
     HAVING count(*) > 0;
 $$;
 
@@ -5917,6 +6177,12 @@ CREATE FUNCTION public.template_block(p_sport text, p_position text, p_stats jso
         LEFT JOIN public.stat_definitions sd
                ON sd.sport = t.sport AND sd.key_name = t.stat_key AND sd.entity_type = 'player'
         WHERE t.sport = upper(p_sport) AND t.position_group = public.position_group(p_sport, p_position)
+          -- Era by row shape: seasons are homogeneous, so a row bearing any
+          -- FPL-only bookkeeping key gets the fpl wedges, else the vendor set.
+          AND t.variant = CASE WHEN upper(p_sport) = 'FOOTBALL'
+                                AND (p_stats ? 'expected_goals_conceded' OR p_stats ? 'defensive_contribution'
+                                     OR p_stats ? 'ict_index' OR p_stats ? 'bps')
+                               THEN 'fpl' ELSE 'vendor' END
     ),
     modes(mode, suffix) AS (
         SELECT 'default'::text, ''::text
@@ -5970,6 +6236,21 @@ CREATE FUNCTION public.upsert_fixture(p_external_id integer, p_sport text, p_lea
         seed_delay_hours = EXCLUDED.seed_delay_hours,
         updated_at = NOW()
     RETURNING id;
+$$;
+
+
+--
+-- Name: week_of(text, timestamp with time zone); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.week_of(p_sport text, p_ts timestamp with time zone) RETURNS TABLE(week_season integer, week_no integer)
+    LANGUAGE sql STABLE
+    AS $$
+    SELECT sw.season, sw.week_no
+    FROM public.season_weeks sw
+    WHERE sw.sport = p_sport AND p_ts >= sw.starts_at AND p_ts < sw.ends_at
+    ORDER BY sw.season DESC, sw.week_no DESC
+    LIMIT 1;
 $$;
 
 
@@ -6118,8 +6399,36 @@ CREATE TABLE public.teams (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     tier text DEFAULT 'headliner'::text NOT NULL,
+    primary_color text,
+    secondary_color text,
+    color_source text,
+    CONSTRAINT teams_color_pair CHECK ((num_nonnulls(primary_color, secondary_color) = ANY (ARRAY[0, 2]))),
+    CONSTRAINT teams_color_source_required CHECK (((primary_color IS NULL) OR (NULLIF(btrim(color_source), ''::text) IS NOT NULL))),
+    CONSTRAINT teams_primary_color_hex CHECK ((primary_color ~ '^#[0-9A-Fa-f]{6}$'::text)),
+    CONSTRAINT teams_secondary_color_hex CHECK ((secondary_color ~ '^#[0-9A-Fa-f]{6}$'::text)),
     CONSTRAINT teams_tier_check CHECK ((tier = ANY (ARRAY['headliner'::text, 'starter'::text, 'bench'::text, 'inactive'::text])))
 );
+
+
+--
+-- Name: COLUMN teams.primary_color; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.teams.primary_color IS 'Canonical primary team color as #RRGGBB. Clients may soften it for presentation; never store a page-specific tint here.';
+
+
+--
+-- Name: COLUMN teams.secondary_color; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.teams.secondary_color IS 'Canonical secondary team color as #RRGGBB. Players inherit the colors of their current team through player_current_identity.';
+
+
+--
+-- Name: COLUMN teams.color_source; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.teams.color_source IS 'Provenance for the stored color pair. Unknown colors remain NULL; identity enrichment does not invent palettes.';
 
 
 --
@@ -6537,8 +6846,16 @@ CREATE TABLE public.sports (
     current_season integer NOT NULL,
     is_active boolean DEFAULT true,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    clock_league_id integer
 );
+
+
+--
+-- Name: COLUMN sports.clock_league_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.sports.clock_league_id IS 'The league whose opening day anchors this sport''s reporting calendar (mig 250). NULL for single-competition sports (NBA, NFL), where the sport-wide first fixture already is the league''s opener. Set for multi-league sports so a staggered continental calendar cannot let the earliest league start everyone''s week 1.';
 
 
 --
@@ -7445,6 +7762,25 @@ ALTER SEQUENCE public.entity_external_ids_id_seq OWNED BY public.entity_external
 
 
 --
+-- Name: entity_fact_policy; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.entity_fact_policy (
+    entity_type text NOT NULL,
+    fact_type text NOT NULL,
+    tier text NOT NULL,
+    CONSTRAINT entity_fact_policy_tier_check CHECK ((tier = ANY (ARRAY['evidenced'::text, 'adjudicated'::text])))
+);
+
+
+--
+-- Name: TABLE entity_fact_policy; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.entity_fact_policy IS 'The Investigator''s write permissions (mig 236): which metadata the model may revise, at which tier. evidenced = provenance-contained + superseding; adjudicated = additionally requires the stronger discriminator to agree. A (entity_type, fact_type) ABSENT from this table is FROZEN to model paths — that is the guard: policy, not regex.';
+
+
+--
 -- Name: entity_facts; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -7805,6 +8141,8 @@ CREATE TABLE public.insider_scores (
     input_hash text,
     generated_at timestamp with time zone DEFAULT now() NOT NULL,
     headline text,
+    week_season integer,
+    week_no integer,
     CONSTRAINT insider_scores_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
     CONSTRAINT insider_scores_previous_score_check CHECK (((previous_score IS NULL) OR ((previous_score >= 1) AND (previous_score <= 99)))),
     CONSTRAINT insider_scores_score_check CHECK (((score >= 1) AND (score <= 99)))
@@ -7984,6 +8322,8 @@ CREATE TABLE public.momentum_scores (
     rating_window_end timestamp with time zone,
     momentum_score numeric,
     generated_at timestamp with time zone DEFAULT now() NOT NULL,
+    week_season integer,
+    week_no integer,
     CONSTRAINT momentum_scores_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text])))
 );
 
@@ -8103,6 +8443,8 @@ CREATE TABLE public.momentum_summaries (
     prompt_version text NOT NULL,
     generated_at timestamp with time zone DEFAULT now() NOT NULL,
     headline text,
+    week_season integer,
+    week_no integer,
     CONSTRAINT momentum_summaries_direction_check CHECK (((direction IS NULL) OR (direction = ANY (ARRAY['rising'::text, 'falling'::text, 'steady'::text])))),
     CONSTRAINT momentum_summaries_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
     CONSTRAINT momentum_summaries_score_check CHECK (((score IS NULL) OR ((score >= '-5'::integer) AND (score <= 5))))
@@ -8319,6 +8661,7 @@ CREATE TABLE public.narrative_persons (
     model_version text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    person_id integer,
     CONSTRAINT narrative_persons_kind_check CHECK ((kind = ANY (ARRAY['coach'::text, 'agent'::text, 'executive'::text, 'family'::text, 'other'::text]))),
     CONSTRAINT narrative_persons_merged_check CHECK (((status = 'merged'::text) = (merged_into IS NOT NULL))),
     CONSTRAINT narrative_persons_status_check CHECK ((status = ANY (ARRAY['candidate'::text, 'active'::text, 'merged'::text, 'retired'::text])))
@@ -8344,6 +8687,13 @@ COMMENT ON COLUMN public.narrative_persons.team_id IS 'Current primary affiliati
 --
 
 COMMENT ON COLUMN public.narrative_persons.evidence IS 'Accumulated discovery evidence: mention/source tallies, team-affiliation votes, sample article ids — the promotion decision''s input, in one inspectable place.';
+
+
+--
+-- Name: COLUMN narrative_persons.person_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.narrative_persons.person_id IS 'Reconciliation bridge (mig 234, the Appendix B mig 203 deferred): the verified public.persons row this graph-layer figure resolved to. Set nightly by reconcile_narrative_persons() on a unique nrm(name) surface match; NULL means unverified (and, if active, nominated to the Investigator). The graph side keeps accumulating evidence either way.';
 
 
 --
@@ -8504,6 +8854,8 @@ CREATE TABLE public.news_summaries (
     card_score_prev smallint,
     storyline_id bigint,
     headline text,
+    week_season integer,
+    week_no integer,
     CONSTRAINT news_summaries_card_score_check CHECK (((card_score IS NULL) OR ((card_score >= 1) AND (card_score <= 99)))),
     CONSTRAINT news_summaries_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
     CONSTRAINT news_summaries_impact_check CHECK (((impact IS NULL) OR ((impact >= 0) AND (impact <= 100)))),
@@ -8693,6 +9045,8 @@ CREATE TABLE public.oracle_readings (
     model_version text NOT NULL,
     prompt_version text NOT NULL,
     generated_at timestamp with time zone DEFAULT now() NOT NULL,
+    week_season integer,
+    week_no integer,
     CONSTRAINT oracle_readings_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
     CONSTRAINT oracle_readings_omen_check CHECK (((omen IS NULL) OR (omen = ANY (ARRAY['ascendant'::text, 'steady'::text, 'waning'::text, 'crossroads'::text])))),
     CONSTRAINT oracle_readings_sigil_score_check CHECK (((sigil_score IS NULL) OR ((sigil_score >= 1) AND (sigil_score <= 100))))
@@ -9241,6 +9595,25 @@ ALTER SEQUENCE public.player_team_history_id_seq OWNED BY public.player_team_his
 
 
 --
+-- Name: players_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.players_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: players_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.players_id_seq OWNED BY public.players.id;
+
+
+--
 -- Name: provider_seasons; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -9321,6 +9694,8 @@ CREATE TABLE public.rating_history (
     rating_modes jsonb,
     trigger_type text DEFAULT 'recompute'::text NOT NULL,
     generated_at timestamp with time zone DEFAULT now() NOT NULL,
+    week_season integer,
+    week_no integer,
     CONSTRAINT rating_history_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
     CONSTRAINT rating_history_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['seed'::text, 'in_season'::text, 'season_close'::text, 'recompute'::text, 'manual'::text])))
 );
@@ -9388,6 +9763,28 @@ COMMENT ON TABLE public.schema_migrations IS 'Applied migration versions (file b
 
 
 --
+-- Name: season_weeks; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.season_weeks (
+    sport text NOT NULL,
+    season integer NOT NULL,
+    week_no integer NOT NULL,
+    starts_at timestamp with time zone NOT NULL,
+    ends_at timestamp with time zone NOT NULL,
+    CONSTRAINT season_weeks_check CHECK ((ends_at = (starts_at + '7 days'::interval))),
+    CONSTRAINT season_weeks_week_no_check CHECK (((week_no >= 1) AND (week_no <= 60)))
+);
+
+
+--
+-- Name: TABLE season_weeks; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.season_weeks IS 'The reporting calendar. Week 1 = the Monday 00:00 ET of the week containing opening day (mig 240), where opening day is the sport''s clock league''s first fixture when it nominates one (sports.clock_league_id, mig 250) and its first fixture overall otherwise; 7-day blocks round-the-year until the next season re-anchors. Derived data — rebuilt nightly by rebuild_season_weeks(); never hand-edited.';
+
+
+--
 -- Name: sigil_synthesis; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -9414,6 +9811,8 @@ CREATE TABLE public.sigil_synthesis (
     voice_model_version text,
     voice_prompt_version text,
     headline text,
+    week_season integer,
+    week_no integer,
     CONSTRAINT sigil_synthesis_convergence_check CHECK (((convergence IS NULL) OR ((convergence >= 1) AND (convergence <= 100)))),
     CONSTRAINT sigil_synthesis_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
     CONSTRAINT sigil_synthesis_omen_check CHECK (((omen IS NULL) OR (omen = ANY (ARRAY['ascendant'::text, 'steady'::text, 'waning'::text, 'crossroads'::text])))),
@@ -9651,6 +10050,8 @@ CREATE TABLE public.stat_summaries (
     rating_trajectory_label text,
     rating_trajectory_components jsonb DEFAULT '{}'::jsonb NOT NULL,
     headline text,
+    week_season integer,
+    week_no integer,
     CONSTRAINT stat_summaries_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
     CONSTRAINT stat_summaries_notability_check CHECK (((notability IS NULL) OR ((notability >= 0) AND (notability <= 100)))),
     CONSTRAINT stat_summaries_rating_trajectory_check CHECK ((rating_trajectory = ANY (ARRAY['rising'::text, 'falling'::text, 'steady'::text]))),
@@ -9742,7 +10143,8 @@ CREATE TABLE public.stat_templates (
     position_group text NOT NULL,
     stat_key text NOT NULL,
     sort_order integer DEFAULT 0 NOT NULL,
-    facet text
+    facet text,
+    variant text DEFAULT 'vendor'::text NOT NULL
 );
 
 
@@ -9829,6 +10231,26 @@ CREATE SEQUENCE public.storylines_id_seq
 --
 
 ALTER SEQUENCE public.storylines_id_seq OWNED BY public.storylines.id;
+
+
+--
+-- Name: teams_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.teams_id_seq
+    AS integer
+    START WITH 20000000
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: teams_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.teams_id_seq OWNED BY public.teams.id;
 
 
 --
@@ -9977,9 +10399,13 @@ CREATE TABLE public.transfer_rumors (
     trajectory text DEFAULT 'developing_story'::text NOT NULL,
     trajectory_components jsonb DEFAULT '{}'::jsonb NOT NULL,
     input_hash text,
+    subject_type text DEFAULT 'player'::text NOT NULL,
+    week_season integer,
+    week_no integer,
     CONSTRAINT transfer_rumors_direction_check CHECK (((direction IS NULL) OR (direction = ANY (ARRAY['incoming'::text, 'outgoing'::text, 'unclear'::text])))),
     CONSTRAINT transfer_rumors_heat_check CHECK (((heat IS NULL) OR ((heat >= 0) AND (heat <= 100)))),
     CONSTRAINT transfer_rumors_stage_check CHECK (((stage IS NULL) OR (stage = ANY (ARRAY['speculation'::text, 'concrete_interest'::text, 'advanced_talks'::text, 'here_we_go'::text])))),
+    CONSTRAINT transfer_rumors_subject_type_check CHECK ((subject_type = ANY (ARRAY['player'::text, 'person'::text]))),
     CONSTRAINT transfer_rumors_trajectory_check CHECK ((trajectory = ANY (ARRAY['developing_story'::text, 'heating_up'::text, 'cooling_off'::text]))),
     CONSTRAINT transfer_rumors_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['news_spike'::text, 'periodic'::text, 'manual'::text])))
 );
@@ -10004,6 +10430,13 @@ COMMENT ON COLUMN public.transfer_rumors.trajectory IS 'Transfer-rumor trajector
 --
 
 COMMENT ON COLUMN public.transfer_rumors.input_hash IS 'SHA-256 (128-bit hex prefix) of the pair''s material vetting inputs (sorted pair-corpus news ids + distinct_sources from the heat components + the deterministic team relationship); the per-pair transfer debounce key. Static source tiers are deliberately excluded.';
+
+
+--
+-- Name: COLUMN transfer_rumors.subject_type; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.transfer_rumors.subject_type IS 'Which table player_id names (mig 235): ''player'' → public.players, ''person'' → public.persons (kind coach). Part of the pair key everywhere — person and player id sequences overlap, so (team_id, player_id, sport) alone is ambiguous across the two.';
 
 
 --
@@ -10125,6 +10558,8 @@ CREATE TABLE public.vibe_scores (
     prompt text,
     input_hash text,
     hook text,
+    week_season integer,
+    week_no integer,
     CONSTRAINT vibe_scores_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
     CONSTRAINT vibe_scores_sentiment_check CHECK (((sentiment IS NULL) OR ((sentiment >= 1) AND (sentiment <= 100)))),
     CONSTRAINT vibe_scores_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['milestone'::text, 'manual'::text, 'periodic'::text, 'news_spike'::text])))
@@ -10143,6 +10578,30 @@ COMMENT ON TABLE public.vibe_scores IS 'The Vibe: the emotional rail end product
 --
 
 COMMENT ON COLUMN public.vibe_scores.input_hash IS 'SHA-256 (128-bit hex prefix) of the generation''s material inputs (latest narrative titles/impacts/trajectories + transfer-heat facts); the Rust harness debounce key. NULL on pre-147 rows.';
+
+
+--
+-- Name: vibe_scores_echo_scrub_20260905; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.vibe_scores_echo_scrub_20260905 (
+    id bigint,
+    entity_type text,
+    entity_id integer,
+    sport text,
+    trigger_type text,
+    trigger_payload jsonb,
+    input_news_ids bigint[],
+    model_version text,
+    prompt_version text,
+    generated_at timestamp with time zone,
+    sentiment smallint,
+    prompt text,
+    input_hash text,
+    hook text,
+    week_season integer,
+    week_no integer
+);
 
 
 --
@@ -10181,6 +10640,34 @@ CREATE SEQUENCE public.vibe_synthesis_id_seq
 --
 
 ALTER SEQUENCE public.vibe_synthesis_id_seq OWNED BY public.sigil_synthesis.id;
+
+
+--
+-- Name: week_seals; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.week_seals (
+    sport text NOT NULL,
+    week_season integer NOT NULL,
+    week_no integer NOT NULL,
+    sealed_at timestamp with time zone,
+    entities_resealed integer DEFAULT 0 NOT NULL,
+    closing_enqueued_at timestamp with time zone
+);
+
+
+--
+-- Name: TABLE week_seals; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.week_seals IS 'The culmination ledger (mig 237): one row per closed (sport, week). Written by the Desk''s seal task after it enqueues the wrap-up pass; idempotence key for the hourly check. An empty week seals as a no-op — nothing generated, nothing to close, the week renders empty by design.';
+
+
+--
+-- Name: COLUMN week_seals.closing_enqueued_at; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.week_seals.closing_enqueued_at IS 'When the closing pass (final 6h of the week) enqueued the week''s active seats for their wrap look. NULL for historical weeks sealed retroactively and for empty weeks.';
 
 
 --
@@ -10380,6 +10867,13 @@ ALTER TABLE ONLY public.player_team_history ALTER COLUMN id SET DEFAULT nextval(
 
 
 --
+-- Name: players id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.players ALTER COLUMN id SET DEFAULT nextval('public.players_id_seq'::regclass);
+
+
+--
 -- Name: provider_seasons id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -10426,6 +10920,13 @@ ALTER TABLE ONLY public.stat_summaries ALTER COLUMN id SET DEFAULT nextval('publ
 --
 
 ALTER TABLE ONLY public.storylines ALTER COLUMN id SET DEFAULT nextval('public.storylines_id_seq'::regclass);
+
+
+--
+-- Name: teams id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.teams ALTER COLUMN id SET DEFAULT nextval('public.teams_id_seq'::regclass);
 
 
 --
@@ -10565,6 +11066,14 @@ ALTER TABLE ONLY public.entity_candidates
 
 ALTER TABLE ONLY public.entity_external_ids
     ADD CONSTRAINT entity_external_ids_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: entity_fact_policy entity_fact_policy_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.entity_fact_policy
+    ADD CONSTRAINT entity_fact_policy_pkey PRIMARY KEY (entity_type, fact_type);
 
 
 --
@@ -10928,6 +11437,14 @@ ALTER TABLE ONLY public.schema_migrations
 
 
 --
+-- Name: season_weeks season_weeks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.season_weeks
+    ADD CONSTRAINT season_weeks_pkey PRIMARY KEY (sport, season, week_no);
+
+
+--
 -- Name: sigil_synthesis sigil_synthesis_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -11012,7 +11529,7 @@ ALTER TABLE ONLY public.stat_summaries
 --
 
 ALTER TABLE ONLY public.stat_templates
-    ADD CONSTRAINT stat_templates_pkey PRIMARY KEY (sport, position_group, stat_key);
+    ADD CONSTRAINT stat_templates_pkey PRIMARY KEY (sport, position_group, stat_key, variant);
 
 
 --
@@ -11133,6 +11650,14 @@ ALTER TABLE ONLY public.users
 
 ALTER TABLE ONLY public.vibe_scores
     ADD CONSTRAINT vibe_scores_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: week_seals week_seals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.week_seals
+    ADD CONSTRAINT week_seals_pkey PRIMARY KEY (sport, week_season, week_no);
 
 
 --
@@ -11388,6 +11913,13 @@ CREATE INDEX idx_fixtures_sport_date ON public.fixtures USING btree (sport, star
 
 
 --
+-- Name: idx_insider_scores_week; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_insider_scores_week ON public.insider_scores USING btree (sport, week_season, week_no);
+
+
+--
 -- Name: idx_latest_momentum_scores_per_entity_key; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -11423,6 +11955,13 @@ CREATE INDEX idx_momentum_scores_read ON public.momentum_scores USING btree (spo
 
 
 --
+-- Name: idx_momentum_scores_week; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_momentum_scores_week ON public.momentum_scores USING btree (sport, week_season, week_no);
+
+
+--
 -- Name: idx_momentum_summaries_entity_recent; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -11434,6 +11973,13 @@ CREATE INDEX idx_momentum_summaries_entity_recent ON public.momentum_summaries U
 --
 
 CREATE INDEX idx_momentum_summaries_input_hash ON public.momentum_summaries USING btree (entity_type, entity_id, sport, season, input_hash) WHERE (input_hash IS NOT NULL);
+
+
+--
+-- Name: idx_momentum_summaries_week; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_momentum_summaries_week ON public.momentum_summaries USING btree (sport, week_season, week_no);
 
 
 --
@@ -11504,6 +12050,13 @@ CREATE INDEX idx_narrative_persons_aliases ON public.narrative_persons USING gin
 --
 
 CREATE INDEX idx_narrative_persons_lower_name ON public.narrative_persons USING btree (sport, lower(name));
+
+
+--
+-- Name: idx_narrative_persons_person; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_narrative_persons_person ON public.narrative_persons USING btree (person_id) WHERE (person_id IS NOT NULL);
 
 
 --
@@ -11619,6 +12172,13 @@ CREATE INDEX idx_news_summaries_updated ON public.news_summaries USING btree (sp
 
 
 --
+-- Name: idx_news_summaries_week; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_news_summaries_week ON public.news_summaries USING btree (sport, week_season, week_no);
+
+
+--
 -- Name: idx_notifications_dispatch; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -11644,6 +12204,13 @@ CREATE INDEX idx_oracle_readings_entity_recent ON public.oracle_readings USING b
 --
 
 CREATE INDEX idx_oracle_readings_input_hash ON public.oracle_readings USING btree (entity_type, entity_id, sport, season, input_hash) WHERE (input_hash IS NOT NULL);
+
+
+--
+-- Name: idx_oracle_readings_week; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_oracle_readings_week ON public.oracle_readings USING btree (sport, week_season, week_no);
 
 
 --
@@ -11815,6 +12382,20 @@ CREATE INDEX idx_rating_history_entity_recent ON public.rating_history USING btr
 
 
 --
+-- Name: idx_rating_history_week; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_rating_history_week ON public.rating_history USING btree (sport, week_season, week_no);
+
+
+--
+-- Name: idx_season_weeks_lookup; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_season_weeks_lookup ON public.season_weeks USING btree (sport, starts_at);
+
+
+--
 -- Name: idx_sigil_synthesis_entity_recent; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -11826,6 +12407,13 @@ CREATE INDEX idx_sigil_synthesis_entity_recent ON public.sigil_synthesis USING b
 --
 
 CREATE INDEX idx_sigil_synthesis_sport_score ON public.sigil_synthesis USING btree (sport, score DESC, generated_at DESC) WHERE ((score IS NOT NULL) AND (reading IS NOT NULL));
+
+
+--
+-- Name: idx_sigil_synthesis_week; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sigil_synthesis_week ON public.sigil_synthesis USING btree (sport, week_season, week_no);
 
 
 --
@@ -11868,6 +12456,13 @@ CREATE INDEX idx_stat_summaries_rating_trajectory ON public.stat_summaries USING
 --
 
 CREATE INDEX idx_stat_summaries_sport_notability ON public.stat_summaries USING btree (sport, notability DESC, generated_at DESC) WHERE ((body IS NOT NULL) AND (notability IS NOT NULL));
+
+
+--
+-- Name: idx_stat_summaries_week; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_stat_summaries_week ON public.stat_summaries USING btree (sport, week_season, week_no);
 
 
 --
@@ -12060,6 +12655,13 @@ CREATE INDEX idx_transfer_rumors_updated ON public.transfer_rumors USING btree (
 
 
 --
+-- Name: idx_transfer_rumors_week; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_transfer_rumors_week ON public.transfer_rumors USING btree (sport, week_season, week_no);
+
+
+--
 -- Name: idx_user_follows_entity; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -12102,6 +12704,13 @@ CREATE INDEX idx_vibe_scores_sport_sentiment ON public.vibe_scores USING btree (
 
 
 --
+-- Name: idx_vibe_scores_week; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_vibe_scores_week ON public.vibe_scores USING btree (sport, week_season, week_no);
+
+
+--
 -- Name: insider_scores_entity_latest; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -12137,6 +12746,13 @@ CREATE INDEX player_availability_team_applied ON public.player_availability USIN
 
 
 --
+-- Name: uq_entity_external_ids_import; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX uq_entity_external_ids_import ON public.entity_external_ids USING btree (namespace, entity_type, external_id) WHERE (namespace = ANY (ARRAY['nflverse'::text, 'nba'::text, 'fpl'::text]));
+
+
+--
 -- Name: packets enqueue_voices_on_packet; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -12148,13 +12764,6 @@ CREATE TRIGGER enqueue_voices_on_packet AFTER INSERT ON public.packets FOR EACH 
 --
 
 CREATE TRIGGER entity_aliases_append_only BEFORE UPDATE ON public.entity_aliases FOR EACH ROW EXECUTE FUNCTION public.entity_aliases_no_update();
-
-
---
--- Name: fixtures fixture_boxscore_enqueue_on_final; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER fixture_boxscore_enqueue_on_final AFTER INSERT OR UPDATE OF status, home_score, away_score, external_id, home_team_id, away_team_id ON public.fixtures FOR EACH ROW EXECUTE FUNCTION public.enqueue_fixture_boxscore_on_final();
 
 
 --
@@ -12190,6 +12799,76 @@ CREATE TRIGGER pipeline_work_notify_insert AFTER INSERT ON public.pipeline_work 
 --
 
 CREATE TRIGGER pipeline_work_notify_update AFTER UPDATE ON public.pipeline_work REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION public.notify_pipeline_work_ready();
+
+
+--
+-- Name: insider_scores stamp_week_on_insert; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER stamp_week_on_insert BEFORE INSERT ON public.insider_scores FOR EACH ROW EXECUTE FUNCTION public.stamp_card_week();
+
+
+--
+-- Name: momentum_scores stamp_week_on_insert; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER stamp_week_on_insert BEFORE INSERT ON public.momentum_scores FOR EACH ROW EXECUTE FUNCTION public.stamp_card_week();
+
+
+--
+-- Name: momentum_summaries stamp_week_on_insert; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER stamp_week_on_insert BEFORE INSERT ON public.momentum_summaries FOR EACH ROW EXECUTE FUNCTION public.stamp_card_week();
+
+
+--
+-- Name: news_summaries stamp_week_on_insert; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER stamp_week_on_insert BEFORE INSERT ON public.news_summaries FOR EACH ROW EXECUTE FUNCTION public.stamp_card_week();
+
+
+--
+-- Name: oracle_readings stamp_week_on_insert; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER stamp_week_on_insert BEFORE INSERT ON public.oracle_readings FOR EACH ROW EXECUTE FUNCTION public.stamp_card_week();
+
+
+--
+-- Name: rating_history stamp_week_on_insert; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER stamp_week_on_insert BEFORE INSERT ON public.rating_history FOR EACH ROW EXECUTE FUNCTION public.stamp_card_week();
+
+
+--
+-- Name: sigil_synthesis stamp_week_on_insert; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER stamp_week_on_insert BEFORE INSERT ON public.sigil_synthesis FOR EACH ROW EXECUTE FUNCTION public.stamp_card_week();
+
+
+--
+-- Name: stat_summaries stamp_week_on_insert; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER stamp_week_on_insert BEFORE INSERT ON public.stat_summaries FOR EACH ROW EXECUTE FUNCTION public.stamp_card_week();
+
+
+--
+-- Name: transfer_rumors stamp_week_on_insert; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER stamp_week_on_insert BEFORE INSERT ON public.transfer_rumors FOR EACH ROW EXECUTE FUNCTION public.stamp_card_week();
+
+
+--
+-- Name: vibe_scores stamp_week_on_insert; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER stamp_week_on_insert BEFORE INSERT ON public.vibe_scores FOR EACH ROW EXECUTE FUNCTION public.stamp_card_week();
 
 
 --
@@ -12737,6 +13416,14 @@ ALTER TABLE ONLY public.sport_autofill_versions
 
 
 --
+-- Name: sports sports_clock_league_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sports
+    ADD CONSTRAINT sports_clock_league_id_fkey FOREIGN KEY (clock_league_id) REFERENCES public.leagues(id);
+
+
+--
 -- Name: stat_definitions stat_definitions_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -12971,5 +13658,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 7LAJNvs1hDx4NWbeP0ZBfjjJmBiDqC9qZxDqaIbwVhmT6BWz0tFgfJiImWtQc3b
+\unrestrict njVrzVZUtLKPxeD7dqVW9C993dMfcLCe8Hcgwgdsytc1ltYqQ12lDlUxHhfxEDa
 

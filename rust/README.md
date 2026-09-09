@@ -22,6 +22,22 @@ is a valid claim. Each character's `prompt.rs` holds a 100–200 word brief and 
 `inputs.rs` supplies evidence and continuity. Retired instructions belong in Git history.
 The Insider's extraction and identity contracts live in `verification.rs`.
 
+Form prompts provide the outline for the models to color in. Character prompts
+provide the colors. The model does the actual expression of both: choosing language,
+images, rhythm, and emphasis that bring the evidence to life.
+
+Use this question when adding or reviewing any prompt, input instruction, guard, or
+evaluation rule:
+
+> Does this rule protect the evidence or help the character express it—or does it choose the wording for them?
+
+Keep guardrails for evidence, identity, attribution, uncertainty, and the shared output
+form. Let the model choose the expression. Journalist follows what is happening and
+how stories progress; Influencer reads emotional charge, with stories as its vehicle.
+Reporting tone alone is not evidence of how a crowd feels. Automated checks cover
+mechanical contracts; review live outputs for grounded claims and character expression.
+Keyword bans cannot establish whether an interpretation follows the evidence.
+
 A new model drops into four layers that move independently: engine
 (`COGNITION_ROUTE_*` env, adopted only on a fixture-gate win), structure (`form.rs`), voice
 (seat `prompt.rs`), floor (`guards.rs` + the fixture gate). Model-call transport is

@@ -26,7 +26,7 @@ pub enum CardFormat {
 pub fn compose(character: &str, format: CardFormat) -> String {
     let output = match format {
         CardFormat::Scout => "Return the body as plain paragraphs, followed by a HEADLINE: line containing the hook. The application displays that hook above the body.",
-        CardFormat::Analyst => "Return READ: followed by the body, then HEADLINE: followed by the hook. Begin the hook with the entity's name. The application displays the hook above the body.",
+        CardFormat::Analyst => "Return READ: followed by the body, then HEADLINE: followed by the hook. The application displays the hook above the body.",
         CardFormat::Influencer => "Return SCORE: with an integer from 1 to 100, HOOK: with the hook, then VIBE: with the body. Preserve blank lines between its paragraphs.",
         CardFormat::Journalist => "Return JSON with narratives, headline and card_score. Each narrative has a short specific title, a body following the shared form, and articles containing its supporting input article numbers. Select relevant stories, most consequential first; an empty narratives array is valid. The headline is the hook for the whole edition. The card_score is an integer from 1 to 99. Preserve paragraph breaks inside body strings as escaped newlines.",
         CardFormat::Insider => "Return JSON with read containing the body, headline containing the hook, and score containing an integer from 1 to 99. Preserve paragraph breaks inside read as escaped newlines.",

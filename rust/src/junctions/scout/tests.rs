@@ -370,7 +370,7 @@ fn prompt_player_composite_datapoints_and_scoped_position() {
         "Entity: Test Player (NBA player, Guard)\n\
 \nProfile distinctiveness: 70/100 (higher = more standout skills).\n\
 \nOverall score (how WELL overall — T-score, 50 = average): 67\n\
-\nDatapoints — value, percentile + TIER (the tier is the truth), rating (how far above or below the average; a higher rating is a rarer edge); [position] percentile when present:\n\
+\nDatapoints — measured value, percentile, tier, rating (distance from average), and position percentile when available:\n\
 - Scoring: 24, 95th pct (elite), rating +3.1 [position: 88th, strong]\n\
 - Defense: 2.5, 40th pct (below average), rating -0.5\n\
 "
@@ -404,7 +404,7 @@ fn prompt_team_no_composite_no_position() {
         prompt,
         "Entity: Test FC (FOOTBALL team)\n\
 \nProfile distinctiveness: 55/100 (higher = more standout skills).\n\
-\nDatapoints — value, percentile + TIER (the tier is the truth), rating (how far above or below the average; a higher rating is a rarer edge); [position] percentile when present:\n\
+\nDatapoints — measured value, percentile, tier, rating (distance from average), and position percentile when available:\n\
 - Defense: 0.38, 78th pct (strong), rating +1.2\n\
 "
     );
@@ -430,11 +430,11 @@ fn cross_season_memory_renders_after_current_measurements() {
         None,
         None,
     );
-    assert!(prompt.contains("\nCross-season memory (computed history — arc context only"));
+    assert!(prompt.contains("\nCross-season memory (continuity"));
     assert!(prompt.contains("- Our prior read: season 2025 scored this profile 98/100"));
     assert!(prompt.contains("- Matchup memory: pts vs Test Rivals"));
     let mem_pos = prompt.find("Cross-season memory").unwrap();
-    let dp_pos = prompt.find("Datapoints — value").unwrap();
+    let dp_pos = prompt.find("Datapoints — measured value").unwrap();
     assert!(dp_pos < mem_pos);
     let blank = build_stat_prompt(
         &req("NBA", "player", "Test Player"),
@@ -1333,10 +1333,10 @@ fn the_prompt_separates_reported_availability_from_the_confirmed_record() {
     assert!(prompt[reported..].contains("- BBC: Palmer is out for six weeks"));
     assert!(prompt.contains("- BBC: Palmer is out for six weeks"));
     // The instructions that make it judgeable rather than quotable.
-    assert!(prompt.contains("These are REPORTS, not the record above"));
-    assert!(prompt.contains("Never state a disputed claim as settled fact"));
+    assert!(prompt.contains("attributed reports"));
+    assert!(prompt.contains("preserve uncertainty and disputes"));
     // And a claim must never be allowed to move a measured number.
-    assert!(prompt.contains("never carry a number from here into a tier or rating above"));
+    assert!(prompt.contains("reports do not change measured tiers or ratings"));
 }
 
 /// No changes ⇒ no section. A heading with nothing under it asserts "nothing moved", which is a
@@ -1391,7 +1391,7 @@ fn the_personnel_block_sits_between_the_datapoints_and_the_memory_card() {
         None,
         None,
     );
-    let dp = prompt.find("Datapoints — value").unwrap();
+    let dp = prompt.find("Datapoints — measured value").unwrap();
     let pers = prompt
         .find("Personnel and availability since our last read")
         .unwrap();
@@ -1399,7 +1399,7 @@ fn the_personnel_block_sits_between_the_datapoints_and_the_memory_card() {
     assert!(dp < pers && pers < memp);
     assert!(prompt.contains("- Jul 29: joined New FC from Old FC (transfer).\n"));
     // The tier-truth invariant travels with the block.
-    assert!(prompt.contains("these do NOT alter any tier or number above"));
+    assert!(prompt.contains("season measurements remain unchanged"));
 
     // Blank personnel ⇒ no section, same as blank memory.
     let blank = build_stat_prompt(

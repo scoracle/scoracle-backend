@@ -175,7 +175,7 @@ pub fn build_stat_prompt(
         ));
     }
 
-    b.push_str("\nDatapoints — value, percentile + TIER (the tier is the truth), rating (how far above or below the average; a higher rating is a rarer edge); [position] percentile when present:\n");
+    b.push_str("\nDatapoints — measured value, percentile, tier, rating (distance from average), and position percentile when available:\n");
     for d in ordered_facts(&p.breakdown) {
         b.push_str("- ");
         b.push_str(&format_datapoint_evidence(&d));
@@ -196,7 +196,7 @@ pub fn build_stat_prompt(
     }
 
     if let Some(zm) = z_memory.filter(|m| !m.trim().is_empty()) {
-        b.push_str("\nSeason-over-season movement (computed against last season's percentiles — the movement word on each line is decided; voice the moves that matter to a staff, in the sport's words, beside this season's number):\n");
+        b.push_str("\nSeason-over-season movement (computed against last season's percentiles):\n");
         for line in zm.lines() {
             b.push_str("- ");
             b.push_str(line);
@@ -206,22 +206,22 @@ pub fn build_stat_prompt(
 
     if let Some(ft) = form_trend.filter(|t| !t.trim().is_empty()) {
         b.push_str(&format!(
-            "\nRecent-form marker (computed shading only — not yours to restate as a verdict; the week-to-week momentum story is another character's turn): {ft}\n"
+            "\nRecent-form marker (computed context; recent momentum belongs to The Analyst): {ft}\n"
         ));
     }
 
     if let Some(pc) = personnel.filter(|p| !p.trim().is_empty()) {
-        b.push_str("\nPersonnel and availability since our last read (confirmed facts from the adjudicated transfer and availability records — dates are when the change took force; a WITHDRAWN record means we no longer claim it happened, not that the player recovered; these do NOT alter any tier or number above, which are this season's measured truth, but they tell you WHO is actually available, which changes how the rest of the profile should be read):\n");
+        b.push_str("\nPersonnel and availability since our last read (confirmed records; dates are effective dates; WITHDRAWN retracts a claim, not evidence of recovery; season measurements remain unchanged):\n");
         b.push_str(pc);
     }
 
     if let Some(ar) = availability_reports.filter(|a| !a.trim().is_empty()) {
-        b.push_str("\nReported availability, NOT yet confirmed (injury and suspension claims the desk has collected for this entity, each with the outlet that made it; ⇄ marks a claim another claim here contradicts). These are REPORTS, not the record above — weigh them: who is saying it, whether they agree, and how firm the wording is. Report what you judge sound and attribute it; say a report is disputed where it is; leave out what you do not credit. Never state a disputed claim as settled fact, and never carry a number from here into a tier or rating above:\n");
+        b.push_str("\nReported availability, NOT yet confirmed (attributed reports; ⇄ marks contradictory claims; preserve uncertainty and disputes; reports do not change measured tiers or ratings):\n");
         b.push_str(ar);
     }
 
     if let Some(m) = memory.filter(|m| !m.trim().is_empty()) {
-        b.push_str("\nCross-season memory (computed history — arc context only: the datapoints and TIERS above are this season's truth and are never overridden by memory; use these lines for trajectory, new-club context, and matchup quirks; weigh each matchup line by its reliability — a low-reliability edge deserves an explicit grain of salt; a prior read is continuity, never evidence for the new one):\n");
+        b.push_str("\nCross-season memory (continuity, not fresh evidence or replacement measurements; matchup reliability is supplied):\n");
         for line in m.lines() {
             b.push_str("- ");
             b.push_str(line);

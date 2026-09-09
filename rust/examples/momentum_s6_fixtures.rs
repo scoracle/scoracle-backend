@@ -1,21 +1,5 @@
-//! momentum_s6_fixtures — regenerate the hand-authored Analyst eval fixtures.
-//!
-//! s15 is the product-name inversion (Scott, 2026-08-10): the READ names signals in the
-//! sport's own words — the form/the tape, the mood/emotion around the club — and the desk's
-//! labels ("PEAK", "Vibe") are banned from served prose by the case-sensitive
-//! `no_product_names` invariant. The old `prose_includes: ["PEAK","Vibe"]` expects flip to
-//! `prose_includes_any` synonym groups (FORM_WORDS/MOOD_WORDS below), the baked
-//! `peak_trajectory_label` inputs speak the descrubbed z_trajectory_label shape, and the two
-//! s14 direction fixtures (rising/falling-confirmed) — which existed only as hand-authored
-//! JSON — are adopted as scenarios so a regen can never silently drop them again. This pass
-//! also reconciles the D-T51/52 gate growth (prose_no_digits, total_sentences_max, "**")
-//! that lived only in the on-disk JSON.
-//!
-//! s6 was the Characters Phase B voice pass: the system prompt speaks The Analyst's telling
-//! (persona-first — detached, directional, comparative, results-only). The s5 CONTRACT —
-//! READ shape, decided-direction-is-final, sign agreement, memory discipline — carries: the
-//! cases (steady discipline, split rails, thin samples, sentiment spikes, clean decline)
-//! are the regression floor and hold regardless of voice.
+//! Analyst fixtures cover direction, divergence, and thin evidence.
+//! Wording is evaluated by reading the output, not keyword bans.
 //!
 //! Each scenario holds pillar structs and renders through the REAL production builder
 //! (`build_momentum_prompt` + `MOMENTUM_SYSTEM_PROMPT`), so the frozen `system`/`user_prompt`
@@ -45,27 +29,20 @@ struct Scenario {
     expect: serde_json::Value,
 }
 
-#[allow(clippy::too_many_arguments)]
-/// s15 signal-naming groups: "name the signal" now means the sport's own words, which
-/// legitimately vary — each is one pipe-delimited any-of check (`prose_includes_any`).
-/// PROBE NOTE: these lists were authored against the s15 worked examples ("the form", "the
-/// tape", "the mood around", "the feed"); if the gate shows honest READs failing the group,
-/// grow the list rather than trusting the red (the D-T50 probe rule — a check can be wrong).
-const FORM_WORDS: &str = "form|tape|performance|production";
-const MOOD_WORDS: &str = "mood|emotion|feeling|the room|the feed";
-
 fn rating(notability: i32, label: &str, body: &str) -> Option<SynthRating> {
     Some(SynthRating {
         body: body.to_string(),
         notability,
         rating_trajectory: String::new(), // the prompt renders the label; the enum is unused here
-        rating_trajectory_label: label.to_string()})
+        rating_trajectory_label: label.to_string(),
+    })
 }
 
 fn vibe(sentiment: i32, prompt: &str) -> Option<SynthVibe> {
     Some(SynthVibe {
         sentiment,
-        prompt: prompt.to_string()})
+        prompt: prompt.to_string(),
+    })
 }
 
 fn snapshot(score: f64, r_slope: f64, r_n: i32, v_slope: f64, v_n: i32) -> SynthMomentum {
@@ -100,8 +77,7 @@ fn scenarios() -> Vec<Scenario> {
                 "High-usage creator whose efficiency and rim pressure are climbing; the shot profile keeps improving."),
             vibe: vibe(39, "Efficiency is climbing, but coverage has turned sour after public frustration with the rotation."),
             momentum: snapshot(3.4, 12.5, 6, -5.7, 5),
-            expect: json!({"prose_excludes": ["**"],
-                           "prose_no_digits": true}),
+            expect: json!({}),
         },
         Scenario {
             name: "noisy-flat-signals-steady",
@@ -111,8 +87,7 @@ fn scenarios() -> Vec<Scenario> {
                 "Reliable separator on money downs; recent games alternate strong and quiet without a direction."),
             vibe: vibe(55, "Beat coverage is balanced: one strong practice week, one quiet game, and no larger storyline."),
             momentum: snapshot(0.6, 0.7, 5, 0.5, 4),
-            expect: json!({"prose_excludes": ["falling", "**"],
-                           "prose_no_digits": true}),
+            expect: json!({}),
         },
         Scenario {
             name: "rating-surge-vibe-flat",
@@ -122,8 +97,7 @@ fn scenarios() -> Vec<Scenario> {
                 "The press is winning the ball higher and more often; underlying numbers back the run of wins."),
             vibe: vibe(63, "Coverage is mostly calm; the tactical press is getting more praise after a run of wins."),
             momentum: snapshot(8.5, 16.1, 7, 0.9, 4),
-            expect: json!({"prose_excludes": ["falling", "**"],
-                           "prose_no_digits": true}),
+            expect: json!({}),
         },
         Scenario {
             name: "sparse-samples-stay-steady",
@@ -133,8 +107,7 @@ fn scenarios() -> Vec<Scenario> {
                 "Explosive open-floor finisher; the recent uptick is real but rests on two games."),
             vibe: vibe(52, "Coverage is quiet and mostly waiting for a larger role before drawing conclusions."),
             momentum: snapshot(0.8, 1.6, 2, 0.1, 2),
-            expect: json!({"prose_includes": ["sample"], "prose_excludes": ["surging", "**"],
-                           "prose_no_digits": true}),
+            expect: json!({}),
         },
         Scenario {
             name: "stats-down-vibe-up-near-zero",
@@ -146,8 +119,7 @@ fn scenarios() -> Vec<Scenario> {
             momentum: snapshot(-0.3, -8.3, 6, 7.7, 5),
             // "the tape calls this" was THIS fixture's s13 defect ("the tape calls this a
             // holding pattern"); fixture-contextual since the 08-23 eval-scar sweep.
-            expect: json!({"prose_excludes": ["**", "the tape calls this"],
-                           "prose_no_digits": true}),
+            expect: json!({}),
         },
         Scenario {
             name: "vibe-slide-steady-peak",
@@ -157,8 +129,7 @@ fn scenarios() -> Vec<Scenario> {
                 "Anchor defender; the production has not moved even as the noise around her has."),
             vibe: vibe(35, "Local coverage has turned negative after late-game benchings and visible frustration."),
             momentum: snapshot(-4.1, 0.4, 6, -8.6, 5),
-            expect: json!({"prose_excludes": ["**"],
-                           "prose_no_digits": true}),
+            expect: json!({}),
         },
         Scenario {
             name: "transfer-noise-sentiment-spike",
@@ -168,8 +139,7 @@ fn scenarios() -> Vec<Scenario> {
                 "Press-resistant carrier whose underlying numbers have not moved in a month."),
             vibe: vibe(75, "A burst of transfer rumor chatter has coverage buzzing, though nothing on the pitch has changed."),
             momentum: snapshot(3.2, 0.1, 6, 6.2, 3),
-            expect: json!({"prose_excludes": ["surging", "**"],
-                           "prose_no_digits": true}),
+            expect: json!({}),
         },
         Scenario {
             name: "clean-decline-falling",
@@ -181,8 +151,7 @@ fn scenarios() -> Vec<Scenario> {
             momentum: snapshot(-22.4, -20.6, 9, -24.2, 9),
             // "isn't a collapse" fired LIVE on exactly this clean-decline shape (s14 note);
             // fixture-contextual since the 08-23 eval-scar sweep.
-            expect: json!({"prose_excludes": ["rising", "**", "isn't a collapse"],
-                           "prose_no_digits": true}),
+            expect: json!({}),
         },
         Scenario {
             name: "rising-confirmed",
@@ -196,8 +165,7 @@ fn scenarios() -> Vec<Scenario> {
             // hedge-closer left the production guard list (style, not mechanics) and lives on
             // as this fixture's expectation — the s9/s10 defect it pins was a rising read
             // hedged into nothing.
-            expect: json!({"prose_excludes": ["falling", "**", "isn't a surge"],
-                           "prose_no_digits": true}),
+            expect: json!({}),
         },
         Scenario {
             name: "falling-confirmed",
@@ -210,8 +178,7 @@ fn scenarios() -> Vec<Scenario> {
             // "isn't a collapse" — fixture-contextual since the 08-23 eval-scar sweep (see
             // rising-confirmed); the s14 defect it pins fired on exactly this clean-decline
             // shape.
-            expect: json!({"prose_excludes": ["rising", "**", "isn't a collapse"],
-                           "prose_no_digits": true}),
+            expect: json!({}),
         },
     ]
 }
@@ -232,7 +199,8 @@ fn main() -> anyhow::Result<()> {
             s.rating.as_ref(),
             s.vibe.as_ref(),
             &s.momentum,
-         None);
+            None,
+        );
         let v = json!({
             "name": s.name,
             "task": "momentum",

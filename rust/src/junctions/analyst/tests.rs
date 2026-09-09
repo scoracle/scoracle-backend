@@ -217,7 +217,8 @@ fn prompt_carries_the_decided_direction_line() {
         None,
         None,
         &SynthMomentum::default(),
-     None);
+        None,
+    );
     assert!(empty
         .contains("Direction (decided upstream, final): steady (no durable momentum snapshot)"));
 }
@@ -246,7 +247,8 @@ fn only_the_two_rails_reach_the_prompt() {
         Some(&a_rating()),
         Some(&a_vibe()),
         &mom,
-     None);
+        None,
+    );
 
     // Both rails, both levels, both directions — and every one of them in WORDS.
     assert!(p.contains("Form is: moving hard down, on a modest sample"));
@@ -287,10 +289,12 @@ fn only_the_two_rails_reach_the_prompt() {
     assert!(!p.contains("THE STORIES BEHIND THE MOVE"));
     assert!(!p.contains("RELATIONAL MEMORY"));
 
-    // The decided fact stays last and adjacent to the reply cue.
-    let dir = p.find("Direction (decided upstream, final)").unwrap();
-    let cue = p.find("Write the Momentum read now").unwrap();
-    assert!(dir < cue, "the decided fact stays final");
+    // The final input is the computed direction, without output instructions.
+    assert!(p
+        .lines()
+        .last()
+        .unwrap()
+        .starts_with("Direction (decided upstream, final)"));
 }
 
 #[test]
@@ -415,7 +419,8 @@ fn a_vibe_only_context_builds_a_prompt_that_claims_no_form() {
         None,
         Some(&a_vibe()),
         &SynthMomentum::default(),
-     None);
+        None,
+    );
     assert!(
         p.contains("Mood stands: warm"),
         "the surviving vibe card's LEVEL must reach the prompt, in words: {p}"
@@ -467,4 +472,12 @@ fn momentum_allows_digits_in_prose_but_never_a_bookkeeping_citation() {
     // A parenthetical WITHOUT a digit is ordinary prose, not a citation.
     let aside = "The slide is real (and nobody is arguing) this week.";
     assert_eq!(read(aside).unwrap().unwrap().blurb, aside);
+}
+
+#[test]
+fn claim_paragraphs_survive_the_production_parser() {
+    let body = "The profile is ordinary. Most skills sit near average. The middle is the story.\n\nOne edge stands out. Finishing leads the supplied profile. That is the exception.\n\nAvailability is limited. Two absences are recorded. Depth matters now.\n\nThe rest is unchanged. The supplied comparison shows no movement. Continuity holds.";
+    let raw = format!("READ: {body}\nHEADLINE: Ordinary form holds");
+    let parsed = MomentumParser.parse(&raw).unwrap().unwrap();
+    assert_eq!(parsed.blurb, body);
 }

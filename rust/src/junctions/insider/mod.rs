@@ -48,14 +48,15 @@ use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use tracing::{debug, info, warn};
 
-// This junction's contract with its model — system prompt, contract version, and prompt
-// builder — lives in `prompt.rs`, so a change to what this character is asked is a one-file
-// diff. Re-exported here so call sites and the ledger keep reading it from the stage module.
+mod inputs;
 pub mod prompt;
-pub use prompt::{
-    build_insider_score_prompt, build_transfer_identity_adjudication_prompt, build_transfer_prompt,
-    insider_score_format_schema, transfer_identity_adjudication_system_prompt,
-    transfer_system_prompt, INSIDER_SCORE_PROMPT_VERSION, INSIDER_SCORE_SYSTEM_PROMPT,
+pub use crate::junctions::form::insider_score_format_schema;
+pub use inputs::build_insider_score_prompt;
+pub use prompt::{INSIDER_SCORE_PROMPT_VERSION, INSIDER_SCORE_SYSTEM_PROMPT};
+mod verification;
+pub use verification::{
+    build_transfer_identity_adjudication_prompt, build_transfer_prompt,
+    transfer_identity_adjudication_system_prompt, transfer_system_prompt,
     TRANSFER_IDENTITY_ADJUDICATION_PROMPT_VERSION, TRANSFER_PROMPT_VERSION,
     TRANSFER_PROMPT_VERSION_PERSON,
 };
@@ -2126,9 +2127,7 @@ fn parse_insider_score_reply(raw: &str) -> Option<InsiderScoreReply> {
     });
     let v = parsed?;
     let read = v.get("read")?.as_str()?.trim();
-    let read = read.split_whitespace().collect::<Vec<_>>().join(" ");
-    // Fold first, then strip: the helper is written for ONE line of a labeled reply, and the
-    // whitespace fold above is what makes a multi-sentence READ exactly that.
+    let read = crate::junctions::form::normalize_body(read);
     let read = crate::guards::clean_served_prose(&read);
     if read.is_empty() {
         return None;

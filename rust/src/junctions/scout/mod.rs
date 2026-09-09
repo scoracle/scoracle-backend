@@ -39,14 +39,10 @@ use sqlx::{PgPool, Row};
 use std::collections::{HashMap, HashSet};
 use tracing::{debug, warn};
 
-// This junction's contract with its model — system prompt, contract version, and prompt
-// builder — lives in `prompt.rs`, so a change to what this character is asked is a one-file
-// diff. Re-exported here so call sites and the ledger keep reading it from the stage module.
+mod inputs;
 pub mod prompt;
-pub use prompt::{
-    build_stat_prompt, render_availability_reports, render_personnel_block, RATING_PROMPT_VERSION,
-    RATING_SYSTEM_PROMPT,
-};
+pub use inputs::{build_stat_prompt, render_availability_reports, render_personnel_block};
+pub use prompt::{RATING_PROMPT_VERSION, RATING_SYSTEM_PROMPT};
 
 /// Output contract captured separately in the Phase 2 diagnostic ledger.
 pub const RATING_OUTPUT_CONTRACT_VERSION: &str = "rating-commentary-v1"; // was peak-commentary-v2; s19 PEAK retirement — body-only output, no divined label
@@ -719,47 +715,6 @@ pub fn build_scouting_decision(p: &RatingProfile) -> ScoutingDecision {
     }
 }
 
-fn render_scouting_decision(d: &ScoutingDecision) -> String {
-    let mut b = String::new();
-    // s18: the card's own labels stopped saying "PEAK"/"SCOUTING DECISION" — the s13-analyst
-    // lesson is that an output ban cannot beat a word the input keeps shouting, so the input
-    // stopped shouting it. (s19 retired the divined label outright: the card carries strengths
-    // and weaknesses; specialist-ness is something the brief SAYS when true, not a field.)
-    b.push_str("\nDECISION CARD\n");
-    match &d.primary_strength_to_stop {
-        Some(f) => b.push_str(&format!("Headline strength: {}\n", f.evidence)),
-        None => {
-            b.push_str("Headline strength: None; no strong/elite skill exists.\n");
-        }
-    }
-    if d.secondary_strengths.is_empty() {
-        b.push_str("Secondary strengths: None supplied.\n");
-    } else {
-        let strengths = d
-            .secondary_strengths
-            .iter()
-            .map(|f| f.evidence.as_str())
-            .collect::<Vec<_>>()
-            .join("; ");
-        b.push_str(&format!("Secondary strengths: {strengths}\n"));
-    }
-    match &d.primary_weakness_to_exploit {
-        Some(f) => b.push_str(&format!("Headline limitation: {}\n", f.evidence)),
-        // The card says the words the model must speak (s14): echo-prone local models
-        // reliably recite the card, so "no clean exploit" lives HERE, not "None supplied"
-        // (which they echoed verbatim instead of the contract phrase — gate round 2).
-        None => b.push_str("Headline limitation: None — this profile offers no clean exploit.\n"),
-    }
-    if let Some(reason) = &d.no_standout_reason {
-        b.push_str(&format!("Why no standout: {reason}\n"));
-    }
-    b
-}
-
-/// build_stat_prompt assembles the user prompt. s9 reframes this as a deterministic opposing-scout
-/// decision card plus supporting datapoints: the model explains the prepared decisions instead of
-/// inferring the structured label from the list. The `·` (U+00B7) and `—` (U+2014) are significant
-/// bytes; the tier labels are pctBand's deterministic output.
 /// load_stat_memory fetches the cross-season stats memory card (`stat_context_for_entity`,
 /// mig 164): prior-season top-skill read, confirmed moves, reliability-framed matchup edges.
 /// `None` = no memory, no prompt section. Model-facing enrichment only — the relational
@@ -1852,7 +1807,7 @@ pub async fn build_rating_request(
                     (Vec::new(), 0)
                 }
             };
-        prompt::render_personnel_block(
+        inputs::render_personnel_block(
             &req.entity_type,
             req.entity_id,
             &changes,
@@ -1868,7 +1823,7 @@ pub async fn build_rating_request(
     let availability_reports = if with_enrichment {
         match load_availability_reports(&hx.pool, &req.entity_type, req.entity_id, &req.sport).await
         {
-            Ok(claims) => prompt::render_availability_reports(&claims),
+            Ok(claims) => inputs::render_availability_reports(&claims),
             Err(e) => {
                 tracing::warn!(
                     entity_type = %req.entity_type,
@@ -1940,7 +1895,6 @@ pub async fn build_rating_request(
         z_memory.as_deref(),
         form_trend.as_deref(),
         availability_reports.as_deref(),
-    
         identity.as_deref(),
     );
     let opts = GenerateOptions {

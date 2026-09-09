@@ -43,11 +43,10 @@ use async_trait::async_trait;
 use sqlx::{PgPool, Row};
 use tracing::{debug, warn};
 
-// This junction's contract with its model — system prompt, contract version, and prompt
-// builder — lives in `prompt.rs`, so a change to what this character is asked is a one-file
-// diff. Re-exported here so call sites and the ledger keep reading it from the stage module.
+mod inputs;
 pub mod prompt;
-pub use prompt::{build_sentiment_prompt, VIBE_PROMPT_VERSION, VIBE_SYSTEM_PROMPT};
+pub use inputs::build_sentiment_prompt;
+pub use prompt::{VIBE_PROMPT_VERSION, VIBE_SYSTEM_PROMPT};
 
 /// Output contract captured separately in the Phase 2 diagnostic ledger.
 pub const VIBE_OUTPUT_CONTRACT_VERSION: &str = "vibe-score-v1";
@@ -59,9 +58,6 @@ pub const VIBE_TEMPERATURE: f64 = 0.7;
 // Second-largest, and for the same reason as The Journalist's: she voices each developing
 // emotional story, so multiple stories means multiple reads. Nuance is her product.
 pub const VIBE_NUM_PREDICT: i32 = 800;
-
-/// Body truncation in the prompt.
-const BODY_TRUNCATE: usize = 280;
 
 /// v19: one story block's rendered allowance in the vibe prompt, in chars (~750 tokens).
 /// MAX_VIBE_PACKETS bounds how many stories she reads; this bounds how DEEP each one runs —
@@ -1071,14 +1067,10 @@ impl StageHandler for VibeHandler {
         };
 
         // Identity card: house records, dated — degrades to absent like memory.
-        let identity = crate::corpus::load_identity_card(
-            &hx.pool,
-            &item.entity_type,
-            entity_id,
-            &sport,
-        )
-        .await
-        .unwrap_or_default();
+        let identity =
+            crate::corpus::load_identity_card(&hx.pool, &item.entity_type, entity_id, &sport)
+                .await
+                .unwrap_or_default();
 
         let out = generate_vibe_from_context(
             hx,

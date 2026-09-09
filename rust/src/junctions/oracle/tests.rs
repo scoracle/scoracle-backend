@@ -35,11 +35,10 @@ fn crown_salvages_prose_wrapped_json_and_collapses_whitespace() {
 fn crown_salvages_fenced_json_with_literal_newlines_in_string() {
     // The measured oMLX class (2026-08-10): unconstrained decoding fences the object AND writes
     // a paragraph break as a LITERAL newline inside the JSON string — illegal JSON that failed a
-    // complete reply. The salvage folds control chars in the brace span; the reading normalizer
-    // collapses the whitespace.
+    // complete reply. Salvage escapes the controls and retains the paragraph break.
     let raw = "```json\n{\n  \"reading\": \"The arc climbs.\n\nThe rim is a fortress.\",\n  \"score\": 92\n}\n```";
     let r = parse_crown_reply(raw).unwrap();
-    assert_eq!(r.reading, "The arc climbs. The rim is a fortress.");
+    assert_eq!(r.reading, "The arc climbs.\n\nThe rim is a fortress.");
     assert_eq!(r.score, 92);
 }
 
@@ -432,7 +431,8 @@ fn crown_prompt_renders_cards_and_omen() {
         "steady",
         "the arc holds its line",
         None,
-     None);
+        None,
+    );
     assert!(p.starts_with("Entity: Test Player (NBA player)\n"));
     assert!(!p.contains("YOUR PRIOR READ"));
     assert!(!p.contains("RELATIONAL MEMORY"));
@@ -442,9 +442,7 @@ fn crown_prompt_renders_cards_and_omen() {
     assert!(p.contains("=== THE ANALYST'S CARD (momentum) ===\nMomentum score: 1 (rising)\nMood trend: 0.5 over 4 samples (trending up)"));
     assert!(p.contains("=== THE INSIDER'S CARD (transfer wire) ===\n(no active transfer rumors)"));
     assert!(p.contains("=== THE OMEN (computed) ===\nOmen: steady — the arc holds its line\n"));
-    assert!(p.ends_with(
-        "\nYour peers have spoken; the table is yours. Read their cards, then render the score."
-    ));
+    assert!(p.ends_with("Omen: steady — the arc holds its line\n"));
 }
 
 /// 7.8, the 4096 envelope: on the packet rail every pillar body is capped and the Journalist's
@@ -493,7 +491,8 @@ fn packet_rail_caps_every_pillar_body_and_names_what_it_dropped() {
         "ascendant",
         "the arc climbs",
         None,
-     None);
+        None,
+    );
     let capped = build_crown_prompt(
         "player",
         "Test Player",
@@ -506,7 +505,8 @@ fn packet_rail_caps_every_pillar_body_and_names_what_it_dropped() {
         "ascendant",
         "the arc climbs",
         Some(CROWN_CARD_BODY_CAP),
-     None);
+        None,
+    );
 
     // Legacy truncates nothing — that is the behaviour a 16,384-token window allowed, and it is
     // what the legacy rail keeps sending.
@@ -608,7 +608,8 @@ fn crown_prompt_no_momentum_data_line() {
         "steady",
         "r",
         None,
-     None);
+        None,
+    );
     assert!(p.contains("=== THE JOURNALIST'S CARD (news storylines) ===\n(no recent narratives)"));
     assert!(p.contains("=== THE ANALYST'S CARD (momentum) ===\n(no momentum data)"));
     assert!(p.contains("=== THE INSIDER'S CARD (transfer wire) ===\n(no active transfer rumors)"));
@@ -638,7 +639,8 @@ fn crown_prompt_transfer_heat_renders() {
         "steady",
         "r",
         None,
-     None);
+        None,
+    );
     assert!(p.contains("=== THE INSIDER'S CARD (transfer wire) ===\n- Liverpool — heat 66, incoming, advanced_talks\n"));
 }
 
@@ -658,7 +660,8 @@ fn crown_prompt_is_blind_to_memories() {
         "steady",
         "r",
         None,
-     None);
+        None,
+    );
     assert!(p.starts_with(
         "Entity: Test Player (NBA player)\n\n=== THE JOURNALIST'S CARD (news storylines) ==="
     ));
@@ -687,7 +690,7 @@ fn the_scouts_z_notation_never_reaches_the_crown() {
     let brief = "Blocked shots are elite at 172 (98th percentile, z +1.8). \
                  Shots on target allowed sit at the 4th percentile, z -1.9, the clear liability. \
                  Interceptions are ordinary at the 54th percentile (z 0.1).";
-    let got = super::prompt::descrub_z(brief);
+    let got = super::inputs::descrub_z(brief);
 
     assert!(!got.contains(" z "), "z tokens survive: {got}");
     assert!(
@@ -712,7 +715,16 @@ fn the_scouts_z_notation_never_reaches_the_crown() {
 
     // A word merely starting with z is not a z-token.
     assert_eq!(
-        super::prompt::descrub_z("zonal marking at 60th"),
+        super::inputs::descrub_z("zonal marking at 60th"),
         "zonal marking at 60th"
     );
+}
+
+#[test]
+fn claim_paragraphs_survive_the_production_parser() {
+    let body = "The profile is ordinary. Most skills sit near average. The middle is the story.\n\nOne edge stands out. Finishing leads the supplied profile. That is the exception.\n\nAvailability is limited. Two absences are recorded. Depth matters now.\n\nThe rest is unchanged. The supplied comparison shows no movement. Continuity holds.";
+    let raw = serde_json::json!({"reading":body,"headline":"An ordinary arc holds","score":50})
+        .to_string();
+    let parsed = CrownParser.parse(&raw).unwrap().unwrap();
+    assert_eq!(parsed.reading, body);
 }

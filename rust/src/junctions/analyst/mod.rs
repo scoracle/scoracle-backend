@@ -22,11 +22,10 @@ use async_trait::async_trait;
 use sqlx::{PgPool, Row};
 use tracing::debug;
 
-// This junction's contract with its model — system prompt, contract version, and prompt
-// builder — lives in `prompt.rs`, so a change to what this character is asked is a one-file
-// diff. Re-exported here so call sites and the ledger keep reading it from the stage module.
+mod inputs;
 pub mod prompt;
-pub use prompt::{build_momentum_prompt, MOMENTUM_PROMPT_VERSION, MOMENTUM_SYSTEM_PROMPT};
+pub use inputs::build_momentum_prompt;
+pub use prompt::{MOMENTUM_PROMPT_VERSION, MOMENTUM_SYSTEM_PROMPT};
 
 /// Output contract captured separately in the diagnostic ledger.
 pub const MOMENTUM_OUTPUT_CONTRACT_VERSION: &str = "momentum-summary-v1";
@@ -383,6 +382,9 @@ pub fn parse_momentum_reply(raw: &str) -> Option<MomentumReply> {
         let trimmed_owned = crate::util::strip_markdown_emphasis(line);
         let trimmed = trimmed_owned.as_str();
         if trimmed.is_empty() {
+            if in_read {
+                read_lines.push(String::new());
+            }
             continue;
         }
         // s17 (mig 226): the card title, contracted AFTER the READ but accepted in any
@@ -446,7 +448,9 @@ pub fn parse_momentum_reply(raw: &str) -> Option<MomentumReply> {
     // Through the shared scrub like every other served body — this parser strips Markdown
     // per line already, but the self-review truncation (2026-08-25, the granite
     // grading-in-the-answer-box tic) lives in `clean_served_prose` and the READ is served.
-    let blurb = crate::guards::clean_served_prose(&clean_joined_lines(&read_lines));
+    let blurb = crate::guards::clean_served_prose(&crate::junctions::form::normalize_body(
+        &read_lines.join("\n"),
+    ));
     if blurb.is_empty() {
         return None;
     }
@@ -501,15 +505,6 @@ fn strip_direction_echo(rest: &str) -> &str {
         }
     }
     rest.trim()
-}
-
-fn clean_joined_lines(lines: &[String]) -> String {
-    lines
-        .iter()
-        .map(|s| s.trim())
-        .filter(|s| !s.is_empty())
-        .collect::<Vec<_>>()
-        .join(" ")
 }
 
 async fn persist_momentum_summary(

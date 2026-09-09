@@ -81,11 +81,18 @@ fn errors_without_digits() {
 #[test]
 fn builds_prompt_with_empty_sections() {
     // No previous, no memory ⇒ neither section renders (v11 byte-shape preserved).
-    let p = build_sentiment_prompt("player", "Test Player", "NBA", &[], &[], &[], None, None, None);
-    assert_eq!(
-        p,
-        "Entity: Player Test Player (NBA)\n\nRespond now (SCORE line, then HOOK line, then VIBE line)."
+    let p = build_sentiment_prompt(
+        "player",
+        "Test Player",
+        "NBA",
+        &[],
+        &[],
+        &[],
+        None,
+        None,
+        None,
     );
+    assert_eq!(p, "Entity: Player Test Player (NBA)\n");
 }
 
 #[test]
@@ -106,9 +113,10 @@ fn previous_vibe_renders_as_continuity_lead_in() {
         &[],
         Some(&previous),
         None,
-     None);
+        None,
+    );
     assert!(p.starts_with(
-        "Entity: Player Test Player (NBA)\n\n=== PREVIOUS VIBE ===\nScore: 68/100\nQuietly surging into the playoff race.\n\nRespond now"
+        "Entity: Player Test Player (NBA)\n\n=== PREVIOUS VIBE ===\nScore: 68/100\nQuietly surging into the playoff race.\n"
     ));
 }
 
@@ -127,12 +135,13 @@ fn previous_vibe_empty_read_renders_score_only() {
         &[],
         Some(&previous),
         None,
-     None);
-    assert!(p.contains("=== PREVIOUS VIBE ===\nScore: 55/100\n\nRespond now"));
+        None,
+    );
+    assert!(p.contains("=== PREVIOUS VIBE ===\nScore: 55/100\n"));
 }
 
 #[test]
-fn memory_card_renders_between_heat_and_reply_cue() {
+fn memory_card_renders_after_evidence() {
     let mem = "Prior story: Real Madrid — fizzled (Jun 2026, peak coverage 82/100).\nGround truth: completed a confirmed move to Arsenal on Jul 01 2026.";
     let p = build_sentiment_prompt(
         "player",
@@ -143,13 +152,12 @@ fn memory_card_renders_between_heat_and_reply_cue() {
         &[],
         None,
         Some(mem),
-     None);
+        None,
+    );
     assert!(p.contains("\nRelational memory (computed history"));
     assert!(p.contains("- Prior story: Real Madrid — fizzled"));
     assert!(p.contains("- Ground truth: completed"));
-    let mem_pos = p.find("Relational memory").unwrap();
-    let cue_pos = p.find("Respond now").unwrap();
-    assert!(mem_pos < cue_pos);
+    assert!(p.trim_end().ends_with(mem.lines().last().unwrap()));
 }
 
 #[test]
@@ -163,7 +171,8 @@ fn blank_memory_renders_no_section() {
         &[],
         None,
         Some("  \n "),
-     None);
+        None,
+    );
     assert!(!p.contains("Relational memory"));
 }
 
@@ -319,7 +328,17 @@ fn a_packet_alone_is_material_enough_to_wake_her() {
 /// and the legacy prompt is untouched by the arm entirely.
 #[test]
 fn packet_block_renders_above_the_narratives_and_never_on_legacy() {
-    let legacy = build_sentiment_prompt("team", "Arsenal", "FOOTBALL", &[], &[], &[], None, None, None);
+    let legacy = build_sentiment_prompt(
+        "team",
+        "Arsenal",
+        "FOOTBALL",
+        &[],
+        &[],
+        &[],
+        None,
+        None,
+        None,
+    );
     assert!(!legacy.contains("The stories running around them"));
 
     let packet = build_sentiment_prompt(
@@ -331,15 +350,9 @@ fn packet_block_renders_above_the_narratives_and_never_on_legacy() {
         &[packet_block(1)],
         None,
         None,
-     None);
-    let story = packet
-        .find("The stories running around them")
-        .expect("packet section");
-    let narr = packet.find("Respond now").unwrap();
-    assert!(
-        story < narr,
-        "the story she reads comes before his write-up of it"
+        None,
     );
+    assert!(packet.contains("The stories running around them"));
     // The register and its phrase are hers, and they arrive by the renderer's voice rule.
     assert!(packet.contains("MOOD: anticipation"));
     assert!(packet.contains("holding its breath"));
@@ -368,9 +381,19 @@ fn packet_block_depth_is_bounded_in_the_prompt() {
         "STORY: The saga\nMOOD: weary — \"here we go again\"\nREPORTED (newest first):\n{}",
         "- Outlet: a long claim line repeated far past any reasonable allowance.\n".repeat(400)
     );
-    let p = build_sentiment_prompt("team", "Test FC", "FOOTBALL", &[], &[], &[big], None, None, None);
+    let p = build_sentiment_prompt(
+        "team",
+        "Test FC",
+        "FOOTBALL",
+        &[],
+        &[],
+        &[big],
+        None,
+        None,
+        None,
+    );
     let story_at = p.find("STORY: The saga").expect("block renders");
-    let narratives_at = p.find("Respond now").expect("next section renders");
+    let narratives_at = p.len();
     assert!(
         narratives_at - story_at <= PACKET_BLOCK_TRUNCATE + 8,
         "block spent {} chars, allowance is {}",
@@ -388,7 +411,8 @@ fn packet_block_depth_is_bounded_in_the_prompt() {
         &[small.clone()],
         None,
         None,
-     None);
+        None,
+    );
     assert!(
         q.contains(small.text.trim_end()),
         "a normal block renders whole"
@@ -425,7 +449,8 @@ fn the_wire_never_reaches_her_at_all() {
         &[],
         None,
         None,
-     None);
+        None,
+    );
 
     // v27, the feeds matrix: the wire aggregate is GONE too — Editor-only in. The heat
     // param still arrives (loaders/hash, transitional) and must render NOTHING.

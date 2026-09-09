@@ -174,7 +174,7 @@ Last read (Jul 18): The wire is warm.\n\
 Recent scores (newest first): 62 (Jul 18) · 55 (Jul 12)\n\
 \nTHE ACTIVE WIRE (1 live vetted rumor(s), latest per counterparty):\n\
 - Lakers — heat 80, incoming, advanced_talks — \"Lakers in advanced talks per ESPN\"\n\
-\nReturn the JSON object now."
+"
     );
     // First-ever wrap: no memory section at all.
     let first = build_insider_score_prompt("Some Team", "NBA", "team", &board, None, None);
@@ -880,4 +880,13 @@ fn transfer_identity_adjudication_parser_accepts_schema_shaped_reply() {
     assert_eq!(parsed.decision, "apply");
     assert_eq!(parsed.new_team_id, 18);
     assert_eq!(parsed.old_team_id, None);
+}
+
+#[test]
+fn claim_paragraphs_survive_the_production_parser() {
+    let body = "The profile is ordinary. Most skills sit near average. The middle is the story.\n\nOne edge stands out. Finishing leads the supplied profile. That is the exception.\n\nAvailability is limited. Two absences are recorded. Depth matters now.\n\nThe rest is unchanged. The supplied comparison shows no movement. Continuity holds.";
+    let raw =
+        serde_json::json!({"read":body,"headline":"An ordinary wire holds","score":50}).to_string();
+    let parsed = InsiderScoreParser.parse(&raw).unwrap().unwrap();
+    assert_eq!(parsed.read, body);
 }

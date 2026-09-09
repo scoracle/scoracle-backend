@@ -38,14 +38,11 @@ use sqlx::{PgPool, Row};
 use std::collections::HashSet;
 use tracing::{debug, warn};
 
-// This junction's contract with its model — system prompt, contract version, and prompt
-// builder — lives in `prompt.rs`, so a change to what this character is asked is a one-file
-// diff. Re-exported here so call sites and the ledger keep reading it from the stage module.
+mod inputs;
 pub mod prompt;
-pub use prompt::{
-    build_narratives_prompt, narratives_format_schema, NARRATIVES_PROMPT_VERSION,
-    NARRATIVES_SYSTEM_PROMPT,
-};
+pub use crate::junctions::form::narratives_format_schema;
+pub use inputs::build_narratives_prompt;
+pub use prompt::{NARRATIVES_PROMPT_VERSION, NARRATIVES_SYSTEM_PROMPT};
 
 // ---------------------------------------------------------------------------
 // Constants — mirror news_narratives.go.
@@ -1250,9 +1247,10 @@ pub async fn finish_narratives_build(
         score_context.push_str(&p.card);
     }
     // Identity card: house records, dated — degrades to absent like memory.
-    let identity = crate::corpus::load_identity_card(&hx.pool, &req.entity_type, req.entity_id, &req.sport)
-        .await
-        .unwrap_or_default();
+    let identity =
+        crate::corpus::load_identity_card(&hx.pool, &req.entity_type, req.entity_id, &req.sport)
+            .await
+            .unwrap_or_default();
     let built_prompt = build_narratives_prompt(
         req,
         &corpus,

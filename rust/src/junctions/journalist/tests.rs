@@ -45,7 +45,8 @@ fn prompt_numbered_news() {
         None,
         None,
         None,
-     None);
+        None,
+    );
     assert!(
         !p.contains("Relational memory"),
         "no memory ⇒ no section (n7 byte-shape preserved)"
@@ -67,7 +68,7 @@ fn prompt_numbered_news() {
 \nRecent news (numbered):\n\
 1. [BBC] Saka shines again — A strong display in the win.\n\
 2. Arsenal eye a new winger\n\
-\nReturn the JSON object now."
+"
     );
 }
 
@@ -144,7 +145,8 @@ fn article_context_renders_a_description_that_adds_content() {
         None,
         None,
         None,
-     None);
+        None,
+    );
     assert!(p.contains("A strong display in the win."));
 }
 
@@ -279,7 +281,7 @@ fn headline_parses_best_effort_and_takes_the_title_floor() {
 }
 
 #[test]
-fn prompt_score_context_renders_last_before_reply_instruction() {
+fn prompt_score_context_renders_after_news() {
     let news = vec![item(1, "BBC", "Saka shines again", "", None)];
     let p = build_narratives_prompt(
         &req("Bukayo Saka", "FOOTBALL", "player"),
@@ -290,11 +292,8 @@ fn prompt_score_context_renders_last_before_reply_instruction() {
         None,
     );
     let signals = p.find("SIGNALS (deterministic").unwrap();
-    let reply = p.find("\nReturn the JSON object now.").unwrap();
-    assert!(
-        signals < reply,
-        "score context precedes the reply instruction"
-    );
+    assert!(p.find("Recent news (numbered)").unwrap() < signals);
+    assert!(p.trim_end().ends_with("55 (Jul 12)"));
     assert!(p.contains("Card scores (newest first): 58 (Jul 18) · 55 (Jul 12)"));
     // None ⇒ byte-identical to the pre-n12 shape (the fixtures above pin it).
     let bare = build_narratives_prompt(
@@ -303,7 +302,8 @@ fn prompt_score_context_renders_last_before_reply_instruction() {
         None,
         None,
         None,
-     None);
+        None,
+    );
     assert!(!bare.contains("SIGNALS"));
 }
 
@@ -618,4 +618,12 @@ fn news_budget_always_keeps_at_least_one_item() {
     let (kept, dropped) = apply_news_budget(corpus, 100);
     assert_eq!(kept.len(), 1);
     assert!(dropped.is_empty());
+}
+
+#[test]
+fn claim_paragraphs_survive_the_production_parser() {
+    let body = "The profile is ordinary. Most skills sit near average. The middle is the story.\n\nOne edge stands out. Finishing leads the supplied profile. That is the exception.\n\nAvailability is limited. Two absences are recorded. Depth matters now.\n\nThe rest is unchanged. The supplied comparison shows no movement. Continuity holds.";
+    let raw = serde_json::json!({"narratives":[{"title":"The profile","body":body,"articles":[1]}],"headline":"An ordinary profile holds","card_score":50}).to_string();
+    let parsed = NarrativesParser.parse(&raw).unwrap().unwrap();
+    assert_eq!(parsed.narratives[0].body, body);
 }

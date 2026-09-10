@@ -1,29 +1,5 @@
-//! rating_s14_fixtures — regenerate the hand-authored Scout eval fixtures.
-//!
-//! s18 retires the verbatim PEAK marker line: the divined peak is code-owned
-//! (`RatingReady.divined_peak`), the model emits only the three labeled sections, and the
-//! brief is product-name-free (Scott's 2026-08-10 brief; gated by the harness's per-reply
-//! `no_product_names` invariant). The old `peak_includes`/`peak_excludes` axes asserted the
-//! copy step and are retired with it — the specificity they guarded moves into
-//! `prose_includes`: the Strengths section must name the decision card's primary skill.
-//!
-//! s14 was the Characters Phase B voice pass: the system prompt speaks The Scout's telling
-//! (persona-first — clipped, tactical, game-plan imperatives; speaks to a coaching staff,
-//! never fans; names the skill and the number; tier is the truth). The four s11-era
-//! scenarios (specificity, no-standout restraint, per-x corroboration, fixed-budget
-//! richness) carry over as the regression floor; s14 added four Scout-refusal guards: the
-//! no-clean-exploit contract phrase, the usage-artifact z-rule (the Drake London
-//! precedent), a team profile with trend-talk exclusions, and secondary-strength number
-//! coverage.
-//!
-//! Each scenario holds a RatingProfile and renders through the REAL production builder
-//! (`build_stat_prompt` + `RATING_SYSTEM_PROMPT` + the deterministic scouting decision),
-//! so the frozen `system`/`user_prompt` are byte-exact — a prompt bump means "re-run this
-//! example", not "hand-patch the JSON". Writes the fixture files directly (the
-//! transfers/vibe/momentum generator pattern):
-//!
-//!     cargo run --example rating_s14_fixtures
-//!     cargo run --bin eval -- --task rating --fixtures   (needs Ollama)
+//! Regenerate Scout fixtures from the live character and evidence builder.
+//! Run with `cargo run --example rating_s14_fixtures`.
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -75,7 +51,7 @@ fn dp_pos(label: &str, value: f64, z: f64, pct: f64, pos_pct: f64) -> RatingData
 /// generator at s18 — until then this gate lived ONLY in the on-disk JSON, and a regen would
 /// have silently dropped it (the momentum-generator lesson, caught the same evening).
 fn rating_gate(includes: &[&str], excludes: &[&str], min_words: i64) -> serde_json::Value {
-    let mut inc: Vec<String> = includes.iter().map(|s| s.to_string()).collect();
+    let inc: Vec<String> = includes.iter().map(|s| s.to_string()).collect();
     // s26, the uniform structure: the labelled sections retire for STORY_FORM claim
     // paragraphs, so the labels FLIP from required to banned — a label on the card is now
     // structural drift, the same defect class as "Claim:"/"Evidence:" scaffolding. (History:
@@ -100,7 +76,7 @@ fn scenarios() -> Vec<Scenario> {
     vec![
         Scenario {
             name: "rim-protector-specificity",
-            note: "stats identity specificity (s11 floor). TARGET: the PEAK label names the actual elite skill, not a collapsed report; the exploit call cites the turnovers number. s14: three-section budget, clipped register.",
+            note: "Specific skill names and supplied numbers ground a profile with an elite defensive edge.",
             entity: "Nia Torres", entity_type: "player", sport: "NBA", position: "C",
             composite: 64.0,
             breakdown: vec![
@@ -114,7 +90,7 @@ fn scenarios() -> Vec<Scenario> {
         },
         Scenario {
             name: "no-standout-restraint",
-            note: "PEAK restraint (s11 floor). Highest datapoint is only above average, so the PEAK line must not invent a standout, and the modest profile earns one clipped line per section.",
+            note: "An ordinary profile must remain ordinary; its below-average turnover mark is still evidence.",
             entity: "Eli Stone", entity_type: "player", sport: "NBA", position: "SG",
             composite: 49.0,
             breakdown: vec![
@@ -127,7 +103,7 @@ fn scenarios() -> Vec<Scenario> {
         },
         Scenario {
             name: "rate-adjusted-limited-minutes",
-            note: "PEAK specificity plus per-x corroboration (s11 floor). The strong first datapoint is the peak; the per-36 section is supporting evidence that the edge is real, not an invented larger role.",
+            note: "Per-rate corroboration supports a measured edge without inventing a larger role.",
             entity: "Dario Fen", entity_type: "player", sport: "NBA", position: "PF",
             composite: 55.0,
             breakdown: vec![
@@ -143,7 +119,7 @@ fn scenarios() -> Vec<Scenario> {
         },
         Scenario {
             name: "fixed-budget-rich-profile",
-            note: "prose richness under a fixed budget (s11 floor). Rich profile: the brief must cover the elite peak and the strong secondaries with their numbers, name the foul exploit, and still stay bounded.",
+            note: "A rich profile supports distinct claims with relevant supporting numbers.",
             entity: "Rui Almeida", entity_type: "player", sport: "FOOTBALL", position: "MF",
             composite: 61.0,
             breakdown: vec![
@@ -158,7 +134,7 @@ fn scenarios() -> Vec<Scenario> {
         },
         Scenario {
             name: "no-clean-exploit",
-            note: "NEW (s14): the decision card supplies no weakness — every non-peak mark is average or better. The Scout must say the profile offers no clean exploit, not manufacture one from an average mark.",
+            note: "Average-or-better measurements must not become manufactured weaknesses.",
             entity: "Marcus Vale", entity_type: "player", sport: "NBA", position: "PG",
             composite: 60.0,
             breakdown: vec![
@@ -168,11 +144,11 @@ fn scenarios() -> Vec<Scenario> {
                 dp("Mid-range volume", 3.3, -0.1, 52.0),
             ],
             rate_modes: HashMap::new(),
-            expect: rating_gate(&["pick-and-roll", "93", "no clean exploit"], &[], 30),
+            expect: rating_gate(&["pick-and-roll", "93"], &[], 30),
         },
         Scenario {
             name: "usage-artifact-not-exploit",
-            note: "NEW (s14): the z-rule guard (the Drake London precedent). Giveaways sit at the 5th percentile with z -0.2 — a usage artifact the decision card correctly skips; the real exploit is the 31st-pct drop rate. The brief must attack drops and never present giveaways as a target.",
+            note: "A poor percentile with a near-zero rating is a usage artifact, not an exploitable weakness.",
             entity: "Trey Marsh", entity_type: "player", sport: "NFL", position: "WR",
             composite: 62.0,
             breakdown: vec![
@@ -186,7 +162,7 @@ fn scenarios() -> Vec<Scenario> {
         },
         Scenario {
             name: "team-profile-clipped",
-            note: "NEW (s14): team entity (no position) in the coaching-staff register, with the no-trend-talk refusal pinned — a static profile never earns momentum vocabulary; that read is another character's turn.",
+            note: "A static team profile does not establish recent momentum.",
             entity: "Harbor City FC", entity_type: "team", sport: "FOOTBALL", position: "",
             composite: 59.0,
             breakdown: vec![
@@ -199,7 +175,7 @@ fn scenarios() -> Vec<Scenario> {
         },
         Scenario {
             name: "secondary-strengths-coverage",
-            note: "NEW (s14): the signature check — names the skill AND the number. Strengths to respect must cover the elite peak and both strong secondaries with cited numbers, plus the rebounding exploit.",
+            note: "Related skills should support the profile's claims without a forced section outline.",
             entity: "Jaylen Okafor", entity_type: "player", sport: "NBA", position: "PG",
             composite: 66.0,
             breakdown: vec![
@@ -242,7 +218,9 @@ fn main() -> anyhow::Result<()> {
         let (notability, _) = compute_notability(&profile);
         // Fixtures pin the memory-free shape (the s12/n8 eval discipline) — and that now includes
         // the tagged availability reports: the frozen shape is the one with NO enrichment.
-        let prompt = build_stat_prompt(&req, &profile, notability, None, None, None, None, None, None);
+        let prompt = build_stat_prompt(
+            &req, &profile, notability, None, None, None, None, None, None,
+        );
         let v = json!({
             "name": s.name,
             "task": "rating",

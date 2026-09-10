@@ -95,37 +95,34 @@ pub const MOMENTUM_BANNED_PHRASES: &[&str] = &[
 /// over-broad within the hour — rejecting ~1 crown per 2 shipped on honest parenthetical
 /// asides, on the seat with the deepest queue. The mechanical defect it guarded — a
 /// bookkeeping citation like "(Mood: 30/100)" pasted into prose — is what
-/// [`has_bookkeeping_citation`] now catches precisely: a parenthetical CARRYING A DIGIT.
+/// [`has_bookkeeping_citation`] now catches precisely: an internal numeric field citation.
 /// Digits in open prose stay legal for this seat (percentiles and values are ordinary
-/// sporting evidence — see `descrub_z`); digits in parens are the analyst's desk. `"**"` left
+/// sporting evidence — see `descrub_z`); sporting parentheticals remain valid evidence. `"**"` left
 /// with the shared `clean_served_prose` pipeline. Kept as an empty seam, the
 /// [`VIBE_BODY_BANS`] precedent.
 pub const ORACLE_READING_BANS: &[&str] = &[];
 
-/// A parenthetical carrying an ASCII digit — the bookkeeping-citation shape ("(Mood: 30/100)",
-/// "(4th percentile)") that turns a reading into the analyst's desk notes. The paren pair must
-/// close; an unclosed "(" is ordinary broken prose, not a citation, and the retry costs more
-/// than the stray character.
+/// Detect internal numeric field citations, while allowing sporting parentheticals.
 pub fn has_bookkeeping_citation(prose: &str) -> bool {
-    let mut digit_in_span = false;
-    let mut in_span = false;
-    for c in prose.chars() {
-        match c {
-            '(' => {
-                in_span = true;
-                digit_in_span = false;
-            }
-            ')' if in_span => {
-                if digit_in_span {
-                    return true;
-                }
-                in_span = false;
-            }
-            _ if in_span && c.is_ascii_digit() => digit_in_span = true,
-            _ => {}
-        }
-    }
-    false
+    const FIELDS: &[&str] = &[
+        "mood",
+        "form",
+        "omen",
+        "momentum",
+        "sentiment",
+        "convergence",
+        "notability",
+    ];
+    prose.split('(').skip(1).any(|tail| {
+        let Some((span, _)) = tail.split_once(')') else {
+            return false;
+        };
+        let Some((label, value)) = span.split_once(':').or_else(|| span.split_once('=')) else {
+            return false;
+        };
+        FIELDS.contains(&label.trim().to_ascii_lowercase().as_str())
+            && value.chars().any(|c| c.is_ascii_digit())
+    })
 }
 
 /// The Scout's report is prose, never a bullet list and never the card's notation — the legacy
@@ -150,23 +147,6 @@ pub const VIBE_BODY_BANS: &[&str] = &[];
 /// The first phrase from `list` found (case-insensitive, quote/diacritic-folded) in `prose`.
 pub fn first_banned_phrase(prose: &str, list: &[&'static str]) -> Option<&'static str> {
     list.iter().find(|p| contains_ci(prose, p)).copied()
-}
-
-/// How many DISTINCT peers a reading names. The Oracle may name at most one, and only when that
-/// card carries the turn — a roll call makes the reading a summary of the table rather than the
-/// Oracle's own verdict. GATE-ONLY since the 08-23 eval-scar sweep: production no longer bails
-/// on a roll call (voice taste, not mechanics); the eval's `reading_max_peers` still measures it.
-///
-/// Matches "the Analyst"-style references only. A bare sport word ("the scout said") would be a
-/// false positive, so the definite article is required, which is how the prompt's own examples are
-/// written ("the Insider's wire stirs", "the Analyst's call holds").
-pub fn count_named_peers(reading: &str) -> usize {
-    const PEERS: [&str; 5] = ["analyst", "insider", "scout", "influencer", "journalist"];
-    let lower = reading.to_lowercase();
-    PEERS
-        .iter()
-        .filter(|p| lower.contains(&format!("the {p}")))
-        .count()
 }
 
 /// **THE TWITTER RULE** — the whole of the card-title contract: 140 characters.
@@ -455,13 +435,16 @@ mod tests {
                        The room is holding its breath.";
         assert_eq!(truncate_self_review(restate), "He’s still the anchor.");
         // Earliest marker wins when several appear.
-        let both = "Solid start. Let me tighten this. (Note: within limits.)";
+        let both = "Solid start. Check format: within limits.";
         assert_eq!(truncate_self_review(both), "Solid start.");
     }
 
     #[test]
     fn self_review_leaves_honest_prose_alone() {
         for s in [
+            "But wait, this is where the comeback begins.",
+            "(Note: the match ended 2–1.) A narrow win still counts.",
+            "Let me revise that prediction: the reported injury changes the picture.",
             "But wait — the third act of this transfer saga is still unwritten.",
             "The count matters: three wins from three, and the away end knows it.",
             "A revised deal reached the table on Friday, per the Athletic.",
@@ -473,8 +456,8 @@ mod tests {
 
     #[test]
     fn self_review_opening_marker_empties_the_body_for_the_retry_path() {
-        assert_eq!(truncate_self_review("(Note: entirely meta.)"), "");
-        assert_eq!(clean_served_prose("**(Note: bolded meta.)**"), "");
+        assert_eq!(truncate_self_review("Check format: entirely meta."), "");
+        assert_eq!(clean_served_prose("**Check format: bolded meta.**"), "");
     }
 
     #[test]
@@ -581,11 +564,11 @@ mod tests {
 
     #[test]
     fn bookkeeping_citations_are_precise_about_the_defect() {
-        // The measured defect: a digit-bearing parenthetical.
+        // Internal numeric fields leak the input contract.
         assert!(has_bookkeeping_citation(
             "his rim protection holds (Mood: 30/100) even now"
         ));
-        assert!(has_bookkeeping_citation(
+        assert!(!has_bookkeeping_citation(
             "elite at the line (4th percentile)"
         ));
         // Honest parenthetical asides pass — the blanket "(" ban was rejecting these
@@ -597,6 +580,13 @@ mod tests {
         assert!(!has_bookkeeping_citation(
             "a 96th percentile mark carries the profile"
         ));
+        assert!(!has_bookkeeping_citation(
+            "They won (score: 2–1) after extra time."
+        ));
+        assert!(!has_bookkeeping_citation(
+            "A signing (fee: 40 million) is confirmed."
+        ));
+        assert!(has_bookkeeping_citation("The room cools (sentiment=30)."));
         // An unclosed paren is broken prose, not a citation.
         assert!(!has_bookkeeping_citation("the wire stirs (fee near 40"));
         // The vocabulary list is an empty seam; nothing in prose can trip it.
@@ -607,16 +597,6 @@ mod tests {
             ),
             None
         );
-    }
-
-    #[test]
-    fn peer_roll_call_counts_distinct_peers() {
-        assert_eq!(count_named_peers("the Analyst's call holds"), 1);
-        assert_eq!(
-            count_named_peers("the Influencer's card and the Scout's brief and the Insider's wire"),
-            3
-        );
-        assert_eq!(count_named_peers("a scout would respect it"), 0);
     }
 
     /// Punctuation is VOICE, and voice is not a production guard's business (2026-08-24).
@@ -808,55 +788,25 @@ fn collapse_exact_double(prose: &str) -> String {
     prose.to_string()
 }
 
-/// Where a served body stops narrating sport and starts grading its own answer, cut it there.
-///
-/// Measured on granite4.2:3b the day it became the resident (2026-08-25, live corpus, busy
-/// entities): the model's instruction-following instinct turns inward and it REVIEWS the card
-/// inside the card — "But wait—this doesn't quite fit the required format… Revised VIBE:",
-/// "(Note: This stays within 6 sentences…)", and one card that restated itself in full after
-/// "But the card must stay tight:". The fixtures never provoked it; Lakers-sale-grade live
-/// material does. Thinking mode is NOT the fix for the prose seats — measured the same day:
-/// granite's deliberation scales with the CONTRACT mass, not the material (~2,500 tokens of
-/// rule rehearsal for a 331-char card), against Scott's compression direction — report what's
-/// there, compress abundance, never expand into available space.
-///
-/// So the treatment is the strip-not-reject family, same as `**`: everything before the first
-/// marker is exactly the card the seat intended; everything after is the model grading its
-/// homework. Markers are exact, case-sensitive phrases measured in production output — the
-/// admission rule for the list is "is this phrase about THE ANSWER rather than the sport?",
-/// and it grows only from observed output, never speculatively (a speculative marker is a ban
-/// list by another name). A body that OPENS with a marker truncates to empty, and the seat's
-/// own empty-reply guard then fails it honestly into a retry.
+/// Remove explicit output-format self-review, preserving ordinary narrative asides.
 pub fn truncate_self_review(prose: &str) -> &str {
-    // Measured 2026-08-25: the ctx_ab live probes and the fixture gate's A-sides.
     const SELF_REVIEW_MARKERS: &[&str] = &[
-        "(Note:",
-        // The form-meta parentheticals: the model narrating THE STORY FORM's own mechanics
-        // back at the card (measured on the 2026-08-25 deck probes: "(One paragraph — claim,
-        // evidence, close — as required.)", "(Blank line before next paragraph if needed…").
-        "(One claim",
-        "(One paragraph",
-        "(Two claims",
-        "(Three claims",
-        "(Blank line",
-        "(The claim:",
-        "But wait—this",
-        "But wait, this",
-        "But the card must stay tight",
+        "(Note: This stays within",
+        "(One paragraph — claim, evidence, close",
+        "(Blank line before next paragraph",
+        "But wait—this doesn’t quite fit the required format",
+        "But wait—this doesn't fit the rules",
+        "But the card must stay tight:",
         "Now check constraints",
         "Now check the constraints",
         "Check format:",
         "Check character counts",
         "Count characters:",
         "Count words:",
-        "Let me tighten",
-        "Let me rewrite",
-        "Let me revise",
-        "Let me refine",
-        "Revised VIBE",
-        "Revised READ",
-        "Revised HOOK",
-        "Revised final output",
+        "Revised VIBE:",
+        "Revised READ:",
+        "Revised HOOK:",
+        "Revised final output:",
     ];
     let cut = SELF_REVIEW_MARKERS
         .iter()

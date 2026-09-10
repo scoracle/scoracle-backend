@@ -1,12 +1,7 @@
 //! oracle_or4_fixtures — regenerate the hand-authored Oracle eval fixtures.
 //!
-//! or4 is the Characters Phase B voice pass (the LAST of the six): the system prompt now
-//! speaks the Oracle as the sixth character at the table — five peers have published their
-//! stories, and the Oracle's turn comes last (wiki/Characters.md craft appendix: measured,
-//! knowing, quietly mystic; the reader at the table, never a narrator above the story; the
-//! mysticism lives in the telling, every fact from the cards). The or3 CONTRACT —
-//! `{reading, score}` JSON, 2-4 sentence reading, omen-is-final, no internal field words,
-//! prior-read score discipline — is unchanged.
+//! Oracle fixtures exercise complete and partial spreads through the current shared form.
+//! The computed omen anchors direction; prose length and vocabulary follow the evidence.
 //!
 //! The six scenario CONCEPTS carry over from the or2-era frozen set (ascendant-aligned,
 //! ascendant-thin-hype, crossroads-conflict, steady-quiet, transfer-crossroads,
@@ -66,13 +61,15 @@ fn rating(notability: i32, trajectory: &str, label: &str, body: &str) -> Option<
         body: body.to_string(),
         notability,
         rating_trajectory: trajectory.to_string(),
-        rating_trajectory_label: label.to_string()})
+        rating_trajectory_label: label.to_string(),
+    })
 }
 
 fn vibe(sentiment: i32, prompt: &str) -> Option<SynthVibe> {
     Some(SynthVibe {
         sentiment,
-        prompt: prompt.to_string()})
+        prompt: prompt.to_string(),
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -97,21 +94,6 @@ fn momentum(
     }
 }
 
-/// Spread-CONTEXTUAL exclusions only: the wrong omen words for this spread (the undrawn-omen
-/// rule — `omen` is the drawn one; the OTHER directional words must not appear). The global
-/// vocabulary bans (internal metric names, "(", "**", "the omen is") left the per-fixture
-/// expects 08-19 — they are one `no_banned_phrases` invariant per reading now
-/// (`guards::ORACLE_READING_BANS`), the same list `CrownParser` enforces in production.
-fn base_excludes(omen: &str) -> Vec<&'static str> {
-    let mut ex = Vec::new();
-    for o in ["ascendant", "waning", "crossroads"] {
-        if o != omen {
-            ex.push(o);
-        }
-    }
-    ex
-}
-
 fn scenarios() -> Vec<Scenario> {
     vec![
         Scenario {
@@ -130,8 +112,7 @@ fn scenarios() -> Vec<Scenario> {
             momentum: momentum("rising", 3.4, Some(1.2), 6, Some(0.8), 5,
                 "Form and feeling are moving together; the rise is backed on both rails."),
             transfers: vec![],
-            expect: json!({"reading_includes": ["Wells"],
-                           "reading_excludes": base_excludes("ascendant")}),
+            expect: json!({"reading_includes": ["Wells"]}),
         },
         Scenario {
             name: "ascendant-thin-hype",
@@ -148,8 +129,7 @@ fn scenarios() -> Vec<Scenario> {
             momentum: momentum("rising", 1.4, None, 0, Some(1.8), 3,
                 "Feeling is climbing fast on a thin sample; form has no card to show."),
             transfers: vec![],
-            expect: json!({"reading_includes": ["Kovac"],
-                           "reading_excludes": base_excludes("ascendant")}),
+            expect: json!({"reading_includes": ["Kovac"]}),
         },
         Scenario {
             name: "crossroads-conflict",
@@ -167,8 +147,7 @@ fn scenarios() -> Vec<Scenario> {
             momentum: momentum("falling", -1.8, Some(-0.2), 6, Some(-1.3), 5,
                 "Feeling is dragging the arc down while the production holds its line."),
             transfers: vec![],
-            expect: json!({"reading_includes": ["Vale"],
-                           "reading_excludes": base_excludes("crossroads")}),
+            expect: json!({"reading_includes": ["Vale"]}),
         },
         Scenario {
             name: "steady-quiet",
@@ -186,8 +165,7 @@ fn scenarios() -> Vec<Scenario> {
             momentum: momentum("steady", 0.3, Some(0.1), 5, Some(-0.1), 4,
                 "Neither form nor feeling is moving; the line holds."),
             transfers: vec![],
-            expect: json!({"reading_includes": ["Harbor City"],
-                           "reading_excludes": base_excludes("steady")}),
+            expect: json!({"reading_includes": ["Harbor City"]}),
         },
         Scenario {
             name: "transfer-crossroads",
@@ -212,8 +190,7 @@ fn scenarios() -> Vec<Scenario> {
                 summary: "Talks over a summer move have advanced to personal terms.".to_string(),
                 confidence: Some(0.8),
             }],
-            expect: json!({"reading_includes": ["Almeida", "Madrid"],
-                           "reading_excludes": base_excludes("crossroads")}),
+            expect: json!({"reading_includes": ["Almeida", "Madrid"]}),
         },
         Scenario {
             name: "waning-freefall",
@@ -231,8 +208,7 @@ fn scenarios() -> Vec<Scenario> {
             momentum: momentum("falling", -3.6, Some(-1.5), 6, Some(-1.1), 5,
                 "Both rails point down and neither shows a floor yet."),
             transfers: vec![],
-            expect: json!({"reading_includes": ["Coastal"],
-                           "reading_excludes": base_excludes("waning")}),
+            expect: json!({"reading_includes": ["Coastal"]}),
         },
         // ── PARTIAL SPREADS ──────────────────────────────────────────────────────────────
         // The doctrine (Scott, 2026-08-15): "if it only has 3 cards instead of 5, it will
@@ -247,17 +223,10 @@ fn scenarios() -> Vec<Scenario> {
         // all"), and until these two scenarios there was no fixture below four cards to hold
         // it to account.
         //
-        // THE ASSERTION IS THE SENTENCE CEILING, and that is deliberate. A substring ban is
-        // the wrong instrument here: the honest reading of a thin spread NAMES the absence,
-        // so banning "form" would fail correct prose (ascendant-thin-hype's own momentum
-        // blurb reads "form has no card to show"). What fabrication actually looks like is
-        // PADDING — reaching eight sentences on a spread that holds three. So the ceiling
-        // scales with the cards: fewer cards, fewer sentences available. That is the or7 rule
-        // stated mechanically, and it is the same reasoning that gave reading_max_peers its
-        // own check instead of an exclusion.
+        // Partial spreads exercise missing evidence without imposing a sentence quota.
         Scenario {
             name: "three-card-newcomer",
-            note: "THE PARTIAL SPREAD, three cards: a just-promoted side with news, a transfer wire and a felt read, but NO scouting brief and NO momentum — the shape every newly-arrived entity presents before its stats accumulate. The reading must build on the three cards it holds and stay silent on form and trajectory rather than infer them. Short is correct here; the ceiling is the assertion.",
+            note: "THE PARTIAL SPREAD, three cards: a just-promoted side with news, a transfer wire and a felt read, but NO scouting brief and NO momentum — the shape every newly-arrived entity presents before its stats accumulate. The reading must build on the three cards it holds and stay silent on form and trajectory rather than infer them. Build only claims supported by the available cards.",
             entity: "Ipswich Town", entity_type: "team", sport: "FOOTBALL",
             expect_omen: "steady",
             narratives: vec![narrative(
@@ -276,8 +245,7 @@ fn scenarios() -> Vec<Scenario> {
                 summary: "The move for Issa Diop is done and the paperwork is filed.".to_string(),
                 confidence: Some(0.9),
             }],
-            expect: json!({"reading_includes": ["Ipswich"],
-                           "reading_excludes": base_excludes("steady")}),
+            expect: json!({"reading_includes": ["Ipswich"]}),
         },
         Scenario {
             name: "near-empty-quiet-wire",
@@ -293,8 +261,7 @@ fn scenarios() -> Vec<Scenario> {
             vibe: None,
             momentum: SynthMomentum::default(),
             transfers: vec![],
-            expect: json!({"reading_includes": ["Venezia"],
-                           "reading_excludes": base_excludes("steady")}),
+            expect: json!({"reading_includes": ["Venezia"]}),
         },
     ]
 }
@@ -334,7 +301,8 @@ fn main() -> anyhow::Result<()> {
             // or9: the crown is blind to memories by CONTRACT now — the memory-free shape the
             // fixtures always pinned is simply the shape.
             None,
-         None);
+            None,
+        );
         let v = json!({
             "name": s.name,
             "task": "oracle",

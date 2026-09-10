@@ -161,7 +161,7 @@ fn main() -> anyhow::Result<()> {
             sources_any: Some(vec![
                 "O Jogo".into(), "Record".into(), "Sky Sport Italia".into(), "The Athletic".into(),
             ]),
-            total_sentences_max: Some(10),
+            total_sentences_max: None,
             ..Default::default()
         },
     );
@@ -191,7 +191,7 @@ fn main() -> anyhow::Result<()> {
                 "heating up".into(), "close to a deal".into(),
             ]),
             sources_any: Some(vec!["Ekstra Bladet".into(), "Goal".into()]),
-            total_sentences_max: Some(10),
+            total_sentences_max: None,
             ..Default::default()
         },
     );
@@ -226,7 +226,7 @@ fn main() -> anyhow::Result<()> {
                 "Bild".into(), "ESPN".into(), "Fabrizio Romano".into(), "Globo".into(),
                 "Kicker".into(),
             ]),
-            total_sentences_max: Some(10),
+            total_sentences_max: None,
             ..Default::default()
         },
     );
@@ -255,7 +255,7 @@ fn main() -> anyhow::Result<()> {
             sources_any: Some(vec![
                 "ESPN".into(), "Sacramento Bee".into(), "The Athletic".into(),
             ]),
-            total_sentences_max: Some(10),
+            total_sentences_max: None,
             ..Default::default()
         },
     );
@@ -282,7 +282,7 @@ fn main() -> anyhow::Result<()> {
             sources_any: Some(vec![
                 "ESPN".into(), "Sactown Sports".into(), "The Athletic".into(),
             ]),
-            total_sentences_max: Some(10),
+            total_sentences_max: None,
             ..Default::default()
         },
     );
@@ -308,7 +308,7 @@ fn main() -> anyhow::Result<()> {
             sources_any: Some(vec![
                 "Bleacher Report".into(), "Miami Herald".into(), "The Ringer".into(),
             ]),
-            total_sentences_max: Some(10),
+            total_sentences_max: None,
             ..Default::default()
         },
     );
@@ -332,7 +332,7 @@ fn main() -> anyhow::Result<()> {
             title_includes: Some(vec!["Foss".into()]),
             title_excludes: Some(vec!["Vale".into(), "Transfer news".into()]),
             body_excludes: Some(vec!["Vale".into()]),
-            total_sentences_max: Some(10),
+            total_sentences_max: None,
             ..Default::default()
         },
     );
@@ -352,11 +352,33 @@ fn main() -> anyhow::Result<()> {
             narratives_max: Some(1),
             max_article_num: Some(2),
             title_excludes: Some(vec!["Transfer news".into()]),
-            total_sentences_max: Some(10),
+            total_sentences_max: None,
             ..Default::default()
         },
     );
     write_fixture(&dir, &f8, "two pure-hype articles that never name who/what/where. System prompt: pass over vague hype + a quiet cycle is an honest answer. TARGET: narratives_max 1 (0 is ideal). FLOOR: not-generic title + no invented refs (vacuously green if it correctly returns nothing). Deliberately NO all_cite_articles/title_includes here — those would falsely red the correct empty answer.")?;
+
+    let background = fixture(
+        "established-story-background",
+        &player("Mateo Alvarez", 8809, "FOOTBALL"),
+        &[
+            ci(1, "The Athletic", "Alvarez contract standoff drags on as Real Sociedad hold firm", "The club have again refused to raise their offer, and the midfielder's camp says talks are no closer than they were in the spring."),
+            ci(2, "Marca", "Alvarez left out of friendly squad amid contract impasse", "The coach described the omission as sporting, but the decision lands in the middle of a standoff now entering its third month."),
+            ci(3, "Cadena SER", "Agent meets Real Sociedad board over Alvarez deal", "A long-scheduled meeting between the player's agent and the board ended without agreement, though both sides described the talks as cordial."),
+        ],
+        &[],
+        "Established story (our archive, 9 sources, since May 12): Alvarez contract standoff with Real Sociedad.\nOur prior read: talks remain stalled.",
+        Expect {
+            narratives_min: Some(1),
+            narratives_max: Some(3),
+            max_article_num: Some(3),
+            all_cite_articles: Some(true),
+            body_excludes: Some(vec!["our archive".into(), "our records".into(), "our reporting".into(), "9 sources".into(), "nine sources".into()]),
+            sources_any: Some(vec!["Cadena SER".into(), "Marca".into(), "The Athletic".into()]),
+            ..Default::default()
+        },
+    );
+    write_fixture(&dir, &background, "Memory frames an ongoing story but cannot become a source or inflate the current corpus's corroboration.")?;
 
     println!("\nrun: cargo run --bin eval -- --task narratives --fixtures   (needs Ollama)");
     Ok(())

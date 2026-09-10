@@ -37,14 +37,11 @@ use async_trait::async_trait;
 use sqlx::{PgPool, Row};
 use tracing::debug;
 
-// This junction's contract with its model — system prompt, contract version, and prompt
-// builder — lives in `prompt.rs`, so a change to what this character is asked is a one-file
-// diff. Re-exported here so call sites and the ledger keep reading it from the stage module.
+mod inputs;
 pub mod prompt;
-pub use prompt::{
-    build_crown_prompt, oracle_format_schema, CROWN_CARD_BODY_CAP, ORACLE_PROMPT_VERSION,
-    ORACLE_SYSTEM_PROMPT,
-};
+pub use crate::junctions::form::oracle_format_schema;
+pub use inputs::{build_crown_prompt, CROWN_CARD_BODY_CAP};
+pub use prompt::{ORACLE_PROMPT_VERSION, ORACLE_SYSTEM_PROMPT};
 
 /// Output contract captured in the diagnostic ledger, distinct from prompt_version. v1 was the
 /// reading-only reply; v2 adds the emitted `score` (the crown fold).
@@ -940,25 +937,18 @@ fn parse_crown_score(v: &serde_json::Value) -> Option<i32> {
 /// collapsed to one clean paragraph. `None` when there is no non-empty reading or no coercible
 /// score (fail-closed → the item backs off).
 ///
-/// **The control-char fold in the salvage path (or9, measured 2026-08-10):** on oMLX the
-/// OpenAI backend deliberately withholds `response_format` (the tekken corruption finding), so
-/// the crown reply is UNCONSTRAINED — and the 8B writes paragraph breaks as literal newlines
-/// INSIDE the JSON string, which is illegal JSON and failed a complete, well-formed reply
-/// (finish_reason stop, closing brace present) on both parse paths. Folding `\n\r\t` to spaces
-/// inside the brace span is semantics-preserving here: structural whitespace is insignificant
-/// to JSON, and in-string whitespace is collapsed by the reading normalizer two lines down
-/// anyway. The strict path stays first, untouched.
+/// Parse strict JSON first; salvage wrapped JSON and literal string control characters.
 pub fn parse_crown_reply(raw: &str) -> Option<CrownReply> {
     let trimmed = raw.trim();
     let parsed: Option<serde_json::Value> = serde_json::from_str(trimmed).ok().or_else(|| {
         let start = trimmed.find('{')?;
         let end = trimmed.rfind('}')?;
-        let span = trimmed[start..=end].replace(['\n', '\r', '\t'], " ");
+        let span = escape_string_controls(&trimmed[start..=end]);
         serde_json::from_str(&span).ok()
     });
     let v = parsed?;
     let reading = v.get("reading")?.as_str()?.trim();
-    let reading = reading.split_whitespace().collect::<Vec<_>>().join(" ");
+    let reading = crate::junctions::form::normalize_body(reading);
     // Served prose, so it takes the shared scrub. The Oracle had none until 2026-08-23, which
     // is why its own gate reported `reading_plain_text — found '*'`: the prompt asked for plain
     // text and nothing enforced it.
@@ -979,6 +969,30 @@ pub fn parse_crown_reply(raw: &str) -> Option<CrownReply> {
         headline,
         score,
     })
+}
+
+// Preserve paragraph breaks when an unconstrained backend emits literal newlines in JSON strings.
+fn escape_string_controls(span: &str) -> String {
+    let mut out = String::with_capacity(span.len());
+    let mut in_string = false;
+    let mut escaped = false;
+    for ch in span.chars() {
+        if escaped {
+            out.push(ch);
+            escaped = false;
+        } else if in_string && ch == '\\' {
+            out.push(ch);
+            escaped = true;
+        } else if ch == '"' {
+            out.push(ch);
+            in_string = !in_string;
+        } else if in_string && ch.is_control() {
+            out.push_str(&format!("\\u{:04x}", ch as u32));
+        } else {
+            out.push(ch);
+        }
+    }
+    out
 }
 
 // (count_sentences moved to `crate::guards` 08-19 — THE shared sentence counter; re-exported
@@ -1018,10 +1032,6 @@ impl Parser<CrownReply> for CrownParser {
                 // error. The comment here used to claim "fail-closed like every title guard",
                 // which was never true of any other seat and cost whole cards on three of them.
                 r.headline = crate::guards::settle_title("oracle", r.headline.as_deref());
-                // The peer roll-call rule left production 2026-08-23 (the eval-scar sweep:
-                // guards are the MECHANICAL floor; naming two peers is a voice question, and
-                // the gate's reading_max_peers check still measures it). It was burning a
-                // finished crown over taste.
                 if let Some(p) = crate::guards::first_product_name(&r.reading) {
                     tracing::warn!(guard = "product_name", name = p, "reading rejected");
                     bail!("crown: reading names product {p:?}");
@@ -1307,7 +1317,7 @@ impl StageHandler for SigilHandler {
         // is the room they have to fit in that decides. The Oracle itself reads no packet — §4
         // keeps it blind to evidence: five cards and its own verdict trail, nothing else.
         let small = crate::route::small_voice_window(hx.voice_num_ctx);
-        let body_cap = small.then_some(prompt::CROWN_CARD_BODY_CAP);
+        let body_cap = small.then_some(inputs::CROWN_CARD_BODY_CAP);
 
         // The one crown call (OracleLogic): read the cards + the omen, then emit
         // {reading, score}. Fail-closed lives in CrownParser (unparseable → Err → the item backs off).

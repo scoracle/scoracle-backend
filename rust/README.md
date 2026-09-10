@@ -14,11 +14,31 @@ Post the **Step-3 cutover (2026-06-28)**, the **junctions refactor**, and the **
 - **rating / PEAK** also runs as the **`statcommentary`** batch binary (current-season producer
   and explicit historical backfill tool).
 
-**The prompt architecture (2026-08-25, THE STORY FORM):** structure is shared, voice is the
-seat's. `src/junctions/form.rs` holds the format every character composes — `STORY_FORM`
-(lead + claim-paragraphs), `CLAIM_SELECTION` (what deserves a statement), `WIRE_COPY` (the AP
-register), `card_face` — and each seat's `prompt.rs` describes the character and its
-invariants. A new model drops into four layers that move independently: engine
+**The prompt architecture:** `src/junctions/form.rs` owns the shared form and
+parser-compatible output contracts. The reader sees a hook of at most 140 characters
+and a body with one paragraph per supported claim: claim, evidence (one sentence per
+piece), then a summary. Evidence determines the paragraph count; ordinary or unchanged
+is a valid claim. Each character's `prompt.rs` holds a 100–200 word brief and version;
+`inputs.rs` supplies evidence and continuity. Retired instructions belong in Git history.
+The Insider's extraction and identity contracts live in `verification.rs`.
+
+Form prompts provide the outline for the models to color in. Character prompts
+provide the colors. The model does the actual expression of both: choosing language,
+images, rhythm, and emphasis that bring the evidence to life.
+
+Use this question when adding or reviewing any prompt, input instruction, guard, or
+evaluation rule:
+
+> Does this rule protect the evidence or help the character express it—or does it choose the wording for them?
+
+Keep guardrails for evidence, identity, attribution, uncertainty, and the shared output
+form. Let the model choose the expression. Journalist follows what is happening and
+how stories progress; Influencer reads emotional charge, with stories as its vehicle.
+Reporting tone alone is not evidence of how a crowd feels. Automated checks cover
+mechanical contracts; review live outputs for grounded claims and character expression.
+Keyword bans cannot establish whether an interpretation follows the evidence.
+
+A new model drops into four layers that move independently: engine
 (`COGNITION_ROUTE_*` env, adopted only on a fixture-gate win), structure (`form.rs`), voice
 (seat `prompt.rs`), floor (`guards.rs` + the fixture gate). Model-call transport is
 **`/api/chat`** (see `ollama.rs` — the generate endpoint cannot separate thinking, and every
@@ -131,7 +151,7 @@ failed past retry cap -> dead-letter for human repair
 ## Stage Map
 
 Stage code lives in CHARACTER JUNCTIONS — `src/junctions/<character>/` with `mod.rs` (stage),
-`prompt.rs` (contract + version), `tests.rs`. The junction roster table in
+`prompt.rs` (character + version), `inputs.rs` (evidence), `tests.rs`. The junction roster table in
 `src/junctions/mod.rs` is the authoritative seat map; prompt versions live in each junction's
 `prompt.rs` and rot fast in any doc that copies them, so none are copied here.
 
@@ -141,7 +161,7 @@ Stage code lives in CHARACTER JUNCTIONS — `src/junctions/<character>/` with `m
 | `editor` | `editor` (The Editor) | article full text | evidence cards, `story_type`, packets, routing |
 | `investigate_entity` | `investigator` (The Investigator) | encyclopedia summaries | identity verdicts |
 | `fixture_boxscore` | `investigator/boxscore` | fixture pages | box-score facts |
-| `rating` | `scout` (The Scout) | rating profile + decision card | `stat_summaries` (body + headline) |
+| `rating` | `scout` (The Scout) | rating profile + availability evidence | `stat_summaries` (body + headline) |
 | `momentum` | `analyst` (The Analyst) | form/mood trends + snapshot | `momentum_summaries` |
 | `transfers` | `insider` (The Insider) | vetted pair context | `transfer_rumors` |
 | `narratives` | `journalist` (The Journalist) | packet corpus + evidence cards | `news_summaries` (+ `card_score`) |

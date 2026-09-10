@@ -99,31 +99,31 @@ var fplStatKey = map[string]string{
 // dropped BY NAME: total_points/in_dreamteam (pure fantasy bookkeeping),
 // mng_* (manager-mode stats).
 var fplFlatStatKey = map[string]string{
-	"minutes":                        "minutes_played",
-	"goals_scored":                   "goals",
-	"assists":                        "assists",
-	"goals_conceded":                 "goals_conceded",
-	"own_goals":                      "own_goals",
-	"penalties_saved":                "penalties_saved",
-	"penalties_missed":               "penalties_missed",
-	"yellow_cards":                   "yellow_cards",
-	"red_cards":                      "red_cards",
-	"saves":                          "saves",
-	"tackles":                        "tackles",
-	"recoveries":                     "ball_recovery",
-	"starts":                         "lineups",
-	"clean_sheets":                   "clean_sheets",
-	"bonus":                          "bonus_points",
-	"bps":                            "bps",
-	"influence":                      "influence",
-	"creativity":                     "creativity",
-	"threat":                         "threat",
-	"ict_index":                      "ict_index",
-	"expected_goals":                 "expected_goals",
-	"expected_assists":               "expected_assists",
-	"expected_goal_involvements":     "expected_goal_involvements",
-	"expected_goals_conceded":        "expected_goals_conceded",
-	"defensive_contribution":         "defensive_contribution",
+	"minutes":                         "minutes_played",
+	"goals_scored":                    "goals",
+	"assists":                         "assists",
+	"goals_conceded":                  "goals_conceded",
+	"own_goals":                       "own_goals",
+	"penalties_saved":                 "penalties_saved",
+	"penalties_missed":                "penalties_missed",
+	"yellow_cards":                    "yellow_cards",
+	"red_cards":                       "red_cards",
+	"saves":                           "saves",
+	"tackles":                         "tackles",
+	"recoveries":                      "ball_recovery",
+	"starts":                          "lineups",
+	"clean_sheets":                    "clean_sheets",
+	"bonus":                           "bonus_points",
+	"bps":                             "bps",
+	"influence":                       "influence",
+	"creativity":                      "creativity",
+	"threat":                          "threat",
+	"ict_index":                       "ict_index",
+	"expected_goals":                  "expected_goals",
+	"expected_assists":                "expected_assists",
+	"expected_goal_involvements":      "expected_goal_involvements",
+	"expected_goals_conceded":         "expected_goals_conceded",
+	"defensive_contribution":          "defensive_contribution",
 	"clearances_blocks_interceptions": "cbi",
 }
 
@@ -177,8 +177,8 @@ type fplExplainStat struct {
 }
 
 type fplLiveElement struct {
-	ID    int            `json:"id"`
-	Stats map[string]any `json:"stats"`
+	ID      int            `json:"id"`
+	Stats   map[string]any `json:"stats"`
 	Explain []struct {
 		Fixture int              `json:"fixture"`
 		Stats   []fplExplainStat `json:"stats"`
@@ -682,10 +682,10 @@ func promoteFPLFixture(ctx context.Context, pool *pgxpool.Pool, res *Resolver,
 // so matching runs through the HOUSE normalizer (public.nrm, the Editor's own)
 // and a ladder of surfaces:
 //
-//   1. nrm(full name) exact against players.name
-//   2. entity_name_surfaces (the Editor's known-surface registry): full, web
-//   3. first + last token ("Levi Samuels Colwill" → "levi colwill")
-//   4. within the fixture's team: nrm(name) equal to or suffixed by nrm(web)
+//  1. nrm(full name) exact against players.name
+//  2. entity_name_surfaces (the Editor's known-surface registry): full, web
+//  3. first + last token ("Levi Samuels Colwill" → "levi colwill")
+//  4. within the fixture's team: nrm(name) equal to or suffixed by nrm(web)
 //
 // Each rung takes a UNIQUE hit (team-narrowed when plural) and binds the FPL
 // element id permanently, so the ladder runs once per player ever.

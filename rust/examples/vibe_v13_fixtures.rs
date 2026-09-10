@@ -82,6 +82,17 @@ fn fixture(
     memory: Option<&str>,
     expect: Expect,
 ) -> Fixture {
+    // These authored stories represent the Editor packets consumed by the live voice.
+    let packets: Vec<_> = narratives
+        .iter()
+        .enumerate()
+        .map(
+            |(i, n)| scoracle_cognition::junctions::influencer::PacketBlock {
+                packet_id: i as i64 + 1,
+                text: format!("STORY: {}\nREPORTED:\n- {}\n", n.title, n.body),
+            },
+        )
+        .collect();
     Fixture {
         name: name.to_string(),
         task: "vibe".to_string(),
@@ -93,11 +104,12 @@ fn fixture(
             sport,
             narratives,
             heat_items,
-            // Fixtures pin the LEGACY prompt shape: no packet block (7.6).
-            &[],
+            // Use the live packet input, not the retired narrative input.
+            &packets,
             previous,
             memory,
-         None),
+            None,
+        ),
         temperature: 0.0,
         expect,
     }

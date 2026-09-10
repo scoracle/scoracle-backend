@@ -1,123 +1,157 @@
-//! # THE FORM — the shared structure every character composes, so prompts describe VOICE.
+//! Shared character form and parser-compatible output contracts.
 //!
-//! Scott, 2026-08-25, the architecture in two sentences: *"one dedicated format/structure file
-//! and each of the character files are just character descriptions/tuning."* And the insight
-//! it rests on, from teaching English: *"kids can write perfect papers when they're given a
-//! clear structure … Narratives, emotional threads, scouting reports, they all have
-//! arguments/claims to make. Those claims need evidence, and then a closing sentence. With
-//! this format, we can tell as many stories as there are gracefully … and remove a lot of the
-//! restrictive prompting and really let the model express its story."*
-//!
-//! Three shared pieces, and the split matters:
-//!
-//! - [`STORY_FORM`] — the STRUCTURE: lead, then one paragraph per claim (claim sentence,
-//!   evidence sentences, closing sentence). The seat says what its claims ARE (the
-//!   Influencer's are feelings, the Analyst's is the decided direction); the form says how a
-//!   claim is told.
-//! - [`WIRE_COPY`] — the SENTENCE REGISTER: short and declarative, AP-desk discipline. Scott:
-//!   *"concise sentences and short paragraphs for all seats, like AP journalism would teach
-//!   us, because that's READABLE and ENGAGING. A giant blurb, no matter how elegant the
-//!   prose, is not the content."*
-//! - [`card_face`] — the tarot-card fit block, parameterized on the two nouns each seat uses
-//!   for its front and back (previously hand-copied per seat with drifting wording).
-//!
-//! These live in the PROMPT layer because they are a pathway, not a check (Scott's framing:
-//! *"we give them the pathway which gives them the platform to express themselves"*). The
-//! mechanical floor stays where it is: `guards.rs` polices integrity and leaks in production;
-//! whether a paragraph carries its claim is the fixture gate's and the human deck's to judge.
-//!
-//! Worked examples stay SEAT-SIDE deliberately — an example teaches a voice, and the voice is
-//! exactly what a seat's file is for (the Scout's Harborview report, the Influencer's v17
-//! example). The migration is incremental: a seat adopts the shared pieces on its next
-//! contract pass, replacing its hand-copied variants byte-consciously — never a silent fleet
-//! rewrite.
+//! The reader sees a hook header and a body. Transport labels and JSON fields below
+//! retain the existing parser/storage contracts; they are not section headings.
+//! Character files own voice and judgment. Inputs supply evidence, not an outline.
 
-/// What deserves a statement — the claim-SELECTION doctrine, separate from [`STORY_FORM`]'s
-/// claim CONSTRUCTION so a seat whose reply contract is not yet paragraphs (the Scout's
-/// labelled lines) still trains on it.
-///
-/// Scott, 2026-08-25: *"Sometimes 'boring, middle of the pack' is the claim to make, just as
-/// much as 'elite', or 'abysmal' are. That should be the training all the characters are
-/// looking for … you're looking for what aspects deserve a statement. Sometimes that's
-/// ambiguity, sometimes it's exceptionalism."* The final line is his compression direction
-/// wearing its selection hat: a budget is a ceiling, not a target, and a claim made to fill
-/// space is the one kind of claim the card cannot carry.
-pub const CLAIM_SELECTION: &str = r#"WHAT DESERVES A STATEMENT. That is your selection question, and the answer is not always the loudest thing. Exceptionalism deserves one: elite earns a claim, and abysmal earns a claim. Ordinariness deserves one when it is the story — "boring, middle of the pack" is as honest a claim as "elite". Ambiguity deserves one when the signals genuinely point both ways: naming the tension is a claim, not a failure to choose. Filler never deserves one — a claim made because space existed is the one claim the card cannot carry."#;
+pub const CLAIM_SELECTION: &str = "Make the claims the evidence reasonably supports. Ordinary, bland, unchanged or middle-of-the-pack can be the finding, just as exceptional performance or genuine ambiguity can. Include each distinct finding that matters; stop when there is nothing more to support.";
 
-/// The story structure — lead, then claim-paragraphs. See the module doc for provenance.
-///
-/// The HOOK/HEADLINE line is the form's LEAD and keeps its seat-side contract (the tweet
-/// rule); this const governs the BODY between the hook and the card's edge.
-pub const STORY_FORM: &str = r#"THE FORM. Your body is built from claims, one paragraph per claim. The material decides how many claims you have — one story or several, told as many as the evidence supports and no more.
+pub const STORY_FORM: &str = "The card has a hook header and a body. The body contains one paragraph per claim. Start each paragraph by stating its claim. Follow with the evidence, giving each piece of evidence its own sentence. End by summarizing the claim in light of that evidence. Separate paragraphs with a blank line. The evidence determines the number of claims and supporting sentences; there is no fixed paragraph count. Write the paragraphs as natural prose, without section headings or labels for their parts.";
 
-Each paragraph is built the same way. The first sentence states the claim, plain and committed. The next one to three sentences are the evidence: named facts, cited numbers, attributed reports. The last sentence closes the claim, reinforced by what the evidence just showed.
+pub const WIRE_COPY: &str = "Use clear, concise sentences, one idea per sentence. Keep the character's voice in the language and perspective. Write plain prose without Markdown, preambles or commentary about the writing process. Use supplied evidence and preserve uncertainty. Prior readings provide continuity, not new evidence. Use sporting language rather than internal product or system names.";
 
-A claim without evidence is not a paragraph — cut it. Evidence without a claim is a list — find its claim or let it go. Separate paragraphs with a blank line.
+pub const HOOK: &str = "The hook is one line of at most 140 characters that draws the reader in through a specific claim. Name this entity as supplied, use present tense and let the character's voice carry it. A quiet or ordinary finding can earn the hook. Punctuation is yours.";
 
-The structure is invisible on the card. Never write the words "Claim", "Evidence" or "Close" — not as labels, and not as subjects: you never write "the claim is tension", you write the tension itself. Never describe or grade your own structure. The paragraph simply reads that way, and the reader never sees the frame."#;
-
-/// The sentence register — wire copy, every seat. Generalized from the Scout's 2026-08-25
-/// wire-copy pass (the "big blurb of AI-speak" correction), where it was measured against
-/// 40-word clause-chained live output.
-pub const WIRE_COPY: &str = r#"WRITE LIKE WIRE COPY. Short, declarative sentences: subject, verb, fact. One idea per sentence — if a sentence needs a second breath, it is two sentences. Never chain ideas with "while", "where" or "as"; a chained sentence buries both. Plain words over grand ones: a side concedes, wins, holds, slips — nothing "amplifies the stakes" or "underscores the narrative". Read every line aloud: if it would not survive being spoken, cut it."#;
-
-/// The tarot-card fit block. `front` and `back` are the seat's own nouns for what the fan
-/// sees first and what they turn the card over for — e.g. `("HOOK", "a VIBE")` or
-/// `("HEADLINE", "the report")`.
-/// The shared HEADLINE contract — THE TWITTER RULE as ONE const (the uniform-structure pass,
-/// Scott 2026-09-06: *"We need a uniform mechanical structure across all characters. The unique
-/// aspect of each junction should just be the individual voice, not the structure of the
-/// output."*). Before this, six seats carried near-copies with drifted wording; the mechanics
-/// live here now and can never drift again.
-///
-/// `label` is the seat's slot name exactly as its reply transport spells it ("HEADLINE",
-/// "HOOK", "`headline`"); `about` is the one clause the seat owns — what its headline is a
-/// headline OF ("the sharpest claim from your READ", "your one-line read of the WHOLE wire").
-pub fn headline_contract(label: &str, about: &str) -> String {
-    format!(
-        "{label}: the card's hook — write it as a tweet. 140 characters at most, and shorter \
-         lands harder. Present tense, no caps-lock. State an opinion and earn the tap: this \
-         entity's name, exactly as the material gives it, inside {about} — a headline about any \
-         other name is a defect and is dropped, and never a compressed summary of everything \
-         you wrote. Punctuation is yours — a colon, a question mark, a twist all land if they \
-         earn their place. The one thing it may not do is run past the card."
-    )
+#[derive(Clone, Copy, Debug)]
+pub enum CardFormat {
+    Scout,
+    Analyst,
+    Influencer,
+    Journalist,
+    Insider,
+    Oracle,
 }
 
-pub fn card_face(front: &str, back: &str) -> String {
-    format!(
-        "THE CARD IS A TAROT CARD. Everything you write has to fit on its face: a {front} the \
-         reader sees first, and {back} they turn it over for. That shape is the format — \
-         nothing here runs to a page."
-    )
+/// Compose the exact system instruction used in production and fixture generation.
+pub fn compose(character: &str, format: CardFormat) -> String {
+    let output = match format {
+        CardFormat::Scout => "Return the body as plain paragraphs, followed by a HEADLINE: line containing the hook. The application displays that hook above the body.",
+        CardFormat::Analyst => "Return READ: followed by the body, then HEADLINE: followed by the hook. The application displays the hook above the body.",
+        CardFormat::Influencer => "Return SCORE: with an integer from 1 to 100, HOOK: with the hook, then VIBE: with the body. Preserve blank lines between its paragraphs.",
+        CardFormat::Journalist => "Return JSON with narratives, headline and card_score. Each narrative has a short specific title, a body following the shared form, and articles containing its supporting input article numbers. Select relevant stories, most consequential first; an empty narratives array is valid. The headline is the hook for the whole edition. The card_score is an integer from 1 to 99. Preserve paragraph breaks inside body strings as escaped newlines.",
+        CardFormat::Insider => "Return JSON with read containing the body, headline containing the hook, and score containing an integer from 1 to 99. Preserve paragraph breaks inside read as escaped newlines.",
+        CardFormat::Oracle => "Return JSON with reading containing the body, headline containing the hook, and score containing an integer from 1 to 100. Preserve paragraph breaks inside reading as escaped newlines.",
+    };
+    format!("{character}\n\n{CLAIM_SELECTION}\n\n{STORY_FORM}\n\n{WIRE_COPY}\n\n{HOOK}\n\n{output}")
+}
+
+/// Fold line wrapping and whitespace while retaining the claim paragraphs.
+pub fn normalize_body(body: &str) -> String {
+    let mut paragraphs = Vec::new();
+    let mut paragraph = Vec::new();
+    for line in body.lines() {
+        if line.trim().is_empty() {
+            if !paragraph.is_empty() {
+                paragraphs.push(paragraph.join(" "));
+                paragraph.clear();
+            }
+        } else {
+            paragraph.extend(line.split_whitespace());
+        }
+    }
+    if !paragraph.is_empty() {
+        paragraphs.push(paragraph.join(" "));
+    }
+    paragraphs.join("\n\n")
+}
+
+pub fn narratives_format_schema() -> serde_json::Value {
+    serde_json::json!({
+        "type": "object",
+        "properties": {
+            "narratives": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "title":    { "type": "string" },
+                        "body":     { "type": "string" },
+                        "articles": { "type": "array", "items": { "type": "integer" } }
+                    },
+                    "required": ["title", "body", "articles"]
+                }
+            },
+            "headline": { "type": "string" },
+            "card_score": { "type": "integer", "minimum": 1, "maximum": 99 }
+        },
+        "required": ["narratives", "headline", "card_score"]
+    })
+}
+
+pub fn insider_score_format_schema() -> serde_json::Value {
+    serde_json::json!({
+        "type": "object",
+        "properties": {
+            "read":     { "type": "string" },
+            "headline": { "type": "string" },
+            "score":    { "type": "integer", "minimum": 1, "maximum": 99 }
+        },
+        "required": ["read", "headline", "score"]
+    })
+}
+
+pub fn oracle_format_schema() -> serde_json::Value {
+    serde_json::json!({
+        "type": "object",
+        "properties": {
+            "reading": { "type": "string" },
+            "headline": { "type": "string" },
+            "score": { "type": "integer", "minimum": 1, "maximum": 100 }
+        },
+        "required": ["reading", "headline", "score"]
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::junctions::{analyst, influencer, insider, journalist, oracle, scout};
 
     #[test]
-    fn card_face_carries_the_seat_nouns() {
-        let s = card_face("HOOK", "a VIBE");
-        assert!(s.contains("a HOOK the reader sees first"));
-        assert!(s.contains("a VIBE they turn it over for"));
-    }
-
-    #[test]
-    fn the_form_states_the_paragraph_shape() {
-        assert!(STORY_FORM.contains("one paragraph per claim"));
-        assert!(STORY_FORM.contains("first sentence states the claim"));
-        assert!(STORY_FORM.contains("closes the claim"));
-        assert!(WIRE_COPY.contains("subject, verb, fact"));
-    }
-
-    #[test]
-    fn selection_names_all_four_kinds_of_claim() {
-        // Exceptional both ways, honest ordinariness, real ambiguity — and never filler.
-        assert!(CLAIM_SELECTION.contains("elite earns a claim"));
-        assert!(CLAIM_SELECTION.contains("abysmal earns a claim"));
-        assert!(CLAIM_SELECTION.contains("middle of the pack"));
-        assert!(CLAIM_SELECTION.contains("naming the tension is a claim"));
-        assert!(CLAIM_SELECTION.contains("Filler never"));
+    fn every_live_character_uses_the_shared_form_without_retired_outlines() {
+        let characters = [
+            (
+                scout::prompt::CHARACTER,
+                scout::RATING_SYSTEM_PROMPT.as_str(),
+            ),
+            (
+                analyst::prompt::CHARACTER,
+                analyst::MOMENTUM_SYSTEM_PROMPT.as_str(),
+            ),
+            (
+                influencer::prompt::CHARACTER,
+                influencer::VIBE_SYSTEM_PROMPT.as_str(),
+            ),
+            (
+                journalist::prompt::CHARACTER,
+                journalist::NARRATIVES_SYSTEM_PROMPT.as_str(),
+            ),
+            (
+                insider::prompt::CHARACTER,
+                insider::INSIDER_SCORE_SYSTEM_PROMPT.as_str(),
+            ),
+            (
+                oracle::prompt::CHARACTER,
+                oracle::ORACLE_SYSTEM_PROMPT.as_str(),
+            ),
+        ];
+        for (brief, system) in characters {
+            assert!((100..=200).contains(&brief.split_whitespace().count()));
+            for shared in [STORY_FORM, CLAIM_SELECTION, HOOK, WIRE_COPY] {
+                assert_eq!(system.matches(shared).count(), 1);
+            }
+            for retired in [
+                "TWO OR THREE",
+                "EIGHT SENTENCES",
+                "Harborview",
+                "Strengths:",
+                "Limitations:",
+                "Summary:",
+                "one to three sentences",
+            ] {
+                assert!(!system.contains(retired), "retired instruction: {retired}");
+            }
+        }
+        assert!(narratives_format_schema()["properties"]["narratives"]["maxItems"].is_null());
     }
 }

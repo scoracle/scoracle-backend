@@ -220,11 +220,6 @@ pub struct Expect {
     // (The v13/v17 `hook_nonempty`/`hook_max_words`/`hook_excludes` axes retired 08-19: the
     // hook contract is a GLOBAL invariant — one `hook_contract` check per reply via
     // `guards::hook_violation`, the same rule `VibeParser` enforces in production.)
-    /// momentum s14: the contract's "emit NO number" rule, gated — no ASCII digit anywhere in
-    /// the READ. (The decided-direction line hands the model a signed score; echoing it is the
-    /// exact violation this catches.)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub prose_no_digits: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub blurb_includes: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -471,11 +466,6 @@ pub struct Expect {
     pub reading_min_sentences: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reading_max_sentences: Option<i32>,
-    // (The `reading_max_peers` axis retired 08-19: every oracle fixture carried `1`, i.e. the
-    // rule was global — it is now one unconditional invariant check per reading, the same rule
-    // `CrownParser` rejects on. Its history — "the or8 gate passed 80/80 while five of six
-    // readings named two, three, or four peers; a rule measured by nothing is advice" — lives
-    // with `guards::count_named_peers`.)
     // momentum / trajectory reasoning rubric: PROSE ONLY.
     // momentum_score_min/max were removed in s11 — the Analyst no longer emits a score, so
     // there was nothing left for them to assert. Both numbers (direction and the ±5
@@ -817,7 +807,6 @@ impl LensTask for OracleTask {
             omen,
             &omen_reason,
             None,
-        
             None,
         )))
     }
@@ -859,16 +848,6 @@ impl LensTask for OracleTask {
             pass: banned.is_none(),
             detail: banned.map_or_else(String::new, |p| format!("found {p:?}")),
         });
-        // (4) The peer roll-call cap (or10: "name at most ONE peer … never a roll call") — was
-        // a per-fixture `reading_max_peers: 1` on every oracle fixture, i.e. global; now one
-        // invariant, same rule `CrownParser` rejects on.
-        let named = count_named_peers(&reading);
-        checks.push(PropertyCheck {
-            name: "reading_max_peers".into(),
-            pass: named <= 1,
-            detail: format!("peers={named} ≤ 1"),
-        });
-
         if let Some(x) = expect {
             if let Some(min) = x.reading_min_sentences {
                 checks.push(PropertyCheck {
@@ -971,9 +950,7 @@ impl LensTask for NarrativeTask {
             trigger_type: "periodic".to_string(),
         };
         Ok(Some(build_narratives_prompt(
-            &req, &corpus, None, None, None,
-        
-            None,
+            &req, &corpus, None, None, None, None,
         ))) // evals pin the memory-free, score-context-free, legacy-rail prompt shape
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
@@ -1540,7 +1517,6 @@ impl LensTask for MomentumTask {
             rating.as_ref(),
             vibe.as_ref(),
             &momentum,
-        
             None,
         )))
     }
@@ -1622,16 +1598,6 @@ impl LensTask for MomentumTask {
                     detail: format!("words={word_count} ≤ {max}"),
                 });
             }
-            // s14 gate growth (D-T45): the "emit NO number" rule and the 8-sentence allowance
-            // had no check of any kind.
-            if x.prose_no_digits == Some(true) {
-                let digit = reply.blurb.chars().find(|c| c.is_ascii_digit());
-                checks.push(PropertyCheck {
-                    name: "prose_no_digits".into(),
-                    pass: digit.is_none(),
-                    detail: digit.map_or_else(String::new, |d| format!("found digit {d:?}")),
-                });
-            }
             if let Some(max) = x.total_sentences_max {
                 let total = sentence_runs(&reply.blurb);
                 checks.push(PropertyCheck {
@@ -1688,7 +1654,7 @@ fn empty_dash(s: &str) -> &str {
 // The matcher and the global ban vocabularies moved to `crate::guards` (2026-08-19, the
 // eval→guard migration): production parsers and the gate now read the SAME lists — see
 // `guards.rs` for the "one list, one home" ruling and the doc comments that moved with them.
-use crate::guards::{contains_ci, count_named_peers};
+use crate::guards::contains_ci;
 pub use crate::guards::{MOMENTUM_BANNED_PHRASES, PRODUCT_NAME_BANS};
 
 // (sentence_runs folded into `guards::count_sentences` 08-19 — one counter for every prose

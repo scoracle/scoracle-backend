@@ -41,6 +41,54 @@ fn profile_player() -> RatingProfile {
     }
 }
 
+#[test]
+fn serialized_request_has_evidence_and_form_but_no_editorial_outline() {
+    let prompt = build_stat_prompt(
+        &req("NBA", "player", "Test Player"),
+        &profile_player(),
+        70,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    );
+    let client = crate::ollama::OllamaClient::new(
+        "http://localhost:11434",
+        "offline-test",
+        std::time::Duration::from_secs(1),
+    )
+    .unwrap();
+    let request = client.request_body(
+        &prompt,
+        &crate::ollama::GenerateOptions {
+            system: Some(RATING_SYSTEM_PROMPT.to_string()),
+            ..Default::default()
+        },
+    );
+    let system = request["messages"][0]["content"].as_str().unwrap();
+    let evidence = request["messages"][1]["content"].as_str().unwrap();
+    assert!(system.contains(crate::junctions::form::STORY_FORM));
+    assert!(evidence.contains("Scoring: 24, 95th pct (elite), rating +3.1"));
+    assert!(evidence.contains("Defense: 2.5, 40th pct (below average), rating -0.5"));
+    for retired in [
+        "DECISION CARD",
+        "Headline strength",
+        "Headline limitation",
+        "THE SHAPE",
+        "TWO OR THREE",
+        "Harborview",
+        "Strengths:",
+        "Summary:",
+    ] {
+        assert!(
+            !system.contains(retired) && !evidence.contains(retired),
+            "{retired}"
+        );
+    }
+}
+
 fn faceted(label: &str, pct: f64, facet: &str) -> RatingDatapoint {
     let mut d = dp(label, 1.0, 0.0, pct, 1);
     d.facet = facet.to_string();
@@ -214,7 +262,8 @@ fn retired_metric_never_reaches_prompt_preimage_or_crown() {
         None,
         None,
         None,
-     None);
+        None,
+    );
     for retired in ["Clearances", "Duels"] {
         assert!(
             !prompt.contains(retired),
@@ -314,21 +363,17 @@ fn prompt_player_composite_datapoints_and_scoped_position() {
         None,
         None,
         None,
-     None);
+        None,
+    );
     assert_eq!(
         prompt,
         "Entity: Test Player (NBA player, Guard)\n\
-\nProfile distinctiveness: 70/100 (higher = more standout skills — let a richer profile earn a fuller read).\n\
+\nProfile distinctiveness: 70/100 (higher = more standout skills).\n\
 \nOverall score (how WELL overall — T-score, 50 = average): 67\n\
-\nDECISION CARD\n\
-Headline strength: Scoring: 24, 95th pct (elite), rating +3.1 [position: 88th, strong]\n\
-Secondary strengths: None supplied.\n\
-Headline limitation: Defense: 2.5, 40th pct (below average), rating -0.5\n\
-\nTHE SHAPE (computed, final — like the tiers, you voice it, never re-derive it): spiky — elite edges on an ordinary base. Elite: Scoring. The middle: 1 of 2 skills between the 25th and 75th percentile.\n\
-\nDatapoints — value, percentile + TIER (the tier is the truth), rating (how far above or below the average; a higher rating is a rarer edge); [position] percentile when present:\n\
+\nDatapoints — measured value, percentile, tier, rating (distance from average), and position percentile when available:\n\
 - Scoring: 24, 95th pct (elite), rating +3.1 [position: 88th, strong]\n\
 - Defense: 2.5, 40th pct (below average), rating -0.5\n\
-\nWrite the report now: TWO OR THREE claim paragraphs in THE FORM — the claims the shape of the data supports, every number as evidence inside one of them, NEVER a paragraph per stat, PROSE SENTENCES never “Label: value” lines — separated by blank lines, no labels, plain text, no Markdown — then the HEADLINE line last, then STOP. A second or third paragraph exists only if it adds a story the shape line does not already tell; when the shape is the whole story, one paragraph and the HEADLINE is a complete report. Begin directly with your first claim's first sentence — no preamble, nothing before it."
+"
     );
 }
 
@@ -353,24 +398,20 @@ fn prompt_team_no_composite_no_position() {
         None,
         None,
         None,
-     None);
+        None,
+    );
     assert_eq!(
         prompt,
         "Entity: Test FC (FOOTBALL team)\n\
-\nProfile distinctiveness: 55/100 (higher = more standout skills — let a richer profile earn a fuller read).\n\
-\nDECISION CARD\n\
-Headline strength: Defense: 0.38, 78th pct (strong), rating +1.2\n\
-Secondary strengths: None supplied.\n\
-Headline limitation: None — this profile offers no clean exploit.\n\
-\nTHE SHAPE (computed, final — like the tiers, you voice it, never re-derive it): flat — competent everywhere, exceptional nowhere. Strong: Defense. The middle: 0 of 1 skills between the 25th and 75th percentile.\n\
-\nDatapoints — value, percentile + TIER (the tier is the truth), rating (how far above or below the average; a higher rating is a rarer edge); [position] percentile when present:\n\
+\nProfile distinctiveness: 55/100 (higher = more standout skills).\n\
+\nDatapoints — measured value, percentile, tier, rating (distance from average), and position percentile when available:\n\
 - Defense: 0.38, 78th pct (strong), rating +1.2\n\
-\nWrite the report now: TWO OR THREE claim paragraphs in THE FORM — the claims the shape of the data supports, every number as evidence inside one of them, NEVER a paragraph per stat, PROSE SENTENCES never “Label: value” lines — separated by blank lines, no labels, plain text, no Markdown — then the HEADLINE line last, then STOP. A second or third paragraph exists only if it adds a story the shape line does not already tell; when the shape is the whole story, one paragraph and the HEADLINE is a complete report. Begin directly with your first claim's first sentence — no preamble, nothing before it."
+"
     );
 }
 
 #[test]
-fn cross_season_memory_renders_before_the_write_cue() {
+fn cross_season_memory_renders_after_current_measurements() {
     // The s12 memory card renders as the last content section, bulleted, with the
     // tier-truth guard in the header; None pins the s11 byte shape (the byte-fixtures
     // above). Blank memory ⇒ no section.
@@ -387,14 +428,14 @@ fn cross_season_memory_renders_before_the_write_cue() {
         None,
         None,
         None,
-     None);
-    assert!(prompt.contains("\nCross-season memory (computed history — arc context only"));
+        None,
+    );
+    assert!(prompt.contains("\nCross-season memory (continuity"));
     assert!(prompt.contains("- Our prior read: season 2025 scored this profile 98/100"));
     assert!(prompt.contains("- Matchup memory: pts vs Test Rivals"));
     let mem_pos = prompt.find("Cross-season memory").unwrap();
-    let cue_pos = prompt.find("Write the report now").unwrap();
-    let dp_pos = prompt.find("Datapoints — value").unwrap();
-    assert!(dp_pos < mem_pos && mem_pos < cue_pos);
+    let dp_pos = prompt.find("Datapoints — measured value").unwrap();
+    assert!(dp_pos < mem_pos);
     let blank = build_stat_prompt(
         &req("NBA", "player", "Test Player"),
         &p,
@@ -404,7 +445,8 @@ fn cross_season_memory_renders_before_the_write_cue() {
         None,
         None,
         None,
-     None);
+        None,
+    );
     assert!(!blank.contains("Cross-season memory"));
 }
 
@@ -1283,18 +1325,18 @@ fn the_prompt_separates_reported_availability_from_the_confirmed_record() {
         None,
         None,
         Some(&rendered),
-     None);
+        None,
+    );
     let reported = prompt
         .find("Reported availability, NOT yet confirmed")
         .unwrap();
-    let cue = prompt.find("Write the report now").unwrap();
-    assert!(reported < cue);
+    assert!(prompt[reported..].contains("- BBC: Palmer is out for six weeks"));
     assert!(prompt.contains("- BBC: Palmer is out for six weeks"));
     // The instructions that make it judgeable rather than quotable.
-    assert!(prompt.contains("These are REPORTS, not the record above"));
-    assert!(prompt.contains("Never state a disputed claim as settled fact"));
+    assert!(prompt.contains("attributed reports"));
+    assert!(prompt.contains("preserve uncertainty and disputes"));
     // And a claim must never be allowed to move a measured number.
-    assert!(prompt.contains("never carry a number from here into a tier or rating above"));
+    assert!(prompt.contains("reports do not change measured tiers or ratings"));
 }
 
 /// No changes ⇒ no section. A heading with nothing under it asserts "nothing moved", which is a
@@ -1312,7 +1354,8 @@ fn nothing_moved_renders_no_section_at_all() {
         None,
         None,
         None,
-     None);
+        None,
+    );
     assert!(!prompt.contains("Personnel changes"));
 }
 
@@ -1346,17 +1389,17 @@ fn the_personnel_block_sits_between_the_datapoints_and_the_memory_card() {
         None,
         None,
         None,
-     None);
-    let dp = prompt.find("Datapoints — value").unwrap();
+        None,
+    );
+    let dp = prompt.find("Datapoints — measured value").unwrap();
     let pers = prompt
         .find("Personnel and availability since our last read")
         .unwrap();
     let memp = prompt.find("Cross-season memory").unwrap();
-    let cue = prompt.find("Write the report now").unwrap();
-    assert!(dp < pers && pers < memp && memp < cue);
+    assert!(dp < pers && pers < memp);
     assert!(prompt.contains("- Jul 29: joined New FC from Old FC (transfer).\n"));
     // The tier-truth invariant travels with the block.
-    assert!(prompt.contains("these do NOT alter any tier or number above"));
+    assert!(prompt.contains("season measurements remain unchanged"));
 
     // Blank personnel ⇒ no section, same as blank memory.
     let blank = build_stat_prompt(
@@ -1368,7 +1411,8 @@ fn the_personnel_block_sits_between_the_datapoints_and_the_memory_card() {
         None,
         None,
         None,
-     None);
+        None,
+    );
     assert!(!blank.contains("Personnel changes"));
 }
 
@@ -1443,4 +1487,12 @@ fn a_bad_headline_never_throws_the_report_away() {
         "a shipped title always satisfies the contract: {:?}",
         dropped.headline
     );
+}
+
+#[test]
+fn claim_paragraphs_survive_the_production_parser() {
+    let body = "The profile is ordinary. Most skills sit near average. The middle is the story.\n\nOne edge stands out. Finishing leads the supplied profile. That is the exception.\n\nAvailability is limited. Two absences are recorded. Depth matters now.\n\nThe rest is unchanged. The supplied comparison shows no movement. Continuity holds.";
+    let raw = format!("{body}\nHEADLINE: An ordinary profile holds");
+    let parsed = RatingParser.parse(&raw).unwrap().unwrap();
+    assert_eq!(parsed.body, body);
 }

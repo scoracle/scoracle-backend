@@ -1,4 +1,4 @@
-//! Editor stage (PLAN-one-rail Phase 3) — the one seat that reads every arrival.
+//! The Editor reads each article and fans its structured description downstream.
 //!
 //! Fetch the publisher page via `crate::fetch` (site furniture stripped by
 //! `fetch::extract_article_text`), persist the body to `news_articles.full_text`, read it on the
@@ -10,8 +10,8 @@
 use crate::fetch::{
     content_hash, count_words, fetch_article, looks_paywalled, FetchedArticle, ARTICLE_MIN_WORDS,
 };
-use crate::harness::{Harness, Parser};
-use crate::ledger::{insert_cognition_ledger_best_effort, CognitionLedgerEntry};
+use crate::harness::{Generation, GenerationCall, Harness, Parser};
+use crate::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
 use crate::stage::{StageHandler, ARCHBOX_SLOTS};
@@ -34,16 +34,16 @@ pub mod storyline;
 pub use prompt::{build_editor_prompt_parts, EDITOR_CONTRACT_VERSION, EDITOR_SYSTEM_PROMPT};
 
 const EDITOR_NUM_PREDICT: i32 = 900;
-/// The context size the `ministral-3:3b` runner is loaded with. It is SHARED — graph and the
-/// Insider reach the same runner through `route::LOCAL_STAGE_NUM_CTX`, ollama reloads whenever a
-/// request asks for a different `num_ctx`, and all of them sit on one card. A unit test pins the
-/// agreement, and any change here moves those stages too.
-///
-/// ⛔ **Do not lower it to save memory — that makes the overflow worse, not better (D-T35's law:
-/// TRIM BEFORE SHRINKING).** The measured budget at 4096, all four terms on ministral:
-/// 554 chat-template floor + 914 system prompt (`ep6`, measured live) + `EDITOR_NUM_PREDICT` 900
-/// leaves ~1,728 tokens for the article, which is what `EDITOR_MAX_MODEL_CHARS` is derived from.
+/// Shared local-model context size; graph and Insider utility calls must agree with it.
 pub(crate) const EDITOR_NUM_CTX: i32 = 4096;
+
+const EDITOR_LEDGER: LedgerSpec = LedgerSpec {
+    stage: "editor",
+    lens: "editor",
+    role: Role::Editor,
+    product_table: "editor_reads",
+    output_contract_version: EDITOR_CONTRACT_VERSION,
+};
 
 /// The model budget for one editor read — one definition for the stage and `bin/eval`, so a
 /// fixture can never be scored under options production does not send. Temperature 0.2 live;
@@ -63,21 +63,12 @@ pub fn editor_opts() -> GenerateOptions {
     }
 }
 
-/// FIELD ORDER IS THE CONTRACT (§1a; the ar4 lesson): constrained decoding emits properties in
-/// schema order, so extraction comes before anything a judgment could lean on. This is a RAW
-/// JSON literal, not a `json!` value, because `serde_json`'s map is BTreeMap-backed — a schema
-/// that travels as a `Value` reaches Ollama ALPHABETIZED, and the grammar then forces emission
-/// in that accidental order (measured on the first ep1 gate run: `entity_roles` emitted second,
-/// before a single name or fact was written — the ar3 shape). The raw string is POSTed
-/// byte-for-byte via `format_schema_raw`.
+/// Field order is part of the contract. This raw string preserves it on the Ollama wire;
+/// a `serde_json::Value` would alphabetize object keys.
 ///
-/// `relevant` is absent — the model is never given the question; relevance is derived in code
-/// from what it describes (T2). Since `ep2` this is also the ONLY statement of the key order, as
-/// the system prompt no longer restates it (D-T40).
+/// `relevant` is absent because code derives it from the description.
 ///
-/// ⚠ **Enums and bounds added here are FREE**: the schema is compiled to a grammar and never
-/// enters the context window, unlike every word of the system prompt. Constrain here first, and
-/// spend prose only on what a schema cannot express (D-T43).
+/// Prefer schema constraints for shape and prompt prose for meaning.
 pub const EDITOR_FORMAT_SCHEMA_RAW: &str = r#"{
     "type": "object",
     "properties": {
@@ -204,9 +195,7 @@ pub struct EditorRead {
 }
 
 impl EditorRead {
-    /// The full ep1 model envelope, persisted verbatim as `editor_reads.read` — model fields
-    /// only, in schema order; the derived verdict lives in `status`, the resolver outcome in
-    /// `resolved` (§1a).
+    /// Model fields in schema order, persisted as `editor_reads.read`.
     pub fn envelope(&self) -> serde_json::Value {
         json!({
             "source_language": self.source_language,
@@ -231,7 +220,7 @@ impl EditorRead {
     }
 }
 
-/// The closed register vocabulary — same set as the legacy seat's; E1 routes on `!= neutral`.
+/// The closed emotional-register vocabulary.
 pub const EDITOR_REGISTERS: &[&str] = &[
     "celebration",
     "outrage",
@@ -338,8 +327,7 @@ impl StageHandler for EditorHandler {
         Stage::Editor
     }
 
-    /// Eight, like the legacy seat: this IS a model stage, so a big batch would starve the
-    /// rotation, but one item per rotation wastes more wall clock waiting than working.
+    /// A modest batch amortizes claims without starving the rotation.
     fn rotation_batch(&self) -> i64 {
         8
     }
@@ -494,17 +482,9 @@ impl StageHandler for EditorHandler {
         )
         .await;
         ledger_model_call(hx, item, &extracted.model, "parsed", &extracted, &body_hash).await;
-        // The box-score fork (Phase 4.4) — the ONE live downstream of the Editor before
-        // cutover: a parsed result_line whose teams both resolve upserts a completed
-        // fixture; the existing fixture_boxscore_enqueue_on_final trigger owns the enqueue.
-        // Best-effort: the read is persisted, and a nomination hiccup must not re-run the
-        // model call. The other forks (nominations → Phase 5, packets/graph → Phases 6–7)
-        // remain OFF in shadow.
+        // A parsed final result may update a fixture and trigger box-score work.
         nominate::nominate_best_effort(&hx.pool, &item.sport, article_id, &read).await;
-        // The nomination sweep (Phase 5.1/5.2): the resolver's leftovers become durable
-        // candidates + evidence mentions; person-with-descriptor and refused ties enqueue
-        // investigate_entity. Irrelevant reads carry an empty Resolved, so this no-ops for
-        // them by construction. Best-effort for the same reason as the fixture fork.
+        // Persist unresolved names as Investigator candidates and evidence.
         if let Err(e) = candidates::sweep_candidates(
             &hx.pool,
             &item.sport,
@@ -520,10 +500,7 @@ impl StageHandler for EditorHandler {
                 "nomination sweep failed (read already persisted; continuing)"
             );
         }
-        // The Desk (Phase 6.1): the read joins a story. Last in the handle, after the read is
-        // persisted and after the nomination sweep, because the attachment scores the resolver's
-        // links — which only exist once the read committed. Irrelevant reads carry an empty
-        // `Resolved` and attach to nothing by construction.
+        // Attach the persisted read to its story after resolving links.
         storyline::attach_best_effort(
             &hx.pool,
             &item.sport,
@@ -546,11 +523,7 @@ impl StageHandler for EditorHandler {
                 "editor link write failed (read already persisted; continuing)"
             );
         }
-        // The team-tag harvest (2026-09-06, the story-cascade prerequisite): the read names
-        // PEOPLE, and the clubs live in its own descriptors and key facts ("Liverpool head
-        // coach", "Liverpool won 2-0 against Ipswich") — measured on 7 days of match reports,
-        // only 4.4% carried a team tag while the club names sat in the read text the whole
-        // time. Code resolves them deterministically; no contract change, no re-read.
+        // Resolve club names found in key facts and person descriptors.
         if read.relevant {
             if let Err(e) = harvest_team_links(&hx.pool, article_id, &item.sport, &read).await {
                 tracing::warn!(
@@ -571,37 +544,8 @@ impl StageHandler for EditorHandler {
     }
 }
 
-/// write_links records which entities an article is about. The Editor is the only writer.
-///
-/// **The whole function is: clear this article's links, write the ones the model resolved.** Two
-/// statements, one transaction. That is the entire contract.
-///
-/// It used to be three reconciliation arms — confirm / deny / retract — juggling a tri-state
-/// `vetted` column, a `match_confidence` sentinel, and `scrubbed_at`, because TWO writers shared
-/// this table: Go wrote a 0.95 "query hypothesis" row at ingest and the Editor wrote a verdict
-/// later. Every one of those arms existed to keep two writers coherent in one table, and that
-/// shape is what left room for a bug that silently dropped an article's entire link set
-/// (8.10). Go no longer writes links at all, so there is nothing to reconcile with:
-///
-///   * **A row exists ⟺ the Editor read the article and resolved that entity in it.** No column
-///     encodes the verdict any more; presence IS the verdict, absence IS the denial. Nothing
-///     downstream filters on `vetted` because there is nothing to filter — every row is a link a
-///     model established by reading the body.
-///   * **An irrelevant read is the DELETE alone.** No second statement, no retraction pass.
-///   * **A re-read replaces the set.** Delete-then-insert is idempotent by construction, which is
-///     why no `ON CONFLICT` clause appears here at all.
-///
-/// `SELECT DISTINCT` is still required and is not ceremony: the model names whoever the article
-/// names, so one entity can arrive twice under two surfaces ("Spurs" and "Tottenham Hotspur" share
-/// a `nrm()` norm), and two identical rows in one INSERT violate the primary key whether or not the
-/// table was just cleared. The projection here is exactly the key columns, so a plain DISTINCT is a
-/// distinct-on-the-key. Collapsing costs nothing: `editor_reads.resolved` keeps every mention with
-/// its `via_surface`, so the model's full account survives at mention grain. The model describes,
-/// code derives one link per entity (T2).
-///
-/// One consequence worth knowing: `created_at` is the moment the link was established, so a re-read
-/// restamps it. Re-reads are rare (a re-enqueue), and the alternative — preserving a timestamp for a
-/// link the current read may not even agree with — is worse.
+/// Replaces an article's entity links in one transaction. Presence is the verdict;
+/// an irrelevant read clears the set. `DISTINCT` collapses multiple matched surfaces.
 async fn write_links(
     pool: &sqlx::PgPool,
     article_id: i64,
@@ -657,20 +601,8 @@ async fn write_links(
     Ok(())
 }
 
-/// harvest_team_links resolves CLUB surfaces out of the read's key facts and name descriptors
-/// — the deterministic half of the tag work (the story-cascade prerequisite, 2026-09-06).
-///
-/// The derive contract asks the model to NAME the people; the clubs arrive as context in the
-/// descriptors ("Liverpool head coach") and the key facts ("Liverpool won 2-0 against
-/// Ipswich"), so the resolver never saw them and match reports went team-tagless (measured:
-/// 51 of 1,147 scoreline articles over 7 days carried a team tag). Everything downstream
-/// keys on these tags — the claim fence, factsweep's corroboration, every per-entity story
-/// derivation — so this is the cascade's root fertilizer.
-///
-/// Deterministic and fail-closed: a club links only when its NAME (or an alias longer than
-/// three characters) appears word-bounded in the harvest text the model itself wrote. Regex
-/// metacharacters in names are escaped; short alias junk is excluded by the length floor.
-/// Additive only — never deletes what the resolver wrote; idempotent via the anti-join.
+/// Adds team links named word-bounded in key facts or person descriptors.
+/// Names and aliases are database-backed; short aliases are excluded.
 async fn harvest_team_links(
     pool: &sqlx::PgPool,
     article_id: i64,
@@ -760,10 +692,7 @@ async fn enqueue_graph_for_article(
     Ok(())
 }
 
-/// build_editor_prompt_for_eval assembles the EXACT production user prompt for one article —
-/// the same DB load, the same fetch, the same builder the stage calls — so `bin/eval` scores
-/// the contract that actually runs rather than a reconstruction of it (the legacy seat's
-/// `build_article_read_prompt_for_eval` pattern).
+/// Builds the exact production prompt for evaluation.
 ///
 /// `Ok(None)` mirrors every path where the stage writes a terminal marker WITHOUT a model call
 /// (article missing, duplicate, body too short or paywalled) — deterministic bookkeeping, not
@@ -817,19 +746,8 @@ async fn load_article(pool: &sqlx::PgPool, article_id: i64) -> Result<Option<Edi
     }))
 }
 
-/// The hypothesis list (§1a): who we ASKED Google about — decorated `Name (team 42)`, the shape
-/// `entity_matches` strips.
-///
-/// Sourced from the article's own query provenance (`news_articles.raw`, written on INSERT by the
-/// ingest sweep) rather than from a links table. That is what the hypothesis always literally was:
-/// Go used to record it as a 0.95 row in `news_article_entities` and this function read it back
-/// out, so the link table was being used as a message queue between two processes that already
-/// share the article row. Go writes no links at all now (8.11), and the question "which entity's
-/// sweep surfaced this article?" is answered by the sweep that surfaced it.
-///
-/// Deliberately only the query entity. It does NOT read back the Editor's own resolved links: on a
-/// re-read that would feed the model its previous answer as a premise, which is how a wrong link
-/// becomes permanent.
+/// Loads the query entity from article provenance. Previous resolved links are excluded so
+/// a re-read cannot feed the model its own answer.
 async fn load_hypothesis_entities(
     pool: &sqlx::PgPool,
     article_id: i64,
@@ -959,9 +877,7 @@ async fn persist_read(
         .await
         .with_context(|| format!("begin editor persist {article_id}"))?;
 
-    // The ONLY legacy-table column the Editor touches, named by the plan: bodies are retained
-    // so evidence can be sliced deterministically (§1a). Write-if-different keeps a re-read of
-    // unchanged content from churning the row.
+    // Retain bodies for deterministic evidence slicing; avoid churning unchanged text.
     sqlx::query(
         r#"
         UPDATE public.news_articles
@@ -1023,8 +939,7 @@ async fn persist_read(
     Ok(())
 }
 
-/// One `data_fetch_ledger` row per fetch attempt, stage `editor` — the same append-only
-/// provenance the legacy seat writes, under the greenfield stage name.
+/// Records one data-fetch ledger row per attempt.
 #[allow(clippy::too_many_arguments)]
 async fn insert_data_fetch_ledger_best_effort(
     hx: &Harness,
@@ -1073,8 +988,7 @@ async fn insert_data_fetch_ledger_best_effort(
     }
 }
 
-/// One `cognition_ledger` row per MODEL CALL (closing the ledger gap the legacy seat carried:
-/// it wrote data_fetch_ledger only). entity_type 'article', per the plan.
+/// Records one cognition-ledger row per model call.
 async fn ledger_model_call(
     hx: &Harness,
     item: &Item,
@@ -1090,50 +1004,36 @@ async fn ledger_model_call(
             return;
         }
     };
-    insert_cognition_ledger_best_effort(
+    let generation = Generation::called(
+        (),
+        model.to_string(),
+        EDITOR_CONTRACT_VERSION,
+        vec![item.entity_id],
+        Some(body_hash.to_string()),
+        GenerationCall::from(extracted),
+    );
+    insert_generation_ledger_best_effort(
         &hx.pool,
-        CognitionLedgerEntry {
-            stage: "editor".to_string(),
-            lens: "editor".to_string(),
-            role: Role::Editor.as_str().to_string(),
-            entity_type: "article".to_string(),
+        &generation,
+        EDITOR_LEDGER,
+        LedgerEvent {
+            entity_type: "article",
             entity_id,
-            sport: item.sport.to_uppercase(),
-            pair_entity_type: None,
-            pair_entity_id: None,
-            trigger_type: "queue".to_string(),
+            sport: &item.sport.to_uppercase(),
+            pair_entity: None,
+            trigger_type: "queue",
             trigger_payload: json!({}),
-            product_table: "editor_reads".to_string(),
             product_row_ids: vec![item.entity_id],
-            model_version: model.to_string(),
-            prompt_version: EDITOR_CONTRACT_VERSION.to_string(),
-            output_contract_version: EDITOR_CONTRACT_VERSION.to_string(),
-            input_ids: vec![item.entity_id],
-            input_hash: Some(body_hash.to_string()),
-            request_body: Some(extracted.request_body.clone()),
-            built_prompt: Some(extracted.built_prompt.clone()),
             included_evidence: json!({}),
             excluded_evidence: json!({}),
-            context_budget: json!({
-                "eval_count": extracted.eval_count,
-                "wall_ms": extracted.wall_ms,
-            }),
-            parser_outcome: parser_outcome.to_string(),
+            context_budget: generation.context_budget(json!({})),
+            parser_outcome,
         },
     )
     .await;
 }
 
-/// A scraped body occasionally carries a NUL byte (a stray control char surviving `clean_html`),
-/// and Postgres cannot store one in a `text` column at ALL — the write dies with
-/// `invalid byte sequence for encoding "UTF8": 0x00`. Before this, ~1 article/day dead-lettered
-/// the Editor on the `news_articles.full_text` write, which §2 clause 4 (dead-letters = 0 over
-/// the 7-day window) can never tolerate.
-///
-/// This is sanitisation, not policy: NUL carries no meaning in article prose, so it is dropped
-/// the moment the body enters the Editor — before it is hashed, prompted, sliced for candidate
-/// evidence, or persisted. Every one of those is a text column or a model input, and every one
-/// of them wants the same body. Nothing else about the body is touched.
+/// Drops NUL bytes before hashing, prompting, or persisting article text.
 fn sanitize_fetched(mut fetched: FetchedArticle) -> FetchedArticle {
     // The common case allocates nothing: bodies with no NUL pass through untouched, byte-identical.
     if fetched.text.contains('\0') {

@@ -102,7 +102,7 @@ fn scenarios() -> Vec<Scenario> {
             entity: "Kiana Wells", entity_type: "player", sport: "NBA",
             expect_omen: "ascendant",
             narratives: vec![narrative(
-                "Defensive anchor keeps rolling",
+                "Kiana Wells keeps rolling as a defensive anchor",
                 "A month of dominant rim protection has the rotation built around her; the coverage is admiring and consistent.",
                 6.0, "heating_up", 3,
             )],
@@ -110,7 +110,7 @@ fn scenarios() -> Vec<Scenario> {
                 "Anchor defender erasing the paint; blocks and altered shots keep climbing."),
             vibe: vibe(70, "The room is warm and getting warmer — a run of dominant defensive games has the coverage glowing."),
             momentum: momentum("rising", 3.4, Some(1.2), 6, Some(0.8), 5,
-                "Form and feeling are moving together; the rise is backed on both rails."),
+                "Performance and the mood around her are moving upward together."),
             transfers: vec![],
             expect: json!({"reading_includes": ["Wells"]}),
         },
@@ -120,14 +120,14 @@ fn scenarios() -> Vec<Scenario> {
             entity: "Deni Kovac", entity_type: "player", sport: "FOOTBALL",
             expect_omen: "ascendant",
             narratives: vec![narrative(
-                "Breakout buzz builds",
+                "Deni Kovac breakout buzz builds",
                 "Two strong substitute appearances have the coverage buzzing about a bigger role.",
                 4.0, "heating_up", 2,
             )],
             rating: None,
             vibe: vibe(80, "The buzz is loud and affectionate after two eye-catching cameos; most of it is projection."),
             momentum: momentum("rising", 1.4, None, 0, Some(1.8), 3,
-                "Feeling is climbing fast on a thin sample; form has no card to show."),
+                "Feeling is climbing fast on a thin sample; no performance profile is available."),
             transfers: vec![],
             expect: json!({"reading_includes": ["Kovac"]}),
         },
@@ -137,7 +137,7 @@ fn scenarios() -> Vec<Scenario> {
             entity: "Marcus Vale", entity_type: "player", sport: "NBA",
             expect_omen: "crossroads",
             narratives: vec![narrative(
-                "Trade demand reported",
+                "Marcus Vale trade demand reported",
                 "A trade-demand story broke this week and hangs over everything; the front office has not responded publicly.",
                 8.0, "heating_up", 4,
             )],
@@ -155,7 +155,7 @@ fn scenarios() -> Vec<Scenario> {
             entity: "Harbor City FC", entity_type: "team", sport: "FOOTBALL",
             expect_omen: "steady",
             narratives: vec![narrative(
-                "Midtable rhythm holds",
+                "Harbor City midtable rhythm holds",
                 "Two draws and a narrow win; the coverage is routine match reports without a larger storyline.",
                 3.0, "developing_story", 2,
             )],
@@ -173,7 +173,7 @@ fn scenarios() -> Vec<Scenario> {
             entity: "Rui Almeida", entity_type: "player", sport: "FOOTBALL",
             expect_omen: "crossroads",
             narratives: vec![narrative(
-                "Madrid talks advance",
+                "Rui Almeida Madrid talks advance",
                 "The move has progressed to personal terms according to multiple outlets; his club has begun scouting replacements.",
                 7.0, "heating_up", 5,
             )],
@@ -198,7 +198,7 @@ fn scenarios() -> Vec<Scenario> {
             entity: "Coastal City FC", entity_type: "team", sport: "FOOTBALL",
             expect_omen: "waning",
             narratives: vec![narrative(
-                "Winless month deepens",
+                "Coastal City winless month deepens",
                 "Four matches without a win, fan protests outside the ground, and open pressure on the manager.",
                 7.0, "heating_up", 4,
             )],
@@ -206,7 +206,7 @@ fn scenarios() -> Vec<Scenario> {
                 "The attack has dried up; chances created have fallen in each of the last five matches."),
             vibe: vibe(25, "The coverage is grim — protests, pressure, and a dressing room described as flat."),
             momentum: momentum("falling", -3.6, Some(-1.5), 6, Some(-1.1), 5,
-                "Both rails point down and neither shows a floor yet."),
+                "Performance and feeling both point down, and neither shows a floor yet."),
             transfers: vec![],
             expect: json!({"reading_includes": ["Coastal"]}),
         },
@@ -230,7 +230,7 @@ fn scenarios() -> Vec<Scenario> {
             entity: "Ipswich Town", entity_type: "team", sport: "FOOTBALL",
             expect_omen: "steady",
             narratives: vec![narrative(
-                "Promotion side reshapes its spine",
+                "Ipswich reshapes its spine after promotion",
                 "Two confirmed signings have arrived to rebuild the defensive line before the opener.",
                 5.0, "developing_story", 3,
             )],
@@ -253,7 +253,7 @@ fn scenarios() -> Vec<Scenario> {
             entity: "Venezia", entity_type: "team", sport: "FOOTBALL",
             expect_omen: "steady",
             narratives: vec![narrative(
-                "Squad reports back for preseason",
+                "Venezia reports back for preseason",
                 "The squad returned for preseason testing this week; no further detail has surfaced.",
                 2.0, "developing_story", 1,
             )],
@@ -274,14 +274,9 @@ fn main() -> anyhow::Result<()> {
     for s in scenarios {
         // The REAL deterministic pipeline: divergence → convergence → omen. The scenario's
         // named omen is asserted, so a drifted omen rule fails HERE, not silently at the gate.
-        let comparisons = build_pillar_divergence(
-            &s.narratives,
-            s.rating.as_ref(),
-            s.vibe.as_ref(),
-            &s.momentum,
-        );
+        let comparisons = build_pillar_divergence(s.rating.as_ref(), s.vibe.as_ref(), &s.momentum);
         let convergence = pillar_convergence(&comparisons);
-        let (omen, omen_reason) = compute_omen(convergence, &s.momentum);
+        let omen = compute_omen(convergence, &s.momentum);
         assert_eq!(
             omen, s.expect_omen,
             "scenario {}: authored pillars drew omen {omen}, expected {}",
@@ -297,7 +292,6 @@ fn main() -> anyhow::Result<()> {
             &s.momentum,
             &s.transfers,
             omen,
-            &omen_reason,
             // or9: the crown is blind to memories by CONTRACT now — the memory-free shape the
             // fixtures always pinned is simply the shape.
             None,

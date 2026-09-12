@@ -32,11 +32,37 @@ evaluation rule:
 > Does this rule protect the evidence or help the character express it—or does it choose the wording for them?
 
 Keep guardrails for evidence, identity, attribution, uncertainty, and the shared output
-form. Let the model choose the expression. Journalist follows what is happening and
-how stories progress; Influencer reads emotional charge, with stories as its vehicle.
-Reporting tone alone is not evidence of how a crowd feels. Automated checks cover
-mechanical contracts; review live outputs for grounded claims and character expression.
-Keyword bans cannot establish whether an interpretation follows the evidence.
+form. Let the model choose the expression.
+
+| Character | What it reads and expresses |
+|---|---|
+| Scout | The entity right now: current metrics, their supported trajectory, injuries, and personnel changes. |
+| Analyst | A synthesis of Rating and Vibe trajectories. |
+| Journalist | Factual reporting on the developing stories around the entity. |
+| Influencer | Emotional charge and its trajectory. The stories supply evidence for the feeling. |
+| Insider | An expert reading of transfer news, informed by the available history and emerging source-reliability evidence. |
+| Oracle | A mystic snapshot of the entity, using the other five cards as evidence for its claims. |
+
+Scout and Influencer own their respective trajectories, interpreting current evidence
+through their supplied memories. Analyst provides a concise synthesis of those two
+readings. The nuance belongs with the pillars that understand the evidence.
+
+Journalist and Influencer have distinct subjects. Reporting tone alone is not evidence
+of how a crowd feels. Memories provide continuity, not fresh measurements or proof.
+The Editor, Investigator, and Graph junctions extract and verify evidence for this work.
+The Insider's extraction contracts live in `insider/verification.rs`.
+
+Current input limits: Scout receives per-skill season comparisons and an overall recent
+performance trend, not recent slopes for every skill. Vibe receives current story
+material, its prior read and score, and relational memory. Source-reliability history
+is used by transfer verification; the Insider's wrap receives the resulting board
+and prior wraps. Oracle currently receives that transfer board rather than the
+Insider's finished wrap. These limits must remain distinct from the intended character
+scopes; a prompt cannot supply missing evidence.
+
+Automated checks cover mechanical contracts; review live outputs for grounded claims
+and character expression. Keyword bans cannot establish whether an interpretation
+follows the evidence.
 
 A new model drops into four layers that move independently: engine
 (`COGNITION_ROUTE_*` env, adopted only on a fixture-gate win), structure (`form.rs`), voice
@@ -372,7 +398,7 @@ rust/
     └── bin/
         ├── eval.rs          # fixture gate + live A/B harness
         ├── statcommentary.rs
-        └── remap.rs, storylinefill.rs, bucketlabel.rs   # spent one-shot backfills (prune candidates)
+        └── factsweep.rs
 ```
 
 ## Core Primitives
@@ -495,7 +521,7 @@ Offline bins are for evaluation and operator-support work. They must not claim l
 |---|---|
 | `eval` | Role/model A/B eval harness + the frozen-fixture gate (`--task <T> --fixtures`). |
 | `statcommentary` | Live rating batch binary. |
-| `remap` / `storylinefill` / `bucketlabel` | Spent one-shot backfills — their runs are on the record; prune candidates (2026-08-10 audit). |
+| `factsweep` | Nightly dynamic-metadata adjudication sweep. |
 
 Before changing a prompt, loader, parser, or shared JSON/hash utility, add or refresh focused tests/fixtures and consider whether `eval` should cover the behavior.
 

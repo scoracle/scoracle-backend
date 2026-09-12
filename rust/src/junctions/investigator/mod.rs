@@ -1,20 +1,11 @@
-//! # The Investigator — the verification junction (PLAN-one-rail Phases 4–5).
+//! The Investigator verifies entities and public-event facts.
 //!
 //! The Editor nominates; the Investigator verifies; search discovers; sources prove. This
-//! junction owns the demand-led acquisition rail: box scores first (Phase 4, [`boxscore`] —
-//! stage `fixture_boxscore`, a live wire name that predates the character and does NOT rename),
-//! entity discovery second (Phase 5, stage `investigate_entity`).
+//! junction owns demand-led box-score and entity acquisition.
 //!
-//! `Role::Investigator` rides `ministral-3:3b` on archbox like every seat since the
-//! 2026-08-20 single-box consolidation (`COGNITION_ROUTE_INVESTIGATOR`; the 2026-08-09
-//! Mac-14B pinning is history). The seat idles in v1: every live decision is code over
-//! Wikidata's structured claims, zero model calls. The seat's first real load is 5.4's deferred prose-triage arm (D-T8's class — names
-//! Wikimedia knows under a different legal name), and the design rule for it is already fixed
-//! (PLAN-one-rail T2 note): the model QUOTES the occupation phrase verbatim, code matches it
-//! against sport vocabulary and thresholds on independent-source count — never self-reported
-//! confidence. Numbers enter rows through DOM/JSON parsers alone, and every accepted fact
-//! cites a `source_documents` row. The Investigator writes facts and provenance, never
-//! memories — statelessness is the objectivity guarantee (§4).
+//! Structured claims are interpreted in code. The prose fallback asks the model for
+//! verbatim observations, then code verifies and decides. Every accepted fact cites a
+//! `source_documents` row; the Investigator writes facts and provenance, never memories.
 
 pub mod boxscore;
 pub mod discover;

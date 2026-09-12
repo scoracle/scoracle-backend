@@ -139,7 +139,7 @@ fn insider_score_input_components_content_keyed_and_order_stable() {
     assert_eq!(
         one,
         format!(
-            r#"{{"prompt_version":"{INSIDER_SCORE_PROMPT_VERSION}","board":["Heat:40:outgoing:speculation","Lakers:80:incoming:advanced_talks"]}}"#
+            r#"{{"board":["Heat:40:outgoing:speculation","Lakers:80:incoming:advanced_talks"],"prompt_version":"{INSIDER_SCORE_PROMPT_VERSION}"}}"#
         )
     );
     // A heat/stage move flips the hash pre-image (the re-score trigger).
@@ -352,42 +352,6 @@ fn prompt_renders_source_reliability_card_before_memory() {
     assert!(!none.contains("Source track record"));
 }
 
-// --- 7.5: the packet rail's material, and the legacy rail's silence -----------------------------
-
-/// Under `RAIL=legacy` the packet arm contributes NOTHING — no framing, no relabelled header —
-/// so a binary carrying all of Phase 7 sends the pair prompt Phase 6 sent, byte for byte. This is
-/// the property that makes the deploy safe before the flip.
-#[test]
-fn legacy_pair_prompt_is_byte_identical_to_the_no_packet_prompt() {
-    let c = cand("Bukayo Saka", "English", "Arsenal", "winger");
-    let news = vec![NewsItem {
-        id: 1,
-        title: "Saka linked with move".to_string(),
-        description: "Reports suggest interest.".to_string(),
-        source: "BBC".to_string(),
-    }];
-    let evidence = TransferEvidence::from_news(&news, 1, "BBC");
-    let legacy = build_transfer_prompt(
-        "Arsenal", &c, "FOOTBALL", "current", &news, &evidence, None, None, None,
-    );
-    // An EMPTY framing is indistinguishable from no framing: a packet that contributed no claim
-    // to this pair must not leave a fingerprint on the prompt either.
-    let empty_framing = build_transfer_prompt(
-        "Arsenal",
-        &c,
-        "FOOTBALL",
-        "current",
-        &news,
-        &evidence,
-        None,
-        None,
-        Some("   \n"),
-    );
-    assert!(legacy.contains("\nNews headlines:\n"));
-    assert!(!legacy.contains("The story these reports belong to"));
-    assert_eq!(legacy, empty_framing);
-}
-
 /// The packet rail hands the Insider the storyline as FRAMING and the Editor's claims as the
 /// evidence lines — and says so in the header, because on this rail a line is a claim, not a
 /// headline.
@@ -465,7 +429,7 @@ fn insider_slice_is_the_transfer_typed_claims() {
     assert_eq!(slice[0].article_id, 3);
 }
 
-// --- TransferParser fail-closed contract (mirrors Go TestParseTransferVerdictFailClosed) ------
+// --- TransferParser fail-closed contract --------------------------------------------------------
 
 #[test]
 fn parser_fail_closed_on_non_json() {
@@ -477,7 +441,7 @@ fn parser_fail_closed_on_non_json() {
 #[test]
 fn parser_missing_is_rumor_is_some_with_none_field() {
     // Parsed object that never committed to is_rumor → Some(verdict) with is_rumor == None; the
-    // caller routes THAT to the UNKNOWN marker (Go's verdict.IsRumor == nil branch).
+    // caller routes that to the UNKNOWN marker.
     let v = TransferParser
         .parse(r#"{"subject":"Someone","direction":"incoming"}"#)
         .unwrap()
@@ -513,7 +477,7 @@ fn parser_extracts_committed_verdict_from_wrapped_json() {
     assert!((v.confidence - 0.8).abs() < 1e-9);
 }
 
-// --- norm_stage / clamp_conf (mirror Go TestNormStageDefaultsToSpeculation / TestClampConfBounds)
+// --- norm_stage / clamp_conf -------------------------------------------------------------------
 
 #[test]
 fn norm_stage_normalizes_and_defaults() {
@@ -567,7 +531,7 @@ fn has_return_signal_detects_return_language() {
 
 #[test]
 fn identity_score_uses_raw_heat_only() {
-    let (heat, confidence) = identity_apply_deterministic_score(83);
+    let (heat, confidence) = application::identity_apply_deterministic_score(83);
 
     assert_eq!(heat, 83);
     assert_eq!(confidence, 0.83);
@@ -648,7 +612,7 @@ fn transfer_input_hash_moves_on_material_change() {
 
 #[test]
 fn unknown_marker_keeps_direction_drops_model() {
-    // verdict == None → is_rumor NULL, direction kept (audit), model NULL. Mirrors Go persist.
+    // verdict == None → is_rumor NULL, direction kept for audit, model NULL.
     let (row, outcome) = row_from_verdict(None, "current", Some("BBC"), "mistral:7b");
     assert_eq!(outcome, Outcome::Unknown);
     assert_eq!(row.is_rumor, None);
@@ -668,7 +632,7 @@ fn cleared_row_drops_direction_keeps_model_and_subject() {
     let (row, outcome) = row_from_verdict(Some(&v), "none", None, "mistral:7b");
     assert_eq!(outcome, Outcome::Cleared);
     assert_eq!(row.is_rumor, Some(false));
-    assert_eq!(row.direction, None); // cleared keeps no direction (mirrors Go)
+    assert_eq!(row.direction, None); // cleared keeps no direction
     assert_eq!(row.model.as_deref(), Some("mistral:7b"));
     assert_eq!(row.stage, None);
     assert!(row.trigger_payload.contains("Florentino"));

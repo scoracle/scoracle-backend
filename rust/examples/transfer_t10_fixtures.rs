@@ -1,28 +1,9 @@
-//! transfer_t10_fixtures — regenerate the hand-authored Insider eval fixtures.
-//!
-//! t10 is the Characters Phase B voice pass: the system prompt now speaks The Insider's telling
-//! (persona-first, from wiki/Characters.md's craft appendix — urgent but guarded, credibility
-//! above everything); the t9 CONTRACT — verdict JSON, gates, stage ladder, weighting — is
-//! unchanged. t9 (Cognition refactor Phase 4) added two seams the transfers voice must WEIGH: the
-//! source-reliability card (`source_reliability_for_pair`, mig 178 — the measured track record of
-//! the sources reporting the pair) and an explicit steam-vs-fizzle reading of the relational memory
-//! card (heating/cooling trajectory + fizzled/confirmed priors). The live pair build reads both cards
-//! from the DB; a frozen fixture cannot, so these are HAND-AUTHORED: each freezes a faithful
-//! `build_transfer_prompt` render WITH a reliability card + a memory card baked in, so
-//! `eval --task transfer --fixtures` runs the exact enriched prompt through the model and scores it.
-//!
-//! Emitting them through `build_transfer_prompt` + `transfer_system_prompt` (not hand-typed JSON)
-//! guarantees the frozen `system`/`user_prompt` are byte-exact — a prompt bump means "re-run this
-//! example", not "hand-patch the JSON".
-//!
-//! FLOOR vs TARGET (same discipline as the narratives fixtures): the grounding FLOOR — is_rumor
-//! commitment, direction, subject discipline, no invented fee — is the real regression net and
-//! holds regardless of voice. The steam/fizzle axes (`transfer_stage`, `confidence_min`/
-//! `confidence_max`) assert the Phase 4 weighting under the character's own telling; a red is a
-//! behaviour regression (or a documented model gap called out in the fixture's note).
-//!
-//!   cargo run --example transfer_t10_fixtures
-//!   cargo run --bin eval -- --task transfer --fixtures   (needs Ollama)
+//! transfer_t10_fixtures — regenerate the hand-authored Insider eval fixtures. The live pair
+//! build reads the reliability + memory cards from the DB; a frozen fixture cannot, so each
+//! freezes a faithful `build_transfer_prompt` render with both cards baked in (byte-exact —
+//! a prompt bump means "re-run this example", not "hand-patch the JSON"). FLOOR checks
+//! (is_rumor, direction, subject, no invented fee) hold regardless of voice; TARGET checks
+//! (`transfer_stage`, `confidence_min`/`max`) assert the steam/fizzle weighting.
 
 use std::path::Path;
 
@@ -85,7 +66,7 @@ fn fixture(
             &evidence,
             Some(reliability),
             Some(memory),
-            // Fixtures pin the LEGACY prompt shape: no packet framing (7.5).
+            // Fixtures pin the prompt shape without packet framing.
             None,
         ),
         temperature: 0.0,
@@ -129,10 +110,7 @@ fn main() -> anyhow::Result<()> {
     std::fs::create_dir_all(&dir)?;
 
     // ── Fixture 1 — STEAM: reliable, early-calling sources + a heating story ────────────────────────
-    // A top-tier source (measured 86/100, an early caller) EXPLICITLY reports active negotiation, a
-    // second credible source corroborates, and the memory card shows a heating trajectory + a rising
-    // computed likelihood. Reliability + heat should let the read carry steam — advance the stage and
-    // commit — rather than hedge at speculation.
+    // Reliability + heat should let the read carry steam — advance the stage and commit.
     let f1 = fixture(
         "reliable-source-heating-steam",
         "Bayern Munich",
@@ -153,8 +131,7 @@ fn main() -> anyhow::Result<()> {
             subject_includes: Some(vec!["Andrade".into()]),
             summary_includes: Some(vec!["Bayern".into(), "Flamengo".into()]),
             summary_excludes: Some(vec!["$".into(), "£".into(), "€".into(), "million".into()]),
-            // TARGET (Phase 4 steam) — reliable source explicitly reporting negotiation + heating
-            // memory should advance the stage and carry real confidence.
+            // TARGET — steam should advance the stage and carry real confidence.
             transfer_stage: Some("advanced_talks".into()),
             confidence_min: Some(0.6),
             ..Default::default()
@@ -163,10 +140,7 @@ fn main() -> anyhow::Result<()> {
     write_fixture(&dir, &f1, "t10 STEAM: a top-tier, early-calling source (86/100) explicitly reports active negotiation + a corroborating source, and the memory card is heating (likelihood 68/100). FLOOR: is_rumor=true, incoming, names Bayern+Flamengo, no invented fee. VOICE+WEIGHTING: advances to advanced_talks with confidence ≥ 0.6.")?;
 
     // ── Fixture 2 — FIZZLE: a fizzled prior + a thin, low-reliability report ─────────────────────────
-    // The same shape of story (a club "interested" in an outside player) but the ONLY source is a
-    // rumour mill with a poor measured record, the memory card holds a fizzled prior and a cooling
-    // trajectory, and the report is thin (no negotiation reported). Skepticism should show as the read
-    // held at speculation with low confidence — not re-hyped by the dead saga.
+    // Skepticism should hold the read at speculation with low confidence — not re-hyped by the dead saga.
     let f2 = fixture(
         "fizzled-prior-lowrel-skeptic",
         "Chelsea",
@@ -186,8 +160,7 @@ fn main() -> anyhow::Result<()> {
             // FLOOR — grounding.
             subject_includes: Some(vec!["Sorensen".into()]),
             summary_excludes: Some(vec!["$".into(), "£".into(), "€".into(), "million".into()]),
-            // TARGET (Phase 4 fizzle) — a fizzled prior + cooling trajectory + a lone low-reliability
-            // source with no reported talks should be held at speculation with low confidence.
+            // TARGET — fizzle should be held at speculation with low confidence.
             transfer_stage: Some("speculation".into()),
             confidence_max: Some(0.5),
             ..Default::default()

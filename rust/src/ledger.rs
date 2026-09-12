@@ -5,39 +5,66 @@
 //! best-effort from production stages so a schema/deployment issue in diagnostics cannot break the
 //! user-facing news rail.
 
+use crate::harness::Generation;
+use crate::route::Role;
 use anyhow::{Context, Result};
 use serde_json::Value;
 use sqlx::{PgPool, Row};
 use tracing::warn;
 
-#[derive(Clone, Debug)]
-pub struct CognitionLedgerEntry {
-    pub stage: String,
-    pub lens: String,
-    pub role: String,
-    pub entity_type: String,
+struct CognitionLedgerEntry {
+    stage: String,
+    lens: String,
+    role: String,
+    entity_type: String,
+    entity_id: i32,
+    sport: String,
+    pair_entity_type: Option<String>,
+    pair_entity_id: Option<i32>,
+    trigger_type: String,
+    trigger_payload: Value,
+    product_table: String,
+    product_row_ids: Vec<i64>,
+    model_version: String,
+    prompt_version: String,
+    output_contract_version: String,
+    input_ids: Vec<i64>,
+    input_hash: Option<String>,
+    request_body: Option<Value>,
+    built_prompt: Option<String>,
+    included_evidence: Value,
+    excluded_evidence: Value,
+    context_budget: Value,
+    parser_outcome: String,
+}
+
+/// Static identity of one generated product in the cognition ledger.
+#[derive(Clone, Copy, Debug)]
+pub struct LedgerSpec {
+    pub stage: &'static str,
+    pub lens: &'static str,
+    pub role: Role,
+    pub product_table: &'static str,
+    pub output_contract_version: &'static str,
+}
+
+/// Per-item ledger fields that are not already carried by [`Generation`].
+#[derive(Debug)]
+pub struct LedgerEvent<'a> {
+    pub entity_type: &'a str,
     pub entity_id: i32,
-    pub sport: String,
-    pub pair_entity_type: Option<String>,
-    pub pair_entity_id: Option<i32>,
-    pub trigger_type: String,
+    pub sport: &'a str,
+    pub pair_entity: Option<(&'a str, i32)>,
+    pub trigger_type: &'a str,
     pub trigger_payload: Value,
-    pub product_table: String,
     pub product_row_ids: Vec<i64>,
-    pub model_version: String,
-    pub prompt_version: String,
-    pub output_contract_version: String,
-    pub input_ids: Vec<i64>,
-    pub input_hash: Option<String>,
-    pub request_body: Option<Value>,
-    pub built_prompt: Option<String>,
     pub included_evidence: Value,
     pub excluded_evidence: Value,
     pub context_budget: Value,
-    pub parser_outcome: String,
+    pub parser_outcome: &'a str,
 }
 
-pub async fn insert_cognition_ledger(pool: &PgPool, entry: &CognitionLedgerEntry) -> Result<i64> {
+async fn insert_cognition_ledger(pool: &PgPool, entry: &CognitionLedgerEntry) -> Result<i64> {
     let row = sqlx::query(
         r#"
         INSERT INTO public.cognition_ledger (
@@ -84,7 +111,43 @@ pub async fn insert_cognition_ledger(pool: &PgPool, entry: &CognitionLedgerEntry
     Ok(row.get("id"))
 }
 
-pub async fn insert_cognition_ledger_best_effort(pool: &PgPool, entry: CognitionLedgerEntry) {
+/// Write the shared generation envelope plus the item-specific ledger event.
+pub async fn insert_generation_ledger_best_effort<T>(
+    pool: &PgPool,
+    generation: &Generation<T>,
+    spec: LedgerSpec,
+    event: LedgerEvent<'_>,
+) {
+    let (pair_entity_type, pair_entity_id) = event
+        .pair_entity
+        .map(|(kind, id)| (Some(kind.to_string()), Some(id)))
+        .unwrap_or((None, None));
+    let call = generation.call.as_ref();
+    let entry = CognitionLedgerEntry {
+        stage: spec.stage.to_string(),
+        lens: spec.lens.to_string(),
+        role: spec.role.as_str().to_string(),
+        entity_type: event.entity_type.to_string(),
+        entity_id: event.entity_id,
+        sport: event.sport.to_string(),
+        pair_entity_type,
+        pair_entity_id,
+        trigger_type: event.trigger_type.to_string(),
+        trigger_payload: event.trigger_payload,
+        product_table: spec.product_table.to_string(),
+        product_row_ids: event.product_row_ids,
+        model_version: generation.provenance.model_version.clone(),
+        prompt_version: generation.provenance.prompt_version.to_string(),
+        output_contract_version: spec.output_contract_version.to_string(),
+        input_ids: generation.provenance.input_ids.clone(),
+        input_hash: generation.provenance.input_hash.clone(),
+        request_body: call.map(|call| call.request_body.clone()),
+        built_prompt: call.map(|call| call.built_prompt.clone()),
+        included_evidence: event.included_evidence,
+        excluded_evidence: event.excluded_evidence,
+        context_budget: event.context_budget,
+        parser_outcome: event.parser_outcome.to_string(),
+    };
     if let Err(e) = insert_cognition_ledger(pool, &entry).await {
         warn!(
             stage = %entry.stage,

@@ -1,11 +1,7 @@
 //! Analyst fixtures cover direction, divergence, and thin evidence.
-//! Wording is evaluated by reading the output, not keyword bans.
-//!
-//! Each scenario holds pillar structs and renders through the REAL production builder
-//! (`build_momentum_prompt` + `MOMENTUM_SYSTEM_PROMPT`), so the frozen `system`/`user_prompt`
-//! are byte-exact — a prompt bump means "re-run this example", not "hand-patch the JSON".
-//! Since s6 this writes the fixture files directly (the transfers/vibe generator pattern):
-//!
+//! Each scenario renders through the REAL production builder (`build_momentum_prompt` +
+//! `MOMENTUM_SYSTEM_PROMPT`), so the frozen `system`/`user_prompt` are byte-exact — a
+//! prompt bump means "re-run this example", not "hand-patch the JSON". Writes files directly:
 //!     cargo run --example momentum_s6_fixtures
 //!     cargo run --bin eval -- --task momentum --fixtures   (needs Ollama)
 
@@ -46,12 +42,8 @@ fn vibe(sentiment: i32, prompt: &str) -> Option<SynthVibe> {
 }
 
 fn snapshot(score: f64, r_slope: f64, r_n: i32, v_slope: f64, v_n: i32) -> SynthMomentum {
-    // Production's momentum_score IS the average of the two slopes, and since s19 the rails
-    // render as WORDS off the ±100 ladder — incoherent fixture data now produces a prompt
-    // that argues with its own direction line. Caught 2026-08-23: the rising-confirmed
-    // fixture carried slopes from the old small-number display era (2.1/1.4) against a
-    // ±100-scale score of 28.4, the rails rendered "flat", and the READ dutifully
-    // contradicted the decided direction. The generator refuses to freeze that class again.
+    // Production's momentum_score IS the average of the two ±100-scale slopes; incoherent
+    // fixture data produces a prompt that argues with its own direction line.
     assert!(
         (score - (r_slope + v_slope) / 2.0).abs() < 0.35,
         "incoherent fixture data: momentum_score {score} is not the slope average of \
@@ -117,8 +109,6 @@ fn scenarios() -> Vec<Scenario> {
                 "Season-long elite at limiting chances, but the last stretch shows real defensive slippage."),
             vibe: vibe(68, "Supporter and local coverage is warming after a young forward's breakout week."),
             momentum: snapshot(-0.3, -8.3, 6, 7.7, 5),
-            // "the tape calls this" was THIS fixture's s13 defect ("the tape calls this a
-            // holding pattern"); fixture-contextual since the 08-23 eval-scar sweep.
             expect: json!({}),
         },
         Scenario {
@@ -149,8 +139,6 @@ fn scenarios() -> Vec<Scenario> {
                 "The attack has dried up: fewer chances created in each of the last five matches."),
             vibe: vibe(30, "Coverage is grim — a winless month, fan protests, and pressure on the manager."),
             momentum: snapshot(-22.4, -20.6, 9, -24.2, 9),
-            // "isn't a collapse" fired LIVE on exactly this clean-decline shape (s14 note);
-            // fixture-contextual since the 08-23 eval-scar sweep.
             expect: json!({}),
         },
         Scenario {
@@ -161,10 +149,6 @@ fn scenarios() -> Vec<Scenario> {
                 "The jumper is falling and the rim pressure is real: efficiency up in each of the last six games with the usage holding."),
             vibe: vibe(76, "The building believes again — a signature road win, the crowd chanting his name, and the beat writers running out of superlatives."),
             momentum: snapshot(28.4, 26.3, 9, 30.5, 10),
-            // "isn't a surge" here is FIXTURE-CONTEXTUAL since the 08-23 eval-scar sweep: the
-            // hedge-closer left the production guard list (style, not mechanics) and lives on
-            // as this fixture's expectation — the s9/s10 defect it pins was a rising read
-            // hedged into nothing.
             expect: json!({}),
         },
         Scenario {
@@ -175,9 +159,6 @@ fn scenarios() -> Vec<Scenario> {
                 "The press has collapsed: distances covered and chances created are down in each of the last five matches, and opponents are playing through the midfield at will."),
             vibe: vibe(24, "The mood has curdled — three straight defeats, banners calling for the board, and the away end leaving early."),
             momentum: snapshot(-31.6, -35.0, 9, -28.2, 10),
-            // "isn't a collapse" — fixture-contextual since the 08-23 eval-scar sweep (see
-            // rising-confirmed); the s14 defect it pins fired on exactly this clean-decline
-            // shape.
             expect: json!({}),
         },
     ]
@@ -189,9 +170,7 @@ fn main() -> anyhow::Result<()> {
     let scenarios = scenarios();
     let n = scenarios.len();
     for s in scenarios {
-        // s19 removed packets and the memory card from the builder entirely (the ROLE pass:
-        // the Analyst reads only the two rails), so the memory-free shape the fixtures always
-        // pinned is now the only shape there is.
+        // The Analyst reads only the two rails: no packets, no memory card.
         let prompt = build_momentum_prompt(
             s.entity_type,
             s.entity,

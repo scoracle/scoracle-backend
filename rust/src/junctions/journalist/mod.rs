@@ -1,29 +1,16 @@
-//! news narratives — the `Stage::Narratives` queue handler. The largest GPU stage, and the one
-//! with native Rust value-add: it composes the candle
-//! **embed+cluster** primitive (group near-duplicate articles and drop them BEFORE the model call —
-//! the dedup the Go pipeline never had) with `route(NarrativeLogic) + extract + persist`.
-//!
-//! Rust implementation of the news narrative stage:
+//! The Journalist's `Stage::Narratives` queue handler:
 //! - `load_packet_corpus` reads the entity's compiled packets from Postgres.
-//! - `build_narratives_prompt` is deterministic. (n17: the transfer-heat grounding section is
-//!   gone — The Insider owns transfer truth end-to-end; heat lines remain vibe's concern only.)
-//! - The n13 system prompt is model-neutral and schema-first for smaller local models.
+//! - `build_narratives_prompt` is deterministic.
 //! - `parse_narratives` uses a tolerant balanced-brace salvager: a truncated tail drops its last
 //!   incomplete object; an empty `{"narratives": []}` is a successful parse -> marker.
-//! - `compute_news_impact` reproduces the deterministic per-narrative impact (volume + corroboration
-//!   + recency) byte-for-byte — like rating's `pctBand`, deterministic stage-shaping mirrored in Rust,
-//!     NOT moved to Postgres (it scores a MODEL-selected article subset, so it can't be a pure SQL stat).
-//!
-//! (The embed+cluster near-duplicate dedup that used to reshape the corpus before the model call
-//! left with the embed layer: the packet corpus is compiled claims, deduped upstream by the
-//! Editor's read and the worker's exact-title sweep.)
+//! - `compute_news_impact` deterministically scores the model-selected evidence subset.
 //!
 //! `NarrativesHandler` is a live queue stage gated by `COGNITION_STAGES`. It is the News hub stage:
 //! transfer heat and source freshness are folded here before Vibe and Sigil consume the result.
 
 use crate::corpus::{dedupe_i64, lookup_entity_name};
-use crate::harness::{EntityKey, Harness, Parser, Provenance};
-use crate::ledger::{insert_cognition_ledger_best_effort, CognitionLedgerEntry};
+use crate::harness::{EntityKey, Generation, GenerationCall, Harness, Parser};
+use crate::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
 use crate::stage::StageHandler;
@@ -49,51 +36,27 @@ pub use prompt::{NARRATIVES_PROMPT_VERSION, NARRATIVES_SYSTEM_PROMPT};
 // ---------------------------------------------------------------------------
 
 /// Output schema version for the parsed narrative document, distinct from the prompt contract.
-/// v2-schema: Ollama grammar-constrained decoding (Phase 5) — the shape is enforced by the
-/// server, not hoped for by the prompt. v3-schema: required `card_score` (the Journalist's
-/// 1-99 busyness verdict, the tarot deck's number) ordered after narratives/buckets.
 pub const NARRATIVES_OUTPUT_CONTRACT_VERSION: &str = "narratives-v3-schema";
 
-/// Production decode temperature (`ollama.Generate` in Go). The parity gate pins temp 0 (the
-/// deterministic-axes diff); production narrates at 0.6.
+const NARRATIVES_LEDGER: LedgerSpec = LedgerSpec {
+    stage: "narratives",
+    lens: "narratives",
+    role: Role::NarrativeLogic,
+    product_table: "news_summaries",
+    output_contract_version: NARRATIVES_OUTPUT_CONTRACT_VERSION,
+};
+
+/// Production decode temperature. The deterministic fixture gate pins zero.
 pub const NARRATIVES_TEMPERATURE: f64 = 0.6;
 
-/// The Journalist's reservation inside a LARGE window — several multi-sentence narratives; the
-/// prompt caps count + body length. Reachable only when `VOICE_NUM_CTX` pins a window above the
-/// 4096 packet envelope (`narratives_decode_budget` keys on the window); production runs the
-/// packet reservation below. The arithmetic lesson that sized this pair is permanent: a
-/// reservation the window cannot hold silently evicts the system prompt mid-generation, and the
-/// failure looks like a model that stopped obeying its rules (L9; measured 153/8,899 calls at
-/// the old 8192 window). (The legacy `NARRATIVES_NUM_CTX` constant this rode beside — the
-/// 16384 window the legacy corpus was sized for — left with the legacy rail.)
-// The LARGEST output budget on the rail, deliberately: The Journalist files one headline+body
-// per developing storyline, so her length scales with how many stories are actually running,
-// unlike the single-read seats. 4000 was still far past any real filing and could alone ask for
-// most of a 4,096 window.
+/// Output reservation for a large context window. The Journalist may file several storylines,
+/// so this is larger than single-read seats.
 pub const NARRATIVES_NUM_PREDICT: i32 = 1000;
 
-/// The Journalist's output reservation on the packet rail (§7's envelope: ≤800, his share 700 —
-/// raised to 900 at the MLX cutover).
-///
-/// 4000 was sized for a corpus of twenty article bodies and a narrator asked to cover all of it.
-/// The packet rail hands him ONE storyline, already assembled, so the job is to narrate a story
-/// rather than to survey a feed — and ~700 tokens of PROSE is a card, not a truncation.
-///
-/// 900 (2026-08-19): the MLX openai path has no grammar, so the edition rides unconstrained and
-/// pays JSON structural overhead the ollama grammar path never did — measured on cutover day, a
-/// pretty-printed fenced edition exhausted 700 mid-first-narrative and parsed to zero storylines.
-/// n21's compactness directive claws most of that back; the 200-token margin absorbs the rest.
-/// (No window arithmetic lost: MLX has no 4,096 eviction window — the binding ceiling there is
-/// the ~4k PROMPT boundary, which this reservation does not touch.)
+/// Output reservation for the small context window, including unconstrained JSON overhead.
 pub const NARRATIVES_NUM_PREDICT_PACKET: i32 = 900;
 
-/// The narratives call's window and output reservation on this rail. Both move together, because
-/// the reservation is part of what has to fit inside the window — the failure this pair exists to
-/// prevent is a prompt plus a reservation that overflow and silently evict the system prompt.
-/// It keys on the WINDOW, not on the rail (Scott, 2026-08-06 — "run them, but run them at 4096").
-/// The rail says which corpus the Journalist reads; the window says how much room he has, and a
-/// 4,000-token reservation inside a 4,096-token window leaves nothing for the prompt at all. The
-/// pairing is arithmetic, so it must follow the number the arithmetic is about.
+/// Pair the context window with an output reservation that leaves room for the prompt.
 pub fn narratives_decode_budget(num_ctx: i32) -> (i32, i32) {
     if crate::route::small_voice_window(num_ctx) {
         (num_ctx, NARRATIVES_NUM_PREDICT_PACKET)
@@ -102,30 +65,13 @@ pub fn narratives_decode_budget(num_ctx: i32) -> (i32, i32) {
     }
 }
 
-/// Per-article description cap rendered into the prompt (Go's `truncate(desc, 200)`).
+/// Per-article description cap rendered into the prompt.
 const DESC_TRUNCATE: usize = 200;
 
-/// Ceiling on how many articles reach one Journalist prompt.
-///
-/// The corpus load was unbounded, which was survivable only because ingest capped each entity at
-/// twelve headlines. Once ingest takes Google's page 1 whole, a busy club brings ~100 articles a
-/// day and this query would hand every one of them to a 16,384-token context shared by all six
-/// voices — failing as silent truncation inside the prompt rather than as a number in a log.
-///
-/// 40 is deliberately generous against the observed shape: articles render at `DESC_TRUNCATE`
-/// (read articles rendered at 900 chars on the legacy rail), so a full 40 with the usual four
-/// read was about 4*900 + 36*200 ≈ 11 KB — expansive, and still well clear of the ceiling.
-///
-/// The exact number is a VOICE decision, not a plumbing one: it trades breadth of evidence against
-/// room for the reply, and that trade belongs to the prompt-tuning session. Env-tunable so that
-/// session can move it without a rebuild.
+/// Maximum articles in a large-window prompt. The environment can tune the evidence/reply trade.
 const DEFAULT_CORPUS_LIMIT: i64 = 40;
 
-/// The same ceiling inside a SMALL window (4096). Forty articles at up to 900 characters of
-/// Editor card each is ~11 KB — around 3,000 tokens, which fits a 16,384 window with room to
-/// spare and does not fit a 4,096 one beside a system prompt, a memory block and a reservation.
-/// Eight is what the arithmetic leaves, and the excluded articles are still NAMED (A5) through
-/// the same `budget_truncated_ids` band the forty-article cut uses.
+/// Article cap inside the small window. Excluded article IDs remain explicit in provenance.
 const SMALL_WINDOW_CORPUS_LIMIT: i64 = 8;
 
 fn corpus_limit(num_ctx: i32) -> i64 {
@@ -140,7 +86,7 @@ fn corpus_limit(num_ctx: i32) -> i64 {
         })
 }
 
-/// The vetted-news lookback window — Go's `NewsLookback = 72 * time.Hour`, in seconds. A fresh
+/// Vetted-news lookback in seconds. A fresh
 /// Editor card also keeps an article in the corpus, so richer newly-enqueued evidence can
 /// wake The Journalist even when the source article's `published_at` has aged past this boundary.
 const NEWS_LOOKBACK_SECS: f64 = 259_200.0;
@@ -149,8 +95,7 @@ const NEWS_LOOKBACK_SECS: f64 = 259_200.0;
 // Types.
 // ---------------------------------------------------------------------------
 
-/// NarrativesReq describes the entity whose recent news to narrate. Mirrors `NarrativesRequest`
-/// (the drain path always passes `trigger_type = "periodic"` and a nil trigger map → jsonb `null`).
+/// Entity whose recent news should be narrated.
 #[derive(Clone, Debug)]
 pub struct NarrativesReq {
     pub entity_type: String, // "player" | "team"
@@ -165,10 +110,6 @@ pub struct NarrativesReq {
 /// headline claim, `description` the rest of its claims, joined. The prompt uses
 /// title/description/source; `published_at_epoch` (Unix seconds, NULL when the article has no
 /// publish time) feeds the deterministic recency in `compute_news_impact`.
-///
-/// (The legacy rail's per-article baggage — `url`, `full_text`, the `article_read_*` evidence
-/// card and its fingerprint fields — was stripped once `load_packet_corpus` became the only
-/// loader: every one of those fields was hardwired to empty/`None` on the packet rail.)
 #[derive(Clone, Debug)]
 pub struct CorpusItem {
     pub id: i64,
@@ -202,10 +143,8 @@ pub struct Narrative {
     pub source_oldest_epoch: Option<i64>,
 }
 
-/// ModelNarrative is one object the local model returns. `#[serde(default)]` per field mirrors Go's
-/// `encoding/json` tolerance of missing fields; an explicit `"articles": null` (or a non-int element)
-/// makes serde skip the object at parse — net-identical to Go, which keeps it then drops it in
-/// grounding for having no valid article (either way it is excluded).
+/// One model-returned storyline. Defaults make missing optional content tolerant; invalid article
+/// arrays make the object unparseable or ungroundable.
 #[derive(Clone, Debug, Default, Deserialize)]
 struct ModelNarrative {
     #[serde(default)]
@@ -216,39 +155,25 @@ struct ModelNarrative {
     articles: Vec<i32>,
 }
 
-/// ParsedNarratives is the salvaged document — the `T` the [`NarrativesParser`] yields.
-/// `narratives` drives the storyline persist. The n9 `article_buckets` section was removed in n16;
-/// The Editor writes `news_articles.bucket` from its own `story_type` now.
+/// Salvaged document returned by [`NarrativesParser`].
 #[derive(Clone, Debug, Default)]
 pub struct ParsedNarratives {
     narratives: Vec<ModelNarrative>,
-    /// The Journalist's n12 busyness verdict, clamped 1-99 at parse. Best-effort: a reply missing
-    /// it (pre-n12 salvage, truncated tail) parses to `None`, never a
-    /// failure — the row simply persists NULL and the card falls back to the Veil.
+    /// Best-effort 1-99 busyness verdict; absence persists as NULL.
     card_score: Option<i16>,
-    /// The entity-level card hook (2026-08-24, the uniform score+headline+body contract) —
-    /// the edition's front-page tweet, already settled through `guards::settle_title`. Best-effort
-    /// exactly like `card_score`: a pre-headline reply parses to `None`, and a junk title costs
-    /// the title, never the edition.
+    /// Optional entity-level card title settled through the shared title guard.
     headline: Option<String>,
 }
 
 impl ParsedNarratives {
-    /// Read access for the Phase-3 eval (`eval_tasks::NarrativeTask`): the storylines the model
-    /// returned, as `(title, body, cited_article_numbers)` triples in the model's freshest-first
-    /// order. This is the RAW returned set — DB grounding (mapping article numbers → real news ids),
-    /// impact scoring, and the marker decision all happen downstream and need a pool, so the
-    /// narrative-grounding rubric scores the model output directly and offline. The private
-    /// `ModelNarrative` DTO stays encapsulated; only this minimal view is exposed.
+    /// Raw `(title, body, cited article numbers)` view used by offline eval before DB grounding.
     pub fn returned(&self) -> impl Iterator<Item = (&str, &str, &[i32])> {
         self.narratives
             .iter()
             .map(|n| (n.title.as_str(), n.body.as_str(), n.articles.as_slice()))
     }
 
-    /// The n12 busyness verdict, for the eval's `card_score_*` axes (D-T47 follow-through: a
-    /// field the gate cannot see is a field a prompt edit can quietly break — this one was
-    /// invisible from n12 until the n17 pass).
+    /// Busyness verdict used by eval and generation.
     pub fn card_score(&self) -> Option<i16> {
         self.card_score
     }
@@ -262,34 +187,28 @@ impl ParsedNarratives {
 
 /// NarrativesParser runs the tolerant salvager. It returns `Ok(Some(parsed))` for a PARSEABLE
 /// document (even an empty array — a legitimate "no storyline this cycle" → marker downstream) and
-/// `Err` for a genuinely malformed/truncated reply with nothing salvageable (Go's `!ok` → a hard
-/// error that the queue retries, NOT a silent marker). It never returns `Ok(None)`: narratives has
+/// `Err` for a malformed reply with nothing salvageable, which the queue retries. It never returns
+/// `Ok(None)`: narratives has
 /// no post-model fail-closed marker carried by the parser — the marker decision is made AFTER
-/// grounding (zero grounded narratives), mirroring Go.
+/// grounding when zero narratives remain.
 pub struct NarrativesParser;
 
 impl Parser<ParsedNarratives> for NarrativesParser {
     fn parse(&self, raw: &str) -> Result<Option<ParsedNarratives>> {
         let (mut narratives, ok) = parse_narratives(raw);
         if !ok {
-            // Go: `return nil, fmt.Errorf("parse narratives failed ...")` — a real generation failure
-            // that must retry (NOT a no-data marker). generation_failed must never masquerade as no-data.
+            // A generation failure must never masquerade as a no-data marker.
             return Err(anyhow!(
                 "parse narratives failed (raw={:?})",
                 crate::util::truncate(raw, 200)
             ));
         }
-        // Served prose takes the shared scrub first (guards::clean_served_prose). The
-        // Journalist had NO markdown protection of any kind until 2026-08-23 — not a strip, not
-        // a ban — so a bolded storyline shipped straight to the card. She writes a title and a
-        // body per storyline, and both are served, so both are scrubbed.
+        // Every served title and body passes through the shared scrub.
         for n in narratives.iter_mut() {
             n.title = crate::guards::clean_served_prose(&n.title);
             n.body = crate::guards::clean_served_prose(&n.body);
         }
-        // The eval→guard migration (2026-08-19, DOCTRINE-directing.md): served storyline prose
-        // never names a product. Scans the parsed titles+bodies (the served fields), not the raw
-        // document — preamble the salvager discards must not fail a clean edition.
+        // Scan only served fields; discarded preamble cannot fail a clean edition.
         for n in &narratives {
             if let Some(p) = crate::guards::first_product_name(&n.title)
                 .or_else(|| crate::guards::first_product_name(&n.body))
@@ -302,9 +221,7 @@ impl Parser<ParsedNarratives> for NarrativesParser {
                 return Err(anyhow!("narratives: storyline names product {p:?}"));
             }
         }
-        // card_score (n12) is best-effort the same way: missing → None (NULL row → Veil), never
-        // a parse failure. The grammar makes it required on the live path; this tolerance covers
-        // truncated tails and the offline bins replaying pre-n12 output.
+        // Score and title are best-effort; missing fields never discard grounded prose.
         let card_score = parse_card_score(raw);
         // The entity-level hook is best-effort the same way, then settled through the shared
         // title floor: the tweet contract (140 chars), emphasis stripped, foreign-script and
@@ -319,26 +236,16 @@ impl Parser<ParsedNarratives> for NarrativesParser {
 }
 
 // ---------------------------------------------------------------------------
-// Corpus loader — the widened net (Cognition Phase 3): every vetted CANONICAL article for the
-// entity within the lookback, no transfer-bucket exclusion and no size cap. The scrub novelty gate
-// already collapsed reposts (`duplicate_of IS NULL` keeps only originals), so the honest compressor
-// runs once at the tip of the spear and narratives sees the full de-duplicated breadth.
+// Packet corpus loader.
 // ---------------------------------------------------------------------------
 
-/// How far back the corpus looks. 72h was matched to the legacy narratives news lookback at
-/// cutover, so the flip changed WHAT the corpus is made of, not WHEN it starts. (The legacy
-/// loaders it was matched to were deleted in the Phase 9 prune; the number stays because 72h is
-/// also the storyline window.)
+/// Storyline corpus lookback.
 pub const PACKET_LOOKBACK_HOURS: i64 = 72;
 /// Packets read per entity per run. An entity in more than this many live storylines at once is
 /// having an extraordinary week; the newest-compiled win and the rest are named as exclusions.
 pub const MAX_PACKETS_PER_ENTITY: usize = 5;
 
-/// load_packet_corpus is THE corpus loader (7.3). It replaced the vetted-article-window
-/// loaders, which were deleted with the rail in the Phase 9 prune. It reads the entity's
-/// storylines, compiled, instead of its articles, raw.
-///
-/// **The shape is deliberately unchanged.** It returns the same `Vec<CorpusItem>` — one item per
+/// Load compiled storylines as a `Vec<CorpusItem>` — one item per
 /// MEMBER ARTICLE, carrying that article's claims as its text — plus the same `CorpusExclusions`.
 /// Everything downstream (the debounce hash, the SIGNALS line, citation grounding, impact scoring,
 /// the marker path) therefore works on the packet rail with no change at all, and the model still
@@ -426,9 +333,7 @@ pub async fn load_packet_corpus(
     let corpus: Vec<CorpusItem> = by_article
         .into_iter()
         .map(|(id, art)| {
-            // The first fact is the headline slot and the rest are the body: the same two-part
-            // shape `article_context` already renders, so the prompt's news block is byte-shaped
-            // exactly as it is on the legacy rail.
+            // The first fact is the headline and the rest form the body.
             let mut facts = art.facts.into_iter();
             let title = facts.next().unwrap_or_default();
             // The packet rail carries NO bodies. That is the diet: the Editor already read the
@@ -443,13 +348,8 @@ pub async fn load_packet_corpus(
         })
         .collect();
 
-    // The n20 char budget. MAX_PACKETS_PER_ENTITY bounds how many STORIES are read, but a
-    // mega-storyline is one story with a hundred member articles — measured 2026-08-15, the
-    // news block alone reached 63 KB (~160 items) inside a 4,096-token window that also holds
-    // an ~830-token system prompt, the framing, the memory card and the reply reservation.
-    // Everything past the window was silently truncated before the model saw it (11% of
-    // editions that day). Items are newest-packet-first, newest-claim-first, so the budget
-    // keeps the freshest evidence and the cut articles are NAMED (A5) like every other cut.
+    // A storyline can contain many articles, so cap rendered bytes as well as storyline count.
+    // Newest evidence wins and all dropped article IDs remain explicit.
     let (corpus, over_budget) = apply_news_budget(corpus, PACKET_NEWS_BUDGET_CHARS);
     exclusions.budget_truncated_ids.extend(over_budget);
 
@@ -458,21 +358,7 @@ pub async fn load_packet_corpus(
     Ok((corpus, exclusions, framing))
 }
 
-/// The rendered-size allowance for the numbered news block, in prompt CHARS (≈ tokens×4).
-/// The 4,096 window's arithmetic: ~830 tok of system prompt + ~600 of framing (≤5 packets)
-/// + ~500 of memory/SIGNALS + ~500 reserved for the reply leaves ~1,500 tok ≈ 6,000 chars
-/// of evidence — about 15 packet items, roughly double the legacy small-window article cap.
-///
-/// 6,000 → 5,200 (2026-08-26): n22 composed the form blocks (~200 tok more system prompt)
-/// and the fat tail started 400ing over the window — 7 busy entities failed the wave with
-/// "request (4115 tokens) exceeds the available". The budget yields the margin back; the
-/// newest-first keep rule and the named cut (A5) are unchanged.
-///
-/// 5,200 → 5,000 (2026-08-28): one entity still cleared the wall by a hair after the yield —
-/// NBA team 16 stuck failed at "request (4109 tokens)", 13 tokens over. The estimate the
-/// budget projects is ≈chars/4 and the true tokenizer runs a little denser on stat-heavy
-/// claims, so the margin was thinner than the arithmetic said. 200 chars ≈ 50 tok of real
-/// headroom; rules unchanged.
+/// Rendered-size allowance for numbered evidence inside the small context window.
 const PACKET_NEWS_BUDGET_CHARS: usize = 5_000;
 
 /// apply_news_budget keeps the corpus prefix whose PROJECTED render cost (the same title +
@@ -504,22 +390,14 @@ struct PacketArticle {
 }
 
 // ---------------------------------------------------------------------------
-// Prompt — buildNarrativesPrompt (n9: no per-article relevance tag; the candle novelty gate is the
-// compressor now, so narratives sees the widened, canonical-only corpus straight from the loader).
+// Prompt inputs.
 // ---------------------------------------------------------------------------
 
 /// article_context is the model-visible text for one corpus item, rendered AFTER its headline
 /// (the caller always writes `[source] title` first). On the packet corpus that text is the
 /// article's remaining claims, and it is used only when it actually says something the headline
 /// did not.
-///
-/// **Headline passthrough.** Returning an empty context is a real answer, not a failure: the
-/// headline above it is the evidence. What must NOT happen is the legacy-rail behaviour of
-/// falling through to an RSS description that is 99.7% the title repeated plus the outlet name,
-/// producing `[Sky Sports] Arsenal sign Tzolis — Arsenal sign Tzolis Sky Sports` — wasted prompt
-/// budget that read as corroboration the corpus does not have. (The Editor-card and `full_text`
-/// branches that used to come first left with the legacy loader: the packet corpus never
-/// carries either.)
+/// Returning empty context is valid when the headline already contains every description token.
 fn article_context(c: &CorpusItem) -> (&str, usize) {
     if description_adds_nothing(&c.description, &c.title, &c.source) {
         return ("", DESC_TRUNCATE);
@@ -549,8 +427,7 @@ fn context_tokens(s: &str) -> Vec<String> {
         .collect()
 }
 
-/// load_entity_memory fetches the graph's per-entity memory card
-/// (`narrative_context_for_entity`, mig 163). `None` = no memory, no prompt section.
+/// Fetch the graph's per-entity memory card. `None` means no prompt section.
 /// Model-facing enrichment only — the relational layer is never user-exposed.
 pub async fn load_entity_memory(
     pool: &sqlx::PgPool,
@@ -568,12 +445,10 @@ pub async fn load_entity_memory(
     Ok(row.0)
 }
 
-/// How many of the entity's own recent card scores feed the n12 prompt as continuity memory —
-/// mirrors sigil's `PRIOR_READ_LIMIT` (the Oracle's continuity trail).
+/// Number of recent Journalist card reads used as continuity memory.
 const PRIOR_CARD_READS_LIMIT: i64 = 4;
 
-/// Storylines from the previous filing carried into memory as reference (the body trail,
-/// 2026-08-24) — impact-ranked, so the match story that mattered survives the cut.
+/// Impact-ranked storylines from the previous filing carried as memory.
 const PRIOR_STORY_BODY_LIMIT: i64 = 3;
 /// Prompt bytes each remembered storyline body may spend (the influencer BODY_TRUNCATE
 /// precedent): three truncated bodies ≈ 200 tokens against the 4096 window.
@@ -587,8 +462,7 @@ pub struct PriorCardReads {
     pub card: String,
 }
 
-/// load_prior_card_reads renders the Journalist's OWN recent card scores as a continuity memory
-/// block — mirrors sigil's `load_prior_read` (memory, never a reset; the echo-chamber rule).
+/// Render the Journalist's own recent filings as prompt-only continuity memory.
 /// One generation carries one uniform card_score, so the trail is DISTINCT over `generated_at`.
 /// The previous generation's filed shape (storyline count, max impact) rides along: impact is
 /// computed post-parse, so it can only ground the NEXT call — this one. `None` for a first-ever
@@ -641,11 +515,7 @@ pub async fn load_prior_card_reads(
     .await
     .with_context(|| format!("load prior generation shape {entity_type}/{entity_id}"))?;
 
-    // The previous filing's storylines themselves — title + a truncated body, impact-ranked
-    // (Scott's Fulham example, 2026-08-24: "Cole Palmer being brilliant and Robert Sanchez
-    // gifting two goals — when they play next, having these narratives as reference will be
-    // a huge enrichment factor"). The last CONTENT generation, not merely the last row set:
-    // a called-empty marker must not blank the memory of the match filed the day before.
+    // Load the last content generation; a marker must not erase the previous filing's memory.
     let prior_stories: Vec<(String, String)> = sqlx::query_as(
         r#"
         SELECT narrative_title, body
@@ -672,22 +542,14 @@ pub async fn load_prior_card_reads(
     let mut card = String::from(
         "YOUR PRIOR CARD READS (memory — your own previous filings; continuity, not new evidence):\n",
     );
-    // THE BODY TRAIL, the Journalist's edition (Scott, 2026-08-24: "save only the bodies —
-    // that way we can better tell the developing story"). His body is a multi-storyline
-    // edition already fed back through the packets' PREVIOUSLY lines, so what tells HIS
-    // developing story across days is the front-page hook trail — dated, newest first. The
-    // score TRAIL goes (a trail of numbers in the input is a trail the model reaches for,
-    // momentum-s19); the single latest score stays as the contract's continuity anchor.
+    // Keep the dated headline trail and only the latest score as the numeric anchor.
     for (_, headline, day) in &trail {
         if let Some(h) = headline.as_deref().filter(|h| !h.trim().is_empty()) {
             card.push_str(&format!("Your front page ({day}): {h}\n"));
         }
     }
     card.push_str(&format!("Your latest card score: {}\n", trail[0].0));
-    // THE BODY TRAIL (Scott, 2026-08-24: "save only the bodies — that way we can better tell
-    // the developing story"): the previous filing's storylines ride as reference, truncated —
-    // the memory tells the story, it never re-files it, and the header's continuity-not-
-    // evidence framing is the echo-chamber guard.
+    // Previous bodies are truncated reference, explicitly framed as memory rather than evidence.
     for (title, body) in &prior_stories {
         card.push_str(&format!(
             "You previously filed \"{title}\": {}\n",
@@ -736,11 +598,10 @@ fn render_signals_line(corpus: &[CorpusItem], now_epoch: i64) -> String {
 // Parse — mirrors parseNarratives (the tolerant balanced-brace salvager).
 // ---------------------------------------------------------------------------
 
-/// parse_narratives salvages each complete narrative object from the model's response independently,
+/// Salvage each complete narrative object from the model's response independently,
 /// rather than requiring the whole document to be well-formed — LLM length is non-deterministic, so a
 /// reply can truncate mid-array or carry one malformed object. It scans every balanced top-level
-/// `{...}` inside the `"narratives"` array (respecting strings/escapes), parses each on its own, and
-/// keeps the ones that parse. Byte-for-byte Go's `parseNarratives`.
+/// `{...}` inside the `"narratives"` array, respecting strings and escapes.
 ///
 /// The bool reports whether the response was PARSEABLE as a narratives document, NOT whether it
 /// carried narratives: a cleanly-closed array — including an empty `{"narratives": []}` — is a
@@ -788,9 +649,7 @@ fn parse_narratives(raw: &str) -> (Vec<ModelNarrative>, bool) {
                 if depth > 0 {
                     depth -= 1;
                     if depth == 0 && start >= 0 {
-                        // Braces are ASCII ⇒ the slice is on char boundaries; from_utf8 mirrors Go's
-                        // json.Unmarshal, which also requires valid UTF-8 (a bad slice → skip, as Go's
-                        // err != nil does).
+                        // Braces are ASCII, so the slice lands on UTF-8 boundaries.
                         if let Ok(txt) = std::str::from_utf8(&s[start as usize..=i]) {
                             if let Ok(n) = serde_json::from_str::<ModelNarrative>(txt) {
                                 out.push(n);
@@ -814,11 +673,8 @@ fn parse_narratives(raw: &str) -> (Vec<ModelNarrative>, bool) {
     (out, ok)
 }
 
-/// parse_card_score salvages the n12 `card_score` integer the same tolerant way the buckets are
-/// salvaged: find the key, skip to its value, parse the leading number, clamp 1-99. `None` for an
-/// absent key or a non-numeric value — never a parse failure (pre-n12 replays and truncated tails
-/// simply persist NULL → the Veil). A quoted or fractional value is tolerated like the crown's
-/// score parse (sigil `parse_crown_score`), minus the "N/100" form the tarot contract never uses.
+/// Salvage `card_score`, accepting a quoted or fractional leading number and clamping 1-99.
+/// Absence or non-numeric input returns `None` rather than failing the edition.
 fn parse_card_score(raw: &str) -> Option<i16> {
     let key = raw.find("\"card_score\"")?;
     let rest = &raw[key + "\"card_score\"".len()..];
@@ -835,7 +691,7 @@ fn parse_card_score(raw: &str) -> Option<i16> {
     Some(n.clamp(1, 99) as i16)
 }
 
-/// parse_headline salvages the entity-level `headline` string (2026-08-24) with the same
+/// Salvage the entity-level `headline` string with the same
 /// tolerance as [`parse_card_score`]: a clean whole-document parse first, then a raw key scan
 /// for truncated/prose-wrapped tails. `None` for an absent key or a non-string value — never a
 /// parse failure (pre-headline replays simply persist NULL and the card renders without a hook).
@@ -888,8 +744,8 @@ fn parse_headline(raw: &str) -> Option<String> {
 
 /// ground_narratives maps the model's 1-indexed article numbers back to the corpus, computes the
 /// per-narrative impact from ITS articles (never the model), and keeps only narratives with a title,
-/// a body, and ≥1 valid article. Byte-for-byte Go's `groundNarratives`. `now_epoch` is the recency
-/// reference (Unix seconds), captured once per generation.
+/// a body, and at least one valid article. `now_epoch` is the recency reference captured once per
+/// generation.
 fn ground_narratives(
     parsed: &[ModelNarrative],
     news: &[CorpusItem],
@@ -941,11 +797,8 @@ fn ground_narratives(
     out
 }
 
-/// compute_news_impact reproduces Go's deterministic per-narrative impact (0-100): a saturating
-/// volume curve + distinct-source corroboration + a freshness bucket, over a narrative's OWN
-/// articles. Mirrors `computeNewsImpact`; `now_epoch` replaces Go's implicit `time.Now()` (the
-/// recency is hour-bucketed, so sub-second drift is irrelevant — and impact is NOT a parity axis, it
-/// is a post-model deterministic score). Returns the score + the transparent components.
+/// Compute deterministic 0-100 impact from a saturating volume curve, distinct-source
+/// corroboration, and a freshness bucket. Returns the score and transparent components.
 fn compute_news_impact(news: &[CorpusItem], now_epoch: i64) -> (i32, serde_json::Value) {
     let n = news.len();
     // Volume: saturating curve — a handful of articles is already hot, returns diminish.
@@ -1027,7 +880,7 @@ fn source_metadata(news: &[CorpusItem]) -> (i32, Vec<String>, Option<i64>, Optio
 // ---------------------------------------------------------------------------
 
 /// NarrativesBuild is the deterministic prefix of a generation. `NoCorpus` ⇒ no vetted news this
-/// cycle → a NULL-narrative marker (no model call), mirroring Go's early return.
+/// cycle → a NULL-narrative marker with no model call.
 pub enum NarrativesBuild {
     NoCorpus {
         corpus_exclusions: CorpusExclusions,
@@ -1038,82 +891,38 @@ pub enum NarrativesBuild {
     Ready(Box<NarrativesReady>),
 }
 
-/// The per-article reading fingerprint, as the debounce pre-image has always spelled it. On the
-/// packet corpus there is no reading state on the item any more, so every article fingerprints
-/// to this constant — which makes `article_readings_hash` a pure function of the article-id set
-/// (already in the pre-image as `article_ids`). It is carried anyway, byte-for-byte.
-///
-/// ⛔ **DO NOT "TIDY" THIS OUT OF THE PRE-IMAGE.** Dropping the term — or changing this string —
-/// changes every entity's hash at once, which is EXACTLY a `NARRATIVES_PROMPT_VERSION` bump by
-/// another route: one forced regen of the whole fleet. (The Phase 9 demolition preserved the
-/// legacy `reading_fingerprint(status, hash, epoch)` format the same way, for the same reason.)
-/// The term can be retired for free only by riding the NEXT deliberate n-bump, which forces the
-/// one regen anyway.
+/// Stable per-article fingerprint retained in the debounce pre-image. Changing or removing this
+/// constant forces a full-fleet regeneration and must ride a deliberate prompt-version bump.
 pub const READING_FINGERPRINT_NONE: &str = "none::0";
 
-/// build_article_reading_input_components — moved verbatim from `article_reader` in 9.1. Sorts
-/// by article id so corpus ordering cannot move the hash, then hashes the canonical pairs. See
-/// the warning on [`READING_FINGERPRINT_NONE`]: this is a live cache key, not dead legacy code.
+/// Hash canonical article/fingerprint pairs in article-ID order.
 pub fn build_article_reading_input_components(items: &[(i64, String)]) -> String {
     let mut pairs = items.to_vec();
     pairs.sort_by_key(|(id, _)| *id);
-    let mut out = String::from("[");
-    for (i, (id, fp)) in pairs.iter().enumerate() {
-        if i > 0 {
-            out.push(',');
-        }
-        out.push('[');
-        out.push_str(&id.to_string());
-        out.push(',');
-        out.push_str(&crate::util::go_json_string(fp));
-        out.push(']');
-    }
-    out.push(']');
-    crate::util::hash_components(&out)
+    crate::util::hash_components(
+        &serde_json::to_string(&pairs).expect("article fingerprint tuples serialize"),
+    )
 }
 
-/// build_narratives_input_components is the canonical debounce pre-image: the `prompt_version` (so a
-/// contract bump forces exactly one regen — see below), the vetted corpus article ids (pre-dedup —
-/// the material fact is WHAT NEWS EXISTS, not what the embedder kept). (n17: the transfer-heat
-/// term is GONE with the heat input itself — the separation pass. The former summary/confidence note:
-/// deliberately excluded — derived commentary, not material facts. Same canonical-JSON discipline as
-/// `sigil::build_synthesis_input_components`.
-///
-/// `prompt_version` is folded in (M4 cutover lever): the debounce otherwise keys only on the corpus +
-/// heat, so on an n-bump (n15→n16) an entity whose news is unchanged is debounced and NEVER re-runs
-/// the new contract. Including the version changes every entity's hash exactly once at cutover → one
-/// forced regen each → then it stabilizes.
-/// The regen also re-points vibe for free (the narratives handler enqueues vibe post-persist).
+/// Canonical debounce pre-image from prompt version and sorted corpus article IDs. Including the
+/// version makes a contract bump regenerate each entity exactly once.
 pub fn build_narratives_input_components(corpus: &[CorpusItem]) -> String {
     let mut ids: Vec<i64> = corpus.iter().map(|c| c.id).collect();
     ids.sort_unstable();
-    let mut out = format!(
-        "{{\"prompt_version\":{},\"article_ids\":[",
-        crate::util::go_json_string(NARRATIVES_PROMPT_VERSION)
-    );
-    for (i, id) in ids.iter().enumerate() {
-        if i > 0 {
-            out.push(',');
-        }
-        out.push_str(&id.to_string());
-    }
-    out.push(']');
     let article_readings: Vec<(i64, String)> = corpus
         .iter()
         .map(|c| (c.id, READING_FINGERPRINT_NONE.to_string()))
         .collect();
-    out.push_str(",\"article_readings_hash\":");
-    out.push_str(&crate::util::go_json_string(
-        &build_article_reading_input_components(&article_readings),
-    ));
-    out.push('}');
-    out
+    serde_json::json!({
+        "article_ids": ids,
+        "article_readings_hash": build_article_reading_input_components(&article_readings),
+        "prompt_version": NARRATIVES_PROMPT_VERSION,
+    })
+    .to_string()
 }
 
-/// NarrativesReady carries the assembled model inputs (the parity axes) plus the widened, canonical
-/// corpus the grounding maps back to. `request_body` is computed from the SAME backend + opts the call
-/// will use, so it can never drift from what is POSTed. (n9: near-duplicate collapse moved to the
-/// candle novelty gate, so the corpus here is already the deduplicated breadth — no embed pass.)
+/// Assembled model inputs plus the canonical corpus used for grounding. `request_body` comes from
+/// the same backend and options as the actual call.
 pub struct NarrativesReady {
     /// The numbered corpus the model sees (widened, canonical-only — the loader already excludes
     /// `duplicate_of` reposts the scrub novelty gate suppressed).
@@ -1125,22 +934,17 @@ pub struct NarrativesReady {
     pub model_configured: String,
     /// SHA over [`build_narratives_input_components`] — the handler's debounce key.
     pub input_hash: String,
-    /// The latest non-NULL prior `card_score` (n12) — fed to the prompt as memory and persisted
-    /// as `card_score_prev` (continuity audit). Prompt-only: NOT part of `input_hash`.
+    /// Latest prior score, used as prompt-only continuity and persisted for audit.
     pub card_score_prev: Option<i16>,
 }
 
-/// NarrativesMaterial is the material phase: the concurrent loads plus the debounce hash. The live
-/// handler gates on `input_hash` between this and [`finish_narratives_build`] so a quiet wake never
-/// pays the prompt assembly (Phase 2); the parity bins go through [`build_narratives_request`],
-/// which composes both phases unchanged.
+/// Loaded material and its debounce hash. The live handler gates before prompt assembly.
 pub struct NarrativesMaterial {
     pub corpus: Vec<CorpusItem>,
     pub corpus_exclusions: CorpusExclusions,
     /// SHA over [`build_narratives_input_components`] — the debounce key.
     pub input_hash: String,
-    /// The storyline framing block, on the packet rail only (7.3). `None` under `RAIL=legacy`,
-    /// which is what keeps the legacy prompt byte-identical.
+    /// Optional storyline framing block.
     pub packet_framing: Option<String>,
 }
 
@@ -1151,10 +955,7 @@ pub async fn load_narratives_material(
 ) -> Result<NarrativesMaterial> {
     let sport_up = req.sport.to_uppercase();
 
-    // n17: the transfer-heat load is GONE (the separation pass — The Insider owns transfer
-    // truth end-to-end, and the Journalist files transfer stories from the corpus like any other
-    // story). The rail decides WHAT the corpus is (7.1/7.3) — resolved once at boot, carried on
-    // the harness, never re-read here.
+    // The Insider owns transfer truth; the Journalist sees transfer stories through the corpus.
     let (corpus, corpus_exclusions, packet_framing) = {
         let (c, e, f) = load_packet_corpus(
             &hx.pool,
@@ -1167,11 +968,7 @@ pub async fn load_narratives_material(
         (c, e, Some(f))
     };
 
-    // The debounce keys on the material fact — what vetted, canonical news exists — AND the
-    // prompt_version, so an n-bump forces exactly one regen per entity at cutover
-    // (see build_narratives_input_components); otherwise unchanged-corpus entities never run n9.
-    // (n17: heat left the components, so heat movement alone no longer re-triggers this stage —
-    // the insider-side waker that fires on heat change now lands in the debounce as a no-op.)
+    // The prompt version makes a contract change invalidate each material hash once.
     let input_hash = crate::util::hash_components(&build_narratives_input_components(&corpus));
 
     Ok(NarrativesMaterial {
@@ -1182,9 +979,7 @@ pub async fn load_narratives_material(
     })
 }
 
-/// finish_narratives_build is the post-gate phase: the memory-card load plus the
-/// prompt/options/wire-body assembly. (n9: no candle embed pass — the corpus arrives already
-/// deduplicated from the loader, so this phase is pure assembly.)
+/// Post-gate memory loads and prompt/options/wire-body assembly.
 pub async fn finish_narratives_build(
     hx: &Harness,
     req: &NarrativesReq,
@@ -1223,9 +1018,7 @@ pub async fn finish_narratives_build(
                 None
             }
         };
-    // Card-score grounding (n12): the deterministic SIGNALS tally + the Journalist's own prior
-    // card reads. Error-swallowed like memory (enrichment, never a generation blocker) and
-    // deliberately NOT in the input_hash (the score always moves — hashing it would self-trigger).
+    // Signals and prior reads are prompt-only enrichment; failures degrade without blocking.
     let prior_reads =
         match load_prior_card_reads(&hx.pool, &req.entity_type, req.entity_id, &sport_up).await {
             Ok(p) => p,
@@ -1266,9 +1059,7 @@ pub async fn finish_narratives_build(
         num_predict,
         num_ctx,
         json_mode: false,
-        // Phase 5: grammar-constrained decoding replaces "hopefully JSON" (the failure class
-        // the balanced-brace salvager was built for). The Go-parity free-text contract is
-        // retired; the salvager stays as the tolerant parse path either way.
+        // Grammar constrains the live path; the salvager remains for tolerant offline parsing.
         format_schema: Some(narratives_format_schema()),
         format_schema_raw: None,
     };
@@ -1288,14 +1079,8 @@ pub async fn finish_narratives_build(
     })))
 }
 
-/// build_narratives_request runs the full deterministic prefix: load the widened vetted corpus, load
-/// the transfer heat for grounding, then
-/// `build_narratives_prompt` plus the n4 options and the exact wire body. NO model call — these
-/// are the deterministic axes (the L2 finding: the storyline grouping is not a temp-0 parity
-/// axis). The role is [`Role::NarrativeLogic`] (the news/transfer reasoner — narratives shares it
-/// with vibe/transfers). Composition of [`load_narratives_material`] +
-/// [`finish_narratives_build`]; the live handler calls the phases directly to debounce between
-/// them.
+/// Build the complete deterministic request without a model call. The live handler invokes the
+/// two phases separately so it can debounce between material loading and prompt assembly.
 pub async fn build_narratives_request(
     hx: &Harness,
     req: &NarrativesReq,
@@ -1308,17 +1093,8 @@ pub async fn build_narratives_request(
 /// The un-persisted result of one generation. `narratives` empty means a marker row
 /// (no corpus, or a real generation that yielded no usable grounded storyline).
 #[derive(Clone, Debug)]
-pub struct NarrativesOutput {
+pub struct NarrativesProduct {
     pub narratives: Vec<Narrative>,
-    /// The configured model; marker rows still carry provenance.
-    pub model: String,
-    pub prompt_version: &'static str,
-    /// The exact prompt + wire body (the deterministic axes). `None` for the no-corpus marker (no call).
-    pub built_prompt: Option<String>,
-    pub request_body: Option<serde_json::Value>,
-    /// Tokens evaluated by Ollama for this call. `None` on no-corpus marker rows.
-    pub eval_count: Option<i32>,
-    pub wall_ms: Option<u64>,
     /// Corpus articles outside the lookback window (excluded-evidence telemetry). The cap-based
     /// `budget_truncated` is back with the corpus cap (A5); `stale_news` is no longer the only
     /// exclusion left.
@@ -1326,41 +1102,19 @@ pub struct NarrativesOutput {
     /// Corpus articles inside the window that lost the `feed_rank` cut on
     /// `COGNITION_JOURNALIST_CORPUS_LIMIT` (A5).
     pub budget_truncated_ids: Vec<i64>,
-    /// The debounce key this generation was built from (Phase 1); persisted on every row of the
-    /// generation so the next cycle's gate has something to compare against.
-    pub input_hash: String,
-    /// The Journalist's n12 card score — generation-level (persisted on EVERY row, marker
-    /// included: a quiet week gets the Journalist's own low number). `None` only on the
-    /// no-corpus marker (no model call → the Veil) or a tolerated pre-n12/truncated reply.
+    /// Generation-level card score, including called-empty markers. `None` on a no-call marker
+    /// or tolerated missing field.
     pub card_score: Option<i16>,
     /// The prior generation's card score (the memory line's value) — the continuity audit,
     /// mirroring `sigil_synthesis.previous_score`. Audit-only, never served.
     pub card_score_prev: Option<i16>,
-    /// The entity-level card hook (mig 232, the uniform score+headline+body contract) —
-    /// generation-level like `card_score`: the SAME value on every row of the generation,
+    /// Generation-level entity title: the same value on every row of the generation,
     /// the called-empty marker included (a quiet week's honest hook is the product). `None`
     /// on the no-corpus marker (no call), a pre-headline reply, or a dropped title.
     pub headline: Option<String>,
 }
 
-impl NarrativesOutput {
-    /// provenance lifts the moat fields into the shared `Provenance` envelope. The row-level
-    /// `input_news_ids` are still bound per narrative because each grounded storyline cites a
-    /// different subset; `input_hash` is generation-level (the Phase 1 debounce key).
-    fn provenance(&self) -> Provenance {
-        let mut ids = Vec::new();
-        for n in &self.narratives {
-            ids.extend(n.input_news_ids.iter().copied());
-        }
-        Provenance {
-            model_version: self.model.clone(),
-            prompt_version: self.prompt_version,
-            input_ids: dedupe_i64(ids),
-            input_hash: Some(self.input_hash.clone()),
-            trigger_payload: None,
-        }
-    }
-}
+pub type NarrativesOutput = Generation<NarrativesProduct>;
 
 /// generate_narratives runs the full per-entity generation (the analog of `NewsNarrator.Generate`,
 /// minus persistence): `build_narratives_request` → `extract(EmotionalNews)` (the tolerant parse) →
@@ -1390,30 +1144,29 @@ pub async fn generate_narratives_from_build(
             corpus_exclusions,
             input_hash,
         } => {
-            // The NULL-narrative marker. Go sets Model = a.ollama.Model() even here.
+            // Keep configured-model provenance on the NULL-narrative marker.
             let model = hx.router.for_role(Role::NarrativeLogic).model().to_string();
-            return Ok(NarrativesOutput {
-                narratives: Vec::new(),
+            return Ok(Generation::uncalled(
+                NarrativesProduct {
+                    narratives: Vec::new(),
+                    stale_news_ids: corpus_exclusions.stale_news_ids,
+                    budget_truncated_ids: corpus_exclusions.budget_truncated_ids,
+                    // No corpus → no call → no verdict: NULL binds and the card draws the Veil.
+                    card_score: None,
+                    card_score_prev: None,
+                    headline: None,
+                },
                 model,
-                prompt_version: NARRATIVES_PROMPT_VERSION,
-                built_prompt: None,
-                request_body: None,
-                eval_count: None,
-                wall_ms: None,
-                stale_news_ids: corpus_exclusions.stale_news_ids,
-                budget_truncated_ids: corpus_exclusions.budget_truncated_ids,
-                input_hash,
-                // No corpus → no call → no verdict: NULL binds and the card draws the Veil.
-                card_score: None,
-                card_score_prev: None,
-                headline: None,
-            });
+                NARRATIVES_PROMPT_VERSION,
+                Vec::new(),
+                Some(input_hash),
+            ));
         }
         NarrativesBuild::Ready(r) => *r,
     };
 
     // route(NarrativeLogic) + extract(NarrativesParser). A malformed/unsalvageable reply surfaces as
-    // the parser's Err → the item fails + backs off (Go's parse failure → retry), never a marker.
+    // the parser's Err → the item fails and backs off, never a marker.
     let extracted = hx
         .extract(
             Role::NarrativeLogic,
@@ -1422,101 +1175,43 @@ pub async fn generate_narratives_from_build(
             &NarrativesParser,
         )
         .await?;
+    let call = GenerationCall::from(&extracted);
+    let model = extracted.model.clone();
     let parsed = extracted.value.ok_or_else(|| {
         anyhow!("narratives: parser returned None (NarrativesParser signals failure via Err)")
     })?;
 
     let narratives = ground_narratives(&parsed.narratives, &ready.corpus, now_epoch);
+    let input_ids = dedupe_i64(
+        narratives
+            .iter()
+            .flat_map(|n| n.input_news_ids.iter().copied())
+            .collect(),
+    );
 
-    Ok(NarrativesOutput {
-        narratives,
-        model: extracted.model,
-        prompt_version: NARRATIVES_PROMPT_VERSION,
-        built_prompt: Some(extracted.built_prompt),
-        request_body: Some(extracted.request_body),
-        eval_count: Some(extracted.eval_count),
-        wall_ms: Some(extracted.wall_ms),
-        stale_news_ids: ready.corpus_exclusions.stale_news_ids,
-        budget_truncated_ids: ready.corpus_exclusions.budget_truncated_ids,
-        input_hash: ready.input_hash,
-        card_score: parsed.card_score,
-        card_score_prev: ready.card_score_prev,
-        headline: parsed.headline,
-    })
-}
-
-fn narratives_included_evidence(out: &NarrativesOutput) -> serde_json::Value {
-    let narratives: Vec<serde_json::Value> = out
-        .narratives
-        .iter()
-        .map(|n| {
-            json!({
-                "title": &n.title,
-                "input_news_ids": &n.input_news_ids,
-                "source_count": n.source_count,
-                "source_names": &n.source_names,
-                "impact": n.impact,
-            })
-        })
-        .collect();
-    json!({
-        "input_news_ids": out.provenance().input_ids,
-        "narratives": narratives,
-    })
-}
-
-fn narratives_excluded_evidence(out: &NarrativesOutput) -> serde_json::Value {
-    // The cap that actually applied, read off the EXACT wire body — the same discipline as
-    // `context_budget` below. The limit is window-derived now, so restating a constant here
-    // would misreport the drop on any host that pinned `VOICE_NUM_CTX`.
-    let num_ctx = out
-        .request_body
-        .as_ref()
-        .and_then(|b| b.pointer("/options/num_ctx"))
-        .and_then(|v| v.as_i64())
-        .unwrap_or(crate::route::VOICE_NUM_CTX_PACKET as i64) as i32;
-    let mut excluded = Vec::new();
-    if !out.stale_news_ids.is_empty() {
-        excluded.push(json!({
-            "reason": "stale_news",
-            "dropped_count": out.stale_news_ids.len(),
-            "dropped_news_ids": &out.stale_news_ids,
-            "lookback_seconds": NEWS_LOOKBACK_SECS,
-        }));
-    }
-    if !out.budget_truncated_ids.is_empty() {
-        excluded.push(json!({
-            "reason": "budget_truncated",
-            "dropped_count": out.budget_truncated_ids.len(),
-            "dropped_news_ids": &out.budget_truncated_ids,
-            "corpus_limit": corpus_limit(num_ctx),
-        }));
-    }
-    json!(excluded)
-}
-
-fn narratives_parser_outcome(out: &NarrativesOutput) -> &'static str {
-    if out.built_prompt.is_none() {
-        "no_call"
-    } else if out.narratives.is_empty() {
-        "parsed_empty"
-    } else {
-        "parsed"
-    }
+    Ok(Generation::called(
+        NarrativesProduct {
+            narratives,
+            stale_news_ids: ready.corpus_exclusions.stale_news_ids,
+            budget_truncated_ids: ready.corpus_exclusions.budget_truncated_ids,
+            card_score: parsed.card_score,
+            card_score_prev: ready.card_score_prev,
+            headline: parsed.headline,
+        },
+        model,
+        NARRATIVES_PROMPT_VERSION,
+        input_ids,
+        Some(ready.input_hash),
+        call,
+    ))
 }
 
 /// One persisted storyline row: the narrative, its classified trajectory, the
 /// trajectory_components audit json, and the storyline it progressed (None = unresolved).
 type ClassifiedRow<'a> = (&'a Narrative, &'static str, serde_json::Value, Option<i64>);
 
-/// persist_narratives writes ONE news_summaries row per narrative (all sharing the transaction's
-/// `NOW()` — a "generation"), or a single NULL-narrative marker row when there is none. Mirrors
-/// `news_narratives.go::persist`: `trigger_payload` is the caller's value (the drain passes jsonb
-/// `null` — Go marshals the nil trigger map). (The `source_attribution` column — always NULL here
-/// — was dropped in mig 139, plan C7.)
-///
-/// Mig 219 (the narrative_threads collapse): storyline identity is a FACT on the packet rail,
-/// not a match. Every corpus article reached this generation through a packet of a storyline
+/// Persist one row per narrative, or a single NULL marker. Rows in one transaction share a
+/// generation timestamp. Storyline identity is a fact of the packet corpus: every article
 /// the entity participates in, and every article belongs to exactly one storyline — so each
 /// narrative's storyline is the mode of its cited articles' storylines, and `classify_delta`
 /// anchors on the part's last_impact (storyline_entities), so heating_up / cooling_off survive
@@ -1531,11 +1226,10 @@ pub async fn persist_narratives(
     out: &NarrativesOutput,
 ) -> Result<()> {
     let pool = &hx.pool;
-    let prov = out.provenance().with_trigger_payload(trigger_payload);
-    let trigger_json = prov.trigger_payload_json("null");
+    let prov = &out.provenance;
+    let trigger_json = trigger_payload.to_string();
 
-    // NOW() is constant within a transaction (transaction_timestamp), so every row of this generation
-    // shares one generated_at — Go's `res.GeneratedAt`, without needing a datetime crate to bind it.
+    // NOW() is constant within a transaction, so every row shares one generated_at.
     // The part progression runs in the SAME transaction: the part updates and the rows citing them
     // commit atomically.
     let mut tx = pool.begin().await.context("begin narratives tx")?;
@@ -1712,12 +1406,10 @@ pub async fn persist_narratives(
             .bind(prov.prompt_version)
             .bind(prov.input_hash.as_deref())
             .bind(storyline_id)
-            // n12: generation-level card score — the SAME value on every row of the generation
-            // (scored storylines AND the called-empty marker); NULL only for no-corpus/pre-n12.
+            // Generation-level card score, including called-empty markers.
             .bind(out.card_score)
             .bind(out.card_score_prev)
-            // mig 232: the entity-level hook, generation-level like card_score — every row of
-            // the generation (called-empty marker included) carries the same headline.
+            // Generation-level title, including called-empty markers.
             .bind(out.headline.as_deref())
             .fetch_one(&mut *tx)
             .await
@@ -1726,43 +1418,72 @@ pub async fn persist_narratives(
     }
 
     tx.commit().await.context("commit narratives tx")?;
-    insert_cognition_ledger_best_effort(
+    let narratives: Vec<_> = out
+        .narratives
+        .iter()
+        .map(|n| {
+            json!({
+                "title": &n.title,
+                "input_news_ids": &n.input_news_ids,
+                "source_count": n.source_count,
+                "source_names": &n.source_names,
+                "impact": n.impact,
+            })
+        })
+        .collect();
+    let included_evidence = json!({
+        "input_news_ids": &out.provenance.input_ids,
+        "narratives": narratives,
+    });
+    let num_ctx = out
+        .request_body()
+        .and_then(|b| b.pointer("/options/num_ctx"))
+        .and_then(|v| v.as_i64())
+        .unwrap_or(crate::route::VOICE_NUM_CTX_PACKET as i64) as i32;
+    let mut excluded = Vec::new();
+    if !out.stale_news_ids.is_empty() {
+        excluded.push(json!({
+            "reason": "stale_news",
+            "dropped_count": out.stale_news_ids.len(),
+            "dropped_news_ids": &out.stale_news_ids,
+            "lookback_seconds": NEWS_LOOKBACK_SECS,
+        }));
+    }
+    if !out.budget_truncated_ids.is_empty() {
+        excluded.push(json!({
+            "reason": "budget_truncated",
+            "dropped_count": out.budget_truncated_ids.len(),
+            "dropped_news_ids": &out.budget_truncated_ids,
+            "corpus_limit": corpus_limit(num_ctx),
+        }));
+    }
+    insert_generation_ledger_best_effort(
         pool,
-        CognitionLedgerEntry {
-            stage: "narratives".to_string(),
-            lens: "narratives".to_string(),
-            role: Role::NarrativeLogic.as_str().to_string(),
-            entity_type: entity_type.to_string(),
+        out,
+        NARRATIVES_LEDGER,
+        LedgerEvent {
+            entity_type,
             entity_id,
-            sport: sport.to_string(),
-            pair_entity_type: None,
-            pair_entity_id: None,
-            trigger_type: trigger_type.to_string(),
+            sport,
+            pair_entity: None,
+            trigger_type,
             trigger_payload: trigger_payload.clone(),
-            product_table: "news_summaries".to_string(),
             product_row_ids,
-            model_version: prov.model_version,
-            prompt_version: prov.prompt_version.to_string(),
-            output_contract_version: NARRATIVES_OUTPUT_CONTRACT_VERSION.to_string(),
-            input_ids: prov.input_ids,
-            input_hash: prov.input_hash,
-            request_body: out.request_body.clone(),
-            built_prompt: out.built_prompt.clone(),
-            included_evidence: narratives_included_evidence(out),
-            excluded_evidence: narratives_excluded_evidence(out),
-            // Read off the EXACT wire body rather than restated from constants: the decode
-            // budget is window-scoped (`narratives_decode_budget`), and a ledger that reported
-            // the wrong envelope for a call would be the one place a flip was invisible. Falls
-            // back to the packet envelope if the body ever lacks options.
-            context_budget: json!({
-                "num_predict": out.request_body.as_ref().and_then(|b| b.pointer("/options/num_predict"))
+            included_evidence,
+            excluded_evidence: json!(excluded),
+            context_budget: out.context_budget(json!({
+                "num_predict": out.request_body().and_then(|b| b.pointer("/options/num_predict"))
                     .and_then(|v| v.as_i64()).unwrap_or(NARRATIVES_NUM_PREDICT_PACKET as i64),
-                "num_ctx": out.request_body.as_ref().and_then(|b| b.pointer("/options/num_ctx"))
+                "num_ctx": out.request_body().and_then(|b| b.pointer("/options/num_ctx"))
                     .and_then(|v| v.as_i64()).unwrap_or(crate::route::VOICE_NUM_CTX_PACKET as i64),
-                "eval_count": out.eval_count,
-                "wall_ms": out.wall_ms,
-            }),
-            parser_outcome: narratives_parser_outcome(out).to_string(),
+            })),
+            parser_outcome: if !out.was_called() {
+                "no_call"
+            } else if out.narratives.is_empty() {
+                "parsed_empty"
+            } else {
+                "parsed"
+            },
         },
     )
     .await;
@@ -1805,10 +1526,7 @@ impl StageHandler for NarrativesHandler {
         Stage::Narratives
     }
 
-    // Two-host split (2026-08-23): the Journalist's model runs on the Mac
-    // (`COGNITION_ROUTE_NARRATIVE_LOGIC_BASE_URL`), so it budgets against `MAC_SLOTS`, not the
-    // archbox card — see that constant for the measured starvation the wrong group caused.
-    // Capped at 2 so one deep narratives queue cannot take the Mac from the Influencer/Oracle.
+    // Two slots keep a deep narratives queue from taking the group from other voices.
     fn max_in_flight(&self) -> usize {
         2
     }
@@ -1829,14 +1547,7 @@ impl StageHandler for NarrativesHandler {
         };
         let sport_up = item.sport.to_uppercase();
 
-        // Load material, gate, THEN build (Phase 2 refines Phase 1's build-once-then-gate):
-        // narratives was the heaviest GPU stage and regenerated unconditionally every wake
-        // cycle. When the material inputs (vetted corpus ids + heat facts) match the latest
-        // persisted generation's hash, skip the dedup embed, the model call, AND the insert —
-        // readers use max(generated_at), so the previous generation keeps serving, and
-        // downstream vibe/sigil see no phantom "new" input. Pre-145 rows carry a NULL hash,
-        // which never matches → one regeneration stamps it. The hash keys on the pre-dedup
-        // material, so gating before the candle pass changes no debounce semantics.
+        // Load and debounce material before building a prompt or calling the model.
         let material = load_narratives_material(hx, &req).await?;
         let key = EntityKey {
             entity_type: item.entity_type.clone(),
@@ -1860,7 +1571,6 @@ impl StageHandler for NarrativesHandler {
         let build = finish_narratives_build(hx, &req, material, NARRATIVES_TEMPERATURE).await?;
         let out = generate_narratives_from_build(hx, build, now_unix()).await?;
 
-        // Go marshals the nil trigger map → jsonb `null`.
         persist_narratives(
             hx,
             &item.entity_type,
@@ -1872,20 +1582,8 @@ impl StageHandler for NarrativesHandler {
         )
         .await?;
 
-        // Phase 3 hand-off: narratives now feeds Vibe (mirroring vibe → momentum). Vibe reads this
-        // generation's storylines + the transfer heat, so enqueue it once that material has moved.
-        // (The scrub `vetted` trigger no longer enqueues vibe — mig 174.) Transfers routing rides
-        // the Editor's `news_articles.bucket` write (from `story_type`, n16) + the mig 175
-        // trigger — no bucket write happens in this junction any more.
-        //
-        // **THE JOURNALIST DOES NOT WAKE THE INFLUENCER (7.6/E3).** She is woken by the packet's
-        // `charged` tag through mig 206's subscription fan-out, and may file BEFORE this handler
-        // ever runs. An enqueue here would put two writers on one `pipeline_work` row with
-        // different `input_version` prefixes (`vibe:` here, `pk:` from the trigger), and
-        // `work::enqueue` reopens on any version change — the mig-197 churn loop through a third
-        // door. **One waker.** The legacy arm that called `enqueue_vibe_if_needed` was removed
-        // with the rail in Phase 9; this comment is what remains of it, because the reason it must
-        // not come back is the part worth keeping.
+        // The Journalist does not wake the Influencer. Packet fan-out is her sole waker; a second
+        // input-version source would make the shared work row churn between prefixes.
 
         Ok(())
     }

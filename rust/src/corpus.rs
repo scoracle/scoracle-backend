@@ -1,19 +1,11 @@
-//! Corpus — shared corpus primitives used across the cognition stages.
-//!
-//! These helpers have no stage-specific logic: an entity name lookup, the transfer-heat
-//! primitive (load + `HeatItem` + line rendering), and a small dedupe. The Go homes are
-//! `corpus.LookupEntityName` and `ml/transfer_heat.go`; the Rust copies drifted into `vibe`
-//! only because vibe was the Phase-1 beachhead. Homing them here removes the sigil→vibe,
-//! transfer→vibe, narratives→vibe dependency direction — the next stage port no longer reaches
-//! into a sister STAGE module for a shared corpus primitive (plan A4).
+//! Shared entity lookup, transfer-heat, identity-card, and dedupe primitives.
 
 use crate::trajectory::DEFAULT_TRAJECTORY;
 use anyhow::{bail, Context, Result};
 use sqlx::PgPool;
 
 /// Bounds the transfer rumors shown to the model as the entity's "transfer temperature".
-/// Default mirrors `maxHeatItems` in transfer_heat.go; `COGNITION_MAX_HEAT_ITEMS` overrides —
-/// promoted from a bare `const` (Phase 1) to match every sibling threshold's env-tunability.
+/// `COGNITION_MAX_HEAT_ITEMS` overrides the default.
 /// Read once via OnceLock: corpus is a shared primitive with no config handle, and the value
 /// must not change between a prompt build and its ledger row.
 fn max_heat_items() -> i64 {
@@ -27,11 +19,7 @@ fn max_heat_items() -> i64 {
     })
 }
 
-/// One active transfer/trade rumor naming the counterparty. Mirrors `heatItem`, widened
-/// (Phase 1) with the transfer stage's own grounded read: `summary` (the model's one-sentence
-/// vetted read, ≤240 bytes at write time) and `confidence` (0.0–1.0). Before this, narratives,
-/// vibe, and sigil all consumed transfers as a bare "heat 71, outgoing, advanced_talks" line —
-/// the transfer lens's richest output reached nothing downstream.
+/// One active, vetted transfer rumor naming its counterparty.
 #[derive(Clone, Debug)]
 pub struct HeatItem {
     pub counterparty: String,
@@ -44,9 +32,8 @@ pub struct HeatItem {
 
 /// load_transfer_heat returns the entity's hottest active transfer/trade rumors (latest
 /// per counterparty, heat > 0, model-vetted), naming the counterparty. The `is_rumor IS
-/// TRUE` gate is applied AFTER picking the latest row per counterparty (FIRST-GPT-AUDIT
-/// Session 10), so a newer cleared/unknown verdict supersedes an older TRUE. Mirrors
-/// `loadTransferHeat`; branches on entity type exactly as the Go query does. The
+/// TRUE` gate is applied after picking the latest row per counterparty, so a newer
+/// cleared/unknown verdict supersedes an older TRUE. The
 /// current-week freshness gate plus the shared cooling-off retirement rule keeps very
 /// old false positives from grounding prompts forever — mirrors the /transfers card
 /// read path.
@@ -136,12 +123,7 @@ pub async fn load_transfer_heat(
 /// write_heat_lines renders heat bullets:
 ///   `- <counterparty> — heat <heat>[, <direction>][, <stage>][ (confidence 0.N)][ — "<summary>"]`
 ///
-/// The SHARED transfer-heat line format — Go homed it in `transfer_heat.go` and vibe,
-/// narratives, and sigil all render heat through it; the Rust single-home is here (alongside
-/// [`load_transfer_heat`] / [`HeatItem`]), so all three stages reuse it rather than carrying a
-/// copy (the L11/L12 single-home discipline). Phase 1 appends the transfer stage's own vetted
-/// one-sentence read and its confidence — the downstream model grounds against what the
-/// transfer lens actually concluded, not just a bare temperature number.
+/// All downstream prompts share this transfer-heat line format.
 pub fn write_heat_lines(b: &mut String, heat: &[HeatItem]) {
     for h in heat {
         let mut line = format!("- {} — heat {}", h.counterparty, h.heat);
@@ -205,13 +187,7 @@ pub fn dedupe_i64(input: Vec<i64>) -> Vec<i64> {
     out
 }
 
-/// The framing line every identity card opens with. HOUSE RECORDS, NOT GOSPEL (Scott,
-/// 2026-09-06, the Iraola trail): our metadata can lag the reporting — the DB had Iraola
-/// coaching Athletic Club while the articles had him winning games for Liverpool — so the card
-/// is handed over as a dated snapshot and the CHARACTER reconciles it against the stories.
-/// *"If it has our house metadata, and an article that states the player has moved or
-/// something like that, then the model decides. We empower the model to make the call because
-/// that enhances simplicity."*
+/// Framing that tells the model to reconcile dated house records with current reporting.
 pub const IDENTITY_CARD_FRAMING: &str = "Your entity, per our house records — a dated snapshot, not gospel. Reporting may have moved past it: when a story and these records disagree, weigh recency and credibility and write what you judge true.";
 
 /// load_identity_card renders the entity's house-record identity line for the prompts: who

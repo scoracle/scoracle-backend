@@ -1,38 +1,7 @@
-//! Fixture Boxscore stage.
+//! Fixture-keyed public-source box-score retrieval.
 //!
-//! This stage is fixture-keyed (`entity_type='fixture'`) and fetches completed game
-//! box score payloads into `fixture_boxscore_fetches`.
-//!
-//! # State after mig 230 (2026-08-23): the vendor layer is gone, retrieval is wired
-//!
-//! This seat used to read two PAID providers — balldontlie for NBA/NFL, sportmonks for
-//! FOOTBALL — addressed by ids the seeding layer wrote into `provider_fixture_map`. Scott
-//! retired that: box scores are public-event facts, so they get read from public sources. The
-//! seeder was pruned (no 2026 fixture ever got a mapping), mig 230 dropped the map, and the
-//! API tokens are unset. **All three legs were dead, so the vendor code is deleted rather than
-//! left looking wired.**
-//!
-//! The rebuild is discovery → retrieval → interpretation (`discover.rs:1`), and the three
-//! arrive in that order:
-//!
-//! * **DISCOVERY** — not built. `boxscore_sources` is the registry, and it is EMPTY. Populating
-//!   it is the Investigator's model work, routed to `Role::Investigator` on the other host.
-//! * **RETRIEVAL** — *built, and this is what changed.* [`select_source`] now reads
-//!   `boxscore_sources` and [`fetch_source`] goes through [`crate::fetch::BudgetedFetcher`].
-//!   The seat no longer owns an HTTP client, a spacing rule, or a retry: those are the 4.2
-//!   substrate's, which was founded for this path and until now only entity discovery ever
-//!   used.
-//! * **INTERPRETATION** — not built. [`parse_fetched_boxscore`] is still inert; a source's
-//!   `parser_family` names a CODE parser and the family-independent normalization helpers
-//!   below (each `#[allow(dead_code)]`) are what the first one gets built on.
-//!
-//! **An empty registry still means `no_source`, and that is the current live behaviour.** The
-//! difference is that the emptiness is now the DATA's, not the code's: registering a source is
-//! an INSERT, exactly as mig 208 intended ("adding or suspending a source is data, not a
-//! deploy"). Nothing here needs to be redeployed to bring the first source online.
-//!
-//! It also does not write `event_box_scores` or `event_team_stats` — promoting a validated
-//! fetch into those canonical tables is a deliberate later step, not a side effect.
+//! Sources are data-driven through `boxscore_sources`. Retrieval is implemented;
+//! discovery, parser families, and canonical-table promotion are not.
 
 use crate::fetch::{BudgetedFetchError, BudgetedFetcher, FetchPolicy};
 use crate::stage::StageHandler;
@@ -53,10 +22,7 @@ pub const FIXTURE_BOXSCORE_STAGE: &str = "fixture_boxscore";
 pub const FIXTURE_BOXSCORE_PARSER_VERSION: &str = "fixture-boxscore-parser-v1";
 pub const FIXTURE_BOXSCORE_OUTPUT_CONTRACT_VERSION: &str = "fixture-boxscore-v1";
 
-/// The fixture's own facts — which, since mig 230, are the ONLY address a box score has.
-///
-/// Every field here is a URL-template variable (see [`render_template`]): a public match page
-/// is addressed by teams, date, competition and round, so this row IS the discovery query.
+/// Fixture facts available to source URL templates.
 #[derive(Clone, Debug)]
 struct FixtureRow {
     id: i32,
@@ -129,16 +95,7 @@ impl SourcePlan {
     }
 }
 
-/// A retrieved document, straight off the budgeted fetcher.
-///
-/// `body` is TEXT, not `serde_json::Value`, and that is the shape change mig 230's rebuild
-/// forced: the vendor era fetched two JSON APIs and could parse eagerly, but a public source is
-/// whatever the page is. Which of JSON-LD, an embedded `__NEXT_DATA__`-style blob, or an HTML
-/// table this holds is the PARSER FAMILY's question, and deciding it here would put
-/// interpretation back inside retrieval — the exact seam `discover.rs:1` draws.
-///
-/// `body` and `document_id` are unread until the first family lands. They are the payload and
-/// the provenance row that proves where it came from.
+/// Retrieved source text and provenance for a future parser family.
 #[allow(dead_code)]
 #[derive(Debug)]
 struct FetchedDocument {
@@ -184,13 +141,7 @@ pub struct FixtureBoxscoreHandler {
 }
 
 impl FixtureBoxscoreHandler {
-    /// Fallible now: the handler owns ONE [`BudgetedFetcher`], the way
-    /// `InvestigateEntityHandler` does, and building its client can fail.
-    ///
-    /// One per handler is the point, not an accident — the per-domain spacing, the circuit
-    /// breaker and the "concurrency 1 per domain" lock all live in that instance's ledger. A
-    /// fetcher built per fixture would reset every one of them on every call and turn a polite
-    /// crawl into an impolite one that merely looked budgeted.
+    /// Builds one shared fetcher so per-domain spacing and circuit state survive each item.
     pub fn new() -> Result<Self> {
         Ok(Self {
             fetcher: BudgetedFetcher::new()?,
@@ -204,14 +155,7 @@ impl StageHandler for FixtureBoxscoreHandler {
         Stage::FixtureBoxscore
     }
 
-    /// NO slot group, deliberately — `entity.rs:85`'s D-T10 lesson (2026-08-09) applies here
-    /// verbatim, and this seat is where it was learned the expensive way. This stage makes ZERO
-    /// model calls: discovery is the other arm, and interpretation is a CODE parser. Holding an
-    /// `ARCHBOX_SLOTS` slot for pure HTTP work is "the structural mismatch behind the measured
-    /// 57h starvation: it queued behind the Editor's drain for a card it never used."
-    ///
-    /// When the discovery arm lands, ITS model calls ride `Role::Investigator` to the 14B on the
-    /// other host, which has its own governor. So this stays `None` even then.
+    /// Retrieval uses no model slot.
     fn slot_group(&self) -> Option<(&'static str, usize)> {
         None
     }
@@ -428,10 +372,7 @@ impl PersistRecord {
 async fn load_fixture(pool: &sqlx::PgPool, fixture_id: i32) -> Result<Option<FixtureRow>> {
     let row = sqlx::query(
         r#"
-        -- The vendor CASE that used to head this query (sport → 'bdl'/'sportmonks') and the
-        -- LEFT JOIN onto provider_fixture_map both went with mig 230. The fixture's own facts
-        -- are the whole input now: a public source is addressed by teams, date and competition,
-        -- not by a third party's id.
+        -- Public sources are addressed by fixture facts, not provider ids.
         SELECT f.id, f.sport, f.season, COALESCE(f.league_id, 0) AS league_id,
                f.home_team_id, f.away_team_id,
                COALESCE(ht.name, '') AS home_team_name,
@@ -475,25 +416,7 @@ async fn load_fixture(pool: &sqlx::PgPool, fixture_id: i32) -> Result<Option<Fix
     }))
 }
 
-/// select_source picks where this fixture's box score will be read from.
-///
-/// **The paid-provider era ended here (mig 230, 2026-08-23.)** This used to be a `match` on
-/// sport that returned one hardcoded vendor per sport — balldontlie for NBA/NFL, sportmonks for
-/// FOOTBALL — keyed by an id looked up in `provider_fixture_map`. All three legs of that are
-/// gone: the seeding layer that wrote the map was pruned, so no 2026 fixture ever got a mapping;
-/// the map itself is dropped; and the API tokens are not configured. Scott's ruling: box scores
-/// are public-event facts and get read from public sources.
-///
-/// The replacement reads `boxscore_sources`, mig 208's registry: sources carry their own
-/// `url_template`, `parser_family`, `fetch_policy` and `trust_state`, so bringing one online is
-/// an INSERT rather than a deploy. The registry is EMPTY today, so this still resolves nothing
-/// and every fixture still takes the honest `no_source` path — but the emptiness is now the
-/// data's, which is the whole point of the table.
-///
-/// Only the FIRST eligible source is planned, not all of them. Fanning out across sources for
-/// one fixture would spend several domains' budgets to answer a question the first source
-/// answers, and the score-reconciliation gate — not a quorum — is what decides whether the
-/// answer is right.
+/// Selects the first eligible registered source for a fixture.
 async fn select_source(pool: &sqlx::PgPool, fixture: &FixtureRow) -> Result<SourcePlan> {
     let sources = load_sources(pool, &fixture.sport, fixture.league_id).await?;
     for source in sources {
@@ -527,23 +450,8 @@ async fn select_source(pool: &sqlx::PgPool, fixture: &FixtureRow) -> Result<Sour
 
 /// load_sources returns the eligible registry rows, best first.
 ///
-/// Three screens, each of which is a law this repo already keeps:
-///
-/// 1. **`suspended` is excluded.** mig 208: a family is "suspended — never deleted — when it
-///    misbehaves", so the row must survive the exclusion to carry its own history.
-/// 2. **`terms_review` must record a `pass` verdict.** This is the screen that would be easiest
-///    to leave out and worst to leave out. `terms_review` is a REAL exercised process — the
-///    Wikimedia family "passed the 4.3 terms review with no reservations", and the same review
-///    rejected every other keyless family in both D-4 sports. A discovery arm that proposes
-///    domains must not be able to make one fetchable merely by inserting it; the right to fetch
-///    is a separate, human verdict, and this is where that separation is enforced in CODE.
-/// 3. **League scoping.** `league_id IS NULL` means the family serves the whole sport; a set
-///    value narrows it to one league. Narrower rows sort first — a Premier League specialist
-///    should beat a general football source for a Premier League fixture.
-///
-/// `trusted` outranks `candidate` because a source that has already reconciled against known
-/// final scores is the better first call; candidates stay eligible, because a candidate that is
-/// never fetched can never earn promotion.
+/// Excludes suspended or unapproved sources, prefers league-specific and trusted rows,
+/// and keeps candidates eligible for validation.
 async fn load_sources(
     pool: &sqlx::PgPool,
     sport: &str,
@@ -606,10 +514,7 @@ fn policy_from_json(raw: &Value) -> FetchPolicy {
 /// `{date}` left in it is a guaranteed 404 that would still spend the domain's budget and count
 /// a failure against its circuit breaker. Failing to render is cheaper and truthful.
 ///
-/// The variables are the fixture's own facts, which since mig 230 are the only address a box
-/// score has. `_slug` forms exist because public match URLs are overwhelmingly slug-keyed
-/// (`/manchester-united-v-arsenal`), and asking every parser family to reinvent that is how
-/// families drift apart.
+/// Variables come from fixture facts; shared slug forms keep parser families consistent.
 fn render_template(template: &str, fixture: &FixtureRow) -> Option<String> {
     let vars: [(&str, String); 11] = [
         ("{date}", fixture.event_date.clone()),
@@ -699,26 +604,8 @@ struct FetchOutcome {
     error: String,
 }
 
-/// fetch_source retrieves the planned document through the budgeted fetcher.
-///
-/// **It does NOT build its own `reqwest::Client`, and that is the point of this function.** The
-/// two vendor clients that used to live here each had their own timeout, their own retry and
-/// their own idea of politeness. [`crate::fetch::BudgetedFetcher`] already enforces, per domain:
-/// concurrency 1, a 2s minimum spacing (the 4.2 floor), `429`/`Retry-After` honoured as a hold,
-/// a circuit breaker at four consecutive failures for 15 minutes, and a `source_documents`
-/// provenance row for every retrieval with `cache_ttl` reuse.
-///
-/// That substrate was FOUNDED for this path — `fetch.rs:516`: "founded in Phase 4 (box scores),
-/// reused by Phase 5" — and then only ever used by entity discovery, because this seat went
-/// direct to the vendors instead. This function is the wiring-back.
-///
-/// The stated posture travels with it and is not negotiable: *"A domain that blocks direct
-/// fetch is a domain we skip — never stealth, no browser automation on this path."* Hence
-/// `DomainSkipped` and a `403` both terminate honestly instead of escalating.
-///
-/// Candidate URLs are tried in order and the FIRST retrieval wins. A later URL is only reached
-/// when an earlier one produced no document, so a source listing several templates costs one
-/// fetch in the normal case.
+/// Retrieves candidate URLs in order through the shared per-domain budget and provenance path.
+/// Blocked domains stop honestly; this path never escalates to browser automation.
 async fn fetch_source(
     fetcher: &BudgetedFetcher,
     pool: &sqlx::PgPool,
@@ -844,24 +731,8 @@ impl ParseOutcome {
     }
 }
 
-/// parse_fetched_boxscore turns a retrieved document into the normalized shape.
-///
-/// The three vendor parsers that used to be dispatched here went with mig 230. Their
-/// replacement is a **parser family** — `boxscore_sources.parser_family` names which one a
-/// source belongs to, so the model classifies a page into a family and CODE does the
-/// extraction. That split is the house doctrine, stated at `discover.rs:1`: interpretation is
-/// *"either CODE over structured claims (the preferred path — no model call at all) or
-/// [a model] describing a prose page (the fallback)"*.
-///
-/// The normalization substrate BELOW this function survived deliberately —
-/// [`normalized_from_parts`], [`extract_numeric_stats`], [`parse_minutes`], [`stats_to_json`]
-/// and friends are family-independent, carry the Go-compatible number formatting, and are what
-/// the first family will be built on top of.
-///
-/// Now that retrieval is wired, this is the LAST inert step: a fixture with a registered source
-/// reaches here with a real document in hand and stops, recording `not_supported` against the
-/// family that has no parser yet. That is a more useful terminal state than the old one — it
-/// says "we fetched it and cannot read it" rather than "we never looked".
+/// Parser-family dispatch seam. No families are implemented yet, so fetched documents
+/// currently record `not_supported`.
 fn parse_fetched_boxscore(
     fixture: &FixtureRow,
     plan: &SourcePlan,
@@ -876,7 +747,7 @@ fn parse_fetched_boxscore(
     ))
 }
 
-#[allow(dead_code)] // parser-family substrate (mig 230)
+#[allow(dead_code, clippy::too_many_arguments)] // parser-family substrate
 fn normalized_from_parts(
     provider: &str,
     provider_status: Option<String>,
@@ -915,7 +786,7 @@ fn normalized_from_parts(
                 "team_id": team_id,
                 "side": if team_id == fixture.home_team_id { "home" } else if team_id == fixture.away_team_id { "away" } else { "unknown" },
                 "score": team_scores.get(&team_id).copied()
-                    .or_else(|| if team_id == fixture.home_team_id { fixture.home_score } else if team_id == fixture.away_team_id { fixture.away_score } else { None }),
+                    .or(if team_id == fixture.home_team_id { fixture.home_score } else if team_id == fixture.away_team_id { fixture.away_score } else { None }),
                 "stats": stats_to_json(team_acc.get(&team_id).unwrap_or(&empty_stats)),
                 "raw_labels": {"provider": provider}
             })
@@ -957,7 +828,7 @@ fn validate_normalized(
     {
         return Err("missing final score".to_string());
     }
-    if !n.player_stats.as_array().is_some_and(|a| !a.is_empty()) {
+    if n.player_stats.as_array().is_none_or(|a| a.is_empty()) {
         return Err("missing player rows".to_string());
     }
     Ok(())
@@ -992,7 +863,7 @@ fn is_final_fixture_status(status: &str) -> bool {
     matches!(status, "completed" | "seeded")
 }
 
-#[allow(dead_code)] // parser-family substrate (mig 230)
+#[allow(dead_code)] // parser-family substrate
 fn extract_numeric_stats(
     row: &Value,
     skip_keys: &[&str],
@@ -1021,7 +892,7 @@ fn extract_numeric_stats(
     out
 }
 
-#[allow(dead_code)] // parser-family substrate (mig 230)
+#[allow(dead_code)] // parser-family substrate
 fn add_stats(
     acc: &mut BTreeMap<i32, BTreeMap<String, f64>>,
     team_id: i32,
@@ -1033,7 +904,7 @@ fn add_stats(
     }
 }
 
-#[allow(dead_code)] // parser-family substrate (mig 230)
+#[allow(dead_code)] // parser-family substrate
 fn stats_to_json(stats: &BTreeMap<String, f64>) -> Value {
     let mut obj = Map::new();
     for (k, v) in stats {
@@ -1042,7 +913,7 @@ fn stats_to_json(stats: &BTreeMap<String, f64>) -> Value {
     Value::Object(obj)
 }
 
-#[allow(dead_code)] // parser-family substrate (mig 230)
+#[allow(dead_code)] // parser-family substrate
 fn json_number(n: f64) -> Value {
     if n.fract() == 0.0 {
         json!(n as i64)
@@ -1059,7 +930,7 @@ fn numeric_value(v: &Value) -> Option<f64> {
     }
 }
 
-#[allow(dead_code)] // parser-family substrate (mig 230)
+#[allow(dead_code)] // parser-family substrate
 fn parse_minutes(v: Option<&Value>) -> Option<f64> {
     match v? {
         Value::Number(n) => n.as_f64(),
@@ -1074,7 +945,7 @@ fn parse_minutes(v: Option<&Value>) -> Option<f64> {
     }
 }
 
-#[allow(dead_code)] // parser-family substrate (mig 230)
+#[allow(dead_code)] // parser-family substrate
 fn player_name(raw: Option<&Value>) -> Option<String> {
     let raw = raw?.as_object()?;
     let first = raw

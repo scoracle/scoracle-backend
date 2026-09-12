@@ -206,7 +206,7 @@ pub fn build_stat_prompt(
 
     if let Some(ft) = form_trend.filter(|t| !t.trim().is_empty()) {
         b.push_str(&format!(
-            "\nRecent-form marker (computed context; recent momentum belongs to The Analyst): {ft}\n"
+            "\nRecent performance trend (computed from recent overall ratings): {ft}\n"
         ));
     }
 

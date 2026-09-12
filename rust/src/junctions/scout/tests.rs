@@ -479,20 +479,19 @@ fn scouting_decision_requires_no_standout_when_top_is_only_above_average() {
         .is_some_and(|r| r.contains("Spot-up shooting") && r.contains("above average")));
 }
 
-// --- input_components canonical JSON: the input_hash pre-image (must match Go json.Marshal). -----
+// --- input_components canonical JSON: the input_hash pre-image ----------------------------------
 
 #[test]
-fn input_components_matches_go_marshal_bytes() {
+fn input_components_is_canonical_json() {
     // Datapoints walk the breakdown in STORED order (NOT pct-sorted): Scoring then Defense.
     // Top keys sorted: composite_score, datapoints, position, prompt_version, season
-    // (s19: the specialist entries peak_label/peak_score left the pre-image with the concept). Datapoint keys sorted: label, pct. composite round1(67.0)=67 → "67"; pct round1
-    // → "95"/"40". prompt_version is interpolated from the const (single-sourced: an s-bump
-    // changes the pre-image by design and must not need a hand-edit here).
+    // Datapoint keys are sorted too. The version is interpolated so future bumps do not require
+    // hand-editing this shape assertion.
     let ic = input_components(&profile_player());
     assert_eq!(
         ic,
         format!(
-            r#"{{"composite_score":67,"datapoints":[{{"label":"Scoring","pct":95}},{{"label":"Defense","pct":40}}],"position":"Guard","prompt_version":"{RATING_PROMPT_VERSION}","season":2025}}"#
+            r#"{{"composite_score":67.0,"datapoints":[{{"label":"Scoring","pct":95.0}},{{"label":"Defense","pct":40.0}}],"position":"Guard","prompt_version":"{RATING_PROMPT_VERSION}","season":2025}}"#
         )
     );
     // The hash is a deterministic function of those exact bytes.
@@ -519,10 +518,8 @@ fn input_components_omits_absent_optional_keys() {
 }
 
 #[test]
-fn rating_datapoint_tolerates_null_like_go() {
-    // A sparse datapoint with an explicit null value + a null scoped entry — Go's json.Unmarshal
-    // keeps zero values; serde must too (the L12 gate caught this: player:268's "Penalties Won"
-    // carries "value": null, which plain #[serde(default)] would reject).
+fn rating_datapoint_tolerates_null_values() {
+    // Sparse stored datapoints use null for missing numeric values; deserialize those as zero.
     let d: RatingDatapoint = serde_json::from_str(
         r#"{"label":"Penalties Won","value":null,"z":0.0,"pct":12.4,"scoped_pct":{"position":11.6,"x":null}}"#,
     )
@@ -530,7 +527,7 @@ fn rating_datapoint_tolerates_null_like_go() {
     assert_eq!(d.value, 0.0);
     assert_eq!(d.pct, 12.4);
     assert_eq!(d.scoped_pct.get("position"), Some(&11.6));
-    assert_eq!(d.scoped_pct.get("x"), Some(&0.0)); // null map value → 0.0 (Go parity)
+    assert_eq!(d.scoped_pct.get("x"), Some(&0.0));
 }
 
 // --- deterministic helpers ----------------------------------------------------------------------
@@ -549,7 +546,7 @@ fn pct_band_boundaries() {
 }
 
 #[test]
-fn trim_float_formats_like_go() {
+fn trim_float_formats_compactly() {
     assert_eq!(trim_float(3.0), "3"); // integral → %.0f
     assert_eq!(trim_float(24.0), "24");
     assert_eq!(trim_float(0.38), "0.38"); // abs < 1 → %.2f
@@ -603,63 +600,24 @@ fn ordered_facts_sorts_desc_and_truncates() {
     );
 }
 
-// --- output parsing (marker strip is transition tolerance since s18/s19) ------------------------
-
 #[test]
-fn parse_rating_commentary_splits_marker_and_body() {
-    let (peak, body) = parse_rating_commentary("PEAK: Elite scoring\nA lethal scorer who...");
-    assert_eq!(peak, "Elite scoring");
-    assert_eq!(body, "A lethal scorer who...");
-}
-
-#[test]
-fn parse_rating_commentary_accepts_legacy_sigil_prefix() {
-    let (peak, body) = parse_rating_commentary("SIGIL: Rim protection\nDominant inside.");
-    assert_eq!(peak, "Rim protection");
-    assert_eq!(body, "Dominant inside.");
-}
-
-#[test]
-fn parse_rating_commentary_no_marker_is_all_body() {
-    let (peak, body) = parse_rating_commentary("Just prose, no marker line\nsecond line");
-    assert_eq!(peak, "");
-    assert_eq!(body, "Just prose, no marker line\nsecond line");
-}
-
-#[test]
-fn parse_rating_commentary_salvages_inline_peak_paragraph_as_body() {
-    let raw = "PEAK: Nia Torres showcases elite rim protection at the 96th percentile and anchors the paint.";
-    let (peak, body) = parse_rating_commentary(raw);
-    assert_eq!(peak, "");
+fn clean_commentary_strips_fences() {
     assert_eq!(
-        body,
-        "Nia Torres showcases elite rim protection at the 96th percentile and anchors the paint."
-    );
-}
-
-#[test]
-fn clean_commentary_strips_fences_and_labels() {
-    assert_eq!(
-        clean_commentary("`Analysis: A solid two-way wing.`"),
+        clean_commentary("`A solid two-way wing.`"),
         "A solid two-way wing."
     );
-    assert_eq!(clean_commentary("  Identity: A poacher.  "), "A poacher.");
     assert_eq!(clean_commentary("Plain prose."), "Plain prose.");
 }
 
 #[test]
 fn rating_work_token_carries_contract_and_still_parses_season() {
-    // The s11 token format, renamed by mig 221: rating:s<season>:<prompt_version>:<hash|no-stats>.
-    // The prompt-version leg is what reopens a done queue row on a persona change; the
-    // season parse must survive the extra segment.
     let v = rating_work_input_version(2025, Some("abc123"));
-    assert_eq!(v, format!("rating:s2025:{RATING_PROMPT_VERSION}:abc123"));
+    assert_eq!(v, "rating:s2025:abc123");
     assert_eq!(rating_work_season(Some(&v)), Some(2025));
     assert_eq!(
         rating_work_input_version(2025, None),
-        format!("rating:s2025:{RATING_PROMPT_VERSION}:no-stats")
+        "rating:s2025:no-stats"
     );
-    // Short-form tokens (the migration rewrote every stored prefix) parse their season too.
     assert_eq!(
         rating_work_season(Some("rating:s2024:deadbeef")),
         Some(2024)
@@ -676,7 +634,7 @@ fn a_transfer_triggered_rating_token_is_distinguishable_and_still_parses_season(
     // reopened row would short-circuit before the model call and the brief would still describe
     // a squad that no longer exists.
     let v = rating_work_input_version_for_transfer(2025, 4211);
-    assert_eq!(v, format!("rating:s2025:{RATING_PROMPT_VERSION}:xfer4211"));
+    assert_eq!(v, "rating:s2025:xfer4211");
 
     // The season parse must survive the marker — the handler reads the season from this token.
     assert_eq!(rating_work_season(Some(&v)), Some(2025));
@@ -706,10 +664,7 @@ fn every_availability_event_on_one_day_collapses_to_a_single_work_row() {
     let first = rating_work_input_version_for_availability(2025, "2026-08-23");
     let second = rating_work_input_version_for_availability(2025, "2026-08-23");
     assert_eq!(first, second);
-    assert_eq!(
-        first,
-        format!("rating:s2025:{RATING_PROMPT_VERSION}:avail2026-08-23")
-    );
+    assert_eq!(first, "rating:s2025:avail2026-08-23");
 
     // A DIFFERENT day must reopen — otherwise a fresh injury the next morning is absorbed by
     // yesterday's done row and the Scout never looks again.
@@ -787,15 +742,7 @@ fn a_packet_tagged_rating_row_bypasses_the_debounce_and_records_its_trigger() {
 }
 
 #[test]
-fn rating_parser_never_fails_closed() {
-    // Even garbage parses to Some (rating's only marker is pre-model); an empty body is the
-    // caller's hard error, not a served UNKNOWN.
-    let reply = RatingParser
-        .parse("PEAK: X\nbody")
-        .unwrap()
-        .expect("always Some");
-    // s19: a legacy marker line is stripped and DISCARDED; only the body survives.
-    assert_eq!(reply.body, "body");
+fn rating_parser_returns_a_body_even_when_empty() {
     assert!(RatingParser.parse("").unwrap().is_some());
 }
 
@@ -813,13 +760,13 @@ fn rating_splits_the_s20_headline_line() {
     assert!(!reply.body.contains("HEADLINE"));
     assert!(reply.body.contains("Rim protection"));
 
-    // Absent line → None; body untouched.
+    // Absent line → None; the shared prose scrub still removes a retired form label.
     let bare = RatingParser
         .parse("Summary: The verdict stands.")
         .unwrap()
         .unwrap();
     assert!(bare.headline.is_none());
-    assert_eq!(bare.body, "Summary: The verdict stands.");
+    assert_eq!(bare.body, "The verdict stands.");
 
     // Empty title folds to None, never an error.
     let empty = RatingParser
@@ -852,7 +799,7 @@ fn rating_splits_the_s20_headline_line() {
         "unsalvageable title drops: {:?}",
         long.headline
     );
-    assert_eq!(long.body, "Summary: x.");
+    assert_eq!(long.body, "x.");
 }
 
 // --- 7.7 the personnel block: the Scout's second confirmed-fact road ------------------

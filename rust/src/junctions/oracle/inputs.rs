@@ -1,10 +1,9 @@
 //! Evidence and continuity supplied to the character.
 
 use super::{
-    momentum_score, momentum_score_label, trend_dir, SynthMomentum, SynthNarrative, SynthRating,
-    SynthVibe,
+    momentum_score, momentum_score_label, SynthMomentum, SynthNarrative, SynthRating, SynthVibe,
 };
-use crate::corpus::{write_heat_lines, HeatItem};
+use crate::corpus::HeatItem;
 use crate::trajectory::trajectory_label;
 
 pub const CROWN_CARD_BODY_CAP: usize = 700;
@@ -61,6 +60,28 @@ fn capped(s: &str, budget: Option<usize>) -> String {
     }
 }
 
+fn write_transfer_evidence(b: &mut String, entity_name: &str, transfers: &[HeatItem]) {
+    for transfer in transfers {
+        let movement = match transfer.direction.as_str() {
+            "incoming" => format!("From {} to {entity_name}", transfer.counterparty),
+            "outgoing" => format!("From {entity_name} to {}", transfer.counterparty),
+            _ => format!("{entity_name} and {}", transfer.counterparty),
+        };
+        let mut line = format!("- {movement}");
+        if !transfer.stage.is_empty() {
+            line.push_str("; ");
+            line.push_str(&transfer.stage.replace('_', " "));
+        }
+        if !transfer.summary.is_empty() {
+            line.push_str(" — \"");
+            line.push_str(&transfer.summary.replace(['\n', '\r'], " "));
+            line.push('"');
+        }
+        b.push_str(&line);
+        b.push('\n');
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn build_crown_prompt(
     entity_type: &str,
@@ -72,7 +93,6 @@ pub fn build_crown_prompt(
     mom: &SynthMomentum,
     transfers: &[HeatItem],
     omen: &str,
-    omen_reason: &str,
     body_cap: Option<usize>,
     identity: Option<&str>,
 ) -> String {
@@ -89,7 +109,7 @@ pub fn build_crown_prompt(
     }
 
     if !narratives.is_empty() {
-        b.push_str("\n=== THE JOURNALIST'S CARD (news storylines) ===\n");
+        b.push('\n');
         let (shown, per_body) = match body_cap {
             Some(cap) => {
                 let n = narratives.len().min(CROWN_MAX_NARRATIVES);
@@ -98,11 +118,7 @@ pub fn build_crown_prompt(
             None => (narratives, None),
         };
         for n in shown {
-            let mut tags = format!(
-                "impact {:.0}, {}",
-                n.impact,
-                trajectory_label(&n.trajectory)
-            );
+            let mut tags = trajectory_label(&n.trajectory).to_string();
             if n.source_count > 0 {
                 tags.push_str(&format!(", {} sources", n.source_count));
             }
@@ -121,78 +137,43 @@ pub fn build_crown_prompt(
                 narratives.len() - shown.len()
             ));
         }
-    } else {
-        b.push_str("\n=== THE JOURNALIST'S CARD (news storylines) ===\n(no recent narratives)\n");
     }
 
-    b.push_str("\n=== THE SCOUT'S CARD (scouting brief) ===\n");
     if let Some(r) = rating {
-        b.push_str(&format!("Profile strength: {}/100\n", r.notability));
         if !r.body.is_empty() {
+            b.push('\n');
             b.push_str(&capped(&descrub_z(&r.body), body_cap));
             b.push('\n');
         }
-    } else {
-        b.push_str("(no stat commentary available)\n");
     }
 
-    b.push_str("\n=== THE INFLUENCER'S CARD (the felt read) ===\n");
     if let Some(v) = vibe {
-        b.push_str(&format!("Mood: {}/100\n", v.sentiment));
         if !v.prompt.is_empty() {
+            b.push('\n');
             b.push_str(&capped(&v.prompt, body_cap));
             b.push('\n');
         }
-    } else {
-        b.push_str("(no vibe prompt available)\n");
     }
 
-    b.push_str("\n=== THE ANALYST'S CARD (momentum) ===\n");
-    if mom.blurb.is_some() || mom.direction.is_some() {
-        let direction = mom.direction.as_deref().unwrap_or("steady");
-        if let Some(score) = momentum_score(mom) {
-            b.push_str(&format!("Momentum: {direction} (score {score})\n"));
-        } else {
-            b.push_str(&format!("Momentum: {direction}\n"));
-        }
-        if let Some(blurb) = &mom.blurb {
-            b.push_str(&capped(blurb, body_cap));
-            b.push('\n');
-        }
+    if let Some(blurb) = &mom.blurb {
+        b.push('\n');
+        b.push_str(&capped(blurb, body_cap));
+        b.push('\n');
+    } else if let Some(direction) = mom.direction.as_deref() {
+        b.push_str(&format!("\nRecent movement is {direction}.\n"));
     } else if let Some(score) = momentum_score(mom) {
         b.push_str(&format!(
-            "Momentum score: {score} ({})\n",
+            "\nRecent movement is {}.\n",
             momentum_score_label(score)
         ));
     }
-    if let Some(s) = mom.vibe_slope {
-        let dir = trend_dir(s);
-        b.push_str(&format!(
-            "Mood trend: {s:.1} over {} samples ({dir})\n",
-            mom.vibe_samples
-        ));
-    }
-    if let Some(s) = mom.rating_slope {
-        let dir = trend_dir(s);
-        b.push_str(&format!(
-            "Form trend: {s:.1} over {} samples ({dir})\n",
-            mom.rating_samples
-        ));
-    }
-    if mom.empty() {
-        b.push_str("(no momentum data)\n");
+
+    if !transfers.is_empty() {
+        b.push('\n');
+        write_transfer_evidence(&mut b, entity_name, transfers);
     }
 
-    b.push_str("\n=== THE INSIDER'S CARD (transfer wire) ===\n");
-    if transfers.is_empty() {
-        b.push_str("(no active transfer rumors)\n");
-    } else {
-        write_heat_lines(&mut b, transfers);
-    }
-
-    b.push_str(&format!(
-        "\n=== THE OMEN (computed) ===\nOmen: {omen} — {omen_reason}\n"
-    ));
+    b.push_str(&format!("\nPresent direction: {omen}.\n"));
 
     b
 }

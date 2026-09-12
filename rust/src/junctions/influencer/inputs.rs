@@ -1,16 +1,12 @@
 //! Evidence and continuity supplied to the character.
 
-use super::{title_first, Narrative, PacketBlock, PrevVibe, PACKET_BLOCK_TRUNCATE};
-use crate::corpus::HeatItem;
+use super::{title_first, PacketBlock, PrevVibe, PACKET_BLOCK_TRUNCATE};
 use crate::util::truncate_bytes;
 
-#[allow(clippy::too_many_arguments)]
 pub fn build_sentiment_prompt(
     entity_type: &str,
     entity_name: &str,
     sport: &str,
-    narratives: &[Narrative],
-    heat: &[HeatItem],
     packets: &[PacketBlock],
     previous: Option<&PrevVibe>,
     memory: Option<&str>,
@@ -47,10 +43,6 @@ pub fn build_sentiment_prompt(
             b.push('\n');
         }
     }
-
-    let _ = narratives;
-
-    let _ = heat;
 
     if let Some(m) = memory.filter(|m| !m.trim().is_empty()) {
         b.push_str("\nRelational memory (computed history for this entity — use for arc and continuity: what fizzled before, what is live now, what actually happened; do NOT treat a prior story as evidence for a new one):\n");

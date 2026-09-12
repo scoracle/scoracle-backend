@@ -1,7 +1,4 @@
-//! Durable per-entity derivation work queue — the Rust client for the
-//! `pipeline_work` table (migration 102). The Go derive worker is retired; this
-//! module owns claim/complete/fail/requeue while Go keeps enqueue and operator
-//! helpers.
+//! Durable per-entity work queue over `pipeline_work`.
 //!
 //! Row lifecycle:
 //!   enqueue  → 'pending'                (idempotent; reopens on a changed input)
@@ -15,35 +12,23 @@ use anyhow::{Context, Result};
 use sqlx::PgPool;
 use std::time::Duration;
 
-/// Stage names the derivation step a work item belongs to, held in `pipeline_work`. Most stages
-/// are per-entity (player/team); `Editor` and `Graph` are the exceptions — ARTICLE-keyed
-/// (entity_type='article', entity_id=`news_articles.id`). `Momentum` is the generated trajectory
-/// card over the rating read/Vibe plus deterministic momentum scores. The Rust handlers drain
-/// these stages; Go only enqueues/operates queue rows. (The legacy rail's `Scrub` and
-/// `ArticleRead` variants were demolished with it in Phase 9.)
+/// Derivation stage stored on a `pipeline_work` item.
 ///
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Stage {
-    /// The Editor (PLAN-one-rail Phase 3) — the rail's sole reader: reads every article once,
-    /// writes `editor_reads` + `news_articles.full_text`, authors the links, and fans out
-    /// graph/nomination/storyline work.
+    /// Article reader and downstream fan-out.
     Editor,
-    /// The Investigator's entity-discovery stage (PLAN-one-rail Phase 5) — candidate-keyed
-    /// (`entity_type='candidate'`, entity_id = `entity_candidates.id`). Enqueued by the
-    /// Editor's nomination sweep (5.2); writes only through the 5.5 gate.
+    /// Candidate-keyed entity discovery.
     InvestigateEntity,
     FixtureBoxscore,
     Graph,
-    /// The Scout's stats rail. Named `peak` until mig 221 retired the concept
-    /// project-wide; the stage is the rating now, as it always was.
+    /// The Scout's stats rail.
     Rating,
     Momentum,
     Transfers,
     Narratives,
     Vibe,
     Sigil,
-    // `Oracle` retired 2026-07-16 (Session B): the voice is an in-process step of the
-    // Sigil stage now. Queue rows with stage='oracle' were swept at the cutover deploy.
 }
 
 impl Stage {
@@ -65,11 +50,7 @@ impl Stage {
     /// The ORDER BY used when claiming this stage's work. A `&'static str` spliced into the query —
     /// never user input, so there is nothing to escape.
     ///
-    /// FIFO by `available_at` is right for stages whose items are interchangeable. Article reads
-    /// are not: the reading budget is finite, so when a backlog exists the order decides which
-    /// articles get a model call and which age out. Google already ranked them
-    /// (`news_articles.feed_rank`, mig 194), so drain best-first. NULLS LAST keeps pre-migration
-    /// backlog rows from displacing a fresh top hit.
+    /// FIFO except for ranked articles and team-first product cards.
     fn claim_order(self) -> &'static str {
         match self {
             // The Editor drains best-first: when a backlog exists, order decides which
@@ -78,19 +59,7 @@ impl Stage {
                 "(SELECT a.feed_rank FROM public.news_articles a WHERE a.id = pipeline_work.entity_id) \
                  ASC NULLS LAST, available_at"
             }
-            // Teams before players on the product stages. Teams are the pages Scott and
-            // subscribers check daily, and they are bounded (~200 rows vs thousands of
-            // players), so this cannot starve the player tail — it just guarantees every
-            // team card refreshes within the first minutes of an on-hour.
-            //
-            // Rating, Momentum and Transfers joined this list on 2026-08-22, and the three
-            // that were already here are the proof it works. MEASURED that day: the
-            // Influencer (Vibe) and the Journalist (Narratives) were serving current team
-            // cards, while the Scout's newest TEAM row was six days old and the Analyst's
-            // teams sat on a contract three revisions behind — with 8,416 items queued and
-            // the newest team work behind thousands of player rows on plain FIFO. The three
-            // stale seats were exactly the three missing from this arm, and the three fresh
-            // seats were exactly the three in it. Same bounded ~200 rows, same argument.
+            // Product cards prioritize the bounded team set before the larger player tail.
             Stage::Narratives
             | Stage::Vibe
             | Stage::Sigil
@@ -232,14 +201,7 @@ pub async fn complete(pool: &PgPool, it: &Item) -> Result<()> {
     Ok(())
 }
 
-/// VOICE_ORDER is the claim priority of the six voices, and it is a DEPENDENCY order.
-///
-/// The worker tops up "in registration (DAG) order", so whatever sequence the handlers are
-/// registered in becomes the order stages get first pick of the budget each pass. That makes
-/// this list a contract rather than a preference, and `main.rs` registers straight from it so
-/// the two can never drift.
-///
-/// Scott's ordering (2026-08-22), and why each sits where it does:
+/// Claim priority and dependency order of the six voices:
 ///
 ///   1. `Narratives` — The Journalist reads the corpus and depends on no other voice
 ///   2. `Vibe`       — The Influencer reads those stories for their emotional charge
@@ -248,14 +210,7 @@ pub async fn complete(pool: &PgPool, it: &Item) -> Result<()> {
 ///   5. `Momentum`   — The Analyst CONSUMES the Scout's card and the Influencer's
 ///   6. `Sigil`      — The Oracle CONSUMES all five pillars, so it is terminal
 ///
-/// Running a consumer ahead of its producers does not fail. It quietly synthesises yesterday's
-/// cards, which is worse than failing because nothing reports it. Before this was pinned, the
-/// Insider registered FIRST — ahead of all three voices that have no dependencies at all —
-/// while the terminal stage carried the deepest queue on the rail (sigil/player: 3,601 pending
-/// on 2026-08-22, oldest 08-15).
-///
-/// The per-stage caps in `worker::stage_room` keep this an ORDER and not a starvation ladder:
-/// position decides who picks FIRST each pass, never who picks at all.
+/// Per-stage caps prevent this priority from becoming a starvation ladder.
 pub const VOICE_ORDER: [Stage; 6] = [
     Stage::Narratives,
     Stage::Vibe,
@@ -278,26 +233,8 @@ pub const PILLAR_STAGES: [Stage; 5] = [
 
 /// True when no pillar stage still owes this entity work — the Oracle's completion barrier.
 ///
-/// This needs no migration, because the row lifecycle already encodes the answer: [`complete`]
-/// DELETEs the row, so "no row for this (stage, entity)" already means "that pillar has settled".
-///
-/// ## Call this only AFTER `complete()`
-///
-/// The barrier takes no "except this stage" argument, and that is load-bearing rather than an
-/// omission. It originally did: handlers called it, and since the worker completes an item only
-/// AFTER its handler returns, each caller had to exclude the row it was still holding in
-/// 'running'. That was correct while the drain was `for handler { for item { await } }` and only
-/// one item was ever in flight.
-///
-/// The concurrent drain broke it. With several items in flight, two pillar handlers for the SAME
-/// entity can both reach the check before either's row is deleted: each excludes only its own
-/// stage, each sees the other's row still 'running', and BOTH decline. Nothing enqueues the
-/// Oracle and the entity is never crowned — a lost wakeup, silent, and invisible in any log.
-///
-/// Asking after completion removes the race by construction rather than narrowing it. Rows only
-/// ever disappear, so the question is monotone: whoever completes last observes zero outstanding
-/// pillars and enqueues. A tie merely means two callers both see zero and both enqueue, which
-/// `enqueue`'s ON CONFLICT already coalesces.
+/// Call only after [`complete`]. The last completing pillar observes no outstanding rows
+/// and enqueues the Oracle; `enqueue` coalesces concurrent offers.
 ///
 /// `status = 'failed'` counts as SETTLED. A pillar that has exhausted its retries is a
 /// dead-letter awaiting a human, and treating it as outstanding would block every reading for
@@ -374,21 +311,8 @@ pub async fn fail(
     Ok(())
 }
 
-/// defer hands a leased item back to 'pending' with NO attempt penalty, because it is not a
-/// failure: the handler did real, persisted work and has more to do, and stopped short of the
-/// worker's per-item ceiling so it could exit cleanly instead of being cancelled mid-loop.
-///
-/// Distinct from its two neighbours in both directions. Not [`fail`], which is for an error and
-/// burns one of five attempts — a handler that is *working* must not walk the retry ladder, and
-/// its 30-minute rungs are exactly the wrong pacing for an item that only needs another turn. Not
-/// [`complete`], which DELETEs the row — wrong here, because for a pillar stage that row is also
-/// the Oracle barrier's evidence that this pillar still owes the entity work. A deferred row stays
-/// visible to the barrier, so nothing gets crowned on half-finished input.
-///
-/// `note` is written to `last_error` — it is the only place the deferral is visible in the queue
-/// itself, and reading a deferral there as a failure would be worse than the mild lie of the
-/// column's name. A deferred row is 'pending', so [`enqueue`]'s conflict policy leaves it alone
-/// unless the input actually changed, which is the correct answer either way.
+/// Returns a progressing item to pending without an attempt penalty.
+/// The row remains visible to the Oracle barrier and the note is stored in `last_error`.
 ///
 /// **The caller owes a progress guarantee.** `attempts` does not move, so nothing in this function
 /// bounds the number of rounds: an item that defers without resolving anything defers forever.

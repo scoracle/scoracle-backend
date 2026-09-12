@@ -1,7 +1,6 @@
 //! scoracle-cognition — the **Rust Cognition Harness** (the LLM-derivation / cognition layer).
 //!
-//! The layer that *empowers* the local models. (Named for `scoracle-scrubber` — the
-//! original clean-the-data framing.) A durable `pipeline_work`
+//! A durable `pipeline_work`
 //! queue consumer plus an Ollama client, wired to a LISTEN/NOTIFY drain loop, with
 //! per-stage derivation handlers. This library crate holds the reusable modules; the
 //! long-running service binary is `src/main.rs`, and the offline A/B model eval harness is
@@ -20,11 +19,7 @@
 //! - The Oracle (`sigil`) reads the other five cards and renders the verdict.
 //! - Three internal seats never surface as a character: The Editor, The Investigator, and graph.
 //!
-//! Those groupings describe **which material a seat reads**, and nothing more. They were once a
-//! `Rail` enum on every lens, on the theory that lenses would eventually route by model family;
-//! that enum is deleted (2026-08-15). Routing is per-`Role` (`COGNITION_ROUTE_<ROLE>`) and the
-//! real topology is two HOSTS, not two rails — and the grouping never described the internal
-//! seats anyway, which it filed under "news" for want of anywhere else to put them.
+//! Those groupings describe which material a seat reads. Routing is independently per `Role`.
 //!
 //! Momentum is now a queue stage: deterministic `momentum_scores` stays the numeric backbone, while
 //! `momentum_summaries` stores the generated direction/blurb product consumed by Sigil. The eval

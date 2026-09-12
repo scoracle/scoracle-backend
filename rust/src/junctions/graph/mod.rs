@@ -1,18 +1,14 @@
-//! Graph — the typed narrative extraction primitive (Plan - Narrative Graph, roadmap
-//! item 4). Reads one Editor-read article plus its ALREADY-LINKED entities
+//! Typed narrative extraction from one Editor-read article and its linked entities.
+//! It reads
 //! (`news_article_entities`, the Editor sole author) and extracts:
 //!
-//!   * typed relations among the listed entities (the six-predicate vocabulary of
-//!     `narrative_events`, mig 154) with sentiment and confidence — the language signal
-//!     that led volume by five weeks in the Rogers test, headed for typed
-//!     `narrative_links` and the transfer-likelihood fusion;
+//!   * typed relations among listed entities, with sentiment and confidence;
 //!   * person discoveries — coaches/agents/executives named in the article but absent
 //!     from the seeded entity world (`narrative_persons` candidates).
 //!
 //! CLOSED CANDIDATE LIST: the model never resolves free-text entity names. It picks
 //! subjects/objects by NUMBER from the linked list (the resolve.rs trick), so the
-//! Stage-6 entity-resolution risk of the original kickoff plan simply does not exist
-//! here — the Editor already did the resolving, and the ONLY novel names the model may emit
+//! names — the Editor already did the resolving, and the only novel names the model may emit
 //! are person discoveries, which land as narrative_persons CANDIDATES (evidence-gated
 //! promotion, never direct entityhood).
 //!
@@ -20,18 +16,13 @@
 //! nothing. Individually invalid relations/persons are dropped, not repaired; a partial
 //! salvage of valid entries from a valid JSON body is allowed (mirrors the scrub
 //! parser's out-of-range index handling).
-//!
-//! This module is the PRIMITIVE (types, prompt, parser) — pure and unit-tested. The
-//! stage handler (queue claim, debounce, `narrative_events` upsert, person evidence
-//! accumulation) composes it; `examples/graph_probe.rs` is the measured probe run
-//! BEFORE any wiring, per house culture.
 
-use crate::harness::{Harness, Parser};
-use crate::ledger::{insert_cognition_ledger_best_effort, CognitionLedgerEntry};
+use crate::harness::{Generation, GenerationCall, Harness, Parser};
+use crate::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
 use crate::stage::{StageHandler, ARCHBOX_SLOTS};
-use crate::util::{go_json_string, hash_components};
+use crate::util::hash_components;
 use crate::work::{Item, Stage};
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
@@ -45,8 +36,16 @@ use tracing::debug;
 pub mod prompt;
 pub use prompt::{build_graph_prompt, GRAPH_PROMPT_VERSION, GRAPH_SYSTEM_PROMPT};
 
+const GRAPH_LEDGER: LedgerSpec = LedgerSpec {
+    stage: "graph",
+    lens: "graph",
+    role: Role::EmotionalNews,
+    product_table: "narrative_events",
+    output_contract_version: "graph-extraction-v1",
+};
+
 /// The six-predicate vocabulary — MUST mirror the `narrative_events_predicate_check`
-/// constraint (mig 154). Grow both together, by migration, with eval evidence.
+/// constraint. Grow both together with schema and evaluation evidence.
 pub const PREDICATES: &[&str] = &[
     "trade_rumor",
     "trade_confirmed",
@@ -56,7 +55,7 @@ pub const PREDICATES: &[&str] = &[
     "criticism",
 ];
 
-/// Person kinds — mirrors `narrative_persons_kind_check` (mig 154). An out-of-vocabulary
+/// Person kinds mirror the database constraint. An out-of-vocabulary
 /// role guess maps to "other" rather than dropping the discovery (the promotion gate,
 /// not the extractor, decides who becomes an entity).
 pub const PERSON_KINDS: &[&str] = &["coach", "agent", "executive", "family", "other"];
@@ -64,11 +63,7 @@ pub const PERSON_KINDS: &[&str] = &["coach", "agent", "executive", "family", "ot
 /// The model budget for one extraction call. Temperature 0.2 (tight but a judgment
 /// call, matching scrub adjudication); JSON mode tightens contract adherence.
 ///
-/// `num_ctx` borrows the Editor's `ARTICLE_NUM_CTX` rather than leaving it 0 (server default).
-/// graph and the Editor are the two stages on the local gemma3:4b, and ollama reloads the runner
-/// on every change of context size — measured as reloads arriving in PAIRS 12–17s apart, once per
-/// rotation. The 8192 runner is already what the Editor makes us pay for, so matching it costs no
-/// extra VRAM and takes the local reload rate to ~0.
+/// Graph shares the Editor's local context size to avoid runner reloads.
 pub fn graph_opts() -> GenerateOptions {
     GenerateOptions {
         system: Some(GRAPH_SYSTEM_PROMPT.to_string()),
@@ -138,13 +133,11 @@ pub async fn load_graph_article_context(
     article_id: i64,
     sport: &str,
 ) -> Result<Option<(GraphArticle, Vec<GraphCandidate>)>> {
-    // `duplicate_of IS NULL` is a belt-and-braces guard, not the primary control. Mig 193 stopped
-    // graph being enqueued for suppressed articles at the source; this makes a stale queue row or a
+    // `duplicate_of IS NULL` makes a stale queue row or a
     // hand-enqueued repair fall through the same `Ok(None)` path as a missing article rather than
     // spending a model call on something the dedup sweep already suppressed.
     // The article's context text prefers the Editor's evidence blurb and falls back to the
-    // RSS description — kept last because it is 99.7% the title repeated (the measured
-    // duplication behind the retired embedder's double-counted headlines).
+    // RSS description, which is usually title-adjacent duplication.
     let row = sqlx::query(
         r#"
         SELECT COALESCE(a.source, 'unknown'), a.published_at::date::text, a.title,
@@ -349,10 +342,7 @@ impl Parser<GraphExtraction> for GraphParser<'_> {
 }
 
 // ---------------------------------------------------------------------------
-// The stage handler — wired 2026-07-19 AFTER the fixture gate measured 12/12 at g2
-// (fixtures/graph/: object attachment, person discovery, over-extraction, unary).
-// Article-keyed, enqueued by the Editor after it writes the links (the mig-165
-// scrub-trigger path it originally rode died with the legacy rail).
+// Article-keyed stage handler, enqueued after the Editor writes links.
 // ---------------------------------------------------------------------------
 
 /// build_graph_input_components is the canonical debounce pre-image: the article's
@@ -367,24 +357,17 @@ pub fn build_graph_input_components(
         .map(|c| format!("{}:{}", c.entity_type, c.entity_id))
         .collect();
     cands.sort();
-    let mut out = String::from("{\"candidates\":[");
-    for (i, c) in cands.iter().enumerate() {
-        if i > 0 {
-            out.push(',');
-        }
-        out.push_str(&go_json_string(c));
-    }
-    out.push_str("],\"description\":");
-    out.push_str(&go_json_string(&article.description));
-    out.push_str(",\"title\":");
-    out.push_str(&go_json_string(&article.title));
-    out.push('}');
-    out
+    serde_json::json!({
+        "candidates": cands,
+        "description": article.description,
+        "title": article.title,
+    })
+    .to_string()
 }
 
 /// GraphHandler drains the durable `graph` stage: load the article + vetted candidates,
 /// debounce on the material hash (bookkeeping row in `graph_extractions`), extract, and
-/// write `narrative_events` (upsert on the mig-154 dedupe key) + person candidates with
+/// write `narrative_events` plus person candidates with
 /// idempotent evidence accumulation (the mention PK makes re-extraction a no-op bump).
 /// Fail-closed replies record a `failed_closed` bookkeeping row — same material never
 /// re-hammers the GPU — and write no events.
@@ -418,7 +401,7 @@ async fn upsert_event(
         SELECT $1, $2, $3, $4, $5, $6, $7::float8::numeric(3,2), $8, $9,
                COALESCE(a.published_at, NOW()), a.source, $10, $11, 'extraction'
         FROM news_articles a WHERE a.id = $9
-        -- origin joins the dedupe key (mig 170): an extraction event and a junction
+        -- Origin joins the dedupe key so an extraction event and a junction
         -- verdict for the same (article, pair, predicate) coexist, never clobber.
         ON CONFLICT (article_id, sport, subject_type, subject_id, predicate,
                      COALESCE(object_type, ''), COALESCE(object_id, 0), origin)
@@ -492,7 +475,7 @@ async fn accumulate_person(
     .bind(article_id)
     .bind(person_id)
     .bind(sport)
-    // The per-mention team vote (mig 169): promote_narrative_persons aggregates these
+    // Promotion aggregates these per-mention team votes
     // for the team-token consistency gate. NULL when this article tied the person to no
     // listed team.
     .bind(p.team_context_id)
@@ -537,19 +520,7 @@ impl StageHandler for GraphHandler {
         Stage::Graph
     }
 
-    /// Matches The Editor's 8, for the same reason and on the same model.
-    ///
-    /// The trait's default of 1 assumes a model call is expensive relative to its neighbours.
-    /// After the 2026-07-26 topology split that stopped being true here: graph runs on gemma3:4b
-    /// locally while the six character stages each take ~40-60s on the Mac, so one rotation is
-    /// ~5 minutes of remote work in which graph — the highest-volume stage in the pipeline at
-    /// ~839 items/day — was allowed exactly ONE item. It fell behind at roughly 35 arrivals per
-    /// hour against ~12 drained, and the queue grew from 1,428 to 1,444 while being watched.
-    ///
-    /// 8 local calls is proportionate to a single remote character call, so this does not starve
-    /// the stages behind it — the balance the default is protecting. It is a mitigation, not the
-    /// cure: the drain is still sequential, so the two machines never actually work at the same
-    /// time. Making them overlap is a worker change, not a batch-size change.
+    /// Matches the Editor's local-model batch size.
     fn rotation_batch(&self) -> i64 {
         8
     }
@@ -656,28 +627,26 @@ impl StageHandler for GraphHandler {
 
         let entity_id_i32 = i32::try_from(article_id)
             .map_err(|_| anyhow!("graph: article_id {article_id} outside i32 range"))?;
-        insert_cognition_ledger_best_effort(
+        let generation = Generation::called(
+            (),
+            model,
+            GRAPH_PROMPT_VERSION,
+            vec![article_id],
+            Some(input_hash),
+            GenerationCall::from(&extracted),
+        );
+        insert_generation_ledger_best_effort(
             &hx.pool,
-            CognitionLedgerEntry {
-                stage: "graph".to_string(),
-                lens: "graph".to_string(),
-                role: Role::EmotionalNews.as_str().to_string(),
-                entity_type: "article".to_string(),
+            &generation,
+            GRAPH_LEDGER,
+            LedgerEvent {
+                entity_type: "article",
                 entity_id: entity_id_i32,
-                sport: sport.clone(),
-                pair_entity_type: None,
-                pair_entity_id: None,
-                trigger_type: "periodic".to_string(),
+                sport: &sport,
+                pair_entity: None,
+                trigger_type: "periodic",
                 trigger_payload: serde_json::json!({}),
-                product_table: "narrative_events".to_string(),
                 product_row_ids: event_ids,
-                model_version: model,
-                prompt_version: GRAPH_PROMPT_VERSION.to_string(),
-                output_contract_version: "graph-extraction-v1".to_string(),
-                input_ids: vec![article_id],
-                input_hash: Some(input_hash),
-                request_body: Some(extracted.request_body),
-                built_prompt: Some(extracted.built_prompt),
                 included_evidence: serde_json::json!({
                     "relations_n": relations.len(),
                     "persons": persons.iter().map(|p| format!("{} [{}]", p.name, p.kind)).collect::<Vec<_>>(),
@@ -685,12 +654,10 @@ impl StageHandler for GraphHandler {
                 excluded_evidence: serde_json::json!({
                     "parser_outcome": outcome,
                 }),
-                context_budget: serde_json::json!({
+                context_budget: generation.context_budget(serde_json::json!({
                     "num_predict": 768,
-                    "eval_count": extracted.eval_count,
-                    "wall_ms": extracted.wall_ms,
-                }),
-                parser_outcome: outcome.to_string(),
+                })),
+                parser_outcome: outcome,
             },
         )
         .await;

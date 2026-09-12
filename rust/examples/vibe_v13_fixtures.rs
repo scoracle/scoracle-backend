@@ -7,8 +7,8 @@
 //! previous-read prior — is unchanged; VIBE upgrades to card-quality prose and the reply
 //! gains the HOOK line (the Influencer's card title, `vibe_scores.hook`, mig 180).
 //!
-//! The live vibe build reads narratives + transfer heat from the DB and rides two prompt-only
-//! enrichments (the previous-read prior and the relational memory card); a frozen fixture
+//! The live vibe build reads Editor packets and rides two prompt-only enrichments (the
+//! previous-read prior and the relational memory card); a frozen fixture
 //! cannot, so these are HAND-AUTHORED: each freezes a faithful `build_sentiment_prompt`
 //! render — two of them WITH a prior/memory card baked in — so `eval --task vibe --fixtures`
 //! runs the exact enriched prompt through the model and scores it.
@@ -28,62 +28,37 @@
 
 use std::path::Path;
 
-use scoracle_cognition::corpus::HeatItem;
 use scoracle_cognition::eval_tasks::{Expect, Fixture};
 use scoracle_cognition::junctions::influencer::{
-    build_sentiment_prompt, Narrative, PrevVibe, VIBE_PROMPT_VERSION, VIBE_SYSTEM_PROMPT,
+    build_sentiment_prompt, PrevVibe, VIBE_PROMPT_VERSION, VIBE_SYSTEM_PROMPT,
 };
 
-/// One storyline as the vibe loader would surface it. `topic_heat`/`source_count`/
-/// `source_age_days` are prompt tags only (never hashed), so the fixtures pin realistic values.
-fn nar(
-    title: &str,
-    body: &str,
-    impact: i32,
-    trajectory: &str,
-    topic_heat: i32,
-    source_count: i32,
-    source_age_days: Option<i32>,
-) -> Narrative {
-    Narrative {
-        title: title.to_string(),
-        body: body.to_string(),
-        impact,
-        trajectory: trajectory.to_string(),
-        topic_heat,
-        source_count,
-        source_age_days,
-    }
+struct Story {
+    title: String,
+    body: String,
 }
 
-fn heat(counterparty: &str, heat: i32, direction: &str, stage: &str, summary: &str) -> HeatItem {
-    HeatItem {
-        counterparty: counterparty.to_string(),
-        heat,
-        stage: stage.to_string(),
-        direction: direction.to_string(),
-        summary: summary.to_string(),
-        confidence: Some(0.7),
+fn story(title: &str, body: &str) -> Story {
+    Story {
+        title: title.to_string(),
+        body: body.to_string(),
     }
 }
 
 /// Build one hand-authored fixture: render the exact live prompt (optionally with the
 /// previous-read prior and the relational memory card), pin temp 0 for reproducibility, and
 /// attach the property rubric.
-#[allow(clippy::too_many_arguments)]
 fn fixture(
     name: &str,
-    entity_type: &str,
-    entity_name: &str,
-    sport: &str,
-    narratives: &[Narrative],
-    heat_items: &[HeatItem],
+    entity: (&str, &str, &str),
+    stories: &[Story],
     previous: Option<&PrevVibe>,
     memory: Option<&str>,
     expect: Expect,
 ) -> Fixture {
+    let (entity_type, entity_name, sport) = entity;
     // These authored stories represent the Editor packets consumed by the live voice.
-    let packets: Vec<_> = narratives
+    let packets: Vec<_> = stories
         .iter()
         .enumerate()
         .map(
@@ -102,9 +77,6 @@ fn fixture(
             entity_type,
             entity_name,
             sport,
-            narratives,
-            heat_items,
-            // Use the live packet input, not the retired narrative input.
             &packets,
             previous,
             memory,
@@ -177,30 +149,17 @@ fn main() -> anyhow::Result<()> {
     //    coverage must land low, and the card contract must still materialize.
     let fx = fixture(
         "clearly-negative",
-        "player",
-        "Marcus Vale",
-        "NBA",
+        ("player", "Marcus Vale", "NBA"),
         &[
-            nar(
+            story(
                 "Benched amid slump",
                 "Coaches pulled him from the rotation after a string of poor outings; local radio openly questioning his future.",
-                8,
-                "cooling_off",
-                5,
-                3,
-                Some(1),
             ),
-            nar(
+            story(
                 "Trade-block chatter",
                 "Front office reportedly gauging interest; fans frustrated.",
-                6,
-                "cooling_off",
-                4,
-                2,
-                Some(2),
             ),
         ],
-        &[],
         None,
         None,
         vibe_gate(&["Vale"], None, Some(40)),
@@ -214,39 +173,24 @@ fn main() -> anyhow::Result<()> {
     // 2. clearly-positive — surging coverage plus live incoming interest (heat is energy).
     let fx = fixture(
         "clearly-positive",
-        "player",
-        "Dario Fenn",
-        "FOOTBALL",
+        ("player", "Dario Fenn", "FOOTBALL"),
         &[
-            nar(
+            story(
                 "Hat-trick hero seals statement win",
                 "Three goals against the league leaders; the away end sang his name for twenty minutes and pundits are calling it the performance of the season.",
-                9,
-                "heating_up",
-                8,
-                5,
-                Some(0),
             ),
-            nar(
+            story(
                 "Golden Boot race tightens",
                 "His scoring streak has him two behind the leader with momentum firmly on his side.",
-                6,
-                "heating_up",
-                6,
-                3,
-                Some(1),
             ),
         ],
-        &[heat(
-            "Real Madrid",
-            55,
-            "outgoing",
-            "concrete_interest",
-            "Reported scouting presence at his last three matches.",
-        )],
         None,
         None,
-        vibe_gate(&["Fenn", "goals"], Some(60), None),
+        Expect {
+            prose_includes: Some(vec!["Fenn".into()]),
+            prose_includes_any: Some(vec!["goals|hat-trick".into()]),
+            ..Default::default()
+        },
     );
     write_fixture(
         &dir,
@@ -258,19 +202,11 @@ fn main() -> anyhow::Result<()> {
     //    one (the sincerity guard, harmony-not-disdain's sharpest edge).
     let fx = fixture(
         "quiet-mixed",
-        "team",
-        "Harbor City Sharks",
-        "NFL",
-        &[nar(
+        ("team", "Harbor City Sharks", "NFL"),
+        &[story(
             "Routine win closes quiet week",
             "A workmanlike divisional win with no standout storylines; beat coverage focused on practice-squad moves.",
-            3,
-            "developing_story",
-            2,
-            1,
-            Some(2),
         )],
-        &[],
         None,
         None,
         vibe_gate(&["Sharks"], Some(35), Some(65)),
@@ -290,19 +226,11 @@ fn main() -> anyhow::Result<()> {
     };
     let fx = fixture(
         "continuity-deliberate-move",
-        "player",
-        "Kade Morrow",
-        "NBA",
-        &[nar(
+        ("player", "Kade Morrow", "NBA"),
+        &[story(
             "Road loss cools the streak",
             "A flat second half ended the five-game run; his 12 points on 4-of-15 shooting drew groans but no panic from the locker room.",
-            5,
-            "cooling_off",
-            4,
-            2,
-            Some(0),
         )],
-        &[],
         Some(&prev),
         None,
         vibe_gate(&["Morrow"], Some(40), Some(70)),
@@ -319,19 +247,11 @@ fn main() -> anyhow::Result<()> {
     let memory = "Prior story: MVP-caliber spring surge — peaked Apr 2026 (coverage 88/100).\nOur prior read: euphoric through April; the fanbase built its summer expectations on that stretch.";
     let fx = fixture(
         "warm-memory-cold-coverage",
-        "player",
-        "Elias Trent",
-        "NBA",
-        &[nar(
+        ("player", "Elias Trent", "NBA"),
+        &[story(
             "Slump deepens as minutes shrink",
             "A fourth straight quiet outing; the coach declined to confirm his place in the closing lineup and the home crowd has gone flat on him.",
-            7,
-            "cooling_off",
-            5,
-            3,
-            Some(0),
         )],
-        &[],
         None,
         Some(memory),
         vibe_gate(&["Trent"], None, Some(45)),

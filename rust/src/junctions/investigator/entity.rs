@@ -1,5 +1,4 @@
-//! The `investigate_entity` stage handler (PLAN-one-rail 5.3, re-scoped by Scott's NBA
-//! vetting ruling — Phase 4 Log, 2026-08-03).
+//! The `investigate_entity` stage handler.
 //!
 //! Two work classes on one stage:
 //!
@@ -10,12 +9,10 @@
 //! * `entity_type='player'` — metadata enrichment of an EXISTING player (the NBA vetting
 //!   project: date_of_birth, weight, height, photo_url are missing/untrusted). Identity is
 //!   re-proven (career-team discriminator), facts land in `entity_facts` with provenance,
-//!   and the convenience columns on `players` are updated — never inserted (D-2: the
+//!   and the convenience columns on `players` are updated, never inserted; the
 //!   players table stays box-score-owned).
 //!
-//! Interpretation is CODE over Wikidata's structured claims — no model call. The gemma
-//! prose-triage path (5.4's fallback for names Wikimedia doesn't know) is deferred to the
-//! tuning ledger; the seat (`Role::Investigator`) exists and idles until then.
+//! Wikidata interpretation is deterministic; prose fallback uses the Investigator role.
 
 use super::discover::{
     wikidata_item, wikidata_search, wikipedia_search, wikipedia_summary, WikidataHit, WikidataItem,
@@ -43,10 +40,7 @@ use std::time::Duration;
 use tracing::{info, warn};
 
 pub const INVESTIGATE_PARSER_VERSION: &str = "investigate-entity-wikidata-v1";
-/// How many search hits get a full item fetch. FIVE, the search limit — measured on the
-/// Jerry Jones probe (2026-08-09): the Cowboys owner ranks 5th of 5 behind four college
-/// basketball namesakes, so the old 3 never even fetched the item this stage exists to
-/// find. Cost: up to two more Wikimedia fetches per candidate at the 2s spacing.
+/// Search hits that receive a full item fetch.
 const MAX_ITEMS: usize = 5;
 
 /// Wikimedia gets a polite, long-cache policy: labels and claims move slowly, and repeat
@@ -73,21 +67,12 @@ impl StageHandler for InvestigateEntityHandler {
         Stage::InvestigateEntity
     }
 
-    /// One at a time — but NOT because of the card any more. The binding constraint is the
-    /// polite 2s Wikimedia spacing in `wikimedia_policy()` (D-T10: even unblocked, that budget
-    /// caps drain at ~900/day), which serializes the fetches whatever the concurrency. Raise
-    /// this only with a faster evidence source.
+    /// Wikimedia's per-domain spacing is the binding concurrency limit.
     fn max_in_flight(&self) -> usize {
         1
     }
 
-    /// D-T10 knob (a), applied 2026-08-09: NO slot group. The v1 Investigator makes ZERO model
-    /// calls — discovery is Wikidata HTTP, the gate is code — so holding an
-    /// `ARCHBOX_SLOTS` slot for pure HTTP work was the structural mismatch behind the
-    /// measured 57h starvation: it queued behind the Editor's drain for a card it never used.
-    /// When 5.4's prose arm lands, its model calls ride `Role::Investigator` — routed to the
-    /// 14B on the OTHER host — so membership in the archbox group stays wrong even then; the
-    /// 14B host has its own governor.
+    /// HTTP discovery uses no local-model slot; prose calls use their routed host governor.
     fn slot_group(&self) -> Option<(&'static str, usize)> {
         None
     }
@@ -111,7 +96,7 @@ impl StageHandler for InvestigateEntityHandler {
 struct Discovery {
     hits: Vec<WikidataHit>,
     items: Vec<WikidataItem>,
-    /// For items[i]: did some name form nrm-match the sought name (SQL nrm — mig 198).
+    /// For each item, whether a normalized name form matches the sought name.
     name_agreed: Vec<bool>,
     /// For items[i]: our team ids its P54/P6087 links resolved onto.
     our_teams: Vec<Vec<i32>>,
@@ -152,8 +137,8 @@ async fn discover(
     })
 }
 
-/// name_forms_agree runs the name SCREEN through `public.nrm()` — the database's one
-/// normalizer (mig 198), never a Rust re-implementation. Screen only; identity is the
+/// Runs the name screen through the database's one `public.nrm()` normalizer.
+/// Screen only; identity is the
 /// discriminator clause.
 async fn name_forms_agree(pool: &PgPool, sought: &str, it: &WikidataItem) -> Result<bool> {
     let mut forms = vec![it.label.clone()];
@@ -275,13 +260,7 @@ async fn resolve_team_qids(
     Ok(qids.iter().filter_map(|q| map.get(q).copied()).collect())
 }
 
-/// provenance_holds is gate clause (a), asserted against the STORED provenance row right
-/// before any write. Two ways to satisfy it: the retained excerpt contains the name form
-/// we are about to trust, OR the document is the item's own `wbgetentities` fetch — in
-/// which case the label was PARSED FROM that document, so containment holds by
-/// construction even when the excerpt bound truncated the labels section (measured on the
-/// 2026-08-03 smoke: Şengün's claims JSON exceeds the 100k excerpt and his accept was
-/// wrongly refused). The excerpt arm stays load-bearing for future prose-page sources.
+/// Checks that stored provenance contains the trusted name or is the item's own entity fetch.
 async fn provenance_holds(pool: &PgPool, it: &WikidataItem) -> Result<bool> {
     let found: Option<bool> = sqlx::query_scalar(
         r#"
@@ -423,11 +402,8 @@ async fn investigate_candidate(hx: &Harness, fetcher: &BudgetedFetcher, item: &I
             .await?;
         }
         Verdict::RejectedInsufficientEvidence => {
-            // The 5.4 prose arm (D-T8): Wikidata's ENTITY search matches labels and
-            // aliases, so a name the news writes one way and the encyclopedia another
-            // refuses here honestly. Wikipedia FULL-TEXT search finds the page that
-            // MENTIONS the news form — usually the legal name in the lede — and the model
-            // quotes the connection for code to verify. Only this verdict falls through:
+            // Full-text search may connect a news name to a differently titled page; the
+            // model quotes the connection for code to verify. Only this verdict falls through:
             // not-sport already had identified evidence, and a tie needs a discriminator,
             // not more prose.
             investigate_candidate_prose(hx, fetcher, &cand, &sport, &search_name, &run_plan)
@@ -737,16 +713,10 @@ fn bools_of(our_teams: &[Vec<i32>]) -> Vec<bool> {
     our_teams.iter().map(|t| !t.is_empty()).collect()
 }
 
-/// accept_candidate is the ONE write path for a new/linked person — a single transaction:
-/// resolve-to-existing first (alias, no new row), else a `persons` row; aliases (append-only)
-/// + direct surface mirror; a role fact; `coach_of` when the role is coach and a team
-/// resolved; the acquisition run; the candidate's state. Every row cites the source doc.
+/// Writes a new or linked person and its provenance in one transaction.
 ///
-/// Serves BOTH arms since 5.4 shipped: the Wikidata arm passes a real item, the prose arm a
-/// pseudo-item with an empty `qid` (gating the wikidata external-id/meta writes) and an
-/// `enwiki_title` (which writes an `enwiki` external id instead). `career_team_ids` is the
-/// merge discriminator, pre-resolved by whichever arm called — QID mapping for Wikidata,
-/// verbatim-surface resolution for prose.
+/// Wikidata candidates provide a QID; prose candidates instead provide an English Wikipedia
+/// title. `career_team_ids` is the caller-resolved merge discriminator.
 #[allow(clippy::too_many_arguments)]
 async fn accept_candidate(
     hx: &Harness,
@@ -848,8 +818,7 @@ async fn accept_candidate(
         }
     };
 
-    // The mig 236 refresh: re-accepting onto an existing person REVISES it — the whole
-    // point of the reopen clock. Every mutation asks the policy table; the tiers are:
+    // Re-accepting an existing person revises policy-authorized facts. The tiers are:
     // role/kind evidenced (the gate derived it from the fresh claims), team_affiliation
     // adjudicated (the career discriminator must have named the team — the same
     // agreement creation demands). Unlisted facts stay frozen.
@@ -984,7 +953,7 @@ async fn accept_candidate(
         .context("insert person external id")?;
     }
 
-    // The role fact, policy-gated and superseding (mig 236): a coach who becomes an
+    // The role fact is policy-gated and superseding: a coach who becomes an
     // executive gets a revision, not a duplicate. (Players have no 'role' policy row —
     // being a players-table row IS the role — so this now writes for persons only.)
     if policy_allows(&policy, &resolved_type, "role") {
@@ -1000,8 +969,7 @@ async fn accept_candidate(
         .await?;
     }
 
-    // Structural role → relationship edge, when a team discriminated. `coach_of` since 5.5;
-    // `owner_of` since the owner class landed (Jerry Jones, 2026-08-09). A changed team
+    // Structural role → relationship edge, when a team discriminated. A changed team
     // supersedes the old edge — the story moved, the graph moves with it — and an
     // unchanged one is not re-inserted.
     let predicate = match role {
@@ -1172,7 +1140,7 @@ async fn enrich_player(hx: &Harness, fetcher: &BudgetedFetcher, item: &Item) -> 
     let sport: String = row.get("sport");
     let team_id: Option<i32> = row.get("team_id");
 
-    // mig 236: stamp the ATTEMPT, not the success — a refusal also waits out the
+    // Stamp the attempt, not the success, so a refusal also waits out the
     // 30-day refresh cooldown instead of re-queueing every night.
     sqlx::query(
         "UPDATE public.players SET meta = jsonb_set(COALESCE(meta, '{}'::jsonb), '{investigated_at}', to_jsonb(NOW())) WHERE id = $1",
@@ -1195,14 +1163,8 @@ async fn enrich_player(hx: &Harness, fetcher: &BudgetedFetcher, item: &Item) -> 
 
     let item_idx = match verdict {
         Verdict::Accept { item_idx, .. } => item_idx,
-        // The Aaron Gordon class (measured on the first smoke batch, 2026-08-09: 83 of 89
-        // refusals were Ambiguous with EXACTLY ONE survivor): the one name-agreed,
-        // sport-relevant item whose P54 simply STOPS at a previous club — Gordon's carries
-        // Arizona and Orlando, and nobody has added the 2021 Denver stint. Wikidata's
-        // structured claims lag; its PROSE does not. So the single survivor earns one ip1
-        // prose read of its own enwiki page, and the containment-verified team names must
-        // resolve onto THIS player's current team — the same discriminator, taken from the
-        // fresher of the encyclopedia's two layers. Everything else still refuses.
+        // A single sport-relevant survivor may have stale structured team claims, so its
+        // page prose gets one containment-verified chance to corroborate the current team.
         Verdict::Ambiguous { ref survivor_idxs } if survivor_idxs.len() == 1 => {
             let i = survivor_idxs[0];
             match prose_team_corroborates(hx, fetcher, &d.items[i], &sport, &name, team_id).await {
@@ -1237,9 +1199,7 @@ async fn enrich_player(hx: &Harness, fetcher: &BudgetedFetcher, item: &Item) -> 
     let dob = it.date_of_birth.as_deref().and_then(wire_date);
     let weight = it.weight_kg.map(|kg| display_weight(&sport, kg));
     let height = it.height_cm.map(|cm| display_height(&sport, cm));
-    // NBA prefers the league CDN headshot (consistent framing); everyone else — and any
-    // NBA player without a P3647 id — gets the P18 Commons portrait. NFL has no usable
-    // league-id property, so Commons IS its headshot source (Scott, 2026-08-09).
+    // NBA prefers its league headshot; all other cases fall back to Commons.
     let photo = it
         .nba_id
         .as_deref()
@@ -1251,7 +1211,7 @@ async fn enrich_player(hx: &Harness, fetcher: &BudgetedFetcher, item: &Item) -> 
     let mut tx = hx.pool.begin().await.context("begin enrichment")?;
 
     // Facts with provenance; a correction is a revision — prior active facts of the same
-    // type are superseded, never overwritten (§4). Since mig 236 every write asks the
+    // type are superseded, never overwritten. Every write asks the
     // policy table first: an unlisted (entity_type, fact_type) is frozen to model paths.
     let weight_fact = it.weight_kg.map(|k| format!("{k}"));
     let height_fact = it.height_cm.map(|c| format!("{c}"));
@@ -1305,7 +1265,7 @@ async fn enrich_player(hx: &Harness, fetcher: &BudgetedFetcher, item: &Item) -> 
         .context("insert player external id")?;
     }
 
-    // Convenience copies on players — UPDATE only (the table stays box-score-owned, D-2).
+    // Convenience copies update existing player rows only.
     sqlx::query(
         r#"
         UPDATE public.players
@@ -1341,9 +1301,7 @@ async fn enrich_player(hx: &Harness, fetcher: &BudgetedFetcher, item: &Item) -> 
 }
 
 // ---------------------------------------------------------------------------------------
-// Mode 3 + the mig 236 substrate: dynamic entity metadata.
-//
-// "Treat all entity types as dynamic" (Scott, 2026-09-04). The policy table is the
+// Dynamic entity metadata. The policy table is the
 // model's guide AND the guard: a (entity_type, fact_type) row grants write permission
 // at a tier; absence is frozen. The Investigator stays the only junction that mutates
 // the world — the storytelling voices read it, they never edit it.
@@ -1375,7 +1333,7 @@ fn policy_allows(policy: &FactPolicy, entity_type: &str, fact_type: &str) -> boo
     policy.contains_key(&(entity_type.to_string(), fact_type.to_string()))
 }
 
-/// The one fact-revision primitive (§4 semantics, generalized from the player loop):
+/// Shared fact-revision primitive:
 /// supersede prior active facts of the type whose value differs, insert the new value
 /// unless it is already the active one. Every row cites its source document.
 async fn write_fact_superseding(
@@ -1426,7 +1384,7 @@ async fn write_fact_superseding(
     Ok(())
 }
 
-/// Team enrichment (mig 236). No search, no disambiguation: the team's wikidata QID is
+/// Team enrichment. No search or disambiguation: the team's Wikidata QID is
 /// already bound in entity_external_ids (the team resolver bootstraps them), so this
 /// fetches a KNOWN item, screens the name, and revises exactly what the policy allows —
 /// venue_name (P115, current tenure) and logo_url (P154, P18 fallback). City, founding

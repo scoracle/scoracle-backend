@@ -1,11 +1,11 @@
-//! The write gate (PLAN-one-rail 5.5) — deterministic, and the ONLY road to a write.
+//! The Investigator's deterministic write gate.
 //!
 //! A model mention is never a database write; neither is a Wikidata hit. ACCEPT requires,
 //! in code: (a) a `source_documents` row whose retained excerpt contains a name form,
 //! (b) sport-relevance from the described occupation/description, and (c) a discriminator
 //! agreement — for this rail, the item's team links resolving onto OUR teams (name
-//! similarity alone never merges; T9's cousin). Anything less is `ambiguous` (first-class)
-//! or a `rejected_*` with its reason. One false merge is a stop-the-line event (5.8), so
+//! similarity alone never merges). Anything less is `ambiguous` (first-class)
+//! or a `rejected_*` with its reason. One false merge is a stop-the-line event, so
 //! every arm here prefers refusal over inference.
 //!
 //! This module is PURE — classification over already-fetched facts. The handler
@@ -43,7 +43,7 @@ fn sport_occupations(
     }
 }
 
-/// The role class the page describes — mapped to D-2 person kinds by the caller.
+/// Role class mapped to person kinds by the caller.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RoleClass {
     Player,
@@ -73,25 +73,20 @@ impl RoleClass {
 
 /// classify_role reads the item's claims + description into a role class, sport-gated.
 /// P6087 (coach of a sports team) outranks everything: it is a CURRENT structural claim,
-/// while P106 occupations accumulate history — nearly every NBA head coach carries
-/// "basketball player" from a playing career (measured on the first live smoke,
-/// 2026-08-03: Spoelstra and Kerr both classified player and lost their coach_of edges).
+/// while P106 occupations accumulate history.
 /// Occupation tables next, description keywords last, Unknown otherwise.
 pub fn classify_role(sport: &str, item: &WikidataItem) -> RoleClass {
     let (players, coaches, kw) = sport_occupations(sport);
     if !item.coach_of_teams.is_empty() {
         return RoleClass::Coach;
     }
-    // Ownership (P1830, current) outranks occupation history for the same reason coaching
-    // does: P106 accumulates a whole career. The measured case is Jerry Jones — occupation
-    // "American football player" (college, 1960s), P54 Arkansas, P1830 Dallas Cowboys NOW.
+    // Current ownership outranks accumulated occupation history.
     if !item.owner_of_teams.is_empty() {
         return RoleClass::Owner;
     }
     // Coach occupation before player occupation: a dual player+coach P106 record is a
     // retired player who coaches NOW (actives never carry the coach occupation), while the
-    // reverse order misfiled Spoelstra as player on the 2026-08-03 smoke (his item has no
-    // P6087 — the coaching lives only in P106).
+    // reverse order can misclassify a current coach as a player.
     if item
         .occupations
         .iter()
@@ -148,9 +143,8 @@ pub enum Verdict {
 }
 
 /// decide applies the three clauses over pre-fetched items — pure over pre-computed
-/// screens, because BOTH screens belong to other authorities: `name_agreed[i]` comes from
-/// `public.nrm()` in SQL (mig 198: the database owns the ONE normalizer — a Rust fold that
-/// drifts from it is the failure mode that migration exists to avoid), and
+/// screens, because both belong to other authorities: `name_agreed[i]` comes from
+/// `public.nrm()` in SQL, and
 /// `team_matched[i]` is clause (c) — the item's team links resolved onto OUR teams via
 /// `entity_name_surfaces`. Clause (a) — excerpt containment — is asserted by the handler
 /// at write time against the stored `source_documents` row.
@@ -198,7 +192,7 @@ pub fn decide(
 }
 
 // ---------------------------------------------------------------------------------------
-// The prose arm (5.4, built 2026-08-09) — the same three clauses over a model's VERBATIM
+// The prose arm applies the same three clauses to a model's verbatim
 // quotes instead of Wikidata's claims. Purity holds: these functions classify pre-fetched,
 // pre-screened facts; the handler owns retrieval, the model call and every write.
 // ---------------------------------------------------------------------------------------
@@ -669,7 +663,7 @@ mod tests {
             descriptor_conflict: false,
         };
         assert_eq!(
-            decide_prose(&[ok.clone()]),
+            decide_prose(std::slice::from_ref(&ok)),
             Verdict::Accept {
                 item_idx: 0,
                 role: RoleClass::Player

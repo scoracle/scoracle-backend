@@ -22,15 +22,17 @@ pub enum CardFormat {
     Oracle,
 }
 
-/// Compose the exact system instruction used in production and fixture generation.
+pub const ORACLE_READING_MAX_CHARS: usize = 800;
+
+/// Compose the system instruction from the character and shared form.
 pub fn compose(character: &str, format: CardFormat) -> String {
     let output = match format {
         CardFormat::Scout => "Return the body as plain paragraphs, followed by a HEADLINE: line containing the hook. The application displays that hook above the body.",
         CardFormat::Analyst => "Return READ: followed by the body, then HEADLINE: followed by the hook. The application displays the hook above the body.",
-        CardFormat::Influencer => "Return SCORE: with an integer from 1 to 100, HOOK: with the hook, then VIBE: with the body. Preserve blank lines between its paragraphs.",
-        CardFormat::Journalist => "Return JSON with narratives, headline and card_score. Each narrative has a short specific title, a body following the shared form, and articles containing its supporting input article numbers. Select relevant stories, most consequential first; an empty narratives array is valid. The headline is the hook for the whole edition. The card_score is an integer from 1 to 99. Preserve paragraph breaks inside body strings as escaped newlines.",
+        CardFormat::Influencer => "Return exactly three labeled fields in this order, with no preamble or text before SCORE:\nSCORE: <integer from 1 to 100>\nHOOK: <hook>\nVIBE: <body>\nThe VIBE field contains only the unlabeled body prose. Preserve blank lines between its paragraphs.",
+        CardFormat::Journalist => "Return JSON with narratives, headline and card_score. Each narrative has a short specific title that names this entity as supplied, a body following the shared form, and articles containing its supporting input article numbers. Select relevant stories, most consequential first; an empty narratives array is valid. The headline is the hook for the whole edition. The card_score is an integer from 1 to 99. Preserve paragraph breaks inside body strings as escaped newlines.",
         CardFormat::Insider => "Return JSON with read containing the body, headline containing the hook, and score containing an integer from 1 to 99. Preserve paragraph breaks inside read as escaped newlines.",
-        CardFormat::Oracle => "Return JSON with reading containing the body, headline containing the hook, and score containing an integer from 1 to 100. Preserve paragraph breaks inside reading as escaped newlines.",
+        CardFormat::Oracle => "Return JSON with reading containing the body, headline containing the hook, and score containing an integer from 1 to 100. Open the reading with this entity's supplied name and speak directly about its circumstances as one interpretation. The reading is body only: do not describe its hook or headline, the evidence structure, its speakers, computation or JSON fields. Preserve paragraph breaks inside reading as escaped newlines.",
     };
     format!("{character}\n\n{CLAIM_SELECTION}\n\n{STORY_FORM}\n\n{WIRE_COPY}\n\n{HOOK}\n\n{output}")
 }
@@ -94,8 +96,12 @@ pub fn oracle_format_schema() -> serde_json::Value {
     serde_json::json!({
         "type": "object",
         "properties": {
-            "reading": { "type": "string" },
-            "headline": { "type": "string" },
+            "reading": {
+                "type": "string",
+                "maxLength": ORACLE_READING_MAX_CHARS,
+                "description": "Unified prose about the entity and its circumstances, without card, field, computation or score commentary"
+            },
+            "headline": { "type": "string", "maxLength": 140 },
             "score": { "type": "integer", "minimum": 1, "maximum": 100 }
         },
         "required": ["reading", "headline", "score"]
@@ -153,5 +159,20 @@ mod tests {
             }
         }
         assert!(narratives_format_schema()["properties"]["narratives"]["maxItems"].is_null());
+        assert!(influencer::VIBE_SYSTEM_PROMPT.contains(
+            "with no preamble or text before SCORE:\nSCORE: <integer from 1 to 100>\nHOOK: <hook>\nVIBE: <body>"
+        ));
+        assert!(journalist::NARRATIVES_SYSTEM_PROMPT
+            .contains("title that names this entity as supplied"));
+        assert!(oracle::ORACLE_SYSTEM_PROMPT
+            .contains("Open the reading with this entity's supplied name"));
+        assert_eq!(
+            oracle_format_schema()["properties"]["headline"]["maxLength"],
+            140
+        );
+        assert_eq!(
+            oracle_format_schema()["properties"]["reading"]["maxLength"],
+            800
+        );
     }
 }

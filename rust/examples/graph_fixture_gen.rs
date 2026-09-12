@@ -1,20 +1,9 @@
 //! graph_fixture_gen — regenerate the graph eval fixtures through the REAL production
-//! prompt builder, so the frozen fixture prompts are byte-true to `GRAPH_PROMPT_VERSION`
-//! (the sigil/momentum fixture-gen pattern).
-//!
-//! The set pins the g2 probe's MEASURED residuals (2026-07-19) before the queue stage
-//! wires in:
-//!   - object attachment: two suitor clubs listed, only one is the counterparty (the
-//!     probe's Rogers→Arsenal slip where Chelsea was the counterparty);
-//!   - person discovery: a manager named in the text must land in persons (g1 found 0
-//!     persons across 8 articles with Tuchel/Alonso present);
-//!   - over-extraction: a bare match-report mention states no relation — clean empty;
-//!   - unary relations: an injury with no counterparty keeps object null.
+//! prompt builder, so the frozen prompts are byte-true to `GRAPH_PROMPT_VERSION`.
+//! Cases: object attachment, person discovery, over-extraction, unary relations.
 //!
 //!     cargo run --example graph_fixture_gen > /tmp/graph_fixtures.json
-//!
-//! Output: a JSON array of fixture objects; split into `fixtures/graph/<name>.json`.
-//! Offline — no DB, no model, no queue.
+//! Output: a JSON array; split into `fixtures/graph/<name>.json`. Offline.
 
 use scoracle_cognition::junctions::graph::{
     build_graph_prompt, GraphCandidate, GRAPH_PROMPT_VERSION, GRAPH_SYSTEM_PROMPT,

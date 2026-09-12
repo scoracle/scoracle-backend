@@ -1,10 +1,8 @@
-//! The Editor's derivations — every judgment the ep1 contract does NOT ask the model (T2).
+//! Deterministic judgments derived from the Editor's descriptive fields.
 //!
 //! The model DESCRIBES (page shape, names with descriptors, roles, a verbatim result line);
 //! this module DERIVES: relevance, entity links, nomination eligibility, routing tags, and the
-//! parsed result. Phase 3 persists the resolver outcome into `editor_reads.resolved`; later
-//! phases consume the rest (routing tags → packets in Phase 6, result parse → box-score fork in
-//! Phase 4, nomination → `entity_candidates` in Phase 5).
+//! parsed result.
 
 use super::{EditorEntityRole, NameMention};
 use anyhow::{Context, Result};
@@ -15,7 +13,6 @@ use tracing::debug;
 
 /// `page_kind` values whose BODY is not reporting, whatever the headline promised. A page of this
 /// shape cannot be materially about an entity because it is not materially about anything.
-/// (Ported from the legacy seat, where three measured prompt revisions earned it.)
 pub const NON_REPORTING_PAGE_KINDS: &[&str] = &["score_table", "listing_or_schedule", "roundup"];
 
 /// derive_relevance computes the verdict from the model's DESCRIPTION of the page — the
@@ -32,17 +29,9 @@ pub const NON_REPORTING_PAGE_KINDS: &[&str] = &["score_table", "listing_or_sched
 /// entity, the model also volunteers people it found in the body, and an unfiltered scan lets
 /// those outvote the truth. Empty `entity_roles` is UNKNOWN, not rejection. When the model
 /// placed none of ours but still listed one among the names it found, the omission is
-/// sloppiness rather than a verdict (measured at 86% of the rejections it drove), so `names[]`
-/// is consulted as a last resort before rejecting.
-///
-/// A third ground, the descriptor arm (§1a, measured 2026-08-01): a hypothesis entity whose
-/// own `names[]` entry DESCRIBES a place ("capital city") does not count as present.
-/// ⚠ **Measured on `gemma3:4b`, the runner at the time — the seat is `ministral-3:3b` now and the
-/// behaviour has NOT been re-measured, but the arm is kept because it is cheap and fail-safe.**
-/// That model reliably wrote the truth in the descriptor while still mislabeling the kind and the
-/// role (`Paris` on a Tour de France page: kind `club`, role `subject`, descriptor "capital city"
-/// — stable across seven prompt iterations). The description is the model's; the judgment is
-/// ours (T2).
+/// sloppiness rather than a verdict, so `names[]`
+/// is consulted as a last resort before rejecting. A hypothesis whose own descriptor names
+/// a place does not count as present.
 pub fn derive_relevance(
     page_kind: &str,
     entity_roles: &[EditorEntityRole],
@@ -65,8 +54,7 @@ pub fn derive_relevance(
         let hit = names.iter().any(|n| {
             n.name.eq_ignore_ascii_case(entity.trim()) && descriptor_names_place(&n.descriptor)
         });
-        // Friction 1 observability: log when the descriptor arm fires so we can measure whether
-        // it's still needed on ministral-3:3b (originally measured on gemma3:4b, 2026-08-01).
+        // Keep the descriptor arm observable.
         if hit {
             let descriptor = names
                 .iter()
@@ -81,12 +69,7 @@ pub fn derive_relevance(
         }
         hit
     };
-    // A `passing_mention` vote with no matching names[] entry is a label with no referent
-    // (measured 2026-08-01: hypothesis "Fortuna" gets a passing_mention on a page whose only
-    // Fortuna is "Fortuna Mining Corp" — the model string-associates the role, but its own
-    // names list holds no such entity). Subject/opponent votes stand on their own: the model
-    // reliably lists a story's principals, so an unlisted principal is names under-fill, not
-    // evidence of absence.
+    // A passing mention needs a matching name; subject and opponent votes stand alone.
     let supported = |r: &EditorEntityRole| {
         !r.role.eq_ignore_ascii_case("passing_mention")
             || names
@@ -103,7 +86,7 @@ pub fn derive_relevance(
             let place = described_as_place(&r.entity);
             let sup = supported(r);
 
-            // Observability: log when descriptor arm fires (unmeasured on ministral-3:3b)
+            // Keep the descriptor arm observable.
             if place && not_absent {
                 let descriptor = names
                     .iter()
@@ -201,7 +184,7 @@ pub(crate) fn entity_matches(ours: &[String], candidate: &str) -> bool {
 }
 
 /// Routing tags for one read: the story type's tag plus `charged` when the register is
-/// non-neutral (E1). Phase 6's packet compiler consumes this; nothing persists it in shadow.
+/// non-neutral.
 pub fn routing_tags(story_type: &str, register: &str) -> Vec<String> {
     let mut tags: Vec<String> = crate::bucket::routing_tags_from_story_type(story_type)
         .into_iter()
@@ -224,8 +207,7 @@ pub struct ParsedResult {
 
 /// parse_result_line parses the verbatim-or-empty `result_line` ("Real Madrid 2-1 Arsenal").
 /// Strict on purpose: one score token (`D-D`, en/em dash or colon accepted) with a non-empty
-/// name on each side. A line that does not parse nominates nothing — the honest failure mode
-/// for a field the model copies rather than computes. Phase 4's box-score fork consumes this.
+/// name on each side. An invalid line yields no result.
 pub fn parse_result_line(line: &str) -> Option<ParsedResult> {
     let tokens: Vec<&str> = line.split_whitespace().collect();
     let mut found: Option<(usize, u32, u32)> = None;
@@ -265,10 +247,7 @@ fn parse_score_token(tok: &str) -> Option<(u32, u32)> {
     Some((h, a))
 }
 
-/// nominates_immediately is the 5.2 first-sight rule (Scott 2026-08-01): a person-kind mention
-/// WITH a descriptor enqueues on first sight; descriptor-less bare names wait for the 2-mention
-/// floor; refused ties always nominate (the caller applies that arm — a refusal is not an
-/// unresolved name). Phase 5 consumes this; Phase 3 only classifies.
+/// A described person nominates on first sight; bare names wait for corroboration.
 pub fn nominates_immediately(kind_hint: &str, descriptor: &str) -> bool {
     kind_hint.eq_ignore_ascii_case("person") && !descriptor.trim().is_empty()
 }
@@ -338,7 +317,7 @@ pub struct SurfaceHit {
 /// resolve_names is the automatic link path: EXACT match on `nrm()` surfaces, sport-scoped,
 /// nothing else (T9 — trigram ranks for review, never writes). `public.nrm()` is called IN SQL
 /// on purpose: the database owns the one normalizer, and a Rust copy that drifts from it is the
-/// failure mode mig 198 exists to avoid.
+/// failure mode this single database normalizer avoids.
 pub async fn resolve_names(pool: &PgPool, sport: &str, names: &[NameMention]) -> Result<Resolved> {
     if names.is_empty() {
         return Ok(Resolved::default());

@@ -1,9 +1,9 @@
-//! The Desk, part one — storyline assembly (PLAN-one-rail Phase 6.1, §1b).
+//! Deterministic storyline assembly.
 //!
 //! Deterministic code, zero model tokens. Every read the Editor commits is scored against the
 //! open storylines of its sport and either ATTACHES to the best one or OPENS a new one. The
 //! join key is **entities + story type + time** — free-text story names are banned from
-//! matching (D3's lesson), which is why `storylines.title` is display-only and never read here.
+//! matching, so `storylines.title` is display-only.
 //!
 //! **T3 is the law of this module.** Two articles that share entities and disagree about the
 //! facts are the SAME STORY WITH A DIFFERENT CLAIM: they attach to one storyline, and the
@@ -26,14 +26,7 @@ use tracing::debug;
 pub const CANDIDATE_WINDOW_DAYS: i64 = 14;
 /// A candidate touched this recently earns the recency bonus.
 pub const RECENCY_BONUS_HOURS: i64 = 48;
-/// **People are the join; a club alone is a coincidence.** A shared person is worth two points
-/// of overlap, a shared club one.
-///
-/// This is not a taste call. Go queries the news one ranked query PER TEAM, so the club is on
-/// the hypothesis list of every article of its day and resolves as a link in most of them — a
-/// shared club says only "both stories happened at Real Madrid", which is true of twenty
-/// unrelated stories every Tuesday. A shared person says the two articles are about the same
-/// human being doing the same thing.
+/// A shared person is stronger evidence of one story than a shared club.
 pub const PERSON_OVERLAP_POINTS: i32 = 2;
 pub const TEAM_OVERLAP_POINTS: i32 = 1;
 /// Attach to the top scorer **above** this threshold (§1b); everything else opens a new
@@ -79,10 +72,7 @@ pub struct Candidate {
     /// WHICH seed participants this read shares, as `entity_type:entity_id` — the observation
     /// behind `person_overlap`/`team_overlap` rather than its count.
     ///
-    /// Carried for the record only: `score` and `covers_seed` read the counts, never this, so a
-    /// change here cannot move an attachment. It exists because 6.7 was told to "inspect attach
-    /// scores" against a table that stored none, and a count cannot answer WHICH entity pulled an
-    /// article in. Persisted to `storyline_articles.matched_entities` (mig 217).
+    /// Recorded for inspection; attachment uses only the overlap counts.
     pub matched: Vec<String>,
     /// `as_of - storylines.last_seen_at`, in seconds. Never negative for a candidate (the
     /// query refuses storylines from the future — see [`candidates`]).
@@ -110,12 +100,6 @@ pub fn score(candidate: &Candidate, story_type: &str) -> i32 {
 
 /// covers_seed is the gate the score alone cannot express: **the join must cover half the
 /// story's original cast.**
-///
-/// Measured, like everything else here. After the seed freeze, the 12,571-read backfill still
-/// produced a 304-article NBA "story" — seeded by a conference listicle that named six stars
-/// and five clubs at once. An 11-entity key is a magnet: any article naming one of those stars
-/// scored 2 + 1 (type) + 1 (recency) = 4 and joined. Sharing one name out of eleven is not the
-/// same story; sharing one name out of two is.
 ///
 /// Half, not all, because a story legitimately gains and loses names as it runs — and because
 /// the common seed is two entities (a player and a club), where half means "the player" or
@@ -153,15 +137,11 @@ pub struct Attachment {
 
 /// attach_read runs the §1b rule for one committed read, on the caller's connection.
 ///
-/// It opens NO transaction of its own: the live path wraps one attach ([`attach_in_tx`]), and
-/// 6.2's backfill wraps a whole batch so a rehearsal can be rolled back with the invariants
-/// asserted inside it (the `remap -rollback` habit). Every write below belongs to whatever the
-/// caller committed to.
+/// It opens no transaction; every write belongs to the caller's connection.
 ///
 /// `Ok(None)` means the read carries no join key and is deliberately left unattached: an
 /// article whose names resolved to NOTHING has no entity to join on, and a storyline with no
-/// participants can never be matched into, nor fanned out from (mig 206 routes on
-/// `storyline_entities`). Those reads stay in `editor_reads` as archive and reach the
+/// participants can never be matched into or fanned out from. Those reads stay in `editor_reads` and reach the
 /// Investigator through the nomination sweep instead.
 ///
 /// Already-attached reads return `Ok(None)` too: membership is settled once. A re-read after a
@@ -194,10 +174,7 @@ pub async fn attach_read(
 
     let candidates = candidates(&mut *conn, sport, &entity_types, &entity_ids, as_of_epoch).await?;
     let chosen = pick(&candidates, &read.story_type);
-    // The winner, for the record columns only (mig 217). Looked up rather than returned by `pick`
-    // so the scoring rule keeps its signature and its tests: 6.7 is a QUALITY finding and this
-    // commit is instrumentation, so nothing in the attachment decision may move here.
-    // Unambiguous — `candidates` is GROUP BY storyline_id, so at most one row can match.
+    // Load the unique winning candidate for record-only fields.
     let winner = chosen.and_then(|(id, _)| candidates.iter().find(|c| c.storyline_id == id));
     let tx = &mut *conn;
 
@@ -250,9 +227,7 @@ pub async fn attach_read(
     .bind(article_id)
     .bind(as_of_epoch.map(|e| e as f64))
     .bind(method.as_str())
-    // NULL on an opening article, on all four of the winner-derived columns: there was no
-    // candidate, so there is no score, no matched seed and no seed size to report. Writing 0
-    // would read back as "scored zero", which is a different and false claim (mig 217).
+    // Opening rows have no candidate-derived values; NULL is distinct from a score of zero.
     .bind(winner.map(|_| score))
     .bind(winner.map(|c| c.matched.clone()))
     .bind(winner.map(|c| c.seed_size))
@@ -263,11 +238,10 @@ pub async fn attach_read(
     .await
     .with_context(|| format!("attach article {article_id} to storyline {storyline_id}"))?;
 
-    // D5: an entity's part in a storyline has its own lifespan. A fresh mention bumps
+    // An entity's part in a storyline has its own lifespan. A fresh mention bumps
     // `last_seen_at`; it never resurrects an edge a resolution closed (`left_at` stays put —
     // reopening it would undo the close-in-one-stroke this table exists for).
     //
-    // Two role rules landed 2026-08-24 (the Chelsea card):
     // - `absent` never attaches. The Editor explicitly said "this entity is not in the text" —
     //   the hypothesis list is query-derived, so an absent link is a resolver false positive,
     //   and a participant edge would fan work out to an entity the story never mentioned.
@@ -275,8 +249,7 @@ pub async fn attach_read(
     //   first-write-wins. A story legitimately becomes ABOUT an entity that entered it as a
     //   mention, and the packet read now fences on `role = 'subject'`
     //   (`packet::load_packets_for_entity`), so a role that can never upgrade would freeze an
-    //   entity out of its own story. This is also the forward-heal for the ~12k blank-role rows:
-    //   the next subject-classified article upgrades the edge, no backfill needed.
+    //   entity out of its own story.
     sqlx::query(
         r#"
         INSERT INTO public.storyline_entities
@@ -456,13 +429,8 @@ async fn already_attached(conn: &mut PgConnection, article_id: i64) -> Result<bo
 /// member brings in still joins `storyline_entities` (they are participants; the fan-out and
 /// the packet want them), but they do not extend the join key.
 ///
-/// This was measured, not assumed. With every participant matching, the 2026-08-05 backfill
-/// rehearsal over 2,000 shadow reads produced a 569-article storyline — 28% of the corpus in
-/// one "story". The mechanism is rich-get-richer: a player named in passing joins the entity
-/// set, the next article about THAT player attaches and brings its own cast, and within a day
-/// the set is large enough that any transfer piece naming two of its clubs lands in the blob.
-/// Freezing the key at the seed bounds it: a story can gather coverage of itself forever, and
-/// can never grow a new identity.
+/// Freezing identity at the seed prevents later participants from turning the story into
+/// a rich-get-richer catch-all.
 ///
 /// The dominant type is a mode over member reads, computed here rather than cached on the
 /// storyline: a cached rollup is a second writer of the same fact, and this query runs against
@@ -488,8 +456,7 @@ async fn candidates(
                      FILTER (WHERE se.entity_type <> 'team')::int AS person_overlap,
                    count(DISTINCT (se.entity_type, se.entity_id))
                      FILTER (WHERE se.entity_type =  'team')::int AS team_overlap,
-                   -- The same overlap the two counts above measure, named rather than tallied
-                   -- (mig 217). Ordered so a replay of one corpus writes one array.
+                   -- The same overlap named rather than tallied, in replay-stable order.
                    array_agg(DISTINCT se.entity_type || ':' || se.entity_id::text) AS matched,
                    EXTRACT(EPOCH FROM (c.as_of - s.last_seen_at))::bigint AS age_secs
               FROM public.storylines s
@@ -628,12 +595,7 @@ pub async fn mark_dormant(pool: &PgPool) -> Result<u64> {
     Ok(n)
 }
 
-/// resolve_storyline is D5, in one stroke: name who the story resolved FOR, then close every
-/// other participant's edge as `not_the_outcome` in the same transaction.
-///
-/// Wired now, invoked later: the transfer chain is the first caller (Phase 7). Nothing in
-/// Phase 6 records a resolution, and inventing one from article prose would be exactly the
-/// model-renders-a-verdict move T2 forbids.
+/// Names the winning participant and closes every other edge in one transaction.
 pub async fn resolve_storyline(
     pool: &PgPool,
     storyline_id: i64,
@@ -877,8 +839,7 @@ mod tests {
         assert_eq!(stories[0].members, 2);
     }
 
-    /// The rich-get-richer failure the 2026-08-05 rehearsal measured (a 569-article "story"):
-    /// a cast picked up by a later member must not become part of what the storyline matches on.
+    /// Later participants must not extend the storyline's matching identity.
     #[test]
     fn a_later_members_cast_does_not_extend_the_join_key() {
         const RM: (&str, i32) = ("team", 3468);
@@ -900,8 +861,7 @@ mod tests {
         assert!(!stories[0].seed.contains(&("player".to_string(), 9)));
     }
 
-    /// The listicle magnet the 12,571-read backfill measured: one NBA conference preview named
-    /// six stars and five clubs, and every later article about any one of them joined it.
+    /// A wide-cast listicle must not absorb every later article about one participant.
     #[test]
     fn a_wide_cast_seed_does_not_swallow_the_conference() {
         let listicle: Vec<(&'static str, i32)> = vec![

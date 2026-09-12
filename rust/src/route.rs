@@ -1,24 +1,5 @@
-//! Route — the model-call seam: role → concrete model at runtime (Plan §1.1 / §2).
-//!
-//! A stage names a **role** (the model's JOB), never a model name; the `Router` resolves
-//! that role to a concrete backend. Every CHARACTER stage owns its role (the identity split:
-//! a character's voice must never silently flip with a sibling's route change), while utility
-//! calls (graph extraction, identity adjudication) share `EmotionalNews`.
-//! This is the *swap seam*: the three swaps the Hardware
-//! Roadmap brings — identity (`e4b` → `31B`), topology (one model → two concurrent → one
-//! unified fine-tune), backend (Ollama → vLLM) — all land here, and stage code never moves.
-//!
-//! L2 ships the config-driven router: `Router::from_config` builds the per-role map from
-//! [`RouteConfig`] (the `COGNITION_ROUTE_*` table), one `Arc<dyn Inference>` per DISTINCT
-//! model (so roles sharing a model share a backend), plus the optional A/B `candidate_for`
-//! challenger. With nothing configured every role resolves to the one local model, so this moved
-//! ZERO bytes vs the L1 single router — `for_role`'s contract is unchanged, which is why the
-//! identity/topology/backend swaps (Plan §2.1) never move a stage.
-//!
-//! `Inference` is the one real trait under Route: the model backend. `OllamaClient` is its
-//! first (today, only) impl; a second impl (vLLM) waits until it is real, not built on
-//! speculation. The trait's three methods are exactly the inherent methods `OllamaClient`
-//! already exposes, so the impl is a thin delegation and the wire body stays single-sourced.
+//! Role-to-model routing and the model-call boundary. Stages name roles, never concrete models.
+//! Roles sharing a backend share its client and per-host concurrency governor.
 
 use crate::config::{Backend, ModelSpec, RouteConfig};
 use crate::ollama::{GenerateOptions, GenerateResult, OllamaClient};
@@ -30,52 +11,20 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Semaphore;
 
-/// The window every ARCHBOX-LOCAL model stage requests — the Editor, graph and the Insider's
-/// transfer call alike.
-///
-/// **The uniformity is the point, not the number.** ollama keys a loaded runner on its context
-/// size, so two roles on the same host and model asking for different sizes force an
-/// unload-and-reload on every alternation between them. That is a settled diagnosis, not a
-/// theory: it is what `graph` (`num_ctx: 0`) did against The Editor's 8192 on the local card
-/// (matching them took Archbox's reloads to zero), and what the Mac's mixed 8192/16384 era cost
-/// before [`VOICE_NUM_CTX_PACKET`] unified the voices — roughly a fifth of the host's wall clock
-/// spent reloading weights it already had (measured 2026-07-26). These stages share archbox's
-/// single runner (`MAX_LOADED_MODELS=1`), so they move together or not at all.
-///
-/// Anchored here in Phase 9 (9.1). It previously lived as `article_reader::ARTICLE_NUM_CTX` and was
-/// borrowed across the tree from inside the legacy reader; when that module was demolished the
-/// constant had to outlive it, and `route.rs` — which already owns the voice windows — is where a
-/// per-host window belongs. **Value unchanged at 4096** (D-T29), so the demolition moved no numbers.
-/// `EDITOR_NUM_CTX` still exists as the Editor's own name for it and is pinned equal by test.
+/// Context window used by local model stages. Roles sharing one loaded runner must use the same
+/// size or Ollama reloads it between calls.
 pub const LOCAL_STAGE_NUM_CTX: i32 = 4096;
 
-/// The window EVERY character voice requests (§7's envelope): prompt + memory + packet render +
-/// reservation, all inside 4096. This is the number the whole diet is sized against — a voice
-/// that still needed the legacy 16384 would mean the render or the memory block had quietly
-/// grown back. All seats share archbox's one pinned runner (single-box, 2026-08-20), so the
-/// uniformity argument on [`LOCAL_STAGE_NUM_CTX`] applies directly: one window, or the runner
-/// reloads on every alternation. (The legacy 16384 constant this replaced left with the legacy
-/// corpus — the 08-06 rail cutover; `VOICE_NUM_CTX` survives only as the env override's name.)
+/// Context window shared by every character voice: prompt, evidence, and output reservation.
 pub const VOICE_NUM_CTX_PACKET: i32 = 4096;
 
-/// Whether an effective voice window is a SMALL one — the 4096 envelope rather than the 16384 the
-/// legacy corpus was sized for.
-///
-/// **Every output reservation and every context cap in the six voices keys on THIS.** It survived
-/// the Phase 9 rail prune deliberately: the window is set by `VOICE_NUM_CTX`, not by which corpus
-/// a voice reads, so it stayed a live knob when the rail taxonomy did not (that `Rail` enum is
-/// now deleted outright). The arithmetic it defends is unchanged and rail-agnostic — a `num_predict` larger than the window is the silent
-/// system-prompt eviction `narratives_decode_budget` has documented since it was written (and D-T40
-/// re-measured on the Editor).
+/// Whether a voice uses the small context envelope. Output reservations and evidence caps key on
+/// this effective window.
 pub fn small_voice_window(num_ctx: i32) -> bool {
     num_ctx <= VOICE_NUM_CTX_PACKET
 }
 
-/// The effective voice window: the `VOICE_NUM_CTX` env override when set, else `VOICE_NUM_CTX_PACKET`.
-///
-/// The override exists because a pinned single-runner host wants ONE window — uniformity is what
-/// keeps it loaded (§3). An unparseable or absurd value resolves to the default rather than
-/// failing a boot, the same total-parse discipline `RAIL` used to carry.
+/// Resolve `VOICE_NUM_CTX`, defaulting invalid values and values below 512.
 pub fn resolve_voice_num_ctx(raw: Option<&str>) -> i32 {
     raw.and_then(|v| v.trim().parse::<i32>().ok())
         .filter(|n| *n >= 512)
@@ -101,35 +50,16 @@ impl Inference for OpenAiClient {
     }
 }
 
-/// Role names a model's JOB, not its name. Stages address a `Role`; the `Router` maps it to
-/// a concrete model. The one place a model id may appear is the router config (L2) — never
-/// in stage code. Derives `Hash` for the L2 role→model map.
-///
-/// The character voices each hold their own route seam as an *identity* split — an earned route
-/// change for one voice must never silently flip another (`MomentumLogic` out of `StatsLogic`
-/// 2026-07-11, `NarrativeLogic` 2026-07-12, `TransferLogic`/`VibeLogic` 2026-07-22,
-/// `OracleLogic` from day one; un-configured, every seat resolves to the default model, so each
-/// split alone moved zero behavior). `OracleLogic` backs the crown (the Sigil): the ONE call
-/// that reads the five pillar cards and emits the reading + score (the panel's `SynthesisLogic`
-/// was folded in and retired, 2026-07-21). `EmotionalNews` is UTILITY-only: graph extraction
-/// and transfer identity adjudication — calls with no character voice. `Multilang` is the
-/// HORIZON normalize role; `Sql` is the SQLCoder role.
-/// *(The `ArticleReader` role — the legacy rail's reader seat — was deleted in Phase 9 (9.1);
-/// `Role::all()` is 11 seats now, not 12.)*
+/// A model's job. Each character has its own role so rerouting one cannot change a sibling's
+/// voice. `EmotionalNews`, `Multilang`, and `Sql` are utility roles.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Role {
     StatsLogic,
     MomentumLogic,
     NarrativeLogic,
-    /// The Editor (PLAN-one-rail Phase 3): reads every arrival on the ep1 contract.
-    /// Settled by hardware (§4 ruling) — `COGNITION_ROUTE_EDITOR` on archbox. It shadowed the
-    /// legacy `ArticleReader` seat until cutover; that role was deleted in Phase 9 (9.1), and
-    /// `COGNITION_ROUTE_ARTICLE_READER` retired with it on BOTH machines.
+    /// Reads every article arrival.
     Editor,
-    /// The Investigator (PLAN-one-rail Phases 4–5): box-score retrieval and entity discovery.
-    /// Rides the SAME pinned archbox model as the Editor (§3 — `MAX_LOADED_MODELS=1` makes any
-    /// other tag evict the incumbent); `COGNITION_ROUTE_INVESTIGATOR`. Its only v1 model
-    /// calls are describe-only page triage — numbers never enter rows through this role.
+    /// Box-score retrieval and entity discovery.
     Investigator,
     TransferLogic,
     VibeLogic,
@@ -239,15 +169,8 @@ impl Inference for OllamaClient {
     }
 }
 
-/// GovernedInference is the GPU governor (the operational prerequisite the Cutover Plan §94.2
-/// names) — a decorator over any [`Inference`] backend that acquires a SHARED semaphore permit
-/// before each `generate`. The Router wraps every backend it builds in this, sharing ONE
-/// semaphore (`OLLAMA_MAX_CONCURRENT`), so the total in-flight model calls across ALL roles and
-/// models never exceeds the budget — there is one GPU, so one budget. It makes the bound
-/// explicit so the concurrent drain stays bounded no matter how stages multiply,
-/// and it sits at the model-call SEAM so no caller can bypass it (every `for_role(_).generate`
-/// is governed, unlike a check in one handler). `model`/`request_body` are pure/local (no GPU),
-/// so they delegate WITHOUT a permit — only `generate`, the call that hits the GPU, is gated.
+/// Model backend decorated with a shared host semaphore. Only `generate` needs a permit;
+/// `model` and `request_body` are local.
 struct GovernedInference {
     inner: Arc<dyn Inference>,
     gpu: Arc<Semaphore>,
@@ -280,14 +203,8 @@ impl Inference for GovernedInference {
     }
 }
 
-/// Router maps `Role` → concrete model at runtime — the Route primitive (Plan §2).
-///
-/// Built by `from_config` from the [`RouteConfig`] table: `incumbents` is what every role
-/// resolves to (`for_role`); `candidates` is the optional A/B challenger per role
-/// (`candidate_for`, eval-only). Roles that resolve to the same model share ONE backend Arc.
-/// `for_role` keeps the same shape across every config swap (identity/topology/backend, Plan
-/// §2.1), which is why a model change never moves stage code — it is a config line + an eval
-/// win, never an edit.
+/// Maps each [`Role`] to its incumbent backend and optional eval candidate. Roles resolving to
+/// the same specification share one backend.
 pub struct Router {
     /// The incumbent backend each role resolves to. Populated for every `Role` (the config
     /// covers `Role::all`), so `for_role` is total.
@@ -298,27 +215,8 @@ pub struct Router {
 }
 
 impl Router {
-    /// from_config builds the router from the `COGNITION_ROUTE_*` table: one
-    /// `Arc<dyn Inference>` per DISTINCT (backend, model, base_url) — so the single-model default
-    /// builds exactly one backend shared by every role (byte-identical to the L1 single
-    /// router) — wired to each role's incumbent, plus any configured A/B challenger. `timeout`
-    /// is the shared per-call budget (`OLLAMA_TIMEOUT_SECONDS`); per-backend timeouts move
-    /// into `ModelSpec` when topology splits (HORIZON).
-    ///
-    /// The GPU governor budget is **per host**, keyed by `base_url`: one semaphore per distinct
-    /// machine, sized from `COGNITION_BACKEND_CONCURRENCY` with `max_concurrent`
-    /// (`OLLAMA_MAX_CONCURRENT`) as the fallback. Clamped to ≥1 (0 would block forever).
-    ///
-    /// It was one global semaphore until the 2026-08 two-host era, on the reasoning "one GPU →
-    /// one budget". That premise dies the moment a role lives on another machine: a single
-    /// permit shared across two hosts makes them take turns, so the remote box idles while the
-    /// local one works and the split buys nothing. Keyed by host, the two drain concurrently.
-    /// The per-host keying is KEPT post-consolidation (2026-08-20, single box): it is the
-    /// env-only rollback/re-expansion path — add a role's `_BASE_URL` and its host gets its
-    /// own governor with no code change.
-    ///
-    /// Single-host deploys are unaffected: every role resolves to one `base_url`, so one
-    /// semaphore is built and the behaviour is byte-identical to the global-budget version.
+    /// Build one backend per distinct `(backend, model, base_url, think)` and one concurrency
+    /// governor per host. `max_concurrent` is the fallback for hosts without an explicit budget.
     pub fn from_config(
         cfg: &RouteConfig,
         timeout: Duration,
@@ -355,9 +253,7 @@ impl Router {
     }
 
     /// candidate_for returns the optional A/B challenger for a role — the backend `bin/eval`
-    /// scores against the incumbent. `None` unless `COGNITION_ROUTE_<ROLE>_CANDIDATE` is set.
-    /// The router NEVER routes serving traffic here; adoption is a human editing the config on
-    /// a measured win (Plan §2.2).
+    /// scores against the incumbent. The router never sends serving traffic to candidates.
     pub fn candidate_for(&self, role: Role) -> Option<Arc<dyn Inference>> {
         self.candidates.get(&role).map(Arc::clone)
     }
@@ -386,11 +282,7 @@ fn governor_for(
     gpu
 }
 
-/// build_backend returns the `Arc<dyn Inference>` for a spec, constructing one per distinct
-/// (backend, model, base_url) and reusing it across roles. The `match` on `spec.backend` is
-/// where a new backend (vLLM) plugs in — one arm, alongside its new `impl Inference`. Every
-/// constructed backend is wrapped in [`GovernedInference`] sharing the one `gpu` semaphore, so
-/// the cached (and role-shared) Arc is already governed — the bound is impossible to bypass.
+/// Build or reuse a governed backend for a model specification.
 fn build_backend(
     built: &mut HashMap<String, Arc<dyn Inference>>,
     spec: &ModelSpec,

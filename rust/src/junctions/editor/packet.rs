@@ -1,4 +1,4 @@
-//! The Desk, part two — packet compilation (PLAN-one-rail Phase 6.3, §1c).
+//! Deterministic, append-only storyline packet compilation.
 //!
 //! A packet is a SNAPSHOT of a storyline at compile time, assembled in code from member
 //! `editor_reads`. Zero model tokens (C5: the Editor's output budget is coverage, not
@@ -10,15 +10,7 @@
 //! agreement" both survive, side by side, attributed — the disagreement is the story, and a
 //! similarity threshold that collapsed them would delete it.
 //!
-//! **The fan-out hazard (read before wiring this into the drain loop).** `INSERT ON packets`
-//! fires mig 206's `enqueue_voices_on_packet`. Arm 1 (tag-subscribed voices) is inert until
-//! Phase 7.4 seeds `stage_routing_subscriptions`. Arm 2 is NOT: the Journalist's `narratives`
-//! fan-out is unconditional by design, so every packet enqueues `narratives` work for each
-//! active player/team participant, with `input_version` `pk:<fingerprint>` — while the legacy
-//! `article_read` seat is still enqueueing the same (stage, entity) rows with its own `n:` hash.
-//! Two writers alternating one row's `input_version` is the mig-197 churn loop. Until that seam
-//! is ruled on, the compile sweep stays behind `COGNITION_PACKET_COMPILE` (default off) and this
-//! module is a library nothing calls in production.
+//! Packet inserts fan work out to subscribed voices and always to the Journalist.
 
 use super::candidates::slice_quote;
 use super::derive::routing_tags;
@@ -39,8 +31,7 @@ pub const QUIET_DEBOUNCE_MINUTES: i64 = 15;
 /// month-long saga; the newest 200 are the snapshot, and `facts.member_articles` reports the
 /// true total so the truncation is never silent.
 pub const MAX_MEMBERS: i64 = 200;
-/// Claims carried per packet, newest first. Phase 7's render truncates again to its own
-/// budget; this cap only keeps the archive row bounded.
+/// Claims carried per packet, newest first; rendering applies its own tighter budget.
 pub const MAX_CLAIMS: usize = 200;
 /// Quotes are evidence, not colour: one per member article, newest members first.
 pub const MAX_QUOTES: usize = 6;
@@ -78,15 +69,7 @@ pub struct PacketEntity {
     pub descriptor: Option<String>,
 }
 
-/// One attributed claim: §1c's four fields plus the `story_type` that produced it.
-///
-/// `story_type` was in-memory-only through 6.3 (the persisted shape was exactly the four). 7.2
-/// persists it, because the Insider's packet slice IS the transfer-typed claims (7.5) and its
-/// `slice_fingerprints.transfers` hashes exactly that subset: a renderer that cannot see the type
-/// would render a different slice than the fingerprint promises, and E2's "re-read only when YOUR
-/// slice moved" would be a lie in both directions (silent staleness, or a re-fan that changes
-/// nothing). Free to add here: zero packets have ever been compiled, so no row carries the old
-/// shape, and readers key on the four fields they already knew.
+/// One attributed claim plus the story type used for voice slicing.
 #[derive(Clone, Debug)]
 struct Claim {
     article_id: i64,
@@ -146,15 +129,7 @@ pub fn compile(members: &[Member], entities: &[PacketEntity]) -> PacketDraft {
         .filter(|c| c.story_type.eq_ignore_ascii_case("transfer"))
         .map(|c| c.to_json())
         .collect();
-    // The Scout's slice: availability. Same shape as the Insider's transfer slice, and it is
-    // what lets the Editor TAG him rather than have the pipeline adjudicate on his behalf.
-    //
-    // The fingerprint is the CLAIMS HASH, which is why this needs no day-key, no debounce table
-    // and no adjudication status: five outlets reporting one knock collapse to the same claim
-    // set and enqueue ONCE, while a genuinely new fact (a return, a longer prognosis) moves the
-    // hash and wakes him again. Scott's once-per-event-day rule falls out of CONTENT rather than
-    // out of a calendar — strictly better, because it also holds across days when nothing new is
-    // said, and re-fires within a day when something is.
+    // Availability wakes the Scout only when the claim set changes.
     let availability_claims: Vec<Value> = claims
         .iter()
         .filter(|c| {
@@ -197,8 +172,7 @@ pub fn compile(members: &[Member], entities: &[PacketEntity]) -> PacketDraft {
     tags.sort();
     tags.dedup();
 
-    // Keys are STAGE strings (mig 202's column comment; mig 206 reads
-    // `slice_fingerprints ->> stage`). A voice re-reads only when ITS slice moved.
+    // Stage-keyed fingerprints wake a voice only when its slice changes.
     let slice_fingerprints = json!({
         "narratives": hash_components(&json!({
             "headline": headline,
@@ -210,11 +184,7 @@ pub fn compile(members: &[Member], entities: &[PacketEntity]) -> PacketDraft {
             "claims": claims_json,
         }).to_string()),
         "transfers": hash_components(&json!({ "claims": transfer_claims }).to_string()),
-        // `rating` is the STAGE the Scout drains, so this key is what mig 225's
-        // `enqueue_voices_on_packet` reads to mint his `pk:` input_version. Before it existed
-        // the lookup fell through to the packet id, which made every injury packet its own
-        // enqueue — the reason the routing subscription was previously judged unusable. It is
-        // usable now.
+        // The rating stage consumes the availability slice.
         "rating": hash_components(&json!({ "claims": availability_claims }).to_string()),
     });
 
@@ -239,8 +209,7 @@ pub fn compile(members: &[Member], entities: &[PacketEntity]) -> PacketDraft {
     }
 }
 
-/// The best member title: lowest `feed_rank` (Google's own ordering, mig 194), missing ranks
-/// last, ties to the newest.
+/// The best member title: lowest feed rank, then newest.
 fn best_headline(members: &[Member]) -> Option<String> {
     members
         .iter()
@@ -271,10 +240,7 @@ fn rollup_story_types(members: &[Member]) -> Vec<String> {
 
 /// The strongest non-neutral register among members, with its phrase (§1c).
 ///
-/// "Strongest" is the register the members most AGREE on, newest breaking ties — not an
-/// invented intensity ladder. The Editor describes a register; nobody scored its intensity, and
-/// the Influencer owns the score (mig 202's column comment). A packet whose members are all
-/// neutral carries no register at all.
+/// "Strongest" means most common, with newest breaking ties. All-neutral packets omit it.
 fn rollup_register(members: &[Member]) -> (Option<String>, Option<String>) {
     let mut counts: BTreeMap<String, usize> = BTreeMap::new();
     for m in members {
@@ -342,8 +308,7 @@ fn collect_claims(members: &[Member]) -> Vec<Claim> {
     claims
 }
 
-/// One code-sliced quote per member (newest first), around the first participant named in that
-/// member's stored body. The model never emits quotes — mig 202's contract.
+/// One code-sliced quote per member around the first named participant.
 fn collect_quotes(members: &[Member], entities: &[PacketEntity]) -> Vec<Value> {
     let mut ordered: Vec<&PacketEntity> = entities.iter().collect();
     ordered.sort_by(|a, b| {
@@ -512,17 +477,8 @@ pub struct PacketView {
 /// ones are archive (the moat), never context. `left_at IS NULL` honours D5 — an entity written
 /// out of a story stops reading it.
 ///
-/// **SUBJECT ONLY (2026-08-24, the Chelsea card).** The Editor classifies every participant's
-/// part (`subject | opponent | passing_mention | absent`) and until now nothing consumed the
-/// verdict: Chelsea's vibe card was built from a Tottenham transfer saga because Enzo Fernandez
-/// was mentioned in passing (vibe_scores 60602 — the "fabricated" Savinho/Marmoush/De Zerbi card
-/// whose every claim was in fact sitting in the packet block). Every voice reads through here,
-/// so the fence is here: an entity reads only the stories it is the SUBJECT of. `opponent` is
-/// deliberately out too — each team has its own query lane, so its real coverage arrives with it
-/// as subject, and the opponent-role blocks measured on the live card were cross-team noise. A
-/// blank role (the attach's fail-to-empty reconstruction) is out for the same law: fail open to
-/// silence, never to a guess. Blank rows heal forward via the strongest-role upsert in
-/// `storyline::attach_read`.
+/// Only subject-role storylines are returned; opponent, passing, absent, and blank roles
+/// cannot supply a voice's evidence.
 pub async fn load_packets_for_entity(
     pool: &PgPool,
     entity_type: &str,
@@ -604,24 +560,8 @@ pub async fn load_packets_for_entity(
         ));
     }
 
-    // THE CLAIM FENCE (2026-09-06, the Iraola-coaches-Chelsea trail). Storyline MEMBERSHIP is
-    // deliberately broad — a transfer saga rightly places every club with a stake — but
-    // membership was also the READ, so every subject received EVERY claim in the storyline's
-    // packets: Chelsea's Journalist got Liverpool's match reports (storyline 19770 carried
-    // NINE placed teams), and a summarizer told "your beat is Chelsea" bent the foreign facts
-    // onto its beat ("Chelsea 2-0 win over Ipswich… with Liverpool's Andoni Iraola as head
-    // coach", news_summaries 119706). Every downstream voice then repeated it. The prompt rule
-    // ("never turn a story about another club into this entity's story") loses to material
-    // that shouts, so the fence is code (DOCTRINE-directing.md): placement stays broad, the
-    // read narrows.
-    //
-    // A claim reaches this entity's prompt only if its article is TAGGED to the entity
-    // (news_article_entities), or — for a team — tagged to a player/person whose current team
-    // is this team (match reports are routinely tagged to the people in them and to no club:
-    // the Ipswich 0-2 Liverpool report carried Gakpo/Isak/Iraola and neither team). A packet
-    // left with no admitted claims is dropped whole: that story is not this entity's story
-    // this cycle. Stale rosters can still mis-route an article through a player whose
-    // `team_id` lags a move — a freshness defect, not a fence defect.
+    // Admit only claims whose article is tagged to the entity or, for teams, to current
+    // personnel. Drop packets left with no admitted claims.
     let mut article_ids: Vec<i64> = out
         .iter()
         .flat_map(|(v, _)| v.claims.iter().map(|c| c.article_id))
@@ -674,14 +614,8 @@ pub async fn load_packets_for_entity(
                     return None;
                 }
                 if view.claims.len() < before {
-                    // A MIXED story (some claims foreign) also scrubs its cross-entity
-                    // FRAMING: measured on the first fenced Chelsea regen (2026-09-06), the
-                    // claims were clean but the framing still delivered "RESULT: Liverpool
-                    // 2-0 Ipswich | ALSO IN THIS STORY: Andoni Iraola, … +28 more |
-                    // PREVIOUSLY: Liverpool reject £30m Trey Nyoni bid" — the saga's main
-                    // event, mood and cast, which belong to whichever entity anchors it. The
-                    // role line and story TYPE survive (they are this entity's own data); a
-                    // FULLY-admitted story keeps its whole framing.
+                    // Mixed-story framing may belong to another entity, so scrub it with
+                    // the foreign claims. Fully admitted stories keep their framing.
                     view.headline = None;
                     view.result_line = None;
                     view.prior_headline = None;
@@ -1190,9 +1124,7 @@ mod tests {
         );
     }
 
-    /// Mig 206 reads `slice_fingerprints ->> stage`. Character names in the keys would fail open
-    /// on every packet forever (a silent re-fan, never a starve — but never the E2 debounce
-    /// either), so the keys are pinned by a test.
+    /// Fingerprints are keyed by queue stage, not character name.
     #[test]
     fn fingerprint_keys_are_stage_strings() {
         let draft = compile(&[member(1, "A", Some(1), 100, "transfer", &["a"])], &[]);
@@ -1202,10 +1134,7 @@ mod tests {
             .unwrap()
             .keys()
             .collect();
-        // `rating` joined 2026-08-23 — the Scout's availability slice. A key here is what mig
-        // 225 reads to mint a voice's `pk:` version, so its ABSENCE was why an injury packet
-        // fell through to the packet id and enqueued him once per packet instead of once per
-        // change of fact.
+        // Rating consumes the Scout's availability slice.
         assert_eq!(keys, vec!["narratives", "rating", "transfers", "vibe"]);
     }
 

@@ -51,7 +51,7 @@ Language handling: the article title/text may be in English, Spanish, French, Ge
 Return ONLY this JSON object, no commentary:
 {"relations":[{"subject":1,"predicate":"trade_rumor","object":2,"sentiment":0.0,"confidence":"reported"}],"persons":[{"name":"...","kind":"coach","team_context":2}]}"#;
 
-pub const GRAPH_PROMPT_VERSION: &str = "g3"; // g3: multilingual article handling + English-only generated strings; g2: person-extraction emphasis + object-attachment rule
+pub const GRAPH_PROMPT_VERSION: &str = "g4";
 
 /// build_graph_prompt lays out the article + numbered candidates (1-indexed, matching
 /// the reply contract).

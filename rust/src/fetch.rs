@@ -1,12 +1,5 @@
-//! Shared article fetcher — resolve, fetch, and clean one publisher page.
-//!
-//! Extracted from the legacy reader junction (`junctions/article_reader`) in Phase 3.1 of
-//! PLAN-one-rail so the Editor and the legacy `article_read` stage fetched through ONE
-//! implementation: Google-News wrapper resolution, the HTTP fetch, the headless-Chrome
-//! fallback, and HTML-to-text cleaning. The legacy stage is demolished (Phase 9); the Editor is
-//! the sole caller now. (`ARTICLE_READ_CHROME_ENABLED` keeps its legacy name deliberately — it
-//! is a deployed env knob on archbox, and renaming it here would silently disable the Chrome
-//! fallback wherever the old name is still set.)
+//! Resolve, fetch, and clean publisher pages for the Editor and Investigator.
+//! `ARTICLE_READ_CHROME_ENABLED` remains the deployed name of the Chrome fallback switch.
 //!
 //! Infrastructure rule (see `junctions/mod.rs`): junctions may depend on this module; this module
 //! must not depend on any junction.
@@ -271,20 +264,7 @@ const NON_CONTENT_TAGS: &[&str] = &[
     "button", "select", "textarea", "template", "figure",
 ];
 
-/// Phrases that reliably mark the END of the story on a publisher page.
-///
-/// MEASURED 2026-08-22 across `news_articles.full_text` (37,683 rows): p50 6,142 chars but 41%
-/// over `EDITOR_MAX_MODEL_CHARS`, and sampling the tails showed almost none of that length is
-/// journalism. It is a duplicated podcast promo, "Add us as a preferred source on Google", a
-/// modified-date line, a staff-writer biography, a "Home / College Football" breadcrumb — and,
-/// on one publisher, an ENTIRE SECOND ARTICLE from a related-stories feed.
-///
-/// That last one is why this exists at all. The token cost is real, but feeding a second story
-/// into a junction whose whole instruction is "describe THIS page accurately" is a correctness
-/// bug: every fact the Editor extracts from it is attributed to the wrong article.
-///
-/// These are applied ONLY in the tail (see `trim_boilerplate_tail`) because several are ordinary
-/// English that can legitimately appear mid-story.
+/// Phrases that mark site furniture in the tail of a publisher page.
 const TAIL_MARKERS: &[&str] = &[
     "this article was translated into english by artificial intelligence",
     "add us as a preferred source",
@@ -311,15 +291,7 @@ const TAIL_MIN_KEEP_WORDS: usize = ARTICLE_MIN_WORDS;
 
 /// trim_boilerplate_tail cuts the body at the earliest end-of-story marker in its tail half.
 ///
-/// Byte-searched via [`find_ascii_ci`], never through a `to_lowercase()` copy. The previous
-/// implementation sliced `lower[from..]` with a midpoint byte index — any article whose midpoint
-/// landed inside a multibyte char panicked ("not a char boundary; inside 'á'"), and it indexed
-/// the ORIGINAL text with offsets measured on the lowercased copy, the exact
-/// `strip_element_blocks` incident shape (2026-07-26). 23 harness-killing panics on the night of
-/// 2026-08-23 came from this line. The markers are ASCII, so ASCII-case-insensitive byte search
-/// is sufficient, length-true, and boundary-safe by construction: `from` may land mid-char, but
-/// a marker match can never START on a UTF-8 continuation byte, and every returned offset points
-/// at an ASCII byte — always a char boundary.
+/// ASCII byte search keeps offsets aligned with the original UTF-8 string.
 fn trim_boilerplate_tail(text: &str) -> String {
     let from = (text.len() as f64 * TAIL_SEARCH_FROM) as usize;
     if from >= text.len() {
@@ -373,23 +345,8 @@ fn dedupe_repeated_segments(text: &str) -> String {
         .join(" ")
 }
 
-/// extract_article_text pulls the READING BODY out of a publisher page.
-///
-/// **Why this exists, measured 2026-08-09.** [`clean_html`] strips `<script>`/`<style>` and then
-/// removes tags while keeping EVERY remaining text node — so the model was handed the whole page.
-/// A representative 7,922-char Editor prompt carried **~2,700 chars of article** inside ~5,200
-/// chars of betting-site menus, a country list, "Related To This Article", "Popular News", and the
-/// publisher's street address. **Two thirds of the article budget was site furniture**, on a runner
-/// whose window D-T40 showed was already overflowing on the common case.
-///
-/// Two passes, cheapest first:
-/// 1. delete every [`NON_CONTENT_TAGS`] element, contents included;
-/// 2. prefer the LARGEST `<article>` element, then `<main>`. Largest matters because related-post
-///    cards are themselves `<article>` on most CMS themes — the real story is the big one.
-///
-/// ⛔ **It can only ever SHRINK the body, so it fails safe:** any result under
-/// [`ARTICLE_MIN_WORDS`] is discarded and the caller keeps the full-page text, which is exactly
-/// today's behaviour. A site this cannot parse is no worse off than before.
+/// Extracts a reading body, preferring the largest `<article>` and then `<main>`.
+/// A result below [`ARTICLE_MIN_WORDS`] falls back to cleaned full-page text.
 pub fn extract_article_text(html: &str) -> String {
     let mut doc = html.to_string();
     for tag in NON_CONTENT_TAGS {
@@ -461,14 +418,6 @@ pub fn clean_html(html: &str) -> String {
 /// Case-insensitive ASCII search for `needle` in `haystack`, starting at byte offset `from`
 /// and returning an offset into `haystack` itself.
 ///
-/// This exists because the obvious version — search a `to_lowercase()` copy, then index the
-/// original with the result — is only sound while lowercasing preserves byte length, and
-/// Unicode does not guarantee that. `İ` (U+0130, 2 bytes) lowercases to `i̇` (U+0069 U+0307,
-/// 3 bytes), so every offset past the first one drifts by a byte. A Galatasaray match report
-/// with 11 of them made the lowercase copy 11 bytes longer than the original and panicked the
-/// whole harness on `&html[pos..]` (2026-07-26, `start byte index 1040186 is out of bounds for
-/// string of length 1040175`).
-///
 /// HTML tag names are ASCII, so ASCII-case-insensitive matching is both sufficient here and
 /// length-preserving by construction. Every returned offset points at an ASCII byte, which is
 /// always a char boundary in UTF-8 — so the slices built from it cannot panic either.
@@ -516,16 +465,15 @@ pub fn normalize_space(s: &str) -> String {
 }
 
 // ---------------------------------------------------------------------------
-// The budgeted fetcher (PLAN-one-rail 4.2) — the Investigator's polite front door.
+// The Investigator's budgeted fetcher.
 //
-// Shared substrate: founded in Phase 4 (box scores), reused by Phase 5 (entity discovery).
 // Every retrieval the Investigator makes goes through ONE `BudgetedFetcher`, which enforces,
 // per domain: concurrency 1, a minimum spacing between requests, 429/Retry-After respected
 // as a hold, and a circuit breaker after repeated failures. A domain that blocks direct
 // fetch is a domain we skip — never stealth, no browser automation on this path.
 //
-// Every successful fetch is recorded as a NEW `source_documents` row (provenance is a point
-// in time, not a link — mig 205); within `cache_ttl` a same-URL row is reused instead of
+// Every successful fetch is recorded as a NEW `source_documents` row. Within `cache_ttl`,
+// a same-URL row is reused instead of
 // re-fetching, so replays and retries do not hammer sources.
 // ---------------------------------------------------------------------------
 
@@ -839,7 +787,7 @@ fn parse_retry_after(headers: &reqwest::header::HeaderMap) -> Option<Duration> {
     }
 }
 
-/// The provenance subset of response headers worth keeping (mig 205 `headers jsonb`).
+/// The response headers retained for provenance.
 fn provenance_headers(headers: &reqwest::header::HeaderMap) -> serde_json::Value {
     let mut obj = serde_json::Map::new();
     for key in ["content-type", "etag", "last-modified", "cache-control"] {

@@ -1,23 +1,12 @@
-//! The packet renderer (PLAN-one-rail 7.2): `(packet, entity, voice) → context block`.
-//!
-//! This was the seam the cutover flipped, and the flip is finished: the `RAIL` switch is gone,
-//! the legacy article-corpus path was demolished in Phase 9.1, and migs 222/223 took its SQL.
-//! **There is one rail.** Every voice loads a *rendered packet* — the storyline the Desk
-//! assembled in Phase 6, written down for one entity, for one voice, in a hard budget. Comments
-//! below that still name `RAIL=legacy` are describing history, not a branch you can take.
+//! Renders `(packet, entity, voice)` into a bounded context block.
 //!
 //! Three laws shape every line below:
 //!
-//! * **The budget is HARD** (§7's 4096 envelope). The render is capped at
-//!   [`RENDER_TOKEN_BUDGET`] tokens, estimated `chars / 3.6` and asserted for real against
-//!   `eval_count` telemetry in 7.15. Oldest claims are dropped first, and **every dropped claim
-//!   is named** (the A5 rule) so a thin render is always explainable.
+//! * The render stays within [`RENDER_TOKEN_BUDGET`]; omitted claims are counted.
 //! * **Contested state is preserved** (T3/D6). Two claims that say opposite things about the same
 //!   thing are BOTH rendered, both attributed, and marked `⇄` — the disagreement is the story, so
 //!   the marker is a pointer, never a filter. Nothing here collapses a pair.
-//! * **Voice routing is data, never a model's judgment** (E1). The voice selects a SLICE by rule
-//!   ([`Voice::slice`]); no model is asked what it should be allowed to read. The Scout has no
-//!   variant in this enum at all — T4: no packet prose reaches it, ever.
+//! * Voice routing is deterministic through [`Voice::slice`].
 
 use super::packet::PacketView;
 use std::collections::HashSet;
@@ -38,35 +27,7 @@ const MIN_CLAIMS: usize = 3;
 /// Tokens held back for the "(+N older report(s) not shown)" footer the budget itself may add.
 const FOOTER_RESERVE: usize = 20;
 
-/// The voices that may read a packet.
-///
-/// # T4 NARROWED, 2026-08-23 — the Scout gets a variant, and this is exactly what changed
-///
-/// This comment used to read: *"The Scout is absent by construction (T4, and 7.7 names it):
-/// confirmed facts reach it by the stats platform and `transfer_identity_applications`, never by
-/// packet prose. There is no `Voice::Scout` to pass, so the law is enforced by the type."*
-///
-/// Scott's ruling (2026-08-23): *"Editor notices injury/suspension and tags the Scout → the Scout
-/// decides the legitimacy of the report → event is included in the report… I'd like to empower
-/// each model. Guards over evals. We can let the model do the work versus trying to engineer a
-/// rigid process."* A seat cannot judge a report it is forbidden to read, so the type-level ban
-/// is the thing that had to move.
-///
-/// **Repealed:** the Scout may read claims — attributed prose — from a packet.
-///
-/// **Still holding, and still enforced by this type:** he reads ONLY his slice — injury and
-/// suspension claims, nothing else. No general packet prose, no headline framing, and
-/// `sees_register` stays false so the Influencer's charged phrase remains hers alone. No other
-/// voice's slice changes. The alternative on the table — a `player_availability` adjudication
-/// plus a new Editor contract field naming the injured party — was the rigid process this ruling
-/// rejected, and it would have put a code gate in front of a judgement the Scout is better placed
-/// to make from the evidence itself.
-///
-/// The correctness floor moves with it, from the INPUT to the OUTPUT: `mark_contested` still
-/// points mechanically at claims that disagree (it marks, never filters — T3/D6), and `guards.rs`
-/// owns what may not survive into served prose. That is the mechanical-floor rule the guard
-/// module already states in Scott's own words: *"the guards allow the model freedom, which is our
-/// goal."*
+/// Voices with packet access. The Scout receives only injury and suspension claims.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Voice {
     /// `narratives` — the whole packet: every claim, whatever its type.
@@ -109,16 +70,7 @@ impl Voice {
         matches!(self, Voice::Influencer)
     }
 
-    /// Whether this voice sees the packet's compiled STORY headline. False for the Journalist,
-    /// measured 2026-08-26 on the full-fleet corpus extract: her narrative TITLES copied the
-    /// framing's headline verbatim — "Fee gap is all that holds up Carvalho's move to Leeds"
-    /// served byte-identical as HER title on nine-plus different entities' cards (every subject
-    /// of the storyline gets the same framing line), several times over a body about a
-    /// different story entirely. The input-shouting law, ninth application: a headline-shaped
-    /// line in the input beats any rule about writing your own, so the input stops carrying it.
-    /// She keeps the type, the result line, the participants and every claim — the material a
-    /// title is honestly built FROM — and the compiled headline stays context for the voices
-    /// that read the packet as background rather than writing headlines of their own.
+    /// The Journalist writes a fresh title and therefore does not see the packet headline.
     fn sees_story_headline(self) -> bool {
         !matches!(self, Voice::Journalist)
     }

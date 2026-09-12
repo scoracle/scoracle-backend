@@ -22,6 +22,39 @@ fn crown_parses_reading_and_score() {
 }
 
 #[test]
+fn crown_keeps_complete_sentences_and_drops_only_an_unfinished_tail() {
+    let clean = parse_crown_reply(r#"{"reading":"Vale holds the line.","score":50}"#).unwrap();
+    assert_eq!(clean.reading, "Vale holds the line.");
+
+    let clipped = parse_crown_reply(
+        r#"{"reading":"Vale holds the line. The next thought is unfinished,","score":50}"#,
+    )
+    .unwrap();
+    assert_eq!(clipped.reading, "Vale holds the line.");
+
+    let complete = format!("{}.", "word ".repeat(156).trim_end());
+    let raw = serde_json::json!({
+        "reading": format!("{complete} The morale is w."),
+        "score": 50
+    })
+    .to_string();
+    let clipped_word = parse_crown_reply(&raw).unwrap();
+    assert_eq!(clipped_word.reading, complete);
+
+    assert!(parse_crown_reply(r#"{"reading":"unfinished","score":50}"#).is_none());
+}
+
+#[test]
+fn crown_keeps_the_json_score_out_of_the_reading() {
+    let parsed = parse_crown_reply(
+        r#"{"reading":"Vale holds the line. The omen score is 50, reflecting balance. Winter remains quiet.","score":50}"#,
+    )
+    .unwrap();
+    assert_eq!(parsed.reading, "Vale holds the line. Winter remains quiet.");
+    assert_eq!(parsed.score, 50);
+}
+
+#[test]
 fn crown_salvages_prose_wrapped_json_and_collapses_whitespace() {
     let r = parse_crown_reply(
         "Here:\n{\"reading\": \"Line one.\\n  Line two.\", \"score\": 60}\nDone.",
@@ -207,32 +240,18 @@ fn pillar_convergence_is_agree_ratio_floored_to_db_contract() {
 #[test]
 fn omen_crossroads_when_half_or_more_disagree() {
     // convergence ≤ 50 ⇒ crossroads regardless of direction (half-or-more disagree).
-    assert_eq!(compute_omen(Some(50), &momentum("rising")).0, "crossroads");
-    assert_eq!(compute_omen(Some(40), &momentum("rising")).0, "crossroads");
+    assert_eq!(compute_omen(Some(50), &momentum("rising")), "crossroads");
+    assert_eq!(compute_omen(Some(40), &momentum("rising")), "crossroads");
 }
 
 #[test]
 fn omen_momentum_decides_alone() {
     // or10: Momentum's decided sign is the sole direction input.
-    assert_eq!(compute_omen(Some(80), &momentum("rising")).0, "ascendant");
+    assert_eq!(compute_omen(Some(80), &momentum("rising")), "ascendant");
     // Momentum falling → waning.
-    assert_eq!(compute_omen(None, &momentum("falling")).0, "waning");
+    assert_eq!(compute_omen(None, &momentum("falling")), "waning");
     // Nothing directional → steady.
-    assert_eq!(
-        compute_omen(Some(90), &SynthMomentum::default()).0,
-        "steady"
-    );
-}
-
-#[test]
-fn trend_dir_buckets() {
-    assert_eq!(trend_dir(2.0), "trending up strongly");
-    assert_eq!(trend_dir(0.5), "trending up");
-    assert_eq!(trend_dir(0.0), "steady");
-    assert_eq!(trend_dir(-0.5), "trending down");
-    assert_eq!(trend_dir(-2.0), "trending down strongly");
-    // Boundary: exactly 0.3 is NOT > 0.3 → steady (mirrors Go's strict `>`).
-    assert_eq!(trend_dir(0.3), "steady");
+    assert_eq!(compute_omen(Some(90), &SynthMomentum::default()), "steady");
 }
 
 #[test]
@@ -272,24 +291,15 @@ fn linear_slope_of_a_rising_series() {
 }
 
 #[test]
-fn round1_matches_go() {
+fn round1_uses_half_away_from_zero() {
     assert_eq!(round1(73.04), 73.0);
     assert_eq!(round1(73.05), 73.1); // half away from zero
     assert_eq!(round1(73.0), 73.0);
 }
 
 #[test]
-fn go_json_encoders_single_homed_in_util() {
-    // The leaf encoders + hash now live in `crate::util` (single-homed post-L12); the
-    // shadow-table parity gate is the regression check, and util.rs carries its own
-    // pinning tests for them. Sigil re-pins the COMPOSITION here (see the next test).
-}
-
-#[test]
-fn input_components_use_stable_go_json_shape() {
-    // Validates sorted keys + HTML escaping + Go float form + int form together — the
-    // canonical JSON whose SHA-256 is the input_hash. Compare against the exact bytes Go's
-    // json.Marshal would emit for the same map.
+fn input_components_use_stable_json_shape() {
+    // The exact canonical JSON is the SHA-256 pre-image.
     let narratives = vec![
         SynthNarrative {
             title: "B & C".into(),
@@ -330,16 +340,10 @@ fn input_components_use_stable_go_json_shape() {
         prompt: "Quietly surging".into(),
     };
     let got = build_synthesis_input_components(&narratives, Some(&rating), Some(&vibe), &mom, &[]);
-    // "B & C"'s ampersand is HTML-escaped (the backslash-u form), exactly as Go's
-    // json.Marshal emits it. Built via format! with a runtime backslash (bs) so the
-    // source carries no literal backslash-u token (the editor would decode it).
     // The vibe prompt and momentum blurb are non-empty on purpose: the golden proves the
     // upstream model prose is NOT in the hash pre-image (F1 material-only debounce) —
     // vibe contributes only vibe_sentiment, momentum its material-only summary hash.
-    let bs = '\\';
-    let want = format!(
-        r#"{{"momentum_rating_samples":5,"momentum_rating_slope":0,"momentum_score":2.5,"momentum_summary_hash":"a1b2c3d4e5f60718293a4b5c6d7e8f90","momentum_vibe_samples":4,"momentum_vibe_slope":1,"narrative_titles":["Alpha","B {bs}u0026 C"],"narrative_trajectories":["Alpha:developing_story","B {bs}u0026 C:heating_up"],"notability":88,"vibe_sentiment":60}}"#
-    );
+    let want = r#"{"momentum_rating_samples":5,"momentum_rating_slope":0.0,"momentum_score":2.5,"momentum_summary_hash":"a1b2c3d4e5f60718293a4b5c6d7e8f90","momentum_vibe_samples":4,"momentum_vibe_slope":1.0,"narrative_titles":["Alpha","B & C"],"narrative_trajectories":["Alpha:developing_story","B & C:heating_up"],"notability":88,"vibe_sentiment":60}"#;
     assert_eq!(got, want);
 }
 
@@ -398,7 +402,7 @@ fn transfer_heat_enters_components_only_when_present() {
 }
 
 #[test]
-fn crown_prompt_renders_cards_and_omen() {
+fn crown_prompt_renders_evidence_and_direction_without_an_outline() {
     // entity_type is raw ("player", not "Player"); sport uses the passed (raw) case. The rich
     // pillar cards render (the crown scores from them); the OMEN closes; no PRIOR READ block.
     let narratives = vec![SynthNarrative {
@@ -429,20 +433,22 @@ fn crown_prompt_renders_cards_and_omen() {
         &mom,
         &[],
         "steady",
-        "the arc holds its line",
         None,
         None,
     );
     assert!(p.starts_with("Entity: Test Player (NBA player)\n"));
     assert!(!p.contains("YOUR PRIOR READ"));
     assert!(!p.contains("RELATIONAL MEMORY"));
-    assert!(p.contains("=== THE JOURNALIST'S CARD (news storylines) ===\n[impact 7, Heating up, 3 sources, latest 1d ago] Trade buzz\ndetails"));
-    assert!(p.contains("=== THE SCOUT'S CARD (scouting brief) ===\n(no stat commentary available)"));
-    assert!(p.contains("=== THE INFLUENCER'S CARD (the felt read) ===\nMood: 62/100\nOn the rise"));
-    assert!(p.contains("=== THE ANALYST'S CARD (momentum) ===\nMomentum score: 1 (rising)\nMood trend: 0.5 over 4 samples (trending up)"));
-    assert!(p.contains("=== THE INSIDER'S CARD (transfer wire) ===\n(no active transfer rumors)"));
-    assert!(p.contains("=== THE OMEN (computed) ===\nOmen: steady — the arc holds its line\n"));
-    assert!(p.ends_with("Omen: steady — the arc holds its line\n"));
+    assert!(p.contains("[Heating up, 3 sources, latest 1d ago] Trade buzz\ndetails"));
+    assert!(p.contains("On the rise"));
+    assert!(p.contains("Recent movement is rising."));
+    assert!(!p.contains("No active transfer reports."));
+    assert!(!p.contains("62/100"));
+    assert!(!p.contains("score 1"));
+    assert!(!p.contains("trend: 0.5"));
+    assert!(!p.contains("THE JOURNALIST"));
+    assert!(!p.contains("PERFORMANCE PROFILE"));
+    assert!(p.ends_with("Present direction: steady.\n"));
 }
 
 /// 7.8, the 4096 envelope: on the packet rail every pillar body is capped and the Journalist's
@@ -455,7 +461,7 @@ fn packet_rail_caps_every_pillar_body_and_names_what_it_dropped() {
     let narratives: Vec<SynthNarrative> = (0..5)
         .map(|i| SynthNarrative {
             title: format!("Storyline {i}"),
-            body: long.clone(),
+            body: format!("story {i} {long}"),
             impact: 7.0,
             trajectory: "heating_up".into(),
             source_count: 3,
@@ -463,17 +469,17 @@ fn packet_rail_caps_every_pillar_body_and_names_what_it_dropped() {
         })
         .collect();
     let rating = SynthRating {
-        body: long.clone(),
+        body: format!("rating {long}"),
         notability: 71,
         rating_trajectory: "rising".into(),
         rating_trajectory_label: "Composite trending up over recent games".into(),
     };
     let vibe = SynthVibe {
         sentiment: 62,
-        prompt: long.clone(),
+        prompt: format!("feeling {long}"),
     };
     let mom = SynthMomentum {
-        blurb: Some(long.clone()),
+        blurb: Some(format!("trajectory {long}")),
         direction: Some("rising".into()),
         momentum_score: Some(30.0),
         ..SynthMomentum::default()
@@ -489,7 +495,6 @@ fn packet_rail_caps_every_pillar_body_and_names_what_it_dropped() {
         &mom,
         &[],
         "ascendant",
-        "the arc climbs",
         None,
         None,
     );
@@ -503,7 +508,6 @@ fn packet_rail_caps_every_pillar_body_and_names_what_it_dropped() {
         &mom,
         &[],
         "ascendant",
-        "the arc climbs",
         Some(CROWN_CARD_BODY_CAP),
         None,
     );
@@ -524,18 +528,13 @@ fn packet_rail_caps_every_pillar_body_and_names_what_it_dropped() {
         !capped.contains("Storyline 3"),
         "the card is capped as ONE card"
     );
-    // Every card still SPEAKS — a cap that silences a pillar would change the verdict, not the
-    // window. All five headers stand, and the omen still closes.
-    for header in [
-        "THE JOURNALIST'S CARD",
-        "THE SCOUT'S CARD",
-        "THE INFLUENCER'S CARD",
-        "THE ANALYST'S CARD",
-        "THE INSIDER'S CARD",
-        "THE OMEN (computed)",
-    ] {
-        assert!(capped.contains(header), "{header} lost to the cap");
+    // Every available card still speaks without giving the model an outline to recap.
+    for evidence in ["story 0", "rating", "feeling", "trajectory"] {
+        assert!(capped.contains(evidence), "{evidence} lost to the cap");
     }
+    assert!(!capped.contains("No active transfer reports."));
+    assert!(capped.contains("Present direction: ascendant."));
+    assert!(!capped.contains("=== PERFORMANCE PROFILE ==="));
 }
 
 #[test]
@@ -557,7 +556,7 @@ fn pillar_divergence_names_the_rail_conflict() {
         momentum_score: Some(-2.0),
         ..SynthMomentum::default()
     };
-    let c = build_pillar_divergence(&[], Some(&rating), Some(&vibe), &mom);
+    let c = build_pillar_divergence(Some(&rating), Some(&vibe), &mom);
     let rendered: Vec<(String, bool)> = c.into_iter().map(|x| (x.label, x.agree)).collect();
     // or10: the raw trajectory marker left the crown's math — only Vibe/Momentum and the two
     // Profile-strength LEVEL pairs remain.
@@ -589,13 +588,13 @@ fn pillar_divergence_skips_neutral_and_absent_signals() {
         direction: Some("steady".into()),
         ..SynthMomentum::default()
     };
-    let c = build_pillar_divergence(&[], None, Some(&vibe), &mom);
+    let c = build_pillar_divergence(None, Some(&vibe), &mom);
     assert!(c.is_empty());
     assert_eq!(pillar_convergence(&c), None);
 }
 
 #[test]
-fn crown_prompt_no_momentum_data_line() {
+fn crown_prompt_omits_missing_evidence_instead_of_narrating_absence() {
     let p = build_crown_prompt(
         "team",
         "Test Team",
@@ -606,19 +605,18 @@ fn crown_prompt_no_momentum_data_line() {
         &SynthMomentum::default(),
         &[],
         "steady",
-        "r",
         None,
         None,
     );
-    assert!(p.contains("=== THE JOURNALIST'S CARD (news storylines) ===\n(no recent narratives)"));
-    assert!(p.contains("=== THE ANALYST'S CARD (momentum) ===\n(no momentum data)"));
-    assert!(p.contains("=== THE INSIDER'S CARD (transfer wire) ===\n(no active transfer rumors)"));
+    assert!(!p.contains("No recent developing stories."));
+    assert!(!p.contains("momentum data"));
+    assert!(!p.contains("No active transfer reports."));
 }
 
 #[test]
-fn crown_prompt_transfer_heat_renders() {
-    // A team with one served rumor: the P5 section renders through the shared write_heat_lines
-    // format (`- <counterparty> — heat <n>, <direction>, <stage>`).
+fn crown_prompt_renders_transfer_evidence_without_internal_metrics() {
+    // The Oracle receives the reported counterparty, direction, stage and summary without the
+    // board's internal heat/confidence bookkeeping.
     let transfers = vec![HeatItem {
         counterparty: "Liverpool".into(),
         heat: 66,
@@ -637,17 +635,16 @@ fn crown_prompt_transfer_heat_renders() {
         &SynthMomentum::default(),
         &transfers,
         "steady",
-        "r",
         None,
         None,
     );
-    assert!(p.contains("=== THE INSIDER'S CARD (transfer wire) ===\n- Liverpool — heat 66, incoming, advanced_talks\n"));
+    assert!(p.contains("- From Liverpool to Test Team; advanced talks\n"));
+    assert!(!p.contains("heat 66"));
 }
 
 #[test]
 fn crown_prompt_is_blind_to_memories() {
-    // or9 (Scott, 2026-08-10): the crown reads the five cards + the omen, whole — no prior-read
-    // block, no relational-memory card. The cards follow the Entity line directly.
+    // No prior reading or relational memory enters the model's evidence surface.
     let p = build_crown_prompt(
         "player",
         "Test Player",
@@ -658,13 +655,10 @@ fn crown_prompt_is_blind_to_memories() {
         &SynthMomentum::default(),
         &[],
         "steady",
-        "r",
         None,
         None,
     );
-    assert!(p.starts_with(
-        "Entity: Test Player (NBA player)\n\n=== THE JOURNALIST'S CARD (news storylines) ==="
-    ));
+    assert!(p.starts_with("Entity: Test Player (NBA player)\n\nPresent direction: steady."));
     assert!(!p.contains("YOUR PRIOR READ"));
     assert!(!p.contains("RELATIONAL MEMORY"));
 }

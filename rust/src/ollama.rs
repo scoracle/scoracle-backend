@@ -3,27 +3,15 @@
 //! Targets the local Ollama instance (default http://localhost:11434). No external
 //! providers are used in production; all live inference stays in the Rust cognition layer.
 //!
-//! **`/api/chat`, not `/api/generate` — since 2026-08-25.** The generate endpoint does not
-//! implement thinking separation for granite4.2: `think: true` returned NO `thinking` field
-//! and the model's whole scratchpad arrived in `response` (measured live — a vibe card
-//! shipped as its own word-count deliberation; momentum went unparseable 3/3). `/api/chat`
-//! separates cleanly (`message.thinking` vs `message.content`), which is what makes the
-//! per-role `_THINK` knob usable on the seats where deliberation pays. The visible answer
-//! is `message.content` ALONE — thinking is carried on `GenerateResult` for ledger/eval
-//! inspection and must never be concatenated into served prose. `system` + `prompt` map to
-//! a two-message array; the model template application is equivalent, and the fixture gate
-//! re-froze the equivalence the day of the cutover.
+//! Uses `/api/chat` so reasoning stays separate from visible output. Parsers receive only
+//! `message.content`; separated thinking is retained for inspection.
 
 use crate::util::truncate;
 use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
-/// Extra `num_predict` granted to a think-enabled call — the reasoning channel's budget,
-/// centralized here because thinking is the CLIENT's property (`ModelSpec.think`), never the
-/// junction's. Sized from the 2026-08-25 measurements: granite4.2's temp-0 scratchpad on card
-/// tasks ran 300-800 tokens, and its ~1.7×-dense tokenizer means 600 tokens carries what
-/// ~1,000 tokens of the prior resident's vocabulary would.
+/// Additional reasoning budget for think-enabled calls.
 pub const THINK_NUM_PREDICT_HEADROOM: i32 = 600;
 
 #[derive(Clone)]
@@ -31,13 +19,7 @@ pub struct OllamaClient {
     base_url: String,
     model: String,
     http: reqwest::Client,
-    /// `Some(false)` sends `"think": false` on every generate — for reasoning models
-    /// (qwen3-class) whose thinking otherwise consumes the whole `num_predict` budget and
-    /// returns an EMPTY visible response (measured live: sigil's 512-token budget produced
-    /// 512 tokens of thinking, zero answer). ROLE-keyed via `COGNITION_ROUTE_<ROLE>_THINK`
-    /// (see `RouteConfig`): the same model may think for one role (PEAK: 22/22 with, 21/22
-    /// without) and not for another (sigil: thinking breaks the stage). `None` omits the
-    /// field entirely — models without the capability reject an explicit `think`.
+    /// Role-keyed thinking preference. `None` omits the field for unsupported models.
     think: Option<bool>,
 }
 
@@ -47,15 +29,8 @@ pub struct OllamaClient {
 /// its own default, ~0.8, NON-deterministic) and `Some(t)` sends exactly `t` —
 /// INCLUDING `Some(0.0)`. `num_predict` is still omitted when `<= 0`.
 ///
-/// `num_ctx` `<= 0` now sends the 4096 envelope EXPLICITLY rather than omitting the
-/// field. Omission used to mean "Ollama's server default, 4096 on this box" — that
-/// assumption broke on 2026-08-25: a model's own Modelfile parameter outranks the
-/// server default, and granite4.2's ships `num_ctx 131072`, so an omitting call
-/// loaded a 25GB KV monster onto a 16GB host (55/45 CPU-split, and `OLLAMA_KEEP_ALIVE=-1`
-/// pinned it there). Every production junction already passes an explicit window;
-/// the omitting callers were `eval_tasks.rs` fixtures, whose measurements should run
-/// at the production envelope anyway. The general law, same as the per-role `_THINK`
-/// contract: never inherit a model's own default — state the window on every call.
+/// `num_ctx <= 0` sends the 4096 envelope explicitly rather than inheriting a
+/// potentially much larger model default.
 /// A prompt + `num_predict` sum that exceeds the window still silently evicts the
 /// EARLIEST tokens (the system prompt) mid-generation; size budgets accordingly.
 #[derive(Clone, Debug, Default)]
@@ -77,8 +52,7 @@ pub struct GenerateOptions {
     /// grammar then forces emission in that accidental order, whatever the documented contract
     /// says. When set, this string is POSTed byte-for-byte as `format` (taking precedence over
     /// `format_schema`); callers should set `format_schema` too, since ledger/eval capture
-    /// still reads the `Value` form. Legacy stages leave this `None` and keep their measured
-    /// (alphabetized) wire order untouched.
+    /// still reads the `Value` form. Stages without an order-sensitive schema leave this `None`.
     pub format_schema_raw: Option<String>,
 }
 
@@ -220,18 +194,7 @@ impl OllamaClient {
             options.insert("temperature".into(), serde_json::json!(t));
         }
         if opts.num_predict > 0 {
-            // Thinking shares num_predict with the answer, and granite4.2's temp-0
-            // deliberation on card tasks runs 300-800 tokens — measured 2026-08-25: at the
-            // seats' own budgets a think-enabled call spent EVERYTHING on the scratchpad
-            // and returned an empty card (0/23 vibe, 0/71 rating on the fixture gate).
-            // The headroom rides the THINK DECISION, not the seat: the card budget stays
-            // the junction's, the channel budget is added here, in the one place that
-            // knows think is on. Granite's ~1.7×-dense tokenizer is what makes this
-            // affordable — 600 tokens holds what ~1,000 ministral-era tokens would.
-            // Callers must still mind the window: prompt + num_predict + headroom over
-            // num_ctx silently evicts the system prompt (see the GenerateOptions doc), so
-            // a window-filling seat (the Scout) wants evidence trim or a bigger window
-            // before think, and the fixture gate is the arbiter per seat.
+            // Thinking shares the answer budget, so add its headroom at the client boundary.
             let headroom = if self.think == Some(true) {
                 THINK_NUM_PREDICT_HEADROOM
             } else {

@@ -1,21 +1,15 @@
-//! The Investigator's prose-triage contract (PLAN-one-rail 5.4's deferred arm, built
-//! 2026-08-09) — the seat's FIRST model-called path, for the D-T8 class: a name the news
-//! wrote one way ("Airious Bailey") that Wikipedia knows another ("Ace Bailey"), where the
-//! Wikidata entity search refuses honestly because it matches labels and aliases only.
+//! The Investigator's prose-triage contract for names not resolved by entity search.
 //!
 //! **The whole contract is VERBATIM QUOTES, and that is a security property, not a style:**
 //! every field the model returns is a contiguous run of characters from the page it was
 //! shown, so the gate verifies each one by normalized substring containment
 //! ([`super::gate::contains_normalized`]) before it can influence anything. A hallucinated
 //! occupation or team fails containment and the field is treated as absent. This is the
-//! ep6/D-T45 discipline (grammar pins shape; prose carries meaning; a worked example
-//! carries what prose cannot) plus PLAN-one-rail's T2 rule for this arm, fixed before it
-//! was built: *ask for a verbatim observation and threshold on a count — never ask for
-//! confidence.* The model copies; code decides.
+//! The grammar pins shape, prose carries meaning, and the model copies while code decides.
 //!
 //! | | |
 //! |---|---|
-//! | **Seat** | `Role::Investigator` — `ministral-3:3b` on archbox (all seats, since 2026-08-20) |
+//! | **Seat** | `Role::Investigator` |
 //! | **Reads** | one Wikipedia REST page summary (title + description + extract) |
 //! | **Writes** | nothing — [`super::gate::decide_prose`] and the handler own every write |
 
@@ -44,10 +38,10 @@ Example, for sought name "Airious Bailey" on a page opening "Airious \"Ace\" Bai
 
 Return strict JSON only; the keys, their order and the allowed values are enforced for you."#;
 
-/// FIELD ORDER IS THE CONTRACT (the ar4/ep1 lesson): a RAW literal POSTed byte-for-byte,
+/// Field order is part of the contract: a raw literal is posted byte-for-byte,
 /// because a schema that travels as a `serde_json::Value` reaches Ollama alphabetized.
 /// `subject_kind` first — the cheap triage — then pure extraction. Enums and bounds here
-/// are FREE (the schema compiles to a grammar and never enters the context window).
+/// do not consume context tokens.
 pub const INVESTIGATOR_PROSE_SCHEMA_RAW: &str = r#"{
     "type": "object",
     "properties": {

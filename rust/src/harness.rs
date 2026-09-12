@@ -1,24 +1,10 @@
-//! The capability library — the Cognition Harness context plus its primitives.
-//!
-//! `Harness` is the one capability context handed to every stage composition (Plan §1.0): it
-//! generalizes the `(pool, ollama)` pair the old `StageHandler` received — the pool stays, the
-//! single `OllamaClient` is replaced by the `Router` (role → model). Built once at boot
-//! (`main.rs`) and shared by every stage.
-//!
-//! The primitives are *methods on `Harness`*, not `dyn` traits — the primitives aren't swapped
-//! at runtime, the *models* and *parsers* are. The only two real traits are the genuine swap
-//! points: `Inference` (the model backend, in [`crate::route`]) and `Parser<T>` (the per-stage
-//! output plug-in, here).
-//!
-//! The live primitives are **Route** (via the `Router`), **Extract** (`Harness::extract`), and
-//! **Persist** (the `Provenance` envelope + `debounce_unchanged`). The Resolve/Embed/Normalize
-//! shaped stubs (Plan §1.3–1.5) were deleted with the embed layer once the legacy rail's
-//! relevance and novelty gates — their only consumers — were demolished (Phase 9).
+//! Shared model routing, extraction, parsing, provenance, and debounce primitives.
 
 use crate::ollama::{GenerateOptions, GenerateResult};
 use crate::route::{Role, Router};
 use anyhow::{Context, Result};
 use sqlx::PgPool;
+use std::ops::{Deref, DerefMut};
 use std::time::Duration;
 
 /// Harness — the capability context handed to every stage composition. Built once at boot.
@@ -28,27 +14,15 @@ pub struct Harness {
     pub pool: PgPool,
     /// Route primitive — owns the `Inference` backend(s) per role.
     pub router: Router,
-    /// The worker's per-item ceiling (`COGNITION_HANDLER_TIMEOUT_SECONDS`), exposed so a handler
-    /// that makes N *sequential* model calls can stop itself before the axe falls instead of being
-    /// cancelled mid-loop. `Duration::ZERO` means unbounded, matching the worker's own reading of
-    /// a zero timeout — the eval and one-shot binaries build the harness that way, so an
-    /// inspection run always drives an entity to completion no matter how long it takes.
-    ///
-    /// Only `transfers` reads it today, and the asymmetry is the point: every other junction makes
-    /// exactly one `extract` call per item, so its wall clock is one generation and cannot
-    /// approach the ceiling. `transfers` makes one per candidate pair plus one per wire-wrap
-    /// target, so its wall clock is a queue depth — it hit 1200s on 18 teams on 2026-07-27, and
-    /// the half it lost was always the wrap, which runs last.
+    /// Per-item ceiling. Multi-call handlers use it to stop cleanly before cancellation.
+    /// `Duration::ZERO` means unbounded.
     pub handler_budget: Duration,
-    /// The context window every voice on this host requests (`VOICE_NUM_CTX`, else the 4096
-    /// packet envelope — [`crate::route::resolve_voice_num_ctx`]). Resolved once at boot so two
-    /// items in one drain can never disagree about the window, and so every output reservation
-    /// and context cap keys on the WINDOW — the arithmetic that must hold.
+    /// Context window shared by every voice on this host.
     pub voice_num_ctx: i32,
 }
 
 // ===========================================================================
-// Extract + validate (Plan §1.2) — REAL. The heart of the fail-closed claim.
+// Extract and validate.
 // ===========================================================================
 
 /// Parser turns a raw model response into a validated `T` — or the fail-closed marker.
@@ -63,16 +37,12 @@ pub trait Parser<T> {
     fn parse(&self, raw: &str) -> Result<Option<T>>;
 }
 
-/// Extracted carries the parsed value (or the fail-closed `None`) plus the provenance Persist
-/// needs. `request_body` is the *exact* wire body that was sent (sourced from the same
-/// `Inference::generate` call that POSTed it), so it can never drift from what was POSTed.
+/// Parsed value plus the exact generation provenance.
 #[derive(Debug)]
 pub struct Extracted<T> {
     /// `None` = the fail-closed marker.
     pub value: Option<T>,
-    /// The model's verbatim response text. When `value` is `None` this is the ONLY record of
-    /// what the model actually said — persist it with the failure marker, or the fail-closed
-    /// path is undiagnosable from the database (the Aug-17 adjudication failures stored "").
+    /// Verbatim response, retained so fail-closed results remain diagnosable.
     pub raw_response: String,
     /// Which concrete model answered (echoed in the `GenerateResult`).
     pub model: String,
@@ -82,9 +52,114 @@ pub struct Extracted<T> {
     pub request_body: serde_json::Value,
     /// Tokens the model evaluated (perf/telemetry; not all stages persist it).
     pub eval_count: i32,
-    /// Wall-clock milliseconds of the model call (F-036: persisted per call via each
-    /// stage's ledger `context_budget`, so throughput regressions are queryable, not felt).
+    /// Wall-clock milliseconds of the model call.
     pub wall_ms: u64,
+}
+
+/// Model-call diagnostics shared by every generated product.
+#[derive(Clone, Debug)]
+pub struct GenerationCall {
+    pub built_prompt: String,
+    pub request_body: serde_json::Value,
+    pub eval_count: Option<i32>,
+    pub wall_ms: Option<u64>,
+}
+
+impl<T> From<&Extracted<T>> for GenerationCall {
+    fn from(extracted: &Extracted<T>) -> Self {
+        Self {
+            built_prompt: extracted.built_prompt.clone(),
+            request_body: extracted.request_body.clone(),
+            eval_count: Some(extracted.eval_count),
+            wall_ms: Some(extracted.wall_ms),
+        }
+    }
+}
+
+/// A seat-specific product wrapped in the provenance and call diagnostics common to every seat.
+#[derive(Clone, Debug)]
+pub struct Generation<T> {
+    pub product: T,
+    pub provenance: Provenance,
+    pub call: Option<GenerationCall>,
+}
+
+impl<T> Generation<T> {
+    pub fn called(
+        product: T,
+        model_version: String,
+        prompt_version: &'static str,
+        input_ids: Vec<i64>,
+        input_hash: Option<String>,
+        call: GenerationCall,
+    ) -> Self {
+        Self {
+            product,
+            provenance: Provenance {
+                model_version,
+                prompt_version,
+                input_ids,
+                input_hash,
+            },
+            call: Some(call),
+        }
+    }
+
+    pub fn uncalled(
+        product: T,
+        model_version: String,
+        prompt_version: &'static str,
+        input_ids: Vec<i64>,
+        input_hash: Option<String>,
+    ) -> Self {
+        Self {
+            product,
+            provenance: Provenance {
+                model_version,
+                prompt_version,
+                input_ids,
+                input_hash,
+            },
+            call: None,
+        }
+    }
+
+    pub fn was_called(&self) -> bool {
+        self.call.is_some()
+    }
+
+    pub fn request_body(&self) -> Option<&serde_json::Value> {
+        self.call.as_ref().map(|call| &call.request_body)
+    }
+
+    /// Add the call telemetry shared by every cognition-ledger context budget.
+    pub fn context_budget(&self, mut budget: serde_json::Value) -> serde_json::Value {
+        if let serde_json::Value::Object(fields) = &mut budget {
+            fields.insert(
+                "eval_count".to_string(),
+                serde_json::json!(self.call.as_ref().and_then(|call| call.eval_count)),
+            );
+            fields.insert(
+                "wall_ms".to_string(),
+                serde_json::json!(self.call.as_ref().and_then(|call| call.wall_ms)),
+            );
+        }
+        budget
+    }
+}
+
+impl<T> Deref for Generation<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.product
+    }
+}
+
+impl<T> DerefMut for Generation<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.product
+    }
 }
 
 impl Harness {
@@ -118,14 +193,10 @@ impl Harness {
 }
 
 // ===========================================================================
-// Persist-with-provenance (Plan §1.6) — REAL. The moat envelope + debounce.
+// Persist with provenance.
 // ===========================================================================
 
-/// The provenance envelope every product row carries — the append-only archive (output +
-/// exactly how it was derived) IS the moat. This is deliberately NOT a generic row-writer
-/// (that would fight Postgres-as-serializer); each stage keeps its typed `INSERT` and binds
-/// these shared fields. The fail-closed marker is a first-class variant, differing only in
-/// the bound `Option` values — not a separate path.
+/// Shared provenance fields bound by each stage's typed insert.
 #[derive(Clone, Debug)]
 pub struct Provenance {
     /// `Extracted.model` for a scored row, or the router's model for the no-corpus marker.
@@ -135,24 +206,6 @@ pub struct Provenance {
     pub input_ids: Vec<i64>,
     /// `Some` → debounce: skip if unchanged (sigil). `None` → no debounce (vibe).
     pub input_hash: Option<String>,
-    /// Optional trigger payload captured for stages whose payload is caller-provided
-    /// rather than a stage literal. Stored here so marker and scored rows bind it
-    /// through the same envelope.
-    pub trigger_payload: Option<serde_json::Value>,
-}
-
-impl Provenance {
-    pub fn with_trigger_payload(mut self, payload: &serde_json::Value) -> Self {
-        self.trigger_payload = Some(payload.clone());
-        self
-    }
-
-    pub fn trigger_payload_json(&self, fallback: &str) -> String {
-        self.trigger_payload
-            .as_ref()
-            .map(serde_json::Value::to_string)
-            .unwrap_or_else(|| fallback.to_string())
-    }
 }
 
 /// EntityKey identifies the row a debounce check is scoped to. `season` is `Some` for
@@ -167,15 +220,11 @@ pub struct EntityKey {
 }
 
 impl Harness {
-    /// debounce_unchanged returns `true` when the entity's LATEST row in `table` already
-    /// carries `input_hash == hash` (so the stage should skip — the sigil "did the inputs
-    /// move?" gate). Mirrors `sigil.go::lastSynthesisHash` semantics: take the latest row
-    /// regardless of nullability; a marker row's NULL `input_hash` compares unequal to any
-    /// real hash, so a marker never wrongly causes a skip.
+    /// Returns true when the entity's latest row already carries this input hash.
     ///
     /// `table` is a stage-controlled literal (never user input), so formatting it into the
     /// query carries no injection surface. vibe does not call this (it has no `input_hash`);
-    /// it is shipped real for sigil, its first consumer (HORIZON).
+    /// callers control `table`; it is never user input.
     pub async fn debounce_unchanged(
         &self,
         table: &str,
@@ -222,21 +271,8 @@ impl Harness {
         Ok(latest.flatten().as_deref() == Some(hash))
     }
 
-    /// latest_with_hash fetches the entity's LATEST synthesis row in ONE query, returning
-    /// `(score, input_hash)` — the two facts the crown needs from that row: the previous-score
-    /// baseline (delta display + persisted `previous_score`) AND the debounce hash. It folds the
-    /// crown's former two round-trips (`debounce_unchanged` + `last_score`) into one — each was an
-    /// identical `... ORDER BY generated_at DESC LIMIT 1` over the same row (plan A1), a consistent
-    /// (non-torn) read of one prior synthesis. `debounce_unchanged` stays as the standalone bool
-    /// gate for callers that only need the skip decision. (The prior BLURB rode along here in the
-    /// panel era; it was dropped in the crown fold. The prior-READING memory that replaced it was
-    /// itself retired at or9 — the crown is blind to memories now.)
-    ///
-    /// Both columns are read nullable and returned already flattened: a no-row entity and a marker
-    /// row (NULL score / NULL hash) are semantically identical to the consumers — score `None` ⇒ 0
-    /// baseline; hash `None` compares unequal to any real hash ⇒ never skips. `table` is a
-    /// stage-controlled literal (no injection surface); it must expose `score`/`input_hash`
-    /// columns (`sigil_synthesis` is the only caller today).
+    /// Loads the latest score and input hash in one consistent read.
+    /// Missing rows and NULL columns both flatten to `None`.
     pub async fn latest_with_hash(
         &self,
         table: &str,

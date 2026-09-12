@@ -1,19 +1,9 @@
-//! editor_ep1_fixtures — generate the GREENFIELD Editor's eval fixtures through the REAL
-//! production prompt builder, so the frozen prompts are byte-true to `EDITOR_CONTRACT_VERSION`
-//! (the article_reader/graph/sigil fixture-gen pattern).
-//!
-//! The set is the legacy seven ported to ep1 expectations plus the five cases Phase 3.6 names:
-//! coach-discovery (kyle-shanahan shape), place-collision (Paris/Moulin Rouge — the descriptor
-//! prevents the club link), hallucinated-parent (Fortuna Düsseldorf — exact-match refusal),
-//! a result-line case (verbatim score), and a namesake tie (Vinicius — refused_ambiguous).
-//! The opponent-only case keeps its KEPT-since-ar7 expectation (`relevant=true` — the stale
-//! fixture trap). Both directions stay pinned: a set that only pinned rejections would be
-//! passed by a model that answers "no" to everything.
-//!
+//! editor_ep1_fixtures — generate the Editor's eval fixtures through the REAL production
+//! prompt builder, so the frozen prompts are byte-true to `EDITOR_CONTRACT_VERSION`.
+//! Both ACCEPT and REJECT directions stay pinned: a set that only pinned rejections would
+//! be passed by a model that answers "no" to everything.
 //!     cargo run --example editor_ep1_fixtures > /tmp/editor_fixtures.json
-//!
-//! Output: a JSON array of fixture objects; split into `fixtures/editor/<name>.json`.
-//! Offline — no DB, no model, no queue, no fetch.
+//! Output: a JSON array; split into `fixtures/editor/<name>.json`. Offline.
 
 use scoracle_cognition::junctions::editor::{
     build_editor_prompt_parts, EDITOR_CONTRACT_VERSION, EDITOR_SYSTEM_PROMPT,
@@ -158,8 +148,7 @@ fn scenarios() -> Vec<Scenario> {
                 "article_relevant": true,
                 "key_facts_include": ["Vinicius"],
                 // Accented Spanish-only forms: bare "confirma" is a substring of the English
-                // "confirmation", which a correct English blurb may legitimately use (measured
-                // false red, 2026-08-01 iter11).
+                // "confirmation", which a correct English blurb may legitimately use.
                 "blurb_excludes": ["confirmó", "renovación"],
                 "story_type_is": "contract"
             }),
@@ -244,9 +233,8 @@ fn main() {
         .map(|s| {
             let prompt =
                 build_editor_prompt_parts(s.source, s.title, s.description, s.text, &s.hypothesis);
-            // The hypothesis list travels WITH the fixture (as reader_vetted, the field the
-            // evaluator already hands to the parser): only hypothesis entities' roles count
-            // toward the derived verdict.
+            // The hypothesis list travels WITH the fixture as reader_vetted: only hypothesis
+            // entities' roles count toward the derived verdict.
             let mut expect = s.expect.clone();
             expect["reader_vetted"] = json!(s.hypothesis);
             json!({
@@ -256,8 +244,7 @@ fn main() {
                 "note": s.note,
                 "system": EDITOR_SYSTEM_PROMPT,
                 "user_prompt": prompt,
-                // 0.0, unlike the legacy set's inherited 0.2: greedy decoding makes the gate
-                // REPRODUCIBLE (the Fixture doc's stated design). Production runs 0.2; the
+                // Greedy decoding keeps the gate reproducible; production runs 0.2 — the
                 // gate pins the contract, not the sampler.
                 "temperature": 0.0,
                 "expect": expect,

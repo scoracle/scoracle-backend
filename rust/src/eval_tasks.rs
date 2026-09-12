@@ -31,7 +31,7 @@
 //! SAFETY: like `bin/eval` itself, tasks are read-only on the pipeline — they read corpus tables to
 //! build a prompt and POST to the model; they NEVER claim `pipeline_work` or write a product table.
 
-use crate::corpus::{load_transfer_heat, lookup_entity_name};
+use crate::corpus::lookup_entity_name;
 use crate::harness::{Harness, Parser};
 use crate::junctions::analyst::{
     build_momentum_prompt, parse_momentum_reply, MOMENTUM_NUM_PREDICT, MOMENTUM_PROMPT_VERSION,
@@ -46,7 +46,7 @@ use crate::junctions::graph::{
     GRAPH_PROMPT_VERSION,
 };
 use crate::junctions::influencer::{
-    build_sentiment_prompt, load_latest_narratives, parse_vibe_reply, VIBE_NUM_PREDICT,
+    build_sentiment_prompt, load_vibe_context, parse_vibe_reply, VIBE_NUM_PREDICT,
     VIBE_PROMPT_VERSION, VIBE_SYSTEM_PROMPT,
 };
 use crate::junctions::insider::{
@@ -150,8 +150,8 @@ pub fn lens_parameters(name: &str) -> Option<LensParameters> {
         }),
         "oracle" => Some(LensParameters {
             operator: "the Oracle",
-            mandate: "Read the five pillar cards, deliver the entity's reading in the house voice, then render the Sigil verdict — the score this spread has earned (blind to memories since or9).",
-            credibility_guard: "The mysticism lives in the telling, never the facts — every claim traces to a card shown; nothing invented; no internal field or product names.",
+            mandate: "Read the available evidence, deliver the entity's reading in the house voice, then render the score earned by its circumstances.",
+            credibility_guard: "The mysticism lives in the telling, never the facts — ground every claim in the supplied evidence; invent nothing and expose no internal field or product names.",
         }),
         "editor" => Some(LensParameters {
             operator: "The Editor",
@@ -611,26 +611,15 @@ impl LensTask for VibeTask {
     }
     async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
         let name = lookup_entity_name(&hx.pool, &e.entity_type, e.entity_id, &e.sport).await?;
-        // Reads use the upper-cased sport; the prompt uses the request-case value, mirroring
-        // generate_vibe (and the original build_vibe_prompt).
-        let sport = e.sport.to_uppercase();
-        let (narratives, _ids) =
-            load_latest_narratives(&hx.pool, &e.entity_type, e.entity_id, &sport).await?;
-        let heat = load_transfer_heat(&hx.pool, &e.entity_type, e.entity_id, &sport).await?;
-        if narratives.is_empty() && heat.is_empty() {
+        let context = load_vibe_context(hx, &e.entity_type, e.entity_id, &name, &e.sport).await?;
+        if context.empty() {
             return Ok(None);
         }
-        // Eval pins the continuity-free, memory-free prompt shape (the n8 precedent):
-        // fixtures measure the fresh-signal contract, not the v12 enrichment riders — and,
-        // since 7.6, not the packet block either: these fixtures are the LEGACY gate, and they
-        // must keep measuring the shape the legacy rail sends.
         Ok(Some(build_sentiment_prompt(
             &e.entity_type,
             &name,
             &e.sport,
-            &narratives,
-            &heat,
-            &[],
+            &context.packets,
             None,
             None,
             None,
@@ -639,6 +628,8 @@ impl LensTask for VibeTask {
     fn evaluate(&self, raw: &str, label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
         match parse_vibe_reply(raw) {
             Ok((s, hook, v)) => {
+                // Score the prose that production serves, after the shared structural scrub.
+                let v = crate::guards::clean_served_prose(&v);
                 let mut checks = Vec::new();
                 // Contract-level invariants (the MOMENTUM_BANNED_PHRASES shape, folded 08-19):
                 // the HOOK contract and the body's global bans are enforced in production by
@@ -664,12 +655,6 @@ impl LensTask for VibeTask {
                         (Some(_), Some(_)) => String::new(),
                     },
                 });
-                let banned = crate::guards::first_banned_phrase(&v, crate::guards::VIBE_BODY_BANS);
-                checks.push(PropertyCheck {
-                    name: "no_banned_phrases".into(),
-                    pass: banned.is_none(),
-                    detail: banned.map_or_else(String::new, |p| format!("found {p:?}")),
-                });
                 checks.push(product_name_check(&v));
                 if let Some(x) = expect {
                     if let Some(min) = x.score_min {
@@ -691,6 +676,21 @@ impl LensTask for VibeTask {
                             name: format!("prose_includes:{s}"),
                             pass: contains_ci(&v, s),
                             detail: String::new(),
+                        });
+                    }
+                    for group in x.prose_includes_any.iter().flatten() {
+                        let hit: Vec<&str> = group
+                            .split('|')
+                            .filter(|s| !s.is_empty() && contains_ci(&v, s))
+                            .collect();
+                        checks.push(PropertyCheck {
+                            name: format!("prose_includes_any:[{group}]"),
+                            pass: !hit.is_empty(),
+                            detail: if hit.is_empty() {
+                                "no listed synonym voiced".into()
+                            } else {
+                                format!("voiced {hit:?}")
+                            },
                         });
                     }
                     for s in x.prose_excludes.iter().flatten() {
@@ -779,7 +779,7 @@ impl LensTask for OracleTask {
         let sport = e.sport.to_uppercase();
         let (_season, narratives, rating, vibe, momentum, transfers) =
             load_pillars(hx, &e.entity_type, e.entity_id, &sport).await?;
-        // No-pillar path: the stage would persist a marker without a model call — no cards to read.
+        // With no evidence, the stage persists a marker without a model call.
         if narratives.is_empty()
             && rating.is_none()
             && vibe.is_none()
@@ -788,13 +788,10 @@ impl LensTask for OracleTask {
         {
             return Ok(None);
         }
-        // Deterministic convergence + omen, exactly as the live handler. prior_read = None,
-        // memory = None: reproducible fixtures measure the fresh-card contract, not the
-        // memory enrichment riders.
-        let comparisons =
-            build_pillar_divergence(&narratives, rating.as_ref(), vibe.as_ref(), &momentum);
+        // Deterministic convergence + direction, exactly as the live handler.
+        let comparisons = build_pillar_divergence(rating.as_ref(), vibe.as_ref(), &momentum);
         let convergence = pillar_convergence(&comparisons);
-        let (omen, omen_reason) = compute_omen(convergence, &momentum);
+        let omen = compute_omen(convergence, &momentum);
         Ok(Some(build_crown_prompt(
             &e.entity_type,
             &name,
@@ -805,7 +802,6 @@ impl LensTask for OracleTask {
             &momentum,
             &transfers,
             omen,
-            &omen_reason,
             None,
             None,
         )))
@@ -823,9 +819,8 @@ impl LensTask for OracleTask {
         let sentences = count_sentences(&reading);
         let mut checks = Vec::new();
 
-        // Contract-level invariants on every reading (the momentum no_banned_phrases shape).
-        // (1) Product names: Scott, 2026-08-10 — "if it references another Character, it should
-        // be their name and not PEAK or Vibe". Case-sensitive; see PRODUCT_NAME_BANS.
+        // Contract-level invariants on every reading. Character, product, and system names are
+        // backstage vocabulary; the served prose stays with the entity and its circumstances.
         checks.push(product_name_check(&reading));
         // (2) Plain prose: the or8 no-Markdown rule had NO assertion behind it, and the 8B/oMLX
         // baseline (2026-08-10) served `*there*` — italics in crown prose — through a green gate.
@@ -835,18 +830,6 @@ impl LensTask for OracleTask {
             name: "reading_plain_text".into(),
             pass: md.is_none(),
             detail: md.map_or_else(String::new, |c| format!("found {c:?}")),
-        });
-        // (3) The reading's global vocabulary bans — internal metric names, mechanism words,
-        // the verdict formula — one check per reply via the SAME list `CrownParser` enforces
-        // in production (`guards::ORACLE_READING_BANS`). Folded 08-19 from per-fixture
-        // `reading_excludes` entries; the fixture axis now carries only spread-contextual
-        // exclusions (the wrong omen words).
-        let banned =
-            crate::guards::first_banned_phrase(&reading, crate::guards::ORACLE_READING_BANS);
-        checks.push(PropertyCheck {
-            name: "no_banned_phrases".into(),
-            pass: banned.is_none(),
-            detail: banned.map_or_else(String::new, |p| format!("found {p:?}")),
         });
         if let Some(x) = expect {
             if let Some(min) = x.reading_min_sentences {
@@ -951,7 +934,7 @@ impl LensTask for NarrativeTask {
         };
         Ok(Some(build_narratives_prompt(
             &req, &corpus, None, None, None, None,
-        ))) // evals pin the memory-free, score-context-free, legacy-rail prompt shape
+        ))) // evals pin the memory-free, score-context-free production prompt
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
         // Compose the stage's tolerant salvager so the eval scores exactly the storylines the pipeline
@@ -2429,6 +2412,21 @@ mod tests {
     }
 
     #[test]
+    fn vibe_grounding_accepts_equivalent_surface_language() {
+        let x = Expect {
+            prose_includes_any: Some(vec!["goals|hat-trick".into()]),
+            ..Default::default()
+        };
+        assert!(VibeTask
+            .evaluate(
+                "SCORE: 80\nHOOK: Fenn lifts the room\nVIBE: Fenn's hat-trick has the away end singing.",
+                None,
+                Some(&x)
+            )
+            .all_checks_pass());
+    }
+
+    #[test]
     fn vibe_hook_contract_is_a_global_invariant() {
         // The hook contract measures what SHIPS (review-pass alignment, 2026-08-23): the
         // check runs `settle_title`, exactly as `VibeParser` does — a hook-less reply fails,
@@ -2704,7 +2702,7 @@ mod tests {
 
     // --- rating / stats-lens rubric ---------------------------------------------
 
-    const RATING_REPLY: &str = "PEAK: Rim protection\nAn elite rim protector who grades at the 94th percentile in blocks and anchors the paint without fouling. The profile is thinner as a creator, but the defensive identity is clear and valuable.";
+    const RATING_REPLY: &str = "An elite rim protector who grades at the 94th percentile in blocks and anchors the paint without fouling. The profile is thinner as a creator, but the defensive identity is clear and valuable.\nHEADLINE: Rim protection defines the matchup";
 
     #[test]
     fn rating_rubric_scores_peak_specificity_and_prose_richness() {
@@ -2725,9 +2723,8 @@ mod tests {
 
     #[test]
     fn rating_product_name_ban_is_case_sensitive_and_body_scoped() {
-        // The marker line's own "PEAK:" is stripped by the parser and must not trip the ban;
-        // lowercase "peak" is honest English and must not trip it either.
-        let clean = "PEAK: Rim protection\nStill at the peak of his powers: an elite rim protector at the 94th percentile in blocks who anchors the paint without fouling, and the defensive identity is clear.";
+        // Lowercase "peak" is honest English and must not trip the product-name ban.
+        let clean = "Still at the peak of his powers: an elite rim protector at the 94th percentile in blocks who anchors the paint without fouling, and the defensive identity is clear.\nHEADLINE: Rim protection defines the matchup";
         let v = RatingTask.evaluate(clean, None, None);
         assert!(
             v.checks.iter().all(|c| c.pass),
@@ -2735,7 +2732,7 @@ mod tests {
             v.checks
         );
         // An echoed product name in the body is exactly what the check exists to catch.
-        let echo = "PEAK: Rim protection\nHis PEAK skill is rim protection and the staff must scheme away from it, forcing the ball to the perimeter.";
+        let echo = "His PEAK skill is rim protection and the staff must scheme away from it, forcing the ball to the perimeter.\nHEADLINE: Rim protection defines the matchup";
         let v = RatingTask.evaluate(echo, None, None);
         let ban = v
             .checks
@@ -2771,16 +2768,9 @@ mod tests {
 
     #[test]
     fn momentum_parser_extracts_the_read() {
-        // s11 contract: READ alone. Stray MOMENTUM and SCORE lines (models echoing what
-        // every contract through s10 asked for) are tolerated and ignored, never content.
-        let raw = "MOMENTUM: rising\nSCORE: 3\nREAD: PEAK is rising while Vibe is steady, so the current direction is modestly positive.";
+        let raw = "READ: Recent form is rising while the mood is steady, so the current direction is modestly positive.";
         let parsed = parse_momentum_reply(raw).unwrap();
-        assert!(parsed.blurb.contains("PEAK is rising"));
-        assert!(
-            !parsed.blurb.contains('3'),
-            "SCORE leaked into the blurb: {}",
-            parsed.blurb
-        );
+        assert!(parsed.blurb.contains("form is rising"));
     }
 
     #[test]

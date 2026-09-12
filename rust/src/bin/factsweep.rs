@@ -1,23 +1,10 @@
-//! factsweep — the dynamic-metadata adjudication sweep (mig 236's missing producer).
-//!
-//! Scott, 2026-09-06: *"All entity metadata should be dynamic. Now there should be healthy
-//! gates, but coaches, agents, owners, players, they all are dynamic. If we have a system in
-//! place that self heals when something happens, that's the unlock."*
-//!
-//! The gap this closes, measured on the Iraola/Alonso trail: `entity_fact_policy` declared
-//! `person / team_affiliation / adjudicated` on day one (mig 236) and nothing ever produced
-//! that fact. The transfer wire correctly rejects "already at the club" coverage as
-//! not-a-move, the Investigator's wikidata dossiers carry playing careers rather than current
-//! posts, so standing affiliations froze at their seed values — Guardiola "at Barcelona",
-//! 462 coach rows of career archaeology, each one misrouting that person's articles through
-//! the claim fence.
+//! Dynamic person-metadata adjudication sweep.
 //!
 //! The producer is the news the system already reads: for each news-active person whose
 //! affiliation is absent or stale, gather the recent articles that tag them, and ask the
 //! resident model ONE adjudication question over those excerpts. The healthy gates:
 //!
-//! - **Policy-gated**: no `entity_fact_policy` row for the fact type ⇒ frozen, the sweep
-//!   never touches it (mig 236's absence-is-frozen rule).
+//! - **Policy-gated**: absent policy means frozen.
 //! - **Evidence floor**: fewer than two distinct articles adjudicates nothing.
 //! - **Deterministic resolution**: the model must pick from the CANDIDATE TEAMS list (the
 //!   clubs actually co-tagged on the evidence) — a name we cannot resolve to a team id is a
@@ -29,15 +16,13 @@
 //!   `source_documents` row for the strongest evidence article, and stamps
 //!   `meta.affiliation_checked_at` so quiet outcomes debounce.
 //!
-//! Players are already dynamic through the transfer-identity rail and the data imports; this
-//! sweep covers PERSONS of every kind (coach, agent, owner, executive, …). New fact types
-//! later are a policy row + a selection query, not a new pipeline.
+//! This sweep covers persons of every kind; player identity has its own rail.
 //!
 //! Usage:
 //!   factsweep -sport FOOTBALL [-limit 60] [-dry-run]
 //!   factsweep -person 57 -sport FOOTBALL [-dry-run]      # one person, on demand
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use scoracle_cognition::config::Config;
 use scoracle_cognition::db;
 use scoracle_cognition::ollama::GenerateOptions;
@@ -101,7 +86,6 @@ struct Candidate {
     full_name: String,
     kind: String,
     team_id: Option<i32>,
-    tags: i64,
 }
 
 struct Evidence {
@@ -155,7 +139,9 @@ async fn main() -> Result<()> {
     .fetch_one(&pool)
     .await?;
     if !policy_ok {
-        println!("factsweep: person/team_affiliation is not in entity_fact_policy — frozen, exiting");
+        println!(
+            "factsweep: person/team_affiliation is not in entity_fact_policy — frozen, exiting"
+        );
         return Ok(());
     }
     let role_policy_ok: bool = sqlx::query_scalar(
@@ -186,8 +172,7 @@ async fn main() -> Result<()> {
         }
         // Deterministic candidates: only clubs actually co-tagged on the evidence,
         // presented NUMBERED — the model picks an index, never spells a name, so an
-        // embellished "Liverpool FC" can never miss our "Liverpool" (measured on the
-        // first dry-run: three 0.80 verdicts lost to exact-name matching).
+        // embellished names cannot miss the database's canonical name.
         let mut seen: HashMap<i32, ()> = HashMap::new();
         let mut teams: Vec<(i32, String)> = Vec::new();
         for e in &ev {
@@ -217,7 +202,14 @@ async fn main() -> Result<()> {
         };
         if teams.is_empty() {
             thin += 1;
-            stamp_checked(&pool, cand.id, &args.sport, "no co-tagged teams", args.dry_run).await?;
+            stamp_checked(
+                &pool,
+                cand.id,
+                &args.sport,
+                "no co-tagged teams",
+                args.dry_run,
+            )
+            .await?;
             continue;
         }
 
@@ -249,14 +241,11 @@ async fn main() -> Result<()> {
             .current_team_index
             .and_then(|i| usize::try_from(i.checked_sub(1)?).ok())
             .and_then(|i| teams.get(i).cloned());
-        // THE CORROBORATION GATE (measured on the second dry-run, 2026-09-06): granite chose
-        // Ipswich Town for Iraola at 0.80 off "Ipswich 0-2 Liverpool" headlines, and gave two
-        // different 0.80 answers for Demichelis across runs — a 3b confidence number is not a
-        // gate. The model's pick must AGREE with the deterministic frequency prior (the modal
-        // co-tagged club across the evidence); either signal alone can be fooled, agreement
-        // rarely is. Displacing an existing NON-NULL affiliation additionally demands 0.85.
+        // The model's pick must agree with the modal co-tagged club. Replacing an existing
+        // affiliation also requires higher confidence.
         let corroborated = matches!((&team, modal), (Some((id, _)), Some(m)) if *id == m);
-        let displacing = matches!(&team, Some((id, _)) if cand.team_id.is_some() && cand.team_id != Some(*id));
+        let displacing =
+            matches!(&team, Some((id, _)) if cand.team_id.is_some() && cand.team_id != Some(*id));
         let confident = confidence >= MIN_CONFIDENCE && (!displacing || confidence >= 0.85);
         match (&team, corroborated && confident) {
             (Some((team_id, team_name)), true) => {
@@ -300,8 +289,14 @@ async fn main() -> Result<()> {
                     "  {} ({}): unknown (index {:?}, conf {confidence:.2}, corroborated {corroborated}) — stays absent",
                     cand.full_name, cand.id, verdict.current_team_index
                 );
-                stamp_checked(&pool, cand.id, &args.sport, "adjudicated unknown", args.dry_run)
-                    .await?;
+                stamp_checked(
+                    &pool,
+                    cand.id,
+                    &args.sport,
+                    "adjudicated unknown",
+                    args.dry_run,
+                )
+                .await?;
             }
         }
     }
@@ -358,7 +353,6 @@ async fn load_candidates(pool: &PgPool, args: &Args) -> Result<Vec<Candidate>> {
             full_name: r.get("full_name"),
             kind: r.get("kind"),
             team_id: r.get("team_id"),
-            tags: r.get("tags"),
         })
         .collect())
 }
@@ -433,11 +427,7 @@ fn build_prompt(cand: &Candidate, ev: &[Evidence], teams: &[(i32, String)]) -> S
         if !e.description.is_empty() {
             b.push_str(" — ");
             let d = &e.description;
-            let cut = d
-                .char_indices()
-                .nth(280)
-                .map(|(i, _)| i)
-                .unwrap_or(d.len());
+            let cut = d.char_indices().nth(280).map(|(i, _)| i).unwrap_or(d.len());
             b.push_str(&d[..cut]);
         }
         b.push('\n');
@@ -460,7 +450,10 @@ async fn apply_affiliation(
 ) -> Result<()> {
     let mut tx = pool.begin().await?;
     // Provenance: one source document citing the strongest (newest) evidence article.
-    let url = ev.first().map(|e| e.url.as_str()).unwrap_or("internal:factsweep");
+    let url = ev
+        .first()
+        .map(|e| e.url.as_str())
+        .unwrap_or("internal:factsweep");
     let source_doc_id: i64 =
         sqlx::query_scalar("INSERT INTO public.source_documents (url) VALUES ($1) RETURNING id")
             .bind(url)

@@ -7,88 +7,18 @@ use super::*;
 
 #[test]
 fn parses_momentum_reply() {
-    // s11: a SCORE line is tolerated (every contract through s10 asked for one) but ignored.
-    let parsed =
-        parse_momentum_reply("SCORE: 3\nREAD: PEAK is rising while Vibe is calm.").unwrap();
-    assert_eq!(parsed.blurb, "PEAK is rising while Vibe is calm.");
-    // ...and the READ alone is now the whole contract.
-    let bare = parse_momentum_reply("READ: PEAK is rising while Vibe is calm.").unwrap();
-    assert_eq!(bare.blurb, "PEAK is rising while Vibe is calm.");
+    let parsed = parse_momentum_reply("READ: Form is rising while the mood is calm.").unwrap();
+    assert_eq!(parsed.blurb, "Form is rising while the mood is calm.");
 }
 
 #[test]
-fn parses_a_markdown_decorated_reply_the_2026_07_26_split_regression() {
-    // Verbatim from pipeline_work.last_error. The topology split moved The Analyst onto
-    // ministral-3:14b, which labels with Markdown; `**SCORE: -1**` does not start with
-    // `SCORE:`, so every reply was rejected as "momentum: invalid response" and the item
-    // failed and retried. A model swap must not be able to silently cost a whole junction.
-    //
-    // Kept across the s11 merge with its score assertion dropped, NOT weakened by accident:
-    // s11 removed `MomentumReply.score` entirely (the ±5 conviction is computed from
-    // momentum_score now), so there is no longer a field to assert. What this test still
-    // guards is the part that broke production — that a Markdown-labeled reply PARSES AT ALL
-    // rather than failing the item — plus the card-facing requirement below.
-    let parsed = parse_momentum_reply(
-        "**SCORE: -1**\n**READ:** Clark's **PEAK** remains flat—no change in his tackling.",
-    )
-    .expect("a Markdown-labeled reply must parse");
-    // The emphasis inside the prose is stripped too: this text reaches a card, and a card
-    // must never render literal asterisks.
-    assert_eq!(
-        parsed.blurb,
-        "Clark's PEAK remains flat—no change in his tackling."
-    );
-}
-
-#[test]
-fn stray_momentum_line_is_tolerated_and_ignored() {
-    // s4 dropped MOMENTUM from the contract; a model echoing the decided direction (in
-    // any word, even the old Conflict failure) is skipped, never parsed as content.
-    let parsed = parse_momentum_reply(
-        "MOMENTUM: Conflict\nSCORE: -1.0\nREAD: Signals split between PEAK and Vibe.",
-    )
-    .unwrap();
-    assert_eq!(parsed.blurb, "Signals split between PEAK and Vibe.");
-    // An empty READ still fails closed — but a missing SCORE no longer does (s11).
-    assert!(parse_momentum_reply("SCORE: 2").is_none());
+fn rejects_non_current_momentum_shapes() {
+    assert!(parse_momentum_reply("SCORE: 3\nREAD: The form is rising.").is_none());
+    assert!(parse_momentum_reply("MOMENTUM: rising\nREAD: The form is rising.").is_none());
+    assert!(parse_momentum_reply("MOMENTUM READ: The form is rising.").is_none());
+    assert!(parse_momentum_reply("**READ:** The form is rising.").is_none());
+    assert!(parse_momentum_reply("read: The form is rising.").is_none());
     assert!(parse_momentum_reply("").is_none());
-    assert!(parse_momentum_reply("READ: prose only, no score.").is_some());
-}
-
-#[test]
-fn parses_the_defiant_fable_relabelings_the_2026_08_14_swap() {
-    // Verbatim shapes from pipeline_work.last_error after the 08-14 swap to
-    // defiant-fable:9b. Shape one: the whole reply on a `Momentum:` line, prose after
-    // the direction/score echo — the echo goes, the prose is the READ.
-    let one_line = parse_momentum_reply(
-        "Momentum: Steady (-8.8/±10). The camp narrative remains fixture-focused with no new directional shift.",
-    )
-    .expect("a one-line Momentum: reply with prose must parse");
-    assert_eq!(
-        one_line.blurb,
-        "The camp narrative remains fixture-focused with no new directional shift."
-    );
-
-    // Shape two: a `Momentum Read:` headline echo, the read in the paragraph below.
-    let headline = parse_momentum_reply(
-        "Momentum Read: Indianapolis Colts — Falling (-22.4)\n\nThe Colts are trending down as camp momentum shifts elsewhere.",
-    )
-    .expect("a Momentum Read: headline reply must parse");
-    assert_eq!(
-        headline.blurb,
-        "The Colts are trending down as camp momentum shifts elsewhere."
-    );
-
-    // Prose on the relabeled line itself is kept too.
-    let inline = parse_momentum_reply(
-        "MOMENTUM READ: Falling (-22.4). The tape shows the drop across both windows.",
-    )
-    .unwrap();
-    assert_eq!(inline.blurb, "The tape shows the drop across both windows.");
-
-    // A bare echo with nothing under it still fails closed.
-    assert!(parse_momentum_reply("Momentum: Steady (-8.8/±10).").is_none());
-    assert!(parse_momentum_reply("MOMENTUM: sideways").is_none());
 }
 
 #[test]
@@ -117,24 +47,18 @@ fn parses_the_s17_headline_line() {
     );
     assert_eq!(parsed.blurb, "The form is rising and the mood confirms it.");
 
-    // Absent line → None (tolerance, never a failed generation).
+    // A missing title does not cost a valid read.
     let bare = parse_momentum_reply("READ: The tape is steady.").unwrap();
     assert!(bare.headline.is_none());
 
-    // Order drift (title first) still captures both — a shape quirk, not a failure.
-    let drifted = parse_momentum_reply(
-        "HEADLINE: Kerr holds the line\nREAD: The form is holding while the mood wobbles.",
+    assert!(parse_momentum_reply(
+        "HEADLINE: Kerr holds the line\nREAD: The form is holding while the mood wobbles."
     )
-    .unwrap();
-    assert_eq!(drifted.headline.as_deref(), Some("Kerr holds the line"));
-    assert_eq!(drifted.blurb, "The form is holding while the mood wobbles.");
-
-    // A title ends the READ: prose after it belongs to the title, not the read.
-    let trailing =
-        parse_momentum_reply("READ: First sentence.\nHEADLINE: The title\nSome trailing note.")
-            .unwrap();
-    assert_eq!(trailing.blurb, "First sentence.");
-    assert_eq!(trailing.headline.as_deref(), Some("The title"));
+    .is_none());
+    assert!(parse_momentum_reply(
+        "READ: First sentence.\nHEADLINE: The title\nSome trailing note."
+    )
+    .is_none());
 }
 
 #[test]
@@ -324,7 +248,7 @@ fn input_components_are_stable_and_sorted() {
     assert_eq!(
         build_momentum_input_components(Some(&rating), Some(&vibe), &mom),
         format!(
-            r#"{{"momentum_rating_samples":6,"momentum_rating_slope":1.2,"momentum_score":1.2,"momentum_vibe_samples":4,"momentum_vibe_slope":-0,"notability":88,"prompt_version":"{MOMENTUM_PROMPT_VERSION}","rating_trajectory":"rising","rating_trajectory_label":"Composite rising","vibe_sentiment":62}}"#
+            r#"{{"momentum_rating_samples":6,"momentum_rating_slope":1.2,"momentum_score":1.2,"momentum_vibe_samples":4,"momentum_vibe_slope":-0.0,"notability":88,"prompt_version":"{MOMENTUM_PROMPT_VERSION}","rating_trajectory":"rising","rating_trajectory_label":"Composite rising","vibe_sentiment":62}}"#
         )
     );
 }

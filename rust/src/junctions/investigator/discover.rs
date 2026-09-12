@@ -1,13 +1,11 @@
-//! Discovery adapters (PLAN-one-rail 5.4) — discovery ≠ retrieval ≠ interpretation.
+//! Discovery adapters, kept separate from retrieval and interpretation.
 //!
-//! *Discovery* finds candidate pages for a name; *retrieval* is the Phase 4.2
+//! *Discovery* finds candidate pages for a name; *retrieval* is the shared
 //! [`BudgetedFetcher`] (every page becomes a `source_documents` row — sources prove);
 //! *interpretation* is either CODE over Wikidata's structured claims (the preferred path —
 //! no model call at all) or gemma describing a prose page (the mystery-candidate fallback).
 //!
-//! The v1 source family is Wikimedia (Scott's NBA-vetting ruling, Phase 4 Log): the Wikidata
-//! action API and Wikipedia REST are designed for programmatic reuse (the ONE family that
-//! passed the 4.3 terms review with no reservations), structured, and stable. Google News
+//! The current source family is Wikimedia: structured, stable APIs designed for reuse. Google News
 //! RSS remains a secondary discovery channel for names Wikimedia has never heard of; it
 //! reuses the lungs' query shape and proves only that a name recurs, never an identity.
 
@@ -41,11 +39,7 @@ pub struct WikidataItem {
     pub member_of_teams: Vec<String>,
     /// P6087 (coach of sports team) target QIDs.
     pub coach_of_teams: Vec<String>,
-    /// P1830 (owner of) target QIDs, CURRENT tenures only — the owner class's structural
-    /// claim, discovered on the Jerry Jones probe (2026-08-09): his P106 carries "American
-    /// football player" from a college career and his P54 is the Arkansas Razorbacks, so
-    /// occupation- and membership-based classification both misfile him; the ownership
-    /// claim is the only truthful signal.
+    /// P1830 (owner of) target QIDs for current tenures.
     pub owner_of_teams: Vec<String>,
     /// P569 date of birth, as the wire "+1988-12-30T00:00:00Z" shape (code trims to date).
     pub date_of_birth: Option<String>,
@@ -55,9 +49,7 @@ pub struct WikidataItem {
     pub height_cm: Option<f64>,
     /// P3647 NBA.com player id — the headshot URL derives from this.
     pub nba_id: Option<String>,
-    /// P18 image — a Wikimedia Commons filename, the sport-agnostic portrait source
-    /// (Scott 2026-08-09: NBA/NFL entities have no headshots; NFL has no cdn id property,
-    /// Commons covers everyone). Rendered by `gate::commons_image_url`.
+    /// P18 image: the sport-agnostic Wikimedia Commons portrait source.
     pub image_file: Option<String>,
     /// P115 home venue target QID, current tenure only — team-shaped (mig 236 dynamic
     /// metadata); None for person items.

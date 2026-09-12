@@ -4,18 +4,7 @@
 //! LISTEN/NOTIFY drain loop. On boot it connects, verifies Ollama, recovers stale
 //! leases, and drains each REGISTERED stage to empty; with no handlers it idles.
 //!
-//! Handlers register from `COGNITION_STAGES` (comma-separated; default = every stage).
-//! Post Step-3 cutover (2026-06-28) the Rust daemon owns all LLM queue stages —
-//! graph, editor, investigate_entity, rating, momentum, transfers, narratives, vibe, sigil — and the Go API's derive worker is retired
-//! (`DERIVE_WORKER_ENABLED=false` keeps it off). The committed systemd unit
-//! (`scripts/systemd/scoracle-cognition.service`) hardcodes the production set, so this
-//! default only fires when the unit isn't the one starting the process (a fresh-box boot
-//! without systemd, etc.) — picking the full set means a misconfigure still runs cleanly.
-//! The offline harnesses (`src/bin/*`) never claim the live queue.
-//!
-//! See `rust/README.md` and the canonical architecture doc
-//! `scoracle-wiki/wiki/Architecture/Rust Cognition Harness.md` (the older phased plan
-//! `scoracle-wiki/raw/scoracle-rust-scrubber-implementation-plan.md` is superseded on sequencing).
+//! Handlers register from `COGNITION_STAGES` (default: every live stage).
 
 use anyhow::{anyhow, Result};
 use scoracle_cognition::buildinfo;
@@ -109,21 +98,13 @@ async fn main() -> Result<()> {
     routes.sort();
     info!(hosts = hosts.len(), routes = %routes.join(" "), "resolved model topology");
 
-    // Env-driven stage registration (COGNITION_STAGES, comma-separated; default = every stage).
-    // Post Step-3 cutover the daemon owns the live cognition stages. Headlines has been folded into
-    // narratives, and Phase 9 demolished the legacy rail's two stages, so the news rail is
-    // editor -> graph -> transfers -> narratives -> vibe -> momentum -> sigil. The Go derive worker is
-    // retired. To revert Step 3 in an emergency, set
-    // DERIVE_WORKER_ENABLED=true (re-arm Go) and stop this service — see run_docs/RUNBOOK.md §3 rollback.
+    // Env-driven stage registration; the default owns every live cognition stage.
     let enabled = parse_enabled_stages(&std::env::var("COGNITION_STAGES").unwrap_or_else(|_| {
         "graph,editor,investigate_entity,fixture_boxscore,rating,momentum,transfers,narratives,vibe,sigil"
             .to_string()
     }))?;
 
-    // The capability context handed to every stage: the config-driven router (role → local model
-    // from COGNITION_ROUTE_*) plus the pool. (The CPU embedder that used to load here for
-    // narratives' pre-packet corpus clustering left with the embed layer — the packet corpus
-    // loader (7.3) reads compiled claims, and nothing embeds anything on the one rail.)
+    // Shared database, routing, budget, and context-window capabilities.
     let harness = Harness {
         pool,
         router: Router::from_config(&cfg.route, cfg.ollama_timeout, cfg.ollama_max_concurrent)?,
@@ -133,25 +114,17 @@ async fn main() -> Result<()> {
         voice_num_ctx: cfg.voice_num_ctx,
     };
 
-    // Each handler owns exactly one queue stage. Post Step-3 the daemon owns the live set; the
-    // Go derive path is off (DERIVE_WORKER_ENABLED=false). The COGNITION_STAGES env can
-    // still be narrowed (e.g. a debug run that wants only `vibe`), but the systemd unit on
-    // the prod box hardcodes the full set.
+    // Each handler owns exactly one enabled queue stage.
     let mut handlers: Vec<Box<dyn stage::StageHandler>> = Vec::new();
-    // graph is article-keyed, now downstream of the Editor's own enqueue (7.13) rather than the
-    // retired mig-165 vetted trigger: typed extraction into narrative_events + person-candidate evidence.
-    // Wired 2026-07-19 after the fixture gate measured 12/12 at g2.
+    // Graph is article-keyed and downstream of the Editor.
     if enabled.contains("graph") {
         handlers.push(Box::new(graph::GraphHandler::new()));
     }
-    // The Editor is the rail's sole reader since the flip; the legacy `article_read` it once
-    // outranked in claim order was demolished in Phase 9. graph stays registered first — it
-    // reclaims its slots on the next pass inside the shared archbox group (PLAN-one-rail 3.2/3.8).
+    // Graph registers first so it reclaims shared slots promptly.
     if enabled.contains("editor") {
         handlers.push(Box::new(editor::EditorHandler::new()));
     }
-    // The Investigator (Phase 5): registered AFTER the Editor — the Editor outranks it on
-    // the shared slot group (max_in_flight 1), so discovery only rides the card's idle time.
+    // Discovery uses the Editor's idle shared capacity.
     if enabled.contains("investigate_entity") {
         handlers.push(Box::new(
             scoracle_cognition::junctions::investigator::entity::InvestigateEntityHandler::new()?,
@@ -160,12 +133,7 @@ async fn main() -> Result<()> {
     if enabled.contains("fixture_boxscore") {
         handlers.push(Box::new(boxscore::FixtureBoxscoreHandler::new()?));
     }
-    // THE VOICES REGISTER IN DEPENDENCY ORDER, AND THAT ORDER IS A CONTRACT.
-    //
-    // The worker tops up "in registration (DAG) order", so this loop's sequence IS the claim
-    // priority. It is driven straight from `work::VOICE_ORDER` — which carries the ordering and
-    // its rationale, and is unit-tested against the dependency rules — so the priority cannot
-    // drift by someone moving a `push` the way the Insider's had drifted to first place.
+    // Voice registration order is the tested dependency order.
     for stage in work::VOICE_ORDER {
         if !enabled.contains(stage.as_str()) {
             continue;
@@ -183,35 +151,25 @@ async fn main() -> Result<()> {
             // (enqueue_momentum_if_needed) drains in the same tick pass instead of waiting for
             // the next NOTIFY/safety-net wake.
             work::Stage::Momentum => Box::new(analyst::MomentumHandler::new()),
-            // sigil is terminal: decide → voice as two internal steps of one work item (the
-            // oracle stage folded in, Session B 2026-07-16). It reads all five pillars, so it
-            // is last by dependency and not merely by convention.
+            // Sigil is terminal because it reads all five pillars.
             work::Stage::Sigil => Box::new(oracle::SigilHandler::new()),
             other => unreachable!("{other} is not a voice; VOICE_ORDER holds the six voices"),
         });
     }
     info!(stages = ?enabled, handlers = handlers.len(), "registered stage handlers");
-    // The Desk's switch is logged loudly, like every other thing that changes what a deploy
-    // writes: storylines always assemble (greenfield tables only), packets compile only when
-    // this says so (PLAN-one-rail 6.3 — mig 206's Journalist arm fans unconditionally).
+    // Log switches that change what the deploy writes.
     info!(
         packet_compile = cfg.packet_compile,
         "desk: storyline assembly always on; packet compile gated by COGNITION_PACKET_COMPILE"
     );
-    // The rail the voices read (7.1). Louder than the Desk switch, because this one decides what
-    // every voice's prompt is made of: under `legacy` the corpora and the prompt consts are
-    // byte-identical to the pre-Phase-7 binary. Phase 8 flips it.
-    // The voice window. The RAIL boot line went with the rail itself in the Phase 9 prune — there
-    // is one corpus now, so announcing which one would be noise. This line stays: every
-    // reservation and context cap in the six voices follows THIS number, so a boot that does not
-    // state it leaves the budgets unexplainable from the journal.
+    // Every voice derives its prompt budget from this shared window.
     info!(
         voice_num_ctx = cfg.voice_num_ctx,
         pinned = std::env::var("VOICE_NUM_CTX").is_ok(),
         envelope = if scoracle_cognition::route::small_voice_window(cfg.voice_num_ctx) {
             "small: reservations ≤700, crown cards capped, journalist corpus 8"
         } else {
-            "wide: legacy reservations, no card caps, journalist corpus 40"
+            "wide: larger reservations, no card caps, journalist corpus 40"
         },
         "VOICE WINDOW: every voice on this host requests num_ctx {}",
         cfg.voice_num_ctx
@@ -243,15 +201,6 @@ fn parse_enabled_stages(raw: &str) -> Result<HashSet<String>> {
         "vibe",
         "sigil",
     ];
-    // Retired stage names are tolerated with a warning (never a boot failure): a stale
-    // COGNITION_STAGES in a unit override or .env must not take prod down at a cutover.
-    // `oracle` folded into the sigil stage 2026-07-16 (Session B).
-    // `scrub` and `article_read` are the legacy rail's two stages, demolished in Phase 9 (9.1).
-    // `peak` was renamed `rating` at mig 221 — the likeliest stale name in an old env.
-    // They land HERE rather than simply disappearing precisely because this list exists: an
-    // archbox unit or a stale .env still naming them must warn and boot, not fail closed.
-    const RETIRED: &[&str] = &["oracle", "scrub", "article_read", "peak"];
-
     let mut stages = HashSet::new();
     let mut unknown = Vec::new();
     for stage in raw
@@ -261,8 +210,6 @@ fn parse_enabled_stages(raw: &str) -> Result<HashSet<String>> {
     {
         if KNOWN.contains(&stage.as_str()) {
             stages.insert(stage);
-        } else if RETIRED.contains(&stage.as_str()) {
-            warn!(stage = %stage, "COGNITION_STAGES names a retired stage; ignoring");
         } else {
             unknown.push(stage);
         }
@@ -297,33 +244,14 @@ mod tests {
         assert!(stages.contains("sigil"));
     }
 
-    /// The legacy rail's stage names must WARN and drop, never fail a boot — an archbox unit or a
-    /// stale .env still naming them is a config lag, not an outage. (Phase 9 demolition, 9.1.)
-    #[test]
-    fn parse_enabled_stages_tolerates_the_demolished_legacy_stages() {
-        let stages = parse_enabled_stages("scrub,article_read,editor").unwrap();
-        assert_eq!(stages.len(), 1);
-        assert!(stages.contains("editor"));
-        assert!(!stages.contains("scrub"));
-        assert!(!stages.contains("article_read"));
-    }
-
     #[test]
     fn parse_enabled_stages_rejects_unknown_values() {
-        let err = parse_enabled_stages("graph,headlinez")
+        let err = parse_enabled_stages("graph,headlinez,scrub,oracle")
             .unwrap_err()
             .to_string();
         assert!(err.contains("headlinez"));
+        assert!(err.contains("scrub"));
+        assert!(err.contains("oracle"));
         assert!(err.contains("narratives"));
-    }
-
-    #[test]
-    fn parse_enabled_stages_ignores_retired_oracle() {
-        // A stale unit override or .env naming the folded-in stage must warn, not fail the
-        // boot (Session B cutover safety).
-        let stages = parse_enabled_stages("sigil,oracle").unwrap();
-        assert_eq!(stages.len(), 1);
-        assert!(stages.contains("sigil"));
-        assert!(!stages.contains("oracle"));
     }
 }

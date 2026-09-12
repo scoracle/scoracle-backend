@@ -1,15 +1,11 @@
-//! story_parts — progressing the entity's PART in a storyline (mig 219, the
-//! narrative_threads collapse).
+//! Progress an entity's durable part in a storyline.
 //!
 //! A part is a storyline's DURABLE IDENTITY at the entity grain: the `storyline_entities`
-//! row every telling (news_summaries row) progresses. This replaces the F5-successor that
-//! threads.rs was — on the packet rail a telling's storyline is a FACT, not a match: every
+//! row every telling (`news_summaries` row) progresses. A telling's storyline is a fact:
 //! corpus article reaches the Journalist through a packet (storyline_id NOT NULL), every
 //! article belongs to exactly one storyline, and every persisted narrative is grounded on
 //! cited article ids. The caller derives each telling's storyline with [`mode_storyline`]
 //! over its citations; this module progresses the parts under it.
-//!
-//! What survives from the thread engine is the progression DISCIPLINE, not its machinery:
 //!
 //!   1. Load the generation's parts (`FOR UPDATE` — the row set is per-entity and small).
 //!      `ORDER BY storyline_id` is load-bearing, not cosmetic: two transactions taking the
@@ -21,9 +17,7 @@
 //!      persists un-progressed. The Journalist updates parts; it never invents story
 //!      identity (creation belongs to the Desk, §1b).
 //!
-//! Sealing is NOT done here: storylines go dormant in the worker (`mark_dormant`, 14d) and
-//! resolve on ground truth in the nightly sweep (`seal_storylines`, mig 219, in
-//! cron-narrative-links.sh).
+//! Sealing is separate: the worker marks dormancy and the nightly sweep resolves ground truth.
 
 use crate::trajectory::classify_delta;
 use anyhow::{Context, Result};

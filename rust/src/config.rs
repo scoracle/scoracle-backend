@@ -15,27 +15,20 @@ pub struct Config {
     pub ollama_base_url: String,
     pub ollama_model: String,
     pub ollama_timeout: Duration,
-    /// FALLBACK governor budget for a host NOT listed in `COGNITION_BACKEND_CONCURRENCY`
-    /// (reads `OLLAMA_MAX_CONCURRENT`, default 1, clamped ≥1 — 0 would dead-lock every call).
-    /// In the single-box deploy every role resolves to the one configured localhost entry, so
-    /// this is INERT — it is not one of the three coupled slot knobs (`stage.rs`); it exists so
-    /// a rollback host added by `_BASE_URL` alone gets a conservative serial budget instead of
-    /// an unbounded one. (The Go model gate that once shared this var is long gone.)
+    /// Fallback governor budget for a host absent from `COGNITION_BACKEND_CONCURRENCY`.
+    /// Defaults to one and is clamped to at least one.
     pub ollama_max_concurrent: usize,
     /// Periodic drain even without a NOTIFY (Go worker default: 30s).
     pub safety_net: Duration,
-    /// A 'running' row idle longer than this is recovered to 'pending'. Aligned with
-    /// the Go `derive.StaleLease` (30 min) so the Rust Cognition Harness and the Go drainer
-    /// agree on what counts as a crashed lease when they share the queue — longer than
-    /// any single item's processing budget, so a slow-but-alive worker is never stolen.
+    /// A `running` row idle longer than this is recovered to `pending`. It must exceed any
+    /// single item's processing budget so a slow-but-alive worker is not stolen.
     pub stale_lease: Duration,
-    /// Role → model map (the Route primitive's config, Plan §2.1). Every role defaults to
-    /// `ollama_model` on `ollama_base_url`, so an un-configured deploy is single-local-model;
+    /// Role-to-model map. Every role defaults to `ollama_model` on `ollama_base_url`;
     /// `COGNITION_ROUTE_*` overrides per role.
     pub route: RouteConfig,
     /// Per-item ceiling on one stage handler run. A wedged await inside a handler (model
-    /// call, DB acquire) fails the item after this long instead of stalling the
-    /// drain forever (2026-07-15 incident follow-up). Zero disables.
+    /// call, DB acquire) fails the item after this long instead of stalling the drain. Zero
+    /// disables.
     pub handler_timeout: Duration,
     /// The worker supervisor's no-progress threshold: a busy drain whose heartbeat is
     /// older than this is declared wedged and the process exits for a clean systemd
@@ -51,16 +44,8 @@ pub struct Config {
     /// only thing deciding how many model calls actually run on a machine. Set it only to
     /// throttle: `1` restores the old strictly-sequential drain.
     pub drain_concurrency: Option<usize>,
-    /// Whether the Desk compiles packets in the drain loop (`COGNITION_PACKET_COMPILE`, default
-    /// OFF — PLAN-one-rail Phase 6.3).
-    ///
-    /// Storyline assembly (6.1) is always on: it writes only greenfield tables nothing else
-    /// reads. Packet compilation is not, because `INSERT ON packets` fires mig 206's fan-out,
-    /// whose Journalist arm is unconditional by design. The door this switch held is now shut
-    /// from the other side: the seam WAS ruled on, `RAIL` is gone, and the legacy `article_read`
-    /// seat it would have fought over the same `pipeline_work` row (the mig-197 churn loop) was
-    /// demolished in Phase 9.1. The switch survives as an ops brake on compile cost, not as a
-    /// rail selector.
+    /// Whether the Desk compiles packets (`COGNITION_PACKET_COMPILE`, default off). Storyline
+    /// assembly is unconditional; this remains an operational brake on compilation cost.
     pub packet_compile: bool,
     /// The context window EVERY voice on this host requests (`VOICE_NUM_CTX`, else the 4096
     /// packet envelope). Resolved once at boot because two items in one drain must not disagree
@@ -74,9 +59,7 @@ impl Config {
             .or_else(|| env_opt("DATABASE_URL"))
             .ok_or_else(|| anyhow!("DATABASE_PRIVATE_URL or DATABASE_URL must be set"))?;
 
-        // Bound as locals: they are both their own `Config` fields AND the per-role defaults
-        // the route map falls back to (so an un-configured deploy resolves every role to the
-        // one Ollama model — the byte-identical-to-L1 default).
+        // These fields are also the per-role route defaults.
         let ollama_base_url = env_or("OLLAMA_BASE_URL", "http://localhost:11434");
         let ollama_model = env_or("OLLAMA_MODEL", "mistral:7b");
         let route = RouteConfig::from_env(&ollama_model, &ollama_base_url);
@@ -84,44 +67,31 @@ impl Config {
         // ≥1: a 0-permit semaphore would block every model call forever.
         let ollama_max_concurrent = env_usize("OLLAMA_MAX_CONCURRENT", 1)?.max(1);
 
-        // The voice window is resolved ONCE, here, and carried on the Harness so no handler
-        // re-reads the environment mid-drain — two items in one drain disagreeing about the
-        // window would reload the shared runner between them. (Before the Phase 9 prune this sat
-        // beside a `RAIL` switch that chose the corpus; there is one corpus now.)
+        // Resolve the voice window once so handlers in one drain cannot disagree and reload the
+        // shared runner between calls.
         let voice_num_ctx =
             crate::route::resolve_voice_num_ctx(env_opt("VOICE_NUM_CTX").as_deref());
 
         Ok(Self {
             database_url,
-            // 25, raised from 5 when the drain went concurrent (2026-07-26). 5 was sized for a
-            // drain that ran ONE item at a time; with up to `drain_concurrency` handlers in
-            // flight — each holding a connection, and some holding a transaction plus a query —
-            // the pool starved and items failed with "pool timed out while waiting for an open
-            // connection". Comfortably above the sum of the stage caps (11), and Postgres here
-            // allows 100 with ~22 in use. A pool max is a ceiling, not a preallocation.
+            // The default exceeds the sum of stage caps; a pool max is a ceiling, not a
+            // preallocation.
             db_max_conns: env_u32("COGNITION_DB_MAX_CONNS", 25)?,
             ollama_base_url,
             ollama_model,
-            // 600s = 10 min. The old default was 60s, from L1 when every call was a short
-            // local mistral completion. It has been wrong since the first narrative generation
-            // and every real deploy overrode it in `.env.local`; a default that no running
-            // system uses is a trap for the next reader, so it now states the real budget.
+            // Ten minutes is the normal model-call budget.
             ollama_timeout: Duration::from_secs(env_u64("OLLAMA_TIMEOUT_SECONDS", 600)?),
             ollama_max_concurrent,
             safety_net: Duration::from_secs(env_u64("COGNITION_SAFETY_NET_SECONDS", 30)?),
-            // 1800s = 30 min = Go derive.StaleLease.
+            // Thirty-minute stale lease.
             stale_lease: Duration::from_secs(env_u64("COGNITION_STALE_LEASE_SECONDS", 1800)?),
             route,
-            // 1200s = 20 min: generous over the slowest observed item (a narratives batch
-            // item ran ~4-7 min under the 07-15 catch-up load) yet still under stale-lease,
-            // with room for the semaphore wait a concurrent drain adds on a busy host.
-            // Matches the deployed value; the former 900 default was overridden everywhere.
+            // Twenty minutes, including time waiting for a busy host; still below stale_lease.
             handler_timeout: Duration::from_secs(env_u64(
                 "COGNITION_HANDLER_TIMEOUT_SECONDS",
                 1200,
             )?),
-            // 2700s = 45 min: generous over the slowest single handler; a wedge self-heals
-            // in ≤45 min instead of the incident's 34 hours.
+            // Forty-five-minute no-progress watchdog.
             watchdog: Duration::from_secs(env_u64("COGNITION_WATCHDOG_SECONDS", 2700)?),
             drain_concurrency: match env_opt("COGNITION_DRAIN_CONCURRENCY") {
                 Some(raw) => Some(raw.parse::<usize>().map(|n| n.max(1)).with_context(|| {
@@ -135,15 +105,8 @@ impl Config {
     }
 }
 
-/// Backend selects which `impl Inference` a [`ModelSpec`] constructs (Plan §2.1).
-///
-/// The second variant arrived 2026-08-09 and it was **oMLX, not vLLM** — the MLX server on the
-/// voice host (D-T41). The shape this enum committed to held exactly as designed: one arm here,
-/// one arm in `Router::from_config`, and no stage moved.
-///
-/// `OpenAi` is named for the PROTOCOL, not the vendor — nothing external is called. It speaks
-/// `/v1/chat/completions`, which is what oMLX (and vLLM, when it comes) serves.
-/// ⛔ **It cannot carry `num_ctx` or `think`** — neither exists in that protocol. See `openai.rs`.
+/// Backend used to construct a [`ModelSpec`]'s `Inference` implementation. `OpenAi` names the
+/// `/v1/chat/completions` protocol, not a vendor, and cannot carry `num_ctx` or `think`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Backend {
     Ollama,
@@ -151,10 +114,7 @@ pub enum Backend {
 }
 
 impl Backend {
-    /// from_env_str parses `COGNITION_ROUTE_<ROLE>_BACKEND`. **Unknown values resolve to Ollama
-    /// rather than failing a boot** — the same total-parse discipline as `RAIL` and
-    /// `resolve_voice_num_ctx`: a typo in one role's backend must not take the daemon down, it
-    /// must leave that role where it already was.
+    /// Parse `COGNITION_ROUTE_<ROLE>_BACKEND`. Unknown values fall back to Ollama.
     pub fn from_env_str(raw: &str) -> Self {
         match raw.trim().to_ascii_lowercase().as_str() {
             "openai" | "omlx" | "mlx" => Backend::OpenAi,
@@ -163,27 +123,18 @@ impl Backend {
     }
 }
 
-/// ModelSpec is the concrete model a [`Role`] resolves to — and the ONE place a model id may
-/// appear (Plan §1.1 boundary; stage code names a `Role`, never this). `backend` selects the
-/// impl, `model` is the concrete id (`mistral:7b`), `base_url` is where that backend lives —
-/// a role on a second GPU/port is simply a different `base_url` (the topology swap, Plan §2.1).
+/// Concrete model and host for a [`Role`]. Stage code names roles, never model ids.
 #[derive(Clone, Debug)]
 pub struct ModelSpec {
     pub backend: Backend,
     pub model: String,
     pub base_url: String,
-    /// Per-ROLE think preference (`COGNITION_ROUTE_<ROLE>_THINK`, and `..._CANDIDATE_THINK`
-    /// for the A/B challenger): `Some(false)` disables a reasoning model's thinking for this
-    /// role's calls. Role-keyed, not model-keyed — the same model may think for one role and
-    /// not another (PEAK keeps thinking at 22/22; sigil's 512-token budget requires no-think).
+    /// Per-role think preference. `Some(false)` disables thinking for this role's calls.
     pub think: Option<bool>,
 }
 
-/// RouteConfig is the role → model map driving the [`Router`](crate::route::Router) (Plan §2.1).
-/// `roles` is the incumbent each `Role` resolves to; `candidates` is the optional A/B
-/// challenger per role (eval-only, NEVER served — Plan §2.2). Built from `COGNITION_ROUTE_*`
-/// with every role defaulting to the one Ollama model, so an un-configured deploy is
-/// single-local-model and byte-identical to the L1 single router.
+/// Role-to-model configuration for [`Router`](crate::route::Router). Candidates are eval-only;
+/// an unconfigured deployment routes every role to the default Ollama model.
 #[derive(Clone, Debug)]
 pub struct RouteConfig {
     /// The incumbent model each role resolves to (`for_role`). Populated for EVERY role
@@ -201,30 +152,13 @@ pub struct RouteConfig {
 }
 
 impl RouteConfig {
-    /// from_env reads `COGNITION_ROUTE_<ROLE>` for every role (e.g.
-    /// `COGNITION_ROUTE_EMOTIONAL_NEWS`), each defaulting to `default_model` on `base_url` —
-    /// so with nothing configured every role is the one local model and routing moves zero bytes
-    /// vs L1. `COGNITION_ROUTE_<ROLE>_CANDIDATE` adds the optional eval challenger.
-    ///
-    /// **The topology split (Plan §2.1) is now real.** `COGNITION_ROUTE_<ROLE>_BASE_URL` puts a
-    /// role on a different machine — the router already keys backends by
-    /// `(backend, model, base_url)`, so two roles on two hosts get two clients with no further
-    /// ceremony. The intended shape is one model per machine: The Editor on the box with the
-    /// small fast GPU, the six characters on the box with the memory for a larger model.
-    ///
-    /// Nothing about the DB moves. The remote host runs `ollama serve` and nothing else; the
-    /// harness stays here, owns Postgres, and a remote generation is an ordinary HTTP response
-    /// persisted by the same code that persists a local one.
+    /// Read each role's model, backend, host, think preference, and optional eval candidate from
+    /// `COGNITION_ROUTE_<ROLE>*`. Unset roles use `default_model` on `base_url`.
     pub fn from_env(default_model: &str, base_url: &str) -> Self {
         let mut roles = HashMap::new();
         let mut candidates = HashMap::new();
-        // Think is OFF unless a role opts in (`_THINK=true`). The safety used to live in
-        // twelve `_THINK=false` env lines; when the 2026-09-06 resident-model cleanup ran the
-        // eval without them, an unset flag OMITTED the field and granite thought by default —
-        // every reply spent its whole num_predict deliberating and came back empty. A default
-        // this load-bearing belongs in code, not in env hygiene. `_THINK=omit` is the escape
-        // hatch that restores field omission for a backend/model that rejects an explicit
-        // `think: false`.
+        // Thinking is off unless a role opts in. `_THINK=omit` withholds the field for a backend
+        // that rejects an explicit `false`.
         let parse_think = |key: &str| -> Option<bool> {
             match env_opt(key).as_deref().map(str::to_lowercase).as_deref() {
                 Some("true" | "1" | "yes") => Some(true),

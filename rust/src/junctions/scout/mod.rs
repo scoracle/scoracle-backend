@@ -1,36 +1,24 @@
-//! Rating stage — the stats-rail scouting report.
+//! Rating stage — The Scout's statistical report.
 //!
 //! Rust owns both rating shapes: the per-entity core here, and a `RatingHandler` queue stage for
 //! current-season need-based rating work. `cmd/statcommentary` remains the operator/batch entry
-//! point: nightly mode enqueues durable rating work, while explicit backfill can still run the
-//! core inline for historical seasons. (s19 PEAK retirement: the specialist lens is gone — the
-//! rating is the z-score synthesis, and the Scout's brief surfaces specialists as prose, not as a
-//! divined label. The queue stage is `rating` everywhere since mig 221 — Wave B is done.)
+//! point: nightly mode enqueues durable work, while explicit backfill can run the core inline.
 //!
-//! Composition (Plan §1.2 + §4): `route(StatsLogic) + extract + persist`. Rating is the FIRST
-//! `Role::StatsLogic` consumer (vibe/transfers are `EmotionalNews`). The deterministic parts stay
-//! where they belong — composite / T-score / the `rating_breakdown` percentiles (`pct`/`z`) are
-//! Postgres-computed stored derived stats, READ here, never recomputed. The transient prompt-shaping
-//! (notability, `pctBand`, `trimFloat`, ordered facts) is mirrored in Rust byte-for-byte: it is NOT a
-//! stored derived stat, so it lives in the Rust stage beside the model call. The L8 BREAKTHROUGH is preserved: the
-//! percentile→tier mapping (`pctBand`) is done DETERMINISTICALLY in code and fed to the model as a
-//! labeled FACT, and the model only VERBALIZES the labeled tier — it never maps percentile→quality
-//! itself (some local models invert this, e.g. calling a 37th-pct skill "above average").
+//! Postgres owns composite and percentile calculations. Rust selects and labels the evidence,
+//! computes notability and trajectory, and asks the model only to narrate decided facts.
 //!
 //! FAIL CLOSED: rating's ONLY marker is the PRE-model no-stats path (no usable rating row → a
 //! NULL-body marker, like vibe's no-corpus marker). There is no post-model fail-closed marker — an
-//! empty model body is a hard error (the work fails + retries), never a served row (Go returns an
-//! error too). So `RatingParser` never returns `Ok(None)` (like `VibeParser`).
+//! empty model body is a hard error (the work fails + retries), never a served row.
 //!
-//! The deterministic profile assembly, input hash, and parser stay byte-stable. The s14 prompt is
-//! Rust-owned and model-neutral, with the same core invariant: the labeled tier is the truth.
+//! The labeled tier is authoritative; the model never maps percentile to quality itself.
 
-use crate::harness::{Harness, Parser, Provenance};
-use crate::ledger::{insert_cognition_ledger_best_effort, CognitionLedgerEntry};
+use crate::harness::{Generation, GenerationCall, Harness, Parser};
+use crate::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
 use crate::stage::StageHandler;
-use crate::util::{go_json_float, go_json_string, hash_components, round1};
+use crate::util::{hash_components, round1};
 use crate::work::{Item, Stage};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
@@ -44,31 +32,31 @@ pub mod prompt;
 pub use inputs::{build_stat_prompt, render_availability_reports, render_personnel_block};
 pub use prompt::{RATING_PROMPT_VERSION, RATING_SYSTEM_PROMPT};
 
-/// Output contract captured separately in the Phase 2 diagnostic ledger.
-pub const RATING_OUTPUT_CONTRACT_VERSION: &str = "rating-commentary-v1"; // was peak-commentary-v2; s19 PEAK retirement — body-only output, no divined label
+/// Output contract captured separately in the diagnostic ledger.
+pub const RATING_OUTPUT_CONTRACT_VERSION: &str = "rating-commentary-v1";
+
+const RATING_LEDGER: LedgerSpec = LedgerSpec {
+    stage: "rating",
+    lens: "rating",
+    role: Role::StatsLogic,
+    product_table: "stat_summaries",
+    output_contract_version: RATING_OUTPUT_CONTRACT_VERSION,
+};
 
 /// Production rating temperature.
 pub const RATING_TEMPERATURE: f64 = 0.6;
 
-/// Token cap for the scouting brief.
-// A card, not a report: three short labelled lines plus a twelve-word title is ~200 tokens, and
-// 350 leaves room to finish a sentence rather than truncate mid-clause. Was 2000, sized when the
-// rail ran a 14B and the Summary allowance was eight sentences — that budget alone could ask for
-// half again the whole 4,096 window.
+/// Token cap for the compact scouting card.
 pub const RATING_NUM_PREDICT: i32 = 350;
 
-/// Durable rating queue input_version prefix. The queue key is entity/sport-scoped for
-/// historical compatibility; the season is carried in the version so the handler can drain
-/// explicit current-season demands without re-resolving the wrong season. (mig 221 renamed
-/// the stage and this prefix from the retired "peak".)
+/// Durable queue version prefix. The entity/sport queue key stays seasonless, so the version
+/// carries the season explicitly.
 const RATING_WORK_PREFIX: &str = "rating:s";
 
 /// maxStatFacts bounds the breakdown datapoints fed to the prompt.
 const MAX_STAT_FACTS: usize = 14;
 
-/// The entity whose rating profile to narrate — the Rust analog of `RatingRequest`'s parity-relevant
-/// fields. `sport` is UPPER-cased by the caller (the Go CLI passes `sportUpper`); the header line uses
-/// it verbatim, so it must already be upper for byte parity.
+/// Entity whose rating profile should be narrated. `sport` is already uppercased by the caller.
 #[derive(Clone, Debug)]
 pub struct RatingReq {
     pub entity_type: String, // "player" | "team"
@@ -79,15 +67,8 @@ pub struct RatingReq {
     pub trigger_type: String,
 }
 
-/// One element of the `rating_breakdown` JSONB (migration 030/043). `pct` is the percentile of
-/// `sign*z`, so HIGHER IS ALWAYS BETTER (a high pct in turnovers = commits few). Field names match the
-/// Go `ratingDatapoint` json tags exactly so serde reads the same JSONB. `pct`/`z`/`value` come from
-/// JSONB text → identical f64 across Go/Rust (no DB numeric cast involved). Mirrors `ratingDatapoint`.
-///
-/// Every field is `null_to_default`: Go's `json.Unmarshal` treats an explicit `null` as the zero value
-/// (a sparse datapoint may carry `"value": null`, e.g. "Penalties Won"); plain `#[serde(default)]`
-/// only covers a MISSING field, not a present null, so without this serde errors where Go tolerates —
-/// the parity break the L12 gate surfaced.
+/// One `rating_breakdown` datapoint. `pct` is based on `sign*z`, so higher is always better.
+/// Explicit JSON nulls default to zero values for sparse datapoints.
 #[derive(Clone, Debug, Default, Deserialize)]
 pub struct RatingDatapoint {
     #[serde(default, deserialize_with = "null_to_default")]
@@ -110,9 +91,7 @@ pub struct RatingDatapoint {
     pub scoped_pct: HashMap<String, f64>,
 }
 
-/// null_to_default maps a present-`null` (and a missing field, via the companion `#[serde(default)]`)
-/// to `T::default` — reproducing Go's `encoding/json`, which keeps the zero value for a null rather
-/// than erroring. Applied to every `RatingDatapoint` scalar so a null in the breakdown matches Go.
+/// Map a present JSON null to `T::default`.
 fn null_to_default<'de, D, T>(d: D) -> Result<T, D::Error>
 where
     T: Default + Deserialize<'de>,
@@ -121,9 +100,7 @@ where
     Ok(Option::<T>::deserialize(d)?.unwrap_or_default())
 }
 
-/// null_tolerant_map is the map analog for `scoped_pct`: a null map → empty, and a null VALUE inside
-/// → 0.0 — Go unmarshals `{"position": null}` into `map[string]float64` as 0.0 (the key kept), so this
-/// matches. (scoped_pct feeds only the prompt's "[position: …]" suffix, never the input_hash.)
+/// Map a null `scoped_pct` to empty and null values inside it to zero.
 fn null_tolerant_map<'de, D>(d: D) -> Result<HashMap<String, f64>, D::Error>
 where
     D: Deserializer<'de>,
@@ -136,12 +113,9 @@ where
         .collect())
 }
 
-/// The entity's scrubbed rating profile — mirrors `ratingProfile`. `composite_score` comes from
-/// the numeric/float8 COLUMN (cast `::float8` on read — the sqlx numeric landmine); the
+/// Scrubbed rating profile. `composite_score` comes from a numeric column cast to float8; the
 /// breakdown/scoped/modes are JSONB. The breakdown's ARRAY ORDER is preserved (jsonb keeps array
-/// order), which `input_components` relies on (it walks the breakdown in stored order, unlike the
-/// prompt which sorts by pct). (s19: the specialist columns — peak_score/peak_label — are retired;
-/// the breakdown IS the full z-score surface.)
+/// order), which `input_components` relies on while the prompt sorts by percentile.
 #[derive(Clone, Debug)]
 pub struct RatingProfile {
     pub entity_type: String,
@@ -206,13 +180,12 @@ pub struct ScoutingDecision {
 }
 
 // ---------------------------------------------------------------------------
-// Loader — the SQL `rating.go::loadRatingProfile` runs (same query ⇒ same row).
+// Loader.
 // ---------------------------------------------------------------------------
 
 /// load_rating_profile reads the entity's rating row for `season` (None = latest). Prefers the
-/// unscoped row, falling back to the richest league row (FOOTBALL is league-scoped). SQL VERBATIM
-/// from Go (only `::float8` casts added on the numeric score columns — sqlx has no numeric decode
-/// without the decimal feature; `::text` on the JSONB so serde parses it, array order preserved).
+/// unscoped row, falling back to the richest league row (FOOTBALL is league-scoped). Numeric scores
+/// are cast to float8 and JSONB to text for sqlx/serde decoding.
 /// Returns `None` when there is no rating row at all.
 pub async fn load_rating_profile(
     pool: &PgPool,
@@ -221,15 +194,7 @@ pub async fn load_rating_profile(
     sport: &str,
     season: Option<i32>,
 ) -> Result<Option<RatingProfile>> {
-    // `team_stats` has NO `rating_modes` column — per-x rate modes (per_36 / per_90) are a
-    // player/minutes concept — so the loader selects it ONLY for players; teams get an empty-modes
-    // literal. This is a DELIBERATE divergence from Go's verbatim loader, which `SELECT`s rating_modes
-    // from BOTH tables and therefore ERRORS on every team — the latent bug that left team rating
-    // commentary dormant (Go's cmd/statcommentary silently fails each team every run; 0 team rows in
-    // stat_summaries). Fixing it HERE — the cutover's single cognition home — is new Rust-only
-    // capability: team rating now loads + generates. It is validated by quality-eval, NOT Go
-    // byte-parity (Go has no team baseline to match); the player path is byte-identical to before, so
-    // player parity is untouched.
+    // Rate modes exist only for player/minutes stats; teams receive an empty object.
     let (id_col, table, pos_select, modes_select) = match entity_type {
         "player" => (
             "player_id",
@@ -278,7 +243,7 @@ pub async fn load_rating_profile(
 
     let breakdown: Vec<RatingDatapoint> =
         serde_json::from_str(&breakdown_raw).context("unmarshal rating_breakdown")?;
-    // Tolerant: the cohort framing + the per-x modes are optional (Go ignores their parse errors).
+    // Cohort framing and per-x modes are optional enrichment.
     let scoped_ranks: HashMap<String, f64> = serde_json::from_str(&scoped_raw).unwrap_or_default();
     let rate_modes = parse_rate_modes(&modes_raw);
 
@@ -294,8 +259,7 @@ pub async fn load_rating_profile(
 }
 
 /// parse_rate_modes reads `rating_modes` — a per-x bundle per mode (`{"per_36": {"breakdown": [...]}}`),
-/// keeping only non-empty breakdowns. Tolerant (a parse error ⇒ no modes), mirroring Go's
-/// `if err == nil` guard. The per-x lens is the reveal — elite rate production the raw totals hide.
+/// keeping only non-empty breakdowns. A parse error yields no optional modes.
 fn parse_rate_modes(raw: &str) -> HashMap<String, Vec<RatingDatapoint>> {
     #[derive(Deserialize)]
     struct ModeWrap {
@@ -314,14 +278,12 @@ fn parse_rate_modes(raw: &str) -> HashMap<String, Vec<RatingDatapoint>> {
 }
 
 // ---------------------------------------------------------------------------
-// Deterministic helpers — mirrored byte-for-byte from rating.go (transient prompt-shaping; NOT
-// stored derived stats, so they live in the stage exactly as Go does it — the transfers precedent).
+// Deterministic prompt shaping over stored derived stats.
 // ---------------------------------------------------------------------------
 
 /// compute_notability returns the deterministic distinctiveness score (0-100) + its components. The
 /// model NEVER sees the formula — only the resulting length guidance (rendered into the prompt, so it
-/// IS implicitly a parity axis via built_prompt). Mirrors `computeNotability`. Order-independent (the
-/// rate-mode loop only takes a max), so the HashMap iteration order does not affect the result.
+/// reaches the prompt). Order-independent because the rate-mode loop only takes a maximum.
 pub fn compute_notability(p: &RatingProfile) -> (i32, serde_json::Value) {
     let mut top_pct = 0.0_f64;
     let mut elite_count = 0_i64;
@@ -376,8 +338,7 @@ pub fn pct_band(pct: f64) -> &'static str {
 }
 
 /// trim_float renders a datapoint value compactly — integers without a decimal, small fractions
-/// (< 1) with two places, everything else with one ("3" / "0.38" / "10.7"). Mirrors `trimFloat`
-/// (Go `%.0f` / `%.2f` / `%.1f`; Rust's `{:.N}` rounds half-to-even identically).
+/// (< 1) with two places, everything else with one ("3" / "0.38" / "10.7").
 fn trim_float(f: f64) -> String {
     if f == f.trunc() {
         format!("{f:.0}")
@@ -388,24 +349,8 @@ fn trim_float(f: f64) -> String {
     }
 }
 
-/// ordered_facts returns a datapoint set that SPANS the entity's percentile range, bounded to
-/// MAX_STAT_FACTS and presented in pct DESC order.
-///
-/// s21. This used to sort by pct DESC and truncate, which is top-N: on a forty-facet team the
-/// Scout saw the fourteen things the entity does best and never the bottom of its own
-/// distribution. The only weaknesses that reached him arrived through the decision card as a
-/// finished verdict rather than as evidence he could weigh, so a report meant to be thorough was
-/// built on the top third of the range.
-///
-/// Scott's brief for this seat: a front-office evaluator writing "a detailed, unbiased report on
-/// the target entity... thorough, which is why we have it analyze the z-score range and not just
-/// top and bottom scores." Top-N cannot produce that, and neither can top-plus-bottom: the middle
-/// is where an average team is actually average, and saying so is a finding.
-///
-/// The cap stays — the voices are pinned to a 4,096 window and the datapoint block is the
-/// biggest thing in this prompt — so the budget is SPENT differently instead of raised. Both
-/// ends are taken whole, because that is where the decisions live, and the remainder is an even
-/// stride through the middle so the shape of the distribution survives the sampling.
+/// Return at most `MAX_STAT_FACTS` spanning the full percentile range. Keep both ends and sample
+/// the middle evenly so the prompt does not become a top-N highlight reel.
 fn ordered_facts(breakdown: &[RatingDatapoint]) -> Vec<RatingDatapoint> {
     let facts = ordered_facts_unbounded(breakdown);
     if facts.len() <= MAX_STAT_FACTS {
@@ -474,7 +419,7 @@ fn budget_truncated_stat_labels(
 
 /// collect_rate_standouts surfaces, per rate mode, the elite (pct ≥ 80) per-x datapoints — the lens
 /// that reveals a limited-minutes player producing at an elite rate. Modes sorted for stable output
-/// (Go `sort.Strings` == Rust `str` Ord, both byte-wise); ≤5 per mode. Mirrors `collectRateStandouts`.
+/// with byte-wise string ordering; at most five per mode.
 /// Used by BOTH the prompt's rate-adjusted section AND `input_components`' rate_standouts (same output).
 fn collect_rate_standouts(p: &RatingProfile) -> Vec<RateStandout> {
     let mut modes: Vec<&String> = p.rate_modes.keys().collect();
@@ -589,16 +534,8 @@ fn drop_off_facet_datapoints(p: &mut RatingProfile) -> Vec<String> {
     dropped
 }
 
-/// drop_display_tier_datapoints removes datapoints the rating engine has RETIRED from its
-/// equation: `in_comp=false AND in_spec=false` — the display tier (migs 060/062: metrics that
-/// reward reactive volume or re-skin other signals; kept for the stats-page z-pizza, out of
-/// the composite and specialist pools). Session D (North Star #5): the scouting context is
-/// z-score-backed signal only, so the display tier stops leaking into prompts — before this
-/// filter a display-tier metric could even be CROWNED (367 FOOTBALL players' PEAK line was
-/// one, e.g. Dan Burn's "PEAK: Clearances", the exact case mig 062 called perverse). Runs on
-/// the breakdown AND the per-x rate modes; returns the dropped breakdown labels for the
-/// exclusions ledger. Flags are present on every stored breakdown element (verified across
-/// all sports/seasons 2026-07-17), so a missing-flag row cannot be silently emptied.
+/// Remove display-only datapoints (`!in_comp && !in_spec`) from the breakdown and rate modes.
+/// Return dropped labels for provenance.
 fn drop_display_tier_datapoints(p: &mut RatingProfile) -> Vec<String> {
     let display_tier = |d: &RatingDatapoint| !d.in_comp && !d.in_spec;
     let dropped: Vec<String> = p
@@ -615,22 +552,10 @@ fn drop_display_tier_datapoints(p: &mut RatingProfile) -> Vec<String> {
 }
 
 fn format_datapoint_evidence(d: &RatingDatapoint) -> String {
-    // "rating", never "z". Scott, 2026-08-23: "the z-score is our house rating... z-score is
-    // going to be meaningless for 99% of our users. Rating will work for everyone."
-    //
-    // This is also the seventh place the input-shouting law has bitten: the crown died live on
-    // `reading carries banned vocabulary "z-score"` because THIS line handed the Scout a `z`, he
-    // dutifully cited it, and the Oracle read his card. Renaming the label at its source is the
-    // fix that holds; oracle::prompt::descrub_z stays only as a backstop for rows banked before
-    // this bump.
-    let dz = d.sign as f64 * d.z; // sign-adjusted so + is always the good direction
-                                  // Commas, never " · " (2026-08-25): the eighth application of the input-shouting law.
-                                  // The interpunct was the card's notation, the prompt then BANNED echoing it, and the ban
-                                  // lost the way every ban against the input loses — measured on the 7B (8 of 9 rating
-                                  // reds, 08-19), on granite4.2 at the fixture gate (7 of 8), and again live the day the
-                                  // wire-copy pass removed the example numbers and the model reached for the notation
-                                  // instead. A comma-separated finding echoed into prose is just grammar;
-                                  // `RATING_BODY_BANS`'s " · " entry stays as the tripwire that should now never fire.
+    // User-facing evidence calls the standardized value a rating, never a z-score.
+    // Sign-adjust so positive always means good.
+    let dz = d.sign as f64 * d.z;
+    // Commas keep copied evidence grammatical; the interpunct remains a prose tripwire.
     let mut s = format!(
         "{}: {}, {:.0}th pct ({}), rating {:+.1}",
         d.label,
@@ -659,9 +584,7 @@ pub fn build_scouting_decision(p: &RatingProfile) -> ScoutingDecision {
     let primary = facts.first().filter(|d| is_strong_or_elite(d));
 
     let mut primary_strength_to_stop = primary.map(decision_fact);
-    // Per-x corroboration rides the strength line itself (s14): echo-prone models speak the
-    // card but skipped the separate rate-standouts section (gate rounds 1-2), so the proof
-    // the edge is real at low minutes must sit where the primary-strength evidence is.
+    // Put per-rate corroboration on the primary strength rather than in a separate section.
     if let Some(f) = primary_strength_to_stop.as_mut() {
         if let Some(r) = collect_rate_standouts(p)
             .iter()
@@ -715,8 +638,8 @@ pub fn build_scouting_decision(p: &RatingProfile) -> ScoutingDecision {
     }
 }
 
-/// load_stat_memory fetches the cross-season stats memory card (`stat_context_for_entity`,
-/// mig 164): prior-season top-skill read, confirmed moves, reliability-framed matchup edges.
+/// Fetch the cross-season stats memory card: prior-season skill read, confirmed moves, and
+/// reliability-framed matchup edges.
 /// `None` = no memory, no prompt section. Model-facing enrichment only — the relational
 /// layer is never user-exposed.
 pub async fn load_stat_memory(
@@ -734,20 +657,16 @@ pub async fn load_stat_memory(
         .fetch_one(pool)
         .await
         .context("stat_context_for_entity")?;
-    // mig 221 rewrote stat_context_for_entity to render the retired vocabulary out at
-    // source, which retires the s18 Rust-side descrub shim: the card arrives clean.
     Ok(row.0)
 }
 
-/// Season-over-season movement threshold (s19): a per-skill percentile move of at least this
-/// many points earns "improved"/"slipped"; anything smaller is "held".
+/// Per-skill percentile movement needed for "improved" or "slipped".
 const Z_MEMORY_MOVE_PCT_POINTS: f64 = 8.0;
 /// Cap on movement lines rendered into the prompt (top by current pct — the A5 rule does not
 /// apply: unmatched skills are new-season datapoints, not dropped evidence).
 const Z_MEMORY_MAX_LINES: usize = 10;
 
-/// build_z_memory_lines renders the per-skill season-over-season movement block (s19): for each
-/// current datapoint with a matching prior-season label, one line carrying both percentiles,
+/// Render season-over-season movement for matching skill labels, carrying both percentiles,
 /// both tiers, and a DECIDED movement word — the L8/ScoutingDecision discipline applied to
 /// trajectory (the model voices a decided move, it never infers direction from raw numbers).
 /// Pure for testability; `None` when no skill matches across seasons.
@@ -866,27 +785,9 @@ const PERSONNEL_FIRST_READ_DAYS: i32 = 30;
 /// scouted since preseason gets the recent moves, not its whole transfer history.
 const PERSONNEL_MAX_DAYS: i32 = 180;
 
-/// load_personnel_changes reads the adjudicated personnel record (7.7) — `applied` and
-/// `reverted` rows of `transfer_identity_applications`, the SAME chain the Insider's
-/// adjudication writes and the `transfer_ground_truth` view is built over — for everything that
-/// moved since this entity was last read.
-///
-/// **Why a second road at all, when the memory card already carries "confirmed moves":** that
-/// card reads `transfer_ground_truth`, which is `DISTINCT ON (sport, player_id, team_id)` over
-/// non-reverted applications on a fixed 180-day window, LIMIT 3. Four facts an opposing scout
-/// needs never survive it — (1) a TEAM's departures (the view's team branch matches
-/// `new_team_id` only, so a club losing a player sees nothing), (2) the club a player came
-/// FROM, (3) a REVERT (the view filters `reverted_at IS NULL`, so a correction to a move the
-/// last brief was written around is invisible), and (4) the since-last-read framing that makes
-/// any of it new information. The memory card keeps its slow cross-season arc lines; this block
-/// is the delta.
-///
-/// **T4 holds by construction:** no prose reaches the Scout. Every field here is a date, an id
-/// resolved to a name, or the adjudicated `event_type` enum — the `reason`, `evidence` and
-/// `adjudication_raw` columns of that table are deliberately never selected.
-///
-/// Returns the changes newest-first plus the TOTAL that qualified, so the renderer can name
-/// what the cap dropped (the A5 rule) instead of silently truncating.
+/// Load adjudicated transfers since the entity's last read. Unlike slow memory, this includes
+/// departures, source clubs, and reverts. Only structured facts reach the Scout. Returns the
+/// newest rows plus the pre-cap total so exclusions are explicit.
 pub async fn load_personnel_changes(
     pool: &PgPool,
     sport: &str,
@@ -987,19 +888,8 @@ pub async fn load_personnel_changes(
     Ok((changes, total))
 }
 
-/// load_availability_changes reads the adjudicated availability record (mig 229) for everything
-/// that moved since this entity was last read — the injury/suspension arm of the personnel block.
-///
-/// **Why this exists at all:** `load_personnel_changes` selects `transfer_identity_applications`
-/// ONLY, so before this a correctly-woken Scout — one enqueued by
-/// [`enqueue_rating_for_applied_availability`], with the debounce deliberately bypassed and the
-/// model call deliberately made — arrived at a card containing ZERO availability facts. His s21
-/// rule ("Availability is part of the profile… never speculate past what is recorded") then
-/// correctly forbade him from inventing any, so the run produced a card no different from the
-/// periodic one it had just paid to regenerate. The trigger is the last step of Scott's chain;
-/// this is the step that makes the trigger worth pulling.
-///
-/// **Three kinds, because mig 229 kept three columns apart.** `opened` (newly ruled out),
+/// Load adjudicated availability changes since the last read. Three distinct kinds are retained:
+/// `opened` (newly ruled out),
 /// `returned` (`returned_at` — availability actually resumed, a real-world outcome), and
 /// `reverted` (`reverted_at` — the RECORD was wrong, a correction). Rendering a revert as a
 /// return would tell the Scout a player is fit when what actually happened is that we withdrew
@@ -1125,28 +1015,11 @@ pub async fn load_availability_changes(
 /// report is actually built on.
 const MAX_AVAILABILITY_CLAIMS: usize = 6;
 
-/// load_availability_reports pulls the Editor's injury/suspension claims for this entity — the
-/// evidence the Scout WEIGHS, as opposed to the adjudicated record he simply reports.
+/// Load the Editor's injury/suspension claims for this entity — evidence the Scout weighs rather
+/// than adjudicated facts it simply reports.
 ///
-/// **This is the read Scott's ruling opened** (2026-08-23: *"Editor notices injury/suspension and
-/// tags the Scout → the Scout decides the legitimacy of the report"*). It composes the loader and
-/// the renderer itself rather than calling `render_packets_for_entity`, following the precedent
-/// that doc names: *"Voices whose contract needs the claims as data instead… compose the loader
-/// and the renderer themselves."* The block form would hand him the headline, the role line and
-/// the continuity line — general packet prose, which is broader than the slice this seat is meant
-/// to read.
-///
-/// Two things stay CODE's, and they are the reason a model can be trusted with the rest:
-///
-/// * **The slice** — `Voice::Scout` admits injury- and suspension-typed claims and nothing else.
-///   No model is asked what it should be allowed to read (E1).
-/// * **The contest marker** — `mark_contested` flags claims that say opposite things about the
-///   same subject, mechanically, and marks BOTH (T3/D6). It is a POINTER, never a filter: the
-///   disagreement is exactly what the Scout is being asked to judge, so collapsing it would be
-///   deciding for him.
-///
-/// What he does with a marked pair — believe the better source, report the dispute, or leave it
-/// out — is his call, which is the whole point of tagging him rather than adjudicating for him.
+/// `Voice::Scout` selects only injury and suspension claims. `mark_contested` identifies both
+/// sides of a contradiction without filtering or deciding it.
 pub async fn load_availability_reports(
     pool: &PgPool,
     entity_type: &str,
@@ -1181,119 +1054,42 @@ pub async fn load_availability_reports(
 }
 
 // ---------------------------------------------------------------------------
-// Input components + hash — the debounce key (Provenance.input_hash), the 5th parity axis.
-//
-// Reproduces Go's `(*ratingProfile).inputComponents` + `hashComponents`: the canonical JSON is
-// emitted exactly as `json.Marshal(map[string]any{...})` would (sorted keys, HTML-escaped strings,
-// Go's shortest float form). Through s13 the bytes were IDENTICAL to the Go-era pre-image (keeping
-// the cutover clean — no spurious nightly regens vs the Go-written rows); s14 deliberately ends
-// that byte-parity by folding `prompt_version` into the pre-image (the narratives M4 / vibe v13 /
-// momentum s6 pattern), so a version bump regenerates the fleet once through the hash itself. The
-// datapoints walk the breakdown in STORED order (NOT pct-sorted — unlike the prompt). Built with a
-// tiny Go-JSON value emitter over the shared `util::go_json_*` leaf encoders (the structure is
-// nested: arrays of objects).
+// Canonical material-input JSON and debounce hash. Datapoints retain stored order.
 // ---------------------------------------------------------------------------
 
-/// GoJson is a minimal JSON value whose emit reproduces Go `encoding/json` byte-for-byte for our
-/// domain: object keys SORTED at emit (Go marshals maps with sorted keys), strings/floats via the
-/// shared `util::go_json_*`, ints as-is, no whitespace. Only the shapes `input_components` needs.
-enum GoJson {
-    Int(i64),
-    Float(f64),
-    Str(String),
-    Arr(Vec<GoJson>),
-    Obj(Vec<(String, GoJson)>),
-}
-
-impl GoJson {
-    fn emit(&self, out: &mut String) {
-        match self {
-            GoJson::Int(i) => out.push_str(&i.to_string()),
-            GoJson::Float(f) => out.push_str(&go_json_float(*f)),
-            GoJson::Str(s) => out.push_str(&go_json_string(s)),
-            GoJson::Arr(items) => {
-                out.push('[');
-                for (i, it) in items.iter().enumerate() {
-                    if i > 0 {
-                        out.push(',');
-                    }
-                    it.emit(out);
-                }
-                out.push(']');
-            }
-            GoJson::Obj(entries) => {
-                let mut sorted: Vec<&(String, GoJson)> = entries.iter().collect();
-                sorted.sort_by(|a, b| a.0.cmp(&b.0)); // Go marshals map keys in sorted order
-                out.push('{');
-                for (i, (k, v)) in sorted.iter().enumerate() {
-                    if i > 0 {
-                        out.push(',');
-                    }
-                    out.push_str(&go_json_string(k));
-                    out.push(':');
-                    v.emit(out);
-                }
-                out.push('}');
-            }
-        }
-    }
-}
-
-/// input_components returns the canonical input-components JSON (its SHA-256 is `input_hash`).
+/// Return canonical input-components JSON; its SHA-256 is `input_hash`.
 /// `season`/`datapoints` are ALWAYS present; the rest (rate_standouts, composite_score, position)
-/// are conditional. `pct` values are `round1`'d. Wave 5 deliberately removed the old
-/// `is_specialty` flag from the pre-image, s19 removed the specialist entries
-/// (`peak_label`/`peak_score`), and mig 221 dropped the flag from the stored breakdown itself — the pre-image is the z-score surface
-/// the Scout actually reads. (The Go-parity note is historical: since the Step-3 cutover Rust is
-/// the sole producer, and the s19 hash change regenerates every entity once, by design.)
+/// are conditional. Percentiles are rounded to one decimal.
 pub fn input_components(p: &RatingProfile) -> String {
-    let datapoints: Vec<GoJson> = p
+    let datapoints: Vec<serde_json::Value> = p
         .breakdown
         .iter()
-        .map(|d| {
-            GoJson::Obj(vec![
-                ("label".to_string(), GoJson::Str(d.label.clone())),
-                ("pct".to_string(), GoJson::Float(round1(d.pct))),
-            ])
-        })
+        .map(|d| serde_json::json!({"label": d.label, "pct": round1(d.pct)}))
         .collect();
 
-    let mut top: Vec<(String, GoJson)> = vec![
-        // prompt_version joins the pre-image at s14 (the narratives M4 / vibe v13 / momentum s6
-        // pattern): an s-bump changes every entity's hash once, forcing one regen as the
-        // nightly next touches it.
-        (
-            "prompt_version".to_string(),
-            GoJson::Str(RATING_PROMPT_VERSION.to_string()),
-        ),
-        ("season".to_string(), GoJson::Int(p.season as i64)),
-        ("datapoints".to_string(), GoJson::Arr(datapoints)),
-    ];
+    let mut components = serde_json::Map::new();
+    components.insert("datapoints".into(), serde_json::json!(datapoints));
+    components.insert(
+        "prompt_version".into(),
+        serde_json::json!(RATING_PROMPT_VERSION),
+    );
+    components.insert("season".into(), serde_json::json!(p.season));
 
     let rs = collect_rate_standouts(p);
     if !rs.is_empty() {
-        let rates: Vec<GoJson> = rs
+        let rates: Vec<serde_json::Value> = rs
             .iter()
-            .map(|r| {
-                GoJson::Obj(vec![
-                    ("mode".to_string(), GoJson::Str(r.mode.clone())),
-                    ("label".to_string(), GoJson::Str(r.label.clone())),
-                    ("pct".to_string(), GoJson::Float(round1(r.pct))),
-                ])
-            })
+            .map(|r| serde_json::json!({"label": r.label, "mode": r.mode, "pct": round1(r.pct)}))
             .collect();
-        top.push(("rate_standouts".to_string(), GoJson::Arr(rates)));
+        components.insert("rate_standouts".into(), serde_json::json!(rates));
     }
     if let Some(c) = p.composite_score {
-        top.push(("composite_score".to_string(), GoJson::Float(round1(c))));
+        components.insert("composite_score".into(), serde_json::json!(round1(c)));
     }
     if !p.position.is_empty() {
-        top.push(("position".to_string(), GoJson::Str(p.position.clone())));
+        components.insert("position".into(), serde_json::json!(p.position));
     }
-
-    let mut out = String::new();
-    GoJson::Obj(top).emit(&mut out);
-    out
+    serde_json::Value::Object(components).to_string()
 }
 
 fn clamp_f(lo: f64, hi: f64, v: f64) -> f64 {
@@ -1344,11 +1140,7 @@ fn trajectory_key(slope: f64) -> &'static str {
     }
 }
 
-/// s15/or9 descrub, simplified at s19 (composite-only): this label renders into the ANALYST's
-/// prompt ("Form trend: …") and the SCOUT's context line, and its old wording ("Composite and
-/// PEAK z-scores trending up") was the measured source of bookkeeping vocabulary leaking into
-/// served prose — two banned-word attempts failed against it (the analyst s13 postmortem: a rule
-/// cannot beat a phrase sitting in the data). The label speaks the sport's words at the source.
+/// User-facing trajectory label shared by Scout and Analyst prompts.
 fn z_trajectory_label(key: &str) -> String {
     match key {
         "rising" => "overall scores trending up over recent games".to_string(),
@@ -1361,11 +1153,8 @@ fn rounded_series(vals: &[f64]) -> Vec<f64> {
     vals.iter().copied().map(round1).collect()
 }
 
-/// Fraction of the entity's scored events that forms the trajectory window (s19). The old fixed
-/// `LIMIT 8` was an NBA-calibrated constant (~10% of an 82-game season) that read far too wide
-/// for NFL/FOOTBALL calendars. The window now scales with how much the entity actually plays:
-/// 10% of its scored events this season, clamped to [3, 16] — 3 is the slope minimum, 16 keeps
-/// the read recent on long calendars.
+/// Fraction of scored events in the trajectory window, clamped to the minimum sample size and a
+/// recent upper bound.
 const TRAJECTORY_WINDOW_PCT: f64 = 0.10;
 const TRAJECTORY_WINDOW_MIN: i64 = 3;
 const TRAJECTORY_WINDOW_MAX: i64 = 16;
@@ -1383,9 +1172,7 @@ async fn load_rating_trajectory(
         _ => return Ok(RatingTrajectory::steady("unknown_entity_type")),
     };
 
-    // The dynamic window (s19): how many scored events the entity has this season decides how
-    // many "recent" means for it — a marker, not a verdict (the Analyst leans on it; the Scout
-    // reads it as context; the Oracle is blind to it and reads their outputs instead).
+    // Scale "recent" to the entity's number of scored events this season.
     let count_q = format!(
         r#"
         SELECT COUNT(*)
@@ -1476,14 +1263,10 @@ async fn load_rating_trajectory(
 }
 
 // ---------------------------------------------------------------------------
-// Output parsing — the body-only rating-commentary-v1 contract (s19), with the
-// legacy marker strip kept as a serving guard.
+// Output parsing — the current body plus HEADLINE contract.
 // ---------------------------------------------------------------------------
 
-/// RatingReply is the parsed model output: the cleaned identity-analysis body plus the
-/// optional card title. The `T` in `Parser<T>`. (The divined PEAK label this used to carry
-/// retired at s19; any marker line a model still emits is stripped and discarded so
-/// bookkeeping vocabulary can never serve.)
+/// RatingReply is the parsed model output: the cleaned body plus the optional card title.
 #[derive(Clone, Debug)]
 pub struct RatingReply {
     pub body: String,
@@ -1492,21 +1275,19 @@ pub struct RatingReply {
     pub headline: Option<String>,
 }
 
-/// RatingParser strips any legacy marker line and cleans the body. It NEVER returns
-/// `Ok(None)` (like `VibeParser`): rating has no post-model fail-closed marker — an empty body is a
-/// hard error the caller raises, and the only marker is the PRE-model no-stats path.
+/// RatingParser cleans the body and splits its headline. It never returns `Ok(None)`:
+/// an empty body is a hard error the caller raises, and the only marker is the pre-model no-stats path.
 /// Since the eval→guard migration (2026-08-19) it DOES fail closed (`Err` → retry) on the brief's
 /// global invariants: bullet/Markdown decoration, product names, foreign script.
 pub struct RatingParser;
 
-/// parse_rating_body is the shape-only view (marker stripped, body cleaned). The eval gate
+/// parse_rating_body is the shape-only view. The eval gate
 /// parses through THIS so a guard-violating reply still shows its prose in the side-by-side
 /// and scores red on the invariant checks; production goes through [`RatingParser`], which
 /// adds the fail-closed guards on top. The s20 HEADLINE line is split off here too, so the
 /// shape view never mistakes a title for a section.
 pub fn parse_rating_body(raw: &str) -> String {
-    let (_legacy_label, raw_body) = parse_rating_commentary(raw);
-    let (_headline, body) = split_rating_headline(&raw_body);
+    let (_headline, body) = split_rating_headline(raw);
     clean_commentary(&body)
 }
 
@@ -1540,8 +1321,7 @@ fn split_rating_headline(raw: &str) -> (Option<String>, String) {
 impl Parser<RatingReply> for RatingParser {
     fn parse(&self, raw: &str) -> Result<Option<RatingReply>> {
         // Split the card title off FIRST so the body checks never grade it as prose.
-        let (_legacy_label, raw_body) = parse_rating_commentary(raw);
-        let (headline, body_only) = split_rating_headline(&raw_body);
+        let (headline, body_only) = split_rating_headline(raw);
         let body = clean_commentary(&body_only);
         if let Some(p) = crate::guards::first_banned_phrase(&body, crate::guards::RATING_BODY_BANS)
         {
@@ -1560,89 +1340,17 @@ impl Parser<RatingReply> for RatingParser {
             tracing::warn!(guard = "foreign_script", "rating body rejected");
             anyhow::bail!("rating: body carries a foreign-script run");
         }
-        // The title shares the HOOK contract (THE TWITTER RULE — 140 characters), and it
-        // FAILS OPEN — salvage, then degrade to no title, never throw the report away.
-        //
-        // The comment here used to say "fail-closed like every title guard", and that was never
-        // true of any other seat: the Analyst salvages then drops to NULL (s18, "a junk TITLE
-        // never kills it") and the Influencer salvages (v21, guards::salvage_hook). The Scout
-        // was the lone hold-out, and it cost whole reports — measured 2026-08-22, a live failure
-        // reading `rating: headline violates hook_colon (headline="Hornets: Elite shooter...")`.
-        // An expensive, correct, fully-graded profile was discarded over a punctuation mark in
-        // its title, then re-rolled at temp=0 to produce the same title again.
-        //
-        // A two-beat title salvages to its first beat; anything else ships with no title at all,
-        // which is the same outcome an absent HEADLINE line already has, and the next generation
-        // gets another go at it.
+        // Optional titles fail open: salvage or drop without throwing away the report.
         let headline = crate::guards::settle_title("scout", headline.as_deref());
         Ok(Some(RatingReply { body, headline }))
     }
 }
 
-/// parse_rating_commentary strips a legacy marker first line ("PEAK: <label>" / "SIGIL: <label>")
-/// if a model still emits one (transition tolerance — what it strips is discarded since s18/s19)
-/// and returns (stripped_label, body) — the body is everything after. No marker ⇒ the whole
-/// response is the body.
-fn parse_rating_commentary(raw: &str) -> (String, String) {
-    let trimmed = raw.trim();
-    if let Some(idx) = trimmed.find('\n') {
-        let first_line = trimmed[..idx].trim();
-        let rest = trimmed[idx + 1..].trim();
-        if let Some(label) = trim_marker(first_line) {
-            return (label.to_string(), rest.to_string());
-        }
-        return (String::new(), trimmed.to_string());
-    }
-    // Single-line response. A bare `PEAK: Rim protection` still has no body and remains invalid to
-    // the caller, but some local models put the entire scouting report on the marker line despite
-    // the old two-line instruction. Salvage that prose as the body (the stripped label is
-    // discarded either way since s19): the product gets usable commentary.
-    if let Some(label) = trim_marker(trimmed) {
-        if looks_like_inline_commentary(label) {
-            return (String::new(), label.to_string());
-        }
-        return (label.to_string(), String::new());
-    }
-    (String::new(), trimmed.to_string())
-}
-
-fn looks_like_inline_commentary(s: &str) -> bool {
-    s.split_whitespace().count() > 8 || s.contains('.') || s.contains(';')
-}
-
-/// trim_marker strips the divined-label marker ("PEAK: " or the legacy "SIGIL: ") from a line.
-fn trim_marker(line: &str) -> Option<&str> {
-    for prefix in ["PEAK: ", "SIGIL: "] {
-        if let Some(rest) = line.strip_prefix(prefix) {
-            return Some(rest.trim());
-        }
-    }
-    None
-}
-
-/// clean_commentary trims the prose + strips a leading "Analysis:"-style label or wrapping
-/// quotes/fences if one slips through. Mirrors `cleanCommentary` (each prefix applied once, in order).
+/// Normalize the served prose and remove an accidental wrapping code fence.
 fn clean_commentary(raw: &str) -> String {
     let mut s = raw.trim();
     s = s.trim_matches('`');
     s = s.trim();
-    for p in ["Analysis:", "Identity:", "On-field identity:"] {
-        if let Some(rest) = s.strip_prefix(p) {
-            s = rest.trim();
-        }
-    }
-    // s21: emphasis is STRIPPED, not rejected — the Insider's is4 treatment, for the same
-    // reason and with the same precedent (`guards::salvage_hook`, `util::strip_markdown_emphasis`).
-    //
-    // Measured on the s21 probe: the front-office report bolded every skill name it cited, 144
-    // asterisks in one body, against zero for the same input under s20. `RATING_BODY_BANS` still
-    // carried "**" as a hard fail, so every one of those would have bailed as `rating_body_ban` —
-    // a fail-rate explosion in a seat that had none, on the same day two others were being undone.
-    // Asking a model not to emit Markdown is a request; stripping it is a guarantee, and the
-    // stripped body is exactly the body the report intended.
-    //
-    // Line by line, because the helper is written for ONE line of a labeled reply and this body
-    // is three labeled sections.
     crate::guards::clean_served_prose(s)
 }
 
@@ -1651,15 +1359,13 @@ fn clean_commentary(raw: &str) -> String {
 // ---------------------------------------------------------------------------
 
 /// RatingBuild is the deterministic prefix of a generation. `NoStats` ⇒ no usable rating row (no
-/// composite + empty breakdown) → a NULL-body marker (no model call), mirroring Go's early return.
+/// composite + empty breakdown) → a NULL-body marker with no model call.
 pub enum RatingBuild {
     NoStats { season: i32 },
     Ready(Box<RatingReady>),
 }
 
-/// RatingReady carries the assembled model inputs (the parity axes) + the deterministic context the
-/// persist needs. `request_body` is computed from the SAME backend + opts the call will use, so it
-/// can never drift from what is POSTed.
+/// Assembled model inputs and deterministic context required for persistence.
 pub struct RatingReady {
     pub season: i32,
     pub notability: i32,
@@ -1674,15 +1380,8 @@ pub struct RatingReady {
     pub model_configured: String,
 }
 
-/// build_rating_request runs the deterministic prefix: load the profile, then (if usable) the
-/// canonical input-components + hash, the notability, `build_stat_prompt`, the s9 options, and the
-/// exact wire body. NO model call — these are the parity axes (the L2 finding). The role is
-/// [`Role::StatsLogic`] (rating is its first consumer). `with_enrichment` loads BOTH model-facing
-/// side blocks into the prompt (production): the s12 cross-season memory card and 7.7's
-/// personnel-change block. Parity/eval/input-version callers pass `false` to pin the bare byte
-/// shape — neither block is in `input_components`, so the hash those callers mint is identical
-/// either way. The card needs `profile.season`, which is only known here — hence a flag rather
-/// than the other junctions' pre-loaded `Option<&str>`.
+/// Build the deterministic rating request without a model call. `with_enrichment` adds prompt-only
+/// memory, personnel, and availability blocks without changing `input_components`.
 pub async fn build_rating_request(
     hx: &Harness,
     req: &RatingReq,
@@ -1702,11 +1401,7 @@ pub async fn build_rating_request(
             season: req.season.unwrap_or(0),
         });
     };
-    // The off-facet + degenerate-zero + display-tier filters run before EVERYTHING derived
-    // from the breakdown — the scouting decision, the prompt's datapoint list, notability,
-    // rate standouts, and the input_components hash — so every consumer sees one consistent,
-    // signal-only view. (The hash change regenerates affected entities once; that regen is
-    // the fix shipping — the F1-era precedent.)
+    // Filter once before every downstream consumer so all derived fields share one signal view.
     let off_facet_stat_labels = drop_off_facet_datapoints(&mut profile);
     let degenerate_zero_stat_labels = drop_degenerate_zero_datapoints(&mut profile);
     let display_tier_stat_labels = drop_display_tier_datapoints(&mut profile);
@@ -1762,18 +1457,8 @@ pub async fn build_rating_request(
     } else {
         None
     };
-    // 7.7's personnel block travels with the memory card on the same flag and the same
-    // discipline: enrichment, best-effort, never a reason to fail the item. It is deliberately
-    // NOT in `input_components`/`input_hash` — the stats rail's trigger stays the rating
-    // snapshot (the Analyst's storyline render, 7.8, is out of its hash for exactly this
-    // reason). A transfer alone does not re-run the Scout; the next stats-driven regen carries
-    // the news.
-    //
-    // The availability half (mig 229) rides the SAME flag and the same discipline, and is loaded
-    // independently so one failing read cannot cost the other its block: a transfer record that
-    // loads fine still reaches the Scout when the availability query errors, and vice versa.
-    // Both stay outside `input_components`/`input_hash` — putting availability in the pre-image
-    // is the obvious fix and the wrong one, because it re-mints every entity's hash fleet-wide.
+    // Personnel and availability are best-effort prompt enrichment outside the material hash.
+    // Load them independently so one failure cannot erase the other block.
     let personnel = if with_enrichment {
         let (changes, total) =
             match load_personnel_changes(&hx.pool, &req.sport, &req.entity_type, req.entity_id)
@@ -1838,9 +1523,7 @@ pub async fn build_rating_request(
     } else {
         None
     };
-    // s19: season-over-season movement lines — the Scout's trajectory material (labeled
-    // deltas against last season's percentiles, decided in code). Same enrichment discipline
-    // as the memory card: best-effort, prompt-only, outside `input_components`/`input_hash`.
+    // Season-over-season movement is decided in code and added as prompt-only enrichment.
     let z_memory = if with_enrichment {
         match load_rating_profile(
             &hx.pool,
@@ -1937,7 +1620,7 @@ pub async fn build_rating_request(
 /// The un-persisted result of one generation. The production handler persists it to
 /// `stat_summaries`, and the ledger records the prompt/request/evidence envelope.
 #[derive(Clone, Debug)]
-pub struct RatingOutput {
+pub struct RatingProduct {
     pub season: i32,
     pub skipped_no_stats: bool,
     pub skipped_unchanged: bool,
@@ -1950,32 +1633,10 @@ pub struct RatingOutput {
     pub rating_trajectory_label: Option<String>,
     pub rating_trajectory_components: serde_json::Value,
     pub input_components: String, // "{}" for a marker
-    pub input_hash: Option<String>,
     pub exclusions: RatingExclusions,
-    pub model: Option<String>, // the configured model (set even for the no-stats marker — Go parity)
-    pub built_prompt: Option<String>,
-    pub request_body: Option<serde_json::Value>,
-    pub eval_count: Option<i32>,
-    pub wall_ms: Option<u64>,
-    pub prompt_version: &'static str,
 }
 
-impl RatingOutput {
-    /// provenance lifts the moat fields into the shared `Provenance` envelope. Rating debounces on
-    /// `input_hash`, and markers carry the configured model instead of NULL.
-    fn provenance(&self) -> Provenance {
-        Provenance {
-            model_version: self
-                .model
-                .clone()
-                .expect("rating output model_version is set for persisted rows"),
-            prompt_version: self.prompt_version,
-            input_ids: Vec::new(),
-            input_hash: self.input_hash.clone(),
-            trigger_payload: None,
-        }
-    }
-}
+pub type RatingOutput = Generation<RatingProduct>;
 
 /// generate_rating runs the full per-entity generation (the analog of `RatingGenerator.Generate`,
 /// minus persistence): `build_rating_request` → (skip-unchanged debounce) → `extract(StatsLogic)` →
@@ -1991,36 +1652,34 @@ pub async fn generate_rating(
 ) -> Result<RatingOutput> {
     let ready = match build_rating_request(hx, req, temperature, with_enrichment).await? {
         RatingBuild::NoStats { season } => {
-            // The NULL-body marker. Go sets Model = ollama.Model() even here (so the read path sees
-            // "no profile" with provenance), unlike vibe/transfer markers.
+            // Keep configured-model provenance on the NULL-body marker.
             let model = hx.router.for_role(Role::StatsLogic).model().to_string();
-            return Ok(RatingOutput {
-                season,
-                skipped_no_stats: true,
-                skipped_unchanged: false,
-                body: None,
-                headline: None,
-                notability: None,
-                notability_components: serde_json::json!({}),
-                rating_trajectory: None,
-                rating_trajectory_label: None,
-                rating_trajectory_components: serde_json::json!({}),
-                input_components: "{}".to_string(),
-                input_hash: None,
-                exclusions: RatingExclusions::default(),
-                model: Some(model),
-                built_prompt: None,
-                request_body: None,
-                eval_count: None,
-                wall_ms: None,
-                prompt_version: RATING_PROMPT_VERSION,
-            });
+            return Ok(Generation::uncalled(
+                RatingProduct {
+                    season,
+                    skipped_no_stats: true,
+                    skipped_unchanged: false,
+                    body: None,
+                    headline: None,
+                    notability: None,
+                    notability_components: serde_json::json!({}),
+                    rating_trajectory: None,
+                    rating_trajectory_label: None,
+                    rating_trajectory_components: serde_json::json!({}),
+                    input_components: "{}".to_string(),
+                    exclusions: RatingExclusions::default(),
+                },
+                model,
+                RATING_PROMPT_VERSION,
+                Vec::new(),
+                None,
+            ));
         }
         RatingBuild::Ready(r) => *r,
     };
 
     if skip_unchanged {
-        if let Some((last_hash, last_prompt_version)) = last_commentary_provenance(
+        if let Some(last_hash) = last_commentary_input_hash(
             hx,
             &req.entity_type,
             req.entity_id,
@@ -2029,35 +1688,27 @@ pub async fn generate_rating(
         )
         .await?
         {
-            // Skip only when BOTH the rating snapshot (input_hash) and the contract
-            // (prompt_version) are unchanged. This is what ships a persona change
-            // fleet-wide: without it, entities whose stats never move (NBA/NFL in
-            // July) would speak the old voice until preseason. One regeneration per entity,
-            // then the row stamps the new version and the gate closes again. (Since s14 the
-            // version is ALSO folded into the hash pre-image, so the hash leg alone would
-            // regen a bump; the explicit version leg stays as the belt-and-braces guard.)
-            if last_hash == ready.input_hash && last_prompt_version == RATING_PROMPT_VERSION {
-                return Ok(RatingOutput {
-                    season: ready.season,
-                    skipped_no_stats: false,
-                    skipped_unchanged: true,
-                    body: None,
-                    headline: None,
-                    notability: None,
-                    notability_components: serde_json::json!({}),
-                    rating_trajectory: Some(ready.rating_trajectory.key.clone()),
-                    rating_trajectory_label: ready.rating_trajectory.label.clone(),
-                    rating_trajectory_components: ready.rating_trajectory.components.clone(),
-                    input_components: ready.input_components,
-                    input_hash: Some(ready.input_hash),
-                    exclusions: ready.exclusions,
-                    model: Some(ready.model_configured),
-                    built_prompt: None,
-                    request_body: None,
-                    eval_count: None,
-                    wall_ms: None,
-                    prompt_version: RATING_PROMPT_VERSION,
-                });
+            if last_hash == ready.input_hash {
+                return Ok(Generation::uncalled(
+                    RatingProduct {
+                        season: ready.season,
+                        skipped_no_stats: false,
+                        skipped_unchanged: true,
+                        body: None,
+                        headline: None,
+                        notability: None,
+                        notability_components: serde_json::json!({}),
+                        rating_trajectory: Some(ready.rating_trajectory.key.clone()),
+                        rating_trajectory_label: ready.rating_trajectory.label.clone(),
+                        rating_trajectory_components: ready.rating_trajectory.components.clone(),
+                        input_components: ready.input_components,
+                        exclusions: ready.exclusions,
+                    },
+                    ready.model_configured,
+                    RATING_PROMPT_VERSION,
+                    Vec::new(),
+                    Some(ready.input_hash),
+                ));
             }
         }
     }
@@ -2070,6 +1721,8 @@ pub async fn generate_rating(
             &RatingParser,
         )
         .await?;
+    let call = GenerationCall::from(&extracted);
+    let model = extracted.model.clone();
     let reply = extracted
         .value
         .ok_or_else(|| anyhow!("rating: parser returned None (RatingParser never fails closed)"))?;
@@ -2097,39 +1750,34 @@ pub async fn generate_rating(
         named
     });
 
-    Ok(RatingOutput {
-        season: ready.season,
-        skipped_no_stats: false,
-        skipped_unchanged: false,
-        body: Some(reply.body),
-        headline,
-        notability: Some(ready.notability),
-        notability_components: ready.notability_components,
-        rating_trajectory: Some(ready.rating_trajectory.key),
-        rating_trajectory_label: ready.rating_trajectory.label,
-        rating_trajectory_components: ready.rating_trajectory.components,
-        input_components: ready.input_components,
-        input_hash: Some(ready.input_hash),
-        exclusions: ready.exclusions,
-        model: Some(extracted.model),
-        built_prompt: Some(extracted.built_prompt),
-        request_body: Some(extracted.request_body),
-        eval_count: Some(extracted.eval_count),
-        wall_ms: Some(extracted.wall_ms),
-        prompt_version: RATING_PROMPT_VERSION,
-    })
+    Ok(Generation::called(
+        RatingProduct {
+            season: ready.season,
+            skipped_no_stats: false,
+            skipped_unchanged: false,
+            body: Some(reply.body),
+            headline,
+            notability: Some(ready.notability),
+            notability_components: ready.notability_components,
+            rating_trajectory: Some(ready.rating_trajectory.key),
+            rating_trajectory_label: ready.rating_trajectory.label,
+            rating_trajectory_components: ready.rating_trajectory.components,
+            input_components: ready.input_components,
+            exclusions: ready.exclusions,
+        },
+        model,
+        RATING_PROMPT_VERSION,
+        Vec::new(),
+        Some(ready.input_hash),
+        call,
+    ))
 }
 
-/// rating_work_input_version is the durable queue fingerprint for a rating-card demand.
-/// It includes the season, the PROMPT CONTRACT, and the rating input hash (or an explicit
-/// marker token), so repeated enqueue attempts collapse while changed scouting input — or a
-/// changed contract — reopens the outstanding row. The prompt-version leg (s11) is what lets
-/// a persona change reopen an already-done queue row: `work::enqueue`'s ON CONFLICT update
-/// only fires when input_version moved, so without it a quiet entity's done row would absorb
-/// the enqueue and the new voice would never ship there.
+/// Durable queue fingerprint for a rating-card demand. The input hash already includes the prompt
+/// version, so the queue needs only season and hash (or an explicit marker).
 pub fn rating_work_input_version(season: i32, input_hash: Option<&str>) -> String {
     format!(
-        "{RATING_WORK_PREFIX}{season}:{RATING_PROMPT_VERSION}:{}",
+        "{RATING_WORK_PREFIX}{season}:{}",
         input_hash.filter(|s| !s.is_empty()).unwrap_or("no-stats")
     )
 }
@@ -2154,57 +1802,21 @@ const RATING_WORK_AVAIL_MARK: &str = "avail";
 /// means one thing only — the Editor tagged this entity because its availability news moved.
 const PACKET_WORK_PREFIX: &str = "pk:";
 
-/// Work-row `input_version` for a rating opened by an ADJUDICATED transfer (Scott's brief,
-/// 2026-08-15: "We need the Scout to be aware of when a transfer crossed the threshold and is
-/// considered concrete").
-///
-/// Two problems have to be solved together, and the application id solves both:
-///
-/// 1. **Reopening.** `work::enqueue`'s conflict policy only reopens a `done` row when the
-///    `input_version` CHANGED. A transfer does not move the rating snapshot, so re-enqueuing
-///    with the ordinary stats-derived version collapses into the existing row and nothing runs.
-///    Keying on `application_id` makes each newly-applied move its own version — the same trick
-///    `enqueue_sigil_for_transfer` plays with the persisted rumor id.
-/// 2. **The debounce.** `generate_rating`'s `skip_unchanged` compares the last row's
-///    `input_hash`, and personnel is deliberately NOT in that pre-image. So even a reopened row
-///    would short-circuit before the model call. `RatingHandler` reads this marker and turns the
-///    debounce off for exactly these items.
-///
-/// **Why not simply put personnel in `input_components`.** That is the obvious fix and it is the
-/// wrong one: changing the hash pre-image re-mints the `input_hash` of every entity in the fleet
-/// and triggers a full regeneration — the s19 tail we are still draining. This keeps the pre-image
-/// byte-identical, so nobody who did not sign anybody regenerates.
+/// Version for a rating opened by an adjudicated transfer. The application ID reopens the work
+/// row even though stats did not move; the handler also bypasses the stats-only debounce.
 pub fn rating_work_input_version_for_transfer(season: i32, application_id: i64) -> String {
-    format!(
-        "{RATING_WORK_PREFIX}{season}:{RATING_PROMPT_VERSION}:{RATING_WORK_TRANSFER_MARK}{application_id}"
-    )
+    format!("{RATING_WORK_PREFIX}{season}:{RATING_WORK_TRANSFER_MARK}{application_id}")
 }
 
-/// Work-row `input_version` for a rating opened by an APPLIED injury or suspension (Scott's
-/// brief, 2026-08-23: "we need to make sure on an event day, the Scout is enqueued one time
-/// instead of multiple").
-///
-/// Same two problems as the transfer helper above, plus a third that the transfer path does not
-/// have — and **keying on the DAY rather than the event solves all three at once**:
-///
-/// 1. **Reopening.** An injury does not move the rating snapshot, so an ordinary stats-derived
-///    version collapses into the existing row and nothing runs. A marker in the hash slot makes
-///    this its own version.
-/// 2. **The debounce.** `generate_rating`'s `skip_unchanged` would short-circuit the reopened
-///    row before the model call; [`rating_work_bypasses_debounce`] turns it off for these items.
-/// 3. **Once per event day.** The transfer marker keys on `application_id`, so each move is its
-///    own run — right for transfers, wrong here, because a club can lose three players to knocks
-///    in one afternoon and that is ONE new fact about the squad. Keying on the day means every
-///    event for an entity on that date renders the SAME `input_version`, so `work::enqueue`'s
-///    `WHERE input_version IS DISTINCT FROM EXCLUDED.input_version` collapses them into one row.
-///    The requirement costs nothing: no debounce table, no dedup pass, no new state.
+/// Version for a rating opened by an applied injury or suspension. Keying by event day reopens
+/// unchanged stats while collapsing multiple same-day events into one work row.
 ///
 /// `day` must be the event's `player_availability.event_date` rendered `YYYY-MM-DD`. It is a
 /// DATE in the schema on purpose — a timestamp, or a date taken from a local zone rather than a
 /// fixed one, splits one event day across two versions and the collapse silently stops
 /// collapsing.
 pub fn rating_work_input_version_for_availability(season: i32, day: &str) -> String {
-    format!("{RATING_WORK_PREFIX}{season}:{RATING_PROMPT_VERSION}:{RATING_WORK_AVAIL_MARK}{day}")
+    format!("{RATING_WORK_PREFIX}{season}:{RATING_WORK_AVAIL_MARK}{day}")
 }
 
 /// The marker token sitting in the `input_version`'s `input_hash` slot, if the version parses.
@@ -2212,9 +1824,8 @@ pub fn rating_work_input_version_for_availability(season: i32, day: &str) -> Str
 fn rating_work_mark(input_version: Option<&str>) -> Option<&str> {
     input_version
         .and_then(|raw| raw.strip_prefix(RATING_WORK_PREFIX))
-        .and_then(|rest| rest.split_once(':'))
-        .and_then(|(_, tail)| tail.split_once(':'))
-        .map(|(_, hash)| hash)
+        .and_then(|rest| rest.rsplit_once(':'))
+        .map(|(_, mark)| mark)
 }
 
 /// True when this work row was opened by a concrete transfer rather than by moved stats.
@@ -2227,18 +1838,9 @@ fn rating_work_is_availability_triggered(input_version: Option<&str>) -> bool {
     rating_work_mark(input_version).is_some_and(|h| h.starts_with(RATING_WORK_AVAIL_MARK))
 }
 
-/// What woke this seat, as the value `stat_summaries.trigger_type` records (mig 228 widened the
-/// CHECK to admit the last two).
-///
-/// This is the ONLY record of which trigger produced a card — the `input_hash` deliberately does
-/// not move for the non-statistical ones — so it is what makes an eval or an incident split
-/// "the nightly batch wrote this" from "an injury did".
+/// Classify what woke the Scout for `stat_summaries.trigger_type`.
 fn rating_trigger_type(input_version: Option<&str>) -> &'static str {
-    // A packet-triggered row carries no mark slot to read — its whole version is the `pk:`
-    // fingerprint — but it is availability by construction: the `rating` slice hashes the
-    // injury/suspension claims and nothing else, so the row exists because that news moved.
-    // Recording it as 'periodic' would file the Editor's tag under the nightly batch and lose
-    // the one provenance signal that separates them (mig 228 widened the CHECK for exactly this).
+    // A `pk:` rating version hashes availability claims and is therefore an availability trigger.
     if rating_work_is_packet_triggered(input_version) {
         return "availability";
     }
@@ -2249,27 +1851,15 @@ fn rating_trigger_type(input_version: Option<&str>) -> &'static str {
     }
 }
 
-/// True when this row was opened by the EDITOR's packet — the `pk:` version minted by mig 225's
-/// `enqueue_voices_on_packet` from `slice_fingerprints->>'rating'`.
-///
-/// That slice hashes the injury/suspension claims, so the row exists precisely because the
-/// availability news for this entity MOVED. Nothing else can mint a `pk:` rating row.
+/// Whether the Editor's availability packet opened this row.
 fn rating_work_is_packet_triggered(input_version: Option<&str>) -> bool {
     input_version.is_some_and(|raw| raw.starts_with(PACKET_WORK_PREFIX))
 }
 
 /// True when the `skip_unchanged` debounce must be turned OFF for this item.
 ///
-/// All three non-statistical triggers need it for the same reason: the fact that changed —
-/// personnel, availability, the news itself — is deliberately absent from the `input_hash`
-/// pre-image, so the debounce compares equal and short-circuits before the model call. Putting
-/// any of them INTO `input_components` is the obvious fix and the wrong one; see the transfer
-/// helper.
-///
-/// The packet arm is what makes the Editor's TAG work end to end: he notices, the slice moves,
-/// the row reopens, and the debounce steps aside so the Scout actually gets to read the claims
-/// and judge them. Without this the enqueue lands and the seat skips it — which is exactly how
-/// the routing-subscription route was measured to fail before the `rating` slice existed.
+/// Non-statistical triggers bypass the stats-only material hash so the Scout sees their prompt
+/// enrichment after the work row reopens.
 fn rating_work_bypasses_debounce(input_version: Option<&str>) -> bool {
     rating_work_is_transfer_triggered(input_version)
         || rating_work_is_availability_triggered(input_version)
@@ -2283,22 +1873,19 @@ fn rating_work_season(input_version: Option<&str>) -> Option<i32> {
     season.parse::<i32>().ok().filter(|s| *s > 0)
 }
 
-/// last_commentary_provenance returns `(input_hash, prompt_version)` of the entity-season's
-/// LATEST commentary — the nightly skip signal. Canonical latest-generation rule (F-023): take
+/// Return the input hash from the entity-season's latest commentary. Take
 /// the latest row regardless of nullability; a no-stats marker has a NULL input_hash → None →
 /// the next run never wrongly skips against an older real commentary the marker superseded.
-/// s11 widened the read from `last_commentary_hash` (hash only) to also carry prompt_version,
-/// so a contract/persona change reopens the gate exactly once per entity.
-async fn last_commentary_provenance(
+async fn last_commentary_input_hash(
     hx: &Harness,
     entity_type: &str,
     entity_id: i32,
     sport: &str,
     season: i32,
-) -> Result<Option<(String, String)>> {
-    let row: Option<(Option<String>, String)> = sqlx::query_as(
+) -> Result<Option<String>> {
+    let row: Option<(Option<String>,)> = sqlx::query_as(
         r#"
-        SELECT input_hash, prompt_version FROM stat_summaries
+        SELECT input_hash FROM stat_summaries
         WHERE entity_type = $1 AND entity_id = $2 AND sport = $3 AND season = $4
         ORDER BY generated_at DESC LIMIT 1
         "#,
@@ -2310,7 +1897,7 @@ async fn last_commentary_provenance(
     .fetch_optional(&hx.pool)
     .await
     .with_context(|| format!("last commentary provenance {entity_type}/{entity_id}"))?;
-    Ok(row.and_then(|(hash, pv)| hash.filter(|h| !h.is_empty()).map(|h| (h, pv))))
+    Ok(row.and_then(|(hash,)| hash.filter(|h| !h.is_empty())))
 }
 
 /// persist_stat_summary writes ONE row to the LIVE stat_summaries table — the scored commentary and
@@ -2327,13 +1914,11 @@ pub async fn persist_stat_summary(
 ) -> Result<()> {
     let season: Option<i32> = (out.season > 0).then_some(out.season);
     let notability: Option<i16> = out.notability.map(|n| n as i16);
-    let prov = out.provenance().with_trigger_payload(trigger_payload);
-    let trigger_json = prov.trigger_payload_json("{}");
+    let prov = &out.provenance;
+    let trigger_json = trigger_payload.to_string();
     let ncomp_json = out.notability_components.to_string();
     let trajectory_components_json = out.rating_trajectory_components.to_string();
 
-    // s19 retired divined_peak (never written); mig 221 dropped the column and renamed the
-    // trajectory trio out of the PEAK vocabulary.
     let row = sqlx::query(
         r#"
         INSERT INTO stat_summaries (
@@ -2353,7 +1938,7 @@ pub async fn persist_stat_summary(
     .bind(trigger_type)
     .bind(&trigger_json)
     .bind(out.body.as_deref())
-    .bind(out.headline.as_deref()) // the card title (s20); NULL for markers/pre-bump rows
+    .bind(out.headline.as_deref())
     .bind(notability)
     .bind(&ncomp_json)
     .bind(&out.input_components)
@@ -2367,64 +1952,88 @@ pub async fn persist_stat_summary(
     .await
     .context("persist stat summary")?;
     let product_row_id = row.get("id");
-    insert_cognition_ledger_best_effort(
+    let included_evidence = serde_json::json!({
+        "input_components": serde_json::from_str::<serde_json::Value>(&out.input_components)
+            .unwrap_or_else(|_| serde_json::json!({
+                "raw_input_components": &out.input_components
+            })),
+        "notability": out.notability,
+        "notability_components": &out.notability_components,
+        "rating_trajectory": &out.rating_trajectory,
+        "rating_trajectory_label": &out.rating_trajectory_label,
+        "rating_trajectory_components": &out.rating_trajectory_components,
+    });
+    let mut excluded = Vec::new();
+    if out.skipped_no_stats {
+        excluded.push(serde_json::json!({"reason": "no_usable_rating_profile"}));
+    }
+    if out.skipped_unchanged {
+        excluded.push(serde_json::json!({"reason": "input_hash_unchanged"}));
+    }
+    if !out.exclusions.budget_truncated_stat_labels.is_empty() {
+        let labels = &out.exclusions.budget_truncated_stat_labels;
+        excluded.push(serde_json::json!({
+            "reason": "budget_truncated_stat_facts",
+            "dropped_count": labels.len(),
+            "dropped_stat_labels": labels,
+            "limit": MAX_STAT_FACTS,
+        }));
+    }
+    for (reason, labels) in [
+        (
+            "off_facet_position_mismatch",
+            &out.exclusions.off_facet_stat_labels,
+        ),
+        (
+            "degenerate_zero_usage_artifact",
+            &out.exclusions.degenerate_zero_stat_labels,
+        ),
+        (
+            "display_tier_retired_from_equation",
+            &out.exclusions.display_tier_stat_labels,
+        ),
+    ] {
+        if !labels.is_empty() {
+            excluded.push(serde_json::json!({
+                "reason": reason,
+                "dropped_count": labels.len(),
+                "dropped_stat_labels": labels,
+            }));
+        }
+    }
+    insert_generation_ledger_best_effort(
         pool,
-        CognitionLedgerEntry {
-            stage: "rating".to_string(),
-            lens: "rating".to_string(),
-            role: Role::StatsLogic.as_str().to_string(),
-            entity_type: entity_type.to_string(),
+        out,
+        RATING_LEDGER,
+        LedgerEvent {
+            entity_type,
             entity_id,
-            sport: sport.to_string(),
-            pair_entity_type: None,
-            pair_entity_id: None,
-            trigger_type: trigger_type.to_string(),
+            sport,
+            pair_entity: None,
+            trigger_type,
             trigger_payload: trigger_payload.clone(),
-            product_table: "stat_summaries".to_string(),
             product_row_ids: vec![product_row_id],
-            model_version: prov.model_version,
-            prompt_version: prov.prompt_version.to_string(),
-            output_contract_version: RATING_OUTPUT_CONTRACT_VERSION.to_string(),
-            input_ids: Vec::new(),
-            input_hash: prov.input_hash,
-            request_body: out.request_body.clone(),
-            built_prompt: out.built_prompt.clone(),
-            included_evidence: rating_included_evidence(out),
-            excluded_evidence: rating_excluded_evidence(out),
-            context_budget: serde_json::json!({
-                // Read off the EXACT wire body, not restated from the constant: the reservation
-                // is window-derived now (7.12), so a ledger quoting 2,000 on a 4096 host would
-                // misreport the budget the call actually ran under.
-                "num_predict": out.request_body.as_ref()
+            included_evidence,
+            excluded_evidence: serde_json::json!(excluded),
+            context_budget: out.context_budget(serde_json::json!({
+                "num_predict": out.request_body()
                     .and_then(|b| b.pointer("/options/num_predict"))
                     .and_then(|v| v.as_i64())
                     .unwrap_or(RATING_NUM_PREDICT as i64),
-                "eval_count": out.eval_count,
-                "wall_ms": out.wall_ms,
-            }),
-            parser_outcome: rating_parser_outcome(out).to_string(),
+            })),
+            parser_outcome: if out.skipped_no_stats {
+                "no_call"
+            } else {
+                "parsed"
+            },
         },
     )
     .await;
     Ok(())
 }
 
-/// enqueue_rating_for_applied_transfer — the Scout's transfer trigger (Scott's brief,
-/// 2026-08-15). Called by the Insider the moment an identity application reaches `applied`,
-/// which is the threshold where a move stops being a rumor and becomes a roster fact.
-///
-/// Until now the stats rail had exactly one trigger — the rating snapshot — which made it the
-/// only seat that could not react to anything else. The consequence was not a thinner brief but
-/// NO brief: an entity whose stats never move (a promoted side with no scored events, an
-/// offseason club) could sign three players and its scouting brief would still describe a squad
-/// that no longer exists, because nothing could ask the Scout to look again.
-///
-/// All three affected entities are offered: the player, the club they left, and the club they
-/// joined. A departure changes who a staff will face just as much as an arrival does, and the
-/// personnel block already renders both sides ("signed X from Y" / "lost X to Y").
-///
-/// Best-effort by design — a failure to enqueue must never fail the adjudication that earned it.
-/// The nightly batch remains the backstop.
+/// Best-effort Scout trigger when a transfer becomes a roster fact. Offer the player and both
+/// clubs; the nightly batch remains the backstop.
 pub async fn enqueue_rating_for_applied_transfer(
     pool: &PgPool,
     sport: &str,
@@ -2464,10 +2073,7 @@ pub async fn enqueue_rating_for_applied_transfer(
     Ok(())
 }
 
-/// enqueue_rating_for_applied_availability — the Scout's availability trigger (Scott's brief,
-/// 2026-08-23: "Injuries, suspensions, transfers add to the richness, and is exactly what a real
-/// Scout does"). Called when a `player_availability` row (mig 229) reaches `applied`, which is
-/// the threshold where a reported knock becomes a roster fact.
+/// Best-effort Scout trigger when reported unavailability becomes a roster fact.
 ///
 /// **`event_day` must arrive as `event_date::text` straight from Postgres** — `YYYY-MM-DD`, the
 /// DATE the schema stores. This crate carries no date library and does not parse one here on
@@ -2526,8 +2132,7 @@ async fn current_season(pool: &PgPool, sport: &str) -> Result<i32> {
         .with_context(|| format!("current season {sport}"))
 }
 
-/// RatingHandler drains the durable `rating` stage (named `peak` until mig 221).
-/// It is the queue-owned form of the stats rail: generate/persist the scouting card only when
+/// Queue-owned rating handler: generate and persist the scouting card only when
 /// the rating input hash moved, then enqueue Momentum as the downstream consumer of the fresh
 /// rating pillar.
 pub struct RatingHandler;
@@ -2550,9 +2155,7 @@ impl StageHandler for RatingHandler {
         Stage::Rating
     }
 
-    // Consolidation (2026-08-20): every drain stage shares the archbox card — see
-    // `stage::ARCHBOX_SLOTS` for the ceiling and the three-knob rule. Capped at 2 so one
-    // long voice decode cannot take the whole card from The Editor.
+    // Two slots keep a long Scout decode from taking the group from The Editor.
     fn max_in_flight(&self) -> usize {
         2
     }
@@ -2615,77 +2218,6 @@ impl StageHandler for RatingHandler {
         )
         .await?;
         Ok(())
-    }
-}
-
-fn rating_input_components_value(out: &RatingOutput) -> serde_json::Value {
-    serde_json::from_str(&out.input_components).unwrap_or_else(|_| {
-        serde_json::json!({
-            "raw_input_components": &out.input_components,
-        })
-    })
-}
-
-fn rating_included_evidence(out: &RatingOutput) -> serde_json::Value {
-    serde_json::json!({
-        "input_components": rating_input_components_value(out),
-        "notability": out.notability,
-        "notability_components": &out.notability_components,
-        "rating_trajectory": &out.rating_trajectory,
-        "rating_trajectory_label": &out.rating_trajectory_label,
-        "rating_trajectory_components": &out.rating_trajectory_components,
-    })
-}
-
-fn rating_excluded_evidence(out: &RatingOutput) -> serde_json::Value {
-    let mut excluded = Vec::new();
-    if out.skipped_no_stats {
-        excluded.push(serde_json::json!({
-            "reason": "no_usable_rating_profile",
-        }));
-    }
-    if out.skipped_unchanged {
-        excluded.push(serde_json::json!({
-            "reason": "input_hash_unchanged",
-        }));
-    }
-    if !out.exclusions.budget_truncated_stat_labels.is_empty() {
-        excluded.push(serde_json::json!({
-            "reason": "budget_truncated_stat_facts",
-            "dropped_count": out.exclusions.budget_truncated_stat_labels.len(),
-            "dropped_stat_labels": &out.exclusions.budget_truncated_stat_labels,
-            "limit": MAX_STAT_FACTS,
-        }));
-    }
-    if !out.exclusions.off_facet_stat_labels.is_empty() {
-        excluded.push(serde_json::json!({
-            "reason": "off_facet_position_mismatch",
-            "dropped_count": out.exclusions.off_facet_stat_labels.len(),
-            "dropped_stat_labels": &out.exclusions.off_facet_stat_labels,
-        }));
-    }
-    if !out.exclusions.degenerate_zero_stat_labels.is_empty() {
-        excluded.push(serde_json::json!({
-            "reason": "degenerate_zero_usage_artifact",
-            "dropped_count": out.exclusions.degenerate_zero_stat_labels.len(),
-            "dropped_stat_labels": &out.exclusions.degenerate_zero_stat_labels,
-        }));
-    }
-    if !out.exclusions.display_tier_stat_labels.is_empty() {
-        excluded.push(serde_json::json!({
-            "reason": "display_tier_retired_from_equation",
-            "dropped_count": out.exclusions.display_tier_stat_labels.len(),
-            "dropped_stat_labels": &out.exclusions.display_tier_stat_labels,
-        }));
-    }
-    serde_json::json!(excluded)
-}
-
-fn rating_parser_outcome(out: &RatingOutput) -> &'static str {
-    if out.skipped_no_stats {
-        "no_call"
-    } else {
-        "parsed"
     }
 }
 

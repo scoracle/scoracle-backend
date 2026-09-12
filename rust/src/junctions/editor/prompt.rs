@@ -1,17 +1,12 @@
-//! # THE EDITOR — the rail's reader (contract `ep5`)
+//! The Editor's article-description contract.
 //!
 //! The first junction of PLAN-one-rail. It fetches the publisher page, persists the body, and
 //! DESCRIBES it. **Every judgment is derived in code from that description (T2)** — relevance
 //! (`derive::derive_relevance`), entity links (`derive::classify`), nominations (`nominate`),
 //! routing tags (`derive::routing_tags`), the box-score fork. The model is never asked a verdict.
 //!
-//! **What the Editor is for, in Scott's words (2026-08-09):** read the article, summarise it with
-//! special attention to **emotional text, names, injuries/suspensions and transfers**, and give
-//! code what it needs to compile packets and tag the downstream characters — more than one
-//! character can be tagged. It is also **the second layer of false-positive defence**: Google's
-//! ranked query does the first pass and is only a HYPOTHESIS, and `entity_roles.absent` is where
-//! this junction rejects it. And **names it does not recognise are the point, not a problem** —
-//! unresolved names are the Investigator's discovery channel.
+//! It describes emotional text, names, availability, transfers, and relevance evidence;
+//! deterministic code derives decisions from those fields.
 //!
 //! | | |
 //! |---|---|
@@ -20,16 +15,12 @@
 //! | **Writes** | `editor_reads` + `news_articles.full_text` |
 //! | **Budget** | every arrival, best-first by Google's `feed_rank`, capped per entity-day (D-T21) |
 //!
-//! **Property order IS the contract** (the ar4 lesson): constrained decoding emits required
-//! properties in schema order, so extraction lands before anything a judgment could lean on. That
+//! Property order is part of the contract: constrained decoding emits required
+//! properties in schema order. That
 //! order lives in exactly ONE place — [`super::EDITOR_FORMAT_SCHEMA_RAW`].
 //!
-//! ⚠ **THE RULE THAT GOVERNS EVERY EDIT TO THE PROMPT BELOW (D-T43, learned the hard way):**
-//! **a grammar constrains SHAPE, never MEANING.** The schema pins keys, order, types and enums for
-//! free — it never enters the context window. It says NOTHING about the CONTENT of a free-text
-//! field. So: **put it in the schema when you can (free), in the prose only when you must (costs
-//! tokens on every call).** Deleting prose because "the grammar enforces it" is how ep2 shipped a
-//! 100% regression. The contract history lives in PLAN-character-tuning §D-T40/§D-T43, not here.
+//! A grammar constrains shape, not the meaning of free-text fields. Put shape rules in the
+//! schema and semantic rules in the prompt.
 
 use crate::util::truncate;
 
@@ -38,56 +29,6 @@ use crate::util::truncate;
 /// what reopens work. **Retroactively free:** only Go's ingest enqueues editor work, so a bump
 /// changes how NEW arrivals are read and re-reads nothing.
 ///
-/// `ep5` (2026-08-09) — the rewrite. Four contracts of accreted prose were cut back to the job:
-/// the phantom `FIELD 4` (there was never one), the ar7/`co_mentions` history, the `gemma3:4b`
-/// seat and the 8192-ctx sizing, the 250-char `names` example blob and two long worked `absent`
-/// examples whose content is now one clause each. `suspension` joins `story_type`. See §D-T44.
-///
-/// `ep6` (2026-08-09) — built against the fixture gate, five measured rounds (§D-T45). The
-/// gate's misses under ep5:
-/// * `kind_hint` was one line — "what the text treats this name as" — and ministral read it as
-///   AFFILIATION: `Vinicius <club "Real Madrid forward">`, `Dragojevic <club "Rangers defender">`.
-///   That one inversion drove 5 of the gate's 8 failures (both `name_kind` checks, the dropped
-///   club entry, a namesake tie collapsing to `unresolved` because person surfaces are
-///   kind-incompatible with `club`, and `Paris` auto-linking as a descriptor-less `club`).
-/// * `register` labeled its own quoted phrase wrong ("People are furious…" → `anticipation`);
-///   nothing said the label must describe the phrase.
-///
-/// Three more findings from sweeping the fields the gate had NO checks for (display lines):
-/// * **`story_type` smeared toward whichever enum value the prose named LAST.** ep5's clause
-///   ended on "…is suspension" → suspension on 4 fixtures (a fan protest, a Tour de France
-///   page); flipping the clause to end on injury smeared injury onto 6. The fix that held is a
-///   BALANCED taxonomy: every enum value glossed exactly once, ending on the safe fallback
-///   ("general for anything else"). All seven authored `story_type_is` checks pass under it.
-/// * "label the phrase" alone made the model force a CHARGED label onto flat quotes it was
-///   already in the habit of quoting (ep5 quoted the same sentences, labeled neutral), so
-///   neutral is stated as legal for a quoted-but-flat phrase, and `anticipation` is deliberately
-///   NOT glossed — "looking ahead" described every routine forward-looking club statement.
-/// * `en` is named outright — English articles came back "unknown" under ep5 too (English is
-///   unmarked; the model named `es` fine).
-///
-/// And the correction that mattered most (§D-T45): **the `names` example blob ep5 deleted was
-/// load-bearing.** The true ep1 prompt (recovered from git — the on-disk fixtures had been
-/// re-frozen at ep5, so the first "frozen baseline" was really ep5 vs itself) scored 58/60 where
-/// ep5 scored 48/60: D-T44's "the trim lost nothing" was wrong, the gate just couldn't see the
-/// fields it lost. ep6 restores a MINIMAL worked pair (club entry + person whose descriptor
-/// names that club — the exact shape the model kept inverting), at ~250 chars against ep1's
-/// full blob.
-///
-/// Measured on the 60-check gate (53 inherited + 7 authored this session), same fixtures, same
-/// runner, temp 0, daemon stopped: **ep1 58/60 · ep5 48/60 · ep6 59/60.** The one remaining
-/// failure — Fortuna Mining Corp accepted as `subject` for hypothesis "Fortuna" — fails under
-/// every prompt tested, ep1 included: capacity, not contract, and it is the documented honesty
-/// gap. System prompt: 6,384 ch = **914 tok measured** (ep5 692, ep1 1,431): ep6 beats ep1's
-/// gate score at 64% of its token cost, and `EDITOR_MAX_MODEL_CHARS` was re-derived below to
-/// keep the worst case inside the window.
-///
-/// `ep7` (2026-08-16) — the discovery cap raise. Schema `names.maxItems` 12 → 24, parser
-/// `.take(12)` → `.take(24)`. The Investigator's entity-discovery channel was silently dropping
-/// names the model listed beyond 12 (a long match report naming 20 people lost 8 from the
-/// discovery pipeline). Constrained decoding makes the schema budget free, so this costs tokens
-/// only when the model emits more names — which is exactly when the Investigator needs them.
-/// Prompt updated to match: "three to twelve, and a long feature can yield two dozen."
 pub const EDITOR_CONTRACT_VERSION: &str = "ep7";
 
 pub const EDITOR_SYSTEM_PROMPT: &str = r#"Read one fetched sports article and describe it for the newsroom: what the page is, who is in it, what happened, and how it feels. Describe only — code turns your description into every decision, so never state a verdict.
@@ -131,20 +72,7 @@ source_language — the language the ARTICLE ITSELF is written in; an article in
 
 Use only the article text and the hypothesis entities, and invent no context, implications or sourcing. Preserve dates, scores, injuries, transactions, quotes-as-claims and any stated uncertainty. Write key_facts, caveats and evidence_blurb in English, translating the meaning where the article is in another language, but keep proper names in their source spelling. Plain prose in every field."#;
 
-/// The character budget for the article body — **re-derived at `ep5` from the window it actually
-/// has to fit in** (D-T40 item 2, which had flagged that the old 9,000 contradicted the budget),
-/// and again at `ep6` (7,500 → 7,200) when the prompt grew 692 → 914 tok buying its gate wins.
-///
-/// The arithmetic, all four terms measured (ep6, live runner, 2026-08-09): `EDITOR_NUM_CTX` 4096
-/// − 554 chat-template floor − 914 for this system prompt − `EDITOR_NUM_PREDICT` 900 =
-/// **~1,728 tokens** for the user message, and at the measured 4.68 chars/token that is ~8,090
-/// chars, of which the Source/Title/hypothesis preamble takes ~150. At this cap the worst case
-/// is ~3,940 of 4,096; text denser than ~4.25 chars/token could still cross — a tail.
-///
-/// **7,200 is not the squeeze it looks like**, because `fetch::extract_article_text` now strips
-/// site furniture before this cap ever applies: the old 9,000 was mostly spent on navigation and
-/// "Related Stories", so the cap used to truncate real prose to make room for menus. Measured
-/// across 12 publishers the extractor returns a median body well inside this budget.
+/// Article-body character budget within the Editor's context envelope.
 pub(crate) const EDITOR_MAX_MODEL_CHARS: usize = 7_200;
 
 pub fn build_editor_prompt_parts(

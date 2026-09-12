@@ -832,7 +832,7 @@ async fn run_capture_ledger(cfg: &Config, task: &dyn LensTask, ledger_id: i64) -
         SELECT
             id, stage, lens, entity_type, entity_id, sport,
             pair_entity_type, pair_entity_id,
-            prompt_version, request_body, built_prompt
+            prompt_version, request_body
         FROM public.cognition_ledger
         WHERE id = $1
         "#,
@@ -860,8 +860,6 @@ async fn run_capture_ledger(cfg: &Config, task: &dyn LensTask, ledger_id: i64) -
             "cognition_ledger id={ledger_id} has no request_body; no model-call fixture to capture"
         )
     })?;
-    // Two stored shapes: the /api/chat body (messages[], since 2026-08-25) and the legacy
-    // /api/generate body (prompt/system) that older ledger rows carry.
     let message_content = |role: &str| -> Option<String> {
         request_body
             .get("messages")?
@@ -873,27 +871,14 @@ async fn run_capture_ledger(cfg: &Config, task: &dyn LensTask, ledger_id: i64) -
             .map(str::to_string)
     };
     let user_prompt = message_content("user")
-        .or_else(|| {
-            request_body
-                .get("prompt")
-                .and_then(Value::as_str)
-                .map(str::to_string)
-        })
-        .or_else(|| row.get::<Option<String>, _>("built_prompt"))
         .filter(|s| !s.trim().is_empty())
-        .ok_or_else(|| anyhow!("cognition_ledger id={ledger_id} has no prompt to freeze"))?;
-    let system = message_content("system")
-        .or_else(|| {
-            request_body
-                .get("system")
-                .and_then(Value::as_str)
-                .map(str::to_string)
-        })
-        .unwrap_or_default();
+        .ok_or_else(|| anyhow!("cognition_ledger id={ledger_id} has no user message to freeze"))?;
+    let system = message_content("system").unwrap_or_default();
     let temperature = request_body
         .get("options")
         .and_then(|v| v.get("temperature"))
         .and_then(Value::as_f64)
+        .or_else(|| request_body.get("temperature").and_then(Value::as_f64))
         .unwrap_or(EVAL_TEMPERATURE);
 
     let entity_type: String = row.get("entity_type");
@@ -1217,7 +1202,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_entity_accepts_legacy_entity_shape() {
+    fn parse_entity_accepts_single_entity_shape() {
         let e = parse_entity("player:237:nba").unwrap();
         assert_eq!(e.entity_type, "player");
         assert_eq!(e.entity_id, 237);

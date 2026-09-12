@@ -1,44 +1,33 @@
 //! Transfers stage — team-keyed transfer/trade rumor vetting.
 //!
-//! Composition (Plan §1.2 + §4): per (team, player) PAIR this composes `extract+validate`
-//! (fail-closed Option<bool> is_rumor, JSON mode), the subject same-person test, and the persist.
+//! Per team/subject pair this composes model extraction, validation, subject matching, and
+//! persistence.
 //! The deterministic parts stay where they belong: `compute_transfer_heat`, the `direction`, and
 //! the team relationship are SQL/Postgres (the model never computes the number or the direction);
 //! the model ONLY vets: is this a live rumor about THIS exact player, what stage, and a grounded
 //! one-line summary. The subject same-person test is realised as the verdict's `subject` field plus
-//! the identity-card framing in the system prompt (the model returns is_rumor AND subject in ONE
-//! JSON). A standalone embedding-backed single-candidate resolve for transfers
-//! was once sketched as a HORIZON refinement (`resolve_one`) — it would restructure the one fused
-//! call into two and weaken the fail-closed contract; the unused code was deleted (flow-friction
-//! Phase 4), and the idea lives in git history should it ever be wanted.
+//! the identity-card framing in the system prompt; both fields come back in one JSON object.
 //!
 //! FAIL CLOSED (the §1.2 invariant): `is_rumor: Option<bool>` — a model timeout, unparseable output,
 //! or a verdict that never committed to is_rumor persists an UNKNOWN row (is_rumor NULL), which is
 //! NEVER served (every read requires `is_rumor IS TRUE`) and is counted so the team's stage item is
 //! re-enqueued for a retry. Only a successful POSITIVE verdict ever becomes a served rumor.
 //!
-//! DEBOUNCE (F3, flow-friction plan 2026-07-12): before each pair's model call the production
-//! handler fingerprints the pair's MATERIAL inputs — sorted pair-corpus article ids, the
+//! Before each model call, the handler fingerprints MATERIAL pair inputs — sorted corpus IDs, the
 //! corpus-stable source diversity, and the deterministic relationship; no timestamps, no prose,
-//! no recency decay — and skips the GPU call, the insert,
-//! and the ledger row when the pair's latest RESOLVED `transfer_rumors` row carries the same
-//! `input_hash` (mig 145 reserved the column). UNKNOWN markers never satisfy the gate, so a
+//! no recency decay. A resolved row with the same hash skips generation and persistence. UNKNOWN
+//! markers never satisfy the gate, so a
 //! model-failure retry re-vets ONLY the failed pair: the completed pairs skip on fingerprint
-//! instead of burning ~39 redundant GPU calls per team retry. An unchanged pair keeps its previous
-//! row serving, which then cools off naturally with its sources — the source-freshness doctrine
-//! working, per the 2026-07-12 plan.
-//!
-//! THE t11 PROMPT keeps the L9 false-heat fixes (roundups are not rumors; never invent a fee or stage)
-//! but rewrites the instructions as schema-first rules for smaller local models.
+//! instead of repeating every call in a team batch.
 
 use crate::corpus::{load_transfer_heat, HeatItem};
-use crate::harness::{EntityKey, Harness, Parser};
-use crate::ledger::{insert_cognition_ledger_best_effort, CognitionLedgerEntry};
+use crate::harness::{EntityKey, Generation, GenerationCall, Harness, Parser};
+use crate::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
 use crate::stage::StageHandler;
 use crate::trajectory::{classify_delta, DEFAULT_TRAJECTORY};
-use crate::util::{go_json_string, hash_components, truncate_bytes};
+use crate::util::{hash_components, truncate_bytes};
 use crate::work::{Item, Stage};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
@@ -48,6 +37,11 @@ use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use tracing::{debug, info, warn};
 
+mod application;
+use application::{
+    bank_transfer_junction_event, load_transfer_identity_threshold, maybe_apply_transfer_identity,
+    refresh_sport_autofill_concurrently,
+};
 mod inputs;
 pub mod prompt;
 pub use crate::junctions::form::insider_score_format_schema;
@@ -64,6 +58,14 @@ pub use verification::{
 /// Output schema version for transfer adjudication JSON, distinct from the prompt contract.
 pub const TRANSFER_OUTPUT_CONTRACT_VERSION: &str = "transfer-verdict-v1";
 
+const TRANSFER_LEDGER: LedgerSpec = LedgerSpec {
+    stage: "transfers",
+    lens: "transfer",
+    role: Role::TransferLogic,
+    product_table: "transfer_rumors",
+    output_contract_version: TRANSFER_OUTPUT_CONTRACT_VERSION,
+};
+
 /// Production vetting temperature.
 pub const TRANSFER_TEMPERATURE: f64 = 0.3;
 
@@ -76,19 +78,8 @@ const TRANSFER_MAX_CORPUS_NEWS: i64 = 12;
 pub const TRANSFER_DEFAULT_MIN_ARTICLES: i32 = 2;
 const TRANSFER_MAX_CANDIDATES: i32 = 40;
 
-// --- Self-pacing against the worker's per-item ceiling -----------------------------------------
-//
-// This is the only stage whose wall clock is a queue depth rather than one generation: a team item
-// is one Mac call per candidate pair, then one more per wire-wrap target. At the 40-candidate cap
-// that is ~80 sequential generations, which does not fit inside a 1200s ceiling even on an idle
-// GPU — and queueing behind the other five voices is what actually pushed 18 teams over it on
-// 2026-07-27.
-//
-// Being cancelled at the ceiling is not merely slow, it is *biased*: the wrap runs last, so the
-// half that never ran was always the same half. Those teams kept producing rumors while their
-// `insider_scores` went two days stale. So the budget is split rather than spent first-come —
-// the pair loop gets half, the wrap is guaranteed the rest, and whatever is left over is deferred
-// to another turn instead of being thrown away.
+// Self-pacing against the worker's per-item ceiling. Reserve time for the wire wrap after the
+// variable-length pair loop; defer remaining pairs rather than cancelling them.
 
 /// Fraction of the run's budget the pair loop may spend before it stops and defers the remainder.
 const TRANSFER_PAIR_BUDGET_FRAC: f64 = 0.50;
@@ -119,10 +110,7 @@ fn past(deadline: Option<Instant>) -> bool {
 const SUMMARY_TRUNCATE: usize = 240;
 const DESC_TRUNCATE: usize = 160;
 
-/// One co-mention candidate for a team + its identity-card disambiguators. Mirrors
-/// `transferCandidate`. Since mig 235 the subject can be a player OR a person of kind
-/// coach ("coaches are transfer-eligible entities too" — Scott, 2026-09-04): same
-/// vetting, same stage ladder, a manager move is a transfer story with a different noun.
+/// Co-mention candidate and identity-card disambiguators. Subjects may be players or coaches.
 #[derive(Clone, Debug)]
 pub struct TransferCandidate {
     pub player_id: i32,
@@ -149,9 +137,7 @@ pub struct NewsItem {
     pub source: String,
 }
 
-/// The model's JSON verdict (defensively parsed) — the `T` in `Parser<T>`. `is_rumor: Option<bool>`
-/// is the fail-closed carrier (Plan §1.2): `None` ⇒ the model never committed ⇒ the UNKNOWN marker,
-/// unrepresentable as a served row. Mirrors `transferVerdict`.
+/// Defensively parsed model verdict. `is_rumor: None` becomes an unserved UNKNOWN marker.
 #[derive(Clone, Debug, Default, Deserialize)]
 pub struct TransferVerdict {
     pub is_rumor: Option<bool>,
@@ -175,12 +161,6 @@ where
     Ok(Option::<T>::deserialize(deserializer)?.unwrap_or_default())
 }
 
-#[derive(Clone, Debug)]
-struct TransferIdentityThreshold {
-    min_heat: i16,
-    min_deterministic_confidence: f64,
-}
-
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TransferIdentityAdjudication {
@@ -194,13 +174,8 @@ pub struct TransferIdentityAdjudication {
     pub evidence_spans: Vec<String>,
 }
 
-/// The adjudication reply as a grammar (D-T43): field order matches the contract stated in
-/// `transfer_identity_adjudication_system_prompt`, and the enums/bounds live here where they
-/// are free instead of in prose. Added 2026-08-18: on free `json_mode` the 3b failed the shape
-/// 4/5 times after the seat moved off gemma (Aug 17 `failed_closed` run) — the same model emits
-/// the Editor's far larger contract reliably because a schema constrains it. RAW literal, not
-/// `json!`, for the same reason as `EDITOR_FORMAT_SCHEMA_RAW`: a `Value` schema reaches Ollama
-/// alphabetized.
+/// Raw identity-adjudication schema. Field order matches the prompt contract and survives the
+/// trip to Ollama unchanged.
 pub const TRANSFER_IDENTITY_ADJUDICATION_SCHEMA_RAW: &str = r#"{
     "type": "object",
     "properties": {
@@ -267,11 +242,9 @@ impl Parser<TransferIdentityAdjudication> for TransferIdentityAdjudicationParser
 }
 
 /// TransferParser turns the model's JSON reply into a `TransferVerdict`. Fail-closed (`Ok(None)`)
-/// only when there is NO JSON object at all or it is unparseable (Go's `!ok` path); a parsed verdict
+/// only when there is no JSON object or it is unparseable; a parsed verdict
 /// whose `is_rumor` is absent surfaces as `Some(verdict)` with `is_rumor == None`, and the caller
-/// routes THAT to the same UNKNOWN marker (Go's `verdict.IsRumor == nil` check). With JSON mode the
-/// reply is already JSON; the first-`{`…last-`}` slice defends against any wrapping, mirroring the Go
-/// `jsonObjectRE`.
+/// routes that to the UNKNOWN marker. The first-`{`…last-`}` slice tolerates response wrapping.
 pub struct TransferParser;
 
 impl Parser<TransferVerdict> for TransferParser {
@@ -294,7 +267,7 @@ pub enum Outcome {
     Rumor,   // is_rumor TRUE — a vetted, served rumor
     Cleared, // is_rumor FALSE — roster/match-report/roundup noise (hidden by the read filter)
     Unknown, // is_rumor NULL — model failure (timeout/unparseable/no-commit); fail-closed, retryable
-    Skipped, // no corpus (heat NULL), or unchanged material (the F3 fingerprint gate) — no row written
+    Skipped, // no corpus or unchanged material; no row written
 }
 
 /// The persistable columns derived from a verdict after the deterministic gates.
@@ -313,12 +286,10 @@ pub struct TransferRow {
 /// The un-persisted result of vetting one (team, player) pair. The production handler persists
 /// the served product row, and the ledger records the prompt/request/evidence envelope.
 #[derive(Clone, Debug)]
-pub struct TransferPairOutput {
+pub struct TransferPairProduct {
     pub player_id: i32,
-    /// 'player' | 'person' (mig 235) — which table player_id names. Travels with the
-    /// output so persist and the trajectory baseline key the pair correctly.
+    /// Which table `player_id` names: `player` or `person`.
     pub subject_type: String,
-    pub model: String,
     pub heat: Option<i16>,
     pub components: String, // heat_components jsonb text
     /// All pair corpus ids returned by compute_transfer_heat before prompt capping.
@@ -330,40 +301,18 @@ pub struct TransferPairOutput {
     pub outcome: Outcome,
     /// `None` ⇒ Skipped (no corpus → no row); `Some` for Rumor/Cleared/Unknown.
     pub row: Option<TransferRow>,
-    /// The exact user prompt sent (the deterministic parity axis). `None` for Skipped (no call).
-    pub built_prompt: Option<String>,
-    /// The exact /api/generate wire body (captured by `extract`). `None` for Skipped.
-    pub request_body: Option<serde_json::Value>,
-    /// Tokens evaluated by Ollama for this call. `None` when no model result was returned.
-    pub eval_count: Option<i32>,
-    pub wall_ms: Option<u64>,
     /// Evidence retained for the optional post-persist identity adjudication gate. Empty for
     /// skipped/no-corpus pairs.
     pub identity_apply_news: Vec<NewsItem>,
-    pub prompt_version: &'static str,
-    /// The F3 per-pair debounce fingerprint (persisted on every row, resolved or UNKNOWN).
-    /// `None` only for the no-corpus Skipped path (no row to stamp).
-    pub input_hash: Option<String>,
 }
 
+pub type TransferPairOutput = Generation<TransferPairProduct>;
+
 // ---------------------------------------------------------------------------
-// Loaders — ported byte-for-byte from the deleted Go `transfer.go` (same query ⇒ same rows
-// at the handover; Rust is the sole owner now).
+// Loaders.
 // ---------------------------------------------------------------------------
 
-/// load_candidates returns the team's co-mention candidate players with identity cards — the Rust
-/// port of the deleted `transfer.go::loadCandidates` (current club from
-/// `player_current_identity`; both articles' links required).
-///
-/// The mig-033 title-proximity gate is GONE (PLAN-one-rail 8.8). It required the team and the
-/// player to appear within 50 title characters of each other, and it was a crutch for a regex that
-/// scanned headlines: on the packet rail both links come from the Editor having READ the article,
-/// and the Editor writes no `title_pos`, so every post-flip pair passed the gate anyway (NULL was
-/// the lenient sentinel). Removing it is a no-op for new rows and drops the thinning for the
-/// pre-flip tail that still carries positions. What thins the set now is
-/// `HAVING count(DISTINCT te.article_id) >= $3` — corroboration across articles, which is the
-/// better filter. Replacing proximity with the Editor's `entity_roles` is D-T20
-/// (PLAN-character-tuning.md §7a), NOT settled here.
+/// Return a team's corroborated co-mention candidates with identity cards.
 pub async fn load_candidates(
     pool: &PgPool,
     team_id: i32,
@@ -395,12 +344,8 @@ pub async fn load_candidates(
 
             UNION ALL
 
-            -- mig 235: coach-kind persons are transfer-eligible. Same co-mention
-            -- + corroboration gate; identity card from public.persons (position is
-            -- the kind, club from the person's team hint, relationship derived
-            -- here — the player relationship batch must never see a person id).
-            -- Coaches ONLY: executives and agents move the market, they are not
-            -- moved by it.
+            -- Coach candidates use the same co-mention and corroboration gate.
+            -- Executives and agents are not transfer subjects.
             SELECT pe.entity_id, pp.full_name AS name,
                    ''::text                                       AS nationality,
                    COALESCE(ct.name, '')                          AS current_club,
@@ -478,8 +423,7 @@ pub async fn compute_pair_heat(
 }
 
 /// load_pair_news returns the pair's corpus headlines, newest first, capped — the model's grounding.
-/// Mirrors `loadPairNews`. `published_at` stays in the ORDER BY (not selected; unused in Rust), so
-/// the news order — hence the prompt — is identical to Go.
+/// `published_at` stays in the ordering without entering the model-facing row.
 pub async fn load_pair_news(pool: &PgPool, ids: &[i64]) -> Result<Vec<NewsItem>> {
     if ids.is_empty() {
         return Ok(Vec::new());
@@ -516,16 +460,8 @@ const PAIR_PACKET_LIMIT: i64 = 5;
 /// claims, in the packet's order (newest first), contested ones already marked.
 type PairPacketFacts = HashMap<i64, Vec<String>>;
 
-/// load_pair_packet_material is the Insider's half of the cutover (7.5): the same pair, read off
-/// the compiled storyline instead of the raw article window.
-///
-/// **What the packet replaces, and what it does NOT.** The pair's IDENTITY stays Postgres's:
-/// `compute_transfer_heat` decides the heat, the corpus ids, and therefore the F3 fingerprint —
-/// the number is never the model's and never the packet's (§4). What the packet replaces is the
-/// MATERIAL: for every article already in the pair's corpus, the Editor's extracted transfer
-/// claims stand in for the RSS headline and description. Same articles, same order, same
-/// grounding — better evidence. That is the same shape 7.3 gave the Journalist, and it is why the
-/// whole adjudication chain below this function is untouched.
+/// Load the Editor's transfer claims for the pair's existing corpus. Postgres still decides pair
+/// identity, heat, and corpus IDs; the packet replaces only the article text shown to the model.
 ///
 /// The Insider's slice is the transfer-typed claims — exactly the subset
 /// `slice_fingerprints ->> 'transfers'` hashes (E2), so a re-fan and a re-read agree about what
@@ -619,10 +555,8 @@ async fn load_stale_pair_news_ids(
     Ok(ids)
 }
 
-/// team_relationships batches [`team_relationship`] over one team's whole candidate set — one
-/// round trip instead of one query per pair (Phase 2). The correlated subqueries are the same
-/// ones the per-pair read runs, so batch and per-pair MUST agree: the relationship is part of
-/// the F3 fingerprint.
+/// Batch [`team_relationship`] over a team's candidate set. Batch and single-pair reads must
+/// agree because relationship is part of the material fingerprint.
 pub async fn team_relationships(
     pool: &PgPool,
     team_id: i32,
@@ -777,18 +711,8 @@ fn has_return_signal(news: &[NewsItem]) -> bool {
         .any(|n| contains(&n.title) || contains(&n.description))
 }
 
-/// build_transfer_prompt assembles the user prompt. It was historically byte-identical to Go's
-/// `buildTransferPrompt` (the temp-0 parity axis); the Go transfer STAGE has since been retired
-/// (all derivation runs in the Rust harness — see `go/cmd/pipeline/main.go`), so this is now the
-/// sole implementation and free to evolve. The byte-fixture tests below still pin the assembly so
-/// prompt drift stays deliberate. The "·" separator (U+00B7) and the "—" (U+2014) are significant
-/// bytes; at temp 0 a single changed byte changes the model's output.
-///
-/// The cards, in order: TransferEvidence (Phase 2, t7) — corpus size and source diversity;
-/// then the source-reliability card (Phase 4, t9,
-/// `source_reliability_for_pair`) — the MEASURED track record of those same sources; then the
-/// relational memory card (t8) — the pair's story arc. Evidence is "how much corpus exists";
-/// reliability/memory are organic history rather than static source tiers.
+/// Deterministic transfer prompt evidence: corpus size/diversity, source track record, and the
+/// pair's relational memory. Byte fixtures pin this assembly.
 #[derive(Clone, Debug, Default)]
 pub struct TransferEvidence {
     pub total_articles: usize,
@@ -846,7 +770,7 @@ fn clamp_conf(c: f64) -> f64 {
 ///   * is_rumor == Some(true)   → a vetted rumor: direction/stage/summary/confidence/model set.
 ///   * is_rumor == Some(false)  → cleared: is_rumor FALSE + model set, the rest left NULL.
 ///
-/// `model_configured` is the role's configured model (matches Go's `g.ollama.Model()`).
+/// `model_configured` is the role's configured model.
 fn row_from_verdict(
     verdict: Option<&TransferVerdict>,
     relationship: &str,
@@ -938,26 +862,11 @@ fn row_from_verdict(
 // The per-pair core + the production handler.
 // ---------------------------------------------------------------------------
 
-/// build_transfer_input_components is the canonical per-pair debounce pre-image (F3): the sorted
-/// pair-corpus article ids (the corpus identity), the corpus-stable source diversity, and the deterministic
-/// `relationship` (it drives `direction` and the former-player gate, so an identity flip must
-/// re-vet even over a frozen corpus). Same canonical-JSON discipline as
-/// `vibe::build_vibe_input_components`.
+/// Builds the canonical per-pair debounce pre-image from the sorted corpus ids,
+/// source diversity, relationship, and prompt version.
 ///
-/// Deliberately EXCLUDED: the heat value and the `newest_age_hours`/`recency`/`recent_3d`/
-/// `recent_frac` components — ALL are `NOW()`-derived decay that ticks while the corpus stands
-/// still (the plan's no-timestamps rule: pure time decay must never re-run the GPU; cooling is
-/// served by the source-freshness protocol and the read path's `generated_at` windows);
-/// `total_14d`/`volume` (pure functions of the id set / `distinct_sources` — redundant); and the
-/// article titles/descriptions/sources (prose — the ids are the identity; a headline edit is not
-/// new material).
-///
-/// INCLUDED (Phase 4): `prompt_version` — so a prompt-contract bump (e.g. t8→t9) changes every
-/// pair's fingerprint exactly once, forcing one regen each past the [`pair_unchanged`] debounce
-/// even over a frozen corpus. Without it, a quiet pair would keep serving its pre-bump read and
-/// never pick up the new card/instructions (the same debounce gap narratives closed at n9). The
-/// source-reliability and relational-memory CARDS themselves stay OUT — they ride along when the
-/// corpus moves, and their content is `NOW()`-derived measurement that must not tick the GPU.
+/// Time-derived heat, redundant aggregates, prose, and enrichment cards are excluded so
+/// decay alone cannot trigger generation. A prompt-version change triggers one regeneration.
 pub fn build_transfer_input_components(
     news_ids: &[i64],
     heat_components_json: &str,
@@ -971,20 +880,17 @@ pub fn build_transfer_input_components(
         .unwrap_or(0);
     let mut ids: Vec<i64> = news_ids.to_vec();
     ids.sort_unstable();
-    let ids_csv = ids.iter().map(i64::to_string).collect::<Vec<_>>().join(",");
-    format!(
-        "{{\"distinct_sources\":{distinct_sources},\"news_ids\":[{ids_csv}],\"prompt_version\":{},\"relationship\":{}}}",
-        go_json_string(TRANSFER_PROMPT_VERSION),
-        go_json_string(relationship),
-    )
+    serde_json::json!({
+        "distinct_sources": distinct_sources,
+        "news_ids": ids,
+        "prompt_version": TRANSFER_PROMPT_VERSION,
+        "relationship": relationship,
+    })
+    .to_string()
 }
 
-/// pair_unchanged is the F3 per-pair debounce read: `true` when the pair's LATEST transfer_rumors
-/// row is a RESOLVED vetting (`is_rumor IS NOT NULL`) carrying this same `input_hash`. An UNKNOWN
-/// marker (is_rumor NULL) never satisfies the gate — after a model failure the retried team item
-/// must re-vet the failed pair (while the completed pairs skip on their stamped fingerprints).
-/// Legacy rows carry NULL `input_hash`, which never matches ⇒ each pair regenerates once
-/// post-deploy, then stamps. `idx_transfer_rumors_pair_recent` covers the read.
+/// Returns true when the latest resolved pair row carries this input hash.
+/// UNKNOWN and unstamped rows never satisfy the gate.
 pub async fn pair_unchanged(
     pool: &PgPool,
     team_id: i32,
@@ -1038,16 +944,11 @@ pub struct PairReady {
     pub built_prompt: String,
     pub request_body: serde_json::Value,
     pub model_configured: String,
-    /// The F3 per-pair debounce fingerprint over the material inputs
-    /// (see [`build_transfer_input_components`]).
+    /// Per-pair debounce fingerprint over the material inputs.
     pub input_hash: String,
 }
 
-/// load_relational_memory fetches the graph's computed memory card for the pair
-/// (`narrative_context_for_pair`, mig 162): prior sealed stories with outcomes, the
-/// current story's likelihood/trajectory, recent confirmed moves. `None` = the graph
-/// holds no memory for the pair (the prompt renders no section). Model-facing
-/// enrichment only — the relational layer is never user-exposed.
+/// Loads the graph's model-facing memory card for the pair.
 pub async fn load_relational_memory(
     pool: &PgPool,
     sport: &str,
@@ -1064,14 +965,7 @@ pub async fn load_relational_memory(
     Ok(row.0)
 }
 
-/// load_source_reliability fetches the measured track record of the sources on the pair's
-/// live transfer corpus (`source_reliability_for_pair`, mig 178, Phase 4): for each source in
-/// the pair's current News headlines, its global per-sport `source_performance` record —
-/// reliability N/100, confirmed/tracked base rate, early-call count. `None` = no corpus source
-/// has a measured record (the prompt renders no section). Like [`load_relational_memory`], the
-/// data + the source→record JOIN live in SQL (the data layer); Rust only SELECTs the finished
-/// card and renders it. Model-facing enrichment only, never user-exposed; NOT part of the
-/// input_hash (it rides along when the corpus changes, same as the relational memory card).
+/// Loads the model-facing source track-record card for the pair's live corpus.
 pub async fn load_source_reliability(
     pool: &PgPool,
     sport: &str,
@@ -1088,13 +982,7 @@ pub async fn load_source_reliability(
     Ok(row.0)
 }
 
-/// build_pair_request runs the deterministic prefix: `compute_transfer_heat` (SQL — the number
-/// stays Postgres), the pair corpus, then `build_transfer_prompt` with the t5 options and the
-/// exact wire body. NO model call — these are the deterministic axes (the L2 finding: the
-/// verdict is not a temp-0 parity axis, so the gate needs no GPU). The role is
-/// [`Role::TransferLogic`] (The Insider's route seam). `relationship` is the deterministic
-/// team relationship, loaded by the caller (the handler batches it per team via
-/// [`team_relationships`]; offline paths use the per-pair [`team_relationship`]).
+/// Builds the deterministic pair inputs and exact request body without calling the model.
 #[allow(clippy::too_many_arguments)]
 pub async fn build_pair_request(
     hx: &Harness,
@@ -1115,12 +1003,7 @@ pub async fn build_pair_request(
     };
 
     let mut news = load_pair_news(&hx.pool, &news_ids).await?;
-    // 7.5 — the rail decides what these articles SAY, never which articles they are. Under
-    // legacy the items keep the headline+description the window query returned; under packet
-    // the Editor's transfer claims overlay them, article by article. `prompted_news_ids`,
-    // `news_ids`, the attribution and the fingerprint are computed from the same list either
-    // way, so the debounce, the evidence card and the identity chain cannot tell the rails
-    // apart — which is exactly the property that lets the flip be one env var.
+    // The packet rail may replace article prose, never corpus membership.
     let packet_framing = {
         let (facts, framing) =
             load_pair_packet_material(&hx.pool, team_id, team_name, sport, &news_ids).await?;
@@ -1139,8 +1022,7 @@ pub async fn build_pair_request(
     let prompted_news_ids = news.iter().map(|n| n.id).collect();
     let attribution = primary_source(&news);
 
-    // F3: fingerprint the material inputs now that they are all in hand (corpus ids + stable
-    // heat components + relationship) — the handler gates on this BEFORE paying for the GPU.
+    // Fingerprint material inputs before the handler decides whether to call the model.
     let input_hash = hash_components(&build_transfer_input_components(
         &news_ids,
         &components,
@@ -1170,9 +1052,7 @@ pub async fn build_pair_request(
         memory.as_deref(),
         packet_framing.as_deref(),
     );
-    // Person subjects get the same contract with the person noun: a whole-template
-    // "player"→"person" substitution, versioned separately (t11-person). The player
-    // path renders BYTE-IDENTICAL to before — the frozen t11 evals never notice.
+    // Person subjects use the same contract with a separately versioned noun substitution.
     let system = if c.subject_type == "person" {
         transfer_system_prompt(sport).replace("player", "person")
     } else {
@@ -1218,38 +1098,33 @@ fn skipped_pair_output(
     news_ids: Vec<i64>,
 ) -> TransferPairOutput {
     let model = hx.router.for_role(Role::TransferLogic).model().to_string();
-    TransferPairOutput {
-        player_id,
-        subject_type: subject_type.to_string(),
-        model,
-        heat: None,
-        components,
-        news_ids,
-        prompted_news_ids: Vec::new(),
-        stale_news_ids: Vec::new(),
-        outcome: Outcome::Skipped, // no corpus → no row (Go: res.Skipped++, return nil)
-        row: None,
-        built_prompt: None,
-        request_body: None,
-        eval_count: None,
-        wall_ms: None,
-        identity_apply_news: Vec::new(),
-        prompt_version: if subject_type == "person" {
-            TRANSFER_PROMPT_VERSION_PERSON
-        } else {
-            TRANSFER_PROMPT_VERSION
+    let prompt_version = if subject_type == "person" {
+        TRANSFER_PROMPT_VERSION_PERSON
+    } else {
+        TRANSFER_PROMPT_VERSION
+    };
+    Generation::uncalled(
+        TransferPairProduct {
+            player_id,
+            subject_type: subject_type.to_string(),
+            heat: None,
+            components,
+            news_ids,
+            prompted_news_ids: Vec::new(),
+            stale_news_ids: Vec::new(),
+            outcome: Outcome::Skipped,
+            row: None,
+            identity_apply_news: Vec::new(),
         },
-        input_hash: None,
-    }
+        model,
+        prompt_version,
+        Vec::new(),
+        None,
+    )
 }
 
-/// analyze_pair runs the full vetting for one (team, player) pair at the given temperature and
-/// returns the un-persisted result (the L11 composition `extract+validate + subject-test + persist`,
-/// minus the persist) — `build_pair_request` (deterministic) then `vet_pair` (the model + the
-/// gates). No debounce here: the F3 fingerprint gate lives in the production handler, between the
-/// builder and `vet_pair` (the same split as vibe's `load_vibe_context`). A generate failure is
-/// swallowed into an UNKNOWN output (the fail-closed marker), not propagated. Only a real
-/// DB/transport error returns `Err`.
+/// Vets one pair without persisting it. Generate failures become UNKNOWN outputs;
+/// database and transport errors are returned.
 pub async fn analyze_pair(
     hx: &Harness,
     team_id: i32,
@@ -1280,9 +1155,7 @@ pub async fn analyze_pair(
     }
 }
 
-/// vet_pair is the MODEL half of `analyze_pair`: extract, the deterministic post-model gates, and
-/// the row shaping, over an already-built [`PairReady`]. Split out so the production handler can
-/// run the F3 fingerprint gate between `build_pair_request` and the GPU call.
+/// Runs the model and deterministic post-model gates over a built pair request.
 pub async fn vet_pair(
     hx: &Harness,
     team_id: i32,
@@ -1290,13 +1163,7 @@ pub async fn vet_pair(
     sport: &str,
     ready: PairReady,
 ) -> Result<TransferPairOutput> {
-    // route(TransferLogic) + extract(TransferParser). A generate transport error → fail-closed
-    // UNKNOWN row (Go persists UNKNOWN on a model timeout, then the team item is retried), recording
-    // the prompt/body that WAS sent for the parity diff.
-    //
-    // The stale-pair-news read is audit-only (ledger excluded_evidence), so it rides alongside
-    // the model call instead of the build path — a debounce-skipped pair never pays for it,
-    // and a generating pair hides it under GPU latency (Phase 2).
+    // Load audit-only stale evidence alongside the model call.
     let (extract_result, stale_result) = tokio::join!(
         hx.extract(
             Role::TransferLogic,
@@ -1307,24 +1174,22 @@ pub async fn vet_pair(
         load_stale_pair_news_ids(&hx.pool, team_id, player_id, sport)
     );
     let stale_news_ids = stale_result?;
-    let (verdict, model, built_prompt, request_body, eval_count, wall_ms) = match extract_result {
-        Ok(extracted) => (
-            extracted.value,
-            extracted.model,
-            Some(extracted.built_prompt),
-            Some(extracted.request_body),
-            Some(extracted.eval_count),
-            Some(extracted.wall_ms),
-        ),
+    let (verdict, model, call) = match extract_result {
+        Ok(extracted) => {
+            let call = GenerationCall::from(&extracted);
+            (extracted.value, extracted.model, call)
+        }
         Err(e) => {
             warn!(team = team_id, player = player_id, error = %e, "transfers: model generate failed; UNKNOWN (fail-closed)");
             (
                 None,
                 ready.model_configured.clone(),
-                Some(ready.built_prompt.clone()),
-                Some(ready.request_body.clone()),
-                None,
-                None,
+                GenerationCall {
+                    built_prompt: ready.built_prompt.clone(),
+                    request_body: ready.request_body.clone(),
+                    eval_count: None,
+                    wall_ms: None,
+                },
             )
         }
     };
@@ -1353,25 +1218,26 @@ pub async fn vet_pair(
     } else {
         TRANSFER_PROMPT_VERSION
     };
-    Ok(TransferPairOutput {
-        player_id,
-        subject_type: ready.subject_type,
+    let input_ids = ready.news_ids.clone();
+    Ok(Generation::called(
+        TransferPairProduct {
+            player_id,
+            subject_type: ready.subject_type,
+            heat: Some(ready.heat),
+            components: ready.components,
+            news_ids: ready.news_ids,
+            prompted_news_ids: ready.prompted_news_ids,
+            stale_news_ids,
+            outcome,
+            row: Some(row),
+            identity_apply_news: ready.news,
+        },
         model,
-        heat: Some(ready.heat),
-        components: ready.components,
-        news_ids: ready.news_ids,
-        prompted_news_ids: ready.prompted_news_ids,
-        stale_news_ids,
-        outcome,
-        row: Some(row),
-        built_prompt,
-        request_body,
-        eval_count,
-        wall_ms,
-        identity_apply_news: ready.news,
         prompt_version,
-        input_hash: Some(ready.input_hash),
-    })
+        input_ids,
+        Some(ready.input_hash),
+        call,
+    ))
 }
 
 fn transfer_components_json(s: &str) -> serde_json::Value {
@@ -1380,72 +1246,6 @@ fn transfer_components_json(s: &str) -> serde_json::Value {
 
 fn transfer_trigger_payload_json(s: &str) -> serde_json::Value {
     serde_json::from_str(s).unwrap_or(serde_json::Value::Null)
-}
-
-fn transfer_parser_outcome(outcome: Outcome) -> &'static str {
-    match outcome {
-        Outcome::Rumor => "rumor",
-        Outcome::Cleared => "cleared",
-        Outcome::Unknown => "unknown",
-        Outcome::Skipped => "skipped",
-    }
-}
-
-fn transfer_included_evidence(out: &TransferPairOutput, row: &TransferRow) -> serde_json::Value {
-    serde_json::json!({
-        "input_news_ids": &out.news_ids,
-        "prompted_news_ids": &out.prompted_news_ids,
-        "heat": out.heat,
-        "heat_components": transfer_components_json(&out.components),
-        "identity_apply_news_count": out.identity_apply_news.len(),
-        "is_rumor": row.is_rumor,
-        "direction": &row.direction,
-        "stage": &row.stage,
-        "confidence": row.confidence,
-        "source_attribution": &row.attribution,
-    })
-}
-
-fn transfer_excluded_evidence(out: &TransferPairOutput, row: &TransferRow) -> serde_json::Value {
-    let mut excluded = Vec::new();
-    match out.outcome {
-        Outcome::Cleared => excluded.push(serde_json::json!({
-            "reason": "model_cleared_pair",
-            "trigger_payload": transfer_trigger_payload_json(&row.trigger_payload),
-        })),
-        Outcome::Unknown => excluded.push(serde_json::json!({
-            "reason": "model_unknown_or_generate_failure",
-            "trigger_payload": transfer_trigger_payload_json(&row.trigger_payload),
-        })),
-        _ => {}
-    }
-    if out.news_ids.len() > out.prompted_news_ids.len() {
-        let prompted: std::collections::HashSet<i64> =
-            out.prompted_news_ids.iter().copied().collect();
-        let dropped_news_ids: Vec<i64> = out
-            .news_ids
-            .iter()
-            .copied()
-            .filter(|id| !prompted.contains(id))
-            .collect();
-        if !dropped_news_ids.is_empty() {
-            excluded.push(serde_json::json!({
-                "reason": "budget_truncated",
-                "dropped_count": dropped_news_ids.len(),
-                "dropped_news_ids": dropped_news_ids,
-                "limit": TRANSFER_MAX_CORPUS_NEWS,
-            }));
-        }
-    }
-    if !out.stale_news_ids.is_empty() {
-        excluded.push(serde_json::json!({
-            "reason": "stale_news",
-            "dropped_count": out.stale_news_ids.len(),
-            "dropped_news_ids": &out.stale_news_ids,
-            "lookback_days": 14,
-        }));
-    }
-    serde_json::json!(excluded)
 }
 
 /// persist_transfer_row writes ONE row to the LIVE transfer_rumors table — the scored rumor, the
@@ -1509,69 +1309,14 @@ pub async fn persist_transfer_row(
     .bind(trajectory)
     .bind(&trajectory_json)
     .bind(row.model.as_deref())
-    .bind(out.prompt_version)
+    .bind(out.provenance.prompt_version)
     .bind(&row.trigger_payload)
-    .bind(out.input_hash.as_deref())
+    .bind(out.provenance.input_hash.as_deref())
     .bind(&out.subject_type)
     .fetch_one(pool)
     .await
     .context("persist transfer row")?;
     Ok(row.get("id"))
-}
-
-/// bank_transfer_junction_event banks a SERVED transfer verdict as a narrative_event
-/// tagged `origin='junction'` (mig 170) — outputs-as-memories at the corpus level. It is
-/// WALLED OUT of the numeric feedback loop: both `refresh_typed_links` and the likelihood
-/// language input scan `origin='extraction'` only, so the junction can never corroborate
-/// itself. Anchored to the pair's OLDEST corpus article (stable across daily re-verdicts,
-/// so re-reads UPSERT the same row rather than accumulate). The stage maps to the event
-/// vocabulary: here_we_go ⇒ trade_confirmed/confirmed; advanced/concrete ⇒
-/// trade_rumor/reported; speculation ⇒ trade_rumor/speculative. Best-effort at the call
-/// site — a banking failure must never fail the already-persisted rumor.
-async fn bank_transfer_junction_event(
-    pool: &PgPool,
-    sport: &str,
-    player_id: i32,
-    team_id: i32,
-    stage: &str,
-    model: &str,
-    news_ids: &[i64],
-) -> Result<()> {
-    let Some(anchor) = news_ids.iter().copied().min() else {
-        return Ok(()); // no corpus article to anchor to — nothing to bank
-    };
-    let (predicate, confidence) = match stage {
-        "here_we_go" => ("trade_confirmed", "confirmed"),
-        "advanced_talks" | "concrete_interest" => ("trade_rumor", "reported"),
-        _ => ("trade_rumor", "speculative"),
-    };
-    sqlx::query(
-        r#"
-        INSERT INTO narrative_events
-            (sport, subject_type, subject_id, predicate, object_type, object_id,
-             sentiment, confidence, article_id, event_date, source, model_version,
-             prompt_version, origin)
-        SELECT $1, 'player', $2, $3, 'team', $4,
-               NULL, $5, a.id, NOW(), a.source, $6, $7, 'junction'
-        FROM news_articles a WHERE a.id = $8
-        ON CONFLICT (article_id, sport, subject_type, subject_id, predicate,
-                     COALESCE(object_type, ''), COALESCE(object_id, 0), origin)
-        DO UPDATE SET confidence = EXCLUDED.confidence, event_date = NOW(),
-                      model_version = EXCLUDED.model_version, extracted_at = NOW()
-        "#,
-    )
-    .bind(sport)
-    .bind(player_id)
-    .bind(predicate)
-    .bind(team_id)
-    .bind(confidence)
-    .bind(model)
-    .bind(TRANSFER_PROMPT_VERSION)
-    .bind(anchor)
-    .execute(pool)
-    .await
-    .context("bank transfer junction event")?;
-    Ok(())
 }
 
 async fn load_transfer_source_metadata(
@@ -1670,381 +1415,8 @@ async fn classify_transfer_trajectory(
     ))
 }
 
-async fn load_transfer_identity_threshold(
-    pool: &PgPool,
-    sport: &str,
-) -> Result<Option<TransferIdentityThreshold>> {
-    let row = sqlx::query(
-        r#"
-        SELECT min_heat,
-               min_deterministic_confidence::float8 AS min_deterministic_confidence
-        FROM public.transfer_identity_thresholds
-        WHERE sport = $1
-        "#,
-    )
-    .bind(sport)
-    .fetch_optional(pool)
-    .await
-    .context("load transfer identity threshold")?;
-
-    Ok(row.map(|r| TransferIdentityThreshold {
-        min_heat: r.get("min_heat"),
-        min_deterministic_confidence: r.get("min_deterministic_confidence"),
-    }))
-}
-
-fn identity_apply_deterministic_score(heat: i16) -> (i16, f64) {
-    (heat, f64::from(heat) / 100.0)
-}
-
-async fn current_identity_team(
-    pool: &PgPool,
-    sport: &str,
-    player_id: i32,
-) -> Result<(Option<i32>, String)> {
-    let row = sqlx::query(
-        r#"
-        SELECT pci.team_id, COALESCE(t.name, '') AS team_name
-        FROM public.player_current_identity pci
-        LEFT JOIN public.teams t ON t.id = pci.team_id AND t.sport = pci.sport
-        WHERE pci.sport = $1 AND pci.player_id = $2
-        "#,
-    )
-    .bind(sport)
-    .bind(player_id)
-    .fetch_one(pool)
-    .await
-    .context("load current identity for transfer apply")?;
-
-    Ok((row.get("team_id"), row.get("team_name")))
-}
-
-#[allow(clippy::too_many_arguments)]
-async fn record_transfer_identity_failure(
-    pool: &PgPool,
-    sport: &str,
-    player_id: i32,
-    old_team_id: Option<i32>,
-    new_team_id: i32,
-    source_rumor_id: i64,
-    deterministic_heat: i16,
-    deterministic_confidence: f64,
-    raw: &str,
-    model: &str,
-    reason: &str,
-) -> Result<()> {
-    sqlx::query(
-        r#"
-        SELECT public.record_transfer_identity_adjudication_failure(
-            $1,$2,$3,$4,$5,NULL,$6,$7::float8::numeric,$8,$9,$10,$11
-        )
-        "#,
-    )
-    .bind(sport)
-    .bind(player_id)
-    .bind(old_team_id)
-    .bind(new_team_id)
-    .bind(source_rumor_id)
-    .bind(deterministic_heat)
-    .bind(deterministic_confidence)
-    .bind(raw)
-    .bind(model)
-    .bind(TRANSFER_IDENTITY_ADJUDICATION_PROMPT_VERSION)
-    .bind(reason)
-    .execute(pool)
-    .await
-    .context("record transfer identity adjudication failure")?;
-    Ok(())
-}
-
-fn autofill_view_for_sport(sport: &str) -> Result<&'static str> {
-    match sport {
-        "NBA" => Ok("nba.autofill_entities"),
-        "NFL" => Ok("nfl.autofill_entities"),
-        "FOOTBALL" => Ok("football.autofill_entities"),
-        _ => Err(anyhow!("unsupported sport for autofill refresh: {sport}")),
-    }
-}
-
-async fn refresh_sport_autofill_concurrently(
-    pool: &PgPool,
-    sport: &str,
-    reason: &str,
-) -> Result<()> {
-    let view = autofill_view_for_sport(sport)?;
-    sqlx::query("SELECT public.request_sport_autofill_refresh($1, $2)")
-        .bind(sport)
-        .bind(reason)
-        .execute(pool)
-        .await
-        .context("mark sport autofill refreshing")?;
-
-    if let Err(err) = sqlx::query(&format!("REFRESH MATERIALIZED VIEW CONCURRENTLY {view}"))
-        .execute(pool)
-        .await
-    {
-        let _ = sqlx::query("SELECT public.fail_sport_autofill_refresh($1, $2)")
-            .bind(sport)
-            .bind(err.to_string())
-            .execute(pool)
-            .await;
-        return Err(err).context("refresh sport autofill concurrently");
-    }
-
-    let total: i32 = match sqlx::query_scalar(&format!("SELECT COUNT(*)::int FROM {view}"))
-        .fetch_one(pool)
-        .await
-    {
-        Ok(total) => total,
-        Err(err) => {
-            let _ = sqlx::query("SELECT public.fail_sport_autofill_refresh($1, $2)")
-                .bind(sport)
-                .bind(err.to_string())
-                .execute(pool)
-                .await;
-            return Err(err).context("count refreshed sport autofill entities");
-        }
-    };
-
-    sqlx::query("SELECT public.complete_sport_autofill_refresh($1, $2, $3)")
-        .bind(sport)
-        .bind(total)
-        .bind(reason)
-        .execute(pool)
-        .await
-        .context("complete sport autofill refresh")?;
-    Ok(())
-}
-
-async fn sport_autofill_refresh_pending(pool: &PgPool, sport: &str) -> Result<bool> {
-    let pending: bool = sqlx::query_scalar(
-        "SELECT COALESCE((SELECT status <> 'ready' FROM public.sport_autofill_versions WHERE sport = $1), false)",
-    )
-    .bind(sport)
-    .fetch_one(pool)
-    .await
-    .context("check sport autofill refresh status")?;
-    Ok(pending)
-}
-
-/// Returns whether a sport-autofill refresh is wanted: the caller runs ONE refresh per team
-/// drain after the pair loop (Phase 2) instead of one heavy `REFRESH MATERIALIZED VIEW` inline
-/// per applied pair. The apply path still marks the refresh durably (status <> 'ready') before
-/// returning, so a drain that bails before refreshing self-heals via the pending check on the
-/// next wake.
-#[allow(clippy::too_many_arguments)]
-async fn maybe_apply_transfer_identity(
-    hx: &Harness,
-    team_id: i32,
-    team_name: &str,
-    c: &TransferCandidate,
-    sport: &str,
-    heat: i16,
-    news: &[NewsItem],
-    persisted_rumor_id: i64,
-    row: &TransferRow,
-    outcome: Outcome,
-    threshold: Option<&TransferIdentityThreshold>,
-) -> Result<bool> {
-    if outcome != Outcome::Rumor || row.is_rumor != Some(true) {
-        return Ok(false);
-    }
-    if row.direction.as_deref() != Some("incoming") {
-        return Ok(false);
-    }
-
-    let (identity_heat, deterministic_confidence) = identity_apply_deterministic_score(heat);
-    let Some(threshold) = threshold else {
-        warn!(
-            sport,
-            "transfers: missing identity threshold config; skipping apply"
-        );
-        return Ok(false);
-    };
-    if identity_heat < threshold.min_heat
-        || deterministic_confidence < threshold.min_deterministic_confidence
-    {
-        return Ok(false);
-    }
-
-    let (old_team_id, old_team_name) = current_identity_team(&hx.pool, sport, c.player_id).await?;
-    if old_team_id == Some(team_id) {
-        // Already the current team: refresh only if a previous drain left one pending.
-        return sport_autofill_refresh_pending(&hx.pool, sport).await;
-    }
-
-    let prompt = build_transfer_identity_adjudication_prompt(
-        sport,
-        c.player_id,
-        &c.player_name,
-        old_team_id,
-        &old_team_name,
-        team_id,
-        team_name,
-        news,
-    );
-    let opts = GenerateOptions {
-        system: Some(transfer_identity_adjudication_system_prompt(sport)),
-        temperature: Some(0.0),
-        num_predict: 700,
-        // The Editor's size, NOT `route::VOICE_NUM_CTX` — this is the one call in The Insider that
-        // runs on `EmotionalNews`, which resolves LOCALLY to gemma3:4b, so the runner it shares is
-        // The Editor's and graph's. It sent `num_ctx: 0` (the server default) until 2026-07-26,
-        // which made it a dormant copy of the reload bug the voices had: harmless only because
-        // identity adjudication fires rarely, and Archbox's reload count was 0 precisely because it
-        // had not run. The value must track whatever The Editor asks for; the voices' 16384 here
-        // would put that KV allocation on an 8 GB card.
-        num_ctx: crate::route::LOCAL_STAGE_NUM_CTX,
-        // Grammar-constrained like the Editor, not free json_mode: the 3b that took this seat
-        // failed the bare-JSON shape 4/5 times (Aug 17); under a schema it cannot.
-        json_mode: false,
-        format_schema: Some(
-            serde_json::from_str(TRANSFER_IDENTITY_ADJUDICATION_SCHEMA_RAW)
-                .expect("TRANSFER_IDENTITY_ADJUDICATION_SCHEMA_RAW is valid JSON (unit-tested)"),
-        ),
-        format_schema_raw: Some(TRANSFER_IDENTITY_ADJUDICATION_SCHEMA_RAW.to_string()),
-    };
-    // Identity adjudication is a utility call (no character voice), so it stays on
-    // `EmotionalNews` — NOT `TransferLogic`, which is The Insider's voice seam only.
-    let backend = hx.router.for_role(Role::EmotionalNews);
-    let model_configured = backend.model().to_string();
-    let generated = match hx
-        .extract(
-            Role::EmotionalNews,
-            &prompt,
-            &opts,
-            &TransferIdentityAdjudicationParser,
-        )
-        .await
-    {
-        Ok(extracted) => extracted,
-        Err(e) => {
-            warn!(
-                team = team_id,
-                player = c.player_id,
-                error = %e,
-                "transfers: identity adjudication generate failed; fail closed"
-            );
-            record_transfer_identity_failure(
-                &hx.pool,
-                sport,
-                c.player_id,
-                old_team_id,
-                team_id,
-                persisted_rumor_id,
-                identity_heat,
-                deterministic_confidence,
-                "",
-                &model_configured,
-                "identity adjudication generate failed",
-            )
-            .await?;
-            return Ok(false);
-        }
-    };
-
-    let Some(adjudication) = generated.value else {
-        record_transfer_identity_failure(
-            &hx.pool,
-            sport,
-            c.player_id,
-            old_team_id,
-            team_id,
-            persisted_rumor_id,
-            identity_heat,
-            deterministic_confidence,
-            // The verbatim reply, NOT "" — a fail-closed row whose raw is empty is
-            // undiagnosable from the database (the Aug-17 lesson).
-            &generated.raw_response,
-            &generated.model,
-            "invalid identity adjudication JSON",
-        )
-        .await?;
-        return Ok(false);
-    };
-
-    let adjudication_json =
-        serde_json::to_value(&adjudication).context("serialize transfer identity adjudication")?;
-    let raw = adjudication_json.to_string();
-    let result = sqlx::query(
-        r#"
-        SELECT application_id, override_id, status, reason
-        FROM public.apply_transfer_identity_candidate(
-            $1,$2,$3,$4,$5,NULL,$6,$7::float8::numeric,$8::jsonb,$9,$10,$11
-        )
-        "#,
-    )
-    .bind(sport)
-    .bind(c.player_id)
-    .bind(old_team_id)
-    .bind(team_id)
-    .bind(persisted_rumor_id)
-    .bind(identity_heat)
-    .bind(deterministic_confidence)
-    .bind(&raw)
-    .bind(&raw)
-    .bind(&generated.model)
-    .bind(TRANSFER_IDENTITY_ADJUDICATION_PROMPT_VERSION)
-    .fetch_one(&hx.pool)
-    .await
-    .context("apply transfer identity candidate")?;
-
-    let status: String = result.get("status");
-    if status == "applied" {
-        let application_id: i64 = result.get("application_id");
-        let override_id: Option<i64> = result.get("override_id");
-        warn!(
-            application_id,
-            override_id,
-            team = team_id,
-            player = c.player_id,
-            "transfers: applied current identity override"
-        );
-        // Mark durably now; the caller runs the actual REFRESH once after the pair loop.
-        sqlx::query("SELECT public.request_sport_autofill_refresh($1, $2)")
-            .bind(sport)
-            .bind("applied_transfer_identity")
-            .execute(&hx.pool)
-            .await
-            .context("mark sport autofill refreshing")?;
-        // THIS is the threshold: the move just stopped being a rumor and became a roster fact.
-        // Tell the Scout, whose brief is about to describe a squad that no longer exists — it is
-        // the one seat with no trigger of its own beyond the rating snapshot, so without this it
-        // would wait for stats that may never move. Best-effort: an enqueue failure must never
-        // undo an adjudication that already committed.
-        if let Err(e) = crate::junctions::scout::enqueue_rating_for_applied_transfer(
-            &hx.pool,
-            sport,
-            c.player_id,
-            old_team_id,
-            Some(team_id),
-            application_id,
-        )
-        .await
-        {
-            warn!(
-                application_id,
-                player = c.player_id,
-                "transfers: applied move did not reach the Scout: {e:#}"
-            );
-        }
-        return Ok(true);
-    }
-    Ok(false)
-}
-
-/// enqueue_sigil_for_transfer offers the PLAYER a freshly served rumor names to the Oracle's
-/// completion barrier — the Phase 5.1 transfer→sigil trigger (the deferred half of the plan's
-/// trigger-topology step). Transfer heat is a Sigil pillar and part of its `input_hash` now, so a
-/// real change to the served-rumor set flips the hash and the re-run is real work; the Sigil
-/// `input_hash` debounce is the second guard, skipping the model call when the served-rumor set is
-/// unchanged. The persisted rumor id is the work-row `input_version`, so a done sigil row reopens
-/// on each new served rumor and idempotently coalesces to one pending row within a drain. `sport`
-/// is upper-cased (matching the news-rail sigil rows' conflict key).
-///
-/// The TEAM is deliberately absent: it is the entity being drained, so the worker offers it after
-/// completing this `transfers` item. Offering it from here would ask the barrier a question this
-/// handler's own un-deleted row is guaranteed to answer wrong.
+/// Offers a newly served player rumor to the Oracle's completion barrier.
+/// The worker offers the team after completing the transfers item.
 async fn enqueue_sigil_for_transfer(
     hx: &Harness,
     player_id: i32,
@@ -2052,11 +1424,7 @@ async fn enqueue_sigil_for_transfer(
     rumor_id: i64,
 ) -> Result<()> {
     let input_version = Some(rumor_id.to_string());
-    // Only the PLAYER is offered here. The team is the entity being drained, so the worker offers
-    // it after completing the transfers item — asking now, while this handler still holds that row,
-    // is the race the barrier's doc comment describes. The player holds no row we own, so it is
-    // safe to ask at any point; if one of the player's own pillars is mid-flight the barrier simply
-    // declines and that pillar's completion asks again.
+    // The team cannot pass the barrier until this handler's work row is complete.
     crate::junctions::oracle::enqueue_oracle_if_pillars_settled(
         &hx.pool,
         "player",
@@ -2069,14 +1437,20 @@ async fn enqueue_sigil_for_transfer(
 }
 
 // ---------------------------------------------------------------------------
-// The Insider's card score (tarot deck, Phase 4) — "the wire wrap". An Oracle-shaped
-// end-of-drain call: after the pair verdicts are filed, the Insider wraps each touched
-// entity's wire in one number. The pair contract above stays FROZEN — the wrap versions
-// independently and never enters any pair's debounce fingerprint.
+// The Insider's card score: one wrap per touched entity after pair verdicts are filed.
+// It versions independently and never enters a pair's debounce fingerprint.
 // ---------------------------------------------------------------------------
 
 /// Output contract for the wire wrap, captured in the cognition ledger.
 pub const INSIDER_SCORE_OUTPUT_CONTRACT_VERSION: &str = "insider-score-v1";
+
+const INSIDER_SCORE_LEDGER: LedgerSpec = LedgerSpec {
+    stage: "transfers",
+    lens: "insider_score",
+    role: Role::TransferLogic,
+    product_table: "insider_scores",
+    output_contract_version: INSIDER_SCORE_OUTPUT_CONTRACT_VERSION,
+};
 
 /// Vetting-grade temperature: the wrap is a judgment of the board, not creative prose.
 pub const INSIDER_SCORE_TEMPERATURE: f64 = 0.3;
@@ -2087,37 +1461,16 @@ pub const INSIDER_SCORE_TEMPERATURE: f64 = 0.3;
 // two story seats: most boards are quiet and an honest filing is short.
 pub const INSIDER_SCORE_NUM_PREDICT: i32 = 600;
 
-/// The validated wrap reply — read + entity-level headline + 1-99 score, clamped at parse.
+/// Validated read, entity-level headline, and 1-99 score.
 #[derive(Clone, Debug)]
 pub struct InsiderScoreReply {
     pub read: String,
-    /// The card's hook (is5, mig 232) — already settled through `guards::settle_title`
-    /// ("insider" seat). `None` on a pre-is5 reply shape or a dropped title: a junk title
-    /// costs the title, never the wrap.
+    /// A hook accepted by the shared title floor, if one is usable.
     pub headline: Option<String>,
     pub score: i16,
 }
 
-/// parse_insider_score_reply mirrors `sigil::parse_crown_reply`: tolerate prose around the
-/// object, fold whitespace in the read, strip Markdown decoration, clamp the score to the
-/// tarot range. `None` = nothing salvageable (a genuine failure the caller retries via the
-/// `errored` tally).
-///
-/// On the strip (is4, 2026-08-22): the READ ships to the card as `/transfers.wire_read`, and
-/// production was serving it dressed — "West Ham's wire is **one live, advanced call**", four
-/// bold runs in a single read. The Insider is the only served seat with neither a plain-text
-/// prompt rule nor a `**` ban, and the reason is in this module's own history: the READ was
-/// audit-and-memory only, so the hygiene the served seats picked up (Analyst s8, Influencer
-/// v15, `RATING_BODY_BANS`, `VIBE_BODY_BANS`) was never extended to it. Drop 1 began serving
-/// it without carrying the rules across. The reply is JSON-schema constrained, so `read` is a
-/// well-formed string either way — no parse ever broke, and nothing surfaced the leak.
-///
-/// Stripped rather than REJECTED, deliberately. A `**` ban here would fail nearly every wire
-/// read until the prompt rule took, which is the fail-rate mistake the same-day momentum-s18 /
-/// vibe-v21 pass exists to undo. `util::strip_markdown_emphasis`'s own rationale applies
-/// unchanged: asking a model not to emit Markdown is a request, not a guarantee, and every
-/// model swap re-runs the experiment. is4 adds the written rule so the model stops producing
-/// it; this line guarantees the card is clean regardless.
+/// Parses a wrap reply, cleaning served prose and clamping its score to the tarot range.
 fn parse_insider_score_reply(raw: &str) -> Option<InsiderScoreReply> {
     let trimmed = raw.trim();
     let parsed: Option<serde_json::Value> = serde_json::from_str(trimmed).ok().or_else(|| {
@@ -2145,9 +1498,7 @@ fn parse_insider_score_reply(raw: &str) -> Option<InsiderScoreReply> {
     } else {
         return None;
     };
-    // The entity-level hook (is5) is best-effort — required by the live grammar, tolerated
-    // absent for pre-is5 replays — and settled through the shared title floor at parse, so
-    // what persists is exactly what the card may serve.
+    // Only titles accepted by the shared floor may persist.
     let headline =
         crate::guards::settle_title("insider", v.get("headline").and_then(|h| h.as_str()));
     Some(InsiderScoreReply {
@@ -2185,18 +1536,11 @@ pub fn build_insider_score_input_components(heat: &[HeatItem]) -> String {
         .map(|t| format!("{}:{}:{}:{}", t.counterparty, t.heat, t.direction, t.stage))
         .collect();
     lines.sort();
-    let mut out = format!(
-        "{{\"prompt_version\":{},\"board\":[",
-        go_json_string(INSIDER_SCORE_PROMPT_VERSION)
-    );
-    for (i, line) in lines.iter().enumerate() {
-        if i > 0 {
-            out.push(',');
-        }
-        out.push_str(&go_json_string(line));
-    }
-    out.push_str("]}");
-    out
+    serde_json::json!({
+        "board": lines,
+        "prompt_version": INSIDER_SCORE_PROMPT_VERSION,
+    })
+    .to_string()
 }
 
 /// How many of the entity's own recent wraps feed the prompt as continuity memory — mirrors
@@ -2214,17 +1558,7 @@ struct PriorInsiderRead {
 /// the memory tells the developing story, it never re-files it.
 const PRIOR_READ_BODY_TRUNCATE: usize = 280;
 
-/// load_prior_insider_read renders the Insider's OWN recent wraps as a continuity memory card —
-/// the recent read BODIES, dated, newest first, plus the single latest score as the continuity
-/// anchor. Mirrors `sigil::load_prior_read` (memory, never a reset; the echo-chamber rule).
-/// `None` for a first-ever wrap. Prompt-only, deliberately NOT part of the input_hash.
-///
-/// THE BODY TRAIL (Scott, 2026-08-24): the memory used to be a score trail plus one body —
-/// numbers first. "Save only the bodies — that way we can better tell the developing story."
-/// The prose is where the story lives, and a trail of numbers in the input is a trail the model
-/// reaches for (the momentum-s19 law). The one latest score stays because the contract's
-/// continuity rule ("move deliberately from your previous score") needs its anchor; the TRAIL
-/// of scores is what goes.
+/// Renders recent read bodies and the latest score as prompt-only continuity memory.
 async fn load_prior_insider_read(
     pool: &PgPool,
     entity_type: &str,
@@ -2268,13 +1602,7 @@ async fn load_prior_insider_read(
     }))
 }
 
-/// load_wire_touched_players returns the players named on the team's recently SERVED rumors —
-/// a cheap SUPERSET of the true active board (none of load_transfer_heat's cooling-off /
-/// direction / latest-per-counterparty logic): the wrap's own per-entity board load is the
-/// precise gate, so an over-included player simply loads an empty board and skips. This is what
-/// keeps a rumored player whose co-mention count faded OUT of the candidate list wrapped while
-/// the rumor itself stays live (candidates alone would let their card show a live board with no
-/// score).
+/// Returns players on the team's recent served rumors, a superset of the active board.
 async fn load_wire_touched_players(
     pool: &PgPool,
     team_id: i32,
@@ -2310,14 +1638,8 @@ async fn score_insider_entity(
 ) -> Result<()> {
     let heat = load_transfer_heat(&hx.pool, entity_type, entity_id, sport).await?;
     if heat.is_empty() {
-        // The Veil, refined (2026-08-26): a wire never scored stays unscored — no board, no
-        // call. But a wire that WAS scored and has since died must file its closing quiet
-        // read ONCE, or the last live read is served forever. Measured: Sunderland's card
-        // carried a **-dressed is3 read from 08-12 for two weeks — its board expired, this
-        // early return blocked every correction, and three prompt bumps (is4 hygiene, is5
-        // headline, is6 form) never reached it. The empty-board pre-image hashes constant,
-        // so after the one quiet filing the debounce below skips until the board revives —
-        // a dead board still pays nothing PER DRAIN, it just no longer skips the funeral.
+        // A never-scored empty wire skips. A previously scored wire files one quiet close;
+        // the empty-board hash then debounces further calls until the board revives.
         let has_row = sqlx::query_scalar::<_, bool>(
             "SELECT EXISTS(SELECT 1 FROM insider_scores WHERE entity_type = $1 AND entity_id = $2 AND sport = $3)",
         )
@@ -2389,10 +1711,20 @@ async fn score_insider_entity(
     let extracted = hx
         .extract(Role::TransferLogic, &prompt, &opts, &InsiderScoreParser)
         .await?;
+    let call = GenerationCall::from(&extracted);
+    let model = extracted.model.clone();
     let reply = extracted.value.ok_or_else(|| {
         anyhow!("insider score: parser returned None (InsiderScoreParser signals failure via Err)")
     })?;
     let previous_score = prior.as_ref().map(|p| p.latest);
+    let generation = Generation::called(
+        (),
+        model,
+        INSIDER_SCORE_PROMPT_VERSION,
+        Vec::new(),
+        Some(input_hash.clone()),
+        call,
+    );
 
     let row = sqlx::query(
         r#"
@@ -2410,36 +1742,26 @@ async fn score_insider_entity(
     .bind(previous_score)
     .bind(reply.read.as_str())
     .bind(reply.headline.as_deref())
-    .bind(extracted.model.as_str())
-    .bind(INSIDER_SCORE_PROMPT_VERSION)
-    .bind(input_hash.as_str())
+    .bind(generation.provenance.model_version.as_str())
+    .bind(generation.provenance.prompt_version)
+    .bind(generation.provenance.input_hash.as_deref())
     .fetch_one(&hx.pool)
     .await
     .context("persist insider score")?;
     let row_id: i64 = row.get("id");
 
-    insert_cognition_ledger_best_effort(
+    insert_generation_ledger_best_effort(
         &hx.pool,
-        CognitionLedgerEntry {
-            stage: "transfers".to_string(),
-            lens: "insider_score".to_string(),
-            role: Role::TransferLogic.as_str().to_string(),
-            entity_type: entity_type.to_string(),
+        &generation,
+        INSIDER_SCORE_LEDGER,
+        LedgerEvent {
+            entity_type,
             entity_id,
-            sport: sport.to_string(),
-            pair_entity_type: None,
-            pair_entity_id: None,
-            trigger_type: "periodic".to_string(),
+            sport,
+            pair_entity: None,
+            trigger_type: "periodic",
             trigger_payload: serde_json::Value::Null,
-            product_table: "insider_scores".to_string(),
             product_row_ids: vec![row_id],
-            model_version: extracted.model.clone(),
-            prompt_version: INSIDER_SCORE_PROMPT_VERSION.to_string(),
-            output_contract_version: INSIDER_SCORE_OUTPUT_CONTRACT_VERSION.to_string(),
-            input_ids: Vec::new(),
-            input_hash: Some(input_hash),
-            request_body: Some(extracted.request_body),
-            built_prompt: Some(extracted.built_prompt),
             included_evidence: serde_json::json!({
                 "active_rumors": heat.len(),
                 "board": heat
@@ -2450,28 +1772,18 @@ async fn score_insider_entity(
                 "previous_score": previous_score,
             }),
             excluded_evidence: serde_json::json!([]),
-            context_budget: serde_json::json!({
+            context_budget: generation.context_budget(serde_json::json!({
                 "num_predict": INSIDER_SCORE_NUM_PREDICT,
-                "eval_count": extracted.eval_count,
-                "wall_ms": extracted.wall_ms,
-            }),
-            parser_outcome: "parsed".to_string(),
+            })),
+            parser_outcome: "parsed",
         },
     )
     .await;
     Ok(())
 }
 
-/// TransferHandler drains the team-keyed `transfers` stage: load the co-mention candidates and vet
-/// each pair, persisting to transfer_rumors. Terminal for the transfers stage itself, but a served
-/// rumor now re-triggers the downstream `sigil` convergence (Phase 5.1). The vetted-link trigger
-/// enqueues transfers before narratives, and the worker drains stages in that order, so fresh heat
-/// is available to the narrative/vibe stages in the same wake cycle. Any pair that hit a model
-/// failure (UNKNOWN) or an infrastructure/persist error fails the team's item so the queue's backoff
-/// re-runs it — and on that re-run the F3 fingerprint gate skips every pair whose material inputs
-/// are unchanged since its last RESOLVED vetting, so only the failed pair pays for the retry.
-/// After the pair loop the Insider wraps the wire (Phase 4): one debounced card score per touched
-/// entity with a live board.
+/// Drains team-keyed transfers: vet pairs, persist verdicts, and wrap each touched entity.
+/// UNKNOWN or infrastructure failures retry the item; resolved unchanged pairs debounce-skip.
 pub struct TransferHandler;
 
 impl TransferHandler {
@@ -2507,8 +1819,7 @@ impl StageHandler for TransferHandler {
                 .await?;
         let candidates =
             load_candidates(&hx.pool, team_id, &sport, TRANSFER_DEFAULT_MIN_ARTICLES).await?;
-        // Per-team hoists (Phase 2): one batched relationship read for the whole candidate set
-        // and one identity-threshold config read, instead of one of each per pair.
+        // Load relationships and the identity threshold once per team.
         // Player subjects only — person ids collide with player ids, and person
         // relationships arrive on the candidate itself (relationship_override).
         let player_ids: Vec<i32> = candidates
@@ -2569,9 +1880,7 @@ impl StageHandler for TransferHandler {
                         skipped_pair_output(hx, c.player_id, &c.subject_type, components, news_ids)
                     }
                     PairBuild::Ready(ready) => {
-                        // F3: skip the GPU call, the insert, and the ledger row when the pair's
-                        // material inputs are unchanged since its latest resolved vetting. The
-                        // previous row keeps serving and cools off with its sources.
+                        // An unchanged resolved pair keeps serving without another model call.
                         if pair_unchanged(
                             &hx.pool,
                             team_id,
@@ -2603,42 +1912,83 @@ impl StageHandler for TransferHandler {
                         row,
                     )
                     .await?;
-                    insert_cognition_ledger_best_effort(
+                    let included_evidence = serde_json::json!({
+                        "input_news_ids": &out.news_ids,
+                        "prompted_news_ids": &out.prompted_news_ids,
+                        "heat": out.heat,
+                        "heat_components": transfer_components_json(&out.components),
+                        "identity_apply_news_count": out.identity_apply_news.len(),
+                        "is_rumor": row.is_rumor,
+                        "direction": &row.direction,
+                        "stage": &row.stage,
+                        "confidence": row.confidence,
+                        "source_attribution": &row.attribution,
+                    });
+                    let mut excluded = Vec::new();
+                    let excluded_reason = match out.outcome {
+                        Outcome::Cleared => Some("model_cleared_pair"),
+                        Outcome::Unknown => Some("model_unknown_or_generate_failure"),
+                        _ => None,
+                    };
+                    if let Some(reason) = excluded_reason {
+                        excluded.push(serde_json::json!({
+                            "reason": reason,
+                            "trigger_payload": transfer_trigger_payload_json(&row.trigger_payload),
+                        }));
+                    }
+                    if out.news_ids.len() > out.prompted_news_ids.len() {
+                        let prompted: std::collections::HashSet<_> =
+                            out.prompted_news_ids.iter().copied().collect();
+                        let dropped_news_ids: Vec<_> = out
+                            .news_ids
+                            .iter()
+                            .copied()
+                            .filter(|id| !prompted.contains(id))
+                            .collect();
+                        if !dropped_news_ids.is_empty() {
+                            excluded.push(serde_json::json!({
+                                "reason": "budget_truncated",
+                                "dropped_count": dropped_news_ids.len(),
+                                "dropped_news_ids": dropped_news_ids,
+                                "limit": TRANSFER_MAX_CORPUS_NEWS,
+                            }));
+                        }
+                    }
+                    if !out.stale_news_ids.is_empty() {
+                        excluded.push(serde_json::json!({
+                            "reason": "stale_news",
+                            "dropped_count": out.stale_news_ids.len(),
+                            "dropped_news_ids": &out.stale_news_ids,
+                            "lookback_days": 14,
+                        }));
+                    }
+                    insert_generation_ledger_best_effort(
                         &hx.pool,
-                        CognitionLedgerEntry {
-                            stage: "transfers".to_string(),
-                            lens: "transfer".to_string(),
-                            role: Role::TransferLogic.as_str().to_string(),
-                            entity_type: "team".to_string(),
+                        &out,
+                        TRANSFER_LEDGER,
+                        LedgerEvent {
+                            entity_type: "team",
                             entity_id: team_id,
-                            sport: sport.clone(),
-                            pair_entity_type: Some("player".to_string()),
-                            pair_entity_id: Some(c.player_id),
-                            trigger_type: "periodic".to_string(),
+                            sport: &sport,
+                            pair_entity: Some(("player", c.player_id)),
+                            trigger_type: "periodic",
                             trigger_payload: transfer_trigger_payload_json(&row.trigger_payload),
-                            product_table: "transfer_rumors".to_string(),
                             product_row_ids: vec![persisted_rumor_id],
-                            model_version: out.model.clone(),
-                            prompt_version: out.prompt_version.to_string(),
-                            output_contract_version: TRANSFER_OUTPUT_CONTRACT_VERSION.to_string(),
-                            input_ids: out.news_ids.clone(),
-                            input_hash: out.input_hash.clone(),
-                            request_body: out.request_body.clone(),
-                            built_prompt: out.built_prompt.clone(),
-                            included_evidence: transfer_included_evidence(&out, row),
-                            excluded_evidence: transfer_excluded_evidence(&out, row),
-                            context_budget: serde_json::json!({
+                            included_evidence,
+                            excluded_evidence: serde_json::json!(excluded),
+                            context_budget: out.context_budget(serde_json::json!({
                                 "num_predict": TRANSFER_NUM_PREDICT,
-                                "eval_count": out.eval_count,
-                                "wall_ms": out.wall_ms,
-                            }),
-                            parser_outcome: transfer_parser_outcome(out.outcome).to_string(),
+                            })),
+                            parser_outcome: match out.outcome {
+                                Outcome::Rumor => "rumor",
+                                Outcome::Cleared => "cleared",
+                                Outcome::Unknown => "unknown",
+                                Outcome::Skipped => "skipped",
+                            },
                         },
                     )
                     .await;
-                    // Outputs-as-memories, corpus half (mig 170): bank a SERVED rumor as
-                    // an origin='junction' event — unified event log + audit, walled out
-                    // of the numeric loop. Best-effort: never fail the persisted rumor.
+                    // Bank served rumors for memory and audit, outside the numeric loop.
                     if row.is_rumor == Some(true) {
                         if let Some(stage) = row.stage.as_deref() {
                             if let Err(e) = bank_transfer_junction_event(
@@ -2647,7 +1997,7 @@ impl StageHandler for TransferHandler {
                                 c.player_id,
                                 team_id,
                                 stage,
-                                &out.model,
+                                &out.provenance.model_version,
                                 &out.news_ids,
                             )
                             .await
@@ -2680,11 +2030,7 @@ impl StageHandler for TransferHandler {
                             autofill_refresh_wanted = true;
                         }
                     }
-                    // Phase 5.1 (transfer→sigil trigger): a freshly SERVED rumor is a Sigil pillar
-                    // now, so re-trigger panel synthesis for the player and the team it touches.
-                    // Best-effort — a failed enqueue must NOT fail the already-persisted rumor or
-                    // stall the team item (the vibe→sigil gate's new_transfer branch and the next
-                    // news event are fallbacks).
+                    // Best-effort: a newly served rumor should refresh the player's Sigil.
                     if row.is_rumor == Some(true) {
                         if let Err(e) =
                             enqueue_sigil_for_transfer(hx, c.player_id, &sport, persisted_rumor_id)
@@ -2721,26 +2067,14 @@ impl StageHandler for TransferHandler {
             }
         }
 
-        // One autofill refresh per team drain (Phase 2), not one heavy REFRESH per applied
-        // pair. Runs before the retry bails so an applied identity surfaces promptly; the
-        // durable 'refreshing' marker self-heals a missed refresh on the next drain.
+        // Refresh autofill once per team drain after all applied pairs.
         if autofill_refresh_wanted {
             refresh_sport_autofill_concurrently(&hx.pool, &sport, "applied_transfer_identity")
                 .await?;
         }
 
-        // The wire wrap (tarot deck, Phase 4): after the pair verdicts are filed, the Insider
-        // scores the wire of every entity this drain touches — the team, each candidate player,
-        // AND each player named on the team's served board (a rumored player can outlive the
-        // co-mention candidate window; their wire stays live and must stay scored) — inline,
-        // the `enqueue_sigil_for_transfer` dual-entity pattern without a queue stage. A dead or
-        // unchanged board pays nothing (skip inside); a failed wrap rides the existing
-        // `errored` retry tally — the persisted rumors stand, the team item retries, every
-        // unchanged pair debounce-skips, so only the wrap pays for the retry.
-        //
-        // Running LAST is why this needed its own budget: on a busy team the pair loop used to
-        // spend the whole ceiling and the wrap never ran at all, so the teams with the most
-        // transfer news were the ones whose scores went stale.
+        // Wrap the team, all candidates, and every player on the served board. This runs last
+        // under its own budget; dead or unchanged boards skip inside the scorer.
         let mut wrap_targets: Vec<(&str, i32, String)> = vec![("team", team_id, team_name.clone())];
         let mut seen_players: std::collections::HashSet<i32> = std::collections::HashSet::new();
         for c in &candidates {
@@ -2812,11 +2146,7 @@ impl StageHandler for TransferHandler {
         // first pair outruns the whole budget would defer forever. Such a round falls through to
         // the bails below and burns an attempt like any other stuck item.
         //
-        // Deferring takes precedence over the `unknown` bail on purpose. Unresolved pairs are
-        // retried next round regardless (an UNKNOWN row never satisfies the F3 fingerprint gate),
-        // so making the item pay an attempt for them here would penalise a run that was making
-        // progress. The round that finally finishes inside its budget is the one that hands any
-        // still-unresolved pairs to the retry ladder.
+        // Defer a progressing partial drain before charging unresolved pairs to the retry ladder.
         if deferred > 0 && vetted > 0 {
             let note = format!(
                 "deferred: {pairs_deferred} pair(s) + {wraps_deferred} wrap(s) left after {}s",

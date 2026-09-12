@@ -1,44 +1,10 @@
-//! guards — the served-prose guide rails, shared by the production parsers AND the eval gate.
+//! Served-prose integrity guards shared by production parsers and the eval gate.
 //!
-//! Doctrine (`planning_docs/DOCTRINE-directing.md`): show the model the path so it can express
-//! itself within the guide rails, instead of having to find its own way. A rule that is
-//! string-checkable is a GUARD (tier 3), not an eval-only expectation (tier 4): the parser that
-//! owns the prose scans it and fails closed, the work item re-rolls through the queue's
-//! `retry_backoff`, and a violation can never serve. `util::has_foreign_script` is the founding
-//! precedent (the 3b delegation leak, 2026-08-15).
-//!
-//! ONE LIST, ONE HOME. These constants began life inside `eval_tasks.rs`, where the
-//! `MOMENTUM_BANNED_PHRASES` doc already ruled that "the ban is global, so it belongs in one
-//! place" — this module completes that ruling: the eval checks and the production guards now
-//! read the SAME vocabulary, so the gate measures exactly what production enforces. Only GLOBAL
-//! invariants live here; a fixture-contextual expectation (e.g. "this steady spread must not say
-//! `ascendant`") stays in the fixture's `expect` block, because it is about that spread, not
-//! about the contract.
-//!
-//! Guard rejections should be logged by the rejecting parser (`tracing::warn!` with the guard
-//! name) — the per-model violation RATE is the telemetry that prices future model swaps.
-//!
-//! THE MECHANICAL-FLOOR RULE (2026-08-23, the eval-scar sweep — Scott: "the guards allow the
-//! model freedom, which is our goal"). The first guard lists were copy-pasted from eval-era
-//! language limitations built against a retired model, and they were more restrictive than the
-//! product needs — the Oracle's vocabulary list was rejecting 13 of every 14 crowns Scott
-//! judged fine. A PRODUCTION guard earns its place only as a mechanical floor: contract shape
-//! (the hook rules), integrity (foreign script, digits where numbers are junction-owned),
-//! product leaks (product names, fourth-wall mechanism reveals, bookkeeping citations). Style
-//! and vocabulary taste belong to the GATE's fixture expectations, where a red is information —
-//! in production the same check burns a finished generation.
+//! Production guards cover mechanical invariants: wire shape, product leaks, foreign script,
+//! and internal bookkeeping. Style and fixture-specific wording belong in eval expectations.
 
-/// Product / internal-system names banned from SERVED prose (Scott's brief, 2026-08-10: *"I
-/// don't want anything referencing PEAK or Vibe, or other of our products. Just use those as
-/// context without naming them"*, extended the same evening to the Analyst — *"it should
-/// reference Vibe output as something like 'the emotion around the club' versus 'Vibe'. Same
-/// with the PEAK"* — and the Oracle — *"if it references another Character, it should be their
-/// name and not PEAK or Vibe"*).
-///
-/// CASE-SENSITIVE deliberately, unlike the `contains_ci` checks: lowercase "peak" is legitimate
-/// English ("at the peak of his powers") and banning it would fail honest prose. The product
-/// names as the prompts' own vocabulary sets them — "PEAK", "DECISION CARD" — are what an
-/// echoing model copies, caps and all.
+/// Product and internal-system names banned from served prose. Matching is case-sensitive so
+/// ordinary words such as "peak" remain legal.
 pub const PRODUCT_NAME_BANS: &[&str] = &[
     "PEAK",
     "Vibe",
@@ -46,6 +12,12 @@ pub const PRODUCT_NAME_BANS: &[&str] = &[
     "Rating Engine",
     "SCOUTING DECISION",
     "DECISION CARD",
+    "The Scout",
+    "The Analyst",
+    "The Influencer",
+    "The Journalist",
+    "The Insider",
+    "The Oracle",
 ];
 
 /// The first product name found in served prose, or `None` when it is clean. Case-sensitive —
@@ -57,50 +29,13 @@ pub fn first_product_name(prose: &str) -> Option<&'static str> {
         .copied()
 }
 
-/// Phrases the momentum READ may never carry — trimmed 2026-08-23 (the eval-scar sweep,
-/// Scott: "we built the original evals and the language limitations on an eval model... a lot
-/// of those eval params were copy+pasted over to the guards and they're more restrictive than
-/// they need to be. The guards allow the model freedom").
-///
-/// What remains is the MECHANICAL floor: fourth-wall breaks that reveal the machine to the
-/// seeker ("the momentum engine", "the engine sees this as") and internal bookkeeping
-/// vocabulary ("steady band") — the same family as [`PRODUCT_NAME_BANS`]. What left is the
-/// eval-era style policing: the hedge closers ("isn't a surge"/"isn't a collapse") and the
-/// authority formulas ("the tape calls this"/"the numbers say") were measured defects of
-/// RETIRED models under retired prompts, and in production they were burning ~30 finished
-/// READs a day over taste the current prompt already carries. Style lives in the gate's
-/// fixture expectations, where a red is information instead of a lost generation.
-///
-/// Deliberately specific. Bare "the engine" is banned in the prompt but NOT here: a football READ
-/// can legitimately say "the engine room of midfield", and a check that fails on correct prose
-/// trains everyone to ignore it.
+/// Mechanical fourth-wall and bookkeeping leaks banned from the momentum read. Bare "the
+/// engine" remains legal because it is ordinary football language.
 pub const MOMENTUM_BANNED_PHRASES: &[&str] = &[
     "the engine sees this as",
     "the momentum engine",
     "steady band",
 ];
-
-/// What the Oracle's reading may never carry — trimmed to the one MECHANICAL defect on Scott's
-/// ruling (2026-08-23: "Those Oracle crowns seem fine. Let's clean up the overbearing guards").
-///
-/// The vocabulary list this replaced (notability/convergence/sentiment/z-score/percentile/
-/// composite/"momentum score"/"the omen is") was rejecting 13 of every 14 crowns the day sigil
-/// finally started claiming, and the crowns it rejected read fine — the overbearing-check
-/// failure mode the momentum seat has now recorded THREE withdrawals over (a rule cannot beat
-/// a phrase in the model's input; an ignored or false-positive check is worse than none). The
-/// worst offender words are also leaving at the SOURCE (scout s23 renamed z-score → rating on
-/// the card the Oracle reads), which is the fix that actually takes.
-///
-/// EMPTY since the same day it was trimmed to `"("`: the paren ban was itself measured
-/// over-broad within the hour — rejecting ~1 crown per 2 shipped on honest parenthetical
-/// asides, on the seat with the deepest queue. The mechanical defect it guarded — a
-/// bookkeeping citation like "(Mood: 30/100)" pasted into prose — is what
-/// [`has_bookkeeping_citation`] now catches precisely: an internal numeric field citation.
-/// Digits in open prose stay legal for this seat (percentiles and values are ordinary
-/// sporting evidence — see `descrub_z`); sporting parentheticals remain valid evidence. `"**"` left
-/// with the shared `clean_served_prose` pipeline. Kept as an empty seam, the
-/// [`VIBE_BODY_BANS`] precedent.
-pub const ORACLE_READING_BANS: &[&str] = &[];
 
 /// Detect internal numeric field citations, while allowing sporting parentheticals.
 pub fn has_bookkeeping_citation(prose: &str) -> bool {
@@ -125,102 +60,31 @@ pub fn has_bookkeeping_citation(prose: &str) -> bool {
     })
 }
 
-/// The Scout's report is prose, never a bullet list and never the card's notation — the legacy
-/// 7B's ` · ` habit is the measured offender (08-19 gate: 8 of its 9 rating reds were this).
-///
-/// `"**"` left this list at s21. It is no longer reachable: `clean_commentary` strips emphasis
-/// before the body is graded, the Insider-is4 treatment. Keeping a ban that can never fire reads
-/// as protection and provides none — copying the card's ` · ` notation is a content defect and
-/// stays a hard fail; bolding is typography and is now simply removed.
+/// Card notation that may not appear in the Scout's prose report.
 pub const RATING_BODY_BANS: &[&str] = &[" · "];
-
-/// Served vibe prose carries no Markdown decoration. EMPTY since 2026-08-23: the body is now
-/// stripped by `util::strip_markdown_emphasis` in the parser, the same treatment the Scout's
-/// `clean_commentary` and the Insider's `parse_insider_score_reply` already take, so a `"**"`
-/// entry here could never fire. It was firing 89 times as a hard bail before that — discarding
-/// a finished felt read, and the SCORE momentum reads, over typography.
-///
-/// Kept as an empty list rather than deleted: it is the seam where a real vibe-body content ban
-/// belongs if one is ever measured, and `first_banned_phrase` handles an empty list.
-pub const VIBE_BODY_BANS: &[&str] = &[];
 
 /// The first phrase from `list` found (case-insensitive, quote/diacritic-folded) in `prose`.
 pub fn first_banned_phrase(prose: &str, list: &[&'static str]) -> Option<&'static str> {
     list.iter().find(|p| contains_ci(prose, p)).copied()
 }
 
-/// **THE TWITTER RULE** — the whole of the card-title contract: 140 characters.
-///
-/// Scott, 2026-08-24: *"Mark this 140 character limit 'the Twitter rule' and make it the guard
-/// and framing for headlines. A tweet states an opinion and grabs attention. 140 characters is
-/// well thought out."*
-///
-/// It is a FRAMING before it is a limit, and that is why it replaces three rules with one. A
-/// tweet is a complete thought that earns a tap: it may use a colon, ask a question, land a
-/// twist. What it may not do is run past the space it has. So the guard enforces the space, and
-/// the seats' prompts carry the frame — direction in the prompt, a floor in the guard, which is
-/// the split this module exists to keep.
-///
-/// It replaces a TWELVE-WORD cap plus bans on colons and question marks, and the measurement is
-/// the argument. Over the three days to 2026-08-24 the journal carried **11,272 `hook_max_words`
-/// drops, 931 `hook_colon` and 247 `hook_question_mark`** — 12,450 finished generations burned
-/// and re-rolled through `retry_backoff`, 86% of every guard rejection on the rail.
-///
-/// Same shape as the Oracle vocabulary trim that prompted THE MECHANICAL-FLOOR RULE above: limits
-/// inherited from the eval era, tighter than the product needs, rejecting work Scott judged fine.
-/// A ceiling measured in CHARACTERS also matches what the constraint actually is — the
-/// leaderboard row the title has to fit — where a word count only ever approximated it.
+/// Maximum card-title length in characters.
 const HOOK_MAX_CHARS: usize = 140;
 
-/// THE card-title contract — born as the Influencer's HOOK (v13) and cross-character since
-/// Scott's hook doctrine (2026-08-23). **One rule: [`HOOK_MAX_CHARS`] or fewer.** Returns the
-/// violated rule's name, or `None` when the hook is clean.
-///
-/// # The colon and question-mark bans are RETIRED (2026-08-24)
-///
-/// Scott: *"I think we could have question marks and colons in there. That's part of the model
-/// expressing its voice! 140 character limit should resolve all issues."*
-///
-/// This is THE MECHANICAL-FLOOR RULE at the top of this module applied to its own author. That
-/// rule admits a production guard only for contract shape, integrity, or product leaks, and sends
-/// *"style and vocabulary taste"* to the GATE's fixture expectations — *"where a red is
-/// information; in production the same check burns a finished generation."* A colon and a
-/// question mark are punctuation, which is voice. Length is the only one of the three that is
-/// contract shape: the title has to fit a leaderboard row.
-///
-/// Both bans were also cheap by their own telemetry — 931 and 247 drops against the word cap's
-/// 11,272 — so this is not where the rejections were. It is where the model's range was.
-///
-/// What replaced them is not nothing: the seats' prompts still carry the hook doctrine (one
-/// sentence, the entity's name inside the report's sharpest claim, no "Label: description"
-/// taxonomy). Direction in the prompt, a floor in the guard — the split this module exists to
-/// keep.
-///
-/// The rule NAME stays `hook_max_words` although it now counts characters: it is the telemetry
-/// key that three days of journal history and the eval fixtures already join on, and renaming it
-/// would silently orphan that series exactly when the change most needs measuring.
+/// Return the stable telemetry key when a card title exceeds [`HOOK_MAX_CHARS`]. Colons and
+/// question marks are voice, not violations.
 pub fn hook_violation(hook: &str) -> Option<&'static str> {
     // chars(), not len(): a byte count would penalise the accented club names the five European
     // leagues are full of — "Atlético", "Beşiktaş" — for being spelled correctly.
     (hook.chars().count() > HOOK_MAX_CHARS).then_some("hook_max_words")
 }
 
-/// Trim a two-beat hook to its first beat — the deterministic salvage behind the one-clause
-/// rule (v21/s18, the fail-rate session). The 3b's residual overruns share one shape: a clean
-/// take plus a hung twist ("Trent's old fire is fading into the quiet, but the crowd still
-/// remembers" — 13 words). The first beat IS the title the contract wants; the twist belongs
-/// to the body. Cutting at the earliest beat separator is code enforcing the written rule,
-/// never rewriting the model's prose.
-///
-/// Returns `Some(first beat)` only when the hook VIOLATES the contract, a separator exists,
-/// and the trimmed beat both passes `hook_violation` and keeps at least four words (a title,
-/// not a fragment). A clean hook returns `None` — callers salvage only on violation.
+/// Trim an overlong two-beat title to its first complete beat. Returns a title only when the
+/// original violates the contract and the result has at least four words.
 pub fn salvage_hook(hook: &str) -> Option<String> {
     hook_violation(hook)?;
-    // ", and " joined the beat separators in the 08-23 review pass: the or12 gate's first
-    // specimen was "…is a defensive revolution, and the court is watching" — the same hung
-    // twist as ", but ", conjunction swapped. Safe because salvage only ever runs on a
-    // VIOLATING title; an integral "and" inside a clean hook is never touched.
+    // Salvage runs only for an already-invalid title, so integral conjunctions in valid titles
+    // are never touched.
     const SEPS: [&str; 6] = ["\u{2014}", "\u{2013}", ", but ", ", and ", "; ", ": "];
     let cut = SEPS.iter().filter_map(|s| hook.find(s)).min()?;
     let head = hook[..cut]
@@ -230,17 +94,8 @@ pub fn salvage_hook(hook: &str) -> Option<String> {
     (head.split_whitespace().count() >= 4 && hook_violation(&head).is_none()).then_some(head)
 }
 
-/// Remove `<...>` template spans from prose — the contract's own placeholder notation, copied
-/// out verbatim.
-///
-/// Measured on the 2026-08-26 corpus extract: momentum READs and HEADLINEs across dozens of
-/// entities carried literal `<two to four sentences>` fills and whole `<the HOOK — write it as
-/// a tweet. ...>` lines — granite4.2:3b reads an angle-bracketed hole in the output spec as
-/// text to reproduce, the same instrument-instinct as the self-review tic. The SOURCE fix is in
-/// the prompts (the Analyst's contract no longer uses the notation); this is the floor under
-/// it, strip-not-reject like `**`: no seat's honest sport prose ever contains an
-/// angle-bracketed span, so removal cannot cost a true word. Only MATCHED spans are touched —
-/// a stray `<` with no closing `>` is broken prose, not notation, and stays.
+/// Remove matched `<...>` template spans copied from an output contract. A stray `<` without a
+/// closing `>` is left untouched.
 pub fn strip_template_spans(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     let mut rest = s;
@@ -271,18 +126,8 @@ pub fn strip_template_spans(s: &str) -> String {
         .to_string()
 }
 
-/// Whether a card title names the entity it is about — the hook doctrine's naming rule
-/// (Scott, s24: the entity's name inside the report's sharpest claim) as a mechanical floor.
-///
-/// Measured need, 2026-08-26 full-fleet extract: 111 of 202 Scout headlines (55%) named an
-/// INVENTED club instead — the worked example's "Harborview…" line verbatim, or a "Rovers"
-/// remix of the contract's inline sample — on real clubs' cards. That is integrity, not style
-/// (a fan reads a fictional team on their club's card), which is what admits a floor under THE
-/// MECHANICAL-FLOOR RULE. The match is deliberately loose: any word of the entity's name of
-/// four or more characters (folded), so "Milan" carries "AC Milan" and "Lakers" carries
-/// "Los Angeles Lakers"; names with no word that long fall back to the whole name. A nickname
-/// the materials never showed the model ("Spurs") fails — acceptable, because the prompt hands
-/// it the name it must use, and a dropped title is the contract's own degraded state.
+/// Whether a card title names its entity. The deliberately loose match accepts any folded name
+/// word of four or more characters; shorter names fall back to the complete folded name.
 pub fn title_names_entity(title: &str, entity_name: &str) -> bool {
     let t = fold_for_match(title);
     let name = fold_for_match(entity_name);
@@ -298,32 +143,14 @@ pub fn title_names_entity(title: &str, entity_name: &str) -> bool {
     !had_long && t.contains(name.trim())
 }
 
-/// Whether prose carries any ASCII digit.
-///
-/// **No longer a production guard.** It gated the momentum READ from s14 until 2026-08-24, on the
-/// reasoning that the seat "speaks its numbers in words, so a digit is internals pasted into the
-/// card". Measured, that cost 1,221 rejections in three days and permanently dead-lettered
-/// momentum player 367 — and the Oracle had already reached the opposite ruling for its own seat
-/// (digits in open prose are "ordinary sporting evidence"; see [`ORACLE_READING_BANS`]). The
-/// defect actually worth catching is a bookkeeping citation, which
-/// [`has_bookkeeping_citation`] catches precisely. `analyst/mod.rs` now calls that instead.
-///
-/// Kept because it is still the right check on the INPUT side: the Analyst's tests assert no
-/// figure reaches her prompt, which stands on its own footing — a narrative seat should not be
-/// handed raw numbers it does not own, whatever it is now permitted to write.
+/// Whether prose carries any ASCII digit. Input-side check only: the Analyst's tests assert no
+/// figure reaches her prompt. Not a production guard.
 pub fn has_ascii_digit(s: &str) -> bool {
     s.bytes().any(|b| b.is_ascii_digit())
 }
 
-/// has_foreign_script reports whether card-facing English prose carries a run of a
-/// non-Latin writing system — the ministral-3:3b multilingual leak ("his playmaking
-/// has زمنed in Milwaukee", measured at ~2% of Analyst READs on 2026-08-15, 0% on the
-/// 9B). Parsers that own free prose call this and fail closed so the retry re-rolls;
-/// at a 2% leak rate a second attempt lands clean essentially always. The founding
-/// guard — moved here from `util` when guards got their own home (08-19).
-///
-/// Latin diacritics (Militão, Éder, Müller) and typographic punctuation pass — only
-/// Arabic, CJK, Hangul, Cyrillic, Devanagari, Thai, and Hebrew code points trip it.
+/// Whether card-facing English prose contains a non-Latin writing system. Latin diacritics and
+/// typographic punctuation pass.
 pub fn has_foreign_script(s: &str) -> bool {
     s.chars().any(|c| {
         matches!(c as u32,
@@ -339,11 +166,9 @@ pub fn has_foreign_script(s: &str) -> bool {
     })
 }
 
-/// count_sentences approximates a prose field's sentence count for the contract budgets: a
+/// Approximate a prose field's sentence count for contract budgets: a
 /// sentence ends at a run of `.` / `!` / `?` followed by whitespace or end-of-text. A decimal
-/// point ("a 2.5 assist bump") is followed by a digit, so it never counts. THE sentence
-/// counter — the eval's cruder `sentence_runs` (which miscounted decimals) folded into this
-/// one 08-19 so every prose lens measures length the same way.
+/// point followed by a digit does not count.
 pub fn count_sentences(text: &str) -> usize {
     let chars: Vec<char> = text.chars().collect();
     let mut n = 0;
@@ -437,6 +262,8 @@ mod tests {
         // Earliest marker wins when several appear.
         let both = "Solid start. Check format: within limits.";
         assert_eq!(truncate_self_review(both), "Solid start.");
+        let prose_note = "The room stays warm.\n\nNote: The body prose is written as natural, plain language without labels.";
+        assert_eq!(truncate_self_review(prose_note), "The room stays warm.");
     }
 
     #[test]
@@ -495,6 +322,20 @@ mod tests {
             clean_served_prose(s),
             "tension, carried by the back line.\nthree defeats and a silent bench.\nthe room braces for the opener."
         );
+        let inline = "Claim: The room warms. Evidence: The away end sings. Support: The noise holds. Summary: Belief is rising.";
+        assert_eq!(
+            clean_served_prose(inline),
+            "The room warms. The away end sings. The noise holds. Belief is rising."
+        );
+        let paragraph = "The room warms as the away end sings, and belief keeps rising.";
+        assert_eq!(
+            clean_served_prose(&format!("{paragraph}\n\n{paragraph}")),
+            paragraph
+        );
+        assert_eq!(
+            clean_served_prose("Ipswich Town holds steady. The hook is steady."),
+            "Ipswich Town holds steady."
+        );
         let meta = "The room leans forward, steady and alert.\n\n(One paragraph — claim, evidence, close — as required.)";
         assert_eq!(
             clean_served_prose(meta),
@@ -534,6 +375,11 @@ mod tests {
         assert_eq!(first_product_name("the PEAK confirms it"), Some("PEAK"));
         assert_eq!(first_product_name("a good vibe in the room"), None);
         assert_eq!(first_product_name("the Vibe shows warmth"), Some("Vibe"));
+        assert_eq!(
+            first_product_name("The Analyst calls the direction rising"),
+            Some("The Analyst")
+        );
+        assert_eq!(first_product_name("an analyst sees a rise"), None);
     }
 
     #[test]
@@ -589,14 +435,6 @@ mod tests {
         assert!(has_bookkeeping_citation("The room cools (sentiment=30)."));
         // An unclosed paren is broken prose, not a citation.
         assert!(!has_bookkeeping_citation("the wire stirs (fee near 40"));
-        // The vocabulary list is an empty seam; nothing in prose can trip it.
-        assert_eq!(
-            first_banned_phrase(
-                "the omen is waning and the percentile tells the story",
-                ORACLE_READING_BANS
-            ),
-            None
-        );
     }
 
     /// Punctuation is VOICE, and voice is not a production guard's business (2026-08-24).
@@ -709,30 +547,12 @@ mod tests {
 }
 
 // ---------------------------------------------------------------------------
-// The served-prose pipeline. Two rules that apply to EVERY voice, in one place.
+// The served-prose pipeline shared by every voice.
 // ---------------------------------------------------------------------------
-//
-// Added 2026-08-23 after the same two bugs were found and fixed per-seat, in
-// production, four and three times respectively:
-//
-//   markdown reaching a card    Scout (clean_commentary), Insider (is4),
-//                               Influencer — while the Analyst, Journalist and
-//                               Oracle had no protection at all
-//   a junk title killing a card Analyst (s18), Scout, Influencer — each one
-//                               rediscovered by watching dead letters
-//
-// Every instance cost real cards: 89 vibe items died on `**` in a body, 39 on an
-// over-long hook, and a complete graded Scout profile was discarded over a colon.
-// A rule that every voice needs is a rule that belongs where every voice can
-// reach it, which is here — not re-derived in six parsers.
 
 /// clean_served_prose is the scrub every served prose field passes through.
 ///
-/// Line by line because `util::strip_markdown_emphasis` is written for ONE line of a labelled
-/// reply, and a card body is many. Stripping rather than banning is deliberate and measured: a
-/// `"**"` ban fails the whole generation, and the model then reproduces the same decoration on
-/// retry at temp=0, so the ban converts a cosmetic flaw into a permanent stall. The stripped
-/// prose is exactly the prose the seat intended.
+/// Strips cosmetic markup and scaffold labels instead of rejecting an otherwise usable card.
 pub fn clean_served_prose(s: &str) -> String {
     // Template spans go first: a `<two to four sentences>` fill is notation, and the label
     // strip below reasons line-by-line while a span may cross a line.
@@ -741,37 +561,40 @@ pub fn clean_served_prose(s: &str) -> String {
         .lines()
         .map(|l| {
             let l = crate::util::strip_markdown_emphasis(l);
-            // THE STORY FORM's scaffolding vocabulary, measured leaking as literal labels the
-            // day the form shipped (2026-08-25 deck probes: "Claim: tension, carried by…").
-            // The structure is invisible on the card; the label is decoration, so it takes
-            // the same strip-not-reject treatment as `**`.
-            ["Claim:", "Evidence:", "Close:"]
-                .iter()
-                .find_map(|p| l.strip_prefix(p))
-                .map(|rest| rest.trim_start().to_string())
-                .unwrap_or(l)
+            // Form labels are structure, not served prose. Small models sometimes put every
+            // label on its own line and sometimes run them together after normalization, so
+            // remove the exact scaffold tokens wherever they occur. Ordinary lower-case prose
+            // about a claim, evidence or summary remains untouched.
+            let original_len = l.len();
+            let mut clean = l;
+            for label in ["Claim:", "Evidence:", "Support:", "Summary:", "Close:"] {
+                clean = clean.replace(label, "");
+            }
+            if clean.len() == original_len {
+                clean
+            } else {
+                clean.split_whitespace().collect::<Vec<_>>().join(" ")
+            }
         })
         .collect::<Vec<_>>()
         .join("\n");
     collapse_exact_double(truncate_self_review(&stripped).trim())
 }
 
-/// A body that is EXACTLY two identical halves collapses to one — granite4.2's third measured
-/// self-duplication of 2026-08-25 (a momentum READ repeated verbatim inline; a vibe body
-/// restated in full). Word-exact halves only: no honest prose is a perfect double of itself,
+/// A body that is exactly two identical halves collapses to one. Word-exact halves only:
+/// no honest prose is a perfect double of itself,
 /// so the check cannot fire on a deliberate refrain, and anything short of exact stays
 /// untouched. Runs after the self-review truncation, whose markers introduce most restatements.
 fn collapse_exact_double(prose: &str) -> String {
     let words: Vec<&str> = prose.split_whitespace().collect();
     let n = words.len();
-    if n >= 8 && n % 2 == 0 && words[..n / 2] == words[n / 2..] {
+    if n >= 8 && n.is_multiple_of(2) && words[..n / 2] == words[n / 2..] {
         // Rebuild from the ORIGINAL text so intra-half newlines survive: cut at the byte
         // offset where the second half's first word begins.
         let mut seen = 0usize;
         let mut cut = prose.len();
-        let mut it = prose.char_indices().peekable();
         let mut in_word = false;
-        while let Some((i, c)) = it.next() {
+        for (i, c) in prose.char_indices() {
             if c.is_whitespace() {
                 in_word = false;
             } else if !in_word {
@@ -803,6 +626,9 @@ pub fn truncate_self_review(prose: &str) -> &str {
         "Check character counts",
         "Count characters:",
         "Count words:",
+        "Note: The body prose",
+        "The hook is",
+        "The headline is",
         "Revised VIBE:",
         "Revised READ:",
         "Revised HOOK:",
@@ -820,16 +646,8 @@ pub fn truncate_self_review(prose: &str) -> &str {
 
 /// Where a vibe body stops speaking and starts ECHOING its own prompt, cut it there.
 ///
-/// Measured on granite4.2:3b (2026-09-05, 14-day live corpus): after finishing the felt read
-/// the model keeps transcribing its input — the packet-section headers and everything under
-/// them land verbatim on the card ("The stories running around them…" in 710 bodies,
-/// "Narratives forming around them…" in 124, the transfer-temperature and relational-memory
-/// headers close behind). The served body then carries the raw briefing the seat was supposed
-/// to digest, and — worse — the PREVIOUS VIBE anchor feeds that contamination forward, so one
-/// echo becomes next cycle's "prior".
-///
 /// Same treatment and admission rule as [`truncate_self_review`]: markers are exact phrases
-/// measured in production output, each one prompt scaffolding that no honest felt read would
+/// from prompt scaffolding that no honest felt read would
 /// ever say; the list grows only from observed output. Everything before the first marker is
 /// the card the seat intended. A body that OPENS with a marker truncates to empty and the
 /// caller fails it into a retry.
@@ -838,7 +656,6 @@ pub fn truncate_self_review(prose: &str) -> &str {
 /// vocabulary. On her card they are unambiguous echo; on another seat's card a phrase like
 /// "transfer/trade chatter" could be honest prose, so the vibe parser applies this itself.
 pub fn truncate_prompt_echo(prose: &str) -> &str {
-    // Measured 2026-09-05 against the 14-day vibe corpus (counts in the doc above).
     const PROMPT_ECHO_MARKERS: &[&str] = &[
         "The stories running around them",
         "MOOD is the charge",
@@ -871,15 +688,10 @@ pub fn truncate_prompt_echo(prose: &str) -> &str {
 /// Logs on the seat's behalf so the per-model violation RATE stays visible — that telemetry is
 /// what prices a future model swap, and it was the only reason these bugs were findable at all.
 pub fn settle_title(seat: &str, raw: Option<&str>) -> Option<String> {
-    // Emphasis is stripped BEFORE the contract runs — the same stripping-not-banning rule as
-    // clean_served_prose, closed 2026-08-23 after the review pass found the gap: a bolded
-    // title with no other violation shipped its asterisks to the card ("**Las Vegas
-    // Raiders…**" reached this fn bold in production), and a bolded two-beat title salvaged
-    // WITH its leading `**` glued to the first word.
+    // Strip emphasis before validation and salvage.
     let t = crate::util::strip_markdown_emphasis(raw?);
     // A title that is (or contains) the contract's own `<the HOOK — …>` placeholder is
-    // notation, not a title; strip the span and let the emptiness check decide. Measured
-    // serving as a real headline on momentum cards, 2026-08-26.
+    // notation, not a title; strip the span and let the emptiness check decide.
     let t = strip_template_spans(&t);
     let t = t.trim();
     if t.is_empty() {

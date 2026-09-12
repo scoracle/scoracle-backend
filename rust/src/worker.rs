@@ -1,37 +1,20 @@
-//! The Cognition Harness worker — a durable `pipeline_work` consumer.
-//!
-//! Two cooperating tasks (split after the 2026-07-15 NOTIFY-queue incident, where one
-//! hung await in the then-single worker loop froze the LISTEN socket and the drain
-//! together, pinning the global NOTIFY queue until every `pipeline_work` statement
-//! failed with SQLSTATE 54000):
+//! Durable `pipeline_work` consumer with two cooperating tasks:
 //!
 //! * The **drain** (the `run` future itself) executes recover-then-drain ticks. It is
-//!   the only task that touches stage handlers, the embedder, or the GPU, so stage
-//!   futures never cross a spawn boundary.
+//!   the only task that touches stage handlers or the GPU.
 //! * The **supervisor** (spawned) owns everything that must stay responsive no matter
 //!   what the drain is doing: the Postgres LISTEN socket (always read — a slow or
 //!   wedged drain can no longer pin the NOTIFY queue), the safety-net timer,
 //!   SIGINT/SIGTERM, and the no-progress watchdog.
 //!
 //! Tick requests flow supervisor → drain through a [`tokio::sync::Notify`] whose
-//! single stored permit coalesces a burst of NOTIFYs arriving mid-drain into exactly
-//! one follow-up tick. The drain reports progress through [`Pulse`] (heartbeat +
-//! activity label); when a busy drain stops beating for `COGNITION_WATCHDOG_SECONDS`
-//! the supervisor logs the wedged activity and exits the process — systemd
-//! (`Restart=always`) boots it clean, the same remediation the incident reached by
-//! hand after 34 hours. A per-item `COGNITION_HANDLER_TIMEOUT_SECONDS` bound converts
-//! a hung await inside one handler into a normal failed-with-backoff item first, so
-//! the watchdog is the backstop, not the path.
+//! single stored permit coalesces a burst into one follow-up tick. Per-item timeouts fail
+//! handlers with normal backoff; [`Pulse`] lets the supervisor restart a wholly wedged drain.
 //!
 //! Shutdown: either signal sets a flag the drain checks at every item boundary
 //! (releasing unprocessed claims straight back to 'pending'), then a 75s in-process
 //! grace aborts a stuck in-flight item — always inside systemd's 90s TimeoutStopSec,
 //! so a stop/restart never escalates to SIGKILL.
-//!
-//! Phase 0 safety property: with NO handlers registered, `tick` short-circuits
-//! before touching the queue — the scaffold only connects, pings Ollama, and
-//! LISTENs. It performs zero writes, so it is safe to run against any DB while
-//! you review the foundation.
 
 use crate::harness::Harness;
 use crate::junctions::editor;
@@ -94,40 +77,14 @@ const SHUTDOWN_GRACE: Duration = Duration::from_secs(75);
 /// model call overrides this via [`StageHandler::rotation_batch`] — see the note there.
 const STAGE_ROTATION_BATCH: i64 = 1;
 
-/// How often the Desk runs, on its OWN task, independent of the drain.
-///
-/// It used to ride `tick()` immediately after `drain_all` — which meant it only ran once EVERY
-/// registered stage had drained to empty. Measured 2026-08-06 (the D-T14 (b) session): with 6,096
-/// Editor items pending at ~3/min and 30,222 legacy `article_read` items behind them, "empty" is
-/// a day and a half away, so the Desk was never called at all. `COGNITION_PACKET_COMPILE=true`
-/// was set and provably inert — packets stayed at 0 because the compiler never ran, not because
-/// it failed. A queue-length-dependent cadence is not a cadence.
-///
-/// Safe on its own task because the Desk is DB-only: dormancy is one UPDATE, compilation is
-/// SELECTs plus an INSERT per storyline. No model call, no GPU, no embedder — none of the things
-/// the 07-15 incident split kept off the supervisor's task. It deliberately does NOT beat the
-/// drain's `Pulse`: the watchdog's question is whether the DRAIN is wedged, and a Desk heartbeat
-/// answering it would mask exactly the stall the watchdog exists to catch.
+/// Desk cadence, independent of queue depth. The DB-only Desk deliberately does not beat the
+/// drain's [`Pulse`].
 const DESK_INTERVAL: Duration = Duration::from_secs(60);
 
-/// How often stale-lease recovery runs, on its OWN task, independent of the drain.
-///
-/// The Desk's lesson (see [`DESK_INTERVAL`]), relearned 2026-08-23: recovery used to run at the
-/// top of `tick()`, and `tick` runs `drain_all` — which does not return while ANY stage has
-/// claimable work. With a deep backlog that is hours-to-days, so recovery ran exactly once per
-/// boot. The night's fetch panics orphaned 38 rows in 'running' at 04:30 and they sat
-/// unrecovered for four hours under a 30-minute lease, trapping the Editor's claim pool, while
-/// the drain — the very thing starving the recovery — hummed along beside them. A
-/// queue-length-dependent cadence is not a cadence. DB-only (one indexed UPDATE), so it is safe
-/// off the supervisor's task for the same reason the Desk is.
+/// Stale-lease recovery cadence, independent of queue depth.
 const STALE_RECOVERY_INTERVAL: Duration = Duration::from_secs(60);
 
-/// Pulse is the drain's progress instrument, shared with the supervisor. The drain
-/// beats it at every step boundary (claim, per-item handle, bookkeeping);
-/// the supervisor reads it to tell a long-but-alive drain (beats keep advancing) from
-/// a wedged one (busy with a stale beat). `activity` names the step the last beat
-/// belongs to, so a watchdog fire points at the hung await instead of leaving a
-/// silent journal (incident follow-up: the 07-13 wedge never named its hang site).
+/// Drain heartbeat shared with the supervisor. `activity` names the last step for watchdog logs.
 struct Pulse {
     busy: AtomicBool,
     at: StdMutex<Instant>,
@@ -172,21 +129,13 @@ impl Pulse {
 type StageCap = (usize, Option<(&'static str, usize)>);
 type StageCaps = Vec<StageCap>;
 
-/// resolve_drain_concurrency picks the drain's global in-flight ceiling. An explicit
+/// Pick the drain's global in-flight ceiling. An explicit
 /// `COGNITION_DRAIN_CONCURRENCY` wins; otherwise it is derived from the stages' own caps, which
 /// by construction can never bind.
 ///
-/// Getting this wrong starves a stage rather than merely slowing it — a lesson measured in the
-/// two-host era: sizing the ceiling to the topology's total GPU permits (then 4 local + 1 Mac
-/// = 5) looked right and was not, because the drain claims in DAG order, so the early stages
-/// filled all 5 and the late stages got nothing until the local backlog emptied (measured at
-/// 2,580 items when scrub plus two local stages did exactly this). The derivation below exists
-/// so the ceiling can never bind before the per-stage caps do.
-///
 /// Grouped stages contribute their GROUP's budget once, not each stage's ceiling. The Editor and
 /// graph may each claim up to 4, but only 4 between them, so summing both would inflate the global
-/// budget by slots that can never be used at once — and a global budget that cannot bind is a
-/// global budget that stops protecting the stages behind it.
+/// budget by slots that cannot be used at once.
 fn resolve_drain_concurrency(configured: Option<usize>, caps: &[StageCap]) -> usize {
     configured
         .unwrap_or_else(|| {
@@ -337,20 +286,14 @@ struct Desk {
 }
 
 impl Desk {
-    /// The Desk's periodic work (PLAN-one-rail 6.3/6.4) — deterministic code, zero model calls.
+    /// The Desk's periodic DB-only work.
     ///
     /// Two cadences in one pass:
     ///   * **hourly** — the storyline lifecycle sweep: an open storyline nobody has added to for
     ///     14 days goes dormant, which is what keeps the attachment rule's candidate set honest.
     ///   * **every sweep** — packet compilation, which carries its own 15-minute quiet debounce
     ///     in SQL (`packet::compile_dirty`), so a story arriving as a burst compiles once. OFF
-    ///     unless `COGNITION_PACKET_COMPILE` says otherwise: `INSERT ON packets` fires mig 206's
-    ///     voice fan-out, whose `narratives` arm was unconditional until mig 212 gated it on a
-    ///     subscription — before that gate, and while a legacy rail still existed, compiling
-    ///     would have fought the `article_read` enqueue over the same `pipeline_work` row (the
-    ///     mig-197 churn loop). Both are history: that seat was demolished in Phase 9.1 and there
-    ///     is one rail. With the subscription table empty the trigger is inert and this is a
-    ///     shadow compile.
+    ///     unless `COGNITION_PACKET_COMPILE` says otherwise.
     ///
     /// Failure is logged and swallowed, like the dedup sweep: the Desk is downstream of reads
     /// that are already persisted, and it must never take the process down.
@@ -373,11 +316,7 @@ impl Desk {
                 Ok(_) => debug!(cause, "dormancy sweep: nothing quiet enough"),
                 Err(e) => error!(error = %format!("{e:#}"), cause, "dormancy sweep failed"),
             }
-            // The week seal (mig 241, Phase B3) rides the same hourly slot:
-            // deterministic SQL — inside a week's final six hours it enqueues the
-            // closing pass (content debounce keeps it honest), and at the Monday
-            // boundary it stamps the week sealed. Tolerates the function not
-            // being installed yet (pre-mig deploys log and move on).
+            // The week seal shares the hourly slot and tolerates pre-migration deployments.
             for sport in ["FOOTBALL", "NBA", "NFL"] {
                 match sqlx::query_as::<_, (i32, i32)>(
                     "SELECT closing_enqueued, weeks_sealed FROM public.seal_weeks($1)",
@@ -564,9 +503,7 @@ impl Worker {
             }));
         }
 
-        // Stale-lease recovery on its own task — every seat, unconditionally: a crashed or
-        // aborted claim must recover on the LEASE's clock, never the drain's (see
-        // STALE_RECOVERY_INTERVAL for the 2026-08-23 incident this closes).
+        // Recover crashed or aborted claims on the lease clock, independent of drain depth.
         {
             let pool = self.pool.clone();
             let lease = self.stale_lease;
@@ -633,15 +570,7 @@ impl Worker {
         self.shutdown.load(Ordering::Acquire)
     }
 
-    /// Collapse byte-identical CROSS-SOURCE articles onto one canonical copy, at most hourly.
-    ///
-    /// This is the rail's ONLY cross-source dedup — the legacy novelty gate that used to share
-    /// the job died with the legacy rail, and it structurally missed this case anyway (two
-    /// copies arriving in the same pass were invisible to each other). Measured 2026-07-28:
-    /// 2,057 of 32,016 corpus-visible articles in a 14-day window were exact-title duplicates
-    /// of another corpus-visible article, which is 6.4% of every busyness verdict counting one
-    /// story twice.
-    ///
+    /// Collapse byte-identical cross-source articles onto one canonical copy, at most hourly.
     /// Hourly is the right cadence: the sweep has work only after the nightly ingest lands a
     /// batch, so per-tick would be pure write amplification.
     ///
@@ -683,26 +612,14 @@ impl Worker {
             debug!(cause, "tick: no handlers registered; nothing to do");
             return;
         }
-        // Stale-lease recovery left this spot 2026-08-23 for its own task (see
-        // STALE_RECOVERY_INTERVAL): here it ran once per drain COMPLETION, and a deep backlog
-        // means the drain completes ~never. The duplicate-title sweep below shares that cadence
-        // and knowingly keeps it — it is a tidiness pass, and a late sweep costs a duplicate
-        // headline, not a wedged claim pool.
+        // Exact-title dedup may wait for a drain boundary; unlike lease recovery, it is hygiene.
         self.sweep_exact_title_duplicates(cause, pulse).await;
         self.drain_all(cause, pulse).await;
-        // The Desk used to run here, after the drain. It now has its own task (`desk_loop`),
-        // because "after the drain" means "after every stage is empty" — which, with a deep
-        // legacy queue, never happens. See DESK_INTERVAL.
         pulse.idle();
     }
 
     /// Drain every registered stage to empty, keeping up to `drain_concurrency` claimed items
     /// in flight at once.
-    ///
-    /// This was a strictly sequential `for handler { for item { handle().await } }` until the
-    /// 2026-08 two-host era made it the bottleneck (each machine idled through the other's
-    /// generations; measured 255 calls/hour against a 310 baseline, -18%). The concurrent
-    /// drain outlived that topology because it is what fills the card's parallel slots.
     ///
     /// **The governor is the scheduler.** The drain's job is only to keep work OFFERED; the
     /// per-host semaphores (`route.rs::governor_for` — one host today, more again if a role's
@@ -713,9 +630,7 @@ impl Worker {
     /// enqueued by an item that just finished is picked up on the very next top-up pass.
     ///
     /// Concurrency is *intra-task*: the futures live in a `FuturesUnordered` polled by this one
-    /// drain task and are never spawned. That preserves the property the 07-15 incident split
-    /// was built on — stage futures, the embedder and the GPU stay off the supervisor's task, so
-    /// nothing a handler does can pin the LISTEN socket.
+    /// drain task and are never spawned, so handlers cannot pin the supervisor's LISTEN socket.
     async fn drain_all(&self, cause: &str, pulse: &Pulse) {
         let budget = self.drain_concurrency.max(1);
         let mut inflight = FuturesUnordered::new();
@@ -742,11 +657,7 @@ impl Worker {
                     break;
                 }
                 let stage = handler.stage();
-                // The per-stage cap is what keeps the DAG order from becoming a priority
-                // order. Without it the first stage with a deep queue and a big
-                // `rotation_batch` takes every slot and starves the rest (on the legacy rail
-                // that was model-free scrub claiming 256 and starving the GPU entirely; the
-                // failure shape survives any stage roster).
+                // Per-stage caps keep DAG claim order from becoming strict priority order.
                 let running = *per_stage.get(stage.as_str()).unwrap_or(&0);
                 let mut room =
                     stage_room(handler.max_in_flight(), running, budget - inflight.len());
@@ -854,13 +765,8 @@ impl Worker {
                 if let Err(e) = work::complete(&self.pool, &item).await {
                     error!(error = %format!("{e:#}"), %stage, "complete failed");
                 }
-                // The Oracle's completion barrier, offered from exactly one place and only AFTER
-                // the row is gone. Pillar handlers used to ask this themselves, which was correct
-                // while the drain ran one item at a time and is not correct now: with several
-                // items in flight, two pillars for the same entity could both ask while both rows
-                // were still 'running', both see the other outstanding, and both decline — the
-                // entity never crowned, with nothing in any log to say so. Asking after completion
-                // makes the question monotone, so whoever finishes last always sees zero.
+                // Ask the Oracle completion barrier only after deleting this row; the last
+                // concurrent pillar to finish then always observes zero outstanding work.
                 //
                 // Best-effort by design. A failed enqueue must not fail an item whose real work is
                 // already persisted and whose row is already deleted; the next pillar to settle for

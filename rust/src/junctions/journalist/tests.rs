@@ -172,7 +172,7 @@ fn input_components_are_stable_across_input_order() {
     assert_eq!(
         one,
         format!(
-            r#"{{"prompt_version":"{NARRATIVES_PROMPT_VERSION}","article_ids":[1,3],"article_readings_hash":"{article_readings_hash}"}}"#
+            r#"{{"article_ids":[1,3],"article_readings_hash":"{article_readings_hash}","prompt_version":"{NARRATIVES_PROMPT_VERSION}"}}"#
         )
     );
     assert_eq!(READING_FINGERPRINT_NONE, "none::0");
@@ -463,34 +463,6 @@ fn impact_recency_buckets() {
     // 3 days old → no bucket → 0.
     let (_, comp3) = compute_news_impact(&news, 3 * day);
     assert_eq!(comp3["recency"], json!(0.0));
-}
-
-// --- 7.3: the packet rail's prompt seam ---------------------------------------------------------
-
-/// The law the whole phase rests on: under `RAIL=legacy` nothing about the prompt changes. The
-/// packet framing is the ONLY new byte, and `None` means it contributes none of them — so a
-/// legacy-rail deploy carrying all of Phase 7 sends exactly what the Phase 6 binary sent.
-#[test]
-fn legacy_rail_prompt_is_byte_identical_to_the_no_framing_prompt() {
-    let news = vec![item(
-        10,
-        "BBC",
-        "Saka shines again",
-        "A strong display.",
-        None,
-    )];
-    let entity = req("Bukayo Saka", "FOOTBALL", "player");
-    let legacy = build_narratives_prompt(&entity, &news, None, None, None, None);
-    // An empty or whitespace framing must be indistinguishable from no framing: a packet with
-    // nothing to frame must not leave a dangling header in the prompt.
-    for empty in ["", "   ", "\n"] {
-        assert_eq!(
-            legacy,
-            build_narratives_prompt(&entity, &news, None, None, Some(empty), None),
-            "an empty framing block changed the prompt"
-        );
-    }
-    assert!(!legacy.contains("The story so far"));
 }
 
 /// On the packet rail the framing lands ABOVE the numbered evidence — the story first, then what

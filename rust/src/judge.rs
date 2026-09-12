@@ -1,24 +1,9 @@
-//! Judge — the LLM-as-judge quality dimension (lens quality plan Phase 4).
-//!
-//! The fixture harness measures STRUCTURE (required lines, ranges, substrings); it cannot tell
-//! a specific, well-grounded sentence from a correct-shaped generic one. This module adds that
-//! axis: a small, independent critic model scores a (evidence, reply) pair on 1-5 scales
-//! — specificity, grounding, non-genericness — and names the single worst claim.
-//!
-//! judge-v2 (Characters Phase B) adds the VOICE axis: when the caller supplies a [`VoiceSpec`]
-//! (the cast identity from `lens_parameters`), the judge also scores `voice_fidelity` — "strip
-//! the card label: which character wrote this?". Utility calls (graph) pass no spec and keep
-//! the three-axis rubric; the axis is judged on the TELLING, never the facts (grounding is its
-//! own scale), so a character can't buy voice points with invented color.
-//!
+//! Judge — LLM-as-judge quality axis: an independent critic model scores a (evidence, reply)
+//! pair 1-5 on specificity, grounding, non-genericness, and names the worst claim. With a
+//! [`VoiceSpec`] it also scores `voice_fidelity`, judged on the TELLING, never the facts.
 //! STRICTLY OFF the production path: only `bin/eval --judge` constructs a judge backend
-//! (`COGNITION_JUDGE_MODEL`, default `gemma3:4b` — deliberately a model that serves NO
-//! production role, so neither production model grades its own homework; post-consolidation
-//! that reasoning only strengthened). NOTE the default is no longer kept pulled — the
-//! 2026-08-20 disk cleanup removed all non-production models from archbox, so run
-//! `ollama pull gemma3:4b` before a `--judge` session (and `ollama rm` it after, if disk
-//! is tight). The judge never competes for the GPU during live drains and its verdicts are
-//! advisory eval output, never persisted product truth.
+//! (`COGNITION_JUDGE_MODEL` must be a model serving NO production role; pull it before a
+//! session). Verdicts are advisory eval output, never persisted product truth.
 
 use crate::ollama::GenerateOptions;
 use crate::route::Inference;
@@ -38,9 +23,8 @@ pub struct VoiceSpec<'a> {
     pub mandate: &'a str,
 }
 
-/// judge_system_prompt builds the rubric: three base axes always, plus the `voice_fidelity`
-/// axis when a [`VoiceSpec`] is supplied. The JSON template mirrors the axis set exactly, so
-/// the grammar schema in `judge_reply` and this prose can't drift apart in shape.
+/// Builds the rubric: three base axes, plus `voice_fidelity` when a [`VoiceSpec`] is supplied.
+/// The JSON template mirrors the axis set exactly so it cannot drift from the grammar schema.
 pub fn judge_system_prompt(voice: Option<&VoiceSpec<'_>>) -> String {
     let (voice_axis, voice_key) = match voice {
         Some(v) => (
@@ -87,10 +71,8 @@ pub fn build_judge_prompt(task_name: &str, evidence: &str, reply: &str) -> Strin
     )
 }
 
-/// parse_judge_verdict is fail-closed: anything but a complete, in-range JSON verdict is `None`
-/// (the case is reported unjudged, never defaulted). A present `voice_fidelity` must be in
-/// range; whether it must be PRESENT is the caller's call (`judge_reply` requires it exactly
-/// when a [`VoiceSpec`] was supplied).
+/// Fail-closed: anything but a complete, in-range JSON verdict is `None` (unjudged, never
+/// defaulted). A present `voice_fidelity` must be in range; presence is the caller's check.
 pub fn parse_judge_verdict(raw: &str) -> Option<JudgeVerdict> {
     let v: JudgeVerdict = serde_json::from_str(raw.trim()).ok()?;
     let ok = |n: i32| (1..=5).contains(&n);
@@ -98,10 +80,8 @@ pub fn parse_judge_verdict(raw: &str) -> Option<JudgeVerdict> {
         .then_some(v)
 }
 
-/// judge_reply scores one (evidence, reply) pair. Temp 0 — the judge should be a ruler, not a
-/// sampler. An empty reply is auto-scored floor (nothing to judge is the worst outcome on every
-/// axis) without a model call. `voice` turns on the fourth axis: pass the character's spec for
-/// cast stages, `None` for utility replies.
+/// Scores one (evidence, reply) pair at temp 0. An empty reply is floor-scored without a
+/// model call. `voice` turns on the fourth axis (cast stages); `None` for utility replies.
 pub async fn judge_reply(
     backend: &dyn Inference,
     task_name: &str,
@@ -168,7 +148,7 @@ mod tests {
         .unwrap();
         assert_eq!((v.specificity, v.grounding, v.non_generic), (4, 5, 3));
         assert!(v.voice_fidelity.is_none()); // three-axis verdict stays three-axis
-                                             // Out-of-range or incomplete → None, never clamped or defaulted.
+                                             // Out-of-range or incomplete → None, never clamped.
         assert!(
             parse_judge_verdict(r#"{"specificity": 9, "grounding": 5, "non_generic": 3}"#)
                 .is_none()

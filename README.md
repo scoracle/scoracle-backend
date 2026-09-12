@@ -159,6 +159,7 @@ Per-entity products (`{entityType}` ∈ `player|team`):
   - `GET /api/v1/{sport}/{entityType}/{id}/sigil` — the Sigil crown synthesis (Rating + Vibe + Momentum → `sigil_synthesis`)
 - `GET /api/v1/{sport}/{entityType}/{id}/meta` — per-entity identity (page header); 404 when the entity is unknown
 - `GET /api/v1/{sport}/team/{id}/results` — a team's finalized scorelines for a season
+- `GET /api/v1/{sport}/team/{id}/articulator/{kind}` — exact pre-serialized on-device Articulator DATA slice (`kind=p1`…`p8`; teams only; `p6` also returns `followup_data`)
 - `GET /api/v1/{sport}/team/{id}/roster` — legacy compatibility; new clients use `/leaderboard?entity_type=player&team_id={id}`
 
 > **Convergence rename (O14):** the earlier per-product names `/special`, `/trends`, and

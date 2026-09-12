@@ -161,6 +161,47 @@
                 }
             }
         },
+        "/api/v1/{sport}/weeks": {
+            "get": {
+                "description": "Elapsed + current weeks for the sport (week 1 = opening day, ET), newest first, with the current marker and seal state. Optional season filter.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "data"
+                ],
+                "summary": "Get the sport's reporting-week calendar",
+                "parameters": [
+                    {
+                        "enum": [
+                            "nba",
+                            "nfl",
+                            "football"
+                        ],
+                        "type": "string",
+                        "description": "Sport",
+                        "name": "sport",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit to one season",
+                        "name": "season",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/entities": {
             "get": {
                 "description": "Cross-sport text-only directory of players and teams for home-page search.",
@@ -486,14 +527,14 @@
         },
         "/{sport}/leaderboard/momentum": {
             "get": {
-                "description": "Entities ranked by their stored momentum snapshot slope (newest minus oldest sample; vibe = 21 calendar days, rating = last ~10%-of-season games, season-spanning). metric=vibe (default) or rating. direction=up (default, risers) or down (fallers). /trending remains a legacy alias.",
+                "description": "Entities ranked by their stored momentum snapshot slope (newest minus oldest sample; vibe = 21 calendar days, rating = last ~10%-of-season games, season-spanning). metric=vibe (default) or rating. Default ranks biggest movers in either direction by ABS(slope); direction=up (risers) or down (fallers) filters one side. /trending remains a legacy alias.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "data"
                 ],
-                "summary": "Momentum leaderboard (risers / fallers)",
+                "summary": "Momentum leaderboard (movers; risers / fallers filters)",
                 "parameters": [
                     {
                         "enum": [
@@ -515,7 +556,7 @@
                     },
                     {
                         "type": "string",
-                        "description": "Movers: up (default, risers) or down (fallers)",
+                        "description": "Omit for biggest movers both ways; up = risers only, down = fallers only",
                         "name": "direction",
                         "in": "query"
                     },
@@ -896,7 +937,7 @@
         },
         "/{sport}/leaderboard/vibes": {
             "get": {
-                "description": "Sport-wide board of entities ranked by latest vibe sentiment (1-100). With the Vibe felt-read blurb.",
+                "description": "Sport-wide board of entities ranked by emotional charge (distance of the latest 48h sentiment from 50, either direction). Rows serve heat = the raw sentiment (1-100) and the Influencer's hook as headline.",
                 "produces": [
                     "application/json"
                 ],
@@ -1418,6 +1459,83 @@
                 }
             }
         },
+        "/{sport}/team/{id}/articulator/{kind}": {
+            "get": {
+                "description": "Returns a byte-stable compact JSON string composed from precomputed team products. kind is p1 through p8; p6 also returns followup_data.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "data"
+                ],
+                "summary": "Get an on-device Articulator DATA slice",
+                "parameters": [
+                    {
+                        "enum": [
+                            "nba",
+                            "nfl",
+                            "football"
+                        ],
+                        "type": "string",
+                        "description": "Sport",
+                        "name": "sport",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Team ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "p1",
+                            "p2",
+                            "p3",
+                            "p4",
+                            "p5",
+                            "p6",
+                            "p7",
+                            "p8"
+                        ],
+                        "type": "string",
+                        "description": "Training slice",
+                        "name": "kind",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/respond.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/respond.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/respond.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/{sport}/team/{id}/results": {
             "get": {
                 "description": "Returns the team's list of finalized fixtures (status completed/seeded) for a season, framed from the team's perspective with opponent identity and W/L/D.",
@@ -1524,6 +1642,83 @@
                         "type": "integer",
                         "description": "League ID filter",
                         "name": "league_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/respond.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/respond.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/{sport}/{entityType}/{id}/headlines": {
+            "get": {
+                "description": "Every character card's (score, headline, body) entries for one week of the year, merged newest-first. Week 1 = Jan 1–7. Defaults to the current week.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "data"
+                ],
+                "summary": "Get the entity week archive (all seats' headlines)",
+                "parameters": [
+                    {
+                        "enum": [
+                            "nba",
+                            "nfl",
+                            "football"
+                        ],
+                        "type": "string",
+                        "description": "Sport",
+                        "name": "sport",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "player",
+                            "team"
+                        ],
+                        "type": "string",
+                        "description": "Entity type",
+                        "name": "entityType",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Entity ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Calendar year (default: current)",
+                        "name": "year",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Week of the year, 1-53, Jan-1 anchored (default: current)",
+                        "name": "week",
                         "in": "query"
                     }
                 ],
@@ -2105,6 +2300,71 @@
                         "description": "Transfer scope: current_week, last_week, two_weeks_ago, three_weeks_ago, last_month",
                         "name": "scope",
                         "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/respond.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/respond.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/{sport}/{entityType}/{id}/vibe": {
+            "get": {
+                "description": "The entity's Vibe card — the Influencer's headline and body with her sentiment score (1-100), plus the last 7 days of snapshots. `current` is null when the entity has never been scored; the response is still 200.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "data"
+                ],
+                "summary": "Get the entity Vibe (The Influencer's emotional read)",
+                "parameters": [
+                    {
+                        "enum": [
+                            "nba",
+                            "nfl",
+                            "football"
+                        ],
+                        "type": "string",
+                        "description": "Sport",
+                        "name": "sport",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "player",
+                            "team"
+                        ],
+                        "type": "string",
+                        "description": "Entity type",
+                        "name": "entityType",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Entity ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
                     }
                 ],
                 "responses": {

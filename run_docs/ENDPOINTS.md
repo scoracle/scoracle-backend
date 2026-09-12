@@ -24,6 +24,7 @@ The only source of truth is `go/internal/api/server.go`. Every route wired there
 | `GET /api/v1/{sport}/{entityType}/{id}/transfers` | scoped vetted rumor heat, per-pair `headline`s + the Insider's `wire_read`; source freshness and trajectory markers |
 | `GET /api/v1/{sport}/{entityType}/{id}/meta` | per-entity identity (page header); 404 if unknown |
 | `GET /api/v1/{sport}/team/{id}/results` · `/roster` | finalized scorelines · legacy roster compatibility |
+| `GET /api/v1/{sport}/team/{id}/articulator/{kind}` | exact compact JSON **string** used as the on-device Articulator's `DATA:` block; teams only; `kind` is `p1`…`p8`, and `p6` also includes `followup_data` |
 | `GET /api/v1/{sport}/meta` · `/autofill` · `/health` | legacy sport-wide metadata/search payload · legacy sport autofill · freshness |
 | `GET /api/v1/{sport}/stories` | Stories page list: open storylines ranked by editor-native heat (report volume decayed by latest-packet age); each row carries the Journalist's `recap` (nullable) + packet `routing_tags`; `?status=resolved\|dormant` for the archive, `?limit=` (default 50, cap 200) |
 | `GET /api/v1/{sport}/story/{id}` | one storyline whole: cast (roles + lifespans), packet headline history, full latest packet (incl. `routing_tags`), the Journalist's `recap`, attached articles, voice-product pointers; 404 if unknown |
@@ -77,6 +78,32 @@ Supported sport path values:
 Supported entity type values:
 - `player`
 - `team`
+
+### `GET /api/v1/{sport}/team/{id}/articulator/{kind}`
+
+Returns the inference slice composed from the same precomputed products used by
+the profile cards. `kind` must be one of `p1` through `p8`. The `data` member is
+already serialized compact JSON and must be passed to the model as a string;
+clients must not parse and reserialize it. `p6` alone also returns the serialized
+`followup_data` member. The endpoint is team-only because the current training
+corpus contains team entities.
+
+```json
+{
+  "kind": "p3",
+  "entity": {
+    "sport": "football",
+    "entity_type": "team",
+    "entity_id": 18,
+    "name": "Chelsea"
+  },
+  "data": "{\"name\":\"Chelsea\",\"momentum\":{...}}"
+}
+```
+
+Cache: 5 min TTL (`X-Cache: HIT/MISS`), ETag-enabled. Unknown teams return
+`404`; malformed sports or IDs return `400`; unsupported kinds do not match the
+route and return `404`.
 
 ### `GET /api/v1/{sport}/{entityType}/{id}` — REMOVED (O16)
 

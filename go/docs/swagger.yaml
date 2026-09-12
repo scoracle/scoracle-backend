@@ -38,6 +38,61 @@ paths:
       summary: API root info
       tags:
       - meta
+  /{sport}/{entityType}/{id}/headlines:
+    get:
+      description: Every character card's (score, headline, body) entries for one
+        week of the year, merged newest-first. Week 1 = Jan 1–7. Defaults to the current
+        week.
+      parameters:
+      - description: Sport
+        enum:
+        - nba
+        - nfl
+        - football
+        in: path
+        name: sport
+        required: true
+        type: string
+      - description: Entity type
+        enum:
+        - player
+        - team
+        in: path
+        name: entityType
+        required: true
+        type: string
+      - description: Entity ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 'Calendar year (default: current)'
+        in: query
+        name: year
+        type: integer
+      - description: 'Week of the year, 1-53, Jan-1 anchored (default: current)'
+        in: query
+        name: week
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+      summary: Get the entity week archive (all seats' headlines)
+      tags:
+      - data
   /{sport}/{entityType}/{id}/meta:
     get:
       description: 'The entity''s identity for the page header: name, image, physicals,
@@ -452,6 +507,53 @@ paths:
       summary: Get the entity transfer rumors
       tags:
       - data
+  /{sport}/{entityType}/{id}/vibe:
+    get:
+      description: The entity's Vibe card — the Influencer's headline and body with
+        her sentiment score (1-100), plus the last 7 days of snapshots. `current`
+        is null when the entity has never been scored; the response is still 200.
+      parameters:
+      - description: Sport
+        enum:
+        - nba
+        - nfl
+        - football
+        in: path
+        name: sport
+        required: true
+        type: string
+      - description: Entity type
+        enum:
+        - player
+        - team
+        in: path
+        name: entityType
+        required: true
+        type: string
+      - description: Entity ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+      summary: Get the entity Vibe (The Influencer's emotional read)
+      tags:
+      - data
   /{sport}/autofill:
     get:
       description: The sport-scoped autofill/search payload for existing consumers.
@@ -609,8 +711,9 @@ paths:
     get:
       description: Entities ranked by their stored momentum snapshot slope (newest
         minus oldest sample; vibe = 21 calendar days, rating = last ~10%-of-season
-        games, season-spanning). metric=vibe (default) or rating. direction=up (default,
-        risers) or down (fallers). /trending remains a legacy alias.
+        games, season-spanning). metric=vibe (default) or rating. Default ranks biggest
+        movers in either direction by ABS(slope); direction=up (risers) or down (fallers)
+        filters one side. /trending remains a legacy alias.
       parameters:
       - description: Sport
         enum:
@@ -625,7 +728,8 @@ paths:
         in: query
         name: metric
         type: string
-      - description: 'Movers: up (default, risers) or down (fallers)'
+      - description: Omit for biggest movers both ways; up = risers only, down = fallers
+          only
         in: query
         name: direction
         type: string
@@ -677,7 +781,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/respond.ErrorResponse'
-      summary: Momentum leaderboard (risers / fallers)
+      summary: Momentum leaderboard (movers; risers / fallers filters)
       tags:
       - data
   /{sport}/leaderboard/news:
@@ -892,8 +996,9 @@ paths:
       - data
   /{sport}/leaderboard/vibes:
     get:
-      description: Sport-wide board of entities ranked by latest vibe sentiment (1-100).
-        With the Vibe felt-read blurb.
+      description: Sport-wide board of entities ranked by emotional charge (distance
+        of the latest 48h sentiment from 50, either direction). Rows serve heat =
+        the raw sentiment (1-100) and the Influencer's hook as headline.
       parameters:
       - description: Sport
         enum:
@@ -1253,6 +1358,62 @@ paths:
       summary: Get a story page
       tags:
       - data
+  /{sport}/team/{id}/articulator/{kind}:
+    get:
+      description: Returns a byte-stable compact JSON string composed from precomputed
+        team products. kind is p1 through p8; p6 also returns followup_data.
+      parameters:
+      - description: Sport
+        enum:
+        - nba
+        - nfl
+        - football
+        in: path
+        name: sport
+        required: true
+        type: string
+      - description: Team ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Training slice
+        enum:
+        - p1
+        - p2
+        - p3
+        - p4
+        - p5
+        - p6
+        - p7
+        - p8
+        in: path
+        name: kind
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+      summary: Get an on-device Articulator DATA slice
+      tags:
+      - data
   /{sport}/team/{id}/results:
     get:
       description: Returns the team's list of finalized fixtures (status completed/seeded)
@@ -1344,6 +1505,35 @@ paths:
           schema:
             $ref: '#/definitions/respond.ErrorResponse'
       summary: Get team roster (rating)
+      tags:
+      - data
+  /api/v1/{sport}/weeks:
+    get:
+      description: Elapsed + current weeks for the sport (week 1 = opening day, ET),
+        newest first, with the current marker and seal state. Optional season filter.
+      parameters:
+      - description: Sport
+        enum:
+        - nba
+        - nfl
+        - football
+        in: path
+        name: sport
+        required: true
+        type: string
+      - description: Limit to one season
+        in: query
+        name: season
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get the sport's reporting-week calendar
       tags:
       - data
   /api/v1/auth/device:

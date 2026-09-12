@@ -29,6 +29,100 @@ type nbaWikidataPlayer struct {
 
 const wikidataSPARQLURL = "https://query.wikidata.org/sparql"
 
+const espnNFLTeamsURL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams?limit=100"
+
+type espnNFLTeam struct {
+	ID          string `json:"id"`
+	DisplayName string `json:"displayName"`
+}
+
+type espnNFLRosterAthlete struct {
+	FullName string `json:"fullName"`
+	Headshot struct {
+		Href string `json:"href"`
+	} `json:"headshot"`
+}
+
+// espnNFLHeadshots reads the public team roster API rather than a game-stats
+// feed. This matters before a new season has weekly NFL data: rostered stars
+// still need portraits even when nflverse has no rows for them yet.
+func espnNFLHeadshots(ctx context.Context) (map[string]map[string][]string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, espnNFLTeamsURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", userAgent)
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("GET ESPN NFL teams: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("GET ESPN NFL teams: status %d", resp.StatusCode)
+	}
+	var teamsBody struct {
+		Sports []struct {
+			Leagues []struct {
+				Teams []struct {
+					Team espnNFLTeam `json:"team"`
+				} `json:"teams"`
+			} `json:"leagues"`
+		} `json:"sports"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&teamsBody); err != nil {
+		return nil, fmt.Errorf("decode ESPN NFL teams: %w", err)
+	}
+
+	photos := make(map[string]map[string][]string)
+	for _, sport := range teamsBody.Sports {
+		for _, league := range sport.Leagues {
+			for _, entry := range league.Teams {
+				team := entry.Team
+				if team.ID == "" || team.DisplayName == "" {
+					continue
+				}
+				rosterURL := "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/" + url.PathEscape(team.ID) + "/roster"
+				req, err := http.NewRequestWithContext(ctx, http.MethodGet, rosterURL, nil)
+				if err != nil {
+					return nil, err
+				}
+				req.Header.Set("User-Agent", userAgent)
+				rosterResp, err := httpClient.Do(req)
+				if err != nil {
+					return nil, fmt.Errorf("GET ESPN NFL roster %s: %w", team.DisplayName, err)
+				}
+				if rosterResp.StatusCode != http.StatusOK {
+					rosterResp.Body.Close()
+					return nil, fmt.Errorf("GET ESPN NFL roster %s: status %d", team.DisplayName, rosterResp.StatusCode)
+				}
+				var rosterBody struct {
+					Athletes []struct {
+						Items []espnNFLRosterAthlete `json:"items"`
+					} `json:"athletes"`
+				}
+				err = json.NewDecoder(rosterResp.Body).Decode(&rosterBody)
+				rosterResp.Body.Close()
+				if err != nil {
+					return nil, fmt.Errorf("decode ESPN NFL roster %s: %w", team.DisplayName, err)
+				}
+				for _, group := range rosterBody.Athletes {
+					for _, athlete := range group.Items {
+						name, photo := normName(athlete.FullName), validHeadshotURL(athlete.Headshot.Href)
+						if name == "" || photo == "" {
+							continue
+						}
+						if photos[team.DisplayName] == nil {
+							photos[team.DisplayName] = make(map[string][]string)
+						}
+						photos[team.DisplayName][name] = append(photos[team.DisplayName][name], photo)
+					}
+				}
+			}
+		}
+	}
+	return photos, nil
+}
+
 // wikidataNBAPlayers obtains the NBA's own P3647 player identifier in one
 // batch. The query never searches by a house name: matching happens locally
 // under the unique-name gate below, so namesakes cannot inherit one another's
@@ -195,6 +289,57 @@ func BackfillNFLHeadshots(ctx context.Context, pool *pgxpool.Pool, seasonOverrid
 			}
 		}
 		logger.Info("dataimport: NFL headshot season complete", "season", season, "updated", f.Updated, "unbound", f.Unbound)
+	}
+
+	// Weekly data intentionally has no rows before a season begins. Fill the
+	// remaining active-roster gap from ESPN's public roster endpoint, but only
+	// under a unique player-name + exact-team match. A stale photo is preferable
+	// to putting a namesake's face on the wrong NFL card.
+	espnPhotos, err := espnNFLHeadshots(ctx)
+	if err != nil {
+		return f, err
+	}
+	rows, err := pool.Query(ctx, `
+		SELECT p.id, p.name, t.name
+		FROM players p
+		JOIN team_rosters tr ON tr.player_id = p.id AND tr.sport = p.sport
+		JOIN teams t ON t.id = tr.team_id AND t.sport = tr.sport
+		WHERE p.sport = 'NFL' AND p.photo_url IS NULL AND tr.is_active`)
+	if err != nil {
+		return f, fmt.Errorf("list active NFL players without headshots: %w", err)
+	}
+	defer rows.Close()
+	type playerRef struct{ id int }
+	candidates := make(map[string]map[string][]playerRef)
+	for rows.Next() {
+		var id int
+		var name, team string
+		if err := rows.Scan(&id, &name, &team); err != nil {
+			return f, err
+		}
+		if candidates[team] == nil {
+			candidates[team] = make(map[string][]playerRef)
+		}
+		candidates[team][normName(name)] = append(candidates[team][normName(name)], playerRef{id: id})
+	}
+	if err := rows.Err(); err != nil {
+		return f, err
+	}
+	for team, names := range candidates {
+		for name, players := range names {
+			photos := espnPhotos[team][name]
+			if len(players) != 1 || len(photos) != 1 {
+				continue
+			}
+			f.SourceRows++
+			changed, err := setPlayerHeadshot(ctx, pool, players[0].id, photos[0])
+			if err != nil {
+				return f, fmt.Errorf("update ESPN NFL headshot player %d: %w", players[0].id, err)
+			}
+			if changed {
+				f.Updated++
+			}
+		}
 	}
 	return f, nil
 }

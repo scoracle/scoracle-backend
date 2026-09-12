@@ -37,9 +37,9 @@ import (
 )
 
 func main() {
-	mode := flag.String("mode", "ingest", "ingest (RSS sweep) | data (stats gap-fill)")
+	mode := flag.String("mode", "ingest", "ingest (RSS sweep) | data (stats gap-fill) | headshots (provider-image repair)")
 	sport := flag.String("sport", "", "NBA | NFL | FOOTBALL | all (default all)")
-	season := flag.Int("season", 0, "[data] import one season only (0 = current + next)")
+	season := flag.Int("season", 0, "[data/headshots] one season only (0 = current + next / all stored NFL seasons)")
 	// 100 is one page: Google News RSS returns at most 100 items per request, so this takes
 	// what a single search gives and truncates nothing that was ever offered. At 12 the cap
 	// never bound on a quiet club (Spezia returns 3) and bound ONLY on the entities with the
@@ -57,14 +57,20 @@ func main() {
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: parseLogLevel(*logLevel)}))
 
-	_ = godotenv.Load(".env.local")
+	// Production commands normally run from the repository root, while `go run
+	// ./cmd/pipeline` is conventionally invoked from the Go module directory.
+	// Load the same sole env file from either location so an operational repair
+	// does not silently lose its database connection merely because of cwd.
+	for _, path := range []string{".env.local", "../.env.local"} {
+		_ = godotenv.Load(path)
+	}
 	cfg, err := config.Load()
 	if err != nil {
 		logger.Error("config load failed", "error", err)
 		os.Exit(1)
 	}
-	if *mode != "ingest" && *mode != "data" {
-		fmt.Fprintf(os.Stderr, "unknown -mode %q; supported modes are ingest and data\n", *mode)
+	if *mode != "ingest" && *mode != "data" && *mode != "headshots" {
+		fmt.Fprintf(os.Stderr, "unknown -mode %q; supported modes are ingest, data, and headshots\n", *mode)
 		os.Exit(2)
 	}
 
@@ -78,7 +84,68 @@ func main() {
 	if *mode == "data" {
 		os.Exit(runData(pool, cfg.DatabaseURL, *season, logger))
 	}
+	if *mode == "headshots" {
+		os.Exit(runHeadshots(pool, cfg.DatabaseURL, *sport, *season, logger))
+	}
 	os.Exit(runIngestOnly(pool, cfg.DatabaseURL, *sport, *rssLimit, *rssPauseMs, logger))
+}
+
+// runHeadshots repairs the two US-league image columns from stable provider
+// identities. It intentionally has its own guard: this can read years of NFL
+// data and must not overlap a second repair, while the daily stats rail stays
+// free to run.
+func runHeadshots(pool *pgxpool.Pool, dbURL, sport string, season int, logger *slog.Logger) int {
+	ctx := context.Background()
+	run, acquired, err := jobrun.Guard(ctx, pool, dbURL, "pipeline-headshots")
+	if err != nil {
+		logger.Error("pipeline headshots: run-guard failed", "error", err)
+		return 1
+	}
+	if !acquired {
+		logger.Warn("pipeline headshots: another repair holds the lock - exiting cleanly")
+		return 0
+	}
+	defer run.Close()
+
+	want := strings.ToUpper(strings.TrimSpace(sport))
+	if want == "" || want == "ALL" {
+		want = "ALL"
+	}
+	if want != "ALL" && want != "NFL" && want != "NBA" {
+		logger.Error("pipeline headshots: sport must be NBA, NFL, or all", "sport", sport)
+		return 2
+	}
+
+	var attempted, changed, failed int
+	if want == "ALL" || want == "NBA" {
+		f, err := dataimport.BackfillNBAHeadshots(ctx, pool)
+		if err != nil {
+			logger.Error("pipeline headshots: NBA repair failed", "error", err)
+			failed++
+		} else {
+			changed += f.Updated
+			logger.Info("pipeline headshots: NBA repair complete", "updated", f.Updated)
+		}
+	}
+	if want == "ALL" || want == "NFL" {
+		f, err := dataimport.BackfillNFLHeadshots(ctx, pool, season, logger)
+		attempted += f.SourceRows
+		changed += f.Updated
+		if err != nil {
+			logger.Error("pipeline headshots: NFL repair failed", "error", err, "updated", f.Updated, "unbound", f.Unbound)
+			failed++
+		} else {
+			logger.Info("pipeline headshots: NFL repair complete", "source_rows", f.SourceRows, "updated", f.Updated, "unbound", f.Unbound)
+		}
+	}
+	status, exit := jobrun.StatusSuccess, 0
+	if failed > 0 {
+		status, exit = jobrun.StatusFailed, 1
+	}
+	if err := run.Finish(ctx, status, jobrun.Counts{Attempted: attempted, Succeeded: changed, Failed: failed}, nil); err != nil {
+		logger.Warn("pipeline headshots: record run failed", "error", err)
+	}
+	return exit
 }
 
 // parseLogLevel maps the -log-level flag onto slog. An unrecognized value falls

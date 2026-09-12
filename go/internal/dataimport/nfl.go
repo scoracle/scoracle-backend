@@ -302,6 +302,14 @@ func importNFLRoster(ctx context.Context, pool *pgxpool.Pool, res *Resolver, sea
 		if created {
 			f.PlayersCreated++
 		}
+		// nflverse identifies this GSIS player and supplies the portrait URL in
+		// the same roster row. Keep it authoritative over any generic-search
+		// image left by older enrichment runs.
+		if photo := validHeadshotURL(t.Get(i, "headshot_url")); photo != "" {
+			if _, err := setPlayerHeadshot(ctx, pool, pid, photo); err != nil {
+				return fmt.Errorf("headshot update player %d: %w", pid, err)
+			}
+		}
 		active := t.Get(i, "status") == "ACT"
 		if _, err := pool.Exec(ctx, `
 			INSERT INTO team_rosters (sport, season, team_id, player_id, jersey_number,

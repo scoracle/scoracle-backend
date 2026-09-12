@@ -2,8 +2,10 @@ package dataimport
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"net/url"
 	"strings"
 
@@ -18,6 +20,71 @@ type HeadshotFunnel struct {
 	Updated    int
 	Cleared    int
 	Unbound    int
+}
+
+type nbaWikidataPlayer struct {
+	Name  string
+	NBAID string
+}
+
+const wikidataSPARQLURL = "https://query.wikidata.org/sparql"
+
+// wikidataNBAPlayers obtains the NBA's own P3647 player identifier in one
+// batch. The query never searches by a house name: matching happens locally
+// under the unique-name gate below, so namesakes cannot inherit one another's
+// image.
+func wikidataNBAPlayers(ctx context.Context) ([]nbaWikidataPlayer, error) {
+	query := `SELECT ?name ?nba_id WHERE {
+  ?player wdt:P3647 ?nba_id ; rdfs:label ?name .
+  FILTER(LANG(?name) = "en")
+}`
+	u, err := url.Parse(wikidataSPARQLURL)
+	if err != nil {
+		return nil, err
+	}
+	q := u.Query()
+	q.Set("query", query)
+	q.Set("format", "json")
+	u.RawQuery = q.Encode()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/sparql-results+json")
+	req.Header.Set("User-Agent", userAgent)
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("GET Wikidata NBA ids: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("GET Wikidata NBA ids: status %d", resp.StatusCode)
+	}
+	var body struct {
+		Results struct {
+			Bindings []struct {
+				Name struct {
+					Value string `json:"value"`
+				} `json:"name"`
+				NBAID struct {
+					Value string `json:"value"`
+				} `json:"nba_id"`
+			} `json:"bindings"`
+		} `json:"results"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return nil, fmt.Errorf("decode Wikidata NBA ids: %w", err)
+	}
+	players := make([]nbaWikidataPlayer, 0, len(body.Results.Bindings))
+	for _, row := range body.Results.Bindings {
+		id := strings.TrimSpace(row.NBAID.Value)
+		name := strings.TrimSpace(row.Name.Value)
+		if name == "" || id == "" || strings.Trim(id, "0123456789") != "" {
+			continue
+		}
+		players = append(players, nbaWikidataPlayer{Name: name, NBAID: id})
+	}
+	return players, nil
 }
 
 // validHeadshotURL refuses malformed and non-web values from an upstream CSV.
@@ -132,8 +199,10 @@ func BackfillNFLHeadshots(ctx context.Context, pool *pgxpool.Pool, seasonOverrid
 	return f, nil
 }
 
-// BackfillNBAHeadshots derives each image from the verified NBA player ID.
-// No name lookup occurs, so an NBA image can never be assigned to an NFL row.
+// BackfillNBAHeadshots first refreshes rows with an existing NBA id, then fills
+// the remaining gap from Wikidata's NBA.com-id property. A name is accepted
+// only when it is unique on both sides; all uncertainty stays blank for the
+// evidence-gated investigator rather than risking the wrong face.
 func BackfillNBAHeadshots(ctx context.Context, pool *pgxpool.Pool) (HeadshotFunnel, error) {
 	var f HeadshotFunnel
 	tag, err := pool.Exec(ctx, `
@@ -150,5 +219,82 @@ func BackfillNBAHeadshots(ctx context.Context, pool *pgxpool.Pool) (HeadshotFunn
 		return f, fmt.Errorf("backfill NBA headshots: %w", err)
 	}
 	f.Updated = int(tag.RowsAffected())
+
+	source, err := wikidataNBAPlayers(ctx)
+	if err != nil {
+		return f, err
+	}
+	f.SourceRows = len(source)
+
+	type housePlayer struct {
+		id int
+	}
+	house := map[string][]housePlayer{}
+	rows, err := pool.Query(ctx, `SELECT id, name FROM players WHERE sport = 'NBA'`)
+	if err != nil {
+		return f, fmt.Errorf("load NBA players: %w", err)
+	}
+	for rows.Next() {
+		var p housePlayer
+		var name string
+		if err := rows.Scan(&p.id, &name); err != nil {
+			rows.Close()
+			return f, err
+		}
+		house[normName(name)] = append(house[normName(name)], p)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return f, err
+	}
+
+	byName := map[string][]nbaWikidataPlayer{}
+	for _, p := range source {
+		byName[normName(p.Name)] = append(byName[normName(p.Name)], p)
+	}
+	owners := map[string]int{}
+	rows, err = pool.Query(ctx, `
+		SELECT external_id, entity_id FROM entity_external_ids
+		WHERE entity_type = 'player' AND sport = 'NBA' AND namespace = 'nba'`)
+	if err != nil {
+		return f, fmt.Errorf("load NBA id bindings: %w", err)
+	}
+	for rows.Next() {
+		var id string
+		var owner int
+		if err := rows.Scan(&id, &owner); err != nil {
+			rows.Close()
+			return f, err
+		}
+		owners[id] = owner
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return f, err
+	}
+
+	for name, candidates := range byName {
+		players := house[name]
+		if len(candidates) != 1 || len(players) != 1 {
+			f.Unbound++
+			continue
+		}
+		playerID, nbaID := players[0].id, candidates[0].NBAID
+		if owner, exists := owners[nbaID]; exists && owner != playerID {
+			f.Unbound++
+			continue
+		}
+		if _, err := pool.Exec(ctx, upsertIdentitySQL, "player", playerID, "NBA", "nba", nbaID); err != nil {
+			return f, fmt.Errorf("bind NBA id %s to player %d: %w", nbaID, playerID, err)
+		}
+		changed, err := setPlayerHeadshot(ctx, pool, playerID,
+			"https://cdn.nba.com/headshots/nba/latest/1040x760/"+nbaID+".png")
+		if err != nil {
+			return f, fmt.Errorf("update NBA player %d: %w", playerID, err)
+		}
+		if changed {
+			f.Updated++
+		}
+	}
 	return f, nil
 }

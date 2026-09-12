@@ -9,7 +9,7 @@ the composed slice and the phone never re-implements slicing.
 
 ## Route
 
-    GET /api/v1/{sport}/{entityType:player|team}/{id}/articulator/{kind:p1|p2|p3|p4|p5|p6|p7|p8}
+    GET /api/v1/{sport}/team/{id}/articulator/{kind:p1|p2|p3|p4|p5|p6|p7|p8}
 
 Response:
 
@@ -86,7 +86,7 @@ the corpus deliberately trains on them (emit-when-empty).
 
 ## The parity gate (non-optional, the L2 discipline)
 
-`scoracle-articulator/eval/parity_slices.py` (to be written alongside):
+`scoracle-articulator/eval/parity_slices.py`:
 for every team in `data/slim/teams/` × all 8 kinds, compose the slice with
 the Python code and fetch the Go endpoint; compare the STRINGS byte-for-byte.
 The endpoint does not ship until 204 × 8 = 1,632 comparisons pass (modulo

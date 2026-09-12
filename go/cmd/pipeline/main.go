@@ -132,10 +132,10 @@ func runHeadshots(pool *pgxpool.Pool, dbURL, sport string, season int, logger *s
 		attempted += f.SourceRows
 		changed += f.Updated
 		if err != nil {
-			logger.Error("pipeline headshots: NFL repair failed", "error", err, "updated", f.Updated, "unbound", f.Unbound)
+			logger.Error("pipeline headshots: NFL repair failed", "error", err, "updated", f.Updated, "cleared", f.Cleared, "unbound", f.Unbound)
 			failed++
 		} else {
-			logger.Info("pipeline headshots: NFL repair complete", "source_rows", f.SourceRows, "updated", f.Updated, "unbound", f.Unbound)
+			logger.Info("pipeline headshots: NFL repair complete", "source_rows", f.SourceRows, "updated", f.Updated, "cleared", f.Cleared, "unbound", f.Unbound)
 		}
 	}
 	status, exit := jobrun.StatusSuccess, 0

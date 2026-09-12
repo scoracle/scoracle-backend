@@ -16,6 +16,7 @@ import (
 type HeadshotFunnel struct {
 	SourceRows int
 	Updated    int
+	Cleared    int
 	Unbound    int
 }
 
@@ -50,6 +51,17 @@ func setPlayerHeadshot(ctx context.Context, q querier, playerID int, photo strin
 // are read from the house, so a full repair covers exactly its imported history.
 func BackfillNFLHeadshots(ctx context.Context, pool *pgxpool.Pool, seasonOverride int, logger *slog.Logger) (HeadshotFunnel, error) {
 	var f HeadshotFunnel
+	// An NBA CDN path cannot belong to an NFL player. Clear these legacy
+	// generic-search mistakes even when the player is too old to have a bound
+	// nflverse GSIS id; the UI's fallback is preferable to the wrong person.
+	tag, err := pool.Exec(ctx, `
+		UPDATE players SET photo_url = NULL, updated_at = NOW()
+		WHERE sport = 'NFL'
+		  AND photo_url LIKE 'https://cdn.nba.com/headshots/nba/%'`)
+	if err != nil {
+		return f, fmt.Errorf("clear cross-sport NFL headshots: %w", err)
+	}
+	f.Cleared = int(tag.RowsAffected())
 	seasons := []int{}
 	if seasonOverride != 0 {
 		seasons = append(seasons, seasonOverride)

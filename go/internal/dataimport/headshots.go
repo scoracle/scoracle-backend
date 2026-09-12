@@ -51,7 +51,6 @@ func espnNFLHeadshots(ctx context.Context) (map[string]map[string][]string, erro
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", userAgent)
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("GET ESPN NFL teams: %w", err)
@@ -86,7 +85,6 @@ func espnNFLHeadshots(ctx context.Context) (map[string]map[string][]string, erro
 				if err != nil {
 					return nil, err
 				}
-				req.Header.Set("User-Agent", userAgent)
 				rosterResp, err := httpClient.Do(req)
 				if err != nil {
 					return nil, fmt.Errorf("GET ESPN NFL roster %s: %w", team.DisplayName, err)

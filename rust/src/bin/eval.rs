@@ -52,14 +52,14 @@
 //!   COGNITION_ROUTE_STATS_LOGIC_CANDIDATE=qwen3:8b eval --task momentum --fixtures
 
 use anyhow::{anyhow, Context, Result};
-use scoracle_cognition::config::{Config, RouteConfig};
-use scoracle_cognition::db;
-use scoracle_cognition::eval_tasks::{
+use scoracle_cognition::evaluation::judge::VoiceSpec;
+use scoracle_cognition::evaluation::tasks::{
     all_task_names, fixture_drift, resolve_task, CaseVerdict, EntitySpec, Expect, Fixture, LensTask,
 };
-use scoracle_cognition::harness::Harness;
-use scoracle_cognition::judge::VoiceSpec;
-use scoracle_cognition::route::{Inference, Role, Router};
+use scoracle_cognition::runtime::config::{Config, RouteConfig};
+use scoracle_cognition::runtime::db;
+use scoracle_cognition::runtime::harness::Harness;
+use scoracle_cognition::runtime::route::{Inference, Role, Router};
 use serde_json::Value;
 use sqlx::Row;
 use std::collections::HashMap;
@@ -172,13 +172,15 @@ async fn main() -> Result<()> {
             .unwrap_or_else(|| "gemma3:4b".to_string());
         println!(
             "judge — model={judge_model} ({})",
-            scoracle_cognition::judge::JUDGE_PROMPT_VERSION
+            scoracle_cognition::evaluation::judge::JUDGE_PROMPT_VERSION
         );
-        Some(Arc::new(scoracle_cognition::ollama::OllamaClient::new(
-            &cfg.ollama_base_url,
-            &judge_model,
-            cfg.ollama_timeout,
-        )?))
+        Some(Arc::new(
+            scoracle_cognition::runtime::providers::ollama::OllamaClient::new(
+                &cfg.ollama_base_url,
+                &judge_model,
+                cfg.ollama_timeout,
+            )?,
+        ))
     } else {
         None
     };
@@ -623,7 +625,7 @@ async fn run_one_fixture(
             mandate: params.mandate,
         };
         let voice = (task.role() != Role::EmotionalNews).then_some(&voice_spec);
-        match scoracle_cognition::judge::judge_reply(
+        match scoracle_cognition::evaluation::judge::judge_reply(
             j.as_ref(),
             task.name(),
             &fx.user_prompt,
@@ -668,7 +670,7 @@ struct JudgeAgg {
 }
 
 impl JudgeAgg {
-    fn add(&mut self, v: &scoracle_cognition::judge::JudgeVerdict) {
+    fn add(&mut self, v: &scoracle_cognition::evaluation::judge::JudgeVerdict) {
         self.n += 1;
         self.specificity += i64::from(v.specificity);
         self.grounding += i64::from(v.grounding);
@@ -1111,7 +1113,7 @@ fn fmt_score(s: &ModelScore, n: usize) -> String {
 /// smoke output, proving the `COGNITION_ROUTE_*` config parsed.
 fn print_route_table(cfg: &RouteConfig) {
     println!("configured route table (role → incumbent [+ candidate]):");
-    for role in scoracle_cognition::route::Role::all() {
+    for role in scoracle_cognition::runtime::route::Role::all() {
         let incumbent = cfg
             .roles
             .get(&role)

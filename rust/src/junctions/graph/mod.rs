@@ -17,13 +17,13 @@
 //! salvage of valid entries from a valid JSON body is allowed (mirrors the scrub
 //! parser's out-of-range index handling).
 
-use crate::harness::{Generation, GenerationCall, Harness, Parser};
-use crate::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
-use crate::ollama::GenerateOptions;
-use crate::route::Role;
-use crate::stage::{StageHandler, ARCHBOX_SLOTS};
-use crate::util::hash_components;
-use crate::work::{Item, Stage};
+use crate::runtime::harness::{Generation, GenerationCall, Harness, Parser};
+use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
+use crate::runtime::providers::ollama::GenerateOptions;
+use crate::runtime::route::Role;
+use crate::runtime::stage::{StageHandler, ARCHBOX_SLOTS};
+use crate::runtime::util::hash_components;
+use crate::runtime::work::{Item, Stage};
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use serde::Deserialize;
@@ -69,7 +69,7 @@ pub fn graph_opts() -> GenerateOptions {
         system: Some(GRAPH_SYSTEM_PROMPT.to_string()),
         temperature: Some(0.2),
         num_predict: 768,
-        num_ctx: crate::route::LOCAL_STAGE_NUM_CTX,
+        num_ctx: crate::runtime::route::LOCAL_STAGE_NUM_CTX,
         json_mode: true,
         format_schema: None,
         format_schema_raw: None,
@@ -193,9 +193,14 @@ pub async fn load_graph_article_context(
         let entity_type: String = r.get(0);
         let entity_id: i32 = r.get(1);
         let name: String = r.get(2);
-        let descriptor = crate::corpus::load_identity_record(pool, &entity_type, entity_id, sport)
-            .await?
-            .unwrap_or_else(|| format!("{name} ({entity_type}; records unavailable)"));
+        let descriptor = crate::composition::memories::load_identity_record(
+            pool,
+            &entity_type,
+            entity_id,
+            sport,
+        )
+        .await?
+        .unwrap_or_else(|| format!("{name} ({entity_type}; records unavailable)"));
         candidates.push(GraphCandidate {
             entity_type,
             entity_id,

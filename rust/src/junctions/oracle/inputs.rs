@@ -3,8 +3,8 @@
 use super::{
     momentum_score, momentum_score_label, SynthMomentum, SynthNarrative, SynthRating, SynthVibe,
 };
-use crate::corpus::HeatItem;
-use crate::trajectory::trajectory_label;
+use crate::evidence::corpus::HeatItem;
+use crate::evidence::trajectory::trajectory_label;
 
 pub const CROWN_CARD_BODY_CAP: usize = 700;
 
@@ -55,7 +55,7 @@ pub(crate) fn descrub_z(brief: &str) -> String {
 
 fn capped(s: &str, budget: Option<usize>) -> String {
     match budget {
-        Some(max) => crate::util::truncate_bytes(s, max),
+        Some(max) => crate::runtime::util::truncate_bytes(s, max),
         None => s.to_string(),
     }
 }

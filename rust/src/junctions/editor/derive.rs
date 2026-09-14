@@ -186,7 +186,7 @@ pub(crate) fn entity_matches(ours: &[String], candidate: &str) -> bool {
 /// Routing tags for one read: the story type's tag plus `charged` when the register is
 /// non-neutral.
 pub fn routing_tags(story_type: &str, register: &str) -> Vec<String> {
-    let mut tags: Vec<String> = crate::bucket::routing_tags_from_story_type(story_type)
+    let mut tags: Vec<String> = crate::evidence::bucket::routing_tags_from_story_type(story_type)
         .into_iter()
         .map(str::to_string)
         .collect();

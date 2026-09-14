@@ -21,17 +21,22 @@ Post the **Step-3 cutover (2026-06-28)**, the **junctions refactor**, and the **
 - **rating / PEAK** also runs as the **`statcommentary`** batch binary (current-season producer
   and explicit historical backfill tool).
 
-**The prompt architecture:** `src/junctions/form.rs` owns the shared form and
+**The prompt architecture:** `src/composition/form.rs` owns the shared form and
 parser-compatible output contracts. The reader sees a hook of at most 140 characters
 and a body of at most 1,200 characters. The model chooses how to connect supported
 findings into a story; ordinary or unchanged is a valid claim.
-Each character's `prompt.rs` holds a short brief and version, without a minimum word count;
-`inputs.rs` supplies evidence and continuity. Retired instructions belong in Git history.
+`src/composition/characters/` holds the six voice briefs and versions.
+`src/composition/memories.rs` defines the entity context package: identity, three
+clocks, factual/developing/editorial memory, provenance and material unknowns.
+Junction `inputs.rs` files supply newly gathered evidence. Retired instructions belong in Git history.
 The Insider's extraction and identity contracts live in `verification.rs`.
 
-Form defines the canvas. Character prompts provide the colors. Context supplies
-the entity's identity, circumstances, memories, and evidence. The model chooses
-language, rhythm, and emphasis that bring that evidence to life.
+Form is the canvas, character is the brush, and memories are the paint. The model
+creates the reading. All six writer paths now load shared memories before their
+material hash gate. Source changes can refresh a reading; prior generated prose
+cannot trigger itself. `composition::compose_card` supports standalone probes;
+the live input adapters combine the same memory rendering with their current evidence.
+See [the memories design and real packages](fixtures/memories/README.md).
 
 Use this question when adding or reviewing any prompt, input instruction, guard, or
 evaluation rule:
@@ -78,7 +83,7 @@ and refresh convention is documented in [Card output and entity context](../docs
 
 A new model drops into four layers that move independently: engine
 (`COGNITION_ROUTE_*` env, adopted only on a fixture-gate win), structure (`form.rs`), voice
-(seat `prompt.rs`), floor (`guards.rs` + the fixture gate). Model-call transport is
+(`composition/characters/`), floor (`guards.rs` + the fixture gate). Model-call transport is
 **`/api/chat`** (see `ollama.rs` — the generate endpoint cannot separate thinking, and every
 role carries an explicit `COGNITION_ROUTE_<ROLE>_THINK`, false fleet-wide on granite4.2:3b,
 measured). The resident-model switch and the day's measurements:
@@ -188,10 +193,10 @@ failed past retry cap -> dead-letter for human repair
 
 ## Stage Map
 
-Stage code lives in CHARACTER JUNCTIONS — `src/junctions/<character>/` with `mod.rs` (stage),
-`prompt.rs` (character + version), `inputs.rs` (evidence), `tests.rs`. The junction roster table in
-`src/junctions/mod.rs` is the authoritative seat map; prompt versions live in each junction's
-`prompt.rs` and rot fast in any doc that copies them, so none are copied here.
+Stage code lives in `src/junctions/<junction>/`: execution, input loading, parsing
+and persistence. The six card voices and their prompt versions live in
+`src/composition/characters/`. Editor, Investigator and Graph keep their internal
+task prompts alongside their workflows. `src/junctions/mod.rs` lists the junctions.
 
 | Stage | Junction (character) | Input | Output |
 |---|---|---|---|
@@ -287,7 +292,7 @@ Recorded reproductions on this rail:
   naming more than one. It roll-called four. Removing the names fixed what the rule could not.
 
 The corollary is a division of labour: **guards enforce, prompts instruct.** Wherever
-`src/guards.rs` already covers a rule, the prompt states it in a clause or not at all — never an
+`src/composition/guards.rs` already covers a rule, the prompt states it in a clause or not at all — never an
 essay. The essay is what causes the violation.
 
 ### Claim order is a dependency order
@@ -354,8 +359,8 @@ The Multi-Lens Cognition Panel uses three related words deliberately:
   the call.
 
 Current mapping — every character seat owns its role (the identity split), and roles resolve to
-concrete models/hosts via `COGNITION_ROUTE_<ROLE>` (see `src/route.rs` for the authoritative
-role list; `src/eval_tasks.rs::lens_parameters` for the operator frames):
+concrete models/hosts via `COGNITION_ROUTE_<ROLE>` (see `src/runtime/route.rs` for the authoritative
+role list; `src/evaluation/tasks.rs::lens_parameters` for the operator frames):
 
 | Rail | Lens | Stage or batch | Route role | Product / ledger surface |
 |---|---|---|---|---|
@@ -385,28 +390,23 @@ rust/
 └── src/
     ├── main.rs              # the scoracle-cognition daemon: boots Harness, registers handlers, runs Worker
     ├── lib.rs               # library exports
-    ├── buildinfo.rs         # exposes BUILD_COMMIT / BUILD_TIME (set by build.rs via env!)
-    ├── config.rs            # env config; mirrors Go var names (.env.local)
-    ├── db.rs                # sqlx Postgres pool (bounded — the GPU is the real ceiling)
-    ├── work.rs              # pipeline_work client: claim/complete/fail/requeue_stale/enqueue
-    ├── ollama.rs            # local Ollama HTTP client
-    ├── openai.rs            # OpenAI-compatible client (oMLX/MLX backends; response_format withheld by default)
-    ├── stage.rs             # StageHandler trait — the per-stage plug-in point
-    ├── worker.rs            # LISTEN(pipeline_work_ready) + safety-net drain loop
-    ├── route.rs             # the model-call seam (Role → concrete model/host); the GPU governor lives here
-    ├── harness.rs           # Harness context + the capability primitives: extract, persist, debounce, embed
-    ├── util.rs              # shared helpers: truncate, canonical JSON formatting, hash_components
-    ├── embed.rs             # candle CPU embedder (BGE-small default) + cosine_similarity
-    ├── corpus.rs            # shared corpus loaders + heat-line rendering
-    ├── ledger.rs            # cognition_ledger provenance writes
-    ├── eval_tasks.rs        # the per-lens eval TASK REGISTRY (fixtures, Expect axes, invariants)
-    ├── judge.rs             # reading-sheet / voice-spec judge support
-    ├── bucket.rs, threads.rs, trajectory.rs, fetch.rs   # supporting modules
-    ├── junctions/           # THE CHARACTER LAYER — one junction per seat:
+    ├── runtime/            # execution and IO: config, db, work, worker, stage, route,
+    │   │                   # harness, ledger, fetch, buildinfo and util
+    │   └── providers/      # ollama.rs, openai.rs
+    ├── evidence/           # corpus, bucket, story_parts, trajectory, personnel
+    ├── evaluation/         # tasks.rs and judge.rs; offline evaluation support
+    ├── composition/         # the three inputs to each reading
+    │   ├── mod.rs           # compose voice + form + memories/new evidence
+    │   ├── memories.rs      # shared package, rendering, budget and fingerprint
+    │   ├── memories/        # identity and deterministic source adapters + SQL
+    │   ├── guards.rs        # shared output validation
+    │   ├── form.rs          # shared canvas and parser-compatible contracts
+    │   └── characters/     # scout.rs, analyst.rs, journalist.rs, influencer.rs, insider.rs, oracle.rs
+    ├── junctions/           # one execution workflow per seat:
     │   ├── mod.rs           #   the junction roster (authoritative seat map)
     │   ├── editor/  investigator/  journalist/  insider/
     │   ├── influencer/  analyst/  scout/  oracle/  graph/
-    │   └── <each>: mod.rs (stage) + prompt.rs (contract + version) + tests.rs
+    │   └── <each>: mod.rs (stage) + inputs.rs + tests.rs; internal task prompts stay here
     └── bin/
         ├── eval.rs          # fixture gate + live A/B harness
         ├── statcommentary.rs

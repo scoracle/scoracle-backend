@@ -140,7 +140,7 @@ fn crown_headline_fails_open_and_never_costs_the_reading() {
         assert!(
             got.headline
                 .as_deref()
-                .is_none_or(|h| crate::guards::hook_violation(h).is_none()),
+                .is_none_or(|h| crate::composition::guards::hook_violation(h).is_none()),
             "a shipped title always satisfies the contract: {:?}",
             got.headline
         );

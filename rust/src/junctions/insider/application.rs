@@ -6,9 +6,9 @@ use super::{
     TRANSFER_IDENTITY_ADJUDICATION_PROMPT_VERSION, TRANSFER_IDENTITY_ADJUDICATION_SCHEMA_RAW,
     TRANSFER_PROMPT_VERSION,
 };
-use crate::harness::Harness;
-use crate::ollama::GenerateOptions;
-use crate::route::Role;
+use crate::runtime::harness::Harness;
+use crate::runtime::providers::ollama::GenerateOptions;
+use crate::runtime::route::Role;
 use anyhow::{anyhow, Context, Result};
 use sqlx::{PgPool, Row};
 use tracing::warn;
@@ -280,7 +280,7 @@ pub(super) async fn maybe_apply_transfer_identity(
         system: Some(transfer_identity_adjudication_system_prompt(sport)),
         temperature: Some(0.0),
         num_predict: 700,
-        num_ctx: crate::route::LOCAL_STAGE_NUM_CTX,
+        num_ctx: crate::runtime::route::LOCAL_STAGE_NUM_CTX,
         json_mode: false,
         format_schema: Some(
             serde_json::from_str(TRANSFER_IDENTITY_ADJUDICATION_SCHEMA_RAW)

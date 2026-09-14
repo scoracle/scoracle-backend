@@ -7,14 +7,20 @@
 //! Handlers register from `COGNITION_STAGES` (default: every live stage).
 
 use anyhow::{anyhow, Result};
-use scoracle_cognition::buildinfo;
-use scoracle_cognition::harness::Harness;
 use scoracle_cognition::junctions::investigator::boxscore;
 use scoracle_cognition::junctions::{
     analyst, editor, graph, influencer, insider, journalist, oracle, scout,
 };
-use scoracle_cognition::route::Router;
-use scoracle_cognition::{config, db, ollama, openai, stage, work, worker};
+use scoracle_cognition::runtime::buildinfo;
+use scoracle_cognition::runtime::config;
+use scoracle_cognition::runtime::db;
+use scoracle_cognition::runtime::harness::Harness;
+use scoracle_cognition::runtime::providers::ollama;
+use scoracle_cognition::runtime::providers::openai;
+use scoracle_cognition::runtime::route::Router;
+use scoracle_cognition::runtime::stage;
+use scoracle_cognition::runtime::work;
+use scoracle_cognition::runtime::worker;
 use std::collections::HashSet;
 use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
@@ -166,7 +172,7 @@ async fn main() -> Result<()> {
     info!(
         voice_num_ctx = cfg.voice_num_ctx,
         pinned = std::env::var("VOICE_NUM_CTX").is_ok(),
-        envelope = if scoracle_cognition::route::small_voice_window(cfg.voice_num_ctx) {
+        envelope = if scoracle_cognition::runtime::route::small_voice_window(cfg.voice_num_ctx) {
             "small: reservations ≤700, crown cards capped, journalist corpus 8"
         } else {
             "wide: larger reservations, no card caps, journalist corpus 40"

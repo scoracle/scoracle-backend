@@ -1,0 +1,182 @@
+{
+  "endpoint": "http://localhost:11434/api/chat",
+  "notes": "First-pass offline experiment, no surface rewrite, no production persistence. Matched seeds are diagnostic controls, not a guarantee of deterministic GPU output.",
+  "requests": [
+    {
+      "condition": "full_memories",
+      "context_bytes": 4214,
+      "memory_fingerprint": "da2b3215c5dcd0d0498527a8a11bcccf36834cd98d191fb01cd047d4aede125c",
+      "request": {
+        "format": {
+          "properties": {
+            "body": {
+              "description": "The character's interpretation of the evidence, within 1200 characters.",
+              "type": "string"
+            },
+            "headline": {
+              "description": "The read's main finding, stated as a sentence naming the entity.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "headline",
+            "body"
+          ],
+          "type": "object"
+        },
+        "messages": [
+          {
+            "content": "You are The Scout: observant, direct and specific to the sport. Explain what the measured profile reveals about this entity, and what an opponent should take from it.\n\nRead skills in relation to one another, at the scale of the supplied sample and dates. A change in relative standing is not necessarily a change in ability. Sourced personnel and availability records can change the interpretation of the profile; distinguish confirmed facts from reports. Your judgment gives the measurements meaning, without supplying missing evidence.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with headline (the hook) and body (the paragraphs). Preserve paragraph breaks as escaped newlines.",
+            "role": "system"
+          },
+          {
+            "content": "Morgan Rogers (player, FOOTBALL). As of 2026-09-14.\nInterpret current measurements against supported historical baselines, participation and personnel context.\nIdentity: league id: 8; name: Morgan Rogers; record source: roster; role: Midfielder; team: Aston Villa; team id: 15; observed 2026-07-04 [players/player_current_identity:FOOTBALL/player/4592198]\nIdentity: contract end year: 2033; effective date: unknown; entity: Morgan Rogers; from team: Aston Villa; from team id: 15; publication date: unknown; role: player; season: 2026/27; status: club_announced_signing; to team: Chelsea; to team id: 18; observed 2026-09-14 [official_web:https://www.chelseafc.com/en/news/article/morgan-rogers-signs-for-chelsea]\nIdentity: date semantics: box-score ingestion boundaries, not signing/leaving dates; is current: false; observed from: 2026-04-18T19:59:04.170378+00:00; observed until: 2026-09-07T00:30:06.153885+00:00; season: 2025; team: Aston Villa; team id: 15; observed 2026-04-18 [player_team_history:148]\nIdentity: date semantics: box-score ingestion boundaries, not signing/leaving dates; is current: true; observed from: 2026-09-07T00:30:06.153885+00:00; observed until: unknown; season: 2026; team: Chelsea; team id: 18; observed 2026-09-07 [player_team_history:42959]\nOfficial Chelsea signing establishes the current club. The Villa roster projection is stale. Keep the Villa performance baseline attached to its own season/team; box-score history timestamps do not establish the transfer date.\nReporting period (not competition progress): clock league id: 8; ends at: 2026-09-21T04:00:00+00:00; reporting week: 7; season: 2026; sport: FOOTBALL; starts at: 2026-09-14T04:00:00+00:00 [sports/season_weeks:FOOTBALL/2026/7]\nSchedule: announced round: Matchweek 4; competition: Premier League; publication date: 2026-09-07; qualification: An appointed round establishes schedule context, not games played by this entity or a complete current table.; season: 2026/27; observed 2026-09-14 [official_web:https://www.premierleague.com/en/news/4711668/match-officials-for-matchweek-4]\nSchedule: first stored start: 2026-08-03T07:03:44+00:00; last stored start: 2026-09-14T00:38:04+00:00; league id: 8; rounds: [null]; rows: 87; season: 2026; unverified rows: 87; observed 2026-09-14 [fixtures:FOOTBALL/8/2026]\nReporting week, named competition round and entity participation are separate clocks. Schedule coverage is not assumed complete; unverified nominations cannot establish a fixture or stage.\nRecorded sample: appearances: 37; league id: 8; minutes: 3285.0; played for: Aston Villa; season: 2025; team id: 15; observed 2026-06-13 [player_stats:FOOTBALL/4592198/2025/8, player_team_history:148]\nEarlier observations: assists: 6; basis: season totals; coverage: stored sample; completeness unknown; goals: 10; league id: 8; played for: Aston Villa; season: 2025; shots on target: 32; team id: 15; observed 2026-06-13 [player_stats:FOOTBALL/4592198/2025/8, player_team_history:148]\nHistorical production remains useful without a current rank. These unequal samples and different measurement keys do not establish an ability trend. Null is missing, not zero.\nRecorded sample: appearances: 1; league id: 8; minutes: 90.0; played for: Chelsea; season: 2026; team id: 18; observed 2026-09-07 [player_stats:FOOTBALL/4592198/2026/8, player_team_history:42959]\nCurrent observations: assists: 1; basis: season totals; coverage: stored sample; completeness unknown; expected assists: 1.01; expected goals: 0.14; goals: unknown; league id: 8; played for: Chelsea; season: 2026; team id: 18; observed 2026-09-07 [player_stats:FOOTBALL/4592198/2026/8, player_team_history:42959]\nHistorical production remains useful without a current rank. These unequal samples and different measurement keys do not establish an ability trend. Null is missing, not zero.\nUnknown: The one-appearance stored sample does not establish current total appearances, fitness or why coverage is thin.\nUnknown: Exact transfer effective date is not established by the inspected official page.\nUnknown: Stored ranks lack measurement identity; no rank comparisons are supplied.\nSome candidate context was omitted; absence is not evidence of no history.\n",
+            "role": "user"
+          }
+        ],
+        "model": "granite4.2:3b",
+        "options": {
+          "num_ctx": 4096,
+          "num_predict": 700,
+          "seed": 17,
+          "temperature": 0.6
+        },
+        "stream": false,
+        "think": false
+      },
+      "seed": 17
+    },
+    {
+      "condition": "without_performance_baseline",
+      "context_bytes": 3552,
+      "memory_fingerprint": "7818dd07000a5d34718c5b22ecbf2b756c12e21996bfcfc330c19f78dac5629d",
+      "request": {
+        "format": {
+          "properties": {
+            "body": {
+              "description": "The character's interpretation of the evidence, within 1200 characters.",
+              "type": "string"
+            },
+            "headline": {
+              "description": "The read's main finding, stated as a sentence naming the entity.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "headline",
+            "body"
+          ],
+          "type": "object"
+        },
+        "messages": [
+          {
+            "content": "You are The Scout: observant, direct and specific to the sport. Explain what the measured profile reveals about this entity, and what an opponent should take from it.\n\nRead skills in relation to one another, at the scale of the supplied sample and dates. A change in relative standing is not necessarily a change in ability. Sourced personnel and availability records can change the interpretation of the profile; distinguish confirmed facts from reports. Your judgment gives the measurements meaning, without supplying missing evidence.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with headline (the hook) and body (the paragraphs). Preserve paragraph breaks as escaped newlines.",
+            "role": "system"
+          },
+          {
+            "content": "Morgan Rogers (player, FOOTBALL). As of 2026-09-14.\nInterpret current measurements against supported historical baselines, participation and personnel context.\nIdentity: league id: 8; name: Morgan Rogers; record source: roster; role: Midfielder; team: Aston Villa; team id: 15; observed 2026-07-04 [players/player_current_identity:FOOTBALL/player/4592198]\nIdentity: contract end year: 2033; effective date: unknown; entity: Morgan Rogers; from team: Aston Villa; from team id: 15; publication date: unknown; role: player; season: 2026/27; status: club_announced_signing; to team: Chelsea; to team id: 18; observed 2026-09-14 [official_web:https://www.chelseafc.com/en/news/article/morgan-rogers-signs-for-chelsea]\nIdentity: date semantics: box-score ingestion boundaries, not signing/leaving dates; is current: false; observed from: 2026-04-18T19:59:04.170378+00:00; observed until: 2026-09-07T00:30:06.153885+00:00; season: 2025; team: Aston Villa; team id: 15; observed 2026-04-18 [player_team_history:148]\nIdentity: date semantics: box-score ingestion boundaries, not signing/leaving dates; is current: true; observed from: 2026-09-07T00:30:06.153885+00:00; observed until: unknown; season: 2026; team: Chelsea; team id: 18; observed 2026-09-07 [player_team_history:42959]\nOfficial Chelsea signing establishes the current club. The Villa roster projection is stale. Keep the Villa performance baseline attached to its own season/team; box-score history timestamps do not establish the transfer date.\nReporting period (not competition progress): clock league id: 8; ends at: 2026-09-21T04:00:00+00:00; reporting week: 7; season: 2026; sport: FOOTBALL; starts at: 2026-09-14T04:00:00+00:00 [sports/season_weeks:FOOTBALL/2026/7]\nSchedule: announced round: Matchweek 4; competition: Premier League; publication date: 2026-09-07; qualification: An appointed round establishes schedule context, not games played by this entity or a complete current table.; season: 2026/27; observed 2026-09-14 [official_web:https://www.premierleague.com/en/news/4711668/match-officials-for-matchweek-4]\nSchedule: first stored start: 2026-08-03T07:03:44+00:00; last stored start: 2026-09-14T00:38:04+00:00; league id: 8; rounds: [null]; rows: 87; season: 2026; unverified rows: 87; observed 2026-09-14 [fixtures:FOOTBALL/8/2026]\nReporting week, named competition round and entity participation are separate clocks. Schedule coverage is not assumed complete; unverified nominations cannot establish a fixture or stage.\nRecorded sample: appearances: 1; league id: 8; minutes: 90.0; played for: Chelsea; season: 2026; team id: 18; observed 2026-09-07 [player_stats:FOOTBALL/4592198/2026/8, player_team_history:42959]\nCurrent observations: assists: 1; basis: season totals; coverage: stored sample; completeness unknown; expected assists: 1.01; expected goals: 0.14; goals: unknown; league id: 8; played for: Chelsea; season: 2026; team id: 18; observed 2026-09-07 [player_stats:FOOTBALL/4592198/2026/8, player_team_history:42959]\nHistorical production remains useful without a current rank. These unequal samples and different measurement keys do not establish an ability trend. Null is missing, not zero.\nUnknown: The one-appearance stored sample does not establish current total appearances, fitness or why coverage is thin.\nUnknown: Exact transfer effective date is not established by the inspected official page.\nUnknown: Stored ranks lack measurement identity; no rank comparisons are supplied.\nSome candidate context was omitted; absence is not evidence of no history.\n",
+            "role": "user"
+          }
+        ],
+        "model": "granite4.2:3b",
+        "options": {
+          "num_ctx": 4096,
+          "num_predict": 700,
+          "seed": 17,
+          "temperature": 0.6
+        },
+        "stream": false,
+        "think": false
+      },
+      "seed": 17
+    },
+    {
+      "condition": "full_memories",
+      "context_bytes": 4214,
+      "memory_fingerprint": "da2b3215c5dcd0d0498527a8a11bcccf36834cd98d191fb01cd047d4aede125c",
+      "request": {
+        "format": {
+          "properties": {
+            "body": {
+              "description": "The character's interpretation of the evidence, within 1200 characters.",
+              "type": "string"
+            },
+            "headline": {
+              "description": "The read's main finding, stated as a sentence naming the entity.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "headline",
+            "body"
+          ],
+          "type": "object"
+        },
+        "messages": [
+          {
+            "content": "You are The Scout: observant, direct and specific to the sport. Explain what the measured profile reveals about this entity, and what an opponent should take from it.\n\nRead skills in relation to one another, at the scale of the supplied sample and dates. A change in relative standing is not necessarily a change in ability. Sourced personnel and availability records can change the interpretation of the profile; distinguish confirmed facts from reports. Your judgment gives the measurements meaning, without supplying missing evidence.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with headline (the hook) and body (the paragraphs). Preserve paragraph breaks as escaped newlines.",
+            "role": "system"
+          },
+          {
+            "content": "Morgan Rogers (player, FOOTBALL). As of 2026-09-14.\nInterpret current measurements against supported historical baselines, participation and personnel context.\nIdentity: league id: 8; name: Morgan Rogers; record source: roster; role: Midfielder; team: Aston Villa; team id: 15; observed 2026-07-04 [players/player_current_identity:FOOTBALL/player/4592198]\nIdentity: contract end year: 2033; effective date: unknown; entity: Morgan Rogers; from team: Aston Villa; from team id: 15; publication date: unknown; role: player; season: 2026/27; status: club_announced_signing; to team: Chelsea; to team id: 18; observed 2026-09-14 [official_web:https://www.chelseafc.com/en/news/article/morgan-rogers-signs-for-chelsea]\nIdentity: date semantics: box-score ingestion boundaries, not signing/leaving dates; is current: false; observed from: 2026-04-18T19:59:04.170378+00:00; observed until: 2026-09-07T00:30:06.153885+00:00; season: 2025; team: Aston Villa; team id: 15; observed 2026-04-18 [player_team_history:148]\nIdentity: date semantics: box-score ingestion boundaries, not signing/leaving dates; is current: true; observed from: 2026-09-07T00:30:06.153885+00:00; observed until: unknown; season: 2026; team: Chelsea; team id: 18; observed 2026-09-07 [player_team_history:42959]\nOfficial Chelsea signing establishes the current club. The Villa roster projection is stale. Keep the Villa performance baseline attached to its own season/team; box-score history timestamps do not establish the transfer date.\nReporting period (not competition progress): clock league id: 8; ends at: 2026-09-21T04:00:00+00:00; reporting week: 7; season: 2026; sport: FOOTBALL; starts at: 2026-09-14T04:00:00+00:00 [sports/season_weeks:FOOTBALL/2026/7]\nSchedule: announced round: Matchweek 4; competition: Premier League; publication date: 2026-09-07; qualification: An appointed round establishes schedule context, not games played by this entity or a complete current table.; season: 2026/27; observed 2026-09-14 [official_web:https://www.premierleague.com/en/news/4711668/match-officials-for-matchweek-4]\nSchedule: first stored start: 2026-08-03T07:03:44+00:00; last stored start: 2026-09-14T00:38:04+00:00; league id: 8; rounds: [null]; rows: 87; season: 2026; unverified rows: 87; observed 2026-09-14 [fixtures:FOOTBALL/8/2026]\nReporting week, named competition round and entity participation are separate clocks. Schedule coverage is not assumed complete; unverified nominations cannot establish a fixture or stage.\nRecorded sample: appearances: 37; league id: 8; minutes: 3285.0; played for: Aston Villa; season: 2025; team id: 15; observed 2026-06-13 [player_stats:FOOTBALL/4592198/2025/8, player_team_history:148]\nEarlier observations: assists: 6; basis: season totals; coverage: stored sample; completeness unknown; goals: 10; league id: 8; played for: Aston Villa; season: 2025; shots on target: 32; team id: 15; observed 2026-06-13 [player_stats:FOOTBALL/4592198/2025/8, player_team_history:148]\nHistorical production remains useful without a current rank. These unequal samples and different measurement keys do not establish an ability trend. Null is missing, not zero.\nRecorded sample: appearances: 1; league id: 8; minutes: 90.0; played for: Chelsea; season: 2026; team id: 18; observed 2026-09-07 [player_stats:FOOTBALL/4592198/2026/8, player_team_history:42959]\nCurrent observations: assists: 1; basis: season totals; coverage: stored sample; completeness unknown; expected assists: 1.01; expected goals: 0.14; goals: unknown; league id: 8; played for: Chelsea; season: 2026; team id: 18; observed 2026-09-07 [player_stats:FOOTBALL/4592198/2026/8, player_team_history:42959]\nHistorical production remains useful without a current rank. These unequal samples and different measurement keys do not establish an ability trend. Null is missing, not zero.\nUnknown: The one-appearance stored sample does not establish current total appearances, fitness or why coverage is thin.\nUnknown: Exact transfer effective date is not established by the inspected official page.\nUnknown: Stored ranks lack measurement identity; no rank comparisons are supplied.\nSome candidate context was omitted; absence is not evidence of no history.\n",
+            "role": "user"
+          }
+        ],
+        "model": "granite4.2:3b",
+        "options": {
+          "num_ctx": 4096,
+          "num_predict": 700,
+          "seed": 43,
+          "temperature": 0.6
+        },
+        "stream": false,
+        "think": false
+      },
+      "seed": 43
+    },
+    {
+      "condition": "without_performance_baseline",
+      "context_bytes": 3552,
+      "memory_fingerprint": "7818dd07000a5d34718c5b22ecbf2b756c12e21996bfcfc330c19f78dac5629d",
+      "request": {
+        "format": {
+          "properties": {
+            "body": {
+              "description": "The character's interpretation of the evidence, within 1200 characters.",
+              "type": "string"
+            },
+            "headline": {
+              "description": "The read's main finding, stated as a sentence naming the entity.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "headline",
+            "body"
+          ],
+          "type": "object"
+        },
+        "messages": [
+          {
+            "content": "You are The Scout: observant, direct and specific to the sport. Explain what the measured profile reveals about this entity, and what an opponent should take from it.\n\nRead skills in relation to one another, at the scale of the supplied sample and dates. A change in relative standing is not necessarily a change in ability. Sourced personnel and availability records can change the interpretation of the profile; distinguish confirmed facts from reports. Your judgment gives the measurements meaning, without supplying missing evidence.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with headline (the hook) and body (the paragraphs). Preserve paragraph breaks as escaped newlines.",
+            "role": "system"
+          },
+          {
+            "content": "Morgan Rogers (player, FOOTBALL). As of 2026-09-14.\nInterpret current measurements against supported historical baselines, participation and personnel context.\nIdentity: league id: 8; name: Morgan Rogers; record source: roster; role: Midfielder; team: Aston Villa; team id: 15; observed 2026-07-04 [players/player_current_identity:FOOTBALL/player/4592198]\nIdentity: contract end year: 2033; effective date: unknown; entity: Morgan Rogers; from team: Aston Villa; from team id: 15; publication date: unknown; role: player; season: 2026/27; status: club_announced_signing; to team: Chelsea; to team id: 18; observed 2026-09-14 [official_web:https://www.chelseafc.com/en/news/article/morgan-rogers-signs-for-chelsea]\nIdentity: date semantics: box-score ingestion boundaries, not signing/leaving dates; is current: false; observed from: 2026-04-18T19:59:04.170378+00:00; observed until: 2026-09-07T00:30:06.153885+00:00; season: 2025; team: Aston Villa; team id: 15; observed 2026-04-18 [player_team_history:148]\nIdentity: date semantics: box-score ingestion boundaries, not signing/leaving dates; is current: true; observed from: 2026-09-07T00:30:06.153885+00:00; observed until: unknown; season: 2026; team: Chelsea; team id: 18; observed 2026-09-07 [player_team_history:42959]\nOfficial Chelsea signing establishes the current club. The Villa roster projection is stale. Keep the Villa performance baseline attached to its own season/team; box-score history timestamps do not establish the transfer date.\nReporting period (not competition progress): clock league id: 8; ends at: 2026-09-21T04:00:00+00:00; reporting week: 7; season: 2026; sport: FOOTBALL; starts at: 2026-09-14T04:00:00+00:00 [sports/season_weeks:FOOTBALL/2026/7]\nSchedule: announced round: Matchweek 4; competition: Premier League; publication date: 2026-09-07; qualification: An appointed round establishes schedule context, not games played by this entity or a complete current table.; season: 2026/27; observed 2026-09-14 [official_web:https://www.premierleague.com/en/news/4711668/match-officials-for-matchweek-4]\nSchedule: first stored start: 2026-08-03T07:03:44+00:00; last stored start: 2026-09-14T00:38:04+00:00; league id: 8; rounds: [null]; rows: 87; season: 2026; unverified rows: 87; observed 2026-09-14 [fixtures:FOOTBALL/8/2026]\nReporting week, named competition round and entity participation are separate clocks. Schedule coverage is not assumed complete; unverified nominations cannot establish a fixture or stage.\nRecorded sample: appearances: 1; league id: 8; minutes: 90.0; played for: Chelsea; season: 2026; team id: 18; observed 2026-09-07 [player_stats:FOOTBALL/4592198/2026/8, player_team_history:42959]\nCurrent observations: assists: 1; basis: season totals; coverage: stored sample; completeness unknown; expected assists: 1.01; expected goals: 0.14; goals: unknown; league id: 8; played for: Chelsea; season: 2026; team id: 18; observed 2026-09-07 [player_stats:FOOTBALL/4592198/2026/8, player_team_history:42959]\nHistorical production remains useful without a current rank. These unequal samples and different measurement keys do not establish an ability trend. Null is missing, not zero.\nUnknown: The one-appearance stored sample does not establish current total appearances, fitness or why coverage is thin.\nUnknown: Exact transfer effective date is not established by the inspected official page.\nUnknown: Stored ranks lack measurement identity; no rank comparisons are supplied.\nSome candidate context was omitted; absence is not evidence of no history.\n",
+            "role": "user"
+          }
+        ],
+        "model": "granite4.2:3b",
+        "options": {
+          "num_ctx": 4096,
+          "num_predict": 700,
+          "seed": 43,
+          "temperature": 0.6
+        },
+        "stream": false,
+        "think": false
+      },
+      "seed": 43
+    }
+  ]
+}

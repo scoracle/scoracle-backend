@@ -159,17 +159,11 @@ fn insider_score_prompt_memory_before_board() {
         "advanced_talks",
         "Lakers in advanced talks per ESPN",
     )];
-    let p = build_insider_score_prompt(
-        "Some Team",
-        "NBA",
-        "team",
-        &board,
-        Some("Last read (Jul 18): The wire is warm.\nRecent scores (newest first): 62 (Jul 18) · 55 (Jul 12)"),
-     None);
+    let p = build_insider_score_prompt("Some Team", "NBA", "team", &board, Some("Last read (Jul 18): The wire is warm.\nRecent scores (newest first): 62 (Jul 18) · 55 (Jul 12)"));
     assert_eq!(
         p,
         "Entity: Some Team (NBA team)\n\
-\nYOUR PRIOR READS (memory — your own past wire wraps; continuity, not new evidence):\n\
+\n\
 Last read (Jul 18): The wire is warm.\n\
 Recent scores (newest first): 62 (Jul 18) · 55 (Jul 12)\n\
 \nTHE ACTIVE WIRE (1 live vetted rumor(s), latest per counterparty):\n\
@@ -177,7 +171,7 @@ Recent scores (newest first): 62 (Jul 18) · 55 (Jul 12)\n\
 "
     );
     // First-ever wrap: no memory section at all.
-    let first = build_insider_score_prompt("Some Team", "NBA", "team", &board, None, None);
+    let first = build_insider_score_prompt("Some Team", "NBA", "team", &board, None);
     assert!(!first.contains("YOUR PRIOR READS"));
 }
 
@@ -265,7 +259,7 @@ fn prompt_none_sourceless_headline() {
         "Lakers", &c, "NBA", "none", &news, &evidence, None, None, None,
     );
     assert!(
-        !p.contains("Relational memory"),
+        !p.contains("Entity memories for this proposed relationship"),
         "no memory ⇒ no section (t7 byte-shape preserved)"
     );
     assert!(
@@ -283,7 +277,7 @@ fn prompt_none_sourceless_headline() {
         Some("Prior flirtation fizzled: Jun 2026, peak coverage 55/100.\nCurrent story: tracked since Jul 05, peak coverage 80/100, computed likelihood 62/100 (heating up)."),
         None,
     );
-    assert!(with_mem.contains("Relational memory (computed history"));
+    assert!(with_mem.contains("Entity memories for this proposed relationship:"));
     assert!(with_mem.contains("- Prior flirtation fizzled: Jun 2026, peak coverage 55/100."));
     assert!(with_mem.contains("- Current story: tracked since Jul 05"));
     assert_eq!(
@@ -331,7 +325,9 @@ fn prompt_renders_source_reliability_card_before_memory() {
     // Ordering: Evidence < Source track record < Relational memory < News headlines.
     let ev = p.find("Evidence (computed)").expect("evidence card");
     let sr = p.find("Source track record").expect("reliability card");
-    let mem = p.find("Relational memory").expect("memory card");
+    let mem = p
+        .find("Entity memories for this proposed relationship")
+        .expect("memory card");
     let hdl = p.find("News headlines").expect("headlines");
     assert!(
         ev < sr && sr < mem && mem < hdl,

@@ -3,6 +3,8 @@
 //! Split out of `mod.rs` so the stage module reads as the stage and nothing else.
 //! `super` still resolves to the junction, so these run exactly as they did inline.
 
+use crate::evidence::personnel::{MAX_AVAILABILITY_LINES, MAX_PERSONNEL_LINES};
+
 use super::*;
 
 #[test]
@@ -229,7 +231,7 @@ fn serialized_request_has_evidence_and_form_but_no_editorial_outline() {
         None,
         None,
     );
-    let client = crate::ollama::OllamaClient::new(
+    let client = crate::runtime::providers::ollama::OllamaClient::new(
         "http://localhost:11434",
         "offline-test",
         std::time::Duration::from_secs(1),
@@ -237,14 +239,14 @@ fn serialized_request_has_evidence_and_form_but_no_editorial_outline() {
     .unwrap();
     let request = client.request_body(
         &prompt,
-        &crate::ollama::GenerateOptions {
+        &crate::runtime::providers::ollama::GenerateOptions {
             system: Some(RATING_SYSTEM_PROMPT.to_string()),
             ..Default::default()
         },
     );
     let system = request["messages"][0]["content"].as_str().unwrap();
     let evidence = request["messages"][1]["content"].as_str().unwrap();
-    assert!(system.contains(crate::junctions::form::STORY_FORM));
+    assert!(system.contains(crate::composition::form::STORY_FORM));
     assert!(evidence.contains("Scoring: 24, percentile 95.0 (elite)"));
     assert!(evidence.contains("Defense: 2.5, percentile 40.0 (below average)"));
     for retired in [
@@ -940,7 +942,7 @@ fn rating_splits_the_s20_headline_line() {
     let error = RatingParser
         .parse(&format!("Summary: x.\nHEADLINE: {}", "x".repeat(200)))
         .unwrap_err();
-    assert!(error.is::<crate::junctions::form::SurfaceError>());
+    assert!(error.is::<crate::composition::form::SurfaceError>());
 }
 
 // --- 7.7 the personnel block: the Scout's second confirmed-fact road ------------------
@@ -1569,7 +1571,7 @@ fn a_bad_headline_never_throws_the_report_away() {
         dropped
             .headline
             .as_deref()
-            .is_none_or(|h| crate::guards::hook_violation(h).is_none()),
+            .is_none_or(|h| crate::composition::guards::hook_violation(h).is_none()),
         "a shipped title always satisfies the contract: {:?}",
         dropped.headline
     );

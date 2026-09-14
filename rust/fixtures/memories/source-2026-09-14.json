@@ -1,0 +1,580 @@
+{
+  "records": [
+    {
+      "case": "iraola",
+      "data": {
+        "url": "https://www.wikidata.org/w/api.php?action=wbgetentities&ids=Q317216&props=claims%7Clabels%7Cdescriptions%7Caliases%7Csitelinks&languages=en&format=json",
+        "property": "P54",
+        "statement": {
+          "id": "q317216$33FFCC4A-0D28-4AFE-86B4-1DC7EE65C87A",
+          "rank": "normal",
+          "type": "statement",
+          "mainsnak": {
+            "hash": "8f85d640c7cce75b135be9b0f6d977b1b994d000",
+            "datatype": "wikibase-item",
+            "property": "P54",
+            "snaktype": "value",
+            "datavalue": {
+              "type": "wikibase-entityid",
+              "value": {
+                "id": "Q8687",
+                "numeric-id": 8687,
+                "entity-type": "item"
+              }
+            }
+          },
+          "qualifiers": {
+            "P580": [
+              {
+                "hash": "cfc90cab2a766905403ae0ea5cbeb3e27c8fa4df",
+                "datatype": "time",
+                "property": "P580",
+                "snaktype": "value",
+                "datavalue": {
+                  "type": "time",
+                  "value": {
+                    "time": "+2003-01-01T00:00:00Z",
+                    "after": 0,
+                    "before": 0,
+                    "timezone": 0,
+                    "precision": 9,
+                    "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+                  }
+                }
+              }
+            ],
+            "P582": [
+              {
+                "hash": "452fceb93cedf5872bb2a20e4cc67f7ddc71f1b4",
+                "datatype": "time",
+                "property": "P582",
+                "snaktype": "value",
+                "datavalue": {
+                  "type": "time",
+                  "value": {
+                    "time": "+2015-01-01T00:00:00Z",
+                    "after": 0,
+                    "before": 0,
+                    "timezone": 0,
+                    "precision": 9,
+                    "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+                  }
+                }
+              }
+            ],
+            "P1350": [
+              {
+                "hash": "872113d4efb0043daf0ef5ef499cdf9d2b6219e0",
+                "datatype": "quantity",
+                "property": "P1350",
+                "snaktype": "value",
+                "datavalue": {
+                  "type": "quantity",
+                  "value": {
+                    "unit": "1",
+                    "amount": "+406"
+                  }
+                }
+              }
+            ],
+            "P1351": [
+              {
+                "hash": "7801808d3c3d36ece161e028b4e26d8f9962607f",
+                "datatype": "quantity",
+                "property": "P1351",
+                "snaktype": "value",
+                "datavalue": {
+                  "type": "quantity",
+                  "value": {
+                    "unit": "1",
+                    "amount": "+33"
+                  }
+                }
+              }
+            ]
+          },
+          "references": [
+            {
+              "hash": "fa278ebfc458360e5aed63d5058cca83c46134f1",
+              "snaks": {
+                "P143": [
+                  {
+                    "hash": "e4f6d9441d0600513c4533c672b5ab472dc73694",
+                    "datatype": "wikibase-item",
+                    "property": "P143",
+                    "snaktype": "value",
+                    "datavalue": {
+                      "type": "wikibase-entityid",
+                      "value": {
+                        "id": "Q328",
+                        "numeric-id": 328,
+                        "entity-type": "item"
+                      }
+                    }
+                  }
+                ]
+              },
+              "snaks-order": [
+                "P143"
+              ]
+            }
+          ],
+          "qualifiers-order": [
+            "P580",
+            "P582",
+            "P1350",
+            "P1351"
+          ]
+        }
+      },
+      "kind": "career_statement",
+      "source": "source_documents",
+      "source_key": "66096/P54/q317216$33FFCC4A-0D28-4AFE-86B4-1DC7EE65C87A",
+      "observed_at": "2026-09-05T03:04:21.39349+00:00",
+      "observed_unix": 1788577461
+    },
+    {
+      "case": "iraola",
+      "data": {
+        "url": "https://www.wikidata.org/w/api.php?action=wbgetentities&ids=Q317216&props=claims%7Clabels%7Cdescriptions%7Caliases%7Csitelinks&languages=en&format=json",
+        "property": "P54",
+        "statement": {
+          "id": "Q317216$550e4188-4a40-74c7-7df7-c396a0330dda",
+          "rank": "normal",
+          "type": "statement",
+          "mainsnak": {
+            "hash": "8f85d640c7cce75b135be9b0f6d977b1b994d000",
+            "datatype": "wikibase-item",
+            "property": "P54",
+            "snaktype": "value",
+            "datavalue": {
+              "type": "wikibase-entityid",
+              "value": {
+                "id": "Q8687",
+                "numeric-id": 8687,
+                "entity-type": "item"
+              }
+            }
+          },
+          "qualifiers": {
+            "P580": [
+              {
+                "hash": "1ad6a2e53783f18115d7c4804fcb7a638f669f49",
+                "datatype": "time",
+                "property": "P580",
+                "snaktype": "value",
+                "datavalue": {
+                  "type": "time",
+                  "value": {
+                    "time": "+1999-00-00T00:00:00Z",
+                    "after": 0,
+                    "before": 0,
+                    "timezone": 0,
+                    "precision": 9,
+                    "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+                  }
+                }
+              }
+            ],
+            "P582": [
+              {
+                "hash": "21223f87fb708457f98a20c67e7c7e4eafbd0ff3",
+                "datatype": "time",
+                "property": "P582",
+                "snaktype": "value",
+                "datavalue": {
+                  "type": "time",
+                  "value": {
+                    "time": "+2000-00-00T00:00:00Z",
+                    "after": 0,
+                    "before": 0,
+                    "timezone": 0,
+                    "precision": 9,
+                    "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+                  }
+                }
+              }
+            ],
+            "P2094": [
+              {
+                "hash": "a9892cd4512dd98860364c02232265ac4c961b4b",
+                "datatype": "wikibase-item",
+                "property": "P2094",
+                "snaktype": "value",
+                "datavalue": {
+                  "type": "wikibase-entityid",
+                  "value": {
+                    "id": "Q599867",
+                    "numeric-id": 599867,
+                    "entity-type": "item"
+                  }
+                }
+              }
+            ]
+          },
+          "qualifiers-order": [
+            "P2094",
+            "P580",
+            "P582"
+          ]
+        }
+      },
+      "kind": "career_statement",
+      "source": "source_documents",
+      "source_key": "66096/P54/Q317216$550e4188-4a40-74c7-7df7-c396a0330dda",
+      "observed_at": "2026-09-05T03:04:21.39349+00:00",
+      "observed_unix": 1788577461
+    },
+    {
+      "case": "iraola",
+      "data": {
+        "name": "Andoni Iraola",
+        "role": "coach",
+        "team": "Liverpool",
+        "team_id": 8,
+        "checked_at": "2026-09-14T07:40:15Z",
+        "check_outcome": "adjudicated unknown",
+        "affiliation_note": "corrected 2026-09-06: manages Liverpool (news corpus, articles 585115/585118); was Athletic Club via wikidata playing-career seed"
+      },
+      "kind": "identity",
+      "source": "persons",
+      "source_key": "FOOTBALL/person/11",
+      "observed_at": null,
+      "observed_unix": null
+    },
+    {
+      "case": "iraola",
+      "data": {
+        "url": "https://news.google.com/rss/articles/CBMi8wFBVV95cUxPRHFCdlQ5aW5sb3NJNmdLRDFZQ1ltd3h0Y0FTNmJRZ21kVU5YbkotTWdBV25oUW1KUEhleFNFeXNGdDdPMXpsUkZMajdkMm5Gakw0a2pSYVZtRjNZTXZIOTJpRmNYMW9OTktXODBmYlpWQk9KMER4X1ZmNldjNVNOcTRuZWszemxIb2tjeEhob25sLXRVQUVkZ25wTUdTazVzSGZuTEttTHRhakg2eE5ncU1CaTZlTkZSNkZDUXJVWFljcTZqekVyM1JPNDNfOWtvRy15WllLNDVLYW5HTGJ4NGF2XzlpWHllWmNEemNJM2RSSlU?oc=5",
+        "title": "Alex Scott: How Bournemouth midfielder wanted by Arsenal, Chelsea and Man Utd flourished under Andoni Iraola",
+        "source": "Sky Sports",
+        "description": "Alex Scott: How Bournemouth midfielder wanted by Arsenal, Chelsea and Man Utd flourished under Andoni Iraola&nbsp;&nbsp;Sky Sports",
+        "duplicate_of": null,
+        "published_at": "2026-07-24T11:16:30+00:00"
+      },
+      "kind": "news",
+      "source": "news_articles",
+      "source_key": "145830",
+      "observed_at": "2026-07-24T16:10:38.489163+00:00",
+      "observed_unix": 1784909438
+    },
+    {
+      "case": "iraola",
+      "data": {
+        "url": "https://news.google.com/rss/articles/CBMitgFBVV95cUxNUnNVTmR4enR4TXNPRmZqbURseTRiUWJrbURTQVdDd1RsTnBucFJPcjBxYVhMUFJkZHRIQ3pReExLNVJjRDM1WS1ORjlvUEdCRGdFOWFjWXZtRmFvYldwRmJkNmx4cjc5RV9uakN3ZTdGbW1zUU5DTll4WkNwQlh1X3pMNVV1U09SeVktMXFyeGktTk4tclVxbE1LOHNiMUZlSDM3NUxtdUlNeXMtUVI4R1E1ZTdVZ9IBuwFBVV95cUxNY2d3MjFWdmFxcldvQlNkbERnVUhkU0RPTFdabHlVNUpRcFJaVzA3eGNmUTNrYTV6LVVzTEhXQzdFckZCV1JRWms4NUdySXBXSS15RjYyQy15SDItdllZd1JtVEZvd1d5Y3YzVzlUZUlmSG9vSDU3WEs1cndNWlAzNTZPNmNXZkM0aXdPakpYMEVaMGRjb3JGeXVqNWRSRVRfVW9LY1NCdVZrekFYOW42MkJQUUhqSklneUVJ?oc=5",
+        "title": "Liverpool beat Ipswich as Isak goals hand Iraola first Premier League win",
+        "source": "Al Jazeera",
+        "description": "Liverpool beat Ipswich as Isak goals hand Iraola first Premier League win Al Jazeera",
+        "duplicate_of": null,
+        "published_at": "2026-09-05T00:39:54+00:00"
+      },
+      "kind": "news",
+      "source": "news_articles",
+      "source_key": "585115",
+      "observed_at": "2026-09-05T06:01:53.778309+00:00",
+      "observed_unix": 1788588114
+    },
+    {
+      "case": "iraola",
+      "data": {
+        "url": "https://news.google.com/rss/articles/CBMi5wFBVV95cUxNVi1Jd3luRTBVX1FkOWduOEVEc29TaXNYVjZRQURUSHBrdGtibWhtTUsydFRoTzdPUS00aHNidDhiclF5UWVMdkdoeG44SlFEOVV2b295dERRZEJDQVlxU0lvN25DSjRNWlJRQ2pvNU5hcVozd09GaERXN1d2UVF0NlJONkZ5MlFlN01GdW9jR3dWTVcwUkZKUHdiWnBMUmVHc050Y05EaVVlSmt1Yzhmd0FBWnlrdFhKalJiVzBScDFRUnNmYUlyWGlTZ1RNaC1reXdUZ3ZrMTdHRVZYN2s4RjgyVjJQTG8?oc=5",
+        "title": "Ipswich 0-2 Liverpool: Andoni Iraola up and running as Reds boss with Alexander Isak at the double",
+        "source": "Sky Sports",
+        "description": "Ipswich 0-2 Liverpool: Andoni Iraola up and running as Reds boss with Alexander Isak at the double Sky Sports",
+        "duplicate_of": null,
+        "published_at": "2026-09-05T21:37:41+00:00"
+      },
+      "kind": "news",
+      "source": "news_articles",
+      "source_key": "585118",
+      "observed_at": "2026-09-05T06:01:53.778309+00:00",
+      "observed_unix": 1788588114
+    },
+    {
+      "case": "iraola",
+      "data": {
+        "sport": "FOOTBALL",
+        "season": 2026,
+        "ends_at": "2026-09-21T04:00:00+00:00",
+        "starts_at": "2026-09-14T04:00:00+00:00",
+        "reporting_week": 7,
+        "clock_league_id": 8
+      },
+      "kind": "reporting_clock",
+      "source": "sports/season_weeks",
+      "source_key": "FOOTBALL/2026/7",
+      "observed_at": null,
+      "observed_unix": null
+    },
+    {
+      "case": "iraola",
+      "data": {
+        "type": "role",
+        "state": "active",
+        "value": "coach",
+        "valid_to": null,
+        "valid_from": null,
+        "source_document_id": 112
+      },
+      "kind": "role_fact",
+      "source": "entity_facts",
+      "source_key": "14",
+      "observed_at": "2026-08-05T05:55:42.961432+00:00",
+      "observed_unix": 1785909343
+    },
+    {
+      "case": "iraola",
+      "data": {
+        "type": "role",
+        "state": "active",
+        "value": "coach",
+        "valid_to": null,
+        "valid_from": null,
+        "source_document_id": 66096
+      },
+      "kind": "role_fact",
+      "source": "entity_facts",
+      "source_key": "1721",
+      "observed_at": "2026-09-05T03:04:23.497856+00:00",
+      "observed_unix": 1788577463
+    },
+    {
+      "case": "iraola",
+      "data": {
+        "team": "Athletic Club",
+        "state": "active",
+        "team_id": 13258,
+        "valid_to": null,
+        "predicate": "coach_of",
+        "valid_from": null,
+        "source_document_id": 66096
+      },
+      "kind": "role_relationship",
+      "source": "entity_relationships",
+      "source_key": "479",
+      "observed_at": "2026-09-05T03:04:23.497856+00:00",
+      "observed_unix": 1788577463
+    },
+    {
+      "case": "iraola",
+      "data": {
+        "team": "Athletic Club",
+        "state": "active",
+        "team_id": 13258,
+        "valid_to": null,
+        "predicate": "coach_of",
+        "valid_from": null,
+        "source_document_id": 112
+      },
+      "kind": "role_relationship",
+      "source": "entity_relationships",
+      "source_key": "5",
+      "observed_at": "2026-08-05T05:55:42.961432+00:00",
+      "observed_unix": 1785909343
+    },
+    {
+      "case": "lions",
+      "data": {
+        "meta": {},
+        "round": "Week 1",
+        "sport": "NFL",
+        "season": 2026,
+        "status": "seeded",
+        "away_team": "New Orleans Saints",
+        "home_team": "Detroit Lions",
+        "league_id": 0,
+        "away_score": 30,
+        "home_score": 31,
+        "start_time": "2026-09-13T17:00:00+00:00"
+      },
+      "kind": "fixture",
+      "source": "fixtures",
+      "source_key": "44829",
+      "observed_at": "2026-09-13T23:30:02.436489+00:00",
+      "observed_unix": 1789342202
+    },
+    {
+      "case": "lions",
+      "data": {
+        "meta": {},
+        "round": "Week 2",
+        "sport": "NFL",
+        "season": 2026,
+        "status": "scheduled",
+        "away_team": "Detroit Lions",
+        "home_team": "Buffalo Bills",
+        "league_id": 0,
+        "away_score": null,
+        "home_score": null,
+        "start_time": "2026-09-18T00:15:00+00:00"
+      },
+      "kind": "fixture",
+      "source": "fixtures",
+      "source_key": "44842",
+      "observed_at": "2026-09-05T05:30:00.566058+00:00",
+      "observed_unix": 1788586201
+    },
+    {
+      "case": "lions",
+      "data": {
+        "name": "Detroit Lions",
+        "league_id": null
+      },
+      "kind": "identity",
+      "source": "teams",
+      "source_key": "NFL/team/25",
+      "observed_at": "2026-08-01T12:12:08.474069+00:00",
+      "observed_unix": 1785586328
+    },
+    {
+      "case": "lions",
+      "data": {
+        "sport": "NFL",
+        "season": 2026,
+        "ends_at": "2026-09-21T04:00:00+00:00",
+        "starts_at": "2026-09-14T04:00:00+00:00",
+        "reporting_week": 2,
+        "clock_league_id": null
+      },
+      "kind": "reporting_clock",
+      "source": "sports/season_weeks",
+      "source_key": "NFL/2026/2",
+      "observed_at": null,
+      "observed_unix": null
+    },
+    {
+      "case": "morgan",
+      "data": {
+        "team": "Aston Villa",
+        "season": 2025,
+        "team_id": 15,
+        "is_current": false,
+        "observed_from": "2026-04-18T19:59:04.170378+00:00",
+        "date_semantics": "box-score ingestion boundaries, not signing/leaving dates",
+        "observed_until": "2026-09-07T00:30:06.153885+00:00"
+      },
+      "kind": "affiliation_observation",
+      "source": "player_team_history",
+      "source_key": "148",
+      "observed_at": "2026-04-18T19:59:04.170378+00:00",
+      "observed_unix": 1776542344
+    },
+    {
+      "case": "morgan",
+      "data": {
+        "team": "Chelsea",
+        "season": 2026,
+        "team_id": 18,
+        "is_current": true,
+        "observed_from": "2026-09-07T00:30:06.153885+00:00",
+        "date_semantics": "box-score ingestion boundaries, not signing/leaving dates",
+        "observed_until": null
+      },
+      "kind": "affiliation_observation",
+      "source": "player_team_history",
+      "source_key": "42959",
+      "observed_at": "2026-09-07T00:30:06.153885+00:00",
+      "observed_unix": 1788741006
+    },
+    {
+      "case": "morgan",
+      "data": {
+        "name": "Morgan Rogers",
+        "role": "Midfielder",
+        "team": "Aston Villa",
+        "team_id": 15,
+        "league_id": 8,
+        "record_source": "roster"
+      },
+      "kind": "identity",
+      "source": "players/player_current_identity",
+      "source_key": "FOOTBALL/player/4592198",
+      "observed_at": "2026-07-04T03:35:44.759962+00:00",
+      "observed_unix": 1783136145
+    },
+    {
+      "case": "morgan",
+      "data": {
+        "sport": "FOOTBALL",
+        "season": 2026,
+        "ends_at": "2026-09-21T04:00:00+00:00",
+        "starts_at": "2026-09-14T04:00:00+00:00",
+        "reporting_week": 7,
+        "clock_league_id": 8
+      },
+      "kind": "reporting_clock",
+      "source": "sports/season_weeks",
+      "source_key": "FOOTBALL/2026/7",
+      "observed_at": null,
+      "observed_unix": null
+    },
+    {
+      "case": "morgan",
+      "data": {
+        "rows": 87,
+        "rounds": [
+          null
+        ],
+        "season": 2026,
+        "league_id": 8,
+        "unverified_rows": 87,
+        "last_stored_start": "2026-09-14T00:38:04+00:00",
+        "first_stored_start": "2026-08-03T07:03:44+00:00"
+      },
+      "kind": "schedule_coverage",
+      "source": "fixtures",
+      "source_key": "FOOTBALL/8/2026",
+      "observed_at": "2026-09-14T09:46:40.714206+00:00",
+      "observed_unix": 1789379201
+    },
+    {
+      "case": "morgan",
+      "data": {
+        "basis": "season totals",
+        "goals": 10,
+        "season": 2025,
+        "assists": 6,
+        "minutes": 3285.0,
+        "team_id": 15,
+        "league_id": 8,
+        "appearances": 37,
+        "expected_goals": 0.0,
+        "shots_on_target": 32,
+        "expected_assists": null,
+        "stored_rating_score": 72.4,
+        "measurement_contract_present": false
+      },
+      "kind": "statistics",
+      "source": "player_stats",
+      "source_key": "FOOTBALL/4592198/2025/8",
+      "observed_at": "2026-06-13T13:46:46.98146+00:00",
+      "observed_unix": 1781358407
+    },
+    {
+      "case": "morgan",
+      "data": {
+        "basis": "season totals",
+        "goals": null,
+        "season": 2026,
+        "assists": 1,
+        "minutes": 90.0,
+        "team_id": 18,
+        "league_id": 8,
+        "appearances": 1,
+        "expected_goals": 0.14,
+        "shots_on_target": null,
+        "expected_assists": 1.01,
+        "stored_rating_score": null,
+        "measurement_contract_present": false
+      },
+      "kind": "statistics",
+      "source": "player_stats",
+      "source_key": "FOOTBALL/4592198/2026/8",
+      "observed_at": "2026-09-07T12:30:58.426055+00:00",
+      "observed_unix": 1788784258
+    }
+  ],
+  "captured_at": "2026-09-14T21:44:37.594454+00:00",
+  "captured_unix": 1789422278,
+  "schema_version": "251_team_colors"
+}

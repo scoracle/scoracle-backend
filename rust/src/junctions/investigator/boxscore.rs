@@ -3,11 +3,12 @@
 //! Sources are data-driven through `boxscore_sources`. Retrieval is implemented;
 //! discovery, parser families, and canonical-table promotion are not.
 
-use crate::fetch::{BudgetedFetchError, BudgetedFetcher, FetchPolicy};
-use crate::stage::StageHandler;
-use crate::util::truncate;
-use crate::work::{Item, Stage};
-use crate::{harness::Harness, util::hash_components};
+use crate::runtime::fetch::{BudgetedFetchError, BudgetedFetcher, FetchPolicy};
+use crate::runtime::harness::Harness;
+use crate::runtime::stage::StageHandler;
+use crate::runtime::util::hash_components;
+use crate::runtime::util::truncate;
+use crate::runtime::work::{Item, Stage};
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use reqwest::StatusCode;

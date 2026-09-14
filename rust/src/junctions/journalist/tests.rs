@@ -45,23 +45,15 @@ fn prompt_numbered_news() {
         None,
         None,
         None,
-        None,
     );
     assert!(
         !p.contains("Relational memory"),
         "no memory ⇒ no section (n7 byte-shape preserved)"
     );
-    let with_mem = build_narratives_prompt(
-        &req("Bukayo Saka", "FOOTBALL", "player"),
-        &news,
-        Some("Prior story: Real Madrid — fizzled (Jun 2026, peak coverage 82/100).\nGround truth: Bukayo Saka completed a confirmed move to Arsenal on Jul 01 2026."),
-        None,
-        None,
-        None,
-    );
-    assert!(with_mem.contains("Relational memory (computed history"));
-    assert!(with_mem.contains("- Prior story: Real Madrid — fizzled"));
-    assert!(with_mem.contains("- Ground truth: Bukayo Saka completed"));
+    let with_mem = build_narratives_prompt(&req("Bukayo Saka", "FOOTBALL", "player"), &news, Some("Prior story: Real Madrid — fizzled (Jun 2026, peak coverage 82/100).\nGround truth: Bukayo Saka completed a confirmed move to Arsenal on Jul 01 2026."), None, None);
+    assert!(with_mem.contains("Prior story: Real Madrid"));
+    assert!(with_mem.contains("Prior story: Real Madrid — fizzled"));
+    assert!(with_mem.contains("Ground truth: Bukayo Saka completed"));
     assert_eq!(
         p,
         "Entity: Bukayo Saka (FOOTBALL player)\n\
@@ -142,7 +134,6 @@ fn article_context_renders_a_description_that_adds_content() {
     let p = build_narratives_prompt(
         &req("Bukayo Saka", "FOOTBALL", "player"),
         &[none],
-        None,
         None,
         None,
         None,
@@ -281,14 +272,7 @@ fn headline_parses_best_effort_and_takes_the_title_floor() {
 #[test]
 fn prompt_score_context_renders_after_news() {
     let news = vec![item(1, "BBC", "Saka shines again", "", None)];
-    let p = build_narratives_prompt(
-        &req("Bukayo Saka", "FOOTBALL", "player"),
-        &news,
-        None,
-        Some("SIGNALS (deterministic tally for your card score): 1 article(s) after dedup · 1 distinct source(s)\nYOUR PRIOR CARD READS (memory — your own previous card scores; continuity, not new evidence):\nCard scores (newest first): 58 (Jul 18) · 55 (Jul 12)"),
-        None,
-        None,
-    );
+    let p = build_narratives_prompt(&req("Bukayo Saka", "FOOTBALL", "player"), &news, None, Some("SIGNALS (deterministic tally for your card score): 1 article(s) after dedup · 1 distinct source(s)\nYOUR PRIOR CARD READS (memory — your own previous card scores; continuity, not new evidence):\nCard scores (newest first): 58 (Jul 18) · 55 (Jul 12)"), None);
     let signals = p.find("SIGNALS (deterministic").unwrap();
     assert!(p.find("Recent news (numbered)").unwrap() < signals);
     assert!(p.trim_end().ends_with("55 (Jul 12)"));
@@ -297,7 +281,6 @@ fn prompt_score_context_renders_after_news() {
     let bare = build_narratives_prompt(
         &req("Bukayo Saka", "FOOTBALL", "player"),
         &news,
-        None,
         None,
         None,
         None,
@@ -475,14 +458,7 @@ fn packet_framing_precedes_the_numbered_evidence() {
         "",
         None,
     )];
-    let p = build_narratives_prompt(
-        &req("Vinicius Junior", "FOOTBALL", "player"),
-        &news,
-        None,
-        None,
-        Some("STORY: Vinicius Junior and Arsenal: where the deal stands\nENTITY: Vinicius Junior (subject) — in this story 2026-08-02 → 2026-08-05\nPREVIOUSLY: Arsenal open talks for Vinicius"),
-        None,
-    );
+    let p = build_narratives_prompt(&req("Vinicius Junior", "FOOTBALL", "player"), &news, None, None, Some("STORY: Vinicius Junior and Arsenal: where the deal stands\nENTITY: Vinicius Junior (subject) — in this story 2026-08-02 → 2026-08-05\nPREVIOUSLY: Arsenal open talks for Vinicius"));
     let framing = p.find("The story so far").expect("framing block present");
     let news_block = p.find("Recent news (numbered):").expect("evidence present");
     assert!(
@@ -505,13 +481,13 @@ fn decode_budget_follows_the_window() {
         (16384, NARRATIVES_NUM_PREDICT)
     );
     assert_eq!(
-        narratives_decode_budget(crate::route::VOICE_NUM_CTX_PACKET),
+        narratives_decode_budget(crate::runtime::route::VOICE_NUM_CTX_PACKET),
         (4096, 900)
     );
     // The prompt budget must still clear the p99 prompt envelope — and on MLX the binding
     // ceiling is the ~4k PROMPT boundary (the ministral3 mask crash), which ctx−predict
     // keeps prompts safely under. 4096−900 = 3196 ≥ the measured ~3.1k p99.
-    let (ctx, predict) = narratives_decode_budget(crate::route::VOICE_NUM_CTX_PACKET);
+    let (ctx, predict) = narratives_decode_budget(crate::runtime::route::VOICE_NUM_CTX_PACKET);
     assert!(predict <= 1_000);
     assert!(
         ctx - predict >= 3_100,
@@ -520,9 +496,7 @@ fn decode_budget_follows_the_window() {
 }
 
 /// 7.9: the packet render replaces the CORPUS, never the memory. A packet-rail prompt still
-/// carries the relational memory card and the prior-card-reads block, with their provenance
-/// labels intact — and the memory still contributes nothing to the debounce hash, because
-/// `build_narratives_input_components` takes only the corpus and the heat.
+/// carries the already-rendered shared memory block without another history formatter.
 #[test]
 fn the_packet_rail_keeps_the_memory_block() {
     let news = vec![item(10, "ESPN", "Arsenal agreed personal terms", "", None)];
@@ -535,18 +509,14 @@ fn the_packet_rail_keeps_the_memory_block() {
         Some(memory),
         Some("SIGNALS (deterministic tally for your card score): 1 article(s) after dedup"),
         Some(framing),
-        None,
     );
-    assert!(
-        p.contains("Relational memory (computed history"),
-        "memory label intact"
-    );
-    assert!(p.contains("- Prior story: Arsenal — fizzled"));
+    assert!(p.contains("Prior story:"), "memory label intact");
+    assert!(p.contains("Prior story: Arsenal — fizzled"));
     assert!(p.contains("SIGNALS (deterministic tally"));
     assert!(p.contains("The story so far"));
 
-    // The debounce hash is blind to memory and to the framing by construction — it is computed
-    // from the material fact (what evidence exists) alone, on both rails.
+    // This helper covers current corpus only; load_narratives_material adds the
+    // selected memory fingerprint before calculating the live debounce hash.
     let with = build_narratives_input_components(&news);
     assert!(!with.contains("Prior story"));
     assert!(!with.contains("STORY:"));

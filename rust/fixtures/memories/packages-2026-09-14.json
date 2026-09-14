@@ -1,0 +1,759 @@
+[
+  {
+    "context_bytes": 5640,
+    "context_chars": 5640,
+    "fingerprint": "1072bfa23ecf948758d28f82c5cd0f2c6d9365bcafe34045e03afa7ba8b11a03",
+    "package": {
+      "captured_at": "2026-09-14T21:48:00+00:00",
+      "captured_unix": 1789422480,
+      "diagnostics": [
+        "Database capture: 2026-09-14T21:44:37.594454+00:00; schema 251_team_colors. Web checks are a separate review overlay, not persisted metadata. Stored rating bundles predate migrations 252/253; their ranks were not reused."
+      ],
+      "entity": {
+        "entity_type": "player",
+        "id": 4592198,
+        "name": "Morgan Rogers",
+        "sport": "FOOTBALL"
+      },
+      "groups": [
+        {
+          "id": "Identity and reconciliation",
+          "qualifications": [
+            "Official Chelsea signing establishes the current club. The Villa roster projection is stale. Keep the Villa performance baseline attached to its own season/team; box-score history timestamps do not establish the transfer date."
+          ],
+          "records": [
+            {
+              "data": {
+                "league_id": 8,
+                "name": "Morgan Rogers",
+                "record_source": "roster",
+                "role": "Midfielder",
+                "team": "Aston Villa",
+                "team_id": 15
+              },
+              "observed_at": "2026-07-04T03:35:44.759962+00:00",
+              "observed_unix": 1783136145,
+              "section": "identity",
+              "sources": [
+                {
+                  "key": "FOOTBALL/player/4592198",
+                  "table": "players/player_current_identity"
+                }
+              ]
+            },
+            {
+              "data": {
+                "contract_end_year": 2033,
+                "effective_date": null,
+                "entity": "Morgan Rogers",
+                "from_team": "Aston Villa",
+                "from_team_id": 15,
+                "publication_date": null,
+                "role": "player",
+                "season": "2026/27",
+                "status": "club_announced_signing",
+                "to_team": "Chelsea",
+                "to_team_id": 18
+              },
+              "observed_at": "2026-09-14T21:48:00+00:00",
+              "observed_unix": 1789422480,
+              "section": "identity",
+              "sources": [
+                {
+                  "key": "https://www.chelseafc.com/en/news/article/morgan-rogers-signs-for-chelsea",
+                  "table": "official_web"
+                }
+              ]
+            },
+            {
+              "data": {
+                "date_semantics": "box-score ingestion boundaries, not signing/leaving dates",
+                "is_current": false,
+                "observed_from": "2026-04-18T19:59:04.170378+00:00",
+                "observed_until": "2026-09-07T00:30:06.153885+00:00",
+                "season": 2025,
+                "team": "Aston Villa",
+                "team_id": 15
+              },
+              "observed_at": "2026-04-18T19:59:04.170378+00:00",
+              "observed_unix": 1776542344,
+              "section": "identity",
+              "sources": [
+                {
+                  "key": "148",
+                  "table": "player_team_history"
+                }
+              ]
+            },
+            {
+              "data": {
+                "date_semantics": "box-score ingestion boundaries, not signing/leaving dates",
+                "is_current": true,
+                "observed_from": "2026-09-07T00:30:06.153885+00:00",
+                "observed_until": null,
+                "season": 2026,
+                "team": "Chelsea",
+                "team_id": 18
+              },
+              "observed_at": "2026-09-07T00:30:06.153885+00:00",
+              "observed_unix": 1788741006,
+              "section": "identity",
+              "sources": [
+                {
+                  "key": "42959",
+                  "table": "player_team_history"
+                }
+              ]
+            }
+          ],
+          "required": true
+        },
+        {
+          "id": "Sporting time",
+          "qualifications": [
+            "Reporting week, named competition round and entity participation are separate clocks. Schedule coverage is not assumed complete; unverified nominations cannot establish a fixture or stage."
+          ],
+          "records": [
+            {
+              "data": {
+                "clock_league_id": 8,
+                "ends_at": "2026-09-21T04:00:00+00:00",
+                "reporting_week": 7,
+                "season": 2026,
+                "sport": "FOOTBALL",
+                "starts_at": "2026-09-14T04:00:00+00:00"
+              },
+              "observed_at": null,
+              "observed_unix": null,
+              "section": "reporting_clock",
+              "sources": [
+                {
+                  "key": "FOOTBALL/2026/7",
+                  "table": "sports/season_weeks"
+                }
+              ]
+            },
+            {
+              "data": {
+                "announced_round": "Matchweek 4",
+                "competition": "Premier League",
+                "publication_date": "2026-09-07",
+                "qualification": "An appointed round establishes schedule context, not games played by this entity or a complete current table.",
+                "season": "2026/27"
+              },
+              "observed_at": "2026-09-14T21:48:00+00:00",
+              "observed_unix": 1789422480,
+              "section": "competition_clock",
+              "sources": [
+                {
+                  "key": "https://www.premierleague.com/en/news/4711668/match-officials-for-matchweek-4",
+                  "table": "official_web"
+                }
+              ]
+            },
+            {
+              "data": {
+                "first_stored_start": "2026-08-03T07:03:44+00:00",
+                "last_stored_start": "2026-09-14T00:38:04+00:00",
+                "league_id": 8,
+                "rounds": [
+                  null
+                ],
+                "rows": 87,
+                "season": 2026,
+                "unverified_rows": 87
+              },
+              "observed_at": "2026-09-14T09:46:40.714206+00:00",
+              "observed_unix": 1789379201,
+              "section": "competition_clock",
+              "sources": [
+                {
+                  "key": "FOOTBALL/8/2026",
+                  "table": "fixtures"
+                }
+              ]
+            }
+          ],
+          "required": true
+        },
+        {
+          "id": "Historical performance baseline",
+          "qualifications": [
+            "Historical production remains useful without a current rank. These unequal samples and different measurement keys do not establish an ability trend. Null is missing, not zero."
+          ],
+          "records": [
+            {
+              "data": {
+                "appearances": 37,
+                "league_id": 8,
+                "minutes": 3285.0,
+                "season": 2025,
+                "team_id": 15
+              },
+              "observed_at": "2026-06-13T13:46:46.98146+00:00",
+              "observed_unix": 1781358407,
+              "section": "participation_clock",
+              "sources": [
+                {
+                  "key": "FOOTBALL/4592198/2025/8",
+                  "table": "player_stats"
+                }
+              ]
+            },
+            {
+              "data": {
+                "assists": 6,
+                "basis": "season totals",
+                "goals": 10,
+                "league_id": 8,
+                "season": 2025,
+                "shots_on_target": 32,
+                "team_id": 15
+              },
+              "observed_at": "2026-06-13T13:46:46.98146+00:00",
+              "observed_unix": 1781358407,
+              "section": "established_history",
+              "sources": [
+                {
+                  "key": "FOOTBALL/4592198/2025/8",
+                  "table": "player_stats"
+                }
+              ]
+            }
+          ],
+          "required": true
+        },
+        {
+          "id": "Current statistical evidence",
+          "qualifications": [
+            "Historical production remains useful without a current rank. These unequal samples and different measurement keys do not establish an ability trend. Null is missing, not zero."
+          ],
+          "records": [
+            {
+              "data": {
+                "appearances": 1,
+                "league_id": 8,
+                "minutes": 90.0,
+                "season": 2026,
+                "team_id": 18
+              },
+              "observed_at": "2026-09-07T12:30:58.426055+00:00",
+              "observed_unix": 1788784258,
+              "section": "participation_clock",
+              "sources": [
+                {
+                  "key": "FOOTBALL/4592198/2026/8",
+                  "table": "player_stats"
+                }
+              ]
+            },
+            {
+              "data": {
+                "assists": 1,
+                "basis": "season totals",
+                "expected_assists": 1.01,
+                "expected_goals": 0.14,
+                "goals": null,
+                "league_id": 8,
+                "season": 2026,
+                "team_id": 18
+              },
+              "observed_at": "2026-09-07T12:30:58.426055+00:00",
+              "observed_unix": 1788784258,
+              "section": "present_evidence",
+              "sources": [
+                {
+                  "key": "FOOTBALL/4592198/2026/8",
+                  "table": "player_stats"
+                }
+              ]
+            }
+          ],
+          "required": true
+        }
+      ],
+      "mission": "scout",
+      "omissions": [
+        {
+          "group": "prior generated prose",
+          "reason": "not selected for these cases; no model-authored text promoted to factual memory",
+          "sources": []
+        }
+      ],
+      "unknowns": [
+        "The one-appearance stored sample does not establish current total appearances, fitness or why coverage is thin.",
+        "Exact transfer effective date is not established by the inspected official page.",
+        "Stored ranks lack measurement identity; no rank comparisons are supplied."
+      ],
+      "version": "memories-v1-preview"
+    },
+    "prompt": "Entity memories (memories-v1-preview) for FOOTBALL / player / 4592198: Morgan Rogers\nMission: Interpret current measurements against supported historical baselines, participation and personnel context.\nSnapshot: 2026-09-14T21:48:00+00:00 (current records; historical measurements retain their own seasons).\nReporting week is navigation, not competition stage. Established history is sourced; developing history is reported or unresolved; editorial memory is prior interpretation, never independent corroboration.\n\nIdentity and reconciliation\n{\"section\":\"identity\",\"sources\":[{\"table\":\"players/player_current_identity\",\"key\":\"FOOTBALL/player/4592198\"}],\"observed_at\":\"2026-07-04T03:35:44.759962+00:00\",\"observed_unix\":1783136145,\"data\":{\"league_id\":8,\"name\":\"Morgan Rogers\",\"record_source\":\"roster\",\"role\":\"Midfielder\",\"team\":\"Aston Villa\",\"team_id\":15}}\n{\"section\":\"identity\",\"sources\":[{\"table\":\"official_web\",\"key\":\"https://www.chelseafc.com/en/news/article/morgan-rogers-signs-for-chelsea\"}],\"observed_at\":\"2026-09-14T21:48:00+00:00\",\"observed_unix\":1789422480,\"data\":{\"contract_end_year\":2033,\"effective_date\":null,\"entity\":\"Morgan Rogers\",\"from_team\":\"Aston Villa\",\"from_team_id\":15,\"publication_date\":null,\"role\":\"player\",\"season\":\"2026/27\",\"status\":\"club_announced_signing\",\"to_team\":\"Chelsea\",\"to_team_id\":18}}\n{\"section\":\"identity\",\"sources\":[{\"table\":\"player_team_history\",\"key\":\"148\"}],\"observed_at\":\"2026-04-18T19:59:04.170378+00:00\",\"observed_unix\":1776542344,\"data\":{\"date_semantics\":\"box-score ingestion boundaries, not signing/leaving dates\",\"is_current\":false,\"observed_from\":\"2026-04-18T19:59:04.170378+00:00\",\"observed_until\":\"2026-09-07T00:30:06.153885+00:00\",\"season\":2025,\"team\":\"Aston Villa\",\"team_id\":15}}\n{\"section\":\"identity\",\"sources\":[{\"table\":\"player_team_history\",\"key\":\"42959\"}],\"observed_at\":\"2026-09-07T00:30:06.153885+00:00\",\"observed_unix\":1788741006,\"data\":{\"date_semantics\":\"box-score ingestion boundaries, not signing/leaving dates\",\"is_current\":true,\"observed_from\":\"2026-09-07T00:30:06.153885+00:00\",\"observed_until\":null,\"season\":2026,\"team\":\"Chelsea\",\"team_id\":18}}\nQualification: Official Chelsea signing establishes the current club. The Villa roster projection is stale. Keep the Villa performance baseline attached to its own season/team; box-score history timestamps do not establish the transfer date.\n\nSporting time\n{\"section\":\"reporting_clock\",\"sources\":[{\"table\":\"sports/season_weeks\",\"key\":\"FOOTBALL/2026/7\"}],\"observed_at\":null,\"observed_unix\":null,\"data\":{\"clock_league_id\":8,\"ends_at\":\"2026-09-21T04:00:00+00:00\",\"reporting_week\":7,\"season\":2026,\"sport\":\"FOOTBALL\",\"starts_at\":\"2026-09-14T04:00:00+00:00\"}}\n{\"section\":\"competition_clock\",\"sources\":[{\"table\":\"official_web\",\"key\":\"https://www.premierleague.com/en/news/4711668/match-officials-for-matchweek-4\"}],\"observed_at\":\"2026-09-14T21:48:00+00:00\",\"observed_unix\":1789422480,\"data\":{\"announced_round\":\"Matchweek 4\",\"competition\":\"Premier League\",\"publication_date\":\"2026-09-07\",\"qualification\":\"An appointed round establishes schedule context, not games played by this entity or a complete current table.\",\"season\":\"2026/27\"}}\n{\"section\":\"competition_clock\",\"sources\":[{\"table\":\"fixtures\",\"key\":\"FOOTBALL/8/2026\"}],\"observed_at\":\"2026-09-14T09:46:40.714206+00:00\",\"observed_unix\":1789379201,\"data\":{\"first_stored_start\":\"2026-08-03T07:03:44+00:00\",\"last_stored_start\":\"2026-09-14T00:38:04+00:00\",\"league_id\":8,\"rounds\":[null],\"rows\":87,\"season\":2026,\"unverified_rows\":87}}\nQualification: Reporting week, named competition round and entity participation are separate clocks. Schedule coverage is not assumed complete; unverified nominations cannot establish a fixture or stage.\n\nHistorical performance baseline\n{\"section\":\"participation_clock\",\"sources\":[{\"table\":\"player_stats\",\"key\":\"FOOTBALL/4592198/2025/8\"}],\"observed_at\":\"2026-06-13T13:46:46.98146+00:00\",\"observed_unix\":1781358407,\"data\":{\"appearances\":37,\"league_id\":8,\"minutes\":3285.0,\"season\":2025,\"team_id\":15}}\n{\"section\":\"established_history\",\"sources\":[{\"table\":\"player_stats\",\"key\":\"FOOTBALL/4592198/2025/8\"}],\"observed_at\":\"2026-06-13T13:46:46.98146+00:00\",\"observed_unix\":1781358407,\"data\":{\"assists\":6,\"basis\":\"season totals\",\"goals\":10,\"league_id\":8,\"season\":2025,\"shots_on_target\":32,\"team_id\":15}}\nQualification: Historical production remains useful without a current rank. These unequal samples and different measurement keys do not establish an ability trend. Null is missing, not zero.\n\nCurrent statistical evidence\n{\"section\":\"participation_clock\",\"sources\":[{\"table\":\"player_stats\",\"key\":\"FOOTBALL/4592198/2026/8\"}],\"observed_at\":\"2026-09-07T12:30:58.426055+00:00\",\"observed_unix\":1788784258,\"data\":{\"appearances\":1,\"league_id\":8,\"minutes\":90.0,\"season\":2026,\"team_id\":18}}\n{\"section\":\"present_evidence\",\"sources\":[{\"table\":\"player_stats\",\"key\":\"FOOTBALL/4592198/2026/8\"}],\"observed_at\":\"2026-09-07T12:30:58.426055+00:00\",\"observed_unix\":1788784258,\"data\":{\"assists\":1,\"basis\":\"season totals\",\"expected_assists\":1.01,\"expected_goals\":0.14,\"goals\":null,\"league_id\":8,\"season\":2026,\"team_id\":18}}\nQualification: Historical production remains useful without a current rank. These unequal samples and different measurement keys do not establish an ability trend. Null is missing, not zero.\nUnknown: The one-appearance stored sample does not establish current total appearances, fitness or why coverage is thin.\nUnknown: Exact transfer effective date is not established by the inspected official page.\nUnknown: Stored ranks lack measurement identity; no rank comparisons are supplied.\nSome candidate context was omitted; absence is not evidence of no history.\n",
+    "system": "You are The Scout: observant, direct and specific to the sport. Explain what the measured profile reveals about this entity, and what an opponent should take from it.\n\nRead skills in relation to one another, at the scale of the supplied sample and dates. A change in relative standing is not necessarily a change in ability. Sourced personnel and availability records can change the interpretation of the profile; distinguish confirmed facts from reports. Your judgment gives the measurements meaning, without supplying missing evidence.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with headline (the hook) and body (the paragraphs). Preserve paragraph breaks as escaped newlines."
+  },
+  {
+    "context_bytes": 7164,
+    "context_chars": 7164,
+    "fingerprint": "52b5c6d2ebbe634404deca435bc7d0ebe4584951a43d3ae7c422d8f7e046e43c",
+    "package": {
+      "captured_at": "2026-09-14T21:48:00+00:00",
+      "captured_unix": 1789422480,
+      "diagnostics": [
+        "Database capture: 2026-09-14T21:44:37.594454+00:00; schema 251_team_colors. Web checks are a separate review overlay, not persisted metadata. Stored rating bundles predate migrations 252/253; their ranks were not reused."
+      ],
+      "entity": {
+        "entity_type": "person",
+        "id": 11,
+        "name": "Andoni Iraola",
+        "sport": "FOOTBALL"
+      },
+      "groups": [
+        {
+          "id": "Identity and reconciliation",
+          "qualifications": [
+            "Official Liverpool appointment supports head coach at Liverpool. The active Athletic Club coach_of edges conflict with the official account of his playing career. These are database defects, not evidence of concurrent coaching jobs. The latest check returned unknown; its timestamp does not verify employment."
+          ],
+          "records": [
+            {
+              "data": {
+                "affiliation_note": "corrected 2026-09-06: manages Liverpool (news corpus, articles 585115/585118); was Athletic Club via wikidata playing-career seed",
+                "check_outcome": "adjudicated unknown",
+                "checked_at": "2026-09-14T07:40:15Z",
+                "name": "Andoni Iraola",
+                "role": "coach",
+                "team": "Liverpool",
+                "team_id": 8
+              },
+              "observed_at": null,
+              "observed_unix": null,
+              "section": "identity",
+              "sources": [
+                {
+                  "key": "FOOTBALL/person/11",
+                  "table": "persons"
+                }
+              ]
+            },
+            {
+              "data": {
+                "effective_date": null,
+                "entity": "Andoni Iraola",
+                "from_team": "AFC Bournemouth",
+                "publication_date": "2026-06-04",
+                "relevant_history": {
+                  "role": "player",
+                  "seasons": 12,
+                  "team": "Athletic Club"
+                },
+                "role": "head coach",
+                "season": "2026/27",
+                "status": "club_announced_appointment",
+                "to_team": "Liverpool",
+                "to_team_id": 8
+              },
+              "observed_at": "2026-09-14T21:48:00+00:00",
+              "observed_unix": 1789422480,
+              "section": "identity",
+              "sources": [
+                {
+                  "key": "https://www.liverpoolfc.com/news/liverpool-fc-appoint-andoni-iraola-new-head-coach",
+                  "table": "official_web"
+                }
+              ]
+            },
+            {
+              "data": {
+                "predicate": "coach_of",
+                "source_document_id": 66096,
+                "state": "active",
+                "team": "Athletic Club",
+                "team_id": 13258,
+                "valid_from": null,
+                "valid_to": null
+              },
+              "observed_at": "2026-09-05T03:04:23.497856+00:00",
+              "observed_unix": 1788577463,
+              "section": "identity",
+              "sources": [
+                {
+                  "key": "479",
+                  "table": "entity_relationships"
+                }
+              ]
+            },
+            {
+              "data": {
+                "predicate": "coach_of",
+                "source_document_id": 112,
+                "state": "active",
+                "team": "Athletic Club",
+                "team_id": 13258,
+                "valid_from": null,
+                "valid_to": null
+              },
+              "observed_at": "2026-08-05T05:55:42.961432+00:00",
+              "observed_unix": 1785909343,
+              "section": "identity",
+              "sources": [
+                {
+                  "key": "5",
+                  "table": "entity_relationships"
+                }
+              ]
+            }
+          ],
+          "required": true
+        },
+        {
+          "id": "Sporting time",
+          "qualifications": [
+            "Reporting week, named competition round and entity participation are separate clocks. Schedule coverage is not assumed complete; unverified nominations cannot establish a fixture or stage."
+          ],
+          "records": [
+            {
+              "data": {
+                "clock_league_id": 8,
+                "ends_at": "2026-09-21T04:00:00+00:00",
+                "reporting_week": 7,
+                "season": 2026,
+                "sport": "FOOTBALL",
+                "starts_at": "2026-09-14T04:00:00+00:00"
+              },
+              "observed_at": null,
+              "observed_unix": null,
+              "section": "reporting_clock",
+              "sources": [
+                {
+                  "key": "FOOTBALL/2026/7",
+                  "table": "sports/season_weeks"
+                }
+              ]
+            }
+          ],
+          "required": true
+        },
+        {
+          "id": "Recruitment subject and dated reporting",
+          "qualifications": [
+            "Article 145830 names Alex Scott as the recruit and Iraola as his prior coach. Co-mention with Chelsea does not establish a Chelsea move for Iraola. The September Liverpool reports support role context, not independent official confirmation.",
+            "Article 585118 has published_at later than fetched_at. Preserve both supplied times; do not invent exact event chronology from that record."
+          ],
+          "records": [
+            {
+              "data": {
+                "description": "Alex Scott: How Bournemouth midfielder wanted by Arsenal, Chelsea and Man Utd flourished under Andoni Iraola&nbsp;&nbsp;Sky Sports",
+                "duplicate_of": null,
+                "published_at": "2026-07-24T11:16:30+00:00",
+                "source": "Sky Sports",
+                "title": "Alex Scott: How Bournemouth midfielder wanted by Arsenal, Chelsea and Man Utd flourished under Andoni Iraola",
+                "url": "https://news.google.com/rss/articles/CBMi8wFBVV95cUxPRHFCdlQ5aW5sb3NJNmdLRDFZQ1ltd3h0Y0FTNmJRZ21kVU5YbkotTWdBV25oUW1KUEhleFNFeXNGdDdPMXpsUkZMajdkMm5Gakw0a2pSYVZtRjNZTXZIOTJpRmNYMW9OTktXODBmYlpWQk9KMER4X1ZmNldjNVNOcTRuZWszemxIb2tjeEhob25sLXRVQUVkZ25wTUdTazVzSGZuTEttTHRhakg2eE5ncU1CaTZlTkZSNkZDUXJVWFljcTZqekVyM1JPNDNfOWtvRy15WllLNDVLYW5HTGJ4NGF2XzlpWHllWmNEemNJM2RSSlU?oc=5"
+              },
+              "observed_at": "2026-07-24T16:10:38.489163+00:00",
+              "observed_unix": 1784909438,
+              "section": "developing_history",
+              "sources": [
+                {
+                  "key": "145830",
+                  "table": "news_articles"
+                }
+              ]
+            },
+            {
+              "data": {
+                "description": "Liverpool beat Ipswich as Isak goals hand Iraola first Premier League win Al Jazeera",
+                "duplicate_of": null,
+                "published_at": "2026-09-05T00:39:54+00:00",
+                "source": "Al Jazeera",
+                "title": "Liverpool beat Ipswich as Isak goals hand Iraola first Premier League win",
+                "url": "https://news.google.com/rss/articles/CBMitgFBVV95cUxNUnNVTmR4enR4TXNPRmZqbURseTRiUWJrbURTQVdDd1RsTnBucFJPcjBxYVhMUFJkZHRIQ3pReExLNVJjRDM1WS1ORjlvUEdCRGdFOWFjWXZtRmFvYldwRmJkNmx4cjc5RV9uakN3ZTdGbW1zUU5DTll4WkNwQlh1X3pMNVV1U09SeVktMXFyeGktTk4tclVxbE1LOHNiMUZlSDM3NUxtdUlNeXMtUVI4R1E1ZTdVZ9IBuwFBVV95cUxNY2d3MjFWdmFxcldvQlNkbERnVUhkU0RPTFdabHlVNUpRcFJaVzA3eGNmUTNrYTV6LVVzTEhXQzdFckZCV1JRWms4NUdySXBXSS15RjYyQy15SDItdllZd1JtVEZvd1d5Y3YzVzlUZUlmSG9vSDU3WEs1cndNWlAzNTZPNmNXZkM0aXdPakpYMEVaMGRjb3JGeXVqNWRSRVRfVW9LY1NCdVZrekFYOW42MkJQUUhqSklneUVJ?oc=5"
+              },
+              "observed_at": "2026-09-05T06:01:53.778309+00:00",
+              "observed_unix": 1788588114,
+              "section": "developing_history",
+              "sources": [
+                {
+                  "key": "585115",
+                  "table": "news_articles"
+                }
+              ]
+            },
+            {
+              "data": {
+                "description": "Ipswich 0-2 Liverpool: Andoni Iraola up and running as Reds boss with Alexander Isak at the double Sky Sports",
+                "duplicate_of": null,
+                "published_at": "2026-09-05T21:37:41+00:00",
+                "source": "Sky Sports",
+                "title": "Ipswich 0-2 Liverpool: Andoni Iraola up and running as Reds boss with Alexander Isak at the double",
+                "url": "https://news.google.com/rss/articles/CBMi5wFBVV95cUxNVi1Jd3luRTBVX1FkOWduOEVEc29TaXNYVjZRQURUSHBrdGtibWhtTUsydFRoTzdPUS00aHNidDhiclF5UWVMdkdoeG44SlFEOVV2b295dERRZEJDQVlxU0lvN25DSjRNWlJRQ2pvNU5hcVozd09GaERXN1d2UVF0NlJONkZ5MlFlN01GdW9jR3dWTVcwUkZKUHdiWnBMUmVHc050Y05EaVVlSmt1Yzhmd0FBWnlrdFhKalJiVzBScDFRUnNmYUlyWGlTZ1RNaC1reXdUZ3ZrMTdHRVZYN2s4RjgyVjJQTG8?oc=5"
+              },
+              "observed_at": "2026-09-05T06:01:53.778309+00:00",
+              "observed_unix": 1788588114,
+              "section": "developing_history",
+              "sources": [
+                {
+                  "key": "585118",
+                  "table": "news_articles"
+                }
+              ]
+            }
+          ],
+          "required": true
+        },
+        {
+          "id": "Relevant playing history",
+          "qualifications": [
+            "Wikidata precision 9 is year precision, not a January 1 signing date. Playing membership does not establish current coaching employment."
+          ],
+          "records": [
+            {
+              "data": {
+                "end": {
+                  "after": 0,
+                  "before": 0,
+                  "calendarmodel": "http://www.wikidata.org/entity/Q1985727",
+                  "precision": 9,
+                  "time": "+2015-01-01T00:00:00Z",
+                  "timezone": 0
+                },
+                "relationship": "playing membership",
+                "start": {
+                  "after": 0,
+                  "before": 0,
+                  "calendarmodel": "http://www.wikidata.org/entity/Q1985727",
+                  "precision": 9,
+                  "time": "+2003-01-01T00:00:00Z",
+                  "timezone": 0
+                },
+                "statement_id": "q317216$33FFCC4A-0D28-4AFE-86B4-1DC7EE65C87A",
+                "team": "Athletic Club",
+                "wikidata_team": "Q8687"
+              },
+              "observed_at": "2026-09-05T03:04:21.39349+00:00",
+              "observed_unix": 1788577461,
+              "section": "established_history",
+              "sources": [
+                {
+                  "key": "66096/P54/q317216$33FFCC4A-0D28-4AFE-86B4-1DC7EE65C87A",
+                  "table": "source_documents"
+                }
+              ]
+            }
+          ],
+          "required": false
+        }
+      ],
+      "mission": "insider",
+      "omissions": [
+        {
+          "group": "other Athletic Club career spell",
+          "reason": "adult playing spell suffices for role disambiguation",
+          "sources": [
+            {
+              "key": "66096/P54/Q317216$550e4188-4a40-74c7-7df7-c396a0330dda",
+              "table": "source_documents"
+            }
+          ]
+        },
+        {
+          "group": "repeated coach role fact",
+          "reason": "role already retained in identity and official appointment; repeated imports are not new corroboration",
+          "sources": [
+            {
+              "key": "14",
+              "table": "entity_facts"
+            }
+          ]
+        },
+        {
+          "group": "repeated coach role fact",
+          "reason": "role already retained in identity and official appointment; repeated imports are not new corroboration",
+          "sources": [
+            {
+              "key": "1721",
+              "table": "entity_facts"
+            }
+          ]
+        },
+        {
+          "group": "prior generated prose",
+          "reason": "not selected for these cases; no model-authored text promoted to factual memory",
+          "sources": []
+        }
+      ],
+      "unknowns": [
+        "Exact employment start date is not the June 4 announcement date; the source establishes the 2026/27 appointment."
+      ],
+      "version": "memories-v1-preview"
+    },
+    "prompt": "Entity memories (memories-v1-preview) for FOOTBALL / person / 11: Andoni Iraola\nMission: Assess the exact proposed relationship using roles, affiliations and this story's progression.\nSnapshot: 2026-09-14T21:48:00+00:00 (current records; historical measurements retain their own seasons).\nReporting week is navigation, not competition stage. Established history is sourced; developing history is reported or unresolved; editorial memory is prior interpretation, never independent corroboration.\n\nIdentity and reconciliation\n{\"section\":\"identity\",\"sources\":[{\"table\":\"persons\",\"key\":\"FOOTBALL/person/11\"}],\"observed_at\":null,\"observed_unix\":null,\"data\":{\"affiliation_note\":\"corrected 2026-09-06: manages Liverpool (news corpus, articles 585115/585118); was Athletic Club via wikidata playing-career seed\",\"check_outcome\":\"adjudicated unknown\",\"checked_at\":\"2026-09-14T07:40:15Z\",\"name\":\"Andoni Iraola\",\"role\":\"coach\",\"team\":\"Liverpool\",\"team_id\":8}}\n{\"section\":\"identity\",\"sources\":[{\"table\":\"official_web\",\"key\":\"https://www.liverpoolfc.com/news/liverpool-fc-appoint-andoni-iraola-new-head-coach\"}],\"observed_at\":\"2026-09-14T21:48:00+00:00\",\"observed_unix\":1789422480,\"data\":{\"effective_date\":null,\"entity\":\"Andoni Iraola\",\"from_team\":\"AFC Bournemouth\",\"publication_date\":\"2026-06-04\",\"relevant_history\":{\"role\":\"player\",\"seasons\":12,\"team\":\"Athletic Club\"},\"role\":\"head coach\",\"season\":\"2026/27\",\"status\":\"club_announced_appointment\",\"to_team\":\"Liverpool\",\"to_team_id\":8}}\n{\"section\":\"identity\",\"sources\":[{\"table\":\"entity_relationships\",\"key\":\"479\"}],\"observed_at\":\"2026-09-05T03:04:23.497856+00:00\",\"observed_unix\":1788577463,\"data\":{\"predicate\":\"coach_of\",\"source_document_id\":66096,\"state\":\"active\",\"team\":\"Athletic Club\",\"team_id\":13258,\"valid_from\":null,\"valid_to\":null}}\n{\"section\":\"identity\",\"sources\":[{\"table\":\"entity_relationships\",\"key\":\"5\"}],\"observed_at\":\"2026-08-05T05:55:42.961432+00:00\",\"observed_unix\":1785909343,\"data\":{\"predicate\":\"coach_of\",\"source_document_id\":112,\"state\":\"active\",\"team\":\"Athletic Club\",\"team_id\":13258,\"valid_from\":null,\"valid_to\":null}}\nQualification: Official Liverpool appointment supports head coach at Liverpool. The active Athletic Club coach_of edges conflict with the official account of his playing career. These are database defects, not evidence of concurrent coaching jobs. The latest check returned unknown; its timestamp does not verify employment.\n\nSporting time\n{\"section\":\"reporting_clock\",\"sources\":[{\"table\":\"sports/season_weeks\",\"key\":\"FOOTBALL/2026/7\"}],\"observed_at\":null,\"observed_unix\":null,\"data\":{\"clock_league_id\":8,\"ends_at\":\"2026-09-21T04:00:00+00:00\",\"reporting_week\":7,\"season\":2026,\"sport\":\"FOOTBALL\",\"starts_at\":\"2026-09-14T04:00:00+00:00\"}}\nQualification: Reporting week, named competition round and entity participation are separate clocks. Schedule coverage is not assumed complete; unverified nominations cannot establish a fixture or stage.\n\nRecruitment subject and dated reporting\n{\"section\":\"developing_history\",\"sources\":[{\"table\":\"news_articles\",\"key\":\"145830\"}],\"observed_at\":\"2026-07-24T16:10:38.489163+00:00\",\"observed_unix\":1784909438,\"data\":{\"description\":\"Alex Scott: How Bournemouth midfielder wanted by Arsenal, Chelsea and Man Utd flourished under Andoni Iraola&nbsp;&nbsp;Sky Sports\",\"duplicate_of\":null,\"published_at\":\"2026-07-24T11:16:30+00:00\",\"source\":\"Sky Sports\",\"title\":\"Alex Scott: How Bournemouth midfielder wanted by Arsenal, Chelsea and Man Utd flourished under Andoni Iraola\",\"url\":\"https://news.google.com/rss/articles/CBMi8wFBVV95cUxPRHFCdlQ5aW5sb3NJNmdLRDFZQ1ltd3h0Y0FTNmJRZ21kVU5YbkotTWdBV25oUW1KUEhleFNFeXNGdDdPMXpsUkZMajdkMm5Gakw0a2pSYVZtRjNZTXZIOTJpRmNYMW9OTktXODBmYlpWQk9KMER4X1ZmNldjNVNOcTRuZWszemxIb2tjeEhob25sLXRVQUVkZ25wTUdTazVzSGZuTEttTHRhakg2eE5ncU1CaTZlTkZSNkZDUXJVWFljcTZqekVyM1JPNDNfOWtvRy15WllLNDVLYW5HTGJ4NGF2XzlpWHllWmNEemNJM2RSSlU?oc=5\"}}\n{\"section\":\"developing_history\",\"sources\":[{\"table\":\"news_articles\",\"key\":\"585115\"}],\"observed_at\":\"2026-09-05T06:01:53.778309+00:00\",\"observed_unix\":1788588114,\"data\":{\"description\":\"Liverpool beat Ipswich as Isak goals hand Iraola first Premier League win Al Jazeera\",\"duplicate_of\":null,\"published_at\":\"2026-09-05T00:39:54+00:00\",\"source\":\"Al Jazeera\",\"title\":\"Liverpool beat Ipswich as Isak goals hand Iraola first Premier League win\",\"url\":\"https://news.google.com/rss/articles/CBMitgFBVV95cUxNUnNVTmR4enR4TXNPRmZqbURseTRiUWJrbURTQVdDd1RsTnBucFJPcjBxYVhMUFJkZHRIQ3pReExLNVJjRDM1WS1ORjlvUEdCRGdFOWFjWXZtRmFvYldwRmJkNmx4cjc5RV9uakN3ZTdGbW1zUU5DTll4WkNwQlh1X3pMNVV1U09SeVktMXFyeGktTk4tclVxbE1LOHNiMUZlSDM3NUxtdUlNeXMtUVI4R1E1ZTdVZ9IBuwFBVV95cUxNY2d3MjFWdmFxcldvQlNkbERnVUhkU0RPTFdabHlVNUpRcFJaVzA3eGNmUTNrYTV6LVVzTEhXQzdFckZCV1JRWms4NUdySXBXSS15RjYyQy15SDItdllZd1JtVEZvd1d5Y3YzVzlUZUlmSG9vSDU3WEs1cndNWlAzNTZPNmNXZkM0aXdPakpYMEVaMGRjb3JGeXVqNWRSRVRfVW9LY1NCdVZrekFYOW42MkJQUUhqSklneUVJ?oc=5\"}}\n{\"section\":\"developing_history\",\"sources\":[{\"table\":\"news_articles\",\"key\":\"585118\"}],\"observed_at\":\"2026-09-05T06:01:53.778309+00:00\",\"observed_unix\":1788588114,\"data\":{\"description\":\"Ipswich 0-2 Liverpool: Andoni Iraola up and running as Reds boss with Alexander Isak at the double Sky Sports\",\"duplicate_of\":null,\"published_at\":\"2026-09-05T21:37:41+00:00\",\"source\":\"Sky Sports\",\"title\":\"Ipswich 0-2 Liverpool: Andoni Iraola up and running as Reds boss with Alexander Isak at the double\",\"url\":\"https://news.google.com/rss/articles/CBMi5wFBVV95cUxNVi1Jd3luRTBVX1FkOWduOEVEc29TaXNYVjZRQURUSHBrdGtibWhtTUsydFRoTzdPUS00aHNidDhiclF5UWVMdkdoeG44SlFEOVV2b295dERRZEJDQVlxU0lvN25DSjRNWlJRQ2pvNU5hcVozd09GaERXN1d2UVF0NlJONkZ5MlFlN01GdW9jR3dWTVcwUkZKUHdiWnBMUmVHc050Y05EaVVlSmt1Yzhmd0FBWnlrdFhKalJiVzBScDFRUnNmYUlyWGlTZ1RNaC1reXdUZ3ZrMTdHRVZYN2s4RjgyVjJQTG8?oc=5\"}}\nQualification: Article 145830 names Alex Scott as the recruit and Iraola as his prior coach. Co-mention with Chelsea does not establish a Chelsea move for Iraola. The September Liverpool reports support role context, not independent official confirmation.\nQualification: Article 585118 has published_at later than fetched_at. Preserve both supplied times; do not invent exact event chronology from that record.\n\nRelevant playing history\n{\"section\":\"established_history\",\"sources\":[{\"table\":\"source_documents\",\"key\":\"66096/P54/q317216$33FFCC4A-0D28-4AFE-86B4-1DC7EE65C87A\"}],\"observed_at\":\"2026-09-05T03:04:21.39349+00:00\",\"observed_unix\":1788577461,\"data\":{\"end\":{\"after\":0,\"before\":0,\"calendarmodel\":\"http://www.wikidata.org/entity/Q1985727\",\"precision\":9,\"time\":\"+2015-01-01T00:00:00Z\",\"timezone\":0},\"relationship\":\"playing membership\",\"start\":{\"after\":0,\"before\":0,\"calendarmodel\":\"http://www.wikidata.org/entity/Q1985727\",\"precision\":9,\"time\":\"+2003-01-01T00:00:00Z\",\"timezone\":0},\"statement_id\":\"q317216$33FFCC4A-0D28-4AFE-86B4-1DC7EE65C87A\",\"team\":\"Athletic Club\",\"wikidata_team\":\"Q8687\"}}\nQualification: Wikidata precision 9 is year precision, not a January 1 signing date. Playing membership does not establish current coaching employment.\nUnknown: Exact employment start date is not the June 4 announcement date; the source establishes the 2026/27 appointment.\nSome candidate context was omitted; absence is not evidence of no history.\n",
+    "system": "You are The Insider, an expert interpreting the transfer and trade news around this entity. Your voice is informed, alert and measured. Explain which developments matter, where the reported moves stand, and what the available history adds to the reading.\n\nYour authority comes from careful use of the supplied corpus. Connect current reports with earlier interest, negotiations, denials and outcomes when those are provided. Weigh concrete developments and corroboration alongside the reported stage. Source reliability is an emerging record: use supplied track records in proportion to their evidence and sample size. When that history is absent, assess the reports on the evidence shown. Preserve uncertainty about unconfirmed moves.\n\nYour score measures activity: one is a quiet wire, fifty steady credible interest, eighty-five or more deadline-day chaos. A well-supported imminent deal can matter more than many speculative mentions. Let the current evidence determine the reading; earlier wraps provide continuity.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with read containing the body, headline containing the hook, and score containing an integer from 1 to 99. Preserve paragraph breaks inside read as escaped newlines."
+  },
+  {
+    "context_bytes": 3061,
+    "context_chars": 3061,
+    "fingerprint": "b057cb950176ef07e7e5f666ffc0e181b4286c325b5c7052a3bed45199fa6b6c",
+    "package": {
+      "captured_at": "2026-09-14T21:48:00+00:00",
+      "captured_unix": 1789422480,
+      "diagnostics": [
+        "Database capture: 2026-09-14T21:44:37.594454+00:00; schema 251_team_colors. Web checks are a separate review overlay, not persisted metadata. Stored rating bundles predate migrations 252/253; their ranks were not reused."
+      ],
+      "entity": {
+        "entity_type": "team",
+        "id": 25,
+        "name": "Detroit Lions",
+        "sport": "NFL"
+      },
+      "groups": [
+        {
+          "id": "Identity and reconciliation",
+          "qualifications": [
+            "Identity is a house record; fixture participation supplies the competition scope."
+          ],
+          "records": [
+            {
+              "data": {
+                "league_id": null,
+                "name": "Detroit Lions"
+              },
+              "observed_at": "2026-08-01T12:12:08.474069+00:00",
+              "observed_unix": 1785586328,
+              "section": "identity",
+              "sources": [
+                {
+                  "key": "NFL/team/25",
+                  "table": "teams"
+                }
+              ]
+            }
+          ],
+          "required": true
+        },
+        {
+          "id": "Sporting time",
+          "qualifications": [
+            "Reporting week, named competition round and entity participation are separate clocks. Schedule coverage is not assumed complete; unverified nominations cannot establish a fixture or stage."
+          ],
+          "records": [
+            {
+              "data": {
+                "clock_league_id": null,
+                "ends_at": "2026-09-21T04:00:00+00:00",
+                "reporting_week": 2,
+                "season": 2026,
+                "sport": "NFL",
+                "starts_at": "2026-09-14T04:00:00+00:00"
+              },
+              "observed_at": null,
+              "observed_unix": null,
+              "section": "reporting_clock",
+              "sources": [
+                {
+                  "key": "NFL/2026/2",
+                  "table": "sports/season_weeks"
+                }
+              ]
+            },
+            {
+              "data": {
+                "competition": "NFL",
+                "events": [
+                  {
+                    "date": "2026-09-13",
+                    "opponent": "New Orleans Saints",
+                    "time": "13:00 America/Detroit",
+                    "venue": "home",
+                    "week": 1
+                  },
+                  {
+                    "date": "2026-09-17",
+                    "opponent": "Buffalo Bills",
+                    "time": "20:15 America/Detroit",
+                    "venue": "away",
+                    "week": 2
+                  }
+                ],
+                "publication_date": "2026-05-14",
+                "qualification": "Announced schedule; no inference of results, fitness or complete participation.",
+                "season": 2026,
+                "stage": "regular season"
+              },
+              "observed_at": "2026-09-14T21:48:00+00:00",
+              "observed_unix": 1789422480,
+              "section": "competition_clock",
+              "sources": [
+                {
+                  "key": "https://www.detroitlions.com/news/lions-announce-2026-schedule",
+                  "table": "official_web"
+                }
+              ]
+            },
+            {
+              "data": {
+                "away_score": 30,
+                "away_team": "New Orleans Saints",
+                "home_score": 31,
+                "home_team": "Detroit Lions",
+                "league_id": 0,
+                "meta": {},
+                "round": "Week 1",
+                "season": 2026,
+                "sport": "NFL",
+                "start_time": "2026-09-13T17:00:00+00:00",
+                "status": "seeded"
+              },
+              "observed_at": "2026-09-13T23:30:02.436489+00:00",
+              "observed_unix": 1789342202,
+              "section": "competition_clock",
+              "sources": [
+                {
+                  "key": "44829",
+                  "table": "fixtures"
+                }
+              ]
+            },
+            {
+              "data": {
+                "away_score": null,
+                "away_team": "Detroit Lions",
+                "home_score": null,
+                "home_team": "Buffalo Bills",
+                "league_id": 0,
+                "meta": {},
+                "round": "Week 2",
+                "season": 2026,
+                "sport": "NFL",
+                "start_time": "2026-09-18T00:15:00+00:00",
+                "status": "scheduled"
+              },
+              "observed_at": "2026-09-05T05:30:00.566058+00:00",
+              "observed_unix": 1788586201,
+              "section": "competition_clock",
+              "sources": [
+                {
+                  "key": "44842",
+                  "table": "fixtures"
+                }
+              ]
+            }
+          ],
+          "required": true
+        }
+      ],
+      "mission": "journalist",
+      "omissions": [
+        {
+          "group": "prior generated prose",
+          "reason": "not selected for these cases; no model-authored text promoted to factual memory",
+          "sources": []
+        }
+      ],
+      "unknowns": [
+        "The selected fixture results are database records. The official schedule verifies dates, opponents and regular-season stage, not the recorded score.",
+        "No availability or player participation record was selected; this does not establish a healthy squad."
+      ],
+      "version": "memories-v1-preview"
+    },
+    "prompt": "Entity memories (memories-v1-preview) for NFL / team / 25: Detroit Lions\nMission: Identify consequential developments using attributed chronology and unresolved threads.\nSnapshot: 2026-09-14T21:48:00+00:00 (current records; historical measurements retain their own seasons).\nReporting week is navigation, not competition stage. Established history is sourced; developing history is reported or unresolved; editorial memory is prior interpretation, never independent corroboration.\n\nIdentity and reconciliation\n{\"section\":\"identity\",\"sources\":[{\"table\":\"teams\",\"key\":\"NFL/team/25\"}],\"observed_at\":\"2026-08-01T12:12:08.474069+00:00\",\"observed_unix\":1785586328,\"data\":{\"league_id\":null,\"name\":\"Detroit Lions\"}}\nQualification: Identity is a house record; fixture participation supplies the competition scope.\n\nSporting time\n{\"section\":\"reporting_clock\",\"sources\":[{\"table\":\"sports/season_weeks\",\"key\":\"NFL/2026/2\"}],\"observed_at\":null,\"observed_unix\":null,\"data\":{\"clock_league_id\":null,\"ends_at\":\"2026-09-21T04:00:00+00:00\",\"reporting_week\":2,\"season\":2026,\"sport\":\"NFL\",\"starts_at\":\"2026-09-14T04:00:00+00:00\"}}\n{\"section\":\"competition_clock\",\"sources\":[{\"table\":\"official_web\",\"key\":\"https://www.detroitlions.com/news/lions-announce-2026-schedule\"}],\"observed_at\":\"2026-09-14T21:48:00+00:00\",\"observed_unix\":1789422480,\"data\":{\"competition\":\"NFL\",\"events\":[{\"date\":\"2026-09-13\",\"opponent\":\"New Orleans Saints\",\"time\":\"13:00 America/Detroit\",\"venue\":\"home\",\"week\":1},{\"date\":\"2026-09-17\",\"opponent\":\"Buffalo Bills\",\"time\":\"20:15 America/Detroit\",\"venue\":\"away\",\"week\":2}],\"publication_date\":\"2026-05-14\",\"qualification\":\"Announced schedule; no inference of results, fitness or complete participation.\",\"season\":2026,\"stage\":\"regular season\"}}\n{\"section\":\"competition_clock\",\"sources\":[{\"table\":\"fixtures\",\"key\":\"44829\"}],\"observed_at\":\"2026-09-13T23:30:02.436489+00:00\",\"observed_unix\":1789342202,\"data\":{\"away_score\":30,\"away_team\":\"New Orleans Saints\",\"home_score\":31,\"home_team\":\"Detroit Lions\",\"league_id\":0,\"meta\":{},\"round\":\"Week 1\",\"season\":2026,\"sport\":\"NFL\",\"start_time\":\"2026-09-13T17:00:00+00:00\",\"status\":\"seeded\"}}\n{\"section\":\"competition_clock\",\"sources\":[{\"table\":\"fixtures\",\"key\":\"44842\"}],\"observed_at\":\"2026-09-05T05:30:00.566058+00:00\",\"observed_unix\":1788586201,\"data\":{\"away_score\":null,\"away_team\":\"Detroit Lions\",\"home_score\":null,\"home_team\":\"Buffalo Bills\",\"league_id\":0,\"meta\":{},\"round\":\"Week 2\",\"season\":2026,\"sport\":\"NFL\",\"start_time\":\"2026-09-18T00:15:00+00:00\",\"status\":\"scheduled\"}}\nQualification: Reporting week, named competition round and entity participation are separate clocks. Schedule coverage is not assumed complete; unverified nominations cannot establish a fixture or stage.\nUnknown: The selected fixture results are database records. The official schedule verifies dates, opponents and regular-season stage, not the recorded score.\nUnknown: No availability or player participation record was selected; this does not establish a healthy squad.\nSome candidate context was omitted; absence is not evidence of no history.\n",
+    "system": "You are The Journalist, a beat reporter informing the reader about the developing stories around this entity. Your voice is clear, factual and attentive to what has changed. Explain what is happening now, how it developed, and where the story stands. Let reported events establish its significance.\n\nConnect new developments with the supplied history. Distinguish an initial report from confirmation, a complication, a resolution or a story that has stalled. Name the people involved and credit the reporting. Keep confirmed facts, attributed claims and unresolved questions distinct. Multiple reports from the same source do not establish independent corroboration. A quiet cycle can be the whole finding.\n\nYour score measures news activity: one is silent, fifty a steady beat, eighty-five or more a frenzy. Use the supplied activity signals and current reporting to support the score. The edition should leave the reader informed about the stories and their progression.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with narratives, headline and card_score. Each narrative has a short specific title that names this entity as supplied, a body following the shared form, and articles containing its supporting input article numbers. Select relevant stories, most consequential first; an empty narratives array is valid. The headline is the hook for the whole edition. The card_score is an integer from 1 to 99. Preserve paragraph breaks inside body strings as escaped newlines."
+  }
+]

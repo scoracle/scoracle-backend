@@ -28,9 +28,9 @@
 
 use std::path::Path;
 
-use scoracle_cognition::eval_tasks::{Expect, Fixture};
+use scoracle_cognition::evaluation::tasks::{Expect, Fixture};
 use scoracle_cognition::junctions::influencer::{
-    build_sentiment_prompt, PrevVibe, VIBE_PROMPT_VERSION, VIBE_SYSTEM_PROMPT,
+    build_sentiment_prompt, VIBE_PROMPT_VERSION, VIBE_SYSTEM_PROMPT,
 };
 
 struct Story {
@@ -48,6 +48,11 @@ fn story(title: &str, body: &str) -> Story {
 /// Build one hand-authored fixture: render the exact live prompt (optionally with the
 /// previous-read prior and the relational memory card), pin temp 0 for reproducibility, and
 /// attach the property rubric.
+struct PrevVibe {
+    sentiment: i32,
+    vibe_prompt: String,
+}
+
 fn fixture(
     name: &str,
     entity: (&str, &str, &str),
@@ -68,6 +73,19 @@ fn fixture(
             },
         )
         .collect();
+    let memory = [
+        previous.map(|p| {
+            format!(
+                "Our previous interpretation (not new evidence): {} (score {})",
+                p.vibe_prompt, p.sentiment
+            )
+        }),
+        memory.map(str::to_string),
+    ]
+    .into_iter()
+    .flatten()
+    .collect::<Vec<_>>()
+    .join("\n");
     Fixture {
         name: name.to_string(),
         task: "vibe".to_string(),
@@ -78,9 +96,7 @@ fn fixture(
             entity_name,
             sport,
             &packets,
-            previous,
-            memory,
-            None,
+            Some(&memory),
         ),
         temperature: 0.0,
         expect,

@@ -22,10 +22,10 @@
 //!   factsweep -person 57 -sport FOOTBALL [-dry-run]      # one person, on demand
 
 use anyhow::{anyhow, Result};
-use scoracle_cognition::config::Config;
-use scoracle_cognition::db;
-use scoracle_cognition::ollama::GenerateOptions;
-use scoracle_cognition::route::{Role, Router};
+use scoracle_cognition::runtime::config::Config;
+use scoracle_cognition::runtime::db;
+use scoracle_cognition::runtime::providers::ollama::GenerateOptions;
+use scoracle_cognition::runtime::route::{Role, Router};
 use sqlx::{PgPool, Row};
 use std::collections::HashMap;
 

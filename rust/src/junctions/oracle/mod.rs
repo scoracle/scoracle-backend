@@ -4,25 +4,26 @@
 //! With no pillars, the stage writes a NULL marker without a model call. Previous output may
 //! provide prompt continuity but never enters the input hash.
 
-use crate::corpus::{load_transfer_heat, HeatItem};
-use crate::harness::{EntityKey, Generation, GenerationCall, Harness, Parser};
-use crate::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
-use crate::ollama::GenerateOptions;
-use crate::route::Role;
-use crate::stage::StageHandler;
-use crate::trajectory::DEFAULT_TRAJECTORY;
-use crate::util::{hash_components, round1, truncate};
-use crate::work::{self, Item, Stage};
+use crate::composition::memories::{self, MemoryRequest, Mission};
+
+use crate::evidence::corpus::{load_transfer_heat, HeatItem};
+use crate::evidence::trajectory::DEFAULT_TRAJECTORY;
+use crate::runtime::harness::{EntityKey, Generation, GenerationCall, Harness, Parser};
+use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
+use crate::runtime::providers::ollama::GenerateOptions;
+use crate::runtime::route::Role;
+use crate::runtime::stage::StageHandler;
+use crate::runtime::util::{hash_components, round1, truncate};
+use crate::runtime::work::{self, Item, Stage};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
 use sqlx::{PgPool, Row};
 use tracing::debug;
 
 mod inputs;
-pub mod prompt;
-pub use crate::junctions::form::oracle_format_schema;
+pub use crate::composition::characters::oracle::{ORACLE_PROMPT_VERSION, ORACLE_SYSTEM_PROMPT};
+pub use crate::composition::form::oracle_format_schema;
 pub use inputs::{build_crown_prompt, CROWN_CARD_BODY_CAP};
-pub use prompt::{ORACLE_PROMPT_VERSION, ORACLE_SYSTEM_PROMPT};
 
 /// Output contract captured separately from the prompt version in the diagnostic ledger.
 pub const ORACLE_OUTPUT_CONTRACT_VERSION: &str = "oracle-reading-v2";
@@ -757,9 +758,9 @@ pub fn parse_crown_reply(raw: &str) -> Option<CrownReply> {
     let v = parsed?;
     let score = parse_crown_score(v.get("score")?)?;
     let reading = v.get("reading")?.as_str()?.trim();
-    let reading = crate::junctions::form::normalize_body(reading);
+    let reading = crate::composition::form::normalize_body(reading);
     // Served prose takes the shared scrub.
-    let reading = crate::guards::clean_served_prose(&reading);
+    let reading = crate::composition::guards::clean_served_prose(&reading);
     if reading.is_empty() {
         return None;
     }
@@ -801,7 +802,7 @@ fn escape_string_controls(span: &str) -> String {
 }
 
 // Re-exported for callers that treat it as part of the Oracle surface.
-pub use crate::guards::count_sentences;
+pub use crate::composition::guards::count_sentences;
 
 /// CrownParser is the crown stage's `Parser` plug-in behind the `Parser<T>` seam. It never returns
 /// the fail-closed `Ok(None)` — the crown's only fail-closed path is the pre-model no-pillar marker;
@@ -812,20 +813,21 @@ impl Parser<CrownReply> for CrownParser {
     fn parse(&self, raw: &str) -> Result<Option<CrownReply>> {
         match parse_crown_reply(raw) {
             Some(mut r) => {
-                crate::junctions::form::validate_body(&r.reading)?;
-                crate::junctions::form::validate_hook(r.headline.as_deref())?;
+                crate::composition::form::validate_body(&r.reading)?;
+                crate::composition::form::validate_hook(r.headline.as_deref())?;
                 // Global served-prose invariants fail closed and retry the item.
-                if crate::guards::has_bookkeeping_citation(&r.reading) {
+                if crate::composition::guards::has_bookkeeping_citation(&r.reading) {
                     tracing::warn!(guard = "bookkeeping_citation", "reading rejected");
                     bail!("crown: reading carries a bookkeeping citation");
                 }
                 // Optional titles fail open: salvage or drop, never reject the reading.
-                r.headline = crate::guards::settle_title("oracle", r.headline.as_deref());
-                if let Some(p) = crate::guards::first_product_name(&r.reading) {
+                r.headline =
+                    crate::composition::guards::settle_title("oracle", r.headline.as_deref());
+                if let Some(p) = crate::composition::guards::first_product_name(&r.reading) {
                     tracing::warn!(guard = "product_name", name = p, "reading rejected");
                     bail!("crown: reading names product {p:?}");
                 }
-                if crate::guards::has_foreign_script(&r.reading) {
+                if crate::composition::guards::has_foreign_script(&r.reading) {
                     tracing::warn!(guard = "foreign_script", "reading rejected");
                     bail!("crown: reading carries a foreign-script run");
                 }
@@ -977,15 +979,19 @@ impl StageHandler for SigilHandler {
         2
     }
     fn slot_group(&self) -> Option<(&'static str, usize)> {
-        Some(crate::stage::MAC_SLOTS)
+        Some(crate::runtime::stage::MAC_SLOTS)
     }
 
     async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {
         let entity_id = item.entity_id_i32()?;
         // nameOf: the name lookup uses the queue's raw sport value (drainSigil → corpus lookup).
-        let name =
-            crate::corpus::lookup_entity_name(&hx.pool, &item.entity_type, entity_id, &item.sport)
-                .await?;
+        let name = crate::evidence::corpus::lookup_entity_name(
+            &hx.pool,
+            &item.entity_type,
+            entity_id,
+            &item.sport,
+        )
+        .await?;
 
         let sport = item.sport.to_uppercase();
         let (season, narratives, rating, vibe, momentum, transfers) =
@@ -1029,14 +1035,10 @@ impl StageHandler for SigilHandler {
             &momentum,
             &transfers,
         );
-        let input_components_json = crate::corpus::with_identity_version(
-            &hx.pool,
-            &item.entity_type,
-            entity_id,
-            &sport,
-            &input_components_json,
-        )
-        .await?;
+        let mut request = MemoryRequest::new(Mission::Oracle, &item.entity_type, entity_id, &sport);
+        request.season = Some(season);
+        let memories = memories::load(&hx.pool, request).await?;
+        let input_components_json = memories.with_input_components(&input_components_json)?;
         let input_hash = hash_components(&input_components_json);
         let key = EntityKey {
             entity_type: item.entity_type.clone(),
@@ -1060,15 +1062,12 @@ impl StageHandler for SigilHandler {
 
         // In a small context window every pillar body is capped and the output reservation
         // shrinks. The Oracle reads cards, not their underlying evidence.
-        let small = crate::route::small_voice_window(hx.voice_num_ctx);
+        let small = crate::runtime::route::small_voice_window(hx.voice_num_ctx);
         let body_cap = small.then_some(inputs::CROWN_CARD_BODY_CAP);
 
         // The one crown call (OracleLogic): read the cards + the omen, then emit
         // {reading, score}. Fail-closed lives in CrownParser (unparseable → Err → the item backs off).
-        // Dated identity context; database errors must not silently remove it.
-        let identity =
-            crate::corpus::load_identity_card(&hx.pool, &item.entity_type, entity_id, &sport)
-                .await?;
+        let identity = Some(memories.render()?);
         let prompt = build_crown_prompt(
             &item.entity_type,
             &name,
@@ -1099,7 +1098,7 @@ impl StageHandler for SigilHandler {
         let reply = extracted
             .value
             .ok_or_else(|| anyhow!("crown: parser returned no value"))?;
-        if !crate::guards::title_names_entity(&reply.reading, &name) {
+        if !crate::composition::guards::title_names_entity(&reply.reading, &name) {
             tracing::warn!(guard = "entity_identity", "crown reading rejected");
             bail!("crown: reading does not name entity {name:?}");
         }

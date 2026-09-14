@@ -9,23 +9,24 @@
 //! Empty material after a real read gets one closing quiet read; a never-scored entity gets a
 //! NULL marker. Every completed or skipped item offers the hash-gated Momentum hand-off.
 
-use crate::corpus::lookup_entity_name;
-use crate::harness::{EntityKey, Generation, GenerationCall, Harness, Parser};
-use crate::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
-use crate::ollama::GenerateOptions;
-use crate::route::Role;
-use crate::stage::StageHandler;
-use crate::util::{hash_components, truncate};
-use crate::work::{Item, Stage};
+use crate::composition::memories::{self, MemoryRequest, Mission};
+
+use crate::evidence::corpus::lookup_entity_name;
+use crate::runtime::harness::{EntityKey, Generation, GenerationCall, Harness, Parser};
+use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
+use crate::runtime::providers::ollama::GenerateOptions;
+use crate::runtime::route::Role;
+use crate::runtime::stage::StageHandler;
+use crate::runtime::util::{hash_components, truncate};
+use crate::runtime::work::{Item, Stage};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
 use sqlx::{PgPool, Row};
-use tracing::{debug, warn};
+use tracing::debug;
 
 mod inputs;
-pub mod prompt;
+pub use crate::composition::characters::influencer::{VIBE_PROMPT_VERSION, VIBE_SYSTEM_PROMPT};
 pub use inputs::build_sentiment_prompt;
-pub use prompt::{VIBE_PROMPT_VERSION, VIBE_SYSTEM_PROMPT};
 
 /// Output contract captured separately in the diagnostic ledger.
 pub const VIBE_OUTPUT_CONTRACT_VERSION: &str = "vibe-score-v1";
@@ -93,6 +94,7 @@ pub fn build_vibe_input_components(packets: &[PacketBlock]) -> String {
 /// Splitting the load from the model call lets the handler gate on `input_hash`
 /// before paying for the GPU.
 pub struct VibeContext {
+    pub memories: memories::Package,
     /// The entity's live packets rendered for the Influencer.
     pub packets: Vec<PacketBlock>,
     pub input_components_json: String,
@@ -129,17 +131,16 @@ pub async fn load_vibe_context(
 
     let packets = load_vibe_packets(&hx.pool, entity_type, entity_id, entity_name, &sport).await?;
     let input_components_json = build_vibe_input_components(&packets);
-    let input_components_json = crate::corpus::with_identity_version(
+    let memories = memories::load(
         &hx.pool,
-        entity_type,
-        entity_id,
-        &sport,
-        &input_components_json,
+        MemoryRequest::new(Mission::Influencer, entity_type, entity_id, &sport),
     )
     .await?;
+    let input_components_json = memories.with_input_components(&input_components_json)?;
     let input_hash = hash_components(&input_components_json);
 
     Ok(VibeContext {
+        memories,
         packets,
         input_components_json,
         input_hash,
@@ -224,7 +225,7 @@ pub async fn enqueue_vibe_if_needed(
         input_version: Some(vibe_work_input_version(&ctx.input_hash)),
         attempts: 0,
     };
-    crate::work::enqueue(&hx.pool, &it).await?;
+    crate::runtime::work::enqueue(&hx.pool, &it).await?;
     Ok(true)
 }
 
@@ -232,63 +233,14 @@ pub async fn enqueue_vibe_if_needed(
 // Prompt assembly.
 // ---------------------------------------------------------------------------
 
-/// The previous vibe read fed back into the prompt for continuity (v12 — the Sigil
-/// Phase-5.2 shape). Prompt-only: it is NOT part of `build_vibe_input_components` / the
-/// `input_hash` — the read always moves, so hashing it would self-trigger every re-run.
-/// Constructed only for a real prior read (latest row scored, not a NULL-sentiment marker).
-#[derive(Clone, Debug)]
-pub struct PrevVibe {
-    pub sentiment: i32,
-    /// The prior felt read; may be empty (the column is nullable) — then only the Score
-    /// line renders.
-    pub vibe_prompt: String,
-}
-
-/// load_latest_vibe_row fetches the entity's LATEST vibe_scores row in ONE query:
-/// sentiment + felt read (the continuity prior) and input_hash (the debounce gate) as a
-/// consistent, non-torn read — the sigil plan-A1 consolidation. Vibe owns the SQL because
-/// `Harness::latest_with_hash` is shaped to sigil's score/blurb columns.
+/// Read the latest marker/score and debounce hash. Prior interpretation belongs to memories.
 async fn load_latest_vibe_row(
     pool: &PgPool,
     key: &EntityKey,
-) -> Result<(Option<i16>, Option<String>, Option<String>)> {
-    let row: Option<(Option<i16>, Option<String>, Option<String>)> = sqlx::query_as(
-        "SELECT sentiment, prompt, input_hash FROM vibe_scores \
-         WHERE entity_type = $1 AND entity_id = $2 AND sport = $3 \
-         ORDER BY generated_at DESC LIMIT 1",
-    )
-    .bind(&key.entity_type)
-    .bind(key.entity_id)
-    .bind(&key.sport)
-    .fetch_optional(pool)
-    .await
-    .with_context(|| format!("latest vibe row {}/{}", key.entity_type, key.entity_id))?;
-    Ok(row.unwrap_or((None, None, None)))
-}
-
-/// Latest scored row, matching the serving view's `sentiment IS NOT NULL` filter. This may sit
-/// below a newer marker. `None` when the entity has never been scored.
-async fn load_latest_scored_vibe_row(
-    pool: &PgPool,
-    key: &EntityKey,
-) -> Result<Option<(i16, Option<String>)>> {
-    sqlx::query_as(
-        "SELECT sentiment, prompt FROM vibe_scores \
-         WHERE entity_type = $1 AND entity_id = $2 AND sport = $3 \
-           AND sentiment IS NOT NULL \
-         ORDER BY generated_at DESC LIMIT 1",
-    )
-    .bind(&key.entity_type)
-    .bind(key.entity_id)
-    .bind(&key.sport)
-    .fetch_optional(pool)
-    .await
-    .with_context(|| {
-        format!(
-            "latest scored vibe row {}/{}",
-            key.entity_type, key.entity_id
-        )
-    })
+) -> Result<(Option<i16>, Option<String>)> {
+    let row = sqlx::query_as("SELECT sentiment,input_hash FROM vibe_scores WHERE entity_type=$1 AND entity_id=$2 AND sport=$3 ORDER BY generated_at DESC,id DESC LIMIT 1")
+        .bind(&key.entity_type).bind(key.entity_id).bind(&key.sport).fetch_optional(pool).await?;
+    Ok(row.unwrap_or((None, None)))
 }
 
 /// title_first upper-cases the first character, mirroring `strings.Title` for the
@@ -309,7 +261,7 @@ fn title_first(s: &str) -> String {
 /// preserve paragraph breaks.
 pub fn parse_vibe_reply(raw: &str) -> Result<(i32, Option<String>, String)> {
     if raw.trim_start().starts_with('{') {
-        let card: crate::junctions::form::CardReply = serde_json::from_str(raw)?;
+        let card: crate::composition::form::CardReply = serde_json::from_str(raw)?;
         let score = card
             .score
             .filter(|s| (1..=100).contains(s))
@@ -317,7 +269,7 @@ pub fn parse_vibe_reply(raw: &str) -> Result<(i32, Option<String>, String)> {
         return Ok((
             score,
             Some(card.headline),
-            crate::junctions::form::normalize_body(&card.body),
+            crate::composition::form::normalize_body(&card.body),
         ));
     }
     let (score_line, rest) = raw
@@ -349,7 +301,7 @@ pub fn parse_vibe_reply(raw: &str) -> Result<(i32, Option<String>, String)> {
     {
         bail!("vibe: HOOK must precede VIBE");
     }
-    let body = crate::junctions::form::normalize_body(body);
+    let body = crate::composition::form::normalize_body(body);
     if body.is_empty() {
         bail!("vibe: empty VIBE body");
     }
@@ -376,22 +328,22 @@ impl Parser<VibeReply> for VibeParser {
     fn parse(&self, raw: &str) -> Result<Option<VibeReply>> {
         let (sentiment, hook, vibe_prompt) = parse_vibe_reply(raw)
             .with_context(|| format!("parse sentiment (raw={:?})", truncate(raw, 120)))?;
-        crate::junctions::form::validate_hook(hook.as_deref())?;
-        let hook = crate::guards::settle_title("influencer", hook.as_deref())
+        crate::composition::form::validate_hook(hook.as_deref())?;
+        let hook = crate::composition::guards::settle_title("influencer", hook.as_deref())
             .ok_or_else(|| anyhow!("vibe: missing or invalid HOOK line"))?;
         // Typography is scrubbed rather than treated as a content failure.
-        let vibe_prompt = crate::guards::clean_served_prose(&vibe_prompt);
+        let vibe_prompt = crate::composition::guards::clean_served_prose(&vibe_prompt);
         // Keep prose before the first prompt-echo marker; all-echo output retries.
-        crate::junctions::form::validate_body(&vibe_prompt)?;
+        crate::composition::form::validate_body(&vibe_prompt)?;
         if vibe_prompt.is_empty() {
             tracing::warn!(guard = "prompt_echo", "vibe body rejected: all echo");
             bail!("vibe: body is prompt echo");
         }
-        if let Some(p) = crate::guards::first_product_name(&vibe_prompt) {
+        if let Some(p) = crate::composition::guards::first_product_name(&vibe_prompt) {
             tracing::warn!(guard = "product_name", name = p, "vibe body rejected");
             bail!("vibe: body names product {p:?}");
         }
-        if crate::guards::has_foreign_script(&vibe_prompt) {
+        if crate::composition::guards::has_foreign_script(&vibe_prompt) {
             tracing::warn!(guard = "foreign_script", "vibe body rejected");
             bail!("vibe: body carries a foreign-script run");
         }
@@ -407,8 +359,7 @@ impl Parser<VibeReply> for VibeParser {
 // The core generate + the production handler.
 // ---------------------------------------------------------------------------
 
-/// Undebounced load-and-generate composition used outside the production handler. Continuity
-/// and relational memory are supplied only by the handler.
+/// Undebounced load-and-generate composition with the same memories as the live handler.
 pub async fn generate_vibe(
     hx: &Harness,
     entity_type: &str,
@@ -418,18 +369,8 @@ pub async fn generate_vibe(
     temperature: f64,
 ) -> Result<VibeOutput> {
     let ctx = load_vibe_context(hx, entity_type, entity_id, entity_name, sport_raw).await?;
-    let out = generate_vibe_from_context(
-        hx,
-        entity_type,
-        entity_name,
-        sport_raw,
-        ctx,
-        None,
-        None,
-        None,
-        temperature,
-    )
-    .await?;
+    let out = generate_vibe_from_context(hx, entity_type, entity_name, sport_raw, ctx, temperature)
+        .await?;
     Ok(out)
 }
 
@@ -440,14 +381,11 @@ async fn generate_vibe_from_context(
     entity_name: &str,
     sport_raw: &str,
     ctx: VibeContext,
-    previous: Option<&PrevVibe>,
-    memory: Option<&str>,
-    identity: Option<&str>,
     temperature: f64,
 ) -> Result<VibeOutput> {
     // Never-scored empty context becomes a NULL marker. Empty context with a prior real read
     // generates one closing quiet card, then the empty-material hash debounces future drains.
-    if ctx.empty() && previous.is_none() {
+    if ctx.empty() && ctx.memories.previous_score.is_none() {
         return Ok(Generation::uncalled(
             VibeScore {
                 sentiment: None,
@@ -467,21 +405,19 @@ async fn generate_vibe_from_context(
         entity_name,
         sport_raw,
         &ctx.packets,
-        previous,
-        memory,
-        identity,
+        Some(&ctx.memories.render()?),
     );
     let opts = GenerateOptions {
         system: Some(VIBE_SYSTEM_PROMPT.to_string()),
         temperature: Some(temperature),
-        num_predict: if crate::route::small_voice_window(hx.voice_num_ctx) {
+        num_predict: if crate::runtime::route::small_voice_window(hx.voice_num_ctx) {
             crate::junctions::oracle::SMALL_WINDOW_NUM_PREDICT
         } else {
             VIBE_NUM_PREDICT
         },
         num_ctx: hx.voice_num_ctx,
         json_mode: false,
-        format_schema: Some(crate::junctions::form::card_schema(true)),
+        format_schema: Some(crate::composition::form::card_schema(true)),
         format_schema_raw: None,
     };
 
@@ -590,7 +526,7 @@ impl StageHandler for VibeHandler {
         1
     }
     fn slot_group(&self) -> Option<(&'static str, usize)> {
-        Some(crate::stage::MAC_SLOTS)
+        Some(crate::runtime::stage::MAC_SLOTS)
     }
 
     async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {
@@ -608,16 +544,8 @@ impl StageHandler for VibeHandler {
             season: None,
         };
         // Load the debounce hash and latest continuity candidate in one round trip.
-        let (latest_sentiment, latest_prompt, latest_hash) =
-            load_latest_vibe_row(&hx.pool, &key).await?;
-        // Continuity uses the latest scored row. If the newest row is a marker, look beneath it.
-        let scored = match latest_sentiment {
-            Some(s) => Some((s, latest_prompt.clone())),
-            None if latest_hash.is_some() => load_latest_scored_vibe_row(&hx.pool, &key).await?,
-            None => None,
-        };
-        // A marker above a scored row bypasses debounce once to file the closing quiet card.
-        let buried = latest_sentiment.is_none() && scored.is_some();
+        let (latest_sentiment, latest_hash) = load_latest_vibe_row(&hx.pool, &key).await?;
+        let buried = latest_sentiment.is_none() && ctx.memories.previous_score.is_some();
         if latest_hash.as_deref() == Some(ctx.input_hash.as_str()) && !buried {
             debug!(
                 entity_type = %item.entity_type,
@@ -638,48 +566,12 @@ impl StageHandler for VibeHandler {
             return Ok(());
         }
 
-        // Previous scored prose is prompt-only continuity and never enters the material hash.
-        let previous = scored.map(|(s, p)| PrevVibe {
-            sentiment: s as i32,
-            vibe_prompt: p.unwrap_or_default(),
-        });
-        // Memory-load failure degrades to an unenriched prompt (the n8 discipline): the
-        // corpus is the primary signal, memory is enrichment.
-        let memory = match crate::junctions::journalist::load_entity_memory(
-            &hx.pool,
-            &sport,
-            &item.entity_type,
-            entity_id,
-        )
-        .await
-        {
-            Ok(m) => m,
-            Err(e) => {
-                warn!(
-                    entity_type = %item.entity_type,
-                    entity_id = item.entity_id,
-                    sport = %sport,
-                    error = %e,
-                    "vibe: relational memory load failed (continuing without memory)"
-                );
-                None
-            }
-        };
-
-        // Dated identity context; database errors must not silently remove it.
-        let identity =
-            crate::corpus::load_identity_card(&hx.pool, &item.entity_type, entity_id, &sport)
-                .await?;
-
         let out = generate_vibe_from_context(
             hx,
             &item.entity_type,
             &name,
             &item.sport,
             ctx,
-            previous.as_ref(),
-            memory.as_deref(),
-            identity.as_deref(),
             VIBE_TEMPERATURE,
         )
         .await?;

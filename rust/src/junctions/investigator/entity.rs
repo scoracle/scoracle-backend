@@ -26,11 +26,11 @@ use super::prompt::{
     build_prose_prompt, page_text, prose_opts, ProseRead, ProseReadParser,
     INVESTIGATOR_PROSE_CONTRACT_VERSION,
 };
-use crate::fetch::{BudgetedFetcher, FetchPolicy};
-use crate::harness::Harness;
-use crate::route::Role;
-use crate::stage::StageHandler;
-use crate::work::{Item, Stage};
+use crate::runtime::fetch::{BudgetedFetcher, FetchPolicy};
+use crate::runtime::harness::Harness;
+use crate::runtime::route::Role;
+use crate::runtime::stage::StageHandler;
+use crate::runtime::work::{Item, Stage};
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use serde_json::json;

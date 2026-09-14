@@ -20,15 +20,17 @@
 //! model-failure retry re-vets ONLY the failed pair: the completed pairs skip on fingerprint
 //! instead of repeating every call in a team batch.
 
-use crate::corpus::{load_transfer_heat, HeatItem};
-use crate::harness::{EntityKey, Generation, GenerationCall, Harness, Parser};
-use crate::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
-use crate::ollama::GenerateOptions;
-use crate::route::Role;
-use crate::stage::StageHandler;
-use crate::trajectory::{classify_delta, DEFAULT_TRAJECTORY};
-use crate::util::{hash_components, truncate_bytes};
-use crate::work::{Item, Stage};
+use crate::composition::memories::{self, MemoryRequest, Mission};
+
+use crate::evidence::corpus::{load_transfer_heat, HeatItem};
+use crate::evidence::trajectory::{classify_delta, DEFAULT_TRAJECTORY};
+use crate::runtime::harness::{EntityKey, Generation, GenerationCall, Harness, Parser};
+use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
+use crate::runtime::providers::ollama::GenerateOptions;
+use crate::runtime::route::Role;
+use crate::runtime::stage::StageHandler;
+use crate::runtime::util::{hash_components, truncate_bytes};
+use crate::runtime::work::{Item, Stage};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -43,10 +45,11 @@ use application::{
     refresh_sport_autofill_concurrently,
 };
 mod inputs;
-pub mod prompt;
-pub use crate::junctions::form::insider_score_format_schema;
+pub use crate::composition::characters::insider::{
+    INSIDER_SCORE_PROMPT_VERSION, INSIDER_SCORE_SYSTEM_PROMPT,
+};
+pub use crate::composition::form::insider_score_format_schema;
 pub use inputs::build_insider_score_prompt;
-pub use prompt::{INSIDER_SCORE_PROMPT_VERSION, INSIDER_SCORE_SYSTEM_PROMPT};
 mod verification;
 pub use verification::{
     build_transfer_identity_adjudication_prompt, build_transfer_prompt,
@@ -824,7 +827,7 @@ fn row_from_verdict(
                     // shared scrub like every served field — found bare in the 08-23 review
                     // pass (trimmed and truncated, never emphasis-stripped: a bolded summary
                     // shipped its asterisks to the board).
-                    let s = crate::guards::clean_served_prose(&v.summary);
+                    let s = crate::composition::guards::clean_served_prose(&v.summary);
                     (!s.is_empty()).then(|| truncate_bytes(&s, SUMMARY_TRUNCATE))
                 };
                 (
@@ -948,23 +951,6 @@ pub struct PairReady {
     pub input_hash: String,
 }
 
-/// Loads the graph's model-facing memory card for the pair.
-pub async fn load_relational_memory(
-    pool: &PgPool,
-    sport: &str,
-    player_id: i32,
-    team_id: i32,
-) -> Result<Option<String>> {
-    let row: (Option<String>,) = sqlx::query_as("SELECT narrative_context_for_pair($1, $2, $3)")
-        .bind(sport)
-        .bind(player_id)
-        .bind(team_id)
-        .fetch_one(pool)
-        .await
-        .context("narrative_context_for_pair")?;
-    Ok(row.0)
-}
-
 /// Loads the model-facing source track-record card for the pair's live corpus.
 pub async fn load_source_reliability(
     pool: &PgPool,
@@ -1024,38 +1010,27 @@ pub async fn build_pair_request(
 
     // Fingerprint material inputs before the handler decides whether to call the model.
     let input_components = build_transfer_input_components(&news_ids, &components, &relationship);
-    let identity =
-        crate::corpus::load_identity_record(&hx.pool, &c.subject_type, c.player_id, sport).await?;
+    let mut request = MemoryRequest::new(Mission::Insider, &c.subject_type, c.player_id, sport);
+    request.pair_team_id = Some(team_id);
+    request.current_article_ids = &news_ids;
+    let memories = memories::load(&hx.pool, request).await?;
     let team_identity =
-        crate::corpus::load_identity_record(&hx.pool, "team", team_id, sport).await?;
-    let input_components = crate::corpus::with_identity_version(
-        &hx.pool,
-        &c.subject_type,
-        c.player_id,
-        sport,
-        &input_components,
-    )
-    .await?;
+        crate::composition::memories::load_identity_record(&hx.pool, "team", team_id, sport)
+            .await?;
+    let input_components = memories.with_input_components(&input_components)?;
     let mut input_value: serde_json::Value = serde_json::from_str(&input_components)?;
-    let team_version =
-        crate::corpus::with_identity_version(&hx.pool, "team", team_id, sport, "{}").await?;
-    input_value["team_identity"] =
-        serde_json::from_str::<serde_json::Value>(&team_version)?["entity_identity"].clone();
+    input_value["team_identity"] = serde_json::json!(team_identity);
     let input_components = input_value.to_string();
     let input_hash = hash_components(&input_components);
 
     let evidence = TransferEvidence::from_news(&news, news_ids.len(), &attribution);
-    // Two independent SQL card reads (story arc + source track record) — load concurrently.
-    // Person subjects skip both: those reads are player-id keyed, and the persons/players
-    // id sequences overlap — a coach's id would silently read a same-id player's memory.
-    let (memory, source_reliability) = if c.subject_type == "person" {
-        (None, None)
+    // Reliability remains player-keyed; persons must never collide with player IDs.
+    let source_reliability = if c.subject_type == "person" {
+        None
     } else {
-        tokio::try_join!(
-            load_relational_memory(&hx.pool, sport, c.player_id, team_id),
-            load_source_reliability(&hx.pool, sport, c.player_id, team_id),
-        )?
+        load_source_reliability(&hx.pool, sport, c.player_id, team_id).await?
     };
+    let memory = memories.render()?;
     let mut built_prompt = build_transfer_prompt(
         team_name,
         c,
@@ -1064,14 +1039,13 @@ pub async fn build_pair_request(
         &news,
         &evidence,
         source_reliability.as_deref(),
-        memory.as_deref(),
+        Some(&memory),
         packet_framing.as_deref(),
     );
-    if identity.is_some() || team_identity.is_some() {
-        built_prompt.push_str(&format!("\n{}\n", crate::corpus::IDENTITY_CARD_FRAMING));
-    }
-    for card in [identity, team_identity].into_iter().flatten() {
-        built_prompt.push_str(&format!("\n{card}\n"));
+    if let Some(card) = team_identity {
+        built_prompt.push_str(&format!(
+            "\nProposed destination, not current affiliation: {card}\n"
+        ));
     }
     // Person subjects use the same contract with a separately versioned noun substitution.
     let system = if c.subject_type == "person" {
@@ -1501,8 +1475,8 @@ fn parse_insider_score_reply(raw: &str) -> Option<InsiderScoreReply> {
     });
     let v = parsed?;
     let read = v.get("read")?.as_str()?.trim();
-    let read = crate::junctions::form::normalize_body(read);
-    let read = crate::guards::clean_served_prose(&read);
+    let read = crate::composition::form::normalize_body(read);
+    let read = crate::composition::guards::clean_served_prose(&read);
     if read.is_empty() {
         return None;
     }
@@ -1520,8 +1494,10 @@ fn parse_insider_score_reply(raw: &str) -> Option<InsiderScoreReply> {
         return None;
     };
     // Only titles accepted by the shared floor may persist.
-    let headline =
-        crate::guards::settle_title("insider", v.get("headline").and_then(|h| h.as_str()));
+    let headline = crate::composition::guards::settle_title(
+        "insider",
+        v.get("headline").and_then(|h| h.as_str()),
+    );
     Some(InsiderScoreReply {
         read,
         headline,
@@ -1537,16 +1513,18 @@ struct InsiderScoreParser;
 impl Parser<InsiderScoreReply> for InsiderScoreParser {
     fn parse(&self, raw: &str) -> Result<Option<InsiderScoreReply>> {
         if let Ok(value) = serde_json::from_str::<serde_json::Value>(raw) {
-            crate::junctions::form::validate_hook(value.get("headline").and_then(|v| v.as_str()))?;
+            crate::composition::form::validate_hook(
+                value.get("headline").and_then(|v| v.as_str()),
+            )?;
         }
         match parse_insider_score_reply(raw) {
             Some(r) => {
-                crate::junctions::form::validate_body(&r.read)?;
+                crate::composition::form::validate_body(&r.read)?;
                 Ok(Some(r))
             }
             None => bail!(
                 "insider score: could not parse read+score from response (raw={:?})",
-                crate::util::truncate(raw, 200)
+                crate::runtime::util::truncate(raw, 200)
             ),
         }
     }
@@ -1568,65 +1546,6 @@ pub fn build_insider_score_input_components(heat: &[HeatItem]) -> String {
         "prompt_version": INSIDER_SCORE_PROMPT_VERSION,
     })
     .to_string()
-}
-
-/// How many of the entity's own recent wraps feed the prompt as continuity memory — mirrors
-/// sigil's `PRIOR_READ_LIMIT`.
-const PRIOR_INSIDER_READ_LIMIT: i64 = 4;
-
-/// The Insider's own score memory: latest score (persisted as `previous_score` — continuity
-/// audit) plus the rendered prompt block.
-struct PriorInsiderRead {
-    latest: i16,
-    card: String,
-}
-
-/// Prompt bytes each remembered read body may spend (the influencer BODY_TRUNCATE precedent):
-/// the memory tells the developing story, it never re-files it.
-const PRIOR_READ_BODY_TRUNCATE: usize = 280;
-
-/// Renders recent read bodies and the latest score as prompt-only continuity memory.
-async fn load_prior_insider_read(
-    pool: &PgPool,
-    entity_type: &str,
-    entity_id: i32,
-    sport: &str,
-) -> Result<Option<PriorInsiderRead>> {
-    let rows: Vec<(i16, Option<String>, String)> = sqlx::query_as(
-        r#"
-        SELECT score, read, to_char(generated_at, 'Mon DD')
-        FROM insider_scores
-        WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
-        ORDER BY generated_at DESC
-        LIMIT $4
-        "#,
-    )
-    .bind(entity_type)
-    .bind(entity_id)
-    .bind(sport)
-    .bind(PRIOR_INSIDER_READ_LIMIT)
-    .fetch_all(pool)
-    .await
-    .with_context(|| format!("load prior insider read {entity_type}/{entity_id}"))?;
-    if rows.is_empty() {
-        return Ok(None);
-    }
-    let mut card = String::new();
-    for (i, (_, read, day)) in rows.iter().enumerate() {
-        let Some(body) = read.as_deref().filter(|r| !r.trim().is_empty()) else {
-            continue;
-        };
-        let label = if i == 0 { "Your last read" } else { "Earlier" };
-        card.push_str(&format!(
-            "{label} ({day}): {}\n",
-            crate::util::truncate_bytes(body, PRIOR_READ_BODY_TRUNCATE)
-        ));
-    }
-    card.push_str(&format!("Your latest score: {}", rows[0].0));
-    Ok(Some(PriorInsiderRead {
-        latest: rows[0].0,
-        card,
-    }))
 }
 
 /// Returns players on the team's recent served rumors, a superset of the active board.
@@ -1679,14 +1598,13 @@ async fn score_insider_entity(
             return Ok(());
         }
     }
-    let components = crate::corpus::with_identity_version(
+    let memories = memories::load(
         &hx.pool,
-        entity_type,
-        entity_id,
-        sport,
-        &build_insider_score_input_components(&heat),
+        MemoryRequest::new(Mission::Insider, entity_type, entity_id, sport),
     )
     .await?;
+    let components =
+        memories.with_input_components(&build_insider_score_input_components(&heat))?;
     let input_hash = hash_components(&components);
     let key = EntityKey {
         entity_type: entity_type.to_string(),
@@ -1704,35 +1622,13 @@ async fn score_insider_entity(
         );
         return Ok(());
     }
-    // Memory failure degrades to a first-wrap prompt (enrichment, never a blocker) — and like
-    // every memory card it stays OUT of the input_hash.
-    let prior = match load_prior_insider_read(&hx.pool, entity_type, entity_id, sport).await {
-        Ok(p) => p,
-        Err(e) => {
-            warn!(
-                entity_type,
-                entity_id,
-                error = %e,
-                "transfers: prior insider read load failed (continuing without)"
-            );
-            None
-        }
-    };
-    // Dated identity context; database errors must not silently remove it.
-    let identity =
-        crate::corpus::load_identity_card(&hx.pool, entity_type, entity_id, sport).await?;
-    let prompt = build_insider_score_prompt(
-        entity_name,
-        sport,
-        entity_type,
-        &heat,
-        prior.as_ref().map(|p| p.card.as_str()),
-        identity.as_deref(),
-    );
+    let identity = Some(memories.render()?);
+    let prompt =
+        build_insider_score_prompt(entity_name, sport, entity_type, &heat, identity.as_deref());
     let opts = GenerateOptions {
         system: Some(INSIDER_SCORE_SYSTEM_PROMPT.to_string()),
         temperature: Some(INSIDER_SCORE_TEMPERATURE),
-        num_predict: if crate::route::small_voice_window(hx.voice_num_ctx) {
+        num_predict: if crate::runtime::route::small_voice_window(hx.voice_num_ctx) {
             crate::junctions::oracle::SMALL_WINDOW_NUM_PREDICT
         } else {
             INSIDER_SCORE_NUM_PREDICT
@@ -1750,7 +1646,7 @@ async fn score_insider_entity(
     let reply = extracted.value.ok_or_else(|| {
         anyhow!("insider score: parser returned None (InsiderScoreParser signals failure via Err)")
     })?;
-    let previous_score = prior.as_ref().map(|p| p.latest);
+    let previous_score = memories.previous_score;
     let generation = Generation::called(
         (),
         model,
@@ -1848,9 +1744,13 @@ impl StageHandler for TransferHandler {
         }
         let team_id = item.entity_id_i32()?;
         let sport = item.sport.to_uppercase();
-        let team_name =
-            crate::corpus::lookup_entity_name(&hx.pool, &item.entity_type, team_id, &item.sport)
-                .await?;
+        let team_name = crate::evidence::corpus::lookup_entity_name(
+            &hx.pool,
+            &item.entity_type,
+            team_id,
+            &item.sport,
+        )
+        .await?;
         let candidates =
             load_candidates(&hx.pool, team_id, &sport, TRANSFER_DEFAULT_MIN_ARTICLES).await?;
         // Load relationships and the identity threshold once per team.
@@ -2186,7 +2086,7 @@ impl StageHandler for TransferHandler {
                 "deferred: {pairs_deferred} pair(s) + {wraps_deferred} wrap(s) left after {}s",
                 start.elapsed().as_secs()
             );
-            crate::work::defer(&hx.pool, item, TRANSFER_DEFER_DELAY, &note).await?;
+            crate::runtime::work::defer(&hx.pool, item, TRANSFER_DEFER_DELAY, &note).await?;
             debug!(team = team_id, %note, "transfers: team deferred to another turn");
             return Ok(());
         }

@@ -6,7 +6,7 @@
 //! long-running service binary is `src/main.rs`, and the offline A/B model eval harness is
 //! `src/bin/eval.rs`; both are built on top of this library crate.
 //!
-//! The layer is **library-first**: [`route`] owns model routing, [`harness`] owns the
+//! The layer is **library-first**: [`runtime::route`] owns model routing, [`runtime::harness`] owns the
 //! `Harness` context plus shared `extract` / persist / debounce primitives, and the stage
 //! modules compose those capabilities over SQL-backed inputs. Canonical doc:
 //! `scoracle-wiki/wiki/Architecture/Rust Cognition Harness.md`.
@@ -33,28 +33,12 @@
 /// The nine model-calling seats, one directory each. See [`junctions`] for the roster.
 pub mod junctions;
 
-// Infrastructure — the machinery every junction composes over.
-pub mod config;
-pub mod db;
-pub mod fetch;
-pub mod harness;
-pub mod ledger;
-pub mod ollama;
-pub mod openai;
-pub mod route;
-pub mod stage;
-pub mod work;
-pub mod worker;
+/// Voice, form and entity memories composed into model inputs.
+pub mod composition;
 
-// Primitives — shared, junction-agnostic building blocks.
-pub mod bucket;
-pub mod buildinfo;
-pub mod corpus;
-pub mod story_parts;
-pub mod trajectory;
-pub mod util;
-
-// Non-junction stages and offline tooling.
-pub mod eval_tasks;
-pub mod guards;
-pub mod judge;
+/// Offline evaluation and editorial review tools.
+pub mod evaluation;
+/// Shared evidence sources and deterministic story primitives.
+pub mod evidence;
+/// Execution, IO, configuration and provider infrastructure.
+pub mod runtime;

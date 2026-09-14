@@ -13,8 +13,8 @@
 //! | **Reads** | one Wikipedia REST page summary (title + description + extract) |
 //! | **Writes** | nothing — [`super::gate::decide_prose`] and the handler own every write |
 
-use crate::ollama::GenerateOptions;
-use crate::util::truncate;
+use crate::runtime::providers::ollama::GenerateOptions;
+use crate::runtime::util::truncate;
 use serde::Deserialize;
 
 /// Contract version for the prose arm — recorded on `acquisition_runs` rows this path
@@ -64,7 +64,7 @@ pub fn prose_opts() -> GenerateOptions {
         system: Some(INVESTIGATOR_PROSE_SYSTEM_PROMPT.to_string()),
         temperature: Some(0.1),
         num_predict: 300,
-        num_ctx: crate::route::LOCAL_STAGE_NUM_CTX,
+        num_ctx: crate::runtime::route::LOCAL_STAGE_NUM_CTX,
         json_mode: false,
         format_schema: Some(
             serde_json::from_str(INVESTIGATOR_PROSE_SCHEMA_RAW)
@@ -90,7 +90,7 @@ pub struct ProseRead {
 
 pub struct ProseReadParser;
 
-impl crate::harness::Parser<ProseRead> for ProseReadParser {
+impl crate::runtime::harness::Parser<ProseRead> for ProseReadParser {
     fn parse(&self, raw: &str) -> anyhow::Result<Option<ProseRead>> {
         let Some(slice) = json_object_slice(raw) else {
             return Ok(None);
@@ -191,7 +191,7 @@ fn json_object_slice(raw: &str) -> Option<&str> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::harness::Parser;
+    use crate::runtime::harness::Parser;
 
     #[test]
     fn schema_is_valid_json_and_order_true_in_the_raw_literal() {

@@ -53,72 +53,28 @@ fn errors_without_score_line() {
 #[test]
 fn builds_prompt_with_empty_sections() {
     // No previous, no memory ⇒ neither section renders (v11 byte-shape preserved).
-    let p = build_sentiment_prompt("player", "Test Player", "NBA", &[], None, None, None);
+    let p = build_sentiment_prompt("player", "Test Player", "NBA", &[], None);
     assert_eq!(p, "Entity: Player Test Player (NBA)\n");
 }
 
 #[test]
-fn previous_vibe_renders_as_continuity_lead_in() {
-    // A prior read renders a `=== PREVIOUS VIBE ===` block right after the Entity line,
-    // BEFORE the fresh narratives — the model reads its prior before the new evidence
-    // (the sigil Phase-5.2 placement).
-    let previous = PrevVibe {
-        sentiment: 68,
-        vibe_prompt: "Quietly surging into the playoff race.".into(),
-    };
+fn memories_precede_current_packets_once() {
+    let memory = "Our previous interpretation (not new evidence): The crowd was hopeful.";
     let p = build_sentiment_prompt(
         "player",
         "Test Player",
         "NBA",
-        &[],
-        Some(&previous),
-        None,
-        None,
+        &[packet_block(1)],
+        Some(memory),
     );
-    assert!(p.starts_with(
-        "Entity: Player Test Player (NBA)\n\n=== PREVIOUS VIBE ===\nScore: 68/100\nQuietly surging into the playoff race.\n"
-    ));
-}
-
-#[test]
-fn previous_vibe_empty_read_renders_score_only() {
-    let previous = PrevVibe {
-        sentiment: 55,
-        vibe_prompt: String::new(),
-    };
-    let p = build_sentiment_prompt("team", "Test Team", "NFL", &[], Some(&previous), None, None);
-    assert!(p.contains("=== PREVIOUS VIBE ===\nScore: 55/100\n"));
-}
-
-#[test]
-fn memory_card_renders_after_evidence() {
-    let mem = "Prior story: Real Madrid — fizzled (Jun 2026, peak coverage 82/100).\nGround truth: completed a confirmed move to Arsenal on Jul 01 2026.";
-    let p = build_sentiment_prompt(
-        "player",
-        "Test Player",
-        "FOOTBALL",
-        &[],
-        None,
-        Some(mem),
-        None,
-    );
-    assert!(p.contains("\nRelational memory (computed history"));
-    assert!(p.contains("- Prior story: Real Madrid — fizzled"));
-    assert!(p.contains("- Ground truth: completed"));
-    assert!(p.trim_end().ends_with(mem.lines().last().unwrap()));
+    assert_eq!(p.matches(memory).count(), 1);
+    assert!(p.find(memory).unwrap() < p.find("The stories running").unwrap());
+    assert!(!p.contains("PREVIOUS VIBE"));
 }
 
 #[test]
 fn blank_memory_renders_no_section() {
-    let p = build_sentiment_prompt(
-        "player",
-        "Test Player",
-        "NBA",
-        &[],
-        None,
-        Some("  \n "),
-        None,
-    );
+    let p = build_sentiment_prompt("player", "Test Player", "NBA", &[], Some("  \n "));
     assert!(!p.contains("Relational memory"));
 }
 
@@ -181,6 +137,7 @@ fn packet_ids_enter_the_pre_image_sorted() {
 #[test]
 fn a_packet_alone_is_material_enough_to_wake_her() {
     let with_packet = VibeContext {
+        memories: memories::test_package(),
         packets: vec![packet_block(1)],
         input_components_json: String::new(),
         input_hash: String::new(),
@@ -198,15 +155,7 @@ fn a_packet_alone_is_material_enough_to_wake_her() {
 
 #[test]
 fn packet_block_renders() {
-    let packet = build_sentiment_prompt(
-        "team",
-        "Arsenal",
-        "FOOTBALL",
-        &[packet_block(1)],
-        None,
-        None,
-        None,
-    );
+    let packet = build_sentiment_prompt("team", "Arsenal", "FOOTBALL", &[packet_block(1)], None);
     assert!(packet.contains("The stories running around them"));
     // The register and its phrase are hers, and they arrive by the renderer's voice rule.
     assert!(packet.contains("MOOD: anticipation"));
@@ -225,7 +174,7 @@ fn packet_block_depth_is_bounded_in_the_prompt() {
         "STORY: The saga\nMOOD: weary — \"here we go again\"\nREPORTED (newest first):\n{}",
         "- Outlet: a long claim line repeated far past any reasonable allowance.\n".repeat(400)
     );
-    let p = build_sentiment_prompt("team", "Test FC", "FOOTBALL", &[big], None, None, None);
+    let p = build_sentiment_prompt("team", "Test FC", "FOOTBALL", &[big], None);
     let story_at = p.find("STORY: The saga").expect("block renders");
     let narratives_at = p.len();
     assert!(
@@ -241,8 +190,6 @@ fn packet_block_depth_is_bounded_in_the_prompt() {
         "Test FC",
         "FOOTBALL",
         std::slice::from_ref(&small),
-        None,
-        None,
         None,
     );
     assert!(
@@ -278,7 +225,7 @@ fn an_unsalvageable_hook_never_costs_the_card() {
     assert!(
         got.hook
             .as_deref()
-            .is_none_or(|h| crate::guards::hook_violation(h).is_none()),
+            .is_none_or(|h| crate::composition::guards::hook_violation(h).is_none()),
         "a shipped hook always satisfies the contract: {:?}",
         got.hook
     );

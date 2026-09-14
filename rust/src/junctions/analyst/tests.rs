@@ -130,7 +130,7 @@ fn prompt_carries_the_decided_direction_line() {
         .find(|l| l.starts_with("Direction (decided upstream, final):"))
         .expect("direction line present");
     assert!(!direction_line.contains("steady band"));
-    assert!(!crate::guards::has_ascii_digit(direction_line));
+    assert!(!crate::composition::guards::has_ascii_digit(direction_line));
     // No memory ⇒ no section (s4 byte-shape preserved).
     assert!(!prompt.contains("RELATIONAL MEMORY"));
     // No snapshot → the decided line still exists and is honestly steady.
@@ -191,7 +191,7 @@ fn only_the_two_rails_reach_the_prompt() {
     // first probe came back with "a 14-point climb over 11 samples" — four digits, instant
     // rejection. The input must not shout what the output may not say.
     assert!(
-        !crate::guards::has_ascii_digit(&p),
+        !crate::composition::guards::has_ascii_digit(&p),
         "no figure may reach the Analyst's prompt: {p}"
     );
 
@@ -274,6 +274,7 @@ fn ctx(
     snap: SynthMomentum,
 ) -> MomentumContext {
     MomentumContext {
+        memories: memories::test_package(),
         season: 2025,
         rating,
         vibe,

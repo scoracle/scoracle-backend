@@ -13,13 +13,15 @@
 //!
 //! Missing measurements and ranks remain unknown; character and canvas own the writing.
 
-use crate::harness::{Generation, GenerationCall, Harness, Parser};
-use crate::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
-use crate::ollama::GenerateOptions;
-use crate::route::Role;
-use crate::stage::StageHandler;
-use crate::util::{hash_components, round1};
-use crate::work::{Item, Stage};
+use crate::composition::memories::{self, MemoryRequest, Mission};
+
+use crate::runtime::harness::{Generation, GenerationCall, Harness, Parser};
+use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
+use crate::runtime::providers::ollama::GenerateOptions;
+use crate::runtime::route::Role;
+use crate::runtime::stage::StageHandler;
+use crate::runtime::util::{hash_components, round1};
+use crate::runtime::work::{Item, Stage};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
 use serde::{Deserialize, Deserializer};
@@ -28,9 +30,12 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use tracing::{debug, warn};
 
 mod inputs;
-pub mod prompt;
+pub use crate::composition::characters::scout::{RATING_PROMPT_VERSION, RATING_SYSTEM_PROMPT};
+pub use crate::evidence::personnel::{
+    load_availability_changes, load_availability_reports, load_personnel_changes,
+    AvailabilityChange, PersonnelChange,
+};
 pub use inputs::{build_stat_prompt, render_availability_reports, render_personnel_block};
-pub use prompt::{RATING_PROMPT_VERSION, RATING_SYSTEM_PROMPT};
 
 /// Output contract captured separately in the diagnostic ledger.
 pub const RATING_OUTPUT_CONTRACT_VERSION: &str = "rating-commentary-v1";
@@ -687,346 +692,6 @@ pub fn build_skill_changes(
         .collect()
 }
 
-/// One adjudicated availability event, as the DB describes it — the injury/suspension half of
-/// the personnel record (mig 229), alongside [`PersonnelChange`]'s transfers.
-///
-/// A SEPARATE struct from `PersonnelChange` on purpose, and this is the same judgement mig 229
-/// made in the schema: a transfer is a MOVE (one club to another) and an availability event is a
-/// SPAN (out, then back, or the record withdrawn). Folding a span into the move shape is what
-/// makes a retracted false report and a genuine three-week absence indistinguishable — the exact
-/// corruption `returned_at` and `reverted_at` exist as separate columns to prevent. They render
-/// into one "since our last read" block because that is what the Scout needs to see; they are
-/// two fact shapes in code because that is what they are.
-///
-/// **T4 holds by construction.** Every field is a date, an id resolved to a name, or one of the
-/// two enums. `revert_reason` is prose and is deliberately never selected; `body_part` ships
-/// empty and is never guessed, so it is not read here either.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AvailabilityChange {
-    /// `opened` — newly ruled out; `returned` — availability resumed (a real-world outcome);
-    /// `reverted` — the RECORD was wrong and has been withdrawn (a correction, never a return).
-    pub kind: String,
-    /// When the thing that is NEW happened — the apply, the return, or the withdrawal.
-    pub date_label: String,
-    /// `injury` or `suspension`, the adjudicated enum. Never model prose.
-    pub event_kind: String,
-    pub player_name: String,
-    /// The club the player was at when it happened; `None` when unattached or unresolved.
-    pub team_name: Option<String>,
-    pub team_id: Option<i32>,
-    /// The day the player became unavailable — carried even on a return, because "out Aug 20,
-    /// back Aug 30" is the fact, not "back Aug 30".
-    pub event_date_label: String,
-    /// The prognosis AS REPORTED. Renderable; never ground truth (mig 229).
-    pub expected_return_label: Option<String>,
-}
-
-/// How many availability lines render before the block starts naming drops instead.
-///
-/// Four, against personnel's six, and the two budgets are deliberately separate but summed
-/// against the same ceiling: the rating prompt lives inside one 4,096-token window, and a
-/// deadline-day squad churn plus a treatment-table update must not between them crowd out the
-/// datapoints the report is actually built on.
-const MAX_AVAILABILITY_LINES: usize = 4;
-
-/// One adjudicated personnel change, as the DB describes it — dates already labeled by
-/// `to_char` (the `Mon DD` convention the memory card and 7.10's storyline lens use), names
-/// resolved, nothing rendered. The sentence is built in code (T2: describe, then derive).
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PersonnelChange {
-    /// `applied` — the move is in force; `reverted` — an earlier applied move was undone.
-    pub kind: String,
-    pub date_label: String,
-    /// The adjudicated event label (`transfer`, `rumor`, …). Never model prose — it is the
-    /// Insider's structured `event_type` column.
-    pub event_type: Option<String>,
-    pub player_name: String,
-    pub old_team: Option<String>,
-    pub new_team: Option<String>,
-    /// Carried so a TEAM read can tell an arrival from a departure by id rather than by
-    /// comparing rendered names, which collide across leagues.
-    pub old_team_id: Option<i32>,
-    pub new_team_id: Option<i32>,
-}
-
-/// How many personnel lines the block renders before it starts naming drops instead. Six is
-/// ~140 tokens — a deadline-day squad churn cannot crowd out the datapoints inside 4,096.
-const MAX_PERSONNEL_LINES: usize = 6;
-/// The lookback when this entity has never been read: a first brief still deserves recent
-/// personnel facts, but not a year of them.
-const PERSONNEL_FIRST_READ_DAYS: i32 = 30;
-/// The hard ceiling on the lookback however stale the last read is — an entity nobody has
-/// scouted since preseason gets the recent moves, not its whole transfer history.
-const PERSONNEL_MAX_DAYS: i32 = 180;
-
-/// Load adjudicated transfers since the entity's last read. Unlike slow memory, this includes
-/// departures, source clubs, and reverts. Only structured facts reach the Scout. Returns the
-/// newest rows plus the pre-cap total so exclusions are explicit.
-pub async fn load_personnel_changes(
-    pool: &PgPool,
-    sport: &str,
-    entity_type: &str,
-    entity_id: i32,
-) -> Result<(Vec<PersonnelChange>, usize)> {
-    if entity_type != "player" && entity_type != "team" {
-        return Ok((Vec::new(), 0));
-    }
-    #[allow(clippy::type_complexity)]
-    let rows: Vec<(
-        String,
-        String,
-        Option<String>,
-        String,
-        Option<String>,
-        Option<String>,
-        Option<i32>,
-        Option<i32>,
-    )> = sqlx::query_as(
-        r#"
-        WITH since AS (
-            SELECT greatest(
-                       COALESCE(
-                           (SELECT max(s.generated_at) FROM public.stat_summaries s
-                             WHERE s.entity_type = $2 AND s.entity_id = $3 AND s.sport = $1
-                               AND s.body IS NOT NULL),
-                           now() - make_interval(days => $4)),
-                       now() - make_interval(days => $5)) AS at
-        ),
-        changes AS (
-            SELECT 'applied'::text AS kind, a.applied_at AS at, a.event_type,
-                   a.player_id, a.old_team_id, a.new_team_id
-              FROM public.transfer_identity_applications a
-             WHERE a.sport = $1 AND a.status = 'applied' AND a.reverted_at IS NULL
-               AND a.applied_at IS NOT NULL AND a.applied_at > (SELECT at FROM since)
-            UNION ALL
-            -- A revert is dated by WHEN IT WAS UNDONE: that is the fact that is new since the
-            -- last read, whatever the original move's date was.
-            SELECT 'reverted'::text, a.reverted_at, a.event_type,
-                   a.player_id, a.old_team_id, a.new_team_id
-              FROM public.transfer_identity_applications a
-             WHERE a.sport = $1 AND a.reverted_at IS NOT NULL
-               AND a.reverted_at > (SELECT at FROM since)
-        )
-        SELECT c.kind,
-               to_char(c.at, 'Mon DD') AS date_label,
-               c.event_type,
-               COALESCE(pl.name, 'a player') AS player_name,
-               told.name AS old_team,
-               tnew.name AS new_team,
-               c.old_team_id,
-               c.new_team_id
-          FROM changes c
-          JOIN public.players pl ON pl.id = c.player_id AND pl.sport = $1
-          LEFT JOIN public.teams told ON told.id = c.old_team_id AND told.sport = $1
-          LEFT JOIN public.teams tnew ON tnew.id = c.new_team_id AND tnew.sport = $1
-         WHERE ($2 = 'player' AND c.player_id = $3)
-            OR ($2 = 'team' AND ($3 = c.new_team_id OR $3 = c.old_team_id))
-         ORDER BY c.at DESC
-        "#,
-    )
-    .bind(sport)
-    .bind(entity_type)
-    .bind(entity_id)
-    .bind(PERSONNEL_FIRST_READ_DAYS)
-    .bind(PERSONNEL_MAX_DAYS)
-    .fetch_all(pool)
-    .await
-    .with_context(|| format!("load personnel changes {entity_type}/{entity_id}"))?;
-
-    let total = rows.len();
-    let changes = rows
-        .into_iter()
-        .take(MAX_PERSONNEL_LINES)
-        .map(
-            |(
-                kind,
-                date_label,
-                event_type,
-                player_name,
-                old_team,
-                new_team,
-                old_team_id,
-                new_team_id,
-            )| PersonnelChange {
-                kind,
-                date_label,
-                event_type,
-                player_name,
-                old_team,
-                new_team,
-                old_team_id,
-                new_team_id,
-            },
-        )
-        .collect();
-    Ok((changes, total))
-}
-
-/// Load adjudicated availability changes since the last read. Three distinct kinds are retained:
-/// `opened` (newly ruled out),
-/// `returned` (`returned_at` — availability actually resumed, a real-world outcome), and
-/// `reverted` (`reverted_at` — the RECORD was wrong, a correction). Rendering a revert as a
-/// return would tell the Scout a player is fit when what actually happened is that we withdrew
-/// the claim that he was ever hurt.
-///
-/// The `since` window is the personnel window exactly — same clamp, same first-read floor — so
-/// the two halves of one block cannot disagree about what "since our last read" means.
-///
-/// Returns newest-first plus the TOTAL that qualified, so the renderer names what the cap
-/// dropped (the A5 rule) instead of silently truncating.
-pub async fn load_availability_changes(
-    pool: &PgPool,
-    sport: &str,
-    entity_type: &str,
-    entity_id: i32,
-) -> Result<(Vec<AvailabilityChange>, usize)> {
-    if entity_type != "player" && entity_type != "team" {
-        return Ok((Vec::new(), 0));
-    }
-    #[allow(clippy::type_complexity)]
-    let rows: Vec<(
-        String,
-        String,
-        String,
-        String,
-        Option<String>,
-        Option<i32>,
-        String,
-        Option<String>,
-    )> = sqlx::query_as(
-        r#"
-        WITH since AS (
-            SELECT greatest(
-                       COALESCE(
-                           (SELECT max(s.generated_at) FROM public.stat_summaries s
-                             WHERE s.entity_type = $2 AND s.entity_id = $3 AND s.sport = $1
-                               AND s.body IS NOT NULL),
-                           now() - make_interval(days => $4)),
-                       now() - make_interval(days => $5)) AS at
-        ),
-        changes AS (
-            -- Newly ruled out. Dated by the APPLY, not the event: an injury adjudicated today
-            -- for a knock last Saturday is new information today.
-            SELECT 'opened'::text AS kind, a.applied_at AS at, a.kind AS event_kind,
-                   a.player_id, a.team_id, a.event_date, a.expected_return
-              FROM public.player_availability a
-             WHERE a.sport = $1 AND a.status = 'applied' AND a.reverted_at IS NULL
-               AND a.applied_at IS NOT NULL AND a.applied_at > (SELECT at FROM since)
-            UNION ALL
-            -- Came back. A real-world outcome, and the propensity denominator.
-            SELECT 'returned', a.returned_at::timestamptz, a.kind,
-                   a.player_id, a.team_id, a.event_date, a.expected_return
-              FROM public.player_availability a
-             WHERE a.sport = $1 AND a.status = 'applied' AND a.reverted_at IS NULL
-               AND a.returned_at IS NOT NULL
-               AND a.returned_at > (SELECT at FROM since)::date
-            UNION ALL
-            -- The record was withdrawn. Dated by WHEN IT WAS UNDONE — that is what is new,
-            -- whatever the original event's date was (the personnel read's own convention).
-            SELECT 'reverted', a.reverted_at, a.kind,
-                   a.player_id, a.team_id, a.event_date, a.expected_return
-              FROM public.player_availability a
-             WHERE a.sport = $1 AND a.reverted_at IS NOT NULL
-               AND a.reverted_at > (SELECT at FROM since)
-        )
-        SELECT c.kind,
-               to_char(c.at, 'Mon DD') AS date_label,
-               c.event_kind,
-               COALESCE(pl.name, 'a player') AS player_name,
-               t.name AS team_name,
-               c.team_id,
-               to_char(c.event_date, 'Mon DD') AS event_date_label,
-               CASE WHEN c.expected_return IS NOT NULL
-                    THEN to_char(c.expected_return, 'Mon DD') END AS expected_return_label
-          FROM changes c
-          JOIN public.players pl ON pl.id = c.player_id AND pl.sport = $1
-          LEFT JOIN public.teams t ON t.id = c.team_id AND t.sport = $1
-         WHERE ($2 = 'player' AND c.player_id = $3)
-            OR ($2 = 'team' AND c.team_id = $3)
-         ORDER BY c.at DESC
-        "#,
-    )
-    .bind(sport)
-    .bind(entity_type)
-    .bind(entity_id)
-    .bind(PERSONNEL_FIRST_READ_DAYS)
-    .bind(PERSONNEL_MAX_DAYS)
-    .fetch_all(pool)
-    .await
-    .with_context(|| format!("load availability changes {entity_type}/{entity_id}"))?;
-
-    let total = rows.len();
-    let changes = rows
-        .into_iter()
-        .take(MAX_AVAILABILITY_LINES)
-        .map(
-            |(
-                kind,
-                date_label,
-                event_kind,
-                player_name,
-                team_name,
-                team_id,
-                event_date_label,
-                expected_return_label,
-            )| AvailabilityChange {
-                kind,
-                date_label,
-                event_kind,
-                player_name,
-                team_name,
-                team_id,
-                event_date_label,
-                expected_return_label,
-            },
-        )
-        .collect();
-    Ok((changes, total))
-}
-
-/// How many reported-availability claims reach the brief. Six, matching the personnel cap: the
-/// 4,096 window still binds, and a busy treatment table must not crowd out the datapoints the
-/// report is actually built on.
-const MAX_AVAILABILITY_CLAIMS: usize = 6;
-
-/// Load the Editor's injury/suspension claims for this entity — evidence the Scout weighs rather
-/// than adjudicated facts it simply reports.
-///
-/// `Voice::Scout` selects only injury and suspension claims. `mark_contested` identifies both
-/// sides of a contradiction without filtering or deciding it.
-pub async fn load_availability_reports(
-    pool: &PgPool,
-    entity_type: &str,
-    entity_id: i32,
-    sport: &str,
-) -> Result<Vec<crate::junctions::editor::render::MarkedClaim>> {
-    use crate::junctions::editor::render::{mark_contested, slice_claims, Voice};
-
-    if entity_type != "player" && entity_type != "team" {
-        return Ok(Vec::new());
-    }
-    let loaded = crate::junctions::editor::packet::load_packets_for_entity(
-        pool,
-        entity_type,
-        entity_id,
-        sport,
-        crate::junctions::journalist::PACKET_LOOKBACK_HOURS,
-        MAX_AVAILABILITY_CLAIMS as i64,
-    )
-    .await
-    .with_context(|| format!("load availability reports {entity_type}/{entity_id}"))?;
-
-    let mut claims = Vec::new();
-    for (view, _) in loaded {
-        claims.extend(slice_claims(&view.claims, Voice::Scout));
-    }
-    claims.truncate(MAX_AVAILABILITY_CLAIMS);
-    // Contest-marking runs across the WHOLE set, after the merge — two storylines reporting the
-    // same knock differently is precisely the pair worth marking, and marking per-packet would
-    // miss it.
-    Ok(mark_contested(&claims))
-}
-
 // ---------------------------------------------------------------------------
 // Canonical material-input JSON and debounce hash. Datapoints retain stored order.
 // ---------------------------------------------------------------------------
@@ -1278,7 +943,7 @@ pub fn parse_rating_body(raw: &str) -> String {
 /// never a failed generation. Markdown decoration is deliberately NOT stripped before the
 /// match: a decorated title fails the brief's own plain-text guard downstream.
 fn split_rating_headline(raw: &str) -> (Option<String>, String) {
-    if let Ok(card) = serde_json::from_str::<crate::junctions::form::CardReply>(raw.trim()) {
+    if let Ok(card) = serde_json::from_str::<crate::composition::form::CardReply>(raw.trim()) {
         return (Some(card.headline), card.body);
     }
     let mut headline: Option<String> = None;
@@ -1305,15 +970,17 @@ fn split_rating_headline(raw: &str) -> (Option<String>, String) {
 impl Parser<RatingReply> for RatingParser {
     fn parse(&self, raw: &str) -> Result<Option<RatingReply>> {
         if raw.trim_start().starts_with('{') {
-            serde_json::from_str::<crate::junctions::form::CardReply>(raw)?;
+            serde_json::from_str::<crate::composition::form::CardReply>(raw)?;
         }
         // Split the card title off FIRST so the body checks never grade it as prose.
         let (headline, body_only) = split_rating_headline(raw);
-        crate::junctions::form::validate_hook(headline.as_deref())?;
+        crate::composition::form::validate_hook(headline.as_deref())?;
         let body = clean_commentary(&body_only);
-        crate::junctions::form::validate_body(&body)?;
-        if let Some(p) = crate::guards::first_banned_phrase(&body, crate::guards::RATING_BODY_BANS)
-        {
+        crate::composition::form::validate_body(&body)?;
+        if let Some(p) = crate::composition::guards::first_banned_phrase(
+            &body,
+            crate::composition::guards::RATING_BODY_BANS,
+        ) {
             tracing::warn!(
                 guard = "rating_body_ban",
                 phrase = p,
@@ -1321,16 +988,16 @@ impl Parser<RatingReply> for RatingParser {
             );
             anyhow::bail!("rating: body carries banned {p:?}");
         }
-        if let Some(p) = crate::guards::first_product_name(&body) {
+        if let Some(p) = crate::composition::guards::first_product_name(&body) {
             tracing::warn!(guard = "product_name", name = p, "rating body rejected");
             anyhow::bail!("rating: body names product {p:?}");
         }
-        if crate::guards::has_foreign_script(&body) {
+        if crate::composition::guards::has_foreign_script(&body) {
             tracing::warn!(guard = "foreign_script", "rating body rejected");
             anyhow::bail!("rating: body carries a foreign-script run");
         }
         // Optional titles fail open: salvage or drop without throwing away the report.
-        let headline = crate::guards::settle_title("scout", headline.as_deref());
+        let headline = crate::composition::guards::settle_title("scout", headline.as_deref());
         Ok(Some(RatingReply { body, headline }))
     }
 }
@@ -1340,7 +1007,7 @@ fn clean_commentary(raw: &str) -> String {
     let mut s = raw.trim();
     s = s.trim_matches('`');
     s = s.trim();
-    crate::guards::clean_served_prose(s)
+    crate::composition::guards::clean_served_prose(s)
 }
 
 // ---------------------------------------------------------------------------
@@ -1402,14 +1069,11 @@ pub async fn build_rating_request(
     }
 
     let input_components = input_components(&profile);
-    let input_components = crate::corpus::with_identity_version(
-        &hx.pool,
-        &req.entity_type,
-        req.entity_id,
-        &req.sport,
-        &input_components,
-    )
-    .await?;
+    let mut memory_request =
+        MemoryRequest::new(Mission::Scout, &req.entity_type, req.entity_id, &req.sport);
+    memory_request.season = Some(profile.season);
+    let memories = memories::load(&hx.pool, memory_request).await?;
+    let input_components = memories.with_input_components(&input_components)?;
     let (notability, notability_components) = compute_notability(&profile);
     let exclusions = RatingExclusions {
         budget_truncated_stat_labels: budget_truncated_stat_labels(&profile.breakdown),
@@ -1427,7 +1091,7 @@ pub async fn build_rating_request(
     .await?;
     // Personnel and availability are sourced enrichment, included in the material hash.
     // Load them independently so one failure cannot erase the other block.
-    let personnel = if with_enrichment {
+    let personnel = if with_enrichment && !memories.historical {
         let (changes, total) =
             match load_personnel_changes(&hx.pool, &req.sport, &req.entity_type, req.entity_id)
                 .await
@@ -1473,7 +1137,7 @@ pub async fn build_rating_request(
     };
     // The Editor's TAGGED reports — claims, not record. Same enrichment discipline as everything
     // else here: sourced enrichment, included in the material hash.
-    let availability_reports = if with_enrichment {
+    let availability_reports = if with_enrichment && !memories.historical {
         match load_availability_reports(&hx.pool, &req.entity_type, req.entity_id, &req.sport).await
         {
             Ok(claims) => inputs::render_availability_reports(&claims),
@@ -1537,10 +1201,7 @@ pub async fn build_rating_request(
     } else {
         None
     };
-    // Dated identity context; database errors must not silently remove it.
-    let identity =
-        crate::corpus::load_identity_card(&hx.pool, &req.entity_type, req.entity_id, &req.sport)
-            .await?;
+    let identity = Some(memories.render()?);
     let mut components: serde_json::Value = serde_json::from_str(&input_components)?;
     components["skill_changes"] = serde_json::json!(comparisons);
     components["personnel"] = serde_json::json!(personnel);
@@ -1563,7 +1224,7 @@ pub async fn build_rating_request(
         num_predict: RATING_NUM_PREDICT,
         num_ctx: hx.voice_num_ctx,
         json_mode: false,
-        format_schema: Some(crate::junctions::form::card_schema(false)),
+        format_schema: Some(crate::composition::form::card_schema(false)),
         format_schema_raw: None,
     };
     let backend = hx.router.for_role(Role::StatsLogic);
@@ -1709,7 +1370,7 @@ pub async fn generate_rating(
     // title, the same state an absent HEADLINE line already ships, never a retry — the
     // report under it is fine.
     let headline = reply.headline.filter(|t| {
-        let named = crate::guards::title_names_entity(t, &req.entity_name);
+        let named = crate::composition::guards::title_names_entity(t, &req.entity_name);
         if !named {
             tracing::warn!(seat = "scout", guard = "title_entity_absent",
                 entity = %req.entity_name, title = %t,
@@ -2028,7 +1689,7 @@ pub async fn enqueue_rating_for_applied_transfer(
             input_version: Some(input_version.clone()),
             attempts: 0,
         };
-        if let Err(e) = crate::work::enqueue(pool, &item).await {
+        if let Err(e) = crate::runtime::work::enqueue(pool, &item).await {
             warn!(
                 application_id,
                 entity_type,
@@ -2079,7 +1740,7 @@ pub async fn enqueue_rating_for_applied_availability(
             input_version: Some(input_version.clone()),
             attempts: 0,
         };
-        if let Err(e) = crate::work::enqueue(pool, &item).await {
+        if let Err(e) = crate::runtime::work::enqueue(pool, &item).await {
             warn!(
                 event_day,
                 entity_type,
@@ -2128,7 +1789,7 @@ impl StageHandler for RatingHandler {
         2
     }
     fn slot_group(&self) -> Option<(&'static str, usize)> {
-        Some(crate::stage::ARCHBOX_SLOTS)
+        Some(crate::runtime::stage::ARCHBOX_SLOTS)
     }
 
     async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {
@@ -2138,9 +1799,13 @@ impl StageHandler for RatingHandler {
             Some(season) => season,
             None => current_season(&hx.pool, &sport).await?,
         };
-        let name =
-            crate::corpus::lookup_entity_name(&hx.pool, &item.entity_type, entity_id, &sport)
-                .await?;
+        let name = crate::evidence::corpus::lookup_entity_name(
+            &hx.pool,
+            &item.entity_type,
+            entity_id,
+            &sport,
+        )
+        .await?;
         // A move that crossed the concrete threshold — or an applied injury or suspension — is
         // its own trigger, and it must not be debounced away: the stats have not changed, so the
         // input_hash has not changed, and the ordinary `skip_unchanged` gate would short-circuit

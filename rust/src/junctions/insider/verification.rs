@@ -1,7 +1,7 @@
 //! Transfer verification and identity adjudication contracts.
 
 use super::{NewsItem, TransferCandidate, TransferEvidence, DESC_TRUNCATE};
-use crate::util::truncate_bytes;
+use crate::runtime::util::truncate_bytes;
 
 pub const TRANSFER_PROMPT_VERSION: &str = "t13";
 
@@ -116,7 +116,7 @@ pub fn build_transfer_prompt(
     }
 
     if let Some(m) = memory.filter(|m| !m.trim().is_empty()) {
-        b.push_str("\nRelational memory (computed history for this exact pair — weigh it: a story that fizzled before deserves more skepticism on thin evidence; a prior confirmed move changes the roster framing):\n");
+        b.push_str("\nEntity memories for this proposed relationship:\n");
         for line in m.lines() {
             b.push_str("- ");
             b.push_str(line);

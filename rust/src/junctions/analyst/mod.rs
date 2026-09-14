@@ -6,23 +6,26 @@
 //!
 //! Direction and conviction are computed here; only the read and headline come from the model.
 
-use crate::harness::{EntityKey, Generation, GenerationCall, Harness, Parser};
+use crate::composition::memories::{self, MemoryRequest, Mission};
+
 use crate::junctions::oracle::{self, SynthMomentum, SynthRating, SynthVibe};
-use crate::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
-use crate::ollama::GenerateOptions;
-use crate::route::Role;
-use crate::stage::StageHandler;
-use crate::util::{hash_components, round1};
-use crate::work::{self, Item, Stage};
+use crate::runtime::harness::{EntityKey, Generation, GenerationCall, Harness, Parser};
+use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
+use crate::runtime::providers::ollama::GenerateOptions;
+use crate::runtime::route::Role;
+use crate::runtime::stage::StageHandler;
+use crate::runtime::util::{hash_components, round1};
+use crate::runtime::work::{self, Item, Stage};
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use sqlx::{PgPool, Row};
 use tracing::debug;
 
 mod inputs;
-pub mod prompt;
+pub use crate::composition::characters::analyst::{
+    MOMENTUM_PROMPT_VERSION, MOMENTUM_SYSTEM_PROMPT,
+};
 pub use inputs::build_momentum_prompt;
-pub use prompt::{MOMENTUM_PROMPT_VERSION, MOMENTUM_SYSTEM_PROMPT};
 
 /// Output contract captured separately in the diagnostic ledger.
 pub const MOMENTUM_OUTPUT_CONTRACT_VERSION: &str = "momentum-summary-v1";
@@ -49,6 +52,7 @@ const MOMENTUM_WORK_PREFIX: &str = "momentum:s";
 
 #[derive(Clone, Debug)]
 pub struct MomentumContext {
+    pub memories: memories::Package,
     pub season: i32,
     pub rating: Option<SynthRating>,
     pub vibe: Option<SynthVibe>,
@@ -93,15 +97,16 @@ impl Parser<MomentumReply> for MomentumParser {
         let mut reply = parse_momentum_reply(raw).ok_or_else(|| {
             anyhow!(
                 "momentum: invalid response (raw={:?})",
-                crate::util::truncate_bytes(raw.trim(), 160)
+                crate::runtime::util::truncate_bytes(raw.trim(), 160)
             )
         })?;
         // Production guards live at the Parser seam; eval can still inspect the raw parse.
-        crate::junctions::form::validate_body(&reply.blurb)?;
-        crate::junctions::form::validate_hook(reply.headline.as_deref())?;
-        if let Some(p) =
-            crate::guards::first_banned_phrase(&reply.blurb, crate::guards::MOMENTUM_BANNED_PHRASES)
-        {
+        crate::composition::form::validate_body(&reply.blurb)?;
+        crate::composition::form::validate_hook(reply.headline.as_deref())?;
+        if let Some(p) = crate::composition::guards::first_banned_phrase(
+            &reply.blurb,
+            crate::composition::guards::MOMENTUM_BANNED_PHRASES,
+        ) {
             tracing::warn!(
                 guard = "momentum_banned_phrase",
                 phrase = p,
@@ -109,17 +114,18 @@ impl Parser<MomentumReply> for MomentumParser {
             );
             anyhow::bail!("momentum: READ carries banned phrase {p:?}");
         }
-        if let Some(p) = crate::guards::first_product_name(&reply.blurb) {
+        if let Some(p) = crate::composition::guards::first_product_name(&reply.blurb) {
             tracing::warn!(guard = "product_name", name = p, "momentum READ rejected");
             anyhow::bail!("momentum: READ names product {p:?}");
         }
         // Sporting numbers are evidence; internal field citations leak the input contract.
-        if crate::guards::has_bookkeeping_citation(&reply.blurb) {
+        if crate::composition::guards::has_bookkeeping_citation(&reply.blurb) {
             tracing::warn!(guard = "bookkeeping_citation", "momentum READ rejected");
             anyhow::bail!("momentum: READ carries a bookkeeping citation");
         }
         // A bad optional title degrades to NULL without costing the read.
-        reply.headline = crate::guards::settle_title("analyst", reply.headline.as_deref());
+        reply.headline =
+            crate::composition::guards::settle_title("analyst", reply.headline.as_deref());
         Ok(Some(reply))
     }
 }
@@ -178,16 +184,13 @@ pub async fn load_momentum_context(
     )?;
     let input_components_json =
         build_momentum_input_components(rating.as_ref(), vibe.as_ref(), &snapshot);
-    let input_components_json = crate::corpus::with_identity_version(
-        &hx.pool,
-        entity_type,
-        entity_id,
-        sport,
-        &input_components_json,
-    )
-    .await?;
+    let mut request = MemoryRequest::new(Mission::Analyst, entity_type, entity_id, sport);
+    request.season = Some(season);
+    let memories = memories::load(&hx.pool, request).await?;
+    let input_components_json = memories.with_input_components(&input_components_json)?;
     let input_hash = hash_components(&input_components_json);
     Ok(MomentumContext {
+        memories,
         season,
         rating,
         vibe,
@@ -318,9 +321,9 @@ fn build_momentum_input_components(
 }
 
 pub fn parse_momentum_reply(raw: &str) -> Option<MomentumReply> {
-    if let Ok(card) = serde_json::from_str::<crate::junctions::form::CardReply>(raw.trim()) {
+    if let Ok(card) = serde_json::from_str::<crate::composition::form::CardReply>(raw.trim()) {
         return Some(MomentumReply {
-            blurb: crate::junctions::form::normalize_body(&card.body),
+            blurb: crate::composition::form::normalize_body(&card.body),
             headline: Some(card.headline),
         });
     }
@@ -334,12 +337,14 @@ pub fn parse_momentum_reply(raw: &str) -> Option<MomentumReply> {
         None => (rest, None),
     };
 
-    let blurb = crate::guards::clean_served_prose(&crate::junctions::form::normalize_body(body));
+    let blurb = crate::composition::guards::clean_served_prose(
+        &crate::composition::form::normalize_body(body),
+    );
     if blurb.is_empty() {
         return None;
     }
     // Reject a foreign-script generation so the work item retries.
-    if crate::guards::has_foreign_script(&blurb) {
+    if crate::composition::guards::has_foreign_script(&blurb) {
         return None;
     }
     Some(MomentumReply { blurb, headline })
@@ -404,9 +409,13 @@ impl StageHandler for MomentumHandler {
     async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {
         let entity_id = item.entity_id_i32()?;
         let sport = item.sport.to_uppercase();
-        let name =
-            crate::corpus::lookup_entity_name(&hx.pool, &item.entity_type, entity_id, &item.sport)
-                .await?;
+        let name = crate::evidence::corpus::lookup_entity_name(
+            &hx.pool,
+            &item.entity_type,
+            entity_id,
+            &item.sport,
+        )
+        .await?;
         let ctx = load_momentum_context(hx, &item.entity_type, entity_id, &sport).await?;
         if ctx.empty() {
             debug!(
@@ -420,10 +429,7 @@ impl StageHandler for MomentumHandler {
         // Enqueue performs the empty and debounce gates; the recomputed hash records provenance
         // for the row actually generated. The Analyst reads only the two numeric rails.
 
-        // Dated identity context; database errors must not silently remove it.
-        let identity =
-            crate::corpus::load_identity_card(&hx.pool, &item.entity_type, entity_id, &sport)
-                .await?;
+        let identity = Some(ctx.memories.render()?);
         let prompt = build_momentum_prompt(
             &item.entity_type,
             &name,
@@ -439,7 +445,7 @@ impl StageHandler for MomentumHandler {
             num_predict: MOMENTUM_NUM_PREDICT,
             num_ctx: hx.voice_num_ctx,
             json_mode: false,
-            format_schema: Some(crate::junctions::form::card_schema(false)),
+            format_schema: Some(crate::composition::form::card_schema(false)),
             format_schema_raw: None,
         };
         let extracted = hx
@@ -458,7 +464,7 @@ impl StageHandler for MomentumHandler {
 
         // A title that misses the entity degrades to no title without retrying the read.
         let headline = reply.headline.filter(|t| {
-            let named = crate::guards::title_names_entity(t, &name);
+            let named = crate::composition::guards::title_names_entity(t, &name);
             if !named {
                 tracing::warn!(seat = "analyst", guard = "title_entity_absent",
                     entity = %name, title = %t,

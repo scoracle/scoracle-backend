@@ -15,7 +15,7 @@
 use super::candidates::slice_quote;
 use super::derive::routing_tags;
 use super::{EditorRead, NameMention};
-use crate::util::hash_components;
+use crate::runtime::util::hash_components;
 use anyhow::{Context, Result};
 use serde_json::{json, Value};
 use sqlx::{PgPool, Row};

@@ -7,16 +7,16 @@
 //!
 //! The prompt and the contract live in [`prompt`]; read its module doc before editing either.
 
-use crate::fetch::{
+use crate::runtime::fetch::{
     content_hash, count_words, fetch_article, looks_paywalled, FetchedArticle, ARTICLE_MIN_WORDS,
 };
-use crate::harness::{Generation, GenerationCall, Harness, Parser};
-use crate::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
-use crate::ollama::GenerateOptions;
-use crate::route::Role;
-use crate::stage::{StageHandler, ARCHBOX_SLOTS};
-use crate::util::truncate;
-use crate::work::{Item, Stage};
+use crate::runtime::harness::{Generation, GenerationCall, Harness, Parser};
+use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
+use crate::runtime::providers::ollama::GenerateOptions;
+use crate::runtime::route::Role;
+use crate::runtime::stage::{StageHandler, ARCHBOX_SLOTS};
+use crate::runtime::util::truncate;
+use crate::runtime::work::{Item, Stage};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use serde::Deserialize;
@@ -773,8 +773,13 @@ async fn load_hypothesis_entities(
         if name.is_empty() {
             continue;
         }
-        let context =
-            crate::corpus::load_identity_record(pool, &entity_type, entity_id, sport).await?;
+        let context = crate::composition::memories::load_identity_record(
+            pool,
+            &entity_type,
+            entity_id,
+            sport,
+        )
+        .await?;
         entities.push(format!(
             "{name} ({entity_type} {entity_id})\n{}",
             context.unwrap_or_default()
@@ -1002,7 +1007,7 @@ async fn ledger_model_call(
     item: &Item,
     model: &str,
     parser_outcome: &str,
-    extracted: &crate::harness::Extracted<EditorRead>,
+    extracted: &crate::runtime::harness::Extracted<EditorRead>,
     body_hash: &str,
 ) {
     let entity_id = match item.entity_id_i32() {

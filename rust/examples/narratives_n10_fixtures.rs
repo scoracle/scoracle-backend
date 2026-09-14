@@ -27,8 +27,8 @@
 
 use std::path::Path;
 
-use scoracle_cognition::corpus::HeatItem;
-use scoracle_cognition::eval_tasks::{Expect, Fixture};
+use scoracle_cognition::evaluation::tasks::{Expect, Fixture};
+use scoracle_cognition::evidence::corpus::HeatItem;
 use scoracle_cognition::junctions::journalist::{
     build_narratives_prompt, CorpusItem, NarrativesReq, NARRATIVES_PROMPT_VERSION,
     NARRATIVES_SYSTEM_PROMPT,
@@ -92,7 +92,7 @@ fn fixture(
         system: NARRATIVES_SYSTEM_PROMPT.to_string(),
         // Fixtures pin the score-context-free prompt shape (the n12 SIGNALS/prior-reads block
         // is live-path enrichment, same rule as the eval task).
-        user_prompt: build_narratives_prompt(req, corpus, Some(memory), None, None, None),
+        user_prompt: build_narratives_prompt(req, corpus, Some(memory), None, None),
         temperature: 0.0,
         expect,
     }

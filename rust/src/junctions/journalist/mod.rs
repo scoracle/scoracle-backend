@@ -8,28 +8,31 @@
 //! `NarrativesHandler` is a live queue stage gated by `COGNITION_STAGES`. It is the News hub stage:
 //! transfer heat and source freshness are folded here before Vibe and Sigil consume the result.
 
-use crate::corpus::{dedupe_i64, lookup_entity_name};
-use crate::harness::{EntityKey, Generation, GenerationCall, Harness, Parser};
-use crate::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
-use crate::ollama::GenerateOptions;
-use crate::route::Role;
-use crate::stage::StageHandler;
-use crate::story_parts::{mode_storyline, progress_generation, PartItem};
-use crate::trajectory::DEFAULT_TRAJECTORY;
-use crate::work::{Item, Stage};
+use crate::composition::memories::{self, MemoryRequest, Mission};
+
+use crate::evidence::corpus::{dedupe_i64, lookup_entity_name};
+use crate::evidence::story_parts::{mode_storyline, progress_generation, PartItem};
+use crate::evidence::trajectory::DEFAULT_TRAJECTORY;
+use crate::runtime::harness::{EntityKey, Generation, GenerationCall, Harness, Parser};
+use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
+use crate::runtime::providers::ollama::GenerateOptions;
+use crate::runtime::route::Role;
+use crate::runtime::stage::StageHandler;
+use crate::runtime::work::{Item, Stage};
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde_json::json;
 use sqlx::{PgPool, Row};
 use std::collections::HashSet;
-use tracing::{debug, warn};
+use tracing::debug;
 
 mod inputs;
-pub mod prompt;
-pub use crate::junctions::form::narratives_format_schema;
+pub use crate::composition::characters::journalist::{
+    NARRATIVES_PROMPT_VERSION, NARRATIVES_SYSTEM_PROMPT,
+};
+pub use crate::composition::form::narratives_format_schema;
 pub use inputs::build_narratives_prompt;
-pub use prompt::{NARRATIVES_PROMPT_VERSION, NARRATIVES_SYSTEM_PROMPT};
 
 // ---------------------------------------------------------------------------
 // Constants — mirror news_narratives.go.
@@ -58,7 +61,7 @@ pub const NARRATIVES_NUM_PREDICT_PACKET: i32 = 900;
 
 /// Pair the context window with an output reservation that leaves room for the prompt.
 pub fn narratives_decode_budget(num_ctx: i32) -> (i32, i32) {
-    if crate::route::small_voice_window(num_ctx) {
+    if crate::runtime::route::small_voice_window(num_ctx) {
         (num_ctx, NARRATIVES_NUM_PREDICT_PACKET)
     } else {
         (num_ctx, NARRATIVES_NUM_PREDICT)
@@ -79,7 +82,7 @@ fn corpus_limit(num_ctx: i32) -> i64 {
         .ok()
         .and_then(|v| v.trim().parse::<i64>().ok())
         .filter(|n| *n > 0)
-        .unwrap_or(if crate::route::small_voice_window(num_ctx) {
+        .unwrap_or(if crate::runtime::route::small_voice_window(num_ctx) {
             SMALL_WINDOW_CORPUS_LIMIT
         } else {
             DEFAULT_CORPUS_LIMIT
@@ -200,13 +203,13 @@ impl Parser<ParsedNarratives> for NarrativesParser {
             // A generation failure must never masquerade as a no-data marker.
             return Err(anyhow!(
                 "parse narratives failed (raw={:?})",
-                crate::util::truncate(raw, 200)
+                crate::runtime::util::truncate(raw, 200)
             ));
         }
         // Every served title and body passes through the shared scrub.
         for n in narratives.iter_mut() {
-            n.title = crate::guards::clean_served_prose(&n.title);
-            n.body = crate::guards::clean_served_prose(&n.body);
+            n.title = crate::composition::guards::clean_served_prose(&n.title);
+            n.body = crate::composition::guards::clean_served_prose(&n.body);
         }
         if !narratives.is_empty() {
             let body = narratives
@@ -214,12 +217,12 @@ impl Parser<ParsedNarratives> for NarrativesParser {
                 .map(|n| n.body.as_str())
                 .collect::<Vec<_>>()
                 .join("\n\n");
-            crate::junctions::form::validate_body(&body)?;
+            crate::composition::form::validate_body(&body)?;
         }
         // Scan only served fields; discarded preamble cannot fail a clean edition.
         for n in &narratives {
-            if let Some(p) = crate::guards::first_product_name(&n.title)
-                .or_else(|| crate::guards::first_product_name(&n.body))
+            if let Some(p) = crate::composition::guards::first_product_name(&n.title)
+                .or_else(|| crate::composition::guards::first_product_name(&n.body))
             {
                 tracing::warn!(
                     guard = "product_name",
@@ -231,11 +234,12 @@ impl Parser<ParsedNarratives> for NarrativesParser {
         }
         // Score and title are best-effort; missing fields never discard grounded prose.
         let card_score = parse_card_score(raw);
-        crate::junctions::form::validate_hook(parse_headline(raw).as_deref())?;
+        crate::composition::form::validate_hook(parse_headline(raw).as_deref())?;
         // The entity-level hook is best-effort the same way, then settled through the shared
         // title floor: the tweet contract (140 chars), emphasis stripped, foreign-script and
         // overlong titles dropped rather than failing the edition.
-        let headline = crate::guards::settle_title("journalist", parse_headline(raw).as_deref());
+        let headline =
+            crate::composition::guards::settle_title("journalist", parse_headline(raw).as_deref());
         Ok(Some(ParsedNarratives {
             narratives,
             card_score,
@@ -436,147 +440,6 @@ fn context_tokens(s: &str) -> Vec<String> {
         .collect()
 }
 
-/// Fetch the graph's per-entity memory card. `None` means no prompt section.
-/// Model-facing enrichment only — the relational layer is never user-exposed.
-pub async fn load_entity_memory(
-    pool: &sqlx::PgPool,
-    sport: &str,
-    entity_type: &str,
-    entity_id: i32,
-) -> Result<Option<String>> {
-    let row: (Option<String>,) = sqlx::query_as("SELECT narrative_context_for_entity($1, $2, $3)")
-        .bind(sport)
-        .bind(entity_type)
-        .bind(entity_id)
-        .fetch_one(pool)
-        .await
-        .context("narrative_context_for_entity")?;
-    Ok(row.0)
-}
-
-/// Number of recent Journalist card reads used as continuity memory.
-const PRIOR_CARD_READS_LIMIT: i64 = 4;
-
-/// Impact-ranked storylines from the previous filing carried as memory.
-const PRIOR_STORY_BODY_LIMIT: i64 = 3;
-/// Prompt bytes each remembered storyline body may spend (the influencer BODY_TRUNCATE
-/// precedent): three truncated bodies ≈ 200 tokens against the 4096 window.
-const PRIOR_STORY_BODY_TRUNCATE: usize = 280;
-
-/// The Journalist's own score memory: the latest non-NULL `card_score` (persisted as
-/// `card_score_prev` on the new generation — the continuity audit) plus the rendered
-/// prompt block.
-pub struct PriorCardReads {
-    pub latest: i16,
-    pub card: String,
-}
-
-/// Render the Journalist's own recent filings as prompt-only continuity memory.
-/// One generation carries one uniform card_score, so the trail is DISTINCT over `generated_at`.
-/// The previous generation's filed shape (storyline count, max impact) rides along: impact is
-/// computed post-parse, so it can only ground the NEXT call — this one. `None` for a first-ever
-/// scored read. Prompt-only, deliberately NOT part of the input_hash.
-pub async fn load_prior_card_reads(
-    pool: &sqlx::PgPool,
-    entity_type: &str,
-    entity_id: i32,
-    sport: &str,
-) -> Result<Option<PriorCardReads>> {
-    let trail: Vec<(i16, Option<String>, String)> = sqlx::query_as(
-        r#"
-        SELECT card_score, headline, to_char(generated_at, 'Mon DD')
-        FROM (
-            SELECT DISTINCT generated_at, card_score, headline
-            FROM news_summaries
-            WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
-              AND card_score IS NOT NULL
-        ) g
-        ORDER BY generated_at DESC
-        LIMIT $4
-        "#,
-    )
-    .bind(entity_type)
-    .bind(entity_id)
-    .bind(sport)
-    .bind(PRIOR_CARD_READS_LIMIT)
-    .fetch_all(pool)
-    .await
-    .with_context(|| format!("load prior card reads {entity_type}/{entity_id}"))?;
-    if trail.is_empty() {
-        return Ok(None);
-    }
-    // The latest generation's filed shape — markers count as an honest zero.
-    let (storylines, max_impact): (i64, Option<i16>) = sqlx::query_as(
-        r#"
-        SELECT count(*) FILTER (WHERE body IS NOT NULL), max(impact)
-        FROM news_summaries
-        WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
-          AND generated_at = (
-              SELECT max(generated_at) FROM news_summaries
-              WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
-          )
-        "#,
-    )
-    .bind(entity_type)
-    .bind(entity_id)
-    .bind(sport)
-    .fetch_one(pool)
-    .await
-    .with_context(|| format!("load prior generation shape {entity_type}/{entity_id}"))?;
-
-    // Load the last content generation; a marker must not erase the previous filing's memory.
-    let prior_stories: Vec<(String, String)> = sqlx::query_as(
-        r#"
-        SELECT narrative_title, body
-        FROM news_summaries
-        WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
-          AND body IS NOT NULL
-          AND generated_at = (
-              SELECT max(generated_at) FROM news_summaries
-              WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
-                AND body IS NOT NULL
-          )
-        ORDER BY impact DESC NULLS LAST
-        LIMIT $4
-        "#,
-    )
-    .bind(entity_type)
-    .bind(entity_id)
-    .bind(sport)
-    .bind(PRIOR_STORY_BODY_LIMIT)
-    .fetch_all(pool)
-    .await
-    .with_context(|| format!("load prior storylines {entity_type}/{entity_id}"))?;
-
-    let mut card = String::from(
-        "YOUR PRIOR CARD READS (memory — your own previous filings; continuity, not new evidence):\n",
-    );
-    // Keep the dated headline trail and only the latest score as the numeric anchor.
-    for (_, headline, day) in &trail {
-        if let Some(h) = headline.as_deref().filter(|h| !h.trim().is_empty()) {
-            card.push_str(&format!("Your front page ({day}): {h}\n"));
-        }
-    }
-    card.push_str(&format!("Your latest card score: {}\n", trail[0].0));
-    // Previous bodies are truncated reference, explicitly framed as memory rather than evidence.
-    for (title, body) in &prior_stories {
-        card.push_str(&format!(
-            "You previously filed \"{title}\": {}\n",
-            crate::util::truncate_bytes(body, PRIOR_STORY_BODY_TRUNCATE)
-        ));
-    }
-    match max_impact {
-        Some(m) => card.push_str(&format!(
-            "Your previous filing: {storylines} storyline(s), max impact {m}"
-        )),
-        None => card.push_str(&format!("Your previous filing: {storylines} storyline(s)")),
-    }
-    Ok(Some(PriorCardReads {
-        latest: trail[0].0,
-        card,
-    }))
-}
-
 /// render_signals_line writes the deterministic tally that grounds the card score: post-dedup
 /// article count, distinct sources, freshest-article age. Zero new queries — everything comes
 /// from the already-loaded corpus (the plan's "already in the corpus vec" guarantee).
@@ -704,7 +567,7 @@ fn parse_card_score(raw: &str) -> Option<i16> {
 /// tolerance as [`parse_card_score`]: a clean whole-document parse first, then a raw key scan
 /// for truncated/prose-wrapped tails. `None` for an absent key or a non-string value — never a
 /// parse failure (pre-headline replays simply persist NULL and the card renders without a hook).
-/// The guard pass ([`crate::guards::settle_title`]) runs at the call site, not here.
+/// The guard pass ([`crate::composition::guards::settle_title`]) runs at the call site, not here.
 fn parse_headline(raw: &str) -> Option<String> {
     // Whole-document first: the live path is schema-constrained, so this is the common case.
     if let Ok(v) = serde_json::from_str::<serde_json::Value>(raw.trim()) {
@@ -908,7 +771,7 @@ pub const READING_FINGERPRINT_NONE: &str = "none::0";
 pub fn build_article_reading_input_components(items: &[(i64, String)]) -> String {
     let mut pairs = items.to_vec();
     pairs.sort_by_key(|(id, _)| *id);
-    crate::util::hash_components(
+    crate::runtime::util::hash_components(
         &serde_json::to_string(&pairs).expect("article fingerprint tuples serialize"),
     )
 }
@@ -949,6 +812,7 @@ pub struct NarrativesReady {
 
 /// Loaded material and its debounce hash. The live handler gates before prompt assembly.
 pub struct NarrativesMaterial {
+    pub memories: memories::Package,
     pub corpus: Vec<CorpusItem>,
     pub corpus_exclusions: CorpusExclusions,
     /// SHA over [`build_narratives_input_components`] — the debounce key.
@@ -978,17 +842,21 @@ pub async fn load_narratives_material(
     };
 
     // The prompt version makes a contract change invalidate each material hash once.
-    let input_components = crate::corpus::with_identity_version(
-        &hx.pool,
+    let article_ids: Vec<i64> = corpus.iter().map(|c| c.id).collect();
+    let mut request = MemoryRequest::new(
+        Mission::Journalist,
         &req.entity_type,
         req.entity_id,
         &req.sport,
-        &build_narratives_input_components(&corpus),
-    )
-    .await?;
-    let input_hash = crate::util::hash_components(&input_components);
+    );
+    request.current_article_ids = &article_ids;
+    let memories = memories::load(&hx.pool, request).await?;
+    let input_components =
+        memories.with_input_components(&build_narratives_input_components(&corpus))?;
+    let input_hash = crate::runtime::util::hash_components(&input_components);
 
     Ok(NarrativesMaterial {
+        memories,
         corpus,
         corpus_exclusions,
         input_hash,
@@ -1003,8 +871,8 @@ pub async fn finish_narratives_build(
     material: NarrativesMaterial,
     temperature: f64,
 ) -> Result<NarrativesBuild> {
-    let sport_up = req.sport.to_uppercase();
     let NarrativesMaterial {
+        memories,
         corpus,
         corpus_exclusions,
         input_hash,
@@ -1019,54 +887,15 @@ pub async fn finish_narratives_build(
         });
     }
 
-    // Memory-load failure degrades to an unenriched prompt, mirroring the heat
-    // error-swallowing above: the corpus is the primary signal, memory is enrichment.
-    let memory =
-        match load_entity_memory(&hx.pool, &sport_up, &req.entity_type, req.entity_id).await {
-            Ok(m) => m,
-            Err(e) => {
-                warn!(
-                    entity_type = %req.entity_type,
-                    entity_id = req.entity_id,
-                    sport = %sport_up,
-                    error = %e,
-                    "narratives: relational memory load failed (continuing without memory)"
-                );
-                None
-            }
-        };
-    // Signals and prior reads are prompt-only enrichment; failures degrade without blocking.
-    let prior_reads =
-        match load_prior_card_reads(&hx.pool, &req.entity_type, req.entity_id, &sport_up).await {
-            Ok(p) => p,
-            Err(e) => {
-                warn!(
-                    entity_type = %req.entity_type,
-                    entity_id = req.entity_id,
-                    sport = %sport_up,
-                    error = %e,
-                    "narratives: prior card reads load failed (continuing without)"
-                );
-                None
-            }
-        };
-    let card_score_prev = prior_reads.as_ref().map(|p| p.latest);
-    let mut score_context = render_signals_line(&corpus, now_unix());
-    if let Some(p) = &prior_reads {
-        score_context.push('\n');
-        score_context.push_str(&p.card);
-    }
-    // Dated identity context; database errors must not silently remove it.
-    let identity =
-        crate::corpus::load_identity_card(&hx.pool, &req.entity_type, req.entity_id, &req.sport)
-            .await?;
+    let card_score_prev = memories.previous_score;
+    let score_context = render_signals_line(&corpus, now_unix());
+    let identity = Some(memories.render()?);
     let built_prompt = build_narratives_prompt(
         req,
         &corpus,
-        memory.as_deref(),
+        identity.as_deref(),
         Some(&score_context),
         packet_framing.as_deref(),
-        identity.as_deref(),
     );
     let (num_ctx, num_predict) = narratives_decode_budget(hx.voice_num_ctx);
     let opts = GenerateOptions {
@@ -1455,7 +1284,7 @@ pub async fn persist_narratives(
         .request_body()
         .and_then(|b| b.pointer("/options/num_ctx"))
         .and_then(|v| v.as_i64())
-        .unwrap_or(crate::route::VOICE_NUM_CTX_PACKET as i64) as i32;
+        .unwrap_or(crate::runtime::route::VOICE_NUM_CTX_PACKET as i64) as i32;
     let mut excluded = Vec::new();
     if !out.stale_news_ids.is_empty() {
         excluded.push(json!({
@@ -1491,7 +1320,7 @@ pub async fn persist_narratives(
                 "num_predict": out.request_body().and_then(|b| b.pointer("/options/num_predict"))
                     .and_then(|v| v.as_i64()).unwrap_or(NARRATIVES_NUM_PREDICT_PACKET as i64),
                 "num_ctx": out.request_body().and_then(|b| b.pointer("/options/num_ctx"))
-                    .and_then(|v| v.as_i64()).unwrap_or(crate::route::VOICE_NUM_CTX_PACKET as i64),
+                    .and_then(|v| v.as_i64()).unwrap_or(crate::runtime::route::VOICE_NUM_CTX_PACKET as i64),
             })),
             parser_outcome: if !out.was_called() {
                 "no_call"
@@ -1547,7 +1376,7 @@ impl StageHandler for NarrativesHandler {
         2
     }
     fn slot_group(&self) -> Option<(&'static str, usize)> {
-        Some(crate::stage::MAC_SLOTS)
+        Some(crate::runtime::stage::MAC_SLOTS)
     }
 
     async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {

@@ -1,0 +1,25 @@
+{
+  "checked_at": "2026-09-14T22:46:08Z",
+  "entity": {"sport":"FOOTBALL","entity_type":"player","id":4592198,"name":"Morgan Rogers"},
+  "purpose": "Source review for the user's scoring-versus-providing comparison; no production metadata or statistical totals were changed.",
+  "records": [
+    {
+      "source":"official club reporting",
+      "url":"https://www.chelseafc.com/en/news/article/how-morgan-rogers-has-fulfilled-xabi-alonsos-expectations-at-chelsea",
+      "competition":"Premier League",
+      "published_at":null,
+      "facts":["Chelsea reports a Rogers goal on his league debut in a 3-2 win at Fulham.","The club reports an assist for Pedro Neto against Brighton the following weekend."],
+      "qualification":"These are selected match accounts, not a complete season aggregation. The inspected page did not expose a publication date."
+    },
+    {
+      "source":"official club match analysis",
+      "url":"https://www.chelseafc.com/en/news/article/analysis-how-devastating-palmer-and-rogers-helped-turn-tie-around",
+      "competition":"Carabao Cup",
+      "opponent":"Leeds United",
+      "published_at":null,
+      "facts":["The club analysis credits Rogers with three official assists after coming on at half-time.","It records four chances created and explains that another cross did not receive an official assist."],
+      "qualification":"Cup actions must not be added to the league statistical row. Four creative contributions are not four official assists."
+    }
+  ],
+  "interpretation":"The sources support early scoring and creative contributions at Chelsea. They do not by themselves establish a measured shift from predominantly provider to predominantly scorer relative to Villa."
+}

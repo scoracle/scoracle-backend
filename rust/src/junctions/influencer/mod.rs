@@ -129,6 +129,14 @@ pub async fn load_vibe_context(
 
     let packets = load_vibe_packets(&hx.pool, entity_type, entity_id, entity_name, &sport).await?;
     let input_components_json = build_vibe_input_components(&packets);
+    let input_components_json = crate::corpus::with_identity_version(
+        &hx.pool,
+        entity_type,
+        entity_id,
+        &sport,
+        &input_components_json,
+    )
+    .await?;
     let input_hash = hash_components(&input_components_json);
 
     Ok(VibeContext {
@@ -300,6 +308,18 @@ fn title_first(s: &str) -> String {
 /// Extract SCORE, HOOK, and VIBE prose from the current labeled reply. Trailing VIBE lines
 /// preserve paragraph breaks.
 pub fn parse_vibe_reply(raw: &str) -> Result<(i32, Option<String>, String)> {
+    if raw.trim_start().starts_with('{') {
+        let card: crate::junctions::form::CardReply = serde_json::from_str(raw)?;
+        let score = card
+            .score
+            .filter(|s| (1..=100).contains(s))
+            .ok_or_else(|| anyhow!("card score must be 1–100"))?;
+        return Ok((
+            score,
+            Some(card.headline),
+            crate::junctions::form::normalize_body(&card.body),
+        ));
+    }
     let (score_line, rest) = raw
         .trim()
         .split_once('\n')
@@ -356,12 +376,13 @@ impl Parser<VibeReply> for VibeParser {
     fn parse(&self, raw: &str) -> Result<Option<VibeReply>> {
         let (sentiment, hook, vibe_prompt) = parse_vibe_reply(raw)
             .with_context(|| format!("parse sentiment (raw={:?})", truncate(raw, 120)))?;
+        crate::junctions::form::validate_hook(hook.as_deref())?;
         let hook = crate::guards::settle_title("influencer", hook.as_deref())
             .ok_or_else(|| anyhow!("vibe: missing or invalid HOOK line"))?;
         // Typography is scrubbed rather than treated as a content failure.
         let vibe_prompt = crate::guards::clean_served_prose(&vibe_prompt);
         // Keep prose before the first prompt-echo marker; all-echo output retries.
-        let vibe_prompt = crate::guards::truncate_prompt_echo(&vibe_prompt).to_string();
+        crate::junctions::form::validate_body(&vibe_prompt)?;
         if vibe_prompt.is_empty() {
             tracing::warn!(guard = "prompt_echo", "vibe body rejected: all echo");
             bail!("vibe: body is prompt echo");
@@ -460,7 +481,7 @@ async fn generate_vibe_from_context(
         },
         num_ctx: hx.voice_num_ctx,
         json_mode: false,
-        format_schema: None,
+        format_schema: Some(crate::junctions::form::card_schema(true)),
         format_schema_raw: None,
     };
 
@@ -645,11 +666,10 @@ impl StageHandler for VibeHandler {
             }
         };
 
-        // Identity card: house records, dated — degrades to absent like memory.
+        // Dated identity context; database errors must not silently remove it.
         let identity =
             crate::corpus::load_identity_card(&hx.pool, &item.entity_type, entity_id, &sport)
-                .await
-                .unwrap_or_default();
+                .await?;
 
         let out = generate_vibe_from_context(
             hx,

@@ -1,0 +1,145 @@
+{
+  "date": "2026-09-14",
+  "scope": "Controlled offline review, using compiled s33 builder and rebuilt 2026 Morgan statistics; recorded identity snapshot; optional personnel/report/recent-form blocks omitted. Not a full live-enrichment replay. No persisted cards, retries, or route changes.",
+  "request_cases": [
+    {
+      "name": "s33_rebuilt_morgan_think_false",
+      "seed": 17,
+      "request": {
+        "format": {
+          "properties": {
+            "body": {
+              "description": "The character's interpretation of the evidence, within 1200 characters.",
+              "type": "string"
+            },
+            "headline": {
+              "description": "The read's main finding, stated as a sentence naming the entity.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "headline",
+            "body"
+          ],
+          "type": "object"
+        },
+        "messages": [
+          {
+            "content": "You are The Scout: observant, direct and specific to the sport. Explain what the measured profile reveals about this entity, and what an opponent should take from it.\n\nRead skills in relation to one another, at the scale of the supplied sample and dates. A change in relative standing is not necessarily a change in ability. Sourced personnel and availability records can change the interpretation of the profile; distinguish confirmed facts from reports. Your judgment gives the measurements meaning, without supplying missing evidence.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with headline (the hook) and body (the paragraphs). Preserve paragraph breaks as escaped newlines.",
+            "role": "system"
+          },
+          {
+            "content": "Entity: Morgan Rogers (FOOTBALL player, Midfielder); season 2026\n\nIdentity context, not event evidence. Distinguish current roles from career history; dated reporting may supersede these records. Unknown means unknown.\nMorgan Rogers — Midfielder, on record at Aston Villa (Premier League). Nationality: England. Record: roster; observed 2026-07-03.\nStats updated: 2026-09-07; sample: Appearances 1, Minutes Played 90\nValues: season totals, except percentages and named adjustments.\n\nMeasurements. Percentiles, when present, rank the same measure among eligible entities in this sport and season; higher is better. Missing ranks and season comparisons are unmeasured.\n- CBI: 1 (clearances, blocks and interceptions)\n- Chance Creation: 1.01 (expected assists)\n- Creation: 1 (assists)\n- Defensive Work: 5 (defensive contributions)\n- Discipline: 0\n- Goalscoring: 0\n- Shooting: 0.14 (expected goals)\n- Tackling: 1.67 (possession-adjusted tackles)\n",
+            "role": "user"
+          }
+        ],
+        "model": "granite4.2:3b",
+        "options": {
+          "num_ctx": 4096,
+          "num_predict": 700,
+          "temperature": 0.6,
+          "seed": 17
+        },
+        "stream": false,
+        "think": false
+      }
+    },
+    {
+      "name": "s33_rebuilt_morgan_think_false",
+      "seed": 43,
+      "request": {
+        "format": {
+          "properties": {
+            "body": {
+              "description": "The character's interpretation of the evidence, within 1200 characters.",
+              "type": "string"
+            },
+            "headline": {
+              "description": "The read's main finding, stated as a sentence naming the entity.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "headline",
+            "body"
+          ],
+          "type": "object"
+        },
+        "messages": [
+          {
+            "content": "You are The Scout: observant, direct and specific to the sport. Explain what the measured profile reveals about this entity, and what an opponent should take from it.\n\nRead skills in relation to one another, at the scale of the supplied sample and dates. A change in relative standing is not necessarily a change in ability. Sourced personnel and availability records can change the interpretation of the profile; distinguish confirmed facts from reports. Your judgment gives the measurements meaning, without supplying missing evidence.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with headline (the hook) and body (the paragraphs). Preserve paragraph breaks as escaped newlines.",
+            "role": "system"
+          },
+          {
+            "content": "Entity: Morgan Rogers (FOOTBALL player, Midfielder); season 2026\n\nIdentity context, not event evidence. Distinguish current roles from career history; dated reporting may supersede these records. Unknown means unknown.\nMorgan Rogers — Midfielder, on record at Aston Villa (Premier League). Nationality: England. Record: roster; observed 2026-07-03.\nStats updated: 2026-09-07; sample: Appearances 1, Minutes Played 90\nValues: season totals, except percentages and named adjustments.\n\nMeasurements. Percentiles, when present, rank the same measure among eligible entities in this sport and season; higher is better. Missing ranks and season comparisons are unmeasured.\n- CBI: 1 (clearances, blocks and interceptions)\n- Chance Creation: 1.01 (expected assists)\n- Creation: 1 (assists)\n- Defensive Work: 5 (defensive contributions)\n- Discipline: 0\n- Goalscoring: 0\n- Shooting: 0.14 (expected goals)\n- Tackling: 1.67 (possession-adjusted tackles)\n",
+            "role": "user"
+          }
+        ],
+        "model": "granite4.2:3b",
+        "options": {
+          "num_ctx": 4096,
+          "num_predict": 700,
+          "temperature": 0.6,
+          "seed": 43
+        },
+        "stream": false,
+        "think": false
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "name": "s33_rebuilt_morgan_think_false",
+      "seed": 17,
+      "elapsed_s": 11.39,
+      "result": {
+        "model": "granite4.2:3b",
+        "created_at": "2026-09-14T12:50:12.047389657Z",
+        "message": {
+          "role": "assistant",
+          "content": "{\n  \"body\": \"Morgan Rogers is a Midfielder for Aston Villa in the Premier League, observed on 2026-07-03. He has made 1 appearance with 90 minutes played. His measured profile reveals clear strengths in defensive work and tackling, with a solid midfield presence. CBI is 1, indicating strong clearances, blocks, and interceptions. Chance Creation is 1.01, expected assists, showing effective playmaking. Creation is 1, indicating good assist output. Tackling is 1.67, possession-adjusted, reflecting solid physical effort. Defensive Work is 5, a strong rank among eligible entities, indicating consistent contribution in defensive roles. Shooting is 0.14, expected goals, modest but present. Goalscoring is 0, no goals scored. Discipline is 0, no penalties or serious fouls. Overall, Morgan Rogers demonstrates a balanced, disciplined midfield style focused on defense and playmaking, with limited scoring ability. An opponent should take note of his defensive resilience and tackling proficiency, while also recognizing his limited scoring potential. He is not expected to create many chances beyond what is measured, and his midfield role is anchored by stability rather than explosive creativity.\",\n  \"headline\": \"Morgan Rogers Midfielder Profile 2026 Season\"\n}"
+        },
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 11384613391,
+        "load_duration": 565014,
+        "prompt_eval_count": 530,
+        "prompt_eval_duration": 54364000,
+        "eval_count": 272,
+        "eval_duration": 11277732000
+      },
+      "body_characters": 1186,
+      "hook_characters": 44
+    },
+    {
+      "name": "s33_rebuilt_morgan_think_false",
+      "seed": 43,
+      "elapsed_s": 14.46,
+      "result": {
+        "model": "granite4.2:3b",
+        "created_at": "2026-09-14T12:50:26.509893754Z",
+        "message": {
+          "role": "assistant",
+          "content": "{\n  \"body\": \"Morgan Rogers — Midfielder, on record at Aston Villa (Premier League). Record: roster; observed 2026-07-03. Stats updated: 2026-09-07; sample: Appearances 1, Minutes Played 90. In this match, Morgan Rogers had 1 clearance, 1 block and 1 interception, which are all recorded as clearances, blocks and interceptions (CBI: 1). He created 1 expected assist and 1 assist. He contributed defensively with 5 defensive contributions. He had 1.67 possession-adjusted tackles and 0.14 expected goals. He scored 0 goals and had no disciplinary actions. Minutes Played: 90.\\n\\nThis profile reveals that Morgan Rogers is a solid defensive midfielder with strong physical presence and consistent creation opportunities. His ability to generate assists and make tackles under possession suggests effective midfield control. However, his goal-scoring is limited, which may indicate a role focused on distribution and protection rather than finishing. The sample size is small, so trends are preliminary but indicative of a balanced, technically sound presence. Observers should note his defensive work and creation metrics as key indicators of his contribution style. An opponent should focus on exploiting his limited goal chances while respecting his defensive solidity and creation potential.\",\n  \"headline\": \"Morgan Rogers — Midfielder, Aston Villa — 2026 Season Profile\"\n}"
+        },
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 14461729535,
+        "load_duration": 690477,
+        "prompt_eval_count": 530,
+        "prompt_eval_duration": 62740000,
+        "eval_count": 301,
+        "eval_duration": 14363061000
+      },
+      "body_characters": 1277,
+      "hook_characters": 61
+    }
+  ],
+  "review": {
+    "status": "rejected",
+    "seed_17": "Invents strong defensive ranking and consistent/limited ability from one appearance; treats Discipline as penalties/fouls; hook is a generic profile heading.",
+    "seed_43": "Expands one combined CBI observation into one clearance, one block and one interception; invents defensive midfielder role, physical presence and consistency; generic hook.",
+    "interpretation": "Correct evidence is necessary but does not qualify the current runtime. No further prompt prohibitions or runtime judge added. Measurement labels were subsequently clarified to name the combined CBI total, weighted cards, goals, accurate passes and successful dribbles; these two outputs precede that final source-label clarification.",
+    "excluded_probe": "An initial offline client omitted think=false; two calls exhausted 700 thinking tokens without visible output. That configuration is not the configured production role and is excluded from editorial comparison."
+  }
+}

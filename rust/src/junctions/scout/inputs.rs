@@ -138,14 +138,11 @@ pub fn render_personnel_block(
     Some(b)
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn build_stat_prompt(
     req: &RatingReq,
     p: &RatingProfile,
-    notability: i32,
-    memory: Option<&str>,
     personnel: Option<&str>,
-    z_memory: Option<&str>,
+    comparisons: Option<&std::collections::HashMap<String, super::SkillChange>>,
     form_trend: Option<&str>,
     availability_reports: Option<&str>,
     identity: Option<&str>,
@@ -157,7 +154,10 @@ pub fn build_stat_prompt(
         header.push_str(", ");
         header.push_str(&p.position);
     }
-    b.push_str(&format!("Entity: {} ({header})\n", req.entity_name));
+    b.push_str(&format!(
+        "Entity: {} ({header}); season {}\n",
+        req.entity_name, p.season
+    ));
 
     if let Some(card) = identity {
         b.push('\n');
@@ -166,42 +166,54 @@ pub fn build_stat_prompt(
     }
 
     b.push_str(&format!(
-        "\nProfile distinctiveness: {notability}/100 (higher = more standout skills).\n"
+        "Stats updated: {}; sample: {}\n",
+        p.observed_at.as_deref().unwrap_or("unknown"),
+        render_sample(&p.sample)
     ));
-
-    if let Some(comp) = p.composite_score {
+    if let Some(change) = comparisons.and_then(|changes| changes.values().next()) {
         b.push_str(&format!(
-            "\nOverall score (how WELL overall — T-score, 50 = average): {comp:.0}\n"
+            "Comparison: season {}; stats updated: {}; sample: {}\n",
+            change.prior_season,
+            change.prior_observed_at.as_deref().unwrap_or("unknown"),
+            render_sample(&change.prior_sample)
         ));
     }
 
-    b.push_str("\nDatapoints — measured value, percentile, tier, rating (distance from average), and position percentile when available:\n");
+    if let Some(comp) = p.composite_score {
+        b.push_str(&format!(
+            "\nOverall standardized score (50 = average): {comp:.0}\n"
+        ));
+    }
+
+    if req.sport == "NBA" {
+        b.push_str("Values: per-game averages, except percentages.\n");
+    } else {
+        b.push_str("Values: season totals, except percentages and named adjustments.\n");
+    }
+    b.push_str("\nMeasurements. Percentiles, when present, rank the same measure among eligible entities in this sport and season; higher is better. Missing ranks and season comparisons are unmeasured.\n");
+    let rates = collect_rate_standouts(p);
     for d in ordered_facts(&p.breakdown) {
         b.push_str("- ");
         b.push_str(&format_datapoint_evidence(&d));
-        b.push('\n');
-    }
-
-    let rs = collect_rate_standouts(p);
-    if !rs.is_empty() {
-        b.push_str("\nRate-adjusted (per-x) corroboration — these also rate elite on a per-minute / per-90 basis (so the edge is not just a counting-stat artifact of heavy minutes):\n");
-        for r in &rs {
+        if let Some(changes) = comparisons {
+            if let Some(change) = changes.get(&d.label) {
+                b.push_str(&format!(
+                    "; prior season percentile {:.1}",
+                    change.prior_pct
+                ));
+            }
+        }
+        for rate in rates
+            .iter()
+            .filter(|r| r.label == d.label && r.measure == d.measure)
+        {
             b.push_str(&format!(
-                "- [{}] {}: {:.0}th pct\n",
-                r.mode.replace('_', "-"),
-                r.label,
-                r.pct
+                "; {} percentile {:.1}",
+                rate.mode.replace('_', "-"),
+                rate.pct
             ));
         }
-    }
-
-    if let Some(zm) = z_memory.filter(|m| !m.trim().is_empty()) {
-        b.push_str("\nSeason-over-season movement (computed against last season's percentiles):\n");
-        for line in zm.lines() {
-            b.push_str("- ");
-            b.push_str(line);
-            b.push('\n');
-        }
+        b.push('\n');
     }
 
     if let Some(ft) = form_trend.filter(|t| !t.trim().is_empty()) {
@@ -220,14 +232,16 @@ pub fn build_stat_prompt(
         b.push_str(ar);
     }
 
-    if let Some(m) = memory.filter(|m| !m.trim().is_empty()) {
-        b.push_str("\nCross-season memory (continuity, not fresh evidence or replacement measurements; matchup reliability is supplied):\n");
-        for line in m.lines() {
-            b.push_str("- ");
-            b.push_str(line);
-            b.push('\n');
-        }
-    }
-
     b
+}
+
+fn render_sample(sample: &std::collections::BTreeMap<String, f64>) -> String {
+    if sample.is_empty() {
+        return "unknown".into();
+    }
+    sample
+        .iter()
+        .map(|(label, value)| format!("{label} {}", super::trim_float(*value)))
+        .collect::<Vec<_>>()
+        .join(", ")
 }

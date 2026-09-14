@@ -67,6 +67,8 @@ struct ApiError {
 #[derive(Deserialize)]
 struct Choice {
     #[serde(default)]
+    finish_reason: Option<String>,
+    #[serde(default)]
     message: ChoiceMessage,
 }
 
@@ -184,17 +186,14 @@ impl OpenAiClient {
         if let Some(e) = parsed.error {
             return Err(anyhow!("openai error [{}]: {}", e.code, e.message));
         }
-        let content = parsed
-            .choices
-            .into_iter()
-            .next()
-            .map(|c| c.message.content)
-            .ok_or_else(|| {
-                anyhow!(
-                    "openai response had no choices (body={})",
-                    truncate(&raw, 200)
-                )
-            })?;
+        let choice = parsed.choices.into_iter().next().ok_or_else(|| {
+            anyhow!(
+                "openai response had no choices (body={})",
+                truncate(&raw, 200)
+            )
+        })?;
+        crate::ollama::validate_completion(choice.finish_reason.as_deref(), None)?;
+        let content = choice.message.content;
 
         // Prefer the server's own timing; fall back to wall clock so `total_duration` is never a
         // silent zero on a server that omits `usage.total_time`.

@@ -1,6 +1,6 @@
 //! Shared model routing, extraction, parsing, provenance, and debounce primitives.
 
-use crate::ollama::{GenerateOptions, GenerateResult};
+use crate::ollama::GenerateOptions;
 use crate::route::{Role, Router};
 use anyhow::{Context, Result};
 use sqlx::PgPool;
@@ -175,20 +175,133 @@ impl Harness {
         parser: &P,
     ) -> Result<Extracted<T>> {
         let backend = self.router.for_role(role);
-        let (gen, request_body): (GenerateResult, serde_json::Value) = backend
-            .generate(prompt, opts)
-            .await
-            .context("model generate")?;
-        let value = parser.parse(&gen.response)?;
-        Ok(Extracted {
+        extract_with_backend(backend.as_ref(), prompt, opts, parser).await
+    }
+}
+
+async fn extract_with_backend<T, P: Parser<T>>(
+    backend: &dyn crate::route::Inference,
+    prompt: &str,
+    opts: &GenerateOptions,
+    parser: &P,
+) -> Result<Extracted<T>> {
+    let mut built_prompt = prompt.to_string();
+    for attempt in 0..2 {
+        let result = async {
+            let (gen, request_body) = backend
+                .generate(&built_prompt, opts)
+                .await
+                .context("model generate")?;
+            let value = parser.parse(&gen.response)?;
+            Ok::<_, anyhow::Error>((gen, request_body, value))
+        }
+        .await;
+        let (gen, request_body, value) = match result {
+            Ok(result) => result,
+            Err(error) if attempt == 0 && error.is::<crate::junctions::form::SurfaceError>() => {
+                tracing::warn!(%error, "card surface rewrite");
+                built_prompt.push_str(&format!(
+                    "\nOutput correction: {error} Choose fewer claims if needed."
+                ));
+                continue;
+            }
+            Err(error) if attempt == 0 && error.is::<crate::ollama::IncompleteOutput>() => {
+                tracing::warn!(%error, "incomplete output rewrite");
+                built_prompt.push_str("\nOutput correction: the response ran out of space. Return a shorter, complete response.");
+                continue;
+            }
+            Err(error) => return Err(error),
+        };
+        return Ok(Extracted {
             value,
             raw_response: gen.response,
             model: gen.model,
-            built_prompt: prompt.to_string(),
+            built_prompt,
             request_body,
             eval_count: gen.eval_count,
             wall_ms: gen.total_duration.as_millis() as u64,
-        })
+        });
+    }
+    unreachable!("bounded rewrite returns on its last attempt")
+}
+
+#[cfg(test)]
+mod surface_tests {
+    use super::*;
+    use crate::ollama::GenerateResult;
+    use std::sync::Mutex;
+
+    struct Backend(Mutex<Vec<String>>);
+    #[async_trait::async_trait]
+    impl crate::route::Inference for Backend {
+        async fn generate(
+            &self,
+            prompt: &str,
+            opts: &GenerateOptions,
+        ) -> Result<(GenerateResult, serde_json::Value)> {
+            let reply = self.0.lock().unwrap().remove(0);
+            if reply == "length" {
+                crate::ollama::validate_completion(Some("length"), Some(true))?;
+            }
+            Ok((
+                GenerateResult {
+                    response: reply,
+                    thinking: String::new(),
+                    model: "test".into(),
+                    total_duration: Duration::ZERO,
+                    eval_count: 1,
+                },
+                self.request_body(prompt, opts),
+            ))
+        }
+        fn model(&self) -> &str {
+            "test"
+        }
+        fn request_body(&self, prompt: &str, opts: &GenerateOptions) -> serde_json::Value {
+            serde_json::json!({"prompt":prompt,"num_ctx":opts.num_ctx,"num_predict":opts.num_predict})
+        }
+    }
+    struct BodyParser;
+    impl Parser<String> for BodyParser {
+        fn parse(&self, raw: &str) -> Result<Option<String>> {
+            crate::junctions::form::validate_body(raw)?;
+            Ok(Some(raw.to_string()))
+        }
+    }
+
+    #[tokio::test]
+    async fn rewrite_is_bounded_and_preserves_evidence_and_capacity() {
+        let opts = GenerateOptions {
+            num_ctx: 4096,
+            num_predict: 700,
+            ..Default::default()
+        };
+        for first in ["x".repeat(1201), "length".into()] {
+            let backend = Backend(Mutex::new(vec![
+                first,
+                "The measured creation is strong.".into(),
+            ]));
+            let result = extract_with_backend(&backend, "Original evidence", &opts, &BodyParser)
+                .await
+                .unwrap();
+            assert!(backend.0.lock().unwrap().is_empty());
+            assert!(result
+                .built_prompt
+                .starts_with("Original evidence\nOutput correction:"));
+            assert_eq!(result.request_body["num_ctx"], 4096);
+            assert_eq!(result.request_body["num_predict"], 700);
+        }
+        let backend = Backend(Mutex::new(vec![
+            "x".repeat(1201),
+            "x".repeat(1201),
+            "unused".into(),
+        ]));
+        assert!(
+            extract_with_backend(&backend, "Evidence", &opts, &BodyParser)
+                .await
+                .is_err()
+        );
+        assert_eq!(backend.0.lock().unwrap().len(), 1);
     }
 }
 

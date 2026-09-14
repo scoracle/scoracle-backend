@@ -29,7 +29,7 @@ use crate::util::truncate;
 /// what reopens work. **Retroactively free:** only Go's ingest enqueues editor work, so a bump
 /// changes how NEW arrivals are read and re-reads nothing.
 ///
-pub const EDITOR_CONTRACT_VERSION: &str = "ep7";
+pub const EDITOR_CONTRACT_VERSION: &str = "ep8";
 
 pub const EDITOR_SYSTEM_PROMPT: &str = r#"Read one fetched sports article and describe it for the newsroom: what the page is, who is in it, what happened, and how it feels. Describe only — code turns your description into every decision, so never state a verdict.
 
@@ -89,6 +89,7 @@ pub fn build_editor_prompt_parts(
         p.push_str(&format!("RSS description: {description}\n"));
     }
     if !hypothesis_names.is_empty() {
+        p.push_str(&format!("\n{}\n", crate::corpus::IDENTITY_CARD_FRAMING));
         p.push_str("\nHypothesis entities (from the query that found this article):\n");
         for e in hypothesis_names {
             p.push_str("- ");

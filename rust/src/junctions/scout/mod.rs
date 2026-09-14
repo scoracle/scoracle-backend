@@ -5,13 +5,13 @@
 //! point: nightly mode enqueues durable work, while explicit backfill can run the core inline.
 //!
 //! Postgres owns composite and percentile calculations. Rust selects and labels the evidence,
-//! computes notability and trajectory, and asks the model only to narrate decided facts.
+//! computes routing notability and trajectory, and supplies evidence for interpretation.
 //!
 //! FAIL CLOSED: rating's ONLY marker is the PRE-model no-stats path (no usable rating row → a
 //! NULL-body marker, like vibe's no-corpus marker). There is no post-model fail-closed marker — an
 //! empty model body is a hard error (the work fails + retries), never a served row.
 //!
-//! The labeled tier is authoritative; the model never maps percentile to quality itself.
+//! Missing measurements and ranks remain unknown; character and canvas own the writing.
 
 use crate::harness::{Generation, GenerationCall, Harness, Parser};
 use crate::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
@@ -24,7 +24,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
 use serde::{Deserialize, Deserializer};
 use sqlx::{PgPool, Row};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use tracing::{debug, warn};
 
 mod inputs;
@@ -47,7 +47,7 @@ const RATING_LEDGER: LedgerSpec = LedgerSpec {
 pub const RATING_TEMPERATURE: f64 = 0.6;
 
 /// Token cap for the compact scouting card.
-pub const RATING_NUM_PREDICT: i32 = 350;
+pub const RATING_NUM_PREDICT: i32 = 700;
 
 /// Durable queue version prefix. The entity/sport queue key stays seasonless, so the version
 /// carries the season explicitly.
@@ -67,18 +67,21 @@ pub struct RatingReq {
     pub trigger_type: String,
 }
 
-/// One `rating_breakdown` datapoint. `pct` is based on `sign*z`, so higher is always better.
-/// Explicit JSON nulls default to zero values for sparse datapoints.
+/// One measured skill. `pct` is an actual eligible-cohort percentile (higher is better).
+/// Missing ranks, measurements and standardized distances remain missing.
 #[derive(Clone, Debug, Default, Deserialize)]
 pub struct RatingDatapoint {
+    /// Identity of the underlying measurement, not merely its display skill label.
+    #[serde(default)]
+    pub measure: String,
     #[serde(default, deserialize_with = "null_to_default")]
     pub label: String,
-    #[serde(default, deserialize_with = "null_to_default")]
-    pub value: f64,
-    #[serde(default, deserialize_with = "null_to_default")]
-    pub z: f64,
-    #[serde(default, deserialize_with = "null_to_default")]
-    pub pct: f64,
+    #[serde(default)]
+    pub value: Option<f64>,
+    #[serde(default)]
+    pub z: Option<f64>,
+    #[serde(default)]
+    pub pct: Option<f64>,
     #[serde(default, deserialize_with = "null_to_default")]
     pub in_comp: bool,
     #[serde(default, deserialize_with = "null_to_default")]
@@ -100,7 +103,7 @@ where
     Ok(Option::<T>::deserialize(d)?.unwrap_or_default())
 }
 
-/// Map a null `scoped_pct` to empty and null values inside it to zero.
+/// Missing scoped ranks stay absent, never bottom-ranked.
 fn null_tolerant_map<'de, D>(d: D) -> Result<HashMap<String, f64>, D::Error>
 where
     D: Deserializer<'de>,
@@ -109,7 +112,7 @@ where
     Ok(opt
         .unwrap_or_default()
         .into_iter()
-        .map(|(k, v)| (k, v.unwrap_or(0.0)))
+        .filter_map(|(k, v)| v.map(|v| (k, v)))
         .collect())
 }
 
@@ -118,6 +121,10 @@ where
 /// order), which `input_components` relies on while the prompt sorts by percentile.
 #[derive(Clone, Debug)]
 pub struct RatingProfile {
+    pub observed_at: Option<String>,
+    /// Labels come from stat definitions, including units such as Minutes Per Game.
+    pub sample: BTreeMap<String, f64>,
+    pub league_id: Option<i32>,
     pub entity_type: String,
     pub season: i32,
     pub position: String, // players only ("" for teams)
@@ -132,6 +139,7 @@ pub struct RatingProfile {
 pub struct RateStandout {
     pub mode: String,
     pub label: String,
+    pub measure: String,
     pub pct: f64,
 }
 
@@ -213,7 +221,15 @@ pub async fn load_rating_profile(
                rating_score::float8,
                COALESCE(rating_breakdown, '[]'::jsonb)::text,
                COALESCE(rating_scoped_ranks, '{{}}'::jsonb)::text,
-               {modes_select}
+               {modes_select}, NULLIF(league_id,0), updated_at::date::text,
+               COALESCE((
+                   SELECT jsonb_object_agg(sd.display_name, NULLIF(stats->>sd.key_name,'')::numeric)
+                   FROM public.stat_definitions sd
+                   WHERE sd.sport = $1 AND sd.entity_type = $4
+                     AND (sd.key_name IN ('appearances','games_played','matches_played','minutes_played')
+                          OR sd.key_name IN (SELECT stat_key FROM public.rating_thresholds WHERE sport=$1))
+                     AND NULLIF(stats->>sd.key_name,'') IS NOT NULL
+               ), '{{}}'::jsonb)
         FROM public.{table}
         WHERE sport = $1 AND {id_col} = $2 AND ($3::int IS NULL OR season = $3)
         ORDER BY season DESC,
@@ -227,6 +243,7 @@ pub async fn load_rating_profile(
         .bind(sport)
         .bind(entity_id)
         .bind(season)
+        .bind(entity_type)
         .fetch_optional(pool)
         .await
         .context("load rating profile")?
@@ -248,6 +265,9 @@ pub async fn load_rating_profile(
     let rate_modes = parse_rate_modes(&modes_raw);
 
     Ok(Some(RatingProfile {
+        league_id: row.get(6),
+        observed_at: row.get(7),
+        sample: serde_json::from_value(row.get(8)).context("decode rating sample")?,
         entity_type: entity_type.to_string(),
         season,
         position,
@@ -281,17 +301,16 @@ fn parse_rate_modes(raw: &str) -> HashMap<String, Vec<RatingDatapoint>> {
 // Deterministic prompt shaping over stored derived stats.
 // ---------------------------------------------------------------------------
 
-/// compute_notability returns the deterministic distinctiveness score (0-100) + its components. The
-/// model NEVER sees the formula — only the resulting length guidance (rendered into the prompt, so it
-/// reaches the prompt). Order-independent because the rate-mode loop only takes a maximum.
+/// Routing distinctiveness (0-100) and its components. Neither this score nor its formula
+/// is writing context. Rate modes contribute only their maximum, independent of ordering.
 pub fn compute_notability(p: &RatingProfile) -> (i32, serde_json::Value) {
     let mut top_pct = 0.0_f64;
     let mut elite_count = 0_i64;
     for d in &p.breakdown {
-        if d.pct > top_pct {
-            top_pct = d.pct;
+        if let Some(pct) = d.pct {
+            top_pct = top_pct.max(pct);
         }
-        if d.pct >= 85.0 {
+        if d.pct.is_some_and(|pct| pct >= 85.0) {
             elite_count += 1;
         }
     }
@@ -299,8 +318,8 @@ pub fn compute_notability(p: &RatingProfile) -> (i32, serde_json::Value) {
     // earns a fuller read) but NOT toward elite_count (avoid double-counting one skill across modes).
     for dps in p.rate_modes.values() {
         for d in dps {
-            if d.pct > top_pct {
-                top_pct = d.pct;
+            if let Some(pct) = d.pct {
+                top_pct = top_pct.max(pct);
             }
         }
     }
@@ -337,15 +356,15 @@ pub fn pct_band(pct: f64) -> &'static str {
     }
 }
 
-/// trim_float renders a datapoint value compactly — integers without a decimal, small fractions
-/// (< 1) with two places, everything else with one ("3" / "0.38" / "10.7").
+/// Compact numeric evidence, retaining hundredths for expected-value measurements.
 fn trim_float(f: f64) -> String {
     if f == f.trunc() {
         format!("{f:.0}")
-    } else if f.abs() < 1.0 {
-        format!("{f:.2}")
     } else {
-        format!("{f:.1}")
+        format!("{f:.2}")
+            .trim_end_matches('0')
+            .trim_end_matches('.')
+            .to_string()
     }
 }
 
@@ -388,32 +407,15 @@ fn ordered_facts_unbounded(breakdown: &[RatingDatapoint]) -> Vec<RatingDatapoint
     facts
 }
 
-fn budget_truncated_stat_labels(
-    breakdown: &[RatingDatapoint],
-    decision: &ScoutingDecision,
-) -> Vec<String> {
-    let mut decision_labels = HashSet::new();
-    if let Some(f) = &decision.primary_strength_to_stop {
-        decision_labels.insert(f.label.as_str());
-    }
-    for f in &decision.secondary_strengths {
-        decision_labels.insert(f.label.as_str());
-    }
-    if let Some(f) = &decision.primary_weakness_to_exploit {
-        decision_labels.insert(f.label.as_str());
-    }
-
-    let mut facts = breakdown.to_vec();
-    facts.sort_by(|a, b| {
-        b.pct
-            .partial_cmp(&a.pct)
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
-    facts
+fn budget_truncated_stat_labels(breakdown: &[RatingDatapoint]) -> Vec<String> {
+    let shown: HashSet<String> = ordered_facts(breakdown)
         .into_iter()
-        .skip(MAX_STAT_FACTS)
-        .filter(|d| !decision_labels.contains(d.label.as_str()))
         .map(|d| d.label)
+        .collect();
+    breakdown
+        .iter()
+        .filter(|d| !shown.contains(&d.label))
+        .map(|d| d.label.clone())
         .collect()
 }
 
@@ -435,13 +437,14 @@ fn collect_rate_standouts(p: &RatingProfile) -> Vec<RateStandout> {
         });
         let mut cnt = 0;
         for d in &dps {
-            if d.pct < 80.0 {
-                break;
-            }
+            let Some(pct) = d.pct.filter(|pct| *pct >= 80.0) else {
+                continue;
+            };
             out.push(RateStandout {
                 mode: m.clone(),
                 label: d.label.clone(),
-                pct: d.pct,
+                measure: d.measure.clone(),
+                pct,
             });
             cnt += 1;
             if cnt >= 5 {
@@ -453,13 +456,13 @@ fn collect_rate_standouts(p: &RatingProfile) -> Vec<RateStandout> {
 }
 
 fn is_strong_or_elite(d: &RatingDatapoint) -> bool {
-    d.pct >= 75.0
+    d.pct.is_some_and(|pct| pct >= 75.0)
 }
 
 /// signed_z is the sign-adjusted z — the one number where "+" is always the good direction
 /// (`format_datapoint_evidence` renders the same value).
-fn signed_z(d: &RatingDatapoint) -> f64 {
-    d.sign as f64 * d.z
+fn signed_z(d: &RatingDatapoint) -> Option<f64> {
+    d.z.map(|z| d.sign as f64 * z)
 }
 
 /// A named weakness must be MATERIALLY bad, not merely low-percentile. Distributions that clump
@@ -468,7 +471,7 @@ fn signed_z(d: &RatingDatapoint) -> f64 {
 /// statistically "poor", practically average — while Stafford's genuine giveaway problem carried
 /// z -4.9. Percentile finds the candidate; z-magnitude confirms it is real.
 fn is_weakness(d: &RatingDatapoint) -> bool {
-    d.pct < 50.0 && signed_z(d) <= -0.5
+    d.pct.is_some_and(|pct| pct < 50.0) && signed_z(d).is_some_and(|z| z <= -0.5)
 }
 
 /// nfl_position_side maps an NFL position to the side of the ball it plays. Both the
@@ -494,7 +497,9 @@ fn nfl_position_side(position: &str) -> Option<&'static str> {
 /// is a real absence (a starting QB with zero touchdowns is a finding, not an artifact).
 /// Returns the dropped labels for the exclusions ledger.
 fn drop_degenerate_zero_datapoints(p: &mut RatingProfile) -> Vec<String> {
-    let degenerate = |d: &RatingDatapoint| d.value == 0.0 && signed_z(d).abs() < 0.5;
+    let degenerate = |d: &RatingDatapoint| {
+        d.pct.is_some() && d.value == Some(0.0) && signed_z(d).is_some_and(|z| z.abs() < 0.5)
+    };
     let dropped: Vec<String> = p
         .breakdown
         .iter()
@@ -552,20 +557,18 @@ fn drop_display_tier_datapoints(p: &mut RatingProfile) -> Vec<String> {
 }
 
 fn format_datapoint_evidence(d: &RatingDatapoint) -> String {
-    // User-facing evidence calls the standardized value a rating, never a z-score.
-    // Sign-adjust so positive always means good.
-    let dz = d.sign as f64 * d.z;
-    // Commas keep copied evidence grammatical; the interpunct remains a prose tripwire.
     let mut s = format!(
-        "{}: {}, {:.0}th pct ({}), rating {:+.1}",
+        "{}: {}",
         d.label,
-        trim_float(d.value),
-        d.pct,
-        pct_band(d.pct),
-        dz
+        d.value
+            .map(trim_float)
+            .unwrap_or_else(|| "unmeasured".into())
     );
-    if let Some(pos) = d.scoped_pct.get("position") {
-        s.push_str(&format!(" [position: {:.0}th, {}]", pos, pct_band(*pos)));
+    if !d.measure.is_empty() && !d.measure.eq_ignore_ascii_case(&d.label) {
+        s.push_str(&format!(" ({})", d.measure));
+    }
+    if let Some(pct) = d.pct {
+        s.push_str(&format!(", percentile {pct:.1} ({})", pct_band(pct)));
     }
     s
 }
@@ -588,10 +591,10 @@ pub fn build_scouting_decision(p: &RatingProfile) -> ScoutingDecision {
     if let Some(f) = primary_strength_to_stop.as_mut() {
         if let Some(r) = collect_rate_standouts(p)
             .iter()
-            .find(|r| r.label == f.label)
+            .find(|r| r.label == f.label && primary.is_some_and(|d| d.measure == r.measure))
         {
             f.evidence.push_str(&format!(
-                " (corroborated {}: {:.0}th pct — the edge is real, not a minutes artifact)",
+                " ({} percentile {:.1})",
                 r.mode.replace('_', "-"),
                 r.pct
             ));
@@ -621,7 +624,7 @@ pub fn build_scouting_decision(p: &RatingProfile) -> ScoutingDecision {
             Some(d) => format!(
                 "Highest datapoint is {}; {} is not strong/elite, so no strong/elite datapoint exists.",
                 format_datapoint_evidence(d),
-                pct_band(d.pct)
+                d.pct.map(pct_band).unwrap_or("unranked")
             ),
             None => "No skill datapoint is available, so no strong/elite datapoint exists."
                 .to_string(),
@@ -638,79 +641,50 @@ pub fn build_scouting_decision(p: &RatingProfile) -> ScoutingDecision {
     }
 }
 
-/// Fetch the cross-season stats memory card: prior-season skill read, confirmed moves, and
-/// reliability-framed matchup edges.
-/// `None` = no memory, no prompt section. Model-facing enrichment only — the relational
-/// layer is never user-exposed.
-pub async fn load_stat_memory(
-    pool: &PgPool,
-    sport: &str,
-    entity_type: &str,
-    entity_id: i32,
-    season: i32,
-) -> Result<Option<String>> {
-    let row: (Option<String>,) = sqlx::query_as("SELECT stat_context_for_entity($1, $2, $3, $4)")
-        .bind(sport)
-        .bind(entity_type)
-        .bind(entity_id)
-        .bind(season)
-        .fetch_one(pool)
-        .await
-        .context("stat_context_for_entity")?;
-    Ok(row.0)
+/// Prior rank of the same measurement. Direction and significance belong to the writer.
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct SkillChange {
+    pub prior_pct: f64,
+    pub prior_season: i32,
+    pub prior_observed_at: Option<String>,
+    pub prior_sample: BTreeMap<String, f64>,
 }
 
-/// Per-skill percentile movement needed for "improved" or "slipped".
-const Z_MEMORY_MOVE_PCT_POINTS: f64 = 8.0;
-/// Cap on movement lines rendered into the prompt (top by current pct — the A5 rule does not
-/// apply: unmatched skills are new-season datapoints, not dropped evidence).
-const Z_MEMORY_MAX_LINES: usize = 10;
-
-/// Render season-over-season movement for matching skill labels, carrying both percentiles,
-/// both tiers, and a DECIDED movement word — the L8/ScoutingDecision discipline applied to
-/// trajectory (the model voices a decided move, it never infers direction from raw numbers).
-/// Pure for testability; `None` when no skill matches across seasons.
-pub fn build_z_memory_lines(current: &RatingProfile, prior: &RatingProfile) -> Option<String> {
-    let prior_by_label: HashMap<&str, f64> = prior
+/// Join measurements by skill before rendering. A missing comparison stays unknown;
+/// another skill's direction must not become this one's trajectory.
+pub fn build_skill_changes(
+    current: &RatingProfile,
+    prior: &RatingProfile,
+) -> HashMap<String, SkillChange> {
+    if current.league_id != prior.league_id {
+        return HashMap::new();
+    }
+    let prior_by_label: HashMap<&str, &RatingDatapoint> = prior
         .breakdown
         .iter()
-        .map(|d| (d.label.as_str(), d.pct))
+        .map(|d| (d.label.as_str(), d))
         .collect();
-    let mut facts: Vec<(&RatingDatapoint, f64)> = current
+    current
         .breakdown
         .iter()
-        .filter_map(|d| prior_by_label.get(d.label.as_str()).map(|p| (d, *p)))
-        .collect();
-    facts.sort_by(|a, b| {
-        b.0.pct
-            .partial_cmp(&a.0.pct)
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
-    facts.truncate(Z_MEMORY_MAX_LINES);
-    if facts.is_empty() {
-        return None;
-    }
-    let mut out = String::new();
-    for (d, prior_pct) in facts {
-        let delta = d.pct - prior_pct;
-        let movement = if delta >= Z_MEMORY_MOVE_PCT_POINTS {
-            "improved"
-        } else if delta <= -Z_MEMORY_MOVE_PCT_POINTS {
-            "slipped"
-        } else {
-            "held"
-        };
-        out.push_str(&format!(
-            "{}: {:.0}th pct ({}) — last season {:.0}th ({}); {}\n",
-            d.label,
-            d.pct,
-            pct_band(d.pct),
-            prior_pct,
-            pct_band(prior_pct),
-            movement
-        ));
-    }
-    Some(out)
+        .filter_map(|d| {
+            let previous = prior_by_label.get(d.label.as_str())?;
+            if d.measure.is_empty() || d.measure != previous.measure {
+                return None;
+            }
+            let prior_pct = previous.pct?;
+            d.pct?;
+            Some((
+                d.label.clone(),
+                SkillChange {
+                    prior_pct,
+                    prior_season: prior.season,
+                    prior_observed_at: prior.observed_at.clone(),
+                    prior_sample: prior.sample.clone(),
+                },
+            ))
+        })
+        .collect()
 }
 
 /// One adjudicated availability event, as the DB describes it — the injury/suspension half of
@@ -1064,7 +1038,7 @@ pub fn input_components(p: &RatingProfile) -> String {
     let datapoints: Vec<serde_json::Value> = p
         .breakdown
         .iter()
-        .map(|d| serde_json::json!({"label": d.label, "pct": round1(d.pct)}))
+        .map(|d| serde_json::json!({"label": d.label, "measure":d.measure, "value":d.value, "pct": d.pct.map(round1)}))
         .collect();
 
     let mut components = serde_json::Map::new();
@@ -1074,12 +1048,19 @@ pub fn input_components(p: &RatingProfile) -> String {
         serde_json::json!(RATING_PROMPT_VERSION),
     );
     components.insert("season".into(), serde_json::json!(p.season));
+    components.insert("sample".into(), serde_json::json!(p.sample));
+    if let Some(date) = &p.observed_at {
+        components.insert("observed_at".into(), serde_json::json!(date));
+    }
+    if let Some(league) = p.league_id {
+        components.insert("league_id".into(), serde_json::json!(league));
+    }
 
     let rs = collect_rate_standouts(p);
     if !rs.is_empty() {
         let rates: Vec<serde_json::Value> = rs
             .iter()
-            .map(|r| serde_json::json!({"label": r.label, "mode": r.mode, "pct": round1(r.pct)}))
+            .map(|r| serde_json::json!({"label": r.label, "measure": r.measure, "mode": r.mode, "pct": round1(r.pct)}))
             .collect();
         components.insert("rate_standouts".into(), serde_json::json!(rates));
     }
@@ -1297,6 +1278,9 @@ pub fn parse_rating_body(raw: &str) -> String {
 /// never a failed generation. Markdown decoration is deliberately NOT stripped before the
 /// match: a decorated title fails the brief's own plain-text guard downstream.
 fn split_rating_headline(raw: &str) -> (Option<String>, String) {
+    if let Ok(card) = serde_json::from_str::<crate::junctions::form::CardReply>(raw.trim()) {
+        return (Some(card.headline), card.body);
+    }
     let mut headline: Option<String> = None;
     let mut kept: Vec<&str> = Vec::new();
     for line in raw.lines() {
@@ -1320,9 +1304,14 @@ fn split_rating_headline(raw: &str) -> (Option<String>, String) {
 
 impl Parser<RatingReply> for RatingParser {
     fn parse(&self, raw: &str) -> Result<Option<RatingReply>> {
+        if raw.trim_start().starts_with('{') {
+            serde_json::from_str::<crate::junctions::form::CardReply>(raw)?;
+        }
         // Split the card title off FIRST so the body checks never grade it as prose.
         let (headline, body_only) = split_rating_headline(raw);
+        crate::junctions::form::validate_hook(headline.as_deref())?;
         let body = clean_commentary(&body_only);
+        crate::junctions::form::validate_body(&body)?;
         if let Some(p) = crate::guards::first_banned_phrase(&body, crate::guards::RATING_BODY_BANS)
         {
             tracing::warn!(
@@ -1380,8 +1369,8 @@ pub struct RatingReady {
     pub model_configured: String,
 }
 
-/// Build the deterministic rating request without a model call. `with_enrichment` adds prompt-only
-/// memory, personnel, and availability blocks without changing `input_components`.
+/// Build the rating request without a model call. Live evaluation and production both use
+/// enrichment; the bare switch is retained for explicit diagnostic probes only.
 pub async fn build_rating_request(
     hx: &Harness,
     req: &RatingReq,
@@ -1413,11 +1402,17 @@ pub async fn build_rating_request(
     }
 
     let input_components = input_components(&profile);
-    let input_hash = hash_components(&input_components);
+    let input_components = crate::corpus::with_identity_version(
+        &hx.pool,
+        &req.entity_type,
+        req.entity_id,
+        &req.sport,
+        &input_components,
+    )
+    .await?;
     let (notability, notability_components) = compute_notability(&profile);
-    let decision = build_scouting_decision(&profile);
     let exclusions = RatingExclusions {
-        budget_truncated_stat_labels: budget_truncated_stat_labels(&profile.breakdown, &decision),
+        budget_truncated_stat_labels: budget_truncated_stat_labels(&profile.breakdown),
         off_facet_stat_labels,
         degenerate_zero_stat_labels,
         display_tier_stat_labels,
@@ -1430,34 +1425,7 @@ pub async fn build_rating_request(
         &profile,
     )
     .await?;
-    // Memory-load failure degrades to an unenriched prompt (the n8/v12 discipline): the
-    // rating profile is the primary signal, memory is enrichment.
-    let memory = if with_enrichment {
-        match load_stat_memory(
-            &hx.pool,
-            &req.sport,
-            &req.entity_type,
-            req.entity_id,
-            profile.season,
-        )
-        .await
-        {
-            Ok(m) => m,
-            Err(e) => {
-                tracing::warn!(
-                    entity_type = %req.entity_type,
-                    entity_id = req.entity_id,
-                    sport = %req.sport,
-                    error = %e,
-                    "rating: cross-season memory load failed (continuing without memory)"
-                );
-                None
-            }
-        }
-    } else {
-        None
-    };
-    // Personnel and availability are best-effort prompt enrichment outside the material hash.
+    // Personnel and availability are sourced enrichment, included in the material hash.
     // Load them independently so one failure cannot erase the other block.
     let personnel = if with_enrichment {
         let (changes, total) =
@@ -1504,7 +1472,7 @@ pub async fn build_rating_request(
         None
     };
     // The Editor's TAGGED reports — claims, not record. Same enrichment discipline as everything
-    // else here: best-effort, prompt-only, outside `input_components`/`input_hash`.
+    // else here: sourced enrichment, included in the material hash.
     let availability_reports = if with_enrichment {
         match load_availability_reports(&hx.pool, &req.entity_type, req.entity_id, &req.sport).await
         {
@@ -1524,7 +1492,7 @@ pub async fn build_rating_request(
         None
     };
     // Season-over-season movement is decided in code and added as prompt-only enrichment.
-    let z_memory = if with_enrichment {
+    let comparisons = if with_enrichment {
         match load_rating_profile(
             &hx.pool,
             &req.entity_type,
@@ -1540,7 +1508,7 @@ pub async fn build_rating_request(
                 let _ = drop_off_facet_datapoints(&mut prior);
                 let _ = drop_degenerate_zero_datapoints(&mut prior);
                 let _ = drop_display_tier_datapoints(&mut prior);
-                build_z_memory_lines(&profile, &prior)
+                Some(build_skill_changes(&profile, &prior))
             }
             Ok(None) => None,
             Err(e) => {
@@ -1558,24 +1526,33 @@ pub async fn build_rating_request(
         None
     };
     // The recent-form marker rides the same enrichment flag: shading context in production,
-    // absent on the parity/eval bare shape.
+    // absent only on explicit bare diagnostic probes.
     let form_trend = if with_enrichment {
-        rating_trajectory.label.clone()
+        rating_trajectory.label.as_ref().map(|label| {
+            format!(
+                "{label}; {} scored events",
+                rating_trajectory.components["sample_size"]
+            )
+        })
     } else {
         None
     };
-    // Identity card: house records, dated — degrades to absent like memory.
+    // Dated identity context; database errors must not silently remove it.
     let identity =
         crate::corpus::load_identity_card(&hx.pool, &req.entity_type, req.entity_id, &req.sport)
-            .await
-            .unwrap_or_default();
+            .await?;
+    let mut components: serde_json::Value = serde_json::from_str(&input_components)?;
+    components["skill_changes"] = serde_json::json!(comparisons);
+    components["personnel"] = serde_json::json!(personnel);
+    components["availability_reports"] = serde_json::json!(availability_reports);
+    components["recent_form"] = serde_json::json!(form_trend);
+    let input_components = components.to_string();
+    let input_hash = hash_components(&input_components);
     let built_prompt = build_stat_prompt(
         req,
         &profile,
-        notability,
-        memory.as_deref(),
         personnel.as_deref(),
-        z_memory.as_deref(),
+        comparisons.as_ref(),
         form_trend.as_deref(),
         availability_reports.as_deref(),
         identity.as_deref(),
@@ -1583,19 +1560,10 @@ pub async fn build_rating_request(
     let opts = GenerateOptions {
         system: Some(RATING_SYSTEM_PROMPT.to_string()),
         temperature: Some(temperature),
-        // The Scout's reservation follows the window like every other voice (7.12): 2,000
-        // inside a 4,096 window leaves ~2,000 for a ~1,370-token system prompt plus the stats
-        // context plus the memory card, which is the silent system-prompt eviction this rule
-        // exists to prevent. Its report gets shorter at 4096; that is the honest trade, and the
-        // diet is what buys the length back.
-        num_predict: if crate::route::small_voice_window(hx.voice_num_ctx) {
-            crate::junctions::oracle::SMALL_WINDOW_NUM_PREDICT
-        } else {
-            RATING_NUM_PREDICT
-        },
+        num_predict: RATING_NUM_PREDICT,
         num_ctx: hx.voice_num_ctx,
         json_mode: false,
-        format_schema: None,
+        format_schema: Some(crate::junctions::form::card_schema(false)),
         format_schema_raw: None,
     };
     let backend = hx.router.for_role(Role::StatsLogic);

@@ -5,8 +5,8 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use scoracle_cognition::junctions::scout::{
-    build_stat_prompt, compute_notability, RatingDatapoint, RatingProfile, RatingReq,
-    RATING_PROMPT_VERSION, RATING_SYSTEM_PROMPT,
+    build_stat_prompt, RatingDatapoint, RatingProfile, RatingReq, RATING_PROMPT_VERSION,
+    RATING_SYSTEM_PROMPT,
 };
 use serde_json::json;
 
@@ -29,9 +29,9 @@ struct Scenario {
 fn dp(label: &str, value: f64, z: f64, pct: f64) -> RatingDatapoint {
     RatingDatapoint {
         label: label.to_string(),
-        value,
-        z,
-        pct,
+        value: Some(value),
+        z: Some(z),
+        pct: Some(pct),
         in_comp: true,
         sign: 1,
         facet: "all".to_string(),
@@ -197,6 +197,9 @@ fn main() -> anyhow::Result<()> {
     let n = scenarios.len();
     for s in scenarios {
         let profile = RatingProfile {
+            observed_at: None,
+            sample: Default::default(),
+            league_id: None,
             entity_type: s.entity_type.to_string(),
             season: 2025,
             position: s.position.to_string(),
@@ -213,14 +216,8 @@ fn main() -> anyhow::Result<()> {
             season: Some(2025),
             trigger_type: "eval".to_string(),
         };
-        // Notability comes from the real computation, so the distinctiveness line the model
-        // reads matches what production would say about this exact profile.
-        let (notability, _) = compute_notability(&profile);
-        // Fixtures pin the memory-free shape (the s12/n8 eval discipline) — and that now includes
-        // the tagged availability reports: the frozen shape is the one with NO enrichment.
-        let prompt = build_stat_prompt(
-            &req, &profile, notability, None, None, None, None, None, None,
-        );
+        // Historical fixture generator: explicit bare inputs, not a live editorial evaluation.
+        let prompt = build_stat_prompt(&req, &profile, None, None, None, None, None);
         let v = json!({
             "name": s.name,
             "task": "rating",

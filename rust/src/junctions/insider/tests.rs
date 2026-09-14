@@ -290,7 +290,7 @@ fn prompt_none_sourceless_headline() {
         p,
         "Sport: NBA\nTeam: Lakers\nPlayer: Victor Wembanyama\n\
 Identity (the ONE specific player to judge): Victor Wembanyama · French · currently at Spurs · center\n\
-Roster status: Victor Wembanyama is NOT on Lakers — so any move is an ARRIVAL (incoming). Frame the summary as Lakers pursuing them.\n\
+Affiliation: Victor Wembanyama is not recorded at Lakers. This alone establishes no pursuit or move; determine whether either is actually reported.\n\
 Evidence (computed): 1 article, 0 distinct sources; primary source: none attributed.\n\
 \nNews headlines:\n\
 - Trade buzz\n\
@@ -659,15 +659,14 @@ fn rumor_row_sets_all_vetted_fields() {
 }
 
 #[test]
-fn t6_system_prompt_carries_the_false_heat_guards() {
-    // The false-heat guards must be present and noun-correct.
+fn transfer_contract_distinguishes_the_recruit_from_the_speaker() {
     let football = transfer_system_prompt("FOOTBALL");
-    assert!(football.contains("current transfer involving BOTH"));
-    assert!(football.contains("roundup"));
+    assert!(football.contains("current transfer or coaching move"));
+    assert!(football.contains("A coach discussing recruitment is not the recruit"));
     assert!(football.contains("recently completed"));
-    assert!(football.contains("Never estimate, round, or invent money"));
+    assert!(football.contains("invent none"));
     let nba = transfer_system_prompt("NBA");
-    assert!(nba.contains("current trade involving BOTH")); // noun swap for NBA/NFL
+    assert!(nba.contains("current trade or coaching move"));
 }
 
 #[test]

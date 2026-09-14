@@ -22,36 +22,15 @@ fn crown_parses_reading_and_score() {
 }
 
 #[test]
-fn crown_keeps_complete_sentences_and_drops_only_an_unfinished_tail() {
-    let clean = parse_crown_reply(r#"{"reading":"Vale holds the line.","score":50}"#).unwrap();
-    assert_eq!(clean.reading, "Vale holds the line.");
-
-    let clipped = parse_crown_reply(
-        r#"{"reading":"Vale holds the line. The next thought is unfinished,","score":50}"#,
-    )
-    .unwrap();
-    assert_eq!(clipped.reading, "Vale holds the line.");
-
-    let complete = format!("{}.", "word ".repeat(156).trim_end());
-    let raw = serde_json::json!({
-        "reading": format!("{complete} The morale is w."),
-        "score": 50
-    })
-    .to_string();
-    let clipped_word = parse_crown_reply(&raw).unwrap();
-    assert_eq!(clipped_word.reading, complete);
-
-    assert!(parse_crown_reply(r#"{"reading":"unfinished","score":50}"#).is_none());
-}
-
-#[test]
-fn crown_keeps_the_json_score_out_of_the_reading() {
-    let parsed = parse_crown_reply(
-        r#"{"reading":"Vale holds the line. The omen score is 50, reflecting balance. Winter remains quiet.","score":50}"#,
-    )
-    .unwrap();
-    assert_eq!(parsed.reading, "Vale holds the line. Winter remains quiet.");
-    assert_eq!(parsed.score, 50);
+fn crown_parser_preserves_prose_without_sentence_surgery() {
+    let prose = "Vale holds the line. The next thought is unfinished,";
+    let raw = serde_json::json!({"reading":prose,"score":50}).to_string();
+    assert_eq!(parse_crown_reply(&raw).unwrap().reading, prose);
+    // Transport completion is validated before this parser. It cannot infer completion
+    // from punctuation or erase a sentence because it happens to mention the same number.
+    let prose = "Vale's season includes a score of 50. Winter remains quiet.";
+    let raw = serde_json::json!({"reading":prose,"score":50}).to_string();
+    assert_eq!(parse_crown_reply(&raw).unwrap().reading, prose);
 }
 
 #[test]

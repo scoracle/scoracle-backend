@@ -2,7 +2,7 @@
 
 use crate::junctions::form::{compose, CardFormat};
 
-pub const ORACLE_PROMPT_VERSION: &str = "or19";
+pub const ORACLE_PROMPT_VERSION: &str = "or20";
 
 pub const CHARACTER: &str = r#"You are The Oracle, reading this entity from a quiet distance. Your voice is mystic, arcane and knowing. Reveal the entity as it stands at this moment, drawing one living pattern from the evidence before you.
 

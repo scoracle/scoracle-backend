@@ -40,7 +40,7 @@ pub const MOMENTUM_TEMPERATURE: f64 = 0.3;
 
 // A single direction read — two rails and what they are doing to each other — is a handful of
 // sentences on a card. Nothing here scales with story count.
-pub const MOMENTUM_NUM_PREDICT: i32 = 300;
+pub const MOMENTUM_NUM_PREDICT: i32 = 700;
 
 /// Scores within this band are steady; values at or beyond it rise or fall by sign.
 pub const MOMENTUM_STEADY_BAND: f64 = 10.0;
@@ -97,6 +97,8 @@ impl Parser<MomentumReply> for MomentumParser {
             )
         })?;
         // Production guards live at the Parser seam; eval can still inspect the raw parse.
+        crate::junctions::form::validate_body(&reply.blurb)?;
+        crate::junctions::form::validate_hook(reply.headline.as_deref())?;
         if let Some(p) =
             crate::guards::first_banned_phrase(&reply.blurb, crate::guards::MOMENTUM_BANNED_PHRASES)
         {
@@ -176,6 +178,14 @@ pub async fn load_momentum_context(
     )?;
     let input_components_json =
         build_momentum_input_components(rating.as_ref(), vibe.as_ref(), &snapshot);
+    let input_components_json = crate::corpus::with_identity_version(
+        &hx.pool,
+        entity_type,
+        entity_id,
+        sport,
+        &input_components_json,
+    )
+    .await?;
     let input_hash = hash_components(&input_components_json);
     Ok(MomentumContext {
         season,
@@ -308,6 +318,12 @@ fn build_momentum_input_components(
 }
 
 pub fn parse_momentum_reply(raw: &str) -> Option<MomentumReply> {
+    if let Ok(card) = serde_json::from_str::<crate::junctions::form::CardReply>(raw.trim()) {
+        return Some(MomentumReply {
+            blurb: crate::junctions::form::normalize_body(&card.body),
+            headline: Some(card.headline),
+        });
+    }
     let rest = raw.trim().strip_prefix("READ:")?;
     let (body, headline) = match rest.split_once("\nHEADLINE:") {
         Some((body, title)) if !title.contains('\n') => {
@@ -404,11 +420,10 @@ impl StageHandler for MomentumHandler {
         // Enqueue performs the empty and debounce gates; the recomputed hash records provenance
         // for the row actually generated. The Analyst reads only the two numeric rails.
 
-        // Identity card: house records, dated — degrades to absent like memory.
+        // Dated identity context; database errors must not silently remove it.
         let identity =
             crate::corpus::load_identity_card(&hx.pool, &item.entity_type, entity_id, &sport)
-                .await
-                .unwrap_or_default();
+                .await?;
         let prompt = build_momentum_prompt(
             &item.entity_type,
             &name,
@@ -421,14 +436,10 @@ impl StageHandler for MomentumHandler {
         let opts = GenerateOptions {
             system: Some(MOMENTUM_SYSTEM_PROMPT.to_string()),
             temperature: Some(MOMENTUM_TEMPERATURE),
-            num_predict: if crate::route::small_voice_window(hx.voice_num_ctx) {
-                crate::junctions::oracle::SMALL_WINDOW_NUM_PREDICT
-            } else {
-                MOMENTUM_NUM_PREDICT
-            },
+            num_predict: MOMENTUM_NUM_PREDICT,
             num_ctx: hx.voice_num_ctx,
             json_mode: false,
-            format_schema: None,
+            format_schema: Some(crate::junctions::form::card_schema(false)),
             format_schema_raw: None,
         };
         let extracted = hx

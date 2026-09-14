@@ -1,0 +1,401 @@
+{
+  "date": "2026-09-14",
+  "purpose": "Migration 252/253 replay on temporary copies; no production writes or model output",
+  "validation": {
+    "player_rows": 44300,
+    "team_rows": 1224,
+    "player_cohorts": 25,
+    "team_cohorts": 25,
+    "checks": "Ineligible samples have no percentile; stored measurements have non-null values and measurement identities; every existing cohort rebuilt; transaction rolled back.",
+    "final_measurement_labels_verified": true
+  },
+  "cohorts": [
+    {
+      "sport": "FOOTBALL",
+      "seasons": 8
+    },
+    {
+      "sport": "NBA",
+      "seasons": 8
+    },
+    {
+      "sport": "NFL",
+      "seasons": 9
+    }
+  ],
+  "morgan": [
+    {
+      "season": 2025,
+      "appearances": "37",
+      "rating_score": 70.1,
+      "stats_updated": "2026-06-13",
+      "rating_breakdown": [
+        {
+          "z": 1.7116,
+          "pct": 93.2,
+          "sign": 1,
+          "facet": "all",
+          "label": "Ball Recovery",
+          "value": 139,
+          "in_comp": false,
+          "in_spec": false,
+          "measure": "Ball Recovery",
+          "eligible": true,
+          "scoped_pct": {
+            "league": 83.7,
+            "position": 87.6
+          }
+        },
+        {
+          "z": -0.4278,
+          "pct": 42.1,
+          "sign": 1,
+          "facet": "all",
+          "label": "Blocks",
+          "value": 3,
+          "in_comp": false,
+          "in_spec": false,
+          "measure": "Blocks",
+          "eligible": true,
+          "scoped_pct": {
+            "league": 32.7,
+            "position": 37.9
+          }
+        },
+        {
+          "z": 2.102,
+          "pct": 95.4,
+          "sign": 1,
+          "facet": "all",
+          "label": "Chance Creation",
+          "value": 48,
+          "in_comp": true,
+          "in_spec": true,
+          "measure": "key passes",
+          "eligible": true,
+          "scoped_pct": {
+            "league": 90.8,
+            "position": 92.8
+          }
+        },
+        {
+          "z": -0.1906,
+          "pct": 59.3,
+          "sign": 1,
+          "facet": "all",
+          "label": "Clearances",
+          "value": 33,
+          "in_comp": false,
+          "in_spec": false,
+          "measure": "Clearances",
+          "eligible": true,
+          "scoped_pct": {
+            "league": 62.1,
+            "position": 71.4
+          }
+        },
+        {
+          "z": 2.0775,
+          "pct": 94.8,
+          "sign": 1,
+          "facet": "all",
+          "label": "Creation",
+          "value": 6,
+          "in_comp": true,
+          "in_spec": true,
+          "measure": "assists",
+          "eligible": true,
+          "scoped_pct": {
+            "league": 94.1,
+            "position": 93.1
+          }
+        },
+        {
+          "z": 1.4416,
+          "pct": 7.8,
+          "sign": -1,
+          "facet": "all",
+          "label": "Discipline",
+          "value": 8,
+          "in_comp": true,
+          "in_spec": false,
+          "measure": "yellow cards + 3 x red cards",
+          "eligible": true,
+          "scoped_pct": {
+            "league": 13.1,
+            "position": 9.5
+          }
+        },
+        {
+          "z": 2.0098,
+          "pct": 95.2,
+          "sign": 1,
+          "facet": "all",
+          "label": "Drawing Fouls",
+          "value": 49,
+          "in_comp": false,
+          "in_spec": false,
+          "measure": "Drawing Fouls",
+          "eligible": true,
+          "scoped_pct": {
+            "league": 94.1,
+            "position": 93.8
+          }
+        },
+        {
+          "z": 2.4246,
+          "pct": 97.1,
+          "sign": 1,
+          "facet": "all",
+          "label": "Dribbling",
+          "value": 42,
+          "in_comp": true,
+          "in_spec": true,
+          "measure": "successful dribbles",
+          "eligible": true,
+          "scoped_pct": {
+            "league": 94.8,
+            "position": 97.4
+          }
+        },
+        {
+          "z": 1.5544,
+          "pct": 92.1,
+          "sign": 1,
+          "facet": "all",
+          "label": "Duels",
+          "value": 158,
+          "in_comp": false,
+          "in_spec": false,
+          "measure": "Duels",
+          "eligible": true,
+          "scoped_pct": {
+            "league": 87.6,
+            "position": 91
+          }
+        },
+        {
+          "z": 2.4051,
+          "pct": 95.6,
+          "sign": 1,
+          "facet": "all",
+          "label": "Goalscoring",
+          "value": 10,
+          "in_comp": true,
+          "in_spec": true,
+          "measure": "goals",
+          "eligible": true,
+          "scoped_pct": {
+            "league": 97.4,
+            "position": 97.8
+          }
+        },
+        {
+          "z": 0.0013,
+          "pct": 58,
+          "sign": 1,
+          "facet": "all",
+          "label": "Interceptions",
+          "value": 15.08,
+          "in_comp": true,
+          "in_spec": true,
+          "measure": "possession-adjusted interceptions",
+          "eligible": true,
+          "scoped_pct": {
+            "league": 46.4,
+            "position": 53.8
+          }
+        },
+        {
+          "z": 0.4192,
+          "pct": 71.8,
+          "sign": 1,
+          "facet": "all",
+          "label": "Passing",
+          "value": 797,
+          "in_comp": true,
+          "in_spec": true,
+          "measure": "accurate passes",
+          "eligible": true,
+          "scoped_pct": {
+            "league": 68,
+            "position": 69.8
+          }
+        },
+        {
+          "z": 3.5384,
+          "pct": 0.3,
+          "sign": -1,
+          "facet": "all",
+          "label": "Possession Lost",
+          "value": 618,
+          "in_comp": true,
+          "in_spec": false,
+          "measure": "Possession Lost",
+          "eligible": true,
+          "scoped_pct": {
+            "league": 0.7,
+            "position": 0.3
+          }
+        },
+        {
+          "z": 2.958,
+          "pct": 97.8,
+          "sign": 1,
+          "facet": "all",
+          "label": "Shooting",
+          "value": 32,
+          "in_comp": true,
+          "in_spec": true,
+          "measure": "shots on target",
+          "eligible": true,
+          "scoped_pct": {
+            "league": 98.7,
+            "position": 98.7
+          }
+        },
+        {
+          "z": 0.8223,
+          "pct": 81.8,
+          "sign": 1,
+          "facet": "all",
+          "label": "Tackling",
+          "value": 45.24,
+          "in_comp": true,
+          "in_spec": true,
+          "measure": "possession-adjusted tackles",
+          "eligible": true,
+          "scoped_pct": {
+            "league": 63.4,
+            "position": 73.4
+          }
+        }
+      ]
+    },
+    {
+      "season": 2026,
+      "appearances": "1",
+      "rating_score": null,
+      "stats_updated": "2026-09-07",
+      "rating_breakdown": [
+        {
+          "z": -0.7466,
+          "pct": null,
+          "sign": 1,
+          "facet": "all",
+          "label": "Ball Recovery",
+          "value": 3,
+          "in_comp": false,
+          "in_spec": false,
+          "measure": "Ball Recovery",
+          "eligible": false,
+          "scoped_pct": {}
+        },
+        {
+          "z": -0.778,
+          "pct": null,
+          "sign": 1,
+          "facet": "all",
+          "label": "CBI",
+          "value": 1,
+          "in_comp": false,
+          "in_spec": true,
+          "measure": "clearances + blocks + interceptions (combined)",
+          "eligible": false,
+          "scoped_pct": {}
+        },
+        {
+          "z": 4.3389,
+          "pct": null,
+          "sign": 1,
+          "facet": "all",
+          "label": "Chance Creation",
+          "value": 1.01,
+          "in_comp": true,
+          "in_spec": true,
+          "measure": "expected assists",
+          "eligible": false,
+          "scoped_pct": {}
+        },
+        {
+          "z": 1.6036,
+          "pct": null,
+          "sign": 1,
+          "facet": "all",
+          "label": "Creation",
+          "value": 1,
+          "in_comp": true,
+          "in_spec": true,
+          "measure": "assists",
+          "eligible": false,
+          "scoped_pct": {}
+        },
+        {
+          "z": -0.9198,
+          "pct": null,
+          "sign": 1,
+          "facet": "all",
+          "label": "Defensive Work",
+          "value": 5,
+          "in_comp": true,
+          "in_spec": true,
+          "measure": "defensive contributions",
+          "eligible": false,
+          "scoped_pct": {}
+        },
+        {
+          "z": -0.6342,
+          "pct": null,
+          "sign": -1,
+          "facet": "all",
+          "label": "Discipline",
+          "value": 0,
+          "in_comp": true,
+          "in_spec": false,
+          "measure": "yellow cards + 3 x red cards",
+          "eligible": false,
+          "scoped_pct": {}
+        },
+        {
+          "z": -0.4116,
+          "pct": null,
+          "sign": 1,
+          "facet": "all",
+          "label": "Goalscoring",
+          "value": 0,
+          "in_comp": true,
+          "in_spec": true,
+          "measure": "goals",
+          "eligible": false,
+          "scoped_pct": {}
+        },
+        {
+          "z": -0.5503,
+          "pct": null,
+          "sign": 1,
+          "facet": "all",
+          "label": "Shooting",
+          "value": 0.14,
+          "in_comp": true,
+          "in_spec": true,
+          "measure": "expected goals",
+          "eligible": false,
+          "scoped_pct": {}
+        },
+        {
+          "z": -1.0362,
+          "pct": null,
+          "sign": 1,
+          "facet": "all",
+          "label": "Tackling",
+          "value": 1.67,
+          "in_comp": true,
+          "in_spec": true,
+          "measure": "possession-adjusted tackles",
+          "eligible": false,
+          "scoped_pct": {}
+        }
+      ]
+    }
+  ]
+}

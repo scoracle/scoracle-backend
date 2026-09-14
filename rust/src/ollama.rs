@@ -126,6 +126,10 @@ struct ChatTurnOwned {
 #[derive(Deserialize)]
 struct GenerateResponse {
     #[serde(default)]
+    done_reason: Option<String>,
+    #[serde(default)]
+    done: Option<bool>,
+    #[serde(default)]
     model: String,
     #[serde(default)]
     message: ChatTurnOwned,
@@ -313,6 +317,7 @@ impl OllamaClient {
         if !parsed.error.is_empty() {
             return Err(anyhow!("ollama error: {}", parsed.error));
         }
+        validate_completion(parsed.done_reason.as_deref(), parsed.done)?;
 
         Ok((
             GenerateResult {
@@ -341,5 +346,42 @@ impl OllamaClient {
             return Err(anyhow!("ollama ping HTTP {}", resp.status().as_u16()));
         }
         Ok(())
+    }
+}
+
+/// A syntactically parseable prefix is not a completed answer. Check the provider's
+/// termination signal before any parser can turn it into a product.
+pub(crate) fn validate_completion(reason: Option<&str>, done: Option<bool>) -> Result<()> {
+    if done == Some(false) || reason.is_some_and(|r| !matches!(r, "stop" | "eos")) {
+        return Err(IncompleteOutput(format!(
+            "incomplete model output (finish reason: {reason:?}, done: {done:?})"
+        ))
+        .into());
+    }
+    Ok(())
+}
+
+#[derive(Debug)]
+pub(crate) struct IncompleteOutput(String);
+impl std::fmt::Display for IncompleteOutput {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+impl std::error::Error for IncompleteOutput {}
+
+#[cfg(test)]
+mod completion_tests {
+    use super::*;
+
+    #[test]
+    fn incomplete_answers_never_reach_product_parsers() {
+        for reason in ["length", "max_tokens", "content_filter", "tool_calls"] {
+            assert!(validate_completion(Some(reason), Some(true)).is_err());
+        }
+        assert!(validate_completion(Some("stop"), Some(false)).is_err());
+        assert!(validate_completion(Some("stop"), Some(true)).is_ok());
+        // Older compatible servers may omit the optional signal.
+        assert!(validate_completion(None, None).is_ok());
     }
 }

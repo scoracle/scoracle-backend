@@ -728,7 +728,16 @@ async fn accept_candidate(
     career_team_ids: &[i32],
     run_plan: &serde_json::Value,
 ) -> Result<()> {
-    let team_id = career_team_ids.first().copied();
+    // Career teams disambiguate identity; their order does not establish a current job.
+    let current_teams: Vec<i32> = sqlx::query_scalar(
+        "SELECT DISTINCT entity_id FROM public.entity_external_ids
+          WHERE entity_type='team' AND sport=$1 AND namespace='wikidata' AND external_id=ANY($2)",
+    )
+    .bind(sport)
+    .bind(&it.coach_of_teams)
+    .fetch_all(&hx.pool)
+    .await?;
+    let team_id = (kind == "coach" && current_teams.len() == 1).then(|| current_teams[0]);
     let policy = load_fact_policy(&hx.pool).await?;
     let mut tx = hx.pool.begin().await.context("begin accept")?;
 
@@ -780,8 +789,9 @@ async fn accept_candidate(
             // player's team. A team-less player on our side refuses (never a guess).
             if etype == "player" {
                 let player_team: Option<i32> =
-                    sqlx::query_scalar("SELECT team_id FROM public.players WHERE id = $1")
+                    sqlx::query_scalar("SELECT team_id FROM public.player_current_identity WHERE player_id = $1 AND sport = $2")
                         .bind(eid)
+                        .bind(sport)
                         .fetch_optional(&mut *tx)
                         .await
                         .context("load player team for merge check")?
@@ -818,12 +828,19 @@ async fn accept_candidate(
         }
     };
 
-    // Re-accepting an existing person revises policy-authorized facts. The tiers are:
-    // role/kind evidenced (the gate derived it from the fresh claims), team_affiliation
-    // adjudicated (the career discriminator must have named the team — the same
-    // agreement creation demands). Unlisted facts stay frozen.
+    // Acquisition seeds identity. The current-reporting sweep owns subsequent role and
+    // affiliation changes, so rereading a career biography cannot undo a sourced correction.
+    let seed_role = resolved_type == "person"
+        && (existing.is_empty()
+            || sqlx::query_scalar::<_, bool>(
+                "SELECT kind='other' FROM public.persons WHERE id=$1 AND sport=$2 FOR UPDATE",
+            )
+            .bind(resolved_id)
+            .bind(sport)
+            .fetch_one(&mut *tx)
+            .await?);
     if resolved_type == "person" {
-        if policy_allows(&policy, "person", "role") {
+        if seed_role && policy_allows(&policy, "person", "role") {
             sqlx::query(
                 "UPDATE public.persons SET kind = $2 WHERE id = $1 AND kind IS DISTINCT FROM $2",
             )
@@ -836,7 +853,10 @@ async fn accept_candidate(
         if policy_allows(&policy, "person", "team_affiliation") {
             if let Some(team) = team_id {
                 sqlx::query(
-                    "UPDATE public.persons SET team_id = $2 WHERE id = $1 AND team_id IS DISTINCT FROM $2",
+                    "UPDATE public.persons p SET team_id = $2 WHERE id = $1 AND team_id IS NULL
+                     AND NOT EXISTS (SELECT 1 FROM public.entity_facts f
+                         WHERE f.entity_type='person' AND f.entity_id=p.id AND f.sport=p.sport
+                           AND f.fact_type='team_affiliation' AND f.state='active')",
                 )
                 .bind(resolved_id)
                 .bind(team)
@@ -953,10 +973,9 @@ async fn accept_candidate(
         .context("insert person external id")?;
     }
 
-    // The role fact is policy-gated and superseding: a coach who becomes an
-    // executive gets a revision, not a duplicate. (Players have no 'role' policy row —
-    // being a players-table row IS the role — so this now writes for persons only.)
-    if policy_allows(&policy, &resolved_type, "role") {
+    // Seed person roles with provenance. Subsequent career changes belong to factsweep;
+    // being a players-table row already establishes the player role.
+    if seed_role && policy_allows(&policy, &resolved_type, "role") {
         write_fact_superseding(
             &mut tx,
             &resolved_type,
@@ -977,7 +996,7 @@ async fn accept_candidate(
         RoleClass::Owner => Some("owner_of"),
         _ => None,
     };
-    if let (Some(predicate), Some(team)) = (predicate, team_id) {
+    if let (Some(predicate), Some(team), true) = (predicate, team_id, existing.is_empty()) {
         sqlx::query(
             r#"
             UPDATE public.entity_relationships SET state = 'superseded'
@@ -1128,11 +1147,16 @@ async fn record_run(
 
 async fn enrich_player(hx: &Harness, fetcher: &BudgetedFetcher, item: &Item) -> Result<()> {
     let player_id = item.entity_id_i32()?;
-    let Some(row) = sqlx::query("SELECT name, sport, team_id FROM public.players WHERE id = $1")
-        .bind(player_id)
-        .fetch_optional(&hx.pool)
-        .await
-        .context("load player for enrichment")?
+    let Some(row) = sqlx::query(
+        "SELECT p.name, p.sport, i.team_id FROM public.players p
+        LEFT JOIN public.player_current_identity i ON i.player_id=p.id AND i.sport=p.sport
+        WHERE p.id=$1 AND p.sport=$2",
+    )
+    .bind(player_id)
+    .bind(item.sport.to_uppercase())
+    .fetch_optional(&hx.pool)
+    .await
+    .context("load player for enrichment")?
     else {
         return Ok(());
     };

@@ -349,7 +349,7 @@ pub async fn load_candidates(
             SELECT pe.entity_id, pp.full_name AS name,
                    ''::text                                       AS nationality,
                    COALESCE(ct.name, '')                          AS current_club,
-                   'Head Coach'::text                             AS position,
+                   pp.kind                                        AS position,
                    'person'::text                                 AS subject_type,
                    CASE WHEN pp.team_id = $1 THEN 'current' ELSE 'none' END
                                                                   AS relationship_override,
@@ -364,7 +364,7 @@ pub async fn load_candidates(
             WHERE te.entity_type = 'team' AND te.entity_id = $1 AND te.sport = $2
               AND a.bucket IS DISTINCT FROM 'non_transfer'
               AND te.created_at > NOW() - INTERVAL '14 days'
-            GROUP BY pe.entity_id, pp.full_name, ct.name, pp.team_id
+            GROUP BY pe.entity_id, pp.full_name, ct.name, pp.team_id, pp.kind
             HAVING count(DISTINCT te.article_id) >= $3
         ) u
         WHERE u.article_n >= $3
@@ -1023,11 +1023,26 @@ pub async fn build_pair_request(
     let attribution = primary_source(&news);
 
     // Fingerprint material inputs before the handler decides whether to call the model.
-    let input_hash = hash_components(&build_transfer_input_components(
-        &news_ids,
-        &components,
-        &relationship,
-    ));
+    let input_components = build_transfer_input_components(&news_ids, &components, &relationship);
+    let identity =
+        crate::corpus::load_identity_record(&hx.pool, &c.subject_type, c.player_id, sport).await?;
+    let team_identity =
+        crate::corpus::load_identity_record(&hx.pool, "team", team_id, sport).await?;
+    let input_components = crate::corpus::with_identity_version(
+        &hx.pool,
+        &c.subject_type,
+        c.player_id,
+        sport,
+        &input_components,
+    )
+    .await?;
+    let mut input_value: serde_json::Value = serde_json::from_str(&input_components)?;
+    let team_version =
+        crate::corpus::with_identity_version(&hx.pool, "team", team_id, sport, "{}").await?;
+    input_value["team_identity"] =
+        serde_json::from_str::<serde_json::Value>(&team_version)?["entity_identity"].clone();
+    let input_components = input_value.to_string();
+    let input_hash = hash_components(&input_components);
 
     let evidence = TransferEvidence::from_news(&news, news_ids.len(), &attribution);
     // Two independent SQL card reads (story arc + source track record) — load concurrently.
@@ -1041,7 +1056,7 @@ pub async fn build_pair_request(
             load_source_reliability(&hx.pool, sport, c.player_id, team_id),
         )?
     };
-    let built_prompt = build_transfer_prompt(
+    let mut built_prompt = build_transfer_prompt(
         team_name,
         c,
         sport,
@@ -1052,6 +1067,12 @@ pub async fn build_pair_request(
         memory.as_deref(),
         packet_framing.as_deref(),
     );
+    if identity.is_some() || team_identity.is_some() {
+        built_prompt.push_str(&format!("\n{}\n", crate::corpus::IDENTITY_CARD_FRAMING));
+    }
+    for card in [identity, team_identity].into_iter().flatten() {
+        built_prompt.push_str(&format!("\n{card}\n"));
+    }
     // Person subjects use the same contract with a separately versioned noun substitution.
     let system = if c.subject_type == "person" {
         transfer_system_prompt(sport).replace("player", "person")
@@ -1515,8 +1536,14 @@ struct InsiderScoreParser;
 
 impl Parser<InsiderScoreReply> for InsiderScoreParser {
     fn parse(&self, raw: &str) -> Result<Option<InsiderScoreReply>> {
+        if let Ok(value) = serde_json::from_str::<serde_json::Value>(raw) {
+            crate::junctions::form::validate_hook(value.get("headline").and_then(|v| v.as_str()))?;
+        }
         match parse_insider_score_reply(raw) {
-            Some(r) => Ok(Some(r)),
+            Some(r) => {
+                crate::junctions::form::validate_body(&r.read)?;
+                Ok(Some(r))
+            }
             None => bail!(
                 "insider score: could not parse read+score from response (raw={:?})",
                 crate::util::truncate(raw, 200)
@@ -1652,7 +1679,15 @@ async fn score_insider_entity(
             return Ok(());
         }
     }
-    let input_hash = hash_components(&build_insider_score_input_components(&heat));
+    let components = crate::corpus::with_identity_version(
+        &hx.pool,
+        entity_type,
+        entity_id,
+        sport,
+        &build_insider_score_input_components(&heat),
+    )
+    .await?;
+    let input_hash = hash_components(&components);
     let key = EntityKey {
         entity_type: entity_type.to_string(),
         entity_id,
@@ -1683,10 +1718,9 @@ async fn score_insider_entity(
             None
         }
     };
-    // Identity card: house records, dated — degrades to absent like memory.
-    let identity = crate::corpus::load_identity_card(&hx.pool, entity_type, entity_id, sport)
-        .await
-        .unwrap_or_default();
+    // Dated identity context; database errors must not silently remove it.
+    let identity =
+        crate::corpus::load_identity_card(&hx.pool, entity_type, entity_id, sport).await?;
     let prompt = build_insider_score_prompt(
         entity_name,
         sport,

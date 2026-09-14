@@ -768,11 +768,19 @@ async fn load_hypothesis_entities(
     .await
     .context("load editor hypothesis entities")?;
 
-    Ok(rows
-        .into_iter()
-        .filter(|(_, _, name)| !name.is_empty())
-        .map(|(entity_type, entity_id, name)| format!("{name} ({entity_type} {entity_id})"))
-        .collect())
+    let mut entities = Vec::new();
+    for (entity_type, entity_id, name) in rows {
+        if name.is_empty() {
+            continue;
+        }
+        let context =
+            crate::corpus::load_identity_record(pool, &entity_type, entity_id, sport).await?;
+        entities.push(format!(
+            "{name} ({entity_type} {entity_id})\n{}",
+            context.unwrap_or_default()
+        ));
+    }
+    Ok(entities)
 }
 
 /// read_is_current reports whether this article's read is already settled for this exact body

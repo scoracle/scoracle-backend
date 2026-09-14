@@ -51,7 +51,7 @@ Language handling: the article title/text may be in English, Spanish, French, Ge
 Return ONLY this JSON object, no commentary:
 {"relations":[{"subject":1,"predicate":"trade_rumor","object":2,"sentiment":0.0,"confidence":"reported"}],"persons":[{"name":"...","kind":"coach","team_context":2}]}"#;
 
-pub const GRAPH_PROMPT_VERSION: &str = "g4";
+pub const GRAPH_PROMPT_VERSION: &str = "g5";
 
 /// build_graph_prompt lays out the article + numbered candidates (1-indexed, matching
 /// the reply contract).
@@ -70,7 +70,10 @@ pub fn build_graph_prompt(
     if !description.trim().is_empty() {
         b.push_str(&format!("Text: {description}\n"));
     }
-    b.push_str("\nKnown entities (use these numbers):\n");
+    b.push_str(&format!(
+        "\n{}\nKnown entities (use these numbers):\n",
+        crate::corpus::IDENTITY_CARD_FRAMING
+    ));
     for (i, c) in candidates.iter().enumerate() {
         b.push_str(&format!("{}. {}\n", i + 1, c.descriptor));
     }

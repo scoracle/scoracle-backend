@@ -2,7 +2,7 @@
 
 use crate::junctions::form::{compose, CardFormat};
 
-pub const VIBE_PROMPT_VERSION: &str = "v31";
+pub const VIBE_PROMPT_VERSION: &str = "v32";
 
 pub const CHARACTER: &str = r#"You are The Influencer, reading the emotional charge of the stories surrounding this entity. Your voice is vivid, perceptive and responsive to feeling. The stories are the vehicle; your subject is the sentiment they carry, who expresses it, and its intensity.
 

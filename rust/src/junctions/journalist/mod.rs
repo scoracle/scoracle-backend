@@ -208,6 +208,14 @@ impl Parser<ParsedNarratives> for NarrativesParser {
             n.title = crate::guards::clean_served_prose(&n.title);
             n.body = crate::guards::clean_served_prose(&n.body);
         }
+        if !narratives.is_empty() {
+            let body = narratives
+                .iter()
+                .map(|n| n.body.as_str())
+                .collect::<Vec<_>>()
+                .join("\n\n");
+            crate::junctions::form::validate_body(&body)?;
+        }
         // Scan only served fields; discarded preamble cannot fail a clean edition.
         for n in &narratives {
             if let Some(p) = crate::guards::first_product_name(&n.title)
@@ -223,6 +231,7 @@ impl Parser<ParsedNarratives> for NarrativesParser {
         }
         // Score and title are best-effort; missing fields never discard grounded prose.
         let card_score = parse_card_score(raw);
+        crate::junctions::form::validate_hook(parse_headline(raw).as_deref())?;
         // The entity-level hook is best-effort the same way, then settled through the shared
         // title floor: the tweet contract (140 chars), emphasis stripped, foreign-script and
         // overlong titles dropped rather than failing the edition.
@@ -969,7 +978,15 @@ pub async fn load_narratives_material(
     };
 
     // The prompt version makes a contract change invalidate each material hash once.
-    let input_hash = crate::util::hash_components(&build_narratives_input_components(&corpus));
+    let input_components = crate::corpus::with_identity_version(
+        &hx.pool,
+        &req.entity_type,
+        req.entity_id,
+        &req.sport,
+        &build_narratives_input_components(&corpus),
+    )
+    .await?;
+    let input_hash = crate::util::hash_components(&input_components);
 
     Ok(NarrativesMaterial {
         corpus,
@@ -1039,11 +1056,10 @@ pub async fn finish_narratives_build(
         score_context.push('\n');
         score_context.push_str(&p.card);
     }
-    // Identity card: house records, dated — degrades to absent like memory.
+    // Dated identity context; database errors must not silently remove it.
     let identity =
         crate::corpus::load_identity_card(&hx.pool, &req.entity_type, req.entity_id, &req.sport)
-            .await
-            .unwrap_or_default();
+            .await?;
     let built_prompt = build_narratives_prompt(
         req,
         &corpus,

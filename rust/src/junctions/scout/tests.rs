@@ -5,15 +5,189 @@
 
 use super::*;
 
+#[test]
+fn unranked_one_appearance_is_not_an_elite_or_declining_profile() {
+    let mut current = nfl_profile("Midfielder", vec![]);
+    current.season = 2026;
+    current.composite_score = None;
+    current.observed_at = Some("2026-09-07".into());
+    current.sample.insert("Appearances".into(), 1.0);
+    current.breakdown = serde_json::from_value(serde_json::json!([
+        {"label":"Chance Creation","measure":"expected assists","value":1.01,
+         "z":4.5385,"pct":null,"in_comp":true,"in_spec":true,"sign":1},
+        {"label":"Shooting","measure":"expected goals","value":0.14,
+         "z":-0.3137,"pct":null,"in_comp":true,"in_spec":true,"sign":1},
+        {"label":"Goalscoring","measure":"goals","value":0,
+         "z":0,"pct":null,"in_comp":true,"in_spec":true,"sign":1}
+    ]))
+    .unwrap();
+    // A real old rank is not comparable to an unranked current observation,
+    // even if the skill and measurement have not changed.
+    let mut prior = current.clone();
+    prior.season = 2025;
+    prior.sample.insert("Appearances".into(), 37.0);
+    prior.breakdown[0].pct = Some(95.4);
+    let changes = build_skill_changes(&current, &prior);
+    assert!(changes.is_empty());
+    assert!(drop_degenerate_zero_datapoints(&mut current).is_empty());
+    current
+        .rate_modes
+        .insert("per_90".into(), current.breakdown.clone());
+    assert!(collect_rate_standouts(&current).is_empty());
+    let decision = build_scouting_decision(&current);
+    assert!(decision.primary_strength_to_stop.is_none());
+    assert!(decision.primary_weakness_to_exploit.is_none());
+    let prompt = build_stat_prompt(
+        &req("FOOTBALL", "player", "Morgan Rogers"),
+        &current,
+        None,
+        Some(&changes),
+        None,
+        None,
+        None,
+    );
+    assert!(prompt.contains("Stats updated: 2026-09-07; sample: Appearances 1"));
+    assert!(prompt.contains("Chance Creation: 1.01 (expected assists)"));
+    assert!(prompt.contains("Shooting: 0.14 (expected goals)"));
+    assert!(prompt.contains("Goalscoring: 0 (goals)"));
+    assert!(!prompt.contains("95.4"));
+    assert!(!prompt.contains("(elite)"));
+    assert!(!prompt.contains("prior season percentile"));
+    assert!(!prompt.contains("Prior reading"));
+}
+
+#[test]
+fn missing_numeric_evidence_is_not_a_measured_zero_or_bottom_rank() {
+    let absent: RatingDatapoint =
+        serde_json::from_str(r#"{"label":"Scoring","value":null,"z":null,"pct":null}"#).unwrap();
+    assert_eq!(absent.value, None);
+    assert_eq!(absent.pct, None);
+    assert_eq!(signed_z(&absent), None);
+    assert_eq!(format_datapoint_evidence(&absent), "Scoring: unmeasured");
+    assert!(!is_weakness(&absent));
+    let zero = dp("Scoring", 0.0, -2.0, 0.0, 1);
+    assert_eq!(zero.value, Some(0.0));
+    assert!(format_datapoint_evidence(&zero).contains("percentile 0.0"));
+    assert!(is_weakness(&zero));
+}
+
+#[test]
+fn sample_value_and_rank_missingness_participate_in_input_identity() {
+    let mut p = profile_player();
+    let original = input_components(&p);
+    p.sample.insert("Games Played".into(), 1.0);
+    assert_ne!(original, input_components(&p));
+    let sampled = input_components(&p);
+    p.breakdown[0].value = Some(25.0);
+    assert_ne!(sampled, input_components(&p));
+    p.breakdown[0].pct = Some(0.0);
+    let zero = input_components(&p);
+    p.breakdown[0].pct = None;
+    assert_ne!(zero, input_components(&p));
+}
+
+#[test]
+fn sample_preserves_units_and_unknown_dates() {
+    let mut p = profile_player();
+    p.sample.insert("Games Played".into(), 3.0);
+    p.sample.insert("Minutes Per Game".into(), 21.5);
+    let prompt = build_stat_prompt(
+        &req("NBA", "player", "Test Player"),
+        &p,
+        None,
+        None,
+        None,
+        None,
+        None,
+    );
+    assert!(
+        prompt.contains("Stats updated: unknown; sample: Games Played 3, Minutes Per Game 21.5")
+    );
+    assert!(prompt.contains("Values: per-game averages"));
+}
+
+#[test]
+fn rate_corroboration_requires_the_same_underlying_measurement() {
+    let mut p = profile_player();
+    p.breakdown = vec![dp("Shooting", 32.0, 2.0, 92.0, 1)];
+    p.breakdown[0].measure = "shots on target".into();
+    let mut other_measure = dp("Shooting", 0.2, 3.0, 99.0, 1);
+    other_measure.measure = "expected goals".into();
+    p.rate_modes.insert("per_90".into(), vec![other_measure]);
+    let prompt = build_stat_prompt(
+        &req("FOOTBALL", "player", "Test Player"),
+        &p,
+        None,
+        None,
+        None,
+        None,
+        None,
+    );
+    assert!(!prompt.contains("per-90 percentile"));
+}
+
+#[test]
+fn season_changes_stay_with_their_own_skill() {
+    let current = nfl_profile(
+        "Guard",
+        vec![
+            dp("Creation", 1.0, 1.6, 66.0, 1),
+            dp("Chance Creation", 1.0, 4.5, 95.0, 1),
+        ],
+    );
+    let prior = nfl_profile("Guard", vec![dp("Creation", 1.0, 4.5, 95.0, 1)]);
+    let changes = build_skill_changes(&current, &prior);
+    assert_eq!(changes["Creation"].prior_pct, 95.0);
+    assert!(!changes.contains_key("Chance Creation"));
+    let prompt = build_stat_prompt(
+        &req("FOOTBALL", "player", "Morgan Rogers"),
+        &current,
+        None,
+        Some(&changes),
+        None,
+        None,
+        None,
+    );
+    let chance = prompt
+        .lines()
+        .find(|l| l.starts_with("- Chance Creation:"))
+        .unwrap();
+    assert!(!chance.contains("prior season percentile"));
+    assert!(!chance.contains("slipped"));
+}
+
 fn dp(label: &str, value: f64, z: f64, pct: f64, sign: i32) -> RatingDatapoint {
     RatingDatapoint {
         label: label.to_string(),
-        value,
-        z,
-        pct,
+        measure: label.to_string(),
+        value: Some(value),
+        z: Some(z),
+        pct: Some(pct),
         sign,
         ..Default::default()
     }
+}
+
+#[test]
+fn season_changes_require_the_same_underlying_measurement() {
+    let mut current = nfl_profile("Guard", vec![dp("Shooting", 0.14, -0.3, 47.0, 1)]);
+    let mut prior = nfl_profile("Guard", vec![dp("Shooting", 32.0, 4.0, 98.0, 1)]);
+    current.breakdown[0].measure = "expected goals".into();
+    prior.breakdown[0].measure = "shots on target".into();
+    assert!(build_skill_changes(&current, &prior).is_empty());
+    prior.breakdown[0].measure = "expected goals".into();
+    assert_eq!(
+        build_skill_changes(&current, &prior)["Shooting"].prior_pct,
+        98.0
+    );
+    current.league_id = Some(8);
+    prior.league_id = Some(9);
+    assert!(build_skill_changes(&current, &prior).is_empty());
+    prior.league_id = Some(8);
+    assert_eq!(build_skill_changes(&current, &prior).len(), 1);
+    current.breakdown[0].measure.clear();
+    prior.breakdown[0].measure.clear();
+    assert!(build_skill_changes(&current, &prior).is_empty());
 }
 
 fn req(sport: &str, entity_type: &str, name: &str) -> RatingReq {
@@ -31,6 +205,9 @@ fn profile_player() -> RatingProfile {
     let mut scoring = dp("Scoring", 24.0, 3.1, 95.0, 1);
     scoring.scoped_pct.insert("position".to_string(), 88.0);
     RatingProfile {
+        observed_at: None,
+        sample: Default::default(),
+        league_id: None,
         entity_type: "player".to_string(),
         season: 2025,
         position: "Guard".to_string(),
@@ -46,8 +223,6 @@ fn serialized_request_has_evidence_and_form_but_no_editorial_outline() {
     let prompt = build_stat_prompt(
         &req("NBA", "player", "Test Player"),
         &profile_player(),
-        70,
-        None,
         None,
         None,
         None,
@@ -70,8 +245,8 @@ fn serialized_request_has_evidence_and_form_but_no_editorial_outline() {
     let system = request["messages"][0]["content"].as_str().unwrap();
     let evidence = request["messages"][1]["content"].as_str().unwrap();
     assert!(system.contains(crate::junctions::form::STORY_FORM));
-    assert!(evidence.contains("Scoring: 24, 95th pct (elite), rating +3.1"));
-    assert!(evidence.contains("Defense: 2.5, 40th pct (below average), rating -0.5"));
+    assert!(evidence.contains("Scoring: 24, percentile 95.0 (elite)"));
+    assert!(evidence.contains("Defense: 2.5, percentile 40.0 (below average)"));
     for retired in [
         "DECISION CARD",
         "Headline strength",
@@ -97,6 +272,9 @@ fn faceted(label: &str, pct: f64, facet: &str) -> RatingDatapoint {
 
 fn nfl_profile(position: &str, breakdown: Vec<RatingDatapoint>) -> RatingProfile {
     RatingProfile {
+        observed_at: None,
+        sample: Default::default(),
+        league_id: None,
         entity_type: "player".to_string(),
         season: 2025,
         position: position.to_string(),
@@ -256,8 +434,6 @@ fn retired_metric_never_reaches_prompt_preimage_or_crown() {
     let prompt = build_stat_prompt(
         &req("FOOTBALL", "player", "Test Defender"),
         &p,
-        60,
-        None,
         None,
         None,
         None,
@@ -286,11 +462,11 @@ fn degenerate_zero_datapoints_drop_but_real_absences_stay() {
     // London-shaped: 0 ground yards at z -0.28 is a usage artifact -> dropped. A zero with
     // a strongly negative z (a starter with no touchdowns) is a real finding -> kept.
     let mut artifact = faceted("Ground Yards Responsible", 1.0, "offense");
-    artifact.value = 0.0;
-    artifact.z = -0.28;
+    artifact.value = Some(0.0);
+    artifact.z = Some(-0.28);
     let mut real_absence = faceted("Touchdowns", 2.0, "offense");
-    real_absence.value = 0.0;
-    real_absence.z = -2.1;
+    real_absence.value = Some(0.0);
+    real_absence.z = Some(-2.1);
     let mut p = nfl_profile("WR", vec![artifact, real_absence]);
     let dropped = drop_degenerate_zero_datapoints(&mut p);
     assert_eq!(dropped, vec!["Ground Yards Responsible"]);
@@ -302,20 +478,20 @@ fn degenerate_zero_datapoints_drop_but_real_absences_stay() {
 fn weakness_requires_material_z_not_just_percentile() {
     // London's giveaways: 5th pct but sign-adjusted z only -0.2 -> NOT a weakness.
     let mut clumped = faceted("Giveaways", 5.3, "offense");
-    clumped.value = 1.0;
-    clumped.z = 0.199;
+    clumped.value = Some(1.0);
+    clumped.z = Some(0.199);
     clumped.sign = -1;
     assert!(!is_weakness(&clumped));
     // Stafford's giveaways: 0th pct at sign-adjusted z -4.9 -> emphatically a weakness.
     let mut real = faceted("Giveaways", 0.0, "offense");
-    real.value = 12.0;
-    real.z = 4.9023;
+    real.value = Some(12.0);
+    real.z = Some(4.9023);
     real.sign = -1;
     assert!(is_weakness(&real));
     // With only artifact-grade negatives, the decision names NO weakness.
     let mut strong = faceted("Air Yards Responsible", 92.9, "offense");
-    strong.value = 919.0;
-    strong.z = 1.0;
+    strong.value = Some(919.0);
+    strong.z = Some(1.0);
     let p = nfl_profile("WR", vec![strong, clumped]);
     let d = build_scouting_decision(&p);
     assert_eq!(d.primary_weakness_to_exploit, None);
@@ -324,8 +500,8 @@ fn weakness_requires_material_z_not_just_percentile() {
 #[test]
 fn scouting_decision_weakness_is_positional_after_filter() {
     let mut giveaways = faceted("Giveaways", 20.0, "offense");
-    giveaways.value = 12.0;
-    giveaways.z = 2.0; // sign-adjusted -2.0: materially bad, a real weakness
+    giveaways.value = Some(12.0);
+    giveaways.z = Some(2.0); // sign-adjusted -2.0: materially bad, a real weakness
     giveaways.sign = -1;
     let mut p = nfl_profile(
         "QB",
@@ -357,8 +533,6 @@ fn prompt_player_composite_datapoints_and_scoped_position() {
     let prompt = build_stat_prompt(
         &req("NBA", "player", "Test Player"),
         &p,
-        70,
-        None,
         None,
         None,
         None,
@@ -367,12 +541,13 @@ fn prompt_player_composite_datapoints_and_scoped_position() {
     );
     assert_eq!(
         prompt,
-        "Entity: Test Player (NBA player, Guard)\n\
-\nProfile distinctiveness: 70/100 (higher = more standout skills).\n\
-\nOverall score (how WELL overall — T-score, 50 = average): 67\n\
-\nDatapoints — measured value, percentile, tier, rating (distance from average), and position percentile when available:\n\
-- Scoring: 24, 95th pct (elite), rating +3.1 [position: 88th, strong]\n\
-- Defense: 2.5, 40th pct (below average), rating -0.5\n\
+        "Entity: Test Player (NBA player, Guard); season 2025\n\
+Stats updated: unknown; sample: unknown\n\
+\nOverall standardized score (50 = average): 67\n\
+Values: per-game averages, except percentages.\n\
+\nMeasurements. Percentiles, when present, rank the same measure among eligible entities in this sport and season; higher is better. Missing ranks and season comparisons are unmeasured.\n\
+- Scoring: 24, percentile 95.0 (elite)\n\
+- Defense: 2.5, percentile 40.0 (below average)\n\
 "
     );
 }
@@ -381,6 +556,9 @@ fn prompt_player_composite_datapoints_and_scoped_position() {
 fn prompt_team_no_composite_no_position() {
     // Team: position "" (no ", Guard" in the header), no composite line, one datapoint.
     let p = RatingProfile {
+        observed_at: None,
+        sample: Default::default(),
+        league_id: None,
         entity_type: "team".to_string(),
         season: 2025,
         position: String::new(),
@@ -392,8 +570,6 @@ fn prompt_team_no_composite_no_position() {
     let prompt = build_stat_prompt(
         &req("FOOTBALL", "team", "Test FC"),
         &p,
-        55,
-        None,
         None,
         None,
         None,
@@ -402,57 +578,21 @@ fn prompt_team_no_composite_no_position() {
     );
     assert_eq!(
         prompt,
-        "Entity: Test FC (FOOTBALL team)\n\
-\nProfile distinctiveness: 55/100 (higher = more standout skills).\n\
-\nDatapoints — measured value, percentile, tier, rating (distance from average), and position percentile when available:\n\
-- Defense: 0.38, 78th pct (strong), rating +1.2\n\
+        "Entity: Test FC (FOOTBALL team); season 2025\n\
+Stats updated: unknown; sample: unknown\n\
+Values: season totals, except percentages and named adjustments.\n\
+\nMeasurements. Percentiles, when present, rank the same measure among eligible entities in this sport and season; higher is better. Missing ranks and season comparisons are unmeasured.\n\
+- Defense: 0.38, percentile 78.0 (strong)\n\
 "
     );
 }
 
 #[test]
-fn cross_season_memory_renders_after_current_measurements() {
-    // The s12 memory card renders as the last content section, bulleted, with the
-    // tier-truth guard in the header; None pins the s11 byte shape (the byte-fixtures
-    // above). Blank memory ⇒ no section.
-    let p = profile_player();
-    // The mem string is what mig 221's stat_context_for_entity renders — the divined label
-    // retired with PEAK, so the prior read carries distinctiveness and the trajectory.
-    let mem = "Our prior read: season 2025 scored this profile 98/100 for distinctiveness.\nMatchup memory: pts vs Test Rivals — 22.8/game vs a 16.0 baseline (adjusted +4.7), n=13 games, reliability 44/100.";
-    let prompt = build_stat_prompt(
-        &req("NBA", "player", "Test Player"),
-        &p,
-        70,
-        Some(mem),
-        None,
-        None,
-        None,
-        None,
-        None,
-    );
-    assert!(prompt.contains("\nCross-season memory (continuity"));
-    assert!(prompt.contains("- Our prior read: season 2025 scored this profile 98/100"));
-    assert!(prompt.contains("- Matchup memory: pts vs Test Rivals"));
-    let mem_pos = prompt.find("Cross-season memory").unwrap();
-    let dp_pos = prompt.find("Datapoints — measured value").unwrap();
-    assert!(dp_pos < mem_pos);
-    let blank = build_stat_prompt(
-        &req("NBA", "player", "Test Player"),
-        &p,
-        70,
-        Some(" \n "),
-        None,
-        None,
-        None,
-        None,
-        None,
-    );
-    assert!(!blank.contains("Cross-season memory"));
-}
-
-#[test]
 fn scouting_decision_requires_no_standout_when_top_is_only_above_average() {
     let p = RatingProfile {
+        observed_at: None,
+        sample: Default::default(),
+        league_id: None,
         entity_type: "player".to_string(),
         season: 2025,
         position: "SG".to_string(),
@@ -491,7 +631,7 @@ fn input_components_is_canonical_json() {
     assert_eq!(
         ic,
         format!(
-            r#"{{"composite_score":67.0,"datapoints":[{{"label":"Scoring","pct":95.0}},{{"label":"Defense","pct":40.0}}],"position":"Guard","prompt_version":"{RATING_PROMPT_VERSION}","season":2025}}"#
+            r#"{{"composite_score":67.0,"datapoints":[{{"label":"Scoring","measure":"Scoring","pct":95.0,"value":24.0}},{{"label":"Defense","measure":"Defense","pct":40.0,"value":2.5}}],"position":"Guard","prompt_version":"{RATING_PROMPT_VERSION}","sample":{{}},"season":2025}}"#
         )
     );
     // The hash is a deterministic function of those exact bytes.
@@ -502,6 +642,9 @@ fn input_components_is_canonical_json() {
 fn input_components_omits_absent_optional_keys() {
     // No composite, no position, no rate modes → only season/datapoints (+ version).
     let p = RatingProfile {
+        observed_at: None,
+        sample: Default::default(),
+        league_id: None,
         entity_type: "team".to_string(),
         season: 2024,
         position: String::new(),
@@ -513,21 +656,23 @@ fn input_components_omits_absent_optional_keys() {
     // Empty breakdown → "datapoints":[] (a non-nil empty slice marshals as []).
     assert_eq!(
         input_components(&p),
-        format!(r#"{{"datapoints":[],"prompt_version":"{RATING_PROMPT_VERSION}","season":2024}}"#)
+        format!(
+            r#"{{"datapoints":[],"prompt_version":"{RATING_PROMPT_VERSION}","sample":{{}},"season":2024}}"#
+        )
     );
 }
 
 #[test]
 fn rating_datapoint_tolerates_null_values() {
-    // Sparse stored datapoints use null for missing numeric values; deserialize those as zero.
+    // Sparse stored datapoints keep missing numbers distinct from measured zeros.
     let d: RatingDatapoint = serde_json::from_str(
         r#"{"label":"Penalties Won","value":null,"z":0.0,"pct":12.4,"scoped_pct":{"position":11.6,"x":null}}"#,
     )
     .expect("null tolerated like Go");
-    assert_eq!(d.value, 0.0);
-    assert_eq!(d.pct, 12.4);
+    assert_eq!(d.value, None);
+    assert_eq!(d.pct, Some(12.4));
     assert_eq!(d.scoped_pct.get("position"), Some(&11.6));
-    assert_eq!(d.scoped_pct.get("x"), Some(&0.0));
+    assert_eq!(d.scoped_pct.get("x"), None);
 }
 
 // --- deterministic helpers ----------------------------------------------------------------------
@@ -550,7 +695,8 @@ fn trim_float_formats_compactly() {
     assert_eq!(trim_float(3.0), "3"); // integral → %.0f
     assert_eq!(trim_float(24.0), "24");
     assert_eq!(trim_float(0.38), "0.38"); // abs < 1 → %.2f
-    assert_eq!(trim_float(0.4), "0.40");
+    assert_eq!(trim_float(0.4), "0.4");
+    assert_eq!(trim_float(1.01), "1.01");
     assert_eq!(trim_float(10.7), "10.7"); // else → %.1f
     assert_eq!(trim_float(2.5), "2.5");
     assert_eq!(trim_float(-3.0), "-3");
@@ -581,6 +727,9 @@ fn compute_notability_known_case() {
 #[test]
 fn ordered_facts_sorts_desc_and_truncates() {
     let p = RatingProfile {
+        observed_at: None,
+        sample: Default::default(),
+        league_id: None,
         entity_type: "player".to_string(),
         season: 2025,
         position: String::new(),
@@ -742,8 +891,8 @@ fn a_packet_tagged_rating_row_bypasses_the_debounce_and_records_its_trigger() {
 }
 
 #[test]
-fn rating_parser_returns_a_body_even_when_empty() {
-    assert!(RatingParser.parse("").unwrap().is_some());
+fn rating_parser_rejects_empty_cards() {
+    assert!(RatingParser.parse("").is_err());
 }
 
 #[test]
@@ -766,7 +915,7 @@ fn rating_splits_the_s20_headline_line() {
         .unwrap()
         .unwrap();
     assert!(bare.headline.is_none());
-    assert_eq!(bare.body, "The verdict stands.");
+    assert_eq!(bare.body, "Summary: The verdict stands.");
 
     // Empty title folds to None, never an error.
     let empty = RatingParser
@@ -787,19 +936,11 @@ fn rating_splits_the_s20_headline_line() {
         Some("one two three four five six seven eight nine ten eleven twelve thirteen")
     );
 
-    // A hook-contract violation still FAILS OPEN (2026-08-22): a genuinely over-long title with
-    // no beat separator cannot be salvaged, so it degrades to no title and the report still
-    // ships. It used to return Err and discard a complete graded profile over its own title.
-    let long = RatingParser
+    // A surface violation requests a bounded rewrite, never a chopped headline.
+    let error = RatingParser
         .parse(&format!("Summary: x.\nHEADLINE: {}", "x".repeat(200)))
-        .expect("a junk title never fails the report")
-        .expect("a reply");
-    assert!(
-        long.headline.is_none(),
-        "unsalvageable title drops: {:?}",
-        long.headline
-    );
-    assert_eq!(long.body, "x.");
+        .unwrap_err();
+    assert!(error.is::<crate::junctions::form::SurfaceError>());
 }
 
 // --- 7.7 the personnel block: the Scout's second confirmed-fact road ------------------
@@ -1266,8 +1407,6 @@ fn the_prompt_separates_reported_availability_from_the_confirmed_record() {
     let prompt = build_stat_prompt(
         &req("FOOTBALL", "player", "Test Player"),
         &p,
-        70,
-        None,
         None,
         None,
         None,
@@ -1295,8 +1434,6 @@ fn nothing_moved_renders_no_section_at_all() {
     let prompt = build_stat_prompt(
         &req("NBA", "player", "Test Player"),
         &p,
-        70,
-        None,
         None,
         None,
         None,
@@ -1309,7 +1446,7 @@ fn nothing_moved_renders_no_section_at_all() {
 /// Placement: below the datapoints (a tier is still the truth about the player who holds it),
 /// above the cross-season memory card (this is the squad now, not the arc), above the write cue.
 #[test]
-fn the_personnel_block_sits_between_the_datapoints_and_the_memory_card() {
+fn personnel_follows_measurements_without_generated_prose_memory() {
     let p = profile_player();
     let personnel = render_personnel_block(
         "player",
@@ -1326,24 +1463,21 @@ fn the_personnel_block_sits_between_the_datapoints_and_the_memory_card() {
         0,
     )
     .unwrap();
-    let mem = "Our prior read: season 2025 PEAK was \"Shooting\" (notability 98/100).";
     let prompt = build_stat_prompt(
         &req("NBA", "player", "Test Player"),
         &p,
-        70,
-        Some(mem),
         Some(&personnel),
         None,
         None,
         None,
         None,
     );
-    let dp = prompt.find("Datapoints — measured value").unwrap();
+    let dp = prompt.find("Measurements.").unwrap();
     let pers = prompt
         .find("Personnel and availability since our last read")
         .unwrap();
-    let memp = prompt.find("Cross-season memory").unwrap();
-    assert!(dp < pers && pers < memp);
+    assert!(dp < pers);
+    assert!(!prompt.contains("Prior reading"));
     assert!(prompt.contains("- Jul 29: joined New FC from Old FC (transfer).\n"));
     // The tier-truth invariant travels with the block.
     assert!(prompt.contains("season measurements remain unchanged"));
@@ -1352,8 +1486,6 @@ fn the_personnel_block_sits_between_the_datapoints_and_the_memory_card() {
     let blank = build_stat_prompt(
         &req("NBA", "player", "Test Player"),
         &p,
-        70,
-        None,
         Some(" \n "),
         None,
         None,
@@ -1370,7 +1502,7 @@ fn datapoints_span_the_range_rather_than_taking_the_top() {
     let breakdown: Vec<RatingDatapoint> = (0..40)
         .map(|i| RatingDatapoint {
             label: format!("Stat {i}"),
-            pct: 97.5 - (i as f64) * 2.5,
+            pct: Some(97.5 - (i as f64) * 2.5),
             ..Default::default()
         })
         .collect();
@@ -1387,10 +1519,17 @@ fn datapoints_span_the_range_rather_than_taking_the_top() {
     }
     // Both ends are present. Before s21 this list was facts[0..14] — everything at or below
     // the 62nd percentile was invisible, so the bottom assertion is the whole point.
-    assert_eq!(got.first().unwrap().pct, 97.5, "the best skill is shown");
-    assert_eq!(got.last().unwrap().pct, 0.0, "and so is the worst");
+    assert_eq!(
+        got.first().unwrap().pct,
+        Some(97.5),
+        "the best skill is shown"
+    );
+    assert_eq!(got.last().unwrap().pct, Some(0.0), "and so is the worst");
     // ...and the middle survives, which top-plus-bottom would also have missed.
-    let middle = got.iter().filter(|d| d.pct > 20.0 && d.pct < 75.0).count();
+    let middle = got
+        .iter()
+        .filter(|d| d.pct.is_some_and(|pct| pct > 20.0 && pct < 75.0))
+        .count();
     assert!(
         middle >= 3,
         "the interior of the distribution must be represented, got {middle}: {:?}",

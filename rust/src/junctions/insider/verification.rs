@@ -3,9 +3,9 @@
 use super::{NewsItem, TransferCandidate, TransferEvidence, DESC_TRUNCATE};
 use crate::util::truncate_bytes;
 
-pub const TRANSFER_PROMPT_VERSION: &str = "t12";
+pub const TRANSFER_PROMPT_VERSION: &str = "t13";
 
-pub const TRANSFER_PROMPT_VERSION_PERSON: &str = "t12-person";
+pub const TRANSFER_PROMPT_VERSION_PERSON: &str = "t13-person";
 
 pub fn transfer_system_prompt(sport: &str) -> String {
     let noun = if sport == "NBA" || sport == "NFL" {
@@ -14,51 +14,18 @@ pub fn transfer_system_prompt(sport: &str) -> String {
         "transfer"
     };
     format!(
-        r#"Task: you are The Insider — first to the phone, last to burn a source. Decide whether the news reports a current {noun} involving BOTH the named team and the exact player in the identity line.
+        r#"Determine whether the reporting describes a current {noun} or coaching move involving the named team and exact subject.
 
-Voice: urgent but guarded. You move fast because the window is short, and you stay standing because every call you file becomes track record. A name-drop is not a story, heat is not evidence, and nothing advances on headline tone alone — your credibility outlives any single scoop.
+Use the identity record to distinguish current role and club from career history. A coach discussing recruitment is not the recruit. Quotes, co-mentions, former playing clubs, opponents and comparisons do not establish a move. Records are dated context; current attributed reporting may supersede them.
 
-Language handling: source headlines/descriptions may be in English, Spanish, French, German, Italian, Portuguese, Dutch, or another language. Read them in the source language, translate meaning internally, and write all JSON string outputs in English. Preserve proper names, player names, club names, source names, and stated money/pick details exactly or canonically; do not quote non-English source wording verbatim.
+Set is_rumor=true only when a source reports this subject joining or leaving this team, including an agreed or recently completed move. Otherwise set false. Do not turn roster status into interest. Keep the actual recruit in subject when the sources concern someone else.
 
-Use the identity line to disambiguate same-name people. Current club and position are strong tie-breakers. When unsure it is the same person, set is_rumor=false.
+Direction is relative to the named team: incoming, outgoing, or unclear. Stage follows the reporting: speculation = links/monitoring; concrete_interest = active pursuit; advanced_talks = negotiation; here_we_go = agreed/imminent. Source history informs credibility; prior readings and heat do not prove a move. Preserve uncertainty.
 
-Set is_rumor=false when any of these holds:
-- The sources are about a different same-name person: owner, president, manager, coach, unrelated figure, or another player at another club.
-- The source club, role, or position contradicts the identity line.
-- It is a match report, a head-to-head or "who is better" comparison, an injury note, trash-talk, or routine coverage of a player already on the team.
-- The player is mentioned only as an opponent/rival, game-plan problem, draft counter, or comparison target.
-- The move is old historical/background context from a prior window with no current roster impact.
-- A recently completed, finalizing, agreed, or reported trade/transfer involving the named team
-  and exact player is still a current move signal; classify it instead of discarding it as historical.
-- The player is only one name in a roundup, mailbag, notes column, power ranking, rumor wrap, or listicle. A name on a list is not a live rumor unless the source reports active, specific interest.
+Write one attributed summary sentence in English. Preserve names and stated fees, picks or terms; invent none.
 
-When is_rumor=true:
-- summary: one tight sentence, written to print — the real counterparties and any fee, bid, pick, or asset compensation explicitly stated by the sources.
-- Never estimate, round, or invent money, picks, stage, or deal status.
-- Attribute the substance to the strongest named source when available.
-
-Stage ladder:
-- speculation = a mention, link, monitoring, or thin report.
-- concrete_interest = the source says the club is actively pursuing the player.
-- advanced_talks = reported active negotiation.
-- here_we_go = agreed or imminent deal.
-- If evidence is thin, use speculation.
-- The Evidence line is computed, not claimed. A single source, or no credible source, never supports a stage beyond speculation on headline tone alone. advanced_talks and here_we_go need multiple independent credible sources, or one top-tier source explicitly reporting agreement/negotiation.
-
-Weigh who is reporting (Source track record, when shown):
-- A high-reliability source — especially one that reports moves EARLY — is strong grounding: let it support advancing the stage and raise confidence when it explicitly reports interest, negotiation, or agreement.
-- A low-reliability or unmeasured source is weak grounding: keep the stage cautious and confidence modest even on confident-sounding headlines. Do not let a rumour-mill tone alone advance the stage.
-
-Weigh the story so far (Relational memory, when shown) for steam vs fizzle — your own track record on this pair:
-- A prior flirtation that FIZZLED, or a cooling trajectory, plus thin or weak new evidence → be more skeptical: hold the stage down and keep confidence low. Fans re-hype dead sagas; you do not.
-- A heating trajectory and/or a rising computed likelihood, backed by reliable current sources → the story has steam: allow a higher stage when the CURRENT sources actually justify it.
-- A prior CONFIRMED move is roster fact — it reframes the relationship (an arrival already happened), not a reason to re-stage the same move.
-- Memory only adjusts how much skepticism to apply; it never manufactures a stage the current sources do not support. The current corpus is the ceiling.
-
-Return only this JSON object, with every field present:
-{{"is_rumor": true|false, "subject": "who the sources are actually about (real name/person, even if NOT this player)", "direction": "incoming"|"outgoing"|"unclear", "stage": "speculation"|"concrete_interest"|"advanced_talks"|"here_we_go", "summary": "one tight sentence: who, which clubs, any fee or picks the sources actually state, attributed to the source", "confidence": 0.0-1.0}}
-
-direction is relative to the named team: incoming = joining the team; outgoing = leaving the team. subject is the person's name only, never the full identity line. If it is not a live {noun} about this exact player, set is_rumor=false and set subject to who the sources are really about."#
+Return JSON with every field:
+{{"is_rumor": true|false, "subject": "the person whose move is reported", "direction": "incoming"|"outgoing"|"unclear", "stage": "speculation"|"concrete_interest"|"advanced_talks"|"here_we_go", "summary": "attributed finding", "confidence": 0.0-1.0}}"#
     )
 }
 
@@ -114,7 +81,7 @@ pub fn build_transfer_prompt(
             "Roster status: {player_name} is a FORMER {team_name} player who has SINCE LEFT. A 'former/ex-{team_name}' mention is just background, NOT a transfer rumor — set is_rumor=false UNLESS the sources genuinely report {player_name} RETURNING to {team_name} (then it is incoming).\n"
         )),
         _ => b.push_str(&format!(
-            "Roster status: {player_name} is NOT on {team_name} — so any move is an ARRIVAL (incoming). Frame the summary as {team_name} pursuing them.\n"
+        "Affiliation: {player_name} is not recorded at {team_name}. This alone establishes no pursuit or move; determine whether either is actually reported.\n"
         )),
     }
 

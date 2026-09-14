@@ -38,8 +38,8 @@ const ORACLE_LEDGER: LedgerSpec = LedgerSpec {
 /// Production crown temperature. Fixtures pin zero.
 pub const ORACLE_TEMPERATURE: f64 = 0.6;
 
-/// Token cap for the short `{reading, score}` reply.
-pub const ORACLE_NUM_PREDICT: i32 = 350;
+/// Runtime headroom for the JSON response, not a requested prose length.
+pub const ORACLE_NUM_PREDICT: i32 = 700;
 
 /// Output reservation inside the small voice window.
 pub const SMALL_WINDOW_NUM_PREDICT: i32 = 700;
@@ -760,8 +760,6 @@ pub fn parse_crown_reply(raw: &str) -> Option<CrownReply> {
     let reading = crate::junctions::form::normalize_body(reading);
     // Served prose takes the shared scrub.
     let reading = crate::guards::clean_served_prose(&reading);
-    let reading = complete_sentences(&reading)?;
-    let reading = strip_output_score_recap(reading, score);
     if reading.is_empty() {
         return None;
     }
@@ -776,63 +774,6 @@ pub fn parse_crown_reply(raw: &str) -> Option<CrownReply> {
         headline,
         score,
     })
-}
-
-/// The score has its own JSON field. If the model also narrates that same value, remove only the
-/// sentence carrying the duplicate transport value and leave the surrounding interpretation.
-fn strip_output_score_recap(mut reading: String, score: i32) -> String {
-    let needles = [
-        format!("score of {score}"),
-        format!("score is {score}"),
-        format!("score: {score}"),
-    ];
-    loop {
-        let lower = reading.to_ascii_lowercase();
-        let Some(hit) = needles.iter().filter_map(|n| lower.find(n)).min() else {
-            break;
-        };
-        let start = lower[..hit].rfind(['.', '!', '?']).map_or(0, |i| i + 1);
-        let end = lower[hit..]
-            .find(['.', '!', '?'])
-            .map_or(reading.len(), |i| hit + i + 1);
-        reading.replace_range(start..end, "");
-        reading = reading.split_whitespace().collect::<Vec<_>>().join(" ");
-    }
-    reading.trim().to_string()
-}
-
-/// Keep a complete reading when a constrained string reaches its character ceiling. A complete
-/// sentence passes byte-identical; only an unfinished tail is removed. With no complete sentence,
-/// parsing fails and the work item retries.
-fn complete_sentences(reading: &str) -> Option<String> {
-    let reading = reading.trim();
-    let sentence_end = |c: char| matches!(c, '.' | '!' | '?');
-    let terminal = reading.trim_end_matches(['"', '\'', '\u{2019}', '\u{201d}', ')', ']']);
-    let last_word = terminal
-        .trim_end_matches(sentence_end)
-        .split_whitespace()
-        .next_back()
-        .unwrap_or_default()
-        .trim_matches(|c: char| !c.is_alphanumeric());
-    let clipped_word = reading.chars().count()
-        >= crate::junctions::form::ORACLE_READING_MAX_CHARS.saturating_sub(8)
-        && last_word.len() == 1
-        && last_word
-            .chars()
-            .all(|c| c.is_ascii_lowercase() && !matches!(c, 'a' | 'i'));
-    if terminal.chars().next_back().is_some_and(sentence_end) && !clipped_word {
-        return Some(reading.to_string());
-    }
-    let search = if clipped_word {
-        terminal.trim_end_matches(sentence_end)
-    } else {
-        reading
-    };
-    let cut = search
-        .char_indices()
-        .rev()
-        .find_map(|(i, c)| sentence_end(c).then_some(i + c.len_utf8()))?;
-    Some(reading[..cut].trim_end().to_string())
 }
 
 // Preserve paragraph breaks when an unconstrained backend emits literal newlines in JSON strings.
@@ -871,6 +812,8 @@ impl Parser<CrownReply> for CrownParser {
     fn parse(&self, raw: &str) -> Result<Option<CrownReply>> {
         match parse_crown_reply(raw) {
             Some(mut r) => {
+                crate::junctions::form::validate_body(&r.reading)?;
+                crate::junctions::form::validate_hook(r.headline.as_deref())?;
                 // Global served-prose invariants fail closed and retry the item.
                 if crate::guards::has_bookkeeping_citation(&r.reading) {
                     tracing::warn!(guard = "bookkeeping_citation", "reading rejected");
@@ -1086,6 +1029,14 @@ impl StageHandler for SigilHandler {
             &momentum,
             &transfers,
         );
+        let input_components_json = crate::corpus::with_identity_version(
+            &hx.pool,
+            &item.entity_type,
+            entity_id,
+            &sport,
+            &input_components_json,
+        )
+        .await?;
         let input_hash = hash_components(&input_components_json);
         let key = EntityKey {
             entity_type: item.entity_type.clone(),
@@ -1114,11 +1065,10 @@ impl StageHandler for SigilHandler {
 
         // The one crown call (OracleLogic): read the cards + the omen, then emit
         // {reading, score}. Fail-closed lives in CrownParser (unparseable → Err → the item backs off).
-        // Identity card: house records, dated — degrades to absent like memory.
+        // Dated identity context; database errors must not silently remove it.
         let identity =
             crate::corpus::load_identity_card(&hx.pool, &item.entity_type, entity_id, &sport)
-                .await
-                .unwrap_or_default();
+                .await?;
         let prompt = build_crown_prompt(
             &item.entity_type,
             &name,
@@ -1135,11 +1085,7 @@ impl StageHandler for SigilHandler {
         let opts = GenerateOptions {
             system: Some(ORACLE_SYSTEM_PROMPT.to_string()),
             temperature: Some(ORACLE_TEMPERATURE),
-            num_predict: if small {
-                SMALL_WINDOW_NUM_PREDICT
-            } else {
-                ORACLE_NUM_PREDICT
-            },
+            num_predict: ORACLE_NUM_PREDICT,
             num_ctx: hx.voice_num_ctx,
             json_mode: false,
             format_schema: Some(oracle_format_schema()),

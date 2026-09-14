@@ -1,0 +1,1680 @@
+{
+  "purpose": "Offline editorial diagnosis; no published readings or production routing changes.",
+  "limitations": [
+    "Morgan Rogers plus one explicitly synthetic fuller-sample variant; not a representative quality benchmark.",
+    "Early rounds replayed values mislabeled as percentiles before discovering the unranked fallback-score bug.",
+    "Live-service timings and timeouts do not establish controlled comparative model latency.",
+    "Native reasoning text omitted; its completion metadata is retained."
+  ],
+  "verified_database_snapshot": {
+    "entity": {
+      "type": "player",
+      "id": 4592198,
+      "sport": "FOOTBALL",
+      "name": "Morgan Rogers"
+    },
+    "current": {
+      "season": 2026,
+      "appearances": 1,
+      "assists": 1,
+      "expected_assists": 1.01,
+      "goals": 0,
+      "expected_goals": 0.14,
+      "rating_score": null,
+      "snapshot_date": "2026-09-07",
+      "chance_creation": {
+        "z": 4.5385,
+        "stored_pct": 95.4,
+        "kind": "standardized fallback score, not percentile"
+      },
+      "creation": {
+        "z": 1.6036,
+        "stored_pct": 66,
+        "kind": "standardized fallback score, not percentile"
+      }
+    },
+    "prior": {
+      "season": 2025,
+      "appearances": 37,
+      "assists": 6,
+      "goals": 10,
+      "rating_score": 72.4,
+      "creation_percentile": 94.8
+    }
+  },
+  "cases": [
+    {
+      "name": "baseline",
+      "seed": 17,
+      "request": {
+        "model": "granite4.2:3b",
+        "think": false,
+        "stream": false,
+        "options": {
+          "num_ctx": 4096,
+          "num_predict": 700,
+          "temperature": 0.6,
+          "seed": 17
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are The Scout, a veteran assessing the entity an opponent would face right now. Your voice is observant, direct and specific to the sport. Explain the current profile through the relationships between its skills, their measured level and their direction of travel.\n\nRead supplied values, percentiles and ratings together with your memories of the entity. You own the interpretation of its performance trajectory. A strong skill can be declining; a below-average skill can be improving. Distinguish low usage from poor performance. Use measured changes to explain what is strengthening, weakening or holding. Keep their time windows clear: a season-over-season change is different from a recent run. An unmeasured trend remains unknown.\n\nFactor in injuries, returns, departures and new players where the evidence shows their relevance to the current profile. Separate confirmed availability from attributed reports. Personnel changes can alter the interpretation of existing measurements without changing those measurements. Your report should make the entity's present condition and supported trajectory understandable.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with headline (the hook) and body (the paragraphs). Preserve paragraph breaks as escaped newlines."
+          },
+          {
+            "role": "user",
+            "content": "Entity: Morgan Rogers (FOOTBALL player, Midfielder); season 2026\n\nIdentity context, not event evidence. Distinguish current roles from career history; dated reporting may supersede these records. Unknown means unknown.\nMorgan Rogers — Midfielder, on record at Aston Villa (Premier League). Nationality: England. Record: roster; observed 2026-07-03.\n\nDatapoints — measured value, percentile, tier, rating (distance from average), and position percentile when available:\n- Chance Creation: 1.0, 95th pct (elite), rating +4.5; measures expected assists; season trend: unmeasured; per-90: 95th pct; per-game: 95th pct\n- Creation: 1, 66th pct (above average), rating +1.6; measures assists; prior season: 95th pct, slipped; per-game: 88th pct\n- Discipline: 0, 56th pct (average), rating +0.6; season trend: unmeasured\n- Shooting: 0.14, 47th pct (below average), rating -0.3; measures expected goals; season trend: unmeasured\n- Tackling: 1.7, 43th pct (below average), rating -0.7; measures possession-adjusted tackles; prior season: 82th pct, slipped\n- CBI: 1, 42th pct (below average), rating -0.8; measures clearances, blocks and interceptions; season trend: unmeasured\n- Defensive Work: 5, 41th pct (below average), rating -0.9; measures defensive contributions; season trend: unmeasured\n\n\nPrior reading (continuity, not fresh evidence):\n- Prior Scout read (2026-09-11, excerpt): Morgan Rogers is a Midfielder at Aston Villa in the Premier League, representing England.\n\nMorgan Rogers has elite chance creation skills, as evidenced by a 95th percentile performance with a +4.5 rating, indicating consistently high creation opportunities. This skill is above average and reflects strong attacking influence. His creation metric, measured at 1.0, is also at the 66th percentile with\n"
+          }
+        ],
+        "format": {
+          "type": "object",
+          "properties": {
+            "body": {
+              "type": "string",
+              "description": "The character's interpretation of the evidence, within 1200 characters."
+            },
+            "headline": {
+              "type": "string",
+              "description": "The read's main finding, stated as a sentence naming the entity."
+            }
+          },
+          "required": [
+            "headline",
+            "body"
+          ]
+        }
+      },
+      "output": {
+        "name": "baseline",
+        "seed": 17,
+        "elapsed_s": 18.39,
+        "result": {
+          "model": "granite4.2:3b",
+          "created_at": "2026-09-14T02:43:53.024454948Z",
+          "message": {
+            "role": "assistant",
+            "content": "{\n  \"body\": \"Morgan Rogers is a Midfielder at Aston Villa in the Premier League, representing England. He is currently available and on record at Aston Villa (Premier League) as of 2026-07-03.\\n\\nHis elite chance creation skill remains strong, with a 95th percentile performance (+4.5 rating) indicating consistent high creation opportunities across the season. This skill is above average and reflects strong attacking influence. His creation metric, measured at 1.0, is also at the 66th percentile with a +1.6 rating, showing solid mid-game play but with a slight downward trend from the prior season where it was at the 95th percentile.\\n\\nDiscipline is average with a 56th percentile rating (+0.6), indicating consistent, but not exemplary, self-regulation. His shooting skill is below average at 47th percentile with a -0.3 rating, reflecting limited success in converting chances into goals. Tackling, measured as 1.7 at the 43rd percentile with a -0.7 rating, shows below-average performance in possession-adjusted tackles, and the prior season slipped from the 82nd percentile. CBI (clearances, blocks, interceptions) is also below average at the 42nd percentile with a -0.8 rating, and defensive work is below average at the 41st percentile with a -0.9 rating.\\n\\nThese measurements suggest Morgan Rogers is performing well in attack but is underperforming defensively. His creation skill remains elite, but the decline in tackling, CBI, and defensive work indicates ongoing pressure on defensive contributions. The shooting deficit and discipline remain relatively stable. Based on the available data, his current trajectory appears to be stable with slight decline in defensive skills and stable attack, while his midfield role remains consistent.\",\n  \"headline\": \"Morgan Rogers: Elite Attack, Declining Defense, Stable Midfield Role\"\n}"
+          },
+          "done": true,
+          "done_reason": "stop",
+          "total_duration": 18370372331,
+          "load_duration": 637827,
+          "prompt_eval_count": 860,
+          "prompt_eval_duration": 836961000,
+          "eval_count": 412,
+          "eval_duration": 15413843000
+        }
+      }
+    },
+    {
+      "name": "no_memory",
+      "seed": 17,
+      "request": {
+        "model": "granite4.2:3b",
+        "think": false,
+        "stream": false,
+        "options": {
+          "num_ctx": 4096,
+          "num_predict": 700,
+          "temperature": 0.6,
+          "seed": 17
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are The Scout, a veteran assessing the entity an opponent would face right now. Your voice is observant, direct and specific to the sport. Explain the current profile through the relationships between its skills, their measured level and their direction of travel.\n\nRead supplied values, percentiles and ratings together with your memories of the entity. You own the interpretation of its performance trajectory. A strong skill can be declining; a below-average skill can be improving. Distinguish low usage from poor performance. Use measured changes to explain what is strengthening, weakening or holding. Keep their time windows clear: a season-over-season change is different from a recent run. An unmeasured trend remains unknown.\n\nFactor in injuries, returns, departures and new players where the evidence shows their relevance to the current profile. Separate confirmed availability from attributed reports. Personnel changes can alter the interpretation of existing measurements without changing those measurements. Your report should make the entity's present condition and supported trajectory understandable.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with headline (the hook) and body (the paragraphs). Preserve paragraph breaks as escaped newlines."
+          },
+          {
+            "role": "user",
+            "content": "Entity: Morgan Rogers (FOOTBALL player, Midfielder); season 2026\n\nIdentity context, not event evidence. Distinguish current roles from career history; dated reporting may supersede these records. Unknown means unknown.\nMorgan Rogers — Midfielder, on record at Aston Villa (Premier League). Nationality: England. Record: roster; observed 2026-07-03.\n\nDatapoints — measured value, percentile, tier, rating (distance from average), and position percentile when available:\n- Chance Creation: 1.0, 95th pct (elite), rating +4.5; measures expected assists; season trend: unmeasured; per-90: 95th pct; per-game: 95th pct\n- Creation: 1, 66th pct (above average), rating +1.6; measures assists; prior season: 95th pct, slipped; per-game: 88th pct\n- Discipline: 0, 56th pct (average), rating +0.6; season trend: unmeasured\n- Shooting: 0.14, 47th pct (below average), rating -0.3; measures expected goals; season trend: unmeasured\n- Tackling: 1.7, 43th pct (below average), rating -0.7; measures possession-adjusted tackles; prior season: 82th pct, slipped\n- CBI: 1, 42th pct (below average), rating -0.8; measures clearances, blocks and interceptions; season trend: unmeasured\n- Defensive Work: 5, 41th pct (below average), rating -0.9; measures defensive contributions; season trend: unmeasured"
+          }
+        ],
+        "format": {
+          "type": "object",
+          "properties": {
+            "body": {
+              "type": "string",
+              "description": "The character's interpretation of the evidence, within 1200 characters."
+            },
+            "headline": {
+              "type": "string",
+              "description": "The read's main finding, stated as a sentence naming the entity."
+            }
+          },
+          "required": [
+            "headline",
+            "body"
+          ]
+        }
+      },
+      "output": {
+        "name": "no_memory",
+        "seed": 17,
+        "elapsed_s": 12.93,
+        "result": {
+          "model": "granite4.2:3b",
+          "created_at": "2026-09-14T02:44:05.955637355Z",
+          "message": {
+            "role": "assistant",
+            "content": "{\n  \"body\": \"Morgan Rogers is a Midfielder at Aston Villa, England, observed on 2026-07-03. His chance creation skill is elite (95th percentile, +4.5 rating), with per-90 and per-game values at the top of distribution, indicating strong expected assist production. Creation skill is above average (66th percentile, +1.6 rating), but slipped from prior season’s 95th percentile performance. Discipline is average (56th percentile, +0.6 rating), and remains stable. Shooting is below average (47th percentile, -0.3 rating), with no measured trend, and no recent change. Tackling is below average (43rd percentile, -0.7 rating), having slipped from 82nd percentile in prior season. CBI is below average (42nd percentile, -0.8 rating), with no measured trend. Defensive work is below average (41st percentile, -0.9 rating), having slipped from 82nd percentile in prior season. Overall, his midfield role appears focused on playmaking with declining aspects in tackling, CBI, and defensive work, while shooting remains weak. No injuries or personnel changes are reported. His current condition supports sustained high-quality playmaking, but may require adjustments in physical and defensive contributions.\",\n  \"headline\": \"Morgan Rogers is a Midfielder at Aston Villa, England, observed on 2026-07-03.\"\n}"
+          },
+          "done": true,
+          "done_reason": "stop",
+          "total_duration": 12926212169,
+          "load_duration": 635919,
+          "prompt_eval_count": 749,
+          "prompt_eval_duration": 79127000,
+          "eval_count": 309,
+          "eval_duration": 12824143000
+        }
+      }
+    },
+    {
+      "name": "compact_evidence",
+      "seed": 17,
+      "request": {
+        "model": "granite4.2:3b",
+        "think": false,
+        "stream": false,
+        "options": {
+          "num_ctx": 4096,
+          "num_predict": 700,
+          "temperature": 0.6,
+          "seed": 17
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are The Scout, a veteran assessing the entity an opponent would face right now. Your voice is observant, direct and specific to the sport. Explain the current profile through the relationships between its skills, their measured level and their direction of travel.\n\nRead supplied values, percentiles and ratings together with your memories of the entity. You own the interpretation of its performance trajectory. A strong skill can be declining; a below-average skill can be improving. Distinguish low usage from poor performance. Use measured changes to explain what is strengthening, weakening or holding. Keep their time windows clear: a season-over-season change is different from a recent run. An unmeasured trend remains unknown.\n\nFactor in injuries, returns, departures and new players where the evidence shows their relevance to the current profile. Separate confirmed availability from attributed reports. Personnel changes can alter the interpretation of existing measurements without changing those measurements. Your report should make the entity's present condition and supported trajectory understandable.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with headline (the hook) and body (the paragraphs). Preserve paragraph breaks as escaped newlines."
+          },
+          {
+            "role": "user",
+            "content": "Entity: Morgan Rogers; FOOTBALL player; season 2026.\nIdentity record: Midfielder, Aston Villa, Premier League; England. Roster observed 2026-07-03.\n\nMeasured profile — higher percentile is better within the comparison population:\nSkill (measurement) | current percentile | comparable prior-season percentile | current rate percentile\nChance Creation (expected assists) | 95 | unavailable | per-90 95; per-game 95\nCreation (assists) | 66 | 95 | per-game 88\nDiscipline | 56 | unavailable | unavailable\nShooting (expected goals) | 47 | unavailable | unavailable\nTackling (possession-adjusted tackles) | 43 | 82 | unavailable\nCBI (clearances, blocks, interceptions) | 42 | unavailable | unavailable\nDefensive Work (defensive contributions) | 41 | unavailable | unavailable"
+          }
+        ],
+        "format": {
+          "type": "object",
+          "properties": {
+            "body": {
+              "type": "string",
+              "description": "The character's interpretation of the evidence, within 1200 characters."
+            },
+            "headline": {
+              "type": "string",
+              "description": "The read's main finding, stated as a sentence naming the entity."
+            }
+          },
+          "required": [
+            "headline",
+            "body"
+          ]
+        }
+      },
+      "output": {
+        "name": "compact_evidence",
+        "seed": 17,
+        "elapsed_s": 10.17,
+        "result": {
+          "model": "granite4.2:3b",
+          "created_at": "2026-09-14T02:44:16.123314858Z",
+          "message": {
+            "role": "assistant",
+            "content": "{\n  \"body\": \"Morgan Rogers is a mid-fielder for Aston Villa in the Premier League, England, observed on 2026-07-03. His current profile shows a strong chance creation rate of 95 per-90, with a solid assists rate of 66 per-game. He maintains a moderate discipline level at 56, and performs at a below-average pace in shooting (47 per-90), tackling (43 per-90), and CBI (42 per-90), defensive work (41 per-90). These indicate consistent creation but weaker support and physicality in defensive roles. Overall, his profile suggests a balanced offensive contributor with room to improve on defensive metrics, particularly in tackling and broader defensive work. The observed roster date aligns with the season timeline.\",\n  \"headline\": \"Morgan Rogers – balanced offensive contributor with room to improve on defensive metrics\"\n}"
+          },
+          "done": true,
+          "done_reason": "stop",
+          "total_duration": 10166827471,
+          "load_duration": 557604,
+          "prompt_eval_count": 572,
+          "prompt_eval_duration": 269739000,
+          "eval_count": 189,
+          "eval_duration": 7521971000
+        }
+      }
+    },
+    {
+      "name": "lean_character",
+      "seed": 17,
+      "request": {
+        "model": "granite4.2:3b",
+        "think": false,
+        "stream": false,
+        "options": {
+          "num_ctx": 4096,
+          "num_predict": 700,
+          "temperature": 0.6,
+          "seed": 17
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are The Scout. Assess what an opponent would face: the player's strengths, limitations and supported changes. Be observant, direct and specific to the sport. Explain what the measurements mean together, drawing conclusions only from the supplied evidence.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with headline (the hook) and body (the paragraphs). Preserve paragraph breaks as escaped newlines."
+          },
+          {
+            "role": "user",
+            "content": "Entity: Morgan Rogers; FOOTBALL player; season 2026.\nIdentity record: Midfielder, Aston Villa, Premier League; England. Roster observed 2026-07-03.\n\nMeasured profile — higher percentile is better within the comparison population:\nSkill (measurement) | current percentile | comparable prior-season percentile | current rate percentile\nChance Creation (expected assists) | 95 | unavailable | per-90 95; per-game 95\nCreation (assists) | 66 | 95 | per-game 88\nDiscipline | 56 | unavailable | unavailable\nShooting (expected goals) | 47 | unavailable | unavailable\nTackling (possession-adjusted tackles) | 43 | 82 | unavailable\nCBI (clearances, blocks, interceptions) | 42 | unavailable | unavailable\nDefensive Work (defensive contributions) | 41 | unavailable | unavailable"
+          }
+        ],
+        "format": {
+          "type": "object",
+          "properties": {
+            "body": {
+              "type": "string",
+              "description": "The character's interpretation of the evidence, within 1200 characters."
+            },
+            "headline": {
+              "type": "string",
+              "description": "The read's main finding, stated as a sentence naming the entity."
+            }
+          },
+          "required": [
+            "headline",
+            "body"
+          ]
+        }
+      },
+      "output": {
+        "name": "lean_character",
+        "seed": 17,
+        "elapsed_s": 10.29,
+        "result": {
+          "model": "granite4.2:3b",
+          "created_at": "2026-09-14T02:44:26.415245882Z",
+          "message": {
+            "role": "assistant",
+            "content": "{\n  \"body\": \"Morgan Rogers is a mid-season midfielder at Aston Villa in the Premier League, observed on 2026-07-03. His profile indicates strong skill in creating chances, with 95th percentile performance on expected assists and per-game rates of 95. His creation (assists) is at the 66th percentile, with per-game rate of 88, showing consistent contribution. Tackling (possession-adjusted) is at 43rd percentile, slightly above prior-season 82nd, suggesting gradual improvement. CBI (clearances, blocks, interceptions) is at 42nd percentile, with no prior context. Defensive work is at 41st percentile, with no prior data. Discipline is at 56th percentile, with no prior record. Overall, Morgan shows solid offensive capability, moderate tackling, and modest defensive contributions, indicating a balanced but slightly more attacking-oriented role. He remains within expected performance ranges for his position and season.\",\n\n\"headline\": \"Morgan Rogers – Midfielder, Aston Villa, Premier League (2026 Season); observed 2026-07-03. Strong offensive output, moderate tackling, modest defensive contribution.\"\n}"
+          },
+          "done": true,
+          "done_reason": "stop",
+          "total_duration": 10291288204,
+          "load_duration": 573208,
+          "prompt_eval_count": 419,
+          "prompt_eval_duration": 415309000,
+          "eval_count": 252,
+          "eval_duration": 9819708000
+        }
+      }
+    },
+    {
+      "name": "baseline",
+      "seed": 43,
+      "request": {
+        "model": "granite4.2:3b",
+        "think": false,
+        "stream": false,
+        "options": {
+          "num_ctx": 4096,
+          "num_predict": 700,
+          "temperature": 0.6,
+          "seed": 43
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are The Scout, a veteran assessing the entity an opponent would face right now. Your voice is observant, direct and specific to the sport. Explain the current profile through the relationships between its skills, their measured level and their direction of travel.\n\nRead supplied values, percentiles and ratings together with your memories of the entity. You own the interpretation of its performance trajectory. A strong skill can be declining; a below-average skill can be improving. Distinguish low usage from poor performance. Use measured changes to explain what is strengthening, weakening or holding. Keep their time windows clear: a season-over-season change is different from a recent run. An unmeasured trend remains unknown.\n\nFactor in injuries, returns, departures and new players where the evidence shows their relevance to the current profile. Separate confirmed availability from attributed reports. Personnel changes can alter the interpretation of existing measurements without changing those measurements. Your report should make the entity's present condition and supported trajectory understandable.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with headline (the hook) and body (the paragraphs). Preserve paragraph breaks as escaped newlines."
+          },
+          {
+            "role": "user",
+            "content": "Entity: Morgan Rogers (FOOTBALL player, Midfielder); season 2026\n\nIdentity context, not event evidence. Distinguish current roles from career history; dated reporting may supersede these records. Unknown means unknown.\nMorgan Rogers — Midfielder, on record at Aston Villa (Premier League). Nationality: England. Record: roster; observed 2026-07-03.\n\nDatapoints — measured value, percentile, tier, rating (distance from average), and position percentile when available:\n- Chance Creation: 1.0, 95th pct (elite), rating +4.5; measures expected assists; season trend: unmeasured; per-90: 95th pct; per-game: 95th pct\n- Creation: 1, 66th pct (above average), rating +1.6; measures assists; prior season: 95th pct, slipped; per-game: 88th pct\n- Discipline: 0, 56th pct (average), rating +0.6; season trend: unmeasured\n- Shooting: 0.14, 47th pct (below average), rating -0.3; measures expected goals; season trend: unmeasured\n- Tackling: 1.7, 43th pct (below average), rating -0.7; measures possession-adjusted tackles; prior season: 82th pct, slipped\n- CBI: 1, 42th pct (below average), rating -0.8; measures clearances, blocks and interceptions; season trend: unmeasured\n- Defensive Work: 5, 41th pct (below average), rating -0.9; measures defensive contributions; season trend: unmeasured\n\n\nPrior reading (continuity, not fresh evidence):\n- Prior Scout read (2026-09-11, excerpt): Morgan Rogers is a Midfielder at Aston Villa in the Premier League, representing England.\n\nMorgan Rogers has elite chance creation skills, as evidenced by a 95th percentile performance with a +4.5 rating, indicating consistently high creation opportunities. This skill is above average and reflects strong attacking influence. His creation metric, measured at 1.0, is also at the 66th percentile with\n"
+          }
+        ],
+        "format": {
+          "type": "object",
+          "properties": {
+            "body": {
+              "type": "string",
+              "description": "The character's interpretation of the evidence, within 1200 characters."
+            },
+            "headline": {
+              "type": "string",
+              "description": "The read's main finding, stated as a sentence naming the entity."
+            }
+          },
+          "required": [
+            "headline",
+            "body"
+          ]
+        }
+      },
+      "output": {
+        "name": "baseline",
+        "seed": 43,
+        "elapsed_s": 21.33,
+        "result": {
+          "model": "granite4.2:3b",
+          "created_at": "2026-09-14T02:44:47.740762079Z",
+          "message": {
+            "role": "assistant",
+            "content": "{\n  \"body\": \"Morgan Rogers is a Midfielder at Aston Villa in the Premier League, representing England. He is currently available and active as of 2026-07-03.\\n\\nHis elite chance creation skill remains strong, measured at 1.0 with a 95th percentile, +4.5 rating, indicating consistent high-quality creation opportunities. The per-90 and per-game measures also place him in the 95th percentile, which is above average and reflects his ability to generate attacking chances effectively.\\n\\nHis creation skill (measured at 1.1) is at the 66th percentile with a +1.6 rating, slightly above average but down from the prior season where he was at the 95th percentile. This suggests a modest decline in his ability to create chances compared to last year, though still solid.\\n\\nHis discipline rating is 0 with a 56th percentile, +0.6 rating, indicating average performance with minimal red cards or serious fouls. The season trend is unmeasured, so we cannot confirm improvement or deterioration.\\n\\nHis shooting skill is 0.14 with a 47th percentile, -0.3 rating, below average, meaning he takes fewer expected goals. The season trend is unmeasured, so no change can be inferred.\\n\\nHis tackling skill is 1.7 with a 43rd percentile, -0.7 rating, below average, and the prior season was at the 82nd percentile, which slipped. This indicates a noticeable decline in his tackling ability since last year.\\n\\nHis CBI skill is 1.0 with a 42nd percentile, -0.8 rating, below average, and the season trend is unmeasured. No change can be attributed.\\n\\nHis defensive work skill is 5 with a 41st percentile, -0.9 rating, below average, and the season trend is unmeasured. No change can be inferred.\\n\\nOverall, Morgan Rogers maintains strong attacking influence through his elite chance creation, while his tackling and defensive skills have shown relative decline compared to prior season. His shooting and CBI remain below average. The lack of measured season trends leaves some uncertainty, but the prior season data provides context where certain skills slipped.\",\n  \"headline\": \"Morgan Rogers is a Midfielder at Aston Villa in the Premier League, representing England. He is currently available and active as of 2026-07-03.\"\n}"
+          },
+          "done": true,
+          "done_reason": "stop",
+          "total_duration": 21324822219,
+          "load_duration": 645012,
+          "prompt_eval_count": 860,
+          "prompt_eval_duration": 509509000,
+          "eval_count": 528,
+          "eval_duration": 20749824000
+        }
+      }
+    },
+    {
+      "name": "no_memory",
+      "seed": 43,
+      "request": {
+        "model": "granite4.2:3b",
+        "think": false,
+        "stream": false,
+        "options": {
+          "num_ctx": 4096,
+          "num_predict": 700,
+          "temperature": 0.6,
+          "seed": 43
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are The Scout, a veteran assessing the entity an opponent would face right now. Your voice is observant, direct and specific to the sport. Explain the current profile through the relationships between its skills, their measured level and their direction of travel.\n\nRead supplied values, percentiles and ratings together with your memories of the entity. You own the interpretation of its performance trajectory. A strong skill can be declining; a below-average skill can be improving. Distinguish low usage from poor performance. Use measured changes to explain what is strengthening, weakening or holding. Keep their time windows clear: a season-over-season change is different from a recent run. An unmeasured trend remains unknown.\n\nFactor in injuries, returns, departures and new players where the evidence shows their relevance to the current profile. Separate confirmed availability from attributed reports. Personnel changes can alter the interpretation of existing measurements without changing those measurements. Your report should make the entity's present condition and supported trajectory understandable.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with headline (the hook) and body (the paragraphs). Preserve paragraph breaks as escaped newlines."
+          },
+          {
+            "role": "user",
+            "content": "Entity: Morgan Rogers (FOOTBALL player, Midfielder); season 2026\n\nIdentity context, not event evidence. Distinguish current roles from career history; dated reporting may supersede these records. Unknown means unknown.\nMorgan Rogers — Midfielder, on record at Aston Villa (Premier League). Nationality: England. Record: roster; observed 2026-07-03.\n\nDatapoints — measured value, percentile, tier, rating (distance from average), and position percentile when available:\n- Chance Creation: 1.0, 95th pct (elite), rating +4.5; measures expected assists; season trend: unmeasured; per-90: 95th pct; per-game: 95th pct\n- Creation: 1, 66th pct (above average), rating +1.6; measures assists; prior season: 95th pct, slipped; per-game: 88th pct\n- Discipline: 0, 56th pct (average), rating +0.6; season trend: unmeasured\n- Shooting: 0.14, 47th pct (below average), rating -0.3; measures expected goals; season trend: unmeasured\n- Tackling: 1.7, 43th pct (below average), rating -0.7; measures possession-adjusted tackles; prior season: 82th pct, slipped\n- CBI: 1, 42th pct (below average), rating -0.8; measures clearances, blocks and interceptions; season trend: unmeasured\n- Defensive Work: 5, 41th pct (below average), rating -0.9; measures defensive contributions; season trend: unmeasured"
+          }
+        ],
+        "format": {
+          "type": "object",
+          "properties": {
+            "body": {
+              "type": "string",
+              "description": "The character's interpretation of the evidence, within 1200 characters."
+            },
+            "headline": {
+              "type": "string",
+              "description": "The read's main finding, stated as a sentence naming the entity."
+            }
+          },
+          "required": [
+            "headline",
+            "body"
+          ]
+        }
+      },
+      "output": {
+        "name": "no_memory",
+        "seed": 43,
+        "elapsed_s": 9.2,
+        "result": {
+          "model": "granite4.2:3b",
+          "created_at": "2026-09-14T02:44:56.942539035Z",
+          "message": {
+            "role": "assistant",
+            "content": "{\n  \"body\": \"Morgan Rogers is a Midfielder at Aston Villa, observed on 2026-07-03. His primary skill is Chance Creation, which is elite (95th percentile, rating +4.5), measured per-90 and per-game, and remains consistent across the season. Creation measures assists; his prior season showed a 95th percentile rating but slipped this season. Discipline is average (56th percentile, rating +0.6), with no trend change. Shooting is below average (47th percentile, rating -0.3), with no trend change. Tackling is below average (43rd percentile, rating -0.7), and Defensive Work is below average (41st percentile, rating -0.9), with no trend change. CBI is below average (42nd percentile, rating -0.8), with no trend change. Overall, his Chance Creation remains strong, but other skills are below average, indicating a focused but limited role as a creative midfielder who relies on others for defensive and finishing work.\",\n  \"headline\": \"Morgan Rogers at Aston Villa: Elite Chance Creator with Below-Average Defensive and Finishing Skills\"\n}"
+          },
+          "done": true,
+          "done_reason": "stop",
+          "total_duration": 9200643262,
+          "load_duration": 741761,
+          "prompt_eval_count": 749,
+          "prompt_eval_duration": 85560000,
+          "eval_count": 249,
+          "eval_duration": 9076093000
+        }
+      }
+    },
+    {
+      "name": "compact_evidence",
+      "seed": 43,
+      "request": {
+        "model": "granite4.2:3b",
+        "think": false,
+        "stream": false,
+        "options": {
+          "num_ctx": 4096,
+          "num_predict": 700,
+          "temperature": 0.6,
+          "seed": 43
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are The Scout, a veteran assessing the entity an opponent would face right now. Your voice is observant, direct and specific to the sport. Explain the current profile through the relationships between its skills, their measured level and their direction of travel.\n\nRead supplied values, percentiles and ratings together with your memories of the entity. You own the interpretation of its performance trajectory. A strong skill can be declining; a below-average skill can be improving. Distinguish low usage from poor performance. Use measured changes to explain what is strengthening, weakening or holding. Keep their time windows clear: a season-over-season change is different from a recent run. An unmeasured trend remains unknown.\n\nFactor in injuries, returns, departures and new players where the evidence shows their relevance to the current profile. Separate confirmed availability from attributed reports. Personnel changes can alter the interpretation of existing measurements without changing those measurements. Your report should make the entity's present condition and supported trajectory understandable.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with headline (the hook) and body (the paragraphs). Preserve paragraph breaks as escaped newlines."
+          },
+          {
+            "role": "user",
+            "content": "Entity: Morgan Rogers; FOOTBALL player; season 2026.\nIdentity record: Midfielder, Aston Villa, Premier League; England. Roster observed 2026-07-03.\n\nMeasured profile — higher percentile is better within the comparison population:\nSkill (measurement) | current percentile | comparable prior-season percentile | current rate percentile\nChance Creation (expected assists) | 95 | unavailable | per-90 95; per-game 95\nCreation (assists) | 66 | 95 | per-game 88\nDiscipline | 56 | unavailable | unavailable\nShooting (expected goals) | 47 | unavailable | unavailable\nTackling (possession-adjusted tackles) | 43 | 82 | unavailable\nCBI (clearances, blocks, interceptions) | 42 | unavailable | unavailable\nDefensive Work (defensive contributions) | 41 | unavailable | unavailable"
+          }
+        ],
+        "format": {
+          "type": "object",
+          "properties": {
+            "body": {
+              "type": "string",
+              "description": "The character's interpretation of the evidence, within 1200 characters."
+            },
+            "headline": {
+              "type": "string",
+              "description": "The read's main finding, stated as a sentence naming the entity."
+            }
+          },
+          "required": [
+            "headline",
+            "body"
+          ]
+        }
+      },
+      "output": {
+        "name": "compact_evidence",
+        "seed": 43,
+        "elapsed_s": 9.86,
+        "result": {
+          "model": "granite4.2:3b",
+          "created_at": "2026-09-14T02:45:06.798227275Z",
+          "message": {
+            "role": "assistant",
+            "content": "{\n  \"body\": \"Morgan Rogers is a Midfielder for Aston Villa in the Premier League, England, observed on 2026-07-03. His current percentile in Chance Creation is 95, indicating strong performance relative to peers. Creation (assists) is 66, showing moderate improvement over prior season, with per-game rate at 88. Discipline is 56, below average, and remains stable. Shooting is 47, below average, with no prior-season data. Tackling is 43, down from 82, indicating a decline. CBI is 42, and Defensive Work is 41, both below average and stable. Overall, his Chance Creation remains strong, while several defensive skills are weakening.\",\n  \"headline\": \"Morgan Rogers – Midfielder, Aston Villa, Premier League; England. His Chance Creation remains strong, while several defensive skills are weakening.\"\n}"
+          },
+          "done": true,
+          "done_reason": "stop",
+          "total_duration": 9854943453,
+          "load_duration": 550759,
+          "prompt_eval_count": 572,
+          "prompt_eval_duration": 272082000,
+          "eval_count": 193,
+          "eval_duration": 9521204000
+        }
+      }
+    },
+    {
+      "name": "lean_character",
+      "seed": 43,
+      "request": {
+        "model": "granite4.2:3b",
+        "think": false,
+        "stream": false,
+        "options": {
+          "num_ctx": 4096,
+          "num_predict": 700,
+          "temperature": 0.6,
+          "seed": 43
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are The Scout. Assess what an opponent would face: the player's strengths, limitations and supported changes. Be observant, direct and specific to the sport. Explain what the measurements mean together, drawing conclusions only from the supplied evidence.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with headline (the hook) and body (the paragraphs). Preserve paragraph breaks as escaped newlines."
+          },
+          {
+            "role": "user",
+            "content": "Entity: Morgan Rogers; FOOTBALL player; season 2026.\nIdentity record: Midfielder, Aston Villa, Premier League; England. Roster observed 2026-07-03.\n\nMeasured profile — higher percentile is better within the comparison population:\nSkill (measurement) | current percentile | comparable prior-season percentile | current rate percentile\nChance Creation (expected assists) | 95 | unavailable | per-90 95; per-game 95\nCreation (assists) | 66 | 95 | per-game 88\nDiscipline | 56 | unavailable | unavailable\nShooting (expected goals) | 47 | unavailable | unavailable\nTackling (possession-adjusted tackles) | 43 | 82 | unavailable\nCBI (clearances, blocks, interceptions) | 42 | unavailable | unavailable\nDefensive Work (defensive contributions) | 41 | unavailable | unavailable"
+          }
+        ],
+        "format": {
+          "type": "object",
+          "properties": {
+            "body": {
+              "type": "string",
+              "description": "The character's interpretation of the evidence, within 1200 characters."
+            },
+            "headline": {
+              "type": "string",
+              "description": "The read's main finding, stated as a sentence naming the entity."
+            }
+          },
+          "required": [
+            "headline",
+            "body"
+          ]
+        }
+      },
+      "output": {
+        "name": "lean_character",
+        "seed": 43,
+        "elapsed_s": 5.49,
+        "result": {
+          "model": "granite4.2:3b",
+          "created_at": "2026-09-14T02:45:12.290203288Z",
+          "message": {
+            "role": "assistant",
+            "content": "{\n  \"body\": \"Morgan Rogers is a mid-forward midfielder playing for Aston Villa in the Premier League, observed on 2026-07-03. He has a strong skill level in chance creation (95th percentile), producing expected assists at a high rate. His creation (assists) is 66th percentile, with a per-game rate of 88. His discipline is below average (56th percentile). His tackling is 43rd percentile, slightly above prior-season (82nd). His defensive work is below average (41st percentile).\",\n\n\"headline\": \"Morgan Rogers 2026 Season Profile\"\n}"
+          },
+          "done": true,
+          "done_reason": "stop",
+          "total_duration": 5491217883,
+          "load_duration": 670552,
+          "prompt_eval_count": 419,
+          "prompt_eval_duration": 53440000,
+          "eval_count": 137,
+          "eval_duration": 5370321000
+        }
+      }
+    },
+    {
+      "name": "explicit_units",
+      "seed": 17,
+      "request": {
+        "model": "granite4.2:3b",
+        "think": false,
+        "stream": false,
+        "options": {
+          "num_ctx": 4096,
+          "num_predict": 700,
+          "temperature": 0.6,
+          "seed": 17
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are The Scout, a veteran assessing the entity an opponent would face right now. Your voice is observant, direct and specific to the sport. Explain the current profile through the relationships between its skills, their measured level and their direction of travel.\n\nRead supplied values, percentiles and ratings together with your memories of the entity. You own the interpretation of its performance trajectory. A strong skill can be declining; a below-average skill can be improving. Distinguish low usage from poor performance. Use measured changes to explain what is strengthening, weakening or holding. Keep their time windows clear: a season-over-season change is different from a recent run. An unmeasured trend remains unknown.\n\nFactor in injuries, returns, departures and new players where the evidence shows their relevance to the current profile. Separate confirmed availability from attributed reports. Personnel changes can alter the interpretation of existing measurements without changing those measurements. Your report should make the entity's present condition and supported trajectory understandable.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with headline (the hook) and body (the paragraphs). Preserve paragraph breaks as escaped newlines."
+          },
+          {
+            "role": "user",
+            "content": "Entity: Morgan Rogers, midfielder, Aston Villa, Premier League; England.\nIdentity source: roster observed 2026-07-03. Performance season: 2026.\n\nCurrent measurements, expressed as percentiles (higher is better):\n- Expected-assist production: 95th percentile; per-90 percentile 95; per-game percentile 95.\n- Assists: 66th percentile, lower than prior season's 95th; current per-game percentile 88.\n- Discipline: 56th percentile.\n- Expected goals (quality of shooting chances, not finishing): 47th percentile.\n- Possession-adjusted tackles: 43rd percentile, lower than prior season's 82nd.\n- Clearances, blocks and interceptions: 42nd percentile.\n- Defensive contributions: 41st percentile.\n\nOther prior-season comparisons: unavailable. Availability information: not supplied."
+          }
+        ],
+        "format": {
+          "type": "object",
+          "properties": {
+            "body": {
+              "type": "string",
+              "description": "The character's interpretation of the evidence, within 1200 characters."
+            },
+            "headline": {
+              "type": "string",
+              "description": "The read's main finding, stated as a sentence naming the entity."
+            }
+          },
+          "required": [
+            "headline",
+            "body"
+          ]
+        }
+      },
+      "output": {
+        "name": "explicit_units",
+        "seed": 17,
+        "elapsed_s": 9.04,
+        "result": {
+          "model": "granite4.2:3b",
+          "created_at": "2026-09-14T02:46:16.399015354Z",
+          "message": {
+            "role": "assistant",
+            "content": "{\n  \"body\": \"Morgan Rogers is a midfielder for Aston Villa in the Premier League, playing for England. His expected-assist production is at the 95th percentile, indicating strong creativity. However, his assists are now at the 66th percentile, down from the prior season’s 95th percentile, showing a decline in passing opportunities. His discipline is at the 56th percentile, which is below average but not severe, suggesting consistent but not exemplary control. Expected goals from quality chances are at the 47th percentile, below average, indicating reduced shooting accuracy. His possession-adjusted tackles are at the 43rd percentile, down from the prior season’s 82nd percentile, reflecting weaker tackling effectiveness. Clearances, blocks and interceptions are also at the 42nd percentile, showing reduced defensive output. Defensive contributions overall are at the 41st percentile, indicating below-average impact in tackles, marking a decline from the prior season’s 82nd percentile. Overall, his performance is currently below prior season levels, with several skills declining, and his role as a midfielder may be limited by reduced defensive and offensive output.\",\n  \"headline\": \"Morgan Rogers' performance is declining across multiple areas.\"\n}"
+          },
+          "done": true,
+          "done_reason": "stop",
+          "total_duration": 9029496494,
+          "load_duration": 633132,
+          "prompt_eval_count": 572,
+          "prompt_eval_duration": 270219000,
+          "eval_count": 256,
+          "eval_duration": 8735452000
+        }
+      }
+    },
+    {
+      "name": "sample_context",
+      "seed": 17,
+      "request": {
+        "model": "granite4.2:3b",
+        "think": false,
+        "stream": false,
+        "options": {
+          "num_ctx": 4096,
+          "num_predict": 700,
+          "temperature": 0.6,
+          "seed": 17
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are The Scout, a veteran assessing the entity an opponent would face right now. Your voice is observant, direct and specific to the sport. Explain the current profile through the relationships between its skills, their measured level and their direction of travel.\n\nRead supplied values, percentiles and ratings together with your memories of the entity. You own the interpretation of its performance trajectory. A strong skill can be declining; a below-average skill can be improving. Distinguish low usage from poor performance. Use measured changes to explain what is strengthening, weakening or holding. Keep their time windows clear: a season-over-season change is different from a recent run. An unmeasured trend remains unknown.\n\nFactor in injuries, returns, departures and new players where the evidence shows their relevance to the current profile. Separate confirmed availability from attributed reports. Personnel changes can alter the interpretation of existing measurements without changing those measurements. Your report should make the entity's present condition and supported trajectory understandable.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with headline (the hook) and body (the paragraphs). Preserve paragraph breaks as escaped newlines."
+          },
+          {
+            "role": "user",
+            "content": "Entity: Morgan Rogers, midfielder, Aston Villa, Premier League; England.\nIdentity source: roster observed 2026-07-03. Performance season: 2026.\n\nSample: 1 appearance in the current season; 37 appearances in the prior season. These are relative standings in those samples, not established changes in ability.\n\nCurrent measurements, expressed as percentiles (higher is better):\n- Expected-assist production: 95th percentile; per-90 percentile 95; per-game percentile 95.\n- Assists: 66th percentile, lower than prior season's 95th; current per-game percentile 88.\n- Discipline: 56th percentile.\n- Expected goals (quality of shooting chances, not finishing): 47th percentile.\n- Possession-adjusted tackles: 43rd percentile, lower than prior season's 82nd.\n- Clearances, blocks and interceptions: 42nd percentile.\n- Defensive contributions: 41st percentile.\n\nOther prior-season comparisons: unavailable. Availability information: not supplied."
+          }
+        ],
+        "format": {
+          "type": "object",
+          "properties": {
+            "body": {
+              "type": "string",
+              "description": "The character's interpretation of the evidence, within 1200 characters."
+            },
+            "headline": {
+              "type": "string",
+              "description": "The read's main finding, stated as a sentence naming the entity."
+            }
+          },
+          "required": [
+            "headline",
+            "body"
+          ]
+        }
+      },
+      "output": {
+        "name": "sample_context",
+        "seed": 17,
+        "elapsed_s": 16.14,
+        "result": {
+          "model": "granite4.2:3b",
+          "created_at": "2026-09-14T02:46:32.541109571Z",
+          "message": {
+            "role": "assistant",
+            "content": "{\n  \"body\": \"Morgan Rogers is a midfielder for Aston Villa in the Premier League, playing for England. He has made 1 appearance in the current season, compared to 37 appearances in the prior season. His expected-assist production remains at the 95th percentile, with per-90 and per-game percentiles also at 95, indicating strong assist consistency. However, actual assists are down to the 66th percentile, lower than the prior season's 95th percentile. His discipline is at the 56th percentile, which suggests occasional caution or mistakes on the field. Expected goals, measured as quality of shooting chances, are at the 47th percentile, below average despite consistent chance creation. Possession-adjusted tackles are at the 43rd percentile, down from the prior season's 82nd percentile, indicating reduced effectiveness in tackling under possession. Clearances, blocks, and interceptions are at the 42nd percentile, also lower than prior season measures. Defensive contributions overall are at the 41st percentile, below prior season levels, suggesting a decline in defensive impact. Availability is not supplied. The most recent season shows measurable declines in several key areas—assists, tackling, and defensive contributions—relative to the prior season, while the per-game metrics remain stable overall. This pattern suggests a sustained but moderate decline in performance quality, particularly in areas critical to midfield contribution and defensive stability. There is no evidence of injury, return, or personnel change affecting these measurements. The trajectory appears gradual, with ongoing underperformance in specific tactical dimensions. Without further data, the current condition is one of moderate decline in specific skill areas, with overall presence and basic consistency remaining.\",\n  \"headline\": \"Morgan Rogers’ current season shows moderate decline in midfield output, with declining assist production, reduced tackling and defensive contributions, while overall presence remains stable.\"\n}"
+          },
+          "done": true,
+          "done_reason": "stop",
+          "total_duration": 16141286970,
+          "load_duration": 548127,
+          "prompt_eval_count": 606,
+          "prompt_eval_duration": 271993000,
+          "eval_count": 384,
+          "eval_duration": 15811040000
+        }
+      }
+    },
+    {
+      "name": "lean_sample_context",
+      "seed": 17,
+      "request": {
+        "model": "granite4.2:3b",
+        "think": false,
+        "stream": false,
+        "options": {
+          "num_ctx": 4096,
+          "num_predict": 700,
+          "temperature": 0.6,
+          "seed": 17
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are The Scout. Assess what an opponent would face: the player's strengths, limitations and supported changes. Be observant, direct and specific to the sport. Explain what the measurements mean together, drawing conclusions only from the supplied evidence.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with headline (the hook) and body (the paragraphs). Preserve paragraph breaks as escaped newlines."
+          },
+          {
+            "role": "user",
+            "content": "Entity: Morgan Rogers, midfielder, Aston Villa, Premier League; England.\nIdentity source: roster observed 2026-07-03. Performance season: 2026.\n\nSample: 1 appearance in the current season; 37 appearances in the prior season. These are relative standings in those samples, not established changes in ability.\n\nCurrent measurements, expressed as percentiles (higher is better):\n- Expected-assist production: 95th percentile; per-90 percentile 95; per-game percentile 95.\n- Assists: 66th percentile, lower than prior season's 95th; current per-game percentile 88.\n- Discipline: 56th percentile.\n- Expected goals (quality of shooting chances, not finishing): 47th percentile.\n- Possession-adjusted tackles: 43rd percentile, lower than prior season's 82nd.\n- Clearances, blocks and interceptions: 42nd percentile.\n- Defensive contributions: 41st percentile.\n\nOther prior-season comparisons: unavailable. Availability information: not supplied."
+          }
+        ],
+        "format": {
+          "type": "object",
+          "properties": {
+            "body": {
+              "type": "string",
+              "description": "The character's interpretation of the evidence, within 1200 characters."
+            },
+            "headline": {
+              "type": "string",
+              "description": "The read's main finding, stated as a sentence naming the entity."
+            }
+          },
+          "required": [
+            "headline",
+            "body"
+          ]
+        }
+      },
+      "output": {
+        "name": "lean_sample_context",
+        "seed": 17,
+        "elapsed_s": 7.44,
+        "result": {
+          "model": "granite4.2:3b",
+          "created_at": "2026-09-14T02:46:39.98040599Z",
+          "message": {
+            "role": "assistant",
+            "content": "{\n  \"body\": \"Morgan Rogers, midfielder, Aston Villa, Premier League; England. One appearance in the current season; 37 appearances in the prior season. Expected-assist production: 95th percentile; per-90 percentile 95; per-game percentile 95. Assists: 66th percentile, lower than prior season's 95th; current per-game percentile 88. Discipline: 56th percentile. Expected goals (quality of shooting chances, not finishing): 47th percentile. Possession-adjusted tackles: 43rd percentile, lower than prior season's 82nd. Clearances, blocks and interceptions: 42nd percentile. Defensive contributions: 41st percentile. Other prior-season comparisons: unavailable. Availability information: not supplied.\",\n  \"headline\": \"Morgan Rogers – Current Season Performance Summary\"\n}"
+          },
+          "done": true,
+          "done_reason": "stop",
+          "total_duration": 7438476294,
+          "load_duration": 701275,
+          "prompt_eval_count": 453,
+          "prompt_eval_duration": 268469000,
+          "eval_count": 181,
+          "eval_duration": 7098691000
+        }
+      }
+    },
+    {
+      "name": "explicit_units",
+      "seed": 43,
+      "request": {
+        "model": "granite4.2:3b",
+        "think": false,
+        "stream": false,
+        "options": {
+          "num_ctx": 4096,
+          "num_predict": 700,
+          "temperature": 0.6,
+          "seed": 43
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are The Scout, a veteran assessing the entity an opponent would face right now. Your voice is observant, direct and specific to the sport. Explain the current profile through the relationships between its skills, their measured level and their direction of travel.\n\nRead supplied values, percentiles and ratings together with your memories of the entity. You own the interpretation of its performance trajectory. A strong skill can be declining; a below-average skill can be improving. Distinguish low usage from poor performance. Use measured changes to explain what is strengthening, weakening or holding. Keep their time windows clear: a season-over-season change is different from a recent run. An unmeasured trend remains unknown.\n\nFactor in injuries, returns, departures and new players where the evidence shows their relevance to the current profile. Separate confirmed availability from attributed reports. Personnel changes can alter the interpretation of existing measurements without changing those measurements. Your report should make the entity's present condition and supported trajectory understandable.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with headline (the hook) and body (the paragraphs). Preserve paragraph breaks as escaped newlines."
+          },
+          {
+            "role": "user",
+            "content": "Entity: Morgan Rogers, midfielder, Aston Villa, Premier League; England.\nIdentity source: roster observed 2026-07-03. Performance season: 2026.\n\nCurrent measurements, expressed as percentiles (higher is better):\n- Expected-assist production: 95th percentile; per-90 percentile 95; per-game percentile 95.\n- Assists: 66th percentile, lower than prior season's 95th; current per-game percentile 88.\n- Discipline: 56th percentile.\n- Expected goals (quality of shooting chances, not finishing): 47th percentile.\n- Possession-adjusted tackles: 43rd percentile, lower than prior season's 82nd.\n- Clearances, blocks and interceptions: 42nd percentile.\n- Defensive contributions: 41st percentile.\n\nOther prior-season comparisons: unavailable. Availability information: not supplied."
+          }
+        ],
+        "format": {
+          "type": "object",
+          "properties": {
+            "body": {
+              "type": "string",
+              "description": "The character's interpretation of the evidence, within 1200 characters."
+            },
+            "headline": {
+              "type": "string",
+              "description": "The read's main finding, stated as a sentence naming the entity."
+            }
+          },
+          "required": [
+            "headline",
+            "body"
+          ]
+        }
+      },
+      "output": {
+        "name": "explicit_units",
+        "seed": 43,
+        "elapsed_s": 23.23,
+        "result": {
+          "model": "granite4.2:3b",
+          "created_at": "2026-09-14T02:47:03.206676057Z",
+          "message": {
+            "role": "assistant",
+            "content": "{\n  \"body\": \"Morgan Rogers is a midfielder for Aston Villa in the Premier League, playing for England. His expected-assist production is at the 95th percentile, indicating strong contribution through playmaking, and his assists are now at the 66th percentile, down from the prior season's 95th percentile—this shows a decline in actual assist output. Discipline is at the 56th percentile, which is below average but not severe, suggesting consistent but somewhat careless play. Expected goals from quality shooting chances are at the 47th percentile, meaning he creates chances but does not finish them well. Possession-adjusted tackles are at the 43rd percentile, down from the prior season's 82nd percentile, indicating reduced tackling effectiveness. Clearances, blocks and interceptions are at the 42nd percentile, also down from prior season's higher level. Defensive contributions are at the 41st percentile, reflecting weaker defensive output compared to earlier seasons. Overall, his performance trajectory shows a noticeable decline across multiple key metrics, with some skills plateauing or weakening notably. His current per-game percentile for assists is 88, which is lower than prior season's 95, confirming the decline. Availability is not specified, but given the measured decline and consistent underperformance across categories, it is reasonable to assume current availability is full but performance is weakening.\",\n  \"headline\": \"Morgan Rogers is a midfielder for Aston Villa in the Premier League, playing for England. His expected-assist production is at the 95th percentile, indicating strong contribution through playmaking, and his assists are now at the 66th percentile, down from the prior season's 95th percentile—this shows a decline in actual assist output. Discipline is at the 56th percentile, which is below average but not severe, suggesting consistent but somewhat careless play. Expected goals from quality shooting chances are at the 47th percentile, meaning he creates chances but does not finish them well. Possession-adjusted tackles are at the 43rd percentile, down from the prior season's 82nd percentile, indicating reduced tackling effectiveness. Clearances, blocks and interceptions are at the 42nd percentile, also down from prior season's higher level. Defensive contributions are at the 41st percentile, reflecting weaker defensive output compared to earlier seasons. Overall, his performance trajectory shows a noticeable decline across multiple key metrics, with some skills plateauing or weakening notably. His current per-game percentile for assists is 88, which is lower than prior season's 95, confirming the decline. Availability is not specified, but given the measured decline and consistent underperformance across categories, it is reasonable to assume current availability is full but performance is weakening.\"\n}"
+          },
+          "done": true,
+          "done_reason": "stop",
+          "total_duration": 23225521925,
+          "load_duration": 601814,
+          "prompt_eval_count": 572,
+          "prompt_eval_duration": 50937000,
+          "eval_count": 557,
+          "eval_duration": 23108206000
+        }
+      }
+    },
+    {
+      "name": "sample_context",
+      "seed": 43,
+      "request": {
+        "model": "granite4.2:3b",
+        "think": false,
+        "stream": false,
+        "options": {
+          "num_ctx": 4096,
+          "num_predict": 700,
+          "temperature": 0.6,
+          "seed": 43
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are The Scout, a veteran assessing the entity an opponent would face right now. Your voice is observant, direct and specific to the sport. Explain the current profile through the relationships between its skills, their measured level and their direction of travel.\n\nRead supplied values, percentiles and ratings together with your memories of the entity. You own the interpretation of its performance trajectory. A strong skill can be declining; a below-average skill can be improving. Distinguish low usage from poor performance. Use measured changes to explain what is strengthening, weakening or holding. Keep their time windows clear: a season-over-season change is different from a recent run. An unmeasured trend remains unknown.\n\nFactor in injuries, returns, departures and new players where the evidence shows their relevance to the current profile. Separate confirmed availability from attributed reports. Personnel changes can alter the interpretation of existing measurements without changing those measurements. Your report should make the entity's present condition and supported trajectory understandable.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with headline (the hook) and body (the paragraphs). Preserve paragraph breaks as escaped newlines."
+          },
+          {
+            "role": "user",
+            "content": "Entity: Morgan Rogers, midfielder, Aston Villa, Premier League; England.\nIdentity source: roster observed 2026-07-03. Performance season: 2026.\n\nSample: 1 appearance in the current season; 37 appearances in the prior season. These are relative standings in those samples, not established changes in ability.\n\nCurrent measurements, expressed as percentiles (higher is better):\n- Expected-assist production: 95th percentile; per-90 percentile 95; per-game percentile 95.\n- Assists: 66th percentile, lower than prior season's 95th; current per-game percentile 88.\n- Discipline: 56th percentile.\n- Expected goals (quality of shooting chances, not finishing): 47th percentile.\n- Possession-adjusted tackles: 43rd percentile, lower than prior season's 82nd.\n- Clearances, blocks and interceptions: 42nd percentile.\n- Defensive contributions: 41st percentile.\n\nOther prior-season comparisons: unavailable. Availability information: not supplied."
+          }
+        ],
+        "format": {
+          "type": "object",
+          "properties": {
+            "body": {
+              "type": "string",
+              "description": "The character's interpretation of the evidence, within 1200 characters."
+            },
+            "headline": {
+              "type": "string",
+              "description": "The read's main finding, stated as a sentence naming the entity."
+            }
+          },
+          "required": [
+            "headline",
+            "body"
+          ]
+        }
+      },
+      "output": {
+        "name": "sample_context",
+        "seed": 43,
+        "elapsed_s": 26.56,
+        "result": {
+          "model": "granite4.2:3b",
+          "created_at": "2026-09-14T02:47:29.769621218Z",
+          "message": {
+            "role": "assistant",
+            "content": "{\n  \"body\": \"Morgan Rogers is a midfielder for Aston Villa in the Premier League, playing for England. He has made 1 appearance in the current season (2026) and 37 appearances in the prior season. His expected-assist production is at the 95th percentile, meaning he consistently creates chances for scoring. However, his actual assists are at the 66th percentile, which is lower than his prior season’s 95th percentile. His per-game assist percentile is 88, down from an earlier high. Discipline is at the 56th percentile, indicating moderate to poor consistency in clean play. Expected goals (quality of shooting chances, not finishing) are at the 47th percentile, suggesting limited ability to convert chances into goals. Possession-adjusted tackles are at the 43rd percentile, down from the prior season’s 82nd percentile, showing a decline in tackling effectiveness. Clearances, blocks and interceptions are at the 42nd percentile, also lower than before. Defensive contributions overall are at the 41st percentile, reflecting reduced defensive impact compared to previous performance. He has made only 1 appearance in the current season, which may indicate limited playing time or recent form issues. There is no availability information provided, and prior-season comparisons are unavailable beyond the given samples. These findings are based on the current measurements and relative standings from the samples. The trajectory appears downward in several key areas, with some skills plateauing or declining, while others remain stable or strong. Given the limited appearances and declining defensive metrics, the current form suggests a need for improvement in tackling, defensive positioning, and finishing. The trajectory is supported by the observed percentiles and relative changes from the prior season.\",\n  \"headline\": \"Morgan Rogers is a midfielder for Aston Villa in the Premier League, playing for England. He has made 1 appearance in the current season (2026) and 37 appearances in the prior season. His expected-assist production is at the 95th percentile, meaning he consistently creates chances for scoring. However, his actual assists are at the 66th percentile, which is lower than his prior season’s 95th percentile. His per-game assist percentile is 88, down from an earlier high. Discipline is at the 56th percentile, indicating moderate to poor consistency in clean play. Expected goals (quality of shooting chances, not finishing) are at the 47th percentile, suggesting limited ability to convert chances into goals. Possession-adjusted tackles are at the 43rd percentile, down from the prior season’s 82nd percentile, showing a decline in tackling effectiveness. Clearances, blocks and interceptions are at the 42nd percentile, also lower than before. Defensive contributions overall are at the 41st percentile, reflecting reduced defensive impact compared to previous performance. He has made only 1 appearance in the current season, which may indicate limited playing time or recent form issues. There is no availability information provided, and prior-season comparisons are unavailable beyond the given samples. These findings are based on the current measurements and relative standings from the samples. The trajectory appears downward in several key areas, with some skills plateauing or declining, while others remain stable or strong. Given the limited appearances and declining defensive metrics, the current form suggests a need for improvement in tackling, defensive positioning, and finishing. The trajectory is supported by the observed percentiles and relative"
+          },
+          "done": true,
+          "done_reason": "length",
+          "total_duration": 26558142739,
+          "load_duration": 634845,
+          "prompt_eval_count": 606,
+          "prompt_eval_duration": 55954000,
+          "eval_count": 700,
+          "eval_duration": 26425213000
+        }
+      }
+    },
+    {
+      "name": "lean_sample_context",
+      "seed": 43,
+      "request": {
+        "model": "granite4.2:3b",
+        "think": false,
+        "stream": false,
+        "options": {
+          "num_ctx": 4096,
+          "num_predict": 700,
+          "temperature": 0.6,
+          "seed": 43
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are The Scout. Assess what an opponent would face: the player's strengths, limitations and supported changes. Be observant, direct and specific to the sport. Explain what the measurements mean together, drawing conclusions only from the supplied evidence.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with headline (the hook) and body (the paragraphs). Preserve paragraph breaks as escaped newlines."
+          },
+          {
+            "role": "user",
+            "content": "Entity: Morgan Rogers, midfielder, Aston Villa, Premier League; England.\nIdentity source: roster observed 2026-07-03. Performance season: 2026.\n\nSample: 1 appearance in the current season; 37 appearances in the prior season. These are relative standings in those samples, not established changes in ability.\n\nCurrent measurements, expressed as percentiles (higher is better):\n- Expected-assist production: 95th percentile; per-90 percentile 95; per-game percentile 95.\n- Assists: 66th percentile, lower than prior season's 95th; current per-game percentile 88.\n- Discipline: 56th percentile.\n- Expected goals (quality of shooting chances, not finishing): 47th percentile.\n- Possession-adjusted tackles: 43rd percentile, lower than prior season's 82nd.\n- Clearances, blocks and interceptions: 42nd percentile.\n- Defensive contributions: 41st percentile.\n\nOther prior-season comparisons: unavailable. Availability information: not supplied."
+          }
+        ],
+        "format": {
+          "type": "object",
+          "properties": {
+            "body": {
+              "type": "string",
+              "description": "The character's interpretation of the evidence, within 1200 characters."
+            },
+            "headline": {
+              "type": "string",
+              "description": "The read's main finding, stated as a sentence naming the entity."
+            }
+          },
+          "required": [
+            "headline",
+            "body"
+          ]
+        }
+      },
+      "output": {
+        "name": "lean_sample_context",
+        "seed": 43,
+        "elapsed_s": 16.18,
+        "result": {
+          "model": "granite4.2:3b",
+          "created_at": "2026-09-14T02:47:45.945155856Z",
+          "message": {
+            "role": "assistant",
+            "content": "{\n  \"body\": \"Morgan Rogers, a midfielder for Aston Villa in the Premier League, England, has made 1 appearance in the current 2026 season. He played 37 games in the prior season. His expected-assist production is at the 95th percentile, meaning he creates more assists than most players on the pitch. His assists total is in the 66th percentile, which is lower than his previous season’s 95th percentile, indicating a decline in direct passing opportunities. His discipline is at the 56th percentile, suggesting moderate to poor behavior on the field. His expected goals are at the 47th percentile, meaning he converts a moderate number of shooting chances into goals. His possession-adjusted tackles are at the 43rd percentile, which is lower than his prior season’s 82nd percentile, showing reduced tackling effectiveness in tight defensive scenarios. His clearances, blocks, and interceptions are also at the 42nd percentile, indicating limited success in maintaining possession or controlling the ball. Defensive contributions overall are at the 41st percentile, reflecting weaker defensive work compared to peers. Overall, these measurements suggest Morgan Rogers is performing below his prior season’s level in several key areas, particularly in tackling, clearing, and overall defensive contribution, while his assist production remains strong but slightly down from the prior season.\",\n  \"headline\": \"Morgan Rogers, midfielder, Aston Villa, Premier League; England. 1 appearance in the current 2026 season; 37 appearances in the prior season. Expected-assist production at the 95th percentile; assists at the 66th percentile; discipline at the 56th percentile; expected goals at the 47th percentile; possession-adjusted tackles at the 43rd percentile; clearances, blocks, interceptions at the 42nd percentile; defensive contributions at the 41st percentile.\"\n}"
+          },
+          "done": true,
+          "done_reason": "stop",
+          "total_duration": 16174846082,
+          "load_duration": 719686,
+          "prompt_eval_count": 453,
+          "prompt_eval_duration": 45731000,
+          "eval_count": 387,
+          "eval_duration": 15354403000
+        }
+      }
+    },
+    {
+      "name": "granite_zero",
+      "seed": 17,
+      "request": {
+        "model": "granite4.2:3b",
+        "think": false,
+        "stream": false,
+        "options": {
+          "num_ctx": 4096,
+          "num_predict": 700,
+          "temperature": 0,
+          "seed": 17
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are The Scout. Assess what an opponent would face: the player's strengths, limitations and supported changes. Be observant, direct and specific to the sport. Explain what the measurements mean together, drawing conclusions only from the supplied evidence.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with headline (the hook) and body (the paragraphs). Preserve paragraph breaks as escaped newlines."
+          },
+          {
+            "role": "user",
+            "content": "Entity: Morgan Rogers, midfielder, Aston Villa, Premier League; England.\nIdentity source: roster observed 2026-07-03. Performance season: 2026.\n\nSample: 1 appearance in the current season; 37 appearances in the prior season. These are relative standings in those samples, not established changes in ability.\n\nCurrent measurements, expressed as percentiles (higher is better):\n- Expected-assist production: 95th percentile; per-90 percentile 95; per-game percentile 95.\n- Assists: 66th percentile, lower than prior season's 95th; current per-game percentile 88.\n- Discipline: 56th percentile.\n- Expected goals (quality of shooting chances, not finishing): 47th percentile.\n- Possession-adjusted tackles: 43rd percentile, lower than prior season's 82nd.\n- Clearances, blocks and interceptions: 42nd percentile.\n- Defensive contributions: 41st percentile.\n\nOther prior-season comparisons: unavailable. Availability information: not supplied."
+          }
+        ],
+        "format": {
+          "type": "object",
+          "properties": {
+            "body": {
+              "type": "string",
+              "description": "The character's interpretation of the evidence, within 1200 characters."
+            },
+            "headline": {
+              "type": "string",
+              "description": "The read's main finding, stated as a sentence naming the entity."
+            }
+          },
+          "required": [
+            "headline",
+            "body"
+          ]
+        }
+      },
+      "output": {
+        "name": "granite_zero",
+        "seed": 17,
+        "elapsed_s": 9.82,
+        "result": {
+          "model": "granite4.2:3b",
+          "created_at": "2026-09-14T02:48:12.300952416Z",
+          "message": {
+            "role": "assistant",
+            "content": "{\n  \"body\": \"Morgan Rogers, midfielder, Aston Villa, Premier League; England. 1 appearance in the current season; 37 appearances in the prior season. Current measurements, expressed as percentiles (higher is better): Expected-assist production: 95th percentile; per-90 percentile 95; per-game percentile 95. Assists: 66th percentile, lower than prior season's 95th; current per-game percentile 88. Discipline: 56th percentile. Expected goals (quality of shooting chances, not finishing): 47th percentile. Possession-adjusted tackles: 43rd percentile, lower than prior season's 82nd. Clearances, blocks and interceptions: 42nd percentile. Defensive contributions: 41st percentile. Other prior-season comparisons: unavailable. Availability information: not supplied.\",\n  \"headline\": \"Morgan Rogers – Current Season Performance Summary\"\n}"
+          },
+          "done": true,
+          "done_reason": "stop",
+          "total_duration": 9815046156,
+          "load_duration": 781127,
+          "prompt_eval_count": 453,
+          "prompt_eval_duration": 54780000,
+          "eval_count": 194,
+          "eval_duration": 6481957000
+        }
+      }
+    },
+    {
+      "name": "granite_zero",
+      "seed": 43,
+      "request": {
+        "model": "granite4.2:3b",
+        "think": false,
+        "stream": false,
+        "options": {
+          "num_ctx": 4096,
+          "num_predict": 700,
+          "temperature": 0,
+          "seed": 43
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are The Scout. Assess what an opponent would face: the player's strengths, limitations and supported changes. Be observant, direct and specific to the sport. Explain what the measurements mean together, drawing conclusions only from the supplied evidence.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with headline (the hook) and body (the paragraphs). Preserve paragraph breaks as escaped newlines."
+          },
+          {
+            "role": "user",
+            "content": "Entity: Morgan Rogers, midfielder, Aston Villa, Premier League; England.\nIdentity source: roster observed 2026-07-03. Performance season: 2026.\n\nSample: 1 appearance in the current season; 37 appearances in the prior season. These are relative standings in those samples, not established changes in ability.\n\nCurrent measurements, expressed as percentiles (higher is better):\n- Expected-assist production: 95th percentile; per-90 percentile 95; per-game percentile 95.\n- Assists: 66th percentile, lower than prior season's 95th; current per-game percentile 88.\n- Discipline: 56th percentile.\n- Expected goals (quality of shooting chances, not finishing): 47th percentile.\n- Possession-adjusted tackles: 43rd percentile, lower than prior season's 82nd.\n- Clearances, blocks and interceptions: 42nd percentile.\n- Defensive contributions: 41st percentile.\n\nOther prior-season comparisons: unavailable. Availability information: not supplied."
+          }
+        ],
+        "format": {
+          "type": "object",
+          "properties": {
+            "body": {
+              "type": "string",
+              "description": "The character's interpretation of the evidence, within 1200 characters."
+            },
+            "headline": {
+              "type": "string",
+              "description": "The read's main finding, stated as a sentence naming the entity."
+            }
+          },
+          "required": [
+            "headline",
+            "body"
+          ]
+        }
+      },
+      "output": {
+        "name": "granite_zero",
+        "seed": 43,
+        "elapsed_s": 9.98,
+        "result": {
+          "model": "granite4.2:3b",
+          "created_at": "2026-09-14T02:48:22.276777164Z",
+          "message": {
+            "role": "assistant",
+            "content": "{\n  \"body\": \"Morgan Rogers, midfielder, Aston Villa, Premier League; England. 1 appearance in the current season; 37 appearances in the prior season. Current measurements, expressed as percentiles (higher is better): Expected-assist production: 95th percentile; per-90 percentile 95; per-game percentile 95. Assists: 66th percentile, lower than prior season's 95th; current per-game percentile 88. Discipline: 56th percentile. Expected goals (quality of shooting chances, not finishing): 47th percentile. Possession-adjusted tackles: 43rd percentile, lower than prior season's 82nd. Clearances, blocks and interceptions: 42nd percentile. Defensive contributions: 41st percentile. Other prior-season comparisons: unavailable. Availability information: not supplied.\",\n  \"headline\": \"Morgan Rogers – Current Season Performance Summary\"\n}"
+          },
+          "done": true,
+          "done_reason": "stop",
+          "total_duration": 9975071291,
+          "load_duration": 964682,
+          "prompt_eval_count": 453,
+          "prompt_eval_duration": 54882000,
+          "eval_count": 194,
+          "eval_duration": 9881629000
+        }
+      }
+    },
+    {
+      "name": "ministral_8b",
+      "seed": 17,
+      "request": {
+        "model": "ministral-3:8b",
+        "think": false,
+        "stream": false,
+        "options": {
+          "num_ctx": 4096,
+          "num_predict": 700,
+          "temperature": 0.6,
+          "seed": 17
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are The Scout. Assess what an opponent would face: the player's strengths, limitations and supported changes. Be observant, direct and specific to the sport. Explain what the measurements mean together, drawing conclusions only from the supplied evidence.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with headline (the hook) and body (the paragraphs). Preserve paragraph breaks as escaped newlines."
+          },
+          {
+            "role": "user",
+            "content": "Entity: Morgan Rogers, midfielder, Aston Villa, Premier League; England.\nIdentity source: roster observed 2026-07-03. Performance season: 2026.\n\nSample: 1 appearance in the current season; 37 appearances in the prior season. These are relative standings in those samples, not established changes in ability.\n\nCurrent measurements, expressed as percentiles (higher is better):\n- Expected-assist production: 95th percentile; per-90 percentile 95; per-game percentile 95.\n- Assists: 66th percentile, lower than prior season's 95th; current per-game percentile 88.\n- Discipline: 56th percentile.\n- Expected goals (quality of shooting chances, not finishing): 47th percentile.\n- Possession-adjusted tackles: 43rd percentile, lower than prior season's 82nd.\n- Clearances, blocks and interceptions: 42nd percentile.\n- Defensive contributions: 41st percentile.\n\nOther prior-season comparisons: unavailable. Availability information: not supplied."
+          }
+        ],
+        "format": {
+          "type": "object",
+          "properties": {
+            "body": {
+              "type": "string",
+              "description": "The character's interpretation of the evidence, within 1200 characters."
+            },
+            "headline": {
+              "type": "string",
+              "description": "The read's main finding, stated as a sentence naming the entity."
+            }
+          },
+          "required": [
+            "headline",
+            "body"
+          ]
+        }
+      },
+      "output": {
+        "name": "ministral_8b",
+        "seed": 17,
+        "error": "timed out"
+      }
+    },
+    {
+      "name": "ministral_8b",
+      "seed": 43,
+      "request": {
+        "model": "ministral-3:8b",
+        "think": false,
+        "stream": false,
+        "options": {
+          "num_ctx": 4096,
+          "num_predict": 700,
+          "temperature": 0.6,
+          "seed": 43
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are The Scout. Assess what an opponent would face: the player's strengths, limitations and supported changes. Be observant, direct and specific to the sport. Explain what the measurements mean together, drawing conclusions only from the supplied evidence.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with headline (the hook) and body (the paragraphs). Preserve paragraph breaks as escaped newlines."
+          },
+          {
+            "role": "user",
+            "content": "Entity: Morgan Rogers, midfielder, Aston Villa, Premier League; England.\nIdentity source: roster observed 2026-07-03. Performance season: 2026.\n\nSample: 1 appearance in the current season; 37 appearances in the prior season. These are relative standings in those samples, not established changes in ability.\n\nCurrent measurements, expressed as percentiles (higher is better):\n- Expected-assist production: 95th percentile; per-90 percentile 95; per-game percentile 95.\n- Assists: 66th percentile, lower than prior season's 95th; current per-game percentile 88.\n- Discipline: 56th percentile.\n- Expected goals (quality of shooting chances, not finishing): 47th percentile.\n- Possession-adjusted tackles: 43rd percentile, lower than prior season's 82nd.\n- Clearances, blocks and interceptions: 42nd percentile.\n- Defensive contributions: 41st percentile.\n\nOther prior-season comparisons: unavailable. Availability information: not supplied."
+          }
+        ],
+        "format": {
+          "type": "object",
+          "properties": {
+            "body": {
+              "type": "string",
+              "description": "The character's interpretation of the evidence, within 1200 characters."
+            },
+            "headline": {
+              "type": "string",
+              "description": "The read's main finding, stated as a sentence naming the entity."
+            }
+          },
+          "required": [
+            "headline",
+            "body"
+          ]
+        }
+      },
+      "output": {
+        "name": "ministral_8b",
+        "seed": 43,
+        "error": "timed out"
+      }
+    },
+    {
+      "name": "example_rogers",
+      "seed": 17,
+      "request": {
+        "model": "granite4.2:3b",
+        "think": false,
+        "stream": false,
+        "options": {
+          "num_ctx": 4096,
+          "num_predict": 700,
+          "temperature": 0.6,
+          "seed": 17
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are The Scout. Assess what an opponent would face: the player's strengths, limitations and supported changes. Be observant, direct and specific to the sport. Explain what the measurements mean together, drawing conclusions only from the supplied evidence.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with headline (the hook) and body (the paragraphs). Preserve paragraph breaks as escaped newlines.\n\nEditorial example — unrelated player, not evidence for this card:\nInput: Basketball guard Mara Vale, 30 games. Assists: 92nd percentile, previously 97th. Ball security: 29th percentile, previously 28th. Scoring: 54th percentile.\nOutput: {\"headline\":\"Mara Vale remains a creator opponents must respect, despite the passing dip.\",\"body\":\"Vale's passing remains her strongest weapon even with a lower assist ranking than last season. The greater concern is ball security: that low ranking persists rather than marking a new deterioration. Average scoring leaves her creation doing most of the work in this profile.\"}"
+          },
+          {
+            "role": "user",
+            "content": "Entity: Morgan Rogers, midfielder, Aston Villa, Premier League; England.\nIdentity source: roster observed 2026-07-03. Performance season: 2026.\n\nSample: 1 appearance in the current season; 37 appearances in the prior season. These are relative standings in those samples, not established changes in ability.\n\nCurrent measurements, expressed as percentiles (higher is better):\n- Expected-assist production: 95th percentile; per-90 percentile 95; per-game percentile 95.\n- Assists: 66th percentile, lower than prior season's 95th; current per-game percentile 88.\n- Discipline: 56th percentile.\n- Expected goals (quality of shooting chances, not finishing): 47th percentile.\n- Possession-adjusted tackles: 43rd percentile, lower than prior season's 82nd.\n- Clearances, blocks and interceptions: 42nd percentile.\n- Defensive contributions: 41st percentile.\n\nOther prior-season comparisons: unavailable. Availability information: not supplied."
+          }
+        ],
+        "format": {
+          "type": "object",
+          "properties": {
+            "body": {
+              "type": "string",
+              "description": "The character's interpretation of the evidence, within 1200 characters."
+            },
+            "headline": {
+              "type": "string",
+              "description": "The read's main finding, stated as a sentence naming the entity."
+            }
+          },
+          "required": [
+            "headline",
+            "body"
+          ]
+        }
+      },
+      "output": {
+        "name": "example_rogers",
+        "seed": 17,
+        "elapsed_s": 14.65,
+        "result": {
+          "model": "granite4.2:3b",
+          "created_at": "2026-09-14T02:51:44.491652437Z",
+          "message": {
+            "role": "assistant",
+            "content": "{\n  \"body\": \"Morgan Rogers is a midfielder for Aston Villa in the Premier League, playing for England. In the current season, she has made 1 appearance, compared to 37 in the prior season. Her expected-assist production is at the 95th percentile, with per-90 and per-game percentiles also at 95, indicating strong, consistent assist production. However, her actual assists are at the 66th percentile, lower than her prior season's 95th percentile, and her per-game assist percentile drops to 88. This suggests a decline in passing effectiveness during the current season. Her discipline rating is at the 56th percentile, which is relatively higher than average but indicates occasional risky behavior. Expected goals from quality of shooting chances are at the 47th percentile, meaning she creates scoring opportunities but does not finish them well. Her possession-adjusted tackles are at the 43rd percentile, down from the prior season's 82nd percentile, indicating reduced tackling impact. Clearances, blocks and interceptions are also at the 42nd percentile, lower than before. Defensive contributions are at the 41st percentile, below prior season levels, suggesting reduced defensive impact overall. These changes reflect a shift away from both high-quality passing and robust defensive work, while her overall scoring contribution remains modest due to low expected goals and limited finishing. She may face opponents who exploit her reduced tackling and defensive presence, while teams that rely on her passing could find her assist output less reliable. Overall, her performance in the current season is weaker in key defensive and attacking dimensions compared to the prior season, despite still maintaining strong baseline assist production.\",\n  \"headline\": \"Morgan Rogers shows declining defensive and attacking output in the current Premier League season.\"\n}"
+          },
+          "done": true,
+          "done_reason": "stop",
+          "total_duration": 14640653144,
+          "load_duration": 587026,
+          "prompt_eval_count": 588,
+          "prompt_eval_duration": 388711000,
+          "eval_count": 364,
+          "eval_duration": 14212727000
+        }
+      }
+    },
+    {
+      "name": "example_full_sample_synthetic",
+      "seed": 17,
+      "request": {
+        "model": "granite4.2:3b",
+        "think": false,
+        "stream": false,
+        "options": {
+          "num_ctx": 4096,
+          "num_predict": 700,
+          "temperature": 0.6,
+          "seed": 17
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are The Scout. Assess what an opponent would face: the player's strengths, limitations and supported changes. Be observant, direct and specific to the sport. Explain what the measurements mean together, drawing conclusions only from the supplied evidence.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with headline (the hook) and body (the paragraphs). Preserve paragraph breaks as escaped newlines.\n\nEditorial example — unrelated player, not evidence for this card:\nInput: Basketball guard Mara Vale, 30 games. Assists: 92nd percentile, previously 97th. Ball security: 29th percentile, previously 28th. Scoring: 54th percentile.\nOutput: {\"headline\":\"Mara Vale remains a creator opponents must respect, despite the passing dip.\",\"body\":\"Vale's passing remains her strongest weapon even with a lower assist ranking than last season. The greater concern is ball security: that low ranking persists rather than marking a new deterioration. Average scoring leaves her creation doing most of the work in this profile.\"}"
+          },
+          {
+            "role": "user",
+            "content": "Entity: Julian Vale, midfielder, Aston Villa, Premier League; England.\nIdentity source: roster observed 2026-07-03. Performance season: 2026.\n\nSample: 30 appearances in the current season; 37 appearances in the prior season. These are relative standings in those samples, not established changes in ability.\n\nCurrent measurements, expressed as percentiles (higher is better):\n- Expected-assist production: 95th percentile; per-90 percentile 95; per-game percentile 95.\n- Assists: 66th percentile, lower than prior season's 95th; current per-game percentile 88.\n- Discipline: 56th percentile.\n- Expected goals (quality of shooting chances, not finishing): 47th percentile.\n- Possession-adjusted tackles: 43rd percentile, lower than prior season's 82nd.\n- Clearances, blocks and interceptions: 42nd percentile.\n- Defensive contributions: 41st percentile.\n\nOther prior-season comparisons: unavailable. Availability information: not supplied."
+          }
+        ],
+        "format": {
+          "type": "object",
+          "properties": {
+            "body": {
+              "type": "string",
+              "description": "The character's interpretation of the evidence, within 1200 characters."
+            },
+            "headline": {
+              "type": "string",
+              "description": "The read's main finding, stated as a sentence naming the entity."
+            }
+          },
+          "required": [
+            "headline",
+            "body"
+          ]
+        }
+      },
+      "output": {
+        "name": "example_full_sample_synthetic",
+        "seed": 17,
+        "elapsed_s": 14.05,
+        "result": {
+          "model": "granite4.2:3b",
+          "created_at": "2026-09-14T02:51:58.541818137Z",
+          "message": {
+            "role": "assistant",
+            "content": "{\n  \"body\": \"Julian Vale plays as a midfielder in the Premier League, and his current season performance shows a solid base but notable declines in key defensive and assist metrics compared to his prior season. He has 30 appearances this season, with 66th percentile assists—lower than his previous 95th percentile—and a per-game assist percentile of 88, indicating reduced assist frequency. His expected-assist production remains at the 95th percentile, suggesting overall capability is strong, but the drop from 95th to 66th percentile is meaningful and reflects reduced contribution in distribution. His possession-adjusted tackles are at the 43rd percentile, down from the prior season's 82nd percentile, indicating weaker tackling efficiency. Defensive contributions overall are at the 41st percentile, below prior season levels, and clearances, blocks, and interceptions are also at the 42nd percentile, showing limited physical defensive output. Discipline is at the 56th percentile, which is relatively high but not exceptional, and expected goals from quality shooting chances are at the 47th percentile, implying moderate shooting effectiveness despite many chances. His overall performance is measured, with consistent appearances, but the decline in defensive metrics and reduced assist production suggest opponents will face less structured play and fewer outlet options from Vale. He remains a reliable midfielder, but his ability to create and defend is diminished compared to earlier in the season. The changes are supported by the provided percentile data and relative standing within the season.\",\n  \"headline\": \"Julian Vale’s midfield output has declined defensively and in assist frequency this season, reducing structure and outlet options for opponents.\"\n}"
+          },
+          "done": true,
+          "done_reason": "stop",
+          "total_duration": 14049153574,
+          "load_duration": 486404,
+          "prompt_eval_count": 588,
+          "prompt_eval_duration": 263692999,
+          "eval_count": 337,
+          "eval_duration": 13272912000
+        }
+      }
+    },
+    {
+      "name": "example_rogers",
+      "seed": 43,
+      "request": {
+        "model": "granite4.2:3b",
+        "think": false,
+        "stream": false,
+        "options": {
+          "num_ctx": 4096,
+          "num_predict": 700,
+          "temperature": 0.6,
+          "seed": 43
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are The Scout. Assess what an opponent would face: the player's strengths, limitations and supported changes. Be observant, direct and specific to the sport. Explain what the measurements mean together, drawing conclusions only from the supplied evidence.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with headline (the hook) and body (the paragraphs). Preserve paragraph breaks as escaped newlines.\n\nEditorial example — unrelated player, not evidence for this card:\nInput: Basketball guard Mara Vale, 30 games. Assists: 92nd percentile, previously 97th. Ball security: 29th percentile, previously 28th. Scoring: 54th percentile.\nOutput: {\"headline\":\"Mara Vale remains a creator opponents must respect, despite the passing dip.\",\"body\":\"Vale's passing remains her strongest weapon even with a lower assist ranking than last season. The greater concern is ball security: that low ranking persists rather than marking a new deterioration. Average scoring leaves her creation doing most of the work in this profile.\"}"
+          },
+          {
+            "role": "user",
+            "content": "Entity: Morgan Rogers, midfielder, Aston Villa, Premier League; England.\nIdentity source: roster observed 2026-07-03. Performance season: 2026.\n\nSample: 1 appearance in the current season; 37 appearances in the prior season. These are relative standings in those samples, not established changes in ability.\n\nCurrent measurements, expressed as percentiles (higher is better):\n- Expected-assist production: 95th percentile; per-90 percentile 95; per-game percentile 95.\n- Assists: 66th percentile, lower than prior season's 95th; current per-game percentile 88.\n- Discipline: 56th percentile.\n- Expected goals (quality of shooting chances, not finishing): 47th percentile.\n- Possession-adjusted tackles: 43rd percentile, lower than prior season's 82nd.\n- Clearances, blocks and interceptions: 42nd percentile.\n- Defensive contributions: 41st percentile.\n\nOther prior-season comparisons: unavailable. Availability information: not supplied."
+          }
+        ],
+        "format": {
+          "type": "object",
+          "properties": {
+            "body": {
+              "type": "string",
+              "description": "The character's interpretation of the evidence, within 1200 characters."
+            },
+            "headline": {
+              "type": "string",
+              "description": "The read's main finding, stated as a sentence naming the entity."
+            }
+          },
+          "required": [
+            "headline",
+            "body"
+          ]
+        }
+      },
+      "output": {
+        "name": "example_rogers",
+        "seed": 43,
+        "elapsed_s": 11.35,
+        "result": {
+          "model": "granite4.2:3b",
+          "created_at": "2026-09-14T02:52:09.895596576Z",
+          "message": {
+            "role": "assistant",
+            "content": "{\n  \"body\": \"Morgan Rogers, as a midfielder for Aston Villa in the Premier League, shows a mixed but consistent profile in the current season. She averages 95th percentile expected-assist production per-90, indicating strong, sustained playmaking, though her actual assists drop to the 66th percentile per-game, falling from a 95th percentile in the prior season. This suggests her creation remains above average but has declined relative to last year. Her defensive metrics are notably weak: possession-adjusted tackles are at the 43rd percentile, down from the 82nd percentile previously, and defensive contributions also dip to the 41st percentile, reflecting reduced impact on team organization. Clearances, blocks and interceptions are at the 42nd percentile, indicating limited physical control. Discipline is at the 56th percentile, marking a moderate increase in caution or minor faults. Overall, her passing remains a core strength, but her defensive contributions and physical presence have weakened compared to the prior season, while her overall work rate and offensive contribution remain above average. These changes suggest opponents may find it easier to disrupt her playmaking or impose pressure in defensive exchanges.\",\n  \"headline\": \"Morgan Rogers shows strong midfield creation but declining defensive impact in the current Premier League season.\"\n}"
+          },
+          "done": true,
+          "done_reason": "stop",
+          "total_duration": 11352862999,
+          "load_duration": 548103,
+          "prompt_eval_count": 588,
+          "prompt_eval_duration": 264755000,
+          "eval_count": 264,
+          "eval_duration": 11038924000
+        }
+      }
+    },
+    {
+      "name": "example_full_sample_synthetic",
+      "seed": 43,
+      "request": {
+        "model": "granite4.2:3b",
+        "think": false,
+        "stream": false,
+        "options": {
+          "num_ctx": 4096,
+          "num_predict": 700,
+          "temperature": 0.6,
+          "seed": 43
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are The Scout. Assess what an opponent would face: the player's strengths, limitations and supported changes. Be observant, direct and specific to the sport. Explain what the measurements mean together, drawing conclusions only from the supplied evidence.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with headline (the hook) and body (the paragraphs). Preserve paragraph breaks as escaped newlines.\n\nEditorial example — unrelated player, not evidence for this card:\nInput: Basketball guard Mara Vale, 30 games. Assists: 92nd percentile, previously 97th. Ball security: 29th percentile, previously 28th. Scoring: 54th percentile.\nOutput: {\"headline\":\"Mara Vale remains a creator opponents must respect, despite the passing dip.\",\"body\":\"Vale's passing remains her strongest weapon even with a lower assist ranking than last season. The greater concern is ball security: that low ranking persists rather than marking a new deterioration. Average scoring leaves her creation doing most of the work in this profile.\"}"
+          },
+          {
+            "role": "user",
+            "content": "Entity: Julian Vale, midfielder, Aston Villa, Premier League; England.\nIdentity source: roster observed 2026-07-03. Performance season: 2026.\n\nSample: 30 appearances in the current season; 37 appearances in the prior season. These are relative standings in those samples, not established changes in ability.\n\nCurrent measurements, expressed as percentiles (higher is better):\n- Expected-assist production: 95th percentile; per-90 percentile 95; per-game percentile 95.\n- Assists: 66th percentile, lower than prior season's 95th; current per-game percentile 88.\n- Discipline: 56th percentile.\n- Expected goals (quality of shooting chances, not finishing): 47th percentile.\n- Possession-adjusted tackles: 43rd percentile, lower than prior season's 82nd.\n- Clearances, blocks and interceptions: 42nd percentile.\n- Defensive contributions: 41st percentile.\n\nOther prior-season comparisons: unavailable. Availability information: not supplied."
+          }
+        ],
+        "format": {
+          "type": "object",
+          "properties": {
+            "body": {
+              "type": "string",
+              "description": "The character's interpretation of the evidence, within 1200 characters."
+            },
+            "headline": {
+              "type": "string",
+              "description": "The read's main finding, stated as a sentence naming the entity."
+            }
+          },
+          "required": [
+            "headline",
+            "body"
+          ]
+        }
+      },
+      "output": {
+        "name": "example_full_sample_synthetic",
+        "seed": 43,
+        "elapsed_s": 12.47,
+        "result": {
+          "model": "granite4.2:3b",
+          "created_at": "2026-09-14T02:52:22.362267723Z",
+          "message": {
+            "role": "assistant",
+            "content": "{\n  \"body\": \"Julian Vale plays 30 games in the current Premier League season, down from 37 in the prior season. His expected-assist production remains at the 95th percentile, with per-90 and per-game assist percentiles also at 95. This indicates consistent, high-quality playmaking relative to teammates. However, actual assists fall at the 66th percentile, lower than his prior season’s 95th percentile, suggesting a dip in execution. His per-game assist percentile drops to 88, indicating reduced frequency of successful passing opportunities. Discipline is at the 56th percentile, below average, which may limit clean transitions and increase risk of fouls or tactical adjustments. Expected goals (quality of shooting chances) are at the 47th percentile, below his expected-assist level, implying his shooting is underperforming relative to his playmaking. Possession-adjusted tackles are at the 43rd percentile, down from the prior season’s 82nd, indicating reduced effectiveness in contesting ball possession. Clearances, blocks and interceptions are also at the 42nd percentile, showing limited defensive contribution in those specific areas. Defensive contributions overall are at the 41st percentile, below his prior season’s performance, suggesting reduced impact in maintaining structure or limiting opponent threats. Together, these findings show Vale maintains strong playmaking ability but faces declining execution across key offensive and defensive metrics. His assist and shooting quality remain solid relative to peers, but his defensive output has weakened significantly compared to previous season.\",\n  \"headline\": \"Julian Vale’s playmaking remains strong, but defensive and execution metrics have declined, limiting sustained impact.\"\n}"
+          },
+          "done": true,
+          "done_reason": "stop",
+          "total_duration": 12466006887,
+          "load_duration": 595049,
+          "prompt_eval_count": 588,
+          "prompt_eval_duration": 52530000,
+          "eval_count": 347,
+          "eval_duration": 12354592000
+        }
+      }
+    },
+    {
+      "name": "granite_reasoning_same_budget",
+      "seed": 17,
+      "request": {
+        "model": "granite4.2:3b",
+        "think": true,
+        "stream": false,
+        "options": {
+          "num_ctx": 4096,
+          "num_predict": 700,
+          "temperature": 0.6,
+          "seed": 17
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are The Scout. Assess what an opponent would face: the player's strengths, limitations and supported changes. Be observant, direct and specific to the sport. Explain what the measurements mean together, drawing conclusions only from the supplied evidence.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with headline (the hook) and body (the paragraphs). Preserve paragraph breaks as escaped newlines."
+          },
+          {
+            "role": "user",
+            "content": "Entity: Morgan Rogers, midfielder, Aston Villa, Premier League; England.\nIdentity source: roster observed 2026-07-03. Performance season: 2026.\n\nSample: 1 appearance in the current season; 37 appearances in the prior season. These are relative standings in those samples, not established changes in ability.\n\nCurrent measurements, expressed as percentiles (higher is better):\n- Expected-assist production: 95th percentile; per-90 percentile 95; per-game percentile 95.\n- Assists: 66th percentile, lower than prior season's 95th; current per-game percentile 88.\n- Discipline: 56th percentile.\n- Expected goals (quality of shooting chances, not finishing): 47th percentile.\n- Possession-adjusted tackles: 43rd percentile, lower than prior season's 82nd.\n- Clearances, blocks and interceptions: 42nd percentile.\n- Defensive contributions: 41st percentile.\n\nOther prior-season comparisons: unavailable. Availability information: not supplied."
+          }
+        ],
+        "format": {
+          "type": "object",
+          "properties": {
+            "body": {
+              "type": "string",
+              "description": "The character's interpretation of the evidence, within 1200 characters."
+            },
+            "headline": {
+              "type": "string",
+              "description": "The read's main finding, stated as a sentence naming the entity."
+            }
+          },
+          "required": [
+            "headline",
+            "body"
+          ]
+        }
+      },
+      "output": {
+        "name": "granite_reasoning_same_budget",
+        "seed": 17,
+        "elapsed_s": 28.79,
+        "result": {
+          "model": "granite4.2:3b",
+          "done": true,
+          "done_reason": "length",
+          "eval_count": 700,
+          "prompt_eval_count": 453,
+          "message": {
+            "role": "assistant",
+            "content": ""
+          }
+        },
+        "note": "Result metadata transcribed from tool output; reasoning text intentionally omitted. No card was returned."
+      }
+    },
+    {
+      "name": "raw_facts_temp_0.6",
+      "seed": 17,
+      "request": {
+        "model": "granite4.2:3b",
+        "think": false,
+        "stream": false,
+        "options": {
+          "num_ctx": 4096,
+          "num_predict": 700,
+          "temperature": 0.6,
+          "seed": 17
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are The Scout. Assess what an opponent would face: the player's strengths, limitations and supported changes. Be observant, direct and specific to the sport. Explain what the measurements mean together, drawing conclusions only from the supplied evidence.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with headline (the hook) and body (the paragraphs). Preserve paragraph breaks as escaped newlines."
+          },
+          {
+            "role": "user",
+            "content": "Subject: Morgan Rogers. Role: midfielder. Club on record: Aston Villa. Nationality: England.\n\nPerformance data snapshot: 2026-09-07.\n2026 season: 1 recorded appearance, 1 assist, 1.01 expected assists, 0 goals, 0.14 expected goals.\n2025 season: 37 recorded appearances, 6 assists, 10 goals.\n\nCurrent player is unranked. No current percentile ranks are supplied.\nExpected assists and expected goals measure chance quality, not confirmed outcomes or finishing ability.\nNo comparable current performance trend or availability information is supplied."
+          }
+        ],
+        "format": {
+          "type": "object",
+          "properties": {
+            "body": {
+              "type": "string",
+              "description": "The character's interpretation of the evidence, within 1200 characters."
+            },
+            "headline": {
+              "type": "string",
+              "description": "The read's main finding, stated as a sentence naming the entity."
+            }
+          },
+          "required": [
+            "headline",
+            "body"
+          ]
+        }
+      },
+      "output": {
+        "name": "raw_facts_temp_0.6",
+        "seed": 17,
+        "elapsed_s": 10.73,
+        "result": {
+          "model": "granite4.2:3b",
+          "created_at": "2026-09-14T02:56:16.460401139Z",
+          "message": {
+            "role": "assistant",
+            "content": "{\n  \"body\": \"Morgan Rogers is a midfielder for Aston Villa, an England national team player. In the 2025 season he recorded 37 appearances, 6 assists and 10 goals. In the 2026 season he had only one recorded appearance, 1 assist, and 1.01 expected assists versus 0 goals and 0.14 expected goals. The limited 2026 season data suggests reduced form or availability compared to the previous year. No percentile ranks are provided, and the expected metrics do not confirm finishing ability. Therefore, the assessment is based on the limited 2026 season performance, which indicates a potential decline or adjustment in playmaking and scoring compared to his 2025 season.\",\n  \"headline\": \"Morgan Rogers – Midfielder, Aston Villa – Declining Form in 2026 Season\"\n}"
+          },
+          "done": true,
+          "done_reason": "stop",
+          "total_duration": 10718361747,
+          "load_duration": 559665,
+          "prompt_eval_count": 357,
+          "prompt_eval_duration": 178344000,
+          "eval_count": 178,
+          "eval_duration": 9730131000
+        }
+      }
+    },
+    {
+      "name": "raw_facts_temp_0",
+      "seed": 17,
+      "request": {
+        "model": "granite4.2:3b",
+        "think": false,
+        "stream": false,
+        "options": {
+          "num_ctx": 4096,
+          "num_predict": 700,
+          "temperature": 0,
+          "seed": 17
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are The Scout. Assess what an opponent would face: the player's strengths, limitations and supported changes. Be observant, direct and specific to the sport. Explain what the measurements mean together, drawing conclusions only from the supplied evidence.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with headline (the hook) and body (the paragraphs). Preserve paragraph breaks as escaped newlines."
+          },
+          {
+            "role": "user",
+            "content": "Subject: Morgan Rogers. Role: midfielder. Club on record: Aston Villa. Nationality: England.\n\nPerformance data snapshot: 2026-09-07.\n2026 season: 1 recorded appearance, 1 assist, 1.01 expected assists, 0 goals, 0.14 expected goals.\n2025 season: 37 recorded appearances, 6 assists, 10 goals.\n\nCurrent player is unranked. No current percentile ranks are supplied.\nExpected assists and expected goals measure chance quality, not confirmed outcomes or finishing ability.\nNo comparable current performance trend or availability information is supplied."
+          }
+        ],
+        "format": {
+          "type": "object",
+          "properties": {
+            "body": {
+              "type": "string",
+              "description": "The character's interpretation of the evidence, within 1200 characters."
+            },
+            "headline": {
+              "type": "string",
+              "description": "The read's main finding, stated as a sentence naming the entity."
+            }
+          },
+          "required": [
+            "headline",
+            "body"
+          ]
+        }
+      },
+      "output": {
+        "name": "raw_facts_temp_0",
+        "seed": 17,
+        "elapsed_s": 10.26,
+        "result": {
+          "model": "granite4.2:3b",
+          "created_at": "2026-09-14T02:56:26.722033228Z",
+          "message": {
+            "role": "assistant",
+            "content": "{\n  \"body\": \"Morgan Rogers, an England midfielder at Aston Villa, recorded 1 appearance in the 2026 season with 1 assist and 1.01 expected assists, 0 goals and 0.14 expected goals. In contrast, the 2025 season showed stronger form with 37 appearances, 6 assists, and 10 goals. This suggests a notable improvement in his recent performance, likely due to increased involvement and scoring opportunities. The expected metrics indicate consistent contribution, but the actual goals in 2025 exceed expected goals, implying better finishing or decision-making in those games. The 2026 season appears less productive, possibly due to reduced playing time, lower intensity, or tactical adjustments. Without trend data or availability context, the overall picture points to a dip in form in 2026 compared to 2025. His strengths include consistent assist production and goal contribution when available, while limitations may involve fewer opportunities or reduced impact in high-pressure situations. Supported changes reflect a shift in performance quality rather than a fundamental change in skill level.\",\n  \"headline\": \"Morgan Rogers: Improved form in 2025, dip in 2026\"\n}"
+          },
+          "done": true,
+          "done_reason": "stop",
+          "total_duration": 10260812720,
+          "load_duration": 545204,
+          "prompt_eval_count": 357,
+          "prompt_eval_duration": 54149000,
+          "eval_count": 244,
+          "eval_duration": 10177493000
+        }
+      }
+    },
+    {
+      "name": "ministral_3b_raw_temp_0.6",
+      "seed": 17,
+      "request": {
+        "model": "ministral-3:3b",
+        "think": false,
+        "stream": false,
+        "options": {
+          "num_ctx": 4096,
+          "num_predict": 700,
+          "temperature": 0.6,
+          "seed": 17
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are The Scout. Assess what an opponent would face: the player's strengths, limitations and supported changes. Be observant, direct and specific to the sport. Explain what the measurements mean together, drawing conclusions only from the supplied evidence.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with headline (the hook) and body (the paragraphs). Preserve paragraph breaks as escaped newlines."
+          },
+          {
+            "role": "user",
+            "content": "Subject: Morgan Rogers. Role: midfielder. Club on record: Aston Villa. Nationality: England.\n\nPerformance data snapshot: 2026-09-07.\n2026 season: 1 recorded appearance, 1 assist, 1.01 expected assists, 0 goals, 0.14 expected goals.\n2025 season: 37 recorded appearances, 6 assists, 10 goals.\n\nCurrent player is unranked. No current percentile ranks are supplied.\nExpected assists and expected goals measure chance quality, not confirmed outcomes or finishing ability.\nNo comparable current performance trend or availability information is supplied."
+          }
+        ],
+        "format": {
+          "type": "object",
+          "properties": {
+            "body": {
+              "type": "string",
+              "description": "The character's interpretation of the evidence, within 1200 characters."
+            },
+            "headline": {
+              "type": "string",
+              "description": "The read's main finding, stated as a sentence naming the entity."
+            }
+          },
+          "required": [
+            "headline",
+            "body"
+          ]
+        }
+      },
+      "output": {
+        "name": "ministral_3b_raw_temp_0.6",
+        "seed": 17,
+        "error": "timed out"
+      }
+    },
+    {
+      "name": "ministral_3b_raw_temp_0",
+      "seed": 17,
+      "request": {
+        "model": "ministral-3:3b",
+        "think": false,
+        "stream": false,
+        "options": {
+          "num_ctx": 4096,
+          "num_predict": 700,
+          "temperature": 0,
+          "seed": 17
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are The Scout. Assess what an opponent would face: the player's strengths, limitations and supported changes. Be observant, direct and specific to the sport. Explain what the measurements mean together, drawing conclusions only from the supplied evidence.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with headline (the hook) and body (the paragraphs). Preserve paragraph breaks as escaped newlines."
+          },
+          {
+            "role": "user",
+            "content": "Subject: Morgan Rogers. Role: midfielder. Club on record: Aston Villa. Nationality: England.\n\nPerformance data snapshot: 2026-09-07.\n2026 season: 1 recorded appearance, 1 assist, 1.01 expected assists, 0 goals, 0.14 expected goals.\n2025 season: 37 recorded appearances, 6 assists, 10 goals.\n\nCurrent player is unranked. No current percentile ranks are supplied.\nExpected assists and expected goals measure chance quality, not confirmed outcomes or finishing ability.\nNo comparable current performance trend or availability information is supplied."
+          }
+        ],
+        "format": {
+          "type": "object",
+          "properties": {
+            "body": {
+              "type": "string",
+              "description": "The character's interpretation of the evidence, within 1200 characters."
+            },
+            "headline": {
+              "type": "string",
+              "description": "The read's main finding, stated as a sentence naming the entity."
+            }
+          },
+          "required": [
+            "headline",
+            "body"
+          ]
+        }
+      },
+      "output": {
+        "name": "ministral_3b_raw_temp_0",
+        "seed": 17,
+        "error": "timed out"
+      }
+    }
+  ]
+}

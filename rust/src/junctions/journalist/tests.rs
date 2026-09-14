@@ -269,9 +269,7 @@ fn headline_parses_best_effort_and_takes_the_title_floor() {
         r#"{{"narratives": [], "headline": "{}", "card_score": 12}}"#,
         "x".repeat(200)
     );
-    let dropped = NarrativesParser.parse(&overlong).unwrap().unwrap();
-    assert_eq!(dropped.headline(), None);
-    assert_eq!(dropped.card_score(), Some(12));
+    assert!(NarrativesParser.parse(&overlong).is_err());
     // The raw-scan fallback holds when prose wraps the object (the salvager's territory).
     let wrapped = NarrativesParser
         .parse(r#"Here you go: {"narratives": [], "headline": "Deadline day finds the back door", "card_score": 70} done"#)

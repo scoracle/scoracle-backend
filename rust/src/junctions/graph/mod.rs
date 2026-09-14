@@ -167,11 +167,12 @@ pub async fn load_graph_article_context(
     let cand_rows = sqlx::query(
         r#"
         SELECT e.entity_type, e.entity_id,
-               COALESCE(p.name, t.name, '?') AS name,
+               COALESCE(p.name, t.name, pp.full_name, '?') AS name,
                COALESCE(ct.name, '') AS current_club
         FROM news_article_entities e
         LEFT JOIN players p ON e.entity_type='player' AND p.id=e.entity_id AND p.sport=e.sport
         LEFT JOIN teams t ON e.entity_type='team' AND t.id=e.entity_id AND t.sport=e.sport
+        LEFT JOIN persons pp ON e.entity_type='person' AND pp.id=e.entity_id AND pp.sport=e.sport
         LEFT JOIN player_current_identity pci
                ON e.entity_type='player' AND pci.player_id=e.entity_id AND pci.sport=e.sport
         LEFT JOIN teams ct ON ct.id=pci.team_id AND ct.sport=e.sport
@@ -187,27 +188,20 @@ pub async fn load_graph_article_context(
     if cand_rows.is_empty() {
         return Ok(None);
     }
-    let candidates = cand_rows
-        .into_iter()
-        .map(|r| {
-            let entity_type: String = r.get(0);
-            let entity_id: i32 = r.get(1);
-            let name: String = r.get(2);
-            let club: String = r.get(3);
-            let descriptor = if entity_type == "team" {
-                format!("{name} (team)")
-            } else if club.is_empty() {
-                format!("{name} (player, current club unknown)")
-            } else {
-                format!("{name} (player, currently at {club})")
-            };
-            GraphCandidate {
-                entity_type,
-                entity_id,
-                descriptor,
-            }
-        })
-        .collect();
+    let mut candidates = Vec::new();
+    for r in cand_rows {
+        let entity_type: String = r.get(0);
+        let entity_id: i32 = r.get(1);
+        let name: String = r.get(2);
+        let descriptor = crate::corpus::load_identity_record(pool, &entity_type, entity_id, sport)
+            .await?
+            .unwrap_or_else(|| format!("{name} ({entity_type}; records unavailable)"));
+        candidates.push(GraphCandidate {
+            entity_type,
+            entity_id,
+            descriptor,
+        });
+    }
     Ok(Some((article, candidates)))
 }
 

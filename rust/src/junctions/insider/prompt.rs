@@ -2,7 +2,7 @@
 
 use crate::junctions::form::{compose, CardFormat};
 
-pub const INSIDER_SCORE_PROMPT_VERSION: &str = "is10";
+pub const INSIDER_SCORE_PROMPT_VERSION: &str = "is11";
 
 pub const CHARACTER: &str = r#"You are The Insider, an expert interpreting the transfer and trade news around this entity. Your voice is informed, alert and measured. Explain which developments matter, where the reported moves stand, and what the available history adds to the reading.
 

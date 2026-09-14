@@ -188,15 +188,60 @@ pub fn dedupe_i64(input: Vec<i64>) -> Vec<i64> {
 }
 
 /// Framing that tells the model to reconcile dated house records with current reporting.
-pub const IDENTITY_CARD_FRAMING: &str = "Your entity, per our house records — a dated snapshot, not gospel. Reporting may have moved past it: when a story and these records disagree, weigh recency and credibility and write what you judge true.";
+pub const IDENTITY_CARD_FRAMING: &str = "Identity context, not event evidence. Distinguish current roles from career history; dated reporting may supersede these records. Unknown means unknown.";
+
+/// Metadata participates in regeneration, but never in a measured score. Hash only
+/// semantic values here: confirmation timestamps must not manufacture fresh material.
+pub async fn with_identity_version(
+    pool: &sqlx::PgPool,
+    entity_type: &str,
+    entity_id: i32,
+    sport: &str,
+    components: &str,
+) -> anyhow::Result<String> {
+    let version: String = sqlx::query_scalar(
+        r#"SELECT jsonb_build_object(
+            'record', CASE $1
+                WHEN 'player' THEN (SELECT jsonb_build_array(p.name, p.nationality, i.team_id, i.league_id, i.position)
+                    FROM public.players p LEFT JOIN public.player_current_identity i ON i.player_id=p.id AND i.sport=p.sport
+                    WHERE p.id=$2 AND p.sport=$3)
+                WHEN 'person' THEN (SELECT jsonb_build_array(full_name,kind,team_id) FROM public.persons WHERE id=$2 AND sport=$3)
+                WHEN 'team' THEN (SELECT jsonb_build_array(t.name,t.league_id,t.venue_name,
+                    (SELECT jsonb_agg(jsonb_build_array(p.id,p.full_name,p.kind) ORDER BY p.id) FROM public.persons p
+                      WHERE p.team_id=t.id AND p.sport=t.sport AND p.kind='coach'))
+                    FROM public.teams t WHERE t.id=$2 AND t.sport=$3)
+            END,
+            'facts', (SELECT jsonb_agg(jsonb_build_array(fact_type,value) ORDER BY fact_type,value)
+                FROM (SELECT DISTINCT fact_type, COALESCE(value_text,value_jsonb::text) AS value
+                FROM public.entity_facts WHERE entity_type=$1 AND entity_id=$2 AND sport=$3 AND state='active'
+                AND (valid_from IS NULL OR valid_from<=NOW()) AND (valid_to IS NULL OR valid_to>NOW())
+                AND fact_type IN ('role','team_affiliation','playing_status','date_of_birth')) facts)
+        )::text"#,
+    ).bind(entity_type).bind(entity_id).bind(sport.to_uppercase()).fetch_one(pool).await?;
+    let mut value: serde_json::Value = serde_json::from_str(components)?;
+    value["entity_identity"] = serde_json::from_str(&version)?;
+    Ok(value.to_string())
+}
 
 /// load_identity_card renders the entity's house-record identity line for the prompts: who
-/// this is, where they play, and (teams) the coach on record. Prompt-only and deliberately
-/// OUTSIDE every input_hash — identity context frames the read, it is not evidence, and a
-/// records sync must not reopen a fleet (the same treatment as relational memory).
+/// this is, where they play, and (teams) the coach on record.
+/// Shared by article extraction, transfer verification and card writers. Database errors
+/// propagate; a failed metadata read must not silently produce a context-free answer.
 ///
 /// `None` when the entity is unknown — an absent card is honest; an empty one is noise.
 pub async fn load_identity_card(
+    pool: &sqlx::PgPool,
+    entity_type: &str,
+    entity_id: i32,
+    sport: &str,
+) -> anyhow::Result<Option<String>> {
+    Ok(load_identity_record(pool, entity_type, entity_id, sport)
+        .await?
+        .map(|record| format!("{IDENTITY_CARD_FRAMING}\n{record}")))
+}
+
+/// A compact descriptor for numbered candidate lists; framing belongs once above the list.
+pub async fn load_identity_record(
     pool: &sqlx::PgPool,
     entity_type: &str,
     entity_id: i32,
@@ -252,16 +297,14 @@ pub async fn load_identity_card(
         "player" => {
             let row = sqlx::query(
                 r#"
-                SELECT p.name, p.nationality,
+                SELECT p.name, p.nationality, pci.source, pci.source_updated_at::date::text AS observed_at,
                        t.name AS team_name,
                        l.name AS league_name,
-                       (SELECT ps.position FROM public.player_stats ps
-                         WHERE ps.player_id = p.id AND ps.sport = p.sport
-                           AND ps.position IS NOT NULL
-                         ORDER BY ps.season DESC LIMIT 1) AS position
+                       pci.position
                   FROM public.players p
-                  LEFT JOIN public.teams t ON t.id = p.team_id AND t.sport = p.sport
-                  LEFT JOIN public.leagues l ON l.id = COALESCE(p.league_id, t.league_id) AND l.sport = p.sport
+                  LEFT JOIN public.player_current_identity pci ON pci.player_id = p.id AND pci.sport = p.sport
+                  LEFT JOIN public.teams t ON t.id = pci.team_id AND t.sport = p.sport
+                  LEFT JOIN public.leagues l ON l.id = COALESCE(pci.league_id, t.league_id) AND l.sport = p.sport
                  WHERE p.id = $1 AND p.sport = $2
                 "#,
             )
@@ -284,13 +327,62 @@ pub async fn load_identity_card(
                 if let Some(nat) = r.get::<Option<String>, _>("nationality") {
                     line.push_str(&format!(". Nationality: {nat}"));
                 }
+                if let Some(source) = r.get::<Option<String>, _>("source") {
+                    line.push_str(&format!(". Record: {source}"));
+                }
+                if let Some(date) = r.get::<Option<String>, _>("observed_at") {
+                    line.push_str(&format!("; observed {date}"));
+                }
                 line.push('.');
                 line
             })
         }
+        "person" => {
+            let row: Option<(String, String, Option<String>, Option<String>)> = sqlx::query_as(
+                "SELECT p.full_name, p.kind, t.name, left(p.meta->>'affiliation_checked_at',10)
+                   FROM public.persons p
+                   LEFT JOIN public.teams t ON t.id = p.team_id AND t.sport = p.sport
+                  WHERE p.id = $1 AND p.sport = $2",
+            )
+            .bind(entity_id)
+            .bind(&sport_uc)
+            .fetch_optional(pool)
+            .await?;
+            row.map(|(name, role, team, checked)| {
+                format!(
+                    "{name} — {role}; club: {}; checked: {}.",
+                    team.as_deref().unwrap_or("unknown"),
+                    checked.as_deref().unwrap_or("unknown"),
+                )
+            })
+        }
         _ => None,
     };
-    Ok(card.map(|c| format!("{IDENTITY_CARD_FRAMING}\n- {c}")))
+    let Some(mut card) = card else {
+        return Ok(None);
+    };
+    // Only active, currently applicable facts; retain their dates and source IDs so a
+    // model can distinguish an old observation from current reporting.
+    let facts: Vec<(String, String, String, i64)> = sqlx::query_as(
+        "SELECT DISTINCT ON (fact_type, COALESCE(value_text, value_jsonb::text, 'unknown'))
+                fact_type, COALESCE(value_text, value_jsonb::text, 'unknown'),
+                COALESCE(valid_from, created_at)::date::text, source_document_id
+           FROM public.entity_facts
+          WHERE entity_type = $1 AND entity_id = $2 AND sport = $3 AND state = 'active'
+            AND (valid_from IS NULL OR valid_from <= NOW())
+            AND (valid_to IS NULL OR valid_to > NOW())
+            AND fact_type IN ('role', 'team_affiliation', 'playing_status', 'date_of_birth')
+          ORDER BY fact_type, COALESCE(value_text, value_jsonb::text, 'unknown'), created_at DESC, id DESC",
+    )
+    .bind(entity_type)
+    .bind(entity_id)
+    .bind(&sport_uc)
+    .fetch_all(pool)
+    .await?;
+    for (kind, value, date, source) in facts {
+        card.push_str(&format!("\n{kind}: {value} [{date}; source {source}]"));
+    }
+    Ok(Some(card))
 }
 
 #[cfg(test)]

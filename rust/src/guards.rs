@@ -69,7 +69,7 @@ pub fn first_banned_phrase(prose: &str, list: &[&'static str]) -> Option<&'stati
 }
 
 /// Maximum card-title length in characters.
-const HOOK_MAX_CHARS: usize = 140;
+const HOOK_MAX_CHARS: usize = crate::junctions::form::HOOK_MAX_CHARS;
 
 /// Return the stable telemetry key when a card title exceeds [`HOOK_MAX_CHARS`]. Colons and
 /// question marks are voice, not violations.
@@ -77,21 +77,6 @@ pub fn hook_violation(hook: &str) -> Option<&'static str> {
     // chars(), not len(): a byte count would penalise the accented club names the five European
     // leagues are full of — "Atlético", "Beşiktaş" — for being spelled correctly.
     (hook.chars().count() > HOOK_MAX_CHARS).then_some("hook_max_words")
-}
-
-/// Trim an overlong two-beat title to its first complete beat. Returns a title only when the
-/// original violates the contract and the result has at least four words.
-pub fn salvage_hook(hook: &str) -> Option<String> {
-    hook_violation(hook)?;
-    // Salvage runs only for an already-invalid title, so integral conjunctions in valid titles
-    // are never touched.
-    const SEPS: [&str; 6] = ["\u{2014}", "\u{2013}", ", but ", ", and ", "; ", ": "];
-    let cut = SEPS.iter().filter_map(|s| hook.find(s)).min()?;
-    let head = hook[..cut]
-        .trim()
-        .trim_end_matches([',', ';', ':', '?', '.', ' '])
-        .to_string();
-    (head.split_whitespace().count() >= 4 && hook_violation(&head).is_none()).then_some(head)
 }
 
 /// Remove matched `<...>` template spans copied from an output contract. A stray `<` without a
@@ -242,134 +227,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn self_review_truncates_at_the_measured_markers() {
-        // The three shapes measured live on 2026-08-25 (ctx_ab probes), verbatim heads.
-        let note = "The crowd holds its breath, not from fear. (Note: This stays within 6 \
-                    sentences, present tense, names real players.)";
-        assert_eq!(
-            truncate_self_review(note),
-            "The crowd holds its breath, not from fear."
-        );
-        let but_wait = "No drama, just the quiet tension of a story. But wait—this doesn’t \
-                        quite fit the required format or tone. Let me tighten it.";
-        assert_eq!(
-            truncate_self_review(but_wait),
-            "No drama, just the quiet tension of a story."
-        );
-        let restate = "He’s still the anchor. But the card must stay tight: SCORE: 35 VIBE: \
-                       The room is holding its breath.";
-        assert_eq!(truncate_self_review(restate), "He’s still the anchor.");
-        // Earliest marker wins when several appear.
-        let both = "Solid start. Check format: within limits.";
-        assert_eq!(truncate_self_review(both), "Solid start.");
-        let prose_note = "The room stays warm.\n\nNote: The body prose is written as natural, plain language without labels.";
-        assert_eq!(truncate_self_review(prose_note), "The room stays warm.");
-    }
-
-    #[test]
-    fn self_review_leaves_honest_prose_alone() {
-        for s in [
-            "But wait, this is where the comeback begins.",
-            "(Note: the match ended 2–1.) A narrow win still counts.",
-            "Let me revise that prediction: the reported injury changes the picture.",
-            "But wait — the third act of this transfer saga is still unwritten.",
-            "The count matters: three wins from three, and the away end knows it.",
-            "A revised deal reached the table on Friday, per the Athletic.",
-            "He checks his runs, notes the keeper's line, and finishes low.",
-        ] {
-            assert_eq!(truncate_self_review(s), s);
-        }
-    }
-
-    #[test]
-    fn self_review_opening_marker_empties_the_body_for_the_retry_path() {
-        assert_eq!(truncate_self_review("Check format: entirely meta."), "");
-        assert_eq!(clean_served_prose("**Check format: bolded meta.**"), "");
-    }
-
-    #[test]
-    fn clean_served_prose_strips_then_truncates() {
-        // Marker arrives BOLDED: emphasis strip must run first or the marker hides.
-        let s = "The bench holds space.\n**But wait—this** doesn't fit the rules.";
-        assert_eq!(clean_served_prose(s), "The bench holds space.");
-    }
-
-    #[test]
-    fn an_exact_double_collapses_and_near_doubles_do_not() {
-        // The team:14 momentum shape, measured 2026-08-25: the whole READ repeated inline.
-        let double = "The form is flat, and the mood is drifting up. The tape shows steady \
-                      progress. The form is flat, and the mood is drifting up. The tape shows \
-                      steady progress.";
-        assert_eq!(
-            clean_served_prose(double),
-            "The form is flat, and the mood is drifting up. The tape shows steady progress."
-        );
-        // One changed word = not a double = untouched.
-        let near = "The room waits for a sign. The room waits for the sign.";
-        assert_eq!(clean_served_prose(near), near);
-        // A short deliberate refrain stays (under the 8-word floor).
-        assert_eq!(
-            clean_served_prose("So it holds. So it holds."),
-            "So it holds. So it holds."
-        );
-    }
-
-    #[test]
-    fn form_scaffolding_labels_are_stripped_and_meta_parens_truncate() {
-        // Measured on the 2026-08-25 deck probes, the day THE STORY FORM shipped.
-        let s = "Claim: tension, carried by the back line.\nEvidence: three defeats and a silent bench.\nClose: the room braces for the opener.";
-        assert_eq!(
-            clean_served_prose(s),
-            "tension, carried by the back line.\nthree defeats and a silent bench.\nthe room braces for the opener."
-        );
-        let inline = "Claim: The room warms. Evidence: The away end sings. Support: The noise holds. Summary: Belief is rising.";
-        assert_eq!(
-            clean_served_prose(inline),
-            "The room warms. The away end sings. The noise holds. Belief is rising."
-        );
-        let paragraph = "The room warms as the away end sings, and belief keeps rising.";
-        assert_eq!(
-            clean_served_prose(&format!("{paragraph}\n\n{paragraph}")),
-            paragraph
-        );
-        assert_eq!(
-            clean_served_prose("Ipswich Town holds steady. The hook is steady."),
-            "Ipswich Town holds steady."
-        );
-        let meta = "The room leans forward, steady and alert.\n\n(One paragraph — claim, evidence, close — as required.)";
-        assert_eq!(
-            clean_served_prose(meta),
-            "The room leans forward, steady and alert."
-        );
-        // Mid-sentence form words are prose, not scaffolding — untouched.
-        let honest = "Their claim to the title rests on the evidence of April.";
-        assert_eq!(clean_served_prose(honest), honest);
-    }
-
-    #[test]
-    fn prompt_echo_truncates_at_the_measured_markers() {
-        // The Chelsea team:18 shape, measured 2026-09-05: felt read, then the
-        // briefing transcribed — narratives block, transfer temperature,
-        // relational memory — all verbatim prompt scaffolding.
-        let s = "The trophy promise remains unbroken, a quiet conviction in every pass.\n\n\
-                 Narratives forming around them (ordered by relevance/topic heat; impact in brackets): - [55, Heating up] …";
-        assert_eq!(
-            truncate_prompt_echo(s),
-            "The trophy promise remains unbroken, a quiet conviction in every pass."
-        );
-        // The highest-frequency marker (710 bodies over 14 days).
-        let s = "No noise. Only consistency.\n\nThe stories running around them right now (assembled from the reads …): …";
-        assert_eq!(truncate_prompt_echo(s), "No noise. Only consistency.");
-        // A body that OPENS with echo empties — the caller re-rolls it.
-        let s = "Transfer/trade chatter — the TEMPERATURE only; the wire itself is another desk's card: - warm";
-        assert_eq!(truncate_prompt_echo(s), "");
-        // Honest prose about the wire survives: the markers are the prompt's
-        // exact scaffolding phrases, not topic words.
-        let honest = "The chatter around the club is warm, and the room leans in.";
-        assert_eq!(truncate_prompt_echo(honest), honest);
-    }
-
-    #[test]
     fn product_names_are_case_sensitive() {
         assert_eq!(first_product_name("at the peak of his powers"), None);
         assert_eq!(first_product_name("the PEAK confirms it"), Some("PEAK"));
@@ -482,45 +339,6 @@ mod tests {
         assert_eq!(hook_violation(&accented), None);
     }
 
-    /// Salvage after the 140-char rule (2026-08-24). Its whole job narrowed with the guard: it
-    /// used to rescue thirteen-word overruns, em-dash twists ending in a question, and colon
-    /// labels — **all of which are now legal titles that ship untouched.** What is left is the
-    /// genuinely overlong hook, trimmed at its first beat.
-    #[test]
-    fn salvage_trims_only_a_genuinely_overlong_hook() {
-        // Every specimen the old test salvaged is CLEAN now and must be returned untouched.
-        for legal in [
-            "Trent\u{2019}s old fire is fading into the quiet, but the crowd still remembers",
-            "The 76ers\u{2019} superteam hums with ego and chaos\u{2014}who\u{2019}s the only name that could finally silence it?",
-            "Breaking: a move",
-            "Is he done?",
-            "Vale sits while the room questions his future",
-        ] {
-            assert_eq!(salvage_hook(legal), None, "clean hook was touched: {legal}");
-        }
-
-        // Over 140 chars WITH a beat separator: trimmed to the first beat.
-        let long_two_beat = format!(
-            "{}, but the crowd still remembers every last one of them and will not soon forget",
-            "Trent\u{2019}s old fire is fading into the quiet of a season nobody enjoyed watching"
-        );
-        assert!(long_two_beat.chars().count() > 140);
-        assert_eq!(
-            salvage_hook(&long_two_beat),
-            Some(
-                "Trent\u{2019}s old fire is fading into the quiet of a season nobody enjoyed watching"
-                    .to_string()
-            )
-        );
-
-        // Over 140 chars with NO beat to cut: not salvageable, retries as before.
-        let long_single_beat = "x".repeat(200);
-        assert_eq!(salvage_hook(&long_single_beat), None);
-
-        // A trim that would leave a fragment is refused rather than shipped.
-        assert_eq!(salvage_hook(&format!("Yes, but {}", "x".repeat(200))), None);
-    }
-
     #[test]
     fn fold_for_match_leaves_dashes_and_ordinary_text_alone() {
         assert_eq!(fold_for_match("A\u{2014}B"), "a\u{2014}b");
@@ -550,138 +368,15 @@ mod tests {
 // The served-prose pipeline shared by every voice.
 // ---------------------------------------------------------------------------
 
-/// clean_served_prose is the scrub every served prose field passes through.
-///
-/// Strips cosmetic markup and scaffold labels instead of rejecting an otherwise usable card.
+/// Normalize typography only. Content and sentence boundaries belong to the model.
 pub fn clean_served_prose(s: &str) -> String {
-    // Template spans go first: a `<two to four sentences>` fill is notation, and the label
-    // strip below reasons line-by-line while a span may cross a line.
-    let s = strip_template_spans(s);
-    let stripped = s
-        .lines()
-        .map(|l| {
-            let l = crate::util::strip_markdown_emphasis(l);
-            // Form labels are structure, not served prose. Small models sometimes put every
-            // label on its own line and sometimes run them together after normalization, so
-            // remove the exact scaffold tokens wherever they occur. Ordinary lower-case prose
-            // about a claim, evidence or summary remains untouched.
-            let original_len = l.len();
-            let mut clean = l;
-            for label in ["Claim:", "Evidence:", "Support:", "Summary:", "Close:"] {
-                clean = clean.replace(label, "");
-            }
-            if clean.len() == original_len {
-                clean
-            } else {
-                clean.split_whitespace().collect::<Vec<_>>().join(" ")
-            }
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
-    collapse_exact_double(truncate_self_review(&stripped).trim())
-}
-
-/// A body that is exactly two identical halves collapses to one. Word-exact halves only:
-/// no honest prose is a perfect double of itself,
-/// so the check cannot fire on a deliberate refrain, and anything short of exact stays
-/// untouched. Runs after the self-review truncation, whose markers introduce most restatements.
-fn collapse_exact_double(prose: &str) -> String {
-    let words: Vec<&str> = prose.split_whitespace().collect();
-    let n = words.len();
-    if n >= 8 && n.is_multiple_of(2) && words[..n / 2] == words[n / 2..] {
-        // Rebuild from the ORIGINAL text so intra-half newlines survive: cut at the byte
-        // offset where the second half's first word begins.
-        let mut seen = 0usize;
-        let mut cut = prose.len();
-        let mut in_word = false;
-        for (i, c) in prose.char_indices() {
-            if c.is_whitespace() {
-                in_word = false;
-            } else if !in_word {
-                in_word = true;
-                if seen == n / 2 {
-                    cut = i;
-                    break;
-                }
-                seen += 1;
-            }
-        }
-        return prose[..cut].trim_end().to_string();
-    }
-    prose.to_string()
-}
-
-/// Remove explicit output-format self-review, preserving ordinary narrative asides.
-pub fn truncate_self_review(prose: &str) -> &str {
-    const SELF_REVIEW_MARKERS: &[&str] = &[
-        "(Note: This stays within",
-        "(One paragraph — claim, evidence, close",
-        "(Blank line before next paragraph",
-        "But wait—this doesn’t quite fit the required format",
-        "But wait—this doesn't fit the rules",
-        "But the card must stay tight:",
-        "Now check constraints",
-        "Now check the constraints",
-        "Check format:",
-        "Check character counts",
-        "Count characters:",
-        "Count words:",
-        "Note: The body prose",
-        "The hook is",
-        "The headline is",
-        "Revised VIBE:",
-        "Revised READ:",
-        "Revised HOOK:",
-        "Revised final output:",
-    ];
-    let cut = SELF_REVIEW_MARKERS
-        .iter()
-        .filter_map(|m| prose.find(m))
-        .min();
-    match cut {
-        Some(i) => prose[..i].trim_end(),
-        None => prose,
-    }
-}
-
-/// Where a vibe body stops speaking and starts ECHOING its own prompt, cut it there.
-///
-/// Same treatment and admission rule as [`truncate_self_review`]: markers are exact phrases
-/// from prompt scaffolding that no honest felt read would
-/// ever say; the list grows only from observed output. Everything before the first marker is
-/// the card the seat intended. A body that OPENS with a marker truncates to empty and the
-/// caller fails it into a retry.
-///
-/// Kept OUT of `clean_served_prose` deliberately: these phrases are the INFLUENCER's prompt
-/// vocabulary. On her card they are unambiguous echo; on another seat's card a phrase like
-/// "transfer/trade chatter" could be honest prose, so the vibe parser applies this itself.
-pub fn truncate_prompt_echo(prose: &str) -> &str {
-    const PROMPT_ECHO_MARKERS: &[&str] = &[
-        "The stories running around them",
-        "MOOD is the charge",
-        "Narratives forming around them",
-        "ordered by relevance/topic heat",
-        "Transfer/trade chatter",
-        "the TEMPERATURE only",
-        "Relational memory (",
-        "use for arc and continuity",
-        "PREVIOUS VIBE",
-        "Respond now (SCORE",
-    ];
-    let cut = PROMPT_ECHO_MARKERS
-        .iter()
-        .filter_map(|m| prose.find(m))
-        .min();
-    match cut {
-        Some(i) => prose[..i].trim_end(),
-        None => prose,
-    }
+    crate::junctions::form::normalize_body(&crate::util::strip_markdown_emphasis(s))
 }
 
 /// settle_title applies the card-title contract and returns what should SHIP.
 ///
-/// `Some(title)` when it is clean, `Some(first beat)` when a two-beat title salvages, and `None`
-/// when it cannot — never an error. **A junk title costs the title, never the card**, which is
+/// `Some(title)` when it fits, and `None`
+/// when it does not — never an error. **A junk title costs the title, never the card**, which is
 /// the rule the Analyst reached at s18 ("a junk TITLE never kills it") and the Scout and
 /// Influencer each reached later and separately.
 ///
@@ -703,22 +398,15 @@ pub fn settle_title(seat: &str, raw: Option<&str>) -> Option<String> {
     }
     match hook_violation(t) {
         None => Some(t.to_string()),
-        Some(rule) => match salvage_hook(t) {
-            Some(beat) => {
-                tracing::info!(seat, guard = rule, title = t, salvaged = %beat,
-                    "title salvaged to first beat");
-                Some(beat)
-            }
-            None => {
-                tracing::warn!(
-                    seat,
-                    guard = rule,
-                    title = t,
-                    "title dropped (card ships without one)"
-                );
-                None
-            }
-        },
+        Some(rule) => {
+            tracing::warn!(
+                seat,
+                guard = rule,
+                title = t,
+                "title dropped (card ships without one)"
+            );
+            None
+        }
     }
 }
 
@@ -751,9 +439,11 @@ mod served_prose_tests {
     }
 
     #[test]
-    fn clean_served_prose_strips_template_spans() {
-        let got = clean_served_prose("The mood wobbles day to day. <two to four sentences>");
-        assert_eq!(got, "The mood wobbles day to day.");
+    fn normalization_preserves_every_sentence_and_paragraph() {
+        let prose = "The headline is a distraction.\n\nClaim: the result still matters.";
+        assert_eq!(clean_served_prose(prose), prose);
+        let double = "The room waits for a sign. The room waits for a sign.";
+        assert_eq!(clean_served_prose(double), double);
     }
 
     #[test]

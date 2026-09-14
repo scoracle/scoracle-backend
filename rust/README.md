@@ -4,6 +4,13 @@ Rust Cognition Harness for Scoracle: the AI derivation layer that empowers local
 
 This folder is not a side experiment. It is the production cognition layer for Scoracle.
 
+**Current handoff — Voice / Form / Context (2026-09-14):** start with
+[the context-package plan](../planning_docs/PLAN-voice-form-context.md).
+Voice and the tarot surface are settled for this phase; next design the shared
+identity, sporting-time, and memory package. The local output/data-contract repairs
+are tested but not deployed. The plan records evidence, release constraints, and
+the exact starting task for a fresh session in this folder.
+
 Post the **Step-3 cutover (2026-06-28)**, the **junctions refactor**, and the **Phase-9 demolition
 (2026-08-08)**, Rust owns every LLM stage, organized as CHARACTER JUNCTIONS (`src/junctions/`):
 
@@ -16,15 +23,15 @@ Post the **Step-3 cutover (2026-06-28)**, the **junctions refactor**, and the **
 
 **The prompt architecture:** `src/junctions/form.rs` owns the shared form and
 parser-compatible output contracts. The reader sees a hook of at most 140 characters
-and a body with one paragraph per supported claim: claim, evidence (one sentence per
-piece), then a summary. Evidence determines the paragraph count; ordinary or unchanged
-is a valid claim. Each character's `prompt.rs` holds a 100–200 word brief and version;
+and a body of at most 1,200 characters. The model chooses how to connect supported
+findings into a story; ordinary or unchanged is a valid claim.
+Each character's `prompt.rs` holds a short brief and version, without a minimum word count;
 `inputs.rs` supplies evidence and continuity. Retired instructions belong in Git history.
 The Insider's extraction and identity contracts live in `verification.rs`.
 
-Form prompts provide the outline for the models to color in. Character prompts
-provide the colors. The model does the actual expression of both: choosing language,
-images, rhythm, and emphasis that bring the evidence to life.
+Form defines the canvas. Character prompts provide the colors. Context supplies
+the entity's identity, circumstances, memories, and evidence. The model chooses
+language, rhythm, and emphasis that bring that evidence to life.
 
 Use this question when adding or reviewing any prompt, input instruction, guard, or
 evaluation rule:
@@ -63,6 +70,11 @@ scopes; a prompt cannot supply missing evidence.
 Automated checks cover mechanical contracts; review live outputs for grounded claims
 and character expression. Keyword bans cannot establish whether an interpretation
 follows the evidence.
+
+A card's surface is independent of its runtime token ceiling. All writers request
+structured JSON; incomplete completions and surface overruns get one bounded rewrite,
+then ordinary queue backoff. Code does not cut the prose to fit. The metadata ownership
+and refresh convention is documented in [Card output and entity context](../docs/cognition-output.md).
 
 A new model drops into four layers that move independently: engine
 (`COGNITION_ROUTE_*` env, adopted only on a fixture-gate win), structure (`form.rs`), voice

@@ -234,13 +234,37 @@ pub fn build_stat_prompt(
         });
         if !movements.is_empty() {
             b.push_str("Compatible cross-season measurements (same measure; the stated direction is arithmetic relative percentile standing, not ability). Use only these stated directions; a measure absent from this block has no supported direction:\n");
+            let shown = movements
+                .iter()
+                .take(MAX_COMPARISON_FACTS)
+                .map(|movement| movement.0)
+                .collect::<std::collections::HashSet<_>>();
             for (label, current_pct, prior_pct, delta) in
-                movements.into_iter().take(MAX_COMPARISON_FACTS)
+                movements.iter().copied().take(MAX_COMPARISON_FACTS)
             {
                 b.push_str(&format!(
                     "- {label}: prior {prior_pct:.1}; current {current_pct:.1}; {}\n",
                     relative_standing(delta)
                 ));
+            }
+            let mut held = movements
+                .iter()
+                .copied()
+                .filter(|movement| movement.3.abs() <= 1.0 && !shown.contains(movement.0))
+                .collect::<Vec<_>>();
+            held.sort_by(|a, b| {
+                b.1.partial_cmp(&a.1)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+                    .then_with(|| a.0.cmp(b.0))
+            });
+            if !held.is_empty() {
+                b.push_str("Compatible held anchors (same measure, within one percentile point). Describe these as held; their current quality band is not evidence that they improved or declined:\n");
+                for (label, current_pct, prior_pct, delta) in held.into_iter().take(2) {
+                    b.push_str(&format!(
+                        "- {label}: prior {prior_pct:.1}; current {current_pct:.1}; {}\n",
+                        relative_standing(delta)
+                    ));
+                }
             }
         }
     }

@@ -203,6 +203,42 @@ fn comparison_block_orders_compatible_movements_by_magnitude() {
     assert!(prompt.contains("Use only these stated directions"));
 }
 
+#[test]
+fn comparison_block_foregrounds_held_anchors_beyond_the_change_limit() {
+    let labels = ["Rise A", "Rise B", "Fall A", "Fall B", "Held Elite"];
+    let current = nfl_profile(
+        "Center",
+        labels
+            .iter()
+            .zip([90.0, 80.0, 20.0, 30.0, 99.0])
+            .map(|(label, pct)| dp(label, 1.0, 0.0, pct, 1))
+            .collect(),
+    );
+    let prior = nfl_profile(
+        "Center",
+        labels
+            .iter()
+            .zip([10.0, 20.0, 80.0, 70.0, 99.2])
+            .map(|(label, pct)| dp(label, 1.0, 0.0, pct, 1))
+            .collect(),
+    );
+    let changes = build_skill_changes(&current, &prior);
+    let prompt = build_stat_prompt(
+        &req("NBA", "player", "Test Player"),
+        &current,
+        None,
+        Some(&changes),
+        None,
+        None,
+        None,
+    );
+    assert!(prompt.contains("Compatible held anchors"));
+    assert!(prompt.contains(
+        "- Held Elite: prior 99.2; current 99.0; relative standing held within one percentile point (-0.2)"
+    ));
+    assert!(prompt.contains("current quality band is not evidence"));
+}
+
 fn dp(label: &str, value: f64, z: f64, pct: f64, sign: i32) -> RatingDatapoint {
     RatingDatapoint {
         label: label.to_string(),

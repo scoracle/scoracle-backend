@@ -1647,6 +1647,10 @@ fn thin_current_sample_withholds_directional_cross_season_claims() {
     assert!(prompt.contains("fewer than 10 appearances"));
     assert!(prompt.contains("no cross-season change was computed"));
     assert!(prompt.contains("Do not claim improvement, decline, stability"));
+    assert!(prompt.contains("stored snapshot records"));
+    assert!(prompt.contains("Keep weighted measures intact"));
+    assert!(prompt.contains("expected goals (xG) with shooting"));
+    assert!(prompt.contains("use each printed percentile band exactly"));
 
     p.sample.insert("appearances".to_string(), 10.0);
     assert!(inputs::supports_cross_season_comparison(&p));

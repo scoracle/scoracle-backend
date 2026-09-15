@@ -311,7 +311,7 @@ pub fn build_stat_prompt(
     if one_appearance_sample {
         b.push_str("\nEvidence boundary for this output: the stored current sample has at most one appearance. It is source coverage, not proof of actual or limited playing time. Attributed reports may describe other fixtures or competitions; do not merge them into the stored appearance or aggregate without a verified fixture link. Do not calculate unstated values or describe improvement, decline or stability across seasons. Center the reading on the separately attributed current actions and state that a directional comparison is unsupported.\n");
     } else if appearances.is_some_and(|n| n < MIN_CROSS_SEASON_APPEARANCES) {
-        b.push_str("\nEvidence boundary for this output: the current sample has fewer than 10 appearances, so no cross-season change was computed. Describe the current snapshot and separately attributed reports. Do not claim improvement, decline, stability, changed ability, changed role, reduced minutes, fitness or tactical causes across seasons.\n");
+        b.push_str("\nEvidence boundary for this output: the current sample has fewer than 10 appearances, so no cross-season change was computed. Describe the current snapshot and separately attributed reports. Do not claim improvement, decline, stability, changed ability, changed role, reduced minutes, fitness or tactical causes across seasons. Qualify every appearance or minute count as what the stored snapshot records. Keep weighted measures intact rather than inventing their components. Keep expected goals (xG) with shooting, expected assists (xA) with chance creation, and use each printed percentile band exactly.\n");
     }
 
     b

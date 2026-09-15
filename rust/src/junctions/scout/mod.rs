@@ -38,7 +38,7 @@ pub use crate::evidence::personnel::{
 pub use inputs::{build_stat_prompt, render_personnel_block, render_scout_reports};
 
 /// Output contract captured separately in the diagnostic ledger.
-pub const RATING_OUTPUT_CONTRACT_VERSION: &str = "rating-commentary-v4";
+pub const RATING_OUTPUT_CONTRACT_VERSION: &str = "rating-commentary-v5";
 
 const RATING_LEDGER: LedgerSpec = LedgerSpec {
     stage: "rating",
@@ -1242,19 +1242,27 @@ fn first_direction_contradiction(
         .flat_map(|clause| clause.split(" and "))
         .collect::<Vec<_>>();
     for (label, expected) in directions {
-        let label_folded = label.to_lowercase();
         for clause in clauses
             .iter()
-            .filter(|clause| clause.contains(&label_folded))
+            .filter(|clause| mentions_direction_label(clause, label))
         {
             let has_positive = POSITIVE.iter().any(|stem| clause.contains(stem));
             let has_negative = NEGATIVE.iter().any(|stem| clause.contains(stem));
+            let has_stable = ["consistent", "held", "stable", "stayed", "unchanged"]
+                .iter()
+                .any(|stem| clause.contains(stem));
             match expected {
                 RelativeDirection::Rose if has_negative => {
                     return Some((label.clone(), "fell", "rose"));
                 }
                 RelativeDirection::Fell if has_positive => {
                     return Some((label.clone(), "rose", "fell"));
+                }
+                RelativeDirection::Rose if has_stable => {
+                    return Some((label.clone(), "held", "rose"));
+                }
+                RelativeDirection::Fell if has_stable => {
+                    return Some((label.clone(), "held", "fell"));
                 }
                 RelativeDirection::Held if has_positive || has_negative => {
                     return Some((label.clone(), "changed", "held"));
@@ -1264,6 +1272,17 @@ fn first_direction_contradiction(
         }
     }
     None
+}
+
+fn mentions_direction_label(clause: &str, label: &str) -> bool {
+    let folded = label.to_lowercase();
+    if clause.contains(&folded) {
+        return true;
+    }
+    folded.split_whitespace().any(|word| {
+        let stem = word.strip_suffix("ing").unwrap_or(word);
+        stem.len() >= 5 && clause.contains(stem)
+    })
 }
 
 fn has_internal_form_contradiction(body: &str) -> bool {

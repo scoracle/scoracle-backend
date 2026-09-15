@@ -1006,6 +1006,19 @@ fn request_parser_rewrites_reversed_comparison_direction() {
         .parse(r#"{"headline":"Clingan's profile","body":"Scoring, steals, and playmaking are below average, with relative standing improving across these areas."}"#)
         .unwrap_err();
     assert!(grouped.to_string().contains("Steals rose"));
+
+    let stable_rebounder_directions =
+        BTreeMap::from([("Rebounding".into(), RelativeDirection::Rose)]);
+    let stable_rebounder = RatingRequestParser::new(
+        "Rebounding comparison supplied.",
+        &stable_rebounder_directions,
+        &bands,
+    )
+    .parse(r#"{"headline":"Holmgren profile","body":"He remains a consistent rebounder."}"#)
+    .unwrap_err();
+    assert!(stable_rebounder
+        .to_string()
+        .contains("says Rebounding held"));
 }
 
 #[test]

@@ -186,7 +186,7 @@ async fn extract_with_backend<T, P: Parser<T>>(
     parser: &P,
 ) -> Result<Extracted<T>> {
     let mut built_prompt = prompt.to_string();
-    for attempt in 0..2 {
+    for attempt in 0..3 {
         let result = async {
             let (gen, request_body) = backend
                 .generate(&built_prompt, opts)
@@ -198,7 +198,7 @@ async fn extract_with_backend<T, P: Parser<T>>(
         .await;
         let (gen, request_body, value) = match result {
             Ok(result) => result,
-            Err(error) if attempt == 0 && error.is::<crate::composition::form::SurfaceError>() => {
+            Err(error) if attempt < 2 && error.is::<crate::composition::form::SurfaceError>() => {
                 tracing::warn!(%error, "card surface rewrite");
                 built_prompt.push_str(&format!(
                     "\nOutput correction: {error} Rewrite from scratch as one compact paragraph. Keep only the main finding and one supporting detail. Target at most 500 body characters so the complete JSON fits. Do not enumerate every input."
@@ -206,7 +206,7 @@ async fn extract_with_backend<T, P: Parser<T>>(
                 continue;
             }
             Err(error)
-                if attempt == 0
+                if attempt < 2
                     && error.is::<crate::runtime::providers::ollama::IncompleteOutput>() =>
             {
                 tracing::warn!(%error, "incomplete output rewrite");
@@ -303,6 +303,7 @@ mod surface_tests {
         let backend = Backend(Mutex::new(vec![
             "x".repeat(1201),
             "x".repeat(1201),
+            "x".repeat(1201),
             "unused".into(),
         ]));
         assert!(
@@ -311,6 +312,26 @@ mod surface_tests {
                 .is_err()
         );
         assert_eq!(backend.0.lock().unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn a_second_surface_failure_gets_one_final_bounded_rewrite() {
+        let opts = GenerateOptions {
+            num_ctx: 4096,
+            num_predict: 700,
+            ..Default::default()
+        };
+        let backend = Backend(Mutex::new(vec![
+            "x".repeat(1201),
+            "x".repeat(1201),
+            "The measured creation is strong.".into(),
+        ]));
+        let result = extract_with_backend(&backend, "Original evidence", &opts, &BodyParser)
+            .await
+            .unwrap();
+        assert!(backend.0.lock().unwrap().is_empty());
+        assert_eq!(result.built_prompt.matches("Output correction:").count(), 2);
+        assert_eq!(result.raw_response, "The measured creation is strong.");
     }
 }
 

@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict njVrzVZUtLKPxeD7dqVW9C993dMfcLCe8Hcgwgdsytc1ltYqQ12lDlUxHhfxEDa
+\restrict 8M9vyHscBu1NBom0iVikjIPwQ3iibnmtaVVcPo5y3U0p4RVPWq4aqqa89Sk40sU
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -1128,7 +1128,7 @@ CREATE FUNCTION public._compute_rating_bundle(p_sport text, p_season integer, p_
     -- never below 1, capped at the configured floor. Early season rates on
     -- thin evidence rather than not at all; the configured value takes over
     -- once the cohort has 2x that many appearances.
-    eff AS (
+    eff AS MATERIALIZED (
         SELECT rt.stat_key,
                LEAST(rt.min_value, GREATEST(1, ceil(0.5 * COALESCE((
                    SELECT MAX(NULLIF(ps2.stats->>rt.stat_key,'')::numeric)
@@ -1140,7 +1140,7 @@ CREATE FUNCTION public._compute_rating_bundle(p_sport text, p_season integer, p_
     dp AS (
         SELECT ps.player_id, COALESCE(ps.league_id, 0) AS league_id, ps.position,
                tm.conference, tm.division,
-               d.label, d.value, d.in_comp, d.in_spec, d.sign, d.facet,
+               d.label, d.measure, d.value, d.in_comp, d.in_spec, d.sign, d.facet,
                -- Phase 2: TAG eligibility instead of filtering it out. Sub-gate players
                -- still produce datapoints (for their breakdown); pop/ranks/scoped below
                -- use `WHERE is_ranked` so the rated cohort is unchanged.
@@ -1157,7 +1157,7 @@ CREATE FUNCTION public._compute_rating_bundle(p_sport text, p_season integer, p_
             LIMIT 1
         ) topp ON p_sport = 'FOOTBALL'
         CROSS JOIN lasp
-        CROSS JOIN LATERAL rating_datapoints(
+        CROSS JOIN LATERAL public.rating_measurements(
             p_sport,
             CASE WHEN p_sport = 'FOOTBALL'
                  THEN ps.stats || jsonb_strip_nulls(jsonb_build_object(
@@ -1165,26 +1165,23 @@ CREATE FUNCTION public._compute_rating_bundle(p_sport text, p_season integer, p_
                           'league_avg_save_pct', lasp.asp))
                  ELSE ps.stats END,
             p_rate_mode, ps.position) d
-        WHERE ps.sport = p_sport AND ps.season = p_season
+        WHERE ps.sport = p_sport AND ps.season = p_season AND ps.stats <> '{}'::jsonb
     ),
     pop AS (
-        SELECT label, AVG(value) AS mean, NULLIF(STDDEV_POP(value), 0) AS sd
-        FROM dp WHERE is_ranked GROUP BY label
+        SELECT label, measure, AVG(value) AS mean, NULLIF(STDDEV_POP(value), 0) AS sd
+        FROM dp WHERE is_ranked GROUP BY label, measure
     ),
     z AS (
-        -- p.mean IS NULL = no ranked row carries the label this season (an
-        -- era-dead key). Dropped: an all-tie label percent_ranks everyone to
-        -- 0 and reads as a fabricated liability. Dropped rows contributed
-        -- zr=0, so composites are unchanged.
+        -- Keep raw measurements even without a comparable ranked population.
         SELECT d.player_id, d.league_id, d.position, d.conference, d.division,
-               d.label, d.in_comp, d.in_spec, d.sign, d.facet, d.value, d.is_ranked,
-               COALESCE((d.value - p.mean) / p.sd, 0) AS zr
-        FROM dp d JOIN pop p USING (label)
-        WHERE p.mean IS NOT NULL
+               d.label, d.measure, d.in_comp, d.in_spec, d.sign, d.facet, d.value, d.is_ranked,
+               CASE WHEN p.mean IS NOT NULL THEN COALESCE((d.value - p.mean) / p.sd, 0) END AS zr
+        FROM dp d LEFT JOIN pop p USING (label, measure)
+        WHERE d.value IS NOT NULL
     ),
     comp_flat AS (
-        SELECT player_id, league_id, SUM(sign * zr) AS composite
-        FROM z WHERE in_comp GROUP BY player_id, league_id
+        SELECT player_id, league_id, SUM(sign * zr) FILTER (WHERE in_comp) AS composite
+        FROM z GROUP BY player_id, league_id
     ),
     comp_facet AS (
         SELECT player_id, league_id, SUM(facet_mean) AS composite
@@ -1198,33 +1195,28 @@ CREATE FUNCTION public._compute_rating_bundle(p_sport text, p_season integer, p_
         SELECT player_id, league_id, composite FROM comp_flat
     ),
     rk AS (
-        SELECT DISTINCT player_id, league_id, is_ranked FROM z
+        SELECT DISTINCT player_id, league_id, is_ranked FROM dp
     ),
     scored AS (
-        -- Rated cohort: percent_rank over the rated set only → byte-identical to before.
-        SELECT player_id, league_id, label, in_comp, in_spec, sign, facet, value, zr,
-               ROUND((percent_rank() OVER (PARTITION BY label ORDER BY sign * zr ASC))::numeric * 100, 1) AS pct,
+        -- True percentiles, within the eligible population of the same measurement.
+        SELECT player_id, league_id, label, measure, in_comp, in_spec, sign, facet, value, zr,
+               CASE WHEN max(sign*zr) OVER (PARTITION BY label, measure) > min(sign*zr) OVER (PARTITION BY label, measure) THEN ROUND((percent_rank() OVER (PARTITION BY label, measure ORDER BY sign * zr ASC))::numeric * 100, 1) END AS pct,
                CASE WHEN p_sport IN ('NFL','FOOTBALL') AND position IS NOT NULL
-                    THEN ROUND((percent_rank() OVER (PARTITION BY label, position ORDER BY sign*zr ASC))::numeric*100,1) END AS pct_position,
+                    THEN CASE WHEN max(sign*zr) OVER (PARTITION BY label, measure, position) > min(sign*zr) OVER (PARTITION BY label, measure, position) THEN ROUND((percent_rank() OVER (PARTITION BY label, measure, position ORDER BY sign*zr ASC))::numeric*100,1) END END AS pct_position,
                CASE WHEN p_sport IN ('NFL','NBA') AND position IS NOT NULL
-                    THEN ROUND((percent_rank() OVER (PARTITION BY label, position, conference ORDER BY sign*zr ASC))::numeric*100,1) END AS pct_conference,
+                    THEN CASE WHEN max(sign*zr) OVER (PARTITION BY label, measure, position, conference) > min(sign*zr) OVER (PARTITION BY label, measure, position, conference) THEN ROUND((percent_rank() OVER (PARTITION BY label, measure, position, conference ORDER BY sign*zr ASC))::numeric*100,1) END END AS pct_conference,
                CASE WHEN p_sport='NFL' AND position IS NOT NULL
-                    THEN ROUND((percent_rank() OVER (PARTITION BY label, position, division ORDER BY sign*zr ASC))::numeric*100,1) END AS pct_division,
+                    THEN CASE WHEN max(sign*zr) OVER (PARTITION BY label, measure, position, division) > min(sign*zr) OVER (PARTITION BY label, measure, position, division) THEN ROUND((percent_rank() OVER (PARTITION BY label, measure, position, division ORDER BY sign*zr ASC))::numeric*100,1) END END AS pct_division,
                CASE WHEN p_sport='FOOTBALL' AND position IS NOT NULL
-                    THEN ROUND((percent_rank() OVER (PARTITION BY label, position, league_id ORDER BY sign*zr ASC))::numeric*100,1) END AS pct_league
-        FROM z WHERE is_ranked
+                    THEN CASE WHEN max(sign*zr) OVER (PARTITION BY label, measure, position, league_id) > min(sign*zr) OVER (PARTITION BY label, measure, position, league_id) THEN ROUND((percent_rank() OVER (PARTITION BY label, measure, position, league_id ORDER BY sign*zr ASC))::numeric*100,1) END END AS pct_league
+        FROM z WHERE is_ranked AND zr IS NOT NULL
         UNION ALL
-        -- Sub-gate players: per-stat percentile = standing within the RATED cohort for
-        -- that stat (count-based, so it doesn't perturb the cohort's own percent_rank).
-        -- Scope cuts omitted (they are unranked).
-        SELECT u.player_id, u.league_id, u.label, u.in_comp, u.in_spec, u.sign, u.facet, u.value, u.zr,
-               -- Sub-gate fill = the datapoint's standardized magnitude vs the rated
-               -- cohort (50 + 10*z in the good direction, clamped 1-99) — the same scale
-               -- as rating_score. Fast scalar; a true percentile-vs-cohort is O(n^2).
-               ROUND(LEAST(99.0, GREATEST(1.0, 50 + 10.0 * (u.sign * u.zr)))::numeric, 1) AS pct,
+        -- Ineligible samples retain measurements, never fabricated percentile ranks.
+        SELECT u.player_id, u.league_id, u.label, u.measure, u.in_comp, u.in_spec, u.sign, u.facet, u.value, u.zr,
+               NULL::numeric AS pct,
                NULL::numeric AS pct_position, NULL::numeric AS pct_conference,
                NULL::numeric AS pct_division, NULL::numeric AS pct_league
-        FROM z u WHERE NOT u.is_ranked
+        FROM z u WHERE NOT u.is_ranked OR u.zr IS NULL
     ),
     bd AS (
         -- (mig 221) the specialty flag leaves the datapoint with the concept. A client
@@ -1232,13 +1224,14 @@ CREATE FUNCTION public._compute_rating_bundle(p_sport text, p_season integer, p_
         -- (Spelling the retired key out here would trip this migration's own proof gate.)
         SELECT s.player_id, s.league_id,
                jsonb_agg(jsonb_build_object(
-                   'label', s.label, 'value', s.value, 'z', ROUND(s.zr, 4), 'pct', s.pct,
+                   'label', s.label, 'measure', s.measure, 'eligible', r.is_ranked,
+                   'value', s.value, 'z', ROUND(s.zr, 4), 'pct', s.pct,
                    'in_comp', s.in_comp, 'in_spec', s.in_spec, 'sign', s.sign, 'facet', s.facet,
                    'scoped_pct', jsonb_strip_nulls(jsonb_build_object(
                        'position', s.pct_position, 'conference', s.pct_conference,
                        'division', s.pct_division, 'league', s.pct_league))
                ) ORDER BY s.label) AS breakdown
-        FROM scored s
+        FROM scored s JOIN rk r USING (player_id, league_id)
         GROUP BY s.player_id, s.league_id
     ),
     base AS (
@@ -1246,7 +1239,7 @@ CREATE FUNCTION public._compute_rating_bundle(p_sport text, p_season integer, p_
         -- rated on its composite alone, which is what the rating always was.
         SELECT c.player_id, c.league_id,
                ROUND(c.composite, 4) AS composite,
-               bd.breakdown, rk.is_ranked
+               bd.breakdown, (rk.is_ranked AND c.composite IS NOT NULL) AS is_ranked
         FROM comp c
         JOIN bd USING (player_id, league_id)
         JOIN rk USING (player_id, league_id)
@@ -1486,6 +1479,101 @@ BEGIN
     RETURN QUERY SELECT v_app_id, v_override_id, v_status, v_reason;
 END;
 $$;
+
+
+--
+-- Name: apply_transfer_identity_candidate(text, integer, integer, integer, bigint, bigint, smallint, numeric, jsonb, text, text, text, text, bigint[]); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.apply_transfer_identity_candidate(p_sport text, p_player_id integer, p_old_team_id integer, p_new_team_id integer, p_source_rumor_id bigint, p_source_synthesis_id bigint, p_deterministic_heat smallint, p_deterministic_confidence numeric, p_adjudication jsonb, p_adjudication_raw text, p_adjudication_model_version text, p_adjudication_prompt_version text, p_evidence_route text, p_evidence_news_ids bigint[]) RETURNS TABLE(application_id bigint, override_id bigint, status text, reason text)
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_threshold public.transfer_identity_thresholds%ROWTYPE;
+    v_eligible boolean;
+    v_stats_season integer;
+    v_article_ids bigint[];
+    v_source_names text[];
+    v_application_id bigint;
+    v_override_id bigint;
+    v_status text;
+    v_reason text;
+    v_gate_heat smallint := p_deterministic_heat;
+    v_gate_confidence numeric := p_deterministic_confidence;
+BEGIN
+    IF p_evidence_route NOT IN ('rumor_threshold', 'settled_sources') THEN
+        RAISE EXCEPTION 'unsupported transfer identity evidence route: %', p_evidence_route;
+    END IF;
+
+    IF p_evidence_route = 'settled_sources' THEN
+        SELECT e.eligible, e.stats_season, e.article_ids, e.source_names
+          INTO v_eligible, v_stats_season, v_article_ids, v_source_names
+          FROM public.settled_transfer_identity_evidence(
+              p_sport, p_player_id, p_new_team_id, p_evidence_news_ids) e;
+        IF NOT COALESCE(v_eligible, false) THEN
+            RAISE EXCEPTION 'settled transfer identity evidence no longer qualifies for %.% -> %',
+                p_sport, p_player_id, p_new_team_id;
+        END IF;
+
+        SELECT * INTO v_threshold
+        FROM public.transfer_identity_thresholds
+        WHERE sport = p_sport;
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'missing transfer identity threshold config for sport %', p_sport;
+        END IF;
+
+        -- The underlying owner remains unchanged. These gate-only values let it run its mature
+        -- ID/adjudication/current-state checks; the application is immediately restored to the
+        -- actual heat/confidence below and records why the heat gate was not used.
+        v_gate_heat := v_threshold.min_heat;
+        v_gate_confidence := v_threshold.min_deterministic_confidence;
+    ELSE
+        v_article_ids := COALESCE(p_evidence_news_ids, ARRAY[]::bigint[]);
+        v_source_names := ARRAY[]::text[];
+    END IF;
+
+    SELECT r.application_id, r.override_id, r.status, r.reason
+      INTO v_application_id, v_override_id, v_status, v_reason
+      FROM public.apply_transfer_identity_candidate(
+          p_sport, p_player_id, p_old_team_id, p_new_team_id,
+          p_source_rumor_id, p_source_synthesis_id,
+          v_gate_heat, v_gate_confidence,
+          p_adjudication, p_adjudication_raw,
+          p_adjudication_model_version, p_adjudication_prompt_version) r;
+
+    UPDATE public.transfer_identity_applications a
+       SET deterministic_heat = p_deterministic_heat,
+           deterministic_confidence = p_deterministic_confidence,
+           evidence_route = p_evidence_route,
+           threshold_config = a.threshold_config || jsonb_build_object(
+               'evidence_route', p_evidence_route),
+           evidence = a.evidence || jsonb_build_object(
+               'identity_evidence_route', p_evidence_route,
+               'identity_evidence_article_ids', COALESCE(v_article_ids, ARRAY[]::bigint[]),
+               'identity_evidence_sources', COALESCE(v_source_names, ARRAY[]::text[]),
+               'identity_evidence_stats_season', v_stats_season)
+     WHERE a.id = v_application_id;
+
+    IF v_override_id IS NOT NULL THEN
+        UPDATE public.player_current_identity_overrides o
+           SET evidence = o.evidence || jsonb_build_object(
+               'identity_evidence_route', p_evidence_route,
+               'identity_evidence_article_ids', COALESCE(v_article_ids, ARRAY[]::bigint[]),
+               'identity_evidence_sources', COALESCE(v_source_names, ARRAY[]::text[]),
+               'identity_evidence_stats_season', v_stats_season)
+         WHERE o.id = v_override_id;
+    END IF;
+
+    RETURN QUERY SELECT v_application_id, v_override_id, v_status, v_reason;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION apply_transfer_identity_candidate(p_sport text, p_player_id integer, p_old_team_id integer, p_new_team_id integer, p_source_rumor_id bigint, p_source_synthesis_id bigint, p_deterministic_heat smallint, p_deterministic_confidence numeric, p_adjudication jsonb, p_adjudication_raw text, p_adjudication_model_version text, p_adjudication_prompt_version text, p_evidence_route text, p_evidence_news_ids bigint[]); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.apply_transfer_identity_candidate(p_sport text, p_player_id integer, p_old_team_id integer, p_new_team_id integer, p_source_rumor_id bigint, p_source_synthesis_id bigint, p_deterministic_heat smallint, p_deterministic_confidence numeric, p_adjudication jsonb, p_adjudication_raw text, p_adjudication_model_version text, p_adjudication_prompt_version text, p_evidence_route text, p_evidence_news_ids bigint[]) IS 'Evidence-route overload for the existing transfer identity owner. rumor_threshold keeps the configured heat gate. settled_sources revalidates current-season stats plus two exact Editor-linked sources, then uses the same adjudication/current-ID/apply workflow while retaining the actual decayed heat in the audit row.';
 
 
 --
@@ -1787,7 +1875,7 @@ BEGIN
            rating_scoped_scores = NULL,
            rating_breakdown = NULL, rating_scoped_ranks = NULL, rating_modes = NULL
      WHERE sport = p_sport AND season = p_season
-       AND (rating IS NOT NULL OR rating_rank IS NOT NULL OR rating_modes IS NOT NULL);
+       AND (rating IS NOT NULL OR rating_rank IS NOT NULL OR rating_modes IS NOT NULL OR rating_breakdown IS NOT NULL);
 
     FOREACH v_mode IN ARRAY v_modes LOOP
         IF v_mode = 'total' THEN
@@ -1895,30 +1983,30 @@ BEGIN
            rating_scoped_scores = NULL,
            rating_categories = NULL, rating_scoped_ranks = NULL, rating_breakdown = NULL
      WHERE sport = p_sport AND season = p_season
-       AND (rating IS NOT NULL OR rating_rank IS NOT NULL);
+       AND (rating IS NOT NULL OR rating_rank IS NOT NULL OR rating_breakdown IS NOT NULL);
 
     DROP TABLE IF EXISTS _team_dp;
     CREATE TEMP TABLE _team_dp (
-        team_id INTEGER, league_id INTEGER, label TEXT,
+        team_id INTEGER, league_id INTEGER, label TEXT, measure TEXT,
         value NUMERIC, in_comp BOOLEAN, in_spec BOOLEAN, sign INTEGER, facet TEXT
     ) ON COMMIT DROP;
 
     INSERT INTO _team_dp
     SELECT ts.team_id, COALESCE(ts.league_id, 0),
-           dp.label, dp.value, dp.in_comp, dp.in_spec, dp.sign, dp.facet
+           dp.label, dp.measure, dp.value, dp.in_comp, dp.in_spec, dp.sign, dp.facet
     FROM team_stats ts
-    CROSS JOIN LATERAL rating_datapoints_team(p_sport, ts.stats) dp
-    WHERE ts.sport = p_sport AND ts.season = p_season AND ts.stats <> '{}'::jsonb;
+    CROSS JOIN LATERAL public.rating_measurements_team(p_sport, ts.stats) dp
+    WHERE ts.sport = p_sport AND ts.season = p_season AND ts.stats <> '{}'::jsonb AND dp.value IS NOT NULL;
 
     WITH pop AS (
-        SELECT label, AVG(value) AS mean, NULLIF(STDDEV_POP(value), 0) AS sd
-        FROM _team_dp GROUP BY label
+        SELECT label, measure, AVG(value) AS mean, NULLIF(STDDEV_POP(value), 0) AS sd
+        FROM _team_dp GROUP BY label, measure
     ),
     z AS (
         -- mean IS NULL = era-dead label; see _compute_rating_bundle.
-        SELECT d.team_id, d.league_id, d.in_comp, d.sign, d.label,
+        SELECT d.team_id, d.league_id, d.in_comp, d.sign, d.label, d.measure,
                COALESCE((d.value - p.mean) / p.sd, 0) AS zr
-        FROM _team_dp d JOIN pop p USING (label)
+        FROM _team_dp d JOIN pop p USING (label, measure)
         WHERE p.mean IS NOT NULL
     ),
     composite AS (
@@ -1932,24 +2020,24 @@ BEGIN
     GET DIAGNOSTICS v_updated = ROW_COUNT;
 
     WITH pop AS (
-        SELECT label, AVG(value) AS mean, NULLIF(STDDEV_POP(value), 0) AS sd
-        FROM _team_dp GROUP BY label
+        SELECT label, measure, AVG(value) AS mean, NULLIF(STDDEV_POP(value), 0) AS sd
+        FROM _team_dp GROUP BY label, measure
     ),
     z AS (
-        SELECT d.team_id, d.league_id, d.label, d.in_comp, d.in_spec, d.sign, d.facet, d.value,
+        SELECT d.team_id, d.league_id, d.label, d.measure, d.in_comp, d.in_spec, d.sign, d.facet, d.value,
                COALESCE((d.value - p.mean) / p.sd, 0) AS zr
-        FROM _team_dp d JOIN pop p USING (label)
+        FROM _team_dp d JOIN pop p USING (label, measure)
         WHERE p.mean IS NOT NULL
     ),
     scored AS (
-        SELECT team_id, league_id, label, in_comp, in_spec, sign, facet, value, zr,
-               ROUND((percent_rank() OVER (PARTITION BY label ORDER BY sign * zr ASC))::numeric * 100, 1) AS pct
+        SELECT team_id, league_id, label, measure, in_comp, in_spec, sign, facet, value, zr,
+               CASE WHEN max(sign*zr) OVER (PARTITION BY label, measure) > min(sign*zr) OVER (PARTITION BY label, measure) THEN ROUND((percent_rank() OVER (PARTITION BY label, measure ORDER BY sign * zr ASC))::numeric * 100, 1) END AS pct
         FROM z
     ),
     agg AS (
         SELECT s.team_id, s.league_id,
                jsonb_agg(jsonb_build_object(
-                   'label', s.label, 'value', s.value, 'z', ROUND(s.zr, 4), 'pct', s.pct,
+                   'label', s.label, 'measure', s.measure, 'value', s.value, 'z', ROUND(s.zr, 4), 'pct', s.pct,
                    'in_comp', s.in_comp, 'in_spec', s.in_spec, 'sign', s.sign, 'facet', s.facet
                ) ORDER BY s.facet, s.label) AS breakdown
         FROM scored s
@@ -3230,10 +3318,33 @@ COMMENT ON FUNCTION public.promote_narrative_persons(p_sport text) IS 'Nightly c
 CREATE FUNCTION public.rating_datapoints(p_sport text, p_stats jsonb, p_rate_mode text DEFAULT 'total'::text, p_position text DEFAULT NULL::text) RETURNS TABLE(label text, value numeric, in_comp boolean, in_spec boolean, sign integer, facet text)
     LANGUAGE sql STABLE PARALLEL SAFE
     AS $$
+    SELECT label,value,in_comp,in_spec,sign,facet
+    FROM public.rating_measurements(p_sport,p_stats,p_rate_mode,p_position);
+$$;
+
+
+--
+-- Name: rating_datapoints_team(text, jsonb); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.rating_datapoints_team(p_sport text, p_stats jsonb) RETURNS TABLE(label text, value numeric, in_comp boolean, in_spec boolean, sign integer, facet text)
+    LANGUAGE sql IMMUTABLE PARALLEL SAFE
+    AS $$
+    SELECT label,value,in_comp,in_spec,sign,facet FROM public.rating_measurements_team(p_sport,p_stats);
+$$;
+
+
+--
+-- Name: rating_measurements(text, jsonb, text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.rating_measurements(p_sport text, p_stats jsonb, p_rate_mode text DEFAULT 'total'::text, p_position text DEFAULT NULL::text) RETURNS TABLE(label text, value numeric, in_comp boolean, in_spec boolean, sign integer, facet text, measure text)
+    LANGUAGE sql STABLE PARALLEL SAFE
+    AS $$
     SELECT v.label,
            CASE WHEN p_rate_mode = 'total' OR v.rate_base IS NULL THEN v.raw_value
-                ELSE COALESCE(NULLIF(p_stats->>(v.rate_base || rs.suffix), '')::numeric, v.raw_value) END,
-           v.in_comp, v.in_spec, v.sign, v.facet
+                ELSE NULLIF(p_stats->>(v.rate_base || rs.suffix), '')::numeric END,
+           v.in_comp, v.in_spec, v.sign, v.facet, v.label
     FROM (SELECT (SELECT rm.suffix FROM public.rate_modes rm
                   WHERE rm.sport = 'NBA' AND rm.mode = p_rate_mode) AS suffix) rs
     CROSS JOIN LATERAL (VALUES
@@ -3249,12 +3360,35 @@ CREATE FUNCTION public.rating_datapoints(p_sport text, p_stats jsonb, p_rate_mod
         ('Foul Drawing',    NULLIF(p_stats->>'fta','')::numeric,        FALSE, TRUE,  1, 'all', 'fta')
     ) v(label, raw_value, in_comp, in_spec, sign, facet, rate_base)
     WHERE p_sport = 'NBA'
+      AND (p_rate_mode = 'total' OR (v.rate_base IS NOT NULL AND
+           (p_stats->>(SELECT denom_key FROM public.rate_modes WHERE sport=p_sport AND mode=p_rate_mode))::numeric > 0))
 
     UNION ALL
     SELECT v.label,
            CASE WHEN p_rate_mode = 'total' OR v.rate_base IS NULL THEN v.raw_value
-                ELSE COALESCE(NULLIF(p_stats->>(v.rate_base || rs.suffix), '')::numeric, v.raw_value) END,
-           v.in_comp, v.in_spec, v.sign, v.facet
+                ELSE NULLIF(p_stats->>(v.rate_base || rs.suffix), '')::numeric END,
+           v.in_comp, v.in_spec, v.sign, v.facet,
+           CASE v.label
+             WHEN 'Goalscoring' THEN 'goals'
+             WHEN 'Creation' THEN 'assists'
+             WHEN 'Discipline' THEN 'yellow cards + 3 x red cards'
+             WHEN 'Passing' THEN 'accurate passes'
+             WHEN 'Dribbling' THEN 'successful dribbles'
+             WHEN 'Shooting' THEN CASE
+               WHEN NULLIF(p_stats->>('shots_on_target' || COALESCE(rs.suffix,'')), '') IS NOT NULL THEN 'shots on target'
+               WHEN NULLIF(p_stats->>('expected_goals' || COALESCE(rs.suffix,'')), '') IS NOT NULL THEN 'expected goals'
+               ELSE NULL END
+             WHEN 'Chance Creation' THEN CASE
+               WHEN NULLIF(p_stats->>('key_passes' || COALESCE(rs.suffix,'')), '') IS NOT NULL THEN 'key passes'
+               WHEN NULLIF(p_stats->>('expected_assists' || COALESCE(rs.suffix,'')), '') IS NOT NULL THEN 'expected assists'
+               ELSE NULL END
+             WHEN 'Goals Prevented' THEN CASE WHEN p_stats ? 'expected_goals_conceded'
+               THEN 'expected goals conceded minus goals conceded' ELSE 'saves relative to league save percentage' END
+             WHEN 'CBI' THEN 'clearances + blocks + interceptions (combined)'
+             WHEN 'Defensive Work' THEN 'defensive contributions'
+             WHEN 'Tackling' THEN 'possession-adjusted tackles'
+             WHEN 'Interceptions' THEN 'possession-adjusted interceptions'
+             ELSE v.label END
     FROM (SELECT (SELECT rm.suffix FROM public.rate_modes rm
                   WHERE rm.sport = 'FOOTBALL' AND rm.mode = p_rate_mode) AS suffix) rs
     CROSS JOIN LATERAL (VALUES
@@ -3265,26 +3399,20 @@ CREATE FUNCTION public.rating_datapoints(p_sport text, p_stats jsonb, p_rate_mod
         -- resolve — rate_base NULL keeps the outer CASE off).
         ('Shooting',        COALESCE(
                                 NULLIF(p_stats->>('shots_on_target' || COALESCE(rs.suffix,'')),'')::numeric,
-                                NULLIF(p_stats->>('expected_goals'  || COALESCE(rs.suffix,'')),'')::numeric,
-                                NULLIF(p_stats->>'shots_on_target','')::numeric,
-                                NULLIF(p_stats->>'expected_goals','')::numeric, 0),
+                                NULLIF(p_stats->>('expected_goals'  || COALESCE(rs.suffix,'')),'')::numeric),
                                                                               TRUE, TRUE,   1, 'all', NULL,              'out'),
         ('Passing',         NULLIF(p_stats->>'passes_accurate','')::numeric,  TRUE, TRUE,   1, 'all', 'passes_accurate', 'out'),
         -- Chance Creation: key passes in the vendor era, xA in the FPL era.
         ('Chance Creation', COALESCE(
                                 NULLIF(p_stats->>('key_passes'       || COALESCE(rs.suffix,'')),'')::numeric,
-                                NULLIF(p_stats->>('expected_assists' || COALESCE(rs.suffix,'')),'')::numeric,
-                                NULLIF(p_stats->>'key_passes','')::numeric,
-                                NULLIF(p_stats->>'expected_assists','')::numeric, 0),
+                                NULLIF(p_stats->>('expected_assists' || COALESCE(rs.suffix,'')),'')::numeric),
                                                                               TRUE, TRUE,   1, 'all', NULL,              'out'),
         ('Dribbling',       NULLIF(p_stats->>'dribbles_success','')::numeric, TRUE, TRUE,   1, 'all', 'dribbles_success','out'),
         ('Duels',           NULLIF(p_stats->>'duels_won','')::numeric,        FALSE, FALSE, 1, 'all', 'duels_won',       'out'),
-        ('Tackling',        round(COALESCE(NULLIF(p_stats->>('tackles' || COALESCE(rs.suffix,'')),'')::numeric,
-                                           NULLIF(p_stats->>'tackles','')::numeric, 0)
+        ('Tackling',        round(NULLIF(p_stats->>('tackles' || COALESCE(rs.suffix,'')),'')::numeric
                                   * 50.0 / GREATEST(NULLIF(p_stats->>'team_opp_possession','')::numeric, 30), 2),
                                                                               TRUE, TRUE,   1, 'all', NULL,              'out'),
-        ('Interceptions',   round(COALESCE(NULLIF(p_stats->>('interceptions' || COALESCE(rs.suffix,'')),'')::numeric,
-                                           NULLIF(p_stats->>'interceptions','')::numeric)
+        ('Interceptions',   round(NULLIF(p_stats->>('interceptions' || COALESCE(rs.suffix,'')),'')::numeric
                                   * 50.0 / GREATEST(NULLIF(p_stats->>'team_opp_possession','')::numeric, 30), 2),
                                                                               TRUE, TRUE,   1, 'all', NULL,              'out'),
         -- Defensive Work: FPL's own tackles+CBI+recoveries threshold composite.
@@ -3331,14 +3459,16 @@ CREATE FUNCTION public.rating_datapoints(p_sport text, p_stats jsonb, p_rate_mod
         ('Long-Ball Accuracy', NULLIF(p_stats->>'long_ball_accuracy','')::numeric, TRUE, TRUE, 1, 'all', NULL, 'gk')
     ) v(label, raw_value, in_comp, in_spec, sign, facet, rate_base, pos_class)
     WHERE p_sport = 'FOOTBALL'
+      AND (p_rate_mode = 'total' OR ((v.rate_base IS NOT NULL OR v.label IN ('Shooting','Chance Creation','Tackling','Interceptions')) AND
+           (p_stats->>(SELECT denom_key FROM public.rate_modes WHERE sport=p_sport AND mode=p_rate_mode))::numeric > 0))
       AND (CASE WHEN p_position = 'Goalkeeper' THEN v.pos_class = 'gk'
                 ELSE v.pos_class = 'out' END)
 
     UNION ALL
     SELECT v.label,
            CASE WHEN p_rate_mode = 'total' OR v.rate_base IS NULL THEN v.raw_value
-                ELSE COALESCE(NULLIF(p_stats->>(v.rate_base || rs.suffix), '')::numeric, v.raw_value) END,
-           v.in_comp, v.in_spec, v.sign, v.facet
+                ELSE NULLIF(p_stats->>(v.rate_base || rs.suffix), '')::numeric END,
+           v.in_comp, v.in_spec, v.sign, v.facet, v.label
     FROM (SELECT (SELECT rm.suffix FROM public.rate_modes rm
                   WHERE rm.sport = 'NFL' AND rm.mode = p_rate_mode) AS suffix) rs
     CROSS JOIN LATERAL (VALUES
@@ -3351,18 +3481,18 @@ CREATE FUNCTION public.rating_datapoints(p_sport text, p_stats jsonb, p_rate_mod
                 + COALESCE((p_stats->>'punt_yards')::numeric,0)
                 + COALESCE((p_stats->>'interception_yards')::numeric,0)
             ELSE
-                  COALESCE((p_stats->>('passing_yards' || rs.suffix))::numeric,(p_stats->>'passing_yards')::numeric,0)
-                + COALESCE((p_stats->>('receiving_yards' || rs.suffix))::numeric,(p_stats->>'receiving_yards')::numeric,0)
-                + COALESCE((p_stats->>('kick_return_yards' || rs.suffix))::numeric,(p_stats->>'kick_return_yards')::numeric,0)
-                + COALESCE((p_stats->>('punt_returner_return_yards' || rs.suffix))::numeric,(p_stats->>'punt_returner_return_yards')::numeric,0)
-                + COALESCE((p_stats->>('punt_yards' || rs.suffix))::numeric,(p_stats->>'punt_yards')::numeric,0)
-                + COALESCE((p_stats->>('interception_yards' || rs.suffix))::numeric,(p_stats->>'interception_yards')::numeric,0)
+                  CASE WHEN NULLIF(p_stats->>'passing_yards','') IS NULL THEN 0 ELSE NULLIF(p_stats->>('passing_yards' || rs.suffix),'')::numeric END
+                + CASE WHEN NULLIF(p_stats->>'receiving_yards','') IS NULL THEN 0 ELSE NULLIF(p_stats->>('receiving_yards' || rs.suffix),'')::numeric END
+                + CASE WHEN NULLIF(p_stats->>'kick_return_yards','') IS NULL THEN 0 ELSE NULLIF(p_stats->>('kick_return_yards' || rs.suffix),'')::numeric END
+                + CASE WHEN NULLIF(p_stats->>'punt_returner_return_yards','') IS NULL THEN 0 ELSE NULLIF(p_stats->>('punt_returner_return_yards' || rs.suffix),'')::numeric END
+                + CASE WHEN NULLIF(p_stats->>'punt_yards','') IS NULL THEN 0 ELSE NULLIF(p_stats->>('punt_yards' || rs.suffix),'')::numeric END
+                + CASE WHEN NULLIF(p_stats->>'interception_yards','') IS NULL THEN 0 ELSE NULLIF(p_stats->>('interception_yards' || rs.suffix),'')::numeric END
             END,                                                                  TRUE, TRUE,   1, 'offense', NULL),
         ('Ground Yards Responsible',
             CASE WHEN p_rate_mode = 'total' THEN
                   COALESCE((p_stats->>'rushing_yards')::numeric,0)
             ELSE
-                  COALESCE((p_stats->>('rushing_yards' || rs.suffix))::numeric,(p_stats->>'rushing_yards')::numeric,0)
+                  CASE WHEN NULLIF(p_stats->>'rushing_yards','') IS NULL THEN 0 ELSE NULLIF(p_stats->>('rushing_yards' || rs.suffix),'')::numeric END
             END,                                                                  TRUE, TRUE,   1, 'offense', 'rushing_yards'),
         ('Points Responsible For',
             CASE WHEN p_rate_mode = 'total' THEN
@@ -3379,24 +3509,24 @@ CREATE FUNCTION public.rating_datapoints(p_sport text, p_stats jsonb, p_rate_mod
                 + COALESCE((p_stats->>'extra_points_made')::numeric,0)
             ELSE
                   6 * (
-                      COALESCE((p_stats->>('passing_touchdowns' || rs.suffix))::numeric,(p_stats->>'passing_touchdowns')::numeric,0)
-                    + COALESCE((p_stats->>('rushing_touchdowns' || rs.suffix))::numeric,(p_stats->>'rushing_touchdowns')::numeric,0)
-                    + COALESCE((p_stats->>('receiving_touchdowns' || rs.suffix))::numeric,(p_stats->>'receiving_touchdowns')::numeric,0)
-                    + COALESCE((p_stats->>('kick_return_touchdowns' || rs.suffix))::numeric,(p_stats->>'kick_return_touchdowns')::numeric,0)
-                    + COALESCE((p_stats->>('punt_return_touchdowns' || rs.suffix))::numeric,(p_stats->>'punt_return_touchdowns')::numeric,0)
-                    + COALESCE((p_stats->>('interception_touchdowns' || rs.suffix))::numeric,(p_stats->>'interception_touchdowns')::numeric,0)
-                    + COALESCE((p_stats->>('fumbles_touchdowns' || rs.suffix))::numeric,(p_stats->>'fumbles_touchdowns')::numeric,0)
+                      CASE WHEN NULLIF(p_stats->>'passing_touchdowns','') IS NULL THEN 0 ELSE NULLIF(p_stats->>('passing_touchdowns' || rs.suffix),'')::numeric END
+                    + CASE WHEN NULLIF(p_stats->>'rushing_touchdowns','') IS NULL THEN 0 ELSE NULLIF(p_stats->>('rushing_touchdowns' || rs.suffix),'')::numeric END
+                    + CASE WHEN NULLIF(p_stats->>'receiving_touchdowns','') IS NULL THEN 0 ELSE NULLIF(p_stats->>('receiving_touchdowns' || rs.suffix),'')::numeric END
+                    + CASE WHEN NULLIF(p_stats->>'kick_return_touchdowns','') IS NULL THEN 0 ELSE NULLIF(p_stats->>('kick_return_touchdowns' || rs.suffix),'')::numeric END
+                    + CASE WHEN NULLIF(p_stats->>'punt_return_touchdowns','') IS NULL THEN 0 ELSE NULLIF(p_stats->>('punt_return_touchdowns' || rs.suffix),'')::numeric END
+                    + CASE WHEN NULLIF(p_stats->>'interception_touchdowns','') IS NULL THEN 0 ELSE NULLIF(p_stats->>('interception_touchdowns' || rs.suffix),'')::numeric END
+                    + CASE WHEN NULLIF(p_stats->>'fumbles_touchdowns','') IS NULL THEN 0 ELSE NULLIF(p_stats->>('fumbles_touchdowns' || rs.suffix),'')::numeric END
                   )
-                + 3 * COALESCE((p_stats->>('field_goals_made' || rs.suffix))::numeric,(p_stats->>'field_goals_made')::numeric,0)
-                + COALESCE((p_stats->>('extra_points_made' || rs.suffix))::numeric,(p_stats->>'extra_points_made')::numeric,0)
+                + 3 * CASE WHEN NULLIF(p_stats->>'field_goals_made','') IS NULL THEN 0 ELSE NULLIF(p_stats->>('field_goals_made' || rs.suffix),'')::numeric END
+                + CASE WHEN NULLIF(p_stats->>'extra_points_made','') IS NULL THEN 0 ELSE NULLIF(p_stats->>('extra_points_made' || rs.suffix),'')::numeric END
             END,                                                                  TRUE, TRUE,   1, 'offense', NULL),
         ('Giveaways',
             CASE WHEN p_rate_mode = 'total' THEN
                   COALESCE((p_stats->>'passing_interceptions')::numeric,0)
                 + COALESCE((p_stats->>'fumbles_lost')::numeric,0)
             ELSE
-                  COALESCE((p_stats->>('passing_interceptions' || rs.suffix))::numeric,(p_stats->>'passing_interceptions')::numeric,0)
-                + COALESCE((p_stats->>('fumbles_lost' || rs.suffix))::numeric,(p_stats->>'fumbles_lost')::numeric,0)
+                  CASE WHEN NULLIF(p_stats->>'passing_interceptions','') IS NULL THEN 0 ELSE NULLIF(p_stats->>('passing_interceptions' || rs.suffix),'')::numeric END
+                + CASE WHEN NULLIF(p_stats->>'fumbles_lost','') IS NULL THEN 0 ELSE NULLIF(p_stats->>('fumbles_lost' || rs.suffix),'')::numeric END
             END,                                                                  TRUE, FALSE, -1, 'offense', NULL),
         ('Tackling',         NULLIF(p_stats->>'total_tackles','')::numeric,       TRUE, TRUE,   1, 'defense', 'total_tackles'),
         ('Tackles For Loss',
@@ -3406,25 +3536,29 @@ CREATE FUNCTION public.rating_datapoints(p_sport text, p_stats jsonb, p_rate_mod
                       COALESCE((p_stats->>'defensive_sacks')::numeric,0)
                   )
             ELSE
-                  GREATEST(
-                      COALESCE((p_stats->>('tackles_for_loss' || rs.suffix))::numeric,(p_stats->>'tackles_for_loss')::numeric,0),
-                      COALESCE((p_stats->>('defensive_sacks' || rs.suffix))::numeric,(p_stats->>'defensive_sacks')::numeric,0)
-                  )
+                CASE WHEN ((p_stats->>'tackles_for_loss') IS NOT NULL AND (p_stats->>('tackles_for_loss' || rs.suffix)) IS NULL)
+                       OR ((p_stats->>'defensive_sacks') IS NOT NULL AND (p_stats->>('defensive_sacks' || rs.suffix)) IS NULL)
+                     THEN NULL ELSE GREATEST(
+                      CASE WHEN NULLIF(p_stats->>'tackles_for_loss','') IS NULL THEN 0 ELSE NULLIF(p_stats->>('tackles_for_loss' || rs.suffix),'')::numeric END,
+                      CASE WHEN NULLIF(p_stats->>'defensive_sacks','') IS NULL THEN 0 ELSE NULLIF(p_stats->>('defensive_sacks' || rs.suffix),'')::numeric END
+                  ) END
             END,                                                                  TRUE, TRUE,   1, 'defense', NULL),
         ('Interceptions',    NULLIF(p_stats->>'defensive_interceptions','')::numeric, TRUE, TRUE, 1, 'defense', 'defensive_interceptions')
     ) v(label, raw_value, in_comp, in_spec, sign, facet, rate_base)
-    WHERE p_sport = 'NFL';
+    WHERE p_sport = 'NFL'
+      AND (p_rate_mode = 'total' OR
+           (p_stats->>(SELECT denom_key FROM public.rate_modes WHERE sport=p_sport AND mode=p_rate_mode))::numeric > 0);
 $$;
 
 
 --
--- Name: rating_datapoints_team(text, jsonb); Type: FUNCTION; Schema: public; Owner: -
+-- Name: rating_measurements_team(text, jsonb); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.rating_datapoints_team(p_sport text, p_stats jsonb) RETURNS TABLE(label text, value numeric, in_comp boolean, in_spec boolean, sign integer, facet text)
+CREATE FUNCTION public.rating_measurements_team(p_sport text, p_stats jsonb) RETURNS TABLE(label text, value numeric, in_comp boolean, in_spec boolean, sign integer, facet text, measure text)
     LANGUAGE sql IMMUTABLE PARALLEL SAFE
     AS $$
-    SELECT * FROM (VALUES
+    SELECT v.*, v.label FROM (VALUES
         ('Scoring',            NULLIF(p_stats->>'pts','')::numeric,         TRUE,  TRUE,   1, 'offense'),
         ('Playmaking',         NULLIF(p_stats->>'ast','')::numeric,         TRUE,  TRUE,   1, 'offense'),
         ('3PT Shooting',       NULLIF(p_stats->>'fg3m','')::numeric,        TRUE,  TRUE,   1, 'offense'),
@@ -3440,7 +3574,7 @@ CREATE FUNCTION public.rating_datapoints_team(p_sport text, p_stats jsonb) RETUR
         ('Opp 3PT%',           NULLIF(p_stats->>'def_fg3_pct','')::numeric, FALSE, FALSE, -1, 'defense')
     ) v(label, value, in_comp, in_spec, sign, facet) WHERE p_sport = 'NBA'
     UNION ALL
-    SELECT * FROM (VALUES
+    SELECT v.*, v.label FROM (VALUES
         ('Points Scored',      NULLIF(p_stats->>'points_for','')::numeric,                 TRUE,  TRUE,   1, 'offense'),
         ('Total Yards',        NULLIF(p_stats->>'total_yards','')::numeric,                TRUE,  TRUE,   1, 'offense'),
         ('Giveaways',          NULLIF(p_stats->>'turnovers','')::numeric,                  TRUE,  FALSE, -1, 'offense'),
@@ -3465,7 +3599,13 @@ CREATE FUNCTION public.rating_datapoints_team(p_sport text, p_stats jsonb) RETUR
         ('First Downs Allowed',NULLIF(p_stats->>'first_downs_allowed','')::numeric,        FALSE, FALSE, -1, 'defense')
     ) v(label, value, in_comp, in_spec, sign, facet) WHERE p_sport = 'NFL'
     UNION ALL
-    SELECT * FROM (VALUES
+    SELECT v.*, CASE v.label
+        WHEN 'Creation' THEN CASE WHEN NULLIF(p_stats->>'big_chances_created','') IS NOT NULL
+            THEN 'big chances created' WHEN p_stats ? 'expected_goals_for' THEN 'assists' END
+        WHEN 'Shooting' THEN 'shots on target'
+        WHEN 'Tackling' THEN 'possession-adjusted tackles'
+        WHEN 'Interceptions' THEN 'possession-adjusted interceptions'
+        ELSE v.label END FROM (VALUES
         ('Goals For',            NULLIF(p_stats->>'goals_for','')::numeric,               TRUE,  TRUE,   1, 'offense'),
         ('Shooting',             NULLIF(p_stats->>'shots_on_target','')::numeric,         TRUE,  TRUE,   1, 'offense'),
         -- Creation: big chances in the vendor era; the FPL era sums squad assists
@@ -5759,6 +5899,67 @@ $$;
 --
 
 COMMENT ON FUNCTION public.season_bridge_window(p_sport text) IS 'THE season-end/season-start threshold window, in games (~10% of season length: NBA 8/82, NFL 2/17, FOOTBALL 4/38). Established by the migration-025 cold-start guard. Consumers: recalculate_event_percentiles blends season_composite_score with the prior-season anchor while current-season games < window; refresh_momentum_scores reads each entity''s rating slope over its last <window> rated games (a season-spanning lookback, mig 130). Tune it here and every season-boundary consumer moves together — do not re-introduce inline copies.';
+
+
+--
+-- Name: settled_transfer_identity_evidence(text, integer, integer, bigint[]); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.settled_transfer_identity_evidence(p_sport text, p_player_id integer, p_team_id integer, p_news_ids bigint[]) RETURNS TABLE(eligible boolean, stats_season integer, article_ids bigint[], source_names text[])
+    LANGUAGE sql STABLE
+    AS $$
+WITH latest AS (
+    SELECT max(ps.season)::integer AS season
+    FROM public.player_stats ps
+    WHERE ps.sport = p_sport AND ps.player_id = p_player_id
+), same_team_stats AS (
+    SELECT ps.season
+    FROM public.player_stats ps
+    JOIN latest l ON l.season = ps.season
+    WHERE ps.sport = p_sport
+      AND ps.player_id = p_player_id
+      AND ps.team_id = p_team_id
+    LIMIT 1
+), linked_news AS (
+    SELECT DISTINCT n.id, nullif(btrim(n.source), '') AS source
+    FROM public.news_articles n
+    JOIN public.editor_reads er ON er.article_id = n.id AND er.status = 'success'
+    WHERE n.id = ANY(COALESCE(p_news_ids, ARRAY[]::bigint[]))
+      AND er.read->>'story_type' IN ('roster', 'performance', 'transfer')
+      AND EXISTS (
+          SELECT 1
+          FROM jsonb_array_elements(COALESCE(er.resolved->'links', '[]'::jsonb)) link
+          WHERE link->>'sport' = p_sport
+            AND link->>'entity_type' = 'player'
+            AND link->>'entity_id' = p_player_id::text
+      )
+      AND EXISTS (
+          SELECT 1
+          FROM jsonb_array_elements(COALESCE(er.resolved->'links', '[]'::jsonb)) link
+          WHERE link->>'sport' = p_sport
+            AND link->>'entity_type' = 'team'
+            AND link->>'entity_id' = p_team_id::text
+      )
+), evidence AS (
+    SELECT count(DISTINCT lower(source)) FILTER (WHERE source IS NOT NULL) AS source_count,
+           COALESCE(array_agg(id ORDER BY id), ARRAY[]::bigint[]) AS article_ids,
+           COALESCE(array_agg(DISTINCT source ORDER BY source)
+                    FILTER (WHERE source IS NOT NULL), ARRAY[]::text[]) AS source_names
+    FROM linked_news
+)
+SELECT EXISTS (SELECT 1 FROM same_team_stats) AND e.source_count >= 2,
+       (SELECT season FROM same_team_stats),
+       e.article_ids,
+       e.source_names
+FROM evidence e;
+$$;
+
+
+--
+-- Name: FUNCTION settled_transfer_identity_evidence(p_sport text, p_player_id integer, p_team_id integer, p_news_ids bigint[]); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.settled_transfer_identity_evidence(p_sport text, p_player_id integer, p_team_id integer, p_news_ids bigint[]) IS 'Read-only nomination gate for current-team reconciliation after rumor heat decays: the player latest-season stats must name the proposed team and the supplied pair corpus must contain exact Editor links from at least two independently named roster, performance, or transfer sources. Returns the retained article IDs for the identity adjudicator.';
 
 
 --
@@ -10286,12 +10487,21 @@ CREATE TABLE public.transfer_identity_applications (
     reverted_by text,
     revert_reason text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
+    evidence_route text DEFAULT 'rumor_threshold'::text NOT NULL,
     CONSTRAINT transfer_identity_applications_adjudication_confidence_check CHECK (((adjudication_confidence IS NULL) OR ((adjudication_confidence >= (0)::numeric) AND (adjudication_confidence <= (1)::numeric)))),
     CONSTRAINT transfer_identity_applications_decision_check CHECK ((decision = ANY (ARRAY['apply'::text, 'reject'::text, 'manual_review'::text, 'failed_closed'::text]))),
     CONSTRAINT transfer_identity_applications_deterministic_confidence_check CHECK (((deterministic_confidence >= (0)::numeric) AND (deterministic_confidence <= (1)::numeric))),
     CONSTRAINT transfer_identity_applications_deterministic_heat_check CHECK (((deterministic_heat >= 0) AND (deterministic_heat <= 100))),
+    CONSTRAINT transfer_identity_applications_evidence_route_check CHECK ((evidence_route = ANY (ARRAY['rumor_threshold'::text, 'settled_sources'::text]))),
     CONSTRAINT transfer_identity_applications_status_check CHECK ((status = ANY (ARRAY['applied'::text, 'rejected'::text, 'manual_review'::text, 'failed_closed'::text, 'reverted'::text])))
 );
+
+
+--
+-- Name: COLUMN transfer_identity_applications.evidence_route; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.transfer_identity_applications.evidence_route IS 'Deterministic nomination route. rumor_threshold passed the configured heat gate; settled_sources passed settled_transfer_identity_evidence. Both still require the same fail-closed identity adjudication and fixed entity IDs.';
 
 
 --
@@ -13658,5 +13868,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict njVrzVZUtLKPxeD7dqVW9C993dMfcLCe8Hcgwgdsytc1ltYqQ12lDlUxHhfxEDa
+\unrestrict 8M9vyHscBu1NBom0iVikjIPwQ3iibnmtaVVcPo5y3U0p4RVPWq4aqqa89Sk40sU
 

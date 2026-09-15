@@ -63,7 +63,9 @@ pub fn has_bookkeeping_citation(prose: &str) -> bool {
 /// Card notation that may not appear in the Scout's prose report.
 pub const RATING_BODY_BANS: &[&str] = &[
     " · ",
+    "exact labels and bands",
     "mid-season",
+    "printed measurements",
     "limited playing time",
     "playing time is likely limited",
     "reduced playing time",

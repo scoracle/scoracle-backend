@@ -1066,6 +1066,13 @@ fn request_parser_preserves_weighted_measures_and_thin_sample_coverage() {
         .unwrap_err();
     assert!(bare_sample.to_string().contains("source coverage"));
 
+    let stability = parser
+        .parse(r#"{"headline":"Rogers profile","body":"No change in relative standing is indicated; he remains reliable and consistently elite."}"#)
+        .unwrap_err();
+    assert!(stability
+        .to_string()
+        .contains("no computed cross-season direction"));
+
     let accepted = parser
         .parse(r#"{"headline":"Rogers profile","body":"The stored snapshot records 3 appearances and 257 minutes. Discipline ranks poorly."}"#)
         .unwrap()
@@ -1657,6 +1664,7 @@ fn thin_current_sample_withholds_directional_cross_season_claims() {
     assert!(prompt.contains("Omit participation totals and Discipline"));
     assert!(prompt.contains("Never say mid-season"));
     assert!(prompt.contains("unless this prompt explicitly says it is unresolved"));
+    assert!(prompt.contains("do not mention printed measurements"));
 
     p.sample.insert("appearances".to_string(), 10.0);
     assert!(inputs::supports_cross_season_comparison(&p));

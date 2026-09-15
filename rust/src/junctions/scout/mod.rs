@@ -1320,6 +1320,28 @@ fn first_source_shape_error(body: &str, prompt: &str) -> Option<&'static str> {
         );
     }
     if prompt_folded.contains("fewer than 10 appearances") {
+        let stability_word = body_folded
+            .split(|c: char| !c.is_ascii_alphabetic())
+            .any(|word| {
+                matches!(
+                    word,
+                    "unchanged"
+                        | "stable"
+                        | "stability"
+                        | "consistently"
+                        | "reliable"
+                        | "reliability"
+                )
+            });
+        if stability_word
+            || ["relative standing", "no change"]
+                .iter()
+                .any(|phrase| body_folded.contains(phrase))
+        {
+            return Some(
+                "The thin sample has no computed cross-season direction or stability evidence. Remove claims of no change, stable standing, consistency or reliability.",
+            );
+        }
         for claim in body_folded.split(['.', '!', '?', ';', '\n']) {
             let actualized = claim
                 .split_whitespace()

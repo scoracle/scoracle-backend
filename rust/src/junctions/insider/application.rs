@@ -25,6 +25,12 @@ enum IdentityEvidenceRoute {
     SettledSources,
 }
 
+#[derive(Clone, Debug)]
+struct SettledIdentityEvidence {
+    news: Vec<NewsItem>,
+    stats_season: i32,
+}
+
 impl IdentityEvidenceRoute {
     fn as_str(self) -> &'static str {
         match self {
@@ -65,13 +71,13 @@ async fn load_settled_identity_news(
     player_id: i32,
     team_id: i32,
     pair_news_ids: &[i64],
-) -> Result<Vec<NewsItem>> {
+) -> Result<Option<SettledIdentityEvidence>> {
     if pair_news_ids.is_empty() {
-        return Ok(Vec::new());
+        return Ok(None);
     }
     let row = sqlx::query(
         r#"
-        SELECT eligible, article_ids
+        SELECT eligible, stats_season, article_ids
         FROM public.settled_transfer_identity_evidence($1,$2,$3,$4)
         "#,
     )
@@ -84,10 +90,12 @@ async fn load_settled_identity_news(
     .context("load settled transfer identity evidence")?;
     let eligible: bool = row.get("eligible");
     if !eligible {
-        return Ok(Vec::new());
+        return Ok(None);
     }
+    let stats_season: i32 = row.get("stats_season");
     let article_ids: Vec<i64> = row.get("article_ids");
-    load_pair_news(pool, &article_ids).await
+    let news = load_pair_news(pool, &article_ids).await?;
+    Ok(Some(SettledIdentityEvidence { news, stats_season }))
 }
 
 /// Bank a served verdict as a junction-origin narrative event. Extraction-only feedback queries
@@ -329,7 +337,7 @@ pub(super) async fn maybe_apply_transfer_identity(
     }
 
     let pair_news_ids: Vec<i64> = news.iter().map(|item| item.id).collect();
-    let settled_news = if outcome == Outcome::Cleared && row.is_rumor == Some(false) {
+    let settled_evidence = if outcome == Outcome::Cleared && row.is_rumor == Some(false) {
         load_settled_identity_news(
             &hx.pool,
             sport,
@@ -339,21 +347,26 @@ pub(super) async fn maybe_apply_transfer_identity(
         )
         .await?
     } else {
-        Vec::new()
+        None
     };
     let Some(evidence_route) = choose_identity_evidence_route(
         outcome,
         row,
         identity_heat,
         threshold,
-        !settled_news.is_empty(),
+        settled_evidence.is_some(),
     ) else {
         return Ok(false);
     };
     let identity_news = match evidence_route {
         IdentityEvidenceRoute::RumorThreshold => news,
-        IdentityEvidenceRoute::SettledSources => settled_news.as_slice(),
+        IdentityEvidenceRoute::SettledSources => settled_evidence
+            .as_ref()
+            .expect("settled route requires qualified evidence")
+            .news
+            .as_slice(),
     };
+    let current_team_stats_season = settled_evidence.as_ref().map(|e| e.stats_season);
 
     let prompt = build_transfer_identity_adjudication_prompt(
         sport,
@@ -363,6 +376,7 @@ pub(super) async fn maybe_apply_transfer_identity(
         &old_team_name,
         team_id,
         team_name,
+        current_team_stats_season,
         identity_news,
     );
     let opts = GenerateOptions {

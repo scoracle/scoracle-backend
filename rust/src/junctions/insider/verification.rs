@@ -158,7 +158,7 @@ pub fn build_transfer_prompt(
     b
 }
 
-pub const TRANSFER_IDENTITY_ADJUDICATION_PROMPT_VERSION: &str = "identity-adjudication-v2";
+pub const TRANSFER_IDENTITY_ADJUDICATION_PROMPT_VERSION: &str = "identity-adjudication-v3";
 
 pub fn transfer_identity_adjudication_system_prompt(sport: &str) -> String {
     let noun = if sport == "NBA" || sport == "NFL" {
@@ -176,7 +176,7 @@ Language handling: evidence headlines/descriptions may be in English, Spanish, F
 Return only strict JSON with exactly these fields:
 {{"decision":"apply|reject","event_type":"transfer|trade|loan|signing|extension|rumor|false_positive","old_team_id":0,"new_team_id":0,"reason":"","evidence_spans":[]}}
 
-Use decision="apply" only when the evidence says the move is complete, agreed, signed, registered, official, or otherwise a current-team fact now.
+Use decision="apply" only when the supplied evidence says the move is complete, agreed, signed, registered, official, or otherwise a current-team fact now. An explicitly supplied official current-season statistics observation is a current-team fact, but it does not establish a signing date or transaction subtype.
 Use decision="reject" for speculation, interest, monitoring, ambiguity, unclear direction, conflicting sources, missing or contradictory team IDs, historical/background moves, already-current-team contradictions, or false positives.
 
 old_team_id and new_team_id must exactly match the proposed IDs. If old team is unknown, return null for old_team_id."#
@@ -192,6 +192,7 @@ pub fn build_transfer_identity_adjudication_prompt(
     current_team_name: &str,
     new_team_id: i32,
     new_team_name: &str,
+    current_team_stats_season: Option<i32>,
     news: &[NewsItem],
 ) -> String {
     let mut b = String::new();
@@ -212,7 +213,14 @@ pub fn build_transfer_identity_adjudication_prompt(
     b.push_str(&format!(
         "Proposed new identity: team_id={new_team_id} team_name={new_team_name}\n"
     ));
-    b.push_str("Decide only from the evidence articles and the proposed entity IDs below.\n");
+    b.push_str(
+        "Decide only from the supplied source evidence and the proposed entity IDs below.\n",
+    );
+    if let Some(season) = current_team_stats_season {
+        b.push_str(&format!(
+            "Official current-season statistics observation: the source feed records this player for proposed team_id={new_team_id} in season {season}. This establishes current-team affiliation as observed during that season. It does not establish a signing date; do not invent one.\n"
+        ));
+    }
     b.push_str("\nEvidence headlines:\n");
     for n in news {
         b.push_str("- ");

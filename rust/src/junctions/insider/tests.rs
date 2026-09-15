@@ -725,6 +725,7 @@ fn identity_adjudication_prompt_pins_candidate_ids() {
         "Old FC",
         42,
         "New FC",
+        None,
         &[NewsItem {
             id: 1,
             title: "New FC announce Example Player".to_string(),
@@ -734,9 +735,27 @@ fn identity_adjudication_prompt_pins_candidate_ids() {
     );
     assert!(prompt.contains("Current identity: team_id=18 team_name=Old FC"));
     assert!(prompt.contains("Proposed new identity: team_id=42 team_name=New FC"));
-    assert!(prompt.contains("Decide only from the evidence articles"));
+    assert!(prompt.contains("Decide only from the supplied source evidence"));
     assert!(!prompt.contains("heat"));
     assert!(!prompt.contains("Vetted summary"));
+}
+
+#[test]
+fn settled_identity_prompt_exposes_the_stats_observation_without_a_signing_date() {
+    let prompt = build_transfer_identity_adjudication_prompt(
+        "FOOTBALL",
+        7,
+        "Example Player",
+        Some(18),
+        "Old FC",
+        42,
+        "New FC",
+        Some(2026),
+        &[],
+    );
+    assert!(prompt.contains("Official current-season statistics observation"));
+    assert!(prompt.contains("proposed team_id=42 in season 2026"));
+    assert!(prompt.contains("does not establish a signing date"));
 }
 
 // --- Self-pacing against the worker's per-item ceiling ---------------------------------------

@@ -201,7 +201,7 @@ async fn extract_with_backend<T, P: Parser<T>>(
             Err(error) if attempt == 0 && error.is::<crate::composition::form::SurfaceError>() => {
                 tracing::warn!(%error, "card surface rewrite");
                 built_prompt.push_str(&format!(
-                    "\nOutput correction: {error} Rewrite from scratch. Keep only the main finding and up to two supporting details. Target at most 800 body characters so the complete JSON fits. Do not enumerate every input."
+                    "\nOutput correction: {error} Rewrite from scratch as one compact paragraph. Keep only the main finding and one supporting detail. Target at most 500 body characters so the complete JSON fits. Do not enumerate every input."
                 ));
                 continue;
             }
@@ -210,7 +210,7 @@ async fn extract_with_backend<T, P: Parser<T>>(
                     && error.is::<crate::runtime::providers::ollama::IncompleteOutput>() =>
             {
                 tracing::warn!(%error, "incomplete output rewrite");
-                built_prompt.push_str("\nOutput correction: the response ran out of space. Rewrite from scratch. Keep only the main finding and up to two supporting details. Target at most 800 body characters so the complete JSON fits. Do not enumerate every input.");
+                built_prompt.push_str("\nOutput correction: the response ran out of space. Rewrite from scratch as one compact paragraph. Keep only the main finding and one supporting detail. Target at most 500 body characters so the complete JSON fits. Do not enumerate every input.");
                 continue;
             }
             Err(error) => return Err(error),
@@ -296,7 +296,7 @@ mod surface_tests {
                 .starts_with("Original evidence\nOutput correction:"));
             assert!(result
                 .built_prompt
-                .contains("Target at most 800 body characters"));
+                .contains("Target at most 500 body characters"));
             assert_eq!(result.request_body["num_ctx"], 4096);
             assert_eq!(result.request_body["num_predict"], 700);
         }

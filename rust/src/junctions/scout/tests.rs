@@ -1025,6 +1025,30 @@ fn request_parser_keeps_xg_and_xa_attached_to_their_measures() {
 }
 
 #[test]
+fn request_parser_preserves_weighted_measures_and_thin_sample_coverage() {
+    let directions = BTreeMap::new();
+    let prompt = "Discipline: 1 (yellow cards + 3 x red cards). The current sample has fewer than 10 appearances.";
+    let parser = RatingRequestParser::new(prompt, &directions);
+    let cards = parser
+        .parse(
+            r#"{"headline":"Rogers profile","body":"Discipline is poor: 1 yellow + 3 red cards."}"#,
+        )
+        .unwrap_err();
+    assert!(cards.to_string().contains("weighted formula"));
+
+    let games = parser
+        .parse(r#"{"headline":"Rogers profile","body":"Rogers played 3 games with 257 minutes."}"#)
+        .unwrap_err();
+    assert!(games.to_string().contains("source coverage"));
+
+    let accepted = parser
+        .parse(r#"{"headline":"Rogers profile","body":"The stored snapshot records 3 appearances and 257 minutes. Discipline ranks poorly."}"#)
+        .unwrap()
+        .unwrap();
+    assert!(accepted.body.contains("stored snapshot"));
+}
+
+#[test]
 fn rating_splits_the_s20_headline_line() {
     // s20 (mig 226): the contracted closing title line — lifted out of the body, folded.
     let reply = RatingParser

@@ -1120,6 +1120,9 @@ impl Parser<RatingReply> for RatingRequestParser<'_> {
         if let Some(error) = first_measure_association_error(&reply.body) {
             return Err(crate::composition::form::SurfaceError(error.into()).into());
         }
+        if let Some(error) = first_source_shape_error(&reply.body, self.prompt) {
+            return Err(crate::composition::form::SurfaceError(error.into()).into());
+        }
         if let Some(height) = first_unsupported_height(&reply.body, self.prompt) {
             return Err(crate::composition::form::SurfaceError(format!(
                 "Body invents height {height:?}, which is absent from the retained evidence. Remove it."
@@ -1258,6 +1261,41 @@ fn first_measure_association_error(body: &str) -> Option<&'static str> {
             return Some(
                 "Expected assists (xA) is creation evidence, not scoring/finishing evidence. Remove that association or use supplied xG evidence.",
             );
+        }
+    }
+    None
+}
+
+fn first_source_shape_error(body: &str, prompt: &str) -> Option<&'static str> {
+    let body_folded = body.to_lowercase();
+    let prompt_folded = prompt.to_lowercase();
+    if prompt_folded.contains("yellow cards + 3 x red cards") && body_folded.contains("red card") {
+        return Some(
+            "The supplied discipline value is a weighted formula, not separate yellow/red-card counts. Do not invent its components; describe only the supplied discipline value or percentile.",
+        );
+    }
+    if prompt_folded.contains("fewer than 10 appearances") {
+        for claim in body_folded.split(['.', '!', '?', ';', '\n']) {
+            let actualized = claim
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .windows(3)
+                .any(|words| {
+                    matches!(words[0], "played" | "made")
+                        && words[1]
+                            .trim_matches(|c: char| !c.is_ascii_digit())
+                            .parse::<u32>()
+                            .is_ok()
+                        && (words[2].starts_with("game") || words[2].starts_with("appearance"))
+                });
+            let qualified = ["recorded", "stored", "snapshot", "source sample"]
+                .iter()
+                .any(|term| claim.contains(term));
+            if actualized && !qualified {
+                return Some(
+                    "The thin stored sample is source coverage, not proof of complete participation. Say recorded/stored/snapshot appearances rather than claiming the player played that many games.",
+                );
+            }
         }
     }
     None

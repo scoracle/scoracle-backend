@@ -1240,11 +1240,14 @@ fn first_unsupported_height<'a>(body: &'a str, prompt: &str) -> Option<&'a str> 
     body.split_whitespace()
         .map(|token| token.trim_matches(|c: char| matches!(c, ',' | '.' | ';' | ':' | '(' | ')')))
         .find(|token| {
-            let Some(feet) = token.find(['\'', '’']) else {
+            let Some((feet, mark)) = token
+                .char_indices()
+                .find(|(_, character)| matches!(character, '\'' | '’'))
+            else {
                 return false;
             };
             let before = &token[..feet];
-            let after = &token[feet + 1..];
+            let after = &token[feet + mark.len_utf8()..];
             !before.is_empty()
                 && before.chars().all(|c| c.is_ascii_digit())
                 && after.chars().next().is_some_and(|c| c.is_ascii_digit())

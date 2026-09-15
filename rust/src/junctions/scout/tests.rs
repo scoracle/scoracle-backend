@@ -973,6 +973,12 @@ fn request_parser_rewrites_an_unsourced_height() {
         .unwrap_err();
     assert!(error.is::<crate::composition::form::SurfaceError>());
     assert!(error.to_string().contains("invents height"));
+
+    let possessive = parser
+        .parse(r#"{"headline":"LeVert's profile","body":"LeVert’s scoring profile is measured."}"#)
+        .expect("a typographic possessive is not a height")
+        .expect("a reply");
+    assert!(possessive.body.contains("LeVert’s"));
 }
 
 #[test]

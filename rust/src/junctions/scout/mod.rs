@@ -1030,7 +1030,10 @@ impl Parser<RatingReply> for RatingParser {
                 phrase = p,
                 "rating body rejected"
             );
-            anyhow::bail!("rating: body carries banned {p:?}");
+            return Err(crate::composition::form::SurfaceError(format!(
+                "Body makes the unsupported inference {p:?}; remove that claim and use only retained evidence."
+            ))
+            .into());
         }
         if let Some(p) = crate::composition::guards::first_product_name(&body) {
             tracing::warn!(guard = "product_name", name = p, "rating body rejected");

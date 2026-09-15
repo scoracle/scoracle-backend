@@ -186,6 +186,7 @@ pub fn build_stat_prompt(
             change.prior_observed_at.as_deref().unwrap_or("unknown"),
             render_sample(&change.prior_sample)
         ));
+        b.push_str("Cross-season boundary: these are season-to-date snapshots and their minutes or appearances may cover different windows. Percentile movement describes relative standing only. Do not claim changes in ability, role, minutes, fitness, availability, tactics or opponent plans unless an attributed report states them.\n");
     }
 
     if let Some(comp) = p.composite_score {

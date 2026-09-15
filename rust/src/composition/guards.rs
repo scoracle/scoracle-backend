@@ -65,6 +65,14 @@ pub const RATING_BODY_BANS: &[&str] = &[
     " · ",
     "limited playing time",
     "playing time is likely limited",
+    "reduced playing time",
+    "reduced minutes",
+    "fewer minutes",
+    "lower total minutes",
+    "constrained role",
+    "shift in role",
+    "tactical adjustments",
+    "positional or tactical changes",
     "substituted early",
     "typical team averages",
     "only verified fixture",
@@ -281,6 +289,13 @@ mod tests {
         assert_eq!(
             first_banned_phrase("The stored sample is limited", RATING_BODY_BANS),
             None
+        );
+        assert_eq!(
+            first_banned_phrase(
+                "The higher rates point to a more constrained role and fewer minutes",
+                RATING_BODY_BANS
+            ),
+            Some("fewer minutes")
         );
     }
 

@@ -945,7 +945,12 @@ fn request_parser_rewrites_reversed_comparison_direction() {
         ("Scoring".into(), RelativeDirection::Rose),
         ("Steals".into(), RelativeDirection::Fell),
     ]);
-    let parser = RatingRequestParser::new("Scoring and steals comparison supplied.", &directions);
+    let bands = BTreeMap::new();
+    let parser = RatingRequestParser::new(
+        "Scoring and steals comparison supplied.",
+        &directions,
+        &bands,
+    );
     let reversed = parser
         .parse(r#"{"headline":"Clingan's profile","body":"Scoring declined relative to peers."}"#)
         .unwrap_err();
@@ -967,7 +972,8 @@ fn request_parser_rewrites_reversed_comparison_direction() {
 #[test]
 fn request_parser_rewrites_an_unsourced_height() {
     let directions = BTreeMap::new();
-    let parser = RatingRequestParser::new("A center for Portland.", &directions);
+    let bands = BTreeMap::new();
+    let parser = RatingRequestParser::new("A center for Portland.", &directions, &bands);
     let error = parser
         .parse(r#"{"headline":"Clingan's profile","body":"The 6'9\" center protects the rim."}"#)
         .unwrap_err();
@@ -987,7 +993,9 @@ fn request_parser_rewrites_mixed_blanket_claims_and_self_contradictory_form() {
         ("Scoring".into(), RelativeDirection::Rose),
         ("Steals".into(), RelativeDirection::Fell),
     ]);
-    let parser = RatingRequestParser::new("Comparison and recent form supplied.", &directions);
+    let bands = BTreeMap::new();
+    let parser =
+        RatingRequestParser::new("Comparison and recent form supplied.", &directions, &bands);
     let blanket = parser
         .parse(r#"{"headline":"Mixed profile","body":"The player shows consistent improvement across key metrics."}"#)
         .unwrap_err();
@@ -1004,7 +1012,8 @@ fn request_parser_rewrites_mixed_blanket_claims_and_self_contradictory_form() {
 #[test]
 fn request_parser_keeps_xg_and_xa_attached_to_their_measures() {
     let directions = BTreeMap::new();
-    let parser = RatingRequestParser::new("xG and xA evidence supplied.", &directions);
+    let bands = BTreeMap::new();
+    let parser = RatingRequestParser::new("xG and xA evidence supplied.", &directions, &bands);
     let xg = parser
         .parse(r#"{"headline":"Rogers profile","body":"His xG indicates strong creation."}"#)
         .unwrap_err();
@@ -1017,6 +1026,11 @@ fn request_parser_keeps_xg_and_xa_attached_to_their_measures() {
         .unwrap_err();
     assert!(xa.to_string().contains("xA) is creation evidence"));
 
+    let grouped = parser
+        .parse(r#"{"headline":"Rogers profile","body":"His xG and xA are both at elite percentiles (99.2 and 97.0)."}"#)
+        .unwrap_err();
+    assert!(grouped.to_string().contains("separate claims"));
+
     let accepted = parser
         .parse(r#"{"headline":"Rogers profile","body":"His xG supports the shooting read, while xA supports creation."}"#)
         .unwrap()
@@ -1027,8 +1041,9 @@ fn request_parser_keeps_xg_and_xa_attached_to_their_measures() {
 #[test]
 fn request_parser_preserves_weighted_measures_and_thin_sample_coverage() {
     let directions = BTreeMap::new();
+    let bands = BTreeMap::new();
     let prompt = "Discipline: 1 (yellow cards + 3 x red cards). The current sample has fewer than 10 appearances.";
-    let parser = RatingRequestParser::new(prompt, &directions);
+    let parser = RatingRequestParser::new(prompt, &directions, &bands);
     let cards = parser
         .parse(
             r#"{"headline":"Rogers profile","body":"Discipline is poor: 1 yellow + 3 red cards."}"#,
@@ -1041,11 +1056,39 @@ fn request_parser_preserves_weighted_measures_and_thin_sample_coverage() {
         .unwrap_err();
     assert!(games.to_string().contains("source coverage"));
 
+    let bare_sample = parser
+        .parse(
+            r#"{"headline":"Rogers profile","body":"Rogers has 3 appearances and 257 minutes."}"#,
+        )
+        .unwrap_err();
+    assert!(bare_sample.to_string().contains("source coverage"));
+
     let accepted = parser
         .parse(r#"{"headline":"Rogers profile","body":"The stored snapshot records 3 appearances and 257 minutes. Discipline ranks poorly."}"#)
         .unwrap()
         .unwrap();
     assert!(accepted.body.contains("stored snapshot"));
+}
+
+#[test]
+fn request_parser_keeps_quality_words_in_the_supplied_percentile_band() {
+    let directions = BTreeMap::new();
+    let bands = BTreeMap::from([
+        ("Tackling".into(), "below average".into()),
+        ("Chance Creation".into(), "elite".into()),
+    ]);
+    let parser = RatingRequestParser::new("Percentile bands supplied.", &directions, &bands);
+    let error = parser
+        .parse(r#"{"headline":"Rogers profile","body":"Tackling is above average, while Chance Creation is elite."}"#)
+        .unwrap_err();
+    assert!(error.to_string().contains("Tackling above average"));
+    assert!(error.to_string().contains("below average"));
+
+    let accepted = parser
+        .parse(r#"{"headline":"Rogers profile","body":"Tackling is below average, while Chance Creation is elite."}"#)
+        .unwrap()
+        .unwrap();
+    assert!(accepted.body.contains("Chance Creation is elite"));
 }
 
 #[test]

@@ -38,7 +38,7 @@ pub use crate::evidence::personnel::{
 pub use inputs::{build_stat_prompt, render_personnel_block, render_scout_reports};
 
 /// Output contract captured separately in the diagnostic ledger.
-pub const RATING_OUTPUT_CONTRACT_VERSION: &str = "rating-commentary-v2";
+pub const RATING_OUTPUT_CONTRACT_VERSION: &str = "rating-commentary-v3";
 
 const RATING_LEDGER: LedgerSpec = LedgerSpec {
     stage: "rating",
@@ -735,6 +735,19 @@ fn comparison_directions(
         .collect()
 }
 
+fn measurement_bands(current: &RatingProfile) -> BTreeMap<String, String> {
+    current
+        .breakdown
+        .iter()
+        .filter_map(|datapoint| {
+            Some((
+                datapoint.label.clone(),
+                pct_band(datapoint.pct?).to_string(),
+            ))
+        })
+        .collect()
+}
+
 /// Join measurements by skill before rendering. A missing comparison stays unknown;
 /// another skill's direction must not become this one's trajectory.
 pub fn build_skill_changes(
@@ -1013,11 +1026,20 @@ pub struct RatingParser;
 pub struct RatingRequestParser<'a> {
     prompt: &'a str,
     directions: &'a BTreeMap<String, RelativeDirection>,
+    bands: &'a BTreeMap<String, String>,
 }
 
 impl<'a> RatingRequestParser<'a> {
-    pub fn new(prompt: &'a str, directions: &'a BTreeMap<String, RelativeDirection>) -> Self {
-        Self { prompt, directions }
+    pub fn new(
+        prompt: &'a str,
+        directions: &'a BTreeMap<String, RelativeDirection>,
+        bands: &'a BTreeMap<String, String>,
+    ) -> Self {
+        Self {
+            prompt,
+            directions,
+            bands,
+        }
     }
 }
 
@@ -1122,6 +1144,12 @@ impl Parser<RatingReply> for RatingRequestParser<'_> {
         }
         if let Some(error) = first_source_shape_error(&reply.body, self.prompt) {
             return Err(crate::composition::form::SurfaceError(error.into()).into());
+        }
+        if let Some((label, stated, expected)) = first_band_contradiction(&reply.body, self.bands) {
+            return Err(crate::composition::form::SurfaceError(format!(
+                "Body calls {label} {stated}, but its supplied percentile band is {expected}. Use the supplied band."
+            ))
+            .into());
         }
         if let Some(height) = first_unsupported_height(&reply.body, self.prompt) {
             return Err(crate::composition::form::SurfaceError(format!(
@@ -1252,6 +1280,11 @@ fn first_measure_association_error(body: &str) -> Option<&'static str> {
         let scoring = ["scoring", "goalscoring", "finishing"]
             .iter()
             .any(|term| claim.contains(term));
+        if has_xg && has_xa && claim.contains("percentile") {
+            return Some(
+                "State xG and xA percentile evidence in separate claims so one measure cannot inherit the other's ranks.",
+            );
+        }
         if has_xg && creation && !has_xa {
             return Some(
                 "Expected goals (xG) is shooting/scoring evidence, not creation or playmaking evidence. Remove that association or use supplied xA evidence.",
@@ -1279,14 +1312,15 @@ fn first_source_shape_error(body: &str, prompt: &str) -> Option<&'static str> {
             let actualized = claim
                 .split_whitespace()
                 .collect::<Vec<_>>()
-                .windows(3)
+                .windows(2)
                 .any(|words| {
-                    matches!(words[0], "played" | "made")
-                        && words[1]
-                            .trim_matches(|c: char| !c.is_ascii_digit())
-                            .parse::<u32>()
-                            .is_ok()
-                        && (words[2].starts_with("game") || words[2].starts_with("appearance"))
+                    words[0]
+                        .trim_matches(|c: char| !c.is_ascii_digit() && c != '.')
+                        .parse::<f64>()
+                        .is_ok()
+                        && (words[1].starts_with("game")
+                            || words[1].starts_with("appearance")
+                            || words[1].starts_with("minute"))
                 });
             let qualified = ["recorded", "stored", "snapshot", "source sample"]
                 .iter()
@@ -1295,6 +1329,40 @@ fn first_source_shape_error(body: &str, prompt: &str) -> Option<&'static str> {
                 return Some(
                     "The thin stored sample is source coverage, not proof of complete participation. Say recorded/stored/snapshot appearances rather than claiming the player played that many games.",
                 );
+            }
+        }
+    }
+    None
+}
+
+fn first_band_contradiction(
+    body: &str,
+    bands: &BTreeMap<String, String>,
+) -> Option<(String, String, String)> {
+    const BAND_TERMS: &[&str] = &[
+        "above average",
+        "below average",
+        "elite",
+        "strong",
+        "average",
+        "poor",
+    ];
+    let folded = body.to_lowercase();
+    let clauses = folded
+        .split(['.', '!', '?', ';', ',', '\n'])
+        .flat_map(|sentence| sentence.split(" while "))
+        .flat_map(|clause| clause.split(" whereas "))
+        .flat_map(|clause| clause.split(" but "))
+        .flat_map(|clause| clause.split(" and "));
+    for clause in clauses {
+        for (label, expected) in bands {
+            if !clause.contains(&label.to_lowercase()) {
+                continue;
+            }
+            if let Some(stated) = BAND_TERMS.iter().find(|term| clause.contains(**term)) {
+                if *stated != expected {
+                    return Some((label.clone(), (*stated).into(), expected.clone()));
+                }
             }
         }
     }
@@ -1348,6 +1416,7 @@ pub struct RatingReady {
     /// Exact narrower package used to render and fingerprint this request.
     pub model_memories: memories::Package,
     pub comparison_directions: BTreeMap<String, RelativeDirection>,
+    pub measurement_bands: BTreeMap<String, String>,
     pub notability: i32,
     pub notability_components: serde_json::Value,
     pub rating_trajectory: RatingTrajectory,
@@ -1519,6 +1588,7 @@ pub async fn build_rating_request(
         None
     };
     let comparison_directions = comparison_directions(&profile, comparisons.as_ref());
+    let measurement_bands = measurement_bands(&profile);
     // The recent-form marker rides the same enrichment flag: shading context in production,
     // absent only on explicit bare diagnostic probes.
     let form_trend = if with_enrichment {
@@ -1566,6 +1636,7 @@ pub async fn build_rating_request(
         memories,
         model_memories,
         comparison_directions,
+        measurement_bands,
         notability,
         notability_components,
         rating_trajectory,
@@ -1675,8 +1746,11 @@ pub async fn generate_rating(
         }
     }
 
-    let grounded_parser =
-        RatingRequestParser::new(&ready.built_prompt, &ready.comparison_directions);
+    let grounded_parser = RatingRequestParser::new(
+        &ready.built_prompt,
+        &ready.comparison_directions,
+        &ready.measurement_bands,
+    );
     let extracted = hx
         .extract(
             Role::StatsLogic,

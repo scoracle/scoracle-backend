@@ -69,7 +69,11 @@ async fn main() -> Result<()> {
     let parsed_provider_response =
         serde_json::from_str::<serde_json::Value>(&generated.raw_response_body)
             .unwrap_or_else(|_| json!({"raw": generated.raw_response_body}));
-    let parser = RatingRequestParser::new(&ready.built_prompt, &ready.comparison_directions);
+    let parser = RatingRequestParser::new(
+        &ready.built_prompt,
+        &ready.comparison_directions,
+        &ready.measurement_bands,
+    );
     let (parser_pass, parser_error) = match parser.parse(&generated.response) {
         Ok(Some(_)) => (true, None),
         Ok(None) => (false, Some("parser returned no product".to_string())),

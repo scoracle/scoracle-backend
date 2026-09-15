@@ -1002,6 +1002,29 @@ fn request_parser_rewrites_mixed_blanket_claims_and_self_contradictory_form() {
 }
 
 #[test]
+fn request_parser_keeps_xg_and_xa_attached_to_their_measures() {
+    let directions = BTreeMap::new();
+    let parser = RatingRequestParser::new("xG and xA evidence supplied.", &directions);
+    let xg = parser
+        .parse(r#"{"headline":"Rogers profile","body":"His xG indicates strong creation."}"#)
+        .unwrap_err();
+    assert!(xg.to_string().contains("xG) is shooting/scoring evidence"));
+
+    let xa = parser
+        .parse(
+            r#"{"headline":"Rogers profile","body":"Expected assists show stronger finishing."}"#,
+        )
+        .unwrap_err();
+    assert!(xa.to_string().contains("xA) is creation evidence"));
+
+    let accepted = parser
+        .parse(r#"{"headline":"Rogers profile","body":"His xG supports the shooting read, while xA supports creation."}"#)
+        .unwrap()
+        .unwrap();
+    assert!(accepted.body.contains("xA supports creation"));
+}
+
+#[test]
 fn rating_splits_the_s20_headline_line() {
     // s20 (mig 226): the contracted closing title line — lifted out of the body, folded.
     let reply = RatingParser

@@ -1117,6 +1117,9 @@ impl Parser<RatingReply> for RatingRequestParser<'_> {
             )
             .into());
         }
+        if let Some(error) = first_measure_association_error(&reply.body) {
+            return Err(crate::composition::form::SurfaceError(error.into()).into());
+        }
         if let Some(height) = first_unsupported_height(&reply.body, self.prompt) {
             return Err(crate::composition::form::SurfaceError(format!(
                 "Body invents height {height:?}, which is absent from the retained evidence. Remove it."
@@ -1157,9 +1160,9 @@ fn first_direction_contradiction(
         .any(|phrase| folded.contains(phrase))
     {
         return Some((
-            "mixed comparison measures".into(),
-            "all rose",
-            "have mixed directions",
+            "the comparison".into(),
+            "only rose",
+            "contains mixed directions",
         ));
     }
 
@@ -1234,6 +1237,30 @@ fn has_internal_form_contradiction(body: &str) -> bool {
     .iter()
     .any(|phrase| folded.contains(phrase));
     positive && negative
+}
+
+fn first_measure_association_error(body: &str) -> Option<&'static str> {
+    for claim in body.to_lowercase().split(['.', '!', '?', ';', '\n']) {
+        let has_xg = claim.contains("expected goals") || claim.contains("xg");
+        let has_xa = claim.contains("expected assists") || claim.contains("xa");
+        let creation = ["creation", "creative", "playmaking", "assist"]
+            .iter()
+            .any(|term| claim.contains(term));
+        let scoring = ["scoring", "goalscoring", "finishing"]
+            .iter()
+            .any(|term| claim.contains(term));
+        if has_xg && creation && !has_xa {
+            return Some(
+                "Expected goals (xG) is shooting/scoring evidence, not creation or playmaking evidence. Remove that association or use supplied xA evidence.",
+            );
+        }
+        if has_xa && scoring && !has_xg {
+            return Some(
+                "Expected assists (xA) is creation evidence, not scoring/finishing evidence. Remove that association or use supplied xG evidence.",
+            );
+        }
+    }
+    None
 }
 
 fn first_unsupported_height<'a>(body: &'a str, prompt: &str) -> Option<&'a str> {

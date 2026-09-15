@@ -704,9 +704,9 @@ pub struct SkillChange {
 pub fn build_skill_changes(
     current: &RatingProfile,
     prior: &RatingProfile,
-) -> HashMap<String, SkillChange> {
+) -> BTreeMap<String, SkillChange> {
     if current.league_id != prior.league_id {
-        return HashMap::new();
+        return BTreeMap::new();
     }
     let prior_by_label: HashMap<&str, &RatingDatapoint> = prior
         .breakdown

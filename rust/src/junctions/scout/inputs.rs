@@ -5,8 +5,10 @@ use super::{
     PersonnelChange, RatingProfile, RatingReq,
 };
 use crate::junctions::editor::render::MarkedClaim;
+use std::collections::BTreeMap;
 
 pub(super) const MIN_CROSS_SEASON_APPEARANCES: f64 = 10.0;
+const MAX_COMPARISON_FACTS: usize = 4;
 
 pub(super) fn sample_appearances(p: &RatingProfile) -> Option<f64> {
     p.sample.iter().find_map(|(label, value)| {
@@ -167,7 +169,7 @@ pub fn build_stat_prompt(
     req: &RatingReq,
     p: &RatingProfile,
     personnel: Option<&str>,
-    comparisons: Option<&std::collections::HashMap<String, super::SkillChange>>,
+    comparisons: Option<&BTreeMap<String, super::SkillChange>>,
     form_trend: Option<&str>,
     current_reports: Option<&str>,
     identity: Option<&str>,
@@ -203,6 +205,37 @@ pub fn build_stat_prompt(
             render_sample(&change.prior_sample)
         ));
         b.push_str("Cross-season boundary: these are season-to-date snapshots and their minutes or appearances may cover different windows. Percentile movement describes relative standing only. Do not claim changes in ability, role, minutes, fitness, availability, tactics or opponent plans unless an attributed report states them.\n");
+
+        let mut movements = p
+            .breakdown
+            .iter()
+            .filter_map(|datapoint| {
+                let current_pct = datapoint.pct?;
+                let change = comparisons?.get(&datapoint.label)?;
+                Some((
+                    datapoint.label.as_str(),
+                    current_pct,
+                    change.prior_pct,
+                    current_pct - change.prior_pct,
+                ))
+            })
+            .collect::<Vec<_>>();
+        movements.sort_by(|a, b| {
+            b.3.abs()
+                .partial_cmp(&a.3.abs())
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.0.cmp(b.0))
+        });
+        if !movements.is_empty() {
+            b.push_str("Compatible cross-season measurements (same measure; movement is relative percentile standing, not ability):\n");
+            for (label, current_pct, prior_pct, delta) in
+                movements.into_iter().take(MAX_COMPARISON_FACTS)
+            {
+                b.push_str(&format!(
+                    "- {label}: prior {prior_pct:.1}; current {current_pct:.1}; relative standing {delta:+.1} percentile points\n"
+                ));
+            }
+        }
     }
 
     if let Some(comp) = p.composite_score {

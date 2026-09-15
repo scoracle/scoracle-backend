@@ -156,6 +156,47 @@ fn season_changes_stay_with_their_own_skill() {
         .unwrap();
     assert!(!chance.contains("prior season percentile"));
     assert!(!chance.contains("slipped"));
+    assert!(prompt.contains("Compatible cross-season measurements"));
+    assert!(prompt.contains(
+        "- Creation: prior 95.0; current 66.0; relative standing -29.0 percentile points"
+    ));
+    assert!(!prompt.contains("- Chance Creation: prior"));
+}
+
+#[test]
+fn comparison_block_orders_compatible_movements_by_magnitude() {
+    let current = nfl_profile(
+        "Center",
+        vec![
+            dp("Stable", 1.0, 0.0, 50.0, 1),
+            dp("Large Rise", 1.0, 0.0, 90.0, 1),
+            dp("Medium Fall", 1.0, 0.0, 20.0, 1),
+        ],
+    );
+    let prior = nfl_profile(
+        "Center",
+        vec![
+            dp("Stable", 1.0, 0.0, 50.0, 1),
+            dp("Large Rise", 1.0, 0.0, 10.0, 1),
+            dp("Medium Fall", 1.0, 0.0, 60.0, 1),
+        ],
+    );
+    let changes = build_skill_changes(&current, &prior);
+    let prompt = build_stat_prompt(
+        &req("NBA", "player", "Test Player"),
+        &current,
+        None,
+        Some(&changes),
+        None,
+        None,
+        None,
+    );
+    let rise = prompt.find("- Large Rise: prior").unwrap();
+    let fall = prompt.find("- Medium Fall: prior").unwrap();
+    let stable = prompt.find("- Stable: prior").unwrap();
+    assert!(rise < fall && fall < stable);
+    assert!(prompt.contains("relative standing +80.0 percentile points"));
+    assert!(prompt.contains("relative standing +0.0 percentile points"));
 }
 
 fn dp(label: &str, value: f64, z: f64, pct: f64, sign: i32) -> RatingDatapoint {

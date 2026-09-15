@@ -158,7 +158,7 @@ pub fn build_transfer_prompt(
     b
 }
 
-pub const TRANSFER_IDENTITY_ADJUDICATION_PROMPT_VERSION: &str = "identity-adjudication-v3";
+pub const TRANSFER_IDENTITY_ADJUDICATION_PROMPT_VERSION: &str = "identity-adjudication-v4";
 
 pub fn transfer_identity_adjudication_system_prompt(sport: &str) -> String {
     let noun = if sport == "NBA" || sport == "NFL" {
@@ -176,7 +176,7 @@ Language handling: evidence headlines/descriptions may be in English, Spanish, F
 Return only strict JSON with exactly these fields:
 {{"decision":"apply|reject","event_type":"transfer|trade|loan|signing|extension|rumor|false_positive","old_team_id":0,"new_team_id":0,"reason":"","evidence_spans":[]}}
 
-Use decision="apply" only when the supplied evidence says the move is complete, agreed, signed, registered, official, or otherwise a current-team fact now. An explicitly supplied official current-season statistics observation is a current-team fact, but it does not establish a signing date or transaction subtype.
+Use decision="apply" only when the supplied evidence says the move is complete, agreed, signed, registered, official, or otherwise a current-team fact now. An explicitly supplied official current-season statistics observation is sufficient current-team fact. Do not require a separate signing announcement for a player already observed playing for the proposed team. The observation does not establish a signing date or transaction subtype.
 Use decision="reject" for speculation, interest, monitoring, ambiguity, unclear direction, conflicting sources, missing or contradictory team IDs, historical/background moves, already-current-team contradictions, or false positives.
 
 old_team_id and new_team_id must exactly match the proposed IDs. If old team is unknown, return null for old_team_id."#
@@ -218,7 +218,7 @@ pub fn build_transfer_identity_adjudication_prompt(
     );
     if let Some(season) = current_team_stats_season {
         b.push_str(&format!(
-            "Official current-season statistics observation: the source feed records this player for proposed team_id={new_team_id} in season {season}. This establishes current-team affiliation as observed during that season. It does not establish a signing date; do not invent one.\n"
+            "Official current-season statistics observation: the source feed records this player for proposed team_id={new_team_id} in season {season}. This establishes current-team affiliation as observed during that season. Apply the proposed identity unless a retained source explicitly contradicts the player or team IDs. A missing announcement or signing date is not a reason to reject an already observed current-team fact. Do not invent a date.\n"
         ));
     }
     b.push_str("\nEvidence headlines:\n");

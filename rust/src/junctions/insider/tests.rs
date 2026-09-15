@@ -755,7 +755,8 @@ fn settled_identity_prompt_exposes_the_stats_observation_without_a_signing_date(
     );
     assert!(prompt.contains("Official current-season statistics observation"));
     assert!(prompt.contains("proposed team_id=42 in season 2026"));
-    assert!(prompt.contains("does not establish a signing date"));
+    assert!(prompt.contains("A missing announcement or signing date is not a reason to reject"));
+    assert!(prompt.contains("Do not invent a date"));
 }
 
 // --- Self-pacing against the worker's per-item ceiling ---------------------------------------

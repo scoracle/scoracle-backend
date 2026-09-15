@@ -175,6 +175,8 @@ pub fn build_stat_prompt(
     identity: Option<&str>,
 ) -> String {
     let mut b = String::new();
+    let appearances = sample_appearances(p);
+    let thin_sample = appearances.is_some_and(|n| n < MIN_CROSS_SEASON_APPEARANCES);
 
     let mut header = format!("{} {}", req.sport, req.entity_type);
     if !p.position.is_empty() {
@@ -195,7 +197,11 @@ pub fn build_stat_prompt(
     b.push_str(&format!(
         "Stats updated: {}; sample: {}\n",
         p.observed_at.as_deref().unwrap_or("unknown"),
-        render_sample(&p.sample)
+        if thin_sample {
+            "stored thin sample; participation details omitted".into()
+        } else {
+            render_sample(&p.sample)
+        }
     ));
     if let Some(change) = comparisons.and_then(|changes| changes.values().next()) {
         b.push_str(&format!(
@@ -306,7 +312,6 @@ pub fn build_stat_prompt(
         b.push_str(ar);
     }
 
-    let appearances = sample_appearances(p);
     let one_appearance_sample = appearances.is_some_and(|n| n <= 1.0);
     if one_appearance_sample {
         b.push_str("\nEvidence boundary for this output: the stored current sample has at most one appearance. It is source coverage, not proof of actual or limited playing time. Attributed reports may describe other fixtures or competitions; do not merge them into the stored appearance or aggregate without a verified fixture link. Do not calculate unstated values or describe improvement, decline or stability across seasons. Center the reading on the separately attributed current actions and state that a directional comparison is unsupported.\n");

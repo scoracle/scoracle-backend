@@ -748,6 +748,18 @@ fn measurement_bands(current: &RatingProfile) -> BTreeMap<String, String> {
         .collect()
 }
 
+fn model_prompt_profile(profile: &RatingProfile, supports_cross_season: bool) -> RatingProfile {
+    let mut prompt_profile = profile.clone();
+    if !supports_cross_season {
+        prompt_profile.composite_score = None;
+        prompt_profile.breakdown = ordered_facts_unbounded(&profile.breakdown)
+            .into_iter()
+            .take(2)
+            .collect();
+    }
+    prompt_profile
+}
+
 /// Join measurements by skill before rendering. A missing comparison stays unknown;
 /// another skill's direction must not become this one's trajectory.
 pub fn build_skill_changes(
@@ -1589,7 +1601,8 @@ pub async fn build_rating_request(
         None
     };
     let comparison_directions = comparison_directions(&profile, comparisons.as_ref());
-    let measurement_bands = measurement_bands(&profile);
+    let prompt_profile = model_prompt_profile(&profile, supports_cross_season);
+    let measurement_bands = measurement_bands(&prompt_profile);
     // The recent-form marker rides the same enrichment flag: shading context in production,
     // absent only on explicit bare diagnostic probes.
     let form_trend = if with_enrichment {
@@ -1612,7 +1625,7 @@ pub async fn build_rating_request(
     let input_hash = hash_components(&input_components);
     let built_prompt = build_stat_prompt(
         req,
-        &profile,
+        &prompt_profile,
         personnel.as_deref(),
         comparisons.as_ref(),
         form_trend.as_deref(),

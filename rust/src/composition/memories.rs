@@ -333,7 +333,7 @@ impl Package {
         view.groups.clear();
 
         for group in &self.groups {
-            let records = group
+            let mut records = group
                 .records
                 .iter()
                 .filter(|record| {
@@ -348,6 +348,23 @@ impl Package {
                 })
                 .cloned()
                 .collect::<Vec<_>>();
+            for record in &mut records {
+                let Some(data) = record.data.as_object_mut() else {
+                    continue;
+                };
+                if matches!(record.section, Section::Identity | Section::PresentEvidence) {
+                    data.remove("recorded_sample");
+                }
+                if group.id == "performance comparison"
+                    && record.section == Section::PresentEvidence
+                {
+                    data.remove("measurements");
+                    data.insert(
+                        "measurement_detail".into(),
+                        Value::String("supplied by the current-snapshot rating block".into()),
+                    );
+                }
+            }
             let omitted_sources = group
                 .records
                 .iter()
@@ -1108,7 +1125,12 @@ mod tests {
                     }],
                     observed_at: None,
                     observed_unix: None,
-                    data: json!({"season": 2026, "played_for": "Chelsea"}),
+                    data: json!({
+                        "season": 2026,
+                        "played_for": "Chelsea",
+                        "recorded_sample": {"appearances": 3, "minutes_played": 257},
+                        "measurements": [{"label": "Goals", "value": 2}]
+                    }),
                 },
             ],
             qualifications: vec!["Compare the two seasons.".into()],
@@ -1119,6 +1141,10 @@ mod tests {
         assert!(package.render_for_model().unwrap().contains("Aston Villa"));
         assert!(!rendered.contains("Aston Villa"));
         assert!(rendered.contains("Chelsea"));
+        assert!(!rendered.contains("appearances"));
+        assert!(!rendered.contains("minutes played"));
+        assert!(!rendered.contains("Goals"));
+        assert!(rendered.contains("current-snapshot rating block"));
         assert!(rendered.contains("Current performance snapshot"));
         assert!(!rendered.contains("Compare the two seasons"));
         assert!(view

@@ -48,7 +48,10 @@ fn unranked_one_appearance_is_not_an_elite_or_declining_profile() {
         None,
         None,
     );
-    assert!(prompt.contains("Stats updated: 2026-09-07; sample: Appearances 1"));
+    assert!(prompt.contains(
+        "Stats updated: 2026-09-07; sample: stored thin sample; participation details omitted"
+    ));
+    assert!(!prompt.contains("sample: Appearances 1"));
     assert!(prompt.contains("Chance Creation: 1.01 (expected assists)"));
     assert!(prompt.contains("Shooting: 0.14 (expected goals)"));
     assert!(prompt.contains("Goalscoring: 0 (goals)"));
@@ -91,7 +94,7 @@ fn sample_value_and_rank_missingness_participate_in_input_identity() {
 #[test]
 fn sample_preserves_units_and_unknown_dates() {
     let mut p = profile_player();
-    p.sample.insert("Games Played".into(), 3.0);
+    p.sample.insert("Games Played".into(), 10.0);
     p.sample.insert("Minutes Per Game".into(), 21.5);
     let prompt = build_stat_prompt(
         &req("NBA", "player", "Test Player"),
@@ -103,7 +106,7 @@ fn sample_preserves_units_and_unknown_dates() {
         None,
     );
     assert!(
-        prompt.contains("Stats updated: unknown; sample: Games Played 3, Minutes Per Game 21.5")
+        prompt.contains("Stats updated: unknown; sample: Games Played 10, Minutes Per Game 21.5")
     );
     assert!(prompt.contains("Values: per-game averages"));
 }
@@ -1645,6 +1648,8 @@ fn thin_current_sample_withholds_directional_cross_season_claims() {
         None,
     );
     assert!(prompt.contains("fewer than 10 appearances"));
+    assert!(prompt.contains("stored thin sample; participation details omitted"));
+    assert!(!prompt.contains("Appearances 3"));
     assert!(prompt.contains("no cross-season change was computed"));
     assert!(prompt.contains("Do not claim improvement, decline, stability"));
     assert!(prompt.contains("at most the two highest printed"));
@@ -1655,6 +1660,20 @@ fn thin_current_sample_withholds_directional_cross_season_claims() {
 
     p.sample.insert("appearances".to_string(), 10.0);
     assert!(inputs::supports_cross_season_comparison(&p));
+}
+
+#[test]
+fn thin_current_sample_shows_only_its_two_highest_ranked_measures() {
+    let mut p = profile_player();
+    p.sample.insert("appearances".to_string(), 3.0);
+    p.breakdown.push(dp("Passing", 9.0, 0.5, 80.0, 1));
+
+    let prompt_profile = model_prompt_profile(&p, false);
+    assert_eq!(prompt_profile.composite_score, None);
+    assert_eq!(prompt_profile.breakdown.len(), 2);
+    assert_eq!(prompt_profile.breakdown[0].label, "Scoring");
+    assert_eq!(prompt_profile.breakdown[1].label, "Passing");
+    assert_eq!(prompt_profile.sample["appearances"], 3.0);
 }
 
 /// No changes ⇒ no section. A heading with nothing under it asserts "nothing moved", which is a

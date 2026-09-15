@@ -700,6 +700,41 @@ pub struct SkillChange {
     pub prior_sample: BTreeMap<String, f64>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RelativeDirection {
+    Rose,
+    Fell,
+    Held,
+}
+
+pub fn relative_direction(delta: f64) -> RelativeDirection {
+    if delta > 1.0 {
+        RelativeDirection::Rose
+    } else if delta < -1.0 {
+        RelativeDirection::Fell
+    } else {
+        RelativeDirection::Held
+    }
+}
+
+fn comparison_directions(
+    current: &RatingProfile,
+    comparisons: Option<&BTreeMap<String, SkillChange>>,
+) -> BTreeMap<String, RelativeDirection> {
+    current
+        .breakdown
+        .iter()
+        .filter_map(|datapoint| {
+            let current_pct = datapoint.pct?;
+            let prior_pct = comparisons?.get(&datapoint.label)?.prior_pct;
+            Some((
+                datapoint.label.clone(),
+                relative_direction(current_pct - prior_pct),
+            ))
+        })
+        .collect()
+}
+
 /// Join measurements by skill before rendering. A missing comparison stays unknown;
 /// another skill's direction must not become this one's trajectory.
 pub fn build_skill_changes(
@@ -972,6 +1007,20 @@ pub struct RatingReply {
 /// global invariants: bullet/Markdown decoration, product names, foreign script.
 pub struct RatingParser;
 
+/// Production parser with facts from the exact built request. Shape and global
+/// prose guards remain in [`RatingParser`]; this layer catches contradictions
+/// that can only be judged against this entity's selected comparison evidence.
+pub struct RatingRequestParser<'a> {
+    prompt: &'a str,
+    directions: &'a BTreeMap<String, RelativeDirection>,
+}
+
+impl<'a> RatingRequestParser<'a> {
+    pub fn new(prompt: &'a str, directions: &'a BTreeMap<String, RelativeDirection>) -> Self {
+        Self { prompt, directions }
+    }
+}
+
 /// parse_rating_body is the shape-only view. The eval gate
 /// parses through THIS so a guard-violating reply still shows its prose in the side-by-side
 /// and scores red on the invariant checks; production goes through [`RatingParser`], which
@@ -1049,6 +1098,90 @@ impl Parser<RatingReply> for RatingParser {
     }
 }
 
+impl Parser<RatingReply> for RatingRequestParser<'_> {
+    fn parse(&self, raw: &str) -> Result<Option<RatingReply>> {
+        let Some(reply) = RatingParser.parse(raw)? else {
+            return Ok(None);
+        };
+        if let Some((label, stated, expected)) =
+            first_direction_contradiction(&reply.body, self.directions)
+        {
+            return Err(crate::composition::form::SurfaceError(format!(
+                "Body says {label} {stated}, but the compatible percentile evidence says it {expected}. Keep the supplied arithmetic direction."
+            ))
+            .into());
+        }
+        if let Some(height) = first_unsupported_height(&reply.body, self.prompt) {
+            return Err(crate::composition::form::SurfaceError(format!(
+                "Body invents height {height:?}, which is absent from the retained evidence. Remove it."
+            ))
+            .into());
+        }
+        Ok(Some(reply))
+    }
+}
+
+fn first_direction_contradiction(
+    body: &str,
+    directions: &BTreeMap<String, RelativeDirection>,
+) -> Option<(String, &'static str, &'static str)> {
+    const POSITIVE: &[&str] = &[
+        "improv", "rose", "risen", "rising", "increas", "gained", "stronger", "higher",
+    ];
+    const NEGATIVE: &[&str] = &[
+        "declin", "fell", "fall", "decreas", "dropped", "dropping", "slipped", "regress",
+        "worsened",
+    ];
+    let folded = body.to_lowercase();
+    let clauses = folded
+        .split(['.', '!', '?', ';', ',', '\n'])
+        .flat_map(|sentence| sentence.split(" while "))
+        .flat_map(|clause| clause.split(" whereas "))
+        .flat_map(|clause| clause.split(" but "))
+        .flat_map(|clause| clause.split(" and "))
+        .collect::<Vec<_>>();
+    for (label, expected) in directions {
+        let label_folded = label.to_lowercase();
+        for clause in clauses
+            .iter()
+            .filter(|clause| clause.contains(&label_folded))
+        {
+            let has_positive = POSITIVE.iter().any(|stem| clause.contains(stem));
+            let has_negative = NEGATIVE.iter().any(|stem| clause.contains(stem));
+            match expected {
+                RelativeDirection::Rose if has_negative => {
+                    return Some((label.clone(), "fell", "rose"));
+                }
+                RelativeDirection::Fell if has_positive => {
+                    return Some((label.clone(), "rose", "fell"));
+                }
+                RelativeDirection::Held if has_positive || has_negative => {
+                    return Some((label.clone(), "changed", "held"));
+                }
+                _ => {}
+            }
+        }
+    }
+    None
+}
+
+fn first_unsupported_height<'a>(body: &'a str, prompt: &str) -> Option<&'a str> {
+    body.split_whitespace()
+        .map(|token| token.trim_matches(|c: char| matches!(c, ',' | '.' | ';' | ':' | '(' | ')')))
+        .find(|token| {
+            let Some(feet) = token.find(['\'', '’']) else {
+                return false;
+            };
+            let before = &token[..feet];
+            let after = &token[feet + 1..];
+            !before.is_empty()
+                && before.chars().all(|c| c.is_ascii_digit())
+                && after.chars().next().is_some_and(|c| c.is_ascii_digit())
+                && (after.contains('"') || after.contains('”'))
+                && !prompt.contains(token)
+        })
+}
+
 /// Normalize the served prose and remove an accidental wrapping code fence.
 fn clean_commentary(raw: &str) -> String {
     let mut s = raw.trim();
@@ -1075,6 +1208,7 @@ pub struct RatingReady {
     pub memories: memories::Package,
     /// Exact narrower package used to render and fingerprint this request.
     pub model_memories: memories::Package,
+    pub comparison_directions: BTreeMap<String, RelativeDirection>,
     pub notability: i32,
     pub notability_components: serde_json::Value,
     pub rating_trajectory: RatingTrajectory,
@@ -1245,6 +1379,7 @@ pub async fn build_rating_request(
     } else {
         None
     };
+    let comparison_directions = comparison_directions(&profile, comparisons.as_ref());
     // The recent-form marker rides the same enrichment flag: shading context in production,
     // absent only on explicit bare diagnostic probes.
     let form_trend = if with_enrichment {
@@ -1291,6 +1426,7 @@ pub async fn build_rating_request(
         season: profile.season,
         memories,
         model_memories,
+        comparison_directions,
         notability,
         notability_components,
         rating_trajectory,
@@ -1400,12 +1536,14 @@ pub async fn generate_rating(
         }
     }
 
+    let grounded_parser =
+        RatingRequestParser::new(&ready.built_prompt, &ready.comparison_directions);
     let extracted = hx
         .extract(
             Role::StatsLogic,
             &ready.built_prompt,
             &ready.opts,
-            &RatingParser,
+            &grounded_parser,
         )
         .await?;
     let call = GenerationCall::from(&extracted);

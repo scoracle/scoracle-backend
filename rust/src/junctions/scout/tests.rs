@@ -940,6 +940,37 @@ fn rating_parser_rejects_empty_cards() {
 }
 
 #[test]
+fn request_parser_rewrites_reversed_comparison_direction() {
+    let directions = BTreeMap::from([
+        ("Scoring".into(), RelativeDirection::Rose),
+        ("Steals".into(), RelativeDirection::Fell),
+    ]);
+    let parser = RatingRequestParser::new("Scoring and steals comparison supplied.", &directions);
+    let reversed = parser
+        .parse(r#"{"headline":"Clingan's profile","body":"Scoring declined relative to peers."}"#)
+        .unwrap_err();
+    assert!(reversed.is::<crate::composition::form::SurfaceError>());
+    assert!(reversed.to_string().contains("evidence says it rose"));
+
+    let accepted = parser
+        .parse(r#"{"headline":"Clingan's profile","body":"Scoring rose while steals fell relative to peers."}"#)
+        .unwrap()
+        .unwrap();
+    assert!(accepted.body.contains("Scoring rose"));
+}
+
+#[test]
+fn request_parser_rewrites_an_unsourced_height() {
+    let directions = BTreeMap::new();
+    let parser = RatingRequestParser::new("A center for Portland.", &directions);
+    let error = parser
+        .parse(r#"{"headline":"Clingan's profile","body":"The 6'9\" center protects the rim."}"#)
+        .unwrap_err();
+    assert!(error.is::<crate::composition::form::SurfaceError>());
+    assert!(error.to_string().contains("invents height"));
+}
+
+#[test]
 fn rating_splits_the_s20_headline_line() {
     // s20 (mig 226): the contracted closing title line — lifted out of the body, folded.
     let reply = RatingParser

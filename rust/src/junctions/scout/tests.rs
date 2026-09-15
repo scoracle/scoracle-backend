@@ -957,6 +957,11 @@ fn request_parser_rewrites_reversed_comparison_direction() {
         .unwrap()
         .unwrap();
     assert!(accepted.body.contains("Scoring rose"));
+
+    let grouped = parser
+        .parse(r#"{"headline":"Clingan's profile","body":"Scoring, steals, and playmaking are below average, with relative standing improving across these areas."}"#)
+        .unwrap_err();
+    assert!(grouped.to_string().contains("Steals rose"));
 }
 
 #[test]
@@ -968,6 +973,26 @@ fn request_parser_rewrites_an_unsourced_height() {
         .unwrap_err();
     assert!(error.is::<crate::composition::form::SurfaceError>());
     assert!(error.to_string().contains("invents height"));
+}
+
+#[test]
+fn request_parser_rewrites_mixed_blanket_claims_and_self_contradictory_form() {
+    let directions = BTreeMap::from([
+        ("Scoring".into(), RelativeDirection::Rose),
+        ("Steals".into(), RelativeDirection::Fell),
+    ]);
+    let parser = RatingRequestParser::new("Comparison and recent form supplied.", &directions);
+    let blanket = parser
+        .parse(r#"{"headline":"Mixed profile","body":"The player shows consistent improvement across key metrics."}"#)
+        .unwrap_err();
+    assert!(blanket.to_string().contains("mixed directions"));
+
+    let form = parser
+        .parse(r#"{"headline":"Mixed profile","body":"A downward trend is visible, but the player remains in strong form."}"#)
+        .unwrap_err();
+    assert!(form
+        .to_string()
+        .contains("both strong/rising and declining/falling"));
 }
 
 #[test]

@@ -1111,6 +1111,12 @@ impl Parser<RatingReply> for RatingRequestParser<'_> {
             ))
             .into());
         }
+        if has_internal_form_contradiction(&reply.body) {
+            return Err(crate::composition::form::SurfaceError(
+                "Body describes recent form as both strong/rising and declining/falling. Keep one interpretation supported by the supplied recent-form evidence.".into(),
+            )
+            .into());
+        }
         if let Some(height) = first_unsupported_height(&reply.body, self.prompt) {
             return Err(crate::composition::form::SurfaceError(format!(
                 "Body invents height {height:?}, which is absent from the retained evidence. Remove it."
@@ -1133,6 +1139,55 @@ fn first_direction_contradiction(
         "worsened",
     ];
     let folded = body.to_lowercase();
+    let has_rise = directions
+        .values()
+        .any(|direction| *direction == RelativeDirection::Rose);
+    let has_fall = directions
+        .values()
+        .any(|direction| *direction == RelativeDirection::Fell);
+    if has_rise
+        && has_fall
+        && [
+            "consistent improvement across",
+            "improvement across all",
+            "improved across all",
+            "all metrics improved",
+        ]
+        .iter()
+        .any(|phrase| folded.contains(phrase))
+    {
+        return Some((
+            "mixed comparison measures".into(),
+            "all rose",
+            "have mixed directions",
+        ));
+    }
+
+    for sentence in folded.split(['.', '!', '?', '\n']) {
+        let has_positive = POSITIVE.iter().any(|stem| sentence.contains(stem));
+        let has_negative = NEGATIVE.iter().any(|stem| sentence.contains(stem));
+        if has_positive == has_negative {
+            continue;
+        }
+        for (label, expected) in directions {
+            if !sentence.contains(&label.to_lowercase()) {
+                continue;
+            }
+            match expected {
+                RelativeDirection::Rose if has_negative => {
+                    return Some((label.clone(), "fell", "rose"));
+                }
+                RelativeDirection::Fell if has_positive => {
+                    return Some((label.clone(), "rose", "fell"));
+                }
+                RelativeDirection::Held => {
+                    return Some((label.clone(), "changed", "held"));
+                }
+                _ => {}
+            }
+        }
+    }
+
     let clauses = folded
         .split(['.', '!', '?', ';', ',', '\n'])
         .flat_map(|sentence| sentence.split(" while "))
@@ -1163,6 +1218,22 @@ fn first_direction_contradiction(
         }
     }
     None
+}
+
+fn has_internal_form_contradiction(body: &str) -> bool {
+    let folded = body.to_lowercase();
+    let positive = ["strong form", "good form", "upward trend", "rising form"]
+        .iter()
+        .any(|phrase| folded.contains(phrase));
+    let negative = [
+        "downward trend",
+        "declining form",
+        "falling form",
+        "recent decline",
+    ]
+    .iter()
+    .any(|phrase| folded.contains(phrase));
+    positive && negative
 }
 
 fn first_unsupported_height<'a>(body: &'a str, prompt: &str) -> Option<&'a str> {

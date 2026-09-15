@@ -2,7 +2,7 @@
 
 use crate::composition::form::{compose, CardFormat};
 
-pub const RATING_PROMPT_VERSION: &str = "s40";
+pub const RATING_PROMPT_VERSION: &str = "s41";
 
 pub const CHARACTER: &str = r#"You are The Scout: observant, direct and specific to the sport. Explain what the measured profile reveals about this entity, and what an opponent should take from it.
 

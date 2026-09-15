@@ -1073,6 +1073,17 @@ fn request_parser_preserves_weighted_measures_and_thin_sample_coverage() {
         .to_string()
         .contains("no computed cross-season direction"));
 
+    let psychology = parser
+        .parse(r#"{"headline":"Rogers profile","body":"His reported frustration may influence his decision-making under pressure."}"#)
+        .unwrap_err();
+    assert!(psychology.to_string().contains("psychological inference"));
+
+    let long_body = "x".repeat(801);
+    let oversized = parser
+        .parse(&serde_json::json!({"headline": "Rogers profile", "body": long_body}).to_string())
+        .unwrap_err();
+    assert!(oversized.to_string().contains("exceeds 800 characters"));
+
     let accepted = parser
         .parse(r#"{"headline":"Rogers profile","body":"The stored snapshot records 3 appearances and 257 minutes. Discipline ranks poorly."}"#)
         .unwrap()
@@ -1665,6 +1676,8 @@ fn thin_current_sample_withholds_directional_cross_season_claims() {
     assert!(prompt.contains("Never say mid-season"));
     assert!(prompt.contains("unless this prompt explicitly says it is unresolved"));
     assert!(prompt.contains("do not mention printed measurements"));
+    assert!(prompt.contains("Do not infer emotion"));
+    assert!(prompt.contains("at most 800 characters"));
 
     p.sample.insert("appearances".to_string(), 10.0);
     assert!(inputs::supports_cross_season_comparison(&p));

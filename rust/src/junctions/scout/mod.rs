@@ -1320,6 +1320,22 @@ fn first_source_shape_error(body: &str, prompt: &str) -> Option<&'static str> {
         );
     }
     if prompt_folded.contains("fewer than 10 appearances") {
+        if body.chars().count() > 800 {
+            return Some(
+                "The thin-sample card exceeds 800 characters. Keep only current identity, the two supplied leading measurements, one attributed report detail and the no-comparison boundary.",
+            );
+        }
+        if ["frustrat", "confidence", "morale", "motivation"]
+            .iter()
+            .any(|stem| body_folded.contains(stem) && !prompt_folded.contains(stem))
+            || ["may influence", "could influence", "might influence"]
+                .iter()
+                .any(|phrase| body_folded.contains(phrase))
+        {
+            return Some(
+                "The attributed report does not support an emotional, motivational or psychological inference. Keep the reported action or quote without inventing its effect.",
+            );
+        }
         let stability_word = body_folded
             .split(|c: char| !c.is_ascii_alphabetic())
             .any(|word| {

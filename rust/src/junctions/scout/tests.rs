@@ -1013,6 +1013,23 @@ fn request_parser_rewrites_mixed_blanket_claims_and_self_contradictory_form() {
 }
 
 #[test]
+fn request_parser_does_not_turn_percentile_movement_into_development() {
+    let directions = BTreeMap::new();
+    let bands = BTreeMap::new();
+    let parser = RatingRequestParser::new(
+        "Cross-season boundary: percentile movement describes relative standing only.",
+        &directions,
+        &bands,
+    );
+    let error = parser
+        .parse(r#"{"headline":"Holmgren profile","body":"This reflects consistent development across the season."}"#)
+        .unwrap_err();
+    assert!(error
+        .to_string()
+        .contains("does not establish player development"));
+}
+
+#[test]
 fn request_parser_keeps_xg_and_xa_attached_to_their_measures() {
     let directions = BTreeMap::new();
     let bands = BTreeMap::new();

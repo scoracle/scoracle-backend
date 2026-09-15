@@ -38,7 +38,7 @@ pub use crate::evidence::personnel::{
 pub use inputs::{build_stat_prompt, render_personnel_block, render_scout_reports};
 
 /// Output contract captured separately in the diagnostic ledger.
-pub const RATING_OUTPUT_CONTRACT_VERSION: &str = "rating-commentary-v3";
+pub const RATING_OUTPUT_CONTRACT_VERSION: &str = "rating-commentary-v4";
 
 const RATING_LEDGER: LedgerSpec = LedgerSpec {
     stage: "rating",
@@ -1314,6 +1314,21 @@ fn first_measure_association_error(body: &str) -> Option<&'static str> {
 fn first_source_shape_error(body: &str, prompt: &str) -> Option<&'static str> {
     let body_folded = body.to_lowercase();
     let prompt_folded = prompt.to_lowercase();
+    if prompt_folded.contains("cross-season boundary:")
+        && [
+            "development",
+            "developed",
+            "growth",
+            "became better",
+            "became worse",
+        ]
+        .iter()
+        .any(|phrase| body_folded.contains(phrase))
+    {
+        return Some(
+            "Relative percentile movement does not establish player development, growth or changed ability. Describe only the supplied movement in contribution or standing.",
+        );
+    }
     if prompt_folded.contains("yellow cards + 3 x red cards") && body_folded.contains("red card") {
         return Some(
             "The supplied discipline value is a weighted formula, not separate yellow/red-card counts. Do not invent its components; describe only the supplied discipline value or percentile.",

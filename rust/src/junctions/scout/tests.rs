@@ -1076,6 +1076,7 @@ fn request_parser_keeps_quality_words_in_the_supplied_percentile_band() {
     let bands = BTreeMap::from([
         ("Tackling".into(), "below average".into()),
         ("Chance Creation".into(), "elite".into()),
+        ("Creation".into(), "strong".into()),
     ]);
     let parser = RatingRequestParser::new("Percentile bands supplied.", &directions, &bands);
     let error = parser

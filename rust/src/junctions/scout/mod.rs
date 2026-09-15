@@ -1355,10 +1355,11 @@ fn first_band_contradiction(
         .flat_map(|clause| clause.split(" but "))
         .flat_map(|clause| clause.split(" and "));
     for clause in clauses {
-        for (label, expected) in bands {
-            if !clause.contains(&label.to_lowercase()) {
-                continue;
-            }
+        let matched = bands
+            .iter()
+            .filter(|(label, _)| clause.contains(&label.to_lowercase()))
+            .max_by_key(|(label, _)| label.len());
+        if let Some((label, expected)) = matched {
             if let Some(stated) = BAND_TERMS.iter().find(|term| clause.contains(**term)) {
                 if *stated != expected {
                     return Some((label.clone(), (*stated).into(), expected.clone()));

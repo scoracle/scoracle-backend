@@ -512,7 +512,7 @@ func resolveFPLFixture(ctx context.Context, pool *pgxpool.Pool, res *Resolver, f
 				home_score = COALESCE($4, home_score),
 				away_score = COALESCE($5, away_score),
 				status = CASE WHEN status = 'seeded' THEN status WHEN $6 THEN 'completed' ELSE status END,
-				meta = meta || jsonb_build_object('needs_verification', false, 'verified_by', 'fpl', 'fpl_fixture_id', $7),
+				meta = meta || jsonb_build_object('needs_verification', false, 'verified_by', 'fpl', 'fpl_fixture_id', $7::text),
 				updated_at = NOW()
 			WHERE id = $1 AND (
 				($2::timestamptz IS NOT NULL AND start_time IS DISTINCT FROM $2::timestamptz)
@@ -523,7 +523,7 @@ func resolveFPLFixture(ctx context.Context, pool *pgxpool.Pool, res *Resolver, f
 				OR meta->>'verified_by' IS DISTINCT FROM 'fpl'
 				OR meta->>'fpl_fixture_id' IS DISTINCT FROM $7::text
 				OR COALESCE((meta->>'needs_verification')::boolean, true))`,
-			id, fx.KickoffTime, fplRound(fx.Event), fx.TeamHScore, fx.TeamAScore, fx.Finished, fx.ID)
+			id, fx.KickoffTime, fplRound(fx.Event), fx.TeamHScore, fx.TeamAScore, fx.Finished, ext)
 		if err != nil {
 			return 0, 0, err
 		}
@@ -564,9 +564,9 @@ func resolveFPLFixture(ctx context.Context, pool *pgxpool.Pool, res *Resolver, f
 				start_time, round, status, home_score, away_score, meta)
 			VALUES (
 				'FOOTBALL', $1, $2, $3, $4, $5, $6, $7, $8, $9,
-				jsonb_build_object('needs_verification', false, 'verified_by', 'fpl', 'fpl_fixture_id', $10))
+				jsonb_build_object('needs_verification', false, 'verified_by', 'fpl', 'fpl_fixture_id', $10::text))
 			RETURNING id`, fplLeagueID, season, homeID, awayID, kickoff,
-			fplRound(fx.Event), status, fx.TeamHScore, fx.TeamAScore, fx.ID).Scan(&id)
+			fplRound(fx.Event), status, fx.TeamHScore, fx.TeamAScore, ext).Scan(&id)
 		if err != nil {
 			return 0, 0, fmt.Errorf("create FPL fixture %d: %w", fx.ID, err)
 		}
@@ -577,7 +577,7 @@ func resolveFPLFixture(ctx context.Context, pool *pgxpool.Pool, res *Resolver, f
 				start_time = $2, round = COALESCE($3, round),
 				home_score = COALESCE($4, home_score), away_score = COALESCE($5, away_score),
 				status = CASE WHEN status = 'seeded' THEN status WHEN $6 THEN 'completed' ELSE status END,
-				meta = meta || jsonb_build_object('needs_verification', false, 'verified_by', 'fpl', 'fpl_fixture_id', $7),
+				meta = meta || jsonb_build_object('needs_verification', false, 'verified_by', 'fpl', 'fpl_fixture_id', $7::text),
 				updated_at = NOW()
 			WHERE id = $1 AND (
 				start_time IS DISTINCT FROM $2 OR round IS DISTINCT FROM COALESCE($3, round)
@@ -587,7 +587,7 @@ func resolveFPLFixture(ctx context.Context, pool *pgxpool.Pool, res *Resolver, f
 				OR meta->>'verified_by' IS DISTINCT FROM 'fpl'
 				OR meta->>'fpl_fixture_id' IS DISTINCT FROM $7::text
 				OR COALESCE((meta->>'needs_verification')::boolean, true))`,
-			id, kickoff, fplRound(fx.Event), fx.TeamHScore, fx.TeamAScore, fx.Finished, fx.ID)
+			id, kickoff, fplRound(fx.Event), fx.TeamHScore, fx.TeamAScore, fx.Finished, ext)
 		if err != nil {
 			return 0, 0, fmt.Errorf("adopt FPL fixture %d: %w", fx.ID, err)
 		}

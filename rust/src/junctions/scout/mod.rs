@@ -1071,8 +1071,10 @@ pub enum RatingBuild {
 /// Assembled model inputs and deterministic context required for persistence.
 pub struct RatingReady {
     pub season: i32,
-    /// The exact selected package used to render and fingerprint this request.
+    /// Complete selected package retained for audit and inspection.
     pub memories: memories::Package,
+    /// Exact narrower package used to render and fingerprint this request.
+    pub model_memories: memories::Package,
     pub notability: i32,
     pub notability_components: serde_json::Value,
     pub rating_trajectory: RatingTrajectory,
@@ -1122,7 +1124,13 @@ pub async fn build_rating_request(
         MemoryRequest::new(Mission::Scout, &req.entity_type, req.entity_id, &req.sport);
     memory_request.season = Some(profile.season);
     let memories = memories::load(&hx.pool, memory_request).await?;
-    let input_components = memories.with_input_components(&input_components)?;
+    let supports_cross_season = inputs::supports_cross_season_comparison(&profile);
+    let model_memories = if supports_cross_season {
+        memories.clone()
+    } else {
+        memories.current_snapshot_view()?
+    };
+    let input_components = model_memories.with_input_components(&input_components)?;
     let (notability, notability_components) = compute_notability(&profile);
     let exclusions = RatingExclusions {
         budget_truncated_stat_labels: budget_truncated_stat_labels(&profile.breakdown),
@@ -1204,7 +1212,7 @@ pub async fn build_rating_request(
         None
     };
     // Season-over-season movement is decided in code and added as prompt-only enrichment.
-    let comparisons = if with_enrichment && inputs::supports_cross_season_comparison(&profile) {
+    let comparisons = if with_enrichment && supports_cross_season {
         match load_rating_profile(
             &hx.pool,
             &req.entity_type,
@@ -1249,7 +1257,7 @@ pub async fn build_rating_request(
     } else {
         None
     };
-    let identity = Some(memories.render_for_model()?);
+    let identity = Some(model_memories.render_for_model()?);
     let mut components: serde_json::Value = serde_json::from_str(&input_components)?;
     components["skill_changes"] = serde_json::json!(comparisons);
     components["personnel"] = serde_json::json!(personnel);
@@ -1282,6 +1290,7 @@ pub async fn build_rating_request(
     Ok(RatingBuild::Ready(Box::new(RatingReady {
         season: profile.season,
         memories,
+        model_memories,
         notability,
         notability_components,
         rating_trajectory,

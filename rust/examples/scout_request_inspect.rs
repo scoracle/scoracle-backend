@@ -77,8 +77,8 @@ async fn main() -> Result<()> {
     };
     let input_components: serde_json::Value = serde_json::from_str(&ready.input_components)?;
     let audit_rendered_memory = ready.memories.render()?;
-    let model_rendered_memory = ready.memories.render_for_model()?;
-    let memory_fingerprint = ready.memories.fingerprint()?;
+    let model_rendered_memory = ready.model_memories.render_for_model()?;
+    let memory_fingerprint = ready.model_memories.fingerprint()?;
 
     println!(
         "{}",
@@ -96,6 +96,7 @@ async fn main() -> Result<()> {
                 "audit_rendered": audit_rendered_memory,
                 "model_rendered_bytes": model_rendered_memory.len(),
                 "model_rendered": model_rendered_memory,
+                "model_package": ready.model_memories,
                 "package": ready.memories,
             },
             "input": {

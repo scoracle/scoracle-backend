@@ -324,6 +324,76 @@ impl Package {
         Ok(out)
     }
 
+    /// Build a model-facing view that retains the current sourced snapshot but
+    /// withholds earlier seasons, reports and prior interpretation. Callers keep
+    /// the original package as the complete audit artifact.
+    pub fn current_snapshot_view(&self) -> Result<Self> {
+        self.validate()?;
+        let mut view = self.clone();
+        view.groups.clear();
+
+        for group in &self.groups {
+            let records = group
+                .records
+                .iter()
+                .filter(|record| {
+                    matches!(
+                        record.section,
+                        Section::Identity
+                            | Section::ReportingClock
+                            | Section::CompetitionClock
+                            | Section::ParticipationClock
+                            | Section::PresentEvidence
+                    )
+                })
+                .cloned()
+                .collect::<Vec<_>>();
+            let omitted_sources = group
+                .records
+                .iter()
+                .filter(|record| {
+                    matches!(
+                        record.section,
+                        Section::EstablishedHistory
+                            | Section::DevelopingHistory
+                            | Section::EditorialMemory
+                    )
+                })
+                .flat_map(|record| record.sources.clone())
+                .collect::<Vec<_>>();
+
+            if !omitted_sources.is_empty() {
+                view.omissions.push(Omission {
+                    editorial: group
+                        .records
+                        .iter()
+                        .all(|record| record.section == Section::EditorialMemory),
+                    group: group.id.clone(),
+                    reason: "historical context withheld from a current-snapshot model view".into(),
+                    sources: omitted_sources,
+                });
+            }
+            if records.is_empty() {
+                continue;
+            }
+
+            let mut selected = group.clone();
+            selected.records = records;
+            if group.id == "performance comparison" {
+                selected.id = "current performance snapshot".into();
+                selected.qualifications = vec![
+                    "This is a current stored sample only. Do not infer a cross-season change, role change, reduced playing time, fitness or tactical cause.".into(),
+                ];
+            }
+            view.groups.push(selected);
+        }
+
+        view.diagnostics
+            .push("model view limited to the current sourced snapshot".into());
+        view.validate()?;
+        Ok(view)
+    }
+
     /// Retain required foundations first, then whole optional groups in caller
     /// relevance order. Never trim prose or remove one side of a contradiction.
     pub fn within_bytes(mut self, max_bytes: usize) -> Result<Self> {
@@ -1011,5 +1081,49 @@ mod tests {
         assert!(rendered.contains("only one appearance"));
         assert!(rendered.contains("not a basis for a directional season comparison"));
         assert!(!rendered.contains("Like-for-like measurements"));
+    }
+
+    #[test]
+    fn current_snapshot_view_keeps_audit_history_out_of_model_context() {
+        let mut package = test_package();
+        package.groups.push(EvidenceGroup {
+            id: "performance comparison".into(),
+            required: false,
+            records: vec![
+                Record {
+                    section: Section::EstablishedHistory,
+                    sources: vec![SourceRef {
+                        table: "player_stats".into(),
+                        key: "FOOTBALL/7/2025/8".into(),
+                    }],
+                    observed_at: None,
+                    observed_unix: None,
+                    data: json!({"season": 2025, "played_for": "Aston Villa"}),
+                },
+                Record {
+                    section: Section::PresentEvidence,
+                    sources: vec![SourceRef {
+                        table: "player_stats".into(),
+                        key: "FOOTBALL/7/2026/8".into(),
+                    }],
+                    observed_at: None,
+                    observed_unix: None,
+                    data: json!({"season": 2026, "played_for": "Chelsea"}),
+                },
+            ],
+            qualifications: vec!["Compare the two seasons.".into()],
+        });
+
+        let view = package.current_snapshot_view().unwrap();
+        let rendered = view.render_for_model().unwrap();
+        assert!(package.render_for_model().unwrap().contains("Aston Villa"));
+        assert!(!rendered.contains("Aston Villa"));
+        assert!(rendered.contains("Chelsea"));
+        assert!(rendered.contains("Current performance snapshot"));
+        assert!(!rendered.contains("Compare the two seasons"));
+        assert!(view
+            .omissions
+            .iter()
+            .any(|omission| omission.group == "performance comparison"));
     }
 }

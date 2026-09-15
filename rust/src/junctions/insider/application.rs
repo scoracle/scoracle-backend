@@ -1,10 +1,10 @@
 //! Applies vetted transfer facts to identity and downstream bookkeeping.
 
 use super::{
-    build_transfer_identity_adjudication_prompt, transfer_identity_adjudication_system_prompt,
-    NewsItem, Outcome, TransferCandidate, TransferIdentityAdjudicationParser, TransferRow,
-    TRANSFER_IDENTITY_ADJUDICATION_PROMPT_VERSION, TRANSFER_IDENTITY_ADJUDICATION_SCHEMA_RAW,
-    TRANSFER_PROMPT_VERSION,
+    build_transfer_identity_adjudication_prompt, load_pair_news,
+    transfer_identity_adjudication_system_prompt, NewsItem, Outcome, TransferCandidate,
+    TransferIdentityAdjudicationParser, TransferRow, TRANSFER_IDENTITY_ADJUDICATION_PROMPT_VERSION,
+    TRANSFER_IDENTITY_ADJUDICATION_SCHEMA_RAW, TRANSFER_PROMPT_VERSION,
 };
 use crate::runtime::harness::Harness;
 use crate::runtime::providers::ollama::GenerateOptions;
@@ -17,6 +17,77 @@ use tracing::warn;
 pub(super) struct TransferIdentityThreshold {
     min_heat: i16,
     min_deterministic_confidence: f64,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum IdentityEvidenceRoute {
+    RumorThreshold,
+    SettledSources,
+}
+
+impl IdentityEvidenceRoute {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::RumorThreshold => "rumor_threshold",
+            Self::SettledSources => "settled_sources",
+        }
+    }
+}
+
+fn choose_identity_evidence_route(
+    outcome: Outcome,
+    row: &TransferRow,
+    heat: i16,
+    threshold: &TransferIdentityThreshold,
+    settled_sources_eligible: bool,
+) -> Option<IdentityEvidenceRoute> {
+    let (_, confidence) = identity_apply_deterministic_score(heat);
+    let rumor_eligible = outcome == Outcome::Rumor
+        && row.is_rumor == Some(true)
+        && row.direction.as_deref() == Some("incoming")
+        && heat >= threshold.min_heat
+        && confidence >= threshold.min_deterministic_confidence;
+    if rumor_eligible {
+        Some(IdentityEvidenceRoute::RumorThreshold)
+    } else if outcome == Outcome::Cleared && row.is_rumor == Some(false) && settled_sources_eligible
+    {
+        Some(IdentityEvidenceRoute::SettledSources)
+    } else {
+        None
+    }
+}
+
+/// Return source rows that qualify for the settled-source identity route. Postgres owns the
+/// eligibility rule so the pre-model nomination and the final apply function use the same facts.
+async fn load_settled_identity_news(
+    pool: &PgPool,
+    sport: &str,
+    player_id: i32,
+    team_id: i32,
+    pair_news_ids: &[i64],
+) -> Result<Vec<NewsItem>> {
+    if pair_news_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    let row = sqlx::query(
+        r#"
+        SELECT eligible, article_ids
+        FROM public.settled_transfer_identity_evidence($1,$2,$3,$4)
+        "#,
+    )
+    .bind(sport)
+    .bind(player_id)
+    .bind(team_id)
+    .bind(pair_news_ids)
+    .fetch_one(pool)
+    .await
+    .context("load settled transfer identity evidence")?;
+    let eligible: bool = row.get("eligible");
+    if !eligible {
+        return Ok(Vec::new());
+    }
+    let article_ids: Vec<i64> = row.get("article_ids");
+    load_pair_news(pool, &article_ids).await
 }
 
 /// Bank a served verdict as a junction-origin narrative event. Extraction-only feedback queries
@@ -239,10 +310,7 @@ pub(super) async fn maybe_apply_transfer_identity(
     outcome: Outcome,
     threshold: Option<&TransferIdentityThreshold>,
 ) -> Result<bool> {
-    if outcome != Outcome::Rumor || row.is_rumor != Some(true) {
-        return Ok(false);
-    }
-    if row.direction.as_deref() != Some("incoming") {
+    if candidate.subject_type != "player" {
         return Ok(false);
     }
 
@@ -254,17 +322,38 @@ pub(super) async fn maybe_apply_transfer_identity(
         );
         return Ok(false);
     };
-    if identity_heat < threshold.min_heat
-        || deterministic_confidence < threshold.min_deterministic_confidence
-    {
-        return Ok(false);
-    }
-
     let (old_team_id, old_team_name) =
         current_identity_team(&hx.pool, sport, candidate.player_id).await?;
     if old_team_id == Some(team_id) {
         return sport_autofill_refresh_pending(&hx.pool, sport).await;
     }
+
+    let pair_news_ids: Vec<i64> = news.iter().map(|item| item.id).collect();
+    let settled_news = if outcome == Outcome::Cleared && row.is_rumor == Some(false) {
+        load_settled_identity_news(
+            &hx.pool,
+            sport,
+            candidate.player_id,
+            team_id,
+            &pair_news_ids,
+        )
+        .await?
+    } else {
+        Vec::new()
+    };
+    let Some(evidence_route) = choose_identity_evidence_route(
+        outcome,
+        row,
+        identity_heat,
+        threshold,
+        !settled_news.is_empty(),
+    ) else {
+        return Ok(false);
+    };
+    let identity_news = match evidence_route {
+        IdentityEvidenceRoute::RumorThreshold => news,
+        IdentityEvidenceRoute::SettledSources => settled_news.as_slice(),
+    };
 
     let prompt = build_transfer_identity_adjudication_prompt(
         sport,
@@ -274,7 +363,7 @@ pub(super) async fn maybe_apply_transfer_identity(
         &old_team_name,
         team_id,
         team_name,
-        news,
+        identity_news,
     );
     let opts = GenerateOptions {
         system: Some(transfer_identity_adjudication_system_prompt(sport)),
@@ -349,7 +438,7 @@ pub(super) async fn maybe_apply_transfer_identity(
         r#"
         SELECT application_id, override_id, status, reason
         FROM public.apply_transfer_identity_candidate(
-            $1,$2,$3,$4,$5,NULL,$6,$7::float8::numeric,$8::jsonb,$9,$10,$11
+            $1,$2,$3,$4,$5,NULL,$6,$7::float8::numeric,$8::jsonb,$9,$10,$11,$12,$13
         )
         "#,
     )
@@ -364,6 +453,8 @@ pub(super) async fn maybe_apply_transfer_identity(
     .bind(&raw)
     .bind(&generated.model)
     .bind(TRANSFER_IDENTITY_ADJUDICATION_PROMPT_VERSION)
+    .bind(evidence_route.as_str())
+    .bind(identity_news.iter().map(|item| item.id).collect::<Vec<_>>())
     .fetch_one(&hx.pool)
     .await
     .context("apply transfer identity candidate")?;
@@ -405,4 +496,81 @@ pub(super) async fn maybe_apply_transfer_identity(
         );
     }
     Ok(true)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn row(is_rumor: bool, direction: Option<&str>) -> TransferRow {
+        TransferRow {
+            is_rumor: Some(is_rumor),
+            direction: direction.map(str::to_string),
+            stage: None,
+            summary: None,
+            attribution: None,
+            confidence: None,
+            model: None,
+            trigger_payload: "{}".to_string(),
+        }
+    }
+
+    fn threshold() -> TransferIdentityThreshold {
+        TransferIdentityThreshold {
+            min_heat: 80,
+            min_deterministic_confidence: 0.8,
+        }
+    }
+
+    #[test]
+    fn live_incoming_rumor_keeps_the_heat_route() {
+        assert_eq!(
+            choose_identity_evidence_route(
+                Outcome::Rumor,
+                &row(true, Some("incoming")),
+                85,
+                &threshold(),
+                true,
+            ),
+            Some(IdentityEvidenceRoute::RumorThreshold)
+        );
+    }
+
+    #[test]
+    fn cleared_pair_can_use_settled_sources_after_heat_falls() {
+        assert_eq!(
+            choose_identity_evidence_route(
+                Outcome::Cleared,
+                &row(false, None),
+                43,
+                &threshold(),
+                true,
+            ),
+            Some(IdentityEvidenceRoute::SettledSources)
+        );
+    }
+
+    #[test]
+    fn thin_or_unsettled_evidence_still_fails_closed() {
+        assert_eq!(
+            choose_identity_evidence_route(
+                Outcome::Cleared,
+                &row(false, None),
+                43,
+                &threshold(),
+                false,
+            ),
+            None
+        );
+        assert_eq!(
+            choose_identity_evidence_route(
+                Outcome::Rumor,
+                &row(true, Some("outgoing")),
+                90,
+                &threshold(),
+                false,
+            ),
+            None
+        );
+    }
 }

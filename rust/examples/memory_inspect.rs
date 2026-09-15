@@ -28,10 +28,11 @@ async fn main() -> Result<()> {
         .await?;
     let package = memories::load(&pool, request).await?;
     let rendered = package.render()?;
+    let model_rendered = package.render_for_model()?;
     println!(
         "{}",
         serde_json::to_string_pretty(
-            &json!({"fingerprint":package.fingerprint()?,"rendered_bytes":rendered.len(),"rendered":rendered,"package":package})
+            &json!({"fingerprint":package.fingerprint()?,"audit_rendered_bytes":rendered.len(),"audit_rendered":rendered,"model_rendered_bytes":model_rendered.len(),"model_rendered":model_rendered,"package":package})
         )?
     );
     Ok(())

@@ -889,7 +889,7 @@ pub async fn finish_narratives_build(
 
     let card_score_prev = memories.previous_score;
     let score_context = render_signals_line(&corpus, now_unix());
-    let identity = Some(memories.render()?);
+    let identity = Some(memories.render_for_model()?);
     let built_prompt = build_narratives_prompt(
         req,
         &corpus,

@@ -1030,7 +1030,7 @@ pub async fn build_pair_request(
     } else {
         load_source_reliability(&hx.pool, sport, c.player_id, team_id).await?
     };
-    let memory = memories.render()?;
+    let memory = memories.render_for_model()?;
     let mut built_prompt = build_transfer_prompt(
         team_name,
         c,
@@ -1622,7 +1622,7 @@ async fn score_insider_entity(
         );
         return Ok(());
     }
-    let identity = Some(memories.render()?);
+    let identity = Some(memories.render_for_model()?);
     let prompt =
         build_insider_score_prompt(entity_name, sport, entity_type, &heat, identity.as_deref());
     let opts = GenerateOptions {

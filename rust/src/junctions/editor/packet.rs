@@ -130,10 +130,12 @@ pub fn compile(members: &[Member], entities: &[PacketEntity]) -> PacketDraft {
         .map(|c| c.to_json())
         .collect();
     // Availability wakes the Scout only when the claim set changes.
-    let availability_claims: Vec<Value> = claims
+    let scout_claims: Vec<Value> = claims
         .iter()
         .filter(|c| {
-            c.story_type.eq_ignore_ascii_case("injury")
+            c.story_type.eq_ignore_ascii_case("performance")
+                || c.story_type.eq_ignore_ascii_case("roster")
+                || c.story_type.eq_ignore_ascii_case("injury")
                 || c.story_type.eq_ignore_ascii_case("suspension")
         })
         .map(|c| c.to_json())
@@ -184,8 +186,8 @@ pub fn compile(members: &[Member], entities: &[PacketEntity]) -> PacketDraft {
             "claims": claims_json,
         }).to_string()),
         "transfers": hash_components(&json!({ "claims": transfer_claims }).to_string()),
-        // The rating stage consumes the availability slice.
-        "rating": hash_components(&json!({ "claims": availability_claims }).to_string()),
+        // The rating stage consumes current sporting, roster and availability claims.
+        "rating": hash_components(&json!({ "claims": scout_claims }).to_string()),
     });
 
     PacketDraft {
@@ -1138,10 +1140,10 @@ mod tests {
         assert_eq!(keys, vec!["narratives", "rating", "transfers", "vibe"]);
     }
 
-    /// The Scout's slice moves on availability news and ONLY on availability news — that is what
-    /// makes the Editor's tag a tag rather than a firehose.
+    /// The Scout's slice moves on current performance, roster and availability
+    /// claims while unrelated news remains outside his request.
     #[test]
-    fn the_rating_slice_tracks_availability_claims_alone() {
+    fn the_rating_slice_tracks_scouting_claims_alone() {
         let base = compile(&[member(1, "A", Some(1), 100, "transfer", &["a"])], &[]);
         let plus_transfer = compile(
             &[
@@ -1188,6 +1190,49 @@ mod tests {
         assert_ne!(
             plus_injury.slice_fingerprints["rating"],
             plus_suspension.slice_fingerprints["rating"]
+        );
+
+        let plus_performance = compile(
+            &[
+                member(1, "A", Some(1), 100, "transfer", &["a"]),
+                member(
+                    5,
+                    "E",
+                    Some(1),
+                    500,
+                    "performance",
+                    &["created three chances"],
+                ),
+            ],
+            &[],
+        );
+        assert_ne!(
+            base.slice_fingerprints["rating"],
+            plus_performance.slice_fingerprints["rating"]
+        );
+
+        let plus_roster = compile(
+            &[
+                member(1, "A", Some(1), 100, "transfer", &["a"]),
+                member(6, "F", Some(1), 600, "roster", &["joined the squad"]),
+            ],
+            &[],
+        );
+        assert_ne!(
+            base.slice_fingerprints["rating"],
+            plus_roster.slice_fingerprints["rating"]
+        );
+
+        let plus_general = compile(
+            &[
+                member(1, "A", Some(1), 100, "transfer", &["a"]),
+                member(7, "G", Some(1), 700, "general", &["unrelated profile"]),
+            ],
+            &[],
+        );
+        assert_eq!(
+            base.slice_fingerprints["rating"],
+            plus_general.slice_fingerprints["rating"]
         );
     }
 

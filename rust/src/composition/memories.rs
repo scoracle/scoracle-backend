@@ -16,7 +16,7 @@ mod sources;
 pub use identity::{load_identity_card, load_identity_record, IDENTITY_CARD_FRAMING};
 pub use sources::{load, MemoryRequest};
 
-pub const VERSION: &str = "memories-v2";
+pub const VERSION: &str = "memories-v3";
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -132,7 +132,10 @@ pub struct Package {
 impl Package {
     pub fn validate(&self) -> Result<()> {
         ensure!(
-            self.version == VERSION || self.version == "memories-v1-preview",
+            matches!(
+                self.version.as_str(),
+                VERSION | "memories-v2" | "memories-v1-preview"
+            ),
             "unsupported context version"
         );
         ensure!(
@@ -252,6 +255,75 @@ impl Package {
         Ok(out)
     }
 
+    /// Compact sporting context for a model. The package remains the complete
+    /// audit artifact; this view leaves row keys and observation-envelope times
+    /// out of prose while preserving material facts, uncertainty and conflicts.
+    pub fn render_for_model(&self) -> Result<String> {
+        self.validate()?;
+        let mut out = format!(
+            "Context for {} ({}, {}) as of {}.\n{}\n",
+            self.entity.name,
+            self.entity.entity_type,
+            self.entity.sport,
+            self.captured_at.get(..10).unwrap_or(&self.captured_at),
+            self.mission.purpose()
+        );
+        for group in &self.groups {
+            out.push_str(&format!("\n{}:\n", sentence_case(&group.id)));
+            if group.id == "performance comparison" {
+                if let Some(lines) = render_model_performance_comparison(&group.records) {
+                    for line in lines {
+                        out.push_str("- ");
+                        out.push_str(&line);
+                        out.push('\n');
+                    }
+                    for note in &group.qualifications {
+                        out.push_str("- Interpretation constraint: ");
+                        out.push_str(note);
+                        out.push('\n');
+                    }
+                    continue;
+                }
+            }
+            for record in &group.records {
+                let label = match record.section {
+                    Section::Identity => record
+                        .observed_at
+                        .as_deref()
+                        .map(|date| {
+                            format!(
+                                "Dated identity record (observed {})",
+                                date.get(..10).unwrap_or(date)
+                            )
+                        })
+                        .unwrap_or_else(|| "Identity record (date unknown)".into()),
+                    Section::ReportingClock => "Reporting period".into(),
+                    Section::CompetitionClock => "Competition schedule".into(),
+                    Section::ParticipationClock => "Recorded participation".into(),
+                    Section::PresentEvidence => "Current season".into(),
+                    Section::EstablishedHistory => "Earlier season".into(),
+                    Section::DevelopingHistory => "Earlier report".into(),
+                    Section::EditorialMemory => "Previous interpretation (not new evidence)".into(),
+                };
+                out.push_str(&format!("- {label}: {}\n", render_model_data(&record.data)));
+            }
+            for note in &group.qualifications {
+                out.push_str("- Interpretation constraint: ");
+                out.push_str(note);
+                out.push('\n');
+            }
+        }
+        for unknown in &self.unknowns {
+            out.push_str(&format!("\nUnknown: {unknown}\n"));
+        }
+        if self.omissions.iter().any(|o| !o.editorial) {
+            out.push_str(
+                "Some candidate context was omitted; absence is not evidence of no history.\n",
+            );
+        }
+        Ok(out)
+    }
+
     /// Retain required foundations first, then whole optional groups in caller
     /// relevance order. Never trim prose or remove one side of a contradiction.
     pub fn within_bytes(mut self, max_bytes: usize) -> Result<Self> {
@@ -347,6 +419,146 @@ impl Package {
     }
 }
 
+fn render_model_performance_comparison(records: &[Record]) -> Option<Vec<String>> {
+    let earlier = records
+        .iter()
+        .find(|record| record.section == Section::EstablishedHistory)?;
+    let current = records
+        .iter()
+        .find(|record| record.section == Section::PresentEvidence)?;
+    let earlier_measurements = earlier.data.get("measurements")?.as_array()?;
+    let current_measurements = current.data.get("measurements")?.as_array()?;
+
+    let mut lines = vec![format!(
+        "Recorded samples: earlier {}; current {}",
+        render_model_snapshot(&earlier.data),
+        render_model_snapshot(&current.data)
+    )];
+    let current_appearances = current
+        .data
+        .get("recorded_sample")
+        .and_then(Value::as_object)
+        .and_then(|sample| {
+            sample
+                .get("appearances")
+                .or_else(|| sample.get("games_played"))
+                .or_else(|| sample.get("matches_played"))
+        })
+        .and_then(Value::as_f64);
+    if current_appearances.is_some_and(|appearances| appearances <= 1.0) {
+        lines.push("The current stored source sample has only one appearance. It is event evidence, not a basis for a directional season comparison; do not claim improvement, decline or stability from these snapshots.".into());
+        return Some(lines);
+    }
+    let mut comparable = Vec::new();
+    let mut unavailable = Vec::new();
+    for earlier_measurement in earlier_measurements {
+        let measure = earlier_measurement.get("measure").and_then(Value::as_str)?;
+        let label = earlier_measurement
+            .get("label")
+            .and_then(Value::as_str)
+            .unwrap_or(measure);
+        let Some(current_measurement) = current_measurements
+            .iter()
+            .find(|candidate| candidate.get("measure").and_then(Value::as_str) == Some(measure))
+        else {
+            unavailable.push(label.to_string());
+            continue;
+        };
+        let earlier_value = earlier_measurement
+            .get("value")
+            .filter(|value| !value.is_null());
+        let current_value = current_measurement
+            .get("value")
+            .filter(|value| !value.is_null());
+        match (earlier_value, current_value) {
+            (Some(earlier_value), Some(current_value)) => {
+                let mut comparison = format!(
+                    "{label}: earlier {} total; current {} total",
+                    render_model_value(earlier_value),
+                    render_model_value(current_value)
+                );
+                if let (Some(earlier_rate), Some(current_rate)) = (
+                    earlier_measurement
+                        .get("per_90_recorded_minutes")
+                        .filter(|value| !value.is_null()),
+                    current_measurement
+                        .get("per_90_recorded_minutes")
+                        .filter(|value| !value.is_null()),
+                ) {
+                    comparison.push_str(&format!(
+                        "; earlier {} vs current {} per 90 recorded minutes",
+                        render_model_value(earlier_rate),
+                        render_model_value(current_rate)
+                    ));
+                }
+                comparable.push(comparison);
+            }
+            _ => unavailable.push(label.to_string()),
+        }
+    }
+    for current_measurement in current_measurements {
+        let measure = current_measurement.get("measure").and_then(Value::as_str)?;
+        if !earlier_measurements
+            .iter()
+            .any(|candidate| candidate.get("measure").and_then(Value::as_str) == Some(measure))
+        {
+            unavailable.push(
+                current_measurement
+                    .get("label")
+                    .and_then(Value::as_str)
+                    .unwrap_or(measure)
+                    .to_string(),
+            );
+        }
+    }
+    if comparable.is_empty() {
+        lines.push("No like-for-like measurements are available across both snapshots.".into());
+    } else {
+        lines.push(format!(
+            "Like-for-like measurements only: {}",
+            comparable.join("; ")
+        ));
+    }
+    unavailable.sort();
+    unavailable.dedup();
+    if !unavailable.is_empty() {
+        lines.push(format!(
+            "Unavailable for directional comparison because one snapshot lacks a value: {}. Do not infer an increase, decrease, or zero.",
+            unavailable.join(", ")
+        ));
+    }
+    Some(lines)
+}
+
+fn render_model_snapshot(data: &Value) -> String {
+    let mut parts = Vec::new();
+    if let Some(team) = data.get("played_for").and_then(Value::as_str) {
+        parts.push(team.to_string());
+    }
+    if let Some(season) = data.get("season").and_then(Value::as_i64) {
+        parts.push(season.to_string());
+    }
+    if let Some(competition) = data.get("competition").and_then(Value::as_str) {
+        parts.push(competition.to_string());
+    }
+    if let Some(sample) = data.get("recorded_sample").and_then(Value::as_object) {
+        let appearances = sample
+            .get("appearances")
+            .or_else(|| sample.get("games_played"))
+            .or_else(|| sample.get("matches_played"))
+            .map(render_model_value)
+            .unwrap_or_else(|| "unknown".into());
+        let minutes = sample
+            .get("minutes_played")
+            .map(render_model_value)
+            .unwrap_or_else(|| "unknown".into());
+        parts.push(format!(
+            "stored sample {appearances} appearances/{minutes} minutes"
+        ));
+    }
+    parts.join(", ")
+}
+
 /// Render semantic source fields, without the package's audit envelope.
 fn render_data(data: &Value) -> String {
     if let Some(text) = data.get("text").and_then(Value::as_str) {
@@ -373,6 +585,132 @@ fn render_data(data: &Value) -> String {
         })
         .collect::<Vec<_>>()
         .join("; ")
+}
+
+fn render_model_data(data: &Value) -> String {
+    if let Some(measurements) = data.get("measurements").and_then(Value::as_array) {
+        let mut parts = Vec::new();
+        if let Some(team) = data.get("played_for").and_then(Value::as_str) {
+            parts.push(format!("played for {team}"));
+        }
+        if let Some(season) = data.get("season").and_then(Value::as_i64) {
+            parts.push(format!("season {season}"));
+        }
+        if let Some(competition) = data.get("competition").and_then(Value::as_str) {
+            parts.push(competition.to_string());
+        } else if let Some(league) = data.get("league_id").and_then(Value::as_i64) {
+            parts.push(format!("competition ID {league}"));
+        }
+        if let Some(sample) = data.get("recorded_sample").and_then(Value::as_object) {
+            let appearances = sample
+                .get("appearances")
+                .or_else(|| sample.get("games_played"))
+                .or_else(|| sample.get("matches_played"))
+                .map(render_model_value)
+                .unwrap_or_else(|| "unknown".into());
+            let minutes = sample
+                .get("minutes_played")
+                .map(render_model_value)
+                .unwrap_or_else(|| "unknown".into());
+            parts.push(format!(
+                "stored source sample: {appearances} appearances, {minutes} minutes"
+            ));
+        }
+        let measures = measurements
+            .iter()
+            .map(|measurement| {
+                let label = measurement
+                    .get("label")
+                    .and_then(Value::as_str)
+                    .or_else(|| measurement.get("measure").and_then(Value::as_str))
+                    .unwrap_or("unnamed measure");
+                let value = measurement
+                    .get("value")
+                    .map(render_model_value)
+                    .unwrap_or_else(|| "unknown".into());
+                match measurement.get("per_90_recorded_minutes") {
+                    Some(rate) if !rate.is_null() => {
+                        format!(
+                            "{label} {value} ({} per 90 recorded minutes)",
+                            render_model_value(rate)
+                        )
+                    }
+                    _ => format!("{label} {value}"),
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("; ");
+        parts.push(format!("measurements: {measures}"));
+        if let Some(coverage) = data.get("coverage").and_then(Value::as_str) {
+            parts.push(format!("coverage: {coverage}"));
+        }
+        return parts.join("; ");
+    }
+    if let Some(text) = data.get("text").and_then(Value::as_str) {
+        let text = text
+            .split("; observed ")
+            .next()
+            .unwrap_or(text)
+            .trim_end_matches('.');
+        return match data
+            .get("evidence_article_ids")
+            .filter(|v| v.as_array().is_some_and(|a| !a.is_empty()))
+        {
+            Some(ids) => format!("{text}; based on articles {}", render_model_value(ids)),
+            None => text.to_string(),
+        };
+    }
+    render_model_value(data)
+}
+
+fn render_model_value(value: &Value) -> String {
+    match value {
+        Value::Null => "unknown".into(),
+        Value::Bool(v) => v.to_string(),
+        Value::Number(v) => v.to_string(),
+        Value::String(v) => v.clone(),
+        Value::Array(values) => values
+            .iter()
+            .map(render_model_value)
+            .collect::<Vec<_>>()
+            .join(", "),
+        Value::Object(fields) => fields
+            .iter()
+            .filter(|(key, _)| model_field_is_sporting(key))
+            .map(|(key, value)| format!("{}: {}", key.replace('_', " "), render_model_value(value)))
+            .collect::<Vec<_>>()
+            .join("; "),
+    }
+}
+
+fn model_field_is_sporting(key: &str) -> bool {
+    !matches!(
+        key,
+        "observed_at"
+            | "observed_unix"
+            | "observed_from"
+            | "observed_until"
+            | "source_updated_at"
+            | "updated_at"
+            | "created_at"
+            | "fetched_at"
+            | "generated_at"
+            | "starts_at"
+            | "ends_at"
+            | "clock_league_id"
+            | "first_stored_start"
+            | "last_stored_start"
+            | "rows"
+            | "unverified_rows"
+    )
+}
+
+fn sentence_case(value: &str) -> String {
+    let mut chars = value.chars();
+    match chars.next() {
+        Some(first) => first.to_uppercase().chain(chars).collect(),
+        None => String::new(),
+    }
 }
 
 #[cfg(test)]
@@ -547,5 +885,131 @@ mod tests {
         let rendered = package.render().unwrap();
         assert!(rendered.contains("Our previous interpretation (not new evidence)"));
         assert!(rendered.contains("based on articles [12,42]"));
+    }
+
+    #[test]
+    fn model_view_keeps_facts_but_not_audit_row_envelopes() {
+        let mut package = test_package();
+        package.groups.push(EvidenceGroup {
+            id: "performance comparison".into(),
+            required: false,
+            records: vec![Record {
+                section: Section::PresentEvidence,
+                sources: vec![SourceRef {
+                    table: "player_stats".into(),
+                    key: "FOOTBALL/7/2026/8".into(),
+                }],
+                observed_at: Some("2026-09-07T12:30:00Z".into()),
+                observed_unix: Some(1),
+                data: json!({
+                    "season": 2026,
+                    "played_for": "Chelsea",
+                    "competition": "Premier League",
+                    "observed_from": "2026-09-01T00:00:00Z",
+                    "source_updated_at": "2026-09-07T12:30:00Z",
+                    "recorded_sample": {"appearances": 1, "minutes_played": 90},
+                    "measurements": [
+                        {"label": "Goals", "value": null, "per_90_recorded_minutes": null},
+                        {"label": "Assists", "value": 1, "per_90_recorded_minutes": 1.0}
+                    ],
+                    "coverage": "stored snapshot; completeness unknown"
+                }),
+            }],
+            qualifications: vec!["Do not infer playing time from source coverage.".into()],
+        });
+        let rendered = package.render_for_model().unwrap();
+        assert!(rendered.contains("played for Chelsea; season 2026; Premier League"));
+        assert!(rendered.contains("Goals unknown"));
+        assert!(rendered.contains("Assists 1 (1.0 per 90 recorded minutes)"));
+        assert!(!rendered.contains("player_stats"));
+        assert!(!rendered.contains("2026-09-07T12:30:00Z"));
+        assert!(!rendered.contains("observed from"));
+        assert!(!rendered.contains("source updated at"));
+    }
+
+    #[test]
+    fn model_view_only_compares_measurements_present_in_both_snapshots() {
+        let mut package = test_package();
+        let snapshot = |section, season, team, goals, assists| Record {
+            section,
+            sources: vec![SourceRef {
+                table: "player_stats".into(),
+                key: format!("FOOTBALL/7/{season}/8"),
+            }],
+            observed_at: None,
+            observed_unix: None,
+            data: json!({
+                "season": season,
+                "played_for": team,
+                "competition": "Premier League",
+                "recorded_sample": {"appearances": 10, "minutes_played": 900},
+                "measurements": [
+                    {"measure": "goals", "label": "Goals", "value": goals,
+                     "per_90_recorded_minutes": goals},
+                    {"measure": "assists", "label": "Assists", "value": assists,
+                     "per_90_recorded_minutes": assists}
+                ]
+            }),
+        };
+        package.groups.push(EvidenceGroup {
+            id: "performance comparison".into(),
+            required: false,
+            records: vec![
+                snapshot(
+                    Section::EstablishedHistory,
+                    2025,
+                    "Aston Villa",
+                    json!(10),
+                    json!(6),
+                ),
+                snapshot(
+                    Section::PresentEvidence,
+                    2026,
+                    "Chelsea",
+                    Value::Null,
+                    json!(1),
+                ),
+            ],
+            qualifications: vec![],
+        });
+        let rendered = package.render_for_model().unwrap();
+        assert!(rendered.contains("earlier Aston Villa, 2025, Premier League"));
+        assert!(rendered.contains("Assists: earlier 6 total; current 1 total"));
+        assert!(rendered.contains("Unavailable for directional comparison"));
+        assert!(rendered.contains("Goals"));
+        assert!(!rendered.contains("Goals: earlier 10"));
+    }
+
+    #[test]
+    fn model_view_does_not_compare_a_one_appearance_snapshot() {
+        let mut package = test_package();
+        let record = |section: Section, season: i32, appearances: i32, value: i32| Record {
+            section,
+            sources: vec![SourceRef {
+                table: "player_stats".into(),
+                key: season.to_string(),
+            }],
+            observed_at: None,
+            observed_unix: None,
+            data: json!({
+                "season": season,
+                "played_for": if season == 2025 { "Aston Villa" } else { "Chelsea" },
+                "recorded_sample": {"appearances": appearances, "minutes_played": 90},
+                "measurements": [{"measure": "assists", "label": "Assists", "value": value}]
+            }),
+        };
+        package.groups.push(EvidenceGroup {
+            id: "performance comparison".into(),
+            required: false,
+            records: vec![
+                record(Section::EstablishedHistory, 2025, 37, 6),
+                record(Section::PresentEvidence, 2026, 1, 1),
+            ],
+            qualifications: vec![],
+        });
+        let rendered = package.render_for_model().unwrap();
+        assert!(rendered.contains("only one appearance"));
+        assert!(rendered.contains("not a basis for a directional season comparison"));
+        assert!(!rendered.contains("Like-for-like measurements"));
     }
 }

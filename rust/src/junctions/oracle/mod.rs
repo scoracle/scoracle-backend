@@ -1067,7 +1067,7 @@ impl StageHandler for SigilHandler {
 
         // The one crown call (OracleLogic): read the cards + the omen, then emit
         // {reading, score}. Fail-closed lives in CrownParser (unparseable → Err → the item backs off).
-        let identity = Some(memories.render()?);
+        let identity = Some(memories.render_for_model()?);
         let prompt = build_crown_prompt(
             &item.entity_type,
             &name,

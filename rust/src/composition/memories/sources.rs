@@ -193,7 +193,7 @@ pub async fn load(pool: &PgPool, req: MemoryRequest<'_>) -> Result<Package> {
                 ));
             }
         }
-        add(&mut package,"identity",true,identity_records,&["Dated house records may disagree. A later observation is not itself a signing date; preserve unresolved affiliation conflicts."]);
+        add(&mut package,"identity",true,identity_records,&["Dated house records may disagree. A later observation is not itself a signing date. When later records conflict, do not present the older affiliation as current; state that the affiliation is unresolved."]);
         // Calendar evidence is selected from verified fixtures for the actual team,
         // not the sport's reporting grid or unverified article nominations.
         let fixtures = sqlx::query(include_str!("fixtures.sql"))

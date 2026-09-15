@@ -252,7 +252,10 @@ mod surface_tests {
                     thinking: String::new(),
                     model: "test".into(),
                     total_duration: Duration::ZERO,
+                    prompt_eval_count: 1,
                     eval_count: 1,
+                    completion_reason: Some("stop".into()),
+                    raw_response_body: String::new(),
                 },
                 self.request_body(prompt, opts),
             ))

@@ -1,7 +1,7 @@
 //! Structured personnel changes and attributed availability reports for current evidence.
 
 use anyhow::{Context, Result};
-use sqlx::PgPool;
+use sqlx::{PgPool, Row};
 
 /// An adjudicated absence, return or withdrawal. Withdrawing an incorrect
 /// record does not establish recovery; preserve those events separately.
@@ -40,6 +40,7 @@ pub(crate) const MAX_AVAILABILITY_LINES: usize = 4;
 pub struct PersonnelChange {
     /// `applied` — the move is in force; `reverted` — an earlier applied move was undone.
     pub kind: String,
+    /// When the identity reconciliation was applied or withdrawn. This is not a signing date.
     pub date_label: String,
     /// The adjudicated event label (`transfer`, `rumor`, …). Never model prose — it is the
     /// Insider's structured `event_type` column.
@@ -63,7 +64,7 @@ const PERSONNEL_FIRST_READ_DAYS: i32 = 30;
 /// scouted since preseason gets the recent moves, not its whole transfer history.
 const PERSONNEL_MAX_DAYS: i32 = 180;
 
-/// Load adjudicated transfers since the entity's last read. Unlike slow memory, this includes
+/// Load adjudicated current-team reconciliations since the entity's last read. Unlike slow memory, this includes
 /// departures, source clubs, and reverts. Only structured facts reach the Scout. Returns the
 /// newest rows plus the pre-cap total so exclusions are explicit.
 pub async fn load_personnel_changes(
@@ -288,17 +289,24 @@ pub async fn load_availability_changes(
     Ok((changes, total))
 }
 
-/// How many reported-availability claims reach the brief. Six, matching the personnel cap: the
-/// 4,096 window still binds, and a busy treatment table must not crowd out the datapoints the
-/// report is actually built on.
-const MAX_AVAILABILITY_CLAIMS: usize = 6;
+/// How many attributed current reports reach the brief. Six matches the
+/// personnel cap so news cannot crowd measurements out of the 4,096 window.
+const MAX_SCOUT_CLAIMS: usize = 6;
+/// Raw Editor-link fallback is less curated than a compiled packet. Two current facts establish
+/// the update without turning an entity-linked article bundle into a second article summary.
+const MAX_DIRECT_SCOUT_CLAIMS: usize = 2;
+/// Current reporting needs enough room to survive a quiet week between fixtures. This matches
+/// the transfer corpus freshness boundary while the claim cap continues to bind prompt size.
+const SCOUT_REPORT_LOOKBACK_HOURS: i64 = 14 * 24;
 
-/// Load the Editor's injury/suspension claims for this entity — evidence the Scout weighs rather
-/// than adjudicated facts it simply reports.
+/// Load the Editor's current performance, roster and availability claims for
+/// this entity — attributed evidence the Scout weighs rather than stored facts.
 ///
-/// `Voice::Scout` selects only injury and suspension claims. `mark_contested` identifies both
-/// sides of a contradiction without filtering or deciding it.
-pub async fn load_availability_reports(
+/// `Voice::Scout` selects performance, roster, injury and suspension claims. `mark_contested`
+/// identifies both sides of a contradiction without filtering or deciding it. If no assembled
+/// packet currently carries the entity, exact Editor links provide a bounded fallback; each fact
+/// must name the resolved entity surface, so unrelated facts from the same article stay out.
+pub async fn load_scout_reports(
     pool: &PgPool,
     entity_type: &str,
     entity_id: i32,
@@ -309,22 +317,100 @@ pub async fn load_availability_reports(
     if entity_type != "player" && entity_type != "team" {
         return Ok(Vec::new());
     }
-    let loaded = crate::junctions::editor::packet::load_packets_for_entity(
+    let loaded = match crate::junctions::editor::packet::load_packets_for_entity(
         pool,
         entity_type,
         entity_id,
         sport,
-        crate::junctions::journalist::PACKET_LOOKBACK_HOURS,
-        MAX_AVAILABILITY_CLAIMS as i64,
+        SCOUT_REPORT_LOOKBACK_HOURS,
+        MAX_SCOUT_CLAIMS as i64,
     )
     .await
-    .with_context(|| format!("load availability reports {entity_type}/{entity_id}"))?;
+    {
+        Ok(loaded) => loaded,
+        Err(error) => {
+            tracing::warn!(
+                entity_type,
+                entity_id,
+                sport,
+                error = %error,
+                "current reports: packet lookup failed; using exact Editor links"
+            );
+            Vec::new()
+        }
+    };
 
     let mut claims = Vec::new();
     for (view, _) in loaded {
         claims.extend(slice_claims(&view.claims, Voice::Scout));
     }
-    claims.truncate(MAX_AVAILABILITY_CLAIMS);
+    // Always merge exact recent links. A packet can predate a newer unassembled article, and the
+    // presence of one older packet must not hide current reporting from this request.
+    let rows = sqlx::query(
+        r#"
+            WITH entity AS (
+                SELECT COALESCE(p.name, t.name) AS name
+                FROM (SELECT 1) seed
+                LEFT JOIN public.players p
+                  ON $1 = 'player' AND p.id = $2 AND p.sport = $3
+                LEFT JOIN public.teams t
+                  ON $1 = 'team' AND t.id = $2 AND t.sport = $3
+            )
+            SELECT n.id, COALESCE(n.source, '') AS source,
+                   format(
+                       'Separately attributed report published %s; fixture/competition not linked to the stored aggregate: %s',
+                       to_char(COALESCE(n.published_at, n.fetched_at), 'YYYY-MM-DD'),
+                       fact.value
+                   ) AS fact,
+                   EXTRACT(EPOCH FROM COALESCE(n.published_at, n.fetched_at))::bigint
+                       AS published_at,
+                   er.read->>'story_type' AS story_type
+            FROM public.news_articles n
+            JOIN public.editor_reads er ON er.article_id = n.id AND er.status = 'success'
+            CROSS JOIN LATERAL jsonb_array_elements(
+                COALESCE(er.resolved->'links', '[]'::jsonb)) link
+            CROSS JOIN LATERAL jsonb_array_elements_text(
+                COALESCE(er.read->'key_facts', '[]'::jsonb)) fact(value)
+            CROSS JOIN entity e
+            WHERE link->>'sport' = $3
+              AND link->>'entity_type' = $1
+              AND link->>'entity_id' = $2::text
+              AND er.read->>'story_type' IN ('performance', 'roster', 'injury', 'suspension')
+              AND COALESCE(n.published_at, n.fetched_at)
+                    >= now() - make_interval(hours => $4::int)
+              AND e.name IS NOT NULL
+              AND lower(fact.value) LIKE '%' || lower(e.name) || '%'
+              AND lower(fact.value) NOT LIKE '%not ' || lower(e.name) || '%'
+            ORDER BY COALESCE(n.published_at, n.fetched_at) DESC, n.id DESC
+            LIMIT $5
+            "#,
+    )
+    .bind(entity_type)
+    .bind(entity_id)
+    .bind(sport)
+    .bind(SCOUT_REPORT_LOOKBACK_HOURS)
+    .bind(MAX_DIRECT_SCOUT_CLAIMS as i64)
+    .fetch_all(pool)
+    .await
+    .with_context(|| format!("load current Editor reports {entity_type}/{entity_id}"))?;
+    claims.extend(
+        rows.into_iter()
+            .map(|row| crate::junctions::editor::render::RenderClaim {
+                article_id: row.get("id"),
+                source: row.get("source"),
+                fact: row.get("fact"),
+                published_at: row.get("published_at"),
+                story_type: row.get("story_type"),
+            }),
+    );
+    claims.sort_by(|a, b| {
+        b.published_at
+            .cmp(&a.published_at)
+            .then_with(|| b.article_id.cmp(&a.article_id))
+    });
+    let mut seen = std::collections::HashSet::new();
+    claims.retain(|claim| seen.insert((claim.article_id, claim.fact.clone())));
+    claims.truncate(MAX_SCOUT_CLAIMS);
     // Contest-marking runs across the WHOLE set, after the merge — two storylines reporting the
     // same knock differently is precisely the pair worth marking, and marking per-packet would
     // miss it.

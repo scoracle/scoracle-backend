@@ -10,8 +10,9 @@
 // seasons, roll current_season forward.
 //
 // Differences from the NFL arm, each deliberate:
-//   - Fixtures are MATCHED, never created: the fixture feed already carries
-//     the PL schedule; FPL binds onto it by (home, away, kickoff window).
+//   - Fixtures adopt an existing schedule row when one matches, otherwise the
+//     official FPL schedule creates and binds the missing row. A source fixture
+//     must never disappear before the gap funnel can count it.
 //   - Players are MATCHED, never created: every PL player exists from the
 //     vendor-era seed, so a miss here is a name-normalization event for the
 //     funnel, not a new row (creation would mint duplicates against the
@@ -281,9 +282,12 @@ func RunFPL(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) (Funne
 		if !okH || !okA {
 			continue
 		}
-		fixtureID, season, err := resolveFPLFixture(ctx, pool, res, fx, homeID, awayID)
+		fixtureID, season, err := resolveFPLFixture(ctx, pool, res, fx, homeID, awayID, &f)
 		if err != nil || fixtureID == 0 {
-			continue // not in the house schedule (or not yet); next run retries.
+			f.FixturesUnmatched++
+			logger.Warn("dataimport: fpl fixture unresolved",
+				"fpl_fixture", fx.ID, "home", homeID, "away", awayID, "error", err)
+			continue
 		}
 		var have int
 		if err := pool.QueryRow(ctx,
@@ -491,24 +495,49 @@ func createFPLTeam(ctx context.Context, pool *pgxpool.Pool, res *Resolver, t fpl
 	return id, nil
 }
 
-// resolveFPLFixture binds an FPL fixture onto the house schedule by (home,
-// away, kickoff ±10 days). League play has one pairing per venue per season,
-// so the window is a sanity guard, not a discriminator.
-func resolveFPLFixture(ctx context.Context, pool *pgxpool.Pool, res *Resolver, fx fplFixture, homeID, awayID int) (int, int, error) {
+// resolveFPLFixture adopts a matching house schedule row or creates the missing
+// authoritative FPL row, then binds the external ID. League play has one pairing
+// per venue per season, so the window is a sanity guard, not a discriminator.
+func resolveFPLFixture(ctx context.Context, pool *pgxpool.Pool, res *Resolver, fx fplFixture, homeID, awayID int, f *Funnel) (int, int, error) {
 	ext := strconv.Itoa(fx.ID)
 	if id := res.Fixture(ext); id != 0 {
 		var season int
 		if err := pool.QueryRow(ctx, `SELECT season FROM fixtures WHERE id = $1`, id).Scan(&season); err != nil {
 			return 0, 0, err
 		}
+		tag, err := pool.Exec(ctx, `
+			UPDATE fixtures SET
+				start_time = COALESCE($2::timestamptz, start_time),
+				round = COALESCE($3, round),
+				home_score = COALESCE($4, home_score),
+				away_score = COALESCE($5, away_score),
+				status = CASE WHEN status = 'seeded' THEN status WHEN $6 THEN 'completed' ELSE status END,
+				meta = meta || jsonb_build_object('needs_verification', false, 'verified_by', 'fpl', 'fpl_fixture_id', $7),
+				updated_at = NOW()
+			WHERE id = $1 AND (
+				($2::timestamptz IS NOT NULL AND start_time IS DISTINCT FROM $2::timestamptz)
+				OR round IS DISTINCT FROM COALESCE($3, round)
+				OR home_score IS DISTINCT FROM COALESCE($4, home_score)
+				OR away_score IS DISTINCT FROM COALESCE($5, away_score)
+				OR (status <> 'seeded' AND $6 AND status <> 'completed')
+				OR meta->>'verified_by' IS DISTINCT FROM 'fpl'
+				OR meta->>'fpl_fixture_id' IS DISTINCT FROM $7::text
+				OR COALESCE((meta->>'needs_verification')::boolean, true))`,
+			id, fx.KickoffTime, fplRound(fx.Event), fx.TeamHScore, fx.TeamAScore, fx.Finished, fx.ID)
+		if err != nil {
+			return 0, 0, err
+		}
+		if tag.RowsAffected() > 0 {
+			f.FixturesUpdated++
+		}
 		return id, season, nil
 	}
 	if fx.KickoffTime == nil {
-		return 0, 0, nil
+		return 0, 0, fmt.Errorf("missing kickoff")
 	}
 	kickoff, err := time.Parse(time.RFC3339, *fx.KickoffTime)
 	if err != nil {
-		return 0, 0, nil
+		return 0, 0, fmt.Errorf("invalid kickoff %q: %w", *fx.KickoffTime, err)
 	}
 	var id, season int
 	err = pool.QueryRow(ctx, `
@@ -516,18 +545,76 @@ func resolveFPLFixture(ctx context.Context, pool *pgxpool.Pool, res *Resolver, f
 		WHERE sport = 'FOOTBALL' AND league_id = $1
 		  AND home_team_id = $2 AND away_team_id = $3
 		  AND start_time BETWEEN $4::timestamptz - INTERVAL '10 days'
-		                     AND $4::timestamptz + INTERVAL '10 days'`,
+		                     AND $4::timestamptz + INTERVAL '10 days'
+		ORDER BY abs(extract(epoch FROM (start_time - $4::timestamptz))), id
+		LIMIT 1`,
 		fplLeagueID, homeID, awayID, kickoff).Scan(&id, &season)
-	if err == pgx.ErrNoRows {
-		return 0, 0, nil
-	}
-	if err != nil {
+	if err != nil && err != pgx.ErrNoRows {
 		return 0, 0, err
+	}
+	if err == pgx.ErrNoRows {
+		season = fplSeason(kickoff)
+		status := "scheduled"
+		if fx.Finished {
+			status = "completed"
+		}
+		err = pool.QueryRow(ctx, `
+			INSERT INTO fixtures (
+				sport, league_id, season, home_team_id, away_team_id,
+				start_time, round, status, home_score, away_score, meta)
+			VALUES (
+				'FOOTBALL', $1, $2, $3, $4, $5, $6, $7, $8, $9,
+				jsonb_build_object('needs_verification', false, 'verified_by', 'fpl', 'fpl_fixture_id', $10))
+			RETURNING id`, fplLeagueID, season, homeID, awayID, kickoff,
+			fplRound(fx.Event), status, fx.TeamHScore, fx.TeamAScore, fx.ID).Scan(&id)
+		if err != nil {
+			return 0, 0, fmt.Errorf("create FPL fixture %d: %w", fx.ID, err)
+		}
+		f.FixturesCreated++
+	} else {
+		tag, err := pool.Exec(ctx, `
+			UPDATE fixtures SET
+				start_time = $2, round = COALESCE($3, round),
+				home_score = COALESCE($4, home_score), away_score = COALESCE($5, away_score),
+				status = CASE WHEN status = 'seeded' THEN status WHEN $6 THEN 'completed' ELSE status END,
+				meta = meta || jsonb_build_object('needs_verification', false, 'verified_by', 'fpl', 'fpl_fixture_id', $7),
+				updated_at = NOW()
+			WHERE id = $1 AND (
+				start_time IS DISTINCT FROM $2 OR round IS DISTINCT FROM COALESCE($3, round)
+				OR home_score IS DISTINCT FROM COALESCE($4, home_score)
+				OR away_score IS DISTINCT FROM COALESCE($5, away_score)
+				OR (status <> 'seeded' AND $6 AND status <> 'completed')
+				OR meta->>'verified_by' IS DISTINCT FROM 'fpl'
+				OR meta->>'fpl_fixture_id' IS DISTINCT FROM $7::text
+				OR COALESCE((meta->>'needs_verification')::boolean, true))`,
+			id, kickoff, fplRound(fx.Event), fx.TeamHScore, fx.TeamAScore, fx.Finished, fx.ID)
+		if err != nil {
+			return 0, 0, fmt.Errorf("adopt FPL fixture %d: %w", fx.ID, err)
+		}
+		if tag.RowsAffected() > 0 {
+			f.FixturesUpdated++
+		}
 	}
 	if err := res.BindFixture(ctx, pool, ext, id); err != nil {
 		return 0, 0, err
 	}
 	return id, season, nil
+}
+
+func fplSeason(kickoff time.Time) int {
+	season := kickoff.Year()
+	if kickoff.Month() < time.July {
+		season--
+	}
+	return season
+}
+
+func fplRound(event *int) *string {
+	if event == nil {
+		return nil
+	}
+	round := fmt.Sprintf("Matchweek %d", *event)
+	return &round
 }
 
 // promoteFPLFixture is the promotion transaction, mirroring promoteNFLFixture:

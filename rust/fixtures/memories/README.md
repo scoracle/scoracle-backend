@@ -55,6 +55,9 @@ separate from historical memories. No root-module compatibility aliases were add
   that fit keep every record. Space for a factual omission notice is reserved only
   when factual groups must be dropped. Editorial omissions remain in the audit.
   Byte budgets do not certify a full provider window.
+- Two renderings of the same selected package: a complete audit view with row references and
+  observation envelopes, and a writer view that removes those administrative fields while
+  preserving sporting facts, conflicts, denominators and uncertainty.
 
 Selection policy lives in the shared mission-aware source adapter. There is no
 universal importance score, minimum memory count, vector index or summary model.
@@ -232,9 +235,21 @@ of Rogers' league debut goal and three cup assists. These are review evidence,
 not a replacement league aggregate. They illustrate why the product must allow
 continued creative strength as well as a change in scoring role.
 
+## Production request checkpoint
+
+The [complete Rogers request review](probes/2026-09-14-production/REVIEW.md) preserves the first
+production-built Scout request and raw provider response. It exposed stale identity, incomplete
+canonical box-score coverage, invalid pre-migration ranks, audit metadata in model prose, and an
+overlong output containing unsupported role claims. The local follow-up separates audit/model
+rendering, includes current performance and roster reports, records provider telemetry, and adds a
+source-backed identity nomination route that remains behind the existing fail-closed owner. The
+same review now includes a qualified thin-sample request: two current Chelsea reports reach the
+writer, legacy unidentified/ineligible ranks fail closed, the one-appearance sample produces no
+directional comparison, and the complete response fits the card surface.
+
 ## Next milestone
 
-See [the next-session handoff](NEXT.md): exercise a complete production Scout
-request, fix source coverage and reconciliation through their existing owners,
-and qualify supported comparative readings before further voice tuning. The
-local checkpoint passed 459 tests, Clippy, formatting and whitespace checks.
+See [the next-session handoff](NEXT.md): deploy through the normal migration sequence, repair source
+coverage and reconciliation through their existing owners, then qualify supported comparative,
+stable and disputed-affiliation readings before further voice tuning. The local checkpoint passes
+466 all-target tests, Clippy with warnings denied, formatting and whitespace checks.

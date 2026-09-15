@@ -547,7 +547,7 @@ fn prompt_player_composite_datapoints_and_scoped_position() {
 Stats updated: unknown; sample: unknown\n\
 \nOverall standardized score (50 = average): 67\n\
 Values: per-game averages, except percentages.\n\
-\nMeasurements. Percentiles, when present, rank the same measure among eligible entities in this sport and season; higher is better. Missing ranks and season comparisons are unmeasured.\n\
+\nCurrent-snapshot measurements. Percentiles, when present, rank the same measure among eligible entities in this sport and season; higher is better. Missing ranks and season comparisons are unmeasured.\n\
 - Scoring: 24, percentile 95.0 (elite)\n\
 - Defense: 2.5, percentile 40.0 (below average)\n\
 "
@@ -583,7 +583,7 @@ fn prompt_team_no_composite_no_position() {
         "Entity: Test FC (FOOTBALL team); season 2025\n\
 Stats updated: unknown; sample: unknown\n\
 Values: season totals, except percentages and named adjustments.\n\
-\nMeasurements. Percentiles, when present, rank the same measure among eligible entities in this sport and season; higher is better. Missing ranks and season comparisons are unmeasured.\n\
+\nCurrent-snapshot measurements. Percentiles, when present, rank the same measure among eligible entities in this sport and season; higher is better. Missing ranks and season comparisons are unmeasured.\n\
 - Defense: 0.38, percentile 78.0 (strong)\n\
 "
     );
@@ -985,7 +985,10 @@ fn a_player_move_names_both_clubs_and_the_date() {
         0,
     )
     .expect("a move renders");
-    assert_eq!(out, "- Jul 29: joined New FC from Old FC (transfer).\n");
+    assert_eq!(
+        out,
+        "- Jul 29: current-club identity confirmed as New FC (previously Old FC) (transfer).\n"
+    );
 }
 
 /// The club a player came FROM is exactly what `transfer_ground_truth` drops (it selects
@@ -1007,7 +1010,10 @@ fn a_player_move_without_a_known_old_club_still_renders() {
         0,
     )
     .unwrap();
-    assert_eq!(out, "- Jul 16: joined New FC (transfer).\n");
+    assert_eq!(
+        out,
+        "- Jul 16: current-club identity confirmed as New FC (transfer).\n"
+    );
 }
 
 /// A team read must see BOTH directions. The ground-truth view matches `new_team_id` only, so a
@@ -1032,7 +1038,7 @@ fn a_team_sees_arrivals_and_departures_decided_by_id() {
     .unwrap();
     assert_eq!(
         arrival,
-        "- Jul 29: signed Test Player from Old FC (transfer).\n"
+        "- Jul 29: Test Player's current-club identity confirmed here (previously Old FC) (transfer).\n"
     );
 
     // Same row, read by the OTHER club: a departure.
@@ -1053,7 +1059,7 @@ fn a_team_sees_arrivals_and_departures_decided_by_id() {
     .unwrap();
     assert_eq!(
         departure,
-        "- Jul 29: lost Test Player to New FC (transfer).\n"
+        "- Jul 29: Test Player's current-club identity confirmed as New FC (transfer).\n"
     );
 }
 
@@ -1320,7 +1326,9 @@ fn transfers_and_availability_share_one_block_and_each_names_its_drops() {
     .unwrap();
 
     // Transfers, their drop line, availability, then its drop line — in that order.
-    let signed = out.find("signed Player 0").unwrap();
+    let signed = out
+        .find("Player 0's current-club identity confirmed")
+        .unwrap();
     let pers_drop = out.find("+2 older personnel changes").unwrap();
     let hurt = out.find("Hurt 0 out with a recorded injury").unwrap();
     let avail_drop = out.find("+3 older availability events").unwrap();
@@ -1337,7 +1345,7 @@ fn transfers_and_availability_share_one_block_and_each_names_its_drops() {
 /// who said what and where they disagree. `⇄` is the mark, and BOTH members of a contested pair
 /// are always carried (T3/D6) — collapsing the pair would be deciding for him.
 #[test]
-fn tagged_availability_reports_arrive_attributed_and_contest_marked() {
+fn tagged_current_reports_arrive_attributed_and_contest_marked() {
     use crate::junctions::editor::render::{mark_contested, RenderClaim};
 
     let claim = |source: &str, fact: &str| RenderClaim {
@@ -1353,7 +1361,7 @@ fn tagged_availability_reports_arrive_attributed_and_contest_marked() {
         claim("BBC", "Palmer is out for six weeks"),
         claim("Sky", "Palmer faces six weeks out"),
     ]);
-    let out = render_availability_reports(&agreeing).unwrap();
+    let out = render_scout_reports(&agreeing).unwrap();
     assert!(out.contains("- BBC: Palmer is out for six weeks\n"));
     assert!(!out.contains('⇄'));
 
@@ -1362,7 +1370,7 @@ fn tagged_availability_reports_arrive_attributed_and_contest_marked() {
         claim("BBC", "Palmer will miss the derby"),
         claim("The Athletic", "Palmer will not miss the derby"),
     ]);
-    let out = render_availability_reports(&contested).unwrap();
+    let out = render_scout_reports(&contested).unwrap();
     assert_eq!(out.matches('⇄').count(), 2, "both sides must be marked");
     assert!(out.contains("BBC") && out.contains("The Athletic"));
 
@@ -1376,7 +1384,7 @@ fn tagged_availability_reports_arrive_attributed_and_contest_marked() {
         claim("BBC", "Palmer has been ruled out of the derby"),
         claim("The Athletic", "Palmer has not been ruled out of the derby"),
     ]);
-    let out = render_availability_reports(&unmarked).unwrap();
+    let out = render_scout_reports(&unmarked).unwrap();
     assert_eq!(
         out.matches('⇄').count(),
         0,
@@ -1388,14 +1396,14 @@ fn tagged_availability_reports_arrive_attributed_and_contest_marked() {
     );
 
     // Nothing reported ⇒ no section, same discipline as the personnel block.
-    assert!(render_availability_reports(&[]).is_none());
+    assert!(render_scout_reports(&[]).is_none());
 }
 
 /// The reports block must not be confusable with the adjudicated record, and the prompt has to
 /// say which is which — a Scout reading a claim as a confirmed fact is the failure this design
 /// exists to avoid.
 #[test]
-fn the_prompt_separates_reported_availability_from_the_confirmed_record() {
+fn the_prompt_separates_current_reports_from_the_confirmed_record() {
     use crate::junctions::editor::render::{mark_contested, RenderClaim};
     let p = profile_player();
     let reports = mark_contested(&[RenderClaim {
@@ -1405,7 +1413,7 @@ fn the_prompt_separates_reported_availability_from_the_confirmed_record() {
         published_at: Some(100),
         story_type: "injury".to_string(),
     }]);
-    let rendered = render_availability_reports(&reports).unwrap();
+    let rendered = render_scout_reports(&reports).unwrap();
     let prompt = build_stat_prompt(
         &req("FOOTBALL", "player", "Test Player"),
         &p,
@@ -1415,16 +1423,14 @@ fn the_prompt_separates_reported_availability_from_the_confirmed_record() {
         Some(&rendered),
         None,
     );
-    let reported = prompt
-        .find("Reported availability, NOT yet confirmed")
-        .unwrap();
+    let reported = prompt.find("Current attributed reports").unwrap();
     assert!(prompt[reported..].contains("- BBC: Palmer is out for six weeks"));
     assert!(prompt.contains("- BBC: Palmer is out for six weeks"));
     // The instructions that make it judgeable rather than quotable.
     assert!(prompt.contains("attributed reports"));
-    assert!(prompt.contains("preserve uncertainty and disputes"));
+    assert!(prompt.contains("preserve uncertainty"));
     // And a claim must never be allowed to move a measured number.
-    assert!(prompt.contains("reports do not change measured tiers or ratings"));
+    assert!(prompt.contains("reports do not alter measured statistics"));
 }
 
 /// No changes ⇒ no section. A heading with nothing under it asserts "nothing moved", which is a
@@ -1474,13 +1480,15 @@ fn personnel_follows_measurements_without_generated_prose_memory() {
         None,
         None,
     );
-    let dp = prompt.find("Measurements.").unwrap();
+    let dp = prompt.find("Current-snapshot measurements.").unwrap();
     let pers = prompt
         .find("Personnel and availability since our last read")
         .unwrap();
     assert!(dp < pers);
     assert!(!prompt.contains("Prior reading"));
-    assert!(prompt.contains("- Jul 29: joined New FC from Old FC (transfer).\n"));
+    assert!(prompt.contains(
+        "- Jul 29: current-club identity confirmed as New FC (previously Old FC) (transfer).\n"
+    ));
     // The tier-truth invariant travels with the block.
     assert!(prompt.contains("season measurements remain unchanged"));
 

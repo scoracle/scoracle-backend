@@ -200,17 +200,20 @@ func runData(pool *pgxpool.Pool, dbURL string, season int, logger *slog.Logger) 
 	funnel.EventTeams += fplFunnel.EventTeams
 	funnel.PlayersUnmatched += fplFunnel.PlayersUnmatched
 	funnel.TeamsUnmatched += fplFunnel.TeamsUnmatched
+	funnel.FixturesCreated += fplFunnel.FixturesCreated
+	funnel.FixturesUpdated += fplFunnel.FixturesUpdated
+	funnel.FixturesUnmatched += fplFunnel.FixturesUnmatched
 
 	status, exit := jobrun.StatusSuccess, 0
 	switch {
 	case runErr != nil:
 		status, exit = jobrun.StatusFailed, 1
 		logger.Error("pipeline data: run failed", "error", runErr)
-	case funnel.GapsFailed > 0 || funnel.PlayersUnmatched > 0 || funnel.TeamsUnmatched > 0:
+	case funnel.GapsFailed > 0 || funnel.PlayersUnmatched > 0 || funnel.TeamsUnmatched > 0 || funnel.FixturesUnmatched > 0:
 		// Retryable next run by construction: everything skipped is still in the gap.
 		status, exit = jobrun.StatusPartial, 3
-		runErr = fmt.Errorf("gaps_failed=%d players_unmatched=%d teams_unmatched=%d (gap query re-offers next run)",
-			funnel.GapsFailed, funnel.PlayersUnmatched, funnel.TeamsUnmatched)
+		runErr = fmt.Errorf("gaps_failed=%d players_unmatched=%d teams_unmatched=%d fixtures_unmatched=%d (source rows are re-offered next run)",
+			funnel.GapsFailed, funnel.PlayersUnmatched, funnel.TeamsUnmatched, funnel.FixturesUnmatched)
 	}
 	counts := jobrun.Counts{
 		Attempted: funnel.Gaps,

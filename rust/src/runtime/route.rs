@@ -503,7 +503,10 @@ mod tests {
                     thinking: String::new(),
                     model: "mock".to_string(),
                     total_duration: Duration::ZERO,
+                    prompt_eval_count: 0,
                     eval_count: 0,
+                    completion_reason: Some("stop".into()),
+                    raw_response_body: String::new(),
                 },
                 serde_json::Value::Null,
             ))

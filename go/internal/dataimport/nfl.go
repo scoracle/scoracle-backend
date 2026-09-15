@@ -28,19 +28,20 @@ const (
 // coverage is fine, silent truncation is not — anything skipped is counted and
 // logged, and the gap query re-offers it next run.
 type Funnel struct {
-	ScheduleRows     int
-	FixturesCreated  int
-	FixturesUpdated  int
-	TeamsUnmatched   int
-	RosterRows       int
-	PlayersCreated   int
-	PlayersUnmatched int
-	Gaps             int
-	GapsFilled       int
-	GapsWaiting      int // finished per the schedule, stats not published yet
-	GapsFailed       int
-	EventPlayers     int
-	EventTeams       int
+	ScheduleRows      int
+	FixturesCreated   int
+	FixturesUpdated   int
+	FixturesUnmatched int
+	TeamsUnmatched    int
+	RosterRows        int
+	PlayersCreated    int
+	PlayersUnmatched  int
+	Gaps              int
+	GapsFilled        int
+	GapsWaiting       int // finished per the schedule, stats not published yet
+	GapsFailed        int
+	EventPlayers      int
+	EventTeams        int
 }
 
 func (f Funnel) LogAttrs() []any {
@@ -48,6 +49,7 @@ func (f Funnel) LogAttrs() []any {
 		"schedule_rows", f.ScheduleRows,
 		"fixtures_created", f.FixturesCreated,
 		"fixtures_updated", f.FixturesUpdated,
+		"fixtures_unmatched", f.FixturesUnmatched,
 		"teams_unmatched", f.TeamsUnmatched,
 		"roster_rows", f.RosterRows,
 		"players_created", f.PlayersCreated,

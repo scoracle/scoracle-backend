@@ -71,7 +71,13 @@ pub struct GenerateResult {
     pub thinking: String,
     pub model: String,
     pub total_duration: Duration,
+    /// Input tokens reported by the provider for the complete request.
+    pub prompt_eval_count: i32,
     pub eval_count: i32,
+    /// Provider termination value after it passes the completion guard.
+    pub completion_reason: Option<String>,
+    /// Exact successful HTTP response body, retained for read-only diagnostics.
+    pub raw_response_body: String,
 }
 
 #[derive(Serialize)]
@@ -135,6 +141,8 @@ struct GenerateResponse {
     message: ChatTurnOwned,
     #[serde(default)]
     total_duration: i64, // nanoseconds
+    #[serde(default)]
+    prompt_eval_count: i32,
     #[serde(default)]
     eval_count: i32,
     #[serde(default)]
@@ -318,6 +326,7 @@ impl OllamaClient {
             return Err(anyhow!("ollama error: {}", parsed.error));
         }
         validate_completion(parsed.done_reason.as_deref(), parsed.done)?;
+        let completion_reason = parsed.done_reason.clone();
 
         Ok((
             GenerateResult {
@@ -325,7 +334,10 @@ impl OllamaClient {
                 thinking: parsed.message.thinking,
                 model: parsed.model,
                 total_duration: Duration::from_nanos(parsed.total_duration.max(0) as u64),
+                prompt_eval_count: parsed.prompt_eval_count,
                 eval_count: parsed.eval_count,
+                completion_reason,
+                raw_response_body: raw,
             },
             request_body,
         ))

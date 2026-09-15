@@ -429,7 +429,7 @@ impl StageHandler for MomentumHandler {
         // Enqueue performs the empty and debounce gates; the recomputed hash records provenance
         // for the row actually generated. The Analyst reads only the two numeric rails.
 
-        let identity = Some(ctx.memories.render()?);
+        let identity = Some(ctx.memories.render_for_model()?);
         let prompt = build_momentum_prompt(
             &item.entity_type,
             &name,

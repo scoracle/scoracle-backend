@@ -61,7 +61,14 @@ pub fn has_bookkeeping_citation(prose: &str) -> bool {
 }
 
 /// Card notation that may not appear in the Scout's prose report.
-pub const RATING_BODY_BANS: &[&str] = &[" · "];
+pub const RATING_BODY_BANS: &[&str] = &[
+    " · ",
+    "limited playing time",
+    "playing time is likely limited",
+    "substituted early",
+    "typical team averages",
+    "only verified fixture",
+];
 
 /// The first phrase from `list` found (case-insensitive, quote/diacritic-folded) in `prose`.
 pub fn first_banned_phrase(prose: &str, list: &[&'static str]) -> Option<&'static str> {
@@ -261,6 +268,18 @@ mod tests {
                 "this isn\u{2019}t a surge by any measure",
                 MOMENTUM_BANNED_PHRASES
             ),
+            None
+        );
+    }
+
+    #[test]
+    fn scout_guard_rejects_coverage_as_playing_time_inference() {
+        assert_eq!(
+            first_banned_phrase("His playing time is likely limited", RATING_BODY_BANS),
+            Some("playing time is likely limited")
+        );
+        assert_eq!(
+            first_banned_phrase("The stored sample is limited", RATING_BODY_BANS),
             None
         );
     }

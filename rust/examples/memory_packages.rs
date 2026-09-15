@@ -262,7 +262,7 @@ mod tests {
             scoracle_cognition::junctions::scout::RATING_SYSTEM_PROMPT.as_str()
         );
         assert_eq!(composed.prompt.matches(evidence).count(), 1);
-        assert!(composed.prompt.contains("Earlier observations:"));
+        assert!(composed.prompt.contains("Historical performance baseline:"));
         assert!(composed.prompt.contains("played for: Aston Villa"));
         assert!(!composed.system.contains(evidence));
     }

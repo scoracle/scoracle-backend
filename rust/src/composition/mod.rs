@@ -30,7 +30,7 @@ pub fn compose_card(memories: &Package, new_evidence: &str) -> Result<CardPrompt
         Mission::Oracle => &characters::oracle::ORACLE_SYSTEM_PROMPT,
         _ => anyhow::bail!("internal extraction missions use their junction's task contract"),
     };
-    let mut prompt = memories.render()?;
+    let mut prompt = memories.render_for_model()?;
     if !new_evidence.trim().is_empty() {
         prompt.push_str("\nNew evidence for this reading:\n");
         prompt.push_str(new_evidence);

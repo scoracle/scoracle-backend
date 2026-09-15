@@ -27,7 +27,8 @@ const MIN_CLAIMS: usize = 3;
 /// Tokens held back for the "(+N older report(s) not shown)" footer the budget itself may add.
 const FOOTER_RESERVE: usize = 20;
 
-/// Voices with packet access. The Scout receives only injury and suspension claims.
+/// Voices with packet access. The Scout receives current sporting and roster
+/// claims that can qualify a statistical reading.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Voice {
     /// `narratives` — the whole packet: every claim, whatever its type.
@@ -44,8 +45,8 @@ pub enum Voice {
     /// reporter instead of the reader of six cards. The variant survives so the register test can
     /// prove even the terminal voice cannot see the Influencer's phrase.
     Oracle,
-    /// `rating` — injury and suspension claims only. The Editor TAGS him and he weighs the
-    /// report himself; see the T4 note on this enum for what that repealed and what it did not.
+    /// `rating` — performance, roster, injury and suspension claims. The Editor
+    /// tags them and the Scout weighs the attributed reports against measurements.
     Scout,
 }
 
@@ -78,14 +79,12 @@ impl Voice {
     /// The claim slice this voice reads, as the set of `story_type`s admitted. `None` = every
     /// claim.
     ///
-    /// A SET rather than one type because the Scout's subject spans two: an injury and a
-    /// suspension are different causes with the same consequence — the player is unavailable —
-    /// and the Editor's contract already emits them as separate `story_type` values. Splitting
-    /// them across two slices would make a club's Saturday read as two unrelated facts.
+    /// A set keeps the Scout on sporting contribution, squad status and availability
+    /// without handing him transfer speculation, contracts, fixtures or general news.
     fn slice(self) -> Option<&'static [&'static str]> {
         match self {
             Voice::Insider => Some(&["transfer"]),
-            Voice::Scout => Some(&["injury", "suspension"]),
+            Voice::Scout => Some(&["performance", "roster", "injury", "suspension"]),
             _ => None,
         }
     }

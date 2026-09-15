@@ -81,6 +81,8 @@ struct ChoiceMessage {
 #[derive(Deserialize)]
 struct Usage {
     #[serde(default)]
+    prompt_tokens: i32,
+    #[serde(default)]
     completion_tokens: i32,
     /// Seconds, oMLX's own measure. Absent on stricter OpenAI servers, hence the wall-clock
     /// fallback in `generate_with_body`.
@@ -196,6 +198,7 @@ impl OpenAiClient {
             choice.finish_reason.as_deref(),
             None,
         )?;
+        let completion_reason = choice.finish_reason.clone();
         let content = choice.message.content;
 
         // Prefer the server's own timing; fall back to wall clock so `total_duration` is never a
@@ -219,7 +222,14 @@ impl OpenAiClient {
                     parsed.model
                 },
                 total_duration,
-                eval_count: parsed.usage.map(|u| u.completion_tokens).unwrap_or(0),
+                prompt_eval_count: parsed.usage.as_ref().map(|u| u.prompt_tokens).unwrap_or(0),
+                eval_count: parsed
+                    .usage
+                    .as_ref()
+                    .map(|u| u.completion_tokens)
+                    .unwrap_or(0),
+                completion_reason,
+                raw_response_body: raw,
             },
             request_body,
         ))

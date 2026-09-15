@@ -1,0 +1,382 @@
+{
+  "entity": {
+    "id": 4592198,
+    "name": "Morgan Rogers",
+    "season": 2026,
+    "sport": "FOOTBALL",
+    "type": "player"
+  },
+  "input": {
+    "components": {
+      "current_reports": "- chelseafc.com: Separately attributed report published 2026-09-12; fixture/competition not linked to the stored aggregate: Morgan Rogers scored an early goal from a right-to-left pass.\n- Yahoo Sports: Separately attributed report published 2026-09-11; fixture/competition not linked to the stored aggregate: Morgan Rogers provided three assists from the bench and publicly called the Player of the Match decision 'criminal'.\n",
+      "datapoints": [
+        {
+          "label": "CBI",
+          "measure": "",
+          "pct": null,
+          "value": 1.0
+        },
+        {
+          "label": "Chance Creation",
+          "measure": "",
+          "pct": null,
+          "value": 1.01
+        },
+        {
+          "label": "Creation",
+          "measure": "",
+          "pct": null,
+          "value": 1.0
+        },
+        {
+          "label": "Defensive Work",
+          "measure": "",
+          "pct": null,
+          "value": 5.0
+        },
+        {
+          "label": "Discipline",
+          "measure": "",
+          "pct": null,
+          "value": 0.0
+        },
+        {
+          "label": "Goalscoring",
+          "measure": "",
+          "pct": null,
+          "value": 0.0
+        },
+        {
+          "label": "Shooting",
+          "measure": "",
+          "pct": null,
+          "value": 0.14
+        },
+        {
+          "label": "Tackling",
+          "measure": "",
+          "pct": null,
+          "value": 1.67
+        }
+      ],
+      "league_id": 8,
+      "memories": "fec75d6fb43936d68a59c8c39cd6b533010c4c65461696734b52a5aadb60d7d8",
+      "observed_at": "2026-09-07",
+      "personnel": null,
+      "position": "Midfielder",
+      "prompt_version": "s33",
+      "recent_form": null,
+      "sample": {
+        "Appearances": 1.0,
+        "Minutes Played": 90.0
+      },
+      "season": 2026,
+      "skill_changes": {}
+    },
+    "fingerprint": "1e84d7e3d654fd66eab10ee7ad7a3a63",
+    "system": "You are The Scout: observant, direct and specific to the sport. Explain what the measured profile reveals about this entity, and what an opponent should take from it.\n\nRead skills in relation to one another, at the scale of the supplied sample and dates. A change in relative standing is not necessarily a change in ability. Sourced personnel and availability records can change the interpretation of the profile; distinguish confirmed facts from reports. Your judgment gives the measurements meaning, without supplying missing evidence.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with headline (the hook) and body (the paragraphs). Preserve paragraph breaks as escaped newlines.",
+    "user": "Entity: Morgan Rogers (FOOTBALL player, Midfielder); season 2026\n\nContext for Morgan Rogers (player, FOOTBALL) as of 2026-09-15.\nInterpret current measurements against supported historical baselines, participation and personnel context.\n\nIdentity:\n- Identity record (date unknown): Morgan Rogers — Midfielder, on record at Aston Villa (Premier League). Nationality: England. Record: roster\n- Dated identity record (observed 2026-09-07): coverage: stored statistical snapshot; not proof of complete season participation or current employment; league id: 8; played for: Chelsea; recorded sample: appearances: 1; minutes played: 90.0; season: 2026\n- Interpretation constraint: Dated house records may disagree. A later observation is not itself a signing date. When later records conflict, do not present the older affiliation as current; state that the affiliation is unresolved.\n\nPerformance comparison:\n- Recorded samples: earlier Aston Villa, 2025, Premier League, stored sample 37 appearances/3285.0 minutes; current Chelsea, 2026, Premier League, stored sample 1 appearances/90.0 minutes\n- The current stored source sample has only one appearance. It is event evidence, not a basis for a directional season comparison; do not claim improvement, decline or stability from these snapshots.\n- Interpretation constraint: Compare the same measure and time basis across these named teams and seasons. Per-90 figures use recorded minutes, not inferred appearances. Scoring and chance creation may change differently; the measurements support the interpretation, not a predetermined role change. Coverage is unknown, so a smaller stored sample does not prove reduced playing time, fitness or ability. Missing values remain unknown; counts of different actions are not interchangeable.\n\nUnknown: Competition stage and nearby verified fixtures are unavailable; missing fixtures do not establish an offseason.\n\nStats updated: 2026-09-07; sample: Appearances 1, Minutes Played 90\nValues: season totals, except percentages and named adjustments.\n\nCurrent rating measurements are withheld because their underlying measurement identity is unavailable. Use only the explicitly named measures in the context above.\n\nCurrent attributed reports (performance, roster and availability claims; ⇄ marks contradictions; preserve uncertainty; reports do not alter measured statistics):\n- chelseafc.com: Separately attributed report published 2026-09-12; fixture/competition not linked to the stored aggregate: Morgan Rogers scored an early goal from a right-to-left pass.\n- Yahoo Sports: Separately attributed report published 2026-09-11; fixture/competition not linked to the stored aggregate: Morgan Rogers provided three assists from the bench and publicly called the Player of the Match decision 'criminal'.\n\nEvidence boundary for this output: the stored current sample has at most one appearance. It is source coverage, not proof of actual or limited playing time. Attributed reports may describe other fixtures or competitions; do not merge them into the stored appearance or aggregate without a verified fixture link. Do not calculate unstated values or describe improvement, decline or stability across seasons. Center the reading on the separately attributed current actions and state that a directional comparison is unsupported.\n"
+  },
+  "memory": {
+    "audit_rendered": "Morgan Rogers (player, FOOTBALL). As of 2026-09-15.\nInterpret current measurements against supported historical baselines, participation and personnel context.\nIdentity: Morgan Rogers — Midfielder, on record at Aston Villa (Premier League). Nationality: England. Record: roster; observed 2026-07-04. [player_current_identity:FOOTBALL/player/4592198]\nIdentity: coverage: stored statistical snapshot; not proof of complete season participation or current employment; league id: 8; played for: Chelsea; recorded sample: {\"appearances\":1,\"minutes_played\":90.0}; season: 2026; observed 2026-09-07 [player_stats:FOOTBALL/4592198/2026/8]\nDated house records may disagree. A later observation is not itself a signing date. When later records conflict, do not present the older affiliation as current; state that the affiliation is unresolved.\nEarlier observations: competition: Premier League; coverage: stored snapshot; completeness unknown; league id: 8; measurements: [{\"label\":\"Goals\",\"measure\":\"goals\",\"per_90_recorded_minutes\":0.27,\"unit\":\"cumulative_total\",\"value\":10},{\"label\":\"Assists\",\"measure\":\"assists\",\"per_90_recorded_minutes\":0.16,\"unit\":\"cumulative_total\",\"value\":6},{\"label\":\"Expected Goals (xG)\",\"measure\":\"expected_goals\",\"per_90_recorded_minutes\":0.0,\"unit\":\"cumulative_total\",\"value\":0.0},{\"label\":\"Shots on Target\",\"measure\":\"shots_on_target\",\"per_90_recorded_minutes\":0.88,\"unit\":\"cumulative_total\",\"value\":32},{\"label\":\"Key Passes\",\"measure\":\"key_passes\",\"per_90_recorded_minutes\":1.32,\"unit\":\"cumulative_total\",\"value\":48},{\"label\":\"Chances Created\",\"measure\":\"chances_created\",\"per_90_recorded_minutes\":1.18,\"unit\":\"cumulative_total\",\"value\":43},{\"label\":\"Expected Assists (xA)\",\"measure\":\"expected_assists\",\"per_90_recorded_minutes\":null,\"unit\":\"cumulative_total\",\"value\":null}]; played for: Aston Villa; recorded sample: {\"appearances\":37,\"minutes_played\":3285.0}; season: 2025; observed 2026-06-13 [player_stats:FOOTBALL/4592198/2025/8]\nCurrent observations: competition: Premier League; coverage: stored snapshot; completeness unknown; league id: 8; measurements: [{\"label\":\"Goals\",\"measure\":\"goals\",\"per_90_recorded_minutes\":null,\"unit\":\"cumulative_total\",\"value\":null},{\"label\":\"Assists\",\"measure\":\"assists\",\"per_90_recorded_minutes\":1.0,\"unit\":\"cumulative_total\",\"value\":1},{\"label\":\"Expected Goals (xG)\",\"measure\":\"expected_goals\",\"per_90_recorded_minutes\":0.14,\"unit\":\"cumulative_total\",\"value\":0.14},{\"label\":\"Shots on Target\",\"measure\":\"shots_on_target\",\"per_90_recorded_minutes\":null,\"unit\":\"cumulative_total\",\"value\":null},{\"label\":\"Key Passes\",\"measure\":\"key_passes\",\"per_90_recorded_minutes\":null,\"unit\":\"cumulative_total\",\"value\":null},{\"label\":\"Chances Created\",\"measure\":\"chances_created\",\"per_90_recorded_minutes\":null,\"unit\":\"cumulative_total\",\"value\":null},{\"label\":\"Expected Assists (xA)\",\"measure\":\"expected_assists\",\"per_90_recorded_minutes\":1.01,\"unit\":\"cumulative_total\",\"value\":1.01}]; played for: Chelsea; recorded sample: {\"appearances\":1,\"minutes_played\":90.0}; season: 2026; observed 2026-09-07 [player_stats:FOOTBALL/4592198/2026/8]\nCompare the same measure and time basis across these named teams and seasons. Per-90 figures use recorded minutes, not inferred appearances. Scoring and chance creation may change differently; the measurements support the interpretation, not a predetermined role change. Coverage is unknown, so a smaller stored sample does not prove reduced playing time, fitness or ability. Missing values remain unknown; counts of different actions are not interchangeable.\nUnknown: Competition stage and nearby verified fixtures are unavailable; missing fixtures do not establish an offseason.\n",
+    "audit_rendered_bytes": 3666,
+    "fingerprint": "fec75d6fb43936d68a59c8c39cd6b533010c4c65461696734b52a5aadb60d7d8",
+    "model_rendered": "Context for Morgan Rogers (player, FOOTBALL) as of 2026-09-15.\nInterpret current measurements against supported historical baselines, participation and personnel context.\n\nIdentity:\n- Identity record (date unknown): Morgan Rogers — Midfielder, on record at Aston Villa (Premier League). Nationality: England. Record: roster\n- Dated identity record (observed 2026-09-07): coverage: stored statistical snapshot; not proof of complete season participation or current employment; league id: 8; played for: Chelsea; recorded sample: appearances: 1; minutes played: 90.0; season: 2026\n- Interpretation constraint: Dated house records may disagree. A later observation is not itself a signing date. When later records conflict, do not present the older affiliation as current; state that the affiliation is unresolved.\n\nPerformance comparison:\n- Recorded samples: earlier Aston Villa, 2025, Premier League, stored sample 37 appearances/3285.0 minutes; current Chelsea, 2026, Premier League, stored sample 1 appearances/90.0 minutes\n- The current stored source sample has only one appearance. It is event evidence, not a basis for a directional season comparison; do not claim improvement, decline or stability from these snapshots.\n- Interpretation constraint: Compare the same measure and time basis across these named teams and seasons. Per-90 figures use recorded minutes, not inferred appearances. Scoring and chance creation may change differently; the measurements support the interpretation, not a predetermined role change. Coverage is unknown, so a smaller stored sample does not prove reduced playing time, fitness or ability. Missing values remain unknown; counts of different actions are not interchangeable.\n\nUnknown: Competition stage and nearby verified fixtures are unavailable; missing fixtures do not establish an offseason.\n",
+    "model_rendered_bytes": 1838,
+    "package": {
+      "captured_at": "2026-09-15 01:44:59.716132+00",
+      "captured_unix": 1789436699,
+      "diagnostics": [],
+      "entity": {
+        "entity_type": "player",
+        "id": 4592198,
+        "name": "Morgan Rogers",
+        "sport": "FOOTBALL"
+      },
+      "groups": [
+        {
+          "id": "identity",
+          "qualifications": [
+            "Dated house records may disagree. A later observation is not itself a signing date. When later records conflict, do not present the older affiliation as current; state that the affiliation is unresolved."
+          ],
+          "records": [
+            {
+              "data": {
+                "text": "Morgan Rogers — Midfielder, on record at Aston Villa (Premier League). Nationality: England. Record: roster; observed 2026-07-04."
+              },
+              "observed_at": null,
+              "observed_unix": null,
+              "section": "identity",
+              "sources": [
+                {
+                  "key": "FOOTBALL/player/4592198",
+                  "table": "player_current_identity"
+                }
+              ]
+            },
+            {
+              "data": {
+                "coverage": "stored statistical snapshot; not proof of complete season participation or current employment",
+                "league_id": 8,
+                "played_for": "Chelsea",
+                "recorded_sample": {
+                  "appearances": 1,
+                  "minutes_played": 90.0
+                },
+                "season": 2026
+              },
+              "observed_at": "2026-09-07 12:30:58.426055+00",
+              "observed_unix": 1788784258,
+              "section": "identity",
+              "sources": [
+                {
+                  "key": "FOOTBALL/4592198/2026/8",
+                  "table": "player_stats"
+                }
+              ]
+            }
+          ],
+          "required": true
+        },
+        {
+          "id": "performance comparison",
+          "qualifications": [
+            "Compare the same measure and time basis across these named teams and seasons. Per-90 figures use recorded minutes, not inferred appearances. Scoring and chance creation may change differently; the measurements support the interpretation, not a predetermined role change. Coverage is unknown, so a smaller stored sample does not prove reduced playing time, fitness or ability. Missing values remain unknown; counts of different actions are not interchangeable."
+          ],
+          "records": [
+            {
+              "data": {
+                "competition": "Premier League",
+                "coverage": "stored snapshot; completeness unknown",
+                "league_id": 8,
+                "measurements": [
+                  {
+                    "label": "Goals",
+                    "measure": "goals",
+                    "per_90_recorded_minutes": 0.27,
+                    "unit": "cumulative_total",
+                    "value": 10
+                  },
+                  {
+                    "label": "Assists",
+                    "measure": "assists",
+                    "per_90_recorded_minutes": 0.16,
+                    "unit": "cumulative_total",
+                    "value": 6
+                  },
+                  {
+                    "label": "Expected Goals (xG)",
+                    "measure": "expected_goals",
+                    "per_90_recorded_minutes": 0.0,
+                    "unit": "cumulative_total",
+                    "value": 0.0
+                  },
+                  {
+                    "label": "Shots on Target",
+                    "measure": "shots_on_target",
+                    "per_90_recorded_minutes": 0.88,
+                    "unit": "cumulative_total",
+                    "value": 32
+                  },
+                  {
+                    "label": "Key Passes",
+                    "measure": "key_passes",
+                    "per_90_recorded_minutes": 1.32,
+                    "unit": "cumulative_total",
+                    "value": 48
+                  },
+                  {
+                    "label": "Chances Created",
+                    "measure": "chances_created",
+                    "per_90_recorded_minutes": 1.18,
+                    "unit": "cumulative_total",
+                    "value": 43
+                  },
+                  {
+                    "label": "Expected Assists (xA)",
+                    "measure": "expected_assists",
+                    "per_90_recorded_minutes": null,
+                    "unit": "cumulative_total",
+                    "value": null
+                  }
+                ],
+                "played_for": "Aston Villa",
+                "recorded_sample": {
+                  "appearances": 37,
+                  "minutes_played": 3285.0
+                },
+                "season": 2025
+              },
+              "observed_at": "2026-06-13 13:46:46.98146+00",
+              "observed_unix": 1781358406,
+              "section": "established_history",
+              "sources": [
+                {
+                  "key": "FOOTBALL/4592198/2025/8",
+                  "table": "player_stats"
+                }
+              ]
+            },
+            {
+              "data": {
+                "competition": "Premier League",
+                "coverage": "stored snapshot; completeness unknown",
+                "league_id": 8,
+                "measurements": [
+                  {
+                    "label": "Goals",
+                    "measure": "goals",
+                    "per_90_recorded_minutes": null,
+                    "unit": "cumulative_total",
+                    "value": null
+                  },
+                  {
+                    "label": "Assists",
+                    "measure": "assists",
+                    "per_90_recorded_minutes": 1.0,
+                    "unit": "cumulative_total",
+                    "value": 1
+                  },
+                  {
+                    "label": "Expected Goals (xG)",
+                    "measure": "expected_goals",
+                    "per_90_recorded_minutes": 0.14,
+                    "unit": "cumulative_total",
+                    "value": 0.14
+                  },
+                  {
+                    "label": "Shots on Target",
+                    "measure": "shots_on_target",
+                    "per_90_recorded_minutes": null,
+                    "unit": "cumulative_total",
+                    "value": null
+                  },
+                  {
+                    "label": "Key Passes",
+                    "measure": "key_passes",
+                    "per_90_recorded_minutes": null,
+                    "unit": "cumulative_total",
+                    "value": null
+                  },
+                  {
+                    "label": "Chances Created",
+                    "measure": "chances_created",
+                    "per_90_recorded_minutes": null,
+                    "unit": "cumulative_total",
+                    "value": null
+                  },
+                  {
+                    "label": "Expected Assists (xA)",
+                    "measure": "expected_assists",
+                    "per_90_recorded_minutes": 1.01,
+                    "unit": "cumulative_total",
+                    "value": 1.01
+                  }
+                ],
+                "played_for": "Chelsea",
+                "recorded_sample": {
+                  "appearances": 1,
+                  "minutes_played": 90.0
+                },
+                "season": 2026
+              },
+              "observed_at": "2026-09-07 12:30:58.426055+00",
+              "observed_unix": 1788784258,
+              "section": "present_evidence",
+              "sources": [
+                {
+                  "key": "FOOTBALL/4592198/2026/8",
+                  "table": "player_stats"
+                }
+              ]
+            }
+          ],
+          "required": false
+        }
+      ],
+      "historical": false,
+      "mission": "scout",
+      "omissions": [],
+      "previous_score": null,
+      "unknowns": [
+        "Competition stage and nearby verified fixtures are unavailable; missing fixtures do not establish an offseason."
+      ],
+      "version": "memories-v3"
+    }
+  },
+  "notes": [
+    "Read-only diagnostic: no debounce check, product persistence, queue mutation or parser rewrite.",
+    "Parser acceptance does not establish factual or editorial quality."
+  ],
+  "provider_request": {
+    "body": {
+      "format": {
+        "properties": {
+          "body": {
+            "description": "The character's interpretation of the evidence, within 1200 characters.",
+            "type": "string"
+          },
+          "headline": {
+            "description": "The read's main finding, stated as a sentence naming the entity.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "headline",
+          "body"
+        ],
+        "type": "object"
+      },
+      "messages": [
+        {
+          "content": "You are The Scout: observant, direct and specific to the sport. Explain what the measured profile reveals about this entity, and what an opponent should take from it.\n\nRead skills in relation to one another, at the scale of the supplied sample and dates. A change in relative standing is not necessarily a change in ability. Sourced personnel and availability records can change the interpretation of the profile; distinguish confirmed facts from reports. Your judgment gives the measurements meaning, without supplying missing evidence.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with headline (the hook) and body (the paragraphs). Preserve paragraph breaks as escaped newlines.",
+          "role": "system"
+        },
+        {
+          "content": "Entity: Morgan Rogers (FOOTBALL player, Midfielder); season 2026\n\nContext for Morgan Rogers (player, FOOTBALL) as of 2026-09-15.\nInterpret current measurements against supported historical baselines, participation and personnel context.\n\nIdentity:\n- Identity record (date unknown): Morgan Rogers — Midfielder, on record at Aston Villa (Premier League). Nationality: England. Record: roster\n- Dated identity record (observed 2026-09-07): coverage: stored statistical snapshot; not proof of complete season participation or current employment; league id: 8; played for: Chelsea; recorded sample: appearances: 1; minutes played: 90.0; season: 2026\n- Interpretation constraint: Dated house records may disagree. A later observation is not itself a signing date. When later records conflict, do not present the older affiliation as current; state that the affiliation is unresolved.\n\nPerformance comparison:\n- Recorded samples: earlier Aston Villa, 2025, Premier League, stored sample 37 appearances/3285.0 minutes; current Chelsea, 2026, Premier League, stored sample 1 appearances/90.0 minutes\n- The current stored source sample has only one appearance. It is event evidence, not a basis for a directional season comparison; do not claim improvement, decline or stability from these snapshots.\n- Interpretation constraint: Compare the same measure and time basis across these named teams and seasons. Per-90 figures use recorded minutes, not inferred appearances. Scoring and chance creation may change differently; the measurements support the interpretation, not a predetermined role change. Coverage is unknown, so a smaller stored sample does not prove reduced playing time, fitness or ability. Missing values remain unknown; counts of different actions are not interchangeable.\n\nUnknown: Competition stage and nearby verified fixtures are unavailable; missing fixtures do not establish an offseason.\n\nStats updated: 2026-09-07; sample: Appearances 1, Minutes Played 90\nValues: season totals, except percentages and named adjustments.\n\nCurrent rating measurements are withheld because their underlying measurement identity is unavailable. Use only the explicitly named measures in the context above.\n\nCurrent attributed reports (performance, roster and availability claims; ⇄ marks contradictions; preserve uncertainty; reports do not alter measured statistics):\n- chelseafc.com: Separately attributed report published 2026-09-12; fixture/competition not linked to the stored aggregate: Morgan Rogers scored an early goal from a right-to-left pass.\n- Yahoo Sports: Separately attributed report published 2026-09-11; fixture/competition not linked to the stored aggregate: Morgan Rogers provided three assists from the bench and publicly called the Player of the Match decision 'criminal'.\n\nEvidence boundary for this output: the stored current sample has at most one appearance. It is source coverage, not proof of actual or limited playing time. Attributed reports may describe other fixtures or competitions; do not merge them into the stored appearance or aggregate without a verified fixture link. Do not calculate unstated values or describe improvement, decline or stability across seasons. Center the reading on the separately attributed current actions and state that a directional comparison is unsupported.\n",
+          "role": "user"
+        }
+      ],
+      "model": "granite4.2:3b",
+      "options": {
+        "num_ctx": 4096,
+        "num_predict": 700,
+        "temperature": 0.6
+      },
+      "stream": false,
+      "think": false
+    },
+    "body_matches_builder": true,
+    "model": "granite4.2:3b",
+    "num_ctx": 4096,
+    "num_predict": 700,
+    "temperature": 0.6
+  },
+  "provider_response": {
+    "completion_reason": "stop",
+    "model": "granite4.2:3b",
+    "output_tokens": 192,
+    "parser_error": null,
+    "parser_pass": true,
+    "prompt_tokens": 957,
+    "raw_body": {
+      "created_at": "2026-09-15T01:45:03.176807708Z",
+      "done": true,
+      "done_reason": "stop",
+      "eval_count": 192,
+      "eval_duration": 3215967000,
+      "load_duration": 729588,
+      "message": {
+        "content": "{\n  \"body\": \"Morgan Rogers is a Midfielder from England, currently listed as playing for Chelsea in the Premier League as of 2026-09-07. His stored current sample shows only one appearance with 90.0 minutes played. This is a single event, not a basis for directional season comparison. Attributed reports confirm he scored an early goal from a right-to-left pass and provided three assists from the bench, calling the Player of the Match decision 'criminal'. These actions are separate from the stored aggregate and should not be merged. A comparison across seasons is unsupported due to limited stored data. The identity record from Aston Villa in 2025 is unresolved due to conflicting observations; the current affiliation remains current as per the dated record.\",\n  \"headline\": \"Morgan Rogers (FOOTBALL player, Midfielder) – Chelsea, Premier League, 2026 season\"\n}",
+        "role": "assistant"
+      },
+      "model": "granite4.2:3b",
+      "prompt_eval_count": 957,
+      "prompt_eval_duration": 44840000,
+      "total_duration": 3271230430
+    },
+    "thinking": "",
+    "total_duration_ms": 3271,
+    "unmodified_output": "{\n  \"body\": \"Morgan Rogers is a Midfielder from England, currently listed as playing for Chelsea in the Premier League as of 2026-09-07. His stored current sample shows only one appearance with 90.0 minutes played. This is a single event, not a basis for directional season comparison. Attributed reports confirm he scored an early goal from a right-to-left pass and provided three assists from the bench, calling the Player of the Match decision 'criminal'. These actions are separate from the stored aggregate and should not be merged. A comparison across seasons is unsupported due to limited stored data. The identity record from Aston Villa in 2025 is unresolved due to conflicting observations; the current affiliation remains current as per the dated record.\",\n  \"headline\": \"Morgan Rogers (FOOTBALL player, Midfielder) – Chelsea, Premier League, 2026 season\"\n}"
+  }
+}

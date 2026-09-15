@@ -32,10 +32,10 @@ use tracing::{debug, warn};
 mod inputs;
 pub use crate::composition::characters::scout::{RATING_PROMPT_VERSION, RATING_SYSTEM_PROMPT};
 pub use crate::evidence::personnel::{
-    load_availability_changes, load_availability_reports, load_personnel_changes,
-    AvailabilityChange, PersonnelChange,
+    load_availability_changes, load_personnel_changes, load_scout_reports, AvailabilityChange,
+    PersonnelChange,
 };
-pub use inputs::{build_stat_prompt, render_availability_reports, render_personnel_block};
+pub use inputs::{build_stat_prompt, render_personnel_block, render_scout_reports};
 
 /// Output contract captured separately in the diagnostic ledger.
 pub const RATING_OUTPUT_CONTRACT_VERSION: &str = "rating-commentary-v1";
@@ -218,6 +218,31 @@ pub async fn load_rating_profile(
         "team" => ("team_id", "team_stats", "''::text", "'{}'::text"),
         _ => bail!("unknown entity type {entity_type:?}"),
     };
+    // Recompute the player eligibility gate from source stats as well as trusting the stored
+    // bundle. This keeps pre-253 rows from exposing percentiles for a one-appearance sample while
+    // the additive rating-evidence migration is waiting to deploy. It is the same self-scaling
+    // threshold used by migration 253. Team ratings do not use the player participation gate.
+    let eligibility_select = if entity_type == "player" {
+        r#"
+        COALESCE((
+            SELECT bool_and(
+                COALESCE(NULLIF(player_stats.stats->>rt.stat_key, '')::numeric, 0)
+                >= LEAST(
+                    rt.min_value,
+                    GREATEST(1, ceil(0.5 * COALESCE((
+                        SELECT MAX(NULLIF(ps2.stats->>rt.stat_key, '')::numeric)
+                        FROM public.player_stats ps2
+                        WHERE ps2.sport = $1 AND ps2.season = player_stats.season
+                    ), 0)))
+                )
+            )
+            FROM public.rating_thresholds rt
+            WHERE rt.sport = $1
+        ), FALSE)
+        "#
+    } else {
+        "TRUE"
+    };
     // The unscoped row first (NBA/NFL carry league_id 0/NULL), else the richest league row (the
     // most-datapoints row is the main competition — domestic league over a cup).
     let q = format!(
@@ -234,7 +259,8 @@ pub async fn load_rating_profile(
                      AND (sd.key_name IN ('appearances','games_played','matches_played','minutes_played')
                           OR sd.key_name IN (SELECT stat_key FROM public.rating_thresholds WHERE sport=$1))
                      AND NULLIF(stats->>sd.key_name,'') IS NOT NULL
-               ), '{{}}'::jsonb)
+               ), '{{}}'::jsonb),
+               {eligibility_select} AS rank_eligible
         FROM public.{table}
         WHERE sport = $1 AND {id_col} = $2 AND ($3::int IS NULL OR season = $3)
         ORDER BY season DESC,
@@ -258,16 +284,26 @@ pub async fn load_rating_profile(
 
     let season: i32 = row.get(0);
     let position: String = row.get(1);
-    let composite_score: Option<f64> = row.get(2);
+    let mut composite_score: Option<f64> = row.get(2);
     let breakdown_raw: String = row.get(3);
     let scoped_raw: String = row.get(4);
     let modes_raw: String = row.get(5);
 
-    let breakdown: Vec<RatingDatapoint> =
+    let mut breakdown: Vec<RatingDatapoint> =
         serde_json::from_str(&breakdown_raw).context("unmarshal rating_breakdown")?;
     // Cohort framing and per-x modes are optional enrichment.
-    let scoped_ranks: HashMap<String, f64> = serde_json::from_str(&scoped_raw).unwrap_or_default();
-    let rate_modes = parse_rate_modes(&modes_raw);
+    let mut scoped_ranks: HashMap<String, f64> =
+        serde_json::from_str(&scoped_raw).unwrap_or_default();
+    let mut rate_modes = parse_rate_modes(&modes_raw);
+    let rank_eligible: bool = row.get(9);
+    if !rank_eligible {
+        composite_score = None;
+        scoped_ranks.clear();
+        clear_datapoint_ranks(&mut breakdown);
+        for datapoints in rate_modes.values_mut() {
+            clear_datapoint_ranks(datapoints);
+        }
+    }
 
     Ok(Some(RatingProfile {
         league_id: row.get(6),
@@ -281,6 +317,14 @@ pub async fn load_rating_profile(
         scoped_ranks,
         rate_modes,
     }))
+}
+
+fn clear_datapoint_ranks(datapoints: &mut [RatingDatapoint]) {
+    for datapoint in datapoints {
+        datapoint.z = None;
+        datapoint.pct = None;
+        datapoint.scoped_pct.clear();
+    }
 }
 
 /// parse_rate_modes reads `rating_modes` — a per-x bundle per mode (`{"per_36": {"breakdown": [...]}}`),
@@ -1024,6 +1068,8 @@ pub enum RatingBuild {
 /// Assembled model inputs and deterministic context required for persistence.
 pub struct RatingReady {
     pub season: i32,
+    /// The exact selected package used to render and fingerprint this request.
+    pub memories: memories::Package,
     pub notability: i32,
     pub notability_components: serde_json::Value,
     pub rating_trajectory: RatingTrajectory,
@@ -1137,17 +1183,16 @@ pub async fn build_rating_request(
     };
     // The Editor's TAGGED reports — claims, not record. Same enrichment discipline as everything
     // else here: sourced enrichment, included in the material hash.
-    let availability_reports = if with_enrichment && !memories.historical {
-        match load_availability_reports(&hx.pool, &req.entity_type, req.entity_id, &req.sport).await
-        {
-            Ok(claims) => inputs::render_availability_reports(&claims),
+    let current_reports = if with_enrichment && !memories.historical {
+        match load_scout_reports(&hx.pool, &req.entity_type, req.entity_id, &req.sport).await {
+            Ok(claims) => inputs::render_scout_reports(&claims),
             Err(e) => {
                 tracing::warn!(
                     entity_type = %req.entity_type,
                     entity_id = req.entity_id,
                     sport = %req.sport,
                     error = %e,
-                    "rating: availability-report load failed (continuing without the block)"
+                    "rating: current-report load failed (continuing without the block)"
                 );
                 None
             }
@@ -1201,11 +1246,11 @@ pub async fn build_rating_request(
     } else {
         None
     };
-    let identity = Some(memories.render()?);
+    let identity = Some(memories.render_for_model()?);
     let mut components: serde_json::Value = serde_json::from_str(&input_components)?;
     components["skill_changes"] = serde_json::json!(comparisons);
     components["personnel"] = serde_json::json!(personnel);
-    components["availability_reports"] = serde_json::json!(availability_reports);
+    components["current_reports"] = serde_json::json!(current_reports);
     components["recent_form"] = serde_json::json!(form_trend);
     let input_components = components.to_string();
     let input_hash = hash_components(&input_components);
@@ -1215,7 +1260,7 @@ pub async fn build_rating_request(
         personnel.as_deref(),
         comparisons.as_ref(),
         form_trend.as_deref(),
-        availability_reports.as_deref(),
+        current_reports.as_deref(),
         identity.as_deref(),
     );
     let opts = GenerateOptions {
@@ -1233,6 +1278,7 @@ pub async fn build_rating_request(
 
     Ok(RatingBuild::Ready(Box::new(RatingReady {
         season: profile.season,
+        memories,
         notability,
         notability_components,
         rating_trajectory,

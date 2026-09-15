@@ -405,7 +405,7 @@ async fn generate_vibe_from_context(
         entity_name,
         sport_raw,
         &ctx.packets,
-        Some(&ctx.memories.render()?),
+        Some(&ctx.memories.render_for_model()?),
     );
     let opts = GenerateOptions {
         system: Some(VIBE_SYSTEM_PROMPT.to_string()),

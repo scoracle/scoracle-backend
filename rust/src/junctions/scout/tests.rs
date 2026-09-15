@@ -979,11 +979,13 @@ fn rating_splits_the_s20_headline_line() {
         Some("one two three four five six seven eight nine ten eleven twelve thirteen")
     );
 
-    // A surface violation requests a bounded rewrite, never a chopped headline.
-    let error = RatingParser
+    // An overlong optional title is dropped; it never costs the valid body.
+    let overlong = RatingParser
         .parse(&format!("Summary: x.\nHEADLINE: {}", "x".repeat(200)))
-        .unwrap_err();
-    assert!(error.is::<crate::composition::form::SurfaceError>());
+        .expect("an overlong title never fails the report")
+        .expect("a reply");
+    assert_eq!(overlong.body, "Summary: x.");
+    assert!(overlong.headline.is_none());
 }
 
 // --- 7.7 the personnel block: the Scout's second confirmed-fact road ------------------

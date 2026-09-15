@@ -38,7 +38,7 @@ pub use crate::evidence::personnel::{
 pub use inputs::{build_stat_prompt, render_personnel_block, render_scout_reports};
 
 /// Output contract captured separately in the diagnostic ledger.
-pub const RATING_OUTPUT_CONTRACT_VERSION: &str = "rating-commentary-v1";
+pub const RATING_OUTPUT_CONTRACT_VERSION: &str = "rating-commentary-v2";
 
 const RATING_LEDGER: LedgerSpec = LedgerSpec {
     stage: "rating",
@@ -1018,7 +1018,6 @@ impl Parser<RatingReply> for RatingParser {
         }
         // Split the card title off FIRST so the body checks never grade it as prose.
         let (headline, body_only) = split_rating_headline(raw);
-        crate::composition::form::validate_hook(headline.as_deref())?;
         let body = clean_commentary(&body_only);
         crate::composition::form::validate_body(&body)?;
         if let Some(p) = crate::composition::guards::first_banned_phrase(

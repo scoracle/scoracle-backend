@@ -6,6 +6,22 @@ use super::{
 };
 use crate::junctions::editor::render::MarkedClaim;
 
+pub(super) const MIN_CROSS_SEASON_APPEARANCES: f64 = 10.0;
+
+pub(super) fn sample_appearances(p: &RatingProfile) -> Option<f64> {
+    p.sample.iter().find_map(|(label, value)| {
+        matches!(
+            label.trim().to_ascii_lowercase().as_str(),
+            "appearances" | "games played" | "games_played" | "matches played" | "matches_played"
+        )
+        .then_some(*value)
+    })
+}
+
+pub(super) fn supports_cross_season_comparison(p: &RatingProfile) -> bool {
+    sample_appearances(p).is_some_and(|n| n >= MIN_CROSS_SEASON_APPEARANCES)
+}
+
 pub fn render_scout_reports(claims: &[MarkedClaim]) -> Option<String> {
     if claims.is_empty() {
         return None;
@@ -254,14 +270,12 @@ pub fn build_stat_prompt(
         b.push_str(ar);
     }
 
-    let one_appearance_sample = p.sample.iter().any(|(label, value)| {
-        matches!(
-            label.trim().to_ascii_lowercase().as_str(),
-            "appearances" | "games played" | "matches played"
-        ) && *value <= 1.0
-    });
+    let appearances = sample_appearances(p);
+    let one_appearance_sample = appearances.is_some_and(|n| n <= 1.0);
     if one_appearance_sample {
         b.push_str("\nEvidence boundary for this output: the stored current sample has at most one appearance. It is source coverage, not proof of actual or limited playing time. Attributed reports may describe other fixtures or competitions; do not merge them into the stored appearance or aggregate without a verified fixture link. Do not calculate unstated values or describe improvement, decline or stability across seasons. Center the reading on the separately attributed current actions and state that a directional comparison is unsupported.\n");
+    } else if appearances.is_some_and(|n| n < MIN_CROSS_SEASON_APPEARANCES) {
+        b.push_str("\nEvidence boundary for this output: the current sample has fewer than 10 appearances, so no cross-season change was computed. Describe the current snapshot and separately attributed reports. Do not claim improvement, decline, stability, changed ability, changed role, reduced minutes, fitness or tactical causes across seasons.\n");
     }
 
     b

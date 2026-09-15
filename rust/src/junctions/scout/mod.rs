@@ -1204,7 +1204,7 @@ pub async fn build_rating_request(
         None
     };
     // Season-over-season movement is decided in code and added as prompt-only enrichment.
-    let comparisons = if with_enrichment {
+    let comparisons = if with_enrichment && inputs::supports_cross_season_comparison(&profile) {
         match load_rating_profile(
             &hx.pool,
             &req.entity_type,

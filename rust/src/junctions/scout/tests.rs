@@ -1433,6 +1433,28 @@ fn the_prompt_separates_current_reports_from_the_confirmed_record() {
     assert!(prompt.contains("reports do not alter measured statistics"));
 }
 
+#[test]
+fn thin_current_sample_withholds_directional_cross_season_claims() {
+    let mut p = profile_player();
+    p.sample.insert("appearances".to_string(), 3.0);
+    assert!(!inputs::supports_cross_season_comparison(&p));
+    let prompt = build_stat_prompt(
+        &req("FOOTBALL", "player", "Test Player"),
+        &p,
+        None,
+        None,
+        None,
+        None,
+        None,
+    );
+    assert!(prompt.contains("fewer than 10 appearances"));
+    assert!(prompt.contains("no cross-season change was computed"));
+    assert!(prompt.contains("Do not claim improvement, decline, stability"));
+
+    p.sample.insert("appearances".to_string(), 10.0);
+    assert!(inputs::supports_cross_season_comparison(&p));
+}
+
 /// No changes ⇒ no section. A heading with nothing under it asserts "nothing moved", which is a
 /// claim the adjudication chain has not made — it may only mean nothing has been adjudicated yet.
 #[test]

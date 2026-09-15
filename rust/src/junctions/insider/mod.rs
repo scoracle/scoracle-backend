@@ -885,6 +885,7 @@ pub fn build_transfer_input_components(
     ids.sort_unstable();
     serde_json::json!({
         "distinct_sources": distinct_sources,
+        "identity_adjudication_prompt_version": TRANSFER_IDENTITY_ADJUDICATION_PROMPT_VERSION,
         "news_ids": ids,
         "prompt_version": TRANSFER_PROMPT_VERSION,
         "relationship": relationship,

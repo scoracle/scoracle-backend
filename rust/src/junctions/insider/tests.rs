@@ -553,14 +553,14 @@ fn transfer_input_components_are_material_only() {
     assert_eq!(
         build_transfer_input_components(&[9, 4, 7], comps, "current"),
         format!(
-            r#"{{"distinct_sources":3,"news_ids":[4,7,9],"prompt_version":"{TRANSFER_PROMPT_VERSION}","relationship":"current"}}"#
+            r#"{{"distinct_sources":3,"identity_adjudication_prompt_version":"{TRANSFER_IDENTITY_ADJUDICATION_PROMPT_VERSION}","news_ids":[4,7,9],"prompt_version":"{TRANSFER_PROMPT_VERSION}","relationship":"current"}}"#
         )
     );
     // Empty/degenerate components (the defensive path) keep a stable pre-image.
     assert_eq!(
         build_transfer_input_components(&[], "{}", "none"),
         format!(
-            r#"{{"distinct_sources":0,"news_ids":[],"prompt_version":"{TRANSFER_PROMPT_VERSION}","relationship":"none"}}"#
+            r#"{{"distinct_sources":0,"identity_adjudication_prompt_version":"{TRANSFER_IDENTITY_ADJUDICATION_PROMPT_VERSION}","news_ids":[],"prompt_version":"{TRANSFER_PROMPT_VERSION}","relationship":"none"}}"#
         )
     );
 }

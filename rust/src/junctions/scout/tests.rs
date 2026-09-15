@@ -1755,12 +1755,55 @@ fn thin_current_sample_shows_only_its_two_highest_ranked_measures() {
     p.sample.insert("appearances".to_string(), 3.0);
     p.breakdown.push(dp("Passing", 9.0, 0.5, 80.0, 1));
 
-    let prompt_profile = model_prompt_profile(&p, false);
+    let prompt_profile = model_prompt_profile(&p, false, None);
     assert_eq!(prompt_profile.composite_score, None);
     assert_eq!(prompt_profile.breakdown.len(), 2);
     assert_eq!(prompt_profile.breakdown[0].label, "Scoring");
     assert_eq!(prompt_profile.breakdown[1].label, "Passing");
     assert_eq!(prompt_profile.sample["appearances"], 3.0);
+}
+
+#[test]
+fn comparative_model_profile_keeps_changes_and_strongest_held_anchors() {
+    let labels = [
+        "Rise A",
+        "Rise B",
+        "Fall A",
+        "Fall B",
+        "Held High",
+        "Held Mid",
+        "Held Low",
+    ];
+    let current = nfl_profile(
+        "Center",
+        labels
+            .iter()
+            .zip([90.0, 80.0, 20.0, 30.0, 99.0, 85.0, 50.0])
+            .map(|(label, pct)| dp(label, 1.0, 0.0, pct, 1))
+            .collect(),
+    );
+    let prior = nfl_profile(
+        "Center",
+        labels
+            .iter()
+            .zip([10.0, 20.0, 80.0, 70.0, 99.2, 85.0, 50.0])
+            .map(|(label, pct)| dp(label, 1.0, 0.0, pct, 1))
+            .collect(),
+    );
+    let changes = build_skill_changes(&current, &prior);
+    let prompt_profile = model_prompt_profile(&current, true, Some(&changes));
+    let labels = prompt_profile
+        .breakdown
+        .iter()
+        .map(|datapoint| datapoint.label.as_str())
+        .collect::<HashSet<_>>();
+
+    assert_eq!(labels.len(), 6);
+    assert!(labels.contains("Rise A"));
+    assert!(labels.contains("Fall B"));
+    assert!(labels.contains("Held High"));
+    assert!(labels.contains("Held Mid"));
+    assert!(!labels.contains("Held Low"));
 }
 
 /// No changes ⇒ no section. A heading with nothing under it asserts "nothing moved", which is a

@@ -8,7 +8,8 @@ use crate::junctions::editor::render::MarkedClaim;
 use std::collections::BTreeMap;
 
 pub(super) const MIN_CROSS_SEASON_APPEARANCES: f64 = 10.0;
-const MAX_COMPARISON_FACTS: usize = 4;
+pub(super) const MAX_COMPARISON_FACTS: usize = 4;
+pub(super) const MAX_HELD_COMPARISON_FACTS: usize = 2;
 
 pub(super) fn sample_appearances(p: &RatingProfile) -> Option<f64> {
     p.sample.iter().find_map(|(label, value)| {
@@ -259,7 +260,9 @@ pub fn build_stat_prompt(
             });
             if !held.is_empty() {
                 b.push_str("Compatible held anchors (same measure, within one percentile point). Describe these as held; their current quality band is not evidence that they improved or declined:\n");
-                for (label, current_pct, prior_pct, delta) in held.into_iter().take(2) {
+                for (label, current_pct, prior_pct, delta) in
+                    held.into_iter().take(MAX_HELD_COMPARISON_FACTS)
+                {
                     b.push_str(&format!(
                         "- {label}: prior {prior_pct:.1}; current {current_pct:.1}; {}\n",
                         relative_standing(delta)

@@ -748,7 +748,11 @@ fn measurement_bands(current: &RatingProfile) -> BTreeMap<String, String> {
         .collect()
 }
 
-fn model_prompt_profile(profile: &RatingProfile, supports_cross_season: bool) -> RatingProfile {
+fn model_prompt_profile(
+    profile: &RatingProfile,
+    supports_cross_season: bool,
+    comparisons: Option<&BTreeMap<String, SkillChange>>,
+) -> RatingProfile {
     let mut prompt_profile = profile.clone();
     if !supports_cross_season {
         prompt_profile.composite_score = None;
@@ -756,6 +760,48 @@ fn model_prompt_profile(profile: &RatingProfile, supports_cross_season: bool) ->
             .into_iter()
             .take(2)
             .collect();
+    } else if let Some(comparisons) = comparisons {
+        let mut ranked = profile
+            .breakdown
+            .iter()
+            .filter_map(|datapoint| {
+                let current_pct = datapoint.pct?;
+                let change = comparisons.get(&datapoint.label)?;
+                Some((
+                    datapoint.label.as_str(),
+                    current_pct,
+                    current_pct - change.prior_pct,
+                ))
+            })
+            .collect::<Vec<_>>();
+        ranked.sort_by(|a, b| {
+            b.2.abs()
+                .partial_cmp(&a.2.abs())
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.0.cmp(b.0))
+        });
+        let mut selected = ranked
+            .iter()
+            .take(inputs::MAX_COMPARISON_FACTS)
+            .map(|fact| fact.0)
+            .collect::<HashSet<_>>();
+        let mut held = ranked
+            .iter()
+            .filter(|fact| fact.2.abs() <= 1.0 && !selected.contains(fact.0))
+            .collect::<Vec<_>>();
+        held.sort_by(|a, b| {
+            b.1.partial_cmp(&a.1)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.0.cmp(b.0))
+        });
+        selected.extend(
+            held.into_iter()
+                .take(inputs::MAX_HELD_COMPARISON_FACTS)
+                .map(|fact| fact.0),
+        );
+        prompt_profile
+            .breakdown
+            .retain(|datapoint| selected.contains(datapoint.label.as_str()));
     }
     prompt_profile
 }
@@ -1673,7 +1719,8 @@ pub async fn build_rating_request(
         None
     };
     let comparison_directions = comparison_directions(&profile, comparisons.as_ref());
-    let prompt_profile = model_prompt_profile(&profile, supports_cross_season);
+    let prompt_profile =
+        model_prompt_profile(&profile, supports_cross_season, comparisons.as_ref());
     let measurement_bands = measurement_bands(&prompt_profile);
     // The recent-form marker rides the same enrichment flag: shading context in production,
     // absent only on explicit bare diagnostic probes.

@@ -227,12 +227,13 @@ pub fn build_stat_prompt(
                 .then_with(|| a.0.cmp(b.0))
         });
         if !movements.is_empty() {
-            b.push_str("Compatible cross-season measurements (same measure; movement is relative percentile standing, not ability):\n");
+            b.push_str("Compatible cross-season measurements (same measure; the stated direction is arithmetic relative percentile standing, not ability). Use only these stated directions; a measure absent from this block has no supported direction:\n");
             for (label, current_pct, prior_pct, delta) in
                 movements.into_iter().take(MAX_COMPARISON_FACTS)
             {
                 b.push_str(&format!(
-                    "- {label}: prior {prior_pct:.1}; current {current_pct:.1}; relative standing {delta:+.1} percentile points\n"
+                    "- {label}: prior {prior_pct:.1}; current {current_pct:.1}; {}\n",
+                    relative_standing(delta)
                 ));
             }
         }
@@ -268,9 +269,11 @@ pub fn build_stat_prompt(
         b.push_str(&format_datapoint_evidence(&d));
         if let Some(changes) = comparisons {
             if let Some(change) = changes.get(&d.label) {
+                let current_pct = d.pct.expect("a comparison has a current percentile");
                 b.push_str(&format!(
-                    "; prior season percentile {:.1}",
-                    change.prior_pct
+                    "; prior season percentile {:.1}; {}",
+                    change.prior_pct,
+                    relative_standing(current_pct - change.prior_pct)
                 ));
             }
         }
@@ -312,6 +315,19 @@ pub fn build_stat_prompt(
     }
 
     b
+}
+
+fn relative_standing(delta: f64) -> String {
+    if delta > 1.0 {
+        format!("relative standing rose by {delta:.1} percentile points")
+    } else if delta < -1.0 {
+        format!(
+            "relative standing fell by {:.1} percentile points",
+            delta.abs()
+        )
+    } else {
+        format!("relative standing held within one percentile point ({delta:+.1})")
+    }
 }
 
 fn render_sample(sample: &std::collections::BTreeMap<String, f64>) -> String {

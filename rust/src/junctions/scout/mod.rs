@@ -690,7 +690,8 @@ pub fn build_scouting_decision(p: &RatingProfile) -> ScoutingDecision {
     }
 }
 
-/// Prior rank of the same measurement. Direction and significance belong to the writer.
+/// Prior rank of the same measurement. Arithmetic direction is rendered deterministically;
+/// sporting significance belongs to the writer.
 #[derive(Clone, Debug, serde::Serialize)]
 pub struct SkillChange {
     pub prior_pct: f64,

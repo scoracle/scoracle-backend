@@ -158,7 +158,7 @@ fn season_changes_stay_with_their_own_skill() {
     assert!(!chance.contains("slipped"));
     assert!(prompt.contains("Compatible cross-season measurements"));
     assert!(prompt.contains(
-        "- Creation: prior 95.0; current 66.0; relative standing -29.0 percentile points"
+        "- Creation: prior 95.0; current 66.0; relative standing fell by 29.0 percentile points"
     ));
     assert!(!prompt.contains("- Chance Creation: prior"));
 }
@@ -195,8 +195,9 @@ fn comparison_block_orders_compatible_movements_by_magnitude() {
     let fall = prompt.find("- Medium Fall: prior").unwrap();
     let stable = prompt.find("- Stable: prior").unwrap();
     assert!(rise < fall && fall < stable);
-    assert!(prompt.contains("relative standing +80.0 percentile points"));
-    assert!(prompt.contains("relative standing +0.0 percentile points"));
+    assert!(prompt.contains("relative standing rose by 80.0 percentile points"));
+    assert!(prompt.contains("relative standing held within one percentile point (+0.0)"));
+    assert!(prompt.contains("Use only these stated directions"));
 }
 
 fn dp(label: &str, value: f64, z: f64, pct: f64, sign: i32) -> RatingDatapoint {

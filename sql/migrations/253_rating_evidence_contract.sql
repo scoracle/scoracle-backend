@@ -4,7 +4,10 @@
 -- retain unranked observations with pct NULL; omit missing values, not measured zeros.
 -- All existing derived season/rate bundles are rebuilt in the same transaction.
 BEGIN;
-SET LOCAL statement_timeout = '10min';
+-- Production retains roughly 25 sport/season cohorts and each cohort is rebuilt
+-- for every configured rate mode. Keep a finite guard, but allow the complete
+-- atomic rebuild to finish on that data volume.
+SET LOCAL statement_timeout = '30min';
 
 CREATE OR REPLACE FUNCTION public._compute_rating_bundle(p_sport text, p_season integer, p_rate_mode text)
  RETURNS TABLE(player_id integer, league_id integer, composite numeric, composite_rank numeric, composite_score numeric, breakdown jsonb, scoped_ranks jsonb, scoped_scores jsonb)

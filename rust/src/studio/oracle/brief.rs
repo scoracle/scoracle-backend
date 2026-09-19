@@ -1,6 +1,6 @@
-//! The Oracle's character. Output structure belongs to `composition::form`.
+//! The Oracle's character. Output structure belongs to Studio's shared form.
 
-use crate::composition::form::{compose, CardFormat};
+use crate::studio::form::{compose, CardFormat};
 
 pub const ORACLE_PROMPT_VERSION: &str = "or20";
 

@@ -781,7 +781,7 @@ impl Worker {
                         // duplicate cheap.
                         if work::PILLAR_STAGES.contains(&item.stage) {
                             if let Err(e) =
-                                crate::junctions::oracle::enqueue_oracle_if_pillars_settled(
+                                crate::application::oracle::enqueue_oracle_if_pillars_settled(
                                     &self.pool,
                                     &item.entity_type,
                                     item.entity_id,

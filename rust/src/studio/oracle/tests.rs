@@ -140,7 +140,7 @@ fn crown_headline_fails_open_and_never_costs_the_reading() {
         assert!(
             got.headline
                 .as_deref()
-                .is_none_or(|h| crate::composition::guards::hook_violation(h).is_none()),
+                .is_none_or(|h| crate::studio::guards::hook_violation(h).is_none()),
             "a shipped title always satisfies the contract: {:?}",
             got.headline
         );
@@ -292,7 +292,7 @@ fn input_components_use_stable_json_shape() {
             title: "Alpha".into(),
             body: "y".into(),
             impact: 3.0,
-            trajectory: DEFAULT_TRAJECTORY.into(),
+            trajectory: "developing_story".into(),
             source_count: 0,
             source_age_days: None,
         },
@@ -355,21 +355,19 @@ fn transfer_heat_enters_components_only_when_present() {
     // Served heat → one sorted "counterparty:heat:direction:stage" line per rumor. The two
     // rumors are given OUT of sorted order to prove the pre-image sorts (stable hash).
     let transfers = vec![
-        HeatItem {
+        SynthTransfer {
             counterparty: "Real Madrid".into(),
             heat: 71,
             stage: "advanced_talks".into(),
             direction: "outgoing".into(),
             summary: String::new(),
-            confidence: None,
         },
-        HeatItem {
+        SynthTransfer {
             counterparty: "Arsenal".into(),
             heat: 40,
             stage: "speculation".into(),
             direction: "incoming".into(),
             summary: String::new(),
-            confidence: None,
         },
     ];
     let with =
@@ -596,13 +594,12 @@ fn crown_prompt_omits_missing_evidence_instead_of_narrating_absence() {
 fn crown_prompt_renders_transfer_evidence_without_internal_metrics() {
     // The Oracle receives the reported counterparty, direction, stage and summary without the
     // board's internal heat/confidence bookkeeping.
-    let transfers = vec![HeatItem {
+    let transfers = vec![SynthTransfer {
         counterparty: "Liverpool".into(),
         heat: 66,
         stage: "advanced_talks".into(),
         direction: "incoming".into(),
         summary: String::new(),
-        confidence: None,
     }];
     let p = build_crown_prompt(
         "team",
@@ -700,4 +697,193 @@ fn claim_paragraphs_survive_the_production_parser() {
         .to_string();
     let parsed = CrownParser.parse(&raw).unwrap().unwrap();
     assert_eq!(parsed.reading, body);
+}
+
+// --- Studio boundary: prepared creation runs without Postgres, queues, or model hosts ---------
+
+use crate::studio::model::{GenerateOptions, GenerateResult, Inference};
+use crate::studio::Studio;
+use async_trait::async_trait;
+use std::sync::Mutex;
+use std::time::Duration;
+
+struct FakeModel {
+    response: String,
+    fail: bool,
+    calls: Mutex<Vec<String>>,
+}
+
+impl FakeModel {
+    fn new(response: &str) -> Self {
+        Self {
+            response: response.to_string(),
+            fail: false,
+            calls: Mutex::new(Vec::new()),
+        }
+    }
+}
+
+#[async_trait]
+impl Inference for FakeModel {
+    async fn generate(
+        &self,
+        prompt: &str,
+        options: &GenerateOptions,
+    ) -> anyhow::Result<(GenerateResult, serde_json::Value)> {
+        self.calls.lock().unwrap().push(prompt.to_string());
+        if self.fail {
+            anyhow::bail!("model unavailable");
+        }
+        Ok((
+            GenerateResult {
+                response: self.response.clone(),
+                thinking: "private".to_string(),
+                model: "model-that-answered".to_string(),
+                total_duration: Duration::from_millis(20),
+                prompt_eval_count: 30,
+                eval_count: 18,
+                completion_reason: Some("stop".to_string()),
+                raw_response_body: "{}".to_string(),
+            },
+            serde_json::json!({
+                "actual_request": true,
+                "prompt": prompt,
+                "num_predict": options.num_predict,
+            }),
+        ))
+    }
+
+    fn model(&self) -> &str {
+        "configured-model"
+    }
+
+    fn request_body(&self, _: &str, _: &GenerateOptions) -> serde_json::Value {
+        panic!("creation provenance must use the request actually sent")
+    }
+}
+
+fn prepared_assignment(cards: Cards) -> Assignment {
+    let components = build_synthesis_input_components(
+        &cards.narratives,
+        cards.rating.as_ref(),
+        cards.vibe.as_ref(),
+        &cards.momentum,
+        &cards.transfers,
+    );
+    Assignment {
+        subject: Subject {
+            entity_type: "team".to_string(),
+            entity_name: "Northbridge FC".to_string(),
+            sport: "FOOTBALL".to_string(),
+        },
+        season: 2026,
+        cards,
+        identity: Some("Prior read: the old shape held.".to_string()),
+        input_components_json: components,
+        input_hash: "prepared-oracle-hash".to_string(),
+        body_cap: None,
+        options: GenerateOptions {
+            system: Some(ORACLE_SYSTEM_PROMPT.to_string()),
+            temperature: Some(0.0),
+            num_predict: ORACLE_NUM_PREDICT,
+            num_ctx: 4096,
+            json_mode: false,
+            format_schema: Some(oracle_format_schema()),
+            format_schema_raw: None,
+        },
+    }
+}
+
+#[tokio::test]
+async fn prepared_five_card_assignment_creates_without_application_services() {
+    let cards = Cards {
+        narratives: vec![SynthNarrative {
+            title: "A title challenge gathers".to_string(),
+            body: "Northbridge FC have closed the gap after three wins.".to_string(),
+            impact: 75.0,
+            trajectory: "heating_up".to_string(),
+            source_count: 3,
+            source_age_days: Some(1),
+        }],
+        rating: Some(SynthRating {
+            body: "Northbridge FC own a strong statistical profile.".to_string(),
+            notability: 82,
+            rating_trajectory: "rising".to_string(),
+            rating_trajectory_label: "rising".to_string(),
+        }),
+        vibe: Some(SynthVibe {
+            sentiment: 72,
+            prompt: "Belief around Northbridge FC is strengthening.".to_string(),
+        }),
+        momentum: SynthMomentum {
+            direction: Some("rising".to_string()),
+            blurb: Some("Northbridge FC are gathering pace.".to_string()),
+            input_hash: Some("momentum-hash".to_string()),
+            momentum_score: Some(4.0),
+            ..Default::default()
+        },
+        transfers: vec![SynthTransfer {
+            counterparty: "Vale United".to_string(),
+            heat: 70,
+            direction: "incoming".to_string(),
+            stage: "advanced_talks".to_string(),
+            summary: "Talks have advanced.".to_string(),
+        }],
+    };
+    assert_eq!(cards.readiness(), Readiness::Complete);
+    let model = FakeModel::new(
+        r#"{"reading":"Northbridge FC stand beneath a gathering light. Their profile, belief and movement now rise together.","headline":"Northbridge FC gather light","score":78}"#,
+    );
+    let output = create(&Studio::new(&model), &prepared_assignment(cards))
+        .await
+        .unwrap();
+    assert_eq!(output.score, Some(78));
+    assert_eq!(output.omen, Some("ascendant"));
+    assert_eq!(output.convergence, Some(100));
+    assert_eq!(output.provenance.model_version, "model-that-answered");
+    assert_eq!(
+        output.provenance.input_hash.as_deref(),
+        Some("prepared-oracle-hash")
+    );
+    assert_eq!(
+        output.call.as_ref().unwrap().request_body["actual_request"],
+        true
+    );
+    assert_eq!(model.calls.lock().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn empty_cards_are_an_explicit_uncalled_marker() {
+    let model = FakeModel::new("unused");
+    let output = create(&Studio::new(&model), &prepared_assignment(Cards::default()))
+        .await
+        .unwrap();
+    assert!(!output.was_called());
+    assert_eq!(output.score, None);
+    assert_eq!(output.reading, None);
+    assert_eq!(output.provenance.model_version, "configured-model");
+    assert!(model.calls.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn model_failure_cannot_become_an_oracle_marker() {
+    let mut model = FakeModel::new("");
+    model.fail = true;
+    let cards = Cards {
+        narratives: vec![SynthNarrative {
+            title: "A live story".to_string(),
+            body: "Northbridge FC have won again.".to_string(),
+            impact: 50.0,
+            trajectory: "heating_up".to_string(),
+            source_count: 1,
+            source_age_days: Some(0),
+        }],
+        ..Default::default()
+    };
+    assert!(matches!(cards.readiness(), Readiness::Partial { .. }));
+    let error = create(&Studio::new(&model), &prepared_assignment(cards))
+        .await
+        .unwrap_err();
+    assert!(format!("{error:#}").contains("model unavailable"));
+    assert_eq!(model.calls.lock().unwrap().len(), 1);
 }

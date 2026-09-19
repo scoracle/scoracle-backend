@@ -3,14 +3,15 @@
 //! Studio owns creation from prepared material. This adapter owns Postgres retrieval, sourced
 //! memory preparation, queue invalidation, exact-claim publication, and diagnostic ledger writes.
 
+use crate::application::oracle;
 use crate::composition::memories::{self, MemoryRequest, Mission};
-use crate::junctions::oracle::{self, SynthMomentum, SynthRating, SynthVibe};
 use crate::runtime::harness::{EntityKey, Harness};
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
 use crate::runtime::route::Role;
 use crate::runtime::stage::{HandleOutcome, StageHandler};
 use crate::runtime::util::hash_components;
 use crate::runtime::work::{self, Item, Stage};
+use crate::studio::oracle::{SynthMomentum, SynthRating, SynthVibe};
 use crate::studio::{analyst, Studio};
 use anyhow::{bail, Context, Result};
 use async_trait::async_trait;

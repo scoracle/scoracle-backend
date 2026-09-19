@@ -3,4 +3,3 @@
 
 pub mod analyst;
 pub mod insider;
-pub mod oracle;

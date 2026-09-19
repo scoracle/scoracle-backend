@@ -1421,7 +1421,7 @@ async fn enqueue_sigil_for_transfer(
 ) -> Result<()> {
     let input_version = Some(rumor_id.to_string());
     // The team cannot pass the barrier until this handler's work row is complete.
-    crate::junctions::oracle::enqueue_oracle_if_pillars_settled(
+    crate::application::oracle::enqueue_oracle_if_pillars_settled(
         &hx.pool,
         "player",
         i64::from(player_id),
@@ -1630,7 +1630,7 @@ async fn score_insider_entity(
         system: Some(INSIDER_SCORE_SYSTEM_PROMPT.to_string()),
         temperature: Some(INSIDER_SCORE_TEMPERATURE),
         num_predict: if crate::runtime::route::small_voice_window(hx.voice_num_ctx) {
-            crate::junctions::oracle::SMALL_WINDOW_NUM_PREDICT
+            crate::studio::oracle::SMALL_WINDOW_NUM_PREDICT
         } else {
             INSIDER_SCORE_NUM_PREDICT
         },

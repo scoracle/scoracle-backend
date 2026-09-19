@@ -34,6 +34,7 @@
 use crate::application::analyst::build_momentum_prompt_from_pillars;
 use crate::application::influencer::load_vibe_context;
 use crate::application::journalist::load_packet_corpus;
+use crate::application::oracle::load_pillars;
 use crate::application::scout::{build_rating_request, RatingReq};
 use crate::evidence::corpus::lookup_entity_name;
 use crate::junctions::editor::{
@@ -51,11 +52,6 @@ use crate::junctions::insider::{
 use crate::junctions::investigator::prompt::{
     prose_opts, ProseReadParser, INVESTIGATOR_PROSE_CONTRACT_VERSION,
 };
-use crate::junctions::oracle::{
-    build_crown_prompt, build_pillar_divergence, compute_omen, count_sentences, load_pillars,
-    oracle_format_schema, parse_crown_reply, pillar_convergence, ORACLE_NUM_PREDICT,
-    ORACLE_PROMPT_VERSION, ORACLE_SYSTEM_PROMPT,
-};
 use crate::runtime::harness::{Harness, Parser};
 use crate::runtime::providers::ollama::GenerateOptions;
 use crate::runtime::route::Role;
@@ -69,6 +65,11 @@ use crate::studio::influencer::{
 use crate::studio::journalist::{
     build_narratives_prompt, narratives_format_schema, NarrativesParser, Subject,
     NARRATIVES_NUM_PREDICT_PACKET, NARRATIVES_PROMPT_VERSION, NARRATIVES_SYSTEM_PROMPT,
+};
+use crate::studio::oracle::{
+    build_crown_prompt, build_pillar_divergence, compute_omen, count_sentences,
+    oracle_format_schema, parse_crown_reply, pillar_convergence, ORACLE_NUM_PREDICT,
+    ORACLE_PROMPT_VERSION, ORACLE_SYSTEM_PROMPT,
 };
 use crate::studio::scout::{
     RatingBuild, RatingReply, RATING_NUM_PREDICT, RATING_PROMPT_VERSION, RATING_SYSTEM_PROMPT,
@@ -768,30 +769,25 @@ impl LensTask for OracleTask {
     async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
         let name = lookup_entity_name(&hx.pool, &e.entity_type, e.entity_id, &e.sport).await?;
         let sport = e.sport.to_uppercase();
-        let (_season, narratives, rating, vibe, momentum, transfers) =
-            load_pillars(hx, &e.entity_type, e.entity_id, &sport).await?;
+        let (_season, cards) = load_pillars(hx, &e.entity_type, e.entity_id, &sport).await?;
         // With no evidence, the stage persists a marker without a model call.
-        if narratives.is_empty()
-            && rating.is_none()
-            && vibe.is_none()
-            && momentum.empty()
-            && transfers.is_empty()
-        {
+        if cards.readiness() == crate::studio::oracle::Readiness::Empty {
             return Ok(None);
         }
         // Deterministic convergence + direction, exactly as the live handler.
-        let comparisons = build_pillar_divergence(rating.as_ref(), vibe.as_ref(), &momentum);
+        let comparisons =
+            build_pillar_divergence(cards.rating.as_ref(), cards.vibe.as_ref(), &cards.momentum);
         let convergence = pillar_convergence(&comparisons);
-        let omen = compute_omen(convergence, &momentum);
+        let omen = compute_omen(convergence, &cards.momentum);
         Ok(Some(build_crown_prompt(
             &e.entity_type,
             &name,
             &e.sport,
-            &narratives,
-            rating.as_ref(),
-            vibe.as_ref(),
-            &momentum,
-            &transfers,
+            &cards.narratives,
+            cards.rating.as_ref(),
+            cards.vibe.as_ref(),
+            &cards.momentum,
+            &cards.transfers,
             omen,
             None,
             None,
@@ -1478,9 +1474,8 @@ impl LensTask for MomentumTask {
     async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
         let name = lookup_entity_name(&hx.pool, &e.entity_type, e.entity_id, &e.sport).await?;
         let sport = e.sport.to_uppercase();
-        let (_season, _narratives, rating, vibe, momentum, _transfers) =
-            load_pillars(hx, &e.entity_type, e.entity_id, &sport).await?;
-        if rating.is_none() && vibe.is_none() && momentum.empty() {
+        let (_season, cards) = load_pillars(hx, &e.entity_type, e.entity_id, &sport).await?;
+        if cards.rating.is_none() && cards.vibe.is_none() && cards.momentum.empty() {
             return Ok(None);
         }
         // s19: there is no enrichment rider left to pin. The Analyst reads the two rails and
@@ -1490,9 +1485,9 @@ impl LensTask for MomentumTask {
             &e.entity_type,
             &name,
             &e.sport,
-            rating.as_ref(),
-            vibe.as_ref(),
-            &momentum,
+            cards.rating.as_ref(),
+            cards.vibe.as_ref(),
+            &cards.momentum,
             None,
         )))
     }

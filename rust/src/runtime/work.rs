@@ -324,10 +324,10 @@ pub const PILLAR_STAGES: [Stage; 5] = [
 /// Call only after [`complete`]. The last completing pillar observes no outstanding rows
 /// and enqueues the Oracle; `enqueue` coalesces concurrent offers.
 ///
-/// `status = 'failed'` counts as SETTLED. A pillar that has exhausted its retries is a
-/// dead-letter awaiting a human, and treating it as outstanding would block every reading for
-/// that entity indefinitely — one stuck character silencing the other five. `load_pillars`
-/// already tolerates a missing pillar.
+/// `status = 'failed'` counts as SETTLED at every attempt level. This is the existing partial-read
+/// policy: a retryable failure may temporarily leave one card missing, while a later successful
+/// retry offers Oracle again; a terminal dead-letter also cannot silence the other five voices.
+/// `application::oracle::load_pillars` tolerates either kind of missing product.
 pub async fn pillars_settled(
     pool: &PgPool,
     entity_type: &str,

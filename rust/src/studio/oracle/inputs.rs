@@ -1,14 +1,21 @@
-//! Evidence and continuity supplied to the character.
+//! Prepared cards and continuity supplied to the character.
 
 use super::{
-    momentum_score, momentum_score_label, SynthMomentum, SynthNarrative, SynthRating, SynthVibe,
+    momentum_score, momentum_score_label, SynthMomentum, SynthNarrative, SynthRating,
+    SynthTransfer, SynthVibe,
 };
-use crate::evidence::corpus::HeatItem;
-use crate::evidence::trajectory::trajectory_label;
 
 pub const CROWN_CARD_BODY_CAP: usize = 700;
 
 const CROWN_MAX_NARRATIVES: usize = 3;
+
+fn trajectory_label(raw: &str) -> &'static str {
+    match raw {
+        "heating_up" => "Heating up",
+        "cooling_off" => "Cooling off",
+        _ => "Developing story...",
+    }
+}
 
 pub(crate) fn descrub_z(brief: &str) -> String {
     let b = brief.as_bytes();
@@ -60,7 +67,7 @@ fn capped(s: &str, budget: Option<usize>) -> String {
     }
 }
 
-fn write_transfer_evidence(b: &mut String, entity_name: &str, transfers: &[HeatItem]) {
+fn write_transfer_evidence(b: &mut String, entity_name: &str, transfers: &[SynthTransfer]) {
     for transfer in transfers {
         let movement = match transfer.direction.as_str() {
             "incoming" => format!("From {} to {entity_name}", transfer.counterparty),
@@ -91,7 +98,7 @@ pub fn build_crown_prompt(
     rating: Option<&SynthRating>,
     vibe: Option<&SynthVibe>,
     mom: &SynthMomentum,
-    transfers: &[HeatItem],
+    transfers: &[SynthTransfer],
     omen: &str,
     body_cap: Option<usize>,
     identity: Option<&str>,

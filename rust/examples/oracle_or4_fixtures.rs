@@ -17,10 +17,10 @@
 
 use std::path::Path;
 
-use scoracle_cognition::evidence::corpus::HeatItem;
-use scoracle_cognition::junctions::oracle::{
+use scoracle_cognition::studio::oracle::{
     build_crown_prompt, build_pillar_divergence, compute_omen, pillar_convergence, SynthMomentum,
-    SynthNarrative, SynthRating, SynthVibe, ORACLE_PROMPT_VERSION, ORACLE_SYSTEM_PROMPT,
+    SynthNarrative, SynthRating, SynthTransfer, SynthVibe, ORACLE_PROMPT_VERSION,
+    ORACLE_SYSTEM_PROMPT,
 };
 use serde_json::json;
 
@@ -35,7 +35,7 @@ struct Scenario {
     rating: Option<SynthRating>,
     vibe: Option<SynthVibe>,
     momentum: SynthMomentum,
-    transfers: Vec<HeatItem>,
+    transfers: Vec<SynthTransfer>,
     expect: serde_json::Value,
 }
 
@@ -182,13 +182,12 @@ fn scenarios() -> Vec<Scenario> {
             vibe: vibe(68, "The room is buzzing at the link — half farewell tribute, half plea for him to stay."),
             momentum: momentum("falling", -1.2, Some(-0.9), 5, Some(0.4), 4,
                 "Form has dipped since the story broke even as the feeling stays warm."),
-            transfers: vec![HeatItem {
+            transfers: vec![SynthTransfer {
                 counterparty: "Real Madrid".to_string(),
                 heat: 78,
                 stage: "advanced_talks".to_string(),
                 direction: "outgoing".to_string(),
                 summary: "Talks over a summer move have advanced to personal terms.".to_string(),
-                confidence: Some(0.8),
             }],
             expect: json!({"reading_includes": ["Almeida", "Madrid"]}),
         },
@@ -237,13 +236,12 @@ fn scenarios() -> Vec<Scenario> {
             rating: None,
             vibe: vibe(62, "Cautious optimism around the rebuild; the room likes the business but wants to see it on grass."),
             momentum: SynthMomentum::default(),
-            transfers: vec![HeatItem {
+            transfers: vec![SynthTransfer {
                 counterparty: "Fulham".to_string(),
                 heat: 62,
                 stage: "confirmed".to_string(),
                 direction: "incoming".to_string(),
                 summary: "The move for Issa Diop is done and the paperwork is filed.".to_string(),
-                confidence: Some(0.9),
             }],
             expect: json!({"reading_includes": ["Ipswich"]}),
         },

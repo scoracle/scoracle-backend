@@ -212,7 +212,7 @@ async fn dispatch_momentum_then_oracle(hx: &Harness, event: &Event) -> Result<()
 }
 
 async fn dispatch_oracle_barrier(hx: &Harness, event: &Event) -> Result<()> {
-    crate::junctions::oracle::enqueue_oracle_if_pillars_settled(
+    crate::application::oracle::enqueue_oracle_if_pillars_settled(
         &hx.pool,
         &event.entity_type,
         i64::from(event.entity_id),

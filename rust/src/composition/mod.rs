@@ -27,7 +27,7 @@ pub fn compose_card(memories: &Package, new_evidence: &str) -> Result<CardPrompt
         Mission::Journalist => &crate::studio::journalist::NARRATIVES_SYSTEM_PROMPT,
         Mission::Influencer => &crate::studio::influencer::VIBE_SYSTEM_PROMPT,
         Mission::Insider => &characters::insider::INSIDER_SCORE_SYSTEM_PROMPT,
-        Mission::Oracle => &characters::oracle::ORACLE_SYSTEM_PROMPT,
+        Mission::Oracle => &crate::studio::oracle::ORACLE_SYSTEM_PROMPT,
         _ => anyhow::bail!("internal extraction missions use their junction's task contract"),
     };
     let mut prompt = memories.render_for_model()?;

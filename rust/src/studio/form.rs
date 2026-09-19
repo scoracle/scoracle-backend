@@ -177,8 +177,8 @@ pub fn oracle_format_schema() -> serde_json::Value {
 mod tests {
     use super::*;
     use crate::composition::characters;
-    use crate::junctions::{insider, oracle};
-    use crate::studio::{analyst, influencer, journalist, scout};
+    use crate::junctions::insider;
+    use crate::studio::{analyst, influencer, journalist, oracle, scout};
 
     #[test]
     fn every_live_character_uses_the_shared_form_without_retired_outlines() {
@@ -200,10 +200,7 @@ mod tests {
                 characters::insider::CHARACTER,
                 insider::INSIDER_SCORE_SYSTEM_PROMPT.as_str(),
             ),
-            (
-                characters::oracle::CHARACTER,
-                oracle::ORACLE_SYSTEM_PROMPT.as_str(),
-            ),
+            (oracle::CHARACTER, oracle::ORACLE_SYSTEM_PROMPT.as_str()),
         ];
         for (brief, system) in characters {
             assert!(!brief.trim().is_empty());

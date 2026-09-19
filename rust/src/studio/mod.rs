@@ -8,6 +8,7 @@ pub mod guards;
 pub mod influencer;
 pub mod journalist;
 pub mod model;
+pub mod oracle;
 pub mod scout;
 mod session;
 

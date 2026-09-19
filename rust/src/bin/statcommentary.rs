@@ -5,18 +5,20 @@
 //! path because the live queue is current-season/entity-scoped.
 
 use anyhow::{anyhow, Context, Result};
-use scoracle_cognition::application::scout::{persist_stat_summary, rating_work_input_version};
-use scoracle_cognition::evidence::corpus;
-use scoracle_cognition::junctions::scout::{
-    build_rating_request, generate_rating, RatingBuild, RatingOutput, RatingReq,
-    RATING_PROMPT_VERSION, RATING_TEMPERATURE,
+use scoracle_cognition::application::scout::{
+    build_rating_request, generate_rating, persist_stat_summary, rating_work_input_version,
+    RatingReq,
 };
+use scoracle_cognition::evidence::corpus;
 use scoracle_cognition::runtime::config::Config;
 use scoracle_cognition::runtime::db;
 use scoracle_cognition::runtime::harness::Harness;
 use scoracle_cognition::runtime::providers::ollama::OllamaClient;
 use scoracle_cognition::runtime::route::Router;
 use scoracle_cognition::runtime::work;
+use scoracle_cognition::studio::scout::{
+    RatingBuild, RatingOutput, RATING_PROMPT_VERSION, RATING_TEMPERATURE,
+};
 use sqlx::{PgPool, Postgres, Row};
 use std::time::Duration;
 

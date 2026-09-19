@@ -1,22 +1,300 @@
-//! Scout publication and durable work coordination.
+//! Scout evidence, model selection, publication, and durable work coordination.
 //!
-//! The existing Scout evidence/creation core remains in `junctions::scout` for this bounded
-//! publication slice. This adapter owns queue versions, rerun triggers, exact-claim publication,
-//! standalone persistence, required follow-up intent, and the diagnostic ledger.
+//! Studio owns creation from prepared material. This adapter owns concrete Postgres retrieval,
+//! assignment preparation, queue policy, exact-claim publication, and diagnostic ledger writes.
 
-use crate::junctions::scout::{
-    generate_rating, RatingOutput, RatingReq, MAX_STAT_FACTS, RATING_NUM_PREDICT,
-    RATING_OUTPUT_CONTRACT_VERSION, RATING_TEMPERATURE,
-};
+use crate::composition::memories::{self, MemoryRequest, Mission};
 use crate::runtime::harness::Harness;
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
+use crate::runtime::providers::ollama::GenerateOptions;
 use crate::runtime::route::Role;
 use crate::runtime::stage::{HandleOutcome, StageHandler};
+use crate::runtime::util::hash_components;
 use crate::runtime::work::{self, Item, Stage};
+use crate::studio::scout::{
+    self, Assignment, RatingBuild, RatingExclusions, RatingOutput, Subject, MAX_STAT_FACTS,
+    RATING_NUM_PREDICT, RATING_OUTPUT_CONTRACT_VERSION, RATING_SYSTEM_PROMPT, RATING_TEMPERATURE,
+};
+use crate::studio::Studio;
 use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
 use sqlx::{PgPool, Postgres, Row, Transaction};
 use tracing::{debug, warn};
+
+mod evidence;
+mod materials;
+pub use materials::{render_personnel_block, render_scout_reports};
+
+/// Durable subject and invocation policy used to prepare a Studio Scout assignment.
+#[derive(Clone, Debug)]
+pub struct RatingReq {
+    pub entity_type: String,
+    pub entity_id: i32,
+    pub entity_name: String,
+    pub sport: String,
+    pub season: Option<i32>,
+    pub trigger_type: String,
+}
+
+/// Prepare the Scout's complete assignment without calling a model.
+pub async fn build_rating_request(
+    hx: &Harness,
+    req: &RatingReq,
+    temperature: f64,
+    with_enrichment: bool,
+) -> Result<RatingBuild> {
+    let Some(mut profile) = evidence::load_rating_profile(
+        &hx.pool,
+        &req.entity_type,
+        req.entity_id,
+        &req.sport,
+        req.season,
+    )
+    .await?
+    else {
+        return Ok(RatingBuild::NoStats {
+            season: req.season.unwrap_or(0),
+        });
+    };
+
+    let off_facet_stat_labels = scout::drop_off_facet_datapoints(&mut profile);
+    let degenerate_zero_stat_labels = scout::drop_degenerate_zero_datapoints(&mut profile);
+    let display_tier_stat_labels = scout::drop_display_tier_datapoints(&mut profile);
+    if profile.composite_score.is_none() && profile.breakdown.is_empty() {
+        return Ok(RatingBuild::NoStats {
+            season: profile.season,
+        });
+    }
+
+    let base_components = scout::input_components(&profile);
+    let mut memory_request =
+        MemoryRequest::new(Mission::Scout, &req.entity_type, req.entity_id, &req.sport);
+    memory_request.season = Some(profile.season);
+    let memories = memories::load(&hx.pool, memory_request).await?;
+    let supports_cross_season = scout::supports_cross_season_comparison(&profile);
+    let model_memories = if supports_cross_season {
+        memories.clone()
+    } else {
+        memories.current_snapshot_view()?
+    };
+    let input_components = model_memories.with_input_components(&base_components)?;
+    let (notability, notability_components) = scout::compute_notability(&profile);
+    let exclusions = RatingExclusions {
+        budget_truncated_stat_labels: scout::budget_truncated_stat_labels(&profile.breakdown),
+        off_facet_stat_labels,
+        degenerate_zero_stat_labels,
+        display_tier_stat_labels,
+    };
+    let rating_trajectory = evidence::load_rating_trajectory(
+        &hx.pool,
+        &req.entity_type,
+        req.entity_id,
+        &req.sport,
+        &profile,
+    )
+    .await?;
+
+    let personnel = if with_enrichment && !memories.historical {
+        let (changes, total) = match crate::evidence::personnel::load_personnel_changes(
+            &hx.pool,
+            &req.sport,
+            &req.entity_type,
+            req.entity_id,
+        )
+        .await
+        {
+            Ok(loaded) => loaded,
+            Err(error) => {
+                tracing::warn!(
+                    entity_type = %req.entity_type,
+                    entity_id = req.entity_id,
+                    sport = %req.sport,
+                    %error,
+                    "rating: personnel-change load failed (continuing without the block)"
+                );
+                (Vec::new(), 0)
+            }
+        };
+        let (availability, availability_total) =
+            match crate::evidence::personnel::load_availability_changes(
+                &hx.pool,
+                &req.sport,
+                &req.entity_type,
+                req.entity_id,
+            )
+            .await
+            {
+                Ok(loaded) => loaded,
+                Err(error) => {
+                    tracing::warn!(
+                        entity_type = %req.entity_type,
+                        entity_id = req.entity_id,
+                        sport = %req.sport,
+                        %error,
+                        "rating: availability load failed (continuing without those lines)"
+                    );
+                    (Vec::new(), 0)
+                }
+            };
+        render_personnel_block(
+            &req.entity_type,
+            req.entity_id,
+            &changes,
+            total,
+            &availability,
+            availability_total,
+        )
+    } else {
+        None
+    };
+
+    let current_reports = if with_enrichment && !memories.historical {
+        match crate::evidence::personnel::load_scout_reports(
+            &hx.pool,
+            &req.entity_type,
+            req.entity_id,
+            &req.sport,
+        )
+        .await
+        {
+            Ok(claims) => render_scout_reports(&claims),
+            Err(error) => {
+                tracing::warn!(
+                    entity_type = %req.entity_type,
+                    entity_id = req.entity_id,
+                    sport = %req.sport,
+                    %error,
+                    "rating: current-report load failed (continuing without the block)"
+                );
+                None
+            }
+        }
+    } else {
+        None
+    };
+
+    let comparisons = if with_enrichment && supports_cross_season {
+        match evidence::load_rating_profile(
+            &hx.pool,
+            &req.entity_type,
+            req.entity_id,
+            &req.sport,
+            Some(profile.season - 1),
+        )
+        .await
+        {
+            Ok(Some(mut prior)) => {
+                let _ = scout::drop_off_facet_datapoints(&mut prior);
+                let _ = scout::drop_degenerate_zero_datapoints(&mut prior);
+                let _ = scout::drop_display_tier_datapoints(&mut prior);
+                Some(scout::build_skill_changes(&profile, &prior))
+            }
+            Ok(None) => None,
+            Err(error) => {
+                tracing::warn!(
+                    entity_type = %req.entity_type,
+                    entity_id = req.entity_id,
+                    sport = %req.sport,
+                    %error,
+                    "rating: prior-season profile load failed (continuing without movement lines)"
+                );
+                None
+            }
+        }
+    } else {
+        None
+    };
+    let comparison_directions = scout::comparison_directions(&profile, comparisons.as_ref());
+    let prompt_profile =
+        scout::model_prompt_profile(&profile, supports_cross_season, comparisons.as_ref());
+    let measurement_bands = scout::measurement_bands(&prompt_profile);
+    let form_trend = if with_enrichment {
+        rating_trajectory.label.as_ref().map(|label| {
+            format!(
+                "{label}; {} scored events",
+                rating_trajectory.components["sample_size"]
+            )
+        })
+    } else {
+        None
+    };
+    let identity = model_memories.render_for_model()?;
+    let mut components: serde_json::Value = serde_json::from_str(&input_components)?;
+    components["skill_changes"] = serde_json::json!(comparisons);
+    components["personnel"] = serde_json::json!(personnel);
+    components["current_reports"] = serde_json::json!(current_reports);
+    components["recent_form"] = serde_json::json!(form_trend);
+    let input_components = components.to_string();
+    let input_hash = hash_components(&input_components);
+    let subject = Subject {
+        entity_type: req.entity_type.clone(),
+        entity_name: req.entity_name.clone(),
+        sport: req.sport.clone(),
+    };
+    let built_prompt = scout::build_stat_prompt(
+        &subject,
+        &prompt_profile,
+        personnel.as_deref(),
+        comparisons.as_ref(),
+        form_trend.as_deref(),
+        current_reports.as_deref(),
+        Some(&identity),
+    );
+    let opts = GenerateOptions {
+        system: Some(RATING_SYSTEM_PROMPT.to_string()),
+        temperature: Some(temperature),
+        num_predict: RATING_NUM_PREDICT,
+        num_ctx: hx.voice_num_ctx,
+        json_mode: false,
+        format_schema: Some(crate::studio::form::card_schema(false)),
+        format_schema_raw: None,
+    };
+
+    Ok(RatingBuild::Ready(Box::new(Assignment {
+        subject,
+        season: profile.season,
+        comparison_directions,
+        measurement_bands,
+        notability,
+        notability_components,
+        rating_trajectory,
+        input_components,
+        input_hash,
+        exclusions,
+        opts,
+        built_prompt,
+    })))
+}
+
+/// Prepare, debounce, and create a Scout product. Publication remains a separate short transaction.
+pub async fn generate_rating(
+    hx: &Harness,
+    req: &RatingReq,
+    temperature: f64,
+    skip_unchanged: bool,
+    with_enrichment: bool,
+) -> Result<RatingOutput> {
+    let backend = hx.router.for_role(Role::StatsLogic);
+    let assignment = match build_rating_request(hx, req, temperature, with_enrichment).await? {
+        RatingBuild::NoStats { season } => return Ok(scout::no_stats(season, backend.model())),
+        RatingBuild::Ready(assignment) => *assignment,
+    };
+    if skip_unchanged
+        && evidence::last_commentary_input_hash(
+            &hx.pool,
+            &req.entity_type,
+            req.entity_id,
+            &req.sport,
+            assignment.season,
+        )
+        .await?
+        .as_deref()
+            == Some(assignment.input_hash.as_str())
+    {
+        return Ok(scout::unchanged(assignment, backend.model()));
+    }
+    scout::create(&Studio::new(backend.as_ref()), assignment).await
+}
 
 const RATING_WORK_PREFIX: &str = "rating:s";
 const RATING_WORK_TRANSFER_MARK: &str = "xfer";

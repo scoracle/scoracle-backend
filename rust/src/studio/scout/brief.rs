@@ -1,6 +1,6 @@
 //! The Scout's character. Output structure belongs to `composition::form`.
 
-use crate::composition::form::{compose, CardFormat};
+use crate::studio::form::{compose, CardFormat};
 
 pub const RATING_PROMPT_VERSION: &str = "s44";
 

@@ -33,6 +33,7 @@
 
 use crate::application::analyst::build_momentum_prompt_from_pillars;
 use crate::application::influencer::load_vibe_context;
+use crate::application::scout::{build_rating_request, RatingReq};
 use crate::evidence::corpus::lookup_entity_name;
 use crate::junctions::editor::{
     build_editor_prompt_for_eval, derive as editor_derive, editor_opts, EditorRead,
@@ -58,10 +59,6 @@ use crate::junctions::oracle::{
     oracle_format_schema, parse_crown_reply, pillar_convergence, ORACLE_NUM_PREDICT,
     ORACLE_PROMPT_VERSION, ORACLE_SYSTEM_PROMPT,
 };
-use crate::junctions::scout::{
-    build_rating_request, RatingBuild, RatingReply, RatingReq, RATING_NUM_PREDICT,
-    RATING_PROMPT_VERSION, RATING_SYSTEM_PROMPT,
-};
 use crate::runtime::harness::{Harness, Parser};
 use crate::runtime::providers::ollama::GenerateOptions;
 use crate::runtime::route::Role;
@@ -71,6 +68,9 @@ use crate::studio::analyst::{
 };
 use crate::studio::influencer::{
     build_sentiment_prompt, parse_vibe_reply, VIBE_NUM_PREDICT, VIBE_PROMPT_VERSION,
+};
+use crate::studio::scout::{
+    RatingBuild, RatingReply, RATING_NUM_PREDICT, RATING_PROMPT_VERSION, RATING_SYSTEM_PROMPT,
 };
 use anyhow::Result;
 use async_trait::async_trait;
@@ -1343,7 +1343,7 @@ impl LensTask for RatingTask {
         // Shape-only parse (NOT `RatingParser`): the gate must see a guard-violating body's
         // prose and score it red on the invariant checks — production's guards would reject it
         // before any check could run. Same lists either way (`crate::guards`).
-        let body = crate::junctions::scout::parse_rating_body(raw);
+        let body = crate::studio::scout::parse_rating_body(raw);
         if body.trim().is_empty() {
             return CaseVerdict {
                 parsed: false,

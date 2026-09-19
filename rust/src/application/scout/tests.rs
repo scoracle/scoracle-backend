@@ -1,8 +1,8 @@
 //! Unit and exact-publication tests for the Scout application adapter.
 
 use super::*;
-use crate::junctions::scout::{RatingExclusions, RatingProduct, RATING_PROMPT_VERSION};
 use crate::runtime::harness::Generation;
+use crate::studio::scout::{RatingExclusions, RatingProduct, RATING_PROMPT_VERSION};
 use std::sync::Mutex;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

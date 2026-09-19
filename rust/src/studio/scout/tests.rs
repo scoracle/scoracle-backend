@@ -1,14 +1,18 @@
-//! Unit tests for this junction.
+//! Service-free tests for the Scout character and its prepared materials.
 //!
 //! Split out of `mod.rs` so the stage module reads as the stage and nothing else.
-//! `super` still resolves to the junction, so these run exactly as they did inline.
+//! `super` resolves to the Studio character module.
 
 use crate::application::scout::{
     rating_trigger_type, rating_work_bypasses_debounce, rating_work_input_version,
     rating_work_input_version_for_availability, rating_work_input_version_for_transfer,
     rating_work_is_availability_triggered, rating_work_is_transfer_triggered, rating_work_season,
+    render_personnel_block, render_scout_reports,
 };
-use crate::evidence::personnel::{MAX_AVAILABILITY_LINES, MAX_PERSONNEL_LINES};
+use crate::evidence::personnel::{
+    AvailabilityChange, PersonnelChange, MAX_AVAILABILITY_LINES, MAX_PERSONNEL_LINES,
+};
+use crate::runtime::util::hash_components;
 
 use super::*;
 
@@ -272,14 +276,11 @@ fn season_changes_require_the_same_underlying_measurement() {
     assert!(build_skill_changes(&current, &prior).is_empty());
 }
 
-fn req(sport: &str, entity_type: &str, name: &str) -> RatingReq {
-    RatingReq {
+fn req(sport: &str, entity_type: &str, name: &str) -> Subject {
+    Subject {
         entity_type: entity_type.to_string(),
-        entity_id: 1,
         entity_name: name.to_string(),
         sport: sport.to_string(),
-        season: None,
-        trigger_type: "manual".to_string(),
     }
 }
 
@@ -1875,6 +1876,156 @@ fn personnel_follows_measurements_without_generated_prose_memory() {
         None,
     );
     assert!(!blank.contains("Personnel changes"));
+}
+
+// --- Studio boundary: prepared creation runs without Postgres, queues, or model hosts ---------
+
+use crate::studio::model::{GenerateResult, Inference};
+use async_trait::async_trait;
+use std::sync::Mutex;
+use std::time::Duration;
+
+struct FakeModel {
+    response: String,
+    fail: bool,
+    calls: Mutex<Vec<(String, GenerateOptions)>>,
+}
+
+impl FakeModel {
+    fn new(response: &str) -> Self {
+        Self {
+            response: response.to_string(),
+            fail: false,
+            calls: Mutex::new(Vec::new()),
+        }
+    }
+}
+
+#[async_trait]
+impl Inference for FakeModel {
+    async fn generate(
+        &self,
+        prompt: &str,
+        opts: &GenerateOptions,
+    ) -> Result<(GenerateResult, serde_json::Value)> {
+        self.calls
+            .lock()
+            .unwrap()
+            .push((prompt.to_string(), opts.clone()));
+        if self.fail {
+            anyhow::bail!("model unavailable");
+        }
+        Ok((
+            GenerateResult {
+                response: self.response.clone(),
+                thinking: "private".to_string(),
+                model: "model-that-answered".to_string(),
+                total_duration: Duration::from_millis(25),
+                prompt_eval_count: 20,
+                eval_count: 12,
+                completion_reason: Some("stop".to_string()),
+                raw_response_body: "{}".to_string(),
+            },
+            serde_json::json!({"actual_request": true, "prompt": prompt}),
+        ))
+    }
+
+    fn model(&self) -> &str {
+        "configured-model"
+    }
+
+    fn request_body(&self, _: &str, _: &GenerateOptions) -> serde_json::Value {
+        panic!("creation provenance must use the request actually sent")
+    }
+}
+
+fn assignment() -> Assignment {
+    Assignment {
+        subject: Subject {
+            entity_type: "player".to_string(),
+            entity_name: "Vale Kerr".to_string(),
+            sport: "NBA".to_string(),
+        },
+        season: 2026,
+        comparison_directions: BTreeMap::new(),
+        measurement_bands: BTreeMap::new(),
+        notability: 72,
+        notability_components: serde_json::json!({"top_pct": 91.0}),
+        rating_trajectory: RatingTrajectory {
+            key: "rising".to_string(),
+            label: Some("overall scores trending up over recent games".to_string()),
+            components: serde_json::json!({"sample_size": 5}),
+        },
+        input_components: serde_json::json!({"season": 2026}).to_string(),
+        input_hash: "prepared-hash".to_string(),
+        exclusions: RatingExclusions::default(),
+        opts: GenerateOptions {
+            system: Some(RATING_SYSTEM_PROMPT.to_string()),
+            temperature: Some(RATING_TEMPERATURE),
+            num_predict: RATING_NUM_PREDICT,
+            num_ctx: 4096,
+            json_mode: false,
+            format_schema: Some(crate::studio::form::card_schema(false)),
+            format_schema_raw: None,
+        },
+        built_prompt: "Entity: Vale Kerr (NBA player); season 2026".to_string(),
+    }
+}
+
+#[tokio::test]
+async fn prepared_assignment_creates_without_application_services() {
+    let model = FakeModel::new(
+        r#"{"headline":"Vale Kerr controls the middle","body":"Vale Kerr controls the middle with measured patience."}"#,
+    );
+    let output = create(&Studio::new(&model), assignment()).await.unwrap();
+    assert_eq!(
+        output.body.as_deref(),
+        Some("Vale Kerr controls the middle with measured patience.")
+    );
+    assert_eq!(
+        output.headline.as_deref(),
+        Some("Vale Kerr controls the middle")
+    );
+    assert_eq!(output.provenance.model_version, "model-that-answered");
+    assert_eq!(
+        output.provenance.input_hash.as_deref(),
+        Some("prepared-hash")
+    );
+    assert_eq!(
+        output.call.as_ref().unwrap().request_body["actual_request"],
+        true
+    );
+    assert_eq!(model.calls.lock().unwrap().len(), 1);
+}
+
+#[test]
+fn no_stats_and_unchanged_are_explicit_uncalled_results() {
+    let marker = no_stats(2026, "configured-model");
+    assert!(marker.skipped_no_stats);
+    assert!(!marker.skipped_unchanged);
+    assert!(marker.body.is_none());
+    assert!(marker.call.is_none());
+
+    let skipped = unchanged(assignment(), "configured-model");
+    assert!(!skipped.skipped_no_stats);
+    assert!(skipped.skipped_unchanged);
+    assert_eq!(skipped.rating_trajectory.as_deref(), Some("rising"));
+    assert_eq!(
+        skipped.provenance.input_hash.as_deref(),
+        Some("prepared-hash")
+    );
+    assert!(skipped.call.is_none());
+}
+
+#[tokio::test]
+async fn model_failure_cannot_become_a_scout_product() {
+    let mut model = FakeModel::new("");
+    model.fail = true;
+    let error = create(&Studio::new(&model), assignment())
+        .await
+        .unwrap_err();
+    assert!(format!("{error:#}").contains("model unavailable"));
+    assert_eq!(model.calls.lock().unwrap().len(), 1);
 }
 
 /// s21: the datapoint block must SPAN the entity's range, not crowd its top.

@@ -7,6 +7,7 @@ mod generation;
 pub mod guards;
 pub mod influencer;
 pub mod model;
+pub mod scout;
 mod session;
 
 pub use generation::{Extracted, Generation, GenerationCall, Parser, Provenance};

@@ -1,4 +1,4 @@
-//! Rating stage — The Scout's statistical report.
+//! The Scout creates a statistical report from a prepared assignment.
 //!
 //! Rust owns the per-entity creation core here. The application layer owns queue coordination and
 //! publication; `cmd/statcommentary` remains the operator/batch entry point.
@@ -12,24 +12,18 @@
 //!
 //! Missing measurements and ranks remain unknown; character and canvas own the writing.
 
-use crate::composition::memories::{self, MemoryRequest, Mission};
-
-use crate::runtime::harness::{Generation, GenerationCall, Harness, Parser};
-use crate::runtime::providers::ollama::GenerateOptions;
-use crate::runtime::route::Role;
-use crate::runtime::util::{hash_components, round1};
-use anyhow::{anyhow, bail, Context, Result};
+use crate::runtime::util::round1;
+use crate::studio::model::GenerateOptions;
+use crate::studio::{Generation, GenerationCall, Parser, Studio};
+use anyhow::{anyhow, bail, Result};
 use serde::{Deserialize, Deserializer};
-use sqlx::{PgPool, Row};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
+mod brief;
 mod inputs;
-pub use crate::composition::characters::scout::{RATING_PROMPT_VERSION, RATING_SYSTEM_PROMPT};
-pub use crate::evidence::personnel::{
-    load_availability_changes, load_personnel_changes, load_scout_reports, AvailabilityChange,
-    PersonnelChange,
-};
-pub use inputs::{build_stat_prompt, render_personnel_block, render_scout_reports};
+pub use brief::{CHARACTER, RATING_PROMPT_VERSION, RATING_SYSTEM_PROMPT};
+pub use inputs::build_stat_prompt;
+pub(crate) use inputs::supports_cross_season_comparison;
 
 /// Output contract captured separately in the diagnostic ledger.
 pub const RATING_OUTPUT_CONTRACT_VERSION: &str = "rating-commentary-v5";
@@ -43,15 +37,12 @@ pub const RATING_NUM_PREDICT: i32 = 700;
 /// maxStatFacts bounds the breakdown datapoints fed to the prompt.
 pub(crate) const MAX_STAT_FACTS: usize = 14;
 
-/// Entity whose rating profile should be narrated. `sport` is already uppercased by the caller.
+/// Subject of a Scout assignment. Durable identifiers and trigger policy stay in the application.
 #[derive(Clone, Debug)]
-pub struct RatingReq {
-    pub entity_type: String, // "player" | "team"
-    pub entity_id: i32,
+pub struct Subject {
+    pub entity_type: String,
     pub entity_name: String,
-    pub sport: String,       // UPPER ("NBA" | "NFL" | "FOOTBALL")
-    pub season: Option<i32>, // None = the entity's latest season
-    pub trigger_type: String,
+    pub sport: String,
 }
 
 /// One measured skill. `pct` is an actual eligible-cohort percentile (higher is better).
@@ -175,160 +166,6 @@ pub struct ScoutingDecision {
 }
 
 // ---------------------------------------------------------------------------
-// Loader.
-// ---------------------------------------------------------------------------
-
-/// load_rating_profile reads the entity's rating row for `season` (None = latest). Prefers the
-/// unscoped row, falling back to the richest league row (FOOTBALL is league-scoped). Numeric scores
-/// are cast to float8 and JSONB to text for sqlx/serde decoding.
-/// Returns `None` when there is no rating row at all.
-pub async fn load_rating_profile(
-    pool: &PgPool,
-    entity_type: &str,
-    entity_id: i32,
-    sport: &str,
-    season: Option<i32>,
-) -> Result<Option<RatingProfile>> {
-    // Rate modes exist only for player/minutes stats; teams receive an empty object.
-    let (id_col, table, pos_select, modes_select) = match entity_type {
-        "player" => (
-            "player_id",
-            "player_stats",
-            "COALESCE(position, '')",
-            "COALESCE(rating_modes, '{}'::jsonb)::text",
-        ),
-        "team" => ("team_id", "team_stats", "''::text", "'{}'::text"),
-        _ => bail!("unknown entity type {entity_type:?}"),
-    };
-    // Recompute the player eligibility gate from source stats as well as trusting the stored
-    // bundle. This keeps pre-253 rows from exposing percentiles for a one-appearance sample while
-    // the additive rating-evidence migration is waiting to deploy. It is the same self-scaling
-    // threshold used by migration 253. Team ratings do not use the player participation gate.
-    let eligibility_select = if entity_type == "player" {
-        r#"
-        COALESCE((
-            SELECT bool_and(
-                COALESCE(NULLIF(player_stats.stats->>rt.stat_key, '')::numeric, 0)
-                >= LEAST(
-                    rt.min_value,
-                    GREATEST(1, ceil(0.5 * COALESCE((
-                        SELECT MAX(NULLIF(ps2.stats->>rt.stat_key, '')::numeric)
-                        FROM public.player_stats ps2
-                        WHERE ps2.sport = $1 AND ps2.season = player_stats.season
-                    ), 0)))
-                )
-            )
-            FROM public.rating_thresholds rt
-            WHERE rt.sport = $1
-        ), FALSE)
-        "#
-    } else {
-        "TRUE"
-    };
-    // The unscoped row first (NBA/NFL carry league_id 0/NULL), else the richest league row (the
-    // most-datapoints row is the main competition — domestic league over a cup).
-    let q = format!(
-        r#"
-        SELECT season, {pos_select},
-               rating_score::float8,
-               COALESCE(rating_breakdown, '[]'::jsonb)::text,
-               COALESCE(rating_scoped_ranks, '{{}}'::jsonb)::text,
-               {modes_select}, NULLIF(league_id,0), updated_at::date::text,
-               COALESCE((
-                   SELECT jsonb_object_agg(sd.display_name, NULLIF(stats->>sd.key_name,'')::numeric)
-                   FROM public.stat_definitions sd
-                   WHERE sd.sport = $1 AND sd.entity_type = $4
-                     AND (sd.key_name IN ('appearances','games_played','matches_played','minutes_played')
-                          OR sd.key_name IN (SELECT stat_key FROM public.rating_thresholds WHERE sport=$1))
-                     AND NULLIF(stats->>sd.key_name,'') IS NOT NULL
-               ), '{{}}'::jsonb),
-               {eligibility_select} AS rank_eligible
-        FROM public.{table}
-        WHERE sport = $1 AND {id_col} = $2 AND ($3::int IS NULL OR season = $3)
-        ORDER BY season DESC,
-                 (COALESCE(league_id, 0) = 0) DESC,
-                 jsonb_array_length(COALESCE(rating_breakdown, '[]'::jsonb)) DESC,
-                 COALESCE(league_id, 0) ASC
-        LIMIT 1
-        "#
-    );
-    let Some(row) = sqlx::query(&q)
-        .bind(sport)
-        .bind(entity_id)
-        .bind(season)
-        .bind(entity_type)
-        .fetch_optional(pool)
-        .await
-        .context("load rating profile")?
-    else {
-        return Ok(None);
-    };
-
-    let season: i32 = row.get(0);
-    let position: String = row.get(1);
-    let mut composite_score: Option<f64> = row.get(2);
-    let breakdown_raw: String = row.get(3);
-    let scoped_raw: String = row.get(4);
-    let modes_raw: String = row.get(5);
-
-    let mut breakdown: Vec<RatingDatapoint> =
-        serde_json::from_str(&breakdown_raw).context("unmarshal rating_breakdown")?;
-    // Cohort framing and per-x modes are optional enrichment.
-    let mut scoped_ranks: HashMap<String, f64> =
-        serde_json::from_str(&scoped_raw).unwrap_or_default();
-    let mut rate_modes = parse_rate_modes(&modes_raw);
-    let rank_eligible: bool = row.get(9);
-    if !rank_eligible {
-        composite_score = None;
-        scoped_ranks.clear();
-        clear_datapoint_ranks(&mut breakdown);
-        for datapoints in rate_modes.values_mut() {
-            clear_datapoint_ranks(datapoints);
-        }
-    }
-
-    Ok(Some(RatingProfile {
-        league_id: row.get(6),
-        observed_at: row.get(7),
-        sample: serde_json::from_value(row.get(8)).context("decode rating sample")?,
-        entity_type: entity_type.to_string(),
-        season,
-        position,
-        composite_score,
-        breakdown,
-        scoped_ranks,
-        rate_modes,
-    }))
-}
-
-fn clear_datapoint_ranks(datapoints: &mut [RatingDatapoint]) {
-    for datapoint in datapoints {
-        datapoint.z = None;
-        datapoint.pct = None;
-        datapoint.scoped_pct.clear();
-    }
-}
-
-/// parse_rate_modes reads `rating_modes` — a per-x bundle per mode (`{"per_36": {"breakdown": [...]}}`),
-/// keeping only non-empty breakdowns. A parse error yields no optional modes.
-fn parse_rate_modes(raw: &str) -> HashMap<String, Vec<RatingDatapoint>> {
-    #[derive(Deserialize)]
-    struct ModeWrap {
-        #[serde(default)]
-        breakdown: Vec<RatingDatapoint>,
-    }
-    let parsed: HashMap<String, ModeWrap> = match serde_json::from_str(raw) {
-        Ok(m) => m,
-        Err(_) => return HashMap::new(),
-    };
-    parsed
-        .into_iter()
-        .filter(|(_, m)| !m.breakdown.is_empty())
-        .map(|(name, m)| (name, m.breakdown))
-        .collect()
-}
-
-// ---------------------------------------------------------------------------
 // Deterministic prompt shaping over stored derived stats.
 // ---------------------------------------------------------------------------
 
@@ -438,7 +275,7 @@ fn ordered_facts_unbounded(breakdown: &[RatingDatapoint]) -> Vec<RatingDatapoint
     facts
 }
 
-fn budget_truncated_stat_labels(breakdown: &[RatingDatapoint]) -> Vec<String> {
+pub(crate) fn budget_truncated_stat_labels(breakdown: &[RatingDatapoint]) -> Vec<String> {
     let shown: HashSet<String> = ordered_facts(breakdown)
         .into_iter()
         .map(|d| d.label)
@@ -527,7 +364,7 @@ fn nfl_position_side(position: &str) -> Option<&'static str> {
 /// Responsible: 0 · 1st pct" is not a liability). A zero with a STRONGLY negative z stays: that
 /// is a real absence (a starting QB with zero touchdowns is a finding, not an artifact).
 /// Returns the dropped labels for the exclusions ledger.
-fn drop_degenerate_zero_datapoints(p: &mut RatingProfile) -> Vec<String> {
+pub(crate) fn drop_degenerate_zero_datapoints(p: &mut RatingProfile) -> Vec<String> {
     let degenerate = |d: &RatingDatapoint| {
         d.pct.is_some() && d.value == Some(0.0) && signed_z(d).is_some_and(|z| z.abs() < 0.5)
     };
@@ -551,7 +388,7 @@ fn drop_degenerate_zero_datapoints(p: &mut RatingProfile) -> Vec<String> {
 /// carry offense/defense facets (NBA and FOOTBALL emit facet="all"), so this no-ops for every
 /// other sport, for teams, and for facet-less rows by construction. Returns the dropped
 /// breakdown labels for the exclusions ledger — the selection is provable, not silent.
-fn drop_off_facet_datapoints(p: &mut RatingProfile) -> Vec<String> {
+pub(crate) fn drop_off_facet_datapoints(p: &mut RatingProfile) -> Vec<String> {
     let Some(side) = nfl_position_side(&p.position) else {
         return Vec::new();
     };
@@ -572,7 +409,7 @@ fn drop_off_facet_datapoints(p: &mut RatingProfile) -> Vec<String> {
 
 /// Remove display-only datapoints (`!in_comp && !in_spec`) from the breakdown and rate modes.
 /// Return dropped labels for provenance.
-fn drop_display_tier_datapoints(p: &mut RatingProfile) -> Vec<String> {
+pub(crate) fn drop_display_tier_datapoints(p: &mut RatingProfile) -> Vec<String> {
     let display_tier = |d: &RatingDatapoint| !d.in_comp && !d.in_spec;
     let dropped: Vec<String> = p
         .breakdown
@@ -699,7 +536,7 @@ pub fn relative_direction(delta: f64) -> RelativeDirection {
     }
 }
 
-fn comparison_directions(
+pub(crate) fn comparison_directions(
     current: &RatingProfile,
     comparisons: Option<&BTreeMap<String, SkillChange>>,
 ) -> BTreeMap<String, RelativeDirection> {
@@ -717,7 +554,7 @@ fn comparison_directions(
         .collect()
 }
 
-fn measurement_bands(current: &RatingProfile) -> BTreeMap<String, String> {
+pub(crate) fn measurement_bands(current: &RatingProfile) -> BTreeMap<String, String> {
     current
         .breakdown
         .iter()
@@ -730,7 +567,7 @@ fn measurement_bands(current: &RatingProfile) -> BTreeMap<String, String> {
         .collect()
 }
 
-fn model_prompt_profile(
+pub(crate) fn model_prompt_profile(
     profile: &RatingProfile,
     supports_cross_season: bool,
     comparisons: Option<&BTreeMap<String, SkillChange>>,
@@ -938,38 +775,20 @@ const TRAJECTORY_WINDOW_PCT: f64 = 0.10;
 const TRAJECTORY_WINDOW_MIN: i64 = 3;
 const TRAJECTORY_WINDOW_MAX: i64 = 16;
 
-async fn load_rating_trajectory(
-    pool: &PgPool,
-    entity_type: &str,
-    entity_id: i32,
-    sport: &str,
-    profile: &RatingProfile,
-) -> Result<RatingTrajectory> {
-    let (table, id_col) = match entity_type {
-        "player" => ("event_box_scores", "player_id"),
-        "team" => ("event_team_stats", "team_id"),
-        _ => return Ok(RatingTrajectory::steady("unknown_entity_type")),
-    };
+pub(crate) fn trajectory_window_size(events_played: i64) -> i64 {
+    if events_played < TRAJECTORY_WINDOW_MIN {
+        0
+    } else {
+        ((events_played as f64 * TRAJECTORY_WINDOW_PCT).round() as i64)
+            .clamp(TRAJECTORY_WINDOW_MIN, TRAJECTORY_WINDOW_MAX)
+    }
+}
 
-    // Scale "recent" to the entity's number of scored events this season.
-    let count_q = format!(
-        r#"
-        SELECT COUNT(*)
-        FROM public.{table} e
-        WHERE e.{id_col} = $1 AND e.sport = $2 AND e.season = $3
-          AND e.rating IS NOT NULL
-        "#
-    );
-    let events_played: i64 = sqlx::query_scalar(&count_q)
-        .bind(entity_id)
-        .bind(sport)
-        .bind(profile.season)
-        .fetch_one(pool)
-        .await
-        .with_context(|| format!("count trajectory events {entity_type}/{entity_id}"))?;
-    let window_size = ((events_played as f64 * TRAJECTORY_WINDOW_PCT).round() as i64)
-        .clamp(TRAJECTORY_WINDOW_MIN, TRAJECTORY_WINDOW_MAX);
-
+/// Build the recent-form material from newest-first event ratings loaded by the application.
+pub(crate) fn rating_trajectory_from_events(
+    events_played: i64,
+    composite_desc: Vec<f64>,
+) -> RatingTrajectory {
     if events_played < TRAJECTORY_WINDOW_MIN {
         let mut out = RatingTrajectory::steady("sparse_recent_events");
         out.components = serde_json::json!({
@@ -979,31 +798,9 @@ async fn load_rating_trajectory(
             "source": "event_rating_z_scores",
             "metrics": ["rating"],
         });
-        return Ok(out);
+        return out;
     }
-
-    let q = format!(
-        r#"
-        SELECT e.rating::float8
-        FROM public.{table} e
-        JOIN public.fixtures f ON f.id = e.fixture_id
-        WHERE e.{id_col} = $1
-          AND e.sport = $2
-          AND e.season = $3
-          AND e.rating IS NOT NULL
-        ORDER BY f.start_time DESC
-        LIMIT $4
-        "#
-    );
-    let composite_desc: Vec<f64> = sqlx::query_scalar(&q)
-        .bind(entity_id)
-        .bind(sport)
-        .bind(profile.season)
-        .bind(window_size)
-        .fetch_all(pool)
-        .await
-        .with_context(|| format!("load rating trajectory {entity_type}/{entity_id}"))?;
-
+    let window_size = trajectory_window_size(events_played);
     if composite_desc.len() < TRAJECTORY_WINDOW_MIN as usize {
         let mut out = RatingTrajectory::steady("sparse_z_score_events");
         out.components = serde_json::json!({
@@ -1015,16 +812,14 @@ async fn load_rating_trajectory(
             "source": "event_rating_z_scores",
             "metrics": ["rating"],
         });
-        return Ok(out);
+        return out;
     }
-
     let mut composite_chrono = composite_desc.clone();
     composite_chrono.reverse();
     let composite_slope = linear_slope(&composite_chrono);
     let key = trajectory_key(composite_slope).to_string();
     let label = Some(z_trajectory_label(&key));
-
-    Ok(RatingTrajectory {
+    RatingTrajectory {
         key,
         label,
         components: serde_json::json!({
@@ -1038,7 +833,7 @@ async fn load_rating_trajectory(
             "latest_rating_z": composite_desc.first().copied().map(round1),
             "recent_rating_z": rounded_series(&composite_desc),
         }),
-    })
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1511,368 +1306,107 @@ fn clean_commentary(raw: &str) -> String {
 }
 
 // ---------------------------------------------------------------------------
-// The composition: build (deterministic) → generate (model) → persist.
+// Prepared assignment -> Studio creation.
 // ---------------------------------------------------------------------------
 
-/// RatingBuild is the deterministic prefix of a generation. `NoStats` ⇒ no usable rating row (no
-/// composite + empty breakdown) → a NULL-body marker with no model call.
+/// Application-prepared Scout work. No storage row, queue lease, or concrete model host enters
+/// this contract.
 pub enum RatingBuild {
     NoStats { season: i32 },
-    Ready(Box<RatingReady>),
+    Ready(Box<Assignment>),
 }
 
-/// Assembled model inputs and deterministic context required for persistence.
-pub struct RatingReady {
+pub struct Assignment {
+    pub subject: Subject,
     pub season: i32,
-    /// Complete selected package retained for audit and inspection.
-    pub memories: memories::Package,
-    /// Exact narrower package used to render and fingerprint this request.
-    pub model_memories: memories::Package,
     pub comparison_directions: BTreeMap<String, RelativeDirection>,
     pub measurement_bands: BTreeMap<String, String>,
     pub notability: i32,
     pub notability_components: serde_json::Value,
     pub rating_trajectory: RatingTrajectory,
-    pub input_components: String, // the canonical JSON (also the hash pre-image)
+    pub input_components: String,
     pub input_hash: String,
     pub exclusions: RatingExclusions,
     pub opts: GenerateOptions,
     pub built_prompt: String,
-    pub request_body: serde_json::Value,
-    pub model_configured: String,
 }
 
-/// Build the rating request without a model call. Live evaluation and production both use
-/// enrichment; the bare switch is retained for explicit diagnostic probes only.
-pub async fn build_rating_request(
-    hx: &Harness,
-    req: &RatingReq,
-    temperature: f64,
-    with_enrichment: bool,
-) -> Result<RatingBuild> {
-    let Some(mut profile) = load_rating_profile(
-        &hx.pool,
-        &req.entity_type,
-        req.entity_id,
-        &req.sport,
-        req.season,
-    )
-    .await?
-    else {
-        return Ok(RatingBuild::NoStats {
-            season: req.season.unwrap_or(0),
-        });
-    };
-    // Filter once before every downstream consumer so all derived fields share one signal view.
-    let off_facet_stat_labels = drop_off_facet_datapoints(&mut profile);
-    let degenerate_zero_stat_labels = drop_degenerate_zero_datapoints(&mut profile);
-    let display_tier_stat_labels = drop_display_tier_datapoints(&mut profile);
-    // No usable rating (no composite + empty breakdown) → the NULL-body marker path.
-    if profile.composite_score.is_none() && profile.breakdown.is_empty() {
-        return Ok(RatingBuild::NoStats {
-            season: profile.season,
-        });
-    }
-
-    let input_components = input_components(&profile);
-    let mut memory_request =
-        MemoryRequest::new(Mission::Scout, &req.entity_type, req.entity_id, &req.sport);
-    memory_request.season = Some(profile.season);
-    let memories = memories::load(&hx.pool, memory_request).await?;
-    let supports_cross_season = inputs::supports_cross_season_comparison(&profile);
-    let model_memories = if supports_cross_season {
-        memories.clone()
-    } else {
-        memories.current_snapshot_view()?
-    };
-    let input_components = model_memories.with_input_components(&input_components)?;
-    let (notability, notability_components) = compute_notability(&profile);
-    let exclusions = RatingExclusions {
-        budget_truncated_stat_labels: budget_truncated_stat_labels(&profile.breakdown),
-        off_facet_stat_labels,
-        degenerate_zero_stat_labels,
-        display_tier_stat_labels,
-    };
-    let rating_trajectory = load_rating_trajectory(
-        &hx.pool,
-        &req.entity_type,
-        req.entity_id,
-        &req.sport,
-        &profile,
-    )
-    .await?;
-    // Personnel and availability are sourced enrichment, included in the material hash.
-    // Load them independently so one failure cannot erase the other block.
-    let personnel = if with_enrichment && !memories.historical {
-        let (changes, total) =
-            match load_personnel_changes(&hx.pool, &req.sport, &req.entity_type, req.entity_id)
-                .await
-            {
-                Ok(loaded) => loaded,
-                Err(e) => {
-                    tracing::warn!(
-                        entity_type = %req.entity_type,
-                        entity_id = req.entity_id,
-                        sport = %req.sport,
-                        error = %e,
-                        "rating: personnel-change load failed (continuing without the block)"
-                    );
-                    (Vec::new(), 0)
-                }
-            };
-        let (avail, avail_total) =
-            match load_availability_changes(&hx.pool, &req.sport, &req.entity_type, req.entity_id)
-                .await
-            {
-                Ok(loaded) => loaded,
-                Err(e) => {
-                    tracing::warn!(
-                        entity_type = %req.entity_type,
-                        entity_id = req.entity_id,
-                        sport = %req.sport,
-                        error = %e,
-                        "rating: availability load failed (continuing without those lines)"
-                    );
-                    (Vec::new(), 0)
-                }
-            };
-        inputs::render_personnel_block(
-            &req.entity_type,
-            req.entity_id,
-            &changes,
-            total,
-            &avail,
-            avail_total,
-        )
-    } else {
-        None
-    };
-    // The Editor's TAGGED reports — claims, not record. Same enrichment discipline as everything
-    // else here: sourced enrichment, included in the material hash.
-    let current_reports = if with_enrichment && !memories.historical {
-        match load_scout_reports(&hx.pool, &req.entity_type, req.entity_id, &req.sport).await {
-            Ok(claims) => inputs::render_scout_reports(&claims),
-            Err(e) => {
-                tracing::warn!(
-                    entity_type = %req.entity_type,
-                    entity_id = req.entity_id,
-                    sport = %req.sport,
-                    error = %e,
-                    "rating: current-report load failed (continuing without the block)"
-                );
-                None
-            }
-        }
-    } else {
-        None
-    };
-    // Season-over-season movement is decided in code and added as prompt-only enrichment.
-    let comparisons = if with_enrichment && supports_cross_season {
-        match load_rating_profile(
-            &hx.pool,
-            &req.entity_type,
-            req.entity_id,
-            &req.sport,
-            Some(profile.season - 1),
-        )
-        .await
-        {
-            Ok(Some(mut prior)) => {
-                // The same signal-only view the current profile gets: off-facet, degenerate-zero,
-                // and display-tier datapoints never enter a movement comparison.
-                let _ = drop_off_facet_datapoints(&mut prior);
-                let _ = drop_degenerate_zero_datapoints(&mut prior);
-                let _ = drop_display_tier_datapoints(&mut prior);
-                Some(build_skill_changes(&profile, &prior))
-            }
-            Ok(None) => None,
-            Err(e) => {
-                tracing::warn!(
-                    entity_type = %req.entity_type,
-                    entity_id = req.entity_id,
-                    sport = %req.sport,
-                    error = %e,
-                    "rating: prior-season profile load failed (continuing without movement lines)"
-                );
-                None
-            }
-        }
-    } else {
-        None
-    };
-    let comparison_directions = comparison_directions(&profile, comparisons.as_ref());
-    let prompt_profile =
-        model_prompt_profile(&profile, supports_cross_season, comparisons.as_ref());
-    let measurement_bands = measurement_bands(&prompt_profile);
-    // The recent-form marker rides the same enrichment flag: shading context in production,
-    // absent only on explicit bare diagnostic probes.
-    let form_trend = if with_enrichment {
-        rating_trajectory.label.as_ref().map(|label| {
-            format!(
-                "{label}; {} scored events",
-                rating_trajectory.components["sample_size"]
-            )
-        })
-    } else {
-        None
-    };
-    let identity = Some(model_memories.render_for_model()?);
-    let mut components: serde_json::Value = serde_json::from_str(&input_components)?;
-    components["skill_changes"] = serde_json::json!(comparisons);
-    components["personnel"] = serde_json::json!(personnel);
-    components["current_reports"] = serde_json::json!(current_reports);
-    components["recent_form"] = serde_json::json!(form_trend);
-    let input_components = components.to_string();
-    let input_hash = hash_components(&input_components);
-    let built_prompt = build_stat_prompt(
-        req,
-        &prompt_profile,
-        personnel.as_deref(),
-        comparisons.as_ref(),
-        form_trend.as_deref(),
-        current_reports.as_deref(),
-        identity.as_deref(),
-    );
-    let opts = GenerateOptions {
-        system: Some(RATING_SYSTEM_PROMPT.to_string()),
-        temperature: Some(temperature),
-        num_predict: RATING_NUM_PREDICT,
-        num_ctx: hx.voice_num_ctx,
-        json_mode: false,
-        format_schema: Some(crate::composition::form::card_schema(false)),
-        format_schema_raw: None,
-    };
-    let backend = hx.router.for_role(Role::StatsLogic);
-    let request_body = backend.request_body(&built_prompt, &opts);
-    let model_configured = backend.model().to_string();
-
-    Ok(RatingBuild::Ready(Box::new(RatingReady {
-        season: profile.season,
-        memories,
-        model_memories,
-        comparison_directions,
-        measurement_bands,
-        notability,
-        notability_components,
-        rating_trajectory,
-        input_components,
-        input_hash,
-        exclusions,
-        opts,
-        built_prompt,
-        request_body,
-        model_configured,
-    })))
-}
-
-/// The un-persisted result of one generation. The production handler persists it to
-/// `stat_summaries`, and the ledger records the prompt/request/evidence envelope.
+/// The un-persisted result of one Scout creation.
 #[derive(Clone, Debug)]
 pub struct RatingProduct {
     pub season: i32,
     pub skipped_no_stats: bool,
     pub skipped_unchanged: bool,
-    pub body: Option<String>, // None for a marker
-    /// The card title (s20). `None` for a marker and when the reply omitted the line.
+    pub body: Option<String>,
     pub headline: Option<String>,
     pub notability: Option<i32>,
     pub notability_components: serde_json::Value,
     pub rating_trajectory: Option<String>,
     pub rating_trajectory_label: Option<String>,
     pub rating_trajectory_components: serde_json::Value,
-    pub input_components: String, // "{}" for a marker
+    pub input_components: String,
     pub exclusions: RatingExclusions,
 }
 
 pub type RatingOutput = Generation<RatingProduct>;
 
-/// generate_rating runs the full per-entity generation (the analog of `RatingGenerator.Generate`,
-/// minus persistence): `build_rating_request` → (skip-unchanged debounce) → `extract(StatsLogic)` →
-/// parse → clean. The per-entity core the Step-3 batch bin loops over; also the parity `--vet` path.
-/// `skip_unchanged` short-circuits (no model call) when the entity-season's last commentary was built
-/// from the same rating snapshot (matching input_hash) — the nightly "work only on new data" gate.
-pub async fn generate_rating(
-    hx: &Harness,
-    req: &RatingReq,
-    temperature: f64,
-    skip_unchanged: bool,
-    with_enrichment: bool,
-) -> Result<RatingOutput> {
-    let ready = match build_rating_request(hx, req, temperature, with_enrichment).await? {
-        RatingBuild::NoStats { season } => {
-            // Keep configured-model provenance on the NULL-body marker.
-            let model = hx.router.for_role(Role::StatsLogic).model().to_string();
-            return Ok(Generation::uncalled(
-                RatingProduct {
-                    season,
-                    skipped_no_stats: true,
-                    skipped_unchanged: false,
-                    body: None,
-                    headline: None,
-                    notability: None,
-                    notability_components: serde_json::json!({}),
-                    rating_trajectory: None,
-                    rating_trajectory_label: None,
-                    rating_trajectory_components: serde_json::json!({}),
-                    input_components: "{}".to_string(),
-                    exclusions: RatingExclusions::default(),
-                },
-                model,
-                RATING_PROMPT_VERSION,
-                Vec::new(),
-                None,
-            ));
-        }
-        RatingBuild::Ready(r) => *r,
-    };
+/// A missing usable profile is a real uncalled product marker, not model abstention.
+pub fn no_stats(season: i32, configured_model: impl Into<String>) -> RatingOutput {
+    Generation::uncalled(
+        RatingProduct {
+            season,
+            skipped_no_stats: true,
+            skipped_unchanged: false,
+            body: None,
+            headline: None,
+            notability: None,
+            notability_components: serde_json::json!({}),
+            rating_trajectory: None,
+            rating_trajectory_label: None,
+            rating_trajectory_components: serde_json::json!({}),
+            input_components: "{}".to_string(),
+            exclusions: RatingExclusions::default(),
+        },
+        configured_model.into(),
+        RATING_PROMPT_VERSION,
+        Vec::new(),
+        None,
+    )
+}
 
-    if skip_unchanged {
-        if let Some(last_hash) = last_commentary_input_hash(
-            hx,
-            &req.entity_type,
-            req.entity_id,
-            &req.sport,
-            ready.season,
-        )
-        .await?
-        {
-            if last_hash == ready.input_hash {
-                return Ok(Generation::uncalled(
-                    RatingProduct {
-                        season: ready.season,
-                        skipped_no_stats: false,
-                        skipped_unchanged: true,
-                        body: None,
-                        headline: None,
-                        notability: None,
-                        notability_components: serde_json::json!({}),
-                        rating_trajectory: Some(ready.rating_trajectory.key.clone()),
-                        rating_trajectory_label: ready.rating_trajectory.label.clone(),
-                        rating_trajectory_components: ready.rating_trajectory.components.clone(),
-                        input_components: ready.input_components,
-                        exclusions: ready.exclusions,
-                    },
-                    ready.model_configured,
-                    RATING_PROMPT_VERSION,
-                    Vec::new(),
-                    Some(ready.input_hash),
-                ));
-            }
-        }
-    }
+/// An unchanged prepared assignment completes without a call or new product row.
+pub fn unchanged(assignment: Assignment, configured_model: impl Into<String>) -> RatingOutput {
+    Generation::uncalled(
+        RatingProduct {
+            season: assignment.season,
+            skipped_no_stats: false,
+            skipped_unchanged: true,
+            body: None,
+            headline: None,
+            notability: None,
+            notability_components: serde_json::json!({}),
+            rating_trajectory: Some(assignment.rating_trajectory.key),
+            rating_trajectory_label: assignment.rating_trajectory.label,
+            rating_trajectory_components: assignment.rating_trajectory.components,
+            input_components: assignment.input_components,
+            exclusions: assignment.exclusions,
+        },
+        configured_model.into(),
+        RATING_PROMPT_VERSION,
+        Vec::new(),
+        Some(assignment.input_hash),
+    )
+}
 
+/// Create the Scout card from material prepared by the application.
+pub async fn create(studio: &Studio<'_>, assignment: Assignment) -> Result<RatingOutput> {
     let grounded_parser = RatingRequestParser::new(
-        &ready.built_prompt,
-        &ready.comparison_directions,
-        &ready.measurement_bands,
+        &assignment.built_prompt,
+        &assignment.comparison_directions,
+        &assignment.measurement_bands,
     );
-    let extracted = hx
-        .extract(
-            Role::StatsLogic,
-            &ready.built_prompt,
-            &ready.opts,
-            &grounded_parser,
-        )
+    let extracted = studio
+        .extract(&assignment.built_prompt, &assignment.opts, &grounded_parser)
         .await?;
     let call = GenerationCall::from(&extracted);
     let model = extracted.model.clone();
@@ -1882,75 +1416,47 @@ pub async fn generate_rating(
     if reply.body.is_empty() {
         bail!(
             "rating: empty commentary ({}/{} {})",
-            req.entity_type,
-            req.entity_id,
-            req.sport
+            assignment.subject.entity_type,
+            assignment.subject.entity_name,
+            assignment.subject.sport
         );
     }
-    // The hook doctrine's naming rule as a floor, at the one site that knows the entity
-    // (the parser is stateless by design). Measured 2026-08-26: 55% of live team headlines
-    // named an invented club — the worked example copied verbatim ("Harborview…") or
-    // remixed ("Rovers…") onto real clubs' cards. Integrity, not style: degrade to no
-    // title, the same state an absent HEADLINE line already ships, never a retry — the
-    // report under it is fine.
-    let headline = reply.headline.filter(|t| {
-        let named = crate::composition::guards::title_names_entity(t, &req.entity_name);
+    let headline = reply.headline.filter(|title| {
+        let named =
+            crate::studio::guards::title_names_entity(title, &assignment.subject.entity_name);
         if !named {
-            tracing::warn!(seat = "scout", guard = "title_entity_absent",
-                entity = %req.entity_name, title = %t,
-                "headline names no form of the entity; dropped");
+            tracing::warn!(
+                seat = "scout",
+                guard = "title_entity_absent",
+                entity = %assignment.subject.entity_name,
+                title,
+                "headline names no form of the entity; dropped"
+            );
         }
         named
     });
 
     Ok(Generation::called(
         RatingProduct {
-            season: ready.season,
+            season: assignment.season,
             skipped_no_stats: false,
             skipped_unchanged: false,
             body: Some(reply.body),
             headline,
-            notability: Some(ready.notability),
-            notability_components: ready.notability_components,
-            rating_trajectory: Some(ready.rating_trajectory.key),
-            rating_trajectory_label: ready.rating_trajectory.label,
-            rating_trajectory_components: ready.rating_trajectory.components,
-            input_components: ready.input_components,
-            exclusions: ready.exclusions,
+            notability: Some(assignment.notability),
+            notability_components: assignment.notability_components,
+            rating_trajectory: Some(assignment.rating_trajectory.key),
+            rating_trajectory_label: assignment.rating_trajectory.label,
+            rating_trajectory_components: assignment.rating_trajectory.components,
+            input_components: assignment.input_components,
+            exclusions: assignment.exclusions,
         },
         model,
         RATING_PROMPT_VERSION,
         Vec::new(),
-        Some(ready.input_hash),
+        Some(assignment.input_hash),
         call,
     ))
-}
-
-/// Return the input hash from the entity-season's latest commentary. Take
-/// the latest row regardless of nullability; a no-stats marker has a NULL input_hash → None →
-/// the next run never wrongly skips against an older real commentary the marker superseded.
-async fn last_commentary_input_hash(
-    hx: &Harness,
-    entity_type: &str,
-    entity_id: i32,
-    sport: &str,
-    season: i32,
-) -> Result<Option<String>> {
-    let row: Option<(Option<String>,)> = sqlx::query_as(
-        r#"
-        SELECT input_hash FROM stat_summaries
-        WHERE entity_type = $1 AND entity_id = $2 AND sport = $3 AND season = $4
-        ORDER BY generated_at DESC LIMIT 1
-        "#,
-    )
-    .bind(entity_type)
-    .bind(entity_id)
-    .bind(sport)
-    .bind(season)
-    .fetch_optional(&hx.pool)
-    .await
-    .with_context(|| format!("last commentary provenance {entity_type}/{entity_id}"))?;
-    Ok(row.and_then(|(hash,)| hash.filter(|h| !h.is_empty())))
 }
 
 #[cfg(test)]

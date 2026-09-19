@@ -12,7 +12,7 @@ The Analyst is the first migrated character, based on the user’s committed `ea
 
 The Influencer is also migrated. `src/studio/influencer/` owns its `v32` brief, prompt builder, parser, prepared assignment, marker/product creation, and injected publication. `src/application/influencer.rs` owns retrieval, memory rendering/fingerprints, early debounce, and claim-aware Postgres publication. `src/application/outbox.rs` durably retries the post-publication Momentum offer and Oracle barrier. Its former junction directory and composition brief are removed; production, standalone generation, eval, and fixture tools import the authoritative owners directly.
 
-Scout has a bounded application extraction rather than a completed Studio migration. `src/application/scout.rs` owns durable queue fingerprints, transfer/availability rerun triggers, standalone and queue persistence, the diagnostic ledger adapter, exact-claim completion, and required follow-up intent. Its established statistical evidence and creation core remains in `junctions/scout`; prompts, measurement guards, sourced-memory fingerprints, evaluation behavior, and output contracts are unchanged.
+Scout is fully migrated. `src/studio/scout/` owns its brief, prepared `Subject`/`Assignment`, measurement shaping, prompt, parser/guards, no-stats and unchanged outcomes, deterministic product assembly, and model session. It imports no concrete database, queue, application, or model-host adapter. `src/application/scout.rs` owns the durable entity request, PostgreSQL evidence and memory preparation, model selection, debounce, triggers, standalone/queue persistence, exact-claim completion, and ledger diagnostics. Production, batch, eval, fixture, and inspection callers use those owners; the Scout junction and duplicate composition brief are removed.
 
 Shared model and generation contracts now live in Studio. `runtime/harness.rs` re-exports them and delegates extraction for unmigrated characters. That database-bearing context will retire as their adapters move; Studio is not a wrapper around a permanent older harness.
 
@@ -42,7 +42,7 @@ Add capabilities only for actual assignments. A character that needs retrieval d
 
 ## Character expression
 
-[`src/studio/form.rs`](src/studio/form.rs) owns shared form and parser-compatible output contracts. `composition::form` and `composition::guards` are compatibility exports. Character briefs own voice and judgment; junction `inputs.rs` files supply evidence. The Analyst and Influencer briefs have moved into Studio; `composition::characters::analyst` re-exports it. Influencer has no compatibility brief. Other briefs remain in `composition/characters/`, with their handlers in `junctions/`. Memory loading and rendering remain in `composition/memories`.
+[`src/studio/form.rs`](src/studio/form.rs) owns shared form and parser-compatible output contracts. `composition::form` and `composition::guards` are compatibility exports. Migrated character briefs live beside their Studio creation code; Analyst retains a temporary composition re-export, while Influencer and Scout have no duplicate brief. Other briefs remain in `composition/characters/` until their vertical migrations. Memory loading and rendering remain in `composition/memories`.
 
 Form is the canvas, character is the brush, and memories are the paint. The model
 creates the reading. All six writer paths now load shared memories before their
@@ -96,8 +96,8 @@ follows the evidence.
 | `src/studio/mod.rs`, `src/studio/session.rs` | Model session, bounded correction, injected publication, and outcome. |
 | `src/studio/model.rs` | Model interface, call options/results, provider-independent incomplete-output signal. |
 | `src/studio/generation.rs` | Typed products, parser interface, provenance, call diagnostics. |
-| `src/studio/analyst/`, `src/studio/influencer/` | Character creation and service-free tests. |
-| `src/application/analyst.rs`, `src/application/influencer.rs`, `src/application/scout.rs` | Analyst, Influencer, and Scout lifecycle policy, work coordination, and claim-aware publication. |
+| `src/studio/analyst/`, `src/studio/influencer/`, `src/studio/scout/` | Character creation and service-free tests. |
+| `src/application/analyst.rs`, `src/application/influencer.rs`, `src/application/scout.rs` | Concrete preparation, routing, lifecycle policy, work coordination, and claim-aware publication. |
 | `src/studio/form.rs`, `src/studio/guards.rs` | Shared character form, output contracts, and mechanical guards. |
 | `src/composition/` | Existing sourced-memory packages and character briefs awaiting migration. |
 | `src/junctions/` | Other characters and transitional application adapters. |
@@ -146,4 +146,4 @@ Use [`../scripts/hosting/release.sh`](../scripts/hosting/release.sh) and the [ru
 
 Plans and progress live in `../../scoracle-wiki/progress_docs/scoracle-backend/`. The [modernization plan](../../scoracle-wiki/progress_docs/scoracle-backend/2026-09-19_backend-modernization-plan.md) records the remaining character migration, queue ownership, DuckDB, richer-study, and retirement gates.
 
-Current local acceptance: 487 ordinary Rust library tests pass with 14 isolated-database cases ignored; all 14 pass against disposable PostgreSQL 17.11 with migrations 256–259 recorded. Scout adds service-free product/debounce/failure ordering and exact revision, reclaim, product, marker, and debounce publication cases. All targets compile, Clippy passes with warnings denied, and the Go suite plus `go vet` pass. Existing Influencer frozen prompt/hash cases and historical quality fixtures remain unchanged. These checks do not establish live deployment or model-quality acceptance.
+Current local acceptance: 490 ordinary Rust library tests pass with 14 isolated-database cases ignored; all 14 pass against a fresh disposable PostgreSQL 17 database loaded from the current schema with migrations through 259 recorded. Scout adds service-free prepared-creation, explicit uncalled outcomes, and model-failure tests while retaining exact revision, reclaim, product, marker, and debounce publication cases. All targets compile, Clippy passes with warnings denied, and the Go suite plus `go vet` pass. Existing prompt/evaluation contracts remain unchanged. These checks do not establish live deployment or model-quality acceptance.

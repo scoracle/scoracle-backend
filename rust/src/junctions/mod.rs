@@ -9,6 +9,5 @@ pub mod insider;
 pub mod investigator;
 pub mod journalist;
 pub mod oracle;
-pub mod scout;
 
 pub use crate::composition::form::{CLAIM_SELECTION, STORY_FORM, WIRE_COPY};

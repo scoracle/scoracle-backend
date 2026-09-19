@@ -60,7 +60,7 @@ fn main() -> Result<()> {
             let opts = GenerateOptions {
                 system: Some(composed.system),
                 temperature: Some(0.6),
-                num_predict: scoracle_cognition::junctions::scout::RATING_NUM_PREDICT,
+                num_predict: scoracle_cognition::studio::scout::RATING_NUM_PREDICT,
                 num_ctx: resolve_voice_num_ctx(std::env::var("VOICE_NUM_CTX").ok().as_deref()),
                 json_mode: false,
                 format_schema: Some(form::card_schema(false)),
@@ -84,8 +84,8 @@ fn main() -> Result<()> {
 }
 
 fn review(path: &str) -> Result<()> {
-    use scoracle_cognition::junctions::scout::RatingParser;
     use scoracle_cognition::runtime::harness::Parser;
+    use scoracle_cognition::studio::scout::RatingParser;
     let mut results = Vec::new();
     for line in std::fs::read_to_string(path)?.lines() {
         let run: Value = serde_json::from_str(line)?;

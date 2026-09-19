@@ -22,7 +22,7 @@ pub struct CardPrompt {
 
 pub fn compose_card(memories: &Package, new_evidence: &str) -> Result<CardPrompt> {
     let system = match memories.mission {
-        Mission::Scout => &characters::scout::RATING_SYSTEM_PROMPT,
+        Mission::Scout => &crate::studio::scout::RATING_SYSTEM_PROMPT,
         Mission::Analyst => &characters::analyst::MOMENTUM_SYSTEM_PROMPT,
         Mission::Journalist => &characters::journalist::NARRATIVES_SYSTEM_PROMPT,
         Mission::Influencer => &crate::studio::influencer::VIBE_SYSTEM_PROMPT,

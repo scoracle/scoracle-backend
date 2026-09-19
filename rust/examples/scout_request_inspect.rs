@@ -1,7 +1,7 @@
 //! Run one complete production-built Scout request without persistence.
 //!
 //! The tool reads the same database rows and route configuration as the live
-//! junction, calls the configured provider once, and emits an audit artifact to
+//! application adapter, calls the configured provider once, and emits an audit artifact to
 //! stdout. It never checks debounce state, writes a product, or touches queue work.
 //!
 //! DATABASE_PRIVATE_URL=... cargo run --example scout_request_inspect -- \
@@ -9,16 +9,15 @@
 
 use anyhow::{ensure, Context, Result};
 use scoracle_cognition::{
+    application::scout::{build_rating_request, RatingReq},
     evidence::corpus::lookup_entity_name,
-    junctions::scout::{
-        build_rating_request, RatingBuild, RatingReq, RatingRequestParser, RATING_TEMPERATURE,
-    },
     runtime::{
         config::Config,
         db,
         harness::{Harness, Parser},
         route::{Role, Router},
     },
+    studio::scout::{RatingBuild, RatingRequestParser, RATING_TEMPERATURE},
 };
 use serde_json::json;
 use std::time::Duration;
@@ -80,10 +79,6 @@ async fn main() -> Result<()> {
         Err(error) => (false, Some(error.to_string())),
     };
     let input_components: serde_json::Value = serde_json::from_str(&ready.input_components)?;
-    let audit_rendered_memory = ready.memories.render()?;
-    let model_rendered_memory = ready.model_memories.render_for_model()?;
-    let memory_fingerprint = ready.model_memories.fingerprint()?;
-
     println!(
         "{}",
         serde_json::to_string_pretty(&json!({
@@ -94,15 +89,6 @@ async fn main() -> Result<()> {
                 "sport": req.sport,
                 "season": ready.season,
             },
-            "memory": {
-                "fingerprint": memory_fingerprint,
-                "audit_rendered_bytes": audit_rendered_memory.len(),
-                "audit_rendered": audit_rendered_memory,
-                "model_rendered_bytes": model_rendered_memory.len(),
-                "model_rendered": model_rendered_memory,
-                "model_package": ready.model_memories,
-                "package": ready.memories,
-            },
             "input": {
                 "fingerprint": ready.input_hash,
                 "components": input_components,
@@ -110,11 +96,10 @@ async fn main() -> Result<()> {
                 "user": ready.built_prompt,
             },
             "provider_request": {
-                "model": ready.model_configured,
+                "model": backend.model(),
                 "temperature": ready.opts.temperature,
                 "num_ctx": ready.opts.num_ctx,
                 "num_predict": ready.opts.num_predict,
-                "body_matches_builder": sent_request == ready.request_body,
                 "body": sent_request,
             },
             "provider_response": {

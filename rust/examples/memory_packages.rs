@@ -259,7 +259,7 @@ mod tests {
         let composed = scoracle_cognition::composition::compose_card(&p, evidence).unwrap();
         assert_eq!(
             composed.system,
-            scoracle_cognition::junctions::scout::RATING_SYSTEM_PROMPT.as_str()
+            scoracle_cognition::studio::scout::RATING_SYSTEM_PROMPT.as_str()
         );
         assert_eq!(composed.prompt.matches(evidence).count(), 1);
         assert!(composed.prompt.contains("Historical performance baseline:"));

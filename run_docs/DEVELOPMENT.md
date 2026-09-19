@@ -14,7 +14,7 @@ Repo-local implementation guidance for `scoracle-backend`. Start with `README.md
 
 ## Dependency and migration boundaries
 
-A Studio character consumes values describing its assignment, not rows or another character's storage representation. For the first migrated character, see `studio/analyst::{Assignment, Form, Mood, Snapshot}`. Its production preparation, current pillar adaptation, and publication live in `application/analyst.rs`; eval and fixtures import the authoritative Studio contract plus that explicit adapter. Influencer creation lives in `studio/influencer`; its concrete IO and debounce/follow-up policy live in `application/influencer.rs`. Neither has a compatibility junction. Scout is only partially extracted: `application/scout.rs` owns queue/work and publication effects, while its evidence and creation core remains transitional in `junctions/scout`. `runtime/harness.rs` is a transitional application context, not a second permanent harness.
+A Studio character consumes values describing its assignment, not rows or another character's storage representation. Analyst, Influencer, and Scout creation live in `studio/`; their production preparation and publication live in explicit `application/` adapters. Scout's Studio API deliberately separates its durable `RatingReq` application key from the character's `Subject` and prepared `Assignment`. None has a compatibility junction. `runtime/harness.rs` is a transitional application context for unmigrated seats, not a second permanent harness.
 
 Inject narrow capabilities only when a real assignment requires them. Keep prompt construction, parsing, and product assembly testable with a fake model and fake publisher. `Generation<T>` carries provenance through the boundary. Errors must reach the application; adapters own the durability guarantees behind `Publisher<T>`.
 
@@ -157,6 +157,6 @@ go test ./...
 - `go/internal/db/db.go` - prepared statements.
 - `rust/src/studio/` - Studio, the in-house harness and migrated character creation.
 - `rust/src/application/` - explicit evidence, persistence, and work-coordination adapters.
-- `rust/src/junctions/` - seven remaining character seats and transitional adapters.
+- `rust/src/junctions/` - six remaining model-facing seats and transitional adapters.
 - `rust/src/runtime/work.rs`, `rust/src/runtime/worker.rs` - current durable queue runtime.
 - `sql/` - schema, migrations, functions, views, and snapshots.

@@ -4,8 +4,8 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use scoracle_cognition::junctions::scout::{
-    build_stat_prompt, RatingDatapoint, RatingProfile, RatingReq, RATING_PROMPT_VERSION,
+use scoracle_cognition::studio::scout::{
+    build_stat_prompt, RatingDatapoint, RatingProfile, Subject, RATING_PROMPT_VERSION,
     RATING_SYSTEM_PROMPT,
 };
 use serde_json::json;
@@ -208,16 +208,13 @@ fn main() -> anyhow::Result<()> {
             scoped_ranks: HashMap::new(),
             rate_modes: s.rate_modes,
         };
-        let req = RatingReq {
+        let subject = Subject {
             entity_type: s.entity_type.to_string(),
-            entity_id: 0,
             entity_name: s.entity.to_string(),
             sport: s.sport.to_string(),
-            season: Some(2025),
-            trigger_type: "eval".to_string(),
         };
         // Historical fixture generator: explicit bare inputs, not a live editorial evaluation.
-        let prompt = build_stat_prompt(&req, &profile, None, None, None, None, None);
+        let prompt = build_stat_prompt(&subject, &profile, None, None, None, None, None);
         let v = json!({
             "name": s.name,
             "task": "rating",

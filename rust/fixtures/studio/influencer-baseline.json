@@ -1,0 +1,114 @@
+{
+  "cases": [
+    {
+      "components": "{\"memories\":\"758a11477a4bd945beeabcad14d9d402fbf1a0d0d52fb27ba9749e2c238f08ed\",\"packets\":[],\"prompt_version\":\"v32\"}",
+      "hash": "3303436b80e299f1101fad7471e1a073",
+      "marker": true,
+      "name": "Morgan Rogers",
+      "packets": 0,
+      "previous": null,
+      "prompt_hash": "4ba53df2ba905eb8629df9102d7af499"
+    },
+    {
+      "components": "{\"memories\":\"758a11477a4bd945beeabcad14d9d402fbf1a0d0d52fb27ba9749e2c238f08ed\",\"packets\":[9,22],\"prompt_version\":\"v32\"}",
+      "hash": "5b87ead2e12f9b506da60f61a2503a9f",
+      "marker": false,
+      "name": "Morgan Rogers",
+      "packets": 2,
+      "previous": null,
+      "prompt_hash": "f73f1fcfb9f9f31d2542da575f16e85a"
+    },
+    {
+      "components": "{\"memories\":\"758a11477a4bd945beeabcad14d9d402fbf1a0d0d52fb27ba9749e2c238f08ed\",\"packets\":[],\"prompt_version\":\"v32\"}",
+      "hash": "3303436b80e299f1101fad7471e1a073",
+      "marker": false,
+      "name": "Morgan Rogers",
+      "packets": 0,
+      "previous": 70,
+      "prompt_hash": "4ba53df2ba905eb8629df9102d7af499"
+    },
+    {
+      "components": "{\"memories\":\"758a11477a4bd945beeabcad14d9d402fbf1a0d0d52fb27ba9749e2c238f08ed\",\"packets\":[9,22],\"prompt_version\":\"v32\"}",
+      "hash": "5b87ead2e12f9b506da60f61a2503a9f",
+      "marker": false,
+      "name": "Morgan Rogers",
+      "packets": 2,
+      "previous": 70,
+      "prompt_hash": "f73f1fcfb9f9f31d2542da575f16e85a"
+    },
+    {
+      "components": "{\"memories\":\"4b3604d1892a59726a561c22c7f57e29716c7704fb706eb78e126e1c1606688d\",\"packets\":[],\"prompt_version\":\"v32\"}",
+      "hash": "094f4549739b2728545f56dbe38a3447",
+      "marker": true,
+      "name": "Andoni Iraola",
+      "packets": 0,
+      "previous": null,
+      "prompt_hash": "2b33130ba1f37194489fc064d4628369"
+    },
+    {
+      "components": "{\"memories\":\"4b3604d1892a59726a561c22c7f57e29716c7704fb706eb78e126e1c1606688d\",\"packets\":[9,22],\"prompt_version\":\"v32\"}",
+      "hash": "728a38ed9e2bf10a1f5b3d454c4f9d64",
+      "marker": false,
+      "name": "Andoni Iraola",
+      "packets": 2,
+      "previous": null,
+      "prompt_hash": "6365a5dc29f622d9440b1d6f0c3e04b8"
+    },
+    {
+      "components": "{\"memories\":\"4b3604d1892a59726a561c22c7f57e29716c7704fb706eb78e126e1c1606688d\",\"packets\":[],\"prompt_version\":\"v32\"}",
+      "hash": "094f4549739b2728545f56dbe38a3447",
+      "marker": false,
+      "name": "Andoni Iraola",
+      "packets": 0,
+      "previous": 70,
+      "prompt_hash": "2b33130ba1f37194489fc064d4628369"
+    },
+    {
+      "components": "{\"memories\":\"4b3604d1892a59726a561c22c7f57e29716c7704fb706eb78e126e1c1606688d\",\"packets\":[9,22],\"prompt_version\":\"v32\"}",
+      "hash": "728a38ed9e2bf10a1f5b3d454c4f9d64",
+      "marker": false,
+      "name": "Andoni Iraola",
+      "packets": 2,
+      "previous": 70,
+      "prompt_hash": "6365a5dc29f622d9440b1d6f0c3e04b8"
+    },
+    {
+      "components": "{\"memories\":\"1e9e7e614e260e28a6b7f7797f082631f601a02ce9f181fcc8eecad445d3b48a\",\"packets\":[],\"prompt_version\":\"v32\"}",
+      "hash": "17fc052808b8b60d9358ecfd7bc9b940",
+      "marker": true,
+      "name": "Detroit Lions",
+      "packets": 0,
+      "previous": null,
+      "prompt_hash": "78866daa763d65ccaaa3096286de1bff"
+    },
+    {
+      "components": "{\"memories\":\"1e9e7e614e260e28a6b7f7797f082631f601a02ce9f181fcc8eecad445d3b48a\",\"packets\":[9,22],\"prompt_version\":\"v32\"}",
+      "hash": "c784efa95772f5a921c20789b573b833",
+      "marker": false,
+      "name": "Detroit Lions",
+      "packets": 2,
+      "previous": null,
+      "prompt_hash": "961488ad7acb6bbb4a64c42c327bc58a"
+    },
+    {
+      "components": "{\"memories\":\"1e9e7e614e260e28a6b7f7797f082631f601a02ce9f181fcc8eecad445d3b48a\",\"packets\":[],\"prompt_version\":\"v32\"}",
+      "hash": "17fc052808b8b60d9358ecfd7bc9b940",
+      "marker": false,
+      "name": "Detroit Lions",
+      "packets": 0,
+      "previous": 70,
+      "prompt_hash": "78866daa763d65ccaaa3096286de1bff"
+    },
+    {
+      "components": "{\"memories\":\"1e9e7e614e260e28a6b7f7797f082631f601a02ce9f181fcc8eecad445d3b48a\",\"packets\":[9,22],\"prompt_version\":\"v32\"}",
+      "hash": "c784efa95772f5a921c20789b573b833",
+      "marker": false,
+      "name": "Detroit Lions",
+      "packets": 2,
+      "previous": 70,
+      "prompt_hash": "961488ad7acb6bbb4a64c42c327bc58a"
+    }
+  ],
+  "system": "You are The Influencer, reading the emotional charge of the stories surrounding this entity. Your voice is vivid, perceptive and responsive to feeling. The stories are the vehicle; your subject is the sentiment they carry, who expresses it, and its intensity.\n\nYou own the interpretation of emotional trajectory as well as the present mood. Use current reactions, language and attributed feelings alongside your supplied memories to understand what is warming, cooling, persisting or becoming divided. Distinguish a change in feeling from a new event that leaves the mood unchanged. Reporting tone belongs to its source; it does not establish a crowd's reaction. Quiet, indifference and mixed feelings are legitimate findings.\n\nYour score measures sentiment: one is grim, fifty neutral or mixed, one hundred euphoric. Intensity and direction are different: anger can be as strong as joy. Let current emotional evidence determine the score, with the previous reading providing context for the change.\n\nCard surface: hook ≤140 characters; body ≤1200, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.\n\nChoose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.\n\nConnect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main finding in present tense.\n\nReturn JSON with headline (the hook), body (the paragraphs) and score (an integer from 1 to 100). Preserve paragraph breaks as escaped newlines.",
+  "version": "v32"
+}

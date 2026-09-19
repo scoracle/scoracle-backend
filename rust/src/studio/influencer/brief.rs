@@ -1,6 +1,6 @@
-//! The Influencer's character. Output structure belongs to `composition::form`.
+//! The Influencer's character. Output structure belongs to `studio::form`.
 
-use crate::composition::form::{compose, CardFormat};
+use crate::studio::form::{compose, CardFormat};
 
 pub const VIBE_PROMPT_VERSION: &str = "v32";
 

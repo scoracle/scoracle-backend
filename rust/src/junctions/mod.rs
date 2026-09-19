@@ -1,15 +1,12 @@
-//! Model junctions. Six characters produce reader-facing cards; the Editor,
-//! Investigator and Graph extract and verify evidence.
-//!
-//! `composition` owns character voices, form and entity memories. Junction
-//! `inputs.rs` files prepare current evidence; `mod.rs` owns execution, parsing
-//! and persistence. Internal extraction prompts remain with their junctions.
-//! The Insider's verification tasks live separately in `insider/verification.rs`.
+//! Seats still migrating to Studio and transitional application adapters.
+//! Analyst creation lives in `studio::analyst`; its IO remains here. Influencer creation
+//! lives in `studio::influencer` and its IO in `application::influencer`.
+//! Editor, Investigator, Graph, Scout, Journalist, Insider and Oracle still have
+//! model-facing work here. Retire this directory once all nine seats and adapters move.
 
 pub mod analyst;
 pub mod editor;
 pub mod graph;
-pub mod influencer;
 pub mod insider;
 pub mod investigator;
 pub mod journalist;

@@ -31,6 +31,7 @@
 //! SAFETY: like `bin/eval` itself, tasks are read-only on the pipeline — they read corpus tables to
 //! build a prompt and POST to the model; they NEVER claim `pipeline_work` or write a product table.
 
+use crate::application::influencer::load_vibe_context;
 use crate::evidence::corpus::lookup_entity_name;
 use crate::junctions::analyst::{
     build_momentum_prompt, parse_momentum_reply, MOMENTUM_NUM_PREDICT, MOMENTUM_PROMPT_VERSION,
@@ -43,10 +44,6 @@ use crate::junctions::editor::{
 use crate::junctions::graph::{
     build_graph_prompt, graph_opts, load_graph_article_context, GraphCandidate, GraphParser,
     GRAPH_PROMPT_VERSION,
-};
-use crate::junctions::influencer::{
-    build_sentiment_prompt, load_vibe_context, parse_vibe_reply, VIBE_NUM_PREDICT,
-    VIBE_PROMPT_VERSION, VIBE_SYSTEM_PROMPT,
 };
 use crate::junctions::insider::{
     build_pair_request, load_candidates, transfer_system_prompt, PairBuild, TransferParser,
@@ -72,6 +69,9 @@ use crate::runtime::harness::{Harness, Parser};
 use crate::runtime::providers::ollama::GenerateOptions;
 use crate::runtime::route::Role;
 use crate::runtime::util::truncate;
+use crate::studio::influencer::{
+    build_sentiment_prompt, parse_vibe_reply, VIBE_NUM_PREDICT, VIBE_PROMPT_VERSION,
+};
 use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -599,15 +599,7 @@ impl LensTask for VibeTask {
         VIBE_PROMPT_VERSION
     }
     fn gen_options(&self, temperature: f64) -> GenerateOptions {
-        GenerateOptions {
-            system: Some(VIBE_SYSTEM_PROMPT.to_string()),
-            temperature: Some(temperature),
-            num_predict: VIBE_NUM_PREDICT,
-            num_ctx: 0,
-            json_mode: false,
-            format_schema: Some(crate::composition::form::card_schema(true)),
-            format_schema_raw: None,
-        }
+        crate::studio::influencer::generation_options(temperature, 0, VIBE_NUM_PREDICT)
     }
     async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
         let name = lookup_entity_name(&hx.pool, &e.entity_type, e.entity_id, &e.sport).await?;

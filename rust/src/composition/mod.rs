@@ -25,7 +25,7 @@ pub fn compose_card(memories: &Package, new_evidence: &str) -> Result<CardPrompt
         Mission::Scout => &characters::scout::RATING_SYSTEM_PROMPT,
         Mission::Analyst => &characters::analyst::MOMENTUM_SYSTEM_PROMPT,
         Mission::Journalist => &characters::journalist::NARRATIVES_SYSTEM_PROMPT,
-        Mission::Influencer => &characters::influencer::VIBE_SYSTEM_PROMPT,
+        Mission::Influencer => &crate::studio::influencer::VIBE_SYSTEM_PROMPT,
         Mission::Insider => &characters::insider::INSIDER_SCORE_SYSTEM_PROMPT,
         Mission::Oracle => &characters::oracle::ORACLE_SYSTEM_PROMPT,
         _ => anyhow::bail!("internal extraction missions use their junction's task contract"),

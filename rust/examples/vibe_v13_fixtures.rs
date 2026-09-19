@@ -29,7 +29,7 @@
 use std::path::Path;
 
 use scoracle_cognition::evaluation::tasks::{Expect, Fixture};
-use scoracle_cognition::junctions::influencer::{
+use scoracle_cognition::studio::influencer::{
     build_sentiment_prompt, VIBE_PROMPT_VERSION, VIBE_SYSTEM_PROMPT,
 };
 
@@ -67,7 +67,7 @@ fn fixture(
         .iter()
         .enumerate()
         .map(
-            |(i, n)| scoracle_cognition::junctions::influencer::PacketBlock {
+            |(i, n)| scoracle_cognition::studio::influencer::PacketBlock {
                 packet_id: i as i64 + 1,
                 text: format!("STORY: {}\nREPORTED:\n- {}\n", n.title, n.body),
             },

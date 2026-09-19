@@ -27,8 +27,8 @@ These are responsibilities, not a requirement for three services or repositories
 
 The architecture above is the migration direction. The checked-in implementation currently has these boundaries:
 
-- **Studio core and Analyst:** `rust/src/studio/` owns the model contract, generation/provenance types, shared character form, and the Analyst's complete creation session. An assignment can run through validation and an injected publisher without Postgres, DuckDB, or the queue.
-- **Application adapters:** `rust/src/junctions/analyst/` prepares evidence using existing Postgres loaders and publishes to `momentum_summaries` plus the existing best-effort ledger. `runtime/route.rs` selects/governs model transports. `runtime/worker.rs` and `runtime/work.rs` retain the current queue lifecycle.
+- **Studio core, Analyst, and Influencer:** `rust/src/studio/` owns the model contract, generation/provenance types, shared character form, and both characters' creation sessions. An assignment can run through validation and an injected publisher without Postgres, DuckDB, or the queue.
+- **Application adapters:** `rust/src/application/influencer.rs` owns Influencer retrieval, memory preparation, early debounce, publication, and Momentum handoff. `rust/src/junctions/analyst/` prepares evidence using existing Postgres loaders and publishes to `momentum_summaries` plus the existing best-effort ledger. `runtime/route.rs` selects/governs model transports. `runtime/worker.rs` and `runtime/work.rs` retain the current queue lifecycle.
 - **Other characters:** still use `junctions/` and the database-bearing `runtime/harness.rs` compatibility context. Shared extraction delegates to Studio. This context is migration scaffolding; it is not a second permanent harness.
 - **Analytics:** the incorporated `cleanup/character-prompts` work (`ea20950`, including `6ded51e`) supplies `go/internal/analytics/`, Postgres/DuckDB implementations for rating trajectories and bundles, the snapshot CLI, and cohort context consumed by memories. DuckDB currently attaches Postgres read-only; Postgres remains the default engine. Bounded snapshot/publication and production cutover gates remain. Reuse this engine and its parity tests rather than building a competing implementation.
 - **Durability:** claim fencing, desired-versus-running revisions, transactional publication/outbox, and packet fan-out migration remain work in the [approved plan](../scoracle-wiki/progress_docs/scoracle-backend/2026-09-19_backend-modernization-plan.md). The Studio extraction does not resolve those existing queue limitations.
@@ -37,7 +37,9 @@ Update this status as each boundary moves. Old pipeline descriptions in Git hist
 
 ## Creation and serving
 
-The application prepares the material a character needs. The Analyst currently receives form, mood, numeric movement, and prepared sourced memories. The Studio session builds its prompt, calls the selected model with the existing bounded correction policy, validates the read, and publishes through the application's adapter. An empty assignment finishes without a call or write. Invalid prose fails before publication. Direction and conviction remain deterministic measurements.
+The application prepares the material a character needs. The Analyst currently receives form, mood, numeric movement, and prepared sourced memories. The Studio session builds its prompt, calls the selected model with the existing bounded correction policy, validates the read, and publishes through the application's adapter. An empty Analyst assignment finishes without a call or write. Invalid prose fails before publication. Direction and conviction remain deterministic measurements.
+
+Influencer receives current packets and rendered sourced memory. Never-scored empty material publishes an uncalled NULL marker; empty material after a prior real score gets one closing quiet read. Unchanged material debounces before memory rendering and model generation, while still offering Momentum work. Latest-row/prior-memory disagreement preserves the existing buried-read exception.
 
 Other tasks have their own prerequisites. The Editor extracts evidence from articles; the Investigator verifies identities; the Scout interprets performance; the Journalist reports stories; the Influencer reads emotional charge; the Insider reads transfer developments; the Oracle creates a final reading from the supplied cards. These responsibilities do not imply that every task runs through every character.
 
@@ -58,6 +60,7 @@ The leaderboard owns discovery and hierarchy, including roster scope through `en
 | `go/` | API, acquisition wiring, maintenance, notifications, authentication, and prepared reads. |
 | `sql/` | Durable schema, migrations, current analytics, triggers, and serving projections. |
 | `rust/src/studio/` | In-house harness, character creation, shared form, and generation contracts. |
+| `rust/src/application/` | Explicit application adapters; Influencer evidence, publication, and follow-up coordination. |
 | `rust/src/junctions/` | Migrating characters and current application adapters. |
 | `rust/src/runtime/` | Model transports/routing, queue runtime, and transitional application context. |
 | `rust/src/composition/`, `rust/src/evidence/`, `rust/src/evaluation/` | Memory preparation, evidence adapters, character briefs awaiting migration, and evaluation. |
@@ -76,7 +79,7 @@ Current acquisition includes the Go RSS funnel and Rust evidence/identity/fixtur
 (cd rust && cargo build --bin scoracle-cognition --bin statcommentary)
 ```
 
-Studio's Analyst tests use fake model and publication adapters and require no service credentials. Model-quality evaluations and live database integration checks are separate gates. See [rust/README.md](rust/README.md).
+Studio's Analyst and Influencer tests use fake model, publication, and application follow-up adapters and require no service credentials. Model-quality evaluations and live database integration checks are separate gates. See [rust/README.md](rust/README.md).
 
 Local API startup:
 

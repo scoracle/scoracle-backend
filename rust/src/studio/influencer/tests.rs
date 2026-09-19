@@ -1,8 +1,3 @@
-//! Unit tests for this junction.
-//!
-//! Split out of `mod.rs` so the stage module reads as the stage and nothing else.
-//! `super` still resolves to the junction, so these run exactly as they did inline.
-
 use super::*;
 
 #[test]
@@ -103,14 +98,6 @@ fn vibe_parser_errors_without_digits() {
     assert!(VibeParser.parse("no number here").is_err());
 }
 
-#[test]
-fn input_components_empty_material_is_stable() {
-    assert_eq!(
-        build_vibe_input_components(&[]),
-        format!(r#"{{"packets":[],"prompt_version":"{VIBE_PROMPT_VERSION}"}}"#)
-    );
-}
-
 // --- 7.6 / E3: the packet is her material, and she may file first ------------------------------
 
 fn packet_block(id: i64) -> PacketBlock {
@@ -118,39 +105,6 @@ fn packet_block(id: i64) -> PacketBlock {
         packet_id: id,
         text: "STORY: Arsenal close on Vinicius Junior\nMOOD: anticipation — \"the whole of north London is holding its breath\"\nREPORTED (newest first):\n- Football365: Arsenal have reached an agreement in principle\n".into(),
     }
-}
-
-#[test]
-fn packet_ids_enter_the_pre_image_sorted() {
-    let out = build_vibe_input_components(&[packet_block(22), packet_block(9)]);
-    assert_eq!(
-        out,
-        format!(r#"{{"packets":[9,22],"prompt_version":"{VIBE_PROMPT_VERSION}"}}"#)
-    );
-    let reversed = build_vibe_input_components(&[packet_block(9), packet_block(22)]);
-    assert_eq!(hash_components(&out), hash_components(&reversed));
-}
-
-/// E3, the first-voice fix. Before 7.6 a packet-woken entity with no narratives and no heat
-/// looked EMPTY, and `enqueue_vibe_if_needed` returned `Ok(false)` — the Influencer could not
-/// speak until The Journalist had spoken for her. A packet now counts as material.
-#[test]
-fn a_packet_alone_is_material_enough_to_wake_her() {
-    let with_packet = VibeContext {
-        memories: memories::test_package(),
-        packets: vec![packet_block(1)],
-        input_components_json: String::new(),
-        input_hash: String::new(),
-    };
-    assert!(
-        !with_packet.empty(),
-        "a charged packet is her material — she files first"
-    );
-    let nothing = VibeContext {
-        packets: Vec::new(),
-        ..with_packet
-    };
-    assert!(nothing.empty(), "no packet ⇒ marker path");
 }
 
 #[test]

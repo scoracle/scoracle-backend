@@ -14,7 +14,7 @@ Repo-local implementation guidance for `scoracle-backend`. Start with `README.md
 
 ## Dependency and migration boundaries
 
-A Studio character consumes values describing its assignment, not rows or another character's storage representation. For the first migrated character, see `studio/analyst::{Assignment, Form, Mood, Snapshot}`. Its production preparation and publication live in `junctions/analyst`; compatibility exports let the existing eval system continue to work. `runtime/harness.rs` is a transitional application context, not a second permanent harness.
+A Studio character consumes values describing its assignment, not rows or another character's storage representation. For the first migrated character, see `studio/analyst::{Assignment, Form, Mood, Snapshot}`. Its production preparation and publication live in `junctions/analyst`; compatibility exports let the existing eval system continue to work. Influencer creation lives in `studio/influencer`; its concrete IO and debounce/follow-up policy live in `application/influencer.rs`, with no compatibility junction. `runtime/harness.rs` is a transitional application context, not a second permanent harness.
 
 Inject narrow capabilities only when a real assignment requires them. Keep prompt construction, parsing, and product assembly testable with a fake model and fake publisher. `Generation<T>` carries provenance through the boundary. Errors must reach the application; adapters own the durability guarantees behind `Publisher<T>`.
 
@@ -156,6 +156,7 @@ go test ./...
 - `go/internal/config/config.go` - environment resolution.
 - `go/internal/db/db.go` - prepared statements.
 - `rust/src/studio/` - Studio, the in-house harness and migrated character creation.
+- `rust/src/application/` - explicit evidence, persistence, and work-coordination adapters.
 - `rust/src/junctions/` - character migration and application adapters.
 - `rust/src/runtime/work.rs`, `rust/src/runtime/worker.rs` - current durable queue runtime.
 - `sql/` - schema, migrations, functions, views, and snapshots.

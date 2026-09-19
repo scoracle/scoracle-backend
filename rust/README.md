@@ -10,6 +10,8 @@ Read the [backend README](../README.md), [product narrative](../../scoracle-wiki
 
 The Analyst is the first migrated character, based on the user’s committed `ea20950` runtime/composition/evidence reorganization. `src/studio/analyst/` owns its prepared domain types, `momentum-s27` prompt, JSON parser, deterministic product fields, and creation/publication flow. The new memory material and fingerprint are retained. `src/junctions/analyst/` remains the production adapter: retrieve context, select a model, and publish the result to Postgres. Its old prompt entry point remains available to existing eval callers.
 
+The Influencer is also migrated. `src/studio/influencer/` owns its `v32` brief, prompt builder, parser, prepared assignment, marker/product creation, and injected publication. `src/application/influencer.rs` owns retrieval, memory rendering/fingerprints, early debounce, Postgres publication/ledger, and Momentum handoff. Its former junction directory and composition brief are removed; production, standalone generation, eval, and fixture tools import the authoritative owners directly.
+
 Shared model and generation contracts now live in Studio. `runtime/harness.rs` re-exports them and delegates extraction for unmigrated characters. That database-bearing context will retire as their adapters move; Studio is not a wrapper around a permanent older harness.
 
 The current worker, queue, SQL analytics, and product tables continue to operate. There is no new daemon, queue consumer, schema migration, DuckDB computation, or model assignment in the Studio slice. The incorporated baseline already includes the Go DuckDB analytics boundary and cohort memory context; it is preserved. Publication still uses the existing insert and best-effort ledger; atomic product/ledger/outbox and stale-claim fencing remain migration work.
@@ -29,6 +31,7 @@ application: retrieve evidence + select model + choose publisher
 - `Parser<T>` returns a validated value, explicit abstention, or an error. Each character defines what abstention means; never invent a successful product from missing evidence.
 - `Generation<T>` carries the product, provenance, and optional call diagnostics. It also represents deterministic products that did not need a call.
 - `Publisher<T>` is an injected publication capability. The adapter owns storage, idempotency, and durability. Its receipt is application-defined.
+- `influencer::create` returns either a called score or an uncalled NULL marker; `influencer::run` publishes either product. It never returns Analyst’s `NoMaterial`. The application skips unchanged material before rendering/calling, offers Momentum after skips and successful publication, and propagates failures. A prior real score permits one closing quiet read; the latest-row/prior-memory disagreement can bypass debounce.
 - `analyst::create` can produce a validated result without publishing it, useful for evaluation. `analyst::run` completes creation and publication.
 
 No database pool, queue item, router, or sibling character product is required by the Analyst core. Prepared `Form`, `Mood`, and `Snapshot` values carry only its evidence. Today's Postgres adapter maps older Oracle types to those values and supplies the existing sourced-memory rendering and fingerprint. Later analytical results can enter through the same preparation boundary.
@@ -37,7 +40,7 @@ Add capabilities only for actual assignments. A character that needs retrieval d
 
 ## Character expression
 
-[`src/studio/form.rs`](src/studio/form.rs) owns shared form and parser-compatible output contracts. `composition::form` and `composition::guards` are compatibility exports. Character briefs own voice and judgment; junction `inputs.rs` files supply evidence. The Analyst brief has moved into Studio; `composition::characters::analyst` re-exports it. Other briefs remain in `composition/characters/`, with their handlers in `junctions/`. Memory loading and rendering remain in `composition/memories`.
+[`src/studio/form.rs`](src/studio/form.rs) owns shared form and parser-compatible output contracts. `composition::form` and `composition::guards` are compatibility exports. Character briefs own voice and judgment; junction `inputs.rs` files supply evidence. The Analyst and Influencer briefs have moved into Studio; `composition::characters::analyst` re-exports it. Influencer has no compatibility brief. Other briefs remain in `composition/characters/`, with their handlers in `junctions/`. Memory loading and rendering remain in `composition/memories`.
 
 Form is the canvas, character is the brush, and memories are the paint. The model
 creates the reading. All six writer paths now load shared memories before their
@@ -91,7 +94,8 @@ follows the evidence.
 | `src/studio/mod.rs`, `src/studio/session.rs` | Model session, bounded correction, injected publication, and outcome. |
 | `src/studio/model.rs` | Model interface, call options/results, provider-independent incomplete-output signal. |
 | `src/studio/generation.rs` | Typed products, parser interface, provenance, call diagnostics. |
-| `src/studio/analyst/` | First complete character assignment and service-free tests. |
+| `src/studio/analyst/`, `src/studio/influencer/` | Character creation and service-free tests. |
+| `src/application/influencer.rs` | Influencer retrieval, memory preparation, debounce, publication, and Momentum coordination. |
 | `src/studio/form.rs`, `src/studio/guards.rs` | Shared character form, output contracts, and mechanical guards. |
 | `src/composition/` | Existing sourced-memory packages and character briefs awaiting migration. |
 | `src/junctions/` | Other characters and transitional application adapters. |
@@ -128,7 +132,7 @@ cargo build --bin scoracle-cognition --bin statcommentary
 
 These mechanical checks do not establish live model quality or database durability. Use the existing eval binary and fixtures for model/prompt changes. `eval --task momentum --fixtures --live-system` selects the current system prompt rather than the system text frozen in a fixture; it makes model calls and needs a configured backend. Measure a baseline before declaring a regression.
 
-The model route is independent of the character. `COGNITION_ROUTE_<ROLE>` selects the backend/model; per-host governors bound concurrency. `VOICE_NUM_CTX` resolves the shared voice window (default 4096); Analyst reserves 700 output tokens in either window, independent of the 1,200-character body and 140-character hook ceilings. Keep options consistent with the resident model's resource budget.
+The model route is independent of the character. `COGNITION_ROUTE_<ROLE>` selects the backend/model; per-host governors bound concurrency. `VOICE_NUM_CTX` resolves the shared voice window (default 4096); Analyst reserves 700 output tokens in either window, independent of the 1,200-character body and 140-character hook ceilings. Influencer keeps 700 tokens for windows up to 4096 and 800 for larger windows; eval retains its existing 800-token reservation with `num_ctx=0`. Keep options consistent with the resident model's resource budget.
 
 ## Runtime and operations
 
@@ -137,3 +141,5 @@ The existing executable remains `scoracle-cognition`; the existing service remai
 Use [`../scripts/hosting/release.sh`](../scripts/hosting/release.sh) and the [runbook](../run_docs/RUNBOOK.md) for release and rollback. `statcommentary`, `factsweep`, and eval retain their current roles. Offline probes must not claim live queue work unless explicitly designed to do so.
 
 Plans and progress live in `../../scoracle-wiki/progress_docs/scoracle-backend/`. The [modernization plan](../../scoracle-wiki/progress_docs/scoracle-backend/2026-09-19_backend-modernization-plan.md) records the remaining character migration, queue ownership, DuckDB, richer-study, and retirement gates.
+
+Influencer extraction acceptance: 480 library tests pass, including service-free marker/closing/debounce/buried lifecycles, failure ordering, bounded rewrites, and 12 prompt/hash cases captured from three frozen memory packages before extraction. See `fixtures/studio/README.md`; existing historical vibe quality fixtures retain their original prompts. These checks do not establish live database acceptance or atomic publication.

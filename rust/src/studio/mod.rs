@@ -5,6 +5,7 @@ pub mod analyst;
 pub mod form;
 mod generation;
 pub mod guards;
+pub mod influencer;
 pub mod model;
 mod session;
 

@@ -3,8 +3,8 @@
 //! [`studio`] creates validated products from prepared material through an injected model.
 //! [`runtime`] owns routing, transports, queue scheduling, and the transitional database
 //! context. [`composition`] prepares sourced memories and holds other character briefs;
-//! [`evidence`] retrieves shared material. The Analyst's creation has moved from
-//! [`junctions`] to Studio. Existing evaluation tooling remains in [`evaluation`].
+//! [`evidence`] retrieves shared material. Analyst and Influencer creation have moved from
+//! [`junctions`] to Studio; [`application`] owns the Influencer adapters. Existing evaluation tooling remains in [`evaluation`].
 //!
 //! The product model is **nine lenses, six of them accountable characters the seeker meets**:
 //!
@@ -25,8 +25,11 @@
 //! stale current projections without deleting history, and they still carry the configured
 //! model and prompt versions rather than `NULL` provenance.
 
-/// The nine model-calling seats, one directory each. See [`junctions`] for the roster.
+/// Remaining model-facing seats and transitional application adapters.
 pub mod junctions;
+
+/// Application adapters and cross-system coordination.
+pub mod application;
 
 /// Voice, form and entity memories composed into model inputs.
 pub mod composition;

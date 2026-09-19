@@ -538,3 +538,203 @@ fn packet_block(id: i64) -> PacketBlock {
         text: "STORY: Arsenal close on Vinicius Junior\nMOOD: anticipation — \"the whole of north London is holding its breath\"\nREPORTED (newest first):\n- Football365: Arsenal have reached an agreement in principle\n".into(),
     }
 }
+
+/// Exact publication-contract acceptance against an isolated database containing migrations 256
+/// and 257. Ordinary test runs compile but ignore these cases; opt in with TEST_DATABASE_URL.
+mod postgres_publication_fencing_tests {
+    use super::*;
+    use crate::runtime::work;
+    use sqlx::postgres::PgPoolOptions;
+    use sqlx::PgPool;
+
+    const SPORT: &str = "ZZ_VIBE_FENCE";
+    const ENTITY_ID: i64 = 9_200_001;
+
+    async fn pool() -> PgPool {
+        let url = std::env::var("TEST_DATABASE_URL").expect(
+            "set TEST_DATABASE_URL to an isolated database with migrations 256 and 257 applied",
+        );
+        PgPoolOptions::new()
+            .max_connections(3)
+            .connect(&url)
+            .await
+            .expect("connect TEST_DATABASE_URL")
+    }
+
+    async fn clean(pool: &PgPool) {
+        sqlx::query("DELETE FROM application_outbox WHERE sport = $1")
+            .bind(SPORT)
+            .execute(pool)
+            .await
+            .expect("clean outbox");
+        sqlx::query("DELETE FROM vibe_scores WHERE sport = $1")
+            .bind(SPORT)
+            .execute(pool)
+            .await
+            .expect("clean vibe products");
+        sqlx::query("DELETE FROM pipeline_work WHERE sport = $1")
+            .bind(SPORT)
+            .execute(pool)
+            .await
+            .expect("clean work");
+        sqlx::query("DELETE FROM momentum_refresh_needed WHERE sport = $1")
+            .bind(SPORT)
+            .execute(pool)
+            .await
+            .expect("clean refresh marker");
+        sqlx::query(
+            "INSERT INTO sports (id, display_name, current_season) VALUES ($1,$2,2026) \
+             ON CONFLICT (id) DO NOTHING",
+        )
+        .bind(SPORT)
+        .bind("Vibe fencing test")
+        .execute(pool)
+        .await
+        .expect("ensure test sport");
+    }
+
+    fn pending(revision: &str) -> Item {
+        Item {
+            stage: Stage::Vibe,
+            entity_type: "team".to_string(),
+            entity_id: ENTITY_ID,
+            sport: SPORT.to_string(),
+            input_version: Some(revision.to_string()),
+            attempts: 0,
+            claim_token: None,
+        }
+    }
+
+    async fn claim_one(pool: &PgPool) -> Item {
+        let mut claimed = work::claim(pool, Stage::Vibe, 1)
+            .await
+            .expect("claim vibe test row");
+        assert_eq!(claimed.len(), 1);
+        claimed.remove(0)
+    }
+
+    async fn marker() -> Prepared {
+        let adapters = Adapters::default();
+        let ctx = context(false, None);
+        prepare(&Studio::new(&adapters), &request(), &ctx, &(None, None))
+            .await
+            .expect("prepare marker")
+    }
+
+    async fn counts(pool: &PgPool) -> (i64, i64, i64) {
+        let products = sqlx::query_scalar("SELECT count(*) FROM vibe_scores WHERE sport = $1")
+            .bind(SPORT)
+            .fetch_one(pool)
+            .await
+            .unwrap();
+        let events = sqlx::query_scalar("SELECT count(*) FROM application_outbox WHERE sport = $1")
+            .bind(SPORT)
+            .fetch_one(pool)
+            .await
+            .unwrap();
+        let work = sqlx::query_scalar("SELECT count(*) FROM pipeline_work WHERE sport = $1")
+            .bind(SPORT)
+            .fetch_one(pool)
+            .await
+            .unwrap();
+        (products, events, work)
+    }
+
+    #[tokio::test]
+    #[ignore = "requires isolated migrated TEST_DATABASE_URL"]
+    async fn revision_arriving_during_execution_fences_publication() {
+        let pool = pool().await;
+        clean(&pool).await;
+
+        work::enqueue(&pool, &pending("v1")).await.unwrap();
+        let stale = claim_one(&pool).await;
+        work::enqueue(&pool, &pending("v2")).await.unwrap();
+
+        assert_eq!(
+            commit_claimed(&pool, &stale, SPORT, &marker().await)
+                .await
+                .unwrap(),
+            (HandleOutcome::Superseded, None)
+        );
+        assert_eq!(counts(&pool).await, (0, 0, 1));
+
+        let current = claim_one(&pool).await;
+        assert_eq!(current.input_version.as_deref(), Some("v2"));
+        let (outcome, row_id) = commit_claimed(&pool, &current, SPORT, &marker().await)
+            .await
+            .unwrap();
+        assert_eq!(outcome, HandleOutcome::Completed);
+        assert!(row_id.is_some());
+        assert_eq!(counts(&pool).await, (1, 1, 0));
+        let recorded_revision: Option<String> = sqlx::query_scalar(
+            "SELECT source_input_version FROM application_outbox WHERE sport = $1",
+        )
+        .bind(SPORT)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(recorded_revision.as_deref(), Some("v2"));
+
+        clean(&pool).await;
+    }
+
+    #[tokio::test]
+    #[ignore = "requires isolated migrated TEST_DATABASE_URL"]
+    async fn reclaimed_same_revision_fences_the_old_worker() {
+        let pool = pool().await;
+        clean(&pool).await;
+
+        work::enqueue(&pool, &pending("same")).await.unwrap();
+        let stale = claim_one(&pool).await;
+        sqlx::query(
+            "UPDATE pipeline_work SET updated_at = NOW() - INTERVAL '1 hour' WHERE sport = $1",
+        )
+        .bind(SPORT)
+        .execute(&pool)
+        .await
+        .unwrap();
+        assert_eq!(
+            work::requeue_stale(&pool, Duration::from_secs(30 * 60))
+                .await
+                .unwrap(),
+            1
+        );
+        let current = claim_one(&pool).await;
+        assert_ne!(stale.claim_token, current.claim_token);
+
+        assert_eq!(
+            commit_claimed(&pool, &stale, SPORT, &marker().await)
+                .await
+                .unwrap(),
+            (HandleOutcome::Superseded, None)
+        );
+        assert_eq!(counts(&pool).await, (0, 0, 1));
+        let (outcome, row_id) = commit_claimed(&pool, &current, SPORT, &marker().await)
+            .await
+            .unwrap();
+        assert_eq!(outcome, HandleOutcome::Completed);
+        assert!(row_id.is_some());
+        assert_eq!(counts(&pool).await, (1, 1, 0));
+
+        clean(&pool).await;
+    }
+
+    #[tokio::test]
+    #[ignore = "requires isolated migrated TEST_DATABASE_URL"]
+    async fn debounced_claim_commits_followup_without_a_product() {
+        let pool = pool().await;
+        clean(&pool).await;
+
+        work::enqueue(&pool, &pending("unchanged")).await.unwrap();
+        let current = claim_one(&pool).await;
+        assert_eq!(
+            commit_claimed(&pool, &current, SPORT, &Prepared::Debounced)
+                .await
+                .unwrap(),
+            (HandleOutcome::Completed, None)
+        );
+        assert_eq!(counts(&pool).await, (0, 1, 0));
+
+        clean(&pool).await;
+    }
+}

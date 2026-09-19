@@ -7,6 +7,16 @@ use crate::runtime::work::{Item, Stage};
 use anyhow::Result;
 use async_trait::async_trait;
 
+/// How a handler left the queue claim. Most legacy handlers still ask the worker to complete
+/// after `handle`. Claim-aware publishers instead complete inside their publication transaction,
+/// or report that a newer revision superseded the execution.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HandleOutcome {
+    NeedsCompletion,
+    Completed,
+    Superseded,
+}
+
 #[async_trait]
 pub trait StageHandler: Send + Sync {
     /// Which queue stage this handler drains.
@@ -20,10 +30,18 @@ pub trait StageHandler: Send + Sync {
     /// Contract note for implementers: persist to the live product tables with fail-closed
     /// semantics (NULL markers, `is_rumor` NULL -> never served, debounce hashes), then enqueue
     /// downstream durable work when the product contract requires it. The claimed item carries a
-    /// token and captured revision, but current product adapters do not yet validate that ownership
-    /// in the same transaction as their insert. Queue acknowledgement is fenced; publication
-    /// fencing and atomic follow-up remain a separate migration gate.
+    /// token and captured revision. Override [`StageHandler::handle_claimed`] when publication
+    /// validates that ownership and completes the row in the same transaction.
     async fn handle(&self, hx: &Harness, item: &Item) -> Result<()>;
+
+    /// Process one claim and describe who owns completion. This compatibility seam lets seats
+    /// migrate one at a time without weakening the claim-aware path. The default preserves the
+    /// existing handler contract; a claim-aware handler must return `Completed` only after its
+    /// product, required follow-up intent, and exact claim deletion have committed together.
+    async fn handle_claimed(&self, hx: &Harness, item: &Item) -> Result<HandleOutcome> {
+        self.handle(hx, item).await?;
+        Ok(HandleOutcome::NeedsCompletion)
+    }
 
     /// How many items this stage may claim per rotation through the drain. The default of 1 is
     /// right for any stage whose cost is a model call: the drain is sequential, so a big batch on

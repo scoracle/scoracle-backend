@@ -6,17 +6,21 @@ use crate::evidence::corpus::lookup_entity_name;
 use crate::runtime::harness::{EntityKey, Harness};
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
 use crate::runtime::route::Role;
-use crate::runtime::stage::StageHandler;
+use crate::runtime::stage::{HandleOutcome, StageHandler};
 use crate::runtime::util::hash_components;
 use crate::runtime::work::{Item, Stage};
+#[cfg(test)]
+use crate::studio::influencer::VibeScore;
 use crate::studio::influencer::{
-    self, Assignment, PacketBlock, VibeOutput, VibeScore, VIBE_NUM_PREDICT, VIBE_PROMPT_VERSION,
+    self, Assignment, PacketBlock, VibeOutput, VIBE_NUM_PREDICT, VIBE_PROMPT_VERSION,
     VIBE_TEMPERATURE,
 };
-use crate::studio::{Publisher, Studio};
+#[cfg(test)]
+use crate::studio::Publisher;
+use crate::studio::Studio;
 use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
-use sqlx::{PgPool, Row};
+use sqlx::{PgPool, Postgres, Row, Transaction};
 use tracing::debug;
 
 /// Output contract captured separately in the diagnostic ledger.
@@ -255,18 +259,42 @@ pub async fn generate_vibe(
 }
 
 #[async_trait]
+#[cfg(test)]
 trait MomentumHandoff: Sync {
     async fn offer(&self) -> Result<()>;
 }
 
 #[derive(Debug, PartialEq, Eq)]
+#[cfg(test)]
 enum Outcome<R> {
     Debounced,
     Published(R),
 }
 
+enum Prepared {
+    Debounced,
+    Product(Box<VibeOutput>),
+}
+
+async fn prepare(
+    studio: &Studio<'_>,
+    request: &Request<'_>,
+    ctx: &VibeContext,
+    latest: &(Option<i16>, Option<String>),
+) -> Result<Prepared> {
+    let buried = latest.0.is_none() && ctx.memories.previous_score.is_some();
+    if latest.1.as_deref() == Some(ctx.input_hash.as_str()) && !buried {
+        debug!("vibe: debounce-skip, material inputs unchanged");
+        return Ok(Prepared::Debounced);
+    }
+    Ok(Prepared::Product(Box::new(
+        influencer::create(studio, &request.assignment(ctx)?).await?,
+    )))
+}
+
 /// Coordinate a prepared drain. Both successful paths offer Momentum; failed creation or
 /// publication stops before handoff. This is application policy, not a Studio abstention.
+#[cfg(test)]
 async fn run_prepared<P: Publisher<VibeScore>, F: MomentumHandoff>(
     studio: &Studio<'_>,
     request: &Request<'_>,
@@ -275,12 +303,9 @@ async fn run_prepared<P: Publisher<VibeScore>, F: MomentumHandoff>(
     publisher: &P,
     follow_up: &F,
 ) -> Result<Outcome<P::Receipt>> {
-    let buried = latest.0.is_none() && ctx.memories.previous_score.is_some();
-    let outcome = if latest.1.as_deref() == Some(ctx.input_hash.as_str()) && !buried {
-        debug!("vibe: debounce-skip, material inputs unchanged");
-        Outcome::Debounced
-    } else {
-        Outcome::Published(influencer::run(studio, &request.assignment(ctx)?, publisher).await?)
+    let outcome = match prepare(studio, request, ctx, latest).await? {
+        Prepared::Debounced => Outcome::Debounced,
+        Prepared::Product(output) => Outcome::Published(publisher.publish(&output).await?),
     };
     follow_up.offer().await?;
     Ok(outcome)
@@ -291,7 +316,7 @@ async fn run_prepared<P: Publisher<VibeScore>, F: MomentumHandoff>(
 /// persistSentiment / persistNoCorpus: trigger_type 'periodic', trigger_payload the JSON
 /// `null` (marshal of a nil trigger map), empty felt-read stored as NULL.
 async fn persist_to_vibe_scores(
-    pool: &PgPool,
+    tx: &mut Transaction<'_, Postgres>,
     item: &Item,
     sport: &str,
     out: &VibeOutput,
@@ -322,84 +347,86 @@ async fn persist_to_vibe_scores(
     .bind(prov.model_version.as_str())
     .bind(prov.prompt_version)
     .bind(prov.input_hash.as_deref())
-    .fetch_one(pool)
+    .fetch_one(&mut **tx)
     .await
     .context("persist vibe")?;
     Ok(row.get("id"))
 }
 
-struct Publication<'a> {
-    hx: &'a Harness,
-    item: &'a Item,
-    sport: &'a str,
-}
-
-#[async_trait]
-impl Publisher<VibeScore> for Publication<'_> {
-    type Receipt = i64;
-    async fn publish(&self, out: &VibeOutput) -> Result<i64> {
-        let Self { hx, item, sport } = *self;
-        let entity_id = item.entity_id_i32()?;
-        let product_row_id = persist_to_vibe_scores(&hx.pool, item, sport, out).await?;
-        insert_generation_ledger_best_effort(
-            &hx.pool,
-            out,
-            VIBE_LEDGER,
-            LedgerEvent {
-                entity_type: &item.entity_type,
-                entity_id,
-                sport,
-                pair_entity: None,
-                trigger_type: "periodic",
-                trigger_payload: serde_json::Value::Null,
-                product_row_ids: vec![product_row_id],
-                included_evidence: serde_json::json!({
-                    "input_components": serde_json::from_str::<serde_json::Value>(
-                        &out.input_components_json
-                    ).unwrap_or_else(|_| serde_json::json!({
-                        "raw_input_components": out.input_components_json
-                    })),
-                    "sentiment": out.sentiment,
-                    "vibe_prompt": &out.vibe_prompt,
-                    "hook": &out.hook,
-                }),
-                excluded_evidence: if out.was_called() {
-                    serde_json::json!([])
-                } else {
-                    serde_json::json!([{"reason": "no_live_packets"}])
-                },
-                context_budget: out.context_budget(serde_json::json!({
-                    "num_predict": VIBE_NUM_PREDICT,
+async fn record_ledger(
+    hx: &Harness,
+    item: &Item,
+    sport: &str,
+    product_row_id: i64,
+    out: &VibeOutput,
+) -> Result<()> {
+    insert_generation_ledger_best_effort(
+        &hx.pool,
+        out,
+        VIBE_LEDGER,
+        LedgerEvent {
+            entity_type: &item.entity_type,
+            entity_id: item.entity_id_i32()?,
+            sport,
+            pair_entity: None,
+            trigger_type: "periodic",
+            trigger_payload: serde_json::Value::Null,
+            product_row_ids: vec![product_row_id],
+            included_evidence: serde_json::json!({
+                "input_components": serde_json::from_str::<serde_json::Value>(
+                    &out.input_components_json
+                ).unwrap_or_else(|_| serde_json::json!({
+                    "raw_input_components": out.input_components_json
                 })),
-                parser_outcome: if out.was_called() {
-                    "parsed"
-                } else {
-                    "no_call"
-                },
+                "sentiment": out.sentiment,
+                "vibe_prompt": &out.vibe_prompt,
+                "hook": &out.hook,
+            }),
+            excluded_evidence: if out.was_called() {
+                serde_json::json!([])
+            } else {
+                serde_json::json!([{"reason": "no_live_packets"}])
             },
-        )
-        .await;
-
-        Ok(product_row_id)
-    }
+            context_budget: out.context_budget(serde_json::json!({
+                "num_predict": VIBE_NUM_PREDICT,
+            })),
+            parser_outcome: if out.was_called() {
+                "parsed"
+            } else {
+                "no_call"
+            },
+        },
+    )
+    .await;
+    Ok(())
 }
 
-#[async_trait]
-impl MomentumHandoff for Publication<'_> {
-    async fn offer(&self) -> Result<()> {
-        if !crate::junctions::analyst::enqueue_momentum_if_needed(
-            self.hx,
-            &self.item.entity_type,
-            self.item.entity_id_i32()?,
-            self.sport,
-        )
-        .await?
-        {
-            debug!(entity_type = %self.item.entity_type, entity_id = self.item.entity_id,
-                sport = %self.sport, "vibe: momentum enqueue skipped unchanged/empty context");
-        }
-        Ok(())
+async fn commit_claimed(
+    pool: &PgPool,
+    item: &Item,
+    sport: &str,
+    prepared: &Prepared,
+) -> Result<(HandleOutcome, Option<i64>)> {
+    let mut tx = pool.begin().await.context("begin vibe publication")?;
+    if !crate::runtime::work::lock_claim(&mut tx, item).await? {
+        tx.rollback()
+            .await
+            .context("close superseded vibe publication")?;
+        return Ok((HandleOutcome::Superseded, None));
     }
+
+    let product_row_id = match prepared {
+        Prepared::Debounced => None,
+        Prepared::Product(output) => {
+            Some(persist_to_vibe_scores(&mut tx, item, sport, output).await?)
+        }
+    };
+    crate::application::outbox::record_vibe_completed(&mut tx, item).await?;
+    if !crate::runtime::work::complete_in_transaction(&mut tx, item).await? {
+        bail!("vibe claim changed while its publication transaction held the row lock");
+    }
+    tx.commit().await.context("commit vibe publication")?;
+    Ok((HandleOutcome::Completed, product_row_id))
 }
 
 /// VibeHandler drains the durable `vibe` stage: read the current packets, score
@@ -410,6 +437,37 @@ pub struct VibeHandler;
 impl VibeHandler {
     pub fn new() -> Self {
         VibeHandler
+    }
+
+    async fn run_claimed(&self, hx: &Harness, item: &Item) -> Result<HandleOutcome> {
+        let entity_id = item.entity_id_i32()?;
+        // The name lookup uses the queue's raw sport value; sport normalization happens below.
+        let name = lookup_entity_name(&hx.pool, &item.entity_type, entity_id, &item.sport).await?;
+        let sport = item.sport.to_uppercase();
+
+        // Gate on the entity-scoped material hash before the model call.
+        let ctx = load_vibe_context(hx, &item.entity_type, entity_id, &name, &item.sport).await?;
+        let key = EntityKey {
+            entity_type: item.entity_type.clone(),
+            entity_id,
+            sport: sport.clone(),
+            season: None,
+        };
+        let latest = load_latest_vibe_row(&hx.pool, &key).await?;
+        let request = Request {
+            entity_type: &item.entity_type,
+            entity_name: &name,
+            sport: &item.sport,
+            temperature: VIBE_TEMPERATURE,
+            voice_num_ctx: hx.voice_num_ctx,
+        };
+        let model = hx.router.for_role(Role::VibeLogic);
+        let prepared = prepare(&Studio::new(model.as_ref()), &request, &ctx, &latest).await?;
+        let (outcome, product_row_id) = commit_claimed(&hx.pool, item, &sport, &prepared).await?;
+        if let (Some(product_row_id), Prepared::Product(output)) = (product_row_id, &prepared) {
+            record_ledger(hx, item, &sport, product_row_id, output).await?;
+        }
+        Ok(outcome)
     }
 }
 
@@ -434,43 +492,12 @@ impl StageHandler for VibeHandler {
     }
 
     async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {
-        let entity_id = item.entity_id_i32()?;
-        // The name lookup uses the queue's raw sport value; sport normalization happens below.
-        let name = lookup_entity_name(&hx.pool, &item.entity_type, entity_id, &item.sport).await?;
-        let sport = item.sport.to_uppercase();
-
-        // Gate on the entity-scoped material hash before the model call.
-        let ctx = load_vibe_context(hx, &item.entity_type, entity_id, &name, &item.sport).await?;
-        let key = EntityKey {
-            entity_type: item.entity_type.clone(),
-            entity_id,
-            sport: sport.clone(),
-            season: None,
-        };
-        let latest = load_latest_vibe_row(&hx.pool, &key).await?;
-        let request = Request {
-            entity_type: &item.entity_type,
-            entity_name: &name,
-            sport: &item.sport,
-            temperature: VIBE_TEMPERATURE,
-            voice_num_ctx: hx.voice_num_ctx,
-        };
-        let model = hx.router.for_role(Role::VibeLogic);
-        let publication = Publication {
-            hx,
-            item,
-            sport: &sport,
-        };
-        run_prepared(
-            &Studio::new(model.as_ref()),
-            &request,
-            &ctx,
-            &latest,
-            &publication,
-            &publication,
-        )
-        .await?;
+        self.run_claimed(hx, item).await?;
         Ok(())
+    }
+
+    async fn handle_claimed(&self, hx: &Harness, item: &Item) -> Result<HandleOutcome> {
+        self.run_claimed(hx, item).await
     }
 }
 

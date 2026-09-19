@@ -18,7 +18,7 @@
 
 use crate::junctions::editor;
 use crate::runtime::harness::Harness;
-use crate::runtime::stage::StageHandler;
+use crate::runtime::stage::{HandleOutcome, StageHandler};
 use crate::runtime::work::{self, retry_backoff, Stage, MAX_ATTEMPTS};
 use anyhow::{anyhow, Context, Result};
 use futures::stream::{FuturesUnordered, StreamExt};
@@ -612,6 +612,14 @@ impl Worker {
             debug!(cause, "tick: no handlers registered; nothing to do");
             return;
         }
+        // Reconcile durable post-publication intent before claiming more model work. Outbox
+        // inserts notify the same channel as pipeline_work; the safety tick covers a lost notify.
+        pulse.begin("application-outbox");
+        match crate::application::outbox::drain(&self.harness, 100).await {
+            Ok(n) if n > 0 => debug!(reconciled = n, cause, "application outbox drained"),
+            Ok(_) => {}
+            Err(e) => error!(error = %format!("{e:#}"), cause, "application outbox drain failed"),
+        }
         // Exact-title dedup may wait for a drain boundary; unlike lease recovery, it is hygiene.
         self.sweep_exact_title_duplicates(cause, pulse).await;
         self.drain_all(cause, pulse).await;
@@ -761,7 +769,7 @@ impl Worker {
         let outcome = self.handle_bounded(handler, &item).await;
         pulse.beat(&format!("bookkeep {stage}"));
         match outcome {
-            Ok(()) => {
+            Ok(HandleOutcome::NeedsCompletion) => {
                 match work::complete(&self.pool, &item).await {
                     Ok(true) => {
                         // Ask the Oracle completion barrier only after this exact claim deleted
@@ -797,6 +805,16 @@ impl Worker {
                     Err(e) => error!(error = %format!("{e:#}"), %stage, "complete failed"),
                 }
             }
+            Ok(HandleOutcome::Completed) => debug!(
+                %stage,
+                entity = item.entity_id,
+                "handler committed product, follow-up intent, and exact claim"
+            ),
+            Ok(HandleOutcome::Superseded) => debug!(
+                %stage,
+                entity = item.entity_id,
+                "handler publication skipped: claim was superseded"
+            ),
             Err(e) => {
                 let backoff = retry_backoff(item.attempts);
                 warn!(
@@ -826,11 +844,19 @@ impl Worker {
     /// handle_bounded wraps one handler run in the per-item timeout. A timed-out item
     /// fails with normal backoff — visible, retryable, and it cannot stall the drain
     /// (the watchdog stays the backstop for hangs outside handlers).
-    async fn handle_bounded(&self, handler: &dyn StageHandler, item: &work::Item) -> Result<()> {
+    async fn handle_bounded(
+        &self,
+        handler: &dyn StageHandler,
+        item: &work::Item,
+    ) -> Result<HandleOutcome> {
         if self.handler_timeout.is_zero() {
-            return handler.handle(&self.harness, item).await;
+            return handler.handle_claimed(&self.harness, item).await;
         }
-        match tokio::time::timeout(self.handler_timeout, handler.handle(&self.harness, item)).await
+        match tokio::time::timeout(
+            self.handler_timeout,
+            handler.handle_claimed(&self.harness, item),
+        )
+        .await
         {
             Ok(res) => res,
             Err(_) => Err(anyhow!(

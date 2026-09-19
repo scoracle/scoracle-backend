@@ -9,7 +9,7 @@
 
 use crate::runtime::util::truncate;
 use anyhow::{anyhow, Context, Result};
-use sqlx::PgPool;
+use sqlx::{PgPool, Postgres, Transaction};
 use std::time::Duration;
 
 /// Derivation stage stored on a `pipeline_work` item.
@@ -103,7 +103,7 @@ impl Item {
         })
     }
 
-    fn require_claim_token(&self) -> Result<&str> {
+    pub(crate) fn require_claim_token(&self) -> Result<&str> {
         self.claim_token.as_deref().ok_or_else(|| {
             anyhow!(
                 "{} {}/{} is not a claimed work item",
@@ -113,6 +113,70 @@ impl Item {
             )
         })
     }
+}
+
+/// Lock and validate the exact lease before a claim-aware publisher writes anything. Inference
+/// happens before this short transaction; the lock is held only across publication bookkeeping.
+pub(crate) async fn lock_claim(tx: &mut Transaction<'_, Postgres>, it: &Item) -> Result<bool> {
+    let claim_token = it.require_claim_token()?;
+    let owned: Option<bool> = sqlx::query_scalar(
+        r#"
+        SELECT TRUE
+          FROM pipeline_work
+         WHERE stage = $1 AND entity_type = $2 AND entity_id = $3 AND sport = $4
+           AND status = 'running'
+           AND claim_token = $5::uuid
+           AND running_input_version IS NOT DISTINCT FROM $6
+         FOR UPDATE
+        "#,
+    )
+    .bind(it.stage.as_str())
+    .bind(it.entity_type.as_str())
+    .bind(it.entity_id)
+    .bind(it.sport.as_str())
+    .bind(claim_token)
+    .bind(it.input_version.as_deref())
+    .fetch_optional(&mut **tx)
+    .await
+    .with_context(|| {
+        format!(
+            "lock claim {} {}/{}",
+            it.stage, it.entity_type, it.entity_id
+        )
+    })?;
+    Ok(owned.is_some())
+}
+
+/// Delete an exact claim inside a product publication transaction. Call after [`lock_claim`].
+pub(crate) async fn complete_in_transaction(
+    tx: &mut Transaction<'_, Postgres>,
+    it: &Item,
+) -> Result<bool> {
+    let claim_token = it.require_claim_token()?;
+    let result = sqlx::query(
+        r#"
+        DELETE FROM pipeline_work
+         WHERE stage = $1 AND entity_type = $2 AND entity_id = $3 AND sport = $4
+           AND status = 'running'
+           AND claim_token = $5::uuid
+           AND running_input_version IS NOT DISTINCT FROM $6
+        "#,
+    )
+    .bind(it.stage.as_str())
+    .bind(it.entity_type.as_str())
+    .bind(it.entity_id)
+    .bind(it.sport.as_str())
+    .bind(claim_token)
+    .bind(it.input_version.as_deref())
+    .execute(&mut **tx)
+    .await
+    .with_context(|| {
+        format!(
+            "complete transaction {} {}/{}",
+            it.stage, it.entity_type, it.entity_id
+        )
+    })?;
+    Ok(result.rows_affected() == 1)
 }
 
 /// Drainer policy. CLAIM_BATCH and MAX_ATTEMPTS match the Go defaults; the retry

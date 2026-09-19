@@ -3166,6 +3166,20 @@ $_$;
 
 
 --
+-- Name: notify_application_outbox_ready(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.notify_application_outbox_ready() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    PERFORM pg_notify('pipeline_work_ready', '');
+    RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: notify_pipeline_work_ready(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -7477,6 +7491,43 @@ COMMENT ON TABLE public.acquisition_runs IS 'One Investigator attempt at one can
 
 
 --
+-- Name: application_outbox; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.application_outbox (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    kind text NOT NULL,
+    source_stage text NOT NULL,
+    source_claim_token uuid NOT NULL,
+    entity_type text NOT NULL,
+    entity_id integer NOT NULL,
+    sport text NOT NULL,
+    source_input_version text,
+    attempts integer DEFAULT 0 NOT NULL,
+    available_at timestamp with time zone DEFAULT now() NOT NULL,
+    last_error text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT application_outbox_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
+    CONSTRAINT application_outbox_kind_check CHECK ((kind = 'vibe_completed'::text)),
+    CONSTRAINT application_outbox_source_stage_check CHECK ((source_stage = 'vibe'::text))
+);
+
+
+--
+-- Name: TABLE application_outbox; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.application_outbox IS 'Durable post-publication reconciliation. Initially owns only Influencer completion: Momentum offer, then Oracle barrier.';
+
+
+--
+-- Name: COLUMN application_outbox.source_claim_token; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.application_outbox.source_claim_token IS 'The exact pipeline_work lease committed atomically with the product and queue completion.';
+
+
+--
 -- Name: acquisition_runs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -11233,6 +11284,22 @@ ALTER TABLE ONLY public.acquisition_runs
 
 
 --
+-- Name: application_outbox application_outbox_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.application_outbox
+    ADD CONSTRAINT application_outbox_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: application_outbox application_outbox_source_claim_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.application_outbox
+    ADD CONSTRAINT application_outbox_source_claim_unique UNIQUE (kind, source_stage, source_claim_token);
+
+
+--
 -- Name: auth_refresh_tokens auth_refresh_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -11946,6 +12013,13 @@ CREATE UNIQUE INDEX idx_nfl_autofill_pk ON nfl.autofill_entities USING btree (id
 --
 
 CREATE INDEX idx_acquisition_runs_candidate ON public.acquisition_runs USING btree (candidate_id);
+
+
+--
+-- Name: idx_application_outbox_ready; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_application_outbox_ready ON public.application_outbox USING btree (available_at, created_at);
 
 
 --
@@ -13020,6 +13094,13 @@ CREATE TRIGGER enqueue_voices_on_packet AFTER INSERT ON public.packets FOR EACH 
 
 
 --
+-- Name: application_outbox application_outbox_notify_insert; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER application_outbox_notify_insert AFTER INSERT ON public.application_outbox FOR EACH ROW EXECUTE FUNCTION public.notify_application_outbox_ready();
+
+
+--
 -- Name: entity_aliases entity_aliases_append_only; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -13200,6 +13281,14 @@ CREATE TRIGGER trg_percentile_changed_team_stats AFTER UPDATE OF percentiles ON 
 
 ALTER TABLE ONLY public.acquisition_runs
     ADD CONSTRAINT acquisition_runs_candidate_id_fkey FOREIGN KEY (candidate_id) REFERENCES public.entity_candidates(id) ON DELETE CASCADE;
+
+
+--
+-- Name: application_outbox application_outbox_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.application_outbox
+    ADD CONSTRAINT application_outbox_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
 
 
 --

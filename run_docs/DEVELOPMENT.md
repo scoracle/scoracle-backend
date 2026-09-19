@@ -4,13 +4,25 @@ Repo-local implementation guidance for `scoracle-backend`. Start with `README.md
 
 ## Design Rules
 
-1. Postgres is the domain engine and response shaper for data endpoints.
-2. Go handlers stay thin: validate, cache/ETag, prepared statement, passthrough JSON.
-3. Python is ingestion-only: call providers, normalize enough to upsert, write source rows, and call domain functions such as `finalize_fixture()`.
-4. Rust cognition owns model inference stages and rating commentary. Go serving must not invoke the model inline.
-5. Derived stats, percentiles, rankings, and API-shaped JSON belong in SQL.
-6. Sport boundaries stay explicit: `nba`, `nfl`, and `football` logic should not blur accidentally.
-7. Public route shape is defined by `go/internal/api/server.go`.
+1. Postgres owns durable world state, provenance, products, work state, and serving projections.
+2. DuckDB owns the analytical direction: bounded studies of versioned evidence, published through application adapters. Existing SQL analytics stay authoritative until their replacement passes parity and cutover gates. Do not add new computations to Postgres solely because legacy rules put all analytics there.
+3. Studio (`rust/src/studio/`) is the in-house harness. Its core accepts prepared domain material and injected capabilities; it must not import concrete database, queue, or model-host adapters.
+4. Application wiring owns retrieval, snapshot export, model routing, scheduling, transactions, publication, retries, and resource limits. No system reaches into another system's internals.
+5. Go handlers stay thin: validate, cache/ETag, prepared statement, passthrough JSON. No acquisition, study, or model call runs inline with serving.
+6. Acquisition preserves source identity and provenance before publication. Retired provider/seed tooling is not an architectural requirement.
+7. Sport boundaries stay explicit: `nba`, `nfl`, and `football` logic should not blur accidentally. Public route shape is defined by `go/internal/api/server.go`.
+
+## Dependency and migration boundaries
+
+A Studio character consumes values describing its assignment, not rows or another character's storage representation. For the first migrated character, see `studio/analyst::{Assignment, Form, Mood, Snapshot}`. Its production preparation and publication live in `junctions/analyst`; compatibility exports let the existing eval system continue to work. `runtime/harness.rs` is a transitional application context, not a second permanent harness.
+
+Inject narrow capabilities only when a real assignment requires them. Keep prompt construction, parsing, and product assembly testable with a fake model and fake publisher. `Generation<T>` carries provenance through the boundary. Errors must reach the application; adapters own the durability guarantees behind `Publisher<T>`.
+
+A migration slice preserves the existing material, hash, prompt, and output meaning before adding richer evidence. Then version any intentional analytical or character-contract change and evaluate its value. Preserve missingness, coverage, measurement origin, and snapshot provenance; missing data must not silently become zero.
+
+One producer owns each live output during cutover. Test stale claims, revisions arriving during work, retry/crash behavior, and atomic product/provenance/follow-up publication before changing queue ownership. Today's best-effort ledger and queue completion are not proof of these guarantees. Use the approved wiki modernization plan for the remaining gates.
+
+Update the README and wiki data-flow implementation status with each migrated boundary. The destination is three distinct systems coordinated by application code, not a universal pipeline every task must traverse.
 
 ## Public Endpoint Flow
 
@@ -20,9 +32,9 @@ Any new public data endpoint should follow this path:
 2. Add a thin handler in `go/internal/api/handler/data.go`.
 3. Wire the route in `go/internal/api/server.go`.
 4. Add Swagger annotations.
-5. Update `ENDPOINTS.md`.
+5. Update `run_docs/ENDPOINTS.md`.
 6. Update `README.md` if the route changes the public surface.
-7. Add progress docs locally and in `../scoracle-wiki/progress_docs/` for landmarks.
+7. Record progress in `../scoracle-wiki/progress_docs/scoracle-backend/`; use the wiki Changelog for landmarks.
 
 ## Route Conventions
 
@@ -80,7 +92,7 @@ Full migration operations live in `../sql/README-migrations.md` and `RUNBOOK.md`
 
 ## Cognition memory taxonomy (continuity vs measurement)
 
-The relational DB is the cognition harness's memory. Every fact a stage reads carries a
+Postgres preserves evidence and prior interpretations. Application adapters select the material a Studio assignment receives. Every fact it reads carries a
 **provenance class**, and the two classes must never cross — this is the *echo-chamber rule*:
 the model's own conclusions may inform continuity but can never become evidence that inflates
 the numeric signal it later reads.
@@ -132,7 +144,7 @@ go test ./...
 - Use sport schemas for sport-specific data.
 - Use `public` for shared sport-agnostic tables.
 - Use `json_build_object`, `jsonb_build_object`, and row JSON helpers for API-shaped responses.
-- Keep percentile, rating, and derived-stat logic in database functions/triggers.
+- Keep current analytical producers authoritative until a verified replacement takes ownership. New DuckDB studies use bounded snapshots and versioned results; serving projections remain in Postgres.
 - Keep prepared statement output presentation-free and product-aligned.
 
 ## Key Files
@@ -143,5 +155,7 @@ go test ./...
 - `go/internal/cache/cache.go` - cache policy defaults.
 - `go/internal/config/config.go` - environment resolution.
 - `go/internal/db/db.go` - prepared statements.
-- `rust/` - Rust cognition harness and rating batch.
+- `rust/src/studio/` - Studio, the in-house harness and migrated character creation.
+- `rust/src/junctions/` - character migration and application adapters.
+- `rust/src/runtime/work.rs`, `rust/src/runtime/worker.rs` - current durable queue runtime.
 - `sql/` - schema, migrations, functions, views, and snapshots.

@@ -1,6 +1,6 @@
 # Card output and entity context
 
-`rust/src/junctions/form.rs` owns the tarot surface: a 140-character hook and a
+`rust/src/studio/form.rs` owns the tarot surface: a 140-character hook and a
 1,200-character body, including spaces. These are ceilings, not targets. Journalist
 narratives share one body allowance. Character prompts own perspective and voice.
 
@@ -11,8 +11,8 @@ close a string mid-word. Parsers check the decoded surface. Typography normaliza
 preserves sentences and paragraphs; it does not shorten or rewrite the story.
 
 The provider's completion reason is checked before parsing. An exhausted response
-cannot become a card. A surface violation or exhausted completion gets one shorter
-rewrite over the same evidence, with the same context and output limits. A second
+cannot become a card. A surface violation or exhausted completion gets up to two shorter
+rewrites over the same evidence, with the same context and output limits. A third
 failure returns to normal queue backoff. The successful request, including any
 correction instruction, is recorded in generation provenance.
 

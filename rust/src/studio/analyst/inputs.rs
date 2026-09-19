@@ -1,7 +1,7 @@
 //! Evidence and continuity supplied to the character.
 
 use super::{momentum_conviction_from_score, momentum_direction_from_score};
-use crate::junctions::oracle::{SynthMomentum, SynthRating, SynthVibe};
+use super::{Form, Mood, Snapshot};
 
 fn rail_movement(slope: Option<f64>, samples: i32) -> String {
     let Some(s) = slope else {
@@ -41,9 +41,9 @@ pub fn build_momentum_prompt(
     entity_type: &str,
     entity_name: &str,
     sport: &str,
-    rating: Option<&SynthRating>,
-    vibe: Option<&SynthVibe>,
-    mom: &SynthMomentum,
+    rating: Option<&Form>,
+    vibe: Option<&Mood>,
+    mom: &Snapshot,
     identity: Option<&str>,
 ) -> String {
     let mut b = String::new();

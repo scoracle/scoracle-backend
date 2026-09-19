@@ -126,27 +126,7 @@ impl Role {
     }
 }
 
-/// Inference — the model-call backend, the genuine swap point. `OllamaClient` is the first
-/// impl; a `dyn Inference` is what a `Role` resolves to. `generate` returns the exact
-/// wire body it POSTed; `request_body` remains for no-call deterministic builders.
-#[async_trait]
-pub trait Inference: Send + Sync {
-    /// generate performs one non-streaming completion. No auto-retry — the work queue owns
-    /// backoff (the boundary the host already enforces), and returns the exact
-    /// `/api/generate` body sent with the result.
-    async fn generate(
-        &self,
-        prompt: &str,
-        opts: &GenerateOptions,
-    ) -> Result<(GenerateResult, serde_json::Value)>;
-
-    /// model returns the concrete model id, for provenance (`model_version`).
-    fn model(&self) -> &str;
-
-    /// request_body returns the exact `/api/generate` body `generate` would POST for
-    /// `(prompt, opts)`.
-    fn request_body(&self, prompt: &str, opts: &GenerateOptions) -> serde_json::Value;
-}
+pub use crate::studio::model::Inference;
 
 #[async_trait]
 impl Inference for OllamaClient {

@@ -23,62 +23,8 @@ pub struct OllamaClient {
     think: Option<bool>,
 }
 
-/// GenerateOptions tunes a single call. Defaults mean "let Ollama default."
-///
-/// `temperature` is an `Option` on purpose: `None` omits the field (Ollama uses
-/// its own default, ~0.8, NON-deterministic) and `Some(t)` sends exactly `t` —
-/// INCLUDING `Some(0.0)`. `num_predict` is still omitted when `<= 0`.
-///
-/// `num_ctx <= 0` sends the 4096 envelope explicitly rather than inheriting a
-/// potentially much larger model default.
-/// A prompt + `num_predict` sum that exceeds the window still silently evicts the
-/// EARLIEST tokens (the system prompt) mid-generation; size budgets accordingly.
-#[derive(Clone, Debug, Default)]
-pub struct GenerateOptions {
-    pub system: Option<String>,
-    pub temperature: Option<f64>,
-    pub num_predict: i32,
-    pub num_ctx: i32,
-    pub json_mode: bool, // sets format="json"
-    /// A JSON schema for Ollama's constrained decoding (`format: <schema>`), supported since
-    /// Ollama 0.5. Takes precedence over `json_mode`. This is a GRAMMAR guarantee on output
-    /// shape — required keys cannot be omitted, no prose can leak around the object — versus
-    /// `json_mode`'s "some valid JSON" and free-text's "hopefully JSON" (the narratives
-    /// balanced-brace salvager exists because of the latter).
-    pub format_schema: Option<serde_json::Value>,
-    /// The same schema as VERBATIM JSON text, for stages whose contract pins the PROPERTY ORDER
-    /// (PLAN-one-rail §1a: order IS the contract). `serde_json::Value` is BTreeMap-backed, so a
-    /// schema that travels as a `Value` reaches Ollama with its properties ALPHABETIZED — the
-    /// grammar then forces emission in that accidental order, whatever the documented contract
-    /// says. When set, this string is POSTed byte-for-byte as `format` (taking precedence over
-    /// `format_schema`); callers should set `format_schema` too, since ledger/eval capture
-    /// still reads the `Value` form. Stages without an order-sensitive schema leave this `None`.
-    pub format_schema_raw: Option<String>,
-}
-
-/// GenerateResult holds the text output plus perf metrics. Callers doing
-/// debounce / perf tuning read the metrics; callers that just want the answer
-/// read `response`.
-///
-/// `thinking` is the model's separated reasoning when the role runs `_THINK=true`
-/// (empty otherwise, and empty on models without the capability). It exists for
-/// ledger capture and eval display ONLY — no parser may read it, no card may
-/// carry it. `eval_count` counts thinking + answer tokens together (that shared
-/// budget is why think-enabled roles need `num_predict` headroom).
-#[derive(Clone, Debug)]
-pub struct GenerateResult {
-    pub response: String,
-    pub thinking: String,
-    pub model: String,
-    pub total_duration: Duration,
-    /// Input tokens reported by the provider for the complete request.
-    pub prompt_eval_count: i32,
-    pub eval_count: i32,
-    /// Provider termination value after it passes the completion guard.
-    pub completion_reason: Option<String>,
-    /// Exact successful HTTP response body, retained for read-only diagnostics.
-    pub raw_response_body: String,
-}
+use crate::studio::model::IncompleteOutput;
+pub use crate::studio::model::{GenerateOptions, GenerateResult};
 
 #[derive(Serialize)]
 struct ChatTurn<'a> {
@@ -372,15 +318,6 @@ pub(crate) fn validate_completion(reason: Option<&str>, done: Option<bool>) -> R
     }
     Ok(())
 }
-
-#[derive(Debug)]
-pub(crate) struct IncompleteOutput(String);
-impl std::fmt::Display for IncompleteOutput {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.0)
-    }
-}
-impl std::error::Error for IncompleteOutput {}
 
 #[cfg(test)]
 mod completion_tests {

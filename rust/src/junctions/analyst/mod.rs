@@ -1,35 +1,29 @@
-//! Momentum stage: the Analyst narrates the Scout and Vibe rails over deterministic slopes.
-//!
-//! `momentum_scores` remains the numeric backbone for leaderboards and ranking. This stage adds the
-//! client-surfaced read: a direction, a signed ±5 conviction, and the blurb with provenance,
-//! persisted to `momentum_summaries` and consumed by the Oracle as the Momentum pillar.
-//!
-//! Direction and conviction are computed here; only the read and headline come from the model.
+//! Transitional queue and Postgres adapter for the Analyst's Studio assignment.
+//! Retrieval, persistence, and durable scheduling live here; creation lives in `studio/`.
 
 use crate::composition::memories::{self, MemoryRequest, Mission};
-
 use crate::junctions::oracle::{self, SynthMomentum, SynthRating, SynthVibe};
-use crate::runtime::harness::{EntityKey, Generation, GenerationCall, Harness, Parser};
+use crate::runtime::harness::{EntityKey, Harness};
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
-use crate::runtime::providers::ollama::GenerateOptions;
 use crate::runtime::route::Role;
 use crate::runtime::stage::StageHandler;
-use crate::runtime::util::{hash_components, round1};
+use crate::runtime::util::hash_components;
 use crate::runtime::work::{self, Item, Stage};
-use anyhow::{anyhow, Context, Result};
+use crate::studio::{Outcome, Publisher, Studio};
+use anyhow::{Context, Result};
 use async_trait::async_trait;
 use sqlx::{PgPool, Row};
 use tracing::debug;
 
-mod inputs;
-pub use crate::composition::characters::analyst::{
-    MOMENTUM_PROMPT_VERSION, MOMENTUM_SYSTEM_PROMPT,
+pub use crate::studio::analyst::{
+    generation_options, momentum_conviction_from_score, momentum_direction_from_score,
+    parse_momentum_reply, prompt, Assignment, Form, MomentumContext, MomentumOutput,
+    MomentumParser, MomentumReply, MomentumSummary, Mood, Snapshot, MOMENTUM_NUM_PREDICT,
+    MOMENTUM_OUTPUT_CONTRACT_VERSION, MOMENTUM_PROMPT_VERSION, MOMENTUM_STEADY_BAND,
+    MOMENTUM_SYSTEM_PROMPT, MOMENTUM_TEMPERATURE,
 };
-pub use inputs::build_momentum_prompt;
 
-/// Output contract captured separately in the diagnostic ledger.
-pub const MOMENTUM_OUTPUT_CONTRACT_VERSION: &str = "momentum-summary-v1";
-
+const MOMENTUM_WORK_PREFIX: &str = "momentum:s";
 const MOMENTUM_LEDGER: LedgerSpec = LedgerSpec {
     stage: "momentum",
     lens: "momentum",
@@ -38,96 +32,61 @@ const MOMENTUM_LEDGER: LedgerSpec = LedgerSpec {
     output_contract_version: MOMENTUM_OUTPUT_CONTRACT_VERSION,
 };
 
-/// Keep Momentum on the incumbent stats route until a broader fixture set proves a split.
-pub const MOMENTUM_TEMPERATURE: f64 = 0.3;
-
-// A single direction read — two rails and what they are doing to each other — is a handful of
-// sentences on a card. Nothing here scales with story count.
-pub const MOMENTUM_NUM_PREDICT: i32 = 700;
-
-/// Scores within this band are steady; values at or beyond it rise or fall by sign.
-pub const MOMENTUM_STEADY_BAND: f64 = 10.0;
-
-const MOMENTUM_WORK_PREFIX: &str = "momentum:s";
-
-#[derive(Clone, Debug)]
-pub struct MomentumContext {
-    pub memories: memories::Package,
-    pub season: i32,
-    pub rating: Option<SynthRating>,
-    pub vibe: Option<SynthVibe>,
-    pub snapshot: SynthMomentum,
-    pub input_components_json: String,
-    pub input_hash: String,
+fn form(value: &SynthRating) -> Form {
+    Form {
+        notability: value.notability,
+        rating_trajectory: value.rating_trajectory.clone(),
+        rating_trajectory_label: value.rating_trajectory_label.clone(),
+    }
 }
-
-impl MomentumContext {
-    fn empty(&self) -> bool {
-        self.rating.is_none() && self.vibe.is_none() && self.snapshot.empty()
+fn mood(value: &SynthVibe) -> Mood {
+    Mood {
+        sentiment: value.sentiment,
+    }
+}
+fn snapshot(value: &SynthMomentum) -> Snapshot {
+    Snapshot {
+        vibe_slope: value.vibe_slope,
+        vibe_samples: value.vibe_samples,
+        rating_slope: value.rating_slope,
+        rating_samples: value.rating_samples,
+        momentum_score: value.momentum_score,
     }
 }
 
-/// Parsed model prose. Direction and conviction are deterministic product fields.
-#[derive(Clone, Debug)]
-pub struct MomentumReply {
-    /// The Analyst's read.
-    pub blurb: String,
-    /// Optional card title.
-    pub headline: Option<String>,
+/// Compatibility boundary for eval callers. Legacy pillar prose is excluded;
+/// prepared sourced memory travels separately.
+pub fn build_momentum_prompt(
+    entity_type: &str,
+    entity_name: &str,
+    sport: &str,
+    rating: Option<&SynthRating>,
+    vibe: Option<&SynthVibe>,
+    mom: &SynthMomentum,
+    identity: Option<&str>,
+) -> String {
+    crate::studio::analyst::build_momentum_prompt(
+        entity_type,
+        entity_name,
+        sport,
+        rating.map(form).as_ref(),
+        vibe.map(mood).as_ref(),
+        &snapshot(mom),
+        identity,
+    )
 }
 
-#[derive(Clone, Debug)]
-pub struct MomentumSummary {
-    pub direction: String,
-    pub score: i32,
-    pub blurb: String,
-    /// Model-emitted card title.
-    pub headline: Option<String>,
-    pub season: i32,
-    pub input_components_json: String,
-}
-
-pub type MomentumOutput = Generation<MomentumSummary>;
-
-pub struct MomentumParser;
-
-impl Parser<MomentumReply> for MomentumParser {
-    fn parse(&self, raw: &str) -> Result<Option<MomentumReply>> {
-        // Keep a bounded raw excerpt so malformed output is diagnosable.
-        let mut reply = parse_momentum_reply(raw).ok_or_else(|| {
-            anyhow!(
-                "momentum: invalid response (raw={:?})",
-                crate::runtime::util::truncate_bytes(raw.trim(), 160)
-            )
-        })?;
-        // Production guards live at the Parser seam; eval can still inspect the raw parse.
-        crate::composition::form::validate_body(&reply.blurb)?;
-        crate::composition::form::validate_hook(reply.headline.as_deref())?;
-        if let Some(p) = crate::composition::guards::first_banned_phrase(
-            &reply.blurb,
-            crate::composition::guards::MOMENTUM_BANNED_PHRASES,
-        ) {
-            tracing::warn!(
-                guard = "momentum_banned_phrase",
-                phrase = p,
-                "momentum READ rejected"
-            );
-            anyhow::bail!("momentum: READ carries banned phrase {p:?}");
-        }
-        if let Some(p) = crate::composition::guards::first_product_name(&reply.blurb) {
-            tracing::warn!(guard = "product_name", name = p, "momentum READ rejected");
-            anyhow::bail!("momentum: READ names product {p:?}");
-        }
-        // Sporting numbers are evidence; internal field citations leak the input contract.
-        if crate::composition::guards::has_bookkeeping_citation(&reply.blurb) {
-            tracing::warn!(guard = "bookkeeping_citation", "momentum READ rejected");
-            anyhow::bail!("momentum: READ carries a bookkeeping citation");
-        }
-        // A bad optional title degrades to NULL without costing the read.
-        reply.headline =
-            crate::composition::guards::settle_title("analyst", reply.headline.as_deref());
-        Ok(Some(reply))
-    }
+#[cfg(test)]
+fn build_momentum_input_components(
+    rating: Option<&SynthRating>,
+    vibe: Option<&SynthVibe>,
+    mom: &SynthMomentum,
+) -> String {
+    crate::studio::analyst::build_momentum_input_components(
+        rating.map(form).as_ref(),
+        vibe.map(mood).as_ref(),
+        &snapshot(mom),
+    )
 }
 
 pub async fn load_momentum_snapshot(
@@ -135,7 +94,7 @@ pub async fn load_momentum_snapshot(
     entity_type: &str,
     entity_id: i32,
     sport: &str,
-) -> Result<SynthMomentum> {
+) -> Result<Snapshot> {
     #[allow(clippy::type_complexity)]
     let row: Option<(Option<f64>, i32, Option<f64>, i32, Option<f64>)> = sqlx::query_as(
         r#"
@@ -156,15 +115,12 @@ pub async fn load_momentum_snapshot(
 
     Ok(row
         .map(
-            |(vibe_slope, vibe_samples, rating_slope, rating_samples, momentum_score)| {
-                SynthMomentum {
-                    vibe_slope,
-                    vibe_samples,
-                    rating_slope,
-                    rating_samples,
-                    momentum_score,
-                    ..SynthMomentum::default()
-                }
+            |(vibe_slope, vibe_samples, rating_slope, rating_samples, momentum_score)| Snapshot {
+                vibe_slope,
+                vibe_samples,
+                rating_slope,
+                rating_samples,
+                momentum_score,
             },
         )
         .unwrap_or_default())
@@ -175,29 +131,26 @@ pub async fn load_momentum_context(
     entity_type: &str,
     entity_id: i32,
     sport: &str,
-) -> Result<MomentumContext> {
+) -> Result<(MomentumContext, memories::Package)> {
     let season = oracle::resolve_season(&hx.pool, sport, None).await?;
     let (rating, vibe, snapshot) = tokio::try_join!(
         oracle::load_rating_pillar(&hx.pool, entity_type, entity_id, sport, Some(season)),
         oracle::load_vibe_pillar(&hx.pool, entity_type, entity_id, sport),
         load_momentum_snapshot(&hx.pool, entity_type, entity_id, sport),
     )?;
-    let input_components_json =
-        build_momentum_input_components(rating.as_ref(), vibe.as_ref(), &snapshot);
+    let mut context = MomentumContext::new(
+        season,
+        rating.as_ref().map(form),
+        vibe.as_ref().map(mood),
+        snapshot,
+    );
     let mut request = MemoryRequest::new(Mission::Analyst, entity_type, entity_id, sport);
     request.season = Some(season);
     let memories = memories::load(&hx.pool, request).await?;
-    let input_components_json = memories.with_input_components(&input_components_json)?;
-    let input_hash = hash_components(&input_components_json);
-    Ok(MomentumContext {
-        memories,
-        season,
-        rating,
-        vibe,
-        snapshot,
-        input_components_json,
-        input_hash,
-    })
+    context.input_components_json =
+        memories.with_input_components(&context.input_components_json)?;
+    context.input_hash = hash_components(&context.input_components_json);
+    Ok((context, memories))
 }
 
 pub async fn enqueue_momentum_if_needed(
@@ -207,7 +160,7 @@ pub async fn enqueue_momentum_if_needed(
     sport: &str,
 ) -> Result<bool> {
     let sport = sport.to_uppercase();
-    let ctx = load_momentum_context(hx, entity_type, entity_id, &sport).await?;
+    let (ctx, _) = load_momentum_context(hx, entity_type, entity_id, &sport).await?;
     if ctx.empty() {
         return Ok(false);
     }
@@ -237,117 +190,6 @@ pub async fn enqueue_momentum_if_needed(
 
 pub fn momentum_work_input_version(season: i32, input_hash: &str) -> String {
     format!("{MOMENTUM_WORK_PREFIX}{season}:{input_hash}")
-}
-
-/// Deterministic direction from the ±100-scale signed slope average. No snapshot means steady.
-pub fn momentum_direction_from_score(momentum_score: Option<f64>) -> &'static str {
-    match momentum_score {
-        Some(s) if s >= MOMENTUM_STEADY_BAND => "rising",
-        Some(s) if s <= -MOMENTUM_STEADY_BAND => "falling",
-        _ => "steady",
-    }
-}
-
-/// Deterministic ±5 conviction from `momentum_score`. The steady band maps to zero or a one-point
-/// lean; larger absolute scores step through the remaining bands. No snapshot maps to zero.
-pub fn momentum_conviction_from_score(momentum_score: Option<f64>) -> i32 {
-    let Some(s) = momentum_score else { return 0 };
-    let mag = s.abs();
-    let sign = if s < 0.0 { -1 } else { 1 };
-    let step = if mag < MOMENTUM_STEADY_BAND / 2.0 {
-        return 0; // genuinely flat: no measured lean at all
-    } else if mag < 20.0 {
-        1 // covers the top half of the steady band AND the first rising/falling notch
-    } else if mag < 35.0 {
-        2
-    } else if mag < 55.0 {
-        3
-    } else if mag < 80.0 {
-        4
-    } else {
-        5
-    };
-    sign * step
-}
-
-fn build_momentum_input_components(
-    rating: Option<&SynthRating>,
-    vibe: Option<&SynthVibe>,
-    mom: &SynthMomentum,
-) -> String {
-    let mut components = serde_json::Map::new();
-    components.insert(
-        "prompt_version".into(),
-        serde_json::json!(MOMENTUM_PROMPT_VERSION),
-    );
-    if let Some(r) = rating {
-        components.insert("notability".into(), serde_json::json!(r.notability));
-        components.insert(
-            "rating_trajectory".into(),
-            serde_json::json!(r.rating_trajectory),
-        );
-        if !r.rating_trajectory_label.is_empty() {
-            components.insert(
-                "rating_trajectory_label".into(),
-                serde_json::json!(r.rating_trajectory_label),
-            );
-        }
-    }
-    if let Some(v) = vibe {
-        // Sentiment only — the vibe felt-read prose stays in the PROMPT but out of the hash
-        // (F1, material-only debounce): vibe generates at temp 0.7, so its prose changes on
-        // every re-run even when material is byte-identical; hashing it cascaded
-        // momentum→sigil→oracle regenerations on zero material change.
-        components.insert("vibe_sentiment".into(), serde_json::json!(v.sentiment));
-    }
-    if let Some(s) = mom.rating_slope {
-        components.insert("momentum_rating_slope".into(), serde_json::json!(round1(s)));
-        components.insert(
-            "momentum_rating_samples".into(),
-            serde_json::json!(mom.rating_samples),
-        );
-    }
-    if let Some(s) = mom.vibe_slope {
-        components.insert("momentum_vibe_slope".into(), serde_json::json!(round1(s)));
-        components.insert(
-            "momentum_vibe_samples".into(),
-            serde_json::json!(mom.vibe_samples),
-        );
-    }
-    if let Some(score) = mom.momentum_score {
-        components.insert("momentum_score".into(), serde_json::json!(round1(score)));
-    }
-    serde_json::Value::Object(components).to_string()
-}
-
-pub fn parse_momentum_reply(raw: &str) -> Option<MomentumReply> {
-    if let Ok(card) = serde_json::from_str::<crate::composition::form::CardReply>(raw.trim()) {
-        return Some(MomentumReply {
-            blurb: crate::composition::form::normalize_body(&card.body),
-            headline: Some(card.headline),
-        });
-    }
-    let rest = raw.trim().strip_prefix("READ:")?;
-    let (body, headline) = match rest.split_once("\nHEADLINE:") {
-        Some((body, title)) if !title.contains('\n') => {
-            let title = title.trim();
-            (body, (!title.is_empty()).then(|| title.to_string()))
-        }
-        Some(_) => return None,
-        None => (rest, None),
-    };
-
-    let blurb = crate::composition::guards::clean_served_prose(
-        &crate::composition::form::normalize_body(body),
-    );
-    if blurb.is_empty() {
-        return None;
-    }
-    // Reject a foreign-script generation so the work item retries.
-    if crate::composition::guards::has_foreign_script(&blurb) {
-        return None;
-    }
-    Some(MomentumReply { blurb, headline })
 }
 
 async fn persist_momentum_summary(
@@ -416,87 +258,62 @@ impl StageHandler for MomentumHandler {
             &item.sport,
         )
         .await?;
-        let ctx = load_momentum_context(hx, &item.entity_type, entity_id, &sport).await?;
-        if ctx.empty() {
-            debug!(
-                entity_type = %item.entity_type,
-                entity_id = item.entity_id,
-                sport = %sport,
-                "momentum: skipped empty context"
-            );
-            return Ok(());
-        }
-        // Enqueue performs the empty and debounce gates; the recomputed hash records provenance
-        // for the row actually generated. The Analyst reads only the two numeric rails.
-
-        let identity = Some(ctx.memories.render_for_model()?);
-        let prompt = build_momentum_prompt(
-            &item.entity_type,
-            &name,
-            &item.sport,
-            ctx.rating.as_ref(),
-            ctx.vibe.as_ref(),
-            &ctx.snapshot,
-            identity.as_deref(),
-        );
-        let opts = GenerateOptions {
-            system: Some(MOMENTUM_SYSTEM_PROMPT.to_string()),
-            temperature: Some(MOMENTUM_TEMPERATURE),
-            num_predict: MOMENTUM_NUM_PREDICT,
-            num_ctx: hx.voice_num_ctx,
-            json_mode: false,
-            format_schema: Some(crate::composition::form::card_schema(false)),
-            format_schema_raw: None,
-        };
-        let extracted = hx
-            .extract(Role::MomentumLogic, &prompt, &opts, &MomentumParser)
-            .await?;
-        let call = GenerationCall::from(&extracted);
-        let model = extracted.model.clone();
-        let reply = extracted
-            .value
-            .ok_or_else(|| anyhow!("momentum: parser returned no value"))?;
-
-        // Both numbers come from the same score, so they cannot disagree. The decided direction
-        // was included in the prompt for the model to narrate.
-        let direction = momentum_direction_from_score(ctx.snapshot.momentum_score);
-        let score = momentum_conviction_from_score(ctx.snapshot.momentum_score);
-
-        // A title that misses the entity degrades to no title without retrying the read.
-        let headline = reply.headline.filter(|t| {
-            let named = crate::composition::guards::title_names_entity(t, &name);
-            if !named {
-                tracing::warn!(seat = "analyst", guard = "title_entity_absent",
-                    entity = %name, title = %t,
-                    "headline names no form of the entity; dropped");
-            }
-            named
-        });
-
-        let out = Generation::called(
-            MomentumSummary {
-                direction: direction.to_string(),
-                score,
-                blurb: reply.blurb,
-                headline,
-                season: ctx.season,
-                input_components_json: ctx.input_components_json.clone(),
+        let (context, memories) =
+            load_momentum_context(hx, &item.entity_type, entity_id, &sport).await?;
+        let assignment = Assignment {
+            entity_type: item.entity_type.clone(),
+            entity_name: name,
+            sport: item.sport.clone(),
+            memory: if context.empty() {
+                None
+            } else {
+                Some(memories.render_for_model()?)
             },
-            model,
-            MOMENTUM_PROMPT_VERSION,
-            Vec::new(),
-            Some(ctx.input_hash.clone()),
-            call,
-        );
-        let product_row_id = persist_momentum_summary(&hx.pool, item, &sport, &out).await?;
+            context,
+            voice_num_ctx: hx.voice_num_ctx,
+        };
+        let model = hx.router.for_role(Role::MomentumLogic);
+        let publisher = MomentumPublisher {
+            pool: &hx.pool,
+            item,
+            sport,
+            context: &assignment.context,
+            voice_num_ctx: hx.voice_num_ctx,
+        };
+        if matches!(
+            crate::studio::analyst::run(&Studio::new(model.as_ref()), &assignment, &publisher)
+                .await?,
+            Outcome::NoMaterial
+        ) {
+            debug!(entity_type = %item.entity_type, entity_id, sport = %item.sport, "momentum: skipped empty context");
+        }
+        Ok(())
+    }
+}
+
+struct MomentumPublisher<'a> {
+    pool: &'a PgPool,
+    item: &'a Item,
+    sport: String,
+    context: &'a MomentumContext,
+    voice_num_ctx: i32,
+}
+
+#[async_trait]
+impl Publisher<MomentumSummary> for MomentumPublisher<'_> {
+    type Receipt = i64;
+    async fn publish(&self, out: &MomentumOutput) -> Result<i64> {
+        let ctx = self.context;
+        let product_row_id =
+            persist_momentum_summary(self.pool, self.item, &self.sport, out).await?;
         insert_generation_ledger_best_effort(
-            &hx.pool,
-            &out,
+            self.pool,
+            out,
             MOMENTUM_LEDGER,
             LedgerEvent {
-                entity_type: &item.entity_type,
-                entity_id,
-                sport: &sport,
+                entity_type: &self.item.entity_type,
+                entity_id: self.item.entity_id_i32()?,
+                sport: &self.sport,
                 pair_entity: None,
                 trigger_type: "periodic",
                 trigger_payload: serde_json::json!({}),
@@ -513,16 +330,16 @@ impl StageHandler for MomentumHandler {
                 }),
                 excluded_evidence: serde_json::json!({"empty_context": ctx.empty()}),
                 context_budget: out.context_budget(serde_json::json!({
-                    "num_predict": MOMENTUM_NUM_PREDICT,
-                    "decided_direction": direction,
+                    "num_predict": generation_options(self.voice_num_ctx).num_predict,
+                    "decided_direction": out.direction,
                     "steady_band": MOMENTUM_STEADY_BAND,
-                    "computed_conviction": score,
+                    "computed_conviction": out.score,
                 })),
                 parser_outcome: "scored",
             },
         )
         .await;
-        Ok(())
+        Ok(product_row_id)
     }
 }
 

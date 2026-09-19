@@ -4,6 +4,7 @@
 //! `super` still resolves to the junction, so these run exactly as they did inline.
 
 use super::*;
+use crate::studio::Parser;
 
 #[test]
 fn parses_momentum_reply() {
@@ -274,11 +275,10 @@ fn ctx(
     snap: SynthMomentum,
 ) -> MomentumContext {
     MomentumContext {
-        memories: memories::test_package(),
         season: 2025,
-        rating,
-        vibe,
-        snapshot: snap,
+        rating: rating.as_ref().map(form),
+        vibe: vibe.as_ref().map(mood),
+        snapshot: snapshot(&snap),
         input_components_json: String::new(),
         input_hash: String::new(),
     }

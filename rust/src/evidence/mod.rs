@@ -6,3 +6,5 @@ pub mod story_parts;
 pub mod trajectory;
 
 pub mod personnel;
+
+pub mod news;

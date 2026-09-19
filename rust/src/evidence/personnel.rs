@@ -311,13 +311,13 @@ pub async fn load_scout_reports(
     entity_type: &str,
     entity_id: i32,
     sport: &str,
-) -> Result<Vec<crate::junctions::editor::render::MarkedClaim>> {
-    use crate::junctions::editor::render::{mark_contested, slice_claims, Voice};
+) -> Result<Vec<crate::evidence::news::render::MarkedClaim>> {
+    use crate::evidence::news::render::{mark_contested, slice_claims, Voice};
 
     if entity_type != "player" && entity_type != "team" {
         return Ok(Vec::new());
     }
-    let loaded = match crate::junctions::editor::packet::load_packets_for_entity(
+    let loaded = match crate::evidence::news::packet::load_packets_for_entity(
         pool,
         entity_type,
         entity_id,
@@ -395,7 +395,7 @@ pub async fn load_scout_reports(
     .with_context(|| format!("load current Editor reports {entity_type}/{entity_id}"))?;
     claims.extend(
         rows.into_iter()
-            .map(|row| crate::junctions::editor::render::RenderClaim {
+            .map(|row| crate::evidence::news::render::RenderClaim {
                 article_id: row.get("id"),
                 source: row.get("source"),
                 fact: row.get("fact"),

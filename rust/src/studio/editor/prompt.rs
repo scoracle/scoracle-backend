@@ -1,19 +1,8 @@
 //! The Editor's article-description contract.
 //!
-//! The first junction of PLAN-one-rail. It fetches the publisher page, persists the body, and
-//! DESCRIBES it. **Every judgment is derived in code from that description (T2)** — relevance
-//! (`derive::derive_relevance`), entity links (`derive::classify`), nominations (`nominate`),
-//! routing tags (`derive::routing_tags`), the box-score fork. The model is never asked a verdict.
-//!
-//! It describes emotional text, names, availability, transfers, and relevance evidence;
-//! deterministic code derives decisions from those fields.
-//!
-//! | | |
-//! |---|---|
-//! | **Seat** | `ministral-3:3b` on archbox, `num_ctx` 4096 (`COGNITION_ROUTE_EDITOR`) |
-//! | **Reads** | the fetched publisher page, furniture stripped (`fetch::extract_article_text`) |
-//! | **Writes** | `editor_reads` + `news_articles.full_text` |
-//! | **Budget** | every arrival, best-first by Google's `feed_rank`, capped per entity-day (D-T21) |
+//! Studio describes the prepared publisher text. Deterministic code derives relevance,
+//! entity matches, routing tags and parsed results. Application adapters own fetching,
+//! database writes, nominations and scheduling; model routing is selected outside Studio.
 //!
 //! Property order is part of the contract: constrained decoding emits required
 //! properties in schema order. That

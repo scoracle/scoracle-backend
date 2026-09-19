@@ -1,24 +1,17 @@
-//! Fixture nomination — the box-score fork (PLAN-one-rail 4.4; the Editor's handle).
+//! Persist article-reported fixture results after exact team resolution.
 //!
-//! The news rail CAUSES the stats rail: a read whose verbatim `result_line` parses and whose
-//! two team names both resolve exactly (T9 — the same surface-exact path as the resolver,
-//! club-kind only) nominates a completed fixture. Code matches it against `fixtures` within
-//! ±2 days; the upsert (new row, or status/score correction) trips the EXISTING
-//! `fixture_boxscore_enqueue_on_final` trigger, which enqueues the Investigator. This module
-//! never enqueues directly — one enqueue seam, owned by the trigger (4.4's law).
-//!
-//! Identity is the highest-severity failure of the phase, so every gate refuses rather than
-//! guesses: an unparseable line nominates nothing; an ambiguous or unresolved team name
-//! nominates nothing; two fixtures equally near the anchor nominate nothing (logged). A row
-//! this module creates or corrects carries `meta.needs_verification` — the Investigator's
-//! validated promotion (4.7) is what clears it.
+//! Match within two days of the article anchor and retain `meta.needs_verification`.
+//! Migration 233 retired the fixture-to-boxscore enqueue trigger; these writes do not
+//! revive that queue. Unparseable results and unresolved or ambiguous team names refuse.
+//! All writes belong to the Editor publication transaction.
 
-use super::derive::{parse_result_line, resolve_names, ParsedResult};
+use super::derive::{parse_result_line, ParsedResult};
+use super::resolve::resolve_names;
 use super::{EditorRead, NameMention};
 use anyhow::{anyhow, Context, Result};
 use serde_json::json;
-use sqlx::{PgPool, Row};
-use tracing::{info, warn};
+use sqlx::{PgConnection, Row};
+use tracing::info;
 
 /// `page_kind`s that may nominate (§1a): reporting pages and score tables. A roundup or
 /// listing mentions many results; nominating from one would fabricate fixtures wholesale.
@@ -31,20 +24,19 @@ pub enum NominationOutcome {
     NotNominated(&'static str),
     /// Fixture existed, already completed, scores agree — nothing to write.
     AlreadyCorrect { fixture_id: i32 },
-    /// Fixture existed; status and/or scores corrected (trigger enqueues).
+    /// Fixture existed; status and/or scores corrected.
     Corrected { fixture_id: i32 },
-    /// No fixture within the window; a Scoracle-identity row was created (trigger enqueues).
+    /// No fixture within the window; a Scoracle-identity row was created.
     Created { fixture_id: i32 },
 }
 
 /// nominate_fixture_from_result runs the whole 4.4 chain for one persisted read.
-/// Best-effort at the call site (a nomination failure must not re-run the model call), but
-/// every SQL step inside is transactional and identity-gated. The time anchor is the
+/// Every SQL step uses the publication transaction and is identity-gated. The time anchor is the
 /// article's `COALESCE(published_at, fetched_at)`, read in SQL — this crate never decodes
 /// timestamps into Rust (the codebase-wide discipline), and the season label derives from
 /// the anchor in SQL too.
 pub async fn nominate_fixture_from_result(
-    pool: &PgPool,
+    conn: &mut PgConnection,
     sport: &str,
     article_id: i64,
     read: &EditorRead,
@@ -63,29 +55,29 @@ pub async fn nominate_fixture_from_result(
     // club-kind mention (the kind gate then only admits `team` surfaces). One name per call so
     // the name→link association is positional and exact — no re-derivation of nrm() in Rust.
     // Anything short of two distinct unambiguous team links refuses.
-    let Some(home_id) = resolve_one_team(pool, sport, &parsed.home).await? else {
+    let Some(home_id) = resolve_one_team(&mut *conn, sport, &parsed.home).await? else {
         return Ok(NominationOutcome::NotNominated("team_unresolved"));
     };
-    let Some(away_id) = resolve_one_team(pool, sport, &parsed.away).await? else {
+    let Some(away_id) = resolve_one_team(&mut *conn, sport, &parsed.away).await? else {
         return Ok(NominationOutcome::NotNominated("team_unresolved"));
     };
     if home_id == away_id {
         return Ok(NominationOutcome::NotNominated("same_team"));
     }
 
-    upsert_nominated_fixture(pool, sport, article_id, &parsed, home_id, away_id).await
+    upsert_nominated_fixture(&mut *conn, sport, article_id, &parsed, home_id, away_id).await
 }
 
 /// resolve_one_team resolves a single parsed team name to a team id, or None when the
 /// resolver's verdict is anything but one unambiguous team link (unresolved and ambiguous
 /// both refuse — a name match alone never merges identities).
-async fn resolve_one_team(pool: &PgPool, sport: &str, name: &str) -> Result<Option<i32>> {
+async fn resolve_one_team(conn: &mut PgConnection, sport: &str, name: &str) -> Result<Option<i32>> {
     let mention = NameMention {
         name: name.to_string(),
         kind_hint: "club".to_string(),
         descriptor: String::new(),
     };
-    let resolved = resolve_names(pool, sport, std::slice::from_ref(&mention)).await?;
+    let resolved = resolve_names(&mut *conn, sport, std::slice::from_ref(&mention)).await?;
     Ok(match resolved.links.as_slice() {
         [link] if link.entity_type == "team" => Some(link.entity_id),
         _ => None,
@@ -93,21 +85,19 @@ async fn resolve_one_team(pool: &PgPool, sport: &str, name: &str) -> Result<Opti
 }
 
 async fn upsert_nominated_fixture(
-    pool: &PgPool,
+    conn: &mut PgConnection,
     sport: &str,
     article_id: i64,
     parsed: &ParsedResult,
     home_id: i32,
     away_id: i32,
 ) -> Result<NominationOutcome> {
-    let mut tx = pool.begin().await.context("begin fixture nomination")?;
-
     // The anchor: when the article says the game happened. Read in-tx so match and upsert
     // see one value.
     let anchor_exists: Option<bool> =
         sqlx::query_scalar("SELECT true FROM public.news_articles WHERE id = $1")
             .bind(article_id)
-            .fetch_optional(&mut *tx)
+            .fetch_optional(&mut *conn)
             .await
             .context("load nomination anchor article")?;
     if anchor_exists.is_none() {
@@ -138,7 +128,7 @@ async fn upsert_nominated_fixture(
     .bind(home_id)
     .bind(away_id)
     .bind(article_id)
-    .fetch_optional(&mut *tx)
+    .fetch_optional(&mut *conn)
     .await
     .context("match nominated fixture")?;
 
@@ -168,7 +158,7 @@ async fn upsert_nominated_fixture(
             } else {
                 // A `seeded` fixture whose scores AGREE never regresses to completed (the
                 // branch above); disagreement or a non-final status is a correction. The
-                // trigger fires off this UPDATE (status/scores in its column list).
+                // retired boxscore trigger is not part of this publication.
                 sqlx::query(
                     r#"
                     UPDATE public.fixtures
@@ -184,7 +174,7 @@ async fn upsert_nominated_fixture(
                 .bind(want_home)
                 .bind(want_away)
                 .bind(&meta_patch)
-                .execute(&mut *tx)
+                .execute(&mut *conn)
                 .await
                 .context("correct nominated fixture")?;
                 NominationOutcome::Corrected { fixture_id }
@@ -223,14 +213,12 @@ async fn upsert_nominated_fixture(
             .bind(parsed.away_score as i32)
             .bind(&meta_patch)
             .bind(article_id)
-            .fetch_one(&mut *tx)
+            .fetch_one(&mut *conn)
             .await
             .context("insert nominated fixture")?;
             NominationOutcome::Created { fixture_id }
         }
     };
-
-    tx.commit().await.context("commit fixture nomination")?;
 
     match &outcome {
         NominationOutcome::Created { fixture_id } => info!(
@@ -250,20 +238,4 @@ async fn upsert_nominated_fixture(
         NominationOutcome::AlreadyCorrect { .. } | NominationOutcome::NotNominated(_) => {}
     }
     Ok(outcome)
-}
-
-/// Best-effort wrapper for the stage handle: nomination failures are logged, never bubbled —
-/// the read is already persisted, and re-running a model call over a SQL hiccup is the wrong
-/// trade. The Investigator's dead-letter view (Phase 8 gate) is where persistent breakage
-/// surfaces.
-pub async fn nominate_best_effort(pool: &PgPool, sport: &str, article_id: i64, read: &EditorRead) {
-    match nominate_fixture_from_result(pool, sport, article_id, read).await {
-        Ok(_) => {}
-        Err(e) => warn!(
-            article_id,
-            sport,
-            error = %format!("{e:#}"),
-            "fixture nomination failed (read already persisted; continuing)"
-        ),
-    }
 }

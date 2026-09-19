@@ -1630,7 +1630,7 @@ fn transfers_and_availability_share_one_block_and_each_names_its_drops() {
 /// are always carried (T3/D6) — collapsing the pair would be deciding for him.
 #[test]
 fn tagged_current_reports_arrive_attributed_and_contest_marked() {
-    use crate::junctions::editor::render::{mark_contested, RenderClaim};
+    use crate::evidence::news::render::{mark_contested, RenderClaim};
 
     let claim = |source: &str, fact: &str| RenderClaim {
         article_id: 1,
@@ -1688,7 +1688,7 @@ fn tagged_current_reports_arrive_attributed_and_contest_marked() {
 /// exists to avoid.
 #[test]
 fn the_prompt_separates_current_reports_from_the_confirmed_record() {
-    use crate::junctions::editor::render::{mark_contested, RenderClaim};
+    use crate::evidence::news::render::{mark_contested, RenderClaim};
     let p = profile_player();
     let reports = mark_contested(&[RenderClaim {
         article_id: 1,

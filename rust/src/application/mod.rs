@@ -7,3 +7,5 @@ pub mod journalist;
 pub mod oracle;
 pub mod outbox;
 pub mod scout;
+
+pub mod editor;

@@ -80,7 +80,7 @@ readings. The nuance belongs with the pillars that understand the evidence.
 
 Journalist and Influencer have distinct subjects. Reporting tone alone is not evidence
 of how a crowd feels. Memories provide continuity, not fresh measurements or proof.
-The Editor, Investigator, and Graph junctions extract and verify evidence for this work.
+Editor creates through Studio; Investigator and Graph still use junctions to extract and verify evidence.
 The Insider's extraction contracts live in `studio/insider/verification.rs`.
 
 Current input limits: Scout receives per-skill season comparisons and an overall recent
@@ -95,6 +95,8 @@ Automated checks cover mechanical contracts; review live outputs for grounded cl
 and character expression. Keyword bans cannot establish whether an interpretation
 follows the evidence.
 
+Editor now reads in `studio/editor` from one prepared article assignment (source, title, description, body, hypothesis identities). Studio owns the unchanged `ep8` prompt, schema, parser, deterministic judgments, and model session. `application/editor` owns fetching, debounce, exact-name SQL resolution, nominations, storyline attachment, and claim-aware publication. The body/read or terminal marker, required fetch provenance, entity links, candidate evidence and Investigator work, storyline state, Graph work, and exact completion commit in one transaction after fetching and inference. Any required write failure rolls everything back for retry. Packet compilation and rendering now live in shared `evidence/news`; the Editor junction and best-effort publication wrappers are removed. Migration 233's retired boxscore enqueue path stays retired. No new migration or outbox is needed for this boundary.
+
 ## Source map
 
 | Path | Responsibility |
@@ -102,11 +104,12 @@ follows the evidence.
 | `src/studio/mod.rs`, `src/studio/session.rs` | Model session, bounded correction, injected publication, and outcome. |
 | `src/studio/model.rs` | Model interface, call options/results, provider-independent incomplete-output signal. |
 | `src/studio/generation.rs` | Typed products, parser interface, provenance, call diagnostics. |
-| `src/studio/analyst/`, `influencer/`, `scout/`, `journalist/`, `insider/`, `oracle/` | Migrated character creation and service-free tests. |
-| `src/application/analyst.rs`, `influencer.rs`, `scout.rs`, `journalist.rs`, `insider/`, `oracle.rs` | Concrete preparation, routing, lifecycle policy, work coordination, and claim-aware publication. |
+| `src/studio/analyst/`, `influencer/`, `scout/`, `journalist/`, `insider/`, `oracle/`, `editor/` | Migrated character creation and service-free tests. |
+| `src/application/analyst.rs`, `influencer.rs`, `scout.rs`, `journalist.rs`, `insider/`, `oracle.rs`, `editor/` | Concrete preparation, routing, lifecycle policy, work coordination, and claim-aware publication. |
 | `src/studio/form.rs`, `src/studio/guards.rs` | Shared character form, output contracts, and mechanical guards. |
+| `src/evidence/news/` | Shared packet compilation, retrieval, quote slicing, and bounded rendering. |
 | `src/composition/` | Existing sourced-memory packages and character briefs awaiting migration. |
-| `src/junctions/` | Three remaining model-facing seats and transitional application adapters. |
+| `src/junctions/` | Two remaining model-facing seats and transitional application adapters. |
 | `src/runtime/route.rs`, `src/runtime/providers/` | Role selection, host concurrency, and model transports. |
 | `src/main.rs`, `src/runtime/worker.rs`, `src/runtime/work.rs` | Service composition, dispatch, fenced `pipeline_work` claims, and acknowledgement lifecycle. |
 | `src/runtime/harness.rs`, `src/evidence/corpus.rs`, `src/runtime/ledger.rs` | Legacy application context, data retrieval, publication diagnostics. |

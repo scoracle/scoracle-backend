@@ -266,7 +266,7 @@ async fn load_pair_packet_material(
     sport: &str,
     news_ids: &[i64],
 ) -> Result<(PairPacketFacts, String)> {
-    use crate::junctions::editor::render;
+    use crate::evidence::news::render;
 
     let mut facts: PairPacketFacts = HashMap::new();
     let mut framing = String::new();
@@ -275,7 +275,7 @@ async fn load_pair_packet_material(
     }
     let wanted: std::collections::HashSet<i64> = news_ids.iter().copied().collect();
 
-    let loaded = crate::junctions::editor::packet::load_packets_for_entity(
+    let loaded = crate::evidence::news::packet::load_packets_for_entity(
         pool,
         "team",
         team_id,

@@ -1,7 +1,7 @@
 //! Render application-owned evidence into prepared Scout material.
 
+use crate::evidence::news::render::MarkedClaim;
 use crate::evidence::personnel::{AvailabilityChange, PersonnelChange};
-use crate::junctions::editor::render::MarkedClaim;
 
 pub fn render_scout_reports(claims: &[MarkedClaim]) -> Option<String> {
     if claims.is_empty() {

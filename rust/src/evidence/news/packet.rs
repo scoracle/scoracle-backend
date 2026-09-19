@@ -12,10 +12,10 @@
 //!
 //! Packet inserts fan work out to subscribed voices and always to the Journalist.
 
-use super::candidates::slice_quote;
-use super::derive::routing_tags;
-use super::{EditorRead, NameMention};
+use super::slice_quote;
 use crate::runtime::util::hash_components;
+use crate::studio::editor::derive::routing_tags;
+use crate::studio::editor::{EditorRead, NameMention};
 use anyhow::{Context, Result};
 use serde_json::{json, Value};
 use sqlx::{PgPool, Row};
@@ -862,7 +862,7 @@ async fn insert_packet(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::junctions::editor::EditorRead;
+    use crate::studio::editor::EditorRead;
 
     /// One canned member. `read` is built field by field rather than parsed, so a fixture states
     /// exactly what the Editor described and nothing else.

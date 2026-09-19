@@ -495,7 +495,10 @@ pub async fn requeue_stale(pool: &PgPool, lease: Duration) -> Result<u64> {
 /// for downstream hand-offs (e.g. vibe → sigil). Conflict policy mirrors Go: a
 /// row is REOPENED to 'pending' only when its input_version changed or it was
 /// 'failed'; an unchanged pending/running row is left untouched.
-pub async fn enqueue(pool: &PgPool, it: &Item) -> Result<()> {
+pub async fn enqueue<'e>(
+    pool: impl sqlx::Executor<'e, Database = Postgres>,
+    it: &Item,
+) -> Result<()> {
     sqlx::query(
         r#"
         INSERT INTO pipeline_work

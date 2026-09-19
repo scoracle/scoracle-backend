@@ -328,88 +328,6 @@ pub async fn attach_read(
     }))
 }
 
-/// attach_in_tx is one attach, atomic: the membership edge, the participant edges and the
-/// read's stamp land together or not at all.
-#[allow(clippy::too_many_arguments)]
-pub async fn attach_in_tx(
-    pool: &PgPool,
-    sport: &str,
-    article_id: i64,
-    title: &str,
-    read: &EditorRead,
-    resolved: &Resolved,
-    method: AttachMethod,
-    as_of_epoch: Option<i64>,
-) -> Result<Option<Attachment>> {
-    let mut tx = pool
-        .begin()
-        .await
-        .with_context(|| format!("begin storyline attach {article_id}"))?;
-    let outcome = attach_read(
-        &mut tx,
-        sport,
-        article_id,
-        title,
-        read,
-        resolved,
-        method,
-        as_of_epoch,
-    )
-    .await?;
-    tx.commit()
-        .await
-        .with_context(|| format!("commit storyline attach {article_id}"))?;
-    Ok(outcome)
-}
-
-/// attach_best_effort is the live call site's wrapper: the read is already persisted and the
-/// Desk is downstream bookkeeping, so a failure here must never re-run the model call.
-pub async fn attach_best_effort(
-    pool: &PgPool,
-    sport: &str,
-    article_id: i64,
-    title: &str,
-    read: &EditorRead,
-    resolved: &Resolved,
-) {
-    match attach_in_tx(
-        pool,
-        sport,
-        article_id,
-        title,
-        read,
-        resolved,
-        AttachMethod::Auto,
-        None,
-    )
-    .await
-    {
-        Ok(Some(attachment)) => {
-            // Friction 2 observability: log attach decisions to surface fragmentation patterns
-            tracing::info!(
-                article_id,
-                sport,
-                storyline_id = attachment.storyline_id,
-                opened = attachment.opened,
-                score = attachment.score,
-                candidates = attachment.candidates,
-                story_type = %read.story_type,
-                "storyline attach"
-            );
-        }
-        Ok(None) => {
-            // No attachment - either no resolved links or already attached (normal, no log)
-        }
-        Err(e) => {
-            tracing::warn!(
-                article_id,
-                error = %format!("{e:#}"),
-                "storyline attach failed (read already persisted; continuing)"
-            );
-        }
-    }
-}
-
 async fn already_attached(conn: &mut PgConnection, article_id: i64) -> Result<bool> {
     let hit: Option<i64> = sqlx::query_scalar(
         "SELECT storyline_id FROM public.editor_reads WHERE article_id = $1 AND storyline_id IS NOT NULL",
@@ -645,7 +563,7 @@ pub async fn resolve_storyline(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::junctions::editor::derive::{RefusedName, ResolvedLink};
+    use crate::studio::editor::derive::{RefusedName, ResolvedLink};
     use std::collections::BTreeSet;
 
     // ── the offline replay (6.5) ────────────────────────────────────────────────────────────

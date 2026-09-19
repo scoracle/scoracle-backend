@@ -7,12 +7,13 @@
 //! Handlers register from `COGNITION_STAGES` (default: every live stage).
 
 use anyhow::{anyhow, Result};
+use scoracle_cognition::application::editor;
 use scoracle_cognition::application::insider;
 use scoracle_cognition::application::{
     analyst, influencer, journalist, oracle, scout as scout_application,
 };
+use scoracle_cognition::junctions::graph;
 use scoracle_cognition::junctions::investigator::boxscore;
-use scoracle_cognition::junctions::{editor, graph};
 use scoracle_cognition::runtime::buildinfo;
 use scoracle_cognition::runtime::config;
 use scoracle_cognition::runtime::db;

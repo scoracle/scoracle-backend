@@ -111,9 +111,9 @@ async fn load_vibe_packets(
     entity_name: &str,
     sport: &str,
 ) -> Result<Vec<PacketBlock>> {
-    use crate::junctions::editor::render::Voice;
+    use crate::evidence::news::render::Voice;
 
-    Ok(crate::junctions::editor::packet::render_packets_for_entity(
+    Ok(crate::evidence::news::packet::render_packets_for_entity(
         pool,
         entity_type,
         entity_id,

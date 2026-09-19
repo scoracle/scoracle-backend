@@ -409,7 +409,7 @@ fn packet_pair_prompt_carries_the_storyline_framing_above_the_claims() {
 /// what moved.
 #[test]
 fn insider_slice_is_the_transfer_typed_claims() {
-    use crate::junctions::editor::render::{slice_claims, RenderClaim, Voice};
+    use crate::evidence::news::render::{slice_claims, RenderClaim, Voice};
     let claims = vec![
         RenderClaim {
             article_id: 3,

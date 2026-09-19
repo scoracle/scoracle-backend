@@ -16,7 +16,8 @@
 //! grace aborts a stuck in-flight item — always inside systemd's 90s TimeoutStopSec,
 //! so a stop/restart never escalates to SIGKILL.
 
-use crate::junctions::editor;
+use crate::application::editor;
+use crate::evidence::news::packet;
 use crate::runtime::harness::Harness;
 use crate::runtime::stage::{HandleOutcome, StageHandler};
 use crate::runtime::work::{self, retry_backoff, Stage, MAX_ATTEMPTS};
@@ -346,7 +347,7 @@ impl Desk {
         if !self.packet_compile {
             return;
         }
-        match editor::packet::compile_dirty(&self.pool, COMPILE_BATCH).await {
+        match packet::compile_dirty(&self.pool, COMPILE_BATCH).await {
             Ok(n) if n > 0 => info!(packets = n, cause, "packets compiled"),
             Ok(_) => debug!(cause, "packet compile: nothing dirty and quiet"),
             Err(e) => error!(error = %format!("{e:#}"), cause, "packet compile failed"),
@@ -423,7 +424,7 @@ pub struct Worker {
     /// would be a full-table UPDATE scan that finds nothing 3,600 times an hour.
     last_desk_sweep: Arc<AtomicI64>,
     /// Whether the Desk compiles packets (`COGNITION_PACKET_COMPILE`, default off — see
-    /// `config::Config::packet_compile` and `editor::packet`'s fan-out note). Storyline
+    /// `config::Config::packet_compile` and `evidence::news::packet`'s fan-out note). Storyline
     /// assembly runs regardless; it happens inside the Editor's handle, not here.
     packet_compile: bool,
 }

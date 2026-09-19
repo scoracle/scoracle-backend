@@ -32,6 +32,7 @@
 //! build a prompt and POST to the model; they NEVER claim `pipeline_work` or write a product table.
 
 use crate::application::analyst::build_momentum_prompt_from_pillars;
+use crate::application::editor::build_editor_prompt_for_eval;
 use crate::application::influencer::load_vibe_context;
 use crate::application::insider::{
     build_pair_request, load_candidates, team_relationship, PairBuild,
@@ -40,10 +41,6 @@ use crate::application::journalist::load_packet_corpus;
 use crate::application::oracle::load_pillars;
 use crate::application::scout::{build_rating_request, RatingReq};
 use crate::evidence::corpus::lookup_entity_name;
-use crate::junctions::editor::{
-    build_editor_prompt_for_eval, derive as editor_derive, editor_opts, EditorRead,
-    EditorReadParser, EDITOR_CONTRACT_VERSION,
-};
 use crate::junctions::graph::{
     build_graph_prompt, graph_opts, load_graph_article_context, GraphCandidate, GraphParser,
     GRAPH_PROMPT_VERSION,
@@ -57,6 +54,9 @@ use crate::runtime::route::Role;
 use crate::runtime::util::truncate;
 use crate::studio::analyst::{
     parse_momentum_reply, MOMENTUM_NUM_PREDICT, MOMENTUM_PROMPT_VERSION, MOMENTUM_SYSTEM_PROMPT,
+};
+use crate::studio::editor::{
+    derive as editor_derive, editor_opts, EditorRead, EditorReadParser, EDITOR_CONTRACT_VERSION,
 };
 use crate::studio::influencer::{
     build_sentiment_prompt, parse_vibe_reply, VIBE_NUM_PREDICT, VIBE_PROMPT_VERSION,

@@ -5,7 +5,7 @@
 //!     cargo run --example editor_ep1_fixtures > /tmp/editor_fixtures.json
 //! Output: a JSON array; split into `fixtures/editor/<name>.json`. Offline.
 
-use scoracle_cognition::junctions::editor::{
+use scoracle_cognition::studio::editor::{
     build_editor_prompt_parts, EDITOR_CONTRACT_VERSION, EDITOR_SYSTEM_PROMPT,
 };
 use serde_json::json;

@@ -489,49 +489,104 @@ fn ep1_schema_property_order_is_the_contract() {
     );
 }
 
-/// 7.13 (G1): the Editor hands graph its article ONLY on the packet rail. Under `RAIL=legacy`
-/// The cutover blocker measured 2026-08-06: three Editor rows at attempts≥5, one per day, all
-/// `persist article full_text <id>: invalid byte sequence for encoding "UTF8": 0x00`. A NUL in a
-/// scraped body is not storable in a Postgres text column at all, so the write can only ever
-/// fail — and §2 clause 4 needs the dead-letter count at 0 for seven consecutive days, which one
-/// arrival per day resets forever. The body is sanitised where it enters the Editor, so the same
-/// clean text is what gets hashed, prompted, sliced for candidate evidence, and persisted.
-#[test]
-fn a_body_carrying_nul_is_sanitised_before_it_can_reach_a_text_column() {
-    let fetched = FetchedArticle {
-        final_url: "https://example.com/a".to_string(),
-        final_domain: Some("example.com".to_string()),
-        text: "Vinicius \u{0}Junior is \u{0}staying at Real Madrid.\u{0}".to_string(),
-    };
-    assert!(
-        fetched.text.contains('\0'),
-        "the fixture must carry the byte under test"
-    );
-
-    let clean = sanitize_fetched(fetched);
-    assert!(
-        !clean.text.contains('\0'),
-        "no NUL may survive into full_text"
-    );
-    assert_eq!(clean.text, "Vinicius Junior is staying at Real Madrid.");
-    // The derivations that ride the same body must be computable on it.
-    assert_eq!(count_words(&clean.text), 7);
-    assert!(!content_hash(&clean.text).is_empty());
-    // The URL columns are bound from the same struct and must survive untouched.
-    assert_eq!(clean.final_url, "https://example.com/a");
-    assert_eq!(clean.final_domain.as_deref(), Some("example.com"));
+struct Model {
+    response: Option<String>,
+    requests: std::sync::Mutex<Vec<(String, crate::studio::model::GenerateOptions)>>,
 }
 
-/// Sanitisation must be invisible to the 99.99% of bodies that carry no NUL: same bytes in, same
-/// bytes out, so no prompt and no `content_hash` moves for an ordinary article.
-#[test]
-fn a_body_without_nul_passes_through_byte_identical() {
-    let body = "Arsenal have agreed a fee.\n\nThe deal is not done.\t— sources";
-    let clean = sanitize_fetched(FetchedArticle {
-        final_url: "https://example.com/b".to_string(),
-        final_domain: None,
-        text: body.to_string(),
-    });
-    assert_eq!(clean.text, body);
-    assert_eq!(content_hash(&clean.text), content_hash(body));
+#[async_trait::async_trait]
+impl crate::studio::model::Inference for Model {
+    async fn generate(
+        &self,
+        prompt: &str,
+        opts: &crate::studio::model::GenerateOptions,
+    ) -> Result<(crate::studio::model::GenerateResult, serde_json::Value)> {
+        self.requests
+            .lock()
+            .unwrap()
+            .push((prompt.to_string(), opts.clone()));
+        let response = self
+            .response
+            .clone()
+            .ok_or_else(|| anyhow::anyhow!("transport unavailable"))?;
+        Ok((
+            crate::studio::model::GenerateResult {
+                response,
+                thinking: String::new(),
+                model: "actual-editor-model".into(),
+                total_duration: std::time::Duration::from_millis(12),
+                prompt_eval_count: 5,
+                eval_count: 10,
+                completion_reason: Some("stop".into()),
+                raw_response_body: String::new(),
+            },
+            self.request_body(prompt, opts),
+        ))
+    }
+    fn model(&self) -> &str {
+        "configured-editor-model"
+    }
+    fn request_body(
+        &self,
+        prompt: &str,
+        opts: &crate::studio::model::GenerateOptions,
+    ) -> serde_json::Value {
+        json!({"prompt": prompt, "schema": opts.format_schema_raw, "budget": opts.num_predict})
+    }
+}
+
+#[tokio::test]
+async fn prepared_article_session_preserves_request_and_actual_model_provenance() {
+    let assignment = Assignment {
+        source: "Wire".into(),
+        title: "Club news".into(),
+        description: "An update".into(),
+        text: "West Ham United have signed a new player.".into(),
+        hypothesis: hypothesis(),
+    };
+    let expected = build_editor_prompt_parts(
+        &assignment.source,
+        &assignment.title,
+        &assignment.description,
+        &assignment.text,
+        &assignment.hypothesis,
+    );
+    let model = Model {
+        response: Some(ep1_raw("article", &[("West Ham United", "subject")], &[])),
+        requests: Default::default(),
+    };
+    let output = Studio::new(&model).read_article(&assignment).await.unwrap();
+    assert!(output.value.unwrap().relevant);
+    assert_eq!(output.model, "actual-editor-model");
+    assert_eq!(output.built_prompt, expected);
+    assert_eq!(output.request_body["schema"], EDITOR_FORMAT_SCHEMA_RAW);
+    let requests = model.requests.lock().unwrap();
+    assert_eq!(requests.len(), 1);
+    assert_eq!(requests[0].0, expected);
+    assert_eq!(requests[0].1.num_predict, 900);
+    assert_eq!(requests[0].1.num_ctx, 4096);
+}
+
+#[tokio::test]
+async fn abstention_and_transport_failure_remain_distinct() {
+    let assignment = Assignment {
+        source: "Wire".into(),
+        title: "News".into(),
+        description: String::new(),
+        text: "Body".into(),
+        hypothesis: vec![],
+    };
+    for response in [Some("no JSON".to_string()), None] {
+        let model = Model {
+            response: response.clone(),
+            requests: Default::default(),
+        };
+        let output = Studio::new(&model).read_article(&assignment).await;
+        if response.is_some() {
+            assert!(output.unwrap().value.is_none());
+        } else {
+            assert!(output.is_err());
+        }
+        assert_eq!(model.requests.lock().unwrap().len(), 1);
+    }
 }

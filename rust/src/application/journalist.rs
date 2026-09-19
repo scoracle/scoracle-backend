@@ -59,9 +59,9 @@ pub async fn load_packet_corpus(
     sport: &str,
     entity_name: &str,
 ) -> Result<(Vec<CorpusItem>, CorpusExclusions, String)> {
-    use crate::junctions::editor::render;
+    use crate::evidence::news::render;
 
-    let loaded = crate::junctions::editor::packet::load_packets_for_entity(
+    let loaded = crate::evidence::news::packet::load_packets_for_entity(
         pool,
         entity_type,
         entity_id,

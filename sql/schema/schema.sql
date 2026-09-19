@@ -7508,8 +7508,7 @@ CREATE TABLE public.application_outbox (
     last_error text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT application_outbox_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
-    CONSTRAINT application_outbox_kind_check CHECK ((kind = 'vibe_completed'::text)),
-    CONSTRAINT application_outbox_source_stage_check CHECK ((source_stage = 'vibe'::text))
+    CONSTRAINT application_outbox_kind_stage_check CHECK ((((kind = 'vibe_completed'::text) AND (source_stage = 'vibe'::text)) OR ((kind = 'momentum_completed'::text) AND (source_stage = 'momentum'::text))))
 );
 
 
@@ -7517,7 +7516,7 @@ CREATE TABLE public.application_outbox (
 -- Name: TABLE application_outbox; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.application_outbox IS 'Durable post-publication reconciliation. Initially owns only Influencer completion: Momentum offer, then Oracle barrier.';
+COMMENT ON TABLE public.application_outbox IS 'Durable post-publication reconciliation for claim-aware seats: Vibe completion offers Momentum then checks Oracle; Momentum completion checks Oracle.';
 
 
 --

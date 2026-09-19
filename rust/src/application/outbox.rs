@@ -1,20 +1,40 @@
 //! Narrow durable follow-up recovery for claim-aware application publication.
 //!
-//! The first event is `vibe_completed`: reconcile the Influencer's Momentum offer, then ask the
-//! Oracle barrier. Both operations are idempotent database adapters. The event is deleted only
-//! after both succeed, so a process crash cannot strand a published card without its follow-up.
+//! `vibe_completed` reconciles the Influencer's Momentum offer and then asks the Oracle barrier.
+//! `momentum_completed` needs only that Oracle barrier. These are the two concrete, idempotent
+//! obligations represented here; the event is deleted only after its dispatch succeeds.
 
 use crate::runtime::harness::Harness;
 use crate::runtime::util::truncate;
 use crate::runtime::work::{retry_backoff, Item};
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use sqlx::{Postgres, Row, Transaction};
 use tracing::{debug, warn};
 
 const VIBE_COMPLETED: &str = "vibe_completed";
+const MOMENTUM_COMPLETED: &str = "momentum_completed";
 
 pub(crate) async fn record_vibe_completed(
     tx: &mut Transaction<'_, Postgres>,
+    item: &Item,
+) -> Result<()> {
+    record_completion(tx, VIBE_COMPLETED, item)
+        .await
+        .context("record vibe completion outbox")
+}
+
+pub(crate) async fn record_momentum_completed(
+    tx: &mut Transaction<'_, Postgres>,
+    item: &Item,
+) -> Result<()> {
+    record_completion(tx, MOMENTUM_COMPLETED, item)
+        .await
+        .context("record momentum completion outbox")
+}
+
+async fn record_completion(
+    tx: &mut Transaction<'_, Postgres>,
+    kind: &str,
     item: &Item,
 ) -> Result<()> {
     sqlx::query(
@@ -26,7 +46,7 @@ pub(crate) async fn record_vibe_completed(
         ON CONFLICT (kind, source_stage, source_claim_token) DO NOTHING
         "#,
     )
-    .bind(VIBE_COMPLETED)
+    .bind(kind)
     .bind(item.stage.as_str())
     .bind(item.require_claim_token()?)
     .bind(&item.entity_type)
@@ -34,13 +54,13 @@ pub(crate) async fn record_vibe_completed(
     .bind(&item.sport)
     .bind(item.input_version.as_deref())
     .execute(&mut **tx)
-    .await
-    .context("record vibe completion outbox")?;
+    .await?;
     Ok(())
 }
 
 struct Event {
     id: String,
+    kind: String,
     entity_type: String,
     entity_id: i32,
     sport: String,
@@ -56,15 +76,15 @@ pub async fn drain(hx: &Harness, limit: usize) -> Result<usize> {
         let mut tx = hx.pool.begin().await.context("begin outbox dispatch")?;
         let row = sqlx::query(
             r#"
-            SELECT id::text, entity_type, entity_id, sport, source_input_version, attempts
+            SELECT id::text, kind, entity_type, entity_id, sport, source_input_version, attempts
               FROM application_outbox
-             WHERE kind = $1 AND available_at <= NOW()
+             WHERE kind = ANY($1) AND available_at <= NOW()
              ORDER BY available_at, created_at
              FOR UPDATE SKIP LOCKED
              LIMIT 1
             "#,
         )
-        .bind(VIBE_COMPLETED)
+        .bind([VIBE_COMPLETED, MOMENTUM_COMPLETED])
         .fetch_optional(&mut *tx)
         .await
         .context("claim application outbox event")?;
@@ -76,14 +96,15 @@ pub async fn drain(hx: &Harness, limit: usize) -> Result<usize> {
         };
         let event = Event {
             id: row.get(0),
-            entity_type: row.get(1),
-            entity_id: row.get(2),
-            sport: row.get(3),
-            source_input_version: row.get(4),
-            attempts: row.get(5),
+            kind: row.get(1),
+            entity_type: row.get(2),
+            entity_id: row.get(3),
+            sport: row.get(4),
+            source_input_version: row.get(5),
+            attempts: row.get(6),
         };
 
-        let result = dispatch_vibe_completed(hx, &event).await;
+        let result = dispatch(hx, &event).await;
         match result {
             Ok(()) => {
                 sqlx::query("DELETE FROM application_outbox WHERE id = $1::uuid")
@@ -118,7 +139,8 @@ pub async fn drain(hx: &Harness, limit: usize) -> Result<usize> {
                     entity_id = event.entity_id,
                     sport = %event.sport,
                     backoff_secs = backoff.as_secs(),
-                    "vibe completion reconciliation failed; durable retry scheduled"
+                    kind = %event.kind,
+                    "application completion reconciliation failed; durable retry scheduled"
                 );
             }
         }
@@ -126,8 +148,16 @@ pub async fn drain(hx: &Harness, limit: usize) -> Result<usize> {
     Ok(handled)
 }
 
+async fn dispatch(hx: &Harness, event: &Event) -> Result<()> {
+    match event.kind.as_str() {
+        VIBE_COMPLETED => dispatch_vibe_completed(hx, event).await,
+        MOMENTUM_COMPLETED => dispatch_oracle_barrier(hx, event).await,
+        kind => bail!("unsupported application outbox kind {kind:?}"),
+    }
+}
+
 async fn dispatch_vibe_completed(hx: &Harness, event: &Event) -> Result<()> {
-    if !crate::junctions::analyst::enqueue_momentum_if_needed(
+    if !crate::application::analyst::enqueue_momentum_if_needed(
         hx,
         &event.entity_type,
         event.entity_id,
@@ -142,6 +172,10 @@ async fn dispatch_vibe_completed(hx: &Harness, event: &Event) -> Result<()> {
             "vibe outbox: momentum enqueue skipped unchanged/empty context"
         );
     }
+    dispatch_oracle_barrier(hx, event).await
+}
+
+async fn dispatch_oracle_barrier(hx: &Harness, event: &Event) -> Result<()> {
     crate::junctions::oracle::enqueue_oracle_if_pillars_settled(
         &hx.pool,
         &event.entity_type,

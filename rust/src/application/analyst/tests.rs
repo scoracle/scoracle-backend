@@ -1,10 +1,18 @@
-//! Unit tests for this junction.
+//! Unit and lifecycle tests for the Analyst application adapter.
 //!
 //! Split out of `mod.rs` so the stage module reads as the stage and nothing else.
-//! `super` still resolves to the junction, so these run exactly as they did inline.
+//! `super` resolves to the application adapter while Studio creation remains independently tested.
 
 use super::*;
-use crate::studio::Parser;
+use crate::studio::analyst::{
+    momentum_conviction_from_score, momentum_direction_from_score, parse_momentum_reply,
+    MomentumParser, MOMENTUM_PROMPT_VERSION,
+};
+use crate::studio::model::{GenerateOptions, GenerateResult, Inference};
+use crate::studio::{Parser, Publisher};
+use async_trait::async_trait;
+use std::sync::Mutex;
+use std::time::Duration;
 
 #[test]
 fn parses_momentum_reply() {
@@ -119,7 +127,15 @@ fn prompt_carries_the_decided_direction_line() {
         momentum_score: Some(50.7),
         ..SynthMomentum::default()
     };
-    let prompt = build_momentum_prompt("player", "Test Player", "FOOTBALL", None, None, &mom, None);
+    let prompt = build_momentum_prompt_from_pillars(
+        "player",
+        "Test Player",
+        "FOOTBALL",
+        None,
+        None,
+        &mom,
+        None,
+    );
     // s18: BOTH decided facts arrive as words — the direction line hands the model no
     // figure and no "steady band" to echo (the digit-starvation pass; 50.7 ⇒ conviction
     // 3 ⇒ "clean and well supported" via momentum_conviction_from_score).
@@ -135,7 +151,7 @@ fn prompt_carries_the_decided_direction_line() {
     // No memory ⇒ no section (s4 byte-shape preserved).
     assert!(!prompt.contains("RELATIONAL MEMORY"));
     // No snapshot → the decided line still exists and is honestly steady.
-    let empty = build_momentum_prompt(
+    let empty = build_momentum_prompt_from_pillars(
         "player",
         "Test Player",
         "FOOTBALL",
@@ -165,7 +181,7 @@ fn only_the_two_rails_reach_the_prompt() {
         momentum_score: Some(-22.4),
         ..SynthMomentum::default()
     };
-    let p = build_momentum_prompt(
+    let p = build_momentum_prompt_from_pillars(
         "team",
         "Test Team",
         "FOOTBALL",
@@ -247,7 +263,7 @@ fn input_components_are_stable_and_sorted() {
     // prompt_version joined at s6 (single-sourced from the const, so a bump can't
     // silently rot this pin); keys stay sorted, so it lands alphabetically.
     assert_eq!(
-        build_momentum_input_components(Some(&rating), Some(&vibe), &mom),
+        build_momentum_input_components_from_pillars(Some(&rating), Some(&vibe), &mom),
         format!(
             r#"{{"momentum_rating_samples":6,"momentum_rating_slope":1.2,"momentum_score":1.2,"momentum_vibe_samples":4,"momentum_vibe_slope":-0.0,"notability":88,"prompt_version":"{MOMENTUM_PROMPT_VERSION}","rating_trajectory":"rising","rating_trajectory_label":"Composite rising","vibe_sentiment":62}}"#
         )
@@ -337,7 +353,7 @@ fn a_vibe_only_context_builds_a_prompt_that_claims_no_form() {
     // s19 INVERTS this test's first assertion. It used to require the felt read to reach the
     // prompt; the felt read is the Influencer's prose and is exactly what made the Analyst
     // narrate the mood instead of its direction. What survives from her card is the LEVEL.
-    let p = build_momentum_prompt(
+    let p = build_momentum_prompt_from_pillars(
         "team",
         "Ipswich Town",
         "FOOTBALL",
@@ -405,4 +421,407 @@ fn claim_paragraphs_survive_the_production_parser() {
     let raw = format!("READ: {body}\nHEADLINE: Ordinary form holds");
     let parsed = MomentumParser.parse(&raw).unwrap().unwrap();
     assert_eq!(parsed.blurb, body);
+}
+
+#[derive(Default)]
+struct LifecycleAdapters {
+    response: String,
+    events: Mutex<Vec<&'static str>>,
+    outputs: Mutex<Vec<MomentumOutput>>,
+    publication_fails: bool,
+}
+
+#[async_trait]
+impl Inference for LifecycleAdapters {
+    async fn generate(
+        &self,
+        prompt: &str,
+        _: &GenerateOptions,
+    ) -> Result<(GenerateResult, serde_json::Value)> {
+        self.events.lock().unwrap().push("model");
+        Ok((
+            GenerateResult {
+                response: self.response.clone(),
+                thinking: String::new(),
+                model: "responding-model".into(),
+                total_duration: Duration::from_millis(12),
+                eval_count: 7,
+                prompt_eval_count: 11,
+                completion_reason: Some("stop".into()),
+                raw_response_body: "{}".into(),
+            },
+            serde_json::json!({"prompt": prompt}),
+        ))
+    }
+
+    fn model(&self) -> &str {
+        "configured-model"
+    }
+
+    fn request_body(&self, _: &str, _: &GenerateOptions) -> serde_json::Value {
+        unreachable!("successful-call provenance uses the actual request")
+    }
+}
+
+#[async_trait]
+impl Publisher<analyst::MomentumSummary> for LifecycleAdapters {
+    type Receipt = usize;
+
+    async fn publish(&self, output: &MomentumOutput) -> Result<Self::Receipt> {
+        self.events.lock().unwrap().push("publish");
+        if self.publication_fails {
+            anyhow::bail!("publication unavailable");
+        }
+        let mut outputs = self.outputs.lock().unwrap();
+        outputs.push(output.clone());
+        Ok(outputs.len())
+    }
+}
+
+#[async_trait]
+impl PillarHandoff for LifecycleAdapters {
+    async fn offer(&self) -> Result<()> {
+        self.events.lock().unwrap().push("oracle");
+        Ok(())
+    }
+}
+
+fn lifecycle_assignment(material: bool) -> Assignment {
+    Assignment {
+        entity_type: "team".into(),
+        entity_name: "Test Team".into(),
+        sport: "nba".into(),
+        context: if material {
+            MomentumContext::new(
+                2026,
+                Some(Form {
+                    notability: 72,
+                    rating_trajectory: "rising".into(),
+                    rating_trajectory_label: "Gaining ground".into(),
+                }),
+                Some(Mood { sentiment: 61 }),
+                Snapshot {
+                    momentum_score: Some(25.0),
+                    ..Snapshot::default()
+                },
+            )
+        } else {
+            MomentumContext::new(2026, None, None, Snapshot::default())
+        },
+        memory: material.then(|| "Prepared source memory.".into()),
+        voice_num_ctx: 4096,
+    }
+}
+
+#[tokio::test]
+async fn application_lifecycle_publishes_then_offers_the_oracle_obligation() {
+    let adapters = LifecycleAdapters {
+        response: r#"{"body":"The form is rising and the mood confirms it.","headline":"Test Team gathers force"}"#.into(),
+        ..Default::default()
+    };
+    assert_eq!(
+        run_prepared(
+            &Studio::new(&adapters),
+            &lifecycle_assignment(true),
+            &adapters,
+            &adapters,
+        )
+        .await
+        .unwrap(),
+        ApplicationOutcome::Published(1)
+    );
+    assert_eq!(
+        *adapters.events.lock().unwrap(),
+        ["model", "publish", "oracle"]
+    );
+    let outputs = adapters.outputs.lock().unwrap();
+    assert_eq!(outputs[0].direction, "rising");
+    assert_eq!(outputs[0].score, 2);
+    assert_eq!(outputs[0].provenance.model_version, "responding-model");
+}
+
+#[tokio::test]
+async fn no_material_completes_without_model_or_product_but_keeps_the_oracle_obligation() {
+    let adapters = LifecycleAdapters::default();
+    assert_eq!(
+        run_prepared(
+            &Studio::new(&adapters),
+            &lifecycle_assignment(false),
+            &adapters,
+            &adapters,
+        )
+        .await
+        .unwrap(),
+        ApplicationOutcome::NoMaterial
+    );
+    assert_eq!(*adapters.events.lock().unwrap(), ["oracle"]);
+    assert!(adapters.outputs.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn publication_failure_stops_before_the_oracle_obligation() {
+    let adapters = LifecycleAdapters {
+        response: "READ: The form is rising.".into(),
+        publication_fails: true,
+        ..Default::default()
+    };
+    assert!(run_prepared(
+        &Studio::new(&adapters),
+        &lifecycle_assignment(true),
+        &adapters,
+        &adapters,
+    )
+    .await
+    .is_err());
+    assert_eq!(*adapters.events.lock().unwrap(), ["model", "publish"]);
+}
+
+/// Exact publication-contract acceptance against an isolated database containing migrations
+/// 256-258. Ordinary test runs compile but ignore these cases; opt in with TEST_DATABASE_URL.
+mod postgres_publication_fencing_tests {
+    use super::*;
+    use crate::runtime::work;
+    use sqlx::postgres::PgPoolOptions;
+    use sqlx::PgPool;
+
+    const SPORT: &str = "ZZ_MOMENTUM_FENCE";
+    const ENTITY_ID: i64 = 9_200_002;
+
+    async fn pool() -> PgPool {
+        let url = std::env::var("TEST_DATABASE_URL").expect(
+            "set TEST_DATABASE_URL to an isolated database with migrations 256-258 applied",
+        );
+        PgPoolOptions::new()
+            .max_connections(3)
+            .connect(&url)
+            .await
+            .expect("connect TEST_DATABASE_URL")
+    }
+
+    async fn clean(pool: &PgPool) {
+        sqlx::query("DELETE FROM application_outbox WHERE sport = $1")
+            .bind(SPORT)
+            .execute(pool)
+            .await
+            .expect("clean outbox");
+        sqlx::query("DELETE FROM momentum_summaries WHERE sport = $1")
+            .bind(SPORT)
+            .execute(pool)
+            .await
+            .expect("clean momentum products");
+        sqlx::query("DELETE FROM pipeline_work WHERE sport = $1")
+            .bind(SPORT)
+            .execute(pool)
+            .await
+            .expect("clean work");
+        sqlx::query(
+            "INSERT INTO sports (id, display_name, current_season) VALUES ($1,$2,2026) \
+             ON CONFLICT (id) DO NOTHING",
+        )
+        .bind(SPORT)
+        .bind("Momentum fencing test")
+        .execute(pool)
+        .await
+        .expect("ensure test sport");
+    }
+
+    fn pending(revision: &str) -> Item {
+        Item {
+            stage: Stage::Momentum,
+            entity_type: "team".to_string(),
+            entity_id: ENTITY_ID,
+            sport: SPORT.to_string(),
+            input_version: Some(revision.to_string()),
+            attempts: 0,
+            claim_token: None,
+        }
+    }
+
+    async fn claim_one(pool: &PgPool) -> Item {
+        let mut claimed = work::claim(pool, Stage::Momentum, 1)
+            .await
+            .expect("claim momentum test row");
+        assert_eq!(claimed.len(), 1);
+        claimed.remove(0)
+    }
+
+    async fn product() -> Prepared {
+        let adapters = LifecycleAdapters {
+            response: r#"{"body":"The form is rising and the mood confirms it.","headline":"Test Team gathers force"}"#.into(),
+            ..Default::default()
+        };
+        prepare(&Studio::new(&adapters), &lifecycle_assignment(true))
+            .await
+            .expect("prepare momentum product")
+    }
+
+    async fn counts(pool: &PgPool) -> (i64, i64, i64) {
+        let products =
+            sqlx::query_scalar("SELECT count(*) FROM momentum_summaries WHERE sport = $1")
+                .bind(SPORT)
+                .fetch_one(pool)
+                .await
+                .unwrap();
+        let events = sqlx::query_scalar("SELECT count(*) FROM application_outbox WHERE sport = $1")
+            .bind(SPORT)
+            .fetch_one(pool)
+            .await
+            .unwrap();
+        let work = sqlx::query_scalar("SELECT count(*) FROM pipeline_work WHERE sport = $1")
+            .bind(SPORT)
+            .fetch_one(pool)
+            .await
+            .unwrap();
+        (products, events, work)
+    }
+
+    #[tokio::test]
+    #[ignore = "requires isolated migrated TEST_DATABASE_URL"]
+    async fn revision_arriving_during_execution_fences_publication() {
+        let pool = pool().await;
+        clean(&pool).await;
+
+        work::enqueue(&pool, &pending("v1")).await.unwrap();
+        let stale = claim_one(&pool).await;
+        work::enqueue(&pool, &pending("v2")).await.unwrap();
+
+        assert_eq!(
+            commit_claimed(&pool, &stale, SPORT, &product().await)
+                .await
+                .unwrap(),
+            (HandleOutcome::Superseded, None)
+        );
+        assert_eq!(counts(&pool).await, (0, 0, 1));
+
+        let current = claim_one(&pool).await;
+        assert_eq!(current.input_version.as_deref(), Some("v2"));
+        assert_eq!(
+            commit_claimed(&pool, &current, SPORT, &product().await)
+                .await
+                .unwrap()
+                .0,
+            HandleOutcome::Completed
+        );
+        assert_eq!(counts(&pool).await, (1, 1, 0));
+        clean(&pool).await;
+    }
+
+    #[tokio::test]
+    #[ignore = "requires isolated migrated TEST_DATABASE_URL"]
+    async fn reclaimed_same_revision_fences_the_old_worker() {
+        let pool = pool().await;
+        clean(&pool).await;
+
+        work::enqueue(&pool, &pending("same")).await.unwrap();
+        let stale = claim_one(&pool).await;
+        sqlx::query(
+            "UPDATE pipeline_work SET updated_at = NOW() - INTERVAL '1 hour' WHERE sport = $1",
+        )
+        .bind(SPORT)
+        .execute(&pool)
+        .await
+        .unwrap();
+        assert_eq!(
+            work::requeue_stale(&pool, Duration::from_secs(30 * 60))
+                .await
+                .unwrap(),
+            1
+        );
+        let current = claim_one(&pool).await;
+        assert_ne!(stale.claim_token, current.claim_token);
+
+        assert_eq!(
+            commit_claimed(&pool, &stale, SPORT, &product().await)
+                .await
+                .unwrap(),
+            (HandleOutcome::Superseded, None)
+        );
+        assert_eq!(counts(&pool).await, (0, 0, 1));
+        assert_eq!(
+            commit_claimed(&pool, &current, SPORT, &product().await)
+                .await
+                .unwrap()
+                .0,
+            HandleOutcome::Completed
+        );
+        assert_eq!(counts(&pool).await, (1, 1, 0));
+        clean(&pool).await;
+    }
+
+    #[tokio::test]
+    #[ignore = "requires isolated migrated TEST_DATABASE_URL"]
+    async fn current_claim_commits_product_provenance_event_and_completion() {
+        let pool = pool().await;
+        clean(&pool).await;
+
+        work::enqueue(&pool, &pending("current")).await.unwrap();
+        let current = claim_one(&pool).await;
+        let prepared = product().await;
+        let expected_hash = match &prepared {
+            Prepared::Product(output) => output.provenance.input_hash.clone(),
+            Prepared::NoMaterial => panic!("expected product"),
+        };
+        let (outcome, row_id) = commit_claimed(&pool, &current, SPORT, &prepared)
+            .await
+            .unwrap();
+        assert_eq!(outcome, HandleOutcome::Completed);
+        assert!(row_id.is_some());
+        assert_eq!(counts(&pool).await, (1, 1, 0));
+
+        let row: (String, i16, String, String, Option<String>) = sqlx::query_as(
+            "SELECT direction, score, model_version, prompt_version, input_hash \
+             FROM momentum_summaries WHERE sport = $1",
+        )
+        .bind(SPORT)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(row.0, "rising");
+        assert_eq!(row.1, 2);
+        assert_eq!(row.2, "responding-model");
+        assert_eq!(row.3, MOMENTUM_PROMPT_VERSION);
+        assert_eq!(row.4, expected_hash);
+        let event: (String, String, Option<String>) = sqlx::query_as(
+            "SELECT kind, source_stage, source_input_version \
+             FROM application_outbox WHERE sport = $1",
+        )
+        .bind(SPORT)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(
+            event,
+            (
+                "momentum_completed".into(),
+                "momentum".into(),
+                Some("current".into())
+            )
+        );
+        clean(&pool).await;
+    }
+
+    #[tokio::test]
+    #[ignore = "requires isolated migrated TEST_DATABASE_URL"]
+    async fn no_material_claim_completes_with_followup_and_without_product() {
+        let pool = pool().await;
+        clean(&pool).await;
+
+        work::enqueue(&pool, &pending("empty")).await.unwrap();
+        let current = claim_one(&pool).await;
+        assert_eq!(
+            commit_claimed(&pool, &current, SPORT, &Prepared::NoMaterial)
+                .await
+                .unwrap(),
+            (HandleOutcome::Completed, None)
+        );
+        assert_eq!(counts(&pool).await, (0, 1, 0));
+        let kind: String =
+            sqlx::query_scalar("SELECT kind FROM application_outbox WHERE sport = $1")
+                .bind(SPORT)
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(kind, "momentum_completed");
+        clean(&pool).await;
+    }
 }

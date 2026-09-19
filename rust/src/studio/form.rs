@@ -177,8 +177,8 @@ pub fn oracle_format_schema() -> serde_json::Value {
 mod tests {
     use super::*;
     use crate::composition::characters;
-    use crate::junctions::{analyst, insider, journalist, oracle, scout};
-    use crate::studio::influencer;
+    use crate::junctions::{insider, journalist, oracle, scout};
+    use crate::studio::{analyst, influencer};
 
     #[test]
     fn every_live_character_uses_the_shared_form_without_retired_outlines() {

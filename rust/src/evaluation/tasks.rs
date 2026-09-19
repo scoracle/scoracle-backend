@@ -31,12 +31,9 @@
 //! SAFETY: like `bin/eval` itself, tasks are read-only on the pipeline — they read corpus tables to
 //! build a prompt and POST to the model; they NEVER claim `pipeline_work` or write a product table.
 
+use crate::application::analyst::build_momentum_prompt_from_pillars;
 use crate::application::influencer::load_vibe_context;
 use crate::evidence::corpus::lookup_entity_name;
-use crate::junctions::analyst::{
-    build_momentum_prompt, parse_momentum_reply, MOMENTUM_NUM_PREDICT, MOMENTUM_PROMPT_VERSION,
-    MOMENTUM_SYSTEM_PROMPT,
-};
 use crate::junctions::editor::{
     build_editor_prompt_for_eval, derive as editor_derive, editor_opts, EditorRead,
     EditorReadParser, EDITOR_CONTRACT_VERSION,
@@ -69,6 +66,9 @@ use crate::runtime::harness::{Harness, Parser};
 use crate::runtime::providers::ollama::GenerateOptions;
 use crate::runtime::route::Role;
 use crate::runtime::util::truncate;
+use crate::studio::analyst::{
+    parse_momentum_reply, MOMENTUM_NUM_PREDICT, MOMENTUM_PROMPT_VERSION, MOMENTUM_SYSTEM_PROMPT,
+};
 use crate::studio::influencer::{
     build_sentiment_prompt, parse_vibe_reply, VIBE_NUM_PREDICT, VIBE_PROMPT_VERSION,
 };
@@ -1447,8 +1447,9 @@ impl LensTask for RatingTask {
 
 pub struct MomentumTask;
 
-// Momentum's prompt contract lives in `crate::junctions::analyst` (the production stage) — the eval task
-// imports it rather than carrying a copy. It USED to carry its own fork ("momentum-eval-v3",
+// Momentum's prompt contract lives in `crate::studio::analyst`; the application adapter maps
+// current Oracle pillar values into that domain. Eval imports both rather than carrying a copy.
+// It USED to carry its own fork ("momentum-eval-v3",
 // a duplicate system prompt, its own parser): a relic from momentum's fixture-first era that
 // silently diverged from production — the eval was measuring a prompt and a parser production
 // no longer ran. Unified 2026-07-12 (lens quality plan Phase 1).
@@ -1486,7 +1487,7 @@ impl LensTask for MomentumTask {
         // s19: there is no enrichment rider left to pin. The Analyst reads the two rails and
         // their collision, so the eval prompt and the production prompt are now the same shape
         // by construction rather than by the eval opting out.
-        Ok(Some(build_momentum_prompt(
+        Ok(Some(build_momentum_prompt_from_pillars(
             &e.entity_type,
             &name,
             &e.sport,

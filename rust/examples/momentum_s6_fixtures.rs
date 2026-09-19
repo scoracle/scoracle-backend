@@ -1,5 +1,5 @@
 //! Analyst fixtures cover direction, divergence, and thin evidence.
-//! Each scenario renders through the REAL production builder (`build_momentum_prompt` +
+//! Each scenario renders through the REAL production adapter (`build_momentum_prompt_from_pillars` +
 //! `MOMENTUM_SYSTEM_PROMPT`), so the frozen `system`/`user_prompt` are byte-exact — a
 //! prompt bump means "re-run this example", not "hand-patch the JSON". Writes files directly:
 //!     cargo run --example momentum_s6_fixtures
@@ -7,10 +7,9 @@
 
 use std::path::Path;
 
-use scoracle_cognition::junctions::analyst::{
-    build_momentum_prompt, MOMENTUM_PROMPT_VERSION, MOMENTUM_SYSTEM_PROMPT,
-};
+use scoracle_cognition::application::analyst::build_momentum_prompt_from_pillars;
 use scoracle_cognition::junctions::oracle::{SynthMomentum, SynthRating, SynthVibe};
+use scoracle_cognition::studio::analyst::{MOMENTUM_PROMPT_VERSION, MOMENTUM_SYSTEM_PROMPT};
 use serde_json::json;
 
 struct Scenario {
@@ -171,7 +170,7 @@ fn main() -> anyhow::Result<()> {
     let n = scenarios.len();
     for s in scenarios {
         // The Analyst reads only the two rails: no packets, no memory card.
-        let prompt = build_momentum_prompt(
+        let prompt = build_momentum_prompt_from_pillars(
             s.entity_type,
             s.entity,
             s.sport,

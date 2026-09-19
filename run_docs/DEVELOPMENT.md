@@ -14,13 +14,13 @@ Repo-local implementation guidance for `scoracle-backend`. Start with `README.md
 
 ## Dependency and migration boundaries
 
-A Studio character consumes values describing its assignment, not rows or another character's storage representation. For the first migrated character, see `studio/analyst::{Assignment, Form, Mood, Snapshot}`. Its production preparation and publication live in `junctions/analyst`; compatibility exports let the existing eval system continue to work. Influencer creation lives in `studio/influencer`; its concrete IO and debounce/follow-up policy live in `application/influencer.rs`, with no compatibility junction. `runtime/harness.rs` is a transitional application context, not a second permanent harness.
+A Studio character consumes values describing its assignment, not rows or another character's storage representation. For the first migrated character, see `studio/analyst::{Assignment, Form, Mood, Snapshot}`. Its production preparation, current pillar adaptation, and publication live in `application/analyst.rs`; eval and fixtures import the authoritative Studio contract plus that explicit adapter. Influencer creation lives in `studio/influencer`; its concrete IO and debounce/follow-up policy live in `application/influencer.rs`. Neither has a compatibility junction. `runtime/harness.rs` is a transitional application context, not a second permanent harness.
 
 Inject narrow capabilities only when a real assignment requires them. Keep prompt construction, parsing, and product assembly testable with a fake model and fake publisher. `Generation<T>` carries provenance through the boundary. Errors must reach the application; adapters own the durability guarantees behind `Publisher<T>`.
 
 A migration slice preserves the existing material, hash, prompt, and output meaning before adding richer evidence. Then version any intentional analytical or character-contract change and evaluate its value. Preserve missingness, coverage, measurement origin, and snapshot provenance; missing data must not silently become zero.
 
-One producer owns each live output during cutover. Migration 256 establishes queue acknowledgement ownership: a running item has a unique claim token and captured input revision, and every complete/fail/defer/release must match both. Migration 257 applies the publication pattern to Influencer: infer without a transaction, then lock the exact claim and commit product plus required provenance, durable follow-up intent, and claim deletion together. A superseded execution publishes nothing. Its optional diagnostic ledger remains best-effort after commit and is not proof of durability. New claim-aware handlers should override `StageHandler::handle_claimed`; legacy handlers keep the generic worker completion path until migrated. Use the approved wiki modernization plan for the remaining seats and gates.
+One producer owns each live output during cutover. Migration 256 establishes queue acknowledgement ownership: a running item has a unique claim token and captured input revision, and every complete/fail/defer/release must match both. Migrations 257–258 apply the publication pattern to Influencer and Analyst: infer without a transaction, then lock the exact claim and commit any product plus required provenance, the seat's narrow durable follow-up intent, and claim deletion together. A superseded execution publishes nothing. Analyst `NoMaterial` commits no product but still records its Oracle-barrier obligation. Optional diagnostic ledger writes remain best-effort after commit and are not proof of durability. New claim-aware handlers should override `StageHandler::handle_claimed`; legacy handlers keep the generic worker completion path until migrated. Use the approved wiki modernization plan for the remaining seats and gates.
 
 Update the README and wiki data-flow implementation status with each migrated boundary. The destination is three distinct systems coordinated by application code, not a universal pipeline every task must traverse.
 
@@ -157,6 +157,6 @@ go test ./...
 - `go/internal/db/db.go` - prepared statements.
 - `rust/src/studio/` - Studio, the in-house harness and migrated character creation.
 - `rust/src/application/` - explicit evidence, persistence, and work-coordination adapters.
-- `rust/src/junctions/` - character migration and application adapters.
+- `rust/src/junctions/` - seven remaining character seats and transitional adapters.
 - `rust/src/runtime/work.rs`, `rust/src/runtime/worker.rs` - current durable queue runtime.
 - `sql/` - schema, migrations, functions, views, and snapshots.

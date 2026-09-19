@@ -104,7 +104,7 @@ async fn run_single(hx: &Harness, args: &Args) -> Result<()> {
     let out = generate_rating(hx, &req, RATING_TEMPERATURE, args.skip_unchanged, true).await?;
     if args.persist && !out.skipped_unchanged {
         persist_rating(hx, &req, &out).await?;
-        scoracle_cognition::junctions::analyst::enqueue_momentum_if_needed(
+        scoracle_cognition::application::analyst::enqueue_momentum_if_needed(
             hx,
             &req.entity_type,
             req.entity_id,

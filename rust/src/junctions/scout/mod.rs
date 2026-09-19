@@ -2387,7 +2387,7 @@ impl StageHandler for RatingHandler {
             &out,
         )
         .await?;
-        crate::junctions::analyst::enqueue_momentum_if_needed(
+        crate::application::analyst::enqueue_momentum_if_needed(
             hx,
             &item.entity_type,
             entity_id,

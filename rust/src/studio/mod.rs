@@ -58,3 +58,5 @@ pub enum Outcome<R> {
 }
 
 pub mod editor;
+
+pub mod investigator;

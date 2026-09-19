@@ -45,9 +45,6 @@ use crate::junctions::graph::{
     build_graph_prompt, graph_opts, load_graph_article_context, GraphCandidate, GraphParser,
     GRAPH_PROMPT_VERSION,
 };
-use crate::junctions::investigator::prompt::{
-    prose_opts, ProseReadParser, INVESTIGATOR_PROSE_CONTRACT_VERSION,
-};
 use crate::runtime::harness::{Harness, Parser};
 use crate::runtime::providers::ollama::GenerateOptions;
 use crate::runtime::route::Role;
@@ -64,6 +61,9 @@ use crate::studio::influencer::{
 use crate::studio::insider::{
     transfer_system_prompt, TransferParser, TRANSFER_DEFAULT_MIN_ARTICLES, TRANSFER_NUM_PREDICT,
     TRANSFER_PROMPT_VERSION,
+};
+use crate::studio::investigator::prompt::{
+    prose_opts, ProseReadParser, INVESTIGATOR_PROSE_CONTRACT_VERSION,
 };
 use crate::studio::journalist::{
     build_narratives_prompt, narratives_format_schema, NarrativesParser, Subject,

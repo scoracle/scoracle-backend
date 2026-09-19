@@ -9,9 +9,9 @@
 //! every arm here prefers refusal over inference.
 //!
 //! This module is PURE — classification over already-fetched facts. The handler
-//! ([`super::entity`]) owns retrieval and the transactional writes.
+//! (the application) owns retrieval and the transactional writes.
 
-use super::discover::WikidataItem;
+use super::WikidataItem;
 
 /// Occupation QIDs per sport — the deterministic sport-relevance table. Extended as sports
 /// onboard; an occupation absent here falls back to the description keyword screen.
@@ -427,7 +427,7 @@ pub fn commons_image_url(file: &str) -> Option<String> {
     }
     Some(format!(
         "https://commons.wikimedia.org/wiki/Special:FilePath/{}?width=600",
-        super::discover::urlencode(&f.replace(' ', "_"))
+        super::urlencode(&f.replace(' ', "_"))
     ))
 }
 

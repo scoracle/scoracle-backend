@@ -5,10 +5,10 @@
 
 use crate::runtime::fetch::{BudgetedFetchError, BudgetedFetcher, FetchPolicy};
 use crate::runtime::harness::Harness;
-use crate::runtime::stage::StageHandler;
+use crate::runtime::stage::{HandleOutcome, StageHandler};
 use crate::runtime::util::hash_components;
 use crate::runtime::util::truncate;
-use crate::runtime::work::{Item, Stage};
+use crate::runtime::work::{self, Item, Stage};
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use reqwest::StatusCode;
@@ -17,7 +17,6 @@ use sha2::{Digest, Sha256};
 use sqlx::Row;
 use std::collections::{BTreeMap, BTreeSet};
 use std::time::Duration;
-use tracing::warn;
 
 pub const FIXTURE_BOXSCORE_STAGE: &str = "fixture_boxscore";
 pub const FIXTURE_BOXSCORE_PARSER_VERSION: &str = "fixture-boxscore-parser-v1";
@@ -169,6 +168,10 @@ impl StageHandler for FixtureBoxscoreHandler {
     }
 
     async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {
+        self.handle_claimed(hx, item).await.map(|_| ())
+    }
+
+    async fn handle_claimed(&self, hx: &Harness, item: &Item) -> Result<HandleOutcome> {
         if item.entity_type != "fixture" {
             return Err(anyhow!(
                 "fixture_boxscore requires entity_type='fixture', got {}",
@@ -178,12 +181,13 @@ impl StageHandler for FixtureBoxscoreHandler {
 
         let fixture_id = item.entity_id_i32()?;
         let Some(fixture) = load_fixture(&hx.pool, fixture_id).await? else {
-            return Ok(());
+            return super::commit_claimed(&hx.pool, item, &[], &super::Decision::Unchanged).await;
         };
 
         if !is_final_fixture_status(&fixture.status) {
-            persist_record(
-                hx,
+            return persist_record(
+                &hx.pool,
+                item,
                 &fixture,
                 PersistRecord::terminal(
                     "none",
@@ -191,8 +195,7 @@ impl StageHandler for FixtureBoxscoreHandler {
                     Some(format!("fixture status is {}", fixture.status)),
                 ),
             )
-            .await?;
-            return Ok(());
+            .await;
         }
 
         let plan = select_source(&hx.pool, &fixture).await?;
@@ -202,20 +205,20 @@ impl StageHandler for FixtureBoxscoreHandler {
             // discovery arm populates it. What changed with the retrieval wiring is WHERE the
             // emptiness lives: this is now a query returning no eligible rows, not a function
             // hardcoded to return nothing.
-            persist_record(
-                hx,
+            return persist_record(
+                &hx.pool,
+                item,
                 &fixture,
                 PersistRecord::terminal(
                     &plan.provider,
-                    "no_source",
+                    "not_supported",
                     Some(format!(
                         "no eligible source in boxscore_sources for sport {} league {}",
                         fixture.sport, fixture.league_id
                     )),
                 ),
             )
-            .await?;
-            return Ok(());
+            .await;
         }
 
         let fetched = match fetch_source(&self.fetcher, &hx.pool, &plan).await {
@@ -227,8 +230,9 @@ impl StageHandler for FixtureBoxscoreHandler {
                 final_domain,
                 error,
             }) => {
-                persist_record(
-                    hx,
+                return persist_record(
+                    &hx.pool,
+                    item,
                     &fixture,
                     PersistRecord::terminal_with_urls(
                         &plan.provider,
@@ -239,16 +243,16 @@ impl StageHandler for FixtureBoxscoreHandler {
                         Some(error),
                     ),
                 )
-                .await?;
-                return Ok(());
+                .await;
             }
         };
 
         let normalized = match parse_fetched_boxscore(&fixture, &plan, &fetched) {
             Ok(n) => n,
             Err(ParseOutcome { status, error }) => {
-                persist_record(
-                    hx,
+                return persist_record(
+                    &hx.pool,
+                    item,
                     &fixture,
                     PersistRecord::terminal_with_urls(
                         &plan.provider,
@@ -259,14 +263,14 @@ impl StageHandler for FixtureBoxscoreHandler {
                         Some(error),
                     ),
                 )
-                .await?;
-                return Ok(());
+                .await;
             }
         };
 
         if provider_status_is_not_final(normalized.provider_status.as_deref()) {
-            persist_record(
-                hx,
+            return persist_record(
+                &hx.pool,
+                item,
                 &fixture,
                 PersistRecord::terminal_with_urls(
                     &plan.provider,
@@ -280,13 +284,13 @@ impl StageHandler for FixtureBoxscoreHandler {
                     )),
                 ),
             )
-            .await?;
-            return Ok(());
+            .await;
         }
 
         if let Err(reason) = validate_normalized(&fixture, &normalized) {
-            persist_record(
-                hx,
+            return persist_record(
+                &hx.pool,
+                item,
                 &fixture,
                 PersistRecord::terminal_with_urls(
                     &plan.provider,
@@ -297,8 +301,7 @@ impl StageHandler for FixtureBoxscoreHandler {
                     Some(reason),
                 ),
             )
-            .await?;
-            return Ok(());
+            .await;
         }
 
         let payload_for_hash = json!({
@@ -309,8 +312,9 @@ impl StageHandler for FixtureBoxscoreHandler {
             "player_stats": normalized.player_stats,
         });
         let content_hash = boxscore_content_hash(&payload_for_hash);
-        persist_record(
-            hx,
+        return persist_record(
+            &hx.pool,
+            item,
             &fixture,
             PersistRecord {
                 provider: plan.provider.clone(),
@@ -334,8 +338,7 @@ impl StageHandler for FixtureBoxscoreHandler {
                 last_error: None,
             },
         )
-        .await?;
-        Ok(())
+        .await;
     }
 }
 
@@ -638,7 +641,7 @@ async fn fetch_source(
 
     Err(last.unwrap_or_else(|| {
         FetchOutcome::new(
-            "no_source",
+            "not_supported",
             None,
             None,
             None,
@@ -989,7 +992,17 @@ fn nested_string(v: &Value, path: &[&str]) -> Option<String> {
     cur.as_str().map(str::to_string)
 }
 
-async fn persist_record(hx: &Harness, fixture: &FixtureRow, record: PersistRecord) -> Result<()> {
+async fn persist_record(
+    pool: &sqlx::PgPool,
+    item: &Item,
+    fixture: &FixtureRow,
+    record: PersistRecord,
+) -> Result<HandleOutcome> {
+    let mut tx = pool.begin().await?;
+    if !work::lock_claim(&mut tx, item).await? {
+        tx.rollback().await?;
+        return Ok(HandleOutcome::Superseded);
+    }
     sqlx::query(
         r#"
         INSERT INTO public.fixture_boxscore_fetches (
@@ -1043,20 +1056,25 @@ async fn persist_record(hx: &Harness, fixture: &FixtureRow, record: PersistRecor
     .bind(FIXTURE_BOXSCORE_OUTPUT_CONTRACT_VERSION)
     .bind(&record.parser_outcome)
     .bind(record.last_error.as_deref().map(|e| truncate(e, 1000)))
-    .execute(&hx.pool)
+    .execute(&mut *tx)
     .await
     .with_context(|| format!("persist fixture_boxscore {}", fixture.id))?;
 
-    insert_data_fetch_ledger_best_effort(hx, fixture, &record).await;
-    Ok(())
+    insert_data_fetch_ledger(&mut tx, fixture, &record).await?;
+    anyhow::ensure!(
+        work::complete_in_transaction(&mut tx, item).await?,
+        "fixture acquisition claim changed during publication"
+    );
+    tx.commit().await?;
+    Ok(HandleOutcome::Completed)
 }
 
-async fn insert_data_fetch_ledger_best_effort(
-    hx: &Harness,
+async fn insert_data_fetch_ledger(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     fixture: &FixtureRow,
     record: &PersistRecord,
-) {
-    if let Err(e) = sqlx::query(
+) -> Result<()> {
+    sqlx::query(
         r#"
         INSERT INTO public.data_fetch_ledger (
             target_type, target_id, sport, stage, status, source_url, final_url, final_domain,
@@ -1079,16 +1097,10 @@ async fn insert_data_fetch_ledger_best_effort(
     .bind(FIXTURE_BOXSCORE_OUTPUT_CONTRACT_VERSION)
     .bind(&record.parser_outcome)
     .bind(record.last_error.as_deref().map(|e| truncate(e, 1000)))
-    .execute(&hx.pool)
+    .execute(&mut **tx)
     .await
-    {
-        warn!(
-            fixture_id = fixture.id,
-            status = %record.status,
-            error = %e,
-            "fixture_boxscore: data_fetch_ledger insert failed (continuing)"
-        );
-    }
+    .context("record fixture acquisition")?;
+    Ok(())
 }
 
 /// merge_raw_labels records WHO answered alongside WHAT they said.
@@ -1212,7 +1224,7 @@ mod tests {
     /// This replaces `no_sport_resolves_a_source_until_the_registry_is_populated`, whose
     /// subject was a function hardcoded to return nothing. `select_source` now needs a
     /// database, so what is unit-testable is the shape it falls back to — and `handle` keys
-    /// the entire `no_source` branch off `source_urls.is_empty()`.
+    /// the entire `not_supported` branch off `source_urls.is_empty()`.
     #[test]
     fn the_empty_plan_is_what_no_eligible_source_looks_like() {
         let plan = SourcePlan::none();
@@ -1372,5 +1384,92 @@ mod tests {
         let b = boxscore_content_hash(&json!({"score": {"home": 2}}));
         assert_eq!(a.len(), 32);
         assert_ne!(a, b);
+    }
+}
+
+#[cfg(test)]
+mod publication_tests {
+    use super::*;
+    #[tokio::test]
+    #[ignore = "requires isolated TEST_DATABASE_URL; run serially"]
+    async fn terminal_acquisition_and_ledger_commit_only_with_exact_claim() {
+        let pool = sqlx::PgPool::connect(&std::env::var("TEST_DATABASE_URL").unwrap())
+            .await
+            .unwrap();
+        let sport = "ZZ_INVESTIGATOR_BOX";
+        let id = 9_610_001;
+        for sql in [
+            "DELETE FROM pipeline_work WHERE sport=$1",
+            "DELETE FROM data_fetch_ledger WHERE sport=$1",
+            "DELETE FROM fixtures WHERE sport=$1",
+            "DELETE FROM teams WHERE sport=$1",
+        ] {
+            sqlx::query(sql).bind(sport).execute(&pool).await.unwrap();
+        }
+        sqlx::query("INSERT INTO sports(id,display_name,current_season) VALUES($1,'Boxscore tests',2026) ON CONFLICT DO NOTHING").bind(sport).execute(&pool).await.unwrap();
+        sqlx::query("INSERT INTO teams(id,sport,name) VALUES($1,$3,'Home'),($2,$3,'Away')")
+            .bind(id)
+            .bind(id + 1)
+            .bind(sport)
+            .execute(&pool)
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO fixtures(id,sport,season,home_team_id,away_team_id,start_time) VALUES($1,$2,2026,$1,$3,NOW())").bind(id).bind(sport).bind(id+1).execute(&pool).await.unwrap();
+        let fixture = load_fixture(&pool, id).await.unwrap().unwrap();
+        let pending = Item {
+            stage: Stage::FixtureBoxscore,
+            entity_type: "fixture".into(),
+            entity_id: id.into(),
+            sport: sport.into(),
+            input_version: Some("v1".into()),
+            attempts: 0,
+            claim_token: None,
+        };
+        work::enqueue(&pool, &pending).await.unwrap();
+        let old = work::claim(&pool, Stage::FixtureBoxscore, 1)
+            .await
+            .unwrap()
+            .remove(0);
+        work::release(&pool, &old).await.unwrap();
+        let current = work::claim(&pool, Stage::FixtureBoxscore, 1)
+            .await
+            .unwrap()
+            .remove(0);
+        assert_eq!(
+            persist_record(
+                &pool,
+                &old,
+                &fixture,
+                PersistRecord::terminal("none", "not_supported", None)
+            )
+            .await
+            .unwrap(),
+            HandleOutcome::Superseded
+        );
+        let count: i64 =
+            sqlx::query_scalar("SELECT count(*) FROM fixture_boxscore_fetches WHERE fixture_id=$1")
+                .bind(id)
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(count, 0);
+        assert_eq!(
+            persist_record(
+                &pool,
+                &current,
+                &fixture,
+                PersistRecord::terminal("none", "not_supported", None)
+            )
+            .await
+            .unwrap(),
+            HandleOutcome::Completed
+        );
+        let count: i64 =
+            sqlx::query_scalar("SELECT count(*) FROM data_fetch_ledger WHERE sport=$1")
+                .bind(sport)
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(count, 1);
     }
 }

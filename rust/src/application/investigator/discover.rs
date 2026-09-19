@@ -22,43 +22,8 @@ pub struct WikidataHit {
     pub description: String,
 }
 
-/// A retrieved Wikidata item: the claims that matter, already parsed by CODE (never a
-/// model), plus the provenance row that proves them.
-#[derive(Clone, Debug, Default)]
-pub struct WikidataItem {
-    pub qid: String,
-    pub label: String,
-    pub description: String,
-    pub aliases: Vec<String>,
-    /// English Wikipedia page title, when sitelinked.
-    pub enwiki_title: Option<String>,
-    /// P106 occupation labels are ids; we keep the raw QIDs and let the gate map the few
-    /// that matter (basketball player/coach etc.).
-    pub occupations: Vec<String>,
-    /// P54 (member of sports team) target QIDs — career teams.
-    pub member_of_teams: Vec<String>,
-    /// P6087 (coach of sports team) target QIDs.
-    pub coach_of_teams: Vec<String>,
-    /// P1830 (owner of) target QIDs for current tenures.
-    pub owner_of_teams: Vec<String>,
-    /// P569 date of birth, as the wire "+1988-12-30T00:00:00Z" shape (code trims to date).
-    pub date_of_birth: Option<String>,
-    /// P2067 mass in kilograms (unit-checked: only Q11570 kilogram amounts are kept).
-    pub weight_kg: Option<f64>,
-    /// P2048 height in centimeters (unit-checked: Q174728 cm / Q11573 m normalized to cm).
-    pub height_cm: Option<f64>,
-    /// P3647 NBA.com player id — the headshot URL derives from this.
-    pub nba_id: Option<String>,
-    /// P18 image: the sport-agnostic Wikimedia Commons portrait source.
-    pub image_file: Option<String>,
-    /// P115 home venue target QID, current tenure only — team-shaped (mig 236 dynamic
-    /// metadata); None for person items.
-    pub venue_qid: Option<String>,
-    /// P154 logo image — Commons filename; team-shaped.
-    pub logo_file: Option<String>,
-    /// The source_documents row the wbgetentities response landed as.
-    pub source_document_id: i64,
-}
+use crate::studio::investigator::urlencode;
+pub use crate::studio::investigator::WikidataItem;
 
 const WIKIDATA_API: &str = "https://www.wikidata.org/w/api.php";
 
@@ -319,21 +284,6 @@ pub async fn wikipedia_summary(
         .fetch(pool, &url, policy)
         .await
         .map_err(|e| anyhow!("wikipedia summary fetch: {e}"))
-}
-
-/// urlencode covers the query/path characters these APIs receive from names. Conservative
-/// percent-encoding of everything outside unreserved.
-pub(crate) fn urlencode(s: &str) -> String {
-    let mut out = String::with_capacity(s.len() * 3);
-    for b in s.as_bytes() {
-        match b {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
-                out.push(*b as char)
-            }
-            _ => out.push_str(&format!("%{:02X}", b)),
-        }
-    }
-    out
 }
 
 fn str_at(v: &Value, key: &str) -> String {

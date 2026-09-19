@@ -9,11 +9,11 @@
 use anyhow::{anyhow, Result};
 use scoracle_cognition::application::editor;
 use scoracle_cognition::application::insider;
+use scoracle_cognition::application::investigator::boxscore;
 use scoracle_cognition::application::{
     analyst, influencer, journalist, oracle, scout as scout_application,
 };
 use scoracle_cognition::junctions::graph;
-use scoracle_cognition::junctions::investigator::boxscore;
 use scoracle_cognition::runtime::buildinfo;
 use scoracle_cognition::runtime::config;
 use scoracle_cognition::runtime::db;
@@ -136,7 +136,7 @@ async fn main() -> Result<()> {
     // Discovery uses the Editor's idle shared capacity.
     if enabled.contains("investigate_entity") {
         handlers.push(Box::new(
-            scoracle_cognition::junctions::investigator::entity::InvestigateEntityHandler::new()?,
+            scoracle_cognition::application::investigator::InvestigateEntityHandler::new()?,
         ));
     }
     if enabled.contains("fixture_boxscore") {

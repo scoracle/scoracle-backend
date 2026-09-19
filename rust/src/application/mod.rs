@@ -9,3 +9,5 @@ pub mod outbox;
 pub mod scout;
 
 pub mod editor;
+
+pub mod investigator;

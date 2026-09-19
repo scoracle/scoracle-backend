@@ -13,8 +13,8 @@
 //! | **Reads** | one Wikipedia REST page summary (title + description + extract) |
 //! | **Writes** | nothing — [`super::gate::decide_prose`] and the handler own every write |
 
-use crate::runtime::providers::ollama::GenerateOptions;
 use crate::runtime::util::truncate;
+use crate::studio::model::GenerateOptions;
 use serde::Deserialize;
 
 /// Contract version for the prose arm — recorded on `acquisition_runs` rows this path
@@ -64,7 +64,7 @@ pub fn prose_opts() -> GenerateOptions {
         system: Some(INVESTIGATOR_PROSE_SYSTEM_PROMPT.to_string()),
         temperature: Some(0.1),
         num_predict: 300,
-        num_ctx: crate::runtime::route::LOCAL_STAGE_NUM_CTX,
+        num_ctx: 4096,
         json_mode: false,
         format_schema: Some(
             serde_json::from_str(INVESTIGATOR_PROSE_SCHEMA_RAW)
@@ -90,7 +90,7 @@ pub struct ProseRead {
 
 pub struct ProseReadParser;
 
-impl crate::runtime::harness::Parser<ProseRead> for ProseReadParser {
+impl crate::studio::Parser<ProseRead> for ProseReadParser {
     fn parse(&self, raw: &str) -> anyhow::Result<Option<ProseRead>> {
         let Some(slice) = json_object_slice(raw) else {
             return Ok(None);
@@ -115,7 +115,10 @@ impl crate::runtime::harness::Parser<ProseRead> for ProseReadParser {
 /// against exactly this same concatenation, so "verbatim from the page" and "contained in
 /// the page" can never drift apart.
 pub fn page_text(title: &str, description: &str, extract: &str) -> String {
-    format!("{title}\n{description}\n{extract}")
+    truncate(
+        &normalize_space(&format!("{title}\n{description}\n{extract}")),
+        PROSE_MAX_EXTRACT_CHARS,
+    )
 }
 
 /// Budget for the extract slice of the user prompt. Ledes are short; this is a guard, not
@@ -137,10 +140,7 @@ pub fn build_prose_prompt(
     }
     p.push_str(&format!("Sport in question: {sport}\n"));
     p.push_str("\nWikipedia page summary:\n");
-    p.push_str(&truncate(
-        &normalize_space(&page_text(title, description, extract)),
-        PROSE_MAX_EXTRACT_CHARS,
-    ));
+    p.push_str(&page_text(title, description, extract));
     p.push_str("\n\nReturn the JSON object now.");
     p
 }
@@ -191,7 +191,7 @@ fn json_object_slice(raw: &str) -> Option<&str> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::runtime::harness::Parser;
+    use crate::studio::Parser;
 
     #[test]
     fn schema_is_valid_json_and_order_true_in_the_raw_literal() {

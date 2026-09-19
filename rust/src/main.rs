@@ -7,9 +7,9 @@
 //! Handlers register from `COGNITION_STAGES` (default: every live stage).
 
 use anyhow::{anyhow, Result};
-use scoracle_cognition::application::{analyst, influencer};
+use scoracle_cognition::application::{analyst, influencer, scout as scout_application};
 use scoracle_cognition::junctions::investigator::boxscore;
-use scoracle_cognition::junctions::{editor, graph, insider, journalist, oracle, scout};
+use scoracle_cognition::junctions::{editor, graph, insider, journalist, oracle};
 use scoracle_cognition::runtime::buildinfo;
 use scoracle_cognition::runtime::config;
 use scoracle_cognition::runtime::db;
@@ -150,7 +150,7 @@ async fn main() -> Result<()> {
             work::Stage::Vibe => Box::new(influencer::VibeHandler::new()),
             // The rating stage feeds Momentum/Sigil but not the news rail, so it sits behind the
             // two news-product voices: a nightly stat backlog must not delay The Journalist.
-            work::Stage::Rating => Box::new(scout::RatingHandler::new()),
+            work::Stage::Rating => Box::new(scout_application::RatingHandler::new()),
             work::Stage::Transfers => Box::new(insider::TransferHandler::new()),
             // momentum consumes the rating card + vibe, so a vibe hand-off
             // (enqueue_momentum_if_needed) drains in the same tick pass instead of waiting for

@@ -3,3 +3,4 @@
 pub mod analyst;
 pub mod influencer;
 pub mod outbox;
+pub mod scout;

@@ -493,7 +493,7 @@ pub(super) async fn maybe_apply_transfer_identity(
         .execute(&hx.pool)
         .await
         .context("mark sport autofill refreshing")?;
-    if let Err(error) = crate::junctions::scout::enqueue_rating_for_applied_transfer(
+    if let Err(error) = crate::application::scout::enqueue_rating_for_applied_transfer(
         &hx.pool,
         sport,
         candidate.player_id,

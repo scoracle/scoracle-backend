@@ -1,8 +1,8 @@
 //! Narrow durable follow-up recovery for claim-aware application publication.
 //!
-//! `vibe_completed` reconciles the Influencer's Momentum offer and then asks the Oracle barrier.
-//! `momentum_completed` needs only that Oracle barrier. These are the two concrete, idempotent
-//! obligations represented here; the event is deleted only after its dispatch succeeds.
+//! Product-bearing Vibe and Rating completions reconcile the Momentum offer and then ask the
+//! Oracle barrier. Momentum completion and a debounced Rating need only that Oracle barrier. The
+//! event is deleted only after its concrete, idempotent dispatch succeeds.
 
 use crate::runtime::harness::Harness;
 use crate::runtime::util::truncate;
@@ -13,6 +13,8 @@ use tracing::{debug, warn};
 
 const VIBE_COMPLETED: &str = "vibe_completed";
 const MOMENTUM_COMPLETED: &str = "momentum_completed";
+const RATING_COMPLETED: &str = "rating_completed";
+const RATING_DEBOUNCED: &str = "rating_debounced";
 
 pub(crate) async fn record_vibe_completed(
     tx: &mut Transaction<'_, Postgres>,
@@ -30,6 +32,21 @@ pub(crate) async fn record_momentum_completed(
     record_completion(tx, MOMENTUM_COMPLETED, item)
         .await
         .context("record momentum completion outbox")
+}
+
+pub(crate) async fn record_rating_completed(
+    tx: &mut Transaction<'_, Postgres>,
+    item: &Item,
+    has_product: bool,
+) -> Result<()> {
+    let kind = if has_product {
+        RATING_COMPLETED
+    } else {
+        RATING_DEBOUNCED
+    };
+    record_completion(tx, kind, item)
+        .await
+        .context("record rating completion outbox")
 }
 
 async fn record_completion(
@@ -84,7 +101,12 @@ pub async fn drain(hx: &Harness, limit: usize) -> Result<usize> {
              LIMIT 1
             "#,
         )
-        .bind([VIBE_COMPLETED, MOMENTUM_COMPLETED])
+        .bind([
+            VIBE_COMPLETED,
+            MOMENTUM_COMPLETED,
+            RATING_COMPLETED,
+            RATING_DEBOUNCED,
+        ])
         .fetch_optional(&mut *tx)
         .await
         .context("claim application outbox event")?;
@@ -150,13 +172,13 @@ pub async fn drain(hx: &Harness, limit: usize) -> Result<usize> {
 
 async fn dispatch(hx: &Harness, event: &Event) -> Result<()> {
     match event.kind.as_str() {
-        VIBE_COMPLETED => dispatch_vibe_completed(hx, event).await,
-        MOMENTUM_COMPLETED => dispatch_oracle_barrier(hx, event).await,
+        VIBE_COMPLETED | RATING_COMPLETED => dispatch_momentum_then_oracle(hx, event).await,
+        MOMENTUM_COMPLETED | RATING_DEBOUNCED => dispatch_oracle_barrier(hx, event).await,
         kind => bail!("unsupported application outbox kind {kind:?}"),
     }
 }
 
-async fn dispatch_vibe_completed(hx: &Harness, event: &Event) -> Result<()> {
+async fn dispatch_momentum_then_oracle(hx: &Harness, event: &Event) -> Result<()> {
     if !crate::application::analyst::enqueue_momentum_if_needed(
         hx,
         &event.entity_type,
@@ -169,7 +191,8 @@ async fn dispatch_vibe_completed(hx: &Harness, event: &Event) -> Result<()> {
             entity_type = %event.entity_type,
             entity_id = event.entity_id,
             sport = %event.sport,
-            "vibe outbox: momentum enqueue skipped unchanged/empty context"
+            kind = %event.kind,
+            "publication outbox: momentum enqueue skipped unchanged/empty context"
         );
     }
     dispatch_oracle_barrier(hx, event).await

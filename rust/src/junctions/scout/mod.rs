@@ -1,8 +1,7 @@
 //! Rating stage — The Scout's statistical report.
 //!
-//! Rust owns both rating shapes: the per-entity core here, and a `RatingHandler` queue stage for
-//! current-season need-based rating work. `cmd/statcommentary` remains the operator/batch entry
-//! point: nightly mode enqueues durable work, while explicit backfill can run the core inline.
+//! Rust owns the per-entity creation core here. The application layer owns queue coordination and
+//! publication; `cmd/statcommentary` remains the operator/batch entry point.
 //!
 //! Postgres owns composite and percentile calculations. Rust selects and labels the evidence,
 //! computes routing notability and trajectory, and supplies evidence for interpretation.
@@ -16,18 +15,13 @@
 use crate::composition::memories::{self, MemoryRequest, Mission};
 
 use crate::runtime::harness::{Generation, GenerationCall, Harness, Parser};
-use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
 use crate::runtime::providers::ollama::GenerateOptions;
 use crate::runtime::route::Role;
-use crate::runtime::stage::StageHandler;
 use crate::runtime::util::{hash_components, round1};
-use crate::runtime::work::{Item, Stage};
 use anyhow::{anyhow, bail, Context, Result};
-use async_trait::async_trait;
 use serde::{Deserialize, Deserializer};
 use sqlx::{PgPool, Row};
 use std::collections::{BTreeMap, HashMap, HashSet};
-use tracing::{debug, warn};
 
 mod inputs;
 pub use crate::composition::characters::scout::{RATING_PROMPT_VERSION, RATING_SYSTEM_PROMPT};
@@ -40,26 +34,14 @@ pub use inputs::{build_stat_prompt, render_personnel_block, render_scout_reports
 /// Output contract captured separately in the diagnostic ledger.
 pub const RATING_OUTPUT_CONTRACT_VERSION: &str = "rating-commentary-v5";
 
-const RATING_LEDGER: LedgerSpec = LedgerSpec {
-    stage: "rating",
-    lens: "rating",
-    role: Role::StatsLogic,
-    product_table: "stat_summaries",
-    output_contract_version: RATING_OUTPUT_CONTRACT_VERSION,
-};
-
 /// Production rating temperature.
 pub const RATING_TEMPERATURE: f64 = 0.6;
 
 /// Token cap for the compact scouting card.
 pub const RATING_NUM_PREDICT: i32 = 700;
 
-/// Durable queue version prefix. The entity/sport queue key stays seasonless, so the version
-/// carries the season explicitly.
-const RATING_WORK_PREFIX: &str = "rating:s";
-
 /// maxStatFacts bounds the breakdown datapoints fed to the prompt.
-const MAX_STAT_FACTS: usize = 14;
+pub(crate) const MAX_STAT_FACTS: usize = 14;
 
 /// Entity whose rating profile should be narrated. `sport` is already uppercased by the caller.
 #[derive(Clone, Debug)]
@@ -1944,106 +1926,6 @@ pub async fn generate_rating(
     ))
 }
 
-/// Durable queue fingerprint for a rating-card demand. The input hash already includes the prompt
-/// version, so the queue needs only season and hash (or an explicit marker).
-pub fn rating_work_input_version(season: i32, input_hash: Option<&str>) -> String {
-    format!(
-        "{RATING_WORK_PREFIX}{season}:{}",
-        input_hash.filter(|s| !s.is_empty()).unwrap_or("no-stats")
-    )
-}
-
-/// The marker that says this rating row was opened by a transfer crossing the concrete
-/// threshold, not by the stats moving. Sits in the `input_hash` slot of the work row's
-/// `input_version`, so `rating_work_season` still parses the season out of the prefix.
-const RATING_WORK_TRANSFER_MARK: &str = "xfer";
-
-/// The marker for a rating opened by an applied injury or suspension (mig 229). Same slot and
-/// same purpose as [`RATING_WORK_TRANSFER_MARK`].
-///
-/// **Both marks are safe to distinguish from a real `input_hash` by prefix** because that slot
-/// otherwise holds a hex digest or the literal `no-stats`: `x` and `v` are not hex digits, so
-/// neither mark can collide with a hash however the digest comes out.
-const RATING_WORK_AVAIL_MARK: &str = "avail";
-
-/// The prefix mig 225's `enqueue_voices_on_packet` stamps on a voice's work row:
-/// `'pk:' || COALESCE(slice_fingerprints->>stage, id::text)`.
-///
-/// For the `rating` stage that slice is the injury/suspension claim hash, so a `pk:` rating row
-/// means one thing only — the Editor tagged this entity because its availability news moved.
-const PACKET_WORK_PREFIX: &str = "pk:";
-
-/// Version for a rating opened by an adjudicated transfer. The application ID reopens the work
-/// row even though stats did not move; the handler also bypasses the stats-only debounce.
-pub fn rating_work_input_version_for_transfer(season: i32, application_id: i64) -> String {
-    format!("{RATING_WORK_PREFIX}{season}:{RATING_WORK_TRANSFER_MARK}{application_id}")
-}
-
-/// Version for a rating opened by an applied injury or suspension. Keying by event day reopens
-/// unchanged stats while collapsing multiple same-day events into one work row.
-///
-/// `day` must be the event's `player_availability.event_date` rendered `YYYY-MM-DD`. It is a
-/// DATE in the schema on purpose — a timestamp, or a date taken from a local zone rather than a
-/// fixed one, splits one event day across two versions and the collapse silently stops
-/// collapsing.
-pub fn rating_work_input_version_for_availability(season: i32, day: &str) -> String {
-    format!("{RATING_WORK_PREFIX}{season}:{RATING_WORK_AVAIL_MARK}{day}")
-}
-
-/// The marker token sitting in the `input_version`'s `input_hash` slot, if the version parses.
-/// Returns the raw slot contents — a mark, a hex digest, or `no-stats`.
-fn rating_work_mark(input_version: Option<&str>) -> Option<&str> {
-    input_version
-        .and_then(|raw| raw.strip_prefix(RATING_WORK_PREFIX))
-        .and_then(|rest| rest.rsplit_once(':'))
-        .map(|(_, mark)| mark)
-}
-
-/// True when this work row was opened by a concrete transfer rather than by moved stats.
-fn rating_work_is_transfer_triggered(input_version: Option<&str>) -> bool {
-    rating_work_mark(input_version).is_some_and(|h| h.starts_with(RATING_WORK_TRANSFER_MARK))
-}
-
-/// True when this work row was opened by an applied injury or suspension.
-fn rating_work_is_availability_triggered(input_version: Option<&str>) -> bool {
-    rating_work_mark(input_version).is_some_and(|h| h.starts_with(RATING_WORK_AVAIL_MARK))
-}
-
-/// Classify what woke the Scout for `stat_summaries.trigger_type`.
-fn rating_trigger_type(input_version: Option<&str>) -> &'static str {
-    // A `pk:` rating version hashes availability claims and is therefore an availability trigger.
-    if rating_work_is_packet_triggered(input_version) {
-        return "availability";
-    }
-    match rating_work_mark(input_version) {
-        Some(h) if h.starts_with(RATING_WORK_TRANSFER_MARK) => "transfer",
-        Some(h) if h.starts_with(RATING_WORK_AVAIL_MARK) => "availability",
-        _ => "periodic",
-    }
-}
-
-/// Whether the Editor's availability packet opened this row.
-fn rating_work_is_packet_triggered(input_version: Option<&str>) -> bool {
-    input_version.is_some_and(|raw| raw.starts_with(PACKET_WORK_PREFIX))
-}
-
-/// True when the `skip_unchanged` debounce must be turned OFF for this item.
-///
-/// Non-statistical triggers bypass the stats-only material hash so the Scout sees their prompt
-/// enrichment after the work row reopens.
-fn rating_work_bypasses_debounce(input_version: Option<&str>) -> bool {
-    rating_work_is_transfer_triggered(input_version)
-        || rating_work_is_availability_triggered(input_version)
-        || rating_work_is_packet_triggered(input_version)
-}
-
-fn rating_work_season(input_version: Option<&str>) -> Option<i32> {
-    let raw = input_version?;
-    let rest = raw.strip_prefix(RATING_WORK_PREFIX)?;
-    let (season, _) = rest.split_once(':')?;
-    season.parse::<i32>().ok().filter(|s| *s > 0)
-}
-
 /// Return the input hash from the entity-season's latest commentary. Take
 /// the latest row regardless of nullability; a no-stats marker has a NULL input_hash → None →
 /// the next run never wrongly skips against an older real commentary the marker superseded.
@@ -2069,333 +1951,6 @@ async fn last_commentary_input_hash(
     .await
     .with_context(|| format!("last commentary provenance {entity_type}/{entity_id}"))?;
     Ok(row.and_then(|(hash,)| hash.filter(|h| !h.is_empty())))
-}
-
-/// persist_stat_summary writes ONE row to the LIVE stat_summaries table — the scored commentary and
-/// the no-stats marker, which differ only in the bound values (body/notability NULL for
-/// the marker; model_version is set for both).
-pub async fn persist_stat_summary(
-    pool: &PgPool,
-    entity_type: &str,
-    entity_id: i32,
-    sport: &str,
-    trigger_type: &str,
-    trigger_payload: &serde_json::Value,
-    out: &RatingOutput,
-) -> Result<()> {
-    let season: Option<i32> = (out.season > 0).then_some(out.season);
-    let notability: Option<i16> = out.notability.map(|n| n as i16);
-    let prov = &out.provenance;
-    let trigger_json = trigger_payload.to_string();
-    let ncomp_json = out.notability_components.to_string();
-    let trajectory_components_json = out.rating_trajectory_components.to_string();
-
-    let row = sqlx::query(
-        r#"
-        INSERT INTO stat_summaries (
-            entity_type, entity_id, sport, season, trigger_type, trigger_payload,
-            body, headline, notability, notability_components, input_components, input_hash,
-            model_version, prompt_version, generated_at,
-            rating_trajectory, rating_trajectory_label, rating_trajectory_components
-        ) VALUES ($1,$2,$3,$4,$5,$6::jsonb, $7,$8,$9,$10::jsonb,$11::jsonb,$12, $13,$14,NOW(),
-                  $15,$16,$17::jsonb)
-        RETURNING id
-        "#,
-    )
-    .bind(entity_type)
-    .bind(entity_id)
-    .bind(sport)
-    .bind(season)
-    .bind(trigger_type)
-    .bind(&trigger_json)
-    .bind(out.body.as_deref())
-    .bind(out.headline.as_deref())
-    .bind(notability)
-    .bind(&ncomp_json)
-    .bind(&out.input_components)
-    .bind(prov.input_hash.as_deref())
-    .bind(prov.model_version.as_str())
-    .bind(prov.prompt_version)
-    .bind(out.rating_trajectory.as_deref())
-    .bind(out.rating_trajectory_label.as_deref())
-    .bind(&trajectory_components_json)
-    .fetch_one(pool)
-    .await
-    .context("persist stat summary")?;
-    let product_row_id = row.get("id");
-    let included_evidence = serde_json::json!({
-        "input_components": serde_json::from_str::<serde_json::Value>(&out.input_components)
-            .unwrap_or_else(|_| serde_json::json!({
-                "raw_input_components": &out.input_components
-            })),
-        "notability": out.notability,
-        "notability_components": &out.notability_components,
-        "rating_trajectory": &out.rating_trajectory,
-        "rating_trajectory_label": &out.rating_trajectory_label,
-        "rating_trajectory_components": &out.rating_trajectory_components,
-    });
-    let mut excluded = Vec::new();
-    if out.skipped_no_stats {
-        excluded.push(serde_json::json!({"reason": "no_usable_rating_profile"}));
-    }
-    if out.skipped_unchanged {
-        excluded.push(serde_json::json!({"reason": "input_hash_unchanged"}));
-    }
-    if !out.exclusions.budget_truncated_stat_labels.is_empty() {
-        let labels = &out.exclusions.budget_truncated_stat_labels;
-        excluded.push(serde_json::json!({
-            "reason": "budget_truncated_stat_facts",
-            "dropped_count": labels.len(),
-            "dropped_stat_labels": labels,
-            "limit": MAX_STAT_FACTS,
-        }));
-    }
-    for (reason, labels) in [
-        (
-            "off_facet_position_mismatch",
-            &out.exclusions.off_facet_stat_labels,
-        ),
-        (
-            "degenerate_zero_usage_artifact",
-            &out.exclusions.degenerate_zero_stat_labels,
-        ),
-        (
-            "display_tier_retired_from_equation",
-            &out.exclusions.display_tier_stat_labels,
-        ),
-    ] {
-        if !labels.is_empty() {
-            excluded.push(serde_json::json!({
-                "reason": reason,
-                "dropped_count": labels.len(),
-                "dropped_stat_labels": labels,
-            }));
-        }
-    }
-    insert_generation_ledger_best_effort(
-        pool,
-        out,
-        RATING_LEDGER,
-        LedgerEvent {
-            entity_type,
-            entity_id,
-            sport,
-            pair_entity: None,
-            trigger_type,
-            trigger_payload: trigger_payload.clone(),
-            product_row_ids: vec![product_row_id],
-            included_evidence,
-            excluded_evidence: serde_json::json!(excluded),
-            context_budget: out.context_budget(serde_json::json!({
-                "num_predict": out.request_body()
-                    .and_then(|b| b.pointer("/options/num_predict"))
-                    .and_then(|v| v.as_i64())
-                    .unwrap_or(RATING_NUM_PREDICT as i64),
-            })),
-            parser_outcome: if out.skipped_no_stats {
-                "no_call"
-            } else {
-                "parsed"
-            },
-        },
-    )
-    .await;
-    Ok(())
-}
-
-/// Best-effort Scout trigger when a transfer becomes a roster fact. Offer the player and both
-/// clubs; the nightly batch remains the backstop.
-pub async fn enqueue_rating_for_applied_transfer(
-    pool: &PgPool,
-    sport: &str,
-    player_id: i32,
-    old_team_id: Option<i32>,
-    new_team_id: Option<i32>,
-    application_id: i64,
-) -> Result<()> {
-    let sport = sport.to_uppercase();
-    let season = current_season(pool, &sport).await?;
-    let input_version = rating_work_input_version_for_transfer(season, application_id);
-
-    let mut targets: Vec<(&str, i64)> = vec![("player", i64::from(player_id))];
-    for team in [old_team_id, new_team_id].into_iter().flatten() {
-        targets.push(("team", i64::from(team)));
-    }
-
-    for (entity_type, entity_id) in targets {
-        let item = Item {
-            stage: Stage::Rating,
-            entity_type: entity_type.to_string(),
-            entity_id,
-            sport: sport.clone(),
-            input_version: Some(input_version.clone()),
-            attempts: 0,
-            claim_token: None,
-        };
-        if let Err(e) = crate::runtime::work::enqueue(pool, &item).await {
-            warn!(
-                application_id,
-                entity_type,
-                entity_id,
-                sport = %sport,
-                "rating: could not enqueue on applied transfer: {e:#}"
-            );
-        }
-    }
-    Ok(())
-}
-
-/// Best-effort Scout trigger when reported unavailability becomes a roster fact.
-///
-/// **`event_day` must arrive as `event_date::text` straight from Postgres** — `YYYY-MM-DD`, the
-/// DATE the schema stores. This crate carries no date library and does not parse one here on
-/// purpose: the day never leaves Postgres as a timestamp, so there is no local zone to render it
-/// through and no way for one event day to split across two `input_version`s. That split is the
-/// only thing that can break Scott's once-per-day rule, and this signature is what forecloses it.
-///
-/// Two targets, not the transfer path's three: the player and the club they are at. An injury has
-/// no old/new club — the squad that loses availability is one squad.
-///
-/// Best-effort by design, exactly like the transfer trigger: a failure to enqueue must never fail
-/// the adjudication that earned it, and the nightly batch remains the backstop.
-pub async fn enqueue_rating_for_applied_availability(
-    pool: &PgPool,
-    sport: &str,
-    player_id: i32,
-    team_id: Option<i32>,
-    event_day: &str,
-) -> Result<()> {
-    let sport = sport.to_uppercase();
-    let season = current_season(pool, &sport).await?;
-    let input_version = rating_work_input_version_for_availability(season, event_day);
-
-    let mut targets: Vec<(&str, i64)> = vec![("player", i64::from(player_id))];
-    if let Some(team) = team_id {
-        targets.push(("team", i64::from(team)));
-    }
-
-    for (entity_type, entity_id) in targets {
-        let item = Item {
-            stage: Stage::Rating,
-            entity_type: entity_type.to_string(),
-            entity_id,
-            sport: sport.clone(),
-            input_version: Some(input_version.clone()),
-            attempts: 0,
-            claim_token: None,
-        };
-        if let Err(e) = crate::runtime::work::enqueue(pool, &item).await {
-            warn!(
-                event_day,
-                entity_type,
-                entity_id,
-                sport = %sport,
-                "rating: could not enqueue on applied availability: {e:#}"
-            );
-        }
-    }
-    Ok(())
-}
-
-async fn current_season(pool: &PgPool, sport: &str) -> Result<i32> {
-    sqlx::query_scalar("SELECT current_season FROM public.sports WHERE id = $1")
-        .bind(sport)
-        .fetch_one(pool)
-        .await
-        .with_context(|| format!("current season {sport}"))
-}
-
-/// Queue-owned rating handler: generate and persist the scouting card only when
-/// the rating input hash moved, then enqueue Momentum as the downstream consumer of the fresh
-/// rating pillar.
-pub struct RatingHandler;
-
-impl RatingHandler {
-    pub fn new() -> Self {
-        RatingHandler
-    }
-}
-
-impl Default for RatingHandler {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[async_trait]
-impl StageHandler for RatingHandler {
-    fn stage(&self) -> Stage {
-        Stage::Rating
-    }
-
-    // Two slots keep a long Scout decode from taking the group from The Editor.
-    fn max_in_flight(&self) -> usize {
-        2
-    }
-    fn slot_group(&self) -> Option<(&'static str, usize)> {
-        Some(crate::runtime::stage::ARCHBOX_SLOTS)
-    }
-
-    async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {
-        let entity_id = item.entity_id_i32()?;
-        let sport = item.sport.to_uppercase();
-        let season = match rating_work_season(item.input_version.as_deref()) {
-            Some(season) => season,
-            None => current_season(&hx.pool, &sport).await?,
-        };
-        let name = crate::evidence::corpus::lookup_entity_name(
-            &hx.pool,
-            &item.entity_type,
-            entity_id,
-            &sport,
-        )
-        .await?;
-        // A move that crossed the concrete threshold — or an applied injury or suspension — is
-        // its own trigger, and it must not be debounced away: the stats have not changed, so the
-        // input_hash has not changed, and the ordinary `skip_unchanged` gate would short-circuit
-        // before the model call. What changed is the personnel block, and it reaches the prompt
-        // through `with_enrichment`, outside the hash pre-image.
-        let bypass = rating_work_bypasses_debounce(item.input_version.as_deref());
-        let req = RatingReq {
-            entity_type: item.entity_type.clone(),
-            entity_id,
-            entity_name: name,
-            sport: sport.clone(),
-            trigger_type: rating_trigger_type(item.input_version.as_deref()).to_string(),
-            season: Some(season),
-        };
-
-        let out = generate_rating(hx, &req, RATING_TEMPERATURE, !bypass, true).await?;
-        if out.skipped_unchanged {
-            debug!(
-                entity_type = %item.entity_type,
-                entity_id = item.entity_id,
-                sport = %sport,
-                season = out.season,
-                "rating: skipped unchanged rating input"
-            );
-            return Ok(());
-        }
-
-        persist_stat_summary(
-            &hx.pool,
-            &item.entity_type,
-            entity_id,
-            &sport,
-            &req.trigger_type,
-            &serde_json::json!({}),
-            &out,
-        )
-        .await?;
-        crate::application::analyst::enqueue_momentum_if_needed(
-            hx,
-            &item.entity_type,
-            entity_id,
-            &sport,
-        )
-        .await?;
-        Ok(())
-    }
 }
 
 #[cfg(test)]

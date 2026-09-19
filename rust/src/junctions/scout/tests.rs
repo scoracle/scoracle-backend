@@ -3,6 +3,11 @@
 //! Split out of `mod.rs` so the stage module reads as the stage and nothing else.
 //! `super` still resolves to the junction, so these run exactly as they did inline.
 
+use crate::application::scout::{
+    rating_trigger_type, rating_work_bypasses_debounce, rating_work_input_version,
+    rating_work_input_version_for_availability, rating_work_input_version_for_transfer,
+    rating_work_is_availability_triggered, rating_work_is_transfer_triggered, rating_work_season,
+};
 use crate::evidence::personnel::{MAX_AVAILABILITY_LINES, MAX_PERSONNEL_LINES};
 
 use super::*;

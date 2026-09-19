@@ -5,10 +5,11 @@
 //! path because the live queue is current-season/entity-scoped.
 
 use anyhow::{anyhow, Context, Result};
+use scoracle_cognition::application::scout::{persist_stat_summary, rating_work_input_version};
 use scoracle_cognition::evidence::corpus;
 use scoracle_cognition::junctions::scout::{
-    build_rating_request, generate_rating, persist_stat_summary, rating_work_input_version,
-    RatingBuild, RatingOutput, RatingReq, RATING_PROMPT_VERSION, RATING_TEMPERATURE,
+    build_rating_request, generate_rating, RatingBuild, RatingOutput, RatingReq,
+    RATING_PROMPT_VERSION, RATING_TEMPERATURE,
 };
 use scoracle_cognition::runtime::config::Config;
 use scoracle_cognition::runtime::db;

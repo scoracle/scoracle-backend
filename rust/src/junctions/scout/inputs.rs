@@ -302,7 +302,7 @@ pub fn build_stat_prompt(
     } else {
         b.push_str("Values: season totals, except percentages and named adjustments.\n");
     }
-    if comparisons.is_none() {
+    if comparisons.is_none_or(|changes| changes.is_empty()) {
         let identified = p
             .breakdown
             .iter()

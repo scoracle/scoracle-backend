@@ -164,6 +164,7 @@ pub async fn enqueue_oracle_if_pillars_settled(
         sport: sport.to_string(),
         input_version,
         attempts: 0,
+        claim_token: None,
     };
     work::enqueue(pool, &sig).await?;
     debug!(

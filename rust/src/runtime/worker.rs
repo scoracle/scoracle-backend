@@ -762,30 +762,39 @@ impl Worker {
         pulse.beat(&format!("bookkeep {stage}"));
         match outcome {
             Ok(()) => {
-                if let Err(e) = work::complete(&self.pool, &item).await {
-                    error!(error = %format!("{e:#}"), %stage, "complete failed");
-                }
-                // Ask the Oracle completion barrier only after deleting this row; the last
-                // concurrent pillar to finish then always observes zero outstanding work.
-                //
-                // Best-effort by design. A failed enqueue must not fail an item whose real work is
-                // already persisted and whose row is already deleted; the next pillar to settle for
-                // this entity asks again, and Sigil's input-hash debounce makes a duplicate cheap.
-                if work::PILLAR_STAGES.contains(&item.stage) {
-                    if let Err(e) = crate::junctions::oracle::enqueue_oracle_if_pillars_settled(
-                        &self.pool,
-                        &item.entity_type,
-                        item.entity_id,
-                        &item.sport,
-                        item.input_version.clone(),
-                    )
-                    .await
-                    {
-                        warn!(
-                            error = %format!("{e:#}"), %stage, entity = item.entity_id,
-                            "oracle barrier check failed (best-effort)"
-                        );
+                match work::complete(&self.pool, &item).await {
+                    Ok(true) => {
+                        // Ask the Oracle completion barrier only after this exact claim deleted
+                        // its row; a stale worker must not announce another execution's completion.
+                        //
+                        // Best-effort by design. A failed enqueue must not fail an item whose real
+                        // work is already persisted and whose row is already deleted; the next
+                        // pillar to settle asks again, and Sigil's input-hash debounce makes a
+                        // duplicate cheap.
+                        if work::PILLAR_STAGES.contains(&item.stage) {
+                            if let Err(e) =
+                                crate::junctions::oracle::enqueue_oracle_if_pillars_settled(
+                                    &self.pool,
+                                    &item.entity_type,
+                                    item.entity_id,
+                                    &item.sport,
+                                    item.input_version.clone(),
+                                )
+                                .await
+                            {
+                                warn!(
+                                    error = %format!("{e:#}"), %stage, entity = item.entity_id,
+                                    "oracle barrier check failed (best-effort)"
+                                );
+                            }
+                        }
                     }
+                    Ok(false) => debug!(
+                        %stage,
+                        entity = item.entity_id,
+                        "completion not applied: claim was deferred or superseded"
+                    ),
+                    Err(e) => error!(error = %format!("{e:#}"), %stage, "complete failed"),
                 }
             }
             Err(e) => {
@@ -797,10 +806,17 @@ impl Worker {
                     backoff_secs = backoff.as_secs(),
                     "handler failed; backing off"
                 );
-                if let Err(e2) =
-                    work::fail(&self.pool, &item, &format!("{e:#}"), backoff, MAX_ATTEMPTS).await
+                match work::fail(&self.pool, &item, &format!("{e:#}"), backoff, MAX_ATTEMPTS).await
                 {
-                    error!(error = %format!("{e2:#}"), %stage, "fail bookkeeping failed");
+                    Ok(true) => {}
+                    Ok(false) => debug!(
+                        %stage,
+                        entity = item.entity_id,
+                        "failure ignored: claim was superseded"
+                    ),
+                    Err(e2) => {
+                        error!(error = %format!("{e2:#}"), %stage, "fail bookkeeping failed")
+                    }
                 }
             }
         }
@@ -833,13 +849,21 @@ impl Worker {
             "shutdown: releasing unprocessed claims"
         );
         for item in rest {
-            if let Err(e) = work::release(&self.pool, item).await {
-                warn!(
-                    error = %format!("{e:#}"),
+            match work::release(&self.pool, item).await {
+                Ok(true) => {}
+                Ok(false) => debug!(
                     stage = %item.stage,
                     entity = item.entity_id,
-                    "release failed; stale-lease recovery will pick it up"
-                );
+                    "release ignored: claim was superseded"
+                ),
+                Err(e) => {
+                    warn!(
+                        error = %format!("{e:#}"),
+                        stage = %item.stage,
+                        entity = item.entity_id,
+                        "release failed; stale-lease recovery will pick it up"
+                    );
+                }
             }
         }
     }

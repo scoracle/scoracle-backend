@@ -20,7 +20,7 @@ Inject narrow capabilities only when a real assignment requires them. Keep promp
 
 A migration slice preserves the existing material, hash, prompt, and output meaning before adding richer evidence. Then version any intentional analytical or character-contract change and evaluate its value. Preserve missingness, coverage, measurement origin, and snapshot provenance; missing data must not silently become zero.
 
-One producer owns each live output during cutover. Test stale claims, revisions arriving during work, retry/crash behavior, and atomic product/provenance/follow-up publication before changing queue ownership. Today's best-effort ledger and queue completion are not proof of these guarantees. Use the approved wiki modernization plan for the remaining gates.
+One producer owns each live output during cutover. Migration 256 establishes queue acknowledgement ownership: a running item has a unique claim token and captured input revision, and every complete/fail/defer/release must match both. Preserve that fence in new queue code and only schedule completion follow-ups after an owned completion actually applied. This does not yet fence the handler's product insert; test and implement stale-result rejection plus atomic product/provenance/follow-up publication before changing producer ownership. Today's best-effort ledger is not proof of those guarantees. Use the approved wiki modernization plan for the remaining gates.
 
 Update the README and wiki data-flow implementation status with each migrated boundary. The destination is three distinct systems coordinated by application code, not a universal pipeline every task must traverse.
 

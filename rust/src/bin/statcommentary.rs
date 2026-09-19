@@ -242,6 +242,7 @@ async fn enqueue_peak_target(hx: &Harness, t: &Target) -> Result<()> {
         sport: t.sport.clone(),
         input_version: Some(input_version),
         attempts: 0,
+        claim_token: None,
     };
     work::enqueue(&hx.pool, &rating).await
 }

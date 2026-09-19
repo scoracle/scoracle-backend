@@ -3080,6 +3080,32 @@ COMMENT ON FUNCTION public.narrative_context_for_pair(p_sport text, p_player_id 
 
 
 --
+-- Name: normalize_pipeline_work_claim(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.normalize_pipeline_work_claim() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    IF NEW.status = 'running' THEN
+        IF TG_OP = 'INSERT' THEN
+            NEW.claim_token := gen_random_uuid();
+            NEW.running_input_version := NEW.input_version;
+        ELSIF OLD.status IS DISTINCT FROM 'running'
+              OR NEW.claim_token IS NULL THEN
+            NEW.claim_token := gen_random_uuid();
+            NEW.running_input_version := NEW.input_version;
+        END IF;
+    ELSE
+        NEW.claim_token := NULL;
+        NEW.running_input_version := NULL;
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: notify_percentile_changed(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -9600,7 +9626,10 @@ CREATE TABLE public.pipeline_work (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     last_error text,
     input_version text,
+    running_input_version text,
+    claim_token uuid,
     CONSTRAINT pipeline_work_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text, 'article'::text, 'fixture'::text, 'candidate'::text]))),
+    CONSTRAINT pipeline_work_running_claim_check CHECK (((status = 'running'::text) = (claim_token IS NOT NULL))),
     CONSTRAINT pipeline_work_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'running'::text, 'failed'::text])))
 );
 
@@ -9609,7 +9638,28 @@ CREATE TABLE public.pipeline_work (
 -- Name: TABLE pipeline_work; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.pipeline_work IS 'Durable per-entity derivation work queue (FIRST-GPT-AUDIT Session 7). Holds only OUTSTANDING work — pending/running/failed; completed rows are deleted. Claimed via FOR UPDATE SKIP LOCKED (go/internal/work). input_version lets a changed input reopen completed/failed work instead of relying on elapsed time.';
+COMMENT ON TABLE public.pipeline_work IS 'Outstanding per-entity derivation work. input_version is desired input; running_input_version and claim_token identify the active fenced lease. Completed work is deleted.';
+
+
+--
+-- Name: COLUMN pipeline_work.input_version; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.pipeline_work.input_version IS 'Latest desired input revision. A changed value reopens work even while an older revision runs.';
+
+
+--
+-- Name: COLUMN pipeline_work.running_input_version; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.pipeline_work.running_input_version IS 'Desired input revision captured by the active claim; NULL when no claim is running.';
+
+
+--
+-- Name: COLUMN pipeline_work.claim_token; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.pipeline_work.claim_token IS 'Unique active lease identity. Claim-sensitive mutations must match this token and running revision.';
 
 
 --
@@ -12998,6 +13048,13 @@ CREATE TRIGGER mark_momentum_refresh_vibe_scores AFTER INSERT OR UPDATE OF senti
 
 
 --
+-- Name: pipeline_work pipeline_work_claim_identity; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER pipeline_work_claim_identity BEFORE INSERT OR UPDATE OF status, input_version, claim_token ON public.pipeline_work FOR EACH ROW EXECUTE FUNCTION public.normalize_pipeline_work_claim();
+
+
+--
 -- Name: pipeline_work pipeline_work_notify_insert; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -13869,4 +13926,3 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 --
 
 \unrestrict 8M9vyHscBu1NBom0iVikjIPwQ3iibnmtaVVcPo5y3U0p4RVPWq4aqqa89Sk40sU
-

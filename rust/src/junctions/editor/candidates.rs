@@ -208,6 +208,7 @@ async fn nominate_one(
                 sport: sport.to_string(),
                 input_version: None,
                 attempts: 0,
+                claim_token: None,
             },
         )
         .await?;

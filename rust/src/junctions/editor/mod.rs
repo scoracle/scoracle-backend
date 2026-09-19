@@ -679,7 +679,9 @@ async fn enqueue_graph_for_article(
                                  ELSE NOW() END,
             updated_at    = NOW(),
             last_error    = NULL,
-            input_version = EXCLUDED.input_version
+            input_version = EXCLUDED.input_version,
+            running_input_version = NULL,
+            claim_token = NULL
         WHERE public.pipeline_work.input_version IS DISTINCT FROM EXCLUDED.input_version
            OR public.pipeline_work.status = 'failed'
         "#,

@@ -2230,6 +2230,7 @@ pub async fn enqueue_rating_for_applied_transfer(
             sport: sport.clone(),
             input_version: Some(input_version.clone()),
             attempts: 0,
+            claim_token: None,
         };
         if let Err(e) = crate::runtime::work::enqueue(pool, &item).await {
             warn!(
@@ -2281,6 +2282,7 @@ pub async fn enqueue_rating_for_applied_availability(
             sport: sport.clone(),
             input_version: Some(input_version.clone()),
             attempts: 0,
+            claim_token: None,
         };
         if let Err(e) = crate::runtime::work::enqueue(pool, &item).await {
             warn!(

@@ -168,6 +168,7 @@ pub async fn enqueue_vibe_if_needed(
         sport,
         input_version: Some(vibe_work_input_version(&ctx.input_hash)),
         attempts: 0,
+        claim_token: None,
     };
     crate::runtime::work::enqueue(&hx.pool, &it).await?;
     Ok(true)

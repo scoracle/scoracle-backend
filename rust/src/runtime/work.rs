@@ -2,13 +2,13 @@
 //!
 //! Row lifecycle:
 //!   enqueue  → 'pending'                (idempotent; reopens on a changed input)
-//!   claim    → 'running'                (FOR UPDATE SKIP LOCKED; leased)
-//!   complete → row deleted              (only while still 'running')
+//!   claim    → 'running'                (FOR UPDATE SKIP LOCKED; uniquely fenced lease)
+//!   complete → row deleted              (only by its current claim)
 //!   fail     → 'failed' + backoff       (retryable until MAX_ATTEMPTS, then dead-letter)
 //!   requeue_stale: 'running' → 'pending' (recover a crashed worker's lease)
 
 use crate::runtime::util::truncate;
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use sqlx::PgPool;
 use std::time::Duration;
 
@@ -80,7 +80,8 @@ impl std::fmt::Display for Stage {
 }
 
 /// Item identifies one unit of derivation work for an entity. Mirrors the Go
-/// `work.Item`. `input_version` is `None` when unused (stored as SQL NULL).
+/// `work.Item`. `input_version` is the desired revision on enqueue and the exact
+/// running revision captured on claim. `claim_token` is present only on a claimed item.
 #[derive(Clone, Debug)]
 pub struct Item {
     pub stage: Stage,
@@ -89,6 +90,7 @@ pub struct Item {
     pub sport: String,
     pub input_version: Option<String>,
     pub attempts: i32, // failures so far (populated by claim)
+    pub claim_token: Option<String>,
 }
 
 impl Item {
@@ -97,6 +99,17 @@ impl Item {
             format!(
                 "{} {}/{} entity_id outside i32 range",
                 self.stage, self.entity_type, self.entity_id
+            )
+        })
+    }
+
+    fn require_claim_token(&self) -> Result<&str> {
+        self.claim_token.as_deref().ok_or_else(|| {
+            anyhow!(
+                "{} {}/{} is not a claimed work item",
+                self.stage,
+                self.entity_type,
+                self.entity_id
             )
         })
     }
@@ -132,7 +145,7 @@ pub fn retry_backoff(prior_failures: i32) -> Duration {
 /// with FOR UPDATE SKIP LOCKED is already atomic under auto-commit, so we run
 /// it directly against the pool.
 pub async fn claim(pool: &PgPool, stage: Stage, limit: i64) -> Result<Vec<Item>> {
-    let rows: Vec<(String, i64, String, Option<String>, i32)> = sqlx::query_as(&format!(
+    let rows: Vec<(String, i64, String, Option<String>, i32, String)> = sqlx::query_as(&format!(
         r#"
         WITH ready AS (
             SELECT entity_type, entity_id, sport
@@ -145,13 +158,17 @@ pub async fn claim(pool: &PgPool, stage: Stage, limit: i64) -> Result<Vec<Item>>
             LIMIT $2
         )
         UPDATE pipeline_work w
-           SET status = 'running', updated_at = NOW()
+           SET status = 'running',
+               running_input_version = w.input_version,
+               claim_token = gen_random_uuid(),
+               updated_at = NOW()
           FROM ready r
          WHERE w.stage = $1
            AND w.entity_type = r.entity_type
            AND w.entity_id = r.entity_id
            AND w.sport = r.sport
-        RETURNING w.entity_type, w.entity_id::bigint, w.sport, w.input_version, w.attempts
+        RETURNING w.entity_type, w.entity_id::bigint, w.sport,
+                  w.running_input_version, w.attempts, w.claim_token::text
         "#,
         stage.claim_order(),
     ))
@@ -164,41 +181,48 @@ pub async fn claim(pool: &PgPool, stage: Stage, limit: i64) -> Result<Vec<Item>>
     Ok(rows
         .into_iter()
         .map(
-            |(entity_type, entity_id, sport, input_version, attempts)| Item {
+            |(entity_type, entity_id, sport, input_version, attempts, claim_token)| Item {
                 stage,
                 entity_type,
                 entity_id,
                 sport,
                 input_version,
                 attempts,
+                claim_token: Some(claim_token),
             },
         )
         .collect())
 }
 
-/// complete removes a finished work item — only while still 'running' (the
-/// caller holds the lease). If a newer input reopened the row to 'pending'
-/// mid-flight, this is a no-op and the reopened work survives for reprocessing.
+/// complete removes a finished work item only when its unique claim and captured
+/// revision still own the running row. Returns false for a stale execution. If a
+/// newer input reopened the row to pending, or stale recovery issued a new claim,
+/// the outstanding work survives for its current owner.
 ///
 /// The `status = 'running'` guard is also what makes [`defer`] work: a handler that hands its own
 /// row back to 'pending' and then returns `Ok(())` passes through the worker's completion path
 /// without its row being deleted. That is the deferral protocol, not an accident — see [`defer`].
-pub async fn complete(pool: &PgPool, it: &Item) -> Result<()> {
-    sqlx::query(
+pub async fn complete(pool: &PgPool, it: &Item) -> Result<bool> {
+    let claim_token = it.require_claim_token()?;
+    let result = sqlx::query(
         r#"
         DELETE FROM pipeline_work
          WHERE stage = $1 AND entity_type = $2 AND entity_id = $3 AND sport = $4
            AND status = 'running'
+           AND claim_token = $5::uuid
+           AND running_input_version IS NOT DISTINCT FROM $6
         "#,
     )
     .bind(it.stage.as_str())
     .bind(it.entity_type.as_str())
     .bind(it.entity_id)
     .bind(it.sport.as_str())
+    .bind(claim_token)
+    .bind(it.input_version.as_deref())
     .execute(pool)
     .await
     .with_context(|| format!("complete {} {}/{}", it.stage, it.entity_type, it.entity_id))?;
-    Ok(())
+    Ok(result.rows_affected() == 1)
 }
 
 /// Claim priority and dependency order of the six voices:
@@ -275,40 +299,45 @@ pub async fn pillars_settled(
 /// fail marks a leased item 'failed', records the cause, bumps attempts, and
 /// schedules a backoff before it is claimable again. At `max_attempts` the row
 /// is parked far in the future — a visible dead-letter, not an infinite retry.
-/// Acts only on a row still 'running'.
+/// Acts only on the caller's current claim. Returns false for a stale execution.
 pub async fn fail(
     pool: &PgPool,
     it: &Item,
     cause: &str,
     backoff: Duration,
     max_attempts: i32,
-) -> Result<()> {
-    sqlx::query(
+) -> Result<bool> {
+    let claim_token = it.require_claim_token()?;
+    let result = sqlx::query(
         r#"
         UPDATE pipeline_work
            SET status = 'failed',
                attempts = attempts + 1,
-               last_error = $5,
+               last_error = $7,
                updated_at = NOW(),
                available_at = CASE
-                   WHEN attempts + 1 >= $6 THEN NOW() + INTERVAL '100 years'
-                   ELSE NOW() + make_interval(secs => $7)
+                   WHEN attempts + 1 >= $8 THEN NOW() + INTERVAL '100 years'
+                   ELSE NOW() + make_interval(secs => $9)
                END
          WHERE stage = $1 AND entity_type = $2 AND entity_id = $3 AND sport = $4
            AND status = 'running'
+           AND claim_token = $5::uuid
+           AND running_input_version IS NOT DISTINCT FROM $6
         "#,
     )
     .bind(it.stage.as_str())
     .bind(it.entity_type.as_str())
     .bind(it.entity_id)
     .bind(it.sport.as_str())
+    .bind(claim_token)
+    .bind(it.input_version.as_deref())
     .bind(truncate(cause, 2000))
     .bind(max_attempts)
     .bind(backoff.as_secs_f64()) // make_interval(secs => float8) — no overload ambiguity
     .execute(pool)
     .await
     .with_context(|| format!("fail {} {}/{}", it.stage, it.entity_type, it.entity_id))?;
-    Ok(())
+    Ok(result.rows_affected() == 1)
 }
 
 /// Returns a progressing item to pending without an attempt penalty.
@@ -318,51 +347,61 @@ pub async fn fail(
 /// bounds the number of rounds: an item that defers without resolving anything defers forever.
 /// Defer only after durable progress, and fall back to [`fail`]'s ladder when a round achieved
 /// nothing.
-pub async fn defer(pool: &PgPool, it: &Item, delay: Duration, note: &str) -> Result<()> {
-    sqlx::query(
+pub async fn defer(pool: &PgPool, it: &Item, delay: Duration, note: &str) -> Result<bool> {
+    let claim_token = it.require_claim_token()?;
+    let result = sqlx::query(
         r#"
         UPDATE pipeline_work
            SET status = 'pending',
-               available_at = NOW() + make_interval(secs => $5),
+               available_at = NOW() + make_interval(secs => $7),
                updated_at = NOW(),
-               last_error = $6
+               last_error = $8
          WHERE stage = $1 AND entity_type = $2 AND entity_id = $3 AND sport = $4
            AND status = 'running'
+           AND claim_token = $5::uuid
+           AND running_input_version IS NOT DISTINCT FROM $6
         "#,
     )
     .bind(it.stage.as_str())
     .bind(it.entity_type.as_str())
     .bind(it.entity_id)
     .bind(it.sport.as_str())
+    .bind(claim_token)
+    .bind(it.input_version.as_deref())
     .bind(delay.as_secs_f64())
     .bind(truncate(note, 2000))
     .execute(pool)
     .await
     .with_context(|| format!("defer {} {}/{}", it.stage, it.entity_type, it.entity_id))?;
-    Ok(())
+    Ok(result.rows_affected() == 1)
 }
 
 /// release returns a leased item to 'pending' with no attempt penalty — the
 /// shutdown path hands unprocessed claims straight back so the next boot picks
 /// them up immediately instead of waiting out stale-lease recovery. Acts only
-/// on a row still 'running'.
-pub async fn release(pool: &PgPool, it: &Item) -> Result<()> {
-    sqlx::query(
+/// on the caller's current claim. Returns false for a stale execution.
+pub async fn release(pool: &PgPool, it: &Item) -> Result<bool> {
+    let claim_token = it.require_claim_token()?;
+    let result = sqlx::query(
         r#"
         UPDATE pipeline_work
            SET status = 'pending', updated_at = NOW(), available_at = NOW()
          WHERE stage = $1 AND entity_type = $2 AND entity_id = $3 AND sport = $4
            AND status = 'running'
+           AND claim_token = $5::uuid
+           AND running_input_version IS NOT DISTINCT FROM $6
         "#,
     )
     .bind(it.stage.as_str())
     .bind(it.entity_type.as_str())
     .bind(it.entity_id)
     .bind(it.sport.as_str())
+    .bind(claim_token)
+    .bind(it.input_version.as_deref())
     .execute(pool)
     .await
     .with_context(|| format!("release {} {}/{}", it.stage, it.entity_type, it.entity_id))?;
-    Ok(())
+    Ok(result.rows_affected() == 1)
 }
 
 /// requeue_stale flips 'running' rows whose lease has expired (updated_at older
@@ -372,7 +411,11 @@ pub async fn requeue_stale(pool: &PgPool, lease: Duration) -> Result<u64> {
     let res = sqlx::query(
         r#"
         UPDATE pipeline_work
-           SET status = 'pending', updated_at = NOW(), available_at = NOW()
+           SET status = 'pending',
+               running_input_version = NULL,
+               claim_token = NULL,
+               updated_at = NOW(),
+               available_at = NOW()
          WHERE status = 'running'
            AND updated_at < NOW() - make_interval(secs => $1)
         "#,
@@ -405,7 +448,9 @@ pub async fn enqueue(pool: &PgPool, it: &Item) -> Result<()> {
                                  ELSE NOW() END,
             updated_at    = NOW(),
             last_error    = NULL,
-            input_version = EXCLUDED.input_version
+            input_version = EXCLUDED.input_version,
+            running_input_version = NULL,
+            claim_token = NULL
         WHERE pipeline_work.input_version IS DISTINCT FROM EXCLUDED.input_version
            OR pipeline_work.status = 'failed'
         "#,
@@ -435,6 +480,29 @@ mod tests {
         assert_eq!(retry_backoff(-1), Duration::from_secs(30)); // defensive: never negative-index
     }
 
+    #[test]
+    fn claim_sensitive_operations_require_a_claimed_item() {
+        let item = Item {
+            stage: Stage::Vibe,
+            entity_type: "team".to_string(),
+            entity_id: 7,
+            sport: "ZZ_TEST".to_string(),
+            input_version: Some("v1".to_string()),
+            attempts: 0,
+            claim_token: None,
+        };
+        assert!(item.require_claim_token().is_err());
+
+        let claimed = Item {
+            claim_token: Some("00000000-0000-0000-0000-000000000007".to_string()),
+            ..item
+        };
+        assert_eq!(
+            claimed.require_claim_token().unwrap(),
+            "00000000-0000-0000-0000-000000000007"
+        );
+    }
+
     /// The barrier waits on exactly the five pillars — one per character. Sigil must never be in
     /// the list: it is what the barrier RELEASES, and including it would make the Oracle wait on
     /// itself and never crown anything.
@@ -446,6 +514,119 @@ mod tests {
             vec!["narratives", "rating", "vibe", "momentum", "transfers"]
         );
         assert!(!PILLAR_STAGES.contains(&Stage::Sigil));
+    }
+}
+
+/// Exact queue-contract acceptance against an isolated, migrated Postgres test database. These
+/// tests opt in through TEST_DATABASE_URL; ordinary unit runs do not need a database. They
+/// exercise the production SQL rather than a simulated state machine.
+#[cfg(test)]
+mod postgres_claim_fencing_tests {
+    use super::*;
+    use sqlx::postgres::PgPoolOptions;
+
+    async fn pool() -> PgPool {
+        let url = std::env::var("TEST_DATABASE_URL")
+            .expect("set TEST_DATABASE_URL to an isolated database with migration 256 applied");
+        PgPoolOptions::new()
+            .max_connections(2)
+            .connect(&url)
+            .await
+            .expect("connect TEST_DATABASE_URL")
+    }
+
+    fn pending(stage: Stage, entity_id: i64, sport: &str, revision: &str) -> Item {
+        Item {
+            stage,
+            entity_type: "team".to_string(),
+            entity_id,
+            sport: sport.to_string(),
+            input_version: Some(revision.to_string()),
+            attempts: 0,
+            claim_token: None,
+        }
+    }
+
+    async fn clean(pool: &PgPool, sport: &str) {
+        sqlx::query("DELETE FROM pipeline_work WHERE sport = $1")
+            .bind(sport)
+            .execute(pool)
+            .await
+            .expect("clean claim-fencing test rows");
+    }
+
+    async fn one_claim(pool: &PgPool, stage: Stage) -> Item {
+        let mut items = claim(pool, stage, 1).await.expect("claim test row");
+        assert_eq!(items.len(), 1, "isolated test stage should have one row");
+        items.remove(0)
+    }
+
+    #[tokio::test]
+    #[ignore = "requires isolated migrated TEST_DATABASE_URL"]
+    async fn reclaimed_lease_fences_every_older_acknowledgement() {
+        let pool = pool().await;
+        let sport = "ZZ_RUST_STALE_CLAIM";
+        clean(&pool, sport).await;
+
+        let offered = pending(Stage::Graph, 9_100_001, sport, "v1");
+        enqueue(&pool, &offered).await.expect("enqueue v1");
+        let old = one_claim(&pool, Stage::Graph).await;
+
+        sqlx::query(
+            "UPDATE pipeline_work SET updated_at = NOW() - INTERVAL '1 hour' \
+             WHERE stage = 'graph' AND entity_id = $1 AND sport = $2",
+        )
+        .bind(offered.entity_id)
+        .bind(sport)
+        .execute(&pool)
+        .await
+        .expect("age old claim");
+        assert_eq!(
+            requeue_stale(&pool, Duration::from_secs(30 * 60))
+                .await
+                .expect("recover old claim"),
+            1
+        );
+        let current = one_claim(&pool, Stage::Graph).await;
+        assert_ne!(old.claim_token, current.claim_token);
+
+        assert!(!complete(&pool, &old).await.expect("stale complete"));
+        assert!(!fail(&pool, &old, "late", Duration::ZERO, MAX_ATTEMPTS)
+            .await
+            .expect("stale fail"));
+        assert!(!defer(&pool, &old, Duration::ZERO, "late")
+            .await
+            .expect("stale defer"));
+        assert!(!release(&pool, &old).await.expect("stale release"));
+        assert!(complete(&pool, &current).await.expect("current complete"));
+
+        clean(&pool, sport).await;
+    }
+
+    #[tokio::test]
+    #[ignore = "requires isolated migrated TEST_DATABASE_URL"]
+    async fn newer_revision_survives_older_execution_and_becomes_next_claim() {
+        let pool = pool().await;
+        let sport = "ZZ_RUST_RUNNING_REVISION";
+        clean(&pool, sport).await;
+
+        let v1 = pending(Stage::FixtureBoxscore, 9_100_002, sport, "v1");
+        enqueue(&pool, &v1).await.expect("enqueue v1");
+        let old = one_claim(&pool, Stage::FixtureBoxscore).await;
+
+        let v2 = pending(Stage::FixtureBoxscore, v1.entity_id, sport, "v2");
+        enqueue(&pool, &v2).await.expect("enqueue v2 during v1");
+        assert!(!complete(&pool, &old).await.expect("stale v1 complete"));
+        assert!(!fail(&pool, &old, "late v1", Duration::ZERO, MAX_ATTEMPTS)
+            .await
+            .expect("stale v1 fail"));
+
+        let current = one_claim(&pool, Stage::FixtureBoxscore).await;
+        assert_eq!(current.input_version.as_deref(), Some("v2"));
+        assert_ne!(old.claim_token, current.claim_token);
+        assert!(complete(&pool, &current).await.expect("complete v2"));
+
+        clean(&pool, sport).await;
     }
 }
 

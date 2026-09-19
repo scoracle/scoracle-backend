@@ -14,7 +14,7 @@ The Influencer is also migrated. `src/studio/influencer/` owns its `v32` brief, 
 
 Shared model and generation contracts now live in Studio. `runtime/harness.rs` re-exports them and delegates extraction for unmigrated characters. That database-bearing context will retire as their adapters move; Studio is not a wrapper around a permanent older harness.
 
-The current worker, queue, SQL analytics, and product tables continue to operate. There is no new daemon, queue consumer, schema migration, DuckDB computation, or model assignment in the Studio slice. The incorporated baseline already includes the Go DuckDB analytics boundary and cohort memory context; it is preserved. Publication still uses the existing insert and best-effort ledger; atomic product/ledger/outbox and stale-claim fencing remain migration work.
+The current worker, queue, SQL analytics, and product tables continue to operate. Migration 256 adds a unique claim token and captured running revision to `pipeline_work`; `runtime/work.rs` requires both on complete, fail, defer, and release. Reopen and stale recovery clear ownership, and only a successful owned completion can run the Oracle barrier. This fences queue acknowledgement, not product publication: handlers still write before completion, so stale-result publication and atomic product/ledger/follow-up or outbox recovery remain migration work. The incorporated baseline already includes the Go DuckDB analytics boundary and cohort memory context; it is preserved.
 
 ## One assignment, end to end
 
@@ -100,7 +100,7 @@ follows the evidence.
 | `src/composition/` | Existing sourced-memory packages and character briefs awaiting migration. |
 | `src/junctions/` | Other characters and transitional application adapters. |
 | `src/runtime/route.rs`, `src/runtime/providers/` | Role selection, host concurrency, and model transports. |
-| `src/main.rs`, `src/runtime/worker.rs`, `src/runtime/work.rs` | Service composition, dispatch, and `pipeline_work` lifecycle. |
+| `src/main.rs`, `src/runtime/worker.rs`, `src/runtime/work.rs` | Service composition, dispatch, fenced `pipeline_work` claims, and acknowledgement lifecycle. |
 | `src/runtime/harness.rs`, `src/evidence/corpus.rs`, `src/runtime/ledger.rs` | Legacy application context, data retrieval, publication diagnostics. |
 | `src/runtime/util.rs` | Pure value helpers shared during migration. |
 | `src/evaluation/tasks.rs`, `src/bin/eval.rs`, `fixtures/` | Existing character evaluation system and frozen material. |
@@ -131,6 +131,8 @@ cargo build --bin scoracle-cognition --bin statcommentary
 ```
 
 These mechanical checks do not establish live model quality or database durability. Use the existing eval binary and fixtures for model/prompt changes. `eval --task momentum --fixtures --live-system` selects the current system prompt rather than the system text frozen in a fixture; it makes model calls and needs a configured backend. Measure a baseline before declaring a regression.
+
+Claim-fencing integration tests use the production queue SQL and are ignored unless explicitly run with an isolated, migrated `TEST_DATABASE_URL` (`cargo test --lib postgres_claim_fencing_tests -- --ignored`). Ordinary library tests compile them and exercise the no-database claim contract. Apply migration 256, then drain/stop every older status-only worker before starting the token-aware worker. The schema is additive and the trigger keeps older statements compatible, but the ownership guarantee starts only after those older workers have exited because they do not present claim tokens.
 
 The model route is independent of the character. `COGNITION_ROUTE_<ROLE>` selects the backend/model; per-host governors bound concurrency. `VOICE_NUM_CTX` resolves the shared voice window (default 4096); Analyst reserves 700 output tokens in either window, independent of the 1,200-character body and 140-character hook ceilings. Influencer keeps 700 tokens for windows up to 4096 and 800 for larger windows; eval retains its existing 800-token reservation with `num_ctx=0`. Keep options consistent with the resident model's resource budget.
 

@@ -19,7 +19,10 @@ pub trait StageHandler: Send + Sync {
     ///
     /// Contract note for implementers: persist to the live product tables with fail-closed
     /// semantics (NULL markers, `is_rumor` NULL -> never served, debounce hashes), then enqueue
-    /// downstream durable work when the product contract requires it.
+    /// downstream durable work when the product contract requires it. The claimed item carries a
+    /// token and captured revision, but current product adapters do not yet validate that ownership
+    /// in the same transaction as their insert. Queue acknowledgement is fenced; publication
+    /// fencing and atomic follow-up remain a separate migration gate.
     async fn handle(&self, hx: &Harness, item: &Item) -> Result<()>;
 
     /// How many items this stage may claim per rotation through the drain. The default of 1 is

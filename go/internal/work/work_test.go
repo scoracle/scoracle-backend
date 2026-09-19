@@ -67,6 +67,18 @@ func rowState(t *testing.T, pool *pgxpool.Pool, stage Stage, id int) (status, in
 	return status, inputVersion, n
 }
 
+func claimState(t *testing.T, pool *pgxpool.Pool, stage Stage, id int) (runningVersion string, hasToken bool) {
+	t.Helper()
+	if err := pool.QueryRow(context.Background(), `
+		SELECT COALESCE(running_input_version, ''), claim_token IS NOT NULL
+		FROM pipeline_work
+		WHERE stage=$1 AND entity_type='team' AND entity_id=$2 AND sport=$3`,
+		string(stage), id, testSport).Scan(&runningVersion, &hasToken); err != nil {
+		t.Fatalf("claim state: %v", err)
+	}
+	return runningVersion, hasToken
+}
+
 func markRunning(t *testing.T, pool *pgxpool.Pool, stage Stage, id int, updatedAt string) {
 	t.Helper()
 	_, err := pool.Exec(context.Background(), `
@@ -194,6 +206,10 @@ func TestEnqueueSameVersionWhileRunningIsNoop(t *testing.T) {
 		t.Fatalf("enqueue: %v", err)
 	}
 	markRunning(t, pool, StageSigil, 50, "0")
+	runningVersion, hasToken := claimState(t, pool, StageSigil, 50)
+	if runningVersion != "v1" || !hasToken {
+		t.Fatalf("running claim must capture v1 and a token, got version=%q token=%v", runningVersion, hasToken)
+	}
 
 	// Reconciler re-enqueues the same entity, same input_version, while it runs.
 	if err := Enqueue(ctx, pool, item(StageSigil, 50, "v1")); err != nil {
@@ -202,6 +218,10 @@ func TestEnqueueSameVersionWhileRunningIsNoop(t *testing.T) {
 	status, inputVersion, n := rowState(t, pool, StageSigil, 50)
 	if n != 1 || status != "running" || inputVersion != "v1" {
 		t.Fatalf("want running v1 row left untouched, got n=%d status=%q version=%q", n, status, inputVersion)
+	}
+	runningVersion, hasToken = claimState(t, pool, StageSigil, 50)
+	if runningVersion != "v1" || !hasToken {
+		t.Fatalf("duplicate enqueue must preserve active claim, got version=%q token=%v", runningVersion, hasToken)
 	}
 }
 
@@ -213,6 +233,10 @@ func TestEnqueueNewVersionWhileRunningReopens(t *testing.T) {
 		t.Fatalf("enqueue: %v", err)
 	}
 	markRunning(t, pool, StageSigil, 51, "0")
+	runningVersion, hasToken := claimState(t, pool, StageSigil, 51)
+	if runningVersion != "v1" || !hasToken {
+		t.Fatalf("running claim must capture v1 and a token, got version=%q token=%v", runningVersion, hasToken)
+	}
 
 	// New inputs arrive mid-flight.
 	if err := Enqueue(ctx, pool, item(StageSigil, 51, "v2")); err != nil {
@@ -221,5 +245,9 @@ func TestEnqueueNewVersionWhileRunningReopens(t *testing.T) {
 	status, inputVersion, n := rowState(t, pool, StageSigil, 51)
 	if n != 1 || status != "pending" || inputVersion != "v2" {
 		t.Fatalf("want reopened pending v2 row, got n=%d status=%q version=%q", n, status, inputVersion)
+	}
+	runningVersion, hasToken = claimState(t, pool, StageSigil, 51)
+	if runningVersion != "" || hasToken {
+		t.Fatalf("new revision must clear old claim, got version=%q token=%v", runningVersion, hasToken)
 	}
 }

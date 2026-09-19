@@ -183,6 +183,7 @@ pub async fn enqueue_momentum_if_needed(
         sport,
         input_version: Some(momentum_work_input_version(ctx.season, &ctx.input_hash)),
         attempts: 0,
+        claim_token: None,
     };
     work::enqueue(&hx.pool, &it).await?;
     Ok(true)

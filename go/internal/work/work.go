@@ -5,7 +5,7 @@
 // Lifecycle of a row:
 //
 //	Enqueue     → 'pending'                (idempotent; reopens on a changed input)
-//	Rust worker → 'running'/'failed'/delete (claims, backs off, completes)
+//	Rust worker → 'running'/'failed'/delete (fenced claims, backs off, completes)
 //	RequeueStale: 'running' → 'pending'    (operator recovery for abandoned leases)
 //
 // Only outstanding work is ever stored — completed rows are removed — so a
@@ -65,8 +65,9 @@ type Item struct {
 // changed or it was 'failed' — so a changed input reopens completed/failed work.
 // An already-pending or in-flight 'running' row of the SAME input_version is left
 // untouched, so duplicate enqueues collapse to one row without yanking a live
-// lease (the Rust completion path is status-guarded, so a reopen mid-flight is
-// not lost either).
+// lease. A changed revision clears the active claim; the Rust acknowledgement path
+// also requires the old claim token and captured running revision, so it cannot
+// consume the reopened work.
 func Enqueue(ctx context.Context, q Querier, it Item) error {
 	_, err := q.Exec(ctx, `
 		INSERT INTO pipeline_work
@@ -84,7 +85,9 @@ func Enqueue(ctx context.Context, q Querier, it Item) error {
 		                         ELSE NOW() END,
 		    updated_at    = NOW(),
 		    last_error    = NULL,
-		    input_version = EXCLUDED.input_version
+		    input_version = EXCLUDED.input_version,
+		    running_input_version = NULL,
+		    claim_token = NULL
 		WHERE pipeline_work.input_version IS DISTINCT FROM EXCLUDED.input_version
 		   OR pipeline_work.status = 'failed'
 	`, string(it.Stage), it.EntityType, it.EntityID, it.Sport, nullIfEmpty(it.InputVersion))
@@ -100,7 +103,8 @@ func Enqueue(ctx context.Context, q Querier, it Item) error {
 func RequeueStale(ctx context.Context, q Querier, lease time.Duration) (int64, error) {
 	tag, err := q.Exec(ctx, `
 		UPDATE pipeline_work
-		   SET status = 'pending', updated_at = NOW(), available_at = NOW()
+		   SET status = 'pending', running_input_version = NULL, claim_token = NULL,
+		       updated_at = NOW(), available_at = NOW()
 		 WHERE status = 'running'
 		   AND updated_at < NOW() - make_interval(secs => $1)
 	`, int(lease.Seconds()))

@@ -1,6 +1,6 @@
 //! The Journalist's character. Output structure belongs to `composition::form`.
 
-use crate::composition::form::{compose, CardFormat};
+use crate::studio::form::{compose, CardFormat};
 
 pub const NARRATIVES_PROMPT_VERSION: &str = "n30";
 

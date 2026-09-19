@@ -1,8 +1,8 @@
 //! Narrow durable follow-up recovery for claim-aware application publication.
 //!
 //! Product-bearing Vibe and Rating completions reconcile the Momentum offer and then ask the
-//! Oracle barrier. Momentum completion and a debounced Rating need only that Oracle barrier. The
-//! event is deleted only after its concrete, idempotent dispatch succeeds.
+//! Oracle barrier. Momentum, a debounced Rating, and a completed Narratives claim need only that
+//! Oracle barrier. The event is deleted only after its concrete, idempotent dispatch succeeds.
 
 use crate::runtime::harness::Harness;
 use crate::runtime::util::truncate;
@@ -15,6 +15,7 @@ const VIBE_COMPLETED: &str = "vibe_completed";
 const MOMENTUM_COMPLETED: &str = "momentum_completed";
 const RATING_COMPLETED: &str = "rating_completed";
 const RATING_DEBOUNCED: &str = "rating_debounced";
+const NARRATIVES_COMPLETED: &str = "narratives_completed";
 
 pub(crate) async fn record_vibe_completed(
     tx: &mut Transaction<'_, Postgres>,
@@ -47,6 +48,15 @@ pub(crate) async fn record_rating_completed(
     record_completion(tx, kind, item)
         .await
         .context("record rating completion outbox")
+}
+
+pub(crate) async fn record_narratives_completed(
+    tx: &mut Transaction<'_, Postgres>,
+    item: &Item,
+) -> Result<()> {
+    record_completion(tx, NARRATIVES_COMPLETED, item)
+        .await
+        .context("record narratives completion outbox")
 }
 
 async fn record_completion(
@@ -106,6 +116,7 @@ pub async fn drain(hx: &Harness, limit: usize) -> Result<usize> {
             MOMENTUM_COMPLETED,
             RATING_COMPLETED,
             RATING_DEBOUNCED,
+            NARRATIVES_COMPLETED,
         ])
         .fetch_optional(&mut *tx)
         .await
@@ -173,7 +184,9 @@ pub async fn drain(hx: &Harness, limit: usize) -> Result<usize> {
 async fn dispatch(hx: &Harness, event: &Event) -> Result<()> {
     match event.kind.as_str() {
         VIBE_COMPLETED | RATING_COMPLETED => dispatch_momentum_then_oracle(hx, event).await,
-        MOMENTUM_COMPLETED | RATING_DEBOUNCED => dispatch_oracle_barrier(hx, event).await,
+        MOMENTUM_COMPLETED | RATING_DEBOUNCED | NARRATIVES_COMPLETED => {
+            dispatch_oracle_barrier(hx, event).await
+        }
         kind => bail!("unsupported application outbox kind {kind:?}"),
     }
 }

@@ -1,10 +1,10 @@
 //! Evidence and continuity supplied to the character.
 
-use super::{article_context, CorpusItem, NarrativesReq};
+use super::{article_context, CorpusItem, Subject};
 use crate::runtime::util::truncate_bytes;
 
 pub fn build_narratives_prompt(
-    req: &NarrativesReq,
+    subject: &Subject,
     news: &[CorpusItem],
     memory: Option<&str>,
     score_context: Option<&str>,
@@ -13,7 +13,7 @@ pub fn build_narratives_prompt(
     let mut b = String::new();
     b.push_str(&format!(
         "Entity: {} ({} {})\n",
-        req.entity_name, req.sport, req.entity_type
+        subject.entity_name, subject.sport, subject.entity_type
     ));
     if let Some(card) = memory.filter(|s| !s.trim().is_empty()) {
         b.push('\n');

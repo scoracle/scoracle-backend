@@ -33,6 +33,7 @@
 
 use crate::application::analyst::build_momentum_prompt_from_pillars;
 use crate::application::influencer::load_vibe_context;
+use crate::application::journalist::load_packet_corpus;
 use crate::application::scout::{build_rating_request, RatingReq};
 use crate::evidence::corpus::lookup_entity_name;
 use crate::junctions::editor::{
@@ -50,10 +51,6 @@ use crate::junctions::insider::{
 use crate::junctions::investigator::prompt::{
     prose_opts, ProseReadParser, INVESTIGATOR_PROSE_CONTRACT_VERSION,
 };
-use crate::junctions::journalist::{
-    build_narratives_prompt, load_packet_corpus, NarrativesParser, NarrativesReq,
-    NARRATIVES_PROMPT_VERSION, NARRATIVES_SYSTEM_PROMPT,
-};
 use crate::junctions::oracle::{
     build_crown_prompt, build_pillar_divergence, compute_omen, count_sentences, load_pillars,
     oracle_format_schema, parse_crown_reply, pillar_convergence, ORACLE_NUM_PREDICT,
@@ -68,6 +65,10 @@ use crate::studio::analyst::{
 };
 use crate::studio::influencer::{
     build_sentiment_prompt, parse_vibe_reply, VIBE_NUM_PREDICT, VIBE_PROMPT_VERSION,
+};
+use crate::studio::journalist::{
+    build_narratives_prompt, narratives_format_schema, NarrativesParser, Subject,
+    NARRATIVES_NUM_PREDICT_PACKET, NARRATIVES_PROMPT_VERSION, NARRATIVES_SYSTEM_PROMPT,
 };
 use crate::studio::scout::{
     RatingBuild, RatingReply, RATING_NUM_PREDICT, RATING_PROMPT_VERSION, RATING_SYSTEM_PROMPT,
@@ -890,11 +891,11 @@ impl LensTask for NarrativeTask {
             // The production envelope, not the legacy 16384/4000 pair: an eval generating in a
             // window the live stage never runs would measure the wrong thing — and asking the
             // pinned runner for 16384 evicts it besides.
-            num_predict: crate::junctions::journalist::NARRATIVES_NUM_PREDICT_PACKET,
+            num_predict: NARRATIVES_NUM_PREDICT_PACKET,
             num_ctx: crate::runtime::route::VOICE_NUM_CTX_PACKET,
             json_mode: false,
             // Grammar-constrained, matching the live stage (Phase 5).
-            format_schema: Some(crate::junctions::journalist::narratives_format_schema()),
+            format_schema: Some(narratives_format_schema()),
             format_schema_raw: None,
         }
     }
@@ -915,15 +916,13 @@ impl LensTask for NarrativeTask {
         // Direct builder, mirroring VibeTask/SigilTask: the embedder-only near-duplicate dedup is a
         // live value-add outside the deterministic prompt contract, so the eval scores the same
         // grounded prompt on every run.
-        let req = NarrativesReq {
+        let subject = Subject {
             entity_type: e.entity_type.clone(),
-            entity_id: e.entity_id,
             entity_name: name,
             sport: e.sport.clone(),
-            trigger_type: "periodic".to_string(),
         };
         Ok(Some(build_narratives_prompt(
-            &req, &corpus, None, None, None,
+            &subject, &corpus, None, None, None,
         ))) // evals pin the memory-free, score-context-free production prompt
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {

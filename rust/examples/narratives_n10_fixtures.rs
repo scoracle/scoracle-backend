@@ -29,8 +29,8 @@ use std::path::Path;
 
 use scoracle_cognition::evaluation::tasks::{Expect, Fixture};
 use scoracle_cognition::evidence::corpus::HeatItem;
-use scoracle_cognition::junctions::journalist::{
-    build_narratives_prompt, CorpusItem, NarrativesReq, NARRATIVES_PROMPT_VERSION,
+use scoracle_cognition::studio::journalist::{
+    build_narratives_prompt, CorpusItem, Subject, NARRATIVES_PROMPT_VERSION,
     NARRATIVES_SYSTEM_PROMPT,
 };
 
@@ -64,13 +64,11 @@ fn heat(
     }
 }
 
-fn player(name: &str, id: i32, sport: &str) -> NarrativesReq {
-    NarrativesReq {
+fn player(name: &str, _id: i32, sport: &str) -> Subject {
+    Subject {
         entity_type: "player".to_string(),
-        entity_id: id,
         entity_name: name.to_string(),
         sport: sport.to_string(),
-        trigger_type: "periodic".to_string(),
     }
 }
 
@@ -79,7 +77,7 @@ fn player(name: &str, id: i32, sport: &str) -> NarrativesReq {
 /// `memory` renders no memory section (the builder filters blank cards), so floor fixtures pass "".
 fn fixture(
     name: &str,
-    req: &NarrativesReq,
+    req: &Subject,
     corpus: &[CorpusItem],
     _heat: &[HeatItem],
     memory: &str,

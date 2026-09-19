@@ -7508,7 +7508,7 @@ CREATE TABLE public.application_outbox (
     last_error text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT application_outbox_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
-    CONSTRAINT application_outbox_kind_stage_check CHECK ((((kind = 'vibe_completed'::text) AND (source_stage = 'vibe'::text)) OR ((kind = 'momentum_completed'::text) AND (source_stage = 'momentum'::text)) OR ((kind = 'rating_completed'::text) AND (source_stage = 'rating'::text)) OR ((kind = 'rating_debounced'::text) AND (source_stage = 'rating'::text))))
+    CONSTRAINT application_outbox_kind_stage_check CHECK ((((kind = 'vibe_completed'::text) AND (source_stage = 'vibe'::text)) OR ((kind = 'momentum_completed'::text) AND (source_stage = 'momentum'::text)) OR ((kind = 'rating_completed'::text) AND (source_stage = 'rating'::text)) OR ((kind = 'rating_debounced'::text) AND (source_stage = 'rating'::text)) OR ((kind = 'narratives_completed'::text) AND (source_stage = 'narratives'::text))))
 );
 
 
@@ -7516,7 +7516,7 @@ CREATE TABLE public.application_outbox (
 -- Name: TABLE application_outbox; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.application_outbox IS 'Durable post-publication reconciliation for claim-aware seats: product-bearing Vibe and Rating completions offer Momentum then check Oracle; Momentum and debounced Rating completions check Oracle.';
+COMMENT ON TABLE public.application_outbox IS 'Durable post-publication reconciliation for claim-aware seats: product-bearing Vibe and Rating completions offer Momentum then check Oracle; Momentum, debounced Rating, and Narratives completions check Oracle.';
 
 
 --

@@ -3,8 +3,9 @@
 //! [`studio`] creates validated products from prepared material through an injected model.
 //! [`runtime`] owns routing, transports, queue scheduling, and the transitional database
 //! context. [`composition`] prepares sourced memories and holds other character briefs;
-//! [`evidence`] retrieves shared material. Analyst and Influencer creation have moved from
-//! [`junctions`] to Studio; [`application`] owns the Influencer adapters. Existing evaluation tooling remains in [`evaluation`].
+//! [`evidence`] retrieves shared material. Analyst, Influencer, Scout, and Journalist creation
+//! have moved from [`junctions`] to Studio; [`application`] owns their concrete adapters. Existing
+//! evaluation tooling remains in [`evaluation`].
 //!
 //! The product model is **nine lenses, six of them accountable characters the seeker meets**:
 //!

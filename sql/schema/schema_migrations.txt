@@ -259,3 +259,4 @@
 257_influencer_publication_outbox
 258_analyst_publication_outbox
 259_scout_publication_outbox
+260_journalist_publication_outbox

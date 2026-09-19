@@ -6,6 +6,7 @@ pub mod form;
 mod generation;
 pub mod guards;
 pub mod influencer;
+pub mod journalist;
 pub mod model;
 pub mod scout;
 mod session;

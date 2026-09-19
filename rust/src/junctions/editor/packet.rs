@@ -668,7 +668,7 @@ pub async fn render_packets_for_entity(
         entity_type,
         entity_id,
         sport,
-        crate::junctions::journalist::PACKET_LOOKBACK_HOURS,
+        crate::application::journalist::PACKET_LOOKBACK_HOURS,
         limit,
     )
     .await?;

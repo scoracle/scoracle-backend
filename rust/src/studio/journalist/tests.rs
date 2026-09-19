@@ -1,7 +1,4 @@
-//! Unit tests for this junction.
-//!
-//! Split out of `mod.rs` so the stage module reads as the stage and nothing else.
-//! `super` still resolves to the junction, so these run exactly as they did inline.
+//! Unit tests for the Journalist's service-free Studio contract.
 
 use super::*;
 
@@ -15,13 +12,11 @@ fn item(id: i64, source: &str, title: &str, desc: &str, epoch: Option<i64>) -> C
     }
 }
 
-fn req(name: &str, sport: &str, etype: &str) -> NarrativesReq {
-    NarrativesReq {
+fn req(name: &str, sport: &str, etype: &str) -> Subject {
+    Subject {
         entity_type: etype.to_string(),
-        entity_id: 1,
         entity_name: name.to_string(),
         sport: sport.to_string(),
-        trigger_type: "periodic".to_string(),
     }
 }
 
@@ -566,4 +561,143 @@ fn claim_paragraphs_survive_the_production_parser() {
     let raw = serde_json::json!({"narratives":[{"title":"The profile","body":body,"articles":[1]}],"headline":"An ordinary profile holds","card_score":50}).to_string();
     let parsed = NarrativesParser.parse(&raw).unwrap().unwrap();
     assert_eq!(parsed.narratives[0].body, body);
+}
+
+// --- Studio boundary: prepared creation runs without Postgres, queues, or model hosts ---------
+
+use crate::studio::model::{GenerateResult, Inference};
+use async_trait::async_trait;
+use std::sync::Mutex;
+use std::time::Duration;
+
+struct FakeModel {
+    response: String,
+    fail: bool,
+    calls: Mutex<Vec<String>>,
+}
+
+impl FakeModel {
+    fn new(response: &str) -> Self {
+        Self {
+            response: response.to_string(),
+            fail: false,
+            calls: Mutex::new(Vec::new()),
+        }
+    }
+}
+
+#[async_trait]
+impl Inference for FakeModel {
+    async fn generate(
+        &self,
+        prompt: &str,
+        options: &GenerateOptions,
+    ) -> Result<(GenerateResult, serde_json::Value)> {
+        self.calls.lock().unwrap().push(prompt.to_string());
+        if self.fail {
+            anyhow::bail!("model unavailable");
+        }
+        Ok((
+            GenerateResult {
+                response: self.response.clone(),
+                thinking: "private".to_string(),
+                model: "model-that-answered".to_string(),
+                total_duration: Duration::from_millis(25),
+                prompt_eval_count: 20,
+                eval_count: 12,
+                completion_reason: Some("stop".to_string()),
+                raw_response_body: "{}".to_string(),
+            },
+            serde_json::json!({
+                "actual_request": true,
+                "prompt": prompt,
+                "num_predict": options.num_predict,
+            }),
+        ))
+    }
+
+    fn model(&self) -> &str {
+        "configured-model"
+    }
+
+    fn request_body(&self, _: &str, _: &GenerateOptions) -> serde_json::Value {
+        panic!("creation provenance must use the request actually sent")
+    }
+}
+
+fn assignment(corpus: Vec<CorpusItem>) -> Assignment {
+    Assignment {
+        subject: req("Vale Kerr", "FOOTBALL", "player"),
+        corpus,
+        corpus_exclusions: CorpusExclusions::default(),
+        memory: Some("Prior story: talks opened last week.".to_string()),
+        packet_framing: Some("STORY: Vale Kerr and Northbridge".to_string()),
+        input_hash: "prepared-narratives-hash".to_string(),
+        card_score_prev: Some(55),
+        options: generation_options(0.0, 4096),
+    }
+}
+
+#[tokio::test]
+async fn prepared_assignment_creates_grounded_edition_without_application_services() {
+    let model = FakeModel::new(
+        r#"{"narratives":[{"title":"Talks advance","body":"BBC reports that talks advanced.","articles":[1]}],"headline":"Vale Kerr talks advance","card_score":72}"#,
+    );
+    let output = create(
+        &Studio::new(&model),
+        &assignment(vec![item(
+            41,
+            "BBC",
+            "Talks advance for Vale Kerr",
+            "Negotiations continued on Friday.",
+            Some(9_900),
+        )]),
+        10_000,
+    )
+    .await
+    .unwrap();
+    assert_eq!(output.narratives.len(), 1);
+    assert_eq!(output.narratives[0].input_news_ids, vec![41]);
+    assert_eq!(output.card_score, Some(72));
+    assert_eq!(output.card_score_prev, Some(55));
+    assert_eq!(output.headline.as_deref(), Some("Vale Kerr talks advance"));
+    assert_eq!(output.provenance.model_version, "model-that-answered");
+    assert_eq!(
+        output.provenance.input_hash.as_deref(),
+        Some("prepared-narratives-hash")
+    );
+    assert_eq!(
+        output.call.as_ref().unwrap().request_body["actual_request"],
+        true
+    );
+    assert_eq!(model.calls.lock().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn no_corpus_is_an_explicit_uncalled_marker() {
+    let model = FakeModel::new("unused");
+    let output = create(&Studio::new(&model), &assignment(Vec::new()), 10_000)
+        .await
+        .unwrap();
+    assert!(output.narratives.is_empty());
+    assert!(!output.was_called());
+    assert_eq!(output.card_score, None);
+    assert_eq!(output.card_score_prev, None);
+    assert_eq!(output.provenance.model_version, "configured-model");
+    assert!(model.calls.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn model_failure_cannot_become_a_narratives_marker() {
+    let mut model = FakeModel::new("");
+    model.fail = true;
+    let error = create(
+        &Studio::new(&model),
+        &assignment(vec![item(41, "BBC", "Talks advance", "", Some(9_900))]),
+        10_000,
+    )
+    .await
+    .unwrap_err();
+    assert!(format!("{error:#}").contains("model unavailable"));
+    assert_eq!(model.calls.lock().unwrap().len(), 1);
 }

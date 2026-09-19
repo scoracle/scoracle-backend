@@ -494,7 +494,7 @@ async fn load_pair_packet_material(
         "team",
         team_id,
         sport,
-        crate::junctions::journalist::PACKET_LOOKBACK_HOURS,
+        crate::application::journalist::PACKET_LOOKBACK_HOURS,
         PAIR_PACKET_LIMIT,
     )
     .await?;

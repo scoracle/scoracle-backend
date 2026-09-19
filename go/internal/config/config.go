@@ -51,6 +51,13 @@ type Config struct {
 	JWTSecret     string
 	JWTAccessTTL  time.Duration
 	JWTRefreshTTL time.Duration
+
+	// Analytical engine behind internal/analytics: "postgres" keeps the
+	// canonical path; "duckdb" routes experimental analytical workloads
+	// through the embedded DuckDB engine reading Postgres read-only.
+	AnalyticsEngine            string
+	AnalyticsDuckDBPath        string
+	AnalyticsDuckDBMemoryLimit string
 }
 
 // Load reads configuration from environment variables with sensible defaults.
@@ -61,6 +68,12 @@ func Load() (*Config, error) {
 	}
 
 	environment := normalizeEnvironment(envOr("ENVIRONMENT", "development"))
+
+	analyticsEngine := strings.ToLower(envOr("ANALYTICS_ENGINE", "postgres"))
+	if analyticsEngine != "postgres" && analyticsEngine != "duckdb" {
+		return nil, fmt.Errorf("ANALYTICS_ENGINE must be postgres or duckdb, got %q", analyticsEngine)
+	}
+
 	corsOrigins := envList("CORS_ALLOW_ORIGINS", []string{
 		"http://localhost:3000",
 		"http://localhost:4321", // Astro flagship dev (legacy, retires at DNS cutover)
@@ -100,6 +113,10 @@ func Load() (*Config, error) {
 		JWTSecret:     envOr("JWT_SECRET", ""),
 		JWTAccessTTL:  time.Duration(envInt("JWT_ACCESS_TTL_MINUTES", 30)) * time.Minute,
 		JWTRefreshTTL: time.Duration(envInt("JWT_REFRESH_TTL_DAYS", 90)) * 24 * time.Hour,
+
+		AnalyticsEngine:            analyticsEngine,
+		AnalyticsDuckDBPath:        envOr("ANALYTICS_DUCKDB_PATH", ""),
+		AnalyticsDuckDBMemoryLimit: envOr("ANALYTICS_DUCKDB_MEMORY_LIMIT", "512MB"),
 	}, nil
 }
 

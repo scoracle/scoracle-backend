@@ -273,6 +273,42 @@ pub async fn load(pool: &PgPool, req: MemoryRequest<'_>) -> Result<Package> {
             package.unknowns.push("No earlier performance snapshot in the selected competition is available for comparison.".into());
         }
         add(&mut package,"performance comparison",false,records,&["Compare the same measure and time basis across these named teams and seasons. Per-90 figures use recorded minutes, not inferred appearances. Scoring and chance creation may change differently; the measurements support the interpretation, not a predetermined role change. Coverage is unknown, so a smaller stored sample does not prove reduced playing time, fitness or ability. Missing values remain unknown; counts of different actions are not interchangeable."]);
+        // Cohort trajectory: the DuckDB-derived season-grain snapshot of this
+        // entity's rating arc against its league cohort's season-over-season
+        // delta distribution. Derived knowledge (migration 255), recomputable
+        // from the same stored ratings as the snapshots above, so it enters
+        // the package with the same refresh semantics. Stat voices only.
+        let rows = sqlx::query(include_str!("cohort.sql"))
+            .bind(&sport)
+            .bind(req.entity_type)
+            .bind(req.entity_id)
+            .bind(season)
+            .fetch_all(&mut *tx)
+            .await?;
+        let mut context = Vec::new();
+        for row in rows {
+            let row_season: i32 = row.get("season");
+            let key = format!(
+                "{sport}/{}/{}/{}/{}",
+                req.entity_type,
+                req.entity_id,
+                row_season,
+                row.get::<i32, _>("league_id")
+            );
+            context.push(record(
+                if row_season < season {
+                    Section::EstablishedHistory
+                } else {
+                    Section::PresentEvidence
+                },
+                "analytics_entity_context",
+                key,
+                row.get("observed_at"),
+                row.get("observed_unix"),
+                row.get("data"),
+            ));
+        }
+        add(&mut package,"cohort trajectory",false,context,&["Ratings are season composites on a common scale; delta is this season's rating minus the prior season's rating in the same competition. delta_percentile ranks that delta among the league cohort's own season-over-season movements (median and interquartile range supplied), including this entity in the cohort. A percentile of movement is not a percentile of ability: a large rise from a low base, a fall after a peak and a league-wide shift all move the same delta. Prior-season comparisons inherit that season's stored sample; a missing prior season leaves the movement unknown. The snapshot is derived from stored ratings and carries no playing-time, fitness or tactical cause."]);
     }
     if !historical
         && matches!(

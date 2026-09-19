@@ -243,8 +243,21 @@ pub fn build_stat_prompt(
             for (label, current_pct, prior_pct, delta) in
                 movements.iter().copied().take(MAX_COMPARISON_FACTS)
             {
+                let direction = if delta > 1.0 {
+                    "ROSE"
+                } else if delta < -1.0 {
+                    "FELL"
+                } else {
+                    "HELD"
+                };
+                let current = p
+                    .breakdown
+                    .iter()
+                    .find(|datapoint| datapoint.label == label)
+                    .map(format_datapoint_evidence)
+                    .unwrap_or_else(|| format!("{label}: current percentile {current_pct:.1}"));
                 b.push_str(&format!(
-                    "- {label}: prior {prior_pct:.1}; current {current_pct:.1}; {}\n",
+                    "- Direction: {direction}. {current}; prior season percentile {prior_pct:.1}; {}\n",
                     relative_standing(delta)
                 ));
             }
@@ -263,8 +276,14 @@ pub fn build_stat_prompt(
                 for (label, current_pct, prior_pct, delta) in
                     held.into_iter().take(MAX_HELD_COMPARISON_FACTS)
                 {
+                    let current = p
+                        .breakdown
+                        .iter()
+                        .find(|datapoint| datapoint.label == label)
+                        .map(format_datapoint_evidence)
+                        .unwrap_or_else(|| format!("{label}: current percentile {current_pct:.1}"));
                     b.push_str(&format!(
-                        "- {label}: prior {prior_pct:.1}; current {current_pct:.1}; {}\n",
+                        "- Direction: HELD. {current}; prior season percentile {prior_pct:.1}; {}\n",
                         relative_standing(delta)
                     ));
                 }
@@ -283,44 +302,36 @@ pub fn build_stat_prompt(
     } else {
         b.push_str("Values: season totals, except percentages and named adjustments.\n");
     }
-    let identified = p
-        .breakdown
-        .iter()
-        .filter(|datapoint| !datapoint.measure.trim().is_empty())
-        .cloned()
-        .collect::<Vec<_>>();
-    if identified.iter().any(|datapoint| datapoint.pct.is_some()) {
-        b.push_str("\nCurrent-snapshot measurements. Percentiles, when present, rank the same measure among eligible entities in this sport and season; higher is better. Missing ranks and season comparisons are unmeasured.\n");
-    } else if identified.is_empty() {
-        b.push_str("\nCurrent rating measurements are withheld because their underlying measurement identity is unavailable. Use only the explicitly named measures in the context above.\n");
-    } else {
-        b.push_str("\nCurrent-snapshot raw measurements. These values are not ranks and have no historical match in this block. Do not describe them as unchanged, improved or declined.\n");
-    }
-    let rates = collect_rate_standouts(p);
-    for d in ordered_facts(&identified) {
-        b.push_str("- ");
-        b.push_str(&format_datapoint_evidence(&d));
-        if let Some(changes) = comparisons {
-            if let Some(change) = changes.get(&d.label) {
-                let current_pct = d.pct.expect("a comparison has a current percentile");
+    if comparisons.is_none() {
+        let identified = p
+            .breakdown
+            .iter()
+            .filter(|datapoint| !datapoint.measure.trim().is_empty())
+            .cloned()
+            .collect::<Vec<_>>();
+        if identified.iter().any(|datapoint| datapoint.pct.is_some()) {
+            b.push_str("\nCurrent-snapshot measurements. Percentiles, when present, rank the same measure among eligible entities in this sport and season; higher is better. Missing ranks and season comparisons are unmeasured.\n");
+        } else if identified.is_empty() {
+            b.push_str("\nCurrent rating measurements are withheld because their underlying measurement identity is unavailable. Use only the explicitly named measures in the context above.\n");
+        } else {
+            b.push_str("\nCurrent-snapshot raw measurements. These values are not ranks and have no historical match in this block. Do not describe them as unchanged, improved or declined.\n");
+        }
+        let rates = collect_rate_standouts(p);
+        for d in ordered_facts(&identified) {
+            b.push_str("- ");
+            b.push_str(&format_datapoint_evidence(&d));
+            for rate in rates
+                .iter()
+                .filter(|r| r.label == d.label && r.measure == d.measure)
+            {
                 b.push_str(&format!(
-                    "; prior season percentile {:.1}; {}",
-                    change.prior_pct,
-                    relative_standing(current_pct - change.prior_pct)
+                    "; {} percentile {:.1}",
+                    rate.mode.replace('_', "-"),
+                    rate.pct
                 ));
             }
+            b.push('\n');
         }
-        for rate in rates
-            .iter()
-            .filter(|r| r.label == d.label && r.measure == d.measure)
-        {
-            b.push_str(&format!(
-                "; {} percentile {:.1}",
-                rate.mode.replace('_', "-"),
-                rate.pct
-            ));
-        }
-        b.push('\n');
     }
 
     if let Some(ft) = form_trend.filter(|t| !t.trim().is_empty()) {

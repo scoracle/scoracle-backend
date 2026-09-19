@@ -153,17 +153,11 @@ fn season_changes_stay_with_their_own_skill() {
         None,
         None,
     );
-    let chance = prompt
-        .lines()
-        .find(|l| l.starts_with("- Chance Creation:"))
-        .unwrap();
-    assert!(!chance.contains("prior season percentile"));
-    assert!(!chance.contains("slipped"));
     assert!(prompt.contains("Compatible cross-season measurements"));
     assert!(prompt.contains(
-        "- Creation: prior 95.0; current 66.0; relative standing fell by 29.0 percentile points"
+        "- Direction: FELL. Creation: 1, percentile 66.0 (above average); prior season percentile 95.0; relative standing fell by 29.0 percentile points"
     ));
-    assert!(!prompt.contains("- Chance Creation: prior"));
+    assert!(!prompt.contains("Chance Creation"));
 }
 
 #[test]
@@ -194,9 +188,9 @@ fn comparison_block_orders_compatible_movements_by_magnitude() {
         None,
         None,
     );
-    let rise = prompt.find("- Large Rise: prior").unwrap();
-    let fall = prompt.find("- Medium Fall: prior").unwrap();
-    let stable = prompt.find("- Stable: prior").unwrap();
+    let rise = prompt.find("Direction: ROSE. Large Rise:").unwrap();
+    let fall = prompt.find("Direction: FELL. Medium Fall:").unwrap();
+    let stable = prompt.find("Direction: HELD. Stable:").unwrap();
     assert!(rise < fall && fall < stable);
     assert!(prompt.contains("relative standing rose by 80.0 percentile points"));
     assert!(prompt.contains("relative standing held within one percentile point (+0.0)"));
@@ -234,7 +228,7 @@ fn comparison_block_foregrounds_held_anchors_beyond_the_change_limit() {
     );
     assert!(prompt.contains("Compatible held anchors"));
     assert!(prompt.contains(
-        "- Held Elite: prior 99.2; current 99.0; relative standing held within one percentile point (-0.2)"
+        "- Direction: HELD. Held Elite: 1, percentile 99.0 (elite); prior season percentile 99.2; relative standing held within one percentile point (-0.2)"
     ));
     assert!(prompt.contains("current quality band is not evidence"));
 }

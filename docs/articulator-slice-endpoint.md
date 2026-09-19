@@ -9,7 +9,7 @@ the composed slice and the phone never re-implements slicing.
 
 ## Route
 
-    GET /api/v1/{sport}/team/{id}/articulator/{kind:p1|p2|p3|p4|p5|p6|p7|p8}
+    GET /api/v1/{sport}/{entityType:player|team}/{id}/articulator/{kind:p1|p2|p3|p4|p5|p6|p7|p8}
 
 Response:
 
@@ -37,7 +37,16 @@ turn as `question + "\n\n" + "DATA: " + data`, matching the corpus format.
 - Omitted-when-absent fields (Python's conditional key adds) become
   `omitempty` — but note Python omits on `None`/empty, not on zero: `0` and
   `0.0` are REAL values that must serialize. Use pointer fields.
-- Teams only for now (the corpus is teams; players are a later phase).
+- Teams retain their byte-identical training contract. Players use the same
+  product statements with the explicit player type and ID. Player p1 metadata
+  includes position, current team and nationality. Player p4 carries individual
+  `performances` (dated event ratings from momentum), never a team's win/loss
+  record. Missing performance history is null.
+- The endpoint extension does not certify the existing model for players.
+  The 2026-09-12 v4 transfer evaluation passed mechanical guards but failed
+  semantic review. Player model training and evaluation remain release gates.
+- `go run ./cmd/articulator-compose < bundle.json` exports the same eight
+  DATA strings for offline evaluation without duplicating the Go composer.
 
 ## The eight kinds (source of truth: `build_prompts.py:prompts_for`)
 
@@ -96,6 +105,6 @@ re-run; the gate reports mismatching PATHS, not just counts).
 ## Non-goals (this phase)
 
 - No question generation server-side — questions are the user's.
-- No player slices, no board/hierarchy questions.
+- No board/hierarchy questions.
 - No LLM calls server-side; the model runs on-device. (A server-side
   generation fallback for old phones is a later decision.)

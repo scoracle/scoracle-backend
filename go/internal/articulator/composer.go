@@ -135,6 +135,12 @@ func roundedNumber(n pythonNumber) pythonNumber {
 }
 
 type metaProduct struct {
+	EntityType  string  `json:"entity_type"`
+	Position    *string `json:"position"`
+	Nationality *string `json:"nationality"`
+	Team        *struct {
+		Name *string `json:"name"`
+	} `json:"team"`
 	Name      string  `json:"name"`
 	Sport     string  `json:"sport"`
 	ShortCode *string `json:"short_code"`
@@ -279,7 +285,7 @@ func Compose(kind string, inputs Inputs) (Slice, error) {
 		return Slice{}, fmt.Errorf("decode meta: %w", err)
 	}
 	if bundle.meta.Name == "" {
-		return Slice{}, errors.New("meta payload has no team name")
+		return Slice{}, errors.New("meta payload has no entity name")
 	}
 
 	if strings.Contains("p1p2p3p6", kind) {
@@ -289,7 +295,7 @@ func Compose(kind string, inputs Inputs) (Slice, error) {
 		}
 		bundle.rating = slimRatingProduct(product)
 	}
-	if strings.Contains("p1p3p6", kind) {
+	if strings.Contains("p1p3p6", kind) || (kind == "p4" && bundle.meta.EntityType == "player") {
 		if !isJSONNull(inputs.Momentum) {
 			var product momentumProduct
 			if err := decode(inputs.Momentum, &product); err != nil {
@@ -305,7 +311,7 @@ func Compose(kind string, inputs Inputs) (Slice, error) {
 		}
 		bundle.summary = &product
 	}
-	if kind == "p4" {
+	if kind == "p4" && bundle.meta.EntityType != "player" {
 		var product resultsProduct
 		if err := decode(inputs.Results, &product); err != nil {
 			return Slice{}, fmt.Errorf("decode results: %w", err)
@@ -563,6 +569,15 @@ func composeKind(kind string, bundle slimBundle) (orderedObject, any, error) {
 	case "p3":
 		return orderedObject{field("name", name), field("momentum", momentumSlice(bundle))}, nil, nil
 	case "p4":
+		if bundle.meta.EntityType == "player" {
+			// Player appearances have individual ratings, not team win/loss records.
+			// Never query team results using a player's numeric ID.
+			var performances any
+			if bundle.momentum != nil {
+				performances = objectLookup(momentumSlice(bundle).(orderedObject))["event_scores"]
+			}
+			return orderedObject{field("name", name), field("performances", performances)}, nil, nil
+		}
 		return orderedObject{
 			field("name", name), field("record", summarizeResults(bundle.results, bundle.meta.Sport)),
 			field("results", bundle.results),
@@ -592,6 +607,16 @@ func composeKind(kind string, bundle slimBundle) (orderedObject, any, error) {
 }
 
 func metaObject(meta metaProduct) orderedObject {
+	if meta.EntityType == "player" {
+		var team *string
+		if meta.Team != nil {
+			team = meta.Team.Name
+		}
+		return orderedObject{
+			field("name", meta.Name), field("sport", meta.Sport), field("entity_type", "player"),
+			field("position", meta.Position), field("team", team), field("nationality", meta.Nationality),
+		}
+	}
 	return orderedObject{
 		field("name", meta.Name), field("sport", meta.Sport),
 		field("short_code", meta.ShortCode), field("country", meta.Country),

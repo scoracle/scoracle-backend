@@ -1,14 +1,13 @@
 //! Applies vetted transfer facts to identity and downstream bookkeeping.
 
 use super::{
-    build_transfer_identity_adjudication_prompt, load_pair_news,
-    transfer_identity_adjudication_system_prompt, NewsItem, Outcome, TransferCandidate,
-    TransferIdentityAdjudicationParser, TransferRow, TRANSFER_IDENTITY_ADJUDICATION_PROMPT_VERSION,
-    TRANSFER_IDENTITY_ADJUDICATION_SCHEMA_RAW, TRANSFER_PROMPT_VERSION,
+    build_transfer_identity_adjudication_prompt, load_pair_news, NewsItem, Outcome,
+    TransferCandidate, TransferIdentityAdjudicationParser, TransferRow,
+    TRANSFER_IDENTITY_ADJUDICATION_PROMPT_VERSION, TRANSFER_PROMPT_VERSION,
 };
 use crate::runtime::harness::Harness;
-use crate::runtime::providers::ollama::GenerateOptions;
 use crate::runtime::route::Role;
+use crate::runtime::work::Item;
 use anyhow::{anyhow, Context, Result};
 use sqlx::{PgPool, Row};
 use tracing::warn;
@@ -169,7 +168,7 @@ pub(super) async fn load_transfer_identity_threshold(
     }))
 }
 
-pub(super) fn identity_apply_deterministic_score(heat: i16) -> (i16, f64) {
+pub(crate) fn identity_apply_deterministic_score(heat: i16) -> (i16, f64) {
     (heat, f64::from(heat) / 100.0)
 }
 
@@ -307,6 +306,7 @@ async fn sport_autofill_refresh_pending(pool: &PgPool, sport: &str) -> Result<bo
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn maybe_apply_transfer_identity(
     hx: &Harness,
+    item: &Item,
     team_id: i32,
     team_name: &str,
     candidate: &TransferCandidate,
@@ -379,27 +379,12 @@ pub(super) async fn maybe_apply_transfer_identity(
         current_team_stats_season,
         identity_news,
     );
-    let opts = GenerateOptions {
-        system: Some(transfer_identity_adjudication_system_prompt(sport)),
-        temperature: Some(0.0),
-        num_predict: 700,
-        num_ctx: crate::runtime::route::LOCAL_STAGE_NUM_CTX,
-        json_mode: false,
-        format_schema: Some(
-            serde_json::from_str(TRANSFER_IDENTITY_ADJUDICATION_SCHEMA_RAW)
-                .expect("identity adjudication schema is valid JSON"),
-        ),
-        format_schema_raw: Some(TRANSFER_IDENTITY_ADJUDICATION_SCHEMA_RAW.to_string()),
-    };
+    let options =
+        crate::studio::insider::identity_options(sport, crate::runtime::route::LOCAL_STAGE_NUM_CTX);
     let backend = hx.router.for_role(Role::EmotionalNews);
     let model_configured = backend.model().to_string();
-    let generated = match hx
-        .extract(
-            Role::EmotionalNews,
-            &prompt,
-            &opts,
-            &TransferIdentityAdjudicationParser,
-        )
+    let generated = match crate::studio::Studio::new(backend.as_ref())
+        .extract(&prompt, &options, &TransferIdentityAdjudicationParser)
         .await
     {
         Ok(extracted) => extracted,
@@ -448,6 +433,17 @@ pub(super) async fn maybe_apply_transfer_identity(
 
     let raw =
         serde_json::to_string(&adjudication).context("serialize transfer identity adjudication")?;
+    let mut tx = hx
+        .pool
+        .begin()
+        .await
+        .context("begin transfer identity application")?;
+    if !crate::runtime::work::lock_claim(&mut tx, item).await? {
+        tx.rollback()
+            .await
+            .context("close superseded transfer identity application")?;
+        return Ok(false);
+    }
     let result = sqlx::query(
         r#"
         SELECT application_id, override_id, status, reason
@@ -469,9 +465,12 @@ pub(super) async fn maybe_apply_transfer_identity(
     .bind(TRANSFER_IDENTITY_ADJUDICATION_PROMPT_VERSION)
     .bind(evidence_route.as_str())
     .bind(identity_news.iter().map(|item| item.id).collect::<Vec<_>>())
-    .fetch_one(&hx.pool)
+    .fetch_one(&mut *tx)
     .await
     .context("apply transfer identity candidate")?;
+    tx.commit()
+        .await
+        .context("commit transfer identity application")?;
 
     let status: String = result.get("status");
     if status != "applied" {

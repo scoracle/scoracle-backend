@@ -1,4 +1,4 @@
-//! Evidence and continuity supplied to the character.
+//! Evidence and continuity supplied to the Insider.
 
 use crate::evidence::corpus::{write_heat_lines, HeatItem};
 

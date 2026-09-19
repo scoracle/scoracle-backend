@@ -1,4 +1,4 @@
-//! Transfer verification and identity adjudication contracts.
+//! Transfer verification and identity-adjudication contracts.
 
 use super::{NewsItem, TransferCandidate, TransferEvidence, DESC_TRUNCATE};
 use crate::runtime::util::truncate_bytes;

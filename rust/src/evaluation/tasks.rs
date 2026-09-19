@@ -33,6 +33,9 @@
 
 use crate::application::analyst::build_momentum_prompt_from_pillars;
 use crate::application::influencer::load_vibe_context;
+use crate::application::insider::{
+    build_pair_request, load_candidates, team_relationship, PairBuild,
+};
 use crate::application::journalist::load_packet_corpus;
 use crate::application::oracle::load_pillars;
 use crate::application::scout::{build_rating_request, RatingReq};
@@ -44,10 +47,6 @@ use crate::junctions::editor::{
 use crate::junctions::graph::{
     build_graph_prompt, graph_opts, load_graph_article_context, GraphCandidate, GraphParser,
     GRAPH_PROMPT_VERSION,
-};
-use crate::junctions::insider::{
-    build_pair_request, load_candidates, transfer_system_prompt, PairBuild, TransferParser,
-    TRANSFER_DEFAULT_MIN_ARTICLES, TRANSFER_NUM_PREDICT, TRANSFER_PROMPT_VERSION,
 };
 use crate::junctions::investigator::prompt::{
     prose_opts, ProseReadParser, INVESTIGATOR_PROSE_CONTRACT_VERSION,
@@ -61,6 +60,10 @@ use crate::studio::analyst::{
 };
 use crate::studio::influencer::{
     build_sentiment_prompt, parse_vibe_reply, VIBE_NUM_PREDICT, VIBE_PROMPT_VERSION,
+};
+use crate::studio::insider::{
+    transfer_system_prompt, TransferParser, TRANSFER_DEFAULT_MIN_ARTICLES, TRANSFER_NUM_PREDICT,
+    TRANSFER_PROMPT_VERSION,
 };
 use crate::studio::journalist::{
     build_narratives_prompt, narratives_format_schema, NarrativesParser, Subject,
@@ -1170,9 +1173,7 @@ impl LensTask for TransferTask {
                 )
             })?;
 
-        let relationship =
-            crate::junctions::insider::team_relationship(&hx.pool, e.entity_id, player_id, &sport)
-                .await?;
+        let relationship = team_relationship(&hx.pool, e.entity_id, player_id, &sport).await?;
         match build_pair_request(
             hx,
             e.entity_id,
@@ -1185,7 +1186,7 @@ impl LensTask for TransferTask {
         .await?
         {
             PairBuild::Skipped { .. } => Ok(None),
-            PairBuild::Ready(r) => Ok(Some(r.built_prompt)),
+            PairBuild::Ready(r) => Ok(Some(r.prompt)),
         }
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {

@@ -18,9 +18,11 @@ Journalist is fully migrated. `src/studio/journalist/` owns its brief, prepared 
 
 Oracle is fully migrated. `src/studio/oracle/` owns its brief, typed five-card `Assignment`, spread readiness, deterministic input identity, divergence/convergence and omen calculations, prompt, parser/guards, explicit empty marker, and model session. `src/application/oracle.rs` owns PostgreSQL pillar retrieval, the existing barrier policy, memory preparation, routing, debounce, queue ownership, claim-aware `sigil_synthesis` publication, and diagnostics. Oracle has no downstream obligation, so publication and exact completion share one short transaction without a new outbox kind. Production, evaluation, fixture, Analyst, Insider, worker, and outbox callers use the new owners; the Oracle junction and duplicate composition brief are removed.
 
-Shared model and generation contracts now live in Studio. `runtime/harness.rs` re-exports them and delegates extraction for the four unmigrated seats. That database-bearing context will retire as their adapters move; Studio is not a wrapper around a permanent older harness.
+Insider is fully migrated. `src/studio/insider/` owns its brief, prepared pair and wrap assignments, transfer and identity prompts, parsers/guards, deterministic direction/stage/confidence shaping, and model sessions. `src/application/insider/` owns PostgreSQL candidate and evidence retrieval, routing, bounded per-pair progress, identity effects, exact-claim publication, and queue policy. Each served pair atomically commits its product and player Oracle obligation under the current team lease; final completion commits the team obligation and deletes that exact claim. Cleared pairs preserve progress without a player event, and superseded or reclaimed workers publish nothing further. Production, evaluation, fixture, form, and Oracle callers use the new owners; the Insider junction and duplicate composition brief are removed.
 
-The current worker, queue, SQL analytics, and product tables continue to operate. Migration 256 adds a unique claim token and captured running revision to `pipeline_work`; `runtime/work.rs` requires both on complete, fail, defer, and release. Migrations 257–260 add the narrow `application_outbox` for Influencer, Analyst, Scout, and Journalist. Oracle needs no schema change or downstream event: after inference its short transaction locks the exact claim, writes the crown or marker when needed, and deletes that claim. Unchanged Oracle inputs complete without a product. Stale executions write nothing. The outbox retries the earlier seats' database-only reconciliation, while optional cognition-ledger writes remain best-effort after product commit. Other handlers still need this publication boundary. The incorporated baseline already includes the Go DuckDB analytics boundary and cohort memory context; it is preserved.
+Shared model and generation contracts now live in Studio. `runtime/harness.rs` re-exports them and delegates extraction for the three unmigrated seats. That database-bearing context will retire as their adapters move; Studio is not a wrapper around a permanent older harness.
+
+The current worker, queue, SQL analytics, and product tables continue to operate. Migration 256 adds a unique claim token and captured running revision to `pipeline_work`; `runtime/work.rs` requires both on complete, fail, defer, and release. Migrations 257–261 add the narrow `application_outbox` for Influencer, Analyst, Scout, Journalist, and Insider. Migration 261 keeps one completion event per claim while allowing one transfer claim to fan out to distinct player/team Oracle targets. Oracle needs no downstream event: after inference its short transaction locks the exact claim, writes the crown or marker when needed, and deletes that claim. Stale executions write nothing. Optional cognition-ledger writes remain best-effort after product commit. The three remaining handlers still need this publication boundary. The incorporated baseline already includes the Go DuckDB analytics boundary and cohort memory context; it is preserved.
 
 ## One assignment, end to end
 
@@ -46,7 +48,7 @@ Add capabilities only for actual assignments. A character that needs retrieval d
 
 ## Character expression
 
-[`src/studio/form.rs`](src/studio/form.rs) owns shared form and parser-compatible output contracts. `composition::form` and `composition::guards` are compatibility exports. Migrated character briefs live beside their Studio creation code; Analyst retains a temporary composition re-export, while Influencer, Scout, Journalist, and Oracle have no duplicate brief. Other briefs remain in `composition/characters/` until their vertical migrations. Memory loading and rendering remain in `composition/memories`.
+[`src/studio/form.rs`](src/studio/form.rs) owns shared form and parser-compatible output contracts. `composition::form` and `composition::guards` are compatibility exports. Migrated character briefs live beside their Studio creation code; Analyst retains a temporary composition re-export, while Influencer, Scout, Journalist, Insider, and Oracle have no duplicate brief. Other briefs remain in `composition/characters/` until their vertical migrations. Memory loading and rendering remain in `composition/memories`.
 
 Form is the canvas, character is the brush, and memories are the paint. The model
 creates the reading. All six writer paths now load shared memories before their
@@ -79,7 +81,7 @@ readings. The nuance belongs with the pillars that understand the evidence.
 Journalist and Influencer have distinct subjects. Reporting tone alone is not evidence
 of how a crowd feels. Memories provide continuity, not fresh measurements or proof.
 The Editor, Investigator, and Graph junctions extract and verify evidence for this work.
-The Insider's extraction contracts live in `insider/verification.rs`.
+The Insider's extraction contracts live in `studio/insider/verification.rs`.
 
 Current input limits: Scout receives per-skill season comparisons and an overall recent
 performance trend, not recent slopes for every skill. Vibe receives current story
@@ -100,11 +102,11 @@ follows the evidence.
 | `src/studio/mod.rs`, `src/studio/session.rs` | Model session, bounded correction, injected publication, and outcome. |
 | `src/studio/model.rs` | Model interface, call options/results, provider-independent incomplete-output signal. |
 | `src/studio/generation.rs` | Typed products, parser interface, provenance, call diagnostics. |
-| `src/studio/analyst/`, `src/studio/influencer/`, `src/studio/scout/` | Character creation and service-free tests. |
-| `src/application/analyst.rs`, `influencer.rs`, `scout.rs`, `journalist.rs`, `oracle.rs` | Concrete preparation, routing, lifecycle policy, work coordination, and claim-aware publication. |
+| `src/studio/analyst/`, `influencer/`, `scout/`, `journalist/`, `insider/`, `oracle/` | Migrated character creation and service-free tests. |
+| `src/application/analyst.rs`, `influencer.rs`, `scout.rs`, `journalist.rs`, `insider/`, `oracle.rs` | Concrete preparation, routing, lifecycle policy, work coordination, and claim-aware publication. |
 | `src/studio/form.rs`, `src/studio/guards.rs` | Shared character form, output contracts, and mechanical guards. |
 | `src/composition/` | Existing sourced-memory packages and character briefs awaiting migration. |
-| `src/junctions/` | Four remaining model-facing seats and transitional application adapters. |
+| `src/junctions/` | Three remaining model-facing seats and transitional application adapters. |
 | `src/runtime/route.rs`, `src/runtime/providers/` | Role selection, host concurrency, and model transports. |
 | `src/main.rs`, `src/runtime/worker.rs`, `src/runtime/work.rs` | Service composition, dispatch, fenced `pipeline_work` claims, and acknowledgement lifecycle. |
 | `src/runtime/harness.rs`, `src/evidence/corpus.rs`, `src/runtime/ledger.rs` | Legacy application context, data retrieval, publication diagnostics. |
@@ -138,7 +140,7 @@ cargo build --bin scoracle-cognition --bin statcommentary
 
 These mechanical checks do not establish live model quality or database durability. Use the existing eval binary and fixtures for model/prompt changes. `eval --task momentum --fixtures --live-system` selects the current system prompt rather than the system text frozen in a fixture; it makes model calls and needs a configured backend. Measure a baseline before declaring a regression.
 
-Claim/publication-fencing integration tests use the production SQL and are ignored unless explicitly run with an isolated, migrated `TEST_DATABASE_URL` (`cargo test --lib postgres_ -- --ignored --test-threads=1`). Ordinary library tests compile them and exercise the no-database contracts. Apply migrations 256–260, then drain/stop every older status-only worker before starting the token-aware worker. Migration 257 must exist before the new worker starts because every tick drains its outbox; migrations 258–260 must exist before the claim-aware Analyst, Scout, and Journalist record their completion kinds. Migration 256 is additive and its trigger keeps older statements schema-compatible, but ownership begins only after older workers exit because they do not present claim tokens.
+Claim/publication-fencing integration tests use the production SQL and are ignored unless explicitly run with an isolated, migrated `TEST_DATABASE_URL` (`cargo test --lib postgres_ -- --ignored --test-threads=1`). Ordinary library tests compile them and exercise the no-database contracts. Apply migrations 256–261, then drain/stop every older status-only worker before starting the token-aware worker. Migration 257 must exist before the new worker starts because every tick drains its outbox; migrations 258–261 must exist before the claim-aware Analyst, Scout, Journalist, and Insider record their completion or fanout kinds. Migration 256 is additive and its trigger keeps older statements schema-compatible, but ownership begins only after older workers exit because they do not present claim tokens.
 
 The model route is independent of the character. `COGNITION_ROUTE_<ROLE>` selects the backend/model; per-host governors bound concurrency. `VOICE_NUM_CTX` resolves the shared voice window (default 4096); Analyst reserves 700 output tokens in either window, independent of the 1,200-character body and 140-character hook ceilings. Influencer keeps 700 tokens for windows up to 4096 and 800 for larger windows; eval retains its existing 800-token reservation with `num_ctx=0`. Keep options consistent with the resident model's resource budget.
 
@@ -150,4 +152,4 @@ Use [`../scripts/hosting/release.sh`](../scripts/hosting/release.sh) and the [ru
 
 Plans and progress live in `../../scoracle-wiki/progress_docs/scoracle-backend/`. The [modernization plan](../../scoracle-wiki/progress_docs/scoracle-backend/2026-09-19_backend-modernization-plan.md) records the remaining character migration, queue ownership, DuckDB, richer-study, and retirement gates.
 
-Current local acceptance: 496 ordinary Rust library tests pass with 25 isolated-database cases ignored; all 25 pass against a fresh disposable PostgreSQL 17 database loaded from the current schema through migration 260. Oracle adds service-free prepared creation, explicit empty-spread behavior, model-failure propagation, exact revision/reclaim fencing, crown and marker publication, product-free debounce, and pending/retryable/terminal readiness cases. All targets compile, Clippy passes with warnings denied, and the Go suite plus `go vet` pass. Existing prompt/evaluation contracts remain unchanged. These checks do not establish live deployment or model-quality acceptance.
+Current local acceptance: 499 ordinary Rust library tests pass with 29 isolated-database cases ignored; all 29 pass against a fresh disposable PostgreSQL 17 database loaded from the current schema through migration 261. Insider adds service-free pair and wrap creation, explicit UNKNOWN behavior on pair transport failure, exact revision/reclaim fencing, cleared-pair progress, and per-target durable Oracle fanout. All targets compile, Clippy passes with warnings denied, and the Go suite plus `go vet` pass. Existing prompt/evaluation contracts remain unchanged. These checks do not establish live deployment or model-quality acceptance.

@@ -1,4 +1,4 @@
-//! The Insider's character. Output structure belongs to `composition::form`.
+//! The Insider's character brief.
 
 use crate::composition::form::{compose, CardFormat};
 

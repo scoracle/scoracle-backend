@@ -1,9 +1,15 @@
-//! Unit tests for this junction.
+//! Insider Studio and contract tests.
 //!
 //! Split out of `mod.rs` so the stage module reads as the stage and nothing else.
 //! `super` still resolves to the junction, so these run exactly as they did inline.
 
 use super::*;
+use crate::application::insider::{
+    budget_deadline, identity_apply_deterministic_score, past, TRANSFER_PAIR_BUDGET_FRAC,
+    TRANSFER_WRAP_BUDGET_FRAC,
+};
+use crate::runtime::util::hash_components;
+use std::time::{Duration, Instant};
 
 // --- The wire wrap (Phase 4): grammar, parse, debounce pre-image, prompt ---------------------
 
@@ -527,7 +533,7 @@ fn has_return_signal_detects_return_language() {
 
 #[test]
 fn identity_score_uses_raw_heat_only() {
-    let (heat, confidence) = application::identity_apply_deterministic_score(83);
+    let (heat, confidence) = identity_apply_deterministic_score(83);
 
     assert_eq!(heat, 83);
     assert_eq!(confidence, 0.83);
@@ -868,4 +874,149 @@ fn claim_paragraphs_survive_the_production_parser() {
         serde_json::json!({"read":body,"headline":"An ordinary wire holds","score":50}).to_string();
     let parsed = InsiderScoreParser.parse(&raw).unwrap().unwrap();
     assert_eq!(parsed.read, body);
+}
+
+// --- Studio boundary: prepared creation runs without Postgres, queues, or model hosts ---------
+
+use crate::studio::model::{GenerateResult, Inference};
+use crate::studio::Studio;
+use async_trait::async_trait;
+use std::sync::Mutex;
+
+struct FakeModel {
+    response: String,
+    fail: bool,
+    calls: Mutex<Vec<String>>,
+}
+
+impl FakeModel {
+    fn new(response: &str) -> Self {
+        Self {
+            response: response.to_string(),
+            fail: false,
+            calls: Mutex::new(Vec::new()),
+        }
+    }
+}
+
+#[async_trait]
+impl Inference for FakeModel {
+    async fn generate(
+        &self,
+        prompt: &str,
+        options: &GenerateOptions,
+    ) -> anyhow::Result<(GenerateResult, serde_json::Value)> {
+        self.calls.lock().unwrap().push(prompt.to_string());
+        if self.fail {
+            anyhow::bail!("model unavailable");
+        }
+        Ok((
+            GenerateResult {
+                response: self.response.clone(),
+                thinking: String::new(),
+                model: "model-that-answered".to_string(),
+                total_duration: Duration::from_millis(10),
+                prompt_eval_count: 20,
+                eval_count: 12,
+                completion_reason: Some("stop".to_string()),
+                raw_response_body: "{}".to_string(),
+            },
+            serde_json::json!({
+                "actual_request": true,
+                "prompt": prompt,
+                "num_predict": options.num_predict,
+            }),
+        ))
+    }
+
+    fn model(&self) -> &str {
+        "configured-model"
+    }
+
+    fn request_body(&self, prompt: &str, _: &GenerateOptions) -> serde_json::Value {
+        serde_json::json!({ "failed_request": true, "prompt": prompt })
+    }
+}
+
+fn prepared_pair() -> PairAssignment {
+    PairAssignment {
+        player_id: 42,
+        subject_type: "player".to_string(),
+        heat: 81,
+        components: r#"{"distinct_sources":2}"#.to_string(),
+        news_ids: vec![8, 9],
+        prompted_news_ids: vec![8, 9],
+        stale_news_ids: vec![2],
+        news: vec![NewsItem {
+            id: 8,
+            title: "Northbridge advance talks for Ada Vale".to_string(),
+            description: "Negotiations continue.".to_string(),
+            source: "Wire".to_string(),
+        }],
+        relationship: "none".to_string(),
+        attribution: "Wire".to_string(),
+        prompt: "prepared pair prompt".to_string(),
+        options: GenerateOptions {
+            system: Some(transfer_system_prompt("FOOTBALL")),
+            temperature: Some(0.0),
+            num_predict: TRANSFER_NUM_PREDICT,
+            num_ctx: 4096,
+            json_mode: true,
+            format_schema: None,
+            format_schema_raw: None,
+        },
+        model_configured: "configured-model".to_string(),
+        failed_request_body: serde_json::json!({ "failed_request": true }),
+        input_hash: "pair-hash".to_string(),
+    }
+}
+
+#[tokio::test]
+async fn prepared_pair_creates_a_grounded_verdict_without_application_services() {
+    let model = FakeModel::new(
+        r#"{"is_rumor":true,"subject":"Ada Vale","direction":"incoming","stage":"advanced_talks","summary":"Wire reports talks are advancing.","confidence":0.84}"#,
+    );
+    let output = create_pair(&Studio::new(&model), prepared_pair()).await;
+    assert_eq!(output.outcome, Outcome::Rumor);
+    assert_eq!(
+        output.row.as_ref().unwrap().stage.as_deref(),
+        Some("advanced_talks")
+    );
+    assert_eq!(output.provenance.input_hash.as_deref(), Some("pair-hash"));
+    assert_eq!(
+        output.call.as_ref().unwrap().request_body["actual_request"],
+        true
+    );
+}
+
+#[tokio::test]
+async fn pair_model_failure_is_an_explicit_unknown_product() {
+    let mut model = FakeModel::new("");
+    model.fail = true;
+    let output = create_pair(&Studio::new(&model), prepared_pair()).await;
+    assert_eq!(output.outcome, Outcome::Unknown);
+    assert_eq!(output.row.as_ref().unwrap().is_rumor, None);
+    assert_eq!(output.provenance.model_version, "configured-model");
+    assert_eq!(
+        output.call.as_ref().unwrap().request_body["failed_request"],
+        true
+    );
+}
+
+#[tokio::test]
+async fn prepared_wire_wrap_creates_with_successful_call_provenance() {
+    let model = FakeModel::new(
+        r#"{"read":"One credible call is moving toward agreement.","headline":"Talks gather pace","score":73}"#,
+    );
+    let output = create_score(
+        &Studio::new(&model),
+        "prepared wire prompt",
+        &score_options(4096),
+        "wire-hash".to_string(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(output.score, 73);
+    assert_eq!(output.provenance.input_hash.as_deref(), Some("wire-hash"));
+    assert_eq!(output.provenance.model_version, "model-that-answered");
 }

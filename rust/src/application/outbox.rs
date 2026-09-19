@@ -16,6 +16,7 @@ const MOMENTUM_COMPLETED: &str = "momentum_completed";
 const RATING_COMPLETED: &str = "rating_completed";
 const RATING_DEBOUNCED: &str = "rating_debounced";
 const NARRATIVES_COMPLETED: &str = "narratives_completed";
+const TRANSFER_PUBLISHED: &str = "transfer_published";
 
 pub(crate) async fn record_vibe_completed(
     tx: &mut Transaction<'_, Postgres>,
@@ -59,6 +60,35 @@ pub(crate) async fn record_narratives_completed(
         .context("record narratives completion outbox")
 }
 
+pub(crate) async fn record_transfer_published(
+    tx: &mut Transaction<'_, Postgres>,
+    item: &Item,
+    entity_type: &str,
+    entity_id: i32,
+    input_version: Option<&str>,
+) -> Result<()> {
+    sqlx::query(
+        r#"
+        INSERT INTO application_outbox (
+            kind, source_stage, source_claim_token,
+            entity_type, entity_id, sport, source_input_version
+        ) VALUES ($1, $2, $3::uuid, $4, $5, $6, $7)
+        ON CONFLICT DO NOTHING
+        "#,
+    )
+    .bind(TRANSFER_PUBLISHED)
+    .bind(item.stage.as_str())
+    .bind(item.require_claim_token()?)
+    .bind(entity_type)
+    .bind(entity_id)
+    .bind(&item.sport)
+    .bind(input_version)
+    .execute(&mut **tx)
+    .await
+    .context("record transfer publication outbox")?;
+    Ok(())
+}
+
 async fn record_completion(
     tx: &mut Transaction<'_, Postgres>,
     kind: &str,
@@ -70,7 +100,7 @@ async fn record_completion(
             kind, source_stage, source_claim_token,
             entity_type, entity_id, sport, source_input_version
         ) VALUES ($1, $2, $3::uuid, $4, $5, $6, $7)
-        ON CONFLICT (kind, source_stage, source_claim_token) DO NOTHING
+        ON CONFLICT DO NOTHING
         "#,
     )
     .bind(kind)
@@ -117,6 +147,7 @@ pub async fn drain(hx: &Harness, limit: usize) -> Result<usize> {
             RATING_COMPLETED,
             RATING_DEBOUNCED,
             NARRATIVES_COMPLETED,
+            TRANSFER_PUBLISHED,
         ])
         .fetch_optional(&mut *tx)
         .await
@@ -184,7 +215,7 @@ pub async fn drain(hx: &Harness, limit: usize) -> Result<usize> {
 async fn dispatch(hx: &Harness, event: &Event) -> Result<()> {
     match event.kind.as_str() {
         VIBE_COMPLETED | RATING_COMPLETED => dispatch_momentum_then_oracle(hx, event).await,
-        MOMENTUM_COMPLETED | RATING_DEBOUNCED | NARRATIVES_COMPLETED => {
+        MOMENTUM_COMPLETED | RATING_DEBOUNCED | NARRATIVES_COMPLETED | TRANSFER_PUBLISHED => {
             dispatch_oracle_barrier(hx, event).await
         }
         kind => bail!("unsupported application outbox kind {kind:?}"),

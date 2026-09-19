@@ -260,3 +260,4 @@
 258_analyst_publication_outbox
 259_scout_publication_outbox
 260_journalist_publication_outbox
+261_insider_publication_outbox

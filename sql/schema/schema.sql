@@ -7508,7 +7508,7 @@ CREATE TABLE public.application_outbox (
     last_error text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT application_outbox_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
-    CONSTRAINT application_outbox_kind_stage_check CHECK ((((kind = 'vibe_completed'::text) AND (source_stage = 'vibe'::text)) OR ((kind = 'momentum_completed'::text) AND (source_stage = 'momentum'::text)) OR ((kind = 'rating_completed'::text) AND (source_stage = 'rating'::text)) OR ((kind = 'rating_debounced'::text) AND (source_stage = 'rating'::text)) OR ((kind = 'narratives_completed'::text) AND (source_stage = 'narratives'::text))))
+    CONSTRAINT application_outbox_kind_stage_check CHECK ((((kind = 'vibe_completed'::text) AND (source_stage = 'vibe'::text)) OR ((kind = 'momentum_completed'::text) AND (source_stage = 'momentum'::text)) OR ((kind = 'rating_completed'::text) AND (source_stage = 'rating'::text)) OR ((kind = 'rating_debounced'::text) AND (source_stage = 'rating'::text)) OR ((kind = 'narratives_completed'::text) AND (source_stage = 'narratives'::text)) OR ((kind = 'transfer_published'::text) AND (source_stage = 'transfers'::text))))
 );
 
 
@@ -7516,7 +7516,7 @@ CREATE TABLE public.application_outbox (
 -- Name: TABLE application_outbox; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.application_outbox IS 'Durable post-publication reconciliation for claim-aware seats: product-bearing Vibe and Rating completions offer Momentum then check Oracle; Momentum, debounced Rating, and Narratives completions check Oracle.';
+COMMENT ON TABLE public.application_outbox IS 'Durable post-publication reconciliation for claim-aware seats. Transfer events may fan one team claim out to several player/team Oracle barriers.';
 
 
 --
@@ -10215,7 +10215,7 @@ CREATE TABLE public.source_performance (
 -- Name: TABLE source_performance; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.source_performance IS 'DRIVER (write): refresh_source_performance(), which has NO Rust or Go caller — it is invoked from a psql heredoc in scripts/hosting/cron-narrative-links.sh, cron 45 */6 * * *. That path is invisible to a Rust grep, a Go grep AND a repo grep for the table name. DRIVER (read): source_reliability_for_pair(), called per pair by the Insider (rust/src/junctions/insider/mod.rs). Refresh is DELETE-then-INSERT per sport, so high n_tup_del is normal churn, not deletion of live data.';
+COMMENT ON TABLE public.source_performance IS 'DRIVER (write): refresh_source_performance(), which has NO Rust or Go caller — it is invoked from a psql heredoc in scripts/hosting/cron-narrative-links.sh, cron 45 */6 * * *. That path is invisible to a Rust grep, a Go grep AND a repo grep for the table name. DRIVER (read): source_reliability_for_pair(), called per pair by the Insider application adapter (rust/src/application/insider/mod.rs). Refresh is DELETE-then-INSERT per sport, so high n_tup_del is normal churn, not deletion of live data.';
 
 
 --
@@ -11291,14 +11291,6 @@ ALTER TABLE ONLY public.application_outbox
 
 
 --
--- Name: application_outbox application_outbox_source_claim_unique; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.application_outbox
-    ADD CONSTRAINT application_outbox_source_claim_unique UNIQUE (kind, source_stage, source_claim_token);
-
-
---
 -- Name: auth_refresh_tokens auth_refresh_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -12012,6 +12004,20 @@ CREATE UNIQUE INDEX idx_nfl_autofill_pk ON nfl.autofill_entities USING btree (id
 --
 
 CREATE INDEX idx_acquisition_runs_candidate ON public.acquisition_runs USING btree (candidate_id);
+
+
+--
+-- Name: application_outbox_completion_claim_unique; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX application_outbox_completion_claim_unique ON public.application_outbox USING btree (kind, source_stage, source_claim_token) WHERE (kind <> 'transfer_published'::text);
+
+
+--
+-- Name: application_outbox_transfer_target_unique; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX application_outbox_transfer_target_unique ON public.application_outbox USING btree (kind, source_stage, source_claim_token, entity_type, entity_id, sport) WHERE (kind = 'transfer_published'::text);
 
 
 --

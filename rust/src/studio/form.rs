@@ -177,7 +177,7 @@ pub fn oracle_format_schema() -> serde_json::Value {
 mod tests {
     use super::*;
     use crate::composition::characters;
-    use crate::junctions::insider;
+    use crate::studio::insider;
     use crate::studio::{analyst, influencer, journalist, oracle, scout};
 
     #[test]
@@ -197,7 +197,7 @@ mod tests {
                 journalist::NARRATIVES_SYSTEM_PROMPT.as_str(),
             ),
             (
-                characters::insider::CHARACTER,
+                insider::CHARACTER,
                 insider::INSIDER_SCORE_SYSTEM_PROMPT.as_str(),
             ),
             (oracle::CHARACTER, oracle::ORACLE_SYSTEM_PROMPT.as_str()),

@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 8M9vyHscBu1NBom0iVikjIPwQ3iibnmtaVVcPo5y3U0p4RVPWq4aqqa89Sk40sU
+\restrict fuuMHfQFAVTw2z9Iskbx8NRgnjJTcatfg6OSF8iicYHmJZe8EZxNFyI4YYmZr68
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -3088,6 +3088,8 @@ CREATE FUNCTION public.normalize_pipeline_work_claim() RETURNS trigger
     AS $$
 BEGIN
     IF NEW.status = 'running' THEN
+        -- Mint on every transition into running. Preserve the token on unrelated updates to the
+        -- same live lease; a claimant must not lose ownership because observability was updated.
         IF TG_OP = 'INSERT' THEN
             NEW.claim_token := gen_random_uuid();
             NEW.running_input_version := NEW.input_version;
@@ -3097,9 +3099,24 @@ BEGIN
             NEW.running_input_version := NEW.input_version;
         END IF;
     ELSE
+        -- Pending/failed rows describe desired work, not an active execution.
         NEW.claim_token := NULL;
         NEW.running_input_version := NULL;
     END IF;
+    RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: notify_application_outbox_ready(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.notify_application_outbox_ready() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    PERFORM pg_notify('pipeline_work_ready', '');
     RETURN NEW;
 END;
 $$;
@@ -3163,20 +3180,6 @@ BEGIN
     RETURN NEW;
 END;
 $_$;
-
-
---
--- Name: notify_application_outbox_ready(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.notify_application_outbox_ready() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-    PERFORM pg_notify('pipeline_work_ready', '');
-    RETURN NEW;
-END;
-$$;
 
 
 --
@@ -7491,6 +7494,84 @@ COMMENT ON TABLE public.acquisition_runs IS 'One Investigator attempt at one can
 
 
 --
+-- Name: acquisition_runs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.acquisition_runs_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: acquisition_runs_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.acquisition_runs_id_seq OWNED BY public.acquisition_runs.id;
+
+
+--
+-- Name: analytics_cohort_publication; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.analytics_cohort_publication (
+    sport text NOT NULL,
+    entity_type text NOT NULL,
+    season integer NOT NULL,
+    as_of timestamp with time zone NOT NULL,
+    captured_at timestamp with time zone NOT NULL,
+    input_hash text NOT NULL,
+    result_hash text NOT NULL,
+    formula text NOT NULL,
+    mvcc_snapshot text NOT NULL,
+    row_count integer NOT NULL,
+    published_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT analytics_cohort_publication_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
+    CONSTRAINT analytics_cohort_publication_row_count_check CHECK ((row_count >= 0))
+);
+
+
+--
+-- Name: TABLE analytics_cohort_publication; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.analytics_cohort_publication IS 'Current complete cohort publication receipt. analytics_entity_context is its direct serving projection; both replace atomically. Content hash covers both input seasons including NULLs and deletions.';
+
+
+--
+-- Name: analytics_entity_context; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.analytics_entity_context (
+    sport text NOT NULL,
+    entity_type text NOT NULL,
+    entity_id integer NOT NULL,
+    season integer NOT NULL,
+    league_id integer NOT NULL,
+    rating numeric NOT NULL,
+    prior_season integer,
+    prior_rating numeric,
+    delta numeric,
+    delta_pctile numeric,
+    peer_count integer NOT NULL,
+    peer_delta_median numeric,
+    peer_delta_p25 numeric,
+    peer_delta_p75 numeric,
+    computed_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT analytics_entity_context_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text])))
+);
+
+
+--
+-- Name: TABLE analytics_entity_context; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.analytics_entity_context IS 'DuckDB-derived season-grain context: an entity''s rating arc and its season-over-season delta against the league-cohort delta distribution (median/p25/p75). Recomputable from player_stats/team_stats ratings; never authoritative.';
+
+
+--
 -- Name: application_outbox; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -7524,25 +7605,6 @@ COMMENT ON TABLE public.application_outbox IS 'Durable post-publication reconcil
 --
 
 COMMENT ON COLUMN public.application_outbox.source_claim_token IS 'The exact pipeline_work lease committed atomically with the product and queue completion.';
-
-
---
--- Name: acquisition_runs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.acquisition_runs_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: acquisition_runs_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.acquisition_runs_id_seq OWNED BY public.acquisition_runs.id;
 
 
 --
@@ -10215,7 +10277,7 @@ CREATE TABLE public.source_performance (
 -- Name: TABLE source_performance; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.source_performance IS 'DRIVER (write): refresh_source_performance(), which has NO Rust or Go caller — it is invoked from a psql heredoc in scripts/hosting/cron-narrative-links.sh, cron 45 */6 * * *. That path is invisible to a Rust grep, a Go grep AND a repo grep for the table name. DRIVER (read): source_reliability_for_pair(), called per pair by the Insider application adapter (rust/src/application/insider/mod.rs). Refresh is DELETE-then-INSERT per sport, so high n_tup_del is normal churn, not deletion of live data.';
+COMMENT ON TABLE public.source_performance IS 'DRIVER (write): refresh_source_performance(), which has NO Rust or Go caller — it is invoked from a psql heredoc in scripts/hosting/cron-narrative-links.sh, cron 45 */6 * * *. That path is invisible to a Rust grep, a Go grep AND a repo grep for the table name. DRIVER (read): source_reliability_for_pair(), called per pair by the Insider (rust/src/junctions/insider/mod.rs). Refresh is DELETE-then-INSERT per sport, so high n_tup_del is normal churn, not deletion of live data.';
 
 
 --
@@ -11283,6 +11345,22 @@ ALTER TABLE ONLY public.acquisition_runs
 
 
 --
+-- Name: analytics_cohort_publication analytics_cohort_publication_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.analytics_cohort_publication
+    ADD CONSTRAINT analytics_cohort_publication_pkey PRIMARY KEY (sport, entity_type, season);
+
+
+--
+-- Name: analytics_entity_context analytics_entity_context_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.analytics_entity_context
+    ADD CONSTRAINT analytics_entity_context_pkey PRIMARY KEY (sport, entity_type, entity_id, season, league_id);
+
+
+--
 -- Name: application_outbox application_outbox_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -12000,10 +12078,10 @@ CREATE UNIQUE INDEX idx_nfl_autofill_pk ON nfl.autofill_entities USING btree (id
 
 
 --
--- Name: idx_acquisition_runs_candidate; Type: INDEX; Schema: public; Owner: -
+-- Name: analytics_entity_context_entity_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_acquisition_runs_candidate ON public.acquisition_runs USING btree (candidate_id);
+CREATE INDEX analytics_entity_context_entity_idx ON public.analytics_entity_context USING btree (sport, entity_type, entity_id, season);
 
 
 --
@@ -12018,6 +12096,13 @@ CREATE UNIQUE INDEX application_outbox_completion_claim_unique ON public.applica
 --
 
 CREATE UNIQUE INDEX application_outbox_transfer_target_unique ON public.application_outbox USING btree (kind, source_stage, source_claim_token, entity_type, entity_id, sport) WHERE (kind = 'transfer_published'::text);
+
+
+--
+-- Name: idx_acquisition_runs_candidate; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_acquisition_runs_candidate ON public.acquisition_runs USING btree (candidate_id);
 
 
 --
@@ -13092,17 +13177,17 @@ CREATE UNIQUE INDEX uq_entity_external_ids_import ON public.entity_external_ids 
 
 
 --
--- Name: packets enqueue_voices_on_packet; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER enqueue_voices_on_packet AFTER INSERT ON public.packets FOR EACH ROW EXECUTE FUNCTION public.enqueue_voices_on_packet();
-
-
---
 -- Name: application_outbox application_outbox_notify_insert; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER application_outbox_notify_insert AFTER INSERT ON public.application_outbox FOR EACH ROW EXECUTE FUNCTION public.notify_application_outbox_ready();
+
+
+--
+-- Name: packets enqueue_voices_on_packet; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER enqueue_voices_on_packet AFTER INSERT ON public.packets FOR EACH ROW EXECUTE FUNCTION public.enqueue_voices_on_packet();
 
 
 --
@@ -13286,6 +13371,22 @@ CREATE TRIGGER trg_percentile_changed_team_stats AFTER UPDATE OF percentiles ON 
 
 ALTER TABLE ONLY public.acquisition_runs
     ADD CONSTRAINT acquisition_runs_candidate_id_fkey FOREIGN KEY (candidate_id) REFERENCES public.entity_candidates(id) ON DELETE CASCADE;
+
+
+--
+-- Name: analytics_cohort_publication analytics_cohort_publication_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.analytics_cohort_publication
+    ADD CONSTRAINT analytics_cohort_publication_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
+
+
+--
+-- Name: analytics_entity_context analytics_entity_context_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.analytics_entity_context
+    ADD CONSTRAINT analytics_entity_context_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
 
 
 --
@@ -14019,4 +14120,4 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 8M9vyHscBu1NBom0iVikjIPwQ3iibnmtaVVcPo5y3U0p4RVPWq4aqqa89Sk40sU
+\unrestrict fuuMHfQFAVTw2z9Iskbx8NRgnjJTcatfg6OSF8iicYHmJZe8EZxNFyI4YYmZr68

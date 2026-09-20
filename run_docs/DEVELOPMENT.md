@@ -24,6 +24,14 @@ One producer owns each live output during cutover. Migration 256 establishes que
 
 Update the README and wiki data-flow implementation status with each migrated boundary. The destination is three distinct systems coordinated by application code, not a universal pipeline every task must traverse.
 
+## Shared worker scheduling
+
+Workers on multiple hosts compete for individual `pipeline_work` rows in the same PostgreSQL database. No host owns an entire stage pool. `pipeline_work_ready` NOTIFY broadcasts after enqueue commits; each worker maintains LISTEN plus startup and periodic recovery. Notifications are hints, while the durable row is the obligation. Atomic `FOR UPDATE SKIP LOCKED` claims give workers disjoint current jobs; exact claim tokens and captured revisions fence stale publication and acknowledgements. Retries and newer revisions can repeat computation, so this is not an exactly-once inference guarantee.
+
+Editor publishes its reading and downstream Graph/Investigator obligations atomically; packet publication fans out the news-dependent character work. The Scout's statistics rail remains independent. Claim-time entity checks keep Analyst behind pending/running Scout and Influencer work, and Oracle behind all five pending/running pillars. Undispatched completion outbox events also block these consumers, closing the gap between publication and follow-up enqueue. Existing failed-pillar partial-read policy remains unchanged. These checks cover known work at claim time; new evidence can arrive during inference and trigger a subsequent revision. They do not impose a global barrier on unrelated articles or entities.
+
+Every live consumer must run compatible fenced code and the same readiness policy. Rotate admission across ready stages so continuous upstream inflow cannot monopolize a worker's slots. Poll bounded outbox dispatch independently of drain completion. Model concurrency budgets remain per process; point each worker at its intended model host and account for aggregate load if several workers share one model server.
+
 ## Public Endpoint Flow
 
 Any new public data endpoint should follow this path:

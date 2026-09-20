@@ -215,6 +215,31 @@ pub async fn claim(pool: &PgPool, stage: Stage, limit: i64) -> Result<Vec<Item>>
             WHERE stage = $1
               AND status IN ('pending', 'failed')
               AND available_at <= NOW()
+              -- Dependency eligibility is shared across hosts, not implied by a
+              -- process-local registration order. Only this entity is blocked.
+              AND NOT EXISTS (
+                  SELECT 1 FROM pipeline_work upstream
+                  WHERE upstream.entity_type = pipeline_work.entity_type
+                    AND upstream.entity_id = pipeline_work.entity_id
+                    AND upstream.sport = pipeline_work.sport
+                    AND upstream.status <> 'failed'
+                    AND (($1 = 'momentum' AND upstream.stage IN ('rating', 'vibe'))
+                      OR ($1 = 'sigil' AND upstream.stage IN
+                          ('narratives', 'rating', 'vibe', 'momentum', 'transfers')))
+              )
+              -- Publication may have committed before its next-stage offer.
+              -- Do not overtake a durable handoff still awaiting dispatch.
+              AND NOT EXISTS (
+                  SELECT 1 FROM application_outbox handoff
+                  WHERE handoff.entity_type = pipeline_work.entity_type
+                    AND handoff.entity_id = pipeline_work.entity_id
+                    AND handoff.sport = pipeline_work.sport
+                    AND (($1 = 'momentum' AND handoff.kind IN
+                          ('rating_completed', 'vibe_completed'))
+                      OR ($1 = 'sigil' AND handoff.kind IN
+                          ('rating_completed', 'rating_debounced', 'vibe_completed',
+                           'momentum_completed', 'narratives_completed', 'transfer_published')))
+              )
             ORDER BY {}
             FOR UPDATE SKIP LOCKED
             LIMIT $2
@@ -265,7 +290,7 @@ pub async fn claim(pool: &PgPool, stage: Stage, limit: i64) -> Result<Vec<Item>>
 ///   5. `Momentum`   — The Analyst CONSUMES the Scout's card and the Influencer's
 ///   6. `Sigil`      — The Oracle CONSUMES all five pillars, so it is terminal
 ///
-/// Per-stage caps prevent this priority from becoming a starvation ladder.
+/// Round-robin admission prevents starvation; claim-time dependency checks span workers.
 pub const VOICE_ORDER: [Stage; 6] = [
     Stage::Narratives,
     Stage::Vibe,
@@ -600,6 +625,108 @@ mod postgres_claim_fencing_tests {
         let mut items = claim(pool, stage, 1).await.expect("claim test row");
         assert_eq!(items.len(), 1, "isolated test stage should have one row");
         items.remove(0)
+    }
+
+    #[tokio::test]
+    #[ignore = "requires isolated migrated TEST_DATABASE_URL"]
+    async fn competing_workers_receive_notify_and_claim_disjoint_jobs() {
+        let first = pool().await;
+        let second = pool().await;
+        let sport = "ZZ_SHARED_WORKERS";
+        clean(&first, sport).await;
+        let mut listener_a = sqlx::postgres::PgListener::connect_with(&first)
+            .await
+            .unwrap();
+        let mut listener_b = sqlx::postgres::PgListener::connect_with(&second)
+            .await
+            .unwrap();
+        listener_a.listen("pipeline_work_ready").await.unwrap();
+        listener_b.listen("pipeline_work_ready").await.unwrap();
+        for id in 9_100_100..9_100_120 {
+            enqueue(&first, &pending(Stage::Graph, id, sport, "v1"))
+                .await
+                .unwrap();
+        }
+        for listener in [&mut listener_a, &mut listener_b] {
+            tokio::time::timeout(Duration::from_secs(2), listener.recv())
+                .await
+                .unwrap()
+                .unwrap();
+        }
+        let (a, b) = tokio::join!(
+            claim(&first, Stage::Graph, 10),
+            claim(&second, Stage::Graph, 10)
+        );
+        let a = a.unwrap();
+        let b = b.unwrap();
+        assert_eq!(a.len(), 10);
+        assert_eq!(b.len(), 10);
+        for job in &a {
+            assert!(!b.iter().any(|other| other.entity_id == job.entity_id));
+        }
+        assert!(claim(&second, Stage::Graph, 1).await.unwrap().is_empty());
+        for job in a.iter().chain(&b) {
+            assert!(complete(&first, job).await.unwrap());
+        }
+        clean(&first, sport).await;
+    }
+
+    #[tokio::test]
+    #[ignore = "requires isolated migrated TEST_DATABASE_URL"]
+    async fn downstream_claims_wait_for_entity_dependencies_and_durable_handoffs() {
+        let first = pool().await;
+        let second = pool().await;
+        let sport = "ZZ_SHARED_DEPENDENCIES";
+        clean(&first, sport).await;
+        sqlx::query("INSERT INTO sports (id, display_name, current_season) VALUES ($1, 'Shared workers', 2026) ON CONFLICT DO NOTHING")
+            .bind(sport).execute(&first).await.unwrap();
+        let id = 9_100_130;
+        for stage in [Stage::Rating, Stage::Momentum, Stage::Sigil] {
+            enqueue(&first, &pending(stage, id, sport, "v1"))
+                .await
+                .unwrap();
+        }
+        assert!(claim(&second, Stage::Momentum, 1).await.unwrap().is_empty());
+        assert!(claim(&second, Stage::Sigil, 1).await.unwrap().is_empty());
+        let rating = one_claim(&first, Stage::Rating).await;
+        assert!(claim(&second, Stage::Momentum, 1).await.unwrap().is_empty());
+        // A different entity can progress while this one waits.
+        enqueue(&first, &pending(Stage::Sigil, id + 1, sport, "v1"))
+            .await
+            .unwrap();
+        let independent = one_claim(&second, Stage::Sigil).await;
+        assert_eq!(independent.entity_id, id + 1);
+        assert!(complete(&second, &independent).await.unwrap());
+        let mut tx = first.begin().await.unwrap();
+        crate::application::outbox::record_rating_completed(&mut tx, &rating, true)
+            .await
+            .unwrap();
+        assert!(complete_in_transaction(&mut tx, &rating).await.unwrap());
+        tx.commit().await.unwrap();
+        assert!(claim(&second, Stage::Momentum, 1).await.unwrap().is_empty());
+        // Isolate dispatch acknowledgement from model/context preparation here.
+        sqlx::query("DELETE FROM application_outbox WHERE sport = $1")
+            .bind(sport)
+            .execute(&first)
+            .await
+            .unwrap();
+        let momentum = one_claim(&second, Stage::Momentum).await;
+        assert!(claim(&first, Stage::Sigil, 1).await.unwrap().is_empty());
+        let mut tx = second.begin().await.unwrap();
+        crate::application::outbox::record_momentum_completed(&mut tx, &momentum)
+            .await
+            .unwrap();
+        assert!(complete_in_transaction(&mut tx, &momentum).await.unwrap());
+        tx.commit().await.unwrap();
+        assert!(claim(&first, Stage::Sigil, 1).await.unwrap().is_empty());
+        sqlx::query("DELETE FROM application_outbox WHERE sport = $1")
+            .bind(sport)
+            .execute(&first)
+            .await
+            .unwrap();
+        let oracle = one_claim(&first, Stage::Sigil).await;
+        assert!(complete(&first, &oracle).await.unwrap());
+        clean(&first, sport).await;
     }
 
     #[tokio::test]

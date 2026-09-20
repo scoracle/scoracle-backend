@@ -1,7 +1,9 @@
-//! Durable `pipeline_work` consumer with two cooperating tasks:
+//! Durable `pipeline_work` consumer with responsive supervision and handoff dispatch:
 //!
 //! * The **drain** (the `run` future itself) executes recover-then-drain ticks. It is
 //!   the only task that touches stage handlers or the GPU.
+//! * The **outbox** future is polled alongside both idle waiting and active draining,
+//!   so committed handoffs cannot stall behind a model call or sustained queue inflow.
 //! * The **supervisor** (spawned) owns everything that must stay responsive no matter
 //!   what the drain is doing: the Postgres LISTEN socket (always read — a slow or
 //!   wedged drain can no longer pin the NOTIFY queue), the safety-net timer,
@@ -83,6 +85,37 @@ const DESK_INTERVAL: Duration = Duration::from_secs(60);
 
 /// Stale-lease recovery cadence, independent of queue depth.
 const STALE_RECOVERY_INTERVAL: Duration = Duration::from_secs(60);
+
+// Durable handoffs must progress even while a drain never reaches empty or a
+// model call is waiting. Bound each batch so the dispatcher yields to model work.
+const OUTBOX_INTERVAL: Duration = Duration::from_secs(1);
+const OUTBOX_TIMEOUT: Duration = Duration::from_secs(30);
+
+async fn outbox_loop(pool: &PgPool, tick: &Notify, shutdown: &AtomicBool) {
+    let mut interval = tokio::time::interval(OUTBOX_INTERVAL);
+    interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    loop {
+        interval.tick().await;
+        if shutdown.load(Ordering::Acquire) {
+            // The worker's existing grace policy owns shutdown. Do not end the
+            // outer select and prematurely drop its in-flight handlers.
+            std::future::pending::<()>().await;
+        }
+        match tokio::time::timeout(OUTBOX_TIMEOUT, crate::application::outbox::drain(pool, 100))
+            .await
+        {
+            Ok(Ok(n)) if n > 0 => {
+                info!(reconciled = n, "application outbox drained");
+                tick.notify_one();
+            }
+            Ok(Ok(_)) => {}
+            Ok(Err(e)) => error!(error = %format!("{e:#}"), "application outbox drain failed"),
+            Err(_) => {
+                warn!("application outbox batch timed out; unacknowledged events remain retryable")
+            }
+        }
+    }
+}
 
 /// Drain heartbeat shared with the supervisor. `activity` names the last step for watchdog logs.
 struct Pulse {
@@ -481,6 +514,12 @@ impl Worker {
             shutdown: self.shutdown.clone(),
         }));
 
+        // Poll alongside both idle waits and active drains. Keeping this future
+        // owned by run() makes cancellation release its transaction/row locks;
+        // it cannot outlive the worker or depend on a queue-empty tick boundary.
+        let outbox = outbox_loop(&self.pool, &tick, &self.shutdown);
+        tokio::pin!(outbox);
+
         // The Desk sweeps on its own task, not behind the drain — but only where the Editor is
         // seated. The Mac runs the voices and has no Desk, and this is the check that says so.
         if self.handlers.iter().any(|h| h.stage() == Stage::Editor) {
@@ -534,6 +573,9 @@ impl Worker {
             }
             tokio::select! {
                 _ = tick.notified() => {}
+                _ = &mut outbox, if !self.handlers.is_empty() => {
+                    return Err(anyhow!("application outbox dispatcher exited"));
+                }
                 exit = &mut supervisor => {
                     note_supervisor_exit(exit);
                     return Ok(());
@@ -545,6 +587,9 @@ impl Worker {
             let cause = *self.cause.lock().unwrap();
             tokio::select! {
                 _ = self.tick(cause, &pulse) => {}
+                _ = &mut outbox, if !self.handlers.is_empty() => {
+                    return Err(anyhow!("application outbox dispatcher exited"));
+                }
                 exit = &mut supervisor => {
                     // The shutdown grace expired (or the supervisor died) with a tick
                     // still in flight: dropping the tick future aborts the current item
@@ -606,14 +651,8 @@ impl Worker {
             debug!(cause, "tick: no handlers registered; nothing to do");
             return;
         }
-        // Reconcile durable post-publication intent before claiming more model work. Outbox
-        // inserts notify the same channel as pipeline_work; the safety tick covers a lost notify.
-        pulse.begin("application-outbox");
-        match crate::application::outbox::drain(&self.pool, 100).await {
-            Ok(n) if n > 0 => debug!(reconciled = n, cause, "application outbox drained"),
-            Ok(_) => {}
-            Err(e) => error!(error = %format!("{e:#}"), cause, "application outbox drain failed"),
-        }
+        // Durable handoffs are polled independently by run(), even while this
+        // tick stays in drain_all under sustained inflow.
         // Exact-title dedup may wait for a drain boundary; unlike lease recovery, it is hygiene.
         self.sweep_exact_title_duplicates(cause, pulse).await;
         self.drain_all(cause, pulse).await;
@@ -628,8 +667,9 @@ impl Worker {
     /// `_BASE_URL` moves) decide what actually runs. Archbox pulls continuously up to its slot
     /// count; the per-stage caps and the shared `ARCHBOX_SLOTS` group decide who holds them.
     ///
-    /// Registration order still encodes the DAG, and is still the claim order, so a hand-off
-    /// enqueued by an item that just finished is picked up on the very next top-up pass.
+    /// Rotate the first claimant after each successful claim. Fixed registration
+    /// order starves later stages when earlier stages continuously refill shared
+    /// slots, even when every individual stage stays below its own cap.
     ///
     /// Concurrency is *intra-task*: the futures live in a `FuturesUnordered` polled by this one
     /// drain task and are never spawned, so handlers cannot pin the supervisor's LISTEN socket.
@@ -650,11 +690,15 @@ impl Worker {
             .filter_map(|h| h.slot_group().map(|g| (h.stage().as_str(), g)))
             .collect();
 
+        let mut next_handler = 0;
         loop {
-            // Top up in registration (DAG) order until the budget is full or nothing is
-            // claimable. A stage with nothing pending is skipped, not waited on.
+            // Resume after the last successful claimant, including when the
+            // global budget or a shared model-slot group was exhausted.
             let mut claimed_any = false;
-            for handler in &self.handlers {
+            let start = next_handler;
+            for offset in 0..self.handlers.len() {
+                let index = (start + offset) % self.handlers.len();
+                let handler = &self.handlers[index];
                 if self.shutting_down() || inflight.len() >= budget {
                     break;
                 }
@@ -696,6 +740,7 @@ impl Worker {
                     break;
                 }
                 claimed_any = true;
+                next_handler = (index + 1) % self.handlers.len();
                 debug!(%stage, n = items.len(), cause, "draining batch");
                 *per_stage.entry(stage.as_str()).or_insert(0) += items.len();
                 if let Some((name, _)) = handler.slot_group() {
@@ -1102,6 +1147,211 @@ mod postgres_recovery_rehearsal {
     use crate::runtime::stage::HandleOutcome;
     use crate::runtime::work::Item;
 
+    async fn fixture(sport: &str) -> PgPool {
+        let pool = sqlx::postgres::PgPoolOptions::new()
+            .max_connections(8)
+            .connect(&std::env::var("TEST_DATABASE_URL").unwrap())
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO sports(id,display_name,current_season) VALUES ($1,$1,2026) ON CONFLICT DO NOTHING")
+            .bind(sport).execute(&pool).await.unwrap();
+        for table in ["pipeline_work", "application_outbox"] {
+            sqlx::query(&format!("DELETE FROM {table} WHERE sport=$1"))
+                .bind(sport)
+                .execute(&pool)
+                .await
+                .unwrap();
+        }
+        pool
+    }
+
+    fn item(stage: Stage, sport: &str, id: i64) -> Item {
+        Item {
+            stage,
+            sport: sport.into(),
+            entity_type: "team".into(),
+            entity_id: id,
+            input_version: Some("v1".into()),
+            attempts: 0,
+            claim_token: None,
+        }
+    }
+
+    struct Refilling {
+        pool: PgPool,
+        stage: Stage,
+        shared: bool,
+        order: Arc<StdMutex<Vec<Stage>>>,
+    }
+    #[async_trait::async_trait]
+    impl WorkHandler for Refilling {
+        fn stage(&self) -> Stage {
+            self.stage
+        }
+        fn slot_group(&self) -> Option<(&'static str, usize)> {
+            self.shared.then_some(("test-shared", 1))
+        }
+        async fn handle(&self, item: &Item) -> Result<HandleOutcome> {
+            let count = {
+                let mut order = self.order.lock().unwrap();
+                order.push(self.stage);
+                order.iter().filter(|s| **s == self.stage).count()
+            };
+            let mut tx = self.pool.begin().await?;
+            assert!(work::lock_claim(&mut tx, item).await?);
+            assert!(work::complete_in_transaction(&mut tx, item).await?);
+            // Keep the first stage continuously ready while a later stage waits.
+            if self.stage == Stage::Narratives && count < 20 {
+                work::enqueue(&mut *tx, item).await?;
+            }
+            tx.commit().await?;
+            Ok(HandleOutcome::Completed)
+        }
+    }
+
+    #[tokio::test]
+    #[ignore = "requires isolated migrated TEST_DATABASE_URL; run serially"]
+    async fn sustained_inflow_cannot_starve_later_stages_at_global_or_shared_capacity() {
+        for shared in [false, true] {
+            let sport = if shared {
+                "ZZ_FAIR_SHARED"
+            } else {
+                "ZZ_FAIR_GLOBAL"
+            };
+            let pool = fixture(sport).await;
+            let order = Arc::new(StdMutex::new(Vec::new()));
+            let handlers: Vec<Box<dyn WorkHandler>> = [Stage::Narratives, Stage::Rating]
+                .into_iter()
+                .map(|stage| {
+                    Box::new(Refilling {
+                        pool: pool.clone(),
+                        stage,
+                        shared,
+                        order: order.clone(),
+                    }) as Box<dyn WorkHandler>
+                })
+                .collect();
+            for stage in [Stage::Narratives, Stage::Rating] {
+                work::enqueue(&pool, &item(stage, sport, 9_600_100))
+                    .await
+                    .unwrap();
+            }
+            let worker = Worker::new(
+                pool.clone(),
+                handlers,
+                Duration::from_secs(60),
+                Duration::from_secs(1800),
+                Duration::from_secs(5),
+                Duration::ZERO,
+                Some(if shared { 2 } else { 1 }),
+                false,
+            );
+            tokio::time::timeout(
+                Duration::from_secs(5),
+                worker.drain_all("test", &Pulse::new()),
+            )
+            .await
+            .unwrap();
+            let order = order.lock().unwrap();
+            assert_eq!(order.len(), 21);
+            assert_eq!(
+                order[1],
+                Stage::Rating,
+                "a continuously ready earlier stage monopolized capacity: {order:?}"
+            );
+        }
+    }
+
+    struct Blocked {
+        pool: PgPool,
+        entered: Arc<Notify>,
+        release: Arc<Notify>,
+    }
+    #[async_trait::async_trait]
+    impl WorkHandler for Blocked {
+        fn stage(&self) -> Stage {
+            Stage::Graph
+        }
+        async fn handle(&self, item: &Item) -> Result<HandleOutcome> {
+            self.entered.notify_one();
+            self.release.notified().await;
+            let mut tx = self.pool.begin().await?;
+            assert!(work::lock_claim(&mut tx, item).await?);
+            assert!(work::complete_in_transaction(&mut tx, item).await?);
+            tx.commit().await?;
+            Ok(HandleOutcome::Completed)
+        }
+    }
+
+    #[tokio::test]
+    #[ignore = "requires isolated migrated TEST_DATABASE_URL; run serially"]
+    async fn handoffs_dispatch_while_a_claimed_handler_cannot_finish() {
+        let sport = "ZZ_BUSY_OUTBOX";
+        let pool = fixture(sport).await;
+        let entered = Arc::new(Notify::new());
+        let release = Arc::new(Notify::new());
+        let worker = Worker::new(
+            pool.clone(),
+            vec![
+                Box::new(Blocked {
+                    pool: pool.clone(),
+                    entered: entered.clone(),
+                    release: release.clone(),
+                }),
+                Box::new(Terminal(pool.clone())),
+            ],
+            Duration::from_secs(60),
+            Duration::from_secs(1800),
+            Duration::from_secs(10),
+            Duration::ZERO,
+            Some(1),
+            false,
+        );
+        work::enqueue(&pool, &item(Stage::Graph, sport, 9_600_101))
+            .await
+            .unwrap();
+        let pulse = Pulse::new();
+        let drain = worker.drain_all("busy", &pulse);
+        let tick = Notify::new();
+        let dispatcher = outbox_loop(&pool, &tick, &worker.shutdown);
+        tokio::pin!(drain, dispatcher);
+        let prove = async {
+            entered.notified().await;
+            // Arrives after the drain began: startup-only dispatch cannot pass.
+            let mut source = item(Stage::Momentum, sport, 9_600_102);
+            source.claim_token = Some("00000000-0000-4000-8000-000000000103".into());
+            let mut tx = pool.begin().await.unwrap();
+            crate::application::outbox::record_momentum_completed(&mut tx, &source)
+                .await
+                .unwrap();
+            tx.commit().await.unwrap();
+            tick.notified().await;
+            let counts: (i64,i64,i64) = sqlx::query_as("SELECT (SELECT count(*) FROM application_outbox WHERE sport=$1), (SELECT count(*) FROM pipeline_work WHERE sport=$1 AND stage='sigil' AND status='pending'), (SELECT count(*) FROM pipeline_work WHERE sport=$1 AND stage='graph' AND status='running')")
+                .bind(sport).fetch_one(&pool).await.unwrap();
+            assert_eq!(counts, (0, 1, 1));
+        };
+        tokio::time::timeout(Duration::from_secs(5), async {
+            tokio::select! {
+                _ = &mut drain => panic!("blocked drain ended early"),
+                _ = &mut dispatcher => panic!("dispatcher exited"),
+                _ = prove => {}
+            }
+        })
+        .await
+        .unwrap();
+        release.notify_one();
+        tokio::time::timeout(Duration::from_secs(5), &mut drain)
+            .await
+            .unwrap();
+        let remaining: i64 =
+            sqlx::query_scalar("SELECT count(*) FROM pipeline_work WHERE sport=$1")
+                .bind(sport)
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(remaining, 0);
+    }
+
     struct Terminal(sqlx::PgPool);
     #[async_trait::async_trait]
     impl WorkHandler for Terminal {
@@ -1119,7 +1369,7 @@ mod postgres_recovery_rehearsal {
 
     #[tokio::test]
     #[ignore = "requires isolated migrated TEST_DATABASE_URL; run serially"]
-    async fn safety_tick_recovers_obligation_without_listen_or_models() {
+    async fn outbox_poll_recovers_obligation_without_listen_or_models() {
         let pool = sqlx::postgres::PgPoolOptions::new()
             .max_connections(4)
             .connect(&std::env::var("TEST_DATABASE_URL").unwrap())
@@ -1159,12 +1409,18 @@ mod postgres_recovery_rehearsal {
             Some(1),
             false,
         );
-        // Run the real safety tick with no listener ever attached. A fake terminal
-        // publisher avoids model calls while preserving the exact completion path.
-        tokio::time::timeout(
-            Duration::from_secs(5),
-            worker.tick("safety-net", &Pulse::new()),
-        )
+        let tick = Notify::new();
+        let dispatcher = outbox_loop(&pool, &tick, &worker.shutdown);
+        let consume = async {
+            tick.notified().await;
+            worker.tick("outbox", &Pulse::new()).await;
+        };
+        tokio::time::timeout(Duration::from_secs(5), async {
+            tokio::select! {
+                _ = dispatcher => panic!("dispatcher exited"),
+                _ = consume => {}
+            }
+        })
         .await
         .unwrap();
         let remaining:i64=sqlx::query_scalar("SELECT (SELECT count(*) FROM application_outbox WHERE sport=$1)+(SELECT count(*) FROM pipeline_work WHERE sport=$1)")

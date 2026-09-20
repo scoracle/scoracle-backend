@@ -5,7 +5,7 @@
 //!     cargo run --example graph_fixture_gen > /tmp/graph_fixtures.json
 //! Output: a JSON array; split into `fixtures/graph/<name>.json`. Offline.
 
-use scoracle_cognition::junctions::graph::{
+use scoracle_cognition::studio::graph::{
     build_graph_prompt, GraphCandidate, GRAPH_PROMPT_VERSION, GRAPH_SYSTEM_PROMPT,
 };
 use serde_json::json;

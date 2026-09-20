@@ -1,6 +1,2 @@
-//! Graph remains here until its vertical Studio migration.
-//! Retire this directory and the database-bearing runtime context after Graph moves.
-
-pub mod graph;
-
+//! Compatibility re-exports awaiting the separately scheduled runtime cleanup.
 pub use crate::composition::form::{CLAIM_SELECTION, STORY_FORM, WIRE_COPY};

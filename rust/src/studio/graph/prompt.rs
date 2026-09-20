@@ -1,6 +1,6 @@
 //! # The graph extractor — typed relations, no persona
 //!
-//! This junction calls a model, but it is NOT a character and has no seat at the table. It reads
+//! This Studio evidence seat has no storytelling persona. It reads
 //! one article and returns typed structure: relations among already-vetted entities, and people
 //! named in the text who are not yet in the entity world. Nothing it writes is read aloud, so
 //! there is no voice here to tune and none should be invented.
@@ -8,7 +8,7 @@
 //! | | |
 //! |---|---|
 //! | **Seat** | `Role::EmotionalNews` — a route, not an identity |
-//! | **Contract** | `g3` |
+//! | **Contract** | `g5` |
 //! | **Reads** | one article (The Editor's summary first, when there is one) plus its vetted entities |
 //! | **Feeds** | `narrative_events` and `narrative_persons` candidates — the relational memory the characters later read |
 //!

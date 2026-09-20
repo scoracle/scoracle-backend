@@ -11,3 +11,5 @@ pub mod scout;
 pub mod editor;
 
 pub mod investigator;
+
+pub mod graph;

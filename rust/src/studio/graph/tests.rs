@@ -1,7 +1,7 @@
-//! Unit tests for this junction.
+//! Unit tests for the Studio Graph contract.
 //!
 //! Split out of `mod.rs` so the stage module reads as the stage and nothing else.
-//! `super` still resolves to the junction, so these run exactly as they did inline.
+//! `super` still resolves to Studio, so these run exactly as they did inline.
 
 use super::*;
 
@@ -106,4 +106,122 @@ fn prompt_numbers_candidates() {
     assert!(prompt.contains("1. Morgan Rogers"));
     assert!(prompt.contains("2. Chelsea (team)"));
     assert!(prompt.contains("Return the JSON now."));
+}
+
+use serde_json::json;
+struct Model {
+    response: Option<String>,
+    requests: std::sync::Mutex<Vec<(String, crate::studio::model::GenerateOptions)>>,
+}
+
+#[async_trait::async_trait]
+impl crate::studio::model::Inference for Model {
+    async fn generate(
+        &self,
+        prompt: &str,
+        opts: &crate::studio::model::GenerateOptions,
+    ) -> Result<(crate::studio::model::GenerateResult, serde_json::Value)> {
+        self.requests
+            .lock()
+            .unwrap()
+            .push((prompt.to_string(), opts.clone()));
+        let response = self
+            .response
+            .clone()
+            .ok_or_else(|| anyhow::anyhow!("transport unavailable"))?;
+        Ok((
+            crate::studio::model::GenerateResult {
+                response,
+                thinking: String::new(),
+                model: "actual-graph-model".into(),
+                total_duration: std::time::Duration::from_millis(12),
+                prompt_eval_count: 5,
+                eval_count: 10,
+                completion_reason: Some("stop".into()),
+                raw_response_body: String::new(),
+            },
+            self.request_body(prompt, opts),
+        ))
+    }
+    fn model(&self) -> &str {
+        "configured-graph-model"
+    }
+    fn request_body(
+        &self,
+        prompt: &str,
+        opts: &crate::studio::model::GenerateOptions,
+    ) -> serde_json::Value {
+        json!({"prompt": prompt, "schema": opts.format_schema_raw, "budget": opts.num_predict})
+    }
+}
+
+fn assignment() -> Assignment {
+    Assignment {
+        article: GraphArticle {
+            source: "Wire".into(),
+            published: "2026-09-19".into(),
+            title: "Title".into(),
+            description: "Body".into(),
+        },
+        candidates: candidates(),
+    }
+}
+#[tokio::test]
+async fn studio_graph_uses_prepared_evidence_and_actual_model_provenance() {
+    let model=Model { response:Some(r#"{"relations":[{"subject":1,"predicate":"praise","object":2,"confidence":"reported"}],"persons":[]}"#.into()),requests:Default::default() };
+    let assignment = assignment();
+    let result = Studio::new(&model)
+        .extract_graph(&assignment)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(result.model, "actual-graph-model");
+    assert_eq!(result.value.unwrap().relations[0].object_id, Some(18));
+    let calls = model.requests.lock().unwrap();
+    assert_eq!(calls.len(), 1);
+    assert_eq!(
+        calls[0].0,
+        build_graph_prompt(
+            "Wire",
+            "2026-09-19",
+            "Title",
+            "Body",
+            &assignment.candidates
+        )
+    );
+    assert_eq!(
+        calls[0].1.num_ctx,
+        crate::runtime::route::LOCAL_STAGE_NUM_CTX
+    );
+    assert_eq!(calls[0].1.system.as_deref(), Some(GRAPH_SYSTEM_PROMPT));
+}
+#[tokio::test]
+async fn studio_graph_distinguishes_no_material_fail_closed_and_transport_failure() {
+    let model = Model {
+        response: None,
+        requests: Default::default(),
+    };
+    let mut empty = assignment();
+    empty.candidates.clear();
+    assert!(Studio::new(&model)
+        .extract_graph(&empty)
+        .await
+        .unwrap()
+        .is_none());
+    assert!(model.requests.lock().unwrap().is_empty());
+    assert!(Studio::new(&model)
+        .extract_graph(&assignment())
+        .await
+        .is_err());
+    let model = Model {
+        response: Some("unparseable".into()),
+        requests: Default::default(),
+    };
+    assert!(Studio::new(&model)
+        .extract_graph(&assignment())
+        .await
+        .unwrap()
+        .unwrap()
+        .value
+        .is_none());
 }

@@ -737,4 +737,78 @@ mod postgres_publication_fencing_tests {
         assert_eq!(kind, "momentum_completed");
         clean(&pool).await;
     }
+    // A separate OS process exits without running destructors at each boundary.
+    // The parent has no LISTEN connection: recovery must follow durable rows.
+    #[tokio::test]
+    #[ignore = "requires isolated migrated TEST_DATABASE_URL; run serially"]
+    async fn process_crash_publication_rehearsal() {
+        const CHILD: &str = "SCORACLE_ANALYST_CRASH_PHASE";
+        if let Ok(phase) = std::env::var(CHILD) {
+            let pool = pool().await;
+            let current = claim_one(&pool).await;
+            let prepared = product().await;
+            if phase == "before-commit" {
+                let mut tx = pool.begin().await.unwrap();
+                assert!(work::lock_claim(&mut tx, &current).await.unwrap());
+                if let Prepared::Product(output) = &prepared {
+                    persist_momentum_summary(&mut tx, &current, SPORT, output)
+                        .await
+                        .unwrap();
+                }
+                crate::application::outbox::record_momentum_completed(&mut tx, &current)
+                    .await
+                    .unwrap();
+                assert!(work::complete_in_transaction(&mut tx, &current)
+                    .await
+                    .unwrap());
+                std::process::exit(86);
+            }
+            assert_eq!(
+                commit_claimed(&pool, &current, SPORT, &prepared)
+                    .await
+                    .unwrap()
+                    .0,
+                HandleOutcome::Completed
+            );
+            std::process::exit(86);
+        }
+        let pool = pool().await;
+        clean(&pool).await;
+        work::enqueue(&pool, &pending("crash")).await.unwrap();
+        let crash = |phase: &str| {
+            let status = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "application::analyst::tests::postgres_publication_fencing_tests::process_crash_publication_rehearsal", "--ignored", "--nocapture"])
+                .env(CHILD, phase).status().unwrap();
+            assert_eq!(status.code(), Some(86));
+        };
+        crash("before-commit");
+        assert_eq!(counts(&pool).await, (0, 0, 1));
+        sqlx::query("UPDATE pipeline_work SET updated_at=NOW()-INTERVAL '1 hour' WHERE sport=$1")
+            .bind(SPORT)
+            .execute(&pool)
+            .await
+            .unwrap();
+        assert_eq!(
+            work::requeue_stale(&pool, Duration::from_secs(1800))
+                .await
+                .unwrap(),
+            1
+        );
+        crash("after-commit");
+        assert_eq!(counts(&pool).await, (1, 1, 0));
+        pool.close().await;
+        // Fresh connection pool is the restarted recovery owner. No notification
+        // was observed and no model/runtime constructor is available here.
+        let pool = self::pool().await;
+        assert_eq!(
+            crate::application::outbox::drain(&pool, 1).await.unwrap(),
+            1
+        );
+        assert_eq!(counts(&pool).await, (1, 0, 1));
+        assert_eq!(
+            crate::application::outbox::drain(&pool, 1).await.unwrap(),
+            0
+        );
+        clean(&pool).await;
+    }
 }

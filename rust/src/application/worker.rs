@@ -1095,3 +1095,80 @@ mod tests {
             .contains("handler exceeded COGNITION_HANDLER_TIMEOUT_SECONDS"));
     }
 }
+
+#[cfg(test)]
+mod postgres_recovery_rehearsal {
+    use super::*;
+    use crate::runtime::stage::HandleOutcome;
+    use crate::runtime::work::Item;
+
+    struct Terminal(sqlx::PgPool);
+    #[async_trait::async_trait]
+    impl WorkHandler for Terminal {
+        fn stage(&self) -> Stage {
+            Stage::Sigil
+        }
+        async fn handle(&self, item: &Item) -> Result<HandleOutcome> {
+            let mut tx = self.0.begin().await?;
+            assert!(work::lock_claim(&mut tx, item).await?);
+            assert!(work::complete_in_transaction(&mut tx, item).await?);
+            tx.commit().await?;
+            Ok(HandleOutcome::Completed)
+        }
+    }
+
+    #[tokio::test]
+    #[ignore = "requires isolated migrated TEST_DATABASE_URL; run serially"]
+    async fn safety_tick_recovers_obligation_without_listen_or_models() {
+        let pool = sqlx::postgres::PgPoolOptions::new()
+            .max_connections(4)
+            .connect(&std::env::var("TEST_DATABASE_URL").unwrap())
+            .await
+            .unwrap();
+        let sport = "ZZ_WORKER_REHEARSAL";
+        sqlx::query("INSERT INTO sports(id,display_name,current_season) VALUES ($1,$1,2026) ON CONFLICT DO NOTHING")
+            .bind(sport).execute(&pool).await.unwrap();
+        for table in ["pipeline_work", "application_outbox"] {
+            sqlx::query(&format!("DELETE FROM {table} WHERE sport=$1"))
+                .bind(sport)
+                .execute(&pool)
+                .await
+                .unwrap();
+        }
+        let source = Item {
+            stage: Stage::Momentum,
+            entity_type: "team".into(),
+            entity_id: 9_600_002,
+            sport: sport.into(),
+            input_version: Some("v1".into()),
+            attempts: 0,
+            claim_token: Some("00000000-0000-4000-8000-000000000002".into()),
+        };
+        let mut tx = pool.begin().await.unwrap();
+        crate::application::outbox::record_momentum_completed(&mut tx, &source)
+            .await
+            .unwrap();
+        tx.commit().await.unwrap();
+        let worker = Worker::new(
+            pool.clone(),
+            vec![Box::new(Terminal(pool.clone()))],
+            Duration::from_secs(1),
+            Duration::from_secs(1800),
+            Duration::from_secs(5),
+            Duration::from_secs(30),
+            Some(1),
+            false,
+        );
+        // Run the real safety tick with no listener ever attached. A fake terminal
+        // publisher avoids model calls while preserving the exact completion path.
+        tokio::time::timeout(
+            Duration::from_secs(5),
+            worker.tick("safety-net", &Pulse::new()),
+        )
+        .await
+        .unwrap();
+        let remaining:i64=sqlx::query_scalar("SELECT (SELECT count(*) FROM application_outbox WHERE sport=$1)+(SELECT count(*) FROM pipeline_work WHERE sport=$1)")
+            .bind(sport).fetch_one(&pool).await.unwrap();
+        assert_eq!(remaining, 0);
+    }
+}

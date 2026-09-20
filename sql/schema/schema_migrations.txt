@@ -261,3 +261,4 @@
 259_scout_publication_outbox
 260_journalist_publication_outbox
 261_insider_publication_outbox
+262_analytics_cohort_publication

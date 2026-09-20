@@ -43,3 +43,20 @@ func TestUnsupportedEntityTypeRejects(t *testing.T) {
 		t.Fatal("expected error for unsupported entity type")
 	}
 }
+
+func TestPrivateSnapshotEngineAppliesResourceLimits(t *testing.T) {
+	ctx := context.Background()
+	impl, err := Open(ctx, Options{MemoryLimit: "128MB"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer impl.Close(ctx)
+	var threads int
+	var memory, temp string
+	if err = impl.database.QueryRowContext(ctx, "SELECT current_setting('threads'),current_setting('memory_limit'),current_setting('max_temp_directory_size')").Scan(&threads, &memory, &temp); err != nil {
+		t.Fatal(err)
+	}
+	if threads != 2 || memory != "122.0 MiB" || temp != "244.1 MiB" {
+		t.Fatalf("private engine budgets: threads=%d memory=%s temp=%s", threads, memory, temp)
+	}
+}

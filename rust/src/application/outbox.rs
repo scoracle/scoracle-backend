@@ -364,4 +364,61 @@ mod postgres_recovery_tests {
         assert_eq!(pending, 1);
         clean(&pool).await;
     }
+    #[tokio::test]
+    #[ignore = "requires isolated TEST_DATABASE_URL; run serially"]
+    async fn process_crash_dispatch_rehearsal() {
+        const CHILD: &str = "SCORACLE_OUTBOX_CRASH";
+        if std::env::var_os(CHILD).is_some() {
+            let pool = pool().await;
+            let mut tx = pool.begin().await.unwrap();
+            let id: String = sqlx::query_scalar(
+                "SELECT id::text FROM application_outbox WHERE sport=$1 FOR UPDATE",
+            )
+            .bind(SPORT)
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap();
+            let event = Event {
+                id,
+                kind: MOMENTUM_COMPLETED.into(),
+                entity_type: "team".into(),
+                entity_id: 9_600_001,
+                sport: SPORT.into(),
+                source_input_version: Some("revision".into()),
+                attempts: 0,
+            };
+            dispatch(&pool, &event).await.unwrap();
+            std::process::exit(86);
+        }
+        let pool = pool().await;
+        committed_obligation(&pool).await;
+        let status = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "application::outbox::postgres_recovery_tests::process_crash_dispatch_rehearsal",
+                "--ignored",
+                "--nocapture",
+            ])
+            .env(CHILD, "1")
+            .status()
+            .unwrap();
+        assert_eq!(status.code(), Some(86));
+        let before: (String, String) = sqlx::query_as(
+            "SELECT available_at::text,input_version FROM pipeline_work WHERE sport=$1",
+        )
+        .bind(SPORT)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(drain(&pool, 1).await.unwrap(), 1);
+        let after: (String, String) = sqlx::query_as(
+            "SELECT available_at::text,input_version FROM pipeline_work WHERE sport=$1",
+        )
+        .bind(SPORT)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(before, after);
+        clean(&pool).await;
+    }
 }

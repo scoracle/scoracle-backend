@@ -126,3 +126,7 @@ Use [`../scripts/hosting/release.sh`](../scripts/hosting/release.sh) and the [ru
 Plans and progress live in `../../scoracle-wiki/progress_docs/scoracle-backend/`. The [modernization plan](../../scoracle-wiki/progress_docs/scoracle-backend/2026-09-19_backend-modernization-plan.md) records the remaining character migration, queue ownership, DuckDB, richer-study, and retirement gates.
 
 Current local acceptance: 499 ordinary Rust library tests pass with 29 isolated-database cases ignored; all 29 pass against a fresh disposable PostgreSQL 17 database loaded from the current schema through migration 261. Insider adds service-free pair and wrap creation, explicit UNKNOWN behavior on pair transport failure, exact revision/reclaim fencing, cleared-pair progress, and per-target durable Oracle fanout. All targets compile, Clippy passes with warnings denied, and the Go suite plus `go vet` pass. Existing prompt/evaluation contracts remain unchanged. These checks do not establish live deployment or model-quality acceptance.
+
+### Production-shaped recovery rehearsal
+
+The opt-in isolated database suite now includes real child-process exit before/after publication and after dispatch, plus Insider partial-progress reconnect and the real worker safety tick with no listener. It uses fake creation outputs and makes no model calls. See [acceptance operations](../run_docs/RECOVERY_ANALYTICS_ACCEPTANCE.md) for scope, canary and mixed-version rollback gates. Passing synthetic recovery does not establish live deployment or recovery.

@@ -45,17 +45,14 @@ func Open(ctx context.Context, opts Options) (*Analytics, error) {
 	database.SetConnMaxIdleTime(0)
 	database.SetConnMaxLifetime(0)
 
-	if opts.DatabaseURL == "" {
-		// No upstream: in-memory engine only (unit tests, parity probes).
-		return &Analytics{database: database}, nil
-	}
-
 	steps := []string{
-		fmt.Sprintf("SET memory_limit='%s'", orDefault(opts.MemoryLimit, "512MB")),
+		"SET memory_limit=" + sqlLiteral(orDefault(opts.MemoryLimit, "512MB")),
 		"SET threads=2",
-		"INSTALL postgres",
-		"LOAD postgres",
-		fmt.Sprintf(attachQuery, opts.DatabaseURL),
+		"SET max_temp_directory_size='256MB'",
+	}
+	if opts.DatabaseURL != "" {
+		steps = append(steps, "INSTALL postgres", "LOAD postgres",
+			fmt.Sprintf(attachQuery, strings.ReplaceAll(opts.DatabaseURL, "'", "''")))
 	}
 	for _, step := range steps {
 		execCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
@@ -63,7 +60,7 @@ func Open(ctx context.Context, opts Options) (*Analytics, error) {
 		cancel()
 		if err != nil {
 			database.Close()
-			return nil, fmt.Errorf("duckdb setup step %q: %w", step, err)
+			return nil, fmt.Errorf("duckdb setup failed: %w", err)
 		}
 	}
 	return &Analytics{database: database}, nil
@@ -460,6 +457,7 @@ SELECT d.league_id, d.entity_id, d.season, d.rating,
 FROM deltas d
 LEFT JOIN pct p ON p.league_id = d.league_id AND p.season = d.season AND p.entity_id = d.entity_id
 LEFT JOIN peer pr ON pr.league_id = d.league_id AND pr.season = d.season
+ORDER BY d.league_id, d.entity_id
 `
 
 // EntityContext produces the derived season-grain cohort context for a whole
@@ -475,6 +473,10 @@ func (a *Analytics) EntityContext(ctx context.Context, sport string, season int3
 	}
 	query := fmt.Sprintf(contextQuery, sqlLiteral(sport), season, table, idCol)
 
+	return a.queryEntityContext(ctx, sport, season, entityType, query)
+}
+
+func (a *Analytics) queryEntityContext(ctx context.Context, sport string, season int32, entityType, query string) ([]model.EntityContextRow, error) {
 	rows, err := a.database.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("duckdb entity context %s/%d/%s: %w", sport, season, entityType, err)

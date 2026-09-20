@@ -306,4 +306,70 @@ mod postgres_tests {
         assert_eq!(counts(&pool).await, (1, 1, 0));
         clean(&pool).await;
     }
+    #[tokio::test]
+    #[ignore = "requires isolated migrated TEST_DATABASE_URL; run serially"]
+    async fn partial_pair_survives_restart_and_newer_team_revision() {
+        let pool = pool().await;
+        clean(&pool).await;
+        crate::runtime::work::enqueue(&pool, &pending("v1"))
+            .await
+            .unwrap();
+        let stale = claim_one(&pool).await;
+        let (output, row) = pair_output(true);
+        persist_transfer_row(
+            &pool,
+            &stale,
+            TEAM_ID as i32,
+            PLAYER_ID,
+            SPORT,
+            "periodic",
+            &output,
+            &row,
+        )
+        .await
+        .unwrap()
+        .expect("committed partial pair");
+        assert_eq!(counts(&pool).await, (1, 1, 1));
+        pool.close().await;
+        let pool = self::pool().await;
+        // A source correction lands while the old team's remaining pairs are absent.
+        crate::runtime::work::enqueue(&pool, &pending("v2"))
+            .await
+            .unwrap();
+        assert!(persist_transfer_row(
+            &pool,
+            &stale,
+            TEAM_ID as i32,
+            PLAYER_ID,
+            SPORT,
+            "periodic",
+            &output,
+            &row
+        )
+        .await
+        .unwrap()
+        .is_none());
+        assert_eq!(
+            complete_claimed(&pool, &stale).await.unwrap(),
+            HandleOutcome::Superseded
+        );
+        assert_eq!(counts(&pool).await, (1, 1, 1));
+        let current = claim_one(&pool).await;
+        assert_eq!(current.input_version.as_deref(), Some("v2"));
+        assert_eq!(
+            complete_claimed(&pool, &current).await.unwrap(),
+            HandleOutcome::Completed
+        );
+        assert_eq!(counts(&pool).await, (1, 2, 0));
+        let targets: Vec<(String,i32)> = sqlx::query_as("SELECT entity_type,entity_id FROM application_outbox WHERE sport=$1 ORDER BY entity_type")
+            .bind(SPORT).fetch_all(&pool).await.unwrap();
+        assert_eq!(
+            targets,
+            vec![
+                ("player".into(), PLAYER_ID),
+                ("team".into(), TEAM_ID as i32)
+            ]
+        );
+        clean(&pool).await;
+    }
 }

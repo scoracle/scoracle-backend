@@ -1,5 +1,7 @@
 # Scoracle Backend — Operations Runbook
 
+For the current Studio recovery and bounded cohort canaries, use [Recovery and analytics acceptance](RECOVERY_ANALYTICS_ACCEPTANCE.md). Its live evidence is recorded separately in the wiki; historical deployment/model descriptions below are not a live inventory.
+
 What you need during an incident or a machine rebuild. Companion to:
 
 - `README.md` — repo entry point, architecture, route/env overview

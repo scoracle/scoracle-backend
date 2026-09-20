@@ -47,6 +47,21 @@ Synthetic fixtures only. Rust tests launch child OS processes which exit without
 
 The cohort test proves MVCC consistency across a concurrent source update; exact parity including ties/zero/NULL/league moves/singletons; destroyed/recreated DuckDB state; idempotent receipt; correction during compute; old-result rejection; late receipt failure after projection writes with full rollback and retry; complete deletion; and unchanged unrelated dirty work. It uses synthetic NBA seasons 2197–2198, not copied production data. Never point these tests at production.
 
+## Momentum projection recovery (local readiness fix)
+
+The Go maintenance owner now publishes `refresh_momentum_scores`, one concurrent refresh of `latest_momentum_scores_per_entity`, and exact dirty-marker deletion in one transaction. It holds the existing SQL producer advisory lock for the whole drain; overlapping drains skip without acknowledging work. A projection failure, acknowledgement failure, or cancelled connection rolls back scores and projection together and leaves the dirty marker for retry. A newer `last_marked_at` survives publication. The five-minute in-process throttle advances only after commit.
+
+This closes the previously documented acknowledgement-before-projection gap locally. It changes no formula, producer owner, model routing, or DuckDB selection and requires no migration. The transaction has a two-minute context deadline, a 60-second per-statement timeout and a two-second lock timeout. All selected sports commit or roll back together. Measure the longer transaction and advisory-lock hold on the destination host before accepting this API change for production; the existing live binary still has the old gap.
+
+`REFRESH MATERIALIZED VIEW CONCURRENTLY` is legal inside a transaction and retains concurrent reader access. Migration 227's historical comment claiming otherwise is incorrect; its removal of the blocking write-trigger remains valid. See [PostgreSQL refresh documentation](https://www.postgresql.org/docs/17/sql-refreshmaterializedview.html). Synthetic tests exercise the actual concurrent-refresh statement, preserve the prior projection through late failure, recover after cancellation, serialize competing drains, and preserve a source update arriving during publication:
+
+```sh
+# from go/; this test creates and drops a separate synthetic database.
+# The disposable database role must have CREATEDB.
+TEST_DATABASE_URL=postgresql://scotty@127.0.0.1:55439/editor_test \
+  go test ./internal/maintenance -count=1 -v
+```
+
 ## Live inspection and historical repair
 
 Read running API build identity, Rust startup stamp and executable hashes; repository HEAD alone is insufficient. Read actual service environment (allowlist only), stage/route startup logs, migration ledger and table/trigger definitions, crontab/timers, aggregate queue state, outbox availability, analytical dirty markers and cohort freshness. Do not dump credentials or assume runbook model names are current. Obtain all SQL observations in read-only transactions with statement deadlines.

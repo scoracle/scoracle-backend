@@ -396,13 +396,36 @@ var (
 	momentumLastRefresh = map[string]time.Time{}
 )
 
+// drainMomentumRefreshNeeded commits scores, their serving projection, and exact
+// dirty-marker acknowledgement together. A failed refresh or lost connection
+// leaves all three unchanged, so the catch-up tick can retry without new input.
 func drainMomentumRefreshNeeded(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) {
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		logger.Warn("Momentum refresh transaction failed", "error", err)
+		return
+	}
+	defer tx.Rollback(context.Background())
+	if _, err = tx.Exec(ctx, "SET LOCAL lock_timeout='2s'; SET LOCAL statement_timeout='60s'"); err != nil {
+		logger.Warn("Momentum refresh limits failed", "error", err)
+		return
+	}
+	// Share the SQL producer's lock across the entire drain, including projection
+	// publication. This serializes listener/ticker drains and other API processes.
+	var acquired bool
+	if err = tx.QueryRow(ctx, `SELECT pg_try_advisory_xact_lock(hashtext('refresh_momentum_scores'))`).Scan(&acquired); err != nil || !acquired {
+		if err != nil {
+			logger.Warn("Momentum refresh lock failed", "error", err)
+		}
+		return
+	}
 	type dirtySport struct {
 		sport        string
 		lastMarkedAt time.Time
 	}
-
-	rows, err := pool.Query(ctx, `
+	rows, err := tx.Query(ctx, `
 		SELECT sport, last_marked_at
 		FROM public.momentum_refresh_needed
 		ORDER BY last_marked_at
@@ -411,23 +434,23 @@ func drainMomentumRefreshNeeded(ctx context.Context, pool *pgxpool.Pool, logger 
 		logger.Warn("Momentum refresh queue scan failed", "error", err)
 		return
 	}
-	defer rows.Close()
-
 	dirty := make([]dirtySport, 0, 8)
 	for rows.Next() {
 		var item dirtySport
 		if err := rows.Scan(&item.sport, &item.lastMarkedAt); err != nil {
+			rows.Close()
 			logger.Warn("Momentum refresh queue scan failed", "error", err)
 			return
 		}
 		dirty = append(dirty, item)
 	}
+	rows.Close()
 	if err := rows.Err(); err != nil {
 		logger.Warn("Momentum refresh queue scan failed", "error", err)
 		return
 	}
 
-	refreshedAny := false
+	completed := make([]dirtySport, 0, len(dirty))
 	for _, item := range dirty {
 		momentumRefreshMu.Lock()
 		last, refreshed := momentumLastRefresh[item.sport]
@@ -435,55 +458,42 @@ func drainMomentumRefreshNeeded(ctx context.Context, pool *pgxpool.Pool, logger 
 		if refreshed && time.Since(last) < momentumRefreshMinInterval {
 			continue // marker stays; a later drain picks it up settled
 		}
-
-		// NULL return = another drain holds the refresh advisory lock right
-		// now. Leave the marker so the refresh is retried, not lost.
 		var n *int
-		if err := pool.QueryRow(ctx, `SELECT public.refresh_momentum_scores($1)`, item.sport).Scan(&n); err != nil {
+		if err := tx.QueryRow(ctx, `SELECT public.refresh_momentum_scores($1)`, item.sport).Scan(&n); err != nil {
 			logger.Warn("Momentum scores refresh failed", "sport", item.sport, "error", err)
-			continue
+			return
 		}
-		if n == nil {
-			continue
+		if n != nil {
+			completed = append(completed, item)
 		}
-		momentumRefreshMu.Lock()
-		momentumLastRefresh[item.sport] = time.Now()
-		momentumRefreshMu.Unlock()
-
-		if _, err := pool.Exec(ctx, `
-			DELETE FROM public.momentum_refresh_needed
+	}
+	if len(completed) == 0 {
+		return
+	}
+	// CONCURRENTLY permits readers and is legal in a transaction. One rebuild
+	// covers all sports; its changes roll back with scores if acknowledgement fails.
+	if _, err = tx.Exec(ctx, `REFRESH MATERIALIZED VIEW CONCURRENTLY public.latest_momentum_scores_per_entity`); err != nil {
+		logger.Warn("Momentum projection refresh failed; preserving dirty work", "error", err)
+		return
+	}
+	for _, item := range completed {
+		if _, err = tx.Exec(ctx, `DELETE FROM public.momentum_refresh_needed
 			WHERE sport = $1 AND last_marked_at = $2`, item.sport, item.lastMarkedAt); err != nil {
 			logger.Warn("Momentum refresh queue clear failed", "sport", item.sport, "error", err)
-			continue
-		}
-		logger.Info("Momentum scores refreshed", "sport", item.sport, "snapshots", *n)
-		refreshedAny = true
-	}
-
-	// The current-row projection, refreshed ONCE per drain and CONCURRENTLY (mig 227).
-	//
-	// This used to be an AFTER STATEMENT trigger on momentum_scores running a plain REFRESH
-	// MATERIALIZED VIEW, which takes an ACCESS EXCLUSIVE lock and rebuilds every row for every
-	// sport. Since this drain writes momentum_scores, every drain froze every reader of the
-	// projection — and the Analyst reads it to load her own context, so the momentum stage
-	// blocked on its own pipeline's writes. Measured on 2026-08-22: 19.1s for a single-row
-	// lookup that has a UNIQUE index on exactly its predicate.
-	//
-	// CONCURRENTLY is only legal outside a transaction block, which is precisely why it could
-	// never live in the trigger, and it needs the unique index that has existed since mig 140.
-	// Issued here, on the pool, as a standalone statement.
-	//
-	// Once per drain, not once per sport: the projection is not sport-partitioned, so a rebuild
-	// per dirty sport would repeat identical work while holding the refresh's own lock.
-	if refreshedAny {
-		if _, err := pool.Exec(ctx,
-			`REFRESH MATERIALIZED VIEW CONCURRENTLY public.latest_momentum_scores_per_entity`); err != nil {
-			// Non-fatal by design: the momentum_scores rows are already committed and correct.
-			// A failed projection refresh serves slightly stale current-row reads until the next
-			// drain, which is strictly better than failing a drain that succeeded.
-			logger.Warn("Momentum projection refresh failed (serving stale current-row reads until next drain)", "error", err)
+			return
 		}
 	}
+	if err = tx.Commit(ctx); err != nil {
+		logger.Warn("Momentum refresh commit failed", "error", err)
+		return
+	}
+	// Throttle only durable success. Failures remain immediately retryable.
+	momentumRefreshMu.Lock()
+	for _, item := range completed {
+		momentumLastRefresh[item.sport] = time.Now()
+	}
+	momentumRefreshMu.Unlock()
+	logger.Info("Momentum scores and projection refreshed", "sports", len(completed))
 }
 
 // pipelineStatsSports are the sports a daily pipeline_stats snapshot is written for.

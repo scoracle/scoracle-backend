@@ -8,7 +8,7 @@ use serde_json::json;
 pub mod derive;
 pub mod prompt;
 pub use prompt::{build_editor_prompt_parts, EDITOR_CONTRACT_VERSION, EDITOR_SYSTEM_PROMPT};
-const EDITOR_NUM_PREDICT: i32 = 900;
+pub(crate) const EDITOR_NUM_PREDICT: i32 = 900;
 pub(crate) const EDITOR_NUM_CTX: i32 = 4096;
 
 /// All evidence needed for one read; no storage handles or routing decisions.

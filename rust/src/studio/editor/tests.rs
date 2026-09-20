@@ -460,6 +460,44 @@ fn editor_num_ctx_matches_the_shared_runner() {
     assert_eq!(EDITOR_NUM_CTX, crate::studio::model::LOCAL_STAGE_NUM_CTX);
 }
 
+#[test]
+fn complete_editor_request_reserves_output_for_punctuation_heavy_articles() {
+    // The retained production failure was punctuation/table-heavy and fit beneath the old
+    // 7,200-character body cap while the complete rendered conversation reached 4,787 tokens.
+    let article = (0..900)
+        .map(|i| format!("Player {i}: 12-7 (48.3%); "))
+        .collect::<String>();
+    let prompt = build_editor_prompt_parts(
+        "Example Wire",
+        "Full match table and report",
+        "Scores and notes from the fixture",
+        &article,
+        &["Example United (team 42)".into()],
+    );
+    let estimated = prompt::estimate_editor_input_tokens(EDITOR_SYSTEM_PROMPT, &prompt);
+    assert!(
+        estimated + EDITOR_NUM_PREDICT as usize + 128 <= EDITOR_NUM_CTX as usize,
+        "complete request must preserve output capacity: {estimated} input tokens"
+    );
+    assert!(prompt.contains("Player 0:"));
+    assert!(
+        !prompt.contains("Player 899:"),
+        "oversized body must be trimmed"
+    );
+}
+
+#[test]
+fn oversized_feed_metadata_cannot_consume_the_answer_reservation() {
+    let noise = "!".repeat(5_000);
+    let hypotheses = (0..30).map(|_| noise.clone()).collect::<Vec<_>>();
+    let prompt = build_editor_prompt_parts(&noise, &noise, &noise, "short body", &hypotheses);
+    let estimated = prompt::estimate_editor_input_tokens(EDITOR_SYSTEM_PROMPT, &prompt);
+    assert!(estimated + EDITOR_NUM_PREDICT as usize + 128 <= EDITOR_NUM_CTX as usize);
+    assert!(prompt.contains("Source:"));
+    assert!(prompt.contains("Title:"));
+    assert!(prompt.contains("Hypothesis entities"));
+}
+
 /// Property order IS the contract (§1a): extraction first, in the exact ep1 order. The schema's
 /// `required` list is what constrained decoding emits, in order — drift here is a contract bump.
 #[test]

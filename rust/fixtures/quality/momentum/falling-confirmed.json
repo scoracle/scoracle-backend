@@ -1,10 +1,10 @@
 {
   "expect": {},
   "name": "falling-confirmed",
-  "prompt_version": "momentum-s27",
+  "prompt_version": "momentum-s28",
   "task": "momentum",
   "temperature": 0.0,
-  "user_prompt": "Entity: Riverton Athletic (FOOTBALL team)\n\n=== THE FORM RAIL (recent statistical performance) ===\nForm is: moving hard down, on a healthy sample\n\n=== THE MOOD RAIL (the feeling around them) ===\nMood stands: low\nMood is: moving clearly down, on a healthy sample\n\nDirection (decided upstream, final): falling — strength of the move, also decided upstream: modest but real\n",
+  "user_prompt": "Entity: Riverton Athletic (FOOTBALL team)\n\n=== SCOUT READING ===\nWritten: 2026-09-20\nSeason: 2026\nHeadline: Riverton lose their grip\nReading: Riverton's measured profile has weakened across the current run.\n\n=== INFLUENCER READING ===\nWritten: 2026-09-20\nHeadline: Riverton's room turns cold\nCurrent sentiment level: 34 on a 1–100 scale\nReading: The feeling around Riverton has cooled as concern replaces patience.\n\n=== DATED TRAJECTORY STUDY ===\nComputed: 2026-09-20\nStatistical form: fell by 31.0 points from 2026-08-02 to 2026-09-19, across 9 rated games.\nReported mood: fell by 24.0 points from 2026-08-30 to 2026-09-20, across 10 scored readings.\nThe two windows are independent. Missing means unmeasured, not flat. The study records change, not its cause.\n",
   "review": [
     "Both supplied trajectories fall; preserve that agreement without inventing a tactical or psychological cause."
   ]

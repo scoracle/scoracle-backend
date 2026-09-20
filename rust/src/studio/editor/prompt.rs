@@ -61,8 +61,84 @@ source_language — the language the ARTICLE ITSELF is written in; an article in
 
 Use only the article text and the hypothesis entities, and invent no context, implications or sourcing. Preserve dates, scores, injuries, transactions, quotes-as-claims and any stated uncertainty. Write key_facts, caveats and evidence_blurb in English, translating the meaning where the article is in another language, but keep proper names in their source spelling. Plain prose in every field."#;
 
-/// Article-body character budget within the Editor's context envelope.
-pub(crate) const EDITOR_MAX_MODEL_CHARS: usize = 7_200;
+/// Keep enough space for chat-template variance in addition to the explicit output reservation.
+/// The estimator deliberately over-counts punctuation-heavy and non-ASCII text; actual provider
+/// counts remain the diagnostic source of truth.
+const EDITOR_CONTEXT_SAFETY_TOKENS: usize = 128;
+const EDITOR_CHAT_TEMPLATE_TOKENS: usize = 32;
+
+/// Conservative tokenizer-independent estimate for BPE-style model inputs. Alphanumeric runs
+/// are charged at least one token per three UTF-8 bytes and punctuation one token per scalar.
+/// This is intentionally stricter than ordinary English tokenization and reacts to the tables,
+/// scores, URLs and non-English text that defeated the old article-character cap.
+pub(crate) fn estimate_editor_input_tokens(system: &str, user: &str) -> usize {
+    fn text_tokens(text: &str) -> usize {
+        let mut total = 0usize;
+        let mut run_bytes = 0usize;
+        for ch in text.chars() {
+            if ch.is_alphanumeric() || ch == '_' {
+                run_bytes += ch.len_utf8();
+            } else {
+                if run_bytes > 0 {
+                    total += run_bytes.div_ceil(3).max(1);
+                    run_bytes = 0;
+                }
+                if !ch.is_whitespace() {
+                    total += 1;
+                }
+            }
+        }
+        if run_bytes > 0 {
+            total += run_bytes.div_ceil(3).max(1);
+        }
+        total
+    }
+
+    EDITOR_CHAT_TEMPLATE_TOKENS + text_tokens(system) + text_tokens(user)
+}
+
+fn render_editor_user_prompt(
+    source: &str,
+    title: &str,
+    description: &str,
+    text: &str,
+    hypothesis_names: &[String],
+    compact_metadata: bool,
+) -> String {
+    let mut p = String::new();
+    // Metadata is part of the same request budget. Bound pathological feed fields while
+    // preserving enough of each to identify the article and hypothesis.
+    let (source_cap, title_cap, description_cap, hypothesis_cap, hypothesis_count) =
+        if compact_metadata {
+            (40, 120, 0, 60, 4)
+        } else {
+            (160, 320, 480, 120, 16)
+        };
+    p.push_str(&format!("Source: {}\n", truncate(source, source_cap)));
+    p.push_str(&format!("Title: {}\n", truncate(title, title_cap)));
+    if description_cap > 0 && !description.trim().is_empty() {
+        p.push_str(&format!(
+            "RSS description: {}\n",
+            truncate(&normalize_space(description), description_cap)
+        ));
+    }
+    if !hypothesis_names.is_empty() {
+        p.push_str(&format!(
+            "\n{}\n",
+            crate::studio::form::IDENTITY_CARD_FRAMING
+        ));
+        p.push_str("\nHypothesis entities (from the query that found this article):\n");
+        for e in hypothesis_names.iter().take(hypothesis_count) {
+            p.push_str("- ");
+            p.push_str(&truncate(e, hypothesis_cap));
+            p.push('\n');
+        }
+    }
+    p.push_str("\nArticle text:\n");
+    p.push_str(text);
+    p.push_str("\n\nReturn the JSON object now.");
+    p
+}
 
 pub fn build_editor_prompt_parts(
     source: &str,
@@ -71,28 +147,49 @@ pub fn build_editor_prompt_parts(
     text: &str,
     hypothesis_names: &[String],
 ) -> String {
-    let mut p = String::new();
-    p.push_str(&format!("Source: {source}\n"));
-    p.push_str(&format!("Title: {title}\n"));
-    if !description.trim().is_empty() {
-        p.push_str(&format!("RSS description: {description}\n"));
-    }
-    if !hypothesis_names.is_empty() {
-        p.push_str(&format!(
-            "\n{}\n",
-            crate::studio::form::IDENTITY_CARD_FRAMING
-        ));
-        p.push_str("\nHypothesis entities (from the query that found this article):\n");
-        for e in hypothesis_names {
-            p.push_str("- ");
-            p.push_str(e);
-            p.push('\n');
+    let normalized = normalize_space(text);
+    let input_limit = super::EDITOR_NUM_CTX
+        .saturating_sub(super::EDITOR_NUM_PREDICT)
+        .saturating_sub(EDITOR_CONTEXT_SAFETY_TOKENS as i32) as usize;
+    let full_fixed =
+        render_editor_user_prompt(source, title, description, "", hypothesis_names, false);
+    let compact_metadata =
+        estimate_editor_input_tokens(EDITOR_SYSTEM_PROMPT, &full_fixed) > input_limit;
+
+    // Search the largest UTF-8-safe article prefix whose complete system + user conversation
+    // still leaves the configured output reservation. This replaces the old body-only cap.
+    let mut low = 0usize;
+    let mut high = normalized.len();
+    while low < high {
+        let candidate = (low + high).div_ceil(2);
+        let body = truncate(&normalized, candidate);
+        let prompt = render_editor_user_prompt(
+            source,
+            title,
+            description,
+            &body,
+            hypothesis_names,
+            compact_metadata,
+        );
+        if estimate_editor_input_tokens(EDITOR_SYSTEM_PROMPT, &prompt) <= input_limit {
+            low = candidate;
+        } else {
+            high = candidate - 1;
         }
     }
-    p.push_str("\nArticle text:\n");
-    p.push_str(&truncate(&normalize_space(text), EDITOR_MAX_MODEL_CHARS));
-    p.push_str("\n\nReturn the JSON object now.");
-    p
+    let prompt = render_editor_user_prompt(
+        source,
+        title,
+        description,
+        &truncate(&normalized, low),
+        hypothesis_names,
+        compact_metadata,
+    );
+    debug_assert!(
+        estimate_editor_input_tokens(EDITOR_SYSTEM_PROMPT, &prompt) <= input_limit,
+        "the Editor's fixed prompt exceeds its input budget"
+    );
+    prompt
 }
 
 /// normalize_space collapses the fetched body's whitespace so the prompt spends its character

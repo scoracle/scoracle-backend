@@ -88,17 +88,30 @@ fn assignment() -> Assignment {
         context: MomentumContext::new(
             2026,
             Some(Form {
-                notability: 75,
-                rating_trajectory: "rising".into(),
-                rating_trajectory_label: "Gaining ground".into(),
+                body: "Kerr's measured form is gaining ground.".into(),
+                headline: Some("Kerr sharpens the profile".into()),
+                season: Some(2026),
+                generated_at: Some("2026-09-20".into()),
+                input_hash: Some("scout-hash".into()),
             }),
-            Some(Mood { sentiment: 65 }),
+            Some(Mood {
+                body: "The feeling around Kerr is warming.".into(),
+                headline: Some("Kerr wins the room".into()),
+                sentiment: Some(65),
+                generated_at: Some("2026-09-20".into()),
+                input_hash: Some("influencer-hash".into()),
+            }),
             Snapshot {
                 rating_slope: Some(20.0),
                 rating_samples: 8,
+                rating_window_start: Some("2026-08-01".into()),
+                rating_window_end: Some("2026-09-20".into()),
                 vibe_slope: Some(30.0),
                 vibe_samples: 6,
+                vibe_window_start: Some("2026-08-30".into()),
+                vibe_window_end: Some("2026-09-20".into()),
                 momentum_score: Some(25.0),
+                generated_at: Some("2026-09-20".into()),
             },
         ),
         memory: Some("A patient playmaker.".into()),
@@ -144,7 +157,7 @@ async fn complete_assignment_publishes_validated_product_with_actual_provenance(
     );
     assert_eq!(out.season, 2026);
     assert_eq!(out.provenance.model_version, "model-that-answered");
-    assert_eq!(out.provenance.prompt_version, "momentum-s27");
+    assert_eq!(out.provenance.prompt_version, "momentum-s28");
     assert_eq!(
         out.provenance.input_hash.as_deref(),
         Some(assignment.context.input_hash.as_str())
@@ -247,7 +260,13 @@ async fn partial_material_supports_creation_and_missing_measurement_stays_neutra
     assignment.context = MomentumContext::new(
         2026,
         None,
-        Some(Mood { sentiment: 50 }),
+        Some(Mood {
+            body: "The room is calm.".into(),
+            headline: None,
+            sentiment: Some(50),
+            generated_at: Some("2026-09-20".into()),
+            input_hash: Some("vibe-only".into()),
+        }),
         Snapshot::default(),
     );
     assignment.voice_num_ctx = 16384;

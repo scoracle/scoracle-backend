@@ -218,9 +218,7 @@ pub async fn load(pool: &PgPool, req: MemoryRequest<'_>) -> Result<Package> {
         }
         add(&mut package,"nearby fixtures",true,schedule,&["These are selected fixtures, not a complete schedule or a count of this entity's season participation."]);
     }
-    if matches!(req.mission, Mission::Scout | Mission::Analyst)
-        && matches!(req.entity_type, "player" | "team")
-    {
+    if matches!(req.mission, Mission::Scout) && matches!(req.entity_type, "player" | "team") {
         let season = req.season.unwrap_or(current_season);
         let table = if req.entity_type == "player" {
             "player_stats"

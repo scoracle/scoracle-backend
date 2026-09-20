@@ -1040,6 +1040,28 @@ fn request_parser_rewrites_an_unsourced_height() {
 }
 
 #[test]
+fn request_parser_rewrites_numeric_values_absent_from_the_assignment() {
+    let directions = BTreeMap::new();
+    let bands = BTreeMap::new();
+    let parser = RatingRequestParser::new(
+        "Rating: 6.74. Finishing: percentile 91.2. Relative standing rose by 3.5 percentile points.",
+        &directions,
+        &bands,
+    );
+    let invented = parser
+        .parse(r#"{"headline":"Vale reaches 67.1","body":"The rating is 3.71 after a 0.44 rise."}"#)
+        .unwrap_err();
+    assert!(invented.is::<crate::studio::form::SurfaceError>());
+    assert!(invented.to_string().contains("numeric value 3.71"));
+
+    let grounded = parser
+        .parse(r#"{"headline":"Vale reaches 91.2","body":"The rating is 6.74 after a 3.5-point rise."}"#)
+        .unwrap()
+        .unwrap();
+    assert!(grounded.body.contains("6.74"));
+}
+
+#[test]
 fn request_parser_rewrites_mixed_blanket_claims_and_self_contradictory_form() {
     let directions = BTreeMap::from([
         ("Scoring".into(), RelativeDirection::Rose),
@@ -1111,7 +1133,7 @@ fn request_parser_keeps_xg_and_xa_attached_to_their_measures() {
 fn request_parser_preserves_weighted_measures_and_thin_sample_coverage() {
     let directions = BTreeMap::new();
     let bands = BTreeMap::new();
-    let prompt = "Discipline: 1 (yellow cards + 3 x red cards). The current sample has fewer than 10 appearances.";
+    let prompt = "Discipline: 1 (yellow cards + 3 x red cards). The stored snapshot records 3 appearances and 257 minutes. The current sample has fewer than 10 appearances.";
     let parser = RatingRequestParser::new(prompt, &directions, &bands);
     let cards = parser
         .parse(

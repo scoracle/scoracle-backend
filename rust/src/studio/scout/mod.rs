@@ -992,8 +992,84 @@ impl Parser<RatingReply> for RatingRequestParser<'_> {
             ))
             .into());
         }
+        let visible = match reply.headline.as_deref() {
+            Some(headline) => format!("{}\n{headline}", reply.body),
+            None => reply.body.clone(),
+        };
+        if let Some(number) = first_unsupported_number(&visible, self.prompt) {
+            return Err(crate::studio::form::SurfaceError(format!(
+                "Body or headline uses numeric value {number}, which is absent from the retained evidence. Remove it or use the exact supplied measurement."
+            ))
+            .into());
+        }
         Ok(Some(reply))
     }
+}
+
+/// Numeric claims are evidence, not decoration. Every literal emitted on the card must occur in
+/// the exact prepared assignment. Comparing parsed values admits harmless formatting differences
+/// such as `95` versus `95.0`, while rejecting invented ratings, deltas and percentiles.
+fn first_unsupported_number(body: &str, prompt: &str) -> Option<String> {
+    let supplied = numeric_literals(prompt);
+    numeric_literals(body)
+        .into_iter()
+        .find(|(_, value)| {
+            !supplied
+                .iter()
+                .any(|(_, known)| (known - value).abs() < 0.000_001)
+        })
+        .map(|(literal, _)| literal)
+}
+
+fn numeric_literals(text: &str) -> Vec<(String, f64)> {
+    let chars = text.char_indices().collect::<Vec<_>>();
+    let mut out = Vec::new();
+    let mut cursor = 0usize;
+    while cursor < chars.len() {
+        let (start, ch) = chars[cursor];
+        let unary_sign = matches!(ch, '+' | '-')
+            && chars
+                .get(cursor + 1)
+                .is_some_and(|(_, next)| next.is_ascii_digit())
+            && cursor
+                .checked_sub(1)
+                .and_then(|index| chars.get(index))
+                .is_none_or(|(_, previous)| {
+                    previous.is_whitespace() || matches!(previous, '(' | ':' | '=')
+                });
+        if !ch.is_ascii_digit() && !unary_sign {
+            cursor += 1;
+            continue;
+        }
+
+        let mut end_cursor = cursor + usize::from(unary_sign);
+        let mut decimal_seen = false;
+        while let Some((_, next)) = chars.get(end_cursor) {
+            if next.is_ascii_digit() {
+                end_cursor += 1;
+            } else if *next == '.'
+                && !decimal_seen
+                && chars
+                    .get(end_cursor + 1)
+                    .is_some_and(|(_, after)| after.is_ascii_digit())
+            {
+                decimal_seen = true;
+                end_cursor += 1;
+            } else {
+                break;
+            }
+        }
+        let end = chars
+            .get(end_cursor)
+            .map(|(index, _)| *index)
+            .unwrap_or(text.len());
+        let literal = &text[start..end];
+        if let Ok(value) = literal.parse::<f64>() {
+            out.push((literal.to_string(), value));
+        }
+        cursor = end_cursor.max(cursor + 1);
+    }
+    out
 }
 
 fn first_direction_contradiction(

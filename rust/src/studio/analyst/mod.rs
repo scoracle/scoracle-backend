@@ -13,27 +13,41 @@ pub use prompt::{MOMENTUM_PROMPT_VERSION, MOMENTUM_SYSTEM_PROMPT};
 
 pub const MOMENTUM_OUTPUT_CONTRACT_VERSION: &str = "momentum-summary-v1";
 
-/// Relevant values from the current statistical read; no Scout prose is carried.
+/// The Scout card supplied to the Analyst. The reading is already a finished interpretation;
+/// the Analyst should synthesize it, not reconstruct it from the Scout's raw measurements.
 #[derive(Clone, Debug)]
 pub struct Form {
-    pub notability: i32,
-    pub rating_trajectory: String,
-    pub rating_trajectory_label: String,
+    pub body: String,
+    pub headline: Option<String>,
+    pub season: Option<i32>,
+    pub generated_at: Option<String>,
+    pub input_hash: Option<String>,
 }
 
+/// The Influencer card supplied to the Analyst.
 #[derive(Clone, Debug)]
 pub struct Mood {
-    pub sentiment: i32,
+    pub body: String,
+    pub headline: Option<String>,
+    pub sentiment: Option<i32>,
+    pub generated_at: Option<String>,
+    pub input_hash: Option<String>,
 }
 
-/// Analytical movement, independent of Oracle's finished-card representation.
+/// One explicitly dated trajectory study. It is supporting evidence for the two finished
+/// readings, not a second set of overlapping labels or a pre-written Analyst verdict.
 #[derive(Clone, Debug, Default)]
 pub struct Snapshot {
     pub vibe_slope: Option<f64>,
     pub vibe_samples: i32,
+    pub vibe_window_start: Option<String>,
+    pub vibe_window_end: Option<String>,
     pub rating_slope: Option<f64>,
     pub rating_samples: i32,
+    pub rating_window_start: Option<String>,
+    pub rating_window_end: Option<String>,
     pub momentum_score: Option<f64>,
+    pub generated_at: Option<String>,
 }
 
 impl Snapshot {
@@ -183,30 +197,48 @@ pub fn build_momentum_input_components(
         serde_json::json!(MOMENTUM_PROMPT_VERSION),
     );
     if let Some(r) = rating {
-        components.insert("notability".into(), serde_json::json!(r.notability));
+        components.insert("scout_body".into(), serde_json::json!(r.body));
+        components.insert("scout_headline".into(), serde_json::json!(r.headline));
+        components.insert("scout_season".into(), serde_json::json!(r.season));
         components.insert(
-            "rating_trajectory".into(),
-            serde_json::json!(r.rating_trajectory),
+            "scout_generated_at".into(),
+            serde_json::json!(r.generated_at),
         );
-        if !r.rating_trajectory_label.is_empty() {
-            components.insert(
-                "rating_trajectory_label".into(),
-                serde_json::json!(r.rating_trajectory_label),
-            );
-        }
+        components.insert("scout_input_hash".into(), serde_json::json!(r.input_hash));
     }
     if let Some(v) = vibe {
-        // Sentiment only — the vibe felt-read prose stays in the PROMPT but out of the hash
-        // (F1, material-only debounce): vibe generates at temp 0.7, so its prose changes on
-        // every re-run even when material is byte-identical; hashing it cascaded
-        // momentum→sigil→oracle regenerations on zero material change.
-        components.insert("vibe_sentiment".into(), serde_json::json!(v.sentiment));
+        components.insert("influencer_body".into(), serde_json::json!(v.body));
+        components.insert("influencer_headline".into(), serde_json::json!(v.headline));
+        components.insert(
+            "influencer_sentiment".into(),
+            serde_json::json!(v.sentiment),
+        );
+        components.insert(
+            "influencer_generated_at".into(),
+            serde_json::json!(v.generated_at),
+        );
+        components.insert(
+            "influencer_input_hash".into(),
+            serde_json::json!(v.input_hash),
+        );
     }
     if let Some(s) = mom.rating_slope {
         components.insert("momentum_rating_slope".into(), serde_json::json!(round1(s)));
         components.insert(
             "momentum_rating_samples".into(),
             serde_json::json!(mom.rating_samples),
+        );
+    }
+    if mom.rating_window_start.is_some() {
+        components.insert(
+            "momentum_rating_window_start".into(),
+            serde_json::json!(mom.rating_window_start),
+        );
+    }
+    if mom.rating_window_end.is_some() {
+        components.insert(
+            "momentum_rating_window_end".into(),
+            serde_json::json!(mom.rating_window_end),
         );
     }
     if let Some(s) = mom.vibe_slope {
@@ -216,8 +248,26 @@ pub fn build_momentum_input_components(
             serde_json::json!(mom.vibe_samples),
         );
     }
+    if mom.vibe_window_start.is_some() {
+        components.insert(
+            "momentum_vibe_window_start".into(),
+            serde_json::json!(mom.vibe_window_start),
+        );
+    }
+    if mom.vibe_window_end.is_some() {
+        components.insert(
+            "momentum_vibe_window_end".into(),
+            serde_json::json!(mom.vibe_window_end),
+        );
+    }
     if let Some(score) = mom.momentum_score {
         components.insert("momentum_score".into(), serde_json::json!(round1(score)));
+    }
+    if mom.generated_at.is_some() {
+        components.insert(
+            "momentum_generated_at".into(),
+            serde_json::json!(mom.generated_at),
+        );
     }
     serde_json::Value::Object(components).to_string()
 }

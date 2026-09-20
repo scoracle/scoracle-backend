@@ -120,7 +120,7 @@ fn conviction_sign_always_agrees_with_the_decided_direction() {
     }
 }
 #[test]
-fn prompt_carries_the_decided_direction_line() {
+fn prompt_carries_a_study_without_predeclaring_the_verdict() {
     let mom = SynthMomentum {
         rating_slope: Some(50.7),
         rating_samples: 4,
@@ -136,21 +136,12 @@ fn prompt_carries_the_decided_direction_line() {
         &mom,
         None,
     );
-    // s18: BOTH decided facts arrive as words — the direction line hands the model no
-    // figure and no "steady band" to echo (the digit-starvation pass; 50.7 ⇒ conviction
-    // 3 ⇒ "clean and well supported" via momentum_conviction_from_score).
-    assert!(prompt.contains(
-        "Direction (decided upstream, final): rising — strength of the move, also decided upstream: clean and well supported"
-    ));
-    let direction_line = prompt
-        .lines()
-        .find(|l| l.starts_with("Direction (decided upstream, final):"))
-        .expect("direction line present");
-    assert!(!direction_line.contains("steady band"));
-    assert!(!crate::studio::guards::has_ascii_digit(direction_line));
-    // No memory ⇒ no section (s4 byte-shape preserved).
-    assert!(!prompt.contains("RELATIONAL MEMORY"));
-    // No snapshot → the decided line still exists and is honestly steady.
+    assert!(prompt.contains("=== DATED TRAJECTORY STUDY ==="));
+    assert!(prompt.contains("Statistical form: rose by 50.7 points"));
+    assert!(prompt.contains("across 4 rated games"));
+    assert!(!prompt.contains("decided upstream"));
+    assert!(!prompt.contains("final"));
+    // A missing rail is named as unmeasured, never silently converted to flat.
     let empty = build_momentum_prompt_from_pillars(
         "player",
         "Test Player",
@@ -160,19 +151,13 @@ fn prompt_carries_the_decided_direction_line() {
         &SynthMomentum::default(),
         None,
     );
-    assert!(empty
-        .contains("Direction (decided upstream, final): steady (no durable momentum snapshot)"));
+    assert!(empty.contains("Statistical form: not measured."));
+    assert!(empty.contains("Reported mood: not measured."));
+    assert!(empty.contains("Missing means unmeasured, not flat"));
 }
 
-/// s19's load-bearing test: NOTHING but the two rails reaches this prompt.
-///
-/// It replaces two tests that asserted the opposite — that the compiled storylines and the
-/// relational memory card rendered as context. They did, and that was the defect: measured
-/// across eight well-covered teams, the Analyst named a trajectory in 57% of reads while
-/// touching the stat profile in 42%, the mood in 42%, the news in 42% and transfers in 28%.
-/// She was narrating her inputs. So the inputs went, and this test keeps them gone.
 #[test]
-fn only_the_two_rails_reach_the_prompt() {
+fn finished_character_readings_and_one_study_reach_the_prompt() {
     let mom = SynthMomentum {
         rating_slope: Some(-33.7),
         rating_samples: 4,
@@ -191,51 +176,14 @@ fn only_the_two_rails_reach_the_prompt() {
         None,
     );
 
-    // Both rails, both levels, both directions — and every one of them in WORDS.
-    assert!(p.contains("Form is: moving hard down, on a modest sample"));
-    // ONE statement per rail: her own slope wins, so the Scout's label — measured on HIS window
-    // and saying the opposite here — must not also appear.
-    assert!(
-        !p.contains("overall scores holding steady over recent games"),
-        "her slope and the Scout's label must never both describe the form rail: {p}"
-    );
-    assert!(p.contains("Mood stands: warm"));
-    assert!(p.contains("Mood is: drifting up, on a healthy sample"));
-
-    // NOT ONE DIGIT in the whole prompt body above the entity line. s18 took the figure out of
-    // the direction line and digits_in_read fell from 65% of generations; s19 removed the prose
-    // around the remaining slopes, which promoted them to the most prominent thing left, and the
-    // first probe came back with "a 14-point climb over 11 samples" — four digits, instant
-    // rejection. The input must not shout what the output may not say.
-    assert!(
-        !crate::studio::guards::has_ascii_digit(&p),
-        "no figure may reach the Analyst's prompt: {p}"
-    );
-
-    // No peer PROSE, whatever the cards carry. These two strings are the bodies of
-    // a_rating() and a_vibe(); if either reaches the prompt the seat can narrate it.
-    assert!(
-        !p.contains("Chances created have held their line"),
-        "the Scout's brief must not reach the Analyst: {p}"
-    );
-    assert!(
-        !p.contains("The room is warm after the cup run"),
-        "the Influencer's felt read must not reach the Analyst: {p}"
-    );
-    assert!(!p.contains("Scouting read:"));
-    assert!(!p.contains("Felt read:"));
-    assert!(!p.contains("Profile distinctiveness"));
-
-    // And no story rails at all — she is off the packet rail and reads no memory card.
-    assert!(!p.contains("THE STORIES BEHIND THE MOVE"));
-    assert!(!p.contains("RELATIONAL MEMORY"));
-
-    // The final input is the computed direction, without output instructions.
-    assert!(p
-        .lines()
-        .last()
-        .unwrap()
-        .starts_with("Direction (decided upstream, final)"));
+    assert!(p.contains("=== SCOUT READING ==="));
+    assert!(p.contains("Chances created have held their line"));
+    assert!(p.contains("=== INFLUENCER READING ==="));
+    assert!(p.contains("The room is warm after the cup run"));
+    assert!(p.contains("Statistical form: fell by 33.7 points"));
+    assert!(p.contains("Reported mood: rose by 14.0 points"));
+    assert!(p.contains("over an unavailable date window"));
+    assert!(!p.contains("Direction (decided upstream"));
 }
 
 #[test]
@@ -258,16 +206,14 @@ fn input_components_are_stable_and_sorted() {
         momentum_score: Some(1.19),
         ..SynthMomentum::default()
     };
-    // The vibe prompt is non-empty on purpose: the golden proves the felt-read prose is
-    // NOT in the hash pre-image (F1 material-only debounce) — only vibe_sentiment is.
-    // prompt_version joined at s6 (single-sourced from the const, so a bump can't
-    // silently rot this pin); keys stay sorted, so it lands alphabetically.
-    assert_eq!(
-        build_momentum_input_components_from_pillars(Some(&rating), Some(&vibe), &mom),
-        format!(
-            r#"{{"momentum_rating_samples":6,"momentum_rating_slope":1.2,"momentum_score":1.2,"momentum_vibe_samples":4,"momentum_vibe_slope":-0.0,"notability":88,"prompt_version":"{MOMENTUM_PROMPT_VERSION}","rating_trajectory":"rising","rating_trajectory_label":"Composite rising","vibe_sentiment":62}}"#
-        )
-    );
+    let components = build_momentum_input_components_from_pillars(Some(&rating), Some(&vibe), &mom);
+    let value: serde_json::Value = serde_json::from_str(&components).unwrap();
+    assert_eq!(value["prompt_version"], MOMENTUM_PROMPT_VERSION);
+    assert_eq!(value["scout_body"], "body");
+    assert_eq!(value["influencer_body"], "Coverage is warmer");
+    assert_eq!(value["influencer_sentiment"], 62);
+    assert_eq!(value["momentum_rating_slope"], 1.2);
+    assert_eq!(value["momentum_vibe_slope"], -0.0);
 }
 
 // ── PARTIAL SPREADS ─────────────────────────────────────────────────────────────────────
@@ -346,13 +292,8 @@ fn only_a_totally_empty_context_is_empty_the_load_bearing_and() {
 
 #[test]
 fn a_vibe_only_context_builds_a_prompt_that_claims_no_form() {
-    // The second half of the brief: vibe-without-rating still builds a prompt, and it must NOT
-    // hand the model a form/trajectory line it could narrate a direction from — the Ipswich
-    // failure mode, one seat over.
-    //
-    // s19 INVERTS this test's first assertion. It used to require the felt read to reach the
-    // prompt; the felt read is the Influencer's prose and is exactly what made the Analyst
-    // narrate the mood instead of its direction. What survives from her card is the LEVEL.
+    // A partial spread still supplies the finished card that exists, while saying explicitly
+    // that the absent rail and its change are unmeasured.
     let p = build_momentum_prompt_from_pillars(
         "team",
         "Ipswich Town",
@@ -362,18 +303,10 @@ fn a_vibe_only_context_builds_a_prompt_that_claims_no_form() {
         &SynthMomentum::default(),
         None,
     );
-    assert!(
-        p.contains("Mood stands: warm"),
-        "the surviving vibe card's LEVEL must reach the prompt, in words: {p}"
-    );
-    assert!(
-        !p.contains("cup run"),
-        "but never its prose — that is the Influencer's card: {p}"
-    );
-    assert!(
-        !p.contains("holding steady over recent games"),
-        "no rating card was supplied, so no trajectory label may appear: {p}"
-    );
+    assert!(p.contains("=== SCOUT READING ===\nNot available."));
+    assert!(p.contains("The room is warm after the cup run"));
+    assert!(p.contains("Statistical form: not measured."));
+    assert!(p.contains("Reported mood: not measured."));
 }
 
 /// The blanket digit ban is retired; the precise bookkeeping check replaces it (2026-08-24).
@@ -470,11 +403,19 @@ fn lifecycle_assignment(material: bool) -> Assignment {
             MomentumContext::new(
                 2026,
                 Some(Form {
-                    notability: 72,
-                    rating_trajectory: "rising".into(),
-                    rating_trajectory_label: "Gaining ground".into(),
+                    body: "The measured profile is gaining ground.".into(),
+                    headline: Some("Test Team sharpens its form".into()),
+                    season: Some(2026),
+                    generated_at: Some("2026-09-20".into()),
+                    input_hash: Some("scout-hash".into()),
                 }),
-                Some(Mood { sentiment: 61 }),
+                Some(Mood {
+                    body: "The mood is warming.".into(),
+                    headline: Some("Test Team lifts the room".into()),
+                    sentiment: Some(61),
+                    generated_at: Some("2026-09-20".into()),
+                    input_hash: Some("influencer-hash".into()),
+                }),
                 Snapshot {
                     momentum_score: Some(25.0),
                     ..Snapshot::default()

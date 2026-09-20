@@ -34,7 +34,7 @@ Requests use the existing local Ollama deployment, 4,096 context tokens and a
 of population-wide reliability. Temperature-zero repeats are deterministic, not
 independent evidence. No surface retries were used in these probes: they isolate
 first-pass interpretation. All 27 requests and their results are retained in
-[the experiment record](../run_docs/experiments/2026-09-13-editorial-quality.json).
+[the experiment record](../../run_docs/experiments/2026-09-13-editorial-quality.json).
 
 - Current local prompt with prior prose: invented availability, confused missing
   trends with stability, and exceeded the card surface.

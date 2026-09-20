@@ -23,7 +23,7 @@
 > `sql/migrations/231_scout_availability_routing.sql` is that INSERT: validated, and deliberately
 > awaiting the deploy it must ship with.
 >
-> Next steps: `planning_docs/PLAN-availability-and-boxscores.md`.
+> Next steps: `docs/planning_docs/PLAN-availability-and-boxscores.md`.
 
 **Status: PARTIALLY BUILT.** This builds out the `NEXT TASK` block of
 `2026-08-23_seat-roles-and-the-guard-pipeline.md`. Read that first for Scott's verbatim design.

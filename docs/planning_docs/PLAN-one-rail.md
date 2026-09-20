@@ -27,7 +27,7 @@ numbers, 9.4's wiki updates (scoracle-wiki `a90f56e`), and 9.5's crontab verdict
 (superseded — post-222 the memory card reads the co-mention edge on purpose) are recorded
 in **`HANDOFF-one-rail.md`**, the 9.6 hand-off. The operational record of the swap's final
 week — the starvation-inversion fix, the watchdog repoint, the adjudication grammar — is
-`progress_docs/2026-08-15_rail-swap-closeout.md`. **This file is history from here; the
+`docs/progress_docs/2026-08-15_rail-swap-closeout.md`. **This file is history from here; the
 tuning ledger continues in `PLAN-character-tuning.md`.**
 
 # ✅ THE BUILD IS COMPLETE (Scott's ruling, 2026-08-10 evening)
@@ -784,7 +784,7 @@ Appendix D tuning ledger and are refined on clean plumbing later, not litigated 
 in place instead of tuned on a clean substrate. Do not rebuild that habit here.
 
 Written 2026-07-28. This is the build order for the greenfield rail decided in
-[`HANDOFF-newsroom.md`](HANDOFF-newsroom.md). Read that file's §1–§3 before touching anything —
+[`HANDOFF-newsroom.md`](../progress_docs/HANDOFF-newsroom.md). Read that file's §1–§3 before touching anything —
 it is the case for this plan and the map of the rot this plan must not rebuild.
 [`PLAN-ingest-simplification.md`](PLAN-ingest-simplification.md) stays the reference for the
 **traps (T1–T13)** and the measurements; its build order is dead.

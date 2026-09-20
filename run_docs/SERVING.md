@@ -116,7 +116,7 @@ graph, editor, investigate_entity, narratives, vibe, rating, transfers, momentum
 
 `fixture_boxscore` is deliberately ABSENT — no source is registered, so enabling it drains
 fixtures to `no_source`. Do not add it without reading
-`planning_docs/PLAN-availability-and-boxscores.md`.
+`docs/planning_docs/PLAN-availability-and-boxscores.md`.
 
 **Roles → models.** Stage code never names a model. It asks for a `Role`, and
 `COGNITION_ROUTE_<ROLE>` maps that role to a model. `COGNITION_ROUTE_<ROLE>_BASE_URL`

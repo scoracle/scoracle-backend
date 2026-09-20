@@ -205,7 +205,7 @@ This matters most for **dominant outliers**. A team that leads its league sees `
 
 #### Composite score — a single number per game
 
-`entity_event_scores`, `entity_season_score_avg`, and `peer_season_score_avg` (migrations 017 + 018) ship a data-driven single-number rating per event in `[0, 100]`, derived per the per-event percentile pipeline described in `progress_docs/2026-05-23_event-percentiles-and-composite-score-proposal.md`.
+`entity_event_scores`, `entity_season_score_avg`, and `peer_season_score_avg` (migrations 017 + 018) ship a data-driven single-number rating per event in `[0, 100]`, derived per the per-event percentile pipeline described in `docs/progress_docs/2026-05-23_event-percentiles-and-composite-score-proposal.md`.
 
 **Interpretation:** event-level `composite_score` is the **percentile rank of the event's raw composite within its position cohort** (migrations 017 → 018 → 019). Two passes: (1) unweighted mean of per-stat percentiles for stats the player had non-zero values in, producing a raw composite; (2) percent-rank that raw composite against every other same-season same-position event. **Mean per partition is 50 by construction; distribution is uniform in `[0, 100]`.** A 70 reads as "this event ranks in the top 30% of events at this position this season."
 

@@ -3,7 +3,7 @@
 Supersedes [`HANDOFF-2026-07-28.md`](HANDOFF-2026-07-28.md), which is still accurate on hardware,
 schedules and traps but **wrong in §6** (see §5 below). Written 2026-07-28 ~07:50.
 
-Forward work lives in [`PLAN-ingest-simplification.md`](PLAN-ingest-simplification.md) — read
+Forward work lives in [`PLAN-ingest-simplification.md`](../planning_docs/PLAN-ingest-simplification.md) — read
 **"The turn"** at the bottom of it first; it is the governing design and it invalidates the shape
 diagram at the top of that file.
 

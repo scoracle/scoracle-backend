@@ -255,4 +255,4 @@ not hung. `systemctl --user stop scoracle-cognition` releases the card; the queu
 
 433 lib tests pass, all targets build, clippy at its 12-warning baseline (all pre-existing).
 
-Next steps: `planning_docs/PLAN-availability-and-boxscores.md`.
+Next steps: `docs/planning_docs/PLAN-availability-and-boxscores.md`.

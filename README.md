@@ -12,7 +12,7 @@ Studio and harness name the same system. Its code home is [`rust/src/studio/`](r
 2. Read the [data-flow map](../scoracle-wiki/DATA_FLOW.md) for system boundaries and current task dependencies.
 3. Use [development guidance](run_docs/DEVELOPMENT.md), [Studio and Rust guidance](rust/README.md), [endpoint contracts](run_docs/ENDPOINTS.md), and the [runbook](run_docs/RUNBOOK.md) for implementation and operations.
 
-The wiki owns shared vocabulary and architecture direction: [Glossary](../scoracle-wiki/wiki/Glossary.md), [Changelog](../scoracle-wiki/wiki/Changelog.md), and [Conventions](../scoracle-wiki/wiki/CONVENTIONS.md). Plans and progress belong in `../scoracle-wiki/progress_docs/scoracle-backend/`; this repository holds durable implementation documentation.
+The wiki owns shared vocabulary and architecture direction: [Glossary](../scoracle-wiki/wiki/Glossary.md), [Changelog](../scoracle-wiki/wiki/Changelog.md), and [Conventions](../scoracle-wiki/wiki/CONVENTIONS.md). Repository plans and progress records live in [`docs/planning_docs/`](docs/planning_docs/) and [`docs/progress_docs/`](docs/progress_docs/). Shared cross-repository records remain in `../scoracle-wiki/progress_docs/scoracle-backend/`.
 
 ## Three systems, explicit responsibilities
 

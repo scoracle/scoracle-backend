@@ -321,9 +321,9 @@ Purpose of each:
 - `eval-and-parity.md`: parity binaries, eval harnesses, model promotion checklist.
 - `operations.md`: systemd, outage behavior, DB smoke, dead letters, shutdown playbook.
 
-Why `rust/docs/cognition/` instead of only `progress_docs/`:
+Why `rust/docs/cognition/` instead of only `docs/progress_docs/`:
 
-- `progress_docs/` is a ledger.
+- `docs/progress_docs/` is a ledger.
 - `rust/docs/cognition/` should be the durable operator/developer manual.
 - The AI layer is now important enough that future contributors should not have to reconstruct
   live behavior from dozens of dated notes.

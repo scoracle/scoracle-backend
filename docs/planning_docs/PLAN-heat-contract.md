@@ -1,7 +1,7 @@
 # Plan — the heat contract (drop 3): one number per voice, ranked best-for-product
 
 Opened 2026-08-22, out of the headline/body contract session (drops 1+2,
-`progress_docs/2026-08-22_headline-body-contract.md`). Scope is **serving-layer only** —
+`docs/progress_docs/2026-08-22_headline-body-contract.md`). Scope is **serving-layer only** —
 no migration, no Rust, no new generation. Status: **ACTIVE — all taste cells confirmed by Scott
 2026-08-22; audit underway.**
 

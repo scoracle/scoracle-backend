@@ -3,7 +3,7 @@
 Standalone, step-by-step repair for the F-046 credential leak. The **autonomous half is done**
 (working tree scrubbed, leak vector stopped); the steps below are **gated on Scott** and are the
 *only* real fix. Canonical findings: `../scoracle-wiki/progress_docs/scoracle-backend/FIRST-GPT-AUDIT-FINDINGS.md` F-046. Discovery
-narrative: `progress_docs/2026-06-24_F-046-credential-leak-remediation.md`. Summary in `RUNBOOK.md` §12.
+narrative: `docs/progress_docs/2026-06-24_F-046-credential-leak-remediation.md`. Summary in `RUNBOOK.md` §12.
 
 ## Status — EXECUTED 2026-08-01
 
@@ -177,7 +177,7 @@ Paste this to start the session that executes Steps 1–3 with Scott:
 >
 > **Read first (in order):** `PASSWORD-LEAK-REPAIR.md` (the runbook — Steps 1–3, exact commands,
 > redacted re-derivation), then `../scoracle-wiki/progress_docs/scoracle-backend/FIRST-GPT-AUDIT-FINDINGS.md` F-046 and
-> `progress_docs/2026-06-24_F-046-credential-leak-remediation.md` for context, and `RUNBOOK.md` §12 +
+> `docs/progress_docs/2026-06-24_F-046-credential-leak-remediation.md` for context, and `RUNBOOK.md` §12 +
 > §3. The repo IS `scoracle-backend` (its own `.git`) — `cd scoracle-backend` for git ops.
 >
 > **First step per CLAUDE.md:** `cd scoracle-backend && git fetch && git status`, confirm synced with
@@ -206,5 +206,5 @@ Paste this to start the session that executes Steps 1–3 with Scott:
 > parallel session's — leave untracked.
 >
 > **At session end:** set F-046 Status → ✅ RESOLVED (if closed) in the findings ledger; update
-> `RUNBOOK.md` §12 + this runbook's Status table; write a `progress_docs/` entry; commit + push your own
+> `RUNBOOK.md` §12 + this runbook's Status table; write a `docs/progress_docs/` entry; commit + push your own
 > files (`git fetch` first); update the `[[first-gpt-audit-execution]]` memory + the MEMORY.md F-046 line.

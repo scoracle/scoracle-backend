@@ -574,9 +574,9 @@ check, or length check does not mean a card is factually sound or worth reading.
 
 ### Retained evidence and reports
 
-- `progress_docs/2026-09-13-card-canvas-identity.md`
-- `progress_docs/2026-09-13-editorial-quality-investigation.md`
-- `progress_docs/2026-09-14-rating-evidence-contract.md`
+- `docs/progress_docs/2026-09-13-card-canvas-identity.md`
+- `docs/progress_docs/2026-09-13-editorial-quality-investigation.md`
+- `docs/progress_docs/2026-09-14-rating-evidence-contract.md`
 - `run_docs/experiments/2026-09-13-editorial-quality.json`
 - `run_docs/experiments/2026-09-14-rating-evidence.json`
 - `run_docs/experiments/2026-09-14-editorial-recheck.json`

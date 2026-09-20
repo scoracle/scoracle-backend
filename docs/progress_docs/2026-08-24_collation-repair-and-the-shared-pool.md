@@ -121,7 +121,7 @@ vanishing costs only its leases (auto-recovered), nothing idles, and a third or 
 config rather than code. **It dissolves the circuit breaker and the failover entirely**, because
 there is no cross-machine model call left to fail. The proposed fixes were treating a symptom.
 
-Plan: `planning_docs/PLAN-availability-and-boxscores.md` §7.
+Plan: `docs/planning_docs/PLAN-availability-and-boxscores.md` §7.
 
 ---
 

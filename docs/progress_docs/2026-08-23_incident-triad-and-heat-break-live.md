@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-23 (PRs #6, #8, #9 — all merged and deployed same day; head `c76689b`)
 **Companions:** `2026-08-23_seat-roles-and-the-guard-pipeline.md` (Scott's session this rides on),
-`planning_docs/PLAN-heat-contract.md` (now COMPLETE end-to-end).
+`docs/planning_docs/PLAN-heat-contract.md` (now COMPLETE end-to-end).
 
 ## Where this came from
 

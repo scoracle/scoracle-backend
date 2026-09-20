@@ -31,7 +31,7 @@ The earlier findings remain relevant: provider truncation was hidden, output
 salvage damaged hooks, and transfer framing presumed that outsiders were targets.
 Those local fixes, the 1,200-character body/140-character hook canvas, and the
 dated identity/fact-update conventions are recorded in the linked investigation
-and [output contract](../docs/cognition-output.md).
+and [output contract](../cognition-output.md).
 
 ## Implementation contract
 
@@ -82,7 +82,7 @@ and [output contract](../docs/cognition-output.md).
 - Rebuilding corrected populations intentionally changes derived ratings; Morgan's
   2025 composite score in the replay is 70.1, previously 72.4. This is not a
   byte-preserving migration. Source statistics and generated prose are untouched.
-  [The retained evidence](../run_docs/experiments/2026-09-14-rating-evidence.json)
+  [The retained evidence](../../run_docs/experiments/2026-09-14-rating-evidence.json)
   records both rebuilt Morgan rows and the validation scope.
 
 ## Release status
@@ -109,7 +109,7 @@ goals, accurate passes and successful dribbles. The two outputs precede those fi
 label clarifications; they are not a claim about their effect. No additional
 prompt prohibitions, prose-repair rules or runtime judge were added.
 
-[Requests, responses and review notes](../run_docs/experiments/2026-09-14-editorial-recheck.json)
+[Requests, responses and review notes](../../run_docs/experiments/2026-09-14-editorial-recheck.json)
 are retained. An initial probe accidentally used the offline client's omitted
 thinking preference; its two budget-exhausted responses are excluded from the
 production-configuration comparison.

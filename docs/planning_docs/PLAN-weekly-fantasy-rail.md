@@ -9,7 +9,7 @@ prose face + week/per-x boards (C + the scope collapse, §2b). Remaining, in
 order: the weekly prompt posture (supervised tuning + eval refreeze), the NBA
 rail (~Oct, at season start), the FPL rail + mig-233-planned FOOTBALL z-arm
 remap, then the A-demolition and the fantasy-scope retirement it unlocks.
-Running log: progress_docs/2026-09-05_weekly-cycle-shipped.md.
+Running log: docs/progress_docs/2026-09-05_weekly-cycle-shipped.md.
 
 Original rev 2 text follows (Scott: "no extra roads").
 

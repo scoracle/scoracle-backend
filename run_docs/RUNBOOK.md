@@ -466,7 +466,7 @@ These surfaced during the audit and are pre-launch work (see `../scoracle-wiki/p
   4 literals, all four of them now revoked or rotated; a Support GC request is optional tidiness.
   **F-046 is CLOSED.** **Repair runbook: `PASSWORD-LEAK-REPAIR.md`.** Full scope:
   `../scoracle-wiki/progress_docs/scoracle-backend/FIRST-GPT-AUDIT-FINDINGS.md` F-046 +
-  `progress_docs/2026-06-24_F-046-credential-leak-remediation.md`.
+  `docs/progress_docs/2026-06-24_F-046-credential-leak-remediation.md`.
 
 The remaining pre-launch milestone is the **Final launch gate** in `FIRST-GPT-AUDIT.md` —
 stats/news/convergence/operations end-to-end proofs, per sport.

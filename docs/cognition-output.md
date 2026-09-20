@@ -112,5 +112,5 @@ rejected counterexamples in the review corpus; do not inject them all into daily
 prompts or add a runtime judge.
 
 The September 14 rechecks still rejected the existing 3B runtime's readings.
-See the [implementation and release record](../progress_docs/2026-09-14-rating-evidence-contract.md)
+See the [implementation and release record](progress_docs/2026-09-14-rating-evidence-contract.md)
 before deployment; passing the data-contract tests is not release approval.

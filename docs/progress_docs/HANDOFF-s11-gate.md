@@ -59,7 +59,7 @@ score assertions `s11` removes — so the denominator drops, expect ~40).
 ## After s11 passes — the open list, in priority order
 
 1. **Two Oracle regressions**, diagnosed and written up in
-   `progress_docs/2026-07-26_mac-characters-regressions-and-workload.md`, fix directions included,
+   `docs/progress_docs/2026-07-26_mac-characters-regressions-and-workload.md`, fix directions included,
    **unapplied** because verifying needs the GPU. Both were caused by the longer allowance, and they
    share one mechanism worth understanding before touching the prompt: concrete nouns are finite, so
    a reading that doubles in length fills the surplus with imagery — which is entity-agnostic. The

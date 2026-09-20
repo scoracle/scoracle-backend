@@ -24,7 +24,7 @@ tag + backups.
   prompts, cut evidence NAMED). The Mac lane (9b, then 8b/MLX, then 8b/Ollama)
   is retired from production. Duty cycle retired too: cognition runs work-driven
   under the 135W power cap + 4-slot ceiling — empty queue is the rest window.
-  See `progress_docs/2026-08-20_single-box-consolidation.md`.
+  See `docs/progress_docs/2026-08-20_single-box-consolidation.md`.
 - **The watchdog** (08:30/20:30) reads the DATA — ingest recency, per-team editor-read
   coverage, voice output, packet compiles, dead letters, drain-alive, queue depth —
   into `pipeline_runs`, non-zero exit on alarm. `WATCHDOG_ALERT_URL` still unset.
@@ -66,8 +66,8 @@ tag + backups.
 
 ## Where the record lives
 
-- The swap's diagnosis and fixes: `progress_docs/2026-08-15_rail-swap-closeout.md`
+- The swap's diagnosis and fixes: `docs/progress_docs/2026-08-15_rail-swap-closeout.md`
   (with the 08-16 and 08-18 addenda).
-- The plan itself: `planning_docs/PLAN-one-rail.md` — DONE, stamped in its header.
+- The plan itself: `docs/planning_docs/PLAN-one-rail.md` — DONE, stamped in its header.
 - The tuning ledger continues in `PLAN-character-tuning.md` (alive — tuning outlives
   the rail).

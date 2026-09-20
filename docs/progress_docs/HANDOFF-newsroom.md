@@ -1,7 +1,7 @@
 # Handoff — the rail gets rebuilt
 
 Written 2026-07-28, 22:40 EDT. **This file supersedes the DIRECTION of
-[`PLAN-ingest-simplification.md`](PLAN-ingest-simplification.md)**, which is still accurate as a
+[`PLAN-ingest-simplification.md`](../planning_docs/PLAN-ingest-simplification.md)**, which is still accurate as a
 record of what was measured and why, and is still the reference for the traps. Do not work the
 checklist top-to-bottom any more — §7 says which items dissolved.
 
@@ -174,7 +174,7 @@ now stalls rather than errors.
 
 | | state |
 |---|---|
-| **B4 flips** | **APPLIED to production.** 9,817 links (7,712 team / 2,105 player) across 5,374 articles, 2026-07-28 20:51 EDT. 0 articles re-armed. Good under either architecture. Reversal record: `planning_docs/data/remap_flips.tsv`. |
+| **B4 flips** | **APPLIED to production.** 9,817 links (7,712 team / 2,105 player) across 5,374 articles, 2026-07-28 20:51 EDT. 0 articles re-armed. Good under either architecture. Reversal record: `docs/planning_docs/data/remap_flips.tsv`. |
 | **B4 brand-new links** | **DROPPED**, Scott's call. See below. |
 | **ar7 + C2** | committed, **44/44 on the fixture gate, NOT DEPLOYED — and must not be.** |
 | deployed commit | `cec766a`. Nothing since has been released. |

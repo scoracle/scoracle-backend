@@ -1,7 +1,7 @@
 # The heat contract, drop 3a — one number key everywhere, and the stories page gets its recap
 
 **Date:** 2026-08-22 (merged `f729072`, PR #5; deployed same day)
-**Plan:** `planning_docs/PLAN-heat-contract.md` (drop 3b remains)
+**Plan:** `docs/planning_docs/PLAN-heat-contract.md` (drop 3b remains)
 
 ## Goal
 

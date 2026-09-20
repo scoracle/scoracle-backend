@@ -1,6 +1,6 @@
 # DOCTRINE — Direct the model to empower it
 
-*(Scott, 2026-08-19. Distilled from the seat-gate week: `progress_docs/2026-08-18_seat-and-reader-gates.md`.)*
+*(Scott, 2026-08-19. Distilled from the seat-gate week: `docs/progress_docs/2026-08-18_seat-and-reader-gates.md`.)*
 
 **The goal is to direct the model as a way to empower it. Show the model the path so it
 can express itself within the guide rails, instead of having to find its own way.**

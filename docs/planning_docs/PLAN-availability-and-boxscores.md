@@ -1,7 +1,7 @@
 # PLAN — availability tagging, and box scores from public sources
 
 **Written 2026-08-23 (evening), at a deliberate pause.** Read
-`progress_docs/2026-08-23_availability-tag-and-public-source-turn.md` first — it is the record of
+`docs/progress_docs/2026-08-23_availability-tag-and-public-source-turn.md` first — it is the record of
 what landed and why the shape changed. This file is only what comes NEXT.
 
 Branch: `availability-record-and-public-source-turn`, six commits, **not pushed**.
@@ -162,7 +162,7 @@ items. **Nothing about the queue needs building.**
 
 What needs changing is the TOPOLOGY: today ONE worker on archbox makes remote model calls to the
 Mac, so the Mac is an inference endpoint rather than a worker, and a Mac hiccup becomes an ITEM
-failure on archbox. See `progress_docs/2026-08-24_collation-repair-and-the-shared-pool.md` §3 for
+failure on archbox. See `docs/progress_docs/2026-08-24_collation-repair-and-the-shared-pool.md` §3 for
 why that is worse than it sounds — **~43 minutes of downtime parks a whole stage's queue for a
 century.**
 

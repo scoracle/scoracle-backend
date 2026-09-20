@@ -7,7 +7,7 @@
 > *Go only reads headlines, so Go cannot decide anything, and the Google query is already the
 > proposal.* More than half of what follows turns out to be scar-tissue management and dissolves.
 >
-> **Read [`HANDOFF-newsroom.md`](HANDOFF-newsroom.md) first.** It records the decision, where the rot
+> **Read [`HANDOFF-newsroom.md`](../progress_docs/HANDOFF-newsroom.md) first.** It records the decision, where the rot
 > is, what is kept versus replaced, and which items below survive.
 >
 > This document remains the reference for **what was measured and why** — the traps (T1–T13), the
@@ -203,7 +203,7 @@ gates work downstream of it.
       as ambiguous. **0 `article_read` items enqueued or re-opened**, verified inside the
       transaction and again from outside against the live queue (the 7 items moving in that window
       were the ingest rail, zero overlap with the cohort). Inventory —
-      `planning_docs/data/remap_flips.tsv`, one row per link with the matched surface and the
+      `docs/planning_docs/data/remap_flips.tsv`, one row per link with the matched surface and the
       article title — is the reversal record.
 
       The T10 suppression is **asserted before the write and measured after it**, in-transaction,

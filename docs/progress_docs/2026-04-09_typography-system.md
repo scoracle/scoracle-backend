@@ -25,13 +25,13 @@ so typography fits the same pattern.
 
 ## Accomplishments
 
-- Added `planning_docs/TYPOGRAPHY_SYSTEM.md` with font choices, embed snippet,
+- Added `docs/planning_docs/TYPOGRAPHY_SYSTEM.md` with font choices, embed snippet,
   CSS tokens, usage guardrails (tracking, weight rules, eyebrow style), Astro
   layout integration, and guidance on where to drop the tokens in the frontend.
 
 ## Quick Reference
 
-- Spec: `planning_docs/TYPOGRAPHY_SYSTEM.md`
+- Spec: `docs/planning_docs/TYPOGRAPHY_SYSTEM.md`
 - Frontend target file when adopted: `src/layouts/BaseLayout.astro` +
   `src/styles/global.css` in the Astro repo.
 - Fonts: Tan Nimbus (Fontshare, free commercial) + DM Sans (Google Fonts).

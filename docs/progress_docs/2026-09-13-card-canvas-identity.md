@@ -32,7 +32,7 @@ hypotheses and transfer verification. Current identity changes participate in
 writer/transfer input hashes; confirmation timestamps do not. Acquisition seeds
 identity; the sourced reporting sweep owns subsequent person role/club updates.
 Role and affiliation revisions are independent and transactional, with quoted
-provenance and superseded history. See [the convention](../docs/cognition-output.md).
+provenance and superseded history. See [the convention](../cognition-output.md).
 
 Migration 252 preserves measurement identity beside the existing SQL formulas,
 with backward-compatible six-column rating adapters. The Scout cannot derive a

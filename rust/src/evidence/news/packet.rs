@@ -390,9 +390,33 @@ fn rollup_unresolved(members: &[Member]) -> Vec<Value> {
         .collect()
 }
 
+// All Editor-capable hosts run a Desk. Keep the deterministic packet sweep a
+// single active operation across those hosts; transaction-scoped ownership is
+// released on connection loss/cancellation and never sticks to a pooled session.
+async fn try_compiler_lease(
+    pool: &PgPool,
+) -> Result<Option<sqlx::Transaction<'_, sqlx::Postgres>>> {
+    let mut lease = pool.begin().await.context("begin packet compiler lease")?;
+    let acquired: bool = sqlx::query_scalar(
+        "SELECT pg_try_advisory_xact_lock(hashtextextended('scoracle.packet_compiler', 0))",
+    )
+    .fetch_one(&mut *lease)
+    .await
+    .context("claim packet compiler lease")?;
+    if acquired {
+        Ok(Some(lease))
+    } else {
+        lease.rollback().await?;
+        Ok(None)
+    }
+}
+
 /// compile_dirty is the drain-loop pass: every storyline whose newest member predates its
 /// newest packet, once it has been quiet for [`QUIET_DEBOUNCE_MINUTES`].
 pub async fn compile_dirty(pool: &PgPool, limit: i64) -> Result<usize> {
+    let Some(lease) = try_compiler_lease(pool).await? else {
+        return Ok(0);
+    };
     let dirty: Vec<(i64, String)> = sqlx::query_as(
         r#"
         SELECT s.id, s.sport
@@ -432,6 +456,10 @@ pub async fn compile_dirty(pool: &PgPool, limit: i64) -> Result<usize> {
     if compiled > 0 {
         info!(compiled, "packets compiled");
     }
+    lease
+        .commit()
+        .await
+        .context("release packet compiler lease")?;
     Ok(compiled)
 }
 
@@ -1327,5 +1355,26 @@ mod tests {
             Some("49ers head coach"),
             "a descriptor found on any mention survives the rollup"
         );
+    }
+}
+
+#[cfg(test)]
+mod postgres_compiler_lease_tests {
+    use super::*;
+
+    #[tokio::test]
+    #[ignore = "requires isolated migrated TEST_DATABASE_URL"]
+    async fn only_one_host_compiles_and_another_can_take_over() {
+        let url = std::env::var("TEST_DATABASE_URL").unwrap();
+        let first = PgPool::connect(&url).await.unwrap();
+        let second = PgPool::connect(&url).await.unwrap();
+        let lease = try_compiler_lease(&first).await.unwrap().unwrap();
+        assert!(try_compiler_lease(&second).await.unwrap().is_none());
+        assert_eq!(compile_dirty(&second, 1).await.unwrap(), 0);
+        lease.rollback().await.unwrap();
+        let successor = try_compiler_lease(&second).await.unwrap().unwrap();
+        assert!(try_compiler_lease(&first).await.unwrap().is_none());
+        successor.commit().await.unwrap();
+        assert!(try_compiler_lease(&first).await.unwrap().is_some());
     }
 }

@@ -1,5 +1,7 @@
 # DuckDB Analytics POC — Current Path Trace (Phase 1, Task 1)
 
+Historical September 15 trace. The retired root SQL files are preserved in the wiki archive; use the [SQL contract and generated baseline](../sql/README.md) for current structure and producer ownership.
+
 > **Postgres runs Scoracle. DuckDB studies Scoracle.**
 > This document records the current Scout/rating analytical path and selects the
 > DuckDB proof-of-concept benchmark target. No architecture changes are made here.

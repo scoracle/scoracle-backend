@@ -1,5 +1,7 @@
 # Recovery and cohort acceptance
 
+**September 20 update:** the API now maintains all supported cohort scopes with DuckDB on startup and every five minutes. The manual-only canary and scheduling gates below describe the earlier rollout. See the [SQL contract](../sql/README.md) and [completed cutover](sql-duckdb-cutover-2026-09-20.md) for current ownership and deployment evidence. Recovery and parity requirements still apply.
+
 This procedure separates isolated recovery proof, live read-only observation, an approved live recovery canary, and analytical producer cutover. Passing one is not evidence for the next. Production actions below are preparation, not authorization.
 
 ## Deployed checkpoint — September 19, 2026, 23:45 EDT

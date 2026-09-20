@@ -1,12 +1,6 @@
-// Package analytics is the analytical boundary between Scoracle's application
-// logic and its analytical engines. PostgreSQL remains the canonical system of
-// record; engines behind this interface are either the existing Postgres path
-// or the experimental DuckDB engine reading the same data. DuckDB owns
-// nothing here: every implementation produces derived read models only.
-//
-// Selection is controlled by ANALYTICS_ENGINE ("postgres" | "duckdb") via
-// config; the DuckDB path is experimental and must never become a default
-// serving path while the POC is in progress.
+// Package analytics retains the rating-bundle/trajectory parity interface.
+// The production cohort producer lives in snapshot.Maintain and always uses
+// bounded DuckDB computation; this probe selector does not change that producer.
 package analytics
 
 import (

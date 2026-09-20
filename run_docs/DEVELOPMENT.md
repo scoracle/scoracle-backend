@@ -91,12 +91,12 @@ DATABASE_PRIVATE_URL=... ./sql/migrate.sh
 Fresh environments should be created from the current schema snapshot, not by replaying all migrations against an empty database:
 
 ```bash
-./sql/build.sh "$PROD_URL" "$NEW_ENV_URL"
+./sql/build.sh "$NEW_ENV_URL"
 ```
 
 Before restarting the Go API, make sure the live schema and prepared statements agree. `db.New` prepares statements at boot and should fail fast against drifted schema.
 
-Full migration operations live in `../sql/README-migrations.md` and `RUNBOOK.md`.
+Full migration operations live in `../sql/README.md` and `RUNBOOK.md`.
 
 ## Cognition memory taxonomy (continuity vs measurement)
 

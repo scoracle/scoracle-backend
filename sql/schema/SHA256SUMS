@@ -1,0 +1,3 @@
+24eed33ae1e4e6600ec68a390980ffdb5981e437635abefebb6feed05a36bea2  schema.sql
+bc092eb596f2b5ff6b7fdbb7f0337b1893ddc42d91bce814cda66177d925ed93  reference-data.sql
+02844a22a19d37f31592ac0bf4fe64f142acf708ce92da5dab36da7478341d78  applied-migrations.txt

@@ -44,8 +44,12 @@ func run() error {
 	asOf := flag.String("as-of", "", "required RFC3339 observation label (not historical time travel)")
 	output := flag.String("output", "", "required new report file, includes replayable inputs")
 	replay := flag.String("replay", "", "recompute a retained report after loss of DuckDB state")
+	refresh := flag.Bool("refresh-all", false, "run the production DuckDB maintainer once; requires -publish; writes a summary, not a replay capture")
 	publish := flag.Bool("publish", false, "replace this public cohort (requires migration 262 and production approval)")
 	flag.Parse()
+	if *refresh && (!*publish || *replay != "") {
+		return fmt.Errorf("-refresh-all requires -publish and cannot replay")
+	}
 	if *output == "" {
 		return fmt.Errorf("-output is required")
 	}
@@ -78,6 +82,19 @@ func run() error {
 		return err
 	}
 	defer conn.Close(ctx)
+	if *refresh {
+		result, err := snapshot.Refresh(ctx, conn)
+		if writeErr := json.NewEncoder(file).Encode(result); writeErr != nil {
+			return writeErr
+		}
+		if syncErr := file.Sync(); syncErr != nil {
+			return syncErr
+		}
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(os.Stdout).Encode(result)
+	}
 	r := report{Durations: map[string]time.Duration{}, Tolerance: snapshot.Tolerance}
 	start := time.Now()
 	if *replay != "" {

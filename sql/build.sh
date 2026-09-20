@@ -1,22 +1,20 @@
 #!/usr/bin/env bash
-# Stand up a fresh database (sandbox.scoracle, fantasy.scoracle, a dev clone) that matches
-# production's EXACT schema. This is the reliable path: it clones the schema rather than
-# replaying migrations from the canonical sql/*.sql base (which is the BASE only — the
-# rating/fantasy engine lives in migrations, and several migrations carry data-dependent
-# gates that fail on an empty DB).
-#
-# Schema only (no data). public.schema_migrations is cloned too, so sql/migrate.sh is
-# incremental from this point on the new env.
-#
-# Usage: ./sql/build.sh "$SOURCE_URL" "$TARGET_URL"
-#   SOURCE_URL = a healthy source (prod or a known-good clone)
-#   TARGET_URL = the new, empty database
+# Restore the checked-in baseline into an empty database. No live source needed.
+# Usage: sql/build.sh TARGET_URL [BASELINE_DIRECTORY]
 set -euo pipefail
-
-SRC="${1:?source (prod / known-good) connection string required}"
-TGT="${2:?target (new env) connection string required}"
-
-echo ">> cloning schema-only: source -> target"
-pg_dump --schema-only --no-owner --no-privileges "$SRC" | psql "$TGT" -v ON_ERROR_STOP=1
-echo "done — schema + schema_migrations cloned. Run sql/migrate.sh on the target for any"
-echo "migrations added after the clone."
+TGT="${1:?target empty database URL required}"
+BASE="${2:-$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null && pwd)/schema}"
+BASE="$(cd "$BASE" >/dev/null && pwd)"
+(
+  cd "$BASE"
+  if command -v sha256sum >/dev/null; then sha256sum -c SHA256SUMS; else shasum -a 256 -c SHA256SUMS; fi
+)
+empty="$(psql "$TGT" -X -v ON_ERROR_STOP=1 -Atc "SELECT NOT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname NOT IN ('pg_catalog','information_schema') AND n.nspname NOT LIKE 'pg_toast%' AND c.relkind IN ('r','p','v','m'))")"
+[ "$empty" = t ] || { echo "Target contains relations; refusing to overwrite it" >&2; exit 1; }
+# The generated RLS policies need this non-login role. Use a database bootstrap
+# administrator; this role and the restore commit together.
+psql "$TGT" -X -v ON_ERROR_STOP=1 --single-transaction \
+  -c 'DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '\''web_user'\'') THEN CREATE ROLE web_user NOLOGIN; END IF; END $$;' \
+  -f "$BASE/schema.sql" \
+  -c "\copy public.schema_migrations(version) FROM '$BASE/applied-migrations.txt'"
+printf 'Baseline restored. Apply later changes with sql/migrate.sh.\n'

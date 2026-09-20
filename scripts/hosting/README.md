@@ -30,18 +30,18 @@ SCORACLE_SYSTEMD_DIR=$(mktemp -d) scripts/hosting/install.sh
 ## Release
 
 ```bash
-scripts/hosting/release.sh                # build all 5 binaries + install + restart + verify
+scripts/hosting/release.sh                # build all 6 binaries + install + restart + verify
 scripts/hosting/release.sh --build-only   # build + place binaries only (no live changes)
 ```
 
 `release.sh` is the single release command: post the Step-3 cutover it builds
-the three live Go binaries (`scoracle-api`, `pipeline`, `vibesynth`) and the two
+the three live Go binaries (`scoracle-api`, `pipeline`, `vibesynth`) and the three
 Rust cognition binaries (`scoracle-cognition` daemon, `statcommentary` rating
-batch) **from one commit**, stamps the commit + build time into the Go binaries
+batch, and `factsweep`) **from one commit**, stamps the commit + build time into the Go binaries
 (queryable at `GET /` and logged at startup), masks both the `scoracle-api.path`
 and `scoracle-cognition.path` rebuild watchers during placement, (re)installs
 the units, restarts the API + the Rust daemon, and verifies `/health/db`. All
-five binaries are built before any is placed, so a failed build can never leave
+six binaries are built before any is placed, so a failed build can never leave
 the cron binaries or the daemon on a different commit than the API.
 
 ## What's in here
@@ -55,7 +55,7 @@ the cron binaries or the daemon on a different commit than the API.
 | `../systemd/scoracle-api.path` | path watcher — auto-restart when `go build` replaces the binary |
 | `../systemd/scoracle-api-restart.service` | oneshot restart helper fired by the path watcher |
 | `../systemd/cloudflared.service` | CF Tunnel runner |
-| `release.sh` | single release command — build all 5 binaries (3 Go + 2 Rust) from one commit, install, restart, verify |
+| `release.sh` | single release command — build all 6 binaries (3 Go + 3 Rust) from one commit, install, restart, verify |
 | `cron-pipeline.sh` | wrapper for the Go ingestion binary (`-mode ingest` — the only data ingestion layer; RSS sweep, Rust curates) |
 | `cron-narrative-links.sh` | nightly narrative-graph co-mention refresh (pure SQL, mig 154) |
 | `cron-rust-statcommentary.sh` | wrapper for the Rust stats-rail rating batch (the post Step-3 cutover path) |
@@ -99,3 +99,5 @@ tail -f logs/backup.log
 # Cloudflare Tunnel
 journalctl --user -u cloudflared -f
 ```
+
+The API embeds DuckDB for bounded cohort studies. Release builds require CGO and a C/C++ toolchain; `release.sh` enables CGO. The API starts the single-producer refresh on startup and every five minutes.

@@ -124,7 +124,7 @@ trap cleanup EXIT
     cd "$REPO_ROOT/go"
     for i in "${!GO_CMDS[@]}"; do
         echo "    building ${GO_OUTS[$i]}  (./cmd/${GO_CMDS[$i]})"
-        CGO_ENABLED=0 go build -ldflags "$LDFLAGS" -o "$STAGE/${GO_OUTS[$i]}" "./cmd/${GO_CMDS[$i]}"
+        CGO_ENABLED=1 go build -ldflags "$LDFLAGS" -o "$STAGE/${GO_OUTS[$i]}" "./cmd/${GO_CMDS[$i]}"
     done
 )
 

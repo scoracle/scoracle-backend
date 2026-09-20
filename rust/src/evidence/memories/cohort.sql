@@ -1,8 +1,6 @@
--- Season-grain cohort context derived by the DuckDB engine and stored by the
--- analytics-snapshot batch job (migration 255). Season-grain and recomputable
--- from player_stats/team_stats ratings, so it refreshes on the same cadence
--- and semantics as the performance snapshot block; the observation time is
--- the snapshot's own computed_at.
+-- Season-grain context maintained by the API's bounded DuckDB producer.
+-- Source changes are checked every five minutes; computed_at dates the retained
+-- snapshot. Unchanged inputs keep their receipt and do not invalidate model work.
 SELECT a.season, a.league_id,
        a.computed_at::text AS observed_at,
        floor(extract(epoch FROM a.computed_at))::bigint AS observed_unix,

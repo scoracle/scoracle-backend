@@ -100,7 +100,7 @@ drifted across commits. `release.sh` builds **every** binary (Go + Rust) before 
 failed build aborts (`set -e`) before a single binary moves — the cron binaries + the daemon can
 never end up on a different commit than the API.
 
-**Migrations + restart ordering** (the boot guard, `sql/README-migrations.md`):
+**Migrations + restart ordering** (the boot guard, `sql/README.md`):
 `db.New` prepares every statement at boot, validating columns + functions against the live schema,
 so a restart against a drifted schema **refuses to boot** instead of serving degraded.
 
@@ -112,7 +112,7 @@ so a restart against a drifted schema **refuses to boot** instead of serving deg
 
 After any migration, refresh the versioned schema snapshot and commit it:
 `scripts/hosting/snapshot-schema.sh` (keeps `sql/schema/` == live; the CI schema job and the restore
-drill both diff against it). **Next free migration number = 222.**
+drill both diff against it). Choose the next unused migration filename.
 
 ---
 
@@ -197,11 +197,11 @@ scripts/hosting/release.sh                       # boot the API against it
   record happen in **one `psql` process**: plain DDL is wrapped with its ledger INSERT in a single
   transaction (crash ⇒ neither applied nor recorded); `CONCURRENTLY`/`VACUUM` files run autocommit;
   self-managed-transaction files self-record before their `COMMIT` (required convention).
-- **Fresh environment** (sandbox/dev): `./sql/build.sh "$PROD_URL" "$NEW_ENV_URL"` clones the prod
-  **schema only** (incl. `schema_migrations`). **Do not replay** migrations on an empty DB —
-  data-dependent gates (045/046/048) fail. Same rule in CI: provision from `sql/schema/schema.sql`
-  (after `CREATE ROLE web_user`), never replay.
-- Full conventions: `sql/README-migrations.md`. Template: `sql/migration_template.sql`.
+- **Fresh environment** (sandbox/dev): `./sql/build.sh "$NEW_ENV_URL"` restores the checksummed
+  offline baseline, reference data and applied ledger in one transaction. Use PostgreSQL 18
+  tooling and a bootstrap administrator. CI uses the same command; historical migrations
+  are not an empty-database installer.
+- Full conventions: `sql/README.md`. Template: `sql/migration_template.sql`.
 
 ---
 

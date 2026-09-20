@@ -1,21 +1,4 @@
-# Scoracle backend CI (FIRST-GPT-AUDIT Session 16).
-#
-# Runs on every main-bound change so the launch-hardening from S1–S15 cannot
-# silently regress. Five independent jobs:
-#
-#   go      — gofmt/vet/build + the full Go suite, including the DB-gated work
-#             queue tests and `validate-stmts`, against a Postgres provisioned
-#             from the versioned schema snapshot (sql/schema/schema.sql).
-#   shell   — `bash -n` syntax + ShellCheck on the hosting/ops scripts.
-#   schema  — pure-repo static check: schema_migrations.txt matches sql/migrations/.
-#
-# The test-DB crux (see sql/README-migrations.md): an empty DB CANNOT be built by
-# replaying migrations — the data-dependent gates (045/046/048) fail on empty
-# tables. CI instead LOADS sql/schema/schema.sql (a pg_dump --schema-only of prod,
-# kept current by snapshot-schema.sh) into a clean Postgres. That yields the exact
-# live schema with no replay, so the prepared statements and queue tests run
-# against a faithful schema.
-
+# Restore the verified release baseline; test SQL semantics and both application runtimes.
 name: CI
 
 on:
@@ -87,10 +70,20 @@ jobs:
 
       - name: Provision test DB from schema snapshot
         run: |
-          # The RLS policies in the snapshot reference web_user; create it first.
-          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -c "CREATE ROLE web_user;"
           createdb -h localhost -U postgres scoracle_test
-          psql -h localhost -U postgres -d scoracle_test -v ON_ERROR_STOP=1 -q -f sql/schema/schema.sql
+          ./sql/build.sh "$TEST_DATABASE_URL"
+          ./sql/migrate.sh "$TEST_DATABASE_URL" | tee /tmp/migrations.log
+          grep -q 'done — 0 migration(s) applied' /tmp/migrations.log
+
+      - name: SQL measurement contract
+        run: psql "$TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f sql/tests/253_rating_evidence_contract.sql
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust unit and database contracts
+        run: |
+          cargo test --manifest-path rust/Cargo.toml --lib --bins
+          cargo test --manifest-path rust/Cargo.toml --lib -- --ignored --test-threads=1
 
       - name: validate-stmts (prepared statements register against the schema)
         working-directory: go
@@ -127,27 +120,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # schema_migrations.txt must be a sorted, complete reflection of the
-      # migration files in sql/migrations/.  It is auto-derived (no prod DB
-      # needed): generate the expected list from the directory and diff
-      # against the committed file.  A mismatch means a migration was added
-      # (or removed) without regenerating the lineage.
-      - name: Migration lineage matches migration files
+      - name: Verify baseline checksums and applied lineage
         run: |
-          snapshot=sql/schema/schema_migrations.txt
-          test -s sql/schema/schema.sql || { echo "missing/empty schema.sql"; exit 1; }
-          # Build the expected lineage from the migration directory.
+          (cd sql/schema && sha256sum -c SHA256SUMS)
           expected="$(mktemp)"
-          for f in sql/migrations/*.sql; do
-            basename "$f" .sql
-          done | sort > "$expected"
-          # Compare (sort the committed file so order differences don't matter).
-          actual_sorted="$(mktemp)"
-          sort "$snapshot" > "$actual_sorted"
-          if ! diff -u "$actual_sorted" "$expected"; then
-            echo ""
-            echo "schema_migrations.txt is out of sync with sql/migrations/."
-            echo "Regenerate: ls sql/migrations/*.sql | xargs -I{} basename {} .sql | sort > sql/schema/schema_migrations.txt"
-            exit 1
-          fi
-          echo "OK — schema_migrations.txt matches sql/migrations/ ($(wc -l < "$expected") entries)"
+          for f in sql/migrations/*.sql; do basename "$f" .sql; done | sort > "$expected"
+          diff -u "$expected" sql/schema/applied-migrations.txt
+          # Never regenerate applied history from filenames. Capture a verified database.

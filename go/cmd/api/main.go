@@ -28,6 +28,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 
+	"github.com/albapepper/scoracle-data/internal/analytics/snapshot"
 	"github.com/albapepper/scoracle-data/internal/api"
 	"github.com/albapepper/scoracle-data/internal/buildinfo"
 	"github.com/albapepper/scoracle-data/internal/cache"
@@ -119,6 +120,8 @@ func main() {
 		mc := maintenance.DefaultConfig()
 		mc.StatsInterval = cfg.PipelineStatsInterval
 		go maintenance.Start(ctx, dbPool, mc, logger)
+
+		go snapshot.Maintain(ctx, cfg.DatabaseURL, logger)
 	} else {
 		logger.Warn("Database-backed background workers disabled in degraded mode")
 	}

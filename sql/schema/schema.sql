@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict fuuMHfQFAVTw2z9Iskbx8NRgnjJTcatfg6OSF8iicYHmJZe8EZxNFyI4YYmZr68
+\restrict p8oeX0WyGzeNKIAAo8DnqEZqWhnetey7VggJ7EYgBvSGYuFECD2TXQlm7oszbpA
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -11,7 +11,7 @@ SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
 SET transaction_timeout = 0;
-SET client_encoding = 'UTF8';
+SET client_encoding = 'SQL_ASCII';
 SET standard_conforming_strings = on;
 SELECT pg_catalog.set_config('search_path', '', false);
 SET check_function_bodies = false;
@@ -2746,340 +2746,6 @@ COMMENT ON FUNCTION public.momentum_week_window(p_sport text) IS 'The momentum r
 
 
 --
--- Name: narrative_context_for_entity(text, text, integer); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.narrative_context_for_entity(p_sport text, p_entity_type text, p_entity_id integer) RETURNS text
-    LANGUAGE sql STABLE
-    AS $$
-WITH prior_parts AS (
-    -- (222) The old sealed/open episode sections, re-sourced from the rail that runs:
-    -- resolved and dormant storylines this entity had a part in. Resolution carries the
-    -- confirmed outcome; dormancy (14 quiet days) is the fizzle. Departed parts still
-    -- remember — a story you were written out of is still a story you were in.
-    SELECT format('Prior story: "%s" — %s (%s, %s report%s).',
-               COALESCE(NULLIF(p.headline, ''), NULLIF(s.title, ''), 'untitled'),
-               CASE WHEN s.status = 'resolved'
-                    THEN 'RESOLVED' || COALESCE(': ' || replace(s.resolution->>'outcome', '_', ' '), '')
-                    ELSE 'went quiet' END,
-               CASE WHEN to_char(s.first_seen_at, 'Mon YYYY') = to_char(COALESCE(s.resolved_at, s.last_seen_at), 'Mon YYYY')
-                    THEN to_char(s.first_seen_at, 'Mon YYYY')
-                    ELSE to_char(s.first_seen_at, 'Mon YYYY') || ' - ' || to_char(COALESCE(s.resolved_at, s.last_seen_at), 'Mon YYYY')
-               END,
-               m.n, CASE WHEN m.n = 1 THEN '' ELSE 's' END) AS line,
-           COALESCE(s.resolved_at, s.last_seen_at) AS ended_at
-    FROM storyline_entities se
-    JOIN storylines s ON s.id = se.storyline_id
-    LEFT JOIN LATERAL (
-        SELECT pk.headline FROM packets pk
-        WHERE pk.storyline_id = s.id
-        ORDER BY pk.compiled_at DESC, pk.id DESC LIMIT 1
-    ) p ON true
-    CROSS JOIN LATERAL (
-        SELECT count(*) AS n FROM storyline_articles sa WHERE sa.storyline_id = s.id
-    ) m
-    WHERE se.sport = p_sport AND se.entity_type = p_entity_type AND se.entity_id = p_entity_id
-      AND s.status IN ('resolved', 'dormant')
-    ORDER BY COALESCE(s.resolved_at, s.last_seen_at) DESC
-    LIMIT 5
-),
-moves AS (
-    SELECT format('Ground truth: %s completed a confirmed move to %s on %s.',
-               pl.name, tm.name, to_char(g.applied_at, 'Mon DD YYYY')) AS line,
-            g.applied_at
-    FROM transfer_ground_truth g
-    JOIN players pl ON pl.id = g.player_id AND pl.sport = g.sport
-    JOIN teams tm ON tm.id = g.team_id AND tm.sport = g.sport
-    WHERE g.sport = p_sport
-      AND g.applied_at > now() - interval '120 days'
-      AND ((p_entity_type = 'player' AND g.player_id = p_entity_id)
-        OR (p_entity_type = 'team' AND g.team_id = p_entity_id))
-    ORDER BY g.applied_at DESC
-    LIMIT 3
-),
-story_parts AS (
-    -- (mig 219) One row per OPEN storyline this entity is an ACTIVE participant in
-    -- (left_at IS NULL — D5: a part has its own lifespan), carrying the headline
-    -- (latest packet's, falling back to the storyline's display title), the membership
-    -- report count, and the part's progression state. Provenance-labeled continuity,
-    -- NOT corroboration.
-    SELECT se.storyline_id, se.role, se.joined_at, se.entry_count,
-           se.distinct_sources, se.authority,
-           COALESCE(se.last_progressed_at, s.last_seen_at) AS ord,
-           COALESCE(NULLIF(p.headline, ''), NULLIF(s.title, ''), 'untitled') AS headline,
-           m.n AS reports
-    FROM storyline_entities se
-    JOIN storylines s ON s.id = se.storyline_id
-    LEFT JOIN LATERAL (
-        SELECT pk.headline
-        FROM packets pk
-        WHERE pk.storyline_id = s.id
-        ORDER BY pk.compiled_at DESC, pk.id DESC
-        LIMIT 1
-    ) p ON true
-    CROSS JOIN LATERAL (
-        SELECT count(*) AS n FROM storyline_articles sa WHERE sa.storyline_id = s.id
-    ) m
-    WHERE se.sport = p_sport AND se.entity_type = p_entity_type AND se.entity_id = p_entity_id
-      AND se.left_at IS NULL
-      AND s.status = 'open'
-),
-established AS (
-    -- (mig 183 lineage, rebuilt mig 219) ESTABLISHED parts render as one-line
-    -- BACKGROUND FACTS — settled context, deliberately carrying NO impact/likelihood
-    -- figures. Open storylines only: a resolved story renders under Prior story.
-    SELECT format('Established story (our archive, %s sources, since %s): "%s".',
-               sp.distinct_sources,
-               to_char(sp.joined_at, 'Mon DD'),
-               sp.headline) AS line,
-            sp.ord
-    FROM story_parts sp
-    WHERE sp.authority = 'established'
-    ORDER BY sp.ord DESC
-    LIMIT 2
-),
-own_story AS (
-    -- (mig 182/211 lineage, rebuilt mig 219) CONTINUITY parts as progression: a header
-    -- plus the last 3 chapters, newest-first, each tagged with its OWN cited source
-    -- count. An untold part renders the flat membership line.
-    SELECT CASE WHEN steps.txt IS NULL THEN
-               format('Our story so far ("%s", opened %s, %s report%s%s).',
-                   sp.headline,
-                   to_char(sp.joined_at, 'Mon DD'),
-                   sp.reports, CASE WHEN sp.reports = 1 THEN '' ELSE 's' END,
-                   CASE WHEN COALESCE(sp.role, '') <> ''
-                        THEN format(', this entity''s part: %s', sp.role) ELSE '' END)
-           ELSE
-               format('Our story so far ("%s", opened %s, %s entr%s, %s source%s%s):%s',
-                   sp.headline,
-                   to_char(sp.joined_at, 'Mon DD'),
-                   sp.entry_count, CASE WHEN sp.entry_count = 1 THEN 'y' ELSE 'ies' END,
-                   sp.distinct_sources, CASE WHEN sp.distinct_sources = 1 THEN '' ELSE 's' END,
-                   CASE WHEN COALESCE(sp.role, '') <> ''
-                        THEN format(', this entity''s part: %s', sp.role) ELSE '' END,
-                   steps.txt)
-           END AS line,
-           sp.ord
-    FROM story_parts sp
-    LEFT JOIN LATERAL (
-        SELECT E'\n' || string_agg(
-                   format('  %s (%s source%s): %s, coverage %s/100',
-                       to_char(c.generated_at, 'Mon DD'),
-                       c.source_count, CASE WHEN c.source_count = 1 THEN '' ELSE 's' END,
-                       replace(c.trajectory, '_', ' '),
-                       c.impact),
-                   E'\n' ORDER BY c.generated_at DESC, c.id DESC) AS txt
-        FROM (
-            SELECT s.id, s.generated_at, s.source_count, s.trajectory, s.impact
-            FROM news_summaries s
-            WHERE s.storyline_id = sp.storyline_id
-              AND s.entity_type = p_entity_type AND s.entity_id = p_entity_id
-              AND s.body IS NOT NULL AND s.impact IS NOT NULL
-            ORDER BY s.generated_at DESC, s.id DESC
-            LIMIT 3
-        ) c
-    ) steps ON true
-    WHERE sp.authority = 'continuity'
-    ORDER BY sp.ord DESC
-    LIMIT 3
-),
-figures AS (
-    -- Promoted (ACTIVE) news-derived people tied to this team (mig 166).
-    SELECT format('Team figure: %s (%s, news-derived, %s sources).',
-               p.name, p.kind, p.distinct_sources) AS line,
-            p.mention_count
-    FROM narrative_persons p
-    WHERE p.sport = p_sport AND p_entity_type = 'team' AND p.team_id = p_entity_id
-      AND p.status = 'active' AND p.merged_into IS NULL
-    ORDER BY p.mention_count DESC
-    LIMIT 4
-),
--- ------------------------------------------------------------------------------
--- OUR OWN SELF-HISTORY (outputs-as-memories, mig 168 + Phase 6): provenance-labeled
--- continuity, NEVER corroboration. Source-tagged where the lens banks it.
--- ------------------------------------------------------------------------------
-own_transfer AS (
-    SELECT format('Our prior read (transfer, %s%s): staged %s as %s%s.',
-               to_char(r.generated_at, 'Mon DD'),
-               CASE WHEN r.source_count > 0
-                    THEN format(', %s source%s', r.source_count,
-                                CASE WHEN r.source_count = 1 THEN '' ELSE 's' END)
-                    ELSE '' END,
-                t.name, r.stage,
-                COALESCE(' (confidence ' || r.confidence || ')', '')) AS line,
-            r.generated_at AS ord
-    FROM transfer_rumors r
-    JOIN teams t ON t.id = r.team_id AND t.sport = r.sport
-    WHERE r.sport = p_sport AND p_entity_type = 'player' AND r.player_id = p_entity_id
-      AND r.stage IS NOT NULL AND r.generated_at > now() - interval '30 days'
-    ORDER BY r.generated_at DESC
-    LIMIT 2
-),
-own_vibe AS (
-    SELECT format('Our prior read (mood, %s): mood %s/100%s.',
-               to_char(v.generated_at, 'Mon DD'),
-               v.sentiment,
-               CASE WHEN array_length(v.input_news_ids, 1) > 0
-                    THEN format(' (%s article%s)', array_length(v.input_news_ids, 1),
-                                CASE WHEN array_length(v.input_news_ids, 1) = 1 THEN '' ELSE 's' END)
-                    ELSE '' END) AS line,
-            v.generated_at AS ord
-    FROM vibe_scores v
-    WHERE v.sport = p_sport AND v.entity_type = p_entity_type AND v.entity_id = p_entity_id
-      AND v.sentiment IS NOT NULL AND v.generated_at > now() - interval '45 days'
-    ORDER BY v.generated_at DESC
-    LIMIT 2
-),
-own_momentum AS (
-    SELECT format('Our prior read (momentum, %s): %s%s.',
-               to_char(m.generated_at, 'Mon DD'),
-               m.direction,
-               COALESCE(' (score ' || m.score || ')', '')) AS line,
-            m.generated_at AS ord
-    FROM momentum_summaries m
-    WHERE m.sport = p_sport AND m.entity_type = p_entity_type AND m.entity_id = p_entity_id
-      AND m.direction IS NOT NULL AND m.generated_at > now() - interval '45 days'
-    ORDER BY m.generated_at DESC
-    LIMIT 2
-),
-own_rating AS (
-    -- (mig 221) The rating lens's latest banked read. Least-weighted — the tail line.
-    SELECT format('Our prior read (rating, season %s): profile distinctiveness %s/100%s.',
-               s.season, s.notability,
-               CASE WHEN COALESCE(s.rating_trajectory_label, '') <> ''
-                    THEN '; ' || s.rating_trajectory_label ELSE '' END) AS line
-    FROM stat_summaries s
-    WHERE s.sport = p_sport AND s.entity_type = p_entity_type AND s.entity_id = p_entity_id
-      AND s.body IS NOT NULL AND s.notability IS NOT NULL
-    ORDER BY s.season DESC, s.generated_at DESC
-    LIMIT 1
-)
-SELECT NULLIF(concat_ws(E'\n',
-    (SELECT string_agg(line, E'\n' ORDER BY ended_at DESC) FROM prior_parts),
-    (SELECT string_agg(line, E'\n' ORDER BY applied_at DESC) FROM moves),
-    (SELECT string_agg(line, E'\n' ORDER BY ord DESC) FROM established),
-    (SELECT string_agg(line, E'\n' ORDER BY ord DESC) FROM own_story),
-    (SELECT string_agg(line, E'\n' ORDER BY mention_count DESC) FROM figures),
-    (SELECT string_agg(line, E'\n' ORDER BY ord DESC) FROM own_transfer),
-    (SELECT string_agg(line, E'\n' ORDER BY ord DESC) FROM own_vibe),
-    (SELECT string_agg(line, E'\n' ORDER BY ord DESC) FROM own_momentum),
-    (SELECT line FROM own_rating)), '');
-$$;
-
-
---
--- Name: FUNCTION narrative_context_for_entity(p_sport text, p_entity_type text, p_entity_id integer); Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON FUNCTION public.narrative_context_for_entity(p_sport text, p_entity_type text, p_entity_id integer) IS 'Per-entity memory card for junction prompts: sealed stories (both edge slots, outcome-labeled), open stories with likelihood (own-club employment excluded for players), recent ground-truth moves, the STORYLINE-PART block (mig 219: the narrative_threads collapse — per open storyline the entity actively participates in, an established part renders as a one-line background fact and a continuity part renders "Our story so far (...)" with its last 3 chapters, or the flat membership line when untold; headlines from the latest packet, membership counts as breadth, never measurement), active news-derived team figures (mig 166), and our own four-lens source-tagged self-history (mig 179): transfer (transfer_rumors, players), mood (vibe_scores), momentum (momentum_summaries), top skill (stat_summaries). Provenance-labeled — continuity, NOT corroboration; measurement (heat/likelihood/confirm/fizzle) stays raw/graph-anchored. NULL = no memory. Consumers: every voice, on both rails — memory is rail-independent. Model-facing only.';
-
-
---
--- Name: narrative_context_for_pair(text, integer, integer); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.narrative_context_for_pair(p_sport text, p_player_id integer, p_team_id integer) RETURNS text
-    LANGUAGE sql STABLE
-    AS $$
-WITH pair_stories AS (
-    -- (222) Stories BOTH parties had a part in — the storyline junction's own record of
-    -- the flirtation. Departed parts count: history is history.
-    SELECT s.id, s.status, s.resolution->>'outcome' AS outcome, s.first_seen_at, s.last_seen_at, s.resolved_at,
-           COALESCE(NULLIF(p.headline, ''), NULLIF(s.title, ''), 'untitled') AS headline
-    FROM storylines s
-    JOIN storyline_entities spl ON spl.storyline_id = s.id AND spl.sport = p_sport
-         AND spl.entity_type = 'player' AND spl.entity_id = p_player_id
-    JOIN storyline_entities stm ON stm.storyline_id = s.id AND stm.sport = p_sport
-         AND stm.entity_type = 'team' AND stm.entity_id = p_team_id
-    LEFT JOIN LATERAL (
-        SELECT pk.headline FROM packets pk
-        WHERE pk.storyline_id = s.id
-        ORDER BY pk.compiled_at DESC, pk.id DESC LIMIT 1
-    ) p ON true
-),
-sealed AS (
-    SELECT format('Prior story: "%s" — %s (%s).',
-               headline,
-               CASE WHEN status = 'resolved'
-                    THEN 'RESOLVED' || COALESCE(': ' || replace(outcome, '_', ' '), '')
-                    ELSE 'went quiet' END,
-               CASE WHEN to_char(first_seen_at, 'Mon YYYY') = to_char(COALESCE(resolved_at, last_seen_at), 'Mon YYYY')
-                    THEN to_char(first_seen_at, 'Mon YYYY')
-                    ELSE to_char(first_seen_at, 'Mon YYYY') || ' - ' || to_char(COALESCE(resolved_at, last_seen_at), 'Mon YYYY')
-               END) AS line,
-           COALESCE(resolved_at, last_seen_at) AS ended_at
-    FROM pair_stories
-    WHERE status IN ('resolved', 'dormant')
-    ORDER BY ended_at DESC
-    LIMIT 3
-),
-open_ep AS (
-    -- The live narrative_links co-mention edge still colors the current story's
-    -- trajectory (heating up / cooling off) — links are current-rail, refreshed nightly.
-    SELECT format('Current story: "%s" — tracked since %s%s.',
-               ps.headline,
-               to_char(ps.first_seen_at, 'Mon DD'),
-               COALESCE(' (' || replace(l.trajectory, '_', ' ') || ')', '')) AS line
-    FROM pair_stories ps
-    LEFT JOIN narrative_links l
-      ON l.sport = p_sport AND l.link_type = 'co_mention'
-     AND l.subject_type = 'player' AND l.subject_id = p_player_id
-     AND l.object_type = 'team' AND l.object_id = p_team_id
-    WHERE ps.status = 'open'
-    ORDER BY ps.last_seen_at DESC
-    LIMIT 1
-),
-recent_move AS (
-    SELECT format(
-               'Ground truth: the player completed a confirmed move to %s on %s.',
-               t.name, to_char(g.applied_at, 'Mon DD YYYY')) AS line
-    FROM transfer_ground_truth g
-    JOIN teams t ON t.id = g.team_id AND t.sport = g.sport
-    WHERE g.sport = p_sport AND g.player_id = p_player_id
-      AND g.applied_at > now() - interval '120 days'
-    ORDER BY g.applied_at DESC
-    LIMIT 1
-),
-first_read AS (
-    -- Our own banked verdicts (outputs-as-memories, mig 168). Continuity, NEVER
-    -- corroboration — the label is the echo-chamber defense.
-    SELECT r.id,
-           format('Our prior read: first staged %s on %s (confidence %s).',
-                  r.stage, to_char(r.generated_at, 'Mon DD'), r.confidence) AS line
-    FROM transfer_rumors r
-    WHERE r.sport = p_sport AND r.player_id = p_player_id AND r.team_id = p_team_id
-      AND r.stage IS NOT NULL
-    ORDER BY r.generated_at ASC
-    LIMIT 1
-),
-last_read AS (
-    SELECT r.id,
-           format('Our prior read: latest read %s on %s (confidence %s).',
-                  r.stage, to_char(r.generated_at, 'Mon DD'), r.confidence) AS line
-    FROM transfer_rumors r
-    WHERE r.sport = p_sport AND r.player_id = p_player_id AND r.team_id = p_team_id
-      AND r.stage IS NOT NULL
-    ORDER BY r.generated_at DESC
-    LIMIT 1
-)
-SELECT NULLIF(concat_ws(E'\n',
-    (SELECT string_agg(line, E'\n' ORDER BY ended_at DESC) FROM sealed),
-    (SELECT line FROM open_ep),
-    (SELECT line FROM recent_move),
-    (SELECT line FROM first_read),
-    (SELECT l.line FROM last_read l
-      WHERE l.id <> (SELECT id FROM first_read))), '');
-$$;
-
-
---
--- Name: FUNCTION narrative_context_for_pair(p_sport text, p_player_id integer, p_team_id integer); Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON FUNCTION public.narrative_context_for_pair(p_sport text, p_player_id integer, p_team_id integer) IS 'The graph''s memory for one (player, team) pair as compact prompt lines: prior sealed stories with outcomes, the current open story + likelihood/trajectory, recent confirmed moves, and (mig 168) the junction''s own first + latest staged reads as "Our prior read:" continuity lines. NULL = no memory. Consumed by cognition-stage prompt builders (transfer t8) — model-facing, never user-facing.';
-
-
---
 -- Name: normalize_pipeline_work_claim(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -4929,27 +4595,6 @@ COMMENT ON FUNCTION public.refresh_entity_name_surfaces() IS 'Full rebuild of en
 
 
 --
--- Name: refresh_latest_momentum_scores_per_entity(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.refresh_latest_momentum_scores_per_entity() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-    REFRESH MATERIALIZED VIEW public.latest_momentum_scores_per_entity;
-    RETURN NULL;
-END;
-$$;
-
-
---
--- Name: FUNCTION refresh_latest_momentum_scores_per_entity(); Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON FUNCTION public.refresh_latest_momentum_scores_per_entity() IS 'Synchronous full rebuild of latest_momentum_scores_per_entity. NO LONGER TRIGGER-WIRED (mig 227): as an AFTER STATEMENT trigger on momentum_scores this held an ACCESS EXCLUSIVE lock on the projection for every write, and single-row reads against its unique index were measured blocking for 19s during the 2026-08-22 drain. The live refresh is now issued CONCURRENTLY by the maintenance drain (internal/maintenance), outside any transaction. Kept for manual/migration-time use where a synchronous rebuild is actually wanted.';
-
-
---
 -- Name: refresh_momentum_scores(text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -5662,7 +5307,7 @@ DECLARE
 BEGIN
     FOREACH t IN ARRAY ARRAY[
         'news_summaries', 'vibe_scores', 'insider_scores', 'transfer_rumors',
-        'momentum_summaries', 'stat_summaries', 'sigil_synthesis', 'oracle_readings',
+        'momentum_summaries', 'stat_summaries', 'sigil_synthesis',
         'rating_history', 'momentum_scores'
     ] LOOP
         EXECUTE format($f$
@@ -6132,73 +5777,6 @@ BEGIN
     RETURN NEW;
 END;
 $$;
-
-
---
--- Name: stat_context_for_entity(text, text, integer, integer); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.stat_context_for_entity(p_sport text, p_entity_type text, p_entity_id integer, p_season integer) RETURNS text
-    LANGUAGE sql STABLE
-    AS $$
-WITH prior_read AS (
-    SELECT format('Our prior read: season %s scored this profile %s/100 for distinctiveness%s.',
-               s.season, s.notability,
-               CASE WHEN COALESCE(s.rating_trajectory_label, '') <> ''
-                    THEN '; ' || s.rating_trajectory_label ELSE '' END) AS line
-    FROM stat_summaries s
-    WHERE s.entity_type = p_entity_type AND s.entity_id = p_entity_id
-      AND s.sport = p_sport AND s.season < p_season
-      AND s.body IS NOT NULL AND s.notability IS NOT NULL
-    ORDER BY s.season DESC, s.generated_at DESC
-    LIMIT 1
-),
-moves AS (
-    SELECT format('Ground truth: %s on %s.',
-               CASE WHEN p_entity_type = 'player'
-                    THEN 'joined ' || tm.name
-                    ELSE 'signed ' || pl.name END,
-               to_char(g.applied_at, 'Mon DD YYYY')) AS line,
-           g.applied_at
-    FROM transfer_ground_truth g
-    JOIN players pl ON pl.id = g.player_id AND pl.sport = g.sport
-    JOIN teams tm ON tm.id = g.team_id AND tm.sport = g.sport
-    WHERE g.sport = p_sport
-      AND g.applied_at > now() - interval '180 days'
-      AND ((p_entity_type = 'player' AND g.player_id = p_entity_id)
-        OR (p_entity_type = 'team' AND g.team_id = p_entity_id))
-    ORDER BY g.applied_at DESC
-    LIMIT 3
-),
-matchups AS (
-    SELECT format('Matchup memory: %s vs %s — %s/game vs a %s baseline (adjusted %s%s), n=%s games, reliability %s/100.',
-               m.stat_key, tm.name,
-               round(m.matchup_avg, 1), round(m.baseline_avg, 1),
-               CASE WHEN m.shrunk_delta >= 0 THEN '+' ELSE '' END,
-               round(m.shrunk_delta, 1),
-               m.n_games, m.reliability) AS line,
-           (m.reliability / 100.0) * abs(m.shrunk_delta) AS rank
-    FROM stat_matchups m
-    JOIN teams tm ON tm.id = m.object_id AND tm.sport = m.sport
-    WHERE m.sport = p_sport AND m.scope = 'career'
-      AND m.subject_type = p_entity_type AND m.subject_id = p_entity_id
-      AND m.object_type = 'team'
-      AND p_entity_type = 'player'
-    ORDER BY rank DESC
-    LIMIT 3
-)
-SELECT NULLIF(concat_ws(E'\n',
-    (SELECT line FROM prior_read),
-    (SELECT string_agg(line, E'\n' ORDER BY applied_at DESC) FROM moves),
-    (SELECT string_agg(line, E'\n' ORDER BY rank DESC) FROM matchups)), '');
-$$;
-
-
---
--- Name: FUNCTION stat_context_for_entity(p_sport text, p_entity_type text, p_entity_id integer, p_season integer); Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON FUNCTION public.stat_context_for_entity(p_sport text, p_entity_type text, p_entity_id integer, p_season integer) IS 'Stats-side memory card for the peak/statcommentary junction (rating s12; vocabulary descrubbed mig 218): prior-season top-skill read (banked output, echo-chamber rule), confirmed moves, reliability-framed matchup edges. Model-facing only; never user-exposed; outside input_hash.';
 
 
 SET default_tablespace = '';
@@ -9365,60 +8943,6 @@ ALTER SEQUENCE public.notifications_id_seq OWNED BY public.notifications.id;
 
 
 --
--- Name: oracle_readings; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.oracle_readings (
-    id bigint NOT NULL,
-    entity_type text NOT NULL,
-    entity_id integer NOT NULL,
-    sport text NOT NULL,
-    season integer NOT NULL,
-    trigger_type text DEFAULT 'periodic'::text NOT NULL,
-    trigger_payload jsonb DEFAULT '{}'::jsonb NOT NULL,
-    reading text,
-    omen text,
-    sigil_score smallint,
-    input_components jsonb DEFAULT '{}'::jsonb NOT NULL,
-    input_hash text,
-    model_version text NOT NULL,
-    prompt_version text NOT NULL,
-    generated_at timestamp with time zone DEFAULT now() NOT NULL,
-    week_season integer,
-    week_no integer,
-    CONSTRAINT oracle_readings_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
-    CONSTRAINT oracle_readings_omen_check CHECK (((omen IS NULL) OR (omen = ANY (ARRAY['ascendant'::text, 'steady'::text, 'waning'::text, 'crossroads'::text])))),
-    CONSTRAINT oracle_readings_sigil_score_check CHECK (((sigil_score IS NULL) OR ((sigil_score >= 1) AND (sigil_score <= 100))))
-);
-
-
---
--- Name: TABLE oracle_readings; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.oracle_readings IS 'FROZEN read-only history (Session C, 2026-07-16). The Oracle voice lives on sigil_synthesis (reading/omen/voiced_* — mig 152) since the sigil-voice merge; the latest real reading per serving scope was copied there by mig 153. No reader, no writer. Retained for provenance; candidate for DROP in a later season.';
-
-
---
--- Name: oracle_readings_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.oracle_readings_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: oracle_readings_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.oracle_readings_id_seq OWNED BY public.oracle_readings.id;
-
-
---
 -- Name: packets; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -10953,30 +10477,6 @@ COMMENT ON COLUMN public.vibe_scores.input_hash IS 'SHA-256 (128-bit hex prefix)
 
 
 --
--- Name: vibe_scores_echo_scrub_20260905; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.vibe_scores_echo_scrub_20260905 (
-    id bigint,
-    entity_type text,
-    entity_id integer,
-    sport text,
-    trigger_type text,
-    trigger_payload jsonb,
-    input_news_ids bigint[],
-    model_version text,
-    prompt_version text,
-    generated_at timestamp with time zone,
-    sentiment smallint,
-    prompt text,
-    input_hash text,
-    hook text,
-    week_season integer,
-    week_no integer
-);
-
-
---
 -- Name: vibe_scores_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -11183,13 +10683,6 @@ ALTER TABLE ONLY public.notifications ALTER COLUMN id SET DEFAULT nextval('publi
 
 
 --
--- Name: oracle_readings id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.oracle_readings ALTER COLUMN id SET DEFAULT nextval('public.oracle_readings_id_seq'::regclass);
-
-
---
 -- Name: packets id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -11335,6 +10828,37 @@ ALTER TABLE ONLY public.user_follows ALTER COLUMN id SET DEFAULT nextval('public
 
 ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.vibe_scores_id_seq'::regclass);
 
+
+--
+-- PostgreSQL database dump complete
+--
+
+\unrestrict p8oeX0WyGzeNKIAAo8DnqEZqWhnetey7VggJ7EYgBvSGYuFECD2TXQlm7oszbpA
+
+
+\ir reference-data.sql
+--
+-- PostgreSQL database dump
+--
+
+\restrict HVRHho2tE8tZyGcxGnLcqxutlbTmBwuNO2GhKYowhG03TiiJXbClG6sz75K1ibH
+
+-- Dumped from database version 18.6
+-- Dumped by pg_dump version 18.6
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET transaction_timeout = 0;
+SET client_encoding = 'SQL_ASCII';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+SET default_tablespace = '';
 
 --
 -- Name: acquisition_runs acquisition_runs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -11678,14 +11202,6 @@ ALTER TABLE ONLY public.news_summaries
 
 ALTER TABLE ONLY public.notifications
     ADD CONSTRAINT notifications_pkey PRIMARY KEY (id);
-
-
---
--- Name: oracle_readings oracle_readings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.oracle_readings
-    ADD CONSTRAINT oracle_readings_pkey PRIMARY KEY (id);
 
 
 --
@@ -12617,27 +12133,6 @@ CREATE INDEX idx_notifications_user ON public.notifications USING btree (user_id
 
 
 --
--- Name: idx_oracle_readings_entity_recent; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_oracle_readings_entity_recent ON public.oracle_readings USING btree (entity_type, entity_id, sport, season, generated_at DESC);
-
-
---
--- Name: idx_oracle_readings_input_hash; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_oracle_readings_input_hash ON public.oracle_readings USING btree (entity_type, entity_id, sport, season, input_hash) WHERE (input_hash IS NOT NULL);
-
-
---
--- Name: idx_oracle_readings_week; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_oracle_readings_week ON public.oracle_readings USING btree (sport, week_season, week_no);
-
-
---
 -- Name: idx_packets_day_sport; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -13265,13 +12760,6 @@ CREATE TRIGGER stamp_week_on_insert BEFORE INSERT ON public.momentum_summaries F
 --
 
 CREATE TRIGGER stamp_week_on_insert BEFORE INSERT ON public.news_summaries FOR EACH ROW EXECUTE FUNCTION public.stamp_card_week();
-
-
---
--- Name: oracle_readings stamp_week_on_insert; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER stamp_week_on_insert BEFORE INSERT ON public.oracle_readings FOR EACH ROW EXECUTE FUNCTION public.stamp_card_week();
 
 
 --
@@ -14120,4 +13608,4 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict fuuMHfQFAVTw2z9Iskbx8NRgnjJTcatfg6OSF8iicYHmJZe8EZxNFyI4YYmZr68
+\unrestrict HVRHho2tE8tZyGcxGnLcqxutlbTmBwuNO2GhKYowhG03TiiJXbClG6sz75K1ibH

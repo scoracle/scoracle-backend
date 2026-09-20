@@ -3,10 +3,8 @@
 # in lexical filename order, recording each on success. Safe to re-run (applied ones are
 # skipped). This is the PROD / incremental path.
 #
-# Fresh environments (sandbox.scoracle, fantasy.scoracle, a dev clone): do NOT replay
-# migrations here — some carry data-dependent gates (e.g. 045/046/048 smoke checks) that
-# fail on an empty DB. Use sql/build.sh, which clones the prod schema (and schema_migrations
-# with it) so this runner stays incremental from that point.
+# Fresh databases start from sql/build.sh's verified offline baseline. Historical
+# migrations may depend on old data; never replay the entire history into an empty DB.
 #
 # Atomic recording: the migration SQL and its schema_migrations INSERT are issued in a
 # SINGLE psql process (never two), so a crash can no longer leave a migration
@@ -14,8 +12,8 @@
 # transaction (and don't use a non-transactional statement like CONCURRENTLY), the INSERT
 # is wrapped INTO the same transaction as the DDL (--single-transaction) → genuinely atomic:
 # a crash leaves neither applied nor recorded. Files that self-manage a transaction get true
-# atomicity by self-recording the INSERT before their own COMMIT (see sql/README-migrations.md
-# and sql/migrations/_TEMPLATE.sql); the runner's INSERT is then an idempotent backstop.
+# atomicity by self-recording the INSERT before their own COMMIT (see sql/README.md
+# and sql/migration_template.sql); the runner's INSERT is then an idempotent backstop.
 #
 # Usage:
 #   ./sql/migrate.sh                 # reads $DATABASE_PRIVATE_URL or $DATABASE_URL

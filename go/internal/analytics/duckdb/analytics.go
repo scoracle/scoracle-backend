@@ -1,9 +1,6 @@
-// Package duckdb is the experimental analytics engine implementation. It
-// embeds DuckDB in-process via the official Go client and attaches the
-// canonical Postgres database read-only through the postgres extension, so
-// analytical queries run against the same data the production path serves.
-// This package owns all DuckDB SQL; nothing else in the backend may reference
-// the engine.
+// Package duckdb owns analytical SQL. Production cohort studies use private,
+// bounded snapshots without a live attachment. Legacy parity probes can attach
+// PostgreSQL read-only; that optional path does not control the cohort producer.
 package duckdb
 
 import (

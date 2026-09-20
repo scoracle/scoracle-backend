@@ -2,7 +2,7 @@
 --
 -- <One-paragraph WHAT + WHY. If you rebuild a function, derive it from the CURRENT
 --  prod definition (\sf <fn> / pg_get_functiondef), never a possibly-stale canonical
---  file, then mirror the change into sql/{shared,nba,nfl,football}.sql.>
+--  file. Capture the resulting schema baseline after applying it.>
 --
 -- Deploy order: ADDITIVE migrations apply BEFORE the API restart (db.New prepares every
 -- statement at boot and fail-fasts on a drifted schema). A column/param DROP inverts the

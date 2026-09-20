@@ -1,0 +1,16 @@
+{
+  "expect": {
+    "subject_kind_is": "person",
+    "occupation_includes": [
+      "ice hockey"
+    ]
+  },
+  "name": "namesake-wrong-sport-quoted-honestly",
+  "prompt_version": "ip1",
+  "task": "investigator",
+  "temperature": 0.0,
+  "user_prompt": "Sought name: Ace Bailey\nHow the news article described them: Jazz rookie\nSport in question: NBA\n\nWikipedia page summary:\nAce Bailey Canadian ice hockey player (1903–1992) Irvine Wallace \"Ace\" Bailey was a Canadian professional ice hockey player. He played for the Toronto Maple Leafs for eight seasons, from 1926 to 1933. His playing career ended with a hit from Eddie Shore in a game against the Boston Bruins; he was severely injured with a fractured skull when Shore hit Bailey from behind in retaliation for a check by teammate King Clancy. Bailey fell, fracturing his skull upon hitting the ice, and was knocked unconscious. Bailey is the first professional sports player to have a jersey number retired in his honour. Bailey led the NHL in scoring in 1929, and was inducted into the Hockey Hall of Fame in 1975.\n\nReturn the JSON object now.",
+  "review": [
+    "Quoted identity evidence must come from the supplied page; a namesake or wrong-kind page must not establish identity."
+  ]
+}

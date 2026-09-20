@@ -1,0 +1,11 @@
+{
+  "expect": {},
+  "name": "rim-protector-specificity",
+  "prompt_version": "s44",
+  "task": "rating",
+  "temperature": 0.0,
+  "user_prompt": "Entity: Nia Torres (NBA player, C); season 2025\nStats updated: unknown; sample: Games Played 25\n\nOverall standardized score (50 = average): 64\nValues: per-game averages, except percentages.\n\nCurrent-snapshot measurements. Percentiles, when present, rank the same measure among eligible entities in this sport and season; higher is better. Missing ranks and season comparisons are unmeasured.\n- Rim protection: 3.2 (rim_protection), percentile 96.0 (elite)\n- Defensive rebounds: 10.8 (defensive_rebounds), percentile 88.0 (strong)\n- Screen assists: 5.9 (screen_assists), percentile 79.0 (strong)\n- Turnovers: 2.8, percentile 28.0 (poor)\n",
+  "review": [
+    "Interpret the strong defensive measurements without inventing height, playing time or an unmeasured trend."
+  ]
+}

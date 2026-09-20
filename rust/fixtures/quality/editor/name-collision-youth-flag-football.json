@@ -1,0 +1,19 @@
+{
+  "expect": {
+    "article_relevant": false,
+    "key_facts_exclude": [
+      "New York City Ravens"
+    ],
+    "reader_vetted": [
+      "Baltimore Ravens"
+    ]
+  },
+  "name": "name-collision-youth-flag-football",
+  "prompt_version": "ep8",
+  "task": "editor",
+  "temperature": 0.0,
+  "user_prompt": "Source: nfl.com\nTitle: Watch En Español-New York City, NY (Ravens) vs. Jacksonville, FL (Jaguars)\nRSS description: NFL Youth Flag Football Championship Tournament\n\nIdentity context, not event evidence. Distinguish current roles from career history; dated reporting may supersede these records. Unknown means unknown.\n\nHypothesis entities (from the query that found this article):\n- Baltimore Ravens\n\nArticle text:\nWatch the NFL Youth Flag Football Championship Tournament live in Spanish. This 45-minute broadcast features the team from New York City, NY facing the team from Jacksonville, FL in the tournament bracket. The NFL Youth Flag program celebrates the best youth flag football teams from across the country. Broadcast begins at 4:00 PM ET. Available on NFL+ and in the NFL app. Check your local listings for replay times. Related: watch more youth flag football, browse the full tournament schedule, subscribe to NFL+.\n\nReturn the JSON object now.",
+  "review": [
+    "Extract only article-supported claims and preserve entity ambiguity and source uncertainty."
+  ]
+}

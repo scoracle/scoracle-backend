@@ -2,13 +2,13 @@
 
 use crate::application::models::Models;
 use crate::application::products::EntityKey;
+use crate::application::queue::stage::{HandleOutcome, WorkHandler};
+use crate::application::queue::work::{self, Item, Stage};
 use crate::evidence::corpus::load_transfer_heat;
 use crate::evidence::memories::{self, MemoryRequest, Mission};
 use crate::evidence::trajectory::DEFAULT_TRAJECTORY;
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
 use crate::runtime::route::Role;
-use crate::runtime::stage::{HandleOutcome, WorkHandler};
-use crate::runtime::work::{self, Item, Stage};
 use crate::studio::insider::HeatItem;
 use crate::studio::oracle::{
     self, Assignment, Cards, SigilOutput, Subject, SynthMomentum, SynthNarrative, SynthRating,
@@ -510,7 +510,7 @@ impl WorkHandler for SigilHandler {
     }
 
     fn slot_group(&self) -> Option<(&'static str, usize)> {
-        Some(crate::runtime::stage::MAC_SLOTS)
+        Some(crate::application::queue::stage::MAC_SLOTS)
     }
 
     async fn handle(&self, item: &Item) -> Result<HandleOutcome> {

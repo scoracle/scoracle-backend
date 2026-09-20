@@ -1,0 +1,34 @@
+{
+  "expect": {
+    "article_relevant": true,
+    "blurb_excludes": [
+      "not materially about"
+    ],
+    "blurb_includes": [
+      "Villa"
+    ],
+    "key_facts_include": [
+      "Buendia"
+    ],
+    "name_kind_is": {
+      "Buendia": "person"
+    },
+    "names_include": [
+      "Buendia",
+      "Norwich"
+    ],
+    "reader_vetted": [
+      "Aston Villa"
+    ],
+    "result_line_parses": false,
+    "story_type_is": "transfer"
+  },
+  "name": "transfer-report-accept-and-ground",
+  "prompt_version": "ep8",
+  "task": "editor",
+  "temperature": 0.0,
+  "user_prompt": "Source: bbc\nTitle: Aston Villa agree £34m deal for Emiliano Buendia\nRSS description: The midfielder is set for a medical on Friday.\n\nIdentity context, not event evidence. Distinguish current roles from career history; dated reporting may supersede these records. Unknown means unknown.\n\nHypothesis entities (from the query that found this article):\n- Aston Villa\n\nArticle text:\nAston Villa have agreed a £34m fee with Norwich City for Emiliano Buendia, with the Argentina midfielder due to undergo a medical on Friday ahead of a five-year contract. Villa head coach Unai Emery pushed for the signing after missing out on a similar target in January. Norwich will retain a 15% sell-on clause. Buendia scored 15 goals and registered 16 assists last season. The deal is expected to be confirmed early next week, subject to international clearance.\n\nReturn the JSON object now.",
+  "review": [
+    "Extract only article-supported claims and preserve entity ambiguity and source uncertainty."
+  ]
+}

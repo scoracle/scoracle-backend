@@ -4,11 +4,11 @@ use crate::evidence::memories::{self, MemoryRequest, Mission};
 
 use crate::application::models::Models;
 use crate::application::products::EntityKey;
+use crate::application::queue::stage::{HandleOutcome, WorkHandler};
+use crate::application::queue::work::{Item, Stage};
 use crate::evidence::corpus::lookup_entity_name;
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
 use crate::runtime::route::Role;
-use crate::runtime::stage::{HandleOutcome, WorkHandler};
-use crate::runtime::work::{Item, Stage};
 use crate::studio::influencer::{
     self, Assignment, PacketBlock, VibeOutput, VIBE_NUM_PREDICT, VIBE_PROMPT_VERSION,
     VIBE_TEMPERATURE,
@@ -309,7 +309,7 @@ async fn commit_claimed(
     prepared: &Prepared,
 ) -> Result<(HandleOutcome, Option<i64>)> {
     let mut tx = pool.begin().await.context("begin vibe publication")?;
-    if !crate::runtime::work::lock_claim(&mut tx, item).await? {
+    if !crate::application::queue::work::lock_claim(&mut tx, item).await? {
         tx.rollback()
             .await
             .context("close superseded vibe publication")?;
@@ -322,8 +322,8 @@ async fn commit_claimed(
             Some(persist_to_vibe_scores(&mut tx, item, sport, output).await?)
         }
     };
-    crate::application::outbox::record_vibe_completed(&mut tx, item).await?;
-    if !crate::runtime::work::complete_in_transaction(&mut tx, item).await? {
+    crate::application::queue::outbox::record_vibe_completed(&mut tx, item).await?;
+    if !crate::application::queue::work::complete_in_transaction(&mut tx, item).await? {
         bail!("vibe claim changed while its publication transaction held the row lock");
     }
     tx.commit().await.context("commit vibe publication")?;
@@ -355,7 +355,7 @@ impl WorkHandler for VibeHandler {
         1
     }
     fn slot_group(&self) -> Option<(&'static str, usize)> {
-        Some(crate::runtime::stage::MAC_SLOTS)
+        Some(crate::application::queue::stage::MAC_SLOTS)
     }
 
     async fn handle(&self, item: &Item) -> Result<HandleOutcome> {

@@ -2,5 +2,3 @@
 
 pub mod judge;
 pub mod tasks;
-
-pub mod memory;

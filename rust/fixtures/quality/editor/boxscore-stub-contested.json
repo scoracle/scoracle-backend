@@ -1,0 +1,16 @@
+{
+  "expect": {
+    "article_relevant": false,
+    "reader_vetted": [
+      "West Ham United"
+    ]
+  },
+  "name": "boxscore-stub-contested",
+  "prompt_version": "ep8",
+  "task": "editor",
+  "temperature": 0.0,
+  "user_prompt": "Source: espn\nTitle: West Ham United vs. Southampton - Boxscore - Live Score - October 24, 2026\nRSS description: Live score and boxscore.\n\nIdentity context, not event evidence. Distinguish current roles from career history; dated reporting may supersede these records. Unknown means unknown.\n\nHypothesis entities (from the query that found this article):\n- West Ham United\n\nArticle text:\nWest Ham United 3-0 Southampton. Final. London Stadium, October 24, 2026. Goals: 12' Bowen, 34' Paqueta, 78' Kudus. Shots 14-6. Shots on target 7-2. Possession 58%-42%. Corners 6-3. Fouls 9-12. Yellow cards 1-2. Attendance 59,842. Previous meetings: West Ham 1-1 Southampton, Southampton 0-2 West Ham. Next fixtures listed below. View full match stats, lineups, and commentary.\n\nReturn the JSON object now.",
+  "review": [
+    "Extract only article-supported claims and preserve entity ambiguity and source uncertainty."
+  ]
+}

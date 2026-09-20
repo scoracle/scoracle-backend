@@ -1,0 +1,26 @@
+{
+  "expect": {
+    "article_relevant": false,
+    "reader_vetted": [
+      "Paris"
+    ],
+    "resolver_links_exclude": [
+      "Paris"
+    ],
+    "resolver_surfaces": [
+      {
+        "entity_id": 4508,
+        "entity_type": "team",
+        "name": "Paris"
+      }
+    ]
+  },
+  "name": "place-collision-paris-moulin-rouge",
+  "prompt_version": "ep8",
+  "task": "editor",
+  "temperature": 0.0,
+  "user_prompt": "Source: reuters\nTitle: Moulin Rouge dancers welcome Tour de France finale in Paris\nRSS description: The race returns to the capital.\n\nIdentity context, not event evidence. Distinguish current roles from career history; dated reporting may supersede these records. Unknown means unknown.\n\nHypothesis entities (from the query that found this article):\n- Paris\n\nArticle text:\nDancers from the Moulin Rouge cabaret performed on the Champs-Elysees on Sunday as the Tour de France returned to Paris for its traditional finale, the city hosting the finish for the first time since roadworks diverted the 2024 edition. Crowds lined the avenue from early morning. Organisers said more than half a million spectators watched the sprint finish, won by Dutch rider Jasper Groen. The mayor's office said the event passed without incident, and confirmed talks to keep the finale in the capital through 2030.\n\nReturn the JSON object now.",
+  "review": [
+    "Extract only article-supported claims and preserve entity ambiguity and source uncertainty."
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "expect": {
+    "article_relevant": true,
+    "name_descriptor_nonempty": [
+      "Kyle Shanahan"
+    ],
+    "name_kind_is": {
+      "Kyle Shanahan": "person"
+    },
+    "names_include": [
+      "Kyle Shanahan"
+    ],
+    "reader_vetted": [
+      "San Francisco 49ers"
+    ],
+    "resolver_surfaces": [
+      {
+        "entity_id": 14,
+        "entity_type": "team",
+        "name": "San Francisco 49ers"
+      }
+    ],
+    "resolver_unresolved_include": [
+      "Kyle Shanahan"
+    ],
+    "story_type_is": "roster"
+  },
+  "name": "coach-discovery-kyle-shanahan",
+  "prompt_version": "ep8",
+  "task": "editor",
+  "temperature": 0.0,
+  "user_prompt": "Source: nfl.com\nTitle: 49ers appoint Kyle Shanahan as new head coach\nRSS description: San Francisco name their next head coach.\n\nIdentity context, not event evidence. Distinguish current roles from career history; dated reporting may supersede these records. Unknown means unknown.\n\nHypothesis entities (from the query that found this article):\n- San Francisco 49ers\n\nArticle text:\nThe San Francisco 49ers have appointed Kyle Shanahan as their new head coach on a six-year deal, the team announced on Wednesday. Shanahan arrives after two seasons as offensive coordinator in Atlanta and becomes the youngest head coach in the league. General manager John Lynch, hired earlier in the week, called the appointment the cornerstone of the rebuild. Shanahan said the roster needs work but the foundations are in place. Financial terms were not disclosed, though league sources described the deal as placing Shanahan among the better-paid coaches in the NFL.\n\nReturn the JSON object now.",
+  "review": [
+    "Extract only article-supported claims and preserve entity ambiguity and source uncertainty."
+  ]
+}

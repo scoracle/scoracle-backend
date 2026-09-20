@@ -2,7 +2,7 @@
 //!
 //! [`studio`] creates validated products from prepared material through an injected model.
 //! [`application`] owns concrete coordination, queue dispatch, and publication.
-//! [`runtime`] supplies routing, transports, and exact queue operations;
+//! [`runtime`] supplies routing, transports, configuration and persistence primitives;
 //! [`evidence`] retrieves and prepares shared material. [`evaluation`] uses the same Studio contracts.
 //!
 //! The product model is **nine lenses, six of them accountable characters the seeker meets**:

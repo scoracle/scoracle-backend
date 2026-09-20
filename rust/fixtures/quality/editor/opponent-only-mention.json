@@ -1,0 +1,27 @@
+{
+  "expect": {
+    "article_relevant": true,
+    "name_kind_is": {
+      "Dragojevic": "person",
+      "Rangers": "club"
+    },
+    "names_include": [
+      "Dragojevic",
+      "Clement",
+      "Rangers"
+    ],
+    "reader_vetted": [
+      "West Ham United"
+    ],
+    "register_is": "neutral",
+    "story_type_is": "injury"
+  },
+  "name": "opponent-only-mention",
+  "prompt_version": "ep8",
+  "task": "editor",
+  "temperature": 0.0,
+  "user_prompt": "Source: skysports\nTitle: Why Vanja Dragojevic is absent from the Rangers squad against West Ham United\nRSS description: The defender was left out for Thursday's friendly.\n\nIdentity context, not event evidence. Distinguish current roles from career history; dated reporting may supersede these records. Unknown means unknown.\n\nHypothesis entities (from the query that found this article):\n- West Ham United\n\nArticle text:\nRangers defender Vanja Dragojevic was left out of the squad for Thursday's pre-season friendly, and manager Philippe Clement confirmed afterwards that the 22-year-old is managing a minor calf complaint picked up in training on Tuesday. Clement said the decision was purely precautionary and that Dragojevic is expected to return for the opening league fixture. The defender has made 14 appearances since arriving last summer and had been expected to start at the back. Rangers named a young side for the fixture, with several first-team regulars rested.\n\nReturn the JSON object now.",
+  "review": [
+    "Extract only article-supported claims and preserve entity ambiguity and source uncertainty."
+  ]
+}

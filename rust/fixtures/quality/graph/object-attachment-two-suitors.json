@@ -1,0 +1,30 @@
+{
+  "expect": {
+    "graph_candidate_types": [
+      "player",
+      "team",
+      "team"
+    ],
+    "persons_exclude": [
+      "Morgan Rogers"
+    ],
+    "persons_include": [
+      "Enzo Maresca:coach"
+    ],
+    "relations_exclude": [
+      "1:trade_rumor:3",
+      "1:trade_confirmed:3"
+    ],
+    "relations_include": [
+      "1:*:2"
+    ]
+  },
+  "name": "object-attachment-two-suitors",
+  "prompt_version": "g5",
+  "task": "graph",
+  "temperature": 0.2,
+  "user_prompt": "Article source: skysports\nPublished: 2026-07-19\nTitle: Chelsea agree £117m deal for Morgan Rogers\nText: Chelsea have agreed a £117m fee with Aston Villa for Morgan Rogers, with personal terms expected to be completed this week. Arsenal had pushed hard for the England midfielder earlier in the window but are now out of the race. Blues head coach Enzo Maresca is said to view Rogers as the final piece of his midfield rebuild.\n\nIdentity context, not event evidence. Distinguish current roles from career history; dated reporting may supersede these records. Unknown means unknown.\nKnown entities (use these numbers):\n1. Morgan Rogers (player, currently at Aston Villa)\n2. Chelsea (team)\n3. Arsenal (team)\n\nReturn the JSON now.",
+  "review": [
+    "Attach extracted relationships to the correct supplied entities; ordinary mentions do not establish relationships."
+  ]
+}

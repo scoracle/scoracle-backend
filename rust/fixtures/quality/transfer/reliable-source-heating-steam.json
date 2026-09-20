@@ -1,0 +1,30 @@
+{
+  "expect": {
+    "confidence_min": 0.6,
+    "subject_includes": [
+      "Andrade"
+    ],
+    "summary_excludes": [
+      "$",
+      "£",
+      "€",
+      "million"
+    ],
+    "summary_includes": [
+      "Bayern",
+      "Flamengo"
+    ],
+    "transfer_direction": "incoming",
+    "transfer_is_rumor": true,
+    "transfer_stage": "advanced_talks"
+  },
+  "name": "reliable-source-heating-steam",
+  "prompt_version": "t13",
+  "task": "transfer",
+  "temperature": 0.0,
+  "user_prompt": "Sport: FOOTBALL\nTeam: Bayern Munich\nPlayer: Mateus Andrade\nIdentity (the ONE specific player to judge): Mateus Andrade · Brazilian · currently at Flamengo · winger\nAffiliation: Mateus Andrade is not recorded at Bayern Munich. This alone establishes no pursuit or move; determine whether either is actually reported.\nEvidence (computed): 2 articles, 2 distinct sources; primary source: Fabrizio Romano.\n\nSource track record (measured — how these reporters' prior transfer claims resolved; weigh a claim by who is making it: a strong, early-calling source supports advancing the stage, a poor or unmeasured one keeps it cautious):\n- Fabrizio Romano: reliability 86/100 (28 of 33 tracked moves confirmed, 19 reported early).\n- Kicker: reliability 71/100 (18 of 26 tracked moves confirmed, 9 reported early).\n\nEntity memories for this proposed relationship:\n- Current story: tracked since Jun 20, peak coverage 62/100, computed likelihood 68/100 (heating up).\n\nNews headlines:\n- [Fabrizio Romano] Bayern in active talks with Flamengo for Andrade — Bayern and Flamengo are negotiating the fee, with personal terms already agreed on a five-year deal for the winger.\n- [Kicker] Bayern make Andrade their priority, open formal talks — Bayern's board have opened formal negotiations with Flamengo and see the Brazilian as their top target.\n\nReturn the JSON verdict now.",
+  "review": [
+    "Distinguish the proposed relationship from speculation, historical affiliation and unrelated people."
+  ],
+  "sport": "FOOTBALL"
+}

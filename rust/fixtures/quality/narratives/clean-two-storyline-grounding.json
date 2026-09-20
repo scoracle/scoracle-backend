@@ -1,0 +1,21 @@
+{
+  "expect": {
+    "all_cite_articles": true,
+    "max_article_num": 3,
+    "narratives_max": 6,
+    "narratives_min": 1,
+    "sources_any": [
+      "ESPN",
+      "Sacramento Bee",
+      "The Athletic"
+    ]
+  },
+  "name": "clean-two-storyline-grounding",
+  "prompt_version": "n30",
+  "task": "narratives",
+  "temperature": 0.0,
+  "user_prompt": "Entity: Marcus Vale (NBA player)\n\nRecent news (numbered):\n1. [The Athletic] Marcus Vale, Kings agree to four-year extension — Vale and the Kings finalized a four-year, $180M extension, sources say, keeping the wing in Sacramento through 2030.\n2. [ESPN] Kings lock up Marcus Vale on new deal — Sacramento reached agreement with Vale on a long-term extension Thursday, ending months of negotiations.\n3. [Sacramento Bee] Vale returns from ankle sprain, scores 27 — Vale played his first game back from a two-week ankle injury, leading the Kings with 27 points in a win.\n",
+  "review": [
+    "Keep claims attached to their supporting current articles; background memory is not another corroborating source."
+  ]
+}

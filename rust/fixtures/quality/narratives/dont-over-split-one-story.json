@@ -1,0 +1,21 @@
+{
+  "expect": {
+    "all_cite_articles": true,
+    "max_article_num": 3,
+    "narratives_max": 1,
+    "narratives_min": 1,
+    "sources_any": [
+      "ESPN",
+      "Sactown Sports",
+      "The Athletic"
+    ]
+  },
+  "name": "dont-over-split-one-story",
+  "prompt_version": "n30",
+  "task": "narratives",
+  "temperature": 0.0,
+  "user_prompt": "Entity: Leo Marsh (NBA player)\n\nRecent news (numbered):\n1. [ESPN] Leo Marsh to miss rest of season with torn ACL — Marsh suffered a torn ACL in Tuesday's game and will miss the remainder of the season, the team announced.\n2. [The Athletic] Marsh's ACL tear ends his season — Sources confirm Leo Marsh tore his ACL and is out for the year.\n3. [Sactown Sports] Marsh out for season after knee injury — The team confirmed Marsh's season-ending knee injury Wednesday.\n",
+  "review": [
+    "Keep claims attached to their supporting current articles; background memory is not another corroborating source."
+  ]
+}

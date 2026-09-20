@@ -1,0 +1,29 @@
+{
+  "expect": {
+    "article_relevant": true,
+    "key_facts_exclude": [
+      "surgery",
+      "season-ending"
+    ],
+    "key_facts_include": [
+      "hamstring"
+    ],
+    "names_include": [
+      "Saka",
+      "Arteta"
+    ],
+    "reader_vetted": [
+      "Arsenal"
+    ],
+    "register_is": "neutral",
+    "story_type_is": "injury"
+  },
+  "name": "injury-report-accept-no-invention",
+  "prompt_version": "ep8",
+  "task": "editor",
+  "temperature": 0.0,
+  "user_prompt": "Source: skysports\nTitle: Saka ruled out for six weeks with hamstring injury\nRSS description: Scans confirmed the tear on Monday.\n\nIdentity context, not event evidence. Distinguish current roles from career history; dated reporting may supersede these records. Unknown means unknown.\n\nHypothesis entities (from the query that found this article):\n- Arsenal\n\nArticle text:\nArsenal winger Bukayo Saka has been ruled out for around six weeks after scans confirmed a hamstring tear sustained in Sunday's win over Everton. The club have not put a firm date on his return and said only that they expect him back at some point after the November international break. Manager Mikel Arteta said the squad has cover in the position. Saka had started every league game this season.\n\nReturn the JSON object now.",
+  "review": [
+    "Extract only article-supported claims and preserve entity ambiguity and source uncertainty."
+  ]
+}

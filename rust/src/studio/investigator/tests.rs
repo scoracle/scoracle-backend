@@ -1,5 +1,5 @@
 //! The 5.7 adversarial fixture gate — every case in
-//! `fixtures/investigate_entity/cases.json` must decide exactly as written (100% or the
+//! `fixtures/contracts/identity-cases.json` must decide exactly as written (100% or the
 //! phase does not close). Cases feed [`gate::decide`] directly: the nrm name screen and
 //! the team discriminator arrive as recorded inputs (they belong to SQL — mig 198), so
 //! what these fixtures pin is the DECISION LOGIC — the part a silent edit could bend.
@@ -67,7 +67,7 @@ fn verdict_label(v: &Verdict) -> String {
 
 #[test]
 fn adversarial_fixture_gate_is_one_hundred_percent() {
-    let raw = include_str!("../../../fixtures/investigate_entity/cases.json");
+    let raw = include_str!("../../../fixtures/contracts/identity-cases.json");
     let doc: Value = serde_json::from_str(raw).expect("cases.json parses");
     let cases = doc["cases"].as_array().expect("cases array");
     assert!(

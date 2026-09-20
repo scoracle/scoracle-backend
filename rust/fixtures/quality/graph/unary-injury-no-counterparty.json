@@ -1,0 +1,22 @@
+{
+  "expect": {
+    "graph_candidate_types": [
+      "player",
+      "team"
+    ],
+    "relations_exclude": [
+      "1:injury:2"
+    ],
+    "relations_include": [
+      "1:injury:-"
+    ]
+  },
+  "name": "unary-injury-no-counterparty",
+  "prompt_version": "g5",
+  "task": "graph",
+  "temperature": 0.2,
+  "user_prompt": "Article source: skysports\nPublished: 2026-07-19\nTitle: Saka ruled out for six weeks with hamstring injury\nText: Arsenal winger Bukayo Saka has been ruled out for around six weeks after scans confirmed a hamstring tear sustained in Sunday's win. The club expect him back after the November international break.\n\nIdentity context, not event evidence. Distinguish current roles from career history; dated reporting may supersede these records. Unknown means unknown.\nKnown entities (use these numbers):\n1. Bukayo Saka (player, currently at Arsenal)\n2. Arsenal (team)\n\nReturn the JSON now.",
+  "review": [
+    "Attach extracted relationships to the correct supplied entities; ordinary mentions do not establish relationships."
+  ]
+}

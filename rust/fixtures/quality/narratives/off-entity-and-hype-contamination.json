@@ -1,0 +1,15 @@
+{
+  "expect": {
+    "max_article_num": 3,
+    "narratives_max": 2,
+    "narratives_min": 1
+  },
+  "name": "off-entity-and-hype-contamination",
+  "prompt_version": "n30",
+  "task": "narratives",
+  "temperature": 0.0,
+  "user_prompt": "Entity: Andre Foss (NBA player)\n\nRecent news (numbered):\n1. [The Athletic] Andre Foss traded to the Nuggets in three-team deal — Foss is headed to Denver as part of a three-team trade finalized Wednesday, sources confirm.\n2. [HoopsHype] Andre Foss could be a sleeper MVP candidate, one exec says — Vague praise with no specifics about Foss's actual season.\n3. [ESPN] Rival guard Marcus Vale signs extension with Kings — Vale agreed to a four-year deal to stay in Sacramento, unrelated to Denver's moves.\n",
+  "review": [
+    "Keep claims attached to their supporting current articles; background memory is not another corroborating source."
+  ]
+}

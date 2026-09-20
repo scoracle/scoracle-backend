@@ -1,0 +1,28 @@
+{
+  "expect": {
+    "article_relevant": true,
+    "key_facts_include": [
+      "sixteen years"
+    ],
+    "names_exclude": [
+      "Goodison",
+      "Gwladys"
+    ],
+    "names_include": [
+      "Everton",
+      "Moyes"
+    ],
+    "reader_vetted": [
+      "Everton"
+    ],
+    "register_is": "outrage"
+  },
+  "name": "fan-protest-register-outrage",
+  "prompt_version": "ep8",
+  "task": "editor",
+  "temperature": 0.0,
+  "user_prompt": "Source: Liverpool Echo\nTitle: Everton fans stage second Goodison sit-in after 4-0 humiliation\nRSS description: Everton fans stage second Goodison sit-in after 4-0 humiliation Liverpool Echo\n\nIdentity context, not event evidence. Distinguish current roles from career history; dated reporting may supersede these records. Unknown means unknown.\n\nHypothesis entities (from the query that found this article):\n- Everton\n\nArticle text:\nEverton supporters staged a sit-in at Goodison Park for a second week running after Saturday's 4-0 defeat by Brentford, with several thousand fans remaining in the Gwladys Street end for twenty minutes after the final whistle. A banner reading \"SIXTEEN YEARS OF FAILURE\" was unfurled in the lower tier. Supporters' trust chair Denise Barrett-Baxendale said the mood had hardened: \"People are furious, and they have every right to be. This board has treated a great club with contempt.\" Manager David Moyes said he understood the anger and would not criticise the protest. Everton have taken four points from their opening seven fixtures.\n\nReturn the JSON object now.",
+  "review": [
+    "Extract only article-supported claims and preserve entity ambiguity and source uncertainty."
+  ]
+}

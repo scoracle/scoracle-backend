@@ -1,0 +1,11 @@
+{
+  "expect": {},
+  "name": "rising-confirmed",
+  "prompt_version": "momentum-s27",
+  "task": "momentum",
+  "temperature": 0.0,
+  "user_prompt": "Entity: Deshawn Carter (NBA player)\n\n=== THE FORM RAIL (recent statistical performance) ===\nForm is: moving clearly up, on a healthy sample\n\n=== THE MOOD RAIL (the feeling around them) ===\nMood stands: high\nMood is: moving hard up, on a healthy sample\n\nDirection (decided upstream, final): rising — strength of the move, also decided upstream: modest but real\n",
+  "review": [
+    "Both supplied trajectories rise; the synthesis should preserve that agreement without forecasting results."
+  ]
+}

@@ -6,8 +6,8 @@ use super::{
     TRANSFER_IDENTITY_ADJUDICATION_PROMPT_VERSION, TRANSFER_PROMPT_VERSION,
 };
 use crate::application::models::Models;
+use crate::application::queue::work::Item;
 use crate::runtime::route::Role;
-use crate::runtime::work::Item;
 use anyhow::{anyhow, Context, Result};
 use sqlx::{PgPool, Row};
 use tracing::warn;
@@ -432,7 +432,7 @@ pub(super) async fn maybe_apply_transfer_identity(
         .begin()
         .await
         .context("begin transfer identity application")?;
-    if !crate::runtime::work::lock_claim(&mut tx, item).await? {
+    if !crate::application::queue::work::lock_claim(&mut tx, item).await? {
         tx.rollback()
             .await
             .context("close superseded transfer identity application")?;

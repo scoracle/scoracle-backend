@@ -1,0 +1,11 @@
+{
+  "expect": {},
+  "name": "no-standout-restraint",
+  "prompt_version": "s44",
+  "task": "rating",
+  "temperature": 0.0,
+  "user_prompt": "Entity: Eli Stone (NBA player, SG); season 2025\nStats updated: unknown; sample: Games Played 25\n\nOverall standardized score (50 = average): 49\nValues: per-game averages, except percentages.\n\nCurrent-snapshot measurements. Percentiles, when present, rank the same measure among eligible entities in this sport and season; higher is better. Missing ranks and season comparisons are unmeasured.\n- Spot-up shooting: 38.1 (spot-up_shooting), percentile 64.0 (above average)\n- Catch-and-shoot volume: 4.4 (catch-and-shoot_volume), percentile 55.0 (average)\n- Turnovers: 3.7, percentile 23.0 (poor)\n",
+  "review": [
+    "An ordinary profile is a valid result; do not manufacture an exceptional strength or weakness."
+  ]
+}

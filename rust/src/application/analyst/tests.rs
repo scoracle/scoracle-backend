@@ -492,7 +492,7 @@ fn lifecycle_assignment(material: bool) -> Assignment {
 /// 256-258. Ordinary test runs compile but ignore these cases; opt in with TEST_DATABASE_URL.
 mod postgres_publication_fencing_tests {
     use super::*;
-    use crate::runtime::work;
+    use crate::application::queue::work;
     use sqlx::postgres::PgPoolOptions;
     use sqlx::PgPool;
     use std::time::Duration;
@@ -755,7 +755,7 @@ mod postgres_publication_fencing_tests {
                         .await
                         .unwrap();
                 }
-                crate::application::outbox::record_momentum_completed(&mut tx, &current)
+                crate::application::queue::outbox::record_momentum_completed(&mut tx, &current)
                     .await
                     .unwrap();
                 assert!(work::complete_in_transaction(&mut tx, &current)
@@ -801,12 +801,16 @@ mod postgres_publication_fencing_tests {
         // was observed and no model/runtime constructor is available here.
         let pool = self::pool().await;
         assert_eq!(
-            crate::application::outbox::drain(&pool, 1).await.unwrap(),
+            crate::application::queue::outbox::drain(&pool, 1)
+                .await
+                .unwrap(),
             1
         );
         assert_eq!(counts(&pool).await, (1, 0, 1));
         assert_eq!(
-            crate::application::outbox::drain(&pool, 1).await.unwrap(),
+            crate::application::queue::outbox::drain(&pool, 1)
+                .await
+                .unwrap(),
             0
         );
         clean(&pool).await;

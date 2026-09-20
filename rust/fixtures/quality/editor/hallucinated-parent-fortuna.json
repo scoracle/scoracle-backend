@@ -1,0 +1,34 @@
+{
+  "expect": {
+    "article_relevant": false,
+    "names_exclude": [
+      "Fortuna Düsseldorf"
+    ],
+    "reader_vetted": [
+      "Fortuna"
+    ],
+    "resolver_links_exclude": [
+      "Fortuna Düsseldorf"
+    ],
+    "resolver_surfaces": [
+      {
+        "entity_id": 1092,
+        "entity_type": "team",
+        "name": "Fortuna Düsseldorf"
+      },
+      {
+        "entity_id": 1092,
+        "entity_type": "team",
+        "name": "Fortuna"
+      }
+    ]
+  },
+  "name": "hallucinated-parent-fortuna",
+  "prompt_version": "ep8",
+  "task": "editor",
+  "temperature": 0.0,
+  "user_prompt": "Source: globenewswire\nTitle: Fortuna announces drilling results from the Séguéla mine\nRSS description: Q3 drilling program update.\n\nIdentity context, not event evidence. Distinguish current roles from career history; dated reporting may supersede these records. Unknown means unknown.\n\nHypothesis entities (from the query that found this article):\n- Fortuna\n\nArticle text:\nFortuna Mining Corp announced results from its ongoing drilling program at the Séguéla mine in Côte d'Ivoire, with intercepts including 8.5 g/t gold over 12 metres at the Sunbird deposit. Chief executive Jorge Ganoza said the results support a mine-life extension study planned for next year. The company also reported that processing throughput reached a record 4,100 tonnes per day in the quarter. Shares rose 3.2% in Toronto trading. Fortuna operates five mines across West Africa and Latin America.\n\nReturn the JSON object now.",
+  "review": [
+    "Extract only article-supported claims and preserve entity ambiguity and source uncertainty."
+  ]
+}

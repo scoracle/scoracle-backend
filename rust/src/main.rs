@@ -12,7 +12,9 @@ use scoracle_cognition::application::graph;
 use scoracle_cognition::application::insider;
 use scoracle_cognition::application::investigator::boxscore;
 use scoracle_cognition::application::models::Models;
-use scoracle_cognition::application::worker;
+use scoracle_cognition::application::queue::stage;
+use scoracle_cognition::application::queue::work;
+use scoracle_cognition::application::queue::worker;
 use scoracle_cognition::application::{
     analyst, influencer, journalist, oracle, scout as scout_application,
 };
@@ -22,8 +24,6 @@ use scoracle_cognition::runtime::db;
 use scoracle_cognition::runtime::providers::ollama;
 use scoracle_cognition::runtime::providers::openai;
 use scoracle_cognition::runtime::route::Router;
-use scoracle_cognition::runtime::stage;
-use scoracle_cognition::runtime::work;
 use std::collections::HashSet;
 use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;

@@ -1,0 +1,11 @@
+{
+  "expect": {},
+  "name": "sparse-samples-stay-steady",
+  "prompt_version": "momentum-s27",
+  "task": "momentum",
+  "temperature": 0.0,
+  "user_prompt": "Entity: Malik Stone (NBA player)\n\n=== THE FORM RAIL (recent statistical performance) ===\nForm is: flat on a thin sample\n\n=== THE MOOD RAIL (the feeling around them) ===\nMood stands: middling\nMood is: flat on a thin sample\n\nDirection (decided upstream, final): steady — strength of the move, also decided upstream: genuinely flat — no measured lean\n",
+  "review": [
+    "Treat sparse history as limited evidence, not proof of either stability or a confident directional trend."
+  ]
+}

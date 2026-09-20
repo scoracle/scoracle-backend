@@ -1,0 +1,35 @@
+{
+  "expect": {
+    "article_relevant": true,
+    "names_include": [
+      "Vinicius"
+    ],
+    "reader_vetted": [
+      "Real Madrid"
+    ],
+    "resolver_refused_include": [
+      "Vinicius"
+    ],
+    "resolver_surfaces": [
+      {
+        "entity_id": 600687,
+        "entity_type": "player",
+        "name": "Vinicius"
+      },
+      {
+        "entity_id": 831044,
+        "entity_type": "player",
+        "name": "Vinicius"
+      }
+    ],
+    "story_type_is": "performance"
+  },
+  "name": "namesake-tie-vinicius",
+  "prompt_version": "ep8",
+  "task": "editor",
+  "temperature": 0.0,
+  "user_prompt": "Source: marca\nTitle: Vinicius rescues point for Real Madrid at Sevilla\nRSS description: The forward equalises in stoppage time.\n\nIdentity context, not event evidence. Distinguish current roles from career history; dated reporting may supersede these records. Unknown means unknown.\n\nHypothesis entities (from the query that found this article):\n- Real Madrid\n\nArticle text:\nVinicius equalised deep into stoppage time as Real Madrid salvaged a 1-1 draw at Sevilla on Saturday night. The forward turned home a cross from the left after Sevilla had defended their lead for over an hour. Real Madrid remain two points clear at the top of the table. Coach Carlo Ancelotti said the performance was not good enough but praised the response after the break. Sevilla remain twelfth after a fifth draw of the season.\n\nReturn the JSON object now.",
+  "review": [
+    "Extract only article-supported claims and preserve entity ambiguity and source uncertainty."
+  ]
+}

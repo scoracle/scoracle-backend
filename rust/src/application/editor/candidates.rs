@@ -15,7 +15,7 @@
 
 use super::derive::{RefusedName, Resolved};
 use super::NameMention;
-use crate::runtime::work::{enqueue, Item, Stage};
+use crate::application::queue::work::{enqueue, Item, Stage};
 use anyhow::{Context, Result};
 use sqlx::{PgConnection, Row};
 use tracing::info;

@@ -4,11 +4,11 @@
 //! assignment preparation, queue policy, exact-claim publication, and diagnostic ledger writes.
 
 use crate::application::models::Models;
+use crate::application::queue::stage::{HandleOutcome, WorkHandler};
+use crate::application::queue::work::{self, Item, Stage};
 use crate::evidence::memories::{self, MemoryRequest, Mission};
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
 use crate::runtime::route::Role;
-use crate::runtime::stage::{HandleOutcome, WorkHandler};
-use crate::runtime::work::{self, Item, Stage};
 use crate::studio::model::GenerateOptions;
 use crate::studio::scout::{
     self, Assignment, RatingBuild, RatingExclusions, RatingOutput, Subject, MAX_STAT_FACTS,
@@ -658,7 +658,7 @@ async fn commit_claimed(
             .await?,
         ),
     };
-    crate::application::outbox::record_rating_completed(
+    crate::application::queue::outbox::record_rating_completed(
         &mut tx,
         item,
         matches!(prepared, Prepared::Product(_)),
@@ -694,7 +694,7 @@ impl WorkHandler for RatingHandler {
     }
 
     fn slot_group(&self) -> Option<(&'static str, usize)> {
-        Some(crate::runtime::stage::ARCHBOX_SLOTS)
+        Some(crate::application::queue::stage::ARCHBOX_SLOTS)
     }
 
     async fn handle(&self, item: &Item) -> Result<HandleOutcome> {

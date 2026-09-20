@@ -1,5 +1,5 @@
 use super::*;
-use crate::runtime::{
+use crate::application::queue::{
     stage::HandleOutcome,
     work::{self, Item, Stage},
 };

@@ -3,9 +3,9 @@
 //! Sources are data-driven through `boxscore_sources`. Retrieval is implemented;
 //! discovery, parser families, and canonical-table promotion are not.
 
-use crate::runtime::fetch::{BudgetedFetchError, BudgetedFetcher, FetchPolicy};
-use crate::runtime::stage::{HandleOutcome, WorkHandler};
-use crate::runtime::work::{self, Item, Stage};
+use crate::application::queue::stage::{HandleOutcome, WorkHandler};
+use crate::application::queue::work::{self, Item, Stage};
+use crate::evidence::fetch::{BudgetedFetchError, BudgetedFetcher, FetchPolicy};
 use crate::util::hash_components;
 use crate::util::truncate;
 use anyhow::{anyhow, Context, Result};

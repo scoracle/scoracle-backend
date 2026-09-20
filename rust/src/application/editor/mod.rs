@@ -1,12 +1,12 @@
 //! Editor application: fetch and prepare, ask Studio, then publish under the exact queue claim.
 use crate::application::models::Models;
-use crate::runtime::fetch::{
+use crate::application::queue::stage::{HandleOutcome, WorkHandler, ARCHBOX_SLOTS};
+use crate::application::queue::work::{self, Item, Stage};
+use crate::evidence::fetch::{
     content_hash, count_words, fetch_article, looks_paywalled, FetchedArticle, ARTICLE_MIN_WORDS,
 };
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
 use crate::runtime::route::Role;
-use crate::runtime::stage::{HandleOutcome, WorkHandler, ARCHBOX_SLOTS};
-use crate::runtime::work::{self, Item, Stage};
 use crate::studio::editor::{
     derive, prompt, Assignment, EditorEntityRole, EditorRead, NameMention, EDITOR_CONTRACT_VERSION,
 };

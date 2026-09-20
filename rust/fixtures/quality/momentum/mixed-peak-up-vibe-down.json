@@ -1,0 +1,11 @@
+{
+  "expect": {},
+  "name": "mixed-peak-up-vibe-down",
+  "prompt_version": "momentum-s27",
+  "task": "momentum",
+  "temperature": 0.0,
+  "user_prompt": "Entity: Jalen Rowe (NBA player)\n\n=== THE FORM RAIL (recent statistical performance) ===\nForm is: drifting up, on a modest sample\n\n=== THE MOOD RAIL (the feeling around them) ===\nMood stands: low\nMood is: drifting down, on a modest sample\n\nDirection (decided upstream, final): steady — strength of the move, also decided upstream: genuinely flat — no measured lean\n",
+  "review": [
+    "Recognize that performance rises while sentiment falls; a near-flat combined reading must not erase the disagreement."
+  ]
+}

@@ -6,11 +6,11 @@
 use crate::application::models::Models;
 use crate::application::oracle;
 use crate::application::products::EntityKey;
+use crate::application::queue::stage::{HandleOutcome, WorkHandler};
+use crate::application::queue::work::{self, Item, Stage};
 use crate::evidence::memories::{self, MemoryRequest, Mission};
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
 use crate::runtime::route::Role;
-use crate::runtime::stage::{HandleOutcome, WorkHandler};
-use crate::runtime::work::{self, Item, Stage};
 use crate::studio::oracle::{SynthMomentum, SynthRating, SynthVibe};
 use crate::studio::{analyst, Studio};
 use crate::util::hash_components;
@@ -311,7 +311,7 @@ async fn commit_claimed(
             Some(persist_momentum_summary(&mut tx, item, sport, output).await?)
         }
     };
-    crate::application::outbox::record_momentum_completed(&mut tx, item).await?;
+    crate::application::queue::outbox::record_momentum_completed(&mut tx, item).await?;
     if !work::complete_in_transaction(&mut tx, item).await? {
         bail!("momentum claim changed while its publication transaction held the row lock");
     }

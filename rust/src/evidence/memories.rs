@@ -333,6 +333,24 @@ impl Package {
         view.groups.clear();
 
         for group in &self.groups {
+            // A current-season cohort row still embeds prior-season ratings,
+            // deltas and peer movements. Its PresentEvidence section does not
+            // make it safe for a view that forbids cross-season comparisons.
+            if group.id == "cohort trajectory" {
+                view.omissions.push(Omission {
+                    editorial: false,
+                    group: group.id.clone(),
+                    reason:
+                        "cross-season cohort context withheld from a current-snapshot model view"
+                            .into(),
+                    sources: group
+                        .records
+                        .iter()
+                        .flat_map(|r| r.sources.clone())
+                        .collect(),
+                });
+                continue;
+            }
             let mut records = group
                 .records
                 .iter()
@@ -1098,6 +1116,46 @@ mod tests {
         assert!(rendered.contains("only one appearance"));
         assert!(rendered.contains("not a basis for a directional season comparison"));
         assert!(!rendered.contains("Like-for-like measurements"));
+    }
+
+    #[test]
+    fn current_snapshot_withholds_embedded_cohort_history_across_sports() {
+        for sport in ["NBA", "NFL", "FOOTBALL"] {
+            for entity_type in ["player", "team"] {
+                let mut package = test_package();
+                package.entity.sport = sport.into();
+                package.entity.entity_type = entity_type.into();
+                package.groups.push(EvidenceGroup {
+                    id: "cohort trajectory".into(), required: false,
+                    records: vec![Record {
+                        section: Section::PresentEvidence,
+                        sources: vec![SourceRef { table: "analytics_entity_context".into(), key: format!("{sport}/{entity_type}/18/2026/8") }],
+                        observed_at: None, observed_unix: None,
+                        // Chelsea's production shape: history embedded in a current row.
+                        data: json!({"season":2026,"rating":-0.24,"prior_season":2025,"prior_rating":2.62,"delta":-2.86,"delta_percentile":31.3,"peer_count":17,"peer_delta":{"median":-0.91,"p25":-3.86,"p75":3.61}}),
+                    }],
+                    qualifications: vec!["Compare this movement against its peers.".into()],
+                });
+                let original = package.render_for_model().unwrap();
+                let original_hash = package.fingerprint().unwrap();
+                assert!(original.contains("prior rating"));
+                let view = package.current_snapshot_view().unwrap();
+                let rendered = view.render_for_model().unwrap();
+                assert!(!rendered.contains("Cohort trajectory"));
+                assert!(!rendered.contains("prior rating"));
+                assert!(!rendered.contains("delta percentile"));
+                let omitted = view
+                    .omissions
+                    .iter()
+                    .find(|o| o.group == "cohort trajectory")
+                    .unwrap();
+                assert!(!omitted.editorial);
+                assert_eq!(omitted.sources[0].table, "analytics_entity_context");
+                assert_eq!(package.fingerprint().unwrap(), original_hash);
+                assert_eq!(package.render_for_model().unwrap(), original);
+                assert_ne!(view.fingerprint().unwrap(), original_hash);
+            }
+        }
     }
 
     #[test]

@@ -166,5 +166,5 @@ go test ./...
 - `rust/src/studio/` - Studio, the in-house harness and migrated character creation.
 - `rust/src/application/` - explicit evidence, persistence, and work-coordination adapters.
 - `rust/src/evidence/memories` - sourced context selection, fingerprints, and rendering.
-- `rust/src/runtime/work.rs`, `rust/src/application/worker.rs` - current durable queue runtime.
+- `rust/src/application/queue/work.rs`, `rust/src/application/queue/worker.rs` - current durable queue runtime.
 - `sql/` - schema, migrations, functions, views, and snapshots.

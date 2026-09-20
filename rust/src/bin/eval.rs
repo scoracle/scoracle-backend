@@ -1,61 +1,18 @@
-//! A/B model eval harness — the router's eval discipline made executable (Plan §2.2), now
-//! generalized to a per-lens TASK REGISTRY (Multi-Lens Cognition Panel, Phase 3).
+//! Read-only model evaluation, evidence inspection and assignment replay.
 //!
-//! It runs a task's INCUMBENT (`router.for_role`) AND its optional CANDIDATE (`router.candidate_for`)
-//! over a set of cases, scoring each via the task's `evaluate`. This is what turns "add a model"
-//! from an assertion into an experiment: a model is adopted ONLY on a measured win, and adoption is
-//! a HUMAN editing `COGNITION_ROUTE_<ROLE>` after reading this report — the router NEVER
-//! auto-promotes. "A new model is a config change + an eval win — never an act of faith."
-//!
-//! Three modes:
-//!   - LIVE (`eval [--task T] <entity:id:sport[=label]> ...`): builds each task's real production
-//!     prompt from the LIVE corpus, at temperature 0 (deterministic). MAE vs a `=label` where the
-//!     task has a numeric axis; throughput + side-by-side prose always. NOT reproducible once the
-//!     corpus moves on.
-//!   - FIXTURES (`eval --task T --fixtures [filter]`): runs FROZEN fixtures from `fixtures/<T>/`
-//!     through the model and checks each fixture's `Expect` properties → a per-property ✓/✗ table.
-//!     Reproducible — the regression gate. DB-free (Router-only).
-//!   - CAPTURE (`eval --capture --task T <entity:id:sport>`): emits a fixture skeleton (frozen
-//!     system + built prompt, empty `expect`) to STDOUT for a human to annotate.
-//!   - LEDGER CAPTURE (`eval --capture-ledger <ledger_id> --task T`): emits a fixture skeleton from
-//!     the exact request/prompt persisted in `public.cognition_ledger`, so future fixtures can come
-//!     from production diagnostics instead of hand-capture.
-//!
-//! Two live measurement axes:
-//!   - QUALITY: the side-by-side prose per entity — a blind read of which answer is better. No
-//!     labels required.
-//!   - THROUGHPUT: per-call tok/s from `GenerateResult` (eval_count / total_duration). The batch
-//!     runs all-incumbent then all-candidate, so the candidate's FIRST call carries the single
-//!     model-swap cost (cold load) and its warm calls show steady tok/s.
-//!   - MAE (optional): when a case carries `=human_label` and the task scores numerically.
-//!
-//! Scoring runs at temperature 0 (deterministic, reproducible, free of single-sample sampling
-//! noise) over the SAME public loaders + prompt the production handler uses — so the eval measures
-//! the real prompt, only the backend differs.
-//!
-//! SAFETY: this is read-only on the live pipeline. It NEVER claims/enqueues
-//! `pipeline_work`, NEVER writes a product table, and NEVER runs the service binary. Fixture mode
-//! builds no DB pool at all; capture writes only stdout. It reads the corpus tables and POSTs to
-//! Ollama; nothing else.
-//!
-//! Usage (env from .env.local: DATABASE_PRIVATE_URL + OLLAMA_*):
-//!   eval                                          # print the resolved route table + usage
-//!   eval player:237:NBA team:14:NBA               # vibe (default): label-free quality+throughput A/B
-//!   eval player:237:NBA=72                        # + MAE vs a human label
-//!   eval --task oracle player:237:NBA              # a different lens (live)
-//!   eval --task transfer team:14:player:237:NBA   # transfer live pair A/B
-//!   eval --task oracle --fixtures                  # frozen-fixture gate (reproducible)
-//!   eval --capture --task oracle player:237:NBA    # emit a fixture skeleton to stdout
-//!   eval --capture-ledger 123 --task oracle         # fixture skeleton from cognition_ledger row 123
-//!   COGNITION_ROUTE_ORACLE_LOGIC_CANDIDATE=mistral:7b eval --task oracle player:237:NBA  # A/B a challenger
-//!   COGNITION_ROUTE_STATS_LOGIC_CANDIDATE=qwen3:8b eval --task rating --fixtures
-//!   COGNITION_ROUTE_STATS_LOGIC_CANDIDATE=qwen3:8b eval --task momentum --fixtures
+//! `--fixtures` uses current Studio system/schema with version-checked frozen evidence.
+//! `--capture` prepares a current quality case; add expectations and manual review criteria.
+//! `--capture-ledger` and `--replay-fixtures DIR` preserve historical prompts for explicit replay.
+//! `--capture-assignment --task rating` freezes complete Scout assignments; `--replay-assignment`
+//! exercises production guards without database reads. `--inspect` reads memory, reports or identity.
+//! Live A/B cases compare configured routes. No mode publishes products or claims queue work.
+//! Mechanical checks are useful, but model adoption requires a human quality review.
 
 use anyhow::{anyhow, Context, Result};
 use scoracle_cognition::application::models::Models;
 use scoracle_cognition::evaluation::judge::VoiceSpec;
 use scoracle_cognition::evaluation::tasks::{
-    all_task_names, fixture_drift, resolve_task, CaseVerdict, EntitySpec, Expect, Fixture, LensTask,
+    all_task_names, resolve_task, CaseVerdict, EntitySpec, Expect, Fixture, LensTask,
 };
 use scoracle_cognition::runtime::config::{Config, RouteConfig};
 use scoracle_cognition::runtime::db;
@@ -68,9 +25,12 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
-/// Deterministic eval temperature — the live comparison is reproducible and free of sampling noise
-/// (production stages sample warmer; the A/B compares each model's most-likely answer). Fixtures
-/// carry their own frozen temperature.
+#[path = "eval/inspection.rs"]
+mod inspection;
+#[path = "eval/scout_replay.rs"]
+mod scout_replay;
+
+/// Low-variance live comparison temperature; model output is not guaranteed deterministic.
 const EVAL_TEMPERATURE: f64 = 0.0;
 
 /// EvalCase pairs an entity with its OPTIONAL human label — the ground truth for the MAE axis. The
@@ -124,9 +84,18 @@ struct EvalReport {
 
 enum Mode {
     Live,
-    Fixtures { filter: Option<String> },
+    Fixtures {
+        filter: Option<String>,
+        replay: Option<PathBuf>,
+    },
     Capture,
-    CaptureLedger { ledger_id: i64 },
+    CaptureAssignment,
+    ReplayAssignment {
+        path: PathBuf,
+    },
+    CaptureLedger {
+        ledger_id: i64,
+    },
 }
 
 struct Args {
@@ -136,25 +105,17 @@ struct Args {
     /// --judge: score each reply with the independent critic model (COGNITION_JUDGE_MODEL,
     /// default gemma3:4b) on specificity/grounding/non-genericness — the Phase 4 quality axis.
     judge: bool,
-    /// `--live-system`: send the CURRENT `EDITOR_SYSTEM_PROMPT` (whatever the task's
-    /// `gen_options` carries) instead of the fixture's frozen `system`.
-    ///
-    /// **Why this exists.** A fixture freezes the system prompt so a replay is reproducible — that
-    /// is right for "did the MODEL change?", and it is exactly wrong for "did the PROMPT change
-    /// help?", because the frozen copy silently wins and the edit under test is never sent. Prompt
-    /// tuning (D-T40: the Editor's system prompt is 1,431 tok, 48% of its window) needs the other
-    /// question, so it is opt-in and off by default: the fixture stays the reproducible artifact
-    /// it was, and an A/B says out loud that it is one.
-    ///
-    /// The `user_prompt` and `expect` still come from the fixture — same articles, same rubric,
-    /// one variable.
-    live_system: bool,
+    season: Option<i32>,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let argv: Vec<_> = std::env::args().skip(1).collect();
     let cfg = Config::from_env()?;
-    let args = parse_args(std::env::args().skip(1))?;
+    if argv.first().is_some_and(|arg| arg == "--inspect") {
+        return inspection::run(&cfg, &argv[1..]).await;
+    }
+    let args = parse_args(argv.into_iter())?;
 
     let task = resolve_task(&args.task_name).ok_or_else(|| {
         anyhow!(
@@ -188,17 +149,24 @@ async fn main() -> Result<()> {
 
     match args.mode {
         Mode::Live => run_live(&cfg, task.as_ref(), &args.cases).await,
-        Mode::Fixtures { filter } => {
+        Mode::Fixtures { filter, replay } => {
             run_fixtures(
                 &cfg,
                 task.as_ref(),
                 filter.as_deref(),
                 judge_backend,
-                args.live_system,
+                replay.as_deref(),
             )
             .await
         }
         Mode::Capture => run_capture(&cfg, task.as_ref(), &args.cases).await,
+        Mode::CaptureAssignment => {
+            if task.name() != "rating" {
+                anyhow::bail!("--capture-assignment currently supports --task rating only");
+            }
+            run_capture_assignments(&cfg, &args.cases, args.season).await
+        }
+        Mode::ReplayAssignment { path } => scout_replay::run(&cfg, &path).await,
         Mode::CaptureLedger { ledger_id } => {
             run_capture_ledger(&cfg, task.as_ref(), ledger_id).await
         }
@@ -211,7 +179,7 @@ fn parse_args(argv: impl Iterator<Item = String>) -> Result<Args> {
     let mut task_name = "vibe".to_string();
     let mut mode = Mode::Live;
     let mut judge = false;
-    let mut live_system = false;
+    let mut season = None;
     let mut positionals: Vec<String> = Vec::new();
 
     let mut it = argv.peekable();
@@ -228,11 +196,39 @@ fn parse_args(argv: impl Iterator<Item = String>) -> Result<Args> {
                     Some(n) if !n.starts_with("--") => it.next(),
                     _ => None,
                 };
-                mode = Mode::Fixtures { filter };
+                mode = Mode::Fixtures {
+                    filter,
+                    replay: None,
+                };
             }
             "--judge" => judge = true,
-            "--live-system" => live_system = true,
+            "--replay-fixtures" => {
+                let path = it.next().ok_or_else(|| {
+                    anyhow!("--replay-fixtures needs a historical fixture directory")
+                })?;
+                mode = Mode::Fixtures {
+                    filter: None,
+                    replay: Some(path.into()),
+                };
+            }
+            "--season" => {
+                season = Some(
+                    it.next()
+                        .ok_or_else(|| anyhow!("--season needs a year"))?
+                        .parse()
+                        .context("invalid season")?,
+                );
+            }
             "--capture" => mode = Mode::Capture,
+            "--capture-assignment" => mode = Mode::CaptureAssignment,
+            "--replay-assignment" => {
+                mode = Mode::ReplayAssignment {
+                    path: it
+                        .next()
+                        .ok_or_else(|| anyhow!("--replay-assignment needs a captured JSONL file"))?
+                        .into(),
+                };
+            }
             "--capture-ledger" => {
                 let raw = it
                     .next()
@@ -246,6 +242,10 @@ fn parse_args(argv: impl Iterator<Item = String>) -> Result<Args> {
         }
     }
 
+    anyhow::ensure!(
+        season.is_none() || matches!(mode, Mode::CaptureAssignment),
+        "--season is supported only with --capture-assignment"
+    );
     let cases = positionals
         .iter()
         .map(|s| parse_case(s))
@@ -255,7 +255,7 @@ fn parse_args(argv: impl Iterator<Item = String>) -> Result<Args> {
         mode,
         cases,
         judge,
-        live_system,
+        season,
     })
 }
 
@@ -272,11 +272,17 @@ async fn run_live(cfg: &Config, task: &dyn LensTask, cases: &[EvalCase]) -> Resu
              tasks: {}\n  \
              eval player:237:NBA team:14:NBA            (vibe, label-free quality+throughput A/B)\n  \
              eval player:237:NBA=72                     (+ MAE vs a human label)\n  \
-             eval --task oracle --fixtures               (frozen-fixture regression gate)\n  \
+             eval --inspect memory SPORT TYPE ID MISSION [SEASON [PAIR_TEAM_ID]]\n  \
+             eval --inspect reports SPORT TYPE ID\n  \
+             eval --inspect identity SPORT PLAYER_ID\n  \
+             eval --task oracle --fixtures               (current-contract quality cases)\n  \
              eval --capture --task oracle player:237:NBA (emit a fixture skeleton to stdout)\n  \
+             eval --replay-fixtures DIR --task oracle     (explicit historical prompt replay)\n  \
              eval --capture-ledger 123 --task oracle      (emit a fixture skeleton from cognition_ledger)\n  \
+             eval --capture-assignment --task rating player:237:NBA (assignment JSONL; optional --season YEAR)\n  \
+             eval --replay-assignment capture.jsonl      (frozen Scout guards and correction; no database reads)\n  \
              eval --task transfer team:14:player:237:NBA (transfer live pair A/B)\n  \
-             eval --task rating --fixtures               (PEAK/stat reasoning fixture gate)\n  \
+             eval --task rating --fixtures               (current Scout quality cases)\n  \
              eval --task momentum --fixtures             (trajectory reasoning fixture gate)\n  \
              set COGNITION_ROUTE_{}_CANDIDATE=<model> to enable the A/B challenger",
             all_task_names().join(", "),
@@ -290,7 +296,7 @@ async fn run_live(cfg: &Config, task: &dyn LensTask, cases: &[EvalCase]) -> Resu
     let candidate = models.router.candidate_for(task.role());
 
     println!(
-        "eval — task={} role={} n={} temp={} (deterministic)",
+        "eval — task={} role={} n={} temp={}",
         task.name(),
         task.role().as_str(),
         cases.len(),
@@ -415,68 +421,32 @@ async fn score_backend(
 }
 
 // ---------------------------------------------------------------------------
-// FIXTURE mode — the reproducible regression gate (DB-free, Router-only)
+// FIXTURE mode — current quality cases or explicit historical replay (DB-free)
 // ---------------------------------------------------------------------------
 
-/// **THE GATE IS ONLY VALID WITH THE COGNITION DAEMON STOPPED. STOP IT FIRST:**
-///
-/// ```text
-/// systemctl --user stop scoracle-cognition
-/// cargo build --bin eval && ./target/debug/eval --task editor --fixtures
-/// systemctl --user start scoracle-cognition
-/// ```
-///
-/// This is not hygiene, it is the difference between a gauge and a rumour. **Measured on archbox,
-/// 2026-08-06 (D-T19), ten runs of the editor set, same binary, same fixtures, same `gemma3:4b`,
-/// every fixture pinned at `temperature: 0.0`:**
-///
-/// | daemon | scores | model output across the 5 runs | wall |
-/// |---|---|---|---|
-/// | **stopped** | **47/53 ×5** | ONE hash — all 53 checks identical every run | **96s** |
-/// | running | 47,47,47,47,48 | FIVE hashes — all five runs differed | ~290s |
-///
-/// Nothing inside this eval is concurrent — the fixture loop is sequential and the Router is
-/// built with one permit — but the SERVER is. `scoracle-cognition` drains the editor stage
-/// against the same Ollama at `OLLAMA_NUM_PARALLEL=4` (5–12 live reads/minute, counted in
-/// `editor_reads`, not in the journal), so the gate's requests get batched alongside live
-/// traffic. Batched inference changes the floating-point reduction order, and a changed reduction
-/// order moves the argmax on near-ties — which is why GREEDY DECODE IS NOT DETERMINISTIC ON A
-/// BUSY GPU. Under load the `fan-protest-register-outrage` fixture emitted 2 names on one run and
-/// 5 on the next, off a byte-identical prompt.
-///
-/// **A `seed` would not have fixed this and was not added.** At `temperature: 0.0` the sampler is
-/// greedy and never consults the RNG; the divergence is upstream of sampling, in the kernels. The
-/// only lever that pins it is an idle server.
-///
-/// **Read the summary line with suspicion — it hides its own movement.** Under load the tally sat
-/// at 47/53 four times running while two checks on ONE fixture flipped in OPPOSITE directions
-/// (`name_found[Moyes]` and `name_absent[Gwladys]` are the same coin: a longer `names[]` catches
-/// the manager and the stand together). A stable total is not a stable gate. When comparing runs,
-/// diff the per-check table, never the score.
 async fn run_fixtures(
     cfg: &Config,
     task: &dyn LensTask,
     filter: Option<&str>,
     judge: Option<Arc<dyn Inference>>,
-    live_system: bool,
+    replay: Option<&Path>,
 ) -> Result<()> {
-    // Router-only: no DB pool or application dependencies — fixtures carry their own frozen prompts.
+    // Router-only: fixtures require no database or application dependencies.
     let router = Router::from_config(&cfg.route, cfg.ollama_timeout, 1)?;
     let incumbent = router.for_role(task.role());
     let candidate = router.candidate_for(task.role());
 
-    let dir = fixtures_dir(task.name());
+    let dir = replay
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| fixtures_dir(task.name()));
     let fixtures = load_fixtures(&dir, filter)
         .with_context(|| format!("loading fixtures from {}", dir.display()))?;
-    if fixtures.is_empty() {
-        println!(
-            "no fixtures in {}/ (filter={:?}). Author some, or `eval --capture --task {} <entity>`.",
-            dir.display(),
-            filter,
-            task.name()
-        );
-        return Ok(());
-    }
+    anyhow::ensure!(
+        !fixtures.is_empty(),
+        "no fixtures in {} matching {:?}",
+        dir.display(),
+        filter
+    );
 
     println!(
         "fixtures — task={} role={} n={} dir={}/  incumbent={}",
@@ -492,25 +462,18 @@ async fn run_fixtures(
         task.parameters().mandate,
         task.parameters().credibility_guard
     );
-    // D-T19: the one condition that decides whether this run is a measurement or a rumour.
-    // Stated on every run because a doc comment cannot be read by someone who never opens the file.
+    for fx in &fixtures {
+        validate_fixture(fx, task, replay.is_some())?;
+    }
     println!(
-        "VALID ONLY WITH THE DAEMON STOPPED — `systemctl --user stop scoracle-cognition` first, or\n\
-         these numbers are a busy GPU's, not the model's (greedy decode is not deterministic under\n\
-         batching). Comparing two runs? Diff the per-check table, never the score."
-    );
-    // Which prompt was actually sent is the difference between two incomparable runs, so it is
-    // stated rather than inferred from the flags someone remembers typing.
-    println!(
-        "system prompt: {}",
-        if live_system {
-            "LIVE (--live-system) — the current source constant, NOT the fixture's frozen copy. \
-             Comparable only with another --live-system run."
+        "{}",
+        if replay.is_some() {
+            "HISTORICAL REPLAY: frozen prompts with current provider options; not a current-contract gate."
         } else {
-            "FROZEN (from each fixture) — reproducible replay; a source-side prompt edit is NOT \
-             under test in this run."
+            "CURRENT CONTRACT: current system and schema with version-checked frozen evidence."
         }
     );
+    println!("Review individual claims and voice; generation varies with model and load.");
 
     let mut inc_pass = 0usize;
     let mut inc_total = 0usize;
@@ -519,10 +482,10 @@ async fn run_fixtures(
     let mut inc_judge = JudgeAgg::default();
     let mut cand_judge = JudgeAgg::default();
     for fx in &fixtures {
-        if let Some(warn) = fixture_drift(fx, task) {
-            println!("  ⚠ WARN {warn}");
-        }
         println!("\n[{}]  (temp={})", fx.name, fx.temperature);
+        for criterion in &fx.review {
+            println!("  Review: {criterion}");
+        }
         let (p, t) = run_one_fixture(
             "A",
             &incumbent,
@@ -530,7 +493,7 @@ async fn run_fixtures(
             judge.as_ref(),
             &mut inc_judge,
             fx,
-            live_system,
+            replay.is_some(),
         )
         .await;
         inc_pass += p;
@@ -543,7 +506,7 @@ async fn run_fixtures(
                 judge.as_ref(),
                 &mut cand_judge,
                 fx,
-                live_system,
+                replay.is_some(),
             )
             .await;
             cand_pass += p;
@@ -568,14 +531,15 @@ async fn run_fixtures(
         }
     }
     println!(
-        "(a red check on a 'target' fixture is the documented honesty gap, not a harness failure)"
+        "Mechanical checks do not establish semantic quality; the review criteria remain manual."
     );
+    if inc_pass < inc_total || cand_pass < cand_total {
+        anyhow::bail!("fixture checks failed; see individual outcomes above");
+    }
     Ok(())
 }
 
-/// run_one_fixture runs one frozen fixture through one backend and prints the per-property table.
-/// It uses the fixture's FROZEN system prompt (the point of a frozen fixture) with the task's
-/// num_predict/json_mode. Returns (checks_passed, checks_total) for the summary tally.
+/// Evaluate current evidence with the live system, or explicitly replay a historical prompt.
 #[allow(clippy::too_many_arguments)]
 async fn run_one_fixture(
     label: &str,
@@ -585,30 +549,24 @@ async fn run_one_fixture(
     judge: Option<&Arc<dyn Inference>>,
     judge_agg: &mut JudgeAgg,
     fx: &Fixture,
-    live_system: bool,
+    historical: bool,
 ) -> (usize, usize) {
-    let mut opts = task.gen_options(fx.temperature);
-    // Default: replay the fixture's frozen system prompt, so the run is reproducible and the only
-    // moving part is the model. `--live-system` sends the CURRENT prompt instead — the one variable
-    // a prompt A/B is actually about (see `Args::live_system`).
-    if !live_system {
+    let mut opts = task.gen_options_for_sport(fx.temperature, &fx.sport);
+    if historical {
         opts.system = Some(fx.system.clone());
     }
     let gen = match backend.generate(&fx.user_prompt, &opts).await {
         Ok((g, _)) => g,
         Err(e) => {
             println!("  {label} {:<16} generate failed ({e:#})", backend.model());
-            return (0, 0);
+            return (0, expected_property_count(&fx.expect) + 1);
         }
     };
     let verdict = task.evaluate(&gen.response, None, Some(&fx.expect));
     println!("  {label} {:<16} {}", backend.model(), verdict.display);
     if !verdict.parsed {
         println!("      raw: {}", fixture_raw_excerpt(&gen.response));
-        let expected = expected_property_count(&fx.expect);
-        if expected > 0 {
-            return (0, expected);
-        }
+        return (0, expected_property_count(&fx.expect) + 1);
     }
     for c in &verdict.checks {
         let mark = if c.pass { "✓" } else { "✗" };
@@ -657,7 +615,7 @@ async fn run_one_fixture(
             Err(e) => println!("      [judge] failed ({e:#})"),
         }
     }
-    (verdict.checks_passed(), verdict.checks.len())
+    (verdict.checks_passed() + 1, verdict.checks.len() + 1)
 }
 
 /// JudgeAgg accumulates per-model judge scores across a fixture run.
@@ -705,25 +663,8 @@ impl JudgeAgg {
     }
 }
 
-/// expected_property_count mirrors the fixture schema: if a reply is unparseable, every authored
-/// expectation should count as failed rather than disappearing from the denominator.
-///
-/// **It must stay in step with every `evaluate` in `eval_tasks.rs`, one arm per pushed check.**
-/// It did not, and that was an instrument defect in its own right (D-T19, 2026-08-06): the
-/// function knew the voice axes and NONE of the Editor's, so an unparseable editor fixture
-/// contributed `0/0` instead of `0/N` and simply vanished from the tally. The gate would then
-/// report a smaller denominator with no warning — `47/53` and `47/46` print the same shape of
-/// success, and the second one is a fixture that died. A denominator that moves with the model's
-/// output is not a denominator.
-///
-/// Three fields are deliberately NOT counted, because they are prompt/resolver INPUTS a fixture
-/// declares rather than assertions it makes: `reader_vetted` (the hypothesis list handed to the
-/// parser), `resolver_surfaces` (the surface table `group_hits` runs against) and
-/// `graph_candidate_types` (the numbered candidate list). That is the whole of the gap between
-/// the editor set's 67 authored expect-keys and the 60 checks it scores. (The set grew 53 → 60
-/// when `story_type_is`/`register_is` were authored across seven fixtures — the ep6 display-line
-/// sweep found `story_type` silently smearing toward whichever enum value the prompt's prose
-/// named LAST, and a field the gate cannot see is a field a prompt edit can quietly break.)
+/// Count authored assertions when generation/parsing fails. Parsing is counted separately.
+/// Resolver inputs (`reader_vetted`, `resolver_surfaces`, `graph_candidate_types`) are not assertions.
 fn expected_property_count(x: &Expect) -> usize {
     let mut n = 0usize;
     n += x.score_min.is_some() as usize;
@@ -794,6 +735,98 @@ fn expected_property_count(x: &Expect) -> usize {
 // CAPTURE mode — emit a fixture skeleton to stdout
 // ---------------------------------------------------------------------------
 
+/// Capture both producer and execution material without inference or queue writes.
+/// Each line is a complete assignment, not just the rendered fixture prompt. Live
+/// loaders use separate reads: capture times delimit observation, not an MVCC snapshot.
+async fn run_capture_assignments(
+    cfg: &Config,
+    cases: &[EvalCase],
+    season: Option<i32>,
+) -> Result<()> {
+    use scoracle_cognition::application::scout::{build_rating_request, RatingReq};
+    use scoracle_cognition::evidence::corpus::lookup_entity_name;
+    use scoracle_cognition::studio::scout::{RatingBuild, RATING_TEMPERATURE};
+    anyhow::ensure!(
+        !cases.is_empty(),
+        "--capture-assignment needs at least one case"
+    );
+    let (pool, models) = build_dependencies(cfg).await?;
+    for case in cases {
+        let e = &case.entity;
+        anyhow::ensure!(
+            matches!(e.entity_type.as_str(), "player" | "team") && e.pair_player_id.is_none(),
+            "Scout capture needs a single player or team"
+        );
+        let req = RatingReq {
+            entity_type: e.entity_type.clone(),
+            entity_id: e.entity_id,
+            entity_name: lookup_entity_name(&pool, &e.entity_type, e.entity_id, &e.sport).await?,
+            sport: e.sport.clone(),
+            season,
+            trigger_type: "periodic".into(),
+        };
+        for with_enrichment in [false, true] {
+            let started = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)?
+                .as_millis();
+            let work: Option<String> = sqlx::query_scalar("SELECT to_jsonb(w)::text FROM pipeline_work w WHERE stage='rating' AND sport=$1 AND entity_type=$2 AND entity_id=$3")
+                .bind(&e.sport).bind(&e.entity_type).bind(e.entity_id).fetch_optional(&pool).await?;
+            let assignment = match build_rating_request(
+                &pool,
+                &models,
+                &req,
+                RATING_TEMPERATURE,
+                with_enrichment,
+            )
+            .await?
+            {
+                RatingBuild::NoStats { season } => {
+                    serde_json::json!({"status":"no_stats", "season":season})
+                }
+                RatingBuild::Ready(a) => {
+                    let directions: std::collections::BTreeMap<_, _> = a
+                        .comparison_directions
+                        .iter()
+                        .map(|(k, v)| (k, format!("{v:?}")))
+                        .collect();
+                    serde_json::json!({
+                        "status":"ready", "subject":{"entity_type":a.subject.entity_type,"entity_name":a.subject.entity_name,"sport":a.subject.sport},
+                        "season":a.season, "comparison_directions":directions,"measurement_bands":a.measurement_bands,
+                        "notability":a.notability,"notability_components":a.notability_components,
+                        "rating_trajectory":{"key":a.rating_trajectory.key,"label":a.rating_trajectory.label,"components":a.rating_trajectory.components},
+                        "input_components":serde_json::from_str::<Value>(&a.input_components)?,"input_hash":a.input_hash,
+                        "exclusions":{"budget_truncated_stat_labels":a.exclusions.budget_truncated_stat_labels,"off_facet_stat_labels":a.exclusions.off_facet_stat_labels,"degenerate_zero_stat_labels":a.exclusions.degenerate_zero_stat_labels,"display_tier_stat_labels":a.exclusions.display_tier_stat_labels},
+                        "built_prompt":a.built_prompt,
+                        "options":{"system":a.opts.system,"temperature":a.opts.temperature,"num_predict":a.opts.num_predict,"num_ctx":a.opts.num_ctx,"json_mode":a.opts.json_mode,"format_schema":a.opts.format_schema,"format_schema_raw":a.opts.format_schema_raw},
+                        "request_body":models.router.for_role(Role::StatsLogic).request_body(&a.built_prompt, &a.opts)
+                    })
+                }
+            };
+            // Supplemental provenance read: verify its material fingerprint against
+            // the assignment instead of claiming these separate reads are atomic.
+            let memory_audit = if assignment["status"] == "ready" {
+                use scoracle_cognition::evidence::memories::{self, MemoryRequest, Mission};
+                let mut request =
+                    MemoryRequest::new(Mission::Scout, &e.entity_type, e.entity_id, &e.sport);
+                request.season = assignment["season"].as_i64().map(|s| s as i32);
+                let full = memories::load(&pool, request).await?;
+                let current = full.current_snapshot_view()?;
+                let expected = assignment["input_components"]["memories"].as_str();
+                let full_matches = expected == Some(full.fingerprint()?.as_str());
+                let current_matches = expected == Some(current.fingerprint()?.as_str());
+                serde_json::json!({"full":full,"current_snapshot":current,"full_matches_assignment":full_matches,"current_matches_assignment":current_matches})
+            } else {
+                Value::Null
+            };
+            println!(
+                "{}",
+                serde_json::json!({"capture_version":1,"entity":e.key(),"with_enrichment":with_enrichment,"started_unix_ms":started,"finished_unix_ms":std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_millis(),"queue_before":work.map(|s| serde_json::from_str::<Value>(&s)).transpose()?,"assignment":assignment,"supplemental_memory_audit":memory_audit})
+            );
+        }
+    }
+    Ok(())
+}
+
 async fn run_capture(cfg: &Config, task: &dyn LensTask, cases: &[EvalCase]) -> Result<()> {
     let case = cases.first().ok_or_else(|| {
         anyhow!(
@@ -807,21 +840,18 @@ async fn run_capture(cfg: &Config, task: &dyn LensTask, cases: &[EvalCase]) -> R
         .build_prompt(&pool, &models, &case.entity)
         .await?
         .ok_or_else(|| anyhow!("no corpus for {} — nothing to capture", case.entity.key()))?;
-    // The frozen system is the task's system const (what the model actually sees).
-    let system = task
-        .gen_options_for(EVAL_TEMPERATURE, &case.entity)
-        .system
-        .unwrap_or_default();
     let fx = Fixture {
         name: format!("{}-CHANGE-ME", case.entity.key().replace(':', "-")),
         task: task.name().to_string(),
+        sport: case.entity.sport.clone(),
         prompt_version: task.prompt_version().to_string(),
-        system,
+        system: String::new(),
         user_prompt,
         temperature: EVAL_TEMPERATURE,
         expect: Expect::default(),
+        review: Vec::new(),
     };
-    // stdout only — the human redirects into fixtures/<task>/<name>.json and fills in `expect`.
+    // Add expectations and review criteria before saving under fixtures/quality/<task>/.
     println!("{}", serde_json::to_string_pretty(&fx)?);
     Ok(())
 }
@@ -904,11 +934,13 @@ async fn run_capture_ledger(cfg: &Config, task: &dyn LensTask, ledger_id: i64) -
             &sport,
         ),
         task: task.name().to_string(),
+        sport,
         prompt_version,
         system,
         user_prompt,
         temperature,
         expect: Expect::default(),
+        review: Vec::new(),
     };
     println!("{}", serde_json::to_string_pretty(&fx)?);
     Ok(())
@@ -986,9 +1018,43 @@ async fn build_dependencies(cfg: &Config) -> Result<(sqlx::PgPool, Models)> {
     ))
 }
 
-/// fixtures_dir is `fixtures/<task>` relative to CWD (the `rust/` crate root when run via cargo).
+fn validate_fixture(fx: &Fixture, task: &dyn LensTask, historical: bool) -> Result<()> {
+    anyhow::ensure!(
+        fx.task == task.name(),
+        "fixture {} is for {}, not {}",
+        fx.name,
+        fx.task,
+        task.name()
+    );
+    if historical {
+        anyhow::ensure!(
+            !fx.system.trim().is_empty(),
+            "historical fixture {} has no captured system",
+            fx.name
+        );
+    } else {
+        anyhow::ensure!(
+            fx.system.is_empty(),
+            "fixture {} contains a frozen system; use --replay-fixtures for history",
+            fx.name
+        );
+        anyhow::ensure!(fx.prompt_version == task.prompt_version(), "fixture {} evidence was prepared for {}; current contract is {}. Review and recapture its evidence", fx.name, fx.prompt_version, task.prompt_version());
+        if task.name() == "transfer" {
+            anyhow::ensure!(
+                matches!(fx.sport.as_str(), "FOOTBALL" | "NBA" | "NFL"),
+                "transfer fixture {} needs an explicit supported sport",
+                fx.name
+            );
+        }
+    }
+    Ok(())
+}
+
+/// Current quality cases are resolved independently of the caller's working directory.
 fn fixtures_dir(task_name: &str) -> PathBuf {
-    PathBuf::from("fixtures").join(task_name)
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("fixtures/quality")
+        .join(task_name)
 }
 
 /// load_fixtures reads every `*.json` in the task's fixture dir (sorted), optionally filtered by a
@@ -1209,6 +1275,151 @@ mod tests {
     use super::*;
 
     #[test]
+    fn parse_assignment_capture_and_replay_modes() {
+        let capture = parse_args(
+            [
+                "--capture-assignment",
+                "--task",
+                "rating",
+                "player:4:NBA",
+                "team:8:NFL",
+            ]
+            .into_iter()
+            .map(String::from),
+        )
+        .unwrap();
+        assert!(matches!(capture.mode, Mode::CaptureAssignment));
+        assert_eq!(capture.task_name, "rating");
+        assert_eq!(capture.cases.len(), 2);
+        let replay = parse_args(
+            ["--replay-assignment", "frozen.jsonl"]
+                .into_iter()
+                .map(String::from),
+        )
+        .unwrap();
+        assert!(
+            matches!(replay.mode, Mode::ReplayAssignment { path } if path == Path::new("frozen.jsonl"))
+        );
+        assert!(parse_args(["--replay-assignment"].into_iter().map(String::from)).is_err());
+    }
+
+    struct FailedReply(bool);
+
+    #[async_trait::async_trait]
+    impl Inference for FailedReply {
+        async fn generate(
+            &self,
+            _: &str,
+            _: &scoracle_cognition::studio::model::GenerateOptions,
+        ) -> Result<(scoracle_cognition::studio::model::GenerateResult, Value)> {
+            if self.0 {
+                anyhow::bail!("transport failed");
+            }
+            Ok((
+                scoracle_cognition::studio::model::GenerateResult {
+                    response: "not a card".into(),
+                    thinking: String::new(),
+                    model: "test".into(),
+                    total_duration: Duration::ZERO,
+                    prompt_eval_count: 0,
+                    eval_count: 0,
+                    completion_reason: Some("stop".into()),
+                    raw_response_body: String::new(),
+                },
+                Value::Null,
+            ))
+        }
+        fn model(&self) -> &str {
+            "test"
+        }
+        fn request_body(
+            &self,
+            _: &str,
+            _: &scoracle_cognition::studio::model::GenerateOptions,
+        ) -> Value {
+            Value::Null
+        }
+    }
+
+    #[tokio::test]
+    async fn failed_generation_and_malformed_output_cannot_pass_an_empty_rubric() {
+        let task = resolve_task("oracle").unwrap();
+        let fx = load_fixtures(&fixtures_dir("oracle"), None)
+            .unwrap()
+            .remove(0);
+        assert_eq!(expected_property_count(&fx.expect), 0);
+        for transport_failure in [false, true] {
+            let backend: Arc<dyn Inference> = Arc::new(FailedReply(transport_failure));
+            assert_eq!(
+                run_one_fixture(
+                    "A",
+                    &backend,
+                    task.as_ref(),
+                    None,
+                    &mut JudgeAgg::default(),
+                    &fx,
+                    false
+                )
+                .await,
+                (0, 1)
+            );
+        }
+    }
+
+    #[test]
+    fn current_cases_reject_frozen_systems_and_stale_versions() {
+        let task = resolve_task("oracle").unwrap();
+        let mut fx = load_fixtures(&fixtures_dir("oracle"), None)
+            .unwrap()
+            .remove(0);
+        validate_fixture(&fx, task.as_ref(), false).unwrap();
+        assert!(validate_fixture(&fx, task.as_ref(), true).is_err());
+        fx.prompt_version = "retired".into();
+        assert!(validate_fixture(&fx, task.as_ref(), false).is_err());
+        fx.system = "historical brief".into();
+        validate_fixture(&fx, task.as_ref(), true).unwrap();
+        fx.prompt_version = task.prompt_version().into();
+        assert!(validate_fixture(&fx, task.as_ref(), false).is_err());
+    }
+
+    #[test]
+    fn historical_replay_and_season_capture_are_explicit() {
+        let args = parse_args(
+            ["--replay-fixtures", "/tmp/archive"]
+                .into_iter()
+                .map(String::from),
+        )
+        .unwrap();
+        assert!(matches!(
+            args.mode,
+            Mode::Fixtures {
+                replay: Some(_),
+                ..
+            }
+        ));
+        let args = parse_args(
+            ["--capture-assignment", "--season", "2025"]
+                .into_iter()
+                .map(String::from),
+        )
+        .unwrap();
+        assert_eq!(args.season, Some(2025));
+        assert!(parse_args(
+            ["--fixtures", "--season", "2025"]
+                .into_iter()
+                .map(String::from)
+        )
+        .is_err());
+        let task = resolve_task("transfer").unwrap();
+        let mut fx = load_fixtures(&fixtures_dir("transfer"), None)
+            .unwrap()
+            .remove(0);
+        validate_fixture(&fx, task.as_ref(), false).unwrap();
+        fx.sport.clear();
+        assert!(validate_fixture(&fx, task.as_ref(), false).is_err());
+    }
+
+    #[test]
     fn parse_entity_accepts_single_entity_shape() {
         let e = parse_entity("player:237:nba").unwrap();
         assert_eq!(e.entity_type, "player");
@@ -1283,14 +1494,7 @@ mod tests {
         assert_eq!(expected_property_count(&x), 3);
     }
 
-    /// The editor gate's denominator must be DERIVABLE FROM THE FIXTURE FILES, and it must not
-    /// depend on what the model happened to say (D-T19). This walks the real fixture dir and
-    /// asserts the authored total is the 53 the gate reports — so a fixture that fails to parse
-    /// now scores `0/N` and the denominator holds at 53 instead of silently shrinking.
-    ///
-    /// If you add an editor fixture or an expect-key, this number moves ON PURPOSE and you
-    /// update it here. That is the point: the denominator changes when the FILES change, never
-    /// when a reply does.
+    /// Authored assertions remain countable even when a model returns malformed output.
     #[test]
     fn editor_fixture_denominator_is_derivable_from_the_files() {
         let dir = fixtures_dir("editor");

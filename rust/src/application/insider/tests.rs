@@ -123,7 +123,7 @@ mod postgres_tests {
     }
 
     async fn claim_one(pool: &PgPool) -> Item {
-        let mut claimed = crate::runtime::work::claim(pool, Stage::Transfers, 1)
+        let mut claimed = crate::application::queue::work::claim(pool, Stage::Transfers, 1)
             .await
             .unwrap();
         assert_eq!(claimed.len(), 1);
@@ -154,7 +154,7 @@ mod postgres_tests {
     async fn current_claim_commits_pair_event_then_final_team_completion() {
         let pool = pool().await;
         clean(&pool).await;
-        crate::runtime::work::enqueue(&pool, &pending("current"))
+        crate::application::queue::work::enqueue(&pool, &pending("current"))
             .await
             .unwrap();
         let current = claim_one(&pool).await;
@@ -201,11 +201,11 @@ mod postgres_tests {
     async fn revision_supersession_publishes_no_pair_or_event() {
         let pool = pool().await;
         clean(&pool).await;
-        crate::runtime::work::enqueue(&pool, &pending("v1"))
+        crate::application::queue::work::enqueue(&pool, &pending("v1"))
             .await
             .unwrap();
         let stale = claim_one(&pool).await;
-        crate::runtime::work::enqueue(&pool, &pending("v2"))
+        crate::application::queue::work::enqueue(&pool, &pending("v2"))
             .await
             .unwrap();
         let (output, row) = pair_output(true);
@@ -231,7 +231,7 @@ mod postgres_tests {
     async fn same_revision_reclaim_gives_only_the_new_lease_publication_rights() {
         let pool = pool().await;
         clean(&pool).await;
-        crate::runtime::work::enqueue(&pool, &pending("same"))
+        crate::application::queue::work::enqueue(&pool, &pending("same"))
             .await
             .unwrap();
         let stale = claim_one(&pool).await;
@@ -240,7 +240,7 @@ mod postgres_tests {
             .execute(&pool)
             .await
             .unwrap();
-        crate::runtime::work::requeue_stale(&pool, Duration::from_secs(30 * 60))
+        crate::application::queue::work::requeue_stale(&pool, Duration::from_secs(30 * 60))
             .await
             .unwrap();
         let current = claim_one(&pool).await;
@@ -280,7 +280,7 @@ mod postgres_tests {
     async fn cleared_pair_is_fenced_but_creates_no_player_oracle_event() {
         let pool = pool().await;
         clean(&pool).await;
-        crate::runtime::work::enqueue(&pool, &pending("cleared"))
+        crate::application::queue::work::enqueue(&pool, &pending("cleared"))
             .await
             .unwrap();
         let current = claim_one(&pool).await;
@@ -311,7 +311,7 @@ mod postgres_tests {
     async fn partial_pair_survives_restart_and_newer_team_revision() {
         let pool = pool().await;
         clean(&pool).await;
-        crate::runtime::work::enqueue(&pool, &pending("v1"))
+        crate::application::queue::work::enqueue(&pool, &pending("v1"))
             .await
             .unwrap();
         let stale = claim_one(&pool).await;
@@ -333,7 +333,7 @@ mod postgres_tests {
         pool.close().await;
         let pool = self::pool().await;
         // A source correction lands while the old team's remaining pairs are absent.
-        crate::runtime::work::enqueue(&pool, &pending("v2"))
+        crate::application::queue::work::enqueue(&pool, &pending("v2"))
             .await
             .unwrap();
         assert!(persist_transfer_row(

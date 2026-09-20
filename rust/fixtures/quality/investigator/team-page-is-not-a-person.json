@@ -1,0 +1,14 @@
+{
+  "expect": {
+    "subject_kind_is": "club",
+    "evidence_empty": true
+  },
+  "name": "team-page-is-not-a-person",
+  "prompt_version": "ip1",
+  "task": "investigator",
+  "temperature": 0.0,
+  "user_prompt": "Sought name: Airious Bailey\nHow the news article described them: Jazz rookie\nSport in question: NBA\n\nWikipedia page summary:\nRutgers Scarlet Knights men's basketball Men's basketball team of Rutgers University The Rutgers Scarlet Knights men's basketball team represents Rutgers University in NCAA Division I college basketball competition and competes in the Big Ten Conference. Rutgers made the NCAA Final Four in 1976. Rutgers has appeared in the NCAA tournament eight times, most recently appearing in 2022. Rutgers has produced many NBA players, most notably Roy Hinson, John Battle, and James Bailey. In 2025, Dylan Harper and Ace Bailey made history in the 2025 NBA Draft being selected as the highest Scarlet Knights drafted in the NBA Draft being drafted with the Second and Fifth pick respectively.\n\nReturn the JSON object now.",
+  "review": [
+    "Quoted identity evidence must come from the supplied page; a namesake or wrong-kind page must not establish identity."
+  ]
+}

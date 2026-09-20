@@ -1,0 +1,11 @@
+{
+  "expect": {},
+  "name": "falling-confirmed",
+  "prompt_version": "momentum-s27",
+  "task": "momentum",
+  "temperature": 0.0,
+  "user_prompt": "Entity: Riverton Athletic (FOOTBALL team)\n\n=== THE FORM RAIL (recent statistical performance) ===\nForm is: moving hard down, on a healthy sample\n\n=== THE MOOD RAIL (the feeling around them) ===\nMood stands: low\nMood is: moving clearly down, on a healthy sample\n\nDirection (decided upstream, final): falling — strength of the move, also decided upstream: modest but real\n",
+  "review": [
+    "Both supplied trajectories fall; preserve that agreement without inventing a tactical or psychological cause."
+  ]
+}

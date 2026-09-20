@@ -1,37 +1,9 @@
-//! Per-lens eval task registry (Multi-Lens Cognition Panel).
-//!
-//! `bin/eval` used to be hardwired to the vibe task (`Role::EmotionalNews`) and the live corpus.
-//! A `LensTask` is the seam that generalizes it: each task knows its `Role`, its `GenerateOptions`
-//! (system + num_predict + json_mode), how to build the exact PRODUCTION prompt for an entity, and
-//! how to `evaluate` a raw reply into a `CaseVerdict`. It COMPOSES the capability library — the
-//! stage loaders + prompt builders + parsers already in the lib — rather than reinventing them, so
-//! the eval measures the real prompt with only the backend swapped.
-//!
-//! Every CHARACTER task owns its role (identity splits: 2026-07-11 momentum, 07-12 narratives +
-//! sigil, 07-22 transfers + vibe), so no route change silently flips a sibling's voice:
-//! `rating` on `Role::StatsLogic` (The Scout), `momentum` on `Role::MomentumLogic`
-//! (The Analyst), `narratives` on `Role::NarrativeLogic` (The Journalist), `transfer` on
-//! `Role::TransferLogic` (The Insider), `vibe` on `Role::VibeLogic` (The Influencer), and
-//! `sigil` on `Role::OracleLogic` (the Oracle). `graph` stays on `Role::EmotionalNews` —
-//! the utility role (no character voice). Un-configured, every role resolves to the same
-//! default model; eval candidates configure `COGNITION_ROUTE_<ROLE>_CANDIDATE`.
-//!
-//! `momentum` is deliberately eval-first: production Momentum is deterministic DB/read-model
-//! trajectory math today, not a queue stage and not a served model call. The task exists so candidate
-//! analytical models can be measured on trajectory reasoning before a versioned Momentum generation
-//! or route split is introduced.
-//!
-//! Two scoring axes, unified in `CaseVerdict`:
-//!   - MAE (vibe live): `abs_err = |score - human_label|`.
-//!   - property rubric (fixtures): named boolean `PropertyCheck`s from a fixture's `Expect`.
-//!
-//! The rubric lives in the fixture's `Expect`, not the task, so a task stays entity-agnostic
-//! (task = the lens; a fixture SET like "disagreement" is a collection of `Expect`s over it).
-//!
-//! SAFETY: like `bin/eval` itself, tasks are read-only on the pipeline — they read corpus tables to
-//! build a prompt and POST to the model; they NEVER claim `pipeline_work` or write a product table.
+//! Evaluation adapters reuse application preparation and Studio parsing.
+//! Each task supplies its route, current model options and optional fixture assertions.
+//! Live cases read corpus data without claiming work or publishing products.
+//! Mechanical checks and optional numeric labels complement human review of the generated work.
 
-use crate::application::analyst::build_momentum_prompt_from_pillars;
+use crate::application::analyst::load_momentum_context;
 use crate::application::editor::build_editor_prompt_for_eval;
 use crate::application::graph::load_graph_article_context;
 use crate::application::influencer::load_vibe_context;
@@ -487,27 +459,30 @@ pub struct ResolverSurfaceFx {
     pub entity_id: i32,
 }
 
-/// A frozen eval case: the exact `system` + `user_prompt` (captured or hand-authored), the run
-/// `temperature`, the `prompt_version` it was frozen under (drift-checked vs the live task), and
-/// the expected properties. This is the reproducible regression unit — the same fixture yields the
-/// same output every run (temperature 0).
+/// Selected evidence plus assertions and review criteria. `system` exists only for historical replay.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Fixture {
     pub name: String,
     pub task: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub sport: String,
     pub prompt_version: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub system: String,
     pub user_prompt: String,
     pub temperature: f64,
     #[serde(default)]
     pub expect: Expect,
+    /// Human assessment of factual meaning and character expression; never sent to the model.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub review: Vec<String>,
 }
 
 /// A lens eval task: the routing + prompt + scoring seam `bin/eval` runs against. Object-safe
 /// (`build_prompt` boxed by `async_trait`), so tasks dispatch through `Box<dyn LensTask>`.
 #[async_trait]
 pub trait LensTask: Send + Sync {
-    /// Registry key (`"vibe"`, `"oracle"`) — also the `fixtures/<name>/` dir.
+    /// Registry key (`"vibe"`, `"oracle"`) — also the `fixtures/quality/<name>/` dir.
     fn name(&self) -> &'static str;
     /// Product operating parameters for the lens. Not used for routing; useful for eval reports and
     /// prompt/fixture review.
@@ -525,10 +500,13 @@ pub trait LensTask: Send + Sync {
     /// against a fixture's frozen `prompt_version`.
     fn prompt_version(&self) -> &'static str;
     /// system + num_predict + json_mode from the stage consts; the caller chooses `temperature`
-    /// (live = 0.0 deterministic; fixture = the fixture's frozen value).
+    /// (live = 0.0; fixture = the authored value).
     fn gen_options(&self, temperature: f64) -> GenerateOptions;
     /// Optional per-case override for tasks whose system prompt depends on the live case.
-    fn gen_options_for(&self, temperature: f64, _e: &EntitySpec) -> GenerateOptions {
+    fn gen_options_for(&self, temperature: f64, e: &EntitySpec) -> GenerateOptions {
+        self.gen_options_for_sport(temperature, &e.sport)
+    }
+    fn gen_options_for_sport(&self, temperature: f64, _sport: &str) -> GenerateOptions {
         self.gen_options(temperature)
     }
     /// Build the EXACT production user-prompt for an entity. `Ok(None)` = no-corpus skip (the stage
@@ -573,23 +551,6 @@ pub fn all_task_names() -> &'static [&'static str] {
         "editor",
         "investigator",
     ]
-}
-
-/// fixture_drift returns a warning when a fixture was frozen under a different prompt contract than
-/// the live task — the frozen `system`/`user_prompt` are then stale and the fixture should be
-/// re-captured + re-annotated. Warn, never fail (a bump is a signal, not an error).
-pub fn fixture_drift(fx: &Fixture, task: &dyn LensTask) -> Option<String> {
-    if fx.prompt_version != task.prompt_version() {
-        Some(format!(
-            "fixture-rot: {} was frozen at prompt_version={} but task {} is now {} — re-capture + re-annotate",
-            fx.name,
-            fx.prompt_version,
-            task.name(),
-            task.prompt_version()
-        ))
-    } else {
-        None
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -923,10 +884,7 @@ impl LensTask for NarrativeTask {
         let name = lookup_entity_name(pool, &e.entity_type, e.entity_id, &e.sport).await?;
         // Reads use the upper-cased sport; the prompt renders the request-case value (build_narratives_request).
         let sport = e.sport.to_uppercase();
-        // The PACKET corpus — the one production reads. This used `load_vetted_corpus` until the
-        // Phase 9 rail prune, which meant the narratives eval was scoring a prompt the live stage
-        // no longer builds: the same "measures the wrong thing" trap the fixtures' frozen system
-        // prompt had (see `eval --live-system`).
+        // Read the packet corpus used by production.
         let (corpus, _exclusions, _framing) =
             load_packet_corpus(pool, &e.entity_type, e.entity_id, &sport, &name).await?;
         // No corpus ⇒ the stage writes the NULL-narrative marker without a model call — nothing to score.
@@ -1146,8 +1104,7 @@ impl LensTask for TransferTask {
     }
     fn gen_options(&self, temperature: f64) -> GenerateOptions {
         GenerateOptions {
-            // Transfer's system prompt is sport-sensitive. Fixture mode overwrites this with the
-            // frozen per-case system; live/capture pair mode uses `gen_options_for`.
+            // Use gen_options_for_sport for a concrete case.
             system: Some(transfer_system_prompt("FOOTBALL")),
             temperature: Some(temperature),
             num_predict: TRANSFER_NUM_PREDICT,
@@ -1157,8 +1114,8 @@ impl LensTask for TransferTask {
             format_schema_raw: None,
         }
     }
-    fn gen_options_for(&self, temperature: f64, e: &EntitySpec) -> GenerateOptions {
-        let sport = e.sport.to_uppercase();
+    fn gen_options_for_sport(&self, temperature: f64, sport: &str) -> GenerateOptions {
+        let sport = sport.to_uppercase();
         GenerateOptions {
             system: Some(transfer_system_prompt(&sport)),
             temperature: Some(temperature),
@@ -1512,21 +1469,21 @@ impl LensTask for MomentumTask {
     ) -> Result<Option<String>> {
         let name = lookup_entity_name(pool, &e.entity_type, e.entity_id, &e.sport).await?;
         let sport = e.sport.to_uppercase();
-        let (_season, cards) = load_pillars(pool, &e.entity_type, e.entity_id, &sport).await?;
-        if cards.rating.is_none() && cards.vibe.is_none() && cards.momentum.empty() {
+        let (context, memories) =
+            load_momentum_context(pool, &e.entity_type, e.entity_id, &sport).await?;
+        if context.empty() {
             return Ok(None);
         }
-        // s19: there is no enrichment rider left to pin. The Analyst reads the two rails and
-        // their collision, so the eval prompt and the production prompt are now the same shape
-        // by construction rather than by the eval opting out.
-        Ok(Some(build_momentum_prompt_from_pillars(
+        // Use the production adapter, including its sourced memory. Omitting this
+        // block silently evaluates a different assignment from the worker.
+        Ok(Some(crate::studio::analyst::build_momentum_prompt(
             &e.entity_type,
             &name,
             &e.sport,
-            cards.rating.as_ref(),
-            cards.vibe.as_ref(),
-            &cards.momentum,
-            None,
+            context.rating.as_ref(),
+            context.vibe.as_ref(),
+            &context.snapshot,
+            Some(&memories.render_for_model()?),
         )))
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
@@ -2874,61 +2831,48 @@ mod tests {
     }
 
     #[test]
-    fn fixture_drift_flags_prompt_version_mismatch() {
-        let mut fx = Fixture {
-            name: "f".into(),
-            task: "oracle".into(),
-            prompt_version: ORACLE_PROMPT_VERSION.into(),
-            system: "s".into(),
-            user_prompt: "u".into(),
-            temperature: 0.0,
-            expect: Expect::default(),
-        };
-        assert!(fixture_drift(&fx, &OracleTask).is_none());
-        fx.prompt_version = "or1".into();
-        assert!(fixture_drift(&fx, &OracleTask).is_some());
-    }
-
-    /// Integrity guard for the on-disk narratives fixtures. `Fixture`/`Expect` have no
-    /// `deny_unknown_fields`, so a misspelled expect key (e.g. `body_include_any`) parses fine and is
-    /// SILENTLY dropped — a toothless fixture that looks authored. This loads the real dir (via
-    /// `CARGO_MANIFEST_DIR`, so it is CWD-independent) and asserts (a) every file parses as a
-    /// narratives fixture and (b) each current-version voicing fixture actually carries a voicing
-    /// axis — catching a dropped field before it silently weakens the eval. It does NOT assert
-    /// current-version (rot is a warn, not an error — old-version fixtures are legitimately kept
-    /// until re-captured).
-    #[test]
-    fn narratives_fixtures_on_disk_parse_and_voicing_fixtures_carry_an_axis() {
-        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/narratives");
-        let mut voiced_seen = 0;
-        for entry in std::fs::read_dir(&dir).expect("read fixtures/narratives") {
-            let p = entry.unwrap().path();
-            if p.extension().and_then(|e| e.to_str()) != Some("json") {
-                continue;
+    fn current_quality_cases_use_current_contracts_and_explicit_review() {
+        for &name in all_task_names() {
+            let task = resolve_task(name).unwrap();
+            let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("fixtures/quality")
+                .join(name);
+            let mut count = 0;
+            for entry in std::fs::read_dir(dir).unwrap() {
+                let path = entry.unwrap().path();
+                if path.extension().and_then(|s| s.to_str()) != Some("json") {
+                    continue;
+                }
+                let fx: Fixture =
+                    serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+                assert_eq!(fx.task, name, "{}", path.display());
+                assert_eq!(
+                    fx.prompt_version,
+                    task.prompt_version(),
+                    "{} needs recapture",
+                    path.display()
+                );
+                assert!(
+                    fx.system.is_empty(),
+                    "{} freezes a retired system",
+                    path.display()
+                );
+                assert!(!fx.user_prompt.trim().is_empty());
+                assert!(!fx.review.is_empty());
+                assert!(fx
+                    .review
+                    .iter()
+                    .all(|criterion| !criterion.trim().is_empty()));
+                count += 1;
             }
-            let text = std::fs::read_to_string(&p).unwrap();
-            let fx: Fixture = serde_json::from_str(&text)
-                .unwrap_or_else(|e| panic!("fixture {} failed to parse: {e}", p.display()));
-            assert_eq!(fx.task, "narratives", "{} has wrong task", p.display());
-            if fx.expect.body_includes_any.is_some() || fx.expect.body_excludes.is_some() {
-                voiced_seen += 1;
-            }
+            assert!(count > 0, "{name} has no quality cases");
         }
-        assert!(
-            voiced_seen >= 3,
-            "expected at least three archived voicing fixtures, saw {voiced_seen}"
-        );
     }
 
-    /// Integrity guard for the on-disk greenfield-editor fixtures (same serde silent-drop hazard
-    /// as the narratives guard above: a misspelled expect key parses fine and silently weakens
-    /// the gate). Asserts (a) every file parses, (b) task and prompt_version are the greenfield
-    /// identities, (c) the set pins BOTH directions (≥2 rejects, ≥2 accepts), and (d) each of
-    /// the Phase 3.6 derivation axes is exercised at least once — resolver refusal, resolver
-    /// unresolved (discovery), never-links (the descriptor gate), and a parsing result_line.
+    /// Preserve identity resolution, relevance and result extraction coverage.
     #[test]
-    fn editor_fixtures_on_disk_parse_and_cover_the_ep1_axes() {
-        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/editor");
+    fn editor_fixtures_cover_resolution_and_extraction() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/quality/editor");
         let (mut n, mut rejects, mut accepts) = (0, 0, 0);
         let (mut refused, mut unresolved, mut never_links, mut result_parses) =
             (false, false, false, false);
@@ -2957,7 +2901,7 @@ mod tests {
             never_links |= fx.expect.resolver_links_exclude.is_some();
             result_parses |= fx.expect.result_line_parses == Some(true);
         }
-        assert!(n >= 12, "Phase 3.6 targets ≥12 fixtures, found {n}");
+        assert!(n >= 12, "expected at least 12 extraction cases, found {n}");
         assert!(
             rejects >= 2 && accepts >= 2,
             "both directions must stay pinned (rejects={rejects}, accepts={accepts})"
@@ -2974,14 +2918,11 @@ mod tests {
         assert!(result_parses, "no fixture pins a parsing result_line");
     }
 
-    /// Integrity guard for the on-disk transfer fixtures (same serde silent-drop hazard as the
-    /// narratives guard above). Asserts (a) every file parses as a transfer fixture and (b) each t9
-    /// fixture carries a steam/fizzle BEHAVIOUR axis — `transfer_stage` and/or a confidence bound —
-    /// so a dropped `transfer_stage`/`confidence_*` key can't silently gut the Phase 4 weighting
-    /// check. Version rot is not asserted (old-version fixtures are legitimately kept until re-run).
+    /// Preserve transfer evidence strengthening and weakening cases.
     #[test]
     fn transfer_fixtures_on_disk_parse_and_current_carry_a_steam_fizzle_axis() {
-        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/transfer");
+        let dir =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/quality/transfer");
         let mut current_seen = 0;
         for entry in std::fs::read_dir(&dir).expect("read fixtures/transfer") {
             let p = entry.unwrap().path();

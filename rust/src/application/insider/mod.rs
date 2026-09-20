@@ -23,12 +23,12 @@ use crate::evidence::memories::{self, MemoryRequest, Mission};
 
 use crate::application::models::Models;
 use crate::application::products::EntityKey;
+use crate::application::queue::stage::{HandleOutcome, WorkHandler};
+use crate::application::queue::work::{Item, Stage};
 use crate::evidence::corpus::load_transfer_heat;
 use crate::evidence::trajectory::{classify_delta, DEFAULT_TRAJECTORY};
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
 use crate::runtime::route::Role;
-use crate::runtime::stage::{HandleOutcome, WorkHandler};
-use crate::runtime::work::{Item, Stage};
 use crate::util::hash_components;
 use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
@@ -709,7 +709,7 @@ pub async fn persist_transfer_row(
     let trajectory_json = trajectory_components.to_string();
 
     let mut tx = pool.begin().await.context("begin transfer publication")?;
-    if !crate::runtime::work::lock_claim(&mut tx, item).await? {
+    if !crate::application::queue::work::lock_claim(&mut tx, item).await? {
         tx.rollback()
             .await
             .context("close superseded transfer publication")?;
@@ -766,7 +766,7 @@ pub async fn persist_transfer_row(
     .context("persist transfer row")?;
     let row_id: i64 = inserted.get("id");
     if served_rumor {
-        crate::application::outbox::record_transfer_published(
+        crate::application::queue::outbox::record_transfer_published(
             &mut tx,
             item,
             "player",
@@ -982,7 +982,7 @@ async fn score_insider_entity(
         .begin()
         .await
         .context("begin insider score publication")?;
-    if !crate::runtime::work::lock_claim(&mut tx, item).await? {
+    if !crate::application::queue::work::lock_claim(&mut tx, item).await? {
         tx.rollback()
             .await
             .context("close superseded insider score publication")?;
@@ -1011,7 +1011,7 @@ async fn score_insider_entity(
     .await
     .context("persist insider score")?;
     let row_id: i64 = row.get("id");
-    crate::application::outbox::record_transfer_published(
+    crate::application::queue::outbox::record_transfer_published(
         &mut tx,
         item,
         entity_type,
@@ -1064,13 +1064,13 @@ pub struct TransferHandler {
 
 async fn complete_claimed(pool: &PgPool, item: &Item) -> Result<HandleOutcome> {
     let mut tx = pool.begin().await.context("begin transfer completion")?;
-    if !crate::runtime::work::lock_claim(&mut tx, item).await? {
+    if !crate::application::queue::work::lock_claim(&mut tx, item).await? {
         tx.rollback()
             .await
             .context("close non-current transfer completion")?;
         return Ok(HandleOutcome::Superseded);
     }
-    crate::application::outbox::record_transfer_published(
+    crate::application::queue::outbox::record_transfer_published(
         &mut tx,
         item,
         &item.entity_type,
@@ -1078,7 +1078,7 @@ async fn complete_claimed(pool: &PgPool, item: &Item) -> Result<HandleOutcome> {
         item.input_version.as_deref(),
     )
     .await?;
-    if !crate::runtime::work::complete_in_transaction(&mut tx, item).await? {
+    if !crate::application::queue::work::complete_in_transaction(&mut tx, item).await? {
         bail!("transfer claim changed while its completion transaction held the row lock");
     }
     tx.commit().await.context("commit transfer completion")?;
@@ -1468,7 +1468,8 @@ impl WorkHandler for TransferHandler {
                 start.elapsed().as_secs()
             );
             let deferred =
-                crate::runtime::work::defer(pool, item, TRANSFER_DEFER_DELAY, &note).await?;
+                crate::application::queue::work::defer(pool, item, TRANSFER_DEFER_DELAY, &note)
+                    .await?;
             debug!(team = team_id, %note, "transfers: team deferred to another turn");
             return Ok(if deferred {
                 HandleOutcome::Deferred

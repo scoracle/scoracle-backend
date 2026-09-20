@@ -1,0 +1,11 @@
+{
+  "expect": {},
+  "name": "ascendant-aligned",
+  "prompt_version": "or20",
+  "task": "oracle",
+  "temperature": 0.0,
+  "user_prompt": "Entity: Kiana Wells (NBA player)\n\n[Heating up, 3 sources, latest 1d ago] Kiana Wells keeps rolling as a defensive anchor\nA month of dominant rim protection has the rotation built around her; the coverage is admiring and consistent.\n\n\nAnchor defender erasing the paint; blocks and altered shots keep climbing.\n\nThe room is warm and getting warmer — a run of dominant defensive games has the coverage glowing.\n\nPerformance and the mood around her are moving upward together.\n\nPresent direction: ascendant.\n",
+  "review": [
+    "Draw a supported connection across the aligned readings without adding facts."
+  ]
+}

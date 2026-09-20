@@ -1,0 +1,11 @@
+{
+  "expect": {},
+  "name": "three-card-newcomer",
+  "prompt_version": "or20",
+  "task": "oracle",
+  "temperature": 0.0,
+  "user_prompt": "Entity: Ipswich Town (FOOTBALL team)\n\n[Developing story..., 3 sources, latest 1d ago] Ipswich reshapes its spine after promotion\nTwo confirmed signings have arrived to rebuild the defensive line before the opener.\n\n\nCautious optimism around the rebuild; the room likes the business but wants to see it on grass.\n\n- From Fulham to Ipswich Town; confirmed — \"The move for Issa Diop is done and the paperwork is filed.\"\n\nPresent direction: steady.\n",
+  "review": [
+    "Use the three supplied readings without implying the missing pillars were also observed."
+  ]
+}

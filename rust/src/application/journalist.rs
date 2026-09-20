@@ -6,13 +6,13 @@
 
 use crate::application::models::Models;
 use crate::application::products::EntityKey;
+use crate::application::queue::stage::{HandleOutcome, WorkHandler};
+use crate::application::queue::work::{self, Item, Stage};
 use crate::evidence::memories::{self, MemoryRequest, Mission};
 use crate::evidence::story_parts::{mode_storyline, progress_generation, PartItem};
 use crate::evidence::trajectory::DEFAULT_TRAJECTORY;
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
 use crate::runtime::route::Role;
-use crate::runtime::stage::{HandleOutcome, WorkHandler};
-use crate::runtime::work::{self, Item, Stage};
 use crate::studio::journalist::{
     self, Assignment, CorpusExclusions, CorpusItem, Narrative, NarrativesOutput, Subject,
     NARRATIVES_NUM_PREDICT_PACKET, NARRATIVES_OUTPUT_CONTRACT_VERSION, NARRATIVES_TEMPERATURE,
@@ -523,7 +523,7 @@ async fn commit_claimed(
             .await?
         }
     };
-    crate::application::outbox::record_narratives_completed(&mut tx, item).await?;
+    crate::application::queue::outbox::record_narratives_completed(&mut tx, item).await?;
     if !work::complete_in_transaction(&mut tx, item).await? {
         bail!("narratives claim changed while its publication transaction held the row lock");
     }
@@ -553,7 +553,7 @@ impl WorkHandler for NarrativesHandler {
     }
 
     fn slot_group(&self) -> Option<(&'static str, usize)> {
-        Some(crate::runtime::stage::MAC_SLOTS)
+        Some(crate::application::queue::stage::MAC_SLOTS)
     }
 
     async fn handle(&self, item: &Item) -> Result<HandleOutcome> {

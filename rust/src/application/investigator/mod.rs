@@ -18,10 +18,10 @@ use self::discover::{
     wikidata_item, wikidata_search, wikipedia_search, wikipedia_summary, WikidataHit,
 };
 use crate::application::models::Models;
-use crate::runtime::fetch::{BudgetedFetcher, FetchPolicy};
+use crate::application::queue::stage::{HandleOutcome, WorkHandler};
+use crate::application::queue::work::{self, Item, Stage};
+use crate::evidence::fetch::{BudgetedFetcher, FetchPolicy};
 use crate::runtime::route::Role;
-use crate::runtime::stage::{HandleOutcome, WorkHandler};
-use crate::runtime::work::{self, Item, Stage};
 use crate::studio::investigator::gate::{
     commons_image_url, decide, decide_prose, display_height, display_weight, mentions_all_tokens,
     nba_headshot_url, strip_paren_title, wire_date, ProseScreen, RoleClass, Verdict,

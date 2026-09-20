@@ -1,0 +1,27 @@
+{
+  "expect": {
+    "graph_candidate_types": [
+      "player",
+      "team",
+      "team"
+    ],
+    "persons_exclude": [
+      "Sandro Tonali"
+    ],
+    "persons_include": [
+      "Thomas Frank:coach",
+      "Giuseppe Riso:agent"
+    ],
+    "relations_include": [
+      "1:trade_confirmed:2"
+    ]
+  },
+  "name": "person-discovery-manager-named",
+  "prompt_version": "g5",
+  "task": "graph",
+  "temperature": 0.2,
+  "user_prompt": "Article source: bbc\nPublished: 2026-07-19\nTitle: Tottenham complete Sandro Tonali signing\nText: Tottenham Hotspur have completed the signing of Sandro Tonali from Newcastle United on a five-year deal. Head coach Thomas Frank said the Italy midfielder gives his side control in the biggest games. Tonali's agent Giuseppe Riso confirmed the medical was passed on Friday.\n\nIdentity context, not event evidence. Distinguish current roles from career history; dated reporting may supersede these records. Unknown means unknown.\nKnown entities (use these numbers):\n1. Sandro Tonali (player, currently at Newcastle United)\n2. Tottenham Hotspur (team)\n3. Newcastle United (team)\n\nReturn the JSON now.",
+  "review": [
+    "Attach extracted relationships to the correct supplied entities; ordinary mentions do not establish relationships."
+  ]
+}

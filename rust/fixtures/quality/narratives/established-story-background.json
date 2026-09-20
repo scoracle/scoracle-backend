@@ -1,0 +1,21 @@
+{
+  "expect": {
+    "all_cite_articles": true,
+    "max_article_num": 3,
+    "narratives_max": 3,
+    "narratives_min": 1,
+    "sources_any": [
+      "Cadena SER",
+      "Marca",
+      "The Athletic"
+    ]
+  },
+  "name": "established-story-background",
+  "prompt_version": "n30",
+  "task": "narratives",
+  "temperature": 0.0,
+  "user_prompt": "Entity: Mateo Alvarez (FOOTBALL player)\n\nEstablished story (our archive, 9 sources, since May 12): Alvarez contract standoff with Real Sociedad.\nOur prior read: talks remain stalled.\n\nRecent news (numbered):\n1. [The Athletic] Alvarez contract standoff drags on as Real Sociedad hold firm — The club have again refused to raise their offer, and the midfielder's camp says talks are no closer than they were in the spring.\n2. [Marca] Alvarez left out of friendly squad amid contract impasse — The coach described the omission as sporting, but the decision lands in the middle of a standoff now entering its third month.\n3. [Cadena SER] Agent meets Real Sociedad board over Alvarez deal — A long-scheduled meeting between the player's agent and the board ended without agreement, though both sides described the talks as cordial.\n",
+  "review": [
+    "Keep claims attached to their supporting current articles; background memory is not another corroborating source."
+  ]
+}

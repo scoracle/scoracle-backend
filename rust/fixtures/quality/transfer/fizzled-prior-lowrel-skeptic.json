@@ -1,0 +1,24 @@
+{
+  "expect": {
+    "confidence_max": 0.5,
+    "subject_includes": [
+      "Sorensen"
+    ],
+    "summary_excludes": [
+      "$",
+      "£",
+      "€",
+      "million"
+    ],
+    "transfer_stage": "speculation"
+  },
+  "name": "fizzled-prior-lowrel-skeptic",
+  "prompt_version": "t13",
+  "task": "transfer",
+  "temperature": 0.0,
+  "user_prompt": "Sport: FOOTBALL\nTeam: Chelsea\nPlayer: Kai Sorensen\nIdentity (the ONE specific player to judge): Kai Sorensen · Danish · currently at Brøndby · forward\nAffiliation: Kai Sorensen is not recorded at Chelsea. This alone establishes no pursuit or move; determine whether either is actually reported.\nEvidence (computed): 1 article, 1 distinct source; primary source: TransferTavern.\n\nSource track record (measured — how these reporters' prior transfer claims resolved; weigh a claim by who is making it: a strong, early-calling source supports advancing the stage, a poor or unmeasured one keeps it cautious):\n- TransferTavern: reliability 14/100 (2 of 40 tracked moves confirmed).\n\nEntity memories for this proposed relationship:\n- Prior flirtation fizzled: Feb 2026, peak coverage 79/100.\n- Current story: tracked since Jul 10, peak coverage 30/100, computed likelihood 22/100 (cooling off).\n\nNews headlines:\n- [TransferTavern] Chelsea 'keeping tabs' on Sorensen — report — A report claims Chelsea are among clubs monitoring the forward, though no bid or talks are mentioned.\n\nReturn the JSON verdict now.",
+  "review": [
+    "Distinguish the proposed relationship from speculation, historical affiliation and unrelated people."
+  ],
+  "sport": "FOOTBALL"
+}

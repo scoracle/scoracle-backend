@@ -1,0 +1,24 @@
+{
+  "expect": {
+    "article_relevant": true,
+    "names_include": [
+      "Bellingham"
+    ],
+    "reader_vetted": [
+      "Real Madrid"
+    ],
+    "result_line_includes": [
+      "2-1"
+    ],
+    "result_line_parses": true,
+    "story_type_is": "performance"
+  },
+  "name": "result-line-verbatim-score",
+  "prompt_version": "ep8",
+  "task": "editor",
+  "temperature": 0.0,
+  "user_prompt": "Source: bbc\nTitle: Real Madrid 2-1 Arsenal: late Bellingham goal settles semi-final first leg\nRSS description: Bellingham strikes in the 89th minute.\n\nIdentity context, not event evidence. Distinguish current roles from career history; dated reporting may supersede these records. Unknown means unknown.\n\nHypothesis entities (from the query that found this article):\n- Real Madrid\n\nArticle text:\nReal Madrid 2-1 Arsenal. Jude Bellingham struck in the 89th minute to give Real Madrid a 2-1 win over Arsenal in the first leg of their Champions League semi-final at the Bernabeu. Bukayo Saka had put the visitors ahead early in the second half, finishing a sweeping counter-attack, before Vinicius Junior levelled from close range on 71 minutes. Arsenal manager Mikel Arteta said his side remain confident for the return leg at the Emirates next Wednesday. Real Madrid have now won nine consecutive home games in the competition.\n\nReturn the JSON object now.",
+  "review": [
+    "Extract only article-supported claims and preserve entity ambiguity and source uncertainty."
+  ]
+}

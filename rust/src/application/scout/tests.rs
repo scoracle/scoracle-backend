@@ -38,7 +38,7 @@ fn rating_product(
 /// 256-259. Ordinary test runs compile but ignore these cases; opt in with TEST_DATABASE_URL.
 mod postgres_publication_fencing_tests {
     use super::*;
-    use crate::runtime::work;
+    use crate::application::queue::work;
     use sqlx::postgres::PgPoolOptions;
     use sqlx::PgPool;
     use std::time::Duration;

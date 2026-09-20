@@ -9,15 +9,16 @@
 
 use anyhow::{ensure, Context, Result};
 use scoracle_cognition::{
+    application::models::Models,
     application::scout::{build_rating_request, RatingReq},
     evidence::corpus::lookup_entity_name,
     runtime::{
         config::Config,
         db,
-        harness::{Harness, Parser},
         route::{Role, Router},
     },
     studio::scout::{RatingBuild, RatingRequestParser, RATING_TEMPERATURE},
+    studio::Parser,
 };
 use serde_json::json;
 use std::time::Duration;
@@ -42,8 +43,7 @@ async fn main() -> Result<()> {
     let pool = db::build_pool(&cfg.database_url, 2).await?;
     let router = Router::from_config(&cfg.route, cfg.ollama_timeout, 1)?;
     let entity_name = lookup_entity_name(&pool, &entity_type, entity_id, &sport).await?;
-    let hx = Harness {
-        pool,
+    let models = Models {
         router,
         handler_budget: Duration::ZERO,
         voice_num_ctx: cfg.voice_num_ctx,
@@ -56,14 +56,14 @@ async fn main() -> Result<()> {
         season,
         trigger_type: "memory_inspection".into(),
     };
-    let ready = match build_rating_request(&hx, &req, RATING_TEMPERATURE, true).await? {
+    let ready = match build_rating_request(&pool, &models, &req, RATING_TEMPERATURE, true).await? {
         RatingBuild::NoStats { season } => {
             anyhow::bail!("Scout builder found no usable statistics for season {season}")
         }
         RatingBuild::Ready(ready) => *ready,
     };
 
-    let backend = hx.router.for_role(Role::StatsLogic);
+    let backend = models.router.for_role(Role::StatsLogic);
     let (generated, sent_request) = backend.generate(&ready.built_prompt, &ready.opts).await?;
     let parsed_provider_response =
         serde_json::from_str::<serde_json::Value>(&generated.raw_response_body)

@@ -3,7 +3,7 @@
 
 use super::model::GenerateOptions;
 use super::{Generation, GenerationCall, Outcome, Parser, Publisher, Studio};
-use crate::runtime::util::{hash_components, round1};
+use crate::util::{hash_components, round1};
 use anyhow::{anyhow, Result};
 
 mod inputs;
@@ -109,7 +109,7 @@ impl Parser<MomentumReply> for MomentumParser {
         let mut reply = parse_momentum_reply(raw).ok_or_else(|| {
             anyhow!(
                 "momentum: invalid response (raw={:?})",
-                crate::runtime::util::truncate_bytes(raw.trim(), 160)
+                crate::util::truncate_bytes(raw.trim(), 160)
             )
         })?;
         // Production guards live at the Parser seam; eval can still inspect the raw parse.

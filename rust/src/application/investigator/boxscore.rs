@@ -4,11 +4,10 @@
 //! discovery, parser families, and canonical-table promotion are not.
 
 use crate::runtime::fetch::{BudgetedFetchError, BudgetedFetcher, FetchPolicy};
-use crate::runtime::harness::Harness;
-use crate::runtime::stage::{HandleOutcome, StageHandler};
-use crate::runtime::util::hash_components;
-use crate::runtime::util::truncate;
+use crate::runtime::stage::{HandleOutcome, WorkHandler};
 use crate::runtime::work::{self, Item, Stage};
+use crate::util::hash_components;
+use crate::util::truncate;
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use reqwest::StatusCode;
@@ -137,20 +136,22 @@ struct PersistRecord {
 }
 
 pub struct FixtureBoxscoreHandler {
+    pool: sqlx::PgPool,
     fetcher: BudgetedFetcher,
 }
 
 impl FixtureBoxscoreHandler {
     /// Builds one shared fetcher so per-domain spacing and circuit state survive each item.
-    pub fn new() -> Result<Self> {
+    pub fn new(pool: sqlx::PgPool) -> Result<Self> {
         Ok(Self {
+            pool,
             fetcher: BudgetedFetcher::new()?,
         })
     }
 }
 
 #[async_trait]
-impl StageHandler for FixtureBoxscoreHandler {
+impl WorkHandler for FixtureBoxscoreHandler {
     fn stage(&self) -> Stage {
         Stage::FixtureBoxscore
     }
@@ -167,11 +168,8 @@ impl StageHandler for FixtureBoxscoreHandler {
         1
     }
 
-    async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {
-        self.handle_claimed(hx, item).await.map(|_| ())
-    }
-
-    async fn handle_claimed(&self, hx: &Harness, item: &Item) -> Result<HandleOutcome> {
+    async fn handle(&self, item: &Item) -> Result<HandleOutcome> {
+        let pool = &self.pool;
         if item.entity_type != "fixture" {
             return Err(anyhow!(
                 "fixture_boxscore requires entity_type='fixture', got {}",
@@ -180,13 +178,13 @@ impl StageHandler for FixtureBoxscoreHandler {
         }
 
         let fixture_id = item.entity_id_i32()?;
-        let Some(fixture) = load_fixture(&hx.pool, fixture_id).await? else {
-            return super::commit_claimed(&hx.pool, item, &[], &super::Decision::Unchanged).await;
+        let Some(fixture) = load_fixture(pool, fixture_id).await? else {
+            return super::commit_claimed(pool, item, &[], &super::Decision::Unchanged).await;
         };
 
         if !is_final_fixture_status(&fixture.status) {
             return persist_record(
-                &hx.pool,
+                pool,
                 item,
                 &fixture,
                 PersistRecord::terminal(
@@ -198,7 +196,7 @@ impl StageHandler for FixtureBoxscoreHandler {
             .await;
         }
 
-        let plan = select_source(&hx.pool, &fixture).await?;
+        let plan = select_source(pool, &fixture).await?;
         if plan.source_urls.is_empty() {
             // No registered public source could serve this fixture. Terminal and honest — and
             // still the state of every fixture, because `boxscore_sources` is empty until the
@@ -206,7 +204,7 @@ impl StageHandler for FixtureBoxscoreHandler {
             // emptiness lives: this is now a query returning no eligible rows, not a function
             // hardcoded to return nothing.
             return persist_record(
-                &hx.pool,
+                pool,
                 item,
                 &fixture,
                 PersistRecord::terminal(
@@ -221,7 +219,7 @@ impl StageHandler for FixtureBoxscoreHandler {
             .await;
         }
 
-        let fetched = match fetch_source(&self.fetcher, &hx.pool, &plan).await {
+        let fetched = match fetch_source(&self.fetcher, pool, &plan).await {
             Ok(f) => f,
             Err(FetchOutcome {
                 status,
@@ -231,7 +229,7 @@ impl StageHandler for FixtureBoxscoreHandler {
                 error,
             }) => {
                 return persist_record(
-                    &hx.pool,
+                    pool,
                     item,
                     &fixture,
                     PersistRecord::terminal_with_urls(
@@ -251,7 +249,7 @@ impl StageHandler for FixtureBoxscoreHandler {
             Ok(n) => n,
             Err(ParseOutcome { status, error }) => {
                 return persist_record(
-                    &hx.pool,
+                    pool,
                     item,
                     &fixture,
                     PersistRecord::terminal_with_urls(
@@ -269,7 +267,7 @@ impl StageHandler for FixtureBoxscoreHandler {
 
         if provider_status_is_not_final(normalized.provider_status.as_deref()) {
             return persist_record(
-                &hx.pool,
+                pool,
                 item,
                 &fixture,
                 PersistRecord::terminal_with_urls(
@@ -289,7 +287,7 @@ impl StageHandler for FixtureBoxscoreHandler {
 
         if let Err(reason) = validate_normalized(&fixture, &normalized) {
             return persist_record(
-                &hx.pool,
+                pool,
                 item,
                 &fixture,
                 PersistRecord::terminal_with_urls(
@@ -313,7 +311,7 @@ impl StageHandler for FixtureBoxscoreHandler {
         });
         let content_hash = boxscore_content_hash(&payload_for_hash);
         return persist_record(
-            &hx.pool,
+            pool,
             item,
             &fixture,
             PersistRecord {

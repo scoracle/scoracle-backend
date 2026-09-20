@@ -7,19 +7,15 @@ organization direction. It is local development, not a deployed metadata repair.
 ## Product and flow
 
 ```text
-src/composition/
-  mod.rs                 compose_card(memories, new_evidence)
-  memories.rs            entity identity, clocks, history, provenance, unknowns
-  form.rs                hook/body surface and output contracts
-  characters/
-    scout.rs  analyst.rs  journalist.rs  influencer.rs  insider.rs  oracle.rs
+src/evidence/memories.rs     sourced packages, selection, fingerprints, and rendering
+src/evidence/memories/      source queries and identity/performance preparation
+src/studio/                 character briefs, shared form, creation, and validation
+src/evaluation/memory.rs    offline compose_card(memories, new_evidence) probes
 ```
 
-Form is the canvas, character is the brush, memories are the paint. Junctions
-continue to gather new data and own execution, parsing, routing and persistence.
-The composition returns separate system and user inputs. Character and form stay
-in the system input; selected memories and newly gathered evidence go in the user
-input. No additional daily inference stage is introduced.
+Studio creates from prepared assignments. Application/evidence adapters gather material,
+select model routes, and publish. The offline composition probe returns separate system
+and user inputs using the same briefs. No additional daily inference stage is introduced.
 
 All six writer paths now load `memories::load` before hashing their material,
 including the Insider pair assessment. The local implementation replaces the old

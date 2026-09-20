@@ -1,7 +1,7 @@
 //! The Editor describes prepared articles in Studio. Storage, fetching and work belong to applications.
-use crate::runtime::util::truncate;
 use crate::studio::model::GenerateOptions;
 use crate::studio::{Extracted, Parser, Studio};
+use crate::util::truncate;
 use anyhow::{Context, Result};
 use serde::Deserialize;
 use serde_json::json;

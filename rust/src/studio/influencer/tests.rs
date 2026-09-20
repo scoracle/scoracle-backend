@@ -179,7 +179,7 @@ fn an_unsalvageable_hook_never_costs_the_card() {
     assert!(
         got.hook
             .as_deref()
-            .is_none_or(|h| crate::composition::guards::hook_violation(h).is_none()),
+            .is_none_or(|h| crate::studio::guards::hook_violation(h).is_none()),
         "a shipped hook always satisfies the contract: {:?}",
         got.hook
     );

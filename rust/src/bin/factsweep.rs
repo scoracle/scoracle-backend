@@ -24,8 +24,8 @@
 use anyhow::{anyhow, Result};
 use scoracle_cognition::runtime::config::Config;
 use scoracle_cognition::runtime::db;
-use scoracle_cognition::runtime::providers::ollama::GenerateOptions;
 use scoracle_cognition::runtime::route::{Role, Router};
+use scoracle_cognition::studio::model::GenerateOptions;
 use sqlx::{PgPool, Row};
 use std::collections::HashMap;
 

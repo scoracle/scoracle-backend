@@ -1,15 +1,15 @@
 //! Graph evidence preparation and claim-fenced publication. Model interpretation lives in Studio.
-use crate::runtime::harness::Harness;
+use crate::application::models::Models;
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
 use crate::runtime::route::Role;
-use crate::runtime::stage::{HandleOutcome, StageHandler, ARCHBOX_SLOTS};
-use crate::runtime::util::hash_components;
+use crate::runtime::stage::{HandleOutcome, WorkHandler, ARCHBOX_SLOTS};
 use crate::runtime::work::{self, Item, Stage};
 use crate::studio::graph::{
     Assignment, GraphArticle, GraphCandidate, GraphExtraction, GraphPerson, GraphRelation,
     GRAPH_PROMPT_VERSION,
 };
 use crate::studio::{Extracted, Generation, GenerationCall, Studio};
+use crate::util::hash_components;
 use anyhow::{ensure, Context, Result};
 use async_trait::async_trait;
 use sqlx::{PgPool, Row};
@@ -93,14 +93,10 @@ pub async fn load_graph_article_context(
         let entity_type: String = r.get(0);
         let entity_id: i32 = r.get(1);
         let name: String = r.get(2);
-        let descriptor = crate::composition::memories::load_identity_record(
-            pool,
-            &entity_type,
-            entity_id,
-            sport,
-        )
-        .await?
-        .unwrap_or_else(|| format!("{name} ({entity_type}; records unavailable)"));
+        let descriptor =
+            crate::evidence::memories::load_identity_record(pool, &entity_type, entity_id, sport)
+                .await?
+                .unwrap_or_else(|| format!("{name} ({entity_type}; records unavailable)"));
         candidates.push(GraphCandidate {
             entity_type,
             entity_id,
@@ -136,17 +132,14 @@ pub fn build_graph_input_components(
 /// idempotent evidence accumulation (the mention PK makes re-extraction a no-op bump).
 /// Fail-closed replies record a `failed_closed` bookkeeping row — same material never
 /// re-hammers the GPU — and write no events.
-pub struct GraphHandler;
-
-impl GraphHandler {
-    pub fn new() -> Self {
-        GraphHandler
-    }
+pub struct GraphHandler {
+    pool: sqlx::PgPool,
+    models: std::sync::Arc<Models>,
 }
 
-impl Default for GraphHandler {
-    fn default() -> Self {
-        Self::new()
+impl GraphHandler {
+    pub fn new(pool: sqlx::PgPool, models: std::sync::Arc<Models>) -> Self {
+        Self { pool, models }
     }
 }
 
@@ -158,12 +151,11 @@ enum Prepared {
     },
 }
 
-async fn prepare(hx: &Harness, item: &Item) -> Result<Prepared> {
+async fn prepare(pool: &sqlx::PgPool, models: &Models, item: &Item) -> Result<Prepared> {
     ensure!(item.entity_type == "article", "graph requires an article");
     let article_id = item.entity_id;
     let sport = item.sport.to_uppercase();
-    let Some((article, candidates)) =
-        load_graph_article_context(&hx.pool, article_id, &sport).await?
+    let Some((article, candidates)) = load_graph_article_context(pool, article_id, &sport).await?
     else {
         debug!(article_id, sport = %sport, "graph: no article or no vetted candidates");
         return Ok(Prepared::Unchanged);
@@ -174,7 +166,7 @@ async fn prepare(hx: &Harness, item: &Item) -> Result<Prepared> {
     // Debounce on the bookkeeping row: same material AND same prompt contract ⇒ the
     // extraction already ran (including a fail-closed one — never re-hammer the GPU
     // on identical bytes). A prompt bump re-extracts everything once, like rating.
-    if read_is_current(&hx.pool, article_id, &input_hash).await? {
+    if read_is_current(pool, article_id, &input_hash).await? {
         debug!(
             article_id,
             "graph: debounce-skip, material + contract unchanged"
@@ -182,7 +174,7 @@ async fn prepare(hx: &Harness, item: &Item) -> Result<Prepared> {
         return Ok(Prepared::Unchanged);
     }
 
-    let model = hx.router.for_role(Role::EmotionalNews);
+    let model = models.router.for_role(Role::EmotionalNews);
     let extracted = Studio::new(model.as_ref())
         .extract_graph(&Assignment {
             article,
@@ -199,7 +191,7 @@ async fn prepare(hx: &Harness, item: &Item) -> Result<Prepared> {
 }
 
 #[async_trait]
-impl StageHandler for GraphHandler {
+impl WorkHandler for GraphHandler {
     fn stage(&self) -> Stage {
         Stage::Graph
     }
@@ -212,12 +204,11 @@ impl StageHandler for GraphHandler {
     fn slot_group(&self) -> Option<(&'static str, usize)> {
         Some(ARCHBOX_SLOTS)
     }
-    async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {
-        self.handle_claimed(hx, item).await.map(|_| ())
-    }
-    async fn handle_claimed(&self, hx: &Harness, item: &Item) -> Result<HandleOutcome> {
-        let prepared = prepare(hx, item).await?;
-        commit_claimed(&hx.pool, item, &prepared).await
+    async fn handle(&self, item: &Item) -> Result<HandleOutcome> {
+        let pool = &self.pool;
+        let models = &self.models;
+        let prepared = prepare(pool, models, item).await?;
+        commit_claimed(pool, item, &prepared).await
     }
 }
 

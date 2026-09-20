@@ -106,7 +106,7 @@ impl Parser<ParsedNarratives> for NarrativesParser {
         if !ok {
             return Err(anyhow!(
                 "parse narratives failed (raw={:?})",
-                crate::runtime::util::truncate(raw, 200)
+                crate::util::truncate(raw, 200)
             ));
         }
         for narrative in &mut narratives {
@@ -146,7 +146,7 @@ impl Parser<ParsedNarratives> for NarrativesParser {
 }
 
 pub fn narratives_decode_budget(num_ctx: i32) -> (i32, i32) {
-    if crate::runtime::route::small_voice_window(num_ctx) {
+    if crate::studio::model::small_voice_window(num_ctx) {
         (num_ctx, NARRATIVES_NUM_PREDICT_PACKET)
     } else {
         (num_ctx, NARRATIVES_NUM_PREDICT)
@@ -462,7 +462,7 @@ pub const READING_FINGERPRINT_NONE: &str = "none::0";
 pub fn build_article_reading_input_components(items: &[(i64, String)]) -> String {
     let mut pairs = items.to_vec();
     pairs.sort_by_key(|(id, _)| *id);
-    crate::runtime::util::hash_components(
+    crate::util::hash_components(
         &serde_json::to_string(&pairs).expect("article fingerprint tuples serialize"),
     )
 }

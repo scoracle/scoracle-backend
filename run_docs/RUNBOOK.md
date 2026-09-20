@@ -54,7 +54,7 @@ to audition a candidate).
 
 | Machine | Hardware | Model | Seats |
 |---|---|---|---|
-| **archbox** | 1070 Ti @ 135W (Ollama, `localhost:11434`, 4 parallel slots) | `ministral-3:3b` | ALL of them: Editor (`editor`), Investigator (`investigator`), Graph (`emotional-news`), Journalist (`narrative-logic`), Insider (`transfer-logic`), Influencer (`vibe-logic`), Analyst (`momentum-logic`), Scout (`stats-logic`), Oracle (`oracle-logic`), plus utility roles (`sql`, `multilang`) |
+| **archbox** | 1070 Ti @ 135W (Ollama, `localhost:11434`, 4 parallel slots) | `ministral-3:3b` | ALL of them: Editor (`editor`), Investigator (`investigator`), Graph (`emotional-news`), Journalist (`narrative-logic`), Insider (`transfer-logic`), Influencer (`vibe-logic`), Analyst (`momentum-logic`), Scout (`stats-logic`), Oracle (`oracle-logic`) |
 
 The Mac mini lane (ministral-3:8b) was retired from production 2026-08-20; the
 machine remains a standalone LLM/agent box, not attached to the pipeline.
@@ -69,7 +69,7 @@ Five deployed binaries, all built from one commit by `release.sh` (3 Go + 2 Rust
 | `scoracle-cognition` | the Rust daemon: drains editor → investigate_entity → graph → transfers → narratives → vibe → rating → momentum → sigil | `scoracle-cognition.service` (always on, GPU box) |
 | `statcommentary` | Rust rating batch (single / nightly / backfill, NOT a queue stage) | cron (`cron-rust-statcommentary.sh`) |
 
-Google does the relevancy work at fetch time; the Rust junctions curate everything
+Google does the relevancy work at fetch time; the Rust application and Studio curate everything
 downstream. There is no other ingestion path — no provider clients, no live polling.
 
 The running API reports its build at `GET /` (`{"commit": "...", "build_time": "..."}`) and logs it

@@ -13,9 +13,9 @@
 //! Packet inserts fan work out to subscribed voices and always to the Journalist.
 
 use super::slice_quote;
-use crate::runtime::util::hash_components;
 use crate::studio::editor::derive::routing_tags;
 use crate::studio::editor::{EditorRead, NameMention};
+use crate::util::hash_components;
 use anyhow::{Context, Result};
 use serde_json::{json, Value};
 use sqlx::{PgPool, Row};

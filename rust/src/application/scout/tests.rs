@@ -1,70 +1,8 @@
 //! Unit and exact-publication tests for the Scout application adapter.
 
 use super::*;
-use crate::runtime::harness::Generation;
 use crate::studio::scout::{RatingExclusions, RatingProduct, RATING_PROMPT_VERSION};
-use std::sync::Mutex;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Followup {
-    MomentumThenOracle,
-    OracleOnly,
-}
-
-#[async_trait]
-trait ProductPublisher {
-    async fn publish(&self, output: &RatingOutput) -> Result<()>;
-}
-
-#[async_trait]
-trait CompletionHandoff {
-    async fn offer(&self, followup: Followup) -> Result<()>;
-}
-
-async fn run_prepared<P, H>(prepared: &Prepared<'_>, publisher: &P, handoff: &H) -> Result<Followup>
-where
-    P: ProductPublisher + Sync,
-    H: CompletionHandoff + Sync,
-{
-    let followup = match prepared {
-        Prepared::Product(output) => {
-            publisher.publish(output).await?;
-            Followup::MomentumThenOracle
-        }
-        Prepared::Debounced => Followup::OracleOnly,
-    };
-    handoff.offer(followup).await?;
-    Ok(followup)
-}
-
-#[derive(Default)]
-struct LifecycleAdapters {
-    events: Mutex<Vec<&'static str>>,
-    publication_fails: bool,
-}
-
-#[async_trait]
-impl ProductPublisher for LifecycleAdapters {
-    async fn publish(&self, _: &RatingOutput) -> Result<()> {
-        self.events.lock().unwrap().push("publish");
-        if self.publication_fails {
-            bail!("publication unavailable");
-        }
-        Ok(())
-    }
-}
-
-#[async_trait]
-impl CompletionHandoff for LifecycleAdapters {
-    async fn offer(&self, followup: Followup) -> Result<()> {
-        self.events.lock().unwrap().push(match followup {
-            Followup::MomentumThenOracle => "momentum+oracle",
-            Followup::OracleOnly => "oracle",
-        });
-        Ok(())
-    }
-}
-
+use crate::studio::Generation;
 fn rating_product(
     skipped_no_stats: bool,
     skipped_unchanged: bool,
@@ -94,48 +32,6 @@ fn rating_product(
         Vec::new(),
         body.map(|_| "rating-input-hash".to_string()),
     )
-}
-
-#[tokio::test]
-async fn product_publication_precedes_momentum_and_oracle() {
-    let output = rating_product(false, false, Some("The profile is balanced and climbing."));
-    let adapters = LifecycleAdapters::default();
-    assert_eq!(
-        run_prepared(&prepare(&output), &adapters, &adapters)
-            .await
-            .unwrap(),
-        Followup::MomentumThenOracle
-    );
-    assert_eq!(
-        *adapters.events.lock().unwrap(),
-        ["publish", "momentum+oracle"]
-    );
-}
-
-#[tokio::test]
-async fn debounce_skips_product_and_keeps_only_oracle_obligation() {
-    let output = rating_product(false, true, None);
-    let adapters = LifecycleAdapters::default();
-    assert_eq!(
-        run_prepared(&prepare(&output), &adapters, &adapters)
-            .await
-            .unwrap(),
-        Followup::OracleOnly
-    );
-    assert_eq!(*adapters.events.lock().unwrap(), ["oracle"]);
-}
-
-#[tokio::test]
-async fn publication_failure_stops_before_followup() {
-    let output = rating_product(false, false, Some("The profile is balanced and climbing."));
-    let adapters = LifecycleAdapters {
-        publication_fails: true,
-        ..Default::default()
-    };
-    assert!(run_prepared(&prepare(&output), &adapters, &adapters)
-        .await
-        .is_err());
-    assert_eq!(*adapters.events.lock().unwrap(), ["publish"]);
 }
 
 /// Exact publication-contract acceptance against an isolated database containing migrations

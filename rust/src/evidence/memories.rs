@@ -13,7 +13,7 @@ use sha2::{Digest, Sha256};
 mod identity;
 mod performance;
 mod sources;
-pub use identity::{load_identity_card, load_identity_record, IDENTITY_CARD_FRAMING};
+pub use identity::load_identity_record;
 pub use sources::{load, MemoryRequest};
 
 pub const VERSION: &str = "memories-v3";
@@ -481,7 +481,7 @@ impl Package {
         Ok(self)
     }
 
-    /// Add the exact selected memory material to the junction's existing debounce key.
+    /// Add the exact selected memory material to the application's existing debounce key.
     pub fn with_input_components(&self, components: &str) -> Result<String> {
         let mut value: Value = serde_json::from_str(components)?;
         ensure!(value.is_object(), "input components must be an object");

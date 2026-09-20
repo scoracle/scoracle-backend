@@ -3,9 +3,9 @@
 //! Storage, readiness policy, routing, queue ownership, and publication live in the application.
 //! With no available cards, Studio returns a NULL marker without a model call.
 
-use crate::runtime::util::{round1, truncate};
 use crate::studio::model::GenerateOptions;
 use crate::studio::{Generation, GenerationCall, Parser, Studio};
+use crate::util::{round1, truncate};
 use anyhow::{anyhow, bail, Result};
 
 mod brief;

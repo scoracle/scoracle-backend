@@ -407,7 +407,7 @@ mod tests {
 
 /// Normalize typography only. Content and sentence boundaries belong to the model.
 pub fn clean_served_prose(s: &str) -> String {
-    crate::studio::form::normalize_body(&crate::runtime::util::strip_markdown_emphasis(s))
+    crate::studio::form::normalize_body(&crate::util::strip_markdown_emphasis(s))
 }
 
 /// settle_title applies the card-title contract and returns what should SHIP.
@@ -421,7 +421,7 @@ pub fn clean_served_prose(s: &str) -> String {
 /// what prices a future model swap, and it was the only reason these bugs were findable at all.
 pub fn settle_title(seat: &str, raw: Option<&str>) -> Option<String> {
     // Strip emphasis before validation and salvage.
-    let t = crate::runtime::util::strip_markdown_emphasis(raw?);
+    let t = crate::util::strip_markdown_emphasis(raw?);
     // A title that is (or contains) the contract's own `<the HOOK — …>` placeholder is
     // notation, not a title; strip the span and let the emptiness check decide.
     let t = strip_template_spans(&t);

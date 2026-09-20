@@ -1,8 +1,7 @@
 //! Resolve, fetch, and clean publisher pages for the Editor and Investigator.
 //! `ARTICLE_READ_CHROME_ENABLED` remains the deployed name of the Chrome fallback switch.
 //!
-//! Infrastructure rule (see `junctions/mod.rs`): junctions may depend on this module; this module
-//! must not depend on any junction.
+//! Acquisition infrastructure used by application adapters; it does not depend on seat logic.
 
 use anyhow::{anyhow, Context, Result};
 use serde_json::json;

@@ -3,11 +3,14 @@
 //! Runtime defaults mirror the recorded September 14 Scout configuration.
 
 use anyhow::{Context, Result};
+use scoracle_cognition::studio::form;
 use scoracle_cognition::{
-    composition::{compose_card, form, memories::Package},
+    evaluation::memory::compose_card,
+    evidence::memories::Package,
     runtime::config::{Backend, RouteConfig},
-    runtime::providers::ollama::{GenerateOptions, OllamaClient},
+    runtime::providers::ollama::OllamaClient,
     runtime::route::{resolve_voice_num_ctx, Role},
+    studio::model::GenerateOptions,
 };
 use serde_json::{json, Value};
 use std::time::Duration;
@@ -84,8 +87,8 @@ fn main() -> Result<()> {
 }
 
 fn review(path: &str) -> Result<()> {
-    use scoracle_cognition::runtime::harness::Parser;
     use scoracle_cognition::studio::scout::RatingParser;
+    use scoracle_cognition::studio::Parser;
     let mut results = Vec::new();
     for line in std::fs::read_to_string(path)?.lines() {
         let run: Value = serde_json::from_str(line)?;

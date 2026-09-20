@@ -178,7 +178,7 @@ async fn studio_validates_only_the_page_text_actually_shown() {
     assert!(!requests[0].0.contains("Hidden Club"));
     assert_eq!(
         requests[0].1.num_ctx,
-        crate::runtime::route::LOCAL_STAGE_NUM_CTX
+        crate::studio::model::LOCAL_STAGE_NUM_CTX
     );
     assert_eq!(
         requests[0].1.format_schema_raw.as_deref(),

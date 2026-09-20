@@ -11,7 +11,7 @@
 //! A grammar constrains shape, not the meaning of free-text fields. Put shape rules in the
 //! schema and semantic rules in the prompt.
 
-use crate::runtime::util::truncate;
+use crate::util::truncate;
 
 /// The Editor's contract version — a CACHE KEY, not a label (T1). `editor_reads` rows carry it as
 /// `contract_version`, and `read_is_current` is the only query that reads it, so bumping it is
@@ -80,7 +80,7 @@ pub fn build_editor_prompt_parts(
     if !hypothesis_names.is_empty() {
         p.push_str(&format!(
             "\n{}\n",
-            crate::composition::memories::IDENTITY_CARD_FRAMING
+            crate::studio::form::IDENTITY_CARD_FRAMING
         ));
         p.push_str("\nHypothesis entities (from the query that found this article):\n");
         for e in hypothesis_names {

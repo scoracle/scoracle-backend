@@ -1,7 +1,7 @@
 //! Transfer verification and identity-adjudication contracts.
 
 use super::{NewsItem, TransferCandidate, TransferEvidence, DESC_TRUNCATE};
-use crate::runtime::util::truncate_bytes;
+use crate::util::truncate_bytes;
 
 pub const TRANSFER_PROMPT_VERSION: &str = "t13";
 

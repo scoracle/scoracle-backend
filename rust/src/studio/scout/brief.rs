@@ -1,4 +1,4 @@
-//! The Scout's character. Output structure belongs to `composition::form`.
+//! The Scout's character. Output structure belongs to `studio::form`.
 
 use crate::studio::form::{compose, CardFormat};
 

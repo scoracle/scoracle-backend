@@ -1,25 +1,5 @@
 //! Shared identity lookup and semantic versioning for writers and extraction.
 
-/// Framing that tells the model to reconcile dated house records with current reporting.
-pub const IDENTITY_CARD_FRAMING: &str = "Identity context, not event evidence. Distinguish current roles from career history; dated reporting may supersede these records. Unknown means unknown.";
-
-/// load_identity_card renders the entity's house-record identity line for the prompts: who
-/// this is, where they play, and (teams) the coach on record.
-/// Shared by article extraction, transfer verification and card writers. Database errors
-/// propagate; a failed metadata read must not silently produce a context-free answer.
-///
-/// `None` when the entity is unknown — an absent card is honest; an empty one is noise.
-pub async fn load_identity_card(
-    pool: &sqlx::PgPool,
-    entity_type: &str,
-    entity_id: i32,
-    sport: &str,
-) -> anyhow::Result<Option<String>> {
-    Ok(load_identity_record(pool, entity_type, entity_id, sport)
-        .await?
-        .map(|record| format!("{IDENTITY_CARD_FRAMING}\n{record}")))
-}
-
 /// A compact descriptor for numbered candidate lists; framing belongs once above the list.
 pub async fn load_identity_record(
     pool: &sqlx::PgPool,

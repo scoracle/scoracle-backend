@@ -52,14 +52,15 @@
 //!   COGNITION_ROUTE_STATS_LOGIC_CANDIDATE=qwen3:8b eval --task momentum --fixtures
 
 use anyhow::{anyhow, Context, Result};
+use scoracle_cognition::application::models::Models;
 use scoracle_cognition::evaluation::judge::VoiceSpec;
 use scoracle_cognition::evaluation::tasks::{
     all_task_names, fixture_drift, resolve_task, CaseVerdict, EntitySpec, Expect, Fixture, LensTask,
 };
 use scoracle_cognition::runtime::config::{Config, RouteConfig};
 use scoracle_cognition::runtime::db;
-use scoracle_cognition::runtime::harness::Harness;
-use scoracle_cognition::runtime::route::{Inference, Role, Router};
+use scoracle_cognition::runtime::route::{Role, Router};
+use scoracle_cognition::studio::model::Inference;
 use serde_json::Value;
 use sqlx::Row;
 use std::collections::HashMap;
@@ -284,9 +285,9 @@ async fn run_live(cfg: &Config, task: &dyn LensTask, cases: &[EvalCase]) -> Resu
         return Ok(());
     }
 
-    let harness = build_harness(cfg).await?;
-    let incumbent = harness.router.for_role(task.role());
-    let candidate = harness.router.candidate_for(task.role());
+    let (pool, models) = build_dependencies(cfg).await?;
+    let incumbent = models.router.for_role(task.role());
+    let candidate = models.router.candidate_for(task.role());
 
     println!(
         "eval — task={} role={} n={} temp={} (deterministic)",
@@ -306,12 +307,13 @@ async fn run_live(cfg: &Config, task: &dyn LensTask, cases: &[EvalCase]) -> Resu
         "\nincumbent: {} (drain all of this model first)",
         incumbent.model()
     );
-    let (incumbent_score, inc_results) = score_backend(&harness, task, &incumbent, cases).await?;
+    let (incumbent_score, inc_results) =
+        score_backend(&pool, &models, task, &incumbent, cases).await?;
 
     let (candidate_score, cand_results) = match candidate.as_ref() {
         Some(c) => {
             println!("\ncandidate: {} (ONE swap to here, then drain)", c.model());
-            let (s, r) = score_backend(&harness, task, c, cases).await?;
+            let (s, r) = score_backend(&pool, &models, task, c, cases).await?;
             (Some(s), Some(r))
         }
         None => {
@@ -345,7 +347,8 @@ async fn run_live(cfg: &Config, task: &dyn LensTask, cases: &[EvalCase]) -> Resu
 /// evaluate, and returns its MAE (over labeled cases with a numeric axis) plus the per-case results.
 /// Cases with no corpus are skipped — they carry no model judgment to compare.
 async fn score_backend(
-    hx: &Harness,
+    pool: &sqlx::PgPool,
+    models: &Models,
     task: &dyn LensTask,
     backend: &Arc<dyn Inference>,
     cases: &[EvalCase],
@@ -355,7 +358,7 @@ async fn score_backend(
     let mut results: Vec<CaseResult> = Vec::with_capacity(cases.len());
     for case in cases {
         let opts = task.gen_options_for(EVAL_TEMPERATURE, &case.entity);
-        let prompt = match task.build_prompt(hx, &case.entity).await? {
+        let prompt = match task.build_prompt(pool, models, &case.entity).await? {
             Some(p) => p,
             None => {
                 println!("  – {} : no corpus (skipped)", case.entity.key());
@@ -457,7 +460,7 @@ async fn run_fixtures(
     judge: Option<Arc<dyn Inference>>,
     live_system: bool,
 ) -> Result<()> {
-    // Router-only: no DB pool, no Harness — fixtures carry their own frozen prompts.
+    // Router-only: no DB pool or application dependencies — fixtures carry their own frozen prompts.
     let router = Router::from_config(&cfg.route, cfg.ollama_timeout, 1)?;
     let incumbent = router.for_role(task.role());
     let candidate = router.candidate_for(task.role());
@@ -799,9 +802,9 @@ async fn run_capture(cfg: &Config, task: &dyn LensTask, cases: &[EvalCase]) -> R
             task.name()
         )
     })?;
-    let harness = build_harness(cfg).await?;
+    let (pool, models) = build_dependencies(cfg).await?;
     let user_prompt = task
-        .build_prompt(&harness, &case.entity)
+        .build_prompt(&pool, &models, &case.entity)
         .await?
         .ok_or_else(|| anyhow!("no corpus for {} — nothing to capture", case.entity.key()))?;
     // The frozen system is the task's system const (what the model actually sees).
@@ -964,21 +967,23 @@ fn fixture_raw_excerpt(raw: &str) -> String {
     out
 }
 
-/// build_harness constructs the read-only harness (pool + router).
+/// build_dependencies constructs separate read-only storage and model dependencies.
 /// Single-flight, so the GPU governor is moot; pin 1.
-async fn build_harness(cfg: &Config) -> Result<Harness> {
+async fn build_dependencies(cfg: &Config) -> Result<(sqlx::PgPool, Models)> {
     let pool = db::build_pool(&cfg.database_url, cfg.db_max_conns).await?;
     let router = Router::from_config(&cfg.route, cfg.ollama_timeout, 1)?;
-    Ok(Harness {
+    Ok((
         pool,
-        router,
-        // Unbounded: an inspection run drives its entity to completion. Nothing here is racing a
-        // worker timeout, and a truncated eval would be a worse artifact than a slow one.
-        handler_budget: Duration::ZERO,
-        // The same resolved window production runs — an eval generating in a window the live
-        // stage never uses would measure the wrong thing.
-        voice_num_ctx: cfg.voice_num_ctx,
-    })
+        Models {
+            router,
+            // Unbounded: an inspection run drives its entity to completion. Nothing here is racing a
+            // worker timeout, and a truncated eval would be a worse artifact than a slow one.
+            handler_budget: Duration::ZERO,
+            // The same resolved window production runs — an eval generating in a window the live
+            // stage never uses would measure the wrong thing.
+            voice_num_ctx: cfg.voice_num_ctx,
+        },
+    ))
 }
 
 /// fixtures_dir is `fixtures/<task>` relative to CWD (the `rust/` crate root when run via cargo).

@@ -476,13 +476,13 @@ fn decode_budget_follows_the_window() {
         (16384, NARRATIVES_NUM_PREDICT)
     );
     assert_eq!(
-        narratives_decode_budget(crate::runtime::route::VOICE_NUM_CTX_PACKET),
+        narratives_decode_budget(crate::studio::model::VOICE_NUM_CTX_PACKET),
         (4096, 900)
     );
     // The prompt budget must still clear the p99 prompt envelope — and on MLX the binding
     // ceiling is the ~4k PROMPT boundary (the ministral3 mask crash), which ctx−predict
     // keeps prompts safely under. 4096−900 = 3196 ≥ the measured ~3.1k p99.
-    let (ctx, predict) = narratives_decode_budget(crate::runtime::route::VOICE_NUM_CTX_PACKET);
+    let (ctx, predict) = narratives_decode_budget(crate::studio::model::VOICE_NUM_CTX_PACKET);
     assert!(predict <= 1_000);
     assert!(
         ctx - predict >= 3_100,

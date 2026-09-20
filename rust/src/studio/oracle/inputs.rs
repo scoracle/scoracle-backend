@@ -62,7 +62,7 @@ pub(crate) fn descrub_z(brief: &str) -> String {
 
 fn capped(s: &str, budget: Option<usize>) -> String {
     match budget {
-        Some(max) => crate::runtime::util::truncate_bytes(s, max),
+        Some(max) => crate::util::truncate_bytes(s, max),
         None => s.to_string(),
     }
 }

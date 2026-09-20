@@ -7,7 +7,7 @@
 //!   fail     → 'failed' + backoff       (retryable until MAX_ATTEMPTS, then dead-letter)
 //!   requeue_stale: 'running' → 'pending' (recover a crashed worker's lease)
 
-use crate::runtime::util::truncate;
+use crate::util::truncate;
 use anyhow::{anyhow, Context, Result};
 use sqlx::{PgPool, Postgres, Transaction};
 use std::time::Duration;
@@ -179,9 +179,7 @@ pub(crate) async fn complete_in_transaction(
     Ok(result.rows_affected() == 1)
 }
 
-/// Drainer policy. CLAIM_BATCH and MAX_ATTEMPTS match the Go defaults; the retry
-/// ramp below replaces the old flat 30-minute backoff.
-pub const CLAIM_BATCH: i64 = 10;
+/// Maximum failures before work stops retrying; matches the Go queue policy.
 pub const MAX_ATTEMPTS: i32 = 5;
 
 /// retry_backoff ramps a failed item's delay by how many times it has already
@@ -258,37 +256,6 @@ pub async fn claim(pool: &PgPool, stage: Stage, limit: i64) -> Result<Vec<Item>>
         .collect())
 }
 
-/// complete removes a finished work item only when its unique claim and captured
-/// revision still own the running row. Returns false for a stale execution. If a
-/// newer input reopened the row to pending, or stale recovery issued a new claim,
-/// the outstanding work survives for its current owner.
-///
-/// The `status = 'running'` guard is also what makes [`defer`] work: a handler that hands its own
-/// row back to 'pending' and then returns `Ok(())` passes through the worker's completion path
-/// without its row being deleted. That is the deferral protocol, not an accident — see [`defer`].
-pub async fn complete(pool: &PgPool, it: &Item) -> Result<bool> {
-    let claim_token = it.require_claim_token()?;
-    let result = sqlx::query(
-        r#"
-        DELETE FROM pipeline_work
-         WHERE stage = $1 AND entity_type = $2 AND entity_id = $3 AND sport = $4
-           AND status = 'running'
-           AND claim_token = $5::uuid
-           AND running_input_version IS NOT DISTINCT FROM $6
-        "#,
-    )
-    .bind(it.stage.as_str())
-    .bind(it.entity_type.as_str())
-    .bind(it.entity_id)
-    .bind(it.sport.as_str())
-    .bind(claim_token)
-    .bind(it.input_version.as_deref())
-    .execute(pool)
-    .await
-    .with_context(|| format!("complete {} {}/{}", it.stage, it.entity_type, it.entity_id))?;
-    Ok(result.rows_affected() == 1)
-}
-
 /// Claim priority and dependency order of the six voices:
 ///
 ///   1. `Narratives` — The Journalist reads the corpus and depends on no other voice
@@ -321,8 +288,8 @@ pub const PILLAR_STAGES: [Stage; 5] = [
 
 /// True when no pillar stage still owes this entity work — the Oracle's completion barrier.
 ///
-/// Call only after [`complete`]. The last completing pillar observes no outstanding rows
-/// and enqueues the Oracle; `enqueue` coalesces concurrent offers.
+/// Reconcile after a publisher commits exact completion. The last completing pillar observes
+/// no outstanding rows and offers Oracle; `enqueue` coalesces concurrent offers.
 ///
 /// `status = 'failed'` counts as SETTLED at every attempt level. This is the existing partial-read
 /// policy: a retryable failure may temporarily leave one card missing, while a later successful
@@ -620,6 +587,13 @@ mod postgres_claim_fencing_tests {
             .execute(pool)
             .await
             .expect("clean claim-fencing test rows");
+    }
+
+    async fn complete(pool: &PgPool, item: &Item) -> Result<bool> {
+        let mut tx = pool.begin().await?;
+        let completed = complete_in_transaction(&mut tx, item).await?;
+        tx.commit().await?;
+        Ok(completed)
     }
 
     async fn one_claim(pool: &PgPool, stage: Stage) -> Item {

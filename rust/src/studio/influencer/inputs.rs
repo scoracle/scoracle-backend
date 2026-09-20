@@ -1,7 +1,7 @@
 //! Evidence and continuity supplied to the character.
 
 use super::{title_first, PacketBlock, PACKET_BLOCK_TRUNCATE};
-use crate::runtime::util::truncate_bytes;
+use crate::util::truncate_bytes;
 
 pub fn build_sentiment_prompt(
     entity_type: &str,

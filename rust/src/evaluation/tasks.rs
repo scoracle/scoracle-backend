@@ -39,13 +39,11 @@ use crate::application::insider::{
     build_pair_request, load_candidates, team_relationship, PairBuild,
 };
 use crate::application::journalist::load_packet_corpus;
+use crate::application::models::Models;
 use crate::application::oracle::load_pillars;
 use crate::application::scout::{build_rating_request, RatingReq};
 use crate::evidence::corpus::lookup_entity_name;
-use crate::runtime::harness::{Harness, Parser};
-use crate::runtime::providers::ollama::GenerateOptions;
 use crate::runtime::route::Role;
-use crate::runtime::util::truncate;
 use crate::studio::analyst::{
     parse_momentum_reply, MOMENTUM_NUM_PREDICT, MOMENTUM_PROMPT_VERSION, MOMENTUM_SYSTEM_PROMPT,
 };
@@ -69,6 +67,7 @@ use crate::studio::journalist::{
     build_narratives_prompt, narratives_format_schema, NarrativesParser, Subject,
     NARRATIVES_NUM_PREDICT_PACKET, NARRATIVES_PROMPT_VERSION, NARRATIVES_SYSTEM_PROMPT,
 };
+use crate::studio::model::GenerateOptions;
 use crate::studio::oracle::{
     build_crown_prompt, build_pillar_divergence, compute_omen, count_sentences,
     oracle_format_schema, parse_crown_reply, pillar_convergence, ORACLE_NUM_PREDICT,
@@ -77,6 +76,8 @@ use crate::studio::oracle::{
 use crate::studio::scout::{
     RatingBuild, RatingReply, RATING_NUM_PREDICT, RATING_PROMPT_VERSION, RATING_SYSTEM_PROMPT,
 };
+use crate::studio::Parser;
+use crate::util::truncate;
 use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -532,7 +533,12 @@ pub trait LensTask: Send + Sync {
     }
     /// Build the EXACT production user-prompt for an entity. `Ok(None)` = no-corpus skip (the stage
     /// would write a marker without a model call — nothing to score).
-    async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>>;
+    async fn build_prompt(
+        &self,
+        pool: &sqlx::PgPool,
+        models: &Models,
+        e: &EntitySpec,
+    ) -> Result<Option<String>>;
     /// Parse + score one raw reply. Pure/sync/offline. `label` drives the MAE axis (vibe live);
     /// `expect` drives the property axis (fixtures). Both optional and independent.
     fn evaluate(&self, raw: &str, label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict;
@@ -606,9 +612,14 @@ impl LensTask for VibeTask {
     fn gen_options(&self, temperature: f64) -> GenerateOptions {
         crate::studio::influencer::generation_options(temperature, 0, VIBE_NUM_PREDICT)
     }
-    async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
-        let name = lookup_entity_name(&hx.pool, &e.entity_type, e.entity_id, &e.sport).await?;
-        let context = load_vibe_context(hx, &e.entity_type, e.entity_id, &name, &e.sport).await?;
+    async fn build_prompt(
+        &self,
+        pool: &sqlx::PgPool,
+        _models: &Models,
+        e: &EntitySpec,
+    ) -> Result<Option<String>> {
+        let name = lookup_entity_name(pool, &e.entity_type, e.entity_id, &e.sport).await?;
+        let context = load_vibe_context(pool, &e.entity_type, e.entity_id, &name, &e.sport).await?;
         if context.empty() {
             return Ok(None);
         }
@@ -624,7 +635,7 @@ impl LensTask for VibeTask {
         match parse_vibe_reply(raw) {
             Ok((s, hook, v)) => {
                 // Score the prose that production serves, after the shared structural scrub.
-                let v = crate::composition::guards::clean_served_prose(&v);
+                let v = crate::studio::guards::clean_served_prose(&v);
                 let mut checks = Vec::new();
                 // Contract-level invariants (the MOMENTUM_BANNED_PHRASES shape, folded 08-19):
                 // the HOOK contract and the body's global bans are enforced in production by
@@ -636,7 +647,7 @@ impl LensTask for VibeTask {
                 // salvages to its first beat and serves — so a raw-hook check was redding
                 // titles the card actually carries, clean. Red only when settlement DROPS
                 // the title; name a salvage in the detail so the prose is still visible.
-                let settled = crate::composition::guards::settle_title("gate", hook.as_deref());
+                let settled = crate::studio::guards::settle_title("gate", hook.as_deref());
                 checks.push(PropertyCheck {
                     name: "hook_contract".into(),
                     pass: settled.is_some(),
@@ -644,7 +655,7 @@ impl LensTask for VibeTask {
                         (None, _) => "hook=MISSING".into(),
                         (Some(h), None) => format!(
                             "{} (hook={h:?}, unsalvageable — ships titleless)",
-                            crate::composition::guards::hook_violation(h).unwrap_or("dropped")
+                            crate::studio::guards::hook_violation(h).unwrap_or("dropped")
                         ),
                         (Some(h), Some(s)) if s != h.trim() => format!("salvaged to {s:?}"),
                         (Some(_), Some(_)) => String::new(),
@@ -769,10 +780,15 @@ impl LensTask for OracleTask {
             format_schema_raw: None,
         }
     }
-    async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
-        let name = lookup_entity_name(&hx.pool, &e.entity_type, e.entity_id, &e.sport).await?;
+    async fn build_prompt(
+        &self,
+        pool: &sqlx::PgPool,
+        _models: &Models,
+        e: &EntitySpec,
+    ) -> Result<Option<String>> {
+        let name = lookup_entity_name(pool, &e.entity_type, e.entity_id, &e.sport).await?;
         let sport = e.sport.to_uppercase();
-        let (_season, cards) = load_pillars(hx, &e.entity_type, e.entity_id, &sport).await?;
+        let (_season, cards) = load_pillars(pool, &e.entity_type, e.entity_id, &sport).await?;
         // With no evidence, the stage persists a marker without a model call.
         if cards.readiness() == crate::studio::oracle::Readiness::Empty {
             return Ok(None);
@@ -891,15 +907,20 @@ impl LensTask for NarrativeTask {
             // window the live stage never runs would measure the wrong thing — and asking the
             // pinned runner for 16384 evicts it besides.
             num_predict: NARRATIVES_NUM_PREDICT_PACKET,
-            num_ctx: crate::runtime::route::VOICE_NUM_CTX_PACKET,
+            num_ctx: crate::studio::model::VOICE_NUM_CTX_PACKET,
             json_mode: false,
             // Grammar-constrained, matching the live stage (Phase 5).
             format_schema: Some(narratives_format_schema()),
             format_schema_raw: None,
         }
     }
-    async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
-        let name = lookup_entity_name(&hx.pool, &e.entity_type, e.entity_id, &e.sport).await?;
+    async fn build_prompt(
+        &self,
+        pool: &sqlx::PgPool,
+        _models: &Models,
+        e: &EntitySpec,
+    ) -> Result<Option<String>> {
+        let name = lookup_entity_name(pool, &e.entity_type, e.entity_id, &e.sport).await?;
         // Reads use the upper-cased sport; the prompt renders the request-case value (build_narratives_request).
         let sport = e.sport.to_uppercase();
         // The PACKET corpus — the one production reads. This used `load_vetted_corpus` until the
@@ -907,7 +928,7 @@ impl LensTask for NarrativeTask {
         // no longer builds: the same "measures the wrong thing" trap the fixtures' frozen system
         // prompt had (see `eval --live-system`).
         let (corpus, _exclusions, _framing) =
-            load_packet_corpus(&hx.pool, &e.entity_type, e.entity_id, &sport, &name).await?;
+            load_packet_corpus(pool, &e.entity_type, e.entity_id, &sport, &name).await?;
         // No corpus ⇒ the stage writes the NULL-narrative marker without a model call — nothing to score.
         if corpus.is_empty() {
             return Ok(None);
@@ -1148,7 +1169,12 @@ impl LensTask for TransferTask {
             format_schema_raw: None,
         }
     }
-    async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
+    async fn build_prompt(
+        &self,
+        pool: &sqlx::PgPool,
+        models: &Models,
+        e: &EntitySpec,
+    ) -> Result<Option<String>> {
         if e.entity_type != "team" {
             anyhow::bail!(
                 "transfer live/capture evals are team-player pairs; got {}",
@@ -1161,8 +1187,8 @@ impl LensTask for TransferTask {
             )
         })?;
         let sport = e.sport.to_uppercase();
-        let team_name = lookup_entity_name(&hx.pool, "team", e.entity_id, &sport).await?;
-        let candidate = load_candidates(&hx.pool, e.entity_id, &sport, TRANSFER_DEFAULT_MIN_ARTICLES)
+        let team_name = lookup_entity_name(pool, "team", e.entity_id, &sport).await?;
+        let candidate = load_candidates(pool, e.entity_id, &sport, TRANSFER_DEFAULT_MIN_ARTICLES)
             .await?
             .into_iter()
             .find(|c| c.player_id == player_id)
@@ -1173,9 +1199,10 @@ impl LensTask for TransferTask {
                 )
             })?;
 
-        let relationship = team_relationship(&hx.pool, e.entity_id, player_id, &sport).await?;
+        let relationship = team_relationship(pool, e.entity_id, player_id, &sport).await?;
         match build_pair_request(
-            hx,
+            pool,
+            models,
             e.entity_id,
             &team_name,
             &candidate,
@@ -1314,13 +1341,18 @@ impl LensTask for RatingTask {
             num_predict: RATING_NUM_PREDICT,
             num_ctx: 0,
             json_mode: false,
-            format_schema: Some(crate::composition::form::card_schema(false)),
+            format_schema: Some(crate::studio::form::card_schema(false)),
             format_schema_raw: None,
         }
     }
-    async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
+    async fn build_prompt(
+        &self,
+        pool: &sqlx::PgPool,
+        models: &Models,
+        e: &EntitySpec,
+    ) -> Result<Option<String>> {
         let sport = e.sport.to_uppercase();
-        let name = lookup_entity_name(&hx.pool, &e.entity_type, e.entity_id, &sport).await?;
+        let name = lookup_entity_name(pool, &e.entity_type, e.entity_id, &sport).await?;
         let req = RatingReq {
             entity_type: e.entity_type.clone(),
             entity_id: e.entity_id,
@@ -1330,7 +1362,7 @@ impl LensTask for RatingTask {
             trigger_type: "periodic".to_string(),
         };
         // Live evaluation uses the same evidence assembly as production.
-        match build_rating_request(hx, &req, 0.0, true).await? {
+        match build_rating_request(pool, models, &req, 0.0, true).await? {
             RatingBuild::NoStats { .. } => Ok(None),
             RatingBuild::Ready(r) => Ok(Some(r.built_prompt)),
         }
@@ -1361,9 +1393,9 @@ impl LensTask for RatingTask {
         checks.push(product_name_check(&reply.body));
         // The brief's decoration bans (` · ` bullets, `**`) — folded 08-19 from per-fixture
         // `prose_excludes` entries; same list `RatingParser` rejects on in production.
-        let banned = crate::composition::guards::first_banned_phrase(
+        let banned = crate::studio::guards::first_banned_phrase(
             &reply.body,
-            crate::composition::guards::RATING_BODY_BANS,
+            crate::studio::guards::RATING_BODY_BANS,
         );
         checks.push(PropertyCheck {
             name: "no_banned_phrases".into(),
@@ -1468,14 +1500,19 @@ impl LensTask for MomentumTask {
             num_predict: MOMENTUM_NUM_PREDICT,
             num_ctx: 0,
             json_mode: false,
-            format_schema: Some(crate::composition::form::card_schema(false)),
+            format_schema: Some(crate::studio::form::card_schema(false)),
             format_schema_raw: None,
         }
     }
-    async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
-        let name = lookup_entity_name(&hx.pool, &e.entity_type, e.entity_id, &e.sport).await?;
+    async fn build_prompt(
+        &self,
+        pool: &sqlx::PgPool,
+        _models: &Models,
+        e: &EntitySpec,
+    ) -> Result<Option<String>> {
+        let name = lookup_entity_name(pool, &e.entity_type, e.entity_id, &e.sport).await?;
         let sport = e.sport.to_uppercase();
-        let (_season, cards) = load_pillars(hx, &e.entity_type, e.entity_id, &sport).await?;
+        let (_season, cards) = load_pillars(pool, &e.entity_type, e.entity_id, &sport).await?;
         if cards.rating.is_none() && cards.vibe.is_none() && cards.momentum.empty() {
             return Ok(None);
         }
@@ -1626,22 +1663,22 @@ fn empty_dash(s: &str) -> &str {
 // The matcher and the global ban vocabularies moved to `crate::guards` (2026-08-19, the
 // eval→guard migration): production parsers and the gate now read the SAME lists — see
 // `guards.rs` for the "one list, one home" ruling and the doc comments that moved with them.
-use crate::composition::guards::contains_ci;
-pub use crate::composition::guards::{MOMENTUM_BANNED_PHRASES, PRODUCT_NAME_BANS};
+use crate::studio::guards::contains_ci;
+pub use crate::studio::guards::{MOMENTUM_BANNED_PHRASES, PRODUCT_NAME_BANS};
 
 // (sentence_runs folded into `guards::count_sentences` 08-19 — one counter for every prose
 // lens; the crude version miscounted decimals as sentence stops.)
 fn sentence_runs(text: &str) -> i32 {
-    crate::composition::guards::count_sentences(text) as i32
+    crate::studio::guards::count_sentences(text) as i32
 }
 
 /// One shared invariant check over a served-prose field: the first product name found, as a
 /// `PropertyCheck` every wired seat pushes unconditionally. For rating the check runs on the
 /// parsed BODY only: the structural "PEAK: <label>" marker line is stripped by `RatingParser`
-/// and never serves. (The list itself lives in [`crate::composition::guards::PRODUCT_NAME_BANS`] — production
+/// and never serves. (The list itself lives in [`crate::studio::guards::PRODUCT_NAME_BANS`] — production
 /// enforces the same vocabulary.)
 fn product_name_check(prose: &str) -> PropertyCheck {
-    let named = crate::composition::guards::first_product_name(prose);
+    let named = crate::studio::guards::first_product_name(prose);
     PropertyCheck {
         name: "no_product_names".into(),
         pass: named.is_none(),
@@ -1677,7 +1714,12 @@ impl LensTask for GraphTask {
         o.temperature = Some(temperature);
         o
     }
-    async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
+    async fn build_prompt(
+        &self,
+        pool: &sqlx::PgPool,
+        _models: &Models,
+        e: &EntitySpec,
+    ) -> Result<Option<String>> {
         if e.entity_type != "article" {
             anyhow::bail!(
                 "graph evals are article-keyed: use article:<id>:<SPORT> (got {})",
@@ -1686,7 +1728,7 @@ impl LensTask for GraphTask {
         }
         let sport = e.sport.to_uppercase();
         let Some((article, candidates)) =
-            load_graph_article_context(&hx.pool, i64::from(e.entity_id), &sport).await?
+            load_graph_article_context(pool, i64::from(e.entity_id), &sport).await?
         else {
             return Ok(None);
         };
@@ -1856,15 +1898,19 @@ impl LensTask for EditorTask {
         o.temperature = Some(temperature);
         o
     }
-    async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
+    async fn build_prompt(
+        &self,
+        pool: &sqlx::PgPool,
+        _models: &Models,
+        e: &EntitySpec,
+    ) -> Result<Option<String>> {
         if e.entity_type != "article" {
             anyhow::bail!(
                 "editor evals are article-keyed: use article:<id>:<SPORT> (got {})",
                 e.entity_type
             );
         }
-        build_editor_prompt_for_eval(&hx.pool, i64::from(e.entity_id), &e.sport.to_uppercase())
-            .await
+        build_editor_prompt_for_eval(pool, i64::from(e.entity_id), &e.sport.to_uppercase()).await
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
         let hypothesis: Vec<String> = expect
@@ -2172,7 +2218,12 @@ impl LensTask for InvestigatorTask {
     /// search + summary fetch for a candidate row, which is exactly what a frozen fixture
     /// exists to pin down. Capture new fixtures from `acquisition_runs.query_plan` (the
     /// prose arm records every page it read) rather than re-fetching a moving encyclopedia.
-    async fn build_prompt(&self, _hx: &Harness, _e: &EntitySpec) -> Result<Option<String>> {
+    async fn build_prompt(
+        &self,
+        _pool: &sqlx::PgPool,
+        _models: &Models,
+        _e: &EntitySpec,
+    ) -> Result<Option<String>> {
         anyhow::bail!(
             "investigator evals are fixture-driven (eval --task investigator --fixtures); \
              live prompts depend on a Wikipedia fetch — freeze pages into fixtures instead"

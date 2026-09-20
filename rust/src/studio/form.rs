@@ -4,6 +4,8 @@
 //! retain the existing parser/storage contracts; they are not section headings.
 //! Character files own voice and judgment. Inputs supply evidence, not an outline.
 
+pub const IDENTITY_CARD_FRAMING: &str = "Identity context, not event evidence. Distinguish current roles from career history; dated reporting may supersede these records. Unknown means unknown.";
+
 pub const CLAIM_SELECTION: &str = "Choose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.";
 
 pub const STORY_FORM: &str = "Connect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.";
@@ -176,7 +178,6 @@ pub fn oracle_format_schema() -> serde_json::Value {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::composition::characters;
     use crate::studio::insider;
     use crate::studio::{analyst, influencer, journalist, oracle, scout};
 
@@ -185,8 +186,8 @@ mod tests {
         let characters = [
             (scout::CHARACTER, scout::RATING_SYSTEM_PROMPT.as_str()),
             (
-                characters::analyst::CHARACTER,
-                analyst::MOMENTUM_SYSTEM_PROMPT.as_str(),
+                analyst::prompt::CHARACTER,
+                analyst::prompt::MOMENTUM_SYSTEM_PROMPT.as_str(),
             ),
             (
                 influencer::CHARACTER,
@@ -240,7 +241,7 @@ mod tests {
 
     #[test]
     fn shared_json_fields_preserve_paragraphs_across_the_card_parsers() {
-        use crate::runtime::harness::Parser;
+        use crate::studio::Parser;
         let raw = serde_json::json!({"headline":"Morgan Rogers creates chances at an elite level", "body":"Creation stands out.\n\nThe defensive measures are lower.", "score":60}).to_string();
         assert_eq!(
             scout::RatingParser.parse(&raw).unwrap().unwrap().body,

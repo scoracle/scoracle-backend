@@ -4,10 +4,9 @@
 //! evidence, queue claims, partial-progress policy, publication, identity effects, and follow-up
 //! delivery live in the application adapter.
 
-use crate::evidence::corpus::HeatItem;
-use crate::runtime::util::truncate_bytes;
 use crate::studio::model::GenerateOptions;
 use crate::studio::{Generation, GenerationCall, Parser, Studio};
+use crate::util::truncate_bytes;
 use anyhow::Result;
 use serde::{Deserialize, Deserializer, Serialize};
 
@@ -17,6 +16,17 @@ mod verification;
 
 pub use crate::studio::form::insider_score_format_schema;
 pub use brief::{CHARACTER, INSIDER_SCORE_PROMPT_VERSION, INSIDER_SCORE_SYSTEM_PROMPT};
+/// One active, vetted transfer rumor naming its counterparty.
+#[derive(Clone, Debug)]
+pub struct HeatItem {
+    pub counterparty: String,
+    pub heat: i32,
+    pub stage: String,
+    pub direction: String,
+    pub summary: String,
+    pub confidence: Option<f64>,
+}
+
 pub use inputs::build_insider_score_prompt;
 pub use verification::{
     build_transfer_identity_adjudication_prompt, build_transfer_prompt,
@@ -578,7 +588,7 @@ pub fn score_options(num_ctx: i32) -> GenerateOptions {
     GenerateOptions {
         system: Some(INSIDER_SCORE_SYSTEM_PROMPT.to_string()),
         temperature: Some(INSIDER_SCORE_TEMPERATURE),
-        num_predict: if crate::runtime::route::small_voice_window(num_ctx) {
+        num_predict: if crate::studio::model::small_voice_window(num_ctx) {
             crate::studio::oracle::SMALL_WINDOW_NUM_PREDICT
         } else {
             INSIDER_SCORE_NUM_PREDICT

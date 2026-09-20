@@ -13,8 +13,8 @@
 //! 3. `think` is not sent. It is an Ollama extension; a reasoning model behind an
 //!    OpenAI-compatible server exposes no such switch. Roles that need it must stay on ollama.
 
-use crate::runtime::providers::ollama::{GenerateOptions, GenerateResult};
-use crate::runtime::util::truncate;
+use crate::studio::model::{GenerateOptions, GenerateResult};
+use crate::util::truncate;
 use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};

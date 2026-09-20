@@ -3,7 +3,7 @@
 //! Source capture and official-web verification are separate, dated inputs.
 
 use anyhow::{bail, ensure, Context, Result};
-use scoracle_cognition::composition::memories::{
+use scoracle_cognition::evidence::memories::{
     Entity, EvidenceGroup, Mission, Omission, Package, Record, Section, SourceRef, VERSION,
 };
 use serde::Deserialize;
@@ -241,7 +241,7 @@ fn main() -> Result<()> {
             Some(n) => p.within_bytes(n)?,
             None => p,
         };
-        let composed = scoracle_cognition::composition::compose_card(&p, "")?;
+        let composed = scoracle_cognition::evaluation::memory::compose_card(&p, "")?;
         outputs.push(json!({"context_bytes":composed.prompt.len(),"context_chars":composed.prompt.chars().count(),"fingerprint":p.fingerprint()?,"package":p,"prompt":composed.prompt,"system":composed.system}));
     }
     println!("{}", serde_json::to_string_pretty(&outputs)?);
@@ -256,7 +256,7 @@ mod tests {
     fn composition_keeps_the_live_voice_and_form_separate_from_new_evidence() {
         let p = packages().unwrap().remove(0);
         let evidence = "A newly fetched, attributed report goes here.";
-        let composed = scoracle_cognition::composition::compose_card(&p, evidence).unwrap();
+        let composed = scoracle_cognition::evaluation::memory::compose_card(&p, evidence).unwrap();
         assert_eq!(
             composed.system,
             scoracle_cognition::studio::scout::RATING_SYSTEM_PROMPT.as_str()

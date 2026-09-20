@@ -1,6 +1,6 @@
 //! The Insider's character brief.
 
-use crate::composition::form::{compose, CardFormat};
+use crate::studio::form::{compose, CardFormat};
 
 pub const INSIDER_SCORE_PROMPT_VERSION: &str = "is11";
 

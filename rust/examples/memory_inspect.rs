@@ -3,7 +3,7 @@
 //! Optional trailing season and pair-team ID select a historical report or exact pair.
 
 use anyhow::{ensure, Context, Result};
-use scoracle_cognition::composition::memories::{self, MemoryRequest};
+use scoracle_cognition::evidence::memories::{self, MemoryRequest};
 use serde_json::json;
 use sqlx::postgres::PgPoolOptions;
 

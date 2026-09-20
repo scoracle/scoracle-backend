@@ -184,7 +184,7 @@ pub(crate) fn entity_matches(ours: &[String], candidate: &str) -> bool {
 /// Routing tags for one read: the story type's tag plus `charged` when the register is
 /// non-neutral.
 pub fn routing_tags(story_type: &str, register: &str) -> Vec<String> {
-    let mut tags: Vec<String> = crate::evidence::bucket::routing_tags_from_story_type(story_type)
+    let mut tags: Vec<String> = routing_tags_from_story_type(story_type)
         .into_iter()
         .map(str::to_string)
         .collect();
@@ -376,5 +376,61 @@ fn kind_compatible(kind_hint: &str, entity_type: &str) -> bool {
         "club" | "national_team" => entity_type == "team",
         "person" => entity_type == "player" || entity_type == "person",
         _ => false,
+    }
+}
+
+// Topic classification is part of the validated read; application subscriptions own dispatch.
+fn routing_tags_from_story_type(story_type: &str) -> Vec<&'static str> {
+    match story_type.trim().to_lowercase().as_str() {
+        "transfer" => vec!["transfer"],
+        "injury" => vec!["injury"],
+        // Suspension also carries injury so existing availability subscribers receive it.
+        "suspension" => vec!["injury", "suspension"],
+        "roster" => vec!["roster"],
+        "contract" => vec!["contract"],
+        "performance" => vec!["performance"],
+        "fixture" => vec!["fixture"],
+        "general" => vec!["general"],
+        _ => vec![],
+    }
+}
+
+#[cfg(test)]
+mod topic_tests {
+    use super::*;
+
+    /// Every supported topic must remain visible to application routing subscriptions.
+    #[test]
+    fn every_editor_story_type_produces_a_tag() {
+        for st in [
+            "transfer",
+            "injury",
+            "performance",
+            "fixture",
+            "roster",
+            "contract",
+            "general",
+        ] {
+            assert!(
+                !routing_tags_from_story_type(st).is_empty(),
+                "story_type {st} must produce at least one routing tag"
+            );
+        }
+    }
+
+    /// Off-vocabulary values route to nobody rather than being guessed onto a voice. The model does
+    /// emit them — `irrelevant` turned up 43 times in a week despite not being in the schema enum.
+    #[test]
+    fn off_vocabulary_story_types_produce_no_tags() {
+        assert!(routing_tags_from_story_type("irrelevant").is_empty());
+        assert!(routing_tags_from_story_type("").is_empty());
+    }
+
+    #[test]
+    fn tags_normalize_case_and_whitespace() {
+        assert_eq!(
+            routing_tags_from_story_type("  TRANSFER  "),
+            vec!["transfer"]
+        );
     }
 }

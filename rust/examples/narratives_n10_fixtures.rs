@@ -28,7 +28,7 @@
 use std::path::Path;
 
 use scoracle_cognition::evaluation::tasks::{Expect, Fixture};
-use scoracle_cognition::evidence::corpus::HeatItem;
+use scoracle_cognition::studio::insider::HeatItem;
 use scoracle_cognition::studio::journalist::{
     build_narratives_prompt, CorpusItem, Subject, NARRATIVES_PROMPT_VERSION,
     NARRATIVES_SYSTEM_PROMPT,

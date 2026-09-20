@@ -1,23 +1,20 @@
 //! Influencer evidence, debounce, publication and Momentum coordination.
 
-use crate::composition::memories::{self, MemoryRequest, Mission};
+use crate::evidence::memories::{self, MemoryRequest, Mission};
 
+use crate::application::models::Models;
+use crate::application::products::EntityKey;
 use crate::evidence::corpus::lookup_entity_name;
-use crate::runtime::harness::{EntityKey, Harness};
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
 use crate::runtime::route::Role;
-use crate::runtime::stage::{HandleOutcome, StageHandler};
-use crate::runtime::util::hash_components;
+use crate::runtime::stage::{HandleOutcome, WorkHandler};
 use crate::runtime::work::{Item, Stage};
-#[cfg(test)]
-use crate::studio::influencer::VibeScore;
 use crate::studio::influencer::{
     self, Assignment, PacketBlock, VibeOutput, VIBE_NUM_PREDICT, VIBE_PROMPT_VERSION,
     VIBE_TEMPERATURE,
 };
-#[cfg(test)]
-use crate::studio::Publisher;
 use crate::studio::Studio;
+use crate::util::hash_components;
 use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
 use sqlx::{PgPool, Postgres, Row, Transaction};
@@ -65,7 +62,7 @@ impl VibeContext {
 
 /// Load the packet evidence and compute its material-only debounce key. No model call.
 pub async fn load_vibe_context(
-    hx: &Harness,
+    pool: &sqlx::PgPool,
     entity_type: &str,
     entity_id: i32,
     entity_name: &str,
@@ -77,10 +74,10 @@ pub async fn load_vibe_context(
     // Reads use the upper-cased sport; the prompt uses the original-case value (req.Sport).
     let sport = sport_raw.to_uppercase();
 
-    let packets = load_vibe_packets(&hx.pool, entity_type, entity_id, entity_name, &sport).await?;
+    let packets = load_vibe_packets(pool, entity_type, entity_id, entity_name, &sport).await?;
     let input_components_json = build_vibe_input_components(&packets);
     let memories = memories::load(
-        &hx.pool,
+        pool,
         MemoryRequest::new(Mission::Influencer, entity_type, entity_id, &sport),
     )
     .await?;
@@ -139,49 +136,6 @@ pub fn vibe_work_input_version(input_hash: &str) -> String {
     format!("{VIBE_WORK_PREFIX}{input_hash}")
 }
 
-/// Load the material vibe context and enqueue the Vibe stage only when it
-/// actually moved since the last `vibe_scores` row — `Ok(false)` when unchanged
-/// (nothing enqueued), `Ok(true)` on enqueue. Idempotent: `work::enqueue`'s ON CONFLICT
-/// reopens the row only when the `input_version` changed, so a redundant call is harmless.
-pub async fn enqueue_vibe_if_needed(
-    hx: &Harness,
-    entity_type: &str,
-    entity_id: i32,
-    entity_name: &str,
-    sport: &str,
-) -> Result<bool> {
-    let sport = sport.to_uppercase();
-    let ctx = load_vibe_context(hx, entity_type, entity_id, entity_name, &sport).await?;
-    // Empty material must reach the handler once so a previously vivid room can close quietly.
-    let key = EntityKey {
-        entity_type: entity_type.to_string(),
-        entity_id,
-        sport: sport.clone(),
-        season: None,
-    };
-    if hx
-        .debounce_unchanged("vibe_scores", &key, &ctx.input_hash)
-        .await?
-    {
-        return Ok(false);
-    }
-    let it = Item {
-        stage: Stage::Vibe,
-        entity_type: entity_type.to_string(),
-        entity_id: i64::from(entity_id),
-        sport,
-        input_version: Some(vibe_work_input_version(&ctx.input_hash)),
-        attempts: 0,
-        claim_token: None,
-    };
-    crate::runtime::work::enqueue(&hx.pool, &it).await?;
-    Ok(true)
-}
-
-// ---------------------------------------------------------------------------
-// Prompt assembly.
-// ---------------------------------------------------------------------------
-
 /// Read the latest marker/score and debounce hash. Prior interpretation belongs to memories.
 async fn load_latest_vibe_row(
     pool: &PgPool,
@@ -200,7 +154,7 @@ fn production_options(
     influencer::generation_options(
         temperature,
         voice_num_ctx,
-        if crate::runtime::route::small_voice_window(voice_num_ctx) {
+        if crate::studio::model::small_voice_window(voice_num_ctx) {
             700
         } else {
             VIBE_NUM_PREDICT
@@ -237,40 +191,6 @@ impl Request<'_> {
     }
 }
 
-/// Undebounced standalone generation uses the same preparation and Studio creation as production.
-pub async fn generate_vibe(
-    hx: &Harness,
-    entity_type: &str,
-    entity_id: i32,
-    entity_name: &str,
-    sport_raw: &str,
-    temperature: f64,
-) -> Result<VibeOutput> {
-    let ctx = load_vibe_context(hx, entity_type, entity_id, entity_name, sport_raw).await?;
-    let request = Request {
-        entity_type,
-        entity_name,
-        sport: sport_raw,
-        temperature,
-        voice_num_ctx: hx.voice_num_ctx,
-    };
-    let model = hx.router.for_role(Role::VibeLogic);
-    influencer::create(&Studio::new(model.as_ref()), &request.assignment(&ctx)?).await
-}
-
-#[async_trait]
-#[cfg(test)]
-trait MomentumHandoff: Sync {
-    async fn offer(&self) -> Result<()>;
-}
-
-#[derive(Debug, PartialEq, Eq)]
-#[cfg(test)]
-enum Outcome<R> {
-    Debounced,
-    Published(R),
-}
-
 enum Prepared {
     Debounced,
     Product(Box<VibeOutput>),
@@ -290,25 +210,6 @@ async fn prepare(
     Ok(Prepared::Product(Box::new(
         influencer::create(studio, &request.assignment(ctx)?).await?,
     )))
-}
-
-/// Coordinate a prepared drain. Both successful paths offer Momentum; failed creation or
-/// publication stops before handoff. This is application policy, not a Studio abstention.
-#[cfg(test)]
-async fn run_prepared<P: Publisher<VibeScore>, F: MomentumHandoff>(
-    studio: &Studio<'_>,
-    request: &Request<'_>,
-    ctx: &VibeContext,
-    latest: &(Option<i16>, Option<String>),
-    publisher: &P,
-    follow_up: &F,
-) -> Result<Outcome<P::Receipt>> {
-    let outcome = match prepare(studio, request, ctx, latest).await? {
-        Prepared::Debounced => Outcome::Debounced,
-        Prepared::Product(output) => Outcome::Published(publisher.publish(&output).await?),
-    };
-    follow_up.offer().await?;
-    Ok(outcome)
 }
 
 /// persist_to_vibe_scores writes one row to the LIVE vibe_scores table — both the scored
@@ -354,14 +255,14 @@ async fn persist_to_vibe_scores(
 }
 
 async fn record_ledger(
-    hx: &Harness,
+    pool: &sqlx::PgPool,
     item: &Item,
     sport: &str,
     product_row_id: i64,
     out: &VibeOutput,
 ) -> Result<()> {
     insert_generation_ledger_best_effort(
-        &hx.pool,
+        pool,
         out,
         VIBE_LEDGER,
         LedgerEvent {
@@ -432,53 +333,19 @@ async fn commit_claimed(
 /// VibeHandler drains the durable `vibe` stage: read the current packets, score
 /// with the model, persist to vibe_scores, and enqueue the Momentum gate before completing.
 /// This is the production path registered in `main.rs`.
-pub struct VibeHandler;
-
-impl VibeHandler {
-    pub fn new() -> Self {
-        VibeHandler
-    }
-
-    async fn run_claimed(&self, hx: &Harness, item: &Item) -> Result<HandleOutcome> {
-        let entity_id = item.entity_id_i32()?;
-        // The name lookup uses the queue's raw sport value; sport normalization happens below.
-        let name = lookup_entity_name(&hx.pool, &item.entity_type, entity_id, &item.sport).await?;
-        let sport = item.sport.to_uppercase();
-
-        // Gate on the entity-scoped material hash before the model call.
-        let ctx = load_vibe_context(hx, &item.entity_type, entity_id, &name, &item.sport).await?;
-        let key = EntityKey {
-            entity_type: item.entity_type.clone(),
-            entity_id,
-            sport: sport.clone(),
-            season: None,
-        };
-        let latest = load_latest_vibe_row(&hx.pool, &key).await?;
-        let request = Request {
-            entity_type: &item.entity_type,
-            entity_name: &name,
-            sport: &item.sport,
-            temperature: VIBE_TEMPERATURE,
-            voice_num_ctx: hx.voice_num_ctx,
-        };
-        let model = hx.router.for_role(Role::VibeLogic);
-        let prepared = prepare(&Studio::new(model.as_ref()), &request, &ctx, &latest).await?;
-        let (outcome, product_row_id) = commit_claimed(&hx.pool, item, &sport, &prepared).await?;
-        if let (Some(product_row_id), Prepared::Product(output)) = (product_row_id, &prepared) {
-            record_ledger(hx, item, &sport, product_row_id, output).await?;
-        }
-        Ok(outcome)
-    }
+pub struct VibeHandler {
+    pool: sqlx::PgPool,
+    models: std::sync::Arc<Models>,
 }
 
-impl Default for VibeHandler {
-    fn default() -> Self {
-        Self::new()
+impl VibeHandler {
+    pub fn new(pool: sqlx::PgPool, models: std::sync::Arc<Models>) -> Self {
+        Self { pool, models }
     }
 }
 
 #[async_trait]
-impl StageHandler for VibeHandler {
+impl WorkHandler for VibeHandler {
     fn stage(&self) -> Stage {
         Stage::Vibe
     }
@@ -491,13 +358,37 @@ impl StageHandler for VibeHandler {
         Some(crate::runtime::stage::MAC_SLOTS)
     }
 
-    async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {
-        self.run_claimed(hx, item).await?;
-        Ok(())
-    }
+    async fn handle(&self, item: &Item) -> Result<HandleOutcome> {
+        let pool = &self.pool;
+        let models = &self.models;
+        let entity_id = item.entity_id_i32()?;
+        // The name lookup uses the queue's raw sport value; sport normalization happens below.
+        let name = lookup_entity_name(pool, &item.entity_type, entity_id, &item.sport).await?;
+        let sport = item.sport.to_uppercase();
 
-    async fn handle_claimed(&self, hx: &Harness, item: &Item) -> Result<HandleOutcome> {
-        self.run_claimed(hx, item).await
+        // Gate on the entity-scoped material hash before the model call.
+        let ctx = load_vibe_context(pool, &item.entity_type, entity_id, &name, &item.sport).await?;
+        let key = EntityKey {
+            entity_type: item.entity_type.clone(),
+            entity_id,
+            sport: sport.clone(),
+            season: None,
+        };
+        let latest = load_latest_vibe_row(pool, &key).await?;
+        let request = Request {
+            entity_type: &item.entity_type,
+            entity_name: &name,
+            sport: &item.sport,
+            temperature: VIBE_TEMPERATURE,
+            voice_num_ctx: models.voice_num_ctx,
+        };
+        let model = models.router.for_role(Role::VibeLogic);
+        let prepared = prepare(&Studio::new(model.as_ref()), &request, &ctx, &latest).await?;
+        let (outcome, product_row_id) = commit_claimed(pool, item, &sport, &prepared).await?;
+        if let (Some(product_row_id), Prepared::Product(output)) = (product_row_id, &prepared) {
+            record_ledger(pool, item, &sport, product_row_id, output).await?;
+        }
+        Ok(outcome)
     }
 }
 

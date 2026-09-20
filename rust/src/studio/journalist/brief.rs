@@ -1,4 +1,4 @@
-//! The Journalist's character. Output structure belongs to `composition::form`.
+//! The Journalist's character. Output structure belongs to `studio::form`.
 
 use crate::studio::form::{compose, CardFormat};
 

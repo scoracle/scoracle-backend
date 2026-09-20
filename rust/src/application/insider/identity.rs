@@ -5,7 +5,7 @@ use super::{
     TransferCandidate, TransferIdentityAdjudicationParser, TransferRow,
     TRANSFER_IDENTITY_ADJUDICATION_PROMPT_VERSION, TRANSFER_PROMPT_VERSION,
 };
-use crate::runtime::harness::Harness;
+use crate::application::models::Models;
 use crate::runtime::route::Role;
 use crate::runtime::work::Item;
 use anyhow::{anyhow, Context, Result};
@@ -305,7 +305,8 @@ async fn sport_autofill_refresh_pending(pool: &PgPool, sport: &str) -> Result<bo
 /// Apply an eligible transfer and report whether the team drain should refresh autofill.
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn maybe_apply_transfer_identity(
-    hx: &Harness,
+    pool: &sqlx::PgPool,
+    models: &Models,
     item: &Item,
     team_id: i32,
     team_name: &str,
@@ -331,21 +332,15 @@ pub(super) async fn maybe_apply_transfer_identity(
         return Ok(false);
     };
     let (old_team_id, old_team_name) =
-        current_identity_team(&hx.pool, sport, candidate.player_id).await?;
+        current_identity_team(pool, sport, candidate.player_id).await?;
     if old_team_id == Some(team_id) {
-        return sport_autofill_refresh_pending(&hx.pool, sport).await;
+        return sport_autofill_refresh_pending(pool, sport).await;
     }
 
     let pair_news_ids: Vec<i64> = news.iter().map(|item| item.id).collect();
     let settled_evidence = if outcome == Outcome::Cleared && row.is_rumor == Some(false) {
-        load_settled_identity_news(
-            &hx.pool,
-            sport,
-            candidate.player_id,
-            team_id,
-            &pair_news_ids,
-        )
-        .await?
+        load_settled_identity_news(pool, sport, candidate.player_id, team_id, &pair_news_ids)
+            .await?
     } else {
         None
     };
@@ -380,8 +375,8 @@ pub(super) async fn maybe_apply_transfer_identity(
         identity_news,
     );
     let options =
-        crate::studio::insider::identity_options(sport, crate::runtime::route::LOCAL_STAGE_NUM_CTX);
-    let backend = hx.router.for_role(Role::EmotionalNews);
+        crate::studio::insider::identity_options(sport, crate::studio::model::LOCAL_STAGE_NUM_CTX);
+    let backend = models.router.for_role(Role::EmotionalNews);
     let model_configured = backend.model().to_string();
     let generated = match crate::studio::Studio::new(backend.as_ref())
         .extract(&prompt, &options, &TransferIdentityAdjudicationParser)
@@ -396,7 +391,7 @@ pub(super) async fn maybe_apply_transfer_identity(
                 "transfers: identity adjudication generate failed; fail closed"
             );
             record_transfer_identity_failure(
-                &hx.pool,
+                pool,
                 sport,
                 candidate.player_id,
                 old_team_id,
@@ -415,7 +410,7 @@ pub(super) async fn maybe_apply_transfer_identity(
 
     let Some(adjudication) = generated.value else {
         record_transfer_identity_failure(
-            &hx.pool,
+            pool,
             sport,
             candidate.player_id,
             old_team_id,
@@ -433,8 +428,7 @@ pub(super) async fn maybe_apply_transfer_identity(
 
     let raw =
         serde_json::to_string(&adjudication).context("serialize transfer identity adjudication")?;
-    let mut tx = hx
-        .pool
+    let mut tx = pool
         .begin()
         .await
         .context("begin transfer identity application")?;
@@ -489,11 +483,11 @@ pub(super) async fn maybe_apply_transfer_identity(
     sqlx::query("SELECT public.request_sport_autofill_refresh($1, $2)")
         .bind(sport)
         .bind("applied_transfer_identity")
-        .execute(&hx.pool)
+        .execute(pool)
         .await
         .context("mark sport autofill refreshing")?;
     if let Err(error) = crate::application::scout::enqueue_rating_for_applied_transfer(
-        &hx.pool,
+        pool,
         sport,
         candidate.player_id,
         old_team_id,

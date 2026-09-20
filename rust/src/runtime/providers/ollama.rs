@@ -6,7 +6,7 @@
 //! Uses `/api/chat` so reasoning stays separate from visible output. Parsers receive only
 //! `message.content`; separated thinking is retained for inspection.
 
-use crate::runtime::util::truncate;
+use crate::util::truncate;
 use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
@@ -24,7 +24,7 @@ pub struct OllamaClient {
 }
 
 use crate::studio::model::IncompleteOutput;
-pub use crate::studio::model::{GenerateOptions, GenerateResult};
+use crate::studio::model::{GenerateOptions, GenerateResult};
 
 #[derive(Serialize)]
 struct ChatTurn<'a> {

@@ -11,19 +11,19 @@ use scoracle_cognition::application::editor;
 use scoracle_cognition::application::graph;
 use scoracle_cognition::application::insider;
 use scoracle_cognition::application::investigator::boxscore;
+use scoracle_cognition::application::models::Models;
+use scoracle_cognition::application::worker;
 use scoracle_cognition::application::{
     analyst, influencer, journalist, oracle, scout as scout_application,
 };
 use scoracle_cognition::runtime::buildinfo;
 use scoracle_cognition::runtime::config;
 use scoracle_cognition::runtime::db;
-use scoracle_cognition::runtime::harness::Harness;
 use scoracle_cognition::runtime::providers::ollama;
 use scoracle_cognition::runtime::providers::openai;
 use scoracle_cognition::runtime::route::Router;
 use scoracle_cognition::runtime::stage;
 use scoracle_cognition::runtime::work;
-use scoracle_cognition::runtime::worker;
 use std::collections::HashSet;
 use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
@@ -114,33 +114,43 @@ async fn main() -> Result<()> {
     }))?;
 
     // Shared database, routing, budget, and context-window capabilities.
-    let harness = Harness {
-        pool,
+    let models = std::sync::Arc::new(Models {
         router: Router::from_config(&cfg.route, cfg.ollama_timeout, cfg.ollama_max_concurrent)?,
         // The same ceiling the worker enforces, handed to the handlers so a multi-call stage can
         // land inside it under its own power rather than being cancelled at it.
         handler_budget: cfg.handler_timeout,
         voice_num_ctx: cfg.voice_num_ctx,
-    };
+    });
 
     // Each handler owns exactly one enabled queue stage.
-    let mut handlers: Vec<Box<dyn stage::StageHandler>> = Vec::new();
+    let mut handlers: Vec<Box<dyn stage::WorkHandler>> = Vec::new();
     // Graph is article-keyed and downstream of the Editor.
     if enabled.contains("graph") {
-        handlers.push(Box::new(graph::GraphHandler::new()));
+        handlers.push(Box::new(graph::GraphHandler::new(
+            pool.clone(),
+            models.clone(),
+        )));
     }
     // Graph registers first so it reclaims shared slots promptly.
     if enabled.contains("editor") {
-        handlers.push(Box::new(editor::EditorHandler::new()));
+        handlers.push(Box::new(editor::EditorHandler::new(
+            pool.clone(),
+            models.clone(),
+        )));
     }
     // Discovery uses the Editor's idle shared capacity.
     if enabled.contains("investigate_entity") {
         handlers.push(Box::new(
-            scoracle_cognition::application::investigator::InvestigateEntityHandler::new()?,
+            scoracle_cognition::application::investigator::InvestigateEntityHandler::new(
+                pool.clone(),
+                models.clone(),
+            )?,
         ));
     }
     if enabled.contains("fixture_boxscore") {
-        handlers.push(Box::new(boxscore::FixtureBoxscoreHandler::new()?));
+        handlers.push(Box::new(boxscore::FixtureBoxscoreHandler::new(
+            pool.clone(),
+        )?));
     }
     // Voice registration order is the tested dependency order.
     for stage in work::VOICE_ORDER {
@@ -148,20 +158,30 @@ async fn main() -> Result<()> {
             continue;
         }
         handlers.push(match stage {
-            work::Stage::Narratives => {
-                Box::new(journalist::NarrativesHandler::new()) as Box<dyn stage::StageHandler>
+            work::Stage::Narratives => Box::new(journalist::NarrativesHandler::new(
+                pool.clone(),
+                models.clone(),
+            )) as Box<dyn stage::WorkHandler>,
+            work::Stage::Vibe => {
+                Box::new(influencer::VibeHandler::new(pool.clone(), models.clone()))
             }
-            work::Stage::Vibe => Box::new(influencer::VibeHandler::new()),
             // The rating stage feeds Momentum/Sigil but not the news rail, so it sits behind the
             // two news-product voices: a nightly stat backlog must not delay The Journalist.
-            work::Stage::Rating => Box::new(scout_application::RatingHandler::new()),
-            work::Stage::Transfers => Box::new(insider::TransferHandler::new()),
+            work::Stage::Rating => Box::new(scout_application::RatingHandler::new(
+                pool.clone(),
+                models.clone(),
+            )),
+            work::Stage::Transfers => {
+                Box::new(insider::TransferHandler::new(pool.clone(), models.clone()))
+            }
             // momentum consumes the rating card + vibe, so a vibe hand-off
             // (enqueue_momentum_if_needed) drains in the same tick pass instead of waiting for
             // the next NOTIFY/safety-net wake.
-            work::Stage::Momentum => Box::new(analyst::MomentumHandler::new()),
+            work::Stage::Momentum => {
+                Box::new(analyst::MomentumHandler::new(pool.clone(), models.clone()))
+            }
             // Sigil is terminal because it reads all five pillars.
-            work::Stage::Sigil => Box::new(oracle::SigilHandler::new()),
+            work::Stage::Sigil => Box::new(oracle::SigilHandler::new(pool.clone(), models.clone())),
             other => unreachable!("{other} is not a voice; VOICE_ORDER holds the six voices"),
         });
     }
@@ -175,7 +195,7 @@ async fn main() -> Result<()> {
     info!(
         voice_num_ctx = cfg.voice_num_ctx,
         pinned = std::env::var("VOICE_NUM_CTX").is_ok(),
-        envelope = if scoracle_cognition::runtime::route::small_voice_window(cfg.voice_num_ctx) {
+        envelope = if scoracle_cognition::studio::model::small_voice_window(cfg.voice_num_ctx) {
             "small: reservations ≤700, crown cards capped, journalist corpus 8"
         } else {
             "wide: larger reservations, no card caps, journalist corpus 40"
@@ -185,7 +205,7 @@ async fn main() -> Result<()> {
     );
 
     let worker = worker::Worker::new(
-        harness,
+        pool,
         handlers,
         cfg.safety_net,
         cfg.stale_lease,

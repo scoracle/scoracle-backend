@@ -4,13 +4,14 @@
 //! retrieval, debounce, routing, exact-claim multi-row publication, storyline progression, and
 //! the optional diagnostic ledger.
 
-use crate::composition::memories::{self, MemoryRequest, Mission};
+use crate::application::models::Models;
+use crate::application::products::EntityKey;
+use crate::evidence::memories::{self, MemoryRequest, Mission};
 use crate::evidence::story_parts::{mode_storyline, progress_generation, PartItem};
 use crate::evidence::trajectory::DEFAULT_TRAJECTORY;
-use crate::runtime::harness::{EntityKey, Harness};
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
 use crate::runtime::route::Role;
-use crate::runtime::stage::{HandleOutcome, StageHandler};
+use crate::runtime::stage::{HandleOutcome, WorkHandler};
 use crate::runtime::work::{self, Item, Stage};
 use crate::studio::journalist::{
     self, Assignment, CorpusExclusions, CorpusItem, Narrative, NarrativesOutput, Subject,
@@ -144,12 +145,12 @@ pub struct NarrativesMaterial {
 
 /// Load and fingerprint concrete material without assembling a prompt or calling a model.
 pub async fn load_narratives_material(
-    hx: &Harness,
+    pool: &sqlx::PgPool,
     req: &NarrativesReq,
 ) -> Result<NarrativesMaterial> {
     let sport = req.sport.to_uppercase();
     let (corpus, corpus_exclusions, packet_framing) = load_packet_corpus(
-        &hx.pool,
+        pool,
         &req.entity_type,
         req.entity_id,
         &sport,
@@ -164,10 +165,10 @@ pub async fn load_narratives_material(
         &req.sport,
     );
     request.current_article_ids = &article_ids;
-    let memories = memories::load(&hx.pool, request).await?;
+    let memories = memories::load(pool, request).await?;
     let input_components =
         memories.with_input_components(&journalist::build_narratives_input_components(&corpus))?;
-    let input_hash = crate::runtime::util::hash_components(&input_components);
+    let input_hash = crate::util::hash_components(&input_components);
     Ok(NarrativesMaterial {
         memories,
         corpus,
@@ -179,7 +180,7 @@ pub async fn load_narratives_material(
 
 /// Convert loaded application material into the complete service-free Studio assignment.
 pub fn finish_narratives_assignment(
-    hx: &Harness,
+    models: &Models,
     req: &NarrativesReq,
     material: NarrativesMaterial,
     temperature: f64,
@@ -208,17 +209,8 @@ pub fn finish_narratives_assignment(
         packet_framing,
         input_hash,
         card_score_prev: memories.previous_score,
-        options: journalist::generation_options(temperature, hx.voice_num_ctx),
+        options: journalist::generation_options(temperature, models.voice_num_ctx),
     })
-}
-
-async fn generate_narratives_from_assignment(
-    hx: &Harness,
-    assignment: &Assignment,
-    now_epoch: i64,
-) -> Result<NarrativesOutput> {
-    let backend = hx.router.for_role(Role::NarrativeLogic);
-    journalist::create(&Studio::new(backend.as_ref()), assignment, now_epoch).await
 }
 
 type ClassifiedRow<'a> = (&'a Narrative, &'static str, serde_json::Value, Option<i64>);
@@ -451,7 +443,7 @@ async fn record_ledger(
         .request_body()
         .and_then(|body| body.pointer("/options/num_ctx"))
         .and_then(|value| value.as_i64())
-        .unwrap_or(crate::runtime::route::VOICE_NUM_CTX_PACKET as i64) as i32;
+        .unwrap_or(crate::studio::model::VOICE_NUM_CTX_PACKET as i64) as i32;
     let mut excluded = Vec::new();
     if !output.budget_truncated_ids.is_empty() {
         excluded.push(json!({
@@ -539,18 +531,38 @@ async fn commit_claimed(
     Ok((HandleOutcome::Completed, product_row_ids))
 }
 
-pub struct NarrativesHandler;
+pub struct NarrativesHandler {
+    pool: sqlx::PgPool,
+    models: std::sync::Arc<Models>,
+}
 
 impl NarrativesHandler {
-    pub fn new() -> Self {
-        Self
+    pub fn new(pool: sqlx::PgPool, models: std::sync::Arc<Models>) -> Self {
+        Self { pool, models }
+    }
+}
+
+#[async_trait]
+impl WorkHandler for NarrativesHandler {
+    fn stage(&self) -> Stage {
+        Stage::Narratives
     }
 
-    async fn run_claimed(&self, hx: &Harness, item: &Item) -> Result<HandleOutcome> {
+    fn max_in_flight(&self) -> usize {
+        2
+    }
+
+    fn slot_group(&self) -> Option<(&'static str, usize)> {
+        Some(crate::runtime::stage::MAC_SLOTS)
+    }
+
+    async fn handle(&self, item: &Item) -> Result<HandleOutcome> {
+        let pool = &self.pool;
+        let models = &self.models;
         let entity_id = item.entity_id_i32()?;
         let sport = item.sport.to_uppercase();
         let name = crate::evidence::corpus::lookup_entity_name(
-            &hx.pool,
+            pool,
             &item.entity_type,
             entity_id,
             &item.sport,
@@ -563,19 +575,19 @@ impl NarrativesHandler {
             sport: item.sport.clone(),
             trigger_type: "periodic".to_string(),
         };
-        let material = load_narratives_material(hx, &req).await?;
-        let unchanged = hx
-            .debounce_unchanged(
-                "news_summaries",
-                &EntityKey {
-                    entity_type: item.entity_type.clone(),
-                    entity_id,
-                    sport: sport.clone(),
-                    season: None,
-                },
-                &material.input_hash,
-            )
-            .await?;
+        let material = load_narratives_material(pool, &req).await?;
+        let unchanged = crate::application::products::debounce_unchanged(
+            pool,
+            "news_summaries",
+            &EntityKey {
+                entity_type: item.entity_type.clone(),
+                entity_id,
+                sport: sport.clone(),
+                season: None,
+            },
+            &material.input_hash,
+        )
+        .await?;
         let trigger_payload = serde_json::Value::Null;
         if unchanged {
             debug!(
@@ -585,7 +597,7 @@ impl NarrativesHandler {
                 "narratives: inputs unchanged, skipping generation"
             );
             return Ok(commit_claimed(
-                &hx.pool,
+                pool,
                 item,
                 &sport,
                 &req.trigger_type,
@@ -596,10 +608,13 @@ impl NarrativesHandler {
             .0);
         }
 
-        let assignment = finish_narratives_assignment(hx, &req, material, NARRATIVES_TEMPERATURE)?;
-        let output = generate_narratives_from_assignment(hx, &assignment, now_unix()).await?;
+        let assignment =
+            finish_narratives_assignment(models, &req, material, NARRATIVES_TEMPERATURE)?;
+        let backend = models.router.for_role(Role::NarrativeLogic);
+        let output =
+            journalist::create(&Studio::new(backend.as_ref()), &assignment, now_unix()).await?;
         let (outcome, product_row_ids) = commit_claimed(
-            &hx.pool,
+            pool,
             item,
             &sport,
             &req.trigger_type,
@@ -609,7 +624,7 @@ impl NarrativesHandler {
         .await?;
         if outcome == HandleOutcome::Completed {
             record_ledger(
-                &hx.pool,
+                pool,
                 &LedgerSubject {
                     entity_type: &item.entity_type,
                     entity_id,
@@ -623,36 +638,6 @@ impl NarrativesHandler {
             .await?;
         }
         Ok(outcome)
-    }
-}
-
-impl Default for NarrativesHandler {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[async_trait]
-impl StageHandler for NarrativesHandler {
-    fn stage(&self) -> Stage {
-        Stage::Narratives
-    }
-
-    fn max_in_flight(&self) -> usize {
-        2
-    }
-
-    fn slot_group(&self) -> Option<(&'static str, usize)> {
-        Some(crate::runtime::stage::MAC_SLOTS)
-    }
-
-    async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {
-        self.run_claimed(hx, item).await?;
-        Ok(())
-    }
-
-    async fn handle_claimed(&self, hx: &Harness, item: &Item) -> Result<HandleOutcome> {
-        self.run_claimed(hx, item).await
     }
 }
 

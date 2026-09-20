@@ -5,6 +5,7 @@
 //! path because the live queue is current-season/entity-scoped.
 
 use anyhow::{anyhow, Context, Result};
+use scoracle_cognition::application::models::Models;
 use scoracle_cognition::application::scout::{
     build_rating_request, generate_rating, persist_stat_summary, rating_work_input_version,
     RatingReq,
@@ -12,7 +13,6 @@ use scoracle_cognition::application::scout::{
 use scoracle_cognition::evidence::corpus;
 use scoracle_cognition::runtime::config::Config;
 use scoracle_cognition::runtime::db;
-use scoracle_cognition::runtime::harness::Harness;
 use scoracle_cognition::runtime::providers::ollama::OllamaClient;
 use scoracle_cognition::runtime::route::Router;
 use scoracle_cognition::runtime::work;
@@ -68,8 +68,7 @@ async fn main() -> Result<()> {
     }
 
     let pool = db::build_pool(&cfg.database_url, cfg.db_max_conns).await?;
-    let harness = Harness {
-        pool,
+    let models = Models {
         router: Router::from_config(&cfg.route, cfg.ollama_timeout, cfg.ollama_max_concurrent)?,
         // Unbounded: a backfill is not a queue item and has no worker timeout to land inside.
         handler_budget: Duration::ZERO,
@@ -80,22 +79,21 @@ async fn main() -> Result<()> {
     };
 
     match args.mode.as_str() {
-        "single" => run_single(&harness, &args).await,
-        "nightly" => run_corpus(&harness, &cfg.database_url, &args, true).await,
-        "backfill" => run_corpus(&harness, &cfg.database_url, &args, false).await,
+        "single" => run_single(&pool, &models, &args).await,
+        "nightly" => run_corpus(&pool, &models, &cfg.database_url, &args, true).await,
+        "backfill" => run_corpus(&pool, &models, &cfg.database_url, &args, false).await,
         other => Err(anyhow!(
             "unknown -mode {other:?}; valid: single | nightly | backfill"
         )),
     }
 }
 
-async fn run_single(hx: &Harness, args: &Args) -> Result<()> {
+async fn run_single(pool: &sqlx::PgPool, models: &Models, args: &Args) -> Result<()> {
     if args.entity_id <= 0 || args.sport.is_empty() {
         return Err(anyhow!("-entity-id and -sport are required in single mode"));
     }
     let sport = args.sport.to_uppercase();
-    let name =
-        corpus::lookup_entity_name(&hx.pool, &args.entity_type, args.entity_id, &sport).await?;
+    let name = corpus::lookup_entity_name(pool, &args.entity_type, args.entity_id, &sport).await?;
     let req = RatingReq {
         entity_type: args.entity_type.clone(),
         entity_id: args.entity_id,
@@ -104,11 +102,19 @@ async fn run_single(hx: &Harness, args: &Args) -> Result<()> {
         season: args.season,
         trigger_type: args.trigger.clone(),
     };
-    let out = generate_rating(hx, &req, RATING_TEMPERATURE, args.skip_unchanged, true).await?;
+    let out = generate_rating(
+        pool,
+        models,
+        &req,
+        RATING_TEMPERATURE,
+        args.skip_unchanged,
+        true,
+    )
+    .await?;
     if args.persist && !out.skipped_unchanged {
-        persist_rating(hx, &req, &out).await?;
+        persist_rating(pool, &req, &out).await?;
         scoracle_cognition::application::analyst::enqueue_momentum_if_needed(
-            hx,
+            pool,
             &req.entity_type,
             req.entity_id,
             &sport,
@@ -129,8 +135,14 @@ async fn run_single(hx: &Harness, args: &Args) -> Result<()> {
     Ok(())
 }
 
-async fn run_corpus(hx: &Harness, db_url: &str, args: &Args, nightly: bool) -> Result<()> {
-    let lock = JobLock::acquire(&hx.pool, db_url, "statcommentary").await?;
+async fn run_corpus(
+    pool: &sqlx::PgPool,
+    models: &Models,
+    db_url: &str,
+    args: &Args,
+    nightly: bool,
+) -> Result<()> {
+    let lock = JobLock::acquire(pool, db_url, "statcommentary").await?;
     let Some(lock) = lock else {
         println!("statcommentary: another run holds the advisory lock; exiting cleanly");
         return Ok(());
@@ -140,10 +152,10 @@ async fn run_corpus(hx: &Harness, db_url: &str, args: &Args, nightly: bool) -> R
     let mut targets = Vec::new();
     for sport in &sports {
         let mut ts = if nightly {
-            let season = current_season(&hx.pool, sport).await?;
-            enum_current_season(&hx.pool, sport, season).await?
+            let season = current_season(pool, sport).await?;
+            enum_current_season(pool, sport, season).await?
         } else {
-            enum_missing(&hx.pool, sport).await?
+            enum_missing(pool, sport).await?
         };
         targets.append(&mut ts);
     }
@@ -167,7 +179,7 @@ async fn run_corpus(hx: &Harness, db_url: &str, args: &Args, nightly: bool) -> R
         }
         c.scanned += 1;
         if nightly {
-            match enqueue_peak_target(hx, &t).await {
+            match enqueue_peak_target(pool, models, &t).await {
                 Ok(()) => c.ok += 1,
                 Err(e) => {
                     c.failed += 1;
@@ -178,14 +190,14 @@ async fn run_corpus(hx: &Harness, db_url: &str, args: &Args, nightly: bool) -> R
                 }
             }
         } else {
-            match run_target(hx, &t, nightly).await {
+            match run_target(pool, models, &t, nightly).await {
                 Ok(out) if out.skipped_unchanged => c.unchanged += 1,
                 Ok(out) if out.skipped_no_stats => {
-                    persist_target(hx, &t, &out).await?;
+                    persist_target(pool, &t, &out).await?;
                     c.no_stats += 1;
                 }
                 Ok(out) => {
-                    persist_target(hx, &t, &out).await?;
+                    persist_target(pool, &t, &out).await?;
                     c.ok += 1;
                 }
                 Err(e) => {
@@ -222,8 +234,8 @@ async fn run_corpus(hx: &Harness, db_url: &str, args: &Args, nightly: bool) -> R
     Ok(())
 }
 
-async fn enqueue_peak_target(hx: &Harness, t: &Target) -> Result<()> {
-    let name = corpus::lookup_entity_name(&hx.pool, &t.entity_type, t.entity_id, &t.sport).await?;
+async fn enqueue_peak_target(pool: &sqlx::PgPool, models: &Models, t: &Target) -> Result<()> {
+    let name = corpus::lookup_entity_name(pool, &t.entity_type, t.entity_id, &t.sport).await?;
     let req = RatingReq {
         entity_type: t.entity_type.clone(),
         entity_id: t.entity_id,
@@ -234,10 +246,11 @@ async fn enqueue_peak_target(hx: &Harness, t: &Target) -> Result<()> {
     };
     // with_memory=false: this build only mints the input_version (hash + season) for the
     // queue row — the prompt is discarded, so the memory query would be pure waste.
-    let input_version = match build_rating_request(hx, &req, RATING_TEMPERATURE, false).await? {
-        RatingBuild::NoStats { season } => rating_work_input_version(season, None),
-        RatingBuild::Ready(r) => rating_work_input_version(r.season, Some(&r.input_hash)),
-    };
+    let input_version =
+        match build_rating_request(pool, models, &req, RATING_TEMPERATURE, false).await? {
+            RatingBuild::NoStats { season } => rating_work_input_version(season, None),
+            RatingBuild::Ready(r) => rating_work_input_version(r.season, Some(&r.input_hash)),
+        };
     let rating = work::Item {
         stage: work::Stage::Rating,
         entity_type: t.entity_type.clone(),
@@ -247,11 +260,16 @@ async fn enqueue_peak_target(hx: &Harness, t: &Target) -> Result<()> {
         attempts: 0,
         claim_token: None,
     };
-    work::enqueue(&hx.pool, &rating).await
+    work::enqueue(pool, &rating).await
 }
 
-async fn run_target(hx: &Harness, t: &Target, skip_unchanged: bool) -> Result<RatingOutput> {
-    let name = corpus::lookup_entity_name(&hx.pool, &t.entity_type, t.entity_id, &t.sport).await?;
+async fn run_target(
+    pool: &sqlx::PgPool,
+    models: &Models,
+    t: &Target,
+    skip_unchanged: bool,
+) -> Result<RatingOutput> {
+    let name = corpus::lookup_entity_name(pool, &t.entity_type, t.entity_id, &t.sport).await?;
     let req = RatingReq {
         entity_type: t.entity_type.clone(),
         entity_id: t.entity_id,
@@ -260,12 +278,12 @@ async fn run_target(hx: &Harness, t: &Target, skip_unchanged: bool) -> Result<Ra
         season: Some(t.season),
         trigger_type: "periodic".to_string(),
     };
-    generate_rating(hx, &req, RATING_TEMPERATURE, skip_unchanged, true).await
+    generate_rating(pool, models, &req, RATING_TEMPERATURE, skip_unchanged, true).await
 }
 
-async fn persist_target(hx: &Harness, t: &Target, out: &RatingOutput) -> Result<()> {
+async fn persist_target(pool: &sqlx::PgPool, t: &Target, out: &RatingOutput) -> Result<()> {
     persist_stat_summary(
-        &hx.pool,
+        pool,
         &t.entity_type,
         t.entity_id,
         &t.sport,
@@ -276,9 +294,9 @@ async fn persist_target(hx: &Harness, t: &Target, out: &RatingOutput) -> Result<
     .await
 }
 
-async fn persist_rating(hx: &Harness, req: &RatingReq, out: &RatingOutput) -> Result<()> {
+async fn persist_rating(pool: &sqlx::PgPool, req: &RatingReq, out: &RatingOutput) -> Result<()> {
     persist_stat_summary(
-        &hx.pool,
+        pool,
         &req.entity_type,
         req.entity_id,
         &req.sport,

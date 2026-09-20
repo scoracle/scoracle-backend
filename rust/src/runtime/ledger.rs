@@ -5,8 +5,8 @@
 //! best-effort from production stages so a schema/deployment issue in diagnostics cannot break the
 //! user-facing news rail.
 
-use crate::runtime::harness::Generation;
 use crate::runtime::route::Role;
+use crate::studio::Generation;
 use anyhow::{Context, Result};
 use serde_json::Value;
 use sqlx::{PgPool, Row};

@@ -12,9 +12,9 @@
 //!
 //! Missing measurements and ranks remain unknown; character and canvas own the writing.
 
-use crate::runtime::util::round1;
 use crate::studio::model::GenerateOptions;
 use crate::studio::{Generation, GenerationCall, Parser, Studio};
+use crate::util::round1;
 use anyhow::{anyhow, bail, Result};
 use serde::{Deserialize, Deserializer};
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -894,7 +894,7 @@ pub fn parse_rating_body(raw: &str) -> String {
 /// never a failed generation. Markdown decoration is deliberately NOT stripped before the
 /// match: a decorated title fails the brief's own plain-text guard downstream.
 fn split_rating_headline(raw: &str) -> (Option<String>, String) {
-    if let Ok(card) = serde_json::from_str::<crate::composition::form::CardReply>(raw.trim()) {
+    if let Ok(card) = serde_json::from_str::<crate::studio::form::CardReply>(raw.trim()) {
         return (Some(card.headline), card.body);
     }
     let mut headline: Option<String> = None;
@@ -921,36 +921,36 @@ fn split_rating_headline(raw: &str) -> (Option<String>, String) {
 impl Parser<RatingReply> for RatingParser {
     fn parse(&self, raw: &str) -> Result<Option<RatingReply>> {
         if raw.trim_start().starts_with('{') {
-            serde_json::from_str::<crate::composition::form::CardReply>(raw)?;
+            serde_json::from_str::<crate::studio::form::CardReply>(raw)?;
         }
         // Split the card title off FIRST so the body checks never grade it as prose.
         let (headline, body_only) = split_rating_headline(raw);
         let body = clean_commentary(&body_only);
-        crate::composition::form::validate_body(&body)?;
-        if let Some(p) = crate::composition::guards::first_banned_phrase(
+        crate::studio::form::validate_body(&body)?;
+        if let Some(p) = crate::studio::guards::first_banned_phrase(
             &body,
-            crate::composition::guards::RATING_BODY_BANS,
+            crate::studio::guards::RATING_BODY_BANS,
         ) {
             tracing::warn!(
                 guard = "rating_body_ban",
                 phrase = p,
                 "rating body rejected"
             );
-            return Err(crate::composition::form::SurfaceError(format!(
+            return Err(crate::studio::form::SurfaceError(format!(
                 "Body makes the unsupported inference {p:?}; remove that claim and use only retained evidence."
             ))
             .into());
         }
-        if let Some(p) = crate::composition::guards::first_product_name(&body) {
+        if let Some(p) = crate::studio::guards::first_product_name(&body) {
             tracing::warn!(guard = "product_name", name = p, "rating body rejected");
             anyhow::bail!("rating: body names product {p:?}");
         }
-        if crate::composition::guards::has_foreign_script(&body) {
+        if crate::studio::guards::has_foreign_script(&body) {
             tracing::warn!(guard = "foreign_script", "rating body rejected");
             anyhow::bail!("rating: body carries a foreign-script run");
         }
         // Optional titles fail open: salvage or drop without throwing away the report.
-        let headline = crate::composition::guards::settle_title("scout", headline.as_deref());
+        let headline = crate::studio::guards::settle_title("scout", headline.as_deref());
         Ok(Some(RatingReply { body, headline }))
     }
 }
@@ -963,31 +963,31 @@ impl Parser<RatingReply> for RatingRequestParser<'_> {
         if let Some((label, stated, expected)) =
             first_direction_contradiction(&reply.body, self.directions)
         {
-            return Err(crate::composition::form::SurfaceError(format!(
+            return Err(crate::studio::form::SurfaceError(format!(
                 "Body says {label} {stated}, but the compatible percentile evidence says it {expected}. Keep the supplied arithmetic direction."
             ))
             .into());
         }
         if has_internal_form_contradiction(&reply.body) {
-            return Err(crate::composition::form::SurfaceError(
+            return Err(crate::studio::form::SurfaceError(
                 "Body describes recent form as both strong/rising and declining/falling. Keep one interpretation supported by the supplied recent-form evidence.".into(),
             )
             .into());
         }
         if let Some(error) = first_measure_association_error(&reply.body) {
-            return Err(crate::composition::form::SurfaceError(error.into()).into());
+            return Err(crate::studio::form::SurfaceError(error.into()).into());
         }
         if let Some(error) = first_source_shape_error(&reply.body, self.prompt) {
-            return Err(crate::composition::form::SurfaceError(error.into()).into());
+            return Err(crate::studio::form::SurfaceError(error.into()).into());
         }
         if let Some((label, stated, expected)) = first_band_contradiction(&reply.body, self.bands) {
-            return Err(crate::composition::form::SurfaceError(format!(
+            return Err(crate::studio::form::SurfaceError(format!(
                 "Body calls {label} {stated}, but its supplied percentile band is {expected}. Use the supplied band."
             ))
             .into());
         }
         if let Some(height) = first_unsupported_height(&reply.body, self.prompt) {
-            return Err(crate::composition::form::SurfaceError(format!(
+            return Err(crate::studio::form::SurfaceError(format!(
                 "Body invents height {height:?}, which is absent from the retained evidence. Remove it."
             ))
             .into());
@@ -1302,7 +1302,7 @@ fn clean_commentary(raw: &str) -> String {
     let mut s = raw.trim();
     s = s.trim_matches('`');
     s = s.trim();
-    crate::composition::guards::clean_served_prose(s)
+    crate::studio::guards::clean_served_prose(s)
 }
 
 // ---------------------------------------------------------------------------

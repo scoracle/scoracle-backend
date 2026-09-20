@@ -3,19 +3,19 @@
 //! Studio owns creation from prepared material. This adapter owns concrete Postgres retrieval,
 //! assignment preparation, queue policy, exact-claim publication, and diagnostic ledger writes.
 
-use crate::composition::memories::{self, MemoryRequest, Mission};
-use crate::runtime::harness::Harness;
+use crate::application::models::Models;
+use crate::evidence::memories::{self, MemoryRequest, Mission};
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
-use crate::runtime::providers::ollama::GenerateOptions;
 use crate::runtime::route::Role;
-use crate::runtime::stage::{HandleOutcome, StageHandler};
-use crate::runtime::util::hash_components;
+use crate::runtime::stage::{HandleOutcome, WorkHandler};
 use crate::runtime::work::{self, Item, Stage};
+use crate::studio::model::GenerateOptions;
 use crate::studio::scout::{
     self, Assignment, RatingBuild, RatingExclusions, RatingOutput, Subject, MAX_STAT_FACTS,
     RATING_NUM_PREDICT, RATING_OUTPUT_CONTRACT_VERSION, RATING_SYSTEM_PROMPT, RATING_TEMPERATURE,
 };
 use crate::studio::Studio;
+use crate::util::hash_components;
 use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
 use sqlx::{PgPool, Postgres, Row, Transaction};
@@ -38,13 +38,14 @@ pub struct RatingReq {
 
 /// Prepare the Scout's complete assignment without calling a model.
 pub async fn build_rating_request(
-    hx: &Harness,
+    pool: &sqlx::PgPool,
+    models: &Models,
     req: &RatingReq,
     temperature: f64,
     with_enrichment: bool,
 ) -> Result<RatingBuild> {
     let Some(mut profile) = evidence::load_rating_profile(
-        &hx.pool,
+        pool,
         &req.entity_type,
         req.entity_id,
         &req.sport,
@@ -70,7 +71,7 @@ pub async fn build_rating_request(
     let mut memory_request =
         MemoryRequest::new(Mission::Scout, &req.entity_type, req.entity_id, &req.sport);
     memory_request.season = Some(profile.season);
-    let memories = memories::load(&hx.pool, memory_request).await?;
+    let memories = memories::load(pool, memory_request).await?;
     let supports_cross_season = scout::supports_cross_season_comparison(&profile);
     let model_memories = if supports_cross_season {
         memories.clone()
@@ -86,7 +87,7 @@ pub async fn build_rating_request(
         display_tier_stat_labels,
     };
     let rating_trajectory = evidence::load_rating_trajectory(
-        &hx.pool,
+        pool,
         &req.entity_type,
         req.entity_id,
         &req.sport,
@@ -96,7 +97,7 @@ pub async fn build_rating_request(
 
     let personnel = if with_enrichment && !memories.historical {
         let (changes, total) = match crate::evidence::personnel::load_personnel_changes(
-            &hx.pool,
+            pool,
             &req.sport,
             &req.entity_type,
             req.entity_id,
@@ -117,7 +118,7 @@ pub async fn build_rating_request(
         };
         let (availability, availability_total) =
             match crate::evidence::personnel::load_availability_changes(
-                &hx.pool,
+                pool,
                 &req.sport,
                 &req.entity_type,
                 req.entity_id,
@@ -150,7 +151,7 @@ pub async fn build_rating_request(
 
     let current_reports = if with_enrichment && !memories.historical {
         match crate::evidence::personnel::load_scout_reports(
-            &hx.pool,
+            pool,
             &req.entity_type,
             req.entity_id,
             &req.sport,
@@ -175,7 +176,7 @@ pub async fn build_rating_request(
 
     let comparisons = if with_enrichment && supports_cross_season {
         match evidence::load_rating_profile(
-            &hx.pool,
+            pool,
             &req.entity_type,
             req.entity_id,
             &req.sport,
@@ -244,7 +245,7 @@ pub async fn build_rating_request(
         system: Some(RATING_SYSTEM_PROMPT.to_string()),
         temperature: Some(temperature),
         num_predict: RATING_NUM_PREDICT,
-        num_ctx: hx.voice_num_ctx,
+        num_ctx: models.voice_num_ctx,
         json_mode: false,
         format_schema: Some(crate::studio::form::card_schema(false)),
         format_schema_raw: None,
@@ -268,20 +269,22 @@ pub async fn build_rating_request(
 
 /// Prepare, debounce, and create a Scout product. Publication remains a separate short transaction.
 pub async fn generate_rating(
-    hx: &Harness,
+    pool: &sqlx::PgPool,
+    models: &Models,
     req: &RatingReq,
     temperature: f64,
     skip_unchanged: bool,
     with_enrichment: bool,
 ) -> Result<RatingOutput> {
-    let backend = hx.router.for_role(Role::StatsLogic);
-    let assignment = match build_rating_request(hx, req, temperature, with_enrichment).await? {
-        RatingBuild::NoStats { season } => return Ok(scout::no_stats(season, backend.model())),
-        RatingBuild::Ready(assignment) => *assignment,
-    };
+    let backend = models.router.for_role(Role::StatsLogic);
+    let assignment =
+        match build_rating_request(pool, models, req, temperature, with_enrichment).await? {
+            RatingBuild::NoStats { season } => return Ok(scout::no_stats(season, backend.model())),
+            RatingBuild::Ready(assignment) => *assignment,
+        };
     if skip_unchanged
         && evidence::last_commentary_input_hash(
-            &hx.pool,
+            pool,
             &req.entity_type,
             req.entity_id,
             &req.sport,
@@ -417,47 +420,6 @@ pub async fn enqueue_rating_for_applied_transfer(
                 entity_id,
                 sport = %sport,
                 "rating: could not enqueue on applied transfer: {error:#}"
-            );
-        }
-    }
-    Ok(())
-}
-
-/// Best-effort Scout trigger when reported unavailability becomes a roster fact. The stored
-/// `event_day` must be supplied as the database DATE text (`YYYY-MM-DD`).
-pub async fn enqueue_rating_for_applied_availability(
-    pool: &PgPool,
-    sport: &str,
-    player_id: i32,
-    team_id: Option<i32>,
-    event_day: &str,
-) -> Result<()> {
-    let sport = sport.to_uppercase();
-    let season = current_season(pool, &sport).await?;
-    let input_version = rating_work_input_version_for_availability(season, event_day);
-
-    let mut targets: Vec<(&str, i64)> = vec![("player", i64::from(player_id))];
-    if let Some(team) = team_id {
-        targets.push(("team", i64::from(team)));
-    }
-
-    for (entity_type, entity_id) in targets {
-        let item = Item {
-            stage: Stage::Rating,
-            entity_type: entity_type.to_string(),
-            entity_id,
-            sport: sport.clone(),
-            input_version: Some(input_version.clone()),
-            attempts: 0,
-            claim_token: None,
-        };
-        if let Err(error) = work::enqueue(pool, &item).await {
-            warn!(
-                event_day,
-                entity_type,
-                entity_id,
-                sport = %sport,
-                "rating: could not enqueue on applied availability: {error:#}"
             );
         }
     }
@@ -710,27 +672,43 @@ async fn commit_claimed(
 }
 
 /// Queue-owned Scout adapter. Creation remains outside the short publication transaction.
-pub struct RatingHandler;
+pub struct RatingHandler {
+    pool: sqlx::PgPool,
+    models: std::sync::Arc<Models>,
+}
 
 impl RatingHandler {
-    pub fn new() -> Self {
-        Self
+    pub fn new(pool: sqlx::PgPool, models: std::sync::Arc<Models>) -> Self {
+        Self { pool, models }
+    }
+}
+
+#[async_trait]
+impl WorkHandler for RatingHandler {
+    fn stage(&self) -> Stage {
+        Stage::Rating
     }
 
-    async fn run_claimed(&self, hx: &Harness, item: &Item) -> Result<HandleOutcome> {
+    fn max_in_flight(&self) -> usize {
+        2
+    }
+
+    fn slot_group(&self) -> Option<(&'static str, usize)> {
+        Some(crate::runtime::stage::ARCHBOX_SLOTS)
+    }
+
+    async fn handle(&self, item: &Item) -> Result<HandleOutcome> {
+        let pool = &self.pool;
+        let models = &self.models;
         let entity_id = item.entity_id_i32()?;
         let sport = item.sport.to_uppercase();
         let season = match rating_work_season(item.input_version.as_deref()) {
             Some(season) => season,
-            None => current_season(&hx.pool, &sport).await?,
+            None => current_season(pool, &sport).await?,
         };
-        let name = crate::evidence::corpus::lookup_entity_name(
-            &hx.pool,
-            &item.entity_type,
-            entity_id,
-            &sport,
-        )
-        .await?;
+        let name =
+            crate::evidence::corpus::lookup_entity_name(pool, &item.entity_type, entity_id, &sport)
+                .await?;
         let bypass = rating_work_bypasses_debounce(item.input_version.as_deref());
         let trigger_type = rating_trigger_type(item.input_version.as_deref());
         let req = RatingReq {
@@ -742,7 +720,7 @@ impl RatingHandler {
             season: Some(season),
         };
 
-        let output = generate_rating(hx, &req, RATING_TEMPERATURE, !bypass, true).await?;
+        let output = generate_rating(pool, models, &req, RATING_TEMPERATURE, !bypass, true).await?;
         let prepared = prepare(&output);
         if matches!(prepared, Prepared::Debounced) {
             debug!(
@@ -755,7 +733,7 @@ impl RatingHandler {
         }
         let trigger_payload = serde_json::json!({});
         let (outcome, product_row_id) = commit_claimed(
-            &hx.pool,
+            pool,
             item,
             &sport,
             trigger_type,
@@ -765,7 +743,7 @@ impl RatingHandler {
         .await?;
         if let (Some(product_row_id), Prepared::Product(output)) = (product_row_id, prepared) {
             record_ledger(
-                &hx.pool,
+                pool,
                 &LedgerSubject {
                     entity_type: &item.entity_type,
                     entity_id,
@@ -779,36 +757,6 @@ impl RatingHandler {
             .await?;
         }
         Ok(outcome)
-    }
-}
-
-impl Default for RatingHandler {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[async_trait]
-impl StageHandler for RatingHandler {
-    fn stage(&self) -> Stage {
-        Stage::Rating
-    }
-
-    fn max_in_flight(&self) -> usize {
-        2
-    }
-
-    fn slot_group(&self) -> Option<(&'static str, usize)> {
-        Some(crate::runtime::stage::ARCHBOX_SLOTS)
-    }
-
-    async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {
-        self.run_claimed(hx, item).await?;
-        Ok(())
-    }
-
-    async fn handle_claimed(&self, hx: &Harness, item: &Item) -> Result<HandleOutcome> {
-        self.run_claimed(hx, item).await
     }
 }
 

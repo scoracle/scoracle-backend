@@ -18,8 +18,7 @@
 
 use crate::application::editor;
 use crate::evidence::news::packet;
-use crate::runtime::harness::Harness;
-use crate::runtime::stage::{HandleOutcome, StageHandler};
+use crate::runtime::stage::{HandleOutcome, WorkHandler};
 use crate::runtime::work::{self, retry_backoff, Stage, MAX_ATTEMPTS};
 use anyhow::{anyhow, Context, Result};
 use futures::stream::{FuturesUnordered, StreamExt};
@@ -75,7 +74,7 @@ const SHUTDOWN_GRACE: Duration = Duration::from_secs(75);
 
 /// The live worker rotates stages one item at a time by default. LLM/model calls dominate
 /// runtime, so minimizing product-stage latency is worth the extra cheap claims. A stage with no
-/// model call overrides this via [`StageHandler::rotation_batch`] — see the note there.
+/// model call overrides this via [`WorkHandler::rotation_batch`] — see the note there.
 const STAGE_ROTATION_BATCH: i64 = 1;
 
 /// Desk cadence, independent of queue depth. The DB-only Desk deliberately does not beat the
@@ -390,13 +389,9 @@ async fn desk_loop(desk: Desk) {
 }
 
 pub struct Worker {
-    // The queue host owns the pool directly for its claim/complete/fail/LISTEN mechanics
-    // (platform plumbing, not cognition), and owns the `Harness` it hands to each stage
-    // (the capability context — same Arc-backed pool inside, plus the model router). The
-    // proven drain loop is unchanged; only the per-item `handle` call passes the harness.
+    // Queue, recovery, and maintenance use storage; model dependencies stay in handlers.
     pool: PgPool,
-    harness: Harness,
-    handlers: Vec<Box<dyn StageHandler>>,
+    handlers: Vec<Box<dyn WorkHandler>>,
     safety_net: Duration,
     stale_lease: Duration,
     /// Per-item ceiling on one stage handler run (`COGNITION_HANDLER_TIMEOUT_SECONDS`;
@@ -432,8 +427,8 @@ pub struct Worker {
 impl Worker {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        harness: Harness,
-        handlers: Vec<Box<dyn StageHandler>>,
+        pool: PgPool,
+        handlers: Vec<Box<dyn WorkHandler>>,
         safety_net: Duration,
         stale_lease: Duration,
         handler_timeout: Duration,
@@ -441,7 +436,6 @@ impl Worker {
         drain_concurrency: Option<usize>,
         packet_compile: bool,
     ) -> Self {
-        let pool = harness.pool.clone();
         // Unset means "let the per-stage caps govern": the sum of every stage's `max_in_flight`
         // is by construction the point past which the ceiling can never bind, so no stage is
         // ever starved by a global number nobody tuned. An explicit value is a throttle.
@@ -452,7 +446,6 @@ impl Worker {
         let drain_concurrency = resolve_drain_concurrency(drain_concurrency, &caps);
         Self {
             pool,
-            harness,
             handlers,
             safety_net,
             stale_lease,
@@ -616,7 +609,7 @@ impl Worker {
         // Reconcile durable post-publication intent before claiming more model work. Outbox
         // inserts notify the same channel as pipeline_work; the safety tick covers a lost notify.
         pulse.begin("application-outbox");
-        match crate::application::outbox::drain(&self.harness, 100).await {
+        match crate::application::outbox::drain(&self.pool, 100).await {
             Ok(n) if n > 0 => debug!(reconciled = n, cause, "application outbox drained"),
             Ok(_) => {}
             Err(e) => error!(error = %format!("{e:#}"), cause, "application outbox drain failed"),
@@ -758,7 +751,7 @@ impl Worker {
     /// Returns the stage's name so the drain can decrement that stage's in-flight count.
     async fn run_one(
         &self,
-        handler: &dyn StageHandler,
+        handler: &dyn WorkHandler,
         item: work::Item,
         pulse: &Pulse,
     ) -> &'static str {
@@ -770,41 +763,8 @@ impl Worker {
         let outcome = self.handle_bounded(handler, &item).await;
         pulse.beat(&format!("bookkeep {stage}"));
         match outcome {
-            Ok(HandleOutcome::NeedsCompletion) => {
-                match work::complete(&self.pool, &item).await {
-                    Ok(true) => {
-                        // Ask the Oracle completion barrier only after this exact claim deleted
-                        // its row; a stale worker must not announce another execution's completion.
-                        //
-                        // Best-effort by design. A failed enqueue must not fail an item whose real
-                        // work is already persisted and whose row is already deleted; the next
-                        // pillar to settle asks again, and Sigil's input-hash debounce makes a
-                        // duplicate cheap.
-                        if work::PILLAR_STAGES.contains(&item.stage) {
-                            if let Err(e) =
-                                crate::application::oracle::enqueue_oracle_if_pillars_settled(
-                                    &self.pool,
-                                    &item.entity_type,
-                                    item.entity_id,
-                                    &item.sport,
-                                    item.input_version.clone(),
-                                )
-                                .await
-                            {
-                                warn!(
-                                    error = %format!("{e:#}"), %stage, entity = item.entity_id,
-                                    "oracle barrier check failed (best-effort)"
-                                );
-                            }
-                        }
-                    }
-                    Ok(false) => debug!(
-                        %stage,
-                        entity = item.entity_id,
-                        "completion not applied: claim was deferred or superseded"
-                    ),
-                    Err(e) => error!(error = %format!("{e:#}"), %stage, "complete failed"),
-                }
+            Ok(HandleOutcome::Deferred) => {
+                debug!(%stage, entity = item.entity_id, "handler deferred partial progress")
             }
             Ok(HandleOutcome::Completed) => debug!(
                 %stage,
@@ -847,18 +807,13 @@ impl Worker {
     /// (the watchdog stays the backstop for hangs outside handlers).
     async fn handle_bounded(
         &self,
-        handler: &dyn StageHandler,
+        handler: &dyn WorkHandler,
         item: &work::Item,
     ) -> Result<HandleOutcome> {
         if self.handler_timeout.is_zero() {
-            return handler.handle_claimed(&self.harness, item).await;
+            return handler.handle(item).await;
         }
-        match tokio::time::timeout(
-            self.handler_timeout,
-            handler.handle_claimed(&self.harness, item),
-        )
-        .await
-        {
+        match tokio::time::timeout(self.handler_timeout, handler.handle(item)).await {
             Ok(res) => res,
             Err(_) => Err(anyhow!(
                 "handler exceeded COGNITION_HANDLER_TIMEOUT_SECONDS ({}s)",
@@ -1062,5 +1017,81 @@ mod tests {
         let (busy, _, activity) = pulse.snapshot();
         assert!(!busy);
         assert_eq!(activity, "idle");
+    }
+
+    struct PreparedHandler(Option<HandleOutcome>);
+
+    #[async_trait::async_trait]
+    impl WorkHandler for PreparedHandler {
+        fn stage(&self) -> Stage {
+            Stage::Graph
+        }
+        async fn handle(&self, item: &work::Item) -> Result<HandleOutcome> {
+            assert_eq!(item.claim_token.as_deref(), Some("exact-lease"));
+            assert_eq!(item.input_version.as_deref(), Some("captured-revision"));
+            match self.0 {
+                Some(receipt) => Ok(receipt),
+                None => std::future::pending().await,
+            }
+        }
+    }
+
+    fn offline_worker(timeout: Duration) -> Worker {
+        Worker::new(
+            sqlx::postgres::PgPoolOptions::new()
+                .connect_lazy("postgresql://localhost/unused")
+                .unwrap(),
+            Vec::new(),
+            Duration::from_secs(60),
+            Duration::from_secs(60),
+            timeout,
+            Duration::ZERO,
+            None,
+            false,
+        )
+    }
+
+    fn prepared_claim() -> work::Item {
+        work::Item {
+            stage: Stage::Graph,
+            entity_type: "article".into(),
+            entity_id: 1,
+            sport: "NBA".into(),
+            input_version: Some("captured-revision".into()),
+            claim_token: Some("exact-lease".into()),
+            attempts: 1,
+        }
+    }
+
+    #[tokio::test]
+    async fn bound_handlers_preserve_exact_claim_and_all_durable_receipts_without_services() {
+        for timeout in [Duration::ZERO, Duration::from_secs(1)] {
+            let worker = offline_worker(timeout);
+            for receipt in [
+                HandleOutcome::Completed,
+                HandleOutcome::Superseded,
+                HandleOutcome::Deferred,
+            ] {
+                assert_eq!(
+                    worker
+                        .handle_bounded(&PreparedHandler(Some(receipt)), &prepared_claim())
+                        .await
+                        .unwrap(),
+                    receipt
+                );
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn bound_handler_timeout_remains_a_retryable_error() {
+        let worker = offline_worker(Duration::from_millis(1));
+        let error = worker
+            .handle_bounded(&PreparedHandler(None), &prepared_claim())
+            .await
+            .unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("handler exceeded COGNITION_HANDLER_TIMEOUT_SECONDS"));
     }
 }

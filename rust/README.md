@@ -1,61 +1,37 @@
 # Scoracle Studio and Rust application
 
-**Studio is Scoracle's in-house harness.** [`src/studio/`](src/studio/) gives LLMs a place to create from prepared material. Postgres stores the evolving world; DuckDB studies it; Studio equips characters to express what the evidence supports.
+**Postgres stores the world. DuckDB studies it. Studio supplies cognition.** `src/studio/` is the single harness for all nine seats: Analyst, Influencer, Scout, Journalist, Insider, Oracle, Editor, Investigator, and Graph.
 
-This crate also contains the production application: routing, acquisition helpers, Postgres adapters, durable queue handling, and operator tools. Those concerns live outside Studio's core. They can share a binary without sharing ownership.
-
-Read the [backend README](../README.md), [product narrative](../../scoracle-wiki/PRODUCT_NARRATIVE.md), [data-flow map](../../scoracle-wiki/DATA_FLOW.md), and [development rules](../run_docs/DEVELOPMENT.md) before changing a boundary. The [runbook](../run_docs/RUNBOOK.md) owns operational procedures.
-
-## What is implemented
-
-The Analyst is the first migrated character, based on the user’s committed `ea20950` runtime/composition/evidence reorganization. `src/studio/analyst/` owns its prepared domain types, `momentum-s27` prompt, JSON parser, deterministic product fields, and creation flow. The new memory material and fingerprint are retained. `src/application/analyst.rs` owns production retrieval, pillar-to-domain adaptation, model selection, queue invalidation, claim-aware publication, and the best-effort diagnostic ledger. Eval and fixture callers use Studio's prompt/parser contracts plus the explicit pillar adapter; the old Analyst junction is removed.
-
-The Influencer is also migrated. `src/studio/influencer/` owns its `v32` brief, prompt builder, parser, prepared assignment, marker/product creation, and injected publication. `src/application/influencer.rs` owns retrieval, memory rendering/fingerprints, early debounce, and claim-aware Postgres publication. `src/application/outbox.rs` durably retries the post-publication Momentum offer and Oracle barrier. Its former junction directory and composition brief are removed; production, standalone generation, eval, and fixture tools import the authoritative owners directly.
-
-Scout is fully migrated. `src/studio/scout/` owns its brief, prepared `Subject`/`Assignment`, measurement shaping, prompt, parser/guards, no-stats and unchanged outcomes, deterministic product assembly, and model session. It imports no concrete database, queue, application, or model-host adapter. `src/application/scout.rs` owns the durable entity request, PostgreSQL evidence and memory preparation, model selection, debounce, triggers, standalone/queue persistence, exact-claim completion, and ledger diagnostics. Production, batch, eval, fixture, and inspection callers use those owners; the Scout junction and duplicate composition brief are removed.
-
-Journalist is fully migrated. `src/studio/journalist/` owns its brief, prepared `Subject`/`Assignment`, prompt, tolerant parser, citation grounding, deterministic impact/source metadata, and called or uncalled edition assembly. It imports no concrete database, queue, application, or junction adapter. `src/application/journalist.rs` owns packet/PostgreSQL retrieval, memory preparation, model selection, debounce, queue claims, storyline progression, atomic multi-row/marker publication, and diagnostics. Production, eval, fixture, Editor, and Insider callers use the new owners; the Journalist junction and duplicate composition brief are removed.
-
-Oracle is fully migrated. `src/studio/oracle/` owns its brief, typed five-card `Assignment`, spread readiness, deterministic input identity, divergence/convergence and omen calculations, prompt, parser/guards, explicit empty marker, and model session. `src/application/oracle.rs` owns PostgreSQL pillar retrieval, the existing barrier policy, memory preparation, routing, debounce, queue ownership, claim-aware `sigil_synthesis` publication, and diagnostics. Oracle has no downstream obligation, so publication and exact completion share one short transaction without a new outbox kind. Production, evaluation, fixture, Analyst, Insider, worker, and outbox callers use the new owners; the Oracle junction and duplicate composition brief are removed.
-
-Insider is fully migrated. `src/studio/insider/` owns its brief, prepared pair and wrap assignments, transfer and identity prompts, parsers/guards, deterministic direction/stage/confidence shaping, and model sessions. `src/application/insider/` owns PostgreSQL candidate and evidence retrieval, routing, bounded per-pair progress, identity effects, exact-claim publication, and queue policy. Each served pair atomically commits its product and player Oracle obligation under the current team lease; final completion commits the team obligation and deletes that exact claim. Cleared pairs preserve progress without a player event, and superseded or reclaimed workers publish nothing further. Production, evaluation, fixture, form, and Oracle callers use the new owners; the Insider junction and duplicate composition brief are removed.
-
-Shared model and generation contracts now live in Studio. `runtime/harness.rs` re-exports them and delegates extraction for the three unmigrated seats. That database-bearing context will retire as their adapters move; Studio is not a wrapper around a permanent older harness.
-
-The current worker, queue, SQL analytics, and product tables continue to operate. Migration 256 adds a unique claim token and captured running revision to `pipeline_work`; `runtime/work.rs` requires both on complete, fail, defer, and release. Migrations 257–261 add the narrow `application_outbox` for Influencer, Analyst, Scout, Journalist, and Insider. Migration 261 keeps one completion event per claim while allowing one transfer claim to fan out to distinct player/team Oracle targets. Oracle needs no downstream event: after inference its short transaction locks the exact claim, writes the crown or marker when needed, and deletes that claim. Stale executions write nothing. Optional cognition-ledger writes remain best-effort after product commit. The three remaining handlers still need this publication boundary. The incorporated baseline already includes the Go DuckDB analytics boundary and cohort memory context; it is preserved.
+Read the [backend README](../README.md), [data-flow map](../../scoracle-wiki/DATA_FLOW.md), and [development rules](../run_docs/DEVELOPMENT.md) before changing a boundary. The [runbook](../run_docs/RUNBOOK.md) owns operational procedures.
 
 ## One assignment, end to end
 
 ```text
-application: retrieve evidence + select model + choose publisher
-  -> Analyst Assignment (form, mood, movement, sourced memory, window)
-  -> Studio: construct prompt -> model -> parser/guards -> Generation<MomentumSummary>
-  -> injected Publisher: application persists product and provenance
-  -> Outcome::Published(receipt), or NoMaterial without a call
+application: retrieve evidence + select model
+  -> prepared Studio assignment
+  -> prompt -> bounded model session -> parser/guards -> Generation<T>
+  -> application: exact-claim transaction -> product/provenance + required effects + completion
 ```
 
-- `model::Inference` is the replaceable model interface; concrete Ollama/OpenAI-compatible clients and routing remain outside Studio.
-- `Studio::extract` parses only the visible answer and captures the successful request, responding model, prompt, and telemetry. It preserves the existing limit of three attempts for surface violations or incomplete output. Ordinary transport/parser failures propagate without retry; the application owns durable backoff.
-- `Parser<T>` returns a validated value, explicit abstention, or an error. Each character defines what abstention means; never invent a successful product from missing evidence.
-- `Generation<T>` carries the product, provenance, and optional call diagnostics. It also represents deterministic products that did not need a call.
-- `Publisher<T>` is an injected publication capability. The adapter owns storage, idempotency, and durability. Its receipt is application-defined.
-- `influencer::create` returns either a called score or an uncalled NULL marker; `influencer::run` publishes either product. It never returns Analyst’s `NoMaterial`. The application skips unchanged material before rendering/calling, offers Momentum after skips and successful publication, and propagates failures. A prior real score permits one closing quiet read; the latest-row/prior-memory disagreement can bypass debounce.
-- `analyst::create` can produce a validated result without publishing it, useful for evaluation. `analyst::run` completes creation and publication.
+Studio receives domain values and an injected `model::Inference`. It owns prompts, parsers, product assembly, provenance, and the existing bounded corrective rewrites. Invalid output fails before publication. `Generation<T>` captures the actual successful request and responding model; uncalled markers retain explicit provenance. `Publisher<T>` remains the small injected sink used by Studio callers that need one.
 
-No database pool, queue item, router, or sibling character product is required by the Analyst core. Prepared `Form`, `Mood`, and `Snapshot` values carry only its evidence. Today's Postgres adapter maps older Oracle types to those values and supplies the existing sourced-memory rendering and fingerprint. Later analytical results can enter through the same preparation boundary.
+Studio production modules import no application, evidence provider, queue, routing, or database code. Pure shared text/fingerprint helpers live in `src/util.rs`. Source selection and rendered memory packages live in `evidence/memories`; the application passes prepared material into Studio. Measurement and prior interpretation remain distinct.
 
-Add capabilities only for actual assignments. A character that needs retrieval during creation should receive a narrow typed interface, with its implementation in the application. Do not add a generic tool registry, agent framework, or database handle merely for future flexibility.
+## Application execution and durability
+
+`main.rs` binds each application handler to its storage pool and model routes/limits. `WorkHandler::handle` accepts only the exact claimed `Item`, and returns `Completed`, `Superseded`, or `Deferred`. There is no default publication or worker completion path. The worker owns claims, concurrency, deadlines, retries, stale recovery, notifications, shutdown, and periodic maintenance; it holds no model router or cognition context.
+
+Application helpers take the dependencies they use: SQL-only loaders, debounce queries, and outbox recovery take a pool; model work receives separate `Models` routes and limits. This small configuration bundle contains no storage, queue operations, or execution methods. Fixture acquisition needs only storage and its fetcher. Evaluation and `statcommentary` use the same explicit dependencies and Studio contracts.
+
+After inference, each publisher locks the exact claim token and captured revision. Required product/provenance/effects and completion commit in one short transaction. Stale or reclaimed work publishes nothing. Insider retains committed partial pairs and target-specific Oracle obligations across budget deferral. Oracle is terminal; evidence seats commit their own effects directly, so none needs an artificial outbox. Optional cognition diagnostics remain best-effort after commit.
+
+The narrow `application_outbox` retries Momentum/Oracle obligations after publication, without model routing or a model service. Replay coalesces queue work; dispatch failure durably backs off. `LISTEN/NOTIFY` wakes workers, while persisted work and obligations survive process loss. Existing host slot groups, stage caps, FIFO/priority ordering, and retry policy remain intact.
+
+`runtime/harness.rs`, `junctions/`, and `composition/` are retired. Model/form/guard aliases and migration-only completion wrappers are gone. Unused `sql` and `multilang` routing roles are removed; Graph retains its deployed `emotional-news` route key. Active stages, public products, prompt versions, and schema are unchanged by this cleanup.
 
 ## Character expression
 
-[`src/studio/form.rs`](src/studio/form.rs) owns shared form and parser-compatible output contracts. `composition::form` and `composition::guards` are compatibility exports. Migrated character briefs live beside their Studio creation code; Analyst retains a temporary composition re-export, while Influencer, Scout, Journalist, Insider, and Oracle have no duplicate brief. Other briefs remain in `composition/characters/` until their vertical migrations. Memory loading and rendering remain in `composition/memories`.
-
-Form is the canvas, character is the brush, and memories are the paint. The model
-creates the reading. All six writer paths now load shared memories before their
-material hash gate. Source changes can refresh a reading; prior generated prose
-cannot trigger itself. `composition::compose_card` supports standalone probes;
-the live input adapters combine the same memory rendering with their current evidence.
-See [the memories design and real packages](fixtures/memories/README.md).
+`studio/form.rs` owns shared form and output contracts; each seat owns its brief. `evaluation/memory.rs` supports offline memory probes using those same briefs.
 
 Use this question when adding or reviewing any prompt, input instruction, guard, or
 evaluation rule:
@@ -80,7 +56,7 @@ readings. The nuance belongs with the pillars that understand the evidence.
 
 Journalist and Influencer have distinct subjects. Reporting tone alone is not evidence
 of how a crowd feels. Memories provide continuity, not fresh measurements or proof.
-Editor creates through Studio; Investigator and Graph still use junctions to extract and verify evidence.
+Editor, Investigator, and Graph also create through prepared Studio assignments.
 The Insider's extraction contracts live in `studio/insider/verification.rs`.
 
 Current input limits: Scout receives per-skill season comparisons and an overall recent
@@ -95,28 +71,23 @@ Automated checks cover mechanical contracts; review live outputs for grounded cl
 and character expression. Keyword bans cannot establish whether an interpretation
 follows the evidence.
 
-Editor now reads in `studio/editor` from one prepared article assignment (source, title, description, body, hypothesis identities). Studio owns the unchanged `ep8` prompt, schema, parser, deterministic judgments, and model session. `application/editor` owns fetching, debounce, exact-name SQL resolution, nominations, storyline attachment, and claim-aware publication. The body/read or terminal marker, required fetch provenance, entity links, candidate evidence and Investigator work, storyline state, Graph work, and exact completion commit in one transaction after fetching and inference. Any required write failure rolls everything back for retry. Packet compilation and rendering now live in shared `evidence/news`; the Editor junction and best-effort publication wrappers are removed. Migration 233's retired boxscore enqueue path stays retired. No new migration or outbox is needed for this boundary.
-
 ## Source map
 
 | Path | Responsibility |
 |---|---|
-| `src/studio/mod.rs`, `src/studio/session.rs` | Model session, bounded correction, injected publication, and outcome. |
-| `src/studio/model.rs` | Model interface, call options/results, provider-independent incomplete-output signal. |
-| `src/studio/generation.rs` | Typed products, parser interface, provenance, call diagnostics. |
-| `src/studio/analyst/`, `influencer/`, `scout/`, `journalist/`, `insider/`, `oracle/`, `editor/` | Migrated character creation and service-free tests. |
-| `src/application/analyst.rs`, `influencer.rs`, `scout.rs`, `journalist.rs`, `insider/`, `oracle.rs`, `editor/` | Concrete preparation, routing, lifecycle policy, work coordination, and claim-aware publication. |
-| `src/studio/form.rs`, `src/studio/guards.rs` | Shared character form, output contracts, and mechanical guards. |
-| `src/evidence/news/` | Shared packet compilation, retrieval, quote slicing, and bounded rendering. |
-| `src/composition/` | Existing sourced-memory packages and character briefs awaiting migration. |
-| `src/junctions/` | Two remaining model-facing seats and transitional application adapters. |
-| `src/runtime/route.rs`, `src/runtime/providers/` | Role selection, host concurrency, and model transports. |
-| `src/main.rs`, `src/runtime/worker.rs`, `src/runtime/work.rs` | Service composition, dispatch, fenced `pipeline_work` claims, and acknowledgement lifecycle. |
-| `src/runtime/harness.rs`, `src/evidence/corpus.rs`, `src/runtime/ledger.rs` | Legacy application context, data retrieval, publication diagnostics. |
-| `src/runtime/util.rs` | Pure value helpers shared during migration. |
-| `src/evaluation/tasks.rs`, `src/bin/eval.rs`, `fixtures/` | Existing character evaluation system and frozen material. |
+| `src/studio/` | Nine prepared assignments, character/evidence contracts, model session, validation, provenance, and optional injected publication. |
+| `src/application/` | Concrete preparation, work policy, atomic publication, and diagnostics for each seat. |
+| `src/application/worker.rs`, `outbox.rs` | Queue execution, maintenance, supervision, and durable follow-up recovery. |
+| `src/application/models.rs`, `products.rs` | Separate model configuration and SQL product lookups. |
+| `src/runtime/work.rs`, `stage.rs` | Exact lease operations and the bound queue-handler contract. |
+| `src/runtime/route.rs`, `providers/` | Role selection, per-host concurrency governors, and model transports. |
+| `src/runtime/config.rs`, `fetch.rs`, `ledger.rs`, `db.rs` | Environment, acquisition infrastructure, optional diagnostics, and pool construction. |
+| `src/evidence/` | Shared retrieval, sourced-memory selection/rendering, packets, and deterministic evidence preparation. |
+| `src/evaluation/`, `src/bin/eval.rs`, `fixtures/` | Offline evaluation, inspection, and frozen material. |
+| `src/bin/statcommentary.rs`, `factsweep.rs` | Nightly/single/backfill Scout work and maintenance adjudication. |
+| `src/util.rs` | Pure text, rounding, and fingerprint helpers. |
 
-`Stage::Rating` is the current queued Scout stage (`rating`); `peak` is older terminology. `statcommentary` nightly mode enqueues current-season rating work; historical backfill can still generate inline. Check `src/runtime/work.rs` and `src/main.rs` for the actual stage roster and registration. Current registration order helps prioritize dependencies but is not proof that the inputs are fresh; revision-aware scheduling is part of the approved migration.
+`statcommentary` nightly enqueues current-season Rating; single and historical backfill can generate inline. Persisted queue names and registration order remain operational contracts, not a mandatory chain through the seats.
 
 ## Building a character assignment
 
@@ -135,15 +106,14 @@ Preserve public products and prompt/hash behavior while extracting a character. 
 From this directory:
 
 ```bash
-cargo test --lib
-cargo test --lib studio::analyst
-cargo check --all-targets
+cargo test --lib --bins
+cargo clippy --all-targets -- -D warnings
 cargo build --bin scoracle-cognition --bin statcommentary
 ```
 
 These mechanical checks do not establish live model quality or database durability. Use the existing eval binary and fixtures for model/prompt changes. `eval --task momentum --fixtures --live-system` selects the current system prompt rather than the system text frozen in a fixture; it makes model calls and needs a configured backend. Measure a baseline before declaring a regression.
 
-Claim/publication-fencing integration tests use the production SQL and are ignored unless explicitly run with an isolated, migrated `TEST_DATABASE_URL` (`cargo test --lib postgres_ -- --ignored --test-threads=1`). Ordinary library tests compile them and exercise the no-database contracts. Apply migrations 256–261, then drain/stop every older status-only worker before starting the token-aware worker. Migration 257 must exist before the new worker starts because every tick drains its outbox; migrations 258–261 must exist before the claim-aware Analyst, Scout, Journalist, and Insider record their completion or fanout kinds. Migration 256 is additive and its trigger keeps older statements schema-compatible, but ownership begins only after older workers exit because they do not present claim tokens.
+Claim/publication-fencing integration tests use the production SQL and are ignored unless explicitly run with an isolated, migrated `TEST_DATABASE_URL` (`cargo test --lib -- --ignored --test-threads=1`). Ordinary library tests compile them and exercise the no-database contracts. Apply migrations 256–261, then drain/stop every older status-only worker before starting the token-aware worker. Migration 257 must exist before the new worker starts because every tick drains its outbox; migrations 258–261 must exist before the claim-aware Analyst, Scout, Journalist, and Insider record their completion or fanout kinds. Migration 256 is additive and its trigger keeps older statements schema-compatible, but ownership begins only after older workers exit because they do not present claim tokens.
 
 The model route is independent of the character. `COGNITION_ROUTE_<ROLE>` selects the backend/model; per-host governors bound concurrency. `VOICE_NUM_CTX` resolves the shared voice window (default 4096); Analyst reserves 700 output tokens in either window, independent of the 1,200-character body and 140-character hook ceilings. Influencer keeps 700 tokens for windows up to 4096 and 800 for larger windows; eval retains its existing 800-token reservation with `num_ctx=0`. Keep options consistent with the resident model's resource budget.
 

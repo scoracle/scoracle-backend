@@ -457,7 +457,7 @@ fn a_person_may_resolve_to_a_person_entity() {
 /// `route::LOCAL_STAGE_NUM_CTX`; the agreement this test defends is unchanged.
 #[test]
 fn editor_num_ctx_matches_the_shared_runner() {
-    assert_eq!(EDITOR_NUM_CTX, crate::runtime::route::LOCAL_STAGE_NUM_CTX);
+    assert_eq!(EDITOR_NUM_CTX, crate::studio::model::LOCAL_STAGE_NUM_CTX);
 }
 
 /// Property order IS the contract (§1a): extraction first, in the exact ep1 order. The schema's

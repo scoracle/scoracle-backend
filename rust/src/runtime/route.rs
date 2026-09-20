@@ -2,8 +2,9 @@
 //! Roles sharing a backend share its client and per-host concurrency governor.
 
 use crate::runtime::config::{Backend, ModelSpec, RouteConfig};
-use crate::runtime::providers::ollama::{GenerateOptions, GenerateResult, OllamaClient};
+use crate::runtime::providers::ollama::OllamaClient;
 use crate::runtime::providers::openai::OpenAiClient;
+use crate::studio::model::{GenerateOptions, GenerateResult};
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use std::collections::HashMap;
@@ -11,18 +12,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Semaphore;
 
-/// Context window used by local model stages. Roles sharing one loaded runner must use the same
-/// size or Ollama reloads it between calls.
-pub const LOCAL_STAGE_NUM_CTX: i32 = 4096;
-
-/// Context window shared by every character voice: prompt, evidence, and output reservation.
-pub const VOICE_NUM_CTX_PACKET: i32 = 4096;
-
-/// Whether a voice uses the small context envelope. Output reservations and evidence caps key on
-/// this effective window.
-pub fn small_voice_window(num_ctx: i32) -> bool {
-    num_ctx <= VOICE_NUM_CTX_PACKET
-}
+use crate::studio::model::VOICE_NUM_CTX_PACKET;
 
 /// Resolve `VOICE_NUM_CTX`, defaulting invalid values and values below 512.
 pub fn resolve_voice_num_ctx(raw: Option<&str>) -> i32 {
@@ -51,7 +41,7 @@ impl Inference for OpenAiClient {
 }
 
 /// A model's job. Each character has its own role so rerouting one cannot change a sibling's
-/// voice. `EmotionalNews`, `Multilang`, and `Sql` are utility roles.
+/// voice. `EmotionalNews` retains Graph's deployed route key.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Role {
     StatsLogic,
@@ -65,14 +55,12 @@ pub enum Role {
     VibeLogic,
     OracleLogic,
     EmotionalNews,
-    Multilang,
-    Sql,
 }
 
 impl Role {
     /// all is every role, so config and router can populate the full map — keeping
     /// `Router::for_role` total (a role always resolves to a model).
-    pub fn all() -> [Role; 11] {
+    pub fn all() -> [Role; 9] {
         [
             Role::StatsLogic,
             Role::MomentumLogic,
@@ -83,8 +71,6 @@ impl Role {
             Role::VibeLogic,
             Role::OracleLogic,
             Role::EmotionalNews,
-            Role::Multilang,
-            Role::Sql,
         ]
     }
 
@@ -101,8 +87,6 @@ impl Role {
             Role::VibeLogic => "vibe-logic",
             Role::OracleLogic => "oracle-logic",
             Role::EmotionalNews => "emotional-news",
-            Role::Multilang => "multilang",
-            Role::Sql => "sql",
         }
     }
 
@@ -120,13 +104,11 @@ impl Role {
             Role::VibeLogic => "VIBE_LOGIC",
             Role::OracleLogic => "ORACLE_LOGIC",
             Role::EmotionalNews => "EMOTIONAL_NEWS",
-            Role::Multilang => "MULTILANG",
-            Role::Sql => "SQL",
         }
     }
 }
 
-pub use crate::studio::model::Inference;
+use crate::studio::model::Inference;
 
 #[async_trait]
 impl Inference for OllamaClient {
@@ -302,6 +284,7 @@ fn build_backend(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::studio::model::small_voice_window;
 
     /// The window resolves from the env override when it is sane, and from the default otherwise
     /// — including for junk, which must never fail a boot (the total-parse discipline `RAIL`
@@ -349,7 +332,7 @@ mod tests {
         let mut roles = HashMap::new();
         roles.insert(Role::EmotionalNews, spec("local-news:latest"));
         roles.insert(Role::StatsLogic, spec("local-news:latest")); // same model → shared Arc
-        roles.insert(Role::Sql, spec("sqlcoder:7b")); // distinct → its own Arc
+        roles.insert(Role::Editor, spec("editor-model")); // distinct → its own Arc
         let cfg = RouteConfig {
             roles,
             candidates: HashMap::new(),
@@ -363,13 +346,13 @@ mod tests {
         ));
         assert!(!Arc::ptr_eq(
             &router.for_role(Role::EmotionalNews),
-            &router.for_role(Role::Sql),
+            &router.for_role(Role::Editor),
         ));
         assert_eq!(
             router.for_role(Role::EmotionalNews).model(),
             "local-news:latest"
         );
-        assert_eq!(router.for_role(Role::Sql).model(), "sqlcoder:7b");
+        assert_eq!(router.for_role(Role::Editor).model(), "editor-model");
     }
 
     #[test]

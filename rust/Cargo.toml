@@ -4,7 +4,7 @@ version = "0.0.0"
 edition = "2021"
 publish = false
 autobins = false
-description = "Scoracle Cognition Harness: durable pipeline_work queue consumer + Ollama model router — the Rust LLM-derivation (cognition) layer. Capability library + per-stage handlers."
+description = "Scoracle Studio: prepared model assignments and durable application adapters."
 
 [lib]
 name = "scoracle_cognition"

@@ -14,8 +14,6 @@ struct Adapters {
     events: Mutex<Vec<&'static str>>,
     requests: Mutex<Vec<(String, GenerateOptions)>>,
     outputs: Mutex<Vec<VibeOutput>>,
-    publication_fails: bool,
-    handoff_fails: bool,
 }
 
 impl Adapters {
@@ -72,31 +70,6 @@ impl Inference for Adapters {
     }
 }
 
-#[async_trait]
-impl Publisher<VibeScore> for Adapters {
-    type Receipt = usize;
-    async fn publish(&self, output: &VibeOutput) -> Result<usize> {
-        self.events.lock().unwrap().push("publish");
-        if self.publication_fails {
-            bail!("publication unavailable");
-        }
-        let mut outputs = self.outputs.lock().unwrap();
-        outputs.push(output.clone());
-        Ok(outputs.len())
-    }
-}
-
-#[async_trait]
-impl MomentumHandoff for Adapters {
-    async fn offer(&self) -> Result<()> {
-        self.events.lock().unwrap().push("momentum");
-        if self.handoff_fails {
-            bail!("momentum unavailable");
-        }
-        Ok(())
-    }
-}
-
 fn context(live: bool, previous: Option<i16>) -> VibeContext {
     let mut memories = memories::test_package();
     memories.mission = Mission::Influencer;
@@ -135,26 +108,22 @@ async fn drain(
     adapters: &Adapters,
     ctx: &VibeContext,
     latest: (Option<i16>, Option<String>),
-) -> Result<Outcome<usize>> {
-    run_prepared(
-        &Studio::new(adapters),
-        &request(),
-        ctx,
-        &latest,
-        adapters,
-        adapters,
-    )
-    .await
+) -> Result<usize> {
+    match prepare(&Studio::new(adapters), &request(), ctx, &latest).await? {
+        Prepared::Debounced => Ok(0),
+        Prepared::Product(output) => {
+            // Capture the real prepared result for assertions; publication is tested against Postgres.
+            adapters.outputs.lock().unwrap().push(*output);
+            Ok(1)
+        }
+    }
 }
 
 #[tokio::test]
-async fn never_scored_empty_material_publishes_marker_once_with_provenance() {
+async fn never_scored_empty_material_prepares_marker_once_with_provenance() {
     let ctx = context(false, None);
     let adapters = Adapters::default();
-    assert_eq!(
-        drain(&adapters, &ctx, (None, None)).await.unwrap(),
-        Outcome::Published(1)
-    );
+    assert_eq!(drain(&adapters, &ctx, (None, None)).await.unwrap(), 1);
     {
         let outputs = adapters.outputs.lock().unwrap();
         let marker = &outputs[0];
@@ -175,12 +144,9 @@ async fn never_scored_empty_material_publishes_marker_once_with_provenance() {
         drain(&adapters, &ctx, (None, Some(ctx.input_hash.clone())))
             .await
             .unwrap(),
-        Outcome::Debounced
+        0
     );
-    assert_eq!(
-        *adapters.events.lock().unwrap(),
-        ["publish", "momentum", "momentum"]
-    );
+    assert_eq!(*adapters.events.lock().unwrap(), Vec::<&str>::new());
 }
 
 #[tokio::test]
@@ -201,12 +167,9 @@ async fn live_read_then_one_closing_read_then_empty_debounce() {
         )
         .await
         .unwrap(),
-        Outcome::Debounced
+        0
     );
-    assert_eq!(
-        *adapters.events.lock().unwrap(),
-        ["model", "publish", "momentum", "model", "publish", "momentum", "momentum"]
-    );
+    assert_eq!(*adapters.events.lock().unwrap(), ["model", "model"]);
     let requests = adapters.requests.lock().unwrap();
     assert!(requests[0].0.contains("STORY: A quiet spell"));
     assert!(!requests[1].0.contains("The stories running"));
@@ -238,12 +201,9 @@ async fn latest_null_cannot_bury_prior_real_memory_even_with_the_same_hash() {
             drain(&adapters, &ctx, (None, Some(ctx.input_hash.clone())))
                 .await
                 .unwrap(),
-            Outcome::Published(1)
+            1
         );
-        assert_eq!(
-            *adapters.events.lock().unwrap(),
-            ["model", "publish", "momentum"]
-        );
+        assert_eq!(*adapters.events.lock().unwrap(), ["model"]);
     }
     // Conversely, latest-row sentiment alone does not authorize a closing read.
     let ctx = context(false, None);
@@ -265,22 +225,16 @@ async fn debounce_and_marker_precede_memory_rendering() {
         drain(&adapters, &ctx, (Some(70), Some(ctx.input_hash.clone())))
             .await
             .unwrap(),
-        Outcome::Debounced
+        0
     );
-    assert_eq!(*adapters.events.lock().unwrap(), ["momentum"]);
+    assert_eq!(*adapters.events.lock().unwrap(), Vec::<&str>::new());
     ctx.packets.clear();
     ctx.memories.previous_score = None;
     drain(&adapters, &ctx, (None, None)).await.unwrap();
-    assert_eq!(
-        *adapters.events.lock().unwrap(),
-        ["momentum", "publish", "momentum"]
-    );
+    assert_eq!(*adapters.events.lock().unwrap(), Vec::<&str>::new());
     ctx.memories.previous_score = Some(70);
     assert!(drain(&adapters, &ctx, (None, None)).await.is_err());
-    assert_eq!(
-        *adapters.events.lock().unwrap(),
-        ["momentum", "publish", "momentum"]
-    );
+    assert_eq!(*adapters.events.lock().unwrap(), Vec::<&str>::new());
 }
 
 #[tokio::test]
@@ -296,44 +250,10 @@ async fn failures_stop_at_the_failed_boundary_and_reach_the_caller() {
             .is_err());
         assert_eq!(*adapters.events.lock().unwrap(), ["model"]);
     }
-    for live in [false, true] {
-        let adapters = Adapters {
-            publication_fails: true,
-            ..Adapters::with_replies(&[VALID])
-        };
-        assert!(drain(&adapters, &context(live, None), (None, None))
-            .await
-            .unwrap_err()
-            .to_string()
-            .contains("publication"));
-        assert!(!adapters.events.lock().unwrap().contains(&"momentum"));
-        assert!(adapters.outputs.lock().unwrap().is_empty());
-    }
-    for skipped in [false, true] {
-        let adapters = Adapters {
-            handoff_fails: true,
-            ..Adapters::with_replies(&[VALID])
-        };
-        let ctx = context(true, None);
-        let latest = if skipped {
-            (Some(62), Some(ctx.input_hash.clone()))
-        } else {
-            (None, None)
-        };
-        assert!(drain(&adapters, &ctx, latest)
-            .await
-            .unwrap_err()
-            .to_string()
-            .contains("momentum"));
-        assert_eq!(
-            adapters.outputs.lock().unwrap().len(),
-            usize::from(!skipped)
-        );
-    }
 }
 
 #[tokio::test]
-async fn influencer_rewrites_are_bounded_and_publish_only_the_final_valid_request() {
+async fn influencer_rewrites_are_bounded_and_return_only_the_final_valid_request() {
     let long = serde_json::json!({"score":62,"headline":"Test Team waits","body":"x".repeat(1201)})
         .to_string();
     for failure in [long.as_str(), "length"] {
@@ -369,8 +289,8 @@ async fn influencer_rewrites_are_bounded_and_publish_only_the_final_valid_reques
     }
 }
 
-#[test]
-fn production_and_eval_keep_their_existing_options_and_capacity() {
+#[tokio::test]
+async fn production_and_eval_keep_their_existing_options_and_capacity() {
     use crate::evaluation::tasks::{LensTask, VibeTask};
     for (window, reservation) in [(2048, 700), (4096, 700), (4097, 800), (16384, 800)] {
         for temperature in [0.0, 0.7] {
@@ -399,12 +319,26 @@ fn production_and_eval_keep_their_existing_options_and_capacity() {
         production_options(0.0, 4096).format_schema
     );
     assert_eq!(VibeTask.role(), Role::VibeLogic);
-    assert_eq!(VibeHandler.stage(), Stage::Vibe);
-    assert_eq!(VibeHandler.max_in_flight(), 1);
-    assert_eq!(
-        VibeHandler.slot_group(),
-        Some(crate::runtime::stage::MAC_SLOTS)
+    let cfg = crate::runtime::config::RouteConfig::from_env("unused", "http://127.0.0.1:1");
+    let models = std::sync::Arc::new(Models {
+        router: crate::runtime::route::Router::from_config(
+            &cfg,
+            std::time::Duration::from_secs(1),
+            1,
+        )
+        .unwrap(),
+        handler_budget: std::time::Duration::ZERO,
+        voice_num_ctx: 4096,
+    });
+    let handler = VibeHandler::new(
+        sqlx::postgres::PgPoolOptions::new()
+            .connect_lazy("postgresql://localhost/unused")
+            .unwrap(),
+        models,
     );
+    assert_eq!(handler.stage(), Stage::Vibe);
+    assert_eq!(handler.max_in_flight(), 1);
+    assert_eq!(handler.slot_group(), Some(crate::runtime::stage::MAC_SLOTS));
 }
 
 #[test]

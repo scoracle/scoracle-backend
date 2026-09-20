@@ -1,9 +1,9 @@
 //! Influencer creation from prepared story material and rendered continuity.
 //! Retrieval, debounce, persistence and Momentum work belong to the application.
 
-use crate::runtime::util::truncate;
 use crate::studio::model::GenerateOptions;
 use crate::studio::{Generation, GenerationCall, Parser, Publisher, Studio};
+use crate::util::truncate;
 use anyhow::{anyhow, bail, Context, Result};
 
 mod brief;

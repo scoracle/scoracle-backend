@@ -1,17 +1,17 @@
 //! Editor application: fetch and prepare, ask Studio, then publish under the exact queue claim.
+use crate::application::models::Models;
 use crate::runtime::fetch::{
     content_hash, count_words, fetch_article, looks_paywalled, FetchedArticle, ARTICLE_MIN_WORDS,
 };
-use crate::runtime::harness::Harness;
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
 use crate::runtime::route::Role;
-use crate::runtime::stage::{HandleOutcome, StageHandler, ARCHBOX_SLOTS};
-use crate::runtime::util::truncate;
+use crate::runtime::stage::{HandleOutcome, WorkHandler, ARCHBOX_SLOTS};
 use crate::runtime::work::{self, Item, Stage};
 use crate::studio::editor::{
     derive, prompt, Assignment, EditorEntityRole, EditorRead, NameMention, EDITOR_CONTRACT_VERSION,
 };
 use crate::studio::{Extracted, Generation, GenerationCall, Studio};
+use crate::util::truncate;
 use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
 use serde_json::json;
@@ -54,8 +54,8 @@ enum Prepared {
     },
 }
 
-async fn prepare(hx: &Harness, item: &Item) -> Result<Prepared> {
-    let Some(article) = load_article(&hx.pool, item.entity_id).await? else {
+async fn prepare(pool: &sqlx::PgPool, models: &Models, item: &Item) -> Result<Prepared> {
+    let Some(article) = load_article(pool, item.entity_id).await? else {
         return Ok(Prepared::Unchanged);
     };
     if article.duplicate_of.is_some() {
@@ -94,7 +94,7 @@ async fn prepare(hx: &Harness, item: &Item) -> Result<Prepared> {
         });
     }
     let body_hash = content_hash(&fetched.text);
-    if read_is_current(&hx.pool, item.entity_id, &body_hash).await? {
+    if read_is_current(pool, item.entity_id, &body_hash).await? {
         return Ok(Prepared::Unchanged);
     }
     let assignment = Assignment {
@@ -102,9 +102,9 @@ async fn prepare(hx: &Harness, item: &Item) -> Result<Prepared> {
         title: article.title.clone(),
         description: article.description.clone(),
         text: fetched.text.clone(),
-        hypothesis: load_hypothesis_entities(&hx.pool, item.entity_id, &item.sport).await?,
+        hypothesis: load_hypothesis_entities(pool, item.entity_id, &item.sport).await?,
     };
-    let model = hx.router.for_role(Role::Editor);
+    let model = models.router.for_role(Role::Editor);
     let extracted = Studio::new(model.as_ref())
         .read_article(&assignment)
         .await?;
@@ -264,20 +264,18 @@ async fn commit_claimed(pool: &PgPool, item: &Item, prepared: &Prepared) -> Resu
     Ok(HandleOutcome::Completed)
 }
 
-pub struct EditorHandler;
-impl Default for EditorHandler {
-    fn default() -> Self {
-        Self::new()
-    }
+pub struct EditorHandler {
+    pool: sqlx::PgPool,
+    models: std::sync::Arc<Models>,
 }
 impl EditorHandler {
-    pub fn new() -> Self {
-        Self
+    pub fn new(pool: sqlx::PgPool, models: std::sync::Arc<Models>) -> Self {
+        Self { pool, models }
     }
 }
 
 #[async_trait]
-impl StageHandler for EditorHandler {
+impl WorkHandler for EditorHandler {
     fn stage(&self) -> Stage {
         Stage::Editor
     }
@@ -290,13 +288,12 @@ impl StageHandler for EditorHandler {
     fn slot_group(&self) -> Option<(&'static str, usize)> {
         Some(ARCHBOX_SLOTS)
     }
-    async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {
-        self.handle_claimed(hx, item).await.map(|_| ())
-    }
-    async fn handle_claimed(&self, hx: &Harness, item: &Item) -> Result<HandleOutcome> {
+    async fn handle(&self, item: &Item) -> Result<HandleOutcome> {
+        let pool = &self.pool;
+        let models = &self.models;
         item.require_claim_token()?;
-        let prepared = prepare(hx, item).await?;
-        let outcome = commit_claimed(&hx.pool, item, &prepared).await?;
+        let prepared = prepare(pool, models, item).await?;
+        let outcome = commit_claimed(pool, item, &prepared).await?;
         if outcome == HandleOutcome::Completed {
             if let Prepared::Read {
                 extracted,
@@ -305,7 +302,7 @@ impl StageHandler for EditorHandler {
             } = &prepared
             {
                 ledger_model_call(
-                    hx,
+                    pool,
                     item,
                     &extracted.model,
                     if extracted.value.is_some() {
@@ -552,13 +549,9 @@ async fn load_hypothesis_entities(
         if name.is_empty() {
             continue;
         }
-        let context = crate::composition::memories::load_identity_record(
-            pool,
-            &entity_type,
-            entity_id,
-            sport,
-        )
-        .await?;
+        let context =
+            crate::evidence::memories::load_identity_record(pool, &entity_type, entity_id, sport)
+                .await?;
         entities.push(format!(
             "{name} ({entity_type} {entity_id})\n{}",
             context.unwrap_or_default()
@@ -754,7 +747,7 @@ async fn insert_data_fetch_ledger(
 
 /// Records one cognition-ledger row per model call.
 async fn ledger_model_call(
-    hx: &Harness,
+    pool: &sqlx::PgPool,
     item: &Item,
     model: &str,
     parser_outcome: &str,
@@ -777,7 +770,7 @@ async fn ledger_model_call(
         GenerationCall::from(extracted),
     );
     insert_generation_ledger_best_effort(
-        &hx.pool,
+        pool,
         &generation,
         EDITOR_LEDGER,
         LedgerEvent {

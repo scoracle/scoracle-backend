@@ -8,7 +8,7 @@ use crate::application::insider::{
     budget_deadline, identity_apply_deterministic_score, past, TRANSFER_PAIR_BUDGET_FRAC,
     TRANSFER_WRAP_BUDGET_FRAC,
 };
-use crate::runtime::util::hash_components;
+use crate::util::hash_components;
 use std::time::{Duration, Instant};
 
 // --- The wire wrap (Phase 4): grammar, parse, debounce pre-image, prompt ---------------------

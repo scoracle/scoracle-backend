@@ -23,7 +23,7 @@ pub struct WikidataHit {
 }
 
 use crate::studio::investigator::urlencode;
-pub use crate::studio::investigator::WikidataItem;
+use crate::studio::investigator::WikidataItem;
 
 const WIKIDATA_API: &str = "https://www.wikidata.org/w/api.php";
 

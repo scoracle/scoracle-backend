@@ -4,6 +4,19 @@ use anyhow::Result;
 use async_trait::async_trait;
 use std::time::Duration;
 
+/// Context window used by local model stages. Roles sharing one loaded runner must use the same
+/// size or Ollama reloads it between calls.
+pub const LOCAL_STAGE_NUM_CTX: i32 = 4096;
+
+/// Context window shared by every character voice: prompt, evidence, and output reservation.
+pub const VOICE_NUM_CTX_PACKET: i32 = 4096;
+
+/// Whether a voice uses the small context envelope. Output reservations and evidence caps key on
+/// this effective window.
+pub fn small_voice_window(num_ctx: i32) -> bool {
+    num_ctx <= VOICE_NUM_CTX_PACKET
+}
+
 /// GenerateOptions tunes a single call. Defaults mean "let Ollama default."
 ///
 /// `temperature` is an `Option` on purpose: `None` omits the field (Ollama uses

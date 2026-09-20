@@ -1,11 +1,9 @@
 //! Scoracle Studio (the in-house harness) and its production application adapters.
 //!
 //! [`studio`] creates validated products from prepared material through an injected model.
-//! [`runtime`] owns routing, transports, queue scheduling, and the transitional database
-//! context. [`composition`] prepares sourced memories and holds other character briefs;
-//! [`evidence`] retrieves shared material. Analyst, Influencer, Scout, Journalist, and Oracle creation
-//! have moved from [`junctions`] to Studio; [`application`] owns their concrete adapters. Existing
-//! evaluation tooling remains in [`evaluation`].
+//! [`application`] owns concrete coordination, queue dispatch, and publication.
+//! [`runtime`] supplies routing, transports, and exact queue operations;
+//! [`evidence`] retrieves and prepares shared material. [`evaluation`] uses the same Studio contracts.
 //!
 //! The product model is **nine lenses, six of them accountable characters the seeker meets**:
 //!
@@ -26,14 +24,8 @@
 //! stale current projections without deleting history, and they still carry the configured
 //! model and prompt versions rather than `NULL` provenance.
 
-/// Remaining model-facing seats and transitional application adapters.
-pub mod junctions;
-
 /// Application adapters and cross-system coordination.
 pub mod application;
-
-/// Voice, form and entity memories composed into model inputs.
-pub mod composition;
 
 /// Offline evaluation and editorial review tools.
 pub mod evaluation;
@@ -42,5 +34,8 @@ pub mod evidence;
 /// Execution, IO, configuration and provider infrastructure.
 pub mod runtime;
 
-/// Studio is the in-house harness; runtime owns its application adapters.
+/// Studio is the in-house harness; application owns its concrete adapters.
 pub mod studio;
+
+/// Pure text, rounding, and fingerprint helpers.
+pub mod util;

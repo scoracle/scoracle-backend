@@ -1,20 +1,22 @@
 //! Oracle application adapter: five-pillar retrieval, readiness, routing, publication, and work.
 
-use crate::composition::memories::{self, MemoryRequest, Mission};
-use crate::evidence::corpus::{load_transfer_heat, HeatItem};
+use crate::application::models::Models;
+use crate::application::products::EntityKey;
+use crate::evidence::corpus::load_transfer_heat;
+use crate::evidence::memories::{self, MemoryRequest, Mission};
 use crate::evidence::trajectory::DEFAULT_TRAJECTORY;
-use crate::runtime::harness::{EntityKey, Harness};
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
 use crate::runtime::route::Role;
-use crate::runtime::stage::{HandleOutcome, StageHandler};
-use crate::runtime::util::hash_components;
+use crate::runtime::stage::{HandleOutcome, WorkHandler};
 use crate::runtime::work::{self, Item, Stage};
+use crate::studio::insider::HeatItem;
 use crate::studio::oracle::{
     self, Assignment, Cards, SigilOutput, Subject, SynthMomentum, SynthNarrative, SynthRating,
     SynthTransfer, SynthVibe, CROWN_CARD_BODY_CAP, ORACLE_NUM_PREDICT,
     ORACLE_OUTPUT_CONTRACT_VERSION, ORACLE_TEMPERATURE,
 };
 use crate::studio::Studio;
+use crate::util::hash_components;
 use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
 use sqlx::{PgPool, Postgres, Row, Transaction};
@@ -247,18 +249,18 @@ fn transfer_card(item: HeatItem) -> SynthTransfer {
 }
 
 pub async fn load_pillars(
-    hx: &Harness,
+    pool: &sqlx::PgPool,
     entity_type: &str,
     entity_id: i32,
     sport: &str,
 ) -> Result<(i32, Cards)> {
-    let season = resolve_season(&hx.pool, sport, None).await?;
+    let season = resolve_season(pool, sport, None).await?;
     let (narratives, rating, vibe, momentum, transfers) = tokio::try_join!(
-        load_narrative_pillar(&hx.pool, entity_type, entity_id, sport),
-        load_rating_pillar(&hx.pool, entity_type, entity_id, sport, Some(season)),
-        load_vibe_pillar(&hx.pool, entity_type, entity_id, sport),
-        load_momentum_pillar(&hx.pool, entity_type, entity_id, sport, Some(season)),
-        load_transfer_heat(&hx.pool, entity_type, entity_id, sport),
+        load_narrative_pillar(pool, entity_type, entity_id, sport),
+        load_rating_pillar(pool, entity_type, entity_id, sport, Some(season)),
+        load_vibe_pillar(pool, entity_type, entity_id, sport),
+        load_momentum_pillar(pool, entity_type, entity_id, sport, Some(season)),
+        load_transfer_heat(pool, entity_type, entity_id, sport),
     )?;
     Ok((
         season,
@@ -280,19 +282,19 @@ enum Prepared {
     },
 }
 
-async fn prepare(hx: &Harness, item: &Item) -> Result<Prepared> {
+async fn prepare(pool: &sqlx::PgPool, models: &Models, item: &Item) -> Result<Prepared> {
     let entity_id = item.entity_id_i32()?;
     let name = crate::evidence::corpus::lookup_entity_name(
-        &hx.pool,
+        pool,
         &item.entity_type,
         entity_id,
         &item.sport,
     )
     .await?;
     let sport = item.sport.to_uppercase();
-    let (season, cards) = load_pillars(hx, &item.entity_type, entity_id, &sport).await?;
+    let (season, cards) = load_pillars(pool, &item.entity_type, entity_id, &sport).await?;
     if cards.readiness() == oracle::Readiness::Empty {
-        let backend = hx.router.for_role(Role::OracleLogic);
+        let backend = models.router.for_role(Role::OracleLogic);
         let assignment = Assignment {
             subject: Subject {
                 entity_type: item.entity_type.clone(),
@@ -305,7 +307,7 @@ async fn prepare(hx: &Harness, item: &Item) -> Result<Prepared> {
             input_components_json: "{}".to_string(),
             input_hash: String::new(),
             body_cap: None,
-            options: oracle::generation_options(ORACLE_TEMPERATURE, hx.voice_num_ctx),
+            options: oracle::generation_options(ORACLE_TEMPERATURE, models.voice_num_ctx),
         };
         let output = oracle::create(&Studio::new(backend.as_ref()), &assignment).await?;
         return Ok(Prepared::Product {
@@ -323,25 +325,25 @@ async fn prepare(hx: &Harness, item: &Item) -> Result<Prepared> {
     );
     let mut request = MemoryRequest::new(Mission::Oracle, &item.entity_type, entity_id, &sport);
     request.season = Some(season);
-    let memories = memories::load(&hx.pool, request).await?;
+    let memories = memories::load(pool, request).await?;
     let input_components_json = memories.with_input_components(&components)?;
     let input_hash = hash_components(&input_components_json);
-    let (previous_score, latest_hash) = hx
-        .latest_with_hash(
-            "sigil_synthesis",
-            &EntityKey {
-                entity_type: item.entity_type.clone(),
-                entity_id,
-                sport: sport.clone(),
-                season: Some(season),
-            },
-        )
-        .await?;
+    let (previous_score, latest_hash) = crate::application::products::latest_with_hash(
+        pool,
+        "sigil_synthesis",
+        &EntityKey {
+            entity_type: item.entity_type.clone(),
+            entity_id,
+            sport: sport.clone(),
+            season: Some(season),
+        },
+    )
+    .await?;
     if latest_hash.as_deref() == Some(input_hash.as_str()) {
         return Ok(Prepared::Debounced);
     }
     let identity = Some(memories.render_for_model()?);
-    let backend = hx.router.for_role(Role::OracleLogic);
+    let backend = models.router.for_role(Role::OracleLogic);
     let assignment = Assignment {
         subject: Subject {
             entity_type: item.entity_type.clone(),
@@ -353,9 +355,9 @@ async fn prepare(hx: &Harness, item: &Item) -> Result<Prepared> {
         identity,
         input_components_json,
         input_hash,
-        body_cap: crate::runtime::route::small_voice_window(hx.voice_num_ctx)
+        body_cap: crate::studio::model::small_voice_window(models.voice_num_ctx)
             .then_some(CROWN_CARD_BODY_CAP),
-        options: oracle::generation_options(ORACLE_TEMPERATURE, hx.voice_num_ctx),
+        options: oracle::generation_options(ORACLE_TEMPERATURE, models.voice_num_ctx),
     };
     let output = oracle::create(&Studio::new(backend.as_ref()), &assignment).await?;
     Ok(Prepared::Product {
@@ -486,34 +488,19 @@ async fn record_ledger(
     .await;
 }
 
-pub struct SigilHandler;
-
-impl SigilHandler {
-    pub fn new() -> Self {
-        Self
-    }
-
-    async fn run_claimed(&self, hx: &Harness, item: &Item) -> Result<HandleOutcome> {
-        let sport = item.sport.to_uppercase();
-        let prepared = prepare(hx, item).await?;
-        let (outcome, product_row_id) = commit_claimed(&hx.pool, item, &sport, &prepared).await?;
-        if let (HandleOutcome::Completed, Some(product_row_id), Prepared::Product { output, .. }) =
-            (outcome, product_row_id, &prepared)
-        {
-            record_ledger(&hx.pool, item, &sport, output, product_row_id).await;
-        }
-        Ok(outcome)
-    }
+pub struct SigilHandler {
+    pool: sqlx::PgPool,
+    models: std::sync::Arc<Models>,
 }
 
-impl Default for SigilHandler {
-    fn default() -> Self {
-        Self::new()
+impl SigilHandler {
+    pub fn new(pool: sqlx::PgPool, models: std::sync::Arc<Models>) -> Self {
+        Self { pool, models }
     }
 }
 
 #[async_trait]
-impl StageHandler for SigilHandler {
+impl WorkHandler for SigilHandler {
     fn stage(&self) -> Stage {
         Stage::Sigil
     }
@@ -526,13 +513,18 @@ impl StageHandler for SigilHandler {
         Some(crate::runtime::stage::MAC_SLOTS)
     }
 
-    async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {
-        self.run_claimed(hx, item).await?;
-        Ok(())
-    }
-
-    async fn handle_claimed(&self, hx: &Harness, item: &Item) -> Result<HandleOutcome> {
-        self.run_claimed(hx, item).await
+    async fn handle(&self, item: &Item) -> Result<HandleOutcome> {
+        let pool = &self.pool;
+        let models = &self.models;
+        let sport = item.sport.to_uppercase();
+        let prepared = prepare(pool, models, item).await?;
+        let (outcome, product_row_id) = commit_claimed(pool, item, &sport, &prepared).await?;
+        if let (HandleOutcome::Completed, Some(product_row_id), Prepared::Product { output, .. }) =
+            (outcome, product_row_id, &prepared)
+        {
+            record_ledger(pool, item, &sport, output, product_row_id).await;
+        }
+        Ok(outcome)
     }
 }
 

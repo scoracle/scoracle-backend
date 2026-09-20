@@ -13,8 +13,8 @@
 //! | **Reads** | one Wikipedia REST page summary (title + description + extract) |
 //! | **Writes** | nothing — [`super::gate::decide_prose`] and the handler own every write |
 
-use crate::runtime::util::truncate;
 use crate::studio::model::GenerateOptions;
+use crate::util::truncate;
 use serde::Deserialize;
 
 /// Contract version for the prose arm — recorded on `acquisition_runs` rows this path

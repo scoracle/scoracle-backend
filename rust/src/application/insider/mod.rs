@@ -19,16 +19,17 @@
 //! model-failure retry re-vets ONLY the failed pair: the completed pairs skip on fingerprint
 //! instead of repeating every call in a team batch.
 
-use crate::composition::memories::{self, MemoryRequest, Mission};
+use crate::evidence::memories::{self, MemoryRequest, Mission};
 
+use crate::application::models::Models;
+use crate::application::products::EntityKey;
 use crate::evidence::corpus::load_transfer_heat;
 use crate::evidence::trajectory::{classify_delta, DEFAULT_TRAJECTORY};
-use crate::runtime::harness::{EntityKey, Harness};
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
 use crate::runtime::route::Role;
-use crate::runtime::stage::{HandleOutcome, StageHandler};
-use crate::runtime::util::hash_components;
+use crate::runtime::stage::{HandleOutcome, WorkHandler};
 use crate::runtime::work::{Item, Stage};
+use crate::util::hash_components;
 use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
 use sqlx::{PgPool, Row};
@@ -37,18 +38,15 @@ use std::time::{Duration, Instant};
 use tracing::{debug, info, warn};
 
 mod identity;
-pub use crate::studio::insider::{
+use crate::studio::insider::{
     build_insider_score_input_components, build_insider_score_prompt,
     build_transfer_identity_adjudication_prompt, build_transfer_input_components,
-    build_transfer_prompt, direction_for, insider_score_format_schema,
-    transfer_identity_adjudication_system_prompt, transfer_system_prompt, NewsItem, Outcome,
-    PairAssignment, TransferCandidate, TransferEvidence, TransferIdentityAdjudication,
-    TransferIdentityAdjudicationParser, TransferPairOutput, TransferRow, TransferVerdict,
-    INSIDER_SCORE_NUM_PREDICT, INSIDER_SCORE_OUTPUT_CONTRACT_VERSION, INSIDER_SCORE_PROMPT_VERSION,
-    INSIDER_SCORE_SYSTEM_PROMPT, INSIDER_SCORE_TEMPERATURE, TRANSFER_DEFAULT_MIN_ARTICLES,
-    TRANSFER_IDENTITY_ADJUDICATION_PROMPT_VERSION, TRANSFER_IDENTITY_ADJUDICATION_SCHEMA_RAW,
+    build_transfer_prompt, transfer_system_prompt, NewsItem, Outcome, PairAssignment,
+    TransferCandidate, TransferEvidence, TransferIdentityAdjudicationParser, TransferPairOutput,
+    TransferRow, INSIDER_SCORE_NUM_PREDICT, INSIDER_SCORE_OUTPUT_CONTRACT_VERSION,
+    TRANSFER_DEFAULT_MIN_ARTICLES, TRANSFER_IDENTITY_ADJUDICATION_PROMPT_VERSION,
     TRANSFER_NUM_PREDICT, TRANSFER_OUTPUT_CONTRACT_VERSION, TRANSFER_PROMPT_VERSION,
-    TRANSFER_PROMPT_VERSION_PERSON, TRANSFER_TEMPERATURE,
+    TRANSFER_TEMPERATURE,
 };
 #[cfg(test)]
 pub(crate) use identity::identity_apply_deterministic_score;
@@ -497,7 +495,8 @@ pub async fn load_source_reliability(
 /// Builds the deterministic pair inputs and exact request body without calling the model.
 #[allow(clippy::too_many_arguments)]
 pub async fn build_pair_request(
-    hx: &Harness,
+    pool: &sqlx::PgPool,
+    models: &Models,
     team_id: i32,
     team_name: &str,
     c: &TransferCandidate,
@@ -506,7 +505,7 @@ pub async fn build_pair_request(
     temperature: f64,
 ) -> Result<PairBuild> {
     let (heat, components, news_ids) =
-        compute_pair_heat(&hx.pool, team_id, c.player_id, sport, &c.subject_type).await?;
+        compute_pair_heat(pool, team_id, c.player_id, sport, &c.subject_type).await?;
     let Some(heat) = heat else {
         return Ok(PairBuild::Skipped {
             components,
@@ -514,11 +513,11 @@ pub async fn build_pair_request(
         });
     };
 
-    let mut news = load_pair_news(&hx.pool, &news_ids).await?;
+    let mut news = load_pair_news(pool, &news_ids).await?;
     // The packet rail may replace article prose, never corpus membership.
     let packet_framing = {
         let (facts, framing) =
-            load_pair_packet_material(&hx.pool, team_id, team_name, sport, &news_ids).await?;
+            load_pair_packet_material(pool, team_id, team_name, sport, &news_ids).await?;
         for n in news.iter_mut() {
             let Some(article_facts) = facts.get(&n.id) else {
                 continue; // not assembled, or nothing transfer-typed in it — it keeps its headline
@@ -539,10 +538,9 @@ pub async fn build_pair_request(
     let mut request = MemoryRequest::new(Mission::Insider, &c.subject_type, c.player_id, sport);
     request.pair_team_id = Some(team_id);
     request.current_article_ids = &news_ids;
-    let memories = memories::load(&hx.pool, request).await?;
+    let memories = memories::load(pool, request).await?;
     let team_identity =
-        crate::composition::memories::load_identity_record(&hx.pool, "team", team_id, sport)
-            .await?;
+        crate::evidence::memories::load_identity_record(pool, "team", team_id, sport).await?;
     let input_components = memories.with_input_components(&input_components)?;
     let mut input_value: serde_json::Value = serde_json::from_str(&input_components)?;
     input_value["team_identity"] = serde_json::json!(team_identity);
@@ -554,7 +552,7 @@ pub async fn build_pair_request(
     let source_reliability = if c.subject_type == "person" {
         None
     } else {
-        load_source_reliability(&hx.pool, sport, c.player_id, team_id).await?
+        load_source_reliability(pool, sport, c.player_id, team_id).await?
     };
     let memory = memories.render_for_model()?;
     let mut built_prompt = build_transfer_prompt(
@@ -583,15 +581,15 @@ pub async fn build_pair_request(
         system: Some(system),
         temperature: Some(temperature),
         num_predict: TRANSFER_NUM_PREDICT,
-        num_ctx: hx.voice_num_ctx,
+        num_ctx: models.voice_num_ctx,
         json_mode: true,
         format_schema: None,
         format_schema_raw: None,
     };
-    let backend = hx.router.for_role(Role::TransferLogic);
+    let backend = models.router.for_role(Role::TransferLogic);
     let request_body = backend.request_body(&built_prompt, &options);
     let model_configured = backend.model().to_string();
-    let stale_news_ids = load_stale_pair_news_ids(&hx.pool, team_id, c.player_id, sport).await?;
+    let stale_news_ids = load_stale_pair_news_ids(pool, team_id, c.player_id, sport).await?;
 
     Ok(PairBuild::Ready(Box::new(PairAssignment {
         player_id: c.player_id,
@@ -615,20 +613,25 @@ pub async fn build_pair_request(
 /// skipped_pair_output is the no-corpus result: heat NULL ⇒ no model call, no row
 /// (Go: `res.Skipped++, return nil`). No fingerprint either — there is no row to stamp.
 fn skipped_pair_output(
-    hx: &Harness,
+    models: &Models,
     player_id: i32,
     subject_type: &str,
     components: String,
     news_ids: Vec<i64>,
 ) -> TransferPairOutput {
-    let model = hx.router.for_role(Role::TransferLogic).model().to_string();
+    let model = models
+        .router
+        .for_role(Role::TransferLogic)
+        .model()
+        .to_string();
     crate::studio::insider::skipped_pair(player_id, subject_type, components, news_ids, model)
 }
 
 /// Vets one pair without persisting it. Model transport failures become UNKNOWN outputs;
 /// preparation/database errors are returned.
 pub async fn analyze_pair(
-    hx: &Harness,
+    pool: &sqlx::PgPool,
+    models: &Models,
     team_id: i32,
     team_name: &str,
     c: &TransferCandidate,
@@ -640,21 +643,32 @@ pub async fn analyze_pair(
     // read must never see a person id.
     let relationship = match &c.relationship_override {
         Some(r) => r.clone(),
-        None => team_relationship(&hx.pool, team_id, c.player_id, sport).await?,
+        None => team_relationship(pool, team_id, c.player_id, sport).await?,
     };
-    match build_pair_request(hx, team_id, team_name, c, sport, relationship, temperature).await? {
+    match build_pair_request(
+        pool,
+        models,
+        team_id,
+        team_name,
+        c,
+        sport,
+        relationship,
+        temperature,
+    )
+    .await?
+    {
         PairBuild::Skipped {
             components,
             news_ids,
         } => Ok(skipped_pair_output(
-            hx,
+            models,
             c.player_id,
             &c.subject_type,
             components,
             news_ids,
         )),
         PairBuild::Ready(assignment) => {
-            let backend = hx.router.for_role(Role::TransferLogic);
+            let backend = models.router.for_role(Role::TransferLogic);
             Ok(crate::studio::insider::create_pair(
                 &crate::studio::Studio::new(backend.as_ref()),
                 *assignment,
@@ -902,14 +916,15 @@ async fn load_wire_touched_players(
 /// deliberately has no marker rows) or unchanged (the board-hash debounce), else one
 /// `Role::TransferLogic` call → one `insider_scores` row + one cognition-ledger entry.
 async fn score_insider_entity(
-    hx: &Harness,
+    pool: &sqlx::PgPool,
+    models: &Models,
     item: &Item,
     entity_type: &str,
     entity_id: i32,
     entity_name: &str,
     sport: &str,
 ) -> Result<bool> {
-    let heat = load_transfer_heat(&hx.pool, entity_type, entity_id, sport).await?;
+    let heat = load_transfer_heat(pool, entity_type, entity_id, sport).await?;
     if heat.is_empty() {
         // A never-scored empty wire skips. A previously scored wire files one quiet close;
         // the empty-board hash then debounces further calls until the board revives.
@@ -919,14 +934,14 @@ async fn score_insider_entity(
         .bind(entity_type)
         .bind(entity_id)
         .bind(sport)
-        .fetch_one(&hx.pool)
+        .fetch_one(pool)
         .await?;
         if !has_row {
             return Ok(true);
         }
     }
     let memories = memories::load(
-        &hx.pool,
+        pool,
         MemoryRequest::new(Mission::Insider, entity_type, entity_id, sport),
     )
     .await?;
@@ -939,8 +954,7 @@ async fn score_insider_entity(
         sport: sport.to_string(),
         season: None,
     };
-    if hx
-        .debounce_unchanged("insider_scores", &key, &input_hash)
+    if crate::application::products::debounce_unchanged(pool, "insider_scores", &key, &input_hash)
         .await?
     {
         debug!(
@@ -952,8 +966,8 @@ async fn score_insider_entity(
     let identity = Some(memories.render_for_model()?);
     let prompt =
         build_insider_score_prompt(entity_name, sport, entity_type, &heat, identity.as_deref());
-    let options = crate::studio::insider::score_options(hx.voice_num_ctx);
-    let backend = hx.router.for_role(Role::TransferLogic);
+    let options = crate::studio::insider::score_options(models.voice_num_ctx);
+    let backend = models.router.for_role(Role::TransferLogic);
     let generation = crate::studio::insider::create_score(
         &crate::studio::Studio::new(backend.as_ref()),
         &prompt,
@@ -964,8 +978,7 @@ async fn score_insider_entity(
     let reply = &generation.product;
     let previous_score = memories.previous_score;
 
-    let mut tx = hx
-        .pool
+    let mut tx = pool
         .begin()
         .await
         .context("begin insider score publication")?;
@@ -1011,7 +1024,7 @@ async fn score_insider_entity(
         .context("commit insider score publication")?;
 
     insert_generation_ledger_best_effort(
-        &hx.pool,
+        pool,
         &generation,
         INSIDER_SCORE_LEDGER,
         LedgerEvent {
@@ -1044,7 +1057,10 @@ async fn score_insider_entity(
 
 /// Drains team-keyed transfers: vet pairs, persist verdicts, and wrap each touched entity.
 /// UNKNOWN or infrastructure failures retry the item; resolved unchanged pairs debounce-skip.
-pub struct TransferHandler;
+pub struct TransferHandler {
+    pool: sqlx::PgPool,
+    models: std::sync::Arc<Models>,
+}
 
 async fn complete_claimed(pool: &PgPool, item: &Item) -> Result<HandleOutcome> {
     let mut tx = pool.begin().await.context("begin transfer completion")?;
@@ -1070,24 +1086,20 @@ async fn complete_claimed(pool: &PgPool, item: &Item) -> Result<HandleOutcome> {
 }
 
 impl TransferHandler {
-    pub fn new() -> Self {
-        TransferHandler
-    }
-}
-
-impl Default for TransferHandler {
-    fn default() -> Self {
-        Self::new()
+    pub fn new(pool: sqlx::PgPool, models: std::sync::Arc<Models>) -> Self {
+        Self { pool, models }
     }
 }
 
 #[async_trait]
-impl StageHandler for TransferHandler {
+impl WorkHandler for TransferHandler {
     fn stage(&self) -> Stage {
         Stage::Transfers
     }
 
-    async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {
+    async fn handle(&self, item: &Item) -> Result<HandleOutcome> {
+        let pool = &self.pool;
+        let models = &self.models;
         if item.entity_type != "team" {
             bail!(
                 "transfers: non-team entity {}/{}",
@@ -1098,14 +1110,14 @@ impl StageHandler for TransferHandler {
         let team_id = item.entity_id_i32()?;
         let sport = item.sport.to_uppercase();
         let team_name = crate::evidence::corpus::lookup_entity_name(
-            &hx.pool,
+            pool,
             &item.entity_type,
             team_id,
             &item.sport,
         )
         .await?;
         let candidates =
-            load_candidates(&hx.pool, team_id, &sport, TRANSFER_DEFAULT_MIN_ARTICLES).await?;
+            load_candidates(pool, team_id, &sport, TRANSFER_DEFAULT_MIN_ARTICLES).await?;
         // Load relationships and the identity threshold once per team.
         // Player subjects only — person ids collide with player ids, and person
         // relationships arrive on the candidate itself (relationship_override).
@@ -1115,13 +1127,15 @@ impl StageHandler for TransferHandler {
             .map(|c| c.player_id)
             .collect();
         let (relationships, identity_threshold) = tokio::try_join!(
-            team_relationships(&hx.pool, team_id, &player_ids, &sport),
-            load_transfer_identity_threshold(&hx.pool, &sport),
+            team_relationships(pool, team_id, &player_ids, &sport),
+            load_transfer_identity_threshold(pool, &sport),
         )?;
 
         let start = Instant::now();
-        let pair_deadline = budget_deadline(start, hx.handler_budget, TRANSFER_PAIR_BUDGET_FRAC);
-        let wrap_deadline = budget_deadline(start, hx.handler_budget, TRANSFER_WRAP_BUDGET_FRAC);
+        let pair_deadline =
+            budget_deadline(start, models.handler_budget, TRANSFER_PAIR_BUDGET_FRAC);
+        let wrap_deadline =
+            budget_deadline(start, models.handler_budget, TRANSFER_WRAP_BUDGET_FRAC);
 
         let mut unknown = 0usize;
         let mut errored = 0usize;
@@ -1150,7 +1164,8 @@ impl StageHandler for TransferHandler {
                         .unwrap_or_else(|| "none".to_string())
                 });
                 let out = match build_pair_request(
-                    hx,
+                    pool,
+                    models,
                     team_id,
                     &team_name,
                     c,
@@ -1163,13 +1178,17 @@ impl StageHandler for TransferHandler {
                     PairBuild::Skipped {
                         components,
                         news_ids,
-                    } => {
-                        skipped_pair_output(hx, c.player_id, &c.subject_type, components, news_ids)
-                    }
+                    } => skipped_pair_output(
+                        models,
+                        c.player_id,
+                        &c.subject_type,
+                        components,
+                        news_ids,
+                    ),
                     PairBuild::Ready(ready) => {
                         // An unchanged resolved pair keeps serving without another model call.
                         if pair_unchanged(
-                            &hx.pool,
+                            pool,
                             team_id,
                             c.player_id,
                             &sport,
@@ -1185,7 +1204,7 @@ impl StageHandler for TransferHandler {
                             );
                             return Ok((Outcome::Skipped, true));
                         }
-                        let backend = hx.router.for_role(Role::TransferLogic);
+                        let backend = models.router.for_role(Role::TransferLogic);
                         crate::studio::insider::create_pair(
                             &crate::studio::Studio::new(backend.as_ref()),
                             *ready,
@@ -1195,7 +1214,7 @@ impl StageHandler for TransferHandler {
                 };
                 if let Some(row) = &out.row {
                     let persisted_rumor_id = persist_transfer_row(
-                        &hx.pool,
+                        pool,
                         item,
                         team_id,
                         c.player_id,
@@ -1259,7 +1278,7 @@ impl StageHandler for TransferHandler {
                         }));
                     }
                     insert_generation_ledger_best_effort(
-                        &hx.pool,
+                        pool,
                         &out,
                         TRANSFER_LEDGER,
                         LedgerEvent {
@@ -1288,7 +1307,7 @@ impl StageHandler for TransferHandler {
                     if row.is_rumor == Some(true) {
                         if let Some(stage) = row.stage.as_deref() {
                             if let Err(e) = bank_transfer_junction_event(
-                                &hx.pool,
+                                pool,
                                 &sport,
                                 c.player_id,
                                 team_id,
@@ -1309,7 +1328,8 @@ impl StageHandler for TransferHandler {
                     }
                     if let Some(heat) = out.heat {
                         if maybe_apply_transfer_identity(
-                            hx,
+                            pool,
+                            models,
                             item,
                             team_id,
                             &team_name,
@@ -1332,7 +1352,7 @@ impl StageHandler for TransferHandler {
             }
             .await;
             match pair {
-                Ok((_, false)) => return Ok(()),
+                Ok((_, false)) => return Ok(HandleOutcome::Superseded),
                 Ok((Outcome::Unknown, true)) => unknown += 1,
                 // Rumor/Cleared is a pair that reached a verdict on THIS run — the durable
                 // progress the deferral protocol requires. Skipped is a debounce hit or an empty
@@ -1353,8 +1373,7 @@ impl StageHandler for TransferHandler {
 
         // Refresh autofill once per team drain after all applied pairs.
         if autofill_refresh_wanted {
-            refresh_sport_autofill_concurrently(&hx.pool, &sport, "applied_transfer_identity")
-                .await?;
+            refresh_sport_autofill_concurrently(pool, &sport, "applied_transfer_identity").await?;
         }
 
         // Wrap the team, all candidates, and every player on the served board. This runs last
@@ -1366,7 +1385,7 @@ impl StageHandler for TransferHandler {
                 wrap_targets.push(("player", c.player_id, c.player_name.clone()));
             }
         }
-        match load_wire_touched_players(&hx.pool, team_id, &sport).await {
+        match load_wire_touched_players(pool, team_id, &sport).await {
             Ok(rumored) => {
                 for (player_id, name) in rumored {
                     if seen_players.insert(player_id) {
@@ -1389,10 +1408,19 @@ impl StageHandler for TransferHandler {
                 wraps_deferred = wrap_targets.len() - idx;
                 break;
             }
-            match score_insider_entity(hx, item, entity_type, *entity_id, entity_name, &sport).await
+            match score_insider_entity(
+                pool,
+                models,
+                item,
+                entity_type,
+                *entity_id,
+                entity_name,
+                &sport,
+            )
+            .await
             {
                 Ok(true) => {}
-                Ok(false) => return Ok(()),
+                Ok(false) => return Ok(HandleOutcome::Superseded),
                 Err(e) => {
                     errored += 1;
                     warn!(
@@ -1439,9 +1467,14 @@ impl StageHandler for TransferHandler {
                 "deferred: {pairs_deferred} pair(s) + {wraps_deferred} wrap(s) left after {}s",
                 start.elapsed().as_secs()
             );
-            crate::runtime::work::defer(&hx.pool, item, TRANSFER_DEFER_DELAY, &note).await?;
+            let deferred =
+                crate::runtime::work::defer(pool, item, TRANSFER_DEFER_DELAY, &note).await?;
             debug!(team = team_id, %note, "transfers: team deferred to another turn");
-            return Ok(());
+            return Ok(if deferred {
+                HandleOutcome::Deferred
+            } else {
+                HandleOutcome::Superseded
+            });
         }
 
         if unknown > 0 {
@@ -1457,12 +1490,7 @@ impl StageHandler for TransferHandler {
                 item.entity_id
             );
         }
-        Ok(())
-    }
-
-    async fn handle_claimed(&self, hx: &Harness, item: &Item) -> Result<HandleOutcome> {
-        self.handle(hx, item).await?;
-        complete_claimed(&hx.pool, item).await
+        complete_claimed(pool, item).await
     }
 }
 

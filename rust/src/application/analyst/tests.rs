@@ -9,7 +9,7 @@ use crate::studio::analyst::{
     MomentumParser, MOMENTUM_PROMPT_VERSION,
 };
 use crate::studio::model::{GenerateOptions, GenerateResult, Inference};
-use crate::studio::{Parser, Publisher};
+use crate::studio::Parser;
 use async_trait::async_trait;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -147,7 +147,7 @@ fn prompt_carries_the_decided_direction_line() {
         .find(|l| l.starts_with("Direction (decided upstream, final):"))
         .expect("direction line present");
     assert!(!direction_line.contains("steady band"));
-    assert!(!crate::composition::guards::has_ascii_digit(direction_line));
+    assert!(!crate::studio::guards::has_ascii_digit(direction_line));
     // No memory ⇒ no section (s4 byte-shape preserved).
     assert!(!prompt.contains("RELATIONAL MEMORY"));
     // No snapshot → the decided line still exists and is honestly steady.
@@ -208,7 +208,7 @@ fn only_the_two_rails_reach_the_prompt() {
     // first probe came back with "a 14-point climb over 11 samples" — four digits, instant
     // rejection. The input must not shout what the output may not say.
     assert!(
-        !crate::composition::guards::has_ascii_digit(&p),
+        !crate::studio::guards::has_ascii_digit(&p),
         "no figure may reach the Analyst's prompt: {p}"
     );
 
@@ -427,8 +427,6 @@ fn claim_paragraphs_survive_the_production_parser() {
 struct LifecycleAdapters {
     response: String,
     events: Mutex<Vec<&'static str>>,
-    outputs: Mutex<Vec<MomentumOutput>>,
-    publication_fails: bool,
 }
 
 #[async_trait]
@@ -463,29 +461,6 @@ impl Inference for LifecycleAdapters {
     }
 }
 
-#[async_trait]
-impl Publisher<analyst::MomentumSummary> for LifecycleAdapters {
-    type Receipt = usize;
-
-    async fn publish(&self, output: &MomentumOutput) -> Result<Self::Receipt> {
-        self.events.lock().unwrap().push("publish");
-        if self.publication_fails {
-            anyhow::bail!("publication unavailable");
-        }
-        let mut outputs = self.outputs.lock().unwrap();
-        outputs.push(output.clone());
-        Ok(outputs.len())
-    }
-}
-
-#[async_trait]
-impl PillarHandoff for LifecycleAdapters {
-    async fn offer(&self) -> Result<()> {
-        self.events.lock().unwrap().push("oracle");
-        Ok(())
-    }
-}
-
 fn lifecycle_assignment(material: bool) -> Assignment {
     Assignment {
         entity_type: "team".into(),
@@ -513,69 +488,6 @@ fn lifecycle_assignment(material: bool) -> Assignment {
     }
 }
 
-#[tokio::test]
-async fn application_lifecycle_publishes_then_offers_the_oracle_obligation() {
-    let adapters = LifecycleAdapters {
-        response: r#"{"body":"The form is rising and the mood confirms it.","headline":"Test Team gathers force"}"#.into(),
-        ..Default::default()
-    };
-    assert_eq!(
-        run_prepared(
-            &Studio::new(&adapters),
-            &lifecycle_assignment(true),
-            &adapters,
-            &adapters,
-        )
-        .await
-        .unwrap(),
-        ApplicationOutcome::Published(1)
-    );
-    assert_eq!(
-        *adapters.events.lock().unwrap(),
-        ["model", "publish", "oracle"]
-    );
-    let outputs = adapters.outputs.lock().unwrap();
-    assert_eq!(outputs[0].direction, "rising");
-    assert_eq!(outputs[0].score, 2);
-    assert_eq!(outputs[0].provenance.model_version, "responding-model");
-}
-
-#[tokio::test]
-async fn no_material_completes_without_model_or_product_but_keeps_the_oracle_obligation() {
-    let adapters = LifecycleAdapters::default();
-    assert_eq!(
-        run_prepared(
-            &Studio::new(&adapters),
-            &lifecycle_assignment(false),
-            &adapters,
-            &adapters,
-        )
-        .await
-        .unwrap(),
-        ApplicationOutcome::NoMaterial
-    );
-    assert_eq!(*adapters.events.lock().unwrap(), ["oracle"]);
-    assert!(adapters.outputs.lock().unwrap().is_empty());
-}
-
-#[tokio::test]
-async fn publication_failure_stops_before_the_oracle_obligation() {
-    let adapters = LifecycleAdapters {
-        response: "READ: The form is rising.".into(),
-        publication_fails: true,
-        ..Default::default()
-    };
-    assert!(run_prepared(
-        &Studio::new(&adapters),
-        &lifecycle_assignment(true),
-        &adapters,
-        &adapters,
-    )
-    .await
-    .is_err());
-    assert_eq!(*adapters.events.lock().unwrap(), ["model", "publish"]);
-}
-
 /// Exact publication-contract acceptance against an isolated database containing migrations
 /// 256-258. Ordinary test runs compile but ignore these cases; opt in with TEST_DATABASE_URL.
 mod postgres_publication_fencing_tests {
@@ -583,6 +495,7 @@ mod postgres_publication_fencing_tests {
     use crate::runtime::work;
     use sqlx::postgres::PgPoolOptions;
     use sqlx::PgPool;
+    use std::time::Duration;
 
     const SPORT: &str = "ZZ_MOMENTUM_FENCE";
     const ENTITY_ID: i64 = 9_200_002;

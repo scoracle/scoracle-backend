@@ -1,7 +1,7 @@
 //! Evidence and continuity supplied to the character.
 
 use super::{article_context, CorpusItem, Subject};
-use crate::runtime::util::truncate_bytes;
+use crate::util::truncate_bytes;
 
 pub fn build_narratives_prompt(
     subject: &Subject,

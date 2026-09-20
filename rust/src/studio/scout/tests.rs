@@ -12,7 +12,7 @@ use crate::application::scout::{
 use crate::evidence::personnel::{
     AvailabilityChange, PersonnelChange, MAX_AVAILABILITY_LINES, MAX_PERSONNEL_LINES,
 };
-use crate::runtime::util::hash_components;
+use crate::util::hash_components;
 
 use super::*;
 
@@ -320,14 +320,14 @@ fn serialized_request_has_evidence_and_form_but_no_editorial_outline() {
     .unwrap();
     let request = client.request_body(
         &prompt,
-        &crate::runtime::providers::ollama::GenerateOptions {
+        &crate::studio::model::GenerateOptions {
             system: Some(RATING_SYSTEM_PROMPT.to_string()),
             ..Default::default()
         },
     );
     let system = request["messages"][0]["content"].as_str().unwrap();
     let evidence = request["messages"][1]["content"].as_str().unwrap();
-    assert!(system.contains(crate::composition::form::STORY_FORM));
+    assert!(system.contains(crate::studio::form::STORY_FORM));
     assert!(evidence.contains("Scoring: 24, percentile 95.0 (elite)"));
     assert!(evidence.contains("Defense: 2.5, percentile 40.0 (below average)"));
     for retired in [
@@ -993,7 +993,7 @@ fn request_parser_rewrites_reversed_comparison_direction() {
     let reversed = parser
         .parse(r#"{"headline":"Clingan's profile","body":"Scoring declined relative to peers."}"#)
         .unwrap_err();
-    assert!(reversed.is::<crate::composition::form::SurfaceError>());
+    assert!(reversed.is::<crate::studio::form::SurfaceError>());
     assert!(reversed.to_string().contains("evidence says it rose"));
 
     let accepted = parser
@@ -1029,7 +1029,7 @@ fn request_parser_rewrites_an_unsourced_height() {
     let error = parser
         .parse(r#"{"headline":"Clingan's profile","body":"The 6'9\" center protects the rim."}"#)
         .unwrap_err();
-    assert!(error.is::<crate::composition::form::SurfaceError>());
+    assert!(error.is::<crate::studio::form::SurfaceError>());
     assert!(error.to_string().contains("invents height"));
 
     let possessive = parser
@@ -2102,7 +2102,7 @@ fn a_bad_headline_never_throws_the_report_away() {
         dropped
             .headline
             .as_deref()
-            .is_none_or(|h| crate::composition::guards::hook_violation(h).is_none()),
+            .is_none_or(|h| crate::studio::guards::hook_violation(h).is_none()),
         "a shipped title always satisfies the contract: {:?}",
         dropped.headline
     );

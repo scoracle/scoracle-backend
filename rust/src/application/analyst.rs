@@ -3,16 +3,17 @@
 //! Studio owns creation from prepared material. This adapter owns Postgres retrieval, sourced
 //! memory preparation, queue invalidation, exact-claim publication, and diagnostic ledger writes.
 
+use crate::application::models::Models;
 use crate::application::oracle;
-use crate::composition::memories::{self, MemoryRequest, Mission};
-use crate::runtime::harness::{EntityKey, Harness};
+use crate::application::products::EntityKey;
+use crate::evidence::memories::{self, MemoryRequest, Mission};
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
 use crate::runtime::route::Role;
-use crate::runtime::stage::{HandleOutcome, StageHandler};
-use crate::runtime::util::hash_components;
+use crate::runtime::stage::{HandleOutcome, WorkHandler};
 use crate::runtime::work::{self, Item, Stage};
 use crate::studio::oracle::{SynthMomentum, SynthRating, SynthVibe};
 use crate::studio::{analyst, Studio};
+use crate::util::hash_components;
 use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
 use sqlx::{PgPool, Postgres, Row, Transaction};
@@ -127,16 +128,16 @@ pub async fn load_momentum_snapshot(
 }
 
 pub async fn load_momentum_context(
-    hx: &Harness,
+    pool: &sqlx::PgPool,
     entity_type: &str,
     entity_id: i32,
     sport: &str,
 ) -> Result<(MomentumContext, memories::Package)> {
-    let season = oracle::resolve_season(&hx.pool, sport, None).await?;
+    let season = oracle::resolve_season(pool, sport, None).await?;
     let (rating, vibe, snapshot) = tokio::try_join!(
-        oracle::load_rating_pillar(&hx.pool, entity_type, entity_id, sport, Some(season)),
-        oracle::load_vibe_pillar(&hx.pool, entity_type, entity_id, sport),
-        load_momentum_snapshot(&hx.pool, entity_type, entity_id, sport),
+        oracle::load_rating_pillar(pool, entity_type, entity_id, sport, Some(season)),
+        oracle::load_vibe_pillar(pool, entity_type, entity_id, sport),
+        load_momentum_snapshot(pool, entity_type, entity_id, sport),
     )?;
     let mut context = MomentumContext::new(
         season,
@@ -146,7 +147,7 @@ pub async fn load_momentum_context(
     );
     let mut request = MemoryRequest::new(Mission::Analyst, entity_type, entity_id, sport);
     request.season = Some(season);
-    let memories = memories::load(&hx.pool, request).await?;
+    let memories = memories::load(pool, request).await?;
     context.input_components_json =
         memories.with_input_components(&context.input_components_json)?;
     context.input_hash = hash_components(&context.input_components_json);
@@ -154,13 +155,13 @@ pub async fn load_momentum_context(
 }
 
 pub async fn enqueue_momentum_if_needed(
-    hx: &Harness,
+    pool: &sqlx::PgPool,
     entity_type: &str,
     entity_id: i32,
     sport: &str,
 ) -> Result<bool> {
     let sport = sport.to_uppercase();
-    let (ctx, _) = load_momentum_context(hx, entity_type, entity_id, &sport).await?;
+    let (ctx, _) = load_momentum_context(pool, entity_type, entity_id, &sport).await?;
     if ctx.empty() {
         return Ok(false);
     }
@@ -170,9 +171,13 @@ pub async fn enqueue_momentum_if_needed(
         sport: sport.clone(),
         season: Some(ctx.season),
     };
-    if hx
-        .debounce_unchanged("momentum_summaries", &key, &ctx.input_hash)
-        .await?
+    if crate::application::products::debounce_unchanged(
+        pool,
+        "momentum_summaries",
+        &key,
+        &ctx.input_hash,
+    )
+    .await?
     {
         return Ok(false);
     }
@@ -185,7 +190,7 @@ pub async fn enqueue_momentum_if_needed(
         attempts: 0,
         claim_token: None,
     };
-    work::enqueue(&hx.pool, &it).await?;
+    work::enqueue(pool, &it).await?;
     Ok(true)
 }
 
@@ -241,40 +246,9 @@ async fn prepare(studio: &Studio<'_>, assignment: &Assignment) -> Result<Prepare
     })
 }
 
-#[cfg(test)]
-#[async_trait]
-trait PillarHandoff: Sync {
-    async fn offer(&self) -> Result<()>;
-}
-
-#[cfg(test)]
-#[derive(Debug, PartialEq, Eq)]
-enum ApplicationOutcome<R> {
-    NoMaterial,
-    Published(R),
-}
-
-/// Service-free mirror of the adapter lifecycle. Production replaces these injected capabilities
-/// with one exact-claim transaction and a durable outbox event.
-#[cfg(test)]
-async fn run_prepared<P: crate::studio::Publisher<analyst::MomentumSummary>, F: PillarHandoff>(
-    studio: &Studio<'_>,
-    assignment: &Assignment,
-    publisher: &P,
-    follow_up: &F,
-) -> Result<ApplicationOutcome<P::Receipt>> {
-    let outcome = match prepare(studio, assignment).await? {
-        Prepared::NoMaterial => ApplicationOutcome::NoMaterial,
-        Prepared::Product(output) => {
-            ApplicationOutcome::Published(publisher.publish(&output).await?)
-        }
-    };
-    follow_up.offer().await?;
-    Ok(outcome)
-}
-
 async fn record_ledger(
-    hx: &Harness,
+    pool: &sqlx::PgPool,
+    models: &Models,
     item: &Item,
     sport: &str,
     context: &MomentumContext,
@@ -282,7 +256,7 @@ async fn record_ledger(
     out: &MomentumOutput,
 ) -> Result<()> {
     insert_generation_ledger_best_effort(
-        &hx.pool,
+        pool,
         out,
         MOMENTUM_LEDGER,
         LedgerEvent {
@@ -305,7 +279,7 @@ async fn record_ledger(
             }),
             excluded_evidence: serde_json::json!({"empty_context": context.empty()}),
             context_budget: out.context_budget(serde_json::json!({
-                "num_predict": analyst::generation_options(hx.voice_num_ctx).num_predict,
+                "num_predict": analyst::generation_options(models.voice_num_ctx).num_predict,
                 "decided_direction": out.direction,
                 "steady_band": MOMENTUM_STEADY_BAND,
                 "computed_conviction": out.score,
@@ -345,49 +319,37 @@ async fn commit_claimed(
     Ok((HandleOutcome::Completed, product_row_id))
 }
 
-pub struct MomentumHandler;
-
-impl MomentumHandler {
-    pub fn new() -> Self {
-        MomentumHandler
-    }
+pub struct MomentumHandler {
+    pool: sqlx::PgPool,
+    models: std::sync::Arc<Models>,
 }
 
-impl Default for MomentumHandler {
-    fn default() -> Self {
-        Self::new()
+impl MomentumHandler {
+    pub fn new(pool: sqlx::PgPool, models: std::sync::Arc<Models>) -> Self {
+        Self { pool, models }
     }
 }
 
 #[async_trait]
-impl StageHandler for MomentumHandler {
+impl WorkHandler for MomentumHandler {
     fn stage(&self) -> Stage {
         Stage::Momentum
     }
 
-    async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {
-        self.run_claimed(hx, item).await?;
-        Ok(())
-    }
-
-    async fn handle_claimed(&self, hx: &Harness, item: &Item) -> Result<HandleOutcome> {
-        self.run_claimed(hx, item).await
-    }
-}
-
-impl MomentumHandler {
-    async fn run_claimed(&self, hx: &Harness, item: &Item) -> Result<HandleOutcome> {
+    async fn handle(&self, item: &Item) -> Result<HandleOutcome> {
+        let pool = &self.pool;
+        let models = &self.models;
         let entity_id = item.entity_id_i32()?;
         let sport = item.sport.to_uppercase();
         let name = crate::evidence::corpus::lookup_entity_name(
-            &hx.pool,
+            pool,
             &item.entity_type,
             entity_id,
             &item.sport,
         )
         .await?;
         let (context, memories) =
-            load_momentum_context(hx, &item.entity_type, entity_id, &sport).await?;
+            load_momentum_context(pool, &item.entity_type, entity_id, &sport).await?;
         let assignment = Assignment {
             entity_type: item.entity_type.clone(),
             entity_name: name,
@@ -398,17 +360,18 @@ impl MomentumHandler {
                 Some(memories.render_for_model()?)
             },
             context,
-            voice_num_ctx: hx.voice_num_ctx,
+            voice_num_ctx: models.voice_num_ctx,
         };
-        let model = hx.router.for_role(Role::MomentumLogic);
+        let model = models.router.for_role(Role::MomentumLogic);
         let prepared = prepare(&Studio::new(model.as_ref()), &assignment).await?;
         if matches!(prepared, Prepared::NoMaterial) {
             debug!(entity_type = %item.entity_type, entity_id, sport = %item.sport, "momentum: skipped empty context");
         }
-        let (outcome, product_row_id) = commit_claimed(&hx.pool, item, &sport, &prepared).await?;
+        let (outcome, product_row_id) = commit_claimed(pool, item, &sport, &prepared).await?;
         if let (Some(product_row_id), Prepared::Product(output)) = (product_row_id, &prepared) {
             record_ledger(
-                hx,
+                pool,
+                models,
                 item,
                 &sport,
                 &assignment.context,

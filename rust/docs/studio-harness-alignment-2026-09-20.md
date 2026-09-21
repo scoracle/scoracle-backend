@@ -100,20 +100,29 @@ is added — noted as follow-up; requires a version bump and fixture refresh, so
 
 ## Prioritized next work (evidence/harness levers, no new bans)
 
-1. **Withhold z when the spread is undefined** (SQL: carry a degeneracy state; renderer already
-   omits missing z). Parity-safe like 264: rebuild inside one transaction with before/after proof
-   that all non-degenerate z are unchanged.
-2. **Move thin-sample omissions into selection**: drop Discipline in `model_prompt_profile` for
-   thin samples; retire the "Omit participation totals and Discipline" sentence (the sample is
-   already omitted upstream).
-3. **Render the exclusion ledger as one prompt line** ("also measured, not selected: …" by reason)
-   so selection is visible rather than declared.
-4. **Anchor the inversion gap in evidence**: extend the band guard to polarity language
-   ("weakening/strengthening" clauses against a supplied band), and retire the matched lexical
-   stability words once the anchored check covers them.
-5. **Carry per-measure cohort size and coverage state** in the bundle (new migration, additive
-   fields, same parity-proof pattern as 264).
-6. Data-driven sport display name in the user prompt (after a deliberate version bump).
+Status after the same-day session — every item below is committed on this branch:
+
+1. **DONE (migration 265)** — z withheld when the spread is undefined; parity proven in-migration;
+   DuckDB port mirrored; degenerate comparisons are unknown evidence, not fabricated average.
+2. **DONE (s56)** — thin-sample omissions moved into code selection (Discipline dropped by
+   `model_prompt_profile`); the "Omit participation totals and Discipline" sentence retired.
+3. **DONE (s57)** — "Also measured but not selected for this assignment: …" names the unselected
+   labels; reasons stay in the ledger; empty exclusions render nothing.
+4. **DONE** — thin-sample stability guard is claim-shaped: only cross-time stability or
+   "no change"/"relative standing" violate; within-snapshot descriptions are free. New rule
+   rejects direction verbs tied to named measures (no per-measure trend exists); the
+   one-appearance boundary now joins the no-comparison guards.
+5. **DONE (migration 266)** — per-measure `cohort` persisted and rendered
+   ("percentile 95.0 (elite) of 4470 eligible profiles") and hashed; source-coverage state
+   remains open with the provider-contract item.
+6. **DONE (s59)** — header renders the curated `sports.display_name` ("Football (Soccer)")
+   with the raw id as fallback.
+
+Prompt-version trail: s54 (evidence legend) → s55 (sport mapping in brief) → s56 (thin-sample
+selection) → s57 (unselected labels) → s58 (cohort rendering) → s59 (display-name header).
+Each bump only moves the contract version; frozen fixture user prompts were unchanged by
+s56-s59 because their synthetic profiles carry no thin-sample boundary, no exclusions and no
+cohort field (pins updated per the drift check).
 
 Nothing in this audit recommends a model comparison, a larger ban list, or prompt prohibitions;
 every item either supplies evidence the model is currently missing or moves a constraint from

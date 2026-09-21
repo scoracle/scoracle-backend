@@ -922,7 +922,7 @@ impl Parser<RatingReply> for RatingRequestParser<'_> {
         if let Some(error) = first_measure_association_error(&reply.body) {
             return Err(crate::studio::form::SurfaceError(error.into()).into());
         }
-        if let Some(error) = first_source_shape_error(&reply.body, self.prompt) {
+        if let Some(error) = first_source_shape_error(&reply.body, self.prompt, self.bands) {
             return Err(crate::studio::form::SurfaceError(error.into()).into());
         }
         if let Some((label, stated, expected)) = first_band_contradiction(&reply.body, self.bands) {
@@ -1174,7 +1174,11 @@ fn first_measure_association_error(body: &str) -> Option<&'static str> {
     None
 }
 
-fn first_source_shape_error(body: &str, prompt: &str) -> Option<&'static str> {
+fn first_source_shape_error(
+    body: &str,
+    prompt: &str,
+    bands: &BTreeMap<String, String>,
+) -> Option<&'static str> {
     let body_folded = body.to_lowercase();
     let prompt_folded = prompt.to_lowercase();
     if prompt_folded.contains("cross-season boundary:")
@@ -1214,6 +1218,20 @@ fn first_source_shape_error(body: &str, prompt: &str) -> Option<&'static str> {
                 "The attributed report does not support an emotional, motivational or psychological inference. Keep the reported action or quote without inventing its effect.",
             );
         }
+    }
+    // Stability and per-measure direction need cross-time or per-measure evidence that
+    // neither thin-sample shape carries (the "fewer than 10" boundary and the one-appearance
+    // boundary are the same no-comparison contract).
+    if prompt_folded.contains("fewer than 10 appearances")
+        || prompt_folded.contains("at most one appearance")
+    {
+        // Stability is a cross-time claim. On a thin sample the only supplied timeline is
+        // the snapshot itself, so stability language is a violation when it reaches across
+        // time (seasons, prior form, "no change") — a within-snapshot description of
+        // standing stays free prose.
+        let temporal_refers_back = ["season", "last year", "prior", "previous", "across"]
+            .iter()
+            .any(|word| body_folded.contains(word));
         let stability_word = body_folded
             .split(|c: char| !c.is_ascii_alphabetic())
             .any(|word| {
@@ -1227,7 +1245,7 @@ fn first_source_shape_error(body: &str, prompt: &str) -> Option<&'static str> {
                         | "reliability"
                 )
             });
-        if stability_word
+        if (stability_word && temporal_refers_back)
             || ["relative standing", "no change"]
                 .iter()
                 .any(|phrase| body_folded.contains(phrase))
@@ -1235,6 +1253,39 @@ fn first_source_shape_error(body: &str, prompt: &str) -> Option<&'static str> {
             return Some(
                 "The thin sample has no computed cross-season direction or stability evidence. Remove claims of no change, stable standing, consistency or reliability.",
             );
+        }
+        // A per-measure direction claim needs per-measure trend evidence, which no thin
+        // sample carries. The supplied recent-form line is about overall scores; it does
+        // not license direction verbs on a named measurement.
+        let direction_verbs = [
+            "improve",
+            "improved",
+            "improving",
+            "decline",
+            "declined",
+            "declining",
+            "weaken",
+            "weakened",
+            "weakening",
+            "strengthen",
+            "strengthened",
+            "strengthening",
+            "regress",
+            "regressed",
+            "regressing",
+            "deteriorate",
+            "deteriorated",
+            "deteriorating",
+        ];
+        for claim in body_folded.split(['.', '!', '?', ';', '\n']) {
+            let names_measure = bands
+                .keys()
+                .any(|label| claim.contains(&label.to_lowercase()));
+            if names_measure && direction_verbs.iter().any(|verb| claim.contains(verb)) {
+                return Some(
+                    "The thin sample carries no per-measure trend evidence. Describe the named measure's current standing; do not claim it improved, declined, weakened or strengthened.",
+                );
+            }
         }
         for claim in body_folded.split(['.', '!', '?', ';', '\n']) {
             let actualized = claim

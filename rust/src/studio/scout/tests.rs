@@ -1175,6 +1175,54 @@ fn request_parser_preserves_weighted_measures_and_thin_sample_coverage() {
 }
 
 #[test]
+fn thin_sample_stability_is_claim_shaped_not_word_shaped() {
+    let directions = BTreeMap::new();
+    let bands = BTreeMap::from([("Goals Against".into(), "elite".into())]);
+    let prompt = "Goals Against: 1, percentile 100.0 (elite). The current sample has fewer than 10 appearances.";
+    let parser = RatingRequestParser::new(prompt, &directions, &bands);
+
+    // Within-snapshot consistency is a description of standing, not a cross-time claim.
+    let snapshot = parser
+        .parse(r#"{"headline":"Rogers profile","body":"The team maintains consistent defensive discipline in this stored snapshot."}"#)
+        .unwrap()
+        .unwrap();
+    assert!(snapshot.body.contains("consistent defensive discipline"));
+
+    // Reaching across time is still rejected.
+    let cross_season = parser
+        .parse(
+            r#"{"headline":"Rogers profile","body":"He stayed stable compared with last season."}"#,
+        )
+        .unwrap_err();
+    assert!(cross_season
+        .to_string()
+        .contains("no computed cross-season direction"));
+
+    // A direction verb tied to a named measure has no per-measure trend evidence.
+    let measure_trend = parser
+        .parse(r#"{"headline":"Rogers profile","body":"Goals Against has declined recently."}"#)
+        .unwrap_err();
+    assert!(measure_trend.to_string().contains("no per-measure trend"));
+
+    // The supplied overall-score trend line is not a measure, so it stays free.
+    let supplied_trend = parser
+        .parse(r#"{"headline":"Rogers profile","body":"The overall scores are trending down over recent games."}"#)
+        .unwrap()
+        .unwrap();
+    assert!(supplied_trend.body.contains("trending down"));
+
+    // One-appearance assignments carry the same no-comparison contract.
+    let one = RatingRequestParser::new(
+        "The stored current sample has at most one appearance.",
+        &directions,
+        &bands,
+    )
+    .parse(r#"{"headline":"Rogers profile","body":"Unchanged from the previous season."}"#)
+    .unwrap_err();
+    assert!(one.to_string().contains("cross-season"));
+}
+
+#[test]
 fn request_parser_keeps_quality_words_in_the_supplied_percentile_band() {
     let directions = BTreeMap::new();
     let bands = BTreeMap::from([

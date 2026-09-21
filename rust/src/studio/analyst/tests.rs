@@ -157,7 +157,7 @@ async fn complete_assignment_publishes_validated_product_with_actual_provenance(
     );
     assert_eq!(out.season, 2026);
     assert_eq!(out.provenance.model_version, "model-that-answered");
-    assert_eq!(out.provenance.prompt_version, "momentum-s28");
+    assert_eq!(out.provenance.prompt_version, "momentum-s32");
     assert_eq!(
         out.provenance.input_hash.as_deref(),
         Some(assignment.context.input_hash.as_str())

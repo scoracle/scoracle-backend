@@ -1,7 +1,7 @@
 {
   "expect": {},
   "name": "rising-confirmed",
-  "prompt_version": "momentum-s28",
+  "prompt_version": "momentum-s32",
   "task": "momentum",
   "temperature": 0.0,
   "user_prompt": "Entity: Deshawn Carter (NBA player)\n\n=== SCOUT READING ===\nWritten: 2026-09-20\nSeason: 2026\nHeadline: Carter's measured game gathers force\nReading: Carter's creation and finishing are strengthening together across the current sample.\n\n=== INFLUENCER READING ===\nWritten: 2026-09-20\nHeadline: Carter owns the conversation\nCurrent sentiment level: 84 on a 1–100 scale\nReading: The mood around Carter is emphatically positive and still warming.\n\n=== DATED TRAJECTORY STUDY ===\nComputed: 2026-09-20\nStatistical form: rose by 22.0 points from 2026-08-08 to 2026-09-19, across 10 rated games.\nReported mood: rose by 33.0 points from 2026-08-30 to 2026-09-20, across 12 scored readings.\nThe two windows are independent. Missing means unmeasured, not flat. The study records change, not its cause.\n",

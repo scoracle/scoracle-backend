@@ -100,6 +100,26 @@ mod surface_tests {
     }
 
     #[tokio::test]
+    async fn a_rewrite_can_end_in_an_explicit_pass() {
+        let backend = Backend(Mutex::new(vec![
+            "length".into(),
+            "null".into(),
+            "unused".into(),
+        ]));
+        let result = extract_with_backend(
+            &backend,
+            "Evidence",
+            &GenerateOptions::default(),
+            &crate::studio::scout::RatingParser,
+        )
+        .await
+        .unwrap();
+        assert!(result.value.is_none());
+        assert_eq!(result.raw_response, "null");
+        assert_eq!(backend.0.lock().unwrap().len(), 1);
+    }
+
+    #[tokio::test]
     async fn rewrite_is_bounded_and_preserves_evidence_and_capacity() {
         let opts = GenerateOptions {
             num_ctx: 4096,

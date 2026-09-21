@@ -34,6 +34,8 @@ Rich upstream context enables precise selection. Prompt size is not a measure of
 
 Analyst and Oracle synthesize their supplied readings. Identity, dates and missing-output status travel with them in a small envelope. Extraction tasks use their own structured schemas rather than the publishing form.
 
+Each publishing character tells the part of the story its evidence supports. A partial profile can be a complete reading. Measured zero and observed absence can be findings; missing measurements or reports remain unknown. Direction requires a supported comparison. Gaps limit the claims rather than obliging the model to fill a complete profile, explain a cause, or invent a trend. Shared form retains claim selection and story structure. Scout may return JSON `null` when the evidence supports no meaningful claim in its scope; this is a completed, called abstention with a null-body publication marker, not a failed generation or a pre-call no-stats result. Other voices retain their existing output contracts until their publication paths support abstention.
+
 ## Evidence and efficiency
 
 - Supply units, season/competition, comparison population, sample coverage and uncertainty when they affect interpretation. Compute arithmetic and trends upstream. Withhold unsupported comparisons. Missing stays unknown; prior prose is not a new fact.

@@ -1,7 +1,7 @@
 {
   "expect": {},
   "name": "crossroads-conflict",
-  "prompt_version": "or20",
+  "prompt_version": "or24",
   "task": "oracle",
   "temperature": 0.0,
   "user_prompt": "Entity: Marcus Vale (NBA player)\n\n[Heating up, 4 sources, latest 1d ago] Marcus Vale trade demand reported\nA trade-demand story broke this week and hangs over everything; the front office has not responded publicly.\n\n\nElite two-way production; the numbers have not blinked through the noise.\n\nThe room has soured — the standoff dominates every thread and the patience is thinning.\n\nFeeling is dragging the arc down while the production holds its line.\n\nPresent direction: crossroads.\n",

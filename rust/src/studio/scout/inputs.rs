@@ -30,7 +30,7 @@ pub fn build_stat_prompt(
     comparisons: Option<&BTreeMap<String, super::SkillChange>>,
     form_trend: Option<&str>,
     current_reports: Option<&str>,
-    identity: Option<&str>,
+    memory_context: Option<&str>,
 ) -> String {
     let mut b = String::new();
     let appearances = sample_appearances(p);
@@ -46,9 +46,9 @@ pub fn build_stat_prompt(
         subject.entity_name, p.season
     ));
 
-    if let Some(card) = identity {
+    if let Some(context) = memory_context {
         b.push('\n');
-        b.push_str(card);
+        b.push_str(context);
         b.push('\n');
     }
 
@@ -154,6 +154,9 @@ pub fn build_stat_prompt(
         ));
     }
 
+    b.push_str("Selected evidence: measures omitted from this assignment are not thereby zero or unavailable in the source.\n");
+    b.push_str("Quality scale: raw-value direction is stated for each measure. Percentiles and quality z already account for that direction; do not invert them again. Higher quality is better for both positive and negative stats. Quality z is distance from the peer mean in standard deviations: 0 is average, positive favorable, negative unfavorable. For a measure with a supplied quality z, its magnitude describes standardized distance; percentile alone describes relative standing, not the size of the difference. Missing polarity or z stays unknown.\n");
+
     if subject.sport == "NBA" {
         b.push_str("Values: per-game averages, except percentages.\n");
     } else {
@@ -168,6 +171,8 @@ pub fn build_stat_prompt(
             .collect::<Vec<_>>();
         if identified.iter().any(|datapoint| datapoint.pct.is_some()) {
             b.push_str("\nCurrent-snapshot measurements. Percentiles, when present, rank the same measure among eligible entities in this sport and season; higher is better. Missing ranks and season comparisons are unmeasured.\n");
+        } else if p.breakdown.is_empty() {
+            b.push_str("\nNo current rating measurements are supplied in this assignment.\n");
         } else if identified.is_empty() {
             b.push_str("\nCurrent rating measurements are withheld because their underlying measurement identity is unavailable. Use only the explicitly named measures in the context above.\n");
         } else {
@@ -195,6 +200,8 @@ pub fn build_stat_prompt(
         b.push_str(&format!(
             "\nRecent performance trend (computed from recent overall ratings): {ft}\n"
         ));
+    } else {
+        b.push_str("\nRecent performance trend: unavailable in this assignment; recent direction is unknown, not steady.\n");
     }
 
     if let Some(pc) = personnel.filter(|p| !p.trim().is_empty()) {
@@ -211,7 +218,7 @@ pub fn build_stat_prompt(
     if one_appearance_sample {
         b.push_str("\nEvidence boundary for this output: the stored current sample has at most one appearance. It is source coverage, not proof of actual or limited playing time. Attributed reports may describe other fixtures or competitions; do not merge them into the stored appearance or aggregate without a verified fixture link. Do not calculate unstated values or describe improvement, decline or stability across seasons. Center the reading on the separately attributed current actions and state that a directional comparison is unsupported.\n");
     } else if appearances.is_some_and(|n| n < MIN_CROSS_SEASON_APPEARANCES) {
-        b.push_str("\nEvidence boundary for this output: the current sample has fewer than 10 appearances, so no cross-season change was computed. Describe the current snapshot and separately attributed reports. Do not claim improvement, decline, stability, changed ability, changed role, reduced minutes, fitness or tactical causes across seasons. For this thin-sample card, state the current team and position, use at most the two highest printed current-snapshot measurements with their exact labels and bands, and close by saying no cross-season comparison is supported. Omit participation totals and Discipline. Never say mid-season. Do not call the identity or affiliation unresolved unless this prompt explicitly says it is unresolved. Do not infer emotion, motive or a psychological effect from a quote or report. Write the sporting read itself; do not mention printed measurements, labels, bands or these instructions. Keep the body at most 800 characters.\n");
+        b.push_str("\nEvidence boundary for this output: the current sample has fewer than 10 appearances, so no cross-season change was computed. Describe the current snapshot and separately attributed reports. Do not claim improvement, decline, stability, changed ability, changed role, reduced minutes, fitness or tactical causes across seasons. Use identity as context for the supported playing characteristics. Make the absence of a supported cross-season comparison clear without prescribing a direction. Omit participation totals and Discipline. Never say mid-season. Do not call the identity or affiliation unresolved unless this prompt explicitly says it is unresolved. Do not infer emotion, motive or a psychological effect from a quote or report. Write the sporting read itself; do not mention printed measurements, labels, bands or these instructions. Keep the body at most 800 characters.\n");
     }
 
     b

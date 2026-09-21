@@ -12,6 +12,7 @@ fn rating_product(
         RatingProduct {
             season: 2026,
             skipped_no_stats,
+            abstained: false,
             skipped_unchanged,
             body: body.map(str::to_string),
             headline: body.map(|_| "Test Team owns the middle".to_string()),
@@ -32,6 +33,13 @@ fn rating_product(
         Vec::new(),
         body.map(|_| "rating-input-hash".to_string()),
     )
+}
+
+#[test]
+fn an_abstained_card_publishes_a_marker_instead_of_being_debounced() {
+    let mut output = rating_product(false, false, None);
+    output.product.abstained = true;
+    assert!(matches!(prepare(&output), Prepared::Product(_)));
 }
 
 /// Exact publication-contract acceptance against an isolated database containing migrations

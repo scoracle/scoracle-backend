@@ -1,11 +1,13 @@
 {
   "expect": {},
   "name": "rim-protector-specificity",
-  "prompt_version": "s44",
+  "prompt_version": "s55",
   "task": "rating",
   "temperature": 0.0,
-  "user_prompt": "Entity: Nia Torres (NBA player, C); season 2025\nStats updated: unknown; sample: Games Played 25\n\nOverall standardized score (50 = average): 64\nValues: per-game averages, except percentages.\n\nCurrent-snapshot measurements. Percentiles, when present, rank the same measure among eligible entities in this sport and season; higher is better. Missing ranks and season comparisons are unmeasured.\n- Rim protection: 3.2 (rim_protection), percentile 96.0 (elite)\n- Defensive rebounds: 10.8 (defensive_rebounds), percentile 88.0 (strong)\n- Screen assists: 5.9 (screen_assists), percentile 79.0 (strong)\n- Turnovers: 2.8, percentile 28.0 (poor)\n",
+  "user_prompt": "Entity: Nia Torres (NBA player, C); season 2025\nStats updated: unknown; sample: Games Played 25\n\nOverall standardized score (50 = average): 64\nSelected evidence: measures omitted from this assignment are not thereby zero or unavailable in the source.\nQuality scale: raw-value direction is stated for each measure. Percentiles and quality z already account for that direction; do not invert them again. Higher quality is better for both positive and negative stats. Quality z is distance from the peer mean in standard deviations: 0 is average, positive favorable, negative unfavorable. For a measure with a supplied quality z, its magnitude describes standardized distance; percentile alone describes relative standing, not the size of the difference. Missing polarity or z stays unknown.\nValues: per-game averages, except percentages.\n\nCurrent-snapshot measurements. Percentiles, when present, rank the same measure among eligible entities in this sport and season; higher is better. Missing ranks and season comparisons are unmeasured.\n- Rim protection: 3.2 (rim_protection), percentile 96.0 (elite); raw value: higher is better\n- Defensive rebounds: 10.8 (defensive_rebounds), percentile 88.0 (strong); raw value: higher is better\n- Screen assists: 5.9 (screen_assists), percentile 79.0 (strong); raw value: higher is better\n- Turnovers: 2.8, percentile 28.0 (poor); raw value: lower is better\n\nRecent performance trend: unavailable in this assignment; recent direction is unknown, not steady.\n",
   "review": [
-    "Interpret the strong defensive measurements without inventing height, playing time or an unmeasured trend."
+    "Interpret the strong defensive measurements without inventing height, playing time or an unmeasured trend.",
+    "Interpret the relationships between measurements as playing characteristics; use identity as context and cite numbers only when they explain the story.",
+    "Preserve the supplied raw-value polarity; quality percentiles are already oriented higher-is-better."
   ]
 }

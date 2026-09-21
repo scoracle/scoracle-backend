@@ -179,11 +179,14 @@ async fn load_scout_reading(
     let row: Option<ScoutReadingRow> = sqlx::query_as(
         r#"
         SELECT body, headline, season, generated_at::date::text, input_hash
-          FROM public.stat_summaries
-         WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
-           AND season = $4 AND body IS NOT NULL AND btrim(body) <> ''
-         ORDER BY generated_at DESC, id DESC
-         LIMIT 1
+          FROM (
+            SELECT body, headline, season, generated_at, input_hash
+              FROM public.stat_summaries
+             WHERE entity_type = $1 AND entity_id = $2 AND sport = $3 AND season = $4
+             ORDER BY generated_at DESC, id DESC
+             LIMIT 1
+          ) latest
+         WHERE body IS NOT NULL AND btrim(body) <> ''
         "#,
     )
     .bind(entity_type)

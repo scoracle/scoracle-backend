@@ -6,16 +6,15 @@
 //! Postgres owns composite and percentile calculations. Rust selects and labels the evidence,
 //! computes routing notability and trajectory, and supplies evidence for interpretation.
 //!
-//! FAIL CLOSED: rating's ONLY marker is the PRE-model no-stats path (no usable rating row → a
-//! NULL-body marker, like vibe's no-corpus marker). There is no post-model fail-closed marker — an
-//! empty model body is a hard error (the work fails + retries), never a served row.
+//! No usable profile produces an uncalled marker; explicit model abstention produces a called
+//! NULL-body marker. An empty or malformed card remains an error.
 //!
 //! Missing measurements and ranks remain unknown; character and canvas own the writing.
 
 use crate::studio::model::GenerateOptions;
 use crate::studio::{Generation, GenerationCall, Parser, Studio};
 use crate::util::round1;
-use anyhow::{anyhow, bail, Result};
+use anyhow::Result;
 use serde::{Deserialize, Deserializer};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
@@ -26,7 +25,7 @@ pub use inputs::build_stat_prompt;
 pub(crate) use inputs::supports_cross_season_comparison;
 
 /// Output contract captured separately in the diagnostic ledger.
-pub const RATING_OUTPUT_CONTRACT_VERSION: &str = "rating-commentary-v5";
+pub const RATING_OUTPUT_CONTRACT_VERSION: &str = "rating-commentary-v6";
 
 /// Production rating temperature.
 pub const RATING_TEMPERATURE: f64 = 0.6;
@@ -57,6 +56,7 @@ pub struct RatingDatapoint {
     #[serde(default)]
     pub value: Option<f64>,
     #[serde(default)]
+    /// Raw standardized distance from the peer mean; polarity is applied using `sign`.
     pub z: Option<f64>,
     #[serde(default)]
     pub pct: Option<f64>,
@@ -65,6 +65,8 @@ pub struct RatingDatapoint {
     #[serde(default, deserialize_with = "null_to_default")]
     pub in_spec: bool,
     #[serde(default, deserialize_with = "null_to_default")]
+    /// SQL measurement polarity: +1 favors higher raw values, -1 lower values.
+    /// Missing/invalid values have unknown polarity, not neutral quality.
     pub sign: i32,
     #[serde(default, deserialize_with = "null_to_default")]
     pub facet: String,
@@ -149,20 +151,6 @@ pub struct RatingExclusions {
     /// Display-tier datapoints — retired from the rating equation (`in_comp=false AND
     /// in_spec=false`) — excluded from the AI context (see `drop_display_tier_datapoints`).
     pub display_tier_stat_labels: Vec<String>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ScoutingDecisionFact {
-    pub label: String,
-    pub evidence: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ScoutingDecision {
-    pub primary_strength_to_stop: Option<ScoutingDecisionFact>,
-    pub secondary_strengths: Vec<ScoutingDecisionFact>,
-    pub primary_weakness_to_exploit: Option<ScoutingDecisionFact>,
-    pub no_standout_reason: Option<String>,
 }
 
 // ---------------------------------------------------------------------------
@@ -323,23 +311,14 @@ fn collect_rate_standouts(p: &RatingProfile) -> Vec<RateStandout> {
     out
 }
 
-fn is_strong_or_elite(d: &RatingDatapoint) -> bool {
-    d.pct.is_some_and(|pct| pct >= 75.0)
-}
-
 /// signed_z is the sign-adjusted z — the one number where "+" is always the good direction
-/// (`format_datapoint_evidence` renders the same value).
+/// (`format_datapoint_evidence` renders the same value). Unknown polarity must
+/// not manufacture a neutral score or silently invert the measurement.
 fn signed_z(d: &RatingDatapoint) -> Option<f64> {
-    d.z.map(|z| d.sign as f64 * z)
-}
-
-/// A named weakness must be MATERIALLY bad, not merely low-percentile. Distributions that clump
-/// at zero (giveaways, ground yards for a WR) map tiny raw differences onto extreme percentiles:
-/// Drake London's 1 giveaway sat at the 5th percentile with a sign-adjusted z of just -0.2 —
-/// statistically "poor", practically average — while Stafford's genuine giveaway problem carried
-/// z -4.9. Percentile finds the candidate; z-magnitude confirms it is real.
-fn is_weakness(d: &RatingDatapoint) -> bool {
-    d.pct.is_some_and(|pct| pct < 50.0) && signed_z(d).is_some_and(|z| z <= -0.5)
+    match d.sign {
+        -1 | 1 => d.z.filter(|z| z.is_finite()).map(|z| d.sign as f64 * z),
+        _ => None,
+    }
 }
 
 /// nfl_position_side maps an NFL position to the side of the ball it plays. Both the
@@ -384,7 +363,7 @@ pub(crate) fn drop_degenerate_zero_datapoints(p: &mut RatingProfile) -> Vec<Stri
 /// drop_off_facet_datapoints removes breakdown and rate-mode datapoints from the OTHER side
 /// of the ball than the player's position. An offensive player's defensive stat sheet (and
 /// vice versa) is structural noise, not scoutable evidence: a QB's 0th-percentile Tackling is
-/// not a "primary weakness to exploit", it is a category he does not play. Only NFL breakdowns
+/// a category he does not play. Only NFL breakdowns
 /// carry offense/defense facets (NBA and FOOTBALL emit facet="all"), so this no-ops for every
 /// other sport, for teams, and for facet-less rows by construction. Returns the dropped
 /// breakdown labels for the exclusions ledger — the selection is provable, not silent.
@@ -438,75 +417,15 @@ fn format_datapoint_evidence(d: &RatingDatapoint) -> String {
     if let Some(pct) = d.pct {
         s.push_str(&format!(", percentile {pct:.1} ({})", pct_band(pct)));
     }
+    s.push_str(match d.sign {
+        1 => "; raw value: higher is better",
+        -1 => "; raw value: lower is better",
+        _ => "; raw value: favorable direction unknown",
+    });
+    if let Some(z) = signed_z(d) {
+        s.push_str(&format!("; quality z {z:+.2}"));
+    }
     s
-}
-
-fn decision_fact(d: &RatingDatapoint) -> ScoutingDecisionFact {
-    ScoutingDecisionFact {
-        label: d.label.clone(),
-        evidence: format_datapoint_evidence(d),
-    }
-}
-
-pub fn build_scouting_decision(p: &RatingProfile) -> ScoutingDecision {
-    const MAX_SECONDARY_STRENGTHS: usize = 5;
-
-    let facts = ordered_facts_unbounded(&p.breakdown);
-    let primary = facts.first().filter(|d| is_strong_or_elite(d));
-
-    let mut primary_strength_to_stop = primary.map(decision_fact);
-    // Put per-rate corroboration on the primary strength rather than in a separate section.
-    if let Some(f) = primary_strength_to_stop.as_mut() {
-        if let Some(r) = collect_rate_standouts(p)
-            .iter()
-            .find(|r| r.label == f.label && primary.is_some_and(|d| d.measure == r.measure))
-        {
-            f.evidence.push_str(&format!(
-                " ({} percentile {:.1})",
-                r.mode.replace('_', "-"),
-                r.pct
-            ));
-        }
-    }
-    let secondary_strengths = facts
-        .iter()
-        .skip(1)
-        .filter(|d| is_strong_or_elite(d))
-        .take(MAX_SECONDARY_STRENGTHS)
-        .map(decision_fact)
-        .collect();
-
-    let primary_weakness_to_exploit = p
-        .breakdown
-        .iter()
-        .filter(|d| is_weakness(d))
-        .min_by(|a, b| {
-            a.pct
-                .partial_cmp(&b.pct)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        })
-        .map(decision_fact);
-
-    let no_standout_reason = if primary.is_none() {
-        Some(match facts.first() {
-            Some(d) => format!(
-                "Highest datapoint is {}; {} is not strong/elite, so no strong/elite datapoint exists.",
-                format_datapoint_evidence(d),
-                d.pct.map(pct_band).unwrap_or("unranked")
-            ),
-            None => "No skill datapoint is available, so no strong/elite datapoint exists."
-                .to_string(),
-        })
-    } else {
-        None
-    };
-
-    ScoutingDecision {
-        primary_strength_to_stop,
-        secondary_strengths,
-        primary_weakness_to_exploit,
-        no_standout_reason,
-    }
 }
 
 /// Prior rank of the same measurement. Arithmetic direction is rendered deterministically;
@@ -579,7 +498,7 @@ pub(crate) fn model_prompt_profile(
             .into_iter()
             .take(2)
             .collect();
-    } else if let Some(comparisons) = comparisons {
+    } else if let Some(comparisons) = comparisons.filter(|changes| !changes.is_empty()) {
         let mut ranked = profile
             .breakdown
             .iter()
@@ -673,7 +592,7 @@ pub fn input_components(p: &RatingProfile) -> String {
     let datapoints: Vec<serde_json::Value> = p
         .breakdown
         .iter()
-        .map(|d| serde_json::json!({"label": d.label, "measure":d.measure, "value":d.value, "pct": d.pct.map(round1)}))
+        .map(|d| serde_json::json!({"label": d.label, "measure":d.measure, "value":d.value, "pct": d.pct.map(round1), "sign":d.sign, "z":d.z}))
         .collect();
 
     let mut components = serde_json::Map::new();
@@ -849,10 +768,7 @@ pub struct RatingReply {
     pub headline: Option<String>,
 }
 
-/// RatingParser cleans the body and splits its headline. It never returns `Ok(None)`:
-/// an empty body is a hard error the caller raises, and the only marker is the pre-model no-stats path.
-/// Since the eval→guard migration (2026-08-19) it DOES fail closed (`Err` → retry) on the brief's
-/// global invariants: bullet/Markdown decoration, product names, foreign script.
+/// An explicit JSON null is a completed pass. Empty or invalid cards remain errors.
 pub struct RatingParser;
 
 /// Production parser with facts from the exact built request. Shape and global
@@ -884,6 +800,9 @@ impl<'a> RatingRequestParser<'a> {
 /// adds the fail-closed guards on top. The s20 HEADLINE line is split off here too, so the
 /// shape view never mistakes a title for a section.
 pub fn parse_rating_body(raw: &str) -> String {
+    if raw.trim() == "null" {
+        return String::new();
+    }
     let (_headline, body) = split_rating_headline(raw);
     clean_commentary(&body)
 }
@@ -920,6 +839,9 @@ fn split_rating_headline(raw: &str) -> (Option<String>, String) {
 
 impl Parser<RatingReply> for RatingParser {
     fn parse(&self, raw: &str) -> Result<Option<RatingReply>> {
+        if raw.trim() == "null" {
+            return Ok(None);
+        }
         if raw.trim_start().starts_with('{') {
             serde_json::from_str::<crate::studio::form::CardReply>(raw)?;
         }
@@ -1255,7 +1177,7 @@ fn first_source_shape_error(body: &str, prompt: &str) -> Option<&'static str> {
     if prompt_folded.contains("fewer than 10 appearances") {
         if body.chars().count() > 800 {
             return Some(
-                "The thin-sample card exceeds 800 characters. Keep only current identity, the two supplied leading measurements, one attributed report detail and the no-comparison boundary.",
+                "The thin-sample card exceeds 800 characters. Select the supported playing characteristics and relevant attributed evidence, preserving the no-comparison boundary. Use identity as context.",
             );
         }
         if ["frustrat", "confidence", "morale", "motivation"]
@@ -1412,6 +1334,8 @@ pub struct Assignment {
 pub struct RatingProduct {
     pub season: i32,
     pub skipped_no_stats: bool,
+    /// The model was called and explicitly chose not to publish prose.
+    pub abstained: bool,
     pub skipped_unchanged: bool,
     pub body: Option<String>,
     pub headline: Option<String>,
@@ -1432,6 +1356,7 @@ pub fn no_stats(season: i32, configured_model: impl Into<String>) -> RatingOutpu
         RatingProduct {
             season,
             skipped_no_stats: true,
+            abstained: false,
             skipped_unchanged: false,
             body: None,
             headline: None,
@@ -1456,6 +1381,7 @@ pub fn unchanged(assignment: Assignment, configured_model: impl Into<String>) ->
         RatingProduct {
             season: assignment.season,
             skipped_no_stats: false,
+            abstained: false,
             skipped_unchanged: true,
             body: None,
             headline: None,
@@ -1486,18 +1412,12 @@ pub async fn create(studio: &Studio<'_>, assignment: Assignment) -> Result<Ratin
         .await?;
     let call = GenerationCall::from(&extracted);
     let model = extracted.model.clone();
-    let reply = extracted
-        .value
-        .ok_or_else(|| anyhow!("rating: parser returned None (RatingParser never fails closed)"))?;
-    if reply.body.is_empty() {
-        bail!(
-            "rating: empty commentary ({}/{} {})",
-            assignment.subject.entity_type,
-            assignment.subject.entity_name,
-            assignment.subject.sport
-        );
-    }
-    let headline = reply.headline.filter(|title| {
+    let abstained = extracted.value.is_none();
+    let (body, headline) = match extracted.value {
+        Some(reply) => (Some(reply.body), reply.headline),
+        None => (None, None),
+    };
+    let headline = headline.filter(|title| {
         let named =
             crate::studio::guards::title_names_entity(title, &assignment.subject.entity_name);
         if !named {
@@ -1516,8 +1436,9 @@ pub async fn create(studio: &Studio<'_>, assignment: Assignment) -> Result<Ratin
         RatingProduct {
             season: assignment.season,
             skipped_no_stats: false,
+            abstained,
             skipped_unchanged: false,
-            body: Some(reply.body),
+            body,
             headline,
             notability: Some(assignment.notability),
             notability_components: assignment.notability_components,

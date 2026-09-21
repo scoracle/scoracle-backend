@@ -118,8 +118,8 @@ pub fn lens_parameters(name: &str) -> Option<LensParameters> {
         }),
         "rating" => Some(LensParameters {
             operator: "The Scout",
-            mandate: "Prepare for the entity by naming the greatest strength to stop and the greatest weakness to exploit.",
-            credibility_guard: "Use supplied tiers and datapoints only; never turn average marks into strengths.",
+            mandate: "Tell the story of the entity's playing characteristics, expected contributions and supported profile direction.",
+            credibility_guard: "Interpret supplied measurements together; use metadata as context and preserve the distinction between profile, form and relative standing.",
         }),
         "momentum" => Some(LensParameters {
             operator: "The Analyst",
@@ -1298,7 +1298,9 @@ impl LensTask for RatingTask {
             num_predict: RATING_NUM_PREDICT,
             num_ctx: 0,
             json_mode: false,
-            format_schema: Some(crate::studio::form::card_schema(false)),
+            format_schema: Some(crate::studio::form::with_abstention(
+                crate::studio::form::card_schema(false),
+            )),
             format_schema_raw: None,
         }
     }
@@ -1325,6 +1327,18 @@ impl LensTask for RatingTask {
         }
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
+        if raw.trim() == "null" {
+            return CaseVerdict {
+                parsed: true,
+                abs_err: None,
+                checks: vec![PropertyCheck {
+                    name: "abstention_requires_evidence_review".into(),
+                    pass: false,
+                    detail: "Valid pass; mechanical checks cannot determine whether withholding the card was warranted.".into(),
+                }],
+                display: "abstained — no card".into(),
+            };
+        }
         // Shape-only parse (NOT `RatingParser`): the gate must see a guard-violating body's
         // prose and score it red on the invariant checks — production's guards would reject it
         // before any check could run. Same lists either way (`crate::guards`).
@@ -1631,9 +1645,8 @@ fn sentence_runs(text: &str) -> i32 {
 
 /// One shared invariant check over a served-prose field: the first product name found, as a
 /// `PropertyCheck` every wired seat pushes unconditionally. For rating the check runs on the
-/// parsed BODY only: the structural "PEAK: <label>" marker line is stripped by `RatingParser`
-/// and never serves. (The list itself lives in [`crate::studio::guards::PRODUCT_NAME_BANS`] — production
-/// enforces the same vocabulary.)
+/// parsed body only. The list lives in [`crate::studio::guards::PRODUCT_NAME_BANS`];
+/// production enforces the same vocabulary.
 fn product_name_check(prose: &str) -> PropertyCheck {
     let named = crate::studio::guards::first_product_name(prose);
     PropertyCheck {
@@ -2300,7 +2313,7 @@ mod tests {
         // product decision, not a refactor.
         let rating = lens_parameters("rating").unwrap();
         assert_eq!(rating.operator, "The Scout");
-        assert!(rating.mandate.contains("greatest strength"));
+        assert!(rating.mandate.contains("playing characteristics"));
 
         assert_eq!(
             lens_parameters("narratives").unwrap().operator,
@@ -2702,7 +2715,7 @@ mod tests {
     const RATING_REPLY: &str = "An elite rim protector who grades at the 94th percentile in blocks and anchors the paint without fouling. The profile is thinner as a creator, but the defensive identity is clear and valuable.\nHEADLINE: Rim protection defines the matchup";
 
     #[test]
-    fn rating_rubric_scores_peak_specificity_and_prose_richness() {
+    fn rating_rubric_scores_specificity_and_prose_richness() {
         let x = Expect {
             // s19: asserted on the brief's prose (the divined label is retired).
             skill_includes: Some(vec!["rim protector".into()]),
@@ -2740,7 +2753,7 @@ mod tests {
     }
 
     #[test]
-    fn rating_rubric_catches_generic_peak_and_thin_prose() {
+    fn rating_rubric_catches_generic_read_and_thin_prose() {
         let x = Expect {
             // s19: prose-anchored — the include names a skill the thin body lacks, the
             // exclude names a phrase the thin body contains.
@@ -2951,5 +2964,17 @@ mod tests {
             current_seen >= 2,
             "expected archived steam/fizzle fixtures, saw {current_seen}"
         );
+    }
+}
+
+#[cfg(test)]
+mod scout_abstention_tests {
+    use super::*;
+    #[test]
+    fn a_valid_pass_is_visible_without_being_a_vacuous_quality_pass() {
+        let result = RatingTask.evaluate("null", None, None);
+        assert!(result.parsed);
+        assert!(result.display.contains("abstained"));
+        assert!(result.checks.iter().any(|check| !check.pass));
     }
 }

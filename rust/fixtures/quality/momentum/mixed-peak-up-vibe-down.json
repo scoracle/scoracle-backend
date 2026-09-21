@@ -1,7 +1,7 @@
 {
   "expect": {},
   "name": "mixed-peak-up-vibe-down",
-  "prompt_version": "momentum-s28",
+  "prompt_version": "momentum-s32",
   "task": "momentum",
   "temperature": 0.0,
   "user_prompt": "Entity: Jalen Rowe (NBA player)\n\n=== SCOUT READING ===\nWritten: 2026-09-20\nSeason: 2026\nHeadline: Rowe finds a sharper edge\nReading: Rowe's measured profile is improving, led by more efficient creation.\n\n=== INFLUENCER READING ===\nWritten: 2026-09-20\nHeadline: Rowe's buzz cools\nCurrent sentiment level: 37 on a 1–100 scale\nReading: The mood around Rowe is cooling despite the stronger statistical work.\n\n=== DATED TRAJECTORY STUDY ===\nComputed: 2026-09-20\nStatistical form: rose by 12.0 points from 2026-08-15 to 2026-09-19, across 6 rated games.\nReported mood: fell by 11.0 points from 2026-08-30 to 2026-09-20, across 6 scored readings.\nThe two windows are independent. Missing means unmeasured, not flat. The study records change, not its cause.\n",

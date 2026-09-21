@@ -1,11 +1,13 @@
 {
   "expect": {},
   "name": "fixed-budget-rich-profile",
-  "prompt_version": "s44",
+  "prompt_version": "s55",
   "task": "rating",
   "temperature": 0.0,
-  "user_prompt": "Entity: Rui Almeida (FOOTBALL player, MF); season 2025\nStats updated: unknown; sample: Games Played 25\n\nOverall standardized score (50 = average): 61\nValues: season totals, except percentages and named adjustments.\n\nCurrent-snapshot measurements. Percentiles, when present, rank the same measure among eligible entities in this sport and season; higher is better. Missing ranks and season comparisons are unmeasured.\n- High press regains: 9.3 (high_press_regains), percentile 94.0 (elite)\n- Shot creation: 3.6 (shot_creation), percentile 88.0 (strong)\n- Progressive passes: 6.9 (progressive_passes), percentile 84.0 (strong)\n- Final-third entries: 8.1 (final-third_entries), percentile 73.0 (above average)\n- Fouls committed: 2.4 (fouls_committed), percentile 22.0 (poor)\n",
+  "user_prompt": "Entity: Rui Almeida (FOOTBALL player, MF); season 2025\nStats updated: unknown; sample: Games Played 25\n\nOverall standardized score (50 = average): 61\nSelected evidence: measures omitted from this assignment are not thereby zero or unavailable in the source.\nQuality scale: raw-value direction is stated for each measure. Percentiles and quality z already account for that direction; do not invert them again. Higher quality is better for both positive and negative stats. Quality z is distance from the peer mean in standard deviations: 0 is average, positive favorable, negative unfavorable. For a measure with a supplied quality z, its magnitude describes standardized distance; percentile alone describes relative standing, not the size of the difference. Missing polarity or z stays unknown.\nValues: season totals, except percentages and named adjustments.\n\nCurrent-snapshot measurements. Percentiles, when present, rank the same measure among eligible entities in this sport and season; higher is better. Missing ranks and season comparisons are unmeasured.\n- High press regains: 9.3 (high_press_regains), percentile 94.0 (elite); raw value: higher is better\n- Shot creation: 3.6 (shot_creation), percentile 88.0 (strong); raw value: higher is better\n- Progressive passes: 6.9 (progressive_passes), percentile 84.0 (strong); raw value: higher is better\n- Final-third entries: 8.1 (final-third_entries), percentile 73.0 (above average); raw value: higher is better\n- Fouls committed: 2.4 (fouls_committed), percentile 22.0 (poor); raw value: lower is better\n\nRecent performance trend: unavailable in this assignment; recent direction is unknown, not steady.\n",
   "review": [
-    "Select meaningful findings from the rich profile; neither exhaustive recitation nor an invented tactical plan is required."
+    "Select meaningful findings from the rich profile; neither exhaustive recitation nor an invented tactical plan is required.",
+    "Interpret the relationships between measurements as playing characteristics; use identity as context and cite numbers only when they explain the story.",
+    "Preserve the supplied raw-value polarity; quality percentiles are already oriented higher-is-better."
   ]
 }

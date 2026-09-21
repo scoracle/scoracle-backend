@@ -6,11 +6,18 @@
 
 pub const IDENTITY_CARD_FRAMING: &str = "Identity context, not event evidence. Distinguish current roles from career history; dated reporting may supersede these records. Unknown means unknown.";
 
-pub const CLAIM_SELECTION: &str = "Choose the most meaningful claims supported by the evidence. Ordinary, unchanged and uncertain findings are valid.";
+pub const CLAIM_SELECTION: &str = "Choose the most meaningful claims supported by the evidence. Ordinary findings, observed stability and uncertainty are valid.";
+
+/// Enabled only for characters whose parser and publication path accept a called pass.
+pub const ABSTENTION: &str = "If the supplied evidence supports no meaningful claim within your character scope, return JSON null instead of a card. Passing is a complete response: do not invent a claim to fill the surface or write an explanation of the missing card. The card structure applies only when you have a supported claim to express.";
+
+pub const EVIDENCE_SCOPE: &str = "Interpret what the supplied evidence establishes. A partial profile can be a complete reading. Let missing evidence limit the story; do not supply a role, explanation or trend to make it feel complete. A measured zero or an observed absence is a finding; a missing measurement or report is unknown. Without a supported comparison, direction is unknown, not unchanged. Mention a gap when it changes the interpretation; otherwise leave it open. Stop when the supported story is told.";
 
 pub const STORY_FORM: &str = "Connect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.";
 
 pub const WIRE_COPY: &str = "Write plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.";
+
+pub const CHARACTER_SCOPE: &str = "Contribute your assigned perspective to the entity's story. Develop the findings that matter to your character; a complete summary of the entity is unnecessary. The reader already has the identity card: use metadata as context, without biographical introductions or listings of team, position, season or appearances. Mention an identity detail only when it explains a relevant development.";
 
 pub const HOOK: &str =
     "The hook names the entity and states the card's main finding in present tense.";
@@ -72,11 +79,16 @@ pub fn compose(character: &str, format: CardFormat) -> String {
         CardFormat::Insider => "Return JSON with read containing the body, headline containing the hook, and score containing an integer from 1 to 99. Preserve paragraph breaks inside read as escaped newlines.",
         CardFormat::Oracle => "Return JSON with reading containing the body, headline containing the hook, and score containing an integer from 1 to 100. Open the reading with this entity's supplied name and speak directly about its circumstances as one interpretation. The reading is body only: do not describe its hook or headline, the evidence structure, its speakers, computation or JSON fields. Preserve paragraph breaks inside reading as escaped newlines.",
     };
+    let abstention = if matches!(format, CardFormat::Scout) {
+        ABSTENTION
+    } else {
+        ""
+    };
     let canvas = format!("Card surface: hook ≤{HOOK_MAX_CHARS} characters; body ≤{BODY_MAX_CHARS}, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.");
-    format!("{character}\n\n{canvas}\n\n{CLAIM_SELECTION}\n\n{STORY_FORM}\n\n{WIRE_COPY}\n\n{HOOK}\n\n{output}")
+    format!("{character}\n\n{canvas}\n\n{CHARACTER_SCOPE}\n\n{EVIDENCE_SCOPE}\n\n{CLAIM_SELECTION}\n\n{STORY_FORM}\n\n{WIRE_COPY}\n\n{HOOK}\n\n{output}\n\n{abstention}")
 }
 
-/// Fold line wrapping and whitespace while retaining the claim paragraphs.
+/// Fold line wrapping and whitespace while retaining the prose paragraphs.
 pub fn normalize_body(body: &str) -> String {
     let mut paragraphs = Vec::new();
     let mut paragraph = Vec::new();
@@ -101,6 +113,11 @@ pub struct CardReply {
     pub headline: String,
     pub body: String,
     pub score: Option<i32>,
+}
+
+/// Permit an explicit pass while preserving the complete card contract.
+pub fn with_abstention(schema: serde_json::Value) -> serde_json::Value {
+    serde_json::json!({"anyOf": [schema, {"type": "null"}]})
 }
 
 /// Shape only. The surface belongs in the prompt and post-decode validation;
@@ -206,7 +223,14 @@ mod tests {
         for (brief, system) in characters {
             assert!(!brief.trim().is_empty());
             assert!(brief.split_whitespace().count() <= 200);
-            for shared in [STORY_FORM, CLAIM_SELECTION, HOOK, WIRE_COPY] {
+            for shared in [
+                STORY_FORM,
+                CLAIM_SELECTION,
+                HOOK,
+                WIRE_COPY,
+                CHARACTER_SCOPE,
+                EVIDENCE_SCOPE,
+            ] {
                 assert_eq!(system.matches(shared).count(), 1);
             }
             for retired in [

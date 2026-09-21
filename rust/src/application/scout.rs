@@ -219,7 +219,7 @@ pub async fn build_rating_request(
     } else {
         None
     };
-    let identity = model_memories.render_for_model()?;
+    let memory_context = model_memories.render_for_model()?;
     let mut components: serde_json::Value = serde_json::from_str(&input_components)?;
     components["skill_changes"] = serde_json::json!(comparisons);
     components["personnel"] = serde_json::json!(personnel);
@@ -239,7 +239,7 @@ pub async fn build_rating_request(
         comparisons.as_ref(),
         form_trend.as_deref(),
         current_reports.as_deref(),
-        Some(&identity),
+        Some(&memory_context),
     );
     let opts = GenerateOptions {
         system: Some(RATING_SYSTEM_PROMPT.to_string()),
@@ -247,7 +247,9 @@ pub async fn build_rating_request(
         num_predict: RATING_NUM_PREDICT,
         num_ctx: models.voice_num_ctx,
         json_mode: false,
-        format_schema: Some(crate::studio::form::card_schema(false)),
+        format_schema: Some(crate::studio::form::with_abstention(
+            crate::studio::form::card_schema(false),
+        )),
         format_schema_raw: None,
     };
 
@@ -503,6 +505,9 @@ async fn record_ledger(
         "rating_trajectory_components": &out.rating_trajectory_components,
     });
     let mut excluded = Vec::new();
+    if out.abstained {
+        excluded.push(serde_json::json!({"reason": "model_abstained"}));
+    }
     if out.skipped_no_stats {
         excluded.push(serde_json::json!({"reason": "no_usable_rating_profile"}));
     }
@@ -560,7 +565,9 @@ async fn record_ledger(
                     .and_then(|value| value.as_i64())
                     .unwrap_or(RATING_NUM_PREDICT as i64),
             })),
-            parser_outcome: if out.skipped_no_stats {
+            parser_outcome: if out.abstained {
+                "abstained"
+            } else if out.skipped_no_stats {
                 "no_call"
             } else {
                 "parsed"

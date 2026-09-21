@@ -1,7 +1,7 @@
 {
   "expect": {},
   "name": "sparse-samples-stay-steady",
-  "prompt_version": "momentum-s28",
+  "prompt_version": "momentum-s32",
   "task": "momentum",
   "temperature": 0.0,
   "user_prompt": "Entity: Malik Stone (NBA player)\n\n=== SCOUT READING ===\nWritten: 2026-09-20\nSeason: 2026\nHeadline: Stone's early sample stays unresolved\nReading: Stone's current statistical sample is too thin to support a directional comparison.\n\n=== INFLUENCER READING ===\nWritten: 2026-09-20\nHeadline: Stone draws a mixed early response\nCurrent sentiment level: 51 on a 1–100 scale\nReading: The limited reporting around Stone carries no settled emotional direction.\n\n=== DATED TRAJECTORY STUDY ===\nComputed: 2026-09-20\nStatistical form: not measured.\nReported mood: not measured.\nThe two windows are independent. Missing means unmeasured, not flat. The study records change, not its cause.\n",

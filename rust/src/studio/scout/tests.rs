@@ -45,9 +45,6 @@ fn unranked_one_appearance_is_not_an_elite_or_declining_profile() {
         .rate_modes
         .insert("per_90".into(), current.breakdown.clone());
     assert!(collect_rate_standouts(&current).is_empty());
-    let decision = build_scouting_decision(&current);
-    assert!(decision.primary_strength_to_stop.is_none());
-    assert!(decision.primary_weakness_to_exploit.is_none());
     let prompt = build_stat_prompt(
         &req("FOOTBALL", "player", "Morgan Rogers"),
         &current,
@@ -77,12 +74,91 @@ fn missing_numeric_evidence_is_not_a_measured_zero_or_bottom_rank() {
     assert_eq!(absent.value, None);
     assert_eq!(absent.pct, None);
     assert_eq!(signed_z(&absent), None);
-    assert_eq!(format_datapoint_evidence(&absent), "Scoring: unmeasured");
-    assert!(!is_weakness(&absent));
+    assert_eq!(
+        format_datapoint_evidence(&absent),
+        "Scoring: unmeasured; raw value: favorable direction unknown"
+    );
     let zero = dp("Scoring", 0.0, -2.0, 0.0, 1);
     assert_eq!(zero.value, Some(0.0));
     assert!(format_datapoint_evidence(&zero).contains("percentile 0.0"));
-    assert!(is_weakness(&zero));
+}
+
+#[test]
+fn evidence_preserves_raw_polarity_and_normalizes_quality_once() {
+    let favorable = dp("Turnovers", 1.0, -1.5, 90.0, -1);
+    let adverse = dp("Turnovers", 4.0, 1.5, 10.0, -1);
+    let positive = dp("Scoring", 24.0, 1.5, 90.0, 1);
+    for (point, direction, z) in [
+        (&favorable, "lower", "+1.50"),
+        (&adverse, "lower", "-1.50"),
+        (&positive, "higher", "+1.50"),
+    ] {
+        let evidence = format_datapoint_evidence(point);
+        assert!(evidence.contains(&format!("raw value: {direction} is better")));
+        assert!(evidence.contains(&format!("quality z {z}")));
+        assert!(evidence.contains(&format!("percentile {:.1}", point.pct.unwrap())));
+    }
+    let tiny = dp("Giveaways", 1.0, 0.2, 5.0, -1);
+    assert!(format_datapoint_evidence(&tiny).contains("quality z -0.20"));
+    for sign in [0, 2, -2] {
+        let unknown = dp("Turnovers", 4.0, 1.5, 10.0, sign);
+        assert_eq!(signed_z(&unknown), None);
+        let evidence = format_datapoint_evidence(&unknown);
+        assert!(evidence.contains("favorable direction unknown"));
+        assert!(!evidence.contains("quality z"));
+    }
+}
+
+#[test]
+fn observed_zero_missing_measurement_and_recent_direction_stay_distinct() {
+    let mut profile = profile_player();
+    profile.composite_score = None;
+    profile.breakdown = vec![
+        RatingDatapoint {
+            label: "Goalscoring".into(),
+            measure: "goals".into(),
+            value: Some(0.0),
+            sign: 1,
+            ..Default::default()
+        },
+        RatingDatapoint {
+            label: "Chance Creation".into(),
+            measure: "expected assists".into(),
+            sign: 1,
+            ..Default::default()
+        },
+    ];
+    let subject = req("FOOTBALL", "player", "Test Player");
+    for absent in [None, Some(""), Some("  ")] {
+        let prompt = build_stat_prompt(&subject, &profile, None, None, absent, None, None);
+        assert!(prompt.contains("Goalscoring: 0 (goals)"));
+        assert!(prompt.contains("Chance Creation: unmeasured (expected assists)"));
+        assert!(!prompt.contains("Chance Creation: 0"));
+        assert!(!prompt.contains("; quality z"));
+        assert!(prompt.contains("recent direction is unknown, not steady"));
+    }
+    for observed in [
+        "overall scores holding steady over recent games; 5 scored events",
+        "overall scores trending down over recent games; 5 scored events",
+    ] {
+        let prompt = build_stat_prompt(&subject, &profile, None, None, Some(observed), None, None);
+        assert!(prompt.contains(observed));
+        assert!(!prompt.contains("Recent performance trend: unavailable"));
+    }
+}
+
+#[test]
+fn polarity_and_z_changes_invalidate_the_material_hash() {
+    let original = profile_player();
+    let baseline = hash_components(&input_components(&original));
+    let mut polarity = original.clone();
+    polarity.breakdown[0].sign = -1;
+    assert_ne!(baseline, hash_components(&input_components(&polarity)));
+    let mut magnitude = original.clone();
+    magnitude.breakdown[0].z = Some(0.2);
+    assert_ne!(baseline, hash_components(&input_components(&magnitude)));
+    magnitude.breakdown[0].z = None;
+    assert_ne!(baseline, hash_components(&input_components(&magnitude)));
 }
 
 #[test]
@@ -164,7 +240,7 @@ fn season_changes_stay_with_their_own_skill() {
     );
     assert!(prompt.contains("Compatible cross-season measurements"));
     assert!(prompt.contains(
-        "- Direction: FELL. Creation: 1, percentile 66.0 (above average); prior season percentile 95.0; relative standing fell by 29.0 percentile points"
+        "- Direction: FELL. Creation: 1, percentile 66.0 (above average); raw value: higher is better; quality z +1.60; prior season percentile 95.0; relative standing fell by 29.0 percentile points"
     ));
     assert!(!prompt.contains("Chance Creation"));
 }
@@ -237,7 +313,7 @@ fn comparison_block_foregrounds_held_anchors_beyond_the_change_limit() {
     );
     assert!(prompt.contains("Compatible held anchors"));
     assert!(prompt.contains(
-        "- Direction: HELD. Held Elite: 1, percentile 99.0 (elite); prior season percentile 99.2; relative standing held within one percentile point (-0.2)"
+        "- Direction: HELD. Held Elite: 1, percentile 99.0 (elite); raw value: higher is better; quality z +0.00; prior season percentile 99.2; relative standing held within one percentile point (-0.2)"
     ));
     assert!(prompt.contains("current quality band is not evidence"));
 }
@@ -331,6 +407,10 @@ fn serialized_request_has_evidence_and_form_but_no_editorial_outline() {
     assert!(evidence.contains("Scoring: 24, percentile 95.0 (elite)"));
     assert!(evidence.contains("Defense: 2.5, percentile 40.0 (below average)"));
     for retired in [
+        "strengths and limitations",
+        "strengths, limitations and tensions",
+        "primary_strength_to_stop",
+        "primary_weakness_to_exploit",
         "DECISION CARD",
         "Headline strength",
         "Headline limitation",
@@ -369,8 +449,7 @@ fn nfl_profile(position: &str, breakdown: Vec<RatingDatapoint>) -> RatingProfile
 }
 
 // --- off-facet filter: an offensive player's defensive stat sheet (and vice versa) must
-// never reach the scouting decision, the prompt, or the input_hash. The Stafford/London
-// bug: 0th-pct Tackling surfacing as a QB's "primary weakness to exploit".
+// never reach the prompt or input_hash. A QB's defensive stat sheet is outside his facet.
 // -----------------------------------------------------------------------------------------------
 
 #[test]
@@ -483,10 +562,10 @@ fn display_tier_filter_drops_retired_metrics_from_breakdown_and_modes() {
 }
 
 #[test]
-fn retired_metric_never_reaches_prompt_preimage_or_crown() {
+fn retired_metric_never_reaches_prompt_or_preimage() {
     // The Session D golden: Dan Burn-shaped profile — a display-tier metric holds the top
-    // percentile. After the filter, the crown, the built prompt, and the input_components
-    // hash pre-image must all be free of it, and the crown falls to the best REAL signal.
+    // percentile. After the filter, the built prompt and input_components hash pre-image
+    // must exclude it while retaining curated measurements.
     let mut p = nfl_profile(
         "",
         vec![
@@ -504,15 +583,6 @@ fn retired_metric_never_reaches_prompt_preimage_or_crown() {
         ],
     );
     drop_display_tier_datapoints(&mut p);
-
-    let decision = build_scouting_decision(&p);
-    assert_eq!(
-        decision
-            .primary_strength_to_stop
-            .as_ref()
-            .map(|f| f.label.as_str()),
-        Some("Interceptions")
-    );
 
     let prompt = build_stat_prompt(
         &req("FOOTBALL", "player", "Test Defender"),
@@ -557,55 +627,6 @@ fn degenerate_zero_datapoints_drop_but_real_absences_stay() {
     assert_eq!(p.breakdown[0].label, "Touchdowns");
 }
 
-#[test]
-fn weakness_requires_material_z_not_just_percentile() {
-    // London's giveaways: 5th pct but sign-adjusted z only -0.2 -> NOT a weakness.
-    let mut clumped = faceted("Giveaways", 5.3, "offense");
-    clumped.value = Some(1.0);
-    clumped.z = Some(0.199);
-    clumped.sign = -1;
-    assert!(!is_weakness(&clumped));
-    // Stafford's giveaways: 0th pct at sign-adjusted z -4.9 -> emphatically a weakness.
-    let mut real = faceted("Giveaways", 0.0, "offense");
-    real.value = Some(12.0);
-    real.z = Some(4.9023);
-    real.sign = -1;
-    assert!(is_weakness(&real));
-    // With only artifact-grade negatives, the decision names NO weakness.
-    let mut strong = faceted("Air Yards Responsible", 92.9, "offense");
-    strong.value = Some(919.0);
-    strong.z = Some(1.0);
-    let p = nfl_profile("WR", vec![strong, clumped]);
-    let d = build_scouting_decision(&p);
-    assert_eq!(d.primary_weakness_to_exploit, None);
-}
-
-#[test]
-fn scouting_decision_weakness_is_positional_after_filter() {
-    let mut giveaways = faceted("Giveaways", 20.0, "offense");
-    giveaways.value = Some(12.0);
-    giveaways.z = Some(2.0); // sign-adjusted -2.0: materially bad, a real weakness
-    giveaways.sign = -1;
-    let mut p = nfl_profile(
-        "QB",
-        vec![
-            faceted("Passing Yards", 90.0, "offense"),
-            faceted("Tackling", 0.0, "defense"),
-            giveaways,
-        ],
-    );
-    drop_off_facet_datapoints(&mut p);
-    let d = build_scouting_decision(&p);
-    // Without the filter the 0th-pct Tackling wins min-by-pct; with it, the weakness is
-    // the worst stat the player actually plays.
-    assert_eq!(
-        d.primary_weakness_to_exploit
-            .as_ref()
-            .map(|f| f.label.as_str()),
-        Some("Giveaways")
-    );
-}
-
 // --- build_stat_prompt byte-fixtures: the deterministic parity axis. The expected strings are
 // computed by hand from the Rust assembly, so prompt drift fails here (offline, no model).
 // -----------------------------------------------------------------------------------------------
@@ -627,10 +648,13 @@ fn prompt_player_composite_datapoints_and_scoped_position() {
         "Entity: Test Player (NBA player, Guard); season 2025\n\
 Stats updated: unknown; sample: unknown\n\
 \nOverall standardized score (50 = average): 67\n\
+Selected evidence: measures omitted from this assignment are not thereby zero or unavailable in the source.\n\
+Quality scale: raw-value direction is stated for each measure. Percentiles and quality z already account for that direction; do not invert them again. Higher quality is better for both positive and negative stats. Quality z is distance from the peer mean in standard deviations: 0 is average, positive favorable, negative unfavorable. For a measure with a supplied quality z, its magnitude describes standardized distance; percentile alone describes relative standing, not the size of the difference. Missing polarity or z stays unknown.\n\
 Values: per-game averages, except percentages.\n\
 \nCurrent-snapshot measurements. Percentiles, when present, rank the same measure among eligible entities in this sport and season; higher is better. Missing ranks and season comparisons are unmeasured.\n\
-- Scoring: 24, percentile 95.0 (elite)\n\
-- Defense: 2.5, percentile 40.0 (below average)\n\
+- Scoring: 24, percentile 95.0 (elite); raw value: higher is better; quality z +3.10\n\
+- Defense: 2.5, percentile 40.0 (below average); raw value: higher is better; quality z -0.50\n\
+\nRecent performance trend: unavailable in this assignment; recent direction is unknown, not steady.\n\
 "
     );
 }
@@ -663,43 +687,14 @@ fn prompt_team_no_composite_no_position() {
         prompt,
         "Entity: Test FC (FOOTBALL team); season 2025\n\
 Stats updated: unknown; sample: unknown\n\
+Selected evidence: measures omitted from this assignment are not thereby zero or unavailable in the source.\n\
+Quality scale: raw-value direction is stated for each measure. Percentiles and quality z already account for that direction; do not invert them again. Higher quality is better for both positive and negative stats. Quality z is distance from the peer mean in standard deviations: 0 is average, positive favorable, negative unfavorable. For a measure with a supplied quality z, its magnitude describes standardized distance; percentile alone describes relative standing, not the size of the difference. Missing polarity or z stays unknown.\n\
 Values: season totals, except percentages and named adjustments.\n\
 \nCurrent-snapshot measurements. Percentiles, when present, rank the same measure among eligible entities in this sport and season; higher is better. Missing ranks and season comparisons are unmeasured.\n\
-- Defense: 0.38, percentile 78.0 (strong)\n\
+- Defense: 0.38, percentile 78.0 (strong); raw value: higher is better; quality z +1.20\n\
+\nRecent performance trend: unavailable in this assignment; recent direction is unknown, not steady.\n\
 "
     );
-}
-
-#[test]
-fn scouting_decision_requires_no_standout_when_top_is_only_above_average() {
-    let p = RatingProfile {
-        observed_at: None,
-        sample: Default::default(),
-        league_id: None,
-        entity_type: "player".to_string(),
-        season: 2025,
-        position: "SG".to_string(),
-        composite_score: Some(49.0),
-        breakdown: vec![
-            dp("Spot-up shooting", 38.1, 0.5, 64.0, 1),
-            dp("Turnovers", 3.7, -1.4, 23.0, 1),
-        ],
-        scoped_ranks: HashMap::new(),
-        rate_modes: HashMap::new(),
-    };
-    let d = build_scouting_decision(&p);
-    // s19: no divined label — no-standout is asserted structurally below.
-    assert!(d.primary_strength_to_stop.is_none());
-    assert_eq!(
-        d.primary_weakness_to_exploit
-            .as_ref()
-            .map(|f| f.label.as_str()),
-        Some("Turnovers")
-    );
-    assert!(d
-        .no_standout_reason
-        .as_deref()
-        .is_some_and(|r| r.contains("Spot-up shooting") && r.contains("above average")));
 }
 
 // --- input_components canonical JSON: the input_hash pre-image ----------------------------------
@@ -714,7 +709,7 @@ fn input_components_is_canonical_json() {
     assert_eq!(
         ic,
         format!(
-            r#"{{"composite_score":67.0,"datapoints":[{{"label":"Scoring","measure":"Scoring","pct":95.0,"value":24.0}},{{"label":"Defense","measure":"Defense","pct":40.0,"value":2.5}}],"position":"Guard","prompt_version":"{RATING_PROMPT_VERSION}","sample":{{}},"season":2025}}"#
+            r#"{{"composite_score":67.0,"datapoints":[{{"label":"Scoring","measure":"Scoring","pct":95.0,"sign":1,"value":24.0,"z":3.1}},{{"label":"Defense","measure":"Defense","pct":40.0,"sign":1,"value":2.5,"z":-0.5}}],"position":"Guard","prompt_version":"{RATING_PROMPT_VERSION}","sample":{{}},"season":2025}}"#
         )
     );
     // The hash is a deterministic function of those exact bytes.
@@ -1758,8 +1753,8 @@ fn thin_current_sample_withholds_directional_cross_season_claims() {
     assert!(!prompt.contains("Appearances 3"));
     assert!(prompt.contains("no cross-season change was computed"));
     assert!(prompt.contains("Do not claim improvement, decline, stability"));
-    assert!(prompt.contains("at most the two highest printed"));
-    assert!(prompt.contains("exact labels and bands"));
+    assert!(!prompt.contains("state the current team and position"));
+    assert!(!prompt.contains("at most the two highest printed"));
     assert!(prompt.contains("Omit participation totals and Discipline"));
     assert!(prompt.contains("Never say mid-season"));
     assert!(prompt.contains("unless this prompt explicitly says it is unresolved"));
@@ -1987,7 +1982,9 @@ fn assignment() -> Assignment {
             num_predict: RATING_NUM_PREDICT,
             num_ctx: 4096,
             json_mode: false,
-            format_schema: Some(crate::studio::form::card_schema(false)),
+            format_schema: Some(crate::studio::form::with_abstention(
+                crate::studio::form::card_schema(false),
+            )),
             format_schema_raw: None,
         },
         built_prompt: "Entity: Vale Kerr (NBA player); season 2026".to_string(),
@@ -2136,4 +2133,90 @@ fn claim_paragraphs_survive_the_production_parser() {
     let raw = format!("{body}\nHEADLINE: An ordinary profile holds");
     let parsed = RatingParser.parse(&raw).unwrap().unwrap();
     assert_eq!(parsed.body, body);
+}
+
+#[tokio::test]
+async fn explicit_pass_completes_once_and_retains_called_provenance() {
+    let model = FakeModel::new("null");
+    let output = create(&Studio::new(&model), assignment()).await.unwrap();
+    assert!(output.abstained);
+    assert!(!output.skipped_no_stats);
+    assert!(!output.skipped_unchanged);
+    assert!(output.body.is_none());
+    assert!(output.headline.is_none());
+    assert_eq!(
+        output.provenance.input_hash.as_deref(),
+        Some("prepared-hash")
+    );
+    assert_eq!(output.provenance.model_version, "model-that-answered");
+    assert_eq!(
+        output.call.as_ref().unwrap().request_body["actual_request"],
+        true
+    );
+    // Prepared analytical observations survive a decision not to write prose.
+    assert_eq!(output.rating_trajectory.as_deref(), Some("rising"));
+    assert_eq!(model.calls.lock().unwrap().len(), 1);
+}
+
+#[test]
+fn only_explicit_null_is_a_pass() {
+    assert!(RatingParser.parse(" \nnull\n").unwrap().is_none());
+    // Legacy plain prose remains accepted, but cannot masquerade as a pass.
+    assert!(RatingParser.parse("null trailing").unwrap().is_some());
+    for raw in [
+        "",
+        "{}",
+        r#"{"headline":"Vale Kerr","body":""}"#,
+        r#"{"headline":"Vale Kerr","body":null}"#,
+    ] {
+        assert!(
+            RatingParser.parse(raw).is_err(),
+            "invalid card accepted: {raw}"
+        );
+    }
+}
+
+#[test]
+fn incompatible_history_does_not_erase_current_measurements() {
+    let mut current = profile_player();
+    current.league_id = Some(1);
+    for changed_league in [true, false] {
+        let mut prior = current.clone();
+        prior.season -= 1;
+        prior.league_id = if changed_league {
+            Some(2)
+        } else {
+            current.league_id
+        };
+        if !changed_league {
+            for d in &mut prior.breakdown {
+                d.measure = "retired measurement".into();
+            }
+        }
+        let changes = build_skill_changes(&current, &prior);
+        assert!(changes.is_empty());
+        let selected = model_prompt_profile(&current, true, Some(&changes));
+        let subject = req("NBA", "player", "Test Player");
+        let baseline = build_stat_prompt(&subject, &current, None, None, None, None, None);
+        let actual = build_stat_prompt(&subject, &selected, None, Some(&changes), None, None, None);
+        assert_eq!(
+            actual, baseline,
+            "incompatible history erased current evidence"
+        );
+    }
+}
+
+#[test]
+fn absent_measurements_and_withheld_unidentified_measurements_have_distinct_context() {
+    let mut profile = profile_player();
+    for d in &mut profile.breakdown {
+        d.measure.clear();
+    }
+    let subject = req("NBA", "player", "Test Player");
+    let withheld = build_stat_prompt(&subject, &profile, None, None, None, None, None);
+    assert!(withheld.contains("underlying measurement identity is unavailable"));
+    profile.breakdown.clear();
+    let absent = build_stat_prompt(&subject, &profile, None, None, None, None, None);
+    assert!(absent.contains("No current rating measurements are supplied"));
+    assert!(!absent.contains("underlying measurement identity is unavailable"));
 }

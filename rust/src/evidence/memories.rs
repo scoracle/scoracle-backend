@@ -16,7 +16,7 @@ mod sources;
 pub use identity::load_identity_record;
 pub use sources::{load, MemoryRequest};
 
-pub const VERSION: &str = "memories-v3";
+pub const VERSION: &str = "memories-v4";
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -569,6 +569,18 @@ fn render_model_performance_comparison(records: &[Record]) -> Option<Vec<String>
             unavailable.push(label.to_string());
             continue;
         };
+        let earlier_unit = earlier_measurement
+            .get("unit")
+            .and_then(Value::as_str)
+            .filter(|u| !u.trim().is_empty());
+        let current_unit = current_measurement
+            .get("unit")
+            .and_then(Value::as_str)
+            .filter(|u| !u.trim().is_empty());
+        let Some(unit) = earlier_unit.filter(|unit| Some(*unit) == current_unit) else {
+            unavailable.push(format!("{label} (unit missing or incompatible)"));
+            continue;
+        };
         let earlier_value = earlier_measurement
             .get("value")
             .filter(|value| !value.is_null());
@@ -578,7 +590,7 @@ fn render_model_performance_comparison(records: &[Record]) -> Option<Vec<String>
         match (earlier_value, current_value) {
             (Some(earlier_value), Some(current_value)) => {
                 let mut comparison = format!(
-                    "{label}: earlier {} total; current {} total",
+                    "{label}: earlier {} ({unit}); current {} ({unit})",
                     render_model_value(earlier_value),
                     render_model_value(current_value)
                 );
@@ -628,7 +640,7 @@ fn render_model_performance_comparison(records: &[Record]) -> Option<Vec<String>
     unavailable.dedup();
     if !unavailable.is_empty() {
         lines.push(format!(
-            "Unavailable for directional comparison because one snapshot lacks a value: {}. Do not infer an increase, decrease, or zero.",
+            "Unavailable for directional comparison because a value or compatible unit is missing: {}. Do not infer an increase, decrease, or zero.",
             unavailable.join(", ")
         ));
     }
@@ -733,7 +745,12 @@ fn render_model_data(data: &Value) -> String {
                     .get("value")
                     .map(render_model_value)
                     .unwrap_or_else(|| "unknown".into());
-                match measurement.get("per_90_recorded_minutes") {
+                let unit = measurement
+                    .get("unit")
+                    .and_then(Value::as_str)
+                    .filter(|unit| !unit.trim().is_empty())
+                    .unwrap_or("unknown");
+                let observation = match measurement.get("per_90_recorded_minutes") {
                     Some(rate) if !rate.is_null() => {
                         format!(
                             "{label} {value} ({} per 90 recorded minutes)",
@@ -741,7 +758,8 @@ fn render_model_data(data: &Value) -> String {
                         )
                     }
                     _ => format!("{label} {value}"),
-                }
+                };
+                format!("{observation}; unit: {unit}")
             })
             .collect::<Vec<_>>()
             .join("; ");
@@ -752,11 +770,9 @@ fn render_model_data(data: &Value) -> String {
         return parts.join("; ");
     }
     if let Some(text) = data.get("text").and_then(Value::as_str) {
-        let text = text
-            .split("; observed ")
-            .next()
-            .unwrap_or(text)
-            .trim_end_matches('.');
+        // This can be a multiline identity card with dated sourced facts after
+        // its first line. Truncating at an observation date erased those facts.
+        let text = text.trim_end_matches('.');
         return match data
             .get("evidence_article_ids")
             .filter(|v| v.as_array().is_some_and(|a| !a.is_empty()))
@@ -1049,9 +1065,9 @@ mod tests {
                 "competition": "Premier League",
                 "recorded_sample": {"appearances": 10, "minutes_played": 900},
                 "measurements": [
-                    {"measure": "goals", "label": "Goals", "value": goals,
+                    {"measure": "goals", "label": "Goals", "unit": "cumulative_total", "value": goals,
                      "per_90_recorded_minutes": goals},
-                    {"measure": "assists", "label": "Assists", "value": assists,
+                    {"measure": "assists", "label": "Assists", "unit": "cumulative_total", "value": assists,
                      "per_90_recorded_minutes": assists}
                 ]
             }),
@@ -1079,7 +1095,8 @@ mod tests {
         });
         let rendered = package.render_for_model().unwrap();
         assert!(rendered.contains("earlier Aston Villa, 2025, Premier League"));
-        assert!(rendered.contains("Assists: earlier 6 total; current 1 total"));
+        assert!(rendered
+            .contains("Assists: earlier 6 (cumulative_total); current 1 (cumulative_total)"));
         assert!(rendered.contains("Unavailable for directional comparison"));
         assert!(rendered.contains("Goals"));
         assert!(!rendered.contains("Goals: earlier 10"));
@@ -1209,5 +1226,51 @@ mod tests {
             .omissions
             .iter()
             .any(|omission| omission.group == "performance comparison"));
+    }
+    #[test]
+    fn identity_observation_date_does_not_erase_later_sourced_facts() {
+        let text = "Noah — MF. Record: canonical; observed 2026-09-01.\nplaying_status: unavailable [2026-09-02; source 9]";
+        let rendered = render_model_data(&json!({"text": text}));
+        assert!(rendered.contains("observed 2026-09-01"));
+        assert!(rendered.contains("playing_status: unavailable [2026-09-02; source 9]"));
+    }
+
+    #[test]
+    fn performance_comparison_preserves_units_and_measured_zero() {
+        let record = |section, unit: Value, value: Value| Record {
+            section,
+            sources: vec![],
+            observed_at: None,
+            observed_unix: None,
+            data: json!({"measurements":[{"measure":"points","label":"Points","unit":unit,"value":value}]}),
+        };
+        for unit in ["per_game_avg", "rate_pct", "cumulative_total"] {
+            let rendered = render_model_performance_comparison(&[
+                record(Section::EstablishedHistory, json!(unit), json!(12)),
+                record(Section::PresentEvidence, json!(unit), json!(0)),
+            ])
+            .unwrap()
+            .join("\n");
+            assert!(rendered.contains(unit), "{rendered}");
+            assert!(rendered.contains("current 0"), "{rendered}");
+            if unit != "cumulative_total" {
+                assert!(!rendered.contains(" total"));
+            }
+        }
+        for (prior_unit, current_unit) in [
+            (json!("per_game_avg"), json!("cumulative_total")),
+            (Value::Null, Value::Null),
+        ] {
+            let rendered = render_model_performance_comparison(&[
+                record(Section::EstablishedHistory, prior_unit, json!(12)),
+                record(Section::PresentEvidence, current_unit, json!(0)),
+            ])
+            .unwrap()
+            .join("\n");
+            assert!(
+                !rendered.contains("Like-for-like measurements only"),
+                "{rendered}"
+            );
+        }
     }
 }

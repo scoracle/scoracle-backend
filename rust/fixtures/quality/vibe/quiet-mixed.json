@@ -1,7 +1,7 @@
 {
   "expect": {},
   "name": "quiet-mixed",
-  "prompt_version": "v32",
+  "prompt_version": "v36",
   "task": "vibe",
   "temperature": 0.0,
   "user_prompt": "Entity: Team Harbor City Sharks (NFL)\n\nThe stories running around them right now (MOOD describes emotional language in the reporting; attribute feelings to the speaker or source shown):\nSTORY: Routine win closes quiet week\nREPORTED:\n- A workmanlike divisional win with no standout storylines; beat coverage focused on practice-squad moves.\n",

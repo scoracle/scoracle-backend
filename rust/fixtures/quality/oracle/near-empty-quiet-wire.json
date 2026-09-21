@@ -1,7 +1,7 @@
 {
   "expect": {},
   "name": "near-empty-quiet-wire",
-  "prompt_version": "or20",
+  "prompt_version": "or24",
   "task": "oracle",
   "temperature": 0.0,
   "user_prompt": "Entity: Venezia (FOOTBALL team)\n\n[Developing story..., 1 sources, latest 1d ago] Venezia reports back for preseason\nThe squad returned for preseason testing this week; no further detail has surfaced.\n\n\nPresent direction: steady.\n",

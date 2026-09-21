@@ -1,7 +1,7 @@
 {
   "expect": {},
   "name": "warm-memory-cold-coverage",
-  "prompt_version": "v32",
+  "prompt_version": "v36",
   "task": "vibe",
   "temperature": 0.0,
   "user_prompt": "Entity: Player Elias Trent (NBA)\n\nPrior story: MVP-caliber spring surge — peaked Apr 2026 (coverage 88/100).\nOur prior read: euphoric through April; the fanbase built its summer expectations on that stretch.\n\nThe stories running around them right now (MOOD describes emotional language in the reporting; attribute feelings to the speaker or source shown):\nSTORY: Slump deepens as minutes shrink\nREPORTED:\n- A fourth straight quiet outing; the coach declined to confirm his place in the closing lineup and the home crowd has gone flat on him.\n",

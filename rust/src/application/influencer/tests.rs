@@ -137,7 +137,7 @@ async fn never_scored_empty_material_prepares_marker_once_with_provenance() {
             Some(ctx.input_hash.as_str())
         );
         assert_eq!(marker.provenance.model_version, "configured-model");
-        assert_eq!(marker.provenance.prompt_version, "v32");
+        assert_eq!(marker.provenance.prompt_version, "v36");
         assert!(marker.provenance.input_ids.is_empty());
     }
     assert_eq!(

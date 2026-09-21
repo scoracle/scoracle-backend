@@ -4,7 +4,7 @@
     "narratives_max": 1
   },
   "name": "vague-hype-restraint",
-  "prompt_version": "n30",
+  "prompt_version": "n34",
   "task": "narratives",
   "temperature": 0.0,
   "user_prompt": "Entity: Tobias Renn (NBA player)\n\nRecent news (numbered):\n1. [FadeawayWorld] Tobias Renn is ready to take the leap, sources say — Insiders believe big things are coming for Renn this season, though specifics remain unclear.\n2. [Hoops Rumors] Could this be Tobias Renn's breakout year? — Speculation is building around Renn, with one source calling him a name to watch this winter.\n",

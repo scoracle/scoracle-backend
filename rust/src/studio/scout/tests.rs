@@ -709,7 +709,7 @@ fn input_components_is_canonical_json() {
     assert_eq!(
         ic,
         format!(
-            r#"{{"composite_score":67.0,"datapoints":[{{"label":"Scoring","measure":"Scoring","pct":95.0,"sign":1,"value":24.0,"z":3.1}},{{"label":"Defense","measure":"Defense","pct":40.0,"sign":1,"value":2.5,"z":-0.5}}],"position":"Guard","prompt_version":"{RATING_PROMPT_VERSION}","sample":{{}},"season":2025}}"#
+            r#"{{"composite_score":67.0,"datapoints":[{{"cohort":null,"label":"Scoring","measure":"Scoring","pct":95.0,"sign":1,"value":24.0,"z":3.1}},{{"cohort":null,"label":"Defense","measure":"Defense","pct":40.0,"sign":1,"value":2.5,"z":-0.5}}],"position":"Guard","prompt_version":"{RATING_PROMPT_VERSION}","sample":{{}},"season":2025}}"#
         )
     );
     // The hash is a deterministic function of those exact bytes.
@@ -2334,4 +2334,20 @@ fn absent_measurements_and_withheld_unidentified_measurements_have_distinct_cont
     let absent = build_stat_prompt(&subject, &profile, None, None, None, None, None);
     assert!(absent.contains("No current rating measurements are supplied"));
     assert!(!absent.contains("underlying measurement identity is unavailable"));
+}
+
+#[test]
+fn ranked_measures_name_their_comparison_pool() {
+    let mut with_pool = dp("Scoring", 24.0, 3.1, 95.0, 1);
+    with_pool.cohort = Some(4470.0);
+    assert_eq!(
+        format_datapoint_evidence(&with_pool),
+        "Scoring: 24, percentile 95.0 (elite) of 4470 eligible profiles; raw value: higher is better; quality z +3.10"
+    );
+
+    // No population: the percentile stands alone.
+    assert_eq!(
+        format_datapoint_evidence(&dp("Defense", 2.5, -0.5, 40.0, -1)),
+        "Defense: 2.5, percentile 40.0 (below average); raw value: lower is better; quality z +0.50"
+    );
 }

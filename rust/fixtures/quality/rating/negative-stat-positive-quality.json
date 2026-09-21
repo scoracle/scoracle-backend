@@ -1,7 +1,7 @@
 {
   "expect": {},
   "name": "negative-stat-positive-quality",
-  "prompt_version": "s57",
+  "prompt_version": "s58",
   "task": "rating",
   "temperature": 0.0,
   "user_prompt": "Entity: Eli Stone (NBA player, SG); season 2025\n\nIdentity context, not event evidence.\nName: Eli Stone; team: Harbor City; position: SG; jersey: 8.\n\nStats updated: unknown; sample: Games Played 25\n\nSelected evidence: measures omitted from this assignment are not thereby zero or unavailable in the source.\nQuality scale: raw-value direction is stated for each measure. Percentiles and quality z already account for that direction; do not invert them again. Higher quality is better for both positive and negative stats. Quality z is distance from the peer mean in standard deviations: 0 is average, positive favorable, negative unfavorable. For a measure with a supplied quality z, its magnitude describes standardized distance; percentile alone describes relative standing, not the size of the difference. Missing polarity or z stays unknown.\nValues: per-game averages, except percentages.\n\nCurrent-snapshot measurements. Percentiles, when present, rank the same measure among eligible entities in this sport and season; higher is better. Missing ranks and season comparisons are unmeasured.\n- Scoring: 12 (points), percentile 20.0 (poor); raw value: higher is better; quality z -1.50\n- Turnovers: 1, percentile 90.0 (elite); raw value: lower is better; quality z +1.20\n\nRecent performance trend: unavailable in this assignment; recent direction is unknown, not steady.\n",

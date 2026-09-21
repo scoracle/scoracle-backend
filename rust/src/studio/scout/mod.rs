@@ -70,6 +70,10 @@ pub struct RatingDatapoint {
     pub sign: i32,
     #[serde(default, deserialize_with = "null_to_default")]
     pub facet: String,
+    /// Size of the same-measure eligible population the percentile ranked. Missing when
+    /// no comparison population exists.
+    #[serde(default)]
+    pub cohort: Option<f64>,
     #[serde(default, deserialize_with = "null_tolerant_map")]
     pub scoped_pct: HashMap<String, f64>,
 }
@@ -419,6 +423,9 @@ fn format_datapoint_evidence(d: &RatingDatapoint) -> String {
     }
     if let Some(pct) = d.pct {
         s.push_str(&format!(", percentile {pct:.1} ({})", pct_band(pct)));
+        if let Some(cohort) = d.cohort.filter(|n| *n >= 2.0) {
+            s.push_str(&format!(" of {} eligible profiles", trim_float(cohort)));
+        }
     }
     s.push_str(match d.sign {
         1 => "; raw value: higher is better",
@@ -615,7 +622,7 @@ pub fn input_components(p: &RatingProfile) -> String {
     let datapoints: Vec<serde_json::Value> = p
         .breakdown
         .iter()
-        .map(|d| serde_json::json!({"label": d.label, "measure":d.measure, "value":d.value, "pct": d.pct.map(round1), "sign":d.sign, "z":d.z}))
+        .map(|d| serde_json::json!({"label": d.label, "measure":d.measure, "value":d.value, "pct": d.pct.map(round1), "sign":d.sign, "z":d.z, "cohort":d.cohort}))
         .collect();
 
     let mut components = serde_json::Map::new();

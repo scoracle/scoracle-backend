@@ -159,12 +159,14 @@ pop AS (
 z AS (
     SELECT d.player_id, d.league_id, d.position, d.conference, d.division,
            d.label, d.measure, d.in_comp, d.in_spec, d.sign, d.facet, d.value, d.is_ranked,
-           CASE WHEN p.mean IS NOT NULL THEN COALESCE((d.value - p.mean) / p.sd, 0) END AS zr
+           -- Withhold z when the comparison spread is undefined (migration 265): a
+           -- degenerate population is unknown, not exactly average.
+           CASE WHEN p.mean IS NOT NULL AND p.sd IS NOT NULL THEN (d.value - p.mean) / p.sd END AS zr
     FROM dp d LEFT JOIN pop p USING (label, measure)
     WHERE d.value IS NOT NULL
 ),
 comp AS (
-    SELECT player_id, league_id, SUM(sign * zr) FILTER (WHERE in_comp) AS composite
+    SELECT player_id, league_id, SUM(sign * COALESCE(zr, 0)) FILTER (WHERE in_comp) AS composite
     FROM z GROUP BY player_id, league_id
 ),
 rk AS (

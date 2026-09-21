@@ -62,7 +62,13 @@ pub fn build_stat_prompt_with_exclusions(
     let appearances = sample_appearances(p);
     let thin_sample = appearances.is_some_and(|n| n < MIN_CROSS_SEASON_APPEARANCES);
 
-    let mut header = format!("{} {}", subject.sport, subject.entity_type);
+    // The curated display name is authoritative; the raw id is only a fallback.
+    let sport_label = if subject.sport_name.trim().is_empty() {
+        subject.sport.as_str()
+    } else {
+        subject.sport_name.trim()
+    };
+    let mut header = format!("{} {}", sport_label, subject.entity_type);
     if !p.position.is_empty() {
         header.push_str(", ");
         header.push_str(&p.position);

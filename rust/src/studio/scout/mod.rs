@@ -37,11 +37,14 @@ pub const RATING_NUM_PREDICT: i32 = 700;
 pub(crate) const MAX_STAT_FACTS: usize = 14;
 
 /// Subject of a Scout assignment. Durable identifiers and trigger policy stay in the application.
+/// `sport_name` is the curated sport display name (e.g. "Football (Soccer)") so the model is
+/// never left to guess what a sport id means; empty falls back to the raw id.
 #[derive(Clone, Debug)]
 pub struct Subject {
     pub entity_type: String,
     pub entity_name: String,
     pub sport: String,
+    pub sport_name: String,
 }
 
 /// One measured skill. `pct` is an actual eligible-cohort percentile (higher is better).

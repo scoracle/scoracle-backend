@@ -357,6 +357,7 @@ fn req(sport: &str, entity_type: &str, name: &str) -> Subject {
         entity_type: entity_type.to_string(),
         entity_name: name.to_string(),
         sport: sport.to_string(),
+        sport_name: String::new(),
     }
 }
 
@@ -2077,6 +2078,7 @@ fn assignment() -> Assignment {
             entity_type: "player".to_string(),
             entity_name: "Vale Kerr".to_string(),
             sport: "NBA".to_string(),
+            sport_name: String::new(),
         },
         season: 2026,
         comparison_directions: BTreeMap::new(),
@@ -2350,4 +2352,24 @@ fn ranked_measures_name_their_comparison_pool() {
         format_datapoint_evidence(&dp("Defense", 2.5, -0.5, 40.0, -1)),
         "Defense: 2.5, percentile 40.0 (below average); raw value: lower is better; quality z +0.50"
     );
+}
+
+#[test]
+fn the_header_carries_the_curated_sport_display_name() {
+    let mut subject = req("FOOTBALL", "team", "Arsenal");
+    subject.sport_name = "Football (Soccer)".into();
+    let prompt = build_stat_prompt(&subject, &profile_player(), None, None, None, None, None);
+    assert!(prompt.contains("(Football (Soccer) team"));
+
+    // Empty display name falls back to the raw sport id.
+    let fallback = build_stat_prompt(
+        &req("NBA", "player", "Test Player"),
+        &profile_player(),
+        None,
+        None,
+        None,
+        None,
+        None,
+    );
+    assert!(fallback.contains("(NBA player"));
 }

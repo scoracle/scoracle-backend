@@ -228,10 +228,19 @@ pub async fn build_rating_request(
     components["recent_form"] = serde_json::json!(form_trend);
     let input_components = components.to_string();
     let input_hash = hash_components(&input_components);
+    let sport_name: String =
+        sqlx::query_scalar("SELECT display_name FROM public.sports WHERE id = $1")
+            .bind(&req.sport)
+            .fetch_optional(pool)
+            .await
+            .ok()
+            .flatten()
+            .unwrap_or_else(|| req.sport.clone());
     let subject = Subject {
         entity_type: req.entity_type.clone(),
         entity_name: req.entity_name.clone(),
         sport: req.sport.clone(),
+        sport_name,
     };
     let built_prompt = scout::build_stat_prompt_with_exclusions(
         &subject,

@@ -233,7 +233,7 @@ pub async fn build_rating_request(
         entity_name: req.entity_name.clone(),
         sport: req.sport.clone(),
     };
-    let built_prompt = scout::build_stat_prompt(
+    let built_prompt = scout::build_stat_prompt_with_exclusions(
         &subject,
         &prompt_profile,
         personnel.as_deref(),
@@ -241,6 +241,7 @@ pub async fn build_rating_request(
         form_trend.as_deref(),
         current_reports.as_deref(),
         Some(&memory_context),
+        Some(&exclusions),
     );
     let opts = GenerateOptions {
         system: Some(RATING_SYSTEM_PROMPT.to_string()),

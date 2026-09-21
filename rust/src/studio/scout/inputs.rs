@@ -32,6 +32,32 @@ pub fn build_stat_prompt(
     current_reports: Option<&str>,
     memory_context: Option<&str>,
 ) -> String {
+    build_stat_prompt_with_exclusions(
+        subject,
+        p,
+        personnel,
+        comparisons,
+        form_trend,
+        current_reports,
+        memory_context,
+        None,
+    )
+}
+
+/// Selection is provable, not silent: the assignment names the measured labels that
+/// selection did NOT carry, so the model cannot read an omitted measure as unmeasured
+/// or zero at the source. Reasons stay in the ledger; the model sees the label list.
+#[allow(clippy::too_many_arguments)]
+pub fn build_stat_prompt_with_exclusions(
+    subject: &Subject,
+    p: &RatingProfile,
+    personnel: Option<&str>,
+    comparisons: Option<&BTreeMap<String, super::SkillChange>>,
+    form_trend: Option<&str>,
+    current_reports: Option<&str>,
+    memory_context: Option<&str>,
+    exclusions: Option<&super::RatingExclusions>,
+) -> String {
     let mut b = String::new();
     let appearances = sample_appearances(p);
     let thin_sample = appearances.is_some_and(|n| n < MIN_CROSS_SEASON_APPEARANCES);
@@ -155,6 +181,22 @@ pub fn build_stat_prompt(
     }
 
     b.push_str("Selected evidence: measures omitted from this assignment are not thereby zero or unavailable in the source.\n");
+    if let Some(exclusions) = exclusions {
+        let mut unselected = exclusions.budget_truncated_stat_labels.clone();
+        unselected.extend(exclusions.off_facet_stat_labels.iter().cloned());
+        unselected.extend(exclusions.degenerate_zero_stat_labels.iter().cloned());
+        unselected.extend(exclusions.display_tier_stat_labels.iter().cloned());
+        unselected.extend(exclusions.thin_sample_omitted_stat_labels.iter().cloned());
+        let mut seen = std::collections::HashSet::new();
+        unselected.retain(|label| seen.insert(label.clone()));
+        unselected.sort();
+        if !unselected.is_empty() {
+            b.push_str(&format!(
+                "Also measured but not selected for this assignment: {}.\n",
+                unselected.join(", ")
+            ));
+        }
+    }
     b.push_str("Quality scale: raw-value direction is stated for each measure. Percentiles and quality z already account for that direction; do not invert them again. Higher quality is better for both positive and negative stats. Quality z is distance from the peer mean in standard deviations: 0 is average, positive favorable, negative unfavorable. For a measure with a supplied quality z, its magnitude describes standardized distance; percentile alone describes relative standing, not the size of the difference. Missing polarity or z stays unknown.\n");
 
     if subject.sport == "NBA" {

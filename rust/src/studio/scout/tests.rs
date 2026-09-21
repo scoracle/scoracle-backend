@@ -1810,6 +1810,44 @@ fn thin_current_sample_shows_only_its_two_highest_ranked_measures() {
 }
 
 #[test]
+fn unselected_measures_are_named_not_silent() {
+    let p = profile_player();
+    let subject = req("FOOTBALL", "player", "Test Player");
+    let bare = build_stat_prompt(&subject, &p, None, None, None, None, None);
+    assert!(!bare.contains("Also measured but not selected"));
+
+    let exclusions = RatingExclusions {
+        budget_truncated_stat_labels: vec!["Long Throws".into(), "Aerial Duels".into()],
+        off_facet_stat_labels: vec!["Tackling".into()],
+        degenerate_zero_stat_labels: vec!["Ground Yards Responsible".into()],
+        display_tier_stat_labels: vec!["Progression".into()],
+        thin_sample_omitted_stat_labels: Vec::new(),
+    };
+    let prompt = build_stat_prompt_with_exclusions(
+        &subject,
+        &p,
+        None,
+        None,
+        None,
+        None,
+        None,
+        Some(&exclusions),
+    );
+    let line = prompt
+        .lines()
+        .find(|line| line.starts_with("Also measured but not selected"))
+        .expect("unselected labels must be named");
+    assert!(line.contains("Long Throws"));
+    assert!(line.contains("Tackling"));
+    assert!(line.contains("Ground Yards Responsible"));
+    assert!(line.contains("Progression"));
+    // One line, deduplicated and ordered, no reasons — those stay in the ledger.
+    assert_eq!(line.lines().count(), 1);
+    assert!(!line.contains("budget"));
+    assert!(!line.contains("artifact"));
+}
+
+#[test]
 fn comparative_model_profile_keeps_changes_and_strongest_held_anchors() {
     let labels = [
         "Rise A",

@@ -21,8 +21,8 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 mod brief;
 mod inputs;
 pub use brief::{CHARACTER, RATING_PROMPT_VERSION, RATING_SYSTEM_PROMPT};
-pub use inputs::build_stat_prompt;
 pub(crate) use inputs::supports_cross_season_comparison;
+pub use inputs::{build_stat_prompt, build_stat_prompt_with_exclusions};
 
 /// Output contract captured separately in the diagnostic ledger.
 pub const RATING_OUTPUT_CONTRACT_VERSION: &str = "rating-commentary-v6";

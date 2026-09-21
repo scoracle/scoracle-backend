@@ -167,7 +167,10 @@ BEGIN
         RAISE EXCEPTION 'Team z rebuild broke parity for % rows', mismatch;
     END IF;
 
-    -- Every z change must be exactly 0 -> NULL on an eligible, unranked observation.
+    -- Every z change must be exactly 0 -> NULL on an unranked observation. Eligibility
+    -- is not part of the exception: an ineligible row of a degenerate population
+    -- (display-tier zeros over an all-tied cohort) moves the same way, because
+    -- degeneracy is a property of the population, not of the row.
     WITH old AS (
         SELECT sport, season, player_id, COALESCE(league_id, 0) AS league_id,
                (SELECT jsonb_object_agg(d->>'label', jsonb_build_object(
@@ -199,8 +202,7 @@ BEGIN
       AND NOT ((oe->>'z')::numeric = 0
                AND (ne->>'z') IS NULL
                AND (oe->>'pct') IS NULL
-               AND (ne->>'pct') IS NULL
-               AND (oe->>'eligible') = 'true');
+               AND (ne->>'pct') IS NULL);
     IF mismatch > 0 THEN
         RAISE EXCEPTION 'Stored z moved outside the degeneracy exception for % elements', mismatch;
     END IF;

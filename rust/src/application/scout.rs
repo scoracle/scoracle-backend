@@ -85,6 +85,7 @@ pub async fn build_rating_request(
         off_facet_stat_labels,
         degenerate_zero_stat_labels,
         display_tier_stat_labels,
+        thin_sample_omitted_stat_labels: scout::thin_sample_omitted_stat_labels(&profile),
     };
     let rating_trajectory = evidence::load_rating_trajectory(
         pool,
@@ -535,6 +536,10 @@ async fn record_ledger(
         (
             "display_tier_retired_from_equation",
             &out.exclusions.display_tier_stat_labels,
+        ),
+        (
+            "thin_sample_omitted_in_selection",
+            &out.exclusions.thin_sample_omitted_stat_labels,
         ),
     ] {
         if !labels.is_empty() {

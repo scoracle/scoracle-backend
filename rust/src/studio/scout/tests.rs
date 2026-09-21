@@ -1755,7 +1755,7 @@ fn thin_current_sample_withholds_directional_cross_season_claims() {
     assert!(prompt.contains("Do not claim improvement, decline, stability"));
     assert!(!prompt.contains("state the current team and position"));
     assert!(!prompt.contains("at most the two highest printed"));
-    assert!(prompt.contains("Omit participation totals and Discipline"));
+    assert!(!prompt.contains("Omit participation totals and Discipline"));
     assert!(prompt.contains("Never say mid-season"));
     assert!(prompt.contains("unless this prompt explicitly says it is unresolved"));
     assert!(prompt.contains("do not mention printed measurements"));
@@ -1764,6 +1764,35 @@ fn thin_current_sample_withholds_directional_cross_season_claims() {
 
     p.sample.insert("appearances".to_string(), 10.0);
     assert!(inputs::supports_cross_season_comparison(&p));
+}
+
+#[test]
+fn thin_sample_selection_omits_discipline_in_code() {
+    let mut p = profile_player();
+    p.sample.insert("appearances".to_string(), 3.0);
+    // Elite Discipline among the two highest percentiles: the old boundary handed it to
+    // the model with an order to omit; selection now withholds it in code.
+    p.breakdown.push(dp("Discipline", 0.2, 1.9, 95.0, -1));
+    p.breakdown.push(dp("Passing", 9.0, 0.5, 80.0, 1));
+
+    assert_eq!(thin_sample_omitted_stat_labels(&p), vec!["Discipline"]);
+    let prompt_profile = model_prompt_profile(&p, false, None);
+    assert_eq!(prompt_profile.breakdown.len(), 2);
+    assert!(prompt_profile
+        .breakdown
+        .iter()
+        .all(|datapoint| datapoint.label != "Discipline"));
+    assert_eq!(prompt_profile.breakdown[0].label, "Scoring");
+    assert_eq!(prompt_profile.breakdown[1].label, "Passing");
+
+    // A full sample keeps Discipline available.
+    p.sample.insert("appearances".to_string(), 12.0);
+    assert!(thin_sample_omitted_stat_labels(&p).is_empty());
+    let full_prompt_profile = model_prompt_profile(&p, true, None);
+    assert!(full_prompt_profile
+        .breakdown
+        .iter()
+        .any(|datapoint| datapoint.label == "Discipline"));
 }
 
 #[test]

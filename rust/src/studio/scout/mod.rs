@@ -151,6 +151,9 @@ pub struct RatingExclusions {
     /// Display-tier datapoints — retired from the rating equation (`in_comp=false AND
     /// in_spec=false`) — excluded from the AI context (see `drop_display_tier_datapoints`).
     pub display_tier_stat_labels: Vec<String>,
+    /// Datapoints the thin-sample selection withholds in code instead of ordering the
+    /// model to ignore them (see `THIN_SAMPLE_OMITTED_LABEL`).
+    pub thin_sample_omitted_stat_labels: Vec<String>,
 }
 
 // ---------------------------------------------------------------------------
@@ -486,6 +489,23 @@ pub(crate) fn measurement_bands(current: &RatingProfile) -> BTreeMap<String, Str
         .collect()
 }
 
+/// Thin samples drop the Discipline datapoint in code rather than handing it to the
+/// model with an order to ignore it. Participation totals are already withheld from the
+/// thin-sample sample line, so this is the last selection decision the old evidence
+/// boundary used to delegate to prose. Returns the omitted labels for the ledger.
+pub const THIN_SAMPLE_OMITTED_LABEL: &str = "Discipline";
+
+pub(crate) fn thin_sample_omitted_stat_labels(p: &RatingProfile) -> Vec<String> {
+    if supports_cross_season_comparison(p) {
+        return Vec::new();
+    }
+    p.breakdown
+        .iter()
+        .filter(|datapoint| datapoint.label == THIN_SAMPLE_OMITTED_LABEL)
+        .map(|datapoint| datapoint.label.clone())
+        .collect()
+}
+
 pub(crate) fn model_prompt_profile(
     profile: &RatingProfile,
     supports_cross_season: bool,
@@ -494,8 +514,11 @@ pub(crate) fn model_prompt_profile(
     let mut prompt_profile = profile.clone();
     if !supports_cross_season {
         prompt_profile.composite_score = None;
+        // The thin-sample evidence boundary omits Discipline from the selection itself
+        // (see THIN_SAMPLE_OMITTED_LABEL); participation totals never reach the prompt.
         prompt_profile.breakdown = ordered_facts_unbounded(&profile.breakdown)
             .into_iter()
+            .filter(|datapoint| datapoint.label != THIN_SAMPLE_OMITTED_LABEL)
             .take(2)
             .collect();
     } else if let Some(comparisons) = comparisons.filter(|changes| !changes.is_empty()) {

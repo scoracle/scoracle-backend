@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 3Ty5sfvkCzBmHDvDKAcd3j9MVKZeJ7IALORSiclduVux9dyNKgTqnFYkSq5bdcP
+\restrict jbPb5MHIT1Epte2Qs8TYp3tks1HaIFN4Ld27ndgLnlw05zGebDX2KZSvwma9FAv
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -11,7 +11,7 @@ SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
 SET transaction_timeout = 0;
-SET client_encoding = 'SQL_ASCII';
+SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 SELECT pg_catalog.set_config('search_path', '', false);
 SET check_function_bodies = false;
@@ -33,13 +33,13 @@ INSERT INTO public.sports (id, display_name, api_base_url, current_season, is_ac
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 3Ty5sfvkCzBmHDvDKAcd3j9MVKZeJ7IALORSiclduVux9dyNKgTqnFYkSq5bdcP
+\unrestrict jbPb5MHIT1Epte2Qs8TYp3tks1HaIFN4Ld27ndgLnlw05zGebDX2KZSvwma9FAv
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict H2tkO6cRSZ6X0zHedpKofWh8JofMgPplIcD6gEvr5DjWkz9LowYjF3leb6qj8Ze
+\restrict KGOUWicVUF5hsMvPNmffgKbEhgbu6R4exLFPWoMepFWnnSmY6ur54DgcrouAZoi
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -48,7 +48,7 @@ SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
 SET transaction_timeout = 0;
-SET client_encoding = 'SQL_ASCII';
+SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 SELECT pg_catalog.set_config('search_path', '', false);
 SET check_function_bodies = false;
@@ -72,13 +72,13 @@ INSERT INTO public.leagues (id, sport, name, country, logo_url, sportmonks_id, i
 -- PostgreSQL database dump complete
 --
 
-\unrestrict H2tkO6cRSZ6X0zHedpKofWh8JofMgPplIcD6gEvr5DjWkz9LowYjF3leb6qj8Ze
+\unrestrict KGOUWicVUF5hsMvPNmffgKbEhgbu6R4exLFPWoMepFWnnSmY6ur54DgcrouAZoi
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict Lh9ZMrQBbBxyllG5jEwuLVLbZkbrV7quhzwqzi78ZgbIXexYtmkh1MsRedf2W9H
+\restrict pERavbna6vC5qyzc8xnzXdug6NsSVadBU565MK2vKWF50Oi7cKLSm6X2FNdI1WU
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -87,7 +87,7 @@ SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
 SET transaction_timeout = 0;
-SET client_encoding = 'SQL_ASCII';
+SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 SELECT pg_catalog.set_config('search_path', '', false);
 SET check_function_bodies = false;
@@ -153,13 +153,13 @@ SELECT pg_catalog.setval('public.provider_seasons_id_seq', 40, true);
 -- PostgreSQL database dump complete
 --
 
-\unrestrict Lh9ZMrQBbBxyllG5jEwuLVLbZkbrV7quhzwqzi78ZgbIXexYtmkh1MsRedf2W9H
+\unrestrict pERavbna6vC5qyzc8xnzXdug6NsSVadBU565MK2vKWF50Oi7cKLSm6X2FNdI1WU
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict 6Qb7g7EY0dCYqzlg3exnCAgZnFSXbEDxo7jnVcAUQMEFnJb257zKotbFwX7O017
+\restrict qgvLejIGZFkhJR6GHoeghBTuuI5RoD1MTs6Jv341GaZ1ayxtLwLmXhdasBKxA2T
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -168,7 +168,7 @@ SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
 SET transaction_timeout = 0;
-SET client_encoding = 'SQL_ASCII';
+SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 SELECT pg_catalog.set_config('search_path', '', false);
 SET check_function_bodies = false;
@@ -751,13 +751,13 @@ SELECT pg_catalog.setval('public.stat_definitions_id_seq', 1358, true);
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 6Qb7g7EY0dCYqzlg3exnCAgZnFSXbEDxo7jnVcAUQMEFnJb257zKotbFwX7O017
+\unrestrict qgvLejIGZFkhJR6GHoeghBTuuI5RoD1MTs6Jv341GaZ1ayxtLwLmXhdasBKxA2T
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict GRS5KHntfJYNCbdXr9uQ4QPiroF4I9QRrlQJa0nUvLvNjRlq3WyMMAYSR6PAn82
+\restrict k11pKEgaTDtO085PginyFP3aPTjuCIuH1bEqOi6efHzMs16twBgh6foSkqJlupy
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -766,7 +766,7 @@ SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
 SET transaction_timeout = 0;
-SET client_encoding = 'SQL_ASCII';
+SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 SELECT pg_catalog.set_config('search_path', '', false);
 SET check_function_bodies = false;
@@ -790,13 +790,13 @@ INSERT INTO public.rate_modes (sport, mode, suffix, denom_key, formula, unit, ro
 -- PostgreSQL database dump complete
 --
 
-\unrestrict GRS5KHntfJYNCbdXr9uQ4QPiroF4I9QRrlQJa0nUvLvNjRlq3WyMMAYSR6PAn82
+\unrestrict k11pKEgaTDtO085PginyFP3aPTjuCIuH1bEqOi6efHzMs16twBgh6foSkqJlupy
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict oiFHnucK3RXrAfukMtYkkSEBurHcs1y1WuFHPpabNqqH1ZqsuyakjVpCWpyGj1h
+\restrict RFJfWOBohNSxeqbzHOCFuciS91veIyIIvYEiC8Yb04ibKV1VWs5AcUnMHV3uoG1
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -805,7 +805,7 @@ SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
 SET transaction_timeout = 0;
-SET client_encoding = 'SQL_ASCII';
+SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 SELECT pg_catalog.set_config('search_path', '', false);
 SET check_function_bodies = false;
@@ -828,13 +828,13 @@ INSERT INTO public.rating_thresholds (sport, stat_key, min_value) VALUES
 -- PostgreSQL database dump complete
 --
 
-\unrestrict oiFHnucK3RXrAfukMtYkkSEBurHcs1y1WuFHPpabNqqH1ZqsuyakjVpCWpyGj1h
+\unrestrict RFJfWOBohNSxeqbzHOCFuciS91veIyIIvYEiC8Yb04ibKV1VWs5AcUnMHV3uoG1
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict tM3fnwyltSczYihh61g5Z89WkZRbARwpbrEbx8ez0qeUNRhdAXoId4GuA0xzIJx
+\restrict qoRJI5o37QSAF7ROaMZNNhqSaAXnp8K8HAxlKGr2zvr05H1EUvJC9ZgO6Q2mpYS
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -843,7 +843,7 @@ SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
 SET transaction_timeout = 0;
-SET client_encoding = 'SQL_ASCII';
+SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 SELECT pg_catalog.set_config('search_path', '', false);
 SET check_function_bodies = false;
@@ -1030,13 +1030,13 @@ INSERT INTO public.stat_templates (sport, position_group, stat_key, sort_order, 
 -- PostgreSQL database dump complete
 --
 
-\unrestrict tM3fnwyltSczYihh61g5Z89WkZRbARwpbrEbx8ez0qeUNRhdAXoId4GuA0xzIJx
+\unrestrict qoRJI5o37QSAF7ROaMZNNhqSaAXnp8K8HAxlKGr2zvr05H1EUvJC9ZgO6Q2mpYS
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict TROogUZanmMzD7t7HGUKpClHmy6rEyiG48oVWFPzb94xZn4F2A5ZEuSa4IDN5yt
+\restrict mmKaFFurMyRIAPPfXXh7UiblyXHUBIpNLptJNOtbeSX7ODJQ3XaEg5axCMCtrda
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -1045,7 +1045,7 @@ SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
 SET transaction_timeout = 0;
-SET client_encoding = 'SQL_ASCII';
+SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 SELECT pg_catalog.set_config('search_path', '', false);
 SET check_function_bodies = false;
@@ -1074,13 +1074,13 @@ INSERT INTO public.entity_fact_policy (entity_type, fact_type, tier) VALUES
 -- PostgreSQL database dump complete
 --
 
-\unrestrict TROogUZanmMzD7t7HGUKpClHmy6rEyiG48oVWFPzb94xZn4F2A5ZEuSa4IDN5yt
+\unrestrict mmKaFFurMyRIAPPfXXh7UiblyXHUBIpNLptJNOtbeSX7ODJQ3XaEg5axCMCtrda
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict 4icgCQEtNm9QSAnrJkRzc5ulXtA77jhmqpylNIZfCDn2ATaKVkLEl4qlceFhEwp
+\restrict BruqxRXOhLxPIahpNmOz6jye12NCNqaMbyYdQiVFard422fmKKKR5pgt1SKTsoq
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -1089,7 +1089,7 @@ SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
 SET transaction_timeout = 0;
-SET client_encoding = 'SQL_ASCII';
+SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 SELECT pg_catalog.set_config('search_path', '', false);
 SET check_function_bodies = false;
@@ -1111,13 +1111,13 @@ INSERT INTO public.transfer_identity_thresholds (sport, min_heat, min_determinis
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 4icgCQEtNm9QSAnrJkRzc5ulXtA77jhmqpylNIZfCDn2ATaKVkLEl4qlceFhEwp
+\unrestrict BruqxRXOhLxPIahpNmOz6jye12NCNqaMbyYdQiVFard422fmKKKR5pgt1SKTsoq
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict 7XojuVXL1AjilvrAvwsY3VASsNO0PEyg6UaNYgZFbergwUImA4EfR4oz8G3V9a3
+\restrict qw9QqwHLK4Gxjws9tz1rAqLsZCpkrIxIa0psQBbhqXVIKbX4hQK5ZqTjO9zYI8J
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -1126,7 +1126,7 @@ SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
 SET transaction_timeout = 0;
-SET client_encoding = 'SQL_ASCII';
+SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 SELECT pg_catalog.set_config('search_path', '', false);
 SET check_function_bodies = false;
@@ -1152,13 +1152,13 @@ INSERT INTO public.stage_routing_subscriptions (tag, stage, entity_type, note, c
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 7XojuVXL1AjilvrAvwsY3VASsNO0PEyg6UaNYgZFbergwUImA4EfR4oz8G3V9a3
+\unrestrict qw9QqwHLK4Gxjws9tz1rAqLsZCpkrIxIa0psQBbhqXVIKbX4hQK5ZqTjO9zYI8J
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict pvohGHgJs4J7hsDSZ4Z9MnnkjGkgGuLxZv4sLznTG4WsfQuqyz5k6TW4IbV33sZ
+\restrict 5cKzcURmyBjh4xMo3mhblJt9lIv5Q8AquPdyeDVTEuNv51z8vYAdd5s2mzvs1ug
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -1167,7 +1167,7 @@ SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
 SET transaction_timeout = 0;
-SET client_encoding = 'SQL_ASCII';
+SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 SELECT pg_catalog.set_config('search_path', '', false);
 SET check_function_bodies = false;
@@ -1192,4 +1192,4 @@ SELECT pg_catalog.setval('public.boxscore_sources_id_seq', 7, true);
 -- PostgreSQL database dump complete
 --
 
-\unrestrict pvohGHgJs4J7hsDSZ4Z9MnnkjGkgGuLxZv4sLznTG4WsfQuqyz5k6TW4IbV33sZ
+\unrestrict 5cKzcURmyBjh4xMo3mhblJt9lIv5Q8AquPdyeDVTEuNv51z8vYAdd5s2mzvs1ug

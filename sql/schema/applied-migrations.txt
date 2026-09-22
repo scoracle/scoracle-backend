@@ -39,8 +39,8 @@
 039_rating_scoped_ranks
 040_penalties_rating
 041_penalties_won
-042_rating_modes
 042a_auth_refresh_tokens
+042_rating_modes
 043_scoped_breakdown
 044_autofill_position
 045_uniform_scopes
@@ -263,3 +263,6 @@
 261_insider_publication_outbox
 262_analytics_cohort_publication
 263_sql_layer_cleanup
+264_rating_source_identity
+265_withhold_degenerate_z
+266_measurement_cohort_size

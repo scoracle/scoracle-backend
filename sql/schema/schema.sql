@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict p8oeX0WyGzeNKIAAo8DnqEZqWhnetey7VggJ7EYgBvSGYuFECD2TXQlm7oszbpA
+\restrict G5vtiyEKBcQ4CJ8l0meR9ASziXAaEGuW9e9ay83f5TmC4P1biAxb0nVVTQVtWoW
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -11,7 +11,7 @@ SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
 SET transaction_timeout = 0;
-SET client_encoding = 'SQL_ASCII';
+SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 SELECT pg_catalog.set_config('search_path', '', false);
 SET check_function_bodies = false;
@@ -1168,19 +1168,19 @@ CREATE FUNCTION public._compute_rating_bundle(p_sport text, p_season integer, p_
         WHERE ps.sport = p_sport AND ps.season = p_season AND ps.stats <> '{}'::jsonb
     ),
     pop AS (
-        SELECT label, measure, AVG(value) AS mean, NULLIF(STDDEV_POP(value), 0) AS sd
+        SELECT label, measure, AVG(value) AS mean, NULLIF(STDDEV_POP(value), 0) AS sd, COUNT(*) AS cohort
         FROM dp WHERE is_ranked GROUP BY label, measure
     ),
     z AS (
         -- Keep raw measurements even without a comparable ranked population.
         SELECT d.player_id, d.league_id, d.position, d.conference, d.division,
-               d.label, d.measure, d.in_comp, d.in_spec, d.sign, d.facet, d.value, d.is_ranked,
-               CASE WHEN p.mean IS NOT NULL THEN COALESCE((d.value - p.mean) / p.sd, 0) END AS zr
+               d.label, d.measure, d.in_comp, d.in_spec, d.sign, d.facet, d.value, d.is_ranked, p.cohort,
+               CASE WHEN p.mean IS NOT NULL AND p.sd IS NOT NULL THEN (d.value - p.mean) / p.sd END AS zr
         FROM dp d LEFT JOIN pop p USING (label, measure)
         WHERE d.value IS NOT NULL
     ),
     comp_flat AS (
-        SELECT player_id, league_id, SUM(sign * zr) FILTER (WHERE in_comp) AS composite
+        SELECT player_id, league_id, SUM(sign * COALESCE(zr, 0)) FILTER (WHERE in_comp) AS composite
         FROM z GROUP BY player_id, league_id
     ),
     comp_facet AS (
@@ -1199,7 +1199,7 @@ CREATE FUNCTION public._compute_rating_bundle(p_sport text, p_season integer, p_
     ),
     scored AS (
         -- True percentiles, within the eligible population of the same measurement.
-        SELECT player_id, league_id, label, measure, in_comp, in_spec, sign, facet, value, zr,
+        SELECT player_id, league_id, label, measure, in_comp, in_spec, sign, facet, value, zr, cohort,
                CASE WHEN max(sign*zr) OVER (PARTITION BY label, measure) > min(sign*zr) OVER (PARTITION BY label, measure) THEN ROUND((percent_rank() OVER (PARTITION BY label, measure ORDER BY sign * zr ASC))::numeric * 100, 1) END AS pct,
                CASE WHEN p_sport IN ('NFL','FOOTBALL') AND position IS NOT NULL
                     THEN CASE WHEN max(sign*zr) OVER (PARTITION BY label, measure, position) > min(sign*zr) OVER (PARTITION BY label, measure, position) THEN ROUND((percent_rank() OVER (PARTITION BY label, measure, position ORDER BY sign*zr ASC))::numeric*100,1) END END AS pct_position,
@@ -1212,7 +1212,7 @@ CREATE FUNCTION public._compute_rating_bundle(p_sport text, p_season integer, p_
         FROM z WHERE is_ranked AND zr IS NOT NULL
         UNION ALL
         -- Ineligible samples retain measurements, never fabricated percentile ranks.
-        SELECT u.player_id, u.league_id, u.label, u.measure, u.in_comp, u.in_spec, u.sign, u.facet, u.value, u.zr,
+        SELECT u.player_id, u.league_id, u.label, u.measure, u.in_comp, u.in_spec, u.sign, u.facet, u.value, u.zr, u.cohort,
                NULL::numeric AS pct,
                NULL::numeric AS pct_position, NULL::numeric AS pct_conference,
                NULL::numeric AS pct_division, NULL::numeric AS pct_league
@@ -1225,7 +1225,7 @@ CREATE FUNCTION public._compute_rating_bundle(p_sport text, p_season integer, p_
         SELECT s.player_id, s.league_id,
                jsonb_agg(jsonb_build_object(
                    'label', s.label, 'measure', s.measure, 'eligible', r.is_ranked,
-                   'value', s.value, 'z', ROUND(s.zr, 4), 'pct', s.pct,
+                   'value', s.value, 'z', ROUND(s.zr, 4), 'pct', s.pct, 'cohort', s.cohort,
                    'in_comp', s.in_comp, 'in_spec', s.in_spec, 'sign', s.sign, 'facet', s.facet,
                    'scoped_pct', jsonb_strip_nulls(jsonb_build_object(
                        'position', s.pct_position, 'conference', s.pct_conference,
@@ -1999,18 +1999,18 @@ BEGIN
     WHERE ts.sport = p_sport AND ts.season = p_season AND ts.stats <> '{}'::jsonb AND dp.value IS NOT NULL;
 
     WITH pop AS (
-        SELECT label, measure, AVG(value) AS mean, NULLIF(STDDEV_POP(value), 0) AS sd
+        SELECT label, measure, AVG(value) AS mean, NULLIF(STDDEV_POP(value), 0) AS sd, COUNT(*) AS cohort
         FROM _team_dp GROUP BY label, measure
     ),
     z AS (
         -- mean IS NULL = era-dead label; see _compute_rating_bundle.
         SELECT d.team_id, d.league_id, d.in_comp, d.sign, d.label, d.measure,
-               COALESCE((d.value - p.mean) / p.sd, 0) AS zr
+               CASE WHEN p.sd IS NOT NULL THEN (d.value - p.mean) / p.sd END AS zr
         FROM _team_dp d JOIN pop p USING (label, measure)
         WHERE p.mean IS NOT NULL
     ),
     composite AS (
-        SELECT team_id, league_id, SUM(sign * zr) AS composite
+        SELECT team_id, league_id, SUM(sign * COALESCE(zr, 0)) AS composite
         FROM z WHERE in_comp GROUP BY team_id, league_id
     )
     UPDATE team_stats ts SET rating = ROUND(c.composite, 4)
@@ -2020,24 +2020,24 @@ BEGIN
     GET DIAGNOSTICS v_updated = ROW_COUNT;
 
     WITH pop AS (
-        SELECT label, measure, AVG(value) AS mean, NULLIF(STDDEV_POP(value), 0) AS sd
+        SELECT label, measure, AVG(value) AS mean, NULLIF(STDDEV_POP(value), 0) AS sd, COUNT(*) AS cohort
         FROM _team_dp GROUP BY label, measure
     ),
     z AS (
-        SELECT d.team_id, d.league_id, d.label, d.measure, d.in_comp, d.in_spec, d.sign, d.facet, d.value,
-               COALESCE((d.value - p.mean) / p.sd, 0) AS zr
+        SELECT d.team_id, d.league_id, d.label, d.measure, d.in_comp, d.in_spec, d.sign, d.facet, d.value, p.cohort,
+               CASE WHEN p.sd IS NOT NULL THEN (d.value - p.mean) / p.sd END AS zr
         FROM _team_dp d JOIN pop p USING (label, measure)
         WHERE p.mean IS NOT NULL
     ),
     scored AS (
-        SELECT team_id, league_id, label, measure, in_comp, in_spec, sign, facet, value, zr,
+        SELECT team_id, league_id, label, measure, in_comp, in_spec, sign, facet, value, zr, cohort,
                CASE WHEN max(sign*zr) OVER (PARTITION BY label, measure) > min(sign*zr) OVER (PARTITION BY label, measure) THEN ROUND((percent_rank() OVER (PARTITION BY label, measure ORDER BY sign * zr ASC))::numeric * 100, 1) END AS pct
         FROM z
     ),
     agg AS (
         SELECT s.team_id, s.league_id,
                jsonb_agg(jsonb_build_object(
-                   'label', s.label, 'measure', s.measure, 'value', s.value, 'z', ROUND(s.zr, 4), 'pct', s.pct,
+                   'label', s.label, 'measure', s.measure, 'value', s.value, 'z', ROUND(s.zr, 4), 'pct', s.pct, 'cohort', s.cohort,
                    'in_comp', s.in_comp, 'in_spec', s.in_spec, 'sign', s.sign, 'facet', s.facet
                ) ORDER BY s.facet, s.label) AS breakdown
         FROM scored s
@@ -3053,7 +3053,19 @@ CREATE FUNCTION public.rating_measurements(p_sport text, p_stats jsonb, p_rate_m
     SELECT v.label,
            CASE WHEN p_rate_mode = 'total' OR v.rate_base IS NULL THEN v.raw_value
                 ELSE NULLIF(p_stats->>(v.rate_base || rs.suffix), '')::numeric END,
-           v.in_comp, v.in_spec, v.sign, v.facet, v.label
+           v.in_comp, v.in_spec, v.sign, v.facet,
+           CASE v.label
+             WHEN 'Scoring' THEN 'points'
+             WHEN 'Rebounding' THEN 'total rebounds'
+             WHEN 'Playmaking' THEN 'assists'
+             WHEN 'Steals' THEN 'steals'
+             WHEN 'Rim Protection' THEN 'blocks'
+             WHEN '3PT Shooting' THEN 'three-point field goals made'
+             WHEN 'On-Court Impact' THEN 'plus-minus'
+             WHEN 'Ball Security' THEN 'turnovers'
+             WHEN 'Discipline' THEN 'personal fouls'
+             WHEN 'Foul Drawing' THEN 'field goals attempted'
+             ELSE v.label END
     FROM (SELECT (SELECT rm.suffix FROM public.rate_modes rm
                   WHERE rm.sport = 'NBA' AND rm.mode = p_rate_mode) AS suffix) rs
     CROSS JOIN LATERAL (VALUES
@@ -3140,7 +3152,7 @@ CREATE FUNCTION public.rating_measurements(p_sport text, p_stats jsonb, p_rate_m
         ('Ball Recovery',   COALESCE(NULLIF(p_stats->>'ball_recovery','')::numeric, 0), FALSE, FALSE, 1, 'all', 'ball_recovery', 'out'),
         ('Drawing Fouls',   NULLIF(p_stats->>'fouls_drawn','')::numeric,      FALSE, FALSE, 1, 'all', 'fouls_drawn',     'out'),
         ('Penalties Won',   NULLIF(p_stats->>'penalties_won','')::numeric,    FALSE, TRUE,  1, 'all', NULL,              'out'),
-        ('Possession Lost', NULLIF(p_stats->>'possession_lost','')::numeric,  TRUE, FALSE, -1, 'all', 'possession_lost','out'),
+        ('Possession Lost', NULLIF(p_stats->>'possession_lost','')::numeric,   TRUE, FALSE, -1, 'all', 'possession_lost','out'),
         -- Cards were captured in both eras but never rated; zero-suppressed
         -- keys mean absence IS zero here, so COALESCE(,0) is the truth.
         ('Discipline',      COALESCE(NULLIF(p_stats->>'yellow_cards','')::numeric, 0)
@@ -3177,7 +3189,18 @@ CREATE FUNCTION public.rating_measurements(p_sport text, p_stats jsonb, p_rate_m
     SELECT v.label,
            CASE WHEN p_rate_mode = 'total' OR v.rate_base IS NULL THEN v.raw_value
                 ELSE NULLIF(p_stats->>(v.rate_base || rs.suffix), '')::numeric END,
-           v.in_comp, v.in_spec, v.sign, v.facet, v.label
+           v.in_comp, v.in_spec, v.sign, v.facet,
+           CASE v.label
+             WHEN 'Air Yards Responsible'
+                  THEN 'sum of passing, receiving, kick-return, punt-return, punt and interception yards'
+             WHEN 'Ground Yards Responsible' THEN 'rushing yards'
+             WHEN 'Points Responsible For'
+                  THEN '6 x touchdowns (passing, rushing, receiving, kick return, punt return, interception, fumble) + 3 x field goals made + extra points made'
+             WHEN 'Giveaways' THEN 'passing interceptions + fumbles lost'
+             WHEN 'Tackling' THEN 'total tackles'
+             WHEN 'Tackles For Loss' THEN 'max of tackles for loss and defensive sacks'
+             WHEN 'Interceptions' THEN 'defensive interceptions'
+             ELSE v.label END
     FROM (SELECT (SELECT rm.suffix FROM public.rate_modes rm
                   WHERE rm.sport = 'NFL' AND rm.mode = p_rate_mode) AS suffix) rs
     CROSS JOIN LATERAL (VALUES
@@ -3267,7 +3290,21 @@ $$;
 CREATE FUNCTION public.rating_measurements_team(p_sport text, p_stats jsonb) RETURNS TABLE(label text, value numeric, in_comp boolean, in_spec boolean, sign integer, facet text, measure text)
     LANGUAGE sql IMMUTABLE PARALLEL SAFE
     AS $$
-    SELECT v.*, v.label FROM (VALUES
+    SELECT v.*, CASE v.label
+        WHEN 'Scoring' THEN 'points'
+        WHEN 'Playmaking' THEN 'assists'
+        WHEN '3PT Shooting' THEN 'three-point field goals made'
+        WHEN 'Foul Drawing' THEN 'field goals attempted'
+        WHEN 'Ball Security' THEN 'turnovers'
+        WHEN 'Offensive Rebounds' THEN 'offensive rebounds'
+        WHEN 'Rim Protection' THEN 'blocks'
+        WHEN 'Steals' THEN 'steals'
+        WHEN 'Rebounding' THEN 'total rebounds'
+        WHEN 'Points Allowed' THEN 'points allowed'
+        WHEN 'Defensive Rebounds' THEN 'defensive rebounds'
+        WHEN 'Opp FG%' THEN 'opponent field goal percentage'
+        WHEN 'Opp 3PT%' THEN 'opponent three-point percentage'
+        ELSE v.label END FROM (VALUES
         ('Scoring',            NULLIF(p_stats->>'pts','')::numeric,         TRUE,  TRUE,   1, 'offense'),
         ('Playmaking',         NULLIF(p_stats->>'ast','')::numeric,         TRUE,  TRUE,   1, 'offense'),
         ('3PT Shooting',       NULLIF(p_stats->>'fg3m','')::numeric,        TRUE,  TRUE,   1, 'offense'),
@@ -3283,7 +3320,16 @@ CREATE FUNCTION public.rating_measurements_team(p_sport text, p_stats jsonb) RET
         ('Opp 3PT%',           NULLIF(p_stats->>'def_fg3_pct','')::numeric, FALSE, FALSE, -1, 'defense')
     ) v(label, value, in_comp, in_spec, sign, facet) WHERE p_sport = 'NBA'
     UNION ALL
-    SELECT v.*, v.label FROM (VALUES
+    SELECT v.*, CASE v.label
+        WHEN 'Giveaways' THEN 'turnovers'
+        WHEN 'Touchdowns' THEN 'passing + rushing touchdowns'
+        WHEN 'Field Goals' THEN 'field goals made'
+        WHEN 'Penalty Yards For' THEN 'penalty yards drawn'
+        WHEN 'Tackling' THEN 'total tackles'
+        WHEN 'Sacks' THEN 'defensive sacks'
+        WHEN 'Pass Defense' THEN 'passes defended'
+        WHEN 'Interceptions' THEN 'defensive interceptions'
+        ELSE v.label END FROM (VALUES
         ('Points Scored',      NULLIF(p_stats->>'points_for','')::numeric,                 TRUE,  TRUE,   1, 'offense'),
         ('Total Yards',        NULLIF(p_stats->>'total_yards','')::numeric,                TRUE,  TRUE,   1, 'offense'),
         ('Giveaways',          NULLIF(p_stats->>'turnovers','')::numeric,                  TRUE,  FALSE, -1, 'offense'),
@@ -10833,7 +10879,7 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 -- PostgreSQL database dump complete
 --
 
-\unrestrict p8oeX0WyGzeNKIAAo8DnqEZqWhnetey7VggJ7EYgBvSGYuFECD2TXQlm7oszbpA
+\unrestrict G5vtiyEKBcQ4CJ8l0meR9ASziXAaEGuW9e9ay83f5TmC4P1biAxb0nVVTQVtWoW
 
 
 \ir reference-data.sql
@@ -10841,7 +10887,7 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 -- PostgreSQL database dump
 --
 
-\restrict HVRHho2tE8tZyGcxGnLcqxutlbTmBwuNO2GhKYowhG03TiiJXbClG6sz75K1ibH
+\restrict 3m0BWNbV2RzOuNnMNogwhX0By6VaMkKqJQgnocIBQcT585dZN5CZYpIp9PVbs7e
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -10850,7 +10896,7 @@ SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
 SET transaction_timeout = 0;
-SET client_encoding = 'SQL_ASCII';
+SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 SELECT pg_catalog.set_config('search_path', '', false);
 SET check_function_bodies = false;
@@ -13608,4 +13654,4 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict HVRHho2tE8tZyGcxGnLcqxutlbTmBwuNO2GhKYowhG03TiiJXbClG6sz75K1ibH
+\unrestrict 3m0BWNbV2RzOuNnMNogwhX0By6VaMkKqJQgnocIBQcT585dZN5CZYpIp9PVbs7e

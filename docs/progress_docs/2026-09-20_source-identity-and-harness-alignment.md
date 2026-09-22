@@ -6,6 +6,36 @@ invent blocks and turnover causes" closed by fixing the evidence the model was
 never given. Everything below is committed and, as of this session's deploy,
 LIVE.
 
+## Deployment record (2026-09-21)
+
+- **264 applied immediately.** 265 hit the in-migration parity gate on
+  production twice and rolled back cleanly both times — each failure was the
+  gate doing its job, not a logic error:
+  1. The z-exception required `eligible='true'`, but degenerate **ineligible**
+     rows (display-tier zeros over all-tied cohorts) move the same way —
+     degeneracy is a property of the population, not the row. Production
+     bisect proved every flagged change was exactly 0 → NULL with zero
+     `other_change` (`561815e` fixed the exception).
+  2. The 40-minute rebuild raced the 02:00–02:45 NY ingest window: READ
+     COMMITTED let the rail move stats under the parity capture. Retried in
+     the 03:45–07:00 NY quiet window with **services stopped** (the cutover's
+     own pause/resume pattern) — 265 and 266 then applied with full parity.
+- **Binaries released at `561815e`** (all six from one commit); API healthy,
+  path watchers re-armed, cron schedule untouched.
+- **Mac cognition worker swapped** to the `source-identity-20260921` release
+  (launchd restart, launcher backed up as `run-worker.sh.bak-20260921`, old
+  release kept for rollback). Lease recovery covered the one interrupted
+  claim.
+- **Post-deploy contracts verified on production data**: zero fabricated z
+  remaining (all 7,695 FOOTBALL degenerate rows now z-NULL); every ranked
+  observation names its comparison population (Wembanyama's measures read
+  pools of 253 centers); NBA breakdowns read `Rim Protection → blocks`,
+  `Ball Security → turnovers`, `On-Court Impact → plus-minus`.
+- **Live dry-run card** through the new binary against production (read-only,
+  no persist): grounded, measure-aware prose with real percentile movement and
+  no invented mechanisms.
+- Schema baseline refreshed from live (`46336e9`), checksums verified.
+
 ## The root finding
 
 Every stored NBA/NFL rating breakdown carried `measure == label`

@@ -1,5 +1,4 @@
-//! The Studio tool broker: plugins declare what they may reach; the room decides how the
-//! reach happens, records that it happened, and can refuse it.
+//! Studio's tool vocabulary and refusal policy.
 //!
 //! A plugin brings its own *tools* — its readers, its source policies, its domain
 //! knowledge — but never its own *workspace*. The workspace is the room's: one shared
@@ -14,16 +13,9 @@
 //! - **Recorded.** Every brokered call lands in the run's call ledger with its outcome,
 //!   so provider failures stay distinguishable from model failures.
 //!
-//! The first consumer is the shared web workspace: [`WebBroker`] wraps the existing
-//! `BudgetedFetcher` (which already owns spacing, circuits, and `source_documents`
-//! provenance) behind per-plugin domain-class grants. Generic HTTP mechanics live here;
-//! endpoint knowledge and response parsing stay with the owning plugin.
-
-use crate::evidence::fetch::{BudgetedFetchError, BudgetedFetcher, FetchPolicy, SourceFetch};
-use crate::studio::plugin::PluginManifest;
-use anyhow::{anyhow, Result};
-use sqlx::PgPool;
-use std::sync::atomic::{AtomicU64, Ordering};
+//! Concrete workspace adapters live in `application::tools`: they receive this policy plus
+//! application-owned storage and provider dependencies. Studio itself remains independent of
+//! SQL, HTTP, queues, and provider implementations.
 
 /// A class of external domain a plugin may fetch. Deny-by-default: a plugin may fetch
 /// only the classes its manifest declares, and a class grants *sources within that
@@ -112,168 +104,6 @@ impl std::fmt::Display for ToolRefusal {
                 write!(f, "tool broker: {url} belongs to no declared domain class")
             }
         }
-    }
-}
-
-/// One recorded tool call. The broker accumulates these per run; provenance keeps
-/// provider failures distinguishable from model failures.
-#[derive(Clone, Debug)]
-pub struct ToolCall {
-    pub tool: &'static str,
-    pub url: String,
-    pub outcome: &'static str,
-    pub elapsed_ms: u64,
-}
-
-/// The shared web workspace: one `BudgetedFetcher` per process, gated per plugin by
-/// its declared domain classes and a per-run call budget.
-pub struct WebBroker {
-    fetcher: BudgetedFetcher,
-    /// Per-run ceiling on brokered calls. Zero means unlimited (the queue's own
-    /// handler timeout remains the outer bound).
-    max_calls: u32,
-}
-
-impl WebBroker {
-    pub fn new(max_calls: u32) -> Result<Self> {
-        Ok(Self {
-            fetcher: BudgetedFetcher::new()?,
-            max_calls,
-        })
-    }
-
-    /// Open the room's scoped web workspace for one plugin run. Refusals are computed
-    /// from the plugin manifest; adapters cannot supply a narrower or broader shadow
-    /// allowlist. The budget counts exactly this run's calls.
-    pub fn scope<'a>(
-        &'a self,
-        pool: &'a PgPool,
-        plugin: &'a PluginManifest,
-        ledger: &'a ToolLedger,
-    ) -> ScopedWeb<'a> {
-        ScopedWeb {
-            broker: self,
-            pool,
-            plugin,
-            ledger,
-            calls: AtomicU64::new(0),
-        }
-    }
-}
-
-/// Per-run call ledger. The adapter decides what to do with the record (log, attach to
-/// the diagnostics payload); the broker only guarantees it is complete.
-#[derive(Default)]
-pub struct ToolLedger {
-    calls: std::sync::Mutex<Vec<ToolCall>>,
-}
-
-impl ToolLedger {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    fn record(&self, call: ToolCall) {
-        self.calls.lock().expect("tool ledger poisoned").push(call);
-    }
-
-    pub fn calls(&self) -> Vec<ToolCall> {
-        self.calls.lock().expect("tool ledger poisoned").clone()
-    }
-
-    pub fn len(&self) -> usize {
-        self.calls.lock().expect("tool ledger poisoned").len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-}
-
-/// One plugin run's scoped web reach. Holds the plugin's manifest, budget counter, and
-/// ledger; every method refuses before it reaches.
-pub struct ScopedWeb<'a> {
-    broker: &'a WebBroker,
-    pool: &'a PgPool,
-    plugin: &'a PluginManifest,
-    ledger: &'a ToolLedger,
-    calls: AtomicU64,
-}
-
-impl<'a> ScopedWeb<'a> {
-    fn check_grant(&self, class: DomainClass, url: &str) -> Result<()> {
-        if !self.plugin.grants_web(class) {
-            return Err(anyhow!(
-                "{}",
-                ToolRefusal::UndeclaredDomain {
-                    url: url.to_string(),
-                    class: class.as_str(),
-                }
-            ));
-        }
-        Ok(())
-    }
-
-    fn check_budget(&self) -> Result<()> {
-        if self.broker.max_calls > 0 {
-            let used = self.calls.fetch_add(1, Ordering::Relaxed);
-            if used >= u64::from(self.broker.max_calls) {
-                return Err(anyhow!(
-                    "tool broker: run exceeded its web-call budget ({} calls)",
-                    self.broker.max_calls
-                ));
-            }
-        }
-        Ok(())
-    }
-
-    /// Fetch a Wikimedia URL under the shared workspace. The class is derived from the
-    /// URL itself, so a grant for `Wikimedia` cannot be spent on any other host.
-    pub async fn fetch_wikimedia(&self, url: &str, policy: &FetchPolicy) -> Result<SourceFetch> {
-        let class = DomainClass::domain_of_url(url).ok_or_else(|| {
-            anyhow!(
-                "{}",
-                ToolRefusal::UnknownDomain {
-                    url: url.to_string(),
-                }
-            )
-        })?;
-        self.fetch_for_class(class, url, policy).await
-    }
-
-    /// Fetch a URL the caller has already attributed to a registered class (box-score
-    /// sources, the RSS corpus). Attribution comes from the caller's source registry —
-    /// the broker verifies the grant, it does not sniff the URL.
-    pub async fn fetch_for_class(
-        &self,
-        class: DomainClass,
-        url: &str,
-        policy: &FetchPolicy,
-    ) -> Result<SourceFetch> {
-        self.check_grant(class, url)?;
-        self.check_budget()?;
-        let started = std::time::Instant::now();
-        let result = self.broker.fetcher.fetch(self.pool, url, policy).await;
-        let elapsed = started.elapsed();
-        let outcome = match &result {
-            Ok(f) => {
-                if f.from_cache {
-                    "cache_hit"
-                } else {
-                    "fetched"
-                }
-            }
-            Err(BudgetedFetchError::DomainSkipped { .. }) => "domain_skipped",
-            Err(BudgetedFetchError::Http { .. }) => "http_rejected",
-            Err(BudgetedFetchError::Other(_)) => "transport_failed",
-        };
-        self.ledger.record(ToolCall {
-            tool: "web.fetch",
-            url: url.to_string(),
-            outcome,
-            elapsed_ms: elapsed.as_millis() as u64,
-        });
-        result.map_err(|e| anyhow!("{e}"))
     }
 }
 

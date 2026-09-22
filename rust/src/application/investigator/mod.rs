@@ -19,6 +19,7 @@ use self::discover::{
 };
 use crate::application::models::Models;
 use crate::application::queue::work::{self, Item};
+use crate::application::tools::{ScopedWeb, ToolLedger, WebBroker};
 use crate::evidence::fetch::FetchPolicy;
 use crate::runtime::route::Role;
 use crate::studio::investigator::gate::{
@@ -27,7 +28,6 @@ use crate::studio::investigator::gate::{
 };
 use crate::studio::investigator::prompt::{ProseRead, INVESTIGATOR_PROSE_CONTRACT_VERSION};
 use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
-use crate::studio::tools::{ScopedWeb, ToolLedger, WebBroker};
 use crate::studio::{
     investigator::{Assignment, WikidataItem},
     Studio,
@@ -55,16 +55,16 @@ pub struct InvestigateEntityHandler {
     models: std::sync::Arc<Models>,
     /// The room's web workspace. The plugin's manifest declares the Wikimedia domain
     /// class; this broker enforces that grant on every call.
-    web: WebBroker,
+    web: std::sync::Arc<WebBroker>,
 }
 
 impl InvestigateEntityHandler {
-    pub fn new(pool: sqlx::PgPool, models: std::sync::Arc<Models>) -> Result<Self> {
-        Ok(Self {
-            pool,
-            models,
-            web: WebBroker::new(0)?,
-        })
+    pub fn new(
+        pool: sqlx::PgPool,
+        models: std::sync::Arc<Models>,
+        web: std::sync::Arc<WebBroker>,
+    ) -> Self {
+        Self { pool, models, web }
     }
 }
 

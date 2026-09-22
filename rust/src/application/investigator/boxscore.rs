@@ -4,9 +4,10 @@
 //! discovery, parser families, and canonical-table promotion are not.
 
 use crate::application::queue::work::{self, Item};
+use crate::application::tools::{ScopedWeb, ToolLedger, WebBroker};
 use crate::evidence::fetch::{BudgetedFetchError, FetchPolicy};
 use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
-use crate::studio::tools::{DomainClass, ScopedWeb, ToolLedger, WebBroker};
+use crate::studio::tools::DomainClass;
 use crate::util::hash_components;
 use crate::util::truncate;
 use anyhow::{anyhow, Context, Result};
@@ -140,15 +141,12 @@ pub struct FixtureBoxscoreHandler {
     pool: sqlx::PgPool,
     /// The room's web workspace. The manifest declares the registered box-score source
     /// class; this broker enforces that grant on every call.
-    web: WebBroker,
+    web: std::sync::Arc<WebBroker>,
 }
 
 impl FixtureBoxscoreHandler {
-    pub fn new(pool: sqlx::PgPool) -> Result<Self> {
-        Ok(Self {
-            pool,
-            web: WebBroker::new(0)?,
-        })
+    pub fn new(pool: sqlx::PgPool, web: std::sync::Arc<WebBroker>) -> Self {
+        Self { pool, web }
     }
 }
 

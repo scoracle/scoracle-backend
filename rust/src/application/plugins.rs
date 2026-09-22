@@ -10,6 +10,7 @@ use crate::application::insider;
 use crate::application::investigator::boxscore;
 use crate::application::models::Models;
 use crate::application::queue::work;
+use crate::application::tools::WebBroker;
 use crate::application::{analyst, influencer, journalist, oracle, scout};
 use crate::studio::plugin::StudioPlugin;
 use anyhow::{anyhow, Result};
@@ -74,6 +75,7 @@ pub fn build(
     enabled: &HashSet<String>,
 ) -> Result<Vec<Arc<dyn StudioPlugin>>> {
     let mut handlers: Vec<Arc<dyn StudioPlugin>> = Vec::new();
+    let mut web_workspace: Option<Arc<WebBroker>> = None;
 
     // Graph is article-keyed and downstream of the Editor.
     if enabled.contains("graph") {
@@ -91,17 +93,21 @@ pub fn build(
     }
     // Discovery uses the Editor's idle shared capacity.
     if enabled.contains("investigate_entity") {
+        let web = shared_web_workspace(&mut web_workspace)?;
         handlers.push(Arc::new(
             crate::application::investigator::InvestigateEntityHandler::new(
                 pool.clone(),
                 models.clone(),
-            )?,
+                web,
+            ),
         ));
     }
     if enabled.contains("fixture_boxscore") {
+        let web = shared_web_workspace(&mut web_workspace)?;
         handlers.push(Arc::new(boxscore::FixtureBoxscoreHandler::new(
             pool.clone(),
-        )?));
+            web,
+        )));
     }
 
     // Voice registration order is the tested dependency order.
@@ -139,9 +145,21 @@ pub fn build(
     Ok(handlers)
 }
 
+/// Allocate the process's shared workspace only when an enabled plugin needs it. This keeps an
+/// intentionally idle or voice-only worker from initializing an unused provider capability.
+fn shared_web_workspace(workspace: &mut Option<Arc<WebBroker>>) -> Result<Arc<WebBroker>> {
+    if workspace.is_none() {
+        *workspace = Some(Arc::new(WebBroker::new(0)?));
+    }
+    Ok(workspace
+        .as_ref()
+        .expect("workspace was initialized")
+        .clone())
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{enabled_from_config, known_stages};
+    use super::{enabled_from_config, known_stages, shared_web_workspace};
 
     #[test]
     fn unset_configuration_enables_every_manifest_task() {
@@ -182,5 +200,13 @@ mod tests {
     #[test]
     fn explicit_empty_configuration_is_an_idle_fleet() {
         assert!(enabled_from_config(Some("  ")).unwrap().is_empty());
+    }
+
+    #[test]
+    fn acquisition_plugins_receive_one_shared_web_workspace() {
+        let mut workspace = None;
+        let investigator = shared_web_workspace(&mut workspace).unwrap();
+        let boxscore = shared_web_workspace(&mut workspace).unwrap();
+        assert!(std::sync::Arc::ptr_eq(&investigator, &boxscore));
     }
 }

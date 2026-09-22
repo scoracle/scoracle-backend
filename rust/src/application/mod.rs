@@ -6,6 +6,7 @@ pub mod insider;
 pub mod journalist;
 pub mod oracle;
 pub mod scout;
+pub mod tools;
 
 pub mod editor;
 

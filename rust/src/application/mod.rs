@@ -14,6 +14,7 @@ pub mod investigator;
 pub mod graph;
 
 pub mod models;
+pub mod plugins;
 pub mod products;
 
 pub mod queue;

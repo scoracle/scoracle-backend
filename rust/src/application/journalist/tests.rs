@@ -1,6 +1,7 @@
 //! Exact publication tests for the Journalist application boundary.
 
 use super::*;
+use crate::application::queue::work::Stage;
 use crate::studio::journalist::NarrativesProduct;
 use crate::studio::Generation;
 
@@ -200,7 +201,7 @@ mod postgres_publication_fencing_tests {
         )
         .await
         .unwrap();
-        assert_eq!(outcome, HandleOutcome::Completed);
+        assert_eq!(outcome, PluginOutcome::Committed);
         assert_eq!(row_ids.len(), 2);
         assert_eq!(counts(&pool).await, (2, 1, 0));
 
@@ -276,7 +277,7 @@ mod postgres_publication_fencing_tests {
         )
         .await
         .unwrap();
-        assert_eq!(result.0, HandleOutcome::Completed);
+        assert_eq!(result.0, PluginOutcome::Committed);
         assert_eq!(result.1.len(), 1);
         assert_eq!(counts(&pool).await, (1, 1, 0));
         let row: (Option<String>, Option<String>, Option<i16>, Option<String>) = sqlx::query_as(
@@ -311,7 +312,7 @@ mod postgres_publication_fencing_tests {
         )
         .await
         .unwrap();
-        assert_eq!(result, (HandleOutcome::Completed, Vec::new()));
+        assert_eq!(result, (PluginOutcome::Committed, Vec::new()));
         assert_eq!(counts(&pool).await, (0, 1, 0));
         clean(&pool).await;
     }
@@ -336,7 +337,7 @@ mod postgres_publication_fencing_tests {
             )
             .await
             .unwrap(),
-            (HandleOutcome::Superseded, Vec::new())
+            (PluginOutcome::Superseded, Vec::new())
         );
         assert_eq!(counts(&pool).await, (0, 0, 1));
 
@@ -355,7 +356,7 @@ mod postgres_publication_fencing_tests {
             .await
             .unwrap()
             .0,
-            HandleOutcome::Completed
+            PluginOutcome::Committed
         );
         assert_eq!(counts(&pool).await, (1, 1, 0));
         clean(&pool).await;
@@ -396,7 +397,7 @@ mod postgres_publication_fencing_tests {
             )
             .await
             .unwrap(),
-            (HandleOutcome::Superseded, Vec::new())
+            (PluginOutcome::Superseded, Vec::new())
         );
         let current_output = edition(Vec::new());
         assert_eq!(
@@ -411,7 +412,7 @@ mod postgres_publication_fencing_tests {
             .await
             .unwrap()
             .0,
-            HandleOutcome::Completed
+            PluginOutcome::Committed
         );
         assert_eq!(counts(&pool).await, (1, 1, 0));
         clean(&pool).await;

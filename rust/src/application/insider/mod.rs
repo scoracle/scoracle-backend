@@ -20,11 +20,11 @@
 //! instead of repeating every call in a team batch.
 
 use crate::evidence::memories::{self, MemoryRequest, Mission};
+use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
 
 use crate::application::models::Models;
 use crate::application::products::EntityKey;
-use crate::application::queue::stage::{HandleOutcome, WorkHandler};
-use crate::application::queue::work::{Item, Stage};
+use crate::application::queue::work::Item;
 use crate::evidence::corpus::load_transfer_heat;
 use crate::evidence::trajectory::{classify_delta, DEFAULT_TRAJECTORY};
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
@@ -1062,13 +1062,13 @@ pub struct TransferHandler {
     models: std::sync::Arc<Models>,
 }
 
-async fn complete_claimed(pool: &PgPool, item: &Item) -> Result<HandleOutcome> {
+async fn complete_claimed(pool: &PgPool, item: &Item) -> Result<PluginOutcome> {
     let mut tx = pool.begin().await.context("begin transfer completion")?;
     if !crate::application::queue::work::lock_claim(&mut tx, item).await? {
         tx.rollback()
             .await
             .context("close non-current transfer completion")?;
-        return Ok(HandleOutcome::Superseded);
+        return Ok(PluginOutcome::Superseded);
     }
     crate::application::queue::outbox::record_transfer_published(
         &mut tx,
@@ -1082,7 +1082,7 @@ async fn complete_claimed(pool: &PgPool, item: &Item) -> Result<HandleOutcome> {
         bail!("transfer claim changed while its completion transaction held the row lock");
     }
     tx.commit().await.context("commit transfer completion")?;
-    Ok(HandleOutcome::Completed)
+    Ok(PluginOutcome::Committed)
 }
 
 impl TransferHandler {
@@ -1092,12 +1092,12 @@ impl TransferHandler {
 }
 
 #[async_trait]
-impl WorkHandler for TransferHandler {
-    fn stage(&self) -> Stage {
-        Stage::Transfers
+impl StudioPlugin for TransferHandler {
+    fn manifest(&self) -> &'static PluginManifest {
+        &crate::studio::fleet::INSIDER
     }
 
-    async fn handle(&self, item: &Item) -> Result<HandleOutcome> {
+    async fn execute(&self, item: &Item) -> Result<PluginOutcome> {
         let pool = &self.pool;
         let models = &self.models;
         if item.entity_type != "team" {
@@ -1352,7 +1352,7 @@ impl WorkHandler for TransferHandler {
             }
             .await;
             match pair {
-                Ok((_, false)) => return Ok(HandleOutcome::Superseded),
+                Ok((_, false)) => return Ok(PluginOutcome::Superseded),
                 Ok((Outcome::Unknown, true)) => unknown += 1,
                 // Rumor/Cleared is a pair that reached a verdict on THIS run — the durable
                 // progress the deferral protocol requires. Skipped is a debounce hit or an empty
@@ -1420,7 +1420,7 @@ impl WorkHandler for TransferHandler {
             .await
             {
                 Ok(true) => {}
-                Ok(false) => return Ok(HandleOutcome::Superseded),
+                Ok(false) => return Ok(PluginOutcome::Superseded),
                 Err(e) => {
                     errored += 1;
                     warn!(
@@ -1467,15 +1467,10 @@ impl WorkHandler for TransferHandler {
                 "deferred: {pairs_deferred} pair(s) + {wraps_deferred} wrap(s) left after {}s",
                 start.elapsed().as_secs()
             );
-            let deferred =
-                crate::application::queue::work::defer(pool, item, TRANSFER_DEFER_DELAY, &note)
-                    .await?;
+            // The plugin reports the partial drain; the worker performs the defer and
+            // owns the superseded-claim check.
             debug!(team = team_id, %note, "transfers: team deferred to another turn");
-            return Ok(if deferred {
-                HandleOutcome::Deferred
-            } else {
-                HandleOutcome::Superseded
-            });
+            return Ok(PluginOutcome::deferred(note, TRANSFER_DEFER_DELAY));
         }
 
         if unknown > 0 {

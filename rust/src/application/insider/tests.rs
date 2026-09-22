@@ -1,6 +1,7 @@
 //! Exact-claim transfer publication and durable follow-up tests.
 
 use super::*;
+use crate::application::queue::work::Stage;
 use crate::studio::insider::TransferPairProduct;
 use crate::studio::Generation;
 
@@ -176,7 +177,7 @@ mod postgres_tests {
         assert_eq!(counts(&pool).await, (1, 1, 1));
         assert_eq!(
             complete_claimed(&pool, &current).await.unwrap(),
-            HandleOutcome::Completed
+            PluginOutcome::Committed
         );
         assert_eq!(counts(&pool).await, (1, 2, 0));
         let targets: Vec<(String, i32)> = sqlx::query_as(
@@ -301,7 +302,7 @@ mod postgres_tests {
         assert_eq!(counts(&pool).await, (1, 0, 1));
         assert_eq!(
             complete_claimed(&pool, &current).await.unwrap(),
-            HandleOutcome::Completed
+            PluginOutcome::Committed
         );
         assert_eq!(counts(&pool).await, (1, 1, 0));
         clean(&pool).await;
@@ -351,14 +352,14 @@ mod postgres_tests {
         .is_none());
         assert_eq!(
             complete_claimed(&pool, &stale).await.unwrap(),
-            HandleOutcome::Superseded
+            PluginOutcome::Superseded
         );
         assert_eq!(counts(&pool).await, (1, 1, 1));
         let current = claim_one(&pool).await;
         assert_eq!(current.input_version.as_deref(), Some("v2"));
         assert_eq!(
             complete_claimed(&pool, &current).await.unwrap(),
-            HandleOutcome::Completed
+            PluginOutcome::Committed
         );
         assert_eq!(counts(&pool).await, (1, 2, 0));
         let targets: Vec<(String,i32)> = sqlx::query_as("SELECT entity_type,entity_id FROM application_outbox WHERE sport=$1 ORDER BY entity_type")

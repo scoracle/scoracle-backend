@@ -48,6 +48,7 @@ fn a_body_without_nul_passes_through_byte_identical() {
 
 mod postgres_tests {
     use super::*;
+    use crate::application::queue::work::Stage;
     use crate::studio::Parser;
     const SPORT: &str = "ZZ_EDITOR_FENCE";
     const ARTICLE: i64 = 9_400_001;
@@ -175,7 +176,7 @@ mod postgres_tests {
             commit_claimed(&pool, &item, &prepared("article"))
                 .await
                 .unwrap(),
-            HandleOutcome::Completed
+            PluginOutcome::Committed
         );
         assert_eq!(count(&pool,"editor_reads","article_id=$1 AND status='success' AND model_version='test-editor' AND contract_version='ep8'").await,1);
         assert_eq!(
@@ -204,7 +205,7 @@ mod postgres_tests {
             commit_claimed(&pool, &item, &prepared("article"))
                 .await
                 .unwrap(),
-            HandleOutcome::Superseded
+            PluginOutcome::Superseded
         );
         assert_eq!(count(&pool, "data_fetch_ledger", "target_id=$1").await, 1);
         pool.close().await;
@@ -220,7 +221,7 @@ mod postgres_tests {
             commit_claimed(&pool, &stale, &prepared("article"))
                 .await
                 .unwrap(),
-            HandleOutcome::Superseded
+            PluginOutcome::Superseded
         );
         assert_unpublished(&pool).await;
         let old = claim(&pool).await;
@@ -231,14 +232,14 @@ mod postgres_tests {
             commit_claimed(&pool, &old, &prepared("article"))
                 .await
                 .unwrap(),
-            HandleOutcome::Superseded
+            PluginOutcome::Superseded
         );
         assert_unpublished(&pool).await;
         assert_eq!(
             commit_claimed(&pool, &current, &prepared("article"))
                 .await
                 .unwrap(),
-            HandleOutcome::Completed
+            PluginOutcome::Committed
         );
         assert_eq!(
             commit_claimed(
@@ -252,7 +253,7 @@ mod postgres_tests {
             )
             .await
             .unwrap(),
-            HandleOutcome::Superseded
+            PluginOutcome::Superseded
         );
         assert_eq!(
             count(&pool, "editor_reads", "article_id=$1 AND status='success'").await,
@@ -290,7 +291,7 @@ mod postgres_tests {
             commit_claimed(&pool, &item, &prepared("article"))
                 .await
                 .unwrap(),
-            HandleOutcome::Completed
+            PluginOutcome::Committed
         );
         pool.close().await;
     }
@@ -304,7 +305,7 @@ mod postgres_tests {
         let output = prepared("roundup");
         assert_eq!(
             commit_claimed(&pool, &item, &output).await.unwrap(),
-            HandleOutcome::Completed
+            PluginOutcome::Committed
         );
         assert_eq!(
             count(
@@ -333,7 +334,7 @@ mod postgres_tests {
             commit_claimed(&pool, &item, &Prepared::Unchanged)
                 .await
                 .unwrap(),
-            HandleOutcome::Completed
+            PluginOutcome::Committed
         );
         assert_eq!(count(&pool, "data_fetch_ledger", "target_id=$1").await, 1);
         pool.close().await;
@@ -368,7 +369,7 @@ mod postgres_tests {
                 )
                 .await
                 .unwrap(),
-                HandleOutcome::Completed
+                PluginOutcome::Committed
             );
             let saved: (String, Option<String>, String) = sqlx::query_as(
                 "SELECT status,model_version,parser_outcome FROM editor_reads WHERE article_id=$1",
@@ -387,7 +388,7 @@ mod postgres_tests {
         let item = claim(&pool).await;
         assert_eq!(
             commit_claimed(&pool, &item, &output).await.unwrap(),
-            HandleOutcome::Completed
+            PluginOutcome::Committed
         );
         assert_eq!(count(&pool,"editor_reads","article_id=$1 AND status='parse_failed' AND model_version='test-editor' AND parser_outcome='fail_closed' AND content_hash IS NOT NULL").await,1);
         assert_eq!(count(&pool, "pipeline_work", "entity_id=$1").await, 0);
@@ -427,7 +428,7 @@ mod postgres_tests {
         assert_eq!(fixtures, 0);
         assert_eq!(
             commit_claimed(&pool, &item, &output).await.unwrap(),
-            HandleOutcome::Completed
+            PluginOutcome::Committed
         );
         let fixture: (i32,i32,i32,i32,bool) = sqlx::query_as("SELECT home_team_id,away_team_id,home_score,away_score,(meta->>'needs_verification')::boolean FROM fixtures WHERE sport=$1").bind(SPORT).fetch_one(&pool).await.unwrap();
         assert_eq!(fixture, (TEAM, TEAM + 1, 2, 1, true));

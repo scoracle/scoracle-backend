@@ -19,9 +19,9 @@
 //! so a stop/restart never escalates to SIGKILL.
 
 use crate::application::editor;
-use crate::application::queue::stage::{HandleOutcome, WorkHandler};
 use crate::application::queue::work::{self, retry_backoff, Stage, MAX_ATTEMPTS};
 use crate::evidence::news::packet;
+use crate::studio::plugin::PluginRegistry;
 use anyhow::{anyhow, Context, Result};
 use futures::stream::{FuturesUnordered, StreamExt};
 use sqlx::postgres::PgListener;
@@ -425,9 +425,13 @@ async fn desk_loop(desk: Desk) {
 }
 
 pub struct Worker {
-    // Queue, recovery, and maintenance use storage; model dependencies stay in handlers.
+    // Queue, recovery, and maintenance use storage; model dependencies stay in plugins.
     pool: PgPool,
-    handlers: Vec<Box<dyn WorkHandler>>,
+    /// The registered cognitive fleet. The drain resolves each claim through the
+    /// registry rather than indexing a bare handler list, so task ownership is
+    /// validated once at boot instead of implied by construction order. Scheduling
+    /// caps are read from each plugin's manifest `ResourceProfile`.
+    fleet: PluginRegistry,
     safety_net: Duration,
     stale_lease: Duration,
     /// Per-item ceiling on one stage handler run (`COGNITION_HANDLER_TIMEOUT_SECONDS`;
@@ -464,7 +468,7 @@ impl Worker {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         pool: PgPool,
-        handlers: Vec<Box<dyn WorkHandler>>,
+        handlers: Vec<std::sync::Arc<dyn crate::studio::plugin::StudioPlugin>>,
         safety_net: Duration,
         stale_lease: Duration,
         handler_timeout: Duration,
@@ -475,14 +479,22 @@ impl Worker {
         // Unset means "let the per-stage caps govern": the sum of every stage's `max_in_flight`
         // is by construction the point past which the ceiling can never bind, so no stage is
         // ever starved by a global number nobody tuned. An explicit value is a throttle.
+        // Caps are read from the plugins' manifests — the resource profile is the single source.
         let caps: StageCaps = handlers
             .iter()
-            .map(|h| (h.max_in_flight(), h.slot_group()))
+            .map(|p| {
+                let r = &p.manifest().resources;
+                (r.max_in_flight, r.slot_group)
+            })
             .collect();
         let drain_concurrency = resolve_drain_concurrency(drain_concurrency, &caps);
+        // A duplicate task ownership or inconsistent manifest fails here, at
+        // construction, rather than at claim time.
+        let fleet =
+            PluginRegistry::new(handlers).expect("registered plugins must form a valid fleet");
         Self {
             pool,
-            handlers,
+            fleet,
             safety_net,
             stale_lease,
             handler_timeout,
@@ -496,11 +508,27 @@ impl Worker {
         }
     }
 
+    /// The registered fleet in registration order.
+    pub fn plugins(&self) -> &[std::sync::Arc<dyn crate::studio::plugin::StudioPlugin>] {
+        self.fleet.plugins()
+    }
+
     /// Run until SIGINT/SIGTERM. Drains on start, on NOTIFY, and on the safety-net
     /// tick — all delivered as coalesced tick requests from the supervisor task.
     pub async fn run(&self) -> Result<()> {
-        let stages: Vec<&'static str> = self.handlers.iter().map(|h| h.stage().as_str()).collect();
-        info!(?stages, "cognition harness worker starting");
+        let stages: Vec<&'static str> = self
+            .fleet
+            .plugins()
+            .iter()
+            .flat_map(|p| p.manifest().tasks.iter().map(|t| t.as_str()))
+            .collect();
+        let plugins: Vec<&'static str> = self
+            .fleet
+            .plugins()
+            .iter()
+            .map(|p| p.manifest().id.as_str())
+            .collect();
+        info!(?stages, ?plugins, "cognition harness worker starting");
         if stages.is_empty() {
             warn!("no stage handlers registered — worker idles (Phase 0 scaffold)");
         }
@@ -525,7 +553,12 @@ impl Worker {
 
         // The Desk sweeps on its own task, not behind the drain — but only where the Editor is
         // seated. The Mac runs the voices and has no Desk, and this is the check that says so.
-        if self.handlers.iter().any(|h| h.stage() == Stage::Editor) {
+        if self
+            .fleet
+            .plugins()
+            .iter()
+            .any(|p| p.manifest().owns_stage(Stage::Editor))
+        {
             info!(
                 interval_secs = DESK_INTERVAL.as_secs(),
                 packet_compile = self.packet_compile,
@@ -576,7 +609,7 @@ impl Worker {
             }
             tokio::select! {
                 _ = tick.notified() => {}
-                _ = &mut outbox, if !self.handlers.is_empty() => {
+                _ = &mut outbox, if !self.fleet.plugins().is_empty() => {
                     return Err(anyhow!("application outbox dispatcher exited"));
                 }
                 exit = &mut supervisor => {
@@ -590,7 +623,7 @@ impl Worker {
             let cause = *self.cause.lock().unwrap();
             tokio::select! {
                 _ = self.tick(cause, &pulse) => {}
-                _ = &mut outbox, if !self.handlers.is_empty() => {
+                _ = &mut outbox, if !self.fleet.plugins().is_empty() => {
                     return Err(anyhow!("application outbox dispatcher exited"));
                 }
                 exit = &mut supervisor => {
@@ -650,7 +683,7 @@ impl Worker {
     /// One recover-then-drain cycle. No-op when no handlers are registered, so
     /// the scaffold never mutates the queue.
     async fn tick(&self, cause: &str, pulse: &Pulse) {
-        if self.handlers.is_empty() {
+        if self.fleet.plugins().is_empty() {
             debug!(cause, "tick: no handlers registered; nothing to do");
             return;
         }
@@ -688,9 +721,15 @@ impl Worker {
         // stage name -> its group, so a finishing item can decrement the right counter without
         // asking the handler again.
         let group_of: HashMap<&'static str, (&'static str, usize)> = self
-            .handlers
+            .fleet
+            .plugins()
             .iter()
-            .filter_map(|h| h.slot_group().map(|g| (h.stage().as_str(), g)))
+            .filter_map(|p| {
+                p.manifest()
+                    .resources
+                    .slot_group
+                    .map(|g| (p.manifest().tasks[0].as_str(), g))
+            })
             .collect();
 
         let mut next_handler = 0;
@@ -699,21 +738,26 @@ impl Worker {
             // global budget or a shared model-slot group was exhausted.
             let mut claimed_any = false;
             let start = next_handler;
-            for offset in 0..self.handlers.len() {
-                let index = (start + offset) % self.handlers.len();
-                let handler = &self.handlers[index];
+            let plugins = self.fleet.plugins();
+            for offset in 0..plugins.len() {
+                let index = (start + offset) % plugins.len();
+                let plugin = &plugins[index];
                 if self.shutting_down() || inflight.len() >= budget {
                     break;
                 }
-                let stage = handler.stage();
+                let manifest = plugin.manifest();
+                let stage = manifest.tasks[0].stage();
                 // Per-stage caps keep DAG claim order from becoming strict priority order.
                 let running = *per_stage.get(stage.as_str()).unwrap_or(&0);
-                let mut room =
-                    stage_room(handler.max_in_flight(), running, budget - inflight.len());
+                let mut room = stage_room(
+                    manifest.resources.max_in_flight,
+                    running,
+                    budget - inflight.len(),
+                );
                 // A grouped stage is additionally bounded by what its co-tenants have left. This
                 // is what lets The Editor spread into graph's idle slots without being able to
                 // oversubscribe the card when graph is working.
-                if let Some((name, group_budget)) = handler.slot_group() {
+                if let Some((name, group_budget)) = manifest.resources.slot_group {
                     let group_running = *per_group.get(name).unwrap_or(&0);
                     room = room.min(group_budget.saturating_sub(group_running));
                 }
@@ -721,8 +765,9 @@ impl Worker {
                     continue;
                 }
                 pulse.beat(&format!("claim {stage}"));
-                let batch = handler
-                    .rotation_batch()
+                let batch = manifest
+                    .resources
+                    .rotation_batch
                     .max(STAGE_ROTATION_BATCH)
                     .min(room as i64);
                 let items = match work::claim(&self.pool, stage, batch).await {
@@ -743,14 +788,14 @@ impl Worker {
                     break;
                 }
                 claimed_any = true;
-                next_handler = (index + 1) % self.handlers.len();
+                next_handler = (index + 1) % plugins.len();
                 debug!(%stage, n = items.len(), cause, "draining batch");
                 *per_stage.entry(stage.as_str()).or_insert(0) += items.len();
-                if let Some((name, _)) = handler.slot_group() {
+                if let Some((name, _)) = manifest.resources.slot_group {
                     *per_group.entry(name).or_insert(0) += items.len();
                 }
                 for item in items {
-                    inflight.push(self.run_one(handler.as_ref(), item, pulse));
+                    inflight.push(self.run_one(plugin.as_ref(), item, pulse));
                 }
             }
 
@@ -799,72 +844,96 @@ impl Worker {
     /// Returns the stage's name so the drain can decrement that stage's in-flight count.
     async fn run_one(
         &self,
-        handler: &dyn WorkHandler,
+        plugin: &dyn crate::studio::plugin::StudioPlugin,
         item: work::Item,
         pulse: &Pulse,
     ) -> &'static str {
-        let stage = handler.stage();
+        let stage = plugin.manifest().tasks[0].stage();
         pulse.beat(&format!(
             "handle {stage} {}/{} {}",
             item.entity_type, item.entity_id, item.sport
         ));
-        let outcome = self.handle_bounded(handler, &item).await;
+        let outcome = self.execute_bounded(plugin, &item).await;
         pulse.beat(&format!("bookkeep {stage}"));
         match outcome {
-            Ok(HandleOutcome::Deferred) => {
-                debug!(%stage, entity = item.entity_id, "handler deferred partial progress")
+            Ok(crate::studio::plugin::PluginOutcome::Deferred {
+                made_progress,
+                note,
+                delay,
+            }) => {
+                // Deferral is a progress-guaranteed contract. A round that resolved
+                // nothing falls to the retry ladder instead of getting a free turn.
+                if made_progress {
+                    match work::defer(&self.pool, &item, delay, &note).await {
+                        Ok(true) => debug!(
+                            %stage, entity = item.entity_id, %note, "plugin deferred partial progress"
+                        ),
+                        Ok(false) => debug!(
+                            %stage, entity = item.entity_id, "defer ignored: claim was superseded"
+                        ),
+                        Err(e) => {
+                            error!(error = %format!("{e:#}"), %stage, "defer bookkeeping failed")
+                        }
+                    }
+                } else {
+                    warn!(%stage, entity = item.entity_id, %note, "defer without progress; retry ladder applies");
+                    self.fail_claimed(&item, &stage, &note).await;
+                }
             }
-            Ok(HandleOutcome::Completed) => debug!(
+            Ok(crate::studio::plugin::PluginOutcome::Committed) => debug!(
                 %stage,
                 entity = item.entity_id,
-                "handler committed product, follow-up intent, and exact claim"
+                "plugin committed product, follow-up intent, and exact claim"
             ),
-            Ok(HandleOutcome::Superseded) => debug!(
+            Ok(crate::studio::plugin::PluginOutcome::Superseded) => debug!(
                 %stage,
                 entity = item.entity_id,
-                "handler publication skipped: claim was superseded"
+                "plugin publication skipped: claim was superseded"
             ),
             Err(e) => {
-                let backoff = retry_backoff(item.attempts);
-                warn!(
-                    error = %format!("{e:#}"),
-                    %stage,
-                    entity = item.entity_id,
-                    backoff_secs = backoff.as_secs(),
-                    "handler failed; backing off"
-                );
-                match work::fail(&self.pool, &item, &format!("{e:#}"), backoff, MAX_ATTEMPTS).await
-                {
-                    Ok(true) => {}
-                    Ok(false) => debug!(
-                        %stage,
-                        entity = item.entity_id,
-                        "failure ignored: claim was superseded"
-                    ),
-                    Err(e2) => {
-                        error!(error = %format!("{e2:#}"), %stage, "fail bookkeeping failed")
-                    }
-                }
+                self.fail_claimed(&item, &stage, &format!("{e:#}")).await;
             }
         }
         stage.as_str()
     }
 
-    /// handle_bounded wraps one handler run in the per-item timeout. A timed-out item
-    /// fails with normal backoff — visible, retryable, and it cannot stall the drain
-    /// (the watchdog stays the backstop for hangs outside handlers).
-    async fn handle_bounded(
-        &self,
-        handler: &dyn WorkHandler,
-        item: &work::Item,
-    ) -> Result<HandleOutcome> {
-        if self.handler_timeout.is_zero() {
-            return handler.handle(item).await;
+    /// fail_claimed walks the retry ladder for a failed item: visible backoff,
+    /// retryable, dead-letter at MAX_ATTEMPTS.
+    async fn fail_claimed(&self, item: &work::Item, stage: &Stage, cause: &str) {
+        let backoff = retry_backoff(item.attempts);
+        warn!(
+            error = %cause,
+            %stage,
+            entity = item.entity_id,
+            backoff_secs = backoff.as_secs(),
+            "plugin failed; backing off"
+        );
+        match work::fail(&self.pool, item, cause, backoff, MAX_ATTEMPTS).await {
+            Ok(true) => {}
+            Ok(false) => debug!(
+                %stage,
+                entity = item.entity_id,
+                "failure ignored: claim was superseded"
+            ),
+            Err(e2) => error!(error = %format!("{e2:#}"), %stage, "fail bookkeeping failed"),
         }
-        match tokio::time::timeout(self.handler_timeout, handler.handle(item)).await {
+    }
+
+    /// execute_bounded wraps one plugin run in the per-item timeout. A timed-out item
+    /// fails with normal backoff — visible, retryable, and it cannot stall the drain
+    /// (the watchdog stays the backstop for hangs outside plugins).
+    async fn execute_bounded(
+        &self,
+        plugin: &dyn crate::studio::plugin::StudioPlugin,
+        item: &work::Item,
+    ) -> Result<crate::studio::plugin::PluginOutcome> {
+        if self.handler_timeout.is_zero() {
+            return plugin.execute(item).await;
+        }
+        match tokio::time::timeout(self.handler_timeout, plugin.execute(item)).await {
             Ok(res) => res,
             Err(_) => Err(anyhow!(
-                "handler exceeded COGNITION_HANDLER_TIMEOUT_SECONDS ({}s)",
+                "plugin exceeded COGNITION_HANDLER_TIMEOUT_SECONDS ({}s)",
                 self.handler_timeout.as_secs()
             )),
         }
@@ -907,9 +976,27 @@ fn note_supervisor_exit(exit: std::result::Result<(), tokio::task::JoinError>) {
 }
 
 #[cfg(test)]
+mod test_support {
+    use crate::studio::plugin::{PluginId, PluginManifest, ResourceProfile, TaskKind};
+
+    pub(super) static GRAPH_TEST_MANIFEST: PluginManifest = PluginManifest {
+        id: PluginId::new("test.graph"),
+        contract_version: "test-v1",
+        tasks: &[TaskKind::GRAPH],
+        model_roles: &[],
+        context_requirements: &[],
+        consumes: &[],
+        produces: &[],
+        resources: ResourceProfile::unbounded_batch(1),
+        tools: &[],
+    };
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
-    use crate::application::queue::stage::ARCHBOX_SLOTS;
+    use crate::studio::fleet::ARCHBOX_SLOTS;
+    use crate::studio::plugin::{PluginOutcome, StudioPlugin};
 
     #[test]
     fn stalled_requires_busy_and_age_past_threshold() {
@@ -1067,18 +1154,20 @@ mod tests {
         assert_eq!(activity, "idle");
     }
 
-    struct PreparedHandler(Option<HandleOutcome>);
+    use super::test_support::GRAPH_TEST_MANIFEST;
+
+    struct PreparedHandler(Option<PluginOutcome>);
 
     #[async_trait::async_trait]
-    impl WorkHandler for PreparedHandler {
-        fn stage(&self) -> Stage {
-            Stage::Graph
+    impl StudioPlugin for PreparedHandler {
+        fn manifest(&self) -> &'static crate::studio::plugin::PluginManifest {
+            &GRAPH_TEST_MANIFEST
         }
-        async fn handle(&self, item: &work::Item) -> Result<HandleOutcome> {
+        async fn execute(&self, item: &work::Item) -> Result<PluginOutcome> {
             assert_eq!(item.claim_token.as_deref(), Some("exact-lease"));
             assert_eq!(item.input_version.as_deref(), Some("captured-revision"));
-            match self.0 {
-                Some(receipt) => Ok(receipt),
+            match &self.0 {
+                Some(outcome) => Ok(outcome.clone()),
                 None => std::future::pending().await,
             }
         }
@@ -1115,17 +1204,20 @@ mod tests {
     async fn bound_handlers_preserve_exact_claim_and_all_durable_receipts_without_services() {
         for timeout in [Duration::ZERO, Duration::from_secs(1)] {
             let worker = offline_worker(timeout);
-            for receipt in [
-                HandleOutcome::Completed,
-                HandleOutcome::Superseded,
-                HandleOutcome::Deferred,
+            for expected in [
+                PluginOutcome::Committed,
+                PluginOutcome::Superseded,
+                PluginOutcome::deferred("test", Duration::ZERO),
             ] {
                 assert_eq!(
                     worker
-                        .handle_bounded(&PreparedHandler(Some(receipt)), &prepared_claim())
+                        .execute_bounded(
+                            &PreparedHandler(Some(expected.clone())),
+                            &prepared_claim()
+                        )
                         .await
                         .unwrap(),
-                    receipt
+                    expected
                 );
             }
         }
@@ -1135,20 +1227,21 @@ mod tests {
     async fn bound_handler_timeout_remains_a_retryable_error() {
         let worker = offline_worker(Duration::from_millis(1));
         let error = worker
-            .handle_bounded(&PreparedHandler(None), &prepared_claim())
+            .execute_bounded(&PreparedHandler(None), &prepared_claim())
             .await
             .unwrap_err();
         assert!(error
             .to_string()
-            .contains("handler exceeded COGNITION_HANDLER_TIMEOUT_SECONDS"));
+            .contains("plugin exceeded COGNITION_HANDLER_TIMEOUT_SECONDS"));
     }
 }
 
 #[cfg(test)]
 mod postgres_recovery_rehearsal {
+    use super::test_support::GRAPH_TEST_MANIFEST;
     use super::*;
-    use crate::application::queue::stage::HandleOutcome;
     use crate::application::queue::work::Item;
+    use crate::studio::plugin::{PluginOutcome, StudioPlugin};
 
     async fn fixture(sport: &str) -> PgPool {
         let pool = sqlx::postgres::PgPoolOptions::new()
@@ -1186,15 +1279,61 @@ mod postgres_recovery_rehearsal {
         shared: bool,
         order: Arc<StdMutex<Vec<Stage>>>,
     }
+    use crate::studio::plugin::TaskKind;
+
+    const fn test_manifest(
+        id: &'static str,
+        tasks: &'static [TaskKind],
+        shared: bool,
+    ) -> crate::studio::plugin::PluginManifest {
+        crate::studio::plugin::PluginManifest {
+            id: crate::studio::plugin::PluginId::new(id),
+            contract_version: "test-v1",
+            tasks,
+            model_roles: &[],
+            context_requirements: &[],
+            consumes: &[],
+            produces: &[],
+            resources: crate::studio::plugin::ResourceProfile {
+                max_in_flight: 1,
+                slot_group: if shared {
+                    Some(("test-shared", 1))
+                } else {
+                    None
+                },
+                rotation_batch: 1,
+            },
+            tools: &[],
+        }
+    }
+
+    const NARRATIVES_TEST: crate::studio::plugin::PluginManifest =
+        test_manifest("test.narratives", &[TaskKind::NARRATIVES], false);
+    const RATING_TEST: crate::studio::plugin::PluginManifest =
+        test_manifest("test.rating", &[TaskKind::RATING], false);
+    const NARRATIVES_SHARED_TEST: crate::studio::plugin::PluginManifest =
+        test_manifest("test.narratives", &[TaskKind::NARRATIVES], true);
+    const RATING_SHARED_TEST: crate::studio::plugin::PluginManifest =
+        test_manifest("test.rating", &[TaskKind::RATING], true);
+
+    impl Refilling {
+        fn manifest(&self) -> &'static crate::studio::plugin::PluginManifest {
+            match (self.stage, self.shared) {
+                (Stage::Narratives, false) => &NARRATIVES_TEST,
+                (Stage::Rating, false) => &RATING_TEST,
+                (Stage::Narratives, true) => &NARRATIVES_SHARED_TEST,
+                (Stage::Rating, true) => &RATING_SHARED_TEST,
+                _ => unreachable!("test double stages"),
+            }
+        }
+    }
+
     #[async_trait::async_trait]
-    impl WorkHandler for Refilling {
-        fn stage(&self) -> Stage {
-            self.stage
+    impl StudioPlugin for Refilling {
+        fn manifest(&self) -> &'static crate::studio::plugin::PluginManifest {
+            Refilling::manifest(self)
         }
-        fn slot_group(&self) -> Option<(&'static str, usize)> {
-            self.shared.then_some(("test-shared", 1))
-        }
-        async fn handle(&self, item: &Item) -> Result<HandleOutcome> {
+        async fn execute(&self, item: &Item) -> Result<PluginOutcome> {
             let count = {
                 let mut order = self.order.lock().unwrap();
                 order.push(self.stage);
@@ -1208,7 +1347,7 @@ mod postgres_recovery_rehearsal {
                 work::enqueue(&mut *tx, item).await?;
             }
             tx.commit().await?;
-            Ok(HandleOutcome::Completed)
+            Ok(PluginOutcome::Committed)
         }
     }
 
@@ -1223,17 +1362,18 @@ mod postgres_recovery_rehearsal {
             };
             let pool = fixture(sport).await;
             let order = Arc::new(StdMutex::new(Vec::new()));
-            let handlers: Vec<Box<dyn WorkHandler>> = [Stage::Narratives, Stage::Rating]
-                .into_iter()
-                .map(|stage| {
-                    Box::new(Refilling {
-                        pool: pool.clone(),
-                        stage,
-                        shared,
-                        order: order.clone(),
-                    }) as Box<dyn WorkHandler>
-                })
-                .collect();
+            let handlers: Vec<std::sync::Arc<dyn StudioPlugin>> =
+                [Stage::Narratives, Stage::Rating]
+                    .into_iter()
+                    .map(|stage| {
+                        std::sync::Arc::new(Refilling {
+                            pool: pool.clone(),
+                            stage,
+                            shared,
+                            order: order.clone(),
+                        }) as std::sync::Arc<dyn StudioPlugin>
+                    })
+                    .collect();
             for stage in [Stage::Narratives, Stage::Rating] {
                 work::enqueue(&pool, &item(stage, sport, 9_600_100))
                     .await
@@ -1271,18 +1411,18 @@ mod postgres_recovery_rehearsal {
         release: Arc<Notify>,
     }
     #[async_trait::async_trait]
-    impl WorkHandler for Blocked {
-        fn stage(&self) -> Stage {
-            Stage::Graph
+    impl StudioPlugin for Blocked {
+        fn manifest(&self) -> &'static crate::studio::plugin::PluginManifest {
+            &GRAPH_TEST_MANIFEST
         }
-        async fn handle(&self, item: &Item) -> Result<HandleOutcome> {
+        async fn execute(&self, item: &Item) -> Result<PluginOutcome> {
             self.entered.notify_one();
             self.release.notified().await;
             let mut tx = self.pool.begin().await?;
             assert!(work::lock_claim(&mut tx, item).await?);
             assert!(work::complete_in_transaction(&mut tx, item).await?);
             tx.commit().await?;
-            Ok(HandleOutcome::Completed)
+            Ok(PluginOutcome::Committed)
         }
     }
 
@@ -1296,12 +1436,12 @@ mod postgres_recovery_rehearsal {
         let worker = Worker::new(
             pool.clone(),
             vec![
-                Box::new(Blocked {
+                std::sync::Arc::new(Blocked {
                     pool: pool.clone(),
                     entered: entered.clone(),
                     release: release.clone(),
                 }),
-                Box::new(Terminal(pool.clone())),
+                std::sync::Arc::new(Terminal(pool.clone())),
             ],
             Duration::from_secs(60),
             Duration::from_secs(1800),
@@ -1356,17 +1496,30 @@ mod postgres_recovery_rehearsal {
     }
 
     struct Terminal(sqlx::PgPool);
+    static SIGIL_TEST_MANIFEST: crate::studio::plugin::PluginManifest =
+        crate::studio::plugin::PluginManifest {
+            id: crate::studio::plugin::PluginId::new("test.sigil"),
+            contract_version: "test-v1",
+            tasks: &[TaskKind::SIGIL],
+            model_roles: &[],
+            context_requirements: &[],
+            consumes: &[],
+            produces: &[],
+            resources: crate::studio::plugin::ResourceProfile::unbounded_batch(1),
+            tools: &[],
+        };
+
     #[async_trait::async_trait]
-    impl WorkHandler for Terminal {
-        fn stage(&self) -> Stage {
-            Stage::Sigil
+    impl StudioPlugin for Terminal {
+        fn manifest(&self) -> &'static crate::studio::plugin::PluginManifest {
+            &SIGIL_TEST_MANIFEST
         }
-        async fn handle(&self, item: &Item) -> Result<HandleOutcome> {
+        async fn execute(&self, item: &Item) -> Result<PluginOutcome> {
             let mut tx = self.0.begin().await?;
             assert!(work::lock_claim(&mut tx, item).await?);
             assert!(work::complete_in_transaction(&mut tx, item).await?);
             tx.commit().await?;
-            Ok(HandleOutcome::Completed)
+            Ok(PluginOutcome::Committed)
         }
     }
 
@@ -1404,7 +1557,7 @@ mod postgres_recovery_rehearsal {
         tx.commit().await.unwrap();
         let worker = Worker::new(
             pool.clone(),
-            vec![Box::new(Terminal(pool.clone()))],
+            vec![std::sync::Arc::new(Terminal(pool.clone()))],
             Duration::from_secs(1),
             Duration::from_secs(1800),
             Duration::from_secs(5),

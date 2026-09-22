@@ -1,13 +1,13 @@
 //! Graph evidence preparation and claim-fenced publication. Model interpretation lives in Studio.
 use crate::application::models::Models;
-use crate::application::queue::stage::{HandleOutcome, WorkHandler, ARCHBOX_SLOTS};
-use crate::application::queue::work::{self, Item, Stage};
+use crate::application::queue::work::{self, Item};
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
 use crate::runtime::route::Role;
 use crate::studio::graph::{
     Assignment, GraphArticle, GraphCandidate, GraphExtraction, GraphPerson, GraphRelation,
     GRAPH_PROMPT_VERSION,
 };
+use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
 use crate::studio::{Extracted, Generation, GenerationCall, Studio};
 use crate::util::hash_components;
 use anyhow::{ensure, Context, Result};
@@ -191,20 +191,12 @@ async fn prepare(pool: &sqlx::PgPool, models: &Models, item: &Item) -> Result<Pr
 }
 
 #[async_trait]
-impl WorkHandler for GraphHandler {
-    fn stage(&self) -> Stage {
-        Stage::Graph
+impl StudioPlugin for GraphHandler {
+    fn manifest(&self) -> &'static PluginManifest {
+        &crate::studio::fleet::GRAPH
     }
-    fn rotation_batch(&self) -> i64 {
-        8
-    }
-    fn max_in_flight(&self) -> usize {
-        ARCHBOX_SLOTS.1
-    }
-    fn slot_group(&self) -> Option<(&'static str, usize)> {
-        Some(ARCHBOX_SLOTS)
-    }
-    async fn handle(&self, item: &Item) -> Result<HandleOutcome> {
+
+    async fn execute(&self, item: &Item) -> Result<PluginOutcome> {
         let pool = &self.pool;
         let models = &self.models;
         let prepared = prepare(pool, models, item).await?;
@@ -214,11 +206,11 @@ impl WorkHandler for GraphHandler {
 
 /// Product rows carry required article/model/contract provenance. Diagnostic generation
 /// logging is best-effort after commit and can never change the completion result.
-async fn commit_claimed(pool: &PgPool, item: &Item, prepared: &Prepared) -> Result<HandleOutcome> {
+async fn commit_claimed(pool: &PgPool, item: &Item, prepared: &Prepared) -> Result<PluginOutcome> {
     let mut tx = pool.begin().await?;
     if !work::lock_claim(&mut tx, item).await? {
         tx.rollback().await?;
-        return Ok(HandleOutcome::Superseded);
+        return Ok(PluginOutcome::Superseded);
     }
     let mut event_ids = Vec::new();
     if let Prepared::Read {
@@ -275,7 +267,7 @@ async fn commit_claimed(pool: &PgPool, item: &Item, prepared: &Prepared) -> Resu
     {
         record_diagnostics(pool, item, input_hash, extracted, event_ids).await;
     }
-    Ok(HandleOutcome::Completed)
+    Ok(PluginOutcome::Committed)
 }
 
 fn extraction_parts(

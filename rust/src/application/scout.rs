@@ -4,12 +4,12 @@
 //! assignment preparation, queue policy, exact-claim publication, and diagnostic ledger writes.
 
 use crate::application::models::Models;
-use crate::application::queue::stage::{HandleOutcome, WorkHandler};
 use crate::application::queue::work::{self, Item, Stage};
 use crate::evidence::memories::{self, MemoryRequest, Mission};
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
 use crate::runtime::route::Role;
 use crate::studio::model::GenerateOptions;
+use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
 use crate::studio::scout::{
     self, Assignment, RatingBuild, RatingExclusions, RatingOutput, Subject, MAX_STAT_FACTS,
     RATING_NUM_PREDICT, RATING_OUTPUT_CONTRACT_VERSION, RATING_SYSTEM_PROMPT, RATING_TEMPERATURE,
@@ -656,13 +656,13 @@ async fn commit_claimed(
     trigger_type: &str,
     trigger_payload: &serde_json::Value,
     prepared: &Prepared<'_>,
-) -> Result<(HandleOutcome, Option<i64>)> {
+) -> Result<(PluginOutcome, Option<i64>)> {
     let mut tx = pool.begin().await.context("begin rating publication")?;
     if !work::lock_claim(&mut tx, item).await? {
         tx.rollback()
             .await
             .context("close superseded rating publication")?;
-        return Ok((HandleOutcome::Superseded, None));
+        return Ok((PluginOutcome::Superseded, None));
     }
 
     let product_row_id = match prepared {
@@ -690,7 +690,7 @@ async fn commit_claimed(
         bail!("rating claim changed while its publication transaction held the row lock");
     }
     tx.commit().await.context("commit rating publication")?;
-    Ok((HandleOutcome::Completed, product_row_id))
+    Ok((PluginOutcome::Committed, product_row_id))
 }
 
 /// Queue-owned Scout adapter. Creation remains outside the short publication transaction.
@@ -706,20 +706,12 @@ impl RatingHandler {
 }
 
 #[async_trait]
-impl WorkHandler for RatingHandler {
-    fn stage(&self) -> Stage {
-        Stage::Rating
+impl StudioPlugin for RatingHandler {
+    fn manifest(&self) -> &'static PluginManifest {
+        &crate::studio::fleet::SCOUT
     }
 
-    fn max_in_flight(&self) -> usize {
-        2
-    }
-
-    fn slot_group(&self) -> Option<(&'static str, usize)> {
-        Some(crate::application::queue::stage::ARCHBOX_SLOTS)
-    }
-
-    async fn handle(&self, item: &Item) -> Result<HandleOutcome> {
+    async fn execute(&self, item: &Item) -> Result<PluginOutcome> {
         let pool = &self.pool;
         let models = &self.models;
         let entity_id = item.entity_id_i32()?;

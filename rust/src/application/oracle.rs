@@ -2,7 +2,6 @@
 
 use crate::application::models::Models;
 use crate::application::products::EntityKey;
-use crate::application::queue::stage::{HandleOutcome, WorkHandler};
 use crate::application::queue::work::{self, Item, Stage};
 use crate::evidence::corpus::load_transfer_heat;
 use crate::evidence::memories::{self, MemoryRequest, Mission};
@@ -15,6 +14,7 @@ use crate::studio::oracle::{
     SynthTransfer, SynthVibe, CROWN_CARD_BODY_CAP, ORACLE_NUM_PREDICT,
     ORACLE_OUTPUT_CONTRACT_VERSION, ORACLE_TEMPERATURE,
 };
+use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
 use crate::studio::Studio;
 use crate::util::hash_components;
 use anyhow::{bail, Context, Result};
@@ -417,13 +417,13 @@ async fn commit_claimed(
     item: &Item,
     sport: &str,
     prepared: &Prepared,
-) -> Result<(HandleOutcome, Option<i64>)> {
+) -> Result<(PluginOutcome, Option<i64>)> {
     let mut tx = pool.begin().await.context("begin sigil publication")?;
     if !work::lock_claim(&mut tx, item).await? {
         tx.rollback()
             .await
             .context("close superseded sigil publication")?;
-        return Ok((HandleOutcome::Superseded, None));
+        return Ok((PluginOutcome::Superseded, None));
     }
     let product_row_id = match prepared {
         Prepared::Debounced => None,
@@ -436,7 +436,7 @@ async fn commit_claimed(
         bail!("sigil claim changed while its publication transaction held the row lock");
     }
     tx.commit().await.context("commit sigil publication")?;
-    Ok((HandleOutcome::Completed, product_row_id))
+    Ok((PluginOutcome::Committed, product_row_id))
 }
 
 async fn record_ledger(
@@ -500,27 +500,19 @@ impl SigilHandler {
 }
 
 #[async_trait]
-impl WorkHandler for SigilHandler {
-    fn stage(&self) -> Stage {
-        Stage::Sigil
+impl StudioPlugin for SigilHandler {
+    fn manifest(&self) -> &'static PluginManifest {
+        &crate::studio::fleet::ORACLE
     }
 
-    fn max_in_flight(&self) -> usize {
-        2
-    }
-
-    fn slot_group(&self) -> Option<(&'static str, usize)> {
-        Some(crate::application::queue::stage::MAC_SLOTS)
-    }
-
-    async fn handle(&self, item: &Item) -> Result<HandleOutcome> {
+    async fn execute(&self, item: &Item) -> Result<PluginOutcome> {
         let pool = &self.pool;
         let models = &self.models;
         let sport = item.sport.to_uppercase();
         let prepared = prepare(pool, models, item).await?;
         let (outcome, product_row_id) = commit_claimed(pool, item, &sport, &prepared).await?;
-        if let (HandleOutcome::Completed, Some(product_row_id), Prepared::Product { output, .. }) =
-            (outcome, product_row_id, &prepared)
+        if let (PluginOutcome::Committed, Some(product_row_id), Prepared::Product { output, .. }) =
+            (&outcome, product_row_id, &prepared)
         {
             record_ledger(pool, item, &sport, output, product_row_id).await;
         }

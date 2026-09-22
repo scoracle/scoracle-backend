@@ -6,12 +6,12 @@
 use crate::application::models::Models;
 use crate::application::oracle;
 use crate::application::products::EntityKey;
-use crate::application::queue::stage::{HandleOutcome, WorkHandler};
 use crate::application::queue::work::{self, Item, Stage};
 use crate::evidence::memories::{self, MemoryRequest, Mission};
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
 use crate::runtime::route::Role;
 use crate::studio::oracle::{SynthMomentum, SynthRating, SynthVibe};
+use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
 use crate::studio::{analyst, Studio};
 use crate::util::hash_components;
 use anyhow::{bail, Context, Result};
@@ -404,13 +404,13 @@ async fn commit_claimed(
     item: &Item,
     sport: &str,
     prepared: &Prepared,
-) -> Result<(HandleOutcome, Option<i64>)> {
+) -> Result<(PluginOutcome, Option<i64>)> {
     let mut tx = pool.begin().await.context("begin momentum publication")?;
     if !work::lock_claim(&mut tx, item).await? {
         tx.rollback()
             .await
             .context("close superseded momentum publication")?;
-        return Ok((HandleOutcome::Superseded, None));
+        return Ok((PluginOutcome::Superseded, None));
     }
 
     let product_row_id = match prepared {
@@ -424,7 +424,7 @@ async fn commit_claimed(
         bail!("momentum claim changed while its publication transaction held the row lock");
     }
     tx.commit().await.context("commit momentum publication")?;
-    Ok((HandleOutcome::Completed, product_row_id))
+    Ok((PluginOutcome::Committed, product_row_id))
 }
 
 pub struct MomentumHandler {
@@ -439,12 +439,12 @@ impl MomentumHandler {
 }
 
 #[async_trait]
-impl WorkHandler for MomentumHandler {
-    fn stage(&self) -> Stage {
-        Stage::Momentum
+impl StudioPlugin for MomentumHandler {
+    fn manifest(&self) -> &'static PluginManifest {
+        &crate::studio::fleet::ANALYST
     }
 
-    async fn handle(&self, item: &Item) -> Result<HandleOutcome> {
+    async fn execute(&self, item: &Item) -> Result<PluginOutcome> {
         let pool = &self.pool;
         let models = &self.models;
         let entity_id = item.entity_id_i32()?;

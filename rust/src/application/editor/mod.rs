@@ -1,7 +1,6 @@
 //! Editor application: fetch and prepare, ask Studio, then publish under the exact queue claim.
 use crate::application::models::Models;
-use crate::application::queue::stage::{HandleOutcome, WorkHandler, ARCHBOX_SLOTS};
-use crate::application::queue::work::{self, Item, Stage};
+use crate::application::queue::work::{self, Item};
 use crate::evidence::fetch::{
     content_hash, count_words, fetch_article, looks_paywalled, FetchedArticle, ARTICLE_MIN_WORDS,
 };
@@ -10,6 +9,7 @@ use crate::runtime::route::Role;
 use crate::studio::editor::{
     derive, prompt, Assignment, EditorEntityRole, EditorRead, NameMention, EDITOR_CONTRACT_VERSION,
 };
+use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
 use crate::studio::{Extracted, Generation, GenerationCall, Studio};
 use crate::util::truncate;
 use anyhow::{bail, Context, Result};
@@ -119,11 +119,11 @@ async fn prepare(pool: &sqlx::PgPool, models: &Models, item: &Item) -> Result<Pr
 /// All required effects are local Postgres writes, so a single transaction is simpler than
 /// an outbox. Storyline state retains the packet compilation obligation; explicit queue
 /// writes retain Investigator and Graph work before this claim is completed.
-async fn commit_claimed(pool: &PgPool, item: &Item, prepared: &Prepared) -> Result<HandleOutcome> {
+async fn commit_claimed(pool: &PgPool, item: &Item, prepared: &Prepared) -> Result<PluginOutcome> {
     let mut tx = pool.begin().await.context("begin editor publication")?;
     if !work::lock_claim(&mut tx, item).await? {
         tx.rollback().await?;
-        return Ok(HandleOutcome::Superseded);
+        return Ok(PluginOutcome::Superseded);
     }
     match prepared {
         Prepared::Unchanged => {}
@@ -261,7 +261,7 @@ async fn commit_claimed(pool: &PgPool, item: &Item, prepared: &Prepared) -> Resu
         bail!("editor claim changed while publication held its lock");
     }
     tx.commit().await.context("commit editor publication")?;
-    Ok(HandleOutcome::Completed)
+    Ok(PluginOutcome::Committed)
 }
 
 pub struct EditorHandler {
@@ -275,26 +275,18 @@ impl EditorHandler {
 }
 
 #[async_trait]
-impl WorkHandler for EditorHandler {
-    fn stage(&self) -> Stage {
-        Stage::Editor
+impl StudioPlugin for EditorHandler {
+    fn manifest(&self) -> &'static PluginManifest {
+        &crate::studio::fleet::EDITOR
     }
-    fn rotation_batch(&self) -> i64 {
-        8
-    }
-    fn max_in_flight(&self) -> usize {
-        ARCHBOX_SLOTS.1
-    }
-    fn slot_group(&self) -> Option<(&'static str, usize)> {
-        Some(ARCHBOX_SLOTS)
-    }
-    async fn handle(&self, item: &Item) -> Result<HandleOutcome> {
+
+    async fn execute(&self, item: &Item) -> Result<PluginOutcome> {
         let pool = &self.pool;
         let models = &self.models;
         item.require_claim_token()?;
         let prepared = prepare(pool, models, item).await?;
         let outcome = commit_claimed(pool, item, &prepared).await?;
-        if outcome == HandleOutcome::Completed {
+        if outcome == PluginOutcome::Committed {
             if let Prepared::Read {
                 extracted,
                 body_hash,

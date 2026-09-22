@@ -18,15 +18,16 @@ use self::discover::{
     wikidata_item, wikidata_search, wikipedia_search, wikipedia_summary, WikidataHit,
 };
 use crate::application::models::Models;
-use crate::application::queue::stage::{HandleOutcome, WorkHandler};
-use crate::application::queue::work::{self, Item, Stage};
-use crate::evidence::fetch::{BudgetedFetcher, FetchPolicy};
+use crate::application::queue::work::{self, Item};
+use crate::evidence::fetch::FetchPolicy;
 use crate::runtime::route::Role;
 use crate::studio::investigator::gate::{
     commons_image_url, decide, decide_prose, display_height, display_weight, mentions_all_tokens,
     nba_headshot_url, strip_paren_title, wire_date, ProseScreen, RoleClass, Verdict,
 };
 use crate::studio::investigator::prompt::{ProseRead, INVESTIGATOR_PROSE_CONTRACT_VERSION};
+use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
+use crate::studio::tools::{ScopedWeb, ToolLedger, WebBroker};
 use crate::studio::{
     investigator::{Assignment, WikidataItem},
     Studio,
@@ -52,7 +53,9 @@ fn wikimedia_policy() -> FetchPolicy {
 pub struct InvestigateEntityHandler {
     pool: sqlx::PgPool,
     models: std::sync::Arc<Models>,
-    fetcher: BudgetedFetcher,
+    /// The room's web workspace. The plugin's manifest declares the Wikimedia domain
+    /// class; this broker enforces that grant on every call.
+    web: WebBroker,
 }
 
 impl InvestigateEntityHandler {
@@ -60,37 +63,27 @@ impl InvestigateEntityHandler {
         Ok(Self {
             pool,
             models,
-            fetcher: BudgetedFetcher::new()?,
+            web: WebBroker::new(0)?,
         })
     }
 }
 
 #[async_trait]
-impl WorkHandler for InvestigateEntityHandler {
-    fn stage(&self) -> Stage {
-        Stage::InvestigateEntity
+impl StudioPlugin for InvestigateEntityHandler {
+    fn manifest(&self) -> &'static PluginManifest {
+        &crate::studio::fleet::INVESTIGATOR
     }
 
-    /// Wikimedia's per-domain spacing is the binding concurrency limit.
-    fn max_in_flight(&self) -> usize {
-        1
-    }
-
-    /// HTTP discovery uses no local-model slot; prose calls use their routed host governor.
-    fn slot_group(&self) -> Option<(&'static str, usize)> {
-        None
-    }
-
-    async fn handle(&self, item: &Item) -> Result<HandleOutcome> {
+    async fn execute(&self, item: &Item) -> Result<PluginOutcome> {
         let pool = &self.pool;
         let models = &self.models;
         let mut mappings = Vec::new();
+        let ledger = ToolLedger::new();
+        let web = self.web.scope(pool, self.manifest(), &ledger);
         let decision = match item.entity_type.as_str() {
-            "candidate" => {
-                investigate_candidate(pool, models, &self.fetcher, item, &mut mappings).await?
-            }
-            "player" => enrich_player(pool, models, &self.fetcher, item, &mut mappings).await?,
-            "team" => enrich_team(pool, &self.fetcher, item).await?,
+            "candidate" => investigate_candidate(pool, models, &web, item, &mut mappings).await?,
+            "player" => enrich_player(pool, models, &web, item, &mut mappings).await?,
+            "team" => enrich_team(pool, &web, item).await?,
             other => {
                 return Err(anyhow!(
                     "investigate_entity got entity_type='{other}' (candidate|player|team)"
@@ -116,16 +109,16 @@ struct Discovery {
 
 async fn discover(
     pool: &sqlx::PgPool,
-    fetcher: &BudgetedFetcher,
+    web: &ScopedWeb<'_>,
     sport: &str,
     name: &str,
     mappings: &mut Vec<TeamMapping>,
 ) -> Result<Discovery> {
     let policy = wikimedia_policy();
-    let hits = wikidata_search(fetcher, pool, &policy, name, 5).await?;
+    let hits = wikidata_search(web, &policy, name, 5).await?;
     let mut items = Vec::new();
     for hit in hits.iter().take(MAX_ITEMS) {
-        match wikidata_item(fetcher, pool, &policy, &hit.qid).await {
+        match wikidata_item(web, &policy, &hit.qid).await {
             Ok(it) => items.push(it),
             Err(e) => {
                 warn!(qid = %hit.qid, error = %format!("{e:#}"), "wikidata item fetch failed")
@@ -140,7 +133,7 @@ async fn discover(
         qids.extend(it.coach_of_teams.iter().cloned());
         qids.extend(it.owner_of_teams.iter().cloned());
         qids.truncate(24);
-        our_teams.push(resolve_team_qids(pool, fetcher, sport, &qids, mappings).await?);
+        our_teams.push(resolve_team_qids(pool, web, sport, &qids, mappings).await?);
     }
     Ok(Discovery {
         hits,
@@ -178,7 +171,7 @@ async fn name_forms_agree(pool: &PgPool, sought: &str, it: &WikidataItem) -> Res
 /// written back with provenance, so the mapping bootstraps itself over the first few runs.
 async fn resolve_team_qids(
     pool: &sqlx::PgPool,
-    fetcher: &BudgetedFetcher,
+    web: &ScopedWeb<'_>,
     sport: &str,
     qids: &[String],
     mappings: &mut Vec<TeamMapping>,
@@ -217,7 +210,7 @@ async fn resolve_team_qids(
             "https://www.wikidata.org/w/api.php?action=wbgetentities&ids={}&props=labels&languages=en&format=json",
             crate::studio::investigator::urlencode(&ids)
         );
-        match fetcher.fetch(pool, &url, &wikimedia_policy()).await {
+        match web.fetch_wikimedia(&url, &wikimedia_policy()).await {
             Ok(fetched) => {
                 let v: serde_json::Value =
                     serde_json::from_str(&fetched.body).context("parse team labels batch")?;
@@ -321,7 +314,7 @@ async fn load_candidate(pool: &PgPool, id: i64) -> Result<Option<CandidateRow>> 
 async fn investigate_candidate(
     pool: &sqlx::PgPool,
     models: &Models,
-    fetcher: &BudgetedFetcher,
+    web: &ScopedWeb<'_>,
     item: &Item,
     mappings: &mut Vec<TeamMapping>,
 ) -> Result<Decision> {
@@ -339,7 +332,7 @@ async fn investigate_candidate(
         .ok_or_else(|| anyhow!("candidate {} has no sport", cand.id))?;
     let search_name = cand.norm_name.clone();
 
-    let d = discover(pool, fetcher, &sport, &search_name, mappings).await?;
+    let d = discover(pool, web, &sport, &search_name, mappings).await?;
     let verdict = decide(&sport, &d.items, &d.name_agreed, &bools_of(&d.our_teams));
 
     let run_plan = json!({
@@ -404,7 +397,7 @@ async fn investigate_candidate(
             return investigate_candidate_prose(
                 pool,
                 models,
-                fetcher,
+                web,
                 &cand,
                 &sport,
                 &search_name,
@@ -421,14 +414,14 @@ async fn investigate_candidate(
 async fn investigate_candidate_prose(
     pool: &sqlx::PgPool,
     models: &Models,
-    fetcher: &BudgetedFetcher,
+    web: &ScopedWeb<'_>,
     cand: &CandidateRow,
     sport: &str,
     sought: &str,
     wikidata_run_plan: &serde_json::Value,
 ) -> Result<Decision> {
     let policy = wikimedia_policy();
-    let pages = wikipedia_search(fetcher, pool, &policy, sought, 5).await?;
+    let pages = wikipedia_search(web, &policy, sought, 5).await?;
     // Pre-screen in code: only pages whose search surface carries EVERY word of the sought
     // name go to the model. Token presence, not contiguous containment — the target page
     // writes the name with a nickname inside it (`Airious "Ace" Bailey`), and the strict
@@ -457,7 +450,7 @@ async fn investigate_candidate_prose(
     let mut reads: Vec<(ProseRead, String, String, i64, Vec<i32>)> = Vec::new(); // (read, key, title, doc, teams)
     let mut model_version = String::new();
     for page in &mentioning {
-        let fetched = match wikipedia_summary(fetcher, pool, &policy, &page.key).await {
+        let fetched = match wikipedia_summary(web, &policy, &page.key).await {
             Ok(f) => f,
             Err(e) => {
                 warn!(key = %page.key, error = %format!("{e:#}"), "summary fetch failed; page skipped");
@@ -589,7 +582,7 @@ const MAX_PROSE_PAGES: usize = 2;
 async fn prose_team_corroborates(
     pool: &sqlx::PgPool,
     models: &Models,
-    fetcher: &BudgetedFetcher,
+    web: &ScopedWeb<'_>,
     it: &WikidataItem,
     sport: &str,
     name: &str,
@@ -602,7 +595,7 @@ async fn prose_team_corroborates(
         return Ok(false);
     };
     let policy = wikimedia_policy();
-    let fetched = wikipedia_summary(fetcher, pool, &policy, title).await?;
+    let fetched = wikipedia_summary(web, &policy, title).await?;
     let body: serde_json::Value =
         serde_json::from_str(&fetched.body).context("parse corroboration summary")?;
     let page_title = body
@@ -676,7 +669,7 @@ fn bools_of(our_teams: &[Vec<i32>]) -> Vec<bool> {
 async fn enrich_player(
     pool: &sqlx::PgPool,
     models: &Models,
-    fetcher: &BudgetedFetcher,
+    web: &ScopedWeb<'_>,
     item: &Item,
     mappings: &mut Vec<TeamMapping>,
 ) -> Result<Decision> {
@@ -698,7 +691,7 @@ async fn enrich_player(
     let sport: String = row.get("sport");
     let team_id: Option<i32> = row.get("team_id");
 
-    let d = discover(pool, fetcher, &sport, &name, mappings).await?;
+    let d = discover(pool, web, &sport, &name, mappings).await?;
     // The enrichment discriminator is STRICTER than membership-of-any-our-team: the item's
     // career must include THIS player's current team. Without a team on our side, refuse —
     // enrichment of team-less players waits for a reconciled team, not a guess.
@@ -715,16 +708,8 @@ async fn enrich_player(
         // page prose gets one containment-verified chance to corroborate the current team.
         Verdict::Ambiguous { ref survivor_idxs } if survivor_idxs.len() == 1 => {
             let i = survivor_idxs[0];
-            match prose_team_corroborates(
-                pool,
-                models,
-                fetcher,
-                &d.items[i],
-                &sport,
-                &name,
-                team_id,
-            )
-            .await
+            match prose_team_corroborates(pool, models, web, &d.items[i], &sport, &name, team_id)
+                .await
             {
                 Ok(true) => {
                     info!(player_id, %name, qid = %d.items[i].qid,
@@ -766,11 +751,7 @@ async fn enrich_player(
 /// fetches a KNOWN item, screens the name, and revises exactly what the policy allows —
 /// venue_name (P115, current tenure) and logo_url (P154, P18 fallback). City, founding
 /// year, sport, name: absent from the policy, frozen, untouchable from here.
-async fn enrich_team(
-    pool: &sqlx::PgPool,
-    fetcher: &BudgetedFetcher,
-    item: &Item,
-) -> Result<Decision> {
+async fn enrich_team(pool: &sqlx::PgPool, web: &ScopedWeb<'_>, item: &Item) -> Result<Decision> {
     let team_id = item.entity_id_i32()?;
     let Some(row) =
         sqlx::query("SELECT name, sport FROM public.teams WHERE id = $1 AND sport = $2")
@@ -803,7 +784,7 @@ async fn enrich_team(
 
     let policy = load_fact_policy(pool).await?;
     let fetch_policy = wikimedia_policy();
-    let it = wikidata_item(fetcher, pool, &fetch_policy, &qid).await?;
+    let it = wikidata_item(web, &fetch_policy, &qid).await?;
 
     // The same two code gates every acceptance passes: the item must carry our name
     // form, and the stored excerpt must literally contain it.
@@ -820,7 +801,7 @@ async fn enrich_team(
     // provenance, per the standing rule).
     let venue_name = match it.venue_qid.as_deref() {
         Some(vq) if policy_allows(&policy, "team", "venue_name") => {
-            match wikidata_item(fetcher, pool, &fetch_policy, vq).await {
+            match wikidata_item(web, &fetch_policy, vq).await {
                 Ok(v) if !v.label.is_empty() => Some((v.label, v.source_document_id)),
                 Ok(_) => None,
                 Err(e) => {

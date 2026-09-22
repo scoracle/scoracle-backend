@@ -6,8 +6,7 @@
 
 use crate::application::models::Models;
 use crate::application::products::EntityKey;
-use crate::application::queue::stage::{HandleOutcome, WorkHandler};
-use crate::application::queue::work::{self, Item, Stage};
+use crate::application::queue::work::{self, Item};
 use crate::evidence::memories::{self, MemoryRequest, Mission};
 use crate::evidence::story_parts::{mode_storyline, progress_generation, PartItem};
 use crate::evidence::trajectory::DEFAULT_TRAJECTORY;
@@ -17,6 +16,7 @@ use crate::studio::journalist::{
     self, Assignment, CorpusExclusions, CorpusItem, Narrative, NarrativesOutput, Subject,
     NARRATIVES_NUM_PREDICT_PACKET, NARRATIVES_OUTPUT_CONTRACT_VERSION, NARRATIVES_TEMPERATURE,
 };
+use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
 use crate::studio::Studio;
 use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
@@ -500,13 +500,13 @@ async fn commit_claimed(
     trigger_type: &str,
     trigger_payload: &serde_json::Value,
     prepared: &Prepared<'_>,
-) -> Result<(HandleOutcome, Vec<i64>)> {
+) -> Result<(PluginOutcome, Vec<i64>)> {
     let mut tx = pool.begin().await.context("begin narratives publication")?;
     if !work::lock_claim(&mut tx, item).await? {
         tx.rollback()
             .await
             .context("close superseded narratives publication")?;
-        return Ok((HandleOutcome::Superseded, Vec::new()));
+        return Ok((PluginOutcome::Superseded, Vec::new()));
     }
     let product_row_ids = match prepared {
         Prepared::Debounced => Vec::new(),
@@ -528,7 +528,7 @@ async fn commit_claimed(
         bail!("narratives claim changed while its publication transaction held the row lock");
     }
     tx.commit().await.context("commit narratives publication")?;
-    Ok((HandleOutcome::Completed, product_row_ids))
+    Ok((PluginOutcome::Committed, product_row_ids))
 }
 
 pub struct NarrativesHandler {
@@ -543,20 +543,12 @@ impl NarrativesHandler {
 }
 
 #[async_trait]
-impl WorkHandler for NarrativesHandler {
-    fn stage(&self) -> Stage {
-        Stage::Narratives
+impl StudioPlugin for NarrativesHandler {
+    fn manifest(&self) -> &'static PluginManifest {
+        &crate::studio::fleet::JOURNALIST
     }
 
-    fn max_in_flight(&self) -> usize {
-        2
-    }
-
-    fn slot_group(&self) -> Option<(&'static str, usize)> {
-        Some(crate::application::queue::stage::MAC_SLOTS)
-    }
-
-    async fn handle(&self, item: &Item) -> Result<HandleOutcome> {
+    async fn execute(&self, item: &Item) -> Result<PluginOutcome> {
         let pool = &self.pool;
         let models = &self.models;
         let entity_id = item.entity_id_i32()?;
@@ -622,7 +614,7 @@ impl WorkHandler for NarrativesHandler {
             &Prepared::Product(&output),
         )
         .await?;
-        if outcome == HandleOutcome::Completed {
+        if outcome == PluginOutcome::Committed {
             record_ledger(
                 pool,
                 &LedgerSubject {

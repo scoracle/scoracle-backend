@@ -4,8 +4,7 @@ use crate::evidence::memories::{self, MemoryRequest, Mission};
 
 use crate::application::models::Models;
 use crate::application::products::EntityKey;
-use crate::application::queue::stage::{HandleOutcome, WorkHandler};
-use crate::application::queue::work::{Item, Stage};
+use crate::application::queue::work::Item;
 use crate::evidence::corpus::lookup_entity_name;
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
 use crate::runtime::route::Role;
@@ -13,6 +12,7 @@ use crate::studio::influencer::{
     self, Assignment, PacketBlock, VibeOutput, VIBE_NUM_PREDICT, VIBE_PROMPT_VERSION,
     VIBE_TEMPERATURE,
 };
+use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
 use crate::studio::Studio;
 use crate::util::hash_components;
 use anyhow::{bail, Context, Result};
@@ -307,13 +307,13 @@ async fn commit_claimed(
     item: &Item,
     sport: &str,
     prepared: &Prepared,
-) -> Result<(HandleOutcome, Option<i64>)> {
+) -> Result<(PluginOutcome, Option<i64>)> {
     let mut tx = pool.begin().await.context("begin vibe publication")?;
     if !crate::application::queue::work::lock_claim(&mut tx, item).await? {
         tx.rollback()
             .await
             .context("close superseded vibe publication")?;
-        return Ok((HandleOutcome::Superseded, None));
+        return Ok((PluginOutcome::Superseded, None));
     }
 
     let product_row_id = match prepared {
@@ -327,7 +327,7 @@ async fn commit_claimed(
         bail!("vibe claim changed while its publication transaction held the row lock");
     }
     tx.commit().await.context("commit vibe publication")?;
-    Ok((HandleOutcome::Completed, product_row_id))
+    Ok((PluginOutcome::Committed, product_row_id))
 }
 
 /// VibeHandler drains the durable `vibe` stage: read the current packets, score
@@ -345,20 +345,14 @@ impl VibeHandler {
 }
 
 #[async_trait]
-impl WorkHandler for VibeHandler {
-    fn stage(&self) -> Stage {
-        Stage::Vibe
+impl StudioPlugin for VibeHandler {
+    fn manifest(&self) -> &'static PluginManifest {
+        &crate::studio::fleet::INFLUENCER
     }
 
     // One slot leaves room in the shared voice group for the terminal Oracle.
-    fn max_in_flight(&self) -> usize {
-        1
-    }
-    fn slot_group(&self) -> Option<(&'static str, usize)> {
-        Some(crate::application::queue::stage::MAC_SLOTS)
-    }
 
-    async fn handle(&self, item: &Item) -> Result<HandleOutcome> {
+    async fn execute(&self, item: &Item) -> Result<PluginOutcome> {
         let pool = &self.pool;
         let models = &self.models;
         let entity_id = item.entity_id_i32()?;

@@ -601,9 +601,15 @@ impl DomainState {
 /// The per-process budget ledger. One instance per worker (the handler owns it); the
 /// per-domain async mutex is what makes "concurrency 1 per domain" structural — a second
 /// task on the same domain queues on the lock rather than racing the spacing check.
+///
+/// `Clone` produces an independent budget ledger (fresh domain map). It exists so a
+/// plugin face can re-materialize its handler without sharing circuit state across
+/// two live copies; production adapters still own exactly one fetcher each.
+#[derive(Clone)]
 pub struct BudgetedFetcher {
     client: reqwest::Client,
-    domains: Mutex<HashMap<String, std::sync::Arc<tokio::sync::Mutex<DomainState>>>>,
+    domains:
+        std::sync::Arc<Mutex<HashMap<String, std::sync::Arc<tokio::sync::Mutex<DomainState>>>>>,
 }
 
 impl BudgetedFetcher {
@@ -616,7 +622,7 @@ impl BudgetedFetcher {
             .context("build budgeted fetch client")?;
         Ok(Self {
             client,
-            domains: Mutex::new(HashMap::new()),
+            domains: std::sync::Arc::new(Mutex::new(HashMap::new())),
         })
     }
 

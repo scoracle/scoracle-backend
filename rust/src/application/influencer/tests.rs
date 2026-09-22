@@ -1,7 +1,10 @@
 //! Service-free acceptance of the production coordinator and its actual Studio session.
 use super::*;
+use crate::application::queue::work::Stage;
 use crate::studio::influencer::build_sentiment_prompt;
 use crate::studio::model::{GenerateOptions, GenerateResult, IncompleteOutput, Inference};
+use crate::studio::plugin::PluginOutcome;
+use crate::studio::plugin::TaskKind;
 use std::collections::VecDeque;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -336,11 +339,12 @@ async fn production_and_eval_keep_their_existing_options_and_capacity() {
             .unwrap(),
         models,
     );
-    assert_eq!(handler.stage(), Stage::Vibe);
-    assert_eq!(handler.max_in_flight(), 1);
+    let manifest = handler.manifest();
+    assert_eq!(manifest.tasks, &[TaskKind::VIBE][..]);
+    assert_eq!(manifest.resources.max_in_flight, 1);
     assert_eq!(
-        handler.slot_group(),
-        Some(crate::application::queue::stage::MAC_SLOTS)
+        manifest.resources.slot_group,
+        Some(crate::studio::fleet::MAC_SLOTS)
     );
 }
 
@@ -586,7 +590,7 @@ mod postgres_publication_fencing_tests {
             commit_claimed(&pool, &stale, SPORT, &marker().await)
                 .await
                 .unwrap(),
-            (HandleOutcome::Superseded, None)
+            (PluginOutcome::Superseded, None)
         );
         assert_eq!(counts(&pool).await, (0, 0, 1));
 
@@ -595,7 +599,7 @@ mod postgres_publication_fencing_tests {
         let (outcome, row_id) = commit_claimed(&pool, &current, SPORT, &marker().await)
             .await
             .unwrap();
-        assert_eq!(outcome, HandleOutcome::Completed);
+        assert_eq!(outcome, PluginOutcome::Committed);
         assert!(row_id.is_some());
         assert_eq!(counts(&pool).await, (1, 1, 0));
         let recorded_revision: Option<String> = sqlx::query_scalar(
@@ -638,13 +642,13 @@ mod postgres_publication_fencing_tests {
             commit_claimed(&pool, &stale, SPORT, &marker().await)
                 .await
                 .unwrap(),
-            (HandleOutcome::Superseded, None)
+            (PluginOutcome::Superseded, None)
         );
         assert_eq!(counts(&pool).await, (0, 0, 1));
         let (outcome, row_id) = commit_claimed(&pool, &current, SPORT, &marker().await)
             .await
             .unwrap();
-        assert_eq!(outcome, HandleOutcome::Completed);
+        assert_eq!(outcome, PluginOutcome::Committed);
         assert!(row_id.is_some());
         assert_eq!(counts(&pool).await, (1, 1, 0));
 
@@ -663,7 +667,7 @@ mod postgres_publication_fencing_tests {
             commit_claimed(&pool, &current, SPORT, &Prepared::Debounced)
                 .await
                 .unwrap(),
-            (HandleOutcome::Completed, None)
+            (PluginOutcome::Committed, None)
         );
         assert_eq!(counts(&pool).await, (0, 1, 0));
 

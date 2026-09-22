@@ -1,6 +1,7 @@
 //! Unit and exact-publication tests for the Scout application adapter.
 
 use super::*;
+use crate::application::queue::work::Stage;
 use crate::studio::scout::{RatingExclusions, RatingProduct, RATING_PROMPT_VERSION};
 use crate::studio::Generation;
 fn rating_product(
@@ -160,7 +161,7 @@ mod postgres_publication_fencing_tests {
             )
             .await
             .unwrap(),
-            (HandleOutcome::Superseded, None)
+            (PluginOutcome::Superseded, None)
         );
         assert_eq!(counts(&pool).await, (0, 0, 1));
 
@@ -179,7 +180,7 @@ mod postgres_publication_fencing_tests {
             .await
             .unwrap()
             .0,
-            HandleOutcome::Completed
+            PluginOutcome::Committed
         );
         assert_eq!(counts(&pool).await, (1, 1, 0));
         clean(&pool).await;
@@ -221,7 +222,7 @@ mod postgres_publication_fencing_tests {
             )
             .await
             .unwrap(),
-            (HandleOutcome::Superseded, None)
+            (PluginOutcome::Superseded, None)
         );
         assert_eq!(counts(&pool).await, (0, 0, 1));
 
@@ -238,7 +239,7 @@ mod postgres_publication_fencing_tests {
             .await
             .unwrap()
             .0,
-            HandleOutcome::Completed
+            PluginOutcome::Committed
         );
         assert_eq!(counts(&pool).await, (1, 1, 0));
         clean(&pool).await;
@@ -263,7 +264,7 @@ mod postgres_publication_fencing_tests {
         )
         .await
         .unwrap();
-        assert_eq!(outcome, HandleOutcome::Completed);
+        assert_eq!(outcome, PluginOutcome::Committed);
         assert!(row_id.is_some());
         assert_eq!(counts(&pool).await, (1, 1, 0));
 
@@ -322,7 +323,7 @@ mod postgres_publication_fencing_tests {
         )
         .await
         .unwrap();
-        assert_eq!(result.0, HandleOutcome::Completed);
+        assert_eq!(result.0, PluginOutcome::Committed);
         assert!(result.1.is_some());
         assert_eq!(counts(&pool).await, (1, 1, 0));
 
@@ -369,7 +370,7 @@ mod postgres_publication_fencing_tests {
             )
             .await
             .unwrap(),
-            (HandleOutcome::Completed, None)
+            (PluginOutcome::Committed, None)
         );
         assert_eq!(counts(&pool).await, (0, 1, 0));
         let kind: String =

@@ -4,27 +4,18 @@
 //! LISTEN/NOTIFY drain loop. On boot it connects, verifies Ollama, recovers stale
 //! leases, and drains each REGISTERED stage to empty; with no handlers it idles.
 //!
-//! Handlers register from `COGNITION_STAGES` (default: every live stage).
+//! Plugins register from `COGNITION_STAGES` (default: every registered fleet task).
 
-use anyhow::{anyhow, Result};
-use scoracle_cognition::application::editor;
-use scoracle_cognition::application::graph;
-use scoracle_cognition::application::insider;
-use scoracle_cognition::application::investigator::boxscore;
+use anyhow::Result;
 use scoracle_cognition::application::models::Models;
-use scoracle_cognition::application::queue::stage;
-use scoracle_cognition::application::queue::work;
+use scoracle_cognition::application::plugins;
 use scoracle_cognition::application::queue::worker;
-use scoracle_cognition::application::{
-    analyst, influencer, journalist, oracle, scout as scout_application,
-};
 use scoracle_cognition::runtime::buildinfo;
 use scoracle_cognition::runtime::config;
 use scoracle_cognition::runtime::db;
 use scoracle_cognition::runtime::providers::ollama;
 use scoracle_cognition::runtime::providers::openai;
 use scoracle_cognition::runtime::route::Router;
-use std::collections::HashSet;
 use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
 
@@ -107,11 +98,10 @@ async fn main() -> Result<()> {
     routes.sort();
     info!(hosts = hosts.len(), routes = %routes.join(" "), "resolved model topology");
 
-    // Env-driven stage registration; the default owns every live cognition stage.
-    let enabled = parse_enabled_stages(&std::env::var("COGNITION_STAGES").unwrap_or_else(|_| {
-        "graph,editor,investigate_entity,fixture_boxscore,rating,momentum,transfers,narratives,vibe,sigil"
-            .to_string()
-    }))?;
+    // Env-driven task selection. The available/default values come from the registered
+    // manifest fleet, so a task is not named separately in service configuration.
+    let configured_stages = std::env::var("COGNITION_STAGES").ok();
+    let enabled = plugins::enabled_from_config(configured_stages.as_deref())?;
 
     // Shared database, routing, budget, and context-window capabilities.
     let models = std::sync::Arc::new(Models {
@@ -122,70 +112,20 @@ async fn main() -> Result<()> {
         voice_num_ctx: cfg.voice_num_ctx,
     });
 
-    // Each handler owns exactly one enabled queue stage.
-    let mut handlers: Vec<Box<dyn stage::WorkHandler>> = Vec::new();
-    // Graph is article-keyed and downstream of the Editor.
-    if enabled.contains("graph") {
-        handlers.push(Box::new(graph::GraphHandler::new(
-            pool.clone(),
-            models.clone(),
-        )));
-    }
-    // Graph registers first so it reclaims shared slots promptly.
-    if enabled.contains("editor") {
-        handlers.push(Box::new(editor::EditorHandler::new(
-            pool.clone(),
-            models.clone(),
-        )));
-    }
-    // Discovery uses the Editor's idle shared capacity.
-    if enabled.contains("investigate_entity") {
-        handlers.push(Box::new(
-            scoracle_cognition::application::investigator::InvestigateEntityHandler::new(
-                pool.clone(),
-                models.clone(),
-            )?,
-        ));
-    }
-    if enabled.contains("fixture_boxscore") {
-        handlers.push(Box::new(boxscore::FixtureBoxscoreHandler::new(
-            pool.clone(),
-        )?));
-    }
-    // Voice registration order is the tested dependency order.
-    for stage in work::VOICE_ORDER {
-        if !enabled.contains(stage.as_str()) {
-            continue;
-        }
-        handlers.push(match stage {
-            work::Stage::Narratives => Box::new(journalist::NarrativesHandler::new(
-                pool.clone(),
-                models.clone(),
-            )) as Box<dyn stage::WorkHandler>,
-            work::Stage::Vibe => {
-                Box::new(influencer::VibeHandler::new(pool.clone(), models.clone()))
-            }
-            // The rating stage feeds Momentum/Sigil but not the news rail, so it sits behind the
-            // two news-product voices: a nightly stat backlog must not delay The Journalist.
-            work::Stage::Rating => Box::new(scout_application::RatingHandler::new(
-                pool.clone(),
-                models.clone(),
-            )),
-            work::Stage::Transfers => {
-                Box::new(insider::TransferHandler::new(pool.clone(), models.clone()))
-            }
-            // momentum consumes the rating card + vibe, so a vibe hand-off
-            // (enqueue_momentum_if_needed) drains in the same tick pass instead of waiting for
-            // the next NOTIFY/safety-net wake.
-            work::Stage::Momentum => {
-                Box::new(analyst::MomentumHandler::new(pool.clone(), models.clone()))
-            }
-            // Sigil is terminal because it reads all five pillars.
-            work::Stage::Sigil => Box::new(oracle::SigilHandler::new(pool.clone(), models.clone())),
-            other => unreachable!("{other} is not a voice; VOICE_ORDER holds the six voices"),
-        });
-    }
-    info!(stages = ?enabled, handlers = handlers.len(), "registered stage handlers");
+    // Each plugin owns exactly one enabled queue stage via its manifest; scheduling caps
+    // come from the same manifest. The worker validates the fleet (unique ids, unique
+    // task ownership) at construction.
+    let handlers = plugins::build(pool.clone(), models.clone(), &enabled)?;
+    info!(stages = ?enabled, plugins = handlers.len(), "registered plugins");
+    info!(
+        plugins = scoracle_cognition::studio::fleet::ALL.len(),
+        ids = scoracle_cognition::studio::fleet::ALL
+            .iter()
+            .map(|m| m.id.as_str())
+            .collect::<Vec<_>>()
+            .join(" "),
+        "resolved plugin fleet"
+    );
     // Log switches that change what the deploy writes.
     info!(
         packet_compile = cfg.packet_compile,
@@ -215,72 +155,4 @@ async fn main() -> Result<()> {
         cfg.packet_compile,
     );
     worker.run().await
-}
-
-fn parse_enabled_stages(raw: &str) -> Result<HashSet<String>> {
-    const KNOWN: &[&str] = &[
-        "graph",
-        "editor",
-        "investigate_entity",
-        "fixture_boxscore",
-        "rating",
-        "momentum",
-        "transfers",
-        "narratives",
-        "vibe",
-        "sigil",
-    ];
-    let mut stages = HashSet::new();
-    let mut unknown = Vec::new();
-    for stage in raw
-        .split(',')
-        .map(|s| s.trim().to_lowercase())
-        .filter(|s| !s.is_empty())
-    {
-        if KNOWN.contains(&stage.as_str()) {
-            stages.insert(stage);
-        } else {
-            unknown.push(stage);
-        }
-    }
-    if !unknown.is_empty() {
-        return Err(anyhow!(
-            "unknown COGNITION_STAGES value(s): {}; allowed: {}",
-            unknown.join(","),
-            KNOWN.join(",")
-        ));
-    }
-    Ok(stages)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::parse_enabled_stages;
-
-    #[test]
-    fn parse_enabled_stages_normalizes_and_dedupes() {
-        let stages = parse_enabled_stages(
-            " Graph, editor, fixture_boxscore, rating, momentum, vibe, VIBE ,,sigil ",
-        )
-        .unwrap();
-        assert_eq!(stages.len(), 7);
-        assert!(stages.contains("graph"));
-        assert!(stages.contains("editor"));
-        assert!(stages.contains("fixture_boxscore"));
-        assert!(stages.contains("rating"));
-        assert!(stages.contains("momentum"));
-        assert!(stages.contains("vibe"));
-        assert!(stages.contains("sigil"));
-    }
-
-    #[test]
-    fn parse_enabled_stages_rejects_unknown_values() {
-        let err = parse_enabled_stages("graph,headlinez,scrub,oracle")
-            .unwrap_err()
-            .to_string();
-        assert!(err.contains("headlinez"));
-        assert!(err.contains("scrub"));
-        assert!(err.contains("oracle"));
-        assert!(err.contains("narratives"));
-    }
 }

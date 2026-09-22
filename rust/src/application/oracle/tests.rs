@@ -1,6 +1,7 @@
 //! Exact publication and five-pillar readiness tests for the Oracle application boundary.
 
 use super::*;
+use crate::application::queue::work::Stage;
 use crate::studio::oracle::SigilSynthesis;
 use crate::studio::Generation;
 
@@ -116,7 +117,7 @@ mod postgres_oracle_tests {
                 .await
                 .unwrap()
                 .0,
-            HandleOutcome::Completed
+            PluginOutcome::Committed
         );
         assert_eq!(counts(&pool).await, (1, 0));
         type CrownRow = (
@@ -191,7 +192,7 @@ mod postgres_oracle_tests {
             commit_claimed(&pool, &stale, SPORT, &prepared)
                 .await
                 .unwrap(),
-            (HandleOutcome::Superseded, None)
+            (PluginOutcome::Superseded, None)
         );
         assert_eq!(counts(&pool).await, (0, 1));
         let current = claim_one(&pool).await;
@@ -201,7 +202,7 @@ mod postgres_oracle_tests {
                 .await
                 .unwrap()
                 .0,
-            HandleOutcome::Completed
+            PluginOutcome::Committed
         );
         assert_eq!(counts(&pool).await, (1, 0));
         clean(&pool).await;
@@ -239,7 +240,7 @@ mod postgres_oracle_tests {
             commit_claimed(&pool, &stale, SPORT, &prepared)
                 .await
                 .unwrap(),
-            (HandleOutcome::Superseded, None)
+            (PluginOutcome::Superseded, None)
         );
         commit_claimed(&pool, &current, SPORT, &prepared)
             .await
@@ -261,7 +262,7 @@ mod postgres_oracle_tests {
             commit_claimed(&pool, &current, SPORT, &Prepared::Debounced)
                 .await
                 .unwrap(),
-            (HandleOutcome::Completed, None)
+            (PluginOutcome::Committed, None)
         );
         assert_eq!(counts(&pool).await, (0, 0));
         clean(&pool).await;

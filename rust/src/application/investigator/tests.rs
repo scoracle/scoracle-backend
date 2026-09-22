@@ -1,9 +1,7 @@
 use super::*;
-use crate::application::queue::{
-    stage::HandleOutcome,
-    work::{self, Item, Stage},
-};
+use crate::application::queue::work::{self, Item, Stage};
 use crate::studio::investigator::{gate::RoleClass, WikidataItem};
+use crate::studio::plugin::PluginOutcome;
 use serde_json::json;
 use sqlx::PgPool;
 const SPORT: &str = "ZZ_INVESTIGATOR";
@@ -113,7 +111,7 @@ async fn candidate_publication_is_atomic_and_stale_claim_has_no_effects() {
         commit_claimed(&pool, &old, &mappings, &decision)
             .await
             .unwrap(),
-        HandleOutcome::Superseded
+        PluginOutcome::Superseded
     );
     assert_eq!(count(&pool, "persons").await, 0);
     assert_eq!(count(&pool, "entity_external_ids").await, 0);
@@ -121,7 +119,7 @@ async fn candidate_publication_is_atomic_and_stale_claim_has_no_effects() {
         commit_claimed(&pool, &current, &mappings, &decision)
             .await
             .unwrap(),
-        HandleOutcome::Completed
+        PluginOutcome::Committed
     );
     assert_eq!(count(&pool, "persons").await, 1);
     let team: i32 = sqlx::query_scalar("SELECT team_id FROM persons WHERE sport=$1")
@@ -154,7 +152,7 @@ async fn candidate_publication_is_atomic_and_stale_claim_has_no_effects() {
         commit_claimed(&pool, &current, &mappings, &decision)
             .await
             .unwrap(),
-        HandleOutcome::Superseded
+        PluginOutcome::Superseded
     );
 }
 #[tokio::test]
@@ -204,7 +202,7 @@ async fn refusal_records_audit_and_completes_without_creating_identity() {
     };
     assert_eq!(
         commit_claimed(&pool, &item, &[], &decision).await.unwrap(),
-        HandleOutcome::Completed
+        PluginOutcome::Committed
     );
     assert_eq!(count(&pool, "persons").await, 0);
     let model: String =
@@ -237,7 +235,7 @@ async fn team_facts_keep_distinct_sources_and_stale_attempt_does_not_stamp() {
     };
     assert_eq!(
         commit_claimed(&pool, &old, &[], &decision).await.unwrap(),
-        HandleOutcome::Superseded
+        PluginOutcome::Superseded
     );
     let stamped: bool =
         sqlx::query_scalar("SELECT meta ? 'investigated_at' FROM teams WHERE id=$1")
@@ -250,7 +248,7 @@ async fn team_facts_keep_distinct_sources_and_stale_attempt_does_not_stamp() {
         commit_claimed(&pool, &current, &[], &decision)
             .await
             .unwrap(),
-        HandleOutcome::Completed
+        PluginOutcome::Committed
     );
     let facts: Vec<(String, i64)> = sqlx::query_as(
         "SELECT fact_type,source_document_id FROM entity_facts WHERE sport=$1 ORDER BY fact_type",
@@ -295,7 +293,7 @@ async fn player_reclaim_fences_facts_ids_and_cooldown() {
     };
     assert_eq!(
         commit_claimed(&pool, &old, &[], &decision).await.unwrap(),
-        HandleOutcome::Superseded
+        PluginOutcome::Superseded
     );
     assert_eq!(count(&pool, "entity_facts").await, 0);
     let stamped: bool =
@@ -309,7 +307,7 @@ async fn player_reclaim_fences_facts_ids_and_cooldown() {
         commit_claimed(&pool, &current, &[], &decision)
             .await
             .unwrap(),
-        HandleOutcome::Completed
+        PluginOutcome::Committed
     );
     let stamp: bool =
         sqlx::query_scalar("SELECT meta ? 'investigated_at' FROM players WHERE id=$1")

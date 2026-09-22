@@ -10,8 +10,15 @@ pub mod insider;
 pub mod journalist;
 pub mod model;
 pub mod oracle;
+pub mod plugin;
 pub mod scout;
 mod session;
+pub mod tools;
+
+pub use fleet::{
+    ALL, ANALYST, EDITOR, FIXTURE_BOXSCORE, GRAPH, INFLUENCER, INSIDER, INVESTIGATOR, JOURNALIST,
+    ORACLE, SCOUT,
+};
 
 pub use generation::{Extracted, Generation, GenerationCall, Parser, Provenance};
 
@@ -58,7 +65,7 @@ pub enum Outcome<R> {
 }
 
 pub mod editor;
-
+pub mod fleet;
 pub mod investigator;
 
 pub mod graph;

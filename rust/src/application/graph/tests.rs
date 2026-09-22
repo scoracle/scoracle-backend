@@ -1,4 +1,5 @@
 use super::*;
+use crate::application::queue::work::Stage;
 use crate::studio::{graph::GraphParser, Parser};
 use serde_json::json;
 const SPORT: &str = "ZZ_GRAPH_STUDIO";
@@ -97,7 +98,7 @@ async fn graph_commits_relations_person_evidence_marker_and_completion_once() {
     let item = claim(&pool, "v1").await;
     assert_eq!(
         commit_claimed(&pool, &item, &product()).await.unwrap(),
-        HandleOutcome::Completed
+        PluginOutcome::Committed
     );
     assert_eq!(count(&pool, "narrative_events").await, 1);
     assert_eq!(count(&pool, "narrative_person_mentions").await, 1);
@@ -123,7 +124,7 @@ async fn graph_commits_relations_person_evidence_marker_and_completion_once() {
     assert_eq!(count(&pool, "pipeline_work").await, 0);
     assert_eq!(
         commit_claimed(&pool, &item, &product()).await.unwrap(),
-        HandleOutcome::Superseded
+        PluginOutcome::Superseded
     );
     let second = claim(&pool, "v2").await;
     commit_claimed(&pool, &second, &product()).await.unwrap();
@@ -150,7 +151,7 @@ async fn graph_revision_and_reclaim_fence_every_effect() {
     for item in [&stale, &old] {
         assert_eq!(
             commit_claimed(&pool, item, &product()).await.unwrap(),
-            HandleOutcome::Superseded
+            PluginOutcome::Superseded
         );
         for table in [
             "narrative_events",
@@ -164,7 +165,7 @@ async fn graph_revision_and_reclaim_fence_every_effect() {
     }
     assert_eq!(
         commit_claimed(&pool, &current, &product()).await.unwrap(),
-        HandleOutcome::Completed
+        PluginOutcome::Committed
     );
 }
 #[tokio::test]
@@ -188,7 +189,7 @@ async fn graph_marker_failure_rolls_back_all_products_and_preserves_retry() {
     assert_eq!(count(&pool, "pipeline_work").await, 1);
     assert_eq!(
         commit_claimed(&pool, &item, &product()).await.unwrap(),
-        HandleOutcome::Completed
+        PluginOutcome::Committed
     );
 }
 #[tokio::test]

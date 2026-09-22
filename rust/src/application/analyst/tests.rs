@@ -4,6 +4,7 @@
 //! `super` resolves to the application adapter while Studio creation remains independently tested.
 
 use super::*;
+use crate::application::queue::work::Stage;
 use crate::studio::analyst::{
     momentum_conviction_from_score, momentum_direction_from_score, parse_momentum_reply,
     MomentumParser, MOMENTUM_PROMPT_VERSION,
@@ -543,7 +544,7 @@ mod postgres_publication_fencing_tests {
             commit_claimed(&pool, &stale, SPORT, &product().await)
                 .await
                 .unwrap(),
-            (HandleOutcome::Superseded, None)
+            (PluginOutcome::Superseded, None)
         );
         assert_eq!(counts(&pool).await, (0, 0, 1));
 
@@ -554,7 +555,7 @@ mod postgres_publication_fencing_tests {
                 .await
                 .unwrap()
                 .0,
-            HandleOutcome::Completed
+            PluginOutcome::Committed
         );
         assert_eq!(counts(&pool).await, (1, 1, 0));
         clean(&pool).await;
@@ -588,7 +589,7 @@ mod postgres_publication_fencing_tests {
             commit_claimed(&pool, &stale, SPORT, &product().await)
                 .await
                 .unwrap(),
-            (HandleOutcome::Superseded, None)
+            (PluginOutcome::Superseded, None)
         );
         assert_eq!(counts(&pool).await, (0, 0, 1));
         assert_eq!(
@@ -596,7 +597,7 @@ mod postgres_publication_fencing_tests {
                 .await
                 .unwrap()
                 .0,
-            HandleOutcome::Completed
+            PluginOutcome::Committed
         );
         assert_eq!(counts(&pool).await, (1, 1, 0));
         clean(&pool).await;
@@ -618,7 +619,7 @@ mod postgres_publication_fencing_tests {
         let (outcome, row_id) = commit_claimed(&pool, &current, SPORT, &prepared)
             .await
             .unwrap();
-        assert_eq!(outcome, HandleOutcome::Completed);
+        assert_eq!(outcome, PluginOutcome::Committed);
         assert!(row_id.is_some());
         assert_eq!(counts(&pool).await, (1, 1, 0));
 
@@ -666,7 +667,7 @@ mod postgres_publication_fencing_tests {
             commit_claimed(&pool, &current, SPORT, &Prepared::NoMaterial)
                 .await
                 .unwrap(),
-            (HandleOutcome::Completed, None)
+            (PluginOutcome::Committed, None)
         );
         assert_eq!(counts(&pool).await, (0, 1, 0));
         let kind: String =
@@ -709,7 +710,7 @@ mod postgres_publication_fencing_tests {
                     .await
                     .unwrap()
                     .0,
-                HandleOutcome::Completed
+                PluginOutcome::Committed
             );
             std::process::exit(86);
         }

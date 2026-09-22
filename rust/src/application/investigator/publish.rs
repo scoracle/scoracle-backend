@@ -646,11 +646,11 @@ pub(super) async fn commit_claimed(
     item: &Item,
     mappings: &[TeamMapping],
     decision: &Decision,
-) -> Result<HandleOutcome> {
+) -> Result<PluginOutcome> {
     let mut tx = pool.begin().await?;
     if !work::lock_claim(&mut tx, item).await? {
         tx.rollback().await?;
-        return Ok(HandleOutcome::Superseded);
+        return Ok(PluginOutcome::Superseded);
     }
     // A different claim can have resolved the candidate while evidence was being gathered.
     let candidate = match decision {
@@ -726,5 +726,5 @@ pub(super) async fn commit_claimed(
         "investigator claim changed during publication"
     );
     tx.commit().await?;
-    Ok(HandleOutcome::Completed)
+    Ok(PluginOutcome::Committed)
 }

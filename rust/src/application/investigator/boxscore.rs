@@ -3,9 +3,10 @@
 //! Sources are data-driven through `boxscore_sources`. Retrieval is implemented;
 //! discovery, parser families, and canonical-table promotion are not.
 
-use crate::application::queue::stage::{HandleOutcome, WorkHandler};
-use crate::application::queue::work::{self, Item, Stage};
-use crate::evidence::fetch::{BudgetedFetchError, BudgetedFetcher, FetchPolicy};
+use crate::application::queue::work::{self, Item};
+use crate::evidence::fetch::{BudgetedFetchError, FetchPolicy};
+use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
+use crate::studio::tools::{DomainClass, ScopedWeb, ToolLedger, WebBroker};
 use crate::util::hash_components;
 use crate::util::truncate;
 use anyhow::{anyhow, Context, Result};
@@ -137,38 +138,27 @@ struct PersistRecord {
 
 pub struct FixtureBoxscoreHandler {
     pool: sqlx::PgPool,
-    fetcher: BudgetedFetcher,
+    /// The room's web workspace. The manifest declares the registered box-score source
+    /// class; this broker enforces that grant on every call.
+    web: WebBroker,
 }
 
 impl FixtureBoxscoreHandler {
-    /// Builds one shared fetcher so per-domain spacing and circuit state survive each item.
     pub fn new(pool: sqlx::PgPool) -> Result<Self> {
         Ok(Self {
             pool,
-            fetcher: BudgetedFetcher::new()?,
+            web: WebBroker::new(0)?,
         })
     }
 }
 
 #[async_trait]
-impl WorkHandler for FixtureBoxscoreHandler {
-    fn stage(&self) -> Stage {
-        Stage::FixtureBoxscore
+impl StudioPlugin for FixtureBoxscoreHandler {
+    fn manifest(&self) -> &'static PluginManifest {
+        &crate::studio::fleet::FIXTURE_BOXSCORE
     }
 
-    /// Retrieval uses no model slot.
-    fn slot_group(&self) -> Option<(&'static str, usize)> {
-        None
-    }
-
-    /// One at a time. The binding constraint is not the card but the 2s per-domain floor in
-    /// `FetchPolicy` — with a handful of registered sources, extra concurrency here would just
-    /// queue on the fetcher's per-domain lock.
-    fn max_in_flight(&self) -> usize {
-        1
-    }
-
-    async fn handle(&self, item: &Item) -> Result<HandleOutcome> {
+    async fn execute(&self, item: &Item) -> Result<PluginOutcome> {
         let pool = &self.pool;
         if item.entity_type != "fixture" {
             return Err(anyhow!(
@@ -219,7 +209,9 @@ impl WorkHandler for FixtureBoxscoreHandler {
             .await;
         }
 
-        let fetched = match fetch_source(&self.fetcher, pool, &plan).await {
+        let ledger = ToolLedger::new();
+        let web = self.web.scope(pool, self.manifest(), &ledger);
+        let fetched = match fetch_source(&web, &plan).await {
             Ok(f) => f,
             Err(FetchOutcome {
                 status,
@@ -609,15 +601,17 @@ struct FetchOutcome {
 /// Retrieves candidate URLs in order through the shared per-domain budget and provenance path.
 /// Blocked domains stop honestly; this path never escalates to browser automation.
 async fn fetch_source(
-    fetcher: &BudgetedFetcher,
-    pool: &sqlx::PgPool,
+    web: &ScopedWeb<'_>,
     plan: &SourcePlan,
 ) -> std::result::Result<FetchedDocument, FetchOutcome> {
     let mut warnings: Vec<String> = Vec::new();
     let mut last: Option<FetchOutcome> = None;
 
     for url in &plan.source_urls {
-        match fetcher.fetch(pool, url, &plan.policy).await {
+        match web
+            .fetch_for_class(DomainClass::BoxscoreSources, url, &plan.policy)
+            .await
+        {
             Ok(doc) => {
                 return Ok(FetchedDocument {
                     source_url: url.clone(),
@@ -630,7 +624,18 @@ async fn fetch_source(
                 });
             }
             Err(e) => {
-                let outcome = budgeted_fetch_outcome(url, &e);
+                let outcome = e
+                    .downcast_ref::<BudgetedFetchError>()
+                    .map(|be| budgeted_fetch_outcome(url, be))
+                    .unwrap_or_else(|| {
+                        FetchOutcome::new(
+                            "error",
+                            Some(url.to_string()),
+                            None,
+                            None,
+                            format!("{e:#}"),
+                        )
+                    });
                 warnings.push(outcome.error.clone());
                 last = Some(outcome);
             }
@@ -995,11 +1000,11 @@ async fn persist_record(
     item: &Item,
     fixture: &FixtureRow,
     record: PersistRecord,
-) -> Result<HandleOutcome> {
+) -> Result<PluginOutcome> {
     let mut tx = pool.begin().await?;
     if !work::lock_claim(&mut tx, item).await? {
         tx.rollback().await?;
-        return Ok(HandleOutcome::Superseded);
+        return Ok(PluginOutcome::Superseded);
     }
     sqlx::query(
         r#"
@@ -1064,7 +1069,7 @@ async fn persist_record(
         "fixture acquisition claim changed during publication"
     );
     tx.commit().await?;
-    Ok(HandleOutcome::Completed)
+    Ok(PluginOutcome::Committed)
 }
 
 async fn insert_data_fetch_ledger(
@@ -1388,6 +1393,7 @@ mod tests {
 #[cfg(test)]
 mod publication_tests {
     use super::*;
+    use crate::application::queue::work::Stage;
     #[tokio::test]
     #[ignore = "requires isolated TEST_DATABASE_URL; run serially"]
     async fn terminal_acquisition_and_ledger_commit_only_with_exact_claim() {
@@ -1442,7 +1448,7 @@ mod publication_tests {
             )
             .await
             .unwrap(),
-            HandleOutcome::Superseded
+            PluginOutcome::Superseded
         );
         let count: i64 =
             sqlx::query_scalar("SELECT count(*) FROM fixture_boxscore_fetches WHERE fixture_id=$1")
@@ -1460,7 +1466,7 @@ mod publication_tests {
             )
             .await
             .unwrap(),
-            HandleOutcome::Completed
+            PluginOutcome::Committed
         );
         let count: i64 =
             sqlx::query_scalar("SELECT count(*) FROM data_fetch_ledger WHERE sport=$1")

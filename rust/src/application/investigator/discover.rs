@@ -9,10 +9,10 @@
 //! RSS remains a secondary discovery channel for names Wikimedia has never heard of; it
 //! reuses the lungs' query shape and proves only that a name recurs, never an identity.
 
-use crate::evidence::fetch::{BudgetedFetcher, FetchPolicy, SourceFetch};
+use crate::evidence::fetch::{FetchPolicy, SourceFetch};
+use crate::studio::tools::ScopedWeb;
 use anyhow::{anyhow, Context, Result};
 use serde_json::Value;
-use sqlx::PgPool;
 
 /// One Wikidata search hit, pre-retrieval.
 #[derive(Clone, Debug)]
@@ -28,10 +28,9 @@ use crate::studio::investigator::WikidataItem;
 const WIKIDATA_API: &str = "https://www.wikidata.org/w/api.php";
 
 /// wikidata_search finds up to `limit` items for a name. The search response itself is
-/// retrieved through the budgeted fetcher (provenance like everything else).
+/// retrieved through the brokered web workspace (provenance like everything else).
 pub async fn wikidata_search(
-    fetcher: &BudgetedFetcher,
-    pool: &PgPool,
+    web: &ScopedWeb<'_>,
     policy: &FetchPolicy,
     name: &str,
     limit: usize,
@@ -41,8 +40,8 @@ pub async fn wikidata_search(
         urlencode(name),
         limit.min(10)
     );
-    let fetched = fetcher
-        .fetch(pool, &url, policy)
+    let fetched = web
+        .fetch_wikimedia(&url, policy)
         .await
         .map_err(|e| anyhow!("wikidata search fetch: {e}"))?;
     let v: Value = serde_json::from_str(&fetched.body).context("parse wbsearchentities")?;
@@ -65,8 +64,7 @@ pub async fn wikidata_search(
 /// wikidata_item retrieves one item's claims/labels/aliases/sitelinks and parses the claims
 /// this rail consumes. Pure JSON → struct; the model never sees this.
 pub async fn wikidata_item(
-    fetcher: &BudgetedFetcher,
-    pool: &PgPool,
+    web: &ScopedWeb<'_>,
     policy: &FetchPolicy,
     qid: &str,
 ) -> Result<WikidataItem> {
@@ -74,8 +72,8 @@ pub async fn wikidata_item(
         "{WIKIDATA_API}?action=wbgetentities&ids={}&props=claims%7Clabels%7Cdescriptions%7Caliases%7Csitelinks&languages=en&format=json",
         urlencode(qid)
     );
-    let fetched = fetcher
-        .fetch(pool, &url, policy)
+    let fetched = web
+        .fetch_wikimedia(&url, policy)
         .await
         .map_err(|e| anyhow!("wikidata item fetch: {e}"))?;
     let v: Value = serde_json::from_str(&fetched.body).context("parse wbgetentities")?;
@@ -206,8 +204,7 @@ pub struct WikipediaPage {
 
 /// wikipedia_search runs REST v1 full-text page search — the prose arm's discovery.
 pub async fn wikipedia_search(
-    fetcher: &BudgetedFetcher,
-    pool: &PgPool,
+    web: &ScopedWeb<'_>,
     policy: &FetchPolicy,
     query: &str,
     limit: usize,
@@ -217,8 +214,8 @@ pub async fn wikipedia_search(
         urlencode(query),
         limit.min(10)
     );
-    let fetched = fetcher
-        .fetch(pool, &url, policy)
+    let fetched = web
+        .fetch_wikimedia(&url, policy)
         .await
         .map_err(|e| anyhow!("wikipedia search fetch: {e}"))?;
     let v: Value = serde_json::from_str(&fetched.body).context("parse wikipedia search")?;
@@ -271,8 +268,7 @@ fn strip_tags(s: &str) -> String {
 /// asked to describe on the mystery-candidate path. Returns the fetch (for provenance) —
 /// the caller extracts `extract`/`description` from the JSON body.
 pub async fn wikipedia_summary(
-    fetcher: &BudgetedFetcher,
-    pool: &PgPool,
+    web: &ScopedWeb<'_>,
     policy: &FetchPolicy,
     title: &str,
 ) -> Result<SourceFetch> {
@@ -280,8 +276,7 @@ pub async fn wikipedia_summary(
         "https://en.wikipedia.org/api/rest_v1/page/summary/{}",
         urlencode(&title.replace(' ', "_"))
     );
-    fetcher
-        .fetch(pool, &url, policy)
+    web.fetch_wikimedia(&url, policy)
         .await
         .map_err(|e| anyhow!("wikipedia summary fetch: {e}"))
 }

@@ -1494,17 +1494,4 @@ mod tests {
         };
         assert_eq!(expected_property_count(&x), 3);
     }
-
-    /// Authored assertions remain countable even when a model returns malformed output.
-    #[test]
-    fn editor_fixture_denominator_is_derivable_from_the_files() {
-        let dir = fixtures_dir("editor");
-        let fixtures = load_fixtures(&dir, None).expect("load editor fixtures");
-        assert_eq!(fixtures.len(), 12, "editor fixture count");
-        let total: usize = fixtures
-            .iter()
-            .map(|f| expected_property_count(&f.expect))
-            .sum();
-        assert_eq!(total, 60, "authored editor property checks");
-    }
 }

@@ -800,13 +800,9 @@ mod test_support {
 
     pub(super) static GRAPH_TEST_MANIFEST: PluginManifest = PluginManifest {
         id: PluginId::new("test.graph"),
-        contract_version: "test-v1",
         task: crate::plugins::graph::manifest::TASK,
         claim_policy: ClaimPolicy::FIFO,
         inference_routes: &[],
-        context_requirements: &[],
-        consumes: &[],
-        produces: &[],
         resources: ResourceProfile::unbounded_batch(1),
         tools: &[],
     };
@@ -1107,13 +1103,9 @@ mod postgres_recovery_rehearsal {
     ) -> crate::studio::plugin::PluginManifest {
         crate::studio::plugin::PluginManifest {
             id: crate::studio::plugin::PluginId::new(id),
-            contract_version: "test-v1",
             task,
             claim_policy: crate::application::queue::work::ClaimPolicy::FIFO,
             inference_routes: &[],
-            context_requirements: &[],
-            consumes: &[],
-            produces: &[],
             resources: crate::studio::plugin::ResourceProfile {
                 max_in_flight: 1,
                 slot_group: if shared {
@@ -1333,13 +1325,9 @@ mod postgres_recovery_rehearsal {
     static SIGIL_TEST_MANIFEST: crate::studio::plugin::PluginManifest =
         crate::studio::plugin::PluginManifest {
             id: crate::studio::plugin::PluginId::new("test.sigil"),
-            contract_version: "test-v1",
             task: crate::plugins::oracle::manifest::TASK,
             claim_policy: crate::application::queue::work::ClaimPolicy::FIFO,
             inference_routes: &[],
-            context_requirements: &[],
-            consumes: &[],
-            produces: &[],
             resources: crate::studio::plugin::ResourceProfile::unbounded_batch(1),
             tools: &[],
         };
@@ -1424,13 +1412,9 @@ mod postgres_recovery_rehearsal {
     static UNRELATED_MANIFEST: crate::studio::plugin::PluginManifest =
         crate::studio::plugin::PluginManifest {
             id: crate::studio::plugin::PluginId::new("test.unrelated-worker"),
-            contract_version: "test-v1",
             task: UNRELATED_TASK,
             claim_policy: crate::application::queue::work::ClaimPolicy::FIFO,
             inference_routes: &[],
-            context_requirements: &[],
-            consumes: &[],
-            produces: &[],
             resources: crate::studio::plugin::ResourceProfile::unbounded_batch(1),
             tools: &[],
         };

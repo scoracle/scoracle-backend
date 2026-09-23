@@ -278,21 +278,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn composition_roster_contains_every_voice_once() {
-        assert_eq!(
-            VOICE_ORDER,
-            [
-                crate::plugins::journalist::manifest::TASK,
-                crate::plugins::influencer::manifest::TASK,
-                crate::plugins::scout::manifest::TASK,
-                crate::plugins::insider::manifest::TASK,
-                crate::plugins::analyst::manifest::TASK,
-                crate::plugins::oracle::manifest::TASK,
-            ]
-        );
-    }
-
     #[tokio::test]
     async fn reactions_register_complete_chains_independently_of_task_handlers() {
         let pool = sqlx::postgres::PgPoolOptions::new()

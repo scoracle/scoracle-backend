@@ -2284,23 +2284,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn registry_resolves_known_tasks_and_rejects_unknown() {
-        assert!(resolve_task("vibe").is_some());
-        assert!(resolve_task("oracle").is_some());
-        assert!(resolve_task("narratives").is_some());
-        assert!(resolve_task("transfer").is_some());
-        assert!(resolve_task("rating").is_some());
-        assert!(resolve_task("momentum").is_some());
-        assert!(resolve_task("nope").is_none());
-        assert_eq!(resolve_task("vibe").unwrap().name(), "vibe");
-        assert_eq!(resolve_task("oracle").unwrap().name(), "oracle");
-        assert_eq!(resolve_task("narratives").unwrap().name(), "narratives");
-        assert_eq!(resolve_task("transfer").unwrap().name(), "transfer");
-        assert_eq!(resolve_task("rating").unwrap().name(), "rating");
-        assert_eq!(resolve_task("momentum").unwrap().name(), "momentum");
-    }
-
-    #[test]
     fn all_task_names_are_unique_and_resolvable() {
         let names = all_task_names();
         let mut seen = std::collections::HashSet::new();
@@ -2309,6 +2292,7 @@ mod tests {
             assert!(resolve_task(n).is_some(), "{n} not resolvable");
             assert!(lens_parameters(n).is_some(), "{n} has no lens parameters");
         }
+        assert!(resolve_task("nope").is_none());
     }
 
     #[test]
@@ -2950,19 +2934,14 @@ mod tests {
             let fx: Fixture = serde_json::from_str(&text)
                 .unwrap_or_else(|e| panic!("fixture {} failed to parse: {e}", p.display()));
             assert_eq!(fx.task, "transfer", "{} has wrong task", p.display());
-            if fx.expect.transfer_stage.is_some()
-                || fx.expect.confidence_min.is_some()
-                || fx.expect.confidence_max.is_some()
-            {
-                current_seen += 1;
-                assert!(
-                    fx.expect.transfer_stage.is_some()
-                        || fx.expect.confidence_min.is_some()
-                        || fx.expect.confidence_max.is_some(),
-                    "current-version fixture {} carries no steam/fizzle axis (field-name drop?)",
-                    p.display()
-                );
-            }
+            assert!(
+                fx.expect.transfer_stage.is_some()
+                    || fx.expect.confidence_min.is_some()
+                    || fx.expect.confidence_max.is_some(),
+                "current fixture {} carries no steam/fizzle axis (field-name drop?)",
+                p.display()
+            );
+            current_seen += 1;
         }
         assert!(
             current_seen >= 2,

@@ -388,3 +388,22 @@ isolated-database suites, reporting what actually ran. An ignored test is not ev
 of a working guarantee. Finish with fewer maintenance obligations and clear protection
 for the durable harness and plugin contracts; test count and coverage percentages
 alone cannot establish completion.
+
+### Milestone 7 outcome
+
+Complete. The retained-contract map, group decisions, deliberate-fault evidence, and known gaps
+are recorded in [`plugin-test-audit.md`](plugin-test-audit.md). Fourteen redundant or
+self-referential tests were removed and one previously toothless transfer-fixture check was
+rewritten; the active fixture corpus was retained. The audit also removed orphaned manifest
+product/context/version metadata, unused registry conveniences, and unenforced read/commit grant
+labels rather than retaining tests as their only consumers. Prompt and output versions at actual
+persistence, ledger, and evaluation boundaries remain unchanged.
+
+Validation after pruning: `cargo test --lib --bins --offline` passed with 556 tests and 60
+ignored. The complete retained ignored suite passed serially against the isolated PostgreSQL 17
+cluster: 60 passed, 0 failed; the cluster was stopped afterward. `cargo check --all-targets
+--offline`, `cargo clippy --all-targets --offline -- -D warnings`, formatting, and diff whitespace
+checks passed. A temporary removal of both transfer stage/confidence axes from one current fixture
+made the rewritten coverage test fail at that fixture; the fixture was restored before the final
+suites. No migration, prompt, product, route, resource policy, live database, or active fixture was
+changed. Milestones 1–7 are complete.

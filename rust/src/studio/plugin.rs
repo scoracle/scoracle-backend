@@ -10,9 +10,9 @@
 //! adapters own typed preparation over application-supplied read/provider capabilities.
 //! They write domain effects through a host-owned, claim-fenced publication transaction.
 //!
-//! Task ownership, resource scheduling, inference declarations, and provider grants are live
-//! contracts. Context and product metadata remain descriptive. See the architecture plan
-//! in `docs/plugin-architecture-plan.md` for the remaining boundaries.
+//! Task ownership, claim policy, resource scheduling, inference declarations, and web grants
+//! are live contracts. Preparation and product relationships stay in typed plugin code instead
+//! of an unused declarative graph.
 
 use crate::application::queue::work::{ClaimPolicy, Item, TaskKey};
 use crate::runtime::route::RouteKey;
@@ -46,49 +46,11 @@ impl fmt::Display for PluginId {
     }
 }
 
-/// A versioned product family a plugin consumes or produces. Product relationships are
-/// dependency edges between readings — never a pipeline hierarchy. The dependency
-/// declarations are descriptive today. Registration does not check graph coverage or
-/// cycles, and these declarations do not determine downstream scheduling.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ProductKind(&'static str);
-
-impl ProductKind {
-    pub const fn new(kind: &'static str) -> Self {
-        Self(kind)
-    }
-
-    pub const fn as_str(self) -> &'static str {
-        self.0
-    }
-
-    pub const NARRATIVES: ProductKind = ProductKind::new("narratives");
-    pub const RATING: ProductKind = ProductKind::new("rating");
-    pub const VIBE: ProductKind = ProductKind::new("vibe");
-    pub const TRANSFERS: ProductKind = ProductKind::new("transfers");
-    pub const MOMENTUM: ProductKind = ProductKind::new("momentum");
-    pub const SIGIL: ProductKind = ProductKind::new("sigil");
-    pub const EDITOR_READ: ProductKind = ProductKind::new("editor_read");
-    pub const IDENTITY: ProductKind = ProductKind::new("identity");
-    pub const RELATIONS: ProductKind = ProductKind::new("relations");
-    pub const BOX_SCORE: ProductKind = ProductKind::new("box_score");
-}
-
-impl fmt::Display for ProductKind {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.0)
-    }
-}
-
 /// A declared capability. Concrete inference and provider handles are constructed from
 /// these declarations; undeclared routes/domains are absent or refused. World reads and
 /// commits remain bound by typed plugin adapters and the claim-aware publication host.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ToolGrant {
-    /// Scoped Postgres reads for context preparation (identity, cards, memories).
-    WorldRead,
-    /// Product writes; currently enforced by claim-aware application adapters.
-    Commit,
     /// Budgeted external HTTP retrieval through the shared web workspace, restricted
     /// to the declared domain classes.
     WebFetch(&'static [DomainClass]),
@@ -97,67 +59,14 @@ pub enum ToolGrant {
 }
 
 impl ToolGrant {
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            ToolGrant::WorldRead => "world_read",
-            ToolGrant::Commit => "commit",
-            ToolGrant::WebFetch(_) => "web_fetch",
-            ToolGrant::Inference => "inference",
-        }
-    }
-
     /// True when this grant covers fetching the given domain class.
     pub fn grants_web(&self, class: DomainClass) -> bool {
         matches!(self, ToolGrant::WebFetch(domains) if domains.contains(&class))
     }
 }
 
-/// A prepared-material requirement a plugin declares. The manifest names what the
-/// character needs to see. This is descriptive metadata; application preparation code
-/// selects the actual materials. There is no context-plan executor.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ProviderId(&'static str);
-impl ProviderId {
-    pub const fn new(id: &'static str) -> Self {
-        Self(id)
-    }
-
-    pub const fn as_str(self) -> &'static str {
-        self.0
-    }
-
-    /// Compact durable identity for the work's subject: name, sport, entity kind.
-    pub const ENTITY_IDENTITY: ProviderId = ProviderId::new("entity_identity");
-    /// The Editor's claim packet corpus for the subject.
-    pub const EDITOR_PACKETS: ProviderId = ProviderId::new("editor_packets");
-    /// Sourced continuity: prior labeled readings and provenance-bearing records.
-    pub const SOURCED_MEMORY: ProviderId = ProviderId::new("sourced_memory");
-    /// The subject's own latest finished card (this plugin's prior product).
-    pub const LATEST_SELF_CARD: ProviderId = ProviderId::new("latest_self_card");
-    /// Other characters' finished cards (the Oracle's five; the Analyst's two).
-    pub const PILLAR_CARDS: ProviderId = ProviderId::new("pillar_cards");
-    /// Deterministic movement snapshot (dated slopes, samples, windows).
-    pub const MOMENTUM_SNAPSHOT: ProviderId = ProviderId::new("momentum_snapshot");
-    /// The sport's current season as resolved from the calendar tables.
-    pub const CURRENT_SEASON: ProviderId = ProviderId::new("current_season");
-    /// Cohort/trajectory analytical context (DuckDB-derived today where available).
-    pub const ANALYTICS_SNAPSHOT: ProviderId = ProviderId::new("analytics_snapshot");
-    /// Full article text behind packet article ids — the scoped re-read path.
-    pub const ARTICLE_EXPANSION: ProviderId = ProviderId::new("article_expansion");
-    /// Prepared emotional signals (crowd/measurement sources, when one exists).
-    pub const EMOTIONAL_SIGNALS: ProviderId = ProviderId::new("emotional_signals");
-}
-
-impl fmt::Display for ProviderId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.0)
-    }
-}
-
 /// How many claimed items a plugin may hold at once, and which shared backend slot
-/// group (if any) bounds it. This is descriptive policy the Studio scheduler reads;
-/// the values here must mirror the caps the adapters already enforce so the refactor
-/// is behavior-neutral.
+/// group (if any) bounds it. This is live admission policy read by the Studio scheduler.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ResourceProfile {
     /// Ceiling on this plugin's in-flight claims. Zero is treated as one downstream.
@@ -193,14 +102,11 @@ impl ResourceProfile {
     }
 }
 
-/// Descriptive policy for one plugin: identity, version, tasks, model roles, products,
-/// resources, and grants. The manifest contains no executable business logic.
+/// Live registration policy for one plugin: identity, durable task ownership, claim policy,
+/// inference routes, resources, and grants. The manifest contains no business logic.
 #[derive(Clone, Debug)]
 pub struct PluginManifest {
     pub id: PluginId,
-    /// Descriptive compatibility label. Prompt and output-schema versions retain their
-    /// separate owners and meanings; this field does not drive invalidation.
-    pub contract_version: &'static str,
     /// One durable task per registration, matching the worker scheduling contract.
     /// TaskKey is the existing storage vocabulary; no arbitrary string conversion occurs.
     pub task: TaskKey,
@@ -209,20 +115,11 @@ pub struct PluginManifest {
     /// Declared inference routes. Registration checks the matching inference grant and
     /// the composition root resolves only these handles for the plugin.
     pub inference_routes: &'static [RouteKey],
-    /// Descriptive prepared-material requirements; not executed by the registry.
-    pub context_requirements: &'static [ProviderId],
-    pub consumes: &'static [ProductKind],
-    pub produces: &'static [ProductKind],
     pub resources: ResourceProfile,
     pub tools: &'static [ToolGrant],
 }
 
 impl PluginManifest {
-    /// True when this manifest covers the given durable work stage.
-    pub fn owns_stage(&self, stage: TaskKey) -> bool {
-        self.task == stage
-    }
-
     /// True when this grant covers fetching the given domain class.
     pub fn grants_web(&self, class: DomainClass) -> bool {
         self.tools.iter().any(|g| g.grants_web(class))
@@ -372,17 +269,6 @@ impl PluginRegistry {
     /// The registered fleet in registration order.
     pub fn plugins(&self) -> &[std::sync::Arc<dyn StudioPlugin>] {
         &self.plugins
-    }
-
-    /// The durable task names the registered fleet owns, sorted by name.
-    pub fn tasks(&self) -> Vec<&'static str> {
-        self.by_task.keys().copied().collect()
-    }
-
-    /// The manifest that owns a task kind, if registered.
-    pub fn manifest_for_task(&self, task: &str) -> Option<&'static PluginManifest> {
-        let index = self.by_task.get(task)?;
-        Some(self.plugins[*index].manifest())
     }
 }
 

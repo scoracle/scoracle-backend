@@ -327,35 +327,6 @@ mod tests {
     }
 
     #[test]
-    fn character_role_split_is_inert_by_default() {
-        // The 2026-07-22 identity split: un-configured, TransferLogic and VibeLogic resolve to
-        // the same shared backend as every other default role — the split moves zero behavior
-        // until a human sets COGNITION_ROUTE_{TRANSFER,VIBE}_LOGIC.
-        let roles = crate::application::fleet::inference_routes()
-            .into_iter()
-            .map(|r| (r, spec("local-news:latest")))
-            .collect();
-        let router = Router::from_config(
-            &RouteConfig {
-                roles,
-                candidates: HashMap::new(),
-                backend_concurrency: HashMap::new(),
-            },
-            Duration::from_secs(60),
-            1,
-        )
-        .unwrap();
-        assert!(Arc::ptr_eq(
-            &router.for_route(crate::plugins::insider::manifest::ROUTE),
-            &router.for_route(crate::plugins::graph::manifest::ROUTE),
-        ));
-        assert!(Arc::ptr_eq(
-            &router.for_route(crate::plugins::influencer::manifest::ROUTE),
-            &router.for_route(crate::plugins::graph::manifest::ROUTE),
-        ));
-    }
-
-    #[test]
     fn character_roles_have_stable_config_and_telemetry_identities() {
         // Ledger rows key on as_str and deploys key on env_suffix — lock both spellings.
         assert_eq!(

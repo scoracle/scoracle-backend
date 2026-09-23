@@ -9,8 +9,7 @@ use scoracle_cognition::application::models::Models;
 use scoracle_cognition::application::queue::work;
 use scoracle_cognition::evidence::corpus;
 use scoracle_cognition::plugins::scout::adapter::{
-    build_rating_request, generate_rating, persist_stat_summary, rating_work_input_version,
-    RatingReq,
+    build_rating_request, invoke_rating, rating_work_input_version, RatingReq, RatingRunContext,
 };
 use scoracle_cognition::plugins::scout::cognition::{
     RatingBuild, RatingOutput, RATING_PROMPT_VERSION, RATING_TEMPERATURE,
@@ -104,25 +103,16 @@ async fn run_single(pool: &sqlx::PgPool, models: &Models, args: &Args) -> Result
     };
     let capabilities =
         models.capabilities(&scoracle_cognition::plugins::scout::manifest::MANIFEST)?;
-    let out = generate_rating(
-        pool,
-        &capabilities,
-        &req,
-        RATING_TEMPERATURE,
-        args.skip_unchanged,
-        true,
-    )
-    .await?;
-    if args.persist && !out.skipped_unchanged {
-        persist_rating(pool, &req, &out).await?;
-        scoracle_cognition::plugins::analyst::adapter::enqueue_momentum_if_needed(
-            pool,
-            &req.entity_type,
-            req.entity_id,
-            &sport,
-        )
-        .await?;
-    }
+    let context = if args.persist {
+        RatingRunContext::PublishSingle {
+            skip_unchanged: args.skip_unchanged,
+        }
+    } else {
+        RatingRunContext::Preview {
+            skip_unchanged: args.skip_unchanged,
+        }
+    };
+    let out = invoke_rating(pool, &capabilities, &req, context).await?;
     let mode = if args.persist { "persisted" } else { "dry-run" };
     println!(
         "statcommentary single: {name} {}/{} {sport} season {} — {mode}{}",
@@ -192,14 +182,12 @@ async fn run_corpus(
                 }
             }
         } else {
-            match run_target(pool, models, &t, nightly).await {
+            match run_target(pool, models, &t).await {
                 Ok(out) if out.skipped_unchanged => c.unchanged += 1,
                 Ok(out) if out.skipped_no_stats => {
-                    persist_target(pool, &t, &out).await?;
                     c.no_stats += 1;
                 }
-                Ok(out) => {
-                    persist_target(pool, &t, &out).await?;
+                Ok(_) => {
                     c.ok += 1;
                 }
                 Err(e) => {
@@ -267,12 +255,7 @@ async fn enqueue_peak_target(pool: &sqlx::PgPool, models: &Models, t: &Target) -
     work::enqueue(pool, &rating).await
 }
 
-async fn run_target(
-    pool: &sqlx::PgPool,
-    models: &Models,
-    t: &Target,
-    skip_unchanged: bool,
-) -> Result<RatingOutput> {
+async fn run_target(pool: &sqlx::PgPool, models: &Models, t: &Target) -> Result<RatingOutput> {
     let name = corpus::lookup_entity_name(pool, &t.entity_type, t.entity_id, &t.sport).await?;
     let req = RatingReq {
         entity_type: t.entity_type.clone(),
@@ -284,39 +267,11 @@ async fn run_target(
     };
     let capabilities =
         models.capabilities(&scoracle_cognition::plugins::scout::manifest::MANIFEST)?;
-    generate_rating(
+    invoke_rating(
         pool,
         &capabilities,
         &req,
-        RATING_TEMPERATURE,
-        skip_unchanged,
-        true,
-    )
-    .await
-}
-
-async fn persist_target(pool: &sqlx::PgPool, t: &Target, out: &RatingOutput) -> Result<()> {
-    persist_stat_summary(
-        pool,
-        &t.entity_type,
-        t.entity_id,
-        &t.sport,
-        "periodic",
-        &serde_json::json!({}),
-        out,
-    )
-    .await
-}
-
-async fn persist_rating(pool: &sqlx::PgPool, req: &RatingReq, out: &RatingOutput) -> Result<()> {
-    persist_stat_summary(
-        pool,
-        &req.entity_type,
-        req.entity_id,
-        &req.sport,
-        &req.trigger_type,
-        &serde_json::json!({}),
-        out,
+        RatingRunContext::HistoricalBackfill,
     )
     .await
 }

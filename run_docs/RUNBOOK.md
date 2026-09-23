@@ -71,6 +71,12 @@ Five deployed binaries, all built from one commit by `release.sh` (3 Go + 2 Rust
 | `scoracle-cognition` | the Rust daemon: drains editor → investigate_entity → graph → transfers → narratives → vibe → rating → momentum → sigil | `scoracle-cognition.service` (always on, GPU box) |
 | `statcommentary` | Rust rating batch (single / nightly / backfill, NOT a queue stage) | cron (`cron-rust-statcommentary.sh`) |
 
+`statcommentary -mode nightly` only enqueues durable current-season Rating work. Its `single`
+preview/publication and historical `backfill` modes invoke Scout directly through typed non-queue
+contexts; they do not invent a queue lease. `factsweep -sport <SPORT> [-person <ID>] [-dry-run]` is
+the analogous operator entry point for Investigator person-metadata adjudication. It is not a
+daemon stage or cron job, and resolves only the Investigator's declared inference capability.
+
 Google does the relevancy work at fetch time; the Rust application and Studio curate everything
 downstream. There is no other ingestion path — no provider clients, no live polling.
 

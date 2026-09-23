@@ -312,8 +312,26 @@ and quality fixtures retain expected behavior.
   0 failed. The cluster was stopped afterward. Existing prompt/quality/hash/provenance and
   route-identity fixtures passed; no migration, stored identifier, SQL, product, prompt base,
   or resource-limit behavior changed.
-- Next: milestone 6, completing non-queue plugin invocation coverage and removing superseded
-  APIs and metadata.
+- Milestone 6: complete. `factsweep` is now a thin operator binary over the Investigator's
+  plugin-owned adjudication invocation. It receives only Investigator-scoped inference
+  capabilities and an explicit commit/dry-run context; its prompt, schema, evidence gates,
+  provenance checks, persistence, output, and route selection are unchanged. Scout now owns
+  explicit preview, single-publication, and historical-backfill invocation contexts. Direct
+  and historical Rating runs no longer coordinate generation/publication from the binary or
+  imply a queue claim; nightly current-season enumeration continues to enqueue durable work.
+- The superseded public raw Rating generation and standalone persistence APIs are private to
+  the Scout adapter. README ownership/source maps and the runbook now describe the manifest
+  roster, composition root, scoped capabilities, generic queue host, non-queue operator paths,
+  and the two-step package/composition registration required for a new plugin. Registration,
+  routes, providers, and scheduling policy require no schema row; migrations remain reserved
+  for genuinely new persisted domain data. No provider registry or context-plan interpreter
+  was added.
+- Milestone 6 validation: `cargo test --lib --bins --offline` passed with 570 tests and 60
+  ignored; `cargo check --all-targets --offline`, `cargo clippy --all-targets --offline --
+  -D warnings`, formatting, and diff whitespace checks passed. The complete ignored suite ran
+  serially against the existing isolated PostgreSQL 17 cluster: 60 passed, 0 failed, and the
+  cluster was stopped afterward. No migration or live database change was made.
+- Next: milestone 7, the final evidence-based test audit and pruning described below.
 
 ## 7. Final test audit — deferred until all architecture work is complete
 

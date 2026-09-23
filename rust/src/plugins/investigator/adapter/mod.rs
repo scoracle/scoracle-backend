@@ -915,5 +915,7 @@ fn finish_candidate(
 mod tests;
 
 mod discover;
+mod factsweep;
+pub use factsweep::{run_factsweep, FactsweepRequest, FactsweepRunContext};
 mod publish;
 use publish::{commit_claimed, load_fact_policy, policy_allows};

@@ -106,6 +106,15 @@ pub struct RatingReq {
     pub trigger_type: String,
 }
 
+/// Execution and publication policy for an operator-started Scout run. These contexts are
+/// intentionally distinct from [`Item`]: direct and historical runs own no queue claim.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RatingRunContext {
+    Preview { skip_unchanged: bool },
+    PublishSingle { skip_unchanged: bool },
+    HistoricalBackfill,
+}
+
 /// Prepare the Scout's complete assignment without calling a model.
 pub async fn build_rating_request(
     pool: &sqlx::PgPool,
@@ -351,7 +360,7 @@ pub async fn build_rating_request(
 }
 
 /// Prepare, debounce, and create a Scout product. Publication remains a separate short transaction.
-pub async fn generate_rating(
+async fn generate_rating(
     pool: &sqlx::PgPool,
     models: &ExecutionCapabilities,
     req: &RatingReq,
@@ -387,6 +396,45 @@ pub async fn generate_rating(
         return Ok(scout::unchanged(assignment, backend.model()));
     }
     scout::create(&Studio::new(backend.as_ref()), assignment).await
+}
+
+/// Invoke Scout outside the durable worker, preserving the established direct/backfill
+/// publication rules without manufacturing a live queue claim.
+pub async fn invoke_rating(
+    pool: &PgPool,
+    models: &ExecutionCapabilities,
+    req: &RatingReq,
+    context: RatingRunContext,
+) -> Result<RatingOutput> {
+    let (skip_unchanged, publish, enqueue_momentum) = match context {
+        RatingRunContext::Preview { skip_unchanged } => (skip_unchanged, false, false),
+        RatingRunContext::PublishSingle { skip_unchanged } => (skip_unchanged, true, true),
+        RatingRunContext::HistoricalBackfill => (false, true, false),
+    };
+    let output =
+        generate_rating(pool, models, req, RATING_TEMPERATURE, skip_unchanged, true).await?;
+    if publish && !output.skipped_unchanged {
+        persist_stat_summary(
+            pool,
+            &req.entity_type,
+            req.entity_id,
+            &req.sport,
+            &req.trigger_type,
+            &serde_json::json!({}),
+            &output,
+        )
+        .await?;
+        if enqueue_momentum {
+            crate::plugins::analyst::adapter::enqueue_momentum_if_needed(
+                pool,
+                &req.entity_type,
+                req.entity_id,
+                &req.sport,
+            )
+            .await?;
+        }
+    }
+    Ok(output)
 }
 
 const RATING_WORK_PREFIX: &str = "rating:s";
@@ -631,7 +679,7 @@ async fn record_ledger(
 
 /// Standalone/backfill persistence keeps its historical caller-controlled scheduling behavior.
 /// The product commits first; the optional cognition ledger remains best-effort afterward.
-pub async fn persist_stat_summary(
+async fn persist_stat_summary(
     pool: &PgPool,
     entity_type: &str,
     entity_id: i32,

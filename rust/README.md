@@ -52,6 +52,15 @@ The [plugin architecture execution plan](docs/plugin-architecture-plan.md) track
 
 `src/studio/` holds the inference session, generation envelope, and plugin/tool contracts. `src/plugins/<name>/` owns each plugin's manifest, prepared cognition, and preparation/publication adapter. `src/plugins/support/` supplies shared form, guards, and resource profiles. The deterministic Boxscore plugin has an adapter and manifest without an inference module.
 
-`src/application/` assembles the fleet and supplies shared adapters, with durable work under `application/queue/`. The queue still contains domain scheduling policy pending the later architecture milestones. `src/evidence/` retrieves and shapes context, including source fetching. `src/runtime/` holds configuration, database connections, routing and providers. `src/evaluation/` and the `eval` binary invoke the same plugin code for offline checks, inspection and replay.
+`src/application/` assembles the fleet and supplies shared capability brokers, with generic durable work transport under `application/queue/`. Plugin manifests and reactions own domain scheduling policy and fan-out. `src/evidence/` contains shared concrete loaders used by typed plugin preparation. `src/runtime/` holds configuration, database connections, routing and providers. `src/evaluation/` and the `eval` binary invoke the same plugin code for offline checks, inspection and replay. `statcommentary` and `factsweep` are thin operator entry points into explicit plugin-owned non-queue invocation contexts.
 
 Keep only active [contract data and quality cases](fixtures/README.md) in `fixtures/`. Historical prompts, generators and captured experiments live in the wiki archive, outside the build.
+
+## Adding a plugin
+
+Add one package under `src/plugins/<name>/` with its manifest and adapter (plus cognition when it
+uses inference). Add the manifest to `application/fleet.rs`, and bind the adapter's concrete
+dependencies in `application/plugins.rs`; the registry then validates task ownership, route/grant
+consistency, and resource declarations at boot. Add a database migration only when the plugin
+introduces genuinely new persisted domain data—not merely to register code, routes, providers, or
+scheduling policy.

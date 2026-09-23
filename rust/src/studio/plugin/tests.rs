@@ -7,26 +7,22 @@ use anyhow::Result;
 use async_trait::async_trait;
 use std::sync::Arc;
 
-fn stage_of(t: TaskKind) -> Stage {
-    t.stage()
-}
-
 const fn manifest(
     id: &'static str,
-    tasks: &'static [TaskKind],
+    task: Stage,
     produces: &'static [ProductKind],
     consumes: &'static [ProductKind],
 ) -> PluginManifest {
     PluginManifest {
         id: PluginId::new(id),
         contract_version: "test-v1",
-        tasks,
+        task,
         model_roles: &[],
         context_requirements: &[],
         consumes,
         produces,
         resources: ResourceProfile::unbounded_batch(1),
-        tools: &[ToolGrant::Inference],
+        tools: &[],
     }
 }
 
@@ -48,31 +44,9 @@ impl StudioPlugin for TestPlugin {
     }
 }
 
-const MOM_TASKS: &[TaskKind] = &[TaskKind::MOMENTUM];
-const SIGIL_TASKS: &[TaskKind] = &[TaskKind::SIGIL];
-
-#[test]
-fn task_kind_stage_roundtrip_covers_the_whole_fleet() {
-    let fleet = [
-        TaskKind::GRAPH,
-        TaskKind::EDITOR,
-        TaskKind::INVESTIGATE_ENTITY,
-        TaskKind::FIXTURE_BOXSCORE,
-        TaskKind::RATING,
-        TaskKind::MOMENTUM,
-        TaskKind::TRANSFERS,
-        TaskKind::NARRATIVES,
-        TaskKind::VIBE,
-        TaskKind::SIGIL,
-    ];
-    for t in fleet {
-        assert_eq!(stage_of(t).as_str(), t.as_str(), "{t} stage mismatch");
-    }
-}
-
 #[test]
 fn registry_resolves_stage_to_its_owner() {
-    static M: PluginManifest = manifest("scoracle.character.momentum", MOM_TASKS, &[], &[]);
+    static M: PluginManifest = manifest("scoracle.character.momentum", Stage::Momentum, &[], &[]);
     let reg = PluginRegistry::new(vec![plugin(&M)]).unwrap();
     assert!(reg.resolve(Stage::Momentum).is_some());
     assert!(reg.resolve(Stage::Sigil).is_none());
@@ -81,8 +55,8 @@ fn registry_resolves_stage_to_its_owner() {
 
 #[test]
 fn registry_rejects_duplicate_task_ownership() {
-    static A: PluginManifest = manifest("test.a", MOM_TASKS, &[], &[]);
-    static B: PluginManifest = manifest("test.b", MOM_TASKS, &[], &[]);
+    static A: PluginManifest = manifest("test.a", Stage::Momentum, &[], &[]);
+    static B: PluginManifest = manifest("test.b", Stage::Momentum, &[], &[]);
     let err = match PluginRegistry::new(vec![plugin(&A), plugin(&B)]) {
         Err(e) => e.to_string(),
         Ok(_) => panic!("duplicate task ownership must not register"),
@@ -93,8 +67,8 @@ fn registry_rejects_duplicate_task_ownership() {
 
 #[test]
 fn registry_rejects_duplicate_plugin_ids() {
-    static A: PluginManifest = manifest("test.same", MOM_TASKS, &[], &[]);
-    static B: PluginManifest = manifest("test.same", SIGIL_TASKS, &[], &[]);
+    static A: PluginManifest = manifest("test.same", Stage::Momentum, &[], &[]);
+    static B: PluginManifest = manifest("test.same", Stage::Sigil, &[], &[]);
     let err = match PluginRegistry::new(vec![plugin(&A), plugin(&B)]) {
         Err(e) => e.to_string(),
         Ok(_) => panic!("duplicate ids must not register"),
@@ -110,26 +84,50 @@ fn registry_accepts_an_empty_fleet_as_the_idle_scaffold() {
 }
 
 #[test]
-fn registry_accepts_a_compound_plugin_with_two_tasks() {
-    static TASKS: &[TaskKind] = &[TaskKind::RATING, TaskKind::MOMENTUM];
-    static M: PluginManifest = manifest("test.compound", TASKS, &[], &[]);
-    let reg = PluginRegistry::new(vec![plugin(&M)]).unwrap();
-    assert!(reg.resolve(Stage::Rating).is_some());
-    assert!(reg.resolve(Stage::Momentum).is_some());
-    assert_eq!(reg.tasks().len(), 2);
+fn registry_resolves_every_registered_task_and_leaves_missing_tasks_unowned() {
+    static A: PluginManifest = manifest("test.rating", Stage::Rating, &[], &[]);
+    static B: PluginManifest = manifest("test.momentum", Stage::Momentum, &[], &[]);
+    let reg = PluginRegistry::new(vec![plugin(&A), plugin(&B)]).unwrap();
+    for m in [&A, &B] {
+        assert_eq!(reg.resolve(m.task).unwrap().manifest().id, m.id);
+        assert_eq!(reg.manifest_for_task(m.task.as_str()).unwrap().id, m.id);
+    }
+    assert!(reg.resolve(Stage::Sigil).is_none());
+    assert!(reg.manifest_for_task("unregistered").is_none());
+}
+
+#[test]
+fn registry_rejects_inconsistent_inference_declarations() {
+    static ROLE_ONLY: PluginManifest = PluginManifest {
+        model_roles: &[crate::runtime::route::Role::StatsLogic],
+        ..manifest("test.role-only", Stage::Rating, &[], &[])
+    };
+    static GRANT_ONLY: PluginManifest = PluginManifest {
+        tools: &[ToolGrant::Inference],
+        ..manifest("test.grant-only", Stage::Rating, &[], &[])
+    };
+    for m in [&ROLE_ONLY, &GRANT_ONLY] {
+        let err = PluginRegistry::new(vec![plugin(m)])
+            .err()
+            .expect("invalid declarations");
+        assert!(err.to_string().contains(m.id.as_str()));
+        assert!(err
+            .to_string()
+            .contains("inference roles and the inference grant together"));
+    }
 }
 
 #[test]
 fn manifest_owns_stage_matches_declared_tasks_only() {
-    static M: PluginManifest = manifest("test.sigil", SIGIL_TASKS, &[], &[]);
+    static M: PluginManifest = manifest("test.sigil", Stage::Sigil, &[], &[]);
     assert!(M.owns_stage(Stage::Sigil));
     assert!(!M.owns_stage(Stage::Momentum));
 }
 
 #[test]
 fn resource_profile_builders_preserve_current_cap_shapes() {
-    let archbox = crate::studio::fleet::ARCHBOX_SLOTS;
-    let mac = crate::studio::fleet::MAC_SLOTS;
+    let archbox = ("test-archbox", 4);
+    let mac = ("test-mac", 4);
 
     let grouped = ResourceProfile::grouped(2, mac);
     assert_eq!(grouped.max_in_flight, 2);

@@ -13,8 +13,8 @@
 //! Packet inserts fan work out to subscribed voices and always to the Journalist.
 
 use super::slice_quote;
-use crate::studio::editor::derive::routing_tags;
-use crate::studio::editor::{EditorRead, NameMention};
+use crate::plugins::editor::cognition::derive::routing_tags;
+use crate::plugins::editor::cognition::{EditorRead, NameMention};
 use crate::util::hash_components;
 use anyhow::{Context, Result};
 use serde_json::{json, Value};
@@ -696,7 +696,7 @@ pub async fn render_packets_for_entity(
         entity_type,
         entity_id,
         sport,
-        crate::application::journalist::PACKET_LOOKBACK_HOURS,
+        crate::plugins::journalist::adapter::PACKET_LOOKBACK_HOURS,
         limit,
     )
     .await?;
@@ -890,7 +890,7 @@ async fn insert_packet(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::studio::editor::EditorRead;
+    use crate::plugins::editor::cognition::EditorRead;
 
     /// One canned member. `read` is built field by field rather than parsed, so a fixture states
     /// exactly what the Editor described and nothing else.

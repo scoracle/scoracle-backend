@@ -1,7 +1,7 @@
 //! Shared entity lookup, transfer-heat, identity-card, and dedupe primitives.
 
 use crate::evidence::trajectory::DEFAULT_TRAJECTORY;
-use crate::studio::insider::HeatItem;
+use crate::plugins::insider::cognition::HeatItem;
 use anyhow::{bail, Context, Result};
 use sqlx::PgPool;
 

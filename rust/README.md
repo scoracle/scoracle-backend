@@ -12,7 +12,7 @@ This is the governing contract for harness work. Propose changes to it explicitl
 
 - **Postgres remembers:** facts, entity metadata, relationships, source history, products and durable work.
 - **DuckDB studies:** bounded data populations, statistical comparisons, cohorts and trends. Return computed observations with their meaning and limitations.
-- **Application adapters prepare and publish:** select relevant evidence, assemble assignments, route calls and persist validated results.
+- **Plugin adapters prepare and publish:** select relevant evidence, assemble assignments, route calls and persist validated results. Application assembly binds their concrete dependencies.
 - **Studio equips the model:** compose the assignment, provide capabilities, call the model and validate the output. The model creates the reading. Storage, analytical computation and queue coordination stay outside the core.
 
 Rich upstream context enables precise selection. Prompt size is not a measure of context quality.
@@ -21,7 +21,7 @@ Rich upstream context enables precise selection. Prompt size is not a measure of
 
 **Shared form + character voice + relevant identity + selected evidence.**
 
-[`form.rs`](src/studio/form.rs) owns the shared publishing format. Each character has one active brief. Metadata supplies who the entity is, its role and the relevant time/season. Evidence supplies what the character can responsibly interpret.
+[`form.rs`](src/plugins/support/form.rs) owns the shared publishing format. Each character has one active brief. Metadata supplies who the entity is, its role and the relevant time/season. Evidence supplies what the character can responsibly interpret.
 
 | Character | Evidence |
 |---|---|
@@ -46,8 +46,12 @@ Each publishing character tells the part of the story its evidence supports. A p
 
 For implementation and operations, use [development guidance](../run_docs/DEVELOPMENT.md), the [runbook](../run_docs/RUNBOOK.md) and [analytical acceptance](../run_docs/RECOVERY_ANALYTICS_ACCEPTANCE.md). The [September 20 findings](../run_docs/quality-2026-09-20/findings.md) record current gaps separately from this contract.
 
+The [plugin architecture execution plan](docs/plugin-architecture-plan.md) tracks the transition to a durable, domain-independent host with plugin-owned capabilities. It explicitly proposes the ownership changes, preserves publication invariants, and records completed milestones separately from the target architecture.
+
 ## Source map
 
-`src/studio/` is the model-facing core. `src/application/` prepares and publishes, with durable work under `application/queue/`. `src/evidence/` retrieves and shapes context, including source fetching. `src/runtime/` holds configuration, database connections, routing and providers. `src/evaluation/` and the `eval` binary provide offline checks, inspection and replay.
+`src/studio/` holds the inference session, generation envelope, and plugin/tool contracts. `src/plugins/<name>/` owns each plugin's manifest, prepared cognition, and preparation/publication adapter. `src/plugins/support/` supplies shared form, guards, and resource profiles. The deterministic Boxscore plugin has an adapter and manifest without an inference module.
+
+`src/application/` assembles the fleet and supplies shared adapters, with durable work under `application/queue/`. The queue still contains domain scheduling policy pending the later architecture milestones. `src/evidence/` retrieves and shapes context, including source fetching. `src/runtime/` holds configuration, database connections, routing and providers. `src/evaluation/` and the `eval` binary invoke the same plugin code for offline checks, inspection and replay.
 
 Keep only active [contract data and quality cases](fixtures/README.md) in `fixtures/`. Historical prompts, generators and captured experiments live in the wiki archive, outside the build.

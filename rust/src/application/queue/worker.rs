@@ -18,50 +18,19 @@
 //! grace aborts a stuck in-flight item — always inside systemd's 90s TimeoutStopSec,
 //! so a stop/restart never escalates to SIGKILL.
 
-use crate::application::editor;
 use crate::application::queue::work::{self, retry_backoff, Stage, MAX_ATTEMPTS};
-use crate::evidence::news::packet;
-use crate::studio::plugin::PluginRegistry;
-use anyhow::{anyhow, Context, Result};
+use crate::studio::plugin::{PluginRegistry, ScheduledOperation};
+use anyhow::{anyhow, Result};
 use futures::stream::{FuturesUnordered, StreamExt};
 use sqlx::postgres::PgListener;
 use sqlx::PgPool;
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex as StdMutex};
 use std::time::{Duration, Instant};
 use tokio::signal::unix::{signal, SignalKind};
 use tokio::sync::Notify;
 use tracing::{debug, error, info, warn};
-
-/// Query how many storylines were updated in the last hour to determine velocity.
-async fn storyline_velocity(pool: &PgPool) -> Result<i64> {
-    let count: i64 = sqlx::query_scalar(
-        r#"
-        SELECT COUNT(*) 
-        FROM storylines 
-        WHERE last_seen_at > NOW() - INTERVAL '1 hour'
-        "#,
-    )
-    .fetch_one(pool)
-    .await
-    .context("query storyline velocity")?;
-
-    Ok(count)
-}
-
-/// Calculate the next desk interval based on storyline velocity.
-///
-/// High velocity (>10 storylines/hour) = 120 seconds (less frequent, save resources)
-/// Medium velocity (3-10 storylines/hour) = 60 seconds (baseline)
-/// Low velocity (<3 storylines/hour) = 30 seconds (more responsive)
-fn velocity_adaptive_interval(velocity: i64) -> Duration {
-    match velocity {
-        v if v > 10 => Duration::from_secs(120),
-        v if v < 3 => Duration::from_secs(30),
-        _ => Duration::from_secs(60),
-    }
-}
 
 const NOTIFY_CHANNEL: &str = "pipeline_work_ready";
 
@@ -78,10 +47,6 @@ const SHUTDOWN_GRACE: Duration = Duration::from_secs(75);
 /// runtime, so minimizing product-stage latency is worth the extra cheap claims. A stage with no
 /// model call overrides this via [`WorkHandler::rotation_batch`] — see the note there.
 const STAGE_ROTATION_BATCH: i64 = 1;
-
-/// Desk cadence, independent of queue depth. The DB-only Desk deliberately does not beat the
-/// drain's [`Pulse`].
-const DESK_INTERVAL: Duration = Duration::from_secs(60);
 
 /// Stale-lease recovery cadence, independent of queue depth.
 const STALE_RECOVERY_INTERVAL: Duration = Duration::from_secs(60);
@@ -136,6 +101,7 @@ impl Pulse {
         }
     }
 
+    #[cfg(test)]
     fn begin(&self, activity: &str) {
         self.busy.store(true, Ordering::Release);
         self.beat(activity);
@@ -305,121 +271,25 @@ async fn supervise(sv: Supervision) {
     tokio::time::sleep(SHUTDOWN_GRACE).await;
 }
 
-/// The Desk's own task: everything the newsroom does between reads, on a cadence that does not
-/// depend on the queue being empty. Spawned only on the machine that seats the Editor (the Mac's
-/// voices have no Desk) — see [`DESK_INTERVAL`] for why it stopped riding the drain.
-struct Desk {
-    pool: PgPool,
-    /// Whether the Desk compiles packets (`COGNITION_PACKET_COMPILE`, default off — see
-    /// `config::Config::packet_compile`). Storyline assembly and dormancy are unconditional;
-    /// only compilation is gated.
-    packet_compile: bool,
-    /// Unix seconds of the last dormancy sweep, 0 until the first runs. Hourly: dormancy is a
-    /// 14-day fact, so a per-sweep pass would be a full-table UPDATE scan that finds nothing.
-    last_desk_sweep: Arc<AtomicI64>,
-    /// Set by the supervisor on SIGINT/SIGTERM; the Desk stops at the next boundary.
-    shutdown: Arc<AtomicBool>,
-}
-
-impl Desk {
-    /// The Desk's periodic DB-only work.
-    ///
-    /// Two cadences in one pass:
-    ///   * **hourly** — the storyline lifecycle sweep: an open storyline nobody has added to for
-    ///     14 days goes dormant, which is what keeps the attachment rule's candidate set honest.
-    ///   * **every sweep** — packet compilation, which carries its own 15-minute quiet debounce
-    ///     in SQL (`packet::compile_dirty`), so a story arriving as a burst compiles once. OFF
-    ///     unless `COGNITION_PACKET_COMPILE` says otherwise.
-    ///
-    /// Failure is logged and swallowed, like the dedup sweep: the Desk is downstream of reads
-    /// that are already persisted, and it must never take the process down.
-    async fn sweep(&self, cause: &str) {
-        const DORMANCY_SWEEP_INTERVAL_SECS: i64 = 3_600;
-        /// Storylines compiled per sweep. A ceiling, not a target: the backfill's first quiet
-        /// window has thousands of dirty storylines, and one sweep is not the place to compile
-        /// all of them at once.
-        const COMPILE_BATCH: i64 = 200;
-
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs() as i64)
-            .unwrap_or(0);
-        let last = self.last_desk_sweep.load(Ordering::Acquire);
-        if last == 0 || now.saturating_sub(last) >= DORMANCY_SWEEP_INTERVAL_SECS {
-            self.last_desk_sweep.store(now, Ordering::Release);
-            match editor::storyline::mark_dormant(&self.pool).await {
-                Ok(n) if n > 0 => info!(dormant = n, cause, "storylines went dormant"),
-                Ok(_) => debug!(cause, "dormancy sweep: nothing quiet enough"),
-                Err(e) => error!(error = %format!("{e:#}"), cause, "dormancy sweep failed"),
-            }
-            // The week seal shares the hourly slot and tolerates pre-migration deployments.
-            for sport in ["FOOTBALL", "NBA", "NFL"] {
-                match sqlx::query_as::<_, (i32, i32)>(
-                    "SELECT closing_enqueued, weeks_sealed FROM public.seal_weeks($1)",
-                )
-                .bind(sport)
-                .fetch_one(&self.pool)
-                .await
-                {
-                    Ok((enq, sealed)) if enq > 0 || sealed > 0 => {
-                        info!(
-                            sport,
-                            closing_enqueued = enq,
-                            weeks_sealed = sealed,
-                            cause,
-                            "week seal advanced"
-                        );
-                    }
-                    Ok(_) => debug!(sport, cause, "week seal: nothing to close"),
-                    Err(e) => {
-                        debug!(sport, error = %format!("{e:#}"), cause,
-                            "week seal unavailable (mig 241 not applied?)");
-                    }
-                }
-            }
-        }
-
-        if !self.packet_compile {
-            return;
-        }
-        match packet::compile_dirty(&self.pool, COMPILE_BATCH).await {
-            Ok(n) if n > 0 => info!(packets = n, cause, "packets compiled"),
-            Ok(_) => debug!(cause, "packet compile: nothing dirty and quiet"),
-            Err(e) => error!(error = %format!("{e:#}"), cause, "packet compile failed"),
-        }
-    }
-}
-
-/// desk_loop sweeps with velocity-aware scheduling until shutdown. The first sweep runs
-/// immediately, so a restart compiles what settled while the process was down instead of waiting
-/// a full interval. The cadence adapts based on storyline velocity: high activity (>10/hour) uses
-/// 120s intervals to conserve resources, low activity (<3/hour) uses 30s intervals for faster
-/// responsiveness, and baseline activity uses 60s.
-async fn desk_loop(desk: Desk) {
+/// Run plugin-owned maintenance independently of queue depth. The host owns only
+/// invocation and shutdown; domain work and cadence live behind the operation.
+async fn scheduled_loop(operation: Arc<dyn ScheduledOperation>, shutdown: Arc<AtomicBool>) {
     let mut cause = "startup";
     loop {
-        if desk.shutdown.load(Ordering::Acquire) {
-            debug!("desk loop stopped cleanly");
+        if shutdown.load(Ordering::Acquire) {
+            debug!(
+                operation = operation.name(),
+                "scheduled operation stopped cleanly"
+            );
             return;
         }
-        desk.sweep(cause).await;
+        let interval = operation.run(cause).await;
         cause = "interval";
-
-        // Query velocity and adapt the cadence
-        let velocity = match storyline_velocity(&desk.pool).await {
-            Ok(v) => v,
-            Err(e) => {
-                warn!(error = %format!("{e:#}"), "failed to query storyline velocity, using baseline interval");
-                5 // default to baseline
-            }
-        };
-        let interval = velocity_adaptive_interval(velocity);
         debug!(
-            velocity,
+            operation = operation.name(),
             interval_secs = interval.as_secs(),
-            "desk loop cadence"
+            "scheduled operation cadence"
         );
-
         tokio::time::sleep(interval).await;
     }
 }
@@ -449,19 +319,6 @@ pub struct Worker {
     shutdown: Arc<AtomicBool>,
     /// Latest tick cause, written by the supervisor with each request.
     cause: Arc<StdMutex<&'static str>>,
-    /// Unix seconds of the last exact-title dedup sweep, 0 until the first runs. The sweep is
-    /// hourly, not per-tick: it only has work to do after an ingest sweep has landed a batch,
-    /// so running it every tick would be pure write amplification. See
-    /// `sweep_exact_title_duplicates` — it is the rail's ONLY cross-source dedup.
-    last_dedup_sweep: Arc<AtomicI64>,
-    /// Unix seconds of the last Desk sweep (PLAN-one-rail 6.4), 0 until the first runs. Hourly
-    /// for the same reason as the dedup sweep: dormancy is a 14-day fact, so a per-tick pass
-    /// would be a full-table UPDATE scan that finds nothing 3,600 times an hour.
-    last_desk_sweep: Arc<AtomicI64>,
-    /// Whether the Desk compiles packets (`COGNITION_PACKET_COMPILE`, default off — see
-    /// `config::Config::packet_compile` and `evidence::news::packet`'s fan-out note). Storyline
-    /// assembly runs regardless; it happens inside the Editor's handle, not here.
-    packet_compile: bool,
 }
 
 impl Worker {
@@ -474,7 +331,6 @@ impl Worker {
         handler_timeout: Duration,
         watchdog: Duration,
         drain_concurrency: Option<usize>,
-        packet_compile: bool,
     ) -> Self {
         // Unset means "let the per-stage caps govern": the sum of every stage's `max_in_flight`
         // is by construction the point past which the ceiling can never bind, so no stage is
@@ -502,9 +358,6 @@ impl Worker {
             drain_concurrency,
             shutdown: Arc::new(AtomicBool::new(false)),
             cause: Arc::new(StdMutex::new("startup")),
-            last_dedup_sweep: Arc::new(AtomicI64::new(0)),
-            last_desk_sweep: Arc::new(AtomicI64::new(0)),
-            packet_compile,
         }
     }
 
@@ -520,7 +373,7 @@ impl Worker {
             .fleet
             .plugins()
             .iter()
-            .flat_map(|p| p.manifest().tasks.iter().map(|t| t.as_str()))
+            .map(|p| p.manifest().task.as_str())
             .collect();
         let plugins: Vec<&'static str> = self
             .fleet
@@ -551,25 +404,17 @@ impl Worker {
         let outbox = outbox_loop(&self.pool, &tick, &self.shutdown);
         tokio::pin!(outbox);
 
-        // The Desk sweeps on its own task, not behind the drain — but only where the Editor is
-        // seated. The Mac runs the voices and has no Desk, and this is the check that says so.
-        if self
+        for operation in self
             .fleet
             .plugins()
             .iter()
-            .any(|p| p.manifest().owns_stage(Stage::Editor))
+            .flat_map(|plugin| plugin.scheduled_operations())
         {
             info!(
-                interval_secs = DESK_INTERVAL.as_secs(),
-                packet_compile = self.packet_compile,
-                "desk loop starting (own task, independent of the drain)"
+                operation = operation.name(),
+                "scheduled operation starting (independent of the drain)"
             );
-            tokio::spawn(desk_loop(Desk {
-                pool: self.pool.clone(),
-                packet_compile: self.packet_compile,
-                last_desk_sweep: self.last_desk_sweep.clone(),
-                shutdown: self.shutdown.clone(),
-            }));
+            tokio::spawn(scheduled_loop(operation, self.shutdown.clone()));
         }
 
         // Recover crashed or aborted claims on the lease clock, independent of drain depth.
@@ -645,41 +490,6 @@ impl Worker {
         self.shutdown.load(Ordering::Acquire)
     }
 
-    /// Collapse byte-identical cross-source articles onto one canonical copy, at most hourly.
-    /// Hourly is the right cadence: the sweep has work only after the nightly ingest lands a
-    /// batch, so per-tick would be pure write amplification.
-    ///
-    /// The guards live in `collapse_exact_title_duplicates` (mig 196) — cross-source only, a
-    /// minimum title length, and a canonical that prefers the corpus-visible copy. Failure is
-    /// logged and swallowed: this is hygiene, and it must never block a drain.
-    async fn sweep_exact_title_duplicates(&self, cause: &str, pulse: &Pulse) {
-        const SWEEP_INTERVAL_SECS: i64 = 3_600;
-
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs() as i64)
-            .unwrap_or(0);
-        let last = self.last_dedup_sweep.load(Ordering::Acquire);
-        if last != 0 && now.saturating_sub(last) < SWEEP_INTERVAL_SECS {
-            return;
-        }
-        self.last_dedup_sweep.store(now, Ordering::Release);
-
-        pulse.begin("dedup-sweep");
-        // 72h matches the novelty gate's own `novelty_lookback`: anything older has already been
-        // swept, and re-scanning the full narratives window every hour buys nothing.
-        let res: Result<i32, sqlx::Error> = sqlx::query_scalar(
-            "SELECT public.collapse_exact_title_duplicates(interval '72 hours', 30)",
-        )
-        .fetch_one(&self.pool)
-        .await;
-        match res {
-            Ok(n) if n > 0 => info!(collapsed = n, cause, "exact-title duplicates collapsed"),
-            Ok(_) => debug!(cause, "dedup sweep: nothing to collapse"),
-            Err(e) => error!(error = %format!("{e:#}"), cause, "dedup sweep failed"),
-        }
-    }
-
     /// One recover-then-drain cycle. No-op when no handlers are registered, so
     /// the scaffold never mutates the queue.
     async fn tick(&self, cause: &str, pulse: &Pulse) {
@@ -689,8 +499,6 @@ impl Worker {
         }
         // Durable handoffs are polled independently by run(), even while this
         // tick stays in drain_all under sustained inflow.
-        // Exact-title dedup may wait for a drain boundary; unlike lease recovery, it is hygiene.
-        self.sweep_exact_title_duplicates(cause, pulse).await;
         self.drain_all(cause, pulse).await;
         pulse.idle();
     }
@@ -728,7 +536,7 @@ impl Worker {
                 p.manifest()
                     .resources
                     .slot_group
-                    .map(|g| (p.manifest().tasks[0].as_str(), g))
+                    .map(|g| (p.manifest().task.as_str(), g))
             })
             .collect();
 
@@ -746,7 +554,7 @@ impl Worker {
                     break;
                 }
                 let manifest = plugin.manifest();
-                let stage = manifest.tasks[0].stage();
+                let stage = manifest.task;
                 // Per-stage caps keep DAG claim order from becoming strict priority order.
                 let running = *per_stage.get(stage.as_str()).unwrap_or(&0);
                 let mut room = stage_room(
@@ -848,7 +656,7 @@ impl Worker {
         item: work::Item,
         pulse: &Pulse,
     ) -> &'static str {
-        let stage = plugin.manifest().tasks[0].stage();
+        let stage = plugin.manifest().task;
         pulse.beat(&format!(
             "handle {stage} {}/{} {}",
             item.entity_type, item.entity_id, item.sport
@@ -977,12 +785,13 @@ fn note_supervisor_exit(exit: std::result::Result<(), tokio::task::JoinError>) {
 
 #[cfg(test)]
 mod test_support {
-    use crate::studio::plugin::{PluginId, PluginManifest, ResourceProfile, TaskKind};
+    use crate::application::queue::work::Stage;
+    use crate::studio::plugin::{PluginId, PluginManifest, ResourceProfile};
 
     pub(super) static GRAPH_TEST_MANIFEST: PluginManifest = PluginManifest {
         id: PluginId::new("test.graph"),
         contract_version: "test-v1",
-        tasks: &[TaskKind::GRAPH],
+        task: Stage::Graph,
         model_roles: &[],
         context_requirements: &[],
         consumes: &[],
@@ -995,7 +804,7 @@ mod test_support {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::studio::fleet::ARCHBOX_SLOTS;
+    use crate::plugins::support::resources::ARCHBOX_SLOTS;
     use crate::studio::plugin::{PluginOutcome, StudioPlugin};
 
     #[test]
@@ -1184,7 +993,6 @@ mod tests {
             timeout,
             Duration::ZERO,
             None,
-            false,
         )
     }
 
@@ -1279,17 +1087,16 @@ mod postgres_recovery_rehearsal {
         shared: bool,
         order: Arc<StdMutex<Vec<Stage>>>,
     }
-    use crate::studio::plugin::TaskKind;
 
     const fn test_manifest(
         id: &'static str,
-        tasks: &'static [TaskKind],
+        task: Stage,
         shared: bool,
     ) -> crate::studio::plugin::PluginManifest {
         crate::studio::plugin::PluginManifest {
             id: crate::studio::plugin::PluginId::new(id),
             contract_version: "test-v1",
-            tasks,
+            task,
             model_roles: &[],
             context_requirements: &[],
             consumes: &[],
@@ -1308,13 +1115,13 @@ mod postgres_recovery_rehearsal {
     }
 
     const NARRATIVES_TEST: crate::studio::plugin::PluginManifest =
-        test_manifest("test.narratives", &[TaskKind::NARRATIVES], false);
+        test_manifest("test.narratives", Stage::Narratives, false);
     const RATING_TEST: crate::studio::plugin::PluginManifest =
-        test_manifest("test.rating", &[TaskKind::RATING], false);
+        test_manifest("test.rating", Stage::Rating, false);
     const NARRATIVES_SHARED_TEST: crate::studio::plugin::PluginManifest =
-        test_manifest("test.narratives", &[TaskKind::NARRATIVES], true);
+        test_manifest("test.narratives", Stage::Narratives, true);
     const RATING_SHARED_TEST: crate::studio::plugin::PluginManifest =
-        test_manifest("test.rating", &[TaskKind::RATING], true);
+        test_manifest("test.rating", Stage::Rating, true);
 
     impl Refilling {
         fn manifest(&self) -> &'static crate::studio::plugin::PluginManifest {
@@ -1387,7 +1194,6 @@ mod postgres_recovery_rehearsal {
                 Duration::from_secs(5),
                 Duration::ZERO,
                 Some(if shared { 2 } else { 1 }),
-                false,
             );
             tokio::time::timeout(
                 Duration::from_secs(5),
@@ -1448,7 +1254,6 @@ mod postgres_recovery_rehearsal {
             Duration::from_secs(10),
             Duration::ZERO,
             Some(1),
-            false,
         );
         work::enqueue(&pool, &item(Stage::Graph, sport, 9_600_101))
             .await
@@ -1500,7 +1305,7 @@ mod postgres_recovery_rehearsal {
         crate::studio::plugin::PluginManifest {
             id: crate::studio::plugin::PluginId::new("test.sigil"),
             contract_version: "test-v1",
-            tasks: &[TaskKind::SIGIL],
+            task: Stage::Sigil,
             model_roles: &[],
             context_requirements: &[],
             consumes: &[],
@@ -1563,7 +1368,6 @@ mod postgres_recovery_rehearsal {
             Duration::from_secs(5),
             Duration::from_secs(30),
             Some(1),
-            false,
         );
         let tick = Notify::new();
         let dispatcher = outbox_loop(&pool, &tick, &worker.shutdown);

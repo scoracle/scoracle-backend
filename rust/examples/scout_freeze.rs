@@ -7,11 +7,11 @@
 //!   ... add -generate to also produce the card via the routed StatsLogic model.
 use anyhow::{anyhow, Result};
 use scoracle_cognition::application::models::Models;
-use scoracle_cognition::application::scout::{build_rating_request, RatingReq};
+use scoracle_cognition::plugins::scout::adapter::{build_rating_request, RatingReq};
+use scoracle_cognition::plugins::scout::cognition::{RatingBuild, RATING_TEMPERATURE};
 use scoracle_cognition::runtime::config::Config;
 use scoracle_cognition::runtime::db;
 use scoracle_cognition::runtime::route::{Role, Router};
-use scoracle_cognition::studio::scout::{RatingBuild, RATING_TEMPERATURE};
 use scoracle_cognition::studio::Studio;
 use std::time::Duration;
 
@@ -119,14 +119,15 @@ async fn main() -> Result<()> {
     );
     println!(
         "=== system prompt ===\n{}\n=== user prompt ===",
-        &*scoracle_cognition::studio::scout::RATING_SYSTEM_PROMPT
+        &*scoracle_cognition::plugins::scout::cognition::RATING_SYSTEM_PROMPT
     );
     println!("{}", assignment.built_prompt);
 
     if generate {
         let backend = models.router.for_role(Role::StatsLogic);
         let studio = Studio::new(backend.as_ref());
-        let out = scoracle_cognition::studio::scout::create(&studio, assignment).await?;
+        let out =
+            scoracle_cognition::plugins::scout::cognition::create(&studio, assignment).await?;
         println!("=== card ===");
         println!(
             "abstained: {}; skipped_no_stats: {}",

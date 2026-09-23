@@ -1,29 +1,15 @@
 //! Studio is Scoracle's in-house harness: the place where models create from prepared evidence.
 //! Applications supply a model and publication adapter. Studio owns neither databases nor queues.
 
-pub mod analyst;
-pub mod form;
 mod generation;
-pub mod guards;
-pub mod influencer;
-pub mod insider;
-pub mod journalist;
 pub mod model;
-pub mod oracle;
 pub mod plugin;
-pub mod scout;
 mod session;
 pub mod tools;
-
-pub use fleet::{
-    ALL, ANALYST, EDITOR, FIXTURE_BOXSCORE, GRAPH, INFLUENCER, INSIDER, INVESTIGATOR, JOURNALIST,
-    ORACLE, SCOUT,
-};
 
 pub use generation::{Extracted, Generation, GenerationCall, Parser, Provenance};
 
 use anyhow::Result;
-use async_trait::async_trait;
 use model::{GenerateOptions, Inference};
 
 /// One creation session using an application-selected model.
@@ -34,6 +20,11 @@ pub struct Studio<'a> {
 impl<'a> Studio<'a> {
     pub fn new(model: &'a dyn Inference) -> Self {
         Self { model }
+    }
+
+    /// Configured model identity for an uncalled product marker.
+    pub fn model_name(&self) -> &str {
+        self.model.model()
     }
 
     /// Validate creation with the existing bounded surface/incomplete-output rewrites.
@@ -48,24 +39,3 @@ impl<'a> Studio<'a> {
         session::extract_with_backend(self.model, prompt, opts, parser).await
     }
 }
-
-/// The application publishes a validated product and returns its own receipt.
-/// Durability, idempotency, and queue completion remain the adapter's responsibility.
-#[async_trait]
-pub trait Publisher<T: Sync>: Sync {
-    type Receipt;
-
-    async fn publish(&self, output: &Generation<T>) -> Result<Self::Receipt>;
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum Outcome<R> {
-    NoMaterial,
-    Published(R),
-}
-
-pub mod editor;
-pub mod fleet;
-pub mod investigator;
-
-pub mod graph;

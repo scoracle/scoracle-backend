@@ -1,21 +1,8 @@
-//! Application coordination and concrete storage/queue adapters for Studio.
+//! Fleet assembly and shared storage, queue, and capability adapters.
 
-pub mod analyst;
-pub mod influencer;
-pub mod insider;
-pub mod journalist;
-pub mod oracle;
-pub mod scout;
-pub mod tools;
-
-pub mod editor;
-
-pub mod investigator;
-
-pub mod graph;
-
+pub mod fleet;
 pub mod models;
 pub mod plugins;
 pub mod products;
-
 pub mod queue;
+pub mod tools;

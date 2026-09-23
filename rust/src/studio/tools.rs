@@ -106,6 +106,3 @@ impl std::fmt::Display for ToolRefusal {
         }
     }
 }
-
-#[cfg(test)]
-mod tests;

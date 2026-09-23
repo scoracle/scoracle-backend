@@ -162,3 +162,6 @@ impl<'a> ScopedWeb<'a> {
         result.map_err(|e| anyhow!("{e}"))
     }
 }
+
+#[cfg(test)]
+mod tests;

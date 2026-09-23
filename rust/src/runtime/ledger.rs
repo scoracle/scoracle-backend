@@ -13,6 +13,7 @@ use sqlx::{PgPool, Row};
 use tracing::warn;
 
 struct CognitionLedgerEntry {
+    plugin_id: String,
     stage: String,
     lens: String,
     role: String,
@@ -41,6 +42,7 @@ struct CognitionLedgerEntry {
 /// Static identity of one generated product in the cognition ledger.
 #[derive(Clone, Copy, Debug)]
 pub struct LedgerSpec {
+    pub plugin_id: &'static str,
     pub stage: &'static str,
     pub lens: &'static str,
     pub role: Role,
@@ -68,7 +70,7 @@ async fn insert_cognition_ledger(pool: &PgPool, entry: &CognitionLedgerEntry) ->
     let row = sqlx::query(
         r#"
         INSERT INTO public.cognition_ledger (
-            stage, lens, role, entity_type, entity_id, sport,
+            plugin_id, stage, lens, role, entity_type, entity_id, sport,
             pair_entity_type, pair_entity_id,
             trigger_type, trigger_payload,
             product_table, product_row_ids,
@@ -76,12 +78,13 @@ async fn insert_cognition_ledger(pool: &PgPool, entry: &CognitionLedgerEntry) ->
             input_ids, input_hash, request_body, built_prompt,
             included_evidence, excluded_evidence, context_budget, parser_outcome
         ) VALUES (
-            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12,$13,$14,$15,$16,$17,$18::jsonb,$19,
-            $20::jsonb,$21::jsonb,$22::jsonb,$23
+            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12,$13,$14,$15,$16,$17,$18,$19::jsonb,$20,
+            $21::jsonb,$22::jsonb,$23::jsonb,$24
         )
         RETURNING id
         "#,
     )
+    .bind(&entry.plugin_id)
     .bind(&entry.stage)
     .bind(&entry.lens)
     .bind(&entry.role)
@@ -124,6 +127,7 @@ pub async fn insert_generation_ledger_best_effort<T>(
         .unwrap_or((None, None));
     let call = generation.call.as_ref();
     let entry = CognitionLedgerEntry {
+        plugin_id: spec.plugin_id.to_string(),
         stage: spec.stage.to_string(),
         lens: spec.lens.to_string(),
         role: spec.role.as_str().to_string(),
@@ -150,6 +154,7 @@ pub async fn insert_generation_ledger_best_effort<T>(
     };
     if let Err(e) = insert_cognition_ledger(pool, &entry).await {
         warn!(
+            plugin_id = %entry.plugin_id,
             stage = %entry.stage,
             lens = %entry.lens,
             entity_type = %entry.entity_type,
@@ -158,5 +163,75 @@ pub async fn insert_generation_ledger_best_effort<T>(
             error = %e,
             "cognition ledger write failed"
         );
+    }
+}
+
+#[cfg(test)]
+mod postgres_tests {
+    use super::*;
+    use sqlx::postgres::PgPoolOptions;
+
+    const SPORT: &str = "ZZ_LEDGER_PLUGIN";
+
+    #[tokio::test]
+    #[ignore = "requires isolated migrated TEST_DATABASE_URL"]
+    async fn generation_diagnostics_retain_the_owning_plugin_identity() {
+        let pool = PgPoolOptions::new()
+            .max_connections(1)
+            .connect(&std::env::var("TEST_DATABASE_URL").expect("isolated migrated database"))
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM cognition_ledger WHERE sport=$1")
+            .bind(SPORT)
+            .execute(&pool)
+            .await
+            .unwrap();
+        let generation = Generation::uncalled(
+            (),
+            "test-model".to_string(),
+            "test-prompt-v1",
+            vec![41],
+            Some("test-input-hash".to_string()),
+        );
+        let spec = LedgerSpec {
+            plugin_id: "scoracle.test.ledger",
+            stage: "rating",
+            lens: "test-ledger",
+            role: Role::StatsLogic,
+            product_table: "stat_summaries",
+            output_contract_version: "test-output-v1",
+        };
+        insert_generation_ledger_best_effort(
+            &pool,
+            &generation,
+            spec,
+            LedgerEvent {
+                entity_type: "team",
+                entity_id: 9_100_001,
+                sport: SPORT,
+                pair_entity: None,
+                trigger_type: "test",
+                trigger_payload: serde_json::Value::Null,
+                product_row_ids: Vec::new(),
+                included_evidence: serde_json::json!([]),
+                excluded_evidence: serde_json::json!([]),
+                context_budget: serde_json::json!({}),
+                parser_outcome: "uncalled",
+            },
+        )
+        .await;
+        let plugin_id: String = sqlx::query_scalar(
+            "SELECT plugin_id FROM cognition_ledger WHERE sport=$1 AND lens='test-ledger'",
+        )
+        .bind(SPORT)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(plugin_id, spec.plugin_id);
+        sqlx::query("DELETE FROM cognition_ledger WHERE sport=$1")
+            .bind(SPORT)
+            .execute(&pool)
+            .await
+            .unwrap();
     }
 }

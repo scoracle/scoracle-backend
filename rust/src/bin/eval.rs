@@ -743,9 +743,9 @@ async fn run_capture_assignments(
     cases: &[EvalCase],
     season: Option<i32>,
 ) -> Result<()> {
-    use scoracle_cognition::application::scout::{build_rating_request, RatingReq};
     use scoracle_cognition::evidence::corpus::lookup_entity_name;
-    use scoracle_cognition::studio::scout::{RatingBuild, RATING_TEMPERATURE};
+    use scoracle_cognition::plugins::scout::adapter::{build_rating_request, RatingReq};
+    use scoracle_cognition::plugins::scout::cognition::{RatingBuild, RATING_TEMPERATURE};
     anyhow::ensure!(
         !cases.is_empty(),
         "--capture-assignment needs at least one case"

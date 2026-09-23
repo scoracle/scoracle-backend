@@ -115,11 +115,11 @@ async fn main() -> Result<()> {
     // Each plugin owns exactly one enabled queue stage via its manifest; scheduling caps
     // come from the same manifest. The worker validates the fleet (unique ids, unique
     // task ownership) at construction.
-    let handlers = plugins::build(pool.clone(), models.clone(), &enabled)?;
+    let handlers = plugins::build(pool.clone(), models.clone(), &enabled, cfg.packet_compile)?;
     info!(stages = ?enabled, plugins = handlers.len(), "registered plugins");
     info!(
-        plugins = scoracle_cognition::studio::fleet::ALL.len(),
-        ids = scoracle_cognition::studio::fleet::ALL
+        plugins = scoracle_cognition::application::fleet::ALL.len(),
+        ids = scoracle_cognition::application::fleet::ALL
             .iter()
             .map(|m| m.id.as_str())
             .collect::<Vec<_>>()
@@ -152,7 +152,6 @@ async fn main() -> Result<()> {
         cfg.handler_timeout,
         cfg.watchdog,
         cfg.drain_concurrency,
-        cfg.packet_compile,
     );
     worker.run().await
 }

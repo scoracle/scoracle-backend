@@ -6,14 +6,17 @@
 //! lifecycle that runs around a plugin's bounded cognitive work; the plugin owns its
 //! identity, materials recipe, prompt, parser, validation, and product contract.
 //!
-//! One hard rule survives the refactor unchanged: **the character must not assemble its
-//! own world.** A plugin may declare the materials it needs; it never receives a raw
-//! pool, the global router, or an undeclared tool.
+//! Cognition receives prepared material. Concrete plugin adapters currently bind a pool
+//! and router and prepare that material. They write domain effects through a host-owned,
+//! claim-fenced publication transaction. Narrowing adapter dependencies remains incremental;
+//! manifest declarations alone do not enforce capability isolation.
 //!
-//! This module is deliberately descriptive policy only. Executable business logic stays
-//! with the owning plugin package; the manifest names, versions, and budgets it.
+//! Task ownership, resource scheduling, and inference-declaration consistency are live
+//! contracts. Context and product metadata remain descriptive. See the architecture plan
+//! in `docs/plugin-architecture-plan.md` for the remaining boundaries.
 
 use crate::application::queue::work::{Item, Stage};
+use crate::runtime::route::Role;
 use crate::studio::tools::DomainClass;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -44,61 +47,10 @@ impl fmt::Display for PluginId {
     }
 }
 
-/// One kind of durable work a plugin can perform. Maps 1:1 onto a `pipeline_work` stage
-/// for today's fleet; the indirection exists so a future compound plugin (one identity,
-/// several task kinds) can declare more than one without renaming stored rows.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct TaskKind(&'static str);
-
-impl TaskKind {
-    pub const fn new(kind: &'static str) -> Self {
-        Self(kind)
-    }
-
-    pub const fn as_str(self) -> &'static str {
-        self.0
-    }
-
-    /// The durable `pipeline_work` stage this task kind drains. One task kind owns
-    /// exactly one stage today; stage names are storage vocabulary, not identity.
-    pub fn stage(self) -> Stage {
-        match self {
-            TaskKind::GRAPH => Stage::Graph,
-            TaskKind::EDITOR => Stage::Editor,
-            TaskKind::INVESTIGATE_ENTITY => Stage::InvestigateEntity,
-            TaskKind::FIXTURE_BOXSCORE => Stage::FixtureBoxscore,
-            TaskKind::RATING => Stage::Rating,
-            TaskKind::MOMENTUM => Stage::Momentum,
-            TaskKind::TRANSFERS => Stage::Transfers,
-            TaskKind::NARRATIVES => Stage::Narratives,
-            TaskKind::VIBE => Stage::Vibe,
-            TaskKind::SIGIL => Stage::Sigil,
-            _ => unreachable!("unknown TaskKind has no durable stage"),
-        }
-    }
-
-    pub const GRAPH: TaskKind = TaskKind::new("graph");
-    pub const EDITOR: TaskKind = TaskKind::new("editor");
-    pub const INVESTIGATE_ENTITY: TaskKind = TaskKind::new("investigate_entity");
-    pub const FIXTURE_BOXSCORE: TaskKind = TaskKind::new("fixture_boxscore");
-    pub const RATING: TaskKind = TaskKind::new("rating");
-    pub const MOMENTUM: TaskKind = TaskKind::new("momentum");
-    pub const TRANSFERS: TaskKind = TaskKind::new("transfers");
-    pub const NARRATIVES: TaskKind = TaskKind::new("narratives");
-    pub const VIBE: TaskKind = TaskKind::new("vibe");
-    pub const SIGIL: TaskKind = TaskKind::new("sigil");
-}
-
-impl fmt::Display for TaskKind {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.0)
-    }
-}
-
 /// A versioned product family a plugin consumes or produces. Product relationships are
 /// dependency edges between readings — never a pipeline hierarchy. The dependency
-/// invalidation engine (future work) will read these declarations; today they are
-/// descriptive and validated for cycles at boot.
+/// declarations are descriptive today. Registration does not check graph coverage or
+/// cycles, and these declarations do not determine downstream scheduling.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ProductKind(&'static str);
 
@@ -129,16 +81,16 @@ impl fmt::Display for ProductKind {
     }
 }
 
-/// A class of capability a plugin is granted. Deny-by-default: a plugin may use only
-/// the classes its manifest declares, and a web grant names the exact domain classes it
-/// may reach. Every tool in this contract is preparation-class — it runs before
-/// inference, inside a context recipe, so input hashes stay computable before the call.
-/// A model never chooses to browse mid-read.
+/// A declared capability. The web broker checks domain grants on calls routed through
+/// it; direct adapter access is not constrained by this enum. Registration checks that
+/// inference grants and roles are declared together. World reads and commits remain
+/// descriptive until the host supplies scoped handles. Retrieval currently occurs during
+/// preparation, before inference, so the input hash is available before the model call.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ToolGrant {
     /// Scoped Postgres reads for context preparation (identity, cards, memories).
     WorldRead,
-    /// Transaction-scoped product writes inside the Studio commit boundary.
+    /// Product writes; currently enforced by claim-aware application adapters.
     Commit,
     /// Budgeted external HTTP retrieval through the shared web workspace, restricted
     /// to the declared domain classes.
@@ -164,9 +116,8 @@ impl ToolGrant {
 }
 
 /// A prepared-material requirement a plugin declares. The manifest names what the
-/// character needs to see; the application fulfills the declaration when the plugin's
-/// context plan runs. Requirements are the "who is this / what does she know" step of
-/// the target data flow, made explicit instead of adapter-implicit.
+/// character needs to see. This is descriptive metadata; application preparation code
+/// selects the actual materials. There is no context-plan executor.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ProviderId(&'static str);
 impl ProviderId {
@@ -245,40 +196,21 @@ impl ResourceProfile {
     }
 }
 
-/// A model routing role a plugin needs. Plugins declare roles, never concrete hosts,
-/// models, or backends — the Studio's routing resolves them.
-///
-/// This is the routing role's *config label* (matching `Role::env_suffix`'s kebab form
-/// and the telemetry ledger), deliberately a plain label: the Studio core does not
-/// import the routing module, and fleet tests lock the spelling to the router's keys.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ModelRole(pub &'static str);
-
-impl ModelRole {
-    pub const fn as_str(self) -> &'static str {
-        self.0
-    }
-}
-
-impl fmt::Display for ModelRole {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.0)
-    }
-}
-
 /// Descriptive policy for one plugin: identity, version, tasks, model roles, products,
 /// resources, and grants. The manifest contains no executable business logic.
 #[derive(Clone, Debug)]
 pub struct PluginManifest {
     pub id: PluginId,
-    /// Bumped when context, prompt, parser, validation, or product meaning changes.
+    /// Descriptive compatibility label. Prompt and output-schema versions retain their
+    /// separate owners and meanings; this field does not drive invalidation.
     pub contract_version: &'static str,
-    /// Every task kind this plugin can perform. One cognitive identity may carry a
-    /// compound job; the registry enforces unique task ownership across the fleet.
-    pub tasks: &'static [TaskKind],
-    pub model_roles: &'static [ModelRole],
-    /// Prepared materials the plugin's cognition requires. Declared here, fulfilled by
-    /// the application when the plugin's context plan runs.
+    /// One durable task per registration, matching the worker scheduling contract.
+    /// Stage is the existing storage vocabulary; no arbitrary string conversion occurs.
+    pub task: Stage,
+    /// Declared inference routes. Registration checks the matching inference grant;
+    /// adapters still select their routes until scoped inference is introduced.
+    pub model_roles: &'static [Role],
+    /// Descriptive prepared-material requirements; not executed by the registry.
     pub context_requirements: &'static [ProviderId],
     pub consumes: &'static [ProductKind],
     pub produces: &'static [ProductKind],
@@ -289,7 +221,7 @@ pub struct PluginManifest {
 impl PluginManifest {
     /// True when this manifest covers the given durable work stage.
     pub fn owns_stage(&self, stage: Stage) -> bool {
-        self.tasks.iter().any(|t| t.stage() == stage)
+        self.task == stage
     }
 
     /// True when this grant covers fetching the given domain class.
@@ -298,17 +230,17 @@ impl PluginManifest {
     }
 }
 
-/// The durable disposition of one exact claim — the plugin's report, from which the
-/// worker derives every queue operation. Plugins never touch the queue themselves.
+/// The adapter's report about one exact claim. Host publication receipts establish committed
+/// progress or final completion; the worker handles failure and deferral.
 ///
 /// - [`PluginOutcome::Committed`] — products (or their required effects) landed; the
-///   claim may be completed.
+///   exact claim has been completed atomically with its required effects.
 /// - [`PluginOutcome::Deferred`] — partial progress landed durably and the work should
 ///   return to pending for another turn. **A defer without progress is a contract
 ///   violation**: the worker converts it to the retry ladder rather than granting a
 ///   free turn.
-/// - [`PluginOutcome::Superseded`] — the claim was stale or reclaimed; nothing was
-///   published.
+/// - [`PluginOutcome::Superseded`] — the claim was stale or reclaimed at a publication
+///   boundary; that publication was skipped. Earlier progress commits may still exist.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PluginOutcome {
     Committed,
@@ -337,16 +269,36 @@ impl PluginOutcome {
 ///
 /// Implementations bind their own application dependencies at construction; `execute`
 /// receives only the exact claim and reports its outcome. Model and network work
-/// finishes before the publication transaction; a stale or superseded claim publishes
-/// nothing. Errors are retried by the worker.
+/// finishes before each publication transaction; each boundary checks the exact claim.
+/// Earlier progress commits survive later errors, which are retried by the worker.
 #[async_trait]
 pub trait StudioPlugin: Send + Sync {
     fn manifest(&self) -> &'static PluginManifest;
 
-    /// Publish under the exact claim and report the outcome. Required follow-ups
-    /// belong in the publication transaction; deferral decisions are reported, and
-    /// the worker performs the queue operation.
+    /// Plugin-owned maintenance that the host runs independently of queue depth.
+    /// The host supplies lifecycle and shutdown; each operation owns its work and
+    /// cadence policy. Most plugins have no scheduled operations.
+    fn scheduled_operations(&self) -> Vec<std::sync::Arc<dyn ScheduledOperation>> {
+        Vec::new()
+    }
+
+    /// Execute under the exact claim and report the outcome derived from host publication
+    /// receipts. Required follow-ups belong in the publication transaction; deferral
+    /// decisions are reported, and the worker performs deferral.
     async fn execute(&self, item: &Item) -> Result<PluginOutcome>;
+}
+
+/// One plugin-owned scheduled operation. The durable host invokes it immediately
+/// at startup and then sleeps for the returned delay. Operations are best-effort:
+/// they log their own domain failures and choose the next cadence without affecting
+/// claimed work.
+#[async_trait]
+pub trait ScheduledOperation: Send + Sync {
+    /// Stable diagnostic identity; this is not a durable queue key.
+    fn name(&self) -> &'static str;
+
+    /// Run one pass and return the delay before the next pass.
+    async fn run(&self, cause: &'static str) -> std::time::Duration;
 }
 
 /// Boot-time registry of the cognitive fleet. Validates task ownership once, at
@@ -354,7 +306,7 @@ pub trait StudioPlugin: Send + Sync {
 /// behavior. An empty registry is the valid idle scaffold.
 pub struct PluginRegistry {
     plugins: Vec<std::sync::Arc<dyn StudioPlugin>>,
-    /// TaskKind string → plugin index.
+    /// Durable stage string → plugin index.
     by_task: BTreeMap<&'static str, usize>,
 }
 
@@ -362,7 +314,7 @@ impl PluginRegistry {
     /// Validate and register. Fails closed on:
     /// - duplicate plugin IDs
     /// - duplicate task ownership
-    /// - a plugin that declares no task kinds
+    /// - inference roles without a grant, or an inference grant without roles
     /// - an empty plugin ID
     ///
     /// An empty fleet is valid: it is the idle scaffold the worker warns about.
@@ -381,20 +333,18 @@ impl PluginRegistry {
                 manifest.id
             );
             anyhow::ensure!(
-                !manifest.tasks.is_empty(),
-                "plugin registry: {} declares no task kinds",
+                manifest.tools.contains(&ToolGrant::Inference) == !manifest.model_roles.is_empty(),
+                "plugin registry: {} must declare inference roles and the inference grant together",
                 manifest.id
             );
-            for task in manifest.tasks {
-                if let Some(previous) = by_task.insert(task.as_str(), index) {
-                    let prior_owner = plugins[previous].manifest().id.as_str();
-                    anyhow::bail!(
-                        "plugin registry: task {} is owned by both {} and {}",
-                        task,
-                        prior_owner,
-                        manifest.id
-                    );
-                }
+            if let Some(previous) = by_task.insert(manifest.task.as_str(), index) {
+                let prior_owner = plugins[previous].manifest().id.as_str();
+                anyhow::bail!(
+                    "plugin registry: task {} is owned by both {} and {}",
+                    manifest.task,
+                    prior_owner,
+                    manifest.id
+                );
             }
         }
 
@@ -410,11 +360,8 @@ impl PluginRegistry {
     /// The plugin that owns a durable work stage, or `None` when the fleet was
     /// registered without it (a partial deployment, e.g. voices-only on the Mac).
     pub fn resolve(&self, stage: Stage) -> Option<&std::sync::Arc<dyn StudioPlugin>> {
-        let index = self
-            .plugins
-            .iter()
-            .position(|p| p.manifest().owns_stage(stage))?;
-        self.plugins.get(index)
+        let index = self.by_task.get(stage.as_str())?;
+        self.plugins.get(*index)
     }
 
     /// The registered fleet in registration order.
@@ -422,7 +369,7 @@ impl PluginRegistry {
         &self.plugins
     }
 
-    /// The task kinds the registered fleet owns, in registration order.
+    /// The durable task names the registered fleet owns, sorted by name.
     pub fn tasks(&self) -> Vec<&'static str> {
         self.by_task.keys().copied().collect()
     }

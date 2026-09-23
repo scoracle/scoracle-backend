@@ -1,0 +1,889 @@
+//! Unit tests for this junction.
+//!
+//! Split out of `mod.rs` so the stage module reads as the stage and nothing else.
+//! `super` still resolves to the junction, so these run exactly as they did inline.
+
+use super::*;
+
+fn momentum(direction: &str) -> SynthMomentum {
+    SynthMomentum {
+        direction: Some(direction.into()),
+        momentum_score: Some(2.0),
+        ..SynthMomentum::default()
+    }
+}
+
+#[test]
+fn crown_parses_reading_and_score() {
+    let r =
+        parse_crown_reply(r#"{"reading": "The arc holds. Winter stirs.", "score": 73}"#).unwrap();
+    assert_eq!(r.reading, "The arc holds. Winter stirs.");
+    assert_eq!(r.score, 73);
+}
+
+#[test]
+fn crown_parser_preserves_prose_without_sentence_surgery() {
+    let prose = "Vale holds the line. The next thought is unfinished,";
+    let raw = serde_json::json!({"reading":prose,"score":50}).to_string();
+    assert_eq!(parse_crown_reply(&raw).unwrap().reading, prose);
+    // Transport completion is validated before this parser. It cannot infer completion
+    // from punctuation or erase a sentence because it happens to mention the same number.
+    let prose = "Vale's season includes a score of 50. Winter remains quiet.";
+    let raw = serde_json::json!({"reading":prose,"score":50}).to_string();
+    assert_eq!(parse_crown_reply(&raw).unwrap().reading, prose);
+}
+
+#[test]
+fn crown_salvages_prose_wrapped_json_and_collapses_whitespace() {
+    let r = parse_crown_reply(
+        "Here:\n{\"reading\": \"Line one.\\n  Line two.\", \"score\": 60}\nDone.",
+    )
+    .unwrap();
+    assert_eq!(r.reading, "Line one. Line two.");
+    assert_eq!(r.score, 60);
+}
+
+#[test]
+fn crown_salvages_fenced_json_with_literal_newlines_in_string() {
+    // The measured oMLX class (2026-08-10): unconstrained decoding fences the object AND writes
+    // a paragraph break as a LITERAL newline inside the JSON string — illegal JSON that failed a
+    // complete reply. Salvage escapes the controls and retains the paragraph break.
+    let raw = "```json\n{\n  \"reading\": \"The arc climbs.\n\nThe rim is a fortress.\",\n  \"score\": 92\n}\n```";
+    let r = parse_crown_reply(raw).unwrap();
+    assert_eq!(r.reading, "The arc climbs.\n\nThe rim is a fortress.");
+    assert_eq!(r.score, 92);
+}
+
+#[test]
+fn crown_score_coercions_and_clamp() {
+    // Float, "N/100" string, and out-of-range all coerce + clamp to 1-100.
+    assert_eq!(
+        parse_crown_reply(r#"{"reading":"x.","score":91.6}"#)
+            .unwrap()
+            .score,
+        92
+    );
+    assert_eq!(
+        parse_crown_reply(r#"{"reading":"x.","score":"48/100"}"#)
+            .unwrap()
+            .score,
+        48
+    );
+    assert_eq!(
+        parse_crown_reply(r#"{"reading":"x.","score":250}"#)
+            .unwrap()
+            .score,
+        100
+    );
+    assert_eq!(
+        parse_crown_reply(r#"{"reading":"x.","score":0}"#)
+            .unwrap()
+            .score,
+        1
+    );
+}
+
+#[test]
+fn crown_fail_closed_on_missing_reading_or_score() {
+    assert!(parse_crown_reply(r#"{"reading":"   ","score":50}"#).is_none());
+    assert!(parse_crown_reply(r#"{"score":50}"#).is_none());
+    assert!(parse_crown_reply(r#"{"reading":"x."}"#).is_none());
+    assert!(parse_crown_reply(r#"{"reading":"x.","score":"elite"}"#).is_none());
+    assert!(parse_crown_reply("no json at all").is_none());
+}
+
+#[test]
+fn crown_parser_is_fail_closed_err_not_none() {
+    assert!(CrownParser.parse("not a reply").is_err());
+    let ok = CrownParser
+        .parse(r#"{"reading":"The spread is quiet.","score":55}"#)
+        .unwrap()
+        .expect("a valid reply is Some, never the fail-closed None");
+    assert_eq!(ok.score, 55);
+    assert_eq!(ok.reading, "The spread is quiet.");
+}
+
+#[test]
+fn crown_parses_optional_headline() {
+    // or11: present + non-empty → folded to one line; absent or empty → None (tolerance,
+    // never a failed generation).
+    let r = parse_crown_reply(
+        r#"{"reading": "The arc holds.", "headline": "  Winter   stirs for Vale ", "score": 73}"#,
+    )
+    .unwrap();
+    assert_eq!(r.headline.as_deref(), Some("Winter stirs for Vale"));
+    let absent = parse_crown_reply(r#"{"reading": "The arc holds.", "score": 73}"#).unwrap();
+    assert!(absent.headline.is_none());
+    let empty =
+        parse_crown_reply(r#"{"reading": "The arc holds.", "headline": "", "score": 73}"#).unwrap();
+    assert!(empty.headline.is_none());
+}
+
+/// The card title FAILS OPEN, via the shared `guards::settle_title` (2026-08-23). This test
+/// asserted the opposite until then — "a violation is Err, the item re-rolls" — which was never
+/// true of any other seat and cost whole cards on three of them before it was noticed.
+#[test]
+fn crown_headline_fails_open_and_never_costs_the_reading() {
+    for junk in [
+        r#"{"reading":"The arc holds.","headline":"one two three four five six seven eight nine ten eleven twelve thirteen","score":50}"#,
+        r#"{"reading":"The arc holds.","headline":"Vale: a crossroads","score":50}"#,
+        r#"{"reading":"The arc holds.","headline":"Will winter stir?","score":50}"#,
+    ] {
+        let got = CrownParser
+            .parse(junk)
+            .expect("a junk title must not fail the reading")
+            .expect("a reply");
+        assert!(
+            got.reading.contains("The arc holds"),
+            "the reading survives: {got:?}"
+        );
+        assert!(
+            got.headline
+                .as_deref()
+                .is_none_or(|h| crate::plugins::support::guards::hook_violation(h).is_none()),
+            "a shipped title always satisfies the contract: {:?}",
+            got.headline
+        );
+    }
+    let clean = CrownParser
+        .parse(r#"{"reading":"x.","headline":"Winter stirs at the Emirates","score":50}"#)
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        clean.headline.as_deref(),
+        Some("Winter stirs at the Emirates")
+    );
+}
+
+/// The Oracle had NO markdown protection until 2026-08-23 — not a strip, not a ban — which is
+/// why its own fixture gate reported `reading_plain_text — found '*'`.
+#[test]
+fn the_crown_reading_is_scrubbed_of_emphasis() {
+    let got = CrownParser
+        .parse(r#"{"reading":"The **arc** holds, and the wire is __quiet__.","score":50}"#)
+        .unwrap()
+        .unwrap();
+    assert!(
+        !got.reading.contains("**") && !got.reading.contains("__"),
+        "scrubbed: {:?}",
+        got.reading
+    );
+    assert!(
+        got.reading.contains("The arc holds"),
+        "prose intact: {:?}",
+        got.reading
+    );
+}
+
+#[test]
+fn counts_sentences_ignoring_decimals() {
+    assert_eq!(count_sentences("One. Two! Three?"), 3);
+    assert_eq!(
+        count_sentences("He averages 2.5 assists. The arc holds."),
+        2
+    );
+    assert_eq!(count_sentences("no terminator"), 0);
+}
+
+#[test]
+fn pillar_convergence_is_agree_ratio_floored_to_db_contract() {
+    let agree = PillarComparison {
+        label: "a".into(),
+        agree: true,
+    };
+    let disagree = PillarComparison {
+        label: "b".into(),
+        agree: false,
+    };
+    assert_eq!(pillar_convergence(&[]), None);
+    assert_eq!(
+        pillar_convergence(&[agree.clone(), agree.clone()]),
+        Some(100)
+    );
+    assert_eq!(
+        pillar_convergence(&[agree.clone(), disagree.clone()]),
+        Some(50)
+    );
+    // All-disagree rounds to 0, which sigil_synthesis_convergence_check rejects (NULL or
+    // 1-100) — the floor keeps the persist valid; ≤ 50 is a crossroads either way.
+    assert_eq!(
+        pillar_convergence(&[disagree.clone(), disagree.clone()]),
+        Some(1)
+    );
+    assert_eq!(
+        pillar_convergence(&[agree.clone(), agree.clone(), disagree.clone()]),
+        Some(67)
+    );
+}
+
+#[test]
+fn omen_crossroads_when_half_or_more_disagree() {
+    // convergence ≤ 50 ⇒ crossroads regardless of direction (half-or-more disagree).
+    assert_eq!(compute_omen(Some(50), &momentum("rising")), "crossroads");
+    assert_eq!(compute_omen(Some(40), &momentum("rising")), "crossroads");
+}
+
+#[test]
+fn omen_momentum_decides_alone() {
+    // or10: Momentum's decided sign is the sole direction input.
+    assert_eq!(compute_omen(Some(80), &momentum("rising")), "ascendant");
+    // Momentum falling → waning.
+    assert_eq!(compute_omen(None, &momentum("falling")), "waning");
+    // Nothing directional → steady.
+    assert_eq!(compute_omen(Some(90), &SynthMomentum::default()), "steady");
+}
+
+#[test]
+fn momentum_score_tracks_direction_not_quality() {
+    let surging = SynthMomentum {
+        vibe_slope: Some(2.0),
+        vibe_samples: 4,
+        rating_slope: Some(2.0),
+        rating_samples: 5,
+        momentum_score: Some(4.0),
+        ..SynthMomentum::default()
+    };
+    assert_eq!(momentum_score(&surging), Some(4));
+    assert_eq!(momentum_score_label(4), "surging");
+
+    let sliding = SynthMomentum {
+        vibe_slope: Some(-2.0),
+        vibe_samples: 3,
+        rating_slope: Some(-1.0),
+        rating_samples: 3,
+        momentum_score: Some(-1.5),
+        ..SynthMomentum::default()
+    };
+    assert_eq!(momentum_score(&sliding), Some(-2));
+    assert_eq!(momentum_score_label(-2), "sliding");
+
+    assert_eq!(momentum_score(&SynthMomentum::default()), None);
+}
+
+#[test]
+fn linear_slope_of_a_rising_series() {
+    // A perfectly linear +5/step series ⇒ slope 5.
+    assert!((linear_slope(&[10.0, 15.0, 20.0, 25.0]) - 5.0).abs() < 1e-9);
+    // Fewer than two points ⇒ 0.
+    assert_eq!(linear_slope(&[42.0]), 0.0);
+    assert_eq!(linear_slope(&[]), 0.0);
+}
+
+#[test]
+fn round1_uses_half_away_from_zero() {
+    assert_eq!(round1(73.04), 73.0);
+    assert_eq!(round1(73.05), 73.1); // half away from zero
+    assert_eq!(round1(73.0), 73.0);
+}
+
+#[test]
+fn input_components_use_stable_json_shape() {
+    // The exact canonical JSON is the SHA-256 pre-image.
+    let narratives = vec![
+        SynthNarrative {
+            title: "B & C".into(),
+            body: "x".into(),
+            impact: 5.0,
+            trajectory: "heating_up".into(),
+            source_count: 0,
+            source_age_days: None,
+        },
+        SynthNarrative {
+            title: "Alpha".into(),
+            body: "y".into(),
+            impact: 3.0,
+            trajectory: "developing_story".into(),
+            source_count: 0,
+            source_age_days: None,
+        },
+    ];
+    let rating = SynthRating {
+        body: "z".into(),
+        notability: 88,
+        rating_trajectory: "falling".into(),
+        rating_trajectory_label: "Composite and PEAK z-scores trending down over recent games"
+            .into(),
+    };
+    let mom = SynthMomentum {
+        vibe_slope: Some(1.0),
+        vibe_samples: 4,
+        rating_slope: Some(0.0),
+        rating_samples: 5,
+        momentum_score: Some(2.5),
+        blurb: Some("PEAK is sliding while Vibe holds.".into()),
+        input_hash: Some("a1b2c3d4e5f60718293a4b5c6d7e8f90".into()),
+        ..SynthMomentum::default()
+    };
+    let vibe = SynthVibe {
+        sentiment: 60,
+        prompt: "Quietly surging".into(),
+    };
+    let got = build_synthesis_input_components(&narratives, Some(&rating), Some(&vibe), &mom, &[]);
+    // The vibe prompt and momentum blurb are non-empty on purpose: the golden proves the
+    // upstream model prose is NOT in the hash pre-image (F1 material-only debounce) —
+    // vibe contributes only vibe_sentiment, momentum its material-only summary hash.
+    let want = r#"{"momentum_rating_samples":5,"momentum_rating_slope":0.0,"momentum_score":2.5,"momentum_summary_hash":"a1b2c3d4e5f60718293a4b5c6d7e8f90","momentum_vibe_samples":4,"momentum_vibe_slope":1.0,"narrative_titles":["Alpha","B & C"],"narrative_trajectories":["Alpha:developing_story","B & C:heating_up"],"notability":88,"vibe_sentiment":60}"#;
+    assert_eq!(got, want);
+}
+
+#[test]
+fn input_components_narrative_titles_always_present() {
+    // Rating-only entity: narrative_titles is still present as [] by contract.
+    let rating = SynthRating {
+        body: "b".into(),
+        notability: 40,
+        rating_trajectory: "steady".into(),
+        rating_trajectory_label: String::new(),
+    };
+    let got =
+        build_synthesis_input_components(&[], Some(&rating), None, &SynthMomentum::default(), &[]);
+    assert_eq!(
+        got,
+        r#"{"narrative_titles":[],"narrative_trajectories":[],"notability":40}"#
+    );
+}
+
+#[test]
+fn transfer_heat_enters_components_only_when_present() {
+    // No transfers → NO transfer_heat key at all (so a pre-Phase-5.1 entity keeps its hash).
+    let without = build_synthesis_input_components(&[], None, None, &SynthMomentum::default(), &[]);
+    assert_eq!(
+        without,
+        r#"{"narrative_titles":[],"narrative_trajectories":[]}"#
+    );
+
+    // Served heat → one sorted "counterparty:heat:direction:stage" line per rumor. The two
+    // rumors are given OUT of sorted order to prove the pre-image sorts (stable hash).
+    let transfers = vec![
+        SynthTransfer {
+            counterparty: "Real Madrid".into(),
+            heat: 71,
+            stage: "advanced_talks".into(),
+            direction: "outgoing".into(),
+            summary: String::new(),
+        },
+        SynthTransfer {
+            counterparty: "Arsenal".into(),
+            heat: 40,
+            stage: "speculation".into(),
+            direction: "incoming".into(),
+            summary: String::new(),
+        },
+    ];
+    let with =
+        build_synthesis_input_components(&[], None, None, &SynthMomentum::default(), &transfers);
+    assert_eq!(
+        with,
+        r#"{"narrative_titles":[],"narrative_trajectories":[],"transfer_heat":["Arsenal:40:incoming:speculation","Real Madrid:71:outgoing:advanced_talks"]}"#
+    );
+}
+
+#[test]
+fn crown_prompt_renders_evidence_and_direction_without_an_outline() {
+    // entity_type is raw ("player", not "Player"); sport uses the passed (raw) case. The rich
+    // pillar cards render (the crown scores from them); the OMEN closes; no PRIOR READ block.
+    let narratives = vec![SynthNarrative {
+        title: "Trade buzz".into(),
+        body: "details".into(),
+        impact: 7.0,
+        trajectory: "heating_up".into(),
+        source_count: 3,
+        source_age_days: Some(1),
+    }];
+    let mom = SynthMomentum {
+        vibe_slope: Some(0.5),
+        vibe_samples: 4,
+        momentum_score: Some(1.0),
+        ..SynthMomentum::default()
+    };
+    let vibe = SynthVibe {
+        sentiment: 62,
+        prompt: "On the rise".into(),
+    };
+    let p = build_crown_prompt(
+        "player",
+        "Test Player",
+        "NBA",
+        &narratives,
+        None,
+        Some(&vibe),
+        &mom,
+        &[],
+        "steady",
+        None,
+        None,
+    );
+    assert!(p.starts_with("Entity: Test Player (NBA player)\n"));
+    assert!(!p.contains("YOUR PRIOR READ"));
+    assert!(!p.contains("RELATIONAL MEMORY"));
+    assert!(p.contains("[Heating up, 3 sources, latest 1d ago] Trade buzz\ndetails"));
+    assert!(p.contains("On the rise"));
+    assert!(p.contains("Recent movement is rising."));
+    assert!(!p.contains("No active transfer reports."));
+    assert!(!p.contains("62/100"));
+    assert!(!p.contains("score 1"));
+    assert!(!p.contains("trend: 0.5"));
+    assert!(!p.contains("THE JOURNALIST"));
+    assert!(!p.contains("PERFORMANCE PROFILE"));
+    assert!(p.ends_with("Present direction: steady.\n"));
+}
+
+/// 7.8, the 4096 envelope: on the packet rail every pillar body is capped and the Journalist's
+/// card is capped as ONE card — at most three storylines, sharing the budget, with the remainder
+/// NAMED (A5). On the legacy rail nothing truncates, which is why the two prompts below differ
+/// only where the cap bites.
+#[test]
+fn packet_rail_caps_every_pillar_body_and_names_what_it_dropped() {
+    let long = "word ".repeat(2_000);
+    let narratives: Vec<SynthNarrative> = (0..5)
+        .map(|i| SynthNarrative {
+            title: format!("Storyline {i}"),
+            body: format!("story {i} {long}"),
+            impact: 7.0,
+            trajectory: "heating_up".into(),
+            source_count: 3,
+            source_age_days: Some(1),
+        })
+        .collect();
+    let rating = SynthRating {
+        body: format!("rating {long}"),
+        notability: 71,
+        rating_trajectory: "rising".into(),
+        rating_trajectory_label: "Composite trending up over recent games".into(),
+    };
+    let vibe = SynthVibe {
+        sentiment: 62,
+        prompt: format!("feeling {long}"),
+    };
+    let mom = SynthMomentum {
+        blurb: Some(format!("trajectory {long}")),
+        direction: Some("rising".into()),
+        momentum_score: Some(30.0),
+        ..SynthMomentum::default()
+    };
+
+    let uncapped = build_crown_prompt(
+        "player",
+        "Test Player",
+        "NBA",
+        &narratives,
+        Some(&rating),
+        Some(&vibe),
+        &mom,
+        &[],
+        "ascendant",
+        None,
+        None,
+    );
+    let capped = build_crown_prompt(
+        "player",
+        "Test Player",
+        "NBA",
+        &narratives,
+        Some(&rating),
+        Some(&vibe),
+        &mom,
+        &[],
+        "ascendant",
+        Some(CROWN_CARD_BODY_CAP),
+        None,
+    );
+
+    // Legacy truncates nothing — that is the behaviour a 16,384-token window allowed, and it is
+    // what the legacy rail keeps sending.
+    assert!(uncapped.len() > 5 * long.len());
+    assert!(!uncapped.contains("not shown — budget"));
+    // The packet rail's whole crown prompt is now smaller than ONE uncapped card.
+    assert!(
+        capped.len() < long.len(),
+        "capped crown prompt is {} bytes",
+        capped.len()
+    );
+    assert!(capped.contains("(+2 more storyline(s) not shown — budget)"));
+    assert!(capped.contains("Storyline 0"));
+    assert!(
+        !capped.contains("Storyline 3"),
+        "the card is capped as ONE card"
+    );
+    // Every available card still speaks without giving the model an outline to recap.
+    for evidence in ["story 0", "rating", "feeling", "trajectory"] {
+        assert!(capped.contains(evidence), "{evidence} lost to the cap");
+    }
+    assert!(!capped.contains("No active transfer reports."));
+    assert!(capped.contains("Present direction: ascendant."));
+    assert!(!capped.contains("=== PERFORMANCE PROFILE ==="));
+}
+
+#[test]
+fn pillar_divergence_names_the_rail_conflict() {
+    // The fixture-measured sigil failure: strong-but-falling PEAK, positive vibe, falling
+    // momentum. The card must hand the model both DISAGREE pairs deterministically.
+    let rating = SynthRating {
+        body: "b".into(),
+        notability: 88,
+        rating_trajectory: "falling".into(),
+        rating_trajectory_label: String::new(),
+    };
+    let vibe = SynthVibe {
+        sentiment: 75,
+        prompt: "warm".into(),
+    };
+    let mom = SynthMomentum {
+        direction: Some("falling".into()),
+        momentum_score: Some(-2.0),
+        ..SynthMomentum::default()
+    };
+    let c = build_pillar_divergence(Some(&rating), Some(&vibe), &mom);
+    let rendered: Vec<(String, bool)> = c.into_iter().map(|x| (x.label, x.agree)).collect();
+    // or10: the raw trajectory marker left the crown's math — only Vibe/Momentum and the two
+    // Profile-strength LEVEL pairs remain.
+    assert_eq!(
+        rendered,
+        vec![
+            ("Vibe (positive) vs Momentum (negative)".to_string(), false),
+            (
+                "Profile strength (strong) vs Momentum (negative)".to_string(),
+                false
+            ),
+            (
+                "Profile strength (strong) vs Vibe (positive)".to_string(),
+                true
+            ),
+        ]
+    );
+}
+
+#[test]
+fn pillar_divergence_skips_neutral_and_absent_signals() {
+    // Steady momentum, mid-band vibe, no rating: nothing directional → empty card → None
+    // convergence (a quiet spread has nothing to converge on).
+    let vibe = SynthVibe {
+        sentiment: 50,
+        prompt: String::new(),
+    };
+    let mom = SynthMomentum {
+        direction: Some("steady".into()),
+        ..SynthMomentum::default()
+    };
+    let c = build_pillar_divergence(None, Some(&vibe), &mom);
+    assert!(c.is_empty());
+    assert_eq!(pillar_convergence(&c), None);
+}
+
+#[test]
+fn crown_prompt_omits_missing_evidence_instead_of_narrating_absence() {
+    let p = build_crown_prompt(
+        "team",
+        "Test Team",
+        "NFL",
+        &[],
+        None,
+        None,
+        &SynthMomentum::default(),
+        &[],
+        "steady",
+        None,
+        None,
+    );
+    assert!(!p.contains("No recent developing stories."));
+    assert!(!p.contains("momentum data"));
+    assert!(!p.contains("No active transfer reports."));
+}
+
+#[test]
+fn crown_prompt_renders_transfer_evidence_without_internal_metrics() {
+    // The Oracle receives the reported counterparty, direction, stage and summary without the
+    // board's internal heat/confidence bookkeeping.
+    let transfers = vec![SynthTransfer {
+        counterparty: "Liverpool".into(),
+        heat: 66,
+        stage: "advanced_talks".into(),
+        direction: "incoming".into(),
+        summary: String::new(),
+    }];
+    let p = build_crown_prompt(
+        "team",
+        "Test Team",
+        "FOOTBALL",
+        &[],
+        None,
+        None,
+        &SynthMomentum::default(),
+        &transfers,
+        "steady",
+        None,
+        None,
+    );
+    assert!(p.contains("- From Liverpool to Test Team; advanced talks\n"));
+    assert!(!p.contains("heat 66"));
+}
+
+#[test]
+fn crown_prompt_is_blind_to_memories() {
+    // No prior reading or relational memory enters the model's evidence surface.
+    let p = build_crown_prompt(
+        "player",
+        "Test Player",
+        "NBA",
+        &[],
+        None,
+        None,
+        &SynthMomentum::default(),
+        &[],
+        "steady",
+        None,
+        None,
+    );
+    assert!(p.starts_with("Entity: Test Player (NBA player)\n\nPresent direction: steady."));
+    assert!(!p.contains("YOUR PRIOR READ"));
+    assert!(!p.contains("RELATIONAL MEMORY"));
+}
+
+#[test]
+fn synthesis_hash_preimage_is_pillar_inputs_only() {
+    // The debounce hash pre-image is built from pillar inputs alone and is deterministic. (This
+    // test's old name asserted the continuity reads stayed OUT of the hash; or9 deleted those
+    // reads entirely, and what remains worth pinning is the pre-image's shape + determinism.)
+    let mom = SynthMomentum::default();
+    let a = build_synthesis_input_components(&[], None, None, &mom, &[]);
+    let b = build_synthesis_input_components(&[], None, None, &mom, &[]);
+    assert_eq!(a, b);
+    assert_eq!(a, r#"{"narrative_titles":[],"narrative_trajectories":[]}"#);
+}
+
+/// The Scout's z-notation must not reach the crown. Measured 2026-08-23, a live failure:
+/// `crown: reading carries banned vocabulary "z-score"` — the word was in the card it was
+/// handed, not in the Oracle's head. Same fix this file already applied to "notability" and
+/// "Sentiment"; z survived both because it hides in free prose rather than a labelled line.
+#[test]
+fn the_scouts_z_notation_never_reaches_the_crown() {
+    let brief = "Blocked shots are elite at 172 (98th percentile, z +1.8). \
+                 Shots on target allowed sit at the 4th percentile, z -1.9, the clear liability. \
+                 Interceptions are ordinary at the 54th percentile (z 0.1).";
+    let got = super::inputs::descrub_z(brief);
+
+    assert!(!got.contains(" z "), "z tokens survive: {got}");
+    assert!(
+        !got.contains("z +") && !got.contains("z -"),
+        "signed z survives: {got}"
+    );
+
+    // The evidence the Oracle IS allowed to speak stays intact.
+    assert!(
+        got.contains("98th percentile"),
+        "percentiles survive: {got}"
+    );
+    assert!(got.contains("4th percentile"), "percentiles survive: {got}");
+    assert!(got.contains("172"), "raw values survive: {got}");
+    assert!(got.contains("elite"), "tiers survive: {got}");
+
+    // And the prose is not left littered with stranded punctuation.
+    assert!(
+        !got.contains(" )") && !got.contains("()") && !got.contains(" ,"),
+        "litter: {got}"
+    );
+
+    // A word merely starting with z is not a z-token.
+    assert_eq!(
+        super::inputs::descrub_z("zonal marking at 60th"),
+        "zonal marking at 60th"
+    );
+}
+
+#[test]
+fn claim_paragraphs_survive_the_production_parser() {
+    let body = "The profile is ordinary. Most skills sit near average. The middle is the story.\n\nOne edge stands out. Finishing leads the supplied profile. That is the exception.\n\nAvailability is limited. Two absences are recorded. Depth matters now.\n\nThe rest is unchanged. The supplied comparison shows no movement. Continuity holds.";
+    let raw = serde_json::json!({"reading":body,"headline":"An ordinary arc holds","score":50})
+        .to_string();
+    let parsed = CrownParser.parse(&raw).unwrap().unwrap();
+    assert_eq!(parsed.reading, body);
+}
+
+// --- Studio boundary: prepared creation runs without Postgres, queues, or model hosts ---------
+
+use crate::studio::model::{GenerateOptions, GenerateResult, Inference};
+use crate::studio::Studio;
+use async_trait::async_trait;
+use std::sync::Mutex;
+use std::time::Duration;
+
+struct FakeModel {
+    response: String,
+    fail: bool,
+    calls: Mutex<Vec<String>>,
+}
+
+impl FakeModel {
+    fn new(response: &str) -> Self {
+        Self {
+            response: response.to_string(),
+            fail: false,
+            calls: Mutex::new(Vec::new()),
+        }
+    }
+}
+
+#[async_trait]
+impl Inference for FakeModel {
+    async fn generate(
+        &self,
+        prompt: &str,
+        options: &GenerateOptions,
+    ) -> anyhow::Result<(GenerateResult, serde_json::Value)> {
+        self.calls.lock().unwrap().push(prompt.to_string());
+        if self.fail {
+            anyhow::bail!("model unavailable");
+        }
+        Ok((
+            GenerateResult {
+                response: self.response.clone(),
+                thinking: "private".to_string(),
+                model: "model-that-answered".to_string(),
+                total_duration: Duration::from_millis(20),
+                prompt_eval_count: 30,
+                eval_count: 18,
+                completion_reason: Some("stop".to_string()),
+                raw_response_body: "{}".to_string(),
+            },
+            serde_json::json!({
+                "actual_request": true,
+                "prompt": prompt,
+                "num_predict": options.num_predict,
+            }),
+        ))
+    }
+
+    fn model(&self) -> &str {
+        "configured-model"
+    }
+
+    fn request_body(&self, _: &str, _: &GenerateOptions) -> serde_json::Value {
+        panic!("creation provenance must use the request actually sent")
+    }
+}
+
+fn prepared_assignment(cards: Cards) -> Assignment {
+    let components = build_synthesis_input_components(
+        &cards.narratives,
+        cards.rating.as_ref(),
+        cards.vibe.as_ref(),
+        &cards.momentum,
+        &cards.transfers,
+    );
+    Assignment {
+        subject: Subject {
+            entity_type: "team".to_string(),
+            entity_name: "Northbridge FC".to_string(),
+            sport: "FOOTBALL".to_string(),
+        },
+        season: 2026,
+        cards,
+        identity: Some("Prior read: the old shape held.".to_string()),
+        input_components_json: components,
+        input_hash: "prepared-oracle-hash".to_string(),
+        body_cap: None,
+        options: GenerateOptions {
+            system: Some(ORACLE_SYSTEM_PROMPT.to_string()),
+            temperature: Some(0.0),
+            num_predict: ORACLE_NUM_PREDICT,
+            num_ctx: 4096,
+            json_mode: false,
+            format_schema: Some(oracle_format_schema()),
+            format_schema_raw: None,
+        },
+    }
+}
+
+#[tokio::test]
+async fn prepared_five_card_assignment_creates_without_application_services() {
+    let cards = Cards {
+        narratives: vec![SynthNarrative {
+            title: "A title challenge gathers".to_string(),
+            body: "Northbridge FC have closed the gap after three wins.".to_string(),
+            impact: 75.0,
+            trajectory: "heating_up".to_string(),
+            source_count: 3,
+            source_age_days: Some(1),
+        }],
+        rating: Some(SynthRating {
+            body: "Northbridge FC own a strong statistical profile.".to_string(),
+            notability: 82,
+            rating_trajectory: "rising".to_string(),
+            rating_trajectory_label: "rising".to_string(),
+        }),
+        vibe: Some(SynthVibe {
+            sentiment: 72,
+            prompt: "Belief around Northbridge FC is strengthening.".to_string(),
+        }),
+        momentum: SynthMomentum {
+            direction: Some("rising".to_string()),
+            blurb: Some("Northbridge FC are gathering pace.".to_string()),
+            input_hash: Some("momentum-hash".to_string()),
+            momentum_score: Some(4.0),
+            ..Default::default()
+        },
+        transfers: vec![SynthTransfer {
+            counterparty: "Vale United".to_string(),
+            heat: 70,
+            direction: "incoming".to_string(),
+            stage: "advanced_talks".to_string(),
+            summary: "Talks have advanced.".to_string(),
+        }],
+    };
+    assert_eq!(cards.readiness(), Readiness::Complete);
+    let model = FakeModel::new(
+        r#"{"reading":"Northbridge FC stand beneath a gathering light. Their profile, belief and movement now rise together.","headline":"Northbridge FC gather light","score":78}"#,
+    );
+    let output = create(&Studio::new(&model), &prepared_assignment(cards))
+        .await
+        .unwrap();
+    assert_eq!(output.score, Some(78));
+    assert_eq!(output.omen, Some("ascendant"));
+    assert_eq!(output.convergence, Some(100));
+    assert_eq!(output.provenance.model_version, "model-that-answered");
+    assert_eq!(
+        output.provenance.input_hash.as_deref(),
+        Some("prepared-oracle-hash")
+    );
+    assert_eq!(
+        output.call.as_ref().unwrap().request_body["actual_request"],
+        true
+    );
+    assert_eq!(model.calls.lock().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn empty_cards_are_an_explicit_uncalled_marker() {
+    let model = FakeModel::new("unused");
+    let output = create(&Studio::new(&model), &prepared_assignment(Cards::default()))
+        .await
+        .unwrap();
+    assert!(!output.was_called());
+    assert_eq!(output.score, None);
+    assert_eq!(output.reading, None);
+    assert_eq!(output.provenance.model_version, "configured-model");
+    assert!(model.calls.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn model_failure_cannot_become_an_oracle_marker() {
+    let mut model = FakeModel::new("");
+    model.fail = true;
+    let cards = Cards {
+        narratives: vec![SynthNarrative {
+            title: "A live story".to_string(),
+            body: "Northbridge FC have won again.".to_string(),
+            impact: 50.0,
+            trajectory: "heating_up".to_string(),
+            source_count: 1,
+            source_age_days: Some(0),
+        }],
+        ..Default::default()
+    };
+    assert!(matches!(cards.readiness(), Readiness::Partial { .. }));
+    let error = create(&Studio::new(&model), &prepared_assignment(cards))
+        .await
+        .unwrap_err();
+    assert!(format!("{error:#}").contains("model unavailable"));
+    assert_eq!(model.calls.lock().unwrap().len(), 1);
+}

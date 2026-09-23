@@ -117,7 +117,7 @@ impl Item {
 
 /// Lock and validate the exact lease before a claim-aware publisher writes anything. Inference
 /// happens before this short transaction; the lock is held only across publication bookkeeping.
-pub(crate) async fn lock_claim(tx: &mut Transaction<'_, Postgres>, it: &Item) -> Result<bool> {
+pub(super) async fn lock_claim(tx: &mut Transaction<'_, Postgres>, it: &Item) -> Result<bool> {
     let claim_token = it.require_claim_token()?;
     let owned: Option<bool> = sqlx::query_scalar(
         r#"
@@ -148,7 +148,7 @@ pub(crate) async fn lock_claim(tx: &mut Transaction<'_, Postgres>, it: &Item) ->
 }
 
 /// Delete an exact claim inside a product publication transaction. Call after [`lock_claim`].
-pub(crate) async fn complete_in_transaction(
+pub(super) async fn complete_in_transaction(
     tx: &mut Transaction<'_, Postgres>,
     it: &Item,
 ) -> Result<bool> {
@@ -279,77 +279,6 @@ pub async fn claim(pool: &PgPool, stage: Stage, limit: i64) -> Result<Vec<Item>>
             },
         )
         .collect())
-}
-
-/// Claim priority and dependency order of the six voices:
-///
-///   1. `Narratives` — The Journalist reads the corpus and depends on no other voice
-///   2. `Vibe`       — The Influencer reads those stories for their emotional charge
-///   3. `Rating`     — The Scout reads the stat rail, independent of the news rail
-///   4. `Transfers`  — The Insider reads the vetted wire
-///   5. `Momentum`   — The Analyst CONSUMES the Scout's card and the Influencer's
-///   6. `Sigil`      — The Oracle CONSUMES all five pillars, so it is terminal
-///
-/// Round-robin admission prevents starvation; claim-time dependency checks span workers.
-pub const VOICE_ORDER: [Stage; 6] = [
-    Stage::Narratives,
-    Stage::Vibe,
-    Stage::Rating,
-    Stage::Transfers,
-    Stage::Momentum,
-    Stage::Sigil,
-];
-
-/// The five pillar stages the Oracle reads before it can crown an entity — one per character:
-/// `narratives` (The Journalist), `rating` (The Scout), `vibe` (The Influencer), `momentum`
-/// (The Analyst), `transfers` (The Insider).
-pub const PILLAR_STAGES: [Stage; 5] = [
-    Stage::Narratives,
-    Stage::Rating,
-    Stage::Vibe,
-    Stage::Momentum,
-    Stage::Transfers,
-];
-
-/// True when no pillar stage still owes this entity work — the Oracle's completion barrier.
-///
-/// Reconcile after a publisher commits exact completion. The last completing pillar observes
-/// no outstanding rows and offers Oracle; `enqueue` coalesces concurrent offers.
-///
-/// `status = 'failed'` counts as SETTLED at every attempt level. This is the existing partial-read
-/// policy: a retryable failure may temporarily leave one card missing, while a later successful
-/// retry offers Oracle again; a terminal dead-letter also cannot silence the other five voices.
-/// `application::oracle::load_pillars` tolerates either kind of missing product.
-pub async fn pillars_settled(
-    pool: &PgPool,
-    entity_type: &str,
-    entity_id: i64,
-    sport: &str,
-) -> Result<bool> {
-    let stages: Vec<&str> = PILLAR_STAGES.iter().map(|s| s.as_str()).collect();
-
-    let settled: bool = sqlx::query_scalar(
-        r#"
-        SELECT NOT EXISTS (
-            SELECT 1
-              FROM pipeline_work
-             WHERE entity_type = $1
-               AND entity_id   = $2
-               AND sport       = $3
-               AND stage       = ANY($4)
-               AND status <> 'failed'
-        )
-        "#,
-    )
-    .bind(entity_type)
-    .bind(entity_id)
-    .bind(sport)
-    .bind(&stages)
-    .fetch_one(pool)
-    .await
-    .with_context(|| format!("pillars_settled {entity_type}/{entity_id}"))?;
-
-    Ok(settled)
 }
 
 /// fail marks a leased item 'failed', records the cause, bumps attempts, and
@@ -560,19 +489,6 @@ mod tests {
             claimed.require_claim_token().unwrap(),
             "00000000-0000-0000-0000-000000000007"
         );
-    }
-
-    /// The barrier waits on exactly the five pillars — one per character. Sigil must never be in
-    /// the list: it is what the barrier RELEASES, and including it would make the Oracle wait on
-    /// itself and never crown anything.
-    #[test]
-    fn pillar_stages_are_the_five_characters_and_exclude_sigil() {
-        let names: Vec<&str> = PILLAR_STAGES.iter().map(|s| s.as_str()).collect();
-        assert_eq!(
-            names,
-            vec!["narratives", "rating", "vibe", "momentum", "transfers"]
-        );
-        assert!(!PILLAR_STAGES.contains(&Stage::Sigil));
     }
 }
 
@@ -827,49 +743,5 @@ mod claim_order_tests {
         // The Editor still drains best-first: its budget is finite and Google already ranked
         // the articles, so rank beats grain there.
         assert!(Stage::Editor.claim_order().contains("feed_rank"));
-    }
-}
-
-#[cfg(test)]
-mod voice_order_tests {
-    use super::{Stage, PILLAR_STAGES, VOICE_ORDER};
-
-    /// The order is a dependency order, so the two consumers must sit behind their producers.
-    #[test]
-    fn consumers_register_after_everything_they_read() {
-        let pos = |s: Stage| {
-            VOICE_ORDER
-                .iter()
-                .position(|x| *x == s)
-                .expect("in VOICE_ORDER")
-        };
-
-        // The Analyst reads the Scout's card and the Influencer's.
-        assert!(pos(Stage::Momentum) > pos(Stage::Rating));
-        assert!(pos(Stage::Momentum) > pos(Stage::Vibe));
-
-        // The Oracle reads all five pillars, so it is last outright.
-        assert_eq!(pos(Stage::Sigil), VOICE_ORDER.len() - 1);
-        for p in PILLAR_STAGES {
-            assert!(pos(Stage::Sigil) > pos(p), "the Oracle must run after {p}");
-        }
-
-        // And the three voices with no voice-dependencies lead.
-        assert_eq!(
-            [VOICE_ORDER[0], VOICE_ORDER[1], VOICE_ORDER[2]],
-            [Stage::Narratives, Stage::Vibe, Stage::Rating]
-        );
-    }
-
-    /// Every pillar is a voice, and every voice but the Oracle is a pillar.
-    #[test]
-    fn the_roster_matches_the_pillars() {
-        for p in PILLAR_STAGES {
-            assert!(
-                VOICE_ORDER.contains(&p),
-                "{p} is a pillar and must be ordered"
-            );
-        }
-        assert_eq!(VOICE_ORDER.len(), PILLAR_STAGES.len() + 1);
     }
 }

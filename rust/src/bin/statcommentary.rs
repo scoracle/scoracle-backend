@@ -7,18 +7,18 @@
 use anyhow::{anyhow, Context, Result};
 use scoracle_cognition::application::models::Models;
 use scoracle_cognition::application::queue::work;
-use scoracle_cognition::application::scout::{
+use scoracle_cognition::evidence::corpus;
+use scoracle_cognition::plugins::scout::adapter::{
     build_rating_request, generate_rating, persist_stat_summary, rating_work_input_version,
     RatingReq,
 };
-use scoracle_cognition::evidence::corpus;
+use scoracle_cognition::plugins::scout::cognition::{
+    RatingBuild, RatingOutput, RATING_PROMPT_VERSION, RATING_TEMPERATURE,
+};
 use scoracle_cognition::runtime::config::Config;
 use scoracle_cognition::runtime::db;
 use scoracle_cognition::runtime::providers::ollama::OllamaClient;
 use scoracle_cognition::runtime::route::Router;
-use scoracle_cognition::studio::scout::{
-    RatingBuild, RatingOutput, RATING_PROMPT_VERSION, RATING_TEMPERATURE,
-};
 use sqlx::{PgPool, Postgres, Row};
 use std::time::Duration;
 
@@ -113,7 +113,7 @@ async fn run_single(pool: &sqlx::PgPool, models: &Models, args: &Args) -> Result
     .await?;
     if args.persist && !out.skipped_unchanged {
         persist_rating(pool, &req, &out).await?;
-        scoracle_cognition::application::analyst::enqueue_momentum_if_needed(
+        scoracle_cognition::plugins::analyst::adapter::enqueue_momentum_if_needed(
             pool,
             &req.entity_type,
             req.entity_id,

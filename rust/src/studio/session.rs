@@ -25,7 +25,9 @@ pub(super) async fn extract_with_backend<T, P: Parser<T>>(
         .await;
         let (gen, request_body, value) = match result {
             Ok(result) => result,
-            Err(error) if attempt < 2 && error.is::<crate::studio::form::SurfaceError>() => {
+            Err(error)
+                if attempt < 2 && error.is::<crate::plugins::support::form::SurfaceError>() =>
+            {
                 tracing::warn!(%error, "card surface rewrite");
                 built_prompt.push_str(&format!(
                     "\nOutput correction: {error} Rewrite from scratch as one compact paragraph. Keep only the main finding and one supporting detail. Target at most 500 body characters so the complete JSON fits. Do not enumerate every input."
@@ -94,7 +96,10 @@ mod surface_tests {
     struct BodyParser;
     impl Parser<String> for BodyParser {
         fn parse(&self, raw: &str) -> Result<Option<String>> {
-            crate::studio::form::validate_body(raw)?;
+            if raw == "null" {
+                return Ok(None);
+            }
+            crate::plugins::support::form::validate_body(raw)?;
             Ok(Some(raw.to_string()))
         }
     }
@@ -110,7 +115,7 @@ mod surface_tests {
             &backend,
             "Evidence",
             &GenerateOptions::default(),
-            &crate::studio::scout::RatingParser,
+            &BodyParser,
         )
         .await
         .unwrap();

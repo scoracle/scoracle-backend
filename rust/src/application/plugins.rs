@@ -1,22 +1,37 @@
 //! Concrete application assembly for the Studio plugin fleet.
 //!
-//! Studio owns the plugin contract and manifests; the application owns binding those
-//! plugins to Postgres, model routing, and queue-facing adapters. Keeping this assembly
+//! Studio owns the plugin contract; each plugin owns its manifest and adapters.
+//! The application binds plugins to Postgres and model routing. Keeping this assembly
 //! here leaves `main.rs` as process boot and makes the adapter boundary explicit.
 
-use crate::application::editor;
-use crate::application::graph;
-use crate::application::insider;
-use crate::application::investigator::boxscore;
 use crate::application::models::Models;
 use crate::application::queue::work;
 use crate::application::tools::WebBroker;
-use crate::application::{analyst, influencer, journalist, oracle, scout};
+use crate::plugins::analyst::adapter as analyst;
+use crate::plugins::editor::adapter as editor;
+use crate::plugins::fixture_boxscore::adapter as boxscore;
+use crate::plugins::graph::adapter as graph;
+use crate::plugins::influencer::adapter as influencer;
+use crate::plugins::insider::adapter as insider;
+use crate::plugins::journalist::adapter as journalist;
+use crate::plugins::oracle::adapter as oracle;
+use crate::plugins::scout::adapter as scout;
 use crate::studio::plugin::StudioPlugin;
 use anyhow::{anyhow, Result};
 use sqlx::PgPool;
 use std::collections::HashSet;
 use std::sync::Arc;
+
+/// First-party registration order. This is composition policy, not a durable
+/// queue invariant; claim-time database gates remain authoritative across workers.
+const VOICE_ORDER: [work::Stage; 6] = [
+    work::Stage::Narratives,
+    work::Stage::Vibe,
+    work::Stage::Rating,
+    work::Stage::Transfers,
+    work::Stage::Momentum,
+    work::Stage::Sigil,
+];
 
 /// Resolve `COGNITION_STAGES` against the registered Studio fleet.
 ///
@@ -55,9 +70,9 @@ pub fn enabled_from_config(raw: Option<&str>) -> Result<HashSet<String>> {
 /// Task names are durable queue vocabulary, derived from the manifest roster rather
 /// than duplicated in service configuration.
 fn known_stages() -> Vec<&'static str> {
-    let mut stages: Vec<&'static str> = crate::studio::fleet::ALL
+    let mut stages: Vec<&'static str> = crate::application::fleet::ALL
         .iter()
-        .flat_map(|manifest| manifest.tasks.iter().map(|task| task.as_str()))
+        .map(|manifest| manifest.task.as_str())
         .collect();
     stages.sort_unstable();
     stages.dedup();
@@ -73,6 +88,7 @@ pub fn build(
     pool: PgPool,
     models: Arc<Models>,
     enabled: &HashSet<String>,
+    packet_compile: bool,
 ) -> Result<Vec<Arc<dyn StudioPlugin>>> {
     let mut handlers: Vec<Arc<dyn StudioPlugin>> = Vec::new();
     let mut web_workspace: Option<Arc<WebBroker>> = None;
@@ -89,13 +105,14 @@ pub fn build(
         handlers.push(Arc::new(editor::EditorHandler::new(
             pool.clone(),
             models.clone(),
+            packet_compile,
         )));
     }
     // Discovery uses the Editor's idle shared capacity.
     if enabled.contains("investigate_entity") {
         let web = shared_web_workspace(&mut web_workspace)?;
         handlers.push(Arc::new(
-            crate::application::investigator::InvestigateEntityHandler::new(
+            crate::plugins::investigator::adapter::InvestigateEntityHandler::new(
                 pool.clone(),
                 models.clone(),
                 web,
@@ -111,7 +128,7 @@ pub fn build(
     }
 
     // Voice registration order is the tested dependency order.
-    for stage in work::VOICE_ORDER {
+    for stage in VOICE_ORDER {
         if !enabled.contains(stage.as_str()) {
             continue;
         }
@@ -159,7 +176,8 @@ fn shared_web_workspace(workspace: &mut Option<Arc<WebBroker>>) -> Result<Arc<We
 
 #[cfg(test)]
 mod tests {
-    use super::{enabled_from_config, known_stages, shared_web_workspace};
+    use super::{enabled_from_config, known_stages, shared_web_workspace, VOICE_ORDER};
+    use crate::application::queue::work::Stage;
 
     #[test]
     fn unset_configuration_enables_every_manifest_task() {
@@ -208,5 +226,33 @@ mod tests {
         let investigator = shared_web_workspace(&mut workspace).unwrap();
         let boxscore = shared_web_workspace(&mut workspace).unwrap();
         assert!(std::sync::Arc::ptr_eq(&investigator, &boxscore));
+    }
+
+    #[test]
+    fn composition_registers_consumers_after_their_producers() {
+        let position = |stage| {
+            VOICE_ORDER
+                .iter()
+                .position(|candidate| *candidate == stage)
+                .unwrap()
+        };
+        assert!(position(Stage::Momentum) > position(Stage::Rating));
+        assert!(position(Stage::Momentum) > position(Stage::Vibe));
+        assert_eq!(position(Stage::Sigil), VOICE_ORDER.len() - 1);
+    }
+
+    #[test]
+    fn composition_roster_contains_every_voice_once() {
+        assert_eq!(
+            VOICE_ORDER,
+            [
+                Stage::Narratives,
+                Stage::Vibe,
+                Stage::Rating,
+                Stage::Transfers,
+                Stage::Momentum,
+                Stage::Sigil,
+            ]
+        );
     }
 }

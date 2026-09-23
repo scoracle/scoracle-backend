@@ -4,7 +4,7 @@
 //! Oracle barrier. Momentum, a debounced Rating, and a completed Narratives claim need only that
 //! Oracle barrier. The event is deleted only after its concrete, idempotent dispatch succeeds.
 
-use crate::application::queue::work::{retry_backoff, Item};
+use crate::application::queue::work::{self, retry_backoff, Item, Stage};
 use crate::util::truncate;
 use anyhow::{bail, Context, Result};
 use sqlx::{Postgres, Row, Transaction};
@@ -16,6 +16,7 @@ const RATING_COMPLETED: &str = "rating_completed";
 const RATING_DEBOUNCED: &str = "rating_debounced";
 const NARRATIVES_COMPLETED: &str = "narratives_completed";
 const TRANSFER_PUBLISHED: &str = "transfer_published";
+const TRANSFER_IDENTITY_APPLIED: &str = "transfer_identity_applied";
 
 pub(crate) async fn record_vibe_completed(
     tx: &mut Transaction<'_, Postgres>,
@@ -88,6 +89,35 @@ pub(crate) async fn record_transfer_published(
     Ok(())
 }
 
+pub(crate) async fn record_transfer_identity_applied(
+    tx: &mut Transaction<'_, Postgres>,
+    item: &Item,
+    entity_type: &str,
+    entity_id: i32,
+    rating_input_version: &str,
+) -> Result<()> {
+    sqlx::query(
+        r#"
+        INSERT INTO application_outbox (
+            kind, source_stage, source_claim_token,
+            entity_type, entity_id, sport, source_input_version
+        ) VALUES ($1, $2, $3::uuid, $4, $5, $6, $7)
+        ON CONFLICT DO NOTHING
+        "#,
+    )
+    .bind(TRANSFER_IDENTITY_APPLIED)
+    .bind(item.stage.as_str())
+    .bind(item.require_claim_token()?)
+    .bind(entity_type)
+    .bind(entity_id)
+    .bind(&item.sport)
+    .bind(rating_input_version)
+    .execute(&mut **tx)
+    .await
+    .context("record transfer identity rating obligation")?;
+    Ok(())
+}
+
 async fn record_completion(
     tx: &mut Transaction<'_, Postgres>,
     kind: &str,
@@ -147,6 +177,7 @@ pub async fn drain(pool: &sqlx::PgPool, limit: usize) -> Result<usize> {
             RATING_DEBOUNCED,
             NARRATIVES_COMPLETED,
             TRANSFER_PUBLISHED,
+            TRANSFER_IDENTITY_APPLIED,
         ])
         .fetch_optional(&mut *tx)
         .await
@@ -217,12 +248,34 @@ async fn dispatch(pool: &sqlx::PgPool, event: &Event) -> Result<()> {
         MOMENTUM_COMPLETED | RATING_DEBOUNCED | NARRATIVES_COMPLETED | TRANSFER_PUBLISHED => {
             dispatch_oracle_barrier(pool, event).await
         }
+        TRANSFER_IDENTITY_APPLIED => dispatch_rating(pool, event).await,
         kind => bail!("unsupported application outbox kind {kind:?}"),
     }
 }
 
+async fn dispatch_rating(pool: &sqlx::PgPool, event: &Event) -> Result<()> {
+    let input_version = event
+        .source_input_version
+        .clone()
+        .context("transfer identity rating obligation missing input version")?;
+    work::enqueue(
+        pool,
+        &Item {
+            stage: Stage::Rating,
+            entity_type: event.entity_type.clone(),
+            entity_id: i64::from(event.entity_id),
+            sport: event.sport.clone(),
+            input_version: Some(input_version),
+            attempts: 0,
+            claim_token: None,
+        },
+    )
+    .await
+    .context("dispatch transfer identity rating obligation")
+}
+
 async fn dispatch_momentum_then_oracle(pool: &sqlx::PgPool, event: &Event) -> Result<()> {
-    if !crate::application::analyst::enqueue_momentum_if_needed(
+    if !crate::plugins::analyst::adapter::enqueue_momentum_if_needed(
         pool,
         &event.entity_type,
         event.entity_id,
@@ -242,7 +295,7 @@ async fn dispatch_momentum_then_oracle(pool: &sqlx::PgPool, event: &Event) -> Re
 }
 
 async fn dispatch_oracle_barrier(pool: &sqlx::PgPool, event: &Event) -> Result<()> {
-    crate::application::oracle::enqueue_oracle_if_pillars_settled(
+    crate::plugins::oracle::adapter::enqueue_oracle_if_pillars_settled(
         pool,
         &event.entity_type,
         i64::from(event.entity_id),
@@ -364,6 +417,82 @@ mod postgres_recovery_tests {
         assert_eq!(pending, 1);
         clean(&pool).await;
     }
+
+    #[tokio::test]
+    #[ignore = "requires isolated TEST_DATABASE_URL; run serially"]
+    async fn applied_identity_rating_fanout_is_atomic_and_dispatchable() {
+        let pool = pool().await;
+        clean(&pool).await;
+        sqlx::query("INSERT INTO sports (id, display_name, current_season) VALUES ($1, 'Outbox recovery test', 2026) ON CONFLICT DO NOTHING")
+            .bind(SPORT).execute(&pool).await.unwrap();
+        let item = Item {
+            stage: Stage::Transfers,
+            entity_type: "team".into(),
+            entity_id: 9_600_001,
+            sport: SPORT.into(),
+            input_version: Some("team-revision".into()),
+            attempts: 0,
+            claim_token: Some("00000000-0000-4000-8000-000000000002".into()),
+        };
+        let rating_version = "rating:s2026:transfer:77";
+
+        let mut rolled_back = pool.begin().await.unwrap();
+        record_transfer_identity_applied(
+            &mut rolled_back,
+            &item,
+            "player",
+            9_600_002,
+            rating_version,
+        )
+        .await
+        .unwrap();
+        rolled_back.rollback().await.unwrap();
+        let absent: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM application_outbox WHERE sport=$1 AND kind=$2",
+        )
+        .bind(SPORT)
+        .bind(TRANSFER_IDENTITY_APPLIED)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(absent, 0);
+
+        let mut committed = pool.begin().await.unwrap();
+        for (entity_type, entity_id) in [
+            ("player", 9_600_002),
+            ("team", 9_600_001),
+            ("team", 9_600_003),
+        ] {
+            record_transfer_identity_applied(
+                &mut committed,
+                &item,
+                entity_type,
+                entity_id,
+                rating_version,
+            )
+            .await
+            .unwrap();
+        }
+        committed.commit().await.unwrap();
+        assert_eq!(drain(&pool, 100).await.unwrap(), 3);
+        let work: Vec<(String, i32, String)> = sqlx::query_as(
+            "SELECT entity_type, entity_id, input_version FROM pipeline_work WHERE sport=$1 AND stage='rating' ORDER BY entity_type,entity_id",
+        )
+        .bind(SPORT)
+        .fetch_all(&pool)
+        .await
+        .unwrap();
+        assert_eq!(
+            work,
+            vec![
+                ("player".into(), 9_600_002, rating_version.into()),
+                ("team".into(), 9_600_001, rating_version.into()),
+                ("team".into(), 9_600_003, rating_version.into()),
+            ]
+        );
+        clean(&pool).await;
+    }
+
     #[tokio::test]
     #[ignore = "requires isolated TEST_DATABASE_URL; run serially"]
     async fn process_crash_dispatch_rehearsal() {

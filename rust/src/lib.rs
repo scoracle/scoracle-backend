@@ -1,17 +1,18 @@
-//! Scoracle Studio (the in-house harness) and its production application adapters.
+//! Scoracle Studio (the in-house harness) and its production plugins.
 //!
 //! [`studio`] creates validated products from prepared material through an injected model.
-//! [`application`] owns concrete coordination, queue dispatch, and publication.
+//! [`plugins`] own prepared cognition, manifests, and preparation/publication adapters.
+//! [`application`] assembles the fleet and supplies shared coordination and queue dispatch.
 //! [`runtime`] supplies routing, transports, configuration and persistence primitives;
 //! [`evidence`] retrieves and prepares shared material. [`evaluation`] uses the same Studio contracts.
 //!
-//! The product model is **nine lenses, six of them accountable characters the seeker meets**:
+//! The fleet has **ten plugins, six of them accountable characters the seeker meets**:
 //!
 //! - The Scout (`rating`) and The Analyst (`momentum`) read the stats material.
 //! - The Journalist (`narratives`), The Insider (`transfers`) and The Influencer (`vibe`) read
 //!   the news material.
 //! - The Oracle (`sigil`) reads the other five cards and renders the verdict.
-//! - Three internal seats never surface as a character: The Editor, The Investigator, and graph.
+//! - Four internal capabilities: Editor, Investigator, Graph, and deterministic Boxscore retrieval.
 //!
 //! Those groupings describe which material a seat reads. Routing is independently per `Role`.
 //!
@@ -34,8 +35,11 @@ pub mod evidence;
 /// Execution, IO, configuration and provider infrastructure.
 pub mod runtime;
 
-/// Studio is the in-house harness; application owns its concrete adapters.
+/// Shared inference session and plugin contracts.
 pub mod studio;
+
+/// First-party cognition, tools, and domain adapters.
+pub mod plugins;
 
 /// Pure text, rounding, and fingerprint helpers.
 pub mod util;

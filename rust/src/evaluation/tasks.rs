@@ -3,51 +3,51 @@
 //! Live cases read corpus data without claiming work or publishing products.
 //! Mechanical checks and optional numeric labels complement human review of the generated work.
 
-use crate::application::analyst::load_momentum_context;
-use crate::application::editor::build_editor_prompt_for_eval;
-use crate::application::graph::load_graph_article_context;
-use crate::application::influencer::load_vibe_context;
-use crate::application::insider::{
-    build_pair_request, load_candidates, team_relationship, PairBuild,
-};
-use crate::application::journalist::load_packet_corpus;
 use crate::application::models::Models;
-use crate::application::oracle::load_pillars;
-use crate::application::scout::{build_rating_request, RatingReq};
 use crate::evidence::corpus::lookup_entity_name;
-use crate::runtime::route::Role;
-use crate::studio::analyst::{
+use crate::plugins::analyst::adapter::load_momentum_context;
+use crate::plugins::analyst::cognition::{
     parse_momentum_reply, MOMENTUM_NUM_PREDICT, MOMENTUM_PROMPT_VERSION, MOMENTUM_SYSTEM_PROMPT,
 };
-use crate::studio::editor::{
+use crate::plugins::editor::adapter::build_editor_prompt_for_eval;
+use crate::plugins::editor::cognition::{
     derive as editor_derive, editor_opts, EditorRead, EditorReadParser, EDITOR_CONTRACT_VERSION,
 };
-use crate::studio::graph::{
+use crate::plugins::graph::adapter::load_graph_article_context;
+use crate::plugins::graph::cognition::{
     build_graph_prompt, graph_opts, GraphCandidate, GraphParser, GRAPH_PROMPT_VERSION,
 };
-use crate::studio::influencer::{
+use crate::plugins::influencer::adapter::load_vibe_context;
+use crate::plugins::influencer::cognition::{
     build_sentiment_prompt, parse_vibe_reply, VIBE_NUM_PREDICT, VIBE_PROMPT_VERSION,
 };
-use crate::studio::insider::{
+use crate::plugins::insider::adapter::{
+    build_pair_request, load_candidates, team_relationship, PairBuild,
+};
+use crate::plugins::insider::cognition::{
     transfer_system_prompt, TransferParser, TRANSFER_DEFAULT_MIN_ARTICLES, TRANSFER_NUM_PREDICT,
     TRANSFER_PROMPT_VERSION,
 };
-use crate::studio::investigator::prompt::{
+use crate::plugins::investigator::cognition::prompt::{
     prose_opts, ProseReadParser, INVESTIGATOR_PROSE_CONTRACT_VERSION,
 };
-use crate::studio::journalist::{
+use crate::plugins::journalist::adapter::load_packet_corpus;
+use crate::plugins::journalist::cognition::{
     build_narratives_prompt, narratives_format_schema, NarrativesParser, Subject,
     NARRATIVES_NUM_PREDICT_PACKET, NARRATIVES_PROMPT_VERSION, NARRATIVES_SYSTEM_PROMPT,
 };
-use crate::studio::model::GenerateOptions;
-use crate::studio::oracle::{
+use crate::plugins::oracle::adapter::load_pillars;
+use crate::plugins::oracle::cognition::{
     build_crown_prompt, build_pillar_divergence, compute_omen, count_sentences,
     oracle_format_schema, parse_crown_reply, pillar_convergence, ORACLE_NUM_PREDICT,
     ORACLE_PROMPT_VERSION, ORACLE_SYSTEM_PROMPT,
 };
-use crate::studio::scout::{
+use crate::plugins::scout::adapter::{build_rating_request, RatingReq};
+use crate::plugins::scout::cognition::{
     RatingBuild, RatingReply, RATING_NUM_PREDICT, RATING_PROMPT_VERSION, RATING_SYSTEM_PROMPT,
 };
+use crate::runtime::route::Role;
+use crate::studio::model::GenerateOptions;
 use crate::studio::Parser;
 use crate::util::truncate;
 use anyhow::Result;
@@ -571,7 +571,7 @@ impl LensTask for VibeTask {
         VIBE_PROMPT_VERSION
     }
     fn gen_options(&self, temperature: f64) -> GenerateOptions {
-        crate::studio::influencer::generation_options(temperature, 0, VIBE_NUM_PREDICT)
+        crate::plugins::influencer::cognition::generation_options(temperature, 0, VIBE_NUM_PREDICT)
     }
     async fn build_prompt(
         &self,
@@ -596,7 +596,7 @@ impl LensTask for VibeTask {
         match parse_vibe_reply(raw) {
             Ok((s, hook, v)) => {
                 // Score the prose that production serves, after the shared structural scrub.
-                let v = crate::studio::guards::clean_served_prose(&v);
+                let v = crate::plugins::support::guards::clean_served_prose(&v);
                 let mut checks = Vec::new();
                 // Contract-level invariants (the MOMENTUM_BANNED_PHRASES shape, folded 08-19):
                 // the HOOK contract and the body's global bans are enforced in production by
@@ -608,7 +608,8 @@ impl LensTask for VibeTask {
                 // salvages to its first beat and serves — so a raw-hook check was redding
                 // titles the card actually carries, clean. Red only when settlement DROPS
                 // the title; name a salvage in the detail so the prose is still visible.
-                let settled = crate::studio::guards::settle_title("gate", hook.as_deref());
+                let settled =
+                    crate::plugins::support::guards::settle_title("gate", hook.as_deref());
                 checks.push(PropertyCheck {
                     name: "hook_contract".into(),
                     pass: settled.is_some(),
@@ -616,7 +617,7 @@ impl LensTask for VibeTask {
                         (None, _) => "hook=MISSING".into(),
                         (Some(h), None) => format!(
                             "{} (hook={h:?}, unsalvageable — ships titleless)",
-                            crate::studio::guards::hook_violation(h).unwrap_or("dropped")
+                            crate::plugins::support::guards::hook_violation(h).unwrap_or("dropped")
                         ),
                         (Some(h), Some(s)) if s != h.trim() => format!("salvaged to {s:?}"),
                         (Some(_), Some(_)) => String::new(),
@@ -751,7 +752,7 @@ impl LensTask for OracleTask {
         let sport = e.sport.to_uppercase();
         let (_season, cards) = load_pillars(pool, &e.entity_type, e.entity_id, &sport).await?;
         // With no evidence, the stage persists a marker without a model call.
-        if cards.readiness() == crate::studio::oracle::Readiness::Empty {
+        if cards.readiness() == crate::plugins::oracle::cognition::Readiness::Empty {
             return Ok(None);
         }
         // Deterministic convergence + direction, exactly as the live handler.
@@ -1298,8 +1299,8 @@ impl LensTask for RatingTask {
             num_predict: RATING_NUM_PREDICT,
             num_ctx: 0,
             json_mode: false,
-            format_schema: Some(crate::studio::form::with_abstention(
-                crate::studio::form::card_schema(false),
+            format_schema: Some(crate::plugins::support::form::with_abstention(
+                crate::plugins::support::form::card_schema(false),
             )),
             format_schema_raw: None,
         }
@@ -1342,7 +1343,7 @@ impl LensTask for RatingTask {
         // Shape-only parse (NOT `RatingParser`): the gate must see a guard-violating body's
         // prose and score it red on the invariant checks — production's guards would reject it
         // before any check could run. Same lists either way (`crate::guards`).
-        let body = crate::studio::scout::parse_rating_body(raw);
+        let body = crate::plugins::scout::cognition::parse_rating_body(raw);
         if body.trim().is_empty() {
             return CaseVerdict {
                 parsed: false,
@@ -1364,9 +1365,9 @@ impl LensTask for RatingTask {
         checks.push(product_name_check(&reply.body));
         // The brief's decoration bans (` · ` bullets, `**`) — folded 08-19 from per-fixture
         // `prose_excludes` entries; same list `RatingParser` rejects on in production.
-        let banned = crate::studio::guards::first_banned_phrase(
+        let banned = crate::plugins::support::guards::first_banned_phrase(
             &reply.body,
-            crate::studio::guards::RATING_BODY_BANS,
+            crate::plugins::support::guards::RATING_BODY_BANS,
         );
         checks.push(PropertyCheck {
             name: "no_banned_phrases".into(),
@@ -1446,7 +1447,7 @@ impl LensTask for RatingTask {
 
 pub struct MomentumTask;
 
-// Momentum's prompt contract lives in `crate::studio::analyst`; the application adapter maps
+// Momentum's prompt contract lives in `crate::plugins::analyst::cognition`; the application adapter maps
 // current Oracle pillar values into that domain. Eval imports both rather than carrying a copy.
 // It USED to carry its own fork ("momentum-eval-v3",
 // a duplicate system prompt, its own parser): a relic from momentum's fixture-first era that
@@ -1471,7 +1472,7 @@ impl LensTask for MomentumTask {
             num_predict: MOMENTUM_NUM_PREDICT,
             num_ctx: 0,
             json_mode: false,
-            format_schema: Some(crate::studio::form::card_schema(false)),
+            format_schema: Some(crate::plugins::support::form::card_schema(false)),
             format_schema_raw: None,
         }
     }
@@ -1490,15 +1491,17 @@ impl LensTask for MomentumTask {
         }
         // Use the production adapter, including its sourced memory. Omitting this
         // block silently evaluates a different assignment from the worker.
-        Ok(Some(crate::studio::analyst::build_momentum_prompt(
-            &e.entity_type,
-            &name,
-            &e.sport,
-            context.rating.as_ref(),
-            context.vibe.as_ref(),
-            &context.snapshot,
-            Some(&memories.render_for_model()?),
-        )))
+        Ok(Some(
+            crate::plugins::analyst::cognition::build_momentum_prompt(
+                &e.entity_type,
+                &name,
+                &e.sport,
+                context.rating.as_ref(),
+                context.vibe.as_ref(),
+                &context.snapshot,
+                Some(&memories.render_for_model()?),
+            ),
+        ))
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
         let reply = match parse_momentum_reply(raw) {
@@ -1634,21 +1637,21 @@ fn empty_dash(s: &str) -> &str {
 // The matcher and the global ban vocabularies moved to `crate::guards` (2026-08-19, the
 // eval→guard migration): production parsers and the gate now read the SAME lists — see
 // `guards.rs` for the "one list, one home" ruling and the doc comments that moved with them.
-use crate::studio::guards::contains_ci;
-pub use crate::studio::guards::{MOMENTUM_BANNED_PHRASES, PRODUCT_NAME_BANS};
+use crate::plugins::support::guards::contains_ci;
+pub use crate::plugins::support::guards::{MOMENTUM_BANNED_PHRASES, PRODUCT_NAME_BANS};
 
 // (sentence_runs folded into `guards::count_sentences` 08-19 — one counter for every prose
 // lens; the crude version miscounted decimals as sentence stops.)
 fn sentence_runs(text: &str) -> i32 {
-    crate::studio::guards::count_sentences(text) as i32
+    crate::plugins::support::guards::count_sentences(text) as i32
 }
 
 /// One shared invariant check over a served-prose field: the first product name found, as a
 /// `PropertyCheck` every wired seat pushes unconditionally. For rating the check runs on the
-/// parsed body only. The list lives in [`crate::studio::guards::PRODUCT_NAME_BANS`];
+/// parsed body only. The list lives in [`crate::plugins::support::guards::PRODUCT_NAME_BANS`];
 /// production enforces the same vocabulary.
 fn product_name_check(prose: &str) -> PropertyCheck {
-    let named = crate::studio::guards::first_product_name(prose);
+    let named = crate::plugins::support::guards::first_product_name(prose);
     PropertyCheck {
         name: "no_product_names".into(),
         pass: named.is_none(),

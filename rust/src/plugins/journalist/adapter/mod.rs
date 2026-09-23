@@ -26,6 +26,26 @@ use serde_json::json;
 use sqlx::{PgPool, Postgres, Row, Transaction};
 use tracing::debug;
 
+pub(crate) const NARRATIVES_COMPLETED: &str = "narratives_completed";
+
+pub(crate) async fn record_narratives_completed(
+    tx: &mut Transaction<'_, Postgres>,
+    item: &Item,
+) -> Result<()> {
+    crate::application::queue::outbox::record(
+        tx,
+        item,
+        crate::application::queue::outbox::NewEvent {
+            kind: NARRATIVES_COMPLETED,
+            entity_type: &item.entity_type,
+            entity_id: item.entity_id_i32()?,
+            source_input_version: item.input_version.as_deref(),
+        },
+    )
+    .await
+    .context("record narratives completion outbox")
+}
+
 pub const PACKET_LOOKBACK_HOURS: i64 = 72;
 pub const MAX_PACKETS_PER_ENTITY: usize = 5;
 const PACKET_NEWS_BUDGET_CHARS: usize = 5_000;
@@ -522,8 +542,7 @@ async fn commit_claimed(
             .await?
         }
     };
-    crate::application::queue::outbox::record_narratives_completed(publication.transaction(), item)
-        .await?;
+    record_narratives_completed(publication.transaction(), item).await?;
     publication.commit_final().await?;
     Ok((PluginOutcome::Committed, product_row_ids))
 }

@@ -21,6 +21,26 @@ use async_trait::async_trait;
 use sqlx::{PgPool, Postgres, Row, Transaction};
 use tracing::debug;
 
+pub(crate) const VIBE_COMPLETED: &str = "vibe_completed";
+
+pub(crate) async fn record_vibe_completed(
+    tx: &mut Transaction<'_, Postgres>,
+    item: &Item,
+) -> Result<()> {
+    crate::application::queue::outbox::record(
+        tx,
+        item,
+        crate::application::queue::outbox::NewEvent {
+            kind: VIBE_COMPLETED,
+            entity_type: &item.entity_type,
+            entity_id: item.entity_id_i32()?,
+            source_input_version: item.input_version.as_deref(),
+        },
+    )
+    .await
+    .context("record vibe completion outbox")
+}
+
 /// Output contract captured separately in the diagnostic ledger.
 pub const VIBE_OUTPUT_CONTRACT_VERSION: &str = "vibe-score-v1";
 
@@ -320,8 +340,7 @@ async fn commit_claimed(
             Some(persist_to_vibe_scores(publication.transaction(), item, sport, output).await?)
         }
     };
-    crate::application::queue::outbox::record_vibe_completed(publication.transaction(), item)
-        .await?;
+    record_vibe_completed(publication.transaction(), item).await?;
     publication.commit_final().await?;
     Ok((PluginOutcome::Committed, product_row_id))
 }

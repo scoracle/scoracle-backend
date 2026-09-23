@@ -23,6 +23,33 @@ use async_trait::async_trait;
 use sqlx::{PgPool, Postgres, Row, Transaction};
 use tracing::debug;
 
+pub(crate) const RATING_COMPLETED: &str = "rating_completed";
+pub(crate) const RATING_DEBOUNCED: &str = "rating_debounced";
+pub(crate) const TRANSFER_IDENTITY_APPLIED: &str = "transfer_identity_applied";
+
+pub(crate) async fn record_rating_completed(
+    tx: &mut Transaction<'_, Postgres>,
+    item: &Item,
+    has_product: bool,
+) -> Result<()> {
+    crate::application::queue::outbox::record(
+        tx,
+        item,
+        crate::application::queue::outbox::NewEvent {
+            kind: if has_product {
+                RATING_COMPLETED
+            } else {
+                RATING_DEBOUNCED
+            },
+            entity_type: &item.entity_type,
+            entity_id: item.entity_id_i32()?,
+            source_input_version: item.input_version.as_deref(),
+        },
+    )
+    .await
+    .context("record rating completion outbox")
+}
+
 pub(crate) struct RatingIdentityReaction {
     pool: PgPool,
 }
@@ -40,7 +67,7 @@ impl crate::application::queue::outbox::EventReaction for RatingIdentityReaction
     }
 
     fn kinds(&self) -> &[&'static str] {
-        &[crate::application::queue::outbox::TRANSFER_IDENTITY_APPLIED]
+        &[TRANSFER_IDENTITY_APPLIED]
     }
 
     async fn react(&self, event: &crate::application::queue::outbox::Event) -> Result<()> {
@@ -679,7 +706,7 @@ async fn commit_claimed(
             .await?,
         ),
     };
-    crate::application::queue::outbox::record_rating_completed(
+    record_rating_completed(
         publication.transaction(),
         item,
         matches!(prepared, Prepared::Product(_)),

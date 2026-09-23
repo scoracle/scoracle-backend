@@ -475,30 +475,33 @@ pub(super) async fn maybe_apply_transfer_identity(
                 season,
                 application_id,
             );
-        crate::application::queue::outbox::record_transfer_identity_applied(
+        super::record_transfer_event(
             tx,
             item,
+            super::TRANSFER_IDENTITY_APPLIED,
             "player",
             candidate.player_id,
-            &rating_input_version,
+            Some(&rating_input_version),
         )
         .await?;
         if let Some(old_team_id) = old_team_id {
-            crate::application::queue::outbox::record_transfer_identity_applied(
+            super::record_transfer_event(
                 tx,
                 item,
+                super::TRANSFER_IDENTITY_APPLIED,
                 "team",
                 old_team_id,
-                &rating_input_version,
+                Some(&rating_input_version),
             )
             .await?;
         }
-        crate::application::queue::outbox::record_transfer_identity_applied(
+        super::record_transfer_event(
             tx,
             item,
+            super::TRANSFER_IDENTITY_APPLIED,
             "team",
             team_id,
-            &rating_input_version,
+            Some(&rating_input_version),
         )
         .await?;
         sqlx::query("SELECT public.request_sport_autofill_refresh($1, $2)")

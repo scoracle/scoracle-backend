@@ -21,6 +21,26 @@ use async_trait::async_trait;
 use sqlx::{PgPool, Postgres, Row, Transaction};
 use tracing::debug;
 
+pub(crate) const MOMENTUM_COMPLETED: &str = "momentum_completed";
+
+pub(crate) async fn record_momentum_completed(
+    tx: &mut Transaction<'_, Postgres>,
+    item: &Item,
+) -> Result<()> {
+    crate::application::queue::outbox::record(
+        tx,
+        item,
+        crate::application::queue::outbox::NewEvent {
+            kind: MOMENTUM_COMPLETED,
+            entity_type: &item.entity_type,
+            entity_id: item.entity_id_i32()?,
+            source_input_version: item.input_version.as_deref(),
+        },
+    )
+    .await
+    .context("record momentum completion outbox")
+}
+
 use crate::plugins::analyst::cognition::{
     Assignment, Form, MomentumContext, MomentumOutput, Mood, Snapshot,
     MOMENTUM_OUTPUT_CONTRACT_VERSION, MOMENTUM_STEADY_BAND,
@@ -323,8 +343,8 @@ impl crate::application::queue::outbox::EventReaction for MomentumReaction {
 
     fn kinds(&self) -> &[&'static str] {
         &[
-            crate::application::queue::outbox::VIBE_COMPLETED,
-            crate::application::queue::outbox::RATING_COMPLETED,
+            crate::plugins::influencer::adapter::VIBE_COMPLETED,
+            crate::plugins::scout::adapter::RATING_COMPLETED,
         ]
     }
 
@@ -462,8 +482,7 @@ async fn commit_claimed(
             Some(persist_momentum_summary(publication.transaction(), item, sport, output).await?)
         }
     };
-    crate::application::queue::outbox::record_momentum_completed(publication.transaction(), item)
-        .await?;
+    record_momentum_completed(publication.transaction(), item).await?;
     publication.commit_final().await?;
     Ok((PluginOutcome::Committed, product_row_id))
 }

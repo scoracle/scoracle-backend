@@ -1,8 +1,8 @@
-//! Narrow durable follow-up recovery for claim-aware application publication.
+//! Generic durable event delivery for claim-aware application publication.
 //!
-//! Product-bearing Vibe and Rating completions reconcile the Momentum offer and then ask the
-//! Oracle barrier. Momentum, a debounced Rating, and a completed Narratives claim need only that
-//! Oracle barrier. The event is deleted only after its concrete, idempotent dispatch succeeds.
+//! Plugins own event vocabulary, production, and reactions. The host persists each event with
+//! its source claim, locks it for delivery, retries bounded failures, and deletes it only after
+//! the registered idempotent reaction chain succeeds.
 
 use crate::application::queue::work::{retry_backoff, Item};
 use crate::util::truncate;
@@ -13,62 +13,17 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use tracing::warn;
 
-pub(crate) const VIBE_COMPLETED: &str = "vibe_completed";
-pub(crate) const MOMENTUM_COMPLETED: &str = "momentum_completed";
-pub(crate) const RATING_COMPLETED: &str = "rating_completed";
-pub(crate) const RATING_DEBOUNCED: &str = "rating_debounced";
-pub(crate) const NARRATIVES_COMPLETED: &str = "narratives_completed";
-pub(crate) const TRANSFER_PUBLISHED: &str = "transfer_published";
-pub(crate) const TRANSFER_IDENTITY_APPLIED: &str = "transfer_identity_applied";
-
-pub(crate) async fn record_vibe_completed(
-    tx: &mut Transaction<'_, Postgres>,
-    item: &Item,
-) -> Result<()> {
-    record_completion(tx, VIBE_COMPLETED, item)
-        .await
-        .context("record vibe completion outbox")
+pub(crate) struct NewEvent<'a> {
+    pub(crate) kind: &'static str,
+    pub(crate) entity_type: &'a str,
+    pub(crate) entity_id: i32,
+    pub(crate) source_input_version: Option<&'a str>,
 }
 
-pub(crate) async fn record_momentum_completed(
+pub(crate) async fn record(
     tx: &mut Transaction<'_, Postgres>,
     item: &Item,
-) -> Result<()> {
-    record_completion(tx, MOMENTUM_COMPLETED, item)
-        .await
-        .context("record momentum completion outbox")
-}
-
-pub(crate) async fn record_rating_completed(
-    tx: &mut Transaction<'_, Postgres>,
-    item: &Item,
-    has_product: bool,
-) -> Result<()> {
-    let kind = if has_product {
-        RATING_COMPLETED
-    } else {
-        RATING_DEBOUNCED
-    };
-    record_completion(tx, kind, item)
-        .await
-        .context("record rating completion outbox")
-}
-
-pub(crate) async fn record_narratives_completed(
-    tx: &mut Transaction<'_, Postgres>,
-    item: &Item,
-) -> Result<()> {
-    record_completion(tx, NARRATIVES_COMPLETED, item)
-        .await
-        .context("record narratives completion outbox")
-}
-
-pub(crate) async fn record_transfer_published(
-    tx: &mut Transaction<'_, Postgres>,
-    item: &Item,
-    entity_type: &str,
-    entity_id: i32,
-    input_version: Option<&str>,
+    event: NewEvent<'_>,
 ) -> Result<()> {
     sqlx::query(
         r#"
@@ -79,69 +34,13 @@ pub(crate) async fn record_transfer_published(
         ON CONFLICT DO NOTHING
         "#,
     )
-    .bind(TRANSFER_PUBLISHED)
+    .bind(event.kind)
     .bind(item.stage.as_str())
     .bind(item.require_claim_token()?)
-    .bind(entity_type)
-    .bind(entity_id)
+    .bind(event.entity_type)
+    .bind(event.entity_id)
     .bind(&item.sport)
-    .bind(input_version)
-    .execute(&mut **tx)
-    .await
-    .context("record transfer publication outbox")?;
-    Ok(())
-}
-
-pub(crate) async fn record_transfer_identity_applied(
-    tx: &mut Transaction<'_, Postgres>,
-    item: &Item,
-    entity_type: &str,
-    entity_id: i32,
-    rating_input_version: &str,
-) -> Result<()> {
-    sqlx::query(
-        r#"
-        INSERT INTO application_outbox (
-            kind, source_stage, source_claim_token,
-            entity_type, entity_id, sport, source_input_version
-        ) VALUES ($1, $2, $3::uuid, $4, $5, $6, $7)
-        ON CONFLICT DO NOTHING
-        "#,
-    )
-    .bind(TRANSFER_IDENTITY_APPLIED)
-    .bind(item.stage.as_str())
-    .bind(item.require_claim_token()?)
-    .bind(entity_type)
-    .bind(entity_id)
-    .bind(&item.sport)
-    .bind(rating_input_version)
-    .execute(&mut **tx)
-    .await
-    .context("record transfer identity rating obligation")?;
-    Ok(())
-}
-
-async fn record_completion(
-    tx: &mut Transaction<'_, Postgres>,
-    kind: &str,
-    item: &Item,
-) -> Result<()> {
-    sqlx::query(
-        r#"
-        INSERT INTO application_outbox (
-            kind, source_stage, source_claim_token,
-            entity_type, entity_id, sport, source_input_version
-        ) VALUES ($1, $2, $3::uuid, $4, $5, $6, $7)
-        ON CONFLICT DO NOTHING
-        "#,
-    )
-    .bind(kind)
-    .bind(item.stage.as_str())
-    .bind(item.require_claim_token()?)
-    .bind(&item.entity_type)
-    .bind(item.entity_id_i32()?)
-    .bind(&item.sport)
-    .bind(item.input_version.as_deref())
+    .bind(event.source_input_version)
     .execute(&mut **tx)
     .await?;
     Ok(())
@@ -359,7 +258,9 @@ mod postgres_recovery_tests {
             claim_token: Some("00000000-0000-4000-8000-000000000001".into()),
         };
         let mut tx = pool.begin().await.unwrap();
-        record_momentum_completed(&mut tx, &item).await.unwrap();
+        crate::plugins::analyst::adapter::record_momentum_completed(&mut tx, &item)
+            .await
+            .unwrap();
         tx.commit().await.unwrap();
         let id = sqlx::query_scalar("SELECT id::text FROM application_outbox WHERE sport = $1")
             .bind(SPORT)
@@ -368,7 +269,7 @@ mod postgres_recovery_tests {
             .unwrap();
         Event {
             id,
-            kind: MOMENTUM_COMPLETED.into(),
+            kind: crate::plugins::analyst::adapter::MOMENTUM_COMPLETED.into(),
             entity_type: item.entity_type,
             entity_id: item.entity_id as i32,
             sport: item.sport,
@@ -451,12 +352,13 @@ mod postgres_recovery_tests {
         let rating_version = "rating:s2026:transfer:77";
 
         let mut rolled_back = pool.begin().await.unwrap();
-        record_transfer_identity_applied(
+        crate::plugins::insider::adapter::record_transfer_event(
             &mut rolled_back,
             &item,
+            crate::plugins::insider::adapter::TRANSFER_IDENTITY_APPLIED,
             "player",
             9_600_002,
-            rating_version,
+            Some(rating_version),
         )
         .await
         .unwrap();
@@ -465,7 +367,7 @@ mod postgres_recovery_tests {
             "SELECT count(*) FROM application_outbox WHERE sport=$1 AND kind=$2",
         )
         .bind(SPORT)
-        .bind(TRANSFER_IDENTITY_APPLIED)
+        .bind(crate::plugins::insider::adapter::TRANSFER_IDENTITY_APPLIED)
         .fetch_one(&pool)
         .await
         .unwrap();
@@ -477,12 +379,13 @@ mod postgres_recovery_tests {
             ("team", 9_600_001),
             ("team", 9_600_003),
         ] {
-            record_transfer_identity_applied(
+            crate::plugins::insider::adapter::record_transfer_event(
                 &mut committed,
                 &item,
+                crate::plugins::insider::adapter::TRANSFER_IDENTITY_APPLIED,
                 entity_type,
                 entity_id,
-                rating_version,
+                Some(rating_version),
             )
             .await
             .unwrap();
@@ -524,7 +427,7 @@ mod postgres_recovery_tests {
             .unwrap();
             let event = Event {
                 id,
-                kind: MOMENTUM_COMPLETED.into(),
+                kind: crate::plugins::analyst::adapter::MOMENTUM_COMPLETED.into(),
                 entity_type: "team".into(),
                 entity_id: 9_600_001,
                 sport: SPORT.into(),

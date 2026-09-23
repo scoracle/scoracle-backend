@@ -1285,7 +1285,7 @@ mod postgres_recovery_rehearsal {
             let mut source = item(Stage::Momentum, sport, 9_600_102);
             source.claim_token = Some("00000000-0000-4000-8000-000000000103".into());
             let mut tx = pool.begin().await.unwrap();
-            crate::application::queue::outbox::record_momentum_completed(&mut tx, &source)
+            crate::plugins::analyst::adapter::record_momentum_completed(&mut tx, &source)
                 .await
                 .unwrap();
             tx.commit().await.unwrap();
@@ -1373,7 +1373,7 @@ mod postgres_recovery_rehearsal {
             claim_token: Some("00000000-0000-4000-8000-000000000002".into()),
         };
         let mut tx = pool.begin().await.unwrap();
-        crate::application::queue::outbox::record_momentum_completed(&mut tx, &source)
+        crate::plugins::analyst::adapter::record_momentum_completed(&mut tx, &source)
             .await
             .unwrap();
         tx.commit().await.unwrap();

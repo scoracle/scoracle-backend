@@ -38,6 +38,36 @@ use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use tracing::{debug, info, warn};
 
+pub(crate) const TRANSFER_PUBLISHED: &str = "transfer_published";
+pub(crate) const TRANSFER_IDENTITY_APPLIED: &str = "transfer_identity_applied";
+
+pub(crate) async fn record_transfer_event(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    item: &Item,
+    kind: &'static str,
+    entity_type: &str,
+    entity_id: i32,
+    input_version: Option<&str>,
+) -> Result<()> {
+    let context = match kind {
+        TRANSFER_PUBLISHED => "record transfer publication outbox",
+        TRANSFER_IDENTITY_APPLIED => "record transfer identity rating obligation",
+        _ => "record transfer outbox event",
+    };
+    crate::application::queue::outbox::record(
+        tx,
+        item,
+        crate::application::queue::outbox::NewEvent {
+            kind,
+            entity_type,
+            entity_id,
+            source_input_version: input_version,
+        },
+    )
+    .await
+    .context(context)
+}
+
 mod identity;
 use crate::plugins::insider::cognition::{
     build_insider_score_input_components, build_insider_score_prompt,
@@ -771,9 +801,10 @@ pub async fn persist_transfer_row(
     .context("persist transfer row")?;
     let row_id: i64 = inserted.get("id");
     if served_rumor {
-        crate::application::queue::outbox::record_transfer_published(
+        record_transfer_event(
             tx,
             item,
+            TRANSFER_PUBLISHED,
             "player",
             player_id,
             Some(&row_id.to_string()),
@@ -1011,9 +1042,10 @@ async fn score_insider_entity(
     .await
     .context("persist insider score")?;
     let row_id: i64 = row.get("id");
-    crate::application::queue::outbox::record_transfer_published(
+    record_transfer_event(
         tx,
         item,
+        TRANSFER_PUBLISHED,
         entity_type,
         entity_id,
         Some(&row_id.to_string()),
@@ -1064,9 +1096,10 @@ async fn complete_claimed(pool: &PgPool, item: &Item) -> Result<PluginOutcome> {
     let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
         return Ok(PluginOutcome::Superseded);
     };
-    crate::application::queue::outbox::record_transfer_published(
+    record_transfer_event(
         publication.transaction(),
         item,
+        TRANSFER_PUBLISHED,
         &item.entity_type,
         item.entity_id_i32()?,
         item.input_version.as_deref(),

@@ -700,7 +700,7 @@ mod postgres_publication_fencing_tests {
                         .await
                         .unwrap();
                 }
-                crate::application::queue::outbox::record_momentum_completed(
+                crate::plugins::analyst::adapter::record_momentum_completed(
                     publication.transaction(),
                     &current,
                 )

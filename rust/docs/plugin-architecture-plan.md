@@ -269,8 +269,15 @@ and quality fixtures retain expected behavior.
   The complete ignored database suite then passed serially against the disposable migrated
   PostgreSQL cluster: 60 passed, 0 failed, including dispatch failure/backoff, crash/replay,
   idempotent fan-out, claim fencing, cross-worker eligibility, and unrelated task execution.
-- Next: move the remaining domain event vocabulary/producer helpers out of the generic
-  outbox module, then shadow-compare the migrated edges before completing milestone 4.
+- Milestone 4 event ownership completed: the generic outbox now exposes one claim-bound
+  event insert operation and contains no product/event names. Influencer, Analyst, Scout,
+  Journalist, and Insider own their stable event keys and producer wrappers; Oracle and
+  the other reactions reference those plugin-owned identities explicitly. The production
+  SQL statement and all persisted strings remain byte-for-byte unchanged. The full offline
+  suite again passed with 565 tests and 60 ignored, and the complete isolated PostgreSQL
+  suite again passed serially: 60 passed, 0 failed.
+- Next: audit the remaining transitional domain aliases/comments in generic scheduling,
+  perform the final milestone 4 edge-parity review, and close the milestone gate.
 
 ## 7. Final test audit — deferred until all architecture work is complete
 

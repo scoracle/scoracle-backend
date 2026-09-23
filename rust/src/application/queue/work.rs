@@ -15,12 +15,10 @@ use std::time::Duration;
 /// Open durable task key stored in `pipeline_work.stage`.
 ///
 /// New plugins create a key from their stable stored string; the execution kernel
-/// does not require a matching enum variant. The associated first-party constants
-/// are compatibility spellings while callers migrate to plugin-owned `TASK` values.
+/// does not require a matching enum variant or a kernel-owned constant.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TaskKey(&'static str);
 
-#[allow(non_upper_case_globals)]
 impl TaskKey {
     pub const fn new(key: &'static str) -> Self {
         Self(key)
@@ -29,17 +27,6 @@ impl TaskKey {
     pub fn as_str(self) -> &'static str {
         self.0
     }
-
-    pub const Editor: Self = Self::new("editor");
-    pub const InvestigateEntity: Self = Self::new("investigate_entity");
-    pub const FixtureBoxscore: Self = Self::new("fixture_boxscore");
-    pub const Graph: Self = Self::new("graph");
-    pub const Rating: Self = Self::new("rating");
-    pub const Momentum: Self = Self::new("momentum");
-    pub const Transfers: Self = Self::new("transfers");
-    pub const Narratives: Self = Self::new("narratives");
-    pub const Vibe: Self = Self::new("vibe");
-    pub const Sigil: Self = Self::new("sigil");
 }
 
 impl std::fmt::Display for TaskKey {
@@ -47,10 +34,6 @@ impl std::fmt::Display for TaskKey {
         f.write_str(self.as_str())
     }
 }
-
-/// Transitional source alias. Unlike the former enum, it accepts any `TaskKey::new`
-/// value and does not close registration over the first-party fleet.
-pub type Stage = TaskKey;
 
 /// Generic ordering available to a registered durable task. The host translates
 /// these bounded variants into static SQL; plugins never supply SQL fragments.
@@ -115,7 +98,7 @@ impl ClaimPolicy {
 /// running revision captured on claim. `claim_token` is present only on a claimed item.
 #[derive(Clone, Debug)]
 pub struct Item {
-    pub stage: Stage,
+    pub stage: TaskKey,
     pub entity_type: String, // "player" | "team" | "article" | "fixture"
     pub entity_id: i64,
     pub sport: String,
@@ -237,14 +220,14 @@ pub fn retry_backoff(prior_failures: i32) -> Duration {
 /// The Go version wraps this in an explicit transaction; a single CTE UPDATE
 /// with FOR UPDATE SKIP LOCKED is already atomic under auto-commit, so we run
 /// it directly against the pool.
-pub async fn claim(pool: &PgPool, stage: Stage, limit: i64) -> Result<Vec<Item>> {
+pub async fn claim(pool: &PgPool, stage: TaskKey, limit: i64) -> Result<Vec<Item>> {
     claim_with_policy(pool, stage, ClaimPolicy::FIFO, limit).await
 }
 
 /// Claim with the task owner's registered database-level scheduling policy.
 pub async fn claim_with_policy(
     pool: &PgPool,
-    stage: Stage,
+    stage: TaskKey,
     policy: ClaimPolicy,
     limit: i64,
 ) -> Result<Vec<Item>> {
@@ -363,7 +346,7 @@ pub async fn fail(
 }
 
 /// Returns a progressing item to pending without an attempt penalty.
-/// The row remains visible to the Oracle barrier and the note is stored in `last_error`.
+/// The row remains visible to registered dependency gates and the note is stored in `last_error`.
 ///
 /// **The caller owes a progress guarantee.** `attempts` does not move, so nothing in this function
 /// bounds the number of rounds: an item that defers without resolving anything defers forever.
@@ -508,7 +491,7 @@ mod tests {
     #[test]
     fn claim_sensitive_operations_require_a_claimed_item() {
         let item = Item {
-            stage: Stage::Vibe,
+            stage: crate::plugins::influencer::manifest::TASK,
             entity_type: "team".to_string(),
             entity_id: 7,
             sport: "ZZ_TEST".to_string(),
@@ -547,7 +530,7 @@ mod postgres_claim_fencing_tests {
             .expect("connect TEST_DATABASE_URL")
     }
 
-    fn pending(stage: Stage, entity_id: i64, sport: &str, revision: &str) -> Item {
+    fn pending(stage: TaskKey, entity_id: i64, sport: &str, revision: &str) -> Item {
         Item {
             stage,
             entity_type: "team".to_string(),
@@ -574,7 +557,7 @@ mod postgres_claim_fencing_tests {
         Ok(completed)
     }
 
-    async fn one_claim(pool: &PgPool, stage: Stage) -> Item {
+    async fn one_claim(pool: &PgPool, stage: TaskKey) -> Item {
         let mut items = claim_registered(pool, stage, 1)
             .await
             .expect("claim test row");
@@ -582,7 +565,7 @@ mod postgres_claim_fencing_tests {
         items.remove(0)
     }
 
-    async fn claim_registered(pool: &PgPool, stage: Stage, limit: i64) -> Result<Vec<Item>> {
+    async fn claim_registered(pool: &PgPool, stage: TaskKey, limit: i64) -> Result<Vec<Item>> {
         let policy = crate::application::fleet::ALL
             .iter()
             .find(|manifest| manifest.task == stage)
@@ -607,9 +590,12 @@ mod postgres_claim_fencing_tests {
         listener_a.listen("pipeline_work_ready").await.unwrap();
         listener_b.listen("pipeline_work_ready").await.unwrap();
         for id in 9_100_100..9_100_120 {
-            enqueue(&first, &pending(Stage::Graph, id, sport, "v1"))
-                .await
-                .unwrap();
+            enqueue(
+                &first,
+                &pending(crate::plugins::graph::manifest::TASK, id, sport, "v1"),
+            )
+            .await
+            .unwrap();
         }
         for listener in [&mut listener_a, &mut listener_b] {
             tokio::time::timeout(Duration::from_secs(2), listener.recv())
@@ -618,8 +604,8 @@ mod postgres_claim_fencing_tests {
                 .unwrap();
         }
         let (a, b) = tokio::join!(
-            claim(&first, Stage::Graph, 10),
-            claim(&second, Stage::Graph, 10)
+            claim(&first, crate::plugins::graph::manifest::TASK, 10),
+            claim(&second, crate::plugins::graph::manifest::TASK, 10)
         );
         let a = a.unwrap();
         let b = b.unwrap();
@@ -628,7 +614,10 @@ mod postgres_claim_fencing_tests {
         for job in &a {
             assert!(!b.iter().any(|other| other.entity_id == job.entity_id));
         }
-        assert!(claim(&second, Stage::Graph, 1).await.unwrap().is_empty());
+        assert!(claim(&second, crate::plugins::graph::manifest::TASK, 1)
+            .await
+            .unwrap()
+            .is_empty());
         for job in a.iter().chain(&b) {
             assert!(complete(&first, job).await.unwrap());
         }
@@ -645,29 +634,42 @@ mod postgres_claim_fencing_tests {
         sqlx::query("INSERT INTO sports (id, display_name, current_season) VALUES ($1, 'Shared workers', 2026) ON CONFLICT DO NOTHING")
             .bind(sport).execute(&first).await.unwrap();
         let id = 9_100_130;
-        for stage in [Stage::Rating, Stage::Momentum, Stage::Sigil] {
+        for stage in [
+            crate::plugins::scout::manifest::TASK,
+            crate::plugins::analyst::manifest::TASK,
+            crate::plugins::oracle::manifest::TASK,
+        ] {
             enqueue(&first, &pending(stage, id, sport, "v1"))
                 .await
                 .unwrap();
         }
-        assert!(claim_registered(&second, Stage::Momentum, 1)
-            .await
-            .unwrap()
-            .is_empty());
-        assert!(claim_registered(&second, Stage::Sigil, 1)
-            .await
-            .unwrap()
-            .is_empty());
-        let rating = one_claim(&first, Stage::Rating).await;
-        assert!(claim_registered(&second, Stage::Momentum, 1)
-            .await
-            .unwrap()
-            .is_empty());
+        assert!(
+            claim_registered(&second, crate::plugins::analyst::manifest::TASK, 1)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        assert!(
+            claim_registered(&second, crate::plugins::oracle::manifest::TASK, 1)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        let rating = one_claim(&first, crate::plugins::scout::manifest::TASK).await;
+        assert!(
+            claim_registered(&second, crate::plugins::analyst::manifest::TASK, 1)
+                .await
+                .unwrap()
+                .is_empty()
+        );
         // A different entity can progress while this one waits.
-        enqueue(&first, &pending(Stage::Sigil, id + 1, sport, "v1"))
-            .await
-            .unwrap();
-        let independent = one_claim(&second, Stage::Sigil).await;
+        enqueue(
+            &first,
+            &pending(crate::plugins::oracle::manifest::TASK, id + 1, sport, "v1"),
+        )
+        .await
+        .unwrap();
+        let independent = one_claim(&second, crate::plugins::oracle::manifest::TASK).await;
         assert_eq!(independent.entity_id, id + 1);
         assert!(complete(&second, &independent).await.unwrap());
         let mut tx = first.begin().await.unwrap();
@@ -676,37 +678,43 @@ mod postgres_claim_fencing_tests {
             .unwrap();
         assert!(complete_in_transaction(&mut tx, &rating).await.unwrap());
         tx.commit().await.unwrap();
-        assert!(claim_registered(&second, Stage::Momentum, 1)
-            .await
-            .unwrap()
-            .is_empty());
+        assert!(
+            claim_registered(&second, crate::plugins::analyst::manifest::TASK, 1)
+                .await
+                .unwrap()
+                .is_empty()
+        );
         // Isolate dispatch acknowledgement from model/context preparation here.
         sqlx::query("DELETE FROM application_outbox WHERE sport = $1")
             .bind(sport)
             .execute(&first)
             .await
             .unwrap();
-        let momentum = one_claim(&second, Stage::Momentum).await;
-        assert!(claim_registered(&first, Stage::Sigil, 1)
-            .await
-            .unwrap()
-            .is_empty());
+        let momentum = one_claim(&second, crate::plugins::analyst::manifest::TASK).await;
+        assert!(
+            claim_registered(&first, crate::plugins::oracle::manifest::TASK, 1)
+                .await
+                .unwrap()
+                .is_empty()
+        );
         let mut tx = second.begin().await.unwrap();
         crate::plugins::analyst::adapter::record_momentum_completed(&mut tx, &momentum)
             .await
             .unwrap();
         assert!(complete_in_transaction(&mut tx, &momentum).await.unwrap());
         tx.commit().await.unwrap();
-        assert!(claim_registered(&first, Stage::Sigil, 1)
-            .await
-            .unwrap()
-            .is_empty());
+        assert!(
+            claim_registered(&first, crate::plugins::oracle::manifest::TASK, 1)
+                .await
+                .unwrap()
+                .is_empty()
+        );
         sqlx::query("DELETE FROM application_outbox WHERE sport = $1")
             .bind(sport)
             .execute(&first)
             .await
             .unwrap();
-        let oracle = one_claim(&first, Stage::Sigil).await;
+        let oracle = one_claim(&first, crate::plugins::oracle::manifest::TASK).await;
         assert!(complete(&first, &oracle).await.unwrap());
         clean(&first, sport).await;
     }
@@ -718,9 +726,14 @@ mod postgres_claim_fencing_tests {
         let sport = "ZZ_RUST_STALE_CLAIM";
         clean(&pool, sport).await;
 
-        let offered = pending(Stage::Graph, 9_100_001, sport, "v1");
+        let offered = pending(
+            crate::plugins::graph::manifest::TASK,
+            9_100_001,
+            sport,
+            "v1",
+        );
         enqueue(&pool, &offered).await.expect("enqueue v1");
-        let old = one_claim(&pool, Stage::Graph).await;
+        let old = one_claim(&pool, crate::plugins::graph::manifest::TASK).await;
 
         sqlx::query(
             "UPDATE pipeline_work SET updated_at = NOW() - INTERVAL '1 hour' \
@@ -737,7 +750,7 @@ mod postgres_claim_fencing_tests {
                 .expect("recover old claim"),
             1
         );
-        let current = one_claim(&pool, Stage::Graph).await;
+        let current = one_claim(&pool, crate::plugins::graph::manifest::TASK).await;
         assert_ne!(old.claim_token, current.claim_token);
 
         assert!(!complete(&pool, &old).await.expect("stale complete"));
@@ -760,18 +773,28 @@ mod postgres_claim_fencing_tests {
         let sport = "ZZ_RUST_RUNNING_REVISION";
         clean(&pool, sport).await;
 
-        let v1 = pending(Stage::FixtureBoxscore, 9_100_002, sport, "v1");
+        let v1 = pending(
+            crate::plugins::fixture_boxscore::manifest::TASK,
+            9_100_002,
+            sport,
+            "v1",
+        );
         enqueue(&pool, &v1).await.expect("enqueue v1");
-        let old = one_claim(&pool, Stage::FixtureBoxscore).await;
+        let old = one_claim(&pool, crate::plugins::fixture_boxscore::manifest::TASK).await;
 
-        let v2 = pending(Stage::FixtureBoxscore, v1.entity_id, sport, "v2");
+        let v2 = pending(
+            crate::plugins::fixture_boxscore::manifest::TASK,
+            v1.entity_id,
+            sport,
+            "v2",
+        );
         enqueue(&pool, &v2).await.expect("enqueue v2 during v1");
         assert!(!complete(&pool, &old).await.expect("stale v1 complete"));
         assert!(!fail(&pool, &old, "late v1", Duration::ZERO, MAX_ATTEMPTS)
             .await
             .expect("stale v1 fail"));
 
-        let current = one_claim(&pool, Stage::FixtureBoxscore).await;
+        let current = one_claim(&pool, crate::plugins::fixture_boxscore::manifest::TASK).await;
         assert_eq!(current.input_version.as_deref(), Some("v2"));
         assert_ne!(old.claim_token, current.claim_token);
         assert!(complete(&pool, &current).await.expect("complete v2"));
@@ -784,12 +807,8 @@ mod postgres_claim_fencing_tests {
 mod claim_order_tests {
     use super::ClaimOrder;
 
-    /// Every stage that writes a card a subscriber reads drains teams first.
-    ///
-    /// 2026-08-22: Narratives, Vibe and Sigil had this and their team cards were current;
-    /// Rating, Momentum and Transfers did not and their team cards were up to six days stale
-    /// behind 8,416 queued items, most of them player-grain. The split in behaviour matched
-    /// the split in this function exactly.
+    /// Every product task whose cards are consumed downstream drains teams first. This guards
+    /// against team work starving behind a continuously refilled player queue.
     #[test]
     fn the_product_stages_all_drain_teams_first() {
         for manifest in [
@@ -802,8 +821,7 @@ mod claim_order_tests {
         ] {
             assert_eq!(manifest.claim_policy.order, ClaimOrder::TeamsFirst);
         }
-        // The Editor still drains best-first: its budget is finite and Google already ranked
-        // the articles, so rank beats grain there.
+        // Ranked ingestion still drains best-first because source rank beats entity grain there.
         assert_eq!(
             crate::plugins::editor::manifest::MANIFEST
                 .claim_policy

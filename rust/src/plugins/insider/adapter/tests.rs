@@ -1,7 +1,6 @@
 //! Exact-claim transfer publication and durable follow-up tests.
 
 use super::*;
-use crate::application::queue::work::Stage;
 use crate::plugins::insider::cognition::TransferPairProduct;
 use crate::studio::Generation;
 
@@ -113,7 +112,7 @@ mod postgres_tests {
 
     fn pending(revision: &str) -> Item {
         Item {
-            stage: Stage::Transfers,
+            stage: crate::plugins::insider::manifest::TASK,
             entity_type: "team".to_string(),
             entity_id: TEAM_ID,
             sport: SPORT.to_string(),
@@ -124,9 +123,13 @@ mod postgres_tests {
     }
 
     async fn claim_one(pool: &PgPool) -> Item {
-        let mut claimed = crate::application::queue::work::claim(pool, Stage::Transfers, 1)
-            .await
-            .unwrap();
+        let mut claimed = crate::application::queue::work::claim(
+            pool,
+            crate::plugins::insider::manifest::TASK,
+            1,
+        )
+        .await
+        .unwrap();
         assert_eq!(claimed.len(), 1);
         claimed.remove(0)
     }

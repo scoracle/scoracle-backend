@@ -1,7 +1,7 @@
 //! Exact publication tests for the Journalist application boundary.
 
 use super::*;
-use crate::application::queue::work::{self, Stage};
+use crate::application::queue::work;
 use crate::plugins::journalist::cognition::NarrativesProduct;
 use crate::studio::Generation;
 
@@ -101,7 +101,7 @@ mod postgres_publication_fencing_tests {
 
     fn pending(revision: &str) -> Item {
         Item {
-            stage: Stage::Narratives,
+            stage: crate::plugins::journalist::manifest::TASK,
             entity_type: "team".to_string(),
             entity_id: ENTITY_ID,
             sport: SPORT.to_string(),
@@ -112,7 +112,7 @@ mod postgres_publication_fencing_tests {
     }
 
     async fn claim_one(pool: &PgPool) -> Item {
-        let mut claimed = work::claim(pool, Stage::Narratives, 1)
+        let mut claimed = work::claim(pool, crate::plugins::journalist::manifest::TASK, 1)
             .await
             .expect("claim narratives test row");
         assert_eq!(claimed.len(), 1);

@@ -1,7 +1,7 @@
 //! Exact publication and five-pillar readiness tests for the Oracle application boundary.
 
 use super::*;
-use crate::application::queue::work::Stage;
+use crate::application::queue::work::TaskKey;
 use crate::plugins::oracle::cognition::SigilSynthesis;
 use crate::studio::Generation;
 
@@ -34,7 +34,7 @@ fn readiness_waits_on_five_pillars_and_never_on_sigil_itself() {
         names,
         ["narratives", "rating", "vibe", "momentum", "transfers"]
     );
-    assert!(!PILLAR_STAGES.contains(&Stage::Sigil));
+    assert!(!PILLAR_STAGES.contains(&crate::plugins::oracle::manifest::TASK));
 }
 
 mod postgres_oracle_tests {
@@ -77,7 +77,7 @@ mod postgres_oracle_tests {
         .unwrap();
     }
 
-    fn pending(stage: Stage, revision: &str) -> Item {
+    fn pending(stage: TaskKey, revision: &str) -> Item {
         Item {
             stage,
             entity_type: "team".to_string(),
@@ -90,7 +90,9 @@ mod postgres_oracle_tests {
     }
 
     async fn claim_one(pool: &PgPool) -> Item {
-        let mut claimed = work::claim(pool, Stage::Sigil, 1).await.unwrap();
+        let mut claimed = work::claim(pool, crate::plugins::oracle::manifest::TASK, 1)
+            .await
+            .unwrap();
         assert_eq!(claimed.len(), 1);
         claimed.remove(0)
     }
@@ -114,9 +116,12 @@ mod postgres_oracle_tests {
     async fn current_claim_commits_crown_and_exact_completion() {
         let pool = pool().await;
         clean(&pool).await;
-        work::enqueue(&pool, &pending(Stage::Sigil, "current"))
-            .await
-            .unwrap();
+        work::enqueue(
+            &pool,
+            &pending(crate::plugins::oracle::manifest::TASK, "current"),
+        )
+        .await
+        .unwrap();
         let current = claim_one(&pool).await;
         let prepared = Prepared::Product {
             output: Box::new(crown(Some(74))),
@@ -158,9 +163,12 @@ mod postgres_oracle_tests {
     async fn missing_cards_commit_one_marker_without_a_model_voice() {
         let pool = pool().await;
         clean(&pool).await;
-        work::enqueue(&pool, &pending(Stage::Sigil, "missing"))
-            .await
-            .unwrap();
+        work::enqueue(
+            &pool,
+            &pending(crate::plugins::oracle::manifest::TASK, "missing"),
+        )
+        .await
+        .unwrap();
         let current = claim_one(&pool).await;
         let prepared = Prepared::Product {
             output: Box::new(crown(None)),
@@ -187,13 +195,19 @@ mod postgres_oracle_tests {
     async fn revision_supersession_publishes_nothing_from_stale_oracle() {
         let pool = pool().await;
         clean(&pool).await;
-        work::enqueue(&pool, &pending(Stage::Sigil, "v1"))
-            .await
-            .unwrap();
+        work::enqueue(
+            &pool,
+            &pending(crate::plugins::oracle::manifest::TASK, "v1"),
+        )
+        .await
+        .unwrap();
         let stale = claim_one(&pool).await;
-        work::enqueue(&pool, &pending(Stage::Sigil, "v2"))
-            .await
-            .unwrap();
+        work::enqueue(
+            &pool,
+            &pending(crate::plugins::oracle::manifest::TASK, "v2"),
+        )
+        .await
+        .unwrap();
         let prepared = Prepared::Product {
             output: Box::new(crown(Some(45))),
             previous_score: None,
@@ -223,9 +237,12 @@ mod postgres_oracle_tests {
     async fn same_revision_reclaim_gives_only_new_lease_publication_rights() {
         let pool = pool().await;
         clean(&pool).await;
-        work::enqueue(&pool, &pending(Stage::Sigil, "same"))
-            .await
-            .unwrap();
+        work::enqueue(
+            &pool,
+            &pending(crate::plugins::oracle::manifest::TASK, "same"),
+        )
+        .await
+        .unwrap();
         let stale = claim_one(&pool).await;
         sqlx::query(
             "UPDATE pipeline_work SET updated_at = NOW() - INTERVAL '1 hour' WHERE sport = $1",
@@ -264,9 +281,12 @@ mod postgres_oracle_tests {
     async fn unchanged_crown_completes_without_another_product_or_followup() {
         let pool = pool().await;
         clean(&pool).await;
-        work::enqueue(&pool, &pending(Stage::Sigil, "same-input"))
-            .await
-            .unwrap();
+        work::enqueue(
+            &pool,
+            &pending(crate::plugins::oracle::manifest::TASK, "same-input"),
+        )
+        .await
+        .unwrap();
         let current = claim_one(&pool).await;
         assert_eq!(
             commit_claimed(&pool, &current, SPORT, &Prepared::Debounced)
@@ -287,9 +307,12 @@ mod postgres_oracle_tests {
             .await
             .unwrap());
 
-        work::enqueue(&pool, &pending(Stage::Rating, "pending"))
-            .await
-            .unwrap();
+        work::enqueue(
+            &pool,
+            &pending(crate::plugins::scout::manifest::TASK, "pending"),
+        )
+        .await
+        .unwrap();
         assert!(!super::pillars_settled(&pool, "team", ENTITY_ID, SPORT)
             .await
             .unwrap());

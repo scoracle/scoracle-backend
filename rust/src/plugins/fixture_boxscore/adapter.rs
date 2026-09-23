@@ -1395,7 +1395,7 @@ mod tests {
 #[cfg(test)]
 mod publication_tests {
     use super::*;
-    use crate::application::queue::work::{self, Stage};
+    use crate::application::queue::work;
     #[tokio::test]
     #[ignore = "requires isolated TEST_DATABASE_URL; run serially"]
     async fn terminal_acquisition_and_ledger_commit_only_with_exact_claim() {
@@ -1423,7 +1423,7 @@ mod publication_tests {
         sqlx::query("INSERT INTO fixtures(id,sport,season,home_team_id,away_team_id,start_time) VALUES($1,$2,2026,$1,$3,NOW())").bind(id).bind(sport).bind(id+1).execute(&pool).await.unwrap();
         let fixture = load_fixture(&pool, id).await.unwrap().unwrap();
         let pending = Item {
-            stage: Stage::FixtureBoxscore,
+            stage: crate::plugins::fixture_boxscore::manifest::TASK,
             entity_type: "fixture".into(),
             entity_id: id.into(),
             sport: sport.into(),
@@ -1432,12 +1432,12 @@ mod publication_tests {
             claim_token: None,
         };
         work::enqueue(&pool, &pending).await.unwrap();
-        let old = work::claim(&pool, Stage::FixtureBoxscore, 1)
+        let old = work::claim(&pool, crate::plugins::fixture_boxscore::manifest::TASK, 1)
             .await
             .unwrap()
             .remove(0);
         work::release(&pool, &old).await.unwrap();
-        let current = work::claim(&pool, Stage::FixtureBoxscore, 1)
+        let current = work::claim(&pool, crate::plugins::fixture_boxscore::manifest::TASK, 1)
             .await
             .unwrap()
             .remove(0);

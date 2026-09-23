@@ -123,7 +123,7 @@ impl Backend {
     }
 }
 
-/// Concrete model and host for a [`Role`]. Stage code names roles, never model ids.
+/// Concrete model and host for a [`Role`]. TaskKey code names roles, never model ids.
 #[derive(Clone, Debug)]
 pub struct ModelSpec {
     pub backend: Backend,

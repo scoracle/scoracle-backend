@@ -238,9 +238,8 @@ and quality fixtures retain expected behavior.
   warnings. `cargo test --lib --bins --offline` passed with 562 tests and 59 ignored;
   formatting and diff whitespace checks passed. The ignored database suite was not rerun
   because this slice mechanically relocates its existing barrier and maintenance SQL.
-- Milestone 4 continued: durable tasks now use the open `TaskKey`; the former `Stage`
-  name remains only as a transitional source alias and no enum variant is required for
-  registration. Each first-party plugin manifest owns its stable `TASK` string. Schema
+- Milestone 4 continued: durable tasks now use the open `TaskKey`; no enum variant is
+  required for registration. Each first-party plugin manifest owns its stable `TASK` string. Schema
   inventory confirmed `pipeline_work.stage` has no allow-list constraint; its primary key,
   claim indexes, SQL producers, and stored strings remain unchanged. The existing
   `entity_type` allow-list is a separate persisted-subject constraint.
@@ -276,8 +275,20 @@ and quality fixtures retain expected behavior.
   SQL statement and all persisted strings remain byte-for-byte unchanged. The full offline
   suite again passed with 565 tests and 60 ignored, and the complete isolated PostgreSQL
   suite again passed serially: 60 passed, 0 failed.
-- Next: audit the remaining transitional domain aliases/comments in generic scheduling,
-  perform the final milestone 4 edge-parity review, and close the milestone gate.
+- Milestone 4: complete. The transitional `Stage` source alias and all ten kernel-owned
+  first-party task constants are removed; generic scheduling accepts only open `TaskKey`
+  values while plugin manifests remain the sole owners of stored task spellings. Generic
+  scheduler comments and registry fixtures no longer depend on newsroom identities. The
+  composition test now enumerates all seven durable event mappings, including reaction
+  order for the two multi-effect edges, and the database suite exercises their row effects,
+  debounce/terminal paths, failure backoff, crash replay, and multi-worker gates.
+- Milestone 4 final validation: `cargo test --lib --bins --offline` passed with 565 tests
+  and 60 ignored; `cargo check --all-targets --offline`, formatting, and diff whitespace
+  checks passed without warnings. The complete ignored PostgreSQL suite passed serially:
+  60 passed, 0 failed. No migration, stored identifier, SQL behavior, prompt, route, product,
+  or resource-limit change was introduced.
+- Next: milestone 5, injecting scoped inference/preparation capabilities and moving
+  correction policy out of the session kernel while preserving current routes and outputs.
 
 ## 7. Final test audit — deferred until all architecture work is complete
 

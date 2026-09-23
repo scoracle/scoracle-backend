@@ -1,6 +1,5 @@
 //! Service-free acceptance of the production coordinator and its actual Studio session.
 use super::*;
-use crate::application::queue::work::Stage;
 use crate::plugins::influencer::cognition::build_sentiment_prompt;
 use crate::studio::model::{GenerateOptions, GenerateResult, IncompleteOutput, Inference};
 use crate::studio::plugin::PluginOutcome;
@@ -339,7 +338,7 @@ async fn production_and_eval_keep_their_existing_options_and_capacity() {
         models,
     );
     let manifest = handler.manifest();
-    assert_eq!(manifest.task, Stage::Vibe);
+    assert_eq!(manifest.task, crate::plugins::influencer::manifest::TASK);
     assert_eq!(manifest.resources.max_in_flight, 1);
     assert_eq!(
         manifest.resources.slot_group,
@@ -530,7 +529,7 @@ mod postgres_publication_fencing_tests {
 
     fn pending(revision: &str) -> Item {
         Item {
-            stage: Stage::Vibe,
+            stage: crate::plugins::influencer::manifest::TASK,
             entity_type: "team".to_string(),
             entity_id: ENTITY_ID,
             sport: SPORT.to_string(),
@@ -541,7 +540,7 @@ mod postgres_publication_fencing_tests {
     }
 
     async fn claim_one(pool: &PgPool) -> Item {
-        let mut claimed = work::claim(pool, Stage::Vibe, 1)
+        let mut claimed = work::claim(pool, crate::plugins::influencer::manifest::TASK, 1)
             .await
             .expect("claim vibe test row");
         assert_eq!(claimed.len(), 1);

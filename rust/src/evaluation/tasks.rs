@@ -266,7 +266,7 @@ pub struct Expect {
     /// Direction relative to the named team (`incoming`, `outgoing`, `unclear`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub transfer_direction: Option<String>,
-    /// Stage ladder expectation (`speculation`, `concrete_interest`, `advanced_talks`, `here_we_go`).
+    /// TaskKey ladder expectation (`speculation`, `concrete_interest`, `advanced_talks`, `here_we_go`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub transfer_stage: Option<String>,
     /// Subject discipline: the parser should identify the exact person the sources are really about.

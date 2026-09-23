@@ -174,7 +174,7 @@ pub fn compile(members: &[Member], entities: &[PacketEntity]) -> PacketDraft {
     tags.sort();
     tags.dedup();
 
-    // Stage-keyed fingerprints wake a voice only when its slice changes.
+    // TaskKey-keyed fingerprints wake a voice only when its slice changes.
     let slice_fingerprints = json!({
         "narratives": hash_components(&json!({
             "headline": headline,

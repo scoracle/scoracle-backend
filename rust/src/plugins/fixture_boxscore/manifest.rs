@@ -1,11 +1,11 @@
 //! Registration policy owned by this plugin.
 
-use crate::application::queue::work::{ClaimPolicy, Stage};
+use crate::application::queue::work::{ClaimPolicy, TaskKey};
 use crate::studio::plugin::{PluginId, PluginManifest, ProductKind, ResourceProfile, ToolGrant};
 use crate::studio::tools::DomainClass;
 
 const BOXSCORE_WEB_DOMAINS: [DomainClass; 1] = [DomainClass::BoxscoreSources];
-pub const TASK: Stage = Stage::new("fixture_boxscore");
+pub const TASK: TaskKey = TaskKey::new("fixture_boxscore");
 const BOXSCORE_TOOLS: [ToolGrant; 3] = [
     ToolGrant::WorldRead,
     ToolGrant::Commit,

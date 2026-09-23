@@ -252,7 +252,7 @@ async fn enqueue_peak_target(pool: &sqlx::PgPool, models: &Models, t: &Target) -
             RatingBuild::Ready(r) => rating_work_input_version(r.season, Some(&r.input_hash)),
         };
     let rating = work::Item {
-        stage: work::Stage::Rating,
+        stage: scoracle_cognition::plugins::scout::manifest::TASK,
         entity_type: t.entity_type.clone(),
         entity_id: i64::from(t.entity_id),
         sport: t.sport.clone(),

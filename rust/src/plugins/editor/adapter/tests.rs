@@ -48,7 +48,7 @@ fn a_body_without_nul_passes_through_byte_identical() {
 
 mod postgres_tests {
     use super::*;
-    use crate::application::queue::work::{self, Stage};
+    use crate::application::queue::work;
     use crate::studio::Parser;
     const SPORT: &str = "ZZ_EDITOR_FENCE";
     const ARTICLE: i64 = 9_400_001;
@@ -93,7 +93,7 @@ mod postgres_tests {
     }
     fn pending(revision: &str) -> Item {
         Item {
-            stage: Stage::Editor,
+            stage: crate::plugins::editor::manifest::TASK,
             entity_type: "article".into(),
             entity_id: ARTICLE,
             sport: SPORT.into(),
@@ -103,7 +103,9 @@ mod postgres_tests {
         }
     }
     async fn claim(pool: &PgPool) -> Item {
-        let mut claims = work::claim(pool, Stage::Editor, 1).await.unwrap();
+        let mut claims = work::claim(pool, crate::plugins::editor::manifest::TASK, 1)
+            .await
+            .unwrap();
         assert_eq!(claims.len(), 1);
         claims.remove(0)
     }

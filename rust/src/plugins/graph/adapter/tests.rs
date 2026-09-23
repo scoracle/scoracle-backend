@@ -1,5 +1,5 @@
 use super::*;
-use crate::application::queue::work::{self, Stage};
+use crate::application::queue::work;
 use crate::plugins::graph::cognition::GraphParser;
 use crate::studio::Parser;
 use serde_json::json;
@@ -46,7 +46,7 @@ async fn setup() -> PgPool {
 }
 async fn claim(pool: &PgPool, revision: &str) -> Item {
     let pending = Item {
-        stage: Stage::Graph,
+        stage: crate::plugins::graph::manifest::TASK,
         entity_type: "article".into(),
         entity_id: ARTICLE,
         sport: SPORT.into(),
@@ -55,7 +55,10 @@ async fn claim(pool: &PgPool, revision: &str) -> Item {
         claim_token: None,
     };
     work::enqueue(pool, &pending).await.unwrap();
-    work::claim(pool, Stage::Graph, 1).await.unwrap().remove(0)
+    work::claim(pool, crate::plugins::graph::manifest::TASK, 1)
+        .await
+        .unwrap()
+        .remove(0)
 }
 fn prepared(raw: &str) -> Prepared {
     let candidates = [GraphCandidate {
@@ -148,7 +151,10 @@ async fn graph_revision_and_reclaim_fence_every_effect() {
     let stale = claim(&pool, "v1").await;
     let old = claim(&pool, "v2").await;
     work::release(&pool, &old).await.unwrap();
-    let current = work::claim(&pool, Stage::Graph, 1).await.unwrap().remove(0);
+    let current = work::claim(&pool, crate::plugins::graph::manifest::TASK, 1)
+        .await
+        .unwrap()
+        .remove(0);
     for item in [&stale, &old] {
         assert_eq!(
             commit_claimed(&pool, item, &product()).await.unwrap(),

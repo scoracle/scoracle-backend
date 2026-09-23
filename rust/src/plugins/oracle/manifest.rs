@@ -1,12 +1,12 @@
 //! Registration policy owned by this plugin.
 
-use crate::application::queue::work::{ClaimPolicy, Stage};
+use crate::application::queue::work::{ClaimPolicy, TaskKey};
 use crate::plugins::support::resources::MAC_SLOTS;
 use crate::runtime::route::Role;
 use crate::studio::plugin::ProviderId;
 use crate::studio::plugin::{PluginId, PluginManifest, ProductKind, ResourceProfile, ToolGrant};
 
-pub const TASK: Stage = Stage::new("sigil");
+pub const TASK: TaskKey = TaskKey::new("sigil");
 
 pub const MANIFEST: PluginManifest = PluginManifest {
     id: PluginId::new("scoracle.character.sigil"),

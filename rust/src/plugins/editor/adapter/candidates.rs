@@ -15,7 +15,7 @@
 
 use super::derive::{RefusedName, Resolved};
 use super::NameMention;
-use crate::application::queue::work::{enqueue, Item, Stage};
+use crate::application::queue::work::{enqueue, Item};
 use anyhow::{Context, Result};
 use sqlx::{PgConnection, Row};
 use tracing::info;
@@ -198,7 +198,7 @@ async fn nominate_one(
         enqueue(
             &mut *conn,
             &Item {
-                stage: Stage::InvestigateEntity,
+                stage: crate::plugins::investigator::manifest::TASK,
                 entity_type: "candidate".to_string(),
                 entity_id: candidate_id,
                 sport: sport.to_string(),

@@ -3,7 +3,7 @@
 use crate::application::models::Models;
 use crate::application::products::EntityKey;
 use crate::application::queue::publication::ClaimPublication;
-use crate::application::queue::work::{self, Item, Stage};
+use crate::application::queue::work::{self, Item, TaskKey};
 use crate::evidence::corpus::load_transfer_heat;
 use crate::evidence::memories::{self, MemoryRequest, Mission};
 use crate::evidence::trajectory::DEFAULT_TRAJECTORY;
@@ -32,12 +32,12 @@ const ORACLE_LEDGER: LedgerSpec = LedgerSpec {
     output_contract_version: ORACLE_OUTPUT_CONTRACT_VERSION,
 };
 
-const PILLAR_STAGES: [Stage; 5] = [
-    Stage::Narratives,
-    Stage::Rating,
-    Stage::Vibe,
-    Stage::Momentum,
-    Stage::Transfers,
+const PILLAR_STAGES: [TaskKey; 5] = [
+    crate::plugins::journalist::manifest::TASK,
+    crate::plugins::scout::manifest::TASK,
+    crate::plugins::influencer::manifest::TASK,
+    crate::plugins::analyst::manifest::TASK,
+    crate::plugins::insider::manifest::TASK,
 ];
 
 /// True when no pillar stage still owes this entity work. Failed pillars count as
@@ -88,7 +88,7 @@ pub async fn enqueue_oracle_if_pillars_settled(
     work::enqueue(
         pool,
         &Item {
-            stage: Stage::Sigil,
+            stage: crate::plugins::oracle::manifest::TASK,
             entity_type: entity_type.to_string(),
             entity_id,
             sport: sport.to_string(),

@@ -1,5 +1,5 @@
 use super::*;
-use crate::application::queue::work::{self, Item, Stage};
+use crate::application::queue::work::{self, Item};
 use crate::plugins::investigator::cognition::{gate::RoleClass, WikidataItem};
 use crate::studio::plugin::PluginOutcome;
 use serde_json::json;
@@ -50,7 +50,7 @@ async fn setup() -> PgPool {
 }
 async fn claim(pool: &PgPool, kind: &str, revision: &str) -> Item {
     let item = Item {
-        stage: Stage::InvestigateEntity,
+        stage: crate::plugins::investigator::manifest::TASK,
         entity_type: kind.into(),
         entity_id: ID.into(),
         sport: SPORT.into(),
@@ -59,7 +59,7 @@ async fn claim(pool: &PgPool, kind: &str, revision: &str) -> Item {
         claim_token: None,
     };
     work::enqueue(pool, &item).await.unwrap();
-    work::claim(pool, Stage::InvestigateEntity, 1)
+    work::claim(pool, crate::plugins::investigator::manifest::TASK, 1)
         .await
         .unwrap()
         .remove(0)
@@ -276,7 +276,7 @@ async fn player_reclaim_fences_facts_ids_and_cooldown() {
     let seeded = sqlx::query("INSERT INTO entity_fact_policy(entity_type,fact_type,tier) VALUES('player','date_of_birth','evidenced') ON CONFLICT DO NOTHING").execute(&pool).await.unwrap().rows_affected() == 1;
     let old = claim(&pool, "player", "v1").await;
     work::release(&pool, &old).await.unwrap();
-    let current = work::claim(&pool, Stage::InvestigateEntity, 1)
+    let current = work::claim(&pool, crate::plugins::investigator::manifest::TASK, 1)
         .await
         .unwrap()
         .remove(0);

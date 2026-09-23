@@ -1,7 +1,6 @@
 //! Unit and exact-publication tests for the Scout application adapter.
 
 use super::*;
-use crate::application::queue::work::Stage;
 use crate::plugins::scout::cognition::{RatingExclusions, RatingProduct, RATING_PROMPT_VERSION};
 use crate::studio::Generation;
 fn rating_product(
@@ -103,7 +102,7 @@ mod postgres_publication_fencing_tests {
 
     fn pending(revision: &str) -> Item {
         Item {
-            stage: Stage::Rating,
+            stage: crate::plugins::scout::manifest::TASK,
             entity_type: "team".to_string(),
             entity_id: ENTITY_ID,
             sport: SPORT.to_string(),
@@ -114,7 +113,7 @@ mod postgres_publication_fencing_tests {
     }
 
     async fn claim_one(pool: &PgPool) -> Item {
-        let mut claimed = work::claim(pool, Stage::Rating, 1)
+        let mut claimed = work::claim(pool, crate::plugins::scout::manifest::TASK, 1)
             .await
             .expect("claim rating test row");
         assert_eq!(claimed.len(), 1);

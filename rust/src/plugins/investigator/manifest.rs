@@ -1,12 +1,12 @@
 //! Registration policy owned by this plugin.
 
-use crate::application::queue::work::{ClaimPolicy, Stage};
+use crate::application::queue::work::{ClaimPolicy, TaskKey};
 use crate::runtime::route::Role;
 use crate::studio::plugin::{PluginId, PluginManifest, ProductKind, ResourceProfile, ToolGrant};
 use crate::studio::tools::DomainClass;
 
 const INVESTIGATOR_WEB_DOMAINS: [DomainClass; 1] = [DomainClass::Wikimedia];
-pub const TASK: Stage = Stage::new("investigate_entity");
+pub const TASK: TaskKey = TaskKey::new("investigate_entity");
 const INVESTIGATOR_TOOLS: [ToolGrant; 4] = [
     ToolGrant::WorldRead,
     ToolGrant::Commit,

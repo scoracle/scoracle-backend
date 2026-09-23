@@ -18,7 +18,7 @@
 //! grace aborts a stuck in-flight item — always inside systemd's 90s TimeoutStopSec,
 //! so a stop/restart never escalates to SIGKILL.
 
-use crate::application::queue::work::{self, retry_backoff, Stage, MAX_ATTEMPTS};
+use crate::application::queue::work::{self, retry_backoff, TaskKey, MAX_ATTEMPTS};
 use crate::studio::plugin::{PluginRegistry, ScheduledOperation};
 use anyhow::{anyhow, Result};
 use futures::stream::{FuturesUnordered, StreamExt};
@@ -140,9 +140,9 @@ type StageCaps = Vec<StageCap>;
 /// `COGNITION_DRAIN_CONCURRENCY` wins; otherwise it is derived from the stages' own caps, which
 /// by construction can never bind.
 ///
-/// Grouped stages contribute their GROUP's budget once, not each stage's ceiling. The Editor and
-/// graph may each claim up to 4, but only 4 between them, so summing both would inflate the global
-/// budget by slots that cannot be used at once.
+/// Grouped tasks contribute their group's budget once, not each task's ceiling. Two tasks may
+/// each claim up to four but share only four slots, so summing both would inflate the global
+/// budget by capacity that cannot be used at once.
 fn resolve_drain_concurrency(configured: Option<usize>, caps: &[StageCap]) -> usize {
     configured
         .unwrap_or_else(|| {
@@ -529,7 +529,7 @@ impl Worker {
         let budget = self.drain_concurrency.max(1);
         let mut inflight = FuturesUnordered::new();
         // In-flight items per stage, so no one stage can own the whole budget. Keyed by the
-        // stage's static name because `Stage` is not `Hash`.
+        // stage's static name because `TaskKey` is not `Hash`.
         let mut per_stage: HashMap<&'static str, usize> = HashMap::new();
         // In-flight per slot group, so stages sharing one backend's parallel slots divide them on
         // demand instead of by a fixed split. Keyed by group name; ungrouped stages never appear.
@@ -570,9 +570,8 @@ impl Worker {
                     running,
                     budget - inflight.len(),
                 );
-                // A grouped stage is additionally bounded by what its co-tenants have left. This
-                // is what lets The Editor spread into graph's idle slots without being able to
-                // oversubscribe the card when graph is working.
+                // A grouped task is additionally bounded by what its co-tenants have left. This
+                // lets one task borrow idle slots without oversubscribing the shared backend.
                 if let Some((name, group_budget)) = manifest.resources.slot_group {
                     let group_running = *per_group.get(name).unwrap_or(&0);
                     room = room.min(group_budget.saturating_sub(group_running));
@@ -718,7 +717,7 @@ impl Worker {
 
     /// fail_claimed walks the retry ladder for a failed item: visible backoff,
     /// retryable, dead-letter at MAX_ATTEMPTS.
-    async fn fail_claimed(&self, item: &work::Item, stage: &Stage, cause: &str) {
+    async fn fail_claimed(&self, item: &work::Item, stage: &TaskKey, cause: &str) {
         let backoff = retry_backoff(item.attempts);
         warn!(
             error = %cause,
@@ -796,13 +795,13 @@ fn note_supervisor_exit(exit: std::result::Result<(), tokio::task::JoinError>) {
 
 #[cfg(test)]
 mod test_support {
-    use crate::application::queue::work::{ClaimPolicy, Stage};
+    use crate::application::queue::work::ClaimPolicy;
     use crate::studio::plugin::{PluginId, PluginManifest, ResourceProfile};
 
     pub(super) static GRAPH_TEST_MANIFEST: PluginManifest = PluginManifest {
         id: PluginId::new("test.graph"),
         contract_version: "test-v1",
-        task: Stage::Graph,
+        task: crate::plugins::graph::manifest::TASK,
         claim_policy: ClaimPolicy::FIFO,
         model_roles: &[],
         context_requirements: &[],
@@ -1011,7 +1010,7 @@ mod tests {
 
     fn prepared_claim() -> work::Item {
         work::Item {
-            stage: Stage::Graph,
+            stage: crate::plugins::graph::manifest::TASK,
             entity_type: "article".into(),
             entity_id: 1,
             sport: "NBA".into(),
@@ -1082,7 +1081,7 @@ mod postgres_recovery_rehearsal {
         pool
     }
 
-    fn item(stage: Stage, sport: &str, id: i64) -> Item {
+    fn item(stage: TaskKey, sport: &str, id: i64) -> Item {
         Item {
             stage,
             sport: sport.into(),
@@ -1096,14 +1095,14 @@ mod postgres_recovery_rehearsal {
 
     struct Refilling {
         pool: PgPool,
-        stage: Stage,
+        stage: TaskKey,
         shared: bool,
-        order: Arc<StdMutex<Vec<Stage>>>,
+        order: Arc<StdMutex<Vec<TaskKey>>>,
     }
 
     const fn test_manifest(
         id: &'static str,
-        task: Stage,
+        task: TaskKey,
         shared: bool,
     ) -> crate::studio::plugin::PluginManifest {
         crate::studio::plugin::PluginManifest {
@@ -1128,22 +1127,28 @@ mod postgres_recovery_rehearsal {
         }
     }
 
-    const NARRATIVES_TEST: crate::studio::plugin::PluginManifest =
-        test_manifest("test.narratives", Stage::Narratives, false);
+    const NARRATIVES_TEST: crate::studio::plugin::PluginManifest = test_manifest(
+        "test.narratives",
+        crate::plugins::journalist::manifest::TASK,
+        false,
+    );
     const RATING_TEST: crate::studio::plugin::PluginManifest =
-        test_manifest("test.rating", Stage::Rating, false);
-    const NARRATIVES_SHARED_TEST: crate::studio::plugin::PluginManifest =
-        test_manifest("test.narratives", Stage::Narratives, true);
+        test_manifest("test.rating", crate::plugins::scout::manifest::TASK, false);
+    const NARRATIVES_SHARED_TEST: crate::studio::plugin::PluginManifest = test_manifest(
+        "test.narratives",
+        crate::plugins::journalist::manifest::TASK,
+        true,
+    );
     const RATING_SHARED_TEST: crate::studio::plugin::PluginManifest =
-        test_manifest("test.rating", Stage::Rating, true);
+        test_manifest("test.rating", crate::plugins::scout::manifest::TASK, true);
 
     impl Refilling {
         fn manifest(&self) -> &'static crate::studio::plugin::PluginManifest {
             match (self.stage, self.shared) {
-                (Stage::Narratives, false) => &NARRATIVES_TEST,
-                (Stage::Rating, false) => &RATING_TEST,
-                (Stage::Narratives, true) => &NARRATIVES_SHARED_TEST,
-                (Stage::Rating, true) => &RATING_SHARED_TEST,
+                (crate::plugins::journalist::manifest::TASK, false) => &NARRATIVES_TEST,
+                (crate::plugins::scout::manifest::TASK, false) => &RATING_TEST,
+                (crate::plugins::journalist::manifest::TASK, true) => &NARRATIVES_SHARED_TEST,
+                (crate::plugins::scout::manifest::TASK, true) => &RATING_SHARED_TEST,
                 _ => unreachable!("test double stages"),
             }
         }
@@ -1164,7 +1169,7 @@ mod postgres_recovery_rehearsal {
             assert!(work::lock_claim(&mut tx, item).await?);
             assert!(work::complete_in_transaction(&mut tx, item).await?);
             // Keep the first stage continuously ready while a later stage waits.
-            if self.stage == Stage::Narratives && count < 20 {
+            if self.stage == crate::plugins::journalist::manifest::TASK && count < 20 {
                 work::enqueue(&mut *tx, item).await?;
             }
             tx.commit().await?;
@@ -1183,19 +1188,24 @@ mod postgres_recovery_rehearsal {
             };
             let pool = fixture(sport).await;
             let order = Arc::new(StdMutex::new(Vec::new()));
-            let handlers: Vec<std::sync::Arc<dyn StudioPlugin>> =
-                [Stage::Narratives, Stage::Rating]
-                    .into_iter()
-                    .map(|stage| {
-                        std::sync::Arc::new(Refilling {
-                            pool: pool.clone(),
-                            stage,
-                            shared,
-                            order: order.clone(),
-                        }) as std::sync::Arc<dyn StudioPlugin>
-                    })
-                    .collect();
-            for stage in [Stage::Narratives, Stage::Rating] {
+            let handlers: Vec<std::sync::Arc<dyn StudioPlugin>> = [
+                crate::plugins::journalist::manifest::TASK,
+                crate::plugins::scout::manifest::TASK,
+            ]
+            .into_iter()
+            .map(|stage| {
+                std::sync::Arc::new(Refilling {
+                    pool: pool.clone(),
+                    stage,
+                    shared,
+                    order: order.clone(),
+                }) as std::sync::Arc<dyn StudioPlugin>
+            })
+            .collect();
+            for stage in [
+                crate::plugins::journalist::manifest::TASK,
+                crate::plugins::scout::manifest::TASK,
+            ] {
                 work::enqueue(&pool, &item(stage, sport, 9_600_100))
                     .await
                     .unwrap();
@@ -1220,7 +1230,7 @@ mod postgres_recovery_rehearsal {
             assert_eq!(order.len(), 21);
             assert_eq!(
                 order[1],
-                Stage::Rating,
+                crate::plugins::scout::manifest::TASK,
                 "a continuously ready earlier stage monopolized capacity: {order:?}"
             );
         }
@@ -1271,9 +1281,12 @@ mod postgres_recovery_rehearsal {
             Duration::ZERO,
             Some(1),
         );
-        work::enqueue(&pool, &item(Stage::Graph, sport, 9_600_101))
-            .await
-            .unwrap();
+        work::enqueue(
+            &pool,
+            &item(crate::plugins::graph::manifest::TASK, sport, 9_600_101),
+        )
+        .await
+        .unwrap();
         let pulse = Pulse::new();
         let drain = worker.drain_all("busy", &pulse);
         let tick = Notify::new();
@@ -1282,7 +1295,7 @@ mod postgres_recovery_rehearsal {
         let prove = async {
             entered.notified().await;
             // Arrives after the drain began: startup-only dispatch cannot pass.
-            let mut source = item(Stage::Momentum, sport, 9_600_102);
+            let mut source = item(crate::plugins::analyst::manifest::TASK, sport, 9_600_102);
             source.claim_token = Some("00000000-0000-4000-8000-000000000103".into());
             let mut tx = pool.begin().await.unwrap();
             crate::plugins::analyst::adapter::record_momentum_completed(&mut tx, &source)
@@ -1321,7 +1334,7 @@ mod postgres_recovery_rehearsal {
         crate::studio::plugin::PluginManifest {
             id: crate::studio::plugin::PluginId::new("test.sigil"),
             contract_version: "test-v1",
-            task: Stage::Sigil,
+            task: crate::plugins::oracle::manifest::TASK,
             claim_policy: crate::application::queue::work::ClaimPolicy::FIFO,
             model_roles: &[],
             context_requirements: &[],
@@ -1364,7 +1377,7 @@ mod postgres_recovery_rehearsal {
                 .unwrap();
         }
         let source = Item {
-            stage: Stage::Momentum,
+            stage: crate::plugins::analyst::manifest::TASK,
             entity_type: "team".into(),
             entity_id: 9_600_002,
             sport: sport.into(),

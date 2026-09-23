@@ -4,7 +4,6 @@
 //! `super` resolves to the application adapter while Studio creation remains independently tested.
 
 use super::*;
-use crate::application::queue::work::Stage;
 use crate::plugins::analyst::cognition::{
     momentum_conviction_from_score, momentum_direction_from_score, parse_momentum_reply,
     MomentumParser, MOMENTUM_PROMPT_VERSION,
@@ -483,7 +482,7 @@ mod postgres_publication_fencing_tests {
 
     fn pending(revision: &str) -> Item {
         Item {
-            stage: Stage::Momentum,
+            stage: crate::plugins::analyst::manifest::TASK,
             entity_type: "team".to_string(),
             entity_id: ENTITY_ID,
             sport: SPORT.to_string(),
@@ -494,7 +493,7 @@ mod postgres_publication_fencing_tests {
     }
 
     async fn claim_one(pool: &PgPool) -> Item {
-        let mut claimed = work::claim(pool, Stage::Momentum, 1)
+        let mut claimed = work::claim(pool, crate::plugins::analyst::manifest::TASK, 1)
             .await
             .expect("claim momentum test row");
         assert_eq!(claimed.len(), 1);

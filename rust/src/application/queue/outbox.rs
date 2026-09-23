@@ -216,7 +216,6 @@ pub async fn drain(
 #[cfg(test)]
 mod postgres_recovery_tests {
     use super::*;
-    use crate::application::queue::work::Stage;
     use sqlx::{postgres::PgPoolOptions, PgPool};
 
     const SPORT: &str = "ZZ_OUTBOX_RECOVERY";
@@ -249,7 +248,7 @@ mod postgres_recovery_tests {
             .bind(SPORT).execute(pool).await.unwrap();
         // Recording uses the same production statement as atomic seat publication.
         let item = Item {
-            stage: Stage::Momentum,
+            stage: crate::plugins::analyst::manifest::TASK,
             entity_type: "team".into(),
             entity_id: 9_600_001,
             sport: SPORT.into(),
@@ -341,7 +340,7 @@ mod postgres_recovery_tests {
         sqlx::query("INSERT INTO sports (id, display_name, current_season) VALUES ($1, 'Outbox recovery test', 2026) ON CONFLICT DO NOTHING")
             .bind(SPORT).execute(&pool).await.unwrap();
         let item = Item {
-            stage: Stage::Transfers,
+            stage: crate::plugins::insider::manifest::TASK,
             entity_type: "team".into(),
             entity_id: 9_600_001,
             sport: SPORT.into(),

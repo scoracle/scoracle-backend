@@ -15,7 +15,7 @@
 //! contracts. Context and product metadata remain descriptive. See the architecture plan
 //! in `docs/plugin-architecture-plan.md` for the remaining boundaries.
 
-use crate::application::queue::work::{ClaimPolicy, Item, Stage};
+use crate::application::queue::work::{ClaimPolicy, Item, TaskKey};
 use crate::runtime::route::Role;
 use crate::studio::tools::DomainClass;
 use anyhow::Result;
@@ -205,8 +205,8 @@ pub struct PluginManifest {
     /// separate owners and meanings; this field does not drive invalidation.
     pub contract_version: &'static str,
     /// One durable task per registration, matching the worker scheduling contract.
-    /// Stage is the existing storage vocabulary; no arbitrary string conversion occurs.
-    pub task: Stage,
+    /// TaskKey is the existing storage vocabulary; no arbitrary string conversion occurs.
+    pub task: TaskKey,
     /// Database-level claim ordering and dependency eligibility owned by this task.
     pub claim_policy: ClaimPolicy,
     /// Declared inference routes. Registration checks the matching inference grant;
@@ -222,7 +222,7 @@ pub struct PluginManifest {
 
 impl PluginManifest {
     /// True when this manifest covers the given durable work stage.
-    pub fn owns_stage(&self, stage: Stage) -> bool {
+    pub fn owns_stage(&self, stage: TaskKey) -> bool {
         self.task == stage
     }
 
@@ -366,7 +366,7 @@ impl PluginRegistry {
 
     /// The plugin that owns a durable work stage, or `None` when the fleet was
     /// registered without it (a partial deployment, e.g. voices-only on the Mac).
-    pub fn resolve(&self, stage: Stage) -> Option<&std::sync::Arc<dyn StudioPlugin>> {
+    pub fn resolve(&self, stage: TaskKey) -> Option<&std::sync::Arc<dyn StudioPlugin>> {
         let index = self.by_task.get(stage.as_str())?;
         self.plugins.get(*index)
     }

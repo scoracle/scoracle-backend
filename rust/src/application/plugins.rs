@@ -24,13 +24,13 @@ use std::sync::Arc;
 
 /// First-party registration order. This is composition policy, not a durable
 /// queue invariant; claim-time database gates remain authoritative across workers.
-const VOICE_ORDER: [work::Stage; 6] = [
-    work::Stage::Narratives,
-    work::Stage::Vibe,
-    work::Stage::Rating,
-    work::Stage::Transfers,
-    work::Stage::Momentum,
-    work::Stage::Sigil,
+const VOICE_ORDER: [work::TaskKey; 6] = [
+    crate::plugins::journalist::manifest::TASK,
+    crate::plugins::influencer::manifest::TASK,
+    crate::plugins::scout::manifest::TASK,
+    crate::plugins::insider::manifest::TASK,
+    crate::plugins::analyst::manifest::TASK,
+    crate::plugins::oracle::manifest::TASK,
 ];
 
 /// Resolve `COGNITION_STAGES` against the registered Studio fleet.
@@ -133,28 +133,29 @@ pub fn build(
             continue;
         }
         handlers.push(match stage {
-            work::Stage::Narratives => Arc::new(journalist::NarrativesHandler::new(
-                pool.clone(),
-                models.clone(),
-            )) as Arc<dyn StudioPlugin>,
-            work::Stage::Vibe => {
+            crate::plugins::journalist::manifest::TASK => Arc::new(
+                journalist::NarrativesHandler::new(pool.clone(), models.clone()),
+            ) as Arc<dyn StudioPlugin>,
+            crate::plugins::influencer::manifest::TASK => {
                 Arc::new(influencer::VibeHandler::new(pool.clone(), models.clone()))
             }
             // The rating stage feeds Momentum/Sigil but not the news rail, so it sits behind the
             // two news-product voices: a nightly stat backlog must not delay The Journalist.
-            work::Stage::Rating => {
+            crate::plugins::scout::manifest::TASK => {
                 Arc::new(scout::RatingHandler::new(pool.clone(), models.clone()))
             }
-            work::Stage::Transfers => {
+            crate::plugins::insider::manifest::TASK => {
                 Arc::new(insider::TransferHandler::new(pool.clone(), models.clone()))
             }
             // Momentum consumes the rating card + vibe, so a vibe hand-off drains in the same
             // tick pass instead of waiting for the next NOTIFY/safety-net wake.
-            work::Stage::Momentum => {
+            crate::plugins::analyst::manifest::TASK => {
                 Arc::new(analyst::MomentumHandler::new(pool.clone(), models.clone()))
             }
             // Sigil is terminal because it reads all five pillars.
-            work::Stage::Sigil => Arc::new(oracle::SigilHandler::new(pool.clone(), models.clone())),
+            crate::plugins::oracle::manifest::TASK => {
+                Arc::new(oracle::SigilHandler::new(pool.clone(), models.clone()))
+            }
             other => unreachable!("{other} is not a voice; VOICE_ORDER holds the six voices"),
         });
     }
@@ -195,7 +196,6 @@ mod tests {
     use super::{
         build_reactions, enabled_from_config, known_stages, shared_web_workspace, VOICE_ORDER,
     };
-    use crate::application::queue::work::Stage;
 
     #[test]
     fn unset_configuration_enables_every_manifest_task() {
@@ -254,9 +254,18 @@ mod tests {
                 .position(|candidate| *candidate == stage)
                 .unwrap()
         };
-        assert!(position(Stage::Momentum) > position(Stage::Rating));
-        assert!(position(Stage::Momentum) > position(Stage::Vibe));
-        assert_eq!(position(Stage::Sigil), VOICE_ORDER.len() - 1);
+        assert!(
+            position(crate::plugins::analyst::manifest::TASK)
+                > position(crate::plugins::scout::manifest::TASK)
+        );
+        assert!(
+            position(crate::plugins::analyst::manifest::TASK)
+                > position(crate::plugins::influencer::manifest::TASK)
+        );
+        assert_eq!(
+            position(crate::plugins::oracle::manifest::TASK),
+            VOICE_ORDER.len() - 1
+        );
     }
 
     #[test]
@@ -264,12 +273,12 @@ mod tests {
         assert_eq!(
             VOICE_ORDER,
             [
-                Stage::Narratives,
-                Stage::Vibe,
-                Stage::Rating,
-                Stage::Transfers,
-                Stage::Momentum,
-                Stage::Sigil,
+                crate::plugins::journalist::manifest::TASK,
+                crate::plugins::influencer::manifest::TASK,
+                crate::plugins::scout::manifest::TASK,
+                crate::plugins::insider::manifest::TASK,
+                crate::plugins::analyst::manifest::TASK,
+                crate::plugins::oracle::manifest::TASK,
             ]
         );
     }
@@ -280,12 +289,28 @@ mod tests {
             .connect_lazy("postgresql://localhost/unused")
             .unwrap();
         let complete = build_reactions(pool).unwrap();
+        let oracle_only = ["oracle.completion-barrier"];
+        for kind in [
+            crate::plugins::analyst::adapter::MOMENTUM_COMPLETED,
+            crate::plugins::scout::adapter::RATING_DEBOUNCED,
+            crate::plugins::journalist::adapter::NARRATIVES_COMPLETED,
+            crate::plugins::insider::adapter::TRANSFER_PUBLISHED,
+        ] {
+            assert_eq!(complete.reaction_names(kind), oracle_only, "{kind}");
+        }
+        let momentum_then_oracle = ["analyst.enqueue-momentum", "oracle.completion-barrier"];
+        for kind in [
+            crate::plugins::influencer::adapter::VIBE_COMPLETED,
+            crate::plugins::scout::adapter::RATING_COMPLETED,
+        ] {
+            assert_eq!(
+                complete.reaction_names(kind),
+                momentum_then_oracle,
+                "{kind}"
+            );
+        }
         assert_eq!(
-            complete.reaction_names("rating_completed"),
-            ["analyst.enqueue-momentum", "oracle.completion-barrier"]
-        );
-        assert_eq!(
-            complete.reaction_names("transfer_identity_applied"),
+            complete.reaction_names(crate::plugins::insider::adapter::TRANSFER_IDENTITY_APPLIED),
             ["scout.rate-applied-identity"]
         );
     }

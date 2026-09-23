@@ -1,15 +1,19 @@
 //! Registry contract tests. Service-free: manifests and resolution only.
 
 use super::*;
-use crate::application::queue::work::{ClaimPolicy, Item, Stage, TaskKey};
+use crate::application::queue::work::{ClaimPolicy, Item, TaskKey};
 use crate::studio::plugin::PluginOutcome;
 use anyhow::Result;
 use async_trait::async_trait;
 use std::sync::Arc;
 
+const TASK_A: TaskKey = TaskKey::new("test_task_a");
+const TASK_B: TaskKey = TaskKey::new("test_task_b");
+const TASK_MISSING: TaskKey = TaskKey::new("test_task_missing");
+
 const fn manifest(
     id: &'static str,
-    task: Stage,
+    task: TaskKey,
     produces: &'static [ProductKind],
     consumes: &'static [ProductKind],
 ) -> PluginManifest {
@@ -47,11 +51,11 @@ impl StudioPlugin for TestPlugin {
 
 #[test]
 fn registry_resolves_stage_to_its_owner() {
-    static M: PluginManifest = manifest("scoracle.character.momentum", Stage::Momentum, &[], &[]);
+    static M: PluginManifest = manifest("test.owner", TASK_A, &[], &[]);
     let reg = PluginRegistry::new(vec![plugin(&M)]).unwrap();
-    assert!(reg.resolve(Stage::Momentum).is_some());
-    assert!(reg.resolve(Stage::Sigil).is_none());
-    assert_eq!(reg.resolve(Stage::Momentum).unwrap().manifest().id, M.id);
+    assert!(reg.resolve(TASK_A).is_some());
+    assert!(reg.resolve(TASK_B).is_none());
+    assert_eq!(reg.resolve(TASK_A).unwrap().manifest().id, M.id);
 }
 
 #[tokio::test]
@@ -77,20 +81,20 @@ async fn unrelated_task_key_registers_resolves_and_executes_without_kernel_chang
 
 #[test]
 fn registry_rejects_duplicate_task_ownership() {
-    static A: PluginManifest = manifest("test.a", Stage::Momentum, &[], &[]);
-    static B: PluginManifest = manifest("test.b", Stage::Momentum, &[], &[]);
+    static A: PluginManifest = manifest("test.a", TASK_A, &[], &[]);
+    static B: PluginManifest = manifest("test.b", TASK_A, &[], &[]);
     let err = match PluginRegistry::new(vec![plugin(&A), plugin(&B)]) {
         Err(e) => e.to_string(),
         Ok(_) => panic!("duplicate task ownership must not register"),
     };
-    assert!(err.contains("momentum"), "{err}");
+    assert!(err.contains(TASK_A.as_str()), "{err}");
     assert!(err.contains("test.a") && err.contains("test.b"), "{err}");
 }
 
 #[test]
 fn registry_rejects_duplicate_plugin_ids() {
-    static A: PluginManifest = manifest("test.same", Stage::Momentum, &[], &[]);
-    static B: PluginManifest = manifest("test.same", Stage::Sigil, &[], &[]);
+    static A: PluginManifest = manifest("test.same", TASK_A, &[], &[]);
+    static B: PluginManifest = manifest("test.same", TASK_B, &[], &[]);
     let err = match PluginRegistry::new(vec![plugin(&A), plugin(&B)]) {
         Err(e) => e.to_string(),
         Ok(_) => panic!("duplicate ids must not register"),
@@ -116,14 +120,14 @@ fn registry_accepts_an_empty_fleet_as_the_idle_scaffold() {
 
 #[test]
 fn registry_resolves_every_registered_task_and_leaves_missing_tasks_unowned() {
-    static A: PluginManifest = manifest("test.rating", Stage::Rating, &[], &[]);
-    static B: PluginManifest = manifest("test.momentum", Stage::Momentum, &[], &[]);
+    static A: PluginManifest = manifest("test.a", TASK_A, &[], &[]);
+    static B: PluginManifest = manifest("test.b", TASK_B, &[], &[]);
     let reg = PluginRegistry::new(vec![plugin(&A), plugin(&B)]).unwrap();
     for m in [&A, &B] {
         assert_eq!(reg.resolve(m.task).unwrap().manifest().id, m.id);
         assert_eq!(reg.manifest_for_task(m.task.as_str()).unwrap().id, m.id);
     }
-    assert!(reg.resolve(Stage::Sigil).is_none());
+    assert!(reg.resolve(TASK_MISSING).is_none());
     assert!(reg.manifest_for_task("unregistered").is_none());
 }
 
@@ -131,11 +135,11 @@ fn registry_resolves_every_registered_task_and_leaves_missing_tasks_unowned() {
 fn registry_rejects_inconsistent_inference_declarations() {
     static ROLE_ONLY: PluginManifest = PluginManifest {
         model_roles: &[crate::runtime::route::Role::StatsLogic],
-        ..manifest("test.role-only", Stage::Rating, &[], &[])
+        ..manifest("test.role-only", TASK_A, &[], &[])
     };
     static GRANT_ONLY: PluginManifest = PluginManifest {
         tools: &[ToolGrant::Inference],
-        ..manifest("test.grant-only", Stage::Rating, &[], &[])
+        ..manifest("test.grant-only", TASK_A, &[], &[])
     };
     for m in [&ROLE_ONLY, &GRANT_ONLY] {
         let err = PluginRegistry::new(vec![plugin(m)])
@@ -150,9 +154,9 @@ fn registry_rejects_inconsistent_inference_declarations() {
 
 #[test]
 fn manifest_owns_stage_matches_declared_tasks_only() {
-    static M: PluginManifest = manifest("test.sigil", Stage::Sigil, &[], &[]);
-    assert!(M.owns_stage(Stage::Sigil));
-    assert!(!M.owns_stage(Stage::Momentum));
+    static M: PluginManifest = manifest("test.sigil", TASK_B, &[], &[]);
+    assert!(M.owns_stage(TASK_B));
+    assert!(!M.owns_stage(TASK_A));
 }
 
 #[test]

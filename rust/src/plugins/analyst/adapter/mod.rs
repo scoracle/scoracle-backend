@@ -6,7 +6,7 @@
 use crate::application::models::Models;
 use crate::application::products::EntityKey;
 use crate::application::queue::publication::ClaimPublication;
-use crate::application::queue::work::{self, Item, Stage};
+use crate::application::queue::work::{self, Item};
 use crate::evidence::memories::{self, MemoryRequest, Mission};
 use crate::plugins::analyst::cognition as analyst;
 use crate::plugins::oracle::adapter as oracle;
@@ -313,7 +313,7 @@ pub async fn enqueue_momentum_if_needed(
         return Ok(false);
     }
     let it = Item {
-        stage: Stage::Momentum,
+        stage: crate::plugins::analyst::manifest::TASK,
         entity_type: entity_type.to_string(),
         entity_id: i64::from(entity_id),
         sport,

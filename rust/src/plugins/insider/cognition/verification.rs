@@ -20,7 +20,7 @@ Use the identity record to distinguish current role and club from career history
 
 Set is_rumor=true only when a source reports this subject joining or leaving this team, including an agreed or recently completed move. Otherwise set false. Do not turn roster status into interest. Keep the actual recruit in subject when the sources concern someone else.
 
-Direction is relative to the named team: incoming, outgoing, or unclear. Stage follows the reporting: speculation = links/monitoring; concrete_interest = active pursuit; advanced_talks = negotiation; here_we_go = agreed/imminent. Source history informs credibility; prior readings and heat do not prove a move. Preserve uncertainty.
+Direction is relative to the named team: incoming, outgoing, or unclear. TaskKey follows the reporting: speculation = links/monitoring; concrete_interest = active pursuit; advanced_talks = negotiation; here_we_go = agreed/imminent. Source history informs credibility; prior readings and heat do not prove a move. Preserve uncertainty.
 
 Write one attributed summary sentence in English. Preserve names and stated fees, picks or terms; invent none.
 

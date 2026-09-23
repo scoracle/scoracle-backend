@@ -578,13 +578,16 @@ impl Worker {
                     .rotation_batch
                     .max(STAGE_ROTATION_BATCH)
                     .min(room as i64);
-                let items = match work::claim(&self.pool, stage, batch).await {
-                    Ok(items) => items,
-                    Err(e) => {
-                        error!(error = %format!("{e:#}"), %stage, cause, "claim failed");
-                        break;
-                    }
-                };
+                let items =
+                    match work::claim_with_policy(&self.pool, stage, manifest.claim_policy, batch)
+                        .await
+                    {
+                        Ok(items) => items,
+                        Err(e) => {
+                            error!(error = %format!("{e:#}"), %stage, cause, "claim failed");
+                            break;
+                        }
+                    };
                 if items.is_empty() {
                     continue;
                 }
@@ -785,13 +788,14 @@ fn note_supervisor_exit(exit: std::result::Result<(), tokio::task::JoinError>) {
 
 #[cfg(test)]
 mod test_support {
-    use crate::application::queue::work::Stage;
+    use crate::application::queue::work::{ClaimPolicy, Stage};
     use crate::studio::plugin::{PluginId, PluginManifest, ResourceProfile};
 
     pub(super) static GRAPH_TEST_MANIFEST: PluginManifest = PluginManifest {
         id: PluginId::new("test.graph"),
         contract_version: "test-v1",
         task: Stage::Graph,
+        claim_policy: ClaimPolicy::FIFO,
         model_roles: &[],
         context_requirements: &[],
         consumes: &[],
@@ -1097,6 +1101,7 @@ mod postgres_recovery_rehearsal {
             id: crate::studio::plugin::PluginId::new(id),
             contract_version: "test-v1",
             task,
+            claim_policy: crate::application::queue::work::ClaimPolicy::FIFO,
             model_roles: &[],
             context_requirements: &[],
             consumes: &[],
@@ -1306,6 +1311,7 @@ mod postgres_recovery_rehearsal {
             id: crate::studio::plugin::PluginId::new("test.sigil"),
             contract_version: "test-v1",
             task: Stage::Sigil,
+            claim_policy: crate::application::queue::work::ClaimPolicy::FIFO,
             model_roles: &[],
             context_requirements: &[],
             consumes: &[],
@@ -1385,6 +1391,67 @@ mod postgres_recovery_rehearsal {
         .unwrap();
         let remaining:i64=sqlx::query_scalar("SELECT (SELECT count(*) FROM application_outbox WHERE sport=$1)+(SELECT count(*) FROM pipeline_work WHERE sport=$1)")
             .bind(sport).fetch_one(&pool).await.unwrap();
+        assert_eq!(remaining, 0);
+    }
+
+    const UNRELATED_TASK: crate::application::queue::work::TaskKey =
+        crate::application::queue::work::TaskKey::new("test_unrelated_worker");
+    static UNRELATED_MANIFEST: crate::studio::plugin::PluginManifest =
+        crate::studio::plugin::PluginManifest {
+            id: crate::studio::plugin::PluginId::new("test.unrelated-worker"),
+            contract_version: "test-v1",
+            task: UNRELATED_TASK,
+            claim_policy: crate::application::queue::work::ClaimPolicy::FIFO,
+            model_roles: &[],
+            context_requirements: &[],
+            consumes: &[],
+            produces: &[],
+            resources: crate::studio::plugin::ResourceProfile::unbounded_batch(1),
+            tools: &[],
+        };
+
+    struct Unrelated(PgPool);
+
+    #[async_trait::async_trait]
+    impl StudioPlugin for Unrelated {
+        fn manifest(&self) -> &'static crate::studio::plugin::PluginManifest {
+            &UNRELATED_MANIFEST
+        }
+
+        async fn execute(&self, item: &Item) -> Result<PluginOutcome> {
+            let mut tx = self.0.begin().await?;
+            assert!(work::lock_claim(&mut tx, item).await?);
+            assert!(work::complete_in_transaction(&mut tx, item).await?);
+            tx.commit().await?;
+            Ok(PluginOutcome::Committed)
+        }
+    }
+
+    #[tokio::test]
+    #[ignore = "requires isolated migrated TEST_DATABASE_URL; run serially"]
+    async fn unrelated_task_registers_claims_executes_and_completes_without_kernel_edits() {
+        let sport = "ZZ_UNRELATED_PLUGIN";
+        let pool = fixture(sport).await;
+        work::enqueue(&pool, &item(UNRELATED_TASK, sport, 9_600_103))
+            .await
+            .unwrap();
+        let worker = Worker::new(
+            pool.clone(),
+            vec![std::sync::Arc::new(Unrelated(pool.clone()))],
+            Duration::from_secs(60),
+            Duration::from_secs(1800),
+            Duration::from_secs(5),
+            Duration::ZERO,
+            Some(1),
+        );
+        worker.drain_all("test", &Pulse::new()).await;
+        let remaining: i64 =
+            sqlx::query_scalar("SELECT count(*) FROM pipeline_work WHERE sport=$1 AND stage=$2")
+                .bind(sport)
+                .bind(UNRELATED_TASK.as_str())
+                .fetch_one(&pool)
+                .await
+                .unwrap();
         assert_eq!(remaining, 0);
     }
 }

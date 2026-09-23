@@ -1,15 +1,18 @@
 //! Registration policy owned by this plugin.
 
-use crate::application::queue::work::Stage;
+use crate::application::queue::work::{ClaimPolicy, Stage};
 use crate::plugins::support::resources::MAC_SLOTS;
 use crate::runtime::route::Role;
 use crate::studio::plugin::ProviderId;
 use crate::studio::plugin::{PluginId, PluginManifest, ProductKind, ResourceProfile, ToolGrant};
 
+pub const TASK: Stage = Stage::new("narratives");
+
 pub const MANIFEST: PluginManifest = PluginManifest {
     id: PluginId::new("scoracle.character.narrative"),
     contract_version: "narratives-v3-schema",
-    task: Stage::Narratives,
+    task: TASK,
+    claim_policy: ClaimPolicy::TEAMS_FIRST,
     model_roles: &[Role::NarrativeLogic],
     context_requirements: &[
         ProviderId::ENTITY_IDENTITY,

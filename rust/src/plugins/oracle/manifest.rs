@@ -1,15 +1,28 @@
 //! Registration policy owned by this plugin.
 
-use crate::application::queue::work::Stage;
+use crate::application::queue::work::{ClaimPolicy, Stage};
 use crate::plugins::support::resources::MAC_SLOTS;
 use crate::runtime::route::Role;
 use crate::studio::plugin::ProviderId;
 use crate::studio::plugin::{PluginId, PluginManifest, ProductKind, ResourceProfile, ToolGrant};
 
+pub const TASK: Stage = Stage::new("sigil");
+
 pub const MANIFEST: PluginManifest = PluginManifest {
     id: PluginId::new("scoracle.character.sigil"),
     contract_version: "oracle-reading-v2",
-    task: Stage::Sigil,
+    task: TASK,
+    claim_policy: ClaimPolicy::TEAMS_FIRST.gated_by(
+        &["narratives", "rating", "vibe", "momentum", "transfers"],
+        &[
+            "rating_completed",
+            "rating_debounced",
+            "vibe_completed",
+            "momentum_completed",
+            "narratives_completed",
+            "transfer_published",
+        ],
+    ),
     model_roles: &[Role::OracleLogic],
     context_requirements: &[
         ProviderId::ENTITY_IDENTITY,

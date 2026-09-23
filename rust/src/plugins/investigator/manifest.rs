@@ -1,11 +1,12 @@
 //! Registration policy owned by this plugin.
 
-use crate::application::queue::work::Stage;
+use crate::application::queue::work::{ClaimPolicy, Stage};
 use crate::runtime::route::Role;
 use crate::studio::plugin::{PluginId, PluginManifest, ProductKind, ResourceProfile, ToolGrant};
 use crate::studio::tools::DomainClass;
 
 const INVESTIGATOR_WEB_DOMAINS: [DomainClass; 1] = [DomainClass::Wikimedia];
+pub const TASK: Stage = Stage::new("investigate_entity");
 const INVESTIGATOR_TOOLS: [ToolGrant; 4] = [
     ToolGrant::WorldRead,
     ToolGrant::Commit,
@@ -16,7 +17,8 @@ const INVESTIGATOR_TOOLS: [ToolGrant; 4] = [
 pub const MANIFEST: PluginManifest = PluginManifest {
     id: PluginId::new("scoracle.internal.investigator"),
     contract_version: "investigate-entity-wikidata-v1",
-    task: Stage::InvestigateEntity,
+    task: TASK,
+    claim_policy: ClaimPolicy::FIFO,
     model_roles: &[Role::Investigator],
     context_requirements: &[],
     consumes: &[ProductKind::EDITOR_READ],

@@ -238,9 +238,25 @@ and quality fixtures retain expected behavior.
   warnings. `cargo test --lib --bins --offline` passed with 562 tests and 59 ignored;
   formatting and diff whitespace checks passed. The ignored database suite was not rerun
   because this slice mechanically relocates its existing barrier and maintenance SQL.
-- Next: register extensible task keys and claim policies, removing the central `Stage`
-  enumeration and hard-coded dependency/outbox predicates while preserving the existing
-  database-level eligibility tests before migrating fan-out reactions.
+- Milestone 4 continued: durable tasks now use the open `TaskKey`; the former `Stage`
+  name remains only as a transitional source alias and no enum variant is required for
+  registration. Each first-party plugin manifest owns its stable `TASK` string. Schema
+  inventory confirmed `pipeline_work.stage` has no allow-list constraint; its primary key,
+  claim indexes, SQL producers, and stored strings remain unchanged. The existing
+  `entity_type` allow-list is a separate persisted-subject constraint.
+- Claim ordering and database eligibility are now manifest-owned `ClaimPolicy`. The host
+  accepts only bounded ordering variants and binds upstream task/event blocker arrays into
+  one generic `FOR UPDATE SKIP LOCKED` query. Momentum and Sigil retain their exact
+  cross-worker dependency and pending-outbox barriers without being named in queue SQL.
+- Milestone 4 task/claim validation: `cargo test --lib --bins --offline` passed with
+  564 tests and 59 ignored; compile, formatting, and whitespace checks passed. A fresh
+  checksummed local database was migrated through 268, then the complete ignored database
+  suite passed serially: 60 passed, 0 failed. This includes the existing multi-worker
+  eligibility/fairness cases and a new unrelated-plugin test that registers an arbitrary
+  task string, claims it through the production worker, executes it, and completes it under
+  the exact claim without kernel changes.
+- Next: migrate direct downstream scheduling knowledge into plugin-owned event reactions,
+  shadow-comparing each edge and retaining current debounce and terminal barriers.
 
 ## 7. Final test audit — deferred until all architecture work is complete
 

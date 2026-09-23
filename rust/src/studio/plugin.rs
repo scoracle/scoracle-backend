@@ -15,7 +15,7 @@
 //! contracts. Context and product metadata remain descriptive. See the architecture plan
 //! in `docs/plugin-architecture-plan.md` for the remaining boundaries.
 
-use crate::application::queue::work::{Item, Stage};
+use crate::application::queue::work::{ClaimPolicy, Item, Stage};
 use crate::runtime::route::Role;
 use crate::studio::tools::DomainClass;
 use anyhow::Result;
@@ -207,6 +207,8 @@ pub struct PluginManifest {
     /// One durable task per registration, matching the worker scheduling contract.
     /// Stage is the existing storage vocabulary; no arbitrary string conversion occurs.
     pub task: Stage,
+    /// Database-level claim ordering and dependency eligibility owned by this task.
+    pub claim_policy: ClaimPolicy,
     /// Declared inference routes. Registration checks the matching inference grant;
     /// adapters still select their routes until scoped inference is introduced.
     pub model_roles: &'static [Role],
@@ -326,6 +328,11 @@ impl PluginRegistry {
             anyhow::ensure!(
                 !manifest.id.as_str().is_empty(),
                 "plugin registry: plugin {index} has an empty id"
+            );
+            anyhow::ensure!(
+                !manifest.task.as_str().is_empty(),
+                "plugin registry: {} has an empty task key",
+                manifest.id
             );
             anyhow::ensure!(
                 seen_ids.insert(manifest.id.as_str(), index).is_none(),

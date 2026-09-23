@@ -12,70 +12,101 @@ use anyhow::{anyhow, Context, Result};
 use sqlx::{PgPool, Postgres, Transaction};
 use std::time::Duration;
 
-/// Derivation stage stored on a `pipeline_work` item.
+/// Open durable task key stored in `pipeline_work.stage`.
 ///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Stage {
-    /// Article reader and downstream fan-out.
-    Editor,
-    /// Candidate-keyed entity discovery.
-    InvestigateEntity,
-    FixtureBoxscore,
-    Graph,
-    /// The Scout's stats rail.
-    Rating,
-    Momentum,
-    Transfers,
-    Narratives,
-    Vibe,
-    Sigil,
-}
+/// New plugins create a key from their stable stored string; the execution kernel
+/// does not require a matching enum variant. The associated first-party constants
+/// are compatibility spellings while callers migrate to plugin-owned `TASK` values.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct TaskKey(&'static str);
 
-impl Stage {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Stage::Editor => "editor",
-            Stage::InvestigateEntity => "investigate_entity",
-            Stage::FixtureBoxscore => "fixture_boxscore",
-            Stage::Graph => "graph",
-            Stage::Rating => "rating",
-            Stage::Momentum => "momentum",
-            Stage::Transfers => "transfers",
-            Stage::Narratives => "narratives",
-            Stage::Vibe => "vibe",
-            Stage::Sigil => "sigil",
-        }
+#[allow(non_upper_case_globals)]
+impl TaskKey {
+    pub const fn new(key: &'static str) -> Self {
+        Self(key)
     }
 
-    /// The ORDER BY used when claiming this stage's work. A `&'static str` spliced into the query —
-    /// never user input, so there is nothing to escape.
-    ///
-    /// FIFO except for ranked articles and team-first product cards.
-    fn claim_order(self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
+        self.0
+    }
+
+    pub const Editor: Self = Self::new("editor");
+    pub const InvestigateEntity: Self = Self::new("investigate_entity");
+    pub const FixtureBoxscore: Self = Self::new("fixture_boxscore");
+    pub const Graph: Self = Self::new("graph");
+    pub const Rating: Self = Self::new("rating");
+    pub const Momentum: Self = Self::new("momentum");
+    pub const Transfers: Self = Self::new("transfers");
+    pub const Narratives: Self = Self::new("narratives");
+    pub const Vibe: Self = Self::new("vibe");
+    pub const Sigil: Self = Self::new("sigil");
+}
+
+impl std::fmt::Display for TaskKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+/// Transitional source alias. Unlike the former enum, it accepts any `TaskKey::new`
+/// value and does not close registration over the first-party fleet.
+pub type Stage = TaskKey;
+
+/// Generic ordering available to a registered durable task. The host translates
+/// these bounded variants into static SQL; plugins never supply SQL fragments.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ClaimOrder {
+    #[default]
+    Fifo,
+    RankedArticles,
+    TeamsFirst,
+}
+
+impl ClaimOrder {
+    fn sql(self) -> &'static str {
         match self {
-            // The Editor drains best-first: when a backlog exists, order decides which
-            // articles get a model call, and Google already ranked them.
-            Stage::Editor => {
+            ClaimOrder::Fifo => "available_at",
+            ClaimOrder::RankedArticles => {
                 "(SELECT a.feed_rank FROM public.news_articles a WHERE a.id = pipeline_work.entity_id) \
                  ASC NULLS LAST, available_at"
             }
-            // Product cards prioritize the bounded team set before the larger player tail.
-            Stage::Narratives
-            | Stage::Vibe
-            | Stage::Sigil
-            | Stage::Rating
-            | Stage::Momentum
-            | Stage::Transfers => {
+            ClaimOrder::TeamsFirst => {
                 "CASE entity_type WHEN 'team' THEN 0 ELSE 1 END, available_at"
             }
-            _ => "available_at",
         }
     }
 }
 
-impl std::fmt::Display for Stage {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.as_str())
+/// Database-level eligibility and ordering declared by a task owner. Empty blocker
+/// lists mean the task has no cross-task completion gate.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ClaimPolicy {
+    pub order: ClaimOrder,
+    pub upstream_tasks: &'static [&'static str],
+    pub pending_event_kinds: &'static [&'static str],
+}
+
+impl ClaimPolicy {
+    pub const FIFO: Self = Self::new(ClaimOrder::Fifo);
+    pub const RANKED_ARTICLES: Self = Self::new(ClaimOrder::RankedArticles);
+    pub const TEAMS_FIRST: Self = Self::new(ClaimOrder::TeamsFirst);
+
+    pub const fn new(order: ClaimOrder) -> Self {
+        Self {
+            order,
+            upstream_tasks: &[],
+            pending_event_kinds: &[],
+        }
+    }
+
+    pub const fn gated_by(
+        mut self,
+        upstream_tasks: &'static [&'static str],
+        pending_event_kinds: &'static [&'static str],
+    ) -> Self {
+        self.upstream_tasks = upstream_tasks;
+        self.pending_event_kinds = pending_event_kinds;
+        self
     }
 }
 
@@ -207,6 +238,16 @@ pub fn retry_backoff(prior_failures: i32) -> Duration {
 /// with FOR UPDATE SKIP LOCKED is already atomic under auto-commit, so we run
 /// it directly against the pool.
 pub async fn claim(pool: &PgPool, stage: Stage, limit: i64) -> Result<Vec<Item>> {
+    claim_with_policy(pool, stage, ClaimPolicy::FIFO, limit).await
+}
+
+/// Claim with the task owner's registered database-level scheduling policy.
+pub async fn claim_with_policy(
+    pool: &PgPool,
+    stage: Stage,
+    policy: ClaimPolicy,
+    limit: i64,
+) -> Result<Vec<Item>> {
     let rows: Vec<(String, i64, String, Option<String>, i32, String)> = sqlx::query_as(&format!(
         r#"
         WITH ready AS (
@@ -223,9 +264,7 @@ pub async fn claim(pool: &PgPool, stage: Stage, limit: i64) -> Result<Vec<Item>>
                     AND upstream.entity_id = pipeline_work.entity_id
                     AND upstream.sport = pipeline_work.sport
                     AND upstream.status <> 'failed'
-                    AND (($1 = 'momentum' AND upstream.stage IN ('rating', 'vibe'))
-                      OR ($1 = 'sigil' AND upstream.stage IN
-                          ('narratives', 'rating', 'vibe', 'momentum', 'transfers')))
+                    AND upstream.stage = ANY($3)
               )
               -- Publication may have committed before its next-stage offer.
               -- Do not overtake a durable handoff still awaiting dispatch.
@@ -234,11 +273,7 @@ pub async fn claim(pool: &PgPool, stage: Stage, limit: i64) -> Result<Vec<Item>>
                   WHERE handoff.entity_type = pipeline_work.entity_type
                     AND handoff.entity_id = pipeline_work.entity_id
                     AND handoff.sport = pipeline_work.sport
-                    AND (($1 = 'momentum' AND handoff.kind IN
-                          ('rating_completed', 'vibe_completed'))
-                      OR ($1 = 'sigil' AND handoff.kind IN
-                          ('rating_completed', 'rating_debounced', 'vibe_completed',
-                           'momentum_completed', 'narratives_completed', 'transfer_published')))
+                    AND handoff.kind = ANY($4)
               )
             ORDER BY {}
             FOR UPDATE SKIP LOCKED
@@ -257,10 +292,12 @@ pub async fn claim(pool: &PgPool, stage: Stage, limit: i64) -> Result<Vec<Item>>
         RETURNING w.entity_type, w.entity_id::bigint, w.sport,
                   w.running_input_version, w.attempts, w.claim_token::text
         "#,
-        stage.claim_order(),
+        policy.order.sql(),
     ))
     .bind(stage.as_str())
     .bind(limit)
+    .bind(policy.upstream_tasks)
+    .bind(policy.pending_event_kinds)
     .fetch_all(pool)
     .await
     .with_context(|| format!("claim {stage}"))?;
@@ -538,9 +575,20 @@ mod postgres_claim_fencing_tests {
     }
 
     async fn one_claim(pool: &PgPool, stage: Stage) -> Item {
-        let mut items = claim(pool, stage, 1).await.expect("claim test row");
+        let mut items = claim_registered(pool, stage, 1)
+            .await
+            .expect("claim test row");
         assert_eq!(items.len(), 1, "isolated test stage should have one row");
         items.remove(0)
+    }
+
+    async fn claim_registered(pool: &PgPool, stage: Stage, limit: i64) -> Result<Vec<Item>> {
+        let policy = crate::application::fleet::ALL
+            .iter()
+            .find(|manifest| manifest.task == stage)
+            .map(|manifest| manifest.claim_policy)
+            .expect("test stage is registered in the first-party fleet");
+        claim_with_policy(pool, stage, policy, limit).await
     }
 
     #[tokio::test]
@@ -602,10 +650,19 @@ mod postgres_claim_fencing_tests {
                 .await
                 .unwrap();
         }
-        assert!(claim(&second, Stage::Momentum, 1).await.unwrap().is_empty());
-        assert!(claim(&second, Stage::Sigil, 1).await.unwrap().is_empty());
+        assert!(claim_registered(&second, Stage::Momentum, 1)
+            .await
+            .unwrap()
+            .is_empty());
+        assert!(claim_registered(&second, Stage::Sigil, 1)
+            .await
+            .unwrap()
+            .is_empty());
         let rating = one_claim(&first, Stage::Rating).await;
-        assert!(claim(&second, Stage::Momentum, 1).await.unwrap().is_empty());
+        assert!(claim_registered(&second, Stage::Momentum, 1)
+            .await
+            .unwrap()
+            .is_empty());
         // A different entity can progress while this one waits.
         enqueue(&first, &pending(Stage::Sigil, id + 1, sport, "v1"))
             .await
@@ -619,7 +676,10 @@ mod postgres_claim_fencing_tests {
             .unwrap();
         assert!(complete_in_transaction(&mut tx, &rating).await.unwrap());
         tx.commit().await.unwrap();
-        assert!(claim(&second, Stage::Momentum, 1).await.unwrap().is_empty());
+        assert!(claim_registered(&second, Stage::Momentum, 1)
+            .await
+            .unwrap()
+            .is_empty());
         // Isolate dispatch acknowledgement from model/context preparation here.
         sqlx::query("DELETE FROM application_outbox WHERE sport = $1")
             .bind(sport)
@@ -627,14 +687,20 @@ mod postgres_claim_fencing_tests {
             .await
             .unwrap();
         let momentum = one_claim(&second, Stage::Momentum).await;
-        assert!(claim(&first, Stage::Sigil, 1).await.unwrap().is_empty());
+        assert!(claim_registered(&first, Stage::Sigil, 1)
+            .await
+            .unwrap()
+            .is_empty());
         let mut tx = second.begin().await.unwrap();
         crate::application::queue::outbox::record_momentum_completed(&mut tx, &momentum)
             .await
             .unwrap();
         assert!(complete_in_transaction(&mut tx, &momentum).await.unwrap());
         tx.commit().await.unwrap();
-        assert!(claim(&first, Stage::Sigil, 1).await.unwrap().is_empty());
+        assert!(claim_registered(&first, Stage::Sigil, 1)
+            .await
+            .unwrap()
+            .is_empty());
         sqlx::query("DELETE FROM application_outbox WHERE sport = $1")
             .bind(sport)
             .execute(&first)
@@ -716,7 +782,7 @@ mod postgres_claim_fencing_tests {
 
 #[cfg(test)]
 mod claim_order_tests {
-    use super::Stage;
+    use super::ClaimOrder;
 
     /// Every stage that writes a card a subscriber reads drains teams first.
     ///
@@ -726,22 +792,23 @@ mod claim_order_tests {
     /// the split in this function exactly.
     #[test]
     fn the_product_stages_all_drain_teams_first() {
-        for s in [
-            Stage::Narratives,
-            Stage::Vibe,
-            Stage::Sigil,
-            Stage::Rating,
-            Stage::Momentum,
-            Stage::Transfers,
+        for manifest in [
+            &crate::plugins::journalist::manifest::MANIFEST,
+            &crate::plugins::influencer::manifest::MANIFEST,
+            &crate::plugins::oracle::manifest::MANIFEST,
+            &crate::plugins::scout::manifest::MANIFEST,
+            &crate::plugins::analyst::manifest::MANIFEST,
+            &crate::plugins::insider::manifest::MANIFEST,
         ] {
-            assert!(
-                s.claim_order()
-                    .starts_with("CASE entity_type WHEN 'team' THEN 0"),
-                "{s} writes a card and must drain teams first"
-            );
+            assert_eq!(manifest.claim_policy.order, ClaimOrder::TeamsFirst);
         }
         // The Editor still drains best-first: its budget is finite and Google already ranked
         // the articles, so rank beats grain there.
-        assert!(Stage::Editor.claim_order().contains("feed_rank"));
+        assert_eq!(
+            crate::plugins::editor::manifest::MANIFEST
+                .claim_policy
+                .order,
+            ClaimOrder::RankedArticles
+        );
     }
 }

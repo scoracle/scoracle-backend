@@ -1,14 +1,17 @@
 //! Registration policy owned by this plugin.
 
-use crate::application::queue::work::Stage;
+use crate::application::queue::work::{ClaimPolicy, Stage};
 use crate::runtime::route::Role;
 use crate::studio::plugin::ProviderId;
 use crate::studio::plugin::{PluginId, PluginManifest, ProductKind, ResourceProfile, ToolGrant};
 
+pub const TASK: Stage = Stage::new("transfers");
+
 pub const MANIFEST: PluginManifest = PluginManifest {
     id: PluginId::new("scoracle.character.transfers"),
     contract_version: "transfer-verdict-v1",
-    task: Stage::Transfers,
+    task: TASK,
+    claim_policy: ClaimPolicy::TEAMS_FIRST,
     model_roles: &[Role::TransferLogic],
     context_requirements: &[
         ProviderId::ENTITY_IDENTITY,

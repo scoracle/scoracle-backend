@@ -1,7 +1,7 @@
 //! Registry contract tests. Service-free: manifests and resolution only.
 
 use super::*;
-use crate::application::queue::work::{Item, Stage};
+use crate::application::queue::work::{ClaimPolicy, Item, Stage, TaskKey};
 use crate::studio::plugin::PluginOutcome;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -17,6 +17,7 @@ const fn manifest(
         id: PluginId::new(id),
         contract_version: "test-v1",
         task,
+        claim_policy: ClaimPolicy::FIFO,
         model_roles: &[],
         context_requirements: &[],
         consumes,
@@ -53,6 +54,27 @@ fn registry_resolves_stage_to_its_owner() {
     assert_eq!(reg.resolve(Stage::Momentum).unwrap().manifest().id, M.id);
 }
 
+#[tokio::test]
+async fn unrelated_task_key_registers_resolves_and_executes_without_kernel_changes() {
+    const TASK: TaskKey = TaskKey::new("test_unrelated_capability");
+    static MANIFEST: PluginManifest = manifest("test.unrelated", TASK, &[], &[]);
+    let registry = PluginRegistry::new(vec![plugin(&MANIFEST)]).unwrap();
+    let registered = registry.resolve(TASK).expect("open task key registered");
+    let outcome = registered
+        .execute(&Item {
+            stage: TASK,
+            entity_type: "team".to_string(),
+            entity_id: 1,
+            sport: "TEST".to_string(),
+            input_version: Some("v1".to_string()),
+            attempts: 0,
+            claim_token: Some("test-lease".to_string()),
+        })
+        .await
+        .unwrap();
+    assert_eq!(outcome, PluginOutcome::Committed);
+}
+
 #[test]
 fn registry_rejects_duplicate_task_ownership() {
     static A: PluginManifest = manifest("test.a", Stage::Momentum, &[], &[]);
@@ -74,6 +96,15 @@ fn registry_rejects_duplicate_plugin_ids() {
         Ok(_) => panic!("duplicate ids must not register"),
     };
     assert!(err.contains("duplicate plugin id"), "{err}");
+}
+
+#[test]
+fn registry_rejects_an_empty_open_task_key() {
+    static EMPTY: PluginManifest = manifest("test.empty-task", TaskKey::new(""), &[], &[]);
+    let error = PluginRegistry::new(vec![plugin(&EMPTY)])
+        .err()
+        .expect("empty task keys must fail registration");
+    assert!(error.to_string().contains("empty task key"));
 }
 
 #[test]

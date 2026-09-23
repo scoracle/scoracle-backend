@@ -16,7 +16,7 @@ use scoracle_cognition::evaluation::tasks::{
 };
 use scoracle_cognition::runtime::config::{Config, RouteConfig};
 use scoracle_cognition::runtime::db;
-use scoracle_cognition::runtime::route::{Role, Router};
+use scoracle_cognition::runtime::route::Router;
 use scoracle_cognition::studio::model::Inference;
 use serde_json::Value;
 use sqlx::Row;
@@ -292,7 +292,7 @@ async fn run_live(cfg: &Config, task: &dyn LensTask, cases: &[EvalCase]) -> Resu
     }
 
     let (pool, models) = build_dependencies(cfg).await?;
-    let incumbent = models.router.for_role(task.role());
+    let incumbent = models.router.for_route(task.role());
     let candidate = models.router.candidate_for(task.role());
 
     println!(
@@ -433,7 +433,7 @@ async fn run_fixtures(
 ) -> Result<()> {
     // Router-only: fixtures require no database or application dependencies.
     let router = Router::from_config(&cfg.route, cfg.ollama_timeout, 1)?;
-    let incumbent = router.for_role(task.role());
+    let incumbent = router.for_route(task.role());
     let candidate = router.candidate_for(task.role());
 
     let dir = replay
@@ -579,13 +579,14 @@ async fn run_one_fixture(
     if let Some(j) = judge {
         // Voice axis (judge-v2): cast stages — every LensTask on its own character role — are
         // judged in character via the registry's identity; utility tasks (graph, still on the
-        // shared Role::EmotionalNews) keep the three-axis rubric.
+        // shared crate::plugins::graph::manifest::ROUTE) keep the three-axis rubric.
         let params = task.parameters();
         let voice_spec = VoiceSpec {
             character: params.operator,
             mandate: params.mandate,
         };
-        let voice = (task.role() != Role::EmotionalNews).then_some(&voice_spec);
+        let voice = (task.role() != scoracle_cognition::plugins::graph::manifest::ROUTE)
+            .then_some(&voice_spec);
         match scoracle_cognition::evaluation::judge::judge_reply(
             j.as_ref(),
             task.name(),
@@ -773,7 +774,7 @@ async fn run_capture_assignments(
                 .bind(&e.sport).bind(&e.entity_type).bind(e.entity_id).fetch_optional(&pool).await?;
             let assignment = match build_rating_request(
                 &pool,
-                &models,
+                models.voice_num_ctx,
                 &req,
                 RATING_TEMPERATURE,
                 with_enrichment,
@@ -798,7 +799,7 @@ async fn run_capture_assignments(
                         "exclusions":{"budget_truncated_stat_labels":a.exclusions.budget_truncated_stat_labels,"off_facet_stat_labels":a.exclusions.off_facet_stat_labels,"degenerate_zero_stat_labels":a.exclusions.degenerate_zero_stat_labels,"display_tier_stat_labels":a.exclusions.display_tier_stat_labels},
                         "built_prompt":a.built_prompt,
                         "options":{"system":a.opts.system,"temperature":a.opts.temperature,"num_predict":a.opts.num_predict,"num_ctx":a.opts.num_ctx,"json_mode":a.opts.json_mode,"format_schema":a.opts.format_schema,"format_schema_raw":a.opts.format_schema_raw},
-                        "request_body":models.router.for_role(Role::StatsLogic).request_body(&a.built_prompt, &a.opts)
+                        "request_body":models.router.for_route(scoracle_cognition::plugins::scout::manifest::ROUTE).request_body(&a.built_prompt, &a.opts)
                     })
                 }
             };
@@ -1184,7 +1185,7 @@ fn fmt_score(s: &ModelScore, n: usize) -> String {
 /// smoke output, proving the `COGNITION_ROUTE_*` config parsed.
 fn print_route_table(cfg: &RouteConfig) {
     println!("configured route table (role → incumbent [+ candidate]):");
-    for role in scoracle_cognition::runtime::route::Role::all() {
+    for role in scoracle_cognition::application::fleet::inference_routes() {
         let incumbent = cfg
             .roles
             .get(&role)

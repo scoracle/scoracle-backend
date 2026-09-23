@@ -3,7 +3,7 @@
 //! Studio owns creation from prepared material. This adapter owns Postgres retrieval, sourced
 //! memory preparation, queue invalidation, exact-claim publication, and diagnostic ledger writes.
 
-use crate::application::models::Models;
+use crate::application::models::ExecutionCapabilities;
 use crate::application::products::EntityKey;
 use crate::application::queue::publication::ClaimPublication;
 use crate::application::queue::work::{self, Item};
@@ -12,7 +12,6 @@ use crate::plugins::analyst::cognition as analyst;
 use crate::plugins::oracle::adapter as oracle;
 use crate::plugins::oracle::cognition::{SynthMomentum, SynthRating, SynthVibe};
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
-use crate::runtime::route::Role;
 use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
 use crate::studio::Studio;
 use crate::util::hash_components;
@@ -53,7 +52,7 @@ const MOMENTUM_LEDGER: LedgerSpec = LedgerSpec {
     plugin_id: crate::plugins::analyst::manifest::MANIFEST.id.as_str(),
     stage: "momentum",
     lens: "momentum",
-    role: Role::MomentumLogic,
+    role: crate::plugins::analyst::manifest::ROUTE,
     product_table: "momentum_summaries",
     output_contract_version: MOMENTUM_OUTPUT_CONTRACT_VERSION,
 };
@@ -423,7 +422,7 @@ async fn prepare(studio: &Studio<'_>, assignment: &Assignment) -> Result<Prepare
 
 async fn record_ledger(
     pool: &sqlx::PgPool,
-    models: &Models,
+    models: &ExecutionCapabilities,
     item: &Item,
     sport: &str,
     context: &MomentumContext,
@@ -489,11 +488,11 @@ async fn commit_claimed(
 
 pub struct MomentumHandler {
     pool: sqlx::PgPool,
-    models: std::sync::Arc<Models>,
+    models: ExecutionCapabilities,
 }
 
 impl MomentumHandler {
-    pub fn new(pool: sqlx::PgPool, models: std::sync::Arc<Models>) -> Self {
+    pub fn new(pool: sqlx::PgPool, models: ExecutionCapabilities) -> Self {
         Self { pool, models }
     }
 }
@@ -530,7 +529,7 @@ impl StudioPlugin for MomentumHandler {
             context,
             voice_num_ctx: models.voice_num_ctx,
         };
-        let model = models.router.for_role(Role::MomentumLogic);
+        let model = models.inference(crate::plugins::analyst::manifest::ROUTE)?;
         let prepared = prepare(&Studio::new(model.as_ref()), &assignment).await?;
         if matches!(prepared, Prepared::NoMaterial) {
             debug!(entity_type = %item.entity_type, entity_id, sport = %item.sport, "momentum: skipped empty context");

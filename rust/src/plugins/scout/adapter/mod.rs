@@ -3,7 +3,7 @@
 //! Studio owns creation from prepared material. This adapter owns concrete Postgres retrieval,
 //! assignment preparation, queue policy, exact-claim publication, and diagnostic ledger writes.
 
-use crate::application::models::Models;
+use crate::application::models::ExecutionCapabilities;
 use crate::application::queue::publication::ClaimPublication;
 use crate::application::queue::work::Item;
 use crate::evidence::memories::{self, MemoryRequest, Mission};
@@ -13,7 +13,6 @@ use crate::plugins::scout::cognition::{
     RATING_TEMPERATURE,
 };
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
-use crate::runtime::route::Role;
 use crate::studio::model::GenerateOptions;
 use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
 use crate::studio::Studio;
@@ -110,7 +109,7 @@ pub struct RatingReq {
 /// Prepare the Scout's complete assignment without calling a model.
 pub async fn build_rating_request(
     pool: &sqlx::PgPool,
-    models: &Models,
+    voice_num_ctx: i32,
     req: &RatingReq,
     temperature: f64,
     with_enrichment: bool,
@@ -327,7 +326,7 @@ pub async fn build_rating_request(
         system: Some(RATING_SYSTEM_PROMPT.to_string()),
         temperature: Some(temperature),
         num_predict: RATING_NUM_PREDICT,
-        num_ctx: models.voice_num_ctx,
+        num_ctx: voice_num_ctx,
         json_mode: false,
         format_schema: Some(crate::plugins::support::form::with_abstention(
             crate::plugins::support::form::card_schema(false),
@@ -354,18 +353,25 @@ pub async fn build_rating_request(
 /// Prepare, debounce, and create a Scout product. Publication remains a separate short transaction.
 pub async fn generate_rating(
     pool: &sqlx::PgPool,
-    models: &Models,
+    models: &ExecutionCapabilities,
     req: &RatingReq,
     temperature: f64,
     skip_unchanged: bool,
     with_enrichment: bool,
 ) -> Result<RatingOutput> {
-    let backend = models.router.for_role(Role::StatsLogic);
-    let assignment =
-        match build_rating_request(pool, models, req, temperature, with_enrichment).await? {
-            RatingBuild::NoStats { season } => return Ok(scout::no_stats(season, backend.model())),
-            RatingBuild::Ready(assignment) => *assignment,
-        };
+    let backend = models.inference(crate::plugins::scout::manifest::ROUTE)?;
+    let assignment = match build_rating_request(
+        pool,
+        models.voice_num_ctx,
+        req,
+        temperature,
+        with_enrichment,
+    )
+    .await?
+    {
+        RatingBuild::NoStats { season } => return Ok(scout::no_stats(season, backend.model())),
+        RatingBuild::Ready(assignment) => *assignment,
+    };
     if skip_unchanged
         && evidence::last_commentary_input_hash(
             pool,
@@ -392,7 +398,7 @@ const RATING_LEDGER: LedgerSpec = LedgerSpec {
     plugin_id: crate::plugins::scout::manifest::MANIFEST.id.as_str(),
     stage: "rating",
     lens: "rating",
-    role: Role::StatsLogic,
+    role: crate::plugins::scout::manifest::ROUTE,
     product_table: "stat_summaries",
     output_contract_version: RATING_OUTPUT_CONTRACT_VERSION,
 };
@@ -719,11 +725,11 @@ async fn commit_claimed(
 /// Queue-owned Scout adapter. Creation remains outside the short publication transaction.
 pub struct RatingHandler {
     pool: sqlx::PgPool,
-    models: std::sync::Arc<Models>,
+    models: ExecutionCapabilities,
 }
 
 impl RatingHandler {
-    pub fn new(pool: sqlx::PgPool, models: std::sync::Arc<Models>) -> Self {
+    pub fn new(pool: sqlx::PgPool, models: ExecutionCapabilities) -> Self {
         Self { pool, models }
     }
 }

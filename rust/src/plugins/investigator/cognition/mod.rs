@@ -27,7 +27,12 @@ pub async fn investigate_prose(
         a.extract,
     );
     let mut result = studio
-        .extract(&prompt, &prose_opts(), &ProseReadParser)
+        .extract(
+            &prompt,
+            &prose_opts(),
+            &ProseReadParser,
+            crate::plugins::support::form::structured_correction,
+        )
         .await?;
     if let Some(read) = result.value.as_mut() {
         let shown = page_text(a.title, a.description, a.extract);

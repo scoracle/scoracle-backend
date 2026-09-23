@@ -347,7 +347,12 @@ pub fn skipped_pair(
 
 pub async fn create_pair(studio: &Studio<'_>, assignment: PairAssignment) -> TransferPairOutput {
     let extracted = studio
-        .extract(&assignment.prompt, &assignment.options, &TransferParser)
+        .extract(
+            &assignment.prompt,
+            &assignment.options,
+            &TransferParser,
+            crate::plugins::support::form::structured_correction,
+        )
         .await;
     let (mut verdict, model, call) = match extracted {
         Ok(extracted) => {
@@ -609,7 +614,14 @@ pub async fn create_score(
     options: &GenerateOptions,
     input_hash: String,
 ) -> Result<Generation<InsiderScore>> {
-    let extracted = studio.extract(prompt, options, &InsiderScoreParser).await?;
+    let extracted = studio
+        .extract(
+            prompt,
+            options,
+            &InsiderScoreParser,
+            crate::plugins::support::form::publishing_correction,
+        )
+        .await?;
     let call = GenerationCall::from(&extracted);
     let model = extracted.model.clone();
     let product = extracted

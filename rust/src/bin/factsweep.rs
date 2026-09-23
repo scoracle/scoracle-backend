@@ -24,7 +24,7 @@
 use anyhow::{anyhow, Result};
 use scoracle_cognition::runtime::config::Config;
 use scoracle_cognition::runtime::db;
-use scoracle_cognition::runtime::route::{Role, Router};
+use scoracle_cognition::runtime::route::Router;
 use scoracle_cognition::studio::model::GenerateOptions;
 use sqlx::{PgPool, Row};
 use std::collections::HashMap;
@@ -208,7 +208,7 @@ async fn main() -> Result<()> {
             format_schema: Some(adjudication_schema()),
             format_schema_raw: None,
         };
-        let client = router.for_role(Role::Investigator);
+        let client = router.for_route(scoracle_cognition::plugins::investigator::manifest::ROUTE);
         let (result, _body) = match client.generate(&prompt, &opts).await {
             Ok(result) => result,
             Err(error) => {

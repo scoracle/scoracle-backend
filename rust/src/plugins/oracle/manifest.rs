@@ -2,11 +2,12 @@
 
 use crate::application::queue::work::{ClaimPolicy, TaskKey};
 use crate::plugins::support::resources::MAC_SLOTS;
-use crate::runtime::route::Role;
+use crate::runtime::route::RouteKey;
 use crate::studio::plugin::ProviderId;
 use crate::studio::plugin::{PluginId, PluginManifest, ProductKind, ResourceProfile, ToolGrant};
 
 pub const TASK: TaskKey = TaskKey::new("sigil");
+pub const ROUTE: RouteKey = RouteKey::new("oracle-logic", "ORACLE_LOGIC");
 
 pub const MANIFEST: PluginManifest = PluginManifest {
     id: PluginId::new("scoracle.character.sigil"),
@@ -23,7 +24,7 @@ pub const MANIFEST: PluginManifest = PluginManifest {
             "transfer_published",
         ],
     ),
-    model_roles: &[Role::OracleLogic],
+    inference_routes: &[ROUTE],
     context_requirements: &[
         ProviderId::ENTITY_IDENTITY,
         ProviderId::CURRENT_SEASON,

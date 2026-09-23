@@ -1,6 +1,6 @@
 //! Oracle application adapter: five-pillar retrieval, readiness, routing, publication, and work.
 
-use crate::application::models::Models;
+use crate::application::models::ExecutionCapabilities;
 use crate::application::products::EntityKey;
 use crate::application::queue::publication::ClaimPublication;
 use crate::application::queue::work::{self, Item, TaskKey};
@@ -14,7 +14,6 @@ use crate::plugins::oracle::cognition::{
     ORACLE_OUTPUT_CONTRACT_VERSION, ORACLE_TEMPERATURE,
 };
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
-use crate::runtime::route::Role;
 use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
 use crate::studio::Studio;
 use crate::util::hash_components;
@@ -27,7 +26,7 @@ const ORACLE_LEDGER: LedgerSpec = LedgerSpec {
     plugin_id: crate::plugins::oracle::manifest::MANIFEST.id.as_str(),
     stage: "sigil",
     lens: "oracle",
-    role: Role::OracleLogic,
+    role: crate::plugins::oracle::manifest::ROUTE,
     product_table: "sigil_synthesis",
     output_contract_version: ORACLE_OUTPUT_CONTRACT_VERSION,
 };
@@ -364,7 +363,11 @@ enum Prepared {
     },
 }
 
-async fn prepare(pool: &sqlx::PgPool, models: &Models, item: &Item) -> Result<Prepared> {
+async fn prepare(
+    pool: &sqlx::PgPool,
+    models: &ExecutionCapabilities,
+    item: &Item,
+) -> Result<Prepared> {
     let entity_id = item.entity_id_i32()?;
     let name = crate::evidence::corpus::lookup_entity_name(
         pool,
@@ -376,7 +379,7 @@ async fn prepare(pool: &sqlx::PgPool, models: &Models, item: &Item) -> Result<Pr
     let sport = item.sport.to_uppercase();
     let (season, cards) = load_pillars(pool, &item.entity_type, entity_id, &sport).await?;
     if cards.readiness() == oracle::Readiness::Empty {
-        let backend = models.router.for_role(Role::OracleLogic);
+        let backend = models.inference(crate::plugins::oracle::manifest::ROUTE)?;
         let assignment = Assignment {
             subject: Subject {
                 entity_type: item.entity_type.clone(),
@@ -425,7 +428,7 @@ async fn prepare(pool: &sqlx::PgPool, models: &Models, item: &Item) -> Result<Pr
         return Ok(Prepared::Debounced);
     }
     let identity = Some(memories.render_for_model()?);
-    let backend = models.router.for_role(Role::OracleLogic);
+    let backend = models.inference(crate::plugins::oracle::manifest::ROUTE)?;
     let assignment = Assignment {
         subject: Subject {
             entity_type: item.entity_type.clone(),
@@ -574,11 +577,11 @@ async fn record_ledger(
 
 pub struct SigilHandler {
     pool: sqlx::PgPool,
-    models: std::sync::Arc<Models>,
+    models: ExecutionCapabilities,
 }
 
 impl SigilHandler {
-    pub fn new(pool: sqlx::PgPool, models: std::sync::Arc<Models>) -> Self {
+    pub fn new(pool: sqlx::PgPool, models: ExecutionCapabilities) -> Self {
         Self { pool, models }
     }
 }

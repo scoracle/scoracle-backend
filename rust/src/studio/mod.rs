@@ -35,7 +35,8 @@ impl<'a> Studio<'a> {
         prompt: &str,
         opts: &GenerateOptions,
         parser: &P,
+        correction: fn(&anyhow::Error) -> Option<String>,
     ) -> Result<Extracted<T>> {
-        session::extract_with_backend(self.model, prompt, opts, parser).await
+        session::extract_with_backend(self.model, prompt, opts, parser, correction).await
     }
 }

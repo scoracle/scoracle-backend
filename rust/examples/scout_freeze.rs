@@ -11,7 +11,7 @@ use scoracle_cognition::plugins::scout::adapter::{build_rating_request, RatingRe
 use scoracle_cognition::plugins::scout::cognition::{RatingBuild, RATING_TEMPERATURE};
 use scoracle_cognition::runtime::config::Config;
 use scoracle_cognition::runtime::db;
-use scoracle_cognition::runtime::route::{Role, Router};
+use scoracle_cognition::runtime::route::Router;
 use scoracle_cognition::studio::Studio;
 use std::time::Duration;
 
@@ -88,7 +88,9 @@ async fn main() -> Result<()> {
     };
 
     let mut assignment =
-        match build_rating_request(&pool, &models, &req, RATING_TEMPERATURE, true).await? {
+        match build_rating_request(&pool, models.voice_num_ctx, &req, RATING_TEMPERATURE, true)
+            .await?
+        {
             RatingBuild::NoStats { season } => {
                 println!("no rating stats for season {season}");
                 return Ok(());
@@ -105,7 +107,10 @@ async fn main() -> Result<()> {
 
     println!(
         "=== model: {}",
-        models.router.for_role(Role::StatsLogic).model()
+        models
+            .router
+            .for_route(scoracle_cognition::plugins::scout::manifest::ROUTE)
+            .model()
     );
     println!("=== input_hash: {}", assignment.input_hash);
     println!(
@@ -124,7 +129,9 @@ async fn main() -> Result<()> {
     println!("{}", assignment.built_prompt);
 
     if generate {
-        let backend = models.router.for_role(Role::StatsLogic);
+        let backend = models
+            .router
+            .for_route(scoracle_cognition::plugins::scout::manifest::ROUTE);
         let studio = Studio::new(backend.as_ref());
         let out =
             scoracle_cognition::plugins::scout::cognition::create(&studio, assignment).await?;

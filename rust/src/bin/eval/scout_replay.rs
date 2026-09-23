@@ -2,10 +2,7 @@
 //! bounded correction. Records every returned response, including rejected ones.
 use anyhow::{anyhow, Result};
 use scoracle_cognition::plugins::scout::cognition::{RatingRequestParser, RelativeDirection};
-use scoracle_cognition::runtime::{
-    config::Config,
-    route::{Role, Router},
-};
+use scoracle_cognition::runtime::{config::Config, route::Router};
 use scoracle_cognition::studio::{
     model::{GenerateOptions, GenerateResult, Inference},
     Parser, Studio,
@@ -48,7 +45,7 @@ impl Inference for Recording<'_> {
 
 pub async fn run(cfg: &Config, path: &Path) -> Result<()> {
     let router = Router::from_config(&cfg.route, cfg.ollama_timeout, 1)?;
-    let backend = router.for_role(Role::StatsLogic);
+    let backend = router.for_route(scoracle_cognition::plugins::scout::manifest::ROUTE);
     for line in std::fs::read_to_string(path)?
         .lines()
         .filter(|l| !l.trim().is_empty())
@@ -102,7 +99,12 @@ pub async fn run(cfg: &Config, path: &Path) -> Result<()> {
             attempts: Mutex::new(vec![]),
         };
         let result = Studio::new(&recording)
-            .extract(prompt, &opts, &recording.parser)
+            .extract(
+                prompt,
+                &opts,
+                &recording.parser,
+                scoracle_cognition::plugins::support::form::publishing_correction,
+            )
             .await;
         let outcome = match result {
             Ok(r) => {
@@ -171,7 +173,12 @@ mod tests {
             ..Default::default()
         };
         Studio::new(&recording)
-            .extract("Evidence", &opts, &recording.parser)
+            .extract(
+                "Evidence",
+                &opts,
+                &recording.parser,
+                scoracle_cognition::plugins::support::form::publishing_correction,
+            )
             .await
             .unwrap();
         let attempts = recording.attempts.lock().unwrap();

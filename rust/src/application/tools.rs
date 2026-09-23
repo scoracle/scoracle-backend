@@ -161,6 +161,30 @@ impl<'a> ScopedWeb<'a> {
         });
         result.map_err(|e| anyhow!("{e}"))
     }
+
+    /// Fetch one already-curated article through the Editor's existing retrieval path.
+    /// The provider implementation is intentionally unchanged; this boundary adds the
+    /// manifest gate, run budget, and call ledger around it.
+    pub async fn fetch_curated_article(
+        &self,
+        url: &str,
+    ) -> Result<crate::evidence::fetch::FetchedArticle> {
+        self.check_grant(DomainClass::CuratedArticles, url)?;
+        self.check_budget()?;
+        let started = std::time::Instant::now();
+        let result = crate::evidence::fetch::fetch_article(url).await;
+        self.ledger.record(ToolCall {
+            tool: "web.fetch_curated_article",
+            url: url.to_string(),
+            outcome: if result.is_ok() {
+                "fetched"
+            } else {
+                "transport_failed"
+            },
+            elapsed_ms: started.elapsed().as_millis() as u64,
+        });
+        result
+    }
 }
 
 #[cfg(test)]

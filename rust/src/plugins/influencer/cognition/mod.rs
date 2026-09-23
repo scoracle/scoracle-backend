@@ -196,7 +196,12 @@ pub async fn create(studio: &Studio<'_>, assignment: &Assignment) -> Result<Vibe
         assignment.memory.as_deref(),
     );
     let extracted = studio
-        .extract(&prompt, &assignment.options, &VibeParser)
+        .extract(
+            &prompt,
+            &assignment.options,
+            &VibeParser,
+            crate::plugins::support::form::publishing_correction,
+        )
         .await?;
     let call = GenerationCall::from(&extracted);
     let model = extracted.model.clone();

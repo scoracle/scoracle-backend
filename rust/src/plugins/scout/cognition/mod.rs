@@ -1492,7 +1492,12 @@ pub async fn create(studio: &Studio<'_>, assignment: Assignment) -> Result<Ratin
         &assignment.measurement_bands,
     );
     let extracted = studio
-        .extract(&assignment.built_prompt, &assignment.opts, &grounded_parser)
+        .extract(
+            &assignment.built_prompt,
+            &assignment.opts,
+            &grounded_parser,
+            crate::plugins::support::form::publishing_correction,
+        )
         .await?;
     let call = GenerationCall::from(&extracted);
     let model = extracted.model.clone();

@@ -47,6 +47,28 @@ impl std::fmt::Display for SurfaceError {
 }
 impl std::error::Error for SurfaceError {}
 
+/// Existing user-facing card correction policy. The Studio owns the three-attempt
+/// bound; publishing plugins own the instruction appended after a correctable failure.
+pub fn publishing_correction(error: &anyhow::Error) -> Option<String> {
+    if error.is::<SurfaceError>() {
+        return Some(format!(
+            "{error} Rewrite from scratch as one compact paragraph. Keep only the main finding and one supporting detail. Target at most 500 body characters so the complete JSON fits. Do not enumerate every input."
+        ));
+    }
+    if error.is::<crate::studio::model::IncompleteOutput>() {
+        return Some("the response ran out of space. Rewrite from scratch as one compact paragraph. Keep only the main finding and one supporting detail. Target at most 500 body characters so the complete JSON fits. Do not enumerate every input.".to_string());
+    }
+    None
+}
+
+/// Correction policy for structured internal tasks. It retains the existing retry on
+/// provider truncation without asking a typed extraction to write card prose.
+pub fn structured_correction(error: &anyhow::Error) -> Option<String> {
+    error
+        .is::<crate::studio::model::IncompleteOutput>()
+        .then(|| "the response was truncated. Return the complete requested JSON object from scratch, preserving the supplied evidence and schema.".to_string())
+}
+
 pub fn validate_body(body: &str) -> anyhow::Result<()> {
     let chars = body.chars().count();
     if body.trim().is_empty() || chars > BODY_MAX_CHARS {

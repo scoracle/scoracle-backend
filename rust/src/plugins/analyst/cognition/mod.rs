@@ -337,7 +337,14 @@ pub async fn create(
         assignment.memory.as_deref(),
     );
     let opts = generation_options(assignment.voice_num_ctx);
-    let extracted = studio.extract(&prompt, &opts, &MomentumParser).await?;
+    let extracted = studio
+        .extract(
+            &prompt,
+            &opts,
+            &MomentumParser,
+            crate::plugins::support::form::publishing_correction,
+        )
+        .await?;
     let call = GenerationCall::from(&extracted);
     let model = extracted.model.clone();
     let reply = extracted

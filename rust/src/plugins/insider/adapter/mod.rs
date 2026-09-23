@@ -22,14 +22,13 @@
 use crate::evidence::memories::{self, MemoryRequest, Mission};
 use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
 
-use crate::application::models::Models;
+use crate::application::models::ExecutionCapabilities;
 use crate::application::products::EntityKey;
 use crate::application::queue::publication::ClaimPublication;
 use crate::application::queue::work::Item;
 use crate::evidence::corpus::load_transfer_heat;
 use crate::evidence::trajectory::{classify_delta, DEFAULT_TRAJECTORY};
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
-use crate::runtime::route::Role;
 use crate::util::hash_components;
 use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
@@ -90,7 +89,7 @@ const TRANSFER_LEDGER: LedgerSpec = LedgerSpec {
     plugin_id: crate::plugins::insider::manifest::MANIFEST.id.as_str(),
     stage: "transfers",
     lens: "transfer",
-    role: Role::TransferLogic,
+    role: crate::plugins::insider::manifest::ROUTE,
     product_table: "transfer_rumors",
     output_contract_version: TRANSFER_OUTPUT_CONTRACT_VERSION,
 };
@@ -112,16 +111,6 @@ pub(crate) const TRANSFER_WRAP_BUDGET_FRAC: f64 = 0.85;
 /// this puts a big team behind the other pending teams rather than letting it immediately re-take
 /// the stage's single in-flight slot and monopolise it round after round.
 const TRANSFER_DEFER_DELAY: Duration = Duration::from_secs(60);
-
-/// budget_deadline is the instant at which `frac` of the run's budget is spent, or `None` when the
-/// budget is unbounded (`Duration::ZERO` — eval and the one-shot binaries). `None` is what makes an
-/// inspection run drive a team to completion however long it takes.
-pub(crate) fn budget_deadline(start: Instant, budget: Duration, frac: f64) -> Option<Instant> {
-    if budget.is_zero() {
-        return None;
-    }
-    Some(start + budget.mul_f64(frac))
-}
 
 /// past reports whether a deadline exists and has arrived. An absent deadline is never past.
 pub(crate) fn past(deadline: Option<Instant>) -> bool {
@@ -528,7 +517,7 @@ pub async fn load_source_reliability(
 #[allow(clippy::too_many_arguments)]
 pub async fn build_pair_request(
     pool: &sqlx::PgPool,
-    models: &Models,
+    models: &ExecutionCapabilities,
     team_id: i32,
     team_name: &str,
     c: &TransferCandidate,
@@ -618,7 +607,7 @@ pub async fn build_pair_request(
         format_schema: None,
         format_schema_raw: None,
     };
-    let backend = models.router.for_role(Role::TransferLogic);
+    let backend = models.inference(crate::plugins::insider::manifest::ROUTE)?;
     let request_body = backend.request_body(&built_prompt, &options);
     let model_configured = backend.model().to_string();
     let stale_news_ids = load_stale_pair_news_ids(pool, team_id, c.player_id, sport).await?;
@@ -645,15 +634,15 @@ pub async fn build_pair_request(
 /// skipped_pair_output is the no-corpus result: heat NULL ⇒ no model call, no row
 /// (Go: `res.Skipped++, return nil`). No fingerprint either — there is no row to stamp.
 fn skipped_pair_output(
-    models: &Models,
+    models: &ExecutionCapabilities,
     player_id: i32,
     subject_type: &str,
     components: String,
     news_ids: Vec<i64>,
 ) -> TransferPairOutput {
     let model = models
-        .router
-        .for_role(Role::TransferLogic)
+        .inference(crate::plugins::insider::manifest::ROUTE)
+        .expect("Insider route was validated during composition")
         .model()
         .to_string();
     crate::plugins::insider::cognition::skipped_pair(
@@ -669,7 +658,7 @@ fn skipped_pair_output(
 /// preparation/database errors are returned.
 pub async fn analyze_pair(
     pool: &sqlx::PgPool,
-    models: &Models,
+    models: &ExecutionCapabilities,
     team_id: i32,
     team_name: &str,
     c: &TransferCandidate,
@@ -706,7 +695,7 @@ pub async fn analyze_pair(
             news_ids,
         )),
         PairBuild::Ready(assignment) => {
-            let backend = models.router.for_role(Role::TransferLogic);
+            let backend = models.inference(crate::plugins::insider::manifest::ROUTE)?;
             Ok(crate::plugins::insider::cognition::create_pair(
                 &crate::studio::Studio::new(backend.as_ref()),
                 *assignment,
@@ -920,7 +909,7 @@ const INSIDER_SCORE_LEDGER: LedgerSpec = LedgerSpec {
     plugin_id: crate::plugins::insider::manifest::MANIFEST.id.as_str(),
     stage: "transfers",
     lens: "insider_score",
-    role: Role::TransferLogic,
+    role: crate::plugins::insider::manifest::ROUTE,
     product_table: "insider_scores",
     output_contract_version: INSIDER_SCORE_OUTPUT_CONTRACT_VERSION,
 };
@@ -951,10 +940,10 @@ async fn load_wire_touched_players(
 /// score_insider_entity runs the wire wrap for ONE entity: load the active board, skip when the
 /// wire is dead (no call, no row — the Veil comes from the empty rumor board, `insider_scores`
 /// deliberately has no marker rows) or unchanged (the board-hash debounce), else one
-/// `Role::TransferLogic` call → one `insider_scores` row + one cognition-ledger entry.
+/// `crate::plugins::insider::manifest::ROUTE` call → one `insider_scores` row + one cognition-ledger entry.
 async fn score_insider_entity(
     pool: &sqlx::PgPool,
-    models: &Models,
+    models: &ExecutionCapabilities,
     item: &Item,
     entity_type: &str,
     entity_id: i32,
@@ -1004,7 +993,7 @@ async fn score_insider_entity(
     let prompt =
         build_insider_score_prompt(entity_name, sport, entity_type, &heat, identity.as_deref());
     let options = crate::plugins::insider::cognition::score_options(models.voice_num_ctx);
-    let backend = models.router.for_role(Role::TransferLogic);
+    let backend = models.inference(crate::plugins::insider::manifest::ROUTE)?;
     let generation = crate::plugins::insider::cognition::create_score(
         &crate::studio::Studio::new(backend.as_ref()),
         &prompt,
@@ -1089,7 +1078,7 @@ async fn score_insider_entity(
 /// UNKNOWN or infrastructure failures retry the item; resolved unchanged pairs debounce-skip.
 pub struct TransferHandler {
     pool: sqlx::PgPool,
-    models: std::sync::Arc<Models>,
+    models: ExecutionCapabilities,
 }
 
 async fn complete_claimed(pool: &PgPool, item: &Item) -> Result<PluginOutcome> {
@@ -1110,7 +1099,7 @@ async fn complete_claimed(pool: &PgPool, item: &Item) -> Result<PluginOutcome> {
 }
 
 impl TransferHandler {
-    pub fn new(pool: sqlx::PgPool, models: std::sync::Arc<Models>) -> Self {
+    pub fn new(pool: sqlx::PgPool, models: ExecutionCapabilities) -> Self {
         Self { pool, models }
     }
 }
@@ -1155,11 +1144,9 @@ impl StudioPlugin for TransferHandler {
             load_transfer_identity_threshold(pool, &sport),
         )?;
 
-        let start = Instant::now();
-        let pair_deadline =
-            budget_deadline(start, models.handler_budget, TRANSFER_PAIR_BUDGET_FRAC);
-        let wrap_deadline =
-            budget_deadline(start, models.handler_budget, TRANSFER_WRAP_BUDGET_FRAC);
+        let run = models.begin_run();
+        let pair_deadline = run.fraction(TRANSFER_PAIR_BUDGET_FRAC);
+        let wrap_deadline = run.fraction(TRANSFER_WRAP_BUDGET_FRAC);
 
         let mut unknown = 0usize;
         let mut errored = 0usize;
@@ -1228,7 +1215,7 @@ impl StudioPlugin for TransferHandler {
                             );
                             return Ok((Outcome::Skipped, true));
                         }
-                        let backend = models.router.for_role(Role::TransferLogic);
+                        let backend = models.inference(crate::plugins::insider::manifest::ROUTE)?;
                         crate::plugins::insider::cognition::create_pair(
                             &crate::studio::Studio::new(backend.as_ref()),
                             *ready,
@@ -1472,7 +1459,7 @@ impl StudioPlugin for TransferHandler {
             wrap_targets = wrap_targets.len(),
             wraps_deferred,
             errored,
-            elapsed_s = start.elapsed().as_secs(),
+            elapsed_s = run.elapsed().as_secs(),
             "transfers: team drain finished"
         );
 
@@ -1494,7 +1481,7 @@ impl StudioPlugin for TransferHandler {
         if deferred > 0 && vetted > 0 {
             let note = format!(
                 "deferred: {pairs_deferred} pair(s) + {wraps_deferred} wrap(s) left after {}s",
-                start.elapsed().as_secs()
+                run.elapsed().as_secs()
             );
             // The plugin reports the partial drain; the worker performs the defer and
             // owns the superseded-claim check.

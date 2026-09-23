@@ -17,7 +17,7 @@ pub const MANIFEST: PluginManifest = PluginManifest {
     contract_version: "fixture-boxscore-v1",
     task: TASK,
     claim_policy: ClaimPolicy::FIFO,
-    model_roles: &[],
+    inference_routes: &[],
     context_requirements: &[],
     consumes: &[],
     produces: &[ProductKind::BOX_SCORE],

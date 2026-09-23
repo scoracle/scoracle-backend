@@ -5,10 +5,9 @@ use super::{
     TransferCandidate, TransferIdentityAdjudicationParser, TransferRow,
     TRANSFER_IDENTITY_ADJUDICATION_PROMPT_VERSION, TRANSFER_PROMPT_VERSION,
 };
-use crate::application::models::Models;
+use crate::application::models::ExecutionCapabilities;
 use crate::application::queue::publication::ClaimPublication;
 use crate::application::queue::work::Item;
-use crate::runtime::route::Role;
 use anyhow::{anyhow, Context, Result};
 use sqlx::{PgPool, Row};
 use tracing::warn;
@@ -307,7 +306,7 @@ async fn sport_autofill_refresh_pending(pool: &PgPool, sport: &str) -> Result<bo
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn maybe_apply_transfer_identity(
     pool: &sqlx::PgPool,
-    models: &Models,
+    models: &ExecutionCapabilities,
     item: &Item,
     team_id: i32,
     team_name: &str,
@@ -379,10 +378,15 @@ pub(super) async fn maybe_apply_transfer_identity(
         sport,
         crate::studio::model::LOCAL_STAGE_NUM_CTX,
     );
-    let backend = models.router.for_role(Role::EmotionalNews);
+    let backend = models.inference(crate::plugins::graph::manifest::ROUTE)?;
     let model_configured = backend.model().to_string();
     let generated = match crate::studio::Studio::new(backend.as_ref())
-        .extract(&prompt, &options, &TransferIdentityAdjudicationParser)
+        .extract(
+            &prompt,
+            &options,
+            &TransferIdentityAdjudicationParser,
+            crate::plugins::support::form::structured_correction,
+        )
         .await
     {
         Ok(extracted) => extracted,

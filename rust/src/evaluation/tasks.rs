@@ -46,7 +46,7 @@ use crate::plugins::scout::adapter::{build_rating_request, RatingReq};
 use crate::plugins::scout::cognition::{
     RatingBuild, RatingReply, RATING_NUM_PREDICT, RATING_PROMPT_VERSION, RATING_SYSTEM_PROMPT,
 };
-use crate::runtime::route::Role;
+use crate::runtime::route::RouteKey;
 use crate::studio::model::GenerateOptions;
 use crate::studio::Parser;
 use crate::util::truncate;
@@ -95,7 +95,7 @@ pub struct LensParameters {
 ///
 /// There is no `rail` here any more. It was product taxonomy from the two-rail era — a guess that
 /// lenses would eventually route by model family — and its own doc admitted roles were the serving
-/// primitive "until evals prove a split". The split never came: routing is per-`Role`
+/// primitive "until evals prove a split". The split never came: routing is per route
 /// (`COGNITION_ROUTE_<ROLE>`), and the real topology is two HOSTS, not two rails. It had also gone
 /// wrong on its own terms, filing the Editor, the Investigator and graph under "emotional/news"
 /// because a two-rail world had nowhere else to put a seat that reads text.
@@ -495,7 +495,7 @@ pub trait LensTask: Send + Sync {
         })
     }
     /// The role whose incumbent/candidate this task A/Bs.
-    fn role(&self) -> Role;
+    fn role(&self) -> RouteKey;
     /// The stage's prompt-contract version — single-sourced from the stage const, drift-checked
     /// against a fixture's frozen `prompt_version`.
     fn prompt_version(&self) -> &'static str;
@@ -564,8 +564,8 @@ impl LensTask for VibeTask {
     fn name(&self) -> &'static str {
         "vibe"
     }
-    fn role(&self) -> Role {
-        Role::VibeLogic
+    fn role(&self) -> RouteKey {
+        crate::plugins::influencer::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
         VIBE_PROMPT_VERSION
@@ -724,8 +724,8 @@ impl LensTask for OracleTask {
     fn name(&self) -> &'static str {
         "oracle"
     }
-    fn role(&self) -> Role {
-        Role::OracleLogic
+    fn role(&self) -> RouteKey {
+        crate::plugins::oracle::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
         ORACLE_PROMPT_VERSION
@@ -855,8 +855,8 @@ impl LensTask for NarrativeTask {
     fn name(&self) -> &'static str {
         "narratives"
     }
-    fn role(&self) -> Role {
-        Role::NarrativeLogic
+    fn role(&self) -> RouteKey {
+        crate::plugins::journalist::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
         NARRATIVES_PROMPT_VERSION
@@ -1097,8 +1097,8 @@ impl LensTask for TransferTask {
     fn name(&self) -> &'static str {
         "transfer"
     }
-    fn role(&self) -> Role {
-        Role::TransferLogic
+    fn role(&self) -> RouteKey {
+        crate::plugins::insider::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
         TRANSFER_PROMPT_VERSION
@@ -1158,9 +1158,10 @@ impl LensTask for TransferTask {
             })?;
 
         let relationship = team_relationship(pool, e.entity_id, player_id, &sport).await?;
+        let capabilities = models.capabilities(&crate::plugins::insider::manifest::MANIFEST)?;
         match build_pair_request(
             pool,
-            models,
+            &capabilities,
             e.entity_id,
             &team_name,
             &candidate,
@@ -1286,8 +1287,8 @@ impl LensTask for RatingTask {
     fn name(&self) -> &'static str {
         "rating"
     }
-    fn role(&self) -> Role {
-        Role::StatsLogic
+    fn role(&self) -> RouteKey {
+        crate::plugins::scout::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
         RATING_PROMPT_VERSION
@@ -1322,7 +1323,7 @@ impl LensTask for RatingTask {
             trigger_type: "periodic".to_string(),
         };
         // Live evaluation uses the same evidence assembly as production.
-        match build_rating_request(pool, models, &req, 0.0, true).await? {
+        match build_rating_request(pool, models.voice_num_ctx, &req, 0.0, true).await? {
             RatingBuild::NoStats { .. } => Ok(None),
             RatingBuild::Ready(r) => Ok(Some(r.built_prompt)),
         }
@@ -1459,8 +1460,8 @@ impl LensTask for MomentumTask {
     fn name(&self) -> &'static str {
         "momentum"
     }
-    fn role(&self) -> Role {
-        Role::MomentumLogic
+    fn role(&self) -> RouteKey {
+        crate::plugins::analyst::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
         MOMENTUM_PROMPT_VERSION
@@ -1676,8 +1677,8 @@ impl LensTask for GraphTask {
     fn name(&self) -> &'static str {
         "graph"
     }
-    fn role(&self) -> Role {
-        Role::EmotionalNews
+    fn role(&self) -> RouteKey {
+        crate::plugins::graph::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
         GRAPH_PROMPT_VERSION
@@ -1860,8 +1861,8 @@ impl LensTask for EditorTask {
     fn name(&self) -> &'static str {
         "editor"
     }
-    fn role(&self) -> Role {
-        Role::Editor
+    fn role(&self) -> RouteKey {
+        crate::plugins::editor::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
         EDITOR_CONTRACT_VERSION
@@ -2176,8 +2177,8 @@ impl LensTask for InvestigatorTask {
     fn name(&self) -> &'static str {
         "investigator"
     }
-    fn role(&self) -> Role {
-        Role::Investigator
+    fn role(&self) -> RouteKey {
+        crate::plugins::investigator::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
         INVESTIGATOR_PROSE_CONTRACT_VERSION

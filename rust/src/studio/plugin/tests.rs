@@ -22,7 +22,7 @@ const fn manifest(
         contract_version: "test-v1",
         task,
         claim_policy: ClaimPolicy::FIFO,
-        model_roles: &[],
+        inference_routes: &[],
         context_requirements: &[],
         consumes,
         produces,
@@ -134,7 +134,7 @@ fn registry_resolves_every_registered_task_and_leaves_missing_tasks_unowned() {
 #[test]
 fn registry_rejects_inconsistent_inference_declarations() {
     static ROLE_ONLY: PluginManifest = PluginManifest {
-        model_roles: &[crate::runtime::route::Role::StatsLogic],
+        inference_routes: &[crate::plugins::scout::manifest::ROUTE],
         ..manifest("test.role-only", TASK_A, &[], &[])
     };
     static GRANT_ONLY: PluginManifest = PluginManifest {

@@ -672,7 +672,12 @@ pub async fn create(studio: &Studio<'_>, assignment: &Assignment) -> Result<Sigi
         assignment.identity.as_deref(),
     );
     let extracted = studio
-        .extract(&prompt, &assignment.options, &CrownParser)
+        .extract(
+            &prompt,
+            &assignment.options,
+            &CrownParser,
+            crate::plugins::support::form::publishing_correction,
+        )
         .await?;
     let call = GenerationCall::from(&extracted);
     let model = extracted.model.clone();

@@ -1,15 +1,15 @@
 //! Editor application: fetch and prepare, ask Studio, then publish under the exact queue claim.
-use crate::application::models::Models;
+use crate::application::models::ExecutionCapabilities;
 use crate::application::queue::publication::ClaimPublication;
 use crate::application::queue::work::Item;
+use crate::application::tools::{ScopedWeb, ToolLedger, WebBroker};
 use crate::evidence::fetch::{
-    content_hash, count_words, fetch_article, looks_paywalled, FetchedArticle, ARTICLE_MIN_WORDS,
+    content_hash, count_words, looks_paywalled, FetchedArticle, ARTICLE_MIN_WORDS,
 };
 use crate::plugins::editor::cognition::{
     derive, prompt, Assignment, EditorEntityRole, EditorRead, NameMention, EDITOR_CONTRACT_VERSION,
 };
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
-use crate::runtime::route::Role;
 use crate::studio::plugin::{PluginManifest, PluginOutcome, ScheduledOperation, StudioPlugin};
 use crate::studio::{Extracted, Generation, GenerationCall, Studio};
 use crate::util::truncate;
@@ -27,7 +27,7 @@ const EDITOR_LEDGER: LedgerSpec = LedgerSpec {
     plugin_id: crate::plugins::editor::manifest::MANIFEST.id.as_str(),
     stage: "editor",
     lens: "editor",
-    role: Role::Editor,
+    role: crate::plugins::editor::manifest::ROUTE,
     product_table: "editor_reads",
     output_contract_version: EDITOR_CONTRACT_VERSION,
 };
@@ -57,7 +57,12 @@ enum Prepared {
     },
 }
 
-async fn prepare(pool: &sqlx::PgPool, models: &Models, item: &Item) -> Result<Prepared> {
+async fn prepare(
+    pool: &sqlx::PgPool,
+    models: &ExecutionCapabilities,
+    web: &ScopedWeb<'_>,
+    item: &Item,
+) -> Result<Prepared> {
     let Some(article) = load_article(pool, item.entity_id).await? else {
         return Ok(Prepared::Unchanged);
     };
@@ -68,7 +73,7 @@ async fn prepare(pool: &sqlx::PgPool, models: &Models, item: &Item) -> Result<Pr
             error: None,
         });
     }
-    let fetched = match fetch_article(&article.url).await {
+    let fetched = match web.fetch_curated_article(&article.url).await {
         Ok(f) => sanitize_fetched(f),
         Err(e) => {
             let error = format!("{e:#}");
@@ -107,7 +112,7 @@ async fn prepare(pool: &sqlx::PgPool, models: &Models, item: &Item) -> Result<Pr
         text: fetched.text.clone(),
         hypothesis: load_hypothesis_entities(pool, item.entity_id, &item.sport).await?,
     };
-    let model = models.router.for_role(Role::Editor);
+    let model = models.inference(crate::plugins::editor::manifest::ROUTE)?;
     let extracted =
         crate::plugins::editor::cognition::read_article(&Studio::new(model.as_ref()), &assignment)
             .await?;
@@ -253,15 +258,22 @@ async fn commit_claimed(pool: &PgPool, item: &Item, prepared: &Prepared) -> Resu
 
 pub struct EditorHandler {
     pool: sqlx::PgPool,
-    models: std::sync::Arc<Models>,
+    models: ExecutionCapabilities,
+    web: std::sync::Arc<WebBroker>,
     scheduled: Vec<std::sync::Arc<dyn ScheduledOperation>>,
 }
 impl EditorHandler {
-    pub fn new(pool: sqlx::PgPool, models: std::sync::Arc<Models>, packet_compile: bool) -> Self {
+    pub fn new(
+        pool: sqlx::PgPool,
+        models: ExecutionCapabilities,
+        web: std::sync::Arc<WebBroker>,
+        packet_compile: bool,
+    ) -> Self {
         let scheduled = maintenance::operations(pool.clone(), packet_compile);
         Self {
             pool,
             models,
+            web,
             scheduled,
         }
     }
@@ -280,8 +292,10 @@ impl StudioPlugin for EditorHandler {
     async fn execute(&self, item: &Item) -> Result<PluginOutcome> {
         let pool = &self.pool;
         let models = &self.models;
+        let ledger = ToolLedger::new();
+        let web = self.web.scope(pool, self.manifest(), &ledger);
         item.require_claim_token()?;
-        let prepared = prepare(pool, models, item).await?;
+        let prepared = prepare(pool, models, &web, item).await?;
         let outcome = commit_claimed(pool, item, &prepared).await?;
         if outcome == PluginOutcome::Committed {
             if let Prepared::Read {
@@ -474,7 +488,10 @@ pub async fn build_editor_prompt_for_eval(
     if article.duplicate_of.is_some() {
         return Ok(None);
     }
-    let fetched = sanitize_fetched(fetch_article(&article.url).await?);
+    let broker = WebBroker::new(0)?;
+    let ledger = ToolLedger::new();
+    let web = broker.scope(pool, &crate::plugins::editor::manifest::MANIFEST, &ledger);
+    let fetched = sanitize_fetched(web.fetch_curated_article(&article.url).await?);
     if count_words(&fetched.text) < ARTICLE_MIN_WORDS {
         return Ok(None);
     }

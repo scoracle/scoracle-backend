@@ -102,9 +102,11 @@ async fn run_single(pool: &sqlx::PgPool, models: &Models, args: &Args) -> Result
         season: args.season,
         trigger_type: args.trigger.clone(),
     };
+    let capabilities =
+        models.capabilities(&scoracle_cognition::plugins::scout::manifest::MANIFEST)?;
     let out = generate_rating(
         pool,
-        models,
+        &capabilities,
         &req,
         RATING_TEMPERATURE,
         args.skip_unchanged,
@@ -247,7 +249,9 @@ async fn enqueue_peak_target(pool: &sqlx::PgPool, models: &Models, t: &Target) -
     // with_memory=false: this build only mints the input_version (hash + season) for the
     // queue row — the prompt is discarded, so the memory query would be pure waste.
     let input_version =
-        match build_rating_request(pool, models, &req, RATING_TEMPERATURE, false).await? {
+        match build_rating_request(pool, models.voice_num_ctx, &req, RATING_TEMPERATURE, false)
+            .await?
+        {
             RatingBuild::NoStats { season } => rating_work_input_version(season, None),
             RatingBuild::Ready(r) => rating_work_input_version(r.season, Some(&r.input_hash)),
         };
@@ -278,7 +282,17 @@ async fn run_target(
         season: Some(t.season),
         trigger_type: "periodic".to_string(),
     };
-    generate_rating(pool, models, &req, RATING_TEMPERATURE, skip_unchanged, true).await
+    let capabilities =
+        models.capabilities(&scoracle_cognition::plugins::scout::manifest::MANIFEST)?;
+    generate_rating(
+        pool,
+        &capabilities,
+        &req,
+        RATING_TEMPERATURE,
+        skip_unchanged,
+        true,
+    )
+    .await
 }
 
 async fn persist_target(pool: &sqlx::PgPool, t: &Target, out: &RatingOutput) -> Result<()> {

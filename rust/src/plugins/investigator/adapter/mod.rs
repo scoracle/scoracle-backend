@@ -17,7 +17,7 @@
 use self::discover::{
     wikidata_item, wikidata_search, wikipedia_search, wikipedia_summary, WikidataHit,
 };
-use crate::application::models::Models;
+use crate::application::models::ExecutionCapabilities;
 use crate::application::queue::work::Item;
 use crate::application::tools::{ScopedWeb, ToolLedger, WebBroker};
 use crate::evidence::fetch::FetchPolicy;
@@ -29,7 +29,6 @@ use crate::plugins::investigator::cognition::prompt::{
     ProseRead, INVESTIGATOR_PROSE_CONTRACT_VERSION,
 };
 use crate::plugins::investigator::cognition::{Assignment, WikidataItem};
-use crate::runtime::route::Role;
 use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
 use crate::studio::Studio;
 use anyhow::{anyhow, Context, Result};
@@ -52,7 +51,7 @@ fn wikimedia_policy() -> FetchPolicy {
 
 pub struct InvestigateEntityHandler {
     pool: sqlx::PgPool,
-    models: std::sync::Arc<Models>,
+    models: ExecutionCapabilities,
     /// The room's web workspace. The plugin's manifest declares the Wikimedia domain
     /// class; this broker enforces that grant on every call.
     web: std::sync::Arc<WebBroker>,
@@ -61,7 +60,7 @@ pub struct InvestigateEntityHandler {
 impl InvestigateEntityHandler {
     pub fn new(
         pool: sqlx::PgPool,
-        models: std::sync::Arc<Models>,
+        models: ExecutionCapabilities,
         web: std::sync::Arc<WebBroker>,
     ) -> Self {
         Self { pool, models, web }
@@ -313,7 +312,7 @@ async fn load_candidate(pool: &PgPool, id: i64) -> Result<Option<CandidateRow>> 
 
 async fn investigate_candidate(
     pool: &sqlx::PgPool,
-    models: &Models,
+    models: &ExecutionCapabilities,
     web: &ScopedWeb<'_>,
     item: &Item,
     mappings: &mut Vec<TeamMapping>,
@@ -413,7 +412,7 @@ async fn investigate_candidate(
 /// checked by containment against the exact page text it was shown before it can matter.
 async fn investigate_candidate_prose(
     pool: &sqlx::PgPool,
-    models: &Models,
+    models: &ExecutionCapabilities,
     web: &ScopedWeb<'_>,
     cand: &CandidateRow,
     sport: &str,
@@ -477,7 +476,7 @@ async fn investigate_candidate_prose(
             .and_then(serde_json::Value::as_str)
             .unwrap_or("");
 
-        let model = models.router.for_role(Role::Investigator);
+        let model = models.inference(crate::plugins::investigator::manifest::ROUTE)?;
         let extracted = crate::plugins::investigator::cognition::investigate_prose(
             &Studio::new(model.as_ref()),
             &Assignment {
@@ -583,7 +582,7 @@ const MAX_PROSE_PAGES: usize = 2;
 /// fetch + one model call, only ever for the single-survivor case.
 async fn prose_team_corroborates(
     pool: &sqlx::PgPool,
-    models: &Models,
+    models: &ExecutionCapabilities,
     web: &ScopedWeb<'_>,
     it: &WikidataItem,
     sport: &str,
@@ -613,7 +612,7 @@ async fn prose_team_corroborates(
         .and_then(serde_json::Value::as_str)
         .unwrap_or("");
 
-    let model = models.router.for_role(Role::Investigator);
+    let model = models.inference(crate::plugins::investigator::manifest::ROUTE)?;
     let extracted = crate::plugins::investigator::cognition::investigate_prose(
         &Studio::new(model.as_ref()),
         &Assignment {
@@ -672,7 +671,7 @@ fn bools_of(our_teams: &[Vec<i32>]) -> Vec<bool> {
 
 async fn enrich_player(
     pool: &sqlx::PgPool,
-    models: &Models,
+    models: &ExecutionCapabilities,
     web: &ScopedWeb<'_>,
     item: &Item,
     mappings: &mut Vec<TeamMapping>,

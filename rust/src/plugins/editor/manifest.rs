@@ -2,12 +2,13 @@
 
 use crate::application::queue::work::{ClaimPolicy, TaskKey};
 use crate::plugins::support::resources::ARCHBOX_SLOTS;
-use crate::runtime::route::Role;
+use crate::runtime::route::RouteKey;
 use crate::studio::plugin::{PluginId, PluginManifest, ProductKind, ResourceProfile, ToolGrant};
 use crate::studio::tools::DomainClass;
 
 const EDITOR_WEB_DOMAINS: [DomainClass; 2] = [DomainClass::NewsRss, DomainClass::CuratedArticles];
 pub const TASK: TaskKey = TaskKey::new("editor");
+pub const ROUTE: RouteKey = RouteKey::new("editor", "EDITOR");
 const EDITOR_TOOLS: [ToolGrant; 4] = [
     ToolGrant::WorldRead,
     ToolGrant::Commit,
@@ -20,7 +21,7 @@ pub const MANIFEST: PluginManifest = PluginManifest {
     contract_version: "ep8",
     task: TASK,
     claim_policy: ClaimPolicy::RANKED_ARTICLES,
-    model_roles: &[Role::Editor],
+    inference_routes: &[ROUTE],
     context_requirements: &[],
     consumes: &[],
     produces: &[ProductKind::EDITOR_READ],

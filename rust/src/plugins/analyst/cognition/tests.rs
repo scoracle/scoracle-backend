@@ -235,7 +235,7 @@ async fn parser_abstention_remains_explicit_at_the_shared_session_boundary() {
     }
     let model = Model::new("uncommitted");
     let out = Studio::new(&model)
-        .extract("evidence", &GenerateOptions::default(), &Abstain)
+        .extract("evidence", &GenerateOptions::default(), &Abstain, |_| None)
         .await
         .unwrap();
     assert!(out.value.is_none());

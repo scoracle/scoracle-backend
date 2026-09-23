@@ -1,5 +1,5 @@
-//! Role-to-model routing and the model-call boundary. Stages name roles, never concrete models.
-//! Roles sharing a backend share its client and per-host concurrency governor.
+//! Configured inference routing and the model-call boundary.
+//! Routes sharing a backend share its client and per-host concurrency governor.
 
 use crate::runtime::config::{Backend, ModelSpec, RouteConfig};
 use crate::runtime::providers::ollama::OllamaClient;
@@ -40,71 +40,26 @@ impl Inference for OpenAiClient {
     }
 }
 
-/// A model's job. Each character has its own role so rerouting one cannot change a sibling's
-/// voice. `EmotionalNews` retains Graph's deployed route key.
+/// Open, statically registered identity for one configured inference operation.
+/// Plugins own these values beside their manifests; the runtime only interprets
+/// their stable telemetry label and deployed environment suffix.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum Role {
-    StatsLogic,
-    MomentumLogic,
-    NarrativeLogic,
-    /// Reads every article arrival.
-    Editor,
-    /// Box-score retrieval and entity discovery.
-    Investigator,
-    TransferLogic,
-    VibeLogic,
-    OracleLogic,
-    EmotionalNews,
+pub struct RouteKey {
+    label: &'static str,
+    env_suffix: &'static str,
 }
 
-impl Role {
-    /// all is every role, so config and router can populate the full map — keeping
-    /// `Router::for_role` total (a role always resolves to a model).
-    pub fn all() -> [Role; 9] {
-        [
-            Role::StatsLogic,
-            Role::MomentumLogic,
-            Role::NarrativeLogic,
-            Role::Editor,
-            Role::Investigator,
-            Role::TransferLogic,
-            Role::VibeLogic,
-            Role::OracleLogic,
-            Role::EmotionalNews,
-        ]
+impl RouteKey {
+    pub const fn new(label: &'static str, env_suffix: &'static str) -> Self {
+        Self { label, env_suffix }
     }
 
-    /// as_str is the stable telemetry label for the role (it subsumes Go's
-    /// `GenerateOptions.Op` — the role *is* the op label).
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Role::StatsLogic => "stats-logic",
-            Role::MomentumLogic => "momentum-logic",
-            Role::NarrativeLogic => "narrative-logic",
-            Role::Editor => "editor",
-            Role::Investigator => "investigator",
-            Role::TransferLogic => "transfer-logic",
-            Role::VibeLogic => "vibe-logic",
-            Role::OracleLogic => "oracle-logic",
-            Role::EmotionalNews => "emotional-news",
-        }
+    pub const fn as_str(self) -> &'static str {
+        self.label
     }
 
-    /// env_suffix is the `COGNITION_ROUTE_<SUFFIX>` env-key tail naming this role's model —
-    /// the role's stable *config* identity (UPPER_SNAKE), distinct from `as_str` (the kebab
-    /// telemetry label). The one mapping from a role to where its model id is configured.
-    pub fn env_suffix(self) -> &'static str {
-        match self {
-            Role::StatsLogic => "STATS_LOGIC",
-            Role::MomentumLogic => "MOMENTUM_LOGIC",
-            Role::NarrativeLogic => "NARRATIVE_LOGIC",
-            Role::Editor => "EDITOR",
-            Role::Investigator => "INVESTIGATOR",
-            Role::TransferLogic => "TRANSFER_LOGIC",
-            Role::VibeLogic => "VIBE_LOGIC",
-            Role::OracleLogic => "ORACLE_LOGIC",
-            Role::EmotionalNews => "EMOTIONAL_NEWS",
-        }
+    pub const fn env_suffix(self) -> &'static str {
+        self.env_suffix
     }
 }
 
@@ -165,15 +120,14 @@ impl Inference for GovernedInference {
     }
 }
 
-/// Maps each [`Role`] to its incumbent backend and optional eval candidate. Roles resolving to
+/// Maps each [`RouteKey`] to its incumbent backend and optional eval candidate. Routes resolving to
 /// the same specification share one backend.
 pub struct Router {
-    /// The incumbent backend each role resolves to. Populated for every `Role` (the config
-    /// covers `Role::all`), so `for_role` is total.
-    incumbents: HashMap<Role, Arc<dyn Inference>>,
+    /// The incumbent backend for every route contributed by the composed plugin fleet.
+    incumbents: HashMap<RouteKey, Arc<dyn Inference>>,
     /// The optional A/B challenger per role — present only where a `*_CANDIDATE` was
     /// configured. NEVER served; read only by `bin/eval` via `candidate_for`.
-    candidates: HashMap<Role, Arc<dyn Inference>>,
+    candidates: HashMap<RouteKey, Arc<dyn Inference>>,
 }
 
 impl Router {
@@ -205,19 +159,20 @@ impl Router {
         })
     }
 
-    /// for_role resolves a role to the incumbent model backing it — the one a stage uses, and
-    /// the one place a role becomes a concrete model (stage code never names one). Total by
-    /// construction: `from_config` populates every role, so the lookup cannot miss.
-    pub fn for_role(&self, role: Role) -> Arc<dyn Inference> {
-        Arc::clone(self.incumbents.get(&role).unwrap_or_else(|| {
-            unreachable!("RouteConfig::from_env populates every Role::all, so for_role is total")
-        }))
+    /// Resolve a registered route to its incumbent model. Production plugin code receives
+    /// handles from `Models::capabilities` rather than retaining this global router.
+    pub fn for_route(&self, route: RouteKey) -> Arc<dyn Inference> {
+        Arc::clone(
+            self.incumbents
+                .get(&route)
+                .unwrap_or_else(|| panic!("inference route {} was not configured", route.as_str())),
+        )
     }
 
     /// candidate_for returns the optional A/B challenger for a role — the backend `bin/eval`
     /// scores against the incumbent. The router never sends serving traffic to candidates.
-    pub fn candidate_for(&self, role: Role) -> Option<Arc<dyn Inference>> {
-        self.candidates.get(&role).map(Arc::clone)
+    pub fn candidate_for(&self, route: RouteKey) -> Option<Arc<dyn Inference>> {
+        self.candidates.get(&route).map(Arc::clone)
     }
 }
 
@@ -330,9 +285,18 @@ mod tests {
     #[test]
     fn shares_one_backend_per_distinct_model() {
         let mut roles = HashMap::new();
-        roles.insert(Role::EmotionalNews, spec("local-news:latest"));
-        roles.insert(Role::StatsLogic, spec("local-news:latest")); // same model → shared Arc
-        roles.insert(Role::Editor, spec("editor-model")); // distinct → its own Arc
+        roles.insert(
+            crate::plugins::graph::manifest::ROUTE,
+            spec("local-news:latest"),
+        );
+        roles.insert(
+            crate::plugins::scout::manifest::ROUTE,
+            spec("local-news:latest"),
+        ); // same model → shared Arc
+        roles.insert(
+            crate::plugins::editor::manifest::ROUTE,
+            spec("editor-model"),
+        ); // distinct → its own Arc
         let cfg = RouteConfig {
             roles,
             candidates: HashMap::new(),
@@ -341,18 +305,25 @@ mod tests {
         let router = Router::from_config(&cfg, Duration::from_secs(60), 1).unwrap();
 
         assert!(Arc::ptr_eq(
-            &router.for_role(Role::EmotionalNews),
-            &router.for_role(Role::StatsLogic),
+            &router.for_route(crate::plugins::graph::manifest::ROUTE),
+            &router.for_route(crate::plugins::scout::manifest::ROUTE),
         ));
         assert!(!Arc::ptr_eq(
-            &router.for_role(Role::EmotionalNews),
-            &router.for_role(Role::Editor),
+            &router.for_route(crate::plugins::graph::manifest::ROUTE),
+            &router.for_route(crate::plugins::editor::manifest::ROUTE),
         ));
         assert_eq!(
-            router.for_role(Role::EmotionalNews).model(),
+            router
+                .for_route(crate::plugins::graph::manifest::ROUTE)
+                .model(),
             "local-news:latest"
         );
-        assert_eq!(router.for_role(Role::Editor).model(), "editor-model");
+        assert_eq!(
+            router
+                .for_route(crate::plugins::editor::manifest::ROUTE)
+                .model(),
+            "editor-model"
+        );
     }
 
     #[test]
@@ -360,7 +331,7 @@ mod tests {
         // The 2026-07-22 identity split: un-configured, TransferLogic and VibeLogic resolve to
         // the same shared backend as every other default role — the split moves zero behavior
         // until a human sets COGNITION_ROUTE_{TRANSFER,VIBE}_LOGIC.
-        let roles = Role::all()
+        let roles = crate::application::fleet::inference_routes()
             .into_iter()
             .map(|r| (r, spec("local-news:latest")))
             .collect();
@@ -375,29 +346,44 @@ mod tests {
         )
         .unwrap();
         assert!(Arc::ptr_eq(
-            &router.for_role(Role::TransferLogic),
-            &router.for_role(Role::EmotionalNews),
+            &router.for_route(crate::plugins::insider::manifest::ROUTE),
+            &router.for_route(crate::plugins::graph::manifest::ROUTE),
         ));
         assert!(Arc::ptr_eq(
-            &router.for_role(Role::VibeLogic),
-            &router.for_role(Role::EmotionalNews),
+            &router.for_route(crate::plugins::influencer::manifest::ROUTE),
+            &router.for_route(crate::plugins::graph::manifest::ROUTE),
         ));
     }
 
     #[test]
     fn character_roles_have_stable_config_and_telemetry_identities() {
         // Ledger rows key on as_str and deploys key on env_suffix — lock both spellings.
-        assert_eq!(Role::TransferLogic.as_str(), "transfer-logic");
-        assert_eq!(Role::VibeLogic.as_str(), "vibe-logic");
-        assert_eq!(Role::Editor.as_str(), "editor");
-        assert_eq!(Role::TransferLogic.env_suffix(), "TRANSFER_LOGIC");
-        assert_eq!(Role::VibeLogic.env_suffix(), "VIBE_LOGIC");
-        assert_eq!(Role::Editor.env_suffix(), "EDITOR");
+        assert_eq!(
+            crate::plugins::insider::manifest::ROUTE.as_str(),
+            "transfer-logic"
+        );
+        assert_eq!(
+            crate::plugins::influencer::manifest::ROUTE.as_str(),
+            "vibe-logic"
+        );
+        assert_eq!(crate::plugins::editor::manifest::ROUTE.as_str(), "editor");
+        assert_eq!(
+            crate::plugins::insider::manifest::ROUTE.env_suffix(),
+            "TRANSFER_LOGIC"
+        );
+        assert_eq!(
+            crate::plugins::influencer::manifest::ROUTE.env_suffix(),
+            "VIBE_LOGIC"
+        );
+        assert_eq!(
+            crate::plugins::editor::manifest::ROUTE.env_suffix(),
+            "EDITOR"
+        );
     }
 
     #[test]
     fn candidate_for_is_none_without_a_challenger() {
-        let roles = Role::all()
+        let roles = crate::application::fleet::inference_routes()
             .into_iter()
             .map(|r| (r, spec("local-news:latest")))
             .collect();
@@ -411,17 +397,22 @@ mod tests {
             1,
         )
         .unwrap();
-        assert!(router.candidate_for(Role::EmotionalNews).is_none());
+        assert!(router
+            .candidate_for(crate::plugins::graph::manifest::ROUTE)
+            .is_none());
     }
 
     #[test]
     fn candidate_for_resolves_a_configured_challenger() {
-        let roles = Role::all()
+        let roles = crate::application::fleet::inference_routes()
             .into_iter()
             .map(|r| (r, spec("local-news:latest")))
             .collect();
         let mut candidates = HashMap::new();
-        candidates.insert(Role::EmotionalNews, spec("candidate-news:latest"));
+        candidates.insert(
+            crate::plugins::graph::manifest::ROUTE,
+            spec("candidate-news:latest"),
+        );
         let router = Router::from_config(
             &RouteConfig {
                 roles,
@@ -433,10 +424,15 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            router.candidate_for(Role::EmotionalNews).unwrap().model(),
+            router
+                .candidate_for(crate::plugins::graph::manifest::ROUTE)
+                .unwrap()
+                .model(),
             "candidate-news:latest"
         );
-        assert!(router.candidate_for(Role::StatsLogic).is_none()); // only EmotionalNews has one
+        assert!(router
+            .candidate_for(crate::plugins::scout::manifest::ROUTE)
+            .is_none()); // only EmotionalNews has one
     }
 
     // --- GPU governor (GovernedInference) ------------------------------------------------
@@ -596,7 +592,7 @@ mod tests {
     fn single_host_deploys_build_exactly_one_governor() {
         // The regression that matters most: with no split configured, behaviour must be
         // byte-identical to the old single global semaphore.
-        let roles: HashMap<Role, ModelSpec> = Role::all()
+        let roles: HashMap<RouteKey, ModelSpec> = crate::application::fleet::inference_routes()
             .into_iter()
             .map(|r| (r, spec("local-news:latest")))
             .collect();

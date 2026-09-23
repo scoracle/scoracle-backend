@@ -4,7 +4,7 @@
 //! retrieval, debounce, routing, exact-claim multi-row publication, storyline progression, and
 //! the optional diagnostic ledger.
 
-use crate::application::models::Models;
+use crate::application::models::ExecutionCapabilities;
 use crate::application::products::EntityKey;
 use crate::application::queue::publication::ClaimPublication;
 use crate::application::queue::work::Item;
@@ -17,7 +17,6 @@ use crate::plugins::journalist::cognition::{
     NARRATIVES_TEMPERATURE,
 };
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
-use crate::runtime::route::Role;
 use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
 use crate::studio::Studio;
 use anyhow::{Context, Result};
@@ -54,7 +53,7 @@ const NARRATIVES_LEDGER: LedgerSpec = LedgerSpec {
     plugin_id: crate::plugins::journalist::manifest::MANIFEST.id.as_str(),
     stage: "narratives",
     lens: "narratives",
-    role: Role::NarrativeLogic,
+    role: crate::plugins::journalist::manifest::ROUTE,
     product_table: "news_summaries",
     output_contract_version: NARRATIVES_OUTPUT_CONTRACT_VERSION,
 };
@@ -203,7 +202,7 @@ pub async fn load_narratives_material(
 
 /// Convert loaded application material into the complete service-free Studio assignment.
 pub fn finish_narratives_assignment(
-    models: &Models,
+    models: &ExecutionCapabilities,
     req: &NarrativesReq,
     material: NarrativesMaterial,
     temperature: f64,
@@ -549,11 +548,11 @@ async fn commit_claimed(
 
 pub struct NarrativesHandler {
     pool: sqlx::PgPool,
-    models: std::sync::Arc<Models>,
+    models: ExecutionCapabilities,
 }
 
 impl NarrativesHandler {
-    pub fn new(pool: sqlx::PgPool, models: std::sync::Arc<Models>) -> Self {
+    pub fn new(pool: sqlx::PgPool, models: ExecutionCapabilities) -> Self {
         Self { pool, models }
     }
 }
@@ -618,7 +617,7 @@ impl StudioPlugin for NarrativesHandler {
 
         let assignment =
             finish_narratives_assignment(models, &req, material, NARRATIVES_TEMPERATURE)?;
-        let backend = models.router.for_role(Role::NarrativeLogic);
+        let backend = models.inference(crate::plugins::journalist::manifest::ROUTE)?;
         let output =
             journalist::create(&Studio::new(backend.as_ref()), &assignment, now_unix()).await?;
         let (outcome, product_row_ids) = commit_claimed(

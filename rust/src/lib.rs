@@ -14,7 +14,7 @@
 //! - The Oracle (`sigil`) reads the other five cards and renders the verdict.
 //! - Four internal capabilities: Editor, Investigator, Graph, and deterministic Boxscore retrieval.
 //!
-//! Those groupings describe which material a seat reads. Routing is independently per `Role`.
+//! Those groupings describe which material a seat reads. Routing uses plugin-owned route keys.
 //!
 //! Momentum is now a queue stage: deterministic `momentum_scores` stays the numeric backbone, while
 //! `momentum_summaries` stores the generated direction/blurb product consumed by Sigil. The eval

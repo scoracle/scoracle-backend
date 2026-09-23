@@ -97,14 +97,16 @@ pub fn build(
     if enabled.contains("graph") {
         handlers.push(Arc::new(graph::GraphHandler::new(
             pool.clone(),
-            models.clone(),
+            models.capabilities(&crate::plugins::graph::manifest::MANIFEST)?,
         )));
     }
     // Graph registers first so it reclaims shared slots promptly.
     if enabled.contains("editor") {
+        let web = shared_web_workspace(&mut web_workspace)?;
         handlers.push(Arc::new(editor::EditorHandler::new(
             pool.clone(),
-            models.clone(),
+            models.capabilities(&crate::plugins::editor::manifest::MANIFEST)?,
+            web,
             packet_compile,
         )));
     }
@@ -114,7 +116,7 @@ pub fn build(
         handlers.push(Arc::new(
             crate::plugins::investigator::adapter::InvestigateEntityHandler::new(
                 pool.clone(),
-                models.clone(),
+                models.capabilities(&crate::plugins::investigator::manifest::MANIFEST)?,
                 web,
             ),
         ));
@@ -133,29 +135,37 @@ pub fn build(
             continue;
         }
         handlers.push(match stage {
-            crate::plugins::journalist::manifest::TASK => Arc::new(
-                journalist::NarrativesHandler::new(pool.clone(), models.clone()),
-            ) as Arc<dyn StudioPlugin>,
-            crate::plugins::influencer::manifest::TASK => {
-                Arc::new(influencer::VibeHandler::new(pool.clone(), models.clone()))
+            crate::plugins::journalist::manifest::TASK => {
+                Arc::new(journalist::NarrativesHandler::new(
+                    pool.clone(),
+                    models.capabilities(&crate::plugins::journalist::manifest::MANIFEST)?,
+                )) as Arc<dyn StudioPlugin>
             }
+            crate::plugins::influencer::manifest::TASK => Arc::new(influencer::VibeHandler::new(
+                pool.clone(),
+                models.capabilities(&crate::plugins::influencer::manifest::MANIFEST)?,
+            )),
             // The rating stage feeds Momentum/Sigil but not the news rail, so it sits behind the
             // two news-product voices: a nightly stat backlog must not delay The Journalist.
-            crate::plugins::scout::manifest::TASK => {
-                Arc::new(scout::RatingHandler::new(pool.clone(), models.clone()))
-            }
-            crate::plugins::insider::manifest::TASK => {
-                Arc::new(insider::TransferHandler::new(pool.clone(), models.clone()))
-            }
+            crate::plugins::scout::manifest::TASK => Arc::new(scout::RatingHandler::new(
+                pool.clone(),
+                models.capabilities(&crate::plugins::scout::manifest::MANIFEST)?,
+            )),
+            crate::plugins::insider::manifest::TASK => Arc::new(insider::TransferHandler::new(
+                pool.clone(),
+                models.capabilities(&crate::plugins::insider::manifest::MANIFEST)?,
+            )),
             // Momentum consumes the rating card + vibe, so a vibe hand-off drains in the same
             // tick pass instead of waiting for the next NOTIFY/safety-net wake.
-            crate::plugins::analyst::manifest::TASK => {
-                Arc::new(analyst::MomentumHandler::new(pool.clone(), models.clone()))
-            }
+            crate::plugins::analyst::manifest::TASK => Arc::new(analyst::MomentumHandler::new(
+                pool.clone(),
+                models.capabilities(&crate::plugins::analyst::manifest::MANIFEST)?,
+            )),
             // Sigil is terminal because it reads all five pillars.
-            crate::plugins::oracle::manifest::TASK => {
-                Arc::new(oracle::SigilHandler::new(pool.clone(), models.clone()))
-            }
+            crate::plugins::oracle::manifest::TASK => Arc::new(oracle::SigilHandler::new(
+                pool.clone(),
+                models.capabilities(&crate::plugins::oracle::manifest::MANIFEST)?,
+            )),
             other => unreachable!("{other} is not a voice; VOICE_ORDER holds the six voices"),
         });
     }

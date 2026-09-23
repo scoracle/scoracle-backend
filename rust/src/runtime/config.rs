@@ -3,7 +3,7 @@
 //! the same `.env.local`. DB URL precedence matches Go: DATABASE_PRIVATE_URL
 //! wins over DATABASE_URL.
 
-use crate::runtime::route::Role;
+use crate::runtime::route::RouteKey;
 use anyhow::{anyhow, Context, Result};
 use std::collections::HashMap;
 use std::time::Duration;
@@ -23,8 +23,8 @@ pub struct Config {
     /// A `running` row idle longer than this is recovered to `pending`. It must exceed any
     /// single item's processing budget so a slow-but-alive worker is not stolen.
     pub stale_lease: Duration,
-    /// Role-to-model map. Every role defaults to `ollama_model` on `ollama_base_url`;
-    /// `COGNITION_ROUTE_*` overrides per role.
+    /// Route-to-model map. Every plugin-contributed route defaults to `ollama_model` on
+    /// `ollama_base_url`; `COGNITION_ROUTE_*` overrides individual routes.
     pub route: RouteConfig,
     /// Per-item ceiling on one stage handler run. A wedged await inside a handler (model
     /// call, DB acquire) fails the item after this long instead of stalling the drain. Zero
@@ -62,7 +62,11 @@ impl Config {
         // These fields are also the per-role route defaults.
         let ollama_base_url = env_or("OLLAMA_BASE_URL", "http://localhost:11434");
         let ollama_model = env_or("OLLAMA_MODEL", "mistral:7b");
-        let route = RouteConfig::from_env(&ollama_model, &ollama_base_url);
+        let route = RouteConfig::from_env(
+            &ollama_model,
+            &ollama_base_url,
+            &crate::application::fleet::inference_routes(),
+        );
 
         // ≥1: a 0-permit semaphore would block every model call forever.
         let ollama_max_concurrent = env_usize("OLLAMA_MAX_CONCURRENT", 1)?.max(1);
@@ -123,7 +127,7 @@ impl Backend {
     }
 }
 
-/// Concrete model and host for a [`Role`]. TaskKey code names roles, never model ids.
+/// Concrete model and host for a [`RouteKey`]. Plugins name routes, never model ids.
 #[derive(Clone, Debug)]
 pub struct ModelSpec {
     pub backend: Backend,
@@ -133,17 +137,16 @@ pub struct ModelSpec {
     pub think: Option<bool>,
 }
 
-/// Role-to-model configuration for [`Router`](crate::runtime::route::Router). Candidates are eval-only;
-/// an unconfigured deployment routes every role to the default Ollama model.
+/// Route-to-model configuration for [`Router`](crate::runtime::route::Router). Candidates are
+/// eval-only; an unconfigured deployment sends every registered route to the default model.
 #[derive(Clone, Debug)]
 pub struct RouteConfig {
-    /// The incumbent model each role resolves to (`for_role`). Populated for EVERY role
-    /// (`Role::all`), so the router's `for_role` is total — a role always resolves.
-    pub roles: HashMap<Role, ModelSpec>,
+    /// The incumbent model for every route contributed by the composed plugin fleet.
+    pub roles: HashMap<RouteKey, ModelSpec>,
     /// The optional A/B challenger per role (`candidate_for`) — present only when
     /// `COGNITION_ROUTE_<ROLE>_CANDIDATE` is set. Run by `bin/eval` against the incumbent;
     /// adoption is a human editing `COGNITION_ROUTE_<ROLE>`, never an auto-promote.
-    pub candidates: HashMap<Role, ModelSpec>,
+    pub candidates: HashMap<RouteKey, ModelSpec>,
     /// Per-BACKEND concurrency budget, keyed by `base_url` — the machine's budget, not the
     /// role's. Six characters sharing one host share one entry, which is the point: the
     /// semaphore models a physical GPU, so it must be keyed by the thing that has the GPU.
@@ -154,7 +157,7 @@ pub struct RouteConfig {
 impl RouteConfig {
     /// Read each role's model, backend, host, think preference, and optional eval candidate from
     /// `COGNITION_ROUTE_<ROLE>*`. Unset roles use `default_model` on `base_url`.
-    pub fn from_env(default_model: &str, base_url: &str) -> Self {
+    pub fn from_env(default_model: &str, base_url: &str, routes: &[RouteKey]) -> Self {
         let mut roles = HashMap::new();
         let mut candidates = HashMap::new();
         // Thinking is off unless a role opts in. `_THINK=omit` withholds the field for a backend
@@ -166,7 +169,7 @@ impl RouteConfig {
                 _ => Some(false),
             }
         };
-        for role in Role::all() {
+        for &role in routes {
             let key = format!("COGNITION_ROUTE_{}", role.env_suffix());
             // A role's host: its own override, else the shared default. Trailing slashes are
             // trimmed so `http://mac:11434` and `http://mac:11434/` are ONE backend, not two

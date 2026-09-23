@@ -287,8 +287,33 @@ and quality fixtures retain expected behavior.
   checks passed without warnings. The complete ignored PostgreSQL suite passed serially:
   60 passed, 0 failed. No migration, stored identifier, SQL behavior, prompt, route, product,
   or resource-limit change was introduced.
-- Next: milestone 5, injecting scoped inference/preparation capabilities and moving
-  correction policy out of the session kernel while preserving current routes and outputs.
+- Milestone 5: complete. Plugin manifests now own open `RouteKey` registrations and the
+  composition roster supplies the complete configured route set; the character-specific
+  `Role` enumeration is removed. Production handlers receive `ExecutionCapabilities`
+  containing only their resolved inference handles, voice window, and run-deadline policy,
+  never `Arc<Models>` or the global router. Capability construction validates the inference
+  grant where concrete handles cross into plugin code. Insider explicitly declares both its
+  transfer route and the pre-existing Emotional News route used for identity adjudication.
+- Plugin adapters retain ordinary typed preparation functions over their scoped application
+  dependencies; no provider registry or context-plan interpreter was introduced. Editor
+  article retrieval now passes through the shared manifest-scoped provider boundary while
+  calling the same `fetch_article` implementation, preserving redirect, extraction, Chrome
+  fallback, and terminal-marker semantics. Production-path tests prove undeclared inference
+  routes and curated-article reach are refused before invocation.
+- The session kernel now owns only the fixed three-attempt loop. Plugins provide correction
+  instructions: reader-facing publishers retain the prior surface/truncation text byte for
+  byte, while Editor, Graph, Investigator, transfer verdict, and identity adjudication use a
+  separately tested structured-JSON truncation correction. Studio production code no longer
+  imports publishing-form support.
+- Milestone 5 validation: `cargo test --lib --bins --offline` passed with 569 tests and 60
+  ignored; `cargo check --all-targets --offline`, formatting, and diff whitespace checks
+  passed without warnings. The existing disposable PostgreSQL 17 cluster was brought current
+  through migrations 267 and 268, then the complete ignored suite passed serially: 60 passed,
+  0 failed. The cluster was stopped afterward. Existing prompt/quality/hash/provenance and
+  route-identity fixtures passed; no migration, stored identifier, SQL, product, prompt base,
+  or resource-limit behavior changed.
+- Next: milestone 6, completing non-queue plugin invocation coverage and removing superseded
+  APIs and metadata.
 
 ## 7. Final test audit — deferred until all architecture work is complete
 

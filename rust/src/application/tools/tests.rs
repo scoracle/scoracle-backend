@@ -119,6 +119,21 @@ async fn wikimedia_grant_cannot_be_spent_on_other_hosts() {
 }
 
 #[tokio::test]
+async fn production_article_provider_refuses_a_plugin_without_the_curated_grant() {
+    let broker = WebBroker::new(4).unwrap();
+    let pool = lazy_pool();
+    let ledger = ToolLedger::new();
+    let web = scope(&broker, &pool, &crate::application::fleet::GRAPH, &ledger);
+
+    let error = web
+        .fetch_curated_article("https://example.com/article")
+        .await
+        .unwrap_err();
+    assert!(error.to_string().contains("not granted"), "{error}");
+    assert!(ledger.is_empty());
+}
+
+#[tokio::test]
 async fn the_run_budget_stops_further_calls() {
     let broker = WebBroker::new(1).unwrap();
     let pool = lazy_pool();

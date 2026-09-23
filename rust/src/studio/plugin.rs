@@ -6,17 +6,16 @@
 //! lifecycle that runs around a plugin's bounded cognitive work; the plugin owns its
 //! identity, materials recipe, prompt, parser, validation, and product contract.
 //!
-//! Cognition receives prepared material. Concrete plugin adapters currently bind a pool
-//! and router and prepare that material. They write domain effects through a host-owned,
-//! claim-fenced publication transaction. Narrowing adapter dependencies remains incremental;
-//! manifest declarations alone do not enforce capability isolation.
+//! Cognition receives prepared material and resolved inference handles. Concrete plugin
+//! adapters own typed preparation over application-supplied read/provider capabilities.
+//! They write domain effects through a host-owned, claim-fenced publication transaction.
 //!
-//! Task ownership, resource scheduling, and inference-declaration consistency are live
+//! Task ownership, resource scheduling, inference declarations, and provider grants are live
 //! contracts. Context and product metadata remain descriptive. See the architecture plan
 //! in `docs/plugin-architecture-plan.md` for the remaining boundaries.
 
 use crate::application::queue::work::{ClaimPolicy, Item, TaskKey};
-use crate::runtime::route::Role;
+use crate::runtime::route::RouteKey;
 use crate::studio::tools::DomainClass;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -81,11 +80,9 @@ impl fmt::Display for ProductKind {
     }
 }
 
-/// A declared capability. The web broker checks domain grants on calls routed through
-/// it; direct adapter access is not constrained by this enum. Registration checks that
-/// inference grants and roles are declared together. World reads and commits remain
-/// descriptive until the host supplies scoped handles. Retrieval currently occurs during
-/// preparation, before inference, so the input hash is available before the model call.
+/// A declared capability. Concrete inference and provider handles are constructed from
+/// these declarations; undeclared routes/domains are absent or refused. World reads and
+/// commits remain bound by typed plugin adapters and the claim-aware publication host.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ToolGrant {
     /// Scoped Postgres reads for context preparation (identity, cards, memories).
@@ -209,9 +206,9 @@ pub struct PluginManifest {
     pub task: TaskKey,
     /// Database-level claim ordering and dependency eligibility owned by this task.
     pub claim_policy: ClaimPolicy,
-    /// Declared inference routes. Registration checks the matching inference grant;
-    /// adapters still select their routes until scoped inference is introduced.
-    pub model_roles: &'static [Role],
+    /// Declared inference routes. Registration checks the matching inference grant and
+    /// the composition root resolves only these handles for the plugin.
+    pub inference_routes: &'static [RouteKey],
     /// Descriptive prepared-material requirements; not executed by the registry.
     pub context_requirements: &'static [ProviderId],
     pub consumes: &'static [ProductKind],
@@ -340,7 +337,8 @@ impl PluginRegistry {
                 manifest.id
             );
             anyhow::ensure!(
-                manifest.tools.contains(&ToolGrant::Inference) == !manifest.model_roles.is_empty(),
+                manifest.tools.contains(&ToolGrant::Inference)
+                    != manifest.inference_routes.is_empty(),
                 "plugin registry: {} must declare inference roles and the inference grant together",
                 manifest.id
             );

@@ -5,7 +5,7 @@
 //! best-effort from production stages so a schema/deployment issue in diagnostics cannot break the
 //! user-facing news rail.
 
-use crate::runtime::route::Role;
+use crate::runtime::route::RouteKey;
 use crate::studio::Generation;
 use anyhow::{Context, Result};
 use serde_json::Value;
@@ -45,7 +45,7 @@ pub struct LedgerSpec {
     pub plugin_id: &'static str,
     pub stage: &'static str,
     pub lens: &'static str,
-    pub role: Role,
+    pub role: RouteKey,
     pub product_table: &'static str,
     pub output_contract_version: &'static str,
 }
@@ -197,7 +197,7 @@ mod postgres_tests {
             plugin_id: "scoracle.test.ledger",
             stage: "rating",
             lens: "test-ledger",
-            role: Role::StatsLogic,
+            role: crate::plugins::scout::manifest::ROUTE,
             product_table: "stat_summaries",
             output_contract_version: "test-output-v1",
         };

@@ -4,9 +4,9 @@
 //! `super` still resolves to the junction, so these run exactly as they did inline.
 
 use super::*;
+use crate::application::models::RunDeadline;
 use crate::plugins::insider::adapter::{
-    budget_deadline, identity_apply_deterministic_score, past, TRANSFER_PAIR_BUDGET_FRAC,
-    TRANSFER_WRAP_BUDGET_FRAC,
+    identity_apply_deterministic_score, past, TRANSFER_PAIR_BUDGET_FRAC, TRANSFER_WRAP_BUDGET_FRAC,
 };
 use crate::util::hash_components;
 use std::time::{Duration, Instant};
@@ -773,8 +773,9 @@ fn settled_identity_prompt_exposes_the_stats_observation_without_a_signing_date(
 #[test]
 fn a_zero_budget_is_unbounded_not_already_expired() {
     let start = Instant::now();
-    assert!(budget_deadline(start, Duration::ZERO, TRANSFER_PAIR_BUDGET_FRAC).is_none());
-    assert!(budget_deadline(start, Duration::ZERO, TRANSFER_WRAP_BUDGET_FRAC).is_none());
+    let run = RunDeadline::starting_at(start, Duration::ZERO);
+    assert!(run.fraction(TRANSFER_PAIR_BUDGET_FRAC).is_none());
+    assert!(run.fraction(TRANSFER_WRAP_BUDGET_FRAC).is_none());
     assert!(!past(None), "an absent deadline must never read as past");
 }
 
@@ -785,8 +786,9 @@ fn a_zero_budget_is_unbounded_not_already_expired() {
 fn the_wrap_is_guaranteed_a_share_of_the_budget_below_the_ceiling() {
     let budget = Duration::from_secs(1200); // the production COGNITION_HANDLER_TIMEOUT_SECONDS
     let start = Instant::now();
-    let pairs = budget_deadline(start, budget, TRANSFER_PAIR_BUDGET_FRAC).unwrap();
-    let wrap = budget_deadline(start, budget, TRANSFER_WRAP_BUDGET_FRAC).unwrap();
+    let run = RunDeadline::starting_at(start, budget);
+    let pairs = run.fraction(TRANSFER_PAIR_BUDGET_FRAC).unwrap();
+    let wrap = run.fraction(TRANSFER_WRAP_BUDGET_FRAC).unwrap();
 
     assert!(pairs < wrap, "the pair loop must stop before the wrap does");
     assert!(

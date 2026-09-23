@@ -38,6 +38,7 @@ pub async fn read_article(
             &EditorReadParser {
                 hypothesis: &assignment.hypothesis,
             },
+            crate::plugins::support::form::structured_correction,
         )
         .await
 }

@@ -7,7 +7,7 @@
 //!
 //! | | |
 //! |---|---|
-//! | **Seat** | `Role::EmotionalNews` — a route, not an identity |
+//! | **Seat** | `crate::plugins::graph::manifest::ROUTE` — a route, not an identity |
 //! | **Contract** | `g5` |
 //! | **Reads** | one article (The Editor's summary first, when there is one) plus its vetted entities |
 //! | **Feeds** | `narrative_events` and `narrative_persons` candidates — the relational memory the characters later read |

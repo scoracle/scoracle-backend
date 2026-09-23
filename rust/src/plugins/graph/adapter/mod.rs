@@ -1,5 +1,5 @@
 //! Graph evidence preparation and claim-fenced publication. Model interpretation lives in Studio.
-use crate::application::models::Models;
+use crate::application::models::ExecutionCapabilities;
 use crate::application::queue::publication::ClaimPublication;
 use crate::application::queue::work::Item;
 use crate::plugins::graph::cognition::{
@@ -7,7 +7,6 @@ use crate::plugins::graph::cognition::{
     GRAPH_PROMPT_VERSION,
 };
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
-use crate::runtime::route::Role;
 use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
 use crate::studio::{Extracted, Generation, GenerationCall, Studio};
 use crate::util::hash_components;
@@ -20,7 +19,7 @@ const GRAPH_LEDGER: LedgerSpec = LedgerSpec {
     plugin_id: crate::plugins::graph::manifest::MANIFEST.id.as_str(),
     stage: "graph",
     lens: "graph",
-    role: Role::EmotionalNews,
+    role: crate::plugins::graph::manifest::ROUTE,
     product_table: "narrative_events",
     output_contract_version: "graph-extraction-v1",
 };
@@ -136,11 +135,11 @@ pub fn build_graph_input_components(
 /// re-hammers the GPU — and write no events.
 pub struct GraphHandler {
     pool: sqlx::PgPool,
-    models: std::sync::Arc<Models>,
+    models: ExecutionCapabilities,
 }
 
 impl GraphHandler {
-    pub fn new(pool: sqlx::PgPool, models: std::sync::Arc<Models>) -> Self {
+    pub fn new(pool: sqlx::PgPool, models: ExecutionCapabilities) -> Self {
         Self { pool, models }
     }
 }
@@ -153,7 +152,11 @@ enum Prepared {
     },
 }
 
-async fn prepare(pool: &sqlx::PgPool, models: &Models, item: &Item) -> Result<Prepared> {
+async fn prepare(
+    pool: &sqlx::PgPool,
+    models: &ExecutionCapabilities,
+    item: &Item,
+) -> Result<Prepared> {
     ensure!(item.entity_type == "article", "graph requires an article");
     let article_id = item.entity_id;
     let sport = item.sport.to_uppercase();
@@ -176,7 +179,7 @@ async fn prepare(pool: &sqlx::PgPool, models: &Models, item: &Item) -> Result<Pr
         return Ok(Prepared::Unchanged);
     }
 
-    let model = models.router.for_role(Role::EmotionalNews);
+    let model = models.inference(crate::plugins::graph::manifest::ROUTE)?;
     let extracted = crate::plugins::graph::cognition::extract_graph(
         &Studio::new(model.as_ref()),
         &Assignment {

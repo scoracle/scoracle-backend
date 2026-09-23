@@ -2,7 +2,7 @@
 
 use crate::evidence::memories::{self, MemoryRequest, Mission};
 
-use crate::application::models::Models;
+use crate::application::models::ExecutionCapabilities;
 use crate::application::products::EntityKey;
 use crate::application::queue::publication::ClaimPublication;
 use crate::application::queue::work::Item;
@@ -12,7 +12,6 @@ use crate::plugins::influencer::cognition::{
     VIBE_TEMPERATURE,
 };
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
-use crate::runtime::route::Role;
 use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
 use crate::studio::Studio;
 use crate::util::hash_components;
@@ -48,7 +47,7 @@ const VIBE_LEDGER: LedgerSpec = LedgerSpec {
     plugin_id: crate::plugins::influencer::manifest::MANIFEST.id.as_str(),
     stage: "vibe",
     lens: "vibe",
-    role: Role::VibeLogic,
+    role: crate::plugins::influencer::manifest::ROUTE,
     product_table: "vibe_scores",
     output_contract_version: VIBE_OUTPUT_CONTRACT_VERSION,
 };
@@ -350,11 +349,11 @@ async fn commit_claimed(
 /// This is the production path registered in `main.rs`.
 pub struct VibeHandler {
     pool: sqlx::PgPool,
-    models: std::sync::Arc<Models>,
+    models: ExecutionCapabilities,
 }
 
 impl VibeHandler {
-    pub fn new(pool: sqlx::PgPool, models: std::sync::Arc<Models>) -> Self {
+    pub fn new(pool: sqlx::PgPool, models: ExecutionCapabilities) -> Self {
         Self { pool, models }
     }
 }
@@ -391,7 +390,7 @@ impl StudioPlugin for VibeHandler {
             temperature: VIBE_TEMPERATURE,
             voice_num_ctx: models.voice_num_ctx,
         };
-        let model = models.router.for_role(Role::VibeLogic);
+        let model = models.inference(crate::plugins::influencer::manifest::ROUTE)?;
         let prepared = prepare(&Studio::new(model.as_ref()), &request, &ctx, &latest).await?;
         let (outcome, product_row_id) = commit_claimed(pool, item, &sport, &prepared).await?;
         if let (Some(product_row_id), Prepared::Product(output)) = (product_row_id, &prepared) {

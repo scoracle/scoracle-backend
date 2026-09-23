@@ -1,5 +1,6 @@
 //! Service-free acceptance of the production coordinator and its actual Studio session.
 use super::*;
+use crate::application::models::Models;
 use crate::plugins::influencer::cognition::build_sentiment_prompt;
 use crate::studio::model::{GenerateOptions, GenerateResult, IncompleteOutput, Inference};
 use crate::studio::plugin::PluginOutcome;
@@ -319,9 +320,13 @@ async fn production_and_eval_keep_their_existing_options_and_capacity() {
         eval.format_schema,
         production_options(0.0, 4096).format_schema
     );
-    assert_eq!(VibeTask.role(), Role::VibeLogic);
-    let cfg = crate::runtime::config::RouteConfig::from_env("unused", "http://127.0.0.1:1");
-    let models = std::sync::Arc::new(Models {
+    assert_eq!(VibeTask.role(), crate::plugins::influencer::manifest::ROUTE);
+    let cfg = crate::runtime::config::RouteConfig::from_env(
+        "unused",
+        "http://127.0.0.1:1",
+        &crate::application::fleet::inference_routes(),
+    );
+    let models = Models {
         router: crate::runtime::route::Router::from_config(
             &cfg,
             std::time::Duration::from_secs(1),
@@ -330,12 +335,15 @@ async fn production_and_eval_keep_their_existing_options_and_capacity() {
         .unwrap(),
         handler_budget: std::time::Duration::ZERO,
         voice_num_ctx: 4096,
-    });
+    };
+    let capabilities = models
+        .capabilities(&crate::plugins::influencer::manifest::MANIFEST)
+        .unwrap();
     let handler = VibeHandler::new(
         sqlx::postgres::PgPoolOptions::new()
             .connect_lazy("postgresql://localhost/unused")
             .unwrap(),
-        models,
+        capabilities,
     );
     let manifest = handler.manifest();
     assert_eq!(manifest.task, crate::plugins::influencer::manifest::TASK);

@@ -10,6 +10,7 @@ pub use crate::plugins::investigator::manifest::MANIFEST as INVESTIGATOR;
 pub use crate::plugins::journalist::manifest::MANIFEST as JOURNALIST;
 pub use crate::plugins::oracle::manifest::MANIFEST as ORACLE;
 pub use crate::plugins::scout::manifest::MANIFEST as SCOUT;
+use crate::runtime::route::RouteKey;
 use crate::studio::plugin::PluginManifest;
 
 /// The full first-party fleet in canonical order: the six reader-facing characters,
@@ -27,6 +28,19 @@ pub const ALL: [&PluginManifest; 10] = [
     &FIXTURE_BOXSCORE,
     &GRAPH,
 ];
+
+/// Configured inference routes contributed by the statically linked plugin roster.
+pub fn inference_routes() -> Vec<RouteKey> {
+    let mut routes = Vec::new();
+    for manifest in ALL {
+        for &route in manifest.inference_routes {
+            if !routes.contains(&route) {
+                routes.push(route);
+            }
+        }
+    }
+    routes
+}
 
 #[cfg(test)]
 mod tests;

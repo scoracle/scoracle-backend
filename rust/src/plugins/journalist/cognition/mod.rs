@@ -541,7 +541,12 @@ pub async fn create(
         assignment.packet_framing.as_deref(),
     );
     let extracted = studio
-        .extract(&prompt, &assignment.options, &NarrativesParser)
+        .extract(
+            &prompt,
+            &assignment.options,
+            &NarrativesParser,
+            crate::plugins::support::form::publishing_correction,
+        )
         .await?;
     let call = GenerationCall::from(&extracted);
     let model = extracted.model.clone();

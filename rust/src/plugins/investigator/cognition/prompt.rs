@@ -9,7 +9,7 @@
 //!
 //! | | |
 //! |---|---|
-//! | **Seat** | `Role::Investigator` |
+//! | **Seat** | `crate::plugins::investigator::manifest::ROUTE` |
 //! | **Reads** | one Wikipedia REST page summary (title + description + extract) |
 //! | **Writes** | nothing — [`super::gate::decide_prose`] and the handler own every write |
 

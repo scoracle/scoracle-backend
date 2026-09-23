@@ -75,7 +75,7 @@ pub struct GenerateResult {
 }
 
 /// Inference — the model-call backend, the genuine swap point. `OllamaClient` is the first
-/// impl; a `dyn Inference` is what a `Role` resolves to. `generate` returns the exact
+/// impl; a `dyn Inference` is what a plugin-owned route resolves to. `generate` returns the exact
 /// wire body it POSTed; `request_body` remains for no-call deterministic builders.
 #[async_trait]
 pub trait Inference: Send + Sync {

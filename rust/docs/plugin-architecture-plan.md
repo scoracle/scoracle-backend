@@ -1,6 +1,8 @@
 # Plugin architecture execution plan
 
-Status: execution started, 2026-09-22.
+Status: complete, 2026-09-23. Milestones 1–7 and every acceptance gate passed;
+the detailed execution evidence is recorded below and in
+[`plugin-test-audit.md`](plugin-test-audit.md).
 
 ## Target
 

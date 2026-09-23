@@ -305,6 +305,50 @@ pub async fn enqueue_momentum_if_needed(
     Ok(true)
 }
 
+pub(crate) struct MomentumReaction {
+    pool: PgPool,
+}
+
+impl MomentumReaction {
+    pub(crate) fn new(pool: PgPool) -> Self {
+        Self { pool }
+    }
+}
+
+#[async_trait]
+impl crate::application::queue::outbox::EventReaction for MomentumReaction {
+    fn name(&self) -> &'static str {
+        "analyst.enqueue-momentum"
+    }
+
+    fn kinds(&self) -> &[&'static str] {
+        &[
+            crate::application::queue::outbox::VIBE_COMPLETED,
+            crate::application::queue::outbox::RATING_COMPLETED,
+        ]
+    }
+
+    async fn react(&self, event: &crate::application::queue::outbox::Event) -> Result<()> {
+        if !enqueue_momentum_if_needed(
+            &self.pool,
+            &event.entity_type,
+            event.entity_id,
+            &event.sport,
+        )
+        .await?
+        {
+            debug!(
+                entity_type = %event.entity_type,
+                entity_id = event.entity_id,
+                sport = %event.sport,
+                kind = %event.kind,
+                "publication outbox: momentum enqueue skipped unchanged/empty context"
+            );
+        }
+        Ok(())
+    }
+}
+
 pub fn momentum_work_input_version(season: i32, input_hash: &str) -> String {
     format!("{MOMENTUM_WORK_PREFIX}{season}:{input_hash}")
 }

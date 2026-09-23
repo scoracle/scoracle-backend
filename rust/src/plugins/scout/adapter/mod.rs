@@ -23,6 +23,48 @@ use async_trait::async_trait;
 use sqlx::{PgPool, Postgres, Row, Transaction};
 use tracing::debug;
 
+pub(crate) struct RatingIdentityReaction {
+    pool: PgPool,
+}
+
+impl RatingIdentityReaction {
+    pub(crate) fn new(pool: PgPool) -> Self {
+        Self { pool }
+    }
+}
+
+#[async_trait]
+impl crate::application::queue::outbox::EventReaction for RatingIdentityReaction {
+    fn name(&self) -> &'static str {
+        "scout.rate-applied-identity"
+    }
+
+    fn kinds(&self) -> &[&'static str] {
+        &[crate::application::queue::outbox::TRANSFER_IDENTITY_APPLIED]
+    }
+
+    async fn react(&self, event: &crate::application::queue::outbox::Event) -> Result<()> {
+        let input_version = event
+            .source_input_version
+            .clone()
+            .context("transfer identity rating obligation missing input version")?;
+        crate::application::queue::work::enqueue(
+            &self.pool,
+            &Item {
+                stage: crate::plugins::scout::manifest::TASK,
+                entity_type: event.entity_type.clone(),
+                entity_id: i64::from(event.entity_id),
+                sport: event.sport.clone(),
+                input_version: Some(input_version),
+                attempts: 0,
+                claim_token: None,
+            },
+        )
+        .await
+        .context("dispatch transfer identity rating obligation")
+    }
+}
+
 mod evidence;
 mod materials;
 pub use materials::{render_personnel_block, render_scout_reports};

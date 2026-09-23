@@ -745,15 +745,16 @@ mod postgres_publication_fencing_tests {
         // Fresh connection pool is the restarted recovery owner. No notification
         // was observed and no model/runtime constructor is available here.
         let pool = self::pool().await;
+        let reactions = crate::application::plugins::build_reactions(pool.clone()).unwrap();
         assert_eq!(
-            crate::application::queue::outbox::drain(&pool, 1)
+            crate::application::queue::outbox::drain(&pool, &reactions, 1)
                 .await
                 .unwrap(),
             1
         );
         assert_eq!(counts(&pool).await, (1, 0, 1));
         assert_eq!(
-            crate::application::queue::outbox::drain(&pool, 1)
+            crate::application::queue::outbox::drain(&pool, &reactions, 1)
                 .await
                 .unwrap(),
             0

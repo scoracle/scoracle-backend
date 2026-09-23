@@ -162,6 +162,22 @@ pub fn build(
     Ok(handlers)
 }
 
+/// Assemble complete durable reaction chains from the statically linked fleet.
+/// Reactions are independent of this process's enabled task handlers: any host may
+/// durably enqueue work for a stage that another worker process executes.
+pub fn build_reactions(
+    pool: PgPool,
+) -> Result<crate::application::queue::outbox::ReactionRegistry> {
+    use crate::application::queue::outbox::EventReaction;
+
+    let reactions: Vec<Arc<dyn EventReaction>> = vec![
+        Arc::new(analyst::MomentumReaction::new(pool.clone())),
+        Arc::new(oracle::OracleBarrierReaction::new(pool.clone())),
+        Arc::new(scout::RatingIdentityReaction::new(pool)),
+    ];
+    crate::application::queue::outbox::ReactionRegistry::new(reactions)
+}
+
 /// Allocate the process's shared workspace only when an enabled plugin needs it. This keeps an
 /// intentionally idle or voice-only worker from initializing an unused provider capability.
 fn shared_web_workspace(workspace: &mut Option<Arc<WebBroker>>) -> Result<Arc<WebBroker>> {
@@ -176,7 +192,9 @@ fn shared_web_workspace(workspace: &mut Option<Arc<WebBroker>>) -> Result<Arc<We
 
 #[cfg(test)]
 mod tests {
-    use super::{enabled_from_config, known_stages, shared_web_workspace, VOICE_ORDER};
+    use super::{
+        build_reactions, enabled_from_config, known_stages, shared_web_workspace, VOICE_ORDER,
+    };
     use crate::application::queue::work::Stage;
 
     #[test]
@@ -253,6 +271,22 @@ mod tests {
                 Stage::Momentum,
                 Stage::Sigil,
             ]
+        );
+    }
+
+    #[tokio::test]
+    async fn reactions_register_complete_chains_independently_of_task_handlers() {
+        let pool = sqlx::postgres::PgPoolOptions::new()
+            .connect_lazy("postgresql://localhost/unused")
+            .unwrap();
+        let complete = build_reactions(pool).unwrap();
+        assert_eq!(
+            complete.reaction_names("rating_completed"),
+            ["analyst.enqueue-momentum", "oracle.completion-barrier"]
+        );
+        assert_eq!(
+            complete.reaction_names("transfer_identity_applied"),
+            ["scout.rate-applied-identity"]
         );
     }
 }

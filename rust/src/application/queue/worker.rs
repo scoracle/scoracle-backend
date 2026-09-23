@@ -56,7 +56,12 @@ const STALE_RECOVERY_INTERVAL: Duration = Duration::from_secs(60);
 const OUTBOX_INTERVAL: Duration = Duration::from_secs(1);
 const OUTBOX_TIMEOUT: Duration = Duration::from_secs(30);
 
-async fn outbox_loop(pool: &PgPool, tick: &Notify, shutdown: &AtomicBool) {
+async fn outbox_loop(
+    pool: &PgPool,
+    reactions: &crate::application::queue::outbox::ReactionRegistry,
+    tick: &Notify,
+    shutdown: &AtomicBool,
+) {
     let mut interval = tokio::time::interval(OUTBOX_INTERVAL);
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     loop {
@@ -68,7 +73,7 @@ async fn outbox_loop(pool: &PgPool, tick: &Notify, shutdown: &AtomicBool) {
         }
         match tokio::time::timeout(
             OUTBOX_TIMEOUT,
-            crate::application::queue::outbox::drain(pool, 100),
+            crate::application::queue::outbox::drain(pool, reactions, 100),
         )
         .await
         {
@@ -302,6 +307,7 @@ pub struct Worker {
     /// validated once at boot instead of implied by construction order. Scheduling
     /// caps are read from each plugin's manifest `ResourceProfile`.
     fleet: PluginRegistry,
+    reactions: crate::application::queue::outbox::ReactionRegistry,
     safety_net: Duration,
     stale_lease: Duration,
     /// Per-item ceiling on one stage handler run (`COGNITION_HANDLER_TIMEOUT_SECONDS`;
@@ -326,6 +332,7 @@ impl Worker {
     pub fn new(
         pool: PgPool,
         handlers: Vec<std::sync::Arc<dyn crate::studio::plugin::StudioPlugin>>,
+        reactions: crate::application::queue::outbox::ReactionRegistry,
         safety_net: Duration,
         stale_lease: Duration,
         handler_timeout: Duration,
@@ -351,6 +358,7 @@ impl Worker {
         Self {
             pool,
             fleet,
+            reactions,
             safety_net,
             stale_lease,
             handler_timeout,
@@ -401,7 +409,7 @@ impl Worker {
         // Poll alongside both idle waits and active drains. Keeping this future
         // owned by run() makes cancellation release its transaction/row locks;
         // it cannot outlive the worker or depend on a queue-empty tick boundary.
-        let outbox = outbox_loop(&self.pool, &tick, &self.shutdown);
+        let outbox = outbox_loop(&self.pool, &self.reactions, &tick, &self.shutdown);
         tokio::pin!(outbox);
 
         for operation in self
@@ -992,6 +1000,7 @@ mod tests {
                 .connect_lazy("postgresql://localhost/unused")
                 .unwrap(),
             Vec::new(),
+            crate::application::queue::outbox::ReactionRegistry::empty(),
             Duration::from_secs(60),
             Duration::from_secs(60),
             timeout,
@@ -1194,6 +1203,7 @@ mod postgres_recovery_rehearsal {
             let worker = Worker::new(
                 pool.clone(),
                 handlers,
+                crate::application::queue::outbox::ReactionRegistry::empty(),
                 Duration::from_secs(60),
                 Duration::from_secs(1800),
                 Duration::from_secs(5),
@@ -1254,6 +1264,7 @@ mod postgres_recovery_rehearsal {
                 }),
                 std::sync::Arc::new(Terminal(pool.clone())),
             ],
+            crate::application::plugins::build_reactions(pool.clone()).unwrap(),
             Duration::from_secs(60),
             Duration::from_secs(1800),
             Duration::from_secs(10),
@@ -1266,7 +1277,7 @@ mod postgres_recovery_rehearsal {
         let pulse = Pulse::new();
         let drain = worker.drain_all("busy", &pulse);
         let tick = Notify::new();
-        let dispatcher = outbox_loop(&pool, &tick, &worker.shutdown);
+        let dispatcher = outbox_loop(&pool, &worker.reactions, &tick, &worker.shutdown);
         tokio::pin!(drain, dispatcher);
         let prove = async {
             entered.notified().await;
@@ -1369,6 +1380,7 @@ mod postgres_recovery_rehearsal {
         let worker = Worker::new(
             pool.clone(),
             vec![std::sync::Arc::new(Terminal(pool.clone()))],
+            crate::application::plugins::build_reactions(pool.clone()).unwrap(),
             Duration::from_secs(1),
             Duration::from_secs(1800),
             Duration::from_secs(5),
@@ -1376,7 +1388,7 @@ mod postgres_recovery_rehearsal {
             Some(1),
         );
         let tick = Notify::new();
-        let dispatcher = outbox_loop(&pool, &tick, &worker.shutdown);
+        let dispatcher = outbox_loop(&pool, &worker.reactions, &tick, &worker.shutdown);
         let consume = async {
             tick.notified().await;
             worker.tick("outbox", &Pulse::new()).await;
@@ -1438,6 +1450,7 @@ mod postgres_recovery_rehearsal {
         let worker = Worker::new(
             pool.clone(),
             vec![std::sync::Arc::new(Unrelated(pool.clone()))],
+            crate::application::queue::outbox::ReactionRegistry::empty(),
             Duration::from_secs(60),
             Duration::from_secs(1800),
             Duration::from_secs(5),

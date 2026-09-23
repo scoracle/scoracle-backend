@@ -255,8 +255,22 @@ and quality fixtures retain expected behavior.
   eligibility/fairness cases and a new unrelated-plugin test that registers an arbitrary
   task string, claims it through the production worker, executes it, and completes it under
   the exact claim without kernel changes.
-- Next: migrate direct downstream scheduling knowledge into plugin-owned event reactions,
-  shadow-comparing each edge and retaining current debounce and terminal barriers.
+- Milestone 4 event-reaction slice: the durable outbox now dispatches a registered chain
+  of plugin-owned reactions rather than switching on domain event kinds. Analyst owns
+  Momentum enqueue decisions, Oracle owns its completion barrier reaction, and Scout owns
+  applied-identity Rating intent. The composition root installs the complete statically
+  linked reaction set on every host independently of its enabled task handlers, so split
+  worker fleets retain cross-process fan-out and no host can acknowledge a partial chain.
+  The host continues to own row locking, bounded retry/backoff, deletion receipts, and the
+  generic cadence/shutdown loop. Stored event kinds, stage strings, SQL, debounce behavior,
+  and terminal barriers are unchanged.
+- Milestone 4 event-reaction validation: `cargo test --lib --bins --offline` passed with
+  565 tests and 60 ignored. `cargo check --all-targets --offline` passed without warnings.
+  The complete ignored database suite then passed serially against the disposable migrated
+  PostgreSQL cluster: 60 passed, 0 failed, including dispatch failure/backoff, crash/replay,
+  idempotent fan-out, claim fencing, cross-worker eligibility, and unrelated task execution.
+- Next: move the remaining domain event vocabulary/producer helpers out of the generic
+  outbox module, then shadow-compare the migrated edges before completing milestone 4.
 
 ## 7. Final test audit — deferred until all architecture work is complete
 

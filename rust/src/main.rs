@@ -116,6 +116,7 @@ async fn main() -> Result<()> {
     // come from the same manifest. The worker validates the fleet (unique ids, unique
     // task ownership) at construction.
     let handlers = plugins::build(pool.clone(), models.clone(), &enabled, cfg.packet_compile)?;
+    let reactions = plugins::build_reactions(pool.clone())?;
     info!(stages = ?enabled, plugins = handlers.len(), "registered plugins");
     info!(
         plugins = scoracle_cognition::application::fleet::ALL.len(),
@@ -147,6 +148,7 @@ async fn main() -> Result<()> {
     let worker = worker::Worker::new(
         pool,
         handlers,
+        reactions,
         cfg.safety_net,
         cfg.stale_lease,
         cfg.handler_timeout,

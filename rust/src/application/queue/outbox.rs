@@ -4,19 +4,22 @@
 //! Oracle barrier. Momentum, a debounced Rating, and a completed Narratives claim need only that
 //! Oracle barrier. The event is deleted only after its concrete, idempotent dispatch succeeds.
 
-use crate::application::queue::work::{self, retry_backoff, Item, Stage};
+use crate::application::queue::work::{retry_backoff, Item};
 use crate::util::truncate;
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
+use async_trait::async_trait;
 use sqlx::{Postgres, Row, Transaction};
-use tracing::{debug, warn};
+use std::collections::BTreeMap;
+use std::sync::Arc;
+use tracing::warn;
 
-const VIBE_COMPLETED: &str = "vibe_completed";
-const MOMENTUM_COMPLETED: &str = "momentum_completed";
-const RATING_COMPLETED: &str = "rating_completed";
-const RATING_DEBOUNCED: &str = "rating_debounced";
-const NARRATIVES_COMPLETED: &str = "narratives_completed";
-const TRANSFER_PUBLISHED: &str = "transfer_published";
-const TRANSFER_IDENTITY_APPLIED: &str = "transfer_identity_applied";
+pub(crate) const VIBE_COMPLETED: &str = "vibe_completed";
+pub(crate) const MOMENTUM_COMPLETED: &str = "momentum_completed";
+pub(crate) const RATING_COMPLETED: &str = "rating_completed";
+pub(crate) const RATING_DEBOUNCED: &str = "rating_debounced";
+pub(crate) const NARRATIVES_COMPLETED: &str = "narratives_completed";
+pub(crate) const TRANSFER_PUBLISHED: &str = "transfer_published";
+pub(crate) const TRANSFER_IDENTITY_APPLIED: &str = "transfer_identity_applied";
 
 pub(crate) async fn record_vibe_completed(
     tx: &mut Transaction<'_, Postgres>,
@@ -144,19 +147,96 @@ async fn record_completion(
     Ok(())
 }
 
-struct Event {
+pub(crate) struct Event {
     id: String,
-    kind: String,
-    entity_type: String,
-    entity_id: i32,
-    sport: String,
-    source_input_version: Option<String>,
+    pub(crate) kind: String,
+    pub(crate) entity_type: String,
+    pub(crate) entity_id: i32,
+    pub(crate) sport: String,
+    pub(crate) source_input_version: Option<String>,
     attempts: i32,
+}
+
+#[async_trait]
+pub(crate) trait EventReaction: Send + Sync {
+    fn name(&self) -> &'static str;
+    fn kinds(&self) -> &[&'static str];
+    async fn react(&self, event: &Event) -> Result<()>;
+}
+
+/// Complete per-event reaction chains available on this host. An event kind is
+/// claimable only when composition registered its whole required chain here.
+pub struct ReactionRegistry {
+    by_kind: BTreeMap<&'static str, Vec<Arc<dyn EventReaction>>>,
+}
+
+impl ReactionRegistry {
+    pub(crate) fn new(reactions: Vec<Arc<dyn EventReaction>>) -> Result<Self> {
+        let mut by_kind: BTreeMap<&'static str, Vec<Arc<dyn EventReaction>>> = BTreeMap::new();
+        for reaction in reactions {
+            anyhow::ensure!(
+                !reaction.kinds().is_empty(),
+                "reaction {} has no event kinds",
+                reaction.name()
+            );
+            for kind in reaction.kinds() {
+                anyhow::ensure!(
+                    !kind.is_empty(),
+                    "reaction {} has an empty event kind",
+                    reaction.name()
+                );
+                by_kind.entry(kind).or_default().push(reaction.clone());
+            }
+        }
+        Ok(Self { by_kind })
+    }
+
+    pub fn empty() -> Self {
+        Self {
+            by_kind: BTreeMap::new(),
+        }
+    }
+
+    fn kinds(&self) -> Vec<&'static str> {
+        self.by_kind.keys().copied().collect()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn reaction_names(&self, kind: &str) -> Vec<&'static str> {
+        self.by_kind
+            .get(kind)
+            .into_iter()
+            .flatten()
+            .map(|reaction| reaction.name())
+            .collect()
+    }
+
+    async fn dispatch(&self, event: &Event) -> Result<()> {
+        let reactions = self
+            .by_kind
+            .get(event.kind.as_str())
+            .with_context(|| format!("unsupported application outbox kind {:?}", event.kind))?;
+        for reaction in reactions {
+            reaction
+                .react(event)
+                .await
+                .with_context(|| format!("reaction {} failed", reaction.name()))?;
+        }
+        Ok(())
+    }
 }
 
 /// Drain at most `limit` ready reconciliation events. Each event holds only its own row lock while
 /// the idempotent adapters run. A failure is durably backed off and does not poison later events.
-pub async fn drain(pool: &sqlx::PgPool, limit: usize) -> Result<usize> {
+pub async fn drain(
+    pool: &sqlx::PgPool,
+    reactions: &ReactionRegistry,
+    limit: usize,
+) -> Result<usize> {
+    let kinds = reactions.kinds();
+    if kinds.is_empty() {
+        return Ok(0);
+    }
     let mut handled = 0;
     for _ in 0..limit {
         let mut tx = pool.begin().await.context("begin outbox dispatch")?;
@@ -170,15 +250,7 @@ pub async fn drain(pool: &sqlx::PgPool, limit: usize) -> Result<usize> {
              LIMIT 1
             "#,
         )
-        .bind([
-            VIBE_COMPLETED,
-            MOMENTUM_COMPLETED,
-            RATING_COMPLETED,
-            RATING_DEBOUNCED,
-            NARRATIVES_COMPLETED,
-            TRANSFER_PUBLISHED,
-            TRANSFER_IDENTITY_APPLIED,
-        ])
+        .bind(&kinds)
         .fetch_optional(&mut *tx)
         .await
         .context("claim application outbox event")?;
@@ -198,7 +270,7 @@ pub async fn drain(pool: &sqlx::PgPool, limit: usize) -> Result<usize> {
             attempts: row.get(6),
         };
 
-        let result = dispatch(pool, &event).await;
+        let result = reactions.dispatch(&event).await;
         match result {
             Ok(()) => {
                 sqlx::query("DELETE FROM application_outbox WHERE id = $1::uuid")
@@ -242,70 +314,6 @@ pub async fn drain(pool: &sqlx::PgPool, limit: usize) -> Result<usize> {
     Ok(handled)
 }
 
-async fn dispatch(pool: &sqlx::PgPool, event: &Event) -> Result<()> {
-    match event.kind.as_str() {
-        VIBE_COMPLETED | RATING_COMPLETED => dispatch_momentum_then_oracle(pool, event).await,
-        MOMENTUM_COMPLETED | RATING_DEBOUNCED | NARRATIVES_COMPLETED | TRANSFER_PUBLISHED => {
-            dispatch_oracle_barrier(pool, event).await
-        }
-        TRANSFER_IDENTITY_APPLIED => dispatch_rating(pool, event).await,
-        kind => bail!("unsupported application outbox kind {kind:?}"),
-    }
-}
-
-async fn dispatch_rating(pool: &sqlx::PgPool, event: &Event) -> Result<()> {
-    let input_version = event
-        .source_input_version
-        .clone()
-        .context("transfer identity rating obligation missing input version")?;
-    work::enqueue(
-        pool,
-        &Item {
-            stage: Stage::Rating,
-            entity_type: event.entity_type.clone(),
-            entity_id: i64::from(event.entity_id),
-            sport: event.sport.clone(),
-            input_version: Some(input_version),
-            attempts: 0,
-            claim_token: None,
-        },
-    )
-    .await
-    .context("dispatch transfer identity rating obligation")
-}
-
-async fn dispatch_momentum_then_oracle(pool: &sqlx::PgPool, event: &Event) -> Result<()> {
-    if !crate::plugins::analyst::adapter::enqueue_momentum_if_needed(
-        pool,
-        &event.entity_type,
-        event.entity_id,
-        &event.sport,
-    )
-    .await?
-    {
-        debug!(
-            entity_type = %event.entity_type,
-            entity_id = event.entity_id,
-            sport = %event.sport,
-            kind = %event.kind,
-            "publication outbox: momentum enqueue skipped unchanged/empty context"
-        );
-    }
-    dispatch_oracle_barrier(pool, event).await
-}
-
-async fn dispatch_oracle_barrier(pool: &sqlx::PgPool, event: &Event) -> Result<()> {
-    crate::plugins::oracle::adapter::enqueue_oracle_if_pillars_settled(
-        pool,
-        &event.entity_type,
-        i64::from(event.entity_id),
-        &event.sport,
-        event.source_input_version.clone(),
-    )
-    .await?;
-    Ok(())
-}
-
 #[cfg(test)]
 mod postgres_recovery_tests {
     use super::*;
@@ -330,6 +338,10 @@ mod postgres_recovery_tests {
                 .await
                 .unwrap();
         }
+    }
+
+    fn reactions(pool: &PgPool) -> ReactionRegistry {
+        crate::application::plugins::build_reactions(pool.clone()).unwrap()
     }
 
     async fn committed_obligation(pool: &PgPool) -> Event {
@@ -371,12 +383,13 @@ mod postgres_recovery_tests {
         let pool = pool().await;
         let event = committed_obligation(&pool).await;
         // Simulate dispatch committed, then process death before event acknowledgement.
-        dispatch(&pool, &event).await.unwrap();
+        let reactions = reactions(&pool);
+        reactions.dispatch(&event).await.unwrap();
         let original: (String, String) = sqlx::query_as(
             "SELECT available_at::text, input_version FROM pipeline_work WHERE sport = $1 AND stage = 'sigil'"
         ).bind(SPORT).fetch_one(&pool).await.unwrap();
         drop(event);
-        assert_eq!(drain(&pool, 100).await.unwrap(), 1);
+        assert_eq!(drain(&pool, &reactions, 100).await.unwrap(), 1);
         let replayed: (String, String) = sqlx::query_as(
             "SELECT available_at::text, input_version FROM pipeline_work WHERE sport = $1 AND stage = 'sigil'"
         ).bind(SPORT).fetch_one(&pool).await.unwrap();
@@ -384,7 +397,7 @@ mod postgres_recovery_tests {
             replayed, original,
             "replay must coalesce without changing FIFO or revision"
         );
-        assert_eq!(drain(&pool, 100).await.unwrap(), 0);
+        assert_eq!(drain(&pool, &reactions, 100).await.unwrap(), 0);
         clean(&pool).await;
     }
 
@@ -396,7 +409,8 @@ mod postgres_recovery_tests {
         // Fail only this test subject's downstream enqueue, leaving other suites untouched.
         sqlx::raw_sql("CREATE OR REPLACE FUNCTION test_outbox_failure() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.sport = 'ZZ_OUTBOX_RECOVERY' THEN RAISE EXCEPTION 'injected outbox enqueue failure'; END IF; RETURN NEW; END $$; CREATE TRIGGER test_outbox_failure BEFORE INSERT ON pipeline_work FOR EACH ROW EXECUTE FUNCTION test_outbox_failure();")
             .execute(&pool).await.unwrap();
-        let result = drain(&pool, 100).await;
+        let reactions = reactions(&pool);
+        let result = drain(&pool, &reactions, 100).await;
         sqlx::raw_sql("DROP TRIGGER test_outbox_failure ON pipeline_work; DROP FUNCTION test_outbox_failure();")
             .execute(&pool).await.unwrap();
         assert_eq!(result.unwrap(), 0);
@@ -411,7 +425,7 @@ mod postgres_recovery_tests {
             .execute(&pool)
             .await
             .unwrap();
-        assert_eq!(drain(&pool, 100).await.unwrap(), 1);
+        assert_eq!(drain(&pool, &reactions, 100).await.unwrap(), 1);
         let pending: i64 = sqlx::query_scalar("SELECT count(*) FROM pipeline_work WHERE sport = $1 AND stage = 'sigil' AND status = 'pending'")
             .bind(SPORT).fetch_one(&pool).await.unwrap();
         assert_eq!(pending, 1);
@@ -474,7 +488,8 @@ mod postgres_recovery_tests {
             .unwrap();
         }
         committed.commit().await.unwrap();
-        assert_eq!(drain(&pool, 100).await.unwrap(), 3);
+        let reactions = reactions(&pool);
+        assert_eq!(drain(&pool, &reactions, 100).await.unwrap(), 3);
         let work: Vec<(String, i32, String)> = sqlx::query_as(
             "SELECT entity_type, entity_id, input_version FROM pipeline_work WHERE sport=$1 AND stage='rating' ORDER BY entity_type,entity_id",
         )
@@ -516,7 +531,7 @@ mod postgres_recovery_tests {
                 source_input_version: Some("revision".into()),
                 attempts: 0,
             };
-            dispatch(&pool, &event).await.unwrap();
+            reactions(&pool).dispatch(&event).await.unwrap();
             std::process::exit(86);
         }
         let pool = pool().await;
@@ -539,7 +554,8 @@ mod postgres_recovery_tests {
         .fetch_one(&pool)
         .await
         .unwrap();
-        assert_eq!(drain(&pool, 1).await.unwrap(), 1);
+        let reactions = reactions(&pool);
+        assert_eq!(drain(&pool, &reactions, 1).await.unwrap(), 1);
         let after: (String, String) = sqlx::query_as(
             "SELECT available_at::text,input_version FROM pipeline_work WHERE sport=$1",
         )

@@ -102,6 +102,46 @@ pub async fn enqueue_oracle_if_pillars_settled(
     Ok(true)
 }
 
+pub(crate) struct OracleBarrierReaction {
+    pool: PgPool,
+}
+
+impl OracleBarrierReaction {
+    pub(crate) fn new(pool: PgPool) -> Self {
+        Self { pool }
+    }
+}
+
+#[async_trait]
+impl crate::application::queue::outbox::EventReaction for OracleBarrierReaction {
+    fn name(&self) -> &'static str {
+        "oracle.completion-barrier"
+    }
+
+    fn kinds(&self) -> &[&'static str] {
+        &[
+            crate::application::queue::outbox::VIBE_COMPLETED,
+            crate::application::queue::outbox::RATING_COMPLETED,
+            crate::application::queue::outbox::MOMENTUM_COMPLETED,
+            crate::application::queue::outbox::RATING_DEBOUNCED,
+            crate::application::queue::outbox::NARRATIVES_COMPLETED,
+            crate::application::queue::outbox::TRANSFER_PUBLISHED,
+        ]
+    }
+
+    async fn react(&self, event: &crate::application::queue::outbox::Event) -> Result<()> {
+        enqueue_oracle_if_pillars_settled(
+            &self.pool,
+            &event.entity_type,
+            i64::from(event.entity_id),
+            &event.sport,
+            event.source_input_version.clone(),
+        )
+        .await?;
+        Ok(())
+    }
+}
+
 pub async fn resolve_season(pool: &PgPool, sport: &str, want: Option<i32>) -> Result<i32> {
     if let Some(season) = want {
         return Ok(season);

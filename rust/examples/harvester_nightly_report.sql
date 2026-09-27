@@ -287,3 +287,28 @@ WITH ingest AS (
 SELECT count(*) FILTER (WHERE c.created_at<i.started_at) AS retained_prior_classifications,
        count(*) FILTER (WHERE c.created_at>=i.started_at) AS created_since_ingest_start
   FROM latest c CROSS JOIN ingest i;
+
+-- Keep model, checkpoint, and question-contract changes visible within a
+-- sweep. These values are provenance labels, not calibrated probabilities.
+WITH ingest AS (
+    SELECT started_at,finished_at FROM public.pipeline_runs
+     WHERE job='pipeline' AND finished_at IS NOT NULL ORDER BY started_at DESC LIMIT 1
+), cohort AS (
+    SELECT p.article_id,p.entity_type,p.entity_id,p.sport
+      FROM public.harvester_query_provenance p CROSS JOIN ingest i
+     WHERE p.last_seen_at BETWEEN i.started_at AND i.finished_at
+), latest AS (
+    SELECT DISTINCT ON (c.article_id,c.entity_type,c.entity_id,c.sport)
+           c.contract_version,c.model_revision,c.model_provenance
+      FROM public.harvester_classifications c JOIN cohort q
+        ON q.article_id=c.article_id AND q.entity_type=c.entity_type
+       AND q.entity_id=c.entity_id AND q.sport=c.sport
+     ORDER BY c.article_id,c.entity_type,c.entity_id,c.sport,c.created_at DESC,c.id DESC
+)
+SELECT contract_version,model_revision,
+       model_provenance->'relevance'->>'model' AS model_name,
+       model_provenance->'question_set_versions' AS question_set_versions,
+       count(*) AS classified_edges
+  FROM latest
+ GROUP BY contract_version,model_revision,model_name,question_set_versions
+ ORDER BY classified_edges DESC,model_revision;

@@ -5,6 +5,7 @@
 //! delivery live in the application adapter.
 
 use crate::studio::model::GenerateOptions;
+use crate::studio::palette::{Paint, Palette, PaletteParser};
 use crate::studio::{Generation, GenerationCall, Parser, Studio};
 use crate::util::truncate_bytes;
 use anyhow::Result;
@@ -35,11 +36,11 @@ pub use verification::{
     TRANSFER_PROMPT_VERSION_PERSON,
 };
 
-pub const TRANSFER_OUTPUT_CONTRACT_VERSION: &str = "transfer-verdict-v1";
+pub const TRANSFER_OUTPUT_CONTRACT_VERSION: &str = "transfer-verdict-v2-source-bound";
 pub const TRANSFER_TEMPERATURE: f64 = 0.3;
 pub const TRANSFER_NUM_PREDICT: i32 = 900;
 pub const TRANSFER_DEFAULT_MIN_ARTICLES: i32 = 2;
-pub const INSIDER_SCORE_OUTPUT_CONTRACT_VERSION: &str = "insider-score-v1";
+pub const INSIDER_SCORE_OUTPUT_CONTRACT_VERSION: &str = "insider-score-v2-palette";
 pub const INSIDER_SCORE_TEMPERATURE: f64 = 0.3;
 pub const INSIDER_SCORE_NUM_PREDICT: i32 = 600;
 pub const TRANSFER_IDENTITY_ADJUDICATION_SCHEMA_RAW: &str = r#"{
@@ -302,6 +303,8 @@ pub type TransferPairOutput = Generation<TransferPairProduct>;
 #[derive(Clone, Debug)]
 pub struct PairAssignment {
     pub player_id: i32,
+    pub player_name: String,
+    pub team_name: String,
     pub subject_type: String,
     pub heat: i16,
     pub components: String,
@@ -384,13 +387,33 @@ pub async fn create_pair(studio: &Studio<'_>, assignment: PairAssignment) -> Tra
         {
             verdict.is_rumor = Some(false);
         }
+        if verdict.is_rumor == Some(true) {
+            if let Some((item, stage)) = supported_move(&assignment) {
+                verdict.subject = assignment.player_name.clone();
+                verdict.direction = direction_for(&assignment.relationship).to_string();
+                verdict.stage = stage.to_string();
+                verdict.summary = if item.source.trim().is_empty() {
+                    format!("A source reports: {}", item.title.trim())
+                } else {
+                    format!("{} reports: {}", item.source.trim(), item.title.trim())
+                };
+                verdict.confidence = 0.0;
+            } else {
+                // A model assertion without a direct named source claim cannot reach the wire.
+                verdict.is_rumor = None;
+            }
+        }
     }
-    let (row, outcome) = row_from_verdict(
+    let (mut row, outcome) = row_from_verdict(
         verdict.as_ref(),
         &assignment.relationship,
         (!assignment.attribution.is_empty()).then_some(assignment.attribution.as_str()),
         &assignment.model_configured,
     );
+    if outcome == Outcome::Rumor {
+        // No calibrated probability exists for a literal source claim.
+        row.confidence = None;
+    }
     let input_ids = assignment.news_ids.clone();
     Generation::called(
         TransferPairProduct {
@@ -411,6 +434,49 @@ pub async fn create_pair(studio: &Studio<'_>, assignment: PairAssignment) -> Tra
         Some(assignment.input_hash),
         call,
     )
+}
+
+fn supported_move(assignment: &PairAssignment) -> Option<(&NewsItem, &'static str)> {
+    let player = assignment.player_name.trim().to_lowercase();
+    let team = assignment.team_name.trim().to_lowercase();
+    if player.is_empty() || team.is_empty() {
+        return None;
+    }
+    assignment.news.iter().find_map(|item| {
+        let text = format!("{} {}", item.title, item.description).to_lowercase();
+        if !text.contains(&player) || !text.contains(&team) {
+            return None;
+        }
+        if assignment.relationship == "former" && !has_return_signal(std::slice::from_ref(item)) {
+            return None;
+        }
+        let stage = if ["signed", "signs", "agreed", "completed", "official"]
+            .iter()
+            .any(|cue| text.contains(cue))
+        {
+            "here_we_go"
+        } else if ["talks", "negotiat", "deal close"]
+            .iter()
+            .any(|cue| text.contains(cue))
+        {
+            "advanced_talks"
+        } else if ["bid", "pursu", "interest"]
+            .iter()
+            .any(|cue| text.contains(cue))
+        {
+            "concrete_interest"
+        } else if [
+            "link", "monitor", "move", "transfer", "trade", "rejoin", "return",
+        ]
+        .iter()
+        .any(|cue| text.contains(cue))
+        {
+            "speculation"
+        } else {
+            return None;
+        };
+        Some((item, stage))
+    })
 }
 
 fn prompt_version(subject_type: &str) -> &'static str {
@@ -610,23 +676,45 @@ pub fn score_options(num_ctx: i32) -> GenerateOptions {
 
 pub async fn create_score(
     studio: &Studio<'_>,
-    prompt: &str,
+    entity_name: &str,
+    heat: &[HeatItem],
     options: &GenerateOptions,
     input_hash: String,
 ) -> Result<Generation<InsiderScore>> {
+    let palette = score_palette(entity_name, heat)?;
+    let mut options = options.clone();
+    options.system = Some("Choose only the plugin-approved wire phrasings. Return JSON choices; your prose is never published directly.".into());
+    options.temperature = Some(0.0);
+    options.num_predict = crate::studio::palette::PALETTE_NUM_PREDICT;
+    options.format_schema = Some(palette.schema());
     let extracted = studio
         .extract(
-            prompt,
-            options,
-            &InsiderScoreParser,
-            crate::plugins::support::form::publishing_correction,
+            &palette.prompt(),
+            &options,
+            &PaletteParser(&palette),
+            crate::plugins::support::form::structured_correction,
         )
         .await?;
     let call = GenerationCall::from(&extracted);
     let model = extracted.model.clone();
-    let product = extracted
+    let read = extracted
         .value
         .ok_or_else(|| anyhow::anyhow!("insider score parser abstained"))?;
+    crate::plugins::support::form::validate_body(&read)?;
+    let score = heat
+        .iter()
+        .map(|item| item.heat)
+        .max()
+        .unwrap_or(1)
+        .clamp(1, 99) as i16;
+    let product = InsiderScore {
+        read,
+        headline: crate::plugins::support::guards::settle_title(
+            "insider",
+            Some(&format!("{entity_name}: the active wire")),
+        ),
+        score,
+    };
     Ok(Generation::called(
         product,
         model,
@@ -635,6 +723,38 @@ pub async fn create_score(
         Some(input_hash),
         call,
     ))
+}
+
+fn score_palette(entity_name: &str, heat: &[HeatItem]) -> Result<Palette> {
+    let mut ranked = heat.iter().collect::<Vec<_>>();
+    ranked.sort_by(|a, b| {
+        b.heat
+            .cmp(&a.heat)
+            .then_with(|| a.counterparty.cmp(&b.counterparty))
+    });
+    let mut paints = ranked.into_iter().take(3).enumerate().map(|(index, item)| {
+        let counterparty = item.counterparty.trim();
+        let stage = item.stage.trim().replace('_', " ");
+        let direction = item.direction.trim();
+        let status = if stage.is_empty() { "unclassified" } else { stage.as_str() };
+        let direction = if direction.is_empty() { "direction unrecorded" } else { direction };
+        Paint { id: format!("wire_{index}"), phrasings: vec![
+            format!("The active wire lists {counterparty} as {status} ({direction}), with heat {}.", item.heat),
+            format!("For {entity_name}, the recorded {counterparty} wire is {status} ({direction}) at heat {}.", item.heat),
+        ] }
+    }).collect::<Vec<_>>();
+    if paints.is_empty() {
+        paints.push(Paint {
+            id: "quiet_wire".into(),
+            phrasings: vec![
+                format!("The active transfer wire for {entity_name} is empty."),
+                format!("No active transfer report is listed for {entity_name}."),
+            ],
+        });
+    }
+    let palette = Palette { paints };
+    palette.validate()?;
+    Ok(palette)
 }
 
 pub fn build_insider_score_input_components(heat: &[HeatItem]) -> String {

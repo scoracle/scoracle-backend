@@ -943,6 +943,8 @@ impl Inference for FakeModel {
 fn prepared_pair() -> PairAssignment {
     PairAssignment {
         player_id: 42,
+        player_name: "Ada Vale".to_string(),
+        team_name: "Northbridge".to_string(),
         subject_type: "player".to_string(),
         heat: 81,
         components: r#"{"distinct_sources":2}"#.to_string(),
@@ -984,11 +986,28 @@ async fn prepared_pair_creates_a_grounded_verdict_without_application_services()
         output.row.as_ref().unwrap().stage.as_deref(),
         Some("advanced_talks")
     );
+    assert_eq!(
+        output.row.as_ref().unwrap().summary.as_deref(),
+        Some("Wire reports: Northbridge advance talks for Ada Vale")
+    );
     assert_eq!(output.provenance.input_hash.as_deref(), Some("pair-hash"));
     assert_eq!(
         output.call.as_ref().unwrap().request_body["actual_request"],
         true
     );
+}
+
+#[tokio::test]
+async fn unsupported_model_rumor_cannot_reach_the_wire() {
+    let model = FakeModel::new(
+        r#"{"is_rumor":true,"subject":"Ada Vale","direction":"incoming","stage":"here_we_go","summary":"A completed deal for 90 million.","confidence":0.99}"#,
+    );
+    let mut pair = prepared_pair();
+    pair.news[0].title = "Ada Vale profile at Northbridge".into();
+    pair.news[0].description.clear();
+    let output = create_pair(&Studio::new(&model), pair).await;
+    assert_eq!(output.outcome, Outcome::Unknown);
+    assert_eq!(output.row.as_ref().unwrap().summary, None);
 }
 
 #[tokio::test]
@@ -1007,18 +1026,19 @@ async fn pair_model_failure_is_an_explicit_unknown_product() {
 
 #[tokio::test]
 async fn prepared_wire_wrap_creates_with_successful_call_provenance() {
-    let model = FakeModel::new(
-        r#"{"read":"One credible call is moving toward agreement.","headline":"Talks gather pace","score":73}"#,
-    );
+    let model = FakeModel::new(r#"{"choices":[0]}"#);
+    let heat = vec![heat_item("Lakers", 80, "incoming", "advanced_talks", "")];
     let output = create_score(
         &Studio::new(&model),
-        "prepared wire prompt",
+        "Vale Kerr",
+        &heat,
         &score_options(4096),
         "wire-hash".to_string(),
     )
     .await
     .unwrap();
-    assert_eq!(output.score, 73);
+    assert_eq!(output.score, 80);
+    assert!(output.read.contains("Lakers"));
     assert_eq!(output.provenance.input_hash.as_deref(), Some("wire-hash"));
     assert_eq!(output.provenance.model_version, "model-that-answered");
 }

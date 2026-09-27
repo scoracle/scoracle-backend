@@ -422,7 +422,7 @@ async fn prepare(studio: &Studio<'_>, assignment: &Assignment) -> Result<Prepare
 
 async fn record_ledger(
     pool: &sqlx::PgPool,
-    models: &ExecutionCapabilities,
+    _models: &ExecutionCapabilities,
     item: &Item,
     sport: &str,
     context: &MomentumContext,
@@ -453,7 +453,7 @@ async fn record_ledger(
             }),
             excluded_evidence: serde_json::json!({"empty_context": context.empty()}),
             context_budget: out.context_budget(serde_json::json!({
-                "num_predict": analyst::generation_options(models.voice_num_ctx).num_predict,
+                "num_predict": crate::studio::palette::PALETTE_NUM_PREDICT,
                 "decided_direction": out.direction,
                 "steady_band": MOMENTUM_STEADY_BAND,
                 "computed_conviction": out.score,

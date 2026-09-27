@@ -5,6 +5,7 @@
 //! progression, and publication belong to the application adapter.
 
 use crate::studio::model::GenerateOptions;
+use crate::studio::palette::{Paint, Palette, PaletteParser, PALETTE_NUM_PREDICT};
 use crate::studio::{Generation, GenerationCall, Parser, Studio};
 use anyhow::{anyhow, Result};
 use serde::Deserialize;
@@ -18,7 +19,7 @@ pub use brief::{CHARACTER, NARRATIVES_PROMPT_VERSION, NARRATIVES_SYSTEM_PROMPT};
 pub use inputs::build_narratives_prompt;
 
 /// Output schema version for the parsed narrative document, distinct from the prompt contract.
-pub const NARRATIVES_OUTPUT_CONTRACT_VERSION: &str = "narratives-v3-schema";
+pub const NARRATIVES_OUTPUT_CONTRACT_VERSION: &str = "narratives-v4-palette";
 pub const NARRATIVES_TEMPERATURE: f64 = 0.6;
 pub const NARRATIVES_NUM_PREDICT: i32 = 1000;
 pub const NARRATIVES_NUM_PREDICT_PACKET: i32 = 900;
@@ -217,6 +218,7 @@ pub(crate) fn apply_news_budget(
     (kept, dropped)
 }
 
+#[cfg(test)]
 fn render_signals_line(corpus: &[CorpusItem], now_epoch: i64) -> String {
     let sources: HashSet<&str> = corpus
         .iter()
@@ -356,6 +358,7 @@ fn parse_headline(raw: &str) -> Option<String> {
     None
 }
 
+#[cfg(test)]
 fn ground_narratives(
     parsed: &[ModelNarrative],
     corpus: &[CorpusItem],
@@ -532,42 +535,68 @@ pub async fn create(
         ));
     }
 
-    let score_context = render_signals_line(&assignment.corpus, now_epoch);
-    let prompt = build_narratives_prompt(
-        &assignment.subject,
-        &assignment.corpus,
-        assignment.memory.as_deref(),
-        Some(&score_context),
-        assignment.packet_framing.as_deref(),
-    );
+    let selected = assignment
+        .corpus
+        .iter()
+        .take(3)
+        .cloned()
+        .collect::<Vec<_>>();
+    let mut excluded_ids = assignment.corpus_exclusions.budget_truncated_ids.clone();
+    excluded_ids.extend(assignment.corpus.iter().skip(3).map(|item| item.id));
+    let palette = news_palette(&assignment.subject.entity_name, &selected)?;
+    let mut options = assignment.options.clone();
+    options.system =
+        Some("Choose only the approved, attributed source phrasings. Return JSON choices.".into());
+    options.temperature = Some(0.0);
+    options.num_predict = PALETTE_NUM_PREDICT;
+    options.format_schema = Some(palette.schema());
     let extracted = studio
         .extract(
-            &prompt,
-            &assignment.options,
-            &NarrativesParser,
-            crate::plugins::support::form::publishing_correction,
+            &palette.prompt(),
+            &options,
+            &PaletteParser(&palette),
+            crate::plugins::support::form::structured_correction,
         )
         .await?;
     let call = GenerationCall::from(&extracted);
     let model = extracted.model.clone();
-    let parsed = extracted.value.ok_or_else(|| {
-        anyhow!("narratives: parser returned None (NarrativesParser signals failure via Err)")
-    })?;
-    let narratives = ground_narratives(&parsed.narratives, &assignment.corpus, now_epoch);
-    let mut seen = HashSet::new();
-    let input_ids = narratives
-        .iter()
-        .flat_map(|narrative| narrative.input_news_ids.iter().copied())
-        .filter(|id| seen.insert(*id))
-        .collect();
+    let body = extracted
+        .value
+        .ok_or_else(|| anyhow!("narratives: palette parser returned no value"))?;
+    crate::plugins::support::form::validate_body(&body)?;
+    let (impact, impact_components) = compute_news_impact(&selected, now_epoch);
+    let (source_count, source_names, source_latest_epoch, source_oldest_epoch) =
+        source_metadata(&selected);
+    let input_ids = selected.iter().map(|item| item.id).collect::<Vec<_>>();
+    let narratives = vec![Narrative {
+        title: format!("{}: current reporting", assignment.subject.entity_name),
+        body,
+        impact,
+        impact_components,
+        input_news_ids: input_ids.clone(),
+        source_count,
+        source_names,
+        source_latest_epoch,
+        source_oldest_epoch,
+    }];
 
     Ok(Generation::called(
         NarrativesProduct {
             narratives,
-            budget_truncated_ids: assignment.corpus_exclusions.budget_truncated_ids.clone(),
-            card_score: parsed.card_score,
+            budget_truncated_ids: excluded_ids,
+            card_score: Some(
+                compute_news_impact(&assignment.corpus, now_epoch)
+                    .0
+                    .clamp(1, 99) as i16,
+            ),
             card_score_prev: assignment.card_score_prev,
-            headline: parsed.headline,
+            headline: crate::plugins::support::guards::settle_title(
+                "journalist",
+                Some(&format!(
+                    "{}: current reporting",
+                    assignment.subject.entity_name
+                )),
+            ),
         },
         model,
         NARRATIVES_PROMPT_VERSION,
@@ -575,6 +604,38 @@ pub async fn create(
         Some(assignment.input_hash.clone()),
         call,
     ))
+}
+
+fn news_palette(entity: &str, corpus: &[CorpusItem]) -> Result<Palette> {
+    let paints = corpus
+        .iter()
+        .enumerate()
+        .map(|(index, item)| {
+            let source = if item.source.trim().is_empty() {
+                "The source"
+            } else {
+                item.source.trim()
+            };
+            let title = item.title.trim();
+            let (context, _) = article_context(item);
+            let detail = crate::util::truncate_bytes(context.trim(), 180);
+            let finding = if detail.is_empty() {
+                title.to_string()
+            } else {
+                detail
+            };
+            Paint {
+                id: format!("article_{index}"),
+                phrasings: vec![
+                    format!("For {entity}, {source} reports: {finding}"),
+                    format!("{source}'s report concerning {entity} says: {finding}"),
+                ],
+            }
+        })
+        .collect();
+    let palette = Palette { paints };
+    palette.validate()?;
+    Ok(palette)
 }
 
 #[cfg(test)]

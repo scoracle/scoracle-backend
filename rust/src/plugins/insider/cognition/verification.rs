@@ -3,9 +3,9 @@
 use super::{NewsItem, TransferCandidate, TransferEvidence, DESC_TRUNCATE};
 use crate::util::truncate_bytes;
 
-pub const TRANSFER_PROMPT_VERSION: &str = "t13";
+pub const TRANSFER_PROMPT_VERSION: &str = "t14";
 
-pub const TRANSFER_PROMPT_VERSION_PERSON: &str = "t13-person";
+pub const TRANSFER_PROMPT_VERSION_PERSON: &str = "t14-person";
 
 pub fn transfer_system_prompt(sport: &str) -> String {
     let noun = if sport == "NBA" || sport == "NFL" {

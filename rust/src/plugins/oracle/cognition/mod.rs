@@ -4,6 +4,7 @@
 //! With no available cards, Studio returns a NULL marker without a model call.
 
 use crate::studio::model::GenerateOptions;
+use crate::studio::palette::{Paint, Palette, PaletteParser, PALETTE_NUM_PREDICT};
 use crate::studio::{Generation, GenerationCall, Parser, Studio};
 use crate::util::{round1, truncate};
 use anyhow::{anyhow, bail, Result};
@@ -15,7 +16,7 @@ pub use brief::{CHARACTER, ORACLE_PROMPT_VERSION, ORACLE_SYSTEM_PROMPT};
 pub use inputs::{build_crown_prompt, CROWN_CARD_BODY_CAP};
 
 /// Output contract captured separately from the prompt version in the diagnostic ledger.
-pub const ORACLE_OUTPUT_CONTRACT_VERSION: &str = "oracle-reading-v2";
+pub const ORACLE_OUTPUT_CONTRACT_VERSION: &str = "oracle-reading-v3-palette";
 
 /// Production crown temperature. Fixtures pin zero.
 pub const ORACLE_TEMPERATURE: f64 = 0.6;
@@ -188,12 +189,11 @@ pub struct CrownReply {
     pub reading: String,
     /// Optional title; absence never fails the reading.
     pub headline: Option<String>,
-    /// The 1-100 verdict the reading earned, generated LAST. Clamped to 1-100 at parse.
+    /// Legacy parser score, retained for archived evaluations.
     pub score: i32,
 }
 
-/// Complete `sigil_synthesis` row before persistence. The model supplies reading and score;
-/// code supplies omen and convergence.
+/// Complete `sigil_synthesis` row before persistence. The plugin supplies every claim and score.
 #[derive(Clone, Debug)]
 pub struct SigilSynthesis {
     /// `None` ⇒ no-pillar NULL marker (no model call was made).
@@ -658,34 +658,28 @@ pub async fn create(studio: &Studio<'_>, assignment: &Assignment) -> Result<Sigi
         build_pillar_divergence(cards.rating.as_ref(), cards.vibe.as_ref(), &cards.momentum);
     let convergence = pillar_convergence(&comparisons);
     let omen = compute_omen(convergence, &cards.momentum);
-    let prompt = build_crown_prompt(
-        &assignment.subject.entity_type,
-        &assignment.subject.entity_name,
-        &assignment.subject.sport,
-        &cards.narratives,
-        cards.rating.as_ref(),
-        cards.vibe.as_ref(),
-        &cards.momentum,
-        &cards.transfers,
-        omen,
-        assignment.body_cap,
-        assignment.identity.as_deref(),
-    );
+    let palette = crown_palette(&assignment.subject.entity_name, cards, omen)?;
+    let mut options = assignment.options.clone();
+    options.system = Some("Choose approved Oracle phrasings only. Return JSON choices.".into());
+    options.temperature = Some(0.0);
+    options.num_predict = PALETTE_NUM_PREDICT;
+    options.format_schema = Some(palette.schema());
     let extracted = studio
         .extract(
-            &prompt,
-            &assignment.options,
-            &CrownParser,
-            crate::plugins::support::form::publishing_correction,
+            &palette.prompt(),
+            &options,
+            &PaletteParser(&palette),
+            crate::plugins::support::form::structured_correction,
         )
         .await?;
     let call = GenerationCall::from(&extracted);
     let model = extracted.model.clone();
-    let reply = extracted
+    let reading = extracted
         .value
         .ok_or_else(|| anyhow!("crown: parser returned no value"))?;
+    crate::plugins::support::form::validate_body(&reading)?;
     if !crate::plugins::support::guards::title_names_entity(
-        &reply.reading,
+        &reading,
         &assignment.subject.entity_name,
     ) {
         tracing::warn!(guard = "entity_identity", "crown reading rejected");
@@ -697,9 +691,15 @@ pub async fn create(studio: &Studio<'_>, assignment: &Assignment) -> Result<Sigi
 
     Ok(Generation::called(
         SigilSynthesis {
-            score: Some(reply.score),
-            reading: Some(reply.reading),
-            headline: reply.headline,
+            score: Some(crown_score(cards)),
+            reading: Some(reading),
+            headline: crate::plugins::support::guards::settle_title(
+                "oracle",
+                Some(&format!(
+                    "{}: the current picture",
+                    assignment.subject.entity_name
+                )),
+            ),
             season: assignment.season,
             input_components_json: assignment.input_components_json.clone(),
             convergence,
@@ -711,6 +711,127 @@ pub async fn create(studio: &Studio<'_>, assignment: &Assignment) -> Result<Sigi
         Some(assignment.input_hash.clone()),
         call,
     ))
+}
+
+fn crown_score(cards: &Cards) -> i32 {
+    let mut signals = Vec::new();
+    if let Some(rating) = &cards.rating {
+        signals.push(rating.notability.clamp(1, 100));
+    }
+    if let Some(vibe) = &cards.vibe {
+        signals.push(vibe.sentiment.clamp(1, 100));
+    }
+    if let Some(narrative) = cards
+        .narratives
+        .iter()
+        .max_by(|a, b| a.impact.total_cmp(&b.impact))
+    {
+        signals.push(narrative.impact.round().clamp(1.0, 100.0) as i32);
+    }
+    if let Some(transfer) = cards.transfers.iter().max_by_key(|item| item.heat) {
+        signals.push(transfer.heat.clamp(1, 100));
+    }
+    if signals.is_empty() {
+        50
+    } else {
+        (signals.iter().sum::<i32>() as f64 / signals.len() as f64).round() as i32
+    }
+}
+
+fn crown_palette(entity: &str, cards: &Cards, omen: &str) -> Result<Palette> {
+    let mut paints = Vec::new();
+    if let Some(narrative) = cards
+        .narratives
+        .iter()
+        .max_by(|a, b| a.impact.total_cmp(&b.impact))
+    {
+        paints.push(Paint {
+            id: "reporting".into(),
+            phrasings: vec![
+                format!(
+                    "For {entity}, the leading reported storyline is {}.",
+                    narrative.title.trim()
+                ),
+                format!(
+                    "The current reporting around {entity} is led by {}.",
+                    narrative.title.trim()
+                ),
+            ],
+        });
+    }
+    if let Some(rating) = &cards.rating {
+        paints.push(Paint {
+            id: "rating".into(),
+            phrasings: vec![
+                format!(
+                    "The performance profile for {entity} has notability {} and a {} trajectory.",
+                    rating.notability,
+                    rating.rating_trajectory.trim()
+                ),
+                format!(
+                    "For {entity}, the recorded rating is {} in notability, with direction {}.",
+                    rating.notability,
+                    rating.rating_trajectory.trim()
+                ),
+            ],
+        });
+    }
+    if let Some(vibe) = &cards.vibe {
+        paints.push(Paint {
+            id: "vibe".into(),
+            phrasings: vec![
+                format!(
+                    "The recorded mood for {entity} is {} out of 100.",
+                    vibe.sentiment
+                ),
+                format!(
+                    "Around {entity}, the mood card reads {} out of 100.",
+                    vibe.sentiment
+                ),
+            ],
+        });
+    }
+    if !cards.momentum.empty() {
+        let direction = cards
+            .momentum
+            .direction
+            .as_deref()
+            .unwrap_or("undetermined");
+        paints.push(Paint {
+            id: "momentum".into(),
+            phrasings: vec![
+                format!("The recorded trajectory for {entity} is {direction}."),
+                format!("For {entity}, recent momentum is {direction}."),
+            ],
+        });
+    }
+    if let Some(transfer) = cards.transfers.iter().max_by_key(|item| item.heat) {
+        paints.push(Paint {
+            id: "wire".into(),
+            phrasings: vec![
+                format!(
+                    "The leading active wire names {} at heat {}.",
+                    transfer.counterparty.trim(),
+                    transfer.heat
+                ),
+                format!(
+                    "The active {} wire carries recorded heat {}.",
+                    transfer.counterparty.trim(),
+                    transfer.heat
+                ),
+            ],
+        });
+    }
+    paints.push(Paint {
+        id: "direction".into(),
+        phrasings: vec![
+            format!("The present direction for {entity} is {omen}."),
+            format!("Taken together, {entity} is under the {omen} omen."),
+        ],
+    });
+    let palette = Palette { paints };
+    palette.validate()?;
+    Ok(palette)
 }
 
 #[cfg(test)]

@@ -7,7 +7,7 @@ use crate::application::models::Models;
 use crate::evidence::corpus::lookup_entity_name;
 use crate::plugins::analyst::adapter::load_momentum_context;
 use crate::plugins::analyst::cognition::{
-    parse_momentum_reply, MOMENTUM_NUM_PREDICT, MOMENTUM_PROMPT_VERSION, MOMENTUM_SYSTEM_PROMPT,
+    parse_momentum_reply, MOMENTUM_NUM_PREDICT, MOMENTUM_SYSTEM_PROMPT,
 };
 use crate::plugins::editor::adapter::build_editor_prompt_for_eval;
 use crate::plugins::editor::cognition::{
@@ -19,14 +19,13 @@ use crate::plugins::graph::cognition::{
 };
 use crate::plugins::influencer::adapter::load_vibe_context;
 use crate::plugins::influencer::cognition::{
-    build_sentiment_prompt, parse_vibe_reply, VIBE_NUM_PREDICT, VIBE_PROMPT_VERSION,
+    build_sentiment_prompt, parse_vibe_reply, VIBE_NUM_PREDICT,
 };
 use crate::plugins::insider::adapter::{
     build_pair_request, load_candidates, team_relationship, PairBuild,
 };
 use crate::plugins::insider::cognition::{
     transfer_system_prompt, TransferParser, TRANSFER_DEFAULT_MIN_ARTICLES, TRANSFER_NUM_PREDICT,
-    TRANSFER_PROMPT_VERSION,
 };
 use crate::plugins::investigator::cognition::prompt::{
     prose_opts, ProseReadParser, INVESTIGATOR_PROSE_CONTRACT_VERSION,
@@ -34,13 +33,13 @@ use crate::plugins::investigator::cognition::prompt::{
 use crate::plugins::journalist::adapter::load_packet_corpus;
 use crate::plugins::journalist::cognition::{
     build_narratives_prompt, narratives_format_schema, NarrativesParser, Subject,
-    NARRATIVES_NUM_PREDICT_PACKET, NARRATIVES_PROMPT_VERSION, NARRATIVES_SYSTEM_PROMPT,
+    NARRATIVES_NUM_PREDICT_PACKET, NARRATIVES_SYSTEM_PROMPT,
 };
 use crate::plugins::oracle::adapter::load_pillars;
 use crate::plugins::oracle::cognition::{
     build_crown_prompt, build_pillar_divergence, compute_omen, count_sentences,
     oracle_format_schema, parse_crown_reply, pillar_convergence, ORACLE_NUM_PREDICT,
-    ORACLE_PROMPT_VERSION, ORACLE_SYSTEM_PROMPT,
+    ORACLE_SYSTEM_PROMPT,
 };
 use crate::plugins::scout::adapter::{build_rating_request, RatingReq};
 use crate::plugins::scout::cognition::{
@@ -568,7 +567,8 @@ impl LensTask for VibeTask {
         crate::plugins::influencer::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
-        VIBE_PROMPT_VERSION
+        // Archived open-prose fixtures; production now uses a finite palette.
+        "v36"
     }
     fn gen_options(&self, temperature: f64) -> GenerateOptions {
         crate::plugins::influencer::cognition::generation_options(temperature, 0, VIBE_NUM_PREDICT)
@@ -728,7 +728,7 @@ impl LensTask for OracleTask {
         crate::plugins::oracle::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
-        ORACLE_PROMPT_VERSION
+        "or24" // Archived free-text evaluation contract.
     }
     fn gen_options(&self, temperature: f64) -> GenerateOptions {
         GenerateOptions {
@@ -859,7 +859,7 @@ impl LensTask for NarrativeTask {
         crate::plugins::journalist::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
-        NARRATIVES_PROMPT_VERSION
+        "n34" // Archived free-text evaluation contract.
     }
     fn gen_options(&self, temperature: f64) -> GenerateOptions {
         GenerateOptions {
@@ -1101,7 +1101,7 @@ impl LensTask for TransferTask {
         crate::plugins::insider::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
-        TRANSFER_PROMPT_VERSION
+        "t13" // Archived free-text verdict evaluation contract.
     }
     fn gen_options(&self, temperature: f64) -> GenerateOptions {
         GenerateOptions {
@@ -1466,7 +1466,8 @@ impl LensTask for MomentumTask {
         crate::plugins::analyst::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
-        MOMENTUM_PROMPT_VERSION
+        // Archived open-prose fixtures; production now uses a finite palette.
+        "momentum-s32"
     }
     fn gen_options(&self, temperature: f64) -> GenerateOptions {
         GenerateOptions {

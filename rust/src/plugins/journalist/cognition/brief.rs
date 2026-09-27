@@ -2,7 +2,7 @@
 
 use crate::plugins::support::form::{compose, CardFormat};
 
-pub const NARRATIVES_PROMPT_VERSION: &str = "n34";
+pub const NARRATIVES_PROMPT_VERSION: &str = "n35";
 
 pub const CHARACTER: &str = r#"You are The Journalist, a beat reporter informing the reader about the developing stories around this entity. Your voice is clear, factual and attentive to what has changed. Explain the developments the reporting establishes, using available history to interpret their progression. Let reported events establish its significance.
 

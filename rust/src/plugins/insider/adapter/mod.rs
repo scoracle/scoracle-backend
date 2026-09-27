@@ -69,14 +69,13 @@ pub(crate) async fn record_transfer_event(
 
 mod identity;
 use crate::plugins::insider::cognition::{
-    build_insider_score_input_components, build_insider_score_prompt,
-    build_transfer_identity_adjudication_prompt, build_transfer_input_components,
-    build_transfer_prompt, transfer_system_prompt, NewsItem, Outcome, PairAssignment,
-    TransferCandidate, TransferEvidence, TransferIdentityAdjudicationParser, TransferPairOutput,
-    TransferRow, INSIDER_SCORE_NUM_PREDICT, INSIDER_SCORE_OUTPUT_CONTRACT_VERSION,
-    TRANSFER_DEFAULT_MIN_ARTICLES, TRANSFER_IDENTITY_ADJUDICATION_PROMPT_VERSION,
-    TRANSFER_NUM_PREDICT, TRANSFER_OUTPUT_CONTRACT_VERSION, TRANSFER_PROMPT_VERSION,
-    TRANSFER_TEMPERATURE,
+    build_insider_score_input_components, build_transfer_identity_adjudication_prompt,
+    build_transfer_input_components, build_transfer_prompt, transfer_system_prompt, NewsItem,
+    Outcome, PairAssignment, TransferCandidate, TransferEvidence,
+    TransferIdentityAdjudicationParser, TransferPairOutput, TransferRow,
+    INSIDER_SCORE_OUTPUT_CONTRACT_VERSION, TRANSFER_DEFAULT_MIN_ARTICLES,
+    TRANSFER_IDENTITY_ADJUDICATION_PROMPT_VERSION, TRANSFER_NUM_PREDICT,
+    TRANSFER_OUTPUT_CONTRACT_VERSION, TRANSFER_PROMPT_VERSION, TRANSFER_TEMPERATURE,
 };
 #[cfg(test)]
 pub(crate) use identity::identity_apply_deterministic_score;
@@ -614,6 +613,8 @@ pub async fn build_pair_request(
 
     Ok(PairBuild::Ready(Box::new(PairAssignment {
         player_id: c.player_id,
+        player_name: c.player_name.clone(),
+        team_name: team_name.to_string(),
         heat,
         subject_type: c.subject_type.clone(),
         components,
@@ -989,14 +990,12 @@ async fn score_insider_entity(
         );
         return Ok(true);
     }
-    let identity = Some(memories.render_for_model()?);
-    let prompt =
-        build_insider_score_prompt(entity_name, sport, entity_type, &heat, identity.as_deref());
     let options = crate::plugins::insider::cognition::score_options(models.voice_num_ctx);
     let backend = models.inference(crate::plugins::insider::manifest::ROUTE)?;
     let generation = crate::plugins::insider::cognition::create_score(
         &crate::studio::Studio::new(backend.as_ref()),
-        &prompt,
+        entity_name,
+        &heat,
         &options,
         input_hash,
     )
@@ -1065,7 +1064,7 @@ async fn score_insider_entity(
             }),
             excluded_evidence: serde_json::json!([]),
             context_budget: generation.context_budget(serde_json::json!({
-                "num_predict": INSIDER_SCORE_NUM_PREDICT,
+                "num_predict": crate::studio::palette::PALETTE_NUM_PREDICT,
             })),
             parser_outcome: "parsed",
         },

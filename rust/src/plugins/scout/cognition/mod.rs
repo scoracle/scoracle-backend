@@ -1574,7 +1574,7 @@ pub async fn create(studio: &Studio<'_>, assignment: Assignment) -> Result<Ratin
     let mut opts = assignment.opts.clone();
     opts.system = Some("Arrange the plugin's approved statements. Return only the requested JSON choices. Your words are never published directly.".into());
     opts.temperature = Some(0.0);
-    opts.num_predict = 160;
+    opts.num_predict = crate::studio::palette::PALETTE_NUM_PREDICT;
     opts.format_schema = Some(palette.schema());
     let extracted = studio
         .extract(

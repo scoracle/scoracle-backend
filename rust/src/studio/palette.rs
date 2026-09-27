@@ -8,6 +8,9 @@ use anyhow::{ensure, Result};
 use serde::Deserialize;
 use std::collections::HashSet;
 
+/// Output reservation for the compact positional choice object.
+pub const PALETTE_NUM_PREDICT: i32 = 160;
+
 #[derive(Clone, Debug)]
 pub struct Paint {
     pub id: String,

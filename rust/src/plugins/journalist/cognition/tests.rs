@@ -640,9 +640,7 @@ fn assignment(corpus: Vec<CorpusItem>) -> Assignment {
 
 #[tokio::test]
 async fn prepared_assignment_creates_grounded_edition_without_application_services() {
-    let model = FakeModel::new(
-        r#"{"narratives":[{"title":"Talks advance","body":"BBC reports that talks advanced.","articles":[1]}],"headline":"Vale Kerr talks advance","card_score":72}"#,
-    );
+    let model = FakeModel::new(r#"{"choices":[0]}"#);
     let output = create(
         &Studio::new(&model),
         &assignment(vec![item(
@@ -658,9 +656,15 @@ async fn prepared_assignment_creates_grounded_edition_without_application_servic
     .unwrap();
     assert_eq!(output.narratives.len(), 1);
     assert_eq!(output.narratives[0].input_news_ids, vec![41]);
-    assert_eq!(output.card_score, Some(72));
+    assert_eq!(output.card_score, Some(32));
     assert_eq!(output.card_score_prev, Some(55));
-    assert_eq!(output.headline.as_deref(), Some("Vale Kerr talks advance"));
+    assert_eq!(
+        output.headline.as_deref(),
+        Some("Vale Kerr: current reporting")
+    );
+    assert!(output.narratives[0]
+        .body
+        .contains("Negotiations continued on Friday."));
     assert_eq!(output.provenance.model_version, "model-that-answered");
     assert_eq!(
         output.provenance.input_hash.as_deref(),

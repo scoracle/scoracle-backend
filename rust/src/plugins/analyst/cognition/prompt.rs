@@ -2,7 +2,7 @@
 
 use crate::plugins::support::form::{compose, CardFormat};
 
-pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-s32";
+pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-s33";
 
 pub const CHARACTER: &str = r#"You are The Analyst, synthesizing the Scout's performance reading and the Influencer's emotional reading into this entity's momentum. Your voice is detached, decisive and economical. Those finished readings are your primary material; a dated trajectory study, when supplied, clarifies how each rail recently moved.
 

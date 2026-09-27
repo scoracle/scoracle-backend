@@ -8,7 +8,7 @@ use std::collections::VecDeque;
 use std::sync::Mutex;
 use std::time::Duration;
 
-const VALID: &str = r#"{"score":62,"headline":"Test Team finds a quieter room","body":"The early excitement has cooled. The latest reporting carries little reaction."}"#;
+const VALID: &str = r#"{"choices":[0]}"#;
 
 #[derive(Default)]
 struct Adapters {
@@ -139,7 +139,7 @@ async fn never_scored_empty_material_prepares_marker_once_with_provenance() {
             Some(ctx.input_hash.as_str())
         );
         assert_eq!(marker.provenance.model_version, "configured-model");
-        assert_eq!(marker.provenance.prompt_version, "v36");
+        assert_eq!(marker.provenance.prompt_version, "v37");
         assert!(marker.provenance.input_ids.is_empty());
     }
     assert_eq!(
@@ -173,13 +173,14 @@ async fn live_read_then_one_closing_read_then_empty_debounce() {
     );
     assert_eq!(*adapters.events.lock().unwrap(), ["model", "model"]);
     let requests = adapters.requests.lock().unwrap();
-    assert!(requests[0].0.contains("STORY: A quiet spell"));
-    assert!(!requests[1].0.contains("The stories running"));
-    assert!(requests[1].0.starts_with("Entity: Team Test Team (nba)\n"));
+    assert!(requests[0].0.contains("selected reporting"));
+    assert!(!requests[1].0.contains("MOOD:"));
+    assert!(requests[1].0.contains("previous sentiment score"));
     let outputs = adapters.outputs.lock().unwrap();
-    assert!(outputs
-        .iter()
-        .all(|out| out.was_called() && out.sentiment == Some(62)));
+    assert_eq!(
+        outputs.iter().map(|out| out.sentiment).collect::<Vec<_>>(),
+        vec![Some(50), Some(62)]
+    );
     let call = outputs[1].call.as_ref().unwrap();
     assert_eq!(call.built_prompt, requests[1].0);
     assert_eq!(call.request_body["sent_prompt"], call.built_prompt);
@@ -255,38 +256,25 @@ async fn failures_stop_at_the_failed_boundary_and_reach_the_caller() {
 }
 
 #[tokio::test]
-async fn influencer_rewrites_are_bounded_and_return_only_the_final_valid_request() {
-    let long = serde_json::json!({"score":62,"headline":"Test Team waits","body":"x".repeat(1201)})
-        .to_string();
-    for failure in [long.as_str(), "length"] {
-        for failures in [1, 2, 3] {
-            let mut replies = vec![failure; failures];
-            replies.push(VALID);
-            let adapters = Adapters::with_replies(&replies);
-            let result = drain(&adapters, &context(true, None), (None, None)).await;
-            let requests = adapters.requests.lock().unwrap();
-            assert_eq!(requests.len(), (failures + 1).min(3));
-            for (prompt, opts) in requests.iter() {
-                assert!(prompt.starts_with(&requests[0].0));
-                assert_eq!(opts.num_ctx, 4096);
-                assert_eq!(opts.num_predict, 700);
-                assert_eq!(opts.temperature, Some(0.7));
-            }
-            if failures < 3 {
-                assert!(result.is_ok());
-                let outputs = adapters.outputs.lock().unwrap();
-                assert_eq!(outputs.len(), 1);
-                let call = outputs[0].call.as_ref().unwrap();
-                assert_eq!(
-                    call.built_prompt.matches("Output correction:").count(),
-                    failures
-                );
-                assert_eq!(call.request_body["sent_prompt"], call.built_prompt);
-            } else {
-                assert!(result.is_err());
-                assert!(adapters.outputs.lock().unwrap().is_empty());
-                assert!(!adapters.events.lock().unwrap().contains(&"momentum"));
-            }
+async fn influencer_rewrites_truncated_structured_choices_only() {
+    for failures in [1, 2, 3] {
+        let mut replies = vec!["length"; failures];
+        replies.push(VALID);
+        let adapters = Adapters::with_replies(&replies);
+        let result = drain(&adapters, &context(true, None), (None, None)).await;
+        let requests = adapters.requests.lock().unwrap();
+        assert_eq!(requests.len(), (failures + 1).min(3));
+        for (_prompt, opts) in requests.iter() {
+            assert_eq!(opts.num_ctx, 4096);
+            assert_eq!(opts.num_predict, 160);
+            assert_eq!(opts.temperature, Some(0.0));
+        }
+        if failures < 3 {
+            assert!(result.is_ok());
+            assert_eq!(adapters.outputs.lock().unwrap().len(), 1);
+        } else {
+            assert!(result.is_err());
+            assert!(adapters.outputs.lock().unwrap().is_empty());
         }
     }
 }
@@ -426,7 +414,7 @@ async fn prepared_creation_preserves_material_and_empty_behavior() {
                     .with_input_components(&build_vibe_input_components(&packets))
                     .unwrap();
                 let rendered = memory.render_for_model().unwrap();
-                let prompt = build_sentiment_prompt(
+                let _prompt = build_sentiment_prompt(
                     "player",
                     &memory.entity.name,
                     "football",
@@ -445,7 +433,9 @@ async fn prepared_creation_preserves_material_and_empty_behavior() {
                     sport: "football",
                     ..request()
                 };
-                let adapters = Adapters::with_replies(&[VALID]);
+                let reply =
+                    serde_json::json!({"choices": vec![0; packets.len().max(1)]}).to_string();
+                let adapters = Adapters::with_replies(&[&reply]);
                 let out =
                     influencer::create(&Studio::new(&adapters), &request.assignment(&ctx).unwrap())
                         .await
@@ -459,14 +449,14 @@ async fn prepared_creation_preserves_material_and_empty_behavior() {
                     Some(ctx.input_hash.as_str())
                 );
                 if let Some(call) = &out.call {
-                    assert_eq!(call.built_prompt, prompt);
+                    assert!(call.built_prompt.contains("approved phrasing"));
                 }
                 if out.was_called() {
                     let requests = adapters.requests.lock().unwrap();
                     assert_eq!(requests.len(), 1);
                     assert_eq!(
                         requests[0].1.system.as_deref(),
-                        Some(influencer::VIBE_SYSTEM_PROMPT.as_str())
+                        Some("Choose only the plugin-approved mood phrasings. Return JSON choices; your prose is never published directly.")
                     );
                 }
             }

@@ -2,6 +2,7 @@
 //! Retrieval, debounce, persistence and Momentum work belong to the application.
 
 use crate::studio::model::GenerateOptions;
+use crate::studio::palette::{Paint, Palette, PaletteParser};
 use crate::studio::{Generation, GenerationCall, Parser, Studio};
 use crate::util::truncate;
 use anyhow::{anyhow, bail, Context, Result};
@@ -173,6 +174,87 @@ pub struct Assignment {
     pub options: GenerateOptions,
 }
 
+/// The packet's closed emotional register determines the product's score. These
+/// values are plugin policy, not a model-generated statistic or a quote's intensity.
+fn register_score(register: &str) -> Option<i32> {
+    match register {
+        "celebration" => Some(85),
+        "anticipation" => Some(65),
+        "neutral" => Some(50),
+        "resignation" => Some(25),
+        "outrage" => Some(20),
+        _ => None,
+    }
+}
+
+fn packet_register(packet: &PacketBlock) -> Option<(&str, Option<&str>)> {
+    let line = packet
+        .text
+        .lines()
+        .find_map(|line| line.strip_prefix("MOOD: "))?;
+    let (register, phrase) = line
+        .split_once(" — \"")
+        .map_or((line, None), |(register, quoted)| {
+            (register, quoted.strip_suffix('"'))
+        });
+    let register = register.trim();
+    register_score(register)?;
+    Some((
+        register,
+        phrase.filter(|phrase| !phrase.trim().is_empty() && phrase.len() <= 240),
+    ))
+}
+
+fn mood_palette(assignment: &Assignment) -> Result<(Palette, i32)> {
+    let mut paints = Vec::new();
+    let mut scores = Vec::new();
+    for (index, packet) in assignment.packets.iter().enumerate() {
+        let Some((register, phrase)) = packet_register(packet) else {
+            continue;
+        };
+        scores.push(register_score(register).expect("validated register"));
+        let text = if let Some(phrase) = phrase {
+            format!("The selected reporting carries {register}: \"{phrase}\".")
+        } else {
+            format!("The selected reporting has a {register} emotional register.")
+        };
+        paints.push(Paint {
+            id: format!("packet_{index}"),
+            phrasings: vec![text.clone(), format!("This packet reads: {text}")],
+        });
+    }
+    let sentiment = if scores.is_empty() {
+        if assignment.packets.is_empty() {
+            assignment
+                .previous_score
+                .map(i32::from)
+                .unwrap_or(50)
+                .clamp(1, 100)
+        } else {
+            50
+        }
+    } else {
+        (scores.iter().sum::<i32>() as f64 / scores.len() as f64).round() as i32
+    };
+    if paints.is_empty() {
+        let statement = if assignment.packets.is_empty() {
+            format!("No current mood packet is selected for {}; the previous sentiment score is {sentiment}.", assignment.entity_name)
+        } else {
+            format!(
+                "The selected reporting for {} supplies no recognized emotional register.",
+                assignment.entity_name
+            )
+        };
+        paints.push(Paint {
+            id: "available_mood".into(),
+            phrasings: vec![statement],
+        });
+    }
+    let palette = Palette { paints };
+    palette.validate()?;
+    Ok((palette, sentiment))
+}
+
 pub async fn create(studio: &Studio<'_>, assignment: &Assignment) -> Result<VibeOutput> {
     if assignment.packets.is_empty() && assignment.previous_score.is_none() {
         return Ok(Generation::uncalled(
@@ -188,35 +270,39 @@ pub async fn create(studio: &Studio<'_>, assignment: &Assignment) -> Result<Vibe
             Some(assignment.input_hash.clone()),
         ));
     }
-    let prompt = build_sentiment_prompt(
-        &assignment.entity_type,
-        &assignment.entity_name,
-        &assignment.sport,
-        &assignment.packets,
-        assignment.memory.as_deref(),
-    );
+    let (palette, sentiment) = mood_palette(assignment)?;
+    let prompt = palette.prompt();
+    let mut options = assignment.options.clone();
+    options.system = Some("Choose only the plugin-approved mood phrasings. Return JSON choices; your prose is never published directly.".into());
+    options.temperature = Some(0.0);
+    options.num_predict = crate::studio::palette::PALETTE_NUM_PREDICT;
+    options.format_schema = Some(palette.schema());
     let extracted = studio
         .extract(
             &prompt,
-            &assignment.options,
-            &VibeParser,
-            crate::plugins::support::form::publishing_correction,
+            &options,
+            &PaletteParser(&palette),
+            crate::plugins::support::form::structured_correction,
         )
         .await?;
     let call = GenerationCall::from(&extracted);
     let model = extracted.model.clone();
-    let reply = extracted
+    let body = extracted
         .value
         .ok_or_else(|| anyhow!("vibe: parser returned no value"))?;
+    crate::plugins::support::form::validate_body(&body)?;
+    let hook = crate::plugins::support::guards::settle_title(
+        "influencer",
+        Some(&format!(
+            "{}: mood in the reporting",
+            assignment.entity_name
+        )),
+    );
     Ok(Generation::called(
         VibeScore {
-            sentiment: Some(reply.sentiment),
-            vibe_prompt: if reply.vibe_prompt.is_empty() {
-                None
-            } else {
-                Some(reply.vibe_prompt)
-            },
-            hook: reply.hook,
+            sentiment: Some(sentiment),
+            vibe_prompt: Some(body),
+            hook,
             input_components_json: assignment.input_components_json.clone(),
         },
         model,

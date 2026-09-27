@@ -310,7 +310,7 @@ async fn record_ledger(
                 serde_json::json!([{"reason": "no_live_packets"}])
             },
             context_budget: out.context_budget(serde_json::json!({
-                "num_predict": VIBE_NUM_PREDICT,
+                "num_predict": crate::studio::palette::PALETTE_NUM_PREDICT,
             })),
             parser_outcome: if out.was_called() {
                 "parsed"

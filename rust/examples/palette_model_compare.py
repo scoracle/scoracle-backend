@@ -25,6 +25,23 @@ CASES["rich_with_form"] = CASES["rich"] + [
     ("recent_form", ["Recent form for Avery Chen: overall scores trending up over recent games; 5 scored events.",
                      "For Avery Chen, the recent-form record reads: overall scores trending up over recent games; 5 scored events."]),
 ]
+CASES["oracle_five_cards"] = [
+    ("reporting", ["For Northbridge FC, the leading reported storyline is A title challenge gathers.", "The current reporting around Northbridge FC is led by A title challenge gathers."]),
+    ("rating", ["The performance profile for Northbridge FC has notability 82 and a rising trajectory.", "For Northbridge FC, the recorded rating is 82 in notability, with direction rising."]),
+    ("vibe", ["The recorded mood for Northbridge FC is 72 out of 100.", "Around Northbridge FC, the mood card reads 72 out of 100."]),
+    ("momentum", ["The recorded trajectory for Northbridge FC is rising.", "For Northbridge FC, recent momentum is rising."]),
+    ("wire", ["The leading active wire names Vale United at heat 70.", "The active Vale United wire carries recorded heat 70."]),
+    ("direction", ["The present direction for Northbridge FC is ascendant.", "Taken together, Northbridge FC is under the ascendant omen."]),
+]
+CASES["journalist_sources"] = [
+    ("article_0", ["For Vale Kerr, BBC reports: Negotiations continued on Friday.", "BBC's report concerning Vale Kerr says: Negotiations continued on Friday."]),
+    ("article_1", ["For Vale Kerr, AP reports: The club confirmed the meeting.", "AP's report concerning Vale Kerr says: The club confirmed the meeting."]),
+    ("article_2", ["For Vale Kerr, Reuters reports: A decision is expected next week.", "Reuters's report concerning Vale Kerr says: A decision is expected next week."]),
+]
+CASES["insider_wire"] = [
+    ("wire_0", ["The active wire lists Vale United as advanced talks (incoming), with heat 70.", "For Northbridge FC, the recorded Vale United wire is advanced talks (incoming) at heat 70."]),
+    ("wire_1", ["The active wire lists Southport as speculation (outgoing), with heat 25.", "For Northbridge FC, the recorded Southport wire is speculation (outgoing) at heat 25."]),
+]
 
 def request(case, model):
     paints = CASES[case]

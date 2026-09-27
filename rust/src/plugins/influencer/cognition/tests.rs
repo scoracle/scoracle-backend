@@ -1,6 +1,40 @@
 use super::*;
 
 #[test]
+fn packet_registers_define_the_only_mood_claims_and_score() {
+    let assignment = Assignment {
+        entity_type: "team".into(),
+        entity_name: "Arsenal".into(),
+        sport: "FOOTBALL".into(),
+        packets: vec![
+            PacketBlock {
+                packet_id: 1,
+                text: "MOOD: anticipation — \"fans await the decision\"\n".into(),
+            },
+            PacketBlock {
+                packet_id: 2,
+                text: "MOOD: outrage — \"supporters protested\"\n".into(),
+            },
+        ],
+        memory: None,
+        previous_score: None,
+        input_components_json: "{}".into(),
+        input_hash: "test".into(),
+        options: GenerateOptions::default(),
+    };
+    let (palette, score) = mood_palette(&assignment).unwrap();
+    assert_eq!(score, 43);
+    let body = palette
+        .render(&crate::studio::palette::Composition {
+            choices: vec![0, 0],
+        })
+        .unwrap();
+    assert!(body.contains("fans await the decision"));
+    assert!(body.contains("supporters protested"));
+    assert!(!body.contains("a 72% chance"));
+}
+
+#[test]
 fn parses_three_line_reply_with_hook() {
     let (score, hook, vibe) = parse_vibe_reply(
         "SCORE: 73\nHOOK: The building believes again\nVIBE: Quietly surging into the playoff race.",

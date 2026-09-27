@@ -831,13 +831,12 @@ async fn prepared_five_card_assignment_creates_without_application_services() {
         }],
     };
     assert_eq!(cards.readiness(), Readiness::Complete);
-    let model = FakeModel::new(
-        r#"{"reading":"Northbridge FC stand beneath a gathering light. Their profile, belief and movement now rise together.","headline":"Northbridge FC gather light","score":78}"#,
-    );
+    let model = FakeModel::new(r#"{"choices":[0,0,0,0,0,0]}"#);
     let output = create(&Studio::new(&model), &prepared_assignment(cards))
         .await
         .unwrap();
-    assert_eq!(output.score, Some(78));
+    assert_eq!(output.score, Some(75));
+    assert!(output.reading.as_deref().unwrap().contains("notability 82"));
     assert_eq!(output.omen, Some("ascendant"));
     assert_eq!(output.convergence, Some(100));
     assert_eq!(output.provenance.model_version, "model-that-answered");

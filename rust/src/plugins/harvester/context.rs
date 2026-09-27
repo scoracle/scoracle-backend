@@ -10,7 +10,7 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
-pub const CONTRACT: &str = "harvest-context-v3";
+pub const CONTRACT: &str = "harvest-context-v4";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct HarvestContext {
@@ -60,6 +60,11 @@ impl HarvestContext {
             serde_json::to_value(&self.model_input)?
                 == serde_json::to_value(&expected.model_input)?,
             "Laya input is not the exact bounded publisher opening"
+        );
+        ensure!(
+            self.model_input.start == self.context.start
+                && self.model_input.end <= self.context.end,
+            "Laya input exceeds delivered publisher paragraphs"
         );
         let context = cognition::first_paragraphs(&article.body, 3);
         ensure!(

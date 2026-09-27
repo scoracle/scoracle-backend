@@ -12,7 +12,7 @@ WITH canary AS (
       LEFT JOIN public.pipeline_work w
         ON w.stage='harvester' AND w.entity_type='article'
        AND w.entity_id=x.article_id AND w.sport=x.sport
-       AND w.input_version=('harvest-context-v3:live-canary:run' || x.run_id
+       AND w.input_version=('harvest-context-v4:live-canary:run' || x.run_id
                             || ':a' || x.article_id)
       LEFT JOIN public.harvester_acquisitions h ON h.article_id=x.article_id
      WHERE x.run_id=:'run_id'::bigint
@@ -20,7 +20,7 @@ WITH canary AS (
     SELECT DISTINCT ON (c.article_id,c.entity_type,c.entity_id,c.sport) c.*
       FROM public.harvester_classifications c
       JOIN canary x ON x.article_id=c.article_id AND x.sport=c.sport
-     WHERE c.contract_version='harvest-context-v3'
+     WHERE c.contract_version='harvest-context-v4'
      ORDER BY c.article_id,c.entity_type,c.entity_id,c.sport,c.created_at DESC,c.id DESC
 ), assignments AS (
     SELECT d.* FROM public.harvester_assignments d
@@ -66,7 +66,7 @@ WITH canary AS (
     SELECT DISTINCT ON (c.article_id,c.entity_type,c.entity_id,c.sport) c.id
       FROM public.harvester_classifications c
       JOIN canary x ON x.article_id=c.article_id AND x.sport=c.sport
-     WHERE c.contract_version='harvest-context-v3'
+     WHERE c.contract_version='harvest-context-v4'
      ORDER BY c.article_id,c.entity_type,c.entity_id,c.sport,c.created_at DESC,c.id DESC
 )
 SELECT d.plugin_id,d.status,count(*) AS assignments,

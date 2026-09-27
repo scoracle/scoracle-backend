@@ -9,7 +9,7 @@ The September 27 target contract is: the harness selects the work and plugin; th
 3. For a relevant result, Harvester asks four separate questions about narrative developments, emotional charge, transfers or organizational change, and performance or availability including injuries and suspensions. Each choice maps to a named character plugin. The labels are routing evidence, not facts for a published card.
 4. Harvester stores the exact headline and first three available publisher paragraphs, byte offsets, body hash, model input, distributions, versions, and provenance. Character plugins receive only selected source contexts through their assignment ledger. Each character owns its claim selection, output form, and fidelity checks.
 
-`harvest-context-v3` and `harvest-theme-routing-v4` distinguish this path from the three-sentence, broad-routing v1 classifications and the initial v2 shadow paragraph probe. An already stored flat body or an opening shorter than thirty words must be fetched again to recover article prose. Publisher pages without usable paragraph markup remain a visible acquisition limitation.
+`harvest-context-v4` and `harvest-theme-routing-v5` distinguish this path from the three-sentence, broad-routing v1 classifications and the v2/v3 shadow paragraph probes. Both Laya passes see only a bounded prefix of the same first three paragraphs supplied to characters. An already stored flat body or an opening shorter than thirty words must be fetched again to recover article prose. Publisher pages without usable paragraph markup remain a visible acquisition limitation.
 
 ## Release gates
 

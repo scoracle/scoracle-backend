@@ -9,10 +9,10 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
-pub const CONTRACT: &str = "harvest-v4";
-pub const RELEVANCE_QUESTIONS: &str = "harvest-relevance-v4";
-pub const CHARACTER_QUESTIONS: &str = "harvest-theme-routing-v4";
-pub const POLICY: &str = "google-laya-theme-cascade-v2";
+pub const CONTRACT: &str = "harvest-v5";
+pub const RELEVANCE_QUESTIONS: &str = "harvest-relevance-v5";
+pub const CHARACTER_QUESTIONS: &str = "harvest-theme-routing-v5";
+pub const POLICY: &str = "google-laya-theme-cascade-v3";
 
 /// Question key, stable plugin identity, and the perspective Laya should match.
 pub const CHARACTER_PLUGINS: &[(&str, &str, &str)] = &[
@@ -127,9 +127,14 @@ fn excerpt(body: &str, end: usize, selection: &str) -> Excerpt {
     }
 }
 
-fn model_input(body: &str, selection: &str) -> Excerpt {
-    let content = body.trim_start();
-    excerpt(body, bounded_prefix_end(content, 100, 1200), selection)
+fn model_input(opening: &Excerpt) -> Excerpt {
+    let end = bounded_prefix_end(&opening.text, 100, 1200);
+    Excerpt {
+        text: opening.text[..end].to_string(),
+        start: opening.start,
+        end: opening.start + end,
+        selection: "bounded_verbatim_publisher_opening".into(),
+    }
 }
 
 /// Copy the first `count` nonempty paragraphs verbatim. A blank line separates
@@ -162,30 +167,10 @@ pub fn first_paragraphs(body: &str, count: usize) -> Excerpt {
 }
 
 pub fn prepare_text(body: &str) -> PreparedText {
+    let character_context = first_paragraphs(body, 3);
     PreparedText {
-        model_input: model_input(body, "bounded_verbatim_publisher_opening"),
-        character_context: first_paragraphs(body, 3),
-    }
-}
-
-fn classification_source(article: &Article) -> (&str, &'static str) {
-    (&article.body, "bounded_verbatim_publisher_opening")
-}
-
-fn prepare_article_text(article: &Article) -> PreparedText {
-    let (source, selection) = classification_source(article);
-    PreparedText {
-        model_input: model_input(source, selection),
-        character_context: if article.body.trim().is_empty() {
-            Excerpt {
-                text: String::new(),
-                start: 0,
-                end: 0,
-                selection: "publisher_fetch_pending".into(),
-            }
-        } else {
-            first_paragraphs(&article.body, 3)
-        },
+        model_input: model_input(&character_context),
+        character_context,
     }
 }
 
@@ -219,12 +204,8 @@ pub fn prepare_relevance(article: &Article) -> Result<(PreparedText, DecisionReq
         "missing target entity"
     );
     ensure!(!article.title.trim().is_empty(), "missing article headline");
-    let (classification_source, _) = classification_source(article);
-    ensure!(
-        !classification_source.trim().is_empty(),
-        "missing publisher body"
-    );
-    let prepared = prepare_article_text(article);
+    ensure!(!article.body.trim().is_empty(), "missing publisher body");
+    let prepared = prepare_text(&article.body);
     let questions = BTreeMap::from([(
         "relevance".into(),
         question(
@@ -356,11 +337,17 @@ pub fn compile(
         "relevance request differs from the current article or prompt contract"
     );
     let relevant = passed_relevance(relevance_request, &relevance_response)?;
-    let (classification_source, _) = classification_source(article);
     ensure!(
-        classification_source.get(prepared.model_input.start..prepared.model_input.end)
+        article
+            .body
+            .get(prepared.model_input.start..prepared.model_input.end)
             == Some(prepared.model_input.text.as_str()),
         "model input is not verbatim publisher context"
+    );
+    ensure!(
+        prepared.model_input.start == prepared.character_context.start
+            && prepared.model_input.end <= prepared.character_context.end,
+        "Laya saw text outside the delivered opening"
     );
     if relevant {
         ensure!(!article.body.trim().is_empty(), "missing publisher body");
@@ -561,6 +548,21 @@ mod tests {
         assert!(x.text.split_whitespace().count() <= 100);
         assert!(x.text.len() <= 1200);
         assert_eq!(x.selection, "bounded_verbatim_publisher_opening");
+    }
+
+    #[test]
+    fn laya_never_sees_reporting_after_the_delivered_three_paragraphs() {
+        let mut a = article();
+        a.body = format!(
+            "First opening paragraph.\n\nSecond opening paragraph.\n\nThird opening paragraph.\n\n{}",
+            "FOURTH_PARAGRAPH_ONLY ".repeat(120)
+        );
+        let (prepared, relevance) = prepare_relevance(&a).unwrap();
+        let themes = prepare_character_routing(&a, &prepared);
+        assert_eq!(prepared.model_input.start, prepared.character_context.start);
+        assert!(prepared.model_input.end <= prepared.character_context.end);
+        assert!(!relevance.state.contains("FOURTH_PARAGRAPH_ONLY"));
+        assert!(!themes.state.contains("FOURTH_PARAGRAPH_ONLY"));
     }
 
     #[test]

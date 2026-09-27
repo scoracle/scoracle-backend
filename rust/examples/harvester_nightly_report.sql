@@ -1,6 +1,9 @@
 -- Read-only production report for the latest completed nightly news ingest.
 -- Run with: psql "$DATABASE_PRIVATE_URL" -X -f rust/examples/harvester_nightly_report.sql
 -- Counts and times only; no publisher text or URLs leave PostgreSQL.
+-- Readiness metrics below count only the current Harvester contract. Historic
+-- classifications remain visible in the final provenance breakdown, but do
+-- not satisfy the current contract's coverage or assignment totals.
 WITH ingest AS (
     SELECT id, started_at, finished_at, status, attempted, succeeded, failed
       FROM public.pipeline_runs
@@ -18,6 +21,7 @@ WITH ingest AS (
       FROM public.harvester_classifications c
       JOIN cohort q ON q.article_id=c.article_id AND q.entity_type=c.entity_type
        AND q.entity_id=c.entity_id AND q.sport=c.sport
+     WHERE c.contract_version='harvest-context-v4'
      ORDER BY c.article_id,c.entity_type,c.entity_id,c.sport,c.created_at DESC,c.id DESC
 ), acquisition AS (
     SELECT a.article_id,a.status,a.updated_at
@@ -30,6 +34,7 @@ WITH ingest AS (
       FROM public.pipeline_work w
       JOIN article a ON a.article_id=w.entity_id
      WHERE w.stage='harvester' AND w.entity_type='article'
+       AND w.input_version LIKE 'harvest-context-v4:%'
 ), edge_state AS (
     SELECT q.article_id,q.entity_type,q.entity_id,q.sport,
            EXISTS (SELECT 1 FROM classification c
@@ -44,7 +49,8 @@ WITH ingest AS (
                          AND w.status='failed' AND w.attempts>=5) AS terminal_error
       FROM cohort q
 )
-SELECT i.id AS ingest_run_id, i.started_at AS ingest_started_at,
+SELECT 'harvest-context-v4' AS readiness_contract,
+       i.id AS ingest_run_id, i.started_at AS ingest_started_at,
        i.finished_at AS ingest_finished_at, i.status AS ingest_status,
        round(extract(epoch FROM i.finished_at-i.started_at)::numeric,1) AS ingest_seconds,
        i.attempted AS ingest_attempted, i.succeeded AS ingest_succeeded,
@@ -124,6 +130,7 @@ WITH ingest AS (
       FROM public.harvester_classifications c
       JOIN cohort q ON q.article_id=c.article_id AND q.entity_type=c.entity_type
        AND q.entity_id=c.entity_id AND q.sport=c.sport
+     WHERE c.contract_version='harvest-context-v4'
      ORDER BY c.article_id,c.entity_type,c.entity_id,c.sport,c.created_at DESC,c.id DESC
 )
 SELECT d.plugin_id, count(*) AS assignments,
@@ -153,6 +160,7 @@ WITH ingest AS (
       FROM public.harvester_classifications c
       JOIN cohort q ON q.article_id=c.article_id AND q.entity_type=c.entity_type
        AND q.entity_id=c.entity_id AND q.sport=c.sport
+     WHERE c.contract_version='harvest-context-v4'
      ORDER BY c.article_id,c.entity_type,c.entity_id,c.sport,c.created_at DESC,c.id DESC
 )
 SELECT d.plugin_id,count(*) AS assignments,
@@ -185,6 +193,7 @@ WITH ingest AS (
       FROM public.harvester_classifications c
       JOIN cohort q ON q.article_id=c.article_id AND q.entity_type=c.entity_type
        AND q.entity_id=c.entity_id AND q.sport=c.sport
+     WHERE c.contract_version='harvest-context-v4'
      ORDER BY c.article_id,c.entity_type,c.entity_id,c.sport,c.created_at DESC,c.id DESC
 )
 SELECT count(*) AS classified_edges,
@@ -220,6 +229,7 @@ WITH ingest AS (
       FROM public.harvester_classifications c
       JOIN cohort q ON q.article_id=c.article_id AND q.entity_type=c.entity_type
        AND q.entity_id=c.entity_id AND q.sport=c.sport
+     WHERE c.contract_version='harvest-context-v4'
      ORDER BY c.article_id,c.entity_type,c.entity_id,c.sport,c.created_at DESC,c.id DESC
 )
 SELECT route.key AS plugin_id, count(*) AS classified_edges,
@@ -242,6 +252,7 @@ WITH ingest AS (
     SELECT c.* FROM public.harvester_classifications c JOIN cohort q
       ON q.article_id=c.article_id AND q.entity_type=c.entity_type
      AND q.entity_id=c.entity_id AND q.sport=c.sport
+     WHERE c.contract_version='harvest-context-v4'
 )
 SELECT count(*) AS classified_edges,
        count(*) FILTER (WHERE a.full_text IS NOT NULL AND
@@ -296,6 +307,7 @@ WITH ingest AS (
       FROM public.harvester_classifications c JOIN cohort q
         ON q.article_id=c.article_id AND q.entity_type=c.entity_type
        AND q.entity_id=c.entity_id AND q.sport=c.sport
+     WHERE c.contract_version='harvest-context-v4'
      ORDER BY c.article_id,c.entity_type,c.entity_id,c.sport,c.created_at DESC,c.id DESC
 )
 SELECT count(*) FILTER (WHERE c.created_at<i.started_at) AS retained_prior_classifications,

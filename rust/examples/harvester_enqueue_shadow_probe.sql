@@ -25,7 +25,8 @@ WITH ingest AS (
      ORDER BY c.article_id,c.entity_type,c.entity_id,c.sport,c.created_at DESC,c.id DESC
 ), one_edge_per_article AS (
     SELECT DISTINCT ON (q.article_id)
-           q.article_id,q.sport,c.entity_choice AS old_choice,a.attempts AS acquisition_attempts_before
+           q.article_id,q.sport,c.entity_choice AS old_choice,
+           a.final_domain,a.attempts AS acquisition_attempts_before
       FROM cohort q JOIN old_classification c
         ON c.article_id=q.article_id AND c.entity_type=q.entity_type
        AND c.entity_id=q.entity_id AND c.sport=q.sport
@@ -33,6 +34,11 @@ WITH ingest AS (
       JOIN public.harvester_acquisitions a ON a.article_id=q.article_id
      WHERE q.entity_type='team' AND n.duplicate_of IS NULL
        AND n.full_text IS NOT NULL AND a.status='acquired'
+       AND a.final_domain IS NOT NULL
+       AND NOT EXISTS (
+           SELECT 1 FROM public.harvester_headline_gates g
+            WHERE g.article_id=q.article_id AND g.contract_version='harvest-headline-v2'
+       )
        AND NOT EXISTS (
            SELECT 1 FROM public.pipeline_work w
             WHERE w.stage='harvester' AND w.entity_type='article'
@@ -42,11 +48,16 @@ WITH ingest AS (
      ORDER BY q.article_id,
               CASE c.entity_choice WHEN 'irrelevant' THEN 0 ELSE 1 END,
               q.entity_id
+), domain_sample AS (
+    SELECT *,row_number() OVER (
+        PARTITION BY old_choice,final_domain ORDER BY md5(article_id::text)
+    ) AS domain_rank
+      FROM one_edge_per_article
 ), ranked AS (
     SELECT *,row_number() OVER (
         PARTITION BY old_choice ORDER BY md5(article_id::text)
     ) AS sample_rank
-      FROM one_edge_per_article
+      FROM domain_sample WHERE domain_rank=1
 )
 SELECT article_id,sport,old_choice,acquisition_attempts_before,now() AS enqueued_at
   FROM ranked

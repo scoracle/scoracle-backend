@@ -18,7 +18,7 @@ WITH canary AS (
       JOIN canary x ON x.article_id=c.article_id AND x.sport=c.sport
      WHERE d.plugin_id=:'plugin_id' AND d.status='pending'
        AND d.reason='delivery_held' AND c.contract_version='harvest-context-v5'
-       AND c.created_at>=x.enqueued_at AND c.entity_choice='relevant'
+       AND d.updated_at>=x.enqueued_at AND c.entity_choice='relevant'
        AND d.plugin_id IN ('scoracle.character.narrative','scoracle.character.vibe',
                            'scoracle.character.transfers','scoracle.character.rating')
      GROUP BY c.entity_type,c.entity_id,c.sport
@@ -30,7 +30,7 @@ WITH canary AS (
      WHERE d.classification_id=c.id AND d.plugin_id=:'plugin_id'
        AND d.status='pending' AND d.reason='delivery_held'
        AND c.contract_version='harvest-context-v5' AND c.entity_choice='relevant'
-       AND c.created_at>=x.enqueued_at AND c.article_id=x.article_id AND c.sport=x.sport
+       AND d.updated_at>=x.enqueued_at AND c.article_id=x.article_id AND c.sport=x.sport
        AND c.entity_type=s.entity_type AND c.entity_id=s.entity_id AND c.sport=s.sport
      RETURNING c.id AS classification_id,c.entity_type,c.entity_id,c.sport
 )

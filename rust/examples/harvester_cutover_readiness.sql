@@ -1,9 +1,13 @@
--- Read-only Harvester cutover checks. A live cutover requires zero pending/error
--- assignments for the observed cohort and no unaccounted acquisition failures.
-WITH cohort AS (
+-- Read-only Harvester cutover checks for the latest completed nightly ingest.
+-- A live cutover requires zero actionable work and no unaccounted failures.
+WITH ingest AS (
+    SELECT started_at,finished_at FROM public.pipeline_runs
+     WHERE job='pipeline' AND finished_at IS NOT NULL
+     ORDER BY started_at DESC LIMIT 1
+), cohort AS (
     SELECT p.article_id, p.entity_type, p.entity_id, p.sport
-      FROM public.harvester_query_provenance p
-     WHERE p.first_seen_at >= now() - interval '24 hours'
+      FROM public.harvester_query_provenance p CROSS JOIN ingest i
+     WHERE p.last_seen_at BETWEEN i.started_at AND i.finished_at
 ), articles AS (
     SELECT DISTINCT article_id FROM cohort
 )
@@ -31,38 +35,65 @@ SELECT 'acquisition_errors', count(*) FROM articles a
  WHERE h.status IN ('retryable_error','blocked','low_content','classification_error')
 ORDER BY measure;
 
+WITH ingest AS (
+    SELECT started_at,finished_at FROM public.pipeline_runs
+     WHERE job='pipeline' AND finished_at IS NOT NULL
+     ORDER BY started_at DESC LIMIT 1
+), cohort AS (
+    SELECT p.article_id,p.entity_type,p.entity_id,p.sport
+      FROM public.harvester_query_provenance p CROSS JOIN ingest i
+     WHERE p.last_seen_at BETWEEN i.started_at AND i.finished_at
+)
 SELECT d.plugin_id, d.status, count(*) AS total
   FROM public.harvester_assignments d
   JOIN public.harvester_classifications c ON c.id=d.classification_id
-  JOIN public.harvester_query_provenance q
+  JOIN cohort q
     ON q.article_id=c.article_id AND q.entity_type=c.entity_type
    AND q.entity_id=c.entity_id AND q.sport=c.sport
- WHERE q.first_seen_at >= now() - interval '24 hours'
  GROUP BY d.plugin_id, d.status
  ORDER BY d.plugin_id, d.status;
 
 -- Character handoffs can finish while their internal Inspector/Scout obligations
 -- are still outstanding. Keep those receipts visible before any switch.
+WITH ingest AS (
+    SELECT started_at,finished_at FROM public.pipeline_runs
+     WHERE job='pipeline' AND finished_at IS NOT NULL
+     ORDER BY started_at DESC LIMIT 1
+), cohort AS (
+    SELECT p.article_id,p.entity_type,p.entity_id,p.sport
+      FROM public.harvester_query_provenance p CROSS JOIN ingest i
+     WHERE p.last_seen_at BETWEEN i.started_at AND i.finished_at
+), article_sport AS (
+    SELECT DISTINCT article_id,sport FROM cohort
+), teams AS (
+    SELECT DISTINCT entity_id,sport FROM cohort WHERE entity_type='team'
+), classified AS (
+    SELECT c.id FROM public.harvester_classifications c JOIN cohort q
+      ON q.article_id=c.article_id AND q.entity_type=c.entity_type
+     AND q.entity_id=c.entity_id AND q.sport=c.sport
+)
 SELECT 'insider_identity_review' AS obligation, r.status, count(*) AS total
   FROM public.harvester_insider_identity_reviews r
-  JOIN public.harvester_classifications c ON c.id=r.classification_id
- WHERE c.created_at >= now() - interval '24 hours'
+  JOIN classified c ON c.id=r.classification_id
+ WHERE r.updated_at >= (SELECT started_at FROM ingest)
  GROUP BY r.status
 UNION ALL
 SELECT 'unresolved_name', n.reason, count(*)
   FROM public.harvester_unresolved_names n
- WHERE n.created_at >= now() - interval '24 hours'
+  JOIN article_sport a ON a.article_id=n.article_id AND a.sport=n.sport
+ WHERE n.created_at >= (SELECT started_at FROM ingest)
  GROUP BY n.reason
 UNION ALL
 SELECT 'insider_scored_wrap', w.status, count(*)
   FROM public.harvester_insider_wraps w
- WHERE w.updated_at >= now() - interval '24 hours'
+  JOIN teams t ON t.entity_id=w.team_id AND t.sport=w.sport
+ WHERE w.updated_at >= (SELECT started_at FROM ingest)
  GROUP BY w.status
 UNION ALL
 SELECT 'insider_source_pair', p.status, count(*)
   FROM public.harvester_insider_pairs p
-  JOIN public.harvester_classifications c ON c.id=p.classification_id
- WHERE c.created_at >= now() - interval '24 hours'
+  JOIN classified c ON c.id=p.classification_id
+ WHERE p.updated_at >= (SELECT started_at FROM ingest)
  GROUP BY p.status
 ORDER BY obligation,status;
 
@@ -70,7 +101,7 @@ ORDER BY obligation,status;
 SELECT stage,status,count(*) AS total,
        min(updated_at) AS oldest_updated_at
   FROM public.pipeline_work
- WHERE stage IN ('harvester','graph','narratives','vibe','transfers','rating')
-   AND updated_at >= now() - interval '48 hours'
+ WHERE stage IN ('editor','harvester','graph','narratives','vibe','transfers','rating')
+   AND (stage='editor' OR updated_at >= now() - interval '48 hours')
  GROUP BY stage,status
  ORDER BY stage,status;

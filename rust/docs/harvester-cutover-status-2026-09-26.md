@@ -152,6 +152,17 @@ Functions whose deployed definitions mention those tables are
 the opt-in Harvester source modes for Scout reports, player selection,
 Sigil selection, watchdog, and narrative-link maintenance are not set.
 Those switches and the legacy API/SQL consumers remain explicit cutover work.
+At 03:04 EDT, Editor's production queue had no pending or running claims; its
+only remaining row was one five-attempt failed dead letter from September 24.
+Go's Harvester ingest mode enqueues Editor only while shadow mode is on, so
+turning shadow off stops new Editor intake. The readiness query now includes
+all Editor queue rows, including old dead letters, to make the final roster
+drain visible before removing Editor.
+The readiness query also now selects the latest completed ingest's exact
+`last_seen_at` cohort, matching the nightly report. Its older rolling 24-hour
+filter mixed 28 earlier articles and a pre-nightly live canary into the
+September 27 readiness counts; the corrected production query reports the
+nightly's 4,929 canonical articles and no shadow character assignments.
 
 ## Implemented locally
 

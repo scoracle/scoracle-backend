@@ -3,6 +3,7 @@
 //! This is not an editorial packet. No generated story, interpretation, or
 //! character-owned decision is represented here.
 use super::cognition::{self, Article, Excerpt, Hypothesis, CHARACTER_PLUGINS};
+use super::policy;
 use crate::studio::decision::{ChoiceAnswer, DecisionModel, DecisionRequest, DecisionResponse};
 use crate::util::hash_components;
 use anyhow::{ensure, Result};
@@ -12,11 +13,14 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
 pub const CONTRACT: &str = "harvest-context-v5";
-pub const HEADLINE_CONTRACT: &str = "harvest-headline-v1";
-pub const HEADLINE_POLICY: &str = "headline-read-p025-v1";
-/// A cheap headline gate should discard only clear negatives. This is a
-/// versioned Harvester admission knob, not a calibrated model confidence.
-pub const HEADLINE_READ_THRESHOLD: f64 = 0.25;
+pub const HEADLINE_CONTRACT: &str = "harvest-headline-v2";
+pub use policy::{
+    CHARACTER_ROUTE_POLICY, CHARACTER_ROUTE_THRESHOLD, HEADLINE_POLICY, HEADLINE_READ_THRESHOLD,
+};
+
+fn route_probability(answer: &ChoiceAnswer) -> bool {
+    policy::routes_theme(answer.probabilities["relevant"])
+}
 
 #[derive(Clone, Debug)]
 pub struct HeadlineGate {
@@ -35,7 +39,7 @@ impl HeadlineGate {
     }
 
     pub fn admits_reading(&self) -> bool {
-        self.relevance_probability() >= HEADLINE_READ_THRESHOLD
+        policy::admits_headline(self.relevance_probability())
     }
 
     pub fn verify_against(&self, article: &Article) -> Result<()> {
@@ -185,7 +189,7 @@ impl HarvestContext {
                 .filter_map(|(_, plugin_id, _)| {
                     self.character_distributions
                         .get(*plugin_id)
-                        .filter(|answer| answer.choice == "relevant")
+                        .filter(|answer| route_probability(answer))
                         .map(|_| (*plugin_id).to_string())
                 })
                 .collect();
@@ -251,7 +255,7 @@ pub async fn classify_after_headline(
     if let Some(response) = &character_response {
         for (question, plugin_id, _) in CHARACTER_PLUGINS {
             let answer = response.answers[*question].clone();
-            if answer.choice == "relevant" {
+            if route_probability(&answer) {
                 recommended_characters.push((*plugin_id).to_string());
             }
             character_distributions.insert((*plugin_id).to_string(), answer);
@@ -278,6 +282,8 @@ pub async fn classify_after_headline(
             "headline_relevance_probability": gate.relevance_probability(),
             "headline_policy": HEADLINE_POLICY,
             "headline_read_threshold": HEADLINE_READ_THRESHOLD,
+            "character_route_policy": CHARACTER_ROUTE_POLICY,
+            "character_route_threshold": CHARACTER_ROUTE_THRESHOLD,
             "character_routing": character_response.map(|response| response.provenance),
             "question_set_versions": {
                 "relevance": cognition::RELEVANCE_QUESTIONS,
@@ -407,6 +413,29 @@ mod tests {
             CHARACTER_PLUGINS.len()
         );
         assert_eq!(result.recommended_characters.len(), CHARACTER_PLUGINS.len());
+        result.verify_against(&article).unwrap();
+    }
+
+    #[tokio::test]
+    async fn character_route_uses_plugin_probability_policy_at_model_tie() {
+        let article = article();
+        let model = Stub {
+            reject_entity: false,
+            malformed: false,
+            calls: AtomicUsize::new(0),
+        };
+        let mut result = classify(&model, &article).await.unwrap();
+        let answer = result
+            .character_distributions
+            .get_mut("scoracle.character.rating")
+            .unwrap();
+        answer.choice = "irrelevant".into();
+        answer.probabilities.insert("irrelevant".into(), 0.5);
+        answer.probabilities.insert("relevant".into(), 0.5);
+        assert!(result
+            .recommended_characters
+            .contains(&"scoracle.character.rating".to_string()));
+        assert_eq!(result.model_provenance["character_route_threshold"], 0.5);
         result.verify_against(&article).unwrap();
     }
 

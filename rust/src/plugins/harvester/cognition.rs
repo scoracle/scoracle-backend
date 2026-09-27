@@ -1,6 +1,7 @@
 //! Cascading relevance classification followed by verbatim source publication.
 //! Harvester owns this contract; tagged character plugins own the final judgment.
 
+use super::policy;
 use crate::studio::decision::{ChoiceQuestion, DecisionRequest, DecisionResponse};
 use crate::util::hash_components;
 use anyhow::{ensure, Result};
@@ -10,9 +11,9 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
 pub const CONTRACT: &str = "harvest-v6";
-pub const RELEVANCE_QUESTIONS: &str = "harvest-headline-relevance-v1";
+pub const RELEVANCE_QUESTIONS: &str = "harvest-headline-relevance-v2";
 pub const CHARACTER_QUESTIONS: &str = "harvest-theme-routing-v5";
-pub const POLICY: &str = "google-headline-laya-theme-cascade-v1";
+pub const POLICY: &str = "google-headline-laya-theme-cascade-v2";
 
 /// Question key, stable plugin identity, and the perspective Laya should match.
 pub const CHARACTER_PLUGINS: &[(&str, &str, &str)] = &[
@@ -219,11 +220,11 @@ pub fn prepare_relevance(article: &Article) -> Result<(PreparedText, DecisionReq
         "relevance".into(),
         question(
             &format!(
-                "Does this Google headline indicate news substantively about or directly consequential to the sports entity {} ({})? Treat a different entity with the same name as irrelevant. Decide from the headline only; uncertain but plausible target coverage is relevant for reading.",
+                "Given only this Google headline, estimate the probability that the article concerns the exact sports entity {} ({}) as a subject or reports a direct consequence for it. A different entity with the same name does not qualify. Express uncertainty in the probabilities; do not decide whether Harvester should fetch the article.",
                 article.hypothesis.name, article.hypothesis.sport
             ),
-            "The headline does not indicate substantive coverage of this exact sports entity",
-            "The headline indicates substantive or plausibly substantive coverage of this exact sports entity",
+            "The article is not about this exact sports entity or a direct consequence for it",
+            "The article is about this exact sports entity or a direct consequence for it",
         ),
     )]);
     Ok((
@@ -322,7 +323,9 @@ pub fn passed_relevance(request: &DecisionRequest, response: &DecisionResponse) 
         request.questions.len() == 1 && request.questions.contains_key("relevance"),
         "not a Harvester relevance request"
     );
-    Ok(response.answers["relevance"].choice == "relevant")
+    Ok(policy::admits_headline(
+        response.answers["relevance"].probabilities["relevant"],
+    ))
 }
 
 /// Compile the cascade without changing source text. A successful gate requires a
@@ -399,7 +402,7 @@ pub fn compile(
                 character_signals.insert((*plugin_id).into(), serde_json::to_value(answer)?);
                 character_probabilities
                     .insert((*plugin_id).into(), json!(answer.probabilities["relevant"]));
-                if answer.choice == "relevant" {
+                if policy::routes_theme(answer.probabilities["relevant"]) {
                     character_tags.push(*plugin_id);
                 }
             }

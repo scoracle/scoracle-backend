@@ -10,6 +10,7 @@ pub mod cognition;
 pub mod context;
 pub mod delivery;
 pub mod maintenance;
+pub mod policy;
 
 use crate::application::queue::work::{ClaimPolicy, TaskKey};
 use crate::studio::decision::DecisionModel;

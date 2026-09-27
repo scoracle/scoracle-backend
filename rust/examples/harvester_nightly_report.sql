@@ -21,7 +21,7 @@ WITH ingest AS (
       FROM public.harvester_headline_gates g
       JOIN cohort q ON q.article_id=g.article_id AND q.entity_type=g.entity_type
        AND q.entity_id=g.entity_id AND q.sport=g.sport
-     WHERE g.contract_version='harvest-headline-v1'
+     WHERE g.contract_version='harvest-headline-v2'
        AND g.policy_version='headline-read-p025-v1'
      ORDER BY g.article_id,g.entity_type,g.entity_id,g.sport,g.created_at DESC
 ), classification AS (

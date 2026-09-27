@@ -40,9 +40,7 @@ fn parse_delivery_characters(raw: &str) -> Result<HashSet<&'static str>> {
 fn delivery_characters() -> Result<HashSet<&'static str>> {
     match std::env::var("HARVESTER_DELIVERY_CHARACTERS") {
         Ok(raw) => parse_delivery_characters(&raw),
-        Err(std::env::VarError::NotPresent) => {
-            Ok(CHARACTER_PLUGINS.iter().map(|(key, _, _)| *key).collect())
-        }
+        Err(std::env::VarError::NotPresent) => Ok(HashSet::new()),
         Err(error) => Err(error.into()),
     }
 }
@@ -810,6 +808,29 @@ mod tests {
     use std::collections::BTreeMap;
     use std::time::Duration;
 
+    struct AllDeliveryForTest(Option<std::ffi::OsString>);
+
+    impl AllDeliveryForTest {
+        fn new() -> Self {
+            let previous = std::env::var_os("HARVESTER_DELIVERY_CHARACTERS");
+            std::env::set_var(
+                "HARVESTER_DELIVERY_CHARACTERS",
+                "journalist,influencer,insider,scout",
+            );
+            Self(previous)
+        }
+    }
+
+    impl Drop for AllDeliveryForTest {
+        fn drop(&mut self) {
+            if let Some(previous) = &self.0 {
+                std::env::set_var("HARVESTER_DELIVERY_CHARACTERS", previous);
+            } else {
+                std::env::remove_var("HARVESTER_DELIVERY_CHARACTERS");
+            }
+        }
+    }
+
     #[test]
     fn delivery_character_gate_accepts_only_named_unique_characters() {
         assert!(parse_delivery_characters("").unwrap().is_empty());
@@ -1055,6 +1076,7 @@ mod tests {
     #[tokio::test]
     #[ignore = "requires isolated TEST_DATABASE_URL with migration 269"]
     async fn claimed_harvester_smoke_keeps_editor_and_routes_source_context() -> Result<()> {
+        let _delivery = AllDeliveryForTest::new();
         const SPORT: &str = "ZZ_HARVESTER_SMOKE";
         const ARTICLE: i64 = 9_690_101;
         const SECOND_ARTICLE: i64 = 9_690_104;

@@ -18,14 +18,14 @@ The next live build has a per-character gate, `HARVESTER_DELIVERY_CHARACTERS`.
 When `HARVESTER_SHADOW_MODE=0`, set it to an empty string to record all four
 character assignments as `pending` with reason `delivery_held`, without
 enqueueing their stages. Named values are comma-separated `journalist`,
-`influencer`, `insider`, and `scout`; omission retains the historical all-on
-default, so the empty value must be explicit for the first live canary. The
+`influencer`, `insider`, and `scout`; omission also holds all four. Keep the
+empty value explicit for the first live canary so its intent is visible. The
 character source loaders ignore held assignments. After verifying identity and
 Graph receipts on a small live cohort, run
 `rust/examples/harvester_release_character.sql` on the production host with a
 specific `plugin_id` and `entity_limit=5` to release one character in bounded
 team groups. Inspect assignment dispositions and actual products after each
-batch. This code is not deployed yet; the nightly shadow remains isolated.
+batch. The running worker remains in shadow mode; the nightly shadow is isolated.
 
 After the nightly queue has no pending, running, or scheduled-retry Harvester
 work, restart the CI-passed worker with shadow mode off and the delivery list

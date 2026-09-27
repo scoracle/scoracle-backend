@@ -363,10 +363,7 @@ fn dedupe_repeated_segments(text: &str) -> String {
     if start < text.len() {
         out.push(&text[start..]);
     }
-    out.join("")
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
+    normalize_reading_paragraphs(&out.join(""))
 }
 
 /// Extracts a reading body, preferring the largest `<article>` and then `<main>`.
@@ -378,13 +375,13 @@ pub fn extract_article_text(html: &str) -> String {
     }
     for tag in ["article", "main"] {
         if let Some(inner) = largest_element_inner(&doc, tag) {
-            let text = clean_html(&inner);
+            let text = clean_html_with_paragraphs(&inner);
             if count_words(&text) >= ARTICLE_MIN_WORDS {
                 return compact_reading(&text);
             }
         }
     }
-    compact_reading(&clean_html(&doc))
+    compact_reading(&clean_html_with_paragraphs(&doc))
 }
 
 /// compact_reading strips what the tag pass cannot see: furniture that lives INSIDE the article
@@ -437,6 +434,46 @@ pub fn clean_html(html: &str) -> String {
         }
     }
     decode_entities(&normalize_space(&out))
+}
+
+/// Retain source paragraph boundaries for Harvester while folding whitespace
+/// inside each paragraph. The general-purpose `clean_html` remains a flat-text
+/// utility for callers that do not need article structure.
+fn clean_html_with_paragraphs(html: &str) -> String {
+    let mut out = String::with_capacity(html.len());
+    let mut tag = String::new();
+    let mut in_tag = false;
+    for character in html.chars() {
+        match character {
+            '<' => {
+                in_tag = true;
+                tag.clear();
+            }
+            '>' if in_tag => {
+                in_tag = false;
+                let name = tag.trim().to_ascii_lowercase();
+                let name = name.split_whitespace().next().unwrap_or_default();
+                if matches!(name, "/p" | "/div" | "/blockquote" | "/li") {
+                    out.push_str("\n\n");
+                } else if name == "br" || name == "br/" {
+                    out.push('\n');
+                } else {
+                    out.push(' ');
+                }
+            }
+            _ if in_tag => tag.push(character),
+            _ => out.push(character),
+        }
+    }
+    normalize_reading_paragraphs(&decode_entities(&out))
+}
+
+fn normalize_reading_paragraphs(text: &str) -> String {
+    text.split("\n\n")
+        .map(normalize_space)
+        .filter(|paragraph| !paragraph.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n\n")
 }
 
 /// Case-insensitive ASCII search for `needle` in `haystack`, starting at byte offset `from`
@@ -1051,6 +1088,25 @@ mod tests {
             extracted.len() < clean_html(&html).len(),
             "extraction must shrink the body"
         );
+    }
+
+    #[test]
+    fn article_extraction_preserves_three_publisher_paragraphs() {
+        let paragraph = "The club confirmed the player is available after training today. ";
+        let html = format!(
+            "<article><p>{}</p><p>{}</p><p>{}</p><p>{}</p></article>",
+            paragraph.repeat(5),
+            "Supporters welcomed the news. ".repeat(7),
+            "The coach will decide the lineup tomorrow. ".repeat(6),
+            "A later recap does not belong in the opening. ".repeat(6)
+        );
+        let extracted = extract_article_text(&html);
+        let paragraphs: Vec<_> = extracted.split("\n\n").collect();
+        assert_eq!(paragraphs.len(), 4);
+        let opening = crate::plugins::harvester::cognition::first_paragraphs(&extracted, 3);
+        assert!(opening.text.contains("The coach will decide"));
+        assert!(!opening.text.contains("A later recap"));
+        assert_eq!(&extracted[opening.start..opening.end], opening.text);
     }
 
     /// Fails SAFE: a page the extractor cannot parse must come back whole, never empty — an

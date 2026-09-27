@@ -162,7 +162,7 @@ impl<'a> ScopedWeb<'a> {
         result.map_err(|e| anyhow!("{e}"))
     }
 
-    /// Fetch one already-curated article through the Editor's existing retrieval path.
+    /// Fetch one already-curated publisher article for a plugin with this grant.
     /// The provider implementation is intentionally unchanged; this boundary adds the
     /// manifest gate, run budget, and call ledger around it.
     pub async fn fetch_curated_article(

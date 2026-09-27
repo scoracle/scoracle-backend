@@ -493,7 +493,7 @@ mod tests {
             .find(|article| article.article_id == article_id)
             .context("Scout shadow article missing")?;
         ensure!(!article.body.trim().is_empty(), "Scout shadow body missing");
-        let opening = crate::plugins::harvester::cognition::first_sentences(&article.body, 3);
+        let opening = crate::plugins::harvester::cognition::first_paragraphs(&article.body, 3);
         ensure!(
             article.body.get(opening.start..opening.end) == Some(opening.text.as_str()),
             "Scout shadow opening is not an exact publisher span"
@@ -643,7 +643,7 @@ mod tests {
             .iter()
             .filter(|article| !article.body.trim().is_empty())
         {
-            let opening = crate::plugins::harvester::cognition::first_sentences(&article.body, 3);
+            let opening = crate::plugins::harvester::cognition::first_paragraphs(&article.body, 3);
             ensure!(
                 article.body.get(opening.start..opening.end) == Some(opening.text.as_str()),
                 "Scout corpus opening drift on article {}",

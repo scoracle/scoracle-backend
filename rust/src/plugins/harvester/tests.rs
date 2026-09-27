@@ -20,7 +20,7 @@ impl DecisionModel for Classifier {
                 .iter()
                 .map(|(id, q)| {
                     let winner = match id.as_str() {
-                        "relevance" | "journalist" | "scout" => "relevant",
+                        "relevance" | "narrative" | "availability" => "relevant",
                         _ => "irrelevant",
                     };
                     (
@@ -174,7 +174,7 @@ async fn compilation_rejects_changed_headline_entity_context_and_prompts() {
         .push_str(" Changed text outside the classified opening.");
     assert!(plugin.compile(&changed, classified.clone()).is_err());
     let mut altered = classified.clone();
-    altered.prepared.character_context = cognition::first_sentences(&original.body, 1);
+    altered.prepared.character_context = cognition::first_paragraphs(&original.body, 1);
     assert!(plugin.compile(&original, altered).is_err());
     let mut altered = classified.clone();
     altered
@@ -197,7 +197,7 @@ async fn malformed_or_truncated_results_never_compile_as_rejects() {
     }));
     let a = article();
     let classified = plugin.classify(&a).await.unwrap();
-    for stage in ["relevance", "journalist"] {
+    for stage in ["relevance", "narrative"] {
         for fault in [
             "truncation",
             "missing_coverage",

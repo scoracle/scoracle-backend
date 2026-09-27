@@ -25,12 +25,15 @@ fn parse_delivery_characters(raw: &str) -> Result<HashSet<&'static str>> {
         .map(str::trim)
         .filter(|name| !name.is_empty())
     {
-        let (key, _, _) = CHARACTER_PLUGINS
-            .iter()
-            .find(|(key, _, _)| *key == name)
-            .with_context(|| format!("unknown HARVESTER_DELIVERY_CHARACTERS name {name:?}"))?;
+        let key = match name {
+            "journalist" => "journalist",
+            "influencer" => "influencer",
+            "insider" => "insider",
+            "scout" => "scout",
+            _ => anyhow::bail!("unknown HARVESTER_DELIVERY_CHARACTERS name {name:?}"),
+        };
         ensure!(
-            enabled.insert(*key),
+            enabled.insert(key),
             "duplicate Harvester delivery character {name:?}"
         );
     }
@@ -428,10 +431,12 @@ async fn publish(
     let body = body.context("publication missing publisher text")?;
     let current_body: Option<String> = row.get("full_text");
     ensure!(
-        current_body.as_deref().is_none_or(|text| text == body),
+        current_body
+            .as_deref()
+            .is_none_or(|text| text == body || source.retained_body.as_deref() == Some(text)),
         "retained publisher body changed during Harvester run"
     );
-    sqlx::query("UPDATE public.news_articles SET full_text=$2 WHERE id=$1 AND full_text IS NULL")
+    sqlx::query("UPDATE public.news_articles SET full_text=$2 WHERE id=$1 AND full_text IS DISTINCT FROM $2")
         .bind(item.entity_id)
         .bind(body)
         .execute(&mut **tx)
@@ -452,34 +457,31 @@ async fn publish(
     } else {
         delivery_characters()?
     };
-    // Shadow owns only acquisition and Laya evidence. Editor still owns the
-    // live identity and character effects until the production corpus clears.
+    // Identity extraction is grounded in a publisher opening that passed the
+    // entity gate. Unrelated Google results cannot nominate graph identities.
     if !shadow_mode {
-        let opening = contexts
-            .first()
-            .context("acquired article has no Harvester classification")?
-            .context
-            .text
-            .as_str();
-        record_identity_candidates(
-            tx,
-            item.entity_id,
-            &item.sport,
-            &source.title,
-            body,
-            opening,
-        )
-        .await?;
-        record_resolved_links(tx, item.entity_id, &item.sport, opening).await?;
-        record_unresolved_names(
-            tx,
-            item.entity_id,
-            &item.sport,
-            &source.title,
-            body,
-            opening,
-        )
-        .await?;
+        if let Some(relevant_context) = contexts.iter().find(|c| c.entity_choice == "relevant") {
+            let opening = relevant_context.context.text.as_str();
+            record_identity_candidates(
+                tx,
+                item.entity_id,
+                &item.sport,
+                &source.title,
+                body,
+                opening,
+            )
+            .await?;
+            record_resolved_links(tx, item.entity_id, &item.sport, opening).await?;
+            record_unresolved_names(
+                tx,
+                item.entity_id,
+                &item.sport,
+                &source.title,
+                body,
+                opening,
+            )
+            .await?;
+        }
     }
     for context in contexts {
         let query = article_for_context(source, context, body);
@@ -530,21 +532,43 @@ async fn publish(
         .bind(&context.hypothesis.sport)
         .execute(&mut **tx)
         .await?;
-        // Route broadly until Laya is calibrated; the character owns the final
-        // decision. The pending rows are durable obligations, never publications.
+        if context.entity_choice != "relevant" {
+            continue;
+        }
+        // The theme pass selects plugin destinations. A character still decides
+        // what claims and form are permissible from its verified source context.
         for (key, plugin_id, _) in CHARACTER_PLUGINS {
+            if !context
+                .recommended_characters
+                .iter()
+                .any(|id| id == plugin_id)
+            {
+                continue;
+            }
+            let delivery_key = match *key {
+                "narrative" => "journalist",
+                "emotional_charge" => "influencer",
+                "transfers" => "insider",
+                "availability" => "scout",
+                _ => unreachable!("unknown Harvester theme"),
+            };
             sqlx::query(
                 "INSERT INTO public.harvester_assignments(classification_id,plugin_id,reason) \
                  VALUES ($1,$2,$3) ON CONFLICT DO NOTHING",
             )
             .bind(classification_id)
             .bind(plugin_id)
-            .bind((!delivery.contains(key)).then_some(DELIVERY_HELD_REASON))
+            .bind((!delivery.contains(delivery_key)).then_some(DELIVERY_HELD_REASON))
             .execute(&mut **tx)
             .await?;
         }
-        sqlx::query(
-            r#"
+        if context
+            .recommended_characters
+            .iter()
+            .any(|id| id == "scoracle.character.transfers")
+        {
+            sqlx::query(
+                r#"
             INSERT INTO public.harvester_insider_pairs
                 (classification_id,subject_type,subject_id)
             SELECT $1, subject.entity_type, subject.entity_id
@@ -560,16 +584,22 @@ async fn publish(
                            AND p.kind='coach')))
             ON CONFLICT DO NOTHING
             "#,
-        )
-        .bind(classification_id)
-        .bind(context.article_id)
-        .bind(&context.hypothesis.sport)
-        .bind(context.hypothesis.entity_id)
-        .execute(&mut **tx)
-        .await?;
+            )
+            .bind(classification_id)
+            .bind(context.article_id)
+            .bind(&context.hypothesis.sport)
+            .bind(context.hypothesis.entity_id)
+            .execute(&mut **tx)
+            .await?;
+        }
         // The Journalist now consumes this exact source slice directly. Its
         // entity-scoped claim is reopened on each new classification revision.
-        if delivery.contains("journalist") {
+        if delivery.contains("journalist")
+            && context
+                .recommended_characters
+                .iter()
+                .any(|id| id == "scoracle.character.narrative")
+        {
             crate::application::queue::work::enqueue(
                 &mut **tx,
                 &Item {
@@ -587,7 +617,12 @@ async fn publish(
             )
             .await?;
         }
-        if delivery.contains("influencer") {
+        if delivery.contains("influencer")
+            && context
+                .recommended_characters
+                .iter()
+                .any(|id| id == "scoracle.character.vibe")
+        {
             crate::application::queue::work::enqueue(
                 &mut **tx,
                 &Item {
@@ -619,7 +654,12 @@ async fn publish(
         .bind(&insider_version)
         .execute(&mut **tx)
         .await?;
-        if delivery.contains("insider") {
+        if delivery.contains("insider")
+            && context
+                .recommended_characters
+                .iter()
+                .any(|id| id == "scoracle.character.transfers")
+        {
             crate::application::queue::work::enqueue(
                 &mut **tx,
                 &Item {
@@ -634,7 +674,12 @@ async fn publish(
             )
             .await?;
         }
-        if delivery.contains("scout") {
+        if delivery.contains("scout")
+            && context
+                .recommended_characters
+                .iter()
+                .any(|id| id == "scoracle.character.rating")
+        {
             crate::application::queue::work::enqueue(
                 &mut **tx,
                 &Item {
@@ -655,7 +700,7 @@ async fn publish(
     }
     // Graph receives exact name-surface candidates as well as historical
     // resolved links, then makes its own evidence decision.
-    if shadow_mode {
+    if shadow_mode || !contexts.iter().any(|c| c.entity_choice == "relevant") {
         publication.commit_final().await?;
         return Ok(PluginOutcome::Committed);
     }
@@ -728,7 +773,7 @@ impl StudioPlugin for HarvesterHandler {
         let (body, fetched) = if let Some(body) = source
             .retained_body
             .as_deref()
-            .filter(|x| !x.trim().is_empty())
+            .filter(|x| !x.trim().is_empty() && x.contains("\n\n"))
         {
             (clean_body(body), None)
         } else {
@@ -1038,7 +1083,9 @@ mod tests {
                 .questions
                 .keys()
                 .map(|key| {
-                    let choice = if key == "relevance" {
+                    let choice = if key == "relevance"
+                        && request.state.contains("Target entity: Another Test Club")
+                    {
                         "irrelevant"
                     } else {
                         "relevant"
@@ -1206,7 +1253,7 @@ mod tests {
             .bind(PLAYER).bind(SPORT).execute(&pool).await?;
         sqlx::query("INSERT INTO public.entity_name_surfaces(entity_type,entity_id,sport,norm,surface_kind) VALUES('player',$1,$2,public.nrm('Taylor Sample'),'name') ON CONFLICT DO NOTHING")
             .bind(PLAYER_TWO).bind(SPORT).execute(&pool).await?;
-        let body = "Harvester Test Club is in talks to sign Morgan Example and Taylor Sample this week. Supporters cheered the announcement at the ground. Morgan Example recorded a season-high 20 points in the last match. This final sentence mentions Another Test Club outside the delivered publisher opening.";
+        let body = "Harvester Test Club is in talks to sign Morgan Example and Taylor Sample this week.\n\nSupporters cheered the announcement at the ground.\n\nMorgan Example recorded a season-high 20 points in the last match.\n\nThis final paragraph mentions Another Test Club outside the delivered publisher opening.";
         sqlx::query("INSERT INTO public.news_articles(id,url_hash,url,source,title,description,full_text,feed_rank) VALUES($1,$2,$3,$4,$5,$6,$7,1)")
             .bind(ARTICLE).bind("harvester-smoke-9690101").bind("https://example.test/harvester-smoke")
             .bind("Example Wire").bind("Harvester Test Club announces community event")
@@ -1264,15 +1311,22 @@ mod tests {
             classifications.iter().map(|row| row.0).collect::<Vec<_>>(),
             vec![TEAM, OTHER_TEAM]
         );
-        for (_, entity_choice, context, headline) in classifications {
-            assert_eq!(entity_choice, "irrelevant");
+        for (entity_id, entity_choice, context, headline) in classifications {
+            assert_eq!(
+                entity_choice,
+                if entity_id == TEAM {
+                    "relevant"
+                } else {
+                    "irrelevant"
+                }
+            );
             assert_eq!(headline, "Harvester Test Club announces community event");
             assert!(body.contains(&context));
         }
         let assignments: i64 = sqlx::query_scalar(
             "SELECT count(*) FROM public.harvester_assignments d JOIN public.harvester_classifications c ON c.id=d.classification_id WHERE c.article_id=$1 AND d.status='pending'"
         ).bind(ARTICLE).fetch_one(&pool).await?;
-        assert_eq!(assignments, 8);
+        assert_eq!(assignments, 4);
         let insider_pairs: Vec<(i32, i32)> = sqlx::query_as(
             "SELECT c.entity_id,p.subject_id FROM public.harvester_insider_pairs p \
              JOIN public.harvester_classifications c ON c.id=p.classification_id \
@@ -1303,7 +1357,7 @@ mod tests {
         let mut link_replay = pool.begin().await?;
         sqlx::query("INSERT INTO public.news_article_entities(article_id,entity_type,entity_id,sport) VALUES($1,'team',$2,$3)")
             .bind(ARTICLE).bind(OTHER_TEAM).bind(SPORT).execute(&mut *link_replay).await?;
-        let opening = crate::plugins::harvester::cognition::first_sentences(body, 3);
+        let opening = crate::plugins::harvester::cognition::first_paragraphs(body, 3);
         record_resolved_links(&mut link_replay, ARTICLE, SPORT, &opening.text).await?;
         link_replay.commit().await?;
         let shared_after_replay: Vec<i32> = sqlx::query_scalar(

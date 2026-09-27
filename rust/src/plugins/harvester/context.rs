@@ -10,7 +10,7 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
-pub const CONTRACT: &str = "harvest-context-v1";
+pub const CONTRACT: &str = "harvest-context-v2";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct HarvestContext {
@@ -24,11 +24,11 @@ pub struct HarvestContext {
     pub body_sha256: String,
     pub model_input: Excerpt,
     pub context: Excerpt,
-    /// Laya's observed answer. It is not an admission decision in this contract.
+    /// Laya's entity gate; only relevant articles proceed to theme classification.
     pub entity_choice: String,
     /// Complete uncalibrated distributions keyed by stable character plugin ID.
     pub character_distributions: BTreeMap<String, ChoiceAnswer>,
-    /// Laya's proposed routes. All four characters retain final authority.
+    /// Plugin destinations selected from the relevant theme signals.
     pub recommended_characters: Vec<String>,
     pub model_provenance: Value,
     pub model_revision: String,
@@ -61,16 +61,47 @@ impl HarvestContext {
                 == serde_json::to_value(&expected.model_input)?,
             "Laya input is not the exact bounded publisher opening"
         );
-        let context = cognition::first_sentences(&article.body, 3);
+        let context = cognition::first_paragraphs(&article.body, 3);
         ensure!(
             serde_json::to_value(&self.context)? == serde_json::to_value(&context)?,
-            "character context is not the exact first three source sentences"
+            "character context is not the exact first three source paragraphs"
         );
         ensure!(
             article.body.get(self.context.start..self.context.end)
                 == Some(self.context.text.as_str()),
             "character context byte range does not match publisher text"
         );
+        ensure!(
+            matches!(self.entity_choice.as_str(), "relevant" | "irrelevant"),
+            "unknown entity relevance choice"
+        );
+        if self.entity_choice == "relevant" {
+            ensure!(
+                self.character_distributions.len() == CHARACTER_PLUGINS.len()
+                    && CHARACTER_PLUGINS.iter().all(|(_, plugin_id, _)| self
+                        .character_distributions
+                        .contains_key(*plugin_id)),
+                "incomplete Harvester theme pass"
+            );
+            let expected: Vec<String> = CHARACTER_PLUGINS
+                .iter()
+                .filter_map(|(_, plugin_id, _)| {
+                    self.character_distributions
+                        .get(*plugin_id)
+                        .filter(|answer| answer.choice == "relevant")
+                        .map(|_| (*plugin_id).to_string())
+                })
+                .collect();
+            ensure!(
+                self.recommended_characters == expected,
+                "Harvester destinations differ from theme decisions"
+            );
+        } else {
+            ensure!(
+                self.character_distributions.is_empty() && self.recommended_characters.is_empty(),
+                "irrelevant article has theme destinations"
+            );
+        }
         Ok(())
     }
 }
@@ -78,19 +109,20 @@ impl HarvestContext {
 pub async fn classify(model: &dyn DecisionModel, article: &Article) -> Result<HarvestContext> {
     let (prepared, relevance_request) = cognition::prepare_relevance(article)?;
     let relevance_response = model.evaluate(&relevance_request).await?;
-    let _ = cognition::passed_relevance(&relevance_request, &relevance_response)?;
-
-    // Until routing is calibrated, the entity choice is advisory. Still evaluate
-    // every perspective so no candidate vanishes before the character's own guard.
-    let character_request = cognition::prepare_character_routing(article, &prepared);
-    let character_response = model.evaluate(&character_request).await?;
-    cognition::validate(&character_request, &character_response)?;
-    ensure!(
-        relevance_response.provenance["model"] == character_response.provenance["model"]
-            && relevance_response.provenance["revision"]
-                == character_response.provenance["revision"],
-        "Laya checkpoint changed within one article"
-    );
+    let relevant = cognition::passed_relevance(&relevance_request, &relevance_response)?;
+    let character_response = if relevant {
+        let character_request = cognition::prepare_character_routing(article, &prepared);
+        let response = model.evaluate(&character_request).await?;
+        cognition::validate(&character_request, &response)?;
+        ensure!(
+            relevance_response.provenance["model"] == response.provenance["model"]
+                && relevance_response.provenance["revision"] == response.provenance["revision"],
+            "Laya checkpoint changed within one article"
+        );
+        Some(response)
+    } else {
+        None
+    };
     let model_revision = relevance_response.provenance["revision"]
         .as_str()
         .unwrap_or_default()
@@ -107,12 +139,14 @@ pub async fn classify(model: &dyn DecisionModel, article: &Article) -> Result<Ha
     );
     let mut character_distributions = BTreeMap::new();
     let mut recommended_characters = Vec::new();
-    for (question, plugin_id, _) in CHARACTER_PLUGINS {
-        let answer = character_response.answers[*question].clone();
-        if answer.choice == "relevant" {
-            recommended_characters.push((*plugin_id).to_string());
+    if let Some(response) = &character_response {
+        for (question, plugin_id, _) in CHARACTER_PLUGINS {
+            let answer = response.answers[*question].clone();
+            if answer.choice == "relevant" {
+                recommended_characters.push((*plugin_id).to_string());
+            }
+            character_distributions.insert((*plugin_id).to_string(), answer);
         }
-        character_distributions.insert((*plugin_id).to_string(), answer);
     }
     let result = HarvestContext {
         contract_version: CONTRACT.into(),
@@ -124,13 +158,13 @@ pub async fn classify(model: &dyn DecisionModel, article: &Article) -> Result<Ha
         feed_rank: article.feed_rank,
         body_sha256: hex::encode(Sha256::digest(article.body.as_bytes())),
         model_input: prepared.model_input,
-        context: cognition::first_sentences(&article.body, 3),
+        context: cognition::first_paragraphs(&article.body, 3),
         entity_choice: relevance_response.answers["relevance"].choice.clone(),
         character_distributions,
         recommended_characters,
         model_provenance: json!({
             "relevance": relevance_response.provenance,
-            "character_routing": character_response.provenance,
+            "character_routing": character_response.map(|response| response.provenance),
             "question_set_versions": {
                 "relevance": cognition::RELEVANCE_QUESTIONS,
                 "character_routing": cognition::CHARACTER_QUESTIONS,
@@ -147,14 +181,17 @@ mod tests {
     use super::*;
     use crate::studio::decision::{DecisionRequest, DecisionResponse};
     use async_trait::async_trait;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     struct Stub {
         reject_entity: bool,
         malformed: bool,
+        calls: AtomicUsize,
     }
     #[async_trait]
     impl DecisionModel for Stub {
         async fn evaluate(&self, request: &DecisionRequest) -> Result<DecisionResponse> {
+            self.calls.fetch_add(1, Ordering::SeqCst);
             let answers = request
                 .questions
                 .iter()
@@ -214,19 +251,19 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn entity_rejection_still_retains_exact_context_and_all_routing_signals() {
+    async fn entity_rejection_retains_source_and_skips_theme_pass() {
         let article = article();
-        let result = classify(
-            &Stub {
-                reject_entity: true,
-                malformed: false,
-            },
-            &article,
-        )
-        .await
-        .unwrap();
+        let model = Stub {
+            reject_entity: true,
+            malformed: false,
+            calls: AtomicUsize::new(0),
+        };
+        let result = classify(&model, &article).await.unwrap();
+        assert_eq!(model.calls.load(Ordering::SeqCst), 1);
         assert_eq!(result.entity_choice, "irrelevant");
-        assert_eq!(result.character_distributions.len(), 4);
+        assert!(result.character_distributions.is_empty());
+        assert!(result.recommended_characters.is_empty());
+        assert!(result.model_provenance["character_routing"].is_null());
         assert_eq!(
             &article.body[result.context.start..result.context.end],
             result.context.text
@@ -241,11 +278,30 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn relevant_article_runs_theme_pass_and_selects_plugin_destinations() {
+        let model = Stub {
+            reject_entity: false,
+            malformed: false,
+            calls: AtomicUsize::new(0),
+        };
+        let article = article();
+        let result = classify(&model, &article).await.unwrap();
+        assert_eq!(model.calls.load(Ordering::SeqCst), 2);
+        assert_eq!(
+            result.character_distributions.len(),
+            CHARACTER_PLUGINS.len()
+        );
+        assert_eq!(result.recommended_characters.len(), CHARACTER_PLUGINS.len());
+        result.verify_against(&article).unwrap();
+    }
+
+    #[tokio::test]
     async fn truncated_laya_output_is_an_error_not_a_relevance_decision() {
         assert!(classify(
             &Stub {
                 reject_entity: true,
-                malformed: true
+                malformed: true,
+                calls: AtomicUsize::new(0),
             },
             &article()
         )

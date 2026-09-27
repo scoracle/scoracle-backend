@@ -9,30 +9,30 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
-pub const CONTRACT: &str = "harvest-v3";
-pub const RELEVANCE_QUESTIONS: &str = "harvest-relevance-v3";
-pub const CHARACTER_QUESTIONS: &str = "harvest-character-routing-v3";
-pub const POLICY: &str = "google-laya-character-cascade-v1";
+pub const CONTRACT: &str = "harvest-v4";
+pub const RELEVANCE_QUESTIONS: &str = "harvest-relevance-v4";
+pub const CHARACTER_QUESTIONS: &str = "harvest-theme-routing-v4";
+pub const POLICY: &str = "google-laya-theme-cascade-v2";
 
 /// Question key, stable plugin identity, and the perspective Laya should match.
 pub const CHARACTER_PLUGINS: &[(&str, &str, &str)] = &[
     (
-        "journalist",
+        "narrative",
         "scoracle.character.narrative",
         "news developments, match reporting, results, or an ongoing sports story",
     ),
     (
-        "influencer",
+        "emotional_charge",
         "scoracle.character.vibe",
         "feelings, reactions, celebration, anger, criticism, or anticipation",
     ),
     (
-        "insider",
+        "transfers",
         "scoracle.character.transfers",
         "transfers, trades, contracts, hiring, firing, or organizational changes",
     ),
     (
-        "scout",
+        "availability",
         "scoracle.character.rating",
         "performance, injury, suspension, availability, selection, or lineups",
     ),
@@ -80,7 +80,7 @@ pub struct Excerpt {
 pub struct PreparedText {
     /// The smaller exact prefix shown to Laya.
     pub model_input: Excerpt,
-    /// The exact first three sentences delivered to tagged character plugins.
+    /// The exact first three paragraphs delivered to selected character plugins.
     pub character_context: Excerpt,
 }
 
@@ -132,50 +132,39 @@ fn model_input(body: &str, selection: &str) -> Excerpt {
     excerpt(body, bounded_prefix_end(content, 100, 1200), selection)
 }
 
-fn closing_punctuation(c: char) -> bool {
-    matches!(c, '\'' | '"' | '’' | '”' | ')' | ']' | '}')
-}
-
-/// Mechanically copy at most the first `count` sentences. Boundary detection is
-/// deliberately small: `.`, `?`, or `!`, optional closing punctuation, then whitespace
-/// or end of input. It selects a source byte range and never normalizes or rewrites it.
-pub fn first_sentences(body: &str, count: usize) -> Excerpt {
+/// Copy the first `count` nonempty paragraphs verbatim. A blank line separates
+/// paragraphs; single newlines within a paragraph remain part of the source.
+pub fn first_paragraphs(body: &str, count: usize) -> Excerpt {
     let content = body.trim_start();
     if count == 0 {
-        return excerpt(body, 0, "first_zero_sentences");
+        return excerpt(body, 0, "first_zero_paragraphs");
     }
-    let mut found = 0;
-    for (index, c) in content.char_indices() {
-        if !matches!(c, '.' | '?' | '!') {
-            continue;
-        }
-        let mut end = index + c.len_utf8();
-        while let Some(next) = content[end..].chars().next() {
-            if !closing_punctuation(next) {
-                break;
+    let mut completed = 0;
+    let mut in_paragraph = false;
+    let mut paragraph_end = 0;
+    let mut line_start = 0;
+    for line in content.split_inclusive('\n') {
+        if line.trim().is_empty() {
+            if in_paragraph {
+                completed += 1;
+                in_paragraph = false;
             }
-            end += next.len_utf8();
+        } else {
+            if !in_paragraph && completed == count {
+                return excerpt(body, paragraph_end, "first_three_paragraphs");
+            }
+            in_paragraph = true;
+            paragraph_end = line_start + line.len();
         }
-        if end < content.len()
-            && !content[end..]
-                .chars()
-                .next()
-                .is_some_and(char::is_whitespace)
-        {
-            continue;
-        }
-        found += 1;
-        if found == count {
-            return excerpt(body, end, "first_three_sentences");
-        }
+        line_start += line.len();
     }
-    excerpt(body, content.len(), "available_opening_sentences")
+    excerpt(body, content.len(), "available_opening_paragraphs")
 }
 
 pub fn prepare_text(body: &str) -> PreparedText {
     PreparedText {
         model_input: model_input(body, "bounded_verbatim_publisher_opening"),
-        character_context: first_sentences(body, 3),
+        character_context: first_paragraphs(body, 3),
     }
 }
 
@@ -195,7 +184,7 @@ fn prepare_article_text(article: &Article) -> PreparedText {
                 selection: "publisher_fetch_pending".into(),
             }
         } else {
-            first_sentences(&article.body, 3)
+            first_paragraphs(&article.body, 3)
         },
     }
 }
@@ -256,7 +245,7 @@ pub fn prepare_relevance(article: &Article) -> Result<(PreparedText, DecisionReq
     ))
 }
 
-/// Step two: independent probabilities for each character plugin. This request is
+/// Step two: independent probabilities for each character theme. This request is
 /// evaluated only after step one succeeds.
 pub fn prepare_character_routing(article: &Article, prepared: &PreparedText) -> DecisionRequest {
     let questions = CHARACTER_PLUGINS
@@ -266,7 +255,7 @@ pub fn prepare_character_routing(article: &Article, prepared: &PreparedText) -> 
                 (*key).to_string(),
                 question(
                     &format!(
-                        "Does this opening contain material about {} for this character plugin's perspective? Judge only material tied to the target entity.",
+                        "Does this opening contain material about {} for this theme? Judge only material tied to the target entity.",
                         article.hypothesis.name
                     ),
                     &format!("The opening contains no target-linked material concerning {perspective}"),
@@ -482,7 +471,7 @@ pub fn compile(
                 "kind": "publisher_source",
                 "headline": article.title,
                 "text": prepared.character_context.text,
-                "note": "Verbatim headline and first three source sentences; Harvester tags are advisory and each character plugin makes the final relevance decision."
+                "note": "Verbatim headline and first three source paragraphs selected by Harvester; the character plugin determines permissible claims and output form."
             })
         } else {
             Value::Null
@@ -543,14 +532,25 @@ mod tests {
     }
 
     #[test]
-    fn extraction_is_exactly_the_first_three_sentences() {
+    fn extraction_is_exactly_the_first_three_paragraphs() {
         let a = article();
-        let x = first_sentences(&a.body, 3);
+        let x = first_paragraphs(&a.body, 3);
         assert_eq!(&a.body[x.start..x.end], x.text);
         assert_eq!(
             x.text,
             "First paragraph.\n\nSecond paragraph.\n\nThird paragraph."
         );
+    }
+
+    #[test]
+    fn paragraph_extraction_keeps_all_sentences_and_skips_extra_blank_lines() {
+        let body = "  First. Still first!\r\nAnother line.\r\n\r\n\r\nSecond. Also second.\r\n \r\nThird? Yes.\r\n\r\nFourth.";
+        let x = first_paragraphs(body, 3);
+        assert_eq!(&body[x.start..x.end], x.text);
+        assert_eq!(x.selection, "first_three_paragraphs");
+        assert!(x.text.contains("Still first!\r\nAnother line."));
+        assert!(x.text.ends_with("Third? Yes."));
+        assert!(!x.text.contains("Fourth."));
     }
 
     #[test]
@@ -579,10 +579,14 @@ mod tests {
         let (x, gate) = prepare_relevance(&a).unwrap();
         let routing = prepare_character_routing(&a, &x);
         let mut routing_response = response(&routing, true);
-        routing_response.answers.get_mut("scout").unwrap().choice = "irrelevant".into();
         routing_response
             .answers
-            .get_mut("scout")
+            .get_mut("availability")
+            .unwrap()
+            .choice = "irrelevant".into();
+        routing_response
+            .answers
+            .get_mut("availability")
             .unwrap()
             .probabilities = BTreeMap::from([("irrelevant".into(), 0.8), ("relevant".into(), 0.2)]);
         let packet = compile(

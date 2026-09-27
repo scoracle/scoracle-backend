@@ -495,7 +495,7 @@ mod tests {
             .iter()
             .filter(|article| !article.body.trim().is_empty())
         {
-            let opening = crate::plugins::harvester::cognition::first_sentences(&article.body, 3);
+            let opening = crate::plugins::harvester::cognition::first_paragraphs(&article.body, 3);
             ensure!(
                 article.body.get(opening.start..opening.end) == Some(opening.text.as_str()),
                 "Influencer corpus opening drift on article {}",

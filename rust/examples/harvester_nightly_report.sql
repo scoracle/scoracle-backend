@@ -90,7 +90,7 @@ SELECT i.id AS ingest_run_id, i.started_at AS ingest_started_at,
                     (SELECT max(updated_at) FROM work WHERE status='failed'))
            - i.started_at))::numeric,1) END AS corpus_end_to_end_seconds,
        (SELECT round(sum((model_provenance->'relevance'->>'inference_ms')::numeric
-                         +(model_provenance->'character_routing'->>'inference_ms')::numeric),1)
+                         +COALESCE((model_provenance->'character_routing'->>'inference_ms')::numeric,0)),1)
           FROM classification) AS laya_inference_ms_total
   FROM ingest i;
 
@@ -119,9 +119,12 @@ WITH ingest AS (
       FROM public.harvester_query_provenance p CROSS JOIN ingest i
      WHERE p.last_seen_at BETWEEN i.started_at AND i.finished_at
 ), classification AS (
-    SELECT c.id,c.entity_choice,c.distributions,c.model_provenance FROM public.harvester_classifications c
+    SELECT DISTINCT ON (c.article_id,c.entity_type,c.entity_id,c.sport)
+           c.id,c.entity_choice,c.distributions,c.model_provenance
+      FROM public.harvester_classifications c
       JOIN cohort q ON q.article_id=c.article_id AND q.entity_type=c.entity_type
        AND q.entity_id=c.entity_id AND q.sport=c.sport
+     ORDER BY c.article_id,c.entity_type,c.entity_id,c.sport,c.created_at DESC,c.id DESC
 )
 SELECT d.plugin_id, count(*) AS assignments,
        count(*) FILTER (WHERE d.status='used') AS used,
@@ -135,8 +138,8 @@ SELECT d.plugin_id, count(*) AS assignments,
   FROM public.harvester_assignments d JOIN classification c ON c.id=d.classification_id
  GROUP BY d.plugin_id ORDER BY d.plugin_id;
 
--- Once live character delivery starts, compare each advisory Laya route with
--- the character's actual source use. This is agreement/triage evidence, not
+-- Once live character delivery starts, compare each selected Laya route with
+-- the character's actual source use. This is assignment/triage evidence, not
 -- precision or recall against independently adjudicated labels.
 WITH ingest AS (
     SELECT started_at,finished_at FROM public.pipeline_runs
@@ -145,6 +148,12 @@ WITH ingest AS (
     SELECT p.article_id,p.entity_type,p.entity_id,p.sport
       FROM public.harvester_query_provenance p CROSS JOIN ingest i
      WHERE p.last_seen_at BETWEEN i.started_at AND i.finished_at
+), classification AS (
+    SELECT DISTINCT ON (c.article_id,c.entity_type,c.entity_id,c.sport) c.*
+      FROM public.harvester_classifications c
+      JOIN cohort q ON q.article_id=c.article_id AND q.entity_type=c.entity_type
+       AND q.entity_id=c.entity_id AND q.sport=c.sport
+     ORDER BY c.article_id,c.entity_type,c.entity_id,c.sport,c.created_at DESC,c.id DESC
 )
 SELECT d.plugin_id,count(*) AS assignments,
        count(*) FILTER (WHERE c.distributions->d.plugin_id->>'choice'='relevant')
@@ -158,12 +167,10 @@ SELECT d.plugin_id,count(*) AS assignments,
            AS other_terminal,
        count(*) FILTER (WHERE d.status='pending') AS pending
   FROM public.harvester_assignments d
-  JOIN public.harvester_classifications c ON c.id=d.classification_id
-  JOIN cohort q ON q.article_id=c.article_id AND q.entity_type=c.entity_type
-   AND q.entity_id=c.entity_id AND q.sport=c.sport
+  JOIN classification c ON c.id=d.classification_id
  GROUP BY d.plugin_id ORDER BY d.plugin_id;
 
--- Laya recommendations are advisory. Without adjudicated human labels, these
+-- Laya theme choices select destinations in v2. Without adjudicated human labels, these
 -- counts and downstream dispositions measure behavior, not precision or recall.
 WITH ingest AS (
     SELECT started_at,finished_at FROM public.pipeline_runs
@@ -173,9 +180,12 @@ WITH ingest AS (
       FROM public.harvester_query_provenance p CROSS JOIN ingest i
      WHERE p.last_seen_at BETWEEN i.started_at AND i.finished_at
 ), classified AS (
-    SELECT c.entity_choice,c.distributions,c.model_provenance FROM public.harvester_classifications c
+    SELECT DISTINCT ON (c.article_id,c.entity_type,c.entity_id,c.sport)
+           c.entity_choice,c.distributions,c.model_provenance
+      FROM public.harvester_classifications c
       JOIN cohort q ON q.article_id=c.article_id AND q.entity_type=c.entity_type
        AND q.entity_id=c.entity_id AND q.sport=c.sport
+     ORDER BY c.article_id,c.entity_type,c.entity_id,c.sport,c.created_at DESC,c.id DESC
 )
 SELECT count(*) AS classified_edges,
        count(*) FILTER (WHERE entity_choice='relevant') AS relevant_edges,
@@ -192,10 +202,10 @@ SELECT count(*) AS classified_edges,
              FILTER (WHERE entity_choice='relevant'))::numeric,2)
            AS mean_recommended_fanout_relevant,
        round(avg((model_provenance->'relevance'->>'inference_ms')::numeric
-                +(model_provenance->'character_routing'->>'inference_ms')::numeric),1) AS mean_laya_ms,
+                +COALESCE((model_provenance->'character_routing'->>'inference_ms')::numeric,0)),1) AS mean_laya_ms,
        round(percentile_cont(0.95) WITHIN GROUP (ORDER BY
            (model_provenance->'relevance'->>'inference_ms')::numeric
-           +(model_provenance->'character_routing'->>'inference_ms')::numeric)::numeric,1) AS p95_laya_ms
+           +COALESCE((model_provenance->'character_routing'->>'inference_ms')::numeric,0))::numeric,1) AS p95_laya_ms
   FROM classified;
 
 WITH ingest AS (
@@ -205,13 +215,17 @@ WITH ingest AS (
     SELECT p.article_id,p.entity_type,p.entity_id,p.sport
       FROM public.harvester_query_provenance p CROSS JOIN ingest i
      WHERE p.last_seen_at BETWEEN i.started_at AND i.finished_at
+), classification AS (
+    SELECT DISTINCT ON (c.article_id,c.entity_type,c.entity_id,c.sport) c.distributions
+      FROM public.harvester_classifications c
+      JOIN cohort q ON q.article_id=c.article_id AND q.entity_type=c.entity_type
+       AND q.entity_id=c.entity_id AND q.sport=c.sport
+     ORDER BY c.article_id,c.entity_type,c.entity_id,c.sport,c.created_at DESC,c.id DESC
 )
 SELECT route.key AS plugin_id, count(*) AS classified_edges,
        count(*) FILTER (WHERE route.value->>'choice'='relevant') AS laya_recommended,
        count(*) FILTER (WHERE route.value->>'choice'='irrelevant') AS laya_not_recommended
-  FROM public.harvester_classifications c
-  JOIN cohort q ON q.article_id=c.article_id AND q.entity_type=c.entity_type
-   AND q.entity_id=c.entity_id AND q.sport=c.sport
+  FROM classification c
  CROSS JOIN LATERAL jsonb_each(c.distributions) route
  GROUP BY route.key ORDER BY route.key;
 

@@ -16,6 +16,10 @@ The Insider canary exposed two overly strict negative-verdict checks: stray stag
 
 The Insider queue item then completed its identity and scored-board follow-ups. The batch audit shows no unheld pending character assignment; the remaining pending assignments are explicitly held.
 
+## Backup restore drill
+
+After the timed run 333 sweep, `RESTORE_SOURCE_MODE=harvester scripts/hosting/restore-drill.sh /mnt/data/backup/scoracle/scoracle-20260927T050903Z.dump` passed on `archbox`. It restored the pre-Harvester snapshot into a throwaway database, applied migrations 267–286 (20 migrations), and matched the live migration ledger at 288 entries. Every critical table was nonempty, all 11 checked primary keys were present, and the restored schema had 265 public indexes and 114 public functions, matching the live counts. The Go API registered every prepared statement against the restored database. The script dropped the throwaway database on exit. This proves the backup can be restored and migrated to the current schema; it does not prove the still-open full-nightly v5 or character publication gates.
+
 Run the batch audit on the production host with:
 
 ```sh

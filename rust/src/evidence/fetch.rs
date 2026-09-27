@@ -439,10 +439,27 @@ pub fn clean_html(html: &str) -> String {
 /// Retain source paragraph boundaries for Harvester while folding whitespace
 /// inside each paragraph. The general-purpose `clean_html` remains a flat-text
 /// utility for callers that do not need article structure.
+fn has_open_tag(html: &str, tag: &str) -> bool {
+    let prefix = format!("<{tag}");
+    let mut from = 0;
+    while let Some(start) = find_ascii_ci(html, &prefix, from) {
+        if html[start + prefix.len()..]
+            .chars()
+            .next()
+            .is_some_and(|next| next == '>' || next.is_whitespace())
+        {
+            return true;
+        }
+        from = start + prefix.len();
+    }
+    false
+}
+
 fn clean_html_with_paragraphs(html: &str) -> String {
     let mut out = String::with_capacity(html.len());
     let mut tag = String::new();
     let mut in_tag = false;
+    let has_paragraph_tags = has_open_tag(html, "p");
     for character in html.chars() {
         match character {
             '<' => {
@@ -453,7 +470,7 @@ fn clean_html_with_paragraphs(html: &str) -> String {
                 in_tag = false;
                 let name = tag.trim().to_ascii_lowercase();
                 let name = name.split_whitespace().next().unwrap_or_default();
-                if matches!(name, "/p" | "/div" | "/blockquote" | "/li") {
+                if matches!(name, "/p" | "/blockquote") || (name == "/div" && !has_paragraph_tags) {
                     out.push_str("\n\n");
                 } else if name == "br" || name == "br/" {
                     out.push('\n');
@@ -1107,6 +1124,22 @@ mod tests {
         assert!(opening.text.contains("The coach will decide"));
         assert!(!opening.text.contains("A later recap"));
         assert_eq!(&extracted[opening.start..opening.end], opening.text);
+    }
+
+    #[test]
+    fn layout_divs_do_not_consume_publisher_paragraph_slots() {
+        let html = format!(
+            "<article><div>Share</div><div>Follow us</div><div><p>{}</p><p>{}</p><p>{}</p><p>{}</p></div></article>",
+            "The club confirmed the player returned to training today. ".repeat(5),
+            "The coach described the plan for the next match. ".repeat(5),
+            "Supporters reacted after the announcement. ".repeat(6),
+            "A later recap should not appear in the opening. ".repeat(5)
+        );
+        let extracted = extract_article_text(&html);
+        let opening = crate::plugins::harvester::cognition::first_paragraphs(&extracted, 3);
+        assert!(opening.text.contains("Supporters reacted"));
+        assert!(!opening.text.contains("A later recap"));
+        assert!(count_words(&opening.text) >= 40);
     }
 
     /// Fails SAFE: a page the extractor cannot parse must come back whole, never empty — an

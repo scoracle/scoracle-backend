@@ -10,7 +10,7 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
-pub const CONTRACT: &str = "harvest-context-v2";
+pub const CONTRACT: &str = "harvest-context-v3";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct HarvestContext {

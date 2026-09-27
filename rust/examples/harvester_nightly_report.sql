@@ -170,7 +170,7 @@ SELECT d.plugin_id,count(*) AS assignments,
   JOIN classification c ON c.id=d.classification_id
  GROUP BY d.plugin_id ORDER BY d.plugin_id;
 
--- Laya theme choices select destinations in v2. Without adjudicated human labels, these
+-- Laya theme choices select destinations in v3. Without adjudicated human labels, these
 -- counts and downstream dispositions measure behavior, not precision or recall.
 WITH ingest AS (
     SELECT started_at,finished_at FROM public.pipeline_runs

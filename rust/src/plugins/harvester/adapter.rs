@@ -165,6 +165,10 @@ fn clean_body(body: &str) -> String {
     body.replace('\0', "")
 }
 
+fn has_usable_paragraph_opening(body: &str) -> bool {
+    body.contains("\n\n") && count_words(&super::cognition::first_paragraphs(body, 3).text) >= 30
+}
+
 async fn record_acquisition(
     tx: &mut Transaction<'_, Postgres>,
     article_id: i64,
@@ -777,7 +781,7 @@ impl StudioPlugin for HarvesterHandler {
         let (body, fetched) = if let Some(body) = source
             .retained_body
             .as_deref()
-            .filter(|x| !x.trim().is_empty() && x.contains("\n\n"))
+            .filter(|x| has_usable_paragraph_opening(x))
         {
             (clean_body(body), None)
         } else {
@@ -807,6 +811,20 @@ impl StudioPlugin for HarvesterHandler {
                 item,
                 "low_content",
                 "publisher returned too little article text",
+                Some(&body),
+                fetched.as_ref().map(|article| article.final_url.as_str()),
+                fetched
+                    .as_ref()
+                    .and_then(|article| article.final_domain.as_deref()),
+            )
+            .await;
+        }
+        if !has_usable_paragraph_opening(&body) {
+            return record_retryable_error(
+                &self.pool,
+                item,
+                "low_content",
+                "publisher opening lacks thirty words across preserved paragraphs",
                 Some(&body),
                 fetched.as_ref().map(|article| article.final_url.as_str()),
                 fetched
@@ -890,6 +908,17 @@ mod tests {
         assert!(selected.contains("scout"));
         assert!(parse_delivery_characters("journalist,journalist").is_err());
         assert!(parse_delivery_characters("editor").is_err());
+    }
+
+    #[test]
+    fn retained_body_needs_substantive_paragraphs_before_delivery() {
+        let prose = "The club confirmed that the captain returned to training today after the medical staff completed their assessment. ";
+        let body = format!("{}\n\n{}\n\n{}", prose, prose, prose);
+        assert!(has_usable_paragraph_opening(&body));
+        assert!(!has_usable_paragraph_opening(&body.replace("\n\n", " ")));
+        assert!(!has_usable_paragraph_opening(
+            "Share\n\nFollow us\n\nPopular news"
+        ));
     }
 
     #[test]

@@ -14,18 +14,35 @@ WITH ingest AS (
 ), article AS (
     SELECT DISTINCT article_id FROM cohort
 ), classification AS (
-    SELECT c.* FROM public.harvester_classifications c
+    SELECT DISTINCT ON (c.article_id,c.entity_type,c.entity_id,c.sport) c.*
+      FROM public.harvester_classifications c
       JOIN cohort q ON q.article_id=c.article_id AND q.entity_type=c.entity_type
        AND q.entity_id=c.entity_id AND q.sport=c.sport
+     ORDER BY c.article_id,c.entity_type,c.entity_id,c.sport,c.created_at DESC,c.id DESC
 ), acquisition AS (
-    SELECT a.status,a.updated_at FROM public.harvester_acquisitions a JOIN article x USING (article_id)
+    SELECT a.article_id,a.status,a.updated_at
+      FROM public.harvester_acquisitions a JOIN article x USING (article_id)
 ), assignment AS (
     SELECT d.plugin_id,d.status,d.reason FROM public.harvester_assignments d
       JOIN classification c ON c.id=d.classification_id
 ), work AS (
-    SELECT w.status,w.attempts,w.updated_at FROM public.pipeline_work w
+    SELECT w.entity_id AS article_id,w.sport,w.status,w.attempts,w.updated_at
+      FROM public.pipeline_work w
       JOIN article a ON a.article_id=w.entity_id
      WHERE w.stage='harvester' AND w.entity_type='article'
+), edge_state AS (
+    SELECT q.article_id,q.entity_type,q.entity_id,q.sport,
+           EXISTS (SELECT 1 FROM classification c
+                    WHERE c.article_id=q.article_id AND c.entity_type=q.entity_type
+                      AND c.entity_id=q.entity_id AND c.sport=q.sport) AS classified,
+           EXISTS (SELECT 1 FROM acquisition a
+                    WHERE a.article_id=q.article_id AND a.status='duplicate')
+           OR EXISTS (SELECT 1 FROM acquisition a JOIN work w
+                        ON w.article_id=q.article_id AND w.sport=q.sport
+                       WHERE a.article_id=q.article_id
+                         AND a.status IN ('retryable_error','blocked','low_content','classification_error')
+                         AND w.status='failed' AND w.attempts>=5) AS terminal_error
+      FROM cohort q
 )
 SELECT i.id AS ingest_run_id, i.started_at AS ingest_started_at,
        i.finished_at AS ingest_finished_at, i.status AS ingest_status,
@@ -39,10 +56,16 @@ SELECT i.id AS ingest_run_id, i.started_at AS ingest_started_at,
        (SELECT count(*) FROM acquisition WHERE status='acquired') AS acquired,
        (SELECT count(*) FROM acquisition WHERE status IN ('retryable_error','blocked','low_content')) AS acquisition_errors,
        (SELECT count(*) FROM acquisition WHERE status='classification_error') AS laya_errors,
+       (SELECT count(*) FROM article a WHERE NOT EXISTS
+         (SELECT 1 FROM acquisition x WHERE x.article_id=a.article_id)) AS missing_acquisition_state,
        (SELECT count(*) FROM classification) AS classified_edges,
        (SELECT count(*) FROM classification WHERE entity_choice='relevant') AS laya_entity_relevant,
        (SELECT count(*) FROM classification WHERE entity_choice='irrelevant') AS laya_entity_irrelevant,
-       (SELECT count(*) FROM cohort)-(SELECT count(*) FROM classification) AS unclassified_edges,
+       (SELECT count(*) FROM edge_state WHERE NOT classified) AS unclassified_edges,
+       (SELECT count(*) FROM edge_state WHERE NOT classified AND terminal_error)
+           AS explicit_terminal_error_edges,
+       (SELECT count(*) FROM edge_state WHERE NOT classified AND NOT terminal_error)
+           AS unaccounted_edges,
        (SELECT count(*) FROM assignment) AS character_assignments,
        (SELECT count(*) FROM assignment WHERE status='pending') AS pending_assignments,
        (SELECT count(*) FROM assignment WHERE reason='delivery_held') AS held_assignments,
@@ -56,6 +79,11 @@ SELECT i.id AS ingest_run_id, i.started_at AS ingest_started_at,
        CASE WHEN NOT EXISTS (
            SELECT 1 FROM work WHERE status IN ('pending','running')
               OR (status='failed' AND attempts<5)
+       ) AND NOT EXISTS (
+           SELECT 1 FROM edge_state WHERE NOT classified AND NOT terminal_error
+       ) AND NOT EXISTS (
+           SELECT 1 FROM article a WHERE NOT EXISTS
+             (SELECT 1 FROM acquisition x WHERE x.article_id=a.article_id)
        ) THEN round(extract(epoch FROM (
            GREATEST((SELECT max(created_at) FROM classification),
                     (SELECT max(updated_at) FROM acquisition),

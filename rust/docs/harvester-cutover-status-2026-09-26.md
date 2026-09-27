@@ -130,7 +130,11 @@ read-only report change has a new CI run in progress.
 
 The read-only nightly report now distinguishes pending claims, scheduled
 retries, and dead letters. It withholds `corpus_end_to_end_seconds` until no
-actionable Harvester work remains. It also verifies every classification's
+actionable Harvester work remains, every candidate has an acquisition state,
+and each article/team edge has either a classification or an explicit terminal
+duplicate/error outcome. It reports missing acquisition states, explicit
+terminal-error edges, and unaccounted edges separately, so a missing enqueue
+cannot masquerade as completed corpus processing. It also verifies every classification's
 retained body hash, headline, exact context bytes, and exact Laya-input bytes
 against `news_articles.full_text` without exporting publisher text. At 02:16,
 all 160 completed edges passed all four checks. This proves storage fidelity

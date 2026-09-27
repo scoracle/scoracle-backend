@@ -41,6 +41,15 @@ The read-only `rust/examples/harvester_live_canary_check.sql` gives aggregate
 completion, exact-byte, held/unheld assignment, per-character disposition and
 product-receipt, identity, and Graph counts for the named run without returning
 article metadata or publisher text.
+The worker service executes `rust/bin/scoracle-cognition`, while Cargo builds
+`rust/target/release/scoracle-cognition`; the active
+`scoracle-cognition.path` unit restarts the service when the installed binary
+is replaced. Keep the new build in `target/release` until the shadow drain is
+finished. Set `HARVESTER_DELIVERY_CHARACTERS=''` while still in shadow, install
+the binary atomically and let the path unit restart into shadow, verify its
+health, then set `HARVESTER_SHADOW_MODE=0` and restart once more before
+enqueueing the canary. This order avoids a live restart on the older all-on
+binary.
 
 The optional `ARTICLE_READ_CHROME_ENABLED` browser fallback is unset on the
 production host. A count-only on-host probe of three `low_content` articles

@@ -74,7 +74,7 @@ WITH ingest AS (
       FROM public.harvester_query_provenance p CROSS JOIN ingest i
      WHERE p.last_seen_at BETWEEN i.started_at AND i.finished_at
 ), classification AS (
-    SELECT c.id,c.distributions,c.model_provenance FROM public.harvester_classifications c
+    SELECT c.id,c.entity_choice,c.distributions,c.model_provenance FROM public.harvester_classifications c
       JOIN cohort q ON q.article_id=c.article_id AND q.entity_type=c.entity_type
        AND q.entity_id=c.entity_id AND q.sport=c.sport
 )
@@ -100,16 +100,24 @@ WITH ingest AS (
       FROM public.harvester_query_provenance p CROSS JOIN ingest i
      WHERE p.last_seen_at BETWEEN i.started_at AND i.finished_at
 ), classified AS (
-    SELECT c.distributions,c.model_provenance FROM public.harvester_classifications c
+    SELECT c.entity_choice,c.distributions,c.model_provenance FROM public.harvester_classifications c
       JOIN cohort q ON q.article_id=c.article_id AND q.entity_type=c.entity_type
        AND q.entity_id=c.entity_id AND q.sport=c.sport
 )
 SELECT count(*) AS classified_edges,
+       count(*) FILTER (WHERE entity_choice='relevant') AS relevant_edges,
        count(*) FILTER (WHERE (
            SELECT count(*) FROM jsonb_each(distributions) x
             WHERE x.value->>'choice'='relevant')=4) AS all_four_recommended,
+       count(*) FILTER (WHERE entity_choice='relevant' AND (
+           SELECT count(*) FROM jsonb_each(distributions) x
+            WHERE x.value->>'choice'='relevant')=4) AS relevant_all_four_recommended,
        round(avg((SELECT count(*) FROM jsonb_each(distributions) x
                    WHERE x.value->>'choice'='relevant'))::numeric,2) AS mean_recommended_fanout,
+       round((avg((SELECT count(*) FROM jsonb_each(distributions) x
+                   WHERE x.value->>'choice'='relevant'))
+             FILTER (WHERE entity_choice='relevant'))::numeric,2)
+           AS mean_recommended_fanout_relevant,
        round(avg((model_provenance->'relevance'->>'inference_ms')::numeric
                 +(model_provenance->'character_routing'->>'inference_ms')::numeric),1) AS mean_laya_ms,
        round(percentile_cont(0.95) WITHIN GROUP (ORDER BY

@@ -27,6 +27,17 @@ specific `plugin_id` and `entity_limit=5` to release one character in bounded
 team groups. Inspect assignment dispositions and actual products after each
 batch. This code is not deployed yet; the nightly shadow remains isolated.
 
+After the nightly queue has no pending, running, or scheduled-retry Harvester
+work, restart the CI-passed worker with shadow mode off and the delivery list
+explicitly empty. `rust/examples/harvester_enqueue_live_canary.sql` then
+reopens at most five previously classified articles from a named ingest run.
+Its queue guard selects nothing if actionable Harvester work remains, and it
+returns only the number enqueued. Verify the resulting acquisition, exact
+classifications, four held assignments per article/entity edge, resolved-link
+and Graph receipts, and zero character publications before releasing a bounded
+character batch. Do not disable Editor until each character's actual product
+path and the remaining non-editorial consumers have passed this smoke.
+
 ## Production shadow update — September 27, 01:47 EDT
 
 The implementation below describes the September 26 local checkpoint. Since then,

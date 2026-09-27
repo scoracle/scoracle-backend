@@ -2,6 +2,52 @@
 
 This is a working checkpoint, not a production cutover declaration. The goal is to retire Editor, storylines, packets, and the stories API while feeding verified publisher text directly to character plugins. Laya's five answers are stored as advisory signals. AI provisional annotations are for later human review and calibration, not an admission gate.
 
+## Production shadow update — September 27, 01:47 EDT
+
+The implementation below describes the September 26 local checkpoint. Since then,
+`archbox` has deployed the `codex/harvester-cutover` branch (through `dd3c388`)
+with additive migrations 267–284. The API, cognition daemon, and a separate
+`scoracle-laya` user service are healthy. Laya runs on the production host at
+`127.0.0.1:8019`, using checkpoint
+`55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851` on CPU with four threads.
+Publisher text stays on the production host. The local-Mac reverse tunnel was
+rejected by automatic approval review and has not been used.
+
+The production `.env.local` now has `HARVESTER_INGEST_ENABLED=1`,
+`HARVESTER_SHADOW_MODE=1`, and a `COGNITION_STAGES` roster containing both
+`editor` and `harvester`. The 02:00 Detroit nightly ingest will enqueue every
+canonical candidate for Harvester classification while retaining the capped
+Editor enqueue as the live publisher. Shadow Harvester persists acquisition,
+exact source context, and Laya outputs; it does not create character assignments,
+identity links, or Graph handoffs. Editor, packets, and stories remain in place.
+The earlier `.env.local` was saved as `.env.local.pre-harvester-20260927` on the
+host. To stop new Harvester intake, set `HARVESTER_INGEST_ENABLED=0`; to stop its
+drain too, remove `harvester` from `COGNITION_STAGES` and restart cognition.
+
+Before migration, the September 27 05:09 UTC PostgreSQL dump was completed on
+the data volume. After moving the Laya runtime to that volume, the dump was
+copied to the separate system disk and byte-compared successfully. A live
+full-delivery canary accounted for all four character assignments: Journalist
+used the source, while the other three abstained. A negative verdict with an
+unneeded quote initially caused Scout and Influencer retries; the parser now
+discards quotes on negatives while retaining strict exact-quote validation on
+positives. A second live canary verified shadow classification with no
+assignments. Twenty-four retained-body samples verified exact headline and
+publisher opening bytes. Three additional Google candidates were fetched and
+classified by Harvester with exact source bytes; one official-club candidate
+remains a visible `low_content` retry. Four-thread Laya averaged 3.12 seconds
+of model time on a ten-article retained-body sample. These are smoke results,
+not a full-nightly throughput or human-labeled accuracy result.
+
+Run the read-only `rust/examples/harvester_nightly_report.sql` on `archbox` after
+the 02:00 ingest completes. It reports the full observed article/entity corpus,
+acquisition and Laya errors, routing distributions, character dispositions,
+queue backlog, and elapsed classification time. Do not declare live cutover or
+remove Editor, packets, or stories until the full corpus and character smoke
+have been reviewed. Earlier lines in this document that say production was at
+migration 266 or lacked Harvester flags are preserved as the September 26
+baseline, not the current host state.
+
 ## Implemented locally
 
 - Go ingestion has an opt-in `HARVESTER_INGEST_ENABLED=1` path. It records every article/query-entity edge, bypasses the Editor ten-read cap, and enqueues Harvester instead of Editor for new edges.

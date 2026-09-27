@@ -37,6 +37,12 @@ false-positive rate: a headline can warrant a read even when the publisher
 opening is unusable. A 0.90 boundary would retain only five of 100 old
 relevant cases in this sample and is unsuitable as a default on this evidence.
 
+The old-relevant stratum also varies by sport at 0.25: 13/26 football,
+22/27 NBA, and 36/47 NFL edges pass. These are small, uneven subsamples and
+may reflect source or headline mix, but the football gap is a reason to include
+sport diversity in review. It is not evidence for a sport-specific threshold
+yet. The blinded packet includes 32 football, 14 NBA, and 26 NFL cases.
+
 ## Review before policy selection
 
 `harvest_headline_review` produces blinded headline and opening review packets

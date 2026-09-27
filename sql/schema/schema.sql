@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 6faXKdauZXl6WvLlSB6nnijRhcIOpmbVOPb9dnI5zZllDdOW9G8IV8EFYUbd3dX
+\restrict Ybey3AA8yFFE4rqAUde5HqwaPiWhQr8TTg4fCVWQ04t92GZWIprKHMQ5qmT9pax
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -8391,6 +8391,40 @@ COMMENT ON COLUMN public.harvester_fixture_reviews.input_hash IS 'Graph material
 
 
 --
+-- Name: harvester_headline_gates; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.harvester_headline_gates (
+    article_id bigint NOT NULL,
+    entity_type text NOT NULL,
+    entity_id integer NOT NULL,
+    sport text NOT NULL,
+    contract_version text NOT NULL,
+    headline text NOT NULL,
+    input_hash text NOT NULL,
+    model_revision text NOT NULL,
+    choice text NOT NULL,
+    admitted boolean NOT NULL,
+    policy_version text NOT NULL,
+    read_threshold double precision NOT NULL,
+    request jsonb NOT NULL,
+    answer jsonb NOT NULL,
+    model_provenance jsonb NOT NULL,
+    raw_response jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT harvester_headline_gates_choice_check CHECK ((choice = ANY (ARRAY['relevant'::text, 'irrelevant'::text]))),
+    CONSTRAINT harvester_headline_gates_read_threshold_check CHECK (((read_threshold >= (0)::double precision) AND (read_threshold <= (1)::double precision)))
+);
+
+
+--
+-- Name: TABLE harvester_headline_gates; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.harvester_headline_gates IS 'Versioned Laya headline-only entity decisions before publisher fetch; negative gates have no acquired body or character assignment.';
+
+
+--
 -- Name: harvester_insider_identity_reviews; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -11369,7 +11403,7 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 6faXKdauZXl6WvLlSB6nnijRhcIOpmbVOPb9dnI5zZllDdOW9G8IV8EFYUbd3dX
+\unrestrict Ybey3AA8yFFE4rqAUde5HqwaPiWhQr8TTg4fCVWQ04t92GZWIprKHMQ5qmT9pax
 
 
 \ir reference-data.sql
@@ -11377,7 +11411,7 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 -- PostgreSQL database dump
 --
 
-\restrict Wruog4pzLC4l1f2RTHLabQJfdN8C2RplKX47TQZSiHXGWjGhY30Dp1KXTRzoi3w
+\restrict RECcs5dC1ew3tBsguRY89xuyjLuXBGUWgMlTPfSBtDjYr4x3j7Y8df7zaLCoIZJ
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -11666,6 +11700,14 @@ ALTER TABLE ONLY public.harvester_entity_mentions
 
 ALTER TABLE ONLY public.harvester_fixture_reviews
     ADD CONSTRAINT harvester_fixture_reviews_pkey PRIMARY KEY (article_id, sport, contract_version, input_hash);
+
+
+--
+-- Name: harvester_headline_gates harvester_headline_gates_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_headline_gates
+    ADD CONSTRAINT harvester_headline_gates_pkey PRIMARY KEY (article_id, entity_type, entity_id, sport, contract_version, model_revision, input_hash, policy_version);
 
 
 --
@@ -13854,6 +13896,14 @@ ALTER TABLE ONLY public.harvester_fixture_reviews
 
 
 --
+-- Name: harvester_headline_gates harvester_headline_gates_article_id_entity_type_entity_id__fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_headline_gates
+    ADD CONSTRAINT harvester_headline_gates_article_id_entity_type_entity_id__fkey FOREIGN KEY (article_id, entity_type, entity_id, sport) REFERENCES public.harvester_query_provenance(article_id, entity_type, entity_id, sport) ON DELETE CASCADE;
+
+
+--
 -- Name: harvester_insider_identity_reviews harvester_insider_identity_reviews_application_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -14480,4 +14530,4 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict Wruog4pzLC4l1f2RTHLabQJfdN8C2RplKX47TQZSiHXGWjGhY30Dp1KXTRzoi3w
+\unrestrict RECcs5dC1ew3tBsguRY89xuyjLuXBGUWgMlTPfSBtDjYr4x3j7Y8df7zaLCoIZJ

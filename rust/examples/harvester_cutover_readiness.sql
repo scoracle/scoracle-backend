@@ -10,25 +10,46 @@ WITH ingest AS (
      WHERE p.last_seen_at BETWEEN i.started_at AND i.finished_at
 ), articles AS (
     SELECT DISTINCT article_id FROM cohort
+), gates AS (
+    SELECT DISTINCT ON (g.article_id,g.entity_type,g.entity_id,g.sport) g.*
+      FROM public.harvester_headline_gates g JOIN cohort q
+        ON q.article_id=g.article_id AND q.entity_type=g.entity_type
+       AND q.entity_id=g.entity_id AND q.sport=g.sport
+     WHERE g.contract_version='harvest-headline-v1'
+       AND g.policy_version='headline-read-p025-v1'
+     ORDER BY g.article_id,g.entity_type,g.entity_id,g.sport,g.created_at DESC
+), classified AS (
+    SELECT c.article_id,c.entity_type,c.entity_id,c.sport
+      FROM public.harvester_classifications c JOIN cohort q
+        ON q.article_id=c.article_id AND q.entity_type=c.entity_type
+       AND q.entity_id=c.entity_id AND q.sport=c.sport
+     WHERE c.contract_version='harvest-context-v5'
 )
 SELECT 'canonical_articles' AS measure, count(*)::bigint AS total FROM articles
 UNION ALL
 SELECT 'missing_acquisition_state', count(*) FROM articles a
- WHERE NOT EXISTS (SELECT 1 FROM public.harvester_acquisitions h WHERE h.article_id=a.article_id)
+ WHERE EXISTS (SELECT 1 FROM gates g WHERE g.article_id=a.article_id AND g.admitted)
+   AND NOT EXISTS (SELECT 1 FROM public.harvester_acquisitions h WHERE h.article_id=a.article_id)
 UNION ALL
-SELECT 'classified_entity_edges', count(*) FROM cohort q
- WHERE EXISTS (
-    SELECT 1 FROM public.harvester_classifications c
-     WHERE c.article_id=q.article_id AND c.entity_type=q.entity_type
-       AND c.entity_id=q.entity_id AND c.sport=q.sport
- )
+SELECT 'headline_gate_edges', count(*) FROM gates
 UNION ALL
-SELECT 'unclassified_entity_edges', count(*) FROM cohort q
- WHERE NOT EXISTS (
-    SELECT 1 FROM public.harvester_classifications c
-     WHERE c.article_id=q.article_id AND c.entity_type=q.entity_type
-       AND c.entity_id=q.entity_id AND c.sport=q.sport
- )
+SELECT 'headline_rejected_edges', count(*) FROM gates WHERE NOT admitted
+UNION ALL
+SELECT 'headline_admitted_edges', count(*) FROM gates WHERE admitted
+UNION ALL
+SELECT 'missing_headline_gate_edges', count(*) FROM cohort q
+ WHERE NOT EXISTS (SELECT 1 FROM gates g WHERE g.article_id=q.article_id
+                     AND g.entity_type=q.entity_type AND g.entity_id=q.entity_id
+                     AND g.sport=q.sport)
+   AND NOT EXISTS (SELECT 1 FROM public.harvester_acquisitions h
+                    WHERE h.article_id=q.article_id AND h.status='duplicate')
+UNION ALL
+SELECT 'classified_entity_edges', count(*) FROM classified
+UNION ALL
+SELECT 'unclassified_entity_edges', count(*) FROM gates g WHERE admitted
+   AND NOT EXISTS (SELECT 1 FROM classified c WHERE c.article_id=g.article_id
+                     AND c.entity_type=g.entity_type AND c.entity_id=g.entity_id
+                     AND c.sport=g.sport)
 UNION ALL
 SELECT 'acquisition_errors', count(*) FROM articles a
  JOIN public.harvester_acquisitions h USING (article_id)
@@ -50,6 +71,7 @@ SELECT d.plugin_id, d.status, count(*) AS total
   JOIN cohort q
     ON q.article_id=c.article_id AND q.entity_type=c.entity_type
    AND q.entity_id=c.entity_id AND q.sport=c.sport
+ WHERE c.contract_version='harvest-context-v5'
  GROUP BY d.plugin_id, d.status
  ORDER BY d.plugin_id, d.status;
 
@@ -71,6 +93,7 @@ WITH ingest AS (
     SELECT c.id FROM public.harvester_classifications c JOIN cohort q
       ON q.article_id=c.article_id AND q.entity_type=c.entity_type
      AND q.entity_id=c.entity_id AND q.sport=c.sport
+     WHERE c.contract_version='harvest-context-v5'
 )
 SELECT 'insider_identity_review' AS obligation, r.status, count(*) AS total
   FROM public.harvester_insider_identity_reviews r

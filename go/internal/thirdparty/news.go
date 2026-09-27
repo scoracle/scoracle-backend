@@ -473,7 +473,7 @@ func (s *NewsService) persistArticles(
 			}
 			if err := work.Enqueue(ctx, tx, work.Item{
 				Stage: work.StageHarvester, EntityType: "article", EntityID: int(id),
-				Sport: sportUpper, InputVersion: fmt.Sprintf("harvest-context-v1:q%d", entities),
+				Sport: sportUpper, InputVersion: fmt.Sprintf("harvest-context-v5:q%d", entities),
 			}); err != nil {
 				return nil, 0, err
 			}

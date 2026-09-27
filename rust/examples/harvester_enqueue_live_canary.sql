@@ -17,12 +17,20 @@ WITH ingest AS (
      WHERE p.last_seen_at BETWEEN i.started_at AND i.finished_at
 ), articles AS (
     SELECT DISTINCT article_id FROM cohort
+), headline_gate AS (
+    SELECT DISTINCT ON (g.article_id,g.entity_type,g.entity_id,g.sport) g.*
+      FROM public.harvester_headline_gates g JOIN cohort q
+        ON q.article_id=g.article_id AND q.entity_type=g.entity_type
+       AND q.entity_id=g.entity_id AND q.sport=g.sport
+     WHERE g.contract_version='harvest-headline-v1'
+       AND g.policy_version='headline-read-p025-v1'
+     ORDER BY g.article_id,g.entity_type,g.entity_id,g.sport,g.created_at DESC
 ), classified AS (
     SELECT DISTINCT ON (c.article_id,c.entity_type,c.entity_id,c.sport) c.*
       FROM public.harvester_classifications c JOIN cohort q
         ON q.article_id=c.article_id AND q.entity_type=c.entity_type
        AND q.entity_id=c.entity_id AND q.sport=c.sport
-     WHERE c.contract_version='harvest-context-v4'
+     WHERE c.contract_version='harvest-context-v5'
      ORDER BY c.article_id,c.entity_type,c.entity_id,c.sport,c.created_at DESC,c.id DESC
 ), shadow_ready AS (
     SELECT EXISTS (SELECT 1 FROM ingest) AND EXISTS (SELECT 1 FROM articles)
@@ -33,7 +41,9 @@ WITH ingest AS (
                    (w.status='failed' AND w.attempts<5))
        )
        AND NOT EXISTS (
-           SELECT 1 FROM articles a WHERE NOT EXISTS (
+           SELECT 1 FROM articles a WHERE EXISTS (
+               SELECT 1 FROM headline_gate g WHERE g.article_id=a.article_id AND g.admitted)
+             AND NOT EXISTS (
                SELECT 1 FROM public.harvester_acquisitions h WHERE h.article_id=a.article_id)
        )
        AND NOT EXISTS (
@@ -45,6 +55,10 @@ WITH ingest AS (
                SELECT 1 FROM classified c
                 WHERE c.article_id=q.article_id AND c.entity_type=q.entity_type
                   AND c.entity_id=q.entity_id AND c.sport=q.sport)
+             AND NOT EXISTS (
+               SELECT 1 FROM headline_gate g
+                WHERE g.article_id=q.article_id AND g.entity_type=q.entity_type
+                  AND g.entity_id=q.entity_id AND g.sport=q.sport AND NOT g.admitted)
              AND NOT EXISTS (
                SELECT 1 FROM public.harvester_acquisitions h
                 WHERE h.article_id=q.article_id AND (
@@ -91,7 +105,7 @@ SELECT e.article_id,e.sport,h.attempts AS acquisition_attempts_before
 INSERT INTO public.pipeline_work
     (stage,entity_type,entity_id,sport,status,input_version,available_at,updated_at)
 SELECT 'harvester','article',article_id,sport,'pending',
-       'harvest-context-v4:live-canary:run' || :'run_id' || ':a' || article_id::text,
+       'harvest-context-v5:live-canary:run' || :'run_id' || ':a' || article_id::text,
        NOW(),NOW()
   FROM harvester_canary_articles
 ON CONFLICT (stage,entity_type,entity_id,sport) DO UPDATE SET

@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict dgyuhhtgLF9QZk4j1CQwrOKhSTPdDeTPtBePbwTl5MQlROvXyyedXB3pRgPc4OU
+\restrict TGr8luD3DeAQ8EkzxJjeWf4gjOsqRvTjZ0zY2WS76nbJPeStPCWoBYYb7MfITMy
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -33,13 +33,13 @@ INSERT INTO public.sports (id, display_name, api_base_url, current_season, is_ac
 -- PostgreSQL database dump complete
 --
 
-\unrestrict dgyuhhtgLF9QZk4j1CQwrOKhSTPdDeTPtBePbwTl5MQlROvXyyedXB3pRgPc4OU
+\unrestrict TGr8luD3DeAQ8EkzxJjeWf4gjOsqRvTjZ0zY2WS76nbJPeStPCWoBYYb7MfITMy
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict hmb4kNmIdM52PKOhl4fYiB9Iosem2mzlerOjA7pbbpiL7rJofRiU6OuGUYNC64j
+\restrict tpPo8DIEG5tGGFGKlEiUMQiefEC4ivzumtgWSU0evf6jVf9q2jMZzlyee25KgqZ
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -72,13 +72,13 @@ INSERT INTO public.leagues (id, sport, name, country, logo_url, sportmonks_id, i
 -- PostgreSQL database dump complete
 --
 
-\unrestrict hmb4kNmIdM52PKOhl4fYiB9Iosem2mzlerOjA7pbbpiL7rJofRiU6OuGUYNC64j
+\unrestrict tpPo8DIEG5tGGFGKlEiUMQiefEC4ivzumtgWSU0evf6jVf9q2jMZzlyee25KgqZ
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict jrxgF2jyjF8Hd0MXfHwFcT6iXZL5lFCm0gYtqditbGEvMyj1gavXQA3n4igLsIJ
+\restrict Bl8qmrWEzBKG5NVeRNqCdrSqq2ufsohviJkVbhXXJ7sWQLDulcL153HoMsJpbzb
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -153,13 +153,13 @@ SELECT pg_catalog.setval('public.provider_seasons_id_seq', 40, true);
 -- PostgreSQL database dump complete
 --
 
-\unrestrict jrxgF2jyjF8Hd0MXfHwFcT6iXZL5lFCm0gYtqditbGEvMyj1gavXQA3n4igLsIJ
+\unrestrict Bl8qmrWEzBKG5NVeRNqCdrSqq2ufsohviJkVbhXXJ7sWQLDulcL153HoMsJpbzb
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict RtMeyRAsrkOEKe3fEfqcmKK98iS2GWwHd2YMWm0o36vfmnSfaR2MKhsebcxBk3U
+\restrict Epx2nK5ezQ7K4PUpDfke6cs63Y36NlxurKNwzi6l3CZJkEPu5vYHaLqWI6XFDsJ
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -751,13 +751,13 @@ SELECT pg_catalog.setval('public.stat_definitions_id_seq', 1358, true);
 -- PostgreSQL database dump complete
 --
 
-\unrestrict RtMeyRAsrkOEKe3fEfqcmKK98iS2GWwHd2YMWm0o36vfmnSfaR2MKhsebcxBk3U
+\unrestrict Epx2nK5ezQ7K4PUpDfke6cs63Y36NlxurKNwzi6l3CZJkEPu5vYHaLqWI6XFDsJ
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict R5N2VvE54x8krwpavBPPmSPLMjn8C3vBe7KevrjeCQg0nEy8XIyclZAEigzk9ea
+\restrict Ydj4T1SNvneUpsInMUeYfC6Ab662UN67fcDgdJXLpC77pEu9SzbbaHz0Oz9R4E7
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -790,13 +790,13 @@ INSERT INTO public.rate_modes (sport, mode, suffix, denom_key, formula, unit, ro
 -- PostgreSQL database dump complete
 --
 
-\unrestrict R5N2VvE54x8krwpavBPPmSPLMjn8C3vBe7KevrjeCQg0nEy8XIyclZAEigzk9ea
+\unrestrict Ydj4T1SNvneUpsInMUeYfC6Ab662UN67fcDgdJXLpC77pEu9SzbbaHz0Oz9R4E7
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict evyxxr4LEKlxMEZ238kL5xAI1mpq6gzUSWN7tKhTo7852rDO6Haab9MLablXR2i
+\restrict NRgN30GZEqjWLqTNCJ50cJyee8bSS6b5zekAcohdIhY5XLybQPfzVqngSWNiQKi
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -828,13 +828,13 @@ INSERT INTO public.rating_thresholds (sport, stat_key, min_value) VALUES
 -- PostgreSQL database dump complete
 --
 
-\unrestrict evyxxr4LEKlxMEZ238kL5xAI1mpq6gzUSWN7tKhTo7852rDO6Haab9MLablXR2i
+\unrestrict NRgN30GZEqjWLqTNCJ50cJyee8bSS6b5zekAcohdIhY5XLybQPfzVqngSWNiQKi
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict jWDs8K07VwvHXwMM9RUibE1Bd6jmgqnYulvPZvphfF6GbMbrzXh0KvTV5FzT9AQ
+\restrict 1hRzW3QO5OKyP62RdWH6MZ7TYHWlHJgEjjDyGAHM8ZZKq44fXmdOKeNdYfg4cqc
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -1030,13 +1030,13 @@ INSERT INTO public.stat_templates (sport, position_group, stat_key, sort_order, 
 -- PostgreSQL database dump complete
 --
 
-\unrestrict jWDs8K07VwvHXwMM9RUibE1Bd6jmgqnYulvPZvphfF6GbMbrzXh0KvTV5FzT9AQ
+\unrestrict 1hRzW3QO5OKyP62RdWH6MZ7TYHWlHJgEjjDyGAHM8ZZKq44fXmdOKeNdYfg4cqc
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict 5Z48ZG1ta5ZzR5u5tZreEaeVvSSrIshTbvGpJ6LelZD0lrBv0oWfpDjYdWhw6fA
+\restrict XZWC23mnh6EMFw4ghr9jD427AwZxfbEMqQp1cLuRu1Q1JJ1RlyZ4LZL5ozCLSjL
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -1074,13 +1074,13 @@ INSERT INTO public.entity_fact_policy (entity_type, fact_type, tier) VALUES
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 5Z48ZG1ta5ZzR5u5tZreEaeVvSSrIshTbvGpJ6LelZD0lrBv0oWfpDjYdWhw6fA
+\unrestrict XZWC23mnh6EMFw4ghr9jD427AwZxfbEMqQp1cLuRu1Q1JJ1RlyZ4LZL5ozCLSjL
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict 0IvCX6tRyRs9GnJ6IbWHDky6ftQqxWmYku2dhefzZUteDQ6V3ohfIKgfh32ANa4
+\restrict za5hUwG0yECx2i4EEVUCxx8LZTkztiIReG2qa2wGqlhBJlG0ffagMVrJdyRcX20
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -1111,13 +1111,13 @@ INSERT INTO public.transfer_identity_thresholds (sport, min_heat, min_determinis
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 0IvCX6tRyRs9GnJ6IbWHDky6ftQqxWmYku2dhefzZUteDQ6V3ohfIKgfh32ANa4
+\unrestrict za5hUwG0yECx2i4EEVUCxx8LZTkztiIReG2qa2wGqlhBJlG0ffagMVrJdyRcX20
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict Y4ftBIXzQgWVEwg3cV0DxUOdFsmDNSvi6hhi72zGMn5WCfCFpaRy3V1ZijLiDCA
+\restrict h9fbKsYv8SxNuiBo5CyB92sleNlYb8NmxYJapJG4gzZvAJW5LP9AZDWPuIjJ4e9
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -1152,13 +1152,13 @@ INSERT INTO public.stage_routing_subscriptions (tag, stage, entity_type, note, c
 -- PostgreSQL database dump complete
 --
 
-\unrestrict Y4ftBIXzQgWVEwg3cV0DxUOdFsmDNSvi6hhi72zGMn5WCfCFpaRy3V1ZijLiDCA
+\unrestrict h9fbKsYv8SxNuiBo5CyB92sleNlYb8NmxYJapJG4gzZvAJW5LP9AZDWPuIjJ4e9
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict h95DAbM8P8aY7fJHNPloIOAKy0bcg8NhPwBWgkaKPvKTI7QOysyueCOdFKLE7Nl
+\restrict EgLIcmRNe0GxrIKc0MALFbjD3wiamxu5bhMYh0GPbGPLXf1a0GVAaYe9Q3w5w8p
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -1192,4 +1192,4 @@ SELECT pg_catalog.setval('public.boxscore_sources_id_seq', 7, true);
 -- PostgreSQL database dump complete
 --
 
-\unrestrict h95DAbM8P8aY7fJHNPloIOAKy0bcg8NhPwBWgkaKPvKTI7QOysyueCOdFKLE7Nl
+\unrestrict EgLIcmRNe0GxrIKc0MALFbjD3wiamxu5bhMYh0GPbGPLXf1a0GVAaYe9Q3w5w8p

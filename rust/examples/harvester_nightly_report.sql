@@ -16,12 +16,20 @@ WITH ingest AS (
        AND p.last_seen_at <= i.finished_at
 ), article AS (
     SELECT DISTINCT article_id FROM cohort
+), headline_gate AS (
+    SELECT DISTINCT ON (g.article_id,g.entity_type,g.entity_id,g.sport) g.*
+      FROM public.harvester_headline_gates g
+      JOIN cohort q ON q.article_id=g.article_id AND q.entity_type=g.entity_type
+       AND q.entity_id=g.entity_id AND q.sport=g.sport
+     WHERE g.contract_version='harvest-headline-v1'
+       AND g.policy_version='headline-read-p025-v1'
+     ORDER BY g.article_id,g.entity_type,g.entity_id,g.sport,g.created_at DESC
 ), classification AS (
     SELECT DISTINCT ON (c.article_id,c.entity_type,c.entity_id,c.sport) c.*
       FROM public.harvester_classifications c
       JOIN cohort q ON q.article_id=c.article_id AND q.entity_type=c.entity_type
        AND q.entity_id=c.entity_id AND q.sport=c.sport
-     WHERE c.contract_version='harvest-context-v4'
+     WHERE c.contract_version='harvest-context-v5'
      ORDER BY c.article_id,c.entity_type,c.entity_id,c.sport,c.created_at DESC,c.id DESC
 ), acquisition AS (
     SELECT a.article_id,a.status,a.updated_at
@@ -34,9 +42,13 @@ WITH ingest AS (
       FROM public.pipeline_work w
       JOIN article a ON a.article_id=w.entity_id
      WHERE w.stage='harvester' AND w.entity_type='article'
-       AND w.input_version LIKE 'harvest-context-v4:%'
+       AND w.input_version LIKE 'harvest-context-v5:%'
 ), edge_state AS (
     SELECT q.article_id,q.entity_type,q.entity_id,q.sport,
+           EXISTS (SELECT 1 FROM headline_gate g
+                    WHERE g.article_id=q.article_id AND g.entity_type=q.entity_type
+                      AND g.entity_id=q.entity_id AND g.sport=q.sport
+                      AND NOT g.admitted) AS headline_rejected,
            EXISTS (SELECT 1 FROM classification c
                     WHERE c.article_id=q.article_id AND c.entity_type=q.entity_type
                       AND c.entity_id=q.entity_id AND c.sport=q.sport) AS classified,
@@ -49,7 +61,7 @@ WITH ingest AS (
                          AND w.status='failed' AND w.attempts>=5) AS terminal_error
       FROM cohort q
 )
-SELECT 'harvest-context-v4' AS readiness_contract,
+SELECT 'harvest-context-v5' AS readiness_contract,
        i.id AS ingest_run_id, i.started_at AS ingest_started_at,
        i.finished_at AS ingest_finished_at, i.status AS ingest_status,
        round(extract(epoch FROM i.finished_at-i.started_at)::numeric,1) AS ingest_seconds,
@@ -62,15 +74,25 @@ SELECT 'harvest-context-v4' AS readiness_contract,
        (SELECT count(*) FROM acquisition WHERE status='acquired') AS acquired,
        (SELECT count(*) FROM acquisition WHERE status IN ('retryable_error','blocked','low_content')) AS acquisition_errors,
        (SELECT count(*) FROM acquisition WHERE status='classification_error') AS laya_errors,
-       (SELECT count(*) FROM article a WHERE NOT EXISTS
+       (SELECT count(*) FROM article a WHERE EXISTS
+         (SELECT 1 FROM headline_gate g WHERE g.article_id=a.article_id AND g.admitted)
+         AND NOT EXISTS
          (SELECT 1 FROM acquisition x WHERE x.article_id=a.article_id)) AS missing_acquisition_state,
+       (SELECT count(*) FROM headline_gate) AS headline_gate_edges,
+       (SELECT count(*) FROM headline_gate WHERE admitted) AS headline_admitted_edges,
+       (SELECT count(*) FROM headline_gate WHERE NOT admitted) AS headline_rejected_edges,
+       (SELECT count(*) FROM headline_gate WHERE choice='irrelevant' AND admitted)
+           AS plugin_admitted_laya_negative_edges,
        (SELECT count(*) FROM classification) AS classified_edges,
        (SELECT count(*) FROM classification WHERE entity_choice='relevant') AS laya_entity_relevant,
        (SELECT count(*) FROM classification WHERE entity_choice='irrelevant') AS laya_entity_irrelevant,
-       (SELECT count(*) FROM edge_state WHERE NOT classified) AS unclassified_edges,
-       (SELECT count(*) FROM edge_state WHERE NOT classified AND terminal_error)
+       (SELECT count(*) FROM edge_state WHERE NOT classified AND NOT headline_rejected)
+           AS unclassified_edges,
+       (SELECT count(*) FROM edge_state WHERE NOT classified AND NOT headline_rejected
+             AND terminal_error)
            AS explicit_terminal_error_edges,
-       (SELECT count(*) FROM edge_state WHERE NOT classified AND NOT terminal_error)
+       (SELECT count(*) FROM edge_state WHERE NOT classified AND NOT headline_rejected
+             AND NOT terminal_error)
            AS unaccounted_edges,
        (SELECT count(*) FROM assignment) AS character_assignments,
        (SELECT count(*) FROM assignment WHERE status='pending') AS pending_assignments,
@@ -86,12 +108,16 @@ SELECT 'harvest-context-v4' AS readiness_contract,
            SELECT 1 FROM work WHERE status IN ('pending','running')
               OR (status='failed' AND attempts<5)
        ) AND NOT EXISTS (
-           SELECT 1 FROM edge_state WHERE NOT classified AND NOT terminal_error
+           SELECT 1 FROM edge_state WHERE NOT classified AND NOT headline_rejected
+             AND NOT terminal_error
        ) AND NOT EXISTS (
-           SELECT 1 FROM article a WHERE NOT EXISTS
+           SELECT 1 FROM article a WHERE EXISTS
+             (SELECT 1 FROM headline_gate g WHERE g.article_id=a.article_id AND g.admitted)
+             AND NOT EXISTS
              (SELECT 1 FROM acquisition x WHERE x.article_id=a.article_id)
        ) THEN round(extract(epoch FROM (
            GREATEST((SELECT max(created_at) FROM classification),
+                    (SELECT max(created_at) FROM headline_gate),
                     (SELECT max(updated_at) FROM acquisition),
                     (SELECT max(updated_at) FROM work WHERE status='failed'))
            - i.started_at))::numeric,1) END AS corpus_end_to_end_seconds,
@@ -130,7 +156,7 @@ WITH ingest AS (
       FROM public.harvester_classifications c
       JOIN cohort q ON q.article_id=c.article_id AND q.entity_type=c.entity_type
        AND q.entity_id=c.entity_id AND q.sport=c.sport
-     WHERE c.contract_version='harvest-context-v4'
+     WHERE c.contract_version='harvest-context-v5'
      ORDER BY c.article_id,c.entity_type,c.entity_id,c.sport,c.created_at DESC,c.id DESC
 )
 SELECT d.plugin_id, count(*) AS assignments,
@@ -160,7 +186,7 @@ WITH ingest AS (
       FROM public.harvester_classifications c
       JOIN cohort q ON q.article_id=c.article_id AND q.entity_type=c.entity_type
        AND q.entity_id=c.entity_id AND q.sport=c.sport
-     WHERE c.contract_version='harvest-context-v4'
+     WHERE c.contract_version='harvest-context-v5'
      ORDER BY c.article_id,c.entity_type,c.entity_id,c.sport,c.created_at DESC,c.id DESC
 )
 SELECT d.plugin_id,count(*) AS assignments,
@@ -193,7 +219,7 @@ WITH ingest AS (
       FROM public.harvester_classifications c
       JOIN cohort q ON q.article_id=c.article_id AND q.entity_type=c.entity_type
        AND q.entity_id=c.entity_id AND q.sport=c.sport
-     WHERE c.contract_version='harvest-context-v4'
+     WHERE c.contract_version='harvest-context-v5'
      ORDER BY c.article_id,c.entity_type,c.entity_id,c.sport,c.created_at DESC,c.id DESC
 )
 SELECT count(*) AS classified_edges,
@@ -229,7 +255,7 @@ WITH ingest AS (
       FROM public.harvester_classifications c
       JOIN cohort q ON q.article_id=c.article_id AND q.entity_type=c.entity_type
        AND q.entity_id=c.entity_id AND q.sport=c.sport
-     WHERE c.contract_version='harvest-context-v4'
+     WHERE c.contract_version='harvest-context-v5'
      ORDER BY c.article_id,c.entity_type,c.entity_id,c.sport,c.created_at DESC,c.id DESC
 )
 SELECT route.key AS plugin_id, count(*) AS classified_edges,
@@ -252,7 +278,7 @@ WITH ingest AS (
     SELECT c.* FROM public.harvester_classifications c JOIN cohort q
       ON q.article_id=c.article_id AND q.entity_type=c.entity_type
      AND q.entity_id=c.entity_id AND q.sport=c.sport
-     WHERE c.contract_version='harvest-context-v4'
+     WHERE c.contract_version='harvest-context-v5'
 )
 SELECT count(*) AS classified_edges,
        count(*) FILTER (WHERE a.full_text IS NOT NULL AND
@@ -307,7 +333,7 @@ WITH ingest AS (
       FROM public.harvester_classifications c JOIN cohort q
         ON q.article_id=c.article_id AND q.entity_type=c.entity_type
        AND q.entity_id=c.entity_id AND q.sport=c.sport
-     WHERE c.contract_version='harvest-context-v4'
+     WHERE c.contract_version='harvest-context-v5'
      ORDER BY c.article_id,c.entity_type,c.entity_id,c.sport,c.created_at DESC,c.id DESC
 )
 SELECT count(*) FILTER (WHERE c.created_at<i.started_at) AS retained_prior_classifications,

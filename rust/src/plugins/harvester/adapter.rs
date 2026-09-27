@@ -2,7 +2,7 @@
 //! Character delivery is a separate cutover step; pending assignments remain
 //! queryable until a character adapter owns their final disposition.
 use super::cognition::{Article, Hypothesis, CHARACTER_PLUGINS};
-use super::context::{self, HarvestContext};
+use super::context::{self, HarvestContext, HeadlineGate};
 use crate::application::queue::publication::ClaimPublication;
 use crate::application::queue::work::Item;
 use crate::application::tools::{ToolLedger, WebBroker};
@@ -204,6 +204,48 @@ async fn record_acquisition(
     Ok(())
 }
 
+async fn store_headline_gates(
+    tx: &mut Transaction<'_, Postgres>,
+    source: &Source,
+    article_id: i64,
+    gates: &[HeadlineGate],
+) -> Result<()> {
+    for gate in gates {
+        ensure!(
+            gate.article_id == article_id && gate.headline == source.title,
+            "headline gate source changed"
+        );
+        sqlx::query(
+            "INSERT INTO public.harvester_headline_gates \
+             (article_id,entity_type,entity_id,sport,contract_version,headline,input_hash, \
+              model_revision,choice,admitted,policy_version,read_threshold, \
+              request,answer,model_provenance,raw_response) \
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) \
+             ON CONFLICT DO NOTHING",
+        )
+        .bind(article_id)
+        .bind(&gate.hypothesis.entity_type)
+        .bind(gate.hypothesis.entity_id)
+        .bind(&gate.hypothesis.sport)
+        .bind(context::HEADLINE_CONTRACT)
+        .bind(&gate.headline)
+        .bind(&gate.input_hash)
+        .bind(&gate.model_revision)
+        .bind(&gate.response.answers["relevance"].choice)
+        .bind(gate.admits_reading())
+        .bind(context::HEADLINE_POLICY)
+        .bind(context::HEADLINE_READ_THRESHOLD)
+        .bind(serde_json::to_value(&gate.request)?)
+        .bind(serde_json::to_value(&gate.response.answers["relevance"])?)
+        .bind(&gate.response.provenance)
+        .bind(&gate.response.raw_response)
+        .execute(&mut **tx)
+        .await
+        .context("store Harvester headline gate")?;
+    }
+    Ok(())
+}
+
 /// Keep unique exact name-surface matches visible in the headline or delivered
 /// publisher opening as candidate identity evidence. Graph must see the same
 /// text that grounded the match. This does not write authoritative links.
@@ -367,6 +409,8 @@ async fn record_unresolved_names(
 async fn record_retryable_error(
     pool: &PgPool,
     item: &Item,
+    source: &Source,
+    gates: &[HeadlineGate],
     status: &str,
     error: &str,
     body: Option<&str>,
@@ -376,6 +420,16 @@ async fn record_retryable_error(
     let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
         return Ok(PluginOutcome::Superseded);
     };
+    let current_title: String =
+        sqlx::query_scalar("SELECT title FROM public.news_articles WHERE id=$1 FOR UPDATE")
+            .bind(item.entity_id)
+            .fetch_one(&mut **publication.transaction())
+            .await?;
+    ensure!(
+        current_title == source.title,
+        "article changed during Harvester run"
+    );
+    store_headline_gates(publication.transaction(), source, item.entity_id, gates).await?;
     record_acquisition(
         publication.transaction(),
         item.entity_id,
@@ -410,6 +464,7 @@ async fn publish(
     source: &Source,
     body: Option<&str>,
     fetched: Option<&FetchedArticle>,
+    gates: &[HeadlineGate],
     contexts: &[HarvestContext],
 ) -> Result<PluginOutcome> {
     let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
@@ -436,7 +491,24 @@ async fn publish(
         publication.commit_final().await?;
         return Ok(PluginOutcome::Committed);
     }
+    store_headline_gates(tx, source, item.entity_id, gates).await?;
+    if body.is_none() {
+        ensure!(
+            !gates.is_empty() && gates.iter().all(|gate| !gate.admits_reading()),
+            "publisher fetch skipped without a complete negative headline gate"
+        );
+        ensure!(
+            contexts.is_empty(),
+            "negative headline gate has source contexts"
+        );
+        publication.commit_final().await?;
+        return Ok(PluginOutcome::Committed);
+    }
     let body = body.context("publication missing publisher text")?;
+    ensure!(
+        contexts.len() == gates.iter().filter(|gate| gate.admits_reading()).count(),
+        "publisher contexts do not match headline-positive entities"
+    );
     let current_body: Option<String> = row.get("full_text");
     ensure!(
         current_body
@@ -773,9 +845,17 @@ impl StudioPlugin for HarvesterHandler {
             .await?
             .context("claimed article disappeared")?;
         if source.duplicate_of.is_some() {
-            return publish(&self.pool, item, &source, None, None, &[]).await;
+            return publish(&self.pool, item, &source, None, None, &[], &[]).await;
         }
         let queries = load_queries(&self.pool, item.entity_id, &item.sport).await?;
+        let mut gates = Vec::with_capacity(queries.len());
+        for query in &queries {
+            let headline = article(&source, query, item.entity_id, "");
+            gates.push(context::classify_headline(self.model.as_ref(), &headline).await?);
+        }
+        if gates.iter().all(|gate| !gate.admits_reading()) {
+            return publish(&self.pool, item, &source, None, None, &gates, &[]).await;
+        }
         let ledger = ToolLedger::new();
         let web = self.web.scope(&self.pool, self.manifest(), &ledger);
         let (body, fetched) = if let Some(body) = source
@@ -795,6 +875,8 @@ impl StudioPlugin for HarvesterHandler {
                     return record_retryable_error(
                         &self.pool,
                         item,
+                        &source,
+                        &gates,
                         acquisition_failure_status(&error),
                         &format!("{error:#}"),
                         None,
@@ -809,6 +891,8 @@ impl StudioPlugin for HarvesterHandler {
             return record_retryable_error(
                 &self.pool,
                 item,
+                &source,
+                &gates,
                 "low_content",
                 "publisher returned too little article text",
                 Some(&body),
@@ -823,6 +907,8 @@ impl StudioPlugin for HarvesterHandler {
             return record_retryable_error(
                 &self.pool,
                 item,
+                &source,
+                &gates,
                 "low_content",
                 "publisher opening lacks thirty words across preserved paragraphs",
                 Some(&body),
@@ -834,14 +920,19 @@ impl StudioPlugin for HarvesterHandler {
             .await;
         }
         let mut contexts = Vec::with_capacity(queries.len());
-        for query in &queries {
+        for (query, gate) in queries.iter().zip(&gates) {
+            if !gate.admits_reading() {
+                continue;
+            }
             let article = article(&source, query, item.entity_id, &body);
-            match context::classify(self.model.as_ref(), &article).await {
+            match context::classify_after_headline(self.model.as_ref(), &article, gate).await {
                 Ok(context) => contexts.push(context),
                 Err(error) => {
                     return record_retryable_error(
                         &self.pool,
                         item,
+                        &source,
+                        &gates,
                         "classification_error",
                         &format!("{error:#}"),
                         Some(&body),
@@ -860,6 +951,7 @@ impl StudioPlugin for HarvesterHandler {
             &source,
             Some(&body),
             fetched.as_ref(),
+            &gates,
             &contexts,
         )
         .await
@@ -1146,6 +1238,133 @@ mod tests {
                 raw_response: serde_json::Value::Null,
             })
         }
+    }
+
+    struct HeadlineRejectLaya;
+
+    #[async_trait]
+    impl DecisionModel for HeadlineRejectLaya {
+        async fn evaluate(&self, request: &DecisionRequest) -> Result<DecisionResponse> {
+            ensure!(request.questions.len() == 1 && request.questions.contains_key("relevance"));
+            ensure!(request.state.contains("Google headline:"));
+            ensure!(!request.state.contains("Publisher opening"));
+            Ok(DecisionResponse {
+                answers: BTreeMap::from([(
+                    "relevance".into(),
+                    ChoiceAnswer {
+                        choice: "irrelevant".into(),
+                        probabilities: BTreeMap::from([
+                            ("irrelevant".into(), 0.8),
+                            ("relevant".into(), 0.2),
+                        ]),
+                    },
+                )]),
+                provenance: json!({"model":"smoke-laya","revision":"fixture-r1",
+                    "adapter":"test","device":"cpu",
+                    "coverage":{"relevance":{"truncated":false}}}),
+                raw_response: serde_json::Value::Null,
+            })
+        }
+    }
+
+    #[tokio::test]
+    #[ignore = "requires isolated TEST_DATABASE_URL with migration 286"]
+    async fn negative_headline_commits_gate_without_fetch_or_source_classification() -> Result<()> {
+        const SPORT: &str = "ZZ_HARVESTER_HEADLINE";
+        const ARTICLE: i64 = 9_690_210;
+        const TEAM: i32 = 9_690_211;
+        let pool = PgPool::connect(&std::env::var("TEST_DATABASE_URL").unwrap()).await?;
+        sqlx::query("DELETE FROM public.pipeline_work WHERE stage='harvester' AND entity_id=$1")
+            .bind(ARTICLE)
+            .execute(&pool)
+            .await?;
+        sqlx::query("DELETE FROM public.news_articles WHERE id=$1")
+            .bind(ARTICLE)
+            .execute(&pool)
+            .await?;
+        sqlx::query(
+            "INSERT INTO public.sports(id,display_name,current_season) \
+             VALUES($1,'Headline gate smoke',2026) ON CONFLICT DO NOTHING",
+        )
+        .bind(SPORT)
+        .execute(&pool)
+        .await?;
+        sqlx::query(
+            "INSERT INTO public.teams(id,sport,name) \
+             VALUES($1,$2,'Headline Gate Test Club') ON CONFLICT DO NOTHING",
+        )
+        .bind(TEAM)
+        .bind(SPORT)
+        .execute(&pool)
+        .await?;
+        sqlx::query("INSERT INTO public.news_articles(id,url_hash,url,source,title,description,feed_rank) \
+             VALUES($1,'headline-gate-smoke-9690210','https://invalid.example.test/no-fetch', \
+                    'Example Wire','Unrelated city council budget meeting','Thin Google description',1)")
+            .bind(ARTICLE).execute(&pool).await?;
+        sqlx::query(
+            "INSERT INTO public.harvester_query_provenance \
+             (article_id,entity_type,entity_id,sport,feed_rank) VALUES($1,'team',$2,$3,1)",
+        )
+        .bind(ARTICLE)
+        .bind(TEAM)
+        .bind(SPORT)
+        .execute(&pool)
+        .await?;
+        work::enqueue(
+            &pool,
+            &Item {
+                stage: super::super::manifest::TASK,
+                entity_type: "article".into(),
+                entity_id: ARTICLE,
+                sport: SPORT.into(),
+                input_version: Some("harvest-context-v5:headline-smoke".into()),
+                attempts: 0,
+                claim_token: None,
+            },
+        )
+        .await?;
+        let claimed = work::claim(&pool, super::super::manifest::TASK, 1)
+            .await?
+            .remove(0);
+        ensure!(claimed.entity_id == ARTICLE, "test claimed another article");
+        let handler = HarvesterHandler::new(
+            pool.clone(),
+            Arc::new(HeadlineRejectLaya),
+            Arc::new(WebBroker::new(0)?),
+        );
+        assert_eq!(handler.execute(&claimed).await?, PluginOutcome::Committed);
+        let (choice, state, probability): (String, String, f64) = sqlx::query_as(
+            "SELECT choice,request->>'state',(answer->'probabilities'->>'relevant')::float8 \
+             FROM public.harvester_headline_gates WHERE article_id=$1 AND contract_version=$2",
+        )
+        .bind(ARTICLE)
+        .bind(context::HEADLINE_CONTRACT)
+        .fetch_one(&pool)
+        .await?;
+        assert_eq!(choice, "irrelevant");
+        assert!(state.contains("Google headline: Unrelated city council budget meeting"));
+        assert!(!state.contains("Thin Google description"));
+        assert_eq!(probability, 0.2);
+        let acquisition: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM public.harvester_acquisitions WHERE article_id=$1",
+        )
+        .bind(ARTICLE)
+        .fetch_one(&pool)
+        .await?;
+        let classifications: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM public.harvester_classifications WHERE article_id=$1",
+        )
+        .bind(ARTICLE)
+        .fetch_one(&pool)
+        .await?;
+        let work_left: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM public.pipeline_work WHERE stage='harvester' AND entity_id=$1",
+        )
+        .bind(ARTICLE)
+        .fetch_one(&pool)
+        .await?;
+        assert_eq!((acquisition, classifications, work_left), (0, 0, 0));
+        Ok(())
     }
 
     #[tokio::test]

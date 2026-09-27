@@ -83,8 +83,9 @@ impl Harvester {
         &manifest::MANIFEST
     }
 
-    /// Run the two cheap passes over retained publisher text.
+    /// Offline compatibility path over an already retained publisher body.
     pub async fn classify(&self, article: &Article) -> Result<Classification> {
+        anyhow::ensure!(!article.body.trim().is_empty(), "missing publisher body");
         let (excerpt, relevance_request) = cognition::prepare_relevance(article)?;
         let relevance_response = self.model.evaluate(&relevance_request).await?;
         let character_stage =
@@ -110,7 +111,7 @@ impl Harvester {
     }
 
     /// Compile against the same publisher evidence and prompts used for classification.
-    /// Rejected candidates also require publisher evidence for audit.
+    /// This historical JSON shape retains publisher evidence for offline audit.
     pub fn compile(&self, article: &Article, mut result: Classification) -> Result<Value> {
         anyhow::ensure!(
             result.source_binding == source_binding(article)?,

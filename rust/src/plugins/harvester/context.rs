@@ -3,14 +3,99 @@
 //! This is not an editorial packet. No generated story, interpretation, or
 //! character-owned decision is represented here.
 use super::cognition::{self, Article, Excerpt, Hypothesis, CHARACTER_PLUGINS};
-use crate::studio::decision::{ChoiceAnswer, DecisionModel};
+use crate::studio::decision::{ChoiceAnswer, DecisionModel, DecisionRequest, DecisionResponse};
+use crate::util::hash_components;
 use anyhow::{ensure, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
-pub const CONTRACT: &str = "harvest-context-v4";
+pub const CONTRACT: &str = "harvest-context-v5";
+pub const HEADLINE_CONTRACT: &str = "harvest-headline-v1";
+pub const HEADLINE_POLICY: &str = "headline-read-p025-v1";
+/// A cheap headline gate should discard only clear negatives. This is a
+/// versioned Harvester admission knob, not a calibrated model confidence.
+pub const HEADLINE_READ_THRESHOLD: f64 = 0.25;
+
+#[derive(Clone, Debug)]
+pub struct HeadlineGate {
+    pub article_id: i64,
+    pub headline: String,
+    pub hypothesis: Hypothesis,
+    pub request: DecisionRequest,
+    pub response: DecisionResponse,
+    pub input_hash: String,
+    pub model_revision: String,
+}
+
+impl HeadlineGate {
+    pub fn relevance_probability(&self) -> f64 {
+        self.response.answers["relevance"].probabilities["relevant"]
+    }
+
+    pub fn admits_reading(&self) -> bool {
+        self.relevance_probability() >= HEADLINE_READ_THRESHOLD
+    }
+
+    pub fn verify_against(&self, article: &Article) -> Result<()> {
+        ensure!(
+            self.article_id == article.article_id,
+            "headline gate article changed"
+        );
+        ensure!(
+            self.headline == article.title,
+            "headline gate title changed"
+        );
+        ensure!(
+            serde_json::to_value(&self.hypothesis)? == serde_json::to_value(&article.hypothesis)?,
+            "headline gate entity changed"
+        );
+        let (_, expected) = cognition::prepare_relevance(article)?;
+        ensure!(
+            serde_json::to_value(&self.request)? == serde_json::to_value(&expected)?,
+            "headline gate request changed"
+        );
+        ensure!(
+            self.input_hash == hash_components(&serde_json::to_string(&self.request)?),
+            "headline gate input hash changed"
+        );
+        cognition::passed_relevance(&self.request, &self.response)?;
+        ensure!(
+            self.response.provenance["revision"].as_str() == Some(self.model_revision.as_str()),
+            "headline gate model revision changed"
+        );
+        Ok(())
+    }
+}
+
+pub async fn classify_headline(
+    model: &dyn DecisionModel,
+    article: &Article,
+) -> Result<HeadlineGate> {
+    let (_, request) = cognition::prepare_relevance(article)?;
+    let response = model.evaluate(&request).await?;
+    cognition::passed_relevance(&request, &response)?;
+    let model_revision = response.provenance["revision"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+    ensure!(
+        !model_revision.is_empty(),
+        "Laya checkpoint revision is missing"
+    );
+    let gate = HeadlineGate {
+        article_id: article.article_id,
+        headline: article.title.clone(),
+        hypothesis: article.hypothesis.clone(),
+        input_hash: hash_components(&serde_json::to_string(&request)?),
+        request,
+        response,
+        model_revision,
+    };
+    gate.verify_against(article)?;
+    Ok(gate)
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct HarvestContext {
@@ -32,6 +117,7 @@ pub struct HarvestContext {
     pub recommended_characters: Vec<String>,
     pub model_provenance: Value,
     pub model_revision: String,
+    pub headline_gate_input_hash: String,
 }
 
 impl HarvestContext {
@@ -51,6 +137,12 @@ impl HarvestContext {
             "query entity changed"
         );
         ensure!(self.feed_rank == article.feed_rank, "Google rank changed");
+        let (_, headline_request) = cognition::prepare_relevance(article)?;
+        ensure!(
+            self.headline_gate_input_hash
+                == hash_components(&serde_json::to_string(&headline_request)?),
+            "headline gate input changed"
+        );
         ensure!(
             self.body_sha256 == hex::encode(Sha256::digest(article.body.as_bytes())),
             "publisher body changed"
@@ -112,32 +204,44 @@ impl HarvestContext {
 }
 
 pub async fn classify(model: &dyn DecisionModel, article: &Article) -> Result<HarvestContext> {
-    let (prepared, relevance_request) = cognition::prepare_relevance(article)?;
-    let relevance_response = model.evaluate(&relevance_request).await?;
-    let relevant = cognition::passed_relevance(&relevance_request, &relevance_response)?;
+    let gate = classify_headline(model, article).await?;
+    classify_after_headline(model, article, &gate).await
+}
+
+pub async fn classify_after_headline(
+    model: &dyn DecisionModel,
+    article: &Article,
+    gate: &HeadlineGate,
+) -> Result<HarvestContext> {
+    gate.verify_against(article)?;
+    let prepared = cognition::prepare_text(&article.body);
+    let relevant = gate.admits_reading();
+    if relevant {
+        ensure!(
+            !article.body.trim().is_empty(),
+            "missing publisher body after headline gate"
+        );
+    }
     let character_response = if relevant {
         let character_request = cognition::prepare_character_routing(article, &prepared);
         let response = model.evaluate(&character_request).await?;
         cognition::validate(&character_request, &response)?;
         ensure!(
-            relevance_response.provenance["model"] == response.provenance["model"]
-                && relevance_response.provenance["revision"] == response.provenance["revision"],
+            gate.response.provenance["model"] == response.provenance["model"]
+                && gate.response.provenance["revision"] == response.provenance["revision"],
             "Laya checkpoint changed within one article"
         );
         Some(response)
     } else {
         None
     };
-    let model_revision = relevance_response.provenance["revision"]
-        .as_str()
-        .unwrap_or_default()
-        .to_string();
+    let model_revision = gate.model_revision.clone();
     ensure!(
         !model_revision.trim().is_empty(),
         "Laya checkpoint revision is missing"
     );
     ensure!(
-        relevance_response.provenance["model"]
+        gate.response.provenance["model"]
             .as_str()
             .is_some_and(|model| !model.trim().is_empty()),
         "Laya model identity is missing"
@@ -164,11 +268,16 @@ pub async fn classify(model: &dyn DecisionModel, article: &Article) -> Result<Ha
         body_sha256: hex::encode(Sha256::digest(article.body.as_bytes())),
         model_input: prepared.model_input,
         context: cognition::first_paragraphs(&article.body, 3),
-        entity_choice: relevance_response.answers["relevance"].choice.clone(),
+        entity_choice: if relevant { "relevant" } else { "irrelevant" }.into(),
         character_distributions,
         recommended_characters,
         model_provenance: json!({
-            "relevance": relevance_response.provenance,
+            "relevance": gate.response.provenance,
+            "headline_gate_input_hash": gate.input_hash,
+            "headline_model_choice": gate.response.answers["relevance"].choice,
+            "headline_relevance_probability": gate.relevance_probability(),
+            "headline_policy": HEADLINE_POLICY,
+            "headline_read_threshold": HEADLINE_READ_THRESHOLD,
             "character_routing": character_response.map(|response| response.provenance),
             "question_set_versions": {
                 "relevance": cognition::RELEVANCE_QUESTIONS,
@@ -176,6 +285,7 @@ pub async fn classify(model: &dyn DecisionModel, article: &Article) -> Result<Ha
             }
         }),
         model_revision,
+        headline_gate_input_hash: gate.input_hash.clone(),
     };
     result.verify_against(article)?;
     Ok(result)
@@ -298,6 +408,33 @@ mod tests {
         );
         assert_eq!(result.recommended_characters.len(), CHARACTER_PLUGINS.len());
         result.verify_against(&article).unwrap();
+    }
+
+    #[tokio::test]
+    async fn plugin_admits_plausible_headline_below_layas_winning_choice() {
+        let article = article();
+        let model = Stub {
+            reject_entity: false,
+            malformed: false,
+            calls: AtomicUsize::new(0),
+        };
+        let mut gate = classify_headline(&model, &article).await.unwrap();
+        let answer = gate.response.answers.get_mut("relevance").unwrap();
+        answer.choice = "irrelevant".into();
+        answer.probabilities.insert("irrelevant".into(), 0.7);
+        answer.probabilities.insert("relevant".into(), 0.3);
+        gate.verify_against(&article).unwrap();
+        assert!(gate.admits_reading());
+        let result = classify_after_headline(&model, &article, &gate)
+            .await
+            .unwrap();
+        assert_eq!(result.entity_choice, "relevant");
+        assert_eq!(
+            result.model_provenance["headline_model_choice"],
+            "irrelevant"
+        );
+        assert_eq!(result.model_provenance["headline_read_threshold"], 0.25);
+        assert_eq!(model.calls.load(Ordering::SeqCst), 2);
     }
 
     #[tokio::test]

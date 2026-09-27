@@ -9,10 +9,10 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
-pub const CONTRACT: &str = "harvest-v5";
-pub const RELEVANCE_QUESTIONS: &str = "harvest-relevance-v5";
+pub const CONTRACT: &str = "harvest-v6";
+pub const RELEVANCE_QUESTIONS: &str = "harvest-headline-relevance-v1";
 pub const CHARACTER_QUESTIONS: &str = "harvest-theme-routing-v5";
-pub const POLICY: &str = "google-laya-theme-cascade-v3";
+pub const POLICY: &str = "google-headline-laya-theme-cascade-v1";
 
 /// Question key, stable plugin identity, and the perspective Laya should match.
 pub const CHARACTER_PLUGINS: &[(&str, &str, &str)] = &[
@@ -185,7 +185,17 @@ fn question(instructions: &str, irrelevant: &str, relevant: &str) -> ChoiceQuest
     }
 }
 
-fn state(article: &Article, prepared: &PreparedText) -> String {
+fn headline_state(article: &Article) -> String {
+    format!(
+        "Target sports entity: {} ({}, {})\nGoogle headline: {}",
+        article.hypothesis.name,
+        article.hypothesis.entity_type,
+        article.hypothesis.sport,
+        article.title
+    )
+}
+
+fn reading_state(article: &Article, prepared: &PreparedText) -> String {
     format!(
         "Target entity: {} ({}, {})\nPublisher: {}\nHeadline: {}\nPublisher opening:\n{}",
         article.hypothesis.name,
@@ -197,30 +207,29 @@ fn state(article: &Article, prepared: &PreparedText) -> String {
     )
 }
 
-/// Step one: one deliberately simple entity-relevance question.
+/// Step one: Google headline and the target sports entity, before publisher fetch.
 pub fn prepare_relevance(article: &Article) -> Result<(PreparedText, DecisionRequest)> {
     ensure!(
         !article.hypothesis.name.trim().is_empty(),
         "missing target entity"
     );
     ensure!(!article.title.trim().is_empty(), "missing article headline");
-    ensure!(!article.body.trim().is_empty(), "missing publisher body");
     let prepared = prepare_text(&article.body);
     let questions = BTreeMap::from([(
         "relevance".into(),
         question(
             &format!(
-                "Is this article substantively about or directly consequential to {} ({})? A passing mention or a different entity with the same name is irrelevant.",
+                "Does this Google headline indicate news substantively about or directly consequential to the sports entity {} ({})? Treat a different entity with the same name as irrelevant. Decide from the headline only; uncertain but plausible target coverage is relevant for reading.",
                 article.hypothesis.name, article.hypothesis.sport
             ),
-            "The source is not substantively about or directly consequential to this exact target entity",
-            "The source is substantively about or directly consequential to this exact target entity",
+            "The headline does not indicate substantive coverage of this exact sports entity",
+            "The headline indicates substantive or plausibly substantive coverage of this exact sports entity",
         ),
     )]);
     Ok((
         prepared.clone(),
         DecisionRequest {
-            state: state(article, &prepared),
+            state: headline_state(article),
             questions,
         },
     ))
@@ -246,7 +255,7 @@ pub fn prepare_character_routing(article: &Article, prepared: &PreparedText) -> 
         })
         .collect();
     DecisionRequest {
-        state: state(article, prepared),
+        state: reading_state(article, prepared),
         questions,
     }
 }
@@ -572,7 +581,8 @@ mod tests {
         let (prepared, request) = prepare_relevance(&a).unwrap();
         assert!(!prepared.model_input.text.contains("UNRELATED_THIN"));
         assert!(!request.state.contains("UNRELATED_THIN"));
-        assert!(request.state.contains("First paragraph"));
+        assert!(request.state.contains("Google headline: A title"));
+        assert!(!request.state.contains("First paragraph"));
     }
 
     #[test]

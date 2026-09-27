@@ -74,7 +74,10 @@ WITH ingest AS (
                      FOR c.context_end-c.context_start)=convert_to(c.context_text,'UTF8')
      ORDER BY c.article_id,c.sport,c.id DESC
 )
-SELECT e.article_id,e.sport FROM eligible e CROSS JOIN shadow_ready g
+SELECT e.article_id,e.sport,h.attempts AS acquisition_attempts_before
+  FROM eligible e
+  JOIN public.harvester_acquisitions h ON h.article_id=e.article_id
+ CROSS JOIN shadow_ready g
  WHERE g.ready AND NOT EXISTS (
      SELECT 1 FROM public.pipeline_work w
       WHERE w.stage='harvester' AND w.entity_type='article'
@@ -98,6 +101,16 @@ ON CONFLICT (stage,entity_type,entity_id,sport) DO UPDATE SET
     input_version=EXCLUDED.input_version,running_input_version=NULL,claim_token=NULL
 WHERE pipeline_work.input_version IS DISTINCT FROM EXCLUDED.input_version
    OR pipeline_work.status='failed';
+
+-- Successful queue claims are deleted, so retain the selected cohort and its
+-- pre-replay acquisition attempt count in the same enqueue transaction.
+INSERT INTO public.harvester_live_canary_items
+    (run_id,article_id,sport,enqueued_at,acquisition_attempts_before)
+SELECT :'run_id'::bigint,article_id,sport,NOW(),acquisition_attempts_before
+  FROM harvester_canary_articles
+ON CONFLICT (run_id,article_id,sport) DO UPDATE SET
+    enqueued_at=EXCLUDED.enqueued_at,
+    acquisition_attempts_before=EXCLUDED.acquisition_attempts_before;
 
 SELECT count(*) AS enqueued_live_canary_articles FROM harvester_canary_articles;
 COMMIT;

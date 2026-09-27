@@ -47,7 +47,9 @@ batch. The running worker remains in shadow mode; the nightly shadow is isolated
 
 After the nightly queue has no pending, running, or scheduled-retry Harvester
 work, restart the CI-passed worker with shadow mode off and the delivery list
-explicitly empty. `rust/examples/harvester_enqueue_live_canary.sql` then
+explicitly empty. Apply additive migration 285 before the canary; it records
+the selected article/sport cohort because successful `pipeline_work` claims
+are deleted. `rust/examples/harvester_enqueue_live_canary.sql` then
 reopens at most five previously classified articles from a named ingest run.
 Its gate selects nothing unless the named cohort has no actionable Harvester
 work, no missing acquisition state or unexplained edge, no Laya error, and
@@ -61,6 +63,11 @@ The read-only `rust/examples/harvester_live_canary_check.sql` gives aggregate
 completion, exact-byte, held/unheld assignment, per-character disposition and
 product-receipt, identity, and Graph counts for the named run without returning
 article metadata or publisher text.
+The durable canary receipt and report passed a disposable PostgreSQL check:
+one selected article stayed visible after its queue row was deleted, counted
+as complete only after a new acquisition attempt, and showed the Graph receipt.
+Deleting the claim without an incremented acquisition attempt left an explicit
+missing-replay count.
 The canary gate passed a disposable PostgreSQL positive/negative fixture:
 one exact classified article plus one terminal blocked article enqueued exactly
 one canary; an active retry, missing acquisition receipt, Laya classification

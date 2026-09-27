@@ -1,11 +1,21 @@
 -- Read-only, aggregate-only audit for a named live Harvester canary run.
+-- Reads durable migration-285 cohort receipts because successful queue claims
+-- are deleted at commit. A deleted claim alone is not a completion receipt.
 -- psql "$DATABASE_PRIVATE_URL" -X -v ON_ERROR_STOP=1 -v run_id=333 \
 --   -f rust/examples/harvester_live_canary_check.sql
 WITH canary AS (
-    SELECT entity_id AS article_id,sport,status
-      FROM public.pipeline_work
-     WHERE stage='harvester' AND entity_type='article'
-       AND input_version LIKE ('harvest-context-v1:live-canary:run' || :'run_id' || ':%')
+    SELECT x.article_id,x.sport,x.enqueued_at,w.status AS work_status,
+           h.status AS acquisition_status,
+           h.attempts>x.acquisition_attempts_before
+             AND h.updated_at>=x.enqueued_at AS replayed
+      FROM public.harvester_live_canary_items x
+      LEFT JOIN public.pipeline_work w
+        ON w.stage='harvester' AND w.entity_type='article'
+       AND w.entity_id=x.article_id AND w.sport=x.sport
+       AND w.input_version=('harvest-context-v1:live-canary:run' || x.run_id
+                            || ':a' || x.article_id)
+      LEFT JOIN public.harvester_acquisitions h ON h.article_id=x.article_id
+     WHERE x.run_id=:'run_id'::bigint
 ), classified AS (
     SELECT DISTINCT ON (c.article_id,c.entity_type,c.entity_id,c.sport) c.*
       FROM public.harvester_classifications c
@@ -16,8 +26,13 @@ WITH canary AS (
       JOIN classified c ON c.id=d.classification_id
 )
 SELECT (SELECT count(*) FROM canary) AS canary_articles,
-       (SELECT count(*) FROM canary WHERE status='completed') AS completed_articles,
-       (SELECT count(*) FROM canary WHERE status='failed') AS failed_articles,
+       (SELECT count(*) FROM canary WHERE work_status IS NULL AND replayed
+          AND acquisition_status IN ('acquired','duplicate')) AS completed_articles,
+       (SELECT count(*) FROM canary WHERE work_status='failed') AS failed_articles,
+       (SELECT count(*) FROM canary WHERE work_status IN ('pending','running'))
+           AS active_articles,
+       (SELECT count(*) FROM canary WHERE work_status IS NULL AND NOT COALESCE(replayed,false))
+           AS missing_replay_receipts,
        (SELECT count(*) FROM classified) AS classified_edges,
        (SELECT count(*) FROM classified c JOIN public.news_articles a ON a.id=c.article_id
          WHERE a.full_text IS NOT NULL AND a.title=c.headline
@@ -38,12 +53,14 @@ SELECT (SELECT count(*) FROM canary) AS canary_articles,
          JOIN canary x ON x.article_id=n.article_id AND x.sport=n.sport) AS unresolved_names,
        (SELECT count(*) FROM public.pipeline_work g
          JOIN canary x ON x.article_id=g.entity_id AND x.sport=g.sport
-         WHERE g.stage='graph' AND g.entity_type='article') AS graph_work_rows;
+         WHERE g.stage='graph' AND g.entity_type='article') AS graph_work_rows,
+       (SELECT count(*) FROM public.graph_extractions g
+         JOIN canary x ON x.article_id=g.article_id AND x.sport=g.sport
+        WHERE g.extracted_at>=x.enqueued_at) AS graph_receipts;
 
 WITH canary AS (
-    SELECT entity_id AS article_id,sport FROM public.pipeline_work
-     WHERE stage='harvester' AND entity_type='article'
-       AND input_version LIKE ('harvest-context-v1:live-canary:run' || :'run_id' || ':%')
+    SELECT article_id,sport FROM public.harvester_live_canary_items
+     WHERE run_id=:'run_id'::bigint
 ), classified AS (
     SELECT DISTINCT ON (c.article_id,c.entity_type,c.entity_id,c.sport) c.id
       FROM public.harvester_classifications c

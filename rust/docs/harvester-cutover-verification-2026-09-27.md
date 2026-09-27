@@ -14,6 +14,8 @@ Character releases were scoped to this canary batch. Two Journalist assignments 
 
 The Insider canary exposed two overly strict negative-verdict checks: stray stage/quote fields and a changed subject string. The plugin now discards those fields on a negative verdict. A positive verdict still requires the resolved subject and an exact publisher quote. The corrected worker was installed and the same canary source settled without those errors.
 
+The Insider queue item then completed its identity and scored-board follow-ups. The batch audit shows no unheld pending character assignment; the remaining pending assignments are explicitly held.
+
 Run the batch audit on the production host with:
 
 ```sh

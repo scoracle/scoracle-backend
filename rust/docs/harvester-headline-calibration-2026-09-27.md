@@ -64,8 +64,12 @@ state, not a negative relevance label.
 
 The balanced packet is deliberately enriched for boundary disagreements. Its
 raw label percentages must not be reported as production precision or recall.
-Use inclusion weights and an article/story-group split for policy comparison,
-then verify the chosen plugin rule on fresh, untouched nightly results. The
+`harvest_headline_score.py` computes approximate inclusion-weighted recall,
+precision, and publisher-read volume for candidate policies from each completed
+label sheet. Score the development sheet while choosing the Harvester rule;
+open the holdout sheet only after the rule is frozen. The current split is
+article-disjoint but not verified story-disjoint. Verify the chosen plugin rule
+on fresh, untouched nightly results as well. The
 existing 84-case annotation queue and 120-article seed use provisional Codex
 labels; neither is human gold. No numeric read threshold or question wording
 should be promoted to live delivery as calibrated until that review exists.

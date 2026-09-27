@@ -25,8 +25,9 @@
 #   scripts/hosting/restore-drill.sh /mnt/data/backup/scoracle/scoracle-<date>.dump
 #
 # Env overrides: DB_HOST DB_PORT DB_USER DB_NAME (source/comparison DB) PGPASSWORD
-#   RESTORE_SOURCE_MODE=harvester checks Harvester storage/functions after cutover;
-#                         editor remains the default while legacy intake is live.
+#   RESTORE_SOURCE_MODE=harvester migrates the throwaway restore to current schema,
+#                         then checks Harvester storage/functions. This supports a
+#                         pre-cutover backup; editor remains the default.
 #   SKIP_STMT_CHECK=1  skip the prepared-statement boot check (e.g. when the dump
 #                      predates the current binary's schema and you only want the
 #                      structural/row checks).
@@ -85,6 +86,13 @@ if ! pg_restore -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$RESTORE_DB" \
         --exit-on-error --no-owner --no-privileges "$DUMP"; then
     echo "FAIL: pg_restore reported errors — restore is not trustworthy" >&2
     exit 1
+fi
+
+if [ "$RESTORE_SOURCE_MODE" = "harvester" ]; then
+    BEFORE_MAX=$(rq "SELECT max(version) FROM public.schema_migrations")
+    echo "-> restored snapshot ledger latest = $BEFORE_MAX; migrating throwaway database"
+    "$SCRIPT_DIR/../../sql/migrate.sh" \
+        "host=$DB_HOST port=$DB_PORT user=$DB_USER dbname=$RESTORE_DB"
 fi
 
 echo

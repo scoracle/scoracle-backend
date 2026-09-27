@@ -90,6 +90,34 @@ SELECT d.plugin_id, count(*) AS assignments,
   FROM public.harvester_assignments d JOIN classification c ON c.id=d.classification_id
  GROUP BY d.plugin_id ORDER BY d.plugin_id;
 
+-- Once live character delivery starts, compare each advisory Laya route with
+-- the character's actual source use. This is agreement/triage evidence, not
+-- precision or recall against independently adjudicated labels.
+WITH ingest AS (
+    SELECT started_at,finished_at FROM public.pipeline_runs
+     WHERE job='pipeline' AND finished_at IS NOT NULL ORDER BY started_at DESC LIMIT 1
+), cohort AS (
+    SELECT p.article_id,p.entity_type,p.entity_id,p.sport
+      FROM public.harvester_query_provenance p CROSS JOIN ingest i
+     WHERE p.last_seen_at BETWEEN i.started_at AND i.finished_at
+)
+SELECT d.plugin_id,count(*) AS assignments,
+       count(*) FILTER (WHERE c.distributions->d.plugin_id->>'choice'='relevant')
+           AS laya_recommended,
+       count(*) FILTER (WHERE d.status='used') AS character_used,
+       count(*) FILTER (WHERE c.distributions->d.plugin_id->>'choice'='relevant'
+                         AND d.status='used') AS recommended_and_used,
+       count(*) FILTER (WHERE c.distributions->d.plugin_id->>'choice'='irrelevant'
+                         AND d.status='used') AS not_recommended_but_used,
+       count(*) FILTER (WHERE d.status IN ('abstained','irrelevant','relevant_but_unused'))
+           AS other_terminal,
+       count(*) FILTER (WHERE d.status='pending') AS pending
+  FROM public.harvester_assignments d
+  JOIN public.harvester_classifications c ON c.id=d.classification_id
+  JOIN cohort q ON q.article_id=c.article_id AND q.entity_type=c.entity_type
+   AND q.entity_id=c.entity_id AND q.sport=c.sport
+ GROUP BY d.plugin_id ORDER BY d.plugin_id;
+
 -- Laya recommendations are advisory. Without adjudicated human labels, these
 -- counts and downstream dispositions measure behavior, not precision or recall.
 WITH ingest AS (

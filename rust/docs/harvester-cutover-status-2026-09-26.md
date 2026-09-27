@@ -13,6 +13,10 @@ Harvester claims finish. Reported Laya recommendations are behavior metrics,
 not effectiveness against gold labels. The AI provisional annotations need
 human adjudication before precision or recall can be calculated. A high share
 of women's-team news is not presently an exclusion error.
+Once character batches are released, the same aggregate nightly report will
+cross-tab each Laya recommendation against actual character `used` receipts,
+including sources used despite Laya not recommending them. Those are useful
+disagreement samples and downstream acceptance signals, not gold accuracy.
 
 The next live build has a per-character gate, `HARVESTER_DELIVERY_CHARACTERS`.
 When `HARVESTER_SHADOW_MODE=0`, set it to an empty string to record all four

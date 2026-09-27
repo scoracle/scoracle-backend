@@ -48,6 +48,42 @@ have been reviewed. Earlier lines in this document that say production was at
 migration 266 or lacked Harvester flags are preserved as the September 26
 baseline, not the current host state.
 
+## Nightly cohort and deployed dependency audit — September 27, 02:18 EDT
+
+The 02:00 production ingest (run 333) completed successfully in 193.1 seconds:
+206/206 searches succeeded, yielding 4,929 canonical article candidates and
+7,564 article/query-entity edges. Harvester is still draining in shadow mode;
+Editor remains the live publisher. The deployed worker now permits four
+overlapping Harvester claims, so publisher fetches can overlap while the
+on-host Laya service serializes inference. This worker change passed its
+focused Rust tests. PR #15 CI passed after the worker change; the later
+read-only report change has a new CI run in progress.
+
+The read-only nightly report now distinguishes pending claims, scheduled
+retries, and dead letters. It withholds `corpus_end_to_end_seconds` until no
+actionable Harvester work remains. It also verifies every classification's
+retained body hash, headline, exact context bytes, and exact Laya-input bytes
+against `news_articles.full_text` without exporting publisher text. At 02:16,
+all 160 completed edges passed all four checks. This proves storage fidelity
+for completed work, not semantic accuracy or whole-corpus completion. The
+provisional AI labels remain unadjudicated; no precision or recall claim is
+justified from Laya's own outputs.
+
+The live production catalog has one noninternal trigger on legacy packet
+tables, `enqueue_voices_on_packet`. No public views referencing
+`editor_reads`, `storylines`, or `packets` appeared in the catalog query.
+Functions whose deployed definitions mention those tables are
+`collapse_exact_title_duplicates`, `enqueue_voices_on_packet`,
+`promote_established_parts`, `seal_storylines`,
+`settled_transfer_identity_evidence`, and
+`storyline_part_established_gate`. The active crontab still runs
+`cron-narrative-links.sh` at 02:45, `cron-rust-statcommentary.sh` at 03:00,
+`cron-vibesynth.sh` at 05:00, and `cron-watchdog.sh` at 08:30/20:30.
+`HARVESTER_INGEST_ENABLED=1` and `HARVESTER_SHADOW_MODE=1` are active;
+the opt-in Harvester source modes for Scout reports, player selection,
+Sigil selection, watchdog, and narrative-link maintenance are not set.
+Those switches and the legacy API/SQL consumers remain explicit cutover work.
+
 ## Implemented locally
 
 - Go ingestion has an opt-in `HARVESTER_INGEST_ENABLED=1` path. It records every article/query-entity edge, bypasses the Editor ten-read cap, and enqueues Harvester instead of Editor for new edges.

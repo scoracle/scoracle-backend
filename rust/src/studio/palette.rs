@@ -59,10 +59,20 @@ impl Palette {
     }
 
     pub fn schema(&self) -> serde_json::Value {
+        // A single items schema applies to every positional slot. Bound it to
+        // the choices shared by all slots so constrained decoding cannot emit
+        // an index that one of the prepared facts cannot render.
+        let highest_common_choice = self
+            .paints
+            .iter()
+            .map(|paint| paint.phrasings.len())
+            .min()
+            .unwrap_or(1)
+            .saturating_sub(1);
         serde_json::json!({
             "type": "object",
             "properties": {"choices": {"type": "array", "minItems": self.paints.len(), "maxItems": self.paints.len(),
-                "items": {"type": "integer", "minimum": 0}}},
+                "items": {"type": "integer", "minimum": 0, "maximum": highest_common_choice}}},
             "required": ["choices"], "additionalProperties": false
         })
     }
@@ -128,6 +138,37 @@ mod tests {
             .is_err());
         assert!(PaletteParser(&palette)
             .parse(r#"{"choices":[0,0],"made_up":"42 goals"}"#)
+            .is_err());
+    }
+
+    #[test]
+    fn schema_bounds_every_choice_to_a_renderable_phrasing() {
+        let palette = Palette {
+            paints: vec![
+                Paint {
+                    id: "a".into(),
+                    phrasings: vec!["First.".into(), "Second.".into(), "Third.".into()],
+                },
+                Paint {
+                    id: "b".into(),
+                    phrasings: vec!["One.".into(), "Two.".into()],
+                },
+            ],
+        };
+        palette.validate().unwrap();
+        assert_eq!(
+            palette.schema()["properties"]["choices"]["items"]["maximum"],
+            1
+        );
+        assert!(palette
+            .render(&Composition {
+                choices: vec![2, 1]
+            })
+            .is_ok());
+        assert!(palette
+            .render(&Composition {
+                choices: vec![1, 2]
+            })
             .is_err());
     }
 }

@@ -1,0 +1,19 @@
+[Unit]
+Description=Local Laya classification service for Harvester
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+WorkingDirectory=__SCORACLE_REPO_ROOT__
+EnvironmentFile=-__SCORACLE_REPO_ROOT__/.env.local
+ExecStart=__SCORACLE_REPO_ROOT__/scripts/hosting/run-harvester-laya.sh
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=scoracle-laya
+
+[Install]
+WantedBy=default.target

@@ -49,6 +49,7 @@ echo "==> rendering systemd units into $USER_SYSTEMD_DIR"
 mkdir -p "$USER_SYSTEMD_DIR"
 for unit in scoracle-api.service scoracle-api-restart.service scoracle-api.path \
             scoracle-cognition.service scoracle-cognition-restart.service scoracle-cognition.path \
+            scoracle-laya.service \
             cloudflared.service; do
     render_unit "$REPO_ROOT/scripts/systemd/$unit" "$USER_SYSTEMD_DIR/$unit"
 done

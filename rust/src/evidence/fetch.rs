@@ -9,7 +9,6 @@ use sha2::{Digest, Sha256};
 use sqlx::Row;
 use std::process::Command;
 use std::time::Duration;
-use tracing::warn;
 
 const ARTICLE_FETCH_TIMEOUT: Duration = Duration::from_secs(20);
 /// The floor under which a fetched body is not worth a model call — and the threshold that
@@ -55,14 +54,9 @@ pub async fn fetch_article(raw_url: &str) -> Result<FetchedArticle> {
         .build()
         .context("build article fetch client")?;
 
-    let fetch_url = match resolve_google_news_article_url(&client, raw_url).await {
-        Ok(Some(resolved)) => resolved,
-        Ok(None) => raw_url.to_string(),
-        Err(e) => {
-            warn!(url = raw_url, error = %format!("{e:#}"), "google news url resolution failed");
-            raw_url.to_string()
-        }
-    };
+    let fetch_url = resolve_google_news_article_url(&client, raw_url)
+        .await?
+        .unwrap_or_else(|| raw_url.to_string());
 
     let resp = client
         .get(&fetch_url)
@@ -131,24 +125,30 @@ async fn resolve_google_news_article_url(
         return Ok(None);
     };
 
-    let html = client
+    let response = client
         .get(raw_url)
         .send()
         .await
-        .context("fetch google news wrapper")?
-        .text()
-        .await
-        .context("read google news wrapper")?;
+        .context("fetch google news wrapper")?;
+    let status = response.status();
+    if !status.is_success() {
+        return Err(ArticleHttpStatus {
+            status,
+            final_url: response.url().to_string(),
+        }
+        .into());
+    }
+    let html = response.text().await.context("read google news wrapper")?;
     let resolved_id = html_attr(&html, "data-n-a-id").unwrap_or(article_id);
     let Some(timestamp) = html_attr(&html, "data-n-a-ts").and_then(|v| v.parse::<i64>().ok())
     else {
-        return Ok(None);
+        return Err(anyhow!("Google News wrapper lacks resolver timestamp"));
     };
     let Some(signature) = html_attr(&html, "data-n-a-sg") else {
-        return Ok(None);
+        return Err(anyhow!("Google News wrapper lacks resolver signature"));
     };
     let payload = google_news_resolve_payload(&resolved_id, timestamp, &signature);
-    let body = client
+    let response = client
         .post(GOOGLE_NEWS_BATCH_URL)
         .header(
             reqwest::header::CONTENT_TYPE,
@@ -157,11 +157,19 @@ async fn resolve_google_news_article_url(
         .form(&[("f.req", payload)])
         .send()
         .await
-        .context("post google news resolver")?
-        .text()
-        .await
-        .context("read google news resolver")?;
-    Ok(parse_google_news_resolver_response(&body))
+        .context("post google news resolver")?;
+    let status = response.status();
+    if !status.is_success() {
+        return Err(ArticleHttpStatus {
+            status,
+            final_url: response.url().to_string(),
+        }
+        .into());
+    }
+    let body = response.text().await.context("read google news resolver")?;
+    parse_google_news_resolver_response(&body)
+        .map(Some)
+        .ok_or_else(|| anyhow!("Google News resolver returned no publisher URL"))
 }
 
 fn google_news_article_id(raw_url: &str) -> Option<String> {

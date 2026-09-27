@@ -22,7 +22,9 @@
 #   packet_compile   — newest packets.compiled_at within 36h (Editor mode)
 #   harvester_coverage — per sport: swept query teams with a classification (Harvester mode)
 #   harvester_classification — newest classification within 36h (Harvester mode)
-#   dead_letters     — pipeline_work failed at the attempt cap (>25 = ALARM)
+#   dead_letters     — non-Harvester work failed at the attempt cap (>25 = ALARM)
+#   harvester_acquisition_errors — count-only retrieval failures in the latest sweep
+#   harvester_classification_errors — failed Laya calls in the latest sweep
 #   drain_alive      — claimable work exists but NOTHING produced in 30 min
 #                      (a dead/wedged daemon; depth alone is recovery, not failure)
 #   queue_depth      — claimable count sanity bound (>20k = runaway inflow)
@@ -70,6 +72,11 @@ RESULT="$(psql "$DATABASE_URL" -X -q -A -t -F'|' -v source_mode="$SOURCE_MODE" <
 WITH ingest AS (
   SELECT max(fetched_at) AS newest FROM news_articles
 ),
+latest_pipeline_ingest AS (
+  SELECT started_at,finished_at FROM public.pipeline_runs
+   WHERE job='pipeline' AND finished_at IS NOT NULL
+   ORDER BY started_at DESC LIMIT 1
+),
 reads AS (
   -- editor_reads is the one-rail Editor's ledger; news_article_readings was the
   -- legacy rail's (dropped in mig 224). Checking the dead table made this alarm
@@ -95,12 +102,12 @@ harvester_reads AS (
       SELECT q.sport, q.entity_id AS team,
              count(c.id) AS read_n
         FROM public.harvester_query_provenance q
-        JOIN public.news_articles a ON a.id=q.article_id
+        JOIN latest_pipeline_ingest r
+          ON q.last_seen_at BETWEEN r.started_at AND r.finished_at
         LEFT JOIN public.harvester_classifications c
           ON c.article_id=q.article_id AND c.entity_type=q.entity_type
          AND c.entity_id=q.entity_id AND c.sport=q.sport
        WHERE q.entity_type='team'
-         AND a.fetched_at BETWEEN now() - interval '36 hours' AND now() - interval '12 hours'
        GROUP BY q.sport, q.entity_id
     ) per_team
    GROUP BY sport
@@ -117,7 +124,18 @@ harvest AS (
 ),
 dead AS (
   SELECT count(*) AS n FROM pipeline_work
-   WHERE status = 'failed' AND attempts >= 5
+   WHERE stage <> 'harvester' AND status = 'failed' AND attempts >= 5
+),
+harvest_errors AS (
+  SELECT count(*) FILTER (WHERE h.status IN ('retryable_error','blocked','low_content')) AS acquisition,
+         count(*) FILTER (WHERE h.status='classification_error') AS classification
+    FROM public.harvester_acquisitions h
+   WHERE EXISTS (
+     SELECT 1 FROM public.harvester_query_provenance q
+     JOIN latest_pipeline_ingest r
+       ON q.last_seen_at BETWEEN r.started_at AND r.finished_at
+     WHERE q.article_id=h.article_id
+   )
 ),
 recent AS (
   SELECT count(*) AS produced FROM cognition_ledger
@@ -188,8 +206,17 @@ SELECT 'harvester_classification',
 UNION ALL
 SELECT 'dead_letters',
        CASE WHEN n <= 25 THEN 'OK' ELSE 'ALARM' END,
-       n || ' at attempt cap'
+       n || ' non-Harvester rows at attempt cap'
   FROM dead
+UNION ALL
+SELECT 'harvester_acquisition_errors', 'INFO',
+       acquisition || ' publisher acquisition failures in latest sweep'
+  FROM harvest_errors WHERE :'source_mode'='harvester'
+UNION ALL
+SELECT 'harvester_classification_errors',
+       CASE WHEN classification = 0 THEN 'OK' ELSE 'ALARM' END,
+       classification || ' Laya errors in latest sweep'
+  FROM harvest_errors WHERE :'source_mode'='harvester'
 UNION ALL
 -- A deep queue draining at speed is recovery, not failure (the 08-15 backlog
 -- morning): stall means claimable work exists AND nothing was produced in 30

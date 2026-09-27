@@ -508,7 +508,8 @@ mod tests {
         };
         let backend = crate::runtime::providers::ollama::OllamaClient::with_think(
             &std::env::var("OLLAMA_BASE_URL").unwrap_or_else(|_| "http://127.0.0.1:11434".into()),
-            &std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "granite4.2:3b".into()),
+            &std::env::var("OLLAMA_MODEL")
+                .unwrap_or_else(|_| crate::runtime::config::DEFAULT_OLLAMA_MODEL.into()),
             Duration::from_secs(600),
             Some(false),
         )?;
@@ -543,7 +544,8 @@ mod tests {
         };
         let backend = crate::runtime::providers::ollama::OllamaClient::with_think(
             &std::env::var("OLLAMA_BASE_URL").unwrap_or_else(|_| "http://127.0.0.1:11434".into()),
-            &std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "granite4.2:3b".into()),
+            &std::env::var("OLLAMA_MODEL")
+                .unwrap_or_else(|_| crate::runtime::config::DEFAULT_OLLAMA_MODEL.into()),
             Duration::from_secs(600),
             Some(false),
         )?;
@@ -569,7 +571,8 @@ mod tests {
     async fn local_real_model_separates_availability_from_transfer_rumor() -> Result<()> {
         let backend = crate::runtime::providers::ollama::OllamaClient::with_think(
             &std::env::var("OLLAMA_BASE_URL").unwrap_or_else(|_| "http://127.0.0.1:11434".into()),
-            &std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "granite4.2:3b".into()),
+            &std::env::var("OLLAMA_MODEL")
+                .unwrap_or_else(|_| crate::runtime::config::DEFAULT_OLLAMA_MODEL.into()),
             Duration::from_secs(600),
             Some(false),
         )?;
@@ -629,7 +632,8 @@ mod tests {
             .collect::<Result<Vec<_>>>()?;
         let backend = crate::runtime::providers::ollama::OllamaClient::with_think(
             &std::env::var("OLLAMA_BASE_URL").unwrap_or_else(|_| "http://127.0.0.1:11434".into()),
-            &std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "granite4.2:3b".into()),
+            &std::env::var("OLLAMA_MODEL")
+                .unwrap_or_else(|_| crate::runtime::config::DEFAULT_OLLAMA_MODEL.into()),
             Duration::from_secs(600),
             Some(false),
         )?;

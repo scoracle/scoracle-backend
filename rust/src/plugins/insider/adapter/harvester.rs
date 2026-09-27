@@ -28,7 +28,7 @@ struct SourceVerdictParser<'a> {
 
 impl Parser<SourceVerdict> for SourceVerdictParser<'_> {
     fn parse(&self, raw: &str) -> Result<Option<SourceVerdict>> {
-        let verdict: SourceVerdict = serde_json::from_str(raw)?;
+        let mut verdict: SourceVerdict = serde_json::from_str(raw)?;
         ensure!(
             verdict
                 .subject
@@ -52,10 +52,10 @@ impl Parser<SourceVerdict> for SourceVerdictParser<'_> {
                 "transfer evidence quote is not an exact bounded publisher span"
             );
         } else {
-            ensure!(
-                verdict.stage.is_empty() && verdict.evidence_quote.is_empty(),
-                "cleared transfer verdict must not claim a stage or supporting quote"
-            );
+            // A negative decision cannot carry a stage or supporting quote.
+            // Discard stray model strings; the plugin owns the allowed fields.
+            verdict.stage.clear();
+            verdict.evidence_quote.clear();
         }
         Ok(Some(verdict))
     }
@@ -829,6 +829,20 @@ mod tests {
         assert_eq!(output.outcome, Outcome::Cleared);
         assert_eq!(output.row.as_ref().unwrap().is_rumor, Some(false));
         assert!(output.row.as_ref().unwrap().summary.is_none());
+    }
+
+    #[tokio::test]
+    async fn negative_with_stray_stage_and_quote_still_clears_without_a_claim() {
+        let (source, candidate, assignment) = pair_fixture();
+        let raw = r#"{"is_rumor":false,"subject":"Morgan Example","stage":"advanced_talks","evidence_quote":"a made-up quote"}"#;
+        let output = create_source_pair(&FakeVerdict(raw), assignment, &source, &candidate)
+            .await
+            .unwrap();
+        assert_eq!(output.outcome, Outcome::Cleared);
+        let row = output.row.as_ref().unwrap();
+        assert_eq!(row.is_rumor, Some(false));
+        assert!(row.stage.is_none());
+        assert!(row.summary.is_none());
     }
 
     #[tokio::test]

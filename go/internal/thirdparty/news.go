@@ -327,6 +327,7 @@ func (s *NewsService) persistArticles(
 	seenFresh := make(map[int64]bool)
 	seenHarvester := make(map[int64]bool)
 	harvesterMode := harvesterIngestEnabled()
+	shadowMode := harvesterMode && os.Getenv("HARVESTER_SHADOW_MODE") == "1"
 
 	for _, a := range articles {
 		if a.URL == "" || a.Title == "" {
@@ -417,6 +418,10 @@ func (s *NewsService) persistArticles(
 				seenHarvester[articleID] = true
 				needHarvester = append(needHarvester, articleID)
 			}
+			if shadowMode && inserted && !seenFresh[articleID] {
+				seenFresh[articleID] = true
+				needEditor = append(needEditor, articleID)
+			}
 		} else if inserted && !seenFresh[articleID] {
 			seenFresh[articleID] = true
 			needEditor = append(needEditor, articleID)
@@ -435,7 +440,7 @@ func (s *NewsService) persistArticles(
 	// before the query_sport provenance existed don't match the pair and are excluded —
 	// one deploy-day allowance reset, self-correcting on the next sweep.
 	withheld := 0
-	if capN := editorReadsPerEntityDay(); !harvesterMode && capN > 0 && isTeamEntity(primaryEntityType) {
+	if capN := editorReadsPerEntityDay(); (!harvesterMode || shadowMode) && capN > 0 && isTeamEntity(primaryEntityType) {
 		var already int
 		if err := tx.QueryRow(ctx, `
 			SELECT count(*)
@@ -473,10 +478,21 @@ func (s *NewsService) persistArticles(
 				return nil, 0, err
 			}
 		}
+		// In shadow, legacy Editor remains the live publisher while Harvester
+		// classifies every query edge. The Editor cap applies only to its own work.
+		if shadowMode {
+			for _, id := range needEditor {
+				if err := work.Enqueue(ctx, tx, work.Item{
+					Stage: work.StageEditor, EntityType: "article", EntityID: int(id), Sport: sportUpper,
+				}); err != nil {
+					return nil, 0, err
+				}
+			}
+		}
 		if err := tx.Commit(ctx); err != nil {
 			return nil, 0, err
 		}
-		return needHarvester, 0, nil
+		return needHarvester, withheld, nil
 	}
 
 	// The greenfield Editor reads EVERY new article once (PLAN-one-rail 3.5) — same tx, so

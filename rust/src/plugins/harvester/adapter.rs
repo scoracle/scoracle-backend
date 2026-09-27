@@ -416,31 +416,36 @@ async fn publish(
         None,
     )
     .await?;
-    let opening = contexts
-        .first()
-        .context("acquired article has no Harvester classification")?
-        .context
-        .text
-        .as_str();
-    record_identity_candidates(
-        tx,
-        item.entity_id,
-        &item.sport,
-        &source.title,
-        body,
-        opening,
-    )
-    .await?;
-    record_resolved_links(tx, item.entity_id, &item.sport, opening).await?;
-    record_unresolved_names(
-        tx,
-        item.entity_id,
-        &item.sport,
-        &source.title,
-        body,
-        opening,
-    )
-    .await?;
+    let shadow_mode = std::env::var("HARVESTER_SHADOW_MODE").as_deref() == Ok("1");
+    // Shadow owns only acquisition and Laya evidence. Editor still owns the
+    // live identity and character effects until the production corpus clears.
+    if !shadow_mode {
+        let opening = contexts
+            .first()
+            .context("acquired article has no Harvester classification")?
+            .context
+            .text
+            .as_str();
+        record_identity_candidates(
+            tx,
+            item.entity_id,
+            &item.sport,
+            &source.title,
+            body,
+            opening,
+        )
+        .await?;
+        record_resolved_links(tx, item.entity_id, &item.sport, opening).await?;
+        record_unresolved_names(
+            tx,
+            item.entity_id,
+            &item.sport,
+            &source.title,
+            body,
+            opening,
+        )
+        .await?;
+    }
     for context in contexts {
         let query = article_for_context(source, context, body);
         context.verify_against(&query)?;
@@ -473,6 +478,9 @@ async fn publish(
         .bind(&context.model_provenance)
         .fetch_one(&mut **tx).await.context("store exact Harvester context")?;
         let classification_id: i64 = row.get("id");
+        if shadow_mode {
+            continue;
+        }
         sqlx::query(
             "UPDATE public.harvester_assignments d \
              SET status='redundant', reason='superseded by newer source context', updated_at=NOW() \
@@ -594,6 +602,10 @@ async fn publish(
     }
     // Graph receives exact name-surface candidates as well as historical
     // resolved links, then makes its own evidence decision.
+    if shadow_mode {
+        publication.commit_final().await?;
+        return Ok(PluginOutcome::Committed);
+    }
     let has_identity_candidates: bool = sqlx::query_scalar(
         "SELECT EXISTS (SELECT 1 FROM public.news_article_entities WHERE article_id=$1 AND sport=$2) \
          OR EXISTS (SELECT 1 FROM public.harvester_entity_mentions WHERE article_id=$1 AND sport=$2)",

@@ -75,6 +75,13 @@ the binary atomically and let the path unit restart into shadow, verify its
 health, then set `HARVESTER_SHADOW_MODE=0` and restart once more before
 enqueueing the canary. This order avoids a live restart on the older all-on
 binary.
+
+The Go ingest is a fresh `go/bin/pipeline` process launched by
+`cron-pipeline.sh`, which sources `.env.local` each run. After the live flag
+flip, the next ingest sees `HARVESTER_SHADOW_MODE=0` and stops enqueuing new
+Editor claims without an API service restart; verify that queue behavior on
+the next scheduled sweep. Cognition does require a restart to load the flag.
+
 If a released character fails its live smoke, remove it from the delivery
 list and restart cognition, then run
 `rust/examples/harvester_hold_character.sql` for that plugin to re-hold its

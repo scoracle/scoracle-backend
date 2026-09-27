@@ -3,6 +3,12 @@
 -- are deleted at commit. A deleted claim alone is not a completion receipt.
 -- psql "$DATABASE_PRIVATE_URL" -X -v ON_ERROR_STOP=1 -v run_id=333 \
 --   -f rust/examples/harvester_live_canary_check.sql
+-- Pass -v canary_after='2026-09-27 11:48:10-04' to inspect only a later
+-- bounded batch when the same ingest run has earlier canary receipts.
+\if :{?canary_after}
+\else
+\set canary_after 1970-01-01T00:00:00Z
+\endif
 WITH canary AS (
     SELECT x.article_id,x.sport,x.enqueued_at,w.status AS work_status,
            h.status AS acquisition_status,
@@ -16,6 +22,7 @@ WITH canary AS (
                             || ':a' || x.article_id)
       LEFT JOIN public.harvester_acquisitions h ON h.article_id=x.article_id
      WHERE x.run_id=:'run_id'::bigint
+       AND x.enqueued_at>=:'canary_after'::timestamptz
 ), classified AS (
     SELECT DISTINCT ON (c.article_id,c.entity_type,c.entity_id,c.sport) c.*
       FROM public.harvester_classifications c
@@ -72,6 +79,7 @@ SELECT (SELECT count(*) FROM canary) AS canary_articles,
 WITH canary AS (
     SELECT article_id,sport FROM public.harvester_live_canary_items
      WHERE run_id=:'run_id'::bigint
+       AND enqueued_at>=:'canary_after'::timestamptz
 ), classified AS (
     SELECT DISTINCT ON (c.article_id,c.entity_type,c.entity_id,c.sport) c.id
       FROM public.harvester_classifications c

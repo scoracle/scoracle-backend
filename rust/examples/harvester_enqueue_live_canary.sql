@@ -22,15 +22,15 @@ WITH ingest AS (
       FROM public.harvester_headline_gates g JOIN cohort q
         ON q.article_id=g.article_id AND q.entity_type=g.entity_type
        AND q.entity_id=g.entity_id AND q.sport=g.sport
-     WHERE g.contract_version='harvest-headline-v2'
-       AND g.policy_version='headline-read-p025-v1'
+     WHERE g.contract_version='harvest-headline-v3'
+       AND g.policy_version='explicit-headline-read-p025-v2'
      ORDER BY g.article_id,g.entity_type,g.entity_id,g.sport,g.created_at DESC
 ), classified AS (
     SELECT DISTINCT ON (c.article_id,c.entity_type,c.entity_id,c.sport) c.*
       FROM public.harvester_classifications c JOIN cohort q
         ON q.article_id=c.article_id AND q.entity_type=c.entity_type
        AND q.entity_id=c.entity_id AND q.sport=c.sport
-     WHERE c.contract_version='harvest-context-v5'
+     WHERE c.contract_version='harvest-context-v7'
      ORDER BY c.article_id,c.entity_type,c.entity_id,c.sport,c.created_at DESC,c.id DESC
 ), shadow_ready AS (
     SELECT EXISTS (SELECT 1 FROM ingest) AND EXISTS (SELECT 1 FROM articles)
@@ -105,7 +105,7 @@ SELECT e.article_id,e.sport,h.attempts AS acquisition_attempts_before
 INSERT INTO public.pipeline_work
     (stage,entity_type,entity_id,sport,status,input_version,available_at,updated_at)
 SELECT 'harvester','article',article_id,sport,'pending',
-       'harvest-context-v5:live-canary:run' || :'run_id' || ':a' || article_id::text,
+       'harvest-context-v7:live-canary:run' || :'run_id' || ':a' || article_id::text,
        NOW(),NOW()
   FROM harvester_canary_articles
 ON CONFLICT (stage,entity_type,entity_id,sport) DO UPDATE SET

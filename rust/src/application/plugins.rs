@@ -23,13 +23,6 @@ use sqlx::PgPool;
 use std::collections::HashSet;
 use std::sync::Arc;
 
-/// Bind the standalone Harvester to an explicitly selected classification endpoint.
-/// It is callable by replay/tools without enabling queue work or changing the Editor.
-pub fn build_harvester(endpoint: String) -> Result<crate::plugins::harvester::Harvester> {
-    let model = crate::runtime::providers::system_one::SystemOneClient::new(endpoint)?;
-    Ok(crate::plugins::harvester::Harvester::new(Arc::new(model)))
-}
-
 /// First-party registration order. This is composition policy, not a durable
 /// queue invariant; claim-time database gates remain authoritative across workers.
 const VOICE_ORDER: [work::TaskKey; 6] = [

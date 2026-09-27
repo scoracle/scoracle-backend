@@ -1,5 +1,11 @@
 # Harvester cutover implementation status — September 26, 2026
 
+Historical experiment record. Its retired training, comparison, packet-archive and
+alternative-adapter tools were removed during the September 27 cleanup. Commands
+below document that experiment; they are not current operating instructions. See
+[the cleanup handoff](harvester-cleanup-2026-09-27.md) for retained tools and owners.
+
+
 This is a working checkpoint, not a production cutover declaration. The goal is to retire Editor, storylines, packets, and the stories API while feeding verified publisher text directly to character plugins. Laya's five answers are stored as advisory signals. AI provisional annotations are for later human review and calibration, not an admission gate.
 
 ## Nightly measurement and staged delivery — September 27, 02:33 EDT

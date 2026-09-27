@@ -15,15 +15,15 @@ WITH ingest AS (
       FROM public.harvester_headline_gates g JOIN cohort q
         ON q.article_id=g.article_id AND q.entity_type=g.entity_type
        AND q.entity_id=g.entity_id AND q.sport=g.sport
-     WHERE g.contract_version='harvest-headline-v2'
-       AND g.policy_version='headline-read-p025-v1'
+     WHERE g.contract_version='harvest-headline-v3'
+       AND g.policy_version='explicit-headline-read-p025-v2'
      ORDER BY g.article_id,g.entity_type,g.entity_id,g.sport,g.created_at DESC
 ), classified AS (
     SELECT c.article_id,c.entity_type,c.entity_id,c.sport
       FROM public.harvester_classifications c JOIN cohort q
         ON q.article_id=c.article_id AND q.entity_type=c.entity_type
        AND q.entity_id=c.entity_id AND q.sport=c.sport
-     WHERE c.contract_version='harvest-context-v5'
+     WHERE c.contract_version='harvest-context-v7'
 )
 SELECT 'canonical_articles' AS measure, count(*)::bigint AS total FROM articles
 UNION ALL
@@ -71,7 +71,7 @@ SELECT d.plugin_id, d.status, count(*) AS total
   JOIN cohort q
     ON q.article_id=c.article_id AND q.entity_type=c.entity_type
    AND q.entity_id=c.entity_id AND q.sport=c.sport
- WHERE c.contract_version='harvest-context-v5'
+ WHERE c.contract_version='harvest-context-v7'
  GROUP BY d.plugin_id, d.status
  ORDER BY d.plugin_id, d.status;
 
@@ -93,7 +93,7 @@ WITH ingest AS (
     SELECT c.id FROM public.harvester_classifications c JOIN cohort q
       ON q.article_id=c.article_id AND q.entity_type=c.entity_type
      AND q.entity_id=c.entity_id AND q.sport=c.sport
-     WHERE c.contract_version='harvest-context-v5'
+     WHERE c.contract_version='harvest-context-v7'
 )
 SELECT 'insider_identity_review' AS obligation, r.status, count(*) AS total
   FROM public.harvester_insider_identity_reviews r

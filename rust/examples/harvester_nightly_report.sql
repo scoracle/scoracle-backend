@@ -21,15 +21,15 @@ WITH ingest AS (
       FROM public.harvester_headline_gates g
       JOIN cohort q ON q.article_id=g.article_id AND q.entity_type=g.entity_type
        AND q.entity_id=g.entity_id AND q.sport=g.sport
-     WHERE g.contract_version='harvest-headline-v2'
-       AND g.policy_version='headline-read-p025-v1'
+     WHERE g.contract_version='harvest-headline-v3'
+       AND g.policy_version='explicit-headline-read-p025-v2'
      ORDER BY g.article_id,g.entity_type,g.entity_id,g.sport,g.created_at DESC
 ), classification AS (
     SELECT DISTINCT ON (c.article_id,c.entity_type,c.entity_id,c.sport) c.*
       FROM public.harvester_classifications c
       JOIN cohort q ON q.article_id=c.article_id AND q.entity_type=c.entity_type
        AND q.entity_id=c.entity_id AND q.sport=c.sport
-     WHERE c.contract_version='harvest-context-v5'
+     WHERE c.contract_version='harvest-context-v7'
      ORDER BY c.article_id,c.entity_type,c.entity_id,c.sport,c.created_at DESC,c.id DESC
 ), acquisition AS (
     SELECT a.article_id,a.status,a.updated_at
@@ -42,7 +42,7 @@ WITH ingest AS (
       FROM public.pipeline_work w
       JOIN article a ON a.article_id=w.entity_id
      WHERE w.stage='harvester' AND w.entity_type='article'
-       AND w.input_version LIKE 'harvest-context-v5:%'
+       AND w.input_version LIKE 'harvest-context-v7:%'
 ), edge_state AS (
     SELECT q.article_id,q.entity_type,q.entity_id,q.sport,
            EXISTS (SELECT 1 FROM headline_gate g
@@ -61,7 +61,7 @@ WITH ingest AS (
                          AND w.status='failed' AND w.attempts>=5) AS terminal_error
       FROM cohort q
 )
-SELECT 'harvest-context-v5' AS readiness_contract,
+SELECT 'harvest-context-v7' AS readiness_contract,
        i.id AS ingest_run_id, i.started_at AS ingest_started_at,
        i.finished_at AS ingest_finished_at, i.status AS ingest_status,
        round(extract(epoch FROM i.finished_at-i.started_at)::numeric,1) AS ingest_seconds,
@@ -82,10 +82,10 @@ SELECT 'harvest-context-v5' AS readiness_contract,
        (SELECT count(*) FROM headline_gate WHERE admitted) AS headline_admitted_edges,
        (SELECT count(*) FROM headline_gate WHERE NOT admitted) AS headline_rejected_edges,
        (SELECT count(*) FROM headline_gate WHERE choice='irrelevant' AND admitted)
-           AS plugin_admitted_laya_negative_edges,
+           AS admitted_below_half_score_edges,
        (SELECT count(*) FROM classification) AS classified_edges,
-       (SELECT count(*) FROM classification WHERE entity_choice='relevant') AS laya_entity_relevant,
-       (SELECT count(*) FROM classification WHERE entity_choice='irrelevant') AS laya_entity_irrelevant,
+       (SELECT count(*) FROM classification WHERE entity_choice='relevant') AS plugin_admitted,
+       (SELECT count(*) FROM classification WHERE entity_choice='irrelevant') AS plugin_rejected,
        (SELECT count(*) FROM edge_state WHERE NOT classified AND NOT headline_rejected)
            AS unclassified_edges,
        (SELECT count(*) FROM edge_state WHERE NOT classified AND NOT headline_rejected
@@ -122,7 +122,7 @@ SELECT 'harvest-context-v5' AS readiness_contract,
                     (SELECT max(updated_at) FROM work WHERE status='failed'))
            - i.started_at))::numeric,1) END AS corpus_end_to_end_seconds,
        (SELECT round(sum((model_provenance->'relevance'->>'inference_ms')::numeric
-                         +COALESCE((model_provenance->'character_routing'->>'inference_ms')::numeric,0)),1)
+                         +COALESCE((SELECT sum((p->'provenance'->>'inference_ms')::numeric) FROM jsonb_array_elements(model_provenance->'theme_passes') p),0)),1)
           FROM classification) AS laya_inference_ms_total
   FROM ingest i;
 
@@ -156,7 +156,7 @@ WITH ingest AS (
       FROM public.harvester_classifications c
       JOIN cohort q ON q.article_id=c.article_id AND q.entity_type=c.entity_type
        AND q.entity_id=c.entity_id AND q.sport=c.sport
-     WHERE c.contract_version='harvest-context-v5'
+     WHERE c.contract_version='harvest-context-v7'
      ORDER BY c.article_id,c.entity_type,c.entity_id,c.sport,c.created_at DESC,c.id DESC
 )
 SELECT d.plugin_id, count(*) AS assignments,
@@ -171,7 +171,7 @@ SELECT d.plugin_id, count(*) AS assignments,
   FROM public.harvester_assignments d JOIN classification c ON c.id=d.classification_id
  GROUP BY d.plugin_id ORDER BY d.plugin_id;
 
--- Once live character delivery starts, compare each selected Laya route with
+-- Once live character delivery starts, compare each plugin-selected route with
 -- the character's actual source use. This is assignment/triage evidence, not
 -- precision or recall against independently adjudicated labels.
 WITH ingest AS (
@@ -186,16 +186,16 @@ WITH ingest AS (
       FROM public.harvester_classifications c
       JOIN cohort q ON q.article_id=c.article_id AND q.entity_type=c.entity_type
        AND q.entity_id=c.entity_id AND q.sport=c.sport
-     WHERE c.contract_version='harvest-context-v5'
+     WHERE c.contract_version='harvest-context-v7'
      ORDER BY c.article_id,c.entity_type,c.entity_id,c.sport,c.created_at DESC,c.id DESC
 )
 SELECT d.plugin_id,count(*) AS assignments,
-       count(*) FILTER (WHERE c.distributions->d.plugin_id->>'choice'='relevant')
-           AS laya_recommended,
+       count(*) FILTER (WHERE (c.model_provenance->'selected_characters') ? d.plugin_id)
+           AS plugin_recommended,
        count(*) FILTER (WHERE d.status='used') AS character_used,
-       count(*) FILTER (WHERE c.distributions->d.plugin_id->>'choice'='relevant'
+       count(*) FILTER (WHERE (c.model_provenance->'selected_characters') ? d.plugin_id
                          AND d.status='used') AS recommended_and_used,
-       count(*) FILTER (WHERE c.distributions->d.plugin_id->>'choice'='irrelevant'
+       count(*) FILTER (WHERE NOT ((c.model_provenance->'selected_characters') ? d.plugin_id)
                          AND d.status='used') AS not_recommended_but_used,
        count(*) FILTER (WHERE d.status IN ('abstained','irrelevant','relevant_but_unused'))
            AS other_terminal,
@@ -204,7 +204,7 @@ SELECT d.plugin_id,count(*) AS assignments,
   JOIN classification c ON c.id=d.classification_id
  GROUP BY d.plugin_id ORDER BY d.plugin_id;
 
--- Laya theme choices select destinations in v4. Without adjudicated human labels, these
+-- Plugin policy selects destinations from windowed native predicate scores in v7. Without adjudicated human labels, these
 -- counts and downstream dispositions measure behavior, not precision or recall.
 WITH ingest AS (
     SELECT started_at,finished_at FROM public.pipeline_runs
@@ -219,28 +219,22 @@ WITH ingest AS (
       FROM public.harvester_classifications c
       JOIN cohort q ON q.article_id=c.article_id AND q.entity_type=c.entity_type
        AND q.entity_id=c.entity_id AND q.sport=c.sport
-     WHERE c.contract_version='harvest-context-v5'
+     WHERE c.contract_version='harvest-context-v7'
      ORDER BY c.article_id,c.entity_type,c.entity_id,c.sport,c.created_at DESC,c.id DESC
 )
 SELECT count(*) AS classified_edges,
        count(*) FILTER (WHERE entity_choice='relevant') AS relevant_edges,
-       count(*) FILTER (WHERE (
-           SELECT count(*) FROM jsonb_each(distributions) x
-            WHERE x.value->>'choice'='relevant')=4) AS all_four_recommended,
-       count(*) FILTER (WHERE entity_choice='relevant' AND (
-           SELECT count(*) FROM jsonb_each(distributions) x
-            WHERE x.value->>'choice'='relevant')=4) AS relevant_all_four_recommended,
-       round(avg((SELECT count(*) FROM jsonb_each(distributions) x
-                   WHERE x.value->>'choice'='relevant'))::numeric,2) AS mean_recommended_fanout,
-       round((avg((SELECT count(*) FROM jsonb_each(distributions) x
-                   WHERE x.value->>'choice'='relevant'))
+       count(*) FILTER (WHERE jsonb_array_length(model_provenance->'selected_characters')=4) AS all_four_recommended,
+       count(*) FILTER (WHERE entity_choice='relevant' AND jsonb_array_length(model_provenance->'selected_characters')=4) AS relevant_all_four_recommended,
+       round(avg(jsonb_array_length(model_provenance->'selected_characters'))::numeric,2) AS mean_recommended_fanout,
+       round((avg(jsonb_array_length(model_provenance->'selected_characters'))
              FILTER (WHERE entity_choice='relevant'))::numeric,2)
            AS mean_recommended_fanout_relevant,
        round(avg((model_provenance->'relevance'->>'inference_ms')::numeric
-                +COALESCE((model_provenance->'character_routing'->>'inference_ms')::numeric,0)),1) AS mean_laya_ms,
+                +COALESCE((SELECT sum((p->'provenance'->>'inference_ms')::numeric) FROM jsonb_array_elements(model_provenance->'theme_passes') p),0)),1) AS mean_laya_ms,
        round(percentile_cont(0.95) WITHIN GROUP (ORDER BY
            (model_provenance->'relevance'->>'inference_ms')::numeric
-           +COALESCE((model_provenance->'character_routing'->>'inference_ms')::numeric,0))::numeric,1) AS p95_laya_ms
+           +COALESCE((SELECT sum((p->'provenance'->>'inference_ms')::numeric) FROM jsonb_array_elements(model_provenance->'theme_passes') p),0))::numeric,1) AS p95_laya_ms
   FROM classified;
 
 WITH ingest AS (
@@ -255,12 +249,11 @@ WITH ingest AS (
       FROM public.harvester_classifications c
       JOIN cohort q ON q.article_id=c.article_id AND q.entity_type=c.entity_type
        AND q.entity_id=c.entity_id AND q.sport=c.sport
-     WHERE c.contract_version='harvest-context-v5'
+     WHERE c.contract_version='harvest-context-v7'
      ORDER BY c.article_id,c.entity_type,c.entity_id,c.sport,c.created_at DESC,c.id DESC
 )
-SELECT route.key AS plugin_id, count(*) AS classified_edges,
-       count(*) FILTER (WHERE route.value->>'choice'='relevant') AS laya_recommended,
-       count(*) FILTER (WHERE route.value->>'choice'='irrelevant') AS laya_not_recommended
+SELECT route.key AS predicate, count(*) AS classified_edges,
+       round(avg(route.value::text::numeric),4) AS mean_score
   FROM classification c
  CROSS JOIN LATERAL jsonb_each(c.distributions) route
  GROUP BY route.key ORDER BY route.key;
@@ -278,7 +271,7 @@ WITH ingest AS (
     SELECT c.* FROM public.harvester_classifications c JOIN cohort q
       ON q.article_id=c.article_id AND q.entity_type=c.entity_type
      AND q.entity_id=c.entity_id AND q.sport=c.sport
-     WHERE c.contract_version='harvest-context-v5'
+     WHERE c.contract_version='harvest-context-v7'
 )
 SELECT count(*) AS classified_edges,
        count(*) FILTER (WHERE a.full_text IS NOT NULL AND
@@ -333,7 +326,7 @@ WITH ingest AS (
       FROM public.harvester_classifications c JOIN cohort q
         ON q.article_id=c.article_id AND q.entity_type=c.entity_type
        AND q.entity_id=c.entity_id AND q.sport=c.sport
-     WHERE c.contract_version='harvest-context-v5'
+     WHERE c.contract_version='harvest-context-v7'
      ORDER BY c.article_id,c.entity_type,c.entity_id,c.sport,c.created_at DESC,c.id DESC
 )
 SELECT count(*) FILTER (WHERE c.created_at<i.started_at) AS retained_prior_classifications,

@@ -1,4 +1,6 @@
-"""Reduce a local cohort trace to source-text-free, deterministic audit metadata.
+"""Historical archive reader (retired packet cohort; not current Harvester evaluation).
+
+Reduce a local cohort trace to source-text-free, deterministic audit metadata.
 
 Usage: python3 examples/harvest_evidence_manifest.py TRACE.json OUTPUT.json
 The output is an evidence index, not a source archive or a labeled benchmark.

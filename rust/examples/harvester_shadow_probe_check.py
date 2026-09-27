@@ -51,18 +51,18 @@ WITH probe(article_id,sport,attempts_before,enqueued_at) AS (
 ), gates AS (
     SELECT g.* FROM public.harvester_headline_gates g JOIN probe p
       ON p.article_id=g.article_id AND p.sport=g.sport
-     WHERE g.contract_version='harvest-headline-v2'
+     WHERE g.contract_version='harvest-headline-v3'
        AND g.created_at>=p.enqueued_at
 ), contexts AS (
     SELECT c.* FROM public.harvester_classifications c JOIN probe p
       ON p.article_id=c.article_id AND p.sport=c.sport
-     WHERE c.contract_version='harvest-context-v5'
+     WHERE c.contract_version='harvest-context-v7'
        AND c.created_at>=p.enqueued_at
 ), work AS (
     SELECT w.* FROM public.pipeline_work w JOIN probe p
       ON p.article_id=w.entity_id AND p.sport=w.sport
      WHERE w.stage='harvester' AND w.entity_type='article'
-       AND w.input_version LIKE 'harvest-context-v5:shadow-probe:%'
+       AND w.input_version LIKE 'harvest-context-v7:shadow-probe:%'
 )
 SELECT json_build_object(
     'probe_articles',(SELECT count(*) FROM probe),

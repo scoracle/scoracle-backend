@@ -24,7 +24,9 @@ pub async fn load_for_character(
         "SELECT DISTINCT ON (c.article_id) c.id AS classification_id, c.article_id, \
          c.headline, a.title, COALESCE(a.source, '') AS source, \
          EXTRACT(EPOCH FROM a.published_at)::bigint AS published_at_epoch, \
-         a.full_text, c.body_sha256, c.context_start, c.context_end, c.context_text \
+         a.full_text, c.body_sha256, c.context_start, c.context_end, c.context_text, \
+         c.contract_version, c.model_provenance->'source_identity' AS source_identity, \
+         a.url, a.published_at::text AS published_at \
          FROM public.harvester_classifications c \
          JOIN public.harvester_assignments d ON d.classification_id=c.id \
          JOIN public.news_articles a ON a.id=c.article_id \
@@ -64,6 +66,23 @@ pub async fn load_for_character(
             body.get(start as usize..end as usize) == Some(context.as_str()),
             "Harvester context no longer matches publisher text"
         );
+        // Older pending receipts retain their historical contract. V6 additionally
+        // binds attribution and date through delivery, not only the body and title.
+        if matches!(
+            row.get::<String, _>("contract_version").as_str(),
+            "harvest-context-v6" | "harvest-context-v7"
+        ) {
+            let identity: Option<serde_json::Value> = row.get("source_identity");
+            ensure!(
+                identity
+                    == Some(serde_json::json!({
+                        "source": row.get::<String, _>("source"),
+                        "url": row.get::<String, _>("url"),
+                        "published_at": row.get::<Option<String>, _>("published_at"),
+                    })),
+                "Harvester source attribution or publication date drift"
+            );
+        }
         sources.push(SourceContext {
             classification_id: row.get("classification_id"),
             article_id: row.get("article_id"),
@@ -170,6 +189,44 @@ mod tests {
         .execute(&pool)
         .await
         .unwrap();
+        sqlx::query(
+            "UPDATE public.harvester_classifications c SET contract_version=$2, \
+             model_provenance=jsonb_build_object('source_identity',jsonb_build_object( \
+                 'source',a.source,'url',a.url,'published_at',a.published_at::text)) \
+             FROM public.news_articles a WHERE c.article_id=a.id AND c.id=$1",
+        )
+        .bind(classification_id)
+        .bind(super::super::context::CONTRACT)
+        .execute(&pool)
+        .await
+        .unwrap();
+        assert_eq!(
+            load_for_character(&pool, PLUGIN, "team", 1, SPORT)
+                .await
+                .unwrap()
+                .len(),
+            1
+        );
+        for mutation in [
+            "UPDATE public.news_articles SET source='Other publisher' WHERE id=$1",
+            "UPDATE public.news_articles SET source='Example Wire',published_at=NOW() WHERE id=$1",
+        ] {
+            sqlx::query(mutation)
+                .bind(ARTICLE)
+                .execute(&pool)
+                .await
+                .unwrap();
+            assert!(load_for_character(&pool, PLUGIN, "team", 1, SPORT)
+                .await
+                .unwrap_err()
+                .to_string()
+                .contains("attribution or publication date drift"));
+        }
+        sqlx::query("UPDATE public.news_articles SET published_at=NULL WHERE id=$1")
+            .bind(ARTICLE)
+            .execute(&pool)
+            .await
+            .unwrap();
         sqlx::query("UPDATE public.news_articles SET title='Changed headline' WHERE id=$1")
             .bind(ARTICLE)
             .execute(&pool)

@@ -1,5 +1,11 @@
 # Local context harvesting trial — September 24, 2026
 
+Historical experiment record. Its retired training, comparison, packet-archive and
+alternative-adapter tools were removed during the September 27 cleanup. Commands
+below document that experiment; they are not current operating instructions. See
+[the cleanup handoff](harvester-cleanup-2026-09-27.md) for retained tools and owners.
+
+
 Follow-up: [Laya domain training](harvester-laya-training.md) now provides a local
 fine-tuning, calibration, and evaluation path. The zero-shot results below remain the
 historical baseline, not a conclusion about domain-trained model quality.

@@ -113,15 +113,13 @@ async fn main() -> Result<()> {
             url: String::new(),
             published_at: None,
             feed_rank: row.get("feed_rank"),
-            description: String::new(),
             body: String::new(),
-            hypothesis: scoracle_cognition::plugins::harvester::cognition::Hypothesis {
+            hypothesis: scoracle_cognition::plugins::meta::EntityMeta {
                 name: row.get("entity_name"),
                 entity_type: row.get("entity_type"),
                 entity_id: row.get("entity_id"),
                 sport: row.get("sport"),
             },
-            baseline: Value::Null,
         };
         let start = Instant::now();
         match context::classify_headline(&model, &article).await {
@@ -140,7 +138,6 @@ async fn main() -> Result<()> {
                     "question_version": scoracle_cognition::plugins::harvester::cognition::RELEVANCE_QUESTIONS,
                     "input_hash": gate.input_hash,
                     "model_revision": gate.model_revision,
-                    "laya_choice": gate.response.answers["relevance"].choice,
                     "p_relevant": p,
                     "inference_ms": start.elapsed().as_millis(),
                 }));

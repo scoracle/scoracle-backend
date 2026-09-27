@@ -2,8 +2,8 @@
 //! cargo run --example context_harvest -- INPUT.jsonl OUTPUT.jsonl [ENDPOINT]
 //! With no endpoint, emit both prepared cascade requests without inference.
 use anyhow::{Context, Result};
-use scoracle_cognition::application::plugins::build_harvester;
-use scoracle_cognition::plugins::harvester::{cognition, Article};
+use scoracle_cognition::plugins::harvester::{cognition, context, Article};
+use scoracle_cognition::runtime::providers::system_one::SystemOneClient;
 use serde_json::json;
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
@@ -24,7 +24,7 @@ async fn main() -> Result<()> {
         .open(&args[2])?;
     let harvester = args
         .get(3)
-        .map(|url| build_harvester(url.clone()))
+        .map(|url| SystemOneClient::new(url.clone()))
         .transpose()?;
     let started = Instant::now();
     let mut counts = std::collections::BTreeMap::<String, usize>::new();
@@ -32,13 +32,18 @@ async fn main() -> Result<()> {
         let article: Article =
             serde_json::from_str(&line?).with_context(|| format!("input line {}", i + 1))?;
         let start = Instant::now();
-        let result = async {
+        let result: Result<serde_json::Value> = async {
             match &harvester {
-                Some(plugin) => plugin.harvest(&article).await,
+                Some(model) => {
+                    let context = context::classify(model, &article).await?;
+                    let disposition = if context.entity_choice == "relevant" { "accept" } else { "reject" };
+                    Ok(json!({"article_id": article.article_id, "disposition": disposition, "context": context}))
+                },
                 None => {
-                    let (prepared_text, relevance) = cognition::prepare_relevance(&article)?;
+                    let relevance = cognition::prepare_relevance(&article)?;
+                    let prepared_text = cognition::prepare_text(&article.body)?;
                     let character_routing =
-                        cognition::prepare_character_routing(&article, &prepared_text);
+                        prepared_text.model_inputs.iter().map(|input| cognition::prepare_character_routing(&article, input)).collect::<Vec<_>>();
                     Ok(
                         json!({"article_id":article.article_id,"prepared_text":prepared_text,
                         "requests":{"relevance":relevance,"character_routing":character_routing},

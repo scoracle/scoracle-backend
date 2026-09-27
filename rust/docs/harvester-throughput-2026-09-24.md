@@ -1,5 +1,11 @@
 # Harvester CPU, concurrency, and admission experiment
 
+Historical experiment record. Its retired training, comparison, packet-archive and
+alternative-adapter tools were removed during the September 27 cleanup. Commands
+below document that experiment; they are not current operating instructions. See
+[the cleanup handoff](harvester-cleanup-2026-09-27.md) for retained tools and owners.
+
+
 The intended path is sweep → probabilistic entity/content admission and scope flags →
 verbatim headline/opening extraction → character context. Characters make the final
 editorial relevance decision. Extraction itself needs no generative model. The current

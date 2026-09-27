@@ -37,7 +37,7 @@ WITH ingest AS (
        AND a.final_domain IS NOT NULL
        AND NOT EXISTS (
            SELECT 1 FROM public.harvester_headline_gates g
-            WHERE g.article_id=q.article_id AND g.contract_version='harvest-headline-v2'
+            WHERE g.article_id=q.article_id AND g.contract_version='harvest-headline-v3'
        )
        AND NOT EXISTS (
            SELECT 1 FROM public.pipeline_work w
@@ -73,7 +73,7 @@ SELECT article_id || ',' || sport || ',' || old_choice || ',' ||
 INSERT INTO public.pipeline_work
     (stage,entity_type,entity_id,sport,status,input_version,available_at,updated_at)
 SELECT 'harvester','article',article_id,sport,'pending',
-       'harvest-context-v5:shadow-probe:run' || :'run_id' || ':a' || article_id::text,
+       'harvest-context-v7:shadow-probe:run' || :'run_id' || ':a' || article_id::text,
        NOW(),NOW()
   FROM harvester_shadow_probe
 ON CONFLICT (stage,entity_type,entity_id,sport) DO UPDATE SET

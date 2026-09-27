@@ -1,38 +1,39 @@
-//! Typed classification without text generation. Applications own IO and dispatch.
+//! Typed predicate scoring without text generation. Plugins own policy.
 use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ChoiceQuestion {
-    #[serde(rename = "type")]
-    pub kind: String,
-    pub instructions: String,
-    pub criteria: BTreeMap<String, String>,
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "type")]
+pub enum PredicateQuestion {
+    #[serde(rename = "noul")]
+    Boolean {
+        instructions: String,
+        criteria: BTreeMap<String, String>,
+    },
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct DecisionRequest {
     pub state: String,
-    pub questions: BTreeMap<String, ChoiceQuestion>,
+    pub questions: BTreeMap<String, PredicateQuestion>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DecisionResponse {
-    pub answers: BTreeMap<String, ChoiceAnswer>,
-    /// Provider records actual checkpoint, runtime, device and input coverage here.
+    pub answers: BTreeMap<String, ProbabilityAnswer>,
+    /// Actual checkpoint, runtime, device and complete input coverage.
     pub provenance: Value,
-    /// Exact provider envelope retained by the transport for offline inspection.
     #[serde(default, skip_deserializing)]
     pub raw_response: Value,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ChoiceAnswer {
-    pub choice: String,
-    pub probabilities: BTreeMap<String, f64>,
+pub struct ProbabilityAnswer {
+    #[serde(rename = "noul")]
+    pub probability: f64,
 }
 
 #[async_trait]

@@ -18,7 +18,7 @@ WITH canary AS (
       LEFT JOIN public.pipeline_work w
         ON w.stage='harvester' AND w.entity_type='article'
        AND w.entity_id=x.article_id AND w.sport=x.sport
-       AND w.input_version=('harvest-context-v5:live-canary:run' || x.run_id
+       AND w.input_version=('harvest-context-v7:live-canary:run' || x.run_id
                             || ':a' || x.article_id)
       LEFT JOIN public.harvester_acquisitions h ON h.article_id=x.article_id
      WHERE x.run_id=:'run_id'::bigint
@@ -27,14 +27,14 @@ WITH canary AS (
     SELECT DISTINCT ON (c.article_id,c.entity_type,c.entity_id,c.sport) c.*
       FROM public.harvester_classifications c
       JOIN canary x ON x.article_id=c.article_id AND x.sport=c.sport
-     WHERE c.contract_version='harvest-context-v5'
+     WHERE c.contract_version='harvest-context-v7'
      ORDER BY c.article_id,c.entity_type,c.entity_id,c.sport,c.created_at DESC,c.id DESC
 ), headline_gates AS (
     SELECT DISTINCT ON (g.article_id,g.entity_type,g.entity_id,g.sport) g.*
       FROM public.harvester_headline_gates g
       JOIN canary x ON x.article_id=g.article_id AND x.sport=g.sport
-     WHERE g.contract_version='harvest-headline-v2'
-       AND g.policy_version='headline-read-p025-v1'
+     WHERE g.contract_version='harvest-headline-v3'
+       AND g.policy_version='explicit-headline-read-p025-v2'
      ORDER BY g.article_id,g.entity_type,g.entity_id,g.sport,g.created_at DESC
 ), assignments AS (
     SELECT d.* FROM public.harvester_assignments d
@@ -84,7 +84,7 @@ WITH canary AS (
     SELECT DISTINCT ON (c.article_id,c.entity_type,c.entity_id,c.sport) c.id
       FROM public.harvester_classifications c
       JOIN canary x ON x.article_id=c.article_id AND x.sport=c.sport
-     WHERE c.contract_version='harvest-context-v5'
+     WHERE c.contract_version='harvest-context-v7'
      ORDER BY c.article_id,c.entity_type,c.entity_id,c.sport,c.created_at DESC,c.id DESC
 )
 SELECT d.plugin_id,d.status,count(*) AS assignments,

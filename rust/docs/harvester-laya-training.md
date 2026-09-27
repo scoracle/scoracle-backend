@@ -1,5 +1,16 @@
 # Laya tuning for Harvester
 
+Historical experiment record. Its retired training, comparison, packet-archive and
+alternative-adapter tools were removed during the September 27 cleanup. Commands
+below document that experiment; they are not current operating instructions. See
+[the cleanup handoff](harvester-cleanup-2026-09-27.md) for retained tools and owners.
+
+
+Historical September 24 pilot. The `entity`/`content` labels and training scripts
+below do not train the current headline-plus-four-theme contract. Use archived
+requests to reproduce this evidence; current-contract tuning requires new reviewed
+labels and a matching dataset builder. See the [alignment handoff](harvester-alignment-2026-09-27.md).
+
 The initial goal is **retain at least 75% of useful, entity-relevant news openings**
 while reducing the amount of irrelevant or unusable material sent downstream. Recall
 is the proportion of labelled useful openings retained, not classification accuracy,

@@ -17,7 +17,7 @@ WITH canary AS (
       JOIN public.harvester_classifications c ON c.id=d.classification_id
       JOIN canary x ON x.article_id=c.article_id AND x.sport=c.sport
      WHERE d.plugin_id=:'plugin_id' AND d.status='pending'
-       AND d.reason='delivery_held' AND c.contract_version='harvest-context-v5'
+       AND d.reason='delivery_held' AND c.contract_version='harvest-context-v7'
        AND d.updated_at>=x.enqueued_at AND c.entity_choice='relevant'
        AND d.plugin_id IN ('scoracle.character.narrative','scoracle.character.vibe',
                            'scoracle.character.transfers','scoracle.character.rating')
@@ -29,7 +29,7 @@ WITH canary AS (
       FROM public.harvester_classifications c,canary x,selected s
      WHERE d.classification_id=c.id AND d.plugin_id=:'plugin_id'
        AND d.status='pending' AND d.reason='delivery_held'
-       AND c.contract_version='harvest-context-v5' AND c.entity_choice='relevant'
+       AND c.contract_version='harvest-context-v7' AND c.entity_choice='relevant'
        AND d.updated_at>=x.enqueued_at AND c.article_id=x.article_id AND c.sport=x.sport
        AND c.entity_type=s.entity_type AND c.entity_id=s.entity_id AND c.sport=s.sport
      RETURNING c.id AS classification_id,c.entity_type,c.entity_id,c.sport
@@ -45,7 +45,7 @@ SELECT CASE :'plugin_id'
          WHEN 'scoracle.character.rating' THEN 'rating'
        END,
        entity_type,entity_id,sport,'pending',
-       'harvest-context-v5:bounded-canary:c' || max(classification_id)::text,NOW(),NOW()
+       'harvest-context-v7:bounded-canary:c' || max(classification_id)::text,NOW(),NOW()
   FROM harvester_bounded_release
  GROUP BY entity_type,entity_id,sport
 ON CONFLICT (stage,entity_type,entity_id,sport) DO UPDATE SET

@@ -58,9 +58,7 @@ async fn main() -> Result<()> {
                     "context_bytes": context.context.text.len(),
                     "entity_choice": context.entity_choice,
                     "selected_characters": context.recommended_characters,
-                    "theme_relevant_probabilities": context.character_distributions.iter().map(|(plugin, answer)| {
-                        (plugin.clone(), answer.probabilities.get("relevant").copied().unwrap_or(0.0))
-                    }).collect::<BTreeMap<_,_>>(),
+                    "predicate_scores": context.predicate_scores,
                     "excerpt_selection": context.context.selection,
                     "model_revision": context.model_revision,
                     "elapsed_ms": elapsed_ms,

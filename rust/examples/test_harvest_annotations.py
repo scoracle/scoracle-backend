@@ -2,7 +2,6 @@
 import copy
 import unittest
 from harvest_annotations import validate, review_rows, sha
-from harvest_provisional_agreement import evaluate as provisional_agreement
 
 
 def case():
@@ -109,22 +108,6 @@ class AnnotationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'AI labels cannot enter'):
             validate([row], trace, index)
 
-    def test_provisional_comparison_refuses_changed_publisher_body(self):
-        row, _, _ = case()
-        row['review_status'] = 'ai_provisional'
-        row['annotator'] = 'codex-ai-provisional'
-        row['labels']['entity'] = {'useful': True, 'reason': 'Synthetic result.',
-                                   'evidence': [{'field': 'headline', 'start': 0, 'end': 7}]}
-        replay = [{'state': 'classified', 'article_id': 7,
-                   'query_entity': {'name': 'Équipe'}, 'body_sha256': row['body_sha256'],
-                   'entity_choice': 'irrelevant', 'advisory_characters': []}]
-        matched = provisional_agreement(replay, [row])
-        self.assertEqual(matched['dimensions']['entity']['fn'], 1)
-        changed = copy.deepcopy(replay)
-        changed[0]['body_sha256'] = 'changed-source'
-        mismatched = provisional_agreement(changed, [row])
-        self.assertEqual(mismatched['source_binding']['source_hash_mismatch'], 1)
-        self.assertEqual(mismatched['dimensions']['entity']['labelled'], 0)
 
 
 if __name__ == '__main__':

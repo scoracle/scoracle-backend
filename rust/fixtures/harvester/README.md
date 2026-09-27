@@ -33,9 +33,14 @@ hashing alone cannot detect syndicated or paraphrased reports. The corpus is fro
 day and overrepresents already-readable Editor inputs, so collect additional days and
 sources before estimating deployment coverage.
 
-Prepare source requests with `examples/context_harvest.rs`, then run
-`examples/harvest_training_data.py`. Source/question drift requires re-review; do not
-blindly replace the recorded hashes to bypass the check.
+These labels describe the retired `entity`/`content` pilot. Its dataset builder,
+trainer, evaluator and throughput script were removed during the September 27
+cleanup. The source-free labels remain as historical evidence and require the
+original archived requests to interpret. Current
+`examples/context_harvest.rs` prepares headline relevance and seven scalar theme predicates;
+its output is not compatible with these labels. Current training needs new reviewed,
+source-bound labels and a matching dataset builder; never replace hashes to bypass
+the source/question drift check.
 
 ## September 26 cutover evidence
 
@@ -55,3 +60,25 @@ verification commands. These files do not license or preserve the publisher bodi
 `examples/harvest_annotations.py` checks annotation integrity against the exact
 ignored trace and can build an ignored, source-containing reviewer packet without
 including Laya predictions.
+
+## V7 routing development fixtures
+
+`routing-v7-development.jsonl` contains 24 wholly synthetic team cases spanning
+FOOTBALL, NBA and NFL. Labels were written before their first model run. This set
+was subsequently used to diagnose entity-description syntax and multisport wording,
+so it is now a **development set**, not a holdout or human-reviewed benchmark.
+`routing-v7-development-report.json` records the frozen candidate's 33 true routes,
+57 true negatives, three unwanted routes and three missed routes. All 24 headlines
+name the intended subject; they do not test headline-negative accuracy.
+
+Extract each row's `article` to a local JSONL file and run `context_harvest` against
+the Laya endpoint. Score its output with:
+
+```sh
+python3 examples/harvest_routing_score.py fixtures/harvester/routing-v7-development.jsonl REPLAY.jsonl
+```
+
+The scorer rejects duplicate/missing articles, inference errors and changed source
+identity/body hashes. It evaluates the plugin's final routes, including missed
+routes caused by headline rejection. It does not reimplement routing thresholds.
+See the [v7 frame report](../../docs/harvester-frame-2026-09-27.md) for limitations.

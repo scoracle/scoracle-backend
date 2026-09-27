@@ -1,4 +1,4 @@
-"""Local-only classification adapter for the Rust context_harvest replay.
+"""Local-only classification adapter for the Harvester worker and replay.
 
 Requires a previously downloaded checkpoint directory. No article data leaves this
 process. Run with HF_HUB_OFFLINE=1 after caching the encoder config, if required.
@@ -12,6 +12,25 @@ import threading
 import time
 
 
+def complete_question_tokens(tokenizer, question, options):
+    """Unshortened SDK frame, including the empty state's closing separator.
+
+    Compare this with build_sequence before reporting complete input coverage:
+    the SDK can truncate instructions and individual options as well as state.
+    """
+    def tokens(text):
+        return tokenizer(text.replace(tokenizer.mask_token, " "),
+                         add_special_tokens=False)["input_ids"]
+
+    ids = [tokenizer.cls_token_id]
+    ids += tokens(f"{question['t']} question: {question['ins']}")
+    ids.append(tokenizer.sep_token_id)
+    for option in options:
+        ids.append(tokenizer.mask_token_id)
+        ids += tokens(" " + option)
+    return ids + [tokenizer.sep_token_id, tokenizer.sep_token_id]
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model-dir", required=True)
@@ -22,7 +41,7 @@ def main():
     args = parser.parse_args()
     import torch
     import laya
-    from laya.common import build_sequence, serialize_state
+    from laya.common import build_sequence, render_options, serialize_state
     from fastapi import FastAPI, HTTPException
     import uvicorn
 
@@ -41,7 +60,7 @@ def main():
         "revision": args.revision, "files": manifest,
         "runtime": {name: importlib.metadata.version(name) for name in ["laya", "torch", "transformers"]},
         "config": agent.cfg, "threads": args.threads,
-        "adapter": "harvest-laya-v1",
+        "adapter": "harvest-laya-v2",
     }
 
     @app.get("/health")
@@ -62,10 +81,14 @@ def main():
                 # Build the exact prompt without state to calculate its real remaining room.
                 ids, _ = build_sequence(agent.tok, "", q, max_len=agent.cfg["max_len"],
                                         head_max_len=agent.cfg["head_max_len"], state_ids=[])
+                expected = complete_question_tokens(agent.tok, q, render_options(q))
+                if ids != expected:
+                    raise HTTPException(422, f"{qid}: question or criteria would truncate")
                 room = agent.cfg["max_len"] - len(ids)
                 if len(state_ids) > room:
                     raise HTTPException(422, f"{qid}: input would truncate ({len(state_ids)} state tokens, {room} available)")
-                coverage[qid] = {"state_tokens": len(state_ids), "available": room, "truncated": False}
+                coverage[qid] = {"state_tokens": len(state_ids), "question_tokens": len(ids),
+                                 "available": room, "truncated": False}
             start = time.perf_counter()
             result = agent.predict(state, questions)
             result["provenance"] = dict(provenance, device=str(agent.device),

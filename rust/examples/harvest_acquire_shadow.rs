@@ -1,4 +1,6 @@
-//! Recover missing publisher bodies in a local, read-only Harvester shadow corpus.
+//! Acquisition-only diagnostic: recover missing bodies for source review, including
+//! rejected/unclassified candidates. This intentionally does not apply admission or
+//! establish production paragraph eligibility; context replay/worker owns classification.
 //!
 //! cargo run --example harvest_acquire_shadow -- INPUT.jsonl OUTPUT.jsonl SUMMARY.json
 //! OUTPUT contains publisher text and must stay outside Git. No database or queue is touched.

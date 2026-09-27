@@ -83,6 +83,12 @@ the SQL so no in-flight character call races the hold; restart after checking
 the count. This stops future source processing but does not erase terminal
 assignment receipts or products already published. The SQL was parsed on the
 production schema with a nonexistent plugin and changed zero rows.
+In a disposable PostgreSQL fixture, releasing a held Journalist assignment
+cleared only that plugin's hold and enqueued one `narratives` entity claim;
+the Influencer assignment stayed held. Repeating the release changed zero
+rows. The rollback script restored the Journalist hold while leaving the
+queued claim visible for its held-aware source loader to skip. The fixture
+database was stopped after these checks.
 
 The optional `ARTICLE_READ_CHROME_ENABLED` browser fallback is unset on the
 production host. A count-only on-host probe of three `low_content` articles

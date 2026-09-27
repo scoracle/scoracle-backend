@@ -37,6 +37,9 @@ classifications, four held assignments per article/entity edge, resolved-link
 and Graph receipts, and zero character publications before releasing a bounded
 character batch. Do not disable Editor until each character's actual product
 path and the remaining non-editorial consumers have passed this smoke.
+The read-only `rust/examples/harvester_live_canary_check.sql` gives aggregate
+completion, exact-byte, held/unheld assignment, identity, and Graph counts for
+the named run without returning article metadata or publisher text.
 
 ## Production shadow update — September 27, 01:47 EDT
 

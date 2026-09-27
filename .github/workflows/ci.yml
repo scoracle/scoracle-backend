@@ -83,7 +83,8 @@ jobs:
       - name: Rust unit and database contracts
         run: |
           cargo test --manifest-path rust/Cargo.toml --lib --bins
-          cargo test --manifest-path rust/Cargo.toml --lib -- --ignored --test-threads=1
+          # Real-model replays require local Ollama and private sample corpora.
+          cargo test --manifest-path rust/Cargo.toml --lib -- --ignored --skip local_real_model --test-threads=1
 
       - name: validate-stmts (prepared statements register against the schema)
         working-directory: go

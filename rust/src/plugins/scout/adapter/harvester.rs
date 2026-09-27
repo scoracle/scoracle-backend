@@ -107,11 +107,11 @@ fn source_correction(error: &anyhow::Error) -> Option<String> {
 
 impl Parser<Reply> for ReplyParser<'_> {
     fn parse(&self, raw: &str) -> Result<Option<Reply>> {
-        let reply: Reply = serde_json::from_str(raw)?;
+        let mut reply: Reply = serde_json::from_str(raw)?;
         if reply.kind == SourceKind::None {
-            if !reply.evidence_quote.is_empty() {
-                return Err(QuoteMismatch.into());
-            }
+            // A negative verdict has no supporting quote. Discard a stray model
+            // string rather than retrying the same safe abstention indefinitely.
+            reply.evidence_quote.clear();
         } else {
             if reply.evidence_quote.trim().is_empty()
                 || reply.evidence_quote.chars().count() > 500
@@ -453,6 +453,14 @@ mod tests {
         assert!(parser
             .parse(r#"{"kind":"none","evidence_quote":""}"#)
             .is_ok());
+        assert_eq!(
+            parser
+                .parse(r#"{"kind":"none","evidence_quote":"unneeded source words"}"#)
+                .unwrap()
+                .unwrap()
+                .evidence_quote,
+            ""
+        );
         let repair = source_correction(&QuoteMismatch.into()).unwrap();
         assert!(repair.contains("verbatim continuous substring"));
         assert!(repair.contains("choose kind none"));

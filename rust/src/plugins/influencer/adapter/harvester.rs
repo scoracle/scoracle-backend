@@ -57,7 +57,7 @@ fn reaction_correction(error: &anyhow::Error) -> Option<String> {
 
 impl Parser<ReactionReply> for ReactionParser<'_> {
     fn parse(&self, raw: &str) -> Result<Option<ReactionReply>> {
-        let reply: ReactionReply = serde_json::from_str(raw)?;
+        let mut reply: ReactionReply = serde_json::from_str(raw)?;
         if reply.has_reaction {
             if reply.evidence_quote.trim().is_empty()
                 || reply.evidence_quote.chars().count() > 500
@@ -67,9 +67,9 @@ impl Parser<ReactionReply> for ReactionParser<'_> {
                 return Err(ReactionQuoteMismatch.into());
             }
         } else {
-            if !reply.evidence_quote.is_empty() {
-                return Err(ReactionQuoteMismatch.into());
-            }
+            // A no-reaction verdict cannot cite evidence. Drop a superfluous
+            // quote while keeping the raw response in model provenance.
+            reply.evidence_quote.clear();
         }
         Ok(Some(reply))
     }
@@ -405,6 +405,14 @@ mod tests {
         assert!(parser
             .parse(r#"{"has_reaction":false,"evidence_quote":""}"#)
             .is_ok());
+        assert_eq!(
+            parser
+                .parse(r#"{"has_reaction":false,"evidence_quote":"unneeded source words"}"#)
+                .unwrap()
+                .unwrap()
+                .evidence_quote,
+            ""
+        );
         assert!(reaction_correction(&ReactionQuoteMismatch.into())
             .unwrap()
             .contains("exact continuous substring"));

@@ -94,6 +94,23 @@ SELECT i.id AS ingest_run_id, i.started_at AS ingest_started_at,
           FROM classification) AS laya_inference_ms_total
   FROM ingest i;
 
+-- Acquisition failures stay separate from Laya negatives. Attempts include
+-- each recorded fetch/classification try; no URL or publisher domain is shown.
+WITH ingest AS (
+    SELECT started_at,finished_at FROM public.pipeline_runs
+     WHERE job='pipeline' AND finished_at IS NOT NULL ORDER BY started_at DESC LIMIT 1
+), article AS (
+    SELECT DISTINCT p.article_id FROM public.harvester_query_provenance p
+      CROSS JOIN ingest i
+     WHERE p.last_seen_at BETWEEN i.started_at AND i.finished_at
+)
+SELECT a.status,count(*) AS articles,
+       min(a.attempts) AS min_attempts,
+       round(avg(a.attempts)::numeric,2) AS mean_attempts,
+       max(a.attempts) AS max_attempts
+  FROM public.harvester_acquisitions a JOIN article x USING (article_id)
+ GROUP BY a.status ORDER BY articles DESC,a.status;
+
 WITH ingest AS (
     SELECT started_at,finished_at FROM public.pipeline_runs
      WHERE job='pipeline' AND finished_at IS NOT NULL ORDER BY started_at DESC LIMIT 1

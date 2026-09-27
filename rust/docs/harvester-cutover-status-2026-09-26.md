@@ -162,6 +162,12 @@ all 160 completed edges passed all four checks. This proves storage fidelity
 for completed work, not semantic accuracy or whole-corpus completion. The
 provisional AI labels remain unadjudicated; no precision or recall claim is
 justified from Laya's own outputs.
+The report now also splits acquisition outcomes and retry attempts by status.
+At 03:21 EDT, 60 articles were `low_content`, 45 `blocked`, 10 had a
+retryable transport/provider error, and 16 were explicit duplicates; no
+classification errors had occurred. These are evolving counts, not final
+failure rates. Blocked pages had already averaged 4.18 recorded attempts,
+which will inform the later retry policy without changing this sweep mid-run.
 
 The live production catalog has one noninternal trigger on legacy packet
 tables, `enqueue_voices_on_packet`. No public views referencing

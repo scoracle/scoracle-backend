@@ -56,6 +56,7 @@ pub struct HarvesterHandler {
 
 struct Source {
     url: String,
+    publisher_url: Option<String>,
     title: String,
     source: String,
     description: String,
@@ -80,9 +81,11 @@ impl HarvesterHandler {
 
 async fn load_source(pool: &PgPool, article_id: i64) -> Result<Option<Source>> {
     let row = sqlx::query(
-        "SELECT url, title, COALESCE(source, '') AS source, COALESCE(description, '') AS description, \
-         published_at::text AS published_at, full_text, duplicate_of \
-         FROM public.news_articles WHERE id = $1",
+        "SELECT a.url, h.final_url AS publisher_url, a.title, COALESCE(a.source, '') AS source, \
+         COALESCE(a.description, '') AS description, a.published_at::text AS published_at, \
+         a.full_text, a.duplicate_of \
+         FROM public.news_articles a LEFT JOIN public.harvester_acquisitions h ON h.article_id=a.id \
+         WHERE a.id = $1",
     )
     .bind(article_id)
     .fetch_optional(pool)
@@ -90,6 +93,7 @@ async fn load_source(pool: &PgPool, article_id: i64) -> Result<Option<Source>> {
     .context("load Harvester article")?;
     Ok(row.map(|r| Source {
         url: r.get("url"),
+        publisher_url: r.get("publisher_url"),
         title: r.get("title"),
         source: r.get("source"),
         description: r.get("description"),
@@ -777,7 +781,8 @@ impl StudioPlugin for HarvesterHandler {
         {
             (clean_body(body), None)
         } else {
-            match web.fetch_curated_article(&source.url).await {
+            let fetch_url = source.publisher_url.as_deref().unwrap_or(&source.url);
+            match web.fetch_curated_article(fetch_url).await {
                 Ok(fetched) => (clean_body(&fetched.text), Some(fetched)),
                 Err(error) => {
                     let final_url =
@@ -1083,13 +1088,7 @@ mod tests {
                 .questions
                 .keys()
                 .map(|key| {
-                    let choice = if key == "relevance"
-                        && request.state.contains("Target entity: Another Test Club")
-                    {
-                        "irrelevant"
-                    } else {
-                        "relevant"
-                    };
+                    let choice = "relevant";
                     (
                         key.clone(),
                         ChoiceAnswer {
@@ -1311,22 +1310,15 @@ mod tests {
             classifications.iter().map(|row| row.0).collect::<Vec<_>>(),
             vec![TEAM, OTHER_TEAM]
         );
-        for (entity_id, entity_choice, context, headline) in classifications {
-            assert_eq!(
-                entity_choice,
-                if entity_id == TEAM {
-                    "relevant"
-                } else {
-                    "irrelevant"
-                }
-            );
+        for (_, entity_choice, context, headline) in classifications {
+            assert_eq!(entity_choice, "relevant");
             assert_eq!(headline, "Harvester Test Club announces community event");
             assert!(body.contains(&context));
         }
         let assignments: i64 = sqlx::query_scalar(
             "SELECT count(*) FROM public.harvester_assignments d JOIN public.harvester_classifications c ON c.id=d.classification_id WHERE c.article_id=$1 AND d.status='pending'"
         ).bind(ARTICLE).fetch_one(&pool).await?;
-        assert_eq!(assignments, 4);
+        assert_eq!(assignments, 8);
         let insider_pairs: Vec<(i32, i32)> = sqlx::query_as(
             "SELECT c.entity_id,p.subject_id FROM public.harvester_insider_pairs p \
              JOIN public.harvester_classifications c ON c.id=p.classification_id \

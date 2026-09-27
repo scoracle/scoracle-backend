@@ -655,10 +655,11 @@ async fn commit_claimed(
             } else {
                 "abstained"
             };
-            sqlx::query(
+            let changed = sqlx::query(
                 "UPDATE public.harvester_assignments SET status=$3, reason=$4, \
                  product_ref=$5, updated_at=NOW() \
-                 WHERE classification_id=$1 AND plugin_id=$2 AND status='pending'",
+                 WHERE classification_id=$1 AND plugin_id=$2 AND status='pending' \
+                   AND reason IS DISTINCT FROM 'delivery_held'",
             )
             .bind(source.classification_id)
             .bind(crate::plugins::journalist::manifest::MANIFEST.id.as_str())
@@ -671,19 +672,25 @@ async fn commit_claimed(
             .bind(serde_json::json!({"news_summary_ids": product_row_ids}))
             .execute(&mut **publication.transaction())
             .await?;
+            anyhow::ensure!(
+                changed.rows_affected() == 1,
+                "Journalist source assignment changed during call"
+            );
         }
     }
     if !harvester_sources.is_empty() {
         let remaining: i64 = sqlx::query_scalar(
             "SELECT count(*) FROM public.harvester_assignments d \
              JOIN public.harvester_classifications c ON c.id=d.classification_id \
-             WHERE d.plugin_id=$1 AND d.status='pending' AND c.entity_type=$2 \
+             WHERE d.plugin_id=$1 AND d.status='pending' AND d.reason IS DISTINCT FROM $5 \
+               AND c.entity_type=$2 \
                AND c.entity_id=$3 AND c.sport=$4",
         )
         .bind(crate::plugins::journalist::manifest::MANIFEST.id.as_str())
         .bind(&item.entity_type)
         .bind(item.entity_id_i32()?)
         .bind(sport)
+        .bind(crate::plugins::harvester::adapter::DELIVERY_HELD_REASON)
         .fetch_one(&mut **publication.transaction())
         .await?;
         if remaining > 0 {

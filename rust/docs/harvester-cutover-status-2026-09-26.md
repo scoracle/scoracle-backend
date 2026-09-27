@@ -2,6 +2,31 @@
 
 This is a working checkpoint, not a production cutover declaration. The goal is to retire Editor, storylines, packets, and the stories API while feeding verified publisher text directly to character plugins. Laya's five answers are stored as advisory signals. AI provisional annotations are for later human review and calibration, not an admission gate.
 
+## Nightly measurement and staged delivery — September 27, 02:33 EDT
+
+Nightly run 333 is still draining in production shadow. The ingest completed in
+193.1 seconds with 4,929 canonical articles and 7,564 article/team edges. Its
+Harvester classification throughput, error rates, Laya latency, and routing
+fanout are measurable with `rust/examples/harvester_nightly_report.sql` while
+the queue runs; `corpus_end_to_end_seconds` appears only after all actionable
+Harvester claims finish. Reported Laya recommendations are behavior metrics,
+not effectiveness against gold labels. The AI provisional annotations need
+human adjudication before precision or recall can be calculated. A high share
+of women's-team news is not presently an exclusion error.
+
+The next live build has a per-character gate, `HARVESTER_DELIVERY_CHARACTERS`.
+When `HARVESTER_SHADOW_MODE=0`, set it to an empty string to record all four
+character assignments as `pending` with reason `delivery_held`, without
+enqueueing their stages. Named values are comma-separated `journalist`,
+`influencer`, `insider`, and `scout`; omission retains the historical all-on
+default, so the empty value must be explicit for the first live canary. The
+character source loaders ignore held assignments. After verifying identity and
+Graph receipts on a small live cohort, run
+`rust/examples/harvester_release_character.sql` on the production host with a
+specific `plugin_id` and `entity_limit=5` to release one character in bounded
+team groups. Inspect assignment dispositions and actual products after each
+batch. This code is not deployed yet; the nightly shadow remains isolated.
+
 ## Production shadow update — September 27, 01:47 EDT
 
 The implementation below describes the September 26 local checkpoint. Since then,

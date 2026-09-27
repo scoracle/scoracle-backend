@@ -20,7 +20,7 @@ WITH ingest AS (
 ), acquisition AS (
     SELECT a.status,a.updated_at FROM public.harvester_acquisitions a JOIN article x USING (article_id)
 ), assignment AS (
-    SELECT d.plugin_id,d.status FROM public.harvester_assignments d
+    SELECT d.plugin_id,d.status,d.reason FROM public.harvester_assignments d
       JOIN classification c ON c.id=d.classification_id
 ), work AS (
     SELECT w.status,w.attempts,w.updated_at FROM public.pipeline_work w
@@ -45,6 +45,7 @@ SELECT i.id AS ingest_run_id, i.started_at AS ingest_started_at,
        (SELECT count(*) FROM cohort)-(SELECT count(*) FROM classification) AS unclassified_edges,
        (SELECT count(*) FROM assignment) AS character_assignments,
        (SELECT count(*) FROM assignment WHERE status='pending') AS pending_assignments,
+       (SELECT count(*) FROM assignment WHERE reason='delivery_held') AS held_assignments,
        (SELECT count(*) FROM work WHERE status='pending') AS pending_harvester_work,
        (SELECT count(*) FROM work WHERE status='running') AS running_harvester_work,
        (SELECT count(*) FROM work WHERE status='failed' AND attempts<5) AS retry_scheduled,
@@ -84,7 +85,8 @@ SELECT d.plugin_id, count(*) AS assignments,
        count(*) FILTER (WHERE d.status='redundant') AS redundant,
        count(*) FILTER (WHERE d.status='abstained') AS abstained,
        count(*) FILTER (WHERE d.status='error') AS errors,
-       count(*) FILTER (WHERE d.status='pending') AS pending
+       count(*) FILTER (WHERE d.status='pending') AS pending,
+       count(*) FILTER (WHERE d.reason='delivery_held') AS held
   FROM public.harvester_assignments d JOIN classification c ON c.id=d.classification_id
  GROUP BY d.plugin_id ORDER BY d.plugin_id;
 

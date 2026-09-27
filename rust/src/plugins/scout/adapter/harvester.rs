@@ -349,7 +349,8 @@ pub(crate) async fn execute_with_backend(
     };
     let changed = sqlx::query(
         "UPDATE public.harvester_assignments SET status=$3,reason=$4,product_ref=$5,updated_at=now() \
-         WHERE classification_id=$1 AND plugin_id=$2 AND status='pending'",
+         WHERE classification_id=$1 AND plugin_id=$2 AND status='pending' \
+           AND reason IS DISTINCT FROM 'delivery_held'",
     )
     .bind(source.classification_id).bind(plugin_id).bind(status).bind(reason)
     .bind(json!({
@@ -373,13 +374,15 @@ pub(crate) async fn execute_with_backend(
     let remaining: i64 = sqlx::query_scalar(
         "SELECT count(*) FROM public.harvester_assignments d \
          JOIN public.harvester_classifications c ON c.id=d.classification_id \
-         WHERE d.plugin_id=$1 AND d.status='pending' AND c.entity_type=$2 \
+         WHERE d.plugin_id=$1 AND d.status='pending' AND d.reason IS DISTINCT FROM $5 \
+           AND c.entity_type=$2 \
            AND c.entity_id=$3 AND c.sport=$4",
     )
     .bind(plugin_id)
     .bind(&item.entity_type)
     .bind(entity_id)
     .bind(&sport)
+    .bind(crate::plugins::harvester::adapter::DELIVERY_HELD_REASON)
     .fetch_one(&mut **publication.transaction())
     .await?;
     if remaining > 0 {

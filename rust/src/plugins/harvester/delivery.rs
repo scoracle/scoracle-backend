@@ -28,13 +28,15 @@ pub async fn load_for_character(
          FROM public.harvester_classifications c \
          JOIN public.harvester_assignments d ON d.classification_id=c.id \
          JOIN public.news_articles a ON a.id=c.article_id \
-         WHERE d.plugin_id=$1 AND d.status='pending' AND c.entity_type=$2 AND c.entity_id=$3 AND c.sport=$4 \
+         WHERE d.plugin_id=$1 AND d.status='pending' AND d.reason IS DISTINCT FROM $5 \
+           AND c.entity_type=$2 AND c.entity_id=$3 AND c.sport=$4 \
          ORDER BY c.article_id, c.created_at DESC, c.id DESC",
     )
     .bind(plugin_id)
     .bind(entity_type)
     .bind(entity_id)
     .bind(sport)
+    .bind(super::adapter::DELIVERY_HELD_REASON)
     .fetch_all(pool)
     .await?;
     let mut sources = Vec::with_capacity(rows.len());
@@ -145,6 +147,23 @@ mod tests {
         assert_eq!(sources.len(), 1);
         assert_eq!(sources[0].headline, "Original headline");
         assert_eq!(sources[0].context, body);
+        sqlx::query("UPDATE public.harvester_assignments SET reason=$2 WHERE classification_id=$1")
+            .bind(classification_id)
+            .bind(super::super::adapter::DELIVERY_HELD_REASON)
+            .execute(&pool)
+            .await
+            .unwrap();
+        assert!(load_for_character(&pool, PLUGIN, "team", 1, SPORT)
+            .await
+            .unwrap()
+            .is_empty());
+        sqlx::query(
+            "UPDATE public.harvester_assignments SET reason=NULL WHERE classification_id=$1",
+        )
+        .bind(classification_id)
+        .execute(&pool)
+        .await
+        .unwrap();
         sqlx::query("UPDATE public.news_articles SET full_text='altered source' WHERE id=$1")
             .bind(ARTICLE)
             .execute(&pool)

@@ -13,7 +13,39 @@ use anyhow::{ensure, Context, Result};
 use async_trait::async_trait;
 use sha2::{Digest, Sha256};
 use sqlx::{PgPool, Postgres, Row, Transaction};
+use std::collections::HashSet;
 use std::sync::Arc;
+
+pub const DELIVERY_HELD_REASON: &str = "delivery_held";
+
+fn parse_delivery_characters(raw: &str) -> Result<HashSet<&'static str>> {
+    let mut enabled = HashSet::new();
+    for name in raw
+        .split(',')
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+    {
+        let (key, _, _) = CHARACTER_PLUGINS
+            .iter()
+            .find(|(key, _, _)| *key == name)
+            .with_context(|| format!("unknown HARVESTER_DELIVERY_CHARACTERS name {name:?}"))?;
+        ensure!(
+            enabled.insert(*key),
+            "duplicate Harvester delivery character {name:?}"
+        );
+    }
+    Ok(enabled)
+}
+
+fn delivery_characters() -> Result<HashSet<&'static str>> {
+    match std::env::var("HARVESTER_DELIVERY_CHARACTERS") {
+        Ok(raw) => parse_delivery_characters(&raw),
+        Err(std::env::VarError::NotPresent) => {
+            Ok(CHARACTER_PLUGINS.iter().map(|(key, _, _)| *key).collect())
+        }
+        Err(error) => Err(error.into()),
+    }
+}
 
 pub struct HarvesterHandler {
     pool: PgPool,
@@ -417,6 +449,11 @@ async fn publish(
     )
     .await?;
     let shadow_mode = std::env::var("HARVESTER_SHADOW_MODE").as_deref() == Ok("1");
+    let delivery = if shadow_mode {
+        HashSet::new()
+    } else {
+        delivery_characters()?
+    };
     // Shadow owns only acquisition and Laya evidence. Editor still owns the
     // live identity and character effects until the production corpus clears.
     if !shadow_mode {
@@ -497,13 +534,14 @@ async fn publish(
         .await?;
         // Route broadly until Laya is calibrated; the character owns the final
         // decision. The pending rows are durable obligations, never publications.
-        for (_, plugin_id, _) in CHARACTER_PLUGINS {
+        for (key, plugin_id, _) in CHARACTER_PLUGINS {
             sqlx::query(
-                "INSERT INTO public.harvester_assignments(classification_id,plugin_id) \
-                 VALUES ($1,$2) ON CONFLICT DO NOTHING",
+                "INSERT INTO public.harvester_assignments(classification_id,plugin_id,reason) \
+                 VALUES ($1,$2,$3) ON CONFLICT DO NOTHING",
             )
             .bind(classification_id)
             .bind(plugin_id)
+            .bind((!delivery.contains(key)).then_some(DELIVERY_HELD_REASON))
             .execute(&mut **tx)
             .await?;
         }
@@ -533,32 +571,42 @@ async fn publish(
         .await?;
         // The Journalist now consumes this exact source slice directly. Its
         // entity-scoped claim is reopened on each new classification revision.
-        crate::application::queue::work::enqueue(
-            &mut **tx,
-            &Item {
-                stage: crate::plugins::journalist::manifest::TASK,
-                entity_type: context.hypothesis.entity_type.clone(),
-                entity_id: i64::from(context.hypothesis.entity_id),
-                sport: context.hypothesis.sport.clone(),
-                input_version: Some(format!("{}:c{classification_id}", context.contract_version)),
-                attempts: 0,
-                claim_token: None,
-            },
-        )
-        .await?;
-        crate::application::queue::work::enqueue(
-            &mut **tx,
-            &Item {
-                stage: crate::plugins::influencer::manifest::TASK,
-                entity_type: context.hypothesis.entity_type.clone(),
-                entity_id: i64::from(context.hypothesis.entity_id),
-                sport: context.hypothesis.sport.clone(),
-                input_version: Some(format!("{}:c{classification_id}", context.contract_version)),
-                attempts: 0,
-                claim_token: None,
-            },
-        )
-        .await?;
+        if delivery.contains("journalist") {
+            crate::application::queue::work::enqueue(
+                &mut **tx,
+                &Item {
+                    stage: crate::plugins::journalist::manifest::TASK,
+                    entity_type: context.hypothesis.entity_type.clone(),
+                    entity_id: i64::from(context.hypothesis.entity_id),
+                    sport: context.hypothesis.sport.clone(),
+                    input_version: Some(format!(
+                        "{}:c{classification_id}",
+                        context.contract_version
+                    )),
+                    attempts: 0,
+                    claim_token: None,
+                },
+            )
+            .await?;
+        }
+        if delivery.contains("influencer") {
+            crate::application::queue::work::enqueue(
+                &mut **tx,
+                &Item {
+                    stage: crate::plugins::influencer::manifest::TASK,
+                    entity_type: context.hypothesis.entity_type.clone(),
+                    entity_id: i64::from(context.hypothesis.entity_id),
+                    sport: context.hypothesis.sport.clone(),
+                    input_version: Some(format!(
+                        "{}:c{classification_id}",
+                        context.contract_version
+                    )),
+                    attempts: 0,
+                    claim_token: None,
+                },
+            )
+            .await?;
+        }
         let insider_version = format!("{}:c{classification_id}", context.contract_version);
         sqlx::query(
             "UPDATE public.harvester_insider_wraps \
@@ -573,32 +621,39 @@ async fn publish(
         .bind(&insider_version)
         .execute(&mut **tx)
         .await?;
-        crate::application::queue::work::enqueue(
-            &mut **tx,
-            &Item {
-                stage: crate::plugins::insider::manifest::TASK,
-                entity_type: context.hypothesis.entity_type.clone(),
-                entity_id: i64::from(context.hypothesis.entity_id),
-                sport: context.hypothesis.sport.clone(),
-                input_version: Some(insider_version),
-                attempts: 0,
-                claim_token: None,
-            },
-        )
-        .await?;
-        crate::application::queue::work::enqueue(
-            &mut **tx,
-            &Item {
-                stage: crate::plugins::scout::manifest::TASK,
-                entity_type: context.hypothesis.entity_type.clone(),
-                entity_id: i64::from(context.hypothesis.entity_id),
-                sport: context.hypothesis.sport.clone(),
-                input_version: Some(format!("{}:c{classification_id}", context.contract_version)),
-                attempts: 0,
-                claim_token: None,
-            },
-        )
-        .await?;
+        if delivery.contains("insider") {
+            crate::application::queue::work::enqueue(
+                &mut **tx,
+                &Item {
+                    stage: crate::plugins::insider::manifest::TASK,
+                    entity_type: context.hypothesis.entity_type.clone(),
+                    entity_id: i64::from(context.hypothesis.entity_id),
+                    sport: context.hypothesis.sport.clone(),
+                    input_version: Some(insider_version),
+                    attempts: 0,
+                    claim_token: None,
+                },
+            )
+            .await?;
+        }
+        if delivery.contains("scout") {
+            crate::application::queue::work::enqueue(
+                &mut **tx,
+                &Item {
+                    stage: crate::plugins::scout::manifest::TASK,
+                    entity_type: context.hypothesis.entity_type.clone(),
+                    entity_id: i64::from(context.hypothesis.entity_id),
+                    sport: context.hypothesis.sport.clone(),
+                    input_version: Some(format!(
+                        "{}:c{classification_id}",
+                        context.contract_version
+                    )),
+                    attempts: 0,
+                    claim_token: None,
+                },
+            )
+            .await?;
+        }
     }
     // Graph receives exact name-surface candidates as well as historical
     // resolved links, then makes its own evidence decision.
@@ -754,6 +809,17 @@ mod tests {
     use serde_json::json;
     use std::collections::BTreeMap;
     use std::time::Duration;
+
+    #[test]
+    fn delivery_character_gate_accepts_only_named_unique_characters() {
+        assert!(parse_delivery_characters("").unwrap().is_empty());
+        let selected = parse_delivery_characters("journalist, scout").unwrap();
+        assert_eq!(selected.len(), 2);
+        assert!(selected.contains("journalist"));
+        assert!(selected.contains("scout"));
+        assert!(parse_delivery_characters("journalist,journalist").is_err());
+        assert!(parse_delivery_characters("editor").is_err());
+    }
 
     #[test]
     fn access_denials_are_visible_without_turning_timeouts_into_blocks() {

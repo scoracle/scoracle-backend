@@ -131,3 +131,32 @@ SELECT route.key AS plugin_id, count(*) AS classified_edges,
    AND q.entity_id=c.entity_id AND q.sport=c.sport
  CROSS JOIN LATERAL jsonb_each(c.distributions) route
  GROUP BY route.key ORDER BY route.key;
+
+-- Verify every saved opening and Laya input against the retained publisher
+-- bytes. Only aggregate counts leave PostgreSQL; the source text stays on host.
+WITH ingest AS (
+    SELECT started_at,finished_at FROM public.pipeline_runs
+     WHERE job='pipeline' AND finished_at IS NOT NULL ORDER BY started_at DESC LIMIT 1
+), cohort AS (
+    SELECT p.article_id,p.entity_type,p.entity_id,p.sport
+      FROM public.harvester_query_provenance p CROSS JOIN ingest i
+     WHERE p.last_seen_at BETWEEN i.started_at AND i.finished_at
+), classified AS (
+    SELECT c.* FROM public.harvester_classifications c JOIN cohort q
+      ON q.article_id=c.article_id AND q.entity_type=c.entity_type
+     AND q.entity_id=c.entity_id AND q.sport=c.sport
+)
+SELECT count(*) AS classified_edges,
+       count(*) FILTER (WHERE a.full_text IS NOT NULL AND
+           encode(sha256(convert_to(a.full_text,'UTF8')),'hex')=c.body_sha256)
+           AS body_hash_matches,
+       count(*) FILTER (WHERE a.title=c.headline) AS headline_matches,
+       count(*) FILTER (WHERE a.full_text IS NOT NULL AND
+           substring(convert_to(a.full_text,'UTF8') FROM c.context_start+1
+                     FOR c.context_end-c.context_start)=convert_to(c.context_text,'UTF8'))
+           AS context_byte_matches,
+       count(*) FILTER (WHERE a.full_text IS NOT NULL AND
+           substring(convert_to(a.full_text,'UTF8') FROM c.model_input_start+1
+                     FOR c.model_input_end-c.model_input_start)=convert_to(c.model_input_text,'UTF8'))
+           AS laya_input_byte_matches
+  FROM classified c JOIN public.news_articles a ON a.id=c.article_id;

@@ -160,3 +160,24 @@ SELECT count(*) AS classified_edges,
                      FOR c.model_input_end-c.model_input_start)=convert_to(c.model_input_text,'UTF8'))
            AS laya_input_byte_matches
   FROM classified c JOIN public.news_articles a ON a.id=c.article_id;
+
+-- One article claim classifies every query-entity edge before publication.
+-- This fan-out distribution explains long individual claims without exposing
+-- article identities or source text.
+WITH ingest AS (
+    SELECT started_at,finished_at FROM public.pipeline_runs
+     WHERE job='pipeline' AND finished_at IS NOT NULL ORDER BY started_at DESC LIMIT 1
+), per_article AS (
+    SELECT p.article_id,count(*) AS edges
+      FROM public.harvester_query_provenance p CROSS JOIN ingest i
+     WHERE p.last_seen_at BETWEEN i.started_at AND i.finished_at
+     GROUP BY p.article_id
+)
+SELECT count(*) AS canonical_candidates,sum(edges) AS query_entity_edges,
+       round(avg(edges)::numeric,2) AS mean_edges_per_article,
+       round(percentile_cont(0.95) WITHIN GROUP (ORDER BY edges)::numeric,2)
+           AS p95_edges_per_article,
+       max(edges) AS max_edges_per_article,
+       count(*) FILTER (WHERE edges>10) AS articles_over_10_edges,
+       count(*) FILTER (WHERE edges>30) AS articles_over_30_edges
+  FROM per_article;

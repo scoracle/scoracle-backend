@@ -18,6 +18,20 @@ cross-tab each Laya recommendation against actual character `used` receipts,
 including sources used despite Laya not recommending them. Those are useful
 disagreement samples and downstream acceptance signals, not gold accuracy.
 
+The reproducible `rust/examples/harvest_provisional_agreement.py` compares the
+70-body historical `harvest-context-v1` replay with the 84-candidate AI
+provisional annotation queue using article, query entity, and publisher-body
+hash. Forty-nine replayed bodies match the annotated bytes; 21 re-acquired
+bodies changed and are excluded. On the 49 matches, 44 have entity labels and
+30 have each character label. Against those provisional labels, Laya retained
+27/30 useful entity openings, 25/25 Journalist positives, 6/8 Influencer,
+10/10 Insider, and 11/13 Scout. Its positive-route precision proxies were
+27/38, 25/29, 6/26, 10/30, and 11/27 respectively. The broad Influencer and
+Insider routes reinforce the decision to let characters make the final call;
+these small, non-independent labels do not establish production accuracy or
+justify a filtering threshold. The annotation validator confirms 71 AI
+provisional rows, 13 pending rows, and zero trainable gold rows.
+
 The next live build has a per-character gate, `HARVESTER_DELIVERY_CHARACTERS`.
 When `HARVESTER_SHADOW_MODE=0`, set it to an empty string to record all four
 character assignments as `pending` with reason `delivery_held`, without

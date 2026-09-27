@@ -40,6 +40,35 @@ fn narrative(title: &str, article_id: i64, impact: i32, source: &str) -> Narrati
     }
 }
 
+#[test]
+fn source_batch_leaves_unpresented_articles_for_later_claims() {
+    let sources = (1..=4)
+        .map(|id| crate::plugins::harvester::delivery::SourceContext {
+            classification_id: id,
+            article_id: id,
+            headline: format!("Headline {id}"),
+            context: "x".repeat(3_000),
+            source: "Wire".into(),
+            published_at_epoch: Some(1_700_000_000 + id),
+        })
+        .collect();
+    let (corpus, exclusions, presented) = select_harvester_batch(sources);
+    assert_eq!(
+        corpus.iter().map(|item| item.id).collect::<Vec<_>>(),
+        vec![1]
+    );
+    assert_eq!(
+        presented
+            .iter()
+            .map(|source| source.article_id)
+            .collect::<Vec<_>>(),
+        vec![1]
+    );
+    assert_eq!(exclusions.budget_truncated_ids, vec![2, 3]);
+    // The fourth source is outside this claim, and the two over budget were
+    // never presented; all three remain pending for a later claimed batch.
+}
+
 /// Exact publication-contract acceptance against an isolated database containing migration 260.
 /// Ordinary test runs compile but ignore these cases; opt in with TEST_DATABASE_URL.
 mod postgres_publication_fencing_tests {
@@ -84,7 +113,7 @@ mod postgres_publication_fencing_tests {
             .execute(pool)
             .await
             .expect("clean storyline");
-        sqlx::query("DELETE FROM news_articles WHERE id = $1")
+        sqlx::query("DELETE FROM news_articles WHERE id BETWEEN $1 AND ($1 + 3)")
             .bind(ARTICLE_ID)
             .execute(pool)
             .await
@@ -270,6 +299,151 @@ mod postgres_publication_fencing_tests {
         .unwrap();
         assert_eq!(storyline_id, None);
         assert_eq!(status, "used");
+        clean(&pool).await;
+    }
+
+    #[tokio::test]
+    #[ignore = "requires isolated migrated TEST_DATABASE_URL"]
+    async fn harvester_batches_finish_every_source_before_completing_claim() {
+        let pool = pool().await;
+        clean(&pool).await;
+        for offset in 0..4 {
+            let article_id = ARTICLE_ID + offset;
+            let body = format!("Exact publisher opening {offset}. Another source sentence.");
+            sqlx::query(
+                "INSERT INTO news_articles(id,url_hash,url,source,title,full_text) \
+                 VALUES($1,$2,$3,'Wire','Test Team story moves',$4)",
+            )
+            .bind(article_id)
+            .bind(format!("zz-harvester-journalist-batch-{offset}"))
+            .bind(format!("https://example.invalid/journalist-batch-{offset}"))
+            .bind(&body)
+            .execute(&pool)
+            .await
+            .unwrap();
+            sqlx::query(
+                "INSERT INTO harvester_query_provenance(article_id,entity_type,entity_id,sport) \
+                 VALUES($1,'team',$2,$3)",
+            )
+            .bind(article_id)
+            .bind(ENTITY_ID as i32)
+            .bind(SPORT)
+            .execute(&pool)
+            .await
+            .unwrap();
+            let classification_id: i64 = sqlx::query_scalar(
+                "INSERT INTO harvester_classifications \
+                 (article_id,entity_type,entity_id,sport,contract_version,model_revision,entity_choice, \
+                  body_sha256,headline,model_input_start,model_input_end,model_input_text, \
+                  context_start,context_end,context_text,distributions,model_provenance) \
+                 VALUES($1,'team',$2,$3,'harvest-context-v1','test','relevant', \
+                        $4,'Test Team story moves',0,$5,$6,0,$5,$6,'{}'::jsonb,'{}'::jsonb) RETURNING id",
+            )
+            .bind(article_id)
+            .bind(ENTITY_ID as i32)
+            .bind(SPORT)
+            .bind(hex::encode(sha2::Sha256::digest(body.as_bytes())))
+            .bind(body.len() as i32)
+            .bind(&body)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+            sqlx::query(
+                "INSERT INTO harvester_assignments(classification_id,plugin_id) VALUES($1,$2)",
+            )
+            .bind(classification_id)
+            .bind(crate::plugins::journalist::manifest::MANIFEST.id.as_str())
+            .execute(&pool)
+            .await
+            .unwrap();
+        }
+        work::enqueue(&pool, &pending("harvest-context-v1:batch"))
+            .await
+            .unwrap();
+        let first = claim_one(&pool).await;
+        let sources = crate::plugins::harvester::delivery::load_for_character(
+            &pool,
+            crate::plugins::journalist::manifest::MANIFEST.id.as_str(),
+            "team",
+            ENTITY_ID as i32,
+            SPORT,
+        )
+        .await
+        .unwrap();
+        let (corpus, _, batch) = select_harvester_batch(sources);
+        assert_eq!(corpus.len(), 3);
+        assert_eq!(batch.len(), 3);
+        let mut first_narrative = narrative("First source batch", batch[0].article_id, 63, "Wire");
+        first_narrative.input_news_ids = batch.iter().map(|source| source.article_id).collect();
+        let (outcome, _) = commit_claimed(
+            &pool,
+            &first,
+            SPORT,
+            "periodic",
+            &serde_json::Value::Null,
+            &Prepared::Product(&edition(vec![first_narrative])),
+            &batch,
+        )
+        .await
+        .unwrap();
+        assert!(matches!(outcome, PluginOutcome::Deferred { .. }));
+        let (used, pending_count): (i64, i64) = sqlx::query_as(
+            "SELECT count(*) FILTER (WHERE d.status='used'), \
+                    count(*) FILTER (WHERE d.status='pending') \
+             FROM harvester_assignments d JOIN harvester_classifications c ON c.id=d.classification_id \
+             WHERE c.entity_id=$1 AND c.sport=$2",
+        )
+        .bind(ENTITY_ID as i32)
+        .bind(SPORT)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!((used, pending_count), (3, 1));
+        assert!(
+            work::defer(&pool, &first, Duration::ZERO, "source batch remains")
+                .await
+                .unwrap()
+        );
+        let second = claim_one(&pool).await;
+        let sources = crate::plugins::harvester::delivery::load_for_character(
+            &pool,
+            crate::plugins::journalist::manifest::MANIFEST.id.as_str(),
+            "team",
+            ENTITY_ID as i32,
+            SPORT,
+        )
+        .await
+        .unwrap();
+        let (_, _, batch) = select_harvester_batch(sources);
+        assert_eq!(batch.len(), 1);
+        let (outcome, _) = commit_claimed(
+            &pool,
+            &second,
+            SPORT,
+            "periodic",
+            &serde_json::Value::Null,
+            &Prepared::Product(&edition(vec![narrative(
+                "Remaining source",
+                batch[0].article_id,
+                63,
+                "Wire",
+            )])),
+            &batch,
+        )
+        .await
+        .unwrap();
+        assert_eq!(outcome, PluginOutcome::Committed);
+        let pending_count: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM harvester_assignments d \
+             JOIN harvester_classifications c ON c.id=d.classification_id \
+             WHERE c.entity_id=$1 AND c.sport=$2 AND d.status='pending'",
+        )
+        .bind(ENTITY_ID as i32)
+        .bind(SPORT)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(pending_count, 0);
         clean(&pool).await;
     }
 

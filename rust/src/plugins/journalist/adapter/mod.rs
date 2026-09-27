@@ -49,6 +49,46 @@ pub const PACKET_LOOKBACK_HOURS: i64 = 72;
 pub const MAX_PACKETS_PER_ENTITY: usize = 5;
 const PACKET_NEWS_BUDGET_CHARS: usize = 5_000;
 const SOURCE_NEWS_BUDGET_CHARS: usize = 5_000;
+const HARVESTER_SOURCES_PER_CLAIM: usize = 3;
+
+fn select_harvester_batch(
+    sources: Vec<crate::plugins::harvester::delivery::SourceContext>,
+) -> (
+    Vec<CorpusItem>,
+    CorpusExclusions,
+    Vec<crate::plugins::harvester::delivery::SourceContext>,
+) {
+    let sources = sources
+        .into_iter()
+        .take(HARVESTER_SOURCES_PER_CLAIM)
+        .collect::<Vec<_>>();
+    let corpus = sources
+        .iter()
+        .map(|source| CorpusItem {
+            id: source.article_id,
+            title: source.headline.clone(),
+            description: String::new(),
+            harvested_context: Some(source.context.clone()),
+            source: source.source.clone(),
+            published_at_epoch: source.published_at_epoch,
+        })
+        .collect();
+    let (corpus, dropped) = journalist::apply_news_budget(corpus, SOURCE_NEWS_BUDGET_CHARS);
+    let presented: std::collections::HashSet<i64> = corpus.iter().map(|item| item.id).collect();
+    // A source omitted by the prompt budget has not had a character
+    // judgment. Leave its assignment pending for the next claimed batch.
+    let sources = sources
+        .into_iter()
+        .filter(|source| presented.contains(&source.article_id))
+        .collect();
+    (
+        corpus,
+        CorpusExclusions {
+            budget_truncated_ids: dropped,
+        },
+        sources,
+    )
+}
 
 const NARRATIVES_LEDGER: LedgerSpec = LedgerSpec {
     plugin_id: crate::plugins::journalist::manifest::MANIFEST.id.as_str(),
@@ -184,26 +224,8 @@ pub async fn load_narratives_material(
             &sport,
         )
         .await?;
-        let corpus = sources
-            .iter()
-            .map(|source| CorpusItem {
-                id: source.article_id,
-                title: source.headline.clone(),
-                description: String::new(),
-                harvested_context: Some(source.context.clone()),
-                source: source.source.clone(),
-                published_at_epoch: source.published_at_epoch,
-            })
-            .collect();
-        let (corpus, dropped) = journalist::apply_news_budget(corpus, SOURCE_NEWS_BUDGET_CHARS);
-        (
-            corpus,
-            CorpusExclusions {
-                budget_truncated_ids: dropped,
-            },
-            String::new(),
-            sources,
-        )
+        let (corpus, exclusions, sources) = select_harvester_batch(sources);
+        (corpus, exclusions, String::new(), sources)
     } else {
         let (corpus, exclusions, framing) = load_packet_corpus(
             pool,
@@ -651,6 +673,30 @@ async fn commit_claimed(
             .await?;
         }
     }
+    if !harvester_sources.is_empty() {
+        let remaining: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM public.harvester_assignments d \
+             JOIN public.harvester_classifications c ON c.id=d.classification_id \
+             WHERE d.plugin_id=$1 AND d.status='pending' AND c.entity_type=$2 \
+               AND c.entity_id=$3 AND c.sport=$4",
+        )
+        .bind(crate::plugins::journalist::manifest::MANIFEST.id.as_str())
+        .bind(&item.entity_type)
+        .bind(item.entity_id_i32()?)
+        .bind(sport)
+        .fetch_one(&mut **publication.transaction())
+        .await?;
+        if remaining > 0 {
+            publication.commit_progress().await?;
+            return Ok((
+                PluginOutcome::deferred(
+                    format!("{remaining} Harvester sources remain for Journalist"),
+                    std::time::Duration::from_secs(1),
+                ),
+                product_row_ids,
+            ));
+        }
+    }
     record_narratives_completed(publication.transaction(), item).await?;
     publication.commit_final().await?;
     Ok((PluginOutcome::Committed, product_row_ids))
@@ -762,7 +808,10 @@ impl StudioPlugin for NarrativesHandler {
             &harvester_sources,
         )
         .await?;
-        if outcome == PluginOutcome::Committed {
+        if matches!(
+            &outcome,
+            PluginOutcome::Committed | PluginOutcome::Deferred { .. }
+        ) {
             record_ledger(
                 pool,
                 &LedgerSubject {

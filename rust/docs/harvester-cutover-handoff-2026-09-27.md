@@ -2,7 +2,7 @@
 
 **As of:** September 27, 2026, about 08:00 EDT  
 **Status:** Production shadow sweep still draining scheduled retries. The live cutover and legacy retirement are **not complete**.  
-**Code:** `codex/harvester-cutover`, commit `41ea3f4c`, draft [backend PR #15](https://github.com/scoracle/scoracle-backend/pull/15). The production checkout is at the same commit.
+**Deployed code:** `codex/harvester-cutover`, commit `41ea3f4c`, draft [backend PR #15](https://github.com/scoracle/scoracle-backend/pull/15). This documentation handoff advances the branch without changing the production worker.
 
 This is the current-state handoff for a fresh debug session. The longer [implementation status](harvester-cutover-status-2026-09-26.md) and [original production plan](PLAN-harvester-production-cutover.md) contain the history. Some dated sections in those documents describe superseded pre-deployment state; use the live checks below as authority.
 

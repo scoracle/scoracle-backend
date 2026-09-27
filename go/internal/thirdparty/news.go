@@ -190,6 +190,9 @@ func isTeamEntity(entityType string) bool {
 // (`investigate_entity` 9,049 pending at ~57h when this was written), so what the cap buys is
 // that queue's drain — and what it costs is corpus depth per entity. Re-measure both before
 // moving it: links per read (1.27 player links/read) and the `irrelevant` rate (15.4%).
+// Harvester intake is opt-in until its worker and schema are deployed.
+func harvesterIngestEnabled() bool { return os.Getenv("HARVESTER_INGEST_ENABLED") == "1" }
+
 func editorReadsPerEntityDay() int {
 	if v := os.Getenv("EDITOR_MAX_READS_PER_ENTITY_DAY"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
@@ -320,7 +323,10 @@ func (s *NewsService) persistArticles(
 	// order is Google's result order: D-T21's cap keeps the front of this list, so the iteration
 	// order has to be the ranking rather than Go's randomized map order.
 	var needEditor []int64
+	var needHarvester []int64
 	seenFresh := make(map[int64]bool)
+	seenHarvester := make(map[int64]bool)
+	harvesterMode := harvesterIngestEnabled()
 
 	for _, a := range articles {
 		if a.URL == "" || a.Title == "" {
@@ -381,7 +387,37 @@ func (s *NewsService) persistArticles(
 		if err != nil {
 			return nil, 0, fmt.Errorf("upsert article: %w", err)
 		}
-		if inserted && !seenFresh[articleID] {
+		if harvesterMode {
+			// Preserve every entity-query edge, including URLs another sweep first inserted.
+			// This is retrieval provenance, never an authoritative article/entity link.
+			hit, err := json.Marshal(map[string]any{
+				"q": a.queryTerm, "lane": a.queryLane, "edition": a.queryEdition,
+				"window": a.queryWindow, "feed_rank": a.FeedRank,
+			})
+			if err != nil {
+				return nil, 0, fmt.Errorf("encode harvester query: %w", err)
+			}
+			var firstEntityHit bool
+			err = tx.QueryRow(ctx, `
+				INSERT INTO public.harvester_query_provenance
+				    (article_id, entity_type, entity_id, sport, feed_rank, query_terms)
+				VALUES ($1, $2, $3, $4, $5, jsonb_build_array($6::jsonb))
+				ON CONFLICT (article_id, entity_type, entity_id, sport) DO UPDATE SET
+				    feed_rank = LEAST(COALESCE(harvester_query_provenance.feed_rank, EXCLUDED.feed_rank), EXCLUDED.feed_rank),
+				    query_terms = CASE WHEN harvester_query_provenance.query_terms @> EXCLUDED.query_terms
+				                       THEN harvester_query_provenance.query_terms
+				                       ELSE harvester_query_provenance.query_terms || EXCLUDED.query_terms END,
+				    last_seen_at = NOW()
+				RETURNING (xmax = 0)
+			`, articleID, primaryEntityType, primaryEntityID, sportUpper, a.FeedRank, hit).Scan(&firstEntityHit)
+			if err != nil {
+				return nil, 0, fmt.Errorf("upsert harvester query provenance: %w", err)
+			}
+			if firstEntityHit && !seenHarvester[articleID] {
+				seenHarvester[articleID] = true
+				needHarvester = append(needHarvester, articleID)
+			}
+		} else if inserted && !seenFresh[articleID] {
 			seenFresh[articleID] = true
 			needEditor = append(needEditor, articleID)
 		}
@@ -399,7 +435,7 @@ func (s *NewsService) persistArticles(
 	// before the query_sport provenance existed don't match the pair and are excluded —
 	// one deploy-day allowance reset, self-correcting on the next sweep.
 	withheld := 0
-	if capN := editorReadsPerEntityDay(); capN > 0 && isTeamEntity(primaryEntityType) {
+	if capN := editorReadsPerEntityDay(); !harvesterMode && capN > 0 && isTeamEntity(primaryEntityType) {
 		var already int
 		if err := tx.QueryRow(ctx, `
 			SELECT count(*)
@@ -417,6 +453,30 @@ func (s *NewsService) persistArticles(
 			already = 0
 		}
 		needEditor, withheld = capFreshReads(needEditor, already, capN)
+	}
+
+	if harvesterMode {
+		// A new entity edge reopens the article-level claim with a monotone input
+		// revision. Every canonical Google candidate remains eligible; there is no
+		// Editor-era ten-read ceiling in this mode.
+		for _, id := range needHarvester {
+			var entities int
+			if err := tx.QueryRow(ctx,
+				"SELECT count(*) FROM public.harvester_query_provenance WHERE article_id = $1", id,
+			).Scan(&entities); err != nil {
+				return nil, 0, fmt.Errorf("count harvester query entities: %w", err)
+			}
+			if err := work.Enqueue(ctx, tx, work.Item{
+				Stage: work.StageHarvester, EntityType: "article", EntityID: int(id),
+				Sport: sportUpper, InputVersion: fmt.Sprintf("harvest-context-v1:q%d", entities),
+			}); err != nil {
+				return nil, 0, err
+			}
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return nil, 0, err
+		}
+		return needHarvester, 0, nil
 	}
 
 	// The greenfield Editor reads EVERY new article once (PLAN-one-rail 3.5) — same tx, so

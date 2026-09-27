@@ -48,6 +48,7 @@ pub(crate) async fn record_narratives_completed(
 pub const PACKET_LOOKBACK_HOURS: i64 = 72;
 pub const MAX_PACKETS_PER_ENTITY: usize = 5;
 const PACKET_NEWS_BUDGET_CHARS: usize = 5_000;
+const SOURCE_NEWS_BUDGET_CHARS: usize = 5_000;
 
 const NARRATIVES_LEDGER: LedgerSpec = LedgerSpec {
     plugin_id: crate::plugins::journalist::manifest::MANIFEST.id.as_str(),
@@ -145,6 +146,7 @@ pub async fn load_packet_corpus(
                 id,
                 title: facts.next().unwrap_or_default(),
                 description: facts.collect::<Vec<_>>().join(" · "),
+                harvested_context: None,
                 source: article.source,
                 published_at_epoch: article.published_at_epoch,
             }
@@ -163,22 +165,56 @@ pub struct NarrativesMaterial {
     corpus_exclusions: CorpusExclusions,
     pub input_hash: String,
     packet_framing: Option<String>,
+    harvester_sources: Vec<crate::plugins::harvester::delivery::SourceContext>,
 }
 
 /// Load and fingerprint concrete material without assembling a prompt or calling a model.
 pub async fn load_narratives_material(
     pool: &sqlx::PgPool,
     req: &NarrativesReq,
+    from_harvester: bool,
 ) -> Result<NarrativesMaterial> {
     let sport = req.sport.to_uppercase();
-    let (corpus, corpus_exclusions, packet_framing) = load_packet_corpus(
-        pool,
-        &req.entity_type,
-        req.entity_id,
-        &sport,
-        &req.entity_name,
-    )
-    .await?;
+    let (corpus, corpus_exclusions, packet_framing, harvester_sources) = if from_harvester {
+        let sources = crate::plugins::harvester::delivery::load_for_character(
+            pool,
+            crate::plugins::journalist::manifest::MANIFEST.id.as_str(),
+            &req.entity_type,
+            req.entity_id,
+            &sport,
+        )
+        .await?;
+        let corpus = sources
+            .iter()
+            .map(|source| CorpusItem {
+                id: source.article_id,
+                title: source.headline.clone(),
+                description: String::new(),
+                harvested_context: Some(source.context.clone()),
+                source: source.source.clone(),
+                published_at_epoch: source.published_at_epoch,
+            })
+            .collect();
+        let (corpus, dropped) = journalist::apply_news_budget(corpus, SOURCE_NEWS_BUDGET_CHARS);
+        (
+            corpus,
+            CorpusExclusions {
+                budget_truncated_ids: dropped,
+            },
+            String::new(),
+            sources,
+        )
+    } else {
+        let (corpus, exclusions, framing) = load_packet_corpus(
+            pool,
+            &req.entity_type,
+            req.entity_id,
+            &sport,
+            &req.entity_name,
+        )
+        .await?;
+        (corpus, exclusions, framing, Vec::new())
+    };
     let article_ids: Vec<i64> = corpus.iter().map(|item| item.id).collect();
     let mut request = MemoryRequest::new(
         Mission::Journalist,
@@ -187,9 +223,19 @@ pub async fn load_narratives_material(
         &req.sport,
     );
     request.current_article_ids = &article_ids;
+    request.include_storyline_history = !from_harvester;
     let memories = memories::load(pool, request).await?;
-    let input_components =
-        memories.with_input_components(&journalist::build_narratives_input_components(&corpus))?;
+    let mut base_components = journalist::build_narratives_input_components(&corpus);
+    if from_harvester {
+        base_components = serde_json::json!({
+            "corpus": serde_json::from_str::<serde_json::Value>(&base_components)?,
+            "harvester_contexts": harvester_sources.iter().map(|source| {
+                (source.classification_id, source.article_id, &source.headline, &source.context)
+            }).collect::<Vec<_>>(),
+        })
+        .to_string();
+    }
+    let input_components = memories.with_input_components(&base_components)?;
     let input_hash = crate::util::hash_components(&input_components);
     Ok(NarrativesMaterial {
         memories,
@@ -197,6 +243,7 @@ pub async fn load_narratives_material(
         corpus_exclusions,
         input_hash,
         packet_framing: Some(packet_framing),
+        harvester_sources,
     })
 }
 
@@ -213,6 +260,7 @@ pub fn finish_narratives_assignment(
         corpus_exclusions,
         input_hash,
         packet_framing,
+        harvester_sources: _,
     } = material;
     let memory = if corpus.is_empty() {
         None
@@ -245,16 +293,18 @@ async fn insert_narratives(
     trigger_type: &str,
     trigger_payload: &serde_json::Value,
     output: &NarrativesOutput,
+    from_harvester: bool,
 ) -> Result<Vec<i64>> {
     let article_ids: Vec<i64> = output
         .narratives
         .iter()
         .flat_map(|narrative| narrative.input_news_ids.iter().copied())
         .collect();
-    let storyline_of: std::collections::HashMap<i64, i64> = if article_ids.is_empty() {
-        std::collections::HashMap::new()
-    } else {
-        sqlx::query(
+    let storyline_of: std::collections::HashMap<i64, i64> =
+        if from_harvester || article_ids.is_empty() {
+            std::collections::HashMap::new()
+        } else {
+            sqlx::query(
             "SELECT article_id, storyline_id FROM storyline_articles WHERE article_id = ANY($1)",
         )
         .bind(&article_ids)
@@ -264,7 +314,7 @@ async fn insert_narratives(
         .into_iter()
         .map(|row| (row.get("article_id"), row.get("storyline_id")))
         .collect()
-    };
+        };
     let items: Vec<PartItem> = output
         .narratives
         .iter()
@@ -281,42 +331,55 @@ async fn insert_narratives(
             }
         })
         .collect();
-    let outcomes = progress_generation(tx, sport, entity_type, entity_id, &items).await?;
-    let classified: Vec<ClassifiedRow> = output
-        .narratives
-        .iter()
-        .zip(&outcomes)
-        .map(|(narrative, outcome)| {
-            let reason = match outcome.delta_reason {
-                "up" => "impact_up",
-                "down" => "impact_down",
-                "stable" => "impact_stable",
-                other => other,
-            };
-            let components = if outcome.unresolved {
-                json!({
-                    "previous_impact": serde_json::Value::Null,
-                    "current_impact": narrative.impact,
-                    "impact_delta": serde_json::Value::Null,
-                    "reason": "storyline_unresolved",
-                })
-            } else {
-                json!({
-                    "previous_impact": outcome.previous_impact,
-                    "current_impact": narrative.impact,
-                    "impact_delta": outcome.impact_delta,
-                    "reason": reason,
-                    "storyline_id": outcome.storyline_id,
-                })
-            };
-            (
-                narrative,
-                outcome.trajectory,
-                components,
-                outcome.storyline_id,
-            )
-        })
-        .collect();
+    let outcomes = if from_harvester {
+        Vec::new()
+    } else {
+        progress_generation(tx, sport, entity_type, entity_id, &items).await?
+    };
+    let classified: Vec<ClassifiedRow> = if from_harvester {
+        output.narratives.iter().map(|narrative| (
+            narrative,
+            DEFAULT_TRAJECTORY,
+            json!({"reason": "independent_source_context", "current_impact": narrative.impact}),
+            None,
+        )).collect()
+    } else {
+        output
+            .narratives
+            .iter()
+            .zip(&outcomes)
+            .map(|(narrative, outcome)| {
+                let reason = match outcome.delta_reason {
+                    "up" => "impact_up",
+                    "down" => "impact_down",
+                    "stable" => "impact_stable",
+                    other => other,
+                };
+                let components = if outcome.unresolved {
+                    json!({
+                        "previous_impact": serde_json::Value::Null,
+                        "current_impact": narrative.impact,
+                        "impact_delta": serde_json::Value::Null,
+                        "reason": "storyline_unresolved",
+                    })
+                } else {
+                    json!({
+                        "previous_impact": outcome.previous_impact,
+                        "current_impact": narrative.impact,
+                        "impact_delta": outcome.impact_delta,
+                        "reason": reason,
+                        "storyline_id": outcome.storyline_id,
+                    })
+                };
+                (
+                    narrative,
+                    outcome.trajectory,
+                    components,
+                    outcome.storyline_id,
+                )
+            })
+            .collect()
+    };
 
     const INSERT: &str = r#"
         INSERT INTO news_summaries (
@@ -436,6 +499,7 @@ struct LedgerSubject<'a> {
     sport: &'a str,
     trigger_type: &'a str,
     trigger_payload: &'a serde_json::Value,
+    from_harvester: bool,
 }
 
 async fn record_ledger(
@@ -468,13 +532,22 @@ async fn record_ledger(
         .unwrap_or(crate::studio::model::VOICE_NUM_CTX_PACKET as i64) as i32;
     let mut excluded = Vec::new();
     if !output.budget_truncated_ids.is_empty() {
-        excluded.push(json!({
-            "reason": "budget_truncated",
-            "dropped_count": output.budget_truncated_ids.len(),
-            "dropped_news_ids": &output.budget_truncated_ids,
-            "packet_count_limit": MAX_PACKETS_PER_ENTITY,
-            "news_budget_chars": PACKET_NEWS_BUDGET_CHARS,
-        }));
+        excluded.push(if subject.from_harvester {
+            json!({
+                "reason": "budget_truncated",
+                "dropped_count": output.budget_truncated_ids.len(),
+                "dropped_news_ids": &output.budget_truncated_ids,
+                "source_context_budget_chars": SOURCE_NEWS_BUDGET_CHARS,
+            })
+        } else {
+            json!({
+                "reason": "budget_truncated",
+                "dropped_count": output.budget_truncated_ids.len(),
+                "dropped_news_ids": &output.budget_truncated_ids,
+                "packet_count_limit": MAX_PACKETS_PER_ENTITY,
+                "news_budget_chars": PACKET_NEWS_BUDGET_CHARS,
+            })
+        });
     }
     insert_generation_ledger_best_effort(
         pool,
@@ -522,6 +595,7 @@ async fn commit_claimed(
     trigger_type: &str,
     trigger_payload: &serde_json::Value,
     prepared: &Prepared<'_>,
+    harvester_sources: &[crate::plugins::harvester::delivery::SourceContext],
 ) -> Result<(PluginOutcome, Vec<i64>)> {
     let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
         return Ok((PluginOutcome::Superseded, Vec::new()));
@@ -537,10 +611,46 @@ async fn commit_claimed(
                 trigger_type,
                 trigger_payload,
                 output,
+                !harvester_sources.is_empty(),
             )
             .await?
         }
     };
+    if !harvester_sources.is_empty() {
+        let cited: std::collections::HashSet<i64> = match prepared {
+            Prepared::Debounced => std::collections::HashSet::new(),
+            Prepared::Product(output) => output
+                .narratives
+                .iter()
+                .flat_map(|narrative| narrative.input_news_ids.iter().copied())
+                .collect(),
+        };
+        for source in harvester_sources {
+            let status = if matches!(prepared, Prepared::Debounced) {
+                "redundant"
+            } else if cited.contains(&source.article_id) {
+                "used"
+            } else {
+                "abstained"
+            };
+            sqlx::query(
+                "UPDATE public.harvester_assignments SET status=$3, reason=$4, \
+                 product_ref=$5, updated_at=NOW() \
+                 WHERE classification_id=$1 AND plugin_id=$2 AND status='pending'",
+            )
+            .bind(source.classification_id)
+            .bind(crate::plugins::journalist::manifest::MANIFEST.id.as_str())
+            .bind(status)
+            .bind(if status == "abstained" {
+                Some("not cited by Journalist")
+            } else {
+                None
+            })
+            .bind(serde_json::json!({"news_summary_ids": product_row_ids}))
+            .execute(&mut **publication.transaction())
+            .await?;
+        }
+    }
     record_narratives_completed(publication.transaction(), item).await?;
     publication.commit_final().await?;
     Ok((PluginOutcome::Committed, product_row_ids))
@@ -575,6 +685,9 @@ impl StudioPlugin for NarrativesHandler {
             &item.sport,
         )
         .await?;
+        let from_harvester = item.input_version.as_deref().is_some_and(|version| {
+            version.starts_with(crate::plugins::harvester::context::CONTRACT)
+        });
         let req = NarrativesReq {
             entity_type: item.entity_type.clone(),
             entity_id,
@@ -582,7 +695,21 @@ impl StudioPlugin for NarrativesHandler {
             sport: item.sport.clone(),
             trigger_type: "periodic".to_string(),
         };
-        let material = load_narratives_material(pool, &req).await?;
+        let material = load_narratives_material(pool, &req, from_harvester).await?;
+        let harvester_sources = material.harvester_sources.clone();
+        if from_harvester && harvester_sources.is_empty() {
+            return Ok(commit_claimed(
+                pool,
+                item,
+                &sport,
+                &req.trigger_type,
+                &serde_json::Value::Null,
+                &Prepared::Debounced,
+                &[],
+            )
+            .await?
+            .0);
+        }
         let unchanged = crate::application::products::debounce_unchanged(
             pool,
             "news_summaries",
@@ -595,7 +722,11 @@ impl StudioPlugin for NarrativesHandler {
             &material.input_hash,
         )
         .await?;
-        let trigger_payload = serde_json::Value::Null;
+        let trigger_payload = if from_harvester {
+            json!({"source": "harvester"})
+        } else {
+            serde_json::Value::Null
+        };
         if unchanged {
             debug!(
                 entity_type = %item.entity_type,
@@ -610,6 +741,7 @@ impl StudioPlugin for NarrativesHandler {
                 &req.trigger_type,
                 &trigger_payload,
                 &Prepared::Debounced,
+                &harvester_sources,
             )
             .await?
             .0);
@@ -627,6 +759,7 @@ impl StudioPlugin for NarrativesHandler {
             &req.trigger_type,
             &trigger_payload,
             &Prepared::Product(&output),
+            &harvester_sources,
         )
         .await?;
         if outcome == PluginOutcome::Committed {
@@ -638,6 +771,7 @@ impl StudioPlugin for NarrativesHandler {
                     sport: &sport,
                     trigger_type: &req.trigger_type,
                     trigger_payload: &trigger_payload,
+                    from_harvester,
                 },
                 product_row_ids,
                 &output,

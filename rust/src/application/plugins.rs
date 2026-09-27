@@ -11,6 +11,7 @@ use crate::plugins::analyst::adapter as analyst;
 use crate::plugins::editor::adapter as editor;
 use crate::plugins::fixture_boxscore::adapter as boxscore;
 use crate::plugins::graph::adapter as graph;
+use crate::plugins::harvester::adapter as harvester;
 use crate::plugins::influencer::adapter as influencer;
 use crate::plugins::insider::adapter as insider;
 use crate::plugins::journalist::adapter as journalist;
@@ -21,6 +22,13 @@ use anyhow::{anyhow, Result};
 use sqlx::PgPool;
 use std::collections::HashSet;
 use std::sync::Arc;
+
+/// Bind the standalone Harvester to an explicitly selected classification endpoint.
+/// It is callable by replay/tools without enabling queue work or changing the Editor.
+pub fn build_harvester(endpoint: String) -> Result<crate::plugins::harvester::Harvester> {
+    let model = crate::runtime::providers::system_one::SystemOneClient::new(endpoint)?;
+    Ok(crate::plugins::harvester::Harvester::new(Arc::new(model)))
+}
 
 /// First-party registration order. This is composition policy, not a durable
 /// queue invariant; claim-time database gates remain authoritative across workers.
@@ -41,7 +49,13 @@ const VOICE_ORDER: [work::TaskKey; 6] = [
 pub fn enabled_from_config(raw: Option<&str>) -> Result<HashSet<String>> {
     let known = known_stages();
     let Some(raw) = raw else {
-        return Ok(known.into_iter().map(str::to_owned).collect());
+        // New schema, model endpoint, and character delivery are deployed in
+        // stages. A host must opt in to the Harvester worker explicitly.
+        return Ok(known
+            .into_iter()
+            .filter(|s| *s != "harvester")
+            .map(str::to_owned)
+            .collect());
     };
 
     let mut stages = HashSet::new();
@@ -108,6 +122,18 @@ pub fn build(
             models.capabilities(&crate::plugins::editor::manifest::MANIFEST)?,
             web,
             packet_compile,
+        )));
+    }
+    if enabled.contains("harvester") {
+        let endpoint = std::env::var("HARVESTER_MODEL_ENDPOINT").map_err(|_| {
+            anyhow!("HARVESTER_MODEL_ENDPOINT is required when harvester is enabled")
+        })?;
+        let model = crate::runtime::providers::system_one::SystemOneClient::new(endpoint)?;
+        let web = shared_web_workspace(&mut web_workspace)?;
+        handlers.push(Arc::new(harvester::HarvesterHandler::new(
+            pool.clone(),
+            Arc::new(model),
+            web,
         )));
     }
     // Discovery uses the Editor's idle shared capacity.
@@ -208,12 +234,15 @@ mod tests {
     };
 
     #[test]
-    fn unset_configuration_enables_every_manifest_task() {
+    fn unset_configuration_keeps_harvester_opt_in() {
         let stages = enabled_from_config(None).unwrap();
-        assert_eq!(stages.len(), known_stages().len());
+        assert_eq!(stages.len() + 1, known_stages().len());
         for stage in known_stages() {
-            assert!(stages.contains(stage));
+            assert_eq!(stages.contains(stage), stage != "harvester");
         }
+        assert!(enabled_from_config(Some("harvester"))
+            .unwrap()
+            .contains("harvester"));
     }
 
     #[test]

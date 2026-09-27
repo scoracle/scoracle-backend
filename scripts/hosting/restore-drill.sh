@@ -25,6 +25,8 @@
 #   scripts/hosting/restore-drill.sh /mnt/data/backup/scoracle/scoracle-<date>.dump
 #
 # Env overrides: DB_HOST DB_PORT DB_USER DB_NAME (source/comparison DB) PGPASSWORD
+#   RESTORE_SOURCE_MODE=harvester checks Harvester storage/functions after cutover;
+#                         editor remains the default while legacy intake is live.
 #   SKIP_STMT_CHECK=1  skip the prepared-statement boot check (e.g. when the dump
 #                      predates the current binary's schema and you only want the
 #                      structural/row checks).
@@ -49,6 +51,11 @@ DB_HOST=${DB_HOST:-localhost}
 DB_PORT=${DB_PORT:-5432}
 DB_USER=${DB_USER:-scoracle}
 DB_NAME=${DB_NAME:-scoracle}
+RESTORE_SOURCE_MODE=${RESTORE_SOURCE_MODE:-editor}
+case "$RESTORE_SOURCE_MODE" in
+    editor|harvester) ;;
+    *) echo "invalid RESTORE_SOURCE_MODE=$RESTORE_SOURCE_MODE" >&2; exit 2 ;;
+esac
 
 if [ -z "${PGPASSWORD:-}" ] && [ -f /home/sheneveld/scoracle/scoracle-backend/.env.local ]; then
     PGPASSWORD=$(grep -oP '(?<=:)[^@/]+(?=@)' /home/sheneveld/scoracle/scoracle-backend/.env.local | head -1)
@@ -145,16 +152,33 @@ echo "-> [3] stable structural objects present in restore"
 # count of 0 (and a note_fail) instead of a raw '::regclass does not exist' error.
 # 2026-08-06: `enqueue_derive_on_vetted` (function AND trigger) was retired with
 # news_article_entities.vetted in the 8.10/8.11 rip — this drill was still asserting both, so a
-# restore drill would have FAILED on the schema being CORRECT. Replaced with the packet rail's
-# live equivalents: enqueue_voices_on_packet is the trigger the whole voice fan-out hangs off,
-# and detect_team_change is the box-score trigger migration 215 narrowed.
-for fn in finalize_fixture enqueue_voices_on_packet detect_team_change; do
+# restore drill would have FAILED on the schema being CORRECT. During the staged cutover,
+# the default Editor mode still checks packet fan-out; Harvester mode checks its own
+# source storage and functions after the old packet trigger can be retired.
+# detect_team_change remains the box-score trigger migration 215 narrowed.
+for fn in finalize_fixture detect_team_change; do
     if [ "$(rq "SELECT count(*) FROM pg_proc WHERE proname='$fn'")" -lt 1 ]; then
         note_fail "function missing from restore: $fn()"
     fi
 done
-if [ "$(rq "SELECT count(*) FROM pg_trigger WHERE tgrelid=to_regclass('public.packets') AND tgname='enqueue_voices_on_packet' AND NOT tgisinternal")" -lt 1 ]; then
-    note_fail "trigger missing from restore: enqueue_voices_on_packet on packets"
+if [ "$RESTORE_SOURCE_MODE" = "editor" ]; then
+    if [ "$(rq "SELECT count(*) FROM pg_proc WHERE proname='enqueue_voices_on_packet'")" -lt 1 ]; then
+        note_fail "function missing from restore: enqueue_voices_on_packet()"
+    fi
+    if [ "$(rq "SELECT count(*) FROM pg_trigger WHERE tgrelid=to_regclass('public.packets') AND tgname='enqueue_voices_on_packet' AND NOT tgisinternal")" -lt 1 ]; then
+        note_fail "trigger missing from restore: enqueue_voices_on_packet on packets"
+    fi
+else
+    for fn in harvester_collapse_exact_title_duplicates compute_harvester_transfer_heat; do
+        if [ "$(rq "SELECT count(*) FROM pg_proc WHERE proname='$fn'")" -lt 1 ]; then
+            note_fail "function missing from restore: $fn()"
+        fi
+    done
+    for t in harvester_query_provenance harvester_acquisitions harvester_classifications harvester_assignments; do
+        if [ "$(rq "SELECT count(*) FROM pg_constraint WHERE conrelid=to_regclass('public.$t') AND contype='p'")" -lt 1 ]; then
+            note_fail "Harvester table or primary key missing from restore: $t"
+        fi
+    done
 fi
 if [ "$(rq "SELECT count(*) FROM pg_trigger WHERE tgrelid=to_regclass('public.event_box_scores') AND tgname='trg_detect_team_change' AND NOT tgisinternal")" -lt 1 ]; then
     note_fail "trigger missing from restore: trg_detect_team_change on event_box_scores"

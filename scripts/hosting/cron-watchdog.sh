@@ -19,7 +19,9 @@
 #                      <80% of teams covered = ALARM.
 #   voice_output     — per sport: newest vibe_scores.generated_at within 48h
 #                      (the voices are producing, not just queued)
-#   packet_compile   — newest packets.compiled_at within 36h (the rail compiles)
+#   packet_compile   — newest packets.compiled_at within 36h (Editor mode)
+#   harvester_coverage — per sport: swept query teams with a classification (Harvester mode)
+#   harvester_classification — newest classification within 36h (Harvester mode)
 #   dead_letters     — pipeline_work failed at the attempt cap (>25 = ALARM)
 #   drain_alive      — claimable work exists but NOTHING produced in 30 min
 #                      (a dead/wedged daemon; depth alone is recovery, not failure)
@@ -34,6 +36,9 @@
 # Reporting: one pipeline_runs row per run (job='watchdog'; status failed +
 # the alarm lines in error), so `SELECT * FROM pipeline_runs_latest` shows it
 # beside the jobs it watches. Non-zero exit on any alarm (cron surfaces it).
+# Set WATCHDOG_SOURCE_MODE=harvester only when Harvester is the live intake owner.
+# The default remains editor throughout shadowing; the Harvester mode requires
+# migrations 269+ and replaces Editor/packet-specific freshness checks.
 # Optional: set WATCHDOG_ALERT_URL in .env.local (e.g. an ntfy.sh topic) and
 # alarms are POSTed there as plain text.
 #
@@ -52,10 +57,16 @@ set -a
 [ -f .env.local ] && source .env.local
 set +a
 
+SOURCE_MODE="${WATCHDOG_SOURCE_MODE:-editor}"
+case "$SOURCE_MODE" in
+  editor|harvester) ;;
+  *) echo "watchdog: invalid WATCHDOG_SOURCE_MODE=$SOURCE_MODE" >&2; exit 2 ;;
+esac
+
 STAMP="$(date '+%Y-%m-%dT%H:%M:%S%z')"
 
 # One SQL pass; every check emits: name|status|detail.
-RESULT="$(psql "$DATABASE_URL" -X -q -A -t -F'|' <<'SQL'
+RESULT="$(psql "$DATABASE_URL" -X -q -A -t -F'|' -v source_mode="$SOURCE_MODE" <<'SQL'
 WITH ingest AS (
   SELECT max(fetched_at) AS newest FROM news_articles
 ),
@@ -78,12 +89,31 @@ reads AS (
     ) per_team
    GROUP BY 1
 ),
+harvester_reads AS (
+  SELECT sport, count(*) AS swept, count(*) FILTER (WHERE read_n > 0) AS read
+    FROM (
+      SELECT q.sport, q.entity_id AS team,
+             count(c.id) AS read_n
+        FROM public.harvester_query_provenance q
+        JOIN public.news_articles a ON a.id=q.article_id
+        LEFT JOIN public.harvester_classifications c
+          ON c.article_id=q.article_id AND c.entity_type=q.entity_type
+         AND c.entity_id=q.entity_id AND c.sport=q.sport
+       WHERE q.entity_type='team'
+         AND a.fetched_at BETWEEN now() - interval '36 hours' AND now() - interval '12 hours'
+       GROUP BY q.sport, q.entity_id
+    ) per_team
+   GROUP BY sport
+),
 vibes AS (
   SELECT sport, max(generated_at) AS newest
     FROM vibe_scores GROUP BY 1
 ),
 pack AS (
   SELECT max(compiled_at) AS newest FROM packets
+),
+harvest AS (
+  SELECT max(created_at) AS newest FROM public.harvester_classifications
 ),
 dead AS (
   SELECT count(*) AS n FROM pipeline_work
@@ -134,7 +164,12 @@ UNION ALL
 SELECT 'editor_reads[' || sport || ']',
        CASE WHEN swept = 0 OR read * 100 >= swept * 80 THEN 'OK' ELSE 'ALARM' END,
        read || '/' || swept || ' swept teams have a read'
-  FROM reads
+  FROM reads WHERE :'source_mode'='editor'
+UNION ALL
+SELECT 'harvester_coverage[' || sport || ']',
+       CASE WHEN swept = 0 OR read * 100 >= swept * 80 THEN 'OK' ELSE 'ALARM' END,
+       read || '/' || swept || ' swept query teams have a classification'
+  FROM harvester_reads WHERE :'source_mode'='harvester'
 UNION ALL
 SELECT 'voice_output[' || sport || ']',
        CASE WHEN newest > now() - interval '48 hours' THEN 'OK' ELSE 'ALARM' END,
@@ -144,7 +179,12 @@ UNION ALL
 SELECT 'packet_compile',
        CASE WHEN newest > now() - interval '36 hours' THEN 'OK' ELSE 'ALARM' END,
        'newest packet ' || coalesce(newest::text, 'none')
-  FROM pack
+  FROM pack WHERE :'source_mode'='editor'
+UNION ALL
+SELECT 'harvester_classification',
+       CASE WHEN newest > now() - interval '36 hours' THEN 'OK' ELSE 'ALARM' END,
+       'newest classification ' || coalesce(newest::text, 'none')
+  FROM harvest WHERE :'source_mode'='harvester'
 UNION ALL
 SELECT 'dead_letters',
        CASE WHEN n <= 25 THEN 'OK' ELSE 'ALARM' END,

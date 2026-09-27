@@ -27,6 +27,26 @@ pub struct FetchedArticle {
     pub text: String,
 }
 
+#[derive(Debug)]
+pub struct ArticleHttpStatus {
+    pub status: reqwest::StatusCode,
+    pub final_url: String,
+}
+
+impl ArticleHttpStatus {
+    pub fn is_access_denied(&self) -> bool {
+        matches!(self.status.as_u16(), 401 | 402 | 403 | 451)
+    }
+}
+
+impl std::fmt::Display for ArticleHttpStatus {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "article HTTP {}", self.status.as_u16())
+    }
+}
+
+impl std::error::Error for ArticleHttpStatus {}
+
 pub async fn fetch_article(raw_url: &str) -> Result<FetchedArticle> {
     let client = reqwest::Client::builder()
         .timeout(ARTICLE_FETCH_TIMEOUT)
@@ -51,11 +71,8 @@ pub async fn fetch_article(raw_url: &str) -> Result<FetchedArticle> {
         .context("fetch article")?;
     let final_url = resp.url().to_string();
     let status = resp.status();
-    if status.as_u16() == 401 || status.as_u16() == 403 {
-        return Err(anyhow!("article HTTP {}", status.as_u16()));
-    }
     if !status.is_success() {
-        return Err(anyhow!("article HTTP {}", status.as_u16()));
+        return Err(ArticleHttpStatus { status, final_url }.into());
     }
     let html = resp.text().await.context("read article body")?;
     let mut text = extract_article_text(&html);

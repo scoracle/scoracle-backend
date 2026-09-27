@@ -4,6 +4,7 @@ use super::*;
 use crate::application::queue::work;
 use crate::plugins::journalist::cognition::NarrativesProduct;
 use crate::studio::Generation;
+use sha2::Digest;
 
 fn edition(narratives: Vec<Narrative>) -> NarrativesOutput {
     let input_ids = narratives
@@ -181,6 +182,99 @@ mod postgres_publication_fencing_tests {
 
     #[tokio::test]
     #[ignore = "requires isolated migrated TEST_DATABASE_URL"]
+    async fn harvester_context_commits_without_storyline_and_marks_cited_source_used() {
+        let pool = pool().await;
+        clean(&pool).await;
+        let body = "Publisher's exact first sentence. Another sourced sentence.";
+        sqlx::query(
+            "INSERT INTO news_articles(id,url_hash,url,source,title,full_text) \
+             VALUES($1,$2,$3,$4,$5,$6)",
+        )
+        .bind(ARTICLE_ID)
+        .bind("zz-harvester-journalist-article")
+        .bind("https://example.invalid/harvester-journalist")
+        .bind("BBC")
+        .bind("Test Team story moves")
+        .bind(body)
+        .execute(&pool)
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO harvester_query_provenance(article_id,entity_type,entity_id,sport) \
+             VALUES ($1,'team',$2,$3)",
+        )
+        .bind(ARTICLE_ID)
+        .bind(ENTITY_ID as i32)
+        .bind(SPORT)
+        .execute(&pool)
+        .await
+        .unwrap();
+        let classification_id: i64 = sqlx::query_scalar(
+            "INSERT INTO harvester_classifications \
+             (article_id,entity_type,entity_id,sport,contract_version,model_revision,entity_choice, \
+              body_sha256,headline,model_input_start,model_input_end,model_input_text, \
+              context_start,context_end,context_text,distributions,model_provenance) \
+             VALUES ($1,'team',$2,$3,'harvest-context-v1','test','irrelevant', \
+                     $4,'Test Team story moves',0,$5,$6,0,$5,$6,'{}'::jsonb,'{}'::jsonb) RETURNING id",
+        )
+        .bind(ARTICLE_ID)
+        .bind(ENTITY_ID as i32)
+        .bind(SPORT)
+        .bind(hex::encode(sha2::Sha256::digest(body.as_bytes())))
+        .bind(body.len() as i32)
+        .bind(body)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        sqlx::query("INSERT INTO harvester_assignments(classification_id,plugin_id) VALUES($1,$2)")
+            .bind(classification_id)
+            .bind(crate::plugins::journalist::manifest::MANIFEST.id.as_str())
+            .execute(&pool)
+            .await
+            .unwrap();
+        work::enqueue(&pool, &pending("harvest-context-v1:test"))
+            .await
+            .unwrap();
+        let claimed = claim_one(&pool).await;
+        let sources = crate::plugins::harvester::delivery::load_for_character(
+            &pool,
+            crate::plugins::journalist::manifest::MANIFEST.id.as_str(),
+            "team",
+            ENTITY_ID as i32,
+            SPORT,
+        )
+        .await
+        .unwrap();
+        let output = edition(vec![narrative("Source-led update", ARTICLE_ID, 63, "BBC")]);
+        let (outcome, _) = commit_claimed(
+            &pool,
+            &claimed,
+            SPORT,
+            "periodic",
+            &json!({"article_id": ARTICLE_ID}),
+            &Prepared::Product(&output),
+            &sources,
+        )
+        .await
+        .unwrap();
+        assert_eq!(outcome, PluginOutcome::Committed);
+        let (storyline_id, status): (Option<i64>, String) = sqlx::query_as(
+            "SELECT n.storyline_id,d.status FROM news_summaries n \
+             JOIN harvester_assignments d ON d.classification_id=$1 \
+             WHERE n.sport=$2 ORDER BY n.id DESC LIMIT 1",
+        )
+        .bind(classification_id)
+        .bind(SPORT)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(storyline_id, None);
+        assert_eq!(status, "used");
+        clean(&pool).await;
+    }
+
+    #[tokio::test]
+    #[ignore = "requires isolated migrated TEST_DATABASE_URL"]
     async fn current_claim_commits_every_row_progression_event_and_completion() {
         let pool = pool().await;
         clean(&pool).await;
@@ -198,6 +292,7 @@ mod postgres_publication_fencing_tests {
             "periodic",
             &json!({"reason":"test"}),
             &Prepared::Product(&output),
+            &[],
         )
         .await
         .unwrap();
@@ -274,6 +369,7 @@ mod postgres_publication_fencing_tests {
             "periodic",
             &serde_json::Value::Null,
             &Prepared::Product(&output),
+            &[],
         )
         .await
         .unwrap();
@@ -309,6 +405,7 @@ mod postgres_publication_fencing_tests {
             "periodic",
             &serde_json::Value::Null,
             &Prepared::Debounced,
+            &[],
         )
         .await
         .unwrap();
@@ -334,6 +431,7 @@ mod postgres_publication_fencing_tests {
                 "periodic",
                 &serde_json::Value::Null,
                 &Prepared::Product(&stale_output),
+                &[],
             )
             .await
             .unwrap(),
@@ -352,6 +450,7 @@ mod postgres_publication_fencing_tests {
                 "periodic",
                 &serde_json::Value::Null,
                 &Prepared::Product(&current_output),
+                &[],
             )
             .await
             .unwrap()
@@ -394,6 +493,7 @@ mod postgres_publication_fencing_tests {
                 "periodic",
                 &serde_json::Value::Null,
                 &Prepared::Product(&stale_output),
+                &[],
             )
             .await
             .unwrap(),
@@ -408,6 +508,7 @@ mod postgres_publication_fencing_tests {
                 "periodic",
                 &serde_json::Value::Null,
                 &Prepared::Product(&current_output),
+                &[],
             )
             .await
             .unwrap()

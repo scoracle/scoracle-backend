@@ -1,5 +1,7 @@
 //! Influencer evidence, debounce, publication and Momentum coordination.
 
+pub(crate) mod harvester;
+
 use crate::evidence::memories::{self, MemoryRequest, Mission};
 
 use crate::application::models::ExecutionCapabilities;
@@ -367,6 +369,11 @@ impl StudioPlugin for VibeHandler {
     // One slot leaves room in the shared voice group for the terminal Oracle.
 
     async fn execute(&self, item: &Item) -> Result<PluginOutcome> {
+        if item.input_version.as_deref().is_some_and(|version| {
+            version.starts_with(crate::plugins::harvester::context::CONTRACT)
+        }) {
+            return harvester::execute(&self.pool, &self.models, item).await;
+        }
         let pool = &self.pool;
         let models = &self.models;
         let entity_id = item.entity_id_i32()?;

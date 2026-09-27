@@ -92,6 +92,7 @@ impl crate::application::queue::outbox::EventReaction for RatingIdentityReaction
 }
 
 mod evidence;
+pub(crate) mod harvester;
 mod materials;
 pub use materials::{render_personnel_block, render_scout_reports};
 
@@ -123,6 +124,25 @@ pub async fn build_rating_request(
     temperature: f64,
     with_enrichment: bool,
 ) -> Result<RatingBuild> {
+    build_rating_request_inner(
+        pool,
+        voice_num_ctx,
+        req,
+        temperature,
+        with_enrichment,
+        !crate::evidence::personnel::harvester_scout_reports_enabled(),
+    )
+    .await
+}
+
+async fn build_rating_request_inner(
+    pool: &sqlx::PgPool,
+    voice_num_ctx: i32,
+    req: &RatingReq,
+    temperature: f64,
+    with_enrichment: bool,
+    include_storyline_history: bool,
+) -> Result<RatingBuild> {
     let Some(mut profile) = evidence::load_rating_profile(
         pool,
         &req.entity_type,
@@ -150,6 +170,7 @@ pub async fn build_rating_request(
     let mut memory_request =
         MemoryRequest::new(Mission::Scout, &req.entity_type, req.entity_id, &req.sport);
     memory_request.season = Some(profile.season);
+    memory_request.include_storyline_history = include_storyline_history;
     let memories = memories::load(pool, memory_request).await?;
     let supports_cross_season = scout::supports_cross_season_comparison(&profile);
     let model_memories = if supports_cross_season {
@@ -239,6 +260,9 @@ pub async fn build_rating_request(
         .await
         {
             Ok(claims) => render_scout_reports(&claims),
+            Err(error) if crate::evidence::personnel::harvester_scout_reports_enabled() => {
+                return Err(error).context("load verified Harvester Scout reports");
+            }
             Err(error) => {
                 tracing::warn!(
                     entity_type = %req.entity_type,
@@ -800,6 +824,11 @@ impl StudioPlugin for RatingHandler {
     }
 
     async fn execute(&self, item: &Item) -> Result<PluginOutcome> {
+        if item.input_version.as_deref().is_some_and(|version| {
+            version.starts_with(crate::plugins::harvester::context::CONTRACT)
+        }) {
+            return harvester::execute(&self.pool, &self.models, item).await;
+        }
         let pool = &self.pool;
         let models = &self.models;
         let entity_id = item.entity_id_i32()?;

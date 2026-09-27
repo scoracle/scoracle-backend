@@ -5,6 +5,7 @@
 //! parsed result.
 
 use super::{EditorEntityRole, NameMention};
+pub use crate::evidence::news::result::{parse_result_line, ParsedResult};
 use serde_json::json;
 use std::collections::BTreeMap;
 use tracing::debug;
@@ -192,57 +193,6 @@ pub fn routing_tags(story_type: &str, register: &str) -> Vec<String> {
         tags.push("charged".to_string());
     }
     tags
-}
-
-/// A parsed final result — derived from ep1's verbatim `result_line`, never asked of the model.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ParsedResult {
-    pub home: String,
-    pub home_score: u32,
-    pub away_score: u32,
-    pub away: String,
-}
-
-/// parse_result_line parses the verbatim-or-empty `result_line` ("Real Madrid 2-1 Arsenal").
-/// Strict on purpose: one score token (`D-D`, en/em dash or colon accepted) with a non-empty
-/// name on each side. An invalid line yields no result.
-pub fn parse_result_line(line: &str) -> Option<ParsedResult> {
-    let tokens: Vec<&str> = line.split_whitespace().collect();
-    let mut found: Option<(usize, u32, u32)> = None;
-    for (i, tok) in tokens.iter().enumerate() {
-        if let Some((h, a)) = parse_score_token(tok) {
-            if found.is_some() {
-                return None; // two score tokens = not a single final-result line
-            }
-            found = Some((i, h, a));
-        }
-    }
-    let (i, home_score, away_score) = found?;
-    if i == 0 || i == tokens.len() - 1 {
-        return None;
-    }
-    Some(ParsedResult {
-        home: tokens[..i].join(" "),
-        home_score,
-        away_score,
-        away: tokens[i + 1..].join(" "),
-    })
-}
-
-fn parse_score_token(tok: &str) -> Option<(u32, u32)> {
-    let sep = tok.find(['-', '–', '—', ':'])?;
-    let (h, a) = (&tok[..sep], &tok[sep..]);
-    let a = a.trim_start_matches(['-', '–', '—', ':']);
-    if h.is_empty() || a.is_empty() {
-        return None;
-    }
-    let h: u32 = h.parse().ok()?;
-    let a: u32 = a.parse().ok()?;
-    // Sanity band: sports scores, not years ("2024-25 season" must not parse).
-    if h > 150 || a > 150 {
-        return None;
-    }
-    Some((h, a))
 }
 
 /// A described person nominates on first sight; bare names wait for corroboration.

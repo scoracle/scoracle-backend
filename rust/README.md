@@ -50,6 +50,16 @@ The [plugin architecture execution plan](docs/plugin-architecture-plan.md) track
 
 ## Source map
 
+The [Harvester plugin](src/plugins/harvester.rs) owns non-generative intake classification and verbatim context extraction independently of Editor. Its claim-fenced queue adapter is opt-in and has not been deployed. The [local trial](docs/context-harvest-trial-2026-09-24.md) records results on real sweep content.
+
+The [cascading relevance experiment](docs/harvester-cascade-2026-09-26.md) records the Chelsea/Cowboys/Pistons Mac cohort. The production cutover uses a packet-free source-context contract: Google supplies candidate provenance, Harvester acquires publisher text and stores the unchanged headline and exact first three sentences, and Laya records advisory signals. No Laya rejection suppresses a candidate before character review.
+
+The [Harvester production cutover plan](docs/PLAN-harvester-production-cutover.md) tracks durable acquisition, claim-fenced delivery, character-owned final decisions, shadow operation, and retirement of Editor and stories. Calibration follows the broad first cutover.
+
+[Laya training](docs/harvester-laya-training.md) adds source-bound annotations, local fine-tuning, and calibration against a 75% useful-news recall target. It measures forwarding cost alongside coverage; trained checkpoints remain experimental.
+
+[Harvester throughput](docs/harvester-throughput-2026-09-24.md) compares local CPU and GPU execution, concurrency, batching, and the remaining shared-queue integration work. It distinguishes admission scores from measured coverage and deterministic extraction from character judgment.
+
 `src/studio/` holds the inference session, generation envelope, and plugin/tool contracts. `src/plugins/<name>/` owns each plugin's manifest, prepared cognition, and preparation/publication adapter. `src/plugins/support/` supplies shared form, guards, and resource profiles. The deterministic Boxscore plugin has an adapter and manifest without an inference module.
 
 `src/application/` assembles the fleet and supplies shared capability brokers, with generic durable work transport under `application/queue/`. Plugin manifests and reactions own domain scheduling policy and fan-out. `src/evidence/` contains shared concrete loaders used by typed plugin preparation. `src/runtime/` holds configuration, database connections, routing and providers. `src/evaluation/` and the `eval` binary invoke the same plugin code for offline checks, inspection and replay. `statcommentary` and `factsweep` are thin operator entry points into explicit plugin-owned non-queue invocation contexts.
@@ -64,3 +74,12 @@ dependencies in `application/plugins.rs`; the registry then validates task owner
 consistency, and resource declarations at boot. Add a database migration only when the plugin
 introduces genuinely new persisted domain data—not merely to register code, routes, providers, or
 scheduling policy.
+
+Harvester's adapter can publish a fenced, exact publisher-text context and advisory assignments
+for all four characters. The new character paths retain per-source dispositions, while Graph
+can nominate source-anchored unknown people for Investigator review and verify verbatim fixture
+results against the publisher opening. Enrollment requires the
+additive Harvester migrations, `HARVESTER_INGEST_ENABLED=1` in Go ingestion, an explicit
+`COGNITION_STAGES` list containing `harvester`, and `HARVESTER_MODEL_ENDPOINT`. Keep it off by
+default until the remaining Editor side effects, character parity, and nightly shadow gates in
+[the cutover status](docs/harvester-cutover-status-2026-09-26.md) have passed.

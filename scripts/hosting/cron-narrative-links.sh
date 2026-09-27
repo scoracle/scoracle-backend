@@ -24,6 +24,15 @@ if [[ -z "$DB" ]]; then
     exit 1
 fi
 
+# Keep the established graph/person maintenance after stories retire, without
+# sealing or promoting storyline parts. Editor remains the production default
+# until Harvester's full nightly shadow and live smoke pass.
+SOURCE_MODE="${NARRATIVE_SOURCE_MODE:-editor}"
+case "$SOURCE_MODE" in
+    editor|harvester) ;;
+    *) echo "cron-narrative-links: invalid NARRATIVE_SOURCE_MODE=$SOURCE_MODE" >&2; exit 2 ;;
+esac
+
 # Order matters: refresh links (now-state), fill chapter→storyline derivations
 # (mig 219 — converges news_summaries written thread-only by the pre-cutover binary;
 # precedes the part lifecycle so the night's seal/promote sees the freshest chapters),
@@ -56,11 +65,12 @@ BEGIN
     -- storyline-parts collapse, step A). Fills news_summaries.storyline_id for chapters
     -- the pre-cutover binary wrote thread-only; inert once the Rust cutover writes
     -- storyline_id directly (and dropped with step B).
-    IF to_regprocedure('public.fill_news_summaries_storylines()') IS NOT NULL THEN
+    IF '$SOURCE_MODE' = 'editor'
+       AND to_regprocedure('public.fill_news_summaries_storylines()') IS NOT NULL THEN
         n := public.fill_news_summaries_storylines();
         RAISE NOTICE 'fill_news_summaries_storylines filled=%', n;
     ELSE
-        RAISE NOTICE 'fill_news_summaries_storylines not installed yet (mig 219) — skipped';
+        RAISE NOTICE 'fill_news_summaries_storylines skipped (mode=$SOURCE_MODE or not installed)';
     END IF;
 END \$\$;" -c "
 DO \$\$
@@ -68,13 +78,14 @@ DECLARE r record;
 BEGIN
     -- Guarded: seal_storylines arrives with mig 219. PL/pgSQL resolves the call at
     -- first execution, so the IF lets this cron run (and be installed) before the migration.
-    IF to_regprocedure('public.seal_storylines(text)') IS NOT NULL THEN
+    IF '$SOURCE_MODE' = 'editor'
+       AND to_regprocedure('public.seal_storylines(text)') IS NOT NULL THEN
         FOR r IN SELECT s.sport, public.seal_storylines(s.sport) AS resolved
                  FROM (VALUES ('FOOTBALL'),('NBA'),('NFL')) s(sport) LOOP
             RAISE NOTICE 'seal_storylines % resolved=%', r.sport, r.resolved;
         END LOOP;
     ELSE
-        RAISE NOTICE 'seal_storylines not installed yet (mig 219) — skipped';
+        RAISE NOTICE 'seal_storylines skipped (mode=$SOURCE_MODE or not installed)';
     END IF;
 END \$\$;" -c "
 DO \$\$
@@ -83,13 +94,14 @@ BEGIN
     -- Guarded: promote_established_parts arrives with mig 219 (the collapse's authority
     -- promotion). AFTER the seal sweep so a same-night ground-truth resolve promotes
     -- immediately.
-    IF to_regprocedure('public.promote_established_parts(text)') IS NOT NULL THEN
+    IF '$SOURCE_MODE' = 'editor'
+       AND to_regprocedure('public.promote_established_parts(text)') IS NOT NULL THEN
         FOR r IN SELECT s.sport, public.promote_established_parts(s.sport) AS promoted
                  FROM (VALUES ('FOOTBALL'),('NBA'),('NFL')) s(sport) LOOP
             RAISE NOTICE 'promote_established_parts % promoted=%', r.sport, r.promoted;
         END LOOP;
     ELSE
-        RAISE NOTICE 'promote_established_parts not installed yet (mig 219) — skipped';
+        RAISE NOTICE 'promote_established_parts skipped (mode=$SOURCE_MODE or not installed)';
     END IF;
 END \$\$;" -c "
 SELECT 'FOOTBALL' AS sport, now() AS ran_at, refresh_source_performance('FOOTBALL') AS sources

@@ -1,6 +1,7 @@
 //! Shared article evidence, compiled storyline packets and bounded rendering.
 pub mod packet;
 pub mod render;
+pub mod result;
 
 const QUOTE_WINDOW_CHARS: usize = 160;
 /// slice_quote extracts ±QUOTE_WINDOW_CHARS around the name's first occurrence in the

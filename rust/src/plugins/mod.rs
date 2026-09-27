@@ -4,6 +4,7 @@ pub mod analyst;
 pub mod editor;
 pub mod fixture_boxscore;
 pub mod graph;
+pub mod harvester;
 pub mod influencer;
 pub mod insider;
 pub mod investigator;

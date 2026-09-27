@@ -40,6 +40,9 @@ pub struct CorpusItem {
     pub id: i64,
     pub title: String,
     pub description: String,
+    /// Harvester's attributed, verbatim source slice. When present it replaces the
+    /// legacy feed description and is not subjected to the 200-character RSS cap.
+    pub harvested_context: Option<String>,
     pub source: String,
     pub published_at_epoch: Option<i64>,
 }
@@ -172,6 +175,13 @@ pub fn generation_options(temperature: f64, num_ctx: i32) -> GenerateOptions {
 }
 
 fn article_context(item: &CorpusItem) -> (&str, usize) {
+    if let Some(context) = item
+        .harvested_context
+        .as_deref()
+        .filter(|context| !context.trim().is_empty())
+    {
+        return (context, context.len());
+    }
     if description_adds_nothing(&item.description, &item.title, &item.source) {
         return ("", DESC_TRUNCATE);
     }
@@ -550,9 +560,10 @@ pub async fn create(
     options.temperature = Some(0.0);
     options.num_predict = PALETTE_NUM_PREDICT;
     options.format_schema = Some(palette.schema());
+    let prompt = palette_prompt_with_source(&palette, &selected);
     let extracted = studio
         .extract(
-            &palette.prompt(),
+            &prompt,
             &options,
             &PaletteParser(&palette),
             crate::plugins::support::form::structured_correction,
@@ -604,6 +615,19 @@ pub async fn create(
         Some(assignment.input_hash.clone()),
         call,
     ))
+}
+
+fn palette_prompt_with_source(palette: &Palette, selected: &[CorpusItem]) -> String {
+    let mut prompt = palette.prompt();
+    for item in selected {
+        if let Some(opening) = item.harvested_context.as_deref() {
+            prompt.push_str(&format!(
+                "\nSource article {} — exact publisher opening (unchanged):\n{}\n",
+                item.id, opening
+            ));
+        }
+    }
+    prompt
 }
 
 fn news_palette(entity: &str, corpus: &[CorpusItem]) -> Result<Palette> {

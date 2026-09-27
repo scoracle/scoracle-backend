@@ -15,6 +15,8 @@ pub struct MemoryRequest<'a> {
     pub season: Option<i32>,
     pub pair_team_id: Option<i32>,
     pub current_article_ids: &'a [i64],
+    /// Legacy storyline-derived history is disabled for source-context cutover work.
+    pub include_storyline_history: bool,
 }
 
 impl<'a> MemoryRequest<'a> {
@@ -27,6 +29,7 @@ impl<'a> MemoryRequest<'a> {
             season: None,
             pair_team_id: None,
             current_article_ids: &[],
+            include_storyline_history: true,
         }
     }
 }
@@ -333,10 +336,12 @@ pub async fn load(pool: &PgPool, req: MemoryRequest<'_>) -> Result<Package> {
             ));
         }
         add(&mut package,"recorded moves",false,moves,&["Record/application dates are observation dates, not exact transfer effective dates."]);
-        if matches!(
-            req.mission,
-            Mission::Journalist | Mission::Influencer | Mission::Insider
-        ) {
+        if req.include_storyline_history
+            && matches!(
+                req.mission,
+                Mission::Journalist | Mission::Influencer | Mission::Insider
+            )
+        {
             let rows = sqlx::query(include_str!("stories.sql"))
                 .bind(req.entity_type)
                 .bind(req.entity_id)

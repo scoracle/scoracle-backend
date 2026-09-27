@@ -7,6 +7,7 @@ fn item(id: i64, source: &str, title: &str, desc: &str, epoch: Option<i64>) -> C
         id,
         title: title.to_string(),
         description: desc.to_string(),
+        harvested_context: None,
         source: source.to_string(),
         published_at_epoch: epoch,
     }
@@ -57,6 +58,42 @@ fn prompt_numbered_news() {
 2. Arsenal eye a new winger\n\
 "
     );
+}
+
+#[test]
+fn harvested_context_reaches_the_prompt_without_the_legacy_rss_cap() {
+    let mut news = item(42, "Wire", "Captain returns", "legacy description", None);
+    let third_sentence = "Third sentence is the decisive retained evidence.";
+    news.harvested_context = Some(format!(
+        "First sentence {}. Second sentence {}. {third_sentence}",
+        "context".repeat(20),
+        "detail".repeat(20)
+    ));
+    let prompt = build_narratives_prompt(
+        &req("Example FC", "FOOTBALL", "team"),
+        &[news],
+        None,
+        None,
+        None,
+    );
+    assert!(prompt.contains(third_sentence));
+    assert!(prompt.contains("First sentence"));
+    assert!(!prompt.contains("legacy description"));
+}
+
+#[test]
+fn palette_call_receives_complete_verified_opening() {
+    let mut news = item(42, "Wire", "Current headline", "RSS-only text", None);
+    let ending = "The third exact source sentence closes here.";
+    news.harvested_context = Some(format!(
+        "First source sentence {}. Second source sentence {}. {ending}",
+        "context".repeat(25),
+        "detail".repeat(25)
+    ));
+    let palette = news_palette("Example FC", &[news.clone()]).unwrap();
+    let prompt = palette_prompt_with_source(&palette, &[news]);
+    assert!(prompt.contains(ending));
+    assert!(!prompt.contains("RSS-only text"));
 }
 
 // --- headline passthrough ----------------------------------------------------------------

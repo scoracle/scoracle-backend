@@ -1,6 +1,7 @@
 # Active evaluation data
 
 - `contracts/`: identity resolution cases and representative memory packages used by deterministic Rust tests.
+- `harvester/`: source-bound, provisional intake training annotations; separate from human-reviewed quality benchmarks.
 - `quality/<task>/`: selected evidence cases for `eval --task <task> --fixtures`. They use the current Studio system and schema; a version mismatch stops the run. Rebuild or recapture the evidence when the prompt contract changes.
 
 Quality cases contain input, factual expectations where useful, and manual `review` criteria. Review criteria stay outside the model prompt. Avoid preferred phrases, copied system prompts and paragraph recipes. A passing parser is not a quality verdict.

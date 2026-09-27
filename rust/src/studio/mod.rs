@@ -1,6 +1,7 @@
 //! Studio is Scoracle's in-house harness: the place where models create from prepared evidence.
 //! Applications supply a model and publication adapter. Studio owns neither databases nor queues.
 
+pub mod decision;
 mod generation;
 pub mod model;
 pub mod palette;

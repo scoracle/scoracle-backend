@@ -50,6 +50,14 @@ the binary atomically and let the path unit restart into shadow, verify its
 health, then set `HARVESTER_SHADOW_MODE=0` and restart once more before
 enqueueing the canary. This order avoids a live restart on the older all-on
 binary.
+If a released character fails its live smoke, remove it from the delivery
+list and restart cognition, then run
+`rust/examples/harvester_hold_character.sql` for that plugin to re-hold its
+pending source assignments. For an urgent rollback, stop cognition before
+the SQL so no in-flight character call races the hold; restart after checking
+the count. This stops future source processing but does not erase terminal
+assignment receipts or products already published. The SQL was parsed on the
+production schema with a nonexistent plugin and changed zero rows.
 
 The optional `ARTICLE_READ_CHROME_ENABLED` browser fallback is unset on the
 production host. A count-only on-host probe of three `low_content` articles

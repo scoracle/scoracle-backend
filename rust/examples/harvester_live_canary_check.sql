@@ -39,3 +39,19 @@ SELECT (SELECT count(*) FROM canary) AS canary_articles,
        (SELECT count(*) FROM public.pipeline_work g
          JOIN canary x ON x.article_id=g.entity_id AND x.sport=g.sport
          WHERE g.stage='graph' AND g.entity_type='article') AS graph_work_rows;
+
+WITH canary AS (
+    SELECT entity_id AS article_id,sport FROM public.pipeline_work
+     WHERE stage='harvester' AND entity_type='article'
+       AND input_version LIKE ('harvest-context-v1:live-canary:run' || :'run_id' || ':%')
+), classified AS (
+    SELECT DISTINCT ON (c.article_id,c.entity_type,c.entity_id,c.sport) c.id
+      FROM public.harvester_classifications c
+      JOIN canary x ON x.article_id=c.article_id AND x.sport=c.sport
+     ORDER BY c.article_id,c.entity_type,c.entity_id,c.sport,c.created_at DESC,c.id DESC
+)
+SELECT d.plugin_id,d.status,count(*) AS assignments,
+       count(*) FILTER (WHERE d.reason='delivery_held') AS held,
+       count(*) FILTER (WHERE d.product_ref IS NOT NULL) AS with_product_receipt
+  FROM public.harvester_assignments d JOIN classified c ON c.id=d.classification_id
+ GROUP BY d.plugin_id,d.status ORDER BY d.plugin_id,d.status;

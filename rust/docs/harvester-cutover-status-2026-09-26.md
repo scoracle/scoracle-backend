@@ -38,8 +38,9 @@ and Graph receipts, and zero character publications before releasing a bounded
 character batch. Do not disable Editor until each character's actual product
 path and the remaining non-editorial consumers have passed this smoke.
 The read-only `rust/examples/harvester_live_canary_check.sql` gives aggregate
-completion, exact-byte, held/unheld assignment, identity, and Graph counts for
-the named run without returning article metadata or publisher text.
+completion, exact-byte, held/unheld assignment, per-character disposition and
+product-receipt, identity, and Graph counts for the named run without returning
+article metadata or publisher text.
 
 The optional `ARTICLE_READ_CHROME_ENABLED` browser fallback is unset on the
 production host. A count-only on-host probe of three `low_content` articles

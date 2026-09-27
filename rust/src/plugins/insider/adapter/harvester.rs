@@ -29,14 +29,14 @@ struct SourceVerdictParser<'a> {
 impl Parser<SourceVerdict> for SourceVerdictParser<'_> {
     fn parse(&self, raw: &str) -> Result<Option<SourceVerdict>> {
         let mut verdict: SourceVerdict = serde_json::from_str(raw)?;
-        ensure!(
-            verdict
-                .subject
-                .trim()
-                .eq_ignore_ascii_case(&self.candidate.player_name),
-            "transfer verdict changed the resolved subject"
-        );
         if verdict.is_rumor {
+            ensure!(
+                verdict
+                    .subject
+                    .trim()
+                    .eq_ignore_ascii_case(&self.candidate.player_name),
+                "transfer verdict changed the resolved subject"
+            );
             ensure!(
                 matches!(
                     verdict.stage.as_str(),
@@ -52,8 +52,9 @@ impl Parser<SourceVerdict> for SourceVerdictParser<'_> {
                 "transfer evidence quote is not an exact bounded publisher span"
             );
         } else {
-            // A negative decision cannot carry a stage or supporting quote.
-            // Discard stray model strings; the plugin owns the allowed fields.
+            // A negative decision cannot carry a subject, stage, or supporting
+            // quote. The resolved candidate comes from the plugin, not the model.
+            verdict.subject = self.candidate.player_name.clone();
             verdict.stage.clear();
             verdict.evidence_quote.clear();
         }
@@ -817,6 +818,16 @@ mod tests {
                 .await
                 .is_err()
         );
+        let (source, candidate, assignment) = pair_fixture();
+        let different_subject = r#"{"is_rumor":true,"subject":"Other Person","stage":"advanced_talks","evidence_quote":"Example Club is pursuing Morgan Example after opening talks."}"#;
+        assert!(create_source_pair(
+            &FakeVerdict(different_subject),
+            assignment,
+            &source,
+            &candidate
+        )
+        .await
+        .is_err());
     }
 
     #[tokio::test]
@@ -842,6 +853,19 @@ mod tests {
         let row = output.row.as_ref().unwrap();
         assert_eq!(row.is_rumor, Some(false));
         assert!(row.stage.is_none());
+        assert!(row.summary.is_none());
+    }
+
+    #[tokio::test]
+    async fn negative_with_a_different_subject_clears_the_resolved_candidate() {
+        let (source, candidate, assignment) = pair_fixture();
+        let raw = r#"{"is_rumor":false,"subject":"Other Person","stage":"","evidence_quote":""}"#;
+        let output = create_source_pair(&FakeVerdict(raw), assignment, &source, &candidate)
+            .await
+            .unwrap();
+        assert_eq!(output.outcome, Outcome::Cleared);
+        let row = output.row.as_ref().unwrap();
+        assert_eq!(row.is_rumor, Some(false));
         assert!(row.summary.is_none());
     }
 

@@ -61,7 +61,7 @@ impl Config {
 
         // These fields are also the per-role route defaults.
         let ollama_base_url = env_or("OLLAMA_BASE_URL", "http://localhost:11434");
-        let ollama_model = env_or("OLLAMA_MODEL", "mistral:7b");
+        let ollama_model = env_or("OLLAMA_MODEL", "alibayram/smollm3");
         let route = RouteConfig::from_env(
             &ollama_model,
             &ollama_base_url,

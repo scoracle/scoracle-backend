@@ -26,7 +26,7 @@ Investigator's Wikipedia extraction is already exact-substring checked before it
 | `granite4.2:3b` | 21/21 | 0.969 s | 1.293 s | 0.866 s |
 | `alibayram/smollm3` | 21/21 | 0.754 s | 1.046 s | 0.712 s |
 
-Smol's median was about 22% lower in this local run and lower in every case. Both models made the same choice on each repetition of a case. Granite mixed phrasings in the Scout cases; Smol generally picked one phrasing index throughout each case. This measures palette compliance and local latency, not sports judgment or editorial quality. The installed Smol package is a community Ollama build. These results make Smol a promising engine for the bounded contract, but the production route remains on Granite until real prepared assignments and throughput under the shared runner are evaluated. The next quality improvement is better plugin-approved phrasing, especially the plain Oracle and Journalist cards.
+Smol's median was about 22% lower in this local run and lower in every case. Both models made the same choice on each repetition of a case. Granite mixed phrasings in the Scout cases; Smol generally picked one phrasing index throughout each case. This measures palette compliance and local latency, not sports judgment or editorial quality. The installed Smol package is a community Ollama build. The user subsequently selected Smol for production; see the switch record for deployment state. The next quality improvement is better plugin-approved phrasing, especially the plain Oracle and Journalist cards.
 
 ## Verification
 

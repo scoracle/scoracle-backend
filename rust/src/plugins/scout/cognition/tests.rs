@@ -2105,22 +2105,90 @@ fn assignment() -> Assignment {
             format_schema_raw: None,
         },
         built_prompt: "Entity: Vale Kerr (NBA player); season 2026".to_string(),
+        palette: crate::studio::palette::Palette {
+            paints: vec![crate::studio::palette::Paint {
+                id: "measure_0".into(),
+                phrasings: vec!["Vale Kerr ranks elite in blocks per game: percentile 91.0.".into()],
+            }],
+        },
     }
+}
+
+#[test]
+fn palette_selects_measured_edges_and_never_infers_from_missing_rank() {
+    let subject = Subject {
+        entity_type: "player".into(),
+        entity_name: "Avery Chen".into(),
+        sport: "NBA".into(),
+        sport_name: "NBA".into(),
+    };
+    let mut profile = RatingProfile {
+        observed_at: None,
+        sample: BTreeMap::new(),
+        league_id: None,
+        entity_type: "player".into(),
+        season: 2026,
+        position: "".into(),
+        composite_score: None,
+        breakdown: Vec::new(),
+        scoped_ranks: HashMap::new(),
+        rate_modes: HashMap::new(),
+    };
+    for (measure, pct) in [
+        ("Blocks per game", Some(96.0)),
+        ("Assists per game", Some(81.0)),
+        ("Turnovers per game", Some(22.0)),
+        ("Unknown goals", None),
+    ] {
+        profile.breakdown.push(RatingDatapoint {
+            measure: measure.into(),
+            label: measure.into(),
+            pct,
+            cohort: Some(4470.0),
+            ..Default::default()
+        });
+    }
+    let mut comparisons = BTreeMap::new();
+    comparisons.insert(
+        "Turnovers per game".into(),
+        SkillChange {
+            prior_pct: 50.0,
+            prior_season: 2025,
+            prior_observed_at: None,
+            prior_sample: BTreeMap::new(),
+        },
+    );
+    let palette = rating_palette(
+        &subject,
+        &profile,
+        Some(&comparisons),
+        Some("overall scores trending up over recent games; 5 scored events"),
+    )
+    .unwrap();
+    let text = palette
+        .render(&crate::studio::palette::Composition {
+            choices: vec![0, 0, 0, 0],
+        })
+        .unwrap();
+    assert!(text.contains("Blocks per game"));
+    assert!(text.contains("Turnovers per game"));
+    assert!(!text.contains("Unknown goals"));
+    assert!(!text.contains("72% chance"));
+    assert!(text.contains("Relative percentile standing fell versus the prior season"));
+    assert!(text.contains("Recent form for Avery Chen"));
 }
 
 #[tokio::test]
 async fn prepared_assignment_creates_without_application_services() {
-    let model = FakeModel::new(
-        r#"{"headline":"Vale Kerr controls the middle","body":"Vale Kerr controls the middle with measured patience."}"#,
-    );
+    let model = FakeModel::new(r#"{"choices":[0]}"#);
     let output = create(&Studio::new(&model), assignment()).await.unwrap();
     assert_eq!(
         output.body.as_deref(),
-        Some("Vale Kerr controls the middle with measured patience.")
+        Some("Vale Kerr ranks elite in blocks per game: percentile 91.0.")
     );
     assert_eq!(
         output.headline.as_deref(),
-        Some("Vale Kerr controls the middle")
+        Some("Vale Kerr: measured profile")
     );
     assert_eq!(output.provenance.model_version, "model-that-answered");
     assert_eq!(
@@ -2253,25 +2321,9 @@ fn claim_paragraphs_survive_the_production_parser() {
 }
 
 #[tokio::test]
-async fn explicit_pass_completes_once_and_retains_called_provenance() {
+async fn palette_rejects_model_abstention() {
     let model = FakeModel::new("null");
-    let output = create(&Studio::new(&model), assignment()).await.unwrap();
-    assert!(output.abstained);
-    assert!(!output.skipped_no_stats);
-    assert!(!output.skipped_unchanged);
-    assert!(output.body.is_none());
-    assert!(output.headline.is_none());
-    assert_eq!(
-        output.provenance.input_hash.as_deref(),
-        Some("prepared-hash")
-    );
-    assert_eq!(output.provenance.model_version, "model-that-answered");
-    assert_eq!(
-        output.call.as_ref().unwrap().request_body["actual_request"],
-        true
-    );
-    // Prepared analytical observations survive a decision not to write prose.
-    assert_eq!(output.rating_trajectory.as_deref(), Some("rising"));
+    assert!(create(&Studio::new(&model), assignment()).await.is_err());
     assert_eq!(model.calls.lock().unwrap().len(), 1);
 }
 

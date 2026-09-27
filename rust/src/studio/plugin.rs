@@ -4,7 +4,7 @@
 //! that happens inside it.** A plugin is an architectural unit — a statically registered
 //! Rust module with a manifest — not a dynamically loaded library. The Studio owns the
 //! lifecycle that runs around a plugin's bounded cognitive work; the plugin owns its
-//! identity, materials recipe, prompt, parser, validation, and product contract.
+//! identity, materials recipe, allowed output, prompt, parser, validation, and product contract.
 //!
 //! Cognition receives prepared material and resolved inference handles. Concrete plugin
 //! adapters own typed preparation over application-supplied read/provider capabilities.

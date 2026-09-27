@@ -1,10 +1,10 @@
 # Studio: the harness contract
 
-**The harness provides the studio. The model provides the art.**
+**The harness provides the studio. The plugin provides the paint, brushes, and easel. The model provides the expression.**
 
-Studio is an LLM-empowering platform. We provide trustworthy materials, useful tools, character direction and a shared canvas. The model brings judgment, interpretation and expression. As better painters arrive, they can use the same studio for more sophisticated work. Build capabilities that help them create; keep the machinery small and let the quality of the art grow with the model.
+Studio supplies inference, validation, and publication boundaries. A plugin selects the facts and claims that can appear in its product. The model chooses expression within that plugin-owned vocabulary. A model response is never authoritative evidence by itself.
 
-Form gives the work a usable surface. Evidence gives it a foundation. Validation protects factual integrity. These supports should leave the model room to discover what matters and express it beautifully. Do not prescribe its conclusions, paragraph plan or wording, or encode one model's limitations as permanent creative constraints.
+For the migrated Scout path, the plugin prepares measured statements and approved phrasings. The model returns one phrasing choice per fact. Studio assembles those statements and rejects invalid choices, so a model cannot add a statistic or omit a selected limitation in served prose. Other character products still need their own output plans before this guarantee applies to them.
 
 This is the governing contract for harness work. Propose changes to it explicitly; do not expand the architecture by inference. Implementation gaps and historical plans do not redefine these principles.
 
@@ -13,7 +13,7 @@ This is the governing contract for harness work. Propose changes to it explicitl
 - **Postgres remembers:** facts, entity metadata, relationships, source history, products and durable work.
 - **DuckDB studies:** bounded data populations, statistical comparisons, cohorts and trends. Return computed observations with their meaning and limitations.
 - **Plugin adapters prepare and publish:** select relevant evidence, assemble assignments, route calls and persist validated results. Application assembly binds their concrete dependencies.
-- **Studio equips the model:** compose the assignment, provide capabilities, call the model and validate the output. The model creates the reading. Storage, analytical computation and queue coordination stay outside the core.
+- **Studio runs the session:** provide inference, enforce the plugin's finite output plan, and retain provenance. Storage, analytical computation and queue coordination stay outside the core.
 
 Rich upstream context enables precise selection. Prompt size is not a measure of context quality.
 
@@ -34,7 +34,7 @@ Rich upstream context enables precise selection. Prompt size is not a measure of
 
 Analyst and Oracle synthesize their supplied readings. Identity, dates and missing-output status travel with them in a small envelope. Extraction tasks use their own structured schemas rather than the publishing form.
 
-Each publishing character tells the part of the story its evidence supports. A partial profile can be a complete reading. Measured zero and observed absence can be findings; missing measurements or reports remain unknown. Direction requires a supported comparison. Gaps limit the claims rather than obliging the model to fill a complete profile, explain a cause, or invent a trend. Shared form retains claim selection and story structure. Scout may return JSON `null` when the evidence supports no meaningful claim in its scope; this is a completed, called abstention with a null-body publication marker, not a failed generation or a pre-call no-stats result. Other voices retain their existing output contracts until their publication paths support abstention.
+Each publishing character tells the part of the story its evidence supports. A partial profile can be a complete reading. Measured zero and observed absence can be findings; missing measurements or reports remain unknown. Direction requires a supported comparison. Gaps limit the claims rather than obliging the model to fill a complete profile, explain a cause, or invent a trend. Scout's current palette path publishes a no-stats marker when no measured claim can be selected. Its archived open-prose parser still accepts JSON `null` for historical evaluation; production palette compositions must choose every selected fact. Other voices retain their existing output contracts pending migration.
 
 ## Evidence and efficiency
 

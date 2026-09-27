@@ -44,7 +44,7 @@ use crate::plugins::oracle::cognition::{
 };
 use crate::plugins::scout::adapter::{build_rating_request, RatingReq};
 use crate::plugins::scout::cognition::{
-    RatingBuild, RatingReply, RATING_NUM_PREDICT, RATING_PROMPT_VERSION, RATING_SYSTEM_PROMPT,
+    RatingBuild, RatingReply, RATING_NUM_PREDICT, RATING_SYSTEM_PROMPT,
 };
 use crate::runtime::route::RouteKey;
 use crate::studio::model::GenerateOptions;
@@ -1291,7 +1291,9 @@ impl LensTask for RatingTask {
         crate::plugins::scout::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
-        RATING_PROMPT_VERSION
+        // This task replays the archived open-prose s59 fixtures. The production
+        // s60 palette contract is exercised by palette_model_compare.py.
+        "s59"
     }
     fn gen_options(&self, temperature: f64) -> GenerateOptions {
         GenerateOptions {

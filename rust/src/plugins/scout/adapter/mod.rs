@@ -343,6 +343,16 @@ pub async fn build_rating_request(
         format_schema_raw: None,
     };
 
+    let Some(palette) = scout::rating_palette(
+        &subject,
+        &prompt_profile,
+        comparisons.as_ref(),
+        form_trend.as_deref(),
+    ) else {
+        return Ok(RatingBuild::NoStats {
+            season: profile.season,
+        });
+    };
     Ok(RatingBuild::Ready(Box::new(Assignment {
         subject,
         season: profile.season,
@@ -356,6 +366,7 @@ pub async fn build_rating_request(
         exclusions,
         opts,
         built_prompt,
+        palette,
     })))
 }
 

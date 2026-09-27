@@ -3,6 +3,7 @@
 
 mod generation;
 pub mod model;
+pub mod palette;
 pub mod plugin;
 mod session;
 pub mod tools;

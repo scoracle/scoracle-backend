@@ -12,6 +12,7 @@
 //! Missing measurements and ranks remain unknown; character and canvas own the writing.
 
 use crate::studio::model::GenerateOptions;
+use crate::studio::palette::{Paint, Palette, PaletteParser};
 use crate::studio::{Generation, GenerationCall, Parser, Studio};
 use crate::util::round1;
 use anyhow::Result;
@@ -25,7 +26,7 @@ pub(crate) use inputs::supports_cross_season_comparison;
 pub use inputs::{build_stat_prompt, build_stat_prompt_with_exclusions};
 
 /// Output contract captured separately in the diagnostic ledger.
-pub const RATING_OUTPUT_CONTRACT_VERSION: &str = "rating-commentary-v6";
+pub const RATING_OUTPUT_CONTRACT_VERSION: &str = "rating-commentary-v7-palette";
 
 /// Production rating temperature.
 pub const RATING_TEMPERATURE: f64 = 0.6;
@@ -1411,6 +1412,88 @@ pub struct Assignment {
     pub exclusions: RatingExclusions,
     pub opts: GenerateOptions,
     pub built_prompt: String,
+    /// Selected output vocabulary. Production supplies this from measured facts.
+    pub palette: Palette,
+}
+
+/// Select factual statements in the plugin. The model may choose approved phrasing;
+/// no string from its response can become served prose.
+pub fn rating_palette(
+    subject: &Subject,
+    profile: &RatingProfile,
+    comparisons: Option<&BTreeMap<String, SkillChange>>,
+    form_trend: Option<&str>,
+) -> Option<Palette> {
+    let eligible = ordered_facts_unbounded(&profile.breakdown)
+        .into_iter()
+        .filter(|fact| {
+            fact.pct
+                .is_some_and(|pct| pct.is_finite() && (0.0..=100.0).contains(&pct))
+                && !fact.measure.trim().is_empty()
+        })
+        .collect::<Vec<_>>();
+    let mut facts = eligible.iter().take(2).cloned().collect::<Vec<_>>();
+    if eligible.len() > 2 {
+        facts.push(eligible.last().expect("nonempty eligible facts").clone());
+    }
+    if facts.is_empty() {
+        let score = profile.composite_score.filter(|score| score.is_finite())?;
+        let entity = subject.entity_name.trim();
+        return Some(Palette {
+            paints: vec![Paint {
+                id: "composite".into(),
+                phrasings: vec![
+                    format!(
+                        "{entity}'s overall standardized score is {score:.0}, where 50 is average."
+                    ),
+                    format!(
+                        "The overall standardized score for {entity} is {score:.0}; 50 is average."
+                    ),
+                ],
+            }],
+        });
+    }
+    let mut paints: Vec<Paint> = facts.into_iter().enumerate().map(|(index, fact)| {
+        let pct = fact.pct.expect("selected percentile");
+        let band = pct_band(pct);
+        let population = fact.cohort.filter(|n| n.is_finite() && *n >= 1.0)
+            .map(|n| format!(" among {:.0} eligible profiles", n)).unwrap_or_default();
+        let measure = fact.measure.trim();
+        let entity = subject.entity_name.trim();
+        let suffix = comparisons
+            .and_then(|items| items.get(&fact.label))
+            .filter(|prior| prior.prior_pct.is_finite() && (0.0..=100.0).contains(&prior.prior_pct))
+            .map(|prior| {
+                let direction = match relative_direction(pct - prior.prior_pct) {
+                    RelativeDirection::Rose => "rose",
+                    RelativeDirection::Fell => "fell",
+                    RelativeDirection::Held => "held",
+                };
+                format!(" Relative percentile standing {direction} versus the prior season (percentile {:.1}).", prior.prior_pct)
+            }).unwrap_or_default();
+        Paint { id: format!("measure_{index}"), phrasings: vec![
+            format!("{entity} ranks {band} in {measure}: percentile {pct:.1}{population}.{suffix}"),
+            format!("In {measure}, {entity} sits at percentile {pct:.1}{population}, a {band} standing.{suffix}"),
+        ] }
+    }).collect();
+    if let Some(trend) = form_trend.filter(|trend| !trend.trim().is_empty()) {
+        paints.push(Paint {
+            id: "recent_form".into(),
+            phrasings: vec![
+                format!(
+                    "Recent form for {}: {}.",
+                    subject.entity_name.trim(),
+                    trend.trim_end_matches('.')
+                ),
+                format!(
+                    "For {}, the recent-form record reads: {}.",
+                    subject.entity_name.trim(),
+                    trend.trim_end_matches('.')
+                ),
+            ],
+        });
+    }
+    Some(Palette { paints })
 }
 
 /// The un-persisted result of one Scout creation.
@@ -1486,50 +1569,41 @@ pub fn unchanged(assignment: Assignment, configured_model: impl Into<String>) ->
 
 /// Create the Scout card from material prepared by the application.
 pub async fn create(studio: &Studio<'_>, assignment: Assignment) -> Result<RatingOutput> {
-    let grounded_parser = RatingRequestParser::new(
-        &assignment.built_prompt,
-        &assignment.comparison_directions,
-        &assignment.measurement_bands,
-    );
+    let palette = &assignment.palette;
+    palette.validate()?;
+    let mut opts = assignment.opts.clone();
+    opts.system = Some("Arrange the plugin's approved statements. Return only the requested JSON choices. Your words are never published directly.".into());
+    opts.temperature = Some(0.0);
+    opts.num_predict = 160;
+    opts.format_schema = Some(palette.schema());
     let extracted = studio
         .extract(
-            &assignment.built_prompt,
-            &assignment.opts,
-            &grounded_parser,
-            crate::plugins::support::form::publishing_correction,
+            &palette.prompt(),
+            &opts,
+            &PaletteParser(palette),
+            crate::plugins::support::form::structured_correction,
         )
         .await?;
     let call = GenerationCall::from(&extracted);
-    let model = extracted.model.clone();
-    let abstained = extracted.value.is_none();
-    let (body, headline) = match extracted.value {
-        Some(reply) => (Some(reply.body), reply.headline),
-        None => (None, None),
-    };
-    let headline = headline.filter(|title| {
-        let named = crate::plugins::support::guards::title_names_entity(
-            title,
-            &assignment.subject.entity_name,
-        );
-        if !named {
-            tracing::warn!(
-                seat = "scout",
-                guard = "title_entity_absent",
-                entity = %assignment.subject.entity_name,
-                title,
-                "headline names no form of the entity; dropped"
-            );
-        }
-        named
-    });
+    let body = extracted
+        .value
+        .ok_or_else(|| anyhow::anyhow!("palette composition cannot abstain"))?;
+    crate::plugins::support::form::validate_body(&body)?;
+    let headline = crate::plugins::support::guards::settle_title(
+        "scout",
+        Some(&format!(
+            "{}: measured profile",
+            assignment.subject.entity_name
+        )),
+    );
 
     Ok(Generation::called(
         RatingProduct {
             season: assignment.season,
             skipped_no_stats: false,
-            abstained,
+            abstained: false,
             skipped_unchanged: false,
-            body,
+            body: Some(body),
             headline,
             notability: Some(assignment.notability),
             notability_components: assignment.notability_components,
@@ -1539,7 +1613,7 @@ pub async fn create(studio: &Studio<'_>, assignment: Assignment) -> Result<Ratin
             input_components: assignment.input_components,
             exclusions: assignment.exclusions,
         },
-        model,
+        extracted.model,
         RATING_PROMPT_VERSION,
         Vec::new(),
         Some(assignment.input_hash),

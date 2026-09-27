@@ -41,6 +41,14 @@ The read-only `rust/examples/harvester_live_canary_check.sql` gives aggregate
 completion, exact-byte, held/unheld assignment, identity, and Graph counts for
 the named run without returning article metadata or publisher text.
 
+The optional `ARTICLE_READ_CHROME_ENABLED` browser fallback is unset on the
+production host. A count-only on-host probe of three `low_content` articles
+recovered one above Harvester's 20-word floor, at only 23 words; two remained
+low-content. No source text or URLs were exported. The fallback remains off
+for this sweep, preserving one consistent retrieval configuration for the
+corpus-duration measurement. Review the full acquisition outcome mix before
+choosing a later retry or browser policy.
+
 ## Production shadow update — September 27, 01:47 EDT
 
 The implementation below describes the September 26 local checkpoint. Since then,

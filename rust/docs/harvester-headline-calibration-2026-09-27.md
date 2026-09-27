@@ -49,6 +49,13 @@ packet before opening the source text. Record whether the headline warrants a
 publisher read, then whether the opening is useful and which character themes
 it supports. `unsure` is valid and should not be silently converted to no.
 
+The run-333 packet is `/tmp/harvester-headline-review-run333-20260927` on
+`archbox`. It has 36 development and 36 holdout cases; all files are mode
+`0600`. All 24 selected `unclassified` cases lack a retained publisher
+opening, so they support headline/read labeling only. The other 48 cases have
+source openings for second-stage review. A missing opening is an acquisition
+state, not a negative relevance label.
+
 The balanced packet is deliberately enriched for boundary disagreements. Its
 raw label percentages must not be reported as production precision or recall.
 Use inclusion weights and an article/story-group split for policy comparison,

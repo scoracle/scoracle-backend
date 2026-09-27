@@ -18,10 +18,14 @@ WITH ingest AS (
       JOIN cohort q ON q.article_id=c.article_id AND q.entity_type=c.entity_type
        AND q.entity_id=c.entity_id AND q.sport=c.sport
 ), acquisition AS (
-    SELECT a.status FROM public.harvester_acquisitions a JOIN article x USING (article_id)
+    SELECT a.status,a.updated_at FROM public.harvester_acquisitions a JOIN article x USING (article_id)
 ), assignment AS (
     SELECT d.plugin_id,d.status FROM public.harvester_assignments d
       JOIN classification c ON c.id=d.classification_id
+), work AS (
+    SELECT w.status,w.attempts,w.updated_at FROM public.pipeline_work w
+      JOIN article a ON a.article_id=w.entity_id
+     WHERE w.stage='harvester' AND w.entity_type='article'
 )
 SELECT i.id AS ingest_run_id, i.started_at AS ingest_started_at,
        i.finished_at AS ingest_finished_at, i.status AS ingest_status,
@@ -41,11 +45,21 @@ SELECT i.id AS ingest_run_id, i.started_at AS ingest_started_at,
        (SELECT count(*) FROM cohort)-(SELECT count(*) FROM classification) AS unclassified_edges,
        (SELECT count(*) FROM assignment) AS character_assignments,
        (SELECT count(*) FROM assignment WHERE status='pending') AS pending_assignments,
-       (SELECT count(*) FROM public.pipeline_work w JOIN article a ON a.article_id=w.entity_id
-         WHERE w.stage='harvester' AND w.entity_type='article') AS outstanding_harvester_work,
+       (SELECT count(*) FROM work WHERE status='pending') AS pending_harvester_work,
+       (SELECT count(*) FROM work WHERE status='running') AS running_harvester_work,
+       (SELECT count(*) FROM work WHERE status='failed' AND attempts<5) AS retry_scheduled,
+       (SELECT count(*) FROM work WHERE status='failed' AND attempts>=5) AS dead_letters,
        (SELECT max(created_at) FROM classification) AS last_classified_at,
        round(extract(epoch FROM ((SELECT max(created_at) FROM classification)-i.started_at))::numeric,1)
            AS seconds_from_ingest_start_to_last_classification,
+       CASE WHEN NOT EXISTS (
+           SELECT 1 FROM work WHERE status IN ('pending','running')
+              OR (status='failed' AND attempts<5)
+       ) THEN round(extract(epoch FROM (
+           GREATEST((SELECT max(created_at) FROM classification),
+                    (SELECT max(updated_at) FROM acquisition),
+                    (SELECT max(updated_at) FROM work WHERE status='failed'))
+           - i.started_at))::numeric,1) END AS corpus_end_to_end_seconds,
        (SELECT round(sum((model_provenance->'relevance'->>'inference_ms')::numeric
                          +(model_provenance->'character_routing'->>'inference_ms')::numeric),1)
           FROM classification) AS laya_inference_ms_total

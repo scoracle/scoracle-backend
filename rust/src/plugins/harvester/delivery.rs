@@ -22,7 +22,7 @@ pub async fn load_for_character(
 ) -> Result<Vec<SourceContext>> {
     let rows = sqlx::query(
         "SELECT DISTINCT ON (c.article_id) c.id AS classification_id, c.article_id, \
-         c.headline, COALESCE(a.source, '') AS source, \
+         c.headline, a.title, COALESCE(a.source, '') AS source, \
          EXTRACT(EPOCH FROM a.published_at)::bigint AS published_at_epoch, \
          a.full_text, c.body_sha256, c.context_start, c.context_end, c.context_text \
          FROM public.harvester_classifications c \
@@ -49,7 +49,13 @@ pub async fn load_for_character(
         let start: i32 = row.get("context_start");
         let end: i32 = row.get("context_end");
         let context: String = row.get("context_text");
+        let headline: String = row.get("headline");
+        let article_title: String = row.get("title");
         ensure!(start >= 0 && end >= start, "invalid Harvester byte range");
+        ensure!(
+            headline == article_title,
+            "Harvester headline no longer matches article"
+        );
         ensure!(
             hex::encode(Sha256::digest(body.as_bytes())) == hash,
             "Harvester body hash drift"
@@ -61,7 +67,7 @@ pub async fn load_for_character(
         sources.push(SourceContext {
             classification_id: row.get("classification_id"),
             article_id: row.get("article_id"),
-            headline: row.get("headline"),
+            headline,
             context,
             source: row.get("source"),
             published_at_epoch: row.get("published_at_epoch"),
@@ -164,6 +170,21 @@ mod tests {
         .execute(&pool)
         .await
         .unwrap();
+        sqlx::query("UPDATE public.news_articles SET title='Changed headline' WHERE id=$1")
+            .bind(ARTICLE)
+            .execute(&pool)
+            .await
+            .unwrap();
+        assert!(load_for_character(&pool, PLUGIN, "team", 1, SPORT)
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("headline no longer matches article"));
+        sqlx::query("UPDATE public.news_articles SET title='Original headline' WHERE id=$1")
+            .bind(ARTICLE)
+            .execute(&pool)
+            .await
+            .unwrap();
         sqlx::query("UPDATE public.news_articles SET full_text='altered source' WHERE id=$1")
             .bind(ARTICLE)
             .execute(&pool)

@@ -373,7 +373,10 @@ impl Inference for LifecycleAdapters {
         Ok((
             GenerateResult {
                 response: if self.response.is_empty() {
-                    let slots = prompt.lines().filter(|line| line.starts_with("Fact ")).count();
+                    let slots = prompt
+                        .lines()
+                        .filter(|line| line.starts_with("Fact "))
+                        .count();
                     serde_json::json!({"choices": vec![0; slots]}).to_string()
                 } else {
                     self.response.clone()

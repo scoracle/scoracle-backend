@@ -25,7 +25,6 @@ use std::sync::Arc;
 
 pub mod manifest {
     use super::*;
-    use crate::plugins::support::resources::MAC_SLOTS;
     use crate::studio::tools::DomainClass;
 
     pub const TASK: TaskKey = TaskKey::new("harvester");
@@ -38,7 +37,9 @@ pub mod manifest {
         task: TASK,
         claim_policy: ClaimPolicy::RANKED_ARTICLES,
         inference_routes: &[],
-        resources: ResourceProfile::grouped(1, MAC_SLOTS),
+        // Publisher fetches can overlap while the local Laya service serializes
+        // inference. They do not consume the Mac generative-model slot group.
+        resources: ResourceProfile::unbounded_batch(4),
         tools: &TOOLS,
     };
 }

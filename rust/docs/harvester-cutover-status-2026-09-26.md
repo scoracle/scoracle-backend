@@ -35,8 +35,10 @@ After the nightly queue has no pending, running, or scheduled-retry Harvester
 work, restart the CI-passed worker with shadow mode off and the delivery list
 explicitly empty. `rust/examples/harvester_enqueue_live_canary.sql` then
 reopens at most five previously classified articles from a named ingest run.
-Its queue guard selects nothing if actionable Harvester work remains, and it
-returns only the number enqueued. Verify the resulting acquisition, exact
+Its gate selects nothing unless the named cohort has no actionable Harvester
+work, no missing acquisition state or unexplained edge, no Laya error, and
+exact headline/body/context/model-input bytes on every latest classification.
+It returns only the number enqueued. Verify the resulting acquisition, exact
 classifications, four held assignments per article/entity edge, resolved-link
 and Graph receipts, and zero character publications before releasing a bounded
 character batch. Do not disable Editor until each character's actual product

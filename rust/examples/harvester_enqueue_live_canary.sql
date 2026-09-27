@@ -11,29 +11,71 @@ WITH ingest AS (
     SELECT started_at,finished_at FROM public.pipeline_runs
      WHERE id=:'run_id'::bigint AND job='pipeline' AND status='success'
        AND finished_at IS NOT NULL
+), cohort AS (
+    SELECT p.article_id,p.entity_type,p.entity_id,p.sport
+      FROM public.harvester_query_provenance p CROSS JOIN ingest i
+     WHERE p.last_seen_at BETWEEN i.started_at AND i.finished_at
+), articles AS (
+    SELECT DISTINCT article_id FROM cohort
+), classified AS (
+    SELECT DISTINCT ON (c.article_id,c.entity_type,c.entity_id,c.sport) c.*
+      FROM public.harvester_classifications c JOIN cohort q
+        ON q.article_id=c.article_id AND q.entity_type=c.entity_type
+       AND q.entity_id=c.entity_id AND q.sport=c.sport
+     ORDER BY c.article_id,c.entity_type,c.entity_id,c.sport,c.created_at DESC,c.id DESC
+), shadow_ready AS (
+    SELECT EXISTS (SELECT 1 FROM ingest) AND EXISTS (SELECT 1 FROM articles)
+       AND NOT EXISTS (
+           SELECT 1 FROM public.pipeline_work w
+            WHERE w.stage='harvester' AND
+                  (w.status IN ('pending','running') OR
+                   (w.status='failed' AND w.attempts<5))
+       )
+       AND NOT EXISTS (
+           SELECT 1 FROM articles a WHERE NOT EXISTS (
+               SELECT 1 FROM public.harvester_acquisitions h WHERE h.article_id=a.article_id)
+       )
+       AND NOT EXISTS (
+           SELECT 1 FROM articles a JOIN public.harvester_acquisitions h
+             ON h.article_id=a.article_id WHERE h.status='classification_error'
+       )
+       AND NOT EXISTS (
+           SELECT 1 FROM cohort q WHERE NOT EXISTS (
+               SELECT 1 FROM classified c
+                WHERE c.article_id=q.article_id AND c.entity_type=q.entity_type
+                  AND c.entity_id=q.entity_id AND c.sport=q.sport)
+             AND NOT EXISTS (
+               SELECT 1 FROM public.harvester_acquisitions h
+                WHERE h.article_id=q.article_id AND (
+                  h.status='duplicate' OR
+                  (h.status IN ('retryable_error','blocked','low_content')
+                   AND EXISTS (SELECT 1 FROM public.pipeline_work w
+                                WHERE w.stage='harvester' AND w.entity_type='article'
+                                  AND w.entity_id=q.article_id AND w.sport=q.sport
+                                  AND w.status='failed' AND w.attempts>=5))))
+       )
+       AND NOT EXISTS (
+           SELECT 1 FROM classified c JOIN public.news_articles a ON a.id=c.article_id
+            WHERE a.full_text IS NULL OR a.title IS DISTINCT FROM c.headline
+               OR encode(sha256(convert_to(a.full_text,'UTF8')),'hex') IS DISTINCT FROM c.body_sha256
+               OR substring(convert_to(a.full_text,'UTF8') FROM c.context_start+1
+                            FOR c.context_end-c.context_start) IS DISTINCT FROM convert_to(c.context_text,'UTF8')
+               OR substring(convert_to(a.full_text,'UTF8') FROM c.model_input_start+1
+                            FOR c.model_input_end-c.model_input_start) IS DISTINCT FROM convert_to(c.model_input_text,'UTF8')
+       ) AS ready
 ), eligible AS (
-    SELECT DISTINCT ON (p.article_id,p.sport) p.article_id,p.sport
-      FROM public.harvester_query_provenance p
-      JOIN ingest i ON p.last_seen_at BETWEEN i.started_at AND i.finished_at
-      JOIN public.harvester_classifications c
-        ON c.article_id=p.article_id AND c.entity_type=p.entity_type
-       AND c.entity_id=p.entity_id AND c.sport=p.sport
+    SELECT DISTINCT ON (c.article_id,c.sport) c.article_id,c.sport
+      FROM classified c
       JOIN public.news_articles a ON a.id=c.article_id
      WHERE c.entity_choice='relevant' AND a.full_text IS NOT NULL
        AND a.title=c.headline
        AND encode(sha256(convert_to(a.full_text,'UTF8')),'hex')=c.body_sha256
        AND substring(convert_to(a.full_text,'UTF8') FROM c.context_start+1
                      FOR c.context_end-c.context_start)=convert_to(c.context_text,'UTF8')
-     ORDER BY p.article_id,p.sport,c.id DESC
+     ORDER BY c.article_id,c.sport,c.id DESC
 )
-SELECT e.article_id,e.sport FROM eligible e
- WHERE NOT EXISTS (
-     SELECT 1 FROM public.pipeline_work w
-      WHERE w.stage='harvester' AND
-            (w.status IN ('pending','running') OR
-             (w.status='failed' AND w.attempts<5))
- )
-   AND NOT EXISTS (
+SELECT e.article_id,e.sport FROM eligible e CROSS JOIN shadow_ready g
+ WHERE g.ready AND NOT EXISTS (
      SELECT 1 FROM public.pipeline_work w
       WHERE w.stage='harvester' AND w.entity_type='article'
         AND w.entity_id=e.article_id AND w.sport=e.sport

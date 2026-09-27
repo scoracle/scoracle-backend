@@ -2,7 +2,7 @@
 
 ## Measurement
 
-The read-only replay sent the target team and Google headline, with no article
+The read-only `harvest-headline-relevance-v1` replay sent the target team and Google headline, with no article
 body or description, to the production Laya endpoint for 300 query/team edges
 from pipeline run 333. It sampled 100 each from the previous article-text
 classifier's `relevant`, `irrelevant`, and `unclassified` strata. There were no
@@ -17,7 +17,7 @@ its population count. Historical article-text choices are **comparison signals,
 not human relevance labels**. The unclassified group includes acquisition
 failures, so its opening quality is unknown.
 
-| Harvester read threshold | Old relevant retained / 100 | Old irrelevant read / 100 | Unclassified read / 100 | Estimated cohort read rate |
+| V1 Harvester read threshold | Old relevant retained / 100 | Old irrelevant read / 100 | Unclassified read / 100 | Estimated cohort read rate |
 | ---: | ---: | ---: | ---: | ---: |
 | 0.05 | 87 | 66 | 81 | 82.1% |
 | 0.10 | 77 | 44 | 70 | 70.1% |
@@ -43,6 +43,27 @@ may reflect source or headline mix, but the football gap is a reason to include
 sport diversity in review. It is not evidence for a sport-specific threshold
 yet. The blinded packet includes 32 football, 14 NBA, and 26 NFL cases.
 
+The v1 wording told Laya that uncertain but plausible coverage was relevant
+for reading. That placed a Harvester admission preference inside the model's
+predicate. `harvest-headline-relevance-v2` instead defines exact sports-entity
+subject matter or direct consequence and asks Laya to express uncertainty in
+its probability; Harvester alone applies the admission policy. A second
+read-only replay of the same 300 edges had zero failures. The mean absolute
+probability change was 0.0949, and 36/300 edges crossed the 0.25 boundary
+(17 old-irrelevant, five old-relevant, 14 unclassified). This demonstrates
+question wording sensitivity, not which wording is more accurate.
+
+| V2 Harvester read threshold | Old relevant retained / 100 | Old irrelevant read / 100 | Unclassified read / 100 | Estimated cohort read rate |
+| ---: | ---: | ---: | ---: | ---: |
+| 0.05 | 89 | 76 | 86 | 86.2% |
+| 0.10 | 78 | 46 | 74 | 72.1% |
+| 0.25, current shadow policy | 70 | 27 | 52 | 58.4% |
+| 0.50 | 53 | 13 | 41 | 43.6% |
+| 0.90 | 0 | 0 | 2 | 0.6% |
+
+For v2 at 0.25, old-relevant retention is 12/26 football, 22/27 NBA, and
+36/47 NFL. The sample still cannot establish actual missed useful coverage.
+
 ## Review before policy selection
 
 `harvest_headline_review` produces blinded headline and opening review packets
@@ -55,12 +76,14 @@ packet before opening the source text. Record whether the headline warrants a
 publisher read, then whether the opening is useful and which character themes
 it supports. `unsure` is valid and should not be silently converted to no.
 
-The run-333 packet is `/tmp/harvester-headline-review-run333-20260927` on
+The current v2 run-333 packet is `/tmp/harvester-headline-review-v2-run333-20260927` on
 `archbox`. It has 36 development and 36 holdout cases; all files are mode
 `0600`. All 24 selected `unclassified` cases lack a retained publisher
 opening, so they support headline/read labeling only. The other 48 cases have
 source openings for second-stage review. A missing opening is an acquisition
-state, not a negative relevance label.
+state, not a negative relevance label. The earlier v1 packet is superseded;
+labels from it must not be joined to the v2 manifest by case ID. The v2 packet
+contains 29 football, 15 NBA, and 28 NFL cases.
 
 The balanced packet is deliberately enriched for boundary disagreements. Its
 raw label percentages must not be reported as production precision or recall.

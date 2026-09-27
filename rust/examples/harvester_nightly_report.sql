@@ -9,8 +9,8 @@ WITH ingest AS (
 ), cohort AS (
     SELECT p.article_id, p.entity_type, p.entity_id, p.sport
       FROM public.harvester_query_provenance p CROSS JOIN ingest i
-     WHERE p.first_seen_at >= i.started_at
-       AND p.first_seen_at <= i.finished_at
+     WHERE p.last_seen_at >= i.started_at
+       AND p.last_seen_at <= i.finished_at
 ), article AS (
     SELECT DISTINCT article_id FROM cohort
 ), classification AS (
@@ -30,8 +30,11 @@ SELECT i.id AS ingest_run_id, i.started_at AS ingest_started_at,
        i.failed AS ingest_failed,
        (SELECT count(*) FROM article) AS canonical_candidates,
        (SELECT count(*) FROM cohort) AS query_entity_edges,
+       (SELECT count(DISTINCT article_id) FROM public.harvester_query_provenance p
+         WHERE p.first_seen_at BETWEEN i.started_at AND i.finished_at) AS first_seen_candidates,
        (SELECT count(*) FROM acquisition WHERE status='acquired') AS acquired,
-       (SELECT count(*) FROM acquisition WHERE status IN ('retryable_error','blocked','low_content','classification_error')) AS acquisition_or_model_errors,
+       (SELECT count(*) FROM acquisition WHERE status IN ('retryable_error','blocked','low_content')) AS acquisition_errors,
+       (SELECT count(*) FROM acquisition WHERE status='classification_error') AS laya_errors,
        (SELECT count(*) FROM classification) AS classified_edges,
        (SELECT count(*) FROM classification WHERE entity_choice='relevant') AS laya_entity_relevant,
        (SELECT count(*) FROM classification WHERE entity_choice='irrelevant') AS laya_entity_irrelevant,
@@ -54,7 +57,7 @@ WITH ingest AS (
 ), cohort AS (
     SELECT p.article_id,p.entity_type,p.entity_id,p.sport
       FROM public.harvester_query_provenance p CROSS JOIN ingest i
-     WHERE p.first_seen_at BETWEEN i.started_at AND i.finished_at
+     WHERE p.last_seen_at BETWEEN i.started_at AND i.finished_at
 ), classification AS (
     SELECT c.id,c.distributions,c.model_provenance FROM public.harvester_classifications c
       JOIN cohort q ON q.article_id=c.article_id AND q.entity_type=c.entity_type
@@ -79,7 +82,7 @@ WITH ingest AS (
 ), cohort AS (
     SELECT p.article_id,p.entity_type,p.entity_id,p.sport
       FROM public.harvester_query_provenance p CROSS JOIN ingest i
-     WHERE p.first_seen_at BETWEEN i.started_at AND i.finished_at
+     WHERE p.last_seen_at BETWEEN i.started_at AND i.finished_at
 ), classified AS (
     SELECT c.distributions,c.model_provenance FROM public.harvester_classifications c
       JOIN cohort q ON q.article_id=c.article_id AND q.entity_type=c.entity_type
@@ -97,3 +100,20 @@ SELECT count(*) AS classified_edges,
            (model_provenance->'relevance'->>'inference_ms')::numeric
            +(model_provenance->'character_routing'->>'inference_ms')::numeric)::numeric,1) AS p95_laya_ms
   FROM classified;
+
+WITH ingest AS (
+    SELECT started_at,finished_at FROM public.pipeline_runs
+     WHERE job='pipeline' AND finished_at IS NOT NULL ORDER BY started_at DESC LIMIT 1
+), cohort AS (
+    SELECT p.article_id,p.entity_type,p.entity_id,p.sport
+      FROM public.harvester_query_provenance p CROSS JOIN ingest i
+     WHERE p.last_seen_at BETWEEN i.started_at AND i.finished_at
+)
+SELECT route.key AS plugin_id, count(*) AS classified_edges,
+       count(*) FILTER (WHERE route.value->>'choice'='relevant') AS laya_recommended,
+       count(*) FILTER (WHERE route.value->>'choice'='irrelevant') AS laya_not_recommended
+  FROM public.harvester_classifications c
+  JOIN cohort q ON q.article_id=c.article_id AND q.entity_type=c.entity_type
+   AND q.entity_id=c.entity_id AND q.sport=c.sport
+ CROSS JOIN LATERAL jsonb_each(c.distributions) route
+ GROUP BY route.key ORDER BY route.key;

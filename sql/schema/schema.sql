@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict RTMsSt4e5tgWFLxqB8qxsO3go8R0cwIbkIFMF8RkRADcUAA2VC6DNfITZu72006
+\restrict 6faXKdauZXl6WvLlSB6nnijRhcIOpmbVOPb9dnI5zZllDdOW9G8IV8EFYUbd3dX
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -8476,6 +8476,27 @@ COMMENT ON COLUMN public.harvester_insider_wraps.status IS 'Pending wraps are te
 
 
 --
+-- Name: harvester_live_canary_items; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.harvester_live_canary_items (
+    run_id bigint NOT NULL,
+    article_id bigint NOT NULL,
+    sport text NOT NULL,
+    enqueued_at timestamp with time zone DEFAULT now() NOT NULL,
+    acquisition_attempts_before integer CONSTRAINT harvester_live_canary_items_acquisition_attempts_befor_not_null NOT NULL,
+    CONSTRAINT harvester_live_canary_items_acquisition_attempts_before_check CHECK ((acquisition_attempts_before >= 0))
+);
+
+
+--
+-- Name: TABLE harvester_live_canary_items; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.harvester_live_canary_items IS 'Durable bounded Harvester live-canary cohort. Successful pipeline_work claims are deleted; compare the acquisition attempt count and updated_at with this enqueue receipt before calling a replay complete.';
+
+
+--
 -- Name: harvester_query_provenance; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -11348,7 +11369,7 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 -- PostgreSQL database dump complete
 --
 
-\unrestrict RTMsSt4e5tgWFLxqB8qxsO3go8R0cwIbkIFMF8RkRADcUAA2VC6DNfITZu72006
+\unrestrict 6faXKdauZXl6WvLlSB6nnijRhcIOpmbVOPb9dnI5zZllDdOW9G8IV8EFYUbd3dX
 
 
 \ir reference-data.sql
@@ -11356,7 +11377,7 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 -- PostgreSQL database dump
 --
 
-\restrict UUVOXbVU5BV8J97VRgoywNkA4eeOBbVu7Qd0XExzFEE4keuxQrpdWLdknFbMF5O
+\restrict Wruog4pzLC4l1f2RTHLabQJfdN8C2RplKX47TQZSiHXGWjGhY30Dp1KXTRzoi3w
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -11669,6 +11690,14 @@ ALTER TABLE ONLY public.harvester_insider_pairs
 
 ALTER TABLE ONLY public.harvester_insider_wraps
     ADD CONSTRAINT harvester_insider_wraps_pkey PRIMARY KEY (team_id, sport, work_version, entity_type, entity_id);
+
+
+--
+-- Name: harvester_live_canary_items harvester_live_canary_items_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_live_canary_items
+    ADD CONSTRAINT harvester_live_canary_items_pkey PRIMARY KEY (run_id, article_id, sport);
 
 
 --
@@ -13889,6 +13918,22 @@ ALTER TABLE ONLY public.harvester_insider_wraps
 
 
 --
+-- Name: harvester_live_canary_items harvester_live_canary_items_article_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_live_canary_items
+    ADD CONSTRAINT harvester_live_canary_items_article_id_fkey FOREIGN KEY (article_id) REFERENCES public.news_articles(id) ON DELETE CASCADE;
+
+
+--
+-- Name: harvester_live_canary_items harvester_live_canary_items_run_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_live_canary_items
+    ADD CONSTRAINT harvester_live_canary_items_run_id_fkey FOREIGN KEY (run_id) REFERENCES public.pipeline_runs(id) ON DELETE CASCADE;
+
+
+--
 -- Name: harvester_query_provenance harvester_query_provenance_article_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -14435,4 +14480,4 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict UUVOXbVU5BV8J97VRgoywNkA4eeOBbVu7Qd0XExzFEE4keuxQrpdWLdknFbMF5O
+\unrestrict Wruog4pzLC4l1f2RTHLabQJfdN8C2RplKX47TQZSiHXGWjGhY30Dp1KXTRzoi3w

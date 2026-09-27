@@ -47,6 +47,11 @@ The read-only `rust/examples/harvester_live_canary_check.sql` gives aggregate
 completion, exact-byte, held/unheld assignment, per-character disposition and
 product-receipt, identity, and Graph counts for the named run without returning
 article metadata or publisher text.
+The canary gate passed a disposable PostgreSQL positive/negative fixture:
+one exact classified article plus one terminal blocked article enqueued exactly
+one canary; an active retry, missing acquisition receipt, Laya classification
+error, or changed retained body each enqueued zero. The same script also
+returned zero against the still-running production shadow cohort.
 The worker service executes `rust/bin/scoracle-cognition`, while Cargo builds
 `rust/target/release/scoracle-cognition`; the active
 `scoracle-cognition.path` unit restarts the service when the installed binary

@@ -4,10 +4,12 @@ use super::CorpusItem;
 use crate::util::utc_timestamp as timestamp;
 use serde::Serialize;
 
-pub const VERSION: &str = "journalist-fresh-v4";
+pub const VERSION: &str = "journalist-fresh-v7";
 
 #[derive(Serialize)]
 pub(super) struct Report<'a> {
+    /// A request-local writing slot, not a durable source identity.
+    report_key: String,
     publisher: &'a str,
     /// Publication time is not the time of the event described in the excerpt.
     published_at: Option<String>,
@@ -20,12 +22,34 @@ pub(super) struct Report<'a> {
 pub(super) fn prepare(reports: &[CorpusItem]) -> Vec<Report<'_>> {
     reports
         .iter()
-        .map(|report| Report {
+        .enumerate()
+        .map(|(index, report)| Report {
+            report_key: format!("report_{}", index + 1),
             publisher: &report.source,
             published_at: report.published_at_epoch.map(timestamp),
             publisher_excerpt: &report.context,
         })
         .collect()
+}
+
+/// The plugin owns which source development labels the report. Prefer the
+/// complete opening sentence; fall back to canonical identity rather than ask
+/// articulation to select or compress a claim.
+pub(super) fn opening(report: &CorpusItem, entity_name: &str) -> String {
+    let excerpt = report.context.trim();
+    let sentence_end = excerpt
+        .char_indices()
+        .find(|(_, character)| matches!(character, '.' | '?' | '!'))
+        .map(|(index, character)| index + character.len_utf8())
+        .unwrap_or(excerpt.len());
+    let opening = excerpt[..sentence_end].trim();
+    if !opening.is_empty()
+        && opening.chars().count() <= crate::plugins::support::form::HOOK_MAX_CHARS
+    {
+        opening.to_string()
+    } else {
+        entity_name.trim().to_string()
+    }
 }
 
 #[cfg(test)]

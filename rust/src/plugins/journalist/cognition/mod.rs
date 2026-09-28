@@ -15,14 +15,44 @@ pub mod fresh;
 mod journalist;
 mod prompt;
 pub use journalist::CHARACTER;
-pub const NARRATIVES_PROMPT_VERSION: &str = "n47";
+pub const NARRATIVES_PROMPT_VERSION: &str = "n94";
 pub const NUM_PREDICT: i32 = 900;
-pub const NARRATIVES_SYSTEM_PROMPT: &str = prompt::TASK;
-pub const NARRATIVES_OUTPUT_CONTRACT_VERSION: &str = "narratives-v7-studied-memory";
+pub const NARRATIVES_SYSTEM_PROMPT: &str = prompt::FRESH_TASK;
+pub const NARRATIVES_OUTPUT_CONTRACT_VERSION: &str = "narratives-v10-source-hooks";
 pub const LOOKBACK_SECONDS: i64 = 72 * 3600;
 pub const MAX_REPORTS: usize = 3;
 pub const SOURCE_BUDGET_BYTES: usize = 6000;
 pub const CONTEXT_BUDGET_BYTES: usize = SOURCE_BUDGET_BYTES + memories::BUDGET_BYTES;
+
+/// Fail closed on explicit attempts in publisher text to supersede the writing
+/// contract. This is an admission boundary, not semantic editing of source text.
+pub(super) fn contains_instruction_override(source: &str) -> bool {
+    let normalized = source
+        .chars()
+        .map(|character| {
+            if character.is_alphanumeric() {
+                character.to_ascii_lowercase()
+            } else {
+                ' '
+            }
+        })
+        .collect::<String>()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    [
+        "ignore previous instructions",
+        "ignore all previous instructions",
+        "ignore any previous instructions",
+        "ignore the previous instructions",
+        "disregard previous instructions",
+        "disregard the previous instructions",
+        "override previous instructions",
+        "override the previous instructions",
+    ]
+    .iter()
+    .any(|marker| normalized.contains(marker))
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CorpusItem {
@@ -117,6 +147,8 @@ pub fn prepare(
         );
         let reason = if item.context.trim().is_empty() || item.source.trim().is_empty() {
             Some("missing_source_material")
+        } else if contains_instruction_override(&item.context) {
+            Some("source_instruction_override")
         } else if item.published_at_epoch.is_none() {
             Some("unknown_publication_time")
         } else if item.published_at_epoch.unwrap() > now {
@@ -185,15 +217,15 @@ fn render_context(
     #[derive(Serialize)]
     struct Context<'a> {
         identity: crate::plugins::meta::WritingIdentity<'a>,
+        history: Vec<memories::MemoryGroup<'a>>,
         fresh: Vec<fresh::Report<'a>>,
-        memories: Vec<memories::MemoryGroup<'a>>,
         voice: &'static str,
         form: serde_json::Value,
     }
     serde_json::to_string(&Context {
         identity: subject.for_writing(),
+        history: memories::context(history),
         fresh: fresh::prepare(reports),
-        memories: memories::context(history),
         voice: journalist::CHARACTER,
         form: crate::plugins::support::form::journalist_form(reports.len()),
     })
@@ -208,10 +240,13 @@ pub fn prompt(assignment: &Assignment) -> String {
         &assignment.memories,
     )
 }
+pub fn system_prompt(assignment: &Assignment) -> &'static str {
+    prompt::task(!assignment.memories.is_empty())
+}
 pub fn generation_options(assignment: &Assignment, num_ctx: i32) -> GenerateOptions {
     GenerateOptions {
-        system: Some(NARRATIVES_SYSTEM_PROMPT.to_string()),
-        temperature: Some(0.3),
+        system: Some(system_prompt(assignment).to_string()),
+        temperature: Some(0.0),
         num_predict: NUM_PREDICT,
         num_ctx,
         json_mode: false,
@@ -297,9 +332,11 @@ impl Parser<NarrativesProduct> for EditionParser<'_> {
                 let evidence = std::slice::from_ref(item);
                 let (source_count, source_names, source_latest_epoch, source_oldest_epoch) =
                     source_metadata(evidence);
+                let title = fresh::opening(item, &self.assignment.subject.name);
+                crate::plugins::support::form::validate_hook(Some(&title))?;
                 Ok(Narrative {
-                    title: prose.title,
-                    body: prose.body,
+                    title,
+                    body: prose.text,
                     impact,
                     impact_components,
                     input_news_ids: evidence.iter().map(|r| r.id).collect(),
@@ -310,6 +347,7 @@ impl Parser<NarrativesProduct> for EditionParser<'_> {
                 })
             })
             .collect::<Result<Vec<_>>>()?;
+        let headline = narratives.first().map(|narrative| narrative.title.clone());
         Ok(Some(NarrativesProduct {
             memory_provenance: json!({"receipt":self.assignment.memory_receipt,"selected":self.assignment.memories}),
             narratives,
@@ -320,7 +358,7 @@ impl Parser<NarrativesProduct> for EditionParser<'_> {
                     .clamp(1, 99) as i16,
             ),
             card_score_prev: self.assignment.card_score_prev,
-            headline: Some(reply.headline),
+            headline,
         }))
     }
 }

@@ -64,7 +64,7 @@ Use this single plan as the durable index. Start each plugin in a fresh context 
 | Window | Plugin / task | Scope | Status |
 | --- | --- | --- | --- |
 | 1 | Harvester / `harvester` | Intake, source extraction, System 1 filtering, delivery contract | V7 implemented and verified; current behavior accepted; calibration deferred; deployment separate |
-| 2 | Journalist / `narratives` | Stateless articulation of fresh reporting and studied history | n47 / fresh v4 checkpoint; memory and ownership implemented; 9/9 structural replay passes; reporting fidelity remains open |
+| 2 | Journalist / `narratives` | Stateless articulation of fresh reporting and studied history | n94 / fresh v7 locally complete; fidelity and memory exit evidence passed; not deployed |
 | 3 | Influencer / `vibe` | Observed emotional evidence and mood articulation | Not started |
 | 4 | Scout / `rating` | Measured performance, source triggers, statistical voice | Not started |
 | 5 | Insider / `transfers` | Relationship evidence, transfer state, heat, identity obligations | Not started |
@@ -168,11 +168,13 @@ and grouping defects remain explicit preparation issues.
 
 **Purpose:** articulate selected, attributed developments and their supported continuity.
 
-**Current checkpoint: n47 / fresh v4, September 28, 2026.** Continue from
-[the fresh-window handoff](HANDOFF-journalist-finish-2026-09-28.md) and
-[the ownership audit and replay](journalist-context-trim-2026-09-28.md).
-The earlier [working history](journalist-alignment-2026-09-27.md) records discarded
-contracts; its older sections are not the current implementation.
+**Locally complete checkpoint: n94 / fresh v7, September 28, 2026.** The exact
+requests and responses are retained in `fixtures/journalist/context-n94-development.jsonl`
+and the three `memory-*-n94.jsonl` records. The earlier
+[fresh-window handoff](HANDOFF-journalist-finish-2026-09-28.md),
+[context audit](journalist-context-trim-2026-09-28.md) and
+[working history](journalist-alignment-2026-09-27.md) record the superseded
+experiments; they are not the current contract.
 
 **Binding design:** plugins prepare and govern WHAT; Laya scores; SmolLM3 articulates
 HOW. Each call is stateless and memory-informed. The stored history supplies
@@ -185,58 +187,62 @@ prepare claims, retrieve, calculate, fact-check or judge the reporting.
 - `journalist.rs`: descriptive tone only.
 - `form.rs`: structure only—fields, types, counts, limits, schema and parser. No
   direction about WHAT the output contains.
-- `journalist/cognition/prompt.rs`: the sole task instruction and source-to-output
-  mapping. The data package is `identity`, `fresh`, `memories`, `voice`, `form`.
+- `journalist/cognition/prompt.rs`: the sole task instruction and assembly manual.
+  The data package is `identity`, `history`, `fresh`, `voice`, `form`.
 
 **Implemented and pruned:** one natural articulation stage replaces the fixed phrase
-palette and Editor packet/story corpus path. Exact fresh-source deduplication and
-no-material decisions happen before inference. Complete source text, qualifications,
-UTC publication dates and full provenance survive preparation. Publication rechecks
-locked Harvester receipts and keeps source disposition, publication and completion
-intent atomic. Memory requests study a bounded read-only Postgres snapshot through
-the existing Go DuckDB package. Shared form no longer owns writing instructions;
-remaining characters use the relocated shared prompt composition, with their
-system prompts and described schemas verified unchanged by an exact snapshot.
+palette and Editor packet/story corpus path. Fresh reports and output slots share
+request-local `report_key` values, so source order is plugin-owned. The model returns
+only report text. Titles come from the complete source opening and the edition
+headline comes from the first plugin-selected title; the model no longer invents
+either. Canonical storage retains league namespaces while the writing identity uses
+the underlying sport (`NBA` becomes `basketball`), removing a demonstrated recap
+genre cue without changing identity provenance. Explicit source attempts to override
+the articulation contract fail closed before inference.
 
-**Verification:** Rust library 551 passed / 77 environment-dependent ignored;
-all targets compile. Go study tests and isolated memory/publication integration
-checks passed during implementation (see memory handoff). The final no-thinking
-synthetic replay made nine calls and three correct no-call decisions: 9/9 calls
-completed and passed structural parsing, mean local call time 3.54 seconds. The
-memory smoke case preserved the schedule change without inventing a reason. This
-is not a fidelity pass: other answers added commentary, dropped headline uncertainty,
-changed source order or followed embedded source instructions. No deployment ran.
+`prompt.rs` now acts as the instruction manual for the pieces actually present.
+Fresh-only calls receive the compact report-key articulation instruction. When
+`memories.rs` selects history, the system message identifies identity, history,
+fresh, voice and form and states that historical reporting belongs in the report
+text it contextualizes. This is still one stateless articulation call. `form.rs`
+contains only the keyed JSON shape; it supplies no content direction. Temperature
+is zero, thinking stays disabled and the output allowance remains 900 tokens.
 
-**Remaining work, in order:**
+Memory requests still study a bounded read-only Postgres snapshot through the Go
+DuckDB package. Complete source text, qualifications, UTC publication dates and
+full provenance survive preparation. Historical sources remain distinct from fresh
+evidence and do not inflate fresh source metadata or activity. Publication still
+rechecks locked Harvester receipts and keeps disposition, publication and completion
+intent atomic.
 
-1. Inspect the exact n47 request, output and source mapping before changing code.
-   Preserve the ownership split; fix demonstrated contract/preparation problems,
-   not individual examples with an accumulating prompt/guard/eval stack.
-2. Preserve qualifications in headline, title and body; prevent unsupported
-   additions and source-instruction promotion. Preserve each narrative's mapping to
-   its plugin-selected report. Valid JSON/counts alone do not guarantee this.
-3. Exercise useful, nonredundant memory: dated contradictory updates, reporting
-   frequency with publisher/window scope, and comparable statistical findings.
-   Keep memory references distinct from fresh evidence. Legacy Graph/storyline
-   membership does not prove event identity or independent confirmation.
-4. Inspect any suspected model/transport issue with a bounded controlled test.
-   The n46 native-role diagnostic still added facts, so the installed template
-   suspicion is unconfirmed and no runtime change was justified. Keep thinking
-   disabled; its earlier cost did not establish a fidelity benefit.
-5. Run focused structural/publication checks and manual reporting-fidelity review
-   on representative cases. Update this plan with actual results and remaining
-   limitations. Retain exact test requests and failures; do not publish test prose.
+**Verification:** the final n94 no-thinking replay made seven fresh-report calls,
+three memory-bearing calls and four correct no-call decisions. All ten calls parsed
+and passed manual reporting-fidelity review. Rumour qualifications, late corrections,
+conflicting reports, report order and NBA attribution were preserved; no reviewed
+body added an unsupported fact. The direct-history case accurately articulated the
+new 10:00 time against the previously reported 11:00 time. A merely adjacent history
+case was not forced into the fresh report. Mean local inference time was 2.53 seconds.
+The exact `think:false` requests and outputs are retained with the fixtures. Rust
+verification passed with 555 tests and 77 environment-dependent tests ignored;
+formatting and all-target compilation passed. No deployment ran.
+
+**Known limits:** legacy Graph bindings and storyline membership remain fallible and
+do not prove event identity or independent confirmation. Reporting-frequency counts
+describe the stored article population only. The source-instruction admission check
+recognizes explicit contract-override language; structural JSON isolation remains in
+place for ordinary quoted source syntax. The suspected chat-template issue remains
+unconfirmed and was not used to explain or mask the demonstrated failures.
 
 **Preserve:** natural articulation, source integrity, provenance, claim fencing,
 atomic publication, request-time memory scope and the existing single articulation
 stage. No new generative claim preparation, mandatory LLM judge, blanket retries,
 output-budget escalation, restored phrase palette or Harvester recalibration.
 
-**Exit:** prepared fresh and historical reporting is articulated faithfully, with
-correct attribution/qualifications and source mapping, useful memory context,
-measured cost, and no hidden Editor dependency. Keep Window 2 open until that is
-supported by evidence; then hand the shared contract to Window 3. Deployment remains
-separate from this local checkpoint.
+**Exit met locally:** prepared fresh and historical reporting is articulated
+faithfully with correct attribution, qualifications and source mapping; useful memory
+context and cost are measured; no hidden Editor dependency or fallback remains.
+Deployment remains a separate, unrequested step. Do not reopen Harvester calibration
+or begin Window 3 in this window.
 
 ## Window 3 — Influencer
 

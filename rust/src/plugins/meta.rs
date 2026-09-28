@@ -28,10 +28,36 @@ pub struct WritingIdentity<'a> {
 }
 impl EntityMeta {
     pub fn for_writing(&self) -> WritingIdentity<'_> {
+        // Storage keeps the competition namespace used by adapters. Articulation
+        // receives the underlying sport so identity does not imply a recap genre.
+        let sport = match self.sport.as_str() {
+            "NBA" => "basketball",
+            "NFL" => "American football",
+            sport => sport,
+        };
         WritingIdentity {
             name: &self.name,
             entity_type: &self.entity_type,
-            sport: &self.sport,
+            sport,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn writing_identity_describes_the_sport_not_the_competition_namespace() {
+        let identity = EntityMeta {
+            name: "Cedar Comets".into(),
+            entity_type: "team".into(),
+            entity_id: 7,
+            sport: "NBA".into(),
+        };
+        assert_eq!(
+            serde_json::to_value(identity.for_writing()).unwrap(),
+            serde_json::json!({"name":"Cedar Comets","entity_type":"team","sport":"basketball"})
+        );
     }
 }

@@ -99,73 +99,96 @@ pub fn card_schema(scored: bool) -> serde_json::Value {
 /// Structural writing form: fields, types, counts and dimensions only. Content
 /// direction and source-to-output mapping belong to the Journalist's prompt.rs.
 pub fn journalist_form(report_count: usize) -> serde_json::Value {
+    let report_keys = (1..=report_count)
+        .map(|index| format!("report_{index}"))
+        .collect::<Vec<_>>();
     serde_json::json!({
-        "headline":"string",
-        "narratives":[{"title":"string", "body":"string"}],
-        "narrative_count":report_count,
-        "max_chars":{
-            "headline":HOOK_MAX_CHARS,
-            "title":HOOK_MAX_CHARS,
-            "all_bodies":BODY_MAX_CHARS
-        }
+        "report_count":report_count,
+        "report_keys":report_keys,
+        "report_fields":["text"]
     })
 }
 
 /// Structural output contract, owned alongside the writing form and parser.
 pub fn journalist_schema(report_count: usize) -> serde_json::Value {
+    let narratives = (1..=report_count)
+        .map(|index| {
+            (
+                format!("report_{index}"),
+                serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "text": { "type": "string" },
+                    },
+                    "required": ["text"],
+                    "additionalProperties": false
+                }),
+            )
+        })
+        .collect::<serde_json::Map<_, _>>();
+    let required = (1..=report_count)
+        .map(|index| serde_json::Value::String(format!("report_{index}")))
+        .collect::<Vec<_>>();
     serde_json::json!({
         "type": "object",
         "properties": {
-            "narratives": {
-                "type": "array",
-                "minItems": report_count,
-                "maxItems": report_count,
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "title":    { "type": "string" },
-                        "body":     { "type": "string" },
-                    },
-                    "required": ["title", "body"], "additionalProperties": false
-                }
-            },
-            "headline": { "type": "string" }
+            "reports": {
+                "type": "object",
+                "properties": narratives,
+                "required": required,
+                "additionalProperties": false
+            }
         },
-        "required": ["narratives", "headline"], "additionalProperties": false
+        "required": ["reports"], "additionalProperties": false
     })
 }
 
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct JournalistReply {
-    pub headline: String,
-    pub narratives: Vec<JournalistReport>,
+struct RawJournalistReply {
+    reports: std::collections::BTreeMap<String, JournalistReport>,
 }
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct JournalistReport {
-    pub title: String,
-    pub body: String,
+    pub text: String,
+}
+
+pub struct JournalistReply {
+    pub narratives: Vec<JournalistReport>,
 }
 
 pub fn parse_journalist(raw: &str, report_count: usize) -> anyhow::Result<JournalistReply> {
-    let reply: JournalistReply = serde_json::from_str(raw)?;
+    let mut raw_reply: RawJournalistReply = serde_json::from_str(raw)?;
     anyhow::ensure!(
-        reply.narratives.len() == report_count,
+        raw_reply.reports.len() == report_count,
         "articulation omitted or added reports"
     );
-    validate_hook(Some(&reply.headline))?;
+    let narratives = (1..=report_count)
+        .map(|index| {
+            raw_reply
+                .reports
+                .remove(&format!("report_{index}"))
+                .ok_or_else(|| {
+                    anyhow::anyhow!("articulation changed report order or source mapping")
+                })
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    anyhow::ensure!(
+        raw_reply.reports.is_empty(),
+        "articulation changed report order or source mapping"
+    );
+    let reply = JournalistReply { narratives };
     validate_body(
         &reply
             .narratives
             .iter()
-            .map(|r| r.body.as_str())
+            .map(|r| r.text.as_str())
             .collect::<Vec<_>>()
             .join("\n\n"),
     )?;
     for report in &reply.narratives {
-        validate_hook(Some(&report.title))?;
-        validate_body(&report.body)?;
+        validate_body(&report.text)?;
     }
     Ok(reply)
 }

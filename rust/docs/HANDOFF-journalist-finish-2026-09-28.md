@@ -1,9 +1,42 @@
-# Finish Journalist from the n47 checkpoint
+# Journalist Window 2 completion handoff
 
-Checkpoint date: September 28, 2026. **Window 2 remains open.** Preparation, memory
-serving and file ownership are implemented; model fidelity remains unresolved.
-This document is a continuation guide under the
-[plugin alignment plan](PLAN-plugin-alignment-2026-09-27.md), not another plan.
+Checkpoint date: September 28, 2026. **Window 2 is locally complete at n94 / fresh
+v7 and has not been deployed.** The n47 material below is retained as the starting
+record for the completed investigation. The durable current status is in the
+[plugin alignment plan](PLAN-plugin-alignment-2026-09-27.md).
+
+## Completion record
+
+- `prompt.rs` is the instruction manual for the neutral inputs. Fresh-only calls
+  receive the compact mapping instruction; memory-bearing calls are told what
+  identity, history, fresh, voice and form mean and how history belongs in report
+  text. No instruction moved into the data components.
+- The model-facing package is ordered `identity`, `history`, `fresh`, `voice`,
+  `form`. `memories.rs` still owns study scope, selection and historical
+  presentation; the model never sees the Rust filename.
+- Fresh reports and outputs use request-local keyed slots. SmolLM3 returns text
+  only. The plugin derives titles from complete source openings and the headline
+  from the first selected title, preserving qualifications and provenance.
+- Writing identity describes the sport rather than a competition namespace (`NBA`
+  becomes `basketball`). This removed the demonstrated sports-recap completion cue
+  while canonical storage identity remains unchanged.
+- Temperature is zero, thinking is false, the 900-token allowance is unchanged and
+  there is no correction retry, generative claim preparation or model judge.
+- The final replay made seven fresh calls and three memory calls, plus four correct
+  no-call decisions. Manual review found no unsupported additions, qualification
+  loss or source-order drift. Direct prior-state memory was used faithfully; merely
+  adjacent history was not forced into the report. Mean call time was 2.53 seconds.
+- Exact requests and responses: `fixtures/journalist/context-n94-development.jsonl`,
+  `memory-articulation-n94.jsonl`, `memory-direct-n94.jsonl` and
+  `memory-nonredundant-n94.jsonl`. No test prose was published.
+- Final verification: 555 Rust library tests passed, 77 environment-dependent tests
+  were ignored, formatting passed and all targets compiled.
+
+The source-instruction fixture now fails closed before articulation. Atomic
+publication, source receipt revalidation, request-time memory scope, Postgres/DuckDB
+roles and complete provenance were preserved. Known Graph/storyline limitations
+remain preparation limitations, not facts for the model to repair. The suspected
+chat-template issue remains unconfirmed. Do not deploy without further instruction.
 
 ## Read first
 
@@ -39,12 +72,16 @@ Each file owns one task:
   No content directions or editorial obligations.
 - `journalist/cognition/prompt.rs`: the sole task instruction and output mapping.
 
-The system message is the task constant. The data package has `identity`, `fresh`,
-`memories`, `voice`, and `form`. Source text remains quoted data. There is no model
-conversation history. Publication deduplication and the previous numeric score
-are separate bookkeeping, not historical prose injected into the call.
+The system message comes only from `prompt.rs` and reflects whether selected history
+is actually present. The data package has `identity`, `history`, `fresh`, `voice`,
+and `form`. Source text remains quoted data. There is no model conversation history.
+Publication deduplication and the previous numeric score are separate bookkeeping,
+not historical prose injected into the call.
 
-## Current code and runtime
+## Superseded n47 starting code and runtime
+
+This section records the checkpoint from which the completed work began. It does
+not describe the n94 contract above.
 
 - `src/plugins/journalist/cognition/mod.rs`: n47, output contract
   `narratives-v7-studied-memory`; fresh presentation `journalist-fresh-v4`.
@@ -83,7 +120,7 @@ confirmation. Missing statistics stay missing; thin samples stay visible. Person
 reporting is unsupported until its ID namespaces are reconciled. Other character
 runtime selectors have not been migrated.
 
-## Evidence and unfinished behavior
+## Superseded n47 evidence and unfinished behavior
 
 Latest Rust verification: **551 passed, 77 environment-dependent tests ignored**;
 all targets compile; formatting/whitespace checks pass. Go study tests, the isolated

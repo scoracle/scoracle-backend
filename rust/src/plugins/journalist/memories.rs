@@ -106,6 +106,13 @@ pub(super) fn select(
     }
     let mut selected = Vec::new();
     for finding in &study.findings {
+        if finding
+            .reports
+            .iter()
+            .any(|report| super::cognition::contains_instruction_override(&report.headline))
+        {
+            continue;
+        }
         if finding.reports.iter().any(|r| {
             r.reported_at >= oldest
                 || fresh

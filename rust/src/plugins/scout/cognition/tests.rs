@@ -404,7 +404,7 @@ fn serialized_request_has_evidence_and_form_but_no_editorial_outline() {
     );
     let system = request["messages"][0]["content"].as_str().unwrap();
     let evidence = request["messages"][1]["content"].as_str().unwrap();
-    assert!(system.contains(crate::plugins::support::form::STORY_FORM));
+    assert!(system.contains(crate::plugins::support::prompt::STORY_FORM));
     assert!(evidence.contains("Scoring: 24, percentile 95.0 (elite)"));
     assert!(evidence.contains("Defense: 2.5, percentile 40.0 (below average)"));
     for retired in [
@@ -2100,7 +2100,7 @@ fn assignment() -> Assignment {
             num_ctx: 4096,
             json_mode: false,
             format_schema: Some(crate::plugins::support::form::with_abstention(
-                crate::plugins::support::form::card_schema(false),
+                crate::plugins::support::prompt::card_schema(false),
             )),
             format_schema_raw: None,
         },

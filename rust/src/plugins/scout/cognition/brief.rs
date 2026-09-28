@@ -1,6 +1,6 @@
 //! The Scout's character. Output structure belongs to `plugins::support::form`.
 
-use crate::plugins::support::form::{compose, CardFormat};
+use crate::plugins::support::prompt::{compose, CardFormat};
 
 pub const RATING_PROMPT_VERSION: &str = "s60";
 

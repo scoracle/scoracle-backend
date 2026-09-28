@@ -215,7 +215,7 @@ async fn execute_inner(
                 crate::studio::model::LOCAL_STAGE_NUM_CTX,
             ),
             &TransferIdentityAdjudicationParser,
-            crate::plugins::support::form::structured_correction,
+            crate::plugins::support::prompt::structured_correction,
         )
         .await?;
     let Some(adjudication) = generated.value else {

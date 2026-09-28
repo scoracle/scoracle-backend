@@ -74,7 +74,7 @@ pub fn build_graph_prompt(
     }
     b.push_str(&format!(
         "\n{}\nKnown entities (use these numbers):\n",
-        crate::plugins::support::form::IDENTITY_CARD_FRAMING
+        crate::plugins::support::prompt::IDENTITY_CARD_FRAMING
     ));
     for (i, c) in candidates.iter().enumerate() {
         b.push_str(&format!("{}. {}\n", i + 1, c.descriptor));

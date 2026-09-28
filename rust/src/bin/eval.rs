@@ -672,14 +672,8 @@ fn expected_property_count(x: &Expect) -> usize {
     n += x.score_max.is_some() as usize;
     n += x.blurb_includes.as_ref().map_or(0, Vec::len);
     n += x.blurb_excludes.as_ref().map_or(0, Vec::len);
-    n += x.narratives_min.is_some() as usize;
-    n += x.narratives_max.is_some() as usize;
-    n += x.title_includes.as_ref().map_or(0, Vec::len);
-    n += x.title_excludes.as_ref().map_or(0, Vec::len);
     n += x.body_includes.as_ref().map_or(0, Vec::len);
     n += x.body_excludes.as_ref().map_or(0, Vec::len);
-    n += x.all_cite_articles.is_some() as usize;
-    n += x.max_article_num.is_some() as usize;
     n += x.transfer_is_rumor.is_some() as usize;
     n += x.transfer_direction.is_some() as usize;
     n += x.transfer_stage.is_some() as usize;
@@ -700,7 +694,6 @@ fn expected_property_count(x: &Expect) -> usize {
     n += x.reading_min_sentences.is_some() as usize;
     n += x.reading_max_sentences.is_some() as usize;
     // One check for the whole synonym set, not one per word.
-    n += x.body_includes_any.is_some() as usize;
     // The graph axes.
     n += x.relations_include.as_ref().map_or(0, Vec::len);
     n += x.relations_exclude.as_ref().map_or(0, Vec::len);

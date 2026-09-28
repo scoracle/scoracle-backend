@@ -18,3 +18,20 @@ impl EntityMeta {
         format!("{}, the {} {}", self.name, self.sport, self.entity_type)
     }
 }
+
+/// Identity used for prose; database identity remains in plugin provenance.
+#[derive(Serialize)]
+pub struct WritingIdentity<'a> {
+    name: &'a str,
+    entity_type: &'a str,
+    sport: &'a str,
+}
+impl EntityMeta {
+    pub fn for_writing(&self) -> WritingIdentity<'_> {
+        WritingIdentity {
+            name: &self.name,
+            entity_type: &self.entity_type,
+            sport: &self.sport,
+        }
+    }
+}

@@ -282,7 +282,7 @@ pub async fn create(studio: &Studio<'_>, assignment: &Assignment) -> Result<Vibe
             &prompt,
             &options,
             &PaletteParser(&palette),
-            crate::plugins::support::form::structured_correction,
+            crate::plugins::support::prompt::structured_correction,
         )
         .await?;
     let call = GenerationCall::from(&extracted);
@@ -321,7 +321,7 @@ pub fn generation_options(temperature: f64, num_ctx: i32, num_predict: i32) -> G
         num_predict,
         num_ctx,
         json_mode: false,
-        format_schema: Some(crate::plugins::support::form::card_schema(true)),
+        format_schema: Some(crate::plugins::support::prompt::card_schema(true)),
         format_schema_raw: None,
     }
 }

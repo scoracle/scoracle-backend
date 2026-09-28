@@ -101,7 +101,7 @@ fn source_correction(error: &anyhow::Error) -> Option<String> {
     if error.is::<QuoteMismatch>() {
         Some("Your previous evidence_quote was not a verbatim continuous substring of the supplied headline or publisher opening. Re-evaluate the source. For a positive kind, copy a short exact substring with identical spelling, punctuation, and HTML entities. If no such span supports a positive, choose kind none and an empty evidence_quote. Return the complete JSON object again.".into())
     } else {
-        crate::plugins::support::form::structured_correction(error)
+        crate::plugins::support::prompt::structured_correction(error)
     }
 }
 

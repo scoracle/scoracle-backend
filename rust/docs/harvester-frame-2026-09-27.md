@@ -1,8 +1,10 @@
 # Harvester v7: plugin prepares and governs; Laya scores
 
 Implemented locally, with shared subject metadata and native scalar scoring.
-Contract and database checks pass. Semantic calibration remains provisional;
-production services, queues and delivery settings were not changed.
+Contract and database checks pass. The user accepts the current 90/96 development
+result for now; further calibration is deferred while experience accumulates. See
+the [accepted baseline and future options](harvester-calibration-follow-up-2026-09-27.md).
+Production services, queues and delivery settings were not changed.
 
 ## Prepared identity and evidence
 
@@ -125,6 +127,7 @@ or duplicate scoring path was introduced.
 
 Ship the Rust worker, Go producer, operational scripts and `harvest-laya-v2` adapter
 together. Older pending delivery receipts remain supported for their existing
-consumers. Independent reviewed real-source calibration and a v7 worker/model
-rehearsal remain release work. Player acquisition, alias/roster resolution and the
-other plugin migrations remain outside this Harvester change.
+consumers. A v7 worker/model rehearsal remains operational release work. Further
+real-source calibration is deferred by the user's acceptance, not a prerequisite
+for continuing alignment. Player acquisition, alias/roster resolution and the other
+plugin migrations remain outside this Harvester change.

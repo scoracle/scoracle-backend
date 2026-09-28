@@ -2,7 +2,9 @@
 
 **Follow-up:** the [v7 frame and shared subject metadata](harvester-frame-2026-09-27.md)
 now address the interface and source-window gaps listed below. This review records
-the pre-v7 findings and repairs. Classification calibration is still provisional.
+the pre-v7 findings and repairs. The user subsequently accepted the v7 90/96
+development result for now and [deferred further calibration](harvester-calibration-follow-up-2026-09-27.md).
+The historical verdict below is not a blocker for the next plugin window.
 
 Verdict: aligned ownership and source boundaries; classification effectiveness is
 not ready for sign-off. The cleanup is complete, but Harvester's semantic routing

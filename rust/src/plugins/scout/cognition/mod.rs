@@ -1581,7 +1581,7 @@ pub async fn create(studio: &Studio<'_>, assignment: Assignment) -> Result<Ratin
             &palette.prompt(),
             &opts,
             &PaletteParser(palette),
-            crate::plugins::support::form::structured_correction,
+            crate::plugins::support::prompt::structured_correction,
         )
         .await?;
     let call = GenerationCall::from(&extracted);

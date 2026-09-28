@@ -296,7 +296,7 @@ async fn production_and_eval_keep_their_existing_options_and_capacity() {
             assert!(opts.format_schema_raw.is_none());
             assert_eq!(
                 opts.format_schema,
-                Some(crate::plugins::support::form::card_schema(true))
+                Some(crate::plugins::support::prompt::card_schema(true))
             );
         }
     }

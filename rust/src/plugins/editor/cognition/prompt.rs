@@ -125,7 +125,7 @@ fn render_editor_user_prompt(
     if !hypothesis_names.is_empty() {
         p.push_str(&format!(
             "\n{}\n",
-            crate::plugins::support::form::IDENTITY_CARD_FRAMING
+            crate::plugins::support::prompt::IDENTITY_CARD_FRAMING
         ));
         p.push_str("\nHypothesis entities (from the query that found this article):\n");
         for e in hypothesis_names.iter().take(hypothesis_count) {

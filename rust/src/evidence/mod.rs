@@ -9,5 +9,6 @@ pub mod personnel;
 pub mod news;
 
 pub mod memories;
+pub mod memory_studies;
 
 pub mod fetch;

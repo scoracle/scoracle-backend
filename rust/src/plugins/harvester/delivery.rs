@@ -3,7 +3,7 @@ use anyhow::{ensure, Result};
 use sha2::{Digest, Sha256};
 use sqlx::{PgPool, Row};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SourceContext {
     pub classification_id: i64,
     pub article_id: i64,
@@ -15,6 +15,17 @@ pub struct SourceContext {
 
 pub async fn load_for_character(
     pool: &PgPool,
+    plugin_id: &str,
+    entity_type: &str,
+    entity_id: i32,
+    sport: &str,
+) -> Result<Vec<SourceContext>> {
+    let mut connection = pool.acquire().await?;
+    load_on(&mut connection, plugin_id, entity_type, entity_id, sport).await
+}
+
+async fn load_on(
+    connection: &mut sqlx::PgConnection,
     plugin_id: &str,
     entity_type: &str,
     entity_id: i32,
@@ -39,7 +50,7 @@ pub async fn load_for_character(
     .bind(entity_id)
     .bind(sport)
     .bind(super::adapter::DELIVERY_HELD_REASON)
-    .fetch_all(pool)
+    .fetch_all(connection)
     .await?;
     let mut sources = Vec::with_capacity(rows.len());
     for row in rows {
@@ -98,6 +109,40 @@ pub async fn load_for_character(
             .then_with(|| b.article_id.cmp(&a.article_id))
     });
     Ok(sources)
+}
+
+/// Lock receipts and publisher rows, then re-run the delivery integrity checks
+/// inside the publication transaction. No model or network work occurs here.
+pub async fn validate_for_publication(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    plugin_id: &str,
+    entity_type: &str,
+    entity_id: i32,
+    sport: &str,
+    sources: &[SourceContext],
+) -> Result<()> {
+    if sources.is_empty() {
+        return Ok(());
+    }
+    let ids: Vec<i64> = sources.iter().map(|s| s.classification_id).collect();
+    sqlx::query(
+        "SELECT c.id FROM harvester_classifications c \
+        JOIN harvester_assignments d ON d.classification_id=c.id \
+        JOIN news_articles a ON a.id=c.article_id \
+        WHERE c.id=ANY($1) AND d.plugin_id=$2 ORDER BY c.id FOR SHARE OF a,c,d",
+    )
+    .bind(&ids)
+    .bind(plugin_id)
+    .fetch_all(&mut **tx)
+    .await?;
+    let current = load_on(&mut **tx, plugin_id, entity_type, entity_id, sport).await?;
+    for source in sources {
+        ensure!(
+            current.iter().any(|s| s == source),
+            "source receipt changed during Journalist articulation"
+        );
+    }
+    Ok(())
 }
 
 #[cfg(test)]

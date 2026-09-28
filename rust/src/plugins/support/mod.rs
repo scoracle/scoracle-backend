@@ -2,4 +2,5 @@
 
 pub mod form;
 pub mod guards;
+pub mod prompt;
 pub mod resources;

@@ -51,7 +51,7 @@ fn reaction_correction(error: &anyhow::Error) -> Option<String> {
     if error.is::<ReactionQuoteMismatch>() {
         Some("Your previous evidence_quote was not an exact continuous substring of the supplied headline or publisher opening. Re-evaluate the source. If there is a human emotional reaction, copy its exact words with identical spelling, punctuation, and HTML entities. Otherwise return has_reaction false with an empty quote. Return the complete JSON object again.".into())
     } else {
-        form::structured_correction(error)
+        crate::plugins::support::prompt::structured_correction(error)
     }
 }
 
@@ -229,14 +229,20 @@ async fn score_one(
     let input_hash = hash_components(&input_components_json);
     let built_prompt = prompt(&item.entity_type, &name, &item.sport, source, &memory);
     let mut options = production_options(VIBE_TEMPERATURE, voice_num_ctx);
-    options.system = Some(format!("{}\n\n{}", &*VIBE_SYSTEM_PROMPT, form::ABSTENTION));
-    options.format_schema = Some(form::with_abstention(form::card_schema(true)));
+    options.system = Some(format!(
+        "{}\n\n{}",
+        &*VIBE_SYSTEM_PROMPT,
+        crate::plugins::support::prompt::ABSTENTION
+    ));
+    options.format_schema = Some(form::with_abstention(
+        crate::plugins::support::prompt::card_schema(true),
+    ));
     let extracted = Studio::new(backend)
         .extract(
             &built_prompt,
             &options,
             &OptionalVibeParser,
-            form::publishing_correction,
+            crate::plugins::support::prompt::publishing_correction,
         )
         .await?;
     let provenance = json!({
@@ -432,8 +438,14 @@ mod tests {
             Some(false),
         )?;
         let mut options = production_options(VIBE_TEMPERATURE, 4096);
-        options.system = Some(format!("{}\n\n{}", &*VIBE_SYSTEM_PROMPT, form::ABSTENTION));
-        options.format_schema = Some(form::with_abstention(form::card_schema(true)));
+        options.system = Some(format!(
+            "{}\n\n{}",
+            &*VIBE_SYSTEM_PROMPT,
+            crate::plugins::support::prompt::ABSTENTION
+        ));
+        options.format_schema = Some(form::with_abstention(
+            crate::plugins::support::prompt::card_schema(true),
+        ));
         let reaction = SourceContext {
             classification_id: 0,
             article_id: 12,
@@ -450,7 +462,7 @@ mod tests {
                 &prompt("team", "Detroit Pistons", "NBA", &reaction, ""),
                 &options,
                 &OptionalVibeParser,
-                form::publishing_correction,
+                crate::plugins::support::prompt::publishing_correction,
             )
             .await?;
         ensure!(result.value.is_some(), "clear crowd reaction was missed");

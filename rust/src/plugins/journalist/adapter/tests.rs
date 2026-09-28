@@ -2,7 +2,7 @@
 
 use super::*;
 use crate::application::queue::work;
-use crate::plugins::journalist::cognition::NarrativesProduct;
+use crate::plugins::journalist::cognition::{Narrative, NarrativesProduct};
 use crate::studio::Generation;
 use sha2::Digest;
 
@@ -13,6 +13,7 @@ fn edition(narratives: Vec<Narrative>) -> NarrativesOutput {
         .collect();
     Generation::uncalled(
         NarrativesProduct {
+            memory_provenance: json!({}),
             narratives,
             budget_truncated_ids: Vec::new(),
             card_score: Some(71),
@@ -38,35 +39,6 @@ fn narrative(title: &str, article_id: i64, impact: i32, source: &str) -> Narrati
         source_latest_epoch: Some(1_700_000_000),
         source_oldest_epoch: Some(1_700_000_000),
     }
-}
-
-#[test]
-fn source_batch_leaves_unpresented_articles_for_later_claims() {
-    let sources = (1..=4)
-        .map(|id| crate::plugins::harvester::delivery::SourceContext {
-            classification_id: id,
-            article_id: id,
-            headline: format!("Headline {id}"),
-            context: "x".repeat(3_000),
-            source: "Wire".into(),
-            published_at_epoch: Some(1_700_000_000 + id),
-        })
-        .collect();
-    let (corpus, exclusions, presented) = select_harvester_batch(sources);
-    assert_eq!(
-        corpus.iter().map(|item| item.id).collect::<Vec<_>>(),
-        vec![1]
-    );
-    assert_eq!(
-        presented
-            .iter()
-            .map(|source| source.article_id)
-            .collect::<Vec<_>>(),
-        vec![1]
-    );
-    assert_eq!(exclusions.budget_truncated_ids, vec![2, 3]);
-    // The fourth source is outside this claim, and the two over budget were
-    // never presented; all three remain pending for a later claimed batch.
 }
 
 /// Exact publication-contract acceptance against an isolated database containing migration 260.
@@ -168,47 +140,6 @@ mod postgres_publication_fencing_tests {
         (products, events, work)
     }
 
-    async fn setup_storyline(pool: &PgPool) {
-        sqlx::query(
-            "INSERT INTO news_articles (id, url_hash, url, source, title, published_at) \
-             VALUES ($1,$2,$3,$4,$5,to_timestamp(1700000000))",
-        )
-        .bind(ARTICLE_ID)
-        .bind("zz-narratives-fence-article")
-        .bind("https://example.invalid/narratives-fence")
-        .bind("BBC")
-        .bind("Test Team story moves")
-        .execute(pool)
-        .await
-        .unwrap();
-        sqlx::query("INSERT INTO storylines (id, sport, title) VALUES ($1,$2,$3)")
-            .bind(STORYLINE_ID)
-            .bind(SPORT)
-            .bind("Test Team story")
-            .execute(pool)
-            .await
-            .unwrap();
-        sqlx::query(
-            "INSERT INTO storyline_articles (storyline_id, article_id, attach_method) \
-             VALUES ($1,$2,'auto')",
-        )
-        .bind(STORYLINE_ID)
-        .bind(ARTICLE_ID)
-        .execute(pool)
-        .await
-        .unwrap();
-        sqlx::query(
-            "INSERT INTO storyline_entities (storyline_id, entity_type, entity_id, sport) \
-             VALUES ($1,'team',$2,$3)",
-        )
-        .bind(STORYLINE_ID)
-        .bind(ENTITY_ID as i32)
-        .bind(SPORT)
-        .execute(pool)
-        .await
-        .unwrap();
-    }
-
     #[tokio::test]
     #[ignore = "requires isolated migrated TEST_DATABASE_URL"]
     async fn harvester_context_commits_without_storyline_and_marks_cited_source_used() {
@@ -275,6 +206,40 @@ mod postgres_publication_fencing_tests {
         .await
         .unwrap();
         let output = edition(vec![narrative("Source-led update", ARTICLE_ID, 63, "BBC")]);
+        assert!(crate::plugins::harvester::delivery::load_for_character(
+            &pool,
+            crate::plugins::journalist::manifest::MANIFEST.id.as_str(),
+            "team",
+            ENTITY_ID as i32 + 1,
+            SPORT
+        )
+        .await
+        .unwrap()
+        .is_empty());
+        sqlx::query("UPDATE news_articles SET title='Changed after preparation' WHERE id=$1")
+            .bind(ARTICLE_ID)
+            .execute(&pool)
+            .await
+            .unwrap();
+        assert!(commit_claimed(
+            &pool,
+            &claimed,
+            SPORT,
+            "periodic",
+            &json!({}),
+            &Prepared::Product(&output),
+            &sources,
+            &[]
+        )
+        .await
+        .is_err());
+        assert_eq!(counts(&pool).await, (0, 0, 1));
+        sqlx::query("UPDATE news_articles SET title='Test Team story moves' WHERE id=$1")
+            .bind(ARTICLE_ID)
+            .execute(&pool)
+            .await
+            .unwrap();
+
         let (outcome, _) = commit_claimed(
             &pool,
             &claimed,
@@ -283,6 +248,7 @@ mod postgres_publication_fencing_tests {
             &json!({"article_id": ARTICLE_ID}),
             &Prepared::Product(&output),
             &sources,
+            &[],
         )
         .await
         .unwrap();
@@ -299,6 +265,21 @@ mod postgres_publication_fencing_tests {
         .unwrap();
         assert_eq!(storyline_id, None);
         assert_eq!(status, "used");
+        let memory = crate::plugins::journalist::memories::load(
+            &pool,
+            &EntityMeta {
+                name: "Test Team".into(),
+                entity_type: "team".into(),
+                entity_id: ENTITY_ID as i32,
+                sport: SPORT.into(),
+            },
+            now_unix(),
+        )
+        .await
+        .unwrap();
+        assert!(memory.reports.iter().any(|r| r.context == body));
+        assert_eq!(memory.previous_score, Some(71));
+
         clean(&pool).await;
     }
 
@@ -370,7 +351,8 @@ mod postgres_publication_fencing_tests {
         )
         .await
         .unwrap();
-        let (corpus, _, batch) = select_harvester_batch(sources);
+        let batch = sources.into_iter().take(3).collect::<Vec<_>>();
+        let corpus = &batch;
         assert_eq!(corpus.len(), 3);
         assert_eq!(batch.len(), 3);
         let mut first_narrative = narrative("First source batch", batch[0].article_id, 63, "Wire");
@@ -383,6 +365,7 @@ mod postgres_publication_fencing_tests {
             &serde_json::Value::Null,
             &Prepared::Product(&edition(vec![first_narrative])),
             &batch,
+            &[],
         )
         .await
         .unwrap();
@@ -414,7 +397,7 @@ mod postgres_publication_fencing_tests {
         )
         .await
         .unwrap();
-        let (_, _, batch) = select_harvester_batch(sources);
+        let batch = sources;
         assert_eq!(batch.len(), 1);
         let (outcome, _) = commit_claimed(
             &pool,
@@ -429,6 +412,7 @@ mod postgres_publication_fencing_tests {
                 "Wire",
             )])),
             &batch,
+            &[],
         )
         .await
         .unwrap();
@@ -449,10 +433,10 @@ mod postgres_publication_fencing_tests {
 
     #[tokio::test]
     #[ignore = "requires isolated migrated TEST_DATABASE_URL"]
-    async fn current_claim_commits_every_row_progression_event_and_completion() {
+    async fn current_claim_commits_every_row_event_and_completion() {
         let pool = pool().await;
         clean(&pool).await;
-        setup_storyline(&pool).await;
+
         work::enqueue(&pool, &pending("current")).await.unwrap();
         let current = claim_one(&pool).await;
         let output = edition(vec![
@@ -466,6 +450,7 @@ mod postgres_publication_fencing_tests {
             "periodic",
             &json!({"reason":"test"}),
             &Prepared::Product(&output),
+            &[],
             &[],
         )
         .await
@@ -492,23 +477,12 @@ mod postgres_publication_fencing_tests {
         .unwrap();
         assert_eq!(rows[0].0, "First chapter");
         assert_eq!(rows[1].0, "Second chapter");
-        assert_eq!(rows[0].2, Some(STORYLINE_ID));
+        assert_eq!(rows[0].2, None);
         assert_eq!(rows[0].3.as_deref(), Some("test-journalist-model"));
         assert_eq!(
             rows[0].4.as_deref(),
             Some(crate::plugins::journalist::cognition::NARRATIVES_PROMPT_VERSION)
         );
-        let entry_count: i32 = sqlx::query_scalar(
-            "SELECT entry_count FROM storyline_entities \
-             WHERE storyline_id = $1 AND entity_type = 'team' AND entity_id = $2 AND sport = $3",
-        )
-        .bind(STORYLINE_ID)
-        .bind(ENTITY_ID as i32)
-        .bind(SPORT)
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-        assert_eq!(entry_count, 2);
         let event: (String, String, Option<String>) = sqlx::query_as(
             "SELECT kind, source_stage, source_input_version \
              FROM application_outbox WHERE sport = $1",
@@ -530,43 +504,6 @@ mod postgres_publication_fencing_tests {
 
     #[tokio::test]
     #[ignore = "requires isolated migrated TEST_DATABASE_URL"]
-    async fn current_claim_commits_one_marker_with_provenance() {
-        let pool = pool().await;
-        clean(&pool).await;
-        work::enqueue(&pool, &pending("marker")).await.unwrap();
-        let current = claim_one(&pool).await;
-        let output = edition(Vec::new());
-        let result = commit_claimed(
-            &pool,
-            &current,
-            SPORT,
-            "periodic",
-            &serde_json::Value::Null,
-            &Prepared::Product(&output),
-            &[],
-        )
-        .await
-        .unwrap();
-        assert_eq!(result.0, PluginOutcome::Committed);
-        assert_eq!(result.1.len(), 1);
-        assert_eq!(counts(&pool).await, (1, 1, 0));
-        let row: (Option<String>, Option<String>, Option<i16>, Option<String>) = sqlx::query_as(
-            "SELECT narrative_title, body, card_score, input_hash \
-             FROM news_summaries WHERE sport = $1",
-        )
-        .bind(SPORT)
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-        assert_eq!(row.0, None);
-        assert_eq!(row.1, None);
-        assert_eq!(row.2, Some(71));
-        assert_eq!(row.3.as_deref(), Some("narratives-input-hash"));
-        clean(&pool).await;
-    }
-
-    #[tokio::test]
-    #[ignore = "requires isolated migrated TEST_DATABASE_URL"]
     async fn debounce_commits_only_the_durable_oracle_obligation() {
         let pool = pool().await;
         clean(&pool).await;
@@ -579,6 +516,7 @@ mod postgres_publication_fencing_tests {
             "periodic",
             &serde_json::Value::Null,
             &Prepared::Debounced,
+            &[],
             &[],
         )
         .await
@@ -596,7 +534,7 @@ mod postgres_publication_fencing_tests {
         work::enqueue(&pool, &pending("v1")).await.unwrap();
         let stale = claim_one(&pool).await;
         work::enqueue(&pool, &pending("v2")).await.unwrap();
-        let stale_output = edition(Vec::new());
+        let stale_output = edition(vec![narrative("Source report", ARTICLE_ID, 32, "Wire")]);
         assert_eq!(
             commit_claimed(
                 &pool,
@@ -605,6 +543,7 @@ mod postgres_publication_fencing_tests {
                 "periodic",
                 &serde_json::Value::Null,
                 &Prepared::Product(&stale_output),
+                &[],
                 &[],
             )
             .await
@@ -615,7 +554,7 @@ mod postgres_publication_fencing_tests {
 
         let current = claim_one(&pool).await;
         assert_eq!(current.input_version.as_deref(), Some("v2"));
-        let current_output = edition(Vec::new());
+        let current_output = edition(vec![narrative("Source report", ARTICLE_ID, 32, "Wire")]);
         assert_eq!(
             commit_claimed(
                 &pool,
@@ -624,6 +563,7 @@ mod postgres_publication_fencing_tests {
                 "periodic",
                 &serde_json::Value::Null,
                 &Prepared::Product(&current_output),
+                &[],
                 &[],
             )
             .await
@@ -658,7 +598,7 @@ mod postgres_publication_fencing_tests {
         let current = claim_one(&pool).await;
         assert_ne!(stale.claim_token, current.claim_token);
 
-        let stale_output = edition(Vec::new());
+        let stale_output = edition(vec![narrative("Source report", ARTICLE_ID, 32, "Wire")]);
         assert_eq!(
             commit_claimed(
                 &pool,
@@ -668,12 +608,13 @@ mod postgres_publication_fencing_tests {
                 &serde_json::Value::Null,
                 &Prepared::Product(&stale_output),
                 &[],
+                &[],
             )
             .await
             .unwrap(),
             (PluginOutcome::Superseded, Vec::new())
         );
-        let current_output = edition(Vec::new());
+        let current_output = edition(vec![narrative("Source report", ARTICLE_ID, 32, "Wire")]);
         assert_eq!(
             commit_claimed(
                 &pool,
@@ -682,6 +623,7 @@ mod postgres_publication_fencing_tests {
                 "periodic",
                 &serde_json::Value::Null,
                 &Prepared::Product(&current_output),
+                &[],
                 &[],
             )
             .await

@@ -112,7 +112,7 @@ mod surface_tests {
             "Evidence",
             &GenerateOptions::default(),
             &BodyParser,
-            crate::plugins::support::form::publishing_correction,
+            crate::plugins::support::prompt::publishing_correction,
         )
         .await
         .unwrap();
@@ -138,7 +138,7 @@ mod surface_tests {
                 "Original evidence",
                 &opts,
                 &BodyParser,
-                crate::plugins::support::form::publishing_correction,
+                crate::plugins::support::prompt::publishing_correction,
             )
             .await
             .unwrap();
@@ -163,7 +163,7 @@ mod surface_tests {
             "Evidence",
             &opts,
             &BodyParser,
-            crate::plugins::support::form::publishing_correction,
+            crate::plugins::support::prompt::publishing_correction,
         )
         .await
         .is_err());
@@ -187,7 +187,7 @@ mod surface_tests {
             "Original evidence",
             &opts,
             &BodyParser,
-            crate::plugins::support::form::publishing_correction,
+            crate::plugins::support::prompt::publishing_correction,
         )
         .await
         .unwrap();
@@ -210,7 +210,7 @@ mod surface_tests {
             "Evidence",
             &GenerateOptions::default(),
             &Structured,
-            crate::plugins::support::form::structured_correction,
+            crate::plugins::support::prompt::structured_correction,
         )
         .await
         .unwrap();

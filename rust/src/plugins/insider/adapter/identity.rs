@@ -385,7 +385,7 @@ pub(super) async fn maybe_apply_transfer_identity(
             &prompt,
             &options,
             &TransferIdentityAdjudicationParser,
-            crate::plugins::support::form::structured_correction,
+            crate::plugins::support::prompt::structured_correction,
         )
         .await
     {

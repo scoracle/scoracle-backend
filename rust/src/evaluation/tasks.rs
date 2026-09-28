@@ -30,11 +30,6 @@ use crate::plugins::insider::cognition::{
 use crate::plugins::investigator::cognition::prompt::{
     prose_opts, ProseReadParser, INVESTIGATOR_PROSE_CONTRACT_VERSION,
 };
-use crate::plugins::journalist::adapter::load_packet_corpus;
-use crate::plugins::journalist::cognition::{
-    build_narratives_prompt, narratives_format_schema, NarrativesParser, Subject,
-    NARRATIVES_NUM_PREDICT_PACKET, NARRATIVES_SYSTEM_PROMPT,
-};
 use crate::plugins::oracle::adapter::load_pillars;
 use crate::plugins::oracle::cognition::{
     build_crown_prompt, build_pillar_divergence, compute_omen, count_sentences,
@@ -201,21 +196,6 @@ pub struct Expect {
     pub blurb_includes: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub blurb_excludes: Option<Vec<String>>,
-    // narrative grouping + grounding rubric.
-    /// Count discipline: the model must return at least / at most this many storylines. A quiet or
-    /// hype-only cycle should stay LOW (the system prompt: "A quiet cycle can return one narrative or
-    /// none"; "Ignore vague hype").
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub narratives_min: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub narratives_max: Option<i32>,
-    /// Specificity: at least one returned title contains each string (the real storyline is named).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub title_includes: Option<Vec<String>>,
-    /// Specificity / no-invention: no returned title contains any of these (catches generic
-    /// "Transfer news" titles and wrong-storyline framings).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub title_excludes: Option<Vec<String>>,
     /// Grounding: at least one returned body contains each string (names the who/what/where).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub body_includes: Option<Vec<String>>,
@@ -223,39 +203,10 @@ pub struct Expect {
     /// the corpus only has other teams scheming around them — the system prompt's hardest rule).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub body_excludes: Option<Vec<String>>,
-    /// Voice-direction check (OR-semantics, CASE-INSENSITIVE): at least ONE returned body contains at
-    /// least ONE of these strings. Unlike `body_includes` (every string must appear), this asserts a
-    /// storyline *voiced a direction at all* from a set of acceptable synonyms — the n9 fixtures use it
-    /// for "voiced this as CONTINUING / HEATING / COOLING" where the exact wording is free (the voice is
-    /// a draft, dialed in a later voice-tuning session). A voice-target axis, re-annotated when voice lands.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub body_includes_any: Option<Vec<String>>,
-    /// Grounding: every returned storyline must (`true`) cite ≥1 article number — an uncited storyline
-    /// is ungrounded and dropped downstream.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub all_cite_articles: Option<bool>,
-    /// Citation (n18, OR-semantics, case-insensitive): at least one returned body names at least
-    /// one of these publications — the fixture lists its corpus's `[source]` tags. The register
-    /// weaves the name into prose ("first reported by ESPN"); this axis only asserts a name
-    /// appears, never how.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub sources_any: Option<Vec<String>>,
     /// Edition budget (n18): total sentences across ALL returned bodies must not exceed this.
     /// Counted crudely (terminal .!? runs) — a ceiling against padding, not a style meter.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub total_sentences_max: Option<i32>,
-    /// The Journalist's card_score (n12 busyness verdict, 1-99): the reply must carry one inside
-    /// this band. Authored in the n17 pass — the field had been gate-invisible since n12 (the
-    /// D-T45 rule). A missing card_score FAILS any band check: the fixture asserting the band is
-    /// asserting the verdict exists at all.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub card_score_min: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub card_score_max: Option<i32>,
-    /// Grounding: no cited article number may fall outside `1..=max` — an out-of-range number is an
-    /// invented reference. The fixture sets this to its numbered-corpus length.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_article_num: Option<i32>,
     // transfer false-positive / true-positive rubric.
     /// Transfer adjudication: assert whether the model commits to a served rumor (`true`) or clears
     /// the pair (`false`). `None` in a parsed verdict is the UNKNOWN/fail-closed path and fails
@@ -526,7 +477,6 @@ pub fn resolve_task(name: &str) -> Option<Box<dyn LensTask>> {
     match name {
         "vibe" => Some(Box::new(VibeTask)),
         "oracle" => Some(Box::new(OracleTask)),
-        "narratives" => Some(Box::new(NarrativeTask)),
         "transfer" => Some(Box::new(TransferTask)),
         "rating" => Some(Box::new(RatingTask)),
         "momentum" => Some(Box::new(MomentumTask)),
@@ -542,7 +492,6 @@ pub fn all_task_names() -> &'static [&'static str] {
     &[
         "vibe",
         "oracle",
-        "narratives",
         "transfer",
         "rating",
         "momentum",
@@ -845,244 +794,6 @@ impl LensTask for OracleTask {
 }
 
 // ---------------------------------------------------------------------------
-// NarrativeTask — storyline grouping + grounding (the narrative lens's non-vibe half).
-// ---------------------------------------------------------------------------
-
-pub struct NarrativeTask;
-
-#[async_trait]
-impl LensTask for NarrativeTask {
-    fn name(&self) -> &'static str {
-        "narratives"
-    }
-    fn role(&self) -> RouteKey {
-        crate::plugins::journalist::manifest::ROUTE
-    }
-    fn prompt_version(&self) -> &'static str {
-        "n34" // Archived free-text evaluation contract.
-    }
-    fn gen_options(&self, temperature: f64) -> GenerateOptions {
-        GenerateOptions {
-            system: Some(NARRATIVES_SYSTEM_PROMPT.to_string()),
-            temperature: Some(temperature),
-            // The production envelope, not the legacy 16384/4000 pair: an eval generating in a
-            // window the live stage never runs would measure the wrong thing — and asking the
-            // pinned runner for 16384 evicts it besides.
-            num_predict: NARRATIVES_NUM_PREDICT_PACKET,
-            num_ctx: crate::studio::model::VOICE_NUM_CTX_PACKET,
-            json_mode: false,
-            // Grammar-constrained, matching the live stage (Phase 5).
-            format_schema: Some(narratives_format_schema()),
-            format_schema_raw: None,
-        }
-    }
-    async fn build_prompt(
-        &self,
-        pool: &sqlx::PgPool,
-        _models: &Models,
-        e: &EntitySpec,
-    ) -> Result<Option<String>> {
-        let name = lookup_entity_name(pool, &e.entity_type, e.entity_id, &e.sport).await?;
-        // Reads use the upper-cased sport; the prompt renders the request-case value (build_narratives_request).
-        let sport = e.sport.to_uppercase();
-        // Read the packet corpus used by production.
-        let (corpus, _exclusions, _framing) =
-            load_packet_corpus(pool, &e.entity_type, e.entity_id, &sport, &name).await?;
-        // No corpus ⇒ the stage writes the NULL-narrative marker without a model call — nothing to score.
-        if corpus.is_empty() {
-            return Ok(None);
-        }
-        // Direct builder, mirroring VibeTask/SigilTask: the embedder-only near-duplicate dedup is a
-        // live value-add outside the deterministic prompt contract, so the eval scores the same
-        // grounded prompt on every run.
-        let subject = Subject {
-            entity_type: e.entity_type.clone(),
-            entity_name: name,
-            sport: e.sport.clone(),
-        };
-        Ok(Some(build_narratives_prompt(
-            &subject, &corpus, None, None, None,
-        ))) // evals pin the memory-free, score-context-free production prompt
-    }
-    fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
-        // Compose the stage's tolerant salvager so the eval scores exactly the storylines the pipeline
-        // would keep: Err ⇒ a malformed/truncated reply (unparseable); Ok(Some(empty)) ⇒ a valid
-        // quiet cycle with zero storylines (parsed, but count 0).
-        let doc = match NarrativesParser.parse(raw) {
-            Ok(Some(p)) => p,
-            _ => {
-                return CaseVerdict {
-                    parsed: false,
-                    abs_err: None,
-                    checks: Vec::new(),
-                    display: "unparseable".into(),
-                }
-            }
-        };
-        let items: Vec<(&str, &str, &[i32])> = doc.returned().collect();
-        let n = items.len() as i32;
-        let titles = items
-            .iter()
-            .map(|(t, _, _)| *t)
-            .collect::<Vec<_>>()
-            .join(" ⏐ ");
-        let mut checks = Vec::new();
-
-        if let Some(x) = expect {
-            if let Some(min) = x.narratives_min {
-                checks.push(PropertyCheck {
-                    name: "narratives_ge".into(),
-                    pass: n >= min,
-                    detail: format!("count={n} ≥ {min}"),
-                });
-            }
-            if let Some(max) = x.narratives_max {
-                checks.push(PropertyCheck {
-                    name: "narratives_le".into(),
-                    pass: n <= max,
-                    detail: format!("count={n} ≤ {max}"),
-                });
-            }
-            // Citation OR-check (n18): any body names any listed publication, case-insensitive.
-            if let Some(srcs) = &x.sources_any {
-                let lowered: Vec<String> = items.iter().map(|(_, b, _)| b.to_lowercase()).collect();
-                let hit: Vec<&str> = srcs
-                    .iter()
-                    .filter(|s| {
-                        let needle = s.to_lowercase();
-                        lowered.iter().any(|b| b.contains(&needle))
-                    })
-                    .map(|s| s.as_str())
-                    .collect();
-                checks.push(PropertyCheck {
-                    name: format!("sources_any:[{}]", srcs.join("|")),
-                    pass: !hit.is_empty(),
-                    detail: if hit.is_empty() {
-                        "no body cites any listed publication".to_string()
-                    } else {
-                        format!("cited {}", hit.join(", "))
-                    },
-                });
-            }
-            // Edition-budget ceiling (n18): terminal-punctuation runs across all bodies.
-            if let Some(max) = x.total_sentences_max {
-                let total: i32 = items.iter().map(|(_, b, _)| sentence_runs(b)).sum();
-                checks.push(PropertyCheck {
-                    name: "total_sentences_le".into(),
-                    pass: total <= max,
-                    detail: format!("sentences={total} ≤ {max}"),
-                });
-            }
-            // card_score band (one check per bound, mirroring narratives_min/max). A reply with
-            // no card_score fails the bound outright — asserting a band asserts presence.
-            let score_detail = || match doc.card_score() {
-                Some(s) => format!("card_score={s}"),
-                None => "card_score=MISSING".to_string(),
-            };
-            if let Some(min) = x.card_score_min {
-                checks.push(PropertyCheck {
-                    name: "card_score_ge".into(),
-                    pass: doc.card_score().is_some_and(|s| i32::from(s) >= min),
-                    detail: format!("{} ≥ {min}", score_detail()),
-                });
-            }
-            if let Some(max) = x.card_score_max {
-                checks.push(PropertyCheck {
-                    name: "card_score_le".into(),
-                    pass: doc.card_score().is_some_and(|s| i32::from(s) <= max),
-                    detail: format!("{} ≤ {max}", score_detail()),
-                });
-            }
-            for s in x.title_includes.iter().flatten() {
-                checks.push(PropertyCheck {
-                    name: format!("title_includes:{s}"),
-                    pass: items.iter().any(|(t, _, _)| t.contains(s.as_str())),
-                    detail: format!("titles={titles}"),
-                });
-            }
-            for s in x.title_excludes.iter().flatten() {
-                checks.push(PropertyCheck {
-                    name: format!("title_excludes:{s}"),
-                    pass: !items.iter().any(|(t, _, _)| t.contains(s.as_str())),
-                    detail: format!("titles={titles}"),
-                });
-            }
-            for s in x.body_includes.iter().flatten() {
-                checks.push(PropertyCheck {
-                    name: format!("body_includes:{s}"),
-                    pass: items.iter().any(|(_, b, _)| b.contains(s.as_str())),
-                    detail: String::new(),
-                });
-            }
-            for s in x.body_excludes.iter().flatten() {
-                checks.push(PropertyCheck {
-                    name: format!("body_excludes:{s}"),
-                    pass: !items.iter().any(|(_, b, _)| b.contains(s.as_str())),
-                    detail: String::new(),
-                });
-            }
-            // OR-semantics voice-direction check: at least one body voices at least one acceptable
-            // synonym (case-insensitive — voice varies casing). One check for the whole set, so the
-            // detail names which words satisfied it (or that none did).
-            if let Some(any) = &x.body_includes_any {
-                let lowered: Vec<String> = items.iter().map(|(_, b, _)| b.to_lowercase()).collect();
-                let hit: Vec<&str> = any
-                    .iter()
-                    .filter(|s| {
-                        let needle = s.to_lowercase();
-                        lowered.iter().any(|b| b.contains(&needle))
-                    })
-                    .map(|s| s.as_str())
-                    .collect();
-                checks.push(PropertyCheck {
-                    name: format!("body_includes_any:[{}]", any.join("|")),
-                    pass: !hit.is_empty(),
-                    detail: if hit.is_empty() {
-                        "no listed synonym voiced".into()
-                    } else {
-                        format!("voiced {hit:?}")
-                    },
-                });
-            }
-            if let Some(want) = x.all_cite_articles {
-                // "Every storyline cites ≥1 article." An empty set can never satisfy `true` (there is
-                // nothing grounded to show).
-                let all_cite = !items.is_empty() && items.iter().all(|(_, _, a)| !a.is_empty());
-                let uncited = items.iter().filter(|(_, _, a)| a.is_empty()).count();
-                checks.push(PropertyCheck {
-                    name: "all_cite_articles".into(),
-                    pass: all_cite == want,
-                    detail: format!("{uncited}/{n} storylines cite no article"),
-                });
-            }
-            if let Some(max) = x.max_article_num {
-                let overs: Vec<i32> = items
-                    .iter()
-                    .flat_map(|(_, _, a)| a.iter().copied())
-                    .filter(|&num| num < 1 || num > max)
-                    .collect();
-                checks.push(PropertyCheck {
-                    name: "articles_in_range".into(),
-                    pass: overs.is_empty(),
-                    detail: if overs.is_empty() {
-                        format!("all cited in 1..={max}")
-                    } else {
-                        format!("invented refs {overs:?} (corpus 1..={max})")
-                    },
-                });
-            }
-        }
-
-        CaseVerdict {
-            parsed: true,
-            abs_err: None,
-            checks,
-            display: format!("{n} storylines | {titles}"),
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
 // TransferTask — transfer/trade FP/TP adjudication (fixture-first).
 // ---------------------------------------------------------------------------
 
@@ -1303,7 +1014,7 @@ impl LensTask for RatingTask {
             num_ctx: 0,
             json_mode: false,
             format_schema: Some(crate::plugins::support::form::with_abstention(
-                crate::plugins::support::form::card_schema(false),
+                crate::plugins::support::prompt::card_schema(false),
             )),
             format_schema_raw: None,
         }
@@ -1476,7 +1187,7 @@ impl LensTask for MomentumTask {
             num_predict: MOMENTUM_NUM_PREDICT,
             num_ctx: 0,
             json_mode: false,
-            format_schema: Some(crate::plugins::support::form::card_schema(false)),
+            format_schema: Some(crate::plugins::support::prompt::card_schema(false)),
             format_schema_raw: None,
         }
     }
@@ -2460,122 +2171,6 @@ mod tests {
                 None
             )
             .all_checks_pass());
-    }
-
-    // --- narrative grouping + grounding rubric ------------------------------------
-
-    // Two clean, grounded storylines over a 3-article corpus.
-    const GROUNDED: &str = r#"{"narratives":[
-        {"title":"Marcus Vale trade demand","body":"Beat writers report Vale privately asked about his future amid coaching friction.","articles":[1,2]},
-        {"title":"Vale's efficient scoring stretch","body":"He is posting top-percentile efficiency over the last five games.","articles":[3]}
-    ]}"#;
-
-    #[test]
-    fn narratives_grounded_reply_passes_grounding_rubric() {
-        let x = Expect {
-            narratives_min: Some(1),
-            narratives_max: Some(6),
-            title_includes: Some(vec!["Vale".into()]),
-            title_excludes: Some(vec!["Transfer news".into()]),
-            all_cite_articles: Some(true),
-            max_article_num: Some(3),
-            ..Default::default()
-        };
-        let v = NarrativeTask.evaluate(GROUNDED, None, Some(&x));
-        assert!(v.parsed);
-        assert!(v.all_checks_pass(), "checks: {:?}", v.checks);
-    }
-
-    #[test]
-    fn narratives_invented_article_reference_fails_range_check() {
-        // Cites article 9 when the corpus only has 3 — an invented reference.
-        let reply = r#"{"narratives":[{"title":"Vale rumor","body":"x","articles":[1,9]}]}"#;
-        let x = Expect {
-            max_article_num: Some(3),
-            ..Default::default()
-        };
-        let v = NarrativeTask.evaluate(reply, None, Some(&x));
-        assert!(v.parsed);
-        assert!(!v.all_checks_pass(), "9 is out of the 1..=3 corpus range");
-    }
-
-    #[test]
-    fn narratives_uncited_storyline_fails_all_cite() {
-        let reply = r#"{"narratives":[{"title":"Vale buzz","body":"vague hype with no article","articles":[]}]}"#;
-        let x = Expect {
-            all_cite_articles: Some(true),
-            ..Default::default()
-        };
-        let v = NarrativeTask.evaluate(reply, None, Some(&x));
-        assert!(!v.all_checks_pass(), "an uncited storyline is ungrounded");
-    }
-
-    #[test]
-    fn narratives_generic_title_and_invented_move_are_caught() {
-        // A generic title AND a fabricated "moving to" storyline the corpus never supports.
-        let reply = r#"{"narratives":[{"title":"Transfer news","body":"Vale is moving to the Kings next week.","articles":[1]}]}"#;
-        let x = Expect {
-            title_excludes: Some(vec!["Transfer news".into()]),
-            body_excludes: Some(vec!["moving to".into()]),
-            ..Default::default()
-        };
-        let v = NarrativeTask.evaluate(reply, None, Some(&x));
-        assert_eq!(
-            v.checks_passed(),
-            0,
-            "both excludes should fire: {:?}",
-            v.checks
-        );
-    }
-
-    #[test]
-    fn narratives_body_includes_any_is_or_and_case_insensitive() {
-        // Voice-direction target: passes when ANY one synonym is voiced in ANY body, matched
-        // case-insensitively; fails only when the whole set is absent.
-        let reply = r#"{"narratives":[{"title":"Vale saga","body":"The Kings pursuit is still GATHERING pace after months.","articles":[1]}]}"#;
-        // "gathering" (cased differently) satisfies the heating set even though "surging" is absent.
-        let heating = Expect {
-            body_includes_any: Some(vec!["surging".into(), "gathering".into()]),
-            ..Default::default()
-        };
-        assert!(NarrativeTask
-            .evaluate(reply, None, Some(&heating))
-            .all_checks_pass());
-        // None of the cooling words appear → the OR-check fails.
-        let cooling = Expect {
-            body_includes_any: Some(vec![
-                "cooling".into(),
-                "fizzled".into(),
-                "gone quiet".into(),
-            ]),
-            ..Default::default()
-        };
-        assert!(!NarrativeTask
-            .evaluate(reply, None, Some(&cooling))
-            .all_checks_pass());
-    }
-
-    #[test]
-    fn narratives_quiet_cycle_is_parsed_with_zero_count() {
-        // An empty array is a legitimate quiet cycle — parsed, count 0 (NOT unparseable).
-        let v = NarrativeTask.evaluate(
-            r#"{"narratives":[]}"#,
-            None,
-            Some(&Expect {
-                narratives_max: Some(1),
-                narratives_min: Some(1),
-                ..Default::default()
-            }),
-        );
-        assert!(v.parsed);
-        // max(1) passes (0 ≤ 1); min(1) fails (0 < 1).
-        assert_eq!(v.checks_passed(), 1);
-    }
-
-    #[test]
-    fn narratives_malformed_reply_is_unparseable() {
-        let v = NarrativeTask.evaluate("the news feels grouped today", None, None);
-        assert!(!v.parsed);
     }
 
     // --- transfer FP/TP adjudication rubric --------------------------------------

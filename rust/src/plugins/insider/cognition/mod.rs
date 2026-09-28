@@ -354,7 +354,7 @@ pub async fn create_pair(studio: &Studio<'_>, assignment: PairAssignment) -> Tra
             &assignment.prompt,
             &assignment.options,
             &TransferParser,
-            crate::plugins::support::form::structured_correction,
+            crate::plugins::support::prompt::structured_correction,
         )
         .await;
     let (mut verdict, model, call) = match extracted {
@@ -692,7 +692,7 @@ pub async fn create_score(
             &palette.prompt(),
             &options,
             &PaletteParser(&palette),
-            crate::plugins::support::form::structured_correction,
+            crate::plugins::support::prompt::structured_correction,
         )
         .await?;
     let call = GenerationCall::from(&extracted);

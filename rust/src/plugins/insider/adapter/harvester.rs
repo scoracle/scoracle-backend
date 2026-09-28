@@ -107,7 +107,7 @@ pub(super) async fn create_source_pair(
             &assignment.prompt,
             &assignment.options,
             &SourceVerdictParser { source, candidate },
-            crate::plugins::support::form::structured_correction,
+            crate::plugins::support::prompt::structured_correction,
         )
         .await?;
     let call = GenerationCall::from(&extracted);

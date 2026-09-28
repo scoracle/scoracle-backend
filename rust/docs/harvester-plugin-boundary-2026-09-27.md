@@ -31,6 +31,14 @@ shared metadata type does not itself implement player acquisition or relationshi
 
 ## Release gates
 
-Production delivery is held in shadow mode while the new route is evaluated. Before reopening it, check on a bounded fresh-source cohort that paragraph boundaries survive acquisition, byte ranges and hashes match, irrelevant results produce no theme calls or assignments, theme assignments are selective, and every delivered character product stays within its plugin-selected evidence. Measure missed useful items and per-character routing volume against reviewed sources; the old checkpoint's probabilities are uncalibrated and its broad routing is not a quality benchmark. Keep Editor and packet consumers active only where their replacement has been verified, then retire their worker, API, UI, trigger, and data paths in coordinated steps.
+The user accepts the current v7 behavior based on 90/96 matched synthetic route
+expectations. [Further calibration](harvester-calibration-follow-up-2026-09-27.md)
+is deferred until experience warrants it and does not block the next plugin window.
+Deployment remains a separate operational step; this decision changed no delivery
+settings. A bounded release rehearsal should verify acquisition, exact source bytes
+and hashes, negative short-circuiting and assignment integrity. Retain examples of
+missed useful material and unwanted routes for a future calibration pass. Keep
+Editor and packet consumers active only where their replacement has not yet been
+verified, then retire their paths in coordinated steps.
 
 The three-source v4 shadow replay matched all three retained body hashes, headlines, context byte slices, and Laya input byte slices. Each Laya input started at the first paragraph and ended within the character excerpt; shadow delivery created zero assignments. One entity relevance choice changed from v3. A 226-character opening still produced four positive theme routes. A later 20-domain v4 shadow sample acquired and classified 18 articles, held two fetch failures, and produced 54 query-entity classifications: 50 relevant, four irrelevant, and 17 all-four theme recommendations. These are contract and routing observations, not quality approval. The nightly report counts v7 classifications/work and matching v3 headline gates for current-contract readiness, and separately shows the latest version mix for historical audit.

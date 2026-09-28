@@ -12,6 +12,8 @@
 //!
 //! Packet inserts fan work out to subscribed voices and always to the Journalist.
 
+pub const PACKET_LOOKBACK_HOURS: i64 = 72;
+
 use super::slice_quote;
 use crate::plugins::editor::cognition::derive::routing_tags;
 use crate::plugins::editor::cognition::{EditorRead, NameMention};
@@ -696,7 +698,7 @@ pub async fn render_packets_for_entity(
         entity_type,
         entity_id,
         sport,
-        crate::plugins::journalist::adapter::PACKET_LOOKBACK_HOURS,
+        crate::evidence::news::packet::PACKET_LOOKBACK_HOURS,
         limit,
     )
     .await?;

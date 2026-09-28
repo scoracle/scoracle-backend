@@ -16,7 +16,7 @@ The [plugin alignment plan](docs/PLAN-plugin-alignment-2026-09-27.md) starts wit
 - **Plugins frame:** select evidence and relevant memories, scope tools, compute or obtain supported measurements, define admissible claims and scores, prepare output structure and voice, and validate publication. A policy instruction in a prompt does not replace an enforced boundary.
 - **SmolLM3 articulates:** answer “Given this reality, how should it sound?” within the prepared facts and qualifications. Model output is never authoritative evidence by itself.
 - **Studio and the application host:** provide inference, validation machinery, scoped capabilities, budgets, claim fencing, atomic publication coordination, durable dispatch, and dependency assembly. Plugins retain domain policy and product writes.
-- **Postgres remembers; analytical code and DuckDB studies compute:** preserve source evidence, identity, relationships, products, continuity, and work; compute bounded comparisons and trends with their meaning and limitations. Prior prose may supply continuity but cannot become new measurement evidence.
+- **Postgres stores the world; DuckDB studies the world:** Postgres preserves source evidence, identity, relationships, products, continuity, and work. DuckDB computes bounded, dated findings from those records. Plugins select relevant studied memory as context; SmolLM3 articulates it. Prior prose may supply continuity but cannot become new measurement evidence.
 
 Internal plugins need no articulation call when they have no language product. Harvester and Fixture Boxscore do not need a character voice. Remaining generative classification or factual adjudication in other plugins is an alignment gap to resolve explicitly.
 
@@ -34,13 +34,26 @@ The current checked-in worker follows this path:
 
 The current local contract is `harvest-context-v7`, with `harvest-headline-v3` gates. Reading uses a **0.25** threshold; theme predicates use **0.50**, except performance at **0.70**. These are provisional development policy values, not calibrated accuracy claims. See the [v7 frame and evaluation](docs/harvester-frame-2026-09-27.md) and [source boundary](docs/harvester-plugin-boundary-2026-09-27.md). Google descriptions do not substitute for publisher text. “Verbatim” refers to retained extracted text, not raw HTML.
 
-Harvester has one worker/replay path. The historical packet compiler, choice-response parsing and teacher fields are removed. The [cleanup pass](docs/harvester-cleanup-2026-09-27.md) records other retired tools. Shared subject metadata is available to the other plugins; only Harvester has been migrated in this phase. Real-world route calibration and release remain open.
+Harvester has one worker/replay path. The historical packet compiler, choice-response parsing and teacher fields are removed. The [cleanup pass](docs/harvester-cleanup-2026-09-27.md) records other retired tools. Shared subject metadata is available to the other plugins; only Harvester has been migrated in this phase. The user accepts the current 90/96 development result for now. [Further calibration is deferred](docs/harvester-calibration-follow-up-2026-09-27.md) until experience warrants it; operational deployment remains separate.
 
 Older cutover documents describe three-sentence excerpts, broad forwarding, or advisory-only relevance. Those descriptions are historical and do not describe this worker contract. Deployment reports are also dated evidence: verify the actual host revision, migrations, flags, and worker state before claiming the checked-in behavior is live. This README update does not deploy code or release character delivery.
 
 ## Character preparation and articulation
 
 **Relevant identity + selected evidence + relevant memory + output structure + character voice + factual boundaries.**
+
+**Each file in a plugin owns one task.** Keep the context package modular:
+
+| File | Owns |
+| --- | --- |
+| `meta.rs` | Canonical entity identity. |
+| `fresh.rs` | Newly fetched reporting, its attribution and publication time. |
+| `memories.rs` | Selection and presentation of relevant studied history from the relational world. |
+| `form.rs` | Output structure only: fields, types, counts, limits and structural parsing. |
+| A voice file such as `journalist.rs` | Tone. |
+| `prompt.rs` | The sole task instruction: rephrase the supplied reporting. |
+
+These are responsibility boundaries, not a requirement to duplicate shared files in every plugin. The memory package contains prepared findings, rather than asking the model to query history, calculate comparisons or decide whether reporting is valid. Articulation calls are stateless and memory-informed: the plugin supplies historical context for each call, rather than asking the model to evolve a story or carry prior conversational state. Full retrieval provenance stays with the plugin. The [live memory inspection and DuckDB trial](docs/journalist-memory-world-2026-09-28.md) records the existing matrix, measured study performance and the remaining integration work.
 
 | Character | Plugin-selected material |
 | --- | --- |
@@ -55,7 +68,28 @@ The plugin constructs the bounded environment before the model call. Identity, d
 
 [`form.rs`](src/plugins/support/form.rs) supplies shared publishing form. Existing publisher paths also use [`palette.rs`](src/studio/palette.rs) to constrain choices among prepared phrasings. These are current mechanisms, not proof that every source selector, score, or upstream gate meets this architecture. Some source adapters still ask generative models to make eligibility or factual decisions, and legacy packet/evaluation paths remain. The alignment plan audits and removes those gaps one plugin at a time.
 
+The [Journalist Window 2 draft](docs/journalist-alignment-2026-09-27.md) is moving to one natural articulation stage over a plugin-prepared observation package. Shared `form.rs` now supplies structure without content direction; `journalist.rs` contains tone only. `journalist/cognition/prompt.rs` owns the articulation task: express the supplied reporting, preserving its information and attribution without judging whether it is true. Fresh source presentation lives in `journalist/cognition/fresh.rs`: only fetched reporting, attribution and publication time. Cognition assembles that structured data with shared identity; fresh content does not own memory, form or voice. Relevant memories and bounded analytical comparisons belong in preparation. This draft is not yet verified for factual fidelity, and no generative claim-preparation or prose-judging stage has been adopted.
+
+The [n47 contract audit and replay](docs/journalist-context-trim-2026-09-28.md) separates instructions from information. Only `prompt.rs` supplies the system task. The data package contains `identity`, `fresh`, `memories`, `voice` and `form`: tone is descriptive, and form supplies only fields, types, counts and limits. Fresh reports retain their publisher, publication time and intact excerpt. Identical memory headlines appear once with every dated attribution attached; study counts retain their population, window and publisher breakdown. Provenance and scoring stay outside the writing context.
+
 Finite phrasing selection is not the definition of articulation. Evaluate whether each plugin gives SmolLM3 enough prepared context and expressive latitude for natural, concise, character-consistent language while preserving factual fidelity. Any replacement must enforce its factual interface and demonstrate its value on representative cases.
+
+## Shared memory contract
+
+**Postgres stores the world. DuckDB studies the world. Each plugin chooses its data and scope; the memory contract stays the same.**
+
+Graph and the other source producers enrich the stored relational world. At preparation time, a plugin requests a study of that world for a particular entity or pair, timeframe, and comparison scope. DuckDB computes the findings on demand. Each plugin's `memories.rs` selects and presents the relevant findings alongside fresh content, ready for articulation.
+
+The shared contract is **request a scope → study the stored evidence → return findings with dates, coverage and provenance**:
+
+- **The plugin owns the request:** which data matters, the historical timeframe, the comparison population and the context budget. Changing a plugin's lookback changes its request, without requiring a new precompute schedule.
+- **The shared study layer owns computation:** filtering, grouping, frequency, ordering and compatible comparisons over a consistent snapshot. Results identify the study version, source records, time bounds, units where applicable, and missing or partial coverage. Source corrections and deletions must invalidate affected reuse.
+- **`memories.rs` owns the context selection:** retain the findings and qualifications useful to the current assignment. Full retrieval bookkeeping stays in provenance.
+- **The LLM owns articulation:** express fresh material in the context of the supplied history. Retrieval, arithmetic and deciding whether reporting is valid have already been handled upstream.
+
+Different plugins request different studies through this boundary. Journalist can request earlier reporting; Influencer can request observed reactions; Insider can request entity-pair reporting frequency and publisher breakdowns; Scout can request xG comparisons across specified match windows. Frequency measures recorded reporting, not independent confirmation. Numerical change retains its sample and comparison basis.
+
+Memory is shared product infrastructure. Reuse the stored world, study implementations and provenance while keeping each plugin's selection policy local. See the [cross-plugin design](docs/journalist-memory-world-2026-09-28.md#shared-across-plugins) and [on-demand implementation](docs/memory-studies.md). Reporting and team-stat studies are implemented locally, with Journalist as the first integrated consumer; the other character selectors remain to be migrated. This work has not been deployed. The smaller context package is tested, but the no-thinking articulation replay still includes unsupported additions, lost qualifications and source-order drift; Journalist remains in progress.
 
 ## Evidence, quality, and efficiency
 

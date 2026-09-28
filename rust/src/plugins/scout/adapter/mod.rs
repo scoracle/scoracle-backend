@@ -362,7 +362,7 @@ async fn build_rating_request_inner(
         num_ctx: voice_num_ctx,
         json_mode: false,
         format_schema: Some(crate::plugins::support::form::with_abstention(
-            crate::plugins::support::form::card_schema(false),
+            crate::plugins::support::prompt::card_schema(false),
         )),
         format_schema_raw: None,
     };

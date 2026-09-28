@@ -1,36 +1,8 @@
-//! Shared character form and parser-compatible output contracts.
+//! Shared output structure, dimensions, decoding shapes and structural parsers.
 //!
 //! The reader sees a hook header and a body. Transport labels and JSON fields below
 //! retain the existing parser/storage contracts; they are not section headings.
-//! Character files own voice and judgment. Inputs supply evidence, not an outline.
-
-pub const IDENTITY_CARD_FRAMING: &str = "Identity context, not event evidence. Distinguish current roles from career history; dated reporting may supersede these records. Unknown means unknown.";
-
-pub const CLAIM_SELECTION: &str = "Choose the most meaningful claims supported by the evidence. Ordinary findings, observed stability and uncertainty are valid.";
-
-/// Enabled only for characters whose parser and publication path accept a called pass.
-pub const ABSTENTION: &str = "If the supplied evidence supports no meaningful claim within your character scope, return JSON null instead of a card. Passing is a complete response: do not invent a claim to fill the surface or write an explanation of the missing card. The card structure applies only when you have a supported claim to express.";
-
-pub const EVIDENCE_SCOPE: &str = "Interpret what the supplied evidence establishes. A partial profile can be a complete reading. Let missing evidence limit the story; do not supply a role, explanation or trend to make it feel complete. A measured zero or an observed absence is a finding; a missing measurement or report is unknown. Without a supported comparison, direction is unknown, not unchanged. Mention a gap when it changes the interpretation; otherwise leave it open. Stop when the supported story is told.";
-
-pub const STORY_FORM: &str = "Connect the selected findings, evidence and meaning into a coherent read. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.";
-
-pub const WIRE_COPY: &str = "Write plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.";
-
-pub const CHARACTER_SCOPE: &str = "Contribute your assigned perspective to the entity's story. Develop the findings that matter to your character; a complete summary of the entity is unnecessary. The reader already has the identity card: use metadata as context, without biographical introductions or listings of team, position, season or appearances. Mention an identity detail only when it explains a relevant development.";
-
-pub const HOOK: &str =
-    "The hook names the entity and states the card's main finding in present tense.";
-
-#[derive(Clone, Copy, Debug)]
-pub enum CardFormat {
-    Scout,
-    Analyst,
-    Influencer,
-    Journalist,
-    Insider,
-    Oracle,
-}
+//! Character files own tone; prompt modules own instructions and content direction.
 
 /// Reader-facing dimensions, independent of any model's tokenization or runtime budget.
 pub const HOOK_MAX_CHARS: usize = 140;
@@ -47,33 +19,11 @@ impl std::fmt::Display for SurfaceError {
 }
 impl std::error::Error for SurfaceError {}
 
-/// Existing user-facing card correction policy. The Studio owns the three-attempt
-/// bound; publishing plugins own the instruction appended after a correctable failure.
-pub fn publishing_correction(error: &anyhow::Error) -> Option<String> {
-    if error.is::<SurfaceError>() {
-        return Some(format!(
-            "{error} Rewrite from scratch as one compact paragraph. Keep only the main finding and one supporting detail. Target at most 500 body characters so the complete JSON fits. Do not enumerate every input."
-        ));
-    }
-    if error.is::<crate::studio::model::IncompleteOutput>() {
-        return Some("the response ran out of space. Rewrite from scratch as one compact paragraph. Keep only the main finding and one supporting detail. Target at most 500 body characters so the complete JSON fits. Do not enumerate every input.".to_string());
-    }
-    None
-}
-
-/// Correction policy for structured internal tasks. It retains the existing retry on
-/// provider truncation without asking a typed extraction to write card prose.
-pub fn structured_correction(error: &anyhow::Error) -> Option<String> {
-    error
-        .is::<crate::studio::model::IncompleteOutput>()
-        .then(|| "the response was truncated. Return the complete requested JSON object from scratch, preserving the supplied evidence and schema.".to_string())
-}
-
 pub fn validate_body(body: &str) -> anyhow::Result<()> {
     let chars = body.chars().count();
     if body.trim().is_empty() || chars > BODY_MAX_CHARS {
         return Err(SurfaceError(format!(
-            "Body has {chars} characters; write a complete body within {BODY_MAX_CHARS}."
+            "Body has {chars} characters; allowed range is 1..={BODY_MAX_CHARS} with nonblank content."
         ))
         .into());
     }
@@ -84,30 +34,12 @@ pub fn validate_hook(hook: Option<&str>) -> anyhow::Result<()> {
     if let Some(hook) = hook {
         if hook.trim().is_empty() || hook.chars().count() > HOOK_MAX_CHARS {
             return Err(SurfaceError(format!(
-                "Write the main finding as a hook within {HOOK_MAX_CHARS} characters."
+                "Headline/title must contain 1..={HOOK_MAX_CHARS} characters with nonblank content."
             ))
             .into());
         }
     }
     Ok(())
-}
-
-/// Compose the system instruction from the character and shared form.
-pub fn compose(character: &str, format: CardFormat) -> String {
-    let output = match format {
-        CardFormat::Scout | CardFormat::Analyst => "Return JSON with headline (the hook) and body (the paragraphs). Preserve paragraph breaks as escaped newlines.",
-        CardFormat::Influencer => "Return JSON with headline (the hook), body (the paragraphs) and score (an integer from 1 to 100). Preserve paragraph breaks as escaped newlines.",
-        CardFormat::Journalist => "Return JSON with narratives, headline and card_score. Each narrative has a short specific title that names this entity as supplied, a body following the shared form, and articles containing its supporting input article numbers. Select relevant stories, most consequential first; an empty narratives array is valid. The headline is the hook for the whole edition. The card_score is an integer from 1 to 99. Preserve paragraph breaks inside body strings as escaped newlines.",
-        CardFormat::Insider => "Return JSON with read containing the body, headline containing the hook, and score containing an integer from 1 to 99. Preserve paragraph breaks inside read as escaped newlines.",
-        CardFormat::Oracle => "Return JSON with reading containing the body, headline containing the hook, and score containing an integer from 1 to 100. Open the reading with this entity's supplied name and speak directly about its circumstances as one interpretation. The reading is body only: do not describe its hook or headline, the evidence structure, its speakers, computation or JSON fields. Preserve paragraph breaks inside reading as escaped newlines.",
-    };
-    let abstention = if matches!(format, CardFormat::Scout) {
-        ABSTENTION
-    } else {
-        ""
-    };
-    let canvas = format!("Card surface: hook ≤{HOOK_MAX_CHARS} characters; body ≤{BODY_MAX_CHARS}, including spaces. These are ceilings, not targets. Choose what earns the space; finish your sentences. Multiple narrative bodies share the body allowance.");
-    format!("{character}\n\n{canvas}\n\n{CHARACTER_SCOPE}\n\n{EVIDENCE_SCOPE}\n\n{CLAIM_SELECTION}\n\n{STORY_FORM}\n\n{WIRE_COPY}\n\n{HOOK}\n\n{output}\n\n{abstention}")
 }
 
 /// Fold line wrapping and whitespace while retaining the prose paragraphs.
@@ -148,8 +80,8 @@ pub fn card_schema(scored: bool) -> serde_json::Value {
     let mut schema = serde_json::json!({
         "type": "object",
         "properties": {
-            "headline": {"type":"string", "description":"The read's main finding, stated as a sentence naming the entity."},
-            "body": {"type":"string", "description":format!("The character's interpretation of the evidence, within {BODY_MAX_CHARS} characters.")}
+            "headline": {"type":"string"},
+            "body": {"type":"string"}
         },
         "required": ["headline", "body"]
     });
@@ -164,27 +96,78 @@ pub fn card_schema(scored: bool) -> serde_json::Value {
     schema
 }
 
-pub fn narratives_format_schema() -> serde_json::Value {
+/// Structural writing form: fields, types, counts and dimensions only. Content
+/// direction and source-to-output mapping belong to the Journalist's prompt.rs.
+pub fn journalist_form(report_count: usize) -> serde_json::Value {
+    serde_json::json!({
+        "headline":"string",
+        "narratives":[{"title":"string", "body":"string"}],
+        "narrative_count":report_count,
+        "max_chars":{
+            "headline":HOOK_MAX_CHARS,
+            "title":HOOK_MAX_CHARS,
+            "all_bodies":BODY_MAX_CHARS
+        }
+    })
+}
+
+/// Structural output contract, owned alongside the writing form and parser.
+pub fn journalist_schema(report_count: usize) -> serde_json::Value {
     serde_json::json!({
         "type": "object",
         "properties": {
             "narratives": {
                 "type": "array",
+                "minItems": report_count,
+                "maxItems": report_count,
                 "items": {
                     "type": "object",
                     "properties": {
                         "title":    { "type": "string" },
                         "body":     { "type": "string" },
-                        "articles": { "type": "array", "items": { "type": "integer" } }
                     },
-                    "required": ["title", "body", "articles"]
+                    "required": ["title", "body"], "additionalProperties": false
                 }
             },
-            "headline": { "type": "string" },
-            "card_score": { "type": "integer", "minimum": 1, "maximum": 99 }
+            "headline": { "type": "string" }
         },
-        "required": ["narratives", "headline", "card_score"]
+        "required": ["narratives", "headline"], "additionalProperties": false
     })
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct JournalistReply {
+    pub headline: String,
+    pub narratives: Vec<JournalistReport>,
+}
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct JournalistReport {
+    pub title: String,
+    pub body: String,
+}
+
+pub fn parse_journalist(raw: &str, report_count: usize) -> anyhow::Result<JournalistReply> {
+    let reply: JournalistReply = serde_json::from_str(raw)?;
+    anyhow::ensure!(
+        reply.narratives.len() == report_count,
+        "articulation omitted or added reports"
+    );
+    validate_hook(Some(&reply.headline))?;
+    validate_body(
+        &reply
+            .narratives
+            .iter()
+            .map(|r| r.body.as_str())
+            .collect::<Vec<_>>()
+            .join("\n\n"),
+    )?;
+    for report in &reply.narratives {
+        validate_hook(Some(&report.title))?;
+        validate_body(&report.body)?;
+    }
+    Ok(reply)
 }
 
 pub fn insider_score_format_schema() -> serde_json::Value {
@@ -204,8 +187,7 @@ pub fn oracle_format_schema() -> serde_json::Value {
         "type": "object",
         "properties": {
             "reading": {
-                "type": "string",
-                "description": "Unified prose about the entity and its circumstances, without card, field, computation or score commentary"
+                "type": "string"
             },
             "headline": { "type": "string" },
             "score": { "type": "integer", "minimum": 1, "maximum": 100 }
@@ -219,68 +201,7 @@ mod tests {
     use super::*;
     use crate::plugins::analyst::cognition as analyst;
     use crate::plugins::influencer::cognition as influencer;
-    use crate::plugins::insider::cognition as insider;
-    use crate::plugins::journalist::cognition as journalist;
-    use crate::plugins::oracle::cognition as oracle;
     use crate::plugins::scout::cognition as scout;
-
-    #[test]
-    fn every_live_character_uses_the_shared_form_without_retired_outlines() {
-        let characters = [
-            (scout::CHARACTER, scout::RATING_SYSTEM_PROMPT.as_str()),
-            (
-                analyst::prompt::CHARACTER,
-                analyst::prompt::MOMENTUM_SYSTEM_PROMPT.as_str(),
-            ),
-            (
-                influencer::CHARACTER,
-                influencer::VIBE_SYSTEM_PROMPT.as_str(),
-            ),
-            (
-                journalist::CHARACTER,
-                journalist::NARRATIVES_SYSTEM_PROMPT.as_str(),
-            ),
-            (
-                insider::CHARACTER,
-                insider::INSIDER_SCORE_SYSTEM_PROMPT.as_str(),
-            ),
-            (oracle::CHARACTER, oracle::ORACLE_SYSTEM_PROMPT.as_str()),
-        ];
-        for (brief, system) in characters {
-            assert!(!brief.trim().is_empty());
-            assert!(brief.split_whitespace().count() <= 200);
-            for shared in [
-                STORY_FORM,
-                CLAIM_SELECTION,
-                HOOK,
-                WIRE_COPY,
-                CHARACTER_SCOPE,
-                EVIDENCE_SCOPE,
-            ] {
-                assert_eq!(system.matches(shared).count(), 1);
-            }
-            for retired in [
-                "TWO OR THREE",
-                "EIGHT SENTENCES",
-                "Harborview",
-                "Strengths:",
-                "Limitations:",
-                "Summary:",
-                "one to three sentences",
-            ] {
-                assert!(!system.contains(retired), "retired instruction: {retired}");
-            }
-        }
-        assert!(narratives_format_schema()["properties"]["narratives"]["maxItems"].is_null());
-        assert!(influencer::VIBE_SYSTEM_PROMPT.contains("Return JSON with headline"));
-        assert!(journalist::NARRATIVES_SYSTEM_PROMPT
-            .contains("title that names this entity as supplied"));
-        assert!(oracle::ORACLE_SYSTEM_PROMPT
-            .contains("Open the reading with this entity's supplied name"));
-        // Character ceilings guide composition and are checked after decoding. A grammar
-        // maxLength can force a string closed in the middle of a word or sentence.
-        assert!(oracle_format_schema()["properties"]["reading"]["maxLength"].is_null());
-    }
 
     #[test]
     fn surface_counts_characters_without_cutting_prose() {

@@ -1,6 +1,6 @@
 //! The Analyst's character. Output structure belongs to `plugins::support::form`.
 
-use crate::plugins::support::form::{compose, CardFormat};
+use crate::plugins::support::prompt::{compose, CardFormat};
 
 pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-s33";
 

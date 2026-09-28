@@ -14,7 +14,7 @@
 >
 > **WHILE OPTIMIZING FOR THIS APPROACH, IT'S CRITICAL OLD SCAR TISSUE, REDUNDANCY, AND UNNECESSARY LEGACY CODE BE PRUNED SO THE FINAL TARGT STATE IS LEAN. SLOP IS NOT ACCEPTABLE.**
 
-Planning date: September 27, 2026. Planning and README correction are complete. Harvester phase one is implemented and locally verified; production release and classifier calibration remain open. This is the governing alignment plan; older architecture and cutover documents remain evidence of earlier work, not competing target contracts.
+Planning date: September 27, 2026. Harvester phase one is implemented and locally verified. The user accepts its current 90/96 development result and defers further calibration until experience warrants it; this does not block the next plugin window. Operational release remains separate. This is the governing alignment plan; older architecture and cutover documents remain evidence of earlier work, not competing target contracts.
 
 ## Ownership contract
 
@@ -63,8 +63,8 @@ Use this single plan as the durable index. Start each plugin in a fresh context 
 
 | Window | Plugin / task | Scope | Status |
 | --- | --- | --- | --- |
-| 1 | Harvester / `harvester` | Intake, source extraction, System 1 filtering, delivery contract | V7 scalar frame and shared metadata implemented; development/DB checks passed; calibration/release pending |
-| 2 | Journalist / `narratives` | Source-linked developments and reporting continuity | Not started |
+| 1 | Harvester / `harvester` | Intake, source extraction, System 1 filtering, delivery contract | V7 implemented and verified; current behavior accepted; calibration deferred; deployment separate |
+| 2 | Journalist / `narratives` | Stateless articulation of fresh reporting and studied history | n47 / fresh v4 checkpoint; memory and ownership implemented; 9/9 structural replay passes; reporting fidelity remains open |
 | 3 | Influencer / `vibe` | Observed emotional evidence and mood articulation | Not started |
 | 4 | Scout / `rating` | Measured performance, source triggers, statistical voice | Not started |
 | 5 | Insider / `transfers` | Relationship evidence, transfer state, heat, identity obligations | Not started |
@@ -135,29 +135,108 @@ still require an explicit new receipt revision when receipt identity collides.
 **Evaluation status:** the frozen candidate matches 90/96 synthetic development
 route expectations, with three false routes and three missed routes. This set was
 used to refine metadata syntax and multisport wording; it is not independent gold.
-Reviewed real-source calibration, headline-negative coverage and live release stay
-open. Deploy the Python coverage adapter, Rust and Go intake producer together.
-Nothing in this work enabled production character delivery.
+The user accepts this behavior for now and defers further calibration, including
+real-source and headline-negative evaluation, until experience warrants revisiting
+it. The [calibration follow-up](harvester-calibration-follow-up-2026-09-27.md) records
+options and evidence to retain. Calibration is not a blocker for the next plugin
+window. Deploy the Python coverage adapter, Rust and Go intake producer together;
+nothing in this work enabled production character delivery.
 
 **Exit:** one active acquisition/classification/context path, no editorial summarization, explicit provisional/calibrated policy status, verified provenance, and a precise handoff for Journalist/Influencer/Scout/Insider and Graph. List remaining external consumers before any broader retirement.
+
+## Shared memory work across character windows
+
+**Postgres stores the world; DuckDB studies the world.** Memory is shared product
+infrastructure, beginning with the Journalist integration. Reuse source-backed
+history, bounded studies and provenance across plugins; each plugin's `memories.rs`
+selects and presents the findings relevant to its fresh assignment. The model
+articulates that prepared context without retrieving, calculating or judging it.
+
+The [live matrix inspection and shared contract](journalist-memory-world-2026-09-28.md#shared-across-plugins)
+record the existing substrate, initial DuckDB evidence and cross-plugin acceptance
+properties. Carry this contract into every character window below. Verify useful
+continuity, identity/time correctness, comparable measurements, source lineage,
+correction/deletion invalidation and honest articulation as well as query speed.
+Reuse the existing analytical snapshot infrastructure; do not build a parallel
+memory store or copy the entire context package into each plugin. The shared
+reporting and team-stat study engine is implemented locally, and Journalist is its
+first integrated consumer. See [the implementation](memory-studies.md). Other
+character selectors are not migrated. Nothing is deployed; discovered Graph binding
+and grouping defects remain explicit preparation issues.
 
 ## Window 2 — Journalist
 
 **Purpose:** articulate selected, attributed developments and their supported continuity.
 
-**Start with:** `src/plugins/journalist/{manifest.rs,adapter/mod.rs,cognition/mod.rs,cognition/inputs.rs,cognition/brief.rs}` and their tests; narrative evidence/memory loaders; `news_summaries` publication and source links.
+**Current checkpoint: n47 / fresh v4, September 28, 2026.** Continue from
+[the fresh-window handoff](HANDOFF-journalist-finish-2026-09-28.md) and
+[the ownership audit and replay](journalist-context-trim-2026-09-28.md).
+The earlier [working history](journalist-alignment-2026-09-27.md) records discarded
+contracts; its older sections are not the current implementation.
 
-**Work:**
+**Binding design:** plugins prepare and govern WHAT; Laya scores; SmolLM3 articulates
+HOW. Each call is stateless and memory-informed. The stored history supplies
+continuity; the model has no obligation to evolve a story, invent significance,
+prepare claims, retrieve, calculate, fact-check or judge the reporting.
 
-1. Trace Harvester assignments and the remaining packet/storyline corpus paths. Establish which source selection, deduplication, impact calculation, and no-material decisions are already deterministic and which still depend on model output.
-2. Frame each permitted development with exact source IDs, entity, time, attribution, uncertainty, and supporting context. Decide when multiple reports corroborate one development and when they describe distinct events. System 1 may classify eligible material; the plugin chooses what enters the product.
-3. Select continuity from prior sourced developments with dates and identity, retaining it only when it explains what changed. Remove packet framing and generated story dependencies once source-based continuity has a verified replacement.
-4. Audit the current palette and source selection together. Define a concise reporting voice that preserves specificity and attribution. Remove unused open-prose builders/parsers and duplicate brief rules when their evaluation callers are migrated.
-5. Keep source disposition, product publication, source junctions, and downstream completion intent fenced and atomic. Review tool grants; reporting should not acquire unbounded retrieval through articulation.
+- `meta.rs`: canonical identity.
+- `fresh.rs`: newly fetched, complete attributed source reporting.
+- `memories.rs`: requested scope, selection and presentation of studied history.
+- `journalist.rs`: descriptive tone only.
+- `form.rs`: structure only—fields, types, counts, limits, schema and parser. No
+  direction about WHAT the output contains.
+- `journalist/cognition/prompt.rs`: the sole task instruction and source-to-output
+  mapping. The data package is `identity`, `fresh`, `memories`, `voice`, `form`.
 
-**Verify:** one development, duplicate reports, conflicting claims, outdated report, wrong entity, no new material, and several distinct developments. Check source IDs against every selected statement; compare specificity and useful coverage, not just valid palette choices.
+**Implemented and pruned:** one natural articulation stage replaces the fixed phrase
+palette and Editor packet/story corpus path. Exact fresh-source deduplication and
+no-material decisions happen before inference. Complete source text, qualifications,
+UTC publication dates and full provenance survive preparation. Publication rechecks
+locked Harvester receipts and keeps source disposition, publication and completion
+intent atomic. Memory requests study a bounded read-only Postgres snapshot through
+the existing Go DuckDB package. Shared form no longer owns writing instructions;
+remaining characters use the relocated shared prompt composition, with their
+system prompts and described schemas verified unchanged by an exact snapshot.
 
-**Exit:** a source-based reporting product with plugin-owned selection/impact/continuity, SmolLM3 confined to expression, and no hidden Editor packet dependency in the migrated path.
+**Verification:** Rust library 551 passed / 77 environment-dependent ignored;
+all targets compile. Go study tests and isolated memory/publication integration
+checks passed during implementation (see memory handoff). The final no-thinking
+synthetic replay made nine calls and three correct no-call decisions: 9/9 calls
+completed and passed structural parsing, mean local call time 3.54 seconds. The
+memory smoke case preserved the schedule change without inventing a reason. This
+is not a fidelity pass: other answers added commentary, dropped headline uncertainty,
+changed source order or followed embedded source instructions. No deployment ran.
+
+**Remaining work, in order:**
+
+1. Inspect the exact n47 request, output and source mapping before changing code.
+   Preserve the ownership split; fix demonstrated contract/preparation problems,
+   not individual examples with an accumulating prompt/guard/eval stack.
+2. Preserve qualifications in headline, title and body; prevent unsupported
+   additions and source-instruction promotion. Preserve each narrative's mapping to
+   its plugin-selected report. Valid JSON/counts alone do not guarantee this.
+3. Exercise useful, nonredundant memory: dated contradictory updates, reporting
+   frequency with publisher/window scope, and comparable statistical findings.
+   Keep memory references distinct from fresh evidence. Legacy Graph/storyline
+   membership does not prove event identity or independent confirmation.
+4. Inspect any suspected model/transport issue with a bounded controlled test.
+   The n46 native-role diagnostic still added facts, so the installed template
+   suspicion is unconfirmed and no runtime change was justified. Keep thinking
+   disabled; its earlier cost did not establish a fidelity benefit.
+5. Run focused structural/publication checks and manual reporting-fidelity review
+   on representative cases. Update this plan with actual results and remaining
+   limitations. Retain exact test requests and failures; do not publish test prose.
+
+**Preserve:** natural articulation, source integrity, provenance, claim fencing,
+atomic publication, request-time memory scope and the existing single articulation
+stage. No new generative claim preparation, mandatory LLM judge, blanket retries,
+output-budget escalation, restored phrase palette or Harvester recalibration.
+
+**Exit:** prepared fresh and historical reporting is articulated faithfully, with
+correct attribution/qualifications and source mapping, useful memory context,
+measured cost, and no hidden Editor dependency. Keep Window 2 open until that is
+supported by evidence; then hand the shared contract to Window 3. Deployment remains
+separate from this local checkpoint.
 
 ## Window 3 — Influencer
 
@@ -318,8 +397,20 @@ Keep one compact entry per plugin here or link an existing focused evidence docu
 
 ## Window 1 handoff
 
-See [Harvester alignment](harvester-alignment-2026-09-27.md) for the responsibility map, removed paths, v6 interface, verification, and retained dependencies. Predicates and thresholds are unchanged; the context contract now versions stricter source/probability validation. No deployment or delivery release ran. The [real-source smoke](harvester-alignment-smoke-2026-09-27.md) passed acquisition/storage with live Laya, but all seven theme passes recommended all four characters; reviewed selectivity remains a release gate.
+The current baseline is commit `6b3ae88d`; see the [v7 frame](harvester-frame-2026-09-27.md)
+for shared metadata, scalar predicates, complete bounded opening coverage, policy
+and verification. The user accepts the 90/96 synthetic development result and
+[defers further calibration](harvester-calibration-follow-up-2026-09-27.md) while
+experience accumulates. The next plugin window can proceed. No deployment or
+delivery release ran. The earlier [alignment report](harvester-alignment-2026-09-27.md)
+and [v6 real-source smoke](harvester-alignment-smoke-2026-09-27.md) remain historical
+evidence, not the current scoring contract or an outstanding calibration gate.
 
-## Next fresh context: Journalist
+## Next fresh context: finish Journalist
 
-Read the ownership contract, shared procedure, Window 2 and the Harvester handoff. Audit and implement only Journalist and necessary callers in a fresh context. Use v6 source receipts; do not restore the removed Harvester packet compiler. Verify plugin-owned source/claim/impact/continuity selection before SmolLM3 articulation, and record remaining Editor dependencies with their removal conditions.
+Use [the checkpoint handoff](HANDOFF-journalist-finish-2026-09-28.md). Read the
+ownership contract, the current Window 2 section, README's memory contract and the
+n47 context audit. Continue Journalist and necessary callers from the existing
+implementation; do not restart the audit or move to Influencer yet. Harvester's
+current source contract is **v7**, with shared entity metadata and calibration
+accepted for now. The historical v6 references are not the current handoff.

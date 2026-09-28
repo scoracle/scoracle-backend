@@ -103,7 +103,7 @@ pub async fn run(cfg: &Config, path: &Path) -> Result<()> {
                 prompt,
                 &opts,
                 &recording.parser,
-                scoracle_cognition::plugins::support::form::publishing_correction,
+                scoracle_cognition::plugins::support::prompt::publishing_correction,
             )
             .await;
         let outcome = match result {
@@ -177,7 +177,7 @@ mod tests {
                 "Evidence",
                 &opts,
                 &recording.parser,
-                scoracle_cognition::plugins::support::form::publishing_correction,
+                scoracle_cognition::plugins::support::prompt::publishing_correction,
             )
             .await
             .unwrap();

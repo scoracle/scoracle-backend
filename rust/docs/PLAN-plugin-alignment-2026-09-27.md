@@ -208,6 +208,14 @@ text it contextualizes. This is still one stateless articulation call. `form.rs`
 contains only the keyed JSON shape; it supplies no content direction. Temperature
 is zero, thinking stays disabled and the output allowance remains 900 tokens.
 
+The reasoning transport has since been repaired without changing this production
+decision. When a route explicitly selects `think:true`, the Ollama boundary adds
+SmolLM3's tagged-reasoning cue and the existing provider allowance becomes 1,500
+tokens. A full n94 comparison verified nonempty separated reasoning, but it was
+slower, exhausted the allowance once and reduced articulation fidelity. Keep
+Journalist thinking disabled; the capability is available for explicit evaluation,
+not promoted as a quality mechanism. See `journalist-thinking-2026-09-28.md`.
+
 Memory requests still study a bounded read-only Postgres snapshot through the Go
 DuckDB package. Complete source text, qualifications, UTC publication dates and
 full provenance survive preparation. Historical sources remain distinct from fresh

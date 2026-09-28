@@ -1,5 +1,23 @@
 # Journalist: SmolLM3 thinking experiment
 
+## Follow-up: native reasoning activation repaired, not promoted
+
+The later n94 assembly investigation found that the output schema was not the
+reason reasoning stayed empty. Ollama's SmolLM3 renderer retains `Reasoning Mode:
+/think`, but a custom system message replaces the model's default instruction to
+emit reasoning inside `<think>` tags. The provider now adds one transport-owned
+tagging cue only when `think:true`; it leaves `think:false` system content unchanged.
+
+With the original n94 form, schema, prompt and strict parser restored, the full
+11-case comparison produced seven provider calls and four correct no-calls per
+mode. No-thinking completed 7/7 calls with faithful output at a 1.70-second mean.
+Thinking emitted 15,493 separated reasoning characters, completed 6/7 calls at a
+13.75-second mean among successes, and exhausted the 1,500-token allowance once.
+It also leaked the voice descriptor into one report and added unnecessary source
+date framing. Thinking is therefore genuinely available for explicit evaluation,
+but remains disabled for Journalist production. The exact local records are
+`/tmp/journalist-n94-original-form-think-ab-20260928.jsonl` for this run.
+
 Thinking activated successfully in five diagnostic cases, but all five final answers
 added unsupported content. Mean local articulation time was 13.99 seconds with
 thinking and 3.41 seconds without (about 4.1×). This does not establish a fidelity

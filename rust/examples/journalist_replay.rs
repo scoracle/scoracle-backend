@@ -1,5 +1,5 @@
 //! Read-only Journalist preparation/articulation replay; no database or publication.
-//! cargo run --example journalist_replay -- INPUT.jsonl OUTPUT.jsonl [OLLAMA_URL [auto|true|false|compare [schema|unconstrained]]]
+//! cargo run --example journalist_replay -- INPUT.jsonl OUTPUT.jsonl [OLLAMA_URL [auto|true|false|compare [schema|unconstrained [MODEL]]]]
 use anyhow::{Context, Result};
 use scoracle_cognition::plugins::{journalist::cognition as journalist, meta::EntityMeta};
 use scoracle_cognition::runtime::providers::ollama::OllamaClient;
@@ -80,8 +80,8 @@ struct Case {
 async fn main() -> Result<()> {
     let args = std::env::args().collect::<Vec<_>>();
     anyhow::ensure!(
-        (3..=6).contains(&args.len()),
-        "usage: journalist_replay INPUT.jsonl OUTPUT.jsonl [OLLAMA_URL [auto|true|false|compare [schema|unconstrained]]]"
+        (3..=7).contains(&args.len()),
+        "usage: journalist_replay INPUT.jsonl OUTPUT.jsonl [OLLAMA_URL [auto|true|false|compare [schema|unconstrained [MODEL]]]]"
     );
     let mut output = std::fs::OpenOptions::new()
         .create_new(true)
@@ -99,6 +99,10 @@ async fn main() -> Result<()> {
         "unconstrained" => true,
         mode => anyhow::bail!("unknown decoding mode: {mode}"),
     };
+    let model = args
+        .get(6)
+        .map(String::as_str)
+        .unwrap_or("alibayram/smollm3");
     let models = args
         .get(3)
         .map(|url| {
@@ -108,7 +112,7 @@ async fn main() -> Result<()> {
                     Ok(RecordedModel {
                         inner: OllamaClient::with_think(
                             url,
-                            "alibayram/smollm3",
+                            model,
                             Duration::from_secs(120),
                             think,
                         )?,

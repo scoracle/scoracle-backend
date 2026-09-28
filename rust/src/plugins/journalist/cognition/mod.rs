@@ -250,6 +250,8 @@ pub fn generation_options(assignment: &Assignment, num_ctx: i32) -> GenerateOpti
         num_predict: NUM_PREDICT,
         num_ctx,
         json_mode: false,
+        // The package supplies the form to the model; the matching grammar and parser keep
+        // publication atomic without adding content direction.
         format_schema: Some(crate::plugins::support::form::journalist_schema(
             assignment.selected.len(),
         )),

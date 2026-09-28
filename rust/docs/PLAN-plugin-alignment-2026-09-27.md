@@ -64,7 +64,7 @@ Use this single plan as the durable index. Start each plugin in a fresh context 
 | Window | Plugin / task | Scope | Status |
 | --- | --- | --- | --- |
 | 1 | Harvester / `harvester` | Intake, source extraction, System 1 filtering, delivery contract | V7 implemented and verified; current behavior accepted; calibration deferred; deployment separate |
-| 2 | Journalist / `narratives` | Stateless articulation of fresh reporting and studied history | n94 / fresh v7 locally complete; fidelity and memory exit evidence passed; not deployed |
+| 2 | Journalist / `narratives` | Stateless articulation of fresh reporting and studied history | n94 / fresh v7 complete and deployed at `573d6a8e`; fidelity, memory and service-health gates passed |
 | 3 | Influencer / `vibe` | Observed emotional evidence and mood articulation | Not started |
 | 4 | Scout / `rating` | Measured performance, source triggers, statistical voice | Not started |
 | 5 | Insider / `transfers` | Relationship evidence, transfer state, heat, identity obligations | Not started |
@@ -224,7 +224,13 @@ new 10:00 time against the previously reported 11:00 time. A merely adjacent his
 case was not forced into the fresh report. Mean local inference time was 2.53 seconds.
 The exact `think:false` requests and outputs are retained with the fixtures. Rust
 verification passed with 555 tests and 77 environment-dependent tests ignored;
-formatting and all-target compilation passed. No deployment ran.
+formatting and all-target compilation passed.
+
+**Deployment:** commit `573d6a8e` was released on `archbox` with the standard atomic
+release script on September 28, 2026. All four Go and three Rust binaries built
+before placement. The production checkout and served API reported the exact commit,
+`/health/db` passed, and the API, cognition worker and both binary path watchers were
+active. No migration or configuration change was required.
 
 **Known limits:** legacy Graph bindings and storyline membership remain fallible and
 do not prove event identity or independent confirmation. Reporting-frequency counts
@@ -238,11 +244,10 @@ atomic publication, request-time memory scope and the existing single articulati
 stage. No new generative claim preparation, mandatory LLM judge, blanket retries,
 output-budget escalation, restored phrase palette or Harvester recalibration.
 
-**Exit met locally:** prepared fresh and historical reporting is articulated
+**Exit met and deployed:** prepared fresh and historical reporting is articulated
 faithfully with correct attribution, qualifications and source mapping; useful memory
 context and cost are measured; no hidden Editor dependency or fallback remains.
-Deployment remains a separate, unrequested step. Do not reopen Harvester calibration
-or begin Window 3 in this window.
+Do not reopen Harvester calibration or begin Window 3 in this window.
 
 ## Window 3 — Influencer
 

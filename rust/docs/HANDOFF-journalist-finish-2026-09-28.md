@@ -1,7 +1,7 @@
 # Journalist Window 2 completion handoff
 
-Checkpoint date: September 28, 2026. **Window 2 is locally complete at n94 / fresh
-v7 and has not been deployed.** The n47 material below is retained as the starting
+Checkpoint date: September 28, 2026. **Window 2 is complete and deployed at n94 /
+fresh v7 in commit `573d6a8e`.** The n47 material below is retained as the starting
 record for the completed investigation. The durable current status is in the
 [plugin alignment plan](PLAN-plugin-alignment-2026-09-27.md).
 
@@ -36,7 +36,12 @@ The source-instruction fixture now fails closed before articulation. Atomic
 publication, source receipt revalidation, request-time memory scope, Postgres/DuckDB
 roles and complete provenance were preserved. Known Graph/storyline limitations
 remain preparation limitations, not facts for the model to repair. The suspected
-chat-template issue remains unconfirmed. Do not deploy without further instruction.
+chat-template issue remains unconfirmed.
+
+The standard atomic release completed on `archbox` at 2026-09-28T16:17Z. The
+production checkout and served API both reported `573d6a8e`; `/health/db` passed,
+and `scoracle-api`, `scoracle-cognition` and both binary path watchers were active.
+No migration or configuration change was required.
 
 ## Read first
 

@@ -19,7 +19,6 @@ pub struct Continuity {
     /// self-memory, not studied history: its only consumer is exact fresh-source
     /// deduplication, and it is never presented to a model.
     pub published_reports: Vec<CorpusItem>,
-    pub previous_score: Option<i16>,
     pub study: Option<crate::plugins::memories::Study>,
     /// Storyline membership for the selected fresh reports, resolved by this
     /// plugin. It is the exact link that attaches studied history to a report;
@@ -316,18 +315,6 @@ pub async fn load(pool: &PgPool, subject: &EntityMeta, now: i64) -> Result<Conti
         .bind(&subject.entity_type).bind(subject.entity_id).bind(&subject.sport)
         .bind(super::manifest::MANIFEST.id.as_str()).bind(now - super::cognition::LOOKBACK_SECONDS).bind(now)
         .fetch_all(pool).await?;
-    let previous_score: Option<i16> = sqlx::query_scalar(
-        "SELECT card_score FROM news_summaries WHERE entity_type=$1 AND entity_id=$2 \
-         AND sport=$3 AND body IS NOT NULL AND generated_at >= to_timestamp($4::double precision) \
-         ORDER BY generated_at DESC,id DESC LIMIT 1",
-    )
-    .bind(&subject.entity_type)
-    .bind(subject.entity_id)
-    .bind(&subject.sport)
-    .bind(now - super::cognition::LOOKBACK_SECONDS)
-    .fetch_optional(pool)
-    .await?
-    .flatten();
     let mut published_reports = rows
         .into_iter()
         .map(|r| CorpusItem {
@@ -346,7 +333,6 @@ pub async fn load(pool: &PgPool, subject: &EntityMeta, now: i64) -> Result<Conti
     published_reports.truncate(256);
     Ok(Continuity {
         published_reports,
-        previous_score,
         study: None,
         storylines: HashMap::new(),
     })

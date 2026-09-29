@@ -17,7 +17,6 @@ fn edition(narratives: Vec<Narrative>) -> NarrativesOutput {
             narratives,
             budget_truncated_ids: Vec::new(),
             card_score: Some(71),
-            card_score_prev: Some(54),
             headline: Some("Test Team's story moves".to_string()),
         },
         "test-journalist-model".to_string(),
@@ -278,7 +277,6 @@ mod postgres_publication_fencing_tests {
         .await
         .unwrap();
         assert!(memory.published_reports.iter().any(|r| r.context == body));
-        assert_eq!(memory.previous_score, Some(71));
 
         clean(&pool).await;
     }

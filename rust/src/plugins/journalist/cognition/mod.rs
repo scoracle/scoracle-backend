@@ -76,7 +76,6 @@ pub struct Assignment {
     pub dispositions: Vec<Disposition>,
     pub deferred_ids: Vec<i64>,
     pub input_hash: String,
-    pub card_score_prev: Option<i16>,
 }
 
 /// Exact-text equality is duplication, never semantic corroboration. Preserve
@@ -182,7 +181,6 @@ pub fn prepare(
         dispositions,
         deferred_ids,
         input_hash,
-        card_score_prev: memory.previous_score,
     })
 }
 
@@ -316,7 +314,6 @@ pub struct NarrativesProduct {
     pub narratives: Vec<Narrative>,
     pub budget_truncated_ids: Vec<i64>,
     pub card_score: Option<i16>,
-    pub card_score_prev: Option<i16>,
     pub headline: Option<String>,
 }
 pub type NarrativesOutput = Generation<NarrativesProduct>;
@@ -370,7 +367,6 @@ impl Parser<NarrativesProduct> for EditionParser<'_> {
                     .0
                     .clamp(1, 99) as i16,
             ),
-            card_score_prev: self.assignment.card_score_prev,
             headline,
         }))
     }
@@ -388,7 +384,6 @@ pub async fn create(
                 narratives: Vec::new(),
                 budget_truncated_ids: assignment.deferred_ids.clone(),
                 card_score: None,
-                card_score_prev: assignment.card_score_prev,
                 headline: None,
             },
             studio.model_name().to_string(),

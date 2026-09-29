@@ -148,7 +148,6 @@ async fn main() -> Result<()> {
                         }),
                 )
                 .collect(),
-            previous_score: None,
             study: case.memory_study,
             // The exact link that attaches history to a report. A replay case
             // supplies the study directly, so storyline membership is whatever

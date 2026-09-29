@@ -74,7 +74,7 @@ struct Case {
     #[serde(default)]
     memories: Vec<journalist::CorpusItem>,
     #[serde(default)]
-    memory_study: Option<scoracle_cognition::evidence::memory_studies::Study>,
+    memory_study: Option<scoracle_cognition::plugins::memories::Study>,
 }
 #[tokio::main]
 async fn main() -> Result<()> {

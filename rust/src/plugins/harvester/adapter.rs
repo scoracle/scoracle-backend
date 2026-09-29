@@ -1100,27 +1100,14 @@ mod tests {
                     || prompt.contains("supporters cheered the plans for the next community event")
             );
             ensure!(!prompt.contains("Thin RSS description"));
-            let reaction_gate = options
+            ensure!(options
                 .format_schema
                 .as_ref()
-                .is_some_and(|schema| schema["properties"].get("has_reaction").is_some());
-            let response = if reaction_gate {
-                if prompt.contains("Supporters cheered the announcement at the ground")
-                    && prompt.contains("Entity: team Harvester Test Club")
-                {
-                    r#"{"has_reaction":true,"evidence_quote":"Supporters cheered the announcement at the ground."}"#
-                } else if prompt
-                    .contains("supporters cheered the plans for the next community event")
-                    && prompt.contains("Entity: team Harvester Test Club")
-                {
-                    r#"{"has_reaction":true,"evidence_quote":"supporters cheered the plans for the next community event"}"#
-                } else {
-                    r#"{"has_reaction":false,"evidence_quote":""}"#
-                }
-            } else if prompt.contains("Entity: team Harvester Test Club") {
-                r#"{"score":73,"headline":"Supporters welcome the event","body":"Supporters cheered the community announcement at the ground."}"#
+                .is_some_and(|s| s["properties"]["body"]["type"].is_array()));
+            let response = if prompt.contains("\"name\":\"Harvester Test Club\"") {
+                r#"{"body":"Supporters cheered the community announcement at the ground."}"#
             } else {
-                "null"
+                r#"{"body":null}"#
             };
             Ok((
                 GenerateResult {

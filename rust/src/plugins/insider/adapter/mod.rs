@@ -396,7 +396,7 @@ async fn load_pair_packet_material(
             if !framing.is_empty() {
                 framing.push('\n');
             }
-            framing.push_str(&render::framing(&view, Some(&part), render::Voice::Insider));
+            framing.push_str(&render::framing(&view, Some(&part)));
         }
     }
     Ok((facts, framing))

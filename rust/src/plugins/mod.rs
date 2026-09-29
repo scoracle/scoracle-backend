@@ -9,6 +9,7 @@ pub mod influencer;
 pub mod insider;
 pub mod investigator;
 pub mod journalist;
+pub mod memories;
 pub mod meta;
 pub mod oracle;
 pub mod scout;

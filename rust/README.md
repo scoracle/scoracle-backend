@@ -42,16 +42,23 @@ Older cutover documents describe three-sentence excerpts, broad forwarding, or a
 
 **Relevant identity + selected evidence + relevant memory + output structure + character voice + factual boundaries.**
 
-**Each file in a plugin owns one task.** Keep the context package modular:
+**Design pillar: the plugin assembles the world; the LLM articulates it statelessly.** A collection of good context elements is insufficient if the model has to work out what they are or reconstruct the world they describe. Every plugin's `prompt.rs` must provide assembly instructions: identify the elements actually supplied, explain what each represents, and explain how to use them together. These instructions accompany the prepared components on every articulation call, including calls with no history.
+
+The plugin supplies the world, the parts and the assembly manual: identity, fresh material, relevant studied history, voice, output form, factual boundaries, and any scoped tools with instructions for their use. The LLM assembles and articulates those supplied parts. It receives a complete assignment and focuses on faithful expression; it does not build its own world or depend on conversational state. `prompt.rs` explains the assembly while each component keeps ownership of its content. Journalist established this pattern; other plugin assemblies should follow it.
+
+**Each component owns one task.** Plugins select shared tools and supply their own policies and instructions. Keep the context package modular:
 
 | File | Owns |
 | --- | --- |
-| `meta.rs` | Canonical entity identity. |
-| `fresh.rs` | Newly fetched reporting, its attribution and publication time. |
+| Shared `plugins/meta.rs` | Canonical entity identity. |
+| Shared `support/source.rs` and plugin `fresh.rs` | Intact publisher reporting and its publication clock; plugin-owned source/title selection. |
 | `memories.rs` | Selection and presentation of relevant studied history from the relational world. |
-| `form.rs` | Output structure only: fields, types, counts, limits and structural parsing. |
-| A voice file such as `journalist.rs` | Tone. |
-| `prompt.rs` | The sole articulation instruction and assembly manual for the prepared inputs. |
+| Shared `support/form.rs` | Output form: fields, types, counts, limits, paragraph arrangement and structural parsing. |
+| Plugin `parser.rs` | Publication checks for that plugin over the shared decoded form. |
+| A voice file such as `journalist.rs` or `influencer.rs` | Tone. |
+| `prompt.rs` | The articulation task and assembly manual for the prepared inputs. |
+
+Form preserves the designed reader-facing arrangement and dimensions: short, complete sentences, paragraph turns, spacing and length limits. Its language describes how **faithful observations are arranged**, without requiring the model to make a claim, add significance or invent supporting detail. A supplied observation can stand alone. `prompt.rs` explains how the prepared components are used inside that form.
 
 These are responsibility boundaries, not a requirement to duplicate shared files in every plugin. The memory package contains prepared findings, rather than asking the model to query history, calculate comparisons or decide whether reporting is valid. Articulation calls are stateless and memory-informed: the plugin supplies historical context for each call, rather than asking the model to evolve a story or carry prior conversational state. Full retrieval provenance stays with the plugin. The [live memory inspection and DuckDB trial](docs/journalist-memory-world-2026-09-28.md) records the existing matrix, measured study performance and the remaining integration work.
 
@@ -71,6 +78,8 @@ The plugin constructs the bounded environment before the model call. Identity, d
 The [Journalist Window 2 completion](docs/HANDOFF-journalist-finish-2026-09-28.md) uses one natural articulation stage over a plugin-prepared observation package. Shared `form.rs` supplies keyed structure without content direction; `journalist.rs` contains tone only. `journalist/cognition/prompt.rs` owns the articulation task and explains how the pieces actually present fit together. Fresh-only calls receive the compact source-to-key instruction. When studied history is present, the manual identifies `identity`, `history`, `fresh`, `voice` and `form` and locates history inside the report text it contextualizes. It does not ask the model to discover a story or significance.
 
 Fresh source presentation lives in `journalist/cognition/fresh.rs`: fetched reporting, attribution, publication time and a request-local output key. SmolLM3 returns report text only. The plugin derives titles from complete source openings and the edition headline from the first selected title. Historical reporting remains distinct from fresh evidence and retains dated attribution, population window and publisher counts. Provenance and scoring stay outside the writing context. The n94 no-thinking replay passed manual fidelity review across fresh, conflicting, qualified, ordered, source-instruction and useful-memory cases; exact requests and outputs are retained under `fixtures/journalist/`. No generative claim-preparation or prose-judging stage was adopted. Commit `573d6a8e` was deployed on `archbox` on September 28, 2026; the API reported that revision, database health passed, and the API and cognition services plus their path watchers were active.
+
+The [Influencer local checkpoint](docs/HANDOFF-influencer-2026-09-28.md) follows the same component assembly, with one source-faithful call and an unknown numeric sentiment score. Shared form supplies one paragraph per observation, a 140-character paragraph ceiling and a 1,200-character body ceiling. The old reaction gate, packet palette, prior-score fallback, uncalled packet-block renderer, obsolete scored-memory selector and per-plugin content checks are removed. `prompt.rs` tells the cognition engine how to synthesize these supplied parts into emotional charge. Noisy fresh context belongs to Harvester calibration; Influencer adds no second eligibility task. Local code is verified; the v3 manual has not been live-replayed or deployed.
 
 *Thinking note:* SmolLM3 reasoning is operational when a route explicitly selects `think:true`; the Ollama boundary supplies the model-specific tagged-reasoning cue and keeps the trace outside published prose. The full n94 comparison confirmed real reasoning but found it slower, less faithful and capable of exhausting its larger allowance. Journalist therefore remains `think:false`; thinking is available for targeted evaluation if a later task demonstrates a need.
 
@@ -105,7 +114,7 @@ Memory is shared product infrastructure. Reuse the stored world, study implement
 
 ## Source map and operations
 
-`src/plugins/<name>/` owns each plugin's manifest, preparation, cognition where needed, publication adapter, and tests. `src/plugins/support/` supplies shared publishing form, guards, and resource profiles. The [fleet](src/application/fleet.rs) still includes legacy Editor until its removal; registration is not an endorsement of its target role.
+`src/plugins/<name>/` owns each plugin's manifest, preparation, cognition where needed, publication adapter, and tests. Plugins provide tools and instructions and may share tools. `src/plugins/support/form.rs` is the shared output-form tool: shape, paragraph arrangement, dimensions, decoding and structural validation. `support/source.rs` presents intact publisher reporting and detects explicit instruction overrides; Journalist and Influencer consume it. Plugins select the tools and supply content instructions, selection policy and publication guards. Canonical identity lives in `plugins/meta.rs`; the shared memory tool lives in `plugins/memories.rs`. Plugins choose reporting or match-statistic tables and the request scope; one DuckDB runner handles execution and provenance. Plugin-local memory files retain their request and presentation policy. `src/plugins/support/` also supplies guards and resource profiles. The [fleet](src/application/fleet.rs) still includes legacy Editor until its removal; registration is not an endorsement of its target role.
 
 `src/studio/` holds generic inference sessions, generation envelopes, and plugin/tool contracts. `src/application/` assembles concrete dependencies and capability brokers, with generic durable work transport under `application/queue/`. `src/evidence/` holds shared concrete loaders. `src/runtime/` holds configuration, database connections, routing, and providers. `src/evaluation/` and the `eval` binary contain checks and replays whose legacy paths are included in the alignment cleanup. `statcommentary` and `factsweep` are explicit non-queue entry points into their owning plugins.
 
@@ -116,5 +125,7 @@ Use [development guidance](../run_docs/DEVELOPMENT.md), the [runbook](../run_doc
 ## Adding a plugin
 
 Add a package under `src/plugins/<name>/` with its manifest and adapter, plus cognition only where inference is needed. Register its manifest in `application/fleet.rs` and bind concrete dependencies in `application/plugins.rs`. The registry validates task ownership, route/grant consistency, and resource declarations at boot.
+
+Share tools across plugins when their working logic is the same. Reuse `meta.rs`, `memories.rs`, `support/form.rs` and `support/source.rs` where applicable; keep dataset selection, scope, voice and assembly instructions with the plugin. A plugin provides the parts and the manual, while cognition synthesizes and articulates the supplied world.
 
 Define context, tools, structure, memory, voice where applicable, and factual boundaries before adding a model call. Add a database migration only for genuinely new persisted domain data. Prefer removing duplication to adding a workflow language, compatibility layer, or new abstraction.

@@ -1,0 +1,33 @@
+{
+  "status": "fidelity_and_abstention_gates_open",
+  "scope": "20 synthetic development cases, refined during this session; not held-out or human gold",
+  "model": "alibayram/smollm3:latest",
+  "calls_per_case": 1,
+  "schema_parsed": 20,
+  "expected_dispositions": {
+    "correct": 12,
+    "incorrect": 8
+  },
+  "nonemotional_sources_rendered_instead_of_abstained": [
+    "schedule",
+    "forecast",
+    "tone",
+    "negated",
+    "other",
+    "old",
+    "uncertain",
+    "history-not-emotion"
+  ],
+  "remaining_fidelity_issues": {
+    "anger": "Adds disappointment with results beyond the supplied anger about performance.",
+    "forecast": "Adds that the announcement will be made soon; the source supplies no announcement time.",
+    "other": "Narrows delight with the other team to delight with its performance; the source does not specify why."
+  },
+  "improved": "No invented crowds, direct-speech quotations or gender in the final replay. Historical reporting stays attributed to its earlier source.",
+  "median_prompt_tokens": 351.5,
+  "median_output_tokens": 31.0,
+  "median_wall_seconds": 0.5940437091048807,
+  "max_body_characters": 181,
+  "total_wall_seconds": 12.584987645968795,
+  "deployed": false
+}

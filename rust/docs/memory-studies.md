@@ -7,9 +7,33 @@ Implemented locally on September 28, 2026. Journalist now requests studied histo
 before articulation. No production deployment, data writes, precompute job or
 new memory database was introduced.
 
+## Shared tool ownership
+
+The September 29 extraction places the shared tool at `plugins/memories.rs`,
+alongside `plugins/meta.rs`. Reporting and match-statistic table adapters live in
+`plugins/memories/` and use the same DuckDB process runner. Journalist and
+Influencer request this tool directly; the replay examples use the same API.
+Plugin-local `memories.rs` files contain request and presentation policy, not
+another engine. Influencer's dated-report selection and whole-observation budget
+also run through the shared `ReportingHistory` tool.
+
+The plugin chooses the study (and therefore its source tables), subject, window,
+exclusions and bounds. Reporting reads source articles indexed by Graph/story
+membership; match statistics read fixtures, event team stats and stat definitions.
+Another table population belongs in another data adapter using the same runner,
+not another memory engine or another LLM responsibility.
+
+Local extraction verification: `cargo test --lib --offline` passed (529 tests,
+72 ignored); `cargo check --all-targets --offline` and `git diff --check` passed.
+Database/DuckDB integration tests were not rerun for this extraction. No deployment ran.
+
+This extraction preserves the existing datasets. Reporting still supplies only
+headlines, publishers and dates; historical source passages remain the next input
+improvement, not something cognition reconstructs.
+
 ## Request → snapshot → finding → context
 
-`src/evidence/memory_studies` reads a bounded, repeatable-read/read-only Postgres
+`src/plugins/memories.rs` reads a bounded, repeatable-read/read-only Postgres
 snapshot for the requested entity and time range. It invokes
 `go/cmd/memory-study`, which uses the **existing Go DuckDB package**. The helper
 receives JSON on stdin, has no database attachment, and returns typed findings.

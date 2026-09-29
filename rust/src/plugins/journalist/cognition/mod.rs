@@ -24,36 +24,6 @@ pub const MAX_REPORTS: usize = 3;
 pub const SOURCE_BUDGET_BYTES: usize = 6000;
 pub const CONTEXT_BUDGET_BYTES: usize = SOURCE_BUDGET_BYTES + memories::BUDGET_BYTES;
 
-/// Fail closed on explicit attempts in publisher text to supersede the writing
-/// contract. This is an admission boundary, not semantic editing of source text.
-pub(super) fn contains_instruction_override(source: &str) -> bool {
-    let normalized = source
-        .chars()
-        .map(|character| {
-            if character.is_alphanumeric() {
-                character.to_ascii_lowercase()
-            } else {
-                ' '
-            }
-        })
-        .collect::<String>()
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ");
-    [
-        "ignore previous instructions",
-        "ignore all previous instructions",
-        "ignore any previous instructions",
-        "ignore the previous instructions",
-        "disregard previous instructions",
-        "disregard the previous instructions",
-        "override previous instructions",
-        "override the previous instructions",
-    ]
-    .iter()
-    .any(|marker| normalized.contains(marker))
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CorpusItem {
     pub id: i64,
@@ -147,7 +117,7 @@ pub fn prepare(
         );
         let reason = if item.context.trim().is_empty() || item.source.trim().is_empty() {
             Some("missing_source_material")
-        } else if contains_instruction_override(&item.context) {
+        } else if crate::plugins::support::source::contains_instruction_override(&item.context) {
             Some("source_instruction_override")
         } else if item.published_at_epoch.is_none() {
             Some("unknown_publication_time")

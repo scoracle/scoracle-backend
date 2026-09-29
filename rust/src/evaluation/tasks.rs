@@ -17,10 +17,7 @@ use crate::plugins::graph::adapter::load_graph_article_context;
 use crate::plugins::graph::cognition::{
     build_graph_prompt, graph_opts, GraphCandidate, GraphParser, GRAPH_PROMPT_VERSION,
 };
-use crate::plugins::influencer::adapter::load_vibe_context;
-use crate::plugins::influencer::cognition::{
-    build_sentiment_prompt, parse_vibe_reply, VIBE_NUM_PREDICT,
-};
+use crate::plugins::influencer::cognition::{VibeParser, VIBE_NUM_PREDICT};
 use crate::plugins::insider::adapter::{
     build_pair_request, load_candidates, team_relationship, PairBuild,
 };
@@ -107,8 +104,8 @@ pub fn lens_parameters(name: &str) -> Option<LensParameters> {
         }),
         "vibe" => Some(LensParameters {
             operator: "The Influencer",
-            mandate: "Farm the engagement: find the emotion running through the entity's narratives and ride it into the felt read of the moment.",
-            credibility_guard: "Separate interactable mood from durable truth; the emotion must trace to the corpus — do not invent a narrative hook.",
+            mandate: "Articulate the plugin's supplied publisher reporting with its attribution and qualifications.",
+            credibility_guard: "Express feelings only when supplied by the source. History is context; sentiment remains unknown.",
         }),
         "rating" => Some(LensParameters {
             operator: "The Scout",
@@ -184,7 +181,10 @@ impl CaseVerdict {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Expect {
-    // vibe fixture score band (per-case boolean stand-in for the aggregate MAE axis).
+    /// Whether the articulation should pass instead of publish a card.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub abstain: Option<bool>,
+    // Score bands for products that supply a score.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub score_min: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -502,11 +502,9 @@ pub fn all_task_names() -> &'static [&'static str] {
 }
 
 // ---------------------------------------------------------------------------
-// VibeTask — behavior-preserving port of the original hardcoded eval path.
+// VibeTask — the same source package and score-free parser as production.
 // ---------------------------------------------------------------------------
-
 pub struct VibeTask;
-
 #[async_trait]
 impl LensTask for VibeTask {
     fn name(&self) -> &'static str {
@@ -516,8 +514,7 @@ impl LensTask for VibeTask {
         crate::plugins::influencer::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
-        // Archived open-prose fixtures; production now uses a finite palette.
-        "v36"
+        crate::plugins::influencer::cognition::VIBE_PROMPT_VERSION
     }
     fn gen_options(&self, temperature: f64) -> GenerateOptions {
         crate::plugins::influencer::cognition::generation_options(temperature, 0, VIBE_NUM_PREDICT)
@@ -528,133 +525,46 @@ impl LensTask for VibeTask {
         _models: &Models,
         e: &EntitySpec,
     ) -> Result<Option<String>> {
-        let name = lookup_entity_name(pool, &e.entity_type, e.entity_id, &e.sport).await?;
-        let context = load_vibe_context(pool, &e.entity_type, e.entity_id, &name, &e.sport).await?;
-        if context.empty() {
+        let subject = crate::plugins::meta::EntityMeta {
+            name: lookup_entity_name(pool, &e.entity_type, e.entity_id, &e.sport).await?,
+            entity_type: e.entity_type.clone(),
+            entity_id: e.entity_id,
+            sport: e.sport.to_uppercase(),
+        };
+        let sources = crate::plugins::harvester::delivery::load_for_character(
+            pool,
+            crate::plugins::influencer::manifest::MANIFEST.id.as_str(),
+            &subject.entity_type,
+            subject.entity_id,
+            &subject.sport,
+        )
+        .await?;
+        let Some(source) = sources.last() else {
             return Ok(None);
-        }
-        Ok(Some(build_sentiment_prompt(
-            &e.entity_type,
-            &name,
-            &e.sport,
-            &context.packets,
-            Some(&context.memories.render()?),
-        )))
+        };
+        let (assignment, _) = crate::plugins::influencer::adapter::harvester::prepare_assignment(
+            pool,
+            subject,
+            source,
+            crate::plugins::influencer::adapter::harvester::now(),
+        )
+        .await?;
+        Ok(assignment.map(|a| crate::plugins::influencer::cognition::assembled_prompt(&a)))
     }
-    fn evaluate(&self, raw: &str, label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
-        match parse_vibe_reply(raw) {
-            Ok((s, hook, v)) => {
-                // Score the prose that production serves, after the shared structural scrub.
-                let v = crate::plugins::support::guards::clean_served_prose(&v);
-                let mut checks = Vec::new();
-                // Contract-level invariants (the MOMENTUM_BANNED_PHRASES shape, folded 08-19):
-                // the HOOK contract and the body's global bans are enforced in production by
-                // `VibeParser`'s guards — the gate asserts the SAME rules, one check each,
-                // instead of the per-fixture `hook_*` expect entries they replaced. (Those
-                // axes carried the v17 D-T45 gate growth; the invariants inherit that duty.)
-                // The gate measures what SHIPS (the review-pass alignment, 2026-08-23):
-                // production runs the hook through `settle_title` — a two-beat overrun
-                // salvages to its first beat and serves — so a raw-hook check was redding
-                // titles the card actually carries, clean. Red only when settlement DROPS
-                // the title; name a salvage in the detail so the prose is still visible.
-                let settled =
-                    crate::plugins::support::guards::settle_title("gate", hook.as_deref());
-                checks.push(PropertyCheck {
-                    name: "hook_contract".into(),
-                    pass: settled.is_some(),
-                    detail: match (&hook, &settled) {
-                        (None, _) => "hook=MISSING".into(),
-                        (Some(h), None) => format!(
-                            "{} (hook={h:?}, unsalvageable — ships titleless)",
-                            crate::plugins::support::guards::hook_violation(h).unwrap_or("dropped")
-                        ),
-                        (Some(h), Some(s)) if s != h.trim() => format!("salvaged to {s:?}"),
-                        (Some(_), Some(_)) => String::new(),
-                    },
-                });
-                checks.push(product_name_check(&v));
-                if let Some(x) = expect {
-                    if let Some(min) = x.score_min {
-                        checks.push(PropertyCheck {
-                            name: "score_ge".into(),
-                            pass: s >= min,
-                            detail: format!("score={s} ≥ {min}"),
-                        });
-                    }
-                    if let Some(max) = x.score_max {
-                        checks.push(PropertyCheck {
-                            name: "score_le".into(),
-                            pass: s <= max,
-                            detail: format!("score={s} ≤ {max}"),
-                        });
-                    }
-                    for s in x.prose_includes.iter().flatten() {
-                        checks.push(PropertyCheck {
-                            name: format!("prose_includes:{s}"),
-                            pass: contains_ci(&v, s),
-                            detail: String::new(),
-                        });
-                    }
-                    for group in x.prose_includes_any.iter().flatten() {
-                        let hit: Vec<&str> = group
-                            .split('|')
-                            .filter(|s| !s.is_empty() && contains_ci(&v, s))
-                            .collect();
-                        checks.push(PropertyCheck {
-                            name: format!("prose_includes_any:[{group}]"),
-                            pass: !hit.is_empty(),
-                            detail: if hit.is_empty() {
-                                "no listed synonym voiced".into()
-                            } else {
-                                format!("voiced {hit:?}")
-                            },
-                        });
-                    }
-                    for s in x.prose_excludes.iter().flatten() {
-                        checks.push(PropertyCheck {
-                            name: format!("prose_excludes:{s}"),
-                            pass: !contains_ci(&v, s),
-                            detail: String::new(),
-                        });
-                    }
-                    let word_count = v.split_whitespace().count() as i32;
-                    if let Some(min) = x.prose_min_words {
-                        checks.push(PropertyCheck {
-                            name: "prose_words_ge".into(),
-                            pass: word_count >= min,
-                            detail: format!("words={word_count} ≥ {min}"),
-                        });
-                    }
-                    if let Some(max) = x.prose_max_words {
-                        checks.push(PropertyCheck {
-                            name: "prose_words_le".into(),
-                            pass: word_count <= max,
-                            detail: format!("words={word_count} ≤ {max}"),
-                        });
-                    }
-                    if let Some(max) = x.total_sentences_max {
-                        let total = sentence_runs(&v);
-                        checks.push(PropertyCheck {
-                            name: "total_sentences_le".into(),
-                            pass: total <= max,
-                            detail: format!("sentences={total} ≤ {max}"),
-                        });
-                    }
-                }
-                CaseVerdict {
-                    parsed: true,
-                    abs_err: label.map(|l| (s as f64 - l).abs()),
-                    checks,
-                    display: match &hook {
-                        Some(h) => format!("score={s} | {h} — {v}"),
-                        None => format!("score={s} | {v}"),
-                    },
-                }
-            }
+    fn evaluate(&self, raw: &str, _label: Option<f64>, _expect: Option<&Expect>) -> CaseVerdict {
+        match VibeParser.parse(raw) {
+            Ok(reply) => CaseVerdict {
+                parsed: true,
+                abs_err: None,
+                checks: vec![],
+                display: reply
+                    .and_then(|reply| reply.body)
+                    .unwrap_or_else(|| "empty reading".into()),
+            },
             Err(_) => CaseVerdict {
                 parsed: false,
                 abs_err: None,
-                checks: Vec::new(),
+                checks: vec![],
                 display: "unparseable".into(),
             },
         }
@@ -2085,92 +1995,21 @@ mod tests {
         );
     }
 
-    // --- vibe MAE axis ------------------------------------------------------------
-
     #[test]
-    fn vibe_evaluate_computes_abs_err() {
-        let v = VibeTask.evaluate("SCORE: 30\nVIBE: grim outlook", Some(80.0), None);
-        assert!(v.parsed);
-        assert_eq!(v.abs_err, Some(50.0));
-    }
-
-    #[test]
-    fn vibe_unparseable_has_no_abs_err() {
-        let v = VibeTask.evaluate("no score here at all", Some(80.0), None);
-        assert!(!v.parsed);
-        assert_eq!(v.abs_err, None);
-    }
-
-    #[test]
-    fn vibe_score_band_checks() {
-        let x = Expect {
-            score_max: Some(40),
-            ..Default::default()
-        };
+    fn vibe_evaluation_uses_score_free_production_parser() {
         assert!(VibeTask
-            .evaluate(
-                "SCORE: 30\nHOOK: The slide is real\nVIBE: grim",
-                None,
-                Some(&x)
-            )
+            .evaluate(r#"{"body":"Morgan said she felt hopeful."}"#, None, None)
             .all_checks_pass());
-        assert!(!VibeTask
-            .evaluate(
-                "SCORE: 70\nHOOK: The room is up\nVIBE: bright",
-                None,
-                Some(&x)
-            )
-            .all_checks_pass());
-    }
-
-    #[test]
-    fn vibe_grounding_accepts_equivalent_surface_language() {
-        let x = Expect {
-            prose_includes_any: Some(vec!["goals|hat-trick".into()]),
-            ..Default::default()
-        };
-        assert!(VibeTask
-            .evaluate(
-                "SCORE: 80\nHOOK: Fenn lifts the room\nVIBE: Fenn's hat-trick has the away end singing.",
-                None,
-                Some(&x)
-            )
-            .all_checks_pass());
-    }
-
-    #[test]
-    fn vibe_hook_contract_is_a_global_invariant() {
-        // The hook contract measures what SHIPS (review-pass alignment, 2026-08-23): the
-        // check runs `settle_title`, exactly as `VibeParser` does — a hook-less reply fails,
-        // a clean three-line passes, an unsalvageable violation fails, and a two-beat
-        // overrun that salvages to its first beat PASSES because that beat is the title
-        // the card actually carries.
-        assert!(VibeTask
-            .evaluate("SCORE: 30\nHOOK: The slide is real\nVIBE: grim", None, None)
-            .all_checks_pass());
-        assert!(!VibeTask
-            .evaluate("SCORE: 30\nVIBE: grim", None, None)
-            .all_checks_pass());
-        // A colon hook PASSES since 2026-08-24 — punctuation is voice, and this gate measures
-        // exactly what production enforces, which is now length alone.
-        assert!(VibeTask
-            .evaluate("SCORE: 30\nHOOK: Breaking: a move\nVIBE: grim", None, None)
-            .all_checks_pass());
-        // An overlong hook with no beat to cut is still a failure.
-        assert!(!VibeTask
-            .evaluate(
-                &format!("SCORE: 30\nHOOK: {}\nVIBE: grim", "x".repeat(200)),
-                None,
-                None
-            )
-            .all_checks_pass());
-        assert!(VibeTask
-            .evaluate(
-                "SCORE: 30\nHOOK: The slide is real now, but the room refuses to see it coming\nVIBE: grim",
-                None,
-                None
-            )
-            .all_checks_pass());
+        assert!(VibeTask.evaluate(r#"{"body":null}"#, None, None).parsed);
+        assert!(
+            !VibeTask
+                .evaluate(
+                    r#"{"score":75,"headline":"Hope","body":"Hope."}"#,
+                    None,
+                    None
+                )
+                .parsed
+        );
     }
 
     // --- transfer FP/TP adjudication rubric --------------------------------------

@@ -3,7 +3,7 @@ use anyhow::{ensure, Result};
 use sha2::{Digest, Sha256};
 use sqlx::{PgPool, Row};
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct SourceContext {
     pub classification_id: i64,
     pub article_id: i64,

@@ -26,6 +26,20 @@ Within that world, articulation includes natural expression, coherent synthesis,
 
 The question for SmolLM3 is **“Given this reality, how should it sound?”**, never **“What is reality?”** Evaluate every inference with: **“Did the model express the supplied world well without adding anything that was not there?”** Unsupported facts, statistics, events, relationships, and assumptions are interface violations, not an accepted consequence of model size.
 
+The plugin supplies the world, the parts and the assembly manual. The LLM
+assembles and articulates those supplied parts according to the manual. Shared
+tools can supply presentation and decoding mechanics; plugins retain evidence
+selection, admissibility, content instructions and publication policy.
+
+The September 29 clarification is binding: the LLM is the cognition engine only.
+It synthesizes and articulates the supplied world, with zero world-building
+responsibility. `meta.rs` identifies the subject; fresh material, selected memory,
+form and character supply the parts; `prompt.rs` explains their assembly. Noisy
+fresh material belongs to Harvester calibration. Do not compensate by adding a
+second eligibility task, content-policing guards, correction layers or elaborate
+automated prose/disposition benchmarks inside the character. Preserve the simple
+transport, requested form, provenance and publication mechanics.
+
 - **System 1:** cheap probabilistic relevance, classification, routing, filtering, and downstream eligibility over plugin-selected inputs. Laya is the current Harvester classifier. It returns signals and uncertainty; plugin policy decides what those signals permit. Do not use the LLM for these decisions when a cheaper System 1 mechanism can perform them reliably. Deterministic eligibility checks stay in code. Unsupported classification capabilities must be measured or implemented explicitly; do not assume Laya already replaces every generative judgment.
 - **Plugins:** own evidence selection, tool scope, product structure, memory selection, voice, permitted claims, scores, admission policy, and publication boundaries. A prompt located inside a plugin does not establish ownership if the model still chooses what is true, eligible, scored, or persisted.
 - **SmolLM3:** articulates material already selected and bounded by the plugin. It must not serve as a second relevance filter, invent evidence, resolve canonical identities, compute scores, decide database facts, or promote its own prior prose into evidence.
@@ -65,7 +79,7 @@ Use this single plan as the durable index. Start each plugin in a fresh context 
 | --- | --- | --- | --- |
 | 1 | Harvester / `harvester` | Intake, source extraction, System 1 filtering, delivery contract | V7 implemented and verified; current behavior accepted; calibration deferred; deployment separate |
 | 2 | Journalist / `narratives` | Stateless articulation of fresh reporting and studied history | n94 / fresh v7 complete and deployed at `573d6a8e`; fidelity, memory and service-health gates passed |
-| 3 | Influencer / `vibe` | Observed emotional evidence and mood articulation | Not started |
+| 3 | Influencer / `vibe` | Emotional synthesis of supplied fresh context and memory | Simplified parts/manual assembly implemented locally; no second eligibility task; not deployed |
 | 4 | Scout / `rating` | Measured performance, source triggers, statistical voice | Not started |
 | 5 | Insider / `transfers` | Relationship evidence, transfer state, heat, identity obligations | Not started |
 | 6 | Analyst / `momentum` | Scout/Influencer synthesis and supported direction | Not started |
@@ -89,6 +103,7 @@ No plugin is marked complete while an unexplained legacy production fallback rem
 
 ### Shared acceptance gates
 
+- Shared `src/plugins/support/form.rs` supplies reusable output shape and readability tools, without prescribing claims, supporting detail or conclusions. Plugins provide tools and instructions and may share tools; consuming a common form does not move domain policy out of the plugin. Each observation gets its own paragraph of at most 140 characters, including spaces; the body ceiling remains 1,200 characters. Content scope and factual qualifications belong to the plugin's prepared world and assembly instructions. Influencer consumes and enforces this shared observation form; carry it into the remaining character audits without treating their existing contracts as migrated.
 - Every published claim traces to selected evidence or an explicitly defined computation. An exact quote proves containment, not entity relevance or semantic support by itself.
 - Articulation may change wording, emphasis, and compression, but must preserve material meaning, attribution, uncertainty, and required qualifications. Unsupported invention fails the interface. Test factual additions and meaning lost through omission alongside naturalness and voice.
 - Scores, entity IDs, source IDs, dates, units, and uncertainty cannot be changed by articulation. Missing stays unknown. Absence, measured zero, abstention, acquisition failure, and classifier failure remain distinct.
@@ -259,21 +274,24 @@ Do not reopen Harvester calibration or begin Window 3 in this window.
 
 ## Window 3 — Influencer
 
-**Purpose:** articulate supported human emotion around the entity, with clear scope and uncertainty.
+**Purpose:** synthesize the supplied world and faithfully articulate its emotional charge around the identified entity.
 
-**Start with:** `src/plugins/influencer/adapter/{harvester,mod}.rs`; `cognition/{mod,inputs,brief}.rs`; sentiment/memory loaders and tests.
+**Parts and manual:** shared `plugins/meta.rs` supplies subject identity; `influencer/cognition/fresh.rs` presents intact publisher context with shared source tools; `influencer/memories.rs` selects dated historical context; shared `support/form.rs` supplies structure and dimensions; `influencer/cognition/influencer.rs` supplies voice; `influencer/cognition/prompt.rs` explains how to assemble the parts.
 
 **Work:**
 
-1. Audit the generative `decide_reaction` gate and subsequent source-card call. Move eligibility filtering to a measured System 1 predicate and plugin policy; do not count a SmolLM3 boolean response as articulation.
-2. Define the evidence unit: who reacted, to what, when, quoted support, and whether it represents one speaker or a broader observed reaction. Neutral scheduling, reporting tone, and predicted reactions must not become observed mood.
-3. Own register, score, evidence sufficiency, and abstention before articulation. Audit packet-register scoring and the no-current-material/previous-score fallback so old sentiment cannot masquerade as a fresh observation.
-4. Select dated continuity without letting old cards create new emotional evidence. Give the character an expressive voice within the observed scope; do not impose a crowd-wide mood from one quote.
-5. Remove superseded reaction prompts/corrections, packet blocks, legacy loaders, and duplicate source/card paths after caller migration. Keep article disposition and product provenance atomic.
+1. Keep one cognition call over the assembled world. Harvester selects incoming material; its remaining calibration noise does not create a second reaction/eligibility task for the Influencer model.
+2. Keep the components complete and their roles clear. The manual asks for synthesis of fresh material and relevant memory, preserving supplied speakers, timing, scope and uncertainty. The model adds expression and synthesis inside that world.
+3. Keep sentiment unknown without a supplied measurement. Select historical context in the plugin and preserve source lineage. Inspect missing parts before expanding instructions or adding guards.
+4. Prune superseded packet, score, reaction-gate, content-guard and evaluation branches. Preserve one shared structural decoder, provenance, source freshness, publication fencing and atomic disposition.
 
-**Verify:** explicit cheering, criticism, a single quoted feeling, neutral administrative news, predicted excitement, conflicting reactions, stale memory, and empty input. Measure missed useful reactions and false mood claims as well as latency and the number of model calls.
+**Review:** inspect the supplied parts and the resulting synthesis together. Noisy source context is an intake observation for Harvester. A nullable body remains a transport capability; there is no benchmark requiring the cognition engine to classify neutral sources as passes. Existing paragraph and body dimensions remain the designed form.
 
-**Exit:** filtering and sentiment policy precede articulation; every mood claim has an attributable scope; no generative eligibility gate or packet-only scoring fallback remains in the completed path.
+**Local checkpoint:** [the current handoff](HANDOFF-influencer-2026-09-28.md) records `vibe-frame-v3`, the simplified manual, shared form decoder and pruned semantic/disposition checks. Earlier model probes remain historical evidence, not the current architecture or an outstanding abstention decision. The new manual has not been live-replayed or deployed.
+
+**Missing part to consider:** historical memory currently contains only headlines, publishers and dates. It cannot supply the speaker detail and qualifications found only in the source passage. If fuller emotional continuity is needed, supply bounded historical source passages through the memory component rather than ask the model to reconstruct them.
+
+**Exit:** one stateless cognition call over plugin-supplied parts and assembly instructions; no world-building, second eligibility call, numeric sentiment invention or packet fallback. Code alignment, product observation and deployment remain separately recorded.
 
 ## Window 4 — Scout
 
@@ -425,11 +443,17 @@ delivery release ran. The earlier [alignment report](harvester-alignment-2026-09
 and [v6 real-source smoke](harvester-alignment-smoke-2026-09-27.md) remain historical
 evidence, not the current scoring contract or an outstanding calibration gate.
 
-## Next fresh context: finish Journalist
+## Shared memory tool — September 29
 
-Use [the checkpoint handoff](HANDOFF-journalist-finish-2026-09-28.md). Read the
-ownership contract, the current Window 2 section, README's memory contract and the
-n47 context audit. Continue Journalist and necessary callers from the existing
-implementation; do not restart the audit or move to Influencer yet. Harvester's
-current source contract is **v7**, with shared entity metadata and calibration
-accepted for now. The historical v6 references are not the current handoff.
+`plugins/memories.rs` now owns the DuckDB runner, snapshot loading and provenance,
+with reporting and match-statistic adapters in `plugins/memories/`. Plugins choose
+the dataset, entity, window and bounds; local memory files retain request and
+presentation policy. Influencer's compact dated-report selection is shared too.
+Journalist, Influencer and replay callers use the shared API. Legacy
+`evidence/memories.rs` consumers remain for their respective alignment windows.
+Historical source passages remain the next memory input priority: the extraction
+does not add missing passages or assign reconstruction to cognition.
+
+## Next fresh context: Scout
+
+Use Window 4 and the shared ownership contract. Carry forward the simple parts-and-manual pattern from [the Influencer handoff](HANDOFF-influencer-2026-09-28.md): subject identity, fresh material, selected memory, form, voice and assembly instructions. Inspect missing parts before adding model responsibilities or policing layers. Harvester remains v7 with calibration accepted for now; Influencer v3 is local and not deployed. Do not reopen its retired abstention/classifier choice.

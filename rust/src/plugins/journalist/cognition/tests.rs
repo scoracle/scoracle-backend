@@ -287,7 +287,7 @@ fn explicit_instruction_overrides_are_dispositioned_before_articulation() {
 
 #[test]
 fn historical_instruction_overrides_are_not_admitted_to_articulation() {
-    use crate::evidence::memory_studies::{Finding, Observation, Receipt, Study};
+    use crate::plugins::memories::{Finding, Observation, Receipt, Study};
 
     let mut memory = Continuity {
         study: Some(Study {
@@ -363,7 +363,7 @@ fn headline_length_cannot_displace_the_supported_opening() {
 }
 #[test]
 fn studied_memory_is_served_with_scope_without_inflating_fresh_evidence() {
-    use crate::evidence::memory_studies::{Finding, Observation, PublisherCount, Receipt, Study};
+    use crate::plugins::memories::{Finding, Observation, PublisherCount, Receipt, Study};
     let receipt = Receipt {
         version: "reporting-frequency-v1".into(),
         subject: subject(),

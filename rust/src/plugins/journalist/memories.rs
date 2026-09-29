@@ -16,10 +16,10 @@ pub struct Continuity {
     /// Publication history is used only for exact fresh-source deduplication.
     pub reports: Vec<CorpusItem>,
     pub previous_score: Option<i16>,
-    pub study: Option<crate::evidence::memory_studies::Study>,
+    pub study: Option<crate::plugins::memories::Study>,
 }
 
-pub use crate::evidence::memory_studies::{Finding, Receipt};
+pub use crate::plugins::memories::{Finding, Receipt};
 
 #[derive(Serialize)]
 pub(super) struct MemoryReport<'a> {
@@ -39,7 +39,7 @@ pub(super) struct MemoryGroup<'a> {
     from: String,
     before: String,
     distinct_recorded_articles: usize,
-    publisher_article_counts: &'a [crate::evidence::memory_studies::PublisherCount],
+    publisher_article_counts: &'a [crate::plugins::memories::PublisherCount],
     reports: Vec<MemoryReport<'a>>,
 }
 
@@ -106,11 +106,9 @@ pub(super) fn select(
     }
     let mut selected = Vec::new();
     for finding in &study.findings {
-        if finding
-            .reports
-            .iter()
-            .any(|report| super::cognition::contains_instruction_override(&report.headline))
-        {
+        if finding.reports.iter().any(|report| {
+            crate::plugins::support::source::contains_instruction_override(&report.headline)
+        }) {
             continue;
         }
         if finding.reports.iter().any(|r| {
@@ -158,7 +156,7 @@ pub async fn load_for_assignment(
     {
         let ids = fresh.iter().map(|r| r.id).collect::<Vec<_>>();
         continuity.study = Some(
-            crate::evidence::memory_studies::reporting(
+            crate::plugins::memories::reporting(
                 pool,
                 subject,
                 before - LOOKBACK_SECONDS,

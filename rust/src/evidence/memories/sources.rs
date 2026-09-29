@@ -311,7 +311,7 @@ pub async fn load(pool: &PgPool, req: MemoryRequest<'_>) -> Result<Package> {
         }
         add(&mut package,"cohort trajectory",false,context,&["Ratings are season composites on a common scale; delta is this season's rating minus the prior season's rating in the same competition. delta_percentile ranks that delta among the league cohort's own season-over-season movements (median and interquartile range supplied), including this entity in the cohort. A percentile of movement is not a percentile of ability: a large rise from a low base, a fall after a peak and a league-wide shift all move the same delta. Prior-season comparisons inherit that season's stored sample; a missing prior season leaves the movement unknown. The snapshot is derived from stored ratings and carries no playing-time, fitness or tactical cause."]);
     }
-    if !historical && matches!(req.mission, Mission::Influencer | Mission::Insider) {
+    if !historical && matches!(req.mission, Mission::Insider) {
         let rows = sqlx::query(include_str!("moves.sql"))
             .bind(req.entity_type)
             .bind(req.entity_id)
@@ -331,9 +331,7 @@ pub async fn load(pool: &PgPool, req: MemoryRequest<'_>) -> Result<Package> {
             ));
         }
         add(&mut package,"recorded moves",false,moves,&["Record/application dates are observation dates, not exact transfer effective dates."]);
-        if req.include_storyline_history
-            && matches!(req.mission, Mission::Influencer | Mission::Insider)
-        {
+        if req.include_storyline_history {
             let rows = sqlx::query(include_str!("stories.sql"))
                 .bind(req.entity_type)
                 .bind(req.entity_id)
@@ -352,7 +350,6 @@ pub async fn load(pool: &PgPool, req: MemoryRequest<'_>) -> Result<Package> {
     // so writing a new card cannot create an endless self-triggering refresh loop.
     if !historical {
         let source = match req.mission {
-            Mission::Influencer => Some(("vibe_scores", "sentiment", "prompt", "input_news_ids")),
             Mission::Insider if req.pair_team_id.is_none() => {
                 Some(("insider_scores", "score", "read", "ARRAY[]::bigint[]"))
             }

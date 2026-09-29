@@ -2,7 +2,7 @@
 //! SCORACLE_MEMORY_DATABASE_URL=... SCORACLE_MEMORY_STUDY_BIN=... cargo run
 //! --example memory_request -- REQUEST.json
 use anyhow::{Context, Result};
-use scoracle_cognition::{evidence::memory_studies, plugins::meta::EntityMeta};
+use scoracle_cognition::plugins::{memories, meta::EntityMeta};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -61,7 +61,7 @@ async fn main() -> Result<()> {
             predicates,
             exclude,
         } => serde_json::to_value(
-            memory_studies::reporting_scope(
+            memories::reporting_scope(
                 &pool,
                 &subject,
                 from,
@@ -82,7 +82,7 @@ async fn main() -> Result<()> {
             split,
             before,
         } => serde_json::to_value(
-            memory_studies::statistic::team_matches(
+            memories::statistic::team_matches(
                 &pool, &subject, &metric, league_id, season, from, split, before,
             )
             .await?,

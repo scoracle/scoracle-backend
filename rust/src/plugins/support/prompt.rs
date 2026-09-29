@@ -25,7 +25,6 @@ pub const HOOK: &str =
 pub enum CardFormat {
     Scout,
     Analyst,
-    Influencer,
     Insider,
     Oracle,
 }
@@ -56,7 +55,6 @@ pub fn structured_correction(error: &anyhow::Error) -> Option<String> {
 pub fn compose(character: &str, format: CardFormat) -> String {
     let output = match format {
         CardFormat::Scout | CardFormat::Analyst => "Return JSON with headline (the hook) and body (the paragraphs). Preserve paragraph breaks as escaped newlines.",
-        CardFormat::Influencer => "Return JSON with headline (the hook), body (the paragraphs) and score (an integer from 1 to 100). Preserve paragraph breaks as escaped newlines.",
         CardFormat::Insider => "Return JSON with read containing the body, headline containing the hook, and score containing an integer from 1 to 99. Preserve paragraph breaks inside read as escaped newlines.",
         CardFormat::Oracle => "Return JSON with reading containing the body, headline containing the hook, and score containing an integer from 1 to 100. Open the reading with this entity's supplied name and speak directly about its circumstances as one interpretation. The reading is body only: do not describe its hook or headline, the evidence structure, its speakers, computation or JSON fields. Preserve paragraph breaks inside reading as escaped newlines.",
     };
@@ -104,10 +102,6 @@ mod tests {
                 analyst::prompt::MOMENTUM_SYSTEM_PROMPT.as_str(),
             ),
             (
-                influencer::CHARACTER,
-                influencer::VIBE_SYSTEM_PROMPT.as_str(),
-            ),
-            (
                 insider::CHARACTER,
                 insider::INSIDER_SCORE_SYSTEM_PROMPT.as_str(),
             ),
@@ -142,7 +136,7 @@ mod tests {
             journalist_schema(2)["properties"]["reports"]["required"],
             serde_json::json!(["report_1", "report_2"])
         );
-        assert!(influencer::VIBE_SYSTEM_PROMPT.contains("Return JSON with headline"));
+        assert!(influencer::VIBE_SYSTEM_PROMPT.contains("publisher_excerpt"));
         assert!(journalist::NARRATIVES_SYSTEM_PROMPT.starts_with("Articulate each fresh item"));
         assert!(!journalist::NARRATIVES_SYSTEM_PROMPT.contains("Choose the most meaningful claims"));
         assert!(journalist_schema(1)["properties"]

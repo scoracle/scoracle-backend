@@ -1,4 +1,5 @@
-//! On-demand, source-bearing memory studies shared by plugin selectors.
+//! Shared memory tool. Plugins choose a study, its source tables and scope.
+//! Reporting and match-statistic adapters share one DuckDB runner and provenance.
 //! Postgres exports a consistent bounded slice; the existing Go DuckDB engine
 //! computes findings. This module never publishes facts or calls an LLM.
 use crate::plugins::meta::EntityMeta;
@@ -72,6 +73,91 @@ pub struct Study {
     pub findings: Vec<Finding>,
 }
 
+/// A dated source observation prepared for articulation, without generated prose.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct History {
+    pub publisher: String,
+    pub published_at: String,
+    pub reported_headline: String,
+}
+
+/// Plugin-selected bounds for a compact reporting view. The tool handles
+/// source identity, dates and whole-observation budgeting; the plugin may
+/// supply its source-admission policy without coupling this tool to a character.
+#[derive(Clone, Copy, Debug)]
+pub struct ReportingHistory {
+    pub lookback_seconds: i64,
+    pub max_reports: usize,
+    pub budget_bytes: usize,
+}
+
+impl ReportingHistory {
+    pub async fn load(
+        &self,
+        pool: &PgPool,
+        subject: &EntityMeta,
+        before: Option<i64>,
+        exclude: &[i64],
+    ) -> Result<Option<Study>> {
+        let Some(before) = before else {
+            return Ok(None);
+        };
+        Ok(Some(
+            reporting(
+                pool,
+                subject,
+                before - self.lookback_seconds,
+                before,
+                exclude,
+                self.max_reports,
+            )
+            .await?,
+        ))
+    }
+
+    pub fn select(
+        &self,
+        study: &Study,
+        subject: &EntityMeta,
+        before: Option<i64>,
+        exclude: &[i64],
+        accepts: impl Fn(&Observation) -> bool,
+    ) -> Result<Vec<History>> {
+        ensure!(&study.receipt.subject == subject, "memory subject mismatch");
+        let Some(before) = before else {
+            return Ok(Vec::new());
+        };
+        ensure!(
+            study.receipt.before <= before,
+            "memory is newer than fresh source"
+        );
+        let mut selected = Vec::new();
+        for report in study.findings.iter().flat_map(|finding| &finding.reports) {
+            if selected.len() == self.max_reports {
+                break;
+            }
+            if report.reported_at >= before
+                || report.reported_at < before - self.lookback_seconds
+                || exclude.contains(&report.article_id)
+                || exclude.contains(&report.canonical_id)
+                || !accepts(report)
+            {
+                continue;
+            }
+            let item = History {
+                publisher: report.publisher.clone(),
+                published_at: crate::util::utc_timestamp(report.reported_at),
+                reported_headline: report.headline.clone(),
+            };
+            selected.push(item);
+            if serde_json::to_vec(&selected)?.len() > self.budget_bytes {
+                selected.pop();
+            }
+        }
+        Ok(selected)
+    }
+}
+
 /// Scope is chosen at request time. Bounds are half-open and are reporting
 /// dates, not the time at which the described real-world event took place.
 pub async fn reporting(
@@ -134,7 +220,7 @@ pub async fn reporting_scope(
         before <= captured_at,
         "reporting window extends into future"
     );
-    let rows: Vec<String> = sqlx::query_scalar(include_str!("reporting.sql"))
+    let rows: Vec<String> = sqlx::query_scalar(include_str!("memories/reporting.sql"))
         .bind(&subject.sport)
         .bind(&subject.entity_type)
         .bind(subject.entity_id)

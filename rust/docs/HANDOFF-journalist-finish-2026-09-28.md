@@ -112,7 +112,7 @@ not describe the n94 contract above.
   product/source links and completion intent. Preserve these fences during cleanup.
 
 **Postgres stores the world; DuckDB studies the world.** Rust's
-`src/evidence/memory_studies` reads bounded, read-only repeatable-read snapshots.
+`src/plugins/memories.rs` reads bounded, read-only repeatable-read snapshots.
 `go/cmd/memory-study` invokes the existing Go DuckDB package over JSON stdin/stdout.
 There is no new memory database, precompute job or LLM retrieval stage. The shared
 contract supports entity/pair reporting frequency and compatible team-stat windows.

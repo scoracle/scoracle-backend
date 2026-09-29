@@ -6,8 +6,77 @@
 
 /// Reader-facing dimensions, independent of any model's tokenization or runtime budget.
 pub const HOOK_MAX_CHARS: usize = 140;
+pub const PARAGRAPH_MAX_CHARS: usize = 140;
 pub const BODY_MAX_CHARS: usize = 1200;
 pub const ORACLE_READING_MAX_CHARS: usize = BODY_MAX_CHARS;
+
+/// Shared observation layout. Plugins supply content scope and factual boundaries
+/// in their assembly instructions, independently of this writing tool.
+pub fn observation_form() -> ObservationForm {
+    ObservationForm {
+        body: ObservationBodyForm {
+            field_type: "string or null",
+            paragraphs: "One observation per paragraph. Blank lines separate paragraphs. Short, complete sentences. No headings or repeated conclusion.",
+            paragraph_max_chars: PARAGRAPH_MAX_CHARS,
+            max_chars: BODY_MAX_CHARS,
+            lengths: "Ceilings, not targets; no minimum length.",
+            paragraph_breaks: "escaped newlines",
+        },
+    }
+}
+
+/// Serialize the layout before dimensions. Live SmolLM3 controls found that
+/// alphabetically sorting these fields substantially changed output behavior.
+#[derive(serde::Serialize)]
+pub struct ObservationForm {
+    body: ObservationBodyForm,
+}
+
+#[derive(serde::Serialize)]
+struct ObservationBodyForm {
+    #[serde(rename = "type")]
+    field_type: &'static str,
+    paragraphs: &'static str,
+    paragraph_max_chars: usize,
+    max_chars: usize,
+    lengths: &'static str,
+    paragraph_breaks: &'static str,
+}
+
+/// Nullable, score-free observation body. Domain-specific parsing stays with the
+/// consuming plugin; this schema describes transport shape only.
+pub fn observation_schema() -> serde_json::Value {
+    serde_json::json!({"type":"object","additionalProperties":false,"required":["body"],
+        "properties":{"body":{"type":["null","string"]}}})
+}
+
+#[derive(Clone, Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ObservationReply {
+    pub body: Option<String>,
+}
+
+/// Decode the shared nullable body and enforce its structural contract. Plugins
+/// apply their publication guards to the resulting prose before accepting it.
+pub fn parse_observation(raw: &str) -> anyhow::Result<Option<ObservationReply>> {
+    let frame: serde_json::Value = serde_json::from_str(raw)?;
+    anyhow::ensure!(frame.get("body").is_some(), "missing body field");
+    let mut reply: ObservationReply = serde_json::from_value(frame)?;
+    let Some(body) = reply.body.as_mut() else {
+        return Ok(None);
+    };
+    *body = normalize_body(&crate::util::strip_markdown_emphasis(body));
+    validate_observation_body(body)?;
+    Ok(Some(reply))
+}
+
+pub struct ObservationParser;
+
+impl crate::studio::Parser<ObservationReply> for ObservationParser {
+    fn parse(&self, raw: &str) -> anyhow::Result<Option<ObservationReply>> {
+        parse_observation(raw)
+    }
+}
 
 #[derive(Debug)]
 pub struct SurfaceError(pub String);
@@ -26,6 +95,23 @@ pub fn validate_body(body: &str) -> anyhow::Result<()> {
             "Body has {chars} characters; allowed range is 1..={BODY_MAX_CHARS} with nonblank content."
         ))
         .into());
+    }
+    Ok(())
+}
+
+/// Observation form for aligned characters. Count normalized prose, including
+/// spaces, without treating a wrapped line as a new paragraph or cutting text.
+pub fn validate_observation_body(body: &str) -> anyhow::Result<()> {
+    validate_body(body)?;
+    for (index, paragraph) in normalize_body(body).split("\n\n").enumerate() {
+        let chars = paragraph.chars().count();
+        if chars > PARAGRAPH_MAX_CHARS {
+            return Err(SurfaceError(format!(
+                "Paragraph {} has {chars} characters; maximum is {PARAGRAPH_MAX_CHARS}, including spaces.",
+                index + 1
+            ))
+            .into());
+        }
     }
     Ok(())
 }
@@ -234,6 +320,19 @@ mod tests {
     }
 
     #[test]
+    fn observation_paragraphs_count_unicode_spaces_and_wrapped_lines() {
+        let paragraph = "é".repeat(PARAGRAPH_MAX_CHARS);
+        assert!(validate_observation_body(&format!("{paragraph}\n\n{paragraph}")).is_ok());
+        assert!(validate_observation_body(&format!("{paragraph}é")).is_err());
+        // A single newline wraps one paragraph; only a blank line separates it.
+        let halves = "é".repeat(70);
+        assert!(validate_observation_body(&format!("{halves}\n{halves}")).is_err());
+        assert!(validate_observation_body(&format!("{halves} {halves}")).is_err());
+        assert!(validate_observation_body("  ").is_err());
+        assert!(validate_observation_body(&vec![paragraph; 9].join("\n\n")).is_err());
+    }
+
+    #[test]
     fn shared_json_fields_preserve_paragraphs_across_the_card_parsers() {
         use crate::studio::Parser;
         let raw = serde_json::json!({"headline":"Morgan Rogers creates chances at an elite level", "body":"Creation stands out.\n\nThe defensive measures are lower.", "score":60}).to_string();
@@ -241,9 +340,14 @@ mod tests {
             scout::RatingParser.parse(&raw).unwrap().unwrap().body,
             analyst::MomentumParser.parse(&raw).unwrap().unwrap().blurb
         );
-        let vibe = influencer::VibeParser.parse(&raw).unwrap().unwrap();
-        assert_eq!(vibe.sentiment, 60);
-        assert!(vibe.vibe_prompt.contains("\n\n"));
+        let mut score_free: serde_json::Value = serde_json::from_str(&raw).unwrap();
+        score_free.as_object_mut().unwrap().remove("score");
+        score_free.as_object_mut().unwrap().remove("headline");
+        let vibe = influencer::VibeParser
+            .parse(&score_free.to_string())
+            .unwrap()
+            .unwrap();
+        assert!(vibe.body.unwrap().contains("\n\n"));
         assert!(scout::RatingParser.parse("{\"body\":\"unfinished").is_err());
     }
 }

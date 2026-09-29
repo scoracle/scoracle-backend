@@ -155,6 +155,9 @@ mod tests {
 
     #[tokio::test]
     async fn replay_retains_rejected_response_and_bounded_correction() {
+        // The Scout's declared surface is the shared keyed prose map, and its
+        // recorded non-participation on the paragraph rule means an over-long
+        // body is refused for its TOTAL length.
         let backend = Backend(Mutex::new(vec![
             json!({"body":"x".repeat(1201),"headline":"Measured profile"}).to_string(),
             json!({"body":"The measured rebounding is strong.","headline":"Measured profile"})
@@ -183,10 +186,17 @@ mod tests {
             .unwrap();
         let attempts = recording.attempts.lock().unwrap();
         assert_eq!(attempts.len(), 2);
-        assert!(attempts[0]["guard_error"]
-            .as_str()
-            .unwrap()
-            .contains("1200"));
+        // The rejection is the shared body ceiling. The Scout records a
+        // non-participation on the paragraph rule, so an over-long body is
+        // refused for its total length, not for a paragraph.
+        assert!(
+            attempts[0]["guard_error"]
+                .as_str()
+                .unwrap()
+                .contains("Prose totals 1201 characters"),
+            "guard error was {:?}",
+            attempts[0]["guard_error"]
+        );
         assert!(attempts[1]["guard_error"].is_null());
         assert_eq!(attempts[0]["raw_response_body"], "retained HTTP body");
         assert_eq!(attempts[0]["prompt_eval_count"], 31);

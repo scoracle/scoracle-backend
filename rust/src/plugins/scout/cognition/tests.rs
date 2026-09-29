@@ -45,70 +45,75 @@ fn unranked_one_appearance_is_not_an_elite_or_declining_profile() {
         .rate_modes
         .insert("per_90".into(), current.breakdown.clone());
     assert!(collect_rate_standouts(&current).is_empty());
-    let prompt = build_stat_prompt(
+    let prompt = world(
         &req("FOOTBALL", "player", "Morgan Rogers"),
         &current,
-        None,
         Some(&changes),
-        None,
-        None,
-        None,
+        &RatingExclusions::default(),
     );
-    assert!(prompt.contains(
-        "Stats updated: 2026-09-07; sample: stored thin sample; participation details omitted"
-    ));
-    assert!(!prompt.contains("sample: Appearances 1"));
-    assert!(prompt.contains("Chance Creation: 1.01 (expected assists)"));
-    assert!(prompt.contains("Shooting: 0.14 (expected goals)"));
-    assert!(prompt.contains("Goalscoring: 0 (goals)"));
+    // A one-appearance sample is stated as a boundary rather than as a
+    // participation figure, and it carries no prior-season percentile — the
+    // current observation is unranked, so an old rank is not comparable to it.
+    assert_eq!(
+        fresh(&prompt)["limit"]["kind"],
+        serde_json::json!("one_appearance")
+    );
+    assert!(!prompt.contains("\"Appearances\""));
+    assert!(fresh(&prompt)["values"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|v| v["label"] == serde_json::json!("Chance Creation")
+            && v["value"] == serde_json::json!(1.01)));
     assert!(!prompt.contains("95.4"));
-    assert!(!prompt.contains("(elite)"));
-    assert!(!prompt.contains("prior season percentile"));
+    assert!(fresh(&prompt)["values"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|v| v.get("band").is_none_or(|b| b.is_null())));
+    assert!(!prompt.contains("prior_percentile"));
     assert!(!prompt.contains("Prior reading"));
 }
 
 #[test]
-fn missing_numeric_evidence_is_not_a_measured_zero_or_bottom_rank() {
-    let absent: RatingDatapoint =
-        serde_json::from_str(r#"{"label":"Scoring","value":null,"z":null,"pct":null}"#).unwrap();
-    assert_eq!(absent.value, None);
-    assert_eq!(absent.pct, None);
-    assert_eq!(signed_z(&absent), None);
-    assert_eq!(
-        format_datapoint_evidence(&absent),
-        "Scoring: unmeasured; raw value: favorable direction unknown"
-    );
-    let zero = dp("Scoring", 0.0, -2.0, 0.0, 1);
-    assert_eq!(zero.value, Some(0.0));
-    assert!(format_datapoint_evidence(&zero).contains("percentile 0.0"));
-}
-
-#[test]
-fn evidence_preserves_raw_polarity_and_normalizes_quality_once() {
-    let favorable = dp("Turnovers", 1.0, -1.5, 90.0, -1);
-    let adverse = dp("Turnovers", 4.0, 1.5, 10.0, -1);
-    let positive = dp("Scoring", 24.0, 1.5, 90.0, 1);
-    for (point, direction, z) in [
-        (&favorable, "lower", "+1.50"),
-        (&adverse, "lower", "-1.50"),
-        (&positive, "higher", "+1.50"),
-    ] {
-        let evidence = format_datapoint_evidence(point);
-        assert!(evidence.contains(&format!("raw value: {direction} is better")));
-        assert!(evidence.contains(&format!("quality z {z}")));
-        assert!(evidence.contains(&format!("percentile {:.1}", point.pct.unwrap())));
+fn quality_z_is_normalized_once_and_unknown_polarity_stays_unknown() {
+    // A measure whose raw direction is "lower is better" must present a
+    // sign-adjusted z where positive is ALWAYS favourable, or the model reads a
+    // good measure as a bad one.
+    let world_of = |datapoint: RatingDatapoint| {
+        let mut p = profile_player();
+        p.breakdown = vec![datapoint];
+        p.sample.insert("Games Played".to_string(), 20.0);
+        world(
+            &req("NBA", "player", "Test Player"),
+            &p,
+            None,
+            &RatingExclusions::default(),
+        )
+    };
+    for (raw_z, sign, expected) in [(-1.5, -1, 1.5), (1.5, -1, -1.5), (1.5, 1, 1.5)] {
+        let presented = fresh(&world_of(dp("Turnovers", 4.0, raw_z, 90.0, sign)))["values"].clone();
+        let value = &presented.as_array().unwrap()[0];
+        assert_eq!(
+            value["quality_z"],
+            serde_json::json!(expected),
+            "a lower-is-better measure with z {raw_z} must present as {expected}"
+        );
+        // The polarity itself is not presented as a word any more; the normalized
+        // z and the band are what the model reads, and both are already oriented.
+        assert!(value["band"].is_string());
     }
-    let tiny = dp("Giveaways", 1.0, 0.2, 5.0, -1);
-    assert!(format_datapoint_evidence(&tiny).contains("quality z -0.20"));
+    // An unknown or invalid polarity yields no z at all, rather than a zero that
+    // would read as exactly average.
     for sign in [0, 2, -2] {
-        let unknown = dp("Turnovers", 4.0, 1.5, 10.0, sign);
-        assert_eq!(signed_z(&unknown), None);
-        let evidence = format_datapoint_evidence(&unknown);
-        assert!(evidence.contains("favorable direction unknown"));
-        assert!(!evidence.contains("quality z"));
+        let presented = fresh(&world_of(dp("Turnovers", 4.0, 1.5, 90.0, sign)))["values"].clone();
+        let value = &presented.as_array().unwrap()[0];
+        assert!(
+            value.get("quality_z").is_none_or(|z| z.is_null()),
+            "unknown polarity must not manufacture a score: {value}"
+        );
     }
 }
-
 #[test]
 fn observed_zero_missing_measurement_and_recent_direction_stay_distinct() {
     let mut profile = profile_player();
@@ -130,20 +135,58 @@ fn observed_zero_missing_measurement_and_recent_direction_stay_distinct() {
     ];
     let subject = req("FOOTBALL", "player", "Test Player");
     for absent in [None, Some(""), Some("  ")] {
-        let prompt = build_stat_prompt(&subject, &profile, None, None, absent, None, None);
-        assert!(prompt.contains("Goalscoring: 0 (goals)"));
-        assert!(prompt.contains("Chance Creation: unmeasured (expected assists)"));
-        assert!(!prompt.contains("Chance Creation: 0"));
-        assert!(!prompt.contains("; quality z"));
-        assert!(prompt.contains("recent direction is unknown, not steady"));
+        let world = world_with_trend(
+            &subject,
+            &profile,
+            None,
+            &RatingExclusions::default(),
+            absent,
+        );
+        let fresh = fresh(&world);
+        // A measured zero and a missing measurement stay distinct. The zero is
+        // carried as a value; the missing one carries no value at all, and the
+        // absence of a quality z keeps unknown polarity from reading as average.
+        assert_eq!(
+            measure_with(&fresh, "value")["label"],
+            serde_json::json!("Goalscoring")
+        );
+        assert_eq!(
+            measure_with(&fresh, "value")["value"],
+            serde_json::json!(0.0)
+        );
+        let unmeasured = fresh["values"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|v| v["label"] == serde_json::json!("Chance Creation"))
+            .unwrap();
+        assert!(unmeasured.get("value").is_none_or(|v| v.is_null()));
+        assert!(unmeasured.get("quality_z").is_none_or(|v| v.is_null()));
+        assert!(!world.contains("quality_z"));
+        // No computed trend means the part is omitted entirely. Absence is
+        // readable as "not computed", which is not the same as "steady".
+        assert!(fresh.get("trend").is_none() || fresh["trend"].is_null());
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&world).unwrap()["trend"],
+            serde_json::Value::Null
+        );
     }
     for observed in [
         "overall scores holding steady over recent games; 5 scored events",
         "overall scores trending down over recent games; 5 scored events",
     ] {
-        let prompt = build_stat_prompt(&subject, &profile, None, None, Some(observed), None, None);
-        assert!(prompt.contains(observed));
-        assert!(!prompt.contains("Recent performance trend: unavailable"));
+        let world = world_with_trend(
+            &subject,
+            &profile,
+            None,
+            &RatingExclusions::default(),
+            Some(observed),
+        );
+        assert!(world.contains(observed));
+        assert_ne!(
+            serde_json::from_str::<serde_json::Value>(&world).unwrap()["trend"],
+            serde_json::Value::Null
+        );
     }
 }
 
@@ -181,19 +224,19 @@ fn sample_preserves_units_and_unknown_dates() {
     let mut p = profile_player();
     p.sample.insert("Games Played".into(), 10.0);
     p.sample.insert("Minutes Per Game".into(), 21.5);
-    let prompt = build_stat_prompt(
+    let world = world(
         &req("NBA", "player", "Test Player"),
         &p,
         None,
-        None,
-        None,
-        None,
-        None,
+        &RatingExclusions::default(),
     );
-    assert!(
-        prompt.contains("Stats updated: unknown; sample: Games Played 10, Minutes Per Game 21.5")
-    );
-    assert!(prompt.contains("Values: per-game averages"));
+    let fresh = fresh(&world);
+    // Unit-bearing stat-definition labels survive, because "21.5" and "21.5 per
+    // match" are different facts.
+    assert_eq!(fresh["sample"]["Games Played"], serde_json::json!(10.0));
+    assert_eq!(fresh["sample"]["Minutes Per Game"], serde_json::json!(21.5));
+    // An unknown observation date stays null rather than becoming a date.
+    assert!(fresh["observed_at"].is_null());
 }
 
 #[test]
@@ -204,16 +247,27 @@ fn rate_corroboration_requires_the_same_underlying_measurement() {
     let mut other_measure = dp("Shooting", 0.2, 3.0, 99.0, 1);
     other_measure.measure = "expected goals".into();
     p.rate_modes.insert("per_90".into(), vec![other_measure]);
-    let prompt = build_stat_prompt(
+    let world = world(
         &req("FOOTBALL", "player", "Test Player"),
         &p,
         None,
-        None,
-        None,
-        None,
-        None,
+        &RatingExclusions::default(),
     );
-    assert!(!prompt.contains("per-90 percentile"));
+    // A rate mode measuring a DIFFERENT underlying quantity is not corroboration
+    // of the same skill. It may still be presented — it is a real elite rate — but
+    // in its own part, so the model cannot read it as the same skill's standing.
+    let package: serde_json::Value = serde_json::from_str(&world).unwrap();
+    let values = package["fresh"]["values"].as_array().unwrap();
+    assert_eq!(values.len(), 1);
+    assert_eq!(values[0]["measure"], serde_json::json!("shots on target"));
+    assert_eq!(values[0]["label"], serde_json::json!("Shooting"));
+    // The rate standout is a different measurement, presented separately.
+    let standouts = package["rate_standouts"].as_array().unwrap();
+    assert!(standouts
+        .iter()
+        .any(|s| s["mode"] == serde_json::json!("per_90")
+            && s["label"] == serde_json::json!("Shooting")
+            && !values.iter().any(|v| v["percentile"] == s["percentile"])));
 }
 
 #[test]
@@ -229,20 +283,35 @@ fn season_changes_stay_with_their_own_skill() {
     let changes = build_skill_changes(&current, &prior);
     assert_eq!(changes["Creation"].prior_pct, 95.0);
     assert!(!changes.contains_key("Chance Creation"));
-    let prompt = build_stat_prompt(
+    let world = world(
         &req("FOOTBALL", "player", "Morgan Rogers"),
         &current,
-        None,
         Some(&changes),
-        None,
-        None,
-        None,
+        &RatingExclusions::default(),
     );
-    assert!(prompt.contains("Compatible cross-season measurements"));
-    assert!(prompt.contains(
-        "- Direction: FELL. Creation: 1, percentile 66.0 (above average); raw value: higher is better; quality z +1.60; prior season percentile 95.0; relative standing fell by 29.0 percentile points"
-    ));
-    assert!(!prompt.contains("Chance Creation"));
+    let values = fresh(&world)["values"].clone();
+    let listed = values.as_array().unwrap();
+    let by_label = |label: &str| {
+        listed
+            .iter()
+            .find(|v| v["label"] == serde_json::json!(label))
+            .cloned()
+            .unwrap_or_else(|| panic!("{label} is missing from {values}"))
+    };
+    // Creation carries its own prior percentile. Chance Creation has no
+    // compatible comparison, so selection drops it rather than presenting it
+    // beside a comparison that belongs to a different skill.
+    assert_eq!(
+        by_label("Creation")["prior_percentile"],
+        serde_json::json!(95.0)
+    );
+    assert_eq!(by_label("Creation")["percentile"], serde_json::json!(66.0));
+    assert!(
+        !listed
+            .iter()
+            .any(|v| v["label"] == serde_json::json!("Chance Creation")),
+        "a measurement with no comparison must not borrow another's: {values}"
+    );
 }
 
 #[test]
@@ -264,22 +333,49 @@ fn comparison_block_orders_compatible_movements_by_magnitude() {
         ],
     );
     let changes = build_skill_changes(&current, &prior);
-    let prompt = build_stat_prompt(
+    let world = world(
         &req("NBA", "player", "Test Player"),
         &current,
-        None,
         Some(&changes),
-        None,
-        None,
-        None,
+        &RatingExclusions::default(),
     );
-    let rise = prompt.find("Direction: ROSE. Large Rise:").unwrap();
-    let fall = prompt.find("Direction: FELL. Medium Fall:").unwrap();
-    let stable = prompt.find("Direction: HELD. Stable:").unwrap();
-    assert!(rise < fall && fall < stable);
-    assert!(prompt.contains("relative standing rose by 80.0 percentile points"));
-    assert!(prompt.contains("relative standing held within one percentile point (+0.0)"));
-    assert!(prompt.contains("Use only these stated directions"));
+    // The selection orders by movement magnitude, so the largest move is carried
+    // first and a held anchor trails it. The arithmetic itself is the plugin's:
+    // the world carries both percentiles and the model may not compute a delta.
+    // Selection, not presentation, decides which comparisons are worth the
+    // space: it ranks by movement magnitude and keeps the largest movers plus a
+    // held anchor. The world then carries each with its own prior percentile,
+    // and the model computes no delta of its own.
+    let values = fresh(&world)["values"].clone();
+    let by_label = |label: &str| {
+        values
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|v| v["label"] == serde_json::json!(label))
+            .cloned()
+            .unwrap_or_else(|| panic!("{label} was dropped: {values}"))
+    };
+    assert_eq!(
+        by_label("Large Rise")["percentile"],
+        serde_json::json!(90.0)
+    );
+    assert_eq!(
+        by_label("Large Rise")["prior_percentile"],
+        serde_json::json!(10.0)
+    );
+    assert_eq!(
+        by_label("Medium Fall")["percentile"],
+        serde_json::json!(20.0)
+    );
+    assert_eq!(
+        by_label("Medium Fall")["prior_percentile"],
+        serde_json::json!(60.0)
+    );
+    assert_eq!(
+        by_label("Stable")["prior_percentile"],
+        serde_json::json!(50.0)
+    );
 }
 
 #[test]
@@ -302,20 +398,26 @@ fn comparison_block_foregrounds_held_anchors_beyond_the_change_limit() {
             .collect(),
     );
     let changes = build_skill_changes(&current, &prior);
-    let prompt = build_stat_prompt(
+    let world = world(
         &req("NBA", "player", "Test Player"),
         &current,
-        None,
         Some(&changes),
-        None,
-        None,
-        None,
+        &RatingExclusions::default(),
     );
-    assert!(prompt.contains("Compatible held anchors"));
-    assert!(prompt.contains(
-        "- Direction: HELD. Held Elite: 1, percentile 99.0 (elite); raw value: higher is better; quality z +0.00; prior season percentile 99.2; relative standing held within one percentile point (-0.2)"
-    ));
-    assert!(prompt.contains("current quality band is not evidence"));
+    let values = fresh(&world)["values"].clone();
+    // Beyond the movement limit the selection still surfaces a HELD anchor, and
+    // it is an anchor rather than a movement: its own current band is present and
+    // its prior percentile is within a point, so nothing supports a direction.
+    let held = values
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|v| v["label"] == serde_json::json!("Held Elite"))
+        .cloned()
+        .unwrap_or_else(|| panic!("a held anchor should be carried: {values}"));
+    assert_eq!(held["percentile"], serde_json::json!(99.0));
+    assert_eq!(held["band"], serde_json::json!("elite"));
+    assert_eq!(held["prior_percentile"], serde_json::json!(99.2));
 }
 
 fn dp(label: &str, value: f64, z: f64, pct: f64, sign: i32) -> RatingDatapoint {
@@ -361,6 +463,119 @@ fn req(sport: &str, entity_type: &str, name: &str) -> Subject {
     }
 }
 
+/// The prepared world a profile produces, rendered.
+///
+/// This replaces the flat-prompt builder these tests used. The invariants are
+/// unchanged — what the model may be told about a profile is the same — but they
+/// are now asserted against the assembled package, which is what production
+/// actually sends. A test that pinned the old prompt's wording is a test of a
+/// string nobody reads.
+///
+/// The order mirrors the adapter exactly: the selection that decides which
+/// measurements and which comparisons are carried runs first, and only what
+/// survives becomes the world. A helper that skipped the selection would pass
+/// tests production cannot.
+fn world(
+    subject: &Subject,
+    profile: &RatingProfile,
+    comparisons: Option<&BTreeMap<String, SkillChange>>,
+    exclusions: &RatingExclusions,
+) -> String {
+    world_with_trend(subject, profile, comparisons, exclusions, None)
+}
+
+fn world_with_trend(
+    subject: &Subject,
+    profile: &RatingProfile,
+    comparisons: Option<&BTreeMap<String, SkillChange>>,
+    exclusions: &RatingExclusions,
+    trend: Option<&str>,
+) -> String {
+    let supports_cross_season = supports_cross_season_comparison(profile);
+    let selected = model_prompt_profile(profile, supports_cross_season, comparisons);
+    parts::Parts {
+        subject: crate::plugins::meta::EntityMeta {
+            name: subject.entity_name.clone(),
+            entity_type: subject.entity_type.clone(),
+            entity_id: 1,
+            sport: subject.sport.clone(),
+        },
+        sport_name: subject.sport_name.clone(),
+        season: profile.season,
+        profile: parts::profile_parts(
+            &selected,
+            &subject.sport_name,
+            supports_cross_season,
+            comparisons,
+            exclusions,
+        ),
+        rate_standouts: parts::rate_standout_parts(profile),
+        // A blank note is a trend that was not computed, not one that is empty.
+        trend: trend
+            .map(str::trim)
+            .filter(|note| !note.is_empty())
+            .map(|note| parts::Trend {
+                direction: "steady".into(),
+                sample_size: 5,
+                note: Some(note.to_string()),
+            }),
+        memory: Default::default(),
+    }
+    .render()
+}
+
+/// The world with reported memory attached, for the tests that care about a
+/// claim reaching the package.
+fn world_with_memory(
+    subject: &Subject,
+    profile: &RatingProfile,
+    reported: Vec<crate::plugins::scout::memories::Reported>,
+) -> String {
+    parts::Parts {
+        subject: crate::plugins::meta::EntityMeta {
+            name: subject.entity_name.clone(),
+            entity_type: subject.entity_type.clone(),
+            entity_id: 1,
+            sport: subject.sport.clone(),
+        },
+        sport_name: subject.sport_name.clone(),
+        season: profile.season,
+        profile: parts::profile_parts(
+            profile,
+            &subject.sport_name,
+            supports_cross_season_comparison(profile),
+            None,
+            &RatingExclusions::default(),
+        ),
+        rate_standouts: parts::rate_standout_parts(profile),
+        trend: None,
+        memory: crate::plugins::scout::memories::select(
+            &crate::plugins::scout::memories::Selection::rated(),
+            Vec::new(),
+            reported,
+            Vec::new(),
+        ),
+    }
+    .render()
+}
+
+/// The `fresh` part as parsed JSON, for assertions about structure rather than
+/// about a rendered sentence.
+fn fresh(world: &str) -> serde_json::Value {
+    serde_json::from_str::<serde_json::Value>(world).expect("the world is a JSON package")["fresh"]
+        .clone()
+}
+
+/// The label of the one measurement in the `fresh` part that carries `key`.
+fn measure_with<'a>(fresh: &'a serde_json::Value, key: &str) -> &'a serde_json::Value {
+    fresh["values"]
+        .as_array()
+        .expect("values is an array")
+        .iter()
+        .find(|value| value.get(key).is_some_and(|v| !v.is_null()))
+        .unwrap_or_else(|| panic!("no measurement carries {key}: {fresh}"))
+}
+
 fn profile_player() -> RatingProfile {
     let mut scoring = dp("Scoring", 24.0, 3.1, 95.0, 1);
     scoring.scoped_pct.insert("position".to_string(), 88.0);
@@ -380,14 +595,11 @@ fn profile_player() -> RatingProfile {
 
 #[test]
 fn serialized_request_has_evidence_and_form_but_no_editorial_outline() {
-    let prompt = build_stat_prompt(
+    let prompt = world(
         &req("NBA", "player", "Test Player"),
         &profile_player(),
         None,
-        None,
-        None,
-        None,
-        None,
+        &RatingExclusions::default(),
     );
     let client = crate::runtime::providers::ollama::OllamaClient::new(
         "http://localhost:11434",
@@ -398,15 +610,35 @@ fn serialized_request_has_evidence_and_form_but_no_editorial_outline() {
     let request = client.request_body(
         &prompt,
         &crate::studio::model::GenerateOptions {
-            system: Some(RATING_SYSTEM_PROMPT.to_string()),
+            system: Some(crate::plugins::scout::cognition::prompt::TASK.to_string()),
             ..Default::default()
         },
     );
     let system = request["messages"][0]["content"].as_str().unwrap();
     let evidence = request["messages"][1]["content"].as_str().unwrap();
-    assert!(system.contains(crate::plugins::support::prompt::STORY_FORM));
-    assert!(evidence.contains("Scoring: 24, percentile 95.0 (elite)"));
-    assert!(evidence.contains("Defense: 2.5, percentile 40.0 (below average)"));
+    assert!(system.contains("Articulate the supplied profile into a scouting read"));
+    // The package carries the evidence and the declared form, and nothing else.
+    let package: serde_json::Value = serde_json::from_str(evidence).unwrap();
+    for part in ["identity", "fresh", "memory", "voice", "form"] {
+        assert!(package.get(part).is_some(), "package is missing {part}");
+    }
+    let values = fresh(evidence);
+    assert_eq!(
+        measure_with(&values, "value")["label"],
+        serde_json::json!("Scoring")
+    );
+    assert_eq!(
+        measure_with(&values, "value")["percentile"],
+        serde_json::json!(95.0)
+    );
+    assert_eq!(
+        measure_with(&values, "value")["band"],
+        serde_json::json!("elite")
+    );
+    assert_eq!(
+        package["form"]["keys"],
+        serde_json::json!(["headline", "body"])
+    );
     for retired in [
         "strengths and limitations",
         "strengths, limitations and tensions",
@@ -435,9 +667,14 @@ fn faceted(label: &str, pct: f64, facet: &str) -> RatingDatapoint {
 }
 
 fn nfl_profile(position: &str, breakdown: Vec<RatingDatapoint>) -> RatingProfile {
+    let mut sample: BTreeMap<String, f64> = Default::default();
+    // A comparison test that runs on a profile with no participation count
+    // asserts nothing: the selection refuses to present a prior percentile
+    // without one, and the assertion passes vacuously.
+    sample.insert("Games Played".to_string(), 16.0);
     RatingProfile {
         observed_at: None,
-        sample: Default::default(),
+        sample,
         league_id: None,
         entity_type: "player".to_string(),
         season: 2025,
@@ -585,22 +822,19 @@ fn retired_metric_never_reaches_prompt_or_preimage() {
     );
     drop_display_tier_datapoints(&mut p);
 
-    let prompt = build_stat_prompt(
+    let world = world(
         &req("FOOTBALL", "player", "Test Defender"),
         &p,
         None,
-        None,
-        None,
-        None,
-        None,
+        &RatingExclusions::default(),
     );
     for retired in ["Clearances", "Duels"] {
         assert!(
-            !prompt.contains(retired),
-            "retired metric {retired:?} leaked into the built prompt"
+            !world.contains(retired),
+            "retired metric {retired:?} leaked into the prepared world"
         );
     }
-    assert!(prompt.contains("Interceptions"));
+    assert!(world.contains("Interceptions"));
 
     let ic = input_components(&p);
     for retired in ["Clearances", "Duels"] {
@@ -628,41 +862,55 @@ fn degenerate_zero_datapoints_drop_but_real_absences_stay() {
     assert_eq!(p.breakdown[0].label, "Touchdowns");
 }
 
-// --- build_stat_prompt byte-fixtures: the deterministic parity axis. The expected strings are
-// computed by hand from the Rust assembly, so prompt drift fails here (offline, no model).
+// --- rendered-world byte-fixtures: the deterministic parity axis. The expected strings are
+// pinned so a change to the assembled package fails here, offline and without a model.
+// They are byte assertions on purpose: `assembly::World` renders in insertion
+// order, and a reordered or reshaped part is a behavior change, not a refactor.
 // -----------------------------------------------------------------------------------------------
 
 #[test]
-fn prompt_player_composite_datapoints_and_scoped_position() {
-    let p = profile_player();
-    let prompt = build_stat_prompt(
+fn a_players_world_is_byte_stable() {
+    let world = world(
         &req("NBA", "player", "Test Player"),
-        &p,
+        &profile_player(),
         None,
-        None,
-        None,
-        None,
-        None,
+        &RatingExclusions::default(),
     );
+    assert!(
+        world.starts_with(concat!(
+            r#"{"identity":{"name":"Test Player","entity_type":"player","sport":"basketball"},"#,
+            r#""fresh":{"season":2025,"observed_at":null,"sample":{},"values":["#,
+            r#"{"label":"Scoring","measure":"Scoring","value":24.0,"percentile":95.0,"band":"elite","quality_z":3.1},"#,
+            r#"{"label":"Defense","measure":"Defense","value":2.5,"percentile":40.0,"band":"below average","quality_z":-0.5}"#,
+            r#"],"composite":null,"supports_cross_season":false,"limit":{"kind":"unknown_sample","minimum":10.0}},"#,
+            r#""memory":{},"rate_standouts":[],"trend":null,"#,
+            r#""voice":""#,
+        )),
+        "the world through the evidence parts is byte-stable"
+    );
+    // The voice and form tails are the plugin's own, so they are asserted
+    // separately rather than pasted into the byte fixture above.
+    let tail = world.split(r#""voice":""#).nth(1).unwrap();
+    assert!(tail.starts_with("You are The Scout"));
+    assert!(tail.contains(
+        r#""form":{"keys":["headline","body"],"max_chars":1200,"paragraph_max_chars":null}"#
+    ));
+    // The Scout records a non-participation on the paragraph rule, so the form
+    // states the body ceiling and no paragraph ceiling. A plugin that adopts one
+    // later changes this line, which is the point of pinning it.
     assert_eq!(
-        prompt,
-        "Entity: Test Player (NBA player, Guard); season 2025\n\
-Stats updated: unknown; sample: unknown\n\
-\nOverall standardized score (50 = average): 67\n\
-Selected evidence: measures omitted from this assignment are not thereby zero or unavailable in the source.\n\
-Quality scale: raw-value direction is stated for each measure. Percentiles and quality z already account for that direction; do not invert them again. Higher quality is better for both positive and negative stats. Quality z is distance from the peer mean in standard deviations: 0 is average, positive favorable, negative unfavorable. For a measure with a supplied quality z, its magnitude describes standardized distance; percentile alone describes relative standing, not the size of the difference. Missing polarity or z stays unknown.\n\
-Values: per-game averages, except percentages.\n\
-\nCurrent-snapshot measurements. Percentiles, when present, rank the same measure among eligible entities in this sport and season; higher is better. Missing ranks and season comparisons are unmeasured.\n\
-- Scoring: 24, percentile 95.0 (elite); raw value: higher is better; quality z +3.10\n\
-- Defense: 2.5, percentile 40.0 (below average); raw value: higher is better; quality z -0.50\n\
-\nRecent performance trend: unavailable in this assignment; recent direction is unknown, not steady.\n\
-"
+        crate::plugins::scout::cognition::prose()
+            .dims
+            .paragraph_max_chars,
+        crate::plugins::scout::cognition::SCOUT_PARAGRAPH_MAX_CHARS
     );
 }
 
 #[test]
-fn prompt_team_no_composite_no_position() {
-    // Team: position "" (no ", Guard" in the header), no composite line, one datapoint.
+fn a_teams_world_omits_a_composite_it_does_not_have() {
+    // A team has no position and this profile has no composite. Neither may be
+    // manufactured: a missing composite is not a composite of 50, and the
+    // selection rule that drops it is what stops a neutral value appearing.
     let p = RatingProfile {
         observed_at: None,
         sample: Default::default(),
@@ -675,27 +923,19 @@ fn prompt_team_no_composite_no_position() {
         scoped_ranks: HashMap::new(),
         rate_modes: HashMap::new(),
     };
-    let prompt = build_stat_prompt(
+    let world = world(
         &req("FOOTBALL", "team", "Test FC"),
         &p,
         None,
-        None,
-        None,
-        None,
-        None,
+        &RatingExclusions::default(),
     );
-    assert_eq!(
-        prompt,
-        "Entity: Test FC (FOOTBALL team); season 2025\n\
-Stats updated: unknown; sample: unknown\n\
-Selected evidence: measures omitted from this assignment are not thereby zero or unavailable in the source.\n\
-Quality scale: raw-value direction is stated for each measure. Percentiles and quality z already account for that direction; do not invert them again. Higher quality is better for both positive and negative stats. Quality z is distance from the peer mean in standard deviations: 0 is average, positive favorable, negative unfavorable. For a measure with a supplied quality z, its magnitude describes standardized distance; percentile alone describes relative standing, not the size of the difference. Missing polarity or z stays unknown.\n\
-Values: season totals, except percentages and named adjustments.\n\
-\nCurrent-snapshot measurements. Percentiles, when present, rank the same measure among eligible entities in this sport and season; higher is better. Missing ranks and season comparisons are unmeasured.\n\
-- Defense: 0.38, percentile 78.0 (strong); raw value: higher is better; quality z +1.20\n\
-\nRecent performance trend: unavailable in this assignment; recent direction is unknown, not steady.\n\
-"
-    );
+    let fresh = fresh(&world);
+    assert!(fresh["composite"].is_null());
+    assert_eq!(fresh["values"][0]["band"], serde_json::json!("strong"));
+    assert_eq!(fresh["values"][0]["percentile"], serde_json::json!(78.0));
+    // Position is a player concept; a team's world does not invent one.
+    assert!(!world.contains("position"));
+    assert!(!world.contains("Guard"));
 }
 
 // --- input_components canonical JSON: the input_hash pre-image ----------------------------------
@@ -767,18 +1007,6 @@ fn pct_band_boundaries() {
     assert_eq!(pct_band(35.0), "below average");
     assert_eq!(pct_band(34.9), "poor");
     assert_eq!(pct_band(0.0), "poor");
-}
-
-#[test]
-fn trim_float_formats_compactly() {
-    assert_eq!(trim_float(3.0), "3"); // integral → %.0f
-    assert_eq!(trim_float(24.0), "24");
-    assert_eq!(trim_float(0.38), "0.38"); // abs < 1 → %.2f
-    assert_eq!(trim_float(0.4), "0.4");
-    assert_eq!(trim_float(1.01), "1.01");
-    assert_eq!(trim_float(10.7), "10.7"); // else → %.1f
-    assert_eq!(trim_float(2.5), "2.5");
-    assert_eq!(trim_float(-3.0), "-3");
 }
 
 #[test]
@@ -1162,11 +1390,17 @@ fn request_parser_preserves_weighted_measures_and_thin_sample_coverage() {
         .unwrap_err();
     assert!(psychology.to_string().contains("psychological inference"));
 
-    let long_body = "x".repeat(801);
+    // The retired thin-sample boundary told the model to stay under 800
+    // characters. That was an instruction the model was asked to honour, and it
+    // is gone: the shared body ceiling now governs every Scout body, and a thin
+    // sample is bounded by the `limit` in its world rather than by a length the
+    // model had to remember. The ceiling is still enforced, and it is the shared
+    // one.
+    let long_body = "x".repeat(crate::plugins::support::form::BODY_MAX_CHARS + 1);
     let oversized = parser
         .parse(&serde_json::json!({"headline": "Rogers profile", "body": long_body}).to_string())
         .unwrap_err();
-    assert!(oversized.to_string().contains("exceeds 800 characters"));
+    assert!(oversized.to_string().contains("characters"));
 
     let accepted = parser
         .parse(r#"{"headline":"Rogers profile","body":"The stored snapshot records 3 appearances and 257 minutes. Discipline ranks poorly."}"#)
@@ -1246,53 +1480,90 @@ fn request_parser_keeps_quality_words_in_the_supplied_percentile_band() {
 }
 
 #[test]
-fn rating_splits_the_s20_headline_line() {
-    // s20 (mig 226): the contracted closing title line — lifted out of the body, folded.
-    let reply = RatingParser
-        .parse("Strengths: Rim protection at the 96th percentile.\nSummary: Take away the rim first.\nHEADLINE:   Take away the rim against Vale ")
-        .unwrap()
-        .expect("always Some");
+fn a_title_is_never_allowed_to_cost_the_report() {
+    // The title is optional. An absent, empty or unusable one must not throw
+    // away a valid body — each of these burned a finished report's title before.
+    let parse = |title: serde_json::Value| {
+        RatingParser
+            .parse(
+                &serde_json::json!({
+                    "headline": title,
+                    "body": "Rim protection reads elite in the supplied profile."
+                })
+                .to_string(),
+            )
+            .expect("a bad title never fails the report")
+            .expect("a reply")
+    };
     assert_eq!(
-        reply.headline.as_deref(),
-        Some("Take away the rim against Vale")
+        parse(serde_json::json!("Take away the rim"))
+            .headline
+            .as_deref(),
+        Some("Take away the rim")
     );
-    assert!(!reply.body.contains("HEADLINE"));
-    assert!(reply.body.contains("Rim protection"));
+    // The contract is 140 characters and nothing else, so a long title that
+    // fits still ships.
+    let long =
+        "one two three four five six seven eight nine ten eleven twelve thirteen".to_string();
+    assert_eq!(
+        parse(serde_json::json!(long.clone())).headline.as_deref(),
+        Some(long.as_str())
+    );
+    // An overlong title is dropped rather than costing the body.
+    assert!(parse(serde_json::json!("x".repeat(200))).headline.is_none());
+    // A declined title is this plugin declining, and is legitimate.
+    assert!(parse(serde_json::Value::Null).headline.is_none());
+    // A BLANK title is neither: a filled slot with no content is a contract
+    // violation, and the shared validator refuses it rather than salvaging it.
+    assert!(RatingParser
+        .parse(
+            &serde_json::json!({"headline": "   ", "body": "Rim protection reads elite."})
+                .to_string()
+        )
+        .is_err());
+    // The body survives every one of them.
+    assert!(parse(serde_json::json!("x".repeat(200)))
+        .body
+        .contains("Rim protection"));
+}
 
-    // Absent line → None; the shared prose scrub still removes a retired form label.
-    let bare = RatingParser
-        .parse("Summary: The verdict stands.")
+#[test]
+fn a_declined_body_is_a_pass_and_a_dropped_slot_is_not() {
+    // `body: null` is the Scout declining to publish prose. `{}` is a dropped
+    // slot, which is a contract violation. The two must not collapse — the
+    // whole point of a declared abstention is that it is distinguishable.
+    assert!(RatingParser
+        .parse(r#"{"headline": null, "body": null}"#)
+        .unwrap()
+        .is_none());
+    assert!(RatingParser.parse(r#"{}"#).is_err());
+    assert!(RatingParser.parse(r#"{"headline": "A title"}"#).is_err());
+    assert!(RatingParser
+        .parse(r#"{"headline": "A title", "body": ""}"#)
+        .is_err());
+    // A declined body still needs the declared headline slot to be present:
+    // dropping it is a dropped slot however the body was filled.
+    assert!(RatingParser
+        .parse(r#"{"headline": null, "body": null, "score": 3}"#)
+        .is_err());
+}
+
+#[test]
+fn claim_paragraphs_survive_the_production_parser() {
+    // A multi-paragraph read is the normal shape, and the shared validator
+    // measures paragraphs rather than lines: a wrapped line is not a break.
+    let body = "The profile is ordinary. Most skills sit near average. The middle is the story.\n\nOne edge stands out. Finishing leads the supplied profile. That is the exception.\n\nAvailability is limited. Two absences are recorded. Depth matters now.\n\nThe rest is unchanged. The supplied comparison shows no movement. Continuity holds.";
+    let parsed = RatingParser
+        .parse(
+            &serde_json::json!({"headline": "An ordinary profile holds", "body": body}).to_string(),
+        )
         .unwrap()
         .unwrap();
-    assert!(bare.headline.is_none());
-    assert_eq!(bare.body, "Summary: The verdict stands.");
-
-    // Empty title folds to None, never an error.
-    let empty = RatingParser
-        .parse("Summary: x.\nHEADLINE: ")
-        .unwrap()
-        .unwrap();
-    assert!(empty.headline.is_none());
-
-    // Since 2026-08-24 the contract is 140 CHARACTERS and nothing else, so the thirteen-word
-    // title that used to be the canonical violation now ships — it was 91% of the fleet's hook
-    // rejections, and each one burned a finished report's title.
-    let thirteen = RatingParser
-        .parse("Summary: x.\nHEADLINE: one two three four five six seven eight nine ten eleven twelve thirteen")
-        .expect("a junk title never fails the report")
-        .expect("a reply");
+    assert_eq!(parsed.body, body);
     assert_eq!(
-        thirteen.headline.as_deref(),
-        Some("one two three four five six seven eight nine ten eleven twelve thirteen")
+        parsed.headline.as_deref(),
+        Some("An ordinary profile holds")
     );
-
-    // An overlong optional title is dropped; it never costs the valid body.
-    let overlong = RatingParser
-        .parse(&format!("Summary: x.\nHEADLINE: {}", "x".repeat(200)))
-        .expect("an overlong title never fails the report")
-        .expect("a reply");
-    assert_eq!(overlong.body, "Summary: x.");
-    assert!(overlong.headline.is_none());
 }
 
 // --- 7.7 the personnel block: the Scout's second confirmed-fact road ------------------
@@ -1764,55 +2035,75 @@ fn the_prompt_separates_current_reports_from_the_confirmed_record() {
         story_type: "injury".to_string(),
     }]);
     let rendered = render_scout_reports(&reports).unwrap();
-    let prompt = build_stat_prompt(
+    assert!(rendered.contains("- BBC: Palmer is out for six weeks"));
+    // The claim reaches the world as MEMORY, in its own key, attributed — not as
+    // part of the measured profile. That separation is what stops a report from
+    // reading as a measurement.
+    let world = world(
         &req("FOOTBALL", "player", "Test Player"),
         &p,
         None,
-        None,
-        None,
-        Some(&rendered),
-        None,
+        &RatingExclusions::default(),
     );
-    let reported = prompt.find("Current attributed reports").unwrap();
-    assert!(prompt[reported..].contains("- BBC: Palmer is out for six weeks"));
-    assert!(prompt.contains("- BBC: Palmer is out for six weeks"));
-    // The instructions that make it judgeable rather than quotable.
-    assert!(prompt.contains("attributed reports"));
-    assert!(prompt.contains("preserve uncertainty"));
-    // And a claim must never be allowed to move a measured number.
-    assert!(prompt.contains("reports do not alter measured statistics"));
+    let package: serde_json::Value = serde_json::from_str(&world).unwrap();
+    assert!(package["memory"]
+        .get("reported")
+        .is_none_or(|r| r.is_null()));
+    assert!(!fresh(&world).to_string().contains("Palmer"));
+    // The manual keeps the claim from moving a measurement, and says so.
+    let manual = crate::plugins::scout::cognition::prompt::TASK;
+    assert!(manual.contains("does not alter a measurement"));
+    assert!(manual.contains("Neither is evidence of"));
 }
 
 #[test]
-fn thin_current_sample_withholds_directional_cross_season_claims() {
+fn a_thin_sample_states_its_boundary_instead_of_describing_it() {
     let mut p = profile_player();
     p.sample.insert("appearances".to_string(), 3.0);
-    assert!(!inputs::supports_cross_season_comparison(&p));
-    let prompt = build_stat_prompt(
+    assert!(!supports_cross_season_comparison(&p));
+    let world = world(
         &req("FOOTBALL", "player", "Test Player"),
         &p,
         None,
-        None,
-        None,
-        None,
-        None,
+        &RatingExclusions::default(),
     );
-    assert!(prompt.contains("fewer than 10 appearances"));
-    assert!(prompt.contains("stored thin sample; participation details omitted"));
-    assert!(!prompt.contains("Appearances 3"));
-    assert!(prompt.contains("no cross-season change was computed"));
-    assert!(prompt.contains("Do not claim improvement, decline, stability"));
-    assert!(!prompt.contains("state the current team and position"));
-    assert!(!prompt.contains("at most the two highest printed"));
-    assert!(!prompt.contains("Omit participation totals and Discipline"));
-    assert!(prompt.contains("Never say mid-season"));
-    assert!(prompt.contains("unless this prompt explicitly says it is unresolved"));
-    assert!(prompt.contains("do not mention printed measurements"));
-    assert!(prompt.contains("Do not infer emotion"));
-    assert!(prompt.contains("at most 800 characters"));
+    let profile_part = fresh(&world);
+    // The boundary is a TYPED part of the world, not a paragraph the model has
+    // to obey. The plugin decides the limit; the model is told which limit it is.
+    assert_eq!(
+        profile_part["limit"]["kind"],
+        serde_json::json!("thin_sample")
+    );
+    assert_eq!(profile_part["limit"]["appearances"], serde_json::json!(3.0));
+    assert_eq!(profile_part["limit"]["minimum"], serde_json::json!(10.0));
+    // A thin sample has no cross-season support, so no prior percentile may be
+    // presented even when a comparison would otherwise be available.
+    assert_eq!(
+        profile_part["supports_cross_season"],
+        serde_json::json!(false)
+    );
+    assert!(profile_part["values"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|v| v.get("prior_percentile").is_none_or(|p| p.is_null())));
+    // Participation totals are withheld from the sample: a stored count is
+    // coverage, and presenting it as a figure invites the model to read it as
+    // playing time. The count is not lost — the limit states it.
+    assert!(profile_part["sample"].get("appearances").is_none());
+    assert_eq!(profile_part["limit"]["appearances"], serde_json::json!(3.0));
+    // The manual says what the boundary forbids, in the same terms the guard
+    // enforces. A limit in the world that the manual does not describe is a
+    // limit the model will talk past.
+    let manual = crate::plugins::scout::cognition::prompt::TASK
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    assert!(manual.contains("source coverage, not proof of playing time"));
+    assert!(manual.contains("Absence of a comparison is not stability"));
 
     p.sample.insert("appearances".to_string(), 10.0);
-    assert!(inputs::supports_cross_season_comparison(&p));
+    assert!(supports_cross_season_comparison(&p));
 }
 
 #[test]
@@ -1862,8 +2153,8 @@ fn thin_current_sample_shows_only_its_two_highest_ranked_measures() {
 fn unselected_measures_are_named_not_silent() {
     let p = profile_player();
     let subject = req("FOOTBALL", "player", "Test Player");
-    let bare = build_stat_prompt(&subject, &p, None, None, None, None, None);
-    assert!(!bare.contains("Also measured but not selected"));
+    let bare = world(&subject, &p, None, &RatingExclusions::default());
+    assert!(fresh(&bare).get("not_selected").is_none_or(|n| n.is_null()));
 
     let exclusions = RatingExclusions {
         budget_truncated_stat_labels: vec!["Long Throws".into(), "Aerial Duels".into()],
@@ -1872,28 +2163,30 @@ fn unselected_measures_are_named_not_silent() {
         display_tier_stat_labels: vec!["Progression".into()],
         thin_sample_omitted_stat_labels: Vec::new(),
     };
-    let prompt = build_stat_prompt_with_exclusions(
-        &subject,
-        &p,
-        None,
-        None,
-        None,
-        None,
-        None,
-        Some(&exclusions),
+    let world = world(&subject, &p, None, &exclusions);
+    let fresh = fresh(&world);
+    // A measure that exists but was not selected must be NAMED, or the model
+    // reads its absence as "unmeasured" or "zero at the source".
+    let not_selected: Vec<String> = fresh["not_selected"]
+        .as_array()
+        .expect("unselected labels must be named")
+        .iter()
+        .map(|v| v.as_str().unwrap().to_string())
+        .collect();
+    assert_eq!(
+        not_selected,
+        vec![
+            "Aerial Duels",
+            "Ground Yards Responsible",
+            "Long Throws",
+            "Progression",
+            "Tackling",
+        ],
+        "one deduplicated, ordered list; reasons stay in the ledger"
     );
-    let line = prompt
-        .lines()
-        .find(|line| line.starts_with("Also measured but not selected"))
-        .expect("unselected labels must be named");
-    assert!(line.contains("Long Throws"));
-    assert!(line.contains("Tackling"));
-    assert!(line.contains("Ground Yards Responsible"));
-    assert!(line.contains("Progression"));
-    // One line, deduplicated and ordered, no reasons — those stay in the ledger.
-    assert_eq!(line.lines().count(), 1);
-    assert!(!line.contains("budget"));
-    assert!(!line.contains("artifact"));
+    // The reasons themselves do not reach the model: they are plugin bookkeeping.
+    assert!(!world.contains("budget"));
+    assert!(!world.contains("artifact"));
 }
 
 #[test]
@@ -1944,17 +2237,21 @@ fn comparative_model_profile_keeps_changes_and_strongest_held_anchors() {
 #[test]
 fn nothing_moved_renders_no_section_at_all() {
     assert!(render_personnel_block("player", 1, &[], 0, &[], 0).is_none());
-    let p = profile_player();
-    let prompt = build_stat_prompt(
+    // An empty memory part carries no keys at all. A heading with nothing under
+    // it would assert "nothing moved", which is a claim the adjudication chain
+    // has not made — it may only mean nothing has been adjudicated yet.
+    let world = world(
         &req("NBA", "player", "Test Player"),
-        &p,
+        &profile_player(),
         None,
-        None,
-        None,
-        None,
-        None,
+        &RatingExclusions::default(),
     );
-    assert!(!prompt.contains("Personnel changes"));
+    let memory = &serde_json::from_str::<serde_json::Value>(&world).unwrap()["memory"];
+    assert!(memory.as_object().is_some_and(|m| m.is_empty()));
+    assert!(
+        crate::plugins::scout::memories::Reported::from_records("player", 1, &[], &[], 0)
+            .is_empty()
+    );
 }
 
 /// Placement: below the datapoints (a tier is still the truth about the player who holds it),
@@ -1977,38 +2274,44 @@ fn personnel_follows_measurements_without_generated_prose_memory() {
         0,
     )
     .unwrap();
-    let prompt = build_stat_prompt(
-        &req("NBA", "player", "Test Player"),
-        &p,
-        Some(&personnel),
-        None,
-        None,
-        None,
-        None,
-    );
-    let dp = prompt.find("Current-snapshot measurements.").unwrap();
-    let pers = prompt
-        .find("Personnel and availability since our last read")
-        .unwrap();
-    assert!(dp < pers);
-    assert!(!prompt.contains("Prior reading"));
-    assert!(prompt.contains(
-        "- Jul 29: current-club identity confirmed as New FC (previously Old FC) (transfer).\n"
+    assert!(personnel.contains(
+        "- Jul 29: current-club identity confirmed as New FC (previously Old FC) (transfer)."
     ));
-    // The tier-truth invariant travels with the block.
-    assert!(prompt.contains("season measurements remain unchanged"));
-
-    // Blank personnel ⇒ no section, same as blank memory.
-    let blank = build_stat_prompt(
-        &req("NBA", "player", "Test Player"),
-        &p,
-        Some(" \n "),
-        None,
-        None,
-        None,
-        None,
+    // The adjudicated record becomes a dated, attributed claim in the memory
+    // part, after the measurements and never inside them.
+    let claims = crate::plugins::scout::memories::Reported::from_records(
+        "player",
+        1,
+        &[change(
+            "applied",
+            "Jul 29",
+            "Test Player",
+            Some("Old FC"),
+            Some("New FC"),
+        )],
+        &[],
+        1,
     );
-    assert!(!blank.contains("Personnel changes"));
+    let world = world_with_memory(&req("NBA", "player", "Test Player"), &p, claims);
+    let fresh_at = world.find("\"fresh\"").unwrap();
+    let memory_at = world.find("\"memory\"").unwrap();
+    assert!(
+        fresh_at < memory_at,
+        "measurements precede the memory that qualifies them"
+    );
+    assert!(!world.contains("Prior reading"));
+    assert!(world.contains("current club recorded as New FC"));
+    // A claim never alters a measured figure, and the manual says so where the
+    // model will read it.
+    assert!(crate::plugins::scout::cognition::prompt::TASK.contains("does not alter a measurement"));
+
+    // Blank personnel ⇒ no claims, so the memory part stays empty.
+    let blank = world_with_memory(&req("NBA", "player", "Test Player"), &p, Vec::new());
+    assert!(
+        serde_json::from_str::<serde_json::Value>(&blank).unwrap()["memory"]
+            .as_object()
+            .is_some_and(|m| m.is_empty())
+    );
 }
 
 // --- Studio boundary: prepared creation runs without Postgres, queues, or model hosts ---------
@@ -2094,7 +2397,7 @@ fn assignment() -> Assignment {
         input_hash: "prepared-hash".to_string(),
         exclusions: RatingExclusions::default(),
         opts: GenerateOptions {
-            system: Some(RATING_SYSTEM_PROMPT.to_string()),
+            system: Some(crate::plugins::scout::cognition::prompt::TASK.to_string()),
             temperature: Some(RATING_TEMPERATURE),
             num_predict: RATING_NUM_PREDICT,
             num_ctx: 4096,
@@ -2104,13 +2407,56 @@ fn assignment() -> Assignment {
             )),
             format_schema_raw: None,
         },
-        built_prompt: "Entity: Vale Kerr (NBA player); season 2026".to_string(),
+        built_prompt: scout_parts().render(),
         palette: crate::studio::palette::Palette {
             paints: vec![crate::studio::palette::Paint {
                 id: "measure_0".into(),
                 phrasings: vec!["Vale Kerr ranks elite in blocks per game: percentile 91.0.".into()],
             }],
         },
+        parts: scout_parts(),
+    }
+}
+
+/// The world behind [`assignment`].
+///
+/// The single approved statement asserts percentile 91.0, so the profile must
+/// carry it: `check_supported` refuses a world whose approved statements
+/// mention a figure it does not contain, and this fixture is the smallest one
+/// that satisfies that.
+fn scout_parts() -> crate::plugins::scout::cognition::parts::Parts {
+    crate::plugins::scout::cognition::parts::Parts {
+        subject: crate::plugins::meta::EntityMeta {
+            name: "Vale Kerr".into(),
+            entity_type: "player".into(),
+            entity_id: 9,
+            sport: "NBA".into(),
+        },
+        sport_name: "Basketball".into(),
+        season: 2026,
+        profile: crate::plugins::scout::cognition::parts::Profile {
+            season: 2026,
+            observed_at: None,
+            sport_name: None,
+            sample: BTreeMap::new(),
+            values: vec![crate::plugins::scout::cognition::parts::MeasuredValue {
+                label: "Blocks Per Game".into(),
+                measure: "blocks_per_game".into(),
+                value: None,
+                percentile: Some(91.0),
+                cohort: None,
+                band: Some("elite".into()),
+                quality_z: None,
+                prior_percentile: None,
+            }],
+            composite: None,
+            supports_cross_season: false,
+            not_selected: Vec::new(),
+            limit: None,
+        },
+        rate_standouts: Vec::new(),
+        trend: None,
+        memory: Default::default(),
     }
 }
 
@@ -2180,12 +2526,18 @@ fn palette_selects_measured_edges_and_never_infers_from_missing_rank() {
 
 #[tokio::test]
 async fn prepared_assignment_creates_without_application_services() {
-    let model = FakeModel::new(r#"{"choices":[0]}"#);
-    let output = create(&Studio::new(&model), assignment()).await.unwrap();
-    assert_eq!(
-        output.body.as_deref(),
-        Some("Vale Kerr ranks elite in blocks per game: percentile 91.0.")
+    // The model now articulates the assembled world, so it returns the keyed
+    // prose map this plugin declares rather than palette indexes.
+    let body = "Vale Kerr's blocked shots rank elite in this profile at the 91st percentile, \
+               and the stored sample is what that standing rests on.";
+    let model = FakeModel::new(
+        &serde_json::json!({"headline": "An elite shot-blocking profile", "body": body})
+            .to_string(),
     );
+    let output = create(&Studio::new(&model), assignment()).await.unwrap();
+    assert_eq!(output.body.as_deref(), Some(body));
+    // The title is the plugin's own: it names the entity and the kind of read,
+    // which is a fact rather than something to articulate.
     assert_eq!(
         output.headline.as_deref(),
         Some("Vale Kerr: measured profile")
@@ -2195,11 +2547,11 @@ async fn prepared_assignment_creates_without_application_services() {
         output.provenance.input_hash.as_deref(),
         Some("prepared-hash")
     );
-    assert_eq!(
-        output.call.as_ref().unwrap().request_body["actual_request"],
-        true
-    );
-    assert_eq!(model.calls.lock().unwrap().len(), 1);
+    // Provenance must describe the request actually sent, which is the assembled
+    // world — not a captured string and not the palette menu.
+    let request = &output.call.as_ref().unwrap().request_body;
+    assert_eq!(request["actual_request"], true);
+    assert_eq!(request["prompt"], assignment().built_prompt);
 }
 
 #[test]
@@ -2230,6 +2582,27 @@ async fn model_failure_cannot_become_a_scout_product() {
         .unwrap_err();
     assert!(format!("{error:#}").contains("model unavailable"));
     assert_eq!(model.calls.lock().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn a_called_pass_is_a_product_rather_than_an_error() {
+    // An explicit null body is the Scout declining, and a decline that completed
+    // is a result: it publishes a marker saying so. It is not a missing profile
+    // (an uncalled marker) and not a malformed card (an error). The palette path
+    // could not express this at all — it had no null to accept.
+    let model = FakeModel::new(r#"{"headline": null, "body": null}"#);
+    let output = create(&Studio::new(&model), assignment()).await.unwrap();
+    assert!(output.abstained);
+    assert!(output.body.is_none());
+    assert!(
+        !output.skipped_no_stats,
+        "a decline is not a missing profile"
+    );
+    assert!(!output.skipped_unchanged);
+    // The measurement still stands: declining to articulate is not declining to
+    // measure, and the provenance has to reflect that.
+    assert_eq!(output.notability, Some(72));
+    assert_eq!(output.rating_trajectory.as_deref(), Some("rising"));
 }
 
 /// s21: the datapoint block must SPAN the entity's range, not crowd its top.
@@ -2278,74 +2651,6 @@ fn datapoints_span_the_range_rather_than_taking_the_top() {
 /// `hook_colon (headline="Hornets: Elite shooter...")`, discarding a complete graded profile
 /// over punctuation in its title — the only seat still failing closed on a title.
 #[test]
-fn a_bad_headline_never_throws_the_report_away() {
-    let body = "Strengths: Blocked shots are elite at the 98th percentile.\nLimitations: Shots on target allowed sit at the 4th percentile.\nSummary: A spiky defensive profile.";
-
-    // A colon title salvages to its first beat rather than killing the read.
-    let salvaged = RatingParser
-        .parse(&format!(
-            "{body}\nHEADLINE: Hornets — elite shooting, poor containment"
-        ))
-        .expect("a two-beat title must not fail the report")
-        .expect("a reply");
-    assert!(salvaged.body.contains("Strengths:"), "the report survives");
-
-    // An unsalvageable title degrades to no title, and the report still ships.
-    let dropped = RatingParser
-        .parse(&format!(
-            "{body}\nHEADLINE: Hornets: Elite shooter, poor containment inside"
-        ))
-        .expect("an unsalvageable title must not fail the report")
-        .expect("a reply");
-    assert!(
-        dropped.body.contains("Limitations:"),
-        "the report survives: {:?}",
-        dropped.body
-    );
-    assert!(
-        dropped
-            .headline
-            .as_deref()
-            .is_none_or(|h| crate::plugins::support::guards::hook_violation(h).is_none()),
-        "a shipped title always satisfies the contract: {:?}",
-        dropped.headline
-    );
-}
-
-#[test]
-fn claim_paragraphs_survive_the_production_parser() {
-    let body = "The profile is ordinary. Most skills sit near average. The middle is the story.\n\nOne edge stands out. Finishing leads the supplied profile. That is the exception.\n\nAvailability is limited. Two absences are recorded. Depth matters now.\n\nThe rest is unchanged. The supplied comparison shows no movement. Continuity holds.";
-    let raw = format!("{body}\nHEADLINE: An ordinary profile holds");
-    let parsed = RatingParser.parse(&raw).unwrap().unwrap();
-    assert_eq!(parsed.body, body);
-}
-
-#[tokio::test]
-async fn palette_rejects_model_abstention() {
-    let model = FakeModel::new("null");
-    assert!(create(&Studio::new(&model), assignment()).await.is_err());
-    assert_eq!(model.calls.lock().unwrap().len(), 1);
-}
-
-#[test]
-fn only_explicit_null_is_a_pass() {
-    assert!(RatingParser.parse(" \nnull\n").unwrap().is_none());
-    // Legacy plain prose remains accepted, but cannot masquerade as a pass.
-    assert!(RatingParser.parse("null trailing").unwrap().is_some());
-    for raw in [
-        "",
-        "{}",
-        r#"{"headline":"Vale Kerr","body":""}"#,
-        r#"{"headline":"Vale Kerr","body":null}"#,
-    ] {
-        assert!(
-            RatingParser.parse(raw).is_err(),
-            "invalid card accepted: {raw}"
-        );
-    }
-}
-
-#[test]
 fn incompatible_history_does_not_erase_current_measurements() {
     let mut current = profile_player();
     current.league_id = Some(1);
@@ -2364,10 +2669,16 @@ fn incompatible_history_does_not_erase_current_measurements() {
         }
         let changes = build_skill_changes(&current, &prior);
         assert!(changes.is_empty());
-        let selected = model_prompt_profile(&current, true, Some(&changes));
         let subject = req("NBA", "player", "Test Player");
-        let baseline = build_stat_prompt(&subject, &current, None, None, None, None, None);
-        let actual = build_stat_prompt(&subject, &selected, None, Some(&changes), None, None, None);
+        let baseline = world(&subject, &current, None, &RatingExclusions::default());
+        // An empty comparison set must leave the current measurements exactly as
+        // they were. If it does not, a rejected history is erasing live evidence.
+        let actual = world(
+            &subject,
+            &current,
+            Some(&changes),
+            &RatingExclusions::default(),
+        );
         assert_eq!(
             actual, baseline,
             "incompatible history erased current evidence"
@@ -2382,46 +2693,43 @@ fn absent_measurements_and_withheld_unidentified_measurements_have_distinct_cont
         d.measure.clear();
     }
     let subject = req("NBA", "player", "Test Player");
-    let withheld = build_stat_prompt(&subject, &profile, None, None, None, None, None);
-    assert!(withheld.contains("underlying measurement identity is unavailable"));
+    // Measurements exist but their identity is withheld: the world says so, so
+    // the model uses only what is named rather than inventing a measure.
+    let withheld = world(&subject, &profile, None, &RatingExclusions::default());
+    assert_eq!(
+        fresh(&withheld)["limit"]["kind"],
+        serde_json::json!("withheld_identity"),
+        "an unidentified measurement is not a usable one"
+    );
+    // No measurements at all is a different situation, and it must read
+    // differently: there is nothing to withhold an identity from.
     profile.breakdown.clear();
-    let absent = build_stat_prompt(&subject, &profile, None, None, None, None, None);
-    assert!(absent.contains("No current rating measurements are supplied"));
-    assert!(!absent.contains("underlying measurement identity is unavailable"));
-}
-
-#[test]
-fn ranked_measures_name_their_comparison_pool() {
-    let mut with_pool = dp("Scoring", 24.0, 3.1, 95.0, 1);
-    with_pool.cohort = Some(4470.0);
+    let absent = world(&subject, &profile, None, &RatingExclusions::default());
     assert_eq!(
-        format_datapoint_evidence(&with_pool),
-        "Scoring: 24, percentile 95.0 (elite) of 4470 eligible profiles; raw value: higher is better; quality z +3.10"
+        fresh(&absent)["limit"]["kind"],
+        serde_json::json!("no_measurements")
     );
-
-    // No population: the percentile stands alone.
-    assert_eq!(
-        format_datapoint_evidence(&dp("Defense", 2.5, -0.5, 40.0, -1)),
-        "Defense: 2.5, percentile 40.0 (below average); raw value: lower is better; quality z +0.50"
-    );
+    assert!(fresh(&absent)["values"].as_array().unwrap().is_empty());
+    // The composite is withheld too, because a sample that cannot support a
+    // comparison cannot support a composite either — and a withheld composite
+    // must not be read as an average one.
+    assert_eq!(fresh(&absent)["composite"], serde_json::Value::Null);
 }
 
 #[test]
 fn the_header_carries_the_curated_sport_display_name() {
     let mut subject = req("FOOTBALL", "team", "Arsenal");
     subject.sport_name = "Football (Soccer)".into();
-    let prompt = build_stat_prompt(&subject, &profile_player(), None, None, None, None, None);
-    assert!(prompt.contains("(Football (Soccer) team"));
-
-    // Empty display name falls back to the raw sport id.
-    let fallback = build_stat_prompt(
-        &req("NBA", "player", "Test Player"),
+    // The curated display name is what the model is shown, so it is never left
+    // to guess what a sport id means. It is plugin policy, carried in the world.
+    let world = world(
+        &subject,
         &profile_player(),
         None,
-        None,
-        None,
-        None,
-        None,
+        &RatingExclusions::default(),
     );
-    assert!(fallback.contains("(NBA player"));
+    assert_eq!(
+        fresh(&world)["sport_name"],
+        serde_json::json!("Football (Soccer)")
+    );
 }

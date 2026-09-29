@@ -124,7 +124,7 @@ async fn main() -> Result<()> {
     );
     println!(
         "=== system prompt ===\n{}\n=== user prompt ===",
-        &*scoracle_cognition::plugins::scout::cognition::RATING_SYSTEM_PROMPT
+        scoracle_cognition::plugins::scout::cognition::prompt::TASK
     );
     println!("{}", assignment.built_prompt);
 

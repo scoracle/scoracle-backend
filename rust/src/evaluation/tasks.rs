@@ -35,9 +35,7 @@ use crate::plugins::oracle::cognition::{
     ORACLE_SYSTEM_PROMPT,
 };
 use crate::plugins::scout::adapter::{build_rating_request, RatingReq};
-use crate::plugins::scout::cognition::{
-    RatingBuild, RatingReply, RATING_NUM_PREDICT, RATING_SYSTEM_PROMPT,
-};
+use crate::plugins::scout::cognition::{RatingBuild, RatingReply, RATING_NUM_PREDICT};
 use crate::runtime::route::RouteKey;
 use crate::studio::model::GenerateOptions;
 use crate::studio::Parser;
@@ -1159,22 +1157,12 @@ impl LensTask for RatingTask {
         crate::plugins::scout::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
-        // This task replays the archived open-prose s59 fixtures. The production
-        // s60 palette contract is exercised by palette_model_compare.py.
-        "s59"
+        crate::plugins::scout::cognition::RATING_PROMPT_VERSION
     }
-    fn gen_options(&self, temperature: f64) -> Result<GenerateOptions> {
-        Ok(GenerateOptions {
-            system: Some(RATING_SYSTEM_PROMPT.to_string()),
-            temperature: Some(temperature),
-            num_predict: RATING_NUM_PREDICT,
-            num_ctx: 0,
-            json_mode: false,
-            format_schema: Some(crate::plugins::support::form::with_abstention(
-                crate::plugins::support::prompt::card_schema(false),
-            )),
-            format_schema_raw: None,
-        })
+    fn gen_options(&self, _temperature: f64) -> Result<GenerateOptions> {
+        // The manual names the parts actually present, so it is a function of the
+        // world rather than a constant. `assemble` produces the real request.
+        anyhow::bail!("rating options carry the prepared world's manual; use `assemble`")
     }
     async fn build_prompt(
         &self,
@@ -1197,6 +1185,32 @@ impl LensTask for RatingTask {
             RatingBuild::NoStats { .. } => Ok(None),
             RatingBuild::Ready(r) => Ok(Some(r.built_prompt)),
         }
+    }
+    /// Rebuild the Scout's request from its stored parts.
+    ///
+    /// The manual and the response schema both derive from the world, which is
+    /// why `gen_options` refuses above: the Scout's contract is a function of
+    /// what it was given, so a fixture that stored only a prompt string could
+    /// never be checked against the contract production sends.
+    fn assemble(&self, parts: &serde_json::Value) -> Result<Prepared> {
+        let parts: crate::plugins::scout::cognition::parts::Parts =
+            serde_json::from_value(parts.clone())
+                .map_err(|e| anyhow::anyhow!("rating parts: {e}"))?;
+        Ok(Prepared {
+            user_prompt: parts.render(),
+            options: GenerateOptions {
+                system: Some(crate::plugins::scout::cognition::prompt::task(&parts)),
+                temperature: Some(crate::plugins::scout::cognition::RATING_TEMPERATURE),
+                num_predict: RATING_NUM_PREDICT,
+                num_ctx: 0,
+                json_mode: false,
+                format_schema: Some(crate::plugins::scout::cognition::prose().schema()),
+                format_schema_raw: None,
+            },
+        })
+    }
+    fn stores_parts(&self) -> bool {
+        true
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
         if raw.trim() == "null" {
@@ -1238,7 +1252,7 @@ impl LensTask for RatingTask {
         // `prose_excludes` entries; same list `RatingParser` rejects on in production.
         let banned = crate::plugins::support::guards::first_banned_phrase(
             &reply.body,
-            crate::plugins::support::guards::RATING_BODY_BANS,
+            crate::plugins::scout::cognition::RATING_BODY_BANS,
         );
         checks.push(PropertyCheck {
             name: "no_banned_phrases".into(),
@@ -2563,6 +2577,7 @@ mod tests {
         }
     }
 
+    /// F6's gate. A task that declares `stores_parts` must have every fixture
     /// F6's gate. A task that declares `stores_parts` must have every fixture
     /// carry parts, and the plugin's current assembler must rebuild the stored
     /// `user_prompt` from them byte for byte.

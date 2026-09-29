@@ -12,7 +12,7 @@
 //! Missing measurements and ranks remain unknown; character and canvas own the writing.
 
 use crate::studio::model::GenerateOptions;
-use crate::studio::palette::{Paint, Palette, PaletteParser};
+use crate::studio::palette::{Paint, Palette};
 use crate::studio::{Generation, GenerationCall, Parser, Studio};
 use crate::util::round1;
 use anyhow::Result;
@@ -20,13 +20,78 @@ use serde::{Deserialize, Deserializer};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 mod brief;
-mod inputs;
-pub use brief::{CHARACTER, RATING_PROMPT_VERSION, RATING_SYSTEM_PROMPT};
-pub(crate) use inputs::supports_cross_season_comparison;
-pub use inputs::{build_stat_prompt, build_stat_prompt_with_exclusions};
+pub use brief::{CHARACTER, RATING_PROMPT_VERSION};
+
+pub mod parts;
+pub mod prompt;
+
+/// The Scout's declared prose surface: a hook and a body.
+///
+/// The keys are this plugin's; the shape and the validator are shared with every
+/// other character. The paragraph ceiling is a per-plugin recorded decision, not
+/// a default — and this plugin records a NON-PARTICIPATION, for the same reason
+/// the Journalist does.
+///
+/// Influencer's 140 characters is a writing policy for a short observation.
+/// The Scout writes a multi-paragraph analytical read of a measurement profile,
+/// and a 140-character paragraph cap would apply a rule the plugin has never been
+/// measured against. F4b settled the identical question for the Journalist:
+/// shipping a number nobody replayed is worse than recording that the rule does
+/// not apply. The shared 1,200-character body ceiling still applies, and this is
+/// a declared constant rather than an omission, so a later window can revisit it
+/// against evidence.
+pub const SCOUT_PARAGRAPH_MAX_CHARS: Option<usize> = None;
+
+pub fn prose() -> crate::plugins::cognition::prose::Prose {
+    crate::plugins::cognition::prose::Prose::new(
+        &["headline", "body"],
+        crate::plugins::cognition::prose::Dimensions::new(
+            crate::plugins::support::form::BODY_MAX_CHARS,
+            SCOUT_PARAGRAPH_MAX_CHARS,
+        ),
+    )
+}
 
 /// Output contract captured separately in the diagnostic ledger.
 pub const RATING_OUTPUT_CONTRACT_VERSION: &str = "rating-commentary-v7-palette";
+
+/// Prose this plugin will not serve, and why each one is a claim rather than a
+/// description.
+///
+/// These are Scout content policy and belong to the Scout. They were in
+/// `support::guards` while the Scout was their only consumer, which made a
+/// per-character writing decision look like a shared mechanical invariant — the
+/// same mistake `MOMENTUM_BANNED_PHRASES` makes for the Analyst, and the same fix
+/// applies in Window 6.
+///
+/// Two families live here, and the distinction is the point:
+///
+/// - **internal notation** (` · `, "exact labels and bands", "printed
+///   measurements") — the model narrating the package instead of the sport;
+/// - **inferences from a stored sample** ("reduced minutes", "constrained role",
+///   "limited playing time") — a coverage gap read as a fact about playing
+///   time. This is the one the thin-sample boundary exists to prevent, and a ban
+///   is a backstop for it rather than the mechanism: the world now states the
+///   limit, and `Limit` carries it.
+pub const RATING_BODY_BANS: &[&str] = &[
+    " · ",
+    "exact labels and bands",
+    "mid-season",
+    "printed measurements",
+    "limited playing time",
+    "playing time is likely limited",
+    "reduced playing time",
+    "reduced minutes",
+    "fewer minutes",
+    "lower total minutes",
+    "constrained role",
+    "shift in role",
+    "tactical adjustments",
+    "positional or tactical changes",
+    "substituted early",
+    "typical team averages",
+    "only verified fixture",
+];
 
 /// Production rating temperature.
 pub const RATING_TEMPERATURE: f64 = 0.6;
@@ -36,6 +101,41 @@ pub const RATING_NUM_PREDICT: i32 = 700;
 
 /// maxStatFacts bounds the breakdown datapoints fed to the prompt.
 pub(crate) const MAX_STAT_FACTS: usize = 14;
+
+/// The appearance count below which a cross-season comparison is not computed.
+///
+/// A sample thinner than this cannot support a direction claim, so the world
+/// states that rather than letting the model infer one from two snapshots.
+pub const MIN_CROSS_SEASON_APPEARANCES: f64 = 10.0;
+
+/// How many cross-season measurements a read may carry, and how many of those
+/// may be held-flat. These are SELECTION limits, not presentation limits: they
+/// decide which comparisons are worth the space. They were constants in the
+/// retired flat-prompt builder and are kept here because the parts still apply
+/// the same selection.
+pub const MAX_COMPARISON_FACTS: usize = 4;
+pub const MAX_HELD_COMPARISON_FACTS: usize = 2;
+
+/// Whether this sample can support a cross-season comparison at all.
+pub fn supports_cross_season_comparison(p: &RatingProfile) -> bool {
+    sample_appearances(p).is_some_and(|n| n >= MIN_CROSS_SEASON_APPEARANCES)
+}
+
+/// The participation count this profile was computed over.
+///
+/// The stat-definition label varies by source ("Appearances", "Games Played",
+/// "Matches Played"), so every spelling is matched rather than assuming one. A
+/// sample with no recognised participation label is thin by default: a profile
+/// whose size we cannot see is not a profile we will compare across seasons.
+pub fn sample_appearances(p: &RatingProfile) -> Option<f64> {
+    p.sample.iter().find_map(|(label, value)| {
+        matches!(
+            label.trim().to_ascii_lowercase().as_str(),
+            "appearances" | "games played" | "games_played" | "matches played" | "matches_played"
+        )
+        .then_some(*value)
+    })
+}
 
 /// Subject of a Scout assignment. Durable identifiers and trigger policy stay in the application.
 /// `sport_name` is the curated sport display name (e.g. "Football (Soccer)") so the model is
@@ -223,18 +323,6 @@ pub fn pct_band(pct: f64) -> &'static str {
     }
 }
 
-/// Compact numeric evidence, retaining hundredths for expected-value measurements.
-fn trim_float(f: f64) -> String {
-    if f == f.trunc() {
-        format!("{f:.0}")
-    } else {
-        format!("{f:.2}")
-            .trim_end_matches('0')
-            .trim_end_matches('.')
-            .to_string()
-    }
-}
-
 /// Return at most `MAX_STAT_FACTS` spanning the full percentile range. Keep both ends and sample
 /// the middle evenly so the prompt does not become a top-N highlight reel.
 fn ordered_facts(breakdown: &[RatingDatapoint]) -> Vec<RatingDatapoint> {
@@ -291,6 +379,14 @@ pub(crate) fn budget_truncated_stat_labels(breakdown: &[RatingDatapoint]) -> Vec
 /// with byte-wise string ordering; at most five per mode.
 /// Used by BOTH the prompt's rate-adjusted section AND `input_components`' rate_standouts (same output).
 fn collect_rate_standouts(p: &RatingProfile) -> Vec<RateStandout> {
+    collect_rate_standouts_public(p)
+}
+
+/// The same selection, named for the parts module, which presents these as a
+/// part rather than as a prompt section. One selection, two presentations: a
+/// second implementation would let the two disagree about which rate standouts
+/// exist.
+pub(crate) fn collect_rate_standouts_public(p: &RatingProfile) -> Vec<RateStandout> {
     let mut modes: Vec<&String> = p.rate_modes.keys().collect();
     modes.sort();
 
@@ -414,34 +510,6 @@ pub(crate) fn drop_display_tier_datapoints(p: &mut RatingProfile) -> Vec<String>
     dropped
 }
 
-fn format_datapoint_evidence(d: &RatingDatapoint) -> String {
-    let mut s = format!(
-        "{}: {}",
-        d.label,
-        d.value
-            .map(trim_float)
-            .unwrap_or_else(|| "unmeasured".into())
-    );
-    if !d.measure.is_empty() && !d.measure.eq_ignore_ascii_case(&d.label) {
-        s.push_str(&format!(" ({})", d.measure));
-    }
-    if let Some(pct) = d.pct {
-        s.push_str(&format!(", percentile {pct:.1} ({})", pct_band(pct)));
-        if let Some(cohort) = d.cohort.filter(|n| *n >= 2.0) {
-            s.push_str(&format!(" of {} eligible profiles", trim_float(cohort)));
-        }
-    }
-    s.push_str(match d.sign {
-        1 => "; raw value: higher is better",
-        -1 => "; raw value: lower is better",
-        _ => "; raw value: favorable direction unknown",
-    });
-    if let Some(z) = signed_z(d) {
-        s.push_str(&format!("; quality z {z:+.2}"));
-    }
-    s
-}
-
 /// Prior rank of the same measurement. Arithmetic direction is rendered deterministically;
 /// sporting significance belongs to the writer.
 #[derive(Clone, Debug, serde::Serialize)]
@@ -554,7 +622,7 @@ pub(crate) fn model_prompt_profile(
         });
         let mut selected = ranked
             .iter()
-            .take(inputs::MAX_COMPARISON_FACTS)
+            .take(MAX_COMPARISON_FACTS)
             .map(|fact| fact.0)
             .collect::<HashSet<_>>();
         let mut held = ranked
@@ -568,7 +636,7 @@ pub(crate) fn model_prompt_profile(
         });
         selected.extend(
             held.into_iter()
-                .take(inputs::MAX_HELD_COMPARISON_FACTS)
+                .take(MAX_HELD_COMPARISON_FACTS)
                 .map(|fact| fact.0),
         );
         prompt_profile
@@ -873,20 +941,50 @@ fn split_rating_headline(raw: &str) -> (Option<String>, String) {
 
 impl Parser<RatingReply> for RatingParser {
     fn parse(&self, raw: &str) -> Result<Option<RatingReply>> {
-        if raw.trim() == "null" {
+        // The declared surface is the shared keyed prose map, so decoding routes
+        // through the shared validator over this plugin's own keys. That is what
+        // makes the `form` part a contract rather than decoration: the grammar
+        // offered to the model and the surface actually accepted come from one
+        // declaration, and an undeclared field or a dropped slot is refused.
+        let prose = crate::plugins::scout::cognition::prose();
+        let map = crate::plugins::support::form::decode_prose_map(raw, &prose.keys)?;
+        // A declined body is this plugin's abstention. It is distinct from a
+        // dropped slot, which `decode_prose_map` has already refused.
+        let Some(body) = map.get("body").map(clean_commentary) else {
             return Ok(None);
+        };
+        // The two slots are different kinds of text and carry different rules.
+        // The body is prose, so the shared paragraph and body ceilings apply to
+        // it. The headline is a TITLE, and its contract is the hook ceiling plus
+        // `settle_title`, which salvages or drops an unusable one — a bad title
+        // must never cost a finished report. Running the prose rule over both
+        // would let a 200-character title throw away a valid read, which is
+        // exactly the failure the 2026-08-24 hook change removed.
+        let mut prose_only = crate::plugins::support::form::ProseMap::new();
+        prose_only.push("body", Some(body.clone()));
+        // A ceiling violation is a CORRECTABLE surface, not a broken call, so it
+        // is raised as `SurfaceError` — that is what the bounded correction
+        // recognises. Without this the shared validator's plain error would
+        // skip the retry and one over-long body would cost the whole read.
+        if let Err(error) = prose_only.validate(prose.dims) {
+            return Err(crate::plugins::support::form::SurfaceError(format!("{error}")).into());
         }
-        if raw.trim_start().starts_with('{') {
-            serde_json::from_str::<crate::plugins::support::form::CardReply>(raw)?;
-        }
-        // Split the card title off FIRST so the body checks never grade it as prose.
-        let (headline, body_only) = split_rating_headline(raw);
-        let body = clean_commentary(&body_only);
         crate::plugins::support::form::validate_body(&body)?;
-        if let Some(p) = crate::plugins::support::guards::first_banned_phrase(
-            &body,
-            crate::plugins::support::guards::RATING_BODY_BANS,
-        ) {
+        let headline = map.get("headline").map(clean_commentary);
+        // A FILLED slot with no content in it is a contract violation under the
+        // shared rule, and that applies to the title too: `"headline": "   "` is
+        // a model returning a field it declined to fill, which must be `null`.
+        // That is distinct from an UNUSABLE title, which `settle_title` salvages
+        // or drops so a bad title never costs a finished report.
+        if let Some(title) = headline.as_deref() {
+            anyhow::ensure!(
+                !title.trim().is_empty(),
+                "`headline` is blank; a slot carries prose or is declined"
+            );
+        }
+        if let Some(p) =
+            crate::plugins::support::guards::first_banned_phrase(&body, RATING_BODY_BANS)
+        {
             tracing::warn!(
                 guard = "rating_body_ban",
                 phrase = p,
@@ -905,7 +1003,8 @@ impl Parser<RatingReply> for RatingParser {
             tracing::warn!(guard = "foreign_script", "rating body rejected");
             anyhow::bail!("rating: body carries a foreign-script run");
         }
-        // Optional titles fail open: salvage or drop without throwing away the report.
+        // A declined or unusable title fails open: salvage or drop without
+        // throwing away the report.
         let headline = crate::plugins::support::guards::settle_title("scout", headline.as_deref());
         Ok(Some(RatingReply { body, headline }))
     }
@@ -1411,8 +1510,15 @@ pub struct Assignment {
     pub input_hash: String,
     pub exclusions: RatingExclusions,
     pub opts: GenerateOptions,
+    /// The prepared world, rendered once. This is what the model reads; it is
+    /// rendered here rather than in `create` so the package measured, hashed and
+    /// sent are the same bytes.
     pub built_prompt: String,
-    /// Selected output vocabulary. Production supplies this from measured facts.
+    /// The same world, unrendered, so the manual, the response schema and the
+    /// package are derived from one source rather than three.
+    pub parts: parts::Parts,
+    /// Selected output vocabulary. Retained as the plugin's approved statements
+    /// and as the provenance of what it is willing to say; see [`create`].
     pub palette: Palette,
 }
 
@@ -1567,28 +1673,152 @@ pub fn unchanged(assignment: Assignment, configured_model: impl Into<String>) ->
     )
 }
 
+/// Refuse a world that contradicts the plugin's own approved statements.
+///
+/// The palette used to be the thing sent, so `validate()` was enough. Now it is
+/// this plugin's declaration of what the profile supports, and the check keeps
+/// it load-bearing: a fact in the world that no approved statement rests on, or
+/// an approved statement about a fact the world does not carry, is a
+/// preparation defect. Neither reaches the model.
+fn check_supported(world: &str, parts: &parts::Parts) -> Result<()> {
+    let supplied = numeric_literals(world);
+    let mut problems = Vec::new();
+    for value in &parts.profile.values {
+        // An approved statement may only assert figures this value carries.
+        for figure in [
+            value.value,
+            value.percentile,
+            value.prior_percentile,
+            value.quality_z,
+        ]
+        .into_iter()
+        .flatten()
+        {
+            if !supplied
+                .iter()
+                .any(|(_, known)| (known - figure).abs() < 0.000_001)
+            {
+                problems.push(format!(
+                    "{} carries {figure} but the rendered world does not",
+                    value.label
+                ));
+            }
+        }
+        if let Some(band) = value.band.as_deref() {
+            if !world.contains(band) {
+                problems.push(format!(
+                    "{} is banded {band:?} but the rendered world does not state it",
+                    value.label
+                ));
+            }
+        }
+    }
+    if let Some(composite) = parts.profile.composite {
+        if !supplied
+            .iter()
+            .any(|(_, known)| (known - composite).abs() < 0.000_001)
+        {
+            problems.push(format!(
+                "the composite {composite} is not in the rendered world"
+            ));
+        }
+    }
+    // A measured window's numbers must also be present: they are the plugin's
+    // arithmetic over stored fixtures and a reader must be able to check them.
+    for window in &parts.memory.measured {
+        for figure in [
+            window.per_match,
+            window.per_match_change,
+            window.percent_change,
+        ]
+        .into_iter()
+        .flatten()
+        {
+            if !supplied
+                .iter()
+                .any(|(_, known)| (known - figure).abs() < 0.000_001)
+            {
+                problems.push(format!(
+                    "measured window {} carries {figure} but the rendered world does not",
+                    window.measure_label
+                ));
+            }
+        }
+    }
+    anyhow::ensure!(
+        problems.is_empty(),
+        "the prepared world contradicts the plugin's approved statements: {}",
+        problems.join("; ")
+    );
+    Ok(())
+}
+
 /// Create the Scout card from material prepared by the application.
+///
+/// **The palette is no longer the call.** Until s61 this function overwrote the
+/// system prompt, the temperature, the token allowance and the response schema,
+/// then sent `palette.prompt()` and parsed the result back through
+/// `PaletteParser` — so the model chose one of two or three approved phrasings
+/// per fact, and the ~300-line prose prompt, the 700-token card contract and the
+/// entire `RatingRequestParser` guard chain were reachable only from evaluation.
+/// The world the adapter had already assembled was never sent.
+///
+/// Now the model reads the prepared world and articulates it, with the palette
+/// retained as the plugin's statement of what it is willing to say: every
+/// statement in it must be supported by the world, and `check_supported` refuses
+/// a body that asserts a figure the world does not carry.
 pub async fn create(studio: &Studio<'_>, assignment: Assignment) -> Result<RatingOutput> {
     let palette = &assignment.palette;
+    // The approved statements are still validated: they are the plugin's own
+    // claim about what the profile supports, and an unusable one is a preparation
+    // defect even though it is no longer the thing sent.
     palette.validate()?;
+    check_supported(&assignment.built_prompt, &assignment.parts)?;
     let mut opts = assignment.opts.clone();
-    opts.system = Some("Arrange the plugin's approved statements. Return only the requested JSON choices. Your words are never published directly.".into());
-    opts.temperature = Some(0.0);
-    opts.num_predict = crate::studio::palette::PALETTE_NUM_PREDICT;
-    opts.format_schema = Some(palette.schema());
     let extracted = studio
         .extract(
-            &palette.prompt(),
+            &assignment.built_prompt,
             &opts,
-            &PaletteParser(palette),
-            crate::plugins::support::prompt::structured_correction,
+            &RatingRequestParser::new(
+                &assignment.built_prompt,
+                &assignment.comparison_directions,
+                &assignment.measurement_bands,
+            ),
+            crate::plugins::support::prompt::publishing_correction,
         )
         .await?;
+    opts.system = assignment.opts.system.clone();
     let call = GenerationCall::from(&extracted);
-    let body = extracted
-        .value
-        .ok_or_else(|| anyhow::anyhow!("palette composition cannot abstain"))?;
-    crate::plugins::support::form::validate_body(&body)?;
+    let Some(reply) = extracted.value else {
+        // A called pass is a complete response: the model was asked, and
+        // declined. That is distinct from a missing usable profile, which is an
+        // uncalled marker, and distinct from a malformed card, which is an error.
+        return Ok(Generation::called(
+            RatingProduct {
+                season: assignment.season,
+                skipped_no_stats: false,
+                abstained: true,
+                skipped_unchanged: false,
+                body: None,
+                headline: None,
+                notability: Some(assignment.notability),
+                notability_components: assignment.notability_components,
+                rating_trajectory: Some(assignment.rating_trajectory.key),
+                rating_trajectory_label: assignment.rating_trajectory.label,
+                rating_trajectory_components: assignment.rating_trajectory.components,
+                input_components: assignment.input_components,
+                exclusions: assignment.exclusions,
+            },
+            extracted.model,
+            RATING_PROMPT_VERSION,
+            Vec::new(),
+            Some(assignment.input_hash),
+            call,
+        ));
+    };
+    crate::plugins::support::form::validate_body(&reply.body)?;
+    // The title is the plugin's own, not the model's: it names the entity and the
+    // kind of read, which is a fact rather than something to articulate.
     let headline = crate::plugins::support::guards::settle_title(
         "scout",
         Some(&format!(
@@ -1603,7 +1833,7 @@ pub async fn create(studio: &Studio<'_>, assignment: Assignment) -> Result<Ratin
             skipped_no_stats: false,
             abstained: false,
             skipped_unchanged: false,
-            body: Some(body),
+            body: Some(reply.body),
             headline,
             notability: Some(assignment.notability),
             notability_components: assignment.notability_components,

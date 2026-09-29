@@ -91,12 +91,10 @@ mod tests {
     use crate::plugins::insider::cognition as insider;
     use crate::plugins::journalist::cognition as journalist;
     use crate::plugins::oracle::cognition as oracle;
-    use crate::plugins::scout::cognition as scout;
     use crate::plugins::support::form::journalist_schema;
     #[test]
     fn remaining_characters_keep_their_shared_instruction_composition() {
         let characters = [
-            (scout::CHARACTER, scout::RATING_SYSTEM_PROMPT.as_str()),
             (
                 analyst::prompt::CHARACTER,
                 analyst::prompt::MOMENTUM_SYSTEM_PROMPT.as_str(),

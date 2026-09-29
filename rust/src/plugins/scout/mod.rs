@@ -3,3 +3,4 @@
 pub mod adapter;
 pub mod cognition;
 pub mod manifest;
+pub mod memories;

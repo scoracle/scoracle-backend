@@ -501,23 +501,55 @@ mod tests {
         assert!(validate_observation_body(&vec![paragraph; 9].join("\n\n")).is_err());
     }
 
+    /// The Scout moved to the shared keyed map in Window 4, so it no longer
+    /// shares Analyst's card shape. What this axis now holds is that every
+    /// character parser preserves paragraph breaks and refuses a truncated
+    /// reply, and that a declared contract rejects a field the plugin never
+    /// asked for. The last part is new: the Scout used to accept a `score` here
+    /// and score-free it by hand, which is the thing the shared decoder exists
+    /// to stop.
     #[test]
-    fn shared_json_fields_preserve_paragraphs_across_the_card_parsers() {
+    fn every_character_parser_preserves_paragraphs_and_refuses_what_it_did_not_declare() {
         use crate::studio::Parser;
-        let raw = serde_json::json!({"headline":"Morgan Rogers creates chances at an elite level", "body":"Creation stands out.\n\nThe defensive measures are lower.", "score":60}).to_string();
+        let paragraphs = "Creation stands out.\n\nThe defensive measures are lower.";
+        let card = serde_json::json!({
+            "headline": "Morgan Rogers creates chances at an elite level",
+            "body": paragraphs,
+            "score": 60
+        })
+        .to_string();
+        // The Analyst is the remaining card parser, and it still declares a
+        // score, so it reads the whole card.
         assert_eq!(
-            scout::RatingParser.parse(&raw).unwrap().unwrap().body,
-            analyst::MomentumParser.parse(&raw).unwrap().unwrap().blurb
+            analyst::MomentumParser.parse(&card).unwrap().unwrap().blurb,
+            paragraphs
         );
-        let mut score_free: serde_json::Value = serde_json::from_str(&raw).unwrap();
-        score_free.as_object_mut().unwrap().remove("score");
-        score_free.as_object_mut().unwrap().remove("headline");
-        let vibe = influencer::VibeParser
-            .parse(&score_free.to_string())
+        let keyed = serde_json::json!({"headline": "A read", "body": paragraphs}).to_string();
+        assert_eq!(
+            scout::RatingParser.parse(&keyed).unwrap().unwrap().body,
+            paragraphs
+        );
+        let vibe = serde_json::json!({"body": paragraphs}).to_string();
+        assert!(influencer::VibeParser
+            .parse(&vibe)
             .unwrap()
-            .unwrap();
-        assert!(vibe.body.unwrap().contains("\n\n"));
-        assert!(scout::RatingParser.parse("{\"body\":\"unfinished").is_err());
+            .unwrap()
+            .body
+            .unwrap()
+            .contains("\n\n"));
+        // A score the Scout never declared is a violation, not something to strip.
+        assert!(scout::RatingParser.parse(&card).is_err());
+        assert!(influencer::VibeParser.parse(&card).is_err());
+        // Truncation is an error everywhere, never a partial card.
+        for truncated in [
+            "{\"body\":\"unfinished",
+            "{\"headline\":\"A read\",\"body\":\"unfinished",
+        ] {
+            let refused = analyst::MomentumParser.parse(truncated).is_err()
+                || scout::RatingParser.parse(truncated).is_err()
+                || influencer::VibeParser.parse(truncated).is_err();
+            assert!(refused, "a truncated reply was accepted: {truncated}");
+        }
     }
 
     /// The assembled/articulate test, checkable on the rendered package. A

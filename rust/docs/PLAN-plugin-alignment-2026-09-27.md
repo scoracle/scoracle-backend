@@ -248,7 +248,7 @@ Use this single plan as the durable index. Start each plugin in a fresh context 
 | 1 | Harvester / `harvester` | Intake, source extraction, System 1 filtering, delivery contract | V7 implemented and verified; current behavior accepted; calibration deferred; deployment separate |
 | 2 | Journalist / `narratives` | Stateless articulation of fresh reporting and studied history | Deployed at `573d6a8e`; **exit claim reopened** — F3, F4b, F6, F7 open |
 | 3 | Influencer / `vibe` | Emotional synthesis of supplied fresh context and memory | Parts/manual implemented locally; not deployed; migrates first in F2a/F4a |
-| **0** | **Shared foundation** | **Memory, cognition contracts, form, assembly, manual, evaluation harness, guards, ledgers** | **In progress: F1, F1b complete. Blocks Window 4.** |
+| **0** | **Shared foundation** | **Memory, cognition contracts, form, assembly, manual, evaluation harness, guards, ledgers** | **In progress: F1, F1b, F2 complete. Blocks Window 4.** |
 | 4 | Scout / `rating` | Measured performance, source triggers, statistical voice | Not started; carries F5, F8 and the first `statistic::team_matches` consumer |
 | 5 | Insider / `transfers` | Relationship evidence, transfer state, heat, identity obligations | Not started; supplies pair scope as an include list under F1 |
 | 6 | Analyst / `momentum` | Scout/Influencer synthesis and supported direction | Not started; carries its half of F8 |
@@ -435,26 +435,51 @@ is not a guard.
 `src/plugins/journalist/memories.rs`.
 
 - Add to `plugins/memories.rs`:
-  `pub struct HistoryItem { group: String, published_at: String, publisher: String, reported_headline: String }`
+  `pub struct HistoryItem { group: Option<String>, publisher: String, published_at: String, reported_headline: String }`
   and
-  `pub struct GroupSummary { group: String, population: &'static str, distinct_recorded_articles: usize, publisher_article_counts: Vec<PublisherCount> }`.
+  `pub struct GroupSummary { group: String, population: String, from: String, before: String, distinct_recorded_articles: usize, publisher_article_counts: Vec<PublisherCount>, source_ids: Vec<i64> }`.
   `group` is the stable key the study already computes as `topic`; carrying it as
   a field is what lets a plugin group (Journalist) or flatten (Influencer)
   without a different type, and it is the join key for F3.
-- `ReportingHistory::select` returns `Vec<HistoryItem>` plus `Vec<GroupSummary>`.
-  Delete the local `History` struct.
+- `ReportingHistory::select` returns `Vec<HistoryItem>` and gains a `grouped: bool`,
+  so a plugin that does not group omits the field rather than presenting the
+  study's one-article-per-observation default as a group.
 - `journalist/memories.rs` deletes `MemoryReport`, `MemorySource`, `MemoryGroup`,
   `reporting_context` and `context`, and returns the shared types. Its `select`
   becomes index-aligned with the fresh reports (F3).
 - `journalist/memories.rs::load` keeps its own `news_summaries` query — that is
-  *self-memory*, what this plugin has already published — but name the field
-  `published_reports` so it is never confused with studied history, and give it
-  the shared item type.
+  *self-memory*, what this plugin has already published — and the field is
+  renamed `published_reports` so it is never confused with studied history. It
+  stays a `CorpusItem`, not a `HistoryItem`: deduplication needs the article id
+  and the full source text that the presentation type deliberately omits, and
+  narrowing it to share a type would make it worse.
 - The assembled `history` key has the same field names in both plugins.
 
-**Done:** `rg "struct Memory(Group|Report|Source)" src/plugins/journalist/` is empty.
-**Verify:** Influencer n94 replay byte-identical. Journalist n94 replay
-semantically identical, with nesting replaced by `group`.
+**Done, in `76065db6`.** `rg "struct Memory(Group|Report|Source)" src/plugins/journalist/`
+is empty; the Influencer's serialized item is unchanged; the Journalist carries
+`group` and a parallel `history_groups`.
+
+**F2 also completes F1.** Removing the storyline join from the shared SQL left the
+Journalist with one group per article and no replacement, because nothing yet
+supplied the `Topic` hook. F1 is therefore only behaviorally complete as of this
+commit: the Journalist resolves its own storyline topics and passes them through
+that hook, and the storyline tables remain a plugin dependency rather than shared
+infrastructure again. Worth stating plainly, because F1's message claimed
+behavior-preserving and that was true of the API and the test but not of the
+production grouping until here.
+
+**Verified:** 534 tests pass. The Influencer's serialized history item was
+checked byte-for-byte against the pre-change shape. Two Journalist tests that
+asserted the old nested shape were updated to the shared contract, not removed.
+`GroupSummary` initially dropped `source_ids`; a failing provenance test caught it
+and the field was restored to the type — a published memory claim with a count and
+no resolvable article ids is a provenance regression.
+
+**Unrun, and why:** `storyline_groups` is new SQL that nothing else exercises, so it
+has an isolated database test covering scope, window bounds and a wrong subject.
+It is `#[ignore]`d without `TEST_DATABASE_URL` and was not executed here. F2 and F3
+both change the Journalist's assembled package and therefore its prompt, so they
+share one replay gate; neither is released.
 
 ### F3 — The plugin assigns history to report slots
 
@@ -1214,6 +1239,9 @@ names the date, the decision, and the evidence it rests on.
 | 2026-09-29 | **The 1,200-character body ceiling is shared; the 140-character paragraph rule is per plugin.** | The body ceiling is a reader-facing product constraint. The paragraph rule is a writing policy, enforced today only by Influencer. Enforcing it on Journalist or dropping it from Influencer would make one worse to share. F4's `Dimensions` makes it a parameter. |
 | 2026-09-29 | **Sharing is an optimization, not a requirement.** | A tool narrowed or restricted so a second plugin can use it is diluted, and the damage is invisible because the code now lives in one place. Where a request cannot express what a plugin needs, widen the tool or let the plugin keep its own, and record which. |
 | 2026-09-29 | **The runtime has four layers, and the vision's "harness" is two of them.** | Harvester decides the destination; the harness executes it. A harness that chose destinations would be a second semantic authority with unversionable, unattributable thresholds. |
+| 2026-09-29 | **`GroupSummary` carries `source_ids`.** A first draft dropped them and a provenance test caught it. A published memory claim with a count and no resolvable article ids cannot be traced to evidence, and "traceable" outranks "compact". |
+| 2026-09-29 | **F1 was not behavior-preserving on its own.** Its API and test were, but removing the storyline join left the Journalist with one group per article until F2 supplied the `Topic` hook. The two had to land together; F1's own commit message overstated it and F2 records the correction. |
+| 2026-09-29 | **The Journalist's self-memory stays a `CorpusItem`, not a `HistoryItem`.** It deduplicates fresh source by exact text and needs the article id and full source text the presentation type omits. Converting it to share a type would have narrowed a tool to look uniform. |
 | 2026-09-29 | **F1 moved pair-name containment out of the shared study.** Accepted deliberately: it is caller policy and the shared study cannot know a caller's identity rules. The property is now opt-in, so every caller that resolves a pair must apply it. The plan notes the cost; it does not hide it. |
 | 2026-09-29 | **Everything is a plugin; Harvester's cognition slot holds a System 1 model.** | Harvester already has a `PluginManifest` with its own task, claim policy, inference routes and `ToolGrant`s, plus the same prepare-then-enforce cognition shape as every character. The old "internal plugins may need no articulation call" was a description of the migration, not the target. |
 | 2026-09-29 | **The contract type is the enforcement.** A character plugin cannot take a second eligibility call because it has no Decision slot. Converse: a plugin with no declared, enforced response contract has an undefined model role — which is the true finding in Investigator and Graph. |
@@ -1222,16 +1250,17 @@ names the date, the decision, and the evidence it rests on.
 
 ## Window 0 handoff
 
-**Status: F1 and F1b complete and verified; F2 next.** F1 is `020bc7a1`, F1b is
-`b2577103`. Each is a separate commit so the plan's "complete" claim is
-traceable to code that can be reverted independently of the plan.
+**Status: F1, F1b and F2 complete; the F3/F4/F4c chain is next.** F1 is
+`020bc7a1`, F1b is `b2577103`, F2 is `76065db6`. Each is a separate commit so the
+plan's "complete" claim is traceable to code that can be reverted independently of
+the plan.
 
 | Task | State | What landed |
 | --- | --- | --- |
 | F1 | complete | `reporting_scope` lost `pair`/`predicates`; `include` and `Topic` replace them; shared SQL reads no storyline table; the memory test omits those tables so it fails if the coupling returns |
 | F1b | complete | `plugins/cognition.rs` names the three slot kinds and the `SLOTS` table; `studio/decision.rs` moved to `plugins/cognition/decision.rs`; `prose.rs` declares the slot with the two dimensions separated; `Prose::enforce` fails closed pending F4 |
-| F2 | next | one memory item type; Journalist's 233-line `memories.rs` reimplemented against it |
-| F3, F4, F4c | chain | F4 fixes the decoder, F3 nests history per report, F4c then has one renderer to share |
+| F2 | complete, `76065db6` | `HistoryItem`/`GroupSummary` shared; both plugins migrated; Journalist's storyline grouping restored as the first `Topic` consumer; self-memory renamed `published_reports` |
+| F3, F4, F4c | next chain | F4 fixes the decoder, F3 nests history per report, F4c then has one renderer to share. F2 and F3 together are one change to the Journalist's prompt and share one replay gate |
 | F6, F7 | independent | evaluation harness; Journalist's dead `card_score_prev` |
 | F5, F8, F9 | handed off | Window 4 and Window 10 |
 

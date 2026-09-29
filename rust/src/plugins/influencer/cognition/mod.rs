@@ -60,13 +60,45 @@ pub fn source_disposition(text: &str, published_at: i64, now: i64) -> Option<&'s
 /// The parts and their order are this plugin's choice; `assembly::World` only
 /// renders them, deterministically and in the order given here.
 pub fn assembled_prompt(assignment: &Assignment) -> String {
+    assemble(&assignment.subject, &assignment.source, &assignment.history).render()
+}
+
+/// The prepared world, before it is rendered.
+///
+/// Split from [`assembled_prompt`] so the evaluation harness can re-assemble a
+/// stored fixture from the same three parts production hands this function,
+/// rather than replaying a captured prompt string.
+pub fn assemble(
+    subject: &EntityMeta,
+    source: &SourceContext,
+    history: &[super::memories::HistoryItem],
+) -> crate::plugins::assembly::World {
     crate::plugins::assembly::World::new()
-        .part("identity", assignment.subject.for_writing())
-        .part("fresh", fresh::prepare(&assignment.source))
-        .part("history", &assignment.history)
+        .part("identity", subject.for_writing())
+        .part("fresh", fresh::prepare(source))
+        .part("history", history)
         .part("voice", CHARACTER)
         .part("form", crate::plugins::support::form::observation_form())
-        .render()
+}
+
+/// This plugin's parts, in a form a quality fixture can store.
+///
+/// A fixture that stores only a rendered prompt cannot detect a changed
+/// assembler: the stored string keeps passing while production sends something
+/// else. Storing the parts and rebuilding through [`assemble`] makes that a test
+/// failure. The type lives here because this plugin owns what its parts are;
+/// the harness only chooses the JSON.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct Parts {
+    pub subject: EntityMeta,
+    pub source: SourceContext,
+    pub history: Vec<super::memories::HistoryItem>,
+}
+
+impl Parts {
+    pub fn assemble(&self) -> String {
+        assemble(&self.subject, &self.source, &self.history).render()
+    }
 }
 
 pub fn generation_options(temperature: f64, num_ctx: i32, num_predict: i32) -> GenerateOptions {

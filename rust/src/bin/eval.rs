@@ -363,7 +363,7 @@ async fn score_backend(
     let mut mae_n = 0usize;
     let mut results: Vec<CaseResult> = Vec::with_capacity(cases.len());
     for case in cases {
-        let opts = task.gen_options_for(EVAL_TEMPERATURE, &case.entity);
+        let opts = task.gen_options_for(EVAL_TEMPERATURE, &case.entity)?;
         let prompt = match task.build_prompt(pool, models, &case.entity).await? {
             Some(p) => p,
             None => {
@@ -551,11 +551,41 @@ async fn run_one_fixture(
     fx: &Fixture,
     historical: bool,
 ) -> (usize, usize) {
-    let mut opts = task.gen_options_for_sport(fx.temperature, &fx.sport);
+    // A fixture that stores parts is rebuilt through the plugin's own assembler
+    // and gets the request it produces — prompt, manual and schema together. Only
+    // a task with no parts assembler falls back to the captured string, and the
+    // `stores_parts` test fails the day a plugin stops being one of those.
+    let prepared = fx.parts.as_ref().map(|parts| task.assemble(parts));
+    let (prompt, mut opts) = match prepared {
+        Some(Ok(prepared)) => (prepared.user_prompt, prepared.options),
+        Some(Err(e)) => {
+            println!(
+                "  {label} {:<16} parts did not assemble ({e:#})",
+                backend.model()
+            );
+            return (0, expected_property_count(&fx.expect) + 1);
+        }
+        None => {
+            let opts = match task.gen_options_for_sport(fx.temperature, &fx.sport) {
+                Ok(opts) => opts,
+                Err(e) => {
+                    println!(
+                        "  {label} {:<16} no generation options ({e:#})",
+                        backend.model()
+                    );
+                    return (0, expected_property_count(&fx.expect) + 1);
+                }
+            };
+            (fx.user_prompt.clone(), opts)
+        }
+    };
+    // The fixture's authored temperature wins on both paths: the plugin's own
+    // option set is the production default, not the fixture's choice.
+    opts.temperature = Some(fx.temperature);
     if historical {
         opts.system = Some(fx.system.clone());
     }
-    let gen = match backend.generate(&fx.user_prompt, &opts).await {
+    let gen = match backend.generate(&prompt, &opts).await {
         Ok((g, _)) => g,
         Err(e) => {
             println!("  {label} {:<16} generate failed ({e:#})", backend.model());
@@ -590,7 +620,9 @@ async fn run_one_fixture(
         match scoracle_cognition::evaluation::judge::judge_reply(
             j.as_ref(),
             task.name(),
-            &fx.user_prompt,
+            // The package the model actually read, which for a parts fixture is
+            // what the plugin's current assembler produced.
+            &prompt,
             &gen.response,
             voice,
         )
@@ -841,6 +873,10 @@ async fn run_capture(cfg: &Config, task: &dyn LensTask, cases: &[EvalCase]) -> R
         prompt_version: task.prompt_version().to_string(),
         system: String::new(),
         user_prompt,
+        // A capture is a starting point, not a parts fixture. Filling this in is
+        // the author's job: a stored string cannot detect a changed assembler,
+        // which is the whole point of the field.
+        parts: None,
         temperature: EVAL_TEMPERATURE,
         expect: Expect::default(),
         review: Vec::new(),
@@ -932,6 +968,10 @@ async fn run_capture_ledger(cfg: &Config, task: &dyn LensTask, ledger_id: i64) -
         prompt_version,
         system,
         user_prompt,
+        // The ledger stores the request that was sent, not the input that
+        // produced it, so there are no parts to recover here. A task with a parts
+        // assembler needs its fixture authored from the plugin's own types.
+        parts: None,
         temperature,
         expect: Expect::default(),
         review: Vec::new(),

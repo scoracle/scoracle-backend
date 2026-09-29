@@ -27,6 +27,7 @@ use crate::plugins::insider::cognition::{
 use crate::plugins::investigator::cognition::prompt::{
     prose_opts, ProseReadParser, INVESTIGATOR_PROSE_CONTRACT_VERSION,
 };
+use crate::plugins::journalist::cognition::CorpusItem;
 use crate::plugins::oracle::adapter::load_pillars;
 use crate::plugins::oracle::cognition::{
     build_crown_prompt, build_pillar_divergence, compute_omen, count_sentences,
@@ -207,6 +208,12 @@ pub struct Expect {
     /// Counted crudely (terminal .!? runs) — a ceiling against padding, not a style meter.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub total_sentences_max: Option<i32>,
+    /// Narratives: how many keyed report slots the stored world has, so the real
+    /// `parse_journalist` runs over the declared keys. Required on every narratives
+    /// fixture — the response contract is one slot per report, and a parser handed
+    /// the wrong count would accept a reply production rejects.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub narratives_report_count: Option<usize>,
     // transfer false-positive / true-positive rubric.
     /// Transfer adjudication: assert whether the model commits to a served rumor (`true`) or clears
     /// the pair (`false`). `None` in a parsed verdict is the UNKNOWN/fail-closed path and fails
@@ -410,6 +417,15 @@ pub struct ResolverSurfaceFx {
 }
 
 /// Selected evidence plus assertions and review criteria. `system` exists only for historical replay.
+///
+/// `parts` is the plugin's own input, kept so the harness can re-assemble the
+/// package with the plugin's CURRENT assembler. `user_prompt` is the captured
+/// render, retained for review and for the tasks that have no parts yet; a test
+/// asserts the two agree, so a change to a plugin's assembler fails here rather
+/// than silently invalidating a stored string. A plugin that assembles from
+/// parts records them; a plugin whose prompt is still a string records only
+/// `user_prompt`, and a task declares which it is through
+/// [`LensTask::stores_parts`].
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Fixture {
     pub name: String,
@@ -420,6 +436,11 @@ pub struct Fixture {
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub system: String,
     pub user_prompt: String,
+    /// The plugin's input, in the shape its assembler consumes. Present for a
+    /// task whose `stores_parts()` is true; absent for one still holding a
+    /// captured string.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parts: Option<serde_json::Value>,
     pub temperature: f64,
     #[serde(default)]
     pub expect: Expect,
@@ -451,12 +472,18 @@ pub trait LensTask: Send + Sync {
     fn prompt_version(&self) -> &'static str;
     /// system + num_predict + json_mode from the stage consts; the caller chooses `temperature`
     /// (live = 0.0; fixture = the authored value).
-    fn gen_options(&self, temperature: f64) -> GenerateOptions;
+    ///
+    /// Fallible because a plugin whose decode contract is a function of the
+    /// prepared world — the Journalist's keyed schema and its history-bearing
+    /// manual — cannot supply one option set. Those plugins return their real
+    /// options from [`LensTask::assemble`] and refuse here, rather than handing
+    /// back a plausible-looking contract that does not match the package.
+    fn gen_options(&self, temperature: f64) -> Result<GenerateOptions>;
     /// Optional per-case override for tasks whose system prompt depends on the live case.
-    fn gen_options_for(&self, temperature: f64, e: &EntitySpec) -> GenerateOptions {
+    fn gen_options_for(&self, temperature: f64, e: &EntitySpec) -> Result<GenerateOptions> {
         self.gen_options_for_sport(temperature, &e.sport)
     }
-    fn gen_options_for_sport(&self, temperature: f64, _sport: &str) -> GenerateOptions {
+    fn gen_options_for_sport(&self, temperature: f64, _sport: &str) -> Result<GenerateOptions> {
         self.gen_options(temperature)
     }
     /// Build the EXACT production user-prompt for an entity. `Ok(None)` = no-corpus skip (the stage
@@ -470,11 +497,46 @@ pub trait LensTask: Send + Sync {
     /// Parse + score one raw reply. Pure/sync/offline. `label` drives the MAE axis (vibe live);
     /// `expect` drives the property axis (fixtures). Both optional and independent.
     fn evaluate(&self, raw: &str, label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict;
+    /// Rebuild this plugin's request from stored fixture `parts`.
+    ///
+    /// The package AND the decode options, because for a plugin whose contract
+    /// depends on the world they are one artifact: replaying a stored prompt
+    /// against a fixed schema tests a request production never sends. The default
+    /// refuses rather than falling back to the stored string, so a plugin without
+    /// an assembler cannot quietly pass on a stale capture.
+    fn assemble(&self, _parts: &serde_json::Value) -> Result<Prepared> {
+        anyhow::bail!(
+            "{} has no parts assembler; its fixtures store a captured prompt",
+            self.name()
+        )
+    }
+    /// Whether this task's fixtures store `parts` rather than only a prompt string.
+    ///
+    /// True means every one of this task's fixtures must carry parts that
+    /// `assemble` rebuilds byte-identically to the stored `user_prompt`. It is a
+    /// declaration, so a plugin that migrates states it rather than leaving the
+    /// harness to guess.
+    fn stores_parts(&self) -> bool {
+        false
+    }
+}
+
+/// One plugin request rebuilt from a fixture's parts.
+///
+/// Produced by the plugin's own preparation, so the prompt, the manual and the
+/// response schema are the same three artifacts production sends. Keeping them
+/// together is the point: a harness that reassembles the prompt but keeps a
+/// fixed schema has tested a request that does not exist.
+#[derive(Clone, Debug)]
+pub struct Prepared {
+    pub user_prompt: String,
+    pub options: GenerateOptions,
 }
 
 /// resolve_task maps a task name to its `LensTask`. Adding a task = a new unit struct + one arm.
 pub fn resolve_task(name: &str) -> Option<Box<dyn LensTask>> {
     match name {
+        "narratives" => Some(Box::new(NarrativesTask)),
         "vibe" => Some(Box::new(VibeTask)),
         "oracle" => Some(Box::new(OracleTask)),
         "transfer" => Some(Box::new(TransferTask)),
@@ -490,6 +552,7 @@ pub fn resolve_task(name: &str) -> Option<Box<dyn LensTask>> {
 /// all_task_names lists the registered tasks (for usage output + unknown-task errors).
 pub fn all_task_names() -> &'static [&'static str] {
     &[
+        "narratives",
         "vibe",
         "oracle",
         "transfer",
@@ -499,6 +562,167 @@ pub fn all_task_names() -> &'static [&'static str] {
         "editor",
         "investigator",
     ]
+}
+
+// ---------------------------------------------------------------------------
+// NarrativesTask — the Journalist's own parts, assembler and keyed parser.
+//
+// The window that deployed this plugin had no shared-harness coverage at all:
+// `fixtures/quality/narratives/` was empty and "narratives" was absent from
+// `all_task_names()`, so the only gate was a bespoke replay example. Fixtures
+// here store `cognition::Parts` and are rebuilt through the plugin's current
+// assembler, so a change to the package is a test failure rather than a stored
+// string that quietly stops matching production.
+// ---------------------------------------------------------------------------
+pub struct NarrativesTask;
+
+#[async_trait]
+impl LensTask for NarrativesTask {
+    fn name(&self) -> &'static str {
+        "narratives"
+    }
+    fn role(&self) -> RouteKey {
+        crate::plugins::journalist::manifest::ROUTE
+    }
+    fn prompt_version(&self) -> &'static str {
+        crate::plugins::journalist::cognition::NARRATIVES_PROMPT_VERSION
+    }
+    fn gen_options(&self, _temperature: f64) -> Result<GenerateOptions> {
+        // The system prompt and the response schema both depend on what the world
+        // holds — the schema is keyed by report count, the manual by whether any
+        // report carries history — so there is no one option set to return here.
+        // `assemble` produces the real request; handing back a fixed one would
+        // let a fixture pass against a contract production never sends.
+        anyhow::bail!(
+            "narratives options depend on the prepared world; assemble a fixture's parts instead"
+        )
+    }
+    async fn build_prompt(
+        &self,
+        pool: &sqlx::PgPool,
+        _models: &Models,
+        e: &EntitySpec,
+    ) -> Result<Option<String>> {
+        let subject = crate::plugins::meta::EntityMeta {
+            name: lookup_entity_name(pool, &e.entity_type, e.entity_id, &e.sport).await?,
+            entity_type: e.entity_type.clone(),
+            entity_id: e.entity_id,
+            sport: e.sport.to_uppercase(),
+        };
+        let sources = crate::plugins::harvester::delivery::load_for_character(
+            pool,
+            crate::plugins::journalist::manifest::MANIFEST.id.as_str(),
+            &subject.entity_type,
+            subject.entity_id,
+            &subject.sport,
+        )
+        .await?;
+        if sources.is_empty() {
+            return Ok(None);
+        }
+        let corpus = sources.iter().map(CorpusItem::from).collect::<Vec<_>>();
+        let now = crate::plugins::influencer::adapter::harvester::now();
+        let continuity =
+            crate::plugins::journalist::memories::load_for_assignment(pool, &subject, &corpus, now)
+                .await?;
+        let assignment =
+            crate::plugins::journalist::cognition::prepare(subject, corpus, &continuity, now)?;
+        // No selected report is a no-call, not a package with nothing in it.
+        Ok((!assignment.selected.is_empty())
+            .then(|| crate::plugins::journalist::cognition::prompt(&assignment)))
+    }
+    fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
+        // The report count is a property of the world, and `evaluate` does not
+        // receive it. Fixtures pin it on `expect`; see `narratives_report_count`.
+        let count = expect
+            .and_then(|e| e.narratives_report_count)
+            .ok_or_else(|| {
+                anyhow::anyhow!("a narratives fixture must pin `narratives_report_count`")
+            })
+            .unwrap_or(1);
+        match crate::plugins::support::form::parse_journalist(raw, count) {
+            Ok(reply) => {
+                let bodies = reply
+                    .narratives
+                    .iter()
+                    .map(|report| report.text.as_str())
+                    .collect::<Vec<_>>();
+                let joined = bodies.join("\n\n");
+                let mut checks = Vec::new();
+                if let Some(expect) = expect {
+                    for needle in expect.body_includes.iter().flatten() {
+                        let pass = contains_ci(&joined, needle);
+                        checks.push(PropertyCheck {
+                            name: format!("body includes {needle:?}"),
+                            pass,
+                            detail: String::new(),
+                        });
+                    }
+                    for needle in expect.body_excludes.iter().flatten() {
+                        let pass = !contains_ci(&joined, needle);
+                        checks.push(PropertyCheck {
+                            name: format!("body excludes {needle:?}"),
+                            pass,
+                            detail: String::new(),
+                        });
+                    }
+                    if let Some(max) = expect.total_sentences_max {
+                        let sentences: i32 = bodies
+                            .iter()
+                            .map(|body| {
+                                crate::plugins::oracle::cognition::count_sentences(body) as i32
+                            })
+                            .sum();
+                        checks.push(PropertyCheck {
+                            name: format!("total sentences ≤ {max}"),
+                            pass: sentences <= max,
+                            detail: format!("{sentences} sentences"),
+                        });
+                    }
+                }
+                CaseVerdict {
+                    parsed: true,
+                    abs_err: None,
+                    checks,
+                    display: joined,
+                }
+            }
+            Err(_) => CaseVerdict {
+                parsed: false,
+                abs_err: None,
+                checks: vec![],
+                display: "unparseable".into(),
+            },
+        }
+    }
+    fn assemble(&self, parts: &serde_json::Value) -> Result<Prepared> {
+        let parts: crate::plugins::journalist::cognition::Parts =
+            serde_json::from_value(parts.clone())
+                .map_err(|e| anyhow::anyhow!("narratives parts: {e}"))?;
+        let subject = parts.subject.clone();
+        let reports = parts.reports.clone();
+        let memories = parts.memory.clone();
+        // Rebuild the assignment the parts describe, then take BOTH the package
+        // and the options from the plugin's own functions. The system prompt
+        // depends on whether any report carries history and the schema is keyed
+        // by report count, so neither is knowable from the parts alone.
+        let assignment = crate::plugins::journalist::cognition::Assignment {
+            subject,
+            selected: reports,
+            memories,
+            memory_receipt: None,
+            dispositions: Vec::new(),
+            deferred_ids: Vec::new(),
+            input_hash: String::new(),
+        };
+        Ok(Prepared {
+            user_prompt: crate::plugins::journalist::cognition::prompt(&assignment),
+            options: crate::plugins::journalist::cognition::generation_options(&assignment, 0),
+        })
+    }
+    fn stores_parts(&self) -> bool {
+        true
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -516,8 +740,12 @@ impl LensTask for VibeTask {
     fn prompt_version(&self) -> &'static str {
         crate::plugins::influencer::cognition::VIBE_PROMPT_VERSION
     }
-    fn gen_options(&self, temperature: f64) -> GenerateOptions {
-        crate::plugins::influencer::cognition::generation_options(temperature, 0, VIBE_NUM_PREDICT)
+    fn gen_options(&self, temperature: f64) -> Result<GenerateOptions> {
+        Ok(crate::plugins::influencer::cognition::generation_options(
+            temperature,
+            0,
+            VIBE_NUM_PREDICT,
+        ))
     }
     async fn build_prompt(
         &self,
@@ -569,6 +797,25 @@ impl LensTask for VibeTask {
             },
         }
     }
+    fn assemble(&self, parts: &serde_json::Value) -> Result<Prepared> {
+        let parts: crate::plugins::influencer::cognition::Parts =
+            serde_json::from_value(parts.clone())
+                .map_err(|e| anyhow::anyhow!("vibe parts: {e}"))?;
+        Ok(Prepared {
+            user_prompt: parts.assemble(),
+            // The Influencer's contract does not vary with the world: one nullable
+            // `body` slot, one manual, whatever the source or the history. So the
+            // options are the plugin's own, not a per-fixture reconstruction.
+            options: crate::plugins::influencer::cognition::generation_options(
+                crate::plugins::influencer::cognition::VIBE_TEMPERATURE,
+                0,
+                VIBE_NUM_PREDICT,
+            ),
+        })
+    }
+    fn stores_parts(&self) -> bool {
+        true
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -589,8 +836,8 @@ impl LensTask for OracleTask {
     fn prompt_version(&self) -> &'static str {
         "or24" // Archived free-text evaluation contract.
     }
-    fn gen_options(&self, temperature: f64) -> GenerateOptions {
-        GenerateOptions {
+    fn gen_options(&self, temperature: f64) -> Result<GenerateOptions> {
+        Ok(GenerateOptions {
             system: Some(ORACLE_SYSTEM_PROMPT.to_string()),
             temperature: Some(temperature),
             num_predict: ORACLE_NUM_PREDICT,
@@ -599,7 +846,7 @@ impl LensTask for OracleTask {
             // Grammar-constrained single-field reply, matching the live stage.
             format_schema: Some(oracle_format_schema()),
             format_schema_raw: None,
-        }
+        })
     }
     async fn build_prompt(
         &self,
@@ -724,8 +971,8 @@ impl LensTask for TransferTask {
     fn prompt_version(&self) -> &'static str {
         "t13" // Archived free-text verdict evaluation contract.
     }
-    fn gen_options(&self, temperature: f64) -> GenerateOptions {
-        GenerateOptions {
+    fn gen_options(&self, temperature: f64) -> Result<GenerateOptions> {
+        Ok(GenerateOptions {
             // Use gen_options_for_sport for a concrete case.
             system: Some(transfer_system_prompt("FOOTBALL")),
             temperature: Some(temperature),
@@ -734,11 +981,11 @@ impl LensTask for TransferTask {
             json_mode: true,
             format_schema: None,
             format_schema_raw: None,
-        }
+        })
     }
-    fn gen_options_for_sport(&self, temperature: f64, sport: &str) -> GenerateOptions {
+    fn gen_options_for_sport(&self, temperature: f64, sport: &str) -> Result<GenerateOptions> {
         let sport = sport.to_uppercase();
-        GenerateOptions {
+        Ok(GenerateOptions {
             system: Some(transfer_system_prompt(&sport)),
             temperature: Some(temperature),
             num_predict: TRANSFER_NUM_PREDICT,
@@ -746,7 +993,7 @@ impl LensTask for TransferTask {
             json_mode: true,
             format_schema: None,
             format_schema_raw: None,
-        }
+        })
     }
     async fn build_prompt(
         &self,
@@ -916,8 +1163,8 @@ impl LensTask for RatingTask {
         // s60 palette contract is exercised by palette_model_compare.py.
         "s59"
     }
-    fn gen_options(&self, temperature: f64) -> GenerateOptions {
-        GenerateOptions {
+    fn gen_options(&self, temperature: f64) -> Result<GenerateOptions> {
+        Ok(GenerateOptions {
             system: Some(RATING_SYSTEM_PROMPT.to_string()),
             temperature: Some(temperature),
             num_predict: RATING_NUM_PREDICT,
@@ -927,7 +1174,7 @@ impl LensTask for RatingTask {
                 crate::plugins::support::prompt::card_schema(false),
             )),
             format_schema_raw: None,
-        }
+        })
     }
     async fn build_prompt(
         &self,
@@ -1090,8 +1337,8 @@ impl LensTask for MomentumTask {
         // Archived open-prose fixtures; production now uses a finite palette.
         "momentum-s32"
     }
-    fn gen_options(&self, temperature: f64) -> GenerateOptions {
-        GenerateOptions {
+    fn gen_options(&self, temperature: f64) -> Result<GenerateOptions> {
+        Ok(GenerateOptions {
             system: Some(MOMENTUM_SYSTEM_PROMPT.to_string()),
             temperature: Some(temperature),
             num_predict: MOMENTUM_NUM_PREDICT,
@@ -1099,7 +1346,7 @@ impl LensTask for MomentumTask {
             json_mode: false,
             format_schema: Some(crate::plugins::support::prompt::card_schema(false)),
             format_schema_raw: None,
-        }
+        })
     }
     async fn build_prompt(
         &self,
@@ -1307,10 +1554,10 @@ impl LensTask for GraphTask {
     fn prompt_version(&self) -> &'static str {
         GRAPH_PROMPT_VERSION
     }
-    fn gen_options(&self, temperature: f64) -> GenerateOptions {
+    fn gen_options(&self, temperature: f64) -> Result<GenerateOptions> {
         let mut o = graph_opts();
         o.temperature = Some(temperature);
-        o
+        Ok(o)
     }
     async fn build_prompt(
         &self,
@@ -1491,10 +1738,10 @@ impl LensTask for EditorTask {
     fn prompt_version(&self) -> &'static str {
         EDITOR_CONTRACT_VERSION
     }
-    fn gen_options(&self, temperature: f64) -> GenerateOptions {
+    fn gen_options(&self, temperature: f64) -> Result<GenerateOptions> {
         let mut o = editor_opts();
         o.temperature = Some(temperature);
-        o
+        Ok(o)
     }
     async fn build_prompt(
         &self,
@@ -1807,11 +2054,12 @@ impl LensTask for InvestigatorTask {
     fn prompt_version(&self) -> &'static str {
         INVESTIGATOR_PROSE_CONTRACT_VERSION
     }
-    fn gen_options(&self, temperature: f64) -> GenerateOptions {
+    fn gen_options(&self, temperature: f64) -> Result<GenerateOptions> {
         let mut o = prose_opts();
         o.temperature = Some(temperature);
-        o
+        Ok(o)
     }
+
     /// Fixture-driven on purpose: the production prompt is built from a LIVE Wikipedia
     /// search + summary fetch for a candidate row, which is exactly what a frozen fixture
     /// exists to pin down. Capture new fixtures from `acquisition_runs.query_plan` (the
@@ -2046,8 +2294,16 @@ mod tests {
             sport: "nba".into(),
             pair_player_id: Some(237),
         };
-        let football_system = TransferTask.gen_options_for(0.0, &football).system.unwrap();
-        let nba_system = TransferTask.gen_options_for(0.0, &nba).system.unwrap();
+        let football_system = TransferTask
+            .gen_options_for(0.0, &football)
+            .unwrap()
+            .system
+            .unwrap();
+        let nba_system = TransferTask
+            .gen_options_for(0.0, &nba)
+            .unwrap()
+            .system
+            .unwrap();
         assert!(football_system.contains("current transfer"));
         assert!(nba_system.contains("current trade"));
     }
@@ -2305,6 +2561,170 @@ mod tests {
             }
             assert!(count > 0, "{name} has no quality cases");
         }
+    }
+
+    /// F6's gate. A task that declares `stores_parts` must have every fixture
+    /// carry parts, and the plugin's current assembler must rebuild the stored
+    /// `user_prompt` from them byte for byte.
+    ///
+    /// This is what makes a changed package a test failure. Before it, the four
+    /// vibe fixtures were hand-edited when the package changed, and the
+    /// narratives directory was empty — so the harness replayed a string that
+    /// production had stopped building, and said nothing.
+    #[test]
+    fn a_parts_fixture_reassembles_to_its_stored_prompt() {
+        let mut checked = 0;
+        for &name in all_task_names() {
+            let task = resolve_task(name).unwrap();
+            if !task.stores_parts() {
+                continue;
+            }
+            let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("fixtures/quality")
+                .join(name);
+            let mut files: Vec<_> = std::fs::read_dir(&dir)
+                .unwrap_or_else(|e| panic!("read {}: {e}", dir.display()))
+                .filter_map(|e| e.ok().map(|e| e.path()))
+                .filter(|p| p.extension().and_then(|s| s.to_str()) == Some("json"))
+                .collect();
+            files.sort();
+            assert!(
+                !files.is_empty(),
+                "{name} declares parts and has no fixtures"
+            );
+            for path in files {
+                let fx: Fixture =
+                    serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+                let parts = fx.parts.as_ref().unwrap_or_else(|| {
+                    panic!(
+                        "{} stores no parts; {} declares a parts assembler, so the stored \
+                         prompt cannot be re-derived and a changed package would pass silently",
+                        path.display(),
+                        name
+                    )
+                });
+                let rebuilt = task
+                    .assemble(parts)
+                    .unwrap_or_else(|e| panic!("{} did not assemble: {e:#}", path.display()));
+                assert_eq!(
+                    rebuilt.user_prompt,
+                    fx.user_prompt,
+                    "{}: the plugin's current assembler no longer produces this package. \
+                     The parts are the fixture; recapture the prompt from them.",
+                    path.display()
+                );
+                checked += 1;
+            }
+        }
+        assert!(
+            checked > 0,
+            "no task declares a parts assembler; the gate covers nothing"
+        );
+    }
+
+    /// A parts fixture's stored prompt is a check, not the input. If the harness
+    /// can silently fall back to it, the gate above proves nothing.
+    ///
+    /// The property is that a parts fixture has exactly one path, and it runs
+    /// the plugin's assembler. A task whose contract varies with the world must
+    /// refuse a world-independent option set, because one would be a second
+    /// path to the same fixtures. A task whose contract does not vary may offer
+    /// one — that set is its real production contract, and the harness already
+    /// used it to build the request.
+    #[test]
+    fn a_parts_fixture_has_exactly_one_path_and_it_runs_the_assembler() {
+        let mut parts_tasks = 0;
+        for &name in all_task_names() {
+            let task = resolve_task(name).unwrap();
+            if !task.stores_parts() {
+                // Without an assembler the stored string is the only path, which
+                // is the state F6 exists to end. These are Windows 4 through 10.
+                assert!(
+                    task.gen_options(0.0).is_ok(),
+                    "{name} has no parts assembler, so its options must come from gen_options"
+                );
+                continue;
+            }
+            parts_tasks += 1;
+            let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("fixtures/quality")
+                .join(name);
+            let fixture = std::fs::read_dir(&path)
+                .unwrap()
+                .filter_map(|e| e.ok().map(|e| e.path()))
+                .find(|p| p.extension().and_then(|s| s.to_str()) == Some("json"))
+                .expect("a parts task has fixtures");
+            let fx: Fixture =
+                serde_json::from_str(&std::fs::read_to_string(&fixture).unwrap()).unwrap();
+            let assembled = task.assemble(fx.parts.as_ref().unwrap()).unwrap();
+            assert_eq!(
+                assembled.user_prompt,
+                fx.user_prompt,
+                "{}: the harness would send a different package than the fixture stores",
+                fixture.display()
+            );
+        }
+        assert!(parts_tasks > 0, "no task declares a parts assembler");
+    }
+
+    /// The Journalist's decode contract is a function of what the world holds:
+    /// the schema is keyed by report count and the manual names history only
+    /// when a report carries it. A fixture that pins one and not the other is a
+    /// contract nothing checks.
+    #[test]
+    fn the_narratives_contract_follows_the_world_it_was_assembled_from() {
+        let base = |reports: usize, history: bool| {
+            let reports: Vec<CorpusItem> = (0..reports)
+                .map(|index| CorpusItem {
+                    id: index as i64 + 1,
+                    title: String::new(),
+                    context: format!("Cedar reported {index}."),
+                    source: "Wire".into(),
+                    published_at_epoch: Some(1_790_553_600),
+                })
+                .collect();
+            // Index-aligned with `reports`, exactly as production attaches it.
+            let slot = crate::plugins::journalist::memories::Selected {
+                items: vec![crate::plugins::memories::HistoryItem {
+                    group: None,
+                    publisher: "Old Wire".into(),
+                    published_at: "2026-09-20T00:00:00Z".into(),
+                    reported_headline: "Cedar won earlier".into(),
+                }],
+                groups: vec![],
+            };
+            let memory = reports
+                .iter()
+                .enumerate()
+                .map(|(index, _)| (history && index == 0).then(|| slot.clone()))
+                .collect::<Vec<_>>();
+            serde_json::json!({
+                "subject": {"name":"Cedar Comets","entity_type":"team","entity_id":7,"sport":"NBA"},
+                "reports": reports,
+                "memory": memory,
+            })
+        };
+        let one = NarrativesTask.assemble(&base(1, false)).unwrap();
+        let two = NarrativesTask.assemble(&base(2, false)).unwrap();
+        let warm = NarrativesTask.assemble(&base(1, true)).unwrap();
+
+        // The schema is keyed by report count, so one option set cannot serve
+        // both worlds.
+        assert_ne!(
+            one.options.format_schema, two.options.format_schema,
+            "the response schema must follow the report count"
+        );
+        // The manual names history only when a report carries some.
+        assert_ne!(
+            one.options.system.as_deref(),
+            warm.options.system.as_deref(),
+            "the manual must follow whether history is attached"
+        );
+        // And the stored form declaration moves with the attachment, so the model
+        // is never told history is attached to a report that has none.
+        assert!(one
+            .user_prompt
+            .contains(r#""history":"attached per report""#));
     }
 
     /// Preserve identity resolution, relevance and result extraction coverage.

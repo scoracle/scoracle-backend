@@ -1,7 +1,7 @@
 //! Source-bound Journalist preparation and articulation. The plugin selects complete
 //! attributed reports; SmolLM3 articulates them, never selecting facts or scores.
 use super::memories;
-pub use super::memories::Continuity;
+pub use super::memories::{Continuity, Selected};
 use crate::plugins::harvester::delivery::SourceContext;
 use crate::plugins::meta::EntityMeta;
 use crate::studio::model::GenerateOptions;
@@ -200,12 +200,41 @@ fn render_context(
     assemble(subject, reports, history).render()
 }
 
+/// This plugin's parts, in a form a quality fixture can store.
+///
+/// A fixture that stores only a rendered prompt cannot detect a changed
+/// assembler: the stored string keeps passing while production sends something
+/// else. Storing the parts and rebuilding through [`assemble`] makes that a test
+/// failure. The type lives here because this plugin owns what its parts are;
+/// the harness only chooses the JSON.
+///
+/// `memory` is index-aligned with `reports` — the same attachment production
+/// resolved, so a stored fixture exercises the nesting rather than describing
+/// it. `GroupSummary::before_epoch` is not serialized and does not reach the
+/// model, so it does not survive the round trip; nothing rendered here reads it.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Parts {
+    pub subject: EntityMeta,
+    pub reports: Vec<CorpusItem>,
+    pub memory: Vec<Option<memories::Selected>>,
+}
+
+impl Parts {
+    pub fn assemble(&self) -> String {
+        assemble(&self.subject, &self.reports, &self.memory).render()
+    }
+}
+
 /// The prepared world, before it is rendered.
 ///
 /// Returned rather than rendered inline so preparation can measure and hash the
 /// same world the model reads, instead of assembling it again and hoping the two
 /// agree.
-fn assemble(
+///
+/// Public so the evaluation harness can assemble a stored world through the
+/// plugin's own function rather than a frozen prompt string: these three
+/// arguments *are* the parts, and nothing else is.
+pub fn assemble(
     subject: &EntityMeta,
     reports: &[CorpusItem],
     history: &[Option<memories::Selected>],

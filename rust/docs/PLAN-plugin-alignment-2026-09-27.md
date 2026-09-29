@@ -33,7 +33,17 @@ against the code — F3's `source_ids` join cannot fire, and F4c's
 `serde_json::Value` parts would have alphabetized every part — and both
 corrections are recorded in the decision register rather than applied quietly.
 F4b is decided: the Journalist records a non-participation in the paragraph rule
-rather than shipping a number nobody measured it against. F6 and F7 remain.
+rather than shipping a number nobody measured it against.
+
+**Revision 2026-09-29 (final).** **Window 0 is closed.** F6 is `1e2a5c0b` and F7
+is `694b4947`; 554 tests pass. The Journalist's package change is now covered by
+a harness that rebuilds it from stored parts, so a future window cannot rot a
+fixture silently. F6's own sketch was wrong in the same way F3's and F4c's were —
+`assemble(parts) -> String` cannot express a contract whose schema is keyed by
+report count — and the correction is in the register. The gate was
+mutation-tested rather than assumed: three deliberate breakages, three failures.
+The next window is Window 4, Scout, which inherits F5 and F8 and is the first to
+convert a fixture set to parts.
 
 Harvester phase one is implemented and locally verified. The user accepts its current 90/96 development result and defers further calibration until experience warrants it; this does not block the next plugin window. Operational release remains separate. This is the governing alignment plan; older architecture and cutover documents remain evidence of earlier work, not competing target contracts.
 
@@ -256,9 +266,9 @@ Use this single plan as the durable index. Start each plugin in a fresh context 
 | Window | Plugin / task | Scope | Status |
 | --- | --- | --- | --- |
 | 1 | Harvester / `harvester` | Intake, source extraction, System 1 filtering, delivery contract | V7 implemented and verified; current behavior accepted; calibration deferred; deployment separate |
-| 2 | Journalist / `narratives` | Stateless articulation of fresh reporting and studied history | Deployed at `573d6a8e`; **exit claim reopened** — F3, F4b, F6, F7 open. F3 and F4b now fixed locally and unreleased |
-| 3 | Influencer / `vibe` | Emotional synthesis of supplied fresh context and memory | Parts/manual implemented locally; not deployed; migrates first in F2a/F4a |
-| **0** | **Shared foundation** | **Memory, cognition contracts, form, assembly, manual, evaluation harness, guards, ledgers** | **In progress: F1, F1b, F2, F4, F3, F4c complete. F6, F7 remain. Blocks Window 4.** |
+| 2 | Journalist / `narratives` | Stateless articulation of fresh reporting and studied history | Deployed at `573d6a8e`; **exit claim reopened** — F3, F4b, F6, F7 all now fixed locally and unreleased |
+| 3 | Influencer / `vibe` | Emotional synthesis of supplied fresh context and memory | Parts/manual implemented locally; not deployed; now a parts task in the evaluation harness |
+| **0** | **Shared foundation** | **Memory, cognition contracts, form, assembly, manual, evaluation harness, guards, ledgers** | **Complete.** F1, F1b, F2, F4, F3, F4c, F6, F7 landed; F5, F8, F9 handed off. Blocks Window 4, which is next |
 | 4 | Scout / `rating` | Measured performance, source triggers, statistical voice | Not started; carries F5, F8 and the first `statistic::team_matches` consumer |
 | 5 | Insider / `transfers` | Relationship evidence, transfer state, heat, identity obligations | Not started; supplies pair scope as an include list under F1 |
 | 6 | Analyst / `momentum` | Scout/Influencer synthesis and supported direction | Not started; carries its half of F8 |
@@ -838,7 +848,82 @@ Changes:
 `assembled_prompt` fails `cargo test` in `evaluation`. This is the gate that
 stops Windows 4 through 10 from drifting apart.
 
+> **RESOLVED — in `1e2a5c0b` (F6) and `694b4947` (F7).** Read the task text above
+> as the record of what was attempted. Two instructions in it were wrong against
+> the code and are corrected below rather than applied quietly: the sketch's
+> `assemble(parts) -> String` cannot express the Journalist's contract, and
+> `stores_parts` was not in the sketch at all. The outcome is in the
+> **Status** notes; the corrections are in the decision register.
+
+**Status: complete, gate mutation-tested.** `NarrativesTask` is registered,
+`fixtures/quality/narratives/` holds nine cases derived from the retained n94
+replay inputs, and all four vibe fixtures carry parts that rebuild their stored
+prompt byte for byte.
+
+**`assemble` returns a request, not a string. The sketch was wrong.** It
+proposed `assemble(parts) -> String`, which assumes the decode contract is
+independent of the world. For the Journalist it is not, and this is not a detail:
+
+- the response schema is **keyed by report count** — `journalist_schema(n)` —
+  so a one-report world and a three-report world need different grammars;
+- the system prompt is **a function of the attachment** — `prompt::task` returns
+  the history manual only when some report carries history.
+
+A harness that reassembles the prompt but keeps one fixed schema and one fixed
+manual has not tested production's request; it has tested a request that does
+not exist. So `assemble` returns a `Prepared { user_prompt, options }`, and
+`gen_options` became fallible (`Result<GenerateOptions>`) so a plugin whose
+contract varies can **refuse** rather than hand back a plausible-looking set
+that does not match its package. The Influencer keeps a fixed option set
+because its contract genuinely does not vary — one nullable `body` slot, one
+manual — and that asymmetry is real rather than an oversight.
+
+**`stores_parts` was missing from the sketch and is the load-bearing half.** A
+`parts` field alone is inert: a task that never reads it keeps replaying the
+stored string forever, and the test would pass. The declaration is what makes
+absence a failure — a task that stores parts and has a fixture without them
+fails with the reason spelled out.
+
+**The parts type lives in the plugin, not the harness.** `journalist::cognition::Parts`
+and `influencer::cognition::Parts` are the plugin's own declaration of what its
+assembler consumes, exactly as `Prose` declares its keys. The harness chooses the
+JSON and nothing else. This required making `journalist::memories` public,
+because a public `Parts` cannot expose a type from a private module — the
+selection a caller reads is a named part of the world, not an internal of
+preparation.
+
+**The report count is pinned on `expect`, and that is a real cost.**
+`evaluate` does not receive the world, but `parse_journalist` needs the key set.
+A new `expect.narratives_report_count` carries it, so a fixture states twice
+what its parts say. A parser handed the wrong count would accept a reply
+production rejects, which is the exact failure the gate exists to catch, so the
+duplication is deliberate — but it is duplication, and a later window should
+revisit whether `evaluate` should take the prepared world instead.
+
+**Nine cases, and three were left out on purpose.** `development.jsonl` also
+holds `outdated`, `missing-date` and `source-instructions`. All three produce a
+byte-identical empty world, so four empty fixtures would test one thing. What
+distinguishes them is a preparation *disposition*, and `prepare`'s own tests
+cover that. The no-call case is kept once, as `no-new-material`.
+
+**Mutation-tested, because a guard never seen to fail is not a guard.** Three
+deliberate breakages, each caught: renaming `report_key`'s format in
+`fresh.rs`, changing the `history` declaration in `journalist_form`, and
+deleting `parts` from one fixture. The first two fail with "the plugin's
+current assembler no longer produces this package"; the third fails with "stores
+no parts".
+
+**Not done, and named.** The other seven tasks still store a captured prompt
+string. That is Windows 4 through 10, and `stores_parts` is how each of them
+declares the migration. The test asserts a non-parts task's options come from
+`gen_options`, so the fallback stays honest until it is replaced.
+
 ### F7 — Delete Journalist's dead continuity field
+
+> **RESOLVED in `694b4947`.** The audit's finding held exactly as written: no
+> reader in Rust, Go or SQL, one query per assignment populating it, and the
+> schema comment tying it to the retired n12 palette. `impact`/`card_score`
+> stays. 554 tests pass after both F6 and F7.
 
 **Files:** `src/plugins/journalist/memories.rs:18,200-211,230`;
 `journalist/cognition/mod.rs:74,177,278,332,350`;
@@ -913,11 +998,12 @@ behavior changed except the four gated ones: F3 pairing, F4b paragraph ceiling,
 F2/F4 wrapper identities, and F4c's move to a shared renderer. Each is replayed
 before release and recorded separately from code-complete status.
 
-**Where this stands.** One memory item type (F2), one prose decoder (F4), and one
-assembler (F4c) are done. The evaluation harness (F6), Journalist's dead field
-(F7), and the manual home, guards split and ledger (F5, F8, F9) are not. The
-Journalist's package is now assembled, which was the defect this window existed
-to remove; the harness that would catch the next one is F6 and is still missing.
+**Where this stands.** Every Window 0 task is done: one memory item type (F2),
+one prose decoder (F4), one assembler (F4c), one live evaluation gate (F6), and
+the Journalist's dead field is gone (F7). The manual home, guards split and
+ledger (F5, F8, F9) hand off to Window 4 and Window 10. The Journalist's package
+is assembled, which was the defect this window existed to remove, and the harness
+that catches the next one now exists. **Window 0 is closed.**
 
 **Ordering, as executed.** F4 fixed the decoder, F3 nested history per report and
 made the two character worlds the same shape, and F4c then had one honest
@@ -1405,6 +1491,12 @@ names the date, the decision, and the evidence it rests on.
 | 2026-09-29 | **Prose parts are stored pre-rendered, not as `serde_json::Value`.** | Measured: this build has `serde_json` without `preserve_order`, so `Value::Object` sorts keys while `derive(Serialize)` preserves declaration order. Storing values would have alphabetized every part and changed SmolLM3's output. Corrects the F4c sketch. |
 | 2026-09-29 | **`ProseMap::decode` and `ProseMap::validate` are separate steps.** | The Influencer strips markdown emphasis before measuring. A fused decode-and-measure would charge presentation markers against its ceilings and change what they mean. |
 | 2026-09-29 | **The Journalist's key order is pinned by a scanner, not a parser.** | `serde_json` returns a sorted map, so asserting key order on a parsed value would prove nothing. The test reads the rendered string. |
+| 2026-09-29 | **`assemble` returns the whole request, not a string.** | The Journalist's schema is keyed by report count and its manual names history only when a report carries it. A harness holding a fixed schema and a fixed manual has tested a request production never sends. Corrects F6's sketch. |
+| 2026-09-29 | **`gen_options` is fallible so a world-dependent plugin can refuse it.** | A plugin that cannot supply one option set should say so rather than hand back a plausible one. The Influencer keeps a fixed set because its contract genuinely does not vary — the asymmetry is real, not an oversight. |
+| 2026-09-29 | **`stores_parts` is load-bearing, not a convenience.** | A `parts` field nothing reads is inert. The declaration is what turns "this fixture has no parts" into a failure with the reason attached, which is the only thing that stops a migrated plugin drifting back to a frozen string. |
+| 2026-09-29 | **A quality fixture's `parts` type lives in the plugin.** | `journalist::cognition::Parts` is the plugin declaring what its assembler consumes, like `Prose` declares its keys. The harness chooses JSON and owns nothing. This is what made `journalist::memories` public, which is correct: the selection a caller reads is a named part of the world. |
+| 2026-09-29 | **`expect.narratives_report_count` duplicates what the parts say, deliberately.** | `evaluate` does not receive the world and `parse_journalist` needs the key set. A parser handed the wrong count accepts replies production rejects — the exact failure the gate exists to catch. The cost is recorded rather than hidden; revisiting whether `evaluate` should take the world is a later call. |
+| 2026-09-29 | **Three of the four n94 no-call cases are not quality fixtures.** | `outdated`, `missing-date` and `source-instructions` all produce a byte-identical empty world. What distinguishes them is a preparation disposition, which `prepare`'s tests cover. One no-call fixture, not four. |
 
 ## Window 0 handoff
 
@@ -1423,7 +1515,8 @@ plan.
 | F4b | complete, decided by replay | `JOURNALIST_PARAGRAPH_MAX_CHARS = None` — a declared non-participation, not an omission. See the F4b entry above |
 | F3 | complete, `b386f3b8` | `select` returns one attachment per report, joined on the report's own storyline with a single-preceding-group fallback; history nests under its report; the top-level arrays and the pairing sentence are gone |
 | F4c | complete, `fc3ef96b` | `plugins/assembly.rs`; both plugins render through it and hash through `World::hash`; each plugin's key order pinned by a test. Byte-identical output |
-| F6, F7 | independent | evaluation harness; Journalist's dead `card_score_prev` |
+| F6 | complete, mutation-tested | `NarrativesTask` registered; `Fixture.parts`; `LensTask::assemble -> Prepared` and fallible `gen_options`; nine narratives fixtures and four migrated vibe fixtures, all reassembling byte-identically. Three deliberate breakages each fail the gate |
+| F7 | complete, `694b4947` | `card_score_prev` gone from Rust — field, query, product field and bind. `impact`/`card_score` untouched. The schema column stays for a separate migration |
 | F5, F8, F9 | handed off | Window 4 and Window 10 |
 
 **The regression named in the kickoff is fixed.** The Journalist no longer
@@ -1485,47 +1578,60 @@ statements about the tree**, and a fresh window should not re-derive them:
 - `cargo build --all-targets` is clean and **551 tests pass** at `2ef805fb`.
 
 Still true and still worth re-running: `compose` has four callers (F5),
-`card_score_prev` has no reader (F7), `all_task_names()` has no `"narratives"`
-and `fixtures/quality/narratives/` is empty (F6), `team_matches` has no
-production consumer (Window 4), and `meta.rs` remains the one shared part with
-no per-plugin copies.
+`team_matches` has no production consumer (Window 4), and `meta.rs` remains the
+one shared part with no per-plugin copies. **F6 and F7 are now closed** — the
+three findings that drove them no longer describe the tree, and
+`fixtures/quality/narratives/` is populated rather than empty.
 
 **Next interface:** Window 0 hands the remaining windows one memory item type, one
 prose decoder, one manual per plugin, and a live evaluation harness. Windows 4
 through 10 consume those; none of them introduces a second memory
 implementation, a second parser or a second prompt composer.
 
-## Next fresh context: F6 and F7
+## Next fresh context: Window 4, Scout
 
 Read, in this order and nothing else: the ownership contract, the parts contract
-table, the "Sharing is an optimization" rules, Window 0's F6 and F7 sections, and
-the decision register. Do not start F5, F8 or F9 here; they are Window 4 and
-Window 10.
+table, the "Sharing is an optimization" rules, Window 0's F4, F5, F8 and F9
+sections, Window 4 in full, and the decision register. Do not start F6 or F7
+here; they are closed.
 
-**Where the work stands.** F1, F1b, F2, F4, F3 and F4c are complete:
-`020bc7a1`, `b2577103`, `76065db6`, `b386f3b8`, `fc3ef96b`. 551 tests pass and
-every target compiles. The Journalist's regression is fixed and its package is
-assembled. Nothing is released.
+**Where the work stands.** Every Window 0 task is now complete: F1 `020bc7a1`,
+F1b `b2577103`, F2 `76065db6`, F4+F3 `b386f3b8`, F4c `fc3ef96b`, F6 `1e2a5c0b`,
+F7 `694b4947`. 554 tests pass and every target compiles. The Journalist's
+regression is fixed, its dead field is gone, and the harness that would catch the
+next one exists. **Window 0 is closed. Nothing is released.**
 
-**What the next window owns.** Two independent tasks, neither of which needs the
-other:
+**What Window 4 owns.** Scout is the first of four callers of
+`support::prompt::compose` and the first plugin with an unshared
+`evidence/memories.rs` path. It inherits three foundation items and one decision:
 
-- **F6 — make evaluation a live gate.** `fixtures/quality/narratives/` is empty,
-  `"narratives"` is absent from `all_task_names()`, and offline mode replays a
-  frozen `user_prompt` string. F3 just changed the Journalist's package, which is
-  precisely the drift F6 exists to catch, and there is currently no harness that
-  would have caught it. This is the highest-value remaining Window 0 item.
-- **F7 — delete Journalist's dead `card_score_prev`.** Verified again during this
-  window: no reader in Rust, Go or SQL. `impact`/`card_score` stays; it is live in
-  `evidence/story_parts.rs`, Oracle, `go/internal/db/db.go` and a partial index.
+- **F5 — write Scout's own `cognition/prompt.rs`** and delete
+  `cognition/brief.rs` and `cognition/inputs.rs`. The deliverable is a
+  plugin-owned manual; `compose` and its six content constants go.
+- **F8 — move `RATING_BODY_BANS` into `scout/cognition/mod.rs`**, its only
+  consumer. Only the definition is misplaced.
+- **F6 follow-through — `rating` becomes a parts task.** Scout is the first
+  window to convert a fixture set, and it is how the gate gets tested against a
+  plugin that did not start with parts. Copy the shape of
+  `journalist::cognition::Parts`: the plugin declares its own part type, the
+  harness chooses the JSON, `stores_parts()` returns true, and the existing
+  rating fixtures gain parts. **Read F6's status notes first** — the two
+  corrections there (`assemble` returns a request, and `stores_parts` is
+  load-bearing) apply directly.
+- **Decide `statistic::team_matches`.** It has no production consumer. Scout
+  either adopts it as its trend measurement or Window 0 deletes it. Do not leave
+  a third option where a shared tool has no owner.
+- **F9 — delete Scout's consumer path** in `evidence/memories.rs` as the window
+  migrates it. Do not delete the module ahead of its other consumers.
 
 **Carry forward as fixed.** Harvester remains v7 with calibration accepted.
-Influencer v3 is local and undeployed, and its package is now byte-identical to
-its retained fixture. Journalist `n95` and `narratives-v11-nested-history` are
-local and unreleased. The shared prose validator, the per-report join, and the
-`World` renderer are the model the other plugins should reach for; `Prose` and
-`assembly::World` are what a new character plugin declares against.
+Influencer v3 is local and undeployed, and its package is byte-identical to its
+retained fixture. Journalist `n95` and `narratives-v11-nested-history` are local
+and unreleased. The shared prose validator, the per-report join, the `World`
+renderer, the plugin-owned `Parts` type and `LensTask::assemble` are the model
+the remaining plugins should reach for; `Prose`, `assembly::World` and
+`<plugin>::cognition::Parts` are what a new character plugin declares against.
 
-**Do not reopen** Window 1, Window 2's prose behavior, or Window 3's
-architecture. Do not revisit F1, F2, F4, F3 or F4c; if something there is wrong,
-say so rather than quietly reworking it inside the next window.
+**Do not reopen** Window 1, Window 2's prose behavior, Window 3's architecture,
+or Window 0. If something there is wrong, say so rather than quietly reworking it
+inside the next window.

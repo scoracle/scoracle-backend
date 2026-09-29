@@ -31,7 +31,7 @@ pub use crate::plugins::memories::Receipt;
 /// The history this plugin selected: the shared items, plus a description of
 /// each group they came from. Both types are the shared ones, so the `history`
 /// key a model reads has the same shape here as in every other character.
-#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, serde::Deserialize)]
 pub struct Selected {
     pub items: Vec<HistoryItem>,
     pub groups: Vec<GroupSummary>,

@@ -35,7 +35,7 @@ corrections are recorded in the decision register rather than applied quietly.
 F4b is decided: the Journalist records a non-participation in the paragraph rule
 rather than shipping a number nobody measured it against.
 
-**Revision 2026-09-29 (final).** **Window 0 is closed.** F6 is `1e2a5c0b` and F7
+**Revision 2026-09-29 (final).** **Window 0 is closed.** F6 is `9fffc883` and F7
 is `694b4947`; 554 tests pass. The Journalist's package change is now covered by
 a harness that rebuilds it from stored parts, so a future window cannot rot a
 fixture silently. F6's own sketch was wrong in the same way F3's and F4c's were —
@@ -848,7 +848,7 @@ Changes:
 `assembled_prompt` fails `cargo test` in `evaluation`. This is the gate that
 stops Windows 4 through 10 from drifting apart.
 
-> **RESOLVED — in `1e2a5c0b` (F6) and `694b4947` (F7).** Read the task text above
+> **RESOLVED — in `9fffc883` (F6) and `694b4947` (F7).** Read the task text above
 > as the record of what was attempted. Two instructions in it were wrong against
 > the code and are corrected below rather than applied quietly: the sketch's
 > `assemble(parts) -> String` cannot express the Journalist's contract, and
@@ -1596,7 +1596,7 @@ sections, Window 4 in full, and the decision register. Do not start F6 or F7
 here; they are closed.
 
 **Where the work stands.** Every Window 0 task is now complete: F1 `020bc7a1`,
-F1b `b2577103`, F2 `76065db6`, F4+F3 `b386f3b8`, F4c `fc3ef96b`, F6 `1e2a5c0b`,
+F1b `b2577103`, F2 `76065db6`, F4+F3 `b386f3b8`, F4c `fc3ef96b`, F6 `9fffc883`,
 F7 `694b4947`. 554 tests pass and every target compiles. The Journalist's
 regression is fixed, its dead field is gone, and the harness that would catch the
 next one exists. **Window 0 is closed. Nothing is released.**

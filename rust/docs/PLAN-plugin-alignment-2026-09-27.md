@@ -492,25 +492,45 @@ fresh reports and `MAX_GROUPS = 3` history groups as two independent arrays and
 tells the model to pair them. The n94 fixtures never exercise it because they are
 1:1.
 
-- `memories::select` returns `Vec<Vec<HistoryItem>>`, index-aligned with
-  `fresh::prepare`'s `report_key` order.
-- Join rule, deterministic, first match wins: (1) the report's canonical article
-  appears in the group's article set; (2) exactly one group whose `before` is the
-  nearest preceding boundary to the report's `published_at`; (3) otherwise
-  empty. More than one candidate under (2) yields empty — missing stays unknown.
+**Corrected after F2 landed.** The sketch above predates `76065db6` and is wrong
+in two places. `select` now returns `Option<Selected>` where
+`Selected { items, groups }`, not `Vec<Finding>`; and `GroupSummary` now carries
+`source_ids`, which is a far better join key than the plan assumed. Use the
+correction below, not the sketch.
+
+- `select` becomes index-aligned with the fresh reports, one `Option<Selected>`
+  per report, so `Assignment.memories` becomes `Vec<Option<Selected>>` rather
+  than a single `Option<Selected>`. The budget-fitting `fits` callback currently
+  measures the whole rendered context; per-report attachment changes what it must
+  measure, and that is part of this task.
+- **Join rule, deterministic, first match wins:**
+  1. the report's canonical article id appears in the group's `source_ids` —
+     an exact, already-retained link, no inference;
+  2. otherwise exactly one group whose `before` is the nearest preceding boundary
+     to the report's `published_at`;
+  3. otherwise empty.
+
+  More than one candidate under (2) yields empty. Missing stays unknown.
+  Rule (1) is now the common case and is free: F2 put the article ids in the
+  group summary, so a report indexed to a storyline already knows its history.
 - The package nests history under its report:
-  `fresh: [{report_key, publisher, published_at, publisher_excerpt, history: [...]}]`,
-  and the top-level `history` key is removed.
+  `fresh: [{report_key, publisher, published_at, publisher_excerpt, history: [...], history_groups: [...]}]`,
+  and the top-level `history` and `history_groups` keys are removed.
 - `HISTORY_TASK` becomes: *"Each `report_N` contains the fresh item at `report_N`
   and the history attached to it. Articulate that prepared set in the supplied
   voice and form. Add no history and no claim that is not in it."*
 - `journalist_form` gains `history: "attached per report"`. The input hash
   covers the attachment so a changed pairing is a changed input.
+- `prompt::task(has_history)` currently takes one bool; it must derive from the
+  per-report vector, and a package where some reports have history and others do
+  not needs a decision recorded rather than assumed.
 
 **Done:** no manual sentence asks the model to resolve which memory belongs
 where; the package has no top-level history array.
-**Verify:** a 2-report × 3-group fixture asserts the deterministic attachment; a
-3×3 adjacent case asserts rule (2)'s ambiguity resolves to empty. Replay
+**Verify:** a 2-report × 3-group fixture asserts the deterministic attachment,
+including one report that matches by `source_ids` and one that falls to rule (2);
+a 3×3 adjacent case asserts rule (2)'s ambiguity resolves to empty; a case with
+history on one report and none on another pins the mixed shape. Replay
 `memory-nonredundant-n94` and `memory-direct-n94` and confirm the previously
 correct outputs are unchanged. **This is a deployed behavior change: release
 nothing before the replay passes.**
@@ -520,10 +540,17 @@ nothing before the replay passes.**
 **Files:** `src/plugins/support/form.rs`.
 
 - Add `prose_map_schema(keys)`, `prose_map_form(keys)` and
-  `parse_prose_map(raw, keys) -> ProseMap`. One implementation of: nonblank when
-  present, every paragraph ≤ `PARAGRAPH_MAX_CHARS`, total across keys ≤
-  `BODY_MAX_CHARS`, and `additionalProperties: false` over exactly the requested
-  keys. `ProseMap` exposes `get`/`push` so callers stop re-parsing JSON.
+  `parse_prose_map(raw, keys, dims) -> ProseMap`. One implementation of: nonblank
+  when present, every paragraph ≤ `dims.paragraph_max_chars` when the plugin
+  supplies one, total across keys ≤ `dims.total_max_chars`, and
+  `additionalProperties: false` over exactly the requested keys. `ProseMap`
+  exposes `get`/`push` so callers stop re-parsing JSON.
+- **Do not redefine `Dimensions`.** F1b already landed it at
+  `src/plugins/cognition/prose.rs` along with `Prose::schema()` and `Prose::form()`.
+  Reuse it. The schema and form generation F4 needs already exist there; what is
+  missing is the validator body that `Prose::enforce` currently refuses to
+  provide, and `form.rs` is where it should live so the parser and the validator
+  stay beside the surface they enforce.
 - **Share the validator, not the number.** `dims` is a plugin-supplied value, not
   a shared constant:
 
@@ -545,21 +572,32 @@ nothing before the replay passes.**
   140 to accommodate Journalist would dilute Influencer instead. One validator
   with a parameter and a recorded per-plugin decision is the only form that
   serves neither plugin worse.
-- **F4a, Influencer (safe):** `Dimensions { total_max_chars: BODY_MAX_CHARS,
-  paragraph_max_chars: Some(140) }` with keys `["body"]`. Behavior must be
-  identical; the n94/retest replays prove it. A refactor, not a change.
-- **F4b, Journalist (deployed):** decided by replay, not by this plan. Try
-  `Some(140)`; if it fails materially, `Some(200)`; if that still fails, `None`
-  with the paragraph rule recorded as a documented non-participation. Record the
-  chosen value and the measured failure rate. Do not ship a number that neither
-  plugin was measured against.
+- **F4a, Influencer (safe):** `Prose::new(&["body"], Dimensions::new(BODY_MAX_CHARS, Some(140)))`.
+  Behavior must be identical; the n94/retest replays prove it. A refactor, not a
+  change. `plugins/cognition.rs::SLOTS` already marks the Influencer `enforced`,
+  so this makes that declaration true rather than aspirational.
+- **F4b, Journalist (deployed):** decided by replay, not by this plan. F2 changed
+  the Journalist's package, so F4b's measurement is against a package F2 produced
+  and F3 has not yet touched. Try `Some(140)`; if it fails materially, `Some(200)`;
+  if that still fails, `None` with the paragraph rule recorded as a documented
+  non-participation. Record the chosen value and the measured failure rate. Do not
+  ship a number that neither plugin was measured against.
+  **Recommendation: fold F4b into the same replay as F3.** Both change the
+  Journalist's prompt, and measuring the paragraph rule against a package F3 is
+  about to replace would produce a number nobody can use. They are one release.
 - Leave `card_schema`, `oracle_format_schema` and `insider_score_format_schema`
   in place. Scout converts in Window 4; each other plugin in its own window.
 
-**Done:** one implementation of the paragraph and body rules remains in
-`form.rs`; `parse_observation` and `parse_journalist` are delegating wrappers.
+**Done:** one implementation of the paragraph and body rules; `Prose::enforce`
+calls it instead of bailing; `parse_observation` and `parse_journalist` delegate.
+`SLOTS` moves Journalist from `pending` to `enforced` only when its parser
+genuinely routes through the shared validator, not when the validator merely
+exists.
 **Verify:** existing `form.rs` tests, plus a test that a plugin-chosen key set
-validates and a wrong key set fails closed.
+validates and a wrong key set fails closed, plus the F1b test that an
+unenforced contract refuses to pass a response — that test must be inverted or
+replaced once enforcement is real, and leaving it passing unchanged would be the
+bug.
 
 ### F4c — One assembler, shared rendering only
 
@@ -623,6 +661,10 @@ impl World {
     pub fn hash(&self) -> String;
 }
 ```
+
+Note that `form` is a `serde_json::Value` the caller already builds, and after F4
+the plugin can build it from `Prose::form()` rather than hand-writing it. The
+renderer does not need to know that; it renders what it is given.
 
 **The anti-pattern to avoid.** A `trait Assembler { fn parts(&self) -> Vec<...> }`
 implemented once per plugin. That is indirection that removes no per-plugin
@@ -1239,6 +1281,9 @@ names the date, the decision, and the evidence it rests on.
 | 2026-09-29 | **The 1,200-character body ceiling is shared; the 140-character paragraph rule is per plugin.** | The body ceiling is a reader-facing product constraint. The paragraph rule is a writing policy, enforced today only by Influencer. Enforcing it on Journalist or dropping it from Influencer would make one worse to share. F4's `Dimensions` makes it a parameter. |
 | 2026-09-29 | **Sharing is an optimization, not a requirement.** | A tool narrowed or restricted so a second plugin can use it is diluted, and the damage is invisible because the code now lives in one place. Where a request cannot express what a plugin needs, widen the tool or let the plugin keep its own, and record which. |
 | 2026-09-29 | **The runtime has four layers, and the vision's "harness" is two of them.** | Harvester decides the destination; the harness executes it. A harness that chose destinations would be a second semantic authority with unversionable, unattributable thresholds. |
+| 2026-09-29 | **F4b and F3 ship as one change to the Journalist's prompt.** All three of F2, F3 and F4b change the assembled package. Measuring the paragraph rule separately against a package F3 is about to replace produces a number nobody can use. |
+| 2026-09-29 | **`Dimensions` and `Prose::schema` already exist in `plugins/cognition/prose.rs`.** F4 reuses them and supplies only the validator body. A fresh window that re-derives them has missed F1b. |
+| 2026-09-29 | **F3's join rule uses `GroupSummary::source_ids`,** not inference. F2 put the article ids in the group summary, so a report indexed to a storyline already knows its own history. Rule 1 of F3 is now an exact lookup rather than a nearest-boundary guess. |
 | 2026-09-29 | **`GroupSummary` carries `source_ids`.** A first draft dropped them and a provenance test caught it. A published memory claim with a count and no resolvable article ids cannot be traced to evidence, and "traceable" outranks "compact". |
 | 2026-09-29 | **F1 was not behavior-preserving on its own.** Its API and test were, but removing the storyline join left the Journalist with one group per article until F2 supplied the `Topic` hook. The two had to land together; F1's own commit message overstated it and F2 records the correction. |
 | 2026-09-29 | **The Journalist's self-memory stays a `CorpusItem`, not a `HistoryItem`.** It deduplicates fresh source by exact text and needs the article id and full source text the presentation type omits. Converting it to share a type would have narrowed a tool to look uniform. |
@@ -1250,17 +1295,17 @@ names the date, the decision, and the evidence it rests on.
 
 ## Window 0 handoff
 
-**Status: F1, F1b and F2 complete; the F3/F4/F4c chain is next.** F1 is
-`020bc7a1`, F1b is `b2577103`, F2 is `76065db6`. Each is a separate commit so the
-plan's "complete" claim is traceable to code that can be reverted independently of
-the plan.
+**Status: F1, F1b and F2 complete; F4 → F3 → F4c is the next window's entire
+scope.** F1 is `020bc7a1`, F1b is `b2577103`, F2 is `76065db6`. Each is a separate
+commit so the plan's "complete" claim is traceable to code that can be reverted
+independently of the plan.
 
 | Task | State | What landed |
 | --- | --- | --- |
 | F1 | complete | `reporting_scope` lost `pair`/`predicates`; `include` and `Topic` replace them; shared SQL reads no storyline table; the memory test omits those tables so it fails if the coupling returns |
 | F1b | complete | `plugins/cognition.rs` names the three slot kinds and the `SLOTS` table; `studio/decision.rs` moved to `plugins/cognition/decision.rs`; `prose.rs` declares the slot with the two dimensions separated; `Prose::enforce` fails closed pending F4 |
 | F2 | complete, `76065db6` | `HistoryItem`/`GroupSummary` shared; both plugins migrated; Journalist's storyline grouping restored as the first `Topic` consumer; self-memory renamed `published_reports` |
-| F3, F4, F4c | next chain | F4 fixes the decoder, F3 nests history per report, F4c then has one renderer to share. F2 and F3 together are one change to the Journalist's prompt and share one replay gate |
+| F4, F3, F4c | next window | one prose validator; per-report history attachment; one assembler. **F4b and F3 ship together** — all three of F2, F3 and F4b change the Journalist's prompt and share one replay |
 | F6, F7 | independent | evaluation harness; Journalist's dead `card_score_prev` |
 | F5, F8, F9 | handed off | Window 4 and Window 10 |
 
@@ -1305,14 +1350,53 @@ prose decoder, one manual per plugin, and a live evaluation harness. Windows 4
 through 10 consume those; none of them introduces a second memory
 implementation, a second parser or a second prompt composer.
 
-## Next fresh context: Window 0
+## Next fresh context: the F4 → F3 → F4c chain
 
-Start with this contract, the parts contract table, the Window 0 section, and the
-decision register. Nothing else. The nine tasks are ordered F1 → F9 and F5, F8
-hand off to Window 4.
+Read, in this order and nothing else: the ownership contract, the parts contract
+table, the "Sharing is an optimization" rules, Window 0's F4/F3/F4c sections, and
+the decision register. Then `HANDOFF-influencer-2026-09-28.md` for the
+parts-and-manual pattern and the n94 fixtures under `fixtures/journalist/`.
 
-Carry these forward as fixed: Harvester remains v7 with calibration accepted;
-Influencer v3 is local, undeployed, and its retired abstention/classifier choice
-stays retired. Do not reopen Window 1, Window 2's prose behavior, or Window 3's
-architecture — Window 0 changes the foundation those three stand on, not their
-products.
+**Where the work stands.** F1, F1b and F2 are complete: `020bc7a1`, `b2577103`,
+`76065db6`, with plan updates in `860b284d`, `91492981` and `8a58f2f6`. 534 tests
+pass and the tree was clean at `8a58f2f6`. F4, F3 and F4c are the entire scope of
+this window. Do not start F6, F7, F5, F8 or F9 here.
+
+**Why this order, and do not rearrange it.** F4 makes the shared prose contract
+real, F3 makes the two character worlds the same shape, and F4c then has one
+honest renderer to share. F4c before F3 would be a shared renderer over two
+different shapes, which hides a divergence instead of removing it. F3 before F4
+would nest history per report and then re-derive the surface the validator
+enforces.
+
+**The two gates that are not negotiable.**
+
+1. **F4b and F3 are one release.** Both change the Journalist's assembled package
+   and therefore its prompt. F2 already changed it. Measuring the paragraph rule
+   against a package F3 is about to replace produces a number nobody can use.
+   Land them together, replay once.
+2. **The replay gate.** Nothing here ships until the n94 Journalist replays and
+   the Influencer v3 replays are recorded. Influencer's must be byte-identical for
+   F4a. Journalist's must be reviewed for fidelity as before — parser success is
+   not sufficient and never was.
+
+**Known landmines in this chain, all found the hard way.**
+
+- `Prose::enforce` currently *fails closed* by design, and there is a passing test
+  asserting that. F4 must invert or replace that test. If it still passes
+  unchanged after F4, enforcement was never wired in and the declaration is a
+  lie.
+- `plugins/cognition.rs::SLOTS` marks Journalist and Influencer `enforced` today,
+  meaning their *existing* parsers enforce. Do not move that to mean the shared
+  validator is in use until it genuinely is.
+- F3's `fits` budget callback currently measures the whole rendered context.
+  Per-report attachment changes what it measures; carrying the old measurement
+  forward silently changes the budget.
+- A report can end up with history while another has none. That mixed shape needs
+  a recorded decision in both the manual and the test, not a default.
+
+**Carry forward as fixed.** Harvester remains v7 with calibration accepted.
+Influencer v3 is local and undeployed, and its retired abstention and classifier
+choice stay retired. Do not reopen Window 1, Window 2's prose behavior, or Window
+3's architecture. Do not revisit F1 or F2; if something there is wrong, say so
+rather than quietly reworking it inside this chain.

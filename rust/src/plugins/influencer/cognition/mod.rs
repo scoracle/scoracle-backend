@@ -4,7 +4,6 @@ use crate::plugins::meta::EntityMeta;
 use crate::studio::model::GenerateOptions;
 use crate::studio::{Generation, GenerationCall, Studio};
 use anyhow::Result;
-use serde::Serialize;
 use serde_json::{json, Value};
 
 mod fresh;
@@ -57,23 +56,17 @@ pub fn source_disposition(text: &str, published_at: i64, now: i64) -> Option<&'s
 }
 
 /// The same assembled package is used by production and replay.
+///
+/// The parts and their order are this plugin's choice; `assembly::World` only
+/// renders them, deterministically and in the order given here.
 pub fn assembled_prompt(assignment: &Assignment) -> String {
-    #[derive(Serialize)]
-    struct Package<'a> {
-        identity: crate::plugins::meta::WritingIdentity<'a>,
-        fresh: crate::plugins::support::source::Reporting<'a>,
-        history: &'a [super::memories::HistoryItem],
-        voice: &'static str,
-        form: crate::plugins::support::form::ObservationForm,
-    }
-    serde_json::to_string(&Package {
-        identity: assignment.subject.for_writing(),
-        fresh: fresh::prepare(&assignment.source),
-        history: &assignment.history,
-        voice: CHARACTER,
-        form: crate::plugins::support::form::observation_form(),
-    })
-    .expect("Influencer package serializes")
+    crate::plugins::assembly::World::new()
+        .part("identity", assignment.subject.for_writing())
+        .part("fresh", fresh::prepare(&assignment.source))
+        .part("history", &assignment.history)
+        .part("voice", CHARACTER)
+        .part("form", crate::plugins::support::form::observation_form())
+        .render()
 }
 
 pub fn generation_options(temperature: f64, num_ctx: i32, num_predict: i32) -> GenerateOptions {

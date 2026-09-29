@@ -160,11 +160,14 @@ pub fn prepare(
     let memories = memories::select(memory, &selected, now, |history| {
         render_context(&subject, &selected, history).len() <= CONTEXT_BUDGET_BYTES
     });
+    // The world is assembled once and both rendered and hashed from, so the
+    // fingerprint always describes the package the model will actually read.
+    let world = assemble(&subject, &selected, &memories);
     let input_hash = crate::util::hash_components(
         &json!({
             "subject": subject, "reports": selected, "version": NARRATIVES_PROMPT_VERSION,
             "memory_source_hash": memory.study.as_ref().map(|s| &s.receipt.input_hash),
-            "fresh_contract": fresh::VERSION, "context": render_context(&subject, &selected, &memories), "memories": memories,
+            "fresh_contract": fresh::VERSION, "world": world.hash(), "memories": memories,
         })
         .to_string(),
     );
@@ -185,18 +188,27 @@ pub fn prepare(
 /// History is nested under the report it belongs to. The plugin resolved that
 /// attachment before this function is called, so the model reads one prepared
 /// set per report and is never handed two parallel arrays to pair up itself.
+///
+/// The parts and their order are this plugin's choice; `assembly::World` only
+/// renders them, deterministically and in the order given here.
 fn render_context(
     subject: &EntityMeta,
     reports: &[CorpusItem],
     history: &[Option<memories::Selected>],
 ) -> String {
-    #[derive(Serialize)]
-    struct Context<'a> {
-        identity: crate::plugins::meta::WritingIdentity<'a>,
-        fresh: Vec<fresh::Report<'a>>,
-        voice: &'static str,
-        form: serde_json::Value,
-    }
+    assemble(subject, reports, history).render()
+}
+
+/// The prepared world, before it is rendered.
+///
+/// Returned rather than rendered inline so preparation can measure and hash the
+/// same world the model reads, instead of assembling it again and hoping the two
+/// agree.
+fn assemble(
+    subject: &EntityMeta,
+    reports: &[CorpusItem],
+    history: &[Option<memories::Selected>],
+) -> crate::plugins::assembly::World {
     let attached = history
         .iter()
         .map(|slot| {
@@ -210,13 +222,14 @@ fn render_context(
             }
         })
         .collect::<Vec<_>>();
-    serde_json::to_string(&Context {
-        identity: subject.for_writing(),
-        fresh: fresh::prepare(reports, &attached),
-        voice: journalist::CHARACTER,
-        form: crate::plugins::support::form::journalist_form(reports.len()),
-    })
-    .expect("Journalist context serializes")
+    crate::plugins::assembly::World::new()
+        .part("identity", subject.for_writing())
+        .part("fresh", fresh::prepare(reports, &attached))
+        .part("voice", journalist::CHARACTER)
+        .part(
+            "form",
+            crate::plugins::support::form::journalist_form(reports.len()),
+        )
 }
 
 /// Production and replay use the exact assembled context measured by preparation.

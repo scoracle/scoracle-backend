@@ -493,6 +493,13 @@ share one replay gate; neither is released.
 
 ### F3 — The plugin assigns history to report slots
 
+> **RESOLVED in `b386f3b8` — this was the regression.** The Journalist's package is
+> now assembled; history is attached per report and the manual no longer asks the
+> model to resolve a pairing. Read the task text below as the record of what was
+> attempted. **Its join rule is wrong as written and was corrected** — see the
+> inline note and the **Status** note at the end of this section. The outcome is
+> in the **Status** note; the correction is in the decision register.
+
 **Files:** `src/plugins/journalist/memories.rs:92-137`;
 `src/plugins/journalist/cognition/mod.rs:158-160,182-215`;
 `src/plugins/journalist/cognition/prompt.rs`; `src/plugins/support/form.rs:187`.
@@ -575,6 +582,13 @@ actually produces rather than a whole-context approximation.
 
 ### F4 — One prose form
 
+> **RESOLVED in `b386f3b8`.** Read the task text below as the record of what was
+> attempted, not as pending work. The outcome is in the **F4a**, **F4b** and
+> **Status** notes at the end of this section: F4a's package is byte-identical,
+> F4b is a recorded non-participation, and the F1b test that pinned the refusal
+> is now inverted. Do not re-run these steps. Two of the instructions below were
+> corrected against the code as it stood and are marked inline.
+
 **Files:** `src/plugins/support/form.rs`.
 
 - Add `decode_prose_map`/`parse_prose_map` and `ProseMap` with `get`, `push`,
@@ -625,6 +639,8 @@ actually produces rather than a whole-context approximation.
   if that still fails, `None` with the paragraph rule recorded as a documented
   non-participation. Record the chosen value and the measured failure rate. Do not
   ship a number that neither plugin was measured against.
+  **[RESOLVED — see the F4b note at the end of this section. Chosen value is
+  `None`; the try-140-then-200 ladder was not taken, and why, is recorded there.]**
   **Recommendation: fold F4b into the same replay as F3.** Both change the
   Journalist's prompt, and measuring the paragraph rule against a package F3 is
   about to replace would produce a number nobody can use. They are one release.
@@ -661,6 +677,11 @@ declared constant rather than an omission, so a later window can revisit it with
 evidence.
 
 ### F4c — One assembler, shared rendering only
+
+> **RESOLVED in `fc3ef96b`.** Both plugins render and hash through `World`. Read
+> the task text below as the record of what was attempted; **its part type is
+> wrong as written and was corrected after measuring the tree** — see the inline
+> note and the **Status** note at the end of this section.
 
 **Files:** new `src/plugins/assembly.rs`; `src/plugins/mod.rs`;
 `journalist/cognition/mod.rs:181-203`; `influencer/cognition/mod.rs:59-77`.
@@ -1450,6 +1471,24 @@ follows it, not a pending item here. The two shape questions the audit could not
 settle from code alone — whether Influencer wants bounded historical passages,
 and what single paragraph ceiling Journalist should use — are decided in Window 0
 F4b and Window 3 respectively, against replayed cases.
+
+**Re-verified after F4/F3/F4c.** The findings above are the audit's record and
+still describe why each task existed. Three of them are now **out of date as
+statements about the tree**, and a fresh window should not re-derive them:
+
+- `journalist/memories.rs` no longer carries its own presentation — F2 moved it
+  onto the shared `HistoryItem`/`GroupSummary`. It still owns the storyline
+  grouping, which is the point of the F1/F2 split.
+- The Influencer paragraph question and the Journalist's are both **settled**:
+  Influencer enforces 140, the Journalist declares `None`. Neither is an open
+  question to re-litigate.
+- `cargo build --all-targets` is clean and **551 tests pass** at `2ef805fb`.
+
+Still true and still worth re-running: `compose` has four callers (F5),
+`card_score_prev` has no reader (F7), `all_task_names()` has no `"narratives"`
+and `fixtures/quality/narratives/` is empty (F6), `team_matches` has no
+production consumer (Window 4), and `meta.rs` remains the one shared part with
+no per-plugin copies.
 
 **Next interface:** Window 0 hands the remaining windows one memory item type, one
 prose decoder, one manual per plugin, and a live evaluation harness. Windows 4

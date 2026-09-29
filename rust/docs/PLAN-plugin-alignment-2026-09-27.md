@@ -42,8 +42,26 @@ fixture silently. F6's own sketch was wrong in the same way F3's and F4c's were 
 `assemble(parts) -> String` cannot express a contract whose schema is keyed by
 report count — and the correction is in the register. The gate was
 mutation-tested rather than assumed: three deliberate breakages, three failures.
-The next window is Window 4, Scout, which inherits F5 and F8 and is the first to
-convert a fixture set to parts.
+
+**Revision 2026-09-29 (Window 4).** **Scout is on the parts contract** in
+`73374a72`; 578 tests pass. The window opened by finding that Scout's production
+`create()` had not sent a prose prompt since `00fc233e` — it overwrote the
+system, temperature, allowance and schema and sent a finite phrasing menu, so
+the prose prompt and its entire guard chain were evaluation-only. Scout now
+assembles six parts through the shared renderer and sends them, with its own
+memory type keeping measured windows and reported injury claims apart.
+`statistic::team_matches` gained its first consumer. F5 lost its first caller
+and F8's guard list moved home.
+
+**The Scout is UNRELEASED and UNREPLAYED.** This is a product change: published
+prose moves from finite phrasings to articulation, and no model has seen it. That
+is the window's one material gap, stated in the handoff rather than assumed away.
+
+**The plan now carries a recipe.** *The parts recipe, as Window 4 established
+it* records what this window cost to learn — follow the options to their final
+value before designing anything, ask what a plugin remembers before reaching for
+a shared type, make a computed boundary a typed part, and treat a test that
+passes vacuously as no test at all. Windows 5 through 10 should read it first.
 
 Harvester phase one is implemented and locally verified. The user accepts its current 90/96 development result and defers further calibration until experience warrants it; this does not block the next plugin window. Operational release remains separate. This is the governing alignment plan; older architecture and cutover documents remain evidence of earlier work, not competing target contracts.
 
@@ -269,7 +287,7 @@ Use this single plan as the durable index. Start each plugin in a fresh context 
 | 2 | Journalist / `narratives` | Stateless articulation of fresh reporting and studied history | Deployed at `573d6a8e`; **exit claim reopened** — F3, F4b, F6, F7 all now fixed locally and unreleased |
 | 3 | Influencer / `vibe` | Emotional synthesis of supplied fresh context and memory | Parts/manual implemented locally; not deployed; now a parts task in the evaluation harness |
 | **0** | **Shared foundation** | **Memory, cognition contracts, form, assembly, manual, evaluation harness, guards, ledgers** | **Complete.** F1, F1b, F2, F4, F3, F4c, F6, F7 landed; F5, F8, F9 handed off. Blocks Window 4, which is next |
-| 4 | Scout / `rating` | Measured performance, source triggers, statistical voice | Not started; carries F5, F8 and the first `statistic::team_matches` consumer |
+| 4 | Scout / `rating` | Measured performance, source triggers, statistical voice | **Code-complete and locally verified, UNRELEASED and UNREPLAYED** — `73374a72`. Six parts, own manual, own memory type; F5's first caller retired, F8 done, `team_matches` adopted. A product change awaiting a replay |
 | 5 | Insider / `transfers` | Relationship evidence, transfer state, heat, identity obligations | Not started; supplies pair scope as an include list under F1 |
 | 6 | Analyst / `momentum` | Scout/Influencer synthesis and supported direction | Not started; carries its half of F8 |
 | 7 | Oracle / `sigil` | Five-product synthesis, readiness, score, final reading | Not started; upstream body truncation is a named defect |
@@ -1229,7 +1247,18 @@ the four hand-edited `fixtures/quality/vibe/*.json` prompts with stored parts.
 
 **Purpose:** articulate prepared measurements and supported comparisons, with explicit limits.
 
+> **STATUS: code-complete and locally verified, UNRELEASED and UNREPLAYED.**
+> `73374a72`. Read **The parts recipe** first — it is what this window cost to
+> learn, and it applies to every window after it. The finding that reframed the
+> window, the parts that landed, the decisions, and the five defects the ported
+> tests found are all in **Window 4 handoff** below.
+
 **Start with:** `src/plugins/scout/adapter/{harvester,evidence,materials,mod}.rs`; `cognition/{mod,inputs,brief}.rs`; rating core/studies; `src/bin/statcommentary.rs`; rating evaluation callers. Delete `cognition/brief.rs` and `cognition/inputs.rs`; they are inputs for a prompt architecture this window replaces.
+
+**Read first, because it changes the order of work:** `create()` in
+`scout/cognition/mod.rs` was the only place that could say what the Scout
+actually sends, and it disagreed with every other file in the window. Trace the
+options to their final value before designing anything.
 
 **Inherited foundation work, done first in this window:**
 
@@ -1239,6 +1268,8 @@ the four hand-edited `fixtures/quality/vibe/*.json` prompts with stored parts.
   Replacing `cognition/brief.rs` with `cognition/prompt.rs` is the deliverable.
 - **F8 — take `RATING_BODY_BANS` out of `support/guards.rs`.** It is consumed only
   by `scout/cognition/mod.rs:886-888`; only its definition is misplaced.
+- **F6 follow-through — `rating` becomes a parts task.** Done. Seven fixtures
+  converted; the gate is mutation-tested against them.
 
 **The statistic adapter has no production consumer.** `plugins::memories::statistic::team_matches`
 is called from `memories/tests.rs` and `examples/memory_request.rs` and nowhere
@@ -1497,6 +1528,196 @@ names the date, the decision, and the evidence it rests on.
 | 2026-09-29 | **A quality fixture's `parts` type lives in the plugin.** | `journalist::cognition::Parts` is the plugin declaring what its assembler consumes, like `Prose` declares its keys. The harness chooses JSON and owns nothing. This is what made `journalist::memories` public, which is correct: the selection a caller reads is a named part of the world. |
 | 2026-09-29 | **`expect.narratives_report_count` duplicates what the parts say, deliberately.** | `evaluate` does not receive the world and `parse_journalist` needs the key set. A parser handed the wrong count accepts replies production rejects — the exact failure the gate exists to catch. The cost is recorded rather than hidden; revisiting whether `evaluate` should take the world is a later call. |
 | 2026-09-29 | **Three of the four n94 no-call cases are not quality fixtures.** | `outdated`, `missing-date` and `source-instructions` all produce a byte-identical empty world. What distinguishes them is a preparation disposition, which `prepare`'s tests cover. One no-call fixture, not four. |
+| 2026-09-29 | **Scout was a palette plugin, not a prose plugin.** Production overwrote the system prompt, temperature, token allowance and schema, then sent `palette.prompt()`. The prose prompt and the whole guard chain were evaluation-only. | `create()` in `scout/cognition/mod.rs` before `73374a72`. This is why F5's premise was wrong: there was no prose prompt in production to own. |
+| 2026-09-29 | **The Scout does not participate in the paragraph rule.** `SCOUT_PARAGRAPH_MAX_CHARS = None`, declared. | 140 is Influencer's short-observation policy. The Scout writes multi-paragraph analytical prose and has never been replayed against it. Same reasoning as F4b, applied twice. |
+| 2026-09-29 | **A plugin's memory is whatever it remembers, and the kind must be visible.** `scout/memories.rs` keeps `measured` and `reported` apart. | A suspension is not a percentile dip and a trend is not an injury. Collapsing them lets the model infer a cause from two facts that merely co-occur. The shared `HistoryItem` was the wrong type, not a lazy one. |
+| 2026-09-29 | **A computed boundary is a typed part, not a sentence in a prompt.** `Limit` has five variants. | `ThinSample`, `UnknownSample`, `OneAppearance`, `WithheldIdentity`, `NoMeasurements`. The model is told which applies; the guard does not depend on it having read the paragraph. |
+| 2026-09-29 | **An unreadable participation count is not a count of zero.** | The first `limit_for` reported `0.0` appearances for a profile whose sample labels it could not parse, which states a measurement never made. The ported tests caught it. Absence, unreadable, measured zero and declined stay four different things. |
+| 2026-09-29 | **Participation totals are withheld from the presented sample** when no cross-season comparison is supported; the count travels in `Limit`. | A stored count is source coverage. Presenting it as a figure invites reading it as playing time, which is the inference the whole boundary exists to prevent. |
+| 2026-09-29 | **`statistic::team_matches` is adopted by Scout, not deleted.** | `measured_memory()` in the adapter is its first production consumer. Window 0 deferred the decision rather than leaving a third option where a shared tool had no owner. |
+| 2026-09-29 | **A title and a body are different kinds of text.** The paragraph ceiling applies to prose; a title is governed by the hook contract and `settle_title`. | Running the prose rule over both would let a 200-character title cost a valid read — exactly what the 2026-08-24 hook change removed. A blank FILLED slot is still a contract violation, everywhere. |
+| 2026-09-29 | **A ceiling violation must be raised as `SurfaceError`.** | `publishing_correction` recognises that type. The shared validator's plain `anyhow` error skipped the bounded retry, so one over-long body cost a whole read. Found by porting a test, not by reading the code. |
+| 2026-09-29 | **A test that passes because the subject is empty is not a test.** | A Scout comparison-ordering assertion had been passing vacuously: the synthetic profile carried no participation count, so the selection refused the prior percentile the assertion checked for. Verify a ported fixture still exercises its branch. |
+
+## Window 4 handoff
+
+**Status: code-complete and locally verified, UNRELEASED and UNREPLAYED.** `73374a72`.
+578 tests pass, every target compiles, clippy clean. **This is a product change**
+and it has not been through a model replay. The Scout's published prose changes
+shape, and that needs evidence rather than my say-so.
+
+**The finding that reframed the window.** Scout's production `create()` never sent
+the prose prompt: it overwrote `system`, `temperature`, `num_predict` and
+`format_schema`, then called the model with `palette.prompt()` and
+`PaletteParser`. Since `00fc233e` the Scout has been a palette plugin — the model
+picked one of two or three approved phrasings per fact. The 297-line flat prompt,
+the 700-token card contract and the whole `RatingRequestParser` guard chain were
+reachable only from evaluation, and the world the adapter assembled was assembled
+into a field nothing read.
+
+**What landed.** Six parts and a manual, rendered through the shared
+`assembly::World`:
+`identity, fresh, memory, rate_standouts, trend, voice, form`.
+
+- `cognition/parts.rs` — `Profile`, `MeasuredValue`, `Limit`, `RateStandout`,
+  `Trend`, and `Parts` (the fixture-storable shape).
+- `memories.rs` — the Scout's own memory type. `measured` (DuckDB arithmetic over
+  fixtures) and `reported` (dated, attributed injury/suspension) are separate
+  keys, plus `coverage_limits`. Seven tests.
+- `cognition/prompt.rs` — the plugin's manual, replacing `brief.rs`'s composed
+  system prompt. A test asserts the manual states each rule a guard enforces.
+- `cognition/inputs.rs` — **deleted**, 297 lines.
+- `RATING_BODY_BANS` — moved from `support/guards.rs` into the Scout (F8).
+- `support::prompt::compose` — first of four callers retired (F5).
+- The seven rating fixtures — converted to parts, reassembling byte-identically.
+
+**Decisions made here, and why they are not assumptions.**
+
+- **The Scout does not participate in the paragraph rule**
+  (`SCOUT_PARAGRAPH_MAX_CHARS = None`). Same reasoning as the Journalist's F4b.
+  Influencer's 140 is a short-observation policy; the Scout writes
+  multi-paragraph analytical prose and has never been measured against it. The
+  shared 1,200 ceiling applies. Declared, not omitted.
+- **Participation totals are withheld from the presented sample** whenever a
+  cross-season comparison is unsupported, and the count is stated in `Limit`
+  instead. A stored count is source coverage, and presenting it as a figure
+  invites the model to read it as playing time.
+- **`Limit` distinguishes five states**, not one. `UnknownSample` exists because
+  an unreadable participation count is not a count of zero, and the first
+  implementation got that wrong.
+- **`statistic::team_matches` is adopted, not deleted.** `measured_memory()` in
+  the adapter is its first production consumer. Scoped to teams with a registered
+  additive measure; every refusal is a coverage limit, never a silent absence.
+
+**Defects the ported tests found, all fixed here.** A participation total beside a
+thin profile; a limit reporting an unreadable count as zero; an
+unidentified-measurement case collapsed into the no-measurements case; a
+comparison-ordering assertion passing **vacuously** (the synthetic profile had no
+participation count, so the selection refused the prior percentile and the
+assertion proved nothing); and a `SurfaceError` that had stopped being
+correctable, so the bounded retry stopped firing.
+
+**Retained temporarily.**
+
+| Consumer | Reason | Removal condition | Owning window |
+| --- | --- | --- | --- |
+| `evidence/memories.rs` (Scout's `Mission::Scout` path) | The identity/participation/editorial groups are not yet in the parts world | Scout stops calling `memories::load` | Window 4 follow-up |
+| `adapter::materials::render_personnel_block` | Still renders the legacy flat string for the retained `built_prompt` | The last legacy prompt consumer is gone | Window 4 follow-up |
+| `rating_palette` | Retained as the plugin's declaration of what it will assert; `check_supported` reads it | Once the palette is proven against replayed prose | Window 4 follow-up |
+
+**Unrun, and why.** **No model replay.** The Scout's output shape changed from
+finite phrasings to articulated prose; nothing here has been shown to a model.
+The seven rating fixtures are mechanical — they store parts and reassemble — so
+they gate the *package*, not the *product*. This is the window's one material gap.
+
+**Next interface.** Windows 5 through 10 should read **The parts recipe** above
+before their own section. Windows 5, 6 and 7 each inherit one foundation item:
+F5 for Insider and Analyst, F5 for Oracle, F8's `MOMENTUM_BANNED_PHRASES` for
+Analyst. None of them introduces a second memory type, a second parser or a
+second prompt composer; the recipe is what makes that cheap.
+
+## The parts recipe, as Window 4 established it
+
+Window 4 was the first plugin to build the six parts from scratch, and it cost
+a session to discover four things the earlier windows had learned the expensive
+way. They are written down here so Windows 5 through 10 do not pay for them
+again. **This section is the recipe; the per-window sections are still
+authoritative for what each plugin contains.**
+
+### 1. Check what production actually sends before you design anything
+
+Scout's `create()` overwrote `system`, `temperature`, `num_predict` and
+`format_schema`, then sent `palette.prompt()`. The prose prompt, the card schema
+and the entire `RatingRequestParser` guard chain were reachable only from
+evaluation. The window nearly started by writing a `prompt.rs` for a prompt
+nobody was sent.
+
+**Read the function that calls the model, and follow the options to their final
+value.** A prompt built in preparation and never sent is not the plugin's
+contract. `built_prompt`, `opts` and `palette` coexisted in `Assignment` for
+months with only one of them live.
+
+### 2. The plugin names its own tables, and the world is what it read
+
+The plugin decides which tables it reads and how it arranges them; the model
+articulates the result. Scout reads the season profile, the prior season, the
+personnel and availability records, the contested reports, and — new here — the
+DuckDB match-statistic study. None of that is a shared default. `statistic::
+team_matches` sat unused for two windows because nothing had claimed it; the fix
+was to notice the plugin needed it, not to delete it on a schedule.
+
+### 3. Memory is whatever the plugin remembers, and the kind must be visible
+
+Journalist and Influencer remember reporting history, so `HistoryItem` is their
+shared type. **The Scout remembers arithmetic over fixtures AND attributed
+injury reports, and those are not interchangeable.** A suspension is not a
+percentile dip; a downward trend is not evidence of an injury. `scout/memories.rs`
+gives them separate keys so a reader can tell them apart without the model, and
+so a model that conflates them has made an assembly error rather than a reading
+error.
+
+**Ask what a plugin remembers before reaching for the shared type.** If it is
+not the same kind of thing, the shared type is a false economy. A withdrawn
+claim also carries its retraction: "the club withdrew the report" reads like a
+cleared player unless the retraction travels with it.
+
+### 4. A boundary the plugin computed is a typed part, not a sentence in a prompt
+
+The old prompt told the model in English that a thin sample supports no
+cross-season claim, and hoped. `parts::Limit` makes it a value:
+`ThinSample` (counted, too small), `UnknownSample` (not readable), `OneAppearance`,
+`WithheldIdentity`, `NoMeasurements`. The model is told which limit applies, and
+the guard does not depend on the model having read the paragraph.
+
+That produced a correction worth keeping: **an unreadable participation count is
+not a count of zero.** The first version of `limit_for` reported `0.0`
+appearances for a profile whose sample labels it could not parse, which states a
+measurement never made. The tests caught it. Absence, an unreadable value, a
+measured zero and a declined slot are four different things, and a plugin that
+conflates them has a bug.
+
+### 5. The paragraph rule is a per-plugin decision, and two of three are no
+
+Influencer enforces 140 characters. The Journalist records `None`, and Window 4
+recorded `None` for the Scout — for the same reason. 140 is a policy for a short
+observation; both the Journalist and the Scout write multi-paragraph analytical
+prose, and neither has been replayed against it. **Shipping a number nobody was
+measured against is worse than recording a non-participation**, and a declared
+constant can be revisited with evidence while an omitted rule just sits there.
+
+### 6. Test migration is where the real invariants surface
+
+Nineteen Scout tests referenced the deleted flat prompt. Porting them was the
+most valuable part of the window, and it found five real defects that the code
+had been hiding:
+
+- a participation total that was presented beside a thin profile;
+- a limit that reported an unreadable count as zero;
+- an unidentified-measurement case that had collapsed into the no-measurements
+  case;
+- a comparison-ordering assertion that had been passing **vacuously**, because
+  the synthetic profile carried no participation count and the selection refused
+  to present a prior percentile — so the assertion proved nothing;
+- a `SurfaceError` that had silently stopped being correctable, so the bounded
+  retry stopped firing and one over-long body would have cost a whole read.
+
+**A test that passes because the subject is empty is not a test.** When porting,
+check that the fixture still exercises the branch before trusting the assertion.
+
+### 7. What the shared validator did not cover, and now does
+
+`ProseMap` is the Scout's surface too, and routing its parser through it removed
+the `CardReply` path entirely. Two consequences worth carrying forward:
+
+- **A ceiling violation must be raised as `SurfaceError`**, or the bounded
+  correction does not fire and a retryable surface costs the whole read. The
+  shared validator's plain `anyhow` error is not recognised by
+  `publishing_correction`.
+- **A title and a body are different kinds of text.** The paragraph ceiling
+  applies to prose; a title is governed by the hook contract and `settle_title`,
+  which salvages or drops it so a bad title never costs a finished report. A
+  blank *filled slot* is still a contract violation — that one is the shared
+  rule and it applies everywhere.
 
 ## Window 0 handoff
 
@@ -1588,50 +1809,36 @@ prose decoder, one manual per plugin, and a live evaluation harness. Windows 4
 through 10 consume those; none of them introduces a second memory
 implementation, a second parser or a second prompt composer.
 
-## Next fresh context: Window 4, Scout
+## Next fresh context: Window 5, Insider
 
-Read, in this order and nothing else: the ownership contract, the parts contract
-table, the "Sharing is an optimization" rules, Window 0's F4, F5, F8 and F9
-sections, Window 4 in full, and the decision register. Do not start F6 or F7
-here; they are closed.
+Read, in this order: **The parts recipe** (it is the transferable lesson, and it
+came out of Window 4), the ownership contract, the parts contract table, the
+"Sharing is an optimization" rules, Window 0's F5 and F8 sections, and Window 5
+in full. Do not reopen Window 0 or Window 4.
 
-**Where the work stands.** Every Window 0 task is now complete: F1 `020bc7a1`,
-F1b `b2577103`, F2 `76065db6`, F4+F3 `b386f3b8`, F4c `fc3ef96b`, F6 `9fffc883`,
-F7 `694b4947`. 554 tests pass and every target compiles. The Journalist's
-regression is fixed, its dead field is gone, and the harness that would catch the
-next one exists. **Window 0 is closed. Nothing is released.**
+**Where the work stands.** Window 0 is closed (F1, F1b, F2, F3, F4, F4c, F6, F7).
+Window 4 is **code-complete and locally verified but UNRELEASED and UNREPLAYED** —
+578 tests pass, and the Scout's published output changes shape. Three plugins
+(`narratives`, `vibe`, `rating`) are on the parts contract; seven are not.
 
-**What Window 4 owns.** Scout is the first of four callers of
-`support::prompt::compose` and the first plugin with an unshared
-`evidence/memories.rs` path. It inherits three foundation items and one decision:
+**What Window 5 owns.** Insider is the second of three `compose` callers and
+carries F5. It also owns two things only it can decide:
 
-- **F5 — write Scout's own `cognition/prompt.rs`** and delete
-  `cognition/brief.rs` and `cognition/inputs.rs`. The deliverable is a
-  plugin-owned manual; `compose` and its six content constants go.
-- **F8 — move `RATING_BODY_BANS` into `scout/cognition/mod.rs`**, its only
-  consumer. Only the definition is misplaced.
-- **F6 follow-through — `rating` becomes a parts task.** Scout is the first
-  window to convert a fixture set, and it is how the gate gets tested against a
-  plugin that did not start with parts. Copy the shape of
-  `journalist::cognition::Parts`: the plugin declares its own part type, the
-  harness chooses the JSON, `stores_parts()` returns true, and the existing
-  rating fixtures gain parts. **Read F6's status notes first** — the two
-  corrections there (`assemble` returns a request, and `stores_parts` is
-  load-bearing) apply directly.
-- **Decide `statistic::team_matches`.** It has no production consumer. Scout
-  either adopts it as its trend measurement or Window 0 deletes it. Do not leave
-  a third option where a shared tool has no owner.
-- **F9 — delete Scout's consumer path** in `evidence/memories.rs` as the window
-  migrates it. Do not delete the module ahead of its other consumers.
+- **Identity obligations.** Insider holds a Graph inference route whose contract
+  is only a parser. Under F1b, a plugin reaching a model with no declared,
+  enforced response contract has an undefined model role — that is the finding
+  to name, not "the LLM does too much." Canonical identity questions go to
+  Investigator's evidence gate.
+- **Pair memory.** F1 removed `pair` from `reporting_scope`, and a pair-needing
+  caller now passes a pre-resolved article list. Insider is the caller that
+  motivated that change, and it has never exercised the replacement.
 
-**Carry forward as fixed.** Harvester remains v7 with calibration accepted.
-Influencer v3 is local and undeployed, and its package is byte-identical to its
-retained fixture. Journalist `n95` and `narratives-v11-nested-history` are local
-and unreleased. The shared prose validator, the per-report join, the `World`
-renderer, the plugin-owned `Parts` type and `LensTask::assemble` are the model
-the remaining plugins should reach for; `Prose`, `assembly::World` and
-`<plugin>::cognition::Parts` are what a new character plugin declares against.
+**Carry forward as fixed.** Harvester v7, calibration accepted. Influencer v3
+local and undeployed. Journalist `n95` / `narratives-v11-nested-history` local and
+unreleased. Scout `s61` local, unreleased, unreplayed. The shared prose
+validator, the plugin-owned `Parts` type, `LensTask::assemble` and
+`assembly::World` are what a new character plugin declares against.
 
-**Do not reopen** Window 1, Window 2's prose behavior, Window 3's architecture,
-or Window 0. If something there is wrong, say so rather than quietly reworking it
-inside the next window.
+**Do not reopen** Window 0, Window 2's prose behavior, Window 3's architecture, or
+Window 4's parts. If something there is wrong, say so rather than quietly
+reworking it inside the next window.

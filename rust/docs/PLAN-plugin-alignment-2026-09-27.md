@@ -248,7 +248,7 @@ Use this single plan as the durable index. Start each plugin in a fresh context 
 | 1 | Harvester / `harvester` | Intake, source extraction, System 1 filtering, delivery contract | V7 implemented and verified; current behavior accepted; calibration deferred; deployment separate |
 | 2 | Journalist / `narratives` | Stateless articulation of fresh reporting and studied history | Deployed at `573d6a8e`; **exit claim reopened** — F3, F4b, F6, F7 open |
 | 3 | Influencer / `vibe` | Emotional synthesis of supplied fresh context and memory | Parts/manual implemented locally; not deployed; migrates first in F2a/F4a |
-| **0** | **Shared foundation** | **Memory, cognition contracts, form, assembly, manual, evaluation harness, guards, ledgers** | **Not started. F1 complete. Blocks Window 4.** |
+| **0** | **Shared foundation** | **Memory, cognition contracts, form, assembly, manual, evaluation harness, guards, ledgers** | **In progress: F1, F1b complete. Blocks Window 4.** |
 | 4 | Scout / `rating` | Measured performance, source triggers, statistical voice | Not started; carries F5, F8 and the first `statistic::team_matches` consumer |
 | 5 | Insider / `transfers` | Relationship evidence, transfer state, heat, identity obligations | Not started; supplies pair scope as an include list under F1 |
 | 6 | Analyst / `momentum` | Scout/Influencer synthesis and supported direction | Not started; carries its half of F8 |
@@ -400,12 +400,35 @@ worker dispatches through, and it does not move any policy. Its only job is that
 "what may this model decide" becomes a declared, enforced artifact in the same
 place for all eleven plugins.
 
-**Done:** both contract shapes are named in one module; Harvester's `validate()`
-and the character parsers are the two implementations of one idea; Fixture
-Boxscore declares an empty slot.
-**Verify:** a contract that rejects an out-of-shape response fails closed in a
-test for each shape. No plugin reaches a model without a declared contract — a
-test asserts every registered manifest's plugin has one.
+**Done, in `b2577103`:** the module exists with the three kinds, the `Contract`
+trait, the `SLOTS` table covering all eleven registered plugins, and
+`cognition/decision.rs` moved out of `studio`. `cognition/prose.rs` declares the
+Prose slot with plugin-chosen keys and the two dimensions separated.
+
+Two corrections to the sketch above, made while implementing it:
+
+- **`prepare()` is not on the trait.** What a plugin prepares from is
+  plugin-specific — `&Article` for Harvester, `&Assignment` for the characters —
+  so a uniform `prepare` would have been a fiction. Only `enforce` is genuinely
+  shared, and the trait is correspondingly thin. The slot table, not a trait
+  object, is what the worker reads; the worker dispatches through nothing here.
+- **A slot carries whether it is enforced, and an unenforced slot must name the
+  window that closes it.** Without that second rule a slot can sit in the table
+  indefinitely while the declaration reads as coverage, which is the exact
+  condition this task exists to detect. Investigator and Graph are recorded as
+  unenforced today with the reason attached.
+
+**`Prose::enforce` deliberately does not work yet and fails closed.** F4 supplies
+that body. Wiring the declaration in ahead of the real validator would make a
+contract the production path never consults — worse than none, because it reads
+as coverage. The character plugins' existing parsers remain their enforcement
+until F4 lands.
+
+**Verified:** 534 tests pass (was 529). Both registry guards were mutation-checked
+rather than assumed: deleting Graph from `SLOTS` fails with *"reaches no model and
+declares no cognition slot"*, and stripping a gap fails with *"declares an
+unenforced slot with no window to close it"*. A guard that was never seen to fail
+is not a guard.
 
 ### F2 — One memory item, one presentation contract
 **Files:** `src/plugins/memories.rs`; `src/plugins/influencer/memories.rs`;
@@ -1199,8 +1222,18 @@ names the date, the decision, and the evidence it rests on.
 
 ## Window 0 handoff
 
-**Status: not started.** No code changed by the September 29 audit; this is a
-read-only pass. Its evidence is the audit itself and the references below.
+**Status: F1 and F1b complete and verified; F2 next.** F1 is `020bc7a1`, F1b is
+`b2577103`. Each is a separate commit so the plan's "complete" claim is
+traceable to code that can be reverted independently of the plan.
+
+| Task | State | What landed |
+| --- | --- | --- |
+| F1 | complete | `reporting_scope` lost `pair`/`predicates`; `include` and `Topic` replace them; shared SQL reads no storyline table; the memory test omits those tables so it fails if the coupling returns |
+| F1b | complete | `plugins/cognition.rs` names the three slot kinds and the `SLOTS` table; `studio/decision.rs` moved to `plugins/cognition/decision.rs`; `prose.rs` declares the slot with the two dimensions separated; `Prose::enforce` fails closed pending F4 |
+| F2 | next | one memory item type; Journalist's 233-line `memories.rs` reimplemented against it |
+| F3, F4, F4c | chain | F4 fixes the decoder, F3 nests history per report, F4c then has one renderer to share |
+| F6, F7 | independent | evaluation harness; Journalist's dead `card_score_prev` |
+| F5, F8, F9 | handed off | Window 4 and Window 10 |
 
 Findings established, each reproduced against the working tree:
 
@@ -1223,7 +1256,13 @@ Findings established, each reproduced against the working tree:
 - `all_task_names()` — eight entries, no `"narratives"`.
   `ls fixtures/quality/narratives/` — empty.
   `src/bin/eval.rs:558` generates from `fx.user_prompt`, a stored string.
-- `cargo build --all-targets` — clean at `4972fa7c`.
+- `ls src/plugins/*/manifest.rs` — ten plugins have one; Harvester's is inside
+  `harvester.rs:15-25`. All eleven register through `fleet::ALL`, so the
+  "everything is a plugin" shape is real in the code and not an aspiration.
+- `rg "studio::decision" src/` — four modules, all of them either Harvester or
+  the System 1 provider. No character plugin used the vocabulary that already
+  existed for the other contract shape.
+- `cargo build --all-targets` — clean at `4972fa7c`; 529 tests before F1b.
 
 **Unrun checks and why:** no model replay was run for this audit; it changed no
 behavior. Every replay named in F2, F3, F4a and F4b is a gate on the change that

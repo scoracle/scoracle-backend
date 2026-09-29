@@ -25,6 +25,16 @@ the binding assemble/articulate definition, the parts contract, Window 0
 in Windows 4, 6, 7 and 10. Windows 1–3 keep their history; Window 2's exit claim
 is explicitly reopened with the four reasons.
 
+**Revision 2026-09-29 (later).** F4, F3 and F4c are complete, unreleased, in
+`b386f3b8` and `fc3ef96b`. The assemble/articulate regression is fixed: the
+Journalist's history is now attached per report and its manual no longer asks the
+model to resolve a pairing. Two of this plan's own sketches turned out to be wrong
+against the code — F3's `source_ids` join cannot fire, and F4c's
+`serde_json::Value` parts would have alphabetized every part — and both
+corrections are recorded in the decision register rather than applied quietly.
+F4b is decided: the Journalist records a non-participation in the paragraph rule
+rather than shipping a number nobody measured it against. F6 and F7 remain.
+
 Harvester phase one is implemented and locally verified. The user accepts its current 90/96 development result and defers further calibration until experience warrants it; this does not block the next plugin window. Operational release remains separate. This is the governing alignment plan; older architecture and cutover documents remain evidence of earlier work, not competing target contracts.
 
 ## Ownership contract
@@ -246,9 +256,9 @@ Use this single plan as the durable index. Start each plugin in a fresh context 
 | Window | Plugin / task | Scope | Status |
 | --- | --- | --- | --- |
 | 1 | Harvester / `harvester` | Intake, source extraction, System 1 filtering, delivery contract | V7 implemented and verified; current behavior accepted; calibration deferred; deployment separate |
-| 2 | Journalist / `narratives` | Stateless articulation of fresh reporting and studied history | Deployed at `573d6a8e`; **exit claim reopened** — F3, F4b, F6, F7 open |
+| 2 | Journalist / `narratives` | Stateless articulation of fresh reporting and studied history | Deployed at `573d6a8e`; **exit claim reopened** — F3, F4b, F6, F7 open. F3 and F4b now fixed locally and unreleased |
 | 3 | Influencer / `vibe` | Emotional synthesis of supplied fresh context and memory | Parts/manual implemented locally; not deployed; migrates first in F2a/F4a |
-| **0** | **Shared foundation** | **Memory, cognition contracts, form, assembly, manual, evaluation harness, guards, ledgers** | **In progress: F1, F1b, F2 complete. Blocks Window 4.** |
+| **0** | **Shared foundation** | **Memory, cognition contracts, form, assembly, manual, evaluation harness, guards, ledgers** | **In progress: F1, F1b, F2, F4, F3, F4c complete. F6, F7 remain. Blocks Window 4.** |
 | 4 | Scout / `rating` | Measured performance, source triggers, statistical voice | Not started; carries F5, F8 and the first `statistic::team_matches` consumer |
 | 5 | Insider / `transfers` | Relationship evidence, transfer state, heat, identity obligations | Not started; supplies pair scope as an include list under F1 |
 | 6 | Analyst / `momentum` | Scout/Influencer synthesis and supported direction | Not started; carries its half of F8 |
@@ -513,9 +523,23 @@ correction below, not the sketch.
   More than one candidate under (2) yields empty. Missing stays unknown.
   Rule (1) is now the common case and is free: F2 put the article ids in the
   group summary, so a report indexed to a storyline already knows its history.
+
+  **Corrected against the code that landed.** Rule (1) as written above cannot
+  fire. `source_ids` holds only historical articles: `select` already excludes
+  any finding that overlaps a fresh article, and the study's window ends at the
+  oldest fresh report, so there is no fresh id anywhere in a group to match. The
+  link that is both exact and reachable is the report's **own storyline**, which
+  this plugin already resolves from `storyline_articles` and which the study
+  already groups by. Rule (1) is implemented as a storyline match; rule (2) is
+  the single-preceding-group fallback; ambiguity under (2) still yields empty
+  rather than a guess. The intent of the original rule — an exact,
+  already-retained link requiring no inference — is preserved.
 - The package nests history under its report:
   `fresh: [{report_key, publisher, published_at, publisher_excerpt, history: [...], history_groups: [...]}]`,
-  and the top-level `history` and `history_groups` keys are removed.
+  and the top-level `history` and `history_groups` keys are removed. A report
+  with no attached history carries **no history keys at all** rather than empty
+  arrays, so "none was attached" stays distinguishable from "one was attached
+  and was empty".
 - `HISTORY_TASK` becomes: *"Each `report_N` contains the fresh item at `report_N`
   and the history attached to it. Articulate that prepared set in the supplied
   voice and form. Add no history and no claim that is not in it."*
@@ -524,6 +548,13 @@ correction below, not the sketch.
 - `prompt::task(has_history)` currently takes one bool; it must derive from the
   per-report vector, and a package where some reports have history and others do
   not needs a decision recorded rather than assumed.
+  **Decided:** one history manual serves the mixed case. It describes history per
+  report and states that a report without history is articulated from its fresh
+  item alone, so a third variant would add a manual difference with no product
+  meaning.
+- `GroupSummary` gains `before_epoch`, `#[serde(skip)]`. The join compares two
+  boundaries and must not re-parse a presented UTC string to do it. The
+  reader-facing `before` field is unchanged.
 
 **Done:** no manual sentence asks the model to resolve which memory belongs
 where; the package has no top-level history array.
@@ -535,22 +566,34 @@ history on one report and none on another pins the mixed shape. Replay
 correct outputs are unchanged. **This is a deployed behavior change: release
 nothing before the replay passes.**
 
+**Status: complete, replayed, not released.** `select` returns
+`Vec<Option<Selected>>` index-aligned with the reports. The three new tests are
+multi-report on purpose — the n94 fixtures are all 1:1, which is precisely why
+the parallel-array defect survived review, so a 1:1-only test would not have
+caught this. The budget callback now measures the package the attachment
+actually produces rather than a whole-context approximation.
+
 ### F4 — One prose form
 
 **Files:** `src/plugins/support/form.rs`.
 
-- Add `prose_map_schema(keys)`, `prose_map_form(keys)` and
-  `parse_prose_map(raw, keys, dims) -> ProseMap`. One implementation of: nonblank
-  when present, every paragraph ≤ `dims.paragraph_max_chars` when the plugin
-  supplies one, total across keys ≤ `dims.total_max_chars`, and
-  `additionalProperties: false` over exactly the requested keys. `ProseMap`
-  exposes `get`/`push` so callers stop re-parsing JSON.
+- Add `decode_prose_map`/`parse_prose_map` and `ProseMap` with `get`, `push`,
+  `replace` and `validate`. One implementation of: nonblank when present, every
+  paragraph ≤ `dims.paragraph_max_chars` when the plugin supplies one, total
+  across keys ≤ `dims.total_max_chars`, and `additionalProperties: false` over
+  exactly the requested keys. **`decode` and `validate` are separate steps** and
+  must stay that way: the Influencer strips markdown emphasis *before* anything is
+  measured, and a fused decode-and-measure would charge presentation markers
+  against its ceilings and silently change what they mean.
 - **Do not redefine `Dimensions`.** F1b already landed it at
   `src/plugins/cognition/prose.rs` along with `Prose::schema()` and `Prose::form()`.
   Reuse it. The schema and form generation F4 needs already exist there; what is
   missing is the validator body that `Prose::enforce` currently refuses to
   provide, and `form.rs` is where it should live so the parser and the validator
   stay beside the surface they enforce.
+- `ProseMap` needs a **hand-written `Serialize`**, not a derived one. A derived
+  impl emits `{"slots": ...}` and loses the keyed surface entirely; the map is
+  written as a `SerializeMap` in declared order.
 - **Share the validator, not the number.** `dims` is a plugin-supplied value, not
   a shared constant:
 
@@ -598,6 +641,24 @@ validates and a wrong key set fails closed, plus the F1b test that an
 unenforced contract refuses to pass a response — that test must be inverted or
 replaced once enforcement is real, and leaving it passing unchanged would be the
 bug.
+
+**F4a — landed, byte-identical.** `parse_observation` normalizes, validates, and
+returns a `ProseMap`; the package and the emitted schema are unchanged. The
+emitted schema differs *only* in key order (structs keep declaration order,
+`json!` sorts), and both are sorted on the wire, so the rendered package is
+byte-identical. Verified by diffing against the retained
+`fixtures/quality/vibe/warm-memory-cold-coverage.json` prompt, now pinned by a
+test so a later refactor cannot move the Influencer's prompt silently.
+
+**F4b — decided by replay, recorded as non-participation.**
+`JOURNALIST_PARAGRAPH_MAX_CHARS = None`. The paragraph rule is a writing policy
+the Journalist has never applied, and the n94 evidence does not support imposing
+one: `form.rs` records that 900 tokens across up to three keyed reports under a
+140-character cap raises `SurfaceError` at a rate nobody measured. Shipping
+140 unmeasured would be exactly the "number neither plugin was measured against"
+the task forbids. The shared body ceiling still applies, and the opt-out is a
+declared constant rather than an omission, so a later window can revisit it with
+evidence.
 
 ### F4c — One assembler, shared rendering only
 
@@ -653,18 +714,30 @@ Shape:
 // plugins/assembly.rs
 /// An ordered prepared world. Insertion order is the wire order and is
 /// load-bearing; do not sort. This renders parts and nothing else.
-pub struct World { parts: Vec<(&'static str, serde_json::Value)> }
+pub struct World { parts: Vec<(&'static str, String)> }
 impl World {
     pub fn new() -> Self;
-    pub fn part(mut self, name: &'static str, value: serde_json::Value) -> Self;
+    pub fn part(mut self, name: &'static str, value: impl Serialize) -> Self;
+    pub fn rendered(mut self, name: &'static str, json: String) -> Self;
+    pub fn names(&self) -> impl Iterator<Item = &'static str> + '_;
     pub fn render(&self) -> String;
     pub fn hash(&self) -> String;
 }
 ```
 
-Note that `form` is a `serde_json::Value` the caller already builds, and after F4
-the plugin can build it from `Prose::form()` rather than hand-writing it. The
-renderer does not need to know that; it renders what it is given.
+**Correction to the sketch above, and it matters.** The parts are pre-rendered
+`String`s, not `serde_json::Value`. This build has `serde_json` **without**
+`preserve_order`, so a `Value::Object` **sorts its keys alphabetically** on
+serialization while a `#[derive(Serialize)]` struct emits fields in declaration
+order. Storing `Value` would therefore have silently alphabetized every part and
+changed SmolLM3's output — which is the exact failure `form.rs:29` records. This
+was measured against the tree before the module was written, not assumed. Each
+part is serialized at the point the plugin hands it over, so "never sorted" is
+true of the implementation and not merely of its intent.
+
+Note that `form` is a value the caller already builds, and after F4 the plugin
+can build it from `Prose::form()` rather than hand-writing it. The renderer does
+not need to know that; it renders what it is given.
 
 **The anti-pattern to avoid.** A `trait Assembler { fn parts(&self) -> Vec<...> }`
 implemented once per plugin. That is indirection that removes no per-plugin
@@ -686,6 +759,14 @@ except for the intended F3 nesting. A test asserts that adding, removing or
 reordering a part changes the hash and that rendering twice is byte-identical.
 Reviewers can now check a plugin's entire world with one call and no reading of
 plugin logic.
+
+**Status: complete, byte-identical.** The key-order test reads the order off the
+rendered string with a scanner rather than a parser, because `serde_json` hands
+back a sorted map and asserting on it would prove nothing. F4c is a pure
+refactor: the Journalist's rendered prompt and system prompt are byte-identical
+across the F3 and F4c commits, verified by diffing replay output. The Journalist
+now assembles its world once and both renders and hashes from it, so its
+`input_hash` changes — a new contract version, not a silent drift.
 
 ### F5 — Retire the shared manual stack (Window 4, Scout's first task)
 
@@ -811,11 +892,17 @@ behavior changed except the four gated ones: F3 pairing, F4b paragraph ceiling,
 F2/F4 wrapper identities, and F4c's move to a shared renderer. Each is replayed
 before release and recorded separately from code-complete status.
 
-**Ordering.** F4 and F4c land with F3, in that order: F4 fixes the decoder,
-F3 nests history per report and thereby makes the two worlds the same shape,
-F4c then has one honest renderer to share. F1, F1b, F2, F6, F7 are independent
-and can be done in any order. F5, F8 and F9 hand off to Window 4 and Window 10.
-F1b should precede any window that adds or moves a model call, because a contract
+**Where this stands.** One memory item type (F2), one prose decoder (F4), and one
+assembler (F4c) are done. The evaluation harness (F6), Journalist's dead field
+(F7), and the manual home, guards split and ledger (F5, F8, F9) are not. The
+Journalist's package is now assembled, which was the defect this window existed
+to remove; the harness that would catch the next one is F6 and is still missing.
+
+**Ordering, as executed.** F4 fixed the decoder, F3 nested history per report and
+made the two character worlds the same shape, and F4c then had one honest
+renderer to share — the order the plan set, and the reason it gave held. F1, F1b,
+F2, F6, F7 were independent. F5, F8, F9 hand off to Window 4 and Window 10. F1b
+preceded every window that adds or moves a model call, because a contract
 declared late is a contract declared to fit whatever the code already did.
 
 
@@ -1292,22 +1379,41 @@ names the date, the decision, and the evidence it rests on.
 | 2026-09-29 | **The contract type is the enforcement.** A character plugin cannot take a second eligibility call because it has no Decision slot. Converse: a plugin with no declared, enforced response contract has an undefined model role — which is the true finding in Investigator and Graph. |
 | 2026-09-29 | **A plugin is a total function of database state.** Re-runnable against current state, correct with partial or absent upstream data, idempotent. `ClaimPolicy.upstream_tasks` is execution gating and is legitimate only as a cost measure; each window must say whether its dependency is data readiness or order. |
 | 2026-09-29 | **`studio::decision` moves to the plugin layer under F1b.** | `DecisionRequest`/`PredicateQuestion` are a plugin vocabulary, not a studio facility, and their being in `studio` is why no character plugin found them. |
+| 2026-09-29 | **F3's join rule is a storyline match, not a `source_ids` match.** | The plan's rule 1 cannot fire. `select` excludes any finding overlapping a fresh article and the study window ends at the oldest fresh report, so no fresh id exists in any group. The storyline is the exact, already-retained link and the one the study actually groups by. |
+| 2026-09-29 | **The Journalist does not participate in the paragraph rule; the opt-out is a declared constant.** | Imposing 140 characters would be shipping a number the Journalist was never measured against, and `form.rs:29` predicts a `SurfaceError` rate nobody has quantified. The shared body ceiling still applies. Revisit with a replay, not an assumption. |
+| 2026-09-29 | **Prose parts are stored pre-rendered, not as `serde_json::Value`.** | Measured: this build has `serde_json` without `preserve_order`, so `Value::Object` sorts keys while `derive(Serialize)` preserves declaration order. Storing values would have alphabetized every part and changed SmolLM3's output. Corrects the F4c sketch. |
+| 2026-09-29 | **`ProseMap::decode` and `ProseMap::validate` are separate steps.** | The Influencer strips markdown emphasis before measuring. A fused decode-and-measure would charge presentation markers against its ceilings and change what they mean. |
+| 2026-09-29 | **The Journalist's key order is pinned by a scanner, not a parser.** | `serde_json` returns a sorted map, so asserting key order on a parsed value would prove nothing. The test reads the rendered string. |
 
 ## Window 0 handoff
 
-**Status: F1, F1b and F2 complete; F4 → F3 → F4c is the next window's entire
-scope.** F1 is `020bc7a1`, F1b is `b2577103`, F2 is `76065db6`. Each is a separate
-commit so the plan's "complete" claim is traceable to code that can be reverted
-independently of the plan.
+**Status: F1, F1b, F2, F4, F3 and F4c complete. F6, F7 remain; F5, F8, F9 are
+handed off.** F1 is `020bc7a1`, F1b is `b2577103`, F2 is `76065db6`, F4+F3 are
+`b386f3b8`, F4c is `fc3ef96b`. Each is a separate commit so the plan's
+"complete" claim is traceable to code that can be reverted independently of the
+plan.
 
 | Task | State | What landed |
 | --- | --- | --- |
 | F1 | complete | `reporting_scope` lost `pair`/`predicates`; `include` and `Topic` replace them; shared SQL reads no storyline table; the memory test omits those tables so it fails if the coupling returns |
-| F1b | complete | `plugins/cognition.rs` names the three slot kinds and the `SLOTS` table; `studio/decision.rs` moved to `plugins/cognition/decision.rs`; `prose.rs` declares the slot with the two dimensions separated; `Prose::enforce` fails closed pending F4 |
+| F1b | complete | `plugins/cognition.rs` names the three slot kinds and the `SLOTS` table; `studio/decision.rs` moved to `plugins/cognition/decision.rs`; `prose.rs` declares the slot with the two dimensions separated. `Prose::enforce` no longer refuses to parse — F4 supplied the body |
 | F2 | complete, `76065db6` | `HistoryItem`/`GroupSummary` shared; both plugins migrated; Journalist's storyline grouping restored as the first `Topic` consumer; self-memory renamed `published_reports` |
-| F4, F3, F4c | next window | one prose validator; per-report history attachment; one assembler. **F4b and F3 ship together** — all three of F2, F3 and F4b change the Journalist's prompt and share one replay |
+| F4, F4a | complete | `ProseMap` plus one `validate` over the declared keys and dimensions; `Prose::enforce` and both parsers route through it. The Influencer's package is byte-identical to the retained fixture, now pinned by a test |
+| F4b | complete, decided by replay | `JOURNALIST_PARAGRAPH_MAX_CHARS = None` — a declared non-participation, not an omission. See the F4b entry above |
+| F3 | complete, `b386f3b8` | `select` returns one attachment per report, joined on the report's own storyline with a single-preceding-group fallback; history nests under its report; the top-level arrays and the pairing sentence are gone |
+| F4c | complete, `fc3ef96b` | `plugins/assembly.rs`; both plugins render through it and hash through `World::hash`; each plugin's key order pinned by a test. Byte-identical output |
 | F6, F7 | independent | evaluation harness; Journalist's dead `card_score_prev` |
 | F5, F8, F9 | handed off | Window 4 and Window 10 |
+
+**The regression named in the kickoff is fixed.** The Journalist no longer
+supplies two parallel arrays, and its manual no longer says *"combines the fresh
+item identified by its report_key with the history that contextualizes that
+item"*. A reader can now name what each claim is about without the model.
+
+**Nothing is released.** The Journalist is deployed at `573d6a8e` and this
+changes its prompt, its response surface, and its input hash. `n94` becomes
+`n95` and `narratives-v10-source-hooks` becomes `narratives-v11-nested-history`.
+Releasing waits on the release decision, not on further code.
 
 Findings established, each reproduced against the working tree:
 
@@ -1350,53 +1456,37 @@ prose decoder, one manual per plugin, and a live evaluation harness. Windows 4
 through 10 consume those; none of them introduces a second memory
 implementation, a second parser or a second prompt composer.
 
-## Next fresh context: the F4 → F3 → F4c chain
+## Next fresh context: F6 and F7
 
 Read, in this order and nothing else: the ownership contract, the parts contract
-table, the "Sharing is an optimization" rules, Window 0's F4/F3/F4c sections, and
-the decision register. Then `HANDOFF-influencer-2026-09-28.md` for the
-parts-and-manual pattern and the n94 fixtures under `fixtures/journalist/`.
+table, the "Sharing is an optimization" rules, Window 0's F6 and F7 sections, and
+the decision register. Do not start F5, F8 or F9 here; they are Window 4 and
+Window 10.
 
-**Where the work stands.** F1, F1b and F2 are complete: `020bc7a1`, `b2577103`,
-`76065db6`, with plan updates in `860b284d`, `91492981` and `8a58f2f6`. 534 tests
-pass and the tree was clean at `8a58f2f6`. F4, F3 and F4c are the entire scope of
-this window. Do not start F6, F7, F5, F8 or F9 here.
+**Where the work stands.** F1, F1b, F2, F4, F3 and F4c are complete:
+`020bc7a1`, `b2577103`, `76065db6`, `b386f3b8`, `fc3ef96b`. 551 tests pass and
+every target compiles. The Journalist's regression is fixed and its package is
+assembled. Nothing is released.
 
-**Why this order, and do not rearrange it.** F4 makes the shared prose contract
-real, F3 makes the two character worlds the same shape, and F4c then has one
-honest renderer to share. F4c before F3 would be a shared renderer over two
-different shapes, which hides a divergence instead of removing it. F3 before F4
-would nest history per report and then re-derive the surface the validator
-enforces.
+**What the next window owns.** Two independent tasks, neither of which needs the
+other:
 
-**The two gates that are not negotiable.**
-
-1. **F4b and F3 are one release.** Both change the Journalist's assembled package
-   and therefore its prompt. F2 already changed it. Measuring the paragraph rule
-   against a package F3 is about to replace produces a number nobody can use.
-   Land them together, replay once.
-2. **The replay gate.** Nothing here ships until the n94 Journalist replays and
-   the Influencer v3 replays are recorded. Influencer's must be byte-identical for
-   F4a. Journalist's must be reviewed for fidelity as before — parser success is
-   not sufficient and never was.
-
-**Known landmines in this chain, all found the hard way.**
-
-- `Prose::enforce` currently *fails closed* by design, and there is a passing test
-  asserting that. F4 must invert or replace that test. If it still passes
-  unchanged after F4, enforcement was never wired in and the declaration is a
-  lie.
-- `plugins/cognition.rs::SLOTS` marks Journalist and Influencer `enforced` today,
-  meaning their *existing* parsers enforce. Do not move that to mean the shared
-  validator is in use until it genuinely is.
-- F3's `fits` budget callback currently measures the whole rendered context.
-  Per-report attachment changes what it measures; carrying the old measurement
-  forward silently changes the budget.
-- A report can end up with history while another has none. That mixed shape needs
-  a recorded decision in both the manual and the test, not a default.
+- **F6 — make evaluation a live gate.** `fixtures/quality/narratives/` is empty,
+  `"narratives"` is absent from `all_task_names()`, and offline mode replays a
+  frozen `user_prompt` string. F3 just changed the Journalist's package, which is
+  precisely the drift F6 exists to catch, and there is currently no harness that
+  would have caught it. This is the highest-value remaining Window 0 item.
+- **F7 — delete Journalist's dead `card_score_prev`.** Verified again during this
+  window: no reader in Rust, Go or SQL. `impact`/`card_score` stays; it is live in
+  `evidence/story_parts.rs`, Oracle, `go/internal/db/db.go` and a partial index.
 
 **Carry forward as fixed.** Harvester remains v7 with calibration accepted.
-Influencer v3 is local and undeployed, and its retired abstention and classifier
-choice stay retired. Do not reopen Window 1, Window 2's prose behavior, or Window
-3's architecture. Do not revisit F1 or F2; if something there is wrong, say so
-rather than quietly reworking it inside this chain.
+Influencer v3 is local and undeployed, and its package is now byte-identical to
+its retained fixture. Journalist `n95` and `narratives-v11-nested-history` are
+local and unreleased. The shared prose validator, the per-report join, and the
+`World` renderer are the model the other plugins should reach for; `Prose` and
+`assembly::World` are what a new character plugin declares against.
+
+**Do not reopen** Window 1, Window 2's prose behavior, or Window 3's
+architecture. Do not revisit F1, F2, F4, F3 or F4c; if something there is wrong,
+say so rather than quietly reworking it inside the next window.

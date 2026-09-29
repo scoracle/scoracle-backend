@@ -15,10 +15,13 @@ pub mod fresh;
 mod journalist;
 mod prompt;
 pub use journalist::CHARACTER;
-pub const NARRATIVES_PROMPT_VERSION: &str = "n94";
+/// n95 attaches each report's history under the report itself and returns a flat
+/// keyed prose map. Both change the prepared world and the response surface, so
+/// this is a new contract and not a revision of n94.
+pub const NARRATIVES_PROMPT_VERSION: &str = "n95";
 pub const NUM_PREDICT: i32 = 900;
 pub const NARRATIVES_SYSTEM_PROMPT: &str = prompt::FRESH_TASK;
-pub const NARRATIVES_OUTPUT_CONTRACT_VERSION: &str = "narratives-v10-source-hooks";
+pub const NARRATIVES_OUTPUT_CONTRACT_VERSION: &str = "narratives-v11-nested-history";
 pub const LOOKBACK_SECONDS: i64 = 72 * 3600;
 pub const MAX_REPORTS: usize = 3;
 pub const SOURCE_BUDGET_BYTES: usize = 6000;

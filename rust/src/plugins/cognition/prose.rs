@@ -55,10 +55,13 @@ pub struct Prose {
 
 impl Prose {
     pub fn new(keys: &[&str], dims: Dimensions) -> Self {
-        Self {
-            keys: keys.iter().map(|k| (*k).to_string()).collect(),
-            dims,
-        }
+        Self::new_owned(keys.iter().map(|k| (*k).to_string()).collect(), dims)
+    }
+
+    /// For a plugin whose keys are computed rather than written out, such as the
+    /// Journalist's `report_1..report_N`.
+    pub fn new_owned(keys: Vec<String>, dims: Dimensions) -> Self {
+        Self { keys, dims }
     }
 
     /// The `form` block a world presents, describing structure only.
@@ -93,13 +96,12 @@ impl Contract for Prose {
     /// The keyed prose map, after enforcement.
     type Response = Value;
 
-    /// F4 supplies this body. Until then the per-plugin parsers
-    /// (`form::parse_observation`, `form::parse_journalist`, the card schemas)
-    /// remain the enforcement path for their plugins, and this module must not be
-    /// wired in ahead of them: a declared contract that the production path does
-    /// not consult is worse than none, because it reads as coverage.
-    fn enforce(&self, _request: &Value, _response: Value) -> Result<Value> {
-        anyhow::bail!("Prose::enforce lands with F4's unified decoder")
+    /// The declared surface, checked. This is the whole point of the slot: a
+    /// response that does not match what the plugin said it would return is
+    /// refused rather than parsed permissively.
+    fn enforce(&self, _request: &Value, response: Value) -> Result<Value> {
+        let map = form::parse_prose_map(&response.to_string(), &self.keys, self.dims)?;
+        Ok(serde_json::to_value(map)?)
     }
 }
 
@@ -149,8 +151,69 @@ mod tests {
     }
 
     #[test]
-    fn an_unenforced_prose_contract_fails_closed() {
+    fn enforcement_is_real_and_still_fails_closed() {
+        // F1b landed this contract refusing to parse anything, with a passing
+        // test pinning that. F4 supplied the validator, so the test is inverted:
+        // a conforming response is now accepted, and the refusals are the point.
         let prose = Prose::new(&["body"], Dimensions::new(1200, Some(140)));
-        assert!(prose.enforce(&Value::Null, Value::Null).is_err());
+        let ok = prose
+            .enforce(&Value::Null, serde_json::json!({"body": "Cedar won."}))
+            .unwrap();
+        assert_eq!(ok["body"], serde_json::json!("Cedar won."));
+
+        // A declared contract that accepted everything would be worse than none.
+        for refused in [
+            serde_json::json!({}),                                        // omitted slot
+            serde_json::json!({"body": "Cedar won.", "score": 7}),        // undeclared field
+            serde_json::json!({"body": 7}),                               // not prose
+            serde_json::json!({"body": "  "}),                            // blank
+            serde_json::json!({"body": "é".repeat(1201)}),                // over body ceiling
+            serde_json::json!({"body": format!("{}.", "é".repeat(140))}), // over paragraph
+        ] {
+            assert!(
+                prose.enforce(&Value::Null, refused.clone()).is_err(),
+                "contract accepted {refused}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_declined_slot_is_not_a_missing_slot() {
+        // `body: null` is the Influencer's abstention and is legitimate; a
+        // missing `body` is a dropped slot. The two must not collapse.
+        let prose = Prose::new(&["body"], Dimensions::new(1200, Some(140)));
+        assert!(prose
+            .enforce(&Value::Null, serde_json::json!({"body": null}))
+            .is_ok());
+        assert!(prose.enforce(&Value::Null, serde_json::json!({})).is_err());
+    }
+
+    #[test]
+    fn a_plugin_chooses_its_own_keys_and_the_validator_accepts_only_them() {
+        let declared = Prose::new(&["headline", "body"], Dimensions::new(1200, Some(140)));
+        let other = Prose::new(&["body", "lede"], Dimensions::new(1200, Some(140)));
+        let response = serde_json::json!({"headline": "A win", "body": "Cedar won."});
+        assert!(declared.enforce(&Value::Null, response.clone()).is_ok());
+        // The same bytes are a contract violation for a plugin that declared
+        // different keys. The shape is shared; the keys are the plugin's.
+        assert!(other.enforce(&Value::Null, response).is_err());
+    }
+
+    #[test]
+    fn a_plugin_may_opt_out_of_the_paragraph_rule() {
+        // The Journalist's recorded non-participation. It still enforces the
+        // shared body ceiling; only the readability policy is absent.
+        let no_paragraph_rule =
+            Prose::new_owned(vec!["report_1".into()], Dimensions::new(1200, None));
+        let long = "é".repeat(400);
+        assert!(no_paragraph_rule
+            .enforce(&Value::Null, serde_json::json!({"report_1": long}))
+            .is_ok());
+        assert!(no_paragraph_rule
+            .enforce(
+                &Value::Null,
+                serde_json::json!({"report_1": "é".repeat(1201)})
+            )
+            .is_err());
     }
 }

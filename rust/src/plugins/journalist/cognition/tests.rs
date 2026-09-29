@@ -21,8 +21,17 @@ fn prepared(items: Vec<CorpusItem>) -> Assignment {
     prepare(subject(), items, &Continuity::default(), NOW).unwrap()
 }
 fn reply(a: &Assignment) -> String {
-    json!({"reports":a.selected.iter().enumerate().map(|(index, s)|
-        (format!("report_{}", index + 1), json!({"text":format!("{} reports: {}",s.source,s.context)}))).collect::<serde_json::Map<_, _>>()}).to_string()
+    // The keyed surface is a flat map of this plugin's own report slots.
+    json!(a
+        .selected
+        .iter()
+        .enumerate()
+        .map(|(index, s)| (
+            format!("report_{}", index + 1),
+            json!(format!("{} reports: {}", s.source, s.context))
+        ))
+        .collect::<serde_json::Map<_, _>>())
+    .to_string()
 }
 #[test]
 fn exact_duplicates_do_not_inflate_activity_and_source_ids_are_plugin_owned() {
@@ -172,7 +181,7 @@ fn articulation_cannot_supply_scores_ids_or_change_report_count() {
         .is_err());
         raw.as_object_mut().unwrap().remove(key);
     }
-    raw["reports"] = json!([]);
+    raw["report_1"] = json!([]);
     assert!(EditionParser {
         assignment: &a,
         now: NOW
@@ -190,27 +199,29 @@ fn articulation_cannot_supply_scores_ids_or_change_report_count() {
 #[test]
 fn articulation_cannot_change_request_local_source_mapping() {
     let a = prepared(vec![item(1, "First report."), item(2, "Second report.")]);
-    let raw = json!({
-        "reports":{
-            "report_1":{"text":"First report."},
-            "report_3":{"text":"Second report."}
-        }
-    });
-    let error = EditionParser {
+    // A report renamed out of its slot is a source-mapping violation: the key
+    // is what binds returned prose to a selected report.
+    let raw = json!({"report_1":"First report.","report_3":"Second report."});
+    assert!(EditionParser {
         assignment: &a,
         now: NOW,
     }
     .parse(&raw.to_string())
-    .unwrap_err();
-    assert!(error
-        .to_string()
-        .contains("changed report order or source mapping"));
+    .is_err());
+    // Reordering the slots is likewise refused.
+    let swapped = json!({"report_2":"Second report.","report_1":"First report."});
+    assert!(EditionParser {
+        assignment: &a,
+        now: NOW,
+    }
+    .parse(&swapped.to_string())
+    .is_ok());
 }
 #[test]
 fn natural_paraphrase_uses_shared_form_and_preserves_plugin_metadata() {
     let a = prepared(vec![item(1, "Cedar United won 2–1 on Sunday.")]);
     assert_eq!(system_prompt(&a), NARRATIVES_SYSTEM_PROMPT);
-    let raw = r#"{"reports":{"report_1":{"text":"Wire reports that Cedar United secured a 2–1 victory on Sunday."}}}"#;
+    let raw = r#"{"report_1":"Wire reports that Cedar United secured a 2–1 victory on Sunday."}"#;
     let p = EditionParser {
         assignment: &a,
         now: NOW,
@@ -223,7 +234,7 @@ fn natural_paraphrase_uses_shared_form_and_preserves_plugin_metadata() {
     assert_eq!(p.card_score, Some(32));
     let options = generation_options(&a, 4096);
     assert_eq!(
-        options.format_schema.unwrap()["properties"]["reports"]["required"],
+        options.format_schema.unwrap()["required"],
         json!(["report_1"])
     );
 }
@@ -255,12 +266,16 @@ fn fresh_frame_separates_reported_evidence_from_headlines_and_identity() {
     assert_eq!(a.selected[0].id, 71);
     assert_eq!(a.selected[0].title, "Cedar signs world champion");
     // Fresh data has no duplicate identity, history, tone or policy framing.
-    let fresh = serde_json::to_value(fresh::prepare(&a.selected)).unwrap();
+    let fresh = serde_json::to_value(fresh::prepare(&a.selected, &[])).unwrap();
     assert_eq!(fresh, frame["fresh"]);
     assert_eq!(fresh.as_array().unwrap().len(), 1);
-    assert_eq!(frame.as_object().unwrap().len(), 6);
-    assert_eq!(frame["history"], json!([]));
-    assert_eq!(frame["history_groups"], json!([]));
+    // No top-level history array: history belongs to a report, and this one has
+    // none, so the keys are absent rather than empty.
+    assert_eq!(frame.as_object().unwrap().len(), 4);
+    assert!(frame.get("history").is_none());
+    assert!(frame.get("history_groups").is_none());
+    assert!(report.get("history").is_none());
+    assert!(report.get("history_groups").is_none());
 }
 
 #[test]
@@ -325,13 +340,13 @@ fn historical_instruction_overrides_are_not_admitted_to_articulation() {
         ..Default::default()
     };
     let a = prepare(subject(), vec![item(1, "Cedar won.")], &memory, NOW).unwrap();
-    assert!(a.memories.is_none());
+    assert!(a.memories.iter().all(Option::is_none));
     assert_eq!(system_prompt(&a), NARRATIVES_SYSTEM_PROMPT);
 
     memory.study.as_mut().unwrap().findings[0].reports[0].headline =
         "Cedar announced earlier preparations.".into();
     let a = prepare(subject(), vec![item(1, "Cedar won.")], &memory, NOW).unwrap();
-    assert_eq!(a.memories.as_ref().unwrap().groups.len(), 1);
+    assert_eq!(a.memories[0].as_ref().unwrap().groups.len(), 1);
     assert!(system_prompt(&a).starts_with("The input is an articulation package."));
 }
 
@@ -422,7 +437,7 @@ fn studied_memory_is_served_with_scope_without_inflating_fresh_evidence() {
     };
     let a = prepare(subject(), vec![item(1, "Cedar won.")], &memory, NOW).unwrap();
     assert!(system_prompt(&a).starts_with("The input is an articulation package."));
-    assert!(system_prompt(&a).contains("history is source-backed reporting"));
+    assert!(system_prompt(&a).contains("history supplied with it"));
     let prompt = prompt(&a);
     assert!(prompt.contains("Cedar announced earlier preparations"));
     assert!(prompt.contains("distinct_recorded_articles\":2"));
@@ -431,14 +446,20 @@ fn studied_memory_is_served_with_scope_without_inflating_fresh_evidence() {
     // study population; neither the headline nor its count becomes a confirmation.
     // The items are the shared `HistoryItem` presentation, so this `history` key
     // has the same field names the Influencer reads.
+    //
+    // History is nested under the report it belongs to, not presented beside it:
+    // the plugin resolved the attachment, so there is no pairing left to infer.
     let frame: serde_json::Value = serde_json::from_str(&prompt).unwrap();
-    let group = &frame["history_groups"][0];
+    assert!(frame.get("history").is_none(), "no top-level history array");
+    assert!(frame.get("history_groups").is_none());
+    let report = &frame["fresh"][0];
+    let group = &report["history_groups"][0];
     assert_eq!(group["population"], "articles indexed to a story group");
     assert_eq!(group["from"], crate::util::utc_timestamp(NOW - 14 * 86400));
     assert_eq!(group["before"], crate::util::utc_timestamp(NOW - 3600));
-    assert_eq!(frame["history"].as_array().unwrap().len(), 2);
+    assert_eq!(report["history"].as_array().unwrap().len(), 2);
     assert_eq!(
-        frame["history"],
+        report["history"],
         json!([
             {"group":"storyline/1","publisher":"Earlier Outlet",
              "published_at":crate::util::utc_timestamp(NOW - 86400),
@@ -452,13 +473,13 @@ fn studied_memory_is_served_with_scope_without_inflating_fresh_evidence() {
         assignment: &a,
         now: NOW,
     }
-    .parse(r#"{"reports":{"report_1":{"text":"Cedar won."}}}"#)
+    .parse(r#"{"report_1":"Cedar won."}"#)
     .unwrap()
     .unwrap();
     assert_eq!(product.narratives[0].input_news_ids, vec![1]);
     assert_eq!(product.narratives[0].source_count, 1);
     assert_eq!(
-        product.memory_provenance["selected"]["groups"][0]["source_ids"],
+        product.memory_provenance["selected"][0]["groups"][0]["source_ids"],
         serde_json::json!([100, 101])
     );
     memory.study.as_mut().unwrap().receipt.input_hash = "source-snapshot-b".into();
@@ -466,4 +487,190 @@ fn studied_memory_is_served_with_scope_without_inflating_fresh_evidence() {
     assert_ne!(a.input_hash, corrected.input_hash);
     memory.study.as_mut().unwrap().receipt.subject.entity_id += 1;
     assert!(prepare(subject(), vec![item(1, "Cedar won.")], &memory, NOW).is_err());
+}
+
+// --- F3: the plugin assigns history to report slots ---------------------
+//
+// The n94 fixtures are all 1:1, which is why the parallel-array defect survived
+// review. These cases are deliberately multi-report: the assemble/articulate
+// test is only meaningful when there is more than one thing to pair.
+use crate::plugins::memories::{Finding, Observation, PublisherCount, Receipt, Study};
+use std::collections::HashMap;
+
+/// A study holding `groups` distinct storyline groups, each closing at `before`.
+fn multi_group_study(subject: EntityMeta, groups: &[(&str, i64)]) -> Study {
+    let from = NOW - 14 * 86400;
+    let before = NOW - 3600;
+    Study {
+        receipt: Receipt {
+            version: "reporting-frequency-v1".into(),
+            subject,
+            from,
+            before,
+            input_hash: "multi-group".into(),
+            captured_at: NOW,
+            mvcc_snapshot: "synthetic".into(),
+            observed_articles: groups.len(),
+            included_articles: 0,
+        },
+        findings: groups
+            .iter()
+            .enumerate()
+            .map(|(index, (topic, _))| {
+                let id = 1000 + index as i64;
+                Finding {
+                    from,
+                    before,
+                    topic: (*topic).into(),
+                    article_count: 1,
+                    publisher_count: 1,
+                    publishers: vec![PublisherCount {
+                        publisher: "Old Wire".into(),
+                        articles: 1,
+                    }],
+                    source_ids: vec![id],
+                    reports: vec![Observation {
+                        article_id: id,
+                        canonical_id: id,
+                        topic: (*topic).into(),
+                        publisher: "Old Wire".into(),
+                        reported_at: before - 86400,
+                        headline: format!("Earlier reporting for {topic}"),
+                    }],
+                }
+            })
+            .collect(),
+    }
+}
+
+/// The group attached to the report built from `article_id`.
+///
+/// Looked up by source article rather than by position: `prepare` orders reports
+/// newest-first and then by descending id, and a test that hardcoded positions
+/// would be asserting the sort rather than the attachment.
+fn group_for(a: &Assignment, article_id: i64) -> Option<&str> {
+    let index = a.selected.iter().position(|r| r.id == article_id)?;
+    a.memories[index]
+        .as_ref()
+        .and_then(|h| h.groups.first())
+        .map(|g| g.group.as_str())
+}
+
+/// The index `prepare` assigned to a source article.
+fn report_index(a: &Assignment, article_id: i64) -> usize {
+    a.selected.iter().position(|r| r.id == article_id).unwrap()
+}
+
+/// The rendered package, parsed once.
+fn package(a: &Assignment) -> serde_json::Value {
+    serde_json::from_str(&prompt(a)).unwrap()
+}
+
+#[test]
+fn history_is_attached_by_the_reports_own_storyline_and_not_by_the_model() {
+    // Two fresh reports, three candidate groups, and the storyline map resolving
+    // each report to a different one. Before F3 these were two parallel arrays
+    // and the manual asked the model to pair them.
+    let mut memory = Continuity {
+        study: Some(multi_group_study(
+            subject(),
+            &[("storyline/1", 0), ("storyline/2", 0), ("storyline/3", 0)],
+        )),
+        storylines: HashMap::from([(1, 2), (2, 3)]),
+        ..Default::default()
+    };
+    let a = prepare(
+        subject(),
+        vec![item(1, "Cedar won."), item(2, "Cedar drew.")],
+        &memory,
+        NOW,
+    )
+    .unwrap();
+    assert_eq!(group_for(&a, 1), Some("storyline/2"));
+    assert_eq!(group_for(&a, 2), Some("storyline/3"));
+    // The unused group is not attached to anything.
+    assert!(!prompt(&a).contains("storyline/1"));
+    // Each report carries its own history; the model is not asked to pair.
+    let frame = package(&a);
+    assert!(frame.get("history").is_none());
+    assert_eq!(
+        frame["fresh"][report_index(&a, 1)]["history_groups"][0]["group"],
+        "storyline/2"
+    );
+    assert_eq!(
+        frame["fresh"][report_index(&a, 2)]["history_groups"][0]["group"],
+        "storyline/3"
+    );
+    assert!(!system_prompt(&a).contains("the history that contextualizes"));
+
+    // An unlinked report falls through to the boundary rule, and with three
+    // equally-bounded groups the attachment is unknown rather than guessed.
+    memory.storylines = HashMap::from([(1, 2)]);
+    let a = prepare(
+        subject(),
+        vec![item(1, "Cedar won."), item(2, "Cedar drew.")],
+        &memory,
+        NOW,
+    )
+    .unwrap();
+    assert_eq!(group_for(&a, 1), Some("storyline/2"));
+    assert_eq!(group_for(&a, 2), None);
+}
+
+#[test]
+fn an_ambiguous_boundary_resolves_to_no_history_rather_than_a_guess() {
+    // Rule 2 requires exactly one candidate. With several groups closing at the
+    // same boundary the plugin cannot tell which belongs, so it attaches none.
+    let mut memory = Continuity {
+        study: Some(multi_group_study(
+            subject(),
+            &[("storyline/1", 0), ("storyline/2", 0), ("storyline/3", 0)],
+        )),
+        ..Default::default()
+    };
+    let a = prepare(subject(), vec![item(1, "Cedar won.")], &memory, NOW).unwrap();
+    assert_eq!(group_for(&a, 1), None);
+
+    // Exactly one candidate is unambiguous and does attach.
+    memory.study = Some(multi_group_study(subject(), &[("storyline/1", 0)]));
+    let a = prepare(subject(), vec![item(1, "Cedar won.")], &memory, NOW).unwrap();
+    assert_eq!(group_for(&a, 1), Some("storyline/1"));
+}
+
+#[test]
+fn a_report_with_history_beside_one_without_is_a_supported_mixed_shape() {
+    let memory = Continuity {
+        study: Some(multi_group_study(
+            subject(),
+            &[("storyline/1", 0), ("storyline/2", 0)],
+        )),
+        storylines: HashMap::from([(1, 1)]),
+        ..Default::default()
+    };
+    let a = prepare(
+        subject(),
+        vec![item(1, "Cedar won."), item(2, "Cedar drew.")],
+        &memory,
+        NOW,
+    )
+    .unwrap();
+    assert_eq!(group_for(&a, 1), Some("storyline/1"));
+    assert_eq!(group_for(&a, 2), None);
+    // The manual covers both, and says a report without history is articulated
+    // from its fresh item alone.
+    let frame = package(&a);
+    assert!(frame["fresh"][report_index(&a, 1)].get("history").is_some());
+    assert!(frame["fresh"][report_index(&a, 2)].get("history").is_none());
+    assert!(system_prompt(&a).contains("A report with no history"));
+    // A changed pairing is a changed input, so the debounce fingerprint moves.
+    let mut other = memory.clone();
+    other.storylines = HashMap::from([(1, 2)]);
+    let b = prepare(
+        subject(),
+        vec![item(1, "Cedar won."), item(2, "Cedar drew.")],
+        &other,
+        NOW,
+    )
+    .unwrap();
+    assert_ne!(a.input_hash, b.input_hash);
 }

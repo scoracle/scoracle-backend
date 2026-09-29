@@ -75,6 +75,10 @@ struct Case {
     memories: Vec<journalist::CorpusItem>,
     #[serde(default)]
     memory_study: Option<scoracle_cognition::plugins::memories::Study>,
+    /// Fresh article id -> storyline id, the exact link the plugin uses to
+    /// attach studied history to a report.
+    #[serde(default)]
+    storylines: std::collections::HashMap<i64, i64>,
 }
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -146,6 +150,10 @@ async fn main() -> Result<()> {
                 .collect(),
             previous_score: None,
             study: case.memory_study,
+            // The exact link that attaches history to a report. A replay case
+            // supplies the study directly, so storyline membership is whatever
+            // the case declares; absent means the boundary rule applies.
+            storylines: case.storylines,
         };
         let assignment = journalist::prepare(case.subject, case.reports, &memory, case.now)
             .context(case.name.clone())?;

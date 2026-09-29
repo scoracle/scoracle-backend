@@ -91,6 +91,44 @@ async fn empty_reading_keeps_its_receipt_in_the_same_call() {
     assert_eq!(model.calls.lock().unwrap().len(), 1);
     assert_eq!(receipt["raw_response"], r#"{"body":null}"#);
 }
+#[test]
+fn the_stored_quality_fixture_is_still_the_rendered_package() {
+    // F4a was required to be an identity change, and the quality fixtures store
+    // the rendered prompt rather than the parts (F6's defect). This pins the
+    // rendered bytes against the retained fixture so a later refactor of the
+    // shared decoder cannot silently move this plugin's prompt.
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../../fixtures/quality/vibe/warm-memory-cold-coverage.json"
+    ))
+    .unwrap();
+    let stored = fixture["user_prompt"].as_str().unwrap();
+    let a = Assignment {
+        subject: EntityMeta {
+            name: "Cedar Comets".into(),
+            entity_type: "team".into(),
+            sport: "NBA".into(),
+            entity_id: 7,
+        },
+        source: SourceContext {
+            classification_id: 0,
+            article_id: 0,
+            headline: String::new(),
+            context: "Cedar Comets announced a training schedule for Tuesday.".into(),
+            source: "Example Wire".into(),
+            published_at_epoch: Some(1_790_553_600),
+        },
+        history: vec![super::super::memories::HistoryItem {
+            group: None,
+            publisher: "Old Wire".into(),
+            published_at: "2026-09-25T00:00:00Z".into(),
+            reported_headline: "Cedar Comets fans celebrated an earlier win".into(),
+        }],
+        input_components_json: String::new(),
+        input_hash: "check".into(),
+    };
+    assert_eq!(assembled_prompt(&a), stored);
+}
+
 #[tokio::test]
 async fn malformed_reply_fails_without_a_correction_call() {
     let model = Model {

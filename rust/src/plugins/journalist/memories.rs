@@ -21,13 +21,14 @@ pub struct Continuity {
     pub published_reports: Vec<CorpusItem>,
     pub previous_score: Option<i16>,
     pub study: Option<crate::plugins::memories::Study>,
+    /// Storyline membership for the selected fresh reports, resolved by this
+    /// plugin. It is the exact link that attaches studied history to a report;
+    /// see [`select`].
+    pub storylines: HashMap<i64, i64>,
 }
 
 pub use crate::plugins::memories::Receipt;
 
-/// The history this plugin selected: the shared items, plus a description of
-/// each group they came from. Both types are the shared ones, so the `history`
-/// key a model reads has the same shape here as in every other character.
 /// The history this plugin selected: the shared items, plus a description of
 /// each group they came from. Both types are the shared ones, so the `history`
 /// key a model reads has the same shape here as in every other character.
@@ -96,60 +97,137 @@ fn population(topic: &str) -> String {
     }
 }
 
+/// Attach studied history to each fresh report, index-aligned with `fresh`.
+///
+/// This is the plugin's assembly work and it happens entirely before inference.
+/// The join is deterministic and never asks the model to resolve a pairing:
+///
+/// 1. the report's own storyline — an exact link this plugin already resolved
+///    from `storyline_articles`, so no inference is involved;
+/// 2. otherwise the single group whose boundary immediately precedes the report,
+///    and only when exactly one group qualifies, because two candidates mean the
+///    attachment is unknown rather than merely unstated;
+/// 3. otherwise empty. Missing stays unknown.
+///
+/// Returning one entry per report is what lets the package nest history under
+/// the report it belongs to instead of presenting two parallel arrays.
 pub(super) fn select(
     memory: &Continuity,
     fresh: &[CorpusItem],
     _now: i64,
-    fits: impl Fn(&Selected) -> bool,
-) -> Option<Selected> {
-    let oldest = fresh.iter().filter_map(|r| r.published_at_epoch).min()?;
-    let study = memory.study.as_ref()?;
+    fits: impl Fn(&[Option<Selected>]) -> bool,
+) -> Vec<Option<Selected>> {
+    let mut attached: Vec<Option<Selected>> = vec![None; fresh.len()];
+    let Some(study) = memory.study.as_ref() else {
+        return attached;
+    };
+    let Some(oldest) = fresh.iter().filter_map(|r| r.published_at_epoch).min() else {
+        return attached;
+    };
     if study.receipt.before > oldest {
-        return None;
+        return attached;
     }
-    let mut selected = Selected::default();
-    for finding in &study.findings {
-        if finding.reports.iter().any(|report| {
-            crate::plugins::support::source::contains_instruction_override(&report.headline)
-        }) {
-            continue;
-        }
-        if finding.reports.iter().any(|r| {
-            r.reported_at >= oldest
-                || fresh
-                    .iter()
-                    .any(|f| f.id == r.article_id || f.id == r.canonical_id)
-        }) {
-            continue;
-        }
-        let mut candidate = selected.clone();
-        // Identical headlines share a key, but every source and date stays
-        // attached. This is lossless presentation deduplication, not a new
-        // corroboration calculation.
-        candidate
-            .items
-            .extend(finding.reports.iter().map(|report| HistoryItem {
-                group: Some(finding.topic.clone()),
-                publisher: report.publisher.clone(),
-                published_at: utc_timestamp(report.reported_at),
-                reported_headline: report.headline.clone(),
-            }));
-        candidate
-            .groups
-            .push(GroupSummary::of(finding, population(&finding.topic)));
+    let groups: Vec<GroupSummary> = study
+        .findings
+        .iter()
+        .filter(|finding| {
+            !finding.reports.iter().any(|report| {
+                crate::plugins::support::source::contains_instruction_override(&report.headline)
+            })
+        })
+        .filter(|finding| {
+            // History cannot restate fresh reporting, and cannot include it.
+            !finding.reports.iter().any(|r| {
+                r.reported_at >= oldest
+                    || fresh
+                        .iter()
+                        .any(|f| f.id == r.article_id || f.id == r.canonical_id)
+            })
+        })
+        .map(|finding| GroupSummary::of(finding, population(&finding.topic)))
+        .take(MAX_GROUPS)
+        .collect();
+    if groups.is_empty() {
+        return attached;
+    }
+    for (index, report) in fresh.iter().enumerate() {
+        let candidate = attach(memory, &groups, report);
+        let Some(candidate) = candidate else { continue };
         if serde_json::to_vec(&candidate)
             .expect("memory serializes")
             .len()
-            <= BUDGET_BYTES
-            && fits(&candidate)
+            > BUDGET_BYTES
         {
-            selected = candidate;
-            if selected.groups.len() == MAX_GROUPS {
-                break;
-            }
+            continue;
+        }
+        // Measure the package this actually produces, attachment included, so the
+        // budget is spent on what the model will read.
+        let mut probe = attached.clone();
+        probe[index] = Some(candidate.clone());
+        if !fits(&probe) {
+            continue;
+        }
+        attached[index] = Some(candidate);
+    }
+    attached
+}
+
+/// The one group that belongs to `report`, by the documented rule.
+fn attach(memory: &Continuity, groups: &[GroupSummary], report: &CorpusItem) -> Option<Selected> {
+    // Rule 1: the report's own storyline. An exact link the plugin resolved.
+    if let Some(storyline) = memory.storylines.get(&report.id) {
+        let topic = format!("storyline/{storyline}");
+        if let Some(group) = groups.iter().find(|g| g.group == topic) {
+            return Some(Selected {
+                items: items_for(memory, &topic),
+                groups: vec![group.clone()],
+            });
         }
     }
-    (!selected.is_empty()).then_some(selected)
+    // Rule 2: the single group whose boundary immediately precedes the report.
+    // Ambiguity is not a licence to guess, so more than one candidate is empty.
+    let published = report.published_at_epoch?;
+    let nearest = groups
+        .iter()
+        .filter(|g| g.before_epoch <= published)
+        .map(|g| g.before_epoch)
+        .max()?;
+    let candidates: Vec<&GroupSummary> = groups
+        .iter()
+        .filter(|g| g.before_epoch == nearest)
+        .collect();
+    let [only] = candidates.as_slice() else {
+        return None;
+    };
+    let items = items_for(memory, &only.group);
+    (!items.is_empty()).then(|| Selected {
+        items,
+        groups: vec![(*only).clone()],
+    })
+}
+
+/// The observed history items belonging to one studied group.
+///
+/// Identical headlines share a group key, but every source and date stays
+/// attached. This is lossless presentation deduplication, not a corroboration
+/// calculation.
+fn items_for(memory: &Continuity, topic: &str) -> Vec<HistoryItem> {
+    let Some(study) = memory.study.as_ref() else {
+        return Vec::new();
+    };
+    study
+        .findings
+        .iter()
+        .filter(|finding| finding.topic == topic)
+        .flat_map(|finding| {
+            finding.reports.iter().map(move |report| HistoryItem {
+                group: Some(topic.to_string()),
+                publisher: report.publisher.clone(),
+                published_at: utc_timestamp(report.reported_at),
+                reported_headline: report.headline.clone(),
+            })
+        })
+        .collect()
 }
 
 pub async fn load_for_assignment(
@@ -178,6 +256,22 @@ pub async fn load_for_assignment(
                 .get(&observation.article_id)
                 .map(|id| format!("storyline/{id}"))
         };
+        // The same lookup, widened to the fresh reports, is the exact link that
+        // attaches a studied group to the report that continues it. Resolving it
+        // here is what keeps the pairing out of the model.
+        continuity.storylines = storyline_groups(
+            pool,
+            subject,
+            from,
+            prepared
+                .selected
+                .iter()
+                .filter_map(|r| r.published_at_epoch)
+                .max()
+                .unwrap_or(before)
+                + 1,
+        )
+        .await?;
         continuity.study = Some(
             crate::plugins::memories::reporting_scope(
                 pool,
@@ -254,5 +348,6 @@ pub async fn load(pool: &PgPool, subject: &EntityMeta, now: i64) -> Result<Conti
         published_reports,
         previous_score,
         study: None,
+        storylines: HashMap::new(),
     })
 }

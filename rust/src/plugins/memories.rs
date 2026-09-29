@@ -109,6 +109,11 @@ pub struct GroupSummary {
     /// summary can be traced back to specific evidence. Dropping these would
     /// leave a published memory claim with a count and no way to resolve it.
     pub source_ids: Vec<i64>,
+    /// The window end as an epoch, for a plugin deciding which group precedes
+    /// which fresh report. Not presented: `before` is the reader-facing form,
+    /// and a caller must not have to parse a formatted date back to compare it.
+    #[serde(skip)]
+    pub before_epoch: i64,
 }
 
 impl GroupSummary {
@@ -122,6 +127,7 @@ impl GroupSummary {
             distinct_recorded_articles: finding.article_count,
             publisher_article_counts: finding.publishers.clone(),
             source_ids: finding.source_ids.clone(),
+            before_epoch: finding.before,
         }
     }
 }

@@ -132,13 +132,16 @@ mod tests {
                 assert!(!system.contains(retired), "retired instruction: {retired}");
             }
         }
+        // The keyed report surface is generated from the same declaration the
+        // validator enforces, so it is a flat map of the plugin's own keys.
         assert_eq!(
-            journalist_schema(2)["properties"]["reports"]["required"],
+            journalist_schema(2)["required"],
             serde_json::json!(["report_1", "report_2"])
         );
         assert!(influencer::VIBE_SYSTEM_PROMPT.contains("publisher_excerpt"));
         assert!(journalist::NARRATIVES_SYSTEM_PROMPT.starts_with("Articulate each fresh item"));
         assert!(!journalist::NARRATIVES_SYSTEM_PROMPT.contains("Choose the most meaningful claims"));
+        assert!(journalist_schema(1)["additionalProperties"] == serde_json::json!(false));
         assert!(journalist_schema(1)["properties"]
             .get("card_score")
             .is_none());

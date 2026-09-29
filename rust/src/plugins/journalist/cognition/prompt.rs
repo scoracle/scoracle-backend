@@ -5,13 +5,15 @@ pub(super) const FRESH_TASK: &str =
 
 const HISTORY_TASK: &str = "The input is an articulation package.
 identity identifies the entity.
-history is source-backed reporting from before the fresh reporting.
 fresh is the new source-backed reporting; each item has its output report_key.
+a fresh item may carry history: the source-backed reporting from before it that the plugin determined belongs to it.
 voice describes how to articulate it.
 form describes the output structure.
-Each output report combines the fresh item identified by its report_key with the history that contextualizes that item; history is part of the report text, not a separate output.
-Articulate those prepared pieces for the entity in the supplied voice and form.";
+Articulate each fresh item in its matching report_key, using the history supplied with it where present. A report with no history is articulated from its fresh item alone. Add no history and no claim that is not supplied.";
 
+/// The manual for a prepared package. `has_history` is whether any report
+/// carries history; the same text serves the mixed case, because it describes
+/// history per report rather than assuming every report has it.
 pub(super) fn task(has_history: bool) -> &'static str {
     if has_history {
         HISTORY_TASK

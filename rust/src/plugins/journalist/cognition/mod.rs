@@ -66,7 +66,7 @@ pub struct Disposition {
 pub struct Assignment {
     pub subject: EntityMeta,
     pub selected: Vec<CorpusItem>,
-    pub memories: Vec<memories::Finding>,
+    pub memories: Option<memories::Selected>,
     pub memory_receipt: Option<memories::Receipt>,
     pub dispositions: Vec<Disposition>,
     pub deferred_ids: Vec<i64>,
@@ -105,7 +105,7 @@ pub fn prepare(
     let mut dispositions = Vec::new();
     let mut deferred_ids = Vec::new();
     let mut seen = memory
-        .reports
+        .published_reports
         .iter()
         .map(|r| r.context.clone())
         .collect::<HashSet<_>>();
@@ -137,7 +137,7 @@ pub fn prepare(
             });
             continue;
         }
-        if render_context(&subject, std::slice::from_ref(&item), &[]).len() > SOURCE_BUDGET_BYTES {
+        if render_context(&subject, std::slice::from_ref(&item), None).len() > SOURCE_BUDGET_BYTES {
             dispositions.push(Disposition {
                 article_id: item.id,
                 reason: "complete_report_exceeds_context_budget",
@@ -147,7 +147,7 @@ pub fn prepare(
         let mut candidate = selected.clone();
         candidate.push(item.clone());
         if selected.len() == MAX_REPORTS
-            || render_context(&subject, &candidate, &[]).len() > SOURCE_BUDGET_BYTES
+            || render_context(&subject, &candidate, None).len() > SOURCE_BUDGET_BYTES
         {
             deferred_ids.push(item.id);
             continue;
@@ -156,13 +156,13 @@ pub fn prepare(
         selected.push(item);
     }
     let memories = memories::select(memory, &selected, now, |history| {
-        render_context(&subject, &selected, history).len() <= CONTEXT_BUDGET_BYTES
+        render_context(&subject, &selected, Some(history)).len() <= CONTEXT_BUDGET_BYTES
     });
     let input_hash = crate::util::hash_components(
         &json!({
             "subject": subject, "reports": selected, "version": NARRATIVES_PROMPT_VERSION,
             "memory_source_hash": memory.study.as_ref().map(|s| &s.receipt.input_hash),
-            "fresh_contract": fresh::VERSION, "context": render_context(&subject, &selected, &memories), "memories": memories,
+            "fresh_contract": fresh::VERSION, "context": render_context(&subject, &selected, memories.as_ref()), "memories": memories,
         })
         .to_string(),
     );
@@ -178,23 +178,31 @@ pub fn prepare(
     })
 }
 
-/// Compose the model's world from independently prepared components.
+/// Compose the model's world from independently prepared components. The
+/// history is the shared `HistoryItem` presentation, so this key has the same
+/// shape as every other character's, plus this plugin's description of what each
+/// group of those items represents.
 fn render_context(
     subject: &EntityMeta,
     reports: &[CorpusItem],
-    history: &[memories::Finding],
+    history: Option<&memories::Selected>,
 ) -> String {
     #[derive(Serialize)]
     struct Context<'a> {
         identity: crate::plugins::meta::WritingIdentity<'a>,
-        history: Vec<memories::MemoryGroup<'a>>,
+        history: &'a [crate::plugins::memories::HistoryItem],
+        history_groups: &'a [crate::plugins::memories::GroupSummary],
         fresh: Vec<fresh::Report<'a>>,
         voice: &'static str,
         form: serde_json::Value,
     }
+    let (items, groups) = history
+        .map(|h| (h.items.as_slice(), h.groups.as_slice()))
+        .unwrap_or_default();
     serde_json::to_string(&Context {
         identity: subject.for_writing(),
-        history: memories::context(history),
+        history: items,
+        history_groups: groups,
         fresh: fresh::prepare(reports),
         voice: journalist::CHARACTER,
         form: crate::plugins::support::form::journalist_form(reports.len()),
@@ -207,11 +215,11 @@ pub fn prompt(assignment: &Assignment) -> String {
     render_context(
         &assignment.subject,
         &assignment.selected,
-        &assignment.memories,
+        assignment.memories.as_ref(),
     )
 }
 pub fn system_prompt(assignment: &Assignment) -> &'static str {
-    prompt::task(!assignment.memories.is_empty())
+    prompt::task(assignment.memories.is_some())
 }
 pub fn generation_options(assignment: &Assignment, num_ctx: i32) -> GenerateOptions {
     GenerateOptions {

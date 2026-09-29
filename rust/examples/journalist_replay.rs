@@ -129,7 +129,7 @@ async fn main() -> Result<()> {
     {
         let case: Case = serde_json::from_str(&line?)?;
         let memory = journalist::Continuity {
-            reports: case
+            published_reports: case
                 .memories
                 .into_iter()
                 .chain(

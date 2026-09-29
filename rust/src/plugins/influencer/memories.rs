@@ -5,16 +5,25 @@ use crate::plugins::meta::EntityMeta;
 use anyhow::Result;
 use sqlx::PgPool;
 
-pub use crate::plugins::memories::History;
+pub use crate::plugins::memories::HistoryItem;
 pub const LOOKBACK_SECONDS: i64 = 7 * 86400;
 pub const BUDGET_BYTES: usize = 1200;
 const HISTORY: ReportingHistory = ReportingHistory {
     lookback_seconds: LOOKBACK_SECONDS,
     max_reports: 2,
     budget_bytes: BUDGET_BYTES,
+    // The Influencer presents history as a short list of dated headlines and
+    // supplies no grouping, so the shared item omits `group` entirely rather
+    // than presenting the study's one-article-per-observation default as if it
+    // meant something.
+    grouped: false,
 };
 
-pub fn select(study: &Study, subject: &EntityMeta, source: &SourceContext) -> Result<Vec<History>> {
+pub fn select(
+    study: &Study,
+    subject: &EntityMeta,
+    source: &SourceContext,
+) -> Result<Vec<HistoryItem>> {
     HISTORY.select(
         study,
         subject,

@@ -1,6 +1,6 @@
 //! Export the production cognition package and check retained replies for form only.
 use anyhow::Result;
-use scoracle_cognition::plugins::influencer::{cognition, memories::History};
+use scoracle_cognition::plugins::influencer::{cognition, memories::HistoryItem};
 use scoracle_cognition::plugins::{harvester::delivery::SourceContext, meta::EntityMeta};
 use scoracle_cognition::studio::Parser;
 use serde::Deserialize;
@@ -14,7 +14,7 @@ struct Case {
     subject: EntityMeta,
     source: SourceContext,
     #[serde(default)]
-    history: Vec<History>,
+    history: Vec<HistoryItem>,
 }
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();

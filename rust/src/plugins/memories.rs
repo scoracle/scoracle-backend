@@ -45,7 +45,7 @@ pub struct Finding {
     pub reports: Vec<Observation>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct PublisherCount {
     pub publisher: String,
     pub articles: usize,
@@ -74,12 +74,56 @@ pub struct Study {
     pub findings: Vec<Finding>,
 }
 
-/// A dated source observation prepared for articulation, without generated prose.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct History {
+/// One dated source observation, prepared for articulation and free of generated
+/// prose. This is the shared presentation type: every character plugin presents
+/// history as a list of these, so a plugin that groups history and a plugin that
+/// does not are reading the same type rather than two compatible ones.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct HistoryItem {
+    /// The caller's grouping key, absent when the caller did not group. Emitting
+    /// the study's one-article-per-observation default here would present
+    /// bookkeeping as memory, so it is omitted rather than shown.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group: Option<String>,
     pub publisher: String,
     pub published_at: String,
     pub reported_headline: String,
+}
+
+/// What one group of observations represents, for a caller that groups.
+///
+/// The study knows how many articles and publishers a group holds. It does not
+/// know what the group *means*, so `population` is the caller's own wording and
+/// is required rather than defaulted: a group presented without a description
+/// invites the model to infer one.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct GroupSummary {
+    pub group: String,
+    /// The caller's description of this population, in its own words.
+    pub population: String,
+    pub from: String,
+    pub before: String,
+    pub distinct_recorded_articles: usize,
+    pub publisher_article_counts: Vec<PublisherCount>,
+    /// The canonical articles this group rests on, so a product carrying the
+    /// summary can be traced back to specific evidence. Dropping these would
+    /// leave a published memory claim with a count and no way to resolve it.
+    pub source_ids: Vec<i64>,
+}
+
+impl GroupSummary {
+    /// Describe a studied group in the caller's terms.
+    pub fn of(finding: &Finding, population: impl Into<String>) -> Self {
+        Self {
+            group: finding.topic.clone(),
+            population: population.into(),
+            from: crate::util::utc_timestamp(finding.from),
+            before: crate::util::utc_timestamp(finding.before),
+            distinct_recorded_articles: finding.article_count,
+            publisher_article_counts: finding.publishers.clone(),
+            source_ids: finding.source_ids.clone(),
+        }
+    }
 }
 
 /// Plugin-selected bounds for a compact reporting view. The tool handles
@@ -90,6 +134,9 @@ pub struct ReportingHistory {
     pub lookback_seconds: i64,
     pub max_reports: usize,
     pub budget_bytes: usize,
+    /// Whether the caller supplied a grouping, so `HistoryItem::group` carries
+    /// meaning. False omits the field entirely.
+    pub grouped: bool,
 }
 
 impl ReportingHistory {
@@ -123,7 +170,7 @@ impl ReportingHistory {
         before: Option<i64>,
         exclude: &[i64],
         accepts: impl Fn(&Observation) -> bool,
-    ) -> Result<Vec<History>> {
+    ) -> Result<Vec<HistoryItem>> {
         ensure!(&study.receipt.subject == subject, "memory subject mismatch");
         let Some(before) = before else {
             return Ok(Vec::new());
@@ -132,27 +179,29 @@ impl ReportingHistory {
             study.receipt.before <= before,
             "memory is newer than fresh source"
         );
-        let mut selected = Vec::new();
-        for report in study.findings.iter().flat_map(|finding| &finding.reports) {
-            if selected.len() == self.max_reports {
-                break;
-            }
-            if report.reported_at >= before
-                || report.reported_at < before - self.lookback_seconds
-                || exclude.contains(&report.article_id)
-                || exclude.contains(&report.canonical_id)
-                || !accepts(report)
-            {
-                continue;
-            }
-            let item = History {
-                publisher: report.publisher.clone(),
-                published_at: crate::util::utc_timestamp(report.reported_at),
-                reported_headline: report.headline.clone(),
-            };
-            selected.push(item);
-            if serde_json::to_vec(&selected)?.len() > self.budget_bytes {
-                selected.pop();
+        let mut selected: Vec<HistoryItem> = Vec::new();
+        for finding in &study.findings {
+            for report in &finding.reports {
+                if selected.len() == self.max_reports {
+                    return Ok(selected);
+                }
+                if report.reported_at >= before
+                    || report.reported_at < before - self.lookback_seconds
+                    || exclude.contains(&report.article_id)
+                    || exclude.contains(&report.canonical_id)
+                    || !accepts(report)
+                {
+                    continue;
+                }
+                selected.push(HistoryItem {
+                    group: self.grouped.then(|| finding.topic.clone()),
+                    publisher: report.publisher.clone(),
+                    published_at: crate::util::utc_timestamp(report.reported_at),
+                    reported_headline: report.headline.clone(),
+                });
+                if serde_json::to_vec(&selected)?.len() > self.budget_bytes {
+                    selected.pop();
+                }
             }
         }
         Ok(selected)

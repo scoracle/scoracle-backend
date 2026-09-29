@@ -117,7 +117,7 @@ fn selected_reports_fit_the_context_budget_and_rest_remain_pending() {
 #[test]
 fn prior_sourced_text_prevents_republication_without_becoming_new_evidence() {
     let mut memory = Continuity::default();
-    memory.reports.push(item(2, "Cedar won."));
+    memory.published_reports.push(item(2, "Cedar won."));
     let a = prepare(subject(), vec![item(1, "Cedar won.")], &memory, NOW).unwrap();
     assert!(a.selected.is_empty());
     assert_eq!(a.dispositions[0].reason, "already_reported_exact_text");
@@ -258,8 +258,9 @@ fn fresh_frame_separates_reported_evidence_from_headlines_and_identity() {
     let fresh = serde_json::to_value(fresh::prepare(&a.selected)).unwrap();
     assert_eq!(fresh, frame["fresh"]);
     assert_eq!(fresh.as_array().unwrap().len(), 1);
-    assert_eq!(frame.as_object().unwrap().len(), 5);
+    assert_eq!(frame.as_object().unwrap().len(), 6);
     assert_eq!(frame["history"], json!([]));
+    assert_eq!(frame["history_groups"], json!([]));
 }
 
 #[test]
@@ -324,13 +325,13 @@ fn historical_instruction_overrides_are_not_admitted_to_articulation() {
         ..Default::default()
     };
     let a = prepare(subject(), vec![item(1, "Cedar won.")], &memory, NOW).unwrap();
-    assert!(a.memories.is_empty());
+    assert!(a.memories.is_none());
     assert_eq!(system_prompt(&a), NARRATIVES_SYSTEM_PROMPT);
 
     memory.study.as_mut().unwrap().findings[0].reports[0].headline =
         "Cedar announced earlier preparations.".into();
     let a = prepare(subject(), vec![item(1, "Cedar won.")], &memory, NOW).unwrap();
-    assert_eq!(a.memories.len(), 1);
+    assert_eq!(a.memories.as_ref().unwrap().groups.len(), 1);
     assert!(system_prompt(&a).starts_with("The input is an articulation package."));
 }
 
@@ -426,22 +427,25 @@ fn studied_memory_is_served_with_scope_without_inflating_fresh_evidence() {
     assert!(prompt.contains("Cedar announced earlier preparations"));
     assert!(prompt.contains("distinct_recorded_articles\":2"));
     assert!(!prompt.contains("source-snapshot-a"));
-    // Lossless text deduplication retains both dated attributions and the study
-    // population; neither the headline nor its count becomes a confirmation.
+    // Lossless presentation deduplication retains both dated attributions and the
+    // study population; neither the headline nor its count becomes a confirmation.
+    // The items are the shared `HistoryItem` presentation, so this `history` key
+    // has the same field names the Influencer reads.
     let frame: serde_json::Value = serde_json::from_str(&prompt).unwrap();
-    let group = &frame["history"][0];
-    assert_eq!(
-        group["article_population"],
-        "articles indexed to a story group"
-    );
+    let group = &frame["history_groups"][0];
+    assert_eq!(group["population"], "articles indexed to a story group");
     assert_eq!(group["from"], crate::util::utc_timestamp(NOW - 14 * 86400));
     assert_eq!(group["before"], crate::util::utc_timestamp(NOW - 3600));
-    assert_eq!(group["reports"].as_array().unwrap().len(), 1);
+    assert_eq!(frame["history"].as_array().unwrap().len(), 2);
     assert_eq!(
-        group["reports"][0]["sources"],
+        frame["history"],
         json!([
-            {"publisher":"Earlier Outlet", "published_at":crate::util::utc_timestamp(NOW - 86400)},
-            {"publisher":"Another Outlet", "published_at":crate::util::utc_timestamp(NOW - 2 * 86400)}
+            {"group":"storyline/1","publisher":"Earlier Outlet",
+             "published_at":crate::util::utc_timestamp(NOW - 86400),
+             "reported_headline":"Cedar announced earlier preparations"},
+            {"group":"storyline/1","publisher":"Another Outlet",
+             "published_at":crate::util::utc_timestamp(NOW - 2 * 86400),
+             "reported_headline":"Cedar announced earlier preparations"}
         ])
     );
     let product = EditionParser {
@@ -454,7 +458,7 @@ fn studied_memory_is_served_with_scope_without_inflating_fresh_evidence() {
     assert_eq!(product.narratives[0].input_news_ids, vec![1]);
     assert_eq!(product.narratives[0].source_count, 1);
     assert_eq!(
-        product.memory_provenance["selected"][0]["source_ids"],
+        product.memory_provenance["selected"]["groups"][0]["source_ids"],
         serde_json::json!([100, 101])
     );
     memory.study.as_mut().unwrap().receipt.input_hash = "source-snapshot-b".into();

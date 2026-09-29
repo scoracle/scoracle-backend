@@ -277,7 +277,7 @@ mod postgres_publication_fencing_tests {
         )
         .await
         .unwrap();
-        assert!(memory.reports.iter().any(|r| r.context == body));
+        assert!(memory.published_reports.iter().any(|r| r.context == body));
         assert_eq!(memory.previous_score, Some(71));
 
         clean(&pool).await;
@@ -632,6 +632,105 @@ mod postgres_publication_fencing_tests {
             PluginOutcome::Committed
         );
         assert_eq!(counts(&pool).await, (1, 1, 0));
+        clean(&pool).await;
+    }
+
+    /// F2 moved this grouping out of the shared study and into the plugin. The
+    /// shared SQL is covered by memories/tests.rs; this covers the replacement
+    /// the Journalist now depends on, because nothing else exercises it.
+    #[tokio::test]
+    #[ignore = "requires TEST_DATABASE_URL"]
+    async fn storyline_grouping_is_the_journalists_own_and_respects_scope() {
+        let pool = pool().await;
+        clean(&pool).await;
+        let base = 1_760_000_000;
+        for (index, title) in ["Alpha", "Beta", "Gamma"].iter().enumerate() {
+            let offset = index as i64 * 60;
+            sqlx::query(
+                "INSERT INTO news_articles (id,title,source,published_at) \
+                 VALUES ($1,$2,'Wire',to_timestamp($3::double precision))",
+            )
+            .bind(ARTICLE_ID + offset)
+            .bind(*title)
+            .bind((base + offset) as f64)
+            .execute(&pool)
+            .await
+            .expect("insert article");
+        }
+        sqlx::query("INSERT INTO storylines (id) VALUES ($1)")
+            .bind(STORYLINE_ID)
+            .execute(&pool)
+            .await
+            .expect("insert storyline");
+        sqlx::query(
+            "INSERT INTO storyline_articles (storyline_id,article_id) VALUES ($1,$2),($1,$3),($1,$4)",
+        )
+        .bind(STORYLINE_ID)
+        .bind(ARTICLE_ID)
+        .bind(ARTICLE_ID + 1)
+        .bind(ARTICLE_ID + 2)
+        .execute(&pool)
+        .await
+        .expect("index articles to the storyline");
+        sqlx::query(
+            "INSERT INTO storyline_entities (storyline_id,sport,entity_type,entity_id) \
+             VALUES ($1,$2,'team',$3)",
+        )
+        .bind(STORYLINE_ID)
+        .bind(SPORT)
+        .bind(ENTITY_ID)
+        .execute(&pool)
+        .await
+        .expect("bind the entity to the storyline");
+
+        let subject = crate::plugins::meta::EntityMeta {
+            name: "Cedar".into(),
+            entity_type: "team".into(),
+            entity_id: ENTITY_ID as i32,
+            sport: SPORT.into(),
+        };
+        let groups = crate::plugins::journalist::memories::storyline_groups_for_test(
+            &pool,
+            &subject,
+            base,
+            base + 180i64,
+        )
+        .await
+        .expect("group by storyline");
+        assert_eq!(groups.len(), 3, "all three indexed articles are in scope");
+        assert!(groups.values().all(|id| *id == STORYLINE_ID));
+
+        // A window that excludes the articles must return nothing: grouping never
+        // reintroduces an article the study would not have loaded.
+        assert!(
+            crate::plugins::journalist::memories::storyline_groups_for_test(
+                &pool,
+                &subject,
+                base - 3600i64,
+                base
+            )
+            .await
+            .expect("out of range window")
+            .is_empty()
+        );
+
+        // A different subject must not inherit this subject's storyline.
+        let other = crate::plugins::meta::EntityMeta {
+            entity_id: ENTITY_ID as i32 + 1,
+            ..subject.clone()
+        };
+        assert!(
+            crate::plugins::journalist::memories::storyline_groups_for_test(
+                &pool,
+                &other,
+                base,
+                base + 180i64
+            )
+            .await
+            .expect("unrelated subject")
+            .is_empty()
+        );
+
         clean(&pool).await;
     }
 }

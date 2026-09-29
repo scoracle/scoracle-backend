@@ -34,7 +34,7 @@ pub type VibeOutput = Generation<VibeScore>;
 pub struct Assignment {
     pub subject: EntityMeta,
     pub source: SourceContext,
-    pub history: Vec<super::memories::History>,
+    pub history: Vec<super::memories::HistoryItem>,
     pub input_components_json: String,
     pub input_hash: String,
 }
@@ -62,7 +62,7 @@ pub fn assembled_prompt(assignment: &Assignment) -> String {
     struct Package<'a> {
         identity: crate::plugins::meta::WritingIdentity<'a>,
         fresh: crate::plugins::support::source::Reporting<'a>,
-        history: &'a [super::memories::History],
+        history: &'a [super::memories::HistoryItem],
         voice: &'static str,
         form: crate::plugins::support::form::ObservationForm,
     }

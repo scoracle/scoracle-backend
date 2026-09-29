@@ -14,7 +14,18 @@
 >
 > **WHILE OPTIMIZING FOR THIS APPROACH, IT'S CRITICAL OLD SCAR TISSUE, REDUNDANCY, AND UNNECESSARY LEGACY CODE BE PRUNED SO THE FINAL TARGT STATE IS LEAN. SLOP IS NOT ACCEPTABLE.**
 
-Planning date: September 27, 2026. Harvester phase one is implemented and locally verified. The user accepts its current 90/96 development result and defers further calibration until experience warrants it; this does not block the next plugin window. Operational release remains separate. This is the governing alignment plan; older architecture and cutover documents remain evidence of earlier work, not competing target contracts.
+Planning date: September 27, 2026. Revised September 29, 2026.
+
+**Revision 2026-09-29.** A read-only audit of the two aligned plugins against the
+ownership contract found that the shared parts are not yet shared, that
+"assemble" had two competing meanings and had produced one real defect, and that
+the evaluation harness does not cover the deployed plugin. This revision adds
+the binding assemble/articulate definition, the parts contract, Window 0
+(Foundation, F1–F9), a decision register, a Window 0 handoff, and named defects
+in Windows 4, 6, 7 and 10. Windows 1–3 keep their history; Window 2's exit claim
+is explicitly reopened with the four reasons.
+
+Harvester phase one is implemented and locally verified. The user accepts its current 90/96 development result and defers further calibration until experience warrants it; this does not block the next plugin window. Operational release remains separate. This is the governing alignment plan; older architecture and cutover documents remain evidence of earlier work, not competing target contracts.
 
 ## Ownership contract
 
@@ -26,10 +37,33 @@ Within that world, articulation includes natural expression, coherent synthesis,
 
 The question for SmolLM3 is **“Given this reality, how should it sound?”**, never **“What is reality?”** Evaluate every inference with: **“Did the model express the supplied world well without adding anything that was not there?”** Unsupported facts, statistics, events, relationships, and assumptions are interface violations, not an accepted consequence of model size.
 
-The plugin supplies the world, the parts and the assembly manual. The LLM
-assembles and articulates those supplied parts according to the manual. Shared
-tools can supply presentation and decoding mechanics; plugins retain evidence
-selection, admissibility, content instructions and publication policy.
+### Assemble versus articulate — the binding definition
+
+The two words were being used for different things, and the looser reading has
+already produced one defect. This is the only definition:
+
+- **The plugin assembles the world.** It decides which parts exist, which part
+  belongs with which, and what is attached to what. Every join, pairing,
+  ranking, selection and attachment happens before inference.
+- **The LLM composes the prose.** It decides how the parts it was given read
+  together: wording, order, emphasis, compression, voice, paragraph breaks.
+
+The question for SmolLM3 is **“Given these parts, how should this read?”** A
+package that hands the model two parallel unordered arrays and asks it in prose
+to work out which belongs with which has given the model an assembly job. The
+manual may explain the shape of a part; it may never ask the model to resolve
+one.
+
+**The test for any package:** if you can delete the model and a reader can still
+name what the product is about, the parts are assembled. If a reader cannot tell
+which memory belongs to which claim without the model, the plugin has not
+finished assembling. Journalist violated this until the September 29 audit
+(Window 0, F3): its manual said *"combines the fresh item identified by its
+report_key with the history that contextualizes that item"*, which is an
+assignment the plugin had already made and the model was re-deriving.
+
+Shared tools can supply presentation and decoding mechanics; plugins retain
+evidence selection, admissibility, content instructions and publication policy.
 
 The September 29 clarification is binding: the LLM is the cognition engine only.
 It synthesizes and articulates the supplied world, with zero world-building
@@ -45,6 +79,135 @@ transport, requested form, provenance and publication mechanics.
 - **SmolLM3:** articulates material already selected and bounded by the plugin. It must not serve as a second relevance filter, invent evidence, resolve canonical identities, compute scores, decide database facts, or promote its own prior prose into evidence.
 - **Studio and the application:** provide generic inference, scoped capabilities, budgets, claim fencing, transactions, durable dispatch, and dependency assembly. Domain policy belongs to the owning plugin.
 - **Persistence and studies:** Postgres retains evidence, provenance, continuity, products, and work. Analytical code and bounded studies compute measurements and comparisons. Prior interpretations may supply continuity; they cannot increase the evidence supporting a new measurement.
+
+### Everything is a plugin
+
+There is no character pipeline and no intake pipeline. There is one kind of
+thing, a plugin, and eleven of them. The earlier framing — a pipeline whose
+stages were progressively converted into plugins — was a description of the
+migration, not of the target.
+
+**Harvester is a plugin whose cognition slot is filled by a System 1 model.** It
+is not a plugin-shaped exception. It has a `PluginManifest` with its own
+`TaskKey`, `ClaimPolicy`, `inference_routes` and `tools: &[ToolGrant]`
+(`harvester.rs:15-25`); an adapter; a cognition module with the same
+prepare-then-enforce shape as every character plugin (`prepare_relevance()`,
+`prepare_character_routing()`, `validate()`); parts; and publication. The
+`ToolGrant` list is how a plugin holds tools no other plugin uses, which is
+normal and is not a reason to be a different kind of thing.
+
+Every plugin is the same shape:
+
+| Slot | What it is | Who owns its content |
+| --- | --- | --- |
+| manifest | id, task, claim policy, declared inference routes, resources, tool grants | plugin |
+| adapter | the production caller: reads DB state, prepares, calls, publishes | plugin |
+| parts | the evidence, tools, memory, voice and form it assembles | plugin, sharing where sharing costs nobody anything |
+| assembly | rendering the prepared world | shared mechanic, plugin-named parts |
+| cognition | **one model call against a declared contract** | plugin declares the contract; the harness supplies the model |
+| publication | provenance, claim fencing, atomic disposition | plugin, with harness mechanics |
+
+The cognition slot is the only one that varies *in kind*, and it varies by
+declared contract, not by exception:
+
+- **Decision-shaped.** Harvester. Typed predicates in, bounded probabilities
+  out, enforced by `validate()`. Laya.
+- **Prose-shaped.** The nine character plugins. A prepared world in, prose out,
+  enforced by a parser. SmolLM3.
+- **Absent.** Fixture Boxscore. Deterministic, and says so.
+
+The rule that used to read as a carve-out — "internal plugins may need no
+articulation call" — is not a carve-out. It is what a plugin with no model in
+its slot looks like from the outside. Making this uniform is what lets the plan
+stop arguing about which plugins "have" an LLM.
+
+**The contract type is the enforcement.** A character plugin cannot acquire a
+second eligibility call, because it has no Decision slot to put one in. That
+makes "no second eligibility task" structural rather than a rule to remember.
+The mirror image is the finding: **a plugin with no declared, enforced response
+contract is a plugin whose model role is undefined.** That is precisely the
+condition the plan flags in Investigator's identity gate and Graph's extraction,
+and it is more actionable than "stop using the LLM for facts" — it names the
+missing artifact.
+
+### A harness over a database, not a pipeline
+
+What used to be a pipeline is now a harness that sits on a database and enriches
+it through plugins. The operative property is that **a plugin is a total function
+of database state**: given any state, running it produces a correct outcome,
+which may be "insufficient evidence" or "nothing new." There is no partial
+result that is only meaningful because some other stage ran first in this
+process.
+
+Two consequences, and both are already load-bearing in the plan:
+
+- **Idempotency is correctness, not hygiene.** Running a plugin twice must
+  produce no second effect. The claim fencing, input-revision checks and
+  immutable receipts exist for this reason.
+- **Dependency is data readiness, not execution order.** A plugin that needs
+  another's output reads it, and if it is absent the plugin computes what it
+  can from what is there — the plan already verifies Oracle against partial
+  products and none, and Analyst against one rail and both absent. Nothing waits
+  on a control-flow edge.
+
+**One honest qualification.** `ClaimPolicy` carries `upstream_tasks` and
+`pending_event_kinds` (`application/queue/work.rs:66-68`), which is queue-level
+execution gating, not data readiness. That is legitimate as an *efficiency*
+measure — do not wake Oracle until Analyst has work — and it is only sound
+because the plugin above it is total. Where that ordering is load-bearing for
+correctness rather than cost, a pipeline survives and the claim is false. Each
+window should state which kind its dependency is. The test is short: can this
+plugin be re-run against current state and produce a correct answer, with no
+in-memory handoff from another plugin? The retained `Harvester::harvest` packet
+API is pipeline residue on exactly this test — an in-process payload that the
+context worker no longer needs.
+
+### Four layers, not three
+
+The vision is *harness dispatches → plugin frames and assembles → LLM
+articulates*. It is correct, and the plan implements it. One correction, because
+compressing it loses a boundary the system depends on:
+
+**The harness does not decide the plugin. Harvester does; the harness executes.**
+The plan is explicit — "The harness executes routing; plugins own semantic
+eligibility" — and the distinction is load-bearing. A harness that chose
+destinations would be a second semantic authority, and its thresholds could not
+be versioned, measured or attributed to a plugin. So the runtime actually has
+four layers, and the vision's "harness" is two of them:
+
+| Layer | Decides | Does not decide |
+| --- | --- | --- |
+| **Harness** (Studio, application) | which plugin is enabled, budgets, deduplication, claim fencing, retry, transactions, durable dispatch | anything about sports content; any threshold |
+| **System 1** (Laya) | probabilities for predicates the plugin supplied | eligibility, routing, or what a predicate means |
+| **Plugin** | evidence, tools, parts, assembly, memory, voice, scores, admission, publication | whether the model understood its assignment |
+| **LLM** (SmolLM3) | how the prepared world reads | what exists, what is eligible, what pairs with what |
+
+A frequent way this architecture is broken is by moving a row upward or
+downward for convenience. Moving System 1's job into the harness makes routing
+unauditable. Moving a plugin's job into the LLM makes the world the model's.
+Moving a plugin's job into System 1 makes it unowned when Laya is wrong. Every
+finding in this plan is one of those three moves.
+
+### Sharing is an optimization, not an architecture
+
+The plugin is a toolkit, and a tool that serves two plugins is strictly better
+than two tools. But the share must not cost the first consumer anything. A tool
+made narrower, dumber or more restrictive so a second plugin can also use it has
+not been shared — it has been diluted, and the damage is invisible because the
+code is now in one place. Three rules follow, and they bind every shared part in
+this plan:
+
+1. **Share the mechanism, not the policy and not the constant.** One validator
+   with a parameter is shared; one validator with one number is a shared policy.
+2. **A plugin that cannot use a shared tool without being made worse keeps its
+   own**, and that is a finding about the tool's shape, not a license to
+   compromise it. Widen the tool, or let the plugin stand alone, and record which.
+3. **Duplication that is visible beats sharing that is lossy.** Two honest tools
+   are a smaller problem than one tool that is wrong for somebody.
+
+This is why `meta.rs` is the model: it is shared, and it is shared without cost,
+because every consumer wanted exactly the same thing. That is the test for any
+part, not a stylistic preference.
 
 ### Routing ownership
 
@@ -65,7 +228,12 @@ Laya returns scores for supplied predicates. SmolLM3 articulates the downstream
 plugin's prepared material. Neither model chooses arbitrary destinations. Keep
 semantic policy out of the harness and operational dispatch out of model prompts.
 
-Internal plugins may need no articulation call. Harvester and Fixture Boxscore should not acquire a voice just to make the architecture uniform. Investigator and Graph must expose their remaining generative extraction/adjudication responsibilities as migration gaps, not relabel them as articulation.
+Internal plugins need no articulation call, and that is not an exception.
+Harvester's cognition slot holds a Decision contract and Fixture Boxscore's is
+empty; both are plugins. Investigator and Graph must expose their remaining
+generative extraction and adjudication as missing or unenforced response
+contracts — not relabel them as articulation, and not as Harvester-shaped
+classification either.
 
 Existing finite phrasing palettes are an implementation to assess, not the definition of the target. Their structural guarantees are useful. Their claim selection, specificity, voice, repetition, and actual need for a model call still require review. Do not replace them with unconstrained generation or add another abstraction without representative evidence of a benefit.
 
@@ -78,15 +246,21 @@ Use this single plan as the durable index. Start each plugin in a fresh context 
 | Window | Plugin / task | Scope | Status |
 | --- | --- | --- | --- |
 | 1 | Harvester / `harvester` | Intake, source extraction, System 1 filtering, delivery contract | V7 implemented and verified; current behavior accepted; calibration deferred; deployment separate |
-| 2 | Journalist / `narratives` | Stateless articulation of fresh reporting and studied history | n94 / fresh v7 complete and deployed at `573d6a8e`; fidelity, memory and service-health gates passed |
-| 3 | Influencer / `vibe` | Emotional synthesis of supplied fresh context and memory | Simplified parts/manual assembly implemented locally; no second eligibility task; not deployed |
-| 4 | Scout / `rating` | Measured performance, source triggers, statistical voice | Not started |
-| 5 | Insider / `transfers` | Relationship evidence, transfer state, heat, identity obligations | Not started |
-| 6 | Analyst / `momentum` | Scout/Influencer synthesis and supported direction | Not started |
-| 7 | Oracle / `sigil` | Five-product synthesis, readiness, score, final reading | Not started |
+| 2 | Journalist / `narratives` | Stateless articulation of fresh reporting and studied history | Deployed at `573d6a8e`; **exit claim reopened** — F3, F4b, F6, F7 open |
+| 3 | Influencer / `vibe` | Emotional synthesis of supplied fresh context and memory | Parts/manual implemented locally; not deployed; migrates first in F2a/F4a |
+| **0** | **Shared foundation** | **Memory, cognition contracts, form, assembly, manual, evaluation harness, guards, ledgers** | **Not started. F1 complete. Blocks Window 4.** |
+| 4 | Scout / `rating` | Measured performance, source triggers, statistical voice | Not started; carries F5, F8 and the first `statistic::team_matches` consumer |
+| 5 | Insider / `transfers` | Relationship evidence, transfer state, heat, identity obligations | Not started; supplies pair scope as an include list under F1 |
+| 6 | Analyst / `momentum` | Scout/Influencer synthesis and supported direction | Not started; carries its half of F8 |
+| 7 | Oracle / `sigil` | Five-product synthesis, readiness, score, final reading | Not started; upstream body truncation is a named defect |
 | 8 | Investigator / `investigate_entity`, `factsweep` entry point | Canonical identity and metadata evidence gates | Not started |
 | 9 | Fixture Boxscore / `fixture_boxscore` | Deterministic acquisition and measured-data boundary | Not started |
-| 10 | Graph / `graph` | Source-bound relationships; close final retirement dependencies | Not started |
+| 10 | Graph / `graph` | Source-bound relationships; close final retirement dependencies | Not started; must not break Journalist's storyline grouping |
+
+Window 0 is infrastructure and is worked in its own fresh context, like a plugin
+window. It is inserted at position 0 rather than renumbering the rest because
+Windows 1–3 are closed history and their numbering is cited across handoff
+documents.
 
 The current fleet in `src/application/fleet.rs` has eleven registrations. The user explicitly excludes Editor from this audit because it is being pruned, leaving ten plugin windows. Editor gets no redesign or standalone session. Remove its obsolete dependencies as the affected plugins migrate, recording any required cross-plugin remainder and closing it in the final Graph window. Account for surviving side effects before deleting their old implementation; this is cleanup within the owning plugin, not an Editor audit.
 
@@ -103,7 +277,7 @@ No plugin is marked complete while an unexplained legacy production fallback rem
 
 ### Shared acceptance gates
 
-- Shared `src/plugins/support/form.rs` supplies reusable output shape and readability tools, without prescribing claims, supporting detail or conclusions. Plugins provide tools and instructions and may share tools; consuming a common form does not move domain policy out of the plugin. Each observation gets its own paragraph of at most 140 characters, including spaces; the body ceiling remains 1,200 characters. Content scope and factual qualifications belong to the plugin's prepared world and assembly instructions. Influencer consumes and enforces this shared observation form; carry it into the remaining character audits without treating their existing contracts as migrated.
+- Shared `src/plugins/support/form.rs` supplies reusable output shape and readability tools, without prescribing claims, supporting detail or conclusions. Plugins provide tools and instructions and may share tools; consuming a common form does not move domain policy out of the plugin. The 1,200-character body ceiling is shared and non-negotiable because it is a reader-facing product constraint. The 140-character paragraph rule is **per plugin**, applied through one shared validator that takes it as a parameter; Influencer enforces it today and Journalist does not, and forcing it on Journalist or dropping it from Influencer would make one of them worse in order to share. Content scope and factual qualifications belong to the plugin's prepared world and assembly instructions. As of the September 29 audit this gate is **half met**: one decoder and one dimension set is the target (Window 0, F4), and the six existing schemas are not yet one contract. Carry the target into the remaining character audits; their existing contracts are not migrated.
 - Every published claim traces to selected evidence or an explicitly defined computation. An exact quote proves containment, not entity relevance or semantic support by itself.
 - Articulation may change wording, emphasis, and compression, but must preserve material meaning, attribution, uncertainty, and required qualifications. Unsupported invention fails the interface. Test factual additions and meaning lost through omission alongside naturalness and voice.
 - Scores, entity IDs, source IDs, dates, units, and uncertainty cannot be changed by articulation. Missing stays unknown. Absence, measured zero, abstention, acquisition failure, and classifier failure remain distinct.
@@ -112,6 +286,448 @@ No plugin is marked complete while an unexplained legacy production fallback rem
 - Production and evaluation use the same active preparation and contract. Historical replay tools cannot silently define production behavior. Remove tests that only enforce retired behavior; preserve meaningful invariants on the replacement path.
 - Every deletion is checked for callers and operational consumers. Do not remove source provenance, idempotency, publication fencing, or recovery receipts as cosmetic cleanup.
 - Record actual before/after model calls, request/output size, latency, retries, and file/path removals where relevant. Do not introduce a new metrics framework just for the audit.
+- **The assemble/articulate test applies to every package.** No part is supplied as a parallel unordered array that the manual asks the model to pair up. Related items are nested or keyed by the plugin before inference. A manual that says "the history that contextualizes it" is a defect, not a style. Every world is rendered by the shared `plugins/assembly.rs` renderer, so this test is checkable on the rendered package rather than by reading plugin code.
+- **One renderer, plugin-chosen parts.** `plugins/assembly.rs` owns key order, serialization and the world hash. It does not know which parts exist, what nests in what, or how anything is paired or selected. `form.rs:29` records that field order changes SmolLM3's output, so order is pinned by one test rather than by struct declaration order.
+- **One shared decoder, plugin-chosen key names.** Every character product's prose is a map of plugin-named slots to prose, validated by one shared implementation of the paragraph and body ceilings. The *shape* is shared; the *keys* are the plugin's. A plugin that needs a deterministic non-prose field (Insider's and Oracle's score) owns that field outside the prose map.
+- **One manual, in the plugin.** Content direction lives in `<plugin>/cognition/prompt.rs`. A shared module may hold decoding mechanics, mechanical prose guards and transport policy. It may not hold a shared stack of writing instructions that four character plugins compose from. `src/plugins/support/prompt.rs::compose` is the last such stack and is retired in Window 4.
+- **Evaluation is a live gate, not a frozen string.** A quality fixture stores the plugin's *parts*, and the harness assembles them with the plugin's current assembler. A change to the assembled package must fail a test rather than silently invalidate a stored prompt.
+
+## The parts contract
+
+Every aligned plugin is six parts and one manual. This table is the whole
+architecture; a plugin that adds a seventh part is a finding, not a design.
+
+| Part | Module | Owner of content | Owner of policy | State at the September 29 audit |
+| --- | --- | --- | --- | --- |
+| identity | `src/plugins/meta.rs` | shared | none — canonical data | **Shared and correct.** 63 lines, no DB, every consumer takes `&EntityMeta`. Do not change. |
+| fresh | `src/plugins/support/source.rs` presents; `<plugin>/cognition/fresh.rs` selects | shared presentation | plugin selection | Journalist wraps it in a keyed `Report`; Influencer embeds it directly. **Unify on the keyed form**, which F3 requires anyway to nest history per report. |
+| memory | `src/plugins/memories.rs` studies; `<plugin>/memories.rs` requests, selects, presents | shared study | plugin request and presentation | **Diverged.** Influencer uses `ReportingHistory`; Journalist reimplements selection, budget, dedup and presentation in 233 lines. F2. |
+| form | `src/plugins/support/form.rs` | shared | plugin names its own keys | **Not one contract.** Six schemas, two unrelated shapes, two dimension rules. F4. |
+| voice | `<plugin>/cognition/<character>.rs` | plugin | plugin | **Correct.** Two or three lines each, plugin-owned. Do not share. |
+| manual | `<plugin>/cognition/prompt.rs` | plugin | plugin | Correct for Journalist and Influencer. `support/prompt.rs::compose` still holds shared writing direction for four others. F5, in Window 4. |
+| assembly | new `src/plugins/assembly.rs` | shared rendering: key order, serialization, world hash | plugin names its own parts and their nesting | **Duplicated.** Both plugins render the same five keys from a local struct; the load-bearing key order is pinned only by field declaration order. F4c. |
+
+The reuse property to hold onto: **the mechanism is shared; the policy, the
+constants and the decisions belong to the plugin.** A plugin adopts a shared
+tool by supplying a request, wherever a request can express what it needs.
+
+**Sharing is an optimization, not a requirement.** Where a request cannot
+express what a plugin genuinely needs, the honest outcome is a second tool or a
+wider tool — not a compromise that serves neither plugin well. A tool that is
+made narrower, dumber or more restrictive so that a second plugin can also use
+it has been made worse for its first consumer and has not been shared, it has
+been diluted. When a shared tool cannot serve a plugin without degrading it,
+that is a finding about the tool's shape, and the fix is to widen the tool or to
+let the plugin keep its own. Record which, and why.
+
+The same rule applies to sharing a *constant*. A mechanism may be shared while
+its parameters stay with the plugin; a shared constant is a shared policy, and a
+shared policy that one member needs changed is a diluted tool. See F4.
+
+## Window 0 — Shared foundation
+
+**Runs before Window 4.** The September 29 audit found that the shared parts are
+not yet shared, and that the two aligned plugins demonstrate two different
+contracts. Building the remaining eight windows on that base would propagate the
+divergence into Scout, Analyst and Oracle, and Oracle consumes three character
+products at once. Window 0 is infrastructure, not a plugin audit: it changes no
+product, no voice, and no Harvester behavior.
+
+Sequence by risk. Influencer is local and undeployed, so it migrates first.
+Journalist is deployed, so every change to it is gated on a replay.
+
+### F1 — Decouple the shared memory study from Graph
+
+**Files:** `src/plugins/memories.rs:177-274`; `src/plugins/memories/reporting.sql:1-40`; `src/plugins/memories/tests.rs`.
+
+The shared study is not plugin-neutral today. `memories.rs:198` validates
+predicates against `crate::plugins::graph::cognition::PREDICATES`, and
+`reporting.sql:34-37` joins `storyline_articles` and `storyline_entities` to
+mint `storyline/...` and `requested_pair` topics. When Window 10 rewrites Graph
+this file changes, and deployed Journalist breaks.
+
+- Delete the `pair` and `predicates` parameters from `reporting_scope` and
+  `Receipt`. **They have zero production callers** — only `memories/tests.rs`
+  and `examples/memory_request.rs`. This removes the Graph import outright.
+- Remove the storyline join from `reporting.sql`; the shared study emits
+  `article/<canonical_id>` only.
+- Add `plugins::memories::apply_topics(&mut Study, impl Fn(i64) -> Option<String>)`.
+  Grouping becomes a plugin-supplied function over article IDs.
+- A plugin needing a pair or predicate scope passes a pre-resolved `Vec<i64>` of
+  article IDs it already holds. The Graph vocabulary never enters the shared
+  module; Insider supplies it in Window 5.
+
+**Done:** `rg "graph::" src/plugins/memories.rs` is empty.
+**Verify:** existing memory study tests against the new signature; an
+Insider-style pair request expressed as an include list returns the rows the old
+predicate path returned, recorded in `docs/memory-studies.md`.
+
+### F1b — One vocabulary for the cognition slot
+
+**Files:** new `src/plugins/cognition.rs`; `src/plugins/mod.rs`;
+`src/studio/decision.rs`; `src/plugins/harvester/cognition.rs:162-210`.
+
+There are two contract shapes in the codebase today and no shared vocabulary for
+them. `studio::decision::{DecisionRequest, DecisionResponse, PredicateQuestion}`
+is used by Harvester and the System 1 provider and by nothing else; the nine
+character plugins assemble a `String` and hand it to a free-standing parser.
+Both do the same three things — prepare a bounded request from plugin-selected
+facts, call once, then fail closed on a response that exceeds the contract —
+which is why the plan's model rules currently live in prose rather than in code.
+
+Add the shared shape, keep the two implementations separate:
+
+```rust
+// plugins/cognition.rs — the slot, not a plugin.
+pub trait Contract {
+    type Request;
+    type Response;
+    /// Turn plugin-selected facts into a bounded request.
+    fn prepare(&self) -> Result<Self::Request>;
+    /// Fail closed on anything outside the declared contract.
+    fn enforce(&self, request: &Self::Request, response: Self::Response) -> Result<Self::Response>;
+}
+```
+
+with `Decision` (moved out of `studio::decision` into the plugin layer, because
+it is a plugin vocabulary and not a studio one) and `Prose` (F4's
+`prose_map`, keys and dimensions supplied by the plugin). A third variant,
+`None`, is the honest shape for Fixture Boxscore and makes its determinism a
+declaration rather than an absence.
+
+This is deliberately small. It is not a plugin framework, not a trait object the
+worker dispatches through, and it does not move any policy. Its only job is that
+"what may this model decide" becomes a declared, enforced artifact in the same
+place for all eleven plugins.
+
+**Done:** both contract shapes are named in one module; Harvester's `validate()`
+and the character parsers are the two implementations of one idea; Fixture
+Boxscore declares an empty slot.
+**Verify:** a contract that rejects an out-of-shape response fails closed in a
+test for each shape. No plugin reaches a model without a declared contract — a
+test asserts every registered manifest's plugin has one.
+
+### F2 — One memory item, one presentation contract
+**Files:** `src/plugins/memories.rs`; `src/plugins/influencer/memories.rs`;
+`src/plugins/journalist/memories.rs`.
+
+- Add to `plugins/memories.rs`:
+  `pub struct HistoryItem { group: String, published_at: String, publisher: String, reported_headline: String }`
+  and
+  `pub struct GroupSummary { group: String, population: &'static str, distinct_recorded_articles: usize, publisher_article_counts: Vec<PublisherCount> }`.
+  `group` is the stable key the study already computes as `topic`; carrying it as
+  a field is what lets a plugin group (Journalist) or flatten (Influencer)
+  without a different type, and it is the join key for F3.
+- `ReportingHistory::select` returns `Vec<HistoryItem>` plus `Vec<GroupSummary>`.
+  Delete the local `History` struct.
+- `journalist/memories.rs` deletes `MemoryReport`, `MemorySource`, `MemoryGroup`,
+  `reporting_context` and `context`, and returns the shared types. Its `select`
+  becomes index-aligned with the fresh reports (F3).
+- `journalist/memories.rs::load` keeps its own `news_summaries` query — that is
+  *self-memory*, what this plugin has already published — but name the field
+  `published_reports` so it is never confused with studied history, and give it
+  the shared item type.
+- The assembled `history` key has the same field names in both plugins.
+
+**Done:** `rg "struct Memory(Group|Report|Source)" src/plugins/journalist/` is empty.
+**Verify:** Influencer n94 replay byte-identical. Journalist n94 replay
+semantically identical, with nesting replaced by `group`.
+
+### F3 — The plugin assigns history to report slots
+
+**Files:** `src/plugins/journalist/memories.rs:92-137`;
+`src/plugins/journalist/cognition/mod.rs:158-160,182-215`;
+`src/plugins/journalist/cognition/prompt.rs`; `src/plugins/support/form.rs:187`.
+
+This is the assemble/articulate defect. Journalist supplies `MAX_REPORTS = 3`
+fresh reports and `MAX_GROUPS = 3` history groups as two independent arrays and
+tells the model to pair them. The n94 fixtures never exercise it because they are
+1:1.
+
+- `memories::select` returns `Vec<Vec<HistoryItem>>`, index-aligned with
+  `fresh::prepare`'s `report_key` order.
+- Join rule, deterministic, first match wins: (1) the report's canonical article
+  appears in the group's article set; (2) exactly one group whose `before` is the
+  nearest preceding boundary to the report's `published_at`; (3) otherwise
+  empty. More than one candidate under (2) yields empty — missing stays unknown.
+- The package nests history under its report:
+  `fresh: [{report_key, publisher, published_at, publisher_excerpt, history: [...]}]`,
+  and the top-level `history` key is removed.
+- `HISTORY_TASK` becomes: *"Each `report_N` contains the fresh item at `report_N`
+  and the history attached to it. Articulate that prepared set in the supplied
+  voice and form. Add no history and no claim that is not in it."*
+- `journalist_form` gains `history: "attached per report"`. The input hash
+  covers the attachment so a changed pairing is a changed input.
+
+**Done:** no manual sentence asks the model to resolve which memory belongs
+where; the package has no top-level history array.
+**Verify:** a 2-report × 3-group fixture asserts the deterministic attachment; a
+3×3 adjacent case asserts rule (2)'s ambiguity resolves to empty. Replay
+`memory-nonredundant-n94` and `memory-direct-n94` and confirm the previously
+correct outputs are unchanged. **This is a deployed behavior change: release
+nothing before the replay passes.**
+
+### F4 — One prose form
+
+**Files:** `src/plugins/support/form.rs`.
+
+- Add `prose_map_schema(keys)`, `prose_map_form(keys)` and
+  `parse_prose_map(raw, keys) -> ProseMap`. One implementation of: nonblank when
+  present, every paragraph ≤ `PARAGRAPH_MAX_CHARS`, total across keys ≤
+  `BODY_MAX_CHARS`, and `additionalProperties: false` over exactly the requested
+  keys. `ProseMap` exposes `get`/`push` so callers stop re-parsing JSON.
+- **Share the validator, not the number.** `dims` is a plugin-supplied value, not
+  a shared constant:
+
+  ```rust
+  pub struct Dimensions {
+      /// Reader-facing ceiling across all keys. This one is shared and
+      /// non-negotiable: a product constraint, not a writing preference.
+      pub total_max_chars: usize,
+      /// Readability policy. A plugin opts in and records why.
+      pub paragraph_max_chars: Option<usize>,
+  }
+  ```
+
+  The plan's gate names 140 characters per paragraph as if it were universal. It
+  is not, and enforcing it universally makes Journalist worse than it is today:
+  it currently validates only the body total (`parse_journalist:268-279`), and 900
+  tokens across up to three keyed reports under a 140-character paragraph cap
+  will raise `SurfaceError` at a rate nobody has measured. Softening Influencer's
+  140 to accommodate Journalist would dilute Influencer instead. One validator
+  with a parameter and a recorded per-plugin decision is the only form that
+  serves neither plugin worse.
+- **F4a, Influencer (safe):** `Dimensions { total_max_chars: BODY_MAX_CHARS,
+  paragraph_max_chars: Some(140) }` with keys `["body"]`. Behavior must be
+  identical; the n94/retest replays prove it. A refactor, not a change.
+- **F4b, Journalist (deployed):** decided by replay, not by this plan. Try
+  `Some(140)`; if it fails materially, `Some(200)`; if that still fails, `None`
+  with the paragraph rule recorded as a documented non-participation. Record the
+  chosen value and the measured failure rate. Do not ship a number that neither
+  plugin was measured against.
+- Leave `card_schema`, `oracle_format_schema` and `insider_score_format_schema`
+  in place. Scout converts in Window 4; each other plugin in its own window.
+
+**Done:** one implementation of the paragraph and body rules remains in
+`form.rs`; `parse_observation` and `parse_journalist` are delegating wrappers.
+**Verify:** existing `form.rs` tests, plus a test that a plugin-chosen key set
+validates and a wrong key set fails closed.
+
+### F4c — One assembler, shared rendering only
+
+**Files:** new `src/plugins/assembly.rs`; `src/plugins/mod.rs`;
+`journalist/cognition/mod.rs:181-203`; `influencer/cognition/mod.rs:59-77`.
+
+**Why this is its own task.** The September 29 audit unified the *parts* and
+missed the thing that joins them. The assembler already exists twice, as two
+near-identical local `#[derive(Serialize)]` structs rendering the same five keys
+in the same order:
+
+- `journalist::cognition::render_context` — `identity, history, fresh, voice, form`
+- `influencer::cognition::assembled_prompt` — `identity, fresh, history, voice, form`
+
+Two problems follow. First, `form.rs:29` records that field order *demonstrably*
+changes SmolLM3's output, and that order is currently pinned by nothing but the
+incidental declaration order of two structs in two files. Reordering one changes
+behavior silently. Second, each plugin builds its own `input_hash` from a
+different ad-hoc JSON object, so the two already hash different shapes for the
+same conceptual world.
+
+**The line, which is the whole task.** `assembly.rs` shares the *rendering*.
+It must never share the *decisions*.
+
+Shared, and only this:
+
+- rendering in **insertion order, never sorted**, so the wire order is a stated
+  choice rather than an accident of struct declaration;
+- one `world_hash` over the rendered parts, so every plugin hashes a world the
+  same way;
+- the guarantee that a prepared world is rendered exactly once, in one place, by
+  production, replay and the evaluation harness alike.
+
+**The order is the plugin's, and the test pins it.** The two plugins currently
+render different orders — Journalist `identity, history, fresh, voice, form`,
+Influencer `identity, fresh, history, voice, form` — and `form.rs:29` records
+that order changes SmolLM3's output. Forcing one canonical order on both would
+change the behavior of whichever plugin had it wrong, which is making a plugin
+worse in order to share a renderer. So: each plugin names its own order, and one
+test asserts the rendered key order per plugin so it cannot drift silently. The
+renderer guarantees *determinism*, not a *particular* order.
+
+Never shared, and a change that puts any of these in `assembly.rs` is a defect:
+
+- which parts exist, and in what order, for a given plugin;
+- what nests inside what, and how many items a part has;
+- pairing, budgets, selection and admission;
+- anything about source identity, scope or a product's meaning.
+
+Shape:
+
+```rust
+// plugins/assembly.rs
+/// An ordered prepared world. Insertion order is the wire order and is
+/// load-bearing; do not sort. This renders parts and nothing else.
+pub struct World { parts: Vec<(&'static str, serde_json::Value)> }
+impl World {
+    pub fn new() -> Self;
+    pub fn part(mut self, name: &'static str, value: serde_json::Value) -> Self;
+    pub fn render(&self) -> String;
+    pub fn hash(&self) -> String;
+}
+```
+
+**The anti-pattern to avoid.** A `trait Assembler { fn parts(&self) -> Vec<...> }`
+implemented once per plugin. That is indirection that removes no per-plugin
+decision and adds a vtable; it is strictly worse than today's free functions. The
+shared artifact is the renderer, and the per-plugin assembly function stays a
+plain function that names its own parts.
+
+**Dependency:** F4c lands with F3, not before it. F3 nests each report's history
+under its own report key, which is what makes the two worlds the same shape —
+after F3 both plugins emit `fresh: [{report_key, publisher, published_at,
+publisher_excerpt, history: [...]}]` with a single fresh item for Influencer.
+The shared assembler is only honest once that is true; before it, the assembler
+would be papering over a real divergence with a common signature.
+
+**Done:** one `World` renderer; both plugins assemble through it; one test pins
+each plugin's chosen key order; both plugins hash through `World::hash`.
+**Verify:** the n94 Journalist replays and the Influencer replays are unchanged
+except for the intended F3 nesting. A test asserts that adding, removing or
+reordering a part changes the hash and that rendering twice is byte-identical.
+Reviewers can now check a plugin's entire world with one call and no reading of
+plugin logic.
+
+### F5 — Retire the shared manual stack (Window 4, Scout's first task)
+
+**Files:** `src/plugins/support/prompt.rs`; `scout`, `analyst`, `insider`,
+`oracle` `brief.rs`/`prompt.rs`; `src/plugins/support/prompt.rs:97` test.
+
+`compose()`, `CardFormat` and the six content constants are the last shared
+writing instructions. `compose` has exactly four callers —
+`scout/cognition/brief.rs:3`, `analyst/cognition/prompt.rs:3`,
+`insider/cognition/brief.rs:3`, `oracle/cognition/brief.rs:3` — and the test at
+`support/prompt.rs:97` pins all four to it. Each plugin writes its own
+`prompt.rs` from its own voice. `support/prompt.rs` retains only
+`publishing_correction` and `structured_correction` until every plugin has
+migrated, then is deleted. The shared test is replaced by a per-plugin assertion
+that the plugin's own constants appear exactly once in its own system prompt.
+
+### F6 — Make evaluation a live gate
+
+**Files:** `src/evaluation/tasks.rs`; `src/bin/eval.rs`;
+`fixtures/quality/narratives/`; `fixtures/quality/vibe/*.json`.
+
+The plan's gate "production and evaluation use the same active preparation and
+contract" is currently not met, and the September 29 audit is what established
+it:
+
+- `fixtures/quality/narratives/` is an **empty directory**.
+- `src/evaluation/tasks.rs` has eight `LensTask`s — Vibe, Oracle, Transfer,
+  Rating, Momentum, Graph, Editor, Investigator — and **no NarrativesTask**.
+  `"narratives"` is absent from `all_task_names()`. The window marked deployed has
+  no shared-harness coverage; only `examples/journalist_replay.rs`.
+- Offline mode replays the fixture's frozen `user_prompt` string
+  (`src/bin/eval.rs:558`), not live preparation. The v3 commit hand-edited four
+  vibe fixtures to match. Every future window will rot its fixtures silently.
+
+Changes:
+
+- Add `NarrativesTask`; register `"narratives"` in `all_task_names()`.
+- Change `Fixture` to store `parts: serde_json::Value` and add
+  `LensTask::assemble(parts) -> String`. Keep `user_prompt` as a captured field,
+  and add a test asserting `assemble(fixture.parts) == fixture.user_prompt`, so
+  a package change fails a test instead of invalidating a stored string.
+- Migrate `fixtures/quality/vibe/*.json`; populate `fixtures/quality/narratives/`
+  from the cases the n94 replay already covers — direct-history update, adjacent
+  non-redundant, rumour qualification, late correction, conflicting reports,
+  no-call.
+
+**Done:** every aligned plugin has a registered task; a deliberate change to
+`assembled_prompt` fails `cargo test` in `evaluation`. This is the gate that
+stops Windows 4 through 10 from drifting apart.
+
+### F7 — Delete Journalist's dead continuity field
+
+**Files:** `src/plugins/journalist/memories.rs:18,200-211,230`;
+`journalist/cognition/mod.rs:74,177,278,332,350`;
+`journalist/adapter/mod.rs:102,144`; `journalist/adapter/tests.rs:20`.
+
+- **Delete** `Continuity::previous_score`, its query,
+  `Assignment::card_score_prev`, `NarrativesProduct::card_score_prev` and the
+  bind. The column has no reader in Rust, Go or SQL. Its own schema comment says
+  it was fed to *"the n12 prompt's memory line"* — the retired palette. It runs a
+  query on every Journalist assignment to populate a field nothing consumes.
+- **Keep** `compute_news_impact`, `Narrative::impact` and `card_score`. The
+  September 29 audit checked this and the initial read was wrong: `impact` is
+  live in `src/evidence/story_parts.rs:147-164` (storyline trajectory),
+  `src/plugins/oracle/adapter/mod.rs:163,173`,
+  `src/plugins/oracle/cognition/mod.rs:727-729`, `go/internal/db/db.go:868,887,1164`,
+  and the partial index `idx_news_summaries_sport_impact`. It is a deterministic
+  computation with named consumers, which is exactly what the plan requires. Do
+  not remove it.
+- Leave `news_summaries.card_score_prev` in the schema. Drop the column in a
+  separate migration with its own recovery check.
+
+**Done:** no `card_score_prev` identifier remains in `rust/src/`.
+**Verify:** `cargo test`; one isolated DB check that publication still writes
+`impact` and `input_news_ids`.
+
+### F8 — Split the prose guards (Window 4, Scout's second task)
+
+**Files:** `src/plugins/support/guards.rs`; `scout/cognition/mod.rs:886-888`;
+`analyst/cognition/mod.rs:190-192`.
+
+`RATING_BODY_BANS` and `MOMENTUM_BANNED_PHRASES` are per-character content policy
+defined in a shared module. They are already consumed only by their owning
+plugin — only the definition is misplaced. Move each into its plugin.
+
+Keep shared: `PRODUCT_NAME_BANS`/`first_product_name`, `has_bookkeeping_citation`,
+`has_foreign_script`, `hook_violation`, `settle_title`, `title_names_entity`,
+`clean_served_prose`, `count_sentences`, `strip_template_spans`, `contains_ci`,
+`fold_for_match`, `has_ascii_digit`, `first_banned_phrase`. These are mechanical
+invariants with genuine cross-plugin consumers.
+
+**Done:** `rg "BANS" src/plugins/support/guards.rs` shows only
+`PRODUCT_NAME_BANS`.
+
+### F9 — Ledger for `evidence/memories.rs`
+
+1,892 lines across `evidence/memories.rs` (1,272), `sources.rs` (406),
+`identity.rs` (156) and `performance.rs` (58), with eight live consumers:
+`evaluation/bin/eval.rs`, and the `analyst`, `editor`, `graph`, `insider`,
+`oracle` and `scout` adapters. Seven windows will otherwise rediscover it.
+
+Add a ledger table here — path, owning window, consumer list, removal condition.
+Each window deletes its own consumer's path as it migrates; **Window 10 closes
+the ledger.** Editor's consumer is removed with Editor. Do not delete the module
+ahead of its consumers.
+
+Starting ledger, to be filled in during Window 0 and closed in Window 10:
+
+| Path | Lines | Live consumers | Owning window | Removal condition |
+| --- | --- | --- | --- | --- |
+| `src/evidence/memories.rs` | 1,272 | analyst, editor, graph, insider, oracle, scout, `bin/eval.rs` | each consumer's window | no consumer imports it |
+| `src/evidence/memories/sources.rs` | 406 | as above | each consumer's window | as above |
+| `src/evidence/memories/identity.rs` | 156 | as above | each consumer's window | as above |
+| `src/evidence/memories/performance.rs` | 58 | as above | each consumer's window | as above |
+| `src/evidence/story_parts.rs` | — | storyline trajectory; reads `news_summaries.impact` | Window 10 | keep; `impact` is a live product field |
+
+### Window 0 exit
+
+One memory item type; one prose decoder; one assembler; one manual home per
+plugin; every aligned plugin in the evaluation harness with parts-based fixtures;
+Journalist's dead field gone and its live one kept; guards split. No product
+behavior changed except the four gated ones: F3 pairing, F4b paragraph ceiling,
+F2/F4 wrapper identities, and F4c's move to a shared renderer. Each is replayed
+before release and recorded separately from code-complete status.
+
+**Ordering.** F4 and F4c land with F3, in that order: F4 fixes the decoder,
+F3 nests history per report and thereby makes the two worlds the same shape,
+F4c then has one honest renderer to share. F1, F1b, F2, F6, F7 are independent
+and can be done in any order. F5, F8 and F9 hand off to Window 4 and Window 10.
+F1b should precede any window that adds or moves a model call, because a contract
+declared late is a contract declared to fit whatever the code already did.
+
 
 ## Window 1 — Harvester
 
@@ -174,10 +790,12 @@ continuity, identity/time correctness, comparable measurements, source lineage,
 correction/deletion invalidation and honest articulation as well as query speed.
 Reuse the existing analytical snapshot infrastructure; do not build a parallel
 memory store or copy the entire context package into each plugin. The shared
-reporting and team-stat study engine is implemented locally, and Journalist is its
-first integrated consumer. See [the implementation](memory-studies.md). Other
-character selectors are not migrated. Nothing is deployed; discovered Graph binding
-and grouping defects remain explicit preparation issues.
+reporting study engine is implemented locally and Journalist is its first
+integrated consumer; the match-statistic adapter has no consumer yet (see
+Window 4). See [the implementation](memory-studies.md). Other character selectors
+are not migrated. Nothing is deployed; discovered Graph binding and grouping
+defects remain explicit preparation issues, and Window 0 item 6 in Window 10 now
+also records that the grouping reaches a deployed plugin.
 
 ## Window 2 — Journalist
 
@@ -267,10 +885,33 @@ atomic publication, request-time memory scope and the existing single articulati
 stage. No new generative claim preparation, mandatory LLM judge, blanket retries,
 output-budget escalation, restored phrase palette or Harvester recalibration.
 
-**Exit met and deployed:** prepared fresh and historical reporting is articulated
-faithfully with correct attribution, qualifications and source mapping; useful memory
-context and cost are measured; no hidden Editor dependency or fallback remains.
-Do not reopen Harvester calibration or begin Window 3 in this window.
+**Exit claimed met and deployed — reopened September 29.** The articulation
+itself held: prepared fresh and historical reporting is articulated faithfully
+with correct attribution, qualifications and source mapping, and no hidden
+Editor dependency or fallback remains. The September 29 audit found four
+corrections to the *surrounding* contract, none of which required touching the
+prose behavior the n94 review passed:
+
+1. **F3 — the package was not fully assembled.** `history` was supplied as a
+   flat group array beside `fresh`, and `HISTORY_TASK` asked the model to combine
+   each report with "the history that contextualizes that item." With
+   `MAX_REPORTS = 3` and `MAX_GROUPS = 3` that is a pairing decision handed to
+   the model. The n94 fixtures did not catch it because every case is 1:1. This
+   is the assemble/articulate defect described in the ownership contract, and it
+   is the reason the exit claim is reopened rather than amended.
+2. **F4b — the paragraph rule was never applied here.** `parse_journalist`
+   validates only the body total; Influencer enforces 140 characters per
+   paragraph. The shared acceptance gate names one dimension set.
+3. **F6 — the shared harness has no coverage of this plugin.** No
+   `NarrativesTask`, `"narratives"` absent from `all_task_names()`, and
+   `fixtures/quality/narratives/` is empty. Verification rests entirely on
+   `examples/journalist_replay.rs`, which is a bespoke tool, not the gate the
+   plan requires.
+4. **F7 — `card_score_prev` is written and never read.** Its schema comment ties
+   it to the retired n12 palette's memory line. `impact`/`card_score` is live and
+   stays.
+
+Window 0 closes all four. Do not reopen Harvester calibration.
 
 ## Window 3 — Influencer
 
@@ -289,15 +930,38 @@ Do not reopen Harvester calibration or begin Window 3 in this window.
 
 **Local checkpoint:** [the current handoff](HANDOFF-influencer-2026-09-28.md) records `vibe-frame-v3`, the simplified manual, shared form decoder and pruned semantic/disposition checks. Earlier model probes remain historical evidence, not the current architecture or an outstanding abstention decision. The new manual has not been live-replayed or deployed.
 
-**Missing part to consider:** historical memory currently contains only headlines, publishers and dates. It cannot supply the speaker detail and qualifications found only in the source passage. If fuller emotional continuity is needed, supply bounded historical source passages through the memory component rather than ask the model to reconstruct them.
+**Missing part to consider:** historical memory currently contains only headlines, publishers and dates. It cannot supply the speaker detail and qualifications found only in the source passage. If fuller emotional continuity is needed, supply bounded historical source passages through the memory component rather than ask the model to reconstruct them. Under the parts contract this is a **plugin selection choice, not a shared limit** — `HistoryItem` can carry a bounded passage, and Window 0 does not require Influencer to take one. Decide it here against a replayed case that shows the loss, not in the abstract.
 
-**Exit:** one stateless cognition call over plugin-supplied parts and assembly instructions; no world-building, second eligibility call, numeric sentiment invention or packet fallback. Code alignment, product observation and deployment remain separately recorded.
+**Migrates first, because it is safe to migrate first.** F2a moves Influencer
+onto the shared `HistoryItem`/`GroupSummary`; F4a makes `observation_schema` and
+`parse_observation` wrappers over the shared `prose_map` with keys `["body"]`.
+Both are identity changes: the v3 replays must come back byte-identical, and if
+they do not, F2a or F4a changed behavior and the plan is wrong. F6 then replaces
+the four hand-edited `fixtures/quality/vibe/*.json` prompts with stored parts.
+
+**Exit:** one stateless cognition call over plugin-supplied parts and assembly instructions; no world-building, second eligibility call, numeric sentiment invention or packet fallback; the shared memory item, shared prose decoder and parts-based evaluation fixture are all consumed. Code alignment, product observation and deployment remain separately recorded.
 
 ## Window 4 — Scout
 
 **Purpose:** articulate prepared measurements and supported comparisons, with explicit limits.
 
-**Start with:** `src/plugins/scout/adapter/{harvester,evidence,materials,mod}.rs`; `cognition/{mod,inputs,brief}.rs`; rating core/studies; `src/bin/statcommentary.rs`; rating evaluation callers.
+**Start with:** `src/plugins/scout/adapter/{harvester,evidence,materials,mod}.rs`; `cognition/{mod,inputs,brief}.rs`; rating core/studies; `src/bin/statcommentary.rs`; rating evaluation callers. Delete `cognition/brief.rs` and `cognition/inputs.rs`; they are inputs for a prompt architecture this window replaces.
+
+**Inherited foundation work, done first in this window:**
+
+- **F5 — retire the shared manual stack.** Scout is the first of four callers of
+  `support::prompt::compose`. It writes its own `cognition/prompt.rs` from its own
+  voice and uses the shared `prose_map` form with keys `headline` and `body`.
+  Replacing `cognition/brief.rs` with `cognition/prompt.rs` is the deliverable.
+- **F8 — take `RATING_BODY_BANS` out of `support/guards.rs`.** It is consumed only
+  by `scout/cognition/mod.rs:886-888`; only its definition is misplaced.
+
+**The statistic adapter has no production consumer.** `plugins::memories::statistic::team_matches`
+is called from `memories/tests.rs` and `examples/memory_request.rs` and nowhere
+else. Scout is its intended consumer and the plan should say so explicitly rather
+than let an unexercised shared adapter sit in the foundation. Either Scout adopts
+it as its trend measurement, or Window 0 records it as unused and deletes it. Do
+not leave a third option where a shared tool has no owner.
 
 **Work:**
 
@@ -333,7 +997,11 @@ Do not reopen Harvester calibration or begin Window 3 in this window.
 
 **Purpose:** articulate the relationship between measured form and observed mood, with supported direction.
 
-**Start with:** `src/plugins/analyst/{manifest.rs,adapter/mod.rs,cognition/mod.rs,cognition/inputs.rs,cognition/prompt.rs}`; trajectory studies; rating/vibe completion reactions and memory selectors.
+**Start with:** `src/plugins/analyst/{manifest.rs,adapter/mod.rs,cognition/mod.rs,cognition/inputs.rs,cognition/prompt.rs}`; trajectory studies; rating/vibe completion reactions and memory selectors. Delete `cognition/inputs.rs` and replace `cognition/prompt.rs`'s `compose` call with a plugin-owned manual.
+
+**Inherited foundation work:** **F8 — take `MOMENTUM_BANNED_PHRASES` out of
+`support/guards.rs`** into `analyst/cognition/mod.rs`, its only consumer. The
+remaining shared guards stay shared.
 
 **Work:**
 
@@ -351,7 +1019,29 @@ Do not reopen Harvester calibration or begin Window 3 in this window.
 
 **Purpose:** articulate the current overall reading from the five finished character products.
 
-**Start with:** `src/plugins/oracle/{manifest.rs,adapter/mod.rs,cognition/mod.rs,cognition/inputs.rs,cognition/brief.rs}`; barrier reactions; component provenance and readiness logic.
+**Start with:** `src/plugins/oracle/{manifest.rs,adapter/mod.rs,cognition/mod.rs,cognition/inputs.rs,cognition/brief.rs}`; barrier reactions; component provenance and readiness logic. Delete `cognition/inputs.rs` and `cognition/brief.rs`; replace the `compose` call with a plugin-owned `cognition/prompt.rs`.
+
+**Named defect found September 29 — upstream bodies are truncated, not
+summarized.** `cognition/inputs.rs:93-167` (`build_crown_prompt`) concatenates
+heterogeneous upstream fields and caps each one:
+
+- `narrative_title` and `body` for narratives,
+- `v.prompt` for vibe,
+- `mom.blurb` for momentum,
+- `r.read` / `r.prompt` for other products,
+
+each through `capped(text, body_cap)` under `CROWN_CARD_BODY_CAP: usize = 700`.
+`descrub_z` and per-body division make the cut silent and unequal. A rumour
+qualification, a source attribution or an uncertainty marker in the last
+sentence of an upstream body disappears without any signal, and Oracle then
+articulates a reading that overstates its inputs. This is a meaning-loss failure,
+not a style issue, and it is the same class as the Journalist paragraph gap.
+
+Work item 3 must additionally: derive the per-body cap from the shared
+`BODY_MAX_CHARS` rather than a private 700; assert that no upstream sentence
+carrying a qualification, attribution or uncertainty marker is dropped; and
+record what is truncated in the input hash so a change in what was withheld
+produces a new crown. Truncation must never silently change a claim.
 
 **Work:**
 
@@ -374,7 +1064,7 @@ Do not reopen Harvester calibration or begin Window 3 in this window.
 **Work:**
 
 1. Trace nominations from Harvester, Insider, Graph, and any remaining Editor path. Separate candidate discovery, external retrieval, deterministic matching, metadata adjudication, and database promotion.
-2. Preserve and assess the existing name/sport/team discriminator gate. Identify generative extraction or factsweep decisions that still choose identity facts. Move classification to evaluated System 1 capabilities and deterministic policy where supported; unresolved cases remain ambiguous rather than being guessed by SmolLM3.
+2. Preserve and assess the existing name/sport/team discriminator gate. Identify generative extraction or factsweep decisions that still choose identity facts. Move classification to evaluated System 1 capabilities and deterministic policy where supported; unresolved cases remain ambiguous rather than being guessed by SmolLM3. The missing artifact is a **declared, enforced response contract** for whatever the gate's cognition slot actually is: under F1b, a plugin that reaches a model with no contract has an undefined model role, and that is the finding to name — not merely "the LLM is doing too much." Canonical promotion must fail closed when the contract is not satisfied.
 3. Scope Wikimedia tools and retained source receipts. Verify source name containment, identity discriminators, temporal affiliation evidence, and conflict handling. Tool success is not identity proof.
 4. Use prior attempts and revisions as durable memory for deduplication and review. Do not let repeated model nominations manufacture corroboration. No public voice or articulation call is needed to persist verified canonical data.
 5. Prune duplicate nomination/resolution routes, obsolete Editor coupling, prompt-based fact authority, and unused enrichment fields after mapping their consumers. Keep metadata revision history, invalidation, and rating follow-up obligations.
@@ -410,11 +1100,24 @@ Do not reopen Harvester calibration or begin Window 3 in this window.
 **Work:**
 
 1. Reconstruct the post-alignment inputs from Harvester, Insider, and Investigator. Remove Editor-dependent article eligibility, descriptions, and route/resource assumptions. Verify exact publisher context reaches each extraction/classification step.
-2. Audit the remaining SmolLM3 relation/person/result extraction. Define source anchors, closed entity candidates, allowed predicates, direction, negation, time, and uncertainty before persistence. Evaluate System 1 classification and deterministic/source-span extraction for these bounded tasks; do not describe structured JSON generation as articulation.
+2. Audit the remaining SmolLM3 relation/person/result extraction. Define source anchors, closed entity candidates, allowed predicates, direction, negation, time, and uncertainty before persistence. Evaluate System 1 classification and deterministic/source-span extraction for these bounded tasks; do not describe structured JSON generation as articulation. Graph's slot here is neither Harvester's Decision contract nor a character Prose contract — it emits records that become evidence. Name the contract it should have, state what its model may decide, and enforce it at the write boundary. A slot whose output becomes evidence and whose contract is only a parser is the specific gap.
 3. Require semantic support as well as valid IDs and quote containment. An in-range candidate index or allowed predicate does not prove a relationship. Unknown people remain source-bound nominations for Investigator; fixture results require matching fixture identity and verified source text.
 4. Audit memory and evidence aggregation. Keep extraction-origin measurement separate from junction-origin continuity so generated products cannot inflate typed links or transfer likelihood. Preserve the database provenance firewall and its consumer coverage.
 5. Remove legacy Graph prompt/parser paths, Editor coupling, duplicate candidate representations, and the final recorded retirement dependencies once replacement behavior is verified. Close any remaining obsolete Editor registration, route, flag, job, packet/story consumer, and operational reference identified by earlier passes. Durable data removal requires its own migration/recovery checks. Graph needs no public voice unless it has a separately justified articulation product.
-6. Run the final integration check across ingestion, source assignments, six products, identity work, fixtures, graph publication, and downstream barriers. Close all temporary-dependency entries and update README/fleet/configuration to the actual surviving architecture.
+6. **Window 0 moved a dependency onto Graph.** `reporting.sql:34-37` joined
+   `storyline_articles` and `storyline_entities` to group memory by storyline; F1
+   removed that join from the shared study and replaced it with a
+   plugin-supplied `apply_topics` function. Journalist is the plugin that supplies
+   it, and it is deployed. Graph therefore still owns the storyline tables
+   Journalist's memory grouping depends on. Rewriting them here changes a
+   deployed plugin's memory selection. Keep the tables, or migrate Journalist's
+   grouping onto a contract Graph does not own, and record which.
+7. **Legacy Graph bindings and storyline membership are still known-fallible.**
+   Window 2 recorded this and it was never closed. They do not prove event
+   identity or independent confirmation, and they now also determine which memory
+   a deployed plugin selects. Treat the grouping as a presentation aid with a
+   recorded provenance class, not as evidence.
+8. Run the final integration check across ingestion, source assignments, six products, identity work, fixtures, graph publication, and downstream barriers. Close all temporary-dependency entries, close the F9 `evidence/memories.rs` ledger, and update README/fleet/configuration to the actual surviving architecture.
 
 **Verify:** explicit supported relation, negation, unrelated co-mention, wrong entity, reversed direction, rumor versus confirmation, source mutation, duplicated evidence, unknown person, ambiguous fixture, repeat processing, and stale claim. Verify that junction-authored outputs cannot enter measurement consumers.
 
@@ -450,10 +1153,98 @@ with reporting and match-statistic adapters in `plugins/memories/`. Plugins choo
 the dataset, entity, window and bounds; local memory files retain request and
 presentation policy. Influencer's compact dated-report selection is shared too.
 Journalist, Influencer and replay callers use the shared API. Legacy
-`evidence/memories.rs` consumers remain for their respective alignment windows.
-Historical source passages remain the next memory input priority: the extraction
-does not add missing passages or assign reconstruction to cognition.
+`evidence/memories.rs` consumers remain for their respective alignment windows;
+F9 tracks them to a ledger closed in Window 10. Historical source passages remain
+the next memory input priority: the extraction does not add missing passages or
+assign reconstruction to cognition.
 
-## Next fresh context: Scout
+**Corrected by the September 29 audit.** The statement above was accurate about
+the runner and the reporting adapter, and wrong about two things it did not
+distinguish. The `pair` and `predicates` parameters of `reporting_scope` have no
+production caller, and the only reason the shared module imports Graph is to
+validate them; F1 removes both. And `statistic::team_matches` has no production
+caller at all — "team-stat study engine" describes tested code, not a live
+path. Scout either adopts it or Window 0 deletes it; see Window 4.
 
-Use Window 4 and the shared ownership contract. Carry forward the simple parts-and-manual pattern from [the Influencer handoff](HANDOFF-influencer-2026-09-28.md): subject identity, fresh material, selected memory, form, voice and assembly instructions. Inspect missing parts before adding model responsibilities or policing layers. Harvester remains v7 with calibration accepted for now; Influencer v3 is local and not deployed. Do not reopen its retired abstention/classifier choice.
+## Decision register
+
+Recorded so a later window does not relitigate a settled question. Each entry
+names the date, the decision, and the evidence it rests on.
+
+| Date | Decision | Basis |
+| --- | --- | --- |
+| 2026-09-27 | Harvester v7 behavior accepted; calibration deferred. | 90/96 synthetic development routes, explicitly not gold. |
+| 2026-09-29 | **Assemble = plugin. Compose prose = LLM.** The looser reading is retired. | The loose reading produced Journalist's history/report pairing defect. See the binding definition above. |
+| 2026-09-29 | **`meta.rs` is correct as written and is not to be refactored.** | One 63-line type, no DB, every consumer takes `&EntityMeta`. It is the model for the other parts. |
+| 2026-09-29 | **The shared memory tool must not depend on Graph.** `pair` and `predicates` are deleted, not parameterized. | Zero production callers; the dependency would break deployed Journalist when Window 10 rewrites Graph. |
+| 2026-09-29 | **Grouping is a plugin-supplied function, not shared SQL.** | Keeps `storyline_*` out of the shared study while preserving Journalist's behavior. |
+| 2026-09-29 | **One prose decoder with plugin-chosen keys, not one universal schema.** | Six incompatible schemas today. A universal schema would have to be the least specific plugin's, which is none of them. |
+| 2026-09-29 | **One manual per plugin. `support/prompt.rs::compose` is retired, not extended.** | Four plugins compose shared writing direction from one stack. The plan says content instructions are the plugin's. |
+| 2026-09-29 | **Quality fixtures store parts, not a serialized prompt.** | `fixtures/quality/vibe/*.json` were hand-edited when the package changed; `fixtures/quality/narratives/` is empty and Journalist has no `LensTask`. |
+| 2026-09-29 | **`impact` / `card_score` stays. `card_score_prev` goes.** | `impact` is read by `evidence/story_parts.rs`, Oracle, `go/internal/db/db.go` and a partial index. `card_score_prev` has no reader in Rust, Go or SQL and is tied to the retired n12 palette. An earlier read of this in the audit was wrong; the corrected finding is F7. |
+| 2026-09-29 | **Window 0 is numbered 0, not inserted between 1 and 2.** | Windows 1–3 are closed history cited by number across handoffs. |
+| 2026-09-29 | **`statistic::team_matches` must be adopted by Scout or deleted.** | It has no production consumer. An unowned shared tool is the redundancy the plan exists to remove. |
+| 2026-09-29 | **One assembler, `plugins/assembly.rs`, shares rendering and nothing else.** | The assembler existed twice with the same five keys. `form.rs:29` records that key order changes SmolLM3's output, and it was pinned only by struct field order in two files. |
+| 2026-09-29 | **A `trait Assembler` per plugin is rejected.** | It adds a vtable and removes no per-plugin decision. The shared artifact is the renderer; the assembly function stays a plain function naming its own parts. |
+| 2026-09-29 | **The assembler lands with F3, not before it.** | F3's per-report history nesting is what makes the two worlds the same shape. A shared renderer over two different shapes hides a divergence instead of removing it. |
+| 2026-09-29 | **Key order is the plugin's, and a test pins it. There is no single canonical order.** | The two plugins already render different orders and `form.rs:29` shows order changes output. Forcing one order would change the behavior of whichever plugin had it wrong. The renderer guarantees determinism, not a particular order. Corrects an earlier draft of F4c. |
+| 2026-09-29 | **The 1,200-character body ceiling is shared; the 140-character paragraph rule is per plugin.** | The body ceiling is a reader-facing product constraint. The paragraph rule is a writing policy, enforced today only by Influencer. Enforcing it on Journalist or dropping it from Influencer would make one worse to share. F4's `Dimensions` makes it a parameter. |
+| 2026-09-29 | **Sharing is an optimization, not a requirement.** | A tool narrowed or restricted so a second plugin can use it is diluted, and the damage is invisible because the code now lives in one place. Where a request cannot express what a plugin needs, widen the tool or let the plugin keep its own, and record which. |
+| 2026-09-29 | **The runtime has four layers, and the vision's "harness" is two of them.** | Harvester decides the destination; the harness executes it. A harness that chose destinations would be a second semantic authority with unversionable, unattributable thresholds. |
+| 2026-09-29 | **F1 moved pair-name containment out of the shared study.** Accepted deliberately: it is caller policy and the shared study cannot know a caller's identity rules. The property is now opt-in, so every caller that resolves a pair must apply it. The plan notes the cost; it does not hide it. |
+| 2026-09-29 | **Everything is a plugin; Harvester's cognition slot holds a System 1 model.** | Harvester already has a `PluginManifest` with its own task, claim policy, inference routes and `ToolGrant`s, plus the same prepare-then-enforce cognition shape as every character. The old "internal plugins may need no articulation call" was a description of the migration, not the target. |
+| 2026-09-29 | **The contract type is the enforcement.** A character plugin cannot take a second eligibility call because it has no Decision slot. Converse: a plugin with no declared, enforced response contract has an undefined model role — which is the true finding in Investigator and Graph. |
+| 2026-09-29 | **A plugin is a total function of database state.** Re-runnable against current state, correct with partial or absent upstream data, idempotent. `ClaimPolicy.upstream_tasks` is execution gating and is legitimate only as a cost measure; each window must say whether its dependency is data readiness or order. |
+| 2026-09-29 | **`studio::decision` moves to the plugin layer under F1b.** | `DecisionRequest`/`PredicateQuestion` are a plugin vocabulary, not a studio facility, and their being in `studio` is why no character plugin found them. |
+
+## Window 0 handoff
+
+**Status: not started.** No code changed by the September 29 audit; this is a
+read-only pass. Its evidence is the audit itself and the references below.
+
+Findings established, each reproduced against the working tree:
+
+- `rg "plugins::meta" src/` — ten consumers, one definition, no per-plugin
+  copies. `meta.rs` is the pattern the other parts should reach.
+- `rg "ReportingHistory" src/` — Influencer only.
+  `journalist/memories.rs` is 233 lines with its own SQL, budget, dedup and
+  presentation, and borrows only `plugins::memories::reporting`.
+- `rg "reporting_scope" .` — callers are `memories.rs` itself, `memories/tests.rs`
+  and `examples/memory_request.rs`. No production caller passes `pair` or
+  `predicates`.
+- `rg "team_matches|memories::statistic" .` — `memories/tests.rs` and
+  `examples/memory_request.rs` only.
+- `rg "compose" src/` — `scout/cognition/brief.rs`, `analyst/cognition/prompt.rs`,
+  `insider/cognition/brief.rs`, `oracle/cognition/brief.rs`. The six content
+  constants have no consumer outside `support/prompt.rs` itself and its test.
+- `rg "card_score_prev" go/ sql/ rust/src/` — Rust writer, schema column and
+  comment, migration 186, one test. No reader. `rg "\bimpact\b" go/internal/
+  sql/schema/schema.sql` — live in Go, Oracle and storyline trajectory.
+- `all_task_names()` — eight entries, no `"narratives"`.
+  `ls fixtures/quality/narratives/` — empty.
+  `src/bin/eval.rs:558` generates from `fx.user_prompt`, a stored string.
+- `cargo build --all-targets` — clean at `4972fa7c`.
+
+**Unrun checks and why:** no model replay was run for this audit; it changed no
+behavior. Every replay named in F2, F3, F4a and F4b is a gate on the change that
+follows it, not a pending item here. The two shape questions the audit could not
+settle from code alone — whether Influencer wants bounded historical passages,
+and what single paragraph ceiling Journalist should use — are decided in Window 0
+F4b and Window 3 respectively, against replayed cases.
+
+**Next interface:** Window 0 hands the remaining windows one memory item type, one
+prose decoder, one manual per plugin, and a live evaluation harness. Windows 4
+through 10 consume those; none of them introduces a second memory
+implementation, a second parser or a second prompt composer.
+
+## Next fresh context: Window 0
+
+Start with this contract, the parts contract table, the Window 0 section, and the
+decision register. Nothing else. The nine tasks are ordered F1 → F9 and F5, F8
+hand off to Window 4.
+
+Carry these forward as fixed: Harvester remains v7 with calibration accepted;
+Influencer v3 is local, undeployed, and its retired abstention/classifier choice
+stays retired. Do not reopen Window 1, Window 2's prose behavior, or Window 3's
+architecture — Window 0 changes the foundation those three stand on, not their
+products.

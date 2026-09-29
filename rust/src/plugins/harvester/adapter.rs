@@ -8,8 +8,8 @@ use crate::application::queue::publication::ClaimPublication;
 use crate::application::queue::work::Item;
 use crate::application::tools::{ToolLedger, WebBroker};
 use crate::evidence::fetch::{count_words, domain_of, ArticleHttpStatus, FetchedArticle};
+use crate::plugins::cognition::decision::DecisionModel;
 use crate::plugins::meta::EntityMeta;
-use crate::studio::decision::DecisionModel;
 use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
 use anyhow::{ensure, Context, Result};
 use async_trait::async_trait;
@@ -897,7 +897,9 @@ impl StudioPlugin for HarvesterHandler {
 mod tests {
     use super::*;
     use crate::application::queue::work;
-    use crate::studio::decision::{DecisionRequest, DecisionResponse, ProbabilityAnswer};
+    use crate::plugins::cognition::decision::{
+        DecisionRequest, DecisionResponse, ProbabilityAnswer,
+    };
     use crate::studio::model::{GenerateOptions, GenerateResult, Inference};
     use serde_json::json;
     use std::collections::BTreeMap;

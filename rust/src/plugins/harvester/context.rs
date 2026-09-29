@@ -4,10 +4,10 @@
 //! character-owned decision is represented here.
 use super::cognition::{self, Article, Excerpt};
 use super::policy::{self, CHARACTER_ROUTES};
-use crate::plugins::meta::EntityMeta;
-use crate::studio::decision::{
+use crate::plugins::cognition::decision::{
     DecisionModel, DecisionRequest, DecisionResponse, ProbabilityAnswer,
 };
+use crate::plugins::meta::EntityMeta;
 use crate::util::hash_components;
 use anyhow::{ensure, Result};
 use serde::{Deserialize, Serialize};

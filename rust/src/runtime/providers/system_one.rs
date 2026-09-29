@@ -1,5 +1,5 @@
 //! Explicit endpoint for local typed decisions; no generative fallback or transport retry.
-use crate::studio::decision::{DecisionModel, DecisionRequest, DecisionResponse};
+use crate::plugins::cognition::decision::{DecisionModel, DecisionRequest, DecisionResponse};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use std::time::Duration;

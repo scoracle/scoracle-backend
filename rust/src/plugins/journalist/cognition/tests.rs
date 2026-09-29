@@ -300,8 +300,8 @@ fn historical_instruction_overrides_are_not_admitted_to_articulation() {
                 captured_at: NOW,
                 mvcc_snapshot: "synthetic".into(),
                 observed_articles: 1,
-                pair: None,
-                predicates: vec![],
+                included_articles: 0,
+                // no include list,
             },
             findings: vec![Finding {
                 from: NOW - 14 * 86400,
@@ -373,8 +373,8 @@ fn studied_memory_is_served_with_scope_without_inflating_fresh_evidence() {
         captured_at: NOW,
         mvcc_snapshot: "test".into(),
         observed_articles: 2,
-        pair: None,
-        predicates: vec![],
+        included_articles: 0,
+        // no include list,
     };
     let finding = Finding {
         from: receipt.from,

@@ -85,8 +85,8 @@ mod tests {
                 captured_at: before,
                 mvcc_snapshot: "test".into(),
                 observed_articles: 5,
-                pair: None,
-                predicates: vec![],
+                included_articles: 0,
+                // no include list,
             },
             findings: vec![Finding {
                 from: before - LOOKBACK_SECONDS,

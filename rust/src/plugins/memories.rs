@@ -61,10 +61,11 @@ pub struct Receipt {
     pub captured_at: i64,
     pub mvcc_snapshot: String,
     pub observed_articles: usize,
+    /// Non-empty when the caller narrowed the study to a set of articles it had
+    /// already resolved. Recorded so a narrowed study is not mistaken for a
+    /// subject-wide one.
     #[serde(default)]
-    pub pair: Option<EntityMeta>,
-    #[serde(default)]
-    pub predicates: Vec<String>,
+    pub included_articles: usize,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -168,12 +169,37 @@ pub async fn reporting(
     exclude: &[i64],
     limit: usize,
 ) -> Result<Study> {
-    reporting_scope(pool, subject, from, before, exclude, limit, None, &[]).await
+    reporting_scope(pool, subject, from, before, exclude, limit, &[], None).await
 }
 
-/// A pair study counts sourced reports selected by the requested relationship
-/// predicates, not repeated graph rows. Both named parties must occur in the
-/// retained headline; this intentionally trades recall for auditable identity.
+/// A plugin-supplied grouping over one loaded observation.
+///
+/// The shared study does not know what makes two articles the same story. A
+/// storyline, a relationship pair and a subject-wide report are three different
+/// groupings and each belongs to the plugin that means it. The study emits one
+/// canonical article per observation; this function decides what shares a group.
+pub type Topic<'a> = &'a (dyn Fn(&Observation) -> Option<String> + Send + Sync);
+
+/// Regroup loaded observations before they are hashed or studied, so the receipt
+/// and the findings both cover the grouping that was actually used. Returning
+/// `None` leaves the study's one-article-per-observation default in place.
+pub fn apply_topics(req: &mut Request, topic: Topic<'_>) {
+    for observation in &mut req.observations {
+        if let Some(group) = topic(observation) {
+            observation.topic = group;
+        }
+    }
+}
+
+/// A study narrowed to articles the caller already resolved.
+///
+/// `include` replaces the study's own relationship and relationship-predicate
+/// lookups: the caller selects candidate articles with whatever vocabulary its
+/// domain uses, and the study applies only reporting dates, canonical
+/// deduplication, source-name containment and frequency ranking. An empty
+/// `include` is the subject-wide study. Requiring both parties' names in a
+/// headline, or requiring an allowed predicate, is caller policy and stays with
+/// the caller.
 pub async fn reporting_scope(
     pool: &PgPool,
     subject: &EntityMeta,
@@ -181,26 +207,16 @@ pub async fn reporting_scope(
     before: i64,
     exclude: &[i64],
     limit: usize,
-    pair: Option<&EntityMeta>,
-    predicates: &[String],
+    include: &[i64],
+    topic: Option<Topic<'_>>,
 ) -> Result<Study> {
     ensure!(
         matches!(subject.entity_type.as_str(), "team" | "player") && subject.entity_id > 0,
         "reporting study requires a canonical team or player; person Graph IDs need reconciliation"
     );
     ensure!(
-        pair.is_none_or(|p| matches!(p.entity_type.as_str(), "team" | "player") && p.entity_id > 0),
-        "unsupported reporting pair identity"
-    );
-    ensure!(
-        predicates
-            .iter()
-            .all(|p| crate::plugins::graph::cognition::PREDICATES.contains(&p.as_str())),
-        "unknown Graph relationship predicate"
-    );
-    ensure!(
-        pair.is_none_or(|p| p.sport == subject.sport),
-        "pair sport mismatch"
+        include.len() <= 20_000,
+        "included article set exceeds bound; resolve a narrower set"
     );
     ensure!(
         from < before && (1..=20).contains(&limit),
@@ -228,10 +244,7 @@ pub async fn reporting_scope(
         .bind(from)
         .bind(before)
         .bind(exclude)
-        .bind(pair.map(|p| p.entity_id))
-        .bind(pair.map(|p| p.entity_type.as_str()))
-        .bind(pair.map(|p| p.name.as_str()).unwrap_or(""))
-        .bind(predicates)
+        .bind(include)
         .fetch_all(&mut *tx)
         .await?;
     ensure!(
@@ -243,7 +256,7 @@ pub async fn reporting_scope(
         .map(|r| serde_json::from_str(r))
         .collect::<std::result::Result<Vec<Observation>, _>>()?;
     tx.commit().await?;
-    let req = Request {
+    let mut req = Request {
         version: VERSION.into(),
         from,
         before,
@@ -251,8 +264,13 @@ pub async fn reporting_scope(
         per_topic: 2,
         observations,
     };
+    // Grouping is applied before hashing so the receipt covers the groups the
+    // findings were actually built from, not the study's default grouping.
+    if let Some(topic) = topic {
+        apply_topics(&mut req, topic);
+    }
     let input_hash =
-        crate::util::hash_components(&serde_json::to_string(&(subject, pair, predicates, &req))?);
+        crate::util::hash_components(&serde_json::to_string(&(subject, include, &req))?);
     let receipt = Receipt {
         version: VERSION.into(),
         subject: subject.clone(),
@@ -262,8 +280,7 @@ pub async fn reporting_scope(
         captured_at,
         mvcc_snapshot,
         observed_articles: req.observations.len(),
-        pair: pair.cloned(),
-        predicates: predicates.to_vec(),
+        included_articles: include.len(),
     };
     let findings = if req.observations.is_empty() {
         Vec::new()

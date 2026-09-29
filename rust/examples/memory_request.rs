@@ -13,12 +13,16 @@ enum Request {
         from: i64,
         before: i64,
         limit: usize,
+        /// Articles the caller already resolved. Empty is the subject-wide study.
         #[serde(default)]
-        pair: Option<EntityMeta>,
-        #[serde(default)]
-        predicates: Vec<String>,
+        include: Vec<i64>,
         #[serde(default)]
         exclude: Vec<i64>,
+        /// Group the study over canonical article blocks instead of one topic
+        /// per canonical article. A plugin supplies its own grouping function;
+        /// this is the shape of it for a manual request.
+        #[serde(default)]
+        group_by_canonical_block: bool,
     },
     TeamStatistic {
         subject: EntityMeta,
@@ -57,22 +61,21 @@ async fn main() -> Result<()> {
             from,
             before,
             limit,
-            pair,
-            predicates,
+            include,
             exclude,
-        } => serde_json::to_value(
-            memories::reporting_scope(
-                &pool,
-                &subject,
-                from,
-                before,
-                &exclude,
-                limit,
-                pair.as_ref(),
-                &predicates,
-            )
-            .await?,
-        )?,
+            group_by_canonical_block,
+        } => {
+            let by_block = |o: &memories::Observation| {
+                group_by_canonical_block.then(|| format!("block/{}", o.canonical_id / 100))
+            };
+            let topic: Option<memories::Topic<'_>> = group_by_canonical_block.then_some(&by_block);
+            serde_json::to_value(
+                memories::reporting_scope(
+                    &pool, &subject, from, before, &exclude, limit, &include, topic,
+                )
+                .await?,
+            )?
+        }
         Request::TeamStatistic {
             subject,
             metric,

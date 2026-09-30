@@ -77,6 +77,15 @@ impl Inference for OllamaClient {
         OllamaClient::generate_with_body(self, prompt, opts).await
     }
 
+    async fn chat(
+        &self,
+        messages: &[serde_json::Value],
+        tools: &[serde_json::Value],
+        opts: &GenerateOptions,
+    ) -> Result<(GenerateResult, serde_json::Value)> {
+        self.chat_with_tools(messages, tools, opts).await
+    }
+
     fn model(&self) -> &str {
         OllamaClient::model(self)
     }
@@ -86,7 +95,7 @@ impl Inference for OllamaClient {
     }
 }
 
-/// Model backend decorated with a shared host semaphore. Only `generate` needs a permit;
+/// Model backend decorated with a shared host semaphore. Inference calls need a permit;
 /// `model` and `request_body` are local.
 struct GovernedInference {
     inner: Arc<dyn Inference>,
@@ -109,6 +118,20 @@ impl Inference for GovernedInference {
             .await
             .map_err(|e| anyhow!("gpu governor semaphore closed: {e}"))?;
         self.inner.generate(prompt, opts).await
+    }
+
+    async fn chat(
+        &self,
+        messages: &[serde_json::Value],
+        tools: &[serde_json::Value],
+        opts: &GenerateOptions,
+    ) -> Result<(GenerateResult, serde_json::Value)> {
+        let _permit = self
+            .gpu
+            .acquire()
+            .await
+            .map_err(|e| anyhow!("gpu governor semaphore closed: {e}"))?;
+        self.inner.chat(messages, tools, opts).await
     }
 
     fn model(&self) -> &str {

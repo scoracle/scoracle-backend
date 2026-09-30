@@ -275,6 +275,45 @@ impl OllamaClient {
             ));
         }
 
+        Ok((Self::decode_response(raw)?, request_body))
+    }
+
+    /// Native messages and tool definitions; final-output grammar must not constrain calls.
+    pub async fn chat_with_tools(
+        &self,
+        messages: &[serde_json::Value],
+        tools: &[serde_json::Value],
+        opts: &GenerateOptions,
+    ) -> Result<(GenerateResult, serde_json::Value)> {
+        anyhow::ensure!(
+            opts.system.is_none()
+                && opts.format_schema.is_none()
+                && opts.format_schema_raw.is_none()
+                && !opts.json_mode,
+            "tool chat carries its system message in messages and has no output grammar"
+        );
+        let mut request = self.request_body("", opts);
+        request["messages"] = serde_json::json!(messages);
+        request["tools"] = serde_json::json!(tools);
+        let response = self
+            .http
+            .post(format!("{}/api/chat", self.base_url))
+            .json(&request)
+            .send()
+            .await
+            .context("ollama tool chat")?;
+        let status = response.status();
+        let raw = response.text().await.context("read ollama tool response")?;
+        anyhow::ensure!(
+            status.is_success(),
+            "ollama HTTP {}: {}",
+            status.as_u16(),
+            truncate(&raw, 300)
+        );
+        Ok((Self::decode_response(raw)?, request))
+    }
+
+    fn decode_response(raw: String) -> Result<GenerateResult> {
         let parsed: GenerateResponse = serde_json::from_str(&raw)
             .with_context(|| format!("decode ollama response (body={})", truncate(&raw, 200)))?;
         if !parsed.error.is_empty() {
@@ -283,19 +322,16 @@ impl OllamaClient {
         validate_completion(parsed.done_reason.as_deref(), parsed.done)?;
         let completion_reason = parsed.done_reason.clone();
 
-        Ok((
-            GenerateResult {
-                response: parsed.message.content,
-                thinking: parsed.message.thinking,
-                model: parsed.model,
-                total_duration: Duration::from_nanos(parsed.total_duration.max(0) as u64),
-                prompt_eval_count: parsed.prompt_eval_count,
-                eval_count: parsed.eval_count,
-                completion_reason,
-                raw_response_body: raw,
-            },
-            request_body,
-        ))
+        Ok(GenerateResult {
+            response: parsed.message.content,
+            thinking: parsed.message.thinking,
+            model: parsed.model,
+            total_duration: Duration::from_nanos(parsed.total_duration.max(0) as u64),
+            prompt_eval_count: parsed.prompt_eval_count,
+            eval_count: parsed.eval_count,
+            completion_reason,
+            raw_response_body: raw,
+        })
     }
 
     /// generate performs a single non-streaming completion. We do NOT auto-retry

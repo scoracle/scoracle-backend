@@ -4,8 +4,9 @@
 
 **EVERYTHING IS A PLUGIN.**
 
-**Harness determines the work → plugin compiles the relevant data from the DB
-and assembles it → LLM articulates the sum of the parts.**
+**Harness determines runnable work → plugin supplies data, its relationships,
+and task/tone instructions → cognition model synthesizes and expresses it →
+plugin validates and publishes.**
 
 Harvester follows the same plugin boundary. It uses Laya, a System 1 model,
 instead of a traditional LLM. That model choice does not create a separate System 1
@@ -16,7 +17,11 @@ bounded classification job; character LLMs return articulation. Both are model
 operations owned by their plugin.
 
 Planning date: September 27, 2026. Revised September 29, 2026 after the Ponytail
-audit and the user's clarification above. This direction supersedes the earlier
+audit and the user's clarification above; the September 30 S5 investigation
+records the user's further clarification of data, relationships and tone. The
+September 30 six-part/base-toolkit revision below supersedes the earlier flexible
+file-role sketch and governs the remaining cleanup.
+This direction supersedes the earlier
 “System 1 filters → plugins frame” shorthand, which incorrectly suggested that
 System 1 sat outside the plugins.
 
@@ -47,18 +52,47 @@ semantic policy layer, and downstream plugins read Harvester's durable products
 rather than consulting an independent “System 1 layer.” Fixture Boxscore's current
 deterministic work still has a plugin owner; it needs no gratuitous model call.
 
-### Assemble versus articulate — the binding definition
+### Data, relationships and instructions — the binding target state
 
-The plugin decides what exists, what belongs together and what can be claimed.
-It joins history to its report, resolves identities, selects comparable windows
-and computes scores before inference. The LLM decides how the prepared material
-reads. It must not retrieve missing facts, pair parallel arrays, calculate a
-score, classify eligibility, resolve canonical identity or manufacture evidence.
+The plugin supplies three things:
+
+1. **Data:** relevant measurements, reports, history, identities, dates, provenance,
+   missing values and uncertainty.
+2. **Relationships:** how those datapoints connect. Attach a correction to its
+   report, history to the relevant development, and a compatible comparison to
+   its measurement. Supply deterministic arithmetic and its scope where needed.
+3. **Instructions:** what to do with the supplied material, how the output should
+   feel, and the required output structure and limits.
+
+**Tone without an invented character is the target.** Describe how the output
+should feel; do not give the model a character or persona to play, a backstory,
+or a motive it must invent or fulfill. Extract the useful writing qualities from
+the template characters and supply those qualities directly. “Observant, direct
+and restrained” is tone; “you are The Scout” is a role assignment. The product
+may retain its character name without asking the model to become that character.
+
+The cognition model owns synthesis and expression: it determines what matters
+within the supplied evidence and how to communicate it. The plugin does not
+perform that interpretive work in advance, prescribe a story, manufacture a
+claim to be supported, or curate evidence toward a preferred conclusion.
+“Unbiased” is the design constraint: relevance, comparison and coverage rules
+must be explicit and reproducible, not an editorial position disguised as data.
+
+Assembly means preparing coherent evidence, not prewriting the answer. Identity
+resolution, source joins, compatible windows and deterministic calculations
+remain necessary. A computed movement in percentile is a relationship between
+measurements; “this makes them a formidable team” is an interpretation and must
+not be inserted by the plugin. The model must not retrieve missing facts, pair
+unjoined evidence, invent arithmetic, resolve canonical identity or manufacture
+support for its synthesis. Harvester's model-owned classification job remains
+inside its peer plugin; this clarification does not move Laya or change its
+accepted calibration.
 
 **Delete the model mentally: a reader must still know what this product is about,
 which evidence supports it and which limits apply.** That is the assembly test.
-Natural synthesis is welcome; fixed phrasing menus are not the target for the
-reader-facing characters. No new claim-preparation LLM, judge or correction
+Natural synthesis is the model's job; fixed phrasing menus and predetermined
+conclusions are not the target for the reader-facing plugins. No new
+claim-preparation LLM, judge or correction
 pipeline is introduced to compensate for incomplete parts.
 
 Source qualifications, dates, attribution, units and uncertainty are part of the
@@ -111,14 +145,96 @@ outside publication transactions. A new relevant revision may produce a new
 product. External fetches and model calls do not make a plugin a pure mathematical
 function of the database.
 
-## The parts contract
+## The six-part contract and base toolkit
 
-Every plugin compiles the relevant DB evidence and prepares **one authoritative
-input for each model operation**. For articulation this input is the world below;
-Harvester assembles source/predicate inputs for Laya within its own plugin. It contains
-only what that operation needs, with relationships already attached. Common parts
-include identity, fresh evidence, selected memory, computed facts, limits, voice
-and form; these are useful roles, not a mandatory list or directory structure.
+**September 30 decision:** adopt a lean task and subject plus plugin-selected,
+model-callable database tools. The six responsibilities below remain; research
+and fresh evidence can arrive on demand as tool results instead of being eagerly
+assembled into one world. The application executes scoped reads; the model chooses
+when to use the tools. Reuse existing SQL/DuckDB work without adding a registry or
+DSL. Unused parts remain absent.
+
+The [input-path audit](scout-closure-2026-09-29.md#september-30-input-path-audit-and-tool-access-reconsideration)
+records the legacy request contents and synthetic replay limitations. The first
+[read-only Influencer tool slice](scout-closure-2026-09-29.md#september-30-first-model-directed-tool-slice)
+adds native tool-chat transport and one scoped source read. Its production cutover
+is gated on working model/template transport and a real database-backed transcript;
+the existing workers remain on their prior path until then. Subsequent cleanup
+must remove that superseded path when the replacement is verified.
+
+| Part | Responsibility |
+| --- | --- |
+| `meta.rs` | Canonical subject identity and relevant entity attributes. |
+| `voice.rs` | Tone and writing qualities only; no persona, job or prescribed interpretation. |
+| `memories.rs` | DuckDB-powered research over durable evidence, with selected history, compatible comparisons, dates, units, coverage and provenance. |
+| `fresh.rs` | New content from the daily sweep and relevant newly available records/measurements, with source qualifications and missing-data states. |
+| `form.rs` | Output fields, types, paragraph structure, dimensions, serialization and structural decoding. |
+| `prompt.rs` | How the supplied elements relate and what to do with them: the concrete task, factual boundaries and valid partial/unknown outcomes. |
+
+**Harvester selects exactly `meta.rs`, `fresh.rs`, `form.rs` and `prompt.rs`.**
+Its model operation is Laya classification, so form defines its bounded result and
+prompt defines the classification task. Harvester needs neither voice nor memories.
+This subset does not change its accepted calibration or release status.
+
+These are the target module names and ownership boundaries. Reuse shared modules;
+do not duplicate six files per plugin or introduce six operations per model call.
+Rename surviving character-tone modules to `voice.rs` during their migration and
+remove the old aliases. Preparation, parsers, adapters and publication code remain
+ordinary implementation mechanisms outside the six model-facing parts.
+
+### Tools are capabilities; parts organize their results
+
+Build the base toolkit for direct database and evidence interactions. Start with
+existing canonical-identity loaders, source acquisition/presentation, Postgres
+reads, DuckDB studies, structural decoding and durable publication mechanisms.
+Plugins select tools and define their query scope, selection and publication policy.
+The application provides scoped capabilities and operational budgets through the
+existing plugin boundary. A tool's availability does not expose it to every plugin
+or require a model to call it; deterministic preparation can call plain functions.
+
+The toolkit can grow as plugins need new capabilities. **Investigator needs a
+`browser.rs` tool** for browser retrieval and inspection. Reuse working browser
+capabilities where present; retain source receipts for its evidence gate. Results
+can feed fresh content or durable records, but browser retrieval alone does not
+verify an identity. Other plugins select that tool only if their work needs it.
+Browser and future tools extend capabilities; the six model-facing roles remain
+selective rather than mandatory for every plugin.
+
+The immediate target is a usable base toolkit, not a framework. Consolidate actual
+consumers and fill demonstrated gaps; add no speculative tools, universal assembler,
+new registry, plugin DSL or parallel compatibility architecture.
+
+### A clean instruction boundary
+
+`prompt.rs` is the sole owner of task and relationship instructions. `voice.rs`
+provides tone; `form.rs` provides structure. Evidence-bearing parts carry facts,
+scope, uncertainty and relationships, not editorial commands. Their rendered
+content must remain distinguishable from writing instructions. Rust filenames,
+loader names and implementation commentary are not model evidence.
+
+An empty selected history is not proof of no history. A withdrawal identifies the
+claim it retracts; a comparison identifies its measurements and scope. Resolve
+these relationships in preparation, then explain their use in `prompt.rs`.
+Cognition still owns synthesis and expression. A short, ordinary supported answer
+is valid; do not require a main finding, emotional charge or interpretive flourish
+that the evidence cannot support.
+
+Remove legacy instructions rather than carrying them into the six parts. Existing
+snapshot assertions and phrase checks are not product requirements. Preserve
+explicit product limits and factual protections, but delete obsolete persona,
+palette, generic editorial correction and shared-composer rules with their callers.
+Do not preserve a conflicting instruction merely to keep an old eval green.
+
+The current cleanup entry points are `support/prompt.rs` (shared composition,
+schema descriptions and editorial correction), `support/form.rs` (prose guidance
+mixed into structural form), character briefs, and the newer plugin manuals.
+This is accumulated policy, not solely old code: Scout's instruction to avoid
+repeating stat lines was added in the uncommitted S5 follow-up. Source history
+identifies wording changes; it does not establish which coding agent authored
+them or that passing an eval was the author's motive. Audit instructions by their
+actual product purpose and effect, regardless of age or authorship.
+
+### Assembly and verification mechanics
 
 - Reuse `meta.rs` for canonical identity and `assembly::World` for deterministic,
   ordered rendering. Preserve plugin-chosen wire order; converting ordered structs
@@ -129,8 +245,14 @@ and form; these are useful roles, not a mandatory list or directory structure.
   memory just because a shared loader can supply it.
 - Keep computed boundaries in data: sample limits, comparison eligibility,
   provenance class and unknown states. Do not encode those decisions only in prose.
-- Keep content instructions in the plugin's manual and voice. Shared form supplies
-  keys, types, dimensions, serialization and decoding only. Existing writing
+- Keep the job and factual-boundary instructions in the owning plugin's manual.
+  Voice supplies writing qualities—such as observant, direct, emotionally attentive
+  or restrained—not a role to play, backstory, motive, or obligation to invent a
+  characteristic story. Character names are product identities, not model personas.
+  Do not duplicate the job in the voice or require a claim followed by supporting
+  material. A sparse world may support a short or partial synthesis.
+- Shared form supplies keys, types, dimensions, serialization and decoding only.
+  Existing writing
   instructions in shared form/correction helpers migrate to the owning plugin or
   disappear when unnecessary; moving them must preserve or deliberately replay
   behavior. Do not replace the shared composer with another shared instruction stack.
@@ -148,7 +270,8 @@ and form; these are useful roles, not a mandatory list or directory structure.
 **Share mechanisms when they have real consumers. Keep policy with the plugin.**
 A helper does not need an interface because a second consumer might appear. A
 shared tool that weakens a consumer is worse than two small honest implementations.
-Do not relocate working modules merely to make the directory tree symmetrical.
+Use the six target names when migrating their responsibilities; reuse shared
+implementations instead of relocating unrelated working modules for symmetry.
 
 The 1,200-character prose-body ceiling remains a product constraint. Influencer
 keeps its existing 140-character paragraph rule; Journalist and Scout retain their
@@ -163,11 +286,11 @@ and relevant source/evidence; follow every live caller before editing.
 
 | Window | Plugin / task | Current status and remaining work |
 | --- | --- | --- |
-| 0 | Shared foundation | Renderer, studies and prose decoder retained. Inert slot bookkeeping removed; aligned evaluation/capture paths repaired. No new foundation project. |
+| 0 | Base toolkit | Model-directed database tools adopted. Native Ollama conversation transport and a scoped read-only Influencer source pilot implemented. Template/protocol and live DB validation remain before cutover. Reuse existing reads and DuckDB studies; no new framework. |
 | 1 | Harvester / `harvester` | V7 behavior accepted at 90/96 synthetic development routes; calibration deferred. Operational release remains separate. |
 | 2 | Journalist / `narratives` | n94 deployed at `573d6a8e`. Nested-history n95 / `narratives-v11-nested-history` landed and replayed locally, unreleased. Prepared live evaluation and request-local parsing repaired. |
-| 3 | Influencer / `vibe` | v3 local and undeployed. Current local SmolLM3 replay fails the 140-character paragraph contract in all four cases; product verification remains open. |
-| 4 | Scout / `rating` | s62 implements S1–S4 and S5 plumbing deletion. Unit/DB checks pass. Local model replay exposes surface and factual-fidelity failures; S5 product gate remains open. Undeployed. |
+| 3 | Influencer / `vibe` | v5 moves tone to `voice.rs`, removes editorial demands from shared form and simplifies the evidence task. Local and undeployed; read-only `read_source` tool pilot added, native model/DB verification remains open. |
+| 4 | Scout / `rating` | s64 moves tone to `voice.rs` and removes the conflicting instruction against repeating stat lines. S1–S4 and S5 plumbing deletion remain implemented; product fidelity and the remaining six-part migration stay open. Undeployed. |
 | 5 | Insider / `transfers` | Next plugin after Scout closure; relationship policy, pair memory, identity obligations and articulation migration. |
 | 6 | Analyst / `momentum` | Current production sends a palette; align actual selection and synthesis, including partial inputs. |
 | 7 | Oracle / `sigil` | Current production sends a palette; align five-product synthesis and evidence/readiness policy. |
@@ -182,8 +305,8 @@ not a replacement claim for earlier all-target totals, DB checks or model replay
 
 ## Window 4 — Scout closure before Insider
 
-This is a bounded completion pass over demonstrated gaps, not another foundation
-phase. Keep the working measured/reported memory separation, typed `Limit` states,
+This is a bounded completion pass over demonstrated gaps, including the base
+toolkit and instruction cleanup needed by these consumers. Keep the working measured/reported memory separation, typed `Limit` states,
 selected comparisons and natural articulation. Do not reopen Harvester calibration
 or Journalist's accepted prose design to make Scout look uniform.
 
@@ -251,17 +374,59 @@ wrong-entity/no-profile handling, applied records, durable follow-ups and public
 fencing. See [Scout closure evidence](scout-closure-2026-09-29.md) for exact counts,
 requests, outputs, calls, retries and limitations.
 
+The ongoing S5 investigation applies the data/relationships/instructions target
+above. Tone-only controls remove Scout's role assignment without changing the
+world, manual, form or model. This is a target-state correction, not proof that
+voice alone explains or resolves hallucinations. Retain separate assembly,
+instruction, budget and model comparisons and their full failed responses.
+
 Local SmolLM3 replay is **not passing product evidence**. Scout can exceed the body
 ceiling, turn sparse source coverage into actual early-season participation, and
-infer ability or tactics from measurements. Influencer's current four cases fail
-its paragraph ceiling. A parser accepting a response does not establish its factual
+infer ability or tactics from measurements. Influencer's v4 four-case replay failed
+its paragraph ceiling; v5 cleanup results are recorded separately below. A parser accepting a response does not establish its factual
 fidelity. Keep these failures visible; do not add a classifier, judge, phrase
 palette, generic prose-policing layer or broader framework to hide them.
 
-**Next:** inspect the retained world/output pairs and fix the smallest demonstrated
-plugin assembly/manual issue. Repair contradictory legacy Scout fixtures before
-using them as product evidence. Replay the affected representative cases against
-the unchanged evidence and surface boundaries. Do not change the product limits or
+**Next:** use the retained controlled comparisons and current production replay in
+the closure evidence. The tone/relationship corrections are implemented, but
+accepted replies still invent facts. The September 30 transport follow-up confirms
+an unclosed system turn in the running SmolLM3 template. Restoring only that
+delimiter in paired raw requests still fails all four diagnostic worlds; it is
+not a demonstrated S5 cure. Exact rendered prompts, twelve complete responses,
+production-parser results and manual findings are retained in
+[the transport probe](../fixtures/scout/s5-template-probe.jsonl) and explained in
+[closure evidence](scout-closure-2026-09-29.md#september-30-transport-follow-up--confirmed-framing-defect-no-product-cure).
+Keep this upstream framing defect separate from the unresolved synthesis gate;
+do not repeat the template hypothesis or promote a shared transport change from
+these results. The subsequent [instruction trace](scout-closure-2026-09-29.md#september-30-instruction-trace--establishing-a-working-control)
+establishes a faithful conversational/rewrite control on the same model, schema
+and quiet-news world. Appending a concrete restatement task to the otherwise
+unchanged request is sufficient for that case. This is not a full synthesis fix.
+Continue from that working control under the six-part contract: remove legacy
+instruction paths, separate evidence from writing controls, and make measurement
+scope and retraction targets unambiguous before testing richer synthesis. Audit
+all six responsibilities actually used by Scout and Influencer, including tone
+module names and shared form/correction leakage; delete superseded callers rather
+than retaining prompt variants. Harvester's four-part subset and accepted behavior
+remain explicit constraints on any shared-tool change. Do not substitute a rewrite
+task for the intended product or infer model incapacity from the current failures.
+The first bounded cleanup is implemented in s64 / `vibe-frame-v5`: Scout's
+`brief.rs` and Influencer's `influencer.rs` are replaced by tone-only `voice.rs`;
+shared observation form no longer prescribes content; both manuals distinguish
+writing controls from evidence. Scout no longer asks for findings while forbidding
+repetition of the measurements. The redundant test pinning manual phrases is
+removed; factual guards, parser limits and fixture review criteria remain.
+This is instruction ownership cleanup, not full six-part completion. The remaining
+assembly work must clarify source coverage and retraction targets before richer
+synthesis. Do not migrate Insider yet. See the
+[cleanup replay](scout-closure-2026-09-29.md#september-30-six-part-instruction-cleanup).
+
+Seven damaged converted fixtures are retired from the active suite; their original
+versions and failed captures remain as historical evidence. Eight coherent current
+prepared worlds now supply the Scout cases. They remain known product failures.
+Superseded Studio/palette plans, duplicate exports and the one-off replay exporter
+are pruned; this plan is the design authority.
+Do not treat prompt adjustments or another model swap as a demonstrated cure. Do not change the product limits or
 claim completion merely to make a mechanical gate green. Preserve Journalist's
 accepted prose design and Harvester's accepted calibration.
 
@@ -363,8 +528,11 @@ identity evidence and conflict handling. Move supported classification to existi
 evaluated mechanisms and deterministic policy. Missing extractor/classifier
 capabilities stay explicit blockers; SmolLM3 cannot fill them by asserting facts.
 
-No public prose or model call is required just to persist verified data. Scope web
-tools, deduplicate attempts without manufacturing corroboration, and remove old
+Select `browser.rs` from the base toolkit for retrieval and inspection; extend
+existing browser capabilities only where this operation needs them. Its receipts
+feed the plugin's fresh evidence and retained provenance. No voice is needed for
+identity persistence. No public prose or model call is required just to persist
+verified data. Scope web tools, deduplicate attempts without manufacturing corroboration, and remove old
 Editor/duplicate resolution paths. Preserve identity revisions, invalidation and
 rating follow-ups.
 
@@ -433,8 +601,10 @@ consumer and removal condition, not "for later."
 | `plugins/cognition.rs` slot registry and unused `Contract` | Removed in Scout closure | Live decision/prose APIs preserved |
 | Scout palette, ignored generated title, duplicate material formatting | Removed in Scout closure | Admission/provenance preserved; selected parts supply the model |
 | Split live-eval prompt/options and manual parts reconstruction | Aligned tasks repaired in S4; remaining tasks in their windows | Each mode consumes the plugin's prepared request and parsing context |
+| Character-named tone modules and mixed `brief.rs` files | Each consuming plugin | Tone moves to `voice.rs`, necessary task instructions to `prompt.rs`; delete personas, duplicate rules and obsolete aliases |
+| Shared form prose recipes and snapshot-driven instruction requirements | Each consuming plugin, beginning with S5 | Keep structural form and explicit product limits; remove editorial demands and tests that preserve them without a product requirement |
 | `support/prompt.rs::compose` and schema content instructions | Insider → Analyst → Oracle | Each caller replaced by its actual plugin manual; then delete composer/constants |
-| `support/prompt.rs` correction helpers | Each surviving caller | Retain generic bounded mechanics; plugin owns needed content policy; delete only after last caller migrates |
+| `support/prompt.rs` correction helpers | Each surviving caller | Retain generic bounded mechanics; remove generic editorial rewrites, keep only necessary plugin-owned correction instructions in `prompt.rs`; delete helper after last caller migrates |
 | `evidence/memories.rs` and `memories/{sources,identity,performance}.rs` | Scout, Insider, Analyst, Oracle, Graph/Editor and eval consumers | Scout still uses historical-season state and a provenance fingerprint. Migrate those consumers before removal; other mission paths retire in their owning windows |
 | `MOMENTUM_BANNED_PHRASES` in shared guards | Analyst | Keep locally only if still required; delete retired policy |
 | Remaining palette/flat-prompt alternatives | Each owning plugin | Production, replay and operational callers use the surviving contract |
@@ -448,8 +618,9 @@ consumer and removal condition, not "for later."
 1. **Trace first.** Follow every entry point to actual model request, parser and
    writer, including overrides, flags and eval. Name the job of each model call.
 2. **Prepare once.** Select/join/compute in the plugin using existing tools. Keep
-   the model's job narrow and the world complete. Do not prescribe file names or
-   type sketches before reading the actual consumers.
+   the model's task concrete and the evidence complete for that task. Map the
+   operation to the six named parts, select only its required tools, and record
+   missing base-toolkit capabilities. Do not add placeholder modules.
 3. **Replace and delete together.** Move one real operation onto the surviving
    path, migrate its callers, remove the obsolete path. No new compatibility layer
    without a named live consumer and exit condition.
@@ -495,8 +666,8 @@ separate; no release or data destruction is implied by documentation work.
   and dead Rust continuity-field removal (`694b4947`) are implemented. Repair
   demonstrated gaps; do not redo them to impose uniformity. Historical F1b's
   structural-enforcement claim is withdrawn by this revision.
-- **Influencer has no numeric sentiment without a measurement.** v3 remains local and its current paragraph-limit replay fails;
-  see its [handoff](HANDOFF-influencer-2026-09-28.md). Fuller historical source
+- **Influencer has no numeric sentiment without a measurement.** v4 remains local and its current paragraph-limit replay fails;
+  see the [full replay evidence](scout-closure-2026-09-29.md). Fuller historical source
   passages are added only when a concrete continuity case needs them.
 - **Scout's parts work stays.** `73374a72` introduced measured/reported memory,
   meaningful typed limits and a live `statistic::team_matches` consumer. Do not
@@ -514,7 +685,8 @@ section records only decisions the next implementation should carry forward.
 Read the ownership and parts contracts, the current status table, S1–S5 and the
 retirement ledger. S1–S4 and the plumbing deletion are implemented; read the S5 evidence and close the
 remaining product-fidelity gate, then update this file.
-Do not start a new foundation framework or expand into Insider's implementation.
+Consolidate the base toolkit needed by these operations and remove their legacy
+instructions. Do not start a new framework or expand into Insider's implementation.
 If a required capability is missing, name it and keep the relevant item open.
 
 After closure, start Window 5 in a fresh context using

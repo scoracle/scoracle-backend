@@ -7,9 +7,9 @@
 //!
 //! - **Deny by default.** A plugin may call only the tool classes and domain classes its
 //!   manifest declares. An undeclared reach is a hard error, not a warning.
-//! - **Preparation-class.** Every tool in this slice runs *before* inference, inside a
-//!   context recipe. A model never chooses to browse mid-read: input hashes stay
-//!   computable before the call, and the debounce economy survives.
+//! - **Preparation-class browser broker.** These fetches currently run before inference.
+//!   The model-directed database pilot uses explicit plugin-scoped dispatch; this
+//!   browser policy does not implicitly grant it additional tools.
 //! - **Recorded.** Every brokered call lands in the run's call ledger with its outcome,
 //!   so provider failures stay distinguishable from model failures.
 //!

@@ -18,7 +18,7 @@
       "sport": "NBA"
     }
   },
-  "prompt_version": "vibe-frame-v3",
+  "prompt_version": "vibe-frame-v5",
   "review": [
     "Synthesize fresh and relevant dated history into the emotional charge around the identified subject.",
     "Preserve supplied speakers, timing, scope and uncertainty.",
@@ -26,5 +26,5 @@
   ],
   "task": "vibe",
   "temperature": 0.0,
-  "user_prompt": "{\"identity\":{\"name\":\"Cedar Comets\",\"entity_type\":\"team\",\"sport\":\"basketball\"},\"fresh\":{\"publisher\":\"Example Wire\",\"published_at\":\"2026-09-28T00:00:00Z\",\"publisher_excerpt\":\"Cedar Comets fans booed the team and said they were furious with its performance.\"},\"history\":[],\"voice\":\"Emotionally attentive, clear and concise. Convey the feeling of the supplied world with care and restraint.\",\"form\":{\"body\":{\"type\":\"string or null\",\"paragraphs\":\"One observation per paragraph. Blank lines separate paragraphs. Short, complete sentences. No headings or repeated conclusion.\",\"paragraph_max_chars\":140,\"max_chars\":1200,\"lengths\":\"Ceilings, not targets; no minimum length.\",\"paragraph_breaks\":\"escaped newlines\"}}}"
+  "user_prompt": "{\"identity\":{\"name\":\"Cedar Comets\",\"entity_type\":\"team\",\"sport\":\"basketball\"},\"fresh\":{\"publisher\":\"Example Wire\",\"published_at\":\"2026-09-28T00:00:00Z\",\"publisher_excerpt\":\"Cedar Comets fans booed the team and said they were furious with its performance.\"},\"history\":[],\"voice\":\"Emotionally attentive, clear, concise and restrained.\",\"form\":{\"body\":{\"type\":\"string or null\",\"paragraphs\":\"Blank lines separate paragraphs.\",\"paragraph_max_chars\":140,\"max_chars\":1200,\"lengths\":\"Ceilings, not targets; no minimum length.\",\"paragraph_breaks\":\"escaped newlines\"}}}"
 }

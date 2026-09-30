@@ -1,0 +1,54 @@
+{
+  "name": "synthetic-incompatible",
+  "task": "rating",
+  "prompt_version": "s64",
+  "parts": {
+    "memory": {
+      "coverage_limits": [
+        "The prior season was in a different competition; no compatible comparison is supplied."
+      ]
+    },
+    "profile": {
+      "composite": 64.0,
+      "observed_at": "2026-09-29",
+      "sample": {
+        "Games Played": 25.0
+      },
+      "season": 2026,
+      "sport_name": "Basketball",
+      "supports_cross_season": true,
+      "values": [
+        {
+          "band": "elite",
+          "cohort": 30.0,
+          "label": "Rebounds",
+          "measure": "rebounds per game",
+          "percentile": 90.0,
+          "value": 48.0
+        },
+        {
+          "band": "strong",
+          "cohort": 30.0,
+          "label": "Assists",
+          "measure": "assists per game",
+          "percentile": 75.0,
+          "value": 23.0
+        }
+      ]
+    },
+    "season": 2026,
+    "sport_name": "Basketball",
+    "subject": {
+      "entity_id": 7,
+      "entity_type": "team",
+      "name": "Cedar Comets",
+      "sport": "NBA"
+    }
+  },
+  "user_prompt": "{\"identity\":{\"name\":\"Cedar Comets\",\"entity_type\":\"team\",\"sport\":\"basketball\"},\"fresh\":{\"season\":2026,\"observed_at\":\"2026-09-29\",\"sport_name\":\"Basketball\",\"sample\":{\"Games Played\":25.0},\"values\":[{\"label\":\"Rebounds\",\"measure\":\"rebounds per game\",\"value\":48.0,\"percentile\":90.0,\"cohort\":30.0,\"band\":\"elite\"},{\"label\":\"Assists\",\"measure\":\"assists per game\",\"value\":23.0,\"percentile\":75.0,\"cohort\":30.0,\"band\":\"strong\"}],\"composite\":64.0,\"supports_cross_season\":true,\"composite_peer_mean\":50.0},\"memory\":{\"coverage_limits\":[\"The prior season was in a different competition; no compatible comparison is supplied.\"]},\"rate_standouts\":[],\"trend\":null,\"voice\":\"Observant, direct, specific to the sport and restrained.\",\"form\":{\"keys\":[\"body\"],\"max_chars\":1200,\"paragraph_max_chars\":null}}",
+  "temperature": 0,
+  "expect": {},
+  "review": [
+    "The prior competition is incompatible. Describe current standing without inventing a comparison, stability or recent form."
+  ]
+}

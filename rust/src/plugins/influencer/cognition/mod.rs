@@ -7,13 +7,14 @@ use anyhow::Result;
 use serde_json::{json, Value};
 
 mod fresh;
-mod influencer;
 mod prompt;
+pub mod research;
+mod voice;
 pub use crate::plugins::support::form::{
     observation_schema as schema, ObservationParser as VibeParser, ObservationReply as VibeReply,
 };
-pub use influencer::CHARACTER;
-pub const VIBE_PROMPT_VERSION: &str = "vibe-frame-v3";
+pub use voice::VOICE;
+pub const VIBE_PROMPT_VERSION: &str = "vibe-frame-v5";
 pub const VIBE_SYSTEM_PROMPT: &str = prompt::TASK;
 pub const VIBE_TEMPERATURE: f64 = 0.0;
 pub const VIBE_NUM_PREDICT: i32 = 600;
@@ -77,7 +78,7 @@ pub fn assemble(
         .part("identity", subject.for_writing())
         .part("fresh", fresh::prepare(source))
         .part("history", history)
-        .part("voice", CHARACTER)
+        .part("voice", VOICE)
         .part("form", crate::plugins::support::form::observation_form())
 }
 

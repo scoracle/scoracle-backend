@@ -302,6 +302,7 @@ fn season_changes_stay_with_their_own_skill() {
         serde_json::json!(95.0)
     );
     assert_eq!(by_label("Creation")["percentile"], serde_json::json!(66.0));
+    assert_eq!(by_label("Creation")["standing_change"], "fell");
     assert!(
         !listed
             .iter()
@@ -577,7 +578,7 @@ fn serialized_request_has_evidence_and_form_but_no_editorial_outline() {
     );
     let system = request["messages"][0]["content"].as_str().unwrap();
     let evidence = request["messages"][1]["content"].as_str().unwrap();
-    assert!(system.contains("Articulate the supplied profile into a scouting read"));
+    assert!(system.contains("Describe the supplied measured profile and its limits"));
     // The package carries the evidence and the declared form, and nothing else.
     let package: serde_json::Value = serde_json::from_str(evidence).unwrap();
     for part in ["identity", "fresh", "memory", "voice", "form"] {
@@ -849,7 +850,7 @@ fn a_players_world_is_byte_stable() {
     // The voice and form tails are the plugin's own, so they are asserted
     // separately rather than pasted into the byte fixture above.
     let tail = world.split(r#""voice":""#).nth(1).unwrap();
-    assert!(tail.starts_with("You are The Scout"));
+    assert!(tail.starts_with("Observant, direct, specific to the sport and restrained."));
     assert!(
         tail.contains(r#""form":{"keys":["body"],"max_chars":1200,"paragraph_max_chars":null}"#)
     );

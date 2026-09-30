@@ -2860,7 +2860,7 @@ mod tests {
     #[test]
     fn prepared_requests_carry_acceptance_context_and_no_call_dispositions() {
         let mut fx: Fixture = serde_json::from_str(include_str!(
-            "../../fixtures/quality/rating/rim-protector-specificity.json"
+            "../../fixtures/quality/rating/synthetic-strong.json"
         ))
         .unwrap();
         let request = RatingTask.prepare_fixture(&fx).unwrap();

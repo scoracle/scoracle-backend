@@ -88,6 +88,17 @@ pub trait Inference: Send + Sync {
         opts: &GenerateOptions,
     ) -> Result<(GenerateResult, serde_json::Value)>;
 
+    /// One native tool-chat turn. The plugin owns the tool list and dispatch.
+    /// Unsupported providers fail explicitly; never flatten tool results into a prompt.
+    async fn chat(
+        &self,
+        _messages: &[serde_json::Value],
+        _tools: &[serde_json::Value],
+        _opts: &GenerateOptions,
+    ) -> Result<(GenerateResult, serde_json::Value)> {
+        anyhow::bail!("native tool chat is not implemented for this backend")
+    }
+
     /// model returns the concrete model id, for provenance (`model_version`).
     fn model(&self) -> &str;
 

@@ -1,25 +1,7 @@
-//! What the Scout remembers, and how it is presented.
-//!
-//! The Scout is the one character whose memory is not reporting history, and that
-//! difference is the reason this module exists rather than a shared
-//! `HistoryItem` list.
-//!
-//! It has two kinds of memory that must not be confused:
-//!
-//! - **measured** — computed by the shared statistics study over stored
-//!   fixtures. A trend across a window, a prior-season standing. These are
-//!   numbers with a provenance class and a coverage statement.
-//! - **reported** — injury, suspension and personnel claims, each attributed to
-//!   a publisher and dated. These are claims, and a claim is not a measurement.
-//!
-//! A suspension is not a dip in a percentile, and a downward trend is not
-//! evidence of an injury. Collapsing the two would let a model read causation
-//! into two facts that merely co-occur, which is the exact move the ownership
-//! contract forbids. So they are separate keys, and the manual says which is
-//! which.
-//!
-//! Selection, budget and freshness are this plugin's policy. The shared module
-//! owns the runner, the snapshot and the provenance; nothing here calls a model.
+//! Scout selects measured history and dated reporting through shared studies.
+//! Measurements retain coverage; reported claims retain publisher and date.
+//! These remain separate: neither establishes the cause of the other.
+//! Selection, budgets and freshness belong to this plugin.
 use serde::Serialize;
 
 /// The Scout's memory, as presented. Both parts are optional and absence is

@@ -1,0 +1,37 @@
+Starting commit: 585859fa3bd06d46935147250fb2be025193ad4e
+Branch: codex/harvester-cutover
+
+cargo test --offline --all-targets
+test result: ok. 540 passed; 0 failed; 69 ignored; 0 measured; 0 filtered out; finished in 4.03s
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 2 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+Total: 557 passed, 0 failed, 70 ignored (16 targets).
+
+cargo fmt --all -- --check: passed
+git diff --check: passed
+Fixture expect/review compared against 585859fa: all 11 unchanged.
+
+Not rerun: isolated DB checks, clippy.
+Product gate: failed, S5 open.
+Deployment: none.
+
+Legacy pruning verification:
+cargo test --offline --all-targets: 557 passed, 0 failed, 70 ignored (15 targets).
+cargo fmt --all -- --check: passed
+git diff --check: passed
+8 replacement Scout fixtures match retained production parts and prompts exactly.
+Edited Markdown local links resolve; original closure/Journalist/Harvester evidence unchanged.
+No new model replay, DB integration run or deployment. S5 remains open.

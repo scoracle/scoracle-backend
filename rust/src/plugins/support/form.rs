@@ -2,7 +2,7 @@
 //!
 //! The reader sees a hook header and a body. Transport labels and JSON fields below
 //! retain the existing parser/storage contracts; they are not section headings.
-//! Character files own tone; prompt modules own instructions and content direction.
+//! Voice modules own tone; prompt modules own instructions and content direction.
 
 /// Reader-facing dimensions, independent of any model's tokenization or runtime budget.
 pub const HOOK_MAX_CHARS: usize = 140;
@@ -26,7 +26,7 @@ pub fn observation_form() -> ObservationForm {
     ObservationForm {
         body: ObservationBodyForm {
             field_type: "string or null",
-            paragraphs: "One observation per paragraph. Blank lines separate paragraphs. Short, complete sentences. No headings or repeated conclusion.",
+            paragraphs: "Blank lines separate paragraphs.",
             paragraph_max_chars: PARAGRAPH_MAX_CHARS,
             max_chars: BODY_MAX_CHARS,
             lengths: "Ceilings, not targets; no minimum length.",

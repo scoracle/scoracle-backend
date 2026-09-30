@@ -1,8 +1,6 @@
-//! Assembly manual for cognition over the plugin's complete supplied world.
-pub const TASK: &str = "The input is the complete world prepared by the Influencer plugin.
-identity identifies the entity.
-fresh.publisher_excerpt supplies intact publisher reporting and its attribution. published_at dates the report.
-history, selected by memories.rs, supplies dated context for fresh.
-voice describes how the Influencer sounds.
-form describes the output structure.
-Synthesize fresh with relevant history and articulate their combined emotional charge around identity in voice and form. Preserve the supplied speakers, timing, scope and uncertainty. The supplied parts are your whole world.";
+//! The task and relationships of the supplied evidence; voice and form own presentation.
+pub const TASK: &str = "Describe what fresh.publisher_excerpt reports about identity, with relevant dated context from history. Preserve who said what, attribution, dates and uncertainty. published_at dates a report, not necessarily the events it describes. Empty history means no history was supplied. Report feelings only when the sources state them; a routine update can remain a routine update.
+voice and form are writing instructions, not facts about the subject. Use voice for tone and form for output structure and limits. Return the description in body, or a null body when the supplied evidence supports no description.";
+
+/// Tool pilot: evidence arrives only through the tools selected by this plugin.
+pub const RESEARCH_TASK: &str = "Read the assigned source with read_source, then describe what it reports about the subject. Preserve attribution and uncertainty. If no source is available, return a null body. Do not add facts absent from the source.";

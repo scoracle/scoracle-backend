@@ -1,15 +1,6 @@
-//! The Scout creates a statistical report from a prepared assignment.
-//!
-//! Rust owns the per-entity creation core here. The application layer owns queue coordination and
-//! publication; `cmd/statcommentary` remains the operator/batch entry point.
-//!
-//! Postgres owns composite and percentile calculations. Rust selects and labels the evidence,
-//! computes routing notability and trajectory, and supplies evidence for interpretation.
-//!
-//! No usable profile produces an uncalled marker; explicit model abstention produces a called
-//! NULL-body marker. An empty or malformed card remains an error.
-//!
-//! Missing measurements and ranks remain unknown; character and canvas own the writing.
+//! Scout prepares a statistical world for articulation and validates the returned body.
+//! Postgres supplies measurements; the plugin selects data and labels relationships.
+//! Missing profiles skip inference; malformed output remains an error.
 
 use crate::studio::model::GenerateOptions;
 use crate::studio::{Generation, GenerationCall, Parser, Studio};
@@ -18,27 +9,15 @@ use anyhow::Result;
 use serde::{Deserialize, Deserializer};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-mod brief;
-pub use brief::{CHARACTER, RATING_PROMPT_VERSION};
+mod voice;
+pub use prompt::RATING_PROMPT_VERSION;
+pub use voice::VOICE;
 
 pub mod parts;
 pub mod prompt;
 
-/// The Scout returns a body; the plugin supplies its title.
-///
-/// The keys are this plugin's; the shape and the validator are shared with every
-/// other character. The paragraph ceiling is a per-plugin recorded decision, not
-/// a default — and this plugin records a NON-PARTICIPATION, for the same reason
-/// the Journalist does.
-///
-/// Influencer's 140 characters is a writing policy for a short observation.
-/// The Scout writes a multi-paragraph analytical read of a measurement profile,
-/// and a 140-character paragraph cap would apply a rule the plugin has never been
-/// measured against. F4b settled the identical question for the Journalist:
-/// shipping a number nobody replayed is worse than recording that the rule does
-/// not apply. The shared 1,200-character body ceiling still applies, and this is
-/// a declared constant rather than an omission, so a later window can revisit it
-/// against evidence.
+/// Scout supplies the title and enforces a 1,200-character body ceiling.
+/// There is no per-paragraph ceiling.
 pub const SCOUT_PARAGRAPH_MAX_CHARS: Option<usize> = None;
 
 pub fn prose() -> crate::plugins::cognition::prose::Prose {
@@ -54,24 +33,7 @@ pub fn prose() -> crate::plugins::cognition::prose::Prose {
 /// Output contract captured separately in the diagnostic ledger.
 pub const RATING_OUTPUT_CONTRACT_VERSION: &str = "rating-commentary-v8-parts";
 
-/// Prose this plugin will not serve, and why each one is a claim rather than a
-/// description.
-///
-/// These are Scout content policy and belong to the Scout. They were in
-/// `support::guards` while the Scout was their only consumer, which made a
-/// per-character writing decision look like a shared mechanical invariant — the
-/// same mistake `MOMENTUM_BANNED_PHRASES` makes for the Analyst, and the same fix
-/// applies in Window 6.
-///
-/// Two families live here, and the distinction is the point:
-///
-/// - **internal notation** (` · `, "exact labels and bands", "printed
-///   measurements") — the model narrating the package instead of the sport;
-/// - **inferences from a stored sample** ("reduced minutes", "constrained role",
-///   "limited playing time") — a coverage gap read as a fact about playing
-///   time. This is the one the thin-sample boundary exists to prevent, and a ban
-///   is a backstop for it rather than the mechanism: the world now states the
-///   limit, and `Limit` carries it.
+/// Backstops against internal notation and unsupported claims from stored coverage.
 pub const RATING_BODY_BANS: &[&str] = &[
     " · ",
     "exact labels and bands",
@@ -107,11 +69,7 @@ pub(crate) const MAX_STAT_FACTS: usize = 14;
 /// states that rather than letting the model infer one from two snapshots.
 pub const MIN_CROSS_SEASON_APPEARANCES: f64 = 10.0;
 
-/// How many cross-season measurements a read may carry, and how many of those
-/// may be held-flat. These are SELECTION limits, not presentation limits: they
-/// decide which comparisons are worth the space. They were constants in the
-/// retired flat-prompt builder and are kept here because the parts still apply
-/// the same selection.
+/// Selection limits for cross-season measurements and held standings.
 pub const MAX_COMPARISON_FACTS: usize = 4;
 pub const MAX_HELD_COMPARISON_FACTS: usize = 2;
 
@@ -373,19 +331,8 @@ pub(crate) fn budget_truncated_stat_labels(breakdown: &[RatingDatapoint]) -> Vec
         .collect()
 }
 
-/// collect_rate_standouts surfaces, per rate mode, the elite (pct ≥ 80) per-x datapoints — the lens
-/// that reveals a limited-minutes player producing at an elite rate. Modes sorted for stable output
-/// with byte-wise string ordering; at most five per mode.
-/// Used by BOTH the prompt's rate-adjusted section AND `input_components`' rate_standouts (same output).
-fn collect_rate_standouts(p: &RatingProfile) -> Vec<RateStandout> {
-    collect_rate_standouts_public(p)
-}
-
-/// The same selection, named for the parts module, which presents these as a
-/// part rather than as a prompt section. One selection, two presentations: a
-/// second implementation would let the two disagree about which rate standouts
-/// exist.
-pub(crate) fn collect_rate_standouts_public(p: &RatingProfile) -> Vec<RateStandout> {
+/// Select at most five elite (percentile ≥ 80) measurements per rate mode.
+pub(crate) fn collect_rate_standouts(p: &RatingProfile) -> Vec<RateStandout> {
     let mut modes: Vec<&String> = p.rate_modes.keys().collect();
     modes.sort();
 
@@ -519,7 +466,8 @@ pub struct SkillChange {
     pub prior_sample: BTreeMap<String, f64>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum RelativeDirection {
     Rose,
     Fell,

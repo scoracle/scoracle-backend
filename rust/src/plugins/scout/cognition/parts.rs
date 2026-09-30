@@ -1,29 +1,6 @@
-//! The Scout's selected world, rendered by the shared ordered renderer.
-//!
-//! This module replaces the flat prose block `inputs.rs` used to build. The
-//! difference is not formatting: it is that a part is now a named, typed thing
-//! the model can be told about, and the plugin decides what goes in each one.
-//!
-//! # What each part is
-//!
-//! | Part | Module | Content |
-//! | --- | --- | --- |
-//! | identity | `plugins::meta` | the subject |
-//! | fresh | this module | the current measured profile and its comparisons |
-//! | memory | `scout::memories` | studied statistical trends, and the injury / suspension text |
-//! | form | `support::form` | the keys and dimensions this plugin returns |
-//! | voice | `scout.rs` | the character |
-//! | manual | `prompt.rs` | how the parts fit together |
-//!
-//! # Why the memory part is two things
-//!
-//! The Scout is the one character whose memory is not reporting history. It has
-//! measured numbers — a trend across recent fixtures, a prior-season standing —
-//! and it has text: injury and suspension claims, personnel changes. Both belong
-//! in the world, and they are not interchangeable. A percentile movement is not
-//! a suspension, and neither is evidence of the other. `memories::Selected`
-//! carries both under distinct keys so the manual can say which is which, and so
-//! a reader can tell a measured trend from a reported claim without the model.
+//! Scout-owned data and relationships, rendered by the shared ordered renderer.
+//! Measured history and dated reporting retain separate provenance.
+//! `prompt.rs` owns the job; `brief.rs` supplies tone.
 use serde::Serialize;
 
 /// The Scout's measured profile, as presented. Selection has already happened:
@@ -45,6 +22,7 @@ pub struct Profile {
     /// The sample this profile is computed over, by stat-definition label.
     pub sample: std::collections::BTreeMap<String, f64>,
     /// The selected measurements, keyed by measure label.
+    #[serde(serialize_with = "serialize_measurements")]
     pub values: Vec<MeasuredValue>,
     /// Standardized overall score, where 50 is the peer mean. Absent rather
     /// than defaulted: a missing composite is not a composite of 50.
@@ -92,6 +70,33 @@ pub struct MeasuredValue {
     /// comparison, which is not "unchanged".
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub prior_percentile: Option<f64>,
+}
+
+impl MeasuredValue {
+    fn standing_change(&self) -> Option<super::RelativeDirection> {
+        Some(super::relative_direction(
+            self.percentile? - self.prior_percentile?,
+        ))
+    }
+}
+
+/// Send the same computed direction acceptance uses, attached to its measurement.
+/// Stored parts retain the underlying percentiles; rendering never trusts a stale direction.
+fn serialize_measurements<S: serde::Serializer>(
+    values: &[MeasuredValue],
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    #[derive(Serialize)]
+    struct Compared<'a> {
+        #[serde(flatten)]
+        measurement: &'a MeasuredValue,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        standing_change: Option<super::RelativeDirection>,
+    }
+    serializer.collect_seq(values.iter().map(|measurement| Compared {
+        measurement,
+        standing_change: measurement.standing_change(),
+    }))
 }
 
 /// A boundary on what this profile supports, in the plugin's words.
@@ -314,7 +319,7 @@ fn signed_z(datapoint: &crate::plugins::scout::cognition::RatingDatapoint) -> Op
 pub fn rate_standout_parts(
     profile: &crate::plugins::scout::cognition::RatingProfile,
 ) -> Vec<RateStandout> {
-    crate::plugins::scout::cognition::collect_rate_standouts_public(profile)
+    crate::plugins::scout::cognition::collect_rate_standouts(profile)
         .into_iter()
         .map(|standout| RateStandout {
             mode: standout.mode,
@@ -357,12 +362,7 @@ impl Parts {
         self.profile
             .values
             .iter()
-            .filter_map(|value| {
-                Some((
-                    value.label.clone(),
-                    super::relative_direction(value.percentile? - value.prior_percentile?),
-                ))
-            })
+            .filter_map(|value| Some((value.label.clone(), value.standing_change()?)))
             .collect()
     }
 
@@ -395,13 +395,26 @@ impl Parts {
     /// `assembly::World` only renders them, deterministically and in the order
     /// given here.
     pub fn assemble(&self) -> crate::plugins::assembly::World {
+        #[derive(Serialize)]
+        struct Fresh<'a> {
+            #[serde(flatten)]
+            profile: &'a Profile,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            composite_peer_mean: Option<f64>,
+        }
         crate::plugins::assembly::World::new()
             .part("identity", self.subject.for_writing())
-            .part("fresh", &self.profile)
+            .part(
+                "fresh",
+                Fresh {
+                    profile: &self.profile,
+                    composite_peer_mean: self.profile.composite.map(|_| 50.0),
+                },
+            )
             .part("memory", &self.memory)
             .part("rate_standouts", &self.rate_standouts)
             .part("trend", &self.trend)
-            .part("voice", crate::plugins::scout::cognition::CHARACTER)
+            .part("voice", crate::plugins::scout::cognition::VOICE)
             .part("form", crate::plugins::scout::cognition::prose().form())
     }
 
@@ -416,9 +429,47 @@ mod tests {
     use serde_json::json;
 
     #[test]
+    fn rendered_directions_match_acceptance_without_borrowing_missing_comparisons() {
+        let capture: serde_json::Value = serde_json::from_str(
+            include_str!("../../../../fixtures/scout/closure-s62-inputs.jsonl")
+                .lines()
+                .next()
+                .unwrap(),
+        )
+        .unwrap();
+        let mut parts: Parts =
+            serde_json::from_value(capture["assignment"]["parts"].clone()).unwrap();
+        let world: serde_json::Value = serde_json::from_str(&parts.render()).unwrap();
+        assert_eq!(world["fresh"]["composite_peer_mean"], 50.0);
+        parts.profile.composite = None;
+        let world: serde_json::Value = serde_json::from_str(&parts.render()).unwrap();
+        assert!(world["fresh"].get("composite_peer_mean").is_none());
+        for (prior, expected) in [
+            (Some(80.0), Some("rose")),
+            (Some(95.0), Some("fell")),
+            (Some(89.5), Some("held")),
+            (None, None),
+        ] {
+            parts.profile.values[0].prior_percentile = prior;
+            let world: serde_json::Value = serde_json::from_str(&parts.render()).unwrap();
+            assert_eq!(
+                world["fresh"]["values"][0]["standing_change"].as_str(),
+                expected
+            );
+            assert_eq!(
+                parts
+                    .comparison_directions()
+                    .get("Rebounds")
+                    .map(|v| serde_json::to_value(v).unwrap()),
+                expected.map(|s| json!(s))
+            );
+        }
+    }
+
+    #[test]
     fn completed_world_and_provenance_determine_the_fingerprint() {
         let fixture: serde_json::Value = serde_json::from_str(include_str!(
-            "../../../../fixtures/quality/rating/rim-protector-specificity.json"
+            "../../../../fixtures/quality/rating/synthetic-strong.json"
         ))
         .unwrap();
         let parts: Parts = serde_json::from_value(fixture["parts"].clone()).unwrap();

@@ -56,7 +56,7 @@ fn assembly_preserves_source_qualification_and_separates_owners() {
     assert_eq!(frame["fresh"]["publisher_excerpt"], a.source.context);
     assert_eq!(frame["fresh"]["published_at"], "2024-02-29T00:00:00Z");
     assert_eq!(frame["identity"]["sport"], "basketball");
-    assert_eq!(frame["voice"], CHARACTER);
+    assert_eq!(frame["voice"], VOICE);
     assert!(frame["fresh"].get("headline").is_none());
     assert!(frame["fresh"].get("article_id").is_none());
     assert!(frame.get("score").is_none());
@@ -93,10 +93,7 @@ async fn empty_reading_keeps_its_receipt_in_the_same_call() {
 }
 #[test]
 fn the_stored_quality_fixture_is_still_the_rendered_package() {
-    // F4a was required to be an identity change, and the quality fixtures store
-    // the rendered prompt rather than the parts (F6's defect). This pins the
-    // rendered bytes against the retained fixture so a later refactor of the
-    // shared decoder cannot silently move this plugin's prompt.
+    // The retained world must rebuild through the production assembler.
     let fixture: Value = serde_json::from_str(include_str!(
         "../../../../fixtures/quality/vibe/warm-memory-cold-coverage.json"
     ))

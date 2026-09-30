@@ -9,6 +9,7 @@
 use crate::util::truncate;
 use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use std::time::Duration;
 
 /// Additional reasoning budget for think-enabled calls.
@@ -29,7 +30,7 @@ use crate::studio::model::{GenerateOptions, GenerateResult};
 #[derive(Serialize)]
 struct ChatTurn<'a> {
     role: &'a str,
-    content: &'a str,
+    content: Cow<'a, str>,
 }
 
 /// The `/api/chat` request. `GenerateOptions::system` becomes the system turn and the
@@ -177,12 +178,20 @@ impl OllamaClient {
         if let Some(system) = opts.system.as_deref() {
             messages.push(ChatTurn {
                 role: "system",
-                content: system,
+                content: if self.think == Some(true)
+                    && self.model.to_ascii_lowercase().contains("smollm3")
+                {
+                    Cow::Owned(format!(
+                        "Before the final answer, put your reasoning inside <think> and </think>.\n\n{system}"
+                    ))
+                } else {
+                    Cow::Borrowed(system)
+                },
             });
         }
         messages.push(ChatTurn {
             role: "user",
-            content: prompt,
+            content: Cow::Borrowed(prompt),
         });
         GenerateRequest {
             model: &self.model,
@@ -239,7 +248,7 @@ impl OllamaClient {
                         .iter()
                         .map(|m| ChatTurn {
                             role: m.role,
-                            content: m.content,
+                            content: Cow::Borrowed(m.content.as_ref()),
                         })
                         .collect(),
                     stream: req.stream,
@@ -322,6 +331,7 @@ pub(crate) fn validate_completion(reason: Option<&str>, done: Option<bool>) -> R
 #[cfg(test)]
 mod completion_tests {
     use super::*;
+    use crate::studio::model::GenerateOptions;
 
     #[test]
     fn incomplete_answers_never_reach_product_parsers() {
@@ -332,5 +342,57 @@ mod completion_tests {
         assert!(validate_completion(Some("stop"), Some(true)).is_ok());
         // Older compatible servers may omit the optional signal.
         assert!(validate_completion(None, None).is_ok());
+    }
+
+    #[test]
+    fn thinking_cue_is_transport_owned_and_only_present_when_enabled() {
+        let options = GenerateOptions {
+            system: Some("Articulate the package.".into()),
+            num_predict: 900,
+            ..GenerateOptions::default()
+        };
+        let disabled = OllamaClient::with_think(
+            "http://localhost:11434",
+            "model",
+            Duration::from_secs(1),
+            Some(false),
+        )
+        .unwrap()
+        .request_body("source package", &options);
+        assert_eq!(
+            disabled["messages"][0]["content"],
+            "Articulate the package."
+        );
+        assert_eq!(disabled["messages"][1]["content"], "source package");
+        assert_eq!(disabled["options"]["num_predict"], 900);
+
+        let enabled = OllamaClient::with_think(
+            "http://localhost:11434",
+            "alibayram/smollm3",
+            Duration::from_secs(1),
+            Some(true),
+        )
+        .unwrap()
+        .request_body("source package", &options);
+        assert_eq!(
+            enabled["messages"][0]["content"],
+            "Before the final answer, put your reasoning inside <think> and </think>.\n\nArticulate the package."
+        );
+        assert_eq!(enabled["messages"][1]["content"], "source package");
+        assert_eq!(enabled["options"]["num_predict"], 1500);
+        assert_eq!(enabled["think"], true);
+
+        let other_model = OllamaClient::with_think(
+            "http://localhost:11434",
+            "another-model",
+            Duration::from_secs(1),
+            Some(true),
+        )
+        .unwrap()
+        .request_body("source package", &options);
+        assert_eq!(
+            other_model["messages"][0]["content"],
+            "Articulate the package."
+        );
     }
 }

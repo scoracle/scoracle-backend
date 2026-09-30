@@ -34,7 +34,7 @@ path = "src/bin/factsweep.rs"
 
 [dependencies]
 # Async runtime.
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "time"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "time", "process", "io-util"] }
 
 # Postgres pool + LISTEN/NOTIFY. Runtime query API only (no `query!` macros), so a
 # build needs no live DATABASE_URL; DB is localhost sslmode=disable, so no TLS feature.

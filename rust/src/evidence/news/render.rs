@@ -1,97 +1,27 @@
-//! Renders `(packet, entity, voice)` into a bounded context block.
-//!
-//! Three laws shape every line below:
-//!
-//! * The render stays within [`RENDER_TOKEN_BUDGET`]; omitted claims are counted.
-//! * **Contested state is preserved** (T3/D6). Two claims that say opposite things about the same
-//!   thing are BOTH rendered, both attributed, and marked `⇄` — the disagreement is the story, so
-//!   the marker is a pointer, never a filter. Nothing here collapses a pair.
-//! * Voice routing is deterministic through [`Voice::slice`].
+//! Legacy packet claim slices and framing retained for Scout and Insider.
+//! Selection preserves source attribution, order and contested claims.
 
 use super::packet::PacketView;
 use std::collections::HashSet;
 
-/// The render's hard ceiling, in estimated tokens (§7's envelope: ≤2,000 for the packet part).
-pub const RENDER_TOKEN_BUDGET: usize = 2_000;
-
-/// Characters per token for the pre-flight estimate. English prose over this corpus runs ~3.9;
-/// 3.6 is deliberately pessimistic, so the estimate errs toward rendering LESS than the budget
-/// allows rather than overrunning a 4096 window. 7.15 measures the real ratio via `eval_count`.
-pub const CHARS_PER_TOKEN: f32 = 3.6;
-
-/// Claims are the compressible part; the rest of the block (headline, role line, facts,
-/// continuity) is small and fixed. This floor keeps a pathological header from starving the
-/// claims entirely — at least this many always render, budget or not.
-const MIN_CLAIMS: usize = 3;
-
-/// Tokens held back for the "(+N older report(s) not shown)" footer the budget itself may add.
-const FOOTER_RESERVE: usize = 20;
-
-/// Voices with packet access. The Scout receives current sporting and roster
-/// claims that can qualify a statistical reading.
+/// Surviving consumers of legacy packet claims.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Voice {
-    /// `narratives` — the whole packet: every claim, whatever its type.
-    Journalist,
-    /// `transfers` — transfer-typed claims only (7.5); the slice its fingerprint hashes.
     Insider,
-    /// `vibe` — the register and its phrase are HER material (7.6); nobody else is shown them.
-    Influencer,
-    /// `momentum` — reads the packet as peer context (7.8).
-    Analyst,
-    /// `sigil` — **never handed a packet in production** (§4: "the Oracle is blind to evidence:
-    /// five cards + its own verdict trail, nothing else"). 7.2 sketched a crown-side render; 7.8
-    /// did not build it, because reading the packet directly would make the Oracle a seventh
-    /// reporter instead of the reader of six cards. The variant survives so the register test can
-    /// prove even the terminal voice cannot see the Influencer's phrase.
-    Oracle,
-    /// `rating` — performance, roster, injury and suspension claims. The Editor
-    /// tags them and the Scout weighs the attributed reports against measurements.
     Scout,
 }
 
 impl Voice {
-    /// The stage string this voice drains, and the key its slice fingerprint lives under
-    /// (`slice_fingerprints ->> stage`, pinned by mig 206).
-    pub fn stage(self) -> &'static str {
+    fn slice(self) -> &'static [&'static str] {
         match self {
-            Voice::Journalist => "narratives",
-            Voice::Insider => "transfers",
-            Voice::Influencer => "vibe",
-            Voice::Analyst => "momentum",
-            Voice::Oracle => "sigil",
-            Voice::Scout => "rating",
-        }
-    }
-
-    /// Whether this voice sees the register and its phrase. The Influencer owns the number and the
-    /// phrase is her raw material (§1a: "the Editor never scores"); handing the same charged
-    /// phrase to the Journalist would leak her judgment into his copy.
-    fn sees_register(self) -> bool {
-        matches!(self, Voice::Influencer)
-    }
-
-    /// The Journalist writes a fresh title and therefore does not see the packet headline.
-    fn sees_story_headline(self) -> bool {
-        !matches!(self, Voice::Journalist)
-    }
-
-    /// The claim slice this voice reads, as the set of `story_type`s admitted. `None` = every
-    /// claim.
-    ///
-    /// A set keeps the Scout on sporting contribution, squad status and availability
-    /// without handing him transfer speculation, contracts, fixtures or general news.
-    fn slice(self) -> Option<&'static [&'static str]> {
-        match self {
-            Voice::Insider => Some(&["transfer"]),
-            Voice::Scout => Some(&["performance", "roster", "injury", "suspension"]),
-            _ => None,
+            Voice::Insider => &["transfer"],
+            Voice::Scout => &["performance", "roster", "injury", "suspension"],
         }
     }
 }
 
 /// One claim, as the renderer reads it out of `packets.claims`.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize)]
 pub struct RenderClaim {
     pub article_id: i64,
     pub source: String,
@@ -112,127 +42,13 @@ pub struct Participation {
     pub last_seen_on: Option<String>,
 }
 
-/// A rendered context block, with the accounting that makes its size auditable.
-#[derive(Clone, Debug)]
-pub struct Rendered {
-    pub text: String,
-    /// `chars / CHARS_PER_TOKEN`, rounded up — the pre-flight estimate, not a measurement.
-    pub est_tokens: usize,
-    pub claims_rendered: usize,
-    /// Article ids whose claims the budget dropped, oldest first. NAMED, never silently lost —
-    /// this is the A5 rule, and it is what the exclusions telemetry in 7.3 reports.
-    pub claims_dropped_from: Vec<i64>,
-    /// How many rendered claims carry a `⇄` (contested) marker.
-    pub contested_marked: usize,
-}
-
-impl Rendered {
-    fn empty() -> Self {
-        Self {
-            text: String::new(),
-            est_tokens: 0,
-            claims_rendered: 0,
-            claims_dropped_from: Vec::new(),
-            contested_marked: 0,
-        }
-    }
-}
-
-/// Estimated tokens for a string: `chars / 3.6`, rounded up.
-pub fn est_tokens(s: &str) -> usize {
-    (s.chars().count() as f32 / CHARS_PER_TOKEN).ceil() as usize
-}
-
-/// render is the whole of 7.2, pure: a packet, the entity's part in it, and a voice in — one
-/// context block out. No clock, no database, no model, so the property test in this file scores
-/// exactly what production sends.
-///
-/// Claims arrive NEWEST FIRST (the loader's order) and are rendered newest first; the budget
-/// truncates from the OLD end, because the newest state of a contested story is the part a voice
-/// cannot do without.
-pub fn render(packet: &PacketView, part: Option<&Participation>, voice: Voice) -> Rendered {
-    let claims = select_claims(&packet.claims, voice);
-    if claims.is_empty() && packet.headline.is_none() {
-        return Rendered::empty();
-    }
-
-    let contested = mark_contested(&claims);
-    let header = framing(packet, part, voice);
-
-    let claims_header = if contested.iter().any(|c| c.marked) {
-        "REPORTED (newest first; ⇄ marks claims that contradict another below — both stand):\n"
-    } else {
-        "REPORTED (newest first):\n"
-    };
-
-    // Fit the claims to what the budget leaves after the header.
-    // Everything that is not a claim line, plus the footer the truncation may add: reserved up
-    // front, so the block that reports the truncation cannot itself push the render over.
-    let overhead = est_tokens(&header) + est_tokens(claims_header) + FOOTER_RESERVE;
-    let claim_budget = RENDER_TOKEN_BUDGET.saturating_sub(overhead);
-
-    let mut kept: Vec<&MarkedClaim> = Vec::new();
-    let mut used = 0usize;
-    for c in &contested {
-        let line = claim_line(c);
-        // +1 for the newline the line is joined with: per-line rounding is what keeps the sum an
-        // over-estimate rather than an under-estimate, and the separator has to be inside it.
-        let cost = est_tokens(&line) + 1;
-        if kept.len() >= MIN_CLAIMS && used + cost > claim_budget {
-            break;
-        }
-        used += cost;
-        kept.push(c);
-    }
-
-    let dropped: Vec<i64> = contested
-        .iter()
-        .skip(kept.len())
-        .map(|c| c.claim.article_id)
-        .rev() // oldest first, the order they were dropped in
-        .collect();
-
-    let mut text = header;
-    text.push_str(claims_header);
-    for c in &kept {
-        text.push_str(&claim_line(c));
-        text.push('\n');
-    }
-    if !dropped.is_empty() {
-        // A5: the render says what it left out, in the block itself, so the omission is visible to
-        // the reader of a ledger row and not only to whoever reads the telemetry.
-        text.push_str(&format!(
-            "(+{} older report(s) not shown — budget)\n",
-            dropped.len()
-        ));
-    }
-
-    let contested_marked = kept.iter().filter(|c| c.marked).count();
-    let claims_rendered = kept.len();
-    Rendered {
-        est_tokens: est_tokens(&text),
-        text,
-        claims_rendered,
-        claims_dropped_from: dropped,
-        contested_marked,
-    }
-}
-
-/// framing is the header of a render: everything that is not a claim — the story, this entity's
-/// part in it, its type, any completed result, the mood (Influencer only), the rest of the cast,
-/// and the one continuity line from the prior packet.
-///
-/// It is public because the Journalist does not read the block form: his contract requires
-/// NUMBERED evidence he can cite (`load_packet_corpus`, 7.3), so he takes this framing and
-/// numbers the claims himself. Same bytes, two shapes, one source.
-pub fn framing(packet: &PacketView, part: Option<&Participation>, voice: Voice) -> String {
+/// Source-bound storyline context used by the Insider's per-article overlay.
+pub fn framing(packet: &PacketView, part: Option<&Participation>) -> String {
     let mut header = String::new();
-    if voice.sees_story_headline() {
-        if let Some(h) = &packet.headline {
-            header.push_str("STORY: ");
-            header.push_str(h.trim());
-            header.push('\n');
-        }
+    if let Some(h) = &packet.headline {
+        header.push_str("STORY: ");
+        header.push_str(h.trim());
+        header.push('\n');
     }
     if let Some(p) = part {
         header.push_str(&role_line(p));
@@ -248,18 +64,6 @@ pub fn framing(packet: &PacketView, part: Option<&Participation>, voice: Voice) 
         header.push_str("RESULT: ");
         header.push_str(line.trim());
         header.push('\n');
-    }
-    if voice.sees_register() {
-        if let Some(reg) = &packet.register {
-            header.push_str("MOOD: ");
-            header.push_str(reg);
-            if let Some(phrase) = packet.register_phrase.as_deref().filter(|p| !p.is_empty()) {
-                header.push_str(" — \"");
-                header.push_str(phrase.trim());
-                header.push('"');
-            }
-            header.push('\n');
-        }
     }
     // The thin, structured facts (§1c): who else is in this story, and how much of it there is.
     // Names only — the entity list is data the code assembled, not prose a model wrote.
@@ -330,13 +134,8 @@ fn role_line(p: &Participation) -> String {
     s
 }
 
-fn claim_line(c: &MarkedClaim) -> String {
-    let mark = if c.marked { "⇄ " } else { "- " };
-    format!("{mark}{}: {}", c.claim.source, c.claim.fact.trim())
-}
-
 /// A claim plus whether it contradicts another claim in the same render.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize)]
 pub struct MarkedClaim {
     pub claim: RenderClaim,
     /// True when another claim in the same set says the opposite. A POINTER, never a filter:
@@ -344,25 +143,18 @@ pub struct MarkedClaim {
     pub marked: bool,
 }
 
-/// Pull this voice's slice out of the packet's claims, newest first (the stored order).
-///
-/// Public because the voices whose contracts want the claims as DATA rather than as a rendered
-/// block — the Insider's per-article overlay (7.5), the Journalist's numbered evidence (7.3) —
-/// must select the same subset the block form would, and the same subset
-/// `slice_fingerprints ->> stage` hashes. One definition of "your slice", three readers.
+/// Select source claims in stored order, without changing their attribution.
 pub fn slice_claims(claims: &[RenderClaim], voice: Voice) -> Vec<RenderClaim> {
-    select_claims(claims, voice)
-}
-
-fn select_claims(claims: &[RenderClaim], voice: Voice) -> Vec<RenderClaim> {
-    match voice.slice() {
-        None => claims.to_vec(),
-        Some(want) => claims
-            .iter()
-            .filter(|c| want.iter().any(|w| c.story_type.eq_ignore_ascii_case(w)))
-            .cloned()
-            .collect(),
-    }
+    claims
+        .iter()
+        .filter(|c| {
+            voice
+                .slice()
+                .iter()
+                .any(|w| c.story_type.eq_ignore_ascii_case(w))
+        })
+        .cloned()
+        .collect()
 }
 
 /// mark_contested finds pairs that say opposite things about the same subject and flags BOTH.
@@ -536,48 +328,27 @@ mod tests {
         }
     }
 
-    /// The T3 spot-check from the Phase 6 Log, run through the renderer: the storyline that holds
-    /// "agreement in principle" beside "deal not agreed" must render BOTH, attributed, and mark
-    /// the pair. This is the contradiction the rail exists to preserve.
     #[test]
-    fn contested_pair_is_preserved_attributed_and_marked() {
-        let p = packet(vec![
-            claim(
-                3,
-                "Football365",
-                "Arsenal have reached an agreement in principle on personal terms with Vinicius Junior",
-                "transfer",
-            ),
+    fn contested_pair_preserves_order_attribution_and_both_claims() {
+        let claims = vec![
+            claim(3, "Football365", "Arsenal have reached an agreement in principle on personal terms with Vinicius Junior", "transfer"),
             claim(2, "The Athletic", "deal not agreed", "transfer"),
-            claim(
-                1,
-                "ESPN",
-                "Vinicius Junior is set to stay at Real Madrid despite Arsenal interest",
-                "transfer",
-            ),
-        ]);
-        let out = render(&p, Some(&part()), Voice::Journalist);
-
-        assert!(out
-            .text
-            .contains("Football365: Arsenal have reached an agreement"));
-        assert!(out.text.contains("The Athletic: deal not agreed"));
-        assert!(out.text.contains("ESPN: Vinicius Junior is set to stay"));
-        assert_eq!(out.claims_rendered, 3, "no claim may be collapsed");
-        assert_eq!(
-            out.contested_marked, 2,
-            "the agreed/not-agreed pair is marked"
-        );
-        assert!(out.text.contains("⇄ The Athletic: deal not agreed"));
-        // ESPN and Football365 disagree in substance but not in POLARITY: both are positive
-        // statements, so neither is marked — the marker points at contradiction, not at tension.
-        assert!(out.text.contains("- ESPN: Vinicius"));
+            claim(1, "ESPN", "Vinicius Junior is set to stay at Real Madrid despite Arsenal interest", "transfer"),
+        ];
+        let marked = mark_contested(&claims);
+        assert_eq!(marked.len(), claims.len());
+        for (item, source) in marked.iter().zip(&claims) {
+            assert_eq!(item.claim.article_id, source.article_id);
+            assert_eq!(item.claim.source, source.source);
+            assert_eq!(item.claim.fact, source.fact);
+        }
+        assert!(marked[0].marked && marked[1].marked);
+        assert!(!marked[2].marked);
     }
 
-    /// Two claims that agree, however similar, are never marked.
     #[test]
     fn agreeing_claims_are_not_marked() {
-        let p = packet(vec![
+        let claims = vec![
             claim(
                 2,
                 "Goal",
@@ -590,16 +361,13 @@ mod tests {
                 "Vinicius Junior is set to stay at Real Madrid",
                 "transfer",
             ),
-        ]);
-        let out = render(&p, Some(&part()), Voice::Journalist);
-        assert_eq!(out.contested_marked, 0);
+        ];
+        assert!(mark_contested(&claims).iter().all(|c| !c.marked));
     }
 
-    /// A hedge is not a contradiction: "could collapse" tells the same story more softly, and
-    /// marking it would train a voice to see disagreement everywhere.
     #[test]
     fn hedging_is_not_contradiction() {
-        let p = packet(vec![
+        let claims = vec![
             claim(
                 2,
                 "Marca",
@@ -612,15 +380,13 @@ mod tests {
                 "The move is agreed and will be completed",
                 "transfer",
             ),
-        ]);
-        let out = render(&p, Some(&part()), Voice::Journalist);
-        assert_eq!(out.contested_marked, 0);
+        ];
+        assert!(mark_contested(&claims).iter().all(|c| !c.marked));
     }
 
-    /// E1/7.5: the Insider reads the transfer slice — the same subset its fingerprint hashes.
     #[test]
-    fn insider_reads_only_the_transfer_slice() {
-        let p = packet(vec![
+    fn surviving_voices_keep_their_source_slices() {
+        let claims = vec![
             claim(3, "ESPN", "Arsenal agreed personal terms", "transfer"),
             claim(
                 2,
@@ -628,163 +394,42 @@ mod tests {
                 "He trained fully on Monday after a knock",
                 "injury",
             ),
-        ]);
-        let out = render(&p, Some(&part()), Voice::Insider);
-        assert_eq!(out.claims_rendered, 1);
-        assert!(out.text.contains("Arsenal agreed personal terms"));
-        assert!(
-            !out.text.contains("knock"),
-            "non-transfer claims are not his slice"
-        );
+        ];
+        let insider = slice_claims(&claims, Voice::Insider);
+        assert_eq!(insider.len(), 1);
+        assert_eq!(insider[0].article_id, 3);
+        let scout = slice_claims(&claims, Voice::Scout);
+        assert_eq!(scout.len(), 1);
+        assert_eq!(scout[0].article_id, 2);
+        assert!(slice_claims(&claims[1..], Voice::Insider).is_empty());
+        assert!(slice_claims(&[], Voice::Insider).is_empty());
     }
 
-    /// 7.6: the register and its phrase are the Influencer's material and nobody else's.
     #[test]
-    fn register_reaches_the_influencer_only() {
-        let p = packet(vec![claim(
-            1,
-            "ESPN",
-            "Arsenal agreed personal terms",
-            "transfer",
-        )]);
-        let hers = render(&p, Some(&part()), Voice::Influencer);
-        assert!(hers.text.contains("MOOD: anticipation"));
-        assert!(hers.text.contains("holding its breath"));
-        for voice in [
-            Voice::Journalist,
-            Voice::Insider,
-            Voice::Analyst,
-            Voice::Oracle,
-        ] {
-            let other = render(&p, Some(&part()), voice);
-            assert!(
-                !other.text.contains("MOOD:"),
-                "{voice:?} must not see her register"
-            );
-            assert!(!other.text.contains("holding its breath"));
-        }
+    fn retired_register_is_excluded_from_framing() {
+        let header = framing(&packet(vec![]), Some(&part()));
+        assert!(!header.contains("MOOD:"));
+        assert!(!header.contains("holding its breath"));
     }
 
-    /// D5: the entity's part has its own lifespan, and the render says so.
     #[test]
     fn role_line_states_the_entitys_span() {
-        let p = packet(vec![claim(
-            1,
-            "ESPN",
-            "Arsenal agreed personal terms",
-            "transfer",
-        )]);
-        let out = render(&p, Some(&part()), Voice::Journalist);
-        assert!(out
-            .text
+        let header = framing(&packet(vec![]), Some(&part()));
+        assert!(header
             .contains("ENTITY: Vinicius Junior (subject) — in this story 2026-08-02 → 2026-08-05"));
     }
 
-    /// The continuity line, and only one of it.
     #[test]
     fn prior_packet_contributes_exactly_one_line() {
-        let mut p = packet(vec![claim(
-            1,
-            "ESPN",
-            "Arsenal agreed personal terms",
-            "transfer",
-        )]);
+        let mut p = packet(vec![]);
         p.prior_headline = Some("Arsenal open talks for Vinicius".into());
-        let out = render(&p, Some(&part()), Voice::Journalist);
+        let header = framing(&p, Some(&part()));
         assert_eq!(
-            out.text
+            header
                 .lines()
                 .filter(|l| l.starts_with("PREVIOUSLY:"))
                 .count(),
             1
         );
-    }
-
-    /// The budget is HARD, and what it costs is NAMED (A5). A packet of 300 claims renders inside
-    /// 2,000 estimated tokens, keeps the NEWEST, and names every article it dropped.
-    #[test]
-    fn budget_truncates_oldest_first_and_names_the_dropped() {
-        let claims: Vec<RenderClaim> = (0..300)
-            .rev() // newest (highest id) first, the loader's order
-            .map(|i| {
-                claim(
-                    i,
-                    "Source",
-                    "Arsenal and Real Madrid continued negotiating over the winger's future today",
-                    "transfer",
-                )
-            })
-            .collect();
-        let out = render(&packet(claims), Some(&part()), Voice::Journalist);
-
-        assert!(
-            out.est_tokens <= RENDER_TOKEN_BUDGET,
-            "render blew the budget: {} tokens",
-            out.est_tokens
-        );
-        assert!(out.claims_rendered > MIN_CLAIMS);
-        assert_eq!(out.claims_rendered + out.claims_dropped_from.len(), 300);
-        // The newest survived; the oldest (id 0) is named among the dropped, first.
-        assert!(out.text.contains("Source: Arsenal and Real Madrid"));
-        assert_eq!(out.claims_dropped_from.first(), Some(&0));
-        assert!(out.text.contains("older report(s) not shown"));
-    }
-
-    /// The property 7.2 asks for, stated over the shapes the corpus produces: NO packet renders
-    /// over budget, for ANY voice — including the pathological ones (giant headline, giant phrase,
-    /// 200 claims of maximum length).
-    #[test]
-    fn no_packet_renders_over_budget_for_any_voice() {
-        let long_fact = "word ".repeat(120);
-        for n_claims in [0usize, 1, 3, 25, 200] {
-            let claims: Vec<RenderClaim> = (0..n_claims)
-                .rev()
-                .map(|i| claim(i as i64, &"Outlet".repeat(8), &long_fact, "transfer"))
-                .collect();
-            let mut p = packet(claims);
-            p.headline = Some("H".repeat(4_000));
-            p.register_phrase = Some("P".repeat(4_000));
-            p.prior_headline = Some("Q".repeat(4_000));
-            for voice in [
-                Voice::Journalist,
-                Voice::Insider,
-                Voice::Influencer,
-                Voice::Analyst,
-                Voice::Oracle,
-            ] {
-                let out = render(&p, Some(&part()), voice);
-                // MIN_CLAIMS is a floor the header cannot starve, so an absurd header can push a
-                // render past the budget — but only by the floor's worth, never unboundedly.
-                let ceiling = RENDER_TOKEN_BUDGET
-                    + est_tokens(&"H".repeat(4_000)) * 3
-                    + MIN_CLAIMS * est_tokens(&long_fact);
-                assert!(
-                    out.est_tokens <= ceiling,
-                    "{voice:?} with {n_claims} claims rendered {} tokens",
-                    out.est_tokens
-                );
-            }
-        }
-    }
-
-    /// A packet with nothing this voice may read renders empty rather than a bare header — an
-    /// empty context is a fact the caller must see (7.3 treats it as "no material"), not a
-    /// headline pretending to be a corpus.
-    #[test]
-    fn a_slice_with_no_claims_renders_nothing_for_that_voice() {
-        let p = packet(vec![claim(
-            1,
-            "BBC",
-            "He trained fully on Monday",
-            "injury",
-        )]);
-        let out = render(&p, Some(&part()), Voice::Insider);
-        assert_eq!(out.claims_rendered, 0);
-        assert!(
-            out.text.contains("STORY:"),
-            "the Journalist's header still stands"
-        );
-        let none = render(&packet(vec![]), Some(&part()), Voice::Insider);
-        assert_eq!(none.claims_rendered, 0);
     }
 }

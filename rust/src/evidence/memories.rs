@@ -23,8 +23,6 @@ pub const VERSION: &str = "memories-v4";
 pub enum Mission {
     Scout,
     Analyst,
-    Journalist,
-    Influencer,
     Insider,
     Oracle,
     Editor,
@@ -37,8 +35,6 @@ impl Mission {
         match self {
             Self::Scout => "Interpret current measurements against supported historical baselines, participation and personnel context.",
             Self::Analyst => "Explain measured trajectories in their evidence windows and historical setting.",
-            Self::Journalist => "Identify consequential developments using attributed chronology and unresolved threads.",
-            Self::Influencer => "Interpret supported emotional context and its development; distinguish reporting tone from audience sentiment.",
             Self::Insider => "Assess the exact proposed relationship using roles, affiliations and this story's progression.",
             Self::Oracle => "Synthesize the selected findings while retaining their dates and shared evidence origins.",
             Self::Editor => "Locate the article's claims in the correct entity, role and time context.",

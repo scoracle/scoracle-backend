@@ -1,54 +1,51 @@
-//! The Journalist creates a grounded edition from a prepared corpus.
-//!
-//! Studio owns the brief, prompt, tolerant parser, deterministic grounding and impact scoring,
-//! and the model session. Packet retrieval, memory loading, debounce, queue ownership, storyline
-//! progression, and publication belong to the application adapter.
-
+//! Source-bound Journalist preparation and articulation. The plugin selects complete
+//! attributed reports; SmolLM3 articulates them, never selecting facts or scores.
+use super::memories;
+pub use super::memories::{Continuity, Selected};
+use crate::plugins::harvester::delivery::SourceContext;
+use crate::plugins::meta::EntityMeta;
 use crate::studio::model::GenerateOptions;
-use crate::studio::palette::{Paint, Palette, PaletteParser, PALETTE_NUM_PREDICT};
 use crate::studio::{Generation, GenerationCall, Parser, Studio};
-use anyhow::{anyhow, Result};
-use serde::Deserialize;
+use anyhow::{ensure, Result};
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashSet;
 
-mod brief;
-mod inputs;
-pub use crate::plugins::support::form::narratives_format_schema;
-pub use brief::{CHARACTER, NARRATIVES_PROMPT_VERSION, NARRATIVES_SYSTEM_PROMPT};
-pub use inputs::build_narratives_prompt;
+pub mod fresh;
+mod journalist;
+mod prompt;
+pub use journalist::CHARACTER;
+/// n95 attaches each report's history under the report itself and returns a flat
+/// keyed prose map. Both change the prepared world and the response surface, so
+/// this is a new contract and not a revision of n94.
+pub const NARRATIVES_PROMPT_VERSION: &str = "n95";
+pub const NUM_PREDICT: i32 = 900;
+pub const NARRATIVES_SYSTEM_PROMPT: &str = prompt::FRESH_TASK;
+pub const NARRATIVES_OUTPUT_CONTRACT_VERSION: &str = "narratives-v11-nested-history";
+pub const LOOKBACK_SECONDS: i64 = 72 * 3600;
+pub const MAX_REPORTS: usize = 3;
+pub const SOURCE_BUDGET_BYTES: usize = 6000;
+pub const CONTEXT_BUDGET_BYTES: usize = SOURCE_BUDGET_BYTES + memories::BUDGET_BYTES;
 
-/// Output schema version for the parsed narrative document, distinct from the prompt contract.
-pub const NARRATIVES_OUTPUT_CONTRACT_VERSION: &str = "narratives-v4-palette";
-pub const NARRATIVES_TEMPERATURE: f64 = 0.6;
-pub const NARRATIVES_NUM_PREDICT: i32 = 1000;
-pub const NARRATIVES_NUM_PREDICT_PACKET: i32 = 900;
-const DESC_TRUNCATE: usize = 200;
-
-/// Subject of a Journalist assignment. Durable identifiers and trigger policy stay outside Studio.
-#[derive(Clone, Debug)]
-pub struct Subject {
-    pub entity_type: String,
-    pub entity_name: String,
-    pub sport: String,
-}
-
-/// One prepared article-sized evidence item. Model citations use its position in the assignment;
-/// product provenance uses its durable article id.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CorpusItem {
     pub id: i64,
     pub title: String,
-    pub description: String,
+    pub context: String,
     pub source: String,
     pub published_at_epoch: Option<i64>,
 }
-
-#[derive(Clone, Debug, Default)]
-pub struct CorpusExclusions {
-    pub budget_truncated_ids: Vec<i64>,
+impl From<&SourceContext> for CorpusItem {
+    fn from(s: &SourceContext) -> Self {
+        Self {
+            id: s.article_id,
+            title: s.headline.clone(),
+            context: s.context.clone(),
+            source: s.source.clone(),
+            published_at_epoch: s.published_at_epoch,
+        }
+    }
 }
-
 /// One grounded storyline with deterministic impact and evidence provenance.
 #[derive(Clone, Debug)]
 pub struct Narrative {
@@ -63,388 +60,265 @@ pub struct Narrative {
     pub source_oldest_epoch: Option<i64>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize)]
-struct ModelNarrative {
-    #[serde(default)]
-    title: String,
-    #[serde(default)]
-    body: String,
-    #[serde(default)]
-    articles: Vec<i32>,
+#[derive(Clone, Debug)]
+pub struct Disposition {
+    pub article_id: i64,
+    pub reason: &'static str,
+}
+#[derive(Clone, Debug)]
+pub struct Assignment {
+    pub subject: EntityMeta,
+    pub selected: Vec<CorpusItem>,
+    /// Index-aligned with `selected`: the history this plugin attached to each
+    /// report, or `None` where it could not determine which history belongs.
+    pub memories: Vec<Option<memories::Selected>>,
+    pub memory_receipt: Option<memories::Receipt>,
+    pub dispositions: Vec<Disposition>,
+    pub deferred_ids: Vec<i64>,
+    pub input_hash: String,
 }
 
-/// Salvaged and surface-validated model document.
-#[derive(Clone, Debug, Default)]
-pub struct ParsedNarratives {
-    narratives: Vec<ModelNarrative>,
-    card_score: Option<i16>,
-    headline: Option<String>,
-}
-
-impl ParsedNarratives {
-    pub fn returned(&self) -> impl Iterator<Item = (&str, &str, &[i32])> {
-        self.narratives
-            .iter()
-            .map(|n| (n.title.as_str(), n.body.as_str(), n.articles.as_slice()))
-    }
-
-    pub fn card_score(&self) -> Option<i16> {
-        self.card_score
-    }
-
-    pub fn headline(&self) -> Option<&str> {
-        self.headline.as_deref()
-    }
-}
-
-/// Tolerant parser: a complete empty array is a valid quiet edition; malformed output with no
-/// salvageable story is an error so the application retries rather than publishing a marker.
-pub struct NarrativesParser;
-
-impl Parser<ParsedNarratives> for NarrativesParser {
-    fn parse(&self, raw: &str) -> Result<Option<ParsedNarratives>> {
-        let (mut narratives, ok) = parse_narratives(raw);
-        if !ok {
-            return Err(anyhow!(
-                "parse narratives failed (raw={:?})",
-                crate::util::truncate(raw, 200)
-            ));
-        }
-        for narrative in &mut narratives {
-            narrative.title = crate::plugins::support::guards::clean_served_prose(&narrative.title);
-            narrative.body = crate::plugins::support::guards::clean_served_prose(&narrative.body);
-        }
-        if !narratives.is_empty() {
-            let body = narratives
-                .iter()
-                .map(|n| n.body.as_str())
-                .collect::<Vec<_>>()
-                .join("\n\n");
-            crate::plugins::support::form::validate_body(&body)?;
-        }
-        for narrative in &narratives {
-            if let Some(product) = crate::plugins::support::guards::first_product_name(
-                &narrative.title,
-            )
-            .or_else(|| crate::plugins::support::guards::first_product_name(&narrative.body))
-            {
-                tracing::warn!(
-                    guard = "product_name",
-                    name = product,
-                    "narratives edition rejected"
-                );
-                return Err(anyhow!("narratives: storyline names product {product:?}"));
-            }
-        }
-        let card_score = parse_card_score(raw);
-        crate::plugins::support::form::validate_hook(parse_headline(raw).as_deref())?;
-        let headline = crate::plugins::support::guards::settle_title(
-            "journalist",
-            parse_headline(raw).as_deref(),
+/// Exact-text equality is duplication, never semantic corroboration. Preserve
+/// complete openings: a missing late qualification is worse than abstention.
+pub fn prepare(
+    subject: EntityMeta,
+    mut corpus: Vec<CorpusItem>,
+    memory: &Continuity,
+    now: i64,
+) -> Result<Assignment> {
+    ensure!(
+        memory
+            .study
+            .as_ref()
+            .is_none_or(|s| s.receipt.subject == subject),
+        "memory subject does not match assignment"
+    );
+    ensure!(
+        subject.entity_id > 0
+            && !subject.name.trim().is_empty()
+            && !subject.sport.trim().is_empty()
+            && !subject.entity_type.trim().is_empty(),
+        "Journalist subject metadata is incomplete"
+    );
+    corpus.sort_by(|a, b| {
+        b.published_at_epoch
+            .cmp(&a.published_at_epoch)
+            .then(b.id.cmp(&a.id))
+    });
+    let mut selected = Vec::new();
+    let mut dispositions = Vec::new();
+    let mut deferred_ids = Vec::new();
+    let mut seen = memory
+        .published_reports
+        .iter()
+        .map(|r| r.context.clone())
+        .collect::<HashSet<_>>();
+    let mut ids = HashSet::new();
+    for item in corpus {
+        ensure!(
+            item.id > 0 && ids.insert(item.id),
+            "duplicate or invalid article identity"
         );
-        Ok(Some(ParsedNarratives {
-            narratives,
-            card_score,
-            headline,
-        }))
+        let reason = if item.context.trim().is_empty() || item.source.trim().is_empty() {
+            Some("missing_source_material")
+        } else if crate::plugins::support::source::contains_instruction_override(&item.context) {
+            Some("source_instruction_override")
+        } else if item.published_at_epoch.is_none() {
+            Some("unknown_publication_time")
+        } else if item.published_at_epoch.unwrap() > now {
+            Some("future_publication_time")
+        } else if now.saturating_sub(item.published_at_epoch.unwrap()) > LOOKBACK_SECONDS {
+            Some("outdated_report")
+        } else if seen.contains(&item.context) {
+            Some("already_reported_exact_text")
+        } else {
+            None
+        };
+        if let Some(reason) = reason {
+            dispositions.push(Disposition {
+                article_id: item.id,
+                reason,
+            });
+            continue;
+        }
+        if render_context(&subject, std::slice::from_ref(&item), &[]).len() > SOURCE_BUDGET_BYTES {
+            dispositions.push(Disposition {
+                article_id: item.id,
+                reason: "complete_report_exceeds_context_budget",
+            });
+            continue;
+        }
+        let mut candidate = selected.clone();
+        candidate.push(item.clone());
+        if selected.len() == MAX_REPORTS
+            || render_context(&subject, &candidate, &[]).len() > SOURCE_BUDGET_BYTES
+        {
+            deferred_ids.push(item.id);
+            continue;
+        }
+        seen.insert(item.context.clone());
+        selected.push(item);
+    }
+    let memories = memories::select(memory, &selected, now, |history| {
+        render_context(&subject, &selected, history).len() <= CONTEXT_BUDGET_BYTES
+    });
+    // The world is assembled once and both rendered and hashed from, so the
+    // fingerprint always describes the package the model will actually read.
+    let world = assemble(&subject, &selected, &memories);
+    let input_hash = crate::util::hash_components(
+        &json!({
+            "subject": subject, "reports": selected, "version": NARRATIVES_PROMPT_VERSION,
+            "memory_source_hash": memory.study.as_ref().map(|s| &s.receipt.input_hash),
+            "fresh_contract": fresh::VERSION, "world": world.hash(), "memories": memories,
+        })
+        .to_string(),
+    );
+    Ok(Assignment {
+        subject,
+        selected,
+        memories,
+        memory_receipt: memory.study.as_ref().map(|s| s.receipt.clone()),
+        dispositions,
+        deferred_ids,
+        input_hash,
+    })
+}
+
+/// Compose the model's world from independently prepared components.
+///
+/// History is nested under the report it belongs to. The plugin resolved that
+/// attachment before this function is called, so the model reads one prepared
+/// set per report and is never handed two parallel arrays to pair up itself.
+///
+/// The parts and their order are this plugin's choice; `assembly::World` only
+/// renders them, deterministically and in the order given here.
+fn render_context(
+    subject: &EntityMeta,
+    reports: &[CorpusItem],
+    history: &[Option<memories::Selected>],
+) -> String {
+    assemble(subject, reports, history).render()
+}
+
+/// This plugin's parts, in a form a quality fixture can store.
+///
+/// A fixture that stores only a rendered prompt cannot detect a changed
+/// assembler: the stored string keeps passing while production sends something
+/// else. Storing the parts and rebuilding through [`assemble`] makes that a test
+/// failure. The type lives here because this plugin owns what its parts are;
+/// the harness only chooses the JSON.
+///
+/// `memory` is index-aligned with `reports` — the same attachment production
+/// resolved, so a stored fixture exercises the nesting rather than describing
+/// it. `GroupSummary::before_epoch` is not serialized and does not reach the
+/// model, so it does not survive the round trip; nothing rendered here reads it.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Parts {
+    pub subject: EntityMeta,
+    pub reports: Vec<CorpusItem>,
+    pub memory: Vec<Option<memories::Selected>>,
+}
+
+impl Parts {
+    pub fn assemble(&self) -> String {
+        assemble(&self.subject, &self.reports, &self.memory).render()
     }
 }
 
-pub fn narratives_decode_budget(num_ctx: i32) -> (i32, i32) {
-    if crate::studio::model::small_voice_window(num_ctx) {
-        (num_ctx, NARRATIVES_NUM_PREDICT_PACKET)
-    } else {
-        (num_ctx, NARRATIVES_NUM_PREDICT)
-    }
+/// The prepared world, before it is rendered.
+///
+/// Returned rather than rendered inline so preparation can measure and hash the
+/// same world the model reads, instead of assembling it again and hoping the two
+/// agree.
+///
+/// Public so the evaluation harness can assemble a stored world through the
+/// plugin's own function rather than a frozen prompt string: these three
+/// arguments *are* the parts, and nothing else is.
+pub fn assemble(
+    subject: &EntityMeta,
+    reports: &[CorpusItem],
+    history: &[Option<memories::Selected>],
+) -> crate::plugins::assembly::World {
+    let attached = history
+        .iter()
+        .map(|slot| {
+            let (items, groups) = slot
+                .as_ref()
+                .map(|h| (h.items.as_slice(), h.groups.as_slice()))
+                .unwrap_or_default();
+            fresh::History {
+                history: items,
+                history_groups: groups,
+            }
+        })
+        .collect::<Vec<_>>();
+    crate::plugins::assembly::World::new()
+        .part("identity", subject.for_writing())
+        .part("fresh", fresh::prepare(reports, &attached))
+        .part("voice", journalist::CHARACTER)
+        .part(
+            "form",
+            crate::plugins::support::form::journalist_form(reports.len()),
+        )
 }
 
-pub fn generation_options(temperature: f64, num_ctx: i32) -> GenerateOptions {
-    let (num_ctx, num_predict) = narratives_decode_budget(num_ctx);
+/// Production and replay use the exact assembled context measured by preparation.
+pub fn prompt(assignment: &Assignment) -> String {
+    render_context(
+        &assignment.subject,
+        &assignment.selected,
+        &assignment.memories,
+    )
+}
+pub fn system_prompt(assignment: &Assignment) -> &'static str {
+    // A package where some reports carry history and others do not is a real
+    // shape rather than an error. The manual describes history per report, so
+    // the history task is selected when any report has one.
+    prompt::task(
+        assignment
+            .memories
+            .iter()
+            .any(|slot| slot.as_ref().is_some_and(|h| !h.is_empty())),
+    )
+}
+pub fn generation_options(assignment: &Assignment, num_ctx: i32) -> GenerateOptions {
     GenerateOptions {
-        system: Some(NARRATIVES_SYSTEM_PROMPT.to_string()),
-        temperature: Some(temperature),
-        num_predict,
+        system: Some(system_prompt(assignment).to_string()),
+        temperature: Some(0.0),
+        num_predict: NUM_PREDICT,
         num_ctx,
         json_mode: false,
-        format_schema: Some(narratives_format_schema()),
+        // The package supplies the form to the model; the matching grammar and parser keep
+        // publication atomic without adding content direction.
+        format_schema: Some(crate::plugins::support::form::journalist_schema(
+            assignment.selected.len(),
+        )),
         format_schema_raw: None,
     }
 }
 
-fn article_context(item: &CorpusItem) -> (&str, usize) {
-    if description_adds_nothing(&item.description, &item.title, &item.source) {
-        return ("", DESC_TRUNCATE);
-    }
-    (&item.description, DESC_TRUNCATE)
-}
-
-fn description_adds_nothing(description: &str, title: &str, source: &str) -> bool {
-    let description = context_tokens(description);
-    if description.is_empty() {
-        return true;
-    }
-    let mut known: HashSet<String> = context_tokens(title).into_iter().collect();
-    known.extend(context_tokens(source));
-    description.iter().all(|token| known.contains(token))
-}
-
-fn context_tokens(value: &str) -> Vec<String> {
-    value
-        .to_lowercase()
-        .split(|c: char| !c.is_alphanumeric())
-        .filter(|token| !token.is_empty())
-        .map(str::to_string)
-        .collect()
-}
-
-/// Bound prepared evidence by its projected prompt cost while retaining at least one item.
-pub(crate) fn apply_news_budget(
-    corpus: Vec<CorpusItem>,
-    budget: usize,
-) -> (Vec<CorpusItem>, Vec<i64>) {
-    let mut spent = 0usize;
-    let mut kept = Vec::with_capacity(corpus.len());
-    let mut dropped = Vec::new();
-    for item in corpus {
-        let (body, cap) = article_context(&item);
-        let cost = 8 + item.source.len() + item.title.len() + body.len().min(cap);
-        if spent + cost > budget && !kept.is_empty() {
-            dropped.push(item.id);
-            continue;
-        }
-        spent += cost;
-        kept.push(item);
-    }
-    (kept, dropped)
-}
-
-#[cfg(test)]
-fn render_signals_line(corpus: &[CorpusItem], now_epoch: i64) -> String {
-    let sources: HashSet<&str> = corpus
+/// Descriptive source activity, not confidence, significance or corroboration.
+fn compute_news_impact(corpus: &[CorpusItem], now: i64) -> (i32, serde_json::Value) {
+    let volume = 60.0 * (1.0 - (-(corpus.len() as f64) / 5.0).exp());
+    let sources = corpus
         .iter()
-        .filter(|item| !item.source.is_empty())
-        .map(|item| item.source.as_str())
-        .collect();
-    let mut line = format!(
-        "SIGNALS (deterministic tally for your card score): {} article(s) after dedup · {} distinct source(s)",
-        corpus.len(),
-        sources.len()
-    );
-    if let Some(freshest) = corpus
-        .iter()
-        .filter_map(|item| item.published_at_epoch)
-        .max()
-    {
-        let age_hours = (now_epoch - freshest).max(0) / 3600;
-        if age_hours < 48 {
-            line.push_str(&format!(" · freshest {age_hours}h ago"));
-        } else {
-            line.push_str(&format!(" · freshest {}d ago", age_hours / 24));
-        }
-    }
-    line
-}
-
-fn parse_narratives(raw: &str) -> (Vec<ModelNarrative>, bool) {
-    let mut out = Vec::new();
-    let Some(key) = raw.find("\"narratives\"") else {
-        return (out, false);
-    };
-    let Some(left_bracket) = raw.as_bytes()[key..].iter().position(|&byte| byte == b'[') else {
-        return (out, false);
-    };
-    let input = &raw.as_bytes()[key + left_bracket + 1..];
-    let mut depth = 0_i32;
-    let mut start = -1_i64;
-    let mut in_string = false;
-    let mut escaped = false;
-    let mut index = 0usize;
-    while index < input.len() {
-        let byte = input[index];
-        if in_string {
-            if escaped {
-                escaped = false;
-            } else if byte == b'\\' {
-                escaped = true;
-            } else if byte == b'"' {
-                in_string = false;
-            }
-            index += 1;
-            continue;
-        }
-        match byte {
-            b'"' => in_string = true,
-            b'{' => {
-                if depth == 0 {
-                    start = index as i64;
-                }
-                depth += 1;
-            }
-            b'}' => {
-                if depth > 0 {
-                    depth -= 1;
-                    if depth == 0 && start >= 0 {
-                        if let Ok(text) = std::str::from_utf8(&input[start as usize..=index]) {
-                            if let Ok(narrative) = serde_json::from_str::<ModelNarrative>(text) {
-                                out.push(narrative);
-                            }
-                        }
-                        start = -1;
-                    }
-                }
-            }
-            b']' if depth == 0 => return (out, true),
-            _ => {}
-        }
-        index += 1;
-    }
-    let ok = !out.is_empty();
-    (out, ok)
-}
-
-fn parse_card_score(raw: &str) -> Option<i16> {
-    let key = raw.find("\"card_score\"")?;
-    let rest = &raw[key + "\"card_score\"".len()..];
-    let colon = rest.find(':')?;
-    let value = rest[colon + 1..].trim_start().trim_start_matches('"');
-    let head: String = value
-        .chars()
-        .take_while(|c| c.is_ascii_digit() || *c == '-' || *c == '.')
-        .collect();
-    let score = match head.parse::<i64>() {
-        Ok(score) => score,
-        Err(_) => head.parse::<f64>().ok().filter(|f| f.is_finite())?.round() as i64,
-    };
-    Some(score.clamp(1, 99) as i16)
-}
-
-fn parse_headline(raw: &str) -> Option<String> {
-    if let Ok(value) = serde_json::from_str::<serde_json::Value>(raw.trim()) {
-        if let Some(headline) = value.get("headline").and_then(|headline| headline.as_str()) {
-            let headline = headline.trim();
-            if !headline.is_empty() {
-                return Some(headline.to_string());
-            }
-        }
-        return None;
-    }
-    let key = raw.find("\"headline\"")?;
-    let rest = &raw[key + "\"headline\"".len()..];
-    let colon = rest.find(':')?;
-    let after = rest[colon + 1..].trim_start();
-    let mut chars = after.char_indices();
-    let (_, quote) = chars.next()?;
-    if quote != '"' {
-        return None;
-    }
-    let mut out = String::new();
-    let mut escaped = false;
-    for (_, character) in chars {
-        if escaped {
-            match character {
-                'n' | 't' => out.push(' '),
-                other => out.push(other),
-            }
-            escaped = false;
-        } else if character == '\\' {
-            escaped = true;
-        } else if character == '"' {
-            let out = out.trim();
-            return (!out.is_empty()).then(|| out.to_string());
-        } else {
-            out.push(character);
-        }
-    }
-    None
-}
-
-#[cfg(test)]
-fn ground_narratives(
-    parsed: &[ModelNarrative],
-    corpus: &[CorpusItem],
-    now_epoch: i64,
-) -> Vec<Narrative> {
-    let mut out = Vec::with_capacity(parsed.len());
-    for parsed_narrative in parsed {
-        let title = parsed_narrative.title.trim();
-        let body = parsed_narrative.body.trim();
-        if title.is_empty() || body.is_empty() {
-            continue;
-        }
-        let mut seen = HashSet::with_capacity(parsed_narrative.articles.len());
-        let mut subset = Vec::new();
-        let mut ids = Vec::new();
-        for &number in &parsed_narrative.articles {
-            if number < 1 {
-                continue;
-            }
-            let index = (number - 1) as usize;
-            if index >= corpus.len() || !seen.insert(index) {
-                continue;
-            }
-            subset.push(corpus[index].clone());
-            ids.push(corpus[index].id);
-        }
-        if subset.is_empty() {
-            continue;
-        }
-        let (impact, impact_components) = compute_news_impact(&subset, now_epoch);
-        let (source_count, source_names, source_latest_epoch, source_oldest_epoch) =
-            source_metadata(&subset);
-        out.push(Narrative {
-            title: title.to_string(),
-            body: body.to_string(),
-            impact,
-            impact_components,
-            input_news_ids: ids,
-            source_count,
-            source_names,
-            source_latest_epoch,
-            source_oldest_epoch,
-        });
-    }
-    out
-}
-
-fn compute_news_impact(corpus: &[CorpusItem], now_epoch: i64) -> (i32, serde_json::Value) {
-    let count = corpus.len();
-    let volume = 60.0_f64 * (1.0 - (-(count as f64) / 5.0).exp());
-    let distinct_sources = corpus
-        .iter()
-        .filter(|item| !item.source.is_empty())
-        .map(|item| item.source.to_lowercase())
+        .map(|s| s.source.to_lowercase())
         .collect::<HashSet<_>>()
         .len();
-    let corroboration = 25.0_f64.min(distinct_sources as f64 * 6.0);
-    let newest = corpus
-        .iter()
-        .filter_map(|item| item.published_at_epoch)
-        .max();
-    let recency = newest.map_or(0.0, |newest| {
-        let age = now_epoch - newest;
-        if age <= 12 * 3600 {
-            15.0
-        } else if age <= 24 * 3600 {
-            10.0
-        } else if age <= 48 * 3600 {
-            5.0
-        } else {
-            0.0
-        }
+    let breadth = 25.0_f64.min(sources as f64 * 6.0);
+    let newest = corpus.iter().filter_map(|s| s.published_at_epoch).max();
+    let recency = newest.map_or(0.0, |t| match now.saturating_sub(t) {
+        0..=43200 => 15.0,
+        43201..=86400 => 10.0,
+        86401..=172800 => 5.0,
+        _ => 0.0,
     });
-    let score = (volume + corroboration + recency).round().clamp(0.0, 100.0) as i32;
     (
-        score,
-        json!({
-            "article_count": count,
-            "distinct_sources": distinct_sources,
-            "volume": (volume * 10.0).round() / 10.0,
-            "corroboration": (corroboration * 10.0).round() / 10.0,
-            "recency": recency,
-        }),
+        (volume + breadth + recency).round().clamp(0.0, 100.0) as i32,
+        json!({"policy":"source-activity-v2", "article_count":corpus.len(),
+            "distinct_sources":sources, "volume":volume, "source_breadth":breadth,"recency":recency}),
     )
 }
-
 fn source_metadata(corpus: &[CorpusItem]) -> (i32, Vec<String>, Option<i64>, Option<i64>) {
     let mut source_names = Vec::new();
     let mut seen_sources = HashSet::new();
@@ -463,69 +337,82 @@ fn source_metadata(corpus: &[CorpusItem]) -> (i32, Vec<String>, Option<i64>, Opt
     (corpus.len() as i32, source_names, latest, oldest)
 }
 
-/// Stable per-article fingerprint retained in the debounce pre-image.
-pub const READING_FINGERPRINT_NONE: &str = "none::0";
-
-pub fn build_article_reading_input_components(items: &[(i64, String)]) -> String {
-    let mut pairs = items.to_vec();
-    pairs.sort_by_key(|(id, _)| *id);
-    crate::util::hash_components(
-        &serde_json::to_string(&pairs).expect("article fingerprint tuples serialize"),
-    )
-}
-
-pub fn build_narratives_input_components(corpus: &[CorpusItem]) -> String {
-    let mut ids: Vec<i64> = corpus.iter().map(|item| item.id).collect();
-    ids.sort_unstable();
-    let article_readings: Vec<(i64, String)> = corpus
-        .iter()
-        .map(|item| (item.id, READING_FINGERPRINT_NONE.to_string()))
-        .collect();
-    serde_json::json!({
-        "article_ids": ids,
-        "article_readings_hash": build_article_reading_input_components(&article_readings),
-        "prompt_version": NARRATIVES_PROMPT_VERSION,
-    })
-    .to_string()
-}
-
-/// The application's complete, prepared creation contract.
-#[derive(Clone, Debug)]
-pub struct Assignment {
-    pub subject: Subject,
-    pub corpus: Vec<CorpusItem>,
-    pub corpus_exclusions: CorpusExclusions,
-    pub memory: Option<String>,
-    pub packet_framing: Option<String>,
-    pub input_hash: String,
-    pub card_score_prev: Option<i16>,
-    pub options: GenerateOptions,
-}
-
-/// The unpersisted result of one edition. An empty narrative set becomes one marker row.
 #[derive(Clone, Debug)]
 pub struct NarrativesProduct {
+    pub memory_provenance: serde_json::Value,
     pub narratives: Vec<Narrative>,
     pub budget_truncated_ids: Vec<i64>,
     pub card_score: Option<i16>,
-    pub card_score_prev: Option<i16>,
     pub headline: Option<String>,
 }
-
 pub type NarrativesOutput = Generation<NarrativesProduct>;
 
+/// Production and replay share the same strict form parser and source mapping.
+/// This checks shape and surface, not semantic entailment; fidelity is evaluated
+/// against the prepared reports, not inferred from parser success.
+pub struct EditionParser<'a> {
+    pub assignment: &'a Assignment,
+    pub now: i64,
+}
+impl Parser<NarrativesProduct> for EditionParser<'_> {
+    fn parse(&self, raw: &str) -> Result<Option<NarrativesProduct>> {
+        let reply =
+            crate::plugins::support::form::parse_journalist(raw, self.assignment.selected.len())?;
+        let narratives = self
+            .assignment
+            .selected
+            .iter()
+            .zip(reply.narratives)
+            .map(|(item, prose)| {
+                let (impact, impact_components) =
+                    compute_news_impact(std::slice::from_ref(item), self.now);
+                // Historical study lineage is retained separately. It cannot
+                // inflate the fresh-source count, dates, score or delivery IDs.
+                let evidence = std::slice::from_ref(item);
+                let (source_count, source_names, source_latest_epoch, source_oldest_epoch) =
+                    source_metadata(evidence);
+                let title = fresh::opening(item, &self.assignment.subject.name);
+                crate::plugins::support::form::validate_hook(Some(&title))?;
+                Ok(Narrative {
+                    title,
+                    body: prose.text,
+                    impact,
+                    impact_components,
+                    input_news_ids: evidence.iter().map(|r| r.id).collect(),
+                    source_count,
+                    source_names,
+                    source_latest_epoch,
+                    source_oldest_epoch,
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let headline = narratives.first().map(|narrative| narrative.title.clone());
+        Ok(Some(NarrativesProduct {
+            memory_provenance: json!({"receipt":self.assignment.memory_receipt,"selected":self.assignment.memories}),
+            narratives,
+            budget_truncated_ids: self.assignment.deferred_ids.clone(),
+            card_score: Some(
+                compute_news_impact(&self.assignment.selected, self.now)
+                    .0
+                    .clamp(1, 99) as i16,
+            ),
+            headline,
+        }))
+    }
+}
 pub async fn create(
     studio: &Studio<'_>,
     assignment: &Assignment,
-    now_epoch: i64,
+    now: i64,
+    num_ctx: i32,
 ) -> Result<NarrativesOutput> {
-    if assignment.corpus.is_empty() {
+    if assignment.selected.is_empty() {
         return Ok(Generation::uncalled(
             NarrativesProduct {
+                memory_provenance: json!({"receipt":assignment.memory_receipt,"selected":assignment.memories}),
                 narratives: Vec::new(),
-                budget_truncated_ids: assignment.corpus_exclusions.budget_truncated_ids.clone(),
+                budget_truncated_ids: assignment.deferred_ids.clone(),
                 card_score: None,
-                card_score_prev: None,
                 headline: None,
             },
             studio.model_name().to_string(),
@@ -534,109 +421,25 @@ pub async fn create(
             Some(assignment.input_hash.clone()),
         ));
     }
-
-    let selected = assignment
-        .corpus
-        .iter()
-        .take(3)
-        .cloned()
-        .collect::<Vec<_>>();
-    let mut excluded_ids = assignment.corpus_exclusions.budget_truncated_ids.clone();
-    excluded_ids.extend(assignment.corpus.iter().skip(3).map(|item| item.id));
-    let palette = news_palette(&assignment.subject.entity_name, &selected)?;
-    let mut options = assignment.options.clone();
-    options.system =
-        Some("Choose only the approved, attributed source phrasings. Return JSON choices.".into());
-    options.temperature = Some(0.0);
-    options.num_predict = PALETTE_NUM_PREDICT;
-    options.format_schema = Some(palette.schema());
-    let extracted = studio
+    let output = studio
         .extract(
-            &palette.prompt(),
-            &options,
-            &PaletteParser(&palette),
-            crate::plugins::support::form::structured_correction,
+            &prompt(assignment),
+            &generation_options(assignment, num_ctx),
+            &EditionParser { assignment, now },
+            |_| None,
         )
         .await?;
-    let call = GenerationCall::from(&extracted);
-    let model = extracted.model.clone();
-    let body = extracted
-        .value
-        .ok_or_else(|| anyhow!("narratives: palette parser returned no value"))?;
-    crate::plugins::support::form::validate_body(&body)?;
-    let (impact, impact_components) = compute_news_impact(&selected, now_epoch);
-    let (source_count, source_names, source_latest_epoch, source_oldest_epoch) =
-        source_metadata(&selected);
-    let input_ids = selected.iter().map(|item| item.id).collect::<Vec<_>>();
-    let narratives = vec![Narrative {
-        title: format!("{}: current reporting", assignment.subject.entity_name),
-        body,
-        impact,
-        impact_components,
-        input_news_ids: input_ids.clone(),
-        source_count,
-        source_names,
-        source_latest_epoch,
-        source_oldest_epoch,
-    }];
-
+    let call = GenerationCall::from(&output);
     Ok(Generation::called(
-        NarrativesProduct {
-            narratives,
-            budget_truncated_ids: excluded_ids,
-            card_score: Some(
-                compute_news_impact(&assignment.corpus, now_epoch)
-                    .0
-                    .clamp(1, 99) as i16,
-            ),
-            card_score_prev: assignment.card_score_prev,
-            headline: crate::plugins::support::guards::settle_title(
-                "journalist",
-                Some(&format!(
-                    "{}: current reporting",
-                    assignment.subject.entity_name
-                )),
-            ),
-        },
-        model,
+        output
+            .value
+            .ok_or_else(|| anyhow::anyhow!("missing edition"))?,
+        output.model,
         NARRATIVES_PROMPT_VERSION,
-        input_ids,
+        assignment.selected.iter().map(|s| s.id).collect(),
         Some(assignment.input_hash.clone()),
         call,
     ))
 }
-
-fn news_palette(entity: &str, corpus: &[CorpusItem]) -> Result<Palette> {
-    let paints = corpus
-        .iter()
-        .enumerate()
-        .map(|(index, item)| {
-            let source = if item.source.trim().is_empty() {
-                "The source"
-            } else {
-                item.source.trim()
-            };
-            let title = item.title.trim();
-            let (context, _) = article_context(item);
-            let detail = crate::util::truncate_bytes(context.trim(), 180);
-            let finding = if detail.is_empty() {
-                title.to_string()
-            } else {
-                detail
-            };
-            Paint {
-                id: format!("article_{index}"),
-                phrasings: vec![
-                    format!("For {entity}, {source} reports: {finding}"),
-                    format!("{source}'s report concerning {entity} says: {finding}"),
-                ],
-            }
-        })
-        .collect();
-    let palette = Palette { paints };
-    palette.validate()?;
-    Ok(palette)
-}
-
 #[cfg(test)]
 mod tests;

@@ -1,7 +1,9 @@
 //! Graph evidence preparation and claim-fenced publication. Model interpretation lives in Studio.
 use crate::application::models::ExecutionCapabilities;
 use crate::application::queue::publication::ClaimPublication;
+use crate::application::queue::work;
 use crate::application::queue::work::Item;
+use crate::evidence::news::slice_quote;
 use crate::plugins::graph::cognition::{
     Assignment, GraphArticle, GraphCandidate, GraphExtraction, GraphPerson, GraphRelation,
     GRAPH_PROMPT_VERSION,
@@ -12,8 +14,11 @@ use crate::studio::{Extracted, Generation, GenerationCall, Studio};
 use crate::util::hash_components;
 use anyhow::{ensure, Context, Result};
 use async_trait::async_trait;
+use sha2::{Digest, Sha256};
 use sqlx::{PgPool, Row};
 use tracing::debug;
+
+mod fixture;
 
 const GRAPH_LEDGER: LedgerSpec = LedgerSpec {
     plugin_id: crate::plugins::graph::manifest::MANIFEST.id.as_str(),
@@ -24,8 +29,8 @@ const GRAPH_LEDGER: LedgerSpec = LedgerSpec {
     output_contract_version: "graph-extraction-v1",
 };
 
-/// load_graph_article_context loads one article + its Editor-linked entities as the
-/// closed candidate list (players with identity-card descriptors, teams by name) — the
+/// load_graph_article_context loads one article plus resolved links and Harvester
+/// name-match candidates (players with identity-card descriptors, teams by name) — the
 /// shared deterministic prefix of the probe, the eval lens, and the stage handler.
 /// `Ok(None)` when the article is missing or has no linked entities (nothing to extract
 /// against — the fail-closed empty path).
@@ -37,27 +42,58 @@ pub async fn load_graph_article_context(
     // `duplicate_of IS NULL` makes a stale queue row or a
     // hand-enqueued repair fall through the same `Ok(None)` path as a missing article rather than
     // spending a model call on something the dedup sweep already suppressed.
-    // The article's context text prefers the Editor's evidence blurb and falls back to the
-    // RSS description, which is usually title-adjacent duplication.
+    // Exact publisher context wins for Harvester articles; historical Editor
+    // evidence remains readable until its old claims have drained.
     let row = sqlx::query(
         r#"
-        SELECT COALESCE(a.source, 'unknown'), a.published_at::date::text, a.title,
+        SELECT COALESCE(a.source, 'unknown'), a.published_at::date::text,
+               COALESCE(h.headline, a.title),
                COALESCE(
+                   h.context_text,
                    NULLIF(TRIM(er.read ->> 'evidence_blurb'), ''),
                    a.description,
                    ''
-               )
+               ), h.body_sha256, h.context_start, h.context_end, a.full_text,
+               a.title
         FROM news_articles a
+        LEFT JOIN LATERAL (
+            SELECT c.headline, c.context_text, c.body_sha256,
+                   c.context_start, c.context_end
+            FROM public.harvester_classifications c
+            WHERE c.article_id=a.id AND c.sport=$2
+            ORDER BY c.created_at DESC, c.id DESC
+            LIMIT 1
+        ) h ON true
         LEFT JOIN editor_reads er
                ON er.article_id = a.id AND er.status = 'success'
         WHERE a.id = $1 AND a.duplicate_of IS NULL
         "#,
     )
     .bind(article_id)
+    .bind(sport)
     .fetch_optional(pool)
     .await
     .context("load graph article")?;
     let Some(row) = row else { return Ok(None) };
+    let context_hash: Option<String> = row.get(4);
+    if let Some(hash) = context_hash {
+        let body: String = row
+            .get::<Option<String>, _>(7)
+            .context("Graph Harvester article has no retained publisher body")?;
+        let start: i32 = row.get(5);
+        let end: i32 = row.get(6);
+        let source_text: String = row.get(3);
+        let headline: String = row.get(2);
+        let title: String = row.get(8);
+        ensure!(
+            start >= 0
+                && end >= start
+                && hex::encode(Sha256::digest(body.as_bytes())) == hash
+                && body.get(start as usize..end as usize) == Some(source_text.as_str())
+                && headline == title,
+            "Graph Harvester source hash or byte range drift"
+        );
+    }
     let article = GraphArticle {
         source: row.get(0),
         published: row.get::<Option<String>, _>(1).unwrap_or_default(),
@@ -70,7 +106,15 @@ pub async fn load_graph_article_context(
         SELECT e.entity_type, e.entity_id,
                COALESCE(p.name, t.name, pp.full_name, '?') AS name,
                COALESCE(ct.name, '') AS current_club
-        FROM news_article_entities e
+        FROM (
+            SELECT article_id, entity_type, entity_id, sport
+              FROM public.news_article_entities
+             WHERE article_id=$1 AND sport=$2
+            UNION
+            SELECT article_id, entity_type, entity_id, sport
+              FROM public.harvester_entity_mentions
+             WHERE article_id=$1 AND sport=$2
+        ) e
         LEFT JOIN players p ON e.entity_type='player' AND p.id=e.entity_id AND p.sport=e.sport
         LEFT JOIN teams t ON e.entity_type='team' AND t.id=e.entity_id AND t.sport=e.sport
         LEFT JOIN persons pp ON e.entity_type='person' AND pp.id=e.entity_id AND pp.sport=e.sport
@@ -241,6 +285,19 @@ async fn commit_claimed(pool: &PgPool, item: &Item, prepared: &Prepared) -> Resu
         }
         for person in persons {
             accumulate_person(publication.transaction(), article_id, &sport, model, person).await?;
+            nominate_harvester_person(publication.transaction(), article_id, &sport, person)
+                .await?;
+        }
+        if let Some(graph) = extracted.value.as_ref() {
+            fixture::review(
+                &mut **publication.transaction(),
+                article_id,
+                &sport,
+                input_hash,
+                model,
+                &graph.final_result_line,
+            )
+            .await?;
         }
         sqlx::query(
             r#"
@@ -467,6 +524,129 @@ async fn accumulate_person(
         .context("bump person evidence")?;
     }
     Ok(person_id)
+}
+
+/// Graph owns the unknown-person handoff for Harvester articles. A model-suggested
+/// name only becomes an Investigator candidate when it is independently anchored
+/// to the exact publisher headline or hash-verified opening. This is an investigation request,
+/// never an authoritative article/entity link.
+async fn nominate_harvester_person(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    article_id: i64,
+    sport: &str,
+    person: &GraphPerson,
+) -> Result<()> {
+    let row = sqlx::query(
+        "SELECT c.context_text,c.context_start,c.context_end,c.body_sha256,a.full_text, \
+                c.headline,a.title, \
+                strpos(' ' || public.nrm(c.context_text) || ' ', \
+                       ' ' || public.nrm($3) || ' ') > 0 AS name_in_opening, \
+                strpos(' ' || public.nrm(c.headline) || ' ', \
+                       ' ' || public.nrm($3) || ' ') > 0 AS name_in_headline \
+         FROM public.harvester_classifications c \
+         JOIN public.news_articles a ON a.id=c.article_id \
+         WHERE c.article_id=$1 AND c.sport=$2 \
+         ORDER BY c.created_at DESC,c.id DESC LIMIT 1",
+    )
+    .bind(article_id)
+    .bind(sport)
+    .bind(&person.name)
+    .fetch_optional(&mut **tx)
+    .await?;
+    let Some(row) = row else {
+        return Ok(());
+    };
+    let opening: String = row.get("context_text");
+    let body: String = row
+        .get::<Option<String>, _>("full_text")
+        .context("Harvester Graph nomination has no retained publisher body")?;
+    let start: i32 = row.get("context_start");
+    let end: i32 = row.get("context_end");
+    let hash: String = row.get("body_sha256");
+    let headline: String = row.get("headline");
+    let article_title: String = row.get("title");
+    ensure!(
+        start >= 0
+            && end >= start
+            && hex::encode(Sha256::digest(body.as_bytes())) == hash
+            && body.get(start as usize..end as usize) == Some(opening.as_str())
+            && headline == article_title,
+        "Harvester Graph nomination source hash or byte range drift"
+    );
+    let source_span = if row.get::<bool, _>("name_in_opening") {
+        &opening
+    } else if row.get::<bool, _>("name_in_headline") {
+        &headline
+    } else {
+        return Ok(());
+    };
+    let Some(quote) = slice_quote(source_span, &person.name) else {
+        return Ok(());
+    };
+    let known: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM public.entity_name_surfaces \
+         WHERE sport=$1 AND norm=public.nrm($2))",
+    )
+    .bind(sport)
+    .bind(&person.name)
+    .fetch_one(&mut **tx)
+    .await?;
+    if known {
+        return Ok(());
+    }
+    let candidate: (i64, String, i32) = sqlx::query_as(
+        "INSERT INTO public.entity_candidates \
+         (idempotency_key,norm_name,kind_hint,sport,state,first_seen_at,last_seen_at) \
+         VALUES(lower($1) || ':' || public.nrm($2),public.nrm($2),'person',$1,'pending',NOW(),NOW()) \
+         ON CONFLICT (idempotency_key) DO UPDATE SET \
+           last_seen_at=NOW(), \
+           state=CASE WHEN public.entity_candidates.state NOT IN ('pending','accepted') \
+                       AND public.entity_candidates.decided_at < NOW()-interval '30 days' \
+                      THEN 'pending' ELSE public.entity_candidates.state END \
+         RETURNING id,state,mention_count",
+    )
+    .bind(sport)
+    .bind(&person.name)
+    .fetch_one(&mut **tx)
+    .await?;
+    let inserted = sqlx::query(
+        "INSERT INTO public.candidate_mentions(candidate_id,article_id,quote,observed_at) \
+         VALUES($1,$2,$3,NOW()) ON CONFLICT (candidate_id,article_id) DO NOTHING",
+    )
+    .bind(candidate.0)
+    .bind(article_id)
+    .bind(quote)
+    .execute(&mut **tx)
+    .await?
+    .rows_affected()
+        == 1;
+    let mention_count = if inserted {
+        sqlx::query_scalar::<_, i32>(
+            "UPDATE public.entity_candidates SET mention_count=mention_count+1 WHERE id=$1 \
+             RETURNING mention_count",
+        )
+        .bind(candidate.0)
+        .fetch_one(&mut **tx)
+        .await?
+    } else {
+        candidate.2
+    };
+    if candidate.1 == "pending" && (person.team_context_id.is_some() || mention_count >= 2) {
+        work::enqueue(
+            &mut **tx,
+            &Item {
+                stage: crate::plugins::investigator::manifest::TASK,
+                entity_type: "candidate".into(),
+                entity_id: candidate.0,
+                sport: sport.into(),
+                input_version: None,
+                attempts: 0,
+                claim_token: None,
+            },
+        )
+        .await?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]

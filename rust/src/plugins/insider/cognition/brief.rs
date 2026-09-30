@@ -1,6 +1,6 @@
 //! The Insider's character brief.
 
-use crate::plugins::support::form::{compose, CardFormat};
+use crate::plugins::support::prompt::{compose, CardFormat};
 
 pub const INSIDER_SCORE_PROMPT_VERSION: &str = "is16";
 

@@ -397,7 +397,7 @@ pub async fn create(
             &prompt,
             &opts,
             &PaletteParser(&palette),
-            crate::plugins::support::form::structured_correction,
+            crate::plugins::support::prompt::structured_correction,
         )
         .await?;
     let call = GenerationCall::from(&extracted);
@@ -435,7 +435,7 @@ pub fn generation_options(voice_num_ctx: i32) -> GenerateOptions {
         num_predict: MOMENTUM_NUM_PREDICT,
         num_ctx: voice_num_ctx,
         json_mode: false,
-        format_schema: Some(crate::plugins::support::form::card_schema(false)),
+        format_schema: Some(crate::plugins::support::prompt::card_schema(false)),
         format_schema_raw: None,
     }
 }

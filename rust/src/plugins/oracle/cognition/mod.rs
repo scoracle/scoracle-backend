@@ -11,7 +11,7 @@ use anyhow::{anyhow, bail, Result};
 
 mod brief;
 mod inputs;
-pub use crate::plugins::support::form::oracle_format_schema;
+pub use crate::plugins::support::prompt::oracle_format_schema;
 pub use brief::{CHARACTER, ORACLE_PROMPT_VERSION, ORACLE_SYSTEM_PROMPT};
 pub use inputs::{build_crown_prompt, CROWN_CARD_BODY_CAP};
 
@@ -669,7 +669,7 @@ pub async fn create(studio: &Studio<'_>, assignment: &Assignment) -> Result<Sigi
             &palette.prompt(),
             &options,
             &PaletteParser(&palette),
-            crate::plugins::support::form::structured_correction,
+            crate::plugins::support::prompt::structured_correction,
         )
         .await?;
     let call = GenerationCall::from(&extracted);

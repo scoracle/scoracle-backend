@@ -1,11 +1,12 @@
 //! Structured personnel changes and attributed availability reports for current evidence.
 
-use anyhow::{Context, Result};
+use anyhow::{ensure, Context, Result};
+use sha2::{Digest, Sha256};
 use sqlx::{PgPool, Row};
 
 /// An adjudicated absence, return or withdrawal. Withdrawing an incorrect
 /// record does not establish recovery; preserve those events separately.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct AvailabilityChange {
     /// `opened` — newly ruled out; `returned` — availability resumed (a real-world outcome);
     /// `reverted` — the RECORD was wrong and has been withdrawn (a correction, never a return).
@@ -36,7 +37,7 @@ pub(crate) const MAX_AVAILABILITY_LINES: usize = 4;
 /// One adjudicated personnel change, as the DB describes it — dates already labeled by
 /// `to_char` (the `Mon DD` convention the memory card and 7.10's storyline lens use), names
 /// resolved, nothing rendered. The sentence is built in code (T2: describe, then derive).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct PersonnelChange {
     /// `applied` — the move is in force; `reverted` — an earlier applied move was undone.
     pub kind: String,
@@ -299,6 +300,142 @@ const MAX_DIRECT_SCOUT_CLAIMS: usize = 2;
 /// the transfer corpus freshness boundary while the claim cap continues to bind prompt size.
 const SCOUT_REPORT_LOOKBACK_HOURS: i64 = 14 * 24;
 
+pub(crate) fn harvester_scout_reports_enabled() -> bool {
+    std::env::var("SCOUT_REPORT_SOURCE").is_ok_and(|value| value == "harvester")
+}
+
+/// Read the Scout's own accepted Harvester sources. These are publisher quotes,
+/// never Editor key facts or packet prose. Recheck the retained bytes on read so
+/// a later article edit cannot silently become current evidence.
+pub async fn load_harvester_scout_reports(
+    pool: &PgPool,
+    entity_type: &str,
+    entity_id: i32,
+    sport: &str,
+) -> Result<Vec<crate::evidence::news::render::MarkedClaim>> {
+    use crate::evidence::news::render::{mark_contested, RenderClaim};
+
+    if entity_type != "player" && entity_type != "team" {
+        return Ok(Vec::new());
+    }
+    let rows = sqlx::query(
+        "SELECT c.article_id,c.headline,c.context_text,c.context_start,c.context_end, \
+                c.body_sha256,a.title,a.full_text,COALESCE(a.source,'') AS source, \
+                EXTRACT(EPOCH FROM COALESCE(a.published_at,a.fetched_at))::bigint AS published_at, \
+                d.product_ref->>'source_quote' AS source_quote, \
+                d.product_ref->>'source_kind' AS source_kind, \
+                availability.kind AS availability_kind, \
+                (availability.status='applied' AND availability.reverted_at IS NULL) AS availability_applied, \
+                (availability.source_article_id=c.article_id AND availability.sport=c.sport AND \
+                 ((c.entity_type='player' AND availability.player_id=c.entity_id) OR \
+                  (c.entity_type='team' AND availability.team_id=c.entity_id))) AS availability_entity_matches, \
+                (transfer.status='applied' AND transfer.reverted_at IS NULL) AS transfer_applied, \
+                (transfer.sport=c.sport AND \
+                 ((c.entity_type='player' AND transfer.player_id=c.entity_id) OR \
+                  (c.entity_type='team' AND c.entity_id IN (transfer.old_team_id,transfer.new_team_id)))) AS transfer_entity_matches, \
+                transfer.evidence->'identity_evidence_article_ids' @> jsonb_build_array(c.article_id) AS transfer_source_matches \
+         FROM public.harvester_assignments d \
+         JOIN public.harvester_classifications c ON c.id=d.classification_id \
+         JOIN public.news_articles a ON a.id=c.article_id \
+         LEFT JOIN public.player_availability availability \
+           ON availability.id=NULLIF(d.product_ref->>'structured_record_id','')::bigint \
+         LEFT JOIN public.transfer_identity_applications transfer \
+           ON transfer.id=NULLIF(d.product_ref->>'structured_record_id','')::bigint \
+         WHERE d.plugin_id=$1 AND d.status='used' AND c.entity_type=$2 \
+           AND c.entity_id=$3 AND c.sport=$4 \
+           AND COALESCE(a.published_at,a.fetched_at) >= now()-make_interval(hours=>$5::int) \
+         ORDER BY COALESCE(a.published_at,a.fetched_at) DESC,c.article_id DESC \
+         LIMIT $6",
+    )
+    .bind(crate::plugins::scout::manifest::MANIFEST.id.as_str())
+    .bind(entity_type)
+    .bind(entity_id)
+    .bind(sport)
+    .bind(SCOUT_REPORT_LOOKBACK_HOURS as i32)
+    .bind(MAX_SCOUT_CLAIMS as i64)
+    .fetch_all(pool)
+    .await
+    .with_context(|| format!("load Harvester Scout reports {entity_type}/{entity_id}"))?;
+    let mut claims = Vec::new();
+    for row in rows {
+        let article_id: i64 = row.get("article_id");
+        let body: Option<String> = row.get("full_text");
+        let body =
+            body.with_context(|| format!("Scout Harvester body missing for {article_id}"))?;
+        let hash: String = row.get("body_sha256");
+        let start: i32 = row.get("context_start");
+        let end: i32 = row.get("context_end");
+        let context: String = row.get("context_text");
+        let headline: String = row.get("headline");
+        let title: String = row.get("title");
+        ensure!(
+            headline == title,
+            "Scout Harvester headline drift for {article_id}"
+        );
+        ensure!(
+            hex::encode(Sha256::digest(body.as_bytes())) == hash,
+            "Scout Harvester body drift for {article_id}"
+        );
+        ensure!(
+            start >= 0
+                && end >= start
+                && body.get(start as usize..end as usize) == Some(context.as_str()),
+            "Scout Harvester opening drift for {article_id}"
+        );
+        let quote: Option<String> = row.get("source_quote");
+        let kind: Option<String> = row.get("source_kind");
+        let (Some(quote), Some(kind)) = (quote, kind) else {
+            continue;
+        };
+        ensure!(
+            !quote.trim().is_empty() && (headline.contains(&quote) || context.contains(&quote)),
+            "Scout Harvester source quote drift for {article_id}"
+        );
+        ensure!(
+            matches!(kind.as_str(), "performance" | "roster" | "availability"),
+            "Scout Harvester source kind invalid for {article_id}"
+        );
+        let story_type = if kind == "availability" {
+            let availability_kind: Option<String> = row.get("availability_kind");
+            let availability_kind = availability_kind.with_context(|| {
+                format!("Scout structured availability missing for {article_id}")
+            })?;
+            let availability_applied: Option<bool> = row.get("availability_applied");
+            let availability_entity_matches: Option<bool> = row.get("availability_entity_matches");
+            ensure!(
+                availability_applied == Some(true) && availability_entity_matches == Some(true),
+                "Scout structured availability no longer applied for {article_id}"
+            );
+            ensure!(
+                matches!(availability_kind.as_str(), "injury" | "suspension"),
+                "Scout structured availability kind invalid for {article_id}"
+            );
+            availability_kind
+        } else if kind == "roster" {
+            let transfer_applied: Option<bool> = row.get("transfer_applied");
+            let transfer_entity_matches: Option<bool> = row.get("transfer_entity_matches");
+            let source_matches: Option<bool> = row.get("transfer_source_matches");
+            ensure!(
+                transfer_applied == Some(true)
+                    && transfer_entity_matches == Some(true)
+                    && source_matches == Some(true),
+                "Scout structured roster evidence no longer applied for {article_id}"
+            );
+            kind
+        } else {
+            kind
+        };
+        claims.push(RenderClaim {
+            article_id,
+            source: row.get("source"),
+            fact: quote,
+            published_at: row.get("published_at"),
+            story_type,
+        });
+    }
+    Ok(mark_contested(&claims))
+}
+
 /// Load the Editor's current performance, roster and availability claims for
 /// this entity — attributed evidence the Scout weighs rather than stored facts.
 ///
@@ -313,6 +450,10 @@ pub async fn load_scout_reports(
     sport: &str,
 ) -> Result<Vec<crate::evidence::news::render::MarkedClaim>> {
     use crate::evidence::news::render::{mark_contested, slice_claims, Voice};
+
+    if harvester_scout_reports_enabled() {
+        return load_harvester_scout_reports(pool, entity_type, entity_id, sport).await;
+    }
 
     if entity_type != "player" && entity_type != "team" {
         return Ok(Vec::new());

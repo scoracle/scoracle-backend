@@ -122,6 +122,23 @@ fn full_and_partial_production_fleets_register() {
     }
 }
 
+#[test]
+fn harvester_has_independent_identity_and_requires_explicit_enablement() {
+    assert_eq!(HARVESTER.task.as_str(), "harvester");
+    assert_ne!(HARVESTER.id, EDITOR.id);
+    assert!(HARVESTER.tools.contains(&ToolGrant::Classification));
+    assert!(HARVESTER.grants_web(DomainClass::CuratedArticles));
+    assert!(HARVESTER.inference_routes.is_empty());
+    assert_eq!(HARVESTER.resources.max_in_flight, 4);
+    assert_eq!(HARVESTER.resources.slot_group, None);
+    assert!(ALL.iter().any(|m| m.id == HARVESTER.id));
+    assert!(!crate::application::plugins::enabled_from_config(None)
+        .unwrap()
+        .contains("harvester"));
+    assert!(crate::application::plugins::enabled_from_config(Some("harvester")).is_ok());
+    PluginRegistry::new(vec![plugin(&HARVESTER)]).unwrap();
+}
+
 struct ManifestPlugin(&'static PluginManifest);
 
 #[async_trait::async_trait]

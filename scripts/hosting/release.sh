@@ -80,8 +80,8 @@ mkdir -p "$GO_BIN_DIR" "$RUST_BIN_DIR"
 # Go cmd subdirectory under go/cmd  ->  output binary name.
 # statcommentary is INTENTIONALLY absent: retired by the Step-3 cutover; the
 # Rust rating batch in rust/bin/statcommentary replaces it (cron-rust-statcommentary.sh).
-GO_CMDS=(api pipeline vibesynth)
-GO_OUTS=(scoracle-api pipeline vibesynth)
+GO_CMDS=(api pipeline vibesynth memory-study)
+GO_OUTS=(scoracle-api pipeline vibesynth scoracle-memory-study)
 
 # Rust live binaries (from rust/Cargo.toml). The daemon + the rating batch —
 # deliberately NOT all bins (the offline parity / eval harnesses would waste a

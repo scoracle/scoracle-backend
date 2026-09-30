@@ -1,6 +1,6 @@
 //! The Oracle's character. Output structure belongs to Studio's shared form.
 
-use crate::plugins::support::form::{compose, CardFormat};
+use crate::plugins::support::prompt::{compose, CardFormat};
 
 pub const ORACLE_PROMPT_VERSION: &str = "or25";
 

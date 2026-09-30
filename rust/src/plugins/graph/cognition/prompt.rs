@@ -8,9 +8,9 @@
 //! | | |
 //! |---|---|
 //! | **Seat** | `crate::plugins::graph::manifest::ROUTE` — a route, not an identity |
-//! | **Contract** | `g5` |
-//! | **Reads** | one article (The Editor's summary first, when there is one) plus its vetted entities |
-//! | **Feeds** | `narrative_events` and `narrative_persons` candidates — the relational memory the characters later read |
+//! | **Contract** | `g6` |
+//! | **Reads** | one article (exact Harvester opening when available) plus its vetted entities |
+//! | **Feeds** | `narrative_events`, `narrative_persons` candidates, and source-grounded fixture reviews |
 //!
 //! ## Authority — deliberately almost none
 //!
@@ -48,10 +48,12 @@ Language handling: the article title/text may be in English, Spanish, French, Ge
    - team_context: the number of the listed TEAM they are tied to, or null.
    Never list players here; never list people not named in the text. An empty persons list is WRONG whenever a coach or manager is named in the text.
 
-Return ONLY this JSON object, no commentary:
-{"relations":[{"subject":1,"predicate":"trade_rumor","object":2,"sentiment":0.0,"confidence":"reported"}],"persons":[{"name":"...","kind":"coach","team_context":2}]}"#;
+3. "final_result_line": copy ONE complete final score line verbatim from the title or text only when the article states a COMPLETED fixture result and this is a reporting article or score table. Keep both club names and both scores exactly as printed. Use an empty string for previews, predictions, roundups, schedules, ambiguous/multiple results, or when no complete line is present. Never compute or rewrite a score.
 
-pub const GRAPH_PROMPT_VERSION: &str = "g5";
+Return ONLY this JSON object, no commentary:
+{"relations":[{"subject":1,"predicate":"trade_rumor","object":2,"sentiment":0.0,"confidence":"reported"}],"persons":[{"name":"...","kind":"coach","team_context":2}],"final_result_line":""}"#;
+
+pub const GRAPH_PROMPT_VERSION: &str = "g6";
 
 /// build_graph_prompt lays out the article + numbered candidates (1-indexed, matching
 /// the reply contract).
@@ -72,7 +74,7 @@ pub fn build_graph_prompt(
     }
     b.push_str(&format!(
         "\n{}\nKnown entities (use these numbers):\n",
-        crate::plugins::support::form::IDENTITY_CARD_FRAMING
+        crate::plugins::support::prompt::IDENTITY_CARD_FRAMING
     ));
     for (i, c) in candidates.iter().enumerate() {
         b.push_str(&format!("{}. {}\n", i + 1, c.descriptor));

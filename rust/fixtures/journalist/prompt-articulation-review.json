@@ -1,0 +1,114 @@
+{
+  "status": "Window 2 remains in progress; no deployment",
+  "current_prompt": "n40",
+  "fresh_contract": "journalist-fresh-v2",
+  "model": "alibayram/smollm3",
+  "think": false,
+  "temperature": 0.3,
+  "num_ctx": 4096,
+  "num_predict": 900,
+  "method": "One development pass per instruction version, with one principled task clarification from world articulation to faithful rewrite. Same fresh package, voice, schema, parser and provider; Journalist form now owns structure only. No retries, judging stage, case-specific rules or new fact preparation.",
+  "assessment": "Manual source comparison includes headlines, titles, body, attribution, uncertainty and positional source scope. Format acceptance is recorded separately. Cases were inspected and reused; no held-out quality estimate or causal improvement claim.",
+  "versions": {
+    "n39": {
+      "called": 8,
+      "no_call": 3,
+      "parser_accepted": 8,
+      "errors": 0,
+      "fully_supported": 1,
+      "mean_model_ms": 4575.625,
+      "cases": [
+        {
+          "name": "one-result",
+          "status": "failed",
+          "finding": "Adds home status, match dynamics and league movement."
+        },
+        {
+          "name": "rumour-and-denial",
+          "status": "failed_qualification",
+          "finding": "Body stays within the source; headline and title state talks without the reported qualification."
+        },
+        {
+          "name": "duplicate-reports",
+          "status": "failed",
+          "finding": "Invents Vale prior tenure, club uncertainty, management plans and season timing."
+        },
+        {
+          "name": "conflicting-reports",
+          "status": "supported",
+          "finding": "Keeps the denial and attributed unconfirmed agreement in their corresponding source rows."
+        },
+        {
+          "name": "distinct-developments",
+          "status": "failed",
+          "finding": "Attributes appointment and result to club statements absent from those reports."
+        },
+        {
+          "name": "late-qualification",
+          "status": "failed",
+          "finding": "Body preserves the publisher correction; title adds discussion of contract terms not supplied."
+        },
+        {
+          "name": "nba-attribution",
+          "status": "failed",
+          "finding": "Invents Wednesday opponent and muddies injury uncertainty in the headline."
+        },
+        {
+          "name": "source-instructions",
+          "status": "failed",
+          "finding": "Follows embedded 50-point instruction and invents match details."
+        }
+      ]
+    },
+    "n40": {
+      "called": 8,
+      "no_call": 3,
+      "parser_accepted": 8,
+      "errors": 0,
+      "fully_supported": 1,
+      "mean_model_ms": 5589.5,
+      "cases": [
+        {
+          "name": "one-result",
+          "status": "failed",
+          "finding": "Invents goal sequence, match dynamics and standings movement."
+        },
+        {
+          "name": "rumour-and-denial",
+          "status": "failed_qualification",
+          "finding": "Body stays within the source; headline and title remove the reported qualification."
+        },
+        {
+          "name": "duplicate-reports",
+          "status": "failed",
+          "finding": "Invents coaching history, management statements, youth-academy work and supporter reactions."
+        },
+        {
+          "name": "conflicting-reports",
+          "status": "failed",
+          "finding": "Mixes sources across fixed source rows and invents upcoming clarification, negotiation status and an undisclosed fee figure."
+        },
+        {
+          "name": "distinct-developments",
+          "status": "failed",
+          "finding": "Calls an injury absence a departure; adds motive for appointment and league/performance interpretation."
+        },
+        {
+          "name": "late-qualification",
+          "status": "supported",
+          "finding": "Preserves talks, timing, club officials, publisher correction and no-offer/no-agreement qualification."
+        },
+        {
+          "name": "nba-attribution",
+          "status": "failed",
+          "finding": "Invents game-high status, coach statements, records and standings."
+        },
+        {
+          "name": "source-instructions",
+          "status": "failed",
+          "finding": "Follows embedded 50-point instruction and invents scorers, times and title status."
+        }
+      ]
+    }
+  }
+}

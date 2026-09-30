@@ -1,0 +1,75 @@
+{
+  "expect": {
+    "body_includes": [
+      "10:00"
+    ]
+  },
+  "name": "synthetic-training-time-with-direct-history-direct-history-attached-to-the-report-it-updates",
+  "parts": {
+    "memory": [
+      {
+        "groups": [
+          {
+            "before": "2026-09-28T12:48:45Z",
+            "distinct_recorded_articles": 2,
+            "from": "2026-09-14T13:48:45Z",
+            "group": "storyline/training-time",
+            "population": "articles indexed to a story group",
+            "publisher_article_counts": [
+              {
+                "articles": 1,
+                "publisher": "Club statement"
+              },
+              {
+                "articles": 1,
+                "publisher": "Local Wire"
+              }
+            ],
+            "source_ids": [
+              120,
+              121
+            ]
+          }
+        ],
+        "items": [
+          {
+            "group": "storyline/training-time",
+            "published_at": "2026-09-25T13:48:45Z",
+            "publisher": "Club statement",
+            "reported_headline": "Cedar United scheduled its 29 September training session for 11:00 at North Field."
+          },
+          {
+            "group": "storyline/training-time",
+            "published_at": "2026-09-26T13:48:45Z",
+            "publisher": "Local Wire",
+            "reported_headline": "Cedar United scheduled its 29 September training session for 11:00 at North Field."
+          }
+        ]
+      }
+    ],
+    "reports": [
+      {
+        "context": "Cedar United confirmed an updated start time of 10:00 for its training session on 29 September. The venue remains North Field. The club gave no reason for the update.",
+        "id": 220,
+        "published_at_epoch": 1790599725,
+        "source": "Club statement",
+        "title": "Cedar United confirms updated training time"
+      }
+    ],
+    "subject": {
+      "entity_id": 7,
+      "entity_type": "team",
+      "name": "Cedar United",
+      "sport": "FOOTBALL"
+    }
+  },
+  "prompt_version": "n95",
+  "review": [
+    "The update reads against the attached history: 10:00 replaces the previously reported 11:00.",
+    "History is nested under this report, so the reading may use it without being told which report it belongs to."
+  ],
+  "system": "",
+  "task": "narratives",
+  "temperature": 0.0,
+  "user_prompt": "{\"identity\":{\"name\":\"Cedar United\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\"},\"fresh\":[{\"report_key\":\"report_1\",\"publisher\":\"Club statement\",\"published_at\":\"2026-09-28T12:48:45Z\",\"publisher_excerpt\":\"Cedar United confirmed an updated start time of 10:00 for its training session on 29 September. The venue remains North Field. The club gave no reason for the update.\",\"history\":[{\"group\":\"storyline/training-time\",\"publisher\":\"Club statement\",\"published_at\":\"2026-09-25T13:48:45Z\",\"reported_headline\":\"Cedar United scheduled its 29 September training session for 11:00 at North Field.\"},{\"group\":\"storyline/training-time\",\"publisher\":\"Local Wire\",\"published_at\":\"2026-09-26T13:48:45Z\",\"reported_headline\":\"Cedar United scheduled its 29 September training session for 11:00 at North Field.\"}],\"history_groups\":[{\"group\":\"storyline/training-time\",\"population\":\"articles indexed to a story group\",\"from\":\"2026-09-14T13:48:45Z\",\"before\":\"2026-09-28T12:48:45Z\",\"distinct_recorded_articles\":2,\"publisher_article_counts\":[{\"publisher\":\"Club statement\",\"articles\":1},{\"publisher\":\"Local Wire\",\"articles\":1}],\"source_ids\":[120,121]}]}],\"voice\":\"Clear, restrained and direct.\",\"form\":{\"history\":\"attached per report\",\"max_chars\":1200,\"report_count\":1,\"report_fields\":[\"text\"],\"report_keys\":[\"report_1\"]}}"
+}

@@ -285,7 +285,10 @@ async fn current_season(pool: &PgPool, sport: &str) -> Result<i32> {
 }
 
 async fn enum_current_season(pool: &PgPool, sport: &str, season: i32) -> Result<Vec<Target>> {
-    let rows = sqlx::query(enum_current_season_sql())
+    let harvester_selection =
+        std::env::var("STATCOMMENTARY_PLAYER_SELECTION").is_ok_and(|value| value == "harvester");
+    let sql = enum_current_season_sql(harvester_selection);
+    let rows = sqlx::query(&sql)
         .bind(sport)
         .bind(season)
         .bind(RATING_PROMPT_VERSION)
@@ -295,7 +298,32 @@ async fn enum_current_season(pool: &PgPool, sport: &str, season: i32) -> Result<
     scan_targets(rows, sport)
 }
 
-fn enum_current_season_sql() -> &'static str {
+fn enum_current_season_sql(harvester_selection: bool) -> String {
+    let selection = if harvester_selection {
+        r#"AND (
+                      EXISTS (
+                          SELECT 1 FROM public.players selected
+                           WHERE selected.id=player_id AND selected.sport=$1
+                             AND selected.tier='headliner'
+                      )
+                      OR EXISTS (
+                          SELECT 1 FROM public.harvester_resolved_links link
+                           WHERE link.entity_type='player' AND link.entity_id=player_id
+                             AND link.sport=$1 AND link.created_at>now()-interval '30 days'
+                      )
+                  )"#
+    } else {
+        r#"AND EXISTS (
+                      SELECT 1
+                      FROM storyline_entities se
+                      JOIN storylines sl ON sl.id = se.storyline_id
+                      WHERE se.entity_type = 'player'
+                        AND se.entity_id = player_id
+                        AND se.sport = $1
+                        AND se.left_at IS NULL
+                        AND sl.status = 'open'
+                  )"#
+    };
     r#"
         WITH candidates AS (
             SELECT et, id, season, updated_at FROM (
@@ -308,21 +336,7 @@ fn enum_current_season_sql() -> &'static str {
                        ) AS rn
                 FROM player_stats
                 WHERE sport = $1 AND season = $2 AND rating_score IS NOT NULL
-                  -- Player inflow trim (2026-08-21, Scott): only storyline-PLACED players
-                  -- get nightly rating work; teams stay unconditional. This is the inflow
-                  -- lever HANDOFF-one-rail named — rating is the head of the player
-                  -- rating→momentum→sigil chain, so the whole chain thins with it. A player
-                  -- who joins a storyline later re-enters here on the next nightly pass.
-                  AND EXISTS (
-                      SELECT 1
-                      FROM storyline_entities se
-                      JOIN storylines sl ON sl.id = se.storyline_id
-                      WHERE se.entity_type = 'player'
-                        AND se.entity_id = player_id
-                        AND se.sport = $1
-                        AND se.left_at IS NULL
-                        AND sl.status = 'open'
-                  )
+                  /*PLAYER_SELECTION*/
             ) p
             WHERE rn = 1
             UNION ALL
@@ -361,7 +375,7 @@ fn enum_current_season_sql() -> &'static str {
            -- the nightly -limit, one regeneration per entity, then this leg goes quiet.
            OR s.prompt_version IS DISTINCT FROM $3
         ORDER BY (s.generated_at IS NOT NULL) ASC, c.et, c.id
-        "#
+    "#.replace("/*PLAYER_SELECTION*/", selection)
 }
 
 async fn enum_missing(pool: &PgPool, sport: &str) -> Result<Vec<Target>> {
@@ -519,7 +533,7 @@ mod tests {
 
     #[test]
     fn current_season_enum_prefilters_latest_changed_or_missing_hash() {
-        let sql = enum_current_season_sql();
+        let sql = enum_current_season_sql(false);
 
         assert!(sql.contains("row_number() OVER"));
         assert!(sql.contains("PARTITION BY player_id"));
@@ -535,5 +549,29 @@ mod tests {
         // s11 contract leg: a prompt-version bump re-enumerates stat-quiet entities so a
         // persona change ships fleet-wide (self-throttled by the nightly -limit).
         assert!(sql.contains("s.prompt_version IS DISTINCT FROM $3"));
+    }
+
+    #[test]
+    fn harvester_player_selection_has_no_storyline_dependency() {
+        let sql = enum_current_season_sql(true);
+        assert!(sql.contains("harvester_resolved_links"));
+        assert!(sql.contains("selected.tier='headliner'"));
+        assert!(!sql.contains("storyline_entities"));
+        assert!(!sql.contains("JOIN storylines"));
+    }
+
+    #[tokio::test]
+    #[ignore = "requires isolated TEST_DATABASE_URL with Harvester migrations"]
+    async fn harvester_player_selection_executes_on_migrated_schema() {
+        let pool = PgPool::connect(&std::env::var("TEST_DATABASE_URL").unwrap())
+            .await
+            .unwrap();
+        sqlx::query(&enum_current_season_sql(true))
+            .bind("NBA")
+            .bind(2026)
+            .bind(RATING_PROMPT_VERSION)
+            .fetch_all(&pool)
+            .await
+            .unwrap();
     }
 }

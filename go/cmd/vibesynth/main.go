@@ -169,15 +169,28 @@ func currentSeason(ctx context.Context, pool *pgxpool.Pool, sport string) (int, 
 func enumStaleSigil(ctx context.Context, pool *pgxpool.Pool, sport string, season int) ([]target, error) {
 	qctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
-	rows, err := pool.Query(qctx, `
-		WITH rated AS (
-		    -- Player inflow trim (2026-08-21, Scott): reconcile Sigils only for
-		    -- storyline-PLACED players; teams stay unconditional. Mirrors the same
-		    -- predicate in statcommentary's enumerator — the two nightly enumerators
-		    -- are the only unconditional bulk player producers.
-		    SELECT 'player'::text AS et, player_id AS id FROM player_stats
-		     WHERE sport = $1 AND season = $2 AND rating_score IS NOT NULL
-		       AND EXISTS (
+	useHarvester := os.Getenv("VIBESYNTH_PLAYER_SELECTION") == "harvester"
+	rows, err := pool.Query(qctx, enumStaleSigilSQL(useHarvester), sport, season)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []target
+	for rows.Next() {
+		var t target
+		if err := rows.Scan(&t.entityType, &t.entityID); err != nil {
+			return nil, err
+		}
+		t.season = season
+		t.sportName = sport
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
+func enumStaleSigilSQL(useHarvester bool) string {
+	playerSelection := `AND EXISTS (
 		           SELECT 1
 		           FROM storyline_entities se
 		           JOIN storylines sl ON sl.id = se.storyline_id
@@ -186,7 +199,26 @@ func enumStaleSigil(ctx context.Context, pool *pgxpool.Pool, sport string, seaso
 		             AND se.sport = $1
 		             AND se.left_at IS NULL
 		             AND sl.status = 'open'
-		       )
+		       )`
+	if useHarvester {
+		playerSelection = `AND (
+		           EXISTS (
+		               SELECT 1 FROM public.players selected
+		                WHERE selected.id=player_id AND selected.sport=$1
+		                  AND selected.tier='headliner'
+		           )
+		           OR EXISTS (
+		               SELECT 1 FROM public.harvester_resolved_links link
+		                WHERE link.entity_type='player' AND link.entity_id=player_id
+		                  AND link.sport=$1 AND link.created_at>now()-interval '30 days'
+		           )
+		       )`
+	}
+	query := `
+		WITH rated AS (
+		    SELECT 'player'::text AS et, player_id AS id FROM player_stats
+		     WHERE sport = $1 AND season = $2 AND rating_score IS NOT NULL
+		       /*PLAYER_SELECTION*/
 		     GROUP BY player_id
 		    UNION ALL
 		    SELECT 'team'::text, team_id FROM team_stats
@@ -215,21 +247,6 @@ func enumStaleSigil(ctx context.Context, pool *pgxpool.Pool, sport string, seaso
 		LEFT JOIN nw  ON nw.et  = r.et AND nw.id  = r.id
 		WHERE sig.g IS NULL
 		   OR sig.g < GREATEST(st.g, vb.g, nw.g)
-		ORDER BY r.et, r.id`, sport, season)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var out []target
-	for rows.Next() {
-		var t target
-		if err := rows.Scan(&t.entityType, &t.entityID); err != nil {
-			return nil, err
-		}
-		t.season = season
-		t.sportName = sport
-		out = append(out, t)
-	}
-	return out, rows.Err()
+		ORDER BY r.et, r.id`
+	return strings.Replace(query, "/*PLAYER_SELECTION*/", playerSelection, 1)
 }

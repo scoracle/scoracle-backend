@@ -1,0 +1,207 @@
+[
+  {
+    "name": "journalist-think-no-schema",
+    "request": {
+      "messages": [
+        {
+          "content": "You are the Journalist, a clear and restrained beat reporter. Lead with the development, name the people involved, credit the reporting, and keep uncertainty audible. Use concise, natural sporting prose. Avoid hype, stock transitions, and a repeated conclusion.\n\nHook and each title \u2264140 characters; all bodies together \u22641200.\n\nExpress the selected observations as a coherent read, preserving the connections supplied with them. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main observation without changing its timing.\n\nExpress the source-backed observations selected by the plugin. Their attribution, dates, scope and uncertainty are part of the observation. An ordinary observation is enough; significance does not need to be added.\n\nReturn JSON with narratives and headline. Write exactly one narrative (title and body) for each prepared report, in the supplied order. The title names the development; the headline is the edition hook. Source links and scores are supplied by the plugin.",
+          "role": "system"
+        },
+        {
+          "content": "{\"identity\":{\"name\":\"Cedar United\",\"entity_type\":\"team\",\"entity_id\":7,\"sport\":\"FOOTBALL\"},\"fresh_content\":{\"reports\":[{\"position\":1,\"attribution\":{\"publisher\":\"City Wire\",\"published_at_utc\":\"2026-09-26T23:00:00Z\"},\"publisher_excerpt\":\"Cedar United beat Vale City 2\u20131 on Sunday. Sam Lee scored the winner in the 84th minute.\"}]}}",
+          "role": "user"
+        }
+      ],
+      "model": "alibayram/smollm3",
+      "options": {
+        "num_ctx": 4096,
+        "num_predict": 1500,
+        "temperature": 0.3
+      },
+      "stream": false,
+      "think": true
+    },
+    "response": {
+      "model": "alibayram/smollm3",
+      "created_at": "2026-09-28T03:00:07.035286Z",
+      "message": {
+        "role": "assistant",
+        "content": "\n**Headline:** Cedar United Rout Vale City 2\u20131 in Thrilling Showdown\n\n**Narrative:** \n\nCedar United secured a crucial 2-1 victory over Vale City in a thrilling encounter on Sunday. The match, held at the home ground, saw the hosts take the lead in the 32nd minute through a well-placed strike from Sam Lee. However, Vale City responded with an equalizer just before halftime, courtesy of a goal from Liam Thompson. The game remained tight until the 84th minute, when Lee once again found the back of the net to secure the win for Cedar United. The victory, a significant boost for Cedar United, keeps them atop the league standings. Vale City, despite their efforts, could not prevent the loss, which leaves them in a precarious position. The match was a testament to the resilience and skill of both teams, with the final scoreline reflecting the intensity of the contest."
+      },
+      "done": true,
+      "done_reason": "stop",
+      "total_duration": 4478364792,
+      "load_duration": 140010375,
+      "prompt_eval_count": 361,
+      "prompt_eval_duration": 90492000,
+      "eval_count": 195,
+      "eval_duration": 4248255000
+    },
+    "native_thinking_chars": 0,
+    "inline_thinking_chars": 0
+  },
+  {
+    "name": "journalist-think-explicit",
+    "request": {
+      "messages": [
+        {
+          "content": "/think\nYou are the Journalist, a clear and restrained beat reporter. Lead with the development, name the people involved, credit the reporting, and keep uncertainty audible. Use concise, natural sporting prose. Avoid hype, stock transitions, and a repeated conclusion.\n\nHook and each title \u2264140 characters; all bodies together \u22641200.\n\nExpress the selected observations as a coherent read, preserving the connections supplied with them. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main observation without changing its timing.\n\nExpress the source-backed observations selected by the plugin. Their attribution, dates, scope and uncertainty are part of the observation. An ordinary observation is enough; significance does not need to be added.\n\nReturn JSON with narratives and headline. Write exactly one narrative (title and body) for each prepared report, in the supplied order. The title names the development; the headline is the edition hook. Source links and scores are supplied by the plugin.",
+          "role": "system"
+        },
+        {
+          "content": "{\"identity\":{\"name\":\"Cedar United\",\"entity_type\":\"team\",\"entity_id\":7,\"sport\":\"FOOTBALL\"},\"fresh_content\":{\"reports\":[{\"position\":1,\"attribution\":{\"publisher\":\"City Wire\",\"published_at_utc\":\"2026-09-26T23:00:00Z\"},\"publisher_excerpt\":\"Cedar United beat Vale City 2\u20131 on Sunday. Sam Lee scored the winner in the 84th minute.\"}]}}",
+          "role": "user"
+        }
+      ],
+      "model": "alibayram/smollm3",
+      "options": {
+        "num_ctx": 4096,
+        "num_predict": 1500,
+        "temperature": 0.3
+      },
+      "stream": false,
+      "think": true
+    },
+    "response": {
+      "model": "alibayram/smollm3",
+      "created_at": "2026-09-28T03:00:49.758196Z",
+      "message": {
+        "role": "assistant",
+        "content": "\n**Headline:** Cedar United Overcomes Vale City in Thrilling Match\n\n**Narrative:** \n\nCedar United secured a 2-1 victory over Vale City in a thrilling encounter on Sunday, with Sam Lee scoring the decisive goal in the 84th minute. The match was a back-and-forth affair, with both sides trading blows and creating numerous chances. Vale City took the lead early in the game, but Cedar United responded with equalizing goals, keeping the score tight until the final moments. The win marks a significant step forward for Cedar United, who now sit atop the league table with a strong performance against one of their fiercest rivals. Vale City, however, will need to regroup and find their form to challenge for the top spot. The win highlights the resilience and tactical acumen of Cedar United, as they continue to assert their dominance in the league."
+      },
+      "done": true,
+      "done_reason": "stop",
+      "total_duration": 4847808041,
+      "load_duration": 138672875,
+      "prompt_eval_count": 361,
+      "prompt_eval_duration": 733749000,
+      "eval_count": 182,
+      "eval_duration": 3968823000
+    },
+    "native_thinking_chars": 0,
+    "inline_thinking_chars": 0
+  },
+  {
+    "name": "journalist-think-raw",
+    "request": {
+      "model": "alibayram/smollm3",
+      "raw": true,
+      "stream": false,
+      "prompt": "<|im_start|>system\n## Metadata\n\nKnowledge Cutoff Date: June 2025\nToday Date: 28 September 2026\nReasoning Mode: /think\n\n## Custom Instructions\n\nYou are the Journalist, a clear and restrained beat reporter. Lead with the development, name the people involved, credit the reporting, and keep uncertainty audible. Use concise, natural sporting prose. Avoid hype, stock transitions, and a repeated conclusion.\n\nHook and each title \u2264140 characters; all bodies together \u22641200.\n\nExpress the selected observations as a coherent read, preserving the connections supplied with them. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main observation without changing its timing.\n\nExpress the source-backed observations selected by the plugin. Their attribution, dates, scope and uncertainty are part of the observation. An ordinary observation is enough; significance does not need to be added.\n\nReturn JSON with narratives and headline. Write exactly one narrative (title and body) for each prepared report, in the supplied order. The title names the development; the headline is the edition hook. Source links and scores are supplied by the plugin.\n\n<|im_end|>\n<|im_start|>user\n{\"identity\":{\"name\":\"Cedar United\",\"entity_type\":\"team\",\"entity_id\":7,\"sport\":\"FOOTBALL\"},\"fresh_content\":{\"reports\":[{\"position\":1,\"attribution\":{\"publisher\":\"City Wire\",\"published_at_utc\":\"2026-09-26T23:00:00Z\"},\"publisher_excerpt\":\"Cedar United beat Vale City 2\u20131 on Sunday. Sam Lee scored the winner in the 84th minute.\"}]}}<|im_end|>\n<|im_start|>assistant\n<think>\n",
+      "options": {
+        "num_ctx": 4096,
+        "num_predict": 1500,
+        "temperature": 0.3
+      }
+    },
+    "response": {
+      "model": "alibayram/smollm3",
+      "created_at": "2026-09-28T03:01:53.013257Z",
+      "response": "\n\n**Headline:** Cedar United secure 2-1 win over Vale City in dramatic finale  \n**Body:** Cedar United claimed a 2-1 victory over Vale City on Sunday, with Sam Lee scoring the decisive goal in the 84th minute. The match, played at the home of the hosts, saw Vale City take an early lead through a goal in the 18th minute, but Cedar United equalized in the 34th minute. Lee\u2019s strike in the final moments sealed the win, marking a crucial moment in the contest. Vale City, who had dominated the first half, struggled to maintain their momentum, while Cedar United\u2019s resilience in the second half proved decisive. The result leaves Cedar United in a strong position heading into the next round, while Vale City must regroup. The match, marked by a dramatic finish, highlights the intensity of the league\u2019s competitive atmosphere.  \n\n**Attribution:** City Wire, published at 2026-09-26T23:00:00Z",
+      "done": true,
+      "done_reason": "stop",
+      "total_duration": 17961284167,
+      "load_duration": 155476667,
+      "prompt_eval_count": 365,
+      "prompt_eval_duration": 728085000,
+      "eval_count": 772,
+      "eval_duration": 17069540000
+    },
+    "native_thinking_chars": 0,
+    "inline_thinking_chars": 2510
+  },
+  {
+    "name": "journalist-think-raw-schema",
+    "request": {
+      "model": "alibayram/smollm3",
+      "raw": true,
+      "stream": false,
+      "prompt": "<|im_start|>system\n## Metadata\n\nKnowledge Cutoff Date: June 2025\nToday Date: 28 September 2026\nReasoning Mode: /think\n\n## Custom Instructions\n\nYou are the Journalist, a clear and restrained beat reporter. Lead with the development, name the people involved, credit the reporting, and keep uncertainty audible. Use concise, natural sporting prose. Avoid hype, stock transitions, and a repeated conclusion.\n\nHook and each title \u2264140 characters; all bodies together \u22641200.\n\nExpress the selected observations as a coherent read, preserving the connections supplied with them. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main observation without changing its timing.\n\nExpress the source-backed observations selected by the plugin. Their attribution, dates, scope and uncertainty are part of the observation. An ordinary observation is enough; significance does not need to be added.\n\nReturn JSON with narratives and headline. Write exactly one narrative (title and body) for each prepared report, in the supplied order. The title names the development; the headline is the edition hook. Source links and scores are supplied by the plugin.\n\n<|im_end|>\n<|im_start|>user\n{\"identity\":{\"name\":\"Cedar United\",\"entity_type\":\"team\",\"entity_id\":7,\"sport\":\"FOOTBALL\"},\"fresh_content\":{\"reports\":[{\"position\":1,\"attribution\":{\"publisher\":\"City Wire\",\"published_at_utc\":\"2026-09-26T23:00:00Z\"},\"publisher_excerpt\":\"Cedar United beat Vale City 2\u20131 on Sunday. Sam Lee scored the winner in the 84th minute.\"}]}}<|im_end|>\n<|im_start|>assistant\n<think>\n",
+      "options": {
+        "num_ctx": 4096,
+        "num_predict": 1500,
+        "temperature": 0.3
+      },
+      "format": {
+        "additionalProperties": false,
+        "properties": {
+          "headline": {
+            "type": "string"
+          },
+          "narratives": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "body": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "title",
+                "body"
+              ],
+              "type": "object"
+            },
+            "maxItems": 1,
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "narratives",
+          "headline"
+        ],
+        "type": "object"
+      },
+      "think": true
+    },
+    "response": {
+      "model": "alibayram/smollm3",
+      "created_at": "2026-09-28T03:02:45.274494Z",
+      "response": "{\"headline\":\"Cedar United Tops Vale City 2\u20131 in Thrilling Finish\",\"narratives\":[{\"body\":\"Cedar United secured a 2\u20131 victory over Vale City on Sunday, with Sam Lee scoring the decisive goal in the 84th minute. The match, which took place at the Cedar United Stadium, was a thrilling encounter that saw both teams battle fiercely for dominance. The first half was a back-and-forth affair, with neither side managing to break the deadlock. In the second half, Cedar United's persistence paid off as Lee's strike from the edge of the box sealed the win. Vale City, however, had a chance to equalize, but their efforts fell short. The win marks a significant step for Cedar United in their quest for league dominance.\",\"title\":\"Cedar United Tops Vale City 2\u20131 in Thrilling Finish\"}] }",
+      "done": true,
+      "done_reason": "stop",
+      "total_duration": 4239015792,
+      "load_duration": 154912000,
+      "prompt_eval_count": 365,
+      "prompt_eval_duration": 35713000,
+      "eval_count": 180,
+      "eval_duration": 4041002000
+    },
+    "native_thinking_chars": 0,
+    "inline_thinking_chars": 0
+  },
+  {
+    "name": "journalist-think-raw-native",
+    "request": {
+      "model": "alibayram/smollm3",
+      "raw": true,
+      "stream": false,
+      "prompt": "<|im_start|>system\n## Metadata\n\nKnowledge Cutoff Date: June 2025\nToday Date: 28 September 2026\nReasoning Mode: /think\n\n## Custom Instructions\n\nYou are the Journalist, a clear and restrained beat reporter. Lead with the development, name the people involved, credit the reporting, and keep uncertainty audible. Use concise, natural sporting prose. Avoid hype, stock transitions, and a repeated conclusion.\n\nHook and each title \u2264140 characters; all bodies together \u22641200.\n\nExpress the selected observations as a coherent read, preserving the connections supplied with them. Use paragraphs where the story turns, separated by a blank line; no headings or repeated conclusion.\n\nWrite plain sporting prose in the character's voice. Preserve uncertainty. Prior readings offer continuity, not new evidence.\n\nThe hook names the entity and states the card's main observation without changing its timing.\n\nExpress the source-backed observations selected by the plugin. Their attribution, dates, scope and uncertainty are part of the observation. An ordinary observation is enough; significance does not need to be added.\n\nReturn JSON with narratives and headline. Write exactly one narrative (title and body) for each prepared report, in the supplied order. The title names the development; the headline is the edition hook. Source links and scores are supplied by the plugin.\n\n<|im_end|>\n<|im_start|>user\n{\"identity\":{\"name\":\"Cedar United\",\"entity_type\":\"team\",\"entity_id\":7,\"sport\":\"FOOTBALL\"},\"fresh_content\":{\"reports\":[{\"position\":1,\"attribution\":{\"publisher\":\"City Wire\",\"published_at_utc\":\"2026-09-26T23:00:00Z\"},\"publisher_excerpt\":\"Cedar United beat Vale City 2\u20131 on Sunday. Sam Lee scored the winner in the 84th minute.\"}]}}<|im_end|>\n<|im_start|>assistant\n<think>\n",
+      "options": {
+        "num_ctx": 4096,
+        "num_predict": 1500,
+        "temperature": 0.3
+      },
+      "think": true
+    },
+    "response": {
+      "model": "alibayram/smollm3",
+      "created_at": "2026-09-28T03:06:01.387995Z",
+      "response": "\n\n**Headline:** Cedar United Secures 2-1 Win Over Vale City in Thrilling Showdown  \n\n**Report:** Cedar United claimed a resounding victory over Vale City on Sunday, securing a 2-1 win in a high-stakes encounter. The match, held at the City Stadium, saw the hosts take the lead in the 20th minute through a well-placed strike by midfielder Sam Lee. Vale City responded with a goal in the 45th minute, levelizing the score, but Cedar United's resilience shone through. In the 84th minute, Lee scored the decisive goal, securing the victory with a clinical finish. The win cements Cedar United's position at the top of the league table, while Vale City faces a challenging road ahead. The match was marked by intense competition and tactical adjustments, with both teams pushing each other to their limits. The victory highlights Cedar United's form and their ability to capitalize on late-game opportunities.",
+      "done": true,
+      "done_reason": "stop",
+      "total_duration": 12822950292,
+      "load_duration": 159284042,
+      "prompt_eval_count": 365,
+      "prompt_eval_duration": 26826000,
+      "eval_count": 573,
+      "eval_duration": 12630652000
+    },
+    "native_thinking_chars": 0,
+    "inline_thinking_chars": 1720
+  }
+]

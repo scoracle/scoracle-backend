@@ -8,12 +8,10 @@ use crate::application::queue::publication::ClaimPublication;
 use crate::application::queue::work::Item;
 use crate::evidence::memories::{self, MemoryRequest, Mission};
 use crate::plugins::scout::cognition::{
-    self as scout, Assignment, RatingBuild, RatingExclusions, RatingOutput, Subject,
-    MAX_STAT_FACTS, RATING_NUM_PREDICT, RATING_OUTPUT_CONTRACT_VERSION, RATING_SYSTEM_PROMPT,
-    RATING_TEMPERATURE,
+    self as scout, Assignment, RatingBuild, RatingExclusions, RatingOutput, RatingProfile, Subject,
+    MAX_STAT_FACTS, RATING_NUM_PREDICT, RATING_OUTPUT_CONTRACT_VERSION, RATING_TEMPERATURE,
 };
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
-use crate::studio::model::GenerateOptions;
 use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
 use crate::studio::Studio;
 use crate::util::hash_components;
@@ -92,8 +90,7 @@ impl crate::application::queue::outbox::EventReaction for RatingIdentityReaction
 }
 
 mod evidence;
-mod materials;
-pub use materials::{render_personnel_block, render_scout_reports};
+pub(crate) mod harvester;
 
 /// Durable subject and invocation policy used to prepare a Studio Scout assignment.
 #[derive(Clone, Debug)]
@@ -123,6 +120,25 @@ pub async fn build_rating_request(
     temperature: f64,
     with_enrichment: bool,
 ) -> Result<RatingBuild> {
+    build_rating_request_inner(
+        pool,
+        voice_num_ctx,
+        req,
+        temperature,
+        with_enrichment,
+        !crate::evidence::personnel::harvester_scout_reports_enabled(),
+    )
+    .await
+}
+
+async fn build_rating_request_inner(
+    pool: &sqlx::PgPool,
+    voice_num_ctx: i32,
+    req: &RatingReq,
+    temperature: f64,
+    with_enrichment: bool,
+    include_storyline_history: bool,
+) -> Result<RatingBuild> {
     let Some(mut profile) = evidence::load_rating_profile(
         pool,
         &req.entity_type,
@@ -150,6 +166,7 @@ pub async fn build_rating_request(
     let mut memory_request =
         MemoryRequest::new(Mission::Scout, &req.entity_type, req.entity_id, &req.sport);
     memory_request.season = Some(profile.season);
+    memory_request.include_storyline_history = include_storyline_history;
     let memories = memories::load(pool, memory_request).await?;
     let supports_cross_season = scout::supports_cross_season_comparison(&profile);
     let model_memories = if supports_cross_season {
@@ -175,7 +192,8 @@ pub async fn build_rating_request(
     )
     .await?;
 
-    let personnel = if with_enrichment && !memories.historical {
+    // Keep the adjudicated records for provenance and select attributed memory from them.
+    let (personnel, reported_memory) = if with_enrichment && !memories.historical {
         let (changes, total) = match crate::evidence::personnel::load_personnel_changes(
             pool,
             &req.sport,
@@ -217,19 +235,23 @@ pub async fn build_rating_request(
                     (Vec::new(), 0)
                 }
             };
-        render_personnel_block(
+        let reported = crate::plugins::scout::memories::Reported::from_records(
             &req.entity_type,
             req.entity_id,
             &changes,
-            total,
             &availability,
-            availability_total,
+            total + availability_total,
+        );
+        (
+            serde_json::json!({"changes": changes, "availability": availability,
+                "total_changes": total, "total_availability": availability_total}),
+            reported,
         )
     } else {
-        None
+        (serde_json::Value::Null, Vec::new())
     };
 
-    let current_reports = if with_enrichment && !memories.historical {
+    let (current_reports, contested_claims) = if with_enrichment && !memories.historical {
         match crate::evidence::personnel::load_scout_reports(
             pool,
             &req.entity_type,
@@ -238,7 +260,20 @@ pub async fn build_rating_request(
         )
         .await
         {
-            Ok(claims) => render_scout_reports(&claims),
+            Ok(claims) => {
+                // A marked claim is one another source contradicts. The memory
+                // carries the contradiction rather than dropping the claim,
+                // because "the subject is disputed" is the reader-relevant fact.
+                let contested: Vec<crate::plugins::scout::memories::Reported> = claims
+                    .iter()
+                    .filter(|c| c.marked)
+                    .map(crate::plugins::scout::memories::Reported::from_claim)
+                    .collect();
+                (serde_json::to_value(&claims)?, contested)
+            }
+            Err(error) if crate::evidence::personnel::harvester_scout_reports_enabled() => {
+                return Err(error).context("load verified Harvester Scout reports");
+            }
             Err(error) => {
                 tracing::warn!(
                     entity_type = %req.entity_type,
@@ -247,12 +282,17 @@ pub async fn build_rating_request(
                     %error,
                     "rating: current-report load failed (continuing without the block)"
                 );
-                None
+                (serde_json::Value::Null, Vec::new())
             }
         }
     } else {
-        None
+        (serde_json::Value::Null, Vec::new())
     };
+    let mut reported_memory = reported_memory;
+    for mut claim in contested_claims {
+        claim.disputed = Some(true);
+        reported_memory.push(claim);
+    }
 
     let comparisons = if with_enrichment && supports_cross_season {
         match evidence::load_rating_profile(
@@ -285,10 +325,8 @@ pub async fn build_rating_request(
     } else {
         None
     };
-    let comparison_directions = scout::comparison_directions(&profile, comparisons.as_ref());
     let prompt_profile =
         scout::model_prompt_profile(&profile, supports_cross_season, comparisons.as_ref());
-    let measurement_bands = scout::measurement_bands(&prompt_profile);
     let form_trend = if with_enrichment {
         rating_trajectory.label.as_ref().map(|label| {
             format!(
@@ -299,14 +337,11 @@ pub async fn build_rating_request(
     } else {
         None
     };
-    let memory_context = model_memories.render_for_model()?;
     let mut components: serde_json::Value = serde_json::from_str(&input_components)?;
     components["skill_changes"] = serde_json::json!(comparisons);
     components["personnel"] = serde_json::json!(personnel);
     components["current_reports"] = serde_json::json!(current_reports);
     components["recent_form"] = serde_json::json!(form_trend);
-    let input_components = components.to_string();
-    let input_hash = hash_components(&input_components);
     let sport_name: String =
         sqlx::query_scalar("SELECT display_name FROM public.sports WHERE id = $1")
             .bind(&req.sport)
@@ -321,43 +356,84 @@ pub async fn build_rating_request(
         sport: req.sport.clone(),
         sport_name,
     };
-    let built_prompt = scout::build_stat_prompt_with_exclusions(
+    let (measured_memory, coverage_limits) = match measured_memory(
+        pool,
         &subject,
-        &prompt_profile,
-        personnel.as_deref(),
-        comparisons.as_ref(),
-        form_trend.as_deref(),
-        current_reports.as_deref(),
-        Some(&memory_context),
-        Some(&exclusions),
-    );
-    let opts = GenerateOptions {
-        system: Some(RATING_SYSTEM_PROMPT.to_string()),
-        temperature: Some(temperature),
-        num_predict: RATING_NUM_PREDICT,
-        num_ctx: voice_num_ctx,
-        json_mode: false,
-        format_schema: Some(crate::plugins::support::form::with_abstention(
-            crate::plugins::support::form::card_schema(false),
-        )),
-        format_schema_raw: None,
+        req.entity_id,
+        &profile,
+        with_enrichment && !memories.historical,
+    )
+    .await
+    {
+        Ok(parts) => parts,
+        Err(error) => {
+            // A failed study is not a study that found nothing. The difference
+            // matters: the second is a fact about the fixtures, the first is a
+            // fact about our ability to look. Recording it keeps the model from
+            // reading absence-of-trend as stability.
+            tracing::warn!(
+                entity_type = %req.entity_type,
+                entity_id = req.entity_id,
+                sport = %req.sport,
+                %error,
+                "rating: match-statistic study failed (continuing without measured memory)"
+            );
+            (
+                Vec::new(),
+                vec![format!(
+                    "No recent-fixture measurement window is available for this read: {error:#}"
+                )],
+            )
+        }
     };
-
-    let Some(palette) = scout::rating_palette(
-        &subject,
-        &prompt_profile,
-        comparisons.as_ref(),
-        form_trend.as_deref(),
-    ) else {
+    let parts = scout::parts::Parts {
+        subject: crate::plugins::meta::EntityMeta {
+            name: subject.entity_name.clone(),
+            entity_type: subject.entity_type.clone(),
+            entity_id: req.entity_id,
+            sport: subject.sport.clone(),
+        },
+        sport_name: subject.sport_name.clone(),
+        season: profile.season,
+        profile: scout::parts::profile_parts(
+            &prompt_profile,
+            &subject.sport_name,
+            supports_cross_season,
+            comparisons.as_ref(),
+            &exclusions,
+        ),
+        rate_standouts: crate::plugins::scout::cognition::parts::rate_standout_parts(
+            &prompt_profile,
+        ),
+        trend: rating_trajectory
+            .label
+            .as_ref()
+            .map(|_| scout::parts::Trend {
+                direction: rating_trajectory.key.clone(),
+                sample_size: rating_trajectory.components["sample_size"]
+                    .as_u64()
+                    .unwrap_or_default() as usize,
+                note: form_trend.clone(),
+            }),
+        memory: crate::plugins::scout::memories::select(
+            &crate::plugins::scout::memories::Selection::rated(),
+            measured_memory,
+            reported_memory,
+            coverage_limits,
+        ),
+    };
+    let built_prompt = parts.render();
+    let opts = parts.generation_options(voice_num_ctx, temperature);
+    if !parts.has_measured_profile() {
         return Ok(RatingBuild::NoStats {
             season: profile.season,
         });
-    };
+    }
+    let input_components = parts.input_components(components);
+    let input_hash = hash_components(&input_components);
     Ok(RatingBuild::Ready(Box::new(Assignment {
         subject,
         season: profile.season,
-        comparison_directions,
-        measurement_bands,
         notability,
         notability_components,
         rating_trajectory,
@@ -366,8 +442,133 @@ pub async fn build_rating_request(
         exclusions,
         opts,
         built_prompt,
-        palette,
+        parts,
     })))
+}
+
+/// The Scout's measured memory: a match-statistic study over stored fixtures.
+///
+/// This is the shared `statistic::team_matches` adapter's first production
+/// consumer, and the reason it was not deleted in Window 0. A season profile is
+/// a snapshot; this is the windowed arithmetic that says whether the recent
+/// fixtures moved, which is the "big win" the Scout's memory is for: DuckDB
+/// computes the comparison so the model reads a computed direction rather than
+/// inferring one from a column of numbers.
+///
+/// # Why it is scoped this narrowly
+///
+/// The adapter is team-level and requires a registered additive `cumulative_total`
+/// measure in one competition and season. A player has no team fixture series, so
+/// a player read simply has no measured memory — which is honest, and is why
+/// absence here is reported rather than hidden:
+///
+/// - **not a team** → no study is possible, and nothing is claimed about it;
+/// - **no league or a team with no additive measure** → the study declines,
+///   which is distinct from a study that found a flat window;
+/// - **fewer than two completed fixtures** → no comparison is computable.
+///
+/// The coverage statement travels with the finding either way, because a window
+/// the model cannot see the limits of is a window it will over-read.
+async fn measured_memory(
+    pool: &sqlx::PgPool,
+    subject: &Subject,
+    entity_id: i32,
+    profile: &RatingProfile,
+    enabled: bool,
+) -> Result<(Vec<crate::plugins::scout::memories::Measured>, Vec<String>)> {
+    let mut limits = Vec::new();
+    if !enabled {
+        limits.push(
+            "Recent-fixture measurement windows are not part of this read's scope.".to_string(),
+        );
+        return Ok((Vec::new(), limits));
+    }
+    if subject.entity_type != "team" {
+        // A player's profile has no team fixture series. Saying so keeps the
+        // absence from reading as "no recent form was found".
+        limits.push(
+            "This is a player profile; recent-fixture windows are measured per team and do not \
+             apply here, so recent direction from fixtures is unknown rather than flat."
+                .to_string(),
+        );
+        return Ok((Vec::new(), limits));
+    }
+    let Some(league_id) = profile.league_id else {
+        limits.push(
+            "No competition was resolved for this entity, so no fixture window could be compared."
+                .to_string(),
+        );
+        return Ok((Vec::new(), limits));
+    };
+    let Some(metric) = team_metric_for(pool, &subject.sport).await? else {
+        limits.push(
+            "No registered additive team measure is available for this sport, so no fixture \
+             window could be computed."
+                .to_string(),
+        );
+        return Ok((Vec::new(), limits));
+    };
+    let now = crate::plugins::influencer::adapter::harvester::now();
+    // A recent window with an equal earlier one, so the study has something to
+    // compare. The split is inside the lookback, which keeps the read current.
+    let window = 30 * 86400;
+    let before = now;
+    let split = before - window;
+    let from = split - window;
+    let study = crate::plugins::memories::statistic::team_matches(
+        pool,
+        &crate::plugins::meta::EntityMeta {
+            name: subject.entity_name.clone(),
+            entity_type: subject.entity_type.clone(),
+            entity_id,
+            sport: subject.sport.clone(),
+        },
+        &metric,
+        league_id,
+        profile.season,
+        from,
+        split,
+        before,
+    )
+    .await?;
+    limits.push(study.coverage.clone());
+    if study.finding.current.fixtures < 2 || study.finding.previous.fixtures < 2 {
+        limits.push(
+            "Fewer than two completed fixtures fall in one or both windows, so no per-match \
+             change is computable. Recent direction is unknown, not steady."
+                .to_string(),
+        );
+        return Ok((Vec::new(), limits));
+    }
+    let finding = &study.finding;
+    let measured = vec![crate::plugins::scout::memories::Measured {
+        measure_label: study.measure_label.clone(),
+        unit: finding.unit.clone(),
+        from: crate::util::utc_timestamp(finding.previous.from),
+        before: crate::util::utc_timestamp(finding.current.before),
+        fixtures: finding.current.fixtures,
+        measured: finding.current.measured,
+        per_match: finding.current.per_match,
+        per_match_change: finding.per_match_change,
+        percent_change: finding.percent_change,
+        fixture_ids: finding.fixture_ids.clone(),
+    }];
+    Ok((measured, limits))
+}
+
+/// The one registered additive team measure for this sport, if there is exactly
+/// one. Choosing the metric is the plugin's decision and it is made here rather
+/// than inferred from prose, which is the adapter's own requirement.
+async fn team_metric_for(pool: &sqlx::PgPool, sport: &str) -> Result<Option<String>> {
+    let metrics: Vec<String> = sqlx::query_scalar(
+        "SELECT key_name FROM stat_definitions \
+         WHERE sport=$1 AND entity_type='team' AND unit='cumulative_total' \
+         ORDER BY key_name",
+    )
+    .bind(sport)
+    .fetch_all(pool)
+    .await?;
+    Ok((metrics.len() == 1).then(|| metrics[0].clone()))
 }
 
 /// Prepare, debounce, and create a Scout product. Publication remains a separate short transaction.
@@ -800,6 +1001,11 @@ impl StudioPlugin for RatingHandler {
     }
 
     async fn execute(&self, item: &Item) -> Result<PluginOutcome> {
+        if item.input_version.as_deref().is_some_and(|version| {
+            version.starts_with(crate::plugins::harvester::context::CONTRACT)
+        }) {
+            return harvester::execute(&self.pool, &self.models, item).await;
+        }
         let pool = &self.pool;
         let models = &self.models;
         let entity_id = item.entity_id_i32()?;

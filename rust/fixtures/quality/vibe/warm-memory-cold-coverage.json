@@ -1,11 +1,36 @@
 {
   "expect": {},
   "name": "warm-memory-cold-coverage",
-  "prompt_version": "v36",
+  "parts": {
+    "history": [
+      {
+        "published_at": "2026-09-25T00:00:00Z",
+        "publisher": "Old Wire",
+        "reported_headline": "Cedar Comets fans celebrated an earlier win"
+      }
+    ],
+    "source": {
+      "article_id": 42,
+      "classification_id": 1,
+      "context": "Cedar Comets announced a training schedule for Tuesday.",
+      "headline": "warm-memory-cold-coverage fixture",
+      "published_at_epoch": 1790553600,
+      "source": "Example Wire"
+    },
+    "subject": {
+      "entity_id": 7,
+      "entity_type": "team",
+      "name": "Cedar Comets",
+      "sport": "NBA"
+    }
+  },
+  "prompt_version": "vibe-frame-v3",
+  "review": [
+    "Synthesize fresh and relevant dated history into the emotional charge around the identified subject.",
+    "Preserve supplied speakers, timing, scope and uncertainty.",
+    "Review the reading against the supplied world; noisy intake belongs to Harvester calibration."
+  ],
   "task": "vibe",
   "temperature": 0.0,
-  "user_prompt": "Entity: Player Elias Trent (NBA)\n\nPrior story: MVP-caliber spring surge — peaked Apr 2026 (coverage 88/100).\nOur prior read: euphoric through April; the fanbase built its summer expectations on that stretch.\n\nThe stories running around them right now (MOOD describes emotional language in the reporting; attribute feelings to the speaker or source shown):\nSTORY: Slump deepens as minutes shrink\nREPORTED:\n- A fourth straight quiet outing; the coach declined to confirm his place in the closing lineup and the home crowd has gone flat on him.\n",
-  "review": [
-    "Use prior warmth as historical context; it does not establish fresh positive sentiment."
-  ]
+  "user_prompt": "{\"identity\":{\"name\":\"Cedar Comets\",\"entity_type\":\"team\",\"sport\":\"basketball\"},\"fresh\":{\"publisher\":\"Example Wire\",\"published_at\":\"2026-09-28T00:00:00Z\",\"publisher_excerpt\":\"Cedar Comets announced a training schedule for Tuesday.\"},\"history\":[{\"publisher\":\"Old Wire\",\"published_at\":\"2026-09-25T00:00:00Z\",\"reported_headline\":\"Cedar Comets fans celebrated an earlier win\"}],\"voice\":\"Emotionally attentive, clear and concise. Convey the feeling of the supplied world with care and restraint.\",\"form\":{\"body\":{\"type\":\"string or null\",\"paragraphs\":\"One observation per paragraph. Blank lines separate paragraphs. Short, complete sentences. No headings or repeated conclusion.\",\"paragraph_max_chars\":140,\"max_chars\":1200,\"lengths\":\"Ceilings, not targets; no minimum length.\",\"paragraph_breaks\":\"escaped newlines\"}}}"
 }

@@ -35,7 +35,7 @@ pub async fn extract_graph(
             &GraphParser {
                 candidates: &assignment.candidates,
             },
-            crate::plugins::support::form::structured_correction,
+            crate::plugins::support::prompt::structured_correction,
         )
         .await
         .map(Some)
@@ -109,6 +109,8 @@ pub struct GraphPerson {
 pub struct GraphExtraction {
     pub relations: Vec<GraphRelation>,
     pub persons: Vec<GraphPerson>,
+    /// Optional verbatim completed result, validated against source bytes by the adapter.
+    pub final_result_line: String,
 }
 
 /// One article's metadata for the extraction prompt.
@@ -169,6 +171,8 @@ impl Parser<GraphExtraction> for GraphParser<'_> {
             relations: Vec<RelReply>,
             #[serde(default)]
             persons: Vec<PersonReply>,
+            #[serde(default)]
+            final_result_line: String,
         }
         let reply: Reply = match serde_json::from_str(&raw[start..=end]) {
             Ok(r) => r,
@@ -176,6 +180,7 @@ impl Parser<GraphExtraction> for GraphParser<'_> {
         };
 
         let mut out = GraphExtraction::default();
+        out.final_result_line = reply.final_result_line;
         for r in reply.relations {
             let Some(subj_idx) = r.subject else { continue };
             let Some(subj) = self.resolve(subj_idx) else {

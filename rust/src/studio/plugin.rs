@@ -56,6 +56,9 @@ pub enum ToolGrant {
     WebFetch(&'static [DomainClass]),
     /// Model inference through the Studio's routed inference broker.
     Inference,
+    /// Non-generative classification through an application-bound DecisionModel.
+    /// This does not grant access to generative inference routes.
+    Classification,
 }
 
 impl ToolGrant {

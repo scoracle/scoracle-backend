@@ -8,6 +8,8 @@ use anyhow::{anyhow, Context, Result};
 use std::collections::HashMap;
 use std::time::Duration;
 
+pub const DEFAULT_OLLAMA_MODEL: &str = "alibayram/smollm3";
+
 #[derive(Clone, Debug)]
 pub struct Config {
     pub database_url: String,
@@ -61,7 +63,7 @@ impl Config {
 
         // These fields are also the per-role route defaults.
         let ollama_base_url = env_or("OLLAMA_BASE_URL", "http://localhost:11434");
-        let ollama_model = env_or("OLLAMA_MODEL", "alibayram/smollm3");
+        let ollama_model = env_or("OLLAMA_MODEL", DEFAULT_OLLAMA_MODEL);
         let route = RouteConfig::from_env(
             &ollama_model,
             &ollama_base_url,

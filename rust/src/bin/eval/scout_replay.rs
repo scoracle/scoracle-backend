@@ -1,14 +1,14 @@
 //! DB-free replay of captured Scout assignments through production guards and
 //! bounded correction. Records every returned response, including rejected ones.
 use anyhow::{anyhow, Result};
-use scoracle_cognition::plugins::scout::cognition::{RatingRequestParser, RelativeDirection};
+use scoracle_cognition::plugins::scout::cognition::{parts::Parts, RatingRequestParser};
 use scoracle_cognition::runtime::{config::Config, route::Router};
 use scoracle_cognition::studio::{
     model::{GenerateOptions, GenerateResult, Inference},
     Parser, Studio,
 };
 use serde_json::{json, Value};
-use std::{collections::BTreeMap, path::Path, sync::Mutex};
+use std::{path::Path, sync::Mutex};
 
 struct Recording<'a> {
     backend: &'a dyn Inference,
@@ -23,15 +23,18 @@ impl Inference for Recording<'_> {
         prompt: &str,
         opts: &GenerateOptions,
     ) -> Result<(GenerateResult, Value)> {
+        let started = std::time::Instant::now();
         let result = self.backend.generate(prompt, opts).await;
-        let record = match &result {
+        let mut record = match &result {
             Ok((g, request)) => {
-                json!({"request":request,"raw_response":g.response,"raw_response_body":g.raw_response_body,"prompt_eval_count":g.prompt_eval_count,"eval_count":g.eval_count,"completion_reason":g.completion_reason,"guard_error":self.parser.parse(&g.response).err().map(|e|format!("{e:#}"))})
+                json!({"request":request,"raw_response":g.response,"raw_response_body":g.raw_response_body,"latency_ms":g.total_duration.as_millis(),"request_bytes":prompt.len()+opts.system.as_ref().map_or(0,String::len),"prompt_eval_count":g.prompt_eval_count,"eval_count":g.eval_count,"completion_reason":g.completion_reason,"guard_error":self.parser.parse(&g.response).err().map(|e|format!("{e:#}"))})
             }
             Err(e) => {
                 json!({"request":self.backend.request_body(prompt,opts),"provider_error":format!("{e:#}"),"raw_response_unavailable":true})
             }
         };
+        record["wall_ms"] = json!(started.elapsed().as_millis());
+        record["request_bytes"] = json!(prompt.len() + opts.system.as_ref().map_or(0, String::len));
         self.attempts.lock().unwrap().push(record);
         result
     }
@@ -52,8 +55,8 @@ pub async fn run(cfg: &Config, path: &Path) -> Result<()> {
     {
         let capture: Value = serde_json::from_str(line)?;
         anyhow::ensure!(
-            capture["capture_version"] == 1,
-            "unsupported capture version"
+            capture["capture_version"] == 2,
+            "capture must include current prepared parts; recapture this assignment"
         );
         let a = &capture["assignment"];
         if a["status"] == "no_stats" {
@@ -67,32 +70,24 @@ pub async fn run(cfg: &Config, path: &Path) -> Result<()> {
         let prompt = a["built_prompt"]
             .as_str()
             .ok_or_else(|| anyhow!("missing prompt"))?;
-        let directions =
-            serde_json::from_value::<BTreeMap<String, String>>(a["comparison_directions"].clone())?
-                .into_iter()
-                .map(|(k, v)| {
-                    Ok((
-                        k,
-                        match v.as_str() {
-                            "Rose" => RelativeDirection::Rose,
-                            "Fell" => RelativeDirection::Fell,
-                            "Held" => RelativeDirection::Held,
-                            _ => return Err(anyhow!("invalid direction {v}")),
-                        },
-                    ))
-                })
-                .collect::<Result<BTreeMap<_, _>>>()?;
-        let bands = serde_json::from_value(a["measurement_bands"].clone())?;
-        let o = &a["options"];
-        let opts = GenerateOptions {
-            system: serde_json::from_value(o["system"].clone())?,
-            temperature: serde_json::from_value(o["temperature"].clone())?,
-            num_ctx: serde_json::from_value(o["num_ctx"].clone())?,
-            num_predict: serde_json::from_value(o["num_predict"].clone())?,
-            json_mode: serde_json::from_value(o["json_mode"].clone())?,
-            format_schema: serde_json::from_value(o["format_schema"].clone())?,
-            format_schema_raw: serde_json::from_value(o["format_schema_raw"].clone())?,
-        };
+        let parts: Parts = serde_json::from_value(a["parts"].clone())?;
+        if !parts.has_measured_profile() {
+            println!(
+                "{}",
+                json!({"capture":capture,"outcome":"no_stats","attempts":[]})
+            );
+            continue;
+        }
+        anyhow::ensure!(
+            parts.render() == prompt,
+            "captured request differs from current plugin assembly"
+        );
+        let directions = parts.comparison_directions();
+        let bands = parts.measurement_bands();
+        let opts = parts.generation_options(
+            serde_json::from_value(a["options"]["num_ctx"].clone())?,
+            serde_json::from_value(a["options"]["temperature"].clone())?,
+        );
         let recording = Recording {
             backend: backend.as_ref(),
             parser: RatingRequestParser::new(prompt, &directions, &bands),
@@ -103,12 +98,12 @@ pub async fn run(cfg: &Config, path: &Path) -> Result<()> {
                 prompt,
                 &opts,
                 &recording.parser,
-                scoracle_cognition::plugins::support::form::publishing_correction,
+                scoracle_cognition::plugins::scout::cognition::prompt::correction,
             )
             .await;
         let outcome = match result {
             Ok(r) => {
-                json!({"status":"accepted","raw_response":r.raw_response,"built_prompt":r.built_prompt})
+                json!({"status":if r.value.is_some() { "accepted" } else { "abstained" },"raw_response":r.raw_response,"built_prompt":r.built_prompt})
             }
             Err(e) => json!({"status":"rejected","error":format!("{e:#}")}),
         };
@@ -123,6 +118,7 @@ pub async fn run(cfg: &Config, path: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::BTreeMap;
     struct Backend(Mutex<Vec<String>>);
     #[async_trait::async_trait]
     impl Inference for Backend {
@@ -155,10 +151,12 @@ mod tests {
 
     #[tokio::test]
     async fn replay_retains_rejected_response_and_bounded_correction() {
+        // The Scout's declared surface is the shared keyed prose map, and its
+        // recorded non-participation on the paragraph rule means an over-long
+        // body is refused for its TOTAL length.
         let backend = Backend(Mutex::new(vec![
-            json!({"body":"x".repeat(1201),"headline":"Measured profile"}).to_string(),
-            json!({"body":"The measured rebounding is strong.","headline":"Measured profile"})
-                .to_string(),
+            json!({"body":"x".repeat(1201)}).to_string(),
+            json!({"body":"The measured rebounding is strong."}).to_string(),
         ]));
         let directions = BTreeMap::new();
         let bands = BTreeMap::new();
@@ -177,16 +175,23 @@ mod tests {
                 "Evidence",
                 &opts,
                 &recording.parser,
-                scoracle_cognition::plugins::support::form::publishing_correction,
+                scoracle_cognition::plugins::scout::cognition::prompt::correction,
             )
             .await
             .unwrap();
         let attempts = recording.attempts.lock().unwrap();
         assert_eq!(attempts.len(), 2);
-        assert!(attempts[0]["guard_error"]
-            .as_str()
-            .unwrap()
-            .contains("1200"));
+        // The rejection is the shared body ceiling. The Scout records a
+        // non-participation on the paragraph rule, so an over-long body is
+        // refused for its total length, not for a paragraph.
+        assert!(
+            attempts[0]["guard_error"]
+                .as_str()
+                .unwrap()
+                .contains("Prose totals 1201 characters"),
+            "guard error was {:?}",
+            attempts[0]["guard_error"]
+        );
         assert!(attempts[1]["guard_error"].is_null());
         assert_eq!(attempts[0]["raw_response_body"], "retained HTTP body");
         assert_eq!(attempts[0]["prompt_eval_count"], 31);

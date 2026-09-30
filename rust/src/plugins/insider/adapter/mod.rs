@@ -67,6 +67,7 @@ pub(crate) async fn record_transfer_event(
     .context(context)
 }
 
+pub(crate) mod harvester;
 mod identity;
 use crate::plugins::insider::cognition::{
     build_insider_score_input_components, build_transfer_identity_adjudication_prompt,
@@ -201,6 +202,73 @@ pub async fn load_candidates(
         .collect())
 }
 
+/// Source-scoped pair identities from the strict Harvester canonical-name
+/// writer. A Google query or Laya tag alone cannot create a transfer pair.
+pub async fn load_harvester_source_candidates(
+    pool: &PgPool,
+    article_id: i64,
+    team_id: i32,
+    sport: &str,
+) -> Result<Vec<TransferCandidate>> {
+    let rows = sqlx::query(
+        r#"
+        SELECT subject.entity_id, p.name,
+               COALESCE(p.nationality,'') AS nationality,
+               COALESCE(ct.name,'') AS current_club,
+               COALESCE(NULLIF(pci.position,'Unknown'),'') AS position,
+               'player'::text AS subject_type,
+               NULL::text AS relationship_override
+          FROM public.harvester_resolved_links subject
+          JOIN public.harvester_resolved_links team
+            ON team.article_id=subject.article_id AND team.sport=subject.sport
+           AND team.entity_type='team' AND team.entity_id=$2
+          JOIN public.players p
+            ON p.id=subject.entity_id AND p.sport=subject.sport
+          LEFT JOIN public.player_current_identity pci
+            ON pci.player_id=p.id AND pci.sport=p.sport
+          LEFT JOIN public.teams ct
+            ON ct.id=pci.team_id AND ct.sport=p.sport
+         WHERE subject.article_id=$1 AND subject.sport=$3
+           AND subject.entity_type='player'
+        UNION ALL
+        SELECT subject.entity_id, pp.full_name AS name,
+               ''::text AS nationality,
+               COALESCE(ct.name,'') AS current_club,
+               pp.kind AS position,
+               'person'::text AS subject_type,
+               CASE WHEN pp.team_id=$2 THEN 'current' ELSE 'none' END AS relationship_override
+          FROM public.harvester_resolved_links subject
+          JOIN public.harvester_resolved_links team
+            ON team.article_id=subject.article_id AND team.sport=subject.sport
+           AND team.entity_type='team' AND team.entity_id=$2
+          JOIN public.persons pp
+            ON pp.id=subject.entity_id AND pp.sport=subject.sport AND pp.kind='coach'
+          LEFT JOIN public.teams ct ON ct.id=pp.team_id AND ct.sport=pp.sport
+         WHERE subject.article_id=$1 AND subject.sport=$3
+           AND subject.entity_type='person'
+         ORDER BY subject_type, entity_id
+        "#,
+    )
+    .bind(article_id)
+    .bind(team_id)
+    .bind(sport)
+    .fetch_all(pool)
+    .await
+    .context("load Harvester transfer pair identities")?;
+    Ok(rows
+        .iter()
+        .map(|r| TransferCandidate {
+            player_id: r.get("entity_id"),
+            player_name: r.get("name"),
+            nationality: r.get("nationality"),
+            current_club: r.get("current_club"),
+            position: r.get("position"),
+            subject_type: r.get("subject_type"),
+            relationship_override: r.get("relationship_override"),
+        })
+        .collect())
+}
+
 /// compute_pair_heat calls the deterministic `compute_transfer_heat` SQL function (migration 032 —
 /// the number stays in Postgres, NEVER the model's). Returns (heat, components-jsonb-text, news_ids);
 /// `heat` is `None` when there is no pair corpus (the Skipped short-circuit). Mirrors the
@@ -298,7 +366,7 @@ async fn load_pair_packet_material(
         "team",
         team_id,
         sport,
-        crate::plugins::journalist::adapter::PACKET_LOOKBACK_HOURS,
+        crate::evidence::news::packet::PACKET_LOOKBACK_HOURS,
         PAIR_PACKET_LIMIT,
     )
     .await?;
@@ -328,7 +396,7 @@ async fn load_pair_packet_material(
             if !framing.is_empty() {
                 framing.push('\n');
             }
-            framing.push_str(&render::framing(&view, Some(&part), render::Voice::Insider));
+            framing.push_str(&render::framing(&view, Some(&part)));
         }
     }
     Ok((facts, framing))
@@ -1110,6 +1178,11 @@ impl StudioPlugin for TransferHandler {
     }
 
     async fn execute(&self, item: &Item) -> Result<PluginOutcome> {
+        if item.input_version.as_deref().is_some_and(|version| {
+            version.starts_with(crate::plugins::harvester::context::CONTRACT)
+        }) {
+            return harvester::execute(&self.pool, &self.models, item).await;
+        }
         let pool = &self.pool;
         let models = &self.models;
         if item.entity_type != "team" {

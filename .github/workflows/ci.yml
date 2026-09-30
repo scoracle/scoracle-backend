@@ -83,7 +83,8 @@ jobs:
       - name: Rust unit and database contracts
         run: |
           cargo test --manifest-path rust/Cargo.toml --lib --bins
-          cargo test --manifest-path rust/Cargo.toml --lib -- --ignored --test-threads=1
+          # Real-model replays require local Ollama and private sample corpora.
+          cargo test --manifest-path rust/Cargo.toml --lib -- --ignored --skip local_real_model --test-threads=1
 
       - name: validate-stmts (prepared statements register against the schema)
         working-directory: go
@@ -125,5 +126,8 @@ jobs:
           (cd sql/schema && sha256sum -c SHA256SUMS)
           expected="$(mktemp)"
           for f in sql/migrations/*.sql; do basename "$f" .sql; done | sort > "$expected"
-          diff -u "$expected" sql/schema/applied-migrations.txt
+          # PostgreSQL's ledger collation and the runner's shell locale order
+          # 042a_* and 042_* differently; compare the captured set, not order.
+          diff -u <(LC_ALL=C sort "$expected") \
+                  <(LC_ALL=C sort sql/schema/applied-migrations.txt)
           # Never regenerate applied history from filenames. Capture a verified database.

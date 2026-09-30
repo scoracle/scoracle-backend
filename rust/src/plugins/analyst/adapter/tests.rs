@@ -372,7 +372,15 @@ impl Inference for LifecycleAdapters {
         self.events.lock().unwrap().push("model");
         Ok((
             GenerateResult {
-                response: self.response.clone(),
+                response: if self.response.is_empty() {
+                    let slots = prompt
+                        .lines()
+                        .filter(|line| line.starts_with("Fact "))
+                        .count();
+                    serde_json::json!({"choices": vec![0; slots]}).to_string()
+                } else {
+                    self.response.clone()
+                },
                 thinking: String::new(),
                 model: "responding-model".into(),
                 total_duration: Duration::from_millis(12),
@@ -501,10 +509,7 @@ mod postgres_publication_fencing_tests {
     }
 
     async fn product() -> Prepared {
-        let adapters = LifecycleAdapters {
-            response: r#"{"body":"The form is rising and the mood confirms it.","headline":"Test Team gathers force"}"#.into(),
-            ..Default::default()
-        };
+        let adapters = LifecycleAdapters::default();
         prepare(&Studio::new(&adapters), &lifecycle_assignment(true))
             .await
             .expect("prepare momentum product")

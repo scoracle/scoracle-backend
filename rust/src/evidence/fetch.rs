@@ -9,7 +9,6 @@ use sha2::{Digest, Sha256};
 use sqlx::Row;
 use std::process::Command;
 use std::time::Duration;
-use tracing::warn;
 
 const ARTICLE_FETCH_TIMEOUT: Duration = Duration::from_secs(20);
 /// The floor under which a fetched body is not worth a model call — and the threshold that
@@ -27,6 +26,26 @@ pub struct FetchedArticle {
     pub text: String,
 }
 
+#[derive(Debug)]
+pub struct ArticleHttpStatus {
+    pub status: reqwest::StatusCode,
+    pub final_url: String,
+}
+
+impl ArticleHttpStatus {
+    pub fn is_access_denied(&self) -> bool {
+        matches!(self.status.as_u16(), 401 | 402 | 403 | 451)
+    }
+}
+
+impl std::fmt::Display for ArticleHttpStatus {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "article HTTP {}", self.status.as_u16())
+    }
+}
+
+impl std::error::Error for ArticleHttpStatus {}
+
 pub async fn fetch_article(raw_url: &str) -> Result<FetchedArticle> {
     let client = reqwest::Client::builder()
         .timeout(ARTICLE_FETCH_TIMEOUT)
@@ -35,14 +54,9 @@ pub async fn fetch_article(raw_url: &str) -> Result<FetchedArticle> {
         .build()
         .context("build article fetch client")?;
 
-    let fetch_url = match resolve_google_news_article_url(&client, raw_url).await {
-        Ok(Some(resolved)) => resolved,
-        Ok(None) => raw_url.to_string(),
-        Err(e) => {
-            warn!(url = raw_url, error = %format!("{e:#}"), "google news url resolution failed");
-            raw_url.to_string()
-        }
-    };
+    let fetch_url = resolve_google_news_article_url(&client, raw_url)
+        .await?
+        .unwrap_or_else(|| raw_url.to_string());
 
     let resp = client
         .get(&fetch_url)
@@ -51,11 +65,8 @@ pub async fn fetch_article(raw_url: &str) -> Result<FetchedArticle> {
         .context("fetch article")?;
     let final_url = resp.url().to_string();
     let status = resp.status();
-    if status.as_u16() == 401 || status.as_u16() == 403 {
-        return Err(anyhow!("article HTTP {}", status.as_u16()));
-    }
     if !status.is_success() {
-        return Err(anyhow!("article HTTP {}", status.as_u16()));
+        return Err(ArticleHttpStatus { status, final_url }.into());
     }
     let html = resp.text().await.context("read article body")?;
     let mut text = extract_article_text(&html);
@@ -114,24 +125,30 @@ async fn resolve_google_news_article_url(
         return Ok(None);
     };
 
-    let html = client
+    let response = client
         .get(raw_url)
         .send()
         .await
-        .context("fetch google news wrapper")?
-        .text()
-        .await
-        .context("read google news wrapper")?;
+        .context("fetch google news wrapper")?;
+    let status = response.status();
+    if !status.is_success() {
+        return Err(ArticleHttpStatus {
+            status,
+            final_url: response.url().to_string(),
+        }
+        .into());
+    }
+    let html = response.text().await.context("read google news wrapper")?;
     let resolved_id = html_attr(&html, "data-n-a-id").unwrap_or(article_id);
     let Some(timestamp) = html_attr(&html, "data-n-a-ts").and_then(|v| v.parse::<i64>().ok())
     else {
-        return Ok(None);
+        return Err(anyhow!("Google News wrapper lacks resolver timestamp"));
     };
     let Some(signature) = html_attr(&html, "data-n-a-sg") else {
-        return Ok(None);
+        return Err(anyhow!("Google News wrapper lacks resolver signature"));
     };
     let payload = google_news_resolve_payload(&resolved_id, timestamp, &signature);
-    let body = client
+    let response = client
         .post(GOOGLE_NEWS_BATCH_URL)
         .header(
             reqwest::header::CONTENT_TYPE,
@@ -140,11 +157,19 @@ async fn resolve_google_news_article_url(
         .form(&[("f.req", payload)])
         .send()
         .await
-        .context("post google news resolver")?
-        .text()
-        .await
-        .context("read google news resolver")?;
-    Ok(parse_google_news_resolver_response(&body))
+        .context("post google news resolver")?;
+    let status = response.status();
+    if !status.is_success() {
+        return Err(ArticleHttpStatus {
+            status,
+            final_url: response.url().to_string(),
+        }
+        .into());
+    }
+    let body = response.text().await.context("read google news resolver")?;
+    parse_google_news_resolver_response(&body)
+        .map(Some)
+        .ok_or_else(|| anyhow!("Google News resolver returned no publisher URL"))
 }
 
 fn google_news_article_id(raw_url: &str) -> Option<String> {
@@ -338,10 +363,7 @@ fn dedupe_repeated_segments(text: &str) -> String {
     if start < text.len() {
         out.push(&text[start..]);
     }
-    out.join("")
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
+    normalize_reading_paragraphs(&out.join(""))
 }
 
 /// Extracts a reading body, preferring the largest `<article>` and then `<main>`.
@@ -353,13 +375,13 @@ pub fn extract_article_text(html: &str) -> String {
     }
     for tag in ["article", "main"] {
         if let Some(inner) = largest_element_inner(&doc, tag) {
-            let text = clean_html(&inner);
+            let text = clean_html_with_paragraphs(&inner);
             if count_words(&text) >= ARTICLE_MIN_WORDS {
                 return compact_reading(&text);
             }
         }
     }
-    compact_reading(&clean_html(&doc))
+    compact_reading(&clean_html_with_paragraphs(&doc))
 }
 
 /// compact_reading strips what the tag pass cannot see: furniture that lives INSIDE the article
@@ -412,6 +434,63 @@ pub fn clean_html(html: &str) -> String {
         }
     }
     decode_entities(&normalize_space(&out))
+}
+
+/// Retain source paragraph boundaries for Harvester while folding whitespace
+/// inside each paragraph. The general-purpose `clean_html` remains a flat-text
+/// utility for callers that do not need article structure.
+fn has_open_tag(html: &str, tag: &str) -> bool {
+    let prefix = format!("<{tag}");
+    let mut from = 0;
+    while let Some(start) = find_ascii_ci(html, &prefix, from) {
+        if html[start + prefix.len()..]
+            .chars()
+            .next()
+            .is_some_and(|next| next == '>' || next.is_whitespace())
+        {
+            return true;
+        }
+        from = start + prefix.len();
+    }
+    false
+}
+
+fn clean_html_with_paragraphs(html: &str) -> String {
+    let mut out = String::with_capacity(html.len());
+    let mut tag = String::new();
+    let mut in_tag = false;
+    let has_paragraph_tags = has_open_tag(html, "p");
+    for character in html.chars() {
+        match character {
+            '<' => {
+                in_tag = true;
+                tag.clear();
+            }
+            '>' if in_tag => {
+                in_tag = false;
+                let name = tag.trim().to_ascii_lowercase();
+                let name = name.split_whitespace().next().unwrap_or_default();
+                if matches!(name, "/p" | "/blockquote") || (name == "/div" && !has_paragraph_tags) {
+                    out.push_str("\n\n");
+                } else if name == "br" || name == "br/" {
+                    out.push('\n');
+                } else {
+                    out.push(' ');
+                }
+            }
+            _ if in_tag => tag.push(character),
+            _ => out.push(character),
+        }
+    }
+    normalize_reading_paragraphs(&decode_entities(&out))
+}
+
+fn normalize_reading_paragraphs(text: &str) -> String {
+    text.split("\n\n")
+        .map(normalize_space)
+        .filter(|paragraph| !paragraph.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n\n")
 }
 
 /// Case-insensitive ASCII search for `needle` in `haystack`, starting at byte offset `from`
@@ -1026,6 +1105,41 @@ mod tests {
             extracted.len() < clean_html(&html).len(),
             "extraction must shrink the body"
         );
+    }
+
+    #[test]
+    fn article_extraction_preserves_three_publisher_paragraphs() {
+        let paragraph = "The club confirmed the player is available after training today. ";
+        let html = format!(
+            "<article><p>{}</p><p>{}</p><p>{}</p><p>{}</p></article>",
+            paragraph.repeat(5),
+            "Supporters welcomed the news. ".repeat(7),
+            "The coach will decide the lineup tomorrow. ".repeat(6),
+            "A later recap does not belong in the opening. ".repeat(6)
+        );
+        let extracted = extract_article_text(&html);
+        let paragraphs: Vec<_> = extracted.split("\n\n").collect();
+        assert_eq!(paragraphs.len(), 4);
+        let opening = crate::plugins::harvester::cognition::first_paragraphs(&extracted, 3);
+        assert!(opening.text.contains("The coach will decide"));
+        assert!(!opening.text.contains("A later recap"));
+        assert_eq!(&extracted[opening.start..opening.end], opening.text);
+    }
+
+    #[test]
+    fn layout_divs_do_not_consume_publisher_paragraph_slots() {
+        let html = format!(
+            "<article><div>Share</div><div>Follow us</div><div><p>{}</p><p>{}</p><p>{}</p><p>{}</p></div></article>",
+            "The club confirmed the player returned to training today. ".repeat(5),
+            "The coach described the plan for the next match. ".repeat(5),
+            "Supporters reacted after the announcement. ".repeat(6),
+            "A later recap should not appear in the opening. ".repeat(5)
+        );
+        let extracted = extract_article_text(&html);
+        let opening = crate::plugins::harvester::cognition::first_paragraphs(&extracted, 3);
+        assert!(opening.text.contains("Supporters reacted"));
+        assert!(!opening.text.contains("A later recap"));
+        assert!(count_words(&opening.text) >= 40);
     }
 
     /// Fails SAFE: a page the extractor cannot parse must come back whole, never empty — an

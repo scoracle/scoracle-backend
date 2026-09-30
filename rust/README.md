@@ -1,66 +1,131 @@
-# Studio: the harness contract
+# Studio: the architecture contract
 
-**The harness provides the studio. The plugin provides the paint, brushes, and easel. The model provides the expression.**
+**Plugins prepare and govern. System 1 scores. LLM articulates.**
 
-Studio supplies inference, validation, and publication boundaries. A plugin selects the facts and claims that can appear in its product. The model chooses expression within that plugin-owned vocabulary. A model response is never authoritative evidence by itself.
+Plugins build the decision world for both System 1 and the LLM. The LLM's job is articulation, not world-building. A plugin prepares the world the model may express: context, admissible facts, tools, structure, memory, voice, and factual boundaries. The plugin determines **what can be said**. SmolLM3 determines **how it is said**.
 
-For the migrated Scout path, the plugin prepares measured statements and approved phrasings. The model returns one phrasing choice per fact. Studio assembles those statements and rejects invalid choices, so a model cannot add a statistic or omit a selected limitation in served prose. Other character products still need their own output plans before this guarantee applies to them.
+The model may express facts naturally, synthesize supplied context, choose emphasis, apply a character's voice, and compress information while preserving important meaning. It must not discover the relevant facts, reconstruct missing context, decide what is true, or invent facts, statistics, events, relationships, or assumptions. Unsupported invention is an interface violation.
 
-This is the governing contract for harness work. Propose changes to it explicitly; do not expand the architecture by inference. Implementation gaps and historical plans do not redefine these principles.
+The test for every inference is: **Did the model express the supplied world well without adding anything that was not there?**
+
+The [plugin alignment plan](docs/PLAN-plugin-alignment-2026-09-27.md) starts with the user's kickoff and defines one fresh context window per plugin: Harvester, the six characters, Investigator, Fixture Boxscore, and Graph last. Editor is being pruned and has no separate audit window. This contract describes the target; remaining legacy code and historical documents do not redefine it.
 
 ## Ownership
 
-- **Postgres remembers:** facts, entity metadata, relationships, source history, products and durable work.
-- **DuckDB studies:** bounded data populations, statistical comparisons, cohorts and trends. Return computed observations with their meaning and limitations.
-- **Plugin adapters prepare and publish:** select relevant evidence, assemble assignments, route calls and persist validated results. Application assembly binds their concrete dependencies.
-- **Studio runs the session:** provide inference, enforce the plugin's finite output plan, and retain provenance. Storage, analytical computation and queue coordination stay outside the core.
+- **System 1 scores:** cheap probabilistic support for plugin-defined relevance and eligibility predicates. Laya is the current Harvester classifier. Plugins define its predicates and apply policy to its signals and uncertainty. Use deterministic checks where sufficient; do not use generative inference when a cheaper System 1 mechanism performs the decision reliably.
+- **Plugins frame:** select evidence and relevant memories, scope tools, compute or obtain supported measurements, define admissible claims and scores, prepare output structure and voice, and validate publication. A policy instruction in a prompt does not replace an enforced boundary.
+- **SmolLM3 articulates:** answer “Given this reality, how should it sound?” within the prepared facts and qualifications. Model output is never authoritative evidence by itself.
+- **Studio and the application host:** provide inference, validation machinery, scoped capabilities, budgets, claim fencing, atomic publication coordination, durable dispatch, and dependency assembly. Plugins retain domain policy and product writes.
+- **Postgres stores the world; DuckDB studies the world:** Postgres preserves source evidence, identity, relationships, products, continuity, and work. DuckDB computes bounded, dated findings from those records. Plugins select relevant studied memory as context; SmolLM3 articulates it. Prior prose may supply continuity but cannot become new measurement evidence.
 
-Rich upstream context enables precise selection. Prompt size is not a measure of context quality.
+Internal plugins need no articulation call when they have no language product. Harvester and Fixture Boxscore do not need a character voice. Remaining generative classification or factual adjudication in other plugins is an alignment gap to resolve explicitly.
 
-## The model call
+## Harvester supplies source text
 
-**Shared form + character voice + relevant identity + selected evidence.**
+Harvester replaces the legacy Editor's article-summarization role with source acquisition, System 1 filtering, and verbatim context extraction. It does not generate a summary or editorial packet for the characters.
 
-[`form.rs`](src/plugins/support/form.rs) owns the shared publishing format. Each character has one active brief. Metadata supplies who the entity is, its role and the relevant time/season. Evidence supplies what the character can responsibly interpret.
+The current checked-in worker follows this path:
 
-| Character | Evidence |
-|---|---|
-| Scout / Rating | Prepared statistics, compatible comparisons, trends and relevant history. |
-| Influencer / Vibe | Attributed stories, emotional evidence and relevant memories. |
-| Journalist | Sourced developments and story continuity. |
-| Insider | Transfer evidence, relationship status and relevant history. |
-| Analyst / Momentum | Scout and Influencer outputs and their relevant memories. |
-| Oracle | The other five finished outputs. |
+1. Retain Google candidate provenance, query entity, headline, and publisher identity. Shared `plugins/meta.rs` supplies canonical name, entity ID, type and sport. Laya scores explicit headline reference to that supplied identity before publisher acquisition.
+2. Apply Harvester's reading policy. Fetch or reuse usable publisher text only when at least one query entity passes. Acquisition failures remain acquisition outcomes, not negative relevance judgments.
+3. Select the publisher's first three available paragraphs verbatim, with body hash and UTF-8 byte offsets. Score every retained non-whitespace character through windows of at most 100 words and 1,200 bytes. Openings requiring more than eight windows fail visibly.
+4. Laya returns seven native scalar predicate scores. Harvester aggregates support across windows and applies its route table to select Journalist, Influencer, Insider and Scout. Source evidence stays separate from subject metadata; no model-selected destination or generated summary is accepted.
+5. Persist exact source context, scores, window coverage and versioned policy under the queue claim. The harness dispatches approved destinations subject to shadow mode and character enrollment. Receiving plugins own product sufficiency and articulation.
 
-Analyst and Oracle synthesize their supplied readings. Identity, dates and missing-output status travel with them in a small envelope. Extraction tasks use their own structured schemas rather than the publishing form.
+The current local contract is `harvest-context-v7`, with `harvest-headline-v3` gates. Reading uses a **0.25** threshold; theme predicates use **0.50**, except performance at **0.70**. These are provisional development policy values, not calibrated accuracy claims. See the [v7 frame and evaluation](docs/harvester-frame-2026-09-27.md) and [source boundary](docs/harvester-plugin-boundary-2026-09-27.md). Google descriptions do not substitute for publisher text. “Verbatim” refers to retained extracted text, not raw HTML.
 
-Each publishing character tells the part of the story its evidence supports. A partial profile can be a complete reading. Measured zero and observed absence can be findings; missing measurements or reports remain unknown. Direction requires a supported comparison. Gaps limit the claims rather than obliging the model to fill a complete profile, explain a cause, or invent a trend. Scout's current palette path publishes a no-stats marker when no measured claim can be selected. Its archived open-prose parser still accepts JSON `null` for historical evaluation; production palette compositions must choose every selected fact. Other voices retain their existing output contracts pending migration.
+Harvester has one worker/replay path. The historical packet compiler, choice-response parsing and teacher fields are removed. The [cleanup pass](docs/harvester-cleanup-2026-09-27.md) records other retired tools. Shared subject metadata is available to the other plugins; only Harvester has been migrated in this phase. The user accepts the current 90/96 development result for now. [Further calibration is deferred](docs/harvester-calibration-follow-up-2026-09-27.md) until experience warrants it; operational deployment remains separate.
 
-## Evidence and efficiency
+Older cutover documents describe three-sentence excerpts, broad forwarding, or advisory-only relevance. Those descriptions are historical and do not describe this worker contract. Deployment reports are also dated evidence: verify the actual host revision, migrations, flags, and worker state before claiming the checked-in behavior is live. This README update does not deploy code or release character delivery.
 
-- Supply units, season/competition, comparison population, sample coverage and uncertainty when they affect interpretation. Compute arithmetic and trends upstream. Withhold unsupported comparisons. Missing stays unknown; prior prose is not a new fact.
-- Retain full provenance and debugging detail outside the prompt. Send the evidence needed for this reading, once.
-- Budget the complete request and reserved output before calling the model. Keep corrections bounded. Validate format and factual boundaries while leaving expression to the character.
-- Use the same preparation path for production and evaluation. Frozen prompts are replay artifacts, never production defaults. Update or remove tests that enforce retired behavior.
-- Every added input, rule, abstraction or model call must demonstrate a benefit on representative frozen cases. Prefer removing duplication. Measure groundedness, voice, useful specificity, tokens, latency and retries; passing parsers alone is insufficient.
+## Character preparation and articulation
 
-For implementation and operations, use [development guidance](../run_docs/DEVELOPMENT.md), the [runbook](../run_docs/RUNBOOK.md) and [analytical acceptance](../run_docs/RECOVERY_ANALYTICS_ACCEPTANCE.md). The [September 20 findings](../run_docs/quality-2026-09-20/findings.md) record current gaps separately from this contract.
+**Relevant identity + selected evidence + relevant memory + output structure + character voice + factual boundaries.**
 
-The [plugin architecture execution plan](docs/plugin-architecture-plan.md) tracks the transition to a durable, domain-independent host with plugin-owned capabilities. It explicitly proposes the ownership changes, preserves publication invariants, and records completed milestones separately from the target architecture.
+**Design pillar: the plugin assembles the world; the LLM articulates it statelessly.** A collection of good context elements is insufficient if the model has to work out what they are or reconstruct the world they describe. Every plugin's `prompt.rs` must provide assembly instructions: identify the elements actually supplied, explain what each represents, and explain how to use them together. These instructions accompany the prepared components on every articulation call, including calls with no history.
 
-## Source map
+The plugin supplies the world, the parts and the assembly manual: identity, fresh material, relevant studied history, voice, output form, factual boundaries, and any scoped tools with instructions for their use. The LLM assembles and articulates those supplied parts. It receives a complete assignment and focuses on faithful expression; it does not build its own world or depend on conversational state. `prompt.rs` explains the assembly while each component keeps ownership of its content. Journalist established this pattern; other plugin assemblies should follow it.
 
-`src/studio/` holds the inference session, generation envelope, and plugin/tool contracts. `src/plugins/<name>/` owns each plugin's manifest, prepared cognition, and preparation/publication adapter. `src/plugins/support/` supplies shared form, guards, and resource profiles. The deterministic Boxscore plugin has an adapter and manifest without an inference module.
+**Each component owns one task.** Plugins select shared tools and supply their own policies and instructions. Keep the context package modular:
 
-`src/application/` assembles the fleet and supplies shared capability brokers, with generic durable work transport under `application/queue/`. Plugin manifests and reactions own domain scheduling policy and fan-out. `src/evidence/` contains shared concrete loaders used by typed plugin preparation. `src/runtime/` holds configuration, database connections, routing and providers. `src/evaluation/` and the `eval` binary invoke the same plugin code for offline checks, inspection and replay. `statcommentary` and `factsweep` are thin operator entry points into explicit plugin-owned non-queue invocation contexts.
+| File | Owns |
+| --- | --- |
+| Shared `plugins/meta.rs` | Canonical entity identity. |
+| Shared `support/source.rs` and plugin `fresh.rs` | Intact publisher reporting and its publication clock; plugin-owned source/title selection. |
+| `memories.rs` | Selection and presentation of relevant studied history from the relational world. |
+| Shared `support/form.rs` | Output form: fields, types, counts, limits, paragraph arrangement and structural parsing. |
+| Plugin `parser.rs` | Publication checks for that plugin over the shared decoded form. |
+| A voice file such as `journalist.rs` or `influencer.rs` | Tone. |
+| `prompt.rs` | The articulation task and assembly manual for the prepared inputs. |
 
-Keep only active [contract data and quality cases](fixtures/README.md) in `fixtures/`. Historical prompts, generators and captured experiments live in the wiki archive, outside the build.
+Form preserves the designed reader-facing arrangement and dimensions: short, complete sentences, paragraph turns, spacing and length limits. Its language describes how **faithful observations are arranged**, without requiring the model to make a claim, add significance or invent supporting detail. A supplied observation can stand alone. `prompt.rs` explains how the prepared components are used inside that form.
+
+These are responsibility boundaries, not a requirement to duplicate shared files in every plugin. The memory package contains prepared findings, rather than asking the model to query history, calculate comparisons or decide whether reporting is valid. Articulation calls are stateless and memory-informed: the plugin supplies historical context for each call, rather than asking the model to evolve a story or carry prior conversational state. Full retrieval provenance stays with the plugin. The [live memory inspection and DuckDB trial](docs/journalist-memory-world-2026-09-28.md) records the existing matrix, measured study performance and the remaining integration work.
+
+| Character | Plugin-selected material |
+| --- | --- |
+| Journalist / Narratives | Attributed source developments, their dates, and supported continuity. |
+| Influencer / Vibe | Observed emotional evidence, its speaker/group scope, and relevant dated memories. |
+| Scout / Rating | Prepared statistics, compatible comparisons, trends, sample coverage, and limitations. |
+| Insider / Transfers | Sourced relationship and transaction states, uncertainty, and relevant history. |
+| Analyst / Momentum | Finished Scout and Influencer findings plus supported trajectory studies. |
+| Oracle / Sigil | Selected findings from the other five finished products and explicit component availability. |
+
+The plugin constructs the bounded environment before the model call. Identity, dates, evidence scope, uncertainty, and missing-input status must survive articulation. Missing stays unknown; measured zero and observed absence are distinct findings. Direction requires a supported comparison. Compression must not erase a qualification or imply causation the evidence does not support.
+
+[`form.rs`](src/plugins/support/form.rs) supplies shared publishing form. Existing publisher paths also use [`palette.rs`](src/studio/palette.rs) to constrain choices among prepared phrasings. These are current mechanisms, not proof that every source selector, score, or upstream gate meets this architecture. Some source adapters still ask generative models to make eligibility or factual decisions, and legacy packet/evaluation paths remain. The alignment plan audits and removes those gaps one plugin at a time.
+
+The [Journalist Window 2 completion](docs/HANDOFF-journalist-finish-2026-09-28.md) uses one natural articulation stage over a plugin-prepared observation package. Shared `form.rs` supplies keyed structure without content direction; `journalist.rs` contains tone only. `journalist/cognition/prompt.rs` owns the articulation task and explains how the pieces actually present fit together. Fresh-only calls receive the compact source-to-key instruction. When studied history is present, the manual identifies `identity`, `history`, `fresh`, `voice` and `form` and locates history inside the report text it contextualizes. It does not ask the model to discover a story or significance.
+
+Fresh source presentation lives in `journalist/cognition/fresh.rs`: fetched reporting, attribution, publication time and a request-local output key. SmolLM3 returns report text only. The plugin derives titles from complete source openings and the edition headline from the first selected title. Historical reporting remains distinct from fresh evidence and retains dated attribution, population window and publisher counts. Provenance and scoring stay outside the writing context. The n94 no-thinking replay passed manual fidelity review across fresh, conflicting, qualified, ordered, source-instruction and useful-memory cases; exact requests and outputs are retained under `fixtures/journalist/`. No generative claim-preparation or prose-judging stage was adopted. Commit `573d6a8e` was deployed on `archbox` on September 28, 2026; the API reported that revision, database health passed, and the API and cognition services plus their path watchers were active.
+
+The [Influencer local checkpoint](docs/HANDOFF-influencer-2026-09-28.md) follows the same component assembly, with one source-faithful call and an unknown numeric sentiment score. Shared form supplies one paragraph per observation, a 140-character paragraph ceiling and a 1,200-character body ceiling. The old reaction gate, packet palette, prior-score fallback, uncalled packet-block renderer, obsolete scored-memory selector and per-plugin content checks are removed. `prompt.rs` tells the cognition engine how to synthesize these supplied parts into emotional charge. Noisy fresh context belongs to Harvester calibration; Influencer adds no second eligibility task. Local code is verified; the v3 manual has not been live-replayed or deployed.
+
+*Thinking note:* SmolLM3 reasoning is operational when a route explicitly selects `think:true`; the Ollama boundary supplies the model-specific tagged-reasoning cue and keeps the trace outside published prose. The full n94 comparison confirmed real reasoning but found it slower, less faithful and capable of exhausting its larger allowance. Journalist therefore remains `think:false`; thinking is available for targeted evaluation if a later task demonstrates a need.
+
+Finite phrasing selection is not the definition of articulation. Evaluate whether each plugin gives SmolLM3 enough prepared context and expressive latitude for natural, concise, character-consistent language while preserving factual fidelity. Any replacement must enforce its factual interface and demonstrate its value on representative cases.
+
+## Shared memory contract
+
+**Postgres stores the world. DuckDB studies the world. Each plugin chooses its data and scope; the memory contract stays the same.**
+
+Graph and the other source producers enrich the stored relational world. At preparation time, a plugin requests a study of that world for a particular entity or pair, timeframe, and comparison scope. DuckDB computes the findings on demand. Each plugin's `memories.rs` selects and presents the relevant findings alongside fresh content, ready for articulation.
+
+The shared contract is **request a scope → study the stored evidence → return findings with dates, coverage and provenance**:
+
+- **The plugin owns the request:** which data matters, the historical timeframe, the comparison population and the context budget. Changing a plugin's lookback changes its request, without requiring a new precompute schedule.
+- **The shared study layer owns computation:** filtering, grouping, frequency, ordering and compatible comparisons over a consistent snapshot. Results identify the study version, source records, time bounds, units where applicable, and missing or partial coverage. Source corrections and deletions must invalidate affected reuse.
+- **`memories.rs` owns the context selection:** retain the findings and qualifications useful to the current assignment. Full retrieval bookkeeping stays in provenance.
+- **The LLM owns articulation:** express fresh material in the context of the supplied history. Retrieval, arithmetic and deciding whether reporting is valid have already been handled upstream.
+
+Different plugins request different studies through this boundary. Journalist can request earlier reporting; Influencer can request observed reactions; Insider can request entity-pair reporting frequency and publisher breakdowns; Scout can request xG comparisons across specified match windows. Frequency measures recorded reporting, not independent confirmation. Numerical change retains its sample and comparison basis.
+
+Memory is shared product infrastructure. Reuse the stored world, study implementations and provenance while keeping each plugin's selection policy local. See the [cross-plugin design](docs/journalist-memory-world-2026-09-28.md#shared-across-plugins) and [on-demand implementation](docs/memory-studies.md). Reporting and team-stat studies are implemented, with deployed Journalist n94 as the first integrated consumer; the other character selectors remain to be migrated.
+
+## Evidence, quality, and efficiency
+
+- Compute arithmetic, scores, and comparisons upstream. Supply units, season/competition, comparison population, sample coverage, and uncertainty when they affect meaning.
+- Select memory deliberately and label its provenance. A previous interpretation cannot manufacture a fact or inflate corroboration.
+- Retain full provenance and debugging detail outside the articulation input. Include necessary evidence once and budget the complete request plus reserved output.
+- Use the same active preparation and contract for production and evaluation. Remove superseded prompts, parsers, fixtures, flags, and compatibility paths with their obsolete callers.
+- Evaluate models in this order: factual fidelity, articulation quality, voice consistency, concise synthesis, speed/efficiency, and general reasoning only where required. SmolLM3 is the selected articulation model; broad intelligence cannot compensate for an incomplete prepared world.
+- Measure useful coverage, specificity, additions and omissions, voice, tokens, latency, and retries. Valid JSON or a valid palette index alone does not establish product quality.
+- Preserve source integrity, claim fencing, atomic provenance/follow-up publication, idempotency, and recovery when pruning legacy code. Every retained temporary dependency needs a named consumer and removal condition.
+
+## Source map and operations
+
+`src/plugins/<name>/` owns each plugin's manifest, preparation, cognition where needed, publication adapter, and tests. Plugins provide tools and instructions and may share tools. `src/plugins/support/form.rs` is the shared output-form tool: shape, paragraph arrangement, dimensions, decoding and structural validation. `support/source.rs` presents intact publisher reporting and detects explicit instruction overrides; Journalist and Influencer consume it. Plugins select the tools and supply content instructions, selection policy and publication guards. Canonical identity lives in `plugins/meta.rs`; the shared memory tool lives in `plugins/memories.rs`. Plugins choose reporting or match-statistic tables and the request scope; one DuckDB runner handles execution and provenance. Plugin-local memory files retain their request and presentation policy. `src/plugins/support/` also supplies guards and resource profiles. The [fleet](src/application/fleet.rs) still includes legacy Editor until its removal; registration is not an endorsement of its target role.
+
+`src/studio/` holds generic inference sessions, generation envelopes, and plugin/tool contracts. `src/application/` assembles concrete dependencies and capability brokers, with generic durable work transport under `application/queue/`. `src/evidence/` holds shared concrete loaders. `src/runtime/` holds configuration, database connections, routing, and providers. `src/evaluation/` and the `eval` binary contain checks and replays whose legacy paths are included in the alignment cleanup. `statcommentary` and `factsweep` are explicit non-queue entry points into their owning plugins.
+
+Harvester enrollment requires its additive migrations, `HARVESTER_INGEST_ENABLED=1` in Go ingestion, an explicit `COGNITION_STAGES` list containing `harvester`, and `HARVESTER_MODEL_ENDPOINT`. Shadow mode and `HARVESTER_DELIVERY_CHARACTERS` control delivery separately. Do not infer deployment readiness from compilation or from a historical shadow report.
+
+Use [development guidance](../run_docs/DEVELOPMENT.md), the [runbook](../run_docs/RUNBOOK.md), and [analytical acceptance](../run_docs/RECOVERY_ANALYTICS_ACCEPTANCE.md) for repository operations. The earlier [plugin architecture plan](docs/plugin-architecture-plan.md) records host separation; [Harvester cutover verification](docs/harvester-cutover-verification-2026-09-27.md) records dated operational evidence. The [alignment plan](docs/PLAN-plugin-alignment-2026-09-27.md) governs the current responsibility audit and its handoffs.
 
 ## Adding a plugin
 
-Add one package under `src/plugins/<name>/` with its manifest and adapter (plus cognition when it
-uses inference). Add the manifest to `application/fleet.rs`, and bind the adapter's concrete
-dependencies in `application/plugins.rs`; the registry then validates task ownership, route/grant
-consistency, and resource declarations at boot. Add a database migration only when the plugin
-introduces genuinely new persisted domain data—not merely to register code, routes, providers, or
-scheduling policy.
+Add a package under `src/plugins/<name>/` with its manifest and adapter, plus cognition only where inference is needed. Register its manifest in `application/fleet.rs` and bind concrete dependencies in `application/plugins.rs`. The registry validates task ownership, route/grant consistency, and resource declarations at boot.
+
+Share tools across plugins when their working logic is the same. Reuse `meta.rs`, `memories.rs`, `support/form.rs` and `support/source.rs` where applicable; keep dataset selection, scope, voice and assembly instructions with the plugin. A plugin provides the parts and the manual, while cognition synthesizes and articulates the supplied world.
+
+Define context, tools, structure, memory, voice where applicable, and factual boundaries before adding a model call. Add a database migration only for genuinely new persisted domain data. Prefer removing duplication to adding a workflow language, compatibility layer, or new abstraction.

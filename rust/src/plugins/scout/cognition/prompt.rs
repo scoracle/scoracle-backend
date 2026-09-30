@@ -9,7 +9,6 @@
 //! they fit. It does not decide what is true — every numeral, band, direction
 //! and claim in the world was computed or selected by the plugin before this
 //! text was read.
-use super::parts::Parts;
 
 /// The task instruction for a world carrying the given parts.
 ///
@@ -60,57 +59,16 @@ qualifications, including a withdrawal and any contradiction. A claim may qualif
 an expectation; it does not alter a measurement, and it is not evidence of a
 cause for one.";
 
-/// The system prompt for a prepared world.
-pub fn task(parts: &Parts) -> String {
-    let _ = parts;
-    TASK.to_string()
+/// Retry the same bounded task without silently changing its content policy.
+pub fn correction(error: &anyhow::Error) -> Option<String> {
+    (error.is::<crate::plugins::support::form::SurfaceError>()
+        || error.is::<crate::studio::model::IncompleteOutput>())
+        .then(|| format!("{error} Return the complete requested JSON within the supplied form limits. Preserve the supplied qualifications and use only the prepared evidence."))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::plugins::scout::cognition::parts::{Limit, MeasuredValue, Profile};
-
-    fn parts_with(measured: Vec<MeasuredValue>, supports_cross_season: bool) -> Parts {
-        Parts {
-            subject: crate::plugins::meta::EntityMeta {
-                name: "Cedar Comets".into(),
-                entity_type: "team".into(),
-                entity_id: 7,
-                sport: "NBA".into(),
-            },
-            sport_name: "Basketball".into(),
-            season: 2026,
-            profile: Profile {
-                season: 2026,
-                observed_at: Some("2026-09-28".into()),
-                sport_name: Some("Basketball".into()),
-                sample: [("Games Played".to_string(), 41.0)].into_iter().collect(),
-                values: measured,
-                composite: Some(64.0),
-                supports_cross_season,
-                not_selected: Vec::new(),
-                limit: None,
-            },
-            rate_standouts: Vec::new(),
-            trend: None,
-            memory: Default::default(),
-        }
-    }
-
-    fn value(label: &str, pct: f64) -> MeasuredValue {
-        MeasuredValue {
-            label: label.into(),
-            measure: label.into(),
-            value: Some(1.4),
-            percentile: Some(pct),
-            cohort: Some(30.0),
-            band: Some("strong".into()),
-            quality_z: Some(1.2),
-            prior_percentile: None,
-        }
-    }
-
     #[test]
     fn the_manual_states_the_rules_the_guards_enforce() {
         // These are the claims a reader can lose meaning through. Each one has a
@@ -129,26 +87,5 @@ mod tests {
         ] {
             assert!(folded.contains(rule), "manual omits: {rule}");
         }
-    }
-
-    #[test]
-    fn a_thin_sample_package_and_a_full_one_share_one_manual() {
-        // The parts differ; the instruction does not. A second variant would be a
-        // difference with no product meaning, which is the reason Journalist's
-        // mixed case kept one manual too.
-        let mut thin = parts_with(vec![value("Points Per Game", 78.0)], false);
-        assert_eq!(task(&thin), TASK);
-        thin.profile.limit = Some(Limit::ThinSample {
-            appearances: 4.0,
-            minimum: 10.0,
-        });
-        thin.memory.reported = vec![crate::plugins::scout::memories::Reported {
-            publisher: "Club statement".into(),
-            published_at: "2026-09-20T00:00:00Z".into(),
-            reported_headline: "Kim Park is out for two weeks.".into(),
-            withdrawn: None,
-            disputed: None,
-        }];
-        assert_eq!(task(&thin), TASK);
     }
 }

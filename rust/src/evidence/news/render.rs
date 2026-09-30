@@ -21,7 +21,7 @@ impl Voice {
 }
 
 /// One claim, as the renderer reads it out of `packets.claims`.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize)]
 pub struct RenderClaim {
     pub article_id: i64,
     pub source: String,
@@ -135,7 +135,7 @@ fn role_line(p: &Participation) -> String {
 }
 
 /// A claim plus whether it contradicts another claim in the same render.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize)]
 pub struct MarkedClaim {
     pub claim: RenderClaim,
     /// True when another claim in the same set says the opposite. A POINTER, never a filter:

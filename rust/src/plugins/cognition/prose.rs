@@ -5,15 +5,11 @@
 //! the plugin's prepared world and its `prompt.rs` manual. This module only
 //! describes the response the model is permitted to return.
 //!
-//! `Contract::enforce` is where the permitted surface becomes mechanical rather
+//! The shared prose decoder is where the permitted surface becomes mechanical rather
 //! than a parser's incidental behavior. F4 supplies that body — one validator
 //! over plugin-chosen keys and dimensions, replacing the six divergent schemas —
 //! and it must leave the current per-plugin enforcement unchanged for Influencer
 //! while Journalist's paragraph rule is decided by replay rather than assumed.
-use super::Contract;
-use crate::plugins::support::form;
-use anyhow::Result;
-use serde::Serialize;
 use serde_json::Value;
 
 /// Reader-facing and readability limits for one plugin's response.
@@ -47,7 +43,7 @@ impl Dimensions {
 #[derive(Clone, Debug)]
 pub struct Prose {
     /// The plugin's output keys. `["body"]` for Influencer, `report_1..report_N`
-    /// for Journalist, `["headline", "body"]` for Scout. The shape is shared; the
+    /// for Journalist, `["body"]` for Scout. The shape is shared; the
     /// keys are the plugin's.
     pub keys: Vec<String>,
     pub dims: Dimensions,
@@ -90,37 +86,10 @@ impl Prose {
     }
 }
 
-impl Contract for Prose {
-    /// A prepared world. Its shape is the plugin's; nothing here reads it yet.
-    type Request = Value;
-    /// The keyed prose map, after enforcement.
-    type Response = Value;
-
-    /// The declared surface, checked. This is the whole point of the slot: a
-    /// response that does not match what the plugin said it would return is
-    /// refused rather than parsed permissively.
-    fn enforce(&self, _request: &Value, response: Value) -> Result<Value> {
-        let map = form::parse_prose_map(&response.to_string(), &self.keys, self.dims)?;
-        Ok(serde_json::to_value(map)?)
-    }
-}
-
-/// The `form` block shared shape, so a plugin's declared surface and the shape it
-/// hands the model cannot drift apart unnoticed.
-pub fn declared_form(prose: &Prose) -> String {
-    serde_json::to_string(&prose.form()).expect("Prose form serializes")
-}
-
-/// Common limits re-exported for a plugin's declaration to read from one place.
-pub use form::BODY_MAX_CHARS;
-
-/// A plugin's world is opaque here on purpose: assembling it is the plugin's job
-/// and belongs in its `cognition` module, not in this vocabulary.
-pub type World<'a> = &'a dyn Serialize;
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::plugins::support::form::BODY_MAX_CHARS;
 
     #[test]
     fn the_shared_ceiling_is_a_parameter_and_the_keys_are_the_plugins() {
@@ -148,72 +117,5 @@ mod tests {
         let keys = schema["properties"].as_object().unwrap();
         assert_eq!(keys.len(), 2);
         assert!(keys.contains_key("headline") && keys.contains_key("body"));
-    }
-
-    #[test]
-    fn enforcement_is_real_and_still_fails_closed() {
-        // F1b landed this contract refusing to parse anything, with a passing
-        // test pinning that. F4 supplied the validator, so the test is inverted:
-        // a conforming response is now accepted, and the refusals are the point.
-        let prose = Prose::new(&["body"], Dimensions::new(1200, Some(140)));
-        let ok = prose
-            .enforce(&Value::Null, serde_json::json!({"body": "Cedar won."}))
-            .unwrap();
-        assert_eq!(ok["body"], serde_json::json!("Cedar won."));
-
-        // A declared contract that accepted everything would be worse than none.
-        for refused in [
-            serde_json::json!({}),                                        // omitted slot
-            serde_json::json!({"body": "Cedar won.", "score": 7}),        // undeclared field
-            serde_json::json!({"body": 7}),                               // not prose
-            serde_json::json!({"body": "  "}),                            // blank
-            serde_json::json!({"body": "é".repeat(1201)}),                // over body ceiling
-            serde_json::json!({"body": format!("{}.", "é".repeat(140))}), // over paragraph
-        ] {
-            assert!(
-                prose.enforce(&Value::Null, refused.clone()).is_err(),
-                "contract accepted {refused}"
-            );
-        }
-    }
-
-    #[test]
-    fn a_declined_slot_is_not_a_missing_slot() {
-        // `body: null` is the Influencer's abstention and is legitimate; a
-        // missing `body` is a dropped slot. The two must not collapse.
-        let prose = Prose::new(&["body"], Dimensions::new(1200, Some(140)));
-        assert!(prose
-            .enforce(&Value::Null, serde_json::json!({"body": null}))
-            .is_ok());
-        assert!(prose.enforce(&Value::Null, serde_json::json!({})).is_err());
-    }
-
-    #[test]
-    fn a_plugin_chooses_its_own_keys_and_the_validator_accepts_only_them() {
-        let declared = Prose::new(&["headline", "body"], Dimensions::new(1200, Some(140)));
-        let other = Prose::new(&["body", "lede"], Dimensions::new(1200, Some(140)));
-        let response = serde_json::json!({"headline": "A win", "body": "Cedar won."});
-        assert!(declared.enforce(&Value::Null, response.clone()).is_ok());
-        // The same bytes are a contract violation for a plugin that declared
-        // different keys. The shape is shared; the keys are the plugin's.
-        assert!(other.enforce(&Value::Null, response).is_err());
-    }
-
-    #[test]
-    fn a_plugin_may_opt_out_of_the_paragraph_rule() {
-        // The Journalist's recorded non-participation. It still enforces the
-        // shared body ceiling; only the readability policy is absent.
-        let no_paragraph_rule =
-            Prose::new_owned(vec!["report_1".into()], Dimensions::new(1200, None));
-        let long = "é".repeat(400);
-        assert!(no_paragraph_rule
-            .enforce(&Value::Null, serde_json::json!({"report_1": long}))
-            .is_ok());
-        assert!(no_paragraph_rule
-            .enforce(
-                &Value::Null,
-                serde_json::json!({"report_1": "é".repeat(1201)})
-            )
-            .is_err());
     }
 }

@@ -139,7 +139,7 @@ pub async fn validate_for_publication(
     for source in sources {
         ensure!(
             current.iter().any(|s| s == source),
-            "source receipt changed during Journalist articulation"
+            "source receipt changed during plugin articulation"
         );
     }
     Ok(())

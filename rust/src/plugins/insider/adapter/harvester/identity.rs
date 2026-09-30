@@ -539,16 +539,32 @@ mod tests {
         assert_eq!(application.2, serde_json::json!([ARTICLE]));
         use crate::plugins::scout::adapter::harvester::{structured_record, SourceKind};
         assert_eq!(
-            structured_record(&pool, SPORT, "player", PLAYER, ARTICLE, SourceKind::Roster).await?,
-            Some(review.1)
-        );
-        assert_eq!(
-            structured_record(&pool, SPORT, "team", NEW, ARTICLE, SourceKind::Roster).await?,
+            structured_record(
+                &mut *pool.acquire().await?,
+                SPORT,
+                "player",
+                PLAYER,
+                ARTICLE,
+                SourceKind::Roster
+            )
+            .await?,
             Some(review.1)
         );
         assert_eq!(
             structured_record(
-                &pool,
+                &mut *pool.acquire().await?,
+                SPORT,
+                "team",
+                NEW,
+                ARTICLE,
+                SourceKind::Roster
+            )
+            .await?,
+            Some(review.1)
+        );
+        assert_eq!(
+            structured_record(
+                &mut *pool.acquire().await?,
                 SPORT,
                 "player",
                 PLAYER,

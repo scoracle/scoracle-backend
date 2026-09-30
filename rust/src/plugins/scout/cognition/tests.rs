@@ -3,14 +3,10 @@
 //! Split out of `mod.rs` so the stage module reads as the stage and nothing else.
 //! `super` resolves to the Studio character module.
 
-use crate::evidence::personnel::{
-    AvailabilityChange, PersonnelChange, MAX_AVAILABILITY_LINES, MAX_PERSONNEL_LINES,
-};
 use crate::plugins::scout::adapter::{
     rating_trigger_type, rating_work_bypasses_debounce, rating_work_input_version,
     rating_work_input_version_for_availability, rating_work_input_version_for_transfer,
     rating_work_is_availability_triggered, rating_work_is_transfer_triggered, rating_work_season,
-    render_personnel_block, render_scout_reports,
 };
 use crate::util::hash_components;
 
@@ -524,41 +520,6 @@ fn world_with_trend(
     .render()
 }
 
-/// The world with reported memory attached, for the tests that care about a
-/// claim reaching the package.
-fn world_with_memory(
-    subject: &Subject,
-    profile: &RatingProfile,
-    reported: Vec<crate::plugins::scout::memories::Reported>,
-) -> String {
-    parts::Parts {
-        subject: crate::plugins::meta::EntityMeta {
-            name: subject.entity_name.clone(),
-            entity_type: subject.entity_type.clone(),
-            entity_id: 1,
-            sport: subject.sport.clone(),
-        },
-        sport_name: subject.sport_name.clone(),
-        season: profile.season,
-        profile: parts::profile_parts(
-            profile,
-            &subject.sport_name,
-            supports_cross_season_comparison(profile),
-            None,
-            &RatingExclusions::default(),
-        ),
-        rate_standouts: parts::rate_standout_parts(profile),
-        trend: None,
-        memory: crate::plugins::scout::memories::select(
-            &crate::plugins::scout::memories::Selection::rated(),
-            Vec::new(),
-            reported,
-            Vec::new(),
-        ),
-    }
-    .render()
-}
-
 /// The `fresh` part as parsed JSON, for assertions about structure rather than
 /// about a rendered sentence.
 fn fresh(world: &str) -> serde_json::Value {
@@ -635,10 +596,7 @@ fn serialized_request_has_evidence_and_form_but_no_editorial_outline() {
         measure_with(&values, "value")["band"],
         serde_json::json!("elite")
     );
-    assert_eq!(
-        package["form"]["keys"],
-        serde_json::json!(["headline", "body"])
-    );
+    assert_eq!(package["form"]["keys"], serde_json::json!(["body"]));
     for retired in [
         "strengths and limitations",
         "strengths, limitations and tensions",
@@ -892,9 +850,9 @@ fn a_players_world_is_byte_stable() {
     // separately rather than pasted into the byte fixture above.
     let tail = world.split(r#""voice":""#).nth(1).unwrap();
     assert!(tail.starts_with("You are The Scout"));
-    assert!(tail.contains(
-        r#""form":{"keys":["headline","body"],"max_chars":1200,"paragraph_max_chars":null}"#
-    ));
+    assert!(
+        tail.contains(r#""form":{"keys":["body"],"max_chars":1200,"paragraph_max_chars":null}"#)
+    );
     // The Scout records a non-participation on the paragraph rule, so the form
     // states the body ceiling and no paragraph ceiling. A plugin that adopts one
     // later changes this line, which is the point of pinning it.
@@ -1215,19 +1173,19 @@ fn request_parser_rewrites_reversed_comparison_direction() {
         &bands,
     );
     let reversed = parser
-        .parse(r#"{"headline":"Clingan's profile","body":"Scoring declined relative to peers."}"#)
+        .parse(r#"{"body":"Scoring declined relative to peers."}"#)
         .unwrap_err();
     assert!(reversed.is::<crate::plugins::support::form::SurfaceError>());
     assert!(reversed.to_string().contains("evidence says it rose"));
 
     let accepted = parser
-        .parse(r#"{"headline":"Clingan's profile","body":"Scoring rose while steals fell relative to peers."}"#)
+        .parse(r#"{"body":"Scoring rose while steals fell relative to peers."}"#)
         .unwrap()
         .unwrap();
     assert!(accepted.body.contains("Scoring rose"));
 
     let grouped = parser
-        .parse(r#"{"headline":"Clingan's profile","body":"Scoring, steals, and playmaking are below average, with relative standing improving across these areas."}"#)
+        .parse(r#"{"body":"Scoring, steals, and playmaking are below average, with relative standing improving across these areas."}"#)
         .unwrap_err();
     assert!(grouped.to_string().contains("Steals rose"));
 
@@ -1238,7 +1196,7 @@ fn request_parser_rewrites_reversed_comparison_direction() {
         &stable_rebounder_directions,
         &bands,
     )
-    .parse(r#"{"headline":"Holmgren profile","body":"He remains a consistent rebounder."}"#)
+    .parse(r#"{"body":"He remains a consistent rebounder."}"#)
     .unwrap_err();
     assert!(stable_rebounder
         .to_string()
@@ -1251,13 +1209,13 @@ fn request_parser_rewrites_an_unsourced_height() {
     let bands = BTreeMap::new();
     let parser = RatingRequestParser::new("A center for Portland.", &directions, &bands);
     let error = parser
-        .parse(r#"{"headline":"Clingan's profile","body":"The 6'9\" center protects the rim."}"#)
+        .parse(r#"{"body":"The 6'9\" center protects the rim."}"#)
         .unwrap_err();
     assert!(error.is::<crate::plugins::support::form::SurfaceError>());
     assert!(error.to_string().contains("invents height"));
 
     let possessive = parser
-        .parse(r#"{"headline":"LeVert's profile","body":"LeVert’s scoring profile is measured."}"#)
+        .parse(r#"{"body":"LeVert’s scoring profile is measured."}"#)
         .expect("a typographic possessive is not a height")
         .expect("a reply");
     assert!(possessive.body.contains("LeVert’s"));
@@ -1273,13 +1231,13 @@ fn request_parser_rewrites_numeric_values_absent_from_the_assignment() {
         &bands,
     );
     let invented = parser
-        .parse(r#"{"headline":"Vale reaches 67.1","body":"The rating is 3.71 after a 0.44 rise."}"#)
+        .parse(r#"{"body":"The rating is 3.71 after a 0.44 rise."}"#)
         .unwrap_err();
     assert!(invented.is::<crate::plugins::support::form::SurfaceError>());
     assert!(invented.to_string().contains("numeric value 3.71"));
 
     let grounded = parser
-        .parse(r#"{"headline":"Vale reaches 91.2","body":"The rating is 6.74 after a 3.5-point rise."}"#)
+        .parse(r#"{"body":"The rating is 6.74 after a 3.5-point rise."}"#)
         .unwrap()
         .unwrap();
     assert!(grounded.body.contains("6.74"));
@@ -1295,12 +1253,12 @@ fn request_parser_rewrites_mixed_blanket_claims_and_self_contradictory_form() {
     let parser =
         RatingRequestParser::new("Comparison and recent form supplied.", &directions, &bands);
     let blanket = parser
-        .parse(r#"{"headline":"Mixed profile","body":"The player shows consistent improvement across key metrics."}"#)
+        .parse(r#"{"body":"The player shows consistent improvement across key metrics."}"#)
         .unwrap_err();
     assert!(blanket.to_string().contains("mixed directions"));
 
     let form = parser
-        .parse(r#"{"headline":"Mixed profile","body":"A downward trend is visible, but the player remains in strong form."}"#)
+        .parse(r#"{"body":"A downward trend is visible, but the player remains in strong form."}"#)
         .unwrap_err();
     assert!(form
         .to_string()
@@ -1312,12 +1270,12 @@ fn request_parser_does_not_turn_percentile_movement_into_development() {
     let directions = BTreeMap::new();
     let bands = BTreeMap::new();
     let parser = RatingRequestParser::new(
-        "Cross-season boundary: percentile movement describes relative standing only.",
+        r#"{"fresh":{"supports_cross_season":true}}"#,
         &directions,
         &bands,
     );
     let error = parser
-        .parse(r#"{"headline":"Holmgren profile","body":"This reflects consistent development across the season."}"#)
+        .parse(r#"{"body":"This reflects consistent development across the season."}"#)
         .unwrap_err();
     assert!(error
         .to_string()
@@ -1330,24 +1288,22 @@ fn request_parser_keeps_xg_and_xa_attached_to_their_measures() {
     let bands = BTreeMap::new();
     let parser = RatingRequestParser::new("xG and xA evidence supplied.", &directions, &bands);
     let xg = parser
-        .parse(r#"{"headline":"Rogers profile","body":"His xG indicates strong creation."}"#)
+        .parse(r#"{"body":"His xG indicates strong creation."}"#)
         .unwrap_err();
     assert!(xg.to_string().contains("xG) is shooting/scoring evidence"));
 
     let xa = parser
-        .parse(
-            r#"{"headline":"Rogers profile","body":"Expected assists show stronger finishing."}"#,
-        )
+        .parse(r#"{"body":"Expected assists show stronger finishing."}"#)
         .unwrap_err();
     assert!(xa.to_string().contains("xA) is creation evidence"));
 
     let grouped = parser
-        .parse(r#"{"headline":"Rogers profile","body":"His xG and xA are both at elite percentiles (99.2 and 97.0)."}"#)
+        .parse(r#"{"body":"His xG and xA are both at elite percentiles (99.2 and 97.0)."}"#)
         .unwrap_err();
     assert!(grouped.to_string().contains("separate claims"));
 
     let accepted = parser
-        .parse(r#"{"headline":"Rogers profile","body":"His xG supports the shooting read, while xA supports creation."}"#)
+        .parse(r#"{"body":"His xG supports the shooting read, while xA supports creation."}"#)
         .unwrap()
         .unwrap();
     assert!(accepted.body.contains("xA supports creation"));
@@ -1357,36 +1313,32 @@ fn request_parser_keeps_xg_and_xa_attached_to_their_measures() {
 fn request_parser_preserves_weighted_measures_and_thin_sample_coverage() {
     let directions = BTreeMap::new();
     let bands = BTreeMap::new();
-    let prompt = "Discipline: 1 (yellow cards + 3 x red cards). The stored snapshot records 3 appearances and 257 minutes. The current sample has fewer than 10 appearances.";
+    let prompt = r#"{"fresh":{"supports_cross_season":false,"sample":{"appearances":3,"minutes":257},"values":[{"label":"Discipline","value":1,"measure":"yellow cards + 3 x red cards"}]}}"#;
     let parser = RatingRequestParser::new(prompt, &directions, &bands);
     let cards = parser
-        .parse(
-            r#"{"headline":"Rogers profile","body":"Discipline is poor: 1 yellow + 3 red cards."}"#,
-        )
+        .parse(r#"{"body":"Discipline is poor: 1 yellow + 3 red cards."}"#)
         .unwrap_err();
     assert!(cards.to_string().contains("weighted formula"));
 
     let games = parser
-        .parse(r#"{"headline":"Rogers profile","body":"Rogers played 3 games with 257 minutes."}"#)
+        .parse(r#"{"body":"Rogers played 3 games with 257 minutes."}"#)
         .unwrap_err();
     assert!(games.to_string().contains("source coverage"));
 
     let bare_sample = parser
-        .parse(
-            r#"{"headline":"Rogers profile","body":"Rogers has 3 appearances and 257 minutes."}"#,
-        )
+        .parse(r#"{"body":"Rogers has 3 appearances and 257 minutes."}"#)
         .unwrap_err();
     assert!(bare_sample.to_string().contains("source coverage"));
 
     let stability = parser
-        .parse(r#"{"headline":"Rogers profile","body":"No change in relative standing is indicated; he remains reliable and consistently elite."}"#)
+        .parse(r#"{"body":"No change in relative standing is indicated; he remains reliable and consistently elite."}"#)
         .unwrap_err();
     assert!(stability
         .to_string()
         .contains("no computed cross-season direction"));
 
     let psychology = parser
-        .parse(r#"{"headline":"Rogers profile","body":"His reported frustration may influence his decision-making under pressure."}"#)
+        .parse(r#"{"body":"His reported frustration may influence his decision-making under pressure."}"#)
         .unwrap_err();
     assert!(psychology.to_string().contains("psychological inference"));
 
@@ -1398,12 +1350,12 @@ fn request_parser_preserves_weighted_measures_and_thin_sample_coverage() {
     // one.
     let long_body = "x".repeat(crate::plugins::support::form::BODY_MAX_CHARS + 1);
     let oversized = parser
-        .parse(&serde_json::json!({"headline": "Rogers profile", "body": long_body}).to_string())
+        .parse(&serde_json::json!({"body": long_body}).to_string())
         .unwrap_err();
     assert!(oversized.to_string().contains("characters"));
 
     let accepted = parser
-        .parse(r#"{"headline":"Rogers profile","body":"The stored snapshot records 3 appearances and 257 minutes. Discipline ranks poorly."}"#)
+        .parse(r#"{"body":"The stored snapshot records 3 appearances and 257 minutes. Discipline ranks poorly."}"#)
         .unwrap()
         .unwrap();
     assert!(accepted.body.contains("stored snapshot"));
@@ -1413,21 +1365,19 @@ fn request_parser_preserves_weighted_measures_and_thin_sample_coverage() {
 fn thin_sample_stability_is_claim_shaped_not_word_shaped() {
     let directions = BTreeMap::new();
     let bands = BTreeMap::from([("Goals Against".into(), "elite".into())]);
-    let prompt = "Goals Against: 1, percentile 100.0 (elite). The current sample has fewer than 10 appearances.";
+    let prompt = r#"{"fresh":{"supports_cross_season":false,"values":[{"label":"Goals Against","value":1,"percentile":100.0,"band":"elite"}]}}"#;
     let parser = RatingRequestParser::new(prompt, &directions, &bands);
 
     // Within-snapshot consistency is a description of standing, not a cross-time claim.
     let snapshot = parser
-        .parse(r#"{"headline":"Rogers profile","body":"The team maintains consistent defensive discipline in this stored snapshot."}"#)
+        .parse(r#"{"body":"The team maintains consistent defensive discipline in this stored snapshot."}"#)
         .unwrap()
         .unwrap();
     assert!(snapshot.body.contains("consistent defensive discipline"));
 
     // Reaching across time is still rejected.
     let cross_season = parser
-        .parse(
-            r#"{"headline":"Rogers profile","body":"He stayed stable compared with last season."}"#,
-        )
+        .parse(r#"{"body":"He stayed stable compared with last season."}"#)
         .unwrap_err();
     assert!(cross_season
         .to_string()
@@ -1435,24 +1385,24 @@ fn thin_sample_stability_is_claim_shaped_not_word_shaped() {
 
     // A direction verb tied to a named measure has no per-measure trend evidence.
     let measure_trend = parser
-        .parse(r#"{"headline":"Rogers profile","body":"Goals Against has declined recently."}"#)
+        .parse(r#"{"body":"Goals Against has declined recently."}"#)
         .unwrap_err();
     assert!(measure_trend.to_string().contains("no per-measure trend"));
 
     // The supplied overall-score trend line is not a measure, so it stays free.
     let supplied_trend = parser
-        .parse(r#"{"headline":"Rogers profile","body":"The overall scores are trending down over recent games."}"#)
+        .parse(r#"{"body":"The overall scores are trending down over recent games."}"#)
         .unwrap()
         .unwrap();
     assert!(supplied_trend.body.contains("trending down"));
 
     // One-appearance assignments carry the same no-comparison contract.
     let one = RatingRequestParser::new(
-        "The stored current sample has at most one appearance.",
+        r#"{"fresh":{"supports_cross_season":false,"limit":{"kind":"one_appearance","appearances":1}}}"#,
         &directions,
         &bands,
     )
-    .parse(r#"{"headline":"Rogers profile","body":"Unchanged from the previous season."}"#)
+    .parse(r#"{"body":"Unchanged from the previous season."}"#)
     .unwrap_err();
     assert!(one.to_string().contains("cross-season"));
 }
@@ -1467,64 +1417,16 @@ fn request_parser_keeps_quality_words_in_the_supplied_percentile_band() {
     ]);
     let parser = RatingRequestParser::new("Percentile bands supplied.", &directions, &bands);
     let error = parser
-        .parse(r#"{"headline":"Rogers profile","body":"Tackling is above average, while Chance Creation is elite."}"#)
+        .parse(r#"{"body":"Tackling is above average, while Chance Creation is elite."}"#)
         .unwrap_err();
     assert!(error.to_string().contains("Tackling above average"));
     assert!(error.to_string().contains("below average"));
 
     let accepted = parser
-        .parse(r#"{"headline":"Rogers profile","body":"Tackling is below average, while Chance Creation is elite."}"#)
+        .parse(r#"{"body":"Tackling is below average, while Chance Creation is elite."}"#)
         .unwrap()
         .unwrap();
     assert!(accepted.body.contains("Chance Creation is elite"));
-}
-
-#[test]
-fn a_title_is_never_allowed_to_cost_the_report() {
-    // The title is optional. An absent, empty or unusable one must not throw
-    // away a valid body — each of these burned a finished report's title before.
-    let parse = |title: serde_json::Value| {
-        RatingParser
-            .parse(
-                &serde_json::json!({
-                    "headline": title,
-                    "body": "Rim protection reads elite in the supplied profile."
-                })
-                .to_string(),
-            )
-            .expect("a bad title never fails the report")
-            .expect("a reply")
-    };
-    assert_eq!(
-        parse(serde_json::json!("Take away the rim"))
-            .headline
-            .as_deref(),
-        Some("Take away the rim")
-    );
-    // The contract is 140 characters and nothing else, so a long title that
-    // fits still ships.
-    let long =
-        "one two three four five six seven eight nine ten eleven twelve thirteen".to_string();
-    assert_eq!(
-        parse(serde_json::json!(long.clone())).headline.as_deref(),
-        Some(long.as_str())
-    );
-    // An overlong title is dropped rather than costing the body.
-    assert!(parse(serde_json::json!("x".repeat(200))).headline.is_none());
-    // A declined title is this plugin declining, and is legitimate.
-    assert!(parse(serde_json::Value::Null).headline.is_none());
-    // A BLANK title is neither: a filled slot with no content is a contract
-    // violation, and the shared validator refuses it rather than salvaging it.
-    assert!(RatingParser
-        .parse(
-            &serde_json::json!({"headline": "   ", "body": "Rim protection reads elite."})
-                .to_string()
-        )
-        .is_err());
-    // The body survives every one of them.
-    assert!(parse(serde_json::json!("x".repeat(200)))
-        .body
-        .contains("Rim protection"));
 }
 
 #[test]
@@ -1532,20 +1434,12 @@ fn a_declined_body_is_a_pass_and_a_dropped_slot_is_not() {
     // `body: null` is the Scout declining to publish prose. `{}` is a dropped
     // slot, which is a contract violation. The two must not collapse — the
     // whole point of a declared abstention is that it is distinguishable.
-    assert!(RatingParser
-        .parse(r#"{"headline": null, "body": null}"#)
-        .unwrap()
-        .is_none());
+    assert!(RatingParser.parse(r#"{"body": null}"#).unwrap().is_none());
     assert!(RatingParser.parse(r#"{}"#).is_err());
     assert!(RatingParser.parse(r#"{"headline": "A title"}"#).is_err());
-    assert!(RatingParser
-        .parse(r#"{"headline": "A title", "body": ""}"#)
-        .is_err());
-    // A declined body still needs the declared headline slot to be present:
-    // dropping it is a dropped slot however the body was filled.
-    assert!(RatingParser
-        .parse(r#"{"headline": null, "body": null, "score": 3}"#)
-        .is_err());
+    assert!(RatingParser.parse(r#"{"body": ""}"#).is_err());
+    // A declined body cannot smuggle undeclared fields through the decoder.
+    assert!(RatingParser.parse(r#"{"body": null, "score": 3}"#).is_err());
 }
 
 #[test]
@@ -1554,506 +1448,10 @@ fn claim_paragraphs_survive_the_production_parser() {
     // measures paragraphs rather than lines: a wrapped line is not a break.
     let body = "The profile is ordinary. Most skills sit near average. The middle is the story.\n\nOne edge stands out. Finishing leads the supplied profile. That is the exception.\n\nAvailability is limited. Two absences are recorded. Depth matters now.\n\nThe rest is unchanged. The supplied comparison shows no movement. Continuity holds.";
     let parsed = RatingParser
-        .parse(
-            &serde_json::json!({"headline": "An ordinary profile holds", "body": body}).to_string(),
-        )
+        .parse(&serde_json::json!({"body": body}).to_string())
         .unwrap()
         .unwrap();
     assert_eq!(parsed.body, body);
-    assert_eq!(
-        parsed.headline.as_deref(),
-        Some("An ordinary profile holds")
-    );
-}
-
-// --- 7.7 the personnel block: the Scout's second confirmed-fact road ------------------
-// T4 holds by construction here — every field the renderer reads is a date, a resolved name, or
-// the adjudicated `event_type` enum. There is no path by which news prose reaches this seat.
-
-fn change(
-    kind: &str,
-    date: &str,
-    player: &str,
-    old: Option<&str>,
-    new: Option<&str>,
-) -> PersonnelChange {
-    PersonnelChange {
-        kind: kind.to_string(),
-        date_label: date.to_string(),
-        event_type: Some("transfer".to_string()),
-        player_name: player.to_string(),
-        old_team: old.map(|s| s.to_string()),
-        new_team: new.map(|s| s.to_string()),
-        old_team_id: old.map(|_| 277),
-        new_team_id: new.map(|_| 3468),
-    }
-}
-
-#[test]
-fn a_player_move_names_both_clubs_and_the_date() {
-    let out = render_personnel_block(
-        "player",
-        37922937,
-        &[change(
-            "applied",
-            "Jul 29",
-            "Test Player",
-            Some("Old FC"),
-            Some("New FC"),
-        )],
-        1,
-        &[],
-        0,
-    )
-    .expect("a move renders");
-    assert_eq!(
-        out,
-        "- Jul 29: current-club identity confirmed as New FC (previously Old FC) (transfer).\n"
-    );
-}
-
-/// The club a player came FROM is exactly what `transfer_ground_truth` drops (it selects
-/// `new_team_id` only), so a missing old club must still render a clean fact, never "from None".
-#[test]
-fn a_player_move_without_a_known_old_club_still_renders() {
-    let out = render_personnel_block(
-        "player",
-        1,
-        &[change(
-            "applied",
-            "Jul 16",
-            "Test Player",
-            None,
-            Some("New FC"),
-        )],
-        1,
-        &[],
-        0,
-    )
-    .unwrap();
-    assert_eq!(
-        out,
-        "- Jul 16: current-club identity confirmed as New FC (transfer).\n"
-    );
-}
-
-/// A team read must see BOTH directions. The ground-truth view matches `new_team_id` only, so a
-/// club losing a player sees nothing there — this is the half 7.7 exists to add. The side is
-/// decided by id, never by comparing club names.
-#[test]
-fn a_team_sees_arrivals_and_departures_decided_by_id() {
-    let arrival = render_personnel_block(
-        "team",
-        3468,
-        &[change(
-            "applied",
-            "Jul 29",
-            "Test Player",
-            Some("Old FC"),
-            Some("New FC"),
-        )],
-        1,
-        &[],
-        0,
-    )
-    .unwrap();
-    assert_eq!(
-        arrival,
-        "- Jul 29: Test Player's current-club identity confirmed here (previously Old FC) (transfer).\n"
-    );
-
-    // Same row, read by the OTHER club: a departure.
-    let departure = render_personnel_block(
-        "team",
-        277,
-        &[change(
-            "applied",
-            "Jul 29",
-            "Test Player",
-            Some("Old FC"),
-            Some("New FC"),
-        )],
-        1,
-        &[],
-        0,
-    )
-    .unwrap();
-    assert_eq!(
-        departure,
-        "- Jul 29: Test Player's current-club identity confirmed as New FC (transfer).\n"
-    );
-}
-
-/// A revert is the fact the ground-truth view can never carry (it filters `reverted_at IS NULL`),
-/// and it is the one the Scout most needs: the last brief may have been written around a move
-/// that has since been undone. It must never render as a move.
-#[test]
-fn a_revert_renders_as_a_correction_not_a_move() {
-    let player = render_personnel_block(
-        "player",
-        1,
-        &[change(
-            "reverted",
-            "Aug 02",
-            "Test Player",
-            Some("Old FC"),
-            Some("New FC"),
-        )],
-        1,
-        &[],
-        0,
-    )
-    .unwrap();
-    assert_eq!(
-        player,
-        "- Aug 02: earlier move to New FC REVERTED — that move is not in force (transfer).\n"
-    );
-    assert!(!player.contains("joined"));
-
-    let team = render_personnel_block(
-        "team",
-        3468,
-        &[change(
-            "reverted",
-            "Aug 02",
-            "Test Player",
-            Some("Old FC"),
-            Some("New FC"),
-        )],
-        1,
-        &[],
-        0,
-    )
-    .unwrap();
-    assert!(team.contains("Test Player's move REVERTED"));
-    assert!(!team.contains("signed") && !team.contains("lost"));
-}
-
-/// The A5 rule: what the cap drops is NAMED. A deadline-day squad churn must not crowd out the
-/// datapoints inside a 4,096 window, and it must not silently pretend six changes were all of them.
-#[test]
-fn the_cap_names_what_it_dropped() {
-    let rows: Vec<PersonnelChange> = (0..MAX_PERSONNEL_LINES)
-        .map(|i| {
-            change(
-                "applied",
-                "Jul 29",
-                &format!("Player {i}"),
-                Some("Old FC"),
-                Some("New FC"),
-            )
-        })
-        .collect();
-    let out = render_personnel_block("team", 3468, &rows, MAX_PERSONNEL_LINES + 4, &[], 0).unwrap();
-    assert_eq!(out.lines().count(), MAX_PERSONNEL_LINES + 1);
-    assert!(out.ends_with("- (+4 older personnel changes in this window, not shown)\n"));
-
-    // Nothing dropped ⇒ no drop line at all.
-    let exact = render_personnel_block("team", 3468, &rows, MAX_PERSONNEL_LINES, &[], 0).unwrap();
-    assert_eq!(exact.lines().count(), MAX_PERSONNEL_LINES);
-    assert!(!exact.contains("not shown"));
-}
-
-fn avail(
-    kind: &str,
-    date_label: &str,
-    event_kind: &str,
-    player: &str,
-    event_date: &str,
-    expected: Option<&str>,
-) -> AvailabilityChange {
-    AvailabilityChange {
-        kind: kind.to_string(),
-        date_label: date_label.to_string(),
-        event_kind: event_kind.to_string(),
-        player_name: player.to_string(),
-        team_name: Some("New FC".to_string()),
-        team_id: Some(3468),
-        event_date_label: event_date.to_string(),
-        expected_return_label: expected.map(str::to_string),
-    }
-}
-
-/// A newly applied injury renders as a dated fact, and the reported prognosis renders as a
-/// REPORT ("reported back around") rather than as a date the player will return — mig 229:
-/// `expected_return` is a claim, never ground truth.
-#[test]
-fn an_opened_absence_renders_the_prognosis_as_a_report() {
-    let player = render_personnel_block(
-        "player",
-        1,
-        &[],
-        0,
-        &[avail(
-            "opened",
-            "Aug 21",
-            "injury",
-            "Test Player",
-            "Aug 20",
-            Some("Sep 02"),
-        )],
-        1,
-    )
-    .unwrap();
-    assert_eq!(
-        player,
-        "- Aug 20: out with a recorded injury — reported back around Sep 02.\n"
-    );
-
-    // No prognosis ⇒ no clause invented.
-    let bare = render_personnel_block(
-        "player",
-        1,
-        &[],
-        0,
-        &[avail(
-            "opened",
-            "Aug 21",
-            "suspension",
-            "Test Player",
-            "Aug 20",
-            None,
-        )],
-        1,
-    )
-    .unwrap();
-    assert_eq!(bare, "- Aug 20: out with a recorded suspension.\n");
-    assert!(!bare.contains("reported back"));
-
-    // A team read names WHO is missing.
-    let team = render_personnel_block(
-        "team",
-        3468,
-        &[],
-        0,
-        &[avail(
-            "opened",
-            "Aug 21",
-            "injury",
-            "Test Player",
-            "Aug 20",
-            None,
-        )],
-        1,
-    )
-    .unwrap();
-    assert_eq!(team, "- Aug 20: Test Player out with a recorded injury.\n");
-}
-
-/// THE distinction mig 229 built two columns to keep: a RETURN is the player coming back, a
-/// REVERT is us withdrawing the claim he was ever hurt. Rendering a revert as a return would tell
-/// the Scout a player is fit on the strength of a record we just retracted.
-#[test]
-fn a_withdrawn_availability_record_never_reads_as_a_return() {
-    let returned = render_personnel_block(
-        "player",
-        1,
-        &[],
-        0,
-        &[avail(
-            "returned",
-            "Aug 30",
-            "injury",
-            "Test Player",
-            "Aug 20",
-            None,
-        )],
-        1,
-    )
-    .unwrap();
-    assert_eq!(
-        returned,
-        "- Aug 30: available again after the injury recorded Aug 20.\n"
-    );
-
-    let reverted = render_personnel_block(
-        "player",
-        1,
-        &[],
-        0,
-        &[avail(
-            "reverted",
-            "Aug 25",
-            "injury",
-            "Test Player",
-            "Aug 20",
-            None,
-        )],
-        1,
-    )
-    .unwrap();
-    assert_eq!(
-        reverted,
-        "- Aug 25: the injury recorded Aug 20 was WITHDRAWN — that record is not in force.\n"
-    );
-    // The two must not be confusable in either direction.
-    assert!(!reverted.contains("available again"));
-    assert!(!returned.contains("WITHDRAWN"));
-
-    let team_reverted = render_personnel_block(
-        "team",
-        3468,
-        &[],
-        0,
-        &[avail(
-            "reverted",
-            "Aug 25",
-            "suspension",
-            "Test Player",
-            "Aug 20",
-            None,
-        )],
-        1,
-    )
-    .unwrap();
-    assert!(team_reverted.contains("Test Player's suspension recorded Aug 20 was WITHDRAWN"));
-    assert!(!team_reverted.contains("available again"));
-}
-
-/// Both halves render into ONE block, transfers first, and each names its own drops (A5).
-#[test]
-fn transfers_and_availability_share_one_block_and_each_names_its_drops() {
-    let rows: Vec<PersonnelChange> = (0..MAX_PERSONNEL_LINES)
-        .map(|i| {
-            change(
-                "applied",
-                "Jul 29",
-                &format!("Player {i}"),
-                Some("Old FC"),
-                Some("New FC"),
-            )
-        })
-        .collect();
-    let avails: Vec<AvailabilityChange> = (0..MAX_AVAILABILITY_LINES)
-        .map(|i| {
-            avail(
-                "opened",
-                "Aug 21",
-                "injury",
-                &format!("Hurt {i}"),
-                "Aug 20",
-                None,
-            )
-        })
-        .collect();
-    let out = render_personnel_block(
-        "team",
-        3468,
-        &rows,
-        MAX_PERSONNEL_LINES + 2,
-        &avails,
-        MAX_AVAILABILITY_LINES + 3,
-    )
-    .unwrap();
-
-    // Transfers, their drop line, availability, then its drop line — in that order.
-    let signed = out
-        .find("Player 0's current-club identity confirmed")
-        .unwrap();
-    let pers_drop = out.find("+2 older personnel changes").unwrap();
-    let hurt = out.find("Hurt 0 out with a recorded injury").unwrap();
-    let avail_drop = out.find("+3 older availability events").unwrap();
-    assert!(signed < pers_drop && pers_drop < hurt && hurt < avail_drop);
-
-    // Availability alone still produces a block — the section is not gated on transfers.
-    assert!(
-        render_personnel_block("team", 3468, &[], 0, &avails, MAX_AVAILABILITY_LINES).is_some()
-    );
-}
-
-/// The Editor's TAGGED reports reach the Scout as CLAIMS — attributed, with contradictions
-/// marked by code. Scott's 2026-08-23 ruling in test form: he judges legitimacy, so he must see
-/// who said what and where they disagree. `⇄` is the mark, and BOTH members of a contested pair
-/// are always carried (T3/D6) — collapsing the pair would be deciding for him.
-#[test]
-fn tagged_current_reports_arrive_attributed_and_contest_marked() {
-    use crate::evidence::news::render::{mark_contested, RenderClaim};
-
-    let claim = |source: &str, fact: &str| RenderClaim {
-        article_id: 1,
-        source: source.to_string(),
-        fact: fact.to_string(),
-        published_at: Some(100),
-        story_type: "injury".to_string(),
-    };
-
-    // Agreeing claims: attributed, unmarked.
-    let agreeing = mark_contested(&[
-        claim("BBC", "Palmer is out for six weeks"),
-        claim("Sky", "Palmer faces six weeks out"),
-    ]);
-    let out = render_scout_reports(&agreeing).unwrap();
-    assert!(out.contains("- BBC: Palmer is out for six weeks\n"));
-    assert!(!out.contains('⇄'));
-
-    // Contradicting claims: BOTH carried, BOTH marked.
-    let contested = mark_contested(&[
-        claim("BBC", "Palmer will miss the derby"),
-        claim("The Athletic", "Palmer will not miss the derby"),
-    ]);
-    let out = render_scout_reports(&contested).unwrap();
-    assert_eq!(out.matches('⇄').count(), 2, "both sides must be marked");
-    assert!(out.contains("BBC") && out.contains("The Athletic"));
-
-    // KNOWN GAP, asserted so it cannot regress silently. `mark_contested`'s negation list was
-    // tuned for TRANSFER prose and contains "ruled" (as in "ruled out of contention"). On injury
-    // prose "ruled out" therefore reads as negated on BOTH sides, the polarities match, and a
-    // genuine contradiction goes unmarked. The claims are still both carried and both attributed
-    // — the Scout sees the disagreement, he just does not get the pointer. Widening that list is
-    // a change to the Insider's marker too, so it is deliberately NOT done as a side effect here.
-    let unmarked = mark_contested(&[
-        claim("BBC", "Palmer has been ruled out of the derby"),
-        claim("The Athletic", "Palmer has not been ruled out of the derby"),
-    ]);
-    let out = render_scout_reports(&unmarked).unwrap();
-    assert_eq!(
-        out.matches('⇄').count(),
-        0,
-        "documents the transfer-tuned negation gap"
-    );
-    assert!(
-        out.lines().count() == 2,
-        "both claims still reach him regardless"
-    );
-
-    // Nothing reported ⇒ no section, same discipline as the personnel block.
-    assert!(render_scout_reports(&[]).is_none());
-}
-
-/// The reports block must not be confusable with the adjudicated record, and the prompt has to
-/// say which is which — a Scout reading a claim as a confirmed fact is the failure this design
-/// exists to avoid.
-#[test]
-fn the_prompt_separates_current_reports_from_the_confirmed_record() {
-    use crate::evidence::news::render::{mark_contested, RenderClaim};
-    let p = profile_player();
-    let reports = mark_contested(&[RenderClaim {
-        article_id: 1,
-        source: "BBC".to_string(),
-        fact: "Palmer is out for six weeks".to_string(),
-        published_at: Some(100),
-        story_type: "injury".to_string(),
-    }]);
-    let rendered = render_scout_reports(&reports).unwrap();
-    assert!(rendered.contains("- BBC: Palmer is out for six weeks"));
-    // The claim reaches the world as MEMORY, in its own key, attributed — not as
-    // part of the measured profile. That separation is what stops a report from
-    // reading as a measurement.
-    let world = world(
-        &req("FOOTBALL", "player", "Test Player"),
-        &p,
-        None,
-        &RatingExclusions::default(),
-    );
-    let package: serde_json::Value = serde_json::from_str(&world).unwrap();
-    assert!(package["memory"]
-        .get("reported")
-        .is_none_or(|r| r.is_null()));
-    assert!(!fresh(&world).to_string().contains("Palmer"));
-    // The manual keeps the claim from moving a measurement, and says so.
-    let manual = crate::plugins::scout::cognition::prompt::TASK;
-    assert!(manual.contains("does not alter a measurement"));
-    assert!(manual.contains("Neither is evidence of"));
 }
 
 #[test]
@@ -2234,88 +1632,7 @@ fn comparative_model_profile_keeps_changes_and_strongest_held_anchors() {
 
 /// No changes ⇒ no section. A heading with nothing under it asserts "nothing moved", which is a
 /// claim the adjudication chain has not made — it may only mean nothing has been adjudicated yet.
-#[test]
-fn nothing_moved_renders_no_section_at_all() {
-    assert!(render_personnel_block("player", 1, &[], 0, &[], 0).is_none());
-    // An empty memory part carries no keys at all. A heading with nothing under
-    // it would assert "nothing moved", which is a claim the adjudication chain
-    // has not made — it may only mean nothing has been adjudicated yet.
-    let world = world(
-        &req("NBA", "player", "Test Player"),
-        &profile_player(),
-        None,
-        &RatingExclusions::default(),
-    );
-    let memory = &serde_json::from_str::<serde_json::Value>(&world).unwrap()["memory"];
-    assert!(memory.as_object().is_some_and(|m| m.is_empty()));
-    assert!(
-        crate::plugins::scout::memories::Reported::from_records("player", 1, &[], &[], 0)
-            .is_empty()
-    );
-}
-
-/// Placement: below the datapoints (a tier is still the truth about the player who holds it),
-/// above the cross-season memory card (this is the squad now, not the arc), above the write cue.
-#[test]
-fn personnel_follows_measurements_without_generated_prose_memory() {
-    let p = profile_player();
-    let personnel = render_personnel_block(
-        "player",
-        1,
-        &[change(
-            "applied",
-            "Jul 29",
-            "Test Player",
-            Some("Old FC"),
-            Some("New FC"),
-        )],
-        1,
-        &[],
-        0,
-    )
-    .unwrap();
-    assert!(personnel.contains(
-        "- Jul 29: current-club identity confirmed as New FC (previously Old FC) (transfer)."
-    ));
-    // The adjudicated record becomes a dated, attributed claim in the memory
-    // part, after the measurements and never inside them.
-    let claims = crate::plugins::scout::memories::Reported::from_records(
-        "player",
-        1,
-        &[change(
-            "applied",
-            "Jul 29",
-            "Test Player",
-            Some("Old FC"),
-            Some("New FC"),
-        )],
-        &[],
-        1,
-    );
-    let world = world_with_memory(&req("NBA", "player", "Test Player"), &p, claims);
-    let fresh_at = world.find("\"fresh\"").unwrap();
-    let memory_at = world.find("\"memory\"").unwrap();
-    assert!(
-        fresh_at < memory_at,
-        "measurements precede the memory that qualifies them"
-    );
-    assert!(!world.contains("Prior reading"));
-    assert!(world.contains("current club recorded as New FC"));
-    // A claim never alters a measured figure, and the manual says so where the
-    // model will read it.
-    assert!(crate::plugins::scout::cognition::prompt::TASK.contains("does not alter a measurement"));
-
-    // Blank personnel ⇒ no claims, so the memory part stays empty.
-    let blank = world_with_memory(&req("NBA", "player", "Test Player"), &p, Vec::new());
-    assert!(
-        serde_json::from_str::<serde_json::Value>(&blank).unwrap()["memory"]
-            .as_object()
-            .is_some_and(|m| m.is_empty())
-    );
-}
-
 // --- Studio boundary: prepared creation runs without Postgres, queues, or model hosts ---------
-
 use crate::studio::model::{GenerateResult, Inference};
 use async_trait::async_trait;
 use std::sync::Mutex;
@@ -2384,8 +1701,6 @@ fn assignment() -> Assignment {
             sport_name: String::new(),
         },
         season: 2026,
-        comparison_directions: BTreeMap::new(),
-        measurement_bands: BTreeMap::new(),
         notability: 72,
         notability_components: serde_json::json!({"top_pct": 91.0}),
         rating_trajectory: RatingTrajectory {
@@ -2402,28 +1717,17 @@ fn assignment() -> Assignment {
             num_predict: RATING_NUM_PREDICT,
             num_ctx: 4096,
             json_mode: false,
-            format_schema: Some(crate::plugins::support::form::with_abstention(
-                crate::plugins::support::prompt::card_schema(false),
-            )),
+            format_schema: Some(prose().schema()),
             format_schema_raw: None,
         },
         built_prompt: scout_parts().render(),
-        palette: crate::studio::palette::Palette {
-            paints: vec![crate::studio::palette::Paint {
-                id: "measure_0".into(),
-                phrasings: vec!["Vale Kerr ranks elite in blocks per game: percentile 91.0.".into()],
-            }],
-        },
         parts: scout_parts(),
     }
 }
 
 /// The world behind [`assignment`].
 ///
-/// The single approved statement asserts percentile 91.0, so the profile must
-/// carry it: `check_supported` refuses a world whose approved statements
-/// mention a figure it does not contain, and this fixture is the smallest one
-/// that satisfies that.
+/// A small world with an elite, source-selected measurement.
 fn scout_parts() -> crate::plugins::scout::cognition::parts::Parts {
     crate::plugins::scout::cognition::parts::Parts {
         subject: crate::plugins::meta::EntityMeta {
@@ -2460,80 +1764,13 @@ fn scout_parts() -> crate::plugins::scout::cognition::parts::Parts {
     }
 }
 
-#[test]
-fn palette_selects_measured_edges_and_never_infers_from_missing_rank() {
-    let subject = Subject {
-        entity_type: "player".into(),
-        entity_name: "Avery Chen".into(),
-        sport: "NBA".into(),
-        sport_name: "NBA".into(),
-    };
-    let mut profile = RatingProfile {
-        observed_at: None,
-        sample: BTreeMap::new(),
-        league_id: None,
-        entity_type: "player".into(),
-        season: 2026,
-        position: "".into(),
-        composite_score: None,
-        breakdown: Vec::new(),
-        scoped_ranks: HashMap::new(),
-        rate_modes: HashMap::new(),
-    };
-    for (measure, pct) in [
-        ("Blocks per game", Some(96.0)),
-        ("Assists per game", Some(81.0)),
-        ("Turnovers per game", Some(22.0)),
-        ("Unknown goals", None),
-    ] {
-        profile.breakdown.push(RatingDatapoint {
-            measure: measure.into(),
-            label: measure.into(),
-            pct,
-            cohort: Some(4470.0),
-            ..Default::default()
-        });
-    }
-    let mut comparisons = BTreeMap::new();
-    comparisons.insert(
-        "Turnovers per game".into(),
-        SkillChange {
-            prior_pct: 50.0,
-            prior_season: 2025,
-            prior_observed_at: None,
-            prior_sample: BTreeMap::new(),
-        },
-    );
-    let palette = rating_palette(
-        &subject,
-        &profile,
-        Some(&comparisons),
-        Some("overall scores trending up over recent games; 5 scored events"),
-    )
-    .unwrap();
-    let text = palette
-        .render(&crate::studio::palette::Composition {
-            choices: vec![0, 0, 0, 0],
-        })
-        .unwrap();
-    assert!(text.contains("Blocks per game"));
-    assert!(text.contains("Turnovers per game"));
-    assert!(!text.contains("Unknown goals"));
-    assert!(!text.contains("72% chance"));
-    assert!(text.contains("Relative percentile standing fell versus the prior season"));
-    assert!(text.contains("Recent form for Avery Chen"));
-}
-
 #[tokio::test]
 async fn prepared_assignment_creates_without_application_services() {
     // The model now articulates the assembled world, so it returns the keyed
     // prose map this plugin declares rather than palette indexes.
     let body = "Vale Kerr's blocked shots rank elite in this profile at the 91st percentile, \
                and the stored sample is what that standing rests on.";
-    let model = FakeModel::new(
-        &serde_json::json!({"headline": "An elite shot-blocking profile", "body": body})
-            .to_string(),
-    );
+    let model = FakeModel::new(&serde_json::json!({"body": body}).to_string());
     let output = create(&Studio::new(&model), assignment()).await.unwrap();
     assert_eq!(output.body.as_deref(), Some(body));
     // The title is the plugin's own: it names the entity and the kind of read,
@@ -2590,7 +1827,7 @@ async fn a_called_pass_is_a_product_rather_than_an_error() {
     // is a result: it publishes a marker saying so. It is not a missing profile
     // (an uncalled marker) and not a malformed card (an error). The palette path
     // could not express this at all — it had no null to accept.
-    let model = FakeModel::new(r#"{"headline": null, "body": null}"#);
+    let model = FakeModel::new(r#"{"body": null}"#);
     let output = create(&Studio::new(&model), assignment()).await.unwrap();
     assert!(output.abstained);
     assert!(output.body.is_none());
@@ -2647,9 +1884,6 @@ fn datapoints_span_the_range_rather_than_taking_the_top() {
     );
 }
 
-/// A junk title never costs the report. Measured 2026-08-22: a live generation died on
-/// `hook_colon (headline="Hornets: Elite shooter...")`, discarding a complete graded profile
-/// over punctuation in its title — the only seat still failing closed on a title.
 #[test]
 fn incompatible_history_does_not_erase_current_measurements() {
     let mut current = profile_player();

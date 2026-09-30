@@ -1,7 +1,5 @@
 {
-  "expect": {
-    "narratives_report_count": 0
-  },
+  "expect": {},
   "name": "no-new-material-nothing-eligible:-no-call,-no-package",
   "parts": {
     "memory": [],

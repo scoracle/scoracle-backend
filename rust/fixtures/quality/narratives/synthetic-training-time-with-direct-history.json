@@ -2,8 +2,7 @@
   "expect": {
     "body_includes": [
       "10:00"
-    ],
-    "narratives_report_count": 1
+    ]
   },
   "name": "synthetic-training-time-with-direct-history-direct-history-attached-to-the-report-it-updates",
   "parts": {

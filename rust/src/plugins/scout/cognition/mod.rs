@@ -12,7 +12,6 @@
 //! Missing measurements and ranks remain unknown; character and canvas own the writing.
 
 use crate::studio::model::GenerateOptions;
-use crate::studio::palette::{Paint, Palette};
 use crate::studio::{Generation, GenerationCall, Parser, Studio};
 use crate::util::round1;
 use anyhow::Result;
@@ -25,7 +24,7 @@ pub use brief::{CHARACTER, RATING_PROMPT_VERSION};
 pub mod parts;
 pub mod prompt;
 
-/// The Scout's declared prose surface: a hook and a body.
+/// The Scout returns a body; the plugin supplies its title.
 ///
 /// The keys are this plugin's; the shape and the validator are shared with every
 /// other character. The paragraph ceiling is a per-plugin recorded decision, not
@@ -44,7 +43,7 @@ pub const SCOUT_PARAGRAPH_MAX_CHARS: Option<usize> = None;
 
 pub fn prose() -> crate::plugins::cognition::prose::Prose {
     crate::plugins::cognition::prose::Prose::new(
-        &["headline", "body"],
+        &["body"],
         crate::plugins::cognition::prose::Dimensions::new(
             crate::plugins::support::form::BODY_MAX_CHARS,
             SCOUT_PARAGRAPH_MAX_CHARS,
@@ -53,7 +52,7 @@ pub fn prose() -> crate::plugins::cognition::prose::Prose {
 }
 
 /// Output contract captured separately in the diagnostic ledger.
-pub const RATING_OUTPUT_CONTRACT_VERSION: &str = "rating-commentary-v7-palette";
+pub const RATING_OUTPUT_CONTRACT_VERSION: &str = "rating-commentary-v8-parts";
 
 /// Prose this plugin will not serve, and why each one is a claim rather than a
 /// description.
@@ -537,37 +536,6 @@ pub fn relative_direction(delta: f64) -> RelativeDirection {
     }
 }
 
-pub(crate) fn comparison_directions(
-    current: &RatingProfile,
-    comparisons: Option<&BTreeMap<String, SkillChange>>,
-) -> BTreeMap<String, RelativeDirection> {
-    current
-        .breakdown
-        .iter()
-        .filter_map(|datapoint| {
-            let current_pct = datapoint.pct?;
-            let prior_pct = comparisons?.get(&datapoint.label)?.prior_pct;
-            Some((
-                datapoint.label.clone(),
-                relative_direction(current_pct - prior_pct),
-            ))
-        })
-        .collect()
-}
-
-pub(crate) fn measurement_bands(current: &RatingProfile) -> BTreeMap<String, String> {
-    current
-        .breakdown
-        .iter()
-        .filter_map(|datapoint| {
-            Some((
-                datapoint.label.clone(),
-                pct_band(datapoint.pct?).to_string(),
-            ))
-        })
-        .collect()
-}
-
 /// Thin samples drop the Discipline datapoint in code rather than handing it to the
 /// model with an order to ignore it. Participation totals are already withheld from the
 /// thin-sample sample line, so this is the last selection decision the old evidence
@@ -861,13 +829,10 @@ pub(crate) fn rating_trajectory_from_events(
 // Output parsing — the current body plus HEADLINE contract.
 // ---------------------------------------------------------------------------
 
-/// RatingReply is the parsed model output: the cleaned body plus the optional card title.
+/// The model supplies only the body.
 #[derive(Clone, Debug)]
 pub struct RatingReply {
     pub body: String,
-    /// The card title (s20, mig 226): twelve words or fewer, contracted as the brief's
-    /// closing line. `None` when absent — NULL renders downstream as "no headline".
-    pub headline: Option<String>,
 }
 
 /// An explicit JSON null is a completed pass. Empty or invalid cards remain errors.
@@ -896,49 +861,6 @@ impl<'a> RatingRequestParser<'a> {
     }
 }
 
-/// parse_rating_body is the shape-only view. The eval gate
-/// parses through THIS so a guard-violating reply still shows its prose in the side-by-side
-/// and scores red on the invariant checks; production goes through [`RatingParser`], which
-/// adds the fail-closed guards on top. The s20 HEADLINE line is split off here too, so the
-/// shape view never mistakes a title for a section.
-pub fn parse_rating_body(raw: &str) -> String {
-    if raw.trim() == "null" {
-        return String::new();
-    }
-    let (_headline, body) = split_rating_headline(raw);
-    clean_commentary(&body)
-}
-
-/// split_rating_headline lifts the s20 card-title line out of a raw brief: the FIRST line
-/// beginning `HEADLINE:` is captured (whitespace-folded; empty ⇒ None) and removed, and the
-/// remaining lines are returned in order. Position-tolerant — order drift is a shape quirk,
-/// never a failed generation. Markdown decoration is deliberately NOT stripped before the
-/// match: a decorated title fails the brief's own plain-text guard downstream.
-fn split_rating_headline(raw: &str) -> (Option<String>, String) {
-    if let Ok(card) = serde_json::from_str::<crate::plugins::support::form::CardReply>(raw.trim()) {
-        return (Some(card.headline), card.body);
-    }
-    let mut headline: Option<String> = None;
-    let mut kept: Vec<&str> = Vec::new();
-    for line in raw.lines() {
-        if headline.is_none() {
-            let trimmed = line.trim();
-            if let Some(rest) = trimmed
-                .strip_prefix("HEADLINE:")
-                .or_else(|| trimmed.strip_prefix("Headline:"))
-            {
-                let folded = rest.split_whitespace().collect::<Vec<_>>().join(" ");
-                if !folded.is_empty() {
-                    headline = Some(folded);
-                }
-                continue;
-            }
-        }
-        kept.push(line);
-    }
-    (headline, kept.join("\n"))
-}
-
 impl Parser<RatingReply> for RatingParser {
     fn parse(&self, raw: &str) -> Result<Option<RatingReply>> {
         // The declared surface is the shared keyed prose map, so decoding routes
@@ -953,35 +875,11 @@ impl Parser<RatingReply> for RatingParser {
         let Some(body) = map.get("body").map(clean_commentary) else {
             return Ok(None);
         };
-        // The two slots are different kinds of text and carry different rules.
-        // The body is prose, so the shared paragraph and body ceilings apply to
-        // it. The headline is a TITLE, and its contract is the hook ceiling plus
-        // `settle_title`, which salvages or drops an unusable one — a bad title
-        // must never cost a finished report. Running the prose rule over both
-        // would let a 200-character title throw away a valid read, which is
-        // exactly the failure the 2026-08-24 hook change removed.
         let mut prose_only = crate::plugins::support::form::ProseMap::new();
         prose_only.push("body", Some(body.clone()));
-        // A ceiling violation is a CORRECTABLE surface, not a broken call, so it
-        // is raised as `SurfaceError` — that is what the bounded correction
-        // recognises. Without this the shared validator's plain error would
-        // skip the retry and one over-long body would cost the whole read.
-        if let Err(error) = prose_only.validate(prose.dims) {
-            return Err(crate::plugins::support::form::SurfaceError(format!("{error}")).into());
-        }
-        crate::plugins::support::form::validate_body(&body)?;
-        let headline = map.get("headline").map(clean_commentary);
-        // A FILLED slot with no content in it is a contract violation under the
-        // shared rule, and that applies to the title too: `"headline": "   "` is
-        // a model returning a field it declined to fill, which must be `null`.
-        // That is distinct from an UNUSABLE title, which `settle_title` salvages
-        // or drops so a bad title never costs a finished report.
-        if let Some(title) = headline.as_deref() {
-            anyhow::ensure!(
-                !title.trim().is_empty(),
-                "`headline` is blank; a slot carries prose or is declined"
-            );
-        }
+        prose_only
+            .validate(prose.dims)
+            .map_err(|e| crate::plugins::support::form::SurfaceError(e.to_string()))?;
         if let Some(p) =
             crate::plugins::support::guards::first_banned_phrase(&body, RATING_BODY_BANS)
         {
@@ -1003,10 +901,7 @@ impl Parser<RatingReply> for RatingParser {
             tracing::warn!(guard = "foreign_script", "rating body rejected");
             anyhow::bail!("rating: body carries a foreign-script run");
         }
-        // A declined or unusable title fails open: salvage or drop without
-        // throwing away the report.
-        let headline = crate::plugins::support::guards::settle_title("scout", headline.as_deref());
-        Ok(Some(RatingReply { body, headline }))
+        Ok(Some(RatingReply { body }))
     }
 }
 
@@ -1047,13 +942,9 @@ impl Parser<RatingReply> for RatingRequestParser<'_> {
             ))
             .into());
         }
-        let visible = match reply.headline.as_deref() {
-            Some(headline) => format!("{}\n{headline}", reply.body),
-            None => reply.body.clone(),
-        };
-        if let Some(number) = first_unsupported_number(&visible, self.prompt) {
+        if let Some(number) = first_unsupported_number(&reply.body, self.prompt) {
             return Err(crate::plugins::support::form::SurfaceError(format!(
-                "Body or headline uses numeric value {number}, which is absent from the retained evidence. Remove it or use the exact supplied measurement."
+                "Body uses numeric value {number}, which is absent from the retained evidence. Remove it or use the exact supplied measurement."
             ))
             .into());
         }
@@ -1291,7 +1182,11 @@ fn first_source_shape_error(
 ) -> Option<&'static str> {
     let body_folded = body.to_lowercase();
     let prompt_folded = prompt.to_lowercase();
-    if prompt_folded.contains("cross-season boundary:")
+    let world: serde_json::Value = serde_json::from_str(prompt).unwrap_or_default();
+    let profile = &world["fresh"];
+    let has_profile = profile.is_object();
+    let unsupported_comparison = profile["supports_cross_season"] == false;
+    if has_profile
         && [
             "development",
             "developed",
@@ -1311,12 +1206,7 @@ fn first_source_shape_error(
             "The supplied discipline value is a weighted formula, not separate yellow/red-card counts. Do not invent its components; describe only the supplied discipline value or percentile.",
         );
     }
-    if prompt_folded.contains("fewer than 10 appearances") {
-        if body.chars().count() > 800 {
-            return Some(
-                "The thin-sample card exceeds 800 characters. Select the supported playing characteristics and relevant attributed evidence, preserving the no-comparison boundary. Use identity as context.",
-            );
-        }
+    if unsupported_comparison {
         if ["frustrat", "confidence", "morale", "motivation"]
             .iter()
             .any(|stem| body_folded.contains(stem) && !prompt_folded.contains(stem))
@@ -1328,13 +1218,6 @@ fn first_source_shape_error(
                 "The attributed report does not support an emotional, motivational or psychological inference. Keep the reported action or quote without inventing its effect.",
             );
         }
-    }
-    // Stability and per-measure direction need cross-time or per-measure evidence that
-    // neither thin-sample shape carries (the "fewer than 10" boundary and the one-appearance
-    // boundary are the same no-comparison contract).
-    if prompt_folded.contains("fewer than 10 appearances")
-        || prompt_folded.contains("at most one appearance")
-    {
         // Stability is a cross-time claim. On a thin sample the only supplied timeline is
         // the snapshot itself, so stability language is a violation when it reaches across
         // time (seasons, prior form, "no change") — a within-snapshot description of
@@ -1501,8 +1384,6 @@ pub enum RatingBuild {
 pub struct Assignment {
     pub subject: Subject,
     pub season: i32,
-    pub comparison_directions: BTreeMap<String, RelativeDirection>,
-    pub measurement_bands: BTreeMap<String, String>,
     pub notability: i32,
     pub notability_components: serde_json::Value,
     pub rating_trajectory: RatingTrajectory,
@@ -1517,89 +1398,6 @@ pub struct Assignment {
     /// The same world, unrendered, so the manual, the response schema and the
     /// package are derived from one source rather than three.
     pub parts: parts::Parts,
-    /// Selected output vocabulary. Retained as the plugin's approved statements
-    /// and as the provenance of what it is willing to say; see [`create`].
-    pub palette: Palette,
-}
-
-/// Select factual statements in the plugin. The model may choose approved phrasing;
-/// no string from its response can become served prose.
-pub fn rating_palette(
-    subject: &Subject,
-    profile: &RatingProfile,
-    comparisons: Option<&BTreeMap<String, SkillChange>>,
-    form_trend: Option<&str>,
-) -> Option<Palette> {
-    let eligible = ordered_facts_unbounded(&profile.breakdown)
-        .into_iter()
-        .filter(|fact| {
-            fact.pct
-                .is_some_and(|pct| pct.is_finite() && (0.0..=100.0).contains(&pct))
-                && !fact.measure.trim().is_empty()
-        })
-        .collect::<Vec<_>>();
-    let mut facts = eligible.iter().take(2).cloned().collect::<Vec<_>>();
-    if eligible.len() > 2 {
-        facts.push(eligible.last().expect("nonempty eligible facts").clone());
-    }
-    if facts.is_empty() {
-        let score = profile.composite_score.filter(|score| score.is_finite())?;
-        let entity = subject.entity_name.trim();
-        return Some(Palette {
-            paints: vec![Paint {
-                id: "composite".into(),
-                phrasings: vec![
-                    format!(
-                        "{entity}'s overall standardized score is {score:.0}, where 50 is average."
-                    ),
-                    format!(
-                        "The overall standardized score for {entity} is {score:.0}; 50 is average."
-                    ),
-                ],
-            }],
-        });
-    }
-    let mut paints: Vec<Paint> = facts.into_iter().enumerate().map(|(index, fact)| {
-        let pct = fact.pct.expect("selected percentile");
-        let band = pct_band(pct);
-        let population = fact.cohort.filter(|n| n.is_finite() && *n >= 1.0)
-            .map(|n| format!(" among {:.0} eligible profiles", n)).unwrap_or_default();
-        let measure = fact.measure.trim();
-        let entity = subject.entity_name.trim();
-        let suffix = comparisons
-            .and_then(|items| items.get(&fact.label))
-            .filter(|prior| prior.prior_pct.is_finite() && (0.0..=100.0).contains(&prior.prior_pct))
-            .map(|prior| {
-                let direction = match relative_direction(pct - prior.prior_pct) {
-                    RelativeDirection::Rose => "rose",
-                    RelativeDirection::Fell => "fell",
-                    RelativeDirection::Held => "held",
-                };
-                format!(" Relative percentile standing {direction} versus the prior season (percentile {:.1}).", prior.prior_pct)
-            }).unwrap_or_default();
-        Paint { id: format!("measure_{index}"), phrasings: vec![
-            format!("{entity} ranks {band} in {measure}: percentile {pct:.1}{population}.{suffix}"),
-            format!("In {measure}, {entity} sits at percentile {pct:.1}{population}, a {band} standing.{suffix}"),
-        ] }
-    }).collect();
-    if let Some(trend) = form_trend.filter(|trend| !trend.trim().is_empty()) {
-        paints.push(Paint {
-            id: "recent_form".into(),
-            phrasings: vec![
-                format!(
-                    "Recent form for {}: {}.",
-                    subject.entity_name.trim(),
-                    trend.trim_end_matches('.')
-                ),
-                format!(
-                    "For {}, the recent-form record reads: {}.",
-                    subject.entity_name.trim(),
-                    trend.trim_end_matches('.')
-                ),
-            ],
-        });
-    }
-    Some(Palette { paints })
 }
 
 /// The un-persisted result of one Scout creation.
@@ -1673,121 +1471,18 @@ pub fn unchanged(assignment: Assignment, configured_model: impl Into<String>) ->
     )
 }
 
-/// Refuse a world that contradicts the plugin's own approved statements.
-///
-/// The palette used to be the thing sent, so `validate()` was enough. Now it is
-/// this plugin's declaration of what the profile supports, and the check keeps
-/// it load-bearing: a fact in the world that no approved statement rests on, or
-/// an approved statement about a fact the world does not carry, is a
-/// preparation defect. Neither reaches the model.
-fn check_supported(world: &str, parts: &parts::Parts) -> Result<()> {
-    let supplied = numeric_literals(world);
-    let mut problems = Vec::new();
-    for value in &parts.profile.values {
-        // An approved statement may only assert figures this value carries.
-        for figure in [
-            value.value,
-            value.percentile,
-            value.prior_percentile,
-            value.quality_z,
-        ]
-        .into_iter()
-        .flatten()
-        {
-            if !supplied
-                .iter()
-                .any(|(_, known)| (known - figure).abs() < 0.000_001)
-            {
-                problems.push(format!(
-                    "{} carries {figure} but the rendered world does not",
-                    value.label
-                ));
-            }
-        }
-        if let Some(band) = value.band.as_deref() {
-            if !world.contains(band) {
-                problems.push(format!(
-                    "{} is banded {band:?} but the rendered world does not state it",
-                    value.label
-                ));
-            }
-        }
-    }
-    if let Some(composite) = parts.profile.composite {
-        if !supplied
-            .iter()
-            .any(|(_, known)| (known - composite).abs() < 0.000_001)
-        {
-            problems.push(format!(
-                "the composite {composite} is not in the rendered world"
-            ));
-        }
-    }
-    // A measured window's numbers must also be present: they are the plugin's
-    // arithmetic over stored fixtures and a reader must be able to check them.
-    for window in &parts.memory.measured {
-        for figure in [
-            window.per_match,
-            window.per_match_change,
-            window.percent_change,
-        ]
-        .into_iter()
-        .flatten()
-        {
-            if !supplied
-                .iter()
-                .any(|(_, known)| (known - figure).abs() < 0.000_001)
-            {
-                problems.push(format!(
-                    "measured window {} carries {figure} but the rendered world does not",
-                    window.measure_label
-                ));
-            }
-        }
-    }
-    anyhow::ensure!(
-        problems.is_empty(),
-        "the prepared world contradicts the plugin's approved statements: {}",
-        problems.join("; ")
-    );
-    Ok(())
-}
-
-/// Create the Scout card from material prepared by the application.
-///
-/// **The palette is no longer the call.** Until s61 this function overwrote the
-/// system prompt, the temperature, the token allowance and the response schema,
-/// then sent `palette.prompt()` and parsed the result back through
-/// `PaletteParser` — so the model chose one of two or three approved phrasings
-/// per fact, and the ~300-line prose prompt, the 700-token card contract and the
-/// entire `RatingRequestParser` guard chain were reachable only from evaluation.
-/// The world the adapter had already assembled was never sent.
-///
-/// Now the model reads the prepared world and articulates it, with the palette
-/// retained as the plugin's statement of what it is willing to say: every
-/// statement in it must be supported by the world, and `check_supported` refuses
-/// a body that asserts a figure the world does not carry.
+/// Articulate the prepared world and attach deterministic product fields.
 pub async fn create(studio: &Studio<'_>, assignment: Assignment) -> Result<RatingOutput> {
-    let palette = &assignment.palette;
-    // The approved statements are still validated: they are the plugin's own
-    // claim about what the profile supports, and an unusable one is a preparation
-    // defect even though it is no longer the thing sent.
-    palette.validate()?;
-    check_supported(&assignment.built_prompt, &assignment.parts)?;
-    let mut opts = assignment.opts.clone();
+    let directions = assignment.parts.comparison_directions();
+    let bands = assignment.parts.measurement_bands();
     let extracted = studio
         .extract(
             &assignment.built_prompt,
-            &opts,
-            &RatingRequestParser::new(
-                &assignment.built_prompt,
-                &assignment.comparison_directions,
-                &assignment.measurement_bands,
-            ),
-            crate::plugins::support::prompt::publishing_correction,
+            &assignment.opts,
+            &RatingRequestParser::new(&assignment.built_prompt, &directions, &bands),
+            prompt::correction,
         )
         .await?;
-    opts.system = assignment.opts.system.clone();
     let call = GenerationCall::from(&extracted);
     let Some(reply) = extracted.value else {
         // A called pass is a complete response: the model was asked, and
@@ -1816,7 +1511,6 @@ pub async fn create(studio: &Studio<'_>, assignment: Assignment) -> Result<Ratin
             call,
         ));
     };
-    crate::plugins::support::form::validate_body(&reply.body)?;
     // The title is the plugin's own, not the model's: it names the entity and the
     // kind of read, which is a fact rather than something to articulate.
     let headline = crate::plugins::support::guards::settle_title(

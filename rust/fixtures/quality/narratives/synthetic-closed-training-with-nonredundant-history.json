@@ -2,8 +2,7 @@
   "expect": {
     "body_includes": [
       "supporters"
-    ],
-    "narratives_report_count": 1
+    ]
   },
   "name": "synthetic-closed-training-with-nonredundant-history-adjacent-history-that-is-not-the-same-story",
   "parts": {

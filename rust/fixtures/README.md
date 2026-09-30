@@ -1,6 +1,7 @@
 # Active evaluation data
 
 - `contracts/`: identity resolution cases and representative memory packages used by deterministic Rust tests.
+- `scout/`: retained S5 synthetic request/reply evidence, including failures; see [closure status](../docs/scout-closure-2026-09-29.md). These are replay records, not passing quality benchmarks.
 - `harvester/`: source-bound, provisional intake training annotations; separate from human-reviewed quality benchmarks.
 - `quality/<task>/`: selected evidence cases for `eval --task <task> --fixtures`. They use the current Studio system and schema; a version mismatch stops the run. Rebuild or recapture the evidence when the prompt contract changes.
 
@@ -10,6 +11,6 @@ The shared publishing language permits a complete reading of a partial profile. 
 
 Scout cases distinguish raw-value polarity from quality standing: SQL measurement `sign` is +1 for higher-is-better and -1 for lower-is-better, stored `z` is raw, and `pct` is already quality-oriented. Studio renders `sign * z` as quality z without inverting the percentile again. Missing polarity stays unknown. Review the resulting playing characteristics as well as the numbers; the negative-stat case checks favorable ball security, and the metadata/form case separates a strong profile from falling recent form. All publishing characters use identity as context and contribute their own perspective to the story.
 
-`eval --capture --task <task> <entity>` emits a current case skeleton. Add expectations and review criteria before keeping it. `--capture-ledger` emits a historical request skeleton; use `--replay-fixtures DIR` for explicit frozen-prompt replay with current provider options. Complete Scout assignment capture/replay uses `--capture-assignment --task rating` (optionally `--season YEAR`) and `--replay-assignment FILE`.
+`eval --capture --task <task> <entity>` emits a current case skeleton. Add expectations and review criteria before keeping it. `--capture-ledger` emits a historical request skeleton; use `--replay-fixtures DIR` for explicit frozen-prompt replay with current provider options. Complete Scout assignment capture/replay uses `--capture-assignment --task rating` (optionally `--season YEAR`) and `--replay-assignment FILE`. Current Scout captures are version 2 and include prepared parts; version-1 captures require recapture. Aligned current-contract fixtures cannot fall back to a bare prompt.
 
 Read-only inspection now lives under `eval --inspect memory`, `reports` and `identity`; run `eval` for arguments. The former `examples/` tools and full pre-cleanup fixture tree are preserved in the [wiki archive](../../../scoracle-wiki/raw/studio-history/2026-09-20/README.md).

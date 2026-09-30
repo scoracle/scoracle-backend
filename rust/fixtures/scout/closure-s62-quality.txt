@@ -1,0 +1,116 @@
+fixtures — task=rating role=stats-logic n=7 dir=/Users/scotty/scoracle/scoracle-backend/rust/fixtures/quality/rating/  incumbent=alibayram/smollm3
+lens — operator=The Scout | mandate=Tell the story of the entity's playing characteristics, expected contributions and supported profile direction. | guard=Interpret supplied measurements together; use metadata as context and preserve the distinction between profile, form and relative standing.
+CURRENT CONTRACT: current system and schema with version-checked frozen evidence.
+Review individual claims and voice; generation varies with model and load.
+
+[fixed-budget-rich-profile]  (temp=0)
+  Review: Select meaningful findings from the rich profile; neither exhaustive recitation nor an invented tactical plan is required.
+  Review: Interpret the relationships between measurements as playing characteristics; use identity as context and cite numbers only when they explain the story.
+  Review: Preserve the supplied raw-value polarity; quality percentiles are already oriented higher-is-better.
+      call: request=4648 bytes, input=1030 tokens, output=403 tokens, latency=22.08s, retries=0
+  A alibayram/smollm3 Rui Almeida is a standout player in the 2025 season, demonstrating exceptional skills across multiple facets of the game. His high press regains rate of 9.3 places him among the elite, indicating his ability to disrupt opponents' transitions and create scoring opportunities. His shot creation rate of 3.6, while not elite, is still a strong indicator of his ability to penetrate defenses and create chances. Progressive passes at 6.9 and final-third entries at 8.1 further highlight his technical prowess, showcasing his ability to distribute the ball effectively and access the opponent's box. However, his foul rate of 2.4 is a concern, suggesting he may need to improve his defensive positioning to minimize penalties and stay on the field for more minutes.
+
+While Rui's composite score of 61.0 is strong, the lack of a cross-season comparison makes it difficult to assess his overall improvement. However, his current standing is clear: he is a key player in his team's attack, capable of disrupting defenses and creating scoring opportunities. His high press regains rate and shot creation rate are particularly noteworthy, indicating his ability to contribute to the team's scoring and transition game.
+
+Rui's performance is consistent with his measured profile, and his limitations in foul rate suggest he may need to focus on improving his defensive positioning to maximize his impact on the field. His ability to create scoring opportunities and disrupt opponents' transitions makes him a valuable asset to his team, but his foul rate could limit his playing time if not addressed.
+
+In conclusion, Rui Almeida is a dynamic player with the potential to make a significant impact on the field. His strong technical skills and ability to disrupt opponents' transitions make him a key player in the team's attack. However, his foul rate suggests he may need to improve his defensive positioning to maximize his impact and stay on the field for more minutes.
+      raw: {
+  "body": "Rui Almeida is a standout player in the 2025 season, demonstrating exceptional skills across multiple facets of the game. His high press regains rate of 9.3 places him among the elite, indicating his ability to disrupt opponent...
+
+[negative-stat-positive-quality]  (temp=0)
+  Review: Low turnover volume is a favorable ball-security signal, not an inability to force opponent turnovers.
+  Review: Connect limited scoring contribution with favorable ball security without inventing technique, usage, playing time or tactics.
+  Review: Keep metadata contextual and leave the numerical listing to the graph.
+  Review: No recent direction is supplied; do not invent improvement, decline or consistency.
+      call: request=4386 bytes, input=956 tokens, output=219 tokens, latency=7.29s, retries=0
+  A alibayram/smollm3 Eli Stone has made a significant impact in the 2025 NBA season, showcasing both scoring prowess and a knack for preventing turnovers. With 25 games played, Stone has managed to score 12 points, placing him at the 20th percentile, indicating room for improvement. However, his ability to limit turnovers is remarkable, as he has only committed 1 turnover, placing him at the 90th percentile, a testament to his defensive skills and attention to detail. This combination of scoring and turnover prevention suggests that Stone is a valuable asset to his team, capable of contributing both offensively and defensively. His current standing is notable, but without a prior-season comparison, it is difficult to determine if this is a significant improvement or simply a continuation of his established performance. Stone's ability to limit turnovers is a standout feature, and his scoring ability, while not elite, is sufficient to contribute to the team's success. However, further analysis is needed to fully understand his potential and how he fits into the team's overall strategy.
+      raw: {
+  "body": "Eli Stone has made a significant impact in the 2025 NBA season, showcasing both scoring prowess and a knack for preventing turnovers. With 25 games played, Stone has managed to score 12 points, placing him at the 20th percentil...
+
+[no-standout-restraint]  (temp=0)
+  Review: An ordinary profile is a valid result; do not manufacture an exceptional strength or weakness.
+  Review: Interpret the relationships between measurements as playing characteristics; use identity as context and cite numbers only when they explain the story.
+  Review: Preserve the supplied raw-value polarity; quality percentiles are already oriented higher-is-better.
+      call: request=4473 bytes, input=979 tokens, output=462 tokens, latency=13.61s, retries=0
+  A alibayram/smollm3 Eli Stone is a versatile NBA player who has made a significant impact in his first 25 games of the 2025 season. His spot-up shooting, which accounts for 38.1% of his field goal attempts, is above average, placing him in the 64th percentile. This suggests he is effective at creating open shots and making them, contributing to his team's scoring opportunities. However, his catch-and-shoot volume, which accounts for 4.4% of his field goal attempts, is average, indicating he may not be as adept at creating his own shot opportunities. This could be a point of focus for his development moving forward.
+
+Eli Stone's turnover rate is concerning, as he averages 3.7 turnovers per game, placing him in the 23rd percentile. This is a poor performance, suggesting he may struggle with decision-making or ball handling, which could impact his team's efficiency and overall game flow.
+
+While Eli Stone's composite score of 49.0 is not the highest in the league, his performance is solid, especially considering his limited sample size. However, the lack of a cross-season comparison means we cannot definitively say if this is a significant improvement or regression compared to previous seasons.
+
+In terms of recent form, Eli Stone's performance has been consistent, with no notable upward or downward trends. His current standing is not supported by a prior-season comparison, so we cannot infer any changes in his ability or role based on this.
+
+In summary, Eli Stone is a valuable asset to his team, particularly in his ability to make spot-up shots. However, his turnover rate is a concern that needs to be addressed. His development in improving his decision-making and ball handling could significantly enhance his overall performance.
+
+The sample size of 25 games is relatively small, so while we can make some observations, we must be cautious about overinterpreting the results. The lack of a cross-season comparison means we cannot definitively say if this is a significant improvement or regression compared to previous seasons. However, based on the current data, Eli Stone is a player who has shown promise and has the potential to continue contributing positively to his team's success.
+      raw: {
+  "body": "Eli Stone is a versatile NBA player who has made a significant impact in his first 25 games of the 2025 season. His spot-up shooting, which accounts for 38.1% of his field goal attempts, is above average, placing him in the 64t...
+
+[observed-zero-unknown-creation]  (temp=0)
+  Review: Zero goals is an observed absence in the supplied sample; it is not missing goal data.
+  Review: Missing expected-assist data does not establish zero chance creation or poor creativity.
+  Review: Do not infer a defensive role, technique, tactical cause, or direction from the incomplete profile.
+  Review: A short, partial reading is complete when the supported finding is told.
+  A alibayram/smollm3 no-call disposition
+
+[rim-protector-specificity]  (temp=0)
+  Review: Interpret the strong defensive measurements without inventing height, playing time or an unmeasured trend.
+  Review: Interpret the relationships between measurements as playing characteristics; use identity as context and cite numbers only when they explain the story.
+  Review: Preserve the supplied raw-value polarity; quality percentiles are already oriented higher-is-better.
+      call: request=4549 bytes, input=1002 tokens, output=358 tokens, latency=10.36s, retries=0
+  A alibayram/smollm3 Nia Torres is a force to be reckoned with on the court, showcasing elite rim protection and strong defensive rebounding. Her ability to guard the rim effectively is evident in her 96th percentile ranking, indicating she consistently blocks shots and denies opponents easy baskets. Her defensive rebounding prowess is also impressive, with a 88th percentile ranking, suggesting she is adept at securing rebounds and limiting opponents' second-chance opportunities.
+
+While Nia's screen assists are strong, her turnover rate is a concern, ranking at the 28th percentile. This suggests she may struggle with decision-making under pressure, which could impact her team's offensive flow.
+
+Nia's overall composite score of 64.0 indicates a solid defensive presence, but her turnover rate could be a limiting factor. Her lack of a prior-season comparison means we cannot assess her recent improvement or decline.
+
+In terms of cross-season support, there is no evidence to suggest Nia's current performance is a continuation of her previous season. Therefore, we cannot infer stability or improvement based on prior performance.
+
+Nia's measured contributions suggest she is a valuable asset to her team, particularly in defense. However, her turnover rate may require attention to ensure she can maintain her high level of play. Her elite rim protection and strong defensive rebounding make her a formidable opponent, but her team must address her turnover rate to maximize her potential.
+
+In conclusion, Nia Torres is a dominant force on the defensive end, but her turnover rate is a concern that needs to be addressed to unlock her full potential. With continued focus on improving her decision-making, she has the potential to become an even more impactful player for her team.
+      raw: {
+  "body": "Nia Torres is a force to be reckoned with on the court, showcasing elite rim protection and strong defensive rebounding. Her ability to guard the rim effectively is evident in her 96th percentile ranking, indicating she consist...
+
+[strong-profile-falling-form-metadata]  (temp=0)
+  Review: Interpret the defensive profile and offensive contributions as a connected picture of play.
+  Review: Use team, position and jersey as context, without a biographical introduction or metadata listing.
+  Review: Distinguish the strong current defensive profile from falling recent overall form; no skill-specific decline or cause is supplied.
+  Review: Treat expectations as an interpretation of the supplied profile, not a guaranteed future performance.
+  Review: Preserve the supplied raw-value polarity; quality percentiles are already oriented higher-is-better.
+      call: request=4549 bytes, input=1002 tokens, output=358 tokens, latency=9.33s, retries=0
+  A alibayram/smollm3 Nia Torres is a force to be reckoned with on the court, showcasing elite rim protection and strong defensive rebounding. Her ability to guard the rim effectively is evident in her 96th percentile ranking, indicating she consistently blocks shots and denies opponents easy baskets. Her defensive rebounding prowess is also impressive, with a 88th percentile ranking, suggesting she is adept at securing rebounds and limiting opponents' second-chance opportunities.
+
+While Nia's screen assists are strong, her turnover rate is a concern, ranking at the 28th percentile. This suggests she may struggle with decision-making under pressure, which could impact her team's offensive flow.
+
+Nia's overall composite score of 64.0 indicates a solid defensive presence, but her turnover rate could be a limiting factor. Her lack of a prior-season comparison means we cannot assess her recent improvement or decline.
+
+In terms of cross-season support, there is no evidence to suggest Nia's current performance is a continuation of her previous season. Therefore, we cannot infer stability or improvement based on prior performance.
+
+Nia's measured contributions suggest she is a valuable asset to her team, particularly in defense. However, her turnover rate may require attention to ensure she can maintain her high level of play. Her elite rim protection and strong defensive rebounding make her a formidable opponent, but her team must address her turnover rate to maximize her potential.
+
+In conclusion, Nia Torres is a dominant force on the defensive end, but her turnover rate is a concern that needs to be addressed to unlock her full potential. With continued focus on improving her decision-making, she has the potential to become an even more impactful player for her team.
+      raw: {
+  "body": "Nia Torres is a force to be reckoned with on the court, showcasing elite rim protection and strong defensive rebounding. Her ability to guard the rim effectively is evident in her 96th percentile ranking, indicating she consist...
+
+[usage-artifact-not-exploit]  (temp=0)
+  Review: Distinguish low usage from poor skill; do not convert a usage artifact into an exploitable weakness.
+  Review: Interpret the relationships between measurements as playing characteristics; use identity as context and cite numbers only when they explain the story.
+  Review: Preserve the supplied raw-value polarity; quality percentiles are already oriented higher-is-better.
+      call: request=4543 bytes, input=1000 tokens, output=434 tokens, latency=12.54s, retries=0
+  A alibayram/smollm3 Trey Marsh is a dynamic player who consistently delivers in the red zone, showcasing elite yards after catch performance. With a 93rd percentile ranking, he is among the top performers in this category, demonstrating his ability to make big plays in critical moments. His contested catch rate of 58.3, placing him in the 80th percentile, indicates a strong ability to secure contested balls, further solidifying his impact in the game. However, his drop rate of 9.8, placing him in the 31st percentile, suggests room for improvement in avoiding costly mistakes. The 5th percentile ranking for giveaways indicates a relatively low tendency to make errors that can be costly, but there is still room for refinement in this area.
+
+Marsh's overall composite score of 62.0, derived from these measurements, suggests a player who is capable of making significant contributions to the team's scoring and defense. However, the lack of a cross-season comparison means we cannot definitively say whether this is an improvement or regression compared to previous seasons.
+
+The sample size of 25 games provides a solid foundation for these measurements, but the unknown sample limit of 10.0 suggests that Marsh's performance may be influenced by factors beyond the scope of these 25 games. This could include factors such as fatigue, injuries, or changes in team strategy.
+
+In terms of recent form, Marsh's performance has been consistent, with no notable trends or changes in direction. However, the absence of a prior-season comparison means we cannot determine whether this is a continuation of his previous form or a new development.
+
+In conclusion, Trey Marsh is a player who has demonstrated elite yards after catch performance and a strong ability to secure contested balls. However, his drop rate and giveaways suggest areas for improvement. The lack of a cross-season comparison means we cannot definitively say whether this is an improvement or regression compared to previous seasons. Marsh's performance is consistent over the past 25 games, but the unknown sample limit suggests that his performance may be influenced by factors beyond the scope of these games.
+      raw: {
+  "body": "Trey Marsh is a dynamic player who consistently delivers in the red zone, showcasing elite yards after catch performance. With a 93rd percentile ranking, he is among the top performers in this category, demonstrating his abilit...
+
+=== fixture summary — alibayram/smollm3 : 0/6 property checks passed ===
+Mechanical checks do not establish semantic quality; the review criteria remain manual.
+Error: fixture checks failed; see individual outcomes above

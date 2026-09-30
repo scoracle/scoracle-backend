@@ -6,7 +6,7 @@ use sqlx::{PgPool, Row};
 
 /// An adjudicated absence, return or withdrawal. Withdrawing an incorrect
 /// record does not establish recovery; preserve those events separately.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct AvailabilityChange {
     /// `opened` — newly ruled out; `returned` — availability resumed (a real-world outcome);
     /// `reverted` — the RECORD was wrong and has been withdrawn (a correction, never a return).
@@ -37,7 +37,7 @@ pub(crate) const MAX_AVAILABILITY_LINES: usize = 4;
 /// One adjudicated personnel change, as the DB describes it — dates already labeled by
 /// `to_char` (the `Mon DD` convention the memory card and 7.10's storyline lens use), names
 /// resolved, nothing rendered. The sentence is built in code (T2: describe, then derive).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct PersonnelChange {
     /// `applied` — the move is in force; `reverted` — an earlier applied move was undone.
     pub kind: String,

@@ -1,0 +1,44 @@
+fixtures — task=vibe role=vibe-logic n=4 dir=/Users/scotty/scoracle/scoracle-backend/rust/fixtures/quality/vibe/  incumbent=alibayram/smollm3
+lens — operator=The Influencer | mandate=Articulate the plugin's supplied publisher reporting with its attribution and qualifications. | guard=Express feelings only when supplied by the source. History is context; sentiment remains unknown.
+CURRENT CONTRACT: current system and schema with version-checked frozen evidence.
+Review individual claims and voice; generation varies with model and load.
+
+[clearly-negative]  (temp=0)
+  Review: Synthesize fresh and relevant dated history into the emotional charge around the identified subject.
+  Review: Preserve supplied speakers, timing, scope and uncertainty.
+  Review: Review the reading against the supplied world; noisy intake belongs to Harvester calibration.
+      call: request=1290 bytes, input=313 tokens, output=175 tokens, latency=5.61s, retries=0
+  A alibayram/smollm3 unparseable
+      raw: {
+  "body": "Cedar Comets fans expressed their frustration and disappointment with the team's performance, booing them loudly and openly. The atmosphere was tense and filled with anger, as the crowd's reaction was a clear indication of thei...
+
+[clearly-positive]  (temp=0)
+  Review: Synthesize fresh and relevant dated history into the emotional charge around the identified subject.
+  Review: Preserve supplied speakers, timing, scope and uncertainty.
+  Review: Review the reading against the supplied world; noisy intake belongs to Harvester calibration.
+      call: request=1281 bytes, input=310 tokens, output=116 tokens, latency=3.70s, retries=0
+  A alibayram/smollm3 unparseable
+      raw: {
+  "body": "The Cedar Comets' supporters erupted in cheers after their victory, expressing their delight and excitement. The team's win was met with a wave of enthusiasm, as fans celebrated their triumph. The atmosphere was electric, with ...
+
+[quiet-mixed]  (temp=0)
+  Review: Synthesize fresh and relevant dated history into the emotional charge around the identified subject.
+  Review: Preserve supplied speakers, timing, scope and uncertainty.
+  Review: Review the reading against the supplied world; noisy intake belongs to Harvester calibration.
+      call: request=1295 bytes, input=312 tokens, output=168 tokens, latency=4.98s, retries=0
+  A alibayram/smollm3 unparseable
+      raw: {
+  "body": "Cedar Comets announced that training starts on Tuesday and the team travels on Friday. The announcement comes as the team prepares for the upcoming season, and fans are eagerly awaiting the start of the new campaign. The team's...
+
+[warm-memory-cold-coverage]  (temp=0)
+  Review: Synthesize fresh and relevant dated history into the emotional charge around the identified subject.
+  Review: Preserve supplied speakers, timing, scope and uncertainty.
+  Review: Review the reading against the supplied world; noisy intake belongs to Harvester calibration.
+      call: request=1392 bytes, input=342 tokens, output=144 tokens, latency=4.04s, retries=0
+  A alibayram/smollm3 unparseable
+      raw: {
+  "body": "The Cedar Comets, a basketball team, announced a training schedule for Tuesday. This comes after their fans celebrated an earlier win, as reported by the Old Wire on September 25th. The team's announcement, made by the Example ...
+
+=== fixture summary — alibayram/smollm3 : 0/4 property checks passed ===
+Mechanical checks do not establish semantic quality; the review criteria remain manual.
+Error: fixture checks failed; see individual outcomes above

@@ -990,6 +990,32 @@ mod tests {
     struct SmokeInsider;
     struct SmokeScout;
 
+    struct MutatingScout<'a> {
+        pool: &'a PgPool,
+        article: i64,
+    }
+    #[async_trait]
+    impl Inference for MutatingScout<'_> {
+        async fn generate(
+            &self,
+            prompt: &str,
+            options: &GenerateOptions,
+        ) -> Result<(GenerateResult, serde_json::Value)> {
+            let generated = SmokeScout.generate(prompt, options).await?;
+            sqlx::query("UPDATE news_articles SET title=title || ' revised' WHERE id=$1")
+                .bind(self.article)
+                .execute(self.pool)
+                .await?;
+            Ok(generated)
+        }
+        fn model(&self) -> &str {
+            "source-mutation-check"
+        }
+        fn request_body(&self, prompt: &str, options: &GenerateOptions) -> serde_json::Value {
+            SmokeScout.request_body(prompt, options)
+        }
+    }
+
     #[async_trait]
     impl Inference for SmokeScout {
         async fn generate(
@@ -997,29 +1023,16 @@ mod tests {
             prompt: &str,
             options: &GenerateOptions,
         ) -> Result<(GenerateResult, serde_json::Value)> {
-            let response = if prompt.contains("Choose one approved phrasing") {
-                let slots = options
-                    .format_schema
-                    .as_ref()
-                    .and_then(|schema| schema["properties"]["choices"]["minItems"].as_u64())
-                    .ok_or_else(|| anyhow::anyhow!("missing palette slot count"))?;
-                json!({"choices": vec![0; slots as usize]}).to_string()
-            } else if prompt.contains("Morgan Example was ruled out with a knee injury") {
-                ensure!(prompt.contains("Exact publisher opening (unchanged)"));
-                r#"{"kind":"availability","evidence_quote":"Morgan Example was ruled out with a knee injury"}"#.to_string()
-            } else if prompt.contains("Morgan Example joined Harvester Test Club") {
-                ensure!(prompt.contains("Exact publisher opening (unchanged)"));
-                r#"{"kind":"roster","evidence_quote":"Morgan Example joined Harvester Test Club"}"#
-                    .to_string()
-            } else if prompt.contains("Entity: team Harvester Test Club")
-                || prompt.contains("Entity: team Another Test Club")
-            {
-                ensure!(prompt.contains("Exact publisher opening (unchanged)"));
-                r#"{"kind":"performance","evidence_quote":"Morgan Example recorded a season-high 20 points in the last match."}"#.to_string()
-            } else {
-                ensure!(prompt.contains("Exact publisher opening (unchanged)"));
-                r#"{"kind":"none","evidence_quote":""}"#.to_string()
-            };
+            ensure!(
+                prompt.contains("\"fresh\"") && prompt.contains("\"values\""),
+                "Scout must only call articulation"
+            );
+            ensure!(options
+                .format_schema
+                .as_ref()
+                .is_some_and(|schema| schema["properties"]["body"].is_object()));
+            let response =
+                json!({"body":"The supplied profile records measured contributions."}).to_string();
             Ok((
                 GenerateResult {
                     response: response.clone(),
@@ -1883,13 +1896,13 @@ mod tests {
         assert_eq!(vibes[1].1, "abstained");
         assert!(vibes[1].2["vibe_score_id"].is_null());
         for (_, _, provenance) in vibes {
-            assert_eq!(provenance["article_id"], ARTICLE);
-            assert_eq!(provenance["model_version"], "smoke-vibe");
-            assert!(matches!(
-                provenance["prompt_version"].as_str(),
-                Some("vibe-source-v2" | "vibe-source-reaction-v2")
-            ));
-            assert!(provenance["input_hash"].as_str().is_some());
+            let receipt = &provenance["articulation"];
+            assert_eq!(receipt["model_version"], "smoke-vibe");
+            assert_eq!(
+                receipt["prompt_version"],
+                crate::plugins::influencer::cognition::VIBE_PROMPT_VERSION
+            );
+            assert!(receipt["input_hash"].as_str().is_some());
         }
         let insider_work = work::claim(&pool, crate::plugins::insider::manifest::TASK, 2).await?;
         assert_eq!(insider_work.len(), 2);
@@ -2046,6 +2059,28 @@ mod tests {
         let scout_claims = work::claim(&pool, crate::plugins::scout::manifest::TASK, 2).await?;
         assert_eq!(scout_claims.len(), 2);
         for claimed in scout_claims {
+            if claimed.entity_id == i64::from(TEAM) {
+                let error = crate::plugins::scout::adapter::harvester::execute_with_backend(
+                    &pool,
+                    &MutatingScout {
+                        pool: &pool,
+                        article: ARTICLE,
+                    },
+                    4096,
+                    &claimed,
+                )
+                .await
+                .unwrap_err();
+                assert!(error.to_string().contains("headline no longer matches"));
+                let rows: i64 =
+                    sqlx::query_scalar("SELECT count(*) FROM stat_summaries WHERE sport=$1")
+                        .bind(SPORT)
+                        .fetch_one(&pool)
+                        .await?;
+                assert_eq!(rows, 0, "stale source must not publish");
+                sqlx::query("UPDATE news_articles a SET title=c.headline FROM harvester_classifications c WHERE a.id=$1 AND c.article_id=a.id")
+                    .bind(ARTICLE).execute(&pool).await?;
+            }
             assert_eq!(
                 crate::plugins::scout::adapter::harvester::execute_with_backend(
                     &pool,
@@ -2056,7 +2091,38 @@ mod tests {
                 .await?,
                 PluginOutcome::Committed
             );
+            assert_eq!(
+                crate::plugins::scout::adapter::harvester::execute_with_backend(
+                    &pool,
+                    &SmokeScout,
+                    4096,
+                    &claimed,
+                )
+                .await?,
+                PluginOutcome::Superseded,
+                "replaying a completed claim must not publish twice",
+            );
         }
+        // A missing profile remains a no-call in the direct/backfill preparation path.
+        let missing = crate::plugins::scout::adapter::build_rating_request(
+            &pool,
+            4096,
+            &crate::plugins::scout::adapter::RatingReq {
+                entity_type: "team".into(),
+                entity_id: OTHER_TEAM,
+                entity_name: "Another Test Club".into(),
+                sport: SPORT.into(),
+                trigger_type: "periodic".into(),
+                season: Some(2026),
+            },
+            0.0,
+            false,
+        )
+        .await?;
+        assert!(matches!(
+            missing,
+            crate::plugins::scout::cognition::RatingBuild::NoStats { .. }
+        ));
         let scout_statuses: Vec<(i32, String, serde_json::Value)> = sqlx::query_as(
             "SELECT c.entity_id,d.status,d.product_ref FROM public.harvester_assignments d \
              JOIN public.harvester_classifications c ON c.id=d.classification_id \
@@ -2081,6 +2147,29 @@ mod tests {
         assert_eq!(scout_evidence.0["source_article_id"], ARTICLE);
         let scout_components: serde_json::Value = serde_json::from_str(&scout_evidence.1)?;
         assert_eq!(scout_components["harvester_trigger"]["article_id"], ARTICLE);
+        let prepared = crate::plugins::scout::adapter::build_rating_request(
+            &pool,
+            4096,
+            &crate::plugins::scout::adapter::RatingReq {
+                entity_type: "team".into(),
+                entity_id: TEAM,
+                entity_name: "Harvester Test Club".into(),
+                sport: SPORT.into(),
+                trigger_type: "periodic".into(),
+                season: Some(2026),
+            },
+            0.0,
+            false,
+        )
+        .await?;
+        let crate::plugins::scout::cognition::RatingBuild::Ready(prepared) = prepared else {
+            panic!("source profile disappeared")
+        };
+        assert_eq!(
+            scout_components["world"], prepared.built_prompt,
+            "source trigger must use the prepared measured world"
+        );
+
         assert_eq!(
             scout_components["harvester_trigger"]["source_role"],
             "trigger_only"
@@ -2252,16 +2341,10 @@ mod tests {
         assert_eq!(current_reports.len(), 3);
         assert_eq!(current_reports[0].claim.article_id, ROSTER_ARTICLE);
         assert_eq!(current_reports[0].claim.story_type, "roster");
-        assert_eq!(
-            current_reports[0].claim.fact,
-            "Morgan Example joined Harvester Test Club"
-        );
+        assert_eq!(current_reports[0].claim.fact, roster_body);
         assert_eq!(current_reports[1].claim.article_id, AVAILABILITY_ARTICLE);
         assert_eq!(current_reports[1].claim.story_type, "injury");
-        assert_eq!(
-            current_reports[1].claim.fact,
-            "Morgan Example was ruled out with a knee injury"
-        );
+        assert_eq!(current_reports[1].claim.fact, availability_body);
         assert_eq!(current_reports[2].claim.article_id, ARTICLE);
         assert_eq!(current_reports[2].claim.story_type, "performance");
         assert!(!current_reports[2]

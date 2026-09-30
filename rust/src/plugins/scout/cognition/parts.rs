@@ -1,4 +1,4 @@
-//! The Scout's six parts and one manual, assembled through the shared renderer.
+//! The Scout's selected world, rendered by the shared ordered renderer.
 //!
 //! This module replaces the flat prose block `inputs.rs` used to build. The
 //! difference is not formatting: it is that a part is now a named, typed thing
@@ -29,10 +29,9 @@ use serde::Serialize;
 /// The Scout's measured profile, as presented. Selection has already happened:
 /// these are the measures the plugin chose, with their provenance intact.
 ///
-/// `values` is a map rather than an array so the model reads a measure by name
-/// and cannot silently reorder the set. `comparisons` carries a prior-season
-/// percentile only for the same measure; a measure absent from it has no
-/// supported direction, which is different from a direction of "no change".
+/// Each value keeps its label, measurement identity and any compatible prior
+/// percentile together. An absent prior percentile is no supported direction,
+/// which is different from a direction of "no change".
 #[derive(Clone, Debug, Serialize, serde::Deserialize)]
 pub struct Profile {
     pub season: i32,
@@ -326,6 +325,72 @@ pub fn rate_standout_parts(
 }
 
 impl Parts {
+    /// Admission uses selected measurements; unknown ranks never become zero.
+    pub fn has_measured_profile(&self) -> bool {
+        self.profile.values.iter().any(|value| {
+            !value.measure.trim().is_empty()
+                && value
+                    .percentile
+                    .is_some_and(|p| p.is_finite() && (0.0..=100.0).contains(&p))
+        }) || self.profile.composite.is_some_and(f64::is_finite)
+    }
+
+    pub fn generation_options(
+        &self,
+        num_ctx: i32,
+        temperature: f64,
+    ) -> crate::studio::model::GenerateOptions {
+        crate::studio::model::GenerateOptions {
+            system: Some(super::prompt::TASK.into()),
+            temperature: Some(temperature),
+            num_predict: super::RATING_NUM_PREDICT,
+            num_ctx,
+            json_mode: false,
+            format_schema: Some(super::prose().schema()),
+            format_schema_raw: None,
+        }
+    }
+
+    pub fn comparison_directions(
+        &self,
+    ) -> std::collections::BTreeMap<String, super::RelativeDirection> {
+        self.profile
+            .values
+            .iter()
+            .filter_map(|value| {
+                Some((
+                    value.label.clone(),
+                    super::relative_direction(value.percentile? - value.prior_percentile?),
+                ))
+            })
+            .collect()
+    }
+
+    pub fn measurement_bands(&self) -> std::collections::BTreeMap<String, String> {
+        self.profile
+            .values
+            .iter()
+            .filter_map(|value| Some((value.label.clone(), value.band.clone()?)))
+            .collect()
+    }
+
+    pub fn parse(&self, raw: &str) -> anyhow::Result<Option<super::RatingReply>> {
+        use crate::studio::Parser;
+        super::RatingRequestParser::new(
+            &self.render(),
+            &self.comparison_directions(),
+            &self.measurement_bands(),
+        )
+        .parse(raw)
+    }
+
+    /// Preserve the completed wire world and provenance in one debounce input.
+    pub fn input_components(&self, provenance: serde_json::Value) -> String {
+        serde_json::json!({"world": self.render(), "prompt_version": super::RATING_PROMPT_VERSION,
+            "output_contract": super::RATING_OUTPUT_CONTRACT_VERSION, "provenance": provenance})
+        .to_string()
+    }
+
     /// Render the world. The parts and their order are this plugin's choice;
     /// `assembly::World` only renders them, deterministically and in the order
     /// given here.
@@ -342,5 +407,58 @@ impl Parts {
 
     pub fn render(&self) -> String {
         self.assemble().render()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn completed_world_and_provenance_determine_the_fingerprint() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../fixtures/quality/rating/rim-protector-specificity.json"
+        ))
+        .unwrap();
+        let parts: Parts = serde_json::from_value(fixture["parts"].clone()).unwrap();
+        let hash = |p: &Parts, revision| {
+            crate::util::hash_components(&p.input_components(json!({"source_revision":revision})))
+        };
+        let baseline = hash(&parts, 1);
+        assert_eq!(baseline, hash(&parts.clone(), 1));
+        assert_ne!(baseline, hash(&parts, 2));
+        let mut changed = parts.clone();
+        changed
+            .memory
+            .measured
+            .push(crate::plugins::scout::memories::Measured {
+                measure_label: "Blocks".into(),
+                unit: "count".into(),
+                from: "2026-09-01".into(),
+                before: "2026-09-20".into(),
+                fixtures: 3,
+                measured: 2,
+                per_match: Some(2.0),
+                per_match_change: None,
+                percent_change: None,
+                fixture_ids: vec![1, 2, 3],
+            });
+        assert_ne!(baseline, hash(&changed, 1));
+        let measured = hash(&changed, 1);
+        changed.memory.measured[0].per_match = Some(3.0);
+        assert_ne!(measured, hash(&changed, 1));
+        changed = parts.clone();
+        changed
+            .memory
+            .coverage_limits
+            .push("One fixture has no measurement".into());
+        assert_ne!(baseline, hash(&changed, 1));
+        changed = parts;
+        changed.profile.limit = Some(Limit::ThinSample {
+            appearances: 3.0,
+            minimum: 10.0,
+        });
+        assert_ne!(baseline, hash(&changed, 1));
     }
 }

@@ -3,8 +3,7 @@
     "body_includes": [
       "denied",
       "City Wire"
-    ],
-    "narratives_report_count": 2
+    ]
   },
   "name": "conflicting-reports-two-sources-that-contradict-each-other",
   "parts": {

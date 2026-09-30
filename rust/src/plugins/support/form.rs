@@ -524,7 +524,7 @@ mod tests {
             analyst::MomentumParser.parse(&card).unwrap().unwrap().blurb,
             paragraphs
         );
-        let keyed = serde_json::json!({"headline": "A read", "body": paragraphs}).to_string();
+        let keyed = serde_json::json!({"body": paragraphs}).to_string();
         assert_eq!(
             scout::RatingParser.parse(&keyed).unwrap().unwrap().body,
             paragraphs

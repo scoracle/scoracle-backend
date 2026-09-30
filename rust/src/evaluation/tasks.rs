@@ -35,7 +35,7 @@ use crate::plugins::oracle::cognition::{
     ORACLE_SYSTEM_PROMPT,
 };
 use crate::plugins::scout::adapter::{build_rating_request, RatingReq};
-use crate::plugins::scout::cognition::{RatingBuild, RatingReply, RATING_NUM_PREDICT};
+use crate::plugins::scout::cognition::RatingBuild;
 use crate::runtime::route::RouteKey;
 use crate::studio::model::GenerateOptions;
 use crate::studio::Parser;
@@ -44,7 +44,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-/// EntitySpec is one entity a case scores. Lives here (not in the bin) so `build_prompt` and the
+/// EntitySpec is one entity a case scores. Lives here (not in the bin) so `build_request` and the
 /// tests can construct it; the bin's CLI parser builds it from `entity_type:id:sport` tokens.
 #[derive(Clone, Debug)]
 pub struct EntitySpec {
@@ -206,12 +206,6 @@ pub struct Expect {
     /// Counted crudely (terminal .!? runs) — a ceiling against padding, not a style meter.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub total_sentences_max: Option<i32>,
-    /// Narratives: how many keyed report slots the stored world has, so the real
-    /// `parse_journalist` runs over the declared keys. Required on every narratives
-    /// fixture — the response contract is one slot per report, and a parser handed
-    /// the wrong count would accept a reply production rejects.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub narratives_report_count: Option<usize>,
     // transfer false-positive / true-positive rubric.
     /// Transfer adjudication: assert whether the model commits to a served rumor (`true`) or clears
     /// the pair (`false`). `None` in a parsed verdict is the UNKNOWN/fail-closed path and fails
@@ -448,7 +442,7 @@ pub struct Fixture {
 }
 
 /// A lens eval task: the routing + prompt + scoring seam `bin/eval` runs against. Object-safe
-/// (`build_prompt` boxed by `async_trait`), so tasks dispatch through `Box<dyn LensTask>`.
+/// (`build_request` boxed by `async_trait`), so tasks dispatch through `Box<dyn LensTask>`.
 #[async_trait]
 pub trait LensTask: Send + Sync {
     /// Registry key (`"vibe"`, `"oracle"`) — also the `fixtures/quality/<name>/` dir.
@@ -486,12 +480,12 @@ pub trait LensTask: Send + Sync {
     }
     /// Build the EXACT production user-prompt for an entity. `Ok(None)` = no-corpus skip (the stage
     /// would write a marker without a model call — nothing to score).
-    async fn build_prompt(
+    async fn build_request(
         &self,
         pool: &sqlx::PgPool,
         models: &Models,
         e: &EntitySpec,
-    ) -> Result<Option<String>>;
+    ) -> Result<Option<Prepared>>;
     /// Parse + score one raw reply. Pure/sync/offline. `label` drives the MAE axis (vibe live);
     /// `expect` drives the property axis (fixtures). Both optional and independent.
     fn evaluate(&self, raw: &str, label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict;
@@ -517,6 +511,41 @@ pub trait LensTask: Send + Sync {
     fn stores_parts(&self) -> bool {
         false
     }
+
+    fn prepare_fixture(&self, fixture: &Fixture) -> Result<Prepared> {
+        anyhow::ensure!(
+            !self.stores_parts() || fixture.parts.is_some(),
+            "{} fixture stores no parts",
+            self.name()
+        );
+        let mut request = if let Some(parts) = &fixture.parts {
+            let request = self.assemble(parts)?;
+            anyhow::ensure!(
+                request.user_prompt == fixture.user_prompt,
+                "{} fixture package drift; recapture from parts",
+                self.name()
+            );
+            request
+        } else {
+            Prepared::captured(
+                fixture.user_prompt.clone(),
+                self.gen_options_for_sport(fixture.temperature, &fixture.sport)?,
+            )
+        };
+        request.options.temperature = Some(fixture.temperature);
+        Ok(request)
+    }
+
+    fn evaluate_prepared(
+        &self,
+        request: &Prepared,
+        raw: &str,
+        label: Option<f64>,
+        expect: Option<&Expect>,
+    ) -> CaseVerdict {
+        let _ = request;
+        self.evaluate(raw, label, expect)
+    }
 }
 
 /// One plugin request rebuilt from a fixture's parts.
@@ -529,6 +558,28 @@ pub trait LensTask: Send + Sync {
 pub struct Prepared {
     pub user_prompt: String,
     pub options: GenerateOptions,
+    pub parts: Option<serde_json::Value>,
+    pub should_call: bool,
+}
+
+impl Prepared {
+    pub fn captured(user_prompt: String, options: GenerateOptions) -> Self {
+        Self {
+            user_prompt,
+            options,
+            parts: None,
+            should_call: true,
+        }
+    }
+}
+
+fn rejected(reason: &str) -> CaseVerdict {
+    CaseVerdict {
+        parsed: false,
+        abs_err: None,
+        checks: vec![],
+        display: reason.into(),
+    }
 }
 
 /// resolve_task maps a task name to its `LensTask`. Adding a task = a new unit struct + one arm.
@@ -595,12 +646,12 @@ impl LensTask for NarrativesTask {
             "narratives options depend on the prepared world; assemble a fixture's parts instead"
         )
     }
-    async fn build_prompt(
+    async fn build_request(
         &self,
         pool: &sqlx::PgPool,
         _models: &Models,
         e: &EntitySpec,
-    ) -> Result<Option<String>> {
+    ) -> Result<Option<Prepared>> {
         let subject = crate::plugins::meta::EntityMeta {
             name: lookup_entity_name(pool, &e.entity_type, e.entity_id, &e.sport).await?,
             entity_type: e.entity_type.clone(),
@@ -626,18 +677,35 @@ impl LensTask for NarrativesTask {
         let assignment =
             crate::plugins::journalist::cognition::prepare(subject, corpus, &continuity, now)?;
         // No selected report is a no-call, not a package with nothing in it.
-        Ok((!assignment.selected.is_empty())
-            .then(|| crate::plugins::journalist::cognition::prompt(&assignment)))
+        if assignment.selected.is_empty() {
+            return Ok(None);
+        }
+        Ok(Some(self.assemble(&serde_json::to_value(
+            crate::plugins::journalist::cognition::Parts {
+                subject: assignment.subject,
+                reports: assignment.selected,
+                memory: assignment.memories,
+            },
+        )?)?))
     }
-    fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
-        // The report count is a property of the world, and `evaluate` does not
-        // receive it. Fixtures pin it on `expect`; see `narratives_report_count`.
-        let count = expect
-            .and_then(|e| e.narratives_report_count)
-            .ok_or_else(|| {
-                anyhow::anyhow!("a narratives fixture must pin `narratives_report_count`")
-            })
-            .unwrap_or(1);
+    fn evaluate(&self, _raw: &str, _label: Option<f64>, _expect: Option<&Expect>) -> CaseVerdict {
+        rejected("Journalist evaluation requires the prepared request")
+    }
+    fn evaluate_prepared(
+        &self,
+        request: &Prepared,
+        raw: &str,
+        _label: Option<f64>,
+        expect: Option<&Expect>,
+    ) -> CaseVerdict {
+        let Some(count) = request
+            .parts
+            .as_ref()
+            .and_then(|p| p["reports"].as_array())
+            .map(Vec::len)
+        else {
+            return rejected("Journalist evaluation requires report parts");
+        };
         match crate::plugins::support::form::parse_journalist(raw, count) {
             Ok(reply) => {
                 let bodies = reply
@@ -693,9 +761,9 @@ impl LensTask for NarrativesTask {
             },
         }
     }
-    fn assemble(&self, parts: &serde_json::Value) -> Result<Prepared> {
+    fn assemble(&self, stored_parts: &serde_json::Value) -> Result<Prepared> {
         let parts: crate::plugins::journalist::cognition::Parts =
-            serde_json::from_value(parts.clone())
+            serde_json::from_value(stored_parts.clone())
                 .map_err(|e| anyhow::anyhow!("narratives parts: {e}"))?;
         let subject = parts.subject.clone();
         let reports = parts.reports.clone();
@@ -714,6 +782,8 @@ impl LensTask for NarrativesTask {
             input_hash: String::new(),
         };
         Ok(Prepared {
+            parts: Some(stored_parts.clone()),
+            should_call: !assignment.selected.is_empty(),
             user_prompt: crate::plugins::journalist::cognition::prompt(&assignment),
             options: crate::plugins::journalist::cognition::generation_options(&assignment, 0),
         })
@@ -745,12 +815,12 @@ impl LensTask for VibeTask {
             VIBE_NUM_PREDICT,
         ))
     }
-    async fn build_prompt(
+    async fn build_request(
         &self,
         pool: &sqlx::PgPool,
         _models: &Models,
         e: &EntitySpec,
-    ) -> Result<Option<String>> {
+    ) -> Result<Option<Prepared>> {
         let subject = crate::plugins::meta::EntityMeta {
             name: lookup_entity_name(pool, &e.entity_type, e.entity_id, &e.sport).await?,
             entity_type: e.entity_type.clone(),
@@ -775,7 +845,17 @@ impl LensTask for VibeTask {
             crate::plugins::influencer::adapter::harvester::now(),
         )
         .await?;
-        Ok(assignment.map(|a| crate::plugins::influencer::cognition::assembled_prompt(&a)))
+        assignment
+            .map(|a| {
+                self.assemble(&serde_json::to_value(
+                    crate::plugins::influencer::cognition::Parts {
+                        subject: a.subject,
+                        source: a.source,
+                        history: a.history,
+                    },
+                )?)
+            })
+            .transpose()
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, _expect: Option<&Expect>) -> CaseVerdict {
         match VibeParser.parse(raw) {
@@ -795,11 +875,13 @@ impl LensTask for VibeTask {
             },
         }
     }
-    fn assemble(&self, parts: &serde_json::Value) -> Result<Prepared> {
+    fn assemble(&self, stored_parts: &serde_json::Value) -> Result<Prepared> {
         let parts: crate::plugins::influencer::cognition::Parts =
-            serde_json::from_value(parts.clone())
+            serde_json::from_value(stored_parts.clone())
                 .map_err(|e| anyhow::anyhow!("vibe parts: {e}"))?;
         Ok(Prepared {
+            parts: Some(stored_parts.clone()),
+            should_call: true,
             user_prompt: parts.assemble(),
             // The Influencer's contract does not vary with the world: one nullable
             // `body` slot, one manual, whatever the source or the history. So the
@@ -846,12 +928,12 @@ impl LensTask for OracleTask {
             format_schema_raw: None,
         })
     }
-    async fn build_prompt(
+    async fn build_request(
         &self,
         pool: &sqlx::PgPool,
         _models: &Models,
         e: &EntitySpec,
-    ) -> Result<Option<String>> {
+    ) -> Result<Option<Prepared>> {
         let name = lookup_entity_name(pool, &e.entity_type, e.entity_id, &e.sport).await?;
         let sport = e.sport.to_uppercase();
         let (_season, cards) = load_pillars(pool, &e.entity_type, e.entity_id, &sport).await?;
@@ -864,18 +946,21 @@ impl LensTask for OracleTask {
             build_pillar_divergence(cards.rating.as_ref(), cards.vibe.as_ref(), &cards.momentum);
         let convergence = pillar_convergence(&comparisons);
         let omen = compute_omen(convergence, &cards.momentum);
-        Ok(Some(build_crown_prompt(
-            &e.entity_type,
-            &name,
-            &e.sport,
-            &cards.narratives,
-            cards.rating.as_ref(),
-            cards.vibe.as_ref(),
-            &cards.momentum,
-            &cards.transfers,
-            omen,
-            None,
-            None,
+        Ok(Some(Prepared::captured(
+            build_crown_prompt(
+                &e.entity_type,
+                &name,
+                &e.sport,
+                &cards.narratives,
+                cards.rating.as_ref(),
+                cards.vibe.as_ref(),
+                &cards.momentum,
+                &cards.transfers,
+                omen,
+                None,
+                None,
+            ),
+            self.gen_options_for(0.0, e)?,
         )))
     }
     fn evaluate(&self, raw: &str, label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
@@ -993,12 +1078,12 @@ impl LensTask for TransferTask {
             format_schema_raw: None,
         })
     }
-    async fn build_prompt(
+    async fn build_request(
         &self,
         pool: &sqlx::PgPool,
         models: &Models,
         e: &EntitySpec,
-    ) -> Result<Option<String>> {
+    ) -> Result<Option<Prepared>> {
         if e.entity_type != "team" {
             anyhow::bail!(
                 "transfer live/capture evals are team-player pairs; got {}",
@@ -1038,7 +1123,7 @@ impl LensTask for TransferTask {
         .await?
         {
             PairBuild::Skipped { .. } => Ok(None),
-            PairBuild::Ready(r) => Ok(Some(r.prompt)),
+            PairBuild::Ready(r) => Ok(Some(Prepared::captured(r.prompt, r.options))),
         }
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
@@ -1160,16 +1245,16 @@ impl LensTask for RatingTask {
         crate::plugins::scout::cognition::RATING_PROMPT_VERSION
     }
     fn gen_options(&self, _temperature: f64) -> Result<GenerateOptions> {
-        // The manual names the parts actually present, so it is a function of the
-        // world rather than a constant. `assemble` produces the real request.
-        anyhow::bail!("rating options carry the prepared world's manual; use `assemble`")
+        // Scout acceptance needs the selected measurements, so callers must carry
+        // parts even though this manual and body schema are constant.
+        anyhow::bail!("rating acceptance requires prepared parts; use `assemble`")
     }
-    async fn build_prompt(
+    async fn build_request(
         &self,
         pool: &sqlx::PgPool,
         models: &Models,
         e: &EntitySpec,
-    ) -> Result<Option<String>> {
+    ) -> Result<Option<Prepared>> {
         let sport = e.sport.to_uppercase();
         let name = lookup_entity_name(pool, &e.entity_type, e.entity_id, &sport).await?;
         let req = RatingReq {
@@ -1183,65 +1268,80 @@ impl LensTask for RatingTask {
         // Live evaluation uses the same evidence assembly as production.
         match build_rating_request(pool, models.voice_num_ctx, &req, 0.0, true).await? {
             RatingBuild::NoStats { .. } => Ok(None),
-            RatingBuild::Ready(r) => Ok(Some(r.built_prompt)),
+            RatingBuild::Ready(r) => Ok(Some(self.assemble(&serde_json::to_value(&r.parts)?)?)),
         }
     }
-    /// Rebuild the Scout's request from its stored parts.
-    ///
-    /// The manual and the response schema both derive from the world, which is
-    /// why `gen_options` refuses above: the Scout's contract is a function of
-    /// what it was given, so a fixture that stored only a prompt string could
-    /// never be checked against the contract production sends.
-    fn assemble(&self, parts: &serde_json::Value) -> Result<Prepared> {
+    /// Rebuild the production request and retain its measurement context for parsing.
+    fn assemble(&self, stored_parts: &serde_json::Value) -> Result<Prepared> {
         let parts: crate::plugins::scout::cognition::parts::Parts =
-            serde_json::from_value(parts.clone())
+            serde_json::from_value(stored_parts.clone())
                 .map_err(|e| anyhow::anyhow!("rating parts: {e}"))?;
         Ok(Prepared {
             user_prompt: parts.render(),
-            options: GenerateOptions {
-                system: Some(crate::plugins::scout::cognition::prompt::task(&parts)),
-                temperature: Some(crate::plugins::scout::cognition::RATING_TEMPERATURE),
-                num_predict: RATING_NUM_PREDICT,
-                num_ctx: 0,
-                json_mode: false,
-                format_schema: Some(crate::plugins::scout::cognition::prose().schema()),
-                format_schema_raw: None,
-            },
+            options: parts
+                .generation_options(0, crate::plugins::scout::cognition::RATING_TEMPERATURE),
+            parts: Some(stored_parts.clone()),
+            should_call: parts.has_measured_profile(),
         })
     }
+
     fn stores_parts(&self) -> bool {
         true
     }
+    fn evaluate_prepared(
+        &self,
+        request: &Prepared,
+        raw: &str,
+        label: Option<f64>,
+        expect: Option<&Expect>,
+    ) -> CaseVerdict {
+        let validation = request
+            .parts
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Scout evaluation requires parts"))
+            .and_then(|p| {
+                serde_json::from_value::<crate::plugins::scout::cognition::parts::Parts>(p.clone())?
+                    .parse(raw)
+            });
+        let mut verdict = self.evaluate(raw, label, expect);
+        if let Err(error) = validation {
+            verdict.parsed = false;
+            verdict.checks.push(PropertyCheck {
+                name: "production_acceptance".into(),
+                pass: false,
+                detail: error.to_string(),
+            });
+        }
+        verdict
+    }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
-        if raw.trim() == "null" {
+        let map = match crate::plugins::support::form::decode_prose_map(raw, &["body".into()]) {
+            Ok(map) => map,
+            Err(error) => return rejected(&error.to_string()),
+        };
+        let Some(body) = map.get("body") else {
             return CaseVerdict {
                 parsed: true,
                 abs_err: None,
                 checks: vec![PropertyCheck {
                     name: "abstention_requires_evidence_review".into(),
-                    pass: false,
-                    detail: "Valid pass; mechanical checks cannot determine whether withholding the card was warranted.".into(),
+                    pass: expect.is_some_and(|e| e.abstain == Some(true)),
+                    detail: "Valid pass; review whether withholding was warranted.".into(),
                 }],
                 display: "abstained — no card".into(),
             };
-        }
-        // Shape-only parse (NOT `RatingParser`): the gate must see a guard-violating body's
-        // prose and score it red on the invariant checks — production's guards would reject it
-        // before any check could run. Same lists either way (`crate::guards`).
-        let body = crate::plugins::scout::cognition::parse_rating_body(raw);
-        if body.trim().is_empty() {
-            return CaseVerdict {
-                parsed: false,
-                abs_err: None,
-                checks: Vec::new(),
-                display: "unparseable".into(),
-            };
-        }
-        let reply = RatingReply {
-            body,
-            headline: None,
+        };
+        let reply = crate::plugins::scout::cognition::RatingReply {
+            body: body.to_string(),
         };
         let mut checks = Vec::new();
+        if let Some(want) = expect.and_then(|e| e.abstain) {
+            checks.push(PropertyCheck {
+                name: "abstain".into(),
+                pass: !want,
+                detail: "Card supplied".into(),
+            });
+        }
         let word_count = reply.body.split_whitespace().count() as i32;
 
         // Contract-level invariant, asserted whether or not this case carries an `expect` (the
@@ -1362,12 +1462,12 @@ impl LensTask for MomentumTask {
             format_schema_raw: None,
         })
     }
-    async fn build_prompt(
+    async fn build_request(
         &self,
         pool: &sqlx::PgPool,
         _models: &Models,
         e: &EntitySpec,
-    ) -> Result<Option<String>> {
+    ) -> Result<Option<Prepared>> {
         let name = lookup_entity_name(pool, &e.entity_type, e.entity_id, &e.sport).await?;
         let sport = e.sport.to_uppercase();
         let (context, memories) =
@@ -1377,7 +1477,7 @@ impl LensTask for MomentumTask {
         }
         // Use the production adapter, including its sourced memory. Omitting this
         // block silently evaluates a different assignment from the worker.
-        Ok(Some(
+        Ok(Some(Prepared::captured(
             crate::plugins::analyst::cognition::build_momentum_prompt(
                 &e.entity_type,
                 &name,
@@ -1387,7 +1487,8 @@ impl LensTask for MomentumTask {
                 &context.snapshot,
                 Some(&memories.render_for_model()?),
             ),
-        ))
+            self.gen_options_for(0.0, e)?,
+        )))
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
         let reply = match parse_momentum_reply(raw) {
@@ -1573,12 +1674,12 @@ impl LensTask for GraphTask {
         o.temperature = Some(temperature);
         Ok(o)
     }
-    async fn build_prompt(
+    async fn build_request(
         &self,
         pool: &sqlx::PgPool,
         _models: &Models,
         e: &EntitySpec,
-    ) -> Result<Option<String>> {
+    ) -> Result<Option<Prepared>> {
         if e.entity_type != "article" {
             anyhow::bail!(
                 "graph evals are article-keyed: use article:<id>:<SPORT> (got {})",
@@ -1591,12 +1692,15 @@ impl LensTask for GraphTask {
         else {
             return Ok(None);
         };
-        Ok(Some(build_graph_prompt(
-            &article.source,
-            &article.published,
-            &article.title,
-            &article.description,
-            &candidates,
+        Ok(Some(Prepared::captured(
+            build_graph_prompt(
+                &article.source,
+                &article.published,
+                &article.title,
+                &article.description,
+                &candidates,
+            ),
+            self.gen_options_for(0.0, e)?,
         )))
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
@@ -1757,19 +1861,23 @@ impl LensTask for EditorTask {
         o.temperature = Some(temperature);
         Ok(o)
     }
-    async fn build_prompt(
+    async fn build_request(
         &self,
         pool: &sqlx::PgPool,
         _models: &Models,
         e: &EntitySpec,
-    ) -> Result<Option<String>> {
+    ) -> Result<Option<Prepared>> {
         if e.entity_type != "article" {
             anyhow::bail!(
                 "editor evals are article-keyed: use article:<id>:<SPORT> (got {})",
                 e.entity_type
             );
         }
-        build_editor_prompt_for_eval(pool, i64::from(e.entity_id), &e.sport.to_uppercase()).await
+        Ok(
+            build_editor_prompt_for_eval(pool, i64::from(e.entity_id), &e.sport.to_uppercase())
+                .await?
+                .map(|prompt| Prepared::captured(prompt, editor_opts())),
+        )
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
         let hypothesis: Vec<String> = expect
@@ -2078,12 +2186,12 @@ impl LensTask for InvestigatorTask {
     /// search + summary fetch for a candidate row, which is exactly what a frozen fixture
     /// exists to pin down. Capture new fixtures from `acquisition_runs.query_plan` (the
     /// prose arm records every page it read) rather than re-fetching a moving encyclopedia.
-    async fn build_prompt(
+    async fn build_request(
         &self,
         _pool: &sqlx::PgPool,
         _models: &Models,
         _e: &EntitySpec,
-    ) -> Result<Option<String>> {
+    ) -> Result<Option<Prepared>> {
         anyhow::bail!(
             "investigator evals are fixture-driven (eval --task investigator --fixtures); \
              live prompts depend on a Wikipedia fetch — freeze pages into fixtures instead"
@@ -2407,7 +2515,7 @@ mod tests {
 
     // --- rating / stats-lens rubric ---------------------------------------------
 
-    const RATING_REPLY: &str = "An elite rim protector who grades at the 94th percentile in blocks and anchors the paint without fouling. The profile is thinner as a creator, but the defensive identity is clear and valuable.\nHEADLINE: Rim protection defines the matchup";
+    const RATING_REPLY: &str = "An elite rim protector who grades at the 94th percentile in blocks and anchors the paint without fouling. The profile is thinner as a creator, but the defensive identity is clear and valuable.";
 
     #[test]
     fn rating_rubric_scores_specificity_and_prose_richness() {
@@ -2421,7 +2529,11 @@ mod tests {
             prose_max_words: Some(60),
             ..Default::default()
         };
-        let v = RatingTask.evaluate(RATING_REPLY, None, Some(&x));
+        let v = RatingTask.evaluate(
+            &serde_json::json!({"body":RATING_REPLY}).to_string(),
+            None,
+            Some(&x),
+        );
         assert!(v.parsed);
         assert!(v.all_checks_pass(), "checks: {:?}", v.checks);
     }
@@ -2429,16 +2541,16 @@ mod tests {
     #[test]
     fn rating_product_name_ban_is_case_sensitive_and_body_scoped() {
         // Lowercase "peak" is honest English and must not trip the product-name ban.
-        let clean = "Still at the peak of his powers: an elite rim protector at the 94th percentile in blocks who anchors the paint without fouling, and the defensive identity is clear.\nHEADLINE: Rim protection defines the matchup";
-        let v = RatingTask.evaluate(clean, None, None);
+        let clean = "Still at the peak of his powers: an elite rim protector at the 94th percentile in blocks who anchors the paint without fouling, and the defensive identity is clear.";
+        let v = RatingTask.evaluate(&serde_json::json!({"body":clean}).to_string(), None, None);
         assert!(
             v.checks.iter().all(|c| c.pass),
             "clean body tripped: {:?}",
             v.checks
         );
         // An echoed product name in the body is exactly what the check exists to catch.
-        let echo = "His PEAK skill is rim protection and the staff must scheme away from it, forcing the ball to the perimeter.\nHEADLINE: Rim protection defines the matchup";
-        let v = RatingTask.evaluate(echo, None, None);
+        let echo = "His PEAK skill is rim protection and the staff must scheme away from it, forcing the ball to the perimeter.";
+        let v = RatingTask.evaluate(&serde_json::json!({"body":echo}).to_string(), None, None);
         let ban = v
             .checks
             .iter()
@@ -2457,7 +2569,11 @@ mod tests {
             prose_min_words: Some(20),
             ..Default::default()
         };
-        let v = RatingTask.evaluate("PEAK: No standout skill\nAverage profile.", None, Some(&x));
+        let v = RatingTask.evaluate(
+            r#"{"body":"No standout skill. Average profile."}"#,
+            None,
+            Some(&x),
+        );
         assert!(v.parsed);
         // Every expect-driven check fails; the global invariants (no product names, no
         // decoration) rightly pass on this clean-if-thin body, so they are excluded.
@@ -2577,7 +2693,6 @@ mod tests {
         }
     }
 
-    /// F6's gate. A task that declares `stores_parts` must have every fixture
     /// F6's gate. A task that declares `stores_parts` must have every fixture
     /// carry parts, and the plugin's current assembler must rebuild the stored
     /// `user_prompt` from them byte for byte.
@@ -2742,6 +2857,92 @@ mod tests {
             .contains(r#""history":"attached per report""#));
     }
 
+    #[test]
+    fn prepared_requests_carry_acceptance_context_and_no_call_dispositions() {
+        let mut fx: Fixture = serde_json::from_str(include_str!(
+            "../../fixtures/quality/rating/rim-protector-specificity.json"
+        ))
+        .unwrap();
+        let request = RatingTask.prepare_fixture(&fx).unwrap();
+        assert!(request.should_call);
+        assert!(
+            RatingTask
+                .evaluate_prepared(
+                    &request,
+                    r#"{"body":"The recorded profile describes measured contributions."}"#,
+                    None,
+                    None
+                )
+                .parsed
+        );
+        assert!(
+            !RatingTask
+                .evaluate_prepared(
+                    &request,
+                    r#"{"body":"He averages 99999 blocks."}"#,
+                    None,
+                    None
+                )
+                .parsed
+        );
+        assert!(
+            !RatingTask
+                .evaluate_prepared(&request, "broken", None, None)
+                .parsed
+        );
+        let pass = RatingTask.evaluate_prepared(&request, r#"{"body":null}"#, None, None);
+        assert!(pass.parsed && !pass.all_checks_pass());
+        fx.user_prompt.push(' ');
+        assert!(RatingTask.prepare_fixture(&fx).is_err());
+        fx.parts = None;
+        assert!(RatingTask.prepare_fixture(&fx).is_err());
+        let mut parts = request.parts.unwrap();
+        parts["profile"]["values"] = serde_json::json!([]);
+        parts["profile"]["composite"] = serde_json::Value::Null;
+        assert!(!RatingTask.assemble(&parts).unwrap().should_call);
+        parts["profile"]["composite"] = serde_json::json!(52.0);
+        assert!(RatingTask.assemble(&parts).unwrap().should_call);
+
+        let mut fx: Fixture = serde_json::from_str(include_str!(
+            "../../fixtures/quality/narratives/distinct-developments.json"
+        ))
+        .unwrap();
+        let request = NarrativesTask.prepare_fixture(&fx).unwrap();
+        assert!(
+            request.parts.as_ref().unwrap()["reports"]
+                .as_array()
+                .unwrap()
+                .len()
+                > 1
+        );
+        assert!(
+            !NarrativesTask
+                .evaluate_prepared(&request, r#"{"report_1":"A report."}"#, None, None)
+                .parsed
+        );
+        let mut raw = serde_json::Map::new();
+        for key in request.options.format_schema.as_ref().unwrap()["required"]
+            .as_array()
+            .unwrap()
+        {
+            raw.insert(key.as_str().unwrap().into(), serde_json::Value::Null);
+        }
+        assert!(
+            NarrativesTask
+                .evaluate_prepared(
+                    &request,
+                    &serde_json::Value::Object(raw).to_string(),
+                    None,
+                    None
+                )
+                .parsed
+        );
+        let parts = fx.parts.as_mut().unwrap();
+        parts["reports"] = serde_json::json!([]);
+        parts["memory"] = serde_json::json!([]);
+        assert!(!NarrativesTask.assemble(parts).unwrap().should_call);
+    }
+
     /// Preserve identity resolution, relevance and result extraction coverage.
     #[test]
     fn editor_fixtures_cover_resolution_and_extraction() {
@@ -2827,7 +3028,7 @@ mod scout_abstention_tests {
     use super::*;
     #[test]
     fn a_valid_pass_is_visible_without_being_a_vacuous_quality_pass() {
-        let result = RatingTask.evaluate("null", None, None);
+        let result = RatingTask.evaluate(r#"{"body":null}"#, None, None);
         assert!(result.parsed);
         assert!(result.display.contains("abstained"));
         assert!(result.checks.iter().any(|check| !check.pass));

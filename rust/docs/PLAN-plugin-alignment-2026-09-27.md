@@ -1,45 +1,51 @@
 # Plugin alignment plan
 
-## Kickoff — the user's opening directive
+## Governing direction
 
-> **THIS IS AN ALIGNMENT SESSION. USER HAS MOVED AWAY FROM A PROMPT-BASED APPROACH TO SYSTEM 1/LLM RESPONSIBILITIES. THE TARGET GOAL IS:**
->
-> **SYSTEM 1 FILTERS**
->
-> **PLUGINS FRAME**
->
-> **LLM ARTICULATES**
->
-> **THIS SESSION WILL GO THROUGH EACH OF THE PLUGINS (STARTING WITH HARVESTER, PROGRESSING THROUGH THE CHARACTERS, AND ENDING WITH GRAPH) AND AUDIT THESE SO THAT THE PLUGIN PROVIDES THE CONTEXT, TOOLS, STRUCTURE, MEMORY, VOICE, AND BOUNDARIES. THE LLM (SMOLLM3) PROVIDES THE ARTICULATION.**
->
-> **WHILE OPTIMIZING FOR THIS APPROACH, IT'S CRITICAL OLD SCAR TISSUE, REDUNDANCY, AND UNNECESSARY LEGACY CODE BE PRUNED SO THE FINAL TARGT STATE IS LEAN. SLOP IS NOT ACCEPTABLE.**
+**EVERYTHING IS A PLUGIN.**
 
-Planning date: September 27, 2026. Revised September 29, 2026 after the Ponytail audit.
+**Harness determines the work → plugin compiles the relevant data from the DB
+and assembles it → LLM articulates the sum of the parts.**
 
-This is the current execution plan. It replaces the accumulated sketches,
-superseded decisions and completion claims previously in this file. Git history
-and the linked evidence documents preserve that work; do not implement an older
-sketch because it appears in a historical handoff. This revision changes the
-plan, not runtime behavior, release state or Harvester's accepted calibration.
+Harvester follows the same plugin boundary. It uses Laya, a System 1 model,
+instead of a traditional LLM. That model choice does not create a separate System 1
+layer, a privileged pre-plugin stage or a second architecture. Harvester owns its
+source acquisition, DB reads, assembled model inputs, interpretation and durable
+outputs just as the other plugins own theirs. Laya returns scores for Harvester's
+bounded classification job; character LLMs return articulation. Both are model
+operations owned by their plugin.
+
+Planning date: September 27, 2026. Revised September 29, 2026 after the Ponytail
+audit and the user's clarification above. This direction supersedes the earlier
+“System 1 filters → plugins frame” shorthand, which incorrectly suggested that
+System 1 sat outside the plugins.
+
+This is the current execution plan. Git history and linked evidence retain earlier
+sketches and handoffs; do not implement a superseded sketch. Keep the implementation
+lean by deleting redundant paths as their consumers migrate. Harvester's accepted
+calibration and release state are separate from this ownership clarification.
 
 ## Ownership contract
 
 **Harness determines runnable work → plugin reads, selects, computes and assembles
 from durable evidence → model performs its bounded job → plugin publishes.**
 
-For character products, that model job is articulation: **System 1 filters;
-plugins frame; LLM articulates.** The product is a living database expressed
-through different plugins. The same runtime boundary serves Harvester's System 1
-work and deterministic Fixture Boxscore work without requiring either to generate
-prose.
+The product is a living database expressed through plugins. Harvester, Scout,
+Journalist and every other work-producing capability are peers. A plugin's model
+choice and output shape do not change who owns its work.
 
 | Owner | Responsibility |
 | --- | --- |
 | Harness / application / Studio | Registered capabilities, work claims, scheduling, budgets, model transport, bounded recovery, transactions and durable dispatch |
-| Plugin | Evidence selection, joins, memory, arithmetic, eligibility, allowed claims, tools, voice, output shape, response acceptance and publication policy |
-| System 1 | Scores for plugin-supplied predicates; uncertainty stays explicit; plugin policy interprets the scores |
-| LLM | Wording, coherent synthesis, emphasis, compression and voice within the supplied world |
-| Postgres / analytical studies | Durable evidence, revisions, receipts and products; reproducible measurements over bounded inputs |
+| Every plugin | DB reads, evidence selection, joins, memory, arithmetic, eligibility, assembly, model request, tools, voice where applicable, response acceptance and publication policy |
+| Postgres / analytical studies | Durable evidence, revisions, receipts and products; reusable measurements called by the owning plugin |
+
+Models are dependencies invoked **inside** the plugin's work. Harvester supplies
+Laya's predicates and interprets its scores. Character plugins supply the assembled
+world and ask their LLM to articulate it. The harness does not supply a separate
+semantic policy layer, and downstream plugins read Harvester's durable products
+rather than consulting an independent “System 1 layer.” Fixture Boxscore's current
+deterministic work still has a plugin owner; it needs no gratuitous model call.
 
 ### Assemble versus articulate — the binding definition
 
@@ -73,9 +79,8 @@ type, or a model call where none is useful. The current eleven registrations
 include Editor, which is being retired rather than redesigned.
 
 Do not add another plugin trait, assembler trait, slot framework, plugin DSL,
-service layer or registry. `Contract`, `SLOTS` and their slot-kind bookkeeping
-currently do not enforce model-call roles in production. Remove that unused
-parallel vocabulary in the closure work below; retain the live `DecisionModel`,
+service layer or registry. The unused `Contract`, `SLOTS` and slot-kind bookkeeping were removed in Scout
+closure; retain the live `DecisionModel`,
 `Prose`, `Dimensions`, parsers and capability grants. Do not replace the table
 with the same assertions copied into manifests.
 
@@ -85,7 +90,7 @@ factual authority; renaming their response type does not close that work.
 
 ### Routing ownership
 
-The harness determines what can run operationally. Harvester owns semantic source
+The harness determines what can run operationally. The Harvester plugin owns semantic source
 routing, using plugin-defined predicates and policy over Laya scores. Receiving
 plugins own product sufficiency. Delivery controls may suppress a recommendation;
 they may not manufacture relevance. Keep this distinction inside the existing
@@ -108,7 +113,9 @@ function of the database.
 
 ## The parts contract
 
-A plugin prepares **one authoritative world for each model operation**. It contains
+Every plugin compiles the relevant DB evidence and prepares **one authoritative
+input for each model operation**. For articulation this input is the world below;
+Harvester assembles source/predicate inputs for Laya within its own plugin. It contains
 only what that operation needs, with relationships already attached. Common parts
 include identity, fresh evidence, selected memory, computed facts, limits, voice
 and form; these are useful roles, not a mandatory list or directory structure.
@@ -156,11 +163,11 @@ and relevant source/evidence; follow every live caller before editing.
 
 | Window | Plugin / task | Current status and remaining work |
 | --- | --- | --- |
-| 0 | Shared foundation | Useful renderer, studies, prose decoder and parts fixtures landed. Do not restart a foundation project. Remove inert slot bookkeeping and repair remaining evaluation paths with Scout closure. |
+| 0 | Shared foundation | Renderer, studies and prose decoder retained. Inert slot bookkeeping removed; aligned evaluation/capture paths repaired. No new foundation project. |
 | 1 | Harvester / `harvester` | V7 behavior accepted at 90/96 synthetic development routes; calibration deferred. Operational release remains separate. |
-| 2 | Journalist / `narratives` | n94 deployed at `573d6a8e`. Nested-history n95 / `narratives-v11-nested-history` landed and replayed locally, unreleased. Live evaluation needs the closure repair. |
-| 3 | Influencer / `vibe` | v3 parts/manual local, undeployed; current manual lacks live replay. Byte-identical parts refactors do not establish new product evidence. |
-| 4 | Scout / `rating` | s61 parts landed at `73374a72`, unreleased and unreplayed. **Alignment reopened:** source eligibility LLM, duplicate palette, incomplete fingerprint and evaluation path remain. Next work. |
+| 2 | Journalist / `narratives` | n94 deployed at `573d6a8e`. Nested-history n95 / `narratives-v11-nested-history` landed and replayed locally, unreleased. Prepared live evaluation and request-local parsing repaired. |
+| 3 | Influencer / `vibe` | v3 local and undeployed. Current local SmolLM3 replay fails the 140-character paragraph contract in all four cases; product verification remains open. |
+| 4 | Scout / `rating` | s62 implements S1–S4 and S5 plumbing deletion. Unit/DB checks pass. Local model replay exposes surface and factual-fidelity failures; S5 product gate remains open. Undeployed. |
 | 5 | Insider / `transfers` | Next plugin after Scout closure; relationship policy, pair memory, identity obligations and articulation migration. |
 | 6 | Analyst / `momentum` | Current production sends a palette; align actual selection and synthesis, including partial inputs. |
 | 7 | Oracle / `sigil` | Current production sends a palette; align five-product synthesis and evidence/readiness policy. |
@@ -180,121 +187,88 @@ phase. Keep the working measured/reported memory separation, typed `Limit` state
 selected comparisons and natural articulation. Do not reopen Harvester calibration
 or Journalist's accepted prose design to make Scout look uniform.
 
-### S1 — Remove the second eligibility job
+### S1 — Source eligibility: implemented
 
-**Paths:** `scout/adapter/harvester.rs`, `scout/adapter/mod.rs`, Harvester delivery
-and policy consumers. All source paths are relative to `src/plugins/` here.
+`scout/adapter/harvester.rs` consumes the Harvester plugin's durable current
+`performance` predicate and independently resolved entity link. Applied,
+source-linked roster/availability records remain valid triggers. Scout no longer
+asks an LLM to classify eligibility. Its only model operation is articulation of
+a measured profile; the news receipt is trigger provenance, not a measurement.
 
-Trace queued/source-triggered Scout, direct/backfill `statcommentary` and replay.
-`harvester::decide` still asks an LLM for
-`none|performance|roster|availability` before possibly calling articulation.
-Replace this eligibility operation with existing Harvester signals and
-plugin-owned deterministic checks where they satisfy the actual requirements.
-Keep the independent entity link and source-linked roster/availability checks.
-A news trigger must never become a statistical measurement.
+Insufficient evidence is `relevant_but_unused` with a durable reason. The existing
+identity/availability rating obligations and later statistical updates own follow-up;
+no new classifier or routing policy was introduced. Old receipts lacking current
+scores cannot supply the performance decision. Harvester calibration is unchanged.
+Source, attribution, identity and applied-record eligibility are rechecked inside
+the fenced publication transaction after articulation.
 
-If a necessary distinction cannot be established by existing evidence or an
-already-supported System 1 predicate, name the missing capability and leave that
-case unavailable/pending with its durable reason. Do not silently broaden routing,
-drop records, invent keyword policy or assume Laya supports a new task. Do not
-claim closure while a required replacement is missing. Any needed capability work
-must name its bounded input, policy and representative evidence; this is not a
-request for general Harvester recalibration.
+### S2 — One product construction path: implemented; fidelity checked in S5
 
-**Done:** no Scout LLM eligibility call; every source disposition and required
-follow-up still has an owner. Verify supported performance, source-linked roster
-and availability, irrelevant/wrong-entity input, missing stats and repeated work.
+Removed the unused phrase palette, duplicate flat material renderers, unused model
+headline, duplicate measurement maps and redundant body checks. Scout requests only
+`body`; the plugin supplies the title. Admission checks selected measurements or a
+finite composite directly. Numeric, comparison, source-coverage and identity
+boundaries remain. Existing coverage guards now read the actual prepared fields;
+the obsolete 800-character thin-sample rule is removed.
 
-### S2 — Remove duplicate product construction
+Scout owns its bounded correction instruction. Shared recovery no longer imposes
+another character's “one paragraph, one supporting detail” content policy on it.
+Legacy memory loading remains for historical-season policy and provenance; raw
+structured records preserve the obligations formerly hidden in unused prose.
 
-**Paths:** `scout/cognition/mod.rs`, `scout/adapter/mod.rs`, `scout/cognition/parts.rs`.
+### S3 — Completed-input fingerprint: implemented
 
-Remove Scout's unused phrase alternatives, `Assignment.palette` and
-`rating_palette` after preserving any real no-stats/admission conditions directly
-against selected measurements. `Palette::validate` checks phrase structure;
-`check_supported` does not inspect the palette at all. Delete its redundant
-rendered-world self-check once serialization and material selection are covered.
-Keep checks on input validity, identity, comparison support and numeric fidelity;
-a serialization check is not a substitute for them.
+The fingerprint includes the fully assembled world, prompt/output versions and
+retained source provenance. Measured-memory-only and coverage-limit-only changes
+invalidate it; identical assembled inputs do not. Source-trigger provenance joins
+the same components before hashing. The publication test mutates the source during
+articulation and verifies that no product is written.
 
-Stop requesting and validating a model headline that `create` discards for a
-plugin-derived title. Keep title generation and publication behavior. Remove
-unused option copies, obsolete palette version labels and comments. Inventory
-legacy memory/material renderers before cutting them: some still feed fingerprints,
-historical-season policy or retained provenance even when their text is not sent.
-Migrate those obligations first, then delete unused formatting/loading paths.
+The existing rolling measurement window still depends on its time bounds. A new
+bound is a changed input; this check does not claim that reads at different times
+are byte-identical.
 
-Review existing semantic guard/correction code against concrete failure evidence
-and the new parts. Remove guards that enforce retired surfaces or merely duplicate
-preparation; retain necessary evidence boundaries. Add no speculative prose-policing
-layer. Shared recovery must not silently impose "one paragraph, one supporting
-detail" on all characters; put any retained content policy with its plugin.
+### S4 — Prepared evaluation and capture: implemented
 
-**Done:** selected parts are the only content representation used to create the
-Scout product; no unused phrase menu or requested-and-discarded headline. Replay
-checks factual fidelity, retained qualifications and useful articulation.
+Live evaluation, current fixtures and capture carry the plugin's prepared request
+and parts. Required parts and package drift are enforced at runtime. Journalist's
+report count comes from its reports; Scout's parser receives its selected measures,
+bands and compatible comparisons. No-call cases skip inference. Rejected prose may
+be displayed diagnostically but cannot pass production acceptance. An unreviewed
+Scout abstention is not a vacuous quality pass.
 
-### S3 — Fingerprint the completed input
+Scout assignment captures are version 2 and replay through its own options, parser
+and bounded correction; old captures without parts require recapture. Remaining
+unaligned tasks retain their existing adapters until their windows. No second
+evaluation service or LLM judge was added.
 
-**Paths:** `scout/adapter/mod.rs`, source-trigger augmentation, all skip-unchanged
-and publication consumers.
+### S5 — Plumbing removed; product gate remains open
 
-The current hash precedes measured-memory loading. Construct it from the completed
-world and required contract/source revision inputs using the existing hash tools.
-Preserve provenance and source fencing; do not hash only display text and lose
-identity/revision distinctions. Avoid redundant alternate content construction.
+Removed unused `Contract`/`SLOTS`/`SlotKind` declarations and their declaration-only
+tests. Retained live `DecisionModel`, prose/schema/decoder APIs, route grants and
+manifest checks. All-target tests and isolated database checks cover source routing,
+wrong-entity/no-profile handling, applied records, durable follow-ups and publication
+fencing. See [Scout closure evidence](scout-closure-2026-09-29.md) for exact counts,
+requests, outputs, calls, retries and limitations.
 
-**Done:** a change only to measured memory or a coverage limit invalidates the
-product fingerprint; identical inputs remain unchanged. A stale source revision
-still cannot publish. Leave a focused regression check exercising those cases.
+Local SmolLM3 replay is **not passing product evidence**. Scout can exceed the body
+ceiling, turn sparse source coverage into actual early-season participation, and
+infer ability or tactics from measurements. Influencer's current four cases fail
+its paragraph ceiling. A parser accepting a response does not establish its factual
+fidelity. Keep these failures visible; do not add a classifier, judge, phrase
+palette, generic prose-policing layer or broader framework to hide them.
 
-### S4 — Finish evaluation parity using the existing machinery
+**Next:** inspect the retained world/output pairs and fix the smallest demonstrated
+plugin assembly/manual issue. Repair contradictory legacy Scout fixtures before
+using them as product evidence. Replay the affected representative cases against
+the unchanged evidence and surface boundaries. Do not change the product limits or
+claim completion merely to make a mechanical gate green. Preserve Journalist's
+accepted prose design and Harvester's accepted calibration.
 
-**Paths:** `src/evaluation/tasks.rs`, `src/bin/eval.rs`, the three aligned plugins'
-preparation/options/parsers, `fixtures/quality/{narratives,vibe,rating}`.
-
-Offline parts assembly works, but live `score_backend` still calls the separate
-options API that Journalist and Scout refuse. Capture emits `parts: None` and
-expects manual reconstruction. Reuse the prepared request in live evaluation and
-capture, including the parts needed to reproduce it. Use the same plugin functions
-as production; eliminate contradictory prompt/options paths as consumers migrate.
-Carry parsing context from preparation rather than independently maintaining
-report count in expectations or evaluating only an archived parser.
-
-Distinguish production acceptance from optional diagnostic display: an evaluator
-may show rejected prose, but may not report it as production-valid. It may not
-claim that numeric containment proves semantic correctness. Required parts and
-request parity must be checked in the execution path, not only by fixture tests.
-No-call dispositions should skip inference, as they do in production.
-
-**Done:** fixture and live modes can execute the aligned contracts; capture can
-produce replayable parts without hand-reconstructing them. Cover a multi-report
-Journalist request, Scout's request-specific validation, malformed/declined output
-and a no-call case with focused existing-harness checks. Retain the byte-order and
-package-drift checks; do not introduce another evaluation service or LLM judge.
-
-### S5 — Delete inert bookkeeping, verify the product, record closure
-
-Remove unused `Contract`/`SLOTS`/`SlotKind` machinery and its declaration-only tests
-after checking callers. Keep live schema/decoder functions, `DecisionModel`, route
-grants and manifest validation. Existing module locations can stay; no taxonomy
-rewrite is required. Replace claims of structural prevention with direct checks
-of the actual plugin request paths, including a source-triggered Scout request.
-
-Run relevant unit checks and all-target compilation; run isolated DB checks for
-changed disposition, invalidation or publication behavior. Replay representative
-Scout worlds: strong/sparse/composite/missing profiles, zero versus unknown,
-incompatible comparisons, measured memory, qualified/withdrawn reported claims
-and a source trigger. Inspect world and output together. Record actual calls,
-request size, retries and latency using existing tooling, not a metrics project.
-Replay the current Influencer manual before calling its product verified; preserve
-Journalist's retained replay and rerun affected cases if this closure changes its
-request or parsing. An unavailable model or database is an explicit unrun check,
-not passing evidence or a reason to add infrastructure.
-
-**Exit:** S1–S4 closed, inert plumbing removed, actual calls and publication paths
-verified, remaining legacy consumers assigned below. Record code, checks, replay
-and deployment separately. No deployment is implied by this plan revision.
+**Exit:** useful, faithful articulation on representative prepared worlds, in
+addition to the passing mechanics. Until then Window 4 is open and Insider's
+implementation does not begin. Code, tests, product replay and deployment remain
+separate statuses; nothing in this closure deploys a plugin.
 
 ## Window 5 — Insider
 
@@ -425,7 +399,7 @@ source/candidate loaders, typed links, likelihood and nomination consumers.
 1. Trace remaining extraction against exact publisher evidence. Establish candidate
    identity, predicate, direction, negation, time and uncertainty before persistence.
    Allowed IDs and quote containment alone do not prove a relation. Evaluate bounded
-   System 1/source-span/deterministic capabilities where appropriate; unsupported
+   plugin-owned Laya/source-span/deterministic capabilities where appropriate; unsupported
    extraction remains unavailable, not generated evidence with a new type name.
 2. Keep unknown people as source-bound Investigator nominations; require fixture
    identity and supported source data for results. Preserve the provenance firewall:
@@ -456,12 +430,12 @@ consumer and removal condition, not "for later."
 
 | Path / mechanism | Owner | Removal condition |
 | --- | --- | --- |
-| `plugins/cognition.rs` slot registry and unused `Contract` | Scout closure S5 | Caller check confirms only bookkeeping/tests; live decision/prose APIs preserved |
-| Scout palette, ignored generated title, duplicate material formatting | Scout closure S2–S3 | Admission/provenance moved to parts; no surviving product or operational consumer |
-| Split live-eval prompt/options and manual parts reconstruction | Scout closure S4; remaining tasks in their windows | Each mode consumes the plugin's prepared request and parsing context |
+| `plugins/cognition.rs` slot registry and unused `Contract` | Removed in Scout closure | Live decision/prose APIs preserved |
+| Scout palette, ignored generated title, duplicate material formatting | Removed in Scout closure | Admission/provenance preserved; selected parts supply the model |
+| Split live-eval prompt/options and manual parts reconstruction | Aligned tasks repaired in S4; remaining tasks in their windows | Each mode consumes the plugin's prepared request and parsing context |
 | `support/prompt.rs::compose` and schema content instructions | Insider → Analyst → Oracle | Each caller replaced by its actual plugin manual; then delete composer/constants |
 | `support/prompt.rs` correction helpers | Each surviving caller | Retain generic bounded mechanics; plugin owns needed content policy; delete only after last caller migrates |
-| `evidence/memories.rs` and `memories/{sources,identity,performance}.rs` | Scout, Insider, Analyst, Oracle, Graph/Editor and eval consumers | Migrate real data/policy/provenance needs; remove unused mission paths incrementally; Window 10 closes final imports |
+| `evidence/memories.rs` and `memories/{sources,identity,performance}.rs` | Scout, Insider, Analyst, Oracle, Graph/Editor and eval consumers | Scout still uses historical-season state and a provenance fingerprint. Migrate those consumers before removal; other mission paths retire in their owning windows |
 | `MOMENTUM_BANNED_PHRASES` in shared guards | Analyst | Keep locally only if still required; delete retired policy |
 | Remaining palette/flat-prompt alternatives | Each owning plugin | Production, replay and operational callers use the surviving contract |
 | Harvester packet API and compatibility types | Owning consumers; final closure in Window 10 | All pending delivery and offline/operational consumers migrated; source-integrity receipts preserved |
@@ -495,7 +469,8 @@ consumer and removal condition, not "for later."
 
 Completion requires the active paths to satisfy ownership, useful articulation
 where applicable, durable publication and honest missing-data behavior. A required
-unsupported capability or unreplayed product change remains open. Deployment is
+unsupported capability or unreplayed product change remains open. Every model
+operation, including Laya calls, must have a plugin owner. Deployment is
 separate; no release or data destruction is implied by documentation work.
 
 ## Retained decisions and evidence
@@ -520,13 +495,13 @@ separate; no release or data destruction is implied by documentation work.
   and dead Rust continuity-field removal (`694b4947`) are implemented. Repair
   demonstrated gaps; do not redo them to impose uniformity. Historical F1b's
   structural-enforcement claim is withdrawn by this revision.
-- **Influencer has no numeric sentiment without a measurement.** v3 remains local;
+- **Influencer has no numeric sentiment without a measurement.** v3 remains local and its current paragraph-limit replay fails;
   see its [handoff](HANDOFF-influencer-2026-09-28.md). Fuller historical source
   passages are added only when a concrete continuity case needs them.
 - **Scout's parts work stays.** `73374a72` introduced measured/reported memory,
   meaningful typed limits and a live `statistic::team_matches` consumer. Do not
   remove the statistic study as "unused." See [shared studies](memory-studies.md).
-  Its retained tests do not close source eligibility, fingerprint or replay gaps.
+  S1–S4 close the mechanical gaps; the S5 product replay remains open.
 - **Shared form is structural.** Body/paragraph policy remains as stated above.
   Do not restore shared writing direction, fixed phrase palettes or score invention.
   Preserve genuinely needed source integrity, error handling and publication checks.
@@ -537,7 +512,8 @@ section records only decisions the next implementation should carry forward.
 ## Next fresh context: finish Window 4
 
 Read the ownership and parts contracts, the current status table, S1–S5 and the
-retirement ledger. Implement the bounded closure, verify it and update this file.
+retirement ledger. S1–S4 and the plumbing deletion are implemented; read the S5 evidence and close the
+remaining product-fidelity gate, then update this file.
 Do not start a new foundation framework or expand into Insider's implementation.
 If a required capability is missing, name it and keep the relevant item open.
 

@@ -12,7 +12,6 @@ use crate::plugins::scout::cognition::{
     MAX_STAT_FACTS, RATING_NUM_PREDICT, RATING_OUTPUT_CONTRACT_VERSION, RATING_TEMPERATURE,
 };
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
-use crate::studio::model::GenerateOptions;
 use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
 use crate::studio::Studio;
 use crate::util::hash_components;
@@ -92,8 +91,6 @@ impl crate::application::queue::outbox::EventReaction for RatingIdentityReaction
 
 mod evidence;
 pub(crate) mod harvester;
-mod materials;
-pub use materials::{render_personnel_block, render_scout_reports};
 
 /// Durable subject and invocation policy used to prepare a Studio Scout assignment.
 #[derive(Clone, Debug)]
@@ -195,12 +192,7 @@ async fn build_rating_request_inner(
     )
     .await?;
 
-    // The plugin's memory, kept structured all the way to the world. The
-    // personnel and availability loaders return adjudicated, dated records; the
-    // legacy `personnel` string is rendered from those same records for the
-    // retired flat prompt, and the parts read the records themselves. That is
-    // the difference between handing the model a claim and handing it a
-    // paragraph about a claim.
+    // Keep the adjudicated records for provenance and select attributed memory from them.
     let (personnel, reported_memory) = if with_enrichment && !memories.historical {
         let (changes, total) = match crate::evidence::personnel::load_personnel_changes(
             pool,
@@ -251,18 +243,12 @@ async fn build_rating_request_inner(
             total + availability_total,
         );
         (
-            render_personnel_block(
-                &req.entity_type,
-                req.entity_id,
-                &changes,
-                total,
-                &availability,
-                availability_total,
-            ),
+            serde_json::json!({"changes": changes, "availability": availability,
+                "total_changes": total, "total_availability": availability_total}),
             reported,
         )
     } else {
-        (None, Vec::new())
+        (serde_json::Value::Null, Vec::new())
     };
 
     let (current_reports, contested_claims) = if with_enrichment && !memories.historical {
@@ -283,7 +269,7 @@ async fn build_rating_request_inner(
                     .filter(|c| c.marked)
                     .map(crate::plugins::scout::memories::Reported::from_claim)
                     .collect();
-                (render_scout_reports(&claims), contested)
+                (serde_json::to_value(&claims)?, contested)
             }
             Err(error) if crate::evidence::personnel::harvester_scout_reports_enabled() => {
                 return Err(error).context("load verified Harvester Scout reports");
@@ -296,11 +282,11 @@ async fn build_rating_request_inner(
                     %error,
                     "rating: current-report load failed (continuing without the block)"
                 );
-                (None, Vec::new())
+                (serde_json::Value::Null, Vec::new())
             }
         }
     } else {
-        (None, Vec::new())
+        (serde_json::Value::Null, Vec::new())
     };
     let mut reported_memory = reported_memory;
     for mut claim in contested_claims {
@@ -339,10 +325,8 @@ async fn build_rating_request_inner(
     } else {
         None
     };
-    let comparison_directions = scout::comparison_directions(&profile, comparisons.as_ref());
     let prompt_profile =
         scout::model_prompt_profile(&profile, supports_cross_season, comparisons.as_ref());
-    let measurement_bands = scout::measurement_bands(&prompt_profile);
     let form_trend = if with_enrichment {
         rating_trajectory.label.as_ref().map(|label| {
             format!(
@@ -358,8 +342,6 @@ async fn build_rating_request_inner(
     components["personnel"] = serde_json::json!(personnel);
     components["current_reports"] = serde_json::json!(current_reports);
     components["recent_form"] = serde_json::json!(form_trend);
-    let input_components = components.to_string();
-    let input_hash = hash_components(&input_components);
     let sport_name: String =
         sqlx::query_scalar("SELECT display_name FROM public.sports WHERE id = $1")
             .bind(&req.sport)
@@ -374,23 +356,11 @@ async fn build_rating_request_inner(
         sport: req.sport.clone(),
         sport_name,
     };
-    // The prepared world. This is the artifact the model reads: the package is
-    // rendered from it, the manual and the response schema are derived from it,
-    // and `create` sends nothing else. The flat `built_prompt` above is retained
-    // only for the eval/replay parity fixtures and is NOT sent to the model —
-    // `create` replaced it with the assembled world in s61.
-    // The Scout's numeric memory. The season profile above is a snapshot; this
-    // is the study over stored fixtures that says whether the recent window
-    // moved, and it is the reason `statistic::team_matches` exists rather than
-    // sitting unused in the shared module. It is a DISTINCT kind of memory from
-    // the reported claims above: arithmetic over completed fixtures, versus what
-    // a publisher said.
     let (measured_memory, coverage_limits) = match measured_memory(
         pool,
         &subject,
         req.entity_id,
         &profile,
-        supports_cross_season,
         with_enrichment && !memories.historical,
     )
     .await
@@ -453,31 +423,17 @@ async fn build_rating_request_inner(
         ),
     };
     let built_prompt = parts.render();
-    let opts = GenerateOptions {
-        system: Some(scout::prompt::task(&parts)),
-        temperature: Some(temperature),
-        num_predict: RATING_NUM_PREDICT,
-        num_ctx: voice_num_ctx,
-        json_mode: false,
-        format_schema: Some(scout::prose().schema()),
-        format_schema_raw: None,
-    };
-
-    let Some(palette) = scout::rating_palette(
-        &subject,
-        &prompt_profile,
-        comparisons.as_ref(),
-        form_trend.as_deref(),
-    ) else {
+    let opts = parts.generation_options(voice_num_ctx, temperature);
+    if !parts.has_measured_profile() {
         return Ok(RatingBuild::NoStats {
             season: profile.season,
         });
-    };
+    }
+    let input_components = parts.input_components(components);
+    let input_hash = hash_components(&input_components);
     Ok(RatingBuild::Ready(Box::new(Assignment {
         subject,
         season: profile.season,
-        comparison_directions,
-        measurement_bands,
         notability,
         notability_components,
         rating_trajectory,
@@ -487,7 +443,6 @@ async fn build_rating_request_inner(
         opts,
         built_prompt,
         parts,
-        palette,
     })))
 }
 
@@ -519,7 +474,6 @@ async fn measured_memory(
     subject: &Subject,
     entity_id: i32,
     profile: &RatingProfile,
-    supports_cross_season: bool,
     enabled: bool,
 ) -> Result<(Vec<crate::plugins::scout::memories::Measured>, Vec<String>)> {
     let mut limits = Vec::new();
@@ -599,7 +553,6 @@ async fn measured_memory(
         percent_change: finding.percent_change,
         fixture_ids: finding.fixture_ids.clone(),
     }];
-    let _ = supports_cross_season;
     Ok((measured, limits))
 }
 

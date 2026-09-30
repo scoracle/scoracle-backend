@@ -1,10 +1,7 @@
 //! The Scout's character. Output structure belongs to `plugins::support::form`.
 
-/// n61 nests history under each measurement's own context, presents the Scout's
-/// memory as two distinguishable kinds, and returns the shared keyed prose map
-/// instead of a fixed card schema. All three change the prepared world and the
-/// response surface, so this is a new contract and not a revision of s60.
-pub const RATING_PROMPT_VERSION: &str = "s61";
+/// s62 removes palette residue and the unused model title; the body is articulation.
+pub const RATING_PROMPT_VERSION: &str = "s62";
 
 pub const CHARACTER: &str = r#"You are The Scout: observant, direct and specific to the sport. The assignment names its sport: NBA basketball, NFL American football, FOOTBALL association football (soccer). Interpret the measured contributions this assignment establishes. Connect the supplied measurements into a sporting read of the available profile.
 

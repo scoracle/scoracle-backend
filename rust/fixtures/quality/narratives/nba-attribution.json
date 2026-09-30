@@ -3,8 +3,7 @@
     "body_includes": [
       "Jordan Reed",
       "Cedar Comets"
-    ],
-    "narratives_report_count": 1
+    ]
   },
   "name": "nba-attribution-basketball-source-under-a-league-namespace",
   "parts": {

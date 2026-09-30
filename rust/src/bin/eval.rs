@@ -363,15 +363,22 @@ async fn score_backend(
     let mut mae_n = 0usize;
     let mut results: Vec<CaseResult> = Vec::with_capacity(cases.len());
     for case in cases {
-        let opts = task.gen_options_for(EVAL_TEMPERATURE, &case.entity)?;
-        let prompt = match task.build_prompt(pool, models, &case.entity).await? {
+        let mut prepared = match task.build_request(pool, models, &case.entity).await? {
             Some(p) => p,
             None => {
                 println!("  – {} : no corpus (skipped)", case.entity.key());
                 continue;
             }
         };
-        let gen = match backend.generate(&prompt, &opts).await {
+        if !prepared.should_call {
+            continue;
+        }
+        prepared.options.num_ctx = models.voice_num_ctx;
+        prepared.options.temperature = Some(EVAL_TEMPERATURE);
+        let gen = match backend
+            .generate(&prepared.user_prompt, &prepared.options)
+            .await
+        {
             Ok((g, _request_body)) => g,
             Err(e) => {
                 // Under GPU contention a call can time out in Ollama's queue; skip it rather than
@@ -383,7 +390,7 @@ async fn score_backend(
                 continue;
             }
         };
-        let verdict = task.evaluate(&gen.response, case.label, None);
+        let verdict = task.evaluate_prepared(&prepared, &gen.response, case.label, None);
         if let Some(err) = verdict.abs_err {
             abs_err_sum += err;
             mae_n += 1;
@@ -494,6 +501,7 @@ async fn run_fixtures(
             &mut inc_judge,
             fx,
             replay.is_some(),
+            cfg.voice_num_ctx,
         )
         .await;
         inc_pass += p;
@@ -507,6 +515,7 @@ async fn run_fixtures(
                 &mut cand_judge,
                 fx,
                 replay.is_some(),
+                cfg.voice_num_ctx,
             )
             .await;
             cand_pass += p;
@@ -550,51 +559,40 @@ async fn run_one_fixture(
     judge_agg: &mut JudgeAgg,
     fx: &Fixture,
     historical: bool,
+    num_ctx: i32,
 ) -> (usize, usize) {
-    // A fixture that stores parts is rebuilt through the plugin's own assembler
-    // and gets the request it produces — prompt, manual and schema together. Only
-    // a task with no parts assembler falls back to the captured string, and the
-    // `stores_parts` test fails the day a plugin stops being one of those.
-    let prepared = fx.parts.as_ref().map(|parts| task.assemble(parts));
-    let (prompt, mut opts) = match prepared {
-        Some(Ok(prepared)) => (prepared.user_prompt, prepared.options),
-        Some(Err(e)) => {
-            println!(
-                "  {label} {:<16} parts did not assemble ({e:#})",
-                backend.model()
-            );
+    let prepared = match task.prepare_fixture(fx) {
+        Ok(request) => request,
+        Err(error) => {
+            println!("  {label} {} invalid fixture: {error:#}", backend.model());
             return (0, expected_property_count(&fx.expect) + 1);
         }
-        None => {
-            let opts = match task.gen_options_for_sport(fx.temperature, &fx.sport) {
-                Ok(opts) => opts,
-                Err(e) => {
-                    println!(
-                        "  {label} {:<16} no generation options ({e:#})",
-                        backend.model()
-                    );
-                    return (0, expected_property_count(&fx.expect) + 1);
-                }
-            };
-            (fx.user_prompt.clone(), opts)
-        }
     };
-    // The fixture's authored temperature wins on both paths: the plugin's own
-    // option set is the production default, not the fixture's choice.
-    opts.temperature = Some(fx.temperature);
+    if !prepared.should_call {
+        println!("  {label} {} no-call disposition", backend.model());
+        return (0, 0);
+    }
+    let prompt = &prepared.user_prompt;
+    let mut opts = prepared.options.clone();
+    opts.num_ctx = num_ctx;
     if historical {
         opts.system = Some(fx.system.clone());
     }
-    let gen = match backend.generate(&prompt, &opts).await {
+    let gen = match backend.generate(prompt, &opts).await {
         Ok((g, _)) => g,
         Err(e) => {
             println!("  {label} {:<16} generate failed ({e:#})", backend.model());
             return (0, expected_property_count(&fx.expect) + 1);
         }
     };
-    let verdict = task.evaluate(&gen.response, None, Some(&fx.expect));
+    println!("      call: request={} bytes, input={} tokens, output={} tokens, latency={:.2}s, retries=0",
+        prompt.len() + opts.system.as_ref().map_or(0, String::len), gen.prompt_eval_count, gen.eval_count, gen.total_duration.as_secs_f64());
+    let verdict = task.evaluate_prepared(&prepared, &gen.response, None, Some(&fx.expect));
     println!("  {label} {:<16} {}", backend.model(), verdict.display);
     if !verdict.parsed {
+        for check in verdict.checks.iter().filter(|check| !check.pass) {
+            println!("      rejected: {}", check.detail);
+        }
         println!("      raw: {}", fixture_raw_excerpt(&gen.response));
         return (0, expected_property_count(&fx.expect) + 1);
     }
@@ -622,7 +620,7 @@ async fn run_one_fixture(
             task.name(),
             // The package the model actually read, which for a parts fixture is
             // what the plugin's current assembler produced.
-            &prompt,
+            prompt,
             &gen.response,
             voice,
         )
@@ -810,19 +808,14 @@ async fn run_capture_assignments(
                     serde_json::json!({"status":"no_stats", "season":season})
                 }
                 RatingBuild::Ready(a) => {
-                    let directions: std::collections::BTreeMap<_, _> = a
-                        .comparison_directions
-                        .iter()
-                        .map(|(k, v)| (k, format!("{v:?}")))
-                        .collect();
                     serde_json::json!({
                         "status":"ready", "subject":{"entity_type":a.subject.entity_type,"entity_name":a.subject.entity_name,"sport":a.subject.sport},
-                        "season":a.season, "comparison_directions":directions,"measurement_bands":a.measurement_bands,
+                        "season":a.season,
                         "notability":a.notability,"notability_components":a.notability_components,
                         "rating_trajectory":{"key":a.rating_trajectory.key,"label":a.rating_trajectory.label,"components":a.rating_trajectory.components},
                         "input_components":serde_json::from_str::<Value>(&a.input_components)?,"input_hash":a.input_hash,
                         "exclusions":{"budget_truncated_stat_labels":a.exclusions.budget_truncated_stat_labels,"off_facet_stat_labels":a.exclusions.off_facet_stat_labels,"degenerate_zero_stat_labels":a.exclusions.degenerate_zero_stat_labels,"display_tier_stat_labels":a.exclusions.display_tier_stat_labels},
-                        "built_prompt":a.built_prompt,
+                        "parts": a.parts, "built_prompt":a.built_prompt,
                         "options":{"system":a.opts.system,"temperature":a.opts.temperature,"num_predict":a.opts.num_predict,"num_ctx":a.opts.num_ctx,"json_mode":a.opts.json_mode,"format_schema":a.opts.format_schema,"format_schema_raw":a.opts.format_schema_raw},
                         "request_body":models.router.for_route(scoracle_cognition::plugins::scout::manifest::ROUTE).request_body(&a.built_prompt, &a.opts)
                     })
@@ -837,7 +830,7 @@ async fn run_capture_assignments(
                 request.season = assignment["season"].as_i64().map(|s| s as i32);
                 let full = memories::load(&pool, request).await?;
                 let current = full.current_snapshot_view()?;
-                let expected = assignment["input_components"]["memories"].as_str();
+                let expected = assignment["input_components"]["provenance"]["memories"].as_str();
                 let full_matches = expected == Some(full.fingerprint()?.as_str());
                 let current_matches = expected == Some(current.fingerprint()?.as_str());
                 serde_json::json!({"full":full,"current_snapshot":current,"full_matches_assignment":full_matches,"current_matches_assignment":current_matches})
@@ -846,7 +839,7 @@ async fn run_capture_assignments(
             };
             println!(
                 "{}",
-                serde_json::json!({"capture_version":1,"entity":e.key(),"with_enrichment":with_enrichment,"started_unix_ms":started,"finished_unix_ms":std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_millis(),"queue_before":work.map(|s| serde_json::from_str::<Value>(&s)).transpose()?,"assignment":assignment,"supplemental_memory_audit":memory_audit})
+                serde_json::json!({"capture_version":2,"entity":e.key(),"with_enrichment":with_enrichment,"started_unix_ms":started,"finished_unix_ms":std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_millis(),"queue_before":work.map(|s| serde_json::from_str::<Value>(&s)).transpose()?,"assignment":assignment,"supplemental_memory_audit":memory_audit})
             );
         }
     }
@@ -862,8 +855,8 @@ async fn run_capture(cfg: &Config, task: &dyn LensTask, cases: &[EvalCase]) -> R
         )
     })?;
     let (pool, models) = build_dependencies(cfg).await?;
-    let user_prompt = task
-        .build_prompt(&pool, &models, &case.entity)
+    let prepared = task
+        .build_request(&pool, &models, &case.entity)
         .await?
         .ok_or_else(|| anyhow!("no corpus for {} — nothing to capture", case.entity.key()))?;
     let fx = Fixture {
@@ -872,11 +865,8 @@ async fn run_capture(cfg: &Config, task: &dyn LensTask, cases: &[EvalCase]) -> R
         sport: case.entity.sport.clone(),
         prompt_version: task.prompt_version().to_string(),
         system: String::new(),
-        user_prompt,
-        // A capture is a starting point, not a parts fixture. Filling this in is
-        // the author's job: a stored string cannot detect a changed assembler,
-        // which is the whole point of the field.
-        parts: None,
+        user_prompt: prepared.user_prompt,
+        parts: prepared.parts,
         temperature: EVAL_TEMPERATURE,
         expect: Expect::default(),
         review: Vec::new(),
@@ -1392,12 +1382,36 @@ mod tests {
                     None,
                     &mut JudgeAgg::default(),
                     &fx,
-                    false
+                    false,
+                    4096
                 )
                 .await,
                 (0, 1)
             );
         }
+    }
+
+    #[tokio::test]
+    async fn prepared_no_call_skips_the_backend() {
+        let task = resolve_task("narratives").unwrap();
+        let fx = load_fixtures(&fixtures_dir("narratives"), Some("no-new-material"))
+            .unwrap()
+            .remove(0);
+        let backend: Arc<dyn Inference> = Arc::new(FailedReply(true));
+        assert_eq!(
+            run_one_fixture(
+                "A",
+                &backend,
+                task.as_ref(),
+                None,
+                &mut JudgeAgg::default(),
+                &fx,
+                false,
+                4096
+            )
+            .await,
+            (0, 0)
+        );
     }
 
     #[test]

@@ -272,7 +272,6 @@ async fn run_live(cfg: &Config, task: &dyn LensTask, cases: &[EvalCase]) -> Resu
              tasks: {}\n  \
              eval player:237:NBA team:14:NBA            (vibe, label-free quality+throughput A/B)\n  \
              eval player:237:NBA=72                     (+ MAE vs a human label)\n  \
-             eval --inspect memory SPORT TYPE ID MISSION [SEASON [PAIR_TEAM_ID]]\n  \
              eval --inspect reports SPORT TYPE ID\n  \
              eval --inspect identity SPORT PLAYER_ID\n  \
              eval --task oracle --fixtures               (current-contract quality cases)\n  \
@@ -821,25 +820,9 @@ async fn run_capture_assignments(
                     })
                 }
             };
-            // Supplemental provenance read: verify its material fingerprint against
-            // the assignment instead of claiming these separate reads are atomic.
-            let memory_audit = if assignment["status"] == "ready" {
-                use scoracle_cognition::evidence::memories::{self, MemoryRequest, Mission};
-                let mut request =
-                    MemoryRequest::new(Mission::Scout, &e.entity_type, e.entity_id, &e.sport);
-                request.season = assignment["season"].as_i64().map(|s| s as i32);
-                let full = memories::load(&pool, request).await?;
-                let current = full.current_snapshot_view()?;
-                let expected = assignment["input_components"]["provenance"]["memories"].as_str();
-                let full_matches = expected == Some(full.fingerprint()?.as_str());
-                let current_matches = expected == Some(current.fingerprint()?.as_str());
-                serde_json::json!({"full":full,"current_snapshot":current,"full_matches_assignment":full_matches,"current_matches_assignment":current_matches})
-            } else {
-                Value::Null
-            };
             println!(
                 "{}",
-                serde_json::json!({"capture_version":2,"entity":e.key(),"with_enrichment":with_enrichment,"started_unix_ms":started,"finished_unix_ms":std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_millis(),"queue_before":work.map(|s| serde_json::from_str::<Value>(&s)).transpose()?,"assignment":assignment,"supplemental_memory_audit":memory_audit})
+                serde_json::json!({"capture_version":2,"entity":e.key(),"with_enrichment":with_enrichment,"started_unix_ms":started,"finished_unix_ms":std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_millis(),"queue_before":work.map(|s| serde_json::from_str::<Value>(&s)).transpose()?,"assignment":assignment})
             );
         }
     }

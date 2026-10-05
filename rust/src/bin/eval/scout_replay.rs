@@ -1,7 +1,8 @@
 //! DB-free replay of captured Scout assignments through production guards and
 //! bounded correction. Records every returned response, including rejected ones.
 use anyhow::{anyhow, Result};
-use scoracle_cognition::plugins::scout::cognition::{parts::Parts, RatingRequestParser};
+use scoracle_cognition::plugins::scout::cognition::RatingRequestParser;
+use scoracle_cognition::plugins::scout::prompt::Parts;
 use scoracle_cognition::runtime::{config::Config, route::Router};
 use scoracle_cognition::studio::{
     model::{GenerateOptions, GenerateResult, Inference},
@@ -98,7 +99,7 @@ pub async fn run(cfg: &Config, path: &Path) -> Result<()> {
                 prompt,
                 &opts,
                 &recording.parser,
-                scoracle_cognition::plugins::scout::cognition::prompt::correction,
+                scoracle_cognition::plugins::scout::prompt::correction,
             )
             .await;
         let outcome = match result {
@@ -175,7 +176,7 @@ mod tests {
                 "Evidence",
                 &opts,
                 &recording.parser,
-                scoracle_cognition::plugins::scout::cognition::prompt::correction,
+                scoracle_cognition::plugins::scout::prompt::correction,
             )
             .await
             .unwrap();

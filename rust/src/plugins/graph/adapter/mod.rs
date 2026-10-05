@@ -135,7 +135,7 @@ pub async fn load_graph_article_context(
         let entity_id: i32 = r.get(1);
         let name: String = r.get(2);
         let descriptor =
-            crate::evidence::memories::load_identity_record(pool, &entity_type, entity_id, sport)
+            crate::plugins::meta::load_identity_record(pool, &entity_type, entity_id, sport)
                 .await?
                 .unwrap_or_else(|| format!("{name} ({entity_type}; records unavailable)"));
         candidates.push(GraphCandidate {

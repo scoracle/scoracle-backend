@@ -435,7 +435,7 @@ fn world(
 ) -> String {
     let supports_cross_season = supports_cross_season_comparison(profile);
     let selected = model_prompt_profile(profile, supports_cross_season, comparisons);
-    parts::Parts {
+    crate::plugins::scout::prompt::Parts {
         subject: crate::plugins::meta::EntityMeta {
             name: subject.entity_name.clone(),
             entity_type: subject.entity_type.clone(),
@@ -444,7 +444,11 @@ fn world(
         },
         sport_name: subject.sport_name.clone(),
         season: profile.season,
-        profile: parts::profile_parts(&selected, supports_cross_season, comparisons),
+        profile: crate::plugins::scout::performance::profile_parts(
+            &selected,
+            supports_cross_season,
+            comparisons,
+        ),
         memory: Default::default(),
     }
     .render()
@@ -501,7 +505,7 @@ fn serialized_request_has_evidence_and_form_but_no_editorial_outline() {
     let request = client.request_body(
         &prompt,
         &crate::studio::model::GenerateOptions {
-            system: Some(crate::plugins::scout::cognition::prompt::TASK.to_string()),
+            system: Some(crate::plugins::scout::prompt::TASK.to_string()),
             ..Default::default()
         },
     );
@@ -752,8 +756,8 @@ fn degenerate_zero_datapoints_drop_but_real_absences_stay() {
 
 // --- rendered-world byte-fixtures: the deterministic parity axis. The expected strings are
 // pinned so a change to the assembled package fails here, offline and without a model.
-// They are byte assertions on purpose: `assembly::World` renders in insertion
-// order, and a reordered or reshaped part is a behavior change, not a refactor.
+// They are byte assertions on purpose: field order is the wire order,
+// and a reordered or reshaped part is a behavior change, not a refactor.
 // -----------------------------------------------------------------------------------------------
 
 #[test]
@@ -892,17 +896,6 @@ fn pct_band_boundaries() {
     assert_eq!(pct_band(35.0), "below average");
     assert_eq!(pct_band(34.9), "poor");
     assert_eq!(pct_band(0.0), "poor");
-}
-
-#[test]
-fn rating_trajectory_buckets_and_labels_recent_form() {
-    assert_eq!(trajectory_key(linear_slope(&[0.1, 0.5, 1.0])), "rising");
-    assert_eq!(trajectory_key(linear_slope(&[2.2, 1.7, 1.1])), "falling");
-    assert_eq!(trajectory_key(linear_slope(&[0.7, 0.8, 0.75])), "steady");
-    assert_eq!(
-        z_trajectory_label("falling"),
-        "overall scores trending down over recent games"
-    );
 }
 
 #[test]
@@ -1457,7 +1450,7 @@ fn a_thin_sample_states_its_boundary_instead_of_describing_it() {
     // The manual says what the boundary forbids, in the same terms the guard
     // enforces. A limit in the world that the manual does not describe is a
     // limit the model will talk past.
-    let manual = crate::plugins::scout::cognition::prompt::TASK
+    let manual = crate::plugins::scout::prompt::TASK
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ");
@@ -1658,7 +1651,7 @@ fn assignment() -> Assignment {
         input_hash: "prepared-hash".to_string(),
         exclusions: RatingExclusions::default(),
         opts: GenerateOptions {
-            system: Some(crate::plugins::scout::cognition::prompt::TASK.to_string()),
+            system: Some(crate::plugins::scout::prompt::TASK.to_string()),
             temperature: Some(RATING_TEMPERATURE),
             num_predict: RATING_NUM_PREDICT,
             num_ctx: 4096,
@@ -1674,8 +1667,8 @@ fn assignment() -> Assignment {
 /// The world behind [`assignment`].
 ///
 /// A small world with an elite, source-selected measurement.
-fn scout_parts() -> crate::plugins::scout::cognition::parts::Parts {
-    crate::plugins::scout::cognition::parts::Parts {
+fn scout_parts() -> crate::plugins::scout::prompt::Parts {
+    crate::plugins::scout::prompt::Parts {
         subject: crate::plugins::meta::EntityMeta {
             name: "Vale Kerr".into(),
             entity_type: "player".into(),
@@ -1684,10 +1677,10 @@ fn scout_parts() -> crate::plugins::scout::cognition::parts::Parts {
         },
         sport_name: "Basketball".into(),
         season: 2026,
-        profile: crate::plugins::scout::cognition::parts::Profile {
+        profile: crate::plugins::scout::performance::Profile {
             season: 2026,
             sample: BTreeMap::new(),
-            values: vec![crate::plugins::scout::cognition::parts::MeasuredValue {
+            values: vec![crate::plugins::scout::performance::MeasuredValue {
                 label: "Blocks Per Game".into(),
                 measure: "blocks_per_game".into(),
                 value: None,

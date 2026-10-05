@@ -9,10 +9,7 @@ use anyhow::Result;
 use serde::{Deserialize, Deserializer};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-pub use prompt::RATING_PROMPT_VERSION;
-
-pub mod parts;
-pub mod prompt;
+pub use crate::plugins::scout::prompt::RATING_PROMPT_VERSION;
 
 /// Scout supplies the title and enforces a 1,200-character body ceiling.
 /// There is no per-paragraph ceiling.
@@ -191,16 +188,6 @@ pub struct RatingTrajectory {
     pub key: String,
     pub label: Option<String>,
     pub components: serde_json::Value,
-}
-
-impl RatingTrajectory {
-    fn steady(reason: &str) -> Self {
-        Self {
-            key: "steady".to_string(),
-            label: None,
-            components: serde_json::json!({ "reason": reason }),
-        }
-    }
 }
 
 #[derive(Clone, Debug, Default)]
@@ -650,124 +637,6 @@ fn clamp_f(lo: f64, hi: f64, v: f64) -> f64 {
         hi
     } else {
         v
-    }
-}
-
-/// linear_slope — mean-centered OLS slope over [0..N-1] → values.
-///
-/// DO NOT merge with `sigil::linear_slope` — different accumulation order (this mean-centered
-/// form vs sigil's sum form), mathematically equivalent but not FP-bit-identical. See plan A6 /
-/// E3: this slope's `round1`'d output feeds rating's `input_components` JSON → the `input_hash`
-/// debounce, so a changed accumulation could flip boundary values and cause spurious regens.
-fn linear_slope(vals: &[f64]) -> f64 {
-    let n = vals.len();
-    if n < 2 {
-        return 0.0;
-    }
-    let n_f = n as f64;
-    let mean_x = (n_f - 1.0) / 2.0;
-    let mean_y = vals.iter().sum::<f64>() / n_f;
-    let mut num = 0.0;
-    let mut den = 0.0;
-    for (i, y) in vals.iter().enumerate() {
-        let dx = i as f64 - mean_x;
-        num += dx * (y - mean_y);
-        den += dx * dx;
-    }
-    if den.abs() < 1e-9 {
-        0.0
-    } else {
-        num / den
-    }
-}
-
-fn trajectory_key(slope: f64) -> &'static str {
-    if slope > 0.25 {
-        "rising"
-    } else if slope < -0.25 {
-        "falling"
-    } else {
-        "steady"
-    }
-}
-
-/// User-facing trajectory label shared by Scout and Analyst prompts.
-fn z_trajectory_label(key: &str) -> String {
-    match key {
-        "rising" => "overall scores trending up over recent games".to_string(),
-        "falling" => "overall scores trending down over recent games".to_string(),
-        _ => "overall scores holding steady over recent games".to_string(),
-    }
-}
-
-fn rounded_series(vals: &[f64]) -> Vec<f64> {
-    vals.iter().copied().map(round1).collect()
-}
-
-/// Fraction of scored events in the trajectory window, clamped to the minimum sample size and a
-/// recent upper bound.
-const TRAJECTORY_WINDOW_PCT: f64 = 0.10;
-const TRAJECTORY_WINDOW_MIN: i64 = 3;
-const TRAJECTORY_WINDOW_MAX: i64 = 16;
-
-pub(crate) fn trajectory_window_size(events_played: i64) -> i64 {
-    if events_played < TRAJECTORY_WINDOW_MIN {
-        0
-    } else {
-        ((events_played as f64 * TRAJECTORY_WINDOW_PCT).round() as i64)
-            .clamp(TRAJECTORY_WINDOW_MIN, TRAJECTORY_WINDOW_MAX)
-    }
-}
-
-/// Build the recent-form material from newest-first event ratings loaded by the application.
-pub(crate) fn rating_trajectory_from_events(
-    events_played: i64,
-    composite_desc: Vec<f64>,
-) -> RatingTrajectory {
-    if events_played < TRAJECTORY_WINDOW_MIN {
-        let mut out = RatingTrajectory::steady("sparse_recent_events");
-        out.components = serde_json::json!({
-            "reason": "sparse_recent_events",
-            "events_played": events_played,
-            "window_pct": TRAJECTORY_WINDOW_PCT,
-            "source": "event_rating_z_scores",
-            "metrics": ["rating"],
-        });
-        return out;
-    }
-    let window_size = trajectory_window_size(events_played);
-    if composite_desc.len() < TRAJECTORY_WINDOW_MIN as usize {
-        let mut out = RatingTrajectory::steady("sparse_z_score_events");
-        out.components = serde_json::json!({
-            "reason": "sparse_z_score_events",
-            "events_played": events_played,
-            "window_pct": TRAJECTORY_WINDOW_PCT,
-            "window_size": window_size,
-            "sample_size": composite_desc.len(),
-            "source": "event_rating_z_scores",
-            "metrics": ["rating"],
-        });
-        return out;
-    }
-    let mut composite_chrono = composite_desc.clone();
-    composite_chrono.reverse();
-    let composite_slope = linear_slope(&composite_chrono);
-    let key = trajectory_key(composite_slope).to_string();
-    let label = Some(z_trajectory_label(&key));
-    RatingTrajectory {
-        key,
-        label,
-        components: serde_json::json!({
-            "source": "event_rating_z_scores",
-            "metrics": ["rating"],
-            "events_played": events_played,
-            "window_pct": TRAJECTORY_WINDOW_PCT,
-            "window_size": window_size,
-            "sample_size": composite_desc.len(),
-            "rating_z_slope": round1(composite_slope),
-            "latest_rating_z": composite_desc.first().copied().map(round1),
-            "recent_rating_z": rounded_series(&composite_desc),
-        }),
     }
 }
 
@@ -1358,7 +1227,7 @@ pub struct Assignment {
     pub built_prompt: String,
     /// The same world, unrendered, so the manual, the response schema and the
     /// package are derived from one source rather than three.
-    pub parts: parts::Parts,
+    pub parts: crate::plugins::scout::prompt::Parts,
 }
 
 /// The un-persisted result of one Scout creation.
@@ -1441,7 +1310,7 @@ pub async fn create(studio: &Studio<'_>, assignment: Assignment) -> Result<Ratin
             &assignment.built_prompt,
             &assignment.opts,
             &RatingRequestParser::new(&assignment.built_prompt, &directions, &bands),
-            prompt::correction,
+            crate::plugins::scout::prompt::correction,
         )
         .await?;
     let call = GenerationCall::from(&extracted);

@@ -26,7 +26,7 @@ WITH candidates AS (
   AND (cardinality($8::bigint[])=0 OR a.id=ANY($8::bigint[]))
   AND COALESCE(a.source,'')<>'' AND a.title<>''
   AND EXISTS(SELECT 1 FROM surfaces s WHERE s.norm<>'' AND
-  strpos(' '||public.nrm(a.title)||' ')||' '||s.norm||' ')>0)
+  strpos(' '||public.nrm(a.title)||' ', ' '||s.norm||' ')>0)
 )
 SELECT jsonb_build_object('article_id',a.id,'canonical_id',COALESCE(a.duplicate_of,a.id),
   'topic','article/'||COALESCE(a.duplicate_of,a.id)::text,

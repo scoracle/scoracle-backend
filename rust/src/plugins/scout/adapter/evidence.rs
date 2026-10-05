@@ -163,47 +163,167 @@ pub async fn load_rating_trajectory(
     sport: &str,
     profile: &RatingProfile,
 ) -> Result<RatingTrajectory> {
-    let (table, id_col) = match entity_type {
-        "player" => ("event_box_scores", "player_id"),
-        "team" => ("event_team_stats", "team_id"),
-        _ => bail!("unknown entity type {entity_type:?}"),
-    };
-    let count_q = format!(
-        "SELECT COUNT(*) FROM public.{table} e WHERE e.{id_col} = $1 AND e.sport = $2 AND e.season = $3 AND e.rating IS NOT NULL"
-    );
-    let events_played: i64 = sqlx::query_scalar(&count_q)
-        .bind(entity_id)
-        .bind(sport)
-        .bind(profile.season)
-        .fetch_one(pool)
-        .await
-        .with_context(|| format!("count trajectory events {entity_type}/{entity_id}"))?;
-    let window_size = crate::plugins::scout::cognition::trajectory_window_size(events_played);
-    if window_size == 0 {
-        return Ok(
-            crate::plugins::scout::cognition::rating_trajectory_from_events(
-                events_played,
-                Vec::new(),
-            ),
-        );
+    if !matches!(entity_type, "player" | "team") {
+        bail!("unknown entity type {entity_type:?}");
     }
-    let q = format!(
-        r#"SELECT e.rating::float8
-             FROM public.{table} e
-             JOIN public.fixtures f ON f.id = e.fixture_id
-            WHERE e.{id_col} = $1 AND e.sport = $2 AND e.season = $3 AND e.rating IS NOT NULL
-            ORDER BY f.start_time DESC
-            LIMIT $4"#
-    );
-    let ratings = sqlx::query_scalar(&q)
-        .bind(entity_id)
-        .bind(sport)
-        .bind(profile.season)
-        .bind(window_size)
-        .fetch_all(pool)
-        .await
-        .with_context(|| format!("load rating trajectory {entity_type}/{entity_id}"))?;
-    Ok(crate::plugins::scout::cognition::rating_trajectory_from_events(events_played, ratings))
+    // Window, slope and category are computed here so Rust does not keep a second producer.
+    // Archbox, 14 days of unchanged rows: 200/200 matched stored slope, series, window and sample.
+    let row = sqlx::query(
+        r#"
+        WITH counted AS (
+            SELECT (
+                SELECT count(*)::bigint FROM public.event_box_scores e
+                WHERE $4 = 'player' AND e.player_id = $1 AND e.sport = $2 AND e.season = $3
+                  AND e.rating IS NOT NULL
+            ) + (
+                SELECT count(*)::bigint FROM public.event_team_stats e
+                WHERE $4 = 'team' AND e.team_id = $1 AND e.sport = $2 AND e.season = $3
+                  AND e.rating IS NOT NULL
+            ) AS events_played
+        ),
+        windowed AS (
+            SELECT events_played,
+                   CASE WHEN events_played < 3 THEN 0
+                        ELSE least(16, greatest(3, round(events_played::numeric * 0.10)))::int
+                   END AS window_size
+            FROM counted
+        ),
+        newest AS (
+            SELECT COALESCE(array_agg(rating ORDER BY start_time DESC), ARRAY[]::float8[]) AS ratings
+            FROM (
+                SELECT rating, start_time
+                FROM (
+                    SELECT e.rating::float8 AS rating, f.start_time
+                    FROM public.event_box_scores e
+                    JOIN public.fixtures f ON f.id = e.fixture_id
+                    WHERE $4 = 'player' AND e.player_id = $1 AND e.sport = $2 AND e.season = $3
+                      AND e.rating IS NOT NULL
+                      AND (SELECT window_size FROM windowed) > 0
+                    UNION ALL
+                    SELECT e.rating::float8, f.start_time
+                    FROM public.event_team_stats e
+                    JOIN public.fixtures f ON f.id = e.fixture_id
+                    WHERE $4 = 'team' AND e.team_id = $1 AND e.sport = $2 AND e.season = $3
+                      AND e.rating IS NOT NULL
+                      AND (SELECT window_size FROM windowed) > 0
+                ) raw
+                ORDER BY start_time DESC
+                LIMIT (SELECT window_size FROM windowed)
+            ) capped
+        ),
+        sloped AS (
+            SELECT w.events_played,
+                   w.window_size,
+                   COALESCE(cardinality(n.ratings), 0) AS sample_size,
+                   n.ratings,
+                   (
+                     SELECT num / NULLIF(den, 0)
+                     FROM (
+                       SELECT (cardinality(chrono) - 1)::float8 / 2 AS mean_x,
+                              (SELECT avg(y) FROM unnest(chrono) y) AS mean_y,
+                              chrono
+                       FROM (
+                         SELECT array_agg(y ORDER BY ord DESC) AS chrono
+                         FROM unnest(n.ratings) WITH ORDINALITY t(y, ord)
+                       ) c
+                     ) m
+                     CROSS JOIN LATERAL (
+                       SELECT sum(((ord - 1)::float8 - mean_x) * (y - mean_y)) AS num,
+                              sum(((ord - 1)::float8 - mean_x) * ((ord - 1)::float8 - mean_x)) AS den
+                       FROM unnest(m.chrono) WITH ORDINALITY u(y, ord)
+                     ) a
+                   ) AS raw_slope
+            FROM windowed w
+            CROSS JOIN newest n
+        )
+        SELECT events_played,
+               window_size,
+               sample_size,
+               CASE WHEN sample_size < 2 OR raw_slope IS NULL THEN NULL
+                    ELSE (round((raw_slope * 10)::numeric) / 10)::float8
+               END AS slope,
+               COALESCE((
+                 SELECT jsonb_agg(round((y * 10)::numeric) / 10 ORDER BY ord)
+                 FROM unnest(ratings) WITH ORDINALITY t(y, ord)
+               ), '[]'::jsonb)::text AS series,
+               CASE
+                 WHEN events_played < 3 THEN 'sparse_recent_events'
+                 WHEN sample_size < 3 THEN 'sparse_z_score_events'
+                 ELSE NULL
+               END AS reason,
+               CASE
+                 WHEN events_played < 3 OR sample_size < 3 THEN 'steady'
+                 WHEN raw_slope > 0.25 THEN 'rising'
+                 WHEN raw_slope < -0.25 THEN 'falling'
+                 ELSE 'steady'
+               END AS key,
+               CASE
+                 WHEN events_played < 3 OR sample_size < 3 THEN NULL
+                 WHEN raw_slope > 0.25 THEN 'overall scores trending up over recent games'
+                 WHEN raw_slope < -0.25 THEN 'overall scores trending down over recent games'
+                 ELSE 'overall scores holding steady over recent games'
+               END AS label
+        FROM sloped
+        "#,
+    )
+    .bind(entity_id)
+    .bind(sport)
+    .bind(profile.season)
+    .bind(entity_type)
+    .fetch_one(pool)
+    .await
+    .with_context(|| format!("load rating trajectory {entity_type}/{entity_id}"))?;
+
+    let events_played: i64 = row.get(0);
+    let window_size: i32 = row.get(1);
+    let sample_size: i32 = row.get(2);
+    let slope: Option<f64> = row.get(3);
+    let series: String = row.get(4);
+    let reason: Option<String> = row.get(5);
+    let key: String = row.get(6);
+    let label: Option<String> = row.get(7);
+    let recent: serde_json::Value =
+        serde_json::from_str(&series).context("decode trajectory series")?;
+    let components = if let Some(reason) = reason {
+        serde_json::json!({
+            "reason": reason,
+            "events_played": events_played,
+            "window_pct": 0.10,
+            "window_size": window_size,
+            "sample_size": sample_size,
+            "source": "event_rating_z_scores",
+            "metrics": ["rating"],
+        })
+    } else {
+        serde_json::json!({
+            "source": "event_rating_z_scores",
+            "metrics": ["rating"],
+            "events_played": events_played,
+            "window_pct": 0.10,
+            "window_size": window_size,
+            "sample_size": sample_size,
+            "rating_z_slope": slope,
+            "latest_rating_z": recent.as_array().and_then(|rows| rows.first()).cloned(),
+            "recent_rating_z": recent,
+        })
+    };
+    // Sparse paths omit window_size and sample_size when no window was opened.
+    let components = if events_played < 3 {
+        serde_json::json!({
+            "reason": "sparse_recent_events",
+            "events_played": events_played,
+            "window_pct": 0.10,
+            "source": "event_rating_z_scores",
+            "metrics": ["rating"],
+        })
+    } else {
+        components
+    };
+    Ok(RatingTrajectory {
+        key,
+        label,
+        components,
+    })
 }
 
 /// Return the input hash from the entity-season's latest commentary. Take

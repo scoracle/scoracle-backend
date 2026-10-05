@@ -6,7 +6,6 @@
 use crate::application::models::ExecutionCapabilities;
 use crate::application::queue::publication::ClaimPublication;
 use crate::application::queue::work::Item;
-use crate::evidence::memories::{self, MemoryRequest, Mission};
 use crate::plugins::scout::cognition::{
     self as scout, Assignment, RatingBuild, RatingExclusions, RatingOutput, RatingProfile, Subject,
     MAX_STAT_FACTS, RATING_NUM_PREDICT, RATING_OUTPUT_CONTRACT_VERSION, RATING_TEMPERATURE,
@@ -120,15 +119,7 @@ pub async fn build_rating_request(
     temperature: f64,
     with_enrichment: bool,
 ) -> Result<RatingBuild> {
-    build_rating_request_inner(
-        pool,
-        voice_num_ctx,
-        req,
-        temperature,
-        with_enrichment,
-        false,
-    )
-    .await
+    build_rating_request_inner(pool, voice_num_ctx, req, temperature, with_enrichment).await
 }
 
 async fn build_rating_request_inner(
@@ -137,7 +128,6 @@ async fn build_rating_request_inner(
     req: &RatingReq,
     temperature: f64,
     with_enrichment: bool,
-    include_storyline_history: bool,
 ) -> Result<RatingBuild> {
     let Some(mut profile) = evidence::load_rating_profile(
         pool,
@@ -163,18 +153,9 @@ async fn build_rating_request_inner(
     }
 
     let base_components = scout::input_components(&profile);
-    let mut memory_request =
-        MemoryRequest::new(Mission::Scout, &req.entity_type, req.entity_id, &req.sport);
-    memory_request.season = Some(profile.season);
-    memory_request.include_storyline_history = include_storyline_history;
-    let memories = memories::load(pool, memory_request).await?;
+    // Old-season profiles must not inherit present employment or availability.
+    let historical = profile.season != current_season(pool, &req.sport.to_uppercase()).await?;
     let supports_cross_season = scout::supports_cross_season_comparison(&profile);
-    let model_memories = if supports_cross_season {
-        memories.clone()
-    } else {
-        memories.current_snapshot_view()?
-    };
-    let input_components = model_memories.with_input_components(&base_components)?;
     let (notability, notability_components) = scout::compute_notability(&profile);
     let exclusions = RatingExclusions {
         budget_truncated_stat_labels: scout::budget_truncated_stat_labels(&profile.breakdown),
@@ -193,7 +174,7 @@ async fn build_rating_request_inner(
     .await?;
 
     // Keep the adjudicated records for provenance and select attributed memory from them.
-    let (personnel, reported_memory) = if with_enrichment && !memories.historical {
+    let (personnel, reported_memory) = if with_enrichment && !historical {
         let (changes, total) = match crate::evidence::personnel::load_personnel_changes(
             pool,
             &req.sport,
@@ -251,7 +232,7 @@ async fn build_rating_request_inner(
         (serde_json::Value::Null, Vec::new())
     };
 
-    let (current_reports, contested_claims) = if with_enrichment && !memories.historical {
+    let (current_reports, contested_claims) = if with_enrichment && !historical {
         match crate::evidence::personnel::load_scout_reports(
             pool,
             &req.entity_type,
@@ -327,7 +308,7 @@ async fn build_rating_request_inner(
     } else {
         None
     };
-    let mut components: serde_json::Value = serde_json::from_str(&input_components)?;
+    let mut components: serde_json::Value = serde_json::from_str(&base_components)?;
     components["skill_changes"] = serde_json::json!(comparisons);
     components["personnel"] = serde_json::json!(personnel);
     components["current_reports"] = serde_json::json!(current_reports);
@@ -351,7 +332,7 @@ async fn build_rating_request_inner(
         &subject,
         req.entity_id,
         &profile,
-        with_enrichment && !memories.historical,
+        with_enrichment && !historical,
     )
     .await
     {
@@ -374,7 +355,7 @@ async fn build_rating_request_inner(
             )
         }
     };
-    let parts = scout::parts::Parts {
+    let parts = crate::plugins::scout::prompt::Parts {
         subject: crate::plugins::meta::EntityMeta {
             name: subject.entity_name.clone(),
             entity_type: subject.entity_type.clone(),
@@ -383,7 +364,7 @@ async fn build_rating_request_inner(
         },
         sport_name: subject.sport_name.clone(),
         season: profile.season,
-        profile: scout::parts::profile_parts(
+        profile: crate::plugins::scout::performance::profile_parts(
             &prompt_profile,
             supports_cross_season,
             comparisons.as_ref(),

@@ -426,7 +426,7 @@ async fn load_hypothesis_entities(
             continue;
         }
         let context =
-            crate::evidence::memories::load_identity_record(pool, &entity_type, entity_id, sport)
+            crate::plugins::meta::load_identity_record(pool, &entity_type, entity_id, sport)
                 .await?;
         entities.push(format!(
             "{name} ({entity_type} {entity_id})\n{}",

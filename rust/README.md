@@ -33,7 +33,7 @@ Older cutover documents describe three-sentence excerpts, broad forwarding, or a
 
 ## Plugin structure and tool ownership
 
-A plugin owns its `prompt.rs`, `manifest.rs` and execution wiring in `mod.rs`. Each articulation plugin keeps its own small `voice.rs`; plugins without expressive output need none. Shared tools live together; specialized tools live beside their plugin. The prompt entry-point and folder layout are migration targets; current paths and required deletions are recorded in the cleanup plan.
+A plugin owns its `prompt.rs`, `manifest.rs` and execution wiring in `mod.rs`. Each articulation plugin keeps its own small `voice.rs`; plugins without expressive output need none. Shared tools live together; specialized tools live beside their plugin. Scout is on that layout (`prompt.rs`, `performance.rs`). The other plugins' prompt entry points and the remaining folder moves are recorded in the cleanup plan.
 
 | File | Responsibility |
 | --- | --- |
@@ -84,7 +84,7 @@ The target is three production homes: `harness/` for execution infrastructure, `
 - Dissolve `plugins/cognition/`: form types join the shared form tool; classification types belong to Harvester.
 - Dissolve `plugins/support/`: real shared tools join `tools/`; scheduling constants and execution mechanics join the harness.
 - Flatten each plugin's `adapter/` and `cognition/` layers as its recipe moves into `prompt.rs`. Keep real local tools and publication helpers by responsibility.
-- Keep one shared `memories.rs` tool with the SQL and checks it uses. A dedicated memory namespace is optional organization, not a required layer; fold its small statistic adapter into the tool. Remove the legacy `evidence::memories` package after migrating live/evaluation callers and preserving canonical identity reads.
+- Keep one shared `memories.rs` tool with the SQL and checks it uses. A dedicated memory namespace is optional organization, not a required layer; fold its small statistic adapter into the tool. The legacy `evidence::memories` package is gone. Canonical identity reads are `plugins/meta.rs`.
 - Consolidate `studio/`, `application/` and `runtime/` under the harness as their code is simplified. Queue and provider subfolders may remain for substantial concrete mechanisms. Source readers leave `evidence/` for shared or specialized tools.
 
 Entry points, tests, fixtures, evaluation utilities and documentation remain outside this production flow. A deletion is complete only when callers, exports and superseded paths are removed together; retain source integrity and durable execution behavior.
@@ -97,7 +97,7 @@ Attach relationships to the evidence they qualify. Dates, sources, compatible co
 
 Keep parsers, factual guards, source integrity, error handling, claim fencing, partial-progress receipts and atomic publication. Retire obsolete prompt composition, palettes and duplicate evaluation paths with their callers. Model requests, responses and full provenance remain inspectable outside the compact model input.
 
-The Influencer model-directed `read_source` pilot is a historical experiment to retire with its example and evaluation callers. Its [dated evaluation](docs/scout-closure-2026-09-29.md#september-30-read-only-archbox-pilot) remains evidence; it is not the target architecture. The [Journalist replay](docs/HANDOFF-journalist-finish-2026-09-28.md) and [memory studies](docs/journalist-memory-world-2026-09-28.md) record prepared-context behavior and fidelity work.
+The Influencer model-directed `read_source` pilot and its provider tool-chat path are retired. The [dated evaluation](docs/scout-closure-2026-09-29.md#september-30-read-only-archbox-pilot) remains evidence. The [Journalist replay](docs/HANDOFF-journalist-finish-2026-09-28.md) and [memory studies](docs/journalist-memory-world-2026-09-28.md) record prepared-context behavior and fidelity work.
 
 ## Shared memory contract
 

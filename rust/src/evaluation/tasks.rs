@@ -1164,7 +1164,7 @@ impl LensTask for RatingTask {
     }
     /// Rebuild the production request and retain its measurement context for parsing.
     fn assemble(&self, stored_parts: &serde_json::Value) -> Result<Prepared> {
-        let parts: crate::plugins::scout::cognition::parts::Parts =
+        let parts: crate::plugins::scout::prompt::Parts =
             serde_json::from_value(stored_parts.clone())
                 .map_err(|e| anyhow::anyhow!("rating parts: {e}"))?;
         Ok(Prepared {
@@ -1191,7 +1191,7 @@ impl LensTask for RatingTask {
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("Scout evaluation requires parts"))
             .and_then(|p| {
-                serde_json::from_value::<crate::plugins::scout::cognition::parts::Parts>(p.clone())?
+                serde_json::from_value::<crate::plugins::scout::prompt::Parts>(p.clone())?
                     .parse(raw)
             });
         let mut verdict = self.evaluate(raw, label, expect);

@@ -8,6 +8,4 @@ pub mod personnel;
 
 pub mod news;
 
-pub mod memories;
-
 pub mod fetch;

@@ -13,4 +13,4 @@ Seven damaged converted Scout fixtures have been retired from the active suite. 
 
 `eval --capture --task <task> <entity>` emits a current case skeleton. Add expectations and review criteria before keeping it. `--capture-ledger` emits a historical request skeleton; use `--replay-fixtures DIR` for explicit frozen-prompt replay with current provider options. Complete Scout assignment capture/replay uses `--capture-assignment --task rating` (optionally `--season YEAR`) and `--replay-assignment FILE`. Current Scout captures are version 2 and include prepared parts; version-1 captures require recapture. Aligned current-contract fixtures cannot fall back to a bare prompt.
 
-Read-only inspection now lives under `eval --inspect memory`, `reports` and `identity`; run `eval` for arguments.
+Read-only inspection now lives under `eval --inspect reports` and `identity`; run `eval` for arguments.

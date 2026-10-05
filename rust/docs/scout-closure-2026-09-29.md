@@ -593,7 +593,7 @@ that branch was not active in these replays.
 Sources: [Ollama client](../src/runtime/providers/ollama.rs),
 [renderer](../src/plugins/assembly.rs), [Studio loop](../src/studio/session.rs).
 The full literal system instructions and user JSON are retained per request in
-the replay, and in [Scout prompt](../src/plugins/scout/cognition/prompt.rs) and
+the replay, and in [Scout prompt](../src/plugins/scout/prompt.rs) and
 [Influencer prompt](../src/plugins/influencer/cognition/prompt.rs).
 
 The earlier installed-template capture adds knowledge-cutoff/date/reasoning
@@ -718,7 +718,7 @@ are also not presented wholesale. Stored input_components is not the wire input.
 Sources: [adapter](../src/plugins/scout/adapter/mod.rs),
 [profile SQL](../src/plugins/scout/adapter/evidence.rs),
 [selection/parser](../src/plugins/scout/cognition/mod.rs),
-[presentation](../src/plugins/scout/cognition/parts.rs),
+[presentation](../src/plugins/scout/prompt.rs),
 [memory selection](../src/plugins/scout/memories.rs),
 [statistics research](../src/plugins/memories/statistic.rs),
 [reporting branches](../src/evidence/personnel.rs).

@@ -8,7 +8,6 @@ use serde_json::{json, Value};
 
 mod fresh;
 mod prompt;
-pub mod research;
 pub use crate::plugins::support::form::{
     observation_schema as schema, ObservationParser as VibeParser, ObservationReply as VibeReply,
 };

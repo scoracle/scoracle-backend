@@ -278,80 +278,6 @@ impl OllamaClient {
         Ok((Self::decode_response(raw)?, request_body))
     }
 
-    /// Native messages and tool definitions; final-output grammar cannot constrain tool selection.
-    pub async fn chat_with_tools(
-        &self,
-        messages: &[serde_json::Value],
-        tools: &[serde_json::Value],
-        opts: &GenerateOptions,
-    ) -> Result<(GenerateResult, serde_json::Value, serde_json::Value)> {
-        anyhow::ensure!(
-            opts.system.is_none()
-                && (tools.is_empty() || opts.format_schema.is_none())
-                && opts.format_schema_raw.is_none()
-                && !opts.json_mode,
-            "tool chat carries its system message in messages; tool selection has no output grammar"
-        );
-        let mut request = self.request_body("", opts);
-        let mut wire_messages = messages.to_vec();
-        let smollm3_chat = self.model.split(':').next() == Some("alibayram/smollm3")
-            && (!tools.is_empty() || messages.iter().any(|m| m["role"] == "tool"));
-        if smollm3_chat {
-            // This model's embedded Jinja reads xml_tools, not Ollama's tools variable.
-            // Mirror its documented XML tool header in the system turn at the provider boundary.
-            let definitions = tools
-                .iter()
-                .map(|tool| {
-                    tool.get("function")
-                        .context("tool has no function definition")
-                        .map(serde_json::Value::to_string)
-                })
-                .collect::<Result<Vec<_>>>()?
-                .join("\n");
-            let system = wire_messages
-                .first_mut()
-                .filter(|m| m["role"] == "system")
-                .context("SmolLM3 tool chat requires a system turn")?;
-            let original = system["content"]
-                .as_str()
-                .context("system content must be text")?;
-            system["content"] = serde_json::json!(if tools.is_empty() {
-                format!("/system_override\n{original}")
-            } else {
-                format!(
-                    "/system_override\n{original}\n\n### Tools\n\nYou may call one or more functions to assist with the user query.\nYou are provided with function signatures within <tools></tools> XML tags:\n\n<tools>\n{definitions}\n</tools>\n\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\n<tool_call>\n{{\"name\": <function-name>, \"arguments\": <args-json-object>}}\n</tool_call>"
-                )
-            });
-        }
-        request["messages"] = serde_json::json!(wire_messages);
-        request["tools"] = serde_json::json!(tools);
-        let response = self
-            .http
-            .post(format!("{}/api/chat", self.base_url))
-            .json(&request)
-            .send()
-            .await
-            .context("ollama tool chat")?;
-        let status = response.status();
-        let raw = response.text().await.context("read ollama tool response")?;
-        anyhow::ensure!(
-            status.is_success(),
-            "ollama HTTP {}: {}",
-            status.as_u16(),
-            truncate(&raw, 300)
-        );
-        let result = Self::decode_response(raw)?;
-        let mut message = serde_json::from_str::<serde_json::Value>(&result.raw_response_body)?
-            ["message"]
-            .clone();
-        if smollm3_chat && message.get("tool_calls").is_none() {
-            if let Some(call) = smollm3_call(&result.response)? {
-                message["tool_calls"] = serde_json::json!([{"type":"function","function":call}]);
-            }
-        }
-        Ok((result, request, message))
-    }
-
     fn decode_response(raw: String) -> Result<GenerateResult> {
         let parsed: GenerateResponse = serde_json::from_str(&raw)
             .with_context(|| format!("decode ollama response (body={})", truncate(&raw, 200)))?;
@@ -389,24 +315,6 @@ impl OllamaClient {
         }
         Ok(())
     }
-}
-
-/// SmolLM3's published xml_tools wire format. Only a complete standalone call is executable.
-fn smollm3_call(content: &str) -> Result<Option<serde_json::Value>> {
-    let Some(body) = content.trim().strip_prefix("<tool_call>") else {
-        return Ok(None);
-    };
-    let (payload, tail) = body
-        .split_once("</tool_call>")
-        .context("unfinished SmolLM3 tool call")?;
-    anyhow::ensure!(tail.trim().is_empty(), "text after SmolLM3 tool call");
-    let call: serde_json::Value =
-        serde_json::from_str(payload.trim()).context("invalid SmolLM3 tool call JSON")?;
-    anyhow::ensure!(
-        call["name"].is_string() && call["arguments"].is_object(),
-        "invalid SmolLM3 tool call shape"
-    );
-    Ok(Some(call))
 }
 
 /// A syntactically parseable prefix is not a completed answer. Check the provider's
@@ -487,23 +395,5 @@ mod completion_tests {
             other_model["messages"][0]["content"],
             "Articulate the package."
         );
-    }
-
-    #[test]
-    fn smollm3_only_accepts_complete_xml_tool_calls() {
-        assert_eq!(
-            smollm3_call("\n<tool_call>{\"name\":\"read_source\",\"arguments\":{}}</tool_call>\n")
-                .unwrap()
-                .unwrap(),
-            serde_json::json!({"name":"read_source","arguments":{}})
-        );
-        assert!(smollm3_call("The answer is ready.").unwrap().is_none());
-        for invalid in [
-            "<tool_call>{\"name\":\"read_source\",\"arguments\":{}}",
-            "<tool_call>{\"name\":\"read_source\",\"arguments\":{}}</tool_call> extra",
-            "<tool_call>{\"name\":\"read_source\",\"arguments\":null}</tool_call>",
-        ] {
-            assert!(smollm3_call(invalid).is_err());
-        }
     }
 }

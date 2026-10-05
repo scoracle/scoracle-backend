@@ -225,8 +225,7 @@ pub(crate) async fn execute_with_backend(
             season: Some(season),
         };
         if let RatingBuild::Ready(mut assignment) =
-            build_rating_request_inner(pool, voice_num_ctx, &req, RATING_TEMPERATURE, false, false)
-                .await?
+            build_rating_request_inner(pool, voice_num_ctx, &req, RATING_TEMPERATURE, false).await?
         {
             let mut components: serde_json::Value =
                 serde_json::from_str(&assignment.input_components)?;

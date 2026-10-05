@@ -21,7 +21,35 @@ pub async fn load_for_character(
     sport: &str,
 ) -> Result<Vec<SourceContext>> {
     let mut connection = pool.acquire().await?;
-    load_on(&mut connection, plugin_id, entity_type, entity_id, sport).await
+    load_on(
+        &mut connection,
+        plugin_id,
+        entity_type,
+        entity_id,
+        sport,
+        false,
+    )
+    .await
+}
+
+/// A named Insider subject can use the source receipt even after the query-team
+/// assignment has finished. Its own pending mention is the work obligation.
+pub async fn load_for_insider_subject(
+    pool: &PgPool,
+    entity_type: &str,
+    entity_id: i32,
+    sport: &str,
+) -> Result<Vec<SourceContext>> {
+    let mut connection = pool.acquire().await?;
+    load_on(
+        &mut connection,
+        crate::plugins::insider::manifest::MANIFEST.id.as_str(),
+        entity_type,
+        entity_id,
+        sport,
+        true,
+    )
+    .await
 }
 
 async fn load_on(
@@ -30,6 +58,7 @@ async fn load_on(
     entity_type: &str,
     entity_id: i32,
     sport: &str,
+    insider_subject: bool,
 ) -> Result<Vec<SourceContext>> {
     let rows = sqlx::query(
         "SELECT DISTINCT ON (c.article_id) c.id AS classification_id, c.article_id, \
@@ -41,8 +70,12 @@ async fn load_on(
          FROM public.harvester_classifications c \
          JOIN public.harvester_assignments d ON d.classification_id=c.id \
          JOIN public.news_articles a ON a.id=c.article_id \
-         WHERE d.plugin_id=$1 AND d.status='pending' AND d.reason IS DISTINCT FROM $5 \
-           AND c.entity_type=$2 AND c.entity_id=$3 AND c.sport=$4 \
+         WHERE d.plugin_id=$1 AND d.reason IS DISTINCT FROM $5 AND c.sport=$4 \
+           AND ((d.status='pending' AND c.entity_type=$2 AND c.entity_id=$3) \
+             OR ($6 AND EXISTS ( \
+               SELECT 1 FROM public.harvester_insider_pairs p \
+                WHERE p.classification_id=c.id AND p.subject_type=$2 \
+                  AND p.subject_id=$3 AND p.status='pending'))) \
          ORDER BY c.article_id, c.created_at DESC, c.id DESC",
     )
     .bind(plugin_id)
@@ -50,6 +83,7 @@ async fn load_on(
     .bind(entity_id)
     .bind(sport)
     .bind(super::adapter::DELIVERY_HELD_REASON)
+    .bind(insider_subject)
     .fetch_all(connection)
     .await?;
     let mut sources = Vec::with_capacity(rows.len());
@@ -121,6 +155,37 @@ pub async fn validate_for_publication(
     sport: &str,
     sources: &[SourceContext],
 ) -> Result<()> {
+    validate_on(tx, plugin_id, entity_type, entity_id, sport, sources, false).await
+}
+
+pub async fn validate_insider_subject_for_publication(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    entity_type: &str,
+    entity_id: i32,
+    sport: &str,
+    sources: &[SourceContext],
+) -> Result<()> {
+    validate_on(
+        tx,
+        crate::plugins::insider::manifest::MANIFEST.id.as_str(),
+        entity_type,
+        entity_id,
+        sport,
+        sources,
+        true,
+    )
+    .await
+}
+
+async fn validate_on(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    plugin_id: &str,
+    entity_type: &str,
+    entity_id: i32,
+    sport: &str,
+    sources: &[SourceContext],
+    insider_subject: bool,
+) -> Result<()> {
     if sources.is_empty() {
         return Ok(());
     }
@@ -135,7 +200,15 @@ pub async fn validate_for_publication(
     .bind(plugin_id)
     .fetch_all(&mut **tx)
     .await?;
-    let current = load_on(&mut **tx, plugin_id, entity_type, entity_id, sport).await?;
+    let current = load_on(
+        &mut **tx,
+        plugin_id,
+        entity_type,
+        entity_id,
+        sport,
+        insider_subject,
+    )
+    .await?;
     for source in sources {
         ensure!(
             current.iter().any(|s| s == source),

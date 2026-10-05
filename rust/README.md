@@ -2,9 +2,9 @@
 
 **Everything is a plugin.** The harness determines runnable work → the plugin supplies data, relationships and instructions → its cognition model performs the job → the plugin validates and publishes.
 
-Plugins retrieve and assemble relevant DB evidence, retain provenance and compute supported measurements. They do not prewrite the interpretation or prescribe a conclusion. Cognition synthesizes the supplied world within its factual boundaries. Harvester is a peer plugin using Laya, a System 1 model; System 1 is not a separate architectural layer.
+Plugins retrieve and assemble relevant DB evidence, retain provenance and compute supported measurements. They do not prewrite the interpretation or prescribe a conclusion. Cognition synthesizes the supplied world within its factual boundaries. Harvester is a peer plugin using a System 1 model, currently Laya; System 1 is not a separate architectural layer.
 
-The [plugin alignment plan](docs/PLAN-plugin-alignment-2026-09-27.md) is the current design authority. It separates implementation, checks, product verification and deployment. S5 remains open; Insider has not begun.
+The [plugin alignment plan](docs/PLAN-plugin-alignment-2026-09-27.md) is the current design authority. It separates implementation, checks, product verification and deployment. Local six-part migrations for Insider, Analyst and Oracle still need database and product replay before release.
 
 ## Ownership
 
@@ -19,15 +19,15 @@ Harvester replaces the legacy Editor's article-summarization role with source ac
 
 The current checked-in worker follows this path:
 
-1. Retain Google candidate provenance, query entity, headline, and publisher identity. Shared `plugins/meta.rs` supplies canonical name, entity ID, type and sport. Laya scores explicit headline reference to that supplied identity before publisher acquisition.
+1. Retain Google candidate provenance, query entity, headline, and publisher identity. Shared `plugins/meta.rs` supplies canonical name, entity ID, type and sport. The System 1 model scores explicit headline reference to that supplied identity before publisher acquisition.
 2. Apply Harvester's reading policy. Fetch or reuse usable publisher text only when at least one query entity passes. Acquisition failures remain acquisition outcomes, not negative relevance judgments.
 3. Select the publisher's first three available paragraphs verbatim, with body hash and UTF-8 byte offsets. Score every retained non-whitespace character through windows of at most 100 words and 1,200 bytes. Openings requiring more than eight windows fail visibly.
-4. Laya returns seven native scalar predicate scores. Harvester aggregates support across windows and applies its route table to select Journalist, Influencer, Insider and Scout. Source evidence stays separate from subject metadata; no model-selected destination or generated summary is accepted.
+4. The System 1 model returns seven scalar predicate scores. Harvester aggregates support across windows and applies its route table to select Journalist, Influencer, Insider and Scout. Source evidence stays separate from subject metadata; no model-selected destination or generated summary is accepted.
 5. Persist exact source context, scores, window coverage and versioned policy under the queue claim. The harness dispatches approved destinations subject to shadow mode and character enrollment. Receiving plugins own product sufficiency and articulation.
 
 The current local contract is `harvest-context-v7`, with `harvest-headline-v3` gates. Reading uses a **0.25** threshold; theme predicates use **0.50**, except performance at **0.70**. These are provisional development policy values, not calibrated accuracy claims. See the [v7 frame and evaluation](docs/harvester-frame-2026-09-27.md) and [source boundary](docs/harvester-plugin-boundary-2026-09-27.md). Google descriptions do not substitute for publisher text. “Verbatim” refers to retained extracted text, not raw HTML.
 
-Harvester has one worker/replay path. The historical packet compiler, choice-response parsing and teacher fields are removed. The [cleanup pass](docs/harvester-cleanup-2026-09-27.md) records other retired tools. Shared subject metadata is available to the other plugins; Harvester's accepted v7 behavior predates the six-part cleanup; the target module layout is not yet fully implemented. The user accepts the current 90/96 development result for now. [Further calibration is deferred](docs/harvester-calibration-follow-up-2026-09-27.md) until experience warrants it; operational deployment remains separate.
+Harvester has one worker/replay path. The historical packet compiler, choice-response parsing and teacher fields are removed. The [cleanup pass](docs/harvester-cleanup-2026-09-27.md) records other retired tools. Shared subject metadata is available to the other plugins; Harvester's accepted v7 behavior predates the six-part cleanup; the target module layout is not yet fully implemented. A [local Laya/Fastino comparison](docs/harvester-systemone-comparison-2026-10-01.md) retained Laya and the current policy pending fresh reviewed calibration; operational deployment remains separate.
 
 Older cutover documents describe three-sentence excerpts, broad forwarding, or advisory-only relevance. Those descriptions are historical and do not describe this worker contract. Deployment reports are also dated evidence: verify the actual host revision, migrations, flags, and worker state before claiming the checked-in behavior is live. This README update does not deploy code or release character delivery.
 
@@ -50,7 +50,7 @@ The base toolkit organizes these six responsibilities; it does not eagerly assem
 | `form.rs` | Output structure: fields, types, paragraph structure, dimensions, serialization and structural decoding. It does not prescribe a main finding, significance, supporting detail or story. |
 | `prompt.rs` | How the supplied elements relate and what the model should do with them. One concrete task, with factual boundaries and supported partial/unknown outcomes. |
 
-**Harvester uses only `meta.rs`, `fresh.rs`, `form.rs` and `prompt.rs`.** Its form is the bounded classification output; its prompt defines Laya's task over the subject and fresh source evidence. It does not need voice or memories. The same six-part vocabulary applies to other plugins without requiring six files, six model calls or empty placeholder parts.
+**Harvester uses only `meta.rs`, `fresh.rs`, `form.rs` and `prompt.rs`.** Its form is the bounded classification output; its prompt defines the System 1 task over the subject and fresh source evidence. It does not need voice or memories. The same six-part vocabulary applies to other plugins without requiring six files, six model calls or empty placeholder parts.
 
 The model receives minimal initial context and instructions, then evidence through its selected tools. Rust filenames and implementation commentary are not model input. Keep evidence and writing controls distinguishable in the request. Attach relationships to the data they qualify: a correction identifies its claim, a comparison identifies its compatible measurements, and a publication date remains distinct from an event date. `prompt.rs` explains those relationships without asking the model to reconstruct missing joins or invent a story. Cognition retains synthesis and expression; the plugin does not prewrite its conclusion.
 
@@ -62,7 +62,9 @@ The six parts organize the model input; they are not the complete list of availa
 
 This is a base toolkit, built by consolidating working capabilities and filling demonstrated gaps. Use the existing plugin boundary and capability grants. No new toolkit registry, universal assembler, plugin DSL or compatibility framework is needed. Shared tools supply mechanisms; they do not inject writing policy. Model-callable tools are exposed only when the owning operation needs them; DB preparation can use ordinary functions directly.
 
-The first read-only Influencer pilot is `cargo run --example influencer_tools -- SPORT team ID MODEL` with `DATABASE_PRIVATE_URL` or `DATABASE_URL` and optional `OLLAMA_BASE_URL`. It starts with identity and instructions, exposes only `read_source`, reuses verified Harvester delivery on invocation, and requires a native tool call before accepting any answer. It never publishes. Native Ollama conversation transport and the shared GPU governor support this path; other backends fail explicitly until implemented. The installed SmolLM3 template currently drops native tool schemas, so the pilot is **not yet an accepted end-to-end replacement**. See [tool pilot status](docs/scout-closure-2026-09-29.md#september-30-first-model-directed-tool-slice).
+The first read-only Influencer pilot is `cargo run --example influencer_tools -- SPORT team ID MODEL` with `DATABASE_PRIVATE_URL` or `DATABASE_URL` and optional `OLLAMA_BASE_URL`. It starts with identity and instructions, exposes only `read_source`, reuses verified Harvester delivery on invocation, and requires a validated tool call before accepting any answer. It never publishes. Native Ollama conversation transport and the shared GPU governor support this path; other backends fail explicitly until implemented. The provider adapts the installed SmolLM3 template's documented XML tool format; SmolLM3 still skipped the read in the live pilot. Granite 3B completed the live unavailable-data loop, but no eligible fresh source existed for an available-evidence test, so **end-to-end replacement remains unaccepted**. See [tool pilot status](docs/scout-closure-2026-09-29.md#september-30-read-only-archbox-pilot).
+
+The acquisition choice is now under [matched comparison](docs/scout-closure-2026-09-29.md#september-30-acquisition-cost-and-garbled-output-diagnosis). For one mandatory source read, lean plugin preparation used fewer model calls and input tokens than native calling; neither route passed product review. The six responsibilities apply to either route. Native tool selection still needs to demonstrate a benefit from choosing or avoiding reads.
 
 ### Remove legacy instruction paths
 

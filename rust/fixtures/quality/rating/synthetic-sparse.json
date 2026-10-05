@@ -1,7 +1,7 @@
 {
   "name": "synthetic-sparse",
   "task": "rating",
-  "prompt_version": "s64",
+  "prompt_version": "s65-six-part",
   "parts": {
     "memory": {},
     "profile": {
@@ -46,7 +46,7 @@
       "sport": "NBA"
     }
   },
-  "user_prompt": "{\"identity\":{\"name\":\"Cedar Comets\",\"entity_type\":\"team\",\"sport\":\"basketball\"},\"fresh\":{\"season\":2026,\"observed_at\":\"2026-09-29\",\"sport_name\":\"Basketball\",\"sample\":{\"Games Played\":3.0},\"values\":[{\"label\":\"Rebounds\",\"measure\":\"rebounds per game\",\"value\":48.0,\"percentile\":90.0,\"cohort\":30.0,\"band\":\"elite\"},{\"label\":\"Assists\",\"measure\":\"assists per game\",\"value\":23.0,\"percentile\":75.0,\"cohort\":30.0,\"band\":\"strong\"}],\"composite\":null,\"supports_cross_season\":false,\"limit\":{\"kind\":\"thin_sample\",\"appearances\":3.0,\"minimum\":10.0}},\"memory\":{},\"rate_standouts\":[],\"trend\":null,\"voice\":\"Observant, direct, specific to the sport and restrained.\",\"form\":{\"keys\":[\"body\"],\"max_chars\":1200,\"paragraph_max_chars\":null}}",
+  "user_prompt": "{\"meta\":{\"name\":\"Cedar Comets\",\"entity_type\":\"team\",\"sport\":\"Basketball\"},\"fresh\":{\"season\":2026,\"sample\":{\"Games Played\":3.0},\"values\":[{\"label\":\"Rebounds\",\"measure\":\"rebounds per game\",\"value\":48.0,\"percentile\":90.0,\"cohort\":30.0,\"band\":\"elite\"},{\"label\":\"Assists\",\"measure\":\"assists per game\",\"value\":23.0,\"percentile\":75.0,\"cohort\":30.0,\"band\":\"strong\"}],\"supports_cross_season\":false,\"limit\":{\"kind\":\"thin_sample\",\"appearances\":3.0,\"minimum\":10.0}},\"voice\":\"Observant, direct, specific to the sport and restrained.\",\"form\":{\"keys\":[\"body\"],\"max_chars\":1200}}",
   "temperature": 0,
   "expect": {},
   "review": [

@@ -1,15 +1,15 @@
 //! The articulation manual. Each input keeps its own owner; this module names only
 //! the pieces present in this stateless assignment and explains how they fit.
 pub(super) const FRESH_TASK: &str =
-    "Articulate each fresh item in its matching report_key, with its supplied voice.";
+    "Articulate each fresh item in its matching report_key, with the supplied voice and form.";
 
 const HISTORY_TASK: &str = "The input is an articulation package.
-identity identifies the entity.
+meta identifies the entity.
 fresh is the new source-backed reporting; each item has its output report_key.
-a fresh item may carry history: the source-backed reporting from before it that the plugin determined belongs to it.
+memories contains earlier source-backed reporting explicitly attached to a fresh item by report_key.
 voice describes how to articulate it.
 form describes the output structure.
-Articulate each fresh item in its matching report_key, using the history supplied with it where present. A report with no history is articulated from its fresh item alone. Add no history and no claim that is not supplied.";
+Articulate each fresh item in its matching report_key, using its attached memories where present. A report with no attached memories is articulated from its fresh item alone. Add no history and no claim that is not supplied.";
 
 /// The manual for a prepared package. `has_history` is whether any report
 /// carries history; the same text serves the mixed case, because it describes

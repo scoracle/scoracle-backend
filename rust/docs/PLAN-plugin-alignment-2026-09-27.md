@@ -16,11 +16,10 @@ outputs just as the other plugins own theirs. Laya returns scores for Harvester'
 bounded classification job; character LLMs return articulation. Both are model
 operations owned by their plugin.
 
-Planning date: September 27, 2026. Revised September 29, 2026 after the Ponytail
-audit and the user's clarification above; the September 30 S5 investigation
-records the user's further clarification of data, relationships and tone. The
-September 30 six-part/base-toolkit revision below supersedes the earlier flexible
-file-role sketch and governs the remaining cleanup.
+Planning date: September 27, 2026. Revised through October 4, 2026 after the
+Ponytail audit, the S5 investigation, the six-part context decision, and the local
+Insider, Analyst and Oracle migrations. The September 30 six-part/base-toolkit
+revision below supersedes the earlier flexible file-role sketch.
 This direction supersedes the earlier
 “System 1 filters → plugins frame” shorthand, which incorrectly suggested that
 System 1 sat outside the plugins.
@@ -154,13 +153,41 @@ assembled into one world. The application executes scoped reads; the model choos
 when to use the tools. Reuse existing SQL/DuckDB work without adding a registry or
 DSL. Unused parts remain absent.
 
+**Confirmed character-plugin context standard:** model-facing JSON contains only
+`meta`, `fresh`, `memories`, `voice` and `form`, with unused parts omitted;
+`prompt.rs` supplies the sixth responsibility as the system instruction. Keep
+provenance and internal bookkeeping outside the model package. Before adding any
+new content to a character plugin's context package, show the user the exact
+proposed contents and obtain confirmation. This applies to later migrations too.
+The local Insider, Analyst and Oracle requests now follow this shape. Their
+database and product replays remain open; a JSON wrapper around an old flat
+prompt or palette does not satisfy the standard.
+
 The [input-path audit](scout-closure-2026-09-29.md#september-30-input-path-audit-and-tool-access-reconsideration)
 records the legacy request contents and synthetic replay limitations. The first
 [read-only Influencer tool slice](scout-closure-2026-09-29.md#september-30-first-model-directed-tool-slice)
-adds native tool-chat transport and one scoped source read. Its production cutover
-is gated on working model/template transport and a real database-backed transcript;
+adds native tool-chat transport and one scoped source read. A provider-level SmolLM3
+XML adapter now makes the schema visible and preserves call/result history in the
+active runner; the pilot-shaped model probe still answered without calling the
+tool. A read-only Archbox pilot now confirms the unavailable-data round trip with
+Granite 3B; SmolLM3 remains unable to make a valid first read in this pilot.
+Granite also called the tool and received verified PostgreSQL excerpts in two
+historical used-source replays, but neither final answer passed product review.
+Those replays bypass fresh-source eligibility. Production cutover is gated on an
+eligible available-source database-backed transcript and factual review;
 the existing workers remain on their prior path until then. Subsequent cleanup
 must remove that superseded path when the replacement is verified.
+
+**September 30 acquisition comparison:** the user is evaluating native calling
+against a plugin-performed DB read. The
+[matched Granite comparison](scout-closure-2026-09-29.md#september-30-acquisition-cost-and-garbled-output-diagnosis)
+uses identical historical evidence in both routes. For this mandatory single read,
+native calling adds a median 1.19-second decision call and 2.36 times the input
+tokens in matched evidence-received pairs, with no product-quality improvement.
+Both routes still fail factual/form review. Keep lean plugin preparation as the
+lower-cost control; native calling must demonstrate useful query selection or
+avoided reads before it becomes an efficiency requirement. No worker cutover is
+authorized by these historical replays, and adaptive DuckDB research is unmeasured.
 
 | Part | Responsibility |
 | --- | --- |
@@ -286,22 +313,24 @@ and relevant source/evidence; follow every live caller before editing.
 
 | Window | Plugin / task | Current status and remaining work |
 | --- | --- | --- |
-| 0 | Base toolkit | Model-directed database tools adopted. Native Ollama conversation transport and a scoped read-only Influencer source pilot implemented. Template/protocol and live DB validation remain before cutover. Reuse existing reads and DuckDB studies; no new framework. |
-| 1 | Harvester / `harvester` | V7 behavior accepted at 90/96 synthetic development routes; calibration deferred. Operational release remains separate. |
-| 2 | Journalist / `narratives` | n94 deployed at `573d6a8e`. Nested-history n95 / `narratives-v11-nested-history` landed and replayed locally, unreleased. Prepared live evaluation and request-local parsing repaired. |
-| 3 | Influencer / `vibe` | v5 moves tone to `voice.rs`, removes editorial demands from shared form and simplifies the evidence task. Local and undeployed; read-only `read_source` tool pilot added, native model/DB verification remains open. |
-| 4 | Scout / `rating` | s64 moves tone to `voice.rs` and removes the conflicting instruction against repeating stat lines. S1–S4 and S5 plumbing deletion remain implemented; product fidelity and the remaining six-part migration stay open. Undeployed. |
-| 5 | Insider / `transfers` | Next plugin after Scout closure; relationship policy, pair memory, identity obligations and articulation migration. |
-| 6 | Analyst / `momentum` | Current production sends a palette; align actual selection and synthesis, including partial inputs. |
-| 7 | Oracle / `sigil` | Current production sends a palette; align five-product synthesis and evidence/readiness policy. |
+| 0 | Base toolkit | Model-directed database tools adopted. Native Ollama conversation transport and a scoped read-only Influencer source pilot implemented. SmolLM3 template framing and exact XML normalization are verified, but it skipped the read in the live pilot. Granite 3B completed a read-only Archbox unavailable-data round trip with a null body. It also called the tool in two historical used-source replays, but neither final answer passed product review. No eligible fresh Influencer source existed for an available-evidence pilot. That test and factual review remain before cutover. Reuse existing reads and DuckDB studies; no new framework. |
+| 1 | Harvester / `harvester` | V7 behavior accepted at 90/96 synthetic development routes; calibration deferred. An October 1 local Laya/Fastino comparison retained Laya and the current policy. Transfer-positive delivery now fans out by normalized co-mentioned entity name. Database smoke remains open. Operational release remains separate. |
+| 2 | Journalist / `narratives` | n94 deployed at `573d6a8e`. Local n96 uses the confirmed six-part context, with memories attached by `report_key`; unreleased and not product replayed. Prepared live evaluation and request-local parsing repaired. |
+| 3 | Influencer / `vibe` | Local v6 uses the confirmed six-part context and structural form. Undeployed; read-only `read_source` tool pilot added. Eligible available-source and factual review remain open. |
+| 4 | Scout / `rating` | Local s65 uses the confirmed six-part context and removes redundant context fields. S1–S4 and S5 plumbing deletion remain implemented; a one-case SmolLM3 replay of `synthetic-strong` was rejected after it called held assists a decline and invented strategy/future success. Product fidelity remains open. Undeployed. |
+| 5 | Insider / `transfers` | Local one-call-per-entity path uses verified Harvester reports, normalized co-mentions, selected reporting memory and measured source records. The response contains a reading plus source-linked reported or denied findings. Old pair, identity and wrap model paths are deleted. Database smoke and product replay remain before release. |
+| 6 | Analyst / `momentum` | Local six-part source package and one synthesis call replace the palette; database and product replay remain. |
+| 7 | Oracle / `sigil` | Local six-part reading takes the five finished cards, without `memories.rs`; database and product replay remain. |
 | 8 | Investigator / `investigate_entity`, `factsweep` | Canonical evidence gate; generative factual authority remains to be removed or explicitly blocked. |
 | 9 | Fixture Boxscore / `fixture_boxscore` | Deterministic acquisition audit; do not build unrequested future parser capabilities. |
 | 10 | Graph / `graph` | Evidence extraction boundary and final Editor/legacy retirement; preserve Journalist's grouping dependency. |
 
-Statuses above combine retained handoff evidence with the September 29 code audit;
-this revision did not re-verify production deployments. The audit ran
-`cargo test --offline --lib`: 558 passed, 73 ignored. That is a library-only result,
-not a replacement claim for earlier all-target totals, DB checks or model replays.
+Statuses above combine retained handoff evidence with local code and test checks;
+this revision did not re-verify production deployments. The September 29 audit ran
+`cargo test --offline --lib` (558 passed, 73 ignored). After the October 4 local
+migrations, `cargo test --offline --all-targets --quiet` passed (466 library tests
+passed, 62 ignored, plus other target tests). The Influencer comparison protocol
+test also passed. These checks do not replace database smoke or model/product replay.
 
 ## Window 4 — Scout closure before Insider
 
@@ -431,90 +460,70 @@ claim completion merely to make a mechanical gate green. Preserve Journalist's
 accepted prose design and Harvester's accepted calibration.
 
 **Exit:** useful, faithful articulation on representative prepared worlds, in
-addition to the passing mechanics. Until then Window 4 is open and Insider's
-implementation does not begin. Code, tests, product replay and deployment remain
+addition to the passing mechanics. Window 4 remains open while the user-directed
+later plugin implementations proceed. Code, tests, product replay and deployment remain
 separate statuses; nothing in this closure deploys a plugin.
 
 ## Window 5 — Insider
 
-**Purpose:** articulate sourced relationship states without upgrading rumors into
-facts. Start with `insider/adapter/{mod,harvester,identity}.rs`,
-`adapter/harvester/{identity,wrap}.rs`, and `cognition/{mod,inputs,brief,verification}.rs`.
+**Purpose:** give every entity named by a transfer-flagged Harvester source one
+Insider reading. Harvester performs the cheap normalized name search and enqueues
+each player or coach; Insider receives exact publisher text, co-mentions, selected
+reporting history and measured source records. The one model response carries
+`body` and source-linked `findings`, as confirmed by the user. Each finding has
+`status` (`reported` or `denied`); a denial requires an explicit source quote
+and has no stage. The plugin validates exact quotes, resolves counterparties,
+writes positive or clearing transfer rows, and stores the reading. Direction and
+activity score are deterministic; speculative reporting never changes canonical
+identity.
 
-1. Trace each live source, pair and scored-board operation to its actual model
-   request, parser and writer, including the Graph inference route. Do not copy
-   Scout's old dual preparation or slot declarations.
-2. Resolve candidate pairs, direction, source claims, dates, negation, contradiction
-   and admissible stage in plugin policy. Keep heat deterministic and its source
-   independence rule explicit. Unsupported identity or stage remains unknown;
-   generative extraction is not renamed articulation.
-3. Select pair memory using pre-resolved article IDs through the shared reporting
-   study where suitable. Enforce pair identity/name scope in Insider: the shared
-   study no longer does it. Test the include-list replacement that previously had
-   no production consumer. Use a local memory type only if reporting history does
-   not express the actual data.
-4. Prepare parts and a plugin manual for actual articulation operations; reuse
-   request/evaluation mechanics from closure. Scores and canonical IDs stay out of
-   generated prose fields. Retire this plugin's `compose` caller, packet fallbacks,
-   duplicate verdict/correction paths and old preparation as callers migrate.
-5. Preserve pair checkpoints, source dispositions, superseded wraps and durable
-   identity-review obligations. Canonical promotion goes through Investigator's
-   evidence gate; a quote or positive transfer claim cannot bypass it.
+The old pair verdict, identity adjudication and wrap model calls are retired.
+The ambiguous `single.rs` modules became `cognition/form.rs` and
+`adapter/source.rs`.
+Source attribution stays in each finding and published transfer row. Oracle reads
+the five finished cards only and has no memory study. Migration
+`287_source_performance_player_scope` keeps denials and coach reports out of
+the existing player-outcome source accuracy study.
 
-**Verify/exit:** rumor/agreement/confirmation, negation, stale/wrong-entity/co-mention,
-duplicate/conflicting reports, identity refusal and resumed/superseded work. One
-active preparation path per real operation; every remaining non-articulation model
-job explicitly closed or recorded as an unresolved blocker. No framework expansion.
+**Verify/exit:** run the isolated database smoke test and product replay, including
+five named players from one transfer-flagged team source, wrong or ambiguous names,
+unsupported quotes, stale claims and denied or conflicting reports. The local
+library suite passes; neither database nor model replay has been run for this path.
 
 ## Window 6 — Analyst
 
-**Purpose:** express the supported relationship between measured form and observed
-mood. Start with `analyst/{manifest.rs,adapter/mod.rs,cognition/mod.rs}` and its
-trajectory/input/manual consumers. Production currently sends `momentum_palette`.
+**Local implementation:** one model call synthesizes the complete selected Scout
+and Influencer readings with a dated trajectory study. The model-facing world has
+`meta`, `fresh`, `voice` and `form`; `prompt.rs` supplies the task. `fresh` includes
+available cards and computed slope, sample count and window dates, omitting missing
+rails. Internal score and fingerprint fields stay outside the request. Direction
+and conviction remain deterministic product fields. The palette and first-sentence
+prompt path were removed; the existing work fingerprint, readiness and completion
+behavior remain. `MOMENTUM_BANNED_PHRASES` still has a live parser consumer.
 
-1. Select compatible Scout/Influencer products by identity, time and revision.
-   Define one-input and no-input behavior. Unknown sentiment is not a neutral score;
-   never recreate the Influencer's removed numeric sentiment from prose.
-2. Compute direction and conviction from supported measurements and documented
-   windows. Upstream prose is attributed interpretation, not new measurement or
-   evidence of causation.
-3. Replace palette selection and first-sentence/headline shortcuts with bounded,
-   assembled inputs that retain their qualifications. Select fewer complete units
-   if necessary; do not build a generic sentence-level meaning detector.
-4. Retire unused builders/parsers, the `compose` caller and legacy memory selection.
-   Move `MOMENTUM_BANNED_PHRASES` home only if its surviving policy is still needed.
-   Preserve debounce, fingerprints, readiness and atomic completion events.
-
-**Verify/exit:** agreement/divergence, one or both inputs absent, stale/incompatible
-inputs, insufficient samples, unchanged work and delayed completion. One supported
-synthesis path, with no lost qualifiers or new computed facts from the LLM.
+**Verify/exit:** run database smoke and model/product replay for agreement,
+divergence, one or both inputs absent, stale/incompatible inputs, insufficient
+samples, unchanged work and delayed completion. Check that card qualifications
+survive synthesis and that the model adds no unsupported facts. Local unit tests
+pass; this path has not been released.
 
 ## Window 7 — Oracle
 
-**Purpose:** articulate the overall reading from five compatible finished character
-products. Start with `oracle/{manifest.rs,adapter/mod.rs,cognition/mod.rs}` and the
-readiness, score and provenance consumers. Production currently sends
-`crown_palette`; `build_crown_prompt` is not the production model request.
+**Local implementation:** one model call reads the five finished character cards:
+Journalist, Scout, Influencer, Analyst and Insider. The model-facing world has
+`meta`, `fresh`, `voice` and `form`; `prompt.rs` supplies the task. Oracle has no
+`memories.rs` or source research. Its `fresh` part includes up to three complete
+Journalist narratives and each available finished card, omitting internal scores.
+The old crown palette, flat prompt and input builders were removed. Deterministic
+score, convergence, omen, readiness barrier, changed-input handling and publication
+provenance remain outside the model request. Empty input still produces a null
+marker without a model call; partial input stays explicit.
 
-1. Trace all five input contracts and the readiness barrier. Keep supported
-   partial/no-product behavior and distinguish pending work from absent evidence.
-2. Audit score, convergence, omen and their unknown/default semantics. Several
-   products derived from one article are not independent corroboration. A prior
-   crown is continuity, not a sixth evidence source.
-3. Assemble compatible products and plugin-computed relationships with their
-   qualifications and provenance. Replace the live palette for natural synthesis.
-   Do not first repair the retired flat prompt: retire it when its callers migrate.
-4. Bound inputs by selecting complete qualified units. A 700-character or enlarged
-   1,200-character slice cannot guarantee preserved meaning. If a unit cannot fit,
-   omit it explicitly or supply a genuinely complete structured alternative; record
-   the selection and its limits in the fingerprint. Do not add an LLM summarizer
-   or a keyword detector for supposedly safe truncation.
-5. Remove old builders, score extraction, envelopes, `compose` and legacy memory
-   paths. Preserve the barrier, changed-input handling and publication provenance.
-
-**Verify/exit:** all/partial/no products, conflicting directions, duplicate source
-lineage, stale/revised components and unresolved upstream work. One prepared overall
-reading; scores and factual relationships established before articulation.
+**Verify/exit:** run database smoke and model/product replay for all, partial and no
+cards, conflicting directions, duplicate source lineage, stale/revised components
+and unresolved upstream work. Check that the overall reading preserves the cards'
+qualifications and adds no unsupported facts. Local unit tests pass; this path has
+not been released.
 
 ## Window 8 — Investigator
 
@@ -603,7 +612,7 @@ consumer and removal condition, not "for later."
 | Split live-eval prompt/options and manual parts reconstruction | Aligned tasks repaired in S4; remaining tasks in their windows | Each mode consumes the plugin's prepared request and parsing context |
 | Character-named tone modules and mixed `brief.rs` files | Each consuming plugin | Tone moves to `voice.rs`, necessary task instructions to `prompt.rs`; delete personas, duplicate rules and obsolete aliases |
 | Shared form prose recipes and snapshot-driven instruction requirements | Each consuming plugin, beginning with S5 | Keep structural form and explicit product limits; remove editorial demands and tests that preserve them without a product requirement |
-| `support/prompt.rs::compose` and schema content instructions | Insider → Analyst → Oracle | Each caller replaced by its actual plugin manual; then delete composer/constants |
+| `support/prompt.rs::compose` and schema content instructions | Removed with Insider, Analyst and Oracle migration | Each caller now uses its plugin prompt and structural form |
 | `support/prompt.rs` correction helpers | Each surviving caller | Retain generic bounded mechanics; remove generic editorial rewrites, keep only necessary plugin-owned correction instructions in `prompt.rs`; delete helper after last caller migrates |
 | `evidence/memories.rs` and `memories/{sources,identity,performance}.rs` | Scout, Insider, Analyst, Oracle, Graph/Editor and eval consumers | Scout still uses historical-season state and a provenance fingerprint. Migrate those consumers before removal; other mission paths retire in their owning windows |
 | `MOMENTUM_BANNED_PHRASES` in shared guards | Analyst | Keep locally only if still required; delete retired policy |
@@ -680,16 +689,11 @@ separate; no release or data destruction is implied by documentation work.
 The earlier detailed F1–F9 sketches and handoffs remain in Git history. This
 section records only decisions the next implementation should carry forward.
 
-## Next fresh context: finish Window 4
+## Next verification
 
-Read the ownership and parts contracts, the current status table, S1–S5 and the
-retirement ledger. S1–S4 and the plumbing deletion are implemented; read the S5 evidence and close the
-remaining product-fidelity gate, then update this file.
-Consolidate the base toolkit needed by these operations and remove their legacy
-instructions. Do not start a new framework or expand into Insider's implementation.
-If a required capability is missing, name it and keep the relevant item open.
-
-After closure, start Window 5 in a fresh context using
-[KICKOFF-window-5-insider.md](KICKOFF-window-5-insider.md). That file is a pointer,
-not a second plan. Remaining windows apply the same ownership test and delete
-obsolete paths as they migrate; they do not copy Scout's historical plumbing.
+Close Scout's remaining product-fidelity gate. Replay Journalist and Influencer's
+local six-part requests against eligible source material, then run database smoke
+and model/product replays for Harvester's transfer fanout and the local Insider,
+Analyst and Oracle migrations. Check the published products against verified
+source receipts and update this status table. No local migration in this table is
+a deployment claim.

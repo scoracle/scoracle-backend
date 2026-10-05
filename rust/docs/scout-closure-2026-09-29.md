@@ -818,10 +818,185 @@ scripted protocol test covers source-before-answer, native result round-trip,
 unavailable abstention, wrong-tool and wrong-argument refusal; it is not a live
 SQL or model-quality test. S5 and production migration remain open.
 
-Validation for this slice: `cargo test --offline --lib` passed 540 tests with 69
+### September 30 provider template follow-up
+
+The active `/api/show` template, unlike the saved Go Modelfile, consumes
+`xml_tools`/`python_tools`, renders assistant history from `content`, and renders
+tool results as user turns. [SmolLM3's documented tool format](https://huggingface.co/blog/smollm3)
+uses a JSON `name`/`arguments` object inside `<tool_call>` tags. Ollama's
+[tool-call API](https://docs.ollama.com/capabilities/tool-calling) supplies native
+`tools`, assistant `tool_calls`, and `tool` result messages. The provider now
+bridges these exact contracts for the installed `alibayram/smollm3` tool chat: it places function schemas
+in the system turn, uses the template's `/system_override` branch to close that
+turn, normalizes only a complete standalone XML call, and retains exact raw
+responses alongside the normalized assistant message. The plugin still rejects
+undeclared names or arguments before executing any read.
+
+The active runner's `/apply-template` output confirms schema visibility, a closed
+system turn, assistant-call history and the returned tool-result turn. The
+pilot-shaped Rust/model diagnostic nevertheless produced an invented answer
+without calling `read_source`; the application rejected it as `source_not_read`.
+The runner's direct `xml_tools` path also skipped the read on that same task,
+so this failure is not explained by the provider's schema placement alone.
+A single read-first diagnostic emitted `read_source` with a made-up URL argument;
+the pilot would reject it before any read. Neither probe demonstrates an
+acceptable tool request, so no output-instruction shuffle was adopted.
+No database call or factual review occurred. Exact request, raw response,
+normalized message and rendered prompts are retained in
+[the provider probe](../fixtures/scout/s5-tool-provider-probe.jsonl). Its
+history/result render uses labeled synthetic text solely to check mechanics.
+An existing PostgreSQL configuration is still needed for the read-only pilot.
+Validation after this patch: `cargo test --offline --lib` passed 541 tests with
+69 ignored; `cargo check --offline --all-targets`, formatting and diff checks
+passed. These checks do not establish live database behavior or factual quality.
+
+### September 30 read-only Archbox pilot
+
+The existing Archbox backend configuration was found at
+`/home/sheneveld/scoracle/scoracle-backend/.env.local`. A temporary local-only
+SSH tunnel supplied its PostgreSQL connection to the unchanged read-only pilot;
+the password was not printed or stored in the repository. Metadata queries found
+two pending Influencer assignments, both `delivery_held`, plus three already
+used assignments. None was pending and eligible for a publisher-text read.
+
+The pilot resolved NBA team 5 as the Chicago Bulls from PostgreSQL. Granite 4.2
+3B made one native `read_source({})` call. The application executed the scoped
+database read and returned `{"status":"unavailable","reason":"no_pending_source"}`.
+The exhausted tool was omitted on the second turn; the existing observation
+schema constrained only that final turn. Granite returned `{"body":null}` and
+passed the structural pilot check. This validates the live unavailable-data loop,
+not an available-source report or factual quality. Ministral 3B and 8B supplied
+undeclared subject arguments and were rejected before reading. The preferred
+SmolLM3 answered before reading and was rejected. Exact requests, raw responses,
+tool result and acceptance outcomes are in
+[the live DB probe](../fixtures/scout/s5-tool-live-db-probe.jsonl).
+
+Two additional SmolLM3 model-only diagnostics in
+[the provider probe](../fixtures/scout/s5-tool-provider-probe.jsonl) tested a
+server-assigned no-argument tool name and removal of initial identity. The model
+still invented arguments, so neither change was adopted. An available-source
+tool round trip remains unverified until an eligible fresh assignment exists;
+none was released or changed for this diagnostic.
+
+### September 30 Granite historical-source check
+
+No eligible fresh Influencer assignment appeared on a further read-only Archbox
+check. For an evidence-to-answer diagnostic, two already-used Harvester receipts
+(articles 96208 and 70146) were replayed without changing their status. Their
+stored body hashes, UTF-8 context offsets, headlines and source identities were
+verified before returning the stored excerpts. Granite 4.2 3B made a native
+`read_source({})` call in both cases and received the corresponding PostgreSQL
+evidence. These historical replays bypass pending/fresh admission, so they are
+not live available-source pilot passes. Exact publisher-bearing transcripts are
+retained privately in `/private/tmp/granite-used-source-replay.json` and
+`/private/tmp/granite-used-source-replay-70146.json`.
+
+Neither answer passed product review. The first produced a 558-character single
+paragraph against a 140-character ceiling and included writing-process
+commentary. The second exhausted its output budget before completing valid
+JSON. A shorter form instruction was unstable and, on a successful tool call,
+still produced a 330-character paragraph that treated the page byline date as
+the event date. A `maxLength: 140` schema variant cut the answer mid-sentence.
+Those variants were not adopted. The stored excerpts include site navigation
+and affiliate text, and their page byline dates differ from
+`news_articles.published_at`. Source presentation and date meaning need review
+at the database/tool boundary before claiming factual quality. No worker or
+database state was changed.
+
+Validation for this slice: `cargo test --offline --lib` passed 541 tests with 69
 ignored; `cargo check --offline --all-targets`, formatting and diff checks passed.
-The retained runner requests were compared programmatically: only the xml_tools
-entry differs, and the raw response copies match their decoded records. Live DB
-execution and native SmolLM3 tool-result-to-answer validation have not passed or
-been claimed. Next: resolve the provider/template tool contract, obtain the
-existing DB connection and run the read-only pilot before changing any worker.
+The unavailable-data database round trip worked. Native Granite calling also
+worked with historical evidence, but the final answer did not pass product
+review. SmolLM3 has not made a valid first read in this pilot. A live eligible
+source and its factual answer remain open before any worker change.
+
+### September 30 acquisition cost and garbled-output diagnosis
+
+The user's next question is whether native tool calling is more efficient than
+the plugin reading the database and supplying the result. The comparison uses
+the same two historical receipts above, with identical evidence, task, voice,
+final schema, 4096-token context and 600-token output budget. The prepared control
+removes only the instruction to call `read_source` and supplies its result beside
+the subject. It is a lean prepared request, not the legacy full-world worker.
+The native route must produce a valid call before receiving that evidence.
+
+Both receipts were re-read from Archbox and again verified against body hash,
+context offsets, headline and source identity. They exactly matched the retained
+evidence. Each remote psql read took about 8 ms; the whole SSH invocation took
+233–240 ms. These are diagnostic process timings, not pooled application DB
+latency. Timed model comparisons replay the verified result, so DB time is
+excluded equally from both routes. No synthetic source, fresh-admission pass or
+DuckDB research benchmark is claimed.
+
+Granite 4.2 3B Q4_K_M was already resident in Ollama 0.32.14. The matched comparison
+used three seeds (42–44), alternating route order, `think:false`, and IBM's stated
+`temperature:1.0` / `top_p:0.95` sampling settings. The existing 600-token product
+budget was retained. The initial native request is identical across these two
+source cases for each seed; these are six attempts per route, not six independent
+subjects. [IBM's model card](https://huggingface.co/ibm-granite/granite-4.2-3b)
+specifies those sampling values; the earlier pilot forced temperature zero.
+
+| Measure | Native read request | Plugin-prepared evidence |
+| --- | --- | --- |
+| Model calls when evidence is delivered | 2 | 1 |
+| Input tokens for those attempts | 785–848 | 314–377 |
+| Additional read-decision latency, median | 1.19 seconds | None |
+| Evidence delivered | 4/6 attempts | 6/6 attempts |
+| Production form parser passes | 0/6 | 1/6 |
+| Manually acceptable reports | 0/6 | 0/6 |
+
+The single prepared parser pass contains only an opening brace in `body`; it is
+not useful prose. Two native attempts emit JSON tool intent as ordinary content,
+so no evidence is delivered. For the same four pairs where native dispatch did
+work, median model wall time was 5.24 seconds native versus 3.67 seconds prepared,
+with 2.36 times as many input tokens. Different answer lengths and a native
+truncation affect those wall times. The separate 1.19-second call-decision cost
+is the clearer overhead measure; no throughput of acceptable reports can be
+inferred when neither route passes product review.
+
+The diagnosis narrows the failure without claiming a single proven cause:
+
+- Ollama's `_debug_render_only` output shows complete source results and closed
+  message boundaries in both routes. Final prompt token counts also match the
+  runner's tokenizer. The evidence is present and comfortably within context.
+- The malformed prose includes instructions about its own tone, attribution and
+  length, format fragments inside the body string, and repetition until the
+  output budget ends. These occur in both routes. JSON grammar constrains the
+  envelope; it does not make its string useful or factual.
+- Removing the stray `<tools>` marker from an earlier assistant call stops that
+  particular runaway, but leaves instruction commentary. Recommended sampling
+  also shortens one retained replay, but the matched runs still fail. Neither is
+  a demonstrated cure.
+- Keeping only the verbatim publisher sentence still yields repeated instruction
+  commentary. Removing or simplifying the form specification also fails. Page
+  clutter is a source-quality defect, but it does not explain all this garbling.
+- Enabling thinking produces a separate reasoning field but still fails: the
+  native final takes 473 tokens and 12.4 seconds with an overlong answer; the
+  prepared final consumes all 600 tokens before any answer. This is a bounded
+  diagnostic, not a claim about larger-budget reasoning.
+- Date errors have an additional input cause: the byline and stored publication
+  dates disagree, and the pilot task omits the existing production task's
+  report-date/event-date distinction. Changing acquisition order supplies neither
+  that missing relationship nor a resolution of the conflicting dates.
+
+One provider defect is independently confirmed: Ollama drops
+`additionalProperties:false` and the empty `required` list from the native tool
+schema before rendering it. Its
+[typed parameters structure](https://github.com/ollama/ollama/blob/v0.32.14/api/types.go#L438)
+accounts for this. Application argument validation remains strict. This defect
+does not explain final-answer failures in the prepared route.
+
+For this mandatory, application-scoped source read, plugin preparation has the
+lower cost and removes a failing tool-selection step. Native calling has not
+saved a read or reduced evidence volume. Adaptive research might justify it when
+the model can avoid or choose among actual reads; that remains unmeasured. The
+six responsibilities and lean evidence remain applicable to either route.
+
+The runnable comparison is `examples/influencer_tool_compare.py`; its protocol
+check covers valid dispatch and refusal of undeclared arguments. The existing
+Rust form parser was run on all 24 comparison/control outcomes: one mechanical
+pass, zero manually acceptable answers. No production prompt, guard or worker
+was changed in this diagnostic. The
+[comparison index](../fixtures/scout/s5-tool-acquisition-comparison.jsonl) retains
+metrics, manual findings and hashes/locations of all exact private transcripts,
+including the render-only captures and database recheck.

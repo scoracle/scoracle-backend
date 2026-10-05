@@ -1,6 +1,5 @@
 {
   "expect": {
-    "confidence_max": 0.5,
     "subject_includes": [
       "Sorensen"
     ],
@@ -10,13 +9,14 @@
       "€",
       "million"
     ],
-    "transfer_stage": "speculation"
+    "transfer_stage": "speculation",
+    "transfer_is_rumor": true
   },
   "name": "fizzled-prior-lowrel-skeptic",
-  "prompt_version": "t13",
+  "prompt_version": "insider-source-v3",
   "task": "transfer",
   "temperature": 0.0,
-  "user_prompt": "Sport: FOOTBALL\nTeam: Chelsea\nPlayer: Kai Sorensen\nIdentity (the ONE specific player to judge): Kai Sorensen · Danish · currently at Brøndby · forward\nAffiliation: Kai Sorensen is not recorded at Chelsea. This alone establishes no pursuit or move; determine whether either is actually reported.\nEvidence (computed): 1 article, 1 distinct source; primary source: TransferTavern.\n\nSource track record (measured — how these reporters' prior transfer claims resolved; weigh a claim by who is making it: a strong, early-calling source supports advancing the stage, a poor or unmeasured one keeps it cautious):\n- TransferTavern: reliability 14/100 (2 of 40 tracked moves confirmed).\n\nEntity memories for this proposed relationship:\n- Prior flirtation fizzled: Feb 2026, peak coverage 79/100.\n- Current story: tracked since Jul 10, peak coverage 30/100, computed likelihood 22/100 (cooling off).\n\nNews headlines:\n- [TransferTavern] Chelsea 'keeping tabs' on Sorensen — report — A report claims Chelsea are among clubs monitoring the forward, though no bid or talks are mentioned.\n\nReturn the JSON verdict now.",
+  "user_prompt": "{\"meta\":{\"name\":\"Kai Sorensen\",\"entity_type\":\"player\",\"sport\":\"FOOTBALL\"},\"fresh\":{\"reports\":[{\"publisher\":\"TransferTavern\",\"headline\":\"Chelsea 'keeping tabs' on Sorensen — report\",\"publisher_excerpt\":\"A report claims Chelsea are among clubs monitoring the forward, though no bid or talks are mentioned.\",\"co_mentions\":[{\"name\":\"Chelsea\",\"entity_type\":\"team\"}]}]},\"memories\":{\"prior_reports\":[],\"source_records\":[{\"publisher\":\"TransferTavern\",\"confirmed\":2,\"tracked\":40,\"reliability\":14}]},\"voice\":\"Informed, alert, measured.\",\"form\":{\"keys\":[\"body\",\"findings\"],\"max_chars\":1200,\"paragraph_max_chars\":null,\"findings\":{\"type\":\"array\",\"item_keys\":[\"report_index\",\"counterparty\",\"status\",\"stage\",\"evidence_quote\"]}}}",
   "review": [
     "Distinguish the proposed relationship from speculation, historical affiliation and unrelated people."
   ],

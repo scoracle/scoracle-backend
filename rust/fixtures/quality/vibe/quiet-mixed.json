@@ -18,7 +18,7 @@
       "sport": "NBA"
     }
   },
-  "prompt_version": "vibe-frame-v5",
+  "prompt_version": "vibe-frame-v6-six-part",
   "review": [
     "Synthesize fresh and relevant dated history into the emotional charge around the identified subject.",
     "Preserve supplied speakers, timing, scope and uncertainty.",
@@ -26,5 +26,5 @@
   ],
   "task": "vibe",
   "temperature": 0.0,
-  "user_prompt": "{\"identity\":{\"name\":\"Cedar Comets\",\"entity_type\":\"team\",\"sport\":\"basketball\"},\"fresh\":{\"publisher\":\"Example Wire\",\"published_at\":\"2026-09-28T00:00:00Z\",\"publisher_excerpt\":\"Cedar Comets announced that training starts on Tuesday and the team travels on Friday.\"},\"history\":[],\"voice\":\"Emotionally attentive, clear, concise and restrained.\",\"form\":{\"body\":{\"type\":\"string or null\",\"paragraphs\":\"Blank lines separate paragraphs.\",\"paragraph_max_chars\":140,\"max_chars\":1200,\"lengths\":\"Ceilings, not targets; no minimum length.\",\"paragraph_breaks\":\"escaped newlines\"}}}"
+  "user_prompt": "{\"meta\":{\"name\":\"Cedar Comets\",\"entity_type\":\"team\",\"sport\":\"basketball\"},\"fresh\":{\"publisher\":\"Example Wire\",\"published_at\":\"2026-09-28T00:00:00Z\",\"publisher_excerpt\":\"Cedar Comets announced that training starts on Tuesday and the team travels on Friday.\"},\"voice\":\"Emotionally attentive, clear, concise and restrained.\",\"form\":{\"keys\":[\"body\"],\"max_chars\":1200,\"paragraph_max_chars\":140}}"
 }

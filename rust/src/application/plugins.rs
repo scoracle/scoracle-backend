@@ -327,7 +327,7 @@ mod tests {
             );
         }
         assert_eq!(
-            complete.reaction_names(crate::plugins::insider::adapter::TRANSFER_IDENTITY_APPLIED),
+            complete.reaction_names(crate::plugins::scout::adapter::TRANSFER_IDENTITY_APPLIED),
             ["scout.rate-applied-identity"]
         );
     }

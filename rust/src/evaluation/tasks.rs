@@ -6,9 +6,7 @@
 use crate::application::models::Models;
 use crate::evidence::corpus::lookup_entity_name;
 use crate::plugins::analyst::adapter::load_momentum_context;
-use crate::plugins::analyst::cognition::{
-    parse_momentum_reply, MOMENTUM_NUM_PREDICT, MOMENTUM_SYSTEM_PROMPT,
-};
+use crate::plugins::analyst::cognition::parse_momentum_reply;
 use crate::plugins::editor::adapter::build_editor_prompt_for_eval;
 use crate::plugins::editor::cognition::{
     derive as editor_derive, editor_opts, EditorRead, EditorReadParser, EDITOR_CONTRACT_VERSION,
@@ -18,11 +16,9 @@ use crate::plugins::graph::cognition::{
     build_graph_prompt, graph_opts, GraphCandidate, GraphParser, GRAPH_PROMPT_VERSION,
 };
 use crate::plugins::influencer::cognition::{VibeParser, VIBE_NUM_PREDICT};
-use crate::plugins::insider::adapter::{
-    build_pair_request, load_candidates, team_relationship, PairBuild,
-};
+use crate::plugins::insider::adapter::preview as preview_insider;
 use crate::plugins::insider::cognition::{
-    transfer_system_prompt, TransferParser, TRANSFER_DEFAULT_MIN_ARTICLES, TRANSFER_NUM_PREDICT,
+    reading_options as insider_options, SourceReply, READING_PROMPT_VERSION,
 };
 use crate::plugins::investigator::cognition::prompt::{
     prose_opts, ProseReadParser, INVESTIGATOR_PROSE_CONTRACT_VERSION,
@@ -30,9 +26,9 @@ use crate::plugins::investigator::cognition::prompt::{
 use crate::plugins::journalist::cognition::CorpusItem;
 use crate::plugins::oracle::adapter::load_pillars;
 use crate::plugins::oracle::cognition::{
-    build_crown_prompt, build_pillar_divergence, compute_omen, count_sentences,
-    oracle_format_schema, parse_crown_reply, pillar_convergence, ORACLE_NUM_PREDICT,
-    ORACLE_SYSTEM_PROMPT,
+    assemble_context as assemble_oracle_context, count_sentences,
+    generation_options as oracle_generation_options, Subject as OracleSubject,
+    ORACLE_PROMPT_VERSION,
 };
 use crate::plugins::scout::adapter::{build_rating_request, RatingReq};
 use crate::plugins::scout::cognition::RatingBuild;
@@ -899,7 +895,7 @@ impl LensTask for VibeTask {
 }
 
 // ---------------------------------------------------------------------------
-// OracleTask — the crown: reads all five pillar cards + prior reads, then emits {reading, score}.
+// OracleTask — the crown: reads the five finished cards, then emits {reading}.
 // (The panel SigilTask was retired in the crown fold, 2026-07-21.)
 // ---------------------------------------------------------------------------
 
@@ -914,19 +910,10 @@ impl LensTask for OracleTask {
         crate::plugins::oracle::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
-        "or24" // Archived free-text evaluation contract.
+        ORACLE_PROMPT_VERSION
     }
     fn gen_options(&self, temperature: f64) -> Result<GenerateOptions> {
-        Ok(GenerateOptions {
-            system: Some(ORACLE_SYSTEM_PROMPT.to_string()),
-            temperature: Some(temperature),
-            num_predict: ORACLE_NUM_PREDICT,
-            num_ctx: 0,
-            json_mode: false,
-            // Grammar-constrained single-field reply, matching the live stage.
-            format_schema: Some(oracle_format_schema()),
-            format_schema_raw: None,
-        })
+        Ok(oracle_generation_options(temperature, 0))
     }
     async fn build_request(
         &self,
@@ -941,30 +928,26 @@ impl LensTask for OracleTask {
         if cards.readiness() == crate::plugins::oracle::cognition::Readiness::Empty {
             return Ok(None);
         }
-        // Deterministic convergence + direction, exactly as the live handler.
-        let comparisons =
-            build_pillar_divergence(cards.rating.as_ref(), cards.vibe.as_ref(), &cards.momentum);
-        let convergence = pillar_convergence(&comparisons);
-        let omen = compute_omen(convergence, &cards.momentum);
         Ok(Some(Prepared::captured(
-            build_crown_prompt(
-                &e.entity_type,
-                &name,
-                &e.sport,
-                &cards.narratives,
-                cards.rating.as_ref(),
-                cards.vibe.as_ref(),
-                &cards.momentum,
-                &cards.transfers,
-                omen,
-                None,
-                None,
-            ),
+            assemble_oracle_context(
+                &OracleSubject {
+                    entity_id: e.entity_id,
+                    entity_type: e.entity_type.clone(),
+                    entity_name: name,
+                    sport: e.sport.clone(),
+                },
+                &cards,
+            )
+            .render(),
             self.gen_options_for(0.0, e)?,
         )))
     }
     fn evaluate(&self, raw: &str, label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
-        let Some(reply) = parse_crown_reply(raw) else {
+        let Some(reading) = serde_json::from_str::<serde_json::Value>(raw)
+            .ok()
+            .and_then(|v| v.get("reading").and_then(|x| x.as_str()).map(str::to_owned))
+            .filter(|s| !s.trim().is_empty())
+        else {
             return CaseVerdict {
                 parsed: false,
                 abs_err: None,
@@ -972,7 +955,6 @@ impl LensTask for OracleTask {
                 display: "unparseable".into(),
             };
         };
-        let reading = reply.reading;
         let sentences = count_sentences(&reading);
         let mut checks = Vec::new();
 
@@ -1022,26 +1004,21 @@ impl LensTask for OracleTask {
             }
         }
 
-        // The crown now emits the score too: measure it against the labeled expected score.
-        let abs_err = label.map(|l| ((reply.score as f64) - l).abs());
+        let _ = label; // The score is deterministic in production, outside the model reply.
         CaseVerdict {
             parsed: true,
-            abs_err,
+            abs_err: None,
             checks,
-            display: format!("score={} | {}", reply.score, reading),
+            display: reading,
         }
     }
 }
 
 // ---------------------------------------------------------------------------
-// TransferTask — transfer/trade FP/TP adjudication (fixture-first).
+// TransferTask — source-backed Insider reading and linked move findings.
 // ---------------------------------------------------------------------------
 
 pub struct TransferTask;
-
-fn normalized_token(s: &str) -> String {
-    s.trim().replace(' ', "_").to_lowercase()
-}
 
 #[async_trait]
 impl LensTask for TransferTask {
@@ -1052,176 +1029,90 @@ impl LensTask for TransferTask {
         crate::plugins::insider::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
-        "t13" // Archived free-text verdict evaluation contract.
+        READING_PROMPT_VERSION
     }
     fn gen_options(&self, temperature: f64) -> Result<GenerateOptions> {
-        Ok(GenerateOptions {
-            // Use gen_options_for_sport for a concrete case.
-            system: Some(transfer_system_prompt("FOOTBALL")),
-            temperature: Some(temperature),
-            num_predict: TRANSFER_NUM_PREDICT,
-            num_ctx: 0,
-            json_mode: true,
-            format_schema: None,
-            format_schema_raw: None,
-        })
-    }
-    fn gen_options_for_sport(&self, temperature: f64, sport: &str) -> Result<GenerateOptions> {
-        let sport = sport.to_uppercase();
-        Ok(GenerateOptions {
-            system: Some(transfer_system_prompt(&sport)),
-            temperature: Some(temperature),
-            num_predict: TRANSFER_NUM_PREDICT,
-            num_ctx: 0,
-            json_mode: true,
-            format_schema: None,
-            format_schema_raw: None,
-        })
+        let mut options = insider_options(0);
+        options.temperature = Some(temperature);
+        Ok(options)
     }
     async fn build_request(
         &self,
         pool: &sqlx::PgPool,
-        models: &Models,
+        _models: &Models,
         e: &EntitySpec,
     ) -> Result<Option<Prepared>> {
-        if e.entity_type != "team" {
-            anyhow::bail!(
-                "transfer live/capture evals are team-player pairs; got {}",
-                e.key()
-            );
-        }
-        let player_id = e.pair_player_id.ok_or_else(|| {
-            anyhow::anyhow!(
-                "transfer live/capture evals need a pair: use team:<team_id>:player:<player_id>:sport"
-            )
-        })?;
-        let sport = e.sport.to_uppercase();
-        let team_name = lookup_entity_name(pool, "team", e.entity_id, &sport).await?;
-        let candidate = load_candidates(pool, e.entity_id, &sport, TRANSFER_DEFAULT_MIN_ARTICLES)
+        let (entity_type, entity_id) = if let Some(player_id) = e.pair_player_id {
+            ("player", player_id)
+        } else {
+            (e.entity_type.as_str(), e.entity_id)
+        };
+        Ok(preview_insider(pool, entity_type, entity_id, &e.sport)
             .await?
-            .into_iter()
-            .find(|c| c.player_id == player_id)
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "player/{player_id} is not a current production transfer candidate for team/{} ({sport})",
-                    e.entity_id
-                )
-            })?;
-
-        let relationship = team_relationship(pool, e.entity_id, player_id, &sport).await?;
-        let capabilities = models.capabilities(&crate::plugins::insider::manifest::MANIFEST)?;
-        match build_pair_request(
-            pool,
-            &capabilities,
-            e.entity_id,
-            &team_name,
-            &candidate,
-            &sport,
-            relationship,
-            0.0,
-        )
-        .await?
-        {
-            PairBuild::Skipped { .. } => Ok(None),
-            PairBuild::Ready(r) => Ok(Some(Prepared::captured(r.prompt, r.options))),
-        }
+            .map(|prompt| Prepared::captured(prompt, insider_options(0))))
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
-        let v = match TransferParser.parse(raw) {
-            Ok(Some(v)) => v,
-            _ => {
-                return CaseVerdict {
-                    parsed: false,
-                    abs_err: None,
-                    checks: Vec::new(),
-                    display: "unparseable".into(),
-                }
-            }
+        let Ok(reply) = serde_json::from_str::<SourceReply>(raw) else {
+            return rejected("unparseable Insider reading and findings");
         };
-
-        let mut checks = Vec::new();
+        if reply.body.trim().is_empty() {
+            return rejected("empty Insider reading");
+        }
+        let mut checks = vec![product_name_check(&reply.body)];
         if let Some(x) = expect {
             if let Some(want) = x.transfer_is_rumor {
                 checks.push(PropertyCheck {
-                    name: if want {
-                        "transfer_is_rumor".into()
-                    } else {
-                        "transfer_not_rumor".into()
-                    },
-                    pass: v.is_rumor == Some(want),
-                    detail: format!("is_rumor={}", disp_bool(v.is_rumor)),
+                    name: "has_source_linked_move".into(),
+                    pass: reply.findings.iter().any(|f| {
+                        f.status == crate::plugins::insider::cognition::SourceStatus::Reported
+                            && !reply.findings.iter().any(|later| {
+                                later.counterparty == f.counterparty
+                                    && later.report_index < f.report_index
+                            })
+                    }) == want,
+                    detail: format!("findings={}", reply.findings.len()),
                 });
             }
-            if let Some(want) = x.transfer_direction.as_deref() {
+            if let Some(stage) = x.transfer_stage.as_deref() {
                 checks.push(PropertyCheck {
-                    name: format!("transfer_direction:{want}"),
-                    pass: normalized_token(&v.direction) == normalized_token(want),
-                    detail: format!("direction={}", empty_dash(&v.direction)),
-                });
-            }
-            if let Some(want) = x.transfer_stage.as_deref() {
-                checks.push(PropertyCheck {
-                    name: format!("transfer_stage:{want}"),
-                    pass: normalized_token(&v.stage) == normalized_token(want),
-                    detail: format!("stage={}", empty_dash(&v.stage)),
-                });
-            }
-            for s in x.subject_includes.iter().flatten() {
-                checks.push(PropertyCheck {
-                    name: format!("subject_includes:{s}"),
-                    pass: v.subject.contains(s.as_str()),
-                    detail: format!("subject={}", empty_dash(&v.subject)),
-                });
-            }
-            for s in x.subject_excludes.iter().flatten() {
-                checks.push(PropertyCheck {
-                    name: format!("subject_excludes:{s}"),
-                    pass: !v.subject.contains(s.as_str()),
-                    detail: format!("subject={}", empty_dash(&v.subject)),
-                });
-            }
-            for s in x.summary_includes.iter().flatten() {
-                checks.push(PropertyCheck {
-                    name: format!("summary_includes:{s}"),
-                    pass: v.summary.contains(s.as_str()),
+                    name: format!("stage:{stage}"),
+                    pass: reply
+                        .findings
+                        .iter()
+                        .any(|f| f.stage.as_deref() == Some(stage)),
                     detail: String::new(),
                 });
             }
-            for s in x.summary_excludes.iter().flatten() {
+            for needle in x
+                .subject_includes
+                .iter()
+                .flatten()
+                .chain(x.summary_includes.iter().flatten())
+            {
                 checks.push(PropertyCheck {
-                    name: format!("summary_excludes:{s}"),
-                    pass: !v.summary.contains(s.as_str()),
+                    name: format!("body_includes:{needle}"),
+                    pass: contains_ci(&reply.body, needle),
                     detail: String::new(),
                 });
             }
-            if let Some(min) = x.confidence_min {
+            for needle in x
+                .subject_excludes
+                .iter()
+                .flatten()
+                .chain(x.summary_excludes.iter().flatten())
+            {
                 checks.push(PropertyCheck {
-                    name: "confidence_ge".into(),
-                    pass: v.confidence >= min,
-                    detail: format!("confidence={:.2} ≥ {min:.2}", v.confidence),
-                });
-            }
-            if let Some(max) = x.confidence_max {
-                checks.push(PropertyCheck {
-                    name: "confidence_le".into(),
-                    pass: v.confidence <= max,
-                    detail: format!("confidence={:.2} ≤ {max:.2}", v.confidence),
+                    name: format!("body_excludes:{needle}"),
+                    pass: !contains_ci(&reply.body, needle),
+                    detail: String::new(),
                 });
             }
         }
-
         CaseVerdict {
             parsed: true,
             abs_err: None,
             checks,
-            display: format!(
-                "is_rumor={} subject={} stage={} conf={:.2} | {}",
-                disp_bool(v.is_rumor),
-                empty_dash(&v.subject),
-                empty_dash(&v.stage),
-                v.confidence,
-                v.summary
-            ),
+            display: format!("{} finding(s) | {}", reply.findings.len(), reply.body),
         }
     }
 }
@@ -1448,19 +1339,12 @@ impl LensTask for MomentumTask {
         crate::plugins::analyst::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
-        // Archived open-prose fixtures; production now uses a finite palette.
-        "momentum-s32"
+        crate::plugins::analyst::cognition::MOMENTUM_PROMPT_VERSION
     }
     fn gen_options(&self, temperature: f64) -> Result<GenerateOptions> {
-        Ok(GenerateOptions {
-            system: Some(MOMENTUM_SYSTEM_PROMPT.to_string()),
-            temperature: Some(temperature),
-            num_predict: MOMENTUM_NUM_PREDICT,
-            num_ctx: 0,
-            json_mode: false,
-            format_schema: Some(crate::plugins::support::prompt::card_schema(false)),
-            format_schema_raw: None,
-        })
+        let mut options = crate::plugins::analyst::cognition::generation_options(0);
+        options.temperature = Some(temperature);
+        Ok(options)
     }
     async fn build_request(
         &self,
@@ -1470,23 +1354,24 @@ impl LensTask for MomentumTask {
     ) -> Result<Option<Prepared>> {
         let name = lookup_entity_name(pool, &e.entity_type, e.entity_id, &e.sport).await?;
         let sport = e.sport.to_uppercase();
-        let (context, memories) =
-            load_momentum_context(pool, &e.entity_type, e.entity_id, &sport).await?;
+        let context = load_momentum_context(pool, &e.entity_type, e.entity_id, &sport).await?;
         if context.empty() {
             return Ok(None);
         }
-        // Use the production adapter, including its sourced memory. Omitting this
-        // block silently evaluates a different assignment from the worker.
+        let subject = crate::plugins::meta::EntityMeta {
+            name,
+            entity_type: e.entity_type.clone(),
+            entity_id: e.entity_id,
+            sport: e.sport.clone(),
+        };
         Ok(Some(Prepared::captured(
-            crate::plugins::analyst::cognition::build_momentum_prompt(
-                &e.entity_type,
-                &name,
-                &e.sport,
+            crate::plugins::analyst::cognition::assemble_context(
+                &subject,
                 context.rating.as_ref(),
                 context.vibe.as_ref(),
                 &context.snapshot,
-                Some(&memories.render_for_model()?),
-            ),
+            )
+            .render(),
             self.gen_options_for(0.0, e)?,
         )))
     }
@@ -1584,22 +1469,6 @@ impl LensTask for MomentumTask {
             checks,
             display: reply.blurb.clone(),
         }
-    }
-}
-
-fn disp_bool(b: Option<bool>) -> &'static str {
-    match b {
-        Some(true) => "true",
-        Some(false) => "false",
-        None => "unknown",
-    }
-}
-
-fn empty_dash(s: &str) -> &str {
-    if s.trim().is_empty() {
-        "–"
-    } else {
-        s
     }
 }
 
@@ -2327,12 +2196,12 @@ mod tests {
         assert_eq!(e.key(), "team:14:player:237:NBA");
     }
 
-    // --- crown (Oracle) eval: reading + score -------------------------------------
+    // --- crown (Oracle) eval: reading -------------------------------------
 
-    const CROWN_OK: &str = r#"{"reading": "The winger's arc holds under a turning sky; the wind toward Liverpool stirs but nothing has broken. A steady hand on a rising line.", "score": 74}"#;
+    const CROWN_OK: &str = r#"{"reading": "The winger's arc holds under a turning sky; the wind toward Liverpool stirs but nothing has broken. A steady hand on a rising line."}"#;
 
     #[test]
-    fn crown_eval_parses_reading_and_scores_against_label() {
+    fn crown_eval_parses_reading_without_a_model_score() {
         let x = Expect {
             reading_min_sentences: Some(2),
             reading_includes: Some(vec!["Liverpool".into()]),
@@ -2341,7 +2210,7 @@ mod tests {
         let v = OracleTask.evaluate(CROWN_OK, Some(70.0), Some(&x));
         assert!(v.parsed);
         assert!(v.all_checks_pass(), "checks: {:?}", v.checks);
-        assert_eq!(v.abs_err, Some(4.0)); // |74 - 70|
+        assert_eq!(v.abs_err, None);
     }
 
     #[test]
@@ -2382,19 +2251,17 @@ mod tests {
         );
     }
 
-    // --- transfer FP/TP adjudication rubric --------------------------------------
+    // --- one-response Insider reading and source-linked findings ------------------
 
-    const TRUE_TRANSFER: &str = r#"{"is_rumor":true,"subject":"Lina Foss","direction":"incoming","stage":"advanced_talks","summary":"Everton are in advanced talks to sign Lina Foss from Brann, according to TV2.","confidence":0.83}"#;
+    const TRUE_TRANSFER: &str = r#"{"body":"Lina Foss is the subject of Everton talks, according to TV2, but a deal is not final.","findings":[{"report_index":0,"counterparty":"Everton","status":"reported","stage":"advanced_talks","evidence_quote":"Everton are in advanced talks to sign Lina Foss"}]}"#;
 
     #[test]
-    fn transfer_true_positive_passes_adjudication_rubric() {
+    fn transfer_true_positive_has_one_source_linked_finding() {
         let x = Expect {
             transfer_is_rumor: Some(true),
-            transfer_direction: Some("incoming".into()),
             transfer_stage: Some("advanced_talks".into()),
             subject_includes: Some(vec!["Lina Foss".into()]),
-            summary_includes: Some(vec!["Everton".into(), "Brann".into()]),
-            confidence_min: Some(0.7),
+            summary_includes: Some(vec!["Everton".into()]),
             ..Default::default()
         };
         let v = TransferTask.evaluate(TRUE_TRANSFER, None, Some(&x));
@@ -2403,41 +2270,20 @@ mod tests {
     }
 
     #[test]
-    fn transfer_live_options_use_sport_specific_noun() {
-        let football = EntitySpec {
-            entity_type: "team".into(),
-            entity_id: 9,
-            sport: "football".into(),
-            pair_player_id: Some(70),
-        };
-        let nba = EntitySpec {
-            entity_type: "team".into(),
-            entity_id: 14,
-            sport: "nba".into(),
-            pair_player_id: Some(237),
-        };
-        let football_system = TransferTask
-            .gen_options_for(0.0, &football)
-            .unwrap()
-            .system
-            .unwrap();
-        let nba_system = TransferTask
-            .gen_options_for(0.0, &nba)
-            .unwrap()
-            .system
-            .unwrap();
-        assert!(football_system.contains("current transfer"));
-        assert!(nba_system.contains("current trade"));
+    fn transfer_options_declare_one_body_and_findings_reply() {
+        let options = TransferTask.gen_options(0.0).unwrap();
+        assert_eq!(
+            options.format_schema.unwrap()["required"],
+            serde_json::json!(["body", "findings"])
+        );
     }
 
     #[test]
-    fn transfer_false_positive_reply_clears_not_rumor_expect() {
-        let raw = r#"{"is_rumor":false,"subject":"Mika Salo","direction":"unclear","stage":"speculation","summary":"","confidence":0.12}"#;
+    fn transfer_empty_findings_clear_the_move_expectation() {
+        let raw = r#"{"body":"Mika Salo is mentioned, but no move is reported.","findings":[]}"#;
         let x = Expect {
             transfer_is_rumor: Some(false),
             subject_includes: Some(vec!["Mika Salo".into()]),
-            subject_excludes: Some(vec!["Lina Foss".into()]),
-            confidence_max: Some(0.3),
             ..Default::default()
         };
         let v = TransferTask.evaluate(raw, None, Some(&x));
@@ -2446,33 +2292,45 @@ mod tests {
     }
 
     #[test]
-    fn transfer_invented_fee_is_caught_by_summary_excludes() {
-        let raw = r#"{"is_rumor":true,"subject":"Lina Foss","direction":"incoming","stage":"concrete_interest","summary":"Everton want Lina Foss in a £12m move.","confidence":0.74}"#;
+    fn transfer_denial_finding_is_not_a_live_rumor() {
+        let raw = r#"{"body":"TV2 reports that Everton denied talks for Lina Foss.","findings":[{"report_index":0,"counterparty":"Everton","status":"denied","stage":null,"evidence_quote":"Everton denied talks for Lina Foss"}]}"#;
         let x = Expect {
-            transfer_is_rumor: Some(true),
-            summary_excludes: Some(vec!["£12m".into()]),
-            ..Default::default()
-        };
-        let v = TransferTask.evaluate(raw, None, Some(&x));
-        assert!(!v.all_checks_pass());
-    }
-
-    #[test]
-    fn transfer_unknown_commit_fails_boolean_expect() {
-        let raw = r#"{"subject":"Lina Foss","direction":"incoming","stage":"speculation","summary":"","confidence":0.2}"#;
-        let x = Expect {
-            transfer_is_rumor: Some(true),
+            transfer_is_rumor: Some(false),
+            subject_includes: Some(vec!["Lina Foss".into()]),
             ..Default::default()
         };
         let v = TransferTask.evaluate(raw, None, Some(&x));
         assert!(v.parsed);
-        assert!(!v.all_checks_pass());
+        assert!(v.all_checks_pass(), "checks: {:?}", v.checks);
+    }
+
+    #[test]
+    fn transfer_new_denial_supersedes_older_report_in_evaluation() {
+        let raw = r#"{"body":"TV2 reports that Everton denied talks for Lina Foss after an earlier link.","findings":[{"report_index":1,"counterparty":"Everton","status":"reported","stage":"speculation","evidence_quote":"Everton considered Lina Foss"},{"report_index":0,"counterparty":"Everton","status":"denied","stage":null,"evidence_quote":"Everton denied talks for Lina Foss"}]}"#;
+        let x = Expect {
+            transfer_is_rumor: Some(false),
+            ..Default::default()
+        };
+        assert!(TransferTask.evaluate(raw, None, Some(&x)).all_checks_pass());
+    }
+
+    #[test]
+    fn transfer_invented_fee_is_caught_by_body_excludes() {
+        let raw = r#"{"body":"Everton want Lina Foss in a £12m move.","findings":[]}"#;
+        let x = Expect {
+            summary_excludes: Some(vec!["£12m".into()]),
+            ..Default::default()
+        };
+        assert!(!TransferTask.evaluate(raw, None, Some(&x)).all_checks_pass());
     }
 
     #[test]
     fn transfer_malformed_reply_is_unparseable() {
-        let v = TransferTask.evaluate("looks like a rumor", None, None);
-        assert!(!v.parsed);
+        assert!(
+            !TransferTask
+                .evaluate("looks like a rumor", None, None)
+                .parsed
+        );
     }
 
     // --- typographic folding in the property matcher -----------------------------
@@ -2484,8 +2342,7 @@ mod tests {
     #[test]
     fn prose_excludes_matches_across_typographic_apostrophes() {
         // Real ministral-3:14b output from the momentum-s11 fixture gate (curly U+2019).
-        let reply = "READ: The tape holds firm and the samples are thin. \
-                     For now, this isn\u{2019}t a surge\u{2014}just a brief flash of what might come.";
+        let reply = r#"{"blurb":"The tape holds firm and the samples are thin. For now, this isn’t a surge—just a brief flash of what might come."}"#;
         let x = Expect {
             prose_excludes: Some(vec!["isn't a surge".into()]),
             ..Default::default()
@@ -2501,7 +2358,7 @@ mod tests {
 
     #[test]
     fn prose_includes_matches_across_typographic_apostrophes() {
-        let reply = "READ: Harbor City\u{2019}s press is tightening cleanly across the last six.";
+        let reply = r#"{"blurb":"Harbor City’s press is tightening cleanly across the last six."}"#;
         let x = Expect {
             prose_includes: Some(vec!["Harbor City's press".into()]),
             ..Default::default()
@@ -2589,7 +2446,7 @@ mod tests {
 
     #[test]
     fn momentum_parser_extracts_the_read() {
-        let raw = "READ: Recent form is rising while the mood is steady, so the current direction is modestly positive.";
+        let raw = r#"{"blurb":"Recent form is rising while the mood is steady, so the current direction is modestly positive."}"#;
         let parsed = parse_momentum_reply(raw).unwrap();
         assert!(parsed.blurb.contains("form is rising"));
     }
@@ -2605,7 +2462,7 @@ mod tests {
             prose_excludes: Some(vec!["surging".into()]),
             ..Default::default()
         };
-        let raw = "READ: The mood around the club is pulling the profile down despite steadier recent form.";
+        let raw = r#"{"blurb":"The mood around the club is pulling the profile down despite steadier recent form."}"#;
         let v = MomentumTask.evaluate(raw, None, Some(&x));
         assert!(v.parsed);
         assert!(v.all_checks_pass(), "checks: {:?}", v.checks);
@@ -2614,7 +2471,7 @@ mod tests {
     #[test]
     fn momentum_product_names_trip_the_invariant() {
         // The s14-era register itself: exactly what the s15 contract inverts.
-        let raw = "READ: Vibe is pulling the profile down despite a steadier PEAK read.";
+        let raw = r#"{"blurb":"Vibe is pulling the profile down despite a steadier PEAK read."}"#;
         let v = MomentumTask.evaluate(raw, None, None);
         let ban = v
             .checks
@@ -2850,11 +2707,11 @@ mod tests {
             warm.options.system.as_deref(),
             "the manual must follow whether history is attached"
         );
-        // And the stored form declaration moves with the attachment, so the model
-        // is never told history is attached to a report that has none.
-        assert!(one
+        // Memory is absent until an attachment exists, and is keyed to its report.
+        assert!(!one.user_prompt.contains(r#""memories""#));
+        assert!(warm
             .user_prompt
-            .contains(r#""history":"attached per report""#));
+            .contains(r#""memories":[{"report_key":"report_1""#));
     }
 
     #[test]
@@ -2992,7 +2849,7 @@ mod tests {
         assert!(result_parses, "no fixture pins a parsing result_line");
     }
 
-    /// Preserve transfer evidence strengthening and weakening cases.
+    /// Preserve transfer evidence, including an explicit denial.
     #[test]
     fn transfer_fixtures_on_disk_parse_and_current_carry_a_steam_fizzle_axis() {
         let dir =
@@ -3009,6 +2866,7 @@ mod tests {
             assert_eq!(fx.task, "transfer", "{} has wrong task", p.display());
             assert!(
                 fx.expect.transfer_stage.is_some()
+                    || fx.expect.transfer_is_rumor == Some(false)
                     || fx.expect.confidence_min.is_some()
                     || fx.expect.confidence_max.is_some(),
                 "current fixture {} carries no steam/fizzle axis (field-name drop?)",

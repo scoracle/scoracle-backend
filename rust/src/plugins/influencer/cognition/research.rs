@@ -53,10 +53,21 @@ where
     let mut evidence = None;
     // One evidence read, then one answer. More tools/turns require a demonstrated need.
     for _ in 0..2 {
-        let (reply, request) = backend.chat(&messages, &tools, &options).await?;
+        let offered = if evidence.is_some() {
+            &[][..]
+        } else {
+            &tools[..]
+        };
+        let mut turn_options = options.clone();
+        if evidence.is_some() {
+            turn_options.format_schema = Some(crate::plugins::support::form::observation_schema());
+        }
+        let (reply, request, message) = backend.chat(&messages, offered, &turn_options).await?;
         let response: Value = serde_json::from_str(&reply.raw_response_body)?;
-        let message = response["message"].clone();
-        turns.push(json!({"request":request,"response":response}));
+        turns.push(
+            json!({"request":request,"raw_response_body":reply.raw_response_body,
+            "response":response,"message":message}),
+        );
         ensure!(
             message["role"] == "assistant",
             "expected assistant tool-chat turn"
@@ -126,9 +137,10 @@ mod tests {
             &self,
             messages: &[Value],
             tools: &[Value],
-            _: &GenerateOptions,
-        ) -> Result<(GenerateResult, Value)> {
+            opts: &GenerateOptions,
+        ) -> Result<(GenerateResult, Value, Value)> {
             let response = self.0.lock().unwrap().remove(0);
+            let message = response["message"].clone();
             Ok((
                 GenerateResult {
                     response: response["message"]["content"].as_str().unwrap_or("").into(),
@@ -140,7 +152,8 @@ mod tests {
                     eval_count: 0,
                     completion_reason: Some("stop".into()),
                 },
-                json!({"messages":messages,"tools":tools}),
+                json!({"messages":messages,"tools":tools,"format":opts.format_schema}),
+                message,
             ))
         }
     }
@@ -154,7 +167,7 @@ mod tests {
         };
         let call = |name: &str, args: Value| json!({"message":{"role":"assistant","tool_calls":[{"function":{"name":name,"arguments":args}}]}});
         let answer = |body: Value| json!({"message":{"role":"assistant","content":json!({"body":body}).to_string()}});
-        for (script, result, expected_reads, accepted) in [
+        for (script, result, expected_reads, error) in [
             (
                 vec![
                     call("read_source", json!({})),
@@ -162,13 +175,13 @@ mod tests {
                 ],
                 json!({"status":"available","source":{"publisher_excerpt":"Training starts Tuesday."}}),
                 1,
-                true,
+                None,
             ),
             (
                 vec![call("read_source", json!({})), answer(Value::Null)],
                 json!({"status":"unavailable"}),
                 1,
-                true,
+                None,
             ),
             (
                 vec![
@@ -177,20 +190,25 @@ mod tests {
                 ],
                 json!({"status":"unavailable"}),
                 1,
-                false,
+                Some("answer_without_available_source"),
             ),
-            (vec![call("execute_sql", json!({}))], Value::Null, 0, false),
+            (
+                vec![call("execute_sql", json!({}))],
+                Value::Null,
+                0,
+                Some("undeclared_tool_or_arguments"),
+            ),
             (
                 vec![call("read_source", json!({"entity_id":8}))],
                 Value::Null,
                 0,
-                false,
+                Some("undeclared_tool_or_arguments"),
             ),
             (
                 vec![answer(json!("No tool was called."))],
                 Value::Null,
                 0,
-                false,
+                Some("source_not_read"),
             ),
         ] {
             let reads = AtomicUsize::new(0);
@@ -201,10 +219,20 @@ mod tests {
             .await
             .unwrap();
             assert_eq!(reads.load(Ordering::SeqCst), expected_reads);
-            assert_eq!(capture["accepted"], accepted);
+            assert_eq!(capture["accepted"], error.is_none());
+            assert_eq!(capture["error"].as_str(), error);
+            if result["status"] == "unavailable" && error.is_none() {
+                assert!(capture["body"].is_null());
+            }
             let initial = &capture["turns"][0]["request"]["messages"][1]["content"];
             assert!(!initial.as_str().unwrap().contains("publisher_excerpt"));
-            if accepted {
+            if error.is_none() {
+                assert!(capture["turns"][0]["request"]["format"].is_null());
+                assert!(capture["turns"][2]["request"]["tools"]
+                    .as_array()
+                    .unwrap()
+                    .is_empty());
+                assert!(capture["turns"][2]["request"]["format"].is_object());
                 let returned = &capture["turns"][2]["request"]["messages"][3];
                 assert_eq!(returned["role"], "tool");
                 assert_eq!(

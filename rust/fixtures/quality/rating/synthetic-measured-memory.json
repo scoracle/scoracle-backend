@@ -1,7 +1,7 @@
 {
   "name": "synthetic-measured-memory",
   "task": "rating",
-  "prompt_version": "s64",
+  "prompt_version": "s65-six-part",
   "parts": {
     "memory": {
       "coverage_limits": [
@@ -65,7 +65,7 @@
       "sport": "NBA"
     }
   },
-  "user_prompt": "{\"identity\":{\"name\":\"Cedar Comets\",\"entity_type\":\"team\",\"sport\":\"basketball\"},\"fresh\":{\"season\":2026,\"observed_at\":\"2026-09-29\",\"sport_name\":\"Basketball\",\"sample\":{\"Games Played\":25.0},\"values\":[{\"label\":\"Rebounds\",\"measure\":\"rebounds per game\",\"value\":48.0,\"percentile\":90.0,\"cohort\":30.0,\"band\":\"elite\",\"prior_percentile\":80.0,\"standing_change\":\"rose\"},{\"label\":\"Assists\",\"measure\":\"assists per game\",\"value\":23.0,\"percentile\":75.0,\"cohort\":30.0,\"band\":\"strong\",\"prior_percentile\":75.0,\"standing_change\":\"held\"}],\"composite\":64.0,\"supports_cross_season\":true,\"composite_peer_mean\":50.0},\"memory\":{\"measured\":[{\"measure_label\":\"Points\",\"unit\":\"points\",\"from\":\"2026-08-01T00:00:00Z\",\"before\":\"2026-09-29T00:00:00Z\",\"fixtures\":4,\"measured\":3,\"per_match\":105.0,\"per_match_change\":2.0,\"fixture_ids\":[1,2,3,4]}],\"coverage_limits\":[\"One current fixture lacks a points measurement; missing is not zero.\"]},\"rate_standouts\":[],\"trend\":null,\"voice\":\"Observant, direct, specific to the sport and restrained.\",\"form\":{\"keys\":[\"body\"],\"max_chars\":1200,\"paragraph_max_chars\":null}}",
+  "user_prompt": "{\"meta\":{\"name\":\"Cedar Comets\",\"entity_type\":\"team\",\"sport\":\"Basketball\"},\"fresh\":{\"season\":2026,\"sample\":{\"Games Played\":25.0},\"values\":[{\"label\":\"Rebounds\",\"measure\":\"rebounds per game\",\"value\":48.0,\"percentile\":90.0,\"cohort\":30.0,\"band\":\"elite\",\"prior_percentile\":80.0,\"standing_change\":\"rose\"},{\"label\":\"Assists\",\"measure\":\"assists per game\",\"value\":23.0,\"percentile\":75.0,\"cohort\":30.0,\"band\":\"strong\",\"prior_percentile\":75.0,\"standing_change\":\"held\"}],\"composite\":64.0,\"supports_cross_season\":true},\"memories\":{\"measured\":[{\"measure_label\":\"Points\",\"unit\":\"points\",\"from\":\"2026-08-01T00:00:00Z\",\"before\":\"2026-09-29T00:00:00Z\",\"fixtures\":4,\"measured\":3,\"per_match\":105.0,\"per_match_change\":2.0,\"fixture_ids\":[1,2,3,4]}],\"coverage_limits\":[\"One current fixture lacks a points measurement; missing is not zero.\"]},\"voice\":\"Observant, direct, specific to the sport and restrained.\",\"form\":{\"keys\":[\"body\"],\"max_chars\":1200}}",
   "temperature": 0,
   "expect": {},
   "review": [

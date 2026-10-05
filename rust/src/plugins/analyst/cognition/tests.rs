@@ -62,6 +62,7 @@ impl Inference for Model {
 
 fn assignment() -> Assignment {
     Assignment {
+        entity_id: 7,
         entity_type: "player".into(),
         entity_name: "Vale Kerr".into(),
         sport: "nba".into(),
@@ -94,14 +95,15 @@ fn assignment() -> Assignment {
                 generated_at: Some("2026-09-20".into()),
             },
         ),
-        memory: Some("A patient playmaker.".into()),
         voice_num_ctx: 4096,
     }
 }
 
 #[tokio::test]
 async fn complete_assignment_creates_validated_product_with_actual_provenance() {
-    let model = Model::new(r#"{"choices":[0,0,0]}"#);
+    let model = Model::new(
+        r#"{"blurb":"Kerr's form and mood both strengthen, within their separate windows."}"#,
+    );
     let assignment = assignment();
     let out = create(&Studio::new(&model), &assignment)
         .await
@@ -109,23 +111,20 @@ async fn complete_assignment_creates_validated_product_with_actual_provenance() 
         .unwrap();
     let calls = model.calls.lock().unwrap();
     assert_eq!(calls.len(), 1);
-    assert_eq!(calls[0].1.num_predict, 160);
+    assert_eq!(calls[0].1.num_predict, MOMENTUM_NUM_PREDICT);
     assert_eq!(calls[0].1.num_ctx, 4096);
-    assert_eq!(calls[0].1.temperature, Some(0.0));
+    assert_eq!(calls[0].1.temperature, Some(MOMENTUM_TEMPERATURE));
     assert!(calls[0].1.format_schema.is_some());
     assert!(calls[0]
         .0
         .contains("Kerr's measured form is gaining ground."));
-    assert_eq!(
-        calls[0].1.system.as_deref(),
-        Some("Choose only the plugin-approved phrasings. Return JSON choices; your prose is never published directly.")
-    );
+    assert_eq!(calls[0].1.system.as_deref(), Some(MOMENTUM_SYSTEM_PROMPT));
     assert_eq!(out.direction, "rising");
     assert_eq!(out.score, 2);
     assert_eq!(out.headline.as_deref(), Some("Vale Kerr: current momentum"));
     assert_eq!(out.season, 2026);
     assert_eq!(out.provenance.model_version, "model-that-answered");
-    assert_eq!(out.provenance.prompt_version, "momentum-s33");
+    assert_eq!(out.provenance.prompt_version, MOMENTUM_PROMPT_VERSION);
     assert_eq!(
         out.provenance.input_hash.as_deref(),
         Some(assignment.context.input_hash.as_str())
@@ -181,11 +180,8 @@ async fn model_failure_propagates_without_retry() {
 }
 
 #[tokio::test]
-async fn invalid_palette_output_produces_no_product() {
-    let model = Model::new(&format!(
-        r#"{{"body":"{}","headline":"Kerr gains ground"}}"#,
-        "x".repeat(1201)
-    ));
+async fn oversized_prose_produces_no_product() {
+    let model = Model::new(&format!(r#"{{"blurb":"{}"}}"#, "x".repeat(1201)));
     assert!(create(&Studio::new(&model), &assignment()).await.is_err());
     let calls = model.calls.lock().unwrap();
     assert_eq!(calls.len(), 1);
@@ -193,7 +189,8 @@ async fn invalid_palette_output_produces_no_product() {
 
 #[tokio::test]
 async fn partial_material_supports_creation_and_missing_measurement_stays_neutral() {
-    let model = Model::new(r#"{"choices":[0]}"#);
+    let model =
+        Model::new(r#"{"blurb":"The mood reading is calm; measured movement is unavailable."}"#);
     let mut assignment = assignment();
     assignment.context = MomentumContext::new(
         2026,
@@ -215,7 +212,10 @@ async fn partial_material_supports_creation_and_missing_measurement_stays_neutra
     assert_eq!(out.direction, "steady");
     assert_eq!(out.score, 0);
     assert_eq!(out.headline.as_deref(), Some("Vale Kerr: current momentum"));
-    assert_eq!(model.calls.lock().unwrap()[0].1.num_predict, 160);
+    assert_eq!(
+        model.calls.lock().unwrap()[0].1.num_predict,
+        MOMENTUM_NUM_PREDICT
+    );
 }
 
 #[tokio::test]

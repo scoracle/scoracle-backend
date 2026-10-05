@@ -15,10 +15,9 @@ pub mod fresh;
 mod journalist;
 mod prompt;
 pub use journalist::CHARACTER;
-/// n95 attaches each report's history under the report itself and returns a flat
-/// keyed prose map. Both change the prepared world and the response surface, so
-/// this is a new contract and not a revision of n94.
-pub const NARRATIVES_PROMPT_VERSION: &str = "n95";
+/// The current prompt keeps the flat keyed prose map and attaches prior reports
+/// through matching report keys in `memories`.
+pub const NARRATIVES_PROMPT_VERSION: &str = "n96-six-part";
 pub const NUM_PREDICT: i32 = 900;
 pub const NARRATIVES_SYSTEM_PROMPT: &str = prompt::FRESH_TASK;
 pub const NARRATIVES_OUTPUT_CONTRACT_VERSION: &str = "narratives-v11-nested-history";
@@ -186,9 +185,7 @@ pub fn prepare(
 
 /// Compose the model's world from independently prepared components.
 ///
-/// History is nested under the report it belongs to. The plugin resolved that
-/// attachment before this function is called, so the model reads one prepared
-/// set per report and is never handed two parallel arrays to pair up itself.
+/// Memory is keyed by the same report_key as fresh, so attachment is explicit.
 ///
 /// The parts and their order are this plugin's choice; `assembly::World` only
 /// renders them, deterministically and in the order given here.
@@ -239,27 +236,34 @@ pub fn assemble(
     reports: &[CorpusItem],
     history: &[Option<memories::Selected>],
 ) -> crate::plugins::assembly::World {
+    #[derive(Serialize)]
+    struct Attached<'a> {
+        report_key: String,
+        history: &'a [crate::plugins::memories::HistoryItem],
+        history_groups: &'a [crate::plugins::memories::GroupSummary],
+    }
     let attached = history
         .iter()
-        .map(|slot| {
-            let (items, groups) = slot
-                .as_ref()
-                .map(|h| (h.items.as_slice(), h.groups.as_slice()))
-                .unwrap_or_default();
-            fresh::History {
-                history: items,
-                history_groups: groups,
-            }
+        .enumerate()
+        .filter_map(|(index, slot)| {
+            let selected = slot.as_ref().filter(|h| !h.is_empty())?;
+            Some(Attached {
+                report_key: format!("report_{}", index + 1),
+                history: &selected.items,
+                history_groups: &selected.groups,
+            })
         })
         .collect::<Vec<_>>();
-    crate::plugins::assembly::World::new()
-        .part("identity", subject.for_writing())
-        .part("fresh", fresh::prepare(reports, &attached))
-        .part("voice", journalist::CHARACTER)
-        .part(
-            "form",
-            crate::plugins::support::form::journalist_form(reports.len()),
-        )
+    let mut world = crate::plugins::assembly::World::new()
+        .part("meta", subject.for_writing())
+        .part("fresh", fresh::prepare(reports));
+    if !attached.is_empty() {
+        world = world.part("memories", &attached);
+    }
+    world.part("voice", journalist::CHARACTER).part(
+        "form",
+        crate::plugins::support::form::journalist_form(reports.len()),
+    )
 }
 
 /// Production and replay use the exact assembled context measured by preparation.

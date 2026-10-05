@@ -145,7 +145,7 @@ mod tests {
     }
 
     #[test]
-    fn insider_receives_its_declared_adjudication_route() {
+    fn insider_receives_only_its_single_route() {
         let capabilities = models()
             .capabilities(&crate::plugins::insider::manifest::MANIFEST)
             .unwrap();
@@ -154,6 +154,6 @@ mod tests {
             .is_ok());
         assert!(capabilities
             .inference(crate::plugins::graph::manifest::ROUTE)
-            .is_ok());
+            .is_err());
     }
 }

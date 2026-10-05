@@ -82,7 +82,7 @@ impl Inference for OllamaClient {
         messages: &[serde_json::Value],
         tools: &[serde_json::Value],
         opts: &GenerateOptions,
-    ) -> Result<(GenerateResult, serde_json::Value)> {
+    ) -> Result<(GenerateResult, serde_json::Value, serde_json::Value)> {
         self.chat_with_tools(messages, tools, opts).await
     }
 
@@ -125,7 +125,7 @@ impl Inference for GovernedInference {
         messages: &[serde_json::Value],
         tools: &[serde_json::Value],
         opts: &GenerateOptions,
-    ) -> Result<(GenerateResult, serde_json::Value)> {
+    ) -> Result<(GenerateResult, serde_json::Value, serde_json::Value)> {
         let _permit = self
             .gpu
             .acquire()

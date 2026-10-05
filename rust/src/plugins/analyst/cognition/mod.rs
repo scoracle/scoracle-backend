@@ -2,17 +2,16 @@
 //! No database, queue, sibling character, or model-host knowledge belongs here.
 
 use crate::studio::model::GenerateOptions;
-use crate::studio::palette::{Paint, Palette, PaletteParser};
 use crate::studio::{Generation, GenerationCall, Parser, Studio};
 use crate::util::{hash_components, round1};
 use anyhow::{anyhow, Result};
 
-mod inputs;
+mod parts;
 pub mod prompt;
-pub use inputs::build_momentum_prompt;
+pub use parts::assemble as assemble_context;
 pub use prompt::{MOMENTUM_PROMPT_VERSION, MOMENTUM_SYSTEM_PROMPT};
 
-pub const MOMENTUM_OUTPUT_CONTRACT_VERSION: &str = "momentum-summary-v2-palette";
+pub const MOMENTUM_OUTPUT_CONTRACT_VERSION: &str = "momentum-summary-v3-prose";
 
 /// The Scout card supplied to the Analyst. The reading is already a finished interpretation;
 /// the Analyst should synthesize it, not reconstruct it from the Scout's raw measurements.
@@ -60,11 +59,11 @@ impl Snapshot {
 /// Complete materials for one creation. The application owns the durable subject key.
 #[derive(Clone, Debug)]
 pub struct Assignment {
+    pub entity_id: i32,
     pub entity_type: String,
     pub entity_name: String,
     pub sport: String,
     pub context: MomentumContext,
-    pub memory: Option<String>,
     pub voice_num_ctx: i32,
 }
 
@@ -90,65 +89,11 @@ pub struct MomentumContext {
 
 impl MomentumContext {
     pub fn empty(&self) -> bool {
-        self.rating.is_none() && self.vibe.is_none() && self.snapshot.empty()
+        self.rating.is_none()
+            && self.vibe.is_none()
+            && self.snapshot.rating_slope.is_none()
+            && self.snapshot.vibe_slope.is_none()
     }
-}
-
-/// Select concise, already-published findings and the computed trajectory. Source
-/// wording is copied exactly; the model cannot turn a source card into a new claim.
-fn momentum_palette(assignment: &Assignment) -> Result<Palette> {
-    let mut paints = Vec::new();
-    if let Some(form) = assignment.context.rating.as_ref() {
-        if let Some(statement) = concise_source_statement(&form.body, form.headline.as_deref()) {
-            paints.push(Paint {
-                id: "form".into(),
-                phrasings: vec![statement.clone(), format!("On measured form: {statement}")],
-            });
-        }
-    }
-    if let Some(mood) = assignment.context.vibe.as_ref() {
-        if let Some(statement) = concise_source_statement(&mood.body, mood.headline.as_deref()) {
-            paints.push(Paint {
-                id: "mood".into(),
-                phrasings: vec![
-                    statement.clone(),
-                    format!("On the current mood: {statement}"),
-                ],
-            });
-        }
-    }
-    if assignment.context.snapshot.momentum_score.is_some() {
-        let direction = momentum_direction_from_score(assignment.context.snapshot.momentum_score);
-        paints.push(Paint {
-            id: "trajectory".into(),
-            phrasings: vec![
-                format!("The supplied trajectory score indicates {direction} momentum."),
-                format!("The measured momentum direction is {direction}."),
-            ],
-        });
-    }
-    let palette = Palette { paints };
-    palette.validate()?;
-    Ok(palette)
-}
-
-fn concise_source_statement(body: &str, headline: Option<&str>) -> Option<String> {
-    let body = body.trim();
-    let end = body.char_indices().find_map(|(index, character)| {
-        matches!(character, '.' | '!' | '?')
-            .then(|| index + character.len_utf8())
-            .filter(|end| body[*end..].is_empty() || body[*end..].starts_with(char::is_whitespace))
-    });
-    if let Some(end) = end.filter(|end| *end <= 240) {
-        return Some(body[..end].to_string());
-    }
-    if !body.is_empty() && body.len() <= 240 {
-        return Some(body.to_string());
-    }
-    headline
-        .map(str::trim)
-        .filter(|s| !s.is_empty() && s.len() <= 140)
-        .map(str::to_string)
 }
 
 /// Parsed model prose. Direction and conviction are deterministic product fields.
@@ -332,25 +277,9 @@ pub fn build_momentum_input_components(
 }
 
 pub fn parse_momentum_reply(raw: &str) -> Option<MomentumReply> {
-    if let Ok(card) = serde_json::from_str::<crate::plugins::support::form::CardReply>(raw.trim()) {
-        return Some(MomentumReply {
-            blurb: crate::plugins::support::form::normalize_body(&card.body),
-            headline: Some(card.headline),
-        });
-    }
-    let rest = raw.trim().strip_prefix("READ:")?;
-    let (body, headline) = match rest.split_once("\nHEADLINE:") {
-        Some((body, title)) if !title.contains('\n') => {
-            let title = title.trim();
-            (body, (!title.is_empty()).then(|| title.to_string()))
-        }
-        Some(_) => return None,
-        None => (rest, None),
-    };
-
-    let blurb = crate::plugins::support::guards::clean_served_prose(
-        &crate::plugins::support::form::normalize_body(body),
-    );
+    let prose = parts::prose();
+    let map = crate::plugins::support::form::parse_prose_map(raw, &prose.keys, prose.dims).ok()?;
+    let blurb = crate::plugins::support::form::normalize_body(map.get("blurb")?);
     if blurb.is_empty() {
         return None;
     }
@@ -358,7 +287,10 @@ pub fn parse_momentum_reply(raw: &str) -> Option<MomentumReply> {
     if crate::plugins::support::guards::has_foreign_script(&blurb) {
         return None;
     }
-    Some(MomentumReply { blurb, headline })
+    Some(MomentumReply {
+        blurb,
+        headline: None,
+    })
 }
 
 impl MomentumContext {
@@ -385,27 +317,34 @@ pub async fn create(
     if ctx.empty() {
         return Ok(None);
     }
-    let palette = momentum_palette(assignment)?;
-    let prompt = palette.prompt();
-    let mut opts = generation_options(assignment.voice_num_ctx);
-    opts.system = Some("Choose only the plugin-approved phrasings. Return JSON choices; your prose is never published directly.".into());
-    opts.temperature = Some(0.0);
-    opts.num_predict = crate::studio::palette::PALETTE_NUM_PREDICT;
-    opts.format_schema = Some(palette.schema());
+    let subject = crate::plugins::meta::EntityMeta {
+        name: assignment.entity_name.clone(),
+        entity_type: assignment.entity_type.clone(),
+        entity_id: assignment.entity_id,
+        sport: assignment.sport.clone(),
+    };
+    let prompt = parts::assemble(
+        &subject,
+        ctx.rating.as_ref(),
+        ctx.vibe.as_ref(),
+        &ctx.snapshot,
+    )
+    .render();
+    let opts = generation_options(assignment.voice_num_ctx);
     let extracted = studio
         .extract(
             &prompt,
             &opts,
-            &PaletteParser(&palette),
+            &MomentumParser,
             crate::plugins::support::prompt::structured_correction,
         )
         .await?;
     let call = GenerationCall::from(&extracted);
     let model = extracted.model.clone();
-    let blurb = extracted
+    let reply = extracted
         .value
         .ok_or_else(|| anyhow!("momentum: parser returned no value"))?;
-    crate::plugins::support::form::validate_body(&blurb)?;
+    let blurb = reply.blurb;
     let headline = crate::plugins::support::guards::settle_title(
         "analyst",
         Some(&format!("{}: current momentum", assignment.entity_name)),
@@ -435,7 +374,7 @@ pub fn generation_options(voice_num_ctx: i32) -> GenerateOptions {
         num_predict: MOMENTUM_NUM_PREDICT,
         num_ctx: voice_num_ctx,
         json_mode: false,
-        format_schema: Some(crate::plugins::support::prompt::card_schema(false)),
+        format_schema: Some(parts::prose().schema()),
         format_schema_raw: None,
     }
 }

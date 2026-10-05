@@ -1,10 +1,10 @@
 {
   "expect": {},
   "name": "rising-confirmed",
-  "prompt_version": "momentum-s32",
+  "prompt_version": "momentum-s34",
   "task": "momentum",
   "temperature": 0.0,
-  "user_prompt": "Entity: Deshawn Carter (NBA player)\n\n=== SCOUT READING ===\nWritten: 2026-09-20\nSeason: 2026\nHeadline: Carter's measured game gathers force\nReading: Carter's creation and finishing are strengthening together across the current sample.\n\n=== INFLUENCER READING ===\nWritten: 2026-09-20\nHeadline: Carter owns the conversation\nCurrent sentiment level: 84 on a 1–100 scale\nReading: The mood around Carter is emphatically positive and still warming.\n\n=== DATED TRAJECTORY STUDY ===\nComputed: 2026-09-20\nStatistical form: rose by 22.0 points from 2026-08-08 to 2026-09-19, across 10 rated games.\nReported mood: rose by 33.0 points from 2026-08-30 to 2026-09-20, across 12 scored readings.\nThe two windows are independent. Missing means unmeasured, not flat. The study records change, not its cause.\n",
+  "user_prompt": "{\"meta\":{\"name\":\"Deshawn Carter\",\"entity_type\":\"player\",\"sport\":\"basketball\"},\"fresh\":{\"scout\":{\"body\":\"Carter's creation and finishing are strengthening together across the current sample.\",\"season\":2026,\"generated_at\":\"2026-09-20\"},\"influencer\":{\"body\":\"The mood around Carter is emphatically positive and still warming.\",\"generated_at\":\"2026-09-20\"},\"trajectory\":{\"computed_at\":\"2026-09-20\",\"form\":{\"slope\":22.0,\"samples\":10,\"from\":\"2026-08-08\",\"through\":\"2026-09-19\"},\"mood\":{\"slope\":33.0,\"samples\":12,\"from\":\"2026-08-30\",\"through\":\"2026-09-20\"}}},\"voice\":\"Detached, decisive, economical.\",\"form\":{\"keys\":[\"blurb\"],\"max_chars\":1200}}",
   "review": [
     "Both supplied trajectories rise; the synthesis should preserve that agreement without forecasting results."
   ]

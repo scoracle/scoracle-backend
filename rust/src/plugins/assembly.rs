@@ -191,12 +191,10 @@ mod tests {
         // rendered string rather than on the map.
         let prompt = crate::plugins::influencer::cognition::assembled_prompt(&influencer);
         let wire = wire_order(&prompt);
-        assert_eq!(wire, ["identity", "fresh", "history", "voice", "form"]);
-        assert!(rendered.get("history").is_some());
+        assert_eq!(wire, ["meta", "fresh", "voice", "form"]);
+        assert!(rendered.get("memories").is_none());
 
-        // The Journalist nests history under each report, so it has no top-level
-        // history part and a different order. Both are correct; the test is what
-        // keeps either from changing silently.
+        // The Journalist omits memories when no history was attached.
         let subject = crate::plugins::meta::EntityMeta {
             name: "Cedar".into(),
             entity_type: "team".into(),
@@ -217,7 +215,7 @@ mod tests {
         )
         .unwrap();
         let prompt = crate::plugins::journalist::cognition::prompt(&journalist);
-        assert_eq!(wire_order(&prompt), ["identity", "fresh", "voice", "form"]);
+        assert_eq!(wire_order(&prompt), ["meta", "fresh", "voice", "form"]);
     }
 
     /// The top-level key order of a rendered package.

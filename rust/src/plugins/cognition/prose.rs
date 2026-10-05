@@ -62,11 +62,14 @@ impl Prose {
 
     /// The `form` block a world presents, describing structure only.
     pub fn form(&self) -> Value {
-        serde_json::json!({
+        let mut form = serde_json::json!({
             "keys": self.keys,
             "max_chars": self.dims.total_max_chars,
-            "paragraph_max_chars": self.dims.paragraph_max_chars,
-        })
+        });
+        if let Some(limit) = self.dims.paragraph_max_chars {
+            form["paragraph_max_chars"] = serde_json::json!(limit);
+        }
+        form
     }
 
     /// The permissive JSON shape a response must satisfy. Deliberately

@@ -16,7 +16,8 @@ use std::time::Duration;
 
 #[test]
 fn parses_momentum_reply() {
-    let parsed = parse_momentum_reply("READ: Form is rising while the mood is calm.").unwrap();
+    let parsed =
+        parse_momentum_reply(r#"{"blurb":"Form is rising while the mood is calm."}"#).unwrap();
     assert_eq!(parsed.blurb, "Form is rising while the mood is calm.");
 }
 
@@ -33,41 +34,24 @@ fn rejects_non_current_momentum_shapes() {
 #[test]
 fn foreign_script_leak_fails_closed_the_3b_delegation_glitch() {
     // Verbatim class from the 2026-08-15 delegation to ministral-3:3b: an Arabic run
-    // mid-word in card-facing prose. The reply is well-formed by the label contract, so
+    // mid-word in card-facing prose. The reply is well-formed by the JSON contract, so
     // only a content check catches it — reject and let the retry re-roll.
-    assert!(parse_momentum_reply("READ: His playmaking has زمنed in Milwaukee.").is_none());
+    assert!(
+        parse_momentum_reply(r#"{"blurb":"His playmaking has زمنed in Milwaukee."}"#).is_none()
+    );
     // Latin diacritics are names, not leaks.
-    let ok =
-        parse_momentum_reply("READ: Éder Militão's form is falling, and the tape backs the drop.")
-            .expect("diacritics must pass");
+    let ok = parse_momentum_reply(
+        r#"{"blurb":"Éder Militão's form is falling, and the tape backs the drop."}"#,
+    )
+    .expect("diacritics must pass");
     assert!(ok.blurb.contains("Militão"));
 }
 
 #[test]
-fn parses_the_s17_headline_line() {
-    // s17 (mig 226): HEADLINE after the READ is the contracted position.
-    let parsed = parse_momentum_reply(
-        "READ: The form is rising and the mood confirms it.\nHEADLINE: Form and mood rise together for Vale",
-    )
-    .expect("a contracted headline must parse");
-    assert_eq!(
-        parsed.headline.as_deref(),
-        Some("Form and mood rise together for Vale")
+fn prose_form_rejects_extra_headline() {
+    assert!(
+        parse_momentum_reply(r#"{"blurb":"The tape is steady.","headline":"Extra"}"#).is_none()
     );
-    assert_eq!(parsed.blurb, "The form is rising and the mood confirms it.");
-
-    // A missing title does not cost a valid read.
-    let bare = parse_momentum_reply("READ: The tape is steady.").unwrap();
-    assert!(bare.headline.is_none());
-
-    assert!(parse_momentum_reply(
-        "HEADLINE: Kerr holds the line\nREAD: The form is holding while the mood wobbles."
-    )
-    .is_none());
-    assert!(parse_momentum_reply(
-        "READ: First sentence.\nHEADLINE: The title\nSome trailing note."
-    )
-    .is_none());
 }
 
 #[test]
@@ -120,193 +104,29 @@ fn conviction_sign_always_agrees_with_the_decided_direction() {
     }
 }
 #[test]
-fn prompt_carries_a_study_without_predeclaring_the_verdict() {
-    let mom = SynthMomentum {
-        rating_slope: Some(50.7),
-        rating_samples: 4,
-        momentum_score: Some(50.7),
-        ..SynthMomentum::default()
-    };
-    let prompt = build_momentum_prompt_from_pillars(
-        "player",
-        "Test Player",
-        "FOOTBALL",
+fn only_readings_or_measured_rails_are_material() {
+    assert!(MomentumContext::new(2026, None, None, Snapshot::default()).empty());
+    assert!(MomentumContext::new(
+        2026,
         None,
         None,
-        &mom,
-        None,
-    );
-    assert!(prompt.contains("=== DATED TRAJECTORY STUDY ==="));
-    assert!(prompt.contains("Statistical form: rose by 50.7 points"));
-    assert!(prompt.contains("across 4 rated games"));
-    assert!(!prompt.contains("decided upstream"));
-    assert!(!prompt.contains("final"));
-    // A missing rail is named as unmeasured, never silently converted to flat.
-    let empty = build_momentum_prompt_from_pillars(
-        "player",
-        "Test Player",
-        "FOOTBALL",
+        Snapshot {
+            momentum_score: Some(1.4),
+            ..Snapshot::default()
+        },
+    )
+    .empty());
+    assert!(!MomentumContext::new(
+        2026,
         None,
         None,
-        &SynthMomentum::default(),
-        None,
-    );
-    assert!(empty.contains("Statistical form: not measured."));
-    assert!(empty.contains("Reported mood: not measured."));
-    assert!(empty.contains("Missing means unmeasured, not flat"));
-}
-
-#[test]
-fn finished_character_readings_and_one_study_reach_the_prompt() {
-    let mom = SynthMomentum {
-        rating_slope: Some(-33.7),
-        rating_samples: 4,
-        vibe_slope: Some(14.0),
-        vibe_samples: 11,
-        momentum_score: Some(-22.4),
-        ..SynthMomentum::default()
-    };
-    let p = build_momentum_prompt_from_pillars(
-        "team",
-        "Test Team",
-        "FOOTBALL",
-        Some(&a_rating()),
-        Some(&a_vibe()),
-        &mom,
-        None,
-    );
-
-    assert!(p.contains("=== SCOUT READING ==="));
-    assert!(p.contains("Chances created have held their line"));
-    assert!(p.contains("=== INFLUENCER READING ==="));
-    assert!(p.contains("The room is warm after the cup run"));
-    assert!(p.contains("Statistical form: fell by 33.7 points"));
-    assert!(p.contains("Reported mood: rose by 14.0 points"));
-    assert!(p.contains("over an unavailable date window"));
-    assert!(!p.contains("Direction (decided upstream"));
-}
-
-#[test]
-fn input_components_are_stable_and_sorted() {
-    let rating = SynthRating {
-        body: "body".to_string(),
-        notability: 88,
-        rating_trajectory: "rising".to_string(),
-        rating_trajectory_label: "Composite rising".to_string(),
-    };
-    let vibe = SynthVibe {
-        sentiment: 62,
-        prompt: "Coverage is warmer".to_string(),
-    };
-    let mom = SynthMomentum {
-        rating_slope: Some(1.24),
-        rating_samples: 6,
-        vibe_slope: Some(-0.04),
-        vibe_samples: 4,
-        momentum_score: Some(1.19),
-        ..SynthMomentum::default()
-    };
-    let components = build_momentum_input_components_from_pillars(Some(&rating), Some(&vibe), &mom);
-    let value: serde_json::Value = serde_json::from_str(&components).unwrap();
-    assert_eq!(value["prompt_version"], MOMENTUM_PROMPT_VERSION);
-    assert_eq!(value["scout_body"], "body");
-    assert_eq!(value["influencer_body"], "Coverage is warmer");
-    assert_eq!(value["influencer_sentiment"], 62);
-    assert_eq!(value["momentum_rating_slope"], 1.2);
-    assert_eq!(value["momentum_vibe_slope"], -0.0);
-}
-
-// ── PARTIAL SPREADS ─────────────────────────────────────────────────────────────────────
-// The doctrine (Scott, 2026-08-15): "If the Analyst receives no info, it won't have an
-// output, but gracefully skip. If it only has vibe instead of rating, then it will build an
-// output on that. Work with what we have, don't fabricate, not having something to say is an
-// acceptable answer."
-//
-// The seat ALREADY does exactly this, and that is the problem these tests fix: the behaviour
-// rested entirely on `MomentumContext::empty()` being `&&` rather than `||`, and nothing
-// asserted it. Every one of the ten momentum fixtures carries BOTH rails, so flipping that
-// operator would have deleted the vibe-only read — the whole "build an output on that" half
-// of the brief — while the gate stayed green. A rule measured by nothing is advice (or8).
-//
-// This is the NORMAL path, not an edge case: the DB grows by fetch-and-upsert with no
-// bootstrap, so entities arrive with nothing and fill in over weeks.
-
-fn ctx(
-    rating: Option<SynthRating>,
-    vibe: Option<SynthVibe>,
-    snap: SynthMomentum,
-) -> MomentumContext {
-    MomentumContext {
-        season: 2025,
-        rating: rating.as_ref().map(form),
-        vibe: vibe.as_ref().map(mood),
-        snapshot: snapshot(&snap),
-        input_components_json: String::new(),
-        input_hash: String::new(),
-    }
-}
-
-fn a_rating() -> SynthRating {
-    SynthRating {
-        body: "Chances created have held their line.".to_string(),
-        notability: 71,
-        rating_trajectory: "steady".to_string(),
-        rating_trajectory_label: "overall scores holding steady over recent games".to_string(),
-    }
-}
-
-fn a_vibe() -> SynthVibe {
-    SynthVibe {
-        sentiment: 64,
-        prompt: "The room is warm after the cup run.".to_string(),
-    }
-}
-
-#[test]
-fn only_a_totally_empty_context_is_empty_the_load_bearing_and() {
-    // All three absent — the graceful-skip case. The handler returns Ok(()) and writes no
-    // row: silence is a valid output, not a failure.
-    assert!(ctx(None, None, SynthMomentum::default()).empty());
-
-    // ...and every PARTIAL spread is NOT empty, so the seat proceeds and reads on whatever
-    // survived. These four are the assertions that pin `&&`: under `||` all of them flip to
-    // `empty()` == true and the seat would fall silent on entities it can genuinely read.
-    assert!(
-        !ctx(None, Some(a_vibe()), SynthMomentum::default()).empty(),
-        "vibe with no rating must still produce a read — the brief's explicit case"
-    );
-    assert!(
-        !ctx(Some(a_rating()), None, SynthMomentum::default()).empty(),
-        "rating with no vibe must still produce a read"
-    );
-    let snap_only = SynthMomentum {
-        momentum_score: Some(1.4),
-        ..SynthMomentum::default()
-    };
-    assert!(
-        !ctx(None, None, snap_only).empty(),
-        "a trajectory snapshot alone is material enough to read"
-    );
-    assert!(!ctx(Some(a_rating()), Some(a_vibe()), SynthMomentum::default()).empty());
-}
-
-#[test]
-fn a_vibe_only_context_builds_a_prompt_that_claims_no_form() {
-    // A partial spread still supplies the finished card that exists, while saying explicitly
-    // that the absent rail and its change are unmeasured.
-    let p = build_momentum_prompt_from_pillars(
-        "team",
-        "Ipswich Town",
-        "FOOTBALL",
-        None,
-        Some(&a_vibe()),
-        &SynthMomentum::default(),
-        None,
-    );
-    assert!(p.contains("=== SCOUT READING ===\nNot available."));
-    assert!(p.contains("The room is warm after the cup run"));
-    assert!(p.contains("Statistical form: not measured."));
-    assert!(p.contains("Reported mood: not measured."));
+        Snapshot {
+            rating_slope: Some(1.4),
+            rating_samples: 4,
+            ..Snapshot::default()
+        },
+    )
+    .empty());
 }
 
 /// The blanket digit ban is retired; the precise bookkeeping check replaces it (2026-08-24).
@@ -317,7 +137,7 @@ fn a_vibe_only_context_builds_a_prompt_that_claims_no_form() {
 /// replaced it: digits in open prose are ordinary sporting evidence, internal numeric field citations are desk notes.
 #[test]
 fn momentum_allows_digits_in_prose_but_never_a_bookkeeping_citation() {
-    let read = |blurb: &str| MomentumParser.parse(&format!("READ: {blurb}"));
+    let read = |blurb: &str| MomentumParser.parse(&serde_json::json!({"blurb":blurb}).to_string());
 
     // Ships now. Under the old rule every one of these burned a finished READ.
     for ok in [
@@ -351,7 +171,7 @@ fn momentum_allows_digits_in_prose_but_never_a_bookkeeping_citation() {
 #[test]
 fn claim_paragraphs_survive_the_production_parser() {
     let body = "The profile is ordinary. Most skills sit near average. The middle is the story.\n\nOne edge stands out. Finishing leads the supplied profile. That is the exception.\n\nAvailability is limited. Two absences are recorded. Depth matters now.\n\nThe rest is unchanged. The supplied comparison shows no movement. Continuity holds.";
-    let raw = format!("READ: {body}\nHEADLINE: Ordinary form holds");
+    let raw = serde_json::json!({"blurb":body}).to_string();
     let parsed = MomentumParser.parse(&raw).unwrap().unwrap();
     assert_eq!(parsed.blurb, body);
 }
@@ -404,6 +224,7 @@ impl Inference for LifecycleAdapters {
 
 fn lifecycle_assignment(material: bool) -> Assignment {
     Assignment {
+        entity_id: 7,
         entity_type: "team".into(),
         entity_name: "Test Team".into(),
         sport: "nba".into(),
@@ -432,7 +253,6 @@ fn lifecycle_assignment(material: bool) -> Assignment {
         } else {
             MomentumContext::new(2026, None, None, Snapshot::default())
         },
-        memory: material.then(|| "Prepared source memory.".into()),
         voice_num_ctx: 4096,
     }
 }

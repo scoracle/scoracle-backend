@@ -645,11 +645,8 @@ async fn publish(
             INSERT INTO public.harvester_insider_pairs
                 (classification_id,subject_type,subject_id)
             SELECT $1, subject.entity_type, subject.entity_id
-              FROM public.harvester_resolved_links team
-              JOIN public.harvester_resolved_links subject
-                ON subject.article_id=team.article_id AND subject.sport=team.sport
-             WHERE team.article_id=$2 AND team.sport=$3
-               AND team.entity_type='team' AND team.entity_id=$4
+              FROM public.harvester_entity_mentions subject
+             WHERE subject.article_id=$2 AND subject.sport=$3
                AND (subject.entity_type='player' OR
                     (subject.entity_type='person' AND EXISTS (
                         SELECT 1 FROM public.persons p
@@ -661,24 +658,39 @@ async fn publish(
             .bind(classification_id)
             .bind(context.article_id)
             .bind(&context.hypothesis.sport)
-            .bind(context.hypothesis.entity_id)
             .execute(&mut **tx)
             .await?;
         }
         let work_version = format!("{}:c{classification_id}", context.contract_version);
-        sqlx::query(
-            "UPDATE public.harvester_insider_wraps \
-             SET status='superseded', \
-                 product_ref=COALESCE(product_ref,'{}'::jsonb) || \
-                   jsonb_build_object('reason','new_source_revision','superseded_by',$3::text), \
-                 updated_at=now() \
-             WHERE team_id=$1 AND sport=$2 AND status='pending' AND work_version<>$3",
-        )
-        .bind(context.hypothesis.entity_id)
-        .bind(&context.hypothesis.sport)
-        .bind(&work_version)
-        .execute(&mut **tx)
-        .await?;
+        if delivery.contains("insider")
+            && context
+                .recommended_characters
+                .iter()
+                .any(|id| id == crate::plugins::insider::manifest::MANIFEST.id.as_str())
+        {
+            let subjects: Vec<(String, i32)> = sqlx::query_as(
+                "SELECT subject_type,subject_id FROM public.harvester_insider_pairs \
+                 WHERE classification_id=$1 ORDER BY subject_type,subject_id",
+            )
+            .bind(classification_id)
+            .fetch_all(&mut **tx)
+            .await?;
+            for (entity_type, entity_id) in subjects {
+                crate::application::queue::work::enqueue(
+                    &mut **tx,
+                    &Item {
+                        stage: crate::plugins::insider::manifest::TASK,
+                        entity_type,
+                        entity_id: i64::from(entity_id),
+                        sport: context.hypothesis.sport.clone(),
+                        input_version: Some(work_version.clone()),
+                        attempts: 0,
+                        claim_token: None,
+                    },
+                )
+                .await?;
+            }
+        }
         // Eligibility comes from plugin policy. The queue owns durable dispatch.
         for route in CHARACTER_ROUTES.iter().filter(|route| {
             context
@@ -987,7 +999,7 @@ mod tests {
     }
 
     struct SmokeVibe;
-    struct SmokeInsider;
+    struct SmokeInsider(std::sync::Mutex<Vec<String>>);
     struct SmokeScout;
 
     struct MutatingScout<'a> {
@@ -1062,25 +1074,33 @@ mod tests {
             prompt: &str,
             options: &GenerateOptions,
         ) -> Result<(GenerateResult, serde_json::Value)> {
-            let response = if prompt.contains("Choose one approved phrasing") {
-                let slots = options
-                    .format_schema
-                    .as_ref()
-                    .and_then(|schema| schema["properties"]["choices"]["minItems"].as_u64())
-                    .context("missing Insider score palette slot count")?;
-                json!({"choices": vec![0; slots as usize]}).to_string()
-            } else {
-                ensure!(prompt.contains("Exact publisher opening (unchanged)"));
-                ensure!(prompt.contains("Morgan Example"));
-                let subject = if prompt.contains("Resolved subject: player Taylor Sample") {
-                    "Taylor Sample"
-                } else {
-                    "Morgan Example"
-                };
-                format!(
-                    "{{\"is_rumor\":true,\"subject\":\"{subject}\",\"stage\":\"advanced_talks\",\"evidence_quote\":\"Harvester Test Club is in talks to sign Morgan Example and Taylor Sample this week.\"}}"
-                )
+            let world: serde_json::Value = serde_json::from_str(prompt)?;
+            let subject = world["meta"]["name"]
+                .as_str()
+                .context("missing Insider subject")?;
+            self.0.lock().unwrap().push(subject.to_string());
+            let quote = "Harvester Test Club is in talks to sign Morgan Example and Taylor Sample this week.";
+            let counterparties: &[&str] = match subject {
+                "Harvester Test Club" => &["Morgan Example", "Taylor Sample"],
+                "Morgan Example" | "Taylor Sample" => &["Harvester Test Club"],
+                "Another Test Club" => &[],
+                other => anyhow::bail!("unexpected Insider subject {other}"),
             };
+            ensure!(options
+                .format_schema
+                .as_ref()
+                .is_some_and(|schema| schema["properties"]["findings"].is_object()));
+            let response = json!({
+                "body": format!("{subject} is named in an Example Wire report on transfer talks."),
+                "findings": counterparties.iter().map(|name| json!({
+                    "report_index": 0,
+                    "counterparty": name,
+                    "status": "reported",
+                    "stage": "advanced_talks",
+                    "evidence_quote": quote,
+                })).collect::<Vec<_>>(),
+            })
+            .to_string();
             Ok((
                 GenerateResult {
                     response: response.clone(),
@@ -1431,14 +1451,6 @@ mod tests {
         const PLAYER: i32 = 9_690_105;
         const PLAYER_TWO: i32 = 9_690_106;
         let pool = PgPool::connect(&std::env::var("TEST_DATABASE_URL").unwrap()).await?;
-        sqlx::query("DELETE FROM public.harvester_insider_identity_reviews WHERE sport=$1")
-            .bind(SPORT)
-            .execute(&pool)
-            .await?;
-        sqlx::query("DELETE FROM public.harvester_insider_wraps WHERE sport=$1")
-            .bind(SPORT)
-            .execute(&pool)
-            .await?;
         sqlx::query("DELETE FROM public.insider_scores WHERE sport=$1")
             .bind(SPORT)
             .execute(&pool)
@@ -1559,15 +1571,6 @@ mod tests {
             .bind(ARTICLE).bind(TEAM).bind(SPORT).execute(&pool).await?;
         sqlx::query("INSERT INTO public.harvester_query_provenance(article_id,entity_type,entity_id,sport,feed_rank) VALUES($1,'team',$2,$3,2)")
             .bind(ARTICLE).bind(OTHER_TEAM).bind(SPORT).execute(&pool).await?;
-        sqlx::query(
-            "INSERT INTO public.harvester_insider_wraps \
-             (team_id,sport,work_version,entity_type,entity_id) \
-             VALUES($1,$2,'harvest-context-v1:old','team',$1)",
-        )
-        .bind(TEAM)
-        .bind(SPORT)
-        .execute(&pool)
-        .await?;
         work::enqueue(
             &pool,
             &Item {
@@ -1668,16 +1671,6 @@ mod tests {
             // Failure rolls back receipt effects and leaves the claim usable.
             assert_eq!(handler.execute(&revised_claim).await?, PluginOutcome::Committed);
         }
-        let old_wrap: (String, serde_json::Value) = sqlx::query_as(
-            "SELECT status,product_ref FROM public.harvester_insider_wraps \
-             WHERE team_id=$1 AND sport=$2 AND work_version='harvest-context-v1:old'",
-        )
-        .bind(TEAM)
-        .bind(SPORT)
-        .fetch_one(&pool)
-        .await?;
-        assert_eq!(old_wrap.0, "superseded");
-        assert_eq!(old_wrap.1["reason"], "new_source_revision");
         let classifications: Vec<(i32, String, String, String)> = sqlx::query_as(
             "SELECT entity_id,entity_choice,context_text,headline FROM public.harvester_classifications WHERE article_id=$1 ORDER BY entity_id"
         ).bind(ARTICLE).fetch_all(&pool).await?;
@@ -1757,23 +1750,6 @@ mod tests {
         .await?;
         assert!(heat.is_some_and(|value| value > 0));
         assert_eq!(news_ids, vec![ARTICLE]);
-        let transfer_candidates =
-            crate::plugins::insider::adapter::load_harvester_source_candidates(
-                &pool, ARTICLE, TEAM, SPORT,
-            )
-            .await?;
-        assert_eq!(transfer_candidates.len(), 2);
-        assert_eq!(transfer_candidates[0].player_id, PLAYER);
-        assert_eq!(transfer_candidates[0].player_name, "Morgan Example");
-        assert_eq!(transfer_candidates[1].player_id, PLAYER_TWO);
-        assert_eq!(transfer_candidates[1].player_name, "Taylor Sample");
-        assert!(
-            crate::plugins::insider::adapter::load_harvester_source_candidates(
-                &pool, ARTICLE, OTHER_TEAM, SPORT,
-            )
-            .await?
-            .is_empty()
-        );
         let editor_work: i64 = sqlx::query_scalar(
             "SELECT count(*) FROM public.pipeline_work WHERE stage='editor' AND entity_id=$1",
         )
@@ -1904,16 +1880,17 @@ mod tests {
             );
             assert!(receipt["input_hash"].as_str().is_some());
         }
-        let insider_work = work::claim(&pool, crate::plugins::insider::manifest::TASK, 2).await?;
-        assert_eq!(insider_work.len(), 2);
+        let insider_backend = SmokeInsider(std::sync::Mutex::new(Vec::new()));
+        let insider_work = work::claim(&pool, crate::plugins::insider::manifest::TASK, 4).await?;
+        assert_eq!(insider_work.len(), 4);
         for (index, claimed) in insider_work.into_iter().enumerate() {
             if index == 0 {
                 let mut stale = claimed.clone();
                 stale.claim_token = Some("00000000-0000-0000-0000-000000000002".into());
                 assert_eq!(
-                    crate::plugins::insider::adapter::harvester::execute_with_backend(
+                    crate::plugins::insider::adapter::source::execute_with_backend(
                         &pool,
-                        &SmokeInsider,
+                        &insider_backend,
                         4096,
                         &stale,
                     )
@@ -1921,92 +1898,18 @@ mod tests {
                     PluginOutcome::Superseded
                 );
             }
-            let outcome = crate::plugins::insider::adapter::harvester::execute_with_backend(
-                &pool,
-                &SmokeInsider,
-                4096,
-                &claimed,
-            )
-            .await?;
-            if claimed.entity_id == i64::from(TEAM) {
-                assert!(matches!(outcome, PluginOutcome::Deferred { .. }));
-                let pending_pairs: i64 = sqlx::query_scalar(
-                    "SELECT count(*) FROM public.harvester_insider_pairs p \
-                     JOIN public.harvester_classifications c ON c.id=p.classification_id \
-                     WHERE c.article_id=$1 AND c.entity_id=$2 AND p.status='pending'",
-                )
-                .bind(ARTICLE)
-                .bind(TEAM)
-                .fetch_one(&pool)
-                .await?;
-                assert_eq!(pending_pairs, 1);
-                assert!(work::defer(&pool, &claimed, Duration::ZERO, "next transfer pair").await?);
-            } else {
-                assert!(matches!(outcome, PluginOutcome::Deferred { .. }));
-                assert!(work::defer(&pool, &claimed, Duration::ZERO, "Insider wraps").await?);
-            }
-        }
-        let resumed_insider = work::claim(&pool, crate::plugins::insider::manifest::TASK, 1)
-            .await?
-            .remove(0);
-        assert_eq!(resumed_insider.entity_id, i64::from(TEAM));
-        assert!(matches!(
-            crate::plugins::insider::adapter::harvester::execute_with_backend(
-                &pool,
-                &SmokeInsider,
-                4096,
-                &resumed_insider,
-            )
-            .await?,
-            PluginOutcome::Deferred { .. }
-        ));
-        assert!(work::defer(&pool, &resumed_insider, Duration::ZERO, "Insider wraps").await?);
-        for _ in 0..12 {
-            let claimed = work::claim(&pool, crate::plugins::insider::manifest::TASK, 2).await?;
-            if claimed.is_empty() {
-                break;
-            }
-            for item in claimed {
-                let outcome = crate::plugins::insider::adapter::harvester::execute_with_backend(
+            assert_eq!(
+                crate::plugins::insider::adapter::source::execute_with_backend(
                     &pool,
-                    &SmokeInsider,
+                    &insider_backend,
                     4096,
-                    &item,
+                    &claimed,
                 )
-                .await?;
-                if matches!(outcome, PluginOutcome::Deferred { .. }) {
-                    assert!(work::defer(&pool, &item, Duration::ZERO, "next Insider wrap").await?);
-                } else {
-                    assert_eq!(outcome, PluginOutcome::Committed);
-                }
-            }
+                .await?,
+                PluginOutcome::Committed
+            );
         }
-        let pending_wraps: i64 = sqlx::query_scalar(
-            "SELECT count(*) FROM public.harvester_insider_wraps WHERE sport=$1 AND status='pending'"
-        ).bind(SPORT).fetch_one(&pool).await?;
-        assert_eq!(pending_wraps, 0);
-        let identity_reviews: Vec<(String, String)> = sqlx::query_as(
-            "SELECT status,reason FROM public.harvester_insider_identity_reviews \
-             WHERE sport=$1 ORDER BY transfer_rumor_id",
-        )
-        .bind(SPORT)
-        .fetch_all(&pool)
-        .await?;
-        assert_eq!(
-            identity_reviews,
-            vec![
-                ("skipped".into(), "missing_identity_threshold".into()),
-                ("skipped".into(), "missing_identity_threshold".into())
-            ]
-        );
-        let scored_wraps: i64 = sqlx::query_scalar(
-            "SELECT count(*) FROM public.harvester_insider_wraps WHERE sport=$1 AND status='scored'"
-        ).bind(SPORT).fetch_one(&pool).await?;
-        assert_eq!(scored_wraps, 3);
-        let skipped_wraps: i64 = sqlx::query_scalar(
-            "SELECT count(*) FROM public.harvester_insider_wraps WHERE sport=$1 AND status='skipped'"
-        ).bind(SPORT).fetch_one(&pool).await?;
-        assert_eq!(skipped_wraps, 1);
+        assert_eq!(insider_backend.0.lock().unwrap().len(), 4);
         let unfinished_insider_work: i64 = sqlx::query_scalar(
             "SELECT count(*) FROM public.pipeline_work WHERE sport=$1 AND stage='transfers' \
              AND status IN ('pending','running')",
@@ -2046,16 +1949,6 @@ mod tests {
              WHERE team_id=$1 AND player_id IN ($2,$3) AND sport=$4 AND trigger_type='harvester' AND is_rumor=true ORDER BY player_id"
         ).bind(TEAM).bind(PLAYER).bind(PLAYER_TWO).bind(SPORT).fetch_all(&pool).await?;
         assert_eq!(rumor_source_ids, vec![ARTICLE, ARTICLE]);
-        let junction_subjects: Vec<i32> = sqlx::query_scalar(
-            "SELECT subject_id FROM public.narrative_events \
-             WHERE sport=$1 AND article_id=$2 AND origin='junction' \
-             ORDER BY subject_id",
-        )
-        .bind(SPORT)
-        .bind(ARTICLE)
-        .fetch_all(&pool)
-        .await?;
-        assert_eq!(junction_subjects, vec![PLAYER, PLAYER_TWO]);
         let scout_claims = work::claim(&pool, crate::plugins::scout::manifest::TASK, 2).await?;
         assert_eq!(scout_claims.len(), 2);
         for claimed in scout_claims {
@@ -2391,10 +2284,6 @@ mod tests {
             .bind(ARTICLE as i32).bind(SPORT).fetch_one(&pool).await?;
         assert_eq!(graph_work, 1);
         sqlx::query("DELETE FROM public.pipeline_work WHERE sport=$1")
-            .bind(SPORT)
-            .execute(&pool)
-            .await?;
-        sqlx::query("DELETE FROM public.harvester_insider_wraps WHERE sport=$1")
             .bind(SPORT)
             .execute(&pool)
             .await?;

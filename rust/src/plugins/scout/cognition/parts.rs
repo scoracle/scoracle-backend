@@ -1,6 +1,6 @@
 //! Scout-owned data and relationships, rendered by the shared ordered renderer.
 //! Measured history and dated reporting retain separate provenance.
-//! `prompt.rs` owns the job; `brief.rs` supplies tone.
+//! `prompt.rs` owns the job; `voice.rs` supplies tone.
 use serde::Serialize;
 
 /// The Scout's measured profile, as presented. Selection has already happened:
@@ -12,28 +12,19 @@ use serde::Serialize;
 #[derive(Clone, Debug, Serialize, serde::Deserialize)]
 pub struct Profile {
     pub season: i32,
-    #[serde(default)]
-    pub observed_at: Option<String>,
-    /// The curated display name for the sport ("Football (Soccer)"), so the
-    /// model is never left to infer what a stored sport id means. Omitted when
-    /// there is no curated name, in which case the id in `identity` stands.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub sport_name: Option<String>,
     /// The sample this profile is computed over, by stat-definition label.
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
     pub sample: std::collections::BTreeMap<String, f64>,
     /// The selected measurements, keyed by measure label.
     #[serde(serialize_with = "serialize_measurements")]
     pub values: Vec<MeasuredValue>,
     /// Standardized overall score, where 50 is the peer mean. Absent rather
     /// than defaulted: a missing composite is not a composite of 50.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub composite: Option<f64>,
     /// How this profile's values may be read. `cross_season` gates the whole
     /// comparison part; without it a prior-season percentile cannot be stated.
     pub supports_cross_season: bool,
-    /// Measures that exist but were not selected, so an omitted measure is not
-    /// read as unmeasured or as zero at the source.
-    #[serde(default, skip_serializing_if = "<[String]>::is_empty")]
-    pub not_selected: Vec<String>,
     /// The boundary the plugin has placed on what this profile may be used for.
     /// A thin or single-appearance sample is coverage, not proof of
     /// participation, and the model must not read it as such.
@@ -62,9 +53,6 @@ pub struct MeasuredValue {
     /// wording; it may not compute a different one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub band: Option<String>,
-    /// The sign-adjusted standardized distance from the peer mean, when known.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub quality_z: Option<f64>,
     /// The prior season's percentile for this same measure, when a compatible
     /// comparison exists. `Some` is a supported direction; `None` is no
     /// comparison, which is not "unchanged".
@@ -122,29 +110,6 @@ pub enum Limit {
     NoMeasurements,
 }
 
-/// The recent-form measurement the plugin computed, if it had one.
-#[derive(Clone, Debug, Serialize, serde::Deserialize)]
-pub struct Trend {
-    /// The plugin's own direction label — `rising`, `falling` or `steady` — over
-    /// a named number of scored events.
-    pub direction: String,
-    pub sample_size: usize,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub note: Option<String>,
-}
-
-/// A rate-adjusted standout, where a limited-minutes subject produces at an
-/// elite rate. This is a different lens from the same raw value, and the
-/// presentation says which lens it is rather than leaving two numbers to be
-/// confused for one.
-#[derive(Clone, Debug, Serialize, serde::Deserialize)]
-pub struct RateStandout {
-    /// The rate basis, e.g. `per_36`.
-    pub mode: String,
-    pub label: String,
-    pub percentile: f64,
-}
-
 /// The Scout's parts, in a form a quality fixture can store.
 ///
 /// A fixture that stores only a rendered prompt cannot detect a changed
@@ -159,10 +124,6 @@ pub struct Parts {
     pub season: i32,
     /// The selected measurements, already chosen and formatted.
     pub profile: Profile,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub rate_standouts: Vec<RateStandout>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub trend: Option<Trend>,
     /// Studied statistical trend context, and the injury / suspension claims.
     /// Both live here because both are memory, and they are keyed apart because
     /// a measured trend is not a reported claim.
@@ -179,12 +140,10 @@ pub struct Parts {
 /// can be told about, and it does not select anything further.
 pub fn profile_parts(
     profile: &crate::plugins::scout::cognition::RatingProfile,
-    sport_name: &str,
     supports_cross_season: bool,
     comparisons: Option<
         &std::collections::BTreeMap<String, crate::plugins::scout::cognition::SkillChange>,
     >,
-    exclusions: &crate::plugins::scout::cognition::RatingExclusions,
 ) -> Profile {
     let values = profile
         .breakdown
@@ -200,7 +159,6 @@ pub fn profile_parts(
             band: datapoint
                 .pct
                 .map(|pct| crate::plugins::scout::cognition::pct_band(pct).to_string()),
-            quality_z: signed_z(datapoint),
             // A prior percentile only when a cross-season comparison is
             // supported. Without one, `None` means "no comparison", which the
             // manual states is not stability — and stating it is the point.
@@ -213,17 +171,8 @@ pub fn profile_parts(
                 .flatten(),
         })
         .collect();
-    let mut not_selected = exclusions.budget_truncated_stat_labels.clone();
-    not_selected.extend(exclusions.off_facet_stat_labels.iter().cloned());
-    not_selected.extend(exclusions.degenerate_zero_stat_labels.iter().cloned());
-    not_selected.extend(exclusions.display_tier_stat_labels.iter().cloned());
-    not_selected.extend(exclusions.thin_sample_omitted_stat_labels.iter().cloned());
-    not_selected.sort();
-    not_selected.dedup();
     Profile {
         season: profile.season,
-        observed_at: profile.observed_at.clone(),
-        sport_name: (!sport_name.trim().is_empty()).then(|| sport_name.trim().to_string()),
         // Participation totals are withheld whenever the sample cannot support a
         // cross-season comparison. A stored count is SOURCE COVERAGE, and
         // presenting "3 appearances" beside a profile is an invitation to read it
@@ -242,7 +191,6 @@ pub fn profile_parts(
         values,
         composite: profile.composite_score,
         supports_cross_season,
-        not_selected,
         limit: limit_for(profile, supports_cross_season),
     }
 }
@@ -299,34 +247,6 @@ fn sample_appearances(profile: &crate::plugins::scout::cognition::RatingProfile)
         )
         .then_some(*value)
     })
-}
-
-/// The sign-adjusted standardized distance, where positive is always favorable.
-/// Unknown polarity yields nothing rather than a zero that reads as average.
-fn signed_z(datapoint: &crate::plugins::scout::cognition::RatingDatapoint) -> Option<f64> {
-    match datapoint.sign {
-        -1 | 1 => datapoint
-            .z
-            .filter(|z| z.is_finite())
-            .map(|z| datapoint.sign as f64 * z),
-        _ => None,
-    }
-}
-
-/// Present the rate-adjusted standouts, which are the same measurements under a
-/// different basis. Empty is omitted rather than rendered as an empty list, so
-/// "no elite rate was found" stays distinguishable from "this was not looked at".
-pub fn rate_standout_parts(
-    profile: &crate::plugins::scout::cognition::RatingProfile,
-) -> Vec<RateStandout> {
-    crate::plugins::scout::cognition::collect_rate_standouts(profile)
-        .into_iter()
-        .map(|standout| RateStandout {
-            mode: standout.mode,
-            label: standout.label,
-            percentile: standout.pct,
-        })
-        .collect()
 }
 
 impl Parts {
@@ -396,24 +316,32 @@ impl Parts {
     /// given here.
     pub fn assemble(&self) -> crate::plugins::assembly::World {
         #[derive(Serialize)]
-        struct Fresh<'a> {
-            #[serde(flatten)]
-            profile: &'a Profile,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            composite_peer_mean: Option<f64>,
+        struct Meta<'a> {
+            name: &'a str,
+            entity_type: &'a str,
+            sport: &'a str,
         }
-        crate::plugins::assembly::World::new()
-            .part("identity", self.subject.for_writing())
+        let mut world = crate::plugins::assembly::World::new()
             .part(
-                "fresh",
-                Fresh {
-                    profile: &self.profile,
-                    composite_peer_mean: self.profile.composite.map(|_| 50.0),
+                "meta",
+                Meta {
+                    name: &self.subject.name,
+                    entity_type: &self.subject.entity_type,
+                    sport: if self.sport_name.trim().is_empty() {
+                        &self.subject.sport
+                    } else {
+                        &self.sport_name
+                    },
                 },
             )
-            .part("memory", &self.memory)
-            .part("rate_standouts", &self.rate_standouts)
-            .part("trend", &self.trend)
+            .part("fresh", &self.profile);
+        if !self.memory.measured.is_empty()
+            || !self.memory.reported.is_empty()
+            || !self.memory.coverage_limits.is_empty()
+        {
+            world = world.part("memories", &self.memory);
+        }
+        world
             .part("voice", crate::plugins::scout::cognition::VOICE)
             .part("form", crate::plugins::scout::cognition::prose().form())
     }
@@ -440,7 +368,7 @@ mod tests {
         let mut parts: Parts =
             serde_json::from_value(capture["assignment"]["parts"].clone()).unwrap();
         let world: serde_json::Value = serde_json::from_str(&parts.render()).unwrap();
-        assert_eq!(world["fresh"]["composite_peer_mean"], 50.0);
+        assert!(world["fresh"].get("composite_peer_mean").is_none());
         parts.profile.composite = None;
         let world: serde_json::Value = serde_json::from_str(&parts.render()).unwrap();
         assert!(world["fresh"].get("composite_peer_mean").is_none());

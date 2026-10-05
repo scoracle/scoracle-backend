@@ -90,6 +90,43 @@ pub struct HistoryItem {
     pub reported_headline: String,
 }
 
+/// Measured publisher record from resolved transfer outcomes. The sample size
+/// stays beside the reliability score so a thin record cannot look definitive.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct SourceRecord {
+    pub publisher: String,
+    pub confirmed: i32,
+    pub tracked: i32,
+    pub reliability: i16,
+}
+
+pub async fn source_records(
+    pool: &PgPool,
+    sport: &str,
+    publishers: &[String],
+) -> Result<Vec<SourceRecord>> {
+    let rows: Vec<(String, i32, i32, i16)> = sqlx::query_as(
+        "SELECT source,confirmed_covered,pairs_covered,reliability \
+         FROM public.source_performance WHERE sport=$1 AND source=ANY($2) \
+         ORDER BY reliability DESC,pairs_covered DESC,source LIMIT 12",
+    )
+    .bind(sport)
+    .bind(publishers)
+    .fetch_all(pool)
+    .await?;
+    Ok(rows
+        .into_iter()
+        .map(
+            |(publisher, confirmed, tracked, reliability)| SourceRecord {
+                publisher,
+                confirmed,
+                tracked,
+                reliability,
+            },
+        )
+        .collect())
+}
+
 /// What one group of observations represents, for a caller that groups.
 ///
 /// The study knows how many articles and publishers a group holds. It does not

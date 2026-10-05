@@ -380,9 +380,7 @@ async fn build_rating_request_inner(
             );
             (
                 Vec::new(),
-                vec![format!(
-                    "No recent-fixture measurement window is available for this read: {error:#}"
-                )],
+                vec!["Recent-fixture measurement window unavailable for this read.".into()],
             )
         }
     };
@@ -397,24 +395,9 @@ async fn build_rating_request_inner(
         season: profile.season,
         profile: scout::parts::profile_parts(
             &prompt_profile,
-            &subject.sport_name,
             supports_cross_season,
             comparisons.as_ref(),
-            &exclusions,
         ),
-        rate_standouts: crate::plugins::scout::cognition::parts::rate_standout_parts(
-            &prompt_profile,
-        ),
-        trend: rating_trajectory
-            .label
-            .as_ref()
-            .map(|_| scout::parts::Trend {
-                direction: rating_trajectory.key.clone(),
-                sample_size: rating_trajectory.components["sample_size"]
-                    .as_u64()
-                    .unwrap_or_default() as usize,
-                note: form_trend.clone(),
-            }),
         memory: crate::plugins::scout::memories::select(
             &crate::plugins::scout::memories::Selection::rated(),
             measured_memory,

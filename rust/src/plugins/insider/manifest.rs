@@ -11,7 +11,7 @@ pub const MANIFEST: PluginManifest = PluginManifest {
     id: PluginId::new("scoracle.character.transfers"),
     task: TASK,
     claim_policy: ClaimPolicy::TEAMS_FIRST,
-    inference_routes: &[ROUTE, crate::plugins::graph::manifest::ROUTE],
+    inference_routes: &[ROUTE],
     resources: ResourceProfile::unbounded_batch(1),
     tools: &[ToolGrant::Inference],
 };

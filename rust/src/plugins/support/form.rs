@@ -22,35 +22,8 @@ pub const JOURNALIST_PARAGRAPH_MAX_CHARS: Option<usize> = None;
 
 /// Shared observation layout. Plugins supply content scope and factual boundaries
 /// in their assembly instructions, independently of this writing tool.
-pub fn observation_form() -> ObservationForm {
-    ObservationForm {
-        body: ObservationBodyForm {
-            field_type: "string or null",
-            paragraphs: "Blank lines separate paragraphs.",
-            paragraph_max_chars: PARAGRAPH_MAX_CHARS,
-            max_chars: BODY_MAX_CHARS,
-            lengths: "Ceilings, not targets; no minimum length.",
-            paragraph_breaks: "escaped newlines",
-        },
-    }
-}
-
-/// Serialize the layout before dimensions. Live SmolLM3 controls found that
-/// alphabetically sorting these fields substantially changed output behavior.
-#[derive(serde::Serialize)]
-pub struct ObservationForm {
-    body: ObservationBodyForm,
-}
-
-#[derive(serde::Serialize)]
-struct ObservationBodyForm {
-    #[serde(rename = "type")]
-    field_type: &'static str,
-    paragraphs: &'static str,
-    paragraph_max_chars: usize,
-    max_chars: usize,
-    lengths: &'static str,
-    paragraph_breaks: &'static str,
+pub fn observation_form() -> serde_json::Value {
+    observation_prose().form()
 }
 
 /// The Influencer's declared prose contract: one nullable `body` slot.
@@ -339,40 +312,6 @@ pub fn normalize_body(body: &str) -> String {
     paragraphs.join("\n\n")
 }
 
-#[derive(serde::Deserialize)]
-pub struct CardReply {
-    pub headline: String,
-    pub body: String,
-    pub score: Option<i32>,
-}
-
-/// Permit an explicit pass while preserving the complete card contract.
-pub fn with_abstention(schema: serde_json::Value) -> serde_json::Value {
-    serde_json::json!({"anyOf": [schema, {"type": "null"}]})
-}
-
-/// Shape only. The surface belongs in the prompt and post-decode validation;
-/// constraining a string's maximum length can force a word to end midway.
-pub fn card_schema(scored: bool) -> serde_json::Value {
-    let mut schema = serde_json::json!({
-        "type": "object",
-        "properties": {
-            "headline": {"type":"string"},
-            "body": {"type":"string"}
-        },
-        "required": ["headline", "body"]
-    });
-    if scored {
-        schema["properties"]["score"] =
-            serde_json::json!({"type":"integer", "minimum":1, "maximum":100});
-        schema["required"]
-            .as_array_mut()
-            .unwrap()
-            .push(serde_json::json!("score"));
-    }
-    schema
-}
-
 /// The Journalist's declared prose contract: one slot per selected report.
 ///
 /// The keys are the plugin's own `report_key` values, in source order. History is
@@ -394,21 +333,8 @@ pub fn journalist_prose(report_count: usize) -> crate::plugins::cognition::prose
 /// Structural writing form: fields, types, counts and dimensions only. Content
 /// direction and source-to-output mapping belong to the Journalist's prompt.rs.
 ///
-/// `history` states where history lives. It describes placement only; the
-/// manual explains the package.
 pub fn journalist_form(report_count: usize) -> serde_json::Value {
-    let mut form = serde_json::json!({
-        "report_count":report_count,
-        "report_keys":(1..=report_count).map(|index| format!("report_{index}")).collect::<Vec<_>>(),
-        "report_fields":["text"],
-        "history":"attached per report"
-    });
-    // Serde emits the map in declaration order; keep the shared dimensions
-    // alongside the plugin's own keys rather than hiding them in a constant.
-    if let Some(object) = form.as_object_mut() {
-        object.insert("max_chars".into(), serde_json::json!(BODY_MAX_CHARS));
-    }
-    form
+    journalist_prose(report_count).form()
 }
 
 /// Structural output contract, owned alongside the writing form and parser.
@@ -445,32 +371,6 @@ pub fn parse_journalist(raw: &str, report_count: usize) -> anyhow::Result<Journa
                 text: text.to_string(),
             })
             .collect(),
-    })
-}
-
-pub fn insider_score_format_schema() -> serde_json::Value {
-    serde_json::json!({
-        "type": "object",
-        "properties": {
-            "read":     { "type": "string" },
-            "headline": { "type": "string" },
-            "score":    { "type": "integer", "minimum": 1, "maximum": 99 }
-        },
-        "required": ["read", "headline", "score"]
-    })
-}
-
-pub fn oracle_format_schema() -> serde_json::Value {
-    serde_json::json!({
-        "type": "object",
-        "properties": {
-            "reading": {
-                "type": "string"
-            },
-            "headline": { "type": "string" },
-            "score": { "type": "integer", "minimum": 1, "maximum": 100 }
-        },
-        "required": ["reading", "headline", "score"]
     })
 }
 
@@ -518,10 +418,15 @@ mod tests {
             "score": 60
         })
         .to_string();
-        // The Analyst is the remaining card parser, and it still declares a
-        // score, so it reads the whole card.
+        // Analyst now declares one blurb, so an old scored card is rejected.
+        assert!(analyst::MomentumParser.parse(&card).is_err());
+        let analyst_reply = serde_json::json!({"blurb": paragraphs}).to_string();
         assert_eq!(
-            analyst::MomentumParser.parse(&card).unwrap().unwrap().blurb,
+            analyst::MomentumParser
+                .parse(&analyst_reply)
+                .unwrap()
+                .unwrap()
+                .blurb,
             paragraphs
         );
         let keyed = serde_json::json!({"body": paragraphs}).to_string();
@@ -556,10 +461,9 @@ mod tests {
     /// reader who cannot tell which history belongs to which claim without the
     /// model has not been handed an assembled world.
     #[test]
-    fn the_journalist_declares_history_as_attached_per_report() {
+    fn the_journalist_declares_only_output_fields_and_limit() {
         let form = journalist_form(1);
-        assert_eq!(form["history"], serde_json::json!("attached per report"));
-        assert_eq!(form["report_keys"], serde_json::json!(["report_1"]));
+        assert_eq!(form["keys"], serde_json::json!(["report_1"]));
         assert_eq!(form["max_chars"], serde_json::json!(BODY_MAX_CHARS));
     }
 

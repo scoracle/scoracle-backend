@@ -55,7 +55,7 @@ fn assembly_preserves_source_qualification_and_separates_owners() {
     let frame: Value = serde_json::from_str(&assembled_prompt(&a)).unwrap();
     assert_eq!(frame["fresh"]["publisher_excerpt"], a.source.context);
     assert_eq!(frame["fresh"]["published_at"], "2024-02-29T00:00:00Z");
-    assert_eq!(frame["identity"]["sport"], "basketball");
+    assert_eq!(frame["meta"]["sport"], "basketball");
     assert_eq!(frame["voice"], VOICE);
     assert!(frame["fresh"].get("headline").is_none());
     assert!(frame["fresh"].get("article_id").is_none());

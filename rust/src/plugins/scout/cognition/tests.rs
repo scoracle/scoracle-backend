@@ -72,10 +72,7 @@ fn unranked_one_appearance_is_not_an_elite_or_declining_profile() {
 }
 
 #[test]
-fn quality_z_is_normalized_once_and_unknown_polarity_stays_unknown() {
-    // A measure whose raw direction is "lower is better" must present a
-    // sign-adjusted z where positive is ALWAYS favourable, or the model reads a
-    // good measure as a bad one.
+fn quality_z_does_not_duplicate_percentile_in_context() {
     let world_of = |datapoint: RatingDatapoint| {
         let mut p = profile_player();
         p.breakdown = vec![datapoint];
@@ -87,20 +84,12 @@ fn quality_z_is_normalized_once_and_unknown_polarity_stays_unknown() {
             &RatingExclusions::default(),
         )
     };
-    for (raw_z, sign, expected) in [(-1.5, -1, 1.5), (1.5, -1, -1.5), (1.5, 1, 1.5)] {
+    for (raw_z, sign) in [(-1.5, -1), (1.5, -1), (1.5, 1)] {
         let presented = fresh(&world_of(dp("Turnovers", 4.0, raw_z, 90.0, sign)))["values"].clone();
         let value = &presented.as_array().unwrap()[0];
-        assert_eq!(
-            value["quality_z"],
-            serde_json::json!(expected),
-            "a lower-is-better measure with z {raw_z} must present as {expected}"
-        );
-        // The polarity itself is not presented as a word any more; the normalized
-        // z and the band are what the model reads, and both are already oriented.
+        assert!(value.get("quality_z").is_none());
         assert!(value["band"].is_string());
     }
-    // An unknown or invalid polarity yields no z at all, rather than a zero that
-    // would read as exactly average.
     for sign in [0, 2, -2] {
         let presented = fresh(&world_of(dp("Turnovers", 4.0, 1.5, 90.0, sign)))["values"].clone();
         let value = &presented.as_array().unwrap()[0];
@@ -111,7 +100,7 @@ fn quality_z_is_normalized_once_and_unknown_polarity_stays_unknown() {
     }
 }
 #[test]
-fn observed_zero_missing_measurement_and_recent_direction_stay_distinct() {
+fn observed_zero_and_missing_measurement_stay_distinct_without_extra_trend() {
     let mut profile = profile_player();
     profile.composite_score = None;
     profile.breakdown = vec![
@@ -130,14 +119,8 @@ fn observed_zero_missing_measurement_and_recent_direction_stay_distinct() {
         },
     ];
     let subject = req("FOOTBALL", "player", "Test Player");
-    for absent in [None, Some(""), Some("  ")] {
-        let world = world_with_trend(
-            &subject,
-            &profile,
-            None,
-            &RatingExclusions::default(),
-            absent,
-        );
+    {
+        let world = world(&subject, &profile, None, &RatingExclusions::default());
         let fresh = fresh(&world);
         // A measured zero and a missing measurement stay distinct. The zero is
         // carried as a value; the missing one carries no value at all, and the
@@ -159,30 +142,10 @@ fn observed_zero_missing_measurement_and_recent_direction_stay_distinct() {
         assert!(unmeasured.get("value").is_none_or(|v| v.is_null()));
         assert!(unmeasured.get("quality_z").is_none_or(|v| v.is_null()));
         assert!(!world.contains("quality_z"));
-        // No computed trend means the part is omitted entirely. Absence is
-        // readable as "not computed", which is not the same as "steady".
-        assert!(fresh.get("trend").is_none() || fresh["trend"].is_null());
-        assert_eq!(
-            serde_json::from_str::<serde_json::Value>(&world).unwrap()["trend"],
-            serde_json::Value::Null
-        );
-    }
-    for observed in [
-        "overall scores holding steady over recent games; 5 scored events",
-        "overall scores trending down over recent games; 5 scored events",
-    ] {
-        let world = world_with_trend(
-            &subject,
-            &profile,
-            None,
-            &RatingExclusions::default(),
-            Some(observed),
-        );
-        assert!(world.contains(observed));
-        assert_ne!(
-            serde_json::from_str::<serde_json::Value>(&world).unwrap()["trend"],
-            serde_json::Value::Null
-        );
+        assert!(serde_json::from_str::<serde_json::Value>(&world)
+            .unwrap()
+            .get("trend")
+            .is_none());
     }
 }
 
@@ -216,7 +179,7 @@ fn sample_value_and_rank_missingness_participate_in_input_identity() {
 }
 
 #[test]
-fn sample_preserves_units_and_unknown_dates() {
+fn sample_preserves_units_without_an_update_date() {
     let mut p = profile_player();
     p.sample.insert("Games Played".into(), 10.0);
     p.sample.insert("Minutes Per Game".into(), 21.5);
@@ -231,12 +194,11 @@ fn sample_preserves_units_and_unknown_dates() {
     // match" are different facts.
     assert_eq!(fresh["sample"]["Games Played"], serde_json::json!(10.0));
     assert_eq!(fresh["sample"]["Minutes Per Game"], serde_json::json!(21.5));
-    // An unknown observation date stays null rather than becoming a date.
-    assert!(fresh["observed_at"].is_null());
+    assert!(fresh.get("observed_at").is_none());
 }
 
 #[test]
-fn rate_corroboration_requires_the_same_underlying_measurement() {
+fn rate_modes_do_not_clutter_the_selected_measurements() {
     let mut p = profile_player();
     p.breakdown = vec![dp("Shooting", 32.0, 2.0, 92.0, 1)];
     p.breakdown[0].measure = "shots on target".into();
@@ -249,21 +211,14 @@ fn rate_corroboration_requires_the_same_underlying_measurement() {
         None,
         &RatingExclusions::default(),
     );
-    // A rate mode measuring a DIFFERENT underlying quantity is not corroboration
-    // of the same skill. It may still be presented — it is a real elite rate — but
-    // in its own part, so the model cannot read it as the same skill's standing.
+    // A rate mode measuring a different quantity cannot be presented as
+    // corroboration of the selected measurement.
     let package: serde_json::Value = serde_json::from_str(&world).unwrap();
     let values = package["fresh"]["values"].as_array().unwrap();
     assert_eq!(values.len(), 1);
     assert_eq!(values[0]["measure"], serde_json::json!("shots on target"));
     assert_eq!(values[0]["label"], serde_json::json!("Shooting"));
-    // The rate standout is a different measurement, presented separately.
-    let standouts = package["rate_standouts"].as_array().unwrap();
-    assert!(standouts
-        .iter()
-        .any(|s| s["mode"] == serde_json::json!("per_90")
-            && s["label"] == serde_json::json!("Shooting")
-            && !values.iter().any(|v| v["percentile"] == s["percentile"])));
+    assert!(package.get("rate_standouts").is_none());
 }
 
 #[test]
@@ -476,17 +431,7 @@ fn world(
     subject: &Subject,
     profile: &RatingProfile,
     comparisons: Option<&BTreeMap<String, SkillChange>>,
-    exclusions: &RatingExclusions,
-) -> String {
-    world_with_trend(subject, profile, comparisons, exclusions, None)
-}
-
-fn world_with_trend(
-    subject: &Subject,
-    profile: &RatingProfile,
-    comparisons: Option<&BTreeMap<String, SkillChange>>,
-    exclusions: &RatingExclusions,
-    trend: Option<&str>,
+    _exclusions: &RatingExclusions,
 ) -> String {
     let supports_cross_season = supports_cross_season_comparison(profile);
     let selected = model_prompt_profile(profile, supports_cross_season, comparisons);
@@ -499,23 +444,7 @@ fn world_with_trend(
         },
         sport_name: subject.sport_name.clone(),
         season: profile.season,
-        profile: parts::profile_parts(
-            &selected,
-            &subject.sport_name,
-            supports_cross_season,
-            comparisons,
-            exclusions,
-        ),
-        rate_standouts: parts::rate_standout_parts(profile),
-        // A blank note is a trend that was not computed, not one that is empty.
-        trend: trend
-            .map(str::trim)
-            .filter(|note| !note.is_empty())
-            .map(|note| parts::Trend {
-                direction: "steady".into(),
-                sample_size: 5,
-                note: Some(note.to_string()),
-            }),
+        profile: parts::profile_parts(&selected, supports_cross_season, comparisons),
         memory: Default::default(),
     }
     .render()
@@ -578,10 +507,10 @@ fn serialized_request_has_evidence_and_form_but_no_editorial_outline() {
     );
     let system = request["messages"][0]["content"].as_str().unwrap();
     let evidence = request["messages"][1]["content"].as_str().unwrap();
-    assert!(system.contains("Describe the supplied measured profile and its limits"));
+    assert!(system.contains("Describe what the supplied measurements establish"));
     // The package carries the evidence and the declared form, and nothing else.
     let package: serde_json::Value = serde_json::from_str(evidence).unwrap();
-    for part in ["identity", "fresh", "memory", "voice", "form"] {
+    for part in ["meta", "fresh", "voice", "form"] {
         assert!(package.get(part).is_some(), "package is missing {part}");
     }
     let values = fresh(evidence);
@@ -837,23 +766,20 @@ fn a_players_world_is_byte_stable() {
     );
     assert!(
         world.starts_with(concat!(
-            r#"{"identity":{"name":"Test Player","entity_type":"player","sport":"basketball"},"#,
-            r#""fresh":{"season":2025,"observed_at":null,"sample":{},"values":["#,
-            r#"{"label":"Scoring","measure":"Scoring","value":24.0,"percentile":95.0,"band":"elite","quality_z":3.1},"#,
-            r#"{"label":"Defense","measure":"Defense","value":2.5,"percentile":40.0,"band":"below average","quality_z":-0.5}"#,
-            r#"],"composite":null,"supports_cross_season":false,"limit":{"kind":"unknown_sample","minimum":10.0}},"#,
-            r#""memory":{},"rate_standouts":[],"trend":null,"#,
+            r#"{"meta":{"name":"Test Player","entity_type":"player","sport":"NBA"},"#,
+            r#""fresh":{"season":2025,"values":["#,
+            r#"{"label":"Scoring","measure":"Scoring","value":24.0,"percentile":95.0,"band":"elite"},"#,
+            r#"{"label":"Defense","measure":"Defense","value":2.5,"percentile":40.0,"band":"below average"}"#,
+            r#"],"supports_cross_season":false,"limit":{"kind":"unknown_sample","minimum":10.0}},"#,
             r#""voice":""#,
         )),
-        "the world through the evidence parts is byte-stable"
+        "the world through the evidence parts is byte-stable: {world}"
     );
     // The voice and form tails are the plugin's own, so they are asserted
     // separately rather than pasted into the byte fixture above.
     let tail = world.split(r#""voice":""#).nth(1).unwrap();
     assert!(tail.starts_with("Observant, direct, specific to the sport and restrained."));
-    assert!(
-        tail.contains(r#""form":{"keys":["body"],"max_chars":1200,"paragraph_max_chars":null}"#)
-    );
+    assert!(tail.contains(r#""form":{"keys":["body"],"max_chars":1200}"#));
     // The Scout records a non-participation on the paragraph rule, so the form
     // states the body ceiling and no paragraph ceiling. A plugin that adopts one
     // later changes this line, which is the point of pinning it.
@@ -1498,8 +1424,8 @@ fn a_thin_sample_states_its_boundary_instead_of_describing_it() {
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ");
-    assert!(manual.contains("source coverage, not proof of playing time"));
-    assert!(manual.contains("Absence of a comparison is not stability"));
+    assert!(manual.contains("source coverage, not playing time"));
+    assert!(manual.contains("Missing comparison or measured history is unknown, not stability"));
 
     p.sample.insert("appearances".to_string(), 10.0);
     assert!(supports_cross_season_comparison(&p));
@@ -1549,7 +1475,7 @@ fn thin_current_sample_shows_only_its_two_highest_ranked_measures() {
 }
 
 #[test]
-fn unselected_measures_are_named_not_silent() {
+fn unselected_measures_do_not_clutter_context() {
     let p = profile_player();
     let subject = req("FOOTBALL", "player", "Test Player");
     let bare = world(&subject, &p, None, &RatingExclusions::default());
@@ -1564,25 +1490,7 @@ fn unselected_measures_are_named_not_silent() {
     };
     let world = world(&subject, &p, None, &exclusions);
     let fresh = fresh(&world);
-    // A measure that exists but was not selected must be NAMED, or the model
-    // reads its absence as "unmeasured" or "zero at the source".
-    let not_selected: Vec<String> = fresh["not_selected"]
-        .as_array()
-        .expect("unselected labels must be named")
-        .iter()
-        .map(|v| v.as_str().unwrap().to_string())
-        .collect();
-    assert_eq!(
-        not_selected,
-        vec![
-            "Aerial Duels",
-            "Ground Yards Responsible",
-            "Long Throws",
-            "Progression",
-            "Tackling",
-        ],
-        "one deduplicated, ordered list; reasons stay in the ledger"
-    );
+    assert!(fresh.get("not_selected").is_none());
     // The reasons themselves do not reach the model: they are plugin bookkeeping.
     assert!(!world.contains("budget"));
     assert!(!world.contains("artifact"));
@@ -1741,8 +1649,6 @@ fn scout_parts() -> crate::plugins::scout::cognition::parts::Parts {
         season: 2026,
         profile: crate::plugins::scout::cognition::parts::Profile {
             season: 2026,
-            observed_at: None,
-            sport_name: None,
             sample: BTreeMap::new(),
             values: vec![crate::plugins::scout::cognition::parts::MeasuredValue {
                 label: "Blocks Per Game".into(),
@@ -1751,16 +1657,12 @@ fn scout_parts() -> crate::plugins::scout::cognition::parts::Parts {
                 percentile: Some(91.0),
                 cohort: None,
                 band: Some("elite".into()),
-                quality_z: None,
                 prior_percentile: None,
             }],
             composite: None,
             supports_cross_season: false,
-            not_selected: Vec::new(),
             limit: None,
         },
-        rate_standouts: Vec::new(),
-        trend: None,
         memory: Default::default(),
     }
 }
@@ -1964,7 +1866,7 @@ fn the_header_carries_the_curated_sport_display_name() {
         &RatingExclusions::default(),
     );
     assert_eq!(
-        fresh(&world)["sport_name"],
+        serde_json::from_str::<serde_json::Value>(&world).unwrap()["meta"]["sport"],
         serde_json::json!("Football (Soccer)")
     );
 }

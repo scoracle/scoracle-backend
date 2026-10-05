@@ -7,14 +7,11 @@ use crate::application::models::ExecutionCapabilities;
 use crate::application::products::EntityKey;
 use crate::application::queue::publication::ClaimPublication;
 use crate::application::queue::work::{self, Item};
-use crate::evidence::memories::{self, MemoryRequest, Mission};
 use crate::plugins::analyst::cognition as analyst;
 use crate::plugins::oracle::adapter as oracle;
-use crate::plugins::oracle::cognition::{SynthMomentum, SynthRating, SynthVibe};
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
 use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
 use crate::studio::Studio;
-use crate::util::hash_components;
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use sqlx::{PgPool, Postgres, Row, Transaction};
@@ -56,74 +53,6 @@ const MOMENTUM_LEDGER: LedgerSpec = LedgerSpec {
     product_table: "momentum_summaries",
     output_contract_version: MOMENTUM_OUTPUT_CONTRACT_VERSION,
 };
-
-fn form(value: &SynthRating) -> Form {
-    Form {
-        body: value.body.clone(),
-        headline: None,
-        season: None,
-        generated_at: None,
-        input_hash: None,
-    }
-}
-fn mood(value: &SynthVibe) -> Mood {
-    Mood {
-        body: value.prompt.clone(),
-        headline: None,
-        sentiment: Some(value.sentiment),
-        generated_at: None,
-        input_hash: None,
-    }
-}
-fn snapshot(value: &SynthMomentum) -> Snapshot {
-    Snapshot {
-        vibe_slope: value.vibe_slope,
-        vibe_samples: value.vibe_samples,
-        vibe_window_start: None,
-        vibe_window_end: None,
-        rating_slope: value.rating_slope,
-        rating_samples: value.rating_samples,
-        rating_window_start: None,
-        rating_window_end: None,
-        momentum_score: value.momentum_score,
-        generated_at: None,
-    }
-}
-
-/// Compatibility boundary for retained callers. The finished pillar prose is the material;
-/// production additionally supplies card dates and the dated study window.
-pub fn build_momentum_prompt_from_pillars(
-    entity_type: &str,
-    entity_name: &str,
-    sport: &str,
-    rating: Option<&SynthRating>,
-    vibe: Option<&SynthVibe>,
-    mom: &SynthMomentum,
-    identity: Option<&str>,
-) -> String {
-    crate::plugins::analyst::cognition::build_momentum_prompt(
-        entity_type,
-        entity_name,
-        sport,
-        rating.map(form).as_ref(),
-        vibe.map(mood).as_ref(),
-        &snapshot(mom),
-        identity,
-    )
-}
-
-#[cfg(test)]
-fn build_momentum_input_components_from_pillars(
-    rating: Option<&SynthRating>,
-    vibe: Option<&SynthVibe>,
-    mom: &SynthMomentum,
-) -> String {
-    crate::plugins::analyst::cognition::build_momentum_input_components(
-        rating.map(form).as_ref(),
-        vibe.map(mood).as_ref(),
-        &snapshot(mom),
-    )
-}
 
 pub async fn load_momentum_snapshot(
     pool: &PgPool,
@@ -267,21 +196,14 @@ pub async fn load_momentum_context(
     entity_type: &str,
     entity_id: i32,
     sport: &str,
-) -> Result<(MomentumContext, memories::Package)> {
+) -> Result<MomentumContext> {
     let season = oracle::resolve_season(pool, sport, None).await?;
     let (rating, vibe, snapshot) = tokio::try_join!(
         load_scout_reading(pool, entity_type, entity_id, sport, season),
         load_influencer_reading(pool, entity_type, entity_id, sport),
         load_momentum_snapshot(pool, entity_type, entity_id, sport),
     )?;
-    let mut context = MomentumContext::new(season, rating, vibe, snapshot);
-    let mut request = MemoryRequest::new(Mission::Analyst, entity_type, entity_id, sport);
-    request.season = Some(season);
-    let memories = memories::load(pool, request).await?;
-    context.input_components_json =
-        memories.with_input_components(&context.input_components_json)?;
-    context.input_hash = hash_components(&context.input_components_json);
-    Ok((context, memories))
+    Ok(MomentumContext::new(season, rating, vibe, snapshot))
 }
 
 pub async fn enqueue_momentum_if_needed(
@@ -291,7 +213,7 @@ pub async fn enqueue_momentum_if_needed(
     sport: &str,
 ) -> Result<bool> {
     let sport = sport.to_uppercase();
-    let (ctx, _) = load_momentum_context(pool, entity_type, entity_id, &sport).await?;
+    let ctx = load_momentum_context(pool, entity_type, entity_id, &sport).await?;
     if ctx.empty() {
         return Ok(false);
     }
@@ -453,7 +375,7 @@ async fn record_ledger(
             }),
             excluded_evidence: serde_json::json!({"empty_context": context.empty()}),
             context_budget: out.context_budget(serde_json::json!({
-                "num_predict": crate::studio::palette::PALETTE_NUM_PREDICT,
+                "num_predict": crate::plugins::analyst::cognition::MOMENTUM_NUM_PREDICT,
                 "decided_direction": out.direction,
                 "steady_band": MOMENTUM_STEADY_BAND,
                 "computed_conviction": out.score,
@@ -515,17 +437,12 @@ impl StudioPlugin for MomentumHandler {
             &item.sport,
         )
         .await?;
-        let (context, memories) =
-            load_momentum_context(pool, &item.entity_type, entity_id, &sport).await?;
+        let context = load_momentum_context(pool, &item.entity_type, entity_id, &sport).await?;
         let assignment = Assignment {
+            entity_id,
             entity_type: item.entity_type.clone(),
             entity_name: name,
             sport: item.sport.clone(),
-            memory: if context.empty() {
-                None
-            } else {
-                Some(memories.render_for_model()?)
-            },
             context,
             voice_num_ctx: models.voice_num_ctx,
         };

@@ -354,7 +354,7 @@ mod postgres_recovery_tests {
         crate::plugins::insider::adapter::record_transfer_event(
             &mut rolled_back,
             &item,
-            crate::plugins::insider::adapter::TRANSFER_IDENTITY_APPLIED,
+            crate::plugins::scout::adapter::TRANSFER_IDENTITY_APPLIED,
             "player",
             9_600_002,
             Some(rating_version),
@@ -366,7 +366,7 @@ mod postgres_recovery_tests {
             "SELECT count(*) FROM application_outbox WHERE sport=$1 AND kind=$2",
         )
         .bind(SPORT)
-        .bind(crate::plugins::insider::adapter::TRANSFER_IDENTITY_APPLIED)
+        .bind(crate::plugins::scout::adapter::TRANSFER_IDENTITY_APPLIED)
         .fetch_one(&pool)
         .await
         .unwrap();
@@ -381,7 +381,7 @@ mod postgres_recovery_tests {
             crate::plugins::insider::adapter::record_transfer_event(
                 &mut committed,
                 &item,
-                crate::plugins::insider::adapter::TRANSFER_IDENTITY_APPLIED,
+                crate::plugins::scout::adapter::TRANSFER_IDENTITY_APPLIED,
                 entity_type,
                 entity_id,
                 Some(rating_version),

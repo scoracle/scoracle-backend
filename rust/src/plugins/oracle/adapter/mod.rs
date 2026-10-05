@@ -4,14 +4,11 @@ use crate::application::models::ExecutionCapabilities;
 use crate::application::products::EntityKey;
 use crate::application::queue::publication::ClaimPublication;
 use crate::application::queue::work::{self, Item, TaskKey};
-use crate::evidence::corpus::load_transfer_heat;
-use crate::evidence::memories::{self, MemoryRequest, Mission};
 use crate::evidence::trajectory::DEFAULT_TRAJECTORY;
-use crate::plugins::insider::cognition::HeatItem;
 use crate::plugins::oracle::cognition::{
-    self as oracle, Assignment, Cards, SigilOutput, Subject, SynthMomentum, SynthNarrative,
-    SynthRating, SynthTransfer, SynthVibe, CROWN_CARD_BODY_CAP, ORACLE_NUM_PREDICT,
-    ORACLE_OUTPUT_CONTRACT_VERSION, ORACLE_TEMPERATURE,
+    self as oracle, Assignment, Cards, SigilOutput, Subject, SynthInsider, SynthMomentum,
+    SynthNarrative, SynthRating, SynthVibe, ORACLE_NUM_PREDICT, ORACLE_OUTPUT_CONTRACT_VERSION,
+    ORACLE_TEMPERATURE,
 };
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
 use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
@@ -319,14 +316,30 @@ pub async fn load_momentum_pillar(
     })
 }
 
-fn transfer_card(item: HeatItem) -> SynthTransfer {
-    SynthTransfer {
-        counterparty: item.counterparty,
-        heat: item.heat,
-        direction: item.direction,
-        stage: item.stage,
-        summary: item.summary,
-    }
+pub async fn load_insider_pillar(
+    pool: &PgPool,
+    entity_type: &str,
+    entity_id: i32,
+    sport: &str,
+) -> Result<Option<SynthInsider>> {
+    let row: Option<(Option<String>, i16, String)> = sqlx::query_as(
+        "SELECT read,score,generated_at::date::text FROM public.insider_scores \
+         WHERE entity_type=$1 AND entity_id=$2 AND sport=$3 \
+         ORDER BY generated_at DESC,id DESC LIMIT 1",
+    )
+    .bind(entity_type)
+    .bind(entity_id)
+    .bind(sport)
+    .fetch_optional(pool)
+    .await?;
+    Ok(row.and_then(|(body, score, generated_at)| {
+        body.filter(|text| !text.trim().is_empty())
+            .map(|body| SynthInsider {
+                body,
+                score: i32::from(score),
+                generated_at: Some(generated_at),
+            })
+    }))
 }
 
 pub async fn load_pillars(
@@ -336,12 +349,12 @@ pub async fn load_pillars(
     sport: &str,
 ) -> Result<(i32, Cards)> {
     let season = resolve_season(pool, sport, None).await?;
-    let (narratives, rating, vibe, momentum, transfers) = tokio::try_join!(
+    let (narratives, rating, vibe, momentum, insider) = tokio::try_join!(
         load_narrative_pillar(pool, entity_type, entity_id, sport),
         load_rating_pillar(pool, entity_type, entity_id, sport, Some(season)),
         load_vibe_pillar(pool, entity_type, entity_id, sport),
         load_momentum_pillar(pool, entity_type, entity_id, sport, Some(season)),
-        load_transfer_heat(pool, entity_type, entity_id, sport),
+        load_insider_pillar(pool, entity_type, entity_id, sport),
     )?;
     Ok((
         season,
@@ -350,7 +363,7 @@ pub async fn load_pillars(
             rating,
             vibe,
             momentum,
-            transfers: transfers.into_iter().map(transfer_card).collect(),
+            insider,
         },
     ))
 }
@@ -382,16 +395,15 @@ async fn prepare(
         let backend = models.inference(crate::plugins::oracle::manifest::ROUTE)?;
         let assignment = Assignment {
             subject: Subject {
+                entity_id,
                 entity_type: item.entity_type.clone(),
                 entity_name: name,
                 sport: item.sport.clone(),
             },
             season,
             cards,
-            identity: None,
             input_components_json: "{}".to_string(),
             input_hash: String::new(),
-            body_cap: None,
             options: oracle::generation_options(ORACLE_TEMPERATURE, models.voice_num_ctx),
         };
         let output = oracle::create(&Studio::new(backend.as_ref()), &assignment).await?;
@@ -401,17 +413,7 @@ async fn prepare(
         });
     }
 
-    let components = oracle::build_synthesis_input_components(
-        &cards.narratives,
-        cards.rating.as_ref(),
-        cards.vibe.as_ref(),
-        &cards.momentum,
-        &cards.transfers,
-    );
-    let mut request = MemoryRequest::new(Mission::Oracle, &item.entity_type, entity_id, &sport);
-    request.season = Some(season);
-    let memories = memories::load(pool, request).await?;
-    let input_components_json = memories.with_input_components(&components)?;
+    let input_components_json = oracle::build_synthesis_input_components(&cards);
     let input_hash = hash_components(&input_components_json);
     let (previous_score, latest_hash) = crate::application::products::latest_with_hash(
         pool,
@@ -427,21 +429,18 @@ async fn prepare(
     if latest_hash.as_deref() == Some(input_hash.as_str()) {
         return Ok(Prepared::Debounced);
     }
-    let identity = Some(memories.render_for_model()?);
     let backend = models.inference(crate::plugins::oracle::manifest::ROUTE)?;
     let assignment = Assignment {
         subject: Subject {
+            entity_id,
             entity_type: item.entity_type.clone(),
             entity_name: name,
             sport: item.sport.clone(),
         },
         season,
         cards,
-        identity,
         input_components_json,
         input_hash,
-        body_cap: crate::studio::model::small_voice_window(models.voice_num_ctx)
-            .then_some(CROWN_CARD_BODY_CAP),
         options: oracle::generation_options(ORACLE_TEMPERATURE, models.voice_num_ctx),
     };
     let output = oracle::create(&Studio::new(backend.as_ref()), &assignment).await?;
@@ -559,7 +558,7 @@ async fn record_ledger(
                 serde_json::json!([])
             } else {
                 serde_json::json!([{
-                    "reason": "no_narrative_rating_vibe_momentum_or_transfer_pillar"
+                    "reason": "no_journalist_scout_influencer_analyst_or_insider_card"
                 }])
             },
             context_budget: output.context_budget(serde_json::json!({

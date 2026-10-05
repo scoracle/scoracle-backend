@@ -14,7 +14,7 @@ pub use crate::plugins::support::form::{
     observation_schema as schema, ObservationParser as VibeParser, ObservationReply as VibeReply,
 };
 pub use voice::VOICE;
-pub const VIBE_PROMPT_VERSION: &str = "vibe-frame-v5";
+pub const VIBE_PROMPT_VERSION: &str = "vibe-frame-v6-six-part";
 pub const VIBE_SYSTEM_PROMPT: &str = prompt::TASK;
 pub const VIBE_TEMPERATURE: f64 = 0.0;
 pub const VIBE_NUM_PREDICT: i32 = 600;
@@ -74,10 +74,13 @@ pub fn assemble(
     source: &SourceContext,
     history: &[super::memories::HistoryItem],
 ) -> crate::plugins::assembly::World {
-    crate::plugins::assembly::World::new()
-        .part("identity", subject.for_writing())
-        .part("fresh", fresh::prepare(source))
-        .part("history", history)
+    let mut world = crate::plugins::assembly::World::new()
+        .part("meta", subject.for_writing())
+        .part("fresh", fresh::prepare(source));
+    if !history.is_empty() {
+        world = world.part("memories", history);
+    }
+    world
         .part("voice", VOICE)
         .part("form", crate::plugins::support::form::observation_form())
 }

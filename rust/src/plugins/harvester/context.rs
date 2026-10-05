@@ -1,4 +1,4 @@
-//! Cutover contract: exact publisher text plus advisory Laya signals.
+//! Cutover contract: exact publisher text plus advisory System 1 signals.
 //!
 //! This is not an editorial packet. No generated story, interpretation, or
 //! character-owned decision is represented here.
@@ -322,7 +322,7 @@ pub async fn classify_after_headline(
             ensure!(
                 gate.response.provenance["model"] == response.provenance["model"]
                     && gate.response.provenance["revision"] == response.provenance["revision"],
-                "Laya checkpoint changed within one article"
+                "System 1 checkpoint changed within one article"
             );
             passes.push(ThemePass {
                 start: input.start,

@@ -6,7 +6,7 @@ Studio and harness name the same system. Its code home is [`rust/src/studio/`](r
 
 > **A plugin declares what it may reach; the room decides how the reach happens, records that it happened, and can refuse it.**
 
-**Harness direction lives in the [Studio north star](rust/README.md): shared form, one character voice, compact identity, and only that character's evidence.** Use it when changing prompts, assignments, memories or evaluation. Implementation and rollout details below describe current behavior, not extra permanent harness requirements.
+**Harness direction lives in the [Rust architecture contract](rust/README.md): the harness runs a plugin, the plugin assembles its world using shared or local tools, and the model articulates or classifies supplied input without calling tools. SQL owns the data; Rust owns the cognition.** Share or specialize tools according to which reduces complexity and fragility. Use this contract when changing prompts, context, memories or evaluation; the [cleanup plan](rust/docs/PLAN-harness-plugin-cleanup-2026-10-05.md) records the audited migration work.
 
 ## Start here
 

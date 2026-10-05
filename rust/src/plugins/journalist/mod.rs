@@ -3,6 +3,7 @@
 pub mod adapter;
 pub mod cognition;
 pub mod manifest;
+pub mod voice;
 // Public because `cognition::Parts` is: a stored fixture holds this plugin's
 // parts, and the selection a caller reads is a named part of the world, not an
 // internal detail of preparation.

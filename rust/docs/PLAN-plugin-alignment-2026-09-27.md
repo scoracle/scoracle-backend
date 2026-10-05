@@ -1,5 +1,10 @@
 # Plugin alignment plan — complete
 
+> **Historical record, superseded October 5, 2026:** [rust/README.md](../README.md)
+> is the current architecture authority. Plugins call shared or local tools in Rust
+> and prepare the model input; models never call tools. See the [cleanup plan](PLAN-harness-plugin-cleanup-2026-10-05.md).
+> The completed plan and its dated evidence below remain unchanged.
+
 **Status: COMPLETE — October 5, 2026.** All alignment windows are closed and
 release `fd981fd2a19c` is deployed on Archbox. Schema restore, migrations, API
 health and the surviving plugin fleet are verified. Product fidelity/calibration,

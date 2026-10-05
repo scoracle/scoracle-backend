@@ -12,9 +12,7 @@ use serde_json::json;
 use std::collections::HashSet;
 
 pub mod fresh;
-mod journalist;
 mod prompt;
-pub use journalist::CHARACTER;
 /// The current prompt keeps the flat keyed prose map and attaches prior reports
 /// through matching report keys in `memories`.
 pub const NARRATIVES_PROMPT_VERSION: &str = "n96-six-part";
@@ -260,10 +258,12 @@ pub fn assemble(
     if !attached.is_empty() {
         world = world.part("memories", &attached);
     }
-    world.part("voice", journalist::CHARACTER).part(
-        "form",
-        crate::plugins::support::form::journalist_form(reports.len()),
-    )
+    world
+        .part("voice", crate::plugins::journalist::voice::VOICE)
+        .part(
+            "form",
+            crate::plugins::support::form::journalist_form(reports.len()),
+        )
 }
 
 /// Production and replay use the exact assembled context measured by preparation.

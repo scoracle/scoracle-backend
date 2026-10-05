@@ -1,5 +1,5 @@
 //! Scout instructions explain the supplied data, relationships and articulation job.
-//! Tone lives in `voice.rs`; shared form supplies output structure.
+//! Tone lives in Scout's local `voice.rs`; shared form supplies output structure.
 
 pub const RATING_PROMPT_VERSION: &str = "s66-measured-windows";
 

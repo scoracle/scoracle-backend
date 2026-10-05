@@ -4,8 +4,6 @@ use crate::plugins::memories::{HistoryItem, SourceRecord};
 use crate::plugins::meta::EntityMeta;
 use serde::Serialize;
 
-pub const VOICE: &str = "Informed, alert, measured.";
-
 #[derive(Clone, Debug, Serialize)]
 pub struct Mention {
     pub name: String,
@@ -40,7 +38,7 @@ pub fn assemble(
             }),
         );
     }
-    world.part("voice", VOICE).part(
+    world.part("voice", crate::plugins::insider::voice::VOICE).part(
         "form",
         serde_json::json!({
             "keys": ["body", "findings"],

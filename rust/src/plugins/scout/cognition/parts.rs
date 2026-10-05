@@ -1,6 +1,6 @@
 //! Scout-owned data and relationships, rendered by the shared ordered renderer.
 //! Measured history and dated reporting retain separate provenance.
-//! `prompt.rs` owns the job; `voice.rs` supplies tone.
+//! `prompt.rs` owns the job; Scout's local `voice.rs` supplies tone.
 use serde::Serialize;
 
 /// The Scout's measured profile, as presented. Selection has already happened:
@@ -348,7 +348,7 @@ impl Parts {
             world = world.part("memories", &self.memory);
         }
         world
-            .part("voice", crate::plugins::scout::cognition::VOICE)
+            .part("voice", crate::plugins::scout::voice::VOICE)
             .part("form", crate::plugins::scout::cognition::prose().form())
     }
 

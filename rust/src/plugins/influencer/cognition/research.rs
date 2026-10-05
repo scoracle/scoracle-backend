@@ -1,5 +1,6 @@
 //! Read-only tool pilot. No publication, preloaded article or silent prose fallback.
-use super::{fresh, prompt, VibeParser, VOICE};
+use super::{fresh, prompt, VibeParser};
+use crate::plugins::influencer::voice::VOICE;
 use crate::plugins::meta::EntityMeta;
 use crate::studio::{
     model::{GenerateOptions, Inference},

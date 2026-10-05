@@ -4,8 +4,6 @@ use super::{Form, Mood, Snapshot};
 use crate::plugins::meta::EntityMeta;
 use serde::Serialize;
 
-pub const VOICE: &str = "Detached, decisive, economical.";
-
 #[derive(Serialize)]
 struct Reading<'a> {
     body: &'a str,
@@ -86,7 +84,7 @@ pub fn assemble(
                 trajectory,
             },
         )
-        .part("voice", VOICE)
+        .part("voice", crate::plugins::analyst::voice::VOICE)
         .part("form", prose().form())
 }
 

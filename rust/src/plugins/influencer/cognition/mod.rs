@@ -9,11 +9,9 @@ use serde_json::{json, Value};
 mod fresh;
 mod prompt;
 pub mod research;
-mod voice;
 pub use crate::plugins::support::form::{
     observation_schema as schema, ObservationParser as VibeParser, ObservationReply as VibeReply,
 };
-pub use voice::VOICE;
 pub const VIBE_PROMPT_VERSION: &str = "vibe-frame-v6-six-part";
 pub const VIBE_SYSTEM_PROMPT: &str = prompt::TASK;
 pub const VIBE_TEMPERATURE: f64 = 0.0;
@@ -81,7 +79,7 @@ pub fn assemble(
         world = world.part("memories", history);
     }
     world
-        .part("voice", VOICE)
+        .part("voice", crate::plugins::influencer::voice::VOICE)
         .part("form", crate::plugins::support::form::observation_form())
 }
 

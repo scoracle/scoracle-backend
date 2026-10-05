@@ -3,8 +3,6 @@
 use super::{Cards, Subject, SynthNarrative};
 use serde::Serialize;
 
-pub const VOICE: &str = "Mystic, arcane, knowing, restrained.";
-
 #[derive(Serialize)]
 struct Narrative<'a> {
     title: &'a str,
@@ -86,7 +84,7 @@ pub fn assemble(subject: &Subject, cards: &Cards) -> crate::plugins::assembly::W
                 }),
             },
         )
-        .part("voice", VOICE)
+        .part("voice", crate::plugins::oracle::voice::VOICE)
         .part("form", prose().form())
 }
 

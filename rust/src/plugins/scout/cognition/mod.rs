@@ -9,9 +9,7 @@ use anyhow::Result;
 use serde::{Deserialize, Deserializer};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-mod voice;
 pub use prompt::RATING_PROMPT_VERSION;
-pub use voice::VOICE;
 
 pub mod parts;
 pub mod prompt;

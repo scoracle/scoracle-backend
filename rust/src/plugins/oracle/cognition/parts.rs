@@ -36,7 +36,7 @@ struct Fresh<'a> {
     insider: Option<Reading<'a>>,
 }
 
-pub fn assemble(subject: &Subject, cards: &Cards) -> crate::plugins::assembly::World {
+pub fn assemble(subject: &Subject, cards: &Cards) -> String {
     let mut narratives: Vec<&SynthNarrative> = cards.narratives.iter().collect();
     narratives.sort_by(|a, b| b.impact.total_cmp(&a.impact));
     let journalist = narratives
@@ -56,36 +56,42 @@ pub fn assemble(subject: &Subject, cards: &Cards) -> crate::plugins::assembly::W
         entity_id: subject.entity_id,
         sport: subject.sport.clone(),
     };
-    crate::plugins::assembly::World::new()
-        .part("meta", meta.for_writing())
-        .part(
-            "fresh",
-            Fresh {
-                journalist,
-                scout: cards.rating.as_ref().map(|r| Reading {
-                    body: &r.body,
-                    direction: Some(&r.rating_trajectory),
-                    generated_at: None,
-                }),
-                influencer: cards.vibe.as_ref().map(|r| Reading {
-                    body: &r.prompt,
-                    direction: None,
-                    generated_at: None,
-                }),
-                analyst: cards.momentum.blurb.as_deref().map(|body| Reading {
-                    body,
-                    direction: cards.momentum.direction.as_deref(),
-                    generated_at: None,
-                }),
-                insider: cards.insider.as_ref().map(|r| Reading {
-                    body: &r.body,
-                    direction: None,
-                    generated_at: r.generated_at.as_deref(),
-                }),
-            },
-        )
-        .part("voice", crate::plugins::oracle::voice::VOICE)
-        .part("form", prose().form())
+    #[derive(Serialize)]
+    struct Input<'a> {
+        meta: crate::plugins::meta::WritingIdentity<'a>,
+        fresh: Fresh<'a>,
+        voice: &'static str,
+        form: serde_json::Value,
+    }
+    serde_json::to_string(&Input {
+        meta: meta.for_writing(),
+        fresh: Fresh {
+            journalist,
+            scout: cards.rating.as_ref().map(|r| Reading {
+                body: &r.body,
+                direction: Some(&r.rating_trajectory),
+                generated_at: None,
+            }),
+            influencer: cards.vibe.as_ref().map(|r| Reading {
+                body: &r.prompt,
+                direction: None,
+                generated_at: None,
+            }),
+            analyst: cards.momentum.blurb.as_deref().map(|body| Reading {
+                body,
+                direction: cards.momentum.direction.as_deref(),
+                generated_at: None,
+            }),
+            insider: cards.insider.as_ref().map(|r| Reading {
+                body: &r.body,
+                direction: None,
+                generated_at: r.generated_at.as_deref(),
+            }),
+        },
+        voice: crate::plugins::oracle::voice::VOICE,
+        form: prose().form(),
+    })
+    .expect("oracle world serializes")
 }
 
 pub fn prose() -> crate::plugins::cognition::prose::Prose {
@@ -119,16 +125,13 @@ mod tests {
             ..Cards::default()
         };
         let world = assemble(&subject, &cards);
-        assert_eq!(
-            world.names().collect::<Vec<_>>(),
-            ["meta", "fresh", "voice", "form"]
-        );
-        let value: serde_json::Value = serde_json::from_str(&world.render()).unwrap();
+        assert!(world.starts_with(r#"{"meta":"#));
+        let value: serde_json::Value = serde_json::from_str(&world).unwrap();
         assert!(value.get("memories").is_none());
         assert_eq!(
             value["fresh"]["insider"]["body"],
             cards.insider.unwrap().body
         );
-        assert!(world.render().find("score").is_none());
+        assert!(world.find("score").is_none());
     }
 }

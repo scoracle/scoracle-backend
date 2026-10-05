@@ -6,10 +6,19 @@ Planning date: October 5, 2026. [rust/README.md](../README.md) owns the current 
 
 ## Status
 
-1. **Done.** README is the contract. The alignment plan has the supersession banner. Six voices are local; the shared catalog is gone.
-2. **Scout rendering and legacy-memory pruning done; preparation ownership remains.** `plugins/scout/prompt.rs` renders the world with one `Serialize` struct. Measurement types are `plugins/scout/performance.rs`. The legacy `evidence::memories` package is deleted. Identity reads live in `plugins/meta.rs`. An old-season profile still skips present employment, availability and measured windows via `sports.current_season`. The debounce hash now covers the rendered world and the provenance actually attached, not the unused package. Publication claim fences are unchanged. `assembly.rs` stays until the other five recipes move.
-3. **Trajectory moved. Notability stays. Reporting predicate executed.** Scout's recent-form slope, window and category are one read-only query in `adapter/evidence.rs`. Archbox pg18: window formula matched every stored row; slope, series, window and sample matched 200/200 unchanged recent rows; the shipped query matched a live falling row. Notability stays in Rust: its inputs are the already-selected breakdown, and recomputing the score from rounded stored components was exact except 171 off-by-ones. The reporting `strpos` predicate executed and the full study prepared on Archbox. Candidate selection is still `narrative_events`. Do not replace it, or add verified reporting or linked entities, before a before/after request.
-4. **Pilot retired.** Influencer `read_source`, `examples/influencer_tools.rs`, and the provider tool-chat/XML path are gone. Influencer still prepares through `cognition/`. Its memory file keeps real selection policy, so it was not inlined.
+| Step | State |
+| --- | --- |
+| 1. Direction and local voices | Done. |
+| 2. Scout rendering and legacy memory package | Done; preparation ownership and directory cleanup remain. Render is `prompt.rs`. Measurements are `performance.rs`. Identity reads are `meta.rs`. Publication fences unchanged. |
+| 3. Scout data | Trajectory query is the producer, parity-checked on Archbox. Notability stays beside selection. Reporting `strpos` prepared on Archbox. Event-based candidate selection not replaced. |
+| 4. Influencer | Tool pilot, example, and provider chat/XML path retired. World render no longer uses `assembly::World`. `cognition/` and `memories.rs` remain; selection policy is real. |
+| 5. Other plugins | Render done for Journalist, Insider, Analyst, and Oracle. `assembly.rs` deleted. SQL metric moves not started. |
+| 6. Editor and old namespaces | Not started. |
+| 7. Harness folder move | Not started. |
+
+Deleted after a caller check: `studio/palette.rs`, `evidence/story_parts.rs`, `dedupe_i64`, `classify_delta`, `trajectory_label`, and the unused `RunDeadline` / `handler_budget` wiring. `DEFAULT_TRAJECTORY` stays. Worker `handler_timeout` stays; that one is enforced.
+
+Do not replace reporting candidate selection, or add verified reporting or linked entities, before a before/after request.
 
 ## The simplification rule
 
@@ -128,7 +137,7 @@ This is a responsibility map, not scaffolding to create in advance. Keep executa
 | Current location | Planned disposition |
 | --- | --- |
 | Each plugin's `cognition/parts.rs` | Move the recipe, model-input projection and rendering into `prompt.rs`, then delete the file. Scout's measurement types, sample limits and guards remain in a local performance tool; retained fixture inputs must still replay through production preparation. Scout: done. |
-| `plugins/assembly.rs` | Delete after all six recipes use native serialization and request/hash comparisons pass. Keep the behavior, not the abstraction. |
+| `plugins/assembly.rs` | Deleted. All six recipes render with `serde_json::to_string`. |
 | Each plugin's `cognition/` | Move task/context into `prompt.rs`, tone into local `voice.rs`, and real parsing/validation into local helpers; remove the obsolete directory and exports. Avoid moving Scout's entire 1,500-line module into one prompt file. |
 | Each plugin's `adapter/` | Put the readable execution entry in `mod.rs`; keep substantial local data/publication tools in named files. Remove forwarding modules as callers migrate. Harvester retains its distinct acquisition and classification workflow. |
 | `plugins/cognition.rs` and `plugins/cognition/` | Delete this namespace. Its only modules are form vocabulary and classification protocol, not an orchestration layer. Fold `Prose`/`Dimensions` into shared `form.rs`; keep `DecisionModel` and its request/response types with Harvester's classification tool. |
@@ -140,7 +149,7 @@ This is a responsibility map, not scaffolding to create in advance. Keep executa
 | `evidence/` | Move surviving readers/fetch mechanisms into shared or specialized tools, then remove the namespace. Preserve actual acquisition caching, pacing, retry, budget and provenance behavior. |
 | `plugins/editor/` | Delete in its isolated retirement slice after obsolete executable evaluations move; keep historical fixtures and stored data. |
 
-Additional verified deletion candidates are `studio/palette.rs`, unused deadline wiring, `evidence/story_parts.rs`, and `evidence/corpus.rs::dedupe_i64`. Retiring the unused story helper also releases unused trajectory helpers; the still-used default trajectory value remains. Check references immediately before deletion.
+Deleted after a caller check: `studio/palette.rs`, unused `RunDeadline` / `handler_budget` wiring, `evidence/story_parts.rs`, `dedupe_i64`, and the trajectory helpers that only the story helper used. `DEFAULT_TRAJECTORY` remains. Check references immediately before the next deletion.
 
 Folder cleanup is part of each plugin slice, not a cosmetic rename at the end. Each slice must remove superseded imports, exports, forwarding modules, prompts and exclusive helpers. Track any live caller that prevents deletion and finish its migration before declaring the slice complete.
 
@@ -175,8 +184,8 @@ The audit's provisional eventual reduction is about 6,000 lines with no new depe
 1. **Direction and local voice:** update the active README, add a short supersession banner to the completed alignment plan and preserve dated evidence. Keep each active voice local with identical text; remove the shared catalog. Record the folder/deletion map above.
 2. **Scout preparation and pruning:** rendering and legacy-memory pruning are done; the preparation entry point still needs to move from `adapter/mod.rs` to `prompt.rs`, and the substantial parsing/measurement helpers still live in `cognition/`. Native serialization, parts-file deletion, and the legacy memory package are gone. Rendered requests and both publication paths were preserved. The debounce hash no longer includes the unused package fingerprint.
 3. **Scout data and context:** trajectory arithmetic now runs in the load query, with Archbox parity. Notability stays beside selection. Replace event-based reporting selection only after a before/after request. Preserve no-stats outcomes and measurement guards. Do not add verified reporting or linked entities before that request.
-4. **Influencer:** the tool pilot and exclusive chat path are retired. Still to do: the same ownership pattern where it removes a layer, and pruning preparation directories. Do not inline `memories.rs`; selection policy is real.
-5. **Other plugins:** migrate and prune each preparation path separately. Move Journalist activity, Insider grounded transfer heat, Analyst direction/conviction and Oracle score/convergence/deterministic omen into SQL with parity. Keep Harvester, Investigator, Boxscore and Graph's distinct jobs and model protocols. Delete shared `assembly.rs` after its last caller moves.
+4. **Influencer:** the tool pilot, exclusive chat path, and `assembly::World` render are gone. Still to do: prune preparation directories only where a layer is only a forwarder. Do not inline `memories.rs`; selection policy is real.
+5. **Other plugins:** the four remaining worlds now render with native serialization, and `assembly.rs` is deleted. Still to do: move Journalist activity, Insider grounded transfer heat, Analyst direction/conviction and Oracle score/convergence/deterministic omen into SQL with parity. Keep Harvester, Investigator, Boxscore and Graph's distinct jobs and model protocols.
 6. **Legacy retirement:** remove Editor and its obsolete executable evaluations in an isolated pass, retaining fixtures and stored historical data. Finish dissolving the old support, cognition and evidence namespaces as their last callers move.
 7. **Harness consolidation:** move the surviving Studio/application/runtime infrastructure into `harness/`, retaining its useful queue/provider subfolders. Production business logic belongs to plugins and tools. Remove old exports and paths together; keep operator/evaluation entry points working.
 
@@ -186,6 +195,6 @@ Before changing a model's input, retain an inspectable before/after request, its
 
 ## Local checkpoint — October 5, 2026
 
-Reviewed the current working tree against this plan. The Scout rendering/measurement split, legacy-memory removal, identity-reader migration, SQL trajectory cutover, reporting-predicate repair and Influencer pilot retirement are the checkpoint scope. Archbox parity above is evidence recorded by the prior work; this checkpoint does not repeat that remote run or establish deployment. Local formatting and all-target tests are being verified before commit.
+Reviewed the current working tree against this plan. The Scout rendering/measurement split, legacy-memory removal, identity-reader migration, SQL trajectory cutover, reporting-predicate repair and Influencer pilot retirement are the checkpoint scope. Archbox parity above is evidence recorded by the prior work; this checkpoint does not repeat that remote run or establish deployment. Checkpoint committed as `df05d894`. The subsequent native-renderer/dead-code slice passed `cargo test --all-targets` (419 library tests and 14 eval tests; 63 DB-dependent tests ignored). Formatting was checked before its commit.
 
-Next slice: move Influencer preparation/rendering into local `prompt.rs`, replace its shared world builder with native serialization, and remove its obsolete preparation directories while preserving request bytes, source admission, memory policy and publication fences. Scout reporting and linked-entity input changes remain gated by an inspectable before/after request.
+Next slice: move Influencer preparation/rendering into local `prompt.rs` and remove its obsolete preparation directories while preserving request bytes, source admission, memory policy and publication fences. Scout reporting and linked-entity input changes remain gated by an inspectable before/after request.

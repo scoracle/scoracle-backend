@@ -64,7 +64,13 @@ fn complete_conflicting_reports_are_prepared_separately_without_truncation() {
             ..item(2, "Cedar deny holding talks.")
         },
     ]);
-    let frame: serde_json::Value = serde_json::from_str(&prompt(&a)).unwrap();
+    let rendered = prompt(&a);
+    assert!(rendered.starts_with(r#"{"meta":"#));
+    let fresh_at = rendered.find(r#""fresh":"#).unwrap();
+    let voice_at = rendered.find(r#""voice":"#).unwrap();
+    let form_at = rendered.find(r#""form":"#).unwrap();
+    assert!(fresh_at < voice_at && voice_at < form_at);
+    let frame: serde_json::Value = serde_json::from_str(&rendered).unwrap();
     assert_eq!(frame["fresh"][1]["publisher_excerpt"], text);
     let result = EditionParser {
         assignment: &a,

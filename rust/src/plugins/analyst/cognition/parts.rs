@@ -48,7 +48,7 @@ pub fn assemble(
     scout: Option<&Form>,
     influencer: Option<&Mood>,
     snapshot: &Snapshot,
-) -> crate::plugins::assembly::World {
+) -> String {
     let form = snapshot.rating_slope.map(|slope| Rail {
         slope,
         samples: snapshot.rating_samples,
@@ -66,26 +66,32 @@ pub fn assemble(
         form,
         mood,
     });
-    crate::plugins::assembly::World::new()
-        .part("meta", subject.for_writing())
-        .part(
-            "fresh",
-            Fresh {
-                scout: scout.map(|r| Reading {
-                    body: &r.body,
-                    season: r.season,
-                    generated_at: r.generated_at.as_deref(),
-                }),
-                influencer: influencer.map(|r| Reading {
-                    body: &r.body,
-                    season: None,
-                    generated_at: r.generated_at.as_deref(),
-                }),
-                trajectory,
-            },
-        )
-        .part("voice", crate::plugins::analyst::voice::VOICE)
-        .part("form", prose().form())
+    #[derive(Serialize)]
+    struct Input<'a> {
+        meta: crate::plugins::meta::WritingIdentity<'a>,
+        fresh: Fresh<'a>,
+        voice: &'static str,
+        form: serde_json::Value,
+    }
+    serde_json::to_string(&Input {
+        meta: subject.for_writing(),
+        fresh: Fresh {
+            scout: scout.map(|r| Reading {
+                body: &r.body,
+                season: r.season,
+                generated_at: r.generated_at.as_deref(),
+            }),
+            influencer: influencer.map(|r| Reading {
+                body: &r.body,
+                season: None,
+                generated_at: r.generated_at.as_deref(),
+            }),
+            trajectory,
+        },
+        voice: crate::plugins::analyst::voice::VOICE,
+        form: prose().form(),
+    })
+    .expect("analyst world serializes")
 }
 
 pub fn prose() -> crate::plugins::cognition::prose::Prose {
@@ -126,15 +132,12 @@ mod tests {
             ..Snapshot::default()
         };
         let world = assemble(&subject, Some(&scout), None, &snapshot);
-        let value: serde_json::Value = serde_json::from_str(&world.render()).unwrap();
-        assert_eq!(
-            world.names().collect::<Vec<_>>(),
-            ["meta", "fresh", "voice", "form"]
-        );
+        let value: serde_json::Value = serde_json::from_str(&world).unwrap();
+        assert!(world.starts_with(r#"{"meta":"#));
         assert_eq!(value["fresh"]["scout"]["body"], scout.body);
         assert_eq!(value["fresh"]["trajectory"]["form"]["samples"], 4);
         assert!(value["fresh"].get("influencer").is_none());
-        assert!(world.render().find("hidden").is_none());
-        assert!(world.render().find("momentum_score").is_none());
+        assert!(world.find("hidden").is_none());
+        assert!(world.find("momentum_score").is_none());
     }
 }

@@ -1015,9 +1015,6 @@ async fn build_dependencies(cfg: &Config) -> Result<(sqlx::PgPool, Models)> {
         pool,
         Models {
             router,
-            // Unbounded: an inspection run drives its entity to completion. Nothing here is racing a
-            // worker timeout, and a truncated eval would be a worse artifact than a slow one.
-            handler_budget: Duration::ZERO,
             // The same resolved window production runs — an eval generating in a window the live
             // stage never uses would measure the wrong thing.
             voice_num_ctx: cfg.voice_num_ctx,

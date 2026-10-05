@@ -142,10 +142,10 @@ pub async fn create(
 ) -> Result<Generation<Reply>> {
     ensure!(!reports.is_empty(), "Insider needs a verified source");
     let world = parts::assemble(subject, reports, history, source_records);
-    let hash = world.hash();
+    let hash = crate::util::hash_components(&world);
     let extracted = studio
         .extract(
-            &world.render(),
+            &world,
             &options(num_ctx),
             &ReplyParser { subject, reports },
             |_| None,

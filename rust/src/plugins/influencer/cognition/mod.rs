@@ -54,32 +54,35 @@ pub fn source_disposition(text: &str, published_at: i64, now: i64) -> Option<&'s
 }
 
 /// The same assembled package is used by production and replay.
-///
-/// The parts and their order are this plugin's choice; `assembly::World` only
-/// renders them, deterministically and in the order given here.
 pub fn assembled_prompt(assignment: &Assignment) -> String {
-    assemble(&assignment.subject, &assignment.source, &assignment.history).render()
+    assemble(&assignment.subject, &assignment.source, &assignment.history)
 }
 
-/// The prepared world, before it is rendered.
-///
-/// Split from [`assembled_prompt`] so the evaluation harness can re-assemble a
-/// stored fixture from the same three parts production hands this function,
-/// rather than replaying a captured prompt string.
+/// Field order is the wire order. Empty history is omitted, not an empty array.
 pub fn assemble(
     subject: &EntityMeta,
     source: &SourceContext,
     history: &[super::memories::HistoryItem],
-) -> crate::plugins::assembly::World {
-    let mut world = crate::plugins::assembly::World::new()
-        .part("meta", subject.for_writing())
-        .part("fresh", fresh::prepare(source));
-    if !history.is_empty() {
-        world = world.part("memories", history);
+) -> String {
+    use serde::Serialize;
+    #[derive(Serialize)]
+    struct Input<'a> {
+        meta: crate::plugins::meta::WritingIdentity<'a>,
+        fresh: crate::plugins::support::source::Reporting<'a>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        memories: Option<&'a [super::memories::HistoryItem]>,
+        voice: &'static str,
+        form: serde_json::Value,
     }
-    world
-        .part("voice", crate::plugins::influencer::voice::VOICE)
-        .part("form", crate::plugins::support::form::observation_form())
+    let form = crate::plugins::support::form::observation_form();
+    serde_json::to_string(&Input {
+        meta: subject.for_writing(),
+        fresh: fresh::prepare(source),
+        memories: (!history.is_empty()).then_some(history),
+        voice: crate::plugins::influencer::voice::VOICE,
+        form,
+    })
+    .expect("influencer world serializes")
 }
 
 /// This plugin's parts, in a form a quality fixture can store.
@@ -98,7 +101,7 @@ pub struct Parts {
 
 impl Parts {
     pub fn assemble(&self) -> String {
-        assemble(&self.subject, &self.source, &self.history).render()
+        assemble(&self.subject, &self.source, &self.history)
     }
 }
 

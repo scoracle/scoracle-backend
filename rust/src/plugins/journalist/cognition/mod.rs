@@ -161,12 +161,13 @@ pub fn prepare(
     });
     // The world is assembled once and both rendered and hashed from, so the
     // fingerprint always describes the package the model will actually read.
-    let world = assemble(&subject, &selected, &memories);
+    let rendered = assemble(&subject, &selected, &memories);
     let input_hash = crate::util::hash_components(
         &json!({
             "subject": subject, "reports": selected, "version": NARRATIVES_PROMPT_VERSION,
             "memory_source_hash": memory.study.as_ref().map(|s| &s.receipt.input_hash),
-            "fresh_contract": fresh::VERSION, "world": world.hash(), "memories": memories,
+            "fresh_contract": fresh::VERSION, "world": crate::util::hash_components(&rendered),
+            "memories": memories,
         })
         .to_string(),
     );
@@ -185,14 +186,12 @@ pub fn prepare(
 ///
 /// Memory is keyed by the same report_key as fresh, so attachment is explicit.
 ///
-/// The parts and their order are this plugin's choice; `assembly::World` only
-/// renders them, deterministically and in the order given here.
 fn render_context(
     subject: &EntityMeta,
     reports: &[CorpusItem],
     history: &[Option<memories::Selected>],
 ) -> String {
-    assemble(subject, reports, history).render()
+    assemble(subject, reports, history)
 }
 
 /// This plugin's parts, in a form a quality fixture can store.
@@ -216,7 +215,7 @@ pub struct Parts {
 
 impl Parts {
     pub fn assemble(&self) -> String {
-        assemble(&self.subject, &self.reports, &self.memory).render()
+        assemble(&self.subject, &self.reports, &self.memory)
     }
 }
 
@@ -233,14 +232,23 @@ pub fn assemble(
     subject: &EntityMeta,
     reports: &[CorpusItem],
     history: &[Option<memories::Selected>],
-) -> crate::plugins::assembly::World {
+) -> String {
     #[derive(Serialize)]
     struct Attached<'a> {
         report_key: String,
         history: &'a [crate::plugins::memories::HistoryItem],
         history_groups: &'a [crate::plugins::memories::GroupSummary],
     }
-    let attached = history
+    #[derive(Serialize)]
+    struct Input<'a> {
+        meta: crate::plugins::meta::WritingIdentity<'a>,
+        fresh: Vec<fresh::Report<'a>>,
+        #[serde(skip_serializing_if = "Vec::is_empty")]
+        memories: Vec<Attached<'a>>,
+        voice: &'static str,
+        form: serde_json::Value,
+    }
+    let memories = history
         .iter()
         .enumerate()
         .filter_map(|(index, slot)| {
@@ -252,18 +260,14 @@ pub fn assemble(
             })
         })
         .collect::<Vec<_>>();
-    let mut world = crate::plugins::assembly::World::new()
-        .part("meta", subject.for_writing())
-        .part("fresh", fresh::prepare(reports));
-    if !attached.is_empty() {
-        world = world.part("memories", &attached);
-    }
-    world
-        .part("voice", crate::plugins::journalist::voice::VOICE)
-        .part(
-            "form",
-            crate::plugins::support::form::journalist_form(reports.len()),
-        )
+    serde_json::to_string(&Input {
+        meta: subject.for_writing(),
+        fresh: fresh::prepare(reports),
+        memories,
+        voice: crate::plugins::journalist::voice::VOICE,
+        form: crate::plugins::support::form::journalist_form(reports.len()),
+    })
+    .expect("journalist world serializes")
 }
 
 /// Production and replay use the exact assembled context measured by preparation.

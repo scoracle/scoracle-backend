@@ -69,8 +69,6 @@ async fn main() -> Result<()> {
     let pool = db::build_pool(&cfg.database_url, cfg.db_max_conns).await?;
     let models = Models {
         router: Router::from_config(&cfg.route, cfg.ollama_timeout, cfg.ollama_max_concurrent)?,
-        // Unbounded: a backfill is not a queue item and has no worker timeout to land inside.
-        handler_budget: Duration::ZERO,
         // The same resolved window the service runs (4096 packet envelope unless VOICE_NUM_CTX
         // pins it) — a backfill asking for the legacy 16384 would evict the pinned production
         // runner on every alternation with the drain.

@@ -157,7 +157,6 @@ pub(crate) async fn preview(
             &material.history,
             &material.source_records,
         )
-        .render()
     }))
 }
 

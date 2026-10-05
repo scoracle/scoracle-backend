@@ -461,7 +461,7 @@ pub async fn create(studio: &Studio<'_>, assignment: &Assignment) -> Result<Sigi
         build_pillar_divergence(cards.rating.as_ref(), cards.vibe.as_ref(), &cards.momentum);
     let convergence = pillar_convergence(&comparisons);
     let omen = compute_omen(convergence, &cards.momentum);
-    let prompt = parts::assemble(&assignment.subject, cards).render();
+    let prompt = parts::assemble(&assignment.subject, cards);
     let options = assignment.options.clone();
     let extracted = studio
         .extract(

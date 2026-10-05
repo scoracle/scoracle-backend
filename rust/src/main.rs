@@ -106,9 +106,6 @@ async fn main() -> Result<()> {
     // Shared database, routing, budget, and context-window capabilities.
     let models = std::sync::Arc::new(Models {
         router: Router::from_config(&cfg.route, cfg.ollama_timeout, cfg.ollama_max_concurrent)?,
-        // The same ceiling the worker enforces, handed to the handlers so a multi-call stage can
-        // land inside it under its own power rather than being cancelled at it.
-        handler_budget: cfg.handler_timeout,
         voice_num_ctx: cfg.voice_num_ctx,
     });
 

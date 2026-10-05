@@ -328,8 +328,7 @@ pub async fn create(
         ctx.rating.as_ref(),
         ctx.vibe.as_ref(),
         &ctx.snapshot,
-    )
-    .render();
+    );
     let opts = generation_options(assignment.voice_num_ctx);
     let extracted = studio
         .extract(

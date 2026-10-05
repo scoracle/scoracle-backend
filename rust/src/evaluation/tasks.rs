@@ -937,8 +937,7 @@ impl LensTask for OracleTask {
                     sport: e.sport.clone(),
                 },
                 &cards,
-            )
-            .render(),
+            ),
             self.gen_options_for(0.0, e)?,
         )))
     }
@@ -1370,8 +1369,7 @@ impl LensTask for MomentumTask {
                 context.rating.as_ref(),
                 context.vibe.as_ref(),
                 &context.snapshot,
-            )
-            .render(),
+            ),
             self.gen_options_for(0.0, e)?,
         )))
     }

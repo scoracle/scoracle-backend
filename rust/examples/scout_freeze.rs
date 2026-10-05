@@ -68,7 +68,6 @@ async fn main() -> Result<()> {
     let pool = db::build_pool(&cfg.database_url, cfg.db_max_conns).await?;
     let models = Models {
         router: Router::from_config(&cfg.route, Duration::from_secs(600), 1)?,
-        handler_budget: Duration::ZERO,
         voice_num_ctx: cfg.voice_num_ctx,
     };
     let name = scoracle_cognition::evidence::corpus::lookup_entity_name(

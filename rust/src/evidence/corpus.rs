@@ -1,4 +1,4 @@
-//! Shared entity lookup, identity-card, and dedupe primitives.
+//! Shared entity name lookup.
 
 use anyhow::{bail, Context, Result};
 use sqlx::PgPool;
@@ -26,16 +26,4 @@ pub async fn lookup_entity_name(
         bail!("empty name for {entity_type}/{entity_id} ({sport})");
     }
     Ok(name)
-}
-
-/// dedupe_i64 removes duplicates preserving first-seen order. Mirrors `dedupeInt64`.
-pub fn dedupe_i64(input: Vec<i64>) -> Vec<i64> {
-    let mut out = Vec::with_capacity(input.len());
-    let mut seen = std::collections::HashSet::with_capacity(input.len());
-    for v in input {
-        if seen.insert(v) {
-            out.push(v);
-        }
-    }
-    out
 }

@@ -1,4 +1,10 @@
-# Plugin alignment plan
+# Plugin alignment plan — complete
+
+**Status: COMPLETE — October 5, 2026.** All alignment windows are closed and
+release `fd981fd2a19c` is deployed on Archbox. Schema restore, migrations, API
+health and the surviving plugin fleet are verified. Product fidelity/calibration,
+unavailable extraction capabilities and retained historical-data retirement remain
+separate work; they do not reopen this alignment plan.
 
 ## Governing direction
 
@@ -16,15 +22,15 @@ outputs just as the other plugins own theirs. Laya returns scores for Harvester'
 bounded classification job; character LLMs return articulation. Both are model
 operations owned by their plugin.
 
-Planning date: September 27, 2026. Revised through October 4, 2026 after the
-Ponytail audit, the S5 investigation, the six-part context decision, and the local
-Insider, Analyst and Oracle migrations. The September 30 six-part/base-toolkit
+Planning date: September 27, 2026. Completed October 5, 2026 after the
+Ponytail audit, six-part migration, evidence-boundary retirement and verified
+Archbox release. The September 30 six-part/base-toolkit
 revision below supersedes the earlier flexible file-role sketch.
 This direction supersedes the earlier
 “System 1 filters → plugins frame” shorthand, which incorrectly suggested that
 System 1 sat outside the plugins.
 
-This is the current execution plan. Git history and linked evidence retain earlier
+This is the completed alignment record. Git history and linked evidence retain earlier
 sketches and handoffs; do not implement a superseded sketch. Keep the implementation
 lean by deleting redundant paths as their consumers migrate. Harvester's accepted
 calibration and release state are separate from this ownership clarification.
@@ -323,20 +329,20 @@ and relevant source/evidence; follow every live caller before editing.
 
 | Window | Plugin / task | Current status and remaining work |
 | --- | --- | --- |
-| 0 | Base toolkit | Model-directed database tools adopted. Native Ollama conversation transport and a scoped read-only Influencer source pilot implemented. SmolLM3 template framing and exact XML normalization are verified, but it skipped the read in the live pilot. Granite 3B completed a read-only Archbox unavailable-data round trip with a null body. It also called the tool in two historical used-source replays, but neither final answer passed product review. No eligible fresh Influencer source existed for an available-evidence pilot. That test and factual review remain before cutover. Reuse existing reads and DuckDB studies; no new framework. |
-| 1 | Harvester / `harvester` | V7 behavior accepted at 90/96 synthetic development routes; calibration deferred. An October 1 local Laya/Fastino comparison retained Laya and the current policy. Transfer-positive delivery now fans out by normalized co-mentioned entity name. October 5 isolated database smoke verifies source-wide five-player fanout and downstream publication. Operational release remains separate. |
-| 2 | Journalist / `narratives` | n94 deployed at `573d6a8e`. Local n96 uses the confirmed six-part context, with memories attached by `report_key`; unreleased and not product replayed. Prepared live evaluation and request-local parsing repaired. |
-| 3 | Influencer / `vibe` | Local v6 uses the confirmed six-part context and structural form. Undeployed; read-only `read_source` tool pilot added. Eligible available-source and factual review remain open. |
-| 4 | Scout / `rating` | **Alignment closed October 5 by user direction.** Local s66 has the confirmed context, separate measured-memory windows, S1–S4 mechanics, plumbing deletion and repaired parser matching. Tests pass. Failed fidelity replays and the unavailable live measured-window branch remain recorded quality/capability limitations, not alignment blockers. Undeployed. |
-| 5 | Insider / `transfers` | Local one-call-per-entity path uses verified Harvester reports, normalized co-mentions, selected reporting memory and measured source records. The response contains a reading plus source-linked reported or denied findings. Old pair, identity and wrap model paths are deleted. **Alignment closed October 5.** Isolated database smoke and exact-name/quote checks pass; product replay remains separate release work. |
-| 6 | Analyst / `momentum` | **Alignment closed October 5.** Local six-part source package and one synthesis call replace the palette; five database publication/recovery checks pass. Product replay remains separate release work. |
-| 7 | Oracle / `sigil` | **Alignment closed October 5.** Local six-part reading takes the five finished cards, without `memories.rs`; six database publication/readiness checks pass. Product replay remains separate release work. |
-| 8 | Investigator / `investigate_entity`, `factsweep` | **Alignment closed October 5.** Runtime inference grant and model-authored canonical paths removed. Structured Wikidata discovery/publication remains; unsupported prose and factsweep extraction is unavailable. Six isolated publication checks pass. |
-| 9 | Fixture Boxscore / `fixture_boxscore` | **Alignment audit closed October 5.** Deterministic retrieval remains; every parser family, search discovery and canonical promotion is explicitly unavailable. Unused parser scaffolding removed; unsupported parsing retains fetch receipts and publishes no measurements. Unit and isolated publication checks pass. |
-| 10 | Graph / `graph` | Evidence extraction boundary and final Editor/legacy retirement; preserve Journalist's grouping dependency. |
+| 0 | Base toolkit | **Complete and released.** Native model conversation transport, scoped database tools and shared DuckDB studies survive. Available-source tool fidelity remains separate quality work; failed pilot evidence is retained. |
+| 1 | Harvester / `harvester` | **Complete and released.** Accepted Laya policy retained; source-wide five-player fanout and durable delivery verified. Calibration remains separate. |
+| 2 | Journalist / `narratives` | **Complete and released.** Six-part n96 context, prepared evaluation and request-local parsing aligned; independent storyline grouping preserved and database-verified. Product fidelity replay remains separate. |
+| 3 | Influencer / `vibe` | **Complete and released.** Six-part v6 context, structural form and scoped source tool aligned. Available-source fidelity review remains separate. |
+| 4 | Scout / `rating` | **Complete and released.** s66 measured-memory windows, source-bound context and parser repairs verified. Failed fidelity replays and unavailable measured-window evidence remain recorded. |
+| 5 | Insider / `transfers` | **Complete and released.** One synthesis call per entity uses verified publisher reports and measured source records. Five-player fanout, denial, exact-name/quote and publication checks pass. |
+| 6 | Analyst / `momentum` | **Complete and released.** Six-part source package and one synthesis call replace the palette; five database publication/recovery checks pass. |
+| 7 | Oracle / `sigil` | **Complete and released.** Six-part reading consumes the five finished cards; six database publication/readiness checks pass. |
+| 8 | Investigator / `investigate_entity`, `factsweep` | **Complete and released.** Structured identity discovery remains; runtime inference and generated canonical facts are retired. Unsupported prose/factsweep extraction is unavailable. Six database checks pass. |
+| 9 | Fixture Boxscore / `fixture_boxscore` | **Complete and released.** Deterministic retrieval retains receipts. Unsupported parser families, discovery and canonical promotion remain unavailable. Unit and database publication checks pass. |
+| 10 | Graph / `graph` and Editor retirement | **Complete and released.** Source-bound nominations/review receipts survive; generated facts and Editor runtime are retired. Nine Graph database checks and Journalist grouping check pass. Historical data and one pending Editor assignment are retained. |
 
-Statuses above combine retained handoff evidence with local code and test checks;
-this revision did not re-verify production deployments. The September 29 audit ran
+Statuses above include the October 5 production release verification recorded below.
+Earlier test totals in this record are dated evidence. The September 29 audit ran
 `cargo test --offline --lib` (558 passed, 73 ignored). After the October 4 local
 migrations, `cargo test --offline --all-targets --quiet` passed (466 library tests
 passed, 62 ignored, plus other target tests). The Influencer comparison protocol
@@ -774,17 +780,14 @@ separate; no release or data destruction is implied by documentation work.
 The earlier detailed F1–F9 sketches and handoffs remain in Git history. This
 section records only decisions the next implementation should carry forward.
 
-## Next work — release preparation
+## Completed implementation verification
 
 The local plugin alignment implementation is closed through Window 10. Missing
 relation, reporting-based identity and fixture parser capabilities are recorded as
 unavailable; product fidelity/calibration stays separate from alignment.
 
-Next, capture and restore-test the release schema using the SQL repository workflow,
-then perform the coordinated rollout: migrations 287–289, Go Harvester intake enabled
-with shadow mode off, and the surviving cognition stage list without Editor. Review
-retained pending Editor work explicitly during cutover. No production deployment,
-data deletion or host configuration change was performed in this session.
+Release schema capture, restore checks and the coordinated rollout are complete;
+see the production receipt below. No alignment implementation or release step remains.
 
 October 5 final verification used disposable PostgreSQL 17 loaded from the checked-in
 baseline plus migrations 287–289. Graph's nine publication checks and Journalist's preserved grouping check pass. The
@@ -794,8 +797,8 @@ checks pass: 448 library tests (63 ignored), plus 14, one and two in other targe
 Go thirdparty and durable work tests pass with the disposable database. Earlier
 Scout-through-Fixture evidence remains recorded in each owning window above.
 Run database checks serially; Analyst's crash rehearsal needs an empty pending outbox.
-The release baseline capture remains a release task; the generated snapshot was not
-hand-edited or captured from a database containing test configuration.
+The subsequent PostgreSQL 18 release capture and restore supersede this local
+pre-release baseline check; no generated snapshot was hand-edited.
 
 ## October 5 release completed
 

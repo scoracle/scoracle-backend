@@ -132,10 +132,10 @@ mod tests {
     #[test]
     fn production_capability_scope_refuses_another_plugins_route() {
         let capabilities = models()
-            .capabilities(&crate::plugins::editor::manifest::MANIFEST)
+            .capabilities(&crate::plugins::analyst::manifest::MANIFEST)
             .unwrap();
         assert!(capabilities
-            .inference(crate::plugins::editor::manifest::ROUTE)
+            .inference(crate::plugins::analyst::manifest::ROUTE)
             .is_ok());
         let error = capabilities
             .inference(crate::plugins::scout::manifest::ROUTE)

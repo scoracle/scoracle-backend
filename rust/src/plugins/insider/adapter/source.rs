@@ -590,6 +590,49 @@ mod tests {
     use super::*;
 
     #[test]
+    fn counterparties_require_one_matching_identity_in_the_delivered_report() {
+        let mut material = Material {
+            subject: EntityMeta {
+                name: "Jordan Sample".into(),
+                entity_type: "player".into(),
+                entity_id: 1,
+                sport: "NFL".into(),
+            },
+            sources: vec![],
+            reports: vec![],
+            history: vec![],
+            source_records: vec![],
+            mentions: vec![vec![Match {
+                name: "Test Club".into(),
+                entity_type: "team".into(),
+                entity_id: 2,
+            }]],
+        };
+        let mut finding = SourceFinding {
+            report_index: 0,
+            counterparty: "Test Club".into(),
+            status: SourceStatus::Reported,
+            stage: Some("speculation".into()),
+            evidence_quote: "Publisher quote".into(),
+        };
+        assert_eq!(counterparty(&material, &finding).unwrap().entity_id, 2);
+        finding.counterparty = "Other Club".into();
+        assert!(counterparty(&material, &finding).is_err());
+        finding.counterparty = "Test Club".into();
+        material.mentions[0].push(Match {
+            name: "Test Club".into(),
+            entity_type: "team".into(),
+            entity_id: 3,
+        });
+        assert!(counterparty(&material, &finding).is_err());
+        material.mentions[0].pop();
+        material.mentions[0][0].entity_type = "player".into();
+        assert!(counterparty(&material, &finding).is_err());
+        finding.report_index = 1;
+        assert!(counterparty(&material, &finding).is_err());
+    }
+
+    #[test]
     fn newest_denial_retires_older_reports_without_reusing_stale_corroboration() {
         let finding = |report_index, status, stage| SourceFinding {
             report_index,

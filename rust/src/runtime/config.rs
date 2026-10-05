@@ -46,11 +46,8 @@ pub struct Config {
     /// only thing deciding how many model calls actually run on a machine. Set it only to
     /// throttle: `1` restores the old strictly-sequential drain.
     pub drain_concurrency: Option<usize>,
-    /// Whether the Desk compiles packets (`COGNITION_PACKET_COMPILE`, default off). Storyline
-    /// assembly is unconditional; this remains an operational brake on compilation cost.
-    pub packet_compile: bool,
     /// The context window EVERY voice on this host requests (`VOICE_NUM_CTX`, else the 4096
-    /// packet envelope). Resolved once at boot because two items in one drain must not disagree
+    /// request envelope). Resolved once at boot because two items in one drain must not disagree
     /// about the window, or the shared runner reloads between them.
     pub voice_num_ctx: i32,
 }
@@ -105,7 +102,6 @@ impl Config {
                 })?),
                 None => None,
             },
-            packet_compile: env_bool("COGNITION_PACKET_COMPILE", false),
             voice_num_ctx,
         })
     }
@@ -271,19 +267,6 @@ fn env_opt(key: &str) -> Option<String> {
 
 fn env_or(key: &str, default: &str) -> String {
     env_opt(key).unwrap_or_else(|| default.to_string())
-}
-
-/// A switch, not a number: anything but the affirmative set is off, and an unset key is the
-/// default. Deliberately total — a typo in a deploy env must not fail a boot, it must leave the
-/// switch where the default put it (and the boot line logs the resolved value).
-fn env_bool(key: &str, default: bool) -> bool {
-    match env_opt(key) {
-        Some(raw) => matches!(
-            raw.trim().to_lowercase().as_str(),
-            "1" | "true" | "yes" | "on"
-        ),
-        None => default,
-    }
 }
 
 fn env_u32(key: &str, default: u32) -> Result<u32> {

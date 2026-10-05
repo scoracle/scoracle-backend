@@ -29,6 +29,16 @@ sketches and handoffs; do not implement a superseded sketch. Keep the implementa
 lean by deleting redundant paths as their consumers migrate. Harvester's accepted
 calibration and release state are separate from this ownership clarification.
 
+## October 5 execution scope
+
+The user closed Scout's alignment window and directed work to move on. This plan
+is for plugin alignment, not model tuning. Ownership, context assembly, structural
+acceptance, evidence-write boundaries and durable execution remain alignment
+requirements. Reader-facing fidelity replays are retained as quality/release work;
+they do not block moving between alignment windows. No failed replay is reclassified
+as passing, and no deployment follows from alignment closure. This decision
+supersedes the earlier requirement to close Scout's product gate before Insider.
+
 ## Ownership contract
 
 **Harness determines runnable work → plugin reads, selects, computes and assembles
@@ -314,15 +324,15 @@ and relevant source/evidence; follow every live caller before editing.
 | Window | Plugin / task | Current status and remaining work |
 | --- | --- | --- |
 | 0 | Base toolkit | Model-directed database tools adopted. Native Ollama conversation transport and a scoped read-only Influencer source pilot implemented. SmolLM3 template framing and exact XML normalization are verified, but it skipped the read in the live pilot. Granite 3B completed a read-only Archbox unavailable-data round trip with a null body. It also called the tool in two historical used-source replays, but neither final answer passed product review. No eligible fresh Influencer source existed for an available-evidence pilot. That test and factual review remain before cutover. Reuse existing reads and DuckDB studies; no new framework. |
-| 1 | Harvester / `harvester` | V7 behavior accepted at 90/96 synthetic development routes; calibration deferred. An October 1 local Laya/Fastino comparison retained Laya and the current policy. Transfer-positive delivery now fans out by normalized co-mentioned entity name. Database smoke remains open. Operational release remains separate. |
+| 1 | Harvester / `harvester` | V7 behavior accepted at 90/96 synthetic development routes; calibration deferred. An October 1 local Laya/Fastino comparison retained Laya and the current policy. Transfer-positive delivery now fans out by normalized co-mentioned entity name. October 5 isolated database smoke verifies source-wide five-player fanout and downstream publication. Operational release remains separate. |
 | 2 | Journalist / `narratives` | n94 deployed at `573d6a8e`. Local n96 uses the confirmed six-part context, with memories attached by `report_key`; unreleased and not product replayed. Prepared live evaluation and request-local parsing repaired. |
 | 3 | Influencer / `vibe` | Local v6 uses the confirmed six-part context and structural form. Undeployed; read-only `read_source` tool pilot added. Eligible available-source and factual review remain open. |
-| 4 | Scout / `rating` | Local s65 uses the confirmed six-part context and removes redundant context fields. S1–S4 and S5 plumbing deletion remain implemented; a one-case SmolLM3 replay of `synthetic-strong` was rejected after it called held assists a decline and invented strategy/future success. Product fidelity remains open. Undeployed. |
-| 5 | Insider / `transfers` | Local one-call-per-entity path uses verified Harvester reports, normalized co-mentions, selected reporting memory and measured source records. The response contains a reading plus source-linked reported or denied findings. Old pair, identity and wrap model paths are deleted. Database smoke and product replay remain before release. |
-| 6 | Analyst / `momentum` | Local six-part source package and one synthesis call replace the palette; database and product replay remain. |
-| 7 | Oracle / `sigil` | Local six-part reading takes the five finished cards, without `memories.rs`; database and product replay remain. |
-| 8 | Investigator / `investigate_entity`, `factsweep` | Canonical evidence gate; generative factual authority remains to be removed or explicitly blocked. |
-| 9 | Fixture Boxscore / `fixture_boxscore` | Deterministic acquisition audit; do not build unrequested future parser capabilities. |
+| 4 | Scout / `rating` | **Alignment closed October 5 by user direction.** Local s66 has the confirmed context, separate measured-memory windows, S1–S4 mechanics, plumbing deletion and repaired parser matching. Tests pass. Failed fidelity replays and the unavailable live measured-window branch remain recorded quality/capability limitations, not alignment blockers. Undeployed. |
+| 5 | Insider / `transfers` | Local one-call-per-entity path uses verified Harvester reports, normalized co-mentions, selected reporting memory and measured source records. The response contains a reading plus source-linked reported or denied findings. Old pair, identity and wrap model paths are deleted. **Alignment closed October 5.** Isolated database smoke and exact-name/quote checks pass; product replay remains separate release work. |
+| 6 | Analyst / `momentum` | **Alignment closed October 5.** Local six-part source package and one synthesis call replace the palette; five database publication/recovery checks pass. Product replay remains separate release work. |
+| 7 | Oracle / `sigil` | **Alignment closed October 5.** Local six-part reading takes the five finished cards, without `memories.rs`; six database publication/readiness checks pass. Product replay remains separate release work. |
+| 8 | Investigator / `investigate_entity`, `factsweep` | **Alignment closed October 5.** Runtime inference grant and model-authored canonical paths removed. Structured Wikidata discovery/publication remains; unsupported prose and factsweep extraction is unavailable. Six isolated publication checks pass. |
+| 9 | Fixture Boxscore / `fixture_boxscore` | **Alignment audit closed October 5.** Deterministic retrieval remains; every parser family, search discovery and canonical promotion is explicitly unavailable. Unused parser scaffolding removed; unsupported parsing retains fetch receipts and publishes no measurements. Unit and isolated publication checks pass. |
 | 10 | Graph / `graph` | Evidence extraction boundary and final Editor/legacy retirement; preserve Journalist's grouping dependency. |
 
 Statuses above combine retained handoff evidence with local code and test checks;
@@ -332,7 +342,7 @@ migrations, `cargo test --offline --all-targets --quiet` passed (466 library tes
 passed, 62 ignored, plus other target tests). The Influencer comparison protocol
 test also passed. These checks do not replace database smoke or model/product replay.
 
-## Window 4 — Scout closure before Insider
+## Window 4 — Scout alignment closed
 
 This is a bounded completion pass over demonstrated gaps, including the base
 toolkit and instruction cleanup needed by these consumers. Keep the working measured/reported memory separation, typed `Limit` states,
@@ -394,7 +404,7 @@ and bounded correction; old captures without parts require recapture. Remaining
 unaligned tasks retain their existing adapters until their windows. No second
 evaluation service or LLM judge was added.
 
-### S5 — Plumbing removed; product gate remains open
+### S5 — Plumbing removed; fidelity work deferred
 
 Removed unused `Contract`/`SLOTS`/`SlotKind` declarations and their declaration-only
 tests. Retained live `DecisionModel`, prose/schema/decoder APIs, route grants and
@@ -447,7 +457,7 @@ repetition of the measurements. The redundant test pinning manual phrases is
 removed; factual guards, parser limits and fixture review criteria remain.
 This is instruction ownership cleanup, not full six-part completion. The remaining
 assembly work must clarify source coverage and retraction targets before richer
-synthesis. Do not migrate Insider yet. See the
+synthesis. The former Insider hold is superseded by the October 5 scope decision. See the
 [cleanup replay](scout-closure-2026-09-29.md#september-30-six-part-instruction-cleanup).
 
 Seven damaged converted fixtures are retired from the active suite; their original
@@ -459,10 +469,11 @@ Do not treat prompt adjustments or another model swap as a demonstrated cure. Do
 claim completion merely to make a mechanical gate green. Preserve Journalist's
 accepted prose design and Harvester's accepted calibration.
 
-**Exit:** useful, faithful articulation on representative prepared worlds, in
-addition to the passing mechanics. Window 4 remains open while the user-directed
-later plugin implementations proceed. Code, tests, product replay and deployment remain
-separate statuses; nothing in this closure deploys a plugin.
+**Alignment exit:** closed October 5. The local implementation and mechanical
+checks are complete for this window. Retain the failed replay evidence and
+capability limits for separate quality/release work. Do not reopen Scout for
+prompt experiments or model tuning while completing the remaining alignment
+windows. Code, test, product quality and deployment statuses remain distinct.
 
 ## Window 5 — Insider
 
@@ -485,10 +496,16 @@ the five finished cards only and has no memory study. Migration
 `287_source_performance_player_scope` keeps denials and coach reports out of
 the existing player-outcome source accuracy study.
 
-**Verify/exit:** run the isolated database smoke test and product replay, including
-five named players from one transfer-flagged team source, wrong or ambiguous names,
-unsupported quotes, stale claims and denied or conflicting reports. The local
-library suite passes; neither database nor model replay has been run for this path.
+**Alignment exit: closed October 5.** The existing Harvester database smoke now
+publishes one source naming five players across two query-team classifications.
+It verifies all seven subject work items, four positive player rumors, one explicit
+denial clearing row, retained source IDs, source-wide pair obligations, no canonical
+identity writes, and exclusion of denials from player source accuracy. Wrong claim
+tokens, an in-flight headline mutation and a superseding input revision publish no
+partial effects. Seven Insider unit checks cover exact quotes, denial form and
+unique counterparties, including wrong, ambiguous and wrong-type names. Existing
+report-order selection retains denial/report boundaries. Model/product replay is
+unrun and remains separate quality/release work; this is not a deployment claim.
 
 ## Window 6 — Analyst
 
@@ -507,6 +524,13 @@ samples, unchanged work and delayed completion. Check that card qualifications
 survive synthesis and that the model adds no unsupported facts. Local unit tests
 pass; this path has not been released.
 
+**October 5 alignment exit: closed.** All five existing isolated database tests
+pass: current publication with provenance/event/completion, revision and lease
+supersession, no-material completion, and process crashes before/after commit with
+outbox recovery. The test backend's obsolete palette `choices` response was replaced
+with the current `blurb` contract. Structural context and parser tests remain the
+checks for selected readings and unavailable rails. Product fidelity is deferred.
+
 ## Window 7 — Oracle
 
 **Local implementation:** one model call reads the five finished character cards:
@@ -524,6 +548,13 @@ cards, conflicting directions, duplicate source lineage, stale/revised component
 and unresolved upstream work. Check that the overall reading preserves the cards'
 qualifications and adds no unsupported facts. Local unit tests pass; this path has
 not been released.
+
+**October 5 alignment exit: closed.** All six existing isolated database tests
+pass: current publication, empty-card marker without inference, revision and lease
+supersession, unchanged completion, and pending/retryable/terminal upstream
+readiness. Unit checks cover complete five-card input, per-card hash changes,
+deterministic direction/score and the absence of a memory study. Product fidelity
+is deferred.
 
 ## Window 8 — Investigator
 
@@ -545,6 +576,26 @@ verified data. Scope web tools, deduplicate attempts without manufacturing corro
 Editor/duplicate resolution paths. Preserve identity revisions, invalidation and
 rating follow-ups.
 
+**October 5 alignment exit: closed.** Candidate prose fallback and player-team
+prose corroboration were deleted. The runtime handler no longer receives model
+capabilities; the manifest has no inference grant or inference routes. Candidate
+insufficiency records a refusal explaining that prose extraction is unavailable;
+ambiguous player enrichment remains unchanged. Structured Wikimedia retrieval,
+name/sport/team screens, retained source receipts, canonical revision policy and
+claim-fenced publication remain. Historical prose cognition/evaluation is offline
+only and has no canonical-write consumer.
+
+The factsweep model verdict, citation and canonical-write implementation was
+removed. Its operator command now refuses before configuration, database access,
+inference or cooldown stamping, in both commit and dry-run modes. An evaluated
+extractor for current reporting is a missing capability, not an alignment blocker.
+An existing person with a conflicting known team now refuses a same-name merge;
+the previous check covered players only. All six isolated publication tests pass,
+including this conflict, source-write rollback, refusals, stale revisions/leases,
+player cooldown and distinct team provenance. The identity adversarial fixtures
+and structured parser tests continue to pass. Existing current-tenure parsing
+still drops ended claims; this work adds no temporal extraction capability.
+
 **Verify/exit:** supported match, same-name/wrong-sport/ambiguous/conflicting cases,
 stale affiliation, unsupported occupation, repeated nomination and failed fetch.
 Canonical writes are grounded in retained evidence, not merely schema-valid output.
@@ -561,6 +612,19 @@ units and implemented trust/reconciliation rules. Missing parser or failed fetch
 means unavailable data, not a verified score. Keep acquisition receipts as memory;
 no voice, generic parts wrapper or cognition call is required. Delete unused
 scaffolding after checking consumers.
+
+**October 5 alignment audit: closed.** The surviving path loads fixture facts,
+renders dates in UTC, selects eligible registry sources, enforces the shared fetch
+budget/cache path, and records terminal acquisition outcomes under an exact claim.
+There are no implemented parser families: even a successful fetch produces
+`not_supported`, without score or player measurements. This branch now retains
+the source-document ID, cache disposition and registry attribution in `raw_labels`.
+Unused normalization, numeric-stat, minutes and player-name parser scaffolding was
+deleted after checking callers. Retrieval remains supported; search discovery,
+parsing, reconciliation and canonical promotion remain unavailable. No new parser
+or source capability was built. Ten unit checks and the isolated terminal
+acquisition/ledger publication check pass. Wrong/incomplete/conflicting measurements
+cannot reach downstream consumers through the unavailable parser branch.
 
 **Verify/exit:** cache/retry/fetch failure, unsupported source/parser, date boundary,
 wrong fixture and incomplete/conflicting results where reconciliation exists.
@@ -598,6 +662,26 @@ entity, source mutation, duplicates, unknown person, ambiguous fixture, repeat a
 stale work. No generative factual authority or unexplained legacy dependency remains.
 Report any missing capability instead of weakening the evidence boundary.
 
+**October 5 alignment exit: closed locally.** Graph now consumes verified Harvester
+context or publisher text, never Editor blurbs. The g7 contract can nominate exact
+source names and score lines for review; parser output discards generated relations,
+roles and affiliations. No Graph path writes canonical events, persons or fixture
+results. Relation and fixture extraction remain explicitly unavailable. Publication
+locks and rechecks the source hash before effects; nine isolated database checks pass.
+
+Editor is absent from fleet, routes and plugin registration. Its runtime handler,
+packet compiler, default Scout packet fallback and maintenance job are removed.
+Harvester owns week sealing, deduplication and storyline dormancy. Go intake requires
+Harvester enabled with shadow mode off, and enqueues only Harvester work. Migration
+288 records unavailable fixture extraction; 289 removes packet-driven scheduling and
+blocks legacy Editor-based canonical identity eligibility. Historical rows and pending
+Editor assignments are retained for operator review, never silently completed.
+
+Journalist retains its own storyline grouping. Stored packet/storyline data remains
+readable through the Go stories API; remove it only with a separate consumer migration
+and recovery check. Historical Editor prompt inspection and regression code remain
+offline/test-only; they confer no runtime publication authority.
+
 ## Retirement ledger
 
 Delete each consumer with its replacement; delete a shared module only after its
@@ -617,8 +701,8 @@ consumer and removal condition, not "for later."
 | `evidence/memories.rs` and `memories/{sources,identity,performance}.rs` | Scout, Insider, Analyst, Oracle, Graph/Editor and eval consumers | Scout still uses historical-season state and a provenance fingerprint. Migrate those consumers before removal; other mission paths retire in their owning windows |
 | `MOMENTUM_BANNED_PHRASES` in shared guards | Analyst | Keep locally only if still required; delete retired policy |
 | Remaining palette/flat-prompt alternatives | Each owning plugin | Production, replay and operational callers use the surviving contract |
-| Harvester packet API and compatibility types | Owning consumers; final closure in Window 10 | All pending delivery and offline/operational consumers migrated; source-integrity receipts preserved |
-| Editor registration and legacy side effects | Affected windows; Graph final closure | Every needed side effect has a surviving owner and no live caller needs Editor |
+| Harvester packet API and compatibility types | Removed in Window 10 | Verified publisher report loaders and source-integrity receipts survive |
+| Editor registration and legacy side effects | Retired in Window 10 | Harvester maintenance survives; offline Editor inspection/tests and Go historical stories reads remain. Data removal requires their migration and recovery checks |
 | `storyline_*`, `story_parts.rs`, `impact`/`card_score` | Graph with Journalist/Oracle consumers | Keep live contracts; any replacement needs explicit consumer migration. These are not dead fields. |
 | SQL `card_score_prev` column | Separate schema migration if requested | Rust use already removed; verify remaining external readers and migration/recovery needs before dropping data |
 
@@ -647,9 +731,10 @@ consumer and removal condition, not "for later."
    consumers, verification/unrun checks and release state. Update the status table
    and ledger; replace superseded instructions rather than append a competing plan.
 
-Completion requires the active paths to satisfy ownership, useful articulation
-where applicable, durable publication and honest missing-data behavior. A required
-unsupported capability or unreplayed product change remains open. Every model
+Alignment completion requires active paths to satisfy ownership, context and
+evidence boundaries, durable publication and honest missing-data behavior. Required
+unsupported capabilities remain explicit; reader-facing prose tuning and unreplayed
+product quality are tracked separately from alignment completion. Every model
 operation, including Laya calls, must have a plugin owner. Deployment is
 separate; no release or data destruction is implied by documentation work.
 
@@ -689,11 +774,25 @@ separate; no release or data destruction is implied by documentation work.
 The earlier detailed F1–F9 sketches and handoffs remain in Git history. This
 section records only decisions the next implementation should carry forward.
 
-## Next verification
+## Next work — release preparation
 
-Close Scout's remaining product-fidelity gate. Replay Journalist and Influencer's
-local six-part requests against eligible source material, then run database smoke
-and model/product replays for Harvester's transfer fanout and the local Insider,
-Analyst and Oracle migrations. Check the published products against verified
-source receipts and update this status table. No local migration in this table is
-a deployment claim.
+The local plugin alignment implementation is closed through Window 10. Missing
+relation, reporting-based identity and fixture parser capabilities are recorded as
+unavailable; product fidelity/calibration stays separate from alignment.
+
+Next, capture and restore-test the release schema using the SQL repository workflow,
+then perform the coordinated rollout: migrations 287–289, Go Harvester intake enabled
+with shadow mode off, and the surviving cognition stage list without Editor. Review
+retained pending Editor work explicitly during cutover. No production deployment,
+data deletion or host configuration change was performed in this session.
+
+October 5 final verification used disposable PostgreSQL 17 loaded from the checked-in
+baseline plus migrations 287–289. Graph's nine publication checks and Journalist's preserved grouping check pass. The
+historical grouping fixture now supplies required source/membership fields and correct
+article identifiers. Rust all-target
+checks pass: 448 library tests (63 ignored), plus 14, one and two in other targets.
+Go thirdparty and durable work tests pass with the disposable database. Earlier
+Scout-through-Fixture evidence remains recorded in each owning window above.
+Run database checks serially; Analyst's crash rehearsal needs an empty pending outbox.
+The release baseline capture remains a release task; the generated snapshot was not
+hand-edited or captured from a database containing test configuration.

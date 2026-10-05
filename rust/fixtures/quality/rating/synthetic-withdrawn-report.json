@@ -1,7 +1,7 @@
 {
   "name": "synthetic-withdrawn-report",
   "task": "rating",
-  "prompt_version": "s65-six-part",
+  "prompt_version": "s66-measured-windows",
   "parts": {
     "memory": {
       "reported": [

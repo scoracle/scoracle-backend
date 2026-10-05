@@ -1,4 +1,4 @@
-//! Graph extracts typed relations and person candidates from prepared article evidence.
+//! Graph suggests source-bound investigation requests; relation extraction is unavailable.
 //! Storage, routing, and publication belong to the application.
 use crate::studio::model::GenerateOptions;
 use crate::studio::{Extracted, Parser, Studio};
@@ -131,16 +131,6 @@ pub struct GraphParser<'a> {
     pub candidates: &'a [GraphCandidate],
 }
 
-impl GraphParser<'_> {
-    fn resolve(&self, idx: i64) -> Option<&GraphCandidate> {
-        if idx >= 1 && (idx as usize) <= self.candidates.len() {
-            Some(&self.candidates[idx as usize - 1])
-        } else {
-            None
-        }
-    }
-}
-
 impl Parser<GraphExtraction> for GraphParser<'_> {
     fn parse(&self, raw: &str) -> Result<Option<GraphExtraction>> {
         let (start, end) = match (raw.find('{'), raw.rfind('}')) {
@@ -148,27 +138,12 @@ impl Parser<GraphExtraction> for GraphParser<'_> {
             _ => return Ok(None),
         };
         #[derive(Deserialize)]
-        struct RelReply {
-            subject: Option<i64>,
-            #[serde(default)]
-            predicate: String,
-            object: Option<i64>,
-            sentiment: Option<f64>,
-            #[serde(default)]
-            confidence: String,
-        }
-        #[derive(Deserialize)]
         struct PersonReply {
             #[serde(default)]
             name: String,
-            #[serde(default)]
-            kind: String,
-            team_context: Option<i64>,
         }
         #[derive(Deserialize)]
         struct Reply {
-            #[serde(default)]
-            relations: Vec<RelReply>,
             #[serde(default)]
             persons: Vec<PersonReply>,
             #[serde(default)]
@@ -181,42 +156,6 @@ impl Parser<GraphExtraction> for GraphParser<'_> {
 
         let mut out = GraphExtraction::default();
         out.final_result_line = reply.final_result_line;
-        for r in reply.relations {
-            let Some(subj_idx) = r.subject else { continue };
-            let Some(subj) = self.resolve(subj_idx) else {
-                continue;
-            };
-            let predicate = r.predicate.trim().to_lowercase();
-            if !PREDICATES.contains(&predicate.as_str()) {
-                continue;
-            }
-            let confidence = r.confidence.trim().to_lowercase();
-            if !["speculative", "reported", "confirmed"].contains(&confidence.as_str()) {
-                continue;
-            }
-            let (object_type, object_id) = match r.object {
-                None => (None, None),
-                Some(oi) => match self.resolve(oi) {
-                    Some(obj) => {
-                        if obj.entity_type == subj.entity_type && obj.entity_id == subj.entity_id {
-                            continue; // self-loop
-                        }
-                        (Some(obj.entity_type.clone()), Some(obj.entity_id))
-                    }
-                    None => continue, // dangling object number: drop the relation
-                },
-            };
-            out.relations.push(GraphRelation {
-                subject_type: subj.entity_type.clone(),
-                subject_id: subj.entity_id,
-                predicate,
-                object_type,
-                object_id,
-                sentiment: r.sentiment.map(|s| s.clamp(-1.0, 1.0)),
-                confidence,
-            });
-        }
-
         let mut seen = std::collections::HashSet::new();
         for p in reply.persons {
             let name = p.name.trim().to_string();
@@ -232,23 +171,11 @@ impl Parser<GraphExtraction> for GraphParser<'_> {
             {
                 continue;
             }
-            let kind_raw = p.kind.trim().to_lowercase();
-            let kind = if PERSON_KINDS.contains(&kind_raw.as_str()) {
-                kind_raw
-            } else {
-                "other".to_string()
-            };
-            let (tc_type, tc_id) = match p.team_context.and_then(|i| self.resolve(i)) {
-                Some(c) if c.entity_type == "team" => {
-                    (Some(c.entity_type.clone()), Some(c.entity_id))
-                }
-                _ => (None, None), // non-team or dangling context: keep person, drop tie
-            };
             out.persons.push(GraphPerson {
                 name,
-                kind,
-                team_context_type: tc_type,
-                team_context_id: tc_id,
+                kind: "other".into(),
+                team_context_type: None,
+                team_context_id: None,
             });
         }
         Ok(Some(out))

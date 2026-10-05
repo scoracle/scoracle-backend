@@ -2,6 +2,7 @@
 //! resource policy, scoped web reach, and complete boot registration.
 
 use super::*;
+use crate::plugins::editor::manifest::MANIFEST as EDITOR;
 use crate::studio::plugin::{
     PluginManifest, PluginOutcome, PluginRegistry, StudioPlugin, ToolGrant,
 };
@@ -93,6 +94,8 @@ fn acquisition_web_grants_are_scoped_to_each_plugins_sources() {
     assert!(!EDITOR.grants_web(DomainClass::Wikimedia));
     assert!(!EDITOR.grants_web(DomainClass::BoxscoreSources));
 
+    assert!(INVESTIGATOR.inference_routes.is_empty());
+    assert!(!INVESTIGATOR.tools.contains(&ToolGrant::Inference));
     assert!(INVESTIGATOR.grants_web(DomainClass::Wikimedia));
     assert!(!INVESTIGATOR.grants_web(DomainClass::NewsRss));
     assert!(!INVESTIGATOR.grants_web(DomainClass::BoxscoreSources));
@@ -126,6 +129,8 @@ fn full_and_partial_production_fleets_register() {
 fn harvester_has_independent_identity_and_requires_explicit_enablement() {
     assert_eq!(HARVESTER.task.as_str(), "harvester");
     assert_ne!(HARVESTER.id, EDITOR.id);
+    assert!(!ALL.iter().any(|m| m.task.as_str() == "editor"));
+    assert!(!inference_routes().contains(&crate::plugins::editor::manifest::ROUTE));
     assert!(HARVESTER.tools.contains(&ToolGrant::Classification));
     assert!(HARVESTER.grants_web(DomainClass::CuratedArticles));
     assert!(HARVESTER.inference_routes.is_empty());

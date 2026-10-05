@@ -645,23 +645,24 @@ mod postgres_publication_fencing_tests {
         for (index, title) in ["Alpha", "Beta", "Gamma"].iter().enumerate() {
             let offset = index as i64 * 60;
             sqlx::query(
-                "INSERT INTO news_articles (id,title,source,published_at) \
-                 VALUES ($1,$2,'Wire',to_timestamp($3::double precision))",
+                "INSERT INTO news_articles (id,url_hash,url,title,source,published_at) \
+                 VALUES ($1,$1::text,'https://example.test/' || $1::text,$2,'Wire',to_timestamp($3::double precision))",
             )
-            .bind(ARTICLE_ID + offset)
+            .bind(ARTICLE_ID + index as i64)
             .bind(*title)
             .bind((base + offset) as f64)
             .execute(&pool)
             .await
             .expect("insert article");
         }
-        sqlx::query("INSERT INTO storylines (id) VALUES ($1)")
+        sqlx::query("INSERT INTO storylines (id,sport) VALUES ($1,$2)")
             .bind(STORYLINE_ID)
+            .bind(SPORT)
             .execute(&pool)
             .await
             .expect("insert storyline");
         sqlx::query(
-            "INSERT INTO storyline_articles (storyline_id,article_id) VALUES ($1,$2),($1,$3),($1,$4)",
+            "INSERT INTO storyline_articles (storyline_id,article_id,attach_method) VALUES ($1,$2,'auto'),($1,$3,'auto'),($1,$4,'auto')",
         )
         .bind(STORYLINE_ID)
         .bind(ARTICLE_ID)

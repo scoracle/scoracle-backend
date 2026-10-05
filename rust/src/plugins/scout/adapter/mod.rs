@@ -126,7 +126,7 @@ pub async fn build_rating_request(
         req,
         temperature,
         with_enrichment,
-        !crate::evidence::personnel::harvester_scout_reports_enabled(),
+        false,
     )
     .await
 }
@@ -271,18 +271,8 @@ async fn build_rating_request_inner(
                     .collect();
                 (serde_json::to_value(&claims)?, contested)
             }
-            Err(error) if crate::evidence::personnel::harvester_scout_reports_enabled() => {
-                return Err(error).context("load verified Harvester Scout reports");
-            }
             Err(error) => {
-                tracing::warn!(
-                    entity_type = %req.entity_type,
-                    entity_id = req.entity_id,
-                    sport = %req.sport,
-                    %error,
-                    "rating: current-report load failed (continuing without the block)"
-                );
-                (serde_json::Value::Null, Vec::new())
+                return Err(error).context("load verified Harvester Scout reports");
             }
         }
     } else {
@@ -527,11 +517,8 @@ async fn measured_memory(
     let measured = vec![crate::plugins::scout::memories::Measured {
         measure_label: study.measure_label.clone(),
         unit: finding.unit.clone(),
-        from: crate::util::utc_timestamp(finding.previous.from),
-        before: crate::util::utc_timestamp(finding.current.before),
-        fixtures: finding.current.fixtures,
-        measured: finding.current.measured,
-        per_match: finding.current.per_match,
+        previous: (&finding.previous).into(),
+        current: (&finding.current).into(),
         per_match_change: finding.per_match_change,
         percent_change: finding.percent_change,
         fixture_ids: finding.fixture_ids.clone(),

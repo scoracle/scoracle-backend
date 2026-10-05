@@ -45,6 +45,13 @@ impl ScheduledOperation for WeekSeal {
                 }
             }
         }
+        // Retained presentation-group lifecycle; existing memberships are untouched.
+        match sqlx::query("UPDATE public.storylines SET status='dormant' WHERE status='open' AND last_seen_at < NOW()-INTERVAL '14 days'")
+            .execute(&self.pool).await {
+            Ok(result) if result.rows_affected() > 0 => info!(dormant=result.rows_affected(), cause, "storylines went dormant"),
+            Ok(_) => {},
+            Err(error) => error!(cause, error=%format!("{error:#}"), "storyline dormancy failed"),
+        }
         Duration::from_secs(3_600)
     }
 }

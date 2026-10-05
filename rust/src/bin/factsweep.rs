@@ -1,12 +1,9 @@
 //! Operator entry point for the Investigator's non-queue person-metadata sweep.
 
 use anyhow::{anyhow, Result};
-use scoracle_cognition::application::models::Models;
 use scoracle_cognition::plugins::investigator::adapter::{
     run_factsweep, FactsweepRequest, FactsweepRunContext,
 };
-use scoracle_cognition::runtime::{config::Config, db, route::Router};
-use std::time::Duration;
 
 #[derive(Clone, Debug)]
 struct Args {
@@ -52,20 +49,9 @@ fn parse_args(mut it: impl Iterator<Item = String>) -> Result<Args> {
     })
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
     let args = parse_args(std::env::args().skip(1))?;
-    let cfg = Config::from_env()?;
-    let pool = db::build_pool(&cfg.database_url, cfg.db_max_conns).await?;
-    let models = Models {
-        router: Router::from_config(&cfg.route, cfg.ollama_timeout, cfg.ollama_max_concurrent)?,
-        // An operator sweep is not governed by a queue lease deadline.
-        handler_budget: Duration::ZERO,
-        voice_num_ctx: cfg.voice_num_ctx,
-    };
-    let capabilities =
-        models.capabilities(&scoracle_cognition::plugins::investigator::manifest::MANIFEST)?;
-    run_factsweep(&pool, &capabilities, &args.request, args.context).await
+    run_factsweep(&args.request, args.context)
 }
 
 #[cfg(test)]

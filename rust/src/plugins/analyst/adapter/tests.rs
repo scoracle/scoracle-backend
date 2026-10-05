@@ -193,11 +193,7 @@ impl Inference for LifecycleAdapters {
         Ok((
             GenerateResult {
                 response: if self.response.is_empty() {
-                    let slots = prompt
-                        .lines()
-                        .filter(|line| line.starts_with("Fact "))
-                        .count();
-                    serde_json::json!({"choices": vec![0; slots]}).to_string()
+                    serde_json::json!({"blurb": "The measured profile is gaining ground. The mood is warming alongside it. Both supplied readings point upward."}).to_string()
                 } else {
                     self.response.clone()
                 },

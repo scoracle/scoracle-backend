@@ -2,9 +2,10 @@
 //! per-run budget, and the call ledger. No network.
 
 use super::*;
-use crate::application::fleet::{EDITOR, FIXTURE_BOXSCORE, INVESTIGATOR};
+use crate::application::fleet::{FIXTURE_BOXSCORE, INVESTIGATOR};
 use crate::application::tools::{ScopedWeb, ToolLedger, WebBroker};
 use crate::evidence::fetch::FetchPolicy;
+use crate::plugins::editor::manifest::MANIFEST as EDITOR;
 use crate::studio::plugin::PluginManifest;
 
 fn scope<'a>(

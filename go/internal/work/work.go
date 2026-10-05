@@ -23,15 +23,13 @@ import (
 
 // Stage names the derivation step a work item belongs to. Go enqueues exactly
 // these three from its ingest/listener/reconciler paths; Rust drains them (and
-// enqueues its own inter-stage handoffs). StageEditor is ARTICLE-keyed
+// enqueues its own inter-stage handoffs). StageHarvester is ARTICLE-keyed
 // (entity_type='article', entity_id=news_articles.id); the rest are per-entity
 // (player/team).
 type Stage string
 
 const (
-	// StageEditor is the Editor junction, enqueued once per NEW article at
-	// ingest; it reads the article and decides what it is about.
-	StageEditor Stage = "editor"
+
 	// StageHarvester consumes each canonical article and all of its query provenance.
 	StageHarvester Stage = "harvester"
 	// StageRating is enqueued by the percentile listener on significant rating

@@ -8,7 +8,6 @@ use crate::application::models::Models;
 use crate::application::queue::work;
 use crate::application::tools::WebBroker;
 use crate::plugins::analyst::adapter as analyst;
-use crate::plugins::editor::adapter as editor;
 use crate::plugins::fixture_boxscore::adapter as boxscore;
 use crate::plugins::graph::adapter as graph;
 use crate::plugins::harvester::adapter as harvester;
@@ -88,33 +87,22 @@ fn known_stages() -> Vec<&'static str> {
 
 /// Construct the enabled first-party fleet with application dependencies bound.
 ///
-/// Registration order is deliberate: graph/editor share the acquisition rail, and the
+/// Registration order is deliberate: Graph uses the acquisition rail, and the
 /// voice stages follow their product dependency order. Scheduling caps and task ownership
 /// still come from each plugin's Studio manifest once the fleet reaches the worker.
 pub fn build(
     pool: PgPool,
     models: Arc<Models>,
     enabled: &HashSet<String>,
-    packet_compile: bool,
 ) -> Result<Vec<Arc<dyn StudioPlugin>>> {
     let mut handlers: Vec<Arc<dyn StudioPlugin>> = Vec::new();
     let mut web_workspace: Option<Arc<WebBroker>> = None;
 
-    // Graph is article-keyed and downstream of the Editor.
+    // Graph reviews publisher text without Editor-derived evidence.
     if enabled.contains("graph") {
         handlers.push(Arc::new(graph::GraphHandler::new(
             pool.clone(),
             models.capabilities(&crate::plugins::graph::manifest::MANIFEST)?,
-        )));
-    }
-    // Graph registers first so it reclaims shared slots promptly.
-    if enabled.contains("editor") {
-        let web = shared_web_workspace(&mut web_workspace)?;
-        handlers.push(Arc::new(editor::EditorHandler::new(
-            pool.clone(),
-            models.capabilities(&crate::plugins::editor::manifest::MANIFEST)?,
-            web,
-            packet_compile,
         )));
     }
     if enabled.contains("harvester") {
@@ -129,15 +117,11 @@ pub fn build(
             web,
         )));
     }
-    // Discovery uses the Editor's idle shared capacity.
+    // Structured discovery uses only the scoped web broker.
     if enabled.contains("investigate_entity") {
         let web = shared_web_workspace(&mut web_workspace)?;
         handlers.push(Arc::new(
-            crate::plugins::investigator::adapter::InvestigateEntityHandler::new(
-                pool.clone(),
-                models.capabilities(&crate::plugins::investigator::manifest::MANIFEST)?,
-                web,
-            ),
+            crate::plugins::investigator::adapter::InvestigateEntityHandler::new(pool.clone(), web),
         ));
     }
     if enabled.contains("fixture_boxscore") {
@@ -241,12 +225,12 @@ mod tests {
     #[test]
     fn configured_stages_normalize_and_dedupe() {
         let stages = enabled_from_config(Some(
-            " Graph, editor, fixture_boxscore, rating, momentum, vibe, VIBE ,,sigil ",
+            " Graph, fixture_boxscore, rating, momentum, vibe, VIBE ,,sigil ",
         ))
         .unwrap();
-        assert_eq!(stages.len(), 7);
+        assert_eq!(stages.len(), 6);
         assert!(stages.contains("graph"));
-        assert!(stages.contains("editor"));
+        assert!(!stages.contains("editor"));
         assert!(stages.contains("fixture_boxscore"));
         assert!(stages.contains("rating"));
         assert!(stages.contains("momentum"));
@@ -256,10 +240,11 @@ mod tests {
 
     #[test]
     fn configured_stages_reject_unknown_values() {
-        let err = enabled_from_config(Some("graph,headlinez,scrub,oracle"))
+        let err = enabled_from_config(Some("graph,headlinez,scrub,oracle,editor"))
             .unwrap_err()
             .to_string();
         assert!(err.contains("headlinez"));
+        assert!(err.contains("editor"));
         assert!(err.contains("scrub"));
         assert!(err.contains("oracle"));
         assert!(err.contains("narratives"));

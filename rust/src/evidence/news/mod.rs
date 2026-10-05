@@ -1,5 +1,4 @@
-//! Shared article evidence, compiled storyline packets and bounded rendering.
-pub mod packet;
+//! Shared publisher evidence and deterministic report/result helpers.
 pub mod render;
 pub mod result;
 

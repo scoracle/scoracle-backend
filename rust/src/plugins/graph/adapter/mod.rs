@@ -1,12 +1,12 @@
-//! Graph evidence preparation and claim-fenced publication. Model interpretation lives in Studio.
+//! Source-bound investigation nominations and fixture review receipts.
+//! Generated relations and roles never become canonical facts.
 use crate::application::models::ExecutionCapabilities;
 use crate::application::queue::publication::ClaimPublication;
 use crate::application::queue::work;
 use crate::application::queue::work::Item;
 use crate::evidence::news::slice_quote;
 use crate::plugins::graph::cognition::{
-    Assignment, GraphArticle, GraphCandidate, GraphExtraction, GraphPerson, GraphRelation,
-    GRAPH_PROMPT_VERSION,
+    Assignment, GraphArticle, GraphCandidate, GraphExtraction, GraphPerson, GRAPH_PROMPT_VERSION,
 };
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
 use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
@@ -25,7 +25,7 @@ const GRAPH_LEDGER: LedgerSpec = LedgerSpec {
     stage: "graph",
     lens: "graph",
     role: crate::plugins::graph::manifest::ROUTE,
-    product_table: "narrative_events",
+    product_table: "graph_extractions",
     output_contract_version: "graph-extraction-v1",
 };
 
@@ -42,15 +42,13 @@ pub async fn load_graph_article_context(
     // `duplicate_of IS NULL` makes a stale queue row or a
     // hand-enqueued repair fall through the same `Ok(None)` path as a missing article rather than
     // spending a model call on something the dedup sweep already suppressed.
-    // Exact publisher context wins for Harvester articles; historical Editor
-    // evidence remains readable until its old claims have drained.
+    // Exact publisher context only. Generated Editor summaries are not evidence.
     let row = sqlx::query(
         r#"
         SELECT COALESCE(a.source, 'unknown'), a.published_at::date::text,
                COALESCE(h.headline, a.title),
                COALESCE(
                    h.context_text,
-                   NULLIF(TRIM(er.read ->> 'evidence_blurb'), ''),
                    a.description,
                    ''
                ), h.body_sha256, h.context_start, h.context_end, a.full_text,
@@ -64,8 +62,6 @@ pub async fn load_graph_article_context(
             ORDER BY c.created_at DESC, c.id DESC
             LIMIT 1
         ) h ON true
-        LEFT JOIN editor_reads er
-               ON er.article_id = a.id AND er.status = 'success'
         WHERE a.id = $1 AND a.duplicate_of IS NULL
         "#,
     )
@@ -160,7 +156,7 @@ pub fn build_graph_input_components(
 ) -> String {
     let mut cands: Vec<String> = candidates
         .iter()
-        .map(|c| format!("{}:{}", c.entity_type, c.entity_id))
+        .map(|c| format!("{}:{}:{}", c.entity_type, c.entity_id, c.descriptor))
         .collect();
     cands.sort();
     serde_json::json!({
@@ -171,12 +167,8 @@ pub fn build_graph_input_components(
     .to_string()
 }
 
-/// GraphHandler drains the durable `graph` stage: load the article + vetted candidates,
-/// debounce on the material hash (bookkeeping row in `graph_extractions`), extract, and
-/// write `narrative_events` plus person candidates with
-/// idempotent evidence accumulation (the mention PK makes re-extraction a no-op bump).
-/// Fail-closed replies record a `failed_closed` bookkeeping row — same material never
-/// re-hammers the GPU — and write no events.
+/// Drain source-bound nominations and review receipts; generated relations never
+/// become canonical facts. Publication rechecks source material and the work lease.
 pub struct GraphHandler {
     pool: sqlx::PgPool,
     models: ExecutionCapabilities,
@@ -261,7 +253,6 @@ async fn commit_claimed(pool: &PgPool, item: &Item, prepared: &Prepared) -> Resu
     let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
         return Ok(PluginOutcome::Superseded);
     };
-    let mut event_ids = Vec::new();
     if let Prepared::Read {
         input_hash,
         extracted,
@@ -270,21 +261,20 @@ async fn commit_claimed(pool: &PgPool, item: &Item, prepared: &Prepared) -> Resu
         let article_id = item.entity_id;
         let sport = item.sport.to_uppercase();
         let model = &extracted.model;
-        let (outcome, relations, persons) = extraction_parts(extracted);
-        for relation in relations {
-            event_ids.push(
-                upsert_event(
-                    publication.transaction(),
-                    article_id,
-                    &sport,
-                    model,
-                    relation,
-                )
-                .await?,
-            );
-        }
+        // Hold the source stable and revalidate after inference, before any side effect.
+        sqlx::query("SELECT id FROM news_articles WHERE id=$1 FOR SHARE")
+            .bind(article_id)
+            .fetch_optional(&mut **publication.transaction())
+            .await?;
+        let current = load_graph_article_context(pool, article_id, &sport)
+            .await?
+            .context("Graph source is no longer eligible")?;
+        ensure!(
+            hash_components(&build_graph_input_components(&current.0, &current.1)) == *input_hash,
+            "Graph source or candidate material changed during inference"
+        );
+        let (outcome, persons) = extraction_parts(extracted);
         for person in persons {
-            accumulate_person(publication.transaction(), article_id, &sport, model, person).await?;
             nominate_harvester_person(publication.transaction(), article_id, &sport, person)
                 .await?;
         }
@@ -320,7 +310,7 @@ async fn commit_claimed(pool: &PgPool, item: &Item, prepared: &Prepared) -> Resu
         .bind(GRAPH_PROMPT_VERSION)
         .bind(model)
         .bind(outcome)
-        .bind(relations.len() as i32)
+        .bind(0_i32)
         .bind(persons.len() as i32)
         .execute(&mut **publication.transaction())
         .await
@@ -332,17 +322,15 @@ async fn commit_claimed(pool: &PgPool, item: &Item, prepared: &Prepared) -> Resu
         extracted,
     } = prepared
     {
-        record_diagnostics(pool, item, input_hash, extracted, event_ids).await;
+        record_diagnostics(pool, item, input_hash, extracted).await;
     }
     Ok(PluginOutcome::Committed)
 }
 
-fn extraction_parts(
-    extracted: &Extracted<GraphExtraction>,
-) -> (&'static str, &[GraphRelation], &[GraphPerson]) {
+fn extraction_parts(extracted: &Extracted<GraphExtraction>) -> (&'static str, &[GraphPerson]) {
     match &extracted.value {
-        None => ("failed_closed", &[], &[]),
-        Some(g) => ("extracted", &g.relations, &g.persons),
+        None => ("failed_closed", &[]),
+        Some(g) => ("extracted", &g.persons),
     }
 }
 
@@ -351,7 +339,6 @@ async fn record_diagnostics(
     item: &Item,
     input_hash: &str,
     extracted: &Extracted<GraphExtraction>,
-    event_ids: Vec<i64>,
 ) {
     // Diagnostics are optional and must not turn a committed publication into a retry.
     let Ok(entity_id_i32) = i32::try_from(item.entity_id) else {
@@ -360,7 +347,7 @@ async fn record_diagnostics(
     let article_id = item.entity_id;
     let sport = item.sport.to_uppercase();
     let model = extracted.model.clone();
-    let (outcome, relations, persons) = extraction_parts(extracted);
+    let (outcome, persons) = extraction_parts(extracted);
     let generation = Generation::called(
         (),
         model,
@@ -380,13 +367,14 @@ async fn record_diagnostics(
                 pair_entity: None,
                 trigger_type: "periodic",
                 trigger_payload: serde_json::json!({}),
-                product_row_ids: event_ids,
+                product_row_ids: vec![],
                 included_evidence: serde_json::json!({
-                    "relations_n": relations.len(),
+                    "relations_n": 0,
                     "persons": persons.iter().map(|p| format!("{} [{}]", p.name, p.kind)).collect::<Vec<_>>(),
                 }),
                 excluded_evidence: serde_json::json!({
                     "parser_outcome": outcome,
+                    "relations": "unavailable: no evaluated relation extractor",
                 }),
                 context_budget: generation.context_budget(serde_json::json!({
                     "num_predict": 768,
@@ -395,135 +383,6 @@ async fn record_diagnostics(
             },
         )
         .await;
-}
-
-async fn upsert_event(
-    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-    article_id: i64,
-    sport: &str,
-    model: &str,
-    r: &GraphRelation,
-) -> Result<i64> {
-    let row = sqlx::query(
-        r#"
-        INSERT INTO narrative_events
-            (sport, subject_type, subject_id, predicate, object_type, object_id,
-             sentiment, confidence, article_id, event_date, source, model_version,
-             prompt_version, origin)
-        SELECT $1, $2, $3, $4, $5, $6, $7::float8::numeric(3,2), $8, $9,
-               COALESCE(a.published_at, NOW()), a.source, $10, $11, 'extraction'
-        FROM news_articles a WHERE a.id = $9
-        -- Origin joins the dedupe key so an extraction event and a junction
-        -- verdict for the same (article, pair, predicate) coexist, never clobber.
-        ON CONFLICT (article_id, sport, subject_type, subject_id, predicate,
-                     COALESCE(object_type, ''), COALESCE(object_id, 0), origin)
-        DO UPDATE SET sentiment = EXCLUDED.sentiment, confidence = EXCLUDED.confidence,
-                      model_version = EXCLUDED.model_version,
-                      prompt_version = EXCLUDED.prompt_version, extracted_at = NOW()
-        RETURNING id
-        "#,
-    )
-    .bind(sport)
-    .bind(&r.subject_type)
-    .bind(r.subject_id)
-    .bind(&r.predicate)
-    .bind(r.object_type.as_deref())
-    .bind(r.object_id)
-    .bind(r.sentiment)
-    .bind(&r.confidence)
-    .bind(article_id)
-    .bind(model)
-    .bind(GRAPH_PROMPT_VERSION)
-    .fetch_one(&mut **tx)
-    .await
-    .context("upsert narrative_event")?;
-    Ok(row.get("id"))
-}
-
-/// accumulate_person resolves-or-creates the candidate person and, ONLY when this
-/// article is a NEW mention (the mention PK), bumps the evidence counters. Same-name
-/// active rows win the resolve; provider-dupe merges stay a later data-layer pass.
-async fn accumulate_person(
-    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-    article_id: i64,
-    sport: &str,
-    model: &str,
-    p: &GraphPerson,
-) -> Result<i32> {
-    let person_id: i32 = sqlx::query_scalar(
-        r#"
-        WITH existing AS (
-            SELECT id FROM narrative_persons
-            WHERE sport = $1 AND lower(name) = lower($2) AND merged_into IS NULL
-            ORDER BY (status = 'active') DESC, mention_count DESC
-            LIMIT 1
-        ), ins AS (
-            INSERT INTO narrative_persons
-                (sport, kind, name, team_id, status, first_seen_at, last_seen_at, model_version)
-            SELECT $1, $3, $2, $4, 'candidate',
-                   COALESCE((SELECT published_at FROM news_articles WHERE id = $5), NOW()),
-                   COALESCE((SELECT published_at FROM news_articles WHERE id = $5), NOW()),
-                   $6
-            WHERE NOT EXISTS (SELECT 1 FROM existing)
-            RETURNING id
-        )
-        SELECT id FROM existing UNION ALL SELECT id FROM ins
-        "#,
-    )
-    .bind(sport)
-    .bind(&p.name)
-    .bind(&p.kind)
-    .bind(p.team_context_id)
-    .bind(article_id)
-    .bind(model)
-    .fetch_one(&mut **tx)
-    .await
-    .context("resolve/insert narrative_person")?;
-
-    let new_mention: Option<i32> = sqlx::query_scalar(
-        "INSERT INTO narrative_person_mentions (article_id, person_id, sport, team_context_id)
-         VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING RETURNING person_id",
-    )
-    .bind(article_id)
-    .bind(person_id)
-    .bind(sport)
-    // Promotion aggregates these per-mention team votes
-    // for the team-token consistency gate. NULL when this article tied the person to no
-    // listed team.
-    .bind(p.team_context_id)
-    .fetch_optional(&mut **tx)
-    .await
-    .context("insert person mention")?;
-
-    if new_mention.is_some() {
-        // Counter bump only on a NEW mention (idempotent re-extraction). The
-        // distinct_sources recount runs AFTER the mention insert committed its
-        // statement, so the fresh row is visible.
-        sqlx::query(
-            r#"
-            UPDATE narrative_persons p SET
-                mention_count = p.mention_count + 1,
-                distinct_sources = (
-                    SELECT count(DISTINCT a.source)
-                    FROM narrative_person_mentions m
-                    JOIN news_articles a ON a.id = m.article_id
-                    WHERE m.person_id = p.id AND a.source IS NOT NULL),
-                last_seen_at = GREATEST(
-                    COALESCE(p.last_seen_at, to_timestamp(0)),
-                    COALESCE((SELECT published_at FROM news_articles WHERE id = $2), NOW())),
-                team_id = COALESCE(p.team_id, $3),
-                updated_at = NOW()
-            WHERE p.id = $1
-            "#,
-        )
-        .bind(person_id)
-        .bind(article_id)
-        .bind(p.team_context_id)
-        .execute(&mut **tx)
-        .await
-        .context("bump person evidence")?;
-    }
-    Ok(person_id)
 }
 
 /// Graph owns the unknown-person handoff for Harvester articles. A model-suggested
@@ -620,18 +479,16 @@ async fn nominate_harvester_person(
     .await?
     .rows_affected()
         == 1;
-    let mention_count = if inserted {
+    if inserted {
         sqlx::query_scalar::<_, i32>(
             "UPDATE public.entity_candidates SET mention_count=mention_count+1 WHERE id=$1 \
              RETURNING mention_count",
         )
         .bind(candidate.0)
         .fetch_one(&mut **tx)
-        .await?
-    } else {
-        candidate.2
-    };
-    if candidate.1 == "pending" && (person.team_context_id.is_some() || mention_count >= 2) {
+        .await?;
+    }
+    if candidate.1 == "pending" {
         work::enqueue(
             &mut **tx,
             &Item {

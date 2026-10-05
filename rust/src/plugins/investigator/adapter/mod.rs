@@ -12,25 +12,18 @@
 //!   and the convenience columns on `players` are updated, never inserted; the
 //!   players table stays box-score-owned).
 //!
-//! Wikidata interpretation is deterministic; prose fallback uses the Investigator role.
+//! Wikidata interpretation is deterministic. Unsupported prose evidence cannot authorize writes.
 
-use self::discover::{
-    wikidata_item, wikidata_search, wikipedia_search, wikipedia_summary, WikidataHit,
-};
-use crate::application::models::ExecutionCapabilities;
+use self::discover::{wikidata_item, wikidata_search, WikidataHit};
 use crate::application::queue::work::Item;
 use crate::application::tools::{ScopedWeb, ToolLedger, WebBroker};
 use crate::evidence::fetch::FetchPolicy;
 use crate::plugins::investigator::cognition::gate::{
-    commons_image_url, decide, decide_prose, display_height, display_weight, mentions_all_tokens,
-    nba_headshot_url, strip_paren_title, wire_date, ProseScreen, RoleClass, Verdict,
+    commons_image_url, decide, display_height, display_weight, nba_headshot_url, wire_date,
+    RoleClass, Verdict,
 };
-use crate::plugins::investigator::cognition::prompt::{
-    ProseRead, INVESTIGATOR_PROSE_CONTRACT_VERSION,
-};
-use crate::plugins::investigator::cognition::{Assignment, WikidataItem};
+use crate::plugins::investigator::cognition::WikidataItem;
 use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
-use crate::studio::Studio;
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use serde_json::json;
@@ -51,19 +44,14 @@ fn wikimedia_policy() -> FetchPolicy {
 
 pub struct InvestigateEntityHandler {
     pool: sqlx::PgPool,
-    models: ExecutionCapabilities,
     /// The room's web workspace. The plugin's manifest declares the Wikimedia domain
     /// class; this broker enforces that grant on every call.
     web: std::sync::Arc<WebBroker>,
 }
 
 impl InvestigateEntityHandler {
-    pub fn new(
-        pool: sqlx::PgPool,
-        models: ExecutionCapabilities,
-        web: std::sync::Arc<WebBroker>,
-    ) -> Self {
-        Self { pool, models, web }
+    pub fn new(pool: sqlx::PgPool, web: std::sync::Arc<WebBroker>) -> Self {
+        Self { pool, web }
     }
 }
 
@@ -75,13 +63,12 @@ impl StudioPlugin for InvestigateEntityHandler {
 
     async fn execute(&self, item: &Item) -> Result<PluginOutcome> {
         let pool = &self.pool;
-        let models = &self.models;
         let mut mappings = Vec::new();
         let ledger = ToolLedger::new();
         let web = self.web.scope(pool, self.manifest(), &ledger);
         let decision = match item.entity_type.as_str() {
-            "candidate" => investigate_candidate(pool, models, &web, item, &mut mappings).await?,
-            "player" => enrich_player(pool, models, &web, item, &mut mappings).await?,
+            "candidate" => investigate_candidate(pool, &web, item, &mut mappings).await?,
+            "player" => enrich_player(pool, &web, item, &mut mappings).await?,
             "team" => enrich_team(pool, &web, item).await?,
             other => {
                 return Err(anyhow!(
@@ -312,7 +299,6 @@ async fn load_candidate(pool: &PgPool, id: i64) -> Result<Option<CandidateRow>> 
 
 async fn investigate_candidate(
     pool: &sqlx::PgPool,
-    models: &ExecutionCapabilities,
     web: &ScopedWeb<'_>,
     item: &Item,
     mappings: &mut Vec<TeamMapping>,
@@ -332,7 +318,15 @@ async fn investigate_candidate(
     let search_name = cand.norm_name.clone();
 
     let d = discover(pool, web, &sport, &search_name, mappings).await?;
-    let verdict = decide(&sport, &d.items, &d.name_agreed, &bools_of(&d.our_teams));
+    let verdict = decide(
+        &sport,
+        &d.items,
+        &d.name_agreed,
+        &d.our_teams
+            .iter()
+            .map(|teams| !teams.is_empty())
+            .collect::<Vec<_>>(),
+    );
 
     let run_plan = json!({
         "search": search_name,
@@ -388,281 +382,14 @@ async fn investigate_candidate(
             &run_plan,
             "no sport-relevant item",
         ),
-        Verdict::RejectedInsufficientEvidence => {
-            // Full-text search may connect a news name to a differently titled page; the
-            // model quotes the connection for code to verify. Only this verdict falls through:
-            // not-sport already had identified evidence, and a tie needs a discriminator,
-            // not more prose.
-            return investigate_candidate_prose(
-                pool,
-                models,
-                web,
-                &cand,
-                &sport,
-                &search_name,
-                &run_plan,
-            )
-            .await;
-        }
-    }
-}
-
-/// The prose arm — Wikipedia full-text discovery, a verbatim-quote model read per page,
-/// then [`decide_prose`] over CODE-verified screens. Everything the model returns is
-/// checked by containment against the exact page text it was shown before it can matter.
-async fn investigate_candidate_prose(
-    pool: &sqlx::PgPool,
-    models: &ExecutionCapabilities,
-    web: &ScopedWeb<'_>,
-    cand: &CandidateRow,
-    sport: &str,
-    sought: &str,
-    wikidata_run_plan: &serde_json::Value,
-) -> Result<Decision> {
-    let policy = wikimedia_policy();
-    let pages = wikipedia_search(web, &policy, sought, 5).await?;
-    // Pre-screen in code: only pages whose search surface carries EVERY word of the sought
-    // name go to the model. Token presence, not contiguous containment — the target page
-    // writes the name with a nickname inside it (`Airious "Ace" Bailey`), and the strict
-    // check belongs to the model's quoted evidence, not to discovery.
-    let mentioning: Vec<_> = pages
-        .iter()
-        .filter(|p| {
-            mentions_all_tokens(
-                &format!("{}\n{}\n{}", p.title, p.description, p.excerpt),
-                sought,
-            )
-        })
-        .take(MAX_PROSE_PAGES)
-        .collect();
-    if mentioning.is_empty() {
-        return finish_candidate(
-            cand,
-            "rejected_insufficient_evidence",
-            None,
-            wikidata_run_plan,
-            "no name-agreeing wikidata item; no wikipedia page mentions the name",
-        );
-    }
-
-    let mut screens: Vec<ProseScreen> = Vec::new();
-    let mut reads: Vec<(ProseRead, String, String, i64, Vec<i32>)> = Vec::new(); // (read, key, title, doc, teams)
-    let mut model_version = String::new();
-    for page in &mentioning {
-        let fetched = match wikipedia_summary(web, &policy, &page.key).await {
-            Ok(f) => f,
-            Err(e) => {
-                warn!(key = %page.key, error = %format!("{e:#}"), "summary fetch failed; page skipped");
-                continue;
-            }
-        };
-        let body: serde_json::Value = match serde_json::from_str(&fetched.body) {
-            Ok(v) => v,
-            Err(e) => {
-                warn!(key = %page.key, error = %e, "summary body unparseable; page skipped");
-                continue;
-            }
-        };
-        let title = body
-            .get("title")
-            .and_then(serde_json::Value::as_str)
-            .unwrap_or(&page.title);
-        let description = body
-            .get("description")
-            .and_then(serde_json::Value::as_str)
-            .unwrap_or("");
-        let extract = body
-            .get("extract")
-            .and_then(serde_json::Value::as_str)
-            .unwrap_or("");
-
-        let model = models.inference(crate::plugins::investigator::manifest::ROUTE)?;
-        let extracted = crate::plugins::investigator::cognition::investigate_prose(
-            &Studio::new(model.as_ref()),
-            &Assignment {
-                sought_name: sought,
-                descriptor: cand.descriptor.as_deref(),
-                sport,
-                title,
-                description,
-                extract,
-            },
-        )
-        .await?;
-        model_version = extracted.model.clone();
-        let Some(read) = extracted.value else {
-            warn!(key = %page.key, "prose read unparseable; page skipped");
-            continue;
-        };
-
-        let our_teams = resolve_team_names(pool, sport, &read.team_names).await?;
-        screens.push(read.screen(sport, cand.descriptor.as_deref(), !our_teams.is_empty()));
-        reads.push((
-            read,
-            page.key.clone(),
-            title.to_string(),
-            fetched.document_id,
-            our_teams,
-        ));
-    }
-
-    let run_plan = json!({
-        "arm": "prose",
-        "contract": INVESTIGATOR_PROSE_CONTRACT_VERSION,
-        "model": model_version,
-        "wikidata": wikidata_run_plan,
-        "pages": reads.iter().map(|(r, key, _, doc, teams)| json!({
-            "key": key, "doc": doc,
-            "subject_kind": r.subject_kind,
-            "evidence": r.sought_name_evidence,
-            "occupation": r.occupation_phrase,
-            "teams": r.team_names,
-            "our_team_ids": teams,
-        })).collect::<Vec<_>>(),
-    });
-
-    match decide_prose(&screens) {
-        Verdict::Accept { item_idx, role } => {
-            let (read, key, title, doc, our_teams) = &reads[item_idx];
-            let Some(kind) = role.person_kind() else {
-                return finish_candidate(
-                    cand,
-                    "rejected_not_sport",
-                    None,
-                    &run_plan,
-                    "prose accept has no writable kind",
-                );
-            };
-            // The pseudo-item: label from the page title (code-derived, never asked of the
-            // model), aliases = the page's connecting form AND the news form — the news
-            // form is the alias that makes the next resolver pass hit.
-            let it = WikidataItem {
-                qid: String::new(),
-                label: strip_paren_title(title),
-                description: read.occupation_phrase.clone(),
-                aliases: vec![read.sought_name_evidence.clone(), cand.norm_name.clone()],
-                enwiki_title: Some(key.clone()),
-                source_document_id: *doc,
-                ..Default::default()
-            };
-            accept_candidate(cand, sport, &it, kind, role, our_teams, &run_plan)
-        }
-        Verdict::Ambiguous { survivor_idxs } => {
-            let reason = format!(
-                "prose: {} evidence-bearing pages, no unique team discriminator",
-                survivor_idxs.len()
-            );
-            finish_candidate(cand, "ambiguous", None, &run_plan, &reason)
-        }
-        Verdict::RejectedNotSport => finish_candidate(
-            cand,
-            "rejected_not_sport",
-            None,
-            &run_plan,
-            "prose: page(s) connect the name but not to this sport",
-        ),
         Verdict::RejectedInsufficientEvidence => finish_candidate(
-            cand,
+            &cand,
             "rejected_insufficient_evidence",
             None,
             &run_plan,
-            "prose: no page connects the sought name to a person",
+            "no supported structured identity evidence; prose extraction is unavailable",
         ),
     }
-}
-
-/// How many mention-bearing pages get a summary fetch + model read. Two covers the
-/// namesake-tie shape without spending the Mac's slots on long-tail hits.
-const MAX_PROSE_PAGES: usize = 2;
-
-/// prose_team_corroborates is the enrichment fallback's whole question: does the
-/// survivor's OWN Wikipedia page, read on the ip1 verbatim contract, tie this person to
-/// the player's CURRENT team? Every screen is the prose arm's: person-kind, evidence
-/// containment, team containment, sport-scoped unique surface resolution. One summary
-/// fetch + one model call, only ever for the single-survivor case.
-async fn prose_team_corroborates(
-    pool: &sqlx::PgPool,
-    models: &ExecutionCapabilities,
-    web: &ScopedWeb<'_>,
-    it: &WikidataItem,
-    sport: &str,
-    name: &str,
-    team_id: Option<i32>,
-) -> Result<bool> {
-    let Some(team_id) = team_id else {
-        return Ok(false);
-    };
-    let Some(title) = it.enwiki_title.as_deref() else {
-        return Ok(false);
-    };
-    let policy = wikimedia_policy();
-    let fetched = wikipedia_summary(web, &policy, title).await?;
-    let body: serde_json::Value =
-        serde_json::from_str(&fetched.body).context("parse corroboration summary")?;
-    let page_title = body
-        .get("title")
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or(title);
-    let description = body
-        .get("description")
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or("");
-    let extract = body
-        .get("extract")
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or("");
-
-    let model = models.inference(crate::plugins::investigator::manifest::ROUTE)?;
-    let extracted = crate::plugins::investigator::cognition::investigate_prose(
-        &Studio::new(model.as_ref()),
-        &Assignment {
-            sought_name: name,
-            descriptor: None,
-            sport,
-            title: page_title,
-            description,
-            extract,
-        },
-    )
-    .await?;
-    let Some(read) = extracted.value else {
-        return Ok(false);
-    };
-    if read.subject_kind != "person" || read.sought_name_evidence.is_empty() {
-        return Ok(false);
-    }
-    let our = resolve_team_names(pool, sport, &read.team_names).await?;
-    Ok(our.contains(&team_id))
-}
-
-/// resolve_team_names maps VERBATIM team phrases onto OUR team ids — sport-scoped exact
-/// `nrm()` surface match, unique-only (two teams sharing a normalized surface refuse,
-/// never a coin flip). The prose twin of `resolve_team_qids`.
-async fn resolve_team_names(pool: &PgPool, sport: &str, names: &[String]) -> Result<Vec<i32>> {
-    let mut out = Vec::new();
-    for name in names {
-        let matches: Vec<i32> = sqlx::query_scalar(
-            r#"
-            SELECT DISTINCT entity_id FROM public.entity_name_surfaces
-            WHERE sport = $1 AND entity_type = 'team' AND norm = public.nrm($2)
-            "#,
-        )
-        .bind(sport)
-        .bind(name)
-        .fetch_all(pool)
-        .await
-        .context("resolve prose team name")?;
-        if let [team_id] = matches.as_slice() {
-            if !out.contains(team_id) {
-                out.push(*team_id);
-            }
-        }
-    }
-    Ok(out)
-}
-
-fn bools_of(our_teams: &[Vec<i32>]) -> Vec<bool> {
-    our_teams.iter().map(|t| !t.is_empty()).collect()
 }
 
 // ---------------------------------------------------------------------------------------
@@ -671,7 +398,6 @@ fn bools_of(our_teams: &[Vec<i32>]) -> Vec<bool> {
 
 async fn enrich_player(
     pool: &sqlx::PgPool,
-    models: &ExecutionCapabilities,
     web: &ScopedWeb<'_>,
     item: &Item,
     mappings: &mut Vec<TeamMapping>,
@@ -707,32 +433,8 @@ async fn enrich_player(
 
     let item_idx = match verdict {
         Verdict::Accept { item_idx, .. } => item_idx,
-        // A single sport-relevant survivor may have stale structured team claims, so its
-        // page prose gets one containment-verified chance to corroborate the current team.
-        Verdict::Ambiguous { ref survivor_idxs } if survivor_idxs.len() == 1 => {
-            let i = survivor_idxs[0];
-            match prose_team_corroborates(pool, models, web, &d.items[i], &sport, &name, team_id)
-                .await
-            {
-                Ok(true) => {
-                    info!(player_id, %name, qid = %d.items[i].qid,
-                        "enrichment: stale-claims survivor corroborated by page prose");
-                    i
-                }
-                Ok(false) => {
-                    info!(player_id, %name, ?verdict,
-                        "enrichment refused (single survivor; prose did not corroborate the team)");
-                    return Ok(Decision::Unchanged);
-                }
-                Err(e) => {
-                    warn!(player_id, %name, error = %format!("{e:#}"),
-                        "enrichment prose corroboration errored; retrying");
-                    return Err(e);
-                }
-            }
-        }
         _ => {
-            info!(player_id, %name, ?verdict, "enrichment refused (no unique discriminated item)");
+            info!(player_id, %name, ?verdict, "enrichment refused (no unique structured discriminator; prose corroboration unavailable)");
             return Ok(Decision::Unchanged);
         }
     };

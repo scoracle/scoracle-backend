@@ -1000,3 +1000,95 @@ was changed in this diagnostic. The
 [comparison index](../fixtures/scout/s5-tool-acquisition-comparison.jsonl) retains
 metrics, manual findings and hashes/locations of all exact private transcripts,
 including the render-only captures and database recheck.
+
+## October 5 Scout fidelity verification — gate remains open
+
+Started from `53e19cbf`, with the current s65 request and the existing Archbox
+SmolLM3 model. Production services, model configuration and database products
+were not changed. PostgreSQL captures used connection-level read-only settings.
+
+- The eight current synthetic fixtures replayed through the existing evaluation
+  path: 9/14 mechanical properties passed, but all eight replies failed manual
+  fidelity review. Replies misstate held assists, invent strategy and stability,
+  and present sample thresholds as observed counts.
+- Four real subjects were captured with enrichment off and on: two NFL teams,
+  a football team and an NFL player. All eight preparations succeeded; their
+  current-snapshot memory fingerprints matched. The four NFL-team captures
+  replayed through the production parser and bounded correction. An accepted
+  Miami reply invented ten tackles per game from the appearance threshold.
+  One final Cleveland correction accurately disclaimed stability but was
+  rejected by a word-based guard. Parser acceptance remains separate from
+  factual review.
+- Three demonstrated parser matching defects were repaired with regression
+  checks: `exact` no longer matches xA, `averaged` no longer matches the average
+  band, and singular `assist` matches the Assists comparison. These repairs
+  do not establish fidelity or make the guards semantic judges.
+- Two task formulations were compared on all eight synthetic worlds, then with
+  the installed template's closed-system branch on four diagnostic worlds.
+  All 24 replies still failed fidelity. No production task or transport change
+  was adopted. Exact requests and complete replies are retained in
+  [the diagnostic capture](../fixtures/scout/s5-task-framing-2026-10-05.jsonl).
+
+Measured-memory preparation has a concrete assembly defect: `from` uses the
+previous window's start, `before` uses the current window's end, but counts and
+`per_match` describe only the current window. The study already retains separate
+previous/current bounds, counts and averages. The user subsequently approved exposing those two windows, while keeping
+fixture IDs in provenance. The local s66 implementation is recorded below.
+The real subjects captured here had no eligible measured-window study, so they
+do not verify that branch.
+
+Private captures remain in `/private/tmp/scout-live-capture.jsonl`,
+`/private/tmp/scout-live-football-player.jsonl` and
+`/private/tmp/scout-live-replay.txt`; they are not repository fixtures.
+
+Verification: `cargo test --offline --all-targets --quiet` passed (468 library
+checks, 62 ignored, plus other targets). Formatting and diff checks passed.
+No deployment or successful product closure is claimed.
+
+### Approved measured-window repair — local s66
+
+The user approved the proposed window contents on October 5. Scout now presents
+`previous` and `current`, each with its own UTC bounds, fixture count, measured
+count and nullable average, copied from the existing study. Change remains the
+study's current-minus-previous result. Fixture IDs stay in fingerprinted
+provenance and no longer enter the model request. Regression checks cover the
+window conversion, missing versus zero, changed bounds and averages, and lineage
+changes that invalidate work without changing the model's evidence text.
+
+The current eight fixtures use s66 and reassemble with the production renderer.
+The measured-memory fixture is an explicitly reconstructed synthetic comparison:
+August 1–30 average 103, August 30–September 29 average 105, three measured
+fixtures out of four in each period. It is not a newly verified historical
+receipt; the earlier request and failures remain in their retained captures.
+
+[Eight-case first-call replay](../fixtures/scout/s66-quality.txt): 9/14 mechanical
+properties pass; all eight replies still fail fidelity. The measured-memory reply
+correctly distinguishes current 105 from previous 103 and retains the missing
+fixture qualification, but exceeds 1,200 characters and invents a balanced
+profile. A separate [complete wire capture](../fixtures/scout/s66-measured-window-results.jsonl)
+passes the production parser while inventing ability improvement, top-30% league
+standing from the composite, cross-season consistency, and subject traits from
+tone. This is an assembly repair, not a closed fidelity gate.
+
+A read-only capability query on Archbox finds 66 additive team stat definitions
+for football and 51 for NFL, with none for NBA. Scout's existing selector requires
+exactly one additive team measure per sport, so no live sport currently reaches
+this measured-window branch. This remains an explicit live-verification limit;
+no new metric-selection policy or registered measurements were introduced.
+Database credentials remained on Archbox for this query after automatic approval
+review rejected local credential persistence. No worker or database product changed.
+
+Post-repair verification: `cargo test --offline --all-targets --quiet` passed
+(469 library tests, 62 ignored, plus other targets); formatting and diff checks
+passed. The next fidelity work remains comparison eligibility versus actual
+change, unsupported synthesis and the surviving word-based guard diagnostics.
+
+## October 5 user-directed alignment closure
+
+Scout alignment is closed. The user explicitly directed this session to finish
+plugin alignment rather than continue plugin tuning and to move on to the rest
+of the plan. Local s66, the ownership/context repairs and passing mechanical
+checks are retained. Failed fidelity replays, word-based guard limitations and
+the unavailable live measured-window branch remain recorded; they are not passing
+quality evidence or deployment approval. Further prose tuning is deferred and
+no longer blocks Insider or later alignment windows. The next window is Insider.

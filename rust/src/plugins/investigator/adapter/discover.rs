@@ -2,15 +2,14 @@
 //!
 //! *Discovery* finds candidate pages for a name; *retrieval* is the shared
 //! [`BudgetedFetcher`] (every page becomes a `source_documents` row — sources prove);
-//! *interpretation* is either CODE over Wikidata's structured claims (the preferred path —
-//! no model call at all) or gemma describing a prose page (the mystery-candidate fallback).
+//! *interpretation* uses code over Wikidata structured claims. Prose fallback is unavailable.
 //!
 //! The current source family is Wikimedia: structured, stable APIs designed for reuse. Google News
 //! RSS remains a secondary discovery channel for names Wikimedia has never heard of; it
 //! reuses the lungs' query shape and proves only that a name recurs, never an identity.
 
 use crate::application::tools::ScopedWeb;
-use crate::evidence::fetch::{FetchPolicy, SourceFetch};
+use crate::evidence::fetch::FetchPolicy;
 use anyhow::{anyhow, Context, Result};
 use serde_json::Value;
 
@@ -185,102 +184,6 @@ fn quantity_in(entity: &Value, prop: &str, accepted: &[(&str, f64)]) -> Option<f
         .map(|a| a * factor)
 }
 
-/// One Wikipedia full-text search result, pre-retrieval.
-///
-/// This is the 5.4 prose arm's discovery channel, and its power is exactly what
-/// `wbsearchentities` lacks: FULL-TEXT match over article bodies. The D-T8 class — our
-/// "Airious Bailey" vs Wikidata's "Ace Bailey" — is invisible to entity search (labels and
-/// aliases only) but trivially findable in prose, because the legal name sits in the page's
-/// opening sentence.
-#[derive(Clone, Debug)]
-pub struct WikipediaPage {
-    /// URL key ("Ace_Bailey_(basketball,_born_2006)") — feed to [`wikipedia_summary`].
-    pub key: String,
-    pub title: String,
-    pub description: String,
-    /// Search-match excerpt, HTML tags stripped.
-    pub excerpt: String,
-}
-
-/// wikipedia_search runs REST v1 full-text page search — the prose arm's discovery.
-pub async fn wikipedia_search(
-    web: &ScopedWeb<'_>,
-    policy: &FetchPolicy,
-    query: &str,
-    limit: usize,
-) -> Result<Vec<WikipediaPage>> {
-    let url = format!(
-        "https://en.wikipedia.org/w/rest.php/v1/search/page?q={}&limit={}",
-        urlencode(query),
-        limit.min(10)
-    );
-    let fetched = web
-        .fetch_wikimedia(&url, policy)
-        .await
-        .map_err(|e| anyhow!("wikipedia search fetch: {e}"))?;
-    let v: Value = serde_json::from_str(&fetched.body).context("parse wikipedia search")?;
-    Ok(parse_wikipedia_search(&v))
-}
-
-/// parse_wikipedia_search is the pure body parser — unit-tested against a canned response.
-pub fn parse_wikipedia_search(v: &Value) -> Vec<WikipediaPage> {
-    let Some(pages) = v.get("pages").and_then(Value::as_array) else {
-        return Vec::new();
-    };
-    pages
-        .iter()
-        .filter_map(|p| {
-            let key = p.get("key").and_then(Value::as_str)?;
-            Some(WikipediaPage {
-                key: key.to_string(),
-                title: str_at(p, "title"),
-                description: str_at(p, "description"),
-                excerpt: strip_tags(&str_at(p, "excerpt")),
-            })
-        })
-        .collect()
-}
-
-/// strip_tags removes the `<span class="searchmatch">` markup the search excerpt carries
-/// and decodes the handful of HTML entities the endpoint emits (measured on the live
-/// probe: `Airious &quot;Ace&quot; Bailey` — an undecoded entity breaks every containment
-/// check downstream). Dumb and sufficient; anything fancier belongs to a real parser.
-fn strip_tags(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    let mut in_tag = false;
-    for c in s.chars() {
-        match c {
-            '<' => in_tag = true,
-            '>' => in_tag = false,
-            c if !in_tag => out.push(c),
-            _ => {}
-        }
-    }
-    out.replace("&quot;", "\"")
-        .replace("&#039;", "'")
-        .replace("&#39;", "'")
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&amp;", "&")
-}
-
-/// wikipedia_summary retrieves the REST summary for a title — the prose the model may be
-/// asked to describe on the mystery-candidate path. Returns the fetch (for provenance) —
-/// the caller extracts `extract`/`description` from the JSON body.
-pub async fn wikipedia_summary(
-    web: &ScopedWeb<'_>,
-    policy: &FetchPolicy,
-    title: &str,
-) -> Result<SourceFetch> {
-    let url = format!(
-        "https://en.wikipedia.org/api/rest_v1/page/summary/{}",
-        urlencode(&title.replace(' ', "_"))
-    );
-    web.fetch_wikimedia(&url, policy)
-        .await
-        .map_err(|e| anyhow!("wikipedia summary fetch: {e}"))
-}
-
 fn str_at(v: &Value, key: &str) -> String {
     v.get(key)
         .and_then(Value::as_str)
@@ -358,30 +261,6 @@ mod tests {
             json!("http://www.wikidata.org/entity/Q100995");
         let item = parse_wikidata_entity("Q1", &e, 1);
         assert_eq!(item.weight_kg, None);
-    }
-
-    #[test]
-    fn wikipedia_search_parse_strips_markup_and_keeps_keys() {
-        let body = json!({
-            "pages": [
-                {"id": 1, "key": "Ace_Bailey_(basketball,_born_2006)",
-                 "title": "Ace Bailey (basketball, born 2006)",
-                 "description": "American basketball player",
-                 "excerpt": "<span class=\"searchmatch\">Airious</span> \"Ace\" Bailey Jr. is an American basketball player"},
-                {"id": 2, "title": "No key page", "excerpt": "dropped"}
-            ]
-        });
-        let pages = parse_wikipedia_search(&body);
-        assert_eq!(
-            pages.len(),
-            1,
-            "a page without a key cannot be summary-fetched"
-        );
-        assert_eq!(pages[0].key, "Ace_Bailey_(basketball,_born_2006)");
-        assert_eq!(
-            pages[0].excerpt,
-            "Airious \"Ace\" Bailey Jr. is an American basketball player"
-        );
     }
 
     #[test]

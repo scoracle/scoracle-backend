@@ -1,4 +1,6 @@
-//! Investigator judgment over prepared evidence. No database, queue, or retrieval handles.
+//! Deterministic Investigator identity data and gates.
+//! Prose extraction below is retained for historical evaluation only; runtime publication
+//! has no inference grant and never consumes it.
 use crate::studio::{Extracted, Studio};
 use anyhow::Result;
 pub mod gate;

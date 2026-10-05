@@ -1,12 +1,13 @@
 //! Scout instructions explain the supplied data, relationships and articulation job.
 //! Tone lives in `voice.rs`; shared form supplies output structure.
 
-pub const RATING_PROMPT_VERSION: &str = "s65-six-part";
+pub const RATING_PROMPT_VERSION: &str = "s66-measured-windows";
 
 /// Instructions accompanying every prepared Scout world.
 pub const TASK: &str = "\
 meta identifies the subject. fresh contains selected season measurements and
-their sample and limits. memories contains measured fixture windows and dated,
+their sample and limits. memories contains separate previous and current
+measurement windows and dated,
 attributed reports. voice sets tone; form sets output shape and limits.
 
 Describe what the supplied measurements establish in compact prose. Use only
@@ -16,6 +17,10 @@ that measure; supports_cross_season alone does not establish a comparison.
 Missing comparison or measured history is unknown, not stability. A composite
 is a standardized overall score with peer mean 50, not a percentile or a
 measure of any individual skill.
+
+Each measured window owns its dates, fixture count, measured count and per-match
+average. The supplied change compares current with previous, not seasons or
+individual games. Missing fixture measurements are unknown, not zero.
 
 Honor any limit. Sample counts describe source coverage, not playing time or
 when a season began. Keep reports attributed and dated; a withdrawal retracts

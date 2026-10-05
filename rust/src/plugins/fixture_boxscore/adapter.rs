@@ -9,15 +9,13 @@ use crate::application::tools::{ScopedWeb, ToolLedger, WebBroker};
 use crate::evidence::fetch::{BudgetedFetchError, FetchPolicy};
 use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
 use crate::studio::tools::DomainClass;
-use crate::util::hash_components;
 use crate::util::truncate;
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use reqwest::StatusCode;
-use serde_json::{json, Map, Value};
+use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use sqlx::Row;
-use std::collections::{BTreeMap, BTreeSet};
 use std::time::Duration;
 
 pub const FIXTURE_BOXSCORE_STAGE: &str = "fixture_boxscore";
@@ -36,8 +34,6 @@ struct FixtureRow {
     home_team_name: String,
     away_team_name: String,
     status: String,
-    home_score: Option<i32>,
-    away_score: Option<i32>,
     round: String,
     external_id: Option<i32>,
     /// Kickoff as `YYYY-MM-DD`, rendered by Postgres at UTC.
@@ -97,8 +93,7 @@ impl SourcePlan {
     }
 }
 
-/// Retrieved source text and provenance for a future parser family.
-#[allow(dead_code)]
+/// Retrieved source text and provenance, retained even when parsing is unavailable.
 #[derive(Debug)]
 struct FetchedDocument {
     source_url: String,
@@ -106,7 +101,6 @@ struct FetchedDocument {
     final_domain: Option<String>,
     /// The `source_documents` row this retrieval landed as (or was reused from).
     document_id: i64,
-    body: String,
     from_cache: bool,
     warnings: Vec<String>,
 }
@@ -188,10 +182,7 @@ impl StudioPlugin for FixtureBoxscoreHandler {
         let plan = select_source(pool, &fixture).await?;
         if plan.source_urls.is_empty() {
             // No registered public source could serve this fixture. Terminal and honest — and
-            // still the state of every fixture, because `boxscore_sources` is empty until the
-            // discovery arm populates it. What changed with the retrieval wiring is WHERE the
-            // emptiness lives: this is now a query returning no eligible rows, not a function
-            // hardcoded to return nothing.
+            // the acquisition receipt records the missing capability.
             return persist_record(
                 pool,
                 item,
@@ -239,20 +230,22 @@ impl StudioPlugin for FixtureBoxscoreHandler {
         let normalized = match parse_fetched_boxscore(&fixture, &plan, &fetched) {
             Ok(n) => n,
             Err(ParseOutcome { status, error }) => {
-                return persist_record(
-                    pool,
-                    item,
-                    &fixture,
-                    PersistRecord::terminal_with_urls(
-                        &plan.provider,
-                        &status,
-                        Some(&fetched.source_url),
-                        Some(&fetched.final_url),
-                        fetched.final_domain.as_deref(),
-                        Some(error),
-                    ),
-                )
-                .await;
+                let mut record = PersistRecord::terminal_with_urls(
+                    &plan.provider,
+                    &status,
+                    Some(&fetched.source_url),
+                    Some(&fetched.final_url),
+                    fetched.final_domain.as_deref(),
+                    Some(error),
+                );
+                record.raw_labels = merge_raw_labels(
+                    json!({}),
+                    fetched.warnings,
+                    &plan,
+                    fetched.document_id,
+                    fetched.from_cache,
+                );
+                return persist_record(pool, item, &fixture, record).await;
             }
         };
 
@@ -370,7 +363,7 @@ async fn load_fixture(pool: &sqlx::PgPool, fixture_id: i32) -> Result<Option<Fix
                f.home_team_id, f.away_team_id,
                COALESCE(ht.name, '') AS home_team_name,
                COALESCE(at.name, '') AS away_team_name,
-               f.status, f.home_score, f.away_score,
+               f.status,
                COALESCE(f.round, '') AS round,
                f.external_id,
                -- Rendered here, at UTC, on purpose: see FixtureRow::event_date. Postgres owns
@@ -399,8 +392,6 @@ async fn load_fixture(pool: &sqlx::PgPool, fixture_id: i32) -> Result<Option<Fix
         home_team_name: r.get("home_team_name"),
         away_team_name: r.get("away_team_name"),
         status: r.get("status"),
-        home_score: r.get("home_score"),
-        away_score: r.get("away_score"),
         round: r.get("round"),
         external_id: r.get("external_id"),
         // A fixture with no kickoff cannot address a date-keyed page; an empty string renders
@@ -617,7 +608,6 @@ async fn fetch_source(
                     final_url: doc.final_url,
                     final_domain: doc.domain,
                     document_id: doc.document_id,
-                    body: doc.body,
                     from_cache: doc.from_cache,
                     warnings,
                 });
@@ -753,62 +743,6 @@ fn parse_fetched_boxscore(
     ))
 }
 
-#[allow(dead_code, clippy::too_many_arguments)] // parser-family substrate
-fn normalized_from_parts(
-    provider: &str,
-    provider_status: Option<String>,
-    fixture: &FixtureRow,
-    team_scores: BTreeMap<i32, i32>,
-    team_acc: BTreeMap<i32, BTreeMap<String, f64>>,
-    players: Vec<Value>,
-    period_scoring: Value,
-    raw_labels: Value,
-) -> NormalizedBoxscore {
-    let score = json!({
-        "home_team_id": fixture.home_team_id,
-        "away_team_id": fixture.away_team_id,
-        "league_id": fixture.league_id,
-        "home_score": team_scores.get(&fixture.home_team_id).copied().or(fixture.home_score),
-        "away_score": team_scores.get(&fixture.away_team_id).copied().or(fixture.away_score),
-        "provider": provider,
-    });
-
-    let mut team_ids = BTreeSet::new();
-    team_ids.insert(fixture.home_team_id);
-    team_ids.insert(fixture.away_team_id);
-    for id in team_acc.keys() {
-        team_ids.insert(*id);
-    }
-    for id in team_scores.keys() {
-        team_ids.insert(*id);
-    }
-
-    let empty_stats = BTreeMap::new();
-    let teams: Vec<Value> = team_ids
-        .into_iter()
-        .map(|team_id| {
-            json!({
-                "provider_team_id": team_id,
-                "team_id": team_id,
-                "side": if team_id == fixture.home_team_id { "home" } else if team_id == fixture.away_team_id { "away" } else { "unknown" },
-                "score": team_scores.get(&team_id).copied()
-                    .or(if team_id == fixture.home_team_id { fixture.home_score } else if team_id == fixture.away_team_id { fixture.away_score } else { None }),
-                "stats": stats_to_json(team_acc.get(&team_id).unwrap_or(&empty_stats)),
-                "raw_labels": {"provider": provider}
-            })
-        })
-        .collect();
-
-    NormalizedBoxscore {
-        provider_status,
-        score,
-        period_scoring,
-        team_stats: Value::Array(teams),
-        player_stats: Value::Array(players),
-        raw_labels,
-    }
-}
-
 fn validate_normalized(
     fixture: &FixtureRow,
     n: &NormalizedBoxscore,
@@ -869,65 +803,6 @@ fn is_final_fixture_status(status: &str) -> bool {
     matches!(status, "completed" | "seeded")
 }
 
-#[allow(dead_code)] // parser-family substrate
-fn extract_numeric_stats(
-    row: &Value,
-    skip_keys: &[&str],
-    explicit_stats_key: Option<&str>,
-) -> BTreeMap<String, f64> {
-    let mut out = BTreeMap::new();
-    if let Some(key) = explicit_stats_key {
-        if let Some(obj) = row.get(key).and_then(Value::as_object) {
-            for (k, v) in obj {
-                if let Some(n) = numeric_value(v) {
-                    out.insert(k.clone(), n);
-                }
-            }
-        }
-    }
-    if let Some(obj) = row.as_object() {
-        for (k, v) in obj {
-            if skip_keys.iter().any(|skip| skip == k) {
-                continue;
-            }
-            if let Some(n) = numeric_value(v) {
-                out.insert(k.clone(), n);
-            }
-        }
-    }
-    out
-}
-
-#[allow(dead_code)] // parser-family substrate
-fn add_stats(
-    acc: &mut BTreeMap<i32, BTreeMap<String, f64>>,
-    team_id: i32,
-    stats: &BTreeMap<String, f64>,
-) {
-    let team = acc.entry(team_id).or_default();
-    for (k, v) in stats {
-        *team.entry(k.clone()).or_insert(0.0) += *v;
-    }
-}
-
-#[allow(dead_code)] // parser-family substrate
-fn stats_to_json(stats: &BTreeMap<String, f64>) -> Value {
-    let mut obj = Map::new();
-    for (k, v) in stats {
-        obj.insert(k.clone(), json_number(*v));
-    }
-    Value::Object(obj)
-}
-
-#[allow(dead_code)] // parser-family substrate
-fn json_number(n: f64) -> Value {
-    if n.fract() == 0.0 {
-        json!(n as i64)
-    } else {
-        json!(n)
-    }
-}
-
 fn numeric_value(v: &Value) -> Option<f64> {
     match v {
         Value::Number(n) => n.as_f64(),
@@ -936,62 +811,10 @@ fn numeric_value(v: &Value) -> Option<f64> {
     }
 }
 
-#[allow(dead_code)] // parser-family substrate
-fn parse_minutes(v: Option<&Value>) -> Option<f64> {
-    match v? {
-        Value::Number(n) => n.as_f64(),
-        Value::String(s) if s.contains(':') => {
-            let mut parts = s.split(':');
-            let minutes = parts.next()?.parse::<f64>().ok()?;
-            let seconds = parts.next()?.parse::<f64>().ok()?;
-            Some(((minutes + seconds / 60.0) * 100.0).round() / 100.0)
-        }
-        Value::String(s) => s.parse::<f64>().ok(),
-        _ => None,
-    }
-}
-
-#[allow(dead_code)] // parser-family substrate
-fn player_name(raw: Option<&Value>) -> Option<String> {
-    let raw = raw?.as_object()?;
-    let first = raw
-        .get("first_name")
-        .and_then(Value::as_str)
-        .unwrap_or_default();
-    let last = raw
-        .get("last_name")
-        .and_then(Value::as_str)
-        .unwrap_or_default();
-    let name = format!("{first} {last}").trim().to_string();
-    if name.is_empty() {
-        None
-    } else {
-        Some(name)
-    }
-}
-
 fn i32_at(v: &Value, key: &str) -> Option<i32> {
     v.get(key)
         .and_then(numeric_value)
         .and_then(|n| i32::try_from(n as i64).ok())
-}
-
-#[allow(dead_code)] // parser-family substrate (mig 230)
-fn nested_i32(v: &Value, path: &[&str]) -> Option<i32> {
-    let mut cur = v;
-    for key in path {
-        cur = cur.get(*key)?;
-    }
-    numeric_value(cur).and_then(|n| i32::try_from(n as i64).ok())
-}
-
-#[allow(dead_code)] // parser-family substrate (mig 230)
-fn nested_string(v: &Value, path: &[&str]) -> Option<String> {
-    let mut cur = v;
-    for key in path {
-        cur = cur.get(*key)?;
-    }
-    cur.as_str().map(str::to_string)
 }
 
 async fn persist_record(
@@ -1190,11 +1013,6 @@ pub fn build_fixture_boxscore_input_version(
     )
 }
 
-#[allow(dead_code)]
-fn input_version_hash_for_tests(version: &str) -> String {
-    hash_components(version)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1216,8 +1034,6 @@ mod tests {
             home_team_name: "Buffalo Bills".to_string(),
             away_team_name: "Kansas City Chiefs".to_string(),
             status: "completed".to_string(),
-            home_score: Some(28),
-            away_score: Some(21),
             round: "Week 9".to_string(),
             external_id: Some(12345),
             event_date: "2026-08-24".to_string(),
@@ -1238,6 +1054,39 @@ mod tests {
         assert!(plan.provider_fixture_id.is_none());
         assert!(plan.source_id.is_none());
         assert!(plan.parser_family.is_empty());
+    }
+
+    #[test]
+    fn unsupported_parser_keeps_receipt_without_measurements() {
+        let fixture = fixture("NFL");
+        let mut plan = SourcePlan::none();
+        plan.provider = "example.test".into();
+        plan.parser_family = "future-parser".into();
+        plan.source_id = Some(42);
+        let fetched = FetchedDocument {
+            source_url: "https://example.test/score".into(),
+            final_url: "https://example.test/score".into(),
+            final_domain: Some("example.test".into()),
+            document_id: 99,
+            from_cache: true,
+            warnings: vec![],
+        };
+        let outcome = parse_fetched_boxscore(&fixture, &plan, &fetched).unwrap_err();
+        assert_eq!(outcome.status, "not_supported");
+        let mut record =
+            PersistRecord::terminal(&plan.provider, &outcome.status, Some(outcome.error));
+        record.raw_labels = merge_raw_labels(
+            json!({}),
+            fetched.warnings,
+            &plan,
+            fetched.document_id,
+            fetched.from_cache,
+        );
+        assert!(record.content_hash.is_none());
+        assert_eq!(record.score, json!({}));
+        assert_eq!(record.player_stats, json!([]));
+        assert_eq!(record.raw_labels["source"]["source_document_id"], 99);
+        assert_eq!(record.raw_labels["source"]["from_cache"], true);
     }
 
     /// A template renders from the fixture's own facts — the only address mig 230 left it.

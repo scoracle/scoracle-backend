@@ -1,7 +1,7 @@
 {
   "name": "synthetic-measured-memory",
   "task": "rating",
-  "prompt_version": "s65-six-part",
+  "prompt_version": "s66-measured-windows",
   "parts": {
     "memory": {
       "coverage_limits": [
@@ -9,19 +9,22 @@
       ],
       "measured": [
         {
-          "before": "2026-09-29T00:00:00Z",
-          "fixture_ids": [
-            1,
-            2,
-            3,
-            4
-          ],
-          "fixtures": 4,
-          "from": "2026-08-01T00:00:00Z",
+          "current": {
+            "before": "2026-09-29T00:00:00Z",
+            "fixtures": 4,
+            "from": "2026-08-30T00:00:00Z",
+            "measured": 3,
+            "per_match": 105.0
+          },
           "measure_label": "Points",
-          "measured": 3,
-          "per_match": 105.0,
           "per_match_change": 2.0,
+          "previous": {
+            "before": "2026-08-30T00:00:00Z",
+            "fixtures": 4,
+            "from": "2026-08-01T00:00:00Z",
+            "measured": 3,
+            "per_match": 103.0
+          },
           "unit": "points"
         }
       ]
@@ -65,10 +68,11 @@
       "sport": "NBA"
     }
   },
-  "user_prompt": "{\"meta\":{\"name\":\"Cedar Comets\",\"entity_type\":\"team\",\"sport\":\"Basketball\"},\"fresh\":{\"season\":2026,\"sample\":{\"Games Played\":25.0},\"values\":[{\"label\":\"Rebounds\",\"measure\":\"rebounds per game\",\"value\":48.0,\"percentile\":90.0,\"cohort\":30.0,\"band\":\"elite\",\"prior_percentile\":80.0,\"standing_change\":\"rose\"},{\"label\":\"Assists\",\"measure\":\"assists per game\",\"value\":23.0,\"percentile\":75.0,\"cohort\":30.0,\"band\":\"strong\",\"prior_percentile\":75.0,\"standing_change\":\"held\"}],\"composite\":64.0,\"supports_cross_season\":true},\"memories\":{\"measured\":[{\"measure_label\":\"Points\",\"unit\":\"points\",\"from\":\"2026-08-01T00:00:00Z\",\"before\":\"2026-09-29T00:00:00Z\",\"fixtures\":4,\"measured\":3,\"per_match\":105.0,\"per_match_change\":2.0,\"fixture_ids\":[1,2,3,4]}],\"coverage_limits\":[\"One current fixture lacks a points measurement; missing is not zero.\"]},\"voice\":\"Observant, direct, specific to the sport and restrained.\",\"form\":{\"keys\":[\"body\"],\"max_chars\":1200}}",
+  "user_prompt": "{\"meta\":{\"name\":\"Cedar Comets\",\"entity_type\":\"team\",\"sport\":\"Basketball\"},\"fresh\":{\"season\":2026,\"sample\":{\"Games Played\":25.0},\"values\":[{\"label\":\"Rebounds\",\"measure\":\"rebounds per game\",\"value\":48.0,\"percentile\":90.0,\"cohort\":30.0,\"band\":\"elite\",\"prior_percentile\":80.0,\"standing_change\":\"rose\"},{\"label\":\"Assists\",\"measure\":\"assists per game\",\"value\":23.0,\"percentile\":75.0,\"cohort\":30.0,\"band\":\"strong\",\"prior_percentile\":75.0,\"standing_change\":\"held\"}],\"composite\":64.0,\"supports_cross_season\":true},\"memories\":{\"measured\":[{\"measure_label\":\"Points\",\"unit\":\"points\",\"previous\":{\"from\":\"2026-08-01T00:00:00Z\",\"before\":\"2026-08-30T00:00:00Z\",\"fixtures\":4,\"measured\":3,\"per_match\":103.0},\"current\":{\"from\":\"2026-08-30T00:00:00Z\",\"before\":\"2026-09-29T00:00:00Z\",\"fixtures\":4,\"measured\":3,\"per_match\":105.0},\"per_match_change\":2.0}],\"coverage_limits\":[\"One current fixture lacks a points measurement; missing is not zero.\"]},\"voice\":\"Observant, direct, specific to the sport and restrained.\",\"form\":{\"keys\":[\"body\"],\"max_chars\":1200}}",
   "temperature": 0,
   "expect": {},
   "review": [
-    "The current points average is 105 across three measured fixtures out of four. The supplied change is 2; do not turn 105 into the prior average or invent 107. Preserve missing-data coverage."
+    "The current points average is 105 across three measured fixtures out of four. The supplied change is 2; do not turn 105 into the prior average or invent 107. Preserve missing-data coverage.",
+    "Explicit synthetic windows: previous August 1\u201330 average 103; current August 30\u2013September 29 average 105. This reconstructs a coherent test comparison, not a historical database receipt."
   ]
 }

@@ -1,24 +1,5 @@
-//! Legacy packet claim slices and framing retained for Scout and Insider.
-//! Selection preserves source attribution, order and contested claims.
-
-use super::packet::PacketView;
+//! Source attribution and contested-report marking for publisher evidence.
 use std::collections::HashSet;
-
-/// Surviving consumers of legacy packet claims.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Voice {
-    Insider,
-    Scout,
-}
-
-impl Voice {
-    fn slice(self) -> &'static [&'static str] {
-        match self {
-            Voice::Insider => &["transfer"],
-            Voice::Scout => &["performance", "roster", "injury", "suspension"],
-        }
-    }
-}
 
 /// One claim, as the renderer reads it out of `packets.claims`.
 #[derive(Clone, Debug, serde::Serialize)]
@@ -30,110 +11,6 @@ pub struct RenderClaim {
     pub story_type: String,
 }
 
-/// The entity's part in this storyline — its role and the span it has been in the story
-/// (`storyline_entities`: `role`, `joined_at`, `last_seen_at`). D5: the part has its own lifespan,
-/// so the render states it rather than implying the entity was there from the first word.
-#[derive(Clone, Debug)]
-pub struct Participation {
-    pub name: String,
-    pub role: Option<String>,
-    /// Formatted dates (`YYYY-MM-DD`); the caller owns the clock, this module never reads one.
-    pub joined_on: Option<String>,
-    pub last_seen_on: Option<String>,
-}
-
-/// Source-bound storyline context used by the Insider's per-article overlay.
-pub fn framing(packet: &PacketView, part: Option<&Participation>) -> String {
-    let mut header = String::new();
-    if let Some(h) = &packet.headline {
-        header.push_str("STORY: ");
-        header.push_str(h.trim());
-        header.push('\n');
-    }
-    if let Some(p) = part {
-        header.push_str(&role_line(p));
-        header.push('\n');
-    }
-    if !packet.story_types.is_empty() {
-        header.push_str("TYPE: ");
-        header.push_str(&packet.story_types.join(", "));
-        header.push('\n');
-    }
-    if let Some(line) = &packet.result_line {
-        // Verbatim from the text, parsed by code, never invented by a model (§1a).
-        header.push_str("RESULT: ");
-        header.push_str(line.trim());
-        header.push('\n');
-    }
-    // The thin, structured facts (§1c): who else is in this story, and how much of it there is.
-    // Names only — the entity list is data the code assembled, not prose a model wrote.
-    let others = other_participants(&packet.facts, part);
-    if !others.is_empty() {
-        header.push_str("ALSO IN THIS STORY: ");
-        header.push_str(&others.join(", "));
-        header.push('\n');
-    }
-    if let Some(prior) = &packet.prior_headline {
-        // ONE continuity line from the prior packet: enough for a voice to know this story has a
-        // yesterday, far short of re-reading it.
-        header.push_str("PREVIOUSLY: ");
-        header.push_str(prior.trim());
-        header.push('\n');
-    }
-
-    header
-}
-
-/// The other named participants from `facts.entities`, minus the entity this render is FOR.
-/// Capped: a listicle-seeded storyline can carry a dozen, and this line is context, not a cast
-/// list — the ones past the cap are behind the `+N more` the caller can see is bounded.
-fn other_participants(facts: &serde_json::Value, part: Option<&Participation>) -> Vec<String> {
-    const MAX_OTHERS: usize = 8;
-    let me = part.map(|p| p.name.as_str()).unwrap_or("");
-    let mut names: Vec<String> = facts
-        .get("entities")
-        .and_then(|e| e.as_array())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|e| {
-                    let n = e
-                        .get("name")
-                        .and_then(|n| n.as_str())
-                        .filter(|n| !n.is_empty() && !n.eq_ignore_ascii_case(me))?;
-                    // Person casts carry their kind ("coach, Real Madrid") — a bare
-                    // person name is trivia, a described one is context. Absent on
-                    // pre-mig-234 packets and on players/teams.
-                    match e.get("descriptor").and_then(|d| d.as_str()) {
-                        Some(d) if !d.is_empty() => Some(format!("{n} ({d})")),
-                        _ => Some(n.to_string()),
-                    }
-                })
-                .collect()
-        })
-        .unwrap_or_default();
-    names.dedup();
-    if names.len() > MAX_OTHERS {
-        let extra = names.len() - MAX_OTHERS;
-        names.truncate(MAX_OTHERS);
-        names.push(format!("+{extra} more"));
-    }
-    names
-}
-
-fn role_line(p: &Participation) -> String {
-    let mut s = format!("ENTITY: {}", p.name);
-    if let Some(r) = p.role.as_deref().filter(|r| !r.is_empty()) {
-        s.push_str(&format!(" ({r})"));
-    }
-    match (&p.joined_on, &p.last_seen_on) {
-        (Some(j), Some(l)) if j == l => s.push_str(&format!(" — in this story {j}")),
-        (Some(j), Some(l)) => s.push_str(&format!(" — in this story {j} → {l}")),
-        (Some(j), None) => s.push_str(&format!(" — in this story since {j}")),
-        _ => {}
-    }
-    s
-}
-
 /// A claim plus whether it contradicts another claim in the same render.
 #[derive(Clone, Debug, serde::Serialize)]
 pub struct MarkedClaim {
@@ -141,20 +18,6 @@ pub struct MarkedClaim {
     /// True when another claim in the same set says the opposite. A POINTER, never a filter:
     /// both members of the pair are always carried (T3/D6).
     pub marked: bool,
-}
-
-/// Select source claims in stored order, without changing their attribution.
-pub fn slice_claims(claims: &[RenderClaim], voice: Voice) -> Vec<RenderClaim> {
-    claims
-        .iter()
-        .filter(|c| {
-            voice
-                .slice()
-                .iter()
-                .any(|w| c.story_type.eq_ignore_ascii_case(w))
-        })
-        .cloned()
-        .collect()
 }
 
 /// mark_contested finds pairs that say opposite things about the same subject and flags BOTH.
@@ -303,31 +166,6 @@ mod tests {
         }
     }
 
-    fn packet(claims: Vec<RenderClaim>) -> PacketView {
-        PacketView {
-            packet_id: 1,
-            storyline_id: 7474,
-            sport: "FOOTBALL".into(),
-            headline: Some("Vinicius Junior and Arsenal: where the deal stands".into()),
-            story_types: vec!["transfer".into()],
-            register: Some("anticipation".into()),
-            register_phrase: Some("the whole of north London is holding its breath".into()),
-            result_line: None,
-            prior_headline: None,
-            claims,
-            facts: serde_json::json!({}),
-        }
-    }
-
-    fn part() -> Participation {
-        Participation {
-            name: "Vinicius Junior".into(),
-            role: Some("subject".into()),
-            joined_on: Some("2026-08-02".into()),
-            last_seen_on: Some("2026-08-05".into()),
-        }
-    }
-
     #[test]
     fn contested_pair_preserves_order_attribution_and_both_claims() {
         let claims = vec![
@@ -382,54 +220,5 @@ mod tests {
             ),
         ];
         assert!(mark_contested(&claims).iter().all(|c| !c.marked));
-    }
-
-    #[test]
-    fn surviving_voices_keep_their_source_slices() {
-        let claims = vec![
-            claim(3, "ESPN", "Arsenal agreed personal terms", "transfer"),
-            claim(
-                2,
-                "BBC",
-                "He trained fully on Monday after a knock",
-                "injury",
-            ),
-        ];
-        let insider = slice_claims(&claims, Voice::Insider);
-        assert_eq!(insider.len(), 1);
-        assert_eq!(insider[0].article_id, 3);
-        let scout = slice_claims(&claims, Voice::Scout);
-        assert_eq!(scout.len(), 1);
-        assert_eq!(scout[0].article_id, 2);
-        assert!(slice_claims(&claims[1..], Voice::Insider).is_empty());
-        assert!(slice_claims(&[], Voice::Insider).is_empty());
-    }
-
-    #[test]
-    fn retired_register_is_excluded_from_framing() {
-        let header = framing(&packet(vec![]), Some(&part()));
-        assert!(!header.contains("MOOD:"));
-        assert!(!header.contains("holding its breath"));
-    }
-
-    #[test]
-    fn role_line_states_the_entitys_span() {
-        let header = framing(&packet(vec![]), Some(&part()));
-        assert!(header
-            .contains("ENTITY: Vinicius Junior (subject) — in this story 2026-08-02 → 2026-08-05"));
-    }
-
-    #[test]
-    fn prior_packet_contributes_exactly_one_line() {
-        let mut p = packet(vec![]);
-        p.prior_headline = Some("Arsenal open talks for Vinicius".into());
-        let header = framing(&p, Some(&part()));
-        assert_eq!(
-            header
-                .lines()
-                .filter(|l| l.starts_with("PREVIOUSLY:"))
-                .count(),
-            1
-        );
     }
 }

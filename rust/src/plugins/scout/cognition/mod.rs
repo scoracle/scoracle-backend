@@ -1009,7 +1009,7 @@ fn first_direction_contradiction(
             continue;
         }
         for (label, expected) in directions {
-            if !sentence.contains(&label.to_lowercase()) {
+            if !mentions_direction_label(sentence, label) {
                 continue;
             }
             match expected {
@@ -1073,6 +1073,7 @@ fn mentions_direction_label(clause: &str, label: &str) -> bool {
         return true;
     }
     folded.split_whitespace().any(|word| {
+        let word = word.strip_suffix('s').unwrap_or(word);
         let stem = word.strip_suffix("ing").unwrap_or(word);
         stem.len() >= 5 && clause.contains(stem)
     })
@@ -1096,8 +1097,13 @@ fn has_internal_form_contradiction(body: &str) -> bool {
 
 fn first_measure_association_error(body: &str) -> Option<&'static str> {
     for claim in body.to_lowercase().split(['.', '!', '?', ';', '\n']) {
-        let has_xg = claim.contains("expected goals") || claim.contains("xg");
-        let has_xa = claim.contains("expected assists") || claim.contains("xa");
+        let has_word = |word| {
+            claim
+                .split(|c: char| !c.is_alphanumeric())
+                .any(|token| token == word)
+        };
+        let has_xg = claim.contains("expected goals") || has_word("xg");
+        let has_xa = claim.contains("expected assists") || has_word("xa");
         let creation = ["creation", "creative", "playmaking", "assist"]
             .iter()
             .any(|term| claim.contains(term));
@@ -1280,7 +1286,16 @@ fn first_band_contradiction(
             .filter(|(label, _)| clause.contains(&label.to_lowercase()))
             .max_by_key(|(label, _)| label.len());
         if let Some((label, expected)) = matched {
-            if let Some(stated) = BAND_TERMS.iter().find(|term| clause.contains(**term)) {
+            let words = clause
+                .split(|c: char| !c.is_alphanumeric())
+                .filter(|word| !word.is_empty())
+                .collect::<Vec<_>>();
+            if let Some(stated) = BAND_TERMS.iter().find(|term| {
+                let term_words = term.split_whitespace().collect::<Vec<_>>();
+                words
+                    .windows(term_words.len())
+                    .any(|window| window == term_words)
+            }) {
                 if *stated != expected {
                     return Some((label.clone(), (*stated).into(), expected.clone()));
                 }

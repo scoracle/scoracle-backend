@@ -15,7 +15,6 @@ import (
 	"os"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -141,7 +140,7 @@ const defaultRSSBaseURL = "https://news.google.com/rss/search"
 // NewsService fetches entity news from Google News RSS.
 //
 // When constructed with a non-nil pool, matched articles are persisted to
-// news_articles (with the Editor's read enqueued in the same transaction).
+// news_articles (with Harvester work enqueued in the same transaction).
 // That populates the long-term corpus consumed by the cognition layer.
 type NewsService struct {
 	httpClient *http.Client
@@ -174,70 +173,12 @@ func isTeamEntity(entityType string) bool {
 	return strings.EqualFold(strings.TrimSpace(entityType), "team")
 }
 
-// editorReadsPerEntityDay is the cap on how many of ONE entity's articles the Editor is asked
-// to read in ONE ingest day (D-T21, Scott 2026-08-06: "limit the reader to N articles per
-// entity … that will free up enough headroom for the Investigator to get meaningful work in,
-// and the graph work as well").
-//
-// **0 means NO CAP, and 0 is the default, so deploying this code changes nothing.** The cap is
-// armed by setting `EDITOR_MAX_READS_PER_ENTITY_DAY` and restarting — one knob, reversible in
-// one restart, and the code meets production before the behaviour does.
-//
-// **The size is not a small number, and the measurement is why the knob exists at all.** An
-// entity-day averaged ~50 articles over 2026-08-02..06 (worst 259), so the cap is a large cut,
-// not a trim: 5/day removes 90.4% of the read stream, 10/day removes 82.2%, 15/day removes
-// 75.2%. Scott chose **10**. The Editor runs at ~96% of ingest and starves everything behind it
-// (`investigate_entity` 9,049 pending at ~57h when this was written), so what the cap buys is
-// that queue's drain — and what it costs is corpus depth per entity. Re-measure both before
-// moving it: links per read (1.27 player links/read) and the `irrelevant` rate (15.4%).
-// Harvester intake is opt-in until its worker and schema are deployed.
+// Harvester intake requires its schema and worker before enrollment.
 func harvesterIngestEnabled() bool { return os.Getenv("HARVESTER_INGEST_ENABLED") == "1" }
-
-func editorReadsPerEntityDay() int {
-	if v := os.Getenv("EDITOR_MAX_READS_PER_ENTITY_DAY"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
-			return n
-		}
-	}
-	return 0
-}
-
-// capFreshReads bounds `fresh` (this sweep's newly-inserted article ids, IN THE ORDER GOOGLE
-// RETURNED THEM) to what remains of this entity's daily allowance, and reports how many it
-// withheld.
-//
-// **Which ones survive is Google's call, not ours.** `fresh` arrives in result order, so the cap
-// keeps the front of it — the articles Google ranked highest for the query we asked. That is the
-// whole ranking rule, deliberately: the rail just deleted 393 lines of alias scoring and lane
-// caps (8.9), and re-introducing a "which article is most worth reading" heuristic here would be
-// the same mistake in a new place. Simple and durable beats clever and fragile.
-//
-// `already` is counted from `news_articles` rather than tracked in state — the provenance written
-// on INSERT (`raw->>'query_team_id'`) is the same fact the cap is defined over, so there is
-// nothing to keep in sync and nothing to backfill. One extra query per sweep.
-//
-// **What is withheld is the READ, never the article.** The row is inserted and keeps its
-// provenance; only the Editor's `pipeline_work` item is skipped. Nothing is lost and a later
-// backfill can enqueue the remainder — but a skip that is invisible is a skip nobody can audit,
-// which is why the count is returned and logged rather than dropped (§0b: a WARN that says
-// "continuing" hides its own frequency).
-func capFreshReads(fresh []int64, already, cap int) (kept []int64, withheld int) {
-	if cap <= 0 {
-		return fresh, 0
-	}
-	remaining := cap - already
-	if remaining < 0 {
-		remaining = 0
-	}
-	if remaining >= len(fresh) {
-		return fresh, 0
-	}
-	return fresh[:remaining], len(fresh) - remaining
-}
 
 // GetEntityNews sweeps Google News RSS for one entity and persists what it
 // matched. entityType/entityID drive the write-through (news_articles + the
-// Editor's read, in one transaction); pass entityType="" / entityID=0 to fetch
+// Harvester work, in one transaction); pass entityType="" / entityID=0 to fetch
 // without persisting.
 //
 // The first return is the article IDs HANDED TO THE EDITOR on this call. With the
@@ -264,7 +205,7 @@ func (s *NewsService) GetEntityNews(
 	}
 
 	// Write-through: persist the matched articles (persistArticles also enqueues
-	// the Editor's read in-txn). Non-fatal — a failed persist must not break the
+	// Harvester work in-txn). Non-fatal — a failed persist must not break the
 	// sweep; the caller logs and moves on.
 	var affected []int64
 	if s.pool != nil && entityType != "" && entityID > 0 && len(matched) > 0 {
@@ -295,22 +236,23 @@ func (s *NewsService) GetEntityNews(
 //
 // The hypothesis is not lost, because it was never really a link: which entity's sweep surfaced an
 // article is recorded in `news_articles.raw` (`q`, `lane`, `edition`, `window`, `query_team_id`,
-// `query_sport`) on INSERT, and the Editor reads it from there. One writer per fact.
+// `query_sport`) on INSERT, and the Harvester reads it from there. One writer per fact.
 //
-// So ingest's job is now exactly: write the article, enqueue the read. Google ranked it, the Editor
+// So ingest's job is now exactly: write the article, enqueue the read. Google ranked it, Harvester
 // decides what it is about.
 //
 // Errors are returned to the caller but don't break the response path — the caller logs and moves
 // on. The returned slice is the article IDs freshly inserted this call (a re-seen URL is omitted)
-// AND not withheld by D-T21's cap — i.e. exactly the set handed to the Editor. The second return
-// is how many fresh inserts the cap withheld, so the caller can report stored-but-unread rather
-// than silently printing a smaller number.
+// handed to Harvester. The retained second return is zero; the Editor read cap is retired.
 func (s *NewsService) persistArticles(
 	ctx context.Context,
 	sport, primaryEntityType string,
 	primaryEntityID int,
 	articles []Article,
 ) ([]int64, int, error) {
+	if !harvesterIngestEnabled() || os.Getenv("HARVESTER_SHADOW_MODE") == "1" {
+		return nil, 0, fmt.Errorf("Editor intake is retired; enable HARVESTER_INGEST_ENABLED=1 with shadow mode off after deploying Harvester")
+	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, 0, err
@@ -319,15 +261,8 @@ func (s *NewsService) persistArticles(
 
 	sportUpper := strings.ToUpper(sport)
 
-	// Fresh ARTICLE ROWS → the greenfield Editor reads each once. A SLICE, not a map, and the
-	// order is Google's result order: D-T21's cap keeps the front of this list, so the iteration
-	// order has to be the ranking rather than Go's randomized map order.
-	var needEditor []int64
 	var needHarvester []int64
-	seenFresh := make(map[int64]bool)
 	seenHarvester := make(map[int64]bool)
-	harvesterMode := harvesterIngestEnabled()
-	shadowMode := harvesterMode && os.Getenv("HARVESTER_SHADOW_MODE") == "1"
 
 	for _, a := range articles {
 		if a.URL == "" || a.Title == "" {
@@ -369,11 +304,7 @@ func (s *NewsService) persistArticles(
 			}
 		}
 
-		// (xmax = 0) distinguishes a fresh INSERT from a conflict-update in the same
-		// statement — the standard idiom, used here so the editor enqueue below fires
-		// once per article's first sighting rather than once per sweep that re-sees it.
 		var articleID int64
-		var inserted bool
 		err := tx.QueryRow(ctx, `
 			INSERT INTO news_articles (url_hash, url, source, title, description, published_at, feed_rank, raw)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -383,153 +314,61 @@ func (s *NewsService) persistArticles(
 			    source      = COALESCE(EXCLUDED.source, news_articles.source),
 			    published_at = COALESCE(EXCLUDED.published_at, news_articles.published_at),
 			    feed_rank   = LEAST(COALESCE(news_articles.feed_rank, EXCLUDED.feed_rank), EXCLUDED.feed_rank)
-			RETURNING id, (xmax = 0)
-		`, hash, a.URL, nullIfEmpty(a.Source), a.Title, nullIfEmpty(a.Description), publishedAt, a.FeedRank, rawProv).Scan(&articleID, &inserted)
+			RETURNING id
+		`, hash, a.URL, nullIfEmpty(a.Source), a.Title, nullIfEmpty(a.Description), publishedAt, a.FeedRank, rawProv).Scan(&articleID)
 		if err != nil {
 			return nil, 0, fmt.Errorf("upsert article: %w", err)
 		}
-		if harvesterMode {
-			// Preserve every entity-query edge, including URLs another sweep first inserted.
-			// This is retrieval provenance, never an authoritative article/entity link.
-			hit, err := json.Marshal(map[string]any{
-				"q": a.queryTerm, "lane": a.queryLane, "edition": a.queryEdition,
-				"window": a.queryWindow, "feed_rank": a.FeedRank,
-			})
-			if err != nil {
-				return nil, 0, fmt.Errorf("encode harvester query: %w", err)
-			}
-			var firstEntityHit bool
-			err = tx.QueryRow(ctx, `
-				INSERT INTO public.harvester_query_provenance
-				    (article_id, entity_type, entity_id, sport, feed_rank, query_terms)
-				VALUES ($1, $2, $3, $4, $5, jsonb_build_array($6::jsonb))
-				ON CONFLICT (article_id, entity_type, entity_id, sport) DO UPDATE SET
-				    feed_rank = LEAST(COALESCE(harvester_query_provenance.feed_rank, EXCLUDED.feed_rank), EXCLUDED.feed_rank),
-				    query_terms = CASE WHEN harvester_query_provenance.query_terms @> EXCLUDED.query_terms
-				                       THEN harvester_query_provenance.query_terms
-				                       ELSE harvester_query_provenance.query_terms || EXCLUDED.query_terms END,
-				    last_seen_at = NOW()
-				RETURNING (xmax = 0)
-			`, articleID, primaryEntityType, primaryEntityID, sportUpper, a.FeedRank, hit).Scan(&firstEntityHit)
-			if err != nil {
-				return nil, 0, fmt.Errorf("upsert harvester query provenance: %w", err)
-			}
-			if firstEntityHit && !seenHarvester[articleID] {
-				seenHarvester[articleID] = true
-				needHarvester = append(needHarvester, articleID)
-			}
-			if shadowMode && inserted && !seenFresh[articleID] {
-				seenFresh[articleID] = true
-				needEditor = append(needEditor, articleID)
-			}
-		} else if inserted && !seenFresh[articleID] {
-			seenFresh[articleID] = true
-			needEditor = append(needEditor, articleID)
+		// Preserve every entity-query edge, including URLs another sweep first inserted.
+		// This is retrieval provenance, never an authoritative article/entity link.
+		hit, err := json.Marshal(map[string]any{
+			"q": a.queryTerm, "lane": a.queryLane, "edition": a.queryEdition,
+			"window": a.queryWindow, "feed_rank": a.FeedRank,
+		})
+		if err != nil {
+			return nil, 0, fmt.Errorf("encode harvester query: %w", err)
+		}
+		var firstEntityHit bool
+		err = tx.QueryRow(ctx, `
+			INSERT INTO public.harvester_query_provenance
+			    (article_id, entity_type, entity_id, sport, feed_rank, query_terms)
+			VALUES ($1, $2, $3, $4, $5, jsonb_build_array($6::jsonb))
+			ON CONFLICT (article_id, entity_type, entity_id, sport) DO UPDATE SET
+			    feed_rank = LEAST(COALESCE(harvester_query_provenance.feed_rank, EXCLUDED.feed_rank), EXCLUDED.feed_rank),
+			    query_terms = CASE WHEN harvester_query_provenance.query_terms @> EXCLUDED.query_terms
+			                       THEN harvester_query_provenance.query_terms
+			                       ELSE harvester_query_provenance.query_terms || EXCLUDED.query_terms END,
+			    last_seen_at = NOW()
+			RETURNING (xmax = 0)
+		`, articleID, primaryEntityType, primaryEntityID, sportUpper, a.FeedRank, hit).Scan(&firstEntityHit)
+		if err != nil {
+			return nil, 0, fmt.Errorf("upsert harvester query provenance: %w", err)
+		}
+		if firstEntityHit && !seenHarvester[articleID] {
+			seenHarvester[articleID] = true
+			needHarvester = append(needHarvester, articleID)
 		}
 	}
 
-	// D-T21: bound this entity's reads for the ingest day. Counted from the provenance already
-	// on the rows, in the same transaction, so the number the cap acts on is the number the
-	// cap is defined over. Only team sweeps carry `query_team_id`, so only they are capped —
-	// that is a stated limit of the rule, not an oversight (31% of arrivals carry no team
-	// provenance and stay uncapped).
-	//
-	// The count keys on (team id, SPORT): team ids are per-sport namespaces, and the sweep
-	// runs NBA→NFL→FOOTBALL, so an id-only count let the earlier sports spend a football
-	// club's whole allowance (every Premier League club starved Aug 7–14, 2026). Rows from
-	// before the query_sport provenance existed don't match the pair and are excluded —
-	// one deploy-day allowance reset, self-correcting on the next sweep.
-	withheld := 0
-	if capN := editorReadsPerEntityDay(); (!harvesterMode || shadowMode) && capN > 0 && isTeamEntity(primaryEntityType) {
-		var already int
-		if err := tx.QueryRow(ctx, `
-			SELECT count(*)
-			  FROM news_articles
-			 WHERE (raw->>'query_team_id')::int = $1
-			   AND raw->>'query_sport' = $2
-			   AND fetched_at >= date_trunc('day', now())
-		`, primaryEntityID, sportUpper).Scan(&already); err != nil {
-			return nil, 0, fmt.Errorf("count today's reads for entity: %w", err)
+	for _, id := range needHarvester {
+		var entities int
+		if err := tx.QueryRow(ctx,
+			"SELECT count(*) FROM public.harvester_query_provenance WHERE article_id = $1", id,
+		).Scan(&entities); err != nil {
+			return nil, 0, fmt.Errorf("count harvester query entities: %w", err)
 		}
-		// `already` includes the rows just inserted above, which ARE this sweep's fresh set —
-		// subtract them so the allowance is spent once, not twice.
-		already -= len(needEditor)
-		if already < 0 {
-			already = 0
-		}
-		needEditor, withheld = capFreshReads(needEditor, already, capN)
-	}
-
-	if harvesterMode {
-		// A new entity edge reopens the article-level claim with a monotone input
-		// revision. Every canonical Google candidate remains eligible; there is no
-		// Editor-era ten-read ceiling in this mode.
-		for _, id := range needHarvester {
-			var entities int
-			if err := tx.QueryRow(ctx,
-				"SELECT count(*) FROM public.harvester_query_provenance WHERE article_id = $1", id,
-			).Scan(&entities); err != nil {
-				return nil, 0, fmt.Errorf("count harvester query entities: %w", err)
-			}
-			if err := work.Enqueue(ctx, tx, work.Item{
-				Stage: work.StageHarvester, EntityType: "article", EntityID: int(id),
-				Sport: sportUpper, InputVersion: fmt.Sprintf("harvest-context-v7:q%d", entities),
-			}); err != nil {
-				return nil, 0, err
-			}
-		}
-		// In shadow, legacy Editor remains the live publisher while Harvester
-		// classifies every query edge. The Editor cap applies only to its own work.
-		if shadowMode {
-			for _, id := range needEditor {
-				if err := work.Enqueue(ctx, tx, work.Item{
-					Stage: work.StageEditor, EntityType: "article", EntityID: int(id), Sport: sportUpper,
-				}); err != nil {
-					return nil, 0, err
-				}
-			}
-		}
-		if err := tx.Commit(ctx); err != nil {
-			return nil, 0, err
-		}
-		return needHarvester, withheld, nil
-	}
-
-	// The greenfield Editor reads EVERY new article once (PLAN-one-rail 3.5) — same tx, so
-	// new material reaches cognition on commit (mig-150 NOTIFY). Keyed on fresh INSERTs
-	// rather than fresh links: the Editor's unit is the article, and a re-seen URL keeps its
-	// read. Duplicate enqueues collapse on the pipeline_work PK without yanking a live lease.
-	// The stage drains only where COGNITION_STAGES includes 'editor' (archbox).
-	for _, id := range needEditor {
 		if err := work.Enqueue(ctx, tx, work.Item{
-			Stage:      work.StageEditor,
-			EntityType: "article",
-			EntityID:   int(id),
-			Sport:      sportUpper,
+			Stage: work.StageHarvester, EntityType: "article", EntityID: int(id),
+			Sport: sportUpper, InputVersion: fmt.Sprintf("harvest-context-v7:q%d", entities),
 		}); err != nil {
 			return nil, 0, err
 		}
 	}
-
 	if err := tx.Commit(ctx); err != nil {
 		return nil, 0, err
 	}
+	return needHarvester, 0, nil
 
-	// Count the skip, never just note it (§0b): a cap whose bite is invisible cannot be audited,
-	// and "articles stored but never read" is precisely the number this knob is tuned on.
-	if withheld > 0 {
-		s.logger.Info("editor read cap reached",
-			"entity_type", primaryEntityType,
-			"entity_id", primaryEntityID,
-			"sport", sportUpper,
-			"enqueued", len(needEditor),
-			"withheld", withheld,
-			"cap_per_entity_day", editorReadsPerEntityDay())
-	}
-
-	ids := make([]int64, len(needEditor))
-	copy(ids, needEditor)
-	return ids, withheld, nil
 }
 
 func sha256Hex(s string) string {
@@ -764,7 +603,7 @@ func (s *NewsService) fetchFromRSS(
 // club words (athletic, celtic, city, inter, nice, real, united …), four trusted literals
 // (barca, barça, spurs, juve), and a hand-maintained short-alias allowlist. Every line of it
 // existed to protect a downstream regex from whatever came back. Nothing downstream guesses any
-// more: Google ranks, and the Editor reads the body and decides. So we ask about every name we
+// more: Google ranks, and Harvester filters the publisher body. So we ask about every name we
 // have and let the two things that are genuinely good at this do the work.
 //
 // Aliases earn their lane on measurement, not on principle — sampled live 2026-08-06, an alias

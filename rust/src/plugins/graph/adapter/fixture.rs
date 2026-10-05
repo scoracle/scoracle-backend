@@ -1,5 +1,5 @@
 //! Source-grounded fixture-result nomination owned by Graph for Harvester articles.
-use crate::evidence::news::result::{parse_result_line, ParsedResult};
+use crate::evidence::news::result::parse_result_line;
 use crate::plugins::graph::cognition::GRAPH_PROMPT_VERSION;
 use anyhow::{ensure, Context, Result};
 use sha2::{Digest, Sha256};
@@ -47,7 +47,7 @@ pub(super) async fn review(
     );
 
     let mut quote = None;
-    let mut fixture_id = None;
+    let fixture_id = Option::<i32>::None;
     let status = if result_line.trim().is_empty() {
         "no_result"
     } else if result_line.chars().count() > 300
@@ -63,19 +63,9 @@ pub(super) async fn review(
                 let away = resolve_team(conn, sport, &parsed.away).await?;
                 match (home, away) {
                     (Some(home), Some(away)) if home != away => {
-                        let (outcome, id) = upsert_fixture(
-                            conn,
-                            article_id,
-                            sport,
-                            model_version,
-                            result_line,
-                            &parsed,
-                            home,
-                            away,
-                        )
-                        .await?;
-                        fixture_id = Some(id);
-                        outcome
+                        // A copied score line does not identify a fixture, its date,
+                        // finality or trusted result. Preserve the nomination for review.
+                        "extraction_unavailable"
                     }
                     _ => "team_unresolved",
                 }
@@ -119,101 +109,4 @@ async fn resolve_team(conn: &mut PgConnection, sport: &str, name: &str) -> Resul
     } else {
         None
     })
-}
-
-#[allow(clippy::too_many_arguments)]
-async fn upsert_fixture(
-    conn: &mut PgConnection,
-    article_id: i64,
-    sport: &str,
-    model_version: &str,
-    source_quote: &str,
-    parsed: &ParsedResult,
-    home_id: i32,
-    away_id: i32,
-) -> Result<(&'static str, i32)> {
-    let meta = serde_json::json!({
-        "needs_verification": true,
-        "nominated_by": "harvester_graph",
-        "article_id": article_id,
-        "source_quote": source_quote,
-        "model_version": model_version,
-        "contract_version": GRAPH_PROMPT_VERSION,
-    });
-    let existing = sqlx::query(
-        "WITH anchor AS ( \
-            SELECT COALESCE(published_at,fetched_at) AS at \
-              FROM public.news_articles WHERE id=$4 \
-         ) SELECT f.id,f.status,f.home_team_id,f.home_score,f.away_score \
-           FROM public.fixtures f,anchor \
-          WHERE f.sport=$1 \
-            AND ((f.home_team_id=$2 AND f.away_team_id=$3) \
-              OR (f.home_team_id=$3 AND f.away_team_id=$2)) \
-            AND f.start_time BETWEEN anchor.at-interval '2 days' \
-                                 AND anchor.at+interval '2 days' \
-          ORDER BY abs(extract(epoch FROM (f.start_time-anchor.at))),f.id LIMIT 1",
-    )
-    .bind(sport)
-    .bind(home_id)
-    .bind(away_id)
-    .bind(article_id)
-    .fetch_optional(&mut *conn)
-    .await?;
-    if let Some(row) = existing {
-        let id: i32 = row.get("id");
-        let fixture_home: i32 = row.get("home_team_id");
-        let (wanted_home, wanted_away) = if fixture_home == home_id {
-            (parsed.home_score as i32, parsed.away_score as i32)
-        } else {
-            (parsed.away_score as i32, parsed.home_score as i32)
-        };
-        let current_home: Option<i32> = row.get("home_score");
-        let current_away: Option<i32> = row.get("away_score");
-        let status: String = row.get("status");
-        if (status == "completed" || status == "seeded")
-            && current_home == Some(wanted_home)
-            && current_away == Some(wanted_away)
-        {
-            return Ok(("already_correct", id));
-        }
-        sqlx::query(
-            "UPDATE public.fixtures SET \
-               status=CASE WHEN status='seeded' THEN status ELSE 'completed' END, \
-               home_score=$2,away_score=$3,meta=meta || $4::jsonb,updated_at=now() \
-             WHERE id=$1",
-        )
-        .bind(id)
-        .bind(wanted_home)
-        .bind(wanted_away)
-        .bind(meta)
-        .execute(&mut *conn)
-        .await?;
-        return Ok(("corrected", id));
-    }
-    let id: i32 = sqlx::query_scalar(
-        "WITH anchor AS ( \
-            SELECT COALESCE(published_at,fetched_at) AS at \
-              FROM public.news_articles WHERE id=$7 \
-         ) INSERT INTO public.fixtures \
-           (sport,season,league_id,home_team_id,away_team_id,start_time, \
-            status,home_score,away_score,external_id,meta) \
-         SELECT $1,CASE WHEN extract(month FROM anchor.at)>=7 \
-                        THEN extract(year FROM anchor.at)::int \
-                        ELSE extract(year FROM anchor.at)::int-1 END, \
-                CASE WHEN ht.league_id=at.league_id THEN ht.league_id ELSE NULL END, \
-                $2,$3,anchor.at,'completed',$4,$5,NULL,$6::jsonb \
-           FROM anchor,public.teams ht,public.teams at \
-          WHERE ht.id=$2 AND ht.sport=$1 AND at.id=$3 AND at.sport=$1 \
-         RETURNING id",
-    )
-    .bind(sport)
-    .bind(home_id)
-    .bind(away_id)
-    .bind(parsed.home_score as i32)
-    .bind(parsed.away_score as i32)
-    .bind(meta)
-    .bind(article_id)
-    .fetch_one(&mut *conn)
-    .await?;
-    Ok(("created", id))
 }

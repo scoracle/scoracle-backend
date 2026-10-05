@@ -30,7 +30,7 @@ fn parser_fail_closed() {
 }
 
 #[test]
-fn parser_valid_relation_resolves_numbers() {
+fn parser_refuses_schema_valid_generated_relations() {
     let c = candidates();
     let p = GraphParser { candidates: &c };
     let out = p
@@ -39,19 +39,14 @@ fn parser_valid_relation_resolves_numbers() {
         )
         .unwrap()
         .unwrap();
-    assert_eq!(out.relations.len(), 1);
-    let r = &out.relations[0];
-    assert_eq!((r.subject_type.as_str(), r.subject_id), ("player", 10));
-    assert_eq!(
-        (r.object_type.as_deref(), r.object_id),
-        (Some("team"), Some(18))
+    assert!(
+        out.relations.is_empty(),
+        "schema-valid model output is not a verified relation"
     );
-    assert_eq!(r.predicate, "trade_rumor");
-    assert_eq!(r.confidence, "reported");
 }
 
 #[test]
-fn parser_drops_invalid_entries_keeps_valid() {
+fn parser_refuses_all_generated_relations() {
     let c = candidates();
     let p = GraphParser { candidates: &c };
     let out = p
@@ -66,10 +61,7 @@ fn parser_drops_invalid_entries_keeps_valid() {
         )
         .unwrap()
         .unwrap();
-    // Only the last survives: bad subject, bad predicate, dangling object, bad
-    // confidence are each dropped; sentiment -9 clamps to -1.
-    assert_eq!(out.relations.len(), 1);
-    assert_eq!(out.relations[0].sentiment, Some(-1.0));
+    assert!(out.relations.is_empty());
 }
 
 #[test]
@@ -92,8 +84,8 @@ fn parser_person_discovery_rules() {
     // "other"; a PLAYER team_context is dropped (kept person, no tie).
     assert_eq!(out.persons.len(), 2);
     assert_eq!(out.persons[0].name, "Enzo Maresca");
-    assert_eq!(out.persons[0].kind, "coach");
-    assert_eq!(out.persons[0].team_context_id, Some(18));
+    assert_eq!(out.persons[0].kind, "other");
+    assert_eq!(out.persons[0].team_context_id, None);
     assert_eq!(out.persons[1].name, "Rafaela Pimenta");
     assert_eq!(out.persons[1].kind, "other");
     assert_eq!(out.persons[1].team_context_id, None);
@@ -175,7 +167,7 @@ async fn studio_graph_uses_prepared_evidence_and_actual_model_provenance() {
         .unwrap()
         .unwrap();
     assert_eq!(result.model, "actual-graph-model");
-    assert_eq!(result.value.unwrap().relations[0].object_id, Some(18));
+    assert!(result.value.unwrap().relations.is_empty());
     let calls = model.requests.lock().unwrap();
     assert_eq!(calls.len(), 1);
     assert_eq!(

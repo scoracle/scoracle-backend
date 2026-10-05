@@ -64,14 +64,20 @@ async fn claim(pool: &PgPool, revision: &str) -> Item {
         .unwrap()
         .remove(0)
 }
-fn prepared(raw: &str) -> Prepared {
+async fn prepared(pool: &PgPool, raw: &str) -> Prepared {
     let candidates = [GraphCandidate {
         entity_type: "team".into(),
         entity_id: TEAM,
         descriptor: "Graph Club (team)".into(),
     }];
     Prepared::Read {
-        input_hash: "test-material".into(),
+        input_hash: {
+            let (article, candidates) = load_graph_article_context(pool, ARTICLE, SPORT)
+                .await
+                .unwrap()
+                .unwrap();
+            hash_components(&build_graph_input_components(&article, &candidates))
+        },
         extracted: Box::new(Extracted {
             value: GraphParser {
                 candidates: &candidates,
@@ -87,10 +93,10 @@ fn prepared(raw: &str) -> Prepared {
         }),
     }
 }
-fn product() -> Prepared {
-    prepared(
+async fn product(pool: &PgPool) -> Prepared {
+    prepared(pool,
         r#"{"relations":[{"subject":1,"predicate":"praise","object":null,"sentiment":0.4,"confidence":"reported"}],"persons":[{"name":"Riley Example","kind":"coach","team_context":1}]}"#,
-    )
+    ).await
 }
 async fn count(pool: &PgPool, table: &str) -> i64 {
     sqlx::query_scalar(&format!("SELECT count(*) FROM {table} WHERE sport=$1"))
@@ -156,52 +162,43 @@ async fn graph_prefers_exact_harvester_context_over_editor_blurb() {
 }
 #[tokio::test]
 #[ignore = "requires isolated TEST_DATABASE_URL; run serially"]
-async fn graph_commits_relations_person_evidence_marker_and_completion_once() {
+async fn graph_refuses_generated_facts_and_completes_with_receipt_once() {
     let pool = setup().await;
     let item = claim(&pool, "v1").await;
     assert_eq!(
-        commit_claimed(&pool, &item, &product()).await.unwrap(),
+        commit_claimed(&pool, &item, &product(&pool).await)
+            .await
+            .unwrap(),
         PluginOutcome::Committed
     );
-    assert_eq!(count(&pool, "narrative_events").await, 1);
-    assert_eq!(count(&pool, "narrative_person_mentions").await, 1);
-    let evidence: (i32, i32, String) = sqlx::query_as(
-        "SELECT mention_count,distinct_sources,status FROM narrative_persons WHERE sport=$1",
-    )
-    .bind(SPORT)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
-    assert_eq!(evidence, (1, 1, "candidate".into()));
-    let marker:(String,String,String,i32,i32)=sqlx::query_as("SELECT model_version,prompt_version,parser_outcome,relations_n,persons_n FROM graph_extractions WHERE article_id=$1").bind(ARTICLE).fetch_one(&pool).await.unwrap();
+    assert_eq!(count(&pool, "narrative_events").await, 0);
+    assert_eq!(count(&pool, "narrative_person_mentions").await, 0);
+    assert_eq!(count(&pool, "narrative_persons").await, 0);
+    let marker: (String, String, String, i32, i32) = sqlx::query_as("SELECT model_version,prompt_version,parser_outcome,relations_n,persons_n FROM graph_extractions WHERE article_id=$1")
+        .bind(ARTICLE).fetch_one(&pool).await.unwrap();
     assert_eq!(
         marker,
         (
             "actual-graph-model".into(),
             GRAPH_PROMPT_VERSION.into(),
             "extracted".into(),
-            1,
+            0,
             1
         )
     );
     assert_eq!(count(&pool, "pipeline_work").await, 0);
     assert_eq!(
-        commit_claimed(&pool, &item, &product()).await.unwrap(),
+        commit_claimed(&pool, &item, &product(&pool).await)
+            .await
+            .unwrap(),
         PluginOutcome::Superseded
     );
     let second = claim(&pool, "v2").await;
-    commit_claimed(&pool, &second, &product()).await.unwrap();
-    let mentions: i32 =
-        sqlx::query_scalar("SELECT mention_count FROM narrative_persons WHERE sport=$1")
-            .bind(SPORT)
-            .fetch_one(&pool)
-            .await
-            .unwrap();
-    assert_eq!(
-        mentions, 1,
-        "re-extraction must not manufacture corroboration"
-    );
-    assert_eq!(count(&pool, "narrative_events").await, 1);
+    commit_claimed(&pool, &second, &product(&pool).await)
+        .await
+        .unwrap();
+    assert_eq!(count(&pool, "narrative_person_mentions").await, 0);
+    assert_eq!(count(&pool, "narrative_events").await, 0);
 }
 
 #[tokio::test]
@@ -238,7 +235,9 @@ async fn graph_nominates_only_source_anchored_unknown_people_for_investigator() 
     .unwrap();
     let item = claim(&pool, "source-v1").await;
     assert_eq!(
-        commit_claimed(&pool, &item, &product()).await.unwrap(),
+        commit_claimed(&pool, &item, &product(&pool).await)
+            .await
+            .unwrap(),
         PluginOutcome::Committed
     );
     let candidate: (i32, String, Option<String>) = sqlx::query_as(
@@ -266,7 +265,9 @@ async fn graph_nominates_only_source_anchored_unknown_people_for_investigator() 
     );
     // Replaying the same article under a new claim cannot invent corroboration.
     let repeat = claim(&pool, "source-v2").await;
-    commit_claimed(&pool, &repeat, &product()).await.unwrap();
+    commit_claimed(&pool, &repeat, &product(&pool).await)
+        .await
+        .unwrap();
     assert_eq!(
         sqlx::query_scalar::<_, i32>("SELECT mention_count FROM entity_candidates WHERE sport=$1")
             .bind(SPORT)
@@ -350,8 +351,11 @@ async fn graph_nominates_verbatim_final_result_and_records_refused_quotes() {
     .await
     .unwrap();
     let claimed = claim(&pool, "fixture-v1").await;
-    let output =
-        prepared(r#"{"relations":[],"persons":[],"final_result_line":"Graph Club 2-1 Away Club"}"#);
+    let output = prepared(
+        &pool,
+        r#"{"relations":[],"persons":[],"final_result_line":"Graph Club 2-1 Away Club"}"#,
+    )
+    .await;
     assert_eq!(
         commit_claimed(&pool, &claimed, &output).await.unwrap(),
         PluginOutcome::Committed
@@ -363,24 +367,15 @@ async fn graph_nominates_verbatim_final_result_and_records_refused_quotes() {
     .fetch_one(&pool)
     .await
     .unwrap();
-    assert_eq!(review.0, "created");
+    assert_eq!(review.0, "extraction_unavailable");
     assert_eq!(review.1.as_deref(), Some("Graph Club 2-1 Away Club"));
-    assert!(review.2.is_some());
-    let fixture: (i32, i32, i32, i32, bool, String) = sqlx::query_as(
-        "SELECT home_team_id,away_team_id,home_score,away_score, \
-                (meta->>'needs_verification')::bool,meta->>'nominated_by' \
-         FROM fixtures WHERE id=$1",
-    )
-    .bind(review.2)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
-    assert_eq!(fixture, (TEAM, AWAY, 2, 1, true, "harvester_graph".into()));
+    assert!(review.2.is_none());
+    assert_eq!(count(&pool, "fixtures").await, 0);
     assert_eq!(
         commit_claimed(&pool, &claimed, &output).await.unwrap(),
         PluginOutcome::Superseded
     );
-    assert_eq!(count(&pool, "fixtures").await, 1);
+    assert_eq!(count(&pool, "fixtures").await, 0);
     let mut tx = pool.begin().await.unwrap();
     assert_eq!(
         fixture::review(
@@ -396,7 +391,7 @@ async fn graph_nominates_verbatim_final_result_and_records_refused_quotes() {
         Some("quote_not_found")
     );
     tx.commit().await.unwrap();
-    assert_eq!(count(&pool, "fixtures").await, 1);
+    assert_eq!(count(&pool, "fixtures").await, 0);
     assert_eq!(count(&pool, "harvester_fixture_reviews").await, 2);
 }
 #[tokio::test]
@@ -412,7 +407,9 @@ async fn graph_revision_and_reclaim_fence_every_effect() {
         .remove(0);
     for item in [&stale, &old] {
         assert_eq!(
-            commit_claimed(&pool, item, &product()).await.unwrap(),
+            commit_claimed(&pool, item, &product(&pool).await)
+                .await
+                .unwrap(),
             PluginOutcome::Superseded
         );
         for table in [
@@ -426,7 +423,9 @@ async fn graph_revision_and_reclaim_fence_every_effect() {
         }
     }
     assert_eq!(
-        commit_claimed(&pool, &current, &product()).await.unwrap(),
+        commit_claimed(&pool, &current, &product(&pool).await)
+            .await
+            .unwrap(),
         PluginOutcome::Committed
     );
 }
@@ -435,9 +434,9 @@ async fn graph_revision_and_reclaim_fence_every_effect() {
 async fn graph_marker_failure_rolls_back_all_products_and_preserves_retry() {
     let pool = setup().await;
     let item = claim(&pool, "v1").await;
-    let mut bad = product();
-    if let Prepared::Read { input_hash, .. } = &mut bad {
-        *input_hash = "bad\0hash".into();
+    let mut bad = product(&pool).await;
+    if let Prepared::Read { extracted, .. } = &mut bad {
+        extracted.model = "bad\0model".into();
     }
     assert!(commit_claimed(&pool, &item, &bad).await.is_err());
     for table in [
@@ -450,7 +449,9 @@ async fn graph_marker_failure_rolls_back_all_products_and_preserves_retry() {
     }
     assert_eq!(count(&pool, "pipeline_work").await, 1);
     assert_eq!(
-        commit_claimed(&pool, &item, &product()).await.unwrap(),
+        commit_claimed(&pool, &item, &product(&pool).await)
+            .await
+            .unwrap(),
         PluginOutcome::Committed
     );
 }
@@ -459,7 +460,7 @@ async fn graph_marker_failure_rolls_back_all_products_and_preserves_retry() {
 async fn graph_fail_closed_empty_and_unchanged_have_distinct_receipts() {
     let pool = setup().await;
     let item = claim(&pool, "v1").await;
-    commit_claimed(&pool, &item, &prepared("not JSON"))
+    commit_claimed(&pool, &item, &prepared(&pool, "not JSON").await)
         .await
         .unwrap();
     let outcome: String =
@@ -469,7 +470,13 @@ async fn graph_fail_closed_empty_and_unchanged_have_distinct_receipts() {
             .await
             .unwrap();
     assert_eq!(outcome, "failed_closed");
-    assert!(read_is_current(&pool, ARTICLE, "test-material")
+    let current_hash: String =
+        sqlx::query_scalar("SELECT input_hash FROM graph_extractions WHERE article_id=$1")
+            .bind(ARTICLE)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert!(read_is_current(&pool, ARTICLE, &current_hash)
         .await
         .unwrap());
     assert!(!read_is_current(&pool, ARTICLE, "new-material")
@@ -492,9 +499,13 @@ async fn graph_fail_closed_empty_and_unchanged_have_distinct_receipts() {
         .unwrap();
     assert_eq!(count(&pool, "cognition_ledger").await, before);
     let empty = claim(&pool, "v3").await;
-    commit_claimed(&pool, &empty, &prepared(r#"{"relations":[],"persons":[]}"#))
-        .await
-        .unwrap();
+    commit_claimed(
+        &pool,
+        &empty,
+        &prepared(&pool, r#"{"relations":[],"persons":[]}"#).await,
+    )
+    .await
+    .unwrap();
     let outcome: String =
         sqlx::query_scalar("SELECT parser_outcome FROM graph_extractions WHERE article_id=$1")
             .bind(ARTICLE)
@@ -506,7 +517,7 @@ async fn graph_fail_closed_empty_and_unchanged_have_distinct_receipts() {
 }
 #[tokio::test]
 #[ignore = "requires isolated TEST_DATABASE_URL; run serially"]
-async fn graph_loader_uses_editor_material_and_ignores_duplicates_and_unlinked_articles() {
+async fn graph_loader_ignores_editor_material_duplicates_and_unlinked_articles() {
     let pool = setup().await;
     let (article, candidates) = load_graph_article_context(&pool, ARTICLE, SPORT)
         .await
@@ -519,7 +530,7 @@ async fn graph_loader_uses_editor_material_and_ignores_duplicates_and_unlinked_a
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(article.description, "Editor body summary");
+    assert_eq!(article.description, "Riley praises Graph Club");
     sqlx::query("UPDATE news_articles SET duplicate_of=id WHERE id=$1")
         .bind(ARTICLE)
         .execute(&pool)
@@ -548,4 +559,32 @@ async fn graph_loader_uses_editor_material_and_ignores_duplicates_and_unlinked_a
         .await
         .unwrap()
         .is_none());
+}
+
+#[tokio::test]
+#[ignore = "requires isolated TEST_DATABASE_URL; run serially"]
+async fn changed_source_after_inference_publishes_no_receipt_or_facts() {
+    let pool = setup().await;
+    let item = claim(&pool, "changed-source").await;
+    let output = product(&pool).await;
+    sqlx::query("UPDATE news_articles SET description='Revised publisher text' WHERE id=$1")
+        .bind(ARTICLE)
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert!(commit_claimed(&pool, &item, &output)
+        .await
+        .unwrap_err()
+        .to_string()
+        .contains("changed during inference"));
+    for table in [
+        "graph_extractions",
+        "narrative_events",
+        "narrative_person_mentions",
+        "entity_candidates",
+        "harvester_fixture_reviews",
+    ] {
+        assert_eq!(count(&pool, table).await, 0, "{table}");
+    }
+    assert_eq!(count(&pool, "pipeline_work").await, 1);
 }

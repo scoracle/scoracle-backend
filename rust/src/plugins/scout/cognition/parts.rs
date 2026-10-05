@@ -305,7 +305,13 @@ impl Parts {
     }
 
     /// Preserve the completed wire world and provenance in one debounce input.
-    pub fn input_components(&self, provenance: serde_json::Value) -> String {
+    pub fn input_components(&self, mut provenance: serde_json::Value) -> String {
+        provenance["measured_fixture_ids"] = serde_json::json!(self
+            .memory
+            .measured
+            .iter()
+            .map(|window| (&window.measure_label, &window.fixture_ids))
+            .collect::<Vec<_>>());
         serde_json::json!({"world": self.render(), "prompt_version": super::RATING_PROMPT_VERSION,
             "output_contract": super::RATING_OUTPUT_CONTRACT_VERSION, "provenance": provenance})
         .to_string()
@@ -414,19 +420,40 @@ mod tests {
             .push(crate::plugins::scout::memories::Measured {
                 measure_label: "Blocks".into(),
                 unit: "count".into(),
-                from: "2026-09-01".into(),
-                before: "2026-09-20".into(),
-                fixtures: 3,
-                measured: 2,
-                per_match: Some(2.0),
+                previous: crate::plugins::scout::memories::Window {
+                    from: "2026-08-12".into(),
+                    before: "2026-09-01".into(),
+                    fixtures: 3,
+                    measured: 2,
+                    per_match: Some(1.0),
+                },
+                current: crate::plugins::scout::memories::Window {
+                    from: "2026-09-01".into(),
+                    before: "2026-09-20".into(),
+                    fixtures: 3,
+                    measured: 2,
+                    per_match: Some(2.0),
+                },
                 per_match_change: None,
                 percent_change: None,
                 fixture_ids: vec![1, 2, 3],
             });
         assert_ne!(baseline, hash(&changed, 1));
         let measured = hash(&changed, 1);
-        changed.memory.measured[0].per_match = Some(3.0);
+        changed.memory.measured[0].current.per_match = Some(3.0);
         assert_ne!(measured, hash(&changed, 1));
+        let current_changed = hash(&changed, 1);
+        changed.memory.measured[0].previous.before = "2026-08-31".into();
+        assert_ne!(current_changed, hash(&changed, 1));
+        let bounds_changed = hash(&changed, 1);
+        let rendered = changed.render();
+        changed.memory.measured[0].fixture_ids.push(4);
+        assert_eq!(rendered, changed.render());
+        assert_ne!(bounds_changed, hash(&changed, 1));
+        let world: serde_json::Value = serde_json::from_str(&rendered).unwrap();
+        assert!(world["memories"]["measured"][0]
+            .get("fixture_ids")
+            .is_none());
         changed = parts.clone();
         changed
             .memory

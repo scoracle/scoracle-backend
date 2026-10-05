@@ -1234,6 +1234,16 @@ fn request_parser_keeps_xg_and_xa_attached_to_their_measures() {
         .unwrap()
         .unwrap();
     assert!(accepted.body.contains("xA supports creation"));
+
+    assert!(parser
+        .parse(r#"{"body":"The exact scoring measurement is supplied."}"#)
+        .is_ok());
+    assert!(parser
+        .parse(r#"{"body":"The exact xG percentile measures shooting."}"#)
+        .is_ok());
+    assert!(parser
+        .parse(r#"{"body":"His (xA) supports finishing."}"#)
+        .is_err());
 }
 
 #[test]
@@ -1354,6 +1364,33 @@ fn request_parser_keeps_quality_words_in_the_supplied_percentile_band() {
         .unwrap()
         .unwrap();
     assert!(accepted.body.contains("Chance Creation is elite"));
+}
+
+#[test]
+fn averaging_a_measure_does_not_call_its_percentile_average() {
+    let directions = BTreeMap::new();
+    let bands = BTreeMap::from([("Rebounds".into(), "elite".into())]);
+    let parser = RatingRequestParser::new("48 rebounds per game", &directions, &bands);
+    assert!(parser
+        .parse(r#"{"body":"The team averaged 48 rebounds per game."}"#)
+        .is_ok());
+    assert!(parser
+        .parse(r#"{"body":"Rebounds rank average."}"#)
+        .is_err());
+}
+
+#[test]
+fn held_assists_cannot_fall_when_the_reply_uses_the_singular_label() {
+    let directions = BTreeMap::from([("Assists".into(), RelativeDirection::Held)]);
+    let bands = BTreeMap::new();
+    let parser = RatingRequestParser::new("23 assists per game", &directions, &bands);
+    let error = parser
+        .parse(r#"{"body":"The assist per game average fell slightly."}"#)
+        .unwrap_err();
+    assert!(error.to_string().contains("Assists changed"));
+    assert!(parser
+        .parse(r#"{"body":"The assist standing held."}"#)
+        .is_ok());
 }
 
 #[test]

@@ -1002,6 +1002,41 @@ mod tests {
     struct SmokeInsider(std::sync::Mutex<Vec<String>>);
     struct SmokeScout;
 
+    struct ChangingInsider<'a> {
+        pool: &'a PgPool,
+        backend: &'a SmokeInsider,
+        item: &'a Item,
+        article: i64,
+        change_source: bool,
+    }
+    #[async_trait]
+    impl Inference for ChangingInsider<'_> {
+        async fn generate(
+            &self,
+            prompt: &str,
+            options: &GenerateOptions,
+        ) -> Result<(GenerateResult, serde_json::Value)> {
+            let generated = self.backend.generate(prompt, options).await?;
+            if self.change_source {
+                sqlx::query("UPDATE news_articles SET title=title || ' revised' WHERE id=$1")
+                    .bind(self.article)
+                    .execute(self.pool)
+                    .await?;
+            } else {
+                let mut revision = self.item.clone();
+                revision.input_version = Some("harvest-context-v7:new-revision".into());
+                work::enqueue(self.pool, &revision).await?;
+            }
+            Ok(generated)
+        }
+        fn model(&self) -> &str {
+            self.backend.model()
+        }
+        fn request_body(&self, prompt: &str, options: &GenerateOptions) -> serde_json::Value {
+            self.backend.request_body(prompt, options)
+        }
+    }
+
     struct MutatingScout<'a> {
         pool: &'a PgPool,
         article: i64,
@@ -1079,10 +1114,17 @@ mod tests {
                 .as_str()
                 .context("missing Insider subject")?;
             self.0.lock().unwrap().push(subject.to_string());
-            let quote = "Harvester Test Club is in talks to sign Morgan Example and Taylor Sample this week.";
+            let quote = "Harvester Test Club is in talks to sign Morgan Example, Taylor Sample, Alex Sample, Casey Example and Riley Sample this week.";
             let counterparties: &[&str] = match subject {
-                "Harvester Test Club" => &["Morgan Example", "Taylor Sample"],
-                "Morgan Example" | "Taylor Sample" => &["Harvester Test Club"],
+                "Harvester Test Club" => &[
+                    "Morgan Example",
+                    "Taylor Sample",
+                    "Alex Sample",
+                    "Casey Example",
+                    "Riley Sample",
+                ],
+                "Morgan Example" | "Taylor Sample" | "Alex Sample" | "Casey Example"
+                | "Riley Sample" => &["Harvester Test Club"],
                 "Another Test Club" => &[],
                 other => anyhow::bail!("unexpected Insider subject {other}"),
             };
@@ -1092,13 +1134,16 @@ mod tests {
                 .is_some_and(|schema| schema["properties"]["findings"].is_object()));
             let response = json!({
                 "body": format!("{subject} is named in an Example Wire report on transfer talks."),
-                "findings": counterparties.iter().map(|name| json!({
-                    "report_index": 0,
-                    "counterparty": name,
-                    "status": "reported",
-                    "stage": "advanced_talks",
-                    "evidence_quote": quote,
-                })).collect::<Vec<_>>(),
+                "findings": counterparties.iter().map(|name| {
+                    let denied = subject == "Riley Sample" || *name == "Riley Sample";
+                    json!({
+                        "report_index": 0,
+                        "counterparty": name,
+                        "status": if denied { "denied" } else { "reported" },
+                        "stage": if denied { None } else { Some("advanced_talks") },
+                        "evidence_quote": if denied { "The club denied talks for Riley Sample." } else { quote },
+                    })
+                }).collect::<Vec<_>>(),
             })
             .to_string();
             Ok((
@@ -1450,7 +1495,17 @@ mod tests {
         const OTHER_TEAM: i32 = 9_690_103;
         const PLAYER: i32 = 9_690_105;
         const PLAYER_TWO: i32 = 9_690_106;
+        const EXTRA_PLAYERS: &[(i32, &str)] = &[
+            (9_690_120, "Alex Sample"),
+            (9_690_121, "Casey Example"),
+            (9_690_122, "Riley Sample"),
+        ];
+        let players = [PLAYER, PLAYER_TWO, 9_690_120, 9_690_121, 9_690_122];
         let pool = PgPool::connect(&std::env::var("TEST_DATABASE_URL").unwrap()).await?;
+        sqlx::query("DELETE FROM public.application_outbox WHERE sport=$1")
+            .bind(SPORT)
+            .execute(&pool)
+            .await?;
         sqlx::query("DELETE FROM public.insider_scores WHERE sport=$1")
             .bind(SPORT)
             .execute(&pool)
@@ -1548,6 +1603,18 @@ mod tests {
             .bind(SPORT)
             .execute(&pool)
             .await?;
+        for (id, name) in EXTRA_PLAYERS {
+            sqlx::query(
+                "INSERT INTO public.players(id,sport,name) VALUES($1,$2,$3) ON CONFLICT DO NOTHING",
+            )
+            .bind(id)
+            .bind(SPORT)
+            .bind(name)
+            .execute(&pool)
+            .await?;
+            sqlx::query("INSERT INTO public.entity_name_surfaces(entity_type,entity_id,sport,norm,surface_kind) VALUES('player',$1,$2,public.nrm($3),'name') ON CONFLICT DO NOTHING")
+                .bind(id).bind(SPORT).bind(name).execute(&pool).await?;
+        }
         sqlx::query("INSERT INTO public.entity_name_surfaces(entity_type,entity_id,sport,norm,surface_kind) VALUES('team',$1,$2,public.nrm('Harvester Test Club'),'name') ON CONFLICT DO NOTHING")
             .bind(TEAM).bind(SPORT).execute(&pool).await?;
         sqlx::query("INSERT INTO public.entity_name_surfaces(entity_type,entity_id,sport,norm,surface_kind) VALUES('team',$1,$2,public.nrm('Another Test Club'),'name') ON CONFLICT DO NOTHING")
@@ -1562,7 +1629,7 @@ mod tests {
             .bind(PLAYER).bind(SPORT).execute(&pool).await?;
         sqlx::query("INSERT INTO public.entity_name_surfaces(entity_type,entity_id,sport,norm,surface_kind) VALUES('player',$1,$2,public.nrm('Taylor Sample'),'name') ON CONFLICT DO NOTHING")
             .bind(PLAYER_TWO).bind(SPORT).execute(&pool).await?;
-        let body = "Harvester Test Club is in talks to sign Morgan Example and Taylor Sample this week.\n\nSupporters cheered the announcement at the ground.\n\nMorgan Example recorded a season-high 20 points in the last match.\n\nThis final paragraph mentions Another Test Club outside the delivered publisher opening.";
+        let body = "Harvester Test Club is in talks to sign Morgan Example, Taylor Sample, Alex Sample, Casey Example and Riley Sample this week. The club denied talks for Riley Sample.\n\nSupporters cheered the announcement at the ground.\n\nMorgan Example recorded a season-high 20 points in the last match.\n\nThis final paragraph mentions Another Test Club outside the delivered publisher opening.";
         sqlx::query("INSERT INTO public.news_articles(id,url_hash,url,source,title,description,full_text,feed_rank) VALUES($1,$2,$3,$4,$5,$6,$7,1)")
             .bind(ARTICLE).bind("harvester-smoke-9690101").bind("https://example.test/harvester-smoke")
             .bind("Example Wire").bind("Harvester Test Club announces community event")
@@ -1696,7 +1763,14 @@ mod tests {
         .bind(ARTICLE)
         .fetch_all(&pool)
         .await?;
-        assert_eq!(insider_pairs, vec![(TEAM, PLAYER), (TEAM, PLAYER_TWO)]);
+        // Source co-mentions fan out independently of the query team's hypothesis.
+        assert_eq!(
+            insider_pairs,
+            [TEAM, OTHER_TEAM]
+                .into_iter()
+                .flat_map(|team| players.map(|player| (team, player)))
+                .collect::<Vec<_>>()
+        );
         let mentions: i64 = sqlx::query_scalar(
             "SELECT count(*) FROM public.harvester_entity_mentions WHERE article_id=$1 AND entity_type='team' AND entity_id=$2"
         ).bind(ARTICLE).bind(TEAM).fetch_one(&pool).await?;
@@ -1708,7 +1782,10 @@ mod tests {
         let resolved_links: Vec<i32> = sqlx::query_scalar(
             "SELECT entity_id FROM public.harvester_resolved_links WHERE article_id=$1 AND sport=$2 ORDER BY entity_id"
         ).bind(ARTICLE).bind(SPORT).fetch_all(&pool).await?;
-        assert_eq!(resolved_links, vec![TEAM, PLAYER, PLAYER_TWO]);
+        assert_eq!(
+            resolved_links,
+            std::iter::once(TEAM).chain(players).collect::<Vec<_>>()
+        );
         let shared_links: Vec<i32> = sqlx::query_scalar(
             "SELECT entity_id FROM public.news_article_entities WHERE article_id=$1 AND sport=$2 ORDER BY entity_id"
         ).bind(ARTICLE).bind(SPORT).fetch_all(&pool).await?;
@@ -1881,9 +1958,9 @@ mod tests {
             assert!(receipt["input_hash"].as_str().is_some());
         }
         let insider_backend = SmokeInsider(std::sync::Mutex::new(Vec::new()));
-        let insider_work = work::claim(&pool, crate::plugins::insider::manifest::TASK, 4).await?;
-        assert_eq!(insider_work.len(), 4);
-        for (index, claimed) in insider_work.into_iter().enumerate() {
+        let insider_work = work::claim(&pool, crate::plugins::insider::manifest::TASK, 7).await?;
+        assert_eq!(insider_work.len(), 7);
+        for (index, mut claimed) in insider_work.into_iter().enumerate() {
             if index == 0 {
                 let mut stale = claimed.clone();
                 stale.claim_token = Some("00000000-0000-0000-0000-000000000002".into());
@@ -1897,6 +1974,41 @@ mod tests {
                     .await?,
                     PluginOutcome::Superseded
                 );
+                for change_source in [true, false] {
+                    let result = crate::plugins::insider::adapter::source::execute_with_backend(
+                        &pool,
+                        &ChangingInsider {
+                            pool: &pool,
+                            backend: &insider_backend,
+                            item: &claimed,
+                            article: ARTICLE,
+                            change_source,
+                        },
+                        4096,
+                        &claimed,
+                    )
+                    .await;
+                    if change_source {
+                        assert!(result
+                            .unwrap_err()
+                            .to_string()
+                            .contains("headline no longer matches"));
+                        sqlx::query("UPDATE news_articles SET title='Harvester Test Club announces community event' WHERE id=$1")
+                            .bind(ARTICLE).execute(&pool).await?;
+                    } else {
+                        assert_eq!(result?, PluginOutcome::Superseded);
+                        work::enqueue(&pool, &claimed).await?;
+                        claimed = work::claim(&pool, crate::plugins::insider::manifest::TASK, 1)
+                            .await?
+                            .remove(0);
+                    }
+                    let effects: i64 = sqlx::query_scalar(
+                        "SELECT (SELECT count(*) FROM transfer_rumors WHERE sport=$1) + \
+                         (SELECT count(*) FROM insider_scores WHERE sport=$1) + \
+                         (SELECT count(*) FROM application_outbox WHERE sport=$1 AND kind='transfer_published')"
+                    ).bind(SPORT).fetch_one(&pool).await?;
+                    assert_eq!(effects, 0, "stale inputs must publish no partial effects");
+                }
             }
             assert_eq!(
                 crate::plugins::insider::adapter::source::execute_with_backend(
@@ -1909,7 +2021,7 @@ mod tests {
                 PluginOutcome::Committed
             );
         }
-        assert_eq!(insider_backend.0.lock().unwrap().len(), 4);
+        assert_eq!(insider_backend.0.lock().unwrap().len(), 9);
         let unfinished_insider_work: i64 = sqlx::query_scalar(
             "SELECT count(*) FROM public.pipeline_work WHERE sport=$1 AND stage='transfers' \
              AND status IN ('pending','running')",
@@ -1942,13 +2054,50 @@ mod tests {
         .await?;
         assert_eq!(
             pair_statuses,
-            vec![(PLAYER, "rumor".into()), (PLAYER_TWO, "rumor".into())]
+            players
+                .map(|player| (
+                    player,
+                    if player == 9_690_122 {
+                        "cleared".into()
+                    } else {
+                        "rumor".into()
+                    }
+                ))
+                .to_vec()
         );
         let rumor_source_ids: Vec<i64> = sqlx::query_scalar(
             "SELECT unnest(input_news_ids) FROM public.transfer_rumors \
-             WHERE team_id=$1 AND player_id IN ($2,$3) AND sport=$4 AND trigger_type='harvester' AND is_rumor=true ORDER BY player_id"
-        ).bind(TEAM).bind(PLAYER).bind(PLAYER_TWO).bind(SPORT).fetch_all(&pool).await?;
-        assert_eq!(rumor_source_ids, vec![ARTICLE, ARTICLE]);
+             WHERE team_id=$1 AND player_id=ANY($2) AND sport=$3 AND trigger_type='harvester' AND is_rumor=true ORDER BY player_id"
+        ).bind(TEAM).bind(players.as_slice()).bind(SPORT).fetch_all(&pool).await?;
+        assert_eq!(rumor_source_ids, vec![ARTICLE; 4]);
+        let denial: (bool, i16, Option<String>, Option<String>) = sqlx::query_as(
+            "SELECT is_rumor,heat,direction,stage FROM transfer_rumors WHERE sport=$1 AND player_id=$2"
+        ).bind(SPORT).bind(9_690_122_i32).fetch_one(&pool).await?;
+        assert_eq!(denial, (false, 0, None, None));
+        let canonical_writes: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM player_current_identity_overrides WHERE sport=$1",
+        )
+        .bind(SPORT)
+        .fetch_one(&pool)
+        .await?;
+        assert_eq!(
+            canonical_writes, 0,
+            "transfer reporting cannot promote canonical identity"
+        );
+        sqlx::query("SELECT refresh_source_performance($1)")
+            .bind(SPORT)
+            .execute(&pool)
+            .await?;
+        let pairs_covered: i32 = sqlx::query_scalar(
+            "SELECT pairs_covered FROM source_performance WHERE sport=$1 AND source='Example Wire'",
+        )
+        .bind(SPORT)
+        .fetch_one(&pool)
+        .await?;
+        assert_eq!(
+            pairs_covered, 4,
+            "denied reporting is excluded from player outcome accuracy"
+        );
         let scout_claims = work::claim(&pool, crate::plugins::scout::manifest::TASK, 2).await?;
         assert_eq!(scout_claims.len(), 2);
         for claimed in scout_claims {
@@ -2351,6 +2500,14 @@ mod tests {
             .bind(SPORT)
             .execute(&pool)
             .await?;
+        for (id, _) in EXTRA_PLAYERS {
+            sqlx::query("DELETE FROM public.players WHERE id=$1 AND sport=$2")
+                .bind(id)
+                .bind(SPORT)
+                .execute(&pool)
+                .await?;
+            sqlx::query("DELETE FROM public.entity_name_surfaces WHERE entity_type='player' AND entity_id=$1 AND sport=$2").bind(id).bind(SPORT).execute(&pool).await?;
+        }
         sqlx::query("DELETE FROM public.entity_name_surfaces WHERE entity_type='team' AND entity_id=$1 AND sport=$2")
             .bind(TEAM).bind(SPORT).execute(&pool).await?;
         sqlx::query("DELETE FROM public.entity_name_surfaces WHERE entity_type='team' AND entity_id=$1 AND sport=$2")

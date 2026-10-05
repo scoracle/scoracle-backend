@@ -1,36 +1,38 @@
-//! Editor application: fetch and prepare, ask Studio, then publish under the exact queue claim.
-use crate::application::models::ExecutionCapabilities;
+//! Historical Editor evaluation and publication regression checks.
+//! No deployable handler or scheduled operations remain.
+#[cfg(test)]
 use crate::application::queue::publication::ClaimPublication;
+#[cfg(test)]
 use crate::application::queue::work::Item;
-use crate::application::tools::{ScopedWeb, ToolLedger, WebBroker};
-use crate::evidence::fetch::{
-    content_hash, count_words, looks_paywalled, FetchedArticle, ARTICLE_MIN_WORDS,
-};
+use crate::application::tools::{ToolLedger, WebBroker};
+#[cfg(test)]
+use crate::evidence::fetch::content_hash;
+use crate::evidence::fetch::{count_words, FetchedArticle, ARTICLE_MIN_WORDS};
+use crate::plugins::editor::cognition::prompt;
+#[cfg(test)]
 use crate::plugins::editor::cognition::{
-    derive, prompt, Assignment, EditorEntityRole, EditorRead, NameMention, EDITOR_CONTRACT_VERSION,
+    derive, EditorEntityRole, EditorRead, NameMention, EDITOR_CONTRACT_VERSION,
 };
-use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
-use crate::studio::plugin::{PluginManifest, PluginOutcome, ScheduledOperation, StudioPlugin};
-use crate::studio::{Extracted, Generation, GenerationCall, Studio};
+#[cfg(test)]
+use crate::studio::plugin::PluginOutcome;
+#[cfg(test)]
+use crate::studio::Extracted;
+#[cfg(test)]
 use crate::util::truncate;
 use anyhow::{Context, Result};
-use async_trait::async_trait;
+#[cfg(test)]
 use serde_json::json;
-use sqlx::{PgConnection, PgPool, Row};
-use tracing::warn;
+use sqlx::Row;
+#[cfg(test)]
+use sqlx::{PgConnection, PgPool};
+#[cfg(test)]
 pub mod candidates;
-mod maintenance;
+#[cfg(test)]
 pub mod nominate;
+#[cfg(test)]
 mod resolve;
+#[cfg(test)]
 pub mod storyline;
-const EDITOR_LEDGER: LedgerSpec = LedgerSpec {
-    plugin_id: crate::plugins::editor::manifest::MANIFEST.id.as_str(),
-    stage: "editor",
-    lens: "editor",
-    role: crate::plugins::editor::manifest::ROUTE,
-    product_table: "editor_reads",
-    output_contract_version: EDITOR_CONTRACT_VERSION,
-};
 #[derive(Debug)]
 pub struct EditorArticleRow {
     pub(crate) url: String,
@@ -42,6 +44,7 @@ pub struct EditorArticleRow {
 
 /// Prepared work is either a no-write completion, a fetch/parser marker, or a Studio read.
 /// Nothing here has been published yet.
+#[cfg(test)]
 enum Prepared {
     Unchanged,
     Terminal {
@@ -57,76 +60,7 @@ enum Prepared {
     },
 }
 
-async fn prepare(
-    pool: &sqlx::PgPool,
-    models: &ExecutionCapabilities,
-    web: &ScopedWeb<'_>,
-    item: &Item,
-) -> Result<Prepared> {
-    let Some(article) = load_article(pool, item.entity_id).await? else {
-        return Ok(Prepared::Unchanged);
-    };
-    if article.duplicate_of.is_some() {
-        return Ok(Prepared::Terminal {
-            status: "duplicate",
-            fetched: None,
-            error: None,
-        });
-    }
-    let fetched = match web.fetch_curated_article(&article.url).await {
-        Ok(f) => sanitize_fetched(f),
-        Err(e) => {
-            let error = format!("{e:#}");
-            let status = if error.contains("HTTP 401") || error.contains("HTTP 403") {
-                "blocked"
-            } else {
-                "fetch_failed"
-            };
-            return Ok(Prepared::Terminal {
-                status,
-                fetched: None,
-                error: Some(error),
-            });
-        }
-    };
-    if count_words(&fetched.text) < ARTICLE_MIN_WORDS {
-        let status = if looks_paywalled(&fetched.text) {
-            "paywall"
-        } else {
-            "empty_body"
-        };
-        return Ok(Prepared::Terminal {
-            status,
-            fetched: Some(fetched),
-            error: None,
-        });
-    }
-    let body_hash = content_hash(&fetched.text);
-    if read_is_current(pool, item.entity_id, &body_hash).await? {
-        return Ok(Prepared::Unchanged);
-    }
-    let assignment = Assignment {
-        source: article.source.clone(),
-        title: article.title.clone(),
-        description: article.description.clone(),
-        text: fetched.text.clone(),
-        hypothesis: load_hypothesis_entities(pool, item.entity_id, &item.sport).await?,
-    };
-    let model = models.inference(crate::plugins::editor::manifest::ROUTE)?;
-    let extracted =
-        crate::plugins::editor::cognition::read_article(&Studio::new(model.as_ref()), &assignment)
-            .await?;
-    Ok(Prepared::Read {
-        article,
-        fetched,
-        body_hash,
-        extracted: Box::new(extracted),
-    })
-}
-
-/// All required effects are local Postgres writes, so a single transaction is simpler than
-/// an outbox. Storyline state retains the packet compilation obligation; explicit queue
-/// writes retain Investigator and Graph work before this claim is completed.
+#[cfg(test)]
 async fn commit_claimed(pool: &PgPool, item: &Item, prepared: &Prepared) -> Result<PluginOutcome> {
     let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
         return Ok(PluginOutcome::Superseded);
@@ -256,75 +190,9 @@ async fn commit_claimed(pool: &PgPool, item: &Item, prepared: &Prepared) -> Resu
     Ok(PluginOutcome::Committed)
 }
 
-pub struct EditorHandler {
-    pool: sqlx::PgPool,
-    models: ExecutionCapabilities,
-    web: std::sync::Arc<WebBroker>,
-    scheduled: Vec<std::sync::Arc<dyn ScheduledOperation>>,
-}
-impl EditorHandler {
-    pub fn new(
-        pool: sqlx::PgPool,
-        models: ExecutionCapabilities,
-        web: std::sync::Arc<WebBroker>,
-        packet_compile: bool,
-    ) -> Self {
-        let scheduled = maintenance::operations(pool.clone(), packet_compile);
-        Self {
-            pool,
-            models,
-            web,
-            scheduled,
-        }
-    }
-}
-
-#[async_trait]
-impl StudioPlugin for EditorHandler {
-    fn manifest(&self) -> &'static PluginManifest {
-        &crate::plugins::editor::manifest::MANIFEST
-    }
-
-    fn scheduled_operations(&self) -> Vec<std::sync::Arc<dyn ScheduledOperation>> {
-        self.scheduled.clone()
-    }
-
-    async fn execute(&self, item: &Item) -> Result<PluginOutcome> {
-        let pool = &self.pool;
-        let models = &self.models;
-        let ledger = ToolLedger::new();
-        let web = self.web.scope(pool, self.manifest(), &ledger);
-        item.require_claim_token()?;
-        let prepared = prepare(pool, models, &web, item).await?;
-        let outcome = commit_claimed(pool, item, &prepared).await?;
-        if outcome == PluginOutcome::Committed {
-            if let Prepared::Read {
-                extracted,
-                body_hash,
-                ..
-            } = &prepared
-            {
-                ledger_model_call(
-                    pool,
-                    item,
-                    &extracted.model,
-                    if extracted.value.is_some() {
-                        "parsed"
-                    } else {
-                        "fail_closed"
-                    },
-                    extracted,
-                    body_hash,
-                )
-                .await;
-            }
-        }
-        Ok(outcome)
-    }
-}
-
 /// Replaces an article's entity links in one transaction. Presence is the verdict;
 /// an irrelevant read clears the set. `DISTINCT` collapses multiple matched surfaces.
+#[cfg(test)]
 async fn write_links(
     conn: &mut PgConnection,
     article_id: i64,
@@ -380,6 +248,7 @@ async fn write_links(
 
 /// Adds team links named word-bounded in key facts or person descriptors.
 /// Names and aliases are database-backed; short aliases are excluded.
+#[cfg(test)]
 async fn harvest_team_links(
     conn: &mut PgConnection,
     article_id: i64,
@@ -432,6 +301,7 @@ async fn harvest_team_links(
 /// input_version is `g:` || the editor read's content hash, so graph
 /// re-runs when the article's TEXT changed and debounces when it did not — the same contract, off
 /// the table that survives the cutover.
+#[cfg(test)]
 async fn enqueue_graph_for_article(
     conn: &mut PgConnection,
     article_id: i64,
@@ -568,6 +438,7 @@ async fn load_hypothesis_entities(
 
 /// read_is_current reports whether this article's read is already settled for this exact body
 /// under the current contract — the T1 cache key.
+#[cfg(test)]
 async fn read_is_current(pool: &sqlx::PgPool, article_id: i64, body_hash: &str) -> Result<bool> {
     let hit: Option<String> = sqlx::query_scalar(
         r#"
@@ -588,6 +459,7 @@ async fn read_is_current(pool: &sqlx::PgPool, article_id: i64, body_hash: &str) 
     Ok(hit.is_some())
 }
 
+#[cfg(test)]
 async fn persist_terminal(
     conn: &mut PgConnection,
     item: &Item,
@@ -638,6 +510,7 @@ async fn persist_terminal(
 }
 
 #[allow(clippy::too_many_arguments)]
+#[cfg(test)]
 async fn persist_read(
     conn: &mut PgConnection,
     article_id: i64,
@@ -710,6 +583,7 @@ async fn persist_read(
 
 /// Records one data-fetch ledger row per attempt.
 #[allow(clippy::too_many_arguments)]
+#[cfg(test)]
 async fn insert_data_fetch_ledger(
     conn: &mut PgConnection,
     item: &Item,
@@ -752,51 +626,6 @@ async fn insert_data_fetch_ledger(
 }
 
 /// Records one cognition-ledger row per model call.
-async fn ledger_model_call(
-    pool: &sqlx::PgPool,
-    item: &Item,
-    model: &str,
-    parser_outcome: &str,
-    extracted: &Extracted<EditorRead>,
-    body_hash: &str,
-) {
-    let entity_id = match item.entity_id_i32() {
-        Ok(id) => id,
-        Err(e) => {
-            warn!(article_id = item.entity_id, error = %e, "editor: ledger skipped");
-            return;
-        }
-    };
-    let generation = Generation::called(
-        (),
-        model.to_string(),
-        EDITOR_CONTRACT_VERSION,
-        vec![item.entity_id],
-        Some(body_hash.to_string()),
-        GenerationCall::from(extracted),
-    );
-    insert_generation_ledger_best_effort(
-        pool,
-        &generation,
-        EDITOR_LEDGER,
-        LedgerEvent {
-            entity_type: "article",
-            entity_id,
-            sport: &item.sport.to_uppercase(),
-            pair_entity: None,
-            trigger_type: "queue",
-            trigger_payload: json!({}),
-            product_row_ids: vec![item.entity_id],
-            included_evidence: json!({}),
-            excluded_evidence: json!({}),
-            context_budget: generation.context_budget(json!({})),
-            parser_outcome,
-        },
-    )
-    .await;
-}
-
-/// Drops NUL bytes before hashing, prompting, or persisting article text.
 fn sanitize_fetched(mut fetched: FetchedArticle) -> FetchedArticle {
     // The common case allocates nothing: bodies with no NUL pass through untouched, byte-identical.
     if fetched.text.contains('\0') {

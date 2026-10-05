@@ -94,6 +94,26 @@ async fn publish_accept(
                     .await?;
                     return Ok(());
                 }
+            } else if etype == "person" {
+                let existing_team: Option<i32> = sqlx::query_scalar(
+                    "SELECT team_id FROM public.persons WHERE id=$1 AND sport=$2 FOR UPDATE",
+                )
+                .bind(eid)
+                .bind(sport)
+                .fetch_one(&mut **tx)
+                .await?;
+                if existing_team.is_some_and(|team| !career_team_ids.contains(&team)) {
+                    publish_refusal(
+                        tx,
+                        cand,
+                        "ambiguous",
+                        None,
+                        run_plan,
+                        "surface matches existing person but team discriminator disagrees",
+                    )
+                    .await?;
+                    return Ok(());
+                }
             }
             (etype, eid)
         }
@@ -111,8 +131,8 @@ async fn publish_accept(
         }
     };
 
-    // Acquisition seeds identity. The current-reporting sweep owns subsequent role and
-    // affiliation changes, so rereading a career biography cannot undo a sourced correction.
+    // Acquisition seeds identity. Rereading a career biography must not undo a
+    // sourced correction; reporting-based factsweep is unavailable.
     let seed_role = resolved_type == "person"
         && (existing.is_empty()
             || sqlx::query_scalar::<_, bool>(
@@ -260,7 +280,7 @@ async fn publish_accept(
         .context("insert person external id")?;
     }
 
-    // Seed person roles with provenance. Subsequent career changes belong to factsweep;
+    // Seed person roles with provenance. Subsequent career extraction is unavailable;
     // being a players-table row already establishes the player role.
     if seed_role && policy_allows(&policy, &resolved_type, "role") {
         write_fact_superseding(
@@ -392,18 +412,6 @@ async fn record_run(
     query_plan: &serde_json::Value,
     rejection_reason: Option<&str>,
 ) -> Result<()> {
-    // The prose arm's plan self-describes (`arm: "prose"` carries `model` + `contract`),
-    // so the ledger columns come from the plan rather than threading two more parameters
-    // through every verdict path. The Wikidata arm's plan has neither key → NULL model,
-    // wikidata parser version — exactly the pre-5.4 row shape.
-    let model_version = query_plan
-        .get("model")
-        .and_then(serde_json::Value::as_str)
-        .filter(|m| !m.is_empty());
-    let parser_version = query_plan
-        .get("contract")
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or(INVESTIGATE_PARSER_VERSION);
     sqlx::query(
         r#"
         INSERT INTO public.acquisition_runs
@@ -416,8 +424,8 @@ async fn record_run(
     .bind(query_plan)
     .bind(outcome)
     .bind(rejection_reason)
-    .bind(model_version)
-    .bind(parser_version)
+    .bind(Option::<&str>::None)
+    .bind(INVESTIGATE_PARSER_VERSION)
     .execute(&mut **tx)
     .await
     .context("record acquisition run")?;

@@ -31,24 +31,38 @@ pub struct Measured {
     /// plugin invented.
     pub measure_label: String,
     pub unit: String,
-    /// The comparison window, as UTC bounds. Half-open.
-    pub from: String,
-    pub before: String,
-    pub fixtures: usize,
-    /// How many of those fixtures actually carried a value for this measure.
-    /// Fewer than `fixtures` means the measure was missing for some, which is
-    /// not the same as a zero in those.
-    pub measured: usize,
-    /// The per-match figure the study computed.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub per_match: Option<f64>,
+    pub previous: Window,
+    pub current: Window,
     /// The change against the prior window, as the study computed it.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub per_match_change: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub percent_change: Option<f64>,
     /// The fixtures this rests on, so a measured claim can be traced.
+    #[serde(default, skip_serializing)]
     pub fixture_ids: Vec<i64>,
+}
+
+/// One half-open measurement window; missing averages remain null.
+#[derive(Clone, Debug, Serialize, serde::Deserialize)]
+pub struct Window {
+    pub from: String,
+    pub before: String,
+    pub fixtures: usize,
+    pub measured: usize,
+    pub per_match: Option<f64>,
+}
+
+impl From<&crate::plugins::memories::statistic::Window> for Window {
+    fn from(window: &crate::plugins::memories::statistic::Window) -> Self {
+        Self {
+            from: crate::util::utc_timestamp(window.from),
+            before: crate::util::utc_timestamp(window.before),
+            fixtures: window.fixtures,
+            measured: window.measured,
+            per_match: window.per_match,
+        }
+    }
 }
 
 /// One dated, attributed claim about availability or personnel.
@@ -252,11 +266,20 @@ mod tests {
         Measured {
             measure_label: measure_label.into(),
             unit: "cumulative_total".into(),
-            from: "2026-08-01T00:00:00Z".into(),
-            before: "2026-08-29T00:00:00Z".into(),
-            fixtures: 5,
-            measured: 5,
-            per_match: Some(per_match),
+            previous: Window {
+                from: "2026-07-04T00:00:00Z".into(),
+                before: "2026-08-01T00:00:00Z".into(),
+                fixtures: 5,
+                measured: 5,
+                per_match: Some(per_match - 0.4),
+            },
+            current: Window {
+                from: "2026-08-01T00:00:00Z".into(),
+                before: "2026-08-29T00:00:00Z".into(),
+                fixtures: 5,
+                measured: 5,
+                per_match: Some(per_match),
+            },
             per_match_change: Some(0.4),
             percent_change: Some(12.0),
             fixture_ids: vec![1, 2, 3, 4, 5],
@@ -333,14 +356,37 @@ mod tests {
     #[test]
     fn a_partly_measured_window_states_how_many_fixtures_had_the_value() {
         // A measure missing for two of five fixtures is not a zero in those two.
-        let window = Measured {
-            measured: 3,
-            ..measured("Goals Scored", 1.8)
-        };
+        let mut window = measured("Goals Scored", 1.8);
+        window.current.measured = 3;
         let selected = select(&Selection::rated(), vec![window], Vec::new(), Vec::new());
         let json = serde_json::to_value(&selected).unwrap();
-        assert_eq!(json["measured"][0]["fixtures"], serde_json::json!(5));
-        assert_eq!(json["measured"][0]["measured"], serde_json::json!(3));
+        assert_eq!(
+            json["measured"][0]["current"]["fixtures"],
+            serde_json::json!(5)
+        );
+        assert_eq!(
+            json["measured"][0]["current"]["measured"],
+            serde_json::json!(3)
+        );
+    }
+
+    #[test]
+    fn study_windows_preserve_their_own_bounds_counts_and_missing_averages() {
+        let source = crate::plugins::memories::statistic::Window {
+            from: 0,
+            before: 86400,
+            fixtures: 4,
+            measured: 0,
+            total: None,
+            per_match: None,
+        };
+        let rendered = serde_json::to_value(Window::from(&source)).unwrap();
+        assert_eq!(rendered["from"], "1970-01-01T00:00:00Z");
+        assert_eq!(rendered["before"], "1970-01-02T00:00:00Z");
+        assert_eq!(rendered["fixtures"], 4);
+        assert_eq!(rendered["measured"], 0);
+        assert!(rendered["per_match"].is_null());
+        assert!(rendered.get("total").is_none());
     }
 
     #[test]

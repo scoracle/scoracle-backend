@@ -115,7 +115,7 @@ async fn main() -> Result<()> {
     // Each plugin owns exactly one enabled queue stage via its manifest; scheduling caps
     // come from the same manifest. The worker validates the fleet (unique ids, unique
     // task ownership) at construction.
-    let handlers = plugins::build(pool.clone(), models.clone(), &enabled, cfg.packet_compile)?;
+    let handlers = plugins::build(pool.clone(), models.clone(), &enabled)?;
     let reactions = plugins::build_reactions(pool.clone())?;
     info!(stages = ?enabled, plugins = handlers.len(), "registered plugins");
     info!(
@@ -126,11 +126,6 @@ async fn main() -> Result<()> {
             .collect::<Vec<_>>()
             .join(" "),
         "resolved plugin fleet"
-    );
-    // Log switches that change what the deploy writes.
-    info!(
-        packet_compile = cfg.packet_compile,
-        "desk: storyline assembly always on; packet compile gated by COGNITION_PACKET_COMPILE"
     );
     // Every voice derives its prompt budget from this shared window.
     info!(

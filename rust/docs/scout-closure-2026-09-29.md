@@ -716,7 +716,7 @@ full rows, source receipts, all current reporting, trigger article and notabilit
 are also not presented wholesale. Stored input_components is not the wire input.
 
 Sources: [adapter](../src/plugins/scout/adapter/mod.rs),
-[profile SQL](../src/plugins/scout/adapter/evidence.rs),
+[profile SQL](../src/plugins/scout/performance.rs),
 [selection/parser](../src/plugins/scout/cognition/mod.rs),
 [presentation](../src/plugins/scout/prompt.rs),
 [memory selection](../src/plugins/scout/memories.rs),

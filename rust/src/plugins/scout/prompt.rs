@@ -1,11 +1,15 @@
-//! Scout instructions and the prepared world the model reads.
+//! Scout preparation, instructions and the selected world the model reads.
 //! Tone lives in local `voice.rs`. Measurements come from `performance.rs`.
 use serde::Serialize;
 
 use crate::plugins::meta::EntityMeta;
-use crate::plugins::scout::cognition::{self, RatingReply};
+use crate::plugins::scout::cognition::{
+    self, Assignment, RatingBuild, RatingExclusions, RatingReply, Subject,
+};
 use crate::plugins::scout::memories::Selected;
-use crate::plugins::scout::performance::Profile;
+use crate::plugins::scout::performance::{self, Profile};
+use crate::util::hash_components;
+use anyhow::{Context, Result};
 
 pub const RATING_PROMPT_VERSION: &str = "s66-measured-windows";
 
@@ -172,6 +176,297 @@ impl Parts {
         })
         .expect("scout world serializes")
     }
+}
+
+/// Durable subject and invocation policy used to prepare a Studio Scout assignment.
+#[derive(Clone, Debug)]
+pub struct RatingReq {
+    pub entity_type: String,
+    pub entity_id: i32,
+    pub entity_name: String,
+    pub sport: String,
+    pub season: Option<i32>,
+    pub trigger_type: String,
+}
+
+/// Prepare the Scout's complete assignment without calling a model.
+pub async fn build_rating_request(
+    pool: &sqlx::PgPool,
+    voice_num_ctx: i32,
+    req: &RatingReq,
+    temperature: f64,
+    with_enrichment: bool,
+) -> Result<RatingBuild> {
+    let Some(mut profile) = performance::load_rating_profile(
+        pool,
+        &req.entity_type,
+        req.entity_id,
+        &req.sport,
+        req.season,
+    )
+    .await?
+    else {
+        return Ok(RatingBuild::NoStats {
+            season: req.season.unwrap_or(0),
+        });
+    };
+
+    let off_facet_stat_labels = cognition::drop_off_facet_datapoints(&mut profile);
+    let degenerate_zero_stat_labels = cognition::drop_degenerate_zero_datapoints(&mut profile);
+    let display_tier_stat_labels = cognition::drop_display_tier_datapoints(&mut profile);
+    if profile.composite_score.is_none() && profile.breakdown.is_empty() {
+        return Ok(RatingBuild::NoStats {
+            season: profile.season,
+        });
+    }
+
+    let base_components = cognition::input_components(&profile);
+    // Old-season profiles must not inherit present employment or availability.
+    let historical =
+        profile.season != performance::current_season(pool, &req.sport.to_uppercase()).await?;
+    let supports_cross_season = cognition::supports_cross_season_comparison(&profile);
+    let (notability, notability_components) = cognition::compute_notability(&profile);
+    let exclusions = RatingExclusions {
+        budget_truncated_stat_labels: cognition::budget_truncated_stat_labels(&profile.breakdown),
+        off_facet_stat_labels,
+        degenerate_zero_stat_labels,
+        display_tier_stat_labels,
+        thin_sample_omitted_stat_labels: cognition::thin_sample_omitted_stat_labels(&profile),
+    };
+    let rating_trajectory = performance::load_rating_trajectory(
+        pool,
+        &req.entity_type,
+        req.entity_id,
+        &req.sport,
+        &profile,
+    )
+    .await?;
+
+    // Keep the adjudicated records for provenance and select attributed memory from them.
+    let (personnel, reported_memory) = if with_enrichment && !historical {
+        let (changes, total) = match crate::evidence::personnel::load_personnel_changes(
+            pool,
+            &req.sport,
+            &req.entity_type,
+            req.entity_id,
+        )
+        .await
+        {
+            Ok(loaded) => loaded,
+            Err(error) => {
+                tracing::warn!(
+                    entity_type = %req.entity_type,
+                    entity_id = req.entity_id,
+                    sport = %req.sport,
+                    %error,
+                    "rating: personnel-change load failed (continuing without the block)"
+                );
+                (Vec::new(), 0)
+            }
+        };
+        let (availability, availability_total) =
+            match crate::evidence::personnel::load_availability_changes(
+                pool,
+                &req.sport,
+                &req.entity_type,
+                req.entity_id,
+            )
+            .await
+            {
+                Ok(loaded) => loaded,
+                Err(error) => {
+                    tracing::warn!(
+                        entity_type = %req.entity_type,
+                        entity_id = req.entity_id,
+                        sport = %req.sport,
+                        %error,
+                        "rating: availability load failed (continuing without those lines)"
+                    );
+                    (Vec::new(), 0)
+                }
+            };
+        let reported = crate::plugins::scout::memories::Reported::from_records(
+            &req.entity_type,
+            req.entity_id,
+            &changes,
+            &availability,
+            total + availability_total,
+        );
+        (
+            serde_json::json!({"changes": changes, "availability": availability,
+                "total_changes": total, "total_availability": availability_total}),
+            reported,
+        )
+    } else {
+        (serde_json::Value::Null, Vec::new())
+    };
+
+    let (current_reports, contested_claims) = if with_enrichment && !historical {
+        match crate::evidence::personnel::load_scout_reports(
+            pool,
+            &req.entity_type,
+            req.entity_id,
+            &req.sport,
+        )
+        .await
+        {
+            Ok(claims) => {
+                // A marked claim is one another source contradicts. The memory
+                // carries the contradiction rather than dropping the claim,
+                // because "the subject is disputed" is the reader-relevant fact.
+                let contested: Vec<crate::plugins::scout::memories::Reported> = claims
+                    .iter()
+                    .filter(|c| c.marked)
+                    .map(crate::plugins::scout::memories::Reported::from_claim)
+                    .collect();
+                (serde_json::to_value(&claims)?, contested)
+            }
+            Err(error) => {
+                return Err(error).context("load verified Harvester Scout reports");
+            }
+        }
+    } else {
+        (serde_json::Value::Null, Vec::new())
+    };
+    let mut reported_memory = reported_memory;
+    for mut claim in contested_claims {
+        claim.disputed = Some(true);
+        reported_memory.push(claim);
+    }
+
+    let comparisons = if with_enrichment && supports_cross_season {
+        match performance::load_rating_profile(
+            pool,
+            &req.entity_type,
+            req.entity_id,
+            &req.sport,
+            Some(profile.season - 1),
+        )
+        .await
+        {
+            Ok(Some(mut prior)) => {
+                let _ = cognition::drop_off_facet_datapoints(&mut prior);
+                let _ = cognition::drop_degenerate_zero_datapoints(&mut prior);
+                let _ = cognition::drop_display_tier_datapoints(&mut prior);
+                Some(cognition::build_skill_changes(&profile, &prior))
+            }
+            Ok(None) => None,
+            Err(error) => {
+                tracing::warn!(
+                    entity_type = %req.entity_type,
+                    entity_id = req.entity_id,
+                    sport = %req.sport,
+                    %error,
+                    "rating: prior-season profile load failed (continuing without movement lines)"
+                );
+                None
+            }
+        }
+    } else {
+        None
+    };
+    let prompt_profile =
+        cognition::model_prompt_profile(&profile, supports_cross_season, comparisons.as_ref());
+    let form_trend = if with_enrichment {
+        rating_trajectory.label.as_ref().map(|label| {
+            format!(
+                "{label}; {} scored events",
+                rating_trajectory.components["sample_size"]
+            )
+        })
+    } else {
+        None
+    };
+    let mut components: serde_json::Value = serde_json::from_str(&base_components)?;
+    components["skill_changes"] = serde_json::json!(comparisons);
+    components["personnel"] = serde_json::json!(personnel);
+    components["current_reports"] = serde_json::json!(current_reports);
+    components["recent_form"] = serde_json::json!(form_trend);
+    let sport_name: String =
+        sqlx::query_scalar("SELECT display_name FROM public.sports WHERE id = $1")
+            .bind(&req.sport)
+            .fetch_optional(pool)
+            .await
+            .ok()
+            .flatten()
+            .unwrap_or_else(|| req.sport.clone());
+    let subject = Subject {
+        entity_type: req.entity_type.clone(),
+        entity_name: req.entity_name.clone(),
+        sport: req.sport.clone(),
+        sport_name,
+    };
+    let (measured_memory, coverage_limits) = match super::memories::measured_memory(
+        pool,
+        &subject,
+        req.entity_id,
+        &profile,
+        with_enrichment && !historical,
+    )
+    .await
+    {
+        Ok(parts) => parts,
+        Err(error) => {
+            // A failed study is not a study that found nothing. The difference
+            // matters: the second is a fact about the fixtures, the first is a
+            // fact about our ability to look. Recording it keeps the model from
+            // reading absence-of-trend as stability.
+            tracing::warn!(
+                entity_type = %req.entity_type,
+                entity_id = req.entity_id,
+                sport = %req.sport,
+                %error,
+                "rating: match-statistic study failed (continuing without measured memory)"
+            );
+            (
+                Vec::new(),
+                vec!["Recent-fixture measurement window unavailable for this read.".into()],
+            )
+        }
+    };
+    let parts = crate::plugins::scout::prompt::Parts {
+        subject: crate::plugins::meta::EntityMeta {
+            name: subject.entity_name.clone(),
+            entity_type: subject.entity_type.clone(),
+            entity_id: req.entity_id,
+            sport: subject.sport.clone(),
+        },
+        sport_name: subject.sport_name.clone(),
+        season: profile.season,
+        profile: crate::plugins::scout::performance::profile_parts(
+            &prompt_profile,
+            supports_cross_season,
+            comparisons.as_ref(),
+        ),
+        memory: crate::plugins::scout::memories::select(
+            &crate::plugins::scout::memories::Selection::rated(),
+            measured_memory,
+            reported_memory,
+            coverage_limits,
+        ),
+    };
+    let built_prompt = parts.render();
+    let opts = parts.generation_options(voice_num_ctx, temperature);
+    if !parts.has_measured_profile() {
+        return Ok(RatingBuild::NoStats {
+            season: profile.season,
+        });
+    }
+    let input_components = parts.input_components(components);
+    let input_hash = hash_components(&input_components);
+    Ok(RatingBuild::Ready(Box::new(Assignment {
+        subject,
+        season: profile.season,
+        notability,
+        notability_components,
+        rating_trajectory,
+        input_components,
+        input_hash,
+        exclusions,
+        opts,
+        built_prompt,
+        parts,
+    })))
 }
 
 #[cfg(test)]

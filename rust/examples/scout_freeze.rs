@@ -7,8 +7,8 @@
 //!   ... add -generate to also produce the card via the routed StatsLogic model.
 use anyhow::{anyhow, Result};
 use scoracle_cognition::application::models::Models;
-use scoracle_cognition::plugins::scout::adapter::{build_rating_request, RatingReq};
 use scoracle_cognition::plugins::scout::cognition::{RatingBuild, RATING_TEMPERATURE};
+use scoracle_cognition::plugins::scout::prompt::{build_rating_request, RatingReq};
 use scoracle_cognition::runtime::config::Config;
 use scoracle_cognition::runtime::db;
 use scoracle_cognition::runtime::route::Router;

@@ -2,6 +2,8 @@
 //! Measurements retain coverage; reported claims retain publisher and date.
 //! These remain separate: neither establishes the cause of the other.
 //! Selection, budgets and freshness belong to this plugin.
+use crate::plugins::scout::cognition::{RatingProfile, Subject};
+use anyhow::Result;
 use serde::Serialize;
 
 /// The Scout's memory, as presented. Both parts are optional and absence is
@@ -256,6 +258,128 @@ pub fn select(
         selected.reported.pop();
     }
     selected
+}
+
+/// The Scout's measured memory: a match-statistic study over stored fixtures.
+///
+/// This is the shared `statistic::team_matches` adapter's first production
+/// consumer, and the reason it was not deleted in Window 0. A season profile is
+/// a snapshot; this is the windowed arithmetic that says whether the recent
+/// fixtures moved, which is the "big win" the Scout's memory is for: DuckDB
+/// computes the comparison so the model reads a computed direction rather than
+/// inferring one from a column of numbers.
+///
+/// # Why it is scoped this narrowly
+///
+/// The adapter is team-level and requires a registered additive `cumulative_total`
+/// measure in one competition and season. A player has no team fixture series, so
+/// a player read simply has no measured memory — which is honest, and is why
+/// absence here is reported rather than hidden:
+///
+/// - **not a team** → no study is possible, and nothing is claimed about it;
+/// - **no league or a team with no additive measure** → the study declines,
+///   which is distinct from a study that found a flat window;
+/// - **fewer than two completed fixtures** → no comparison is computable.
+///
+/// The coverage statement travels with the finding either way, because a window
+/// the model cannot see the limits of is a window it will over-read.
+pub(crate) async fn measured_memory(
+    pool: &sqlx::PgPool,
+    subject: &Subject,
+    entity_id: i32,
+    profile: &RatingProfile,
+    enabled: bool,
+) -> Result<(Vec<crate::plugins::scout::memories::Measured>, Vec<String>)> {
+    let mut limits = Vec::new();
+    if !enabled {
+        limits.push(
+            "Recent-fixture measurement windows are not part of this read's scope.".to_string(),
+        );
+        return Ok((Vec::new(), limits));
+    }
+    if subject.entity_type != "team" {
+        // A player's profile has no team fixture series. Saying so keeps the
+        // absence from reading as "no recent form was found".
+        limits.push(
+            "This is a player profile; recent-fixture windows are measured per team and do not \
+             apply here, so recent direction from fixtures is unknown rather than flat."
+                .to_string(),
+        );
+        return Ok((Vec::new(), limits));
+    }
+    let Some(league_id) = profile.league_id else {
+        limits.push(
+            "No competition was resolved for this entity, so no fixture window could be compared."
+                .to_string(),
+        );
+        return Ok((Vec::new(), limits));
+    };
+    let Some(metric) = team_metric_for(pool, &subject.sport).await? else {
+        limits.push(
+            "No registered additive team measure is available for this sport, so no fixture \
+             window could be computed."
+                .to_string(),
+        );
+        return Ok((Vec::new(), limits));
+    };
+    let now = crate::plugins::influencer::now();
+    // A recent window with an equal earlier one, so the study has something to
+    // compare. The split is inside the lookback, which keeps the read current.
+    let window = 30 * 86400;
+    let before = now;
+    let split = before - window;
+    let from = split - window;
+    let study = crate::plugins::memories::statistic::team_matches(
+        pool,
+        &crate::plugins::meta::EntityMeta {
+            name: subject.entity_name.clone(),
+            entity_type: subject.entity_type.clone(),
+            entity_id,
+            sport: subject.sport.clone(),
+        },
+        &metric,
+        league_id,
+        profile.season,
+        from,
+        split,
+        before,
+    )
+    .await?;
+    limits.push(study.coverage.clone());
+    if study.finding.current.fixtures < 2 || study.finding.previous.fixtures < 2 {
+        limits.push(
+            "Fewer than two completed fixtures fall in one or both windows, so no per-match \
+             change is computable. Recent direction is unknown, not steady."
+                .to_string(),
+        );
+        return Ok((Vec::new(), limits));
+    }
+    let finding = &study.finding;
+    let measured = vec![crate::plugins::scout::memories::Measured {
+        measure_label: study.measure_label.clone(),
+        unit: finding.unit.clone(),
+        previous: (&finding.previous).into(),
+        current: (&finding.current).into(),
+        per_match_change: finding.per_match_change,
+        percent_change: finding.percent_change,
+        fixture_ids: finding.fixture_ids.clone(),
+    }];
+    Ok((measured, limits))
+}
+
+/// The one registered additive team measure for this sport, if there is exactly
+/// one. Choosing the metric is the plugin's decision and it is made here rather
+/// than inferred from prose, which is the adapter's own requirement.
+async fn team_metric_for(pool: &sqlx::PgPool, sport: &str) -> Result<Option<String>> {
+    let metrics: Vec<String> = sqlx::query_scalar(
+        "SELECT key_name FROM stat_definitions \
+         WHERE sport=$1 AND entity_type='team' AND unit='cumulative_total' \
+         ORDER BY key_name",
+    )
+    .bind(sport)
+    .fetch_all(pool)
+    .await?;
+    Ok((metrics.len() == 1).then(|| metrics[0].clone()))
 }
 
 #[cfg(test)]

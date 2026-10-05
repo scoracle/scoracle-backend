@@ -2143,10 +2143,10 @@ mod tests {
             );
         }
         // A missing profile remains a no-call in the direct/backfill preparation path.
-        let missing = crate::plugins::scout::adapter::build_rating_request(
+        let missing = crate::plugins::scout::prompt::build_rating_request(
             &pool,
             4096,
-            &crate::plugins::scout::adapter::RatingReq {
+            &crate::plugins::scout::prompt::RatingReq {
                 entity_type: "team".into(),
                 entity_id: OTHER_TEAM,
                 entity_name: "Another Test Club".into(),
@@ -2186,10 +2186,10 @@ mod tests {
         assert_eq!(scout_evidence.0["source_article_id"], ARTICLE);
         let scout_components: serde_json::Value = serde_json::from_str(&scout_evidence.1)?;
         assert_eq!(scout_components["harvester_trigger"]["article_id"], ARTICLE);
-        let prepared = crate::plugins::scout::adapter::build_rating_request(
+        let prepared = crate::plugins::scout::prompt::build_rating_request(
             &pool,
             4096,
-            &crate::plugins::scout::adapter::RatingReq {
+            &crate::plugins::scout::prompt::RatingReq {
                 entity_type: "team".into(),
                 entity_id: TEAM,
                 entity_name: "Harvester Test Club".into(),

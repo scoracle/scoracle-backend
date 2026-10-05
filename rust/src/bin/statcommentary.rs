@@ -9,11 +9,12 @@ use scoracle_cognition::application::models::Models;
 use scoracle_cognition::application::queue::work;
 use scoracle_cognition::evidence::corpus;
 use scoracle_cognition::plugins::scout::adapter::{
-    build_rating_request, invoke_rating, rating_work_input_version, RatingReq, RatingRunContext,
+    invoke_rating, rating_work_input_version, RatingRunContext,
 };
 use scoracle_cognition::plugins::scout::cognition::{
     RatingBuild, RatingOutput, RATING_PROMPT_VERSION, RATING_TEMPERATURE,
 };
+use scoracle_cognition::plugins::scout::prompt::{build_rating_request, RatingReq};
 use scoracle_cognition::runtime::config::Config;
 use scoracle_cognition::runtime::db;
 use scoracle_cognition::runtime::providers::ollama::OllamaClient;

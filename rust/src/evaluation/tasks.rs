@@ -30,8 +30,8 @@ use crate::plugins::oracle::cognition::{
     generation_options as oracle_generation_options, Subject as OracleSubject,
     ORACLE_PROMPT_VERSION,
 };
-use crate::plugins::scout::adapter::{build_rating_request, RatingReq};
 use crate::plugins::scout::cognition::RatingBuild;
+use crate::plugins::scout::prompt::{build_rating_request, RatingReq};
 use crate::runtime::route::RouteKey;
 use crate::studio::model::GenerateOptions;
 use crate::studio::Parser;

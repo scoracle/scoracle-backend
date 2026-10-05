@@ -33,7 +33,7 @@ Older cutover documents describe three-sentence excerpts, broad forwarding, or a
 
 ## Plugin structure and tool ownership
 
-A plugin owns its `prompt.rs`, `manifest.rs` and execution wiring in `mod.rs`. Each articulation plugin keeps its own small `voice.rs`; plugins without expressive output need none. Shared tools live together; specialized tools live beside their plugin. Scout rendering and measurements are `prompt.rs` and `performance.rs`; Influencer preparation, execution and publication are `prompt.rs`, `mod.rs` and `publish.rs`. The other plugins' prompt entry points and the remaining folder moves are recorded in the cleanup plan.
+A plugin owns its `prompt.rs`, `manifest.rs` and execution wiring in `mod.rs`. Each articulation plugin keeps its own small `voice.rs`; plugins without expressive output need none. Shared tools live together; specialized tools live beside their plugin. Scout preparation and rendering are `prompt.rs`; performance SQL and measurements are `performance.rs`; Influencer preparation, execution and publication are `prompt.rs`, `mod.rs` and `publish.rs`. The other plugins' prompt entry points and the remaining folder moves are recorded in the cleanup plan.
 
 | File | Responsibility |
 | --- | --- |

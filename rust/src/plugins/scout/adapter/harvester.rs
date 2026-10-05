@@ -1,8 +1,5 @@
 //! Source-level Scout review before measured-profile publication.
-use super::{
-    build_rating_request_inner, current_season, insert_stat_summary, record_ledger,
-    record_rating_completed, LedgerSubject, RatingReq,
-};
+use super::{insert_stat_summary, record_ledger, record_rating_completed, LedgerSubject};
 use crate::application::models::ExecutionCapabilities;
 use crate::application::queue::publication::ClaimPublication;
 use crate::application::queue::work::Item;
@@ -11,6 +8,8 @@ use crate::plugins::harvester::delivery::SourceContext;
 use crate::plugins::scout::cognition::{
     self as scout, RatingBuild, RatingOutput, RATING_TEMPERATURE,
 };
+use crate::plugins::scout::performance::current_season;
+use crate::plugins::scout::prompt::{build_rating_request, RatingReq};
 use crate::studio::model::Inference;
 use crate::studio::plugin::PluginOutcome;
 use crate::studio::Studio;
@@ -225,7 +224,7 @@ pub(crate) async fn execute_with_backend(
             season: Some(season),
         };
         if let RatingBuild::Ready(mut assignment) =
-            build_rating_request_inner(pool, voice_num_ctx, &req, RATING_TEMPERATURE, false).await?
+            build_rating_request(pool, voice_num_ctx, &req, RATING_TEMPERATURE, false).await?
         {
             let mut components: serde_json::Value =
                 serde_json::from_str(&assignment.input_components)?;

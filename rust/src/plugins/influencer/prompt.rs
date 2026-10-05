@@ -1,31 +1,21 @@
-//! Influencer parts and one cognition call: synthesize and articulate the supplied world.
+//! Influencer source admission, memory selection, and exact model input.
+use super::memories;
 use crate::plugins::harvester::delivery::SourceContext;
 use crate::plugins::meta::EntityMeta;
 use crate::studio::model::GenerateOptions;
-use crate::studio::{Generation, GenerationCall, Studio};
+use crate::util::hash_components;
 use anyhow::Result;
 use serde_json::{json, Value};
+use sqlx::PgPool;
 
-mod fresh;
-mod prompt;
-pub use crate::plugins::support::form::{
-    observation_schema as schema, ObservationParser as VibeParser, ObservationReply as VibeReply,
-};
+pub const TASK: &str = "Describe what fresh.publisher_excerpt reports about meta, with relevant dated context from memories when supplied. Preserve who said what, attribution, dates and uncertainty. published_at dates a report, not necessarily the events it describes. Absent memories means no history was supplied. Report feelings only when the sources state them; a routine update can remain a routine update.
+voice and form are writing instructions, not facts about the subject. Use voice for tone and form for output structure and limits. Return the description in body, or a null body when the supplied evidence supports no description.";
+
 pub const VIBE_PROMPT_VERSION: &str = "vibe-frame-v6-six-part";
-pub const VIBE_SYSTEM_PROMPT: &str = prompt::TASK;
 pub const VIBE_TEMPERATURE: f64 = 0.0;
 pub const VIBE_NUM_PREDICT: i32 = 600;
 pub const SOURCE_BUDGET_BYTES: usize = 6000;
 pub const LOOKBACK_SECONDS: i64 = 72 * 3600;
-
-#[derive(Clone, Debug)]
-pub struct VibeScore {
-    pub sentiment: Option<i32>,
-    pub vibe_prompt: Option<String>,
-    pub hook: Option<String>,
-    pub input_components_json: String,
-}
-pub type VibeOutput = Generation<VibeScore>;
 
 #[derive(Clone, Debug)]
 pub struct Assignment {
@@ -77,7 +67,11 @@ pub fn assemble(
     let form = crate::plugins::support::form::observation_form();
     serde_json::to_string(&Input {
         meta: subject.for_writing(),
-        fresh: fresh::prepare(source),
+        fresh: crate::plugins::support::source::Reporting::new(
+            &source.source,
+            source.published_at_epoch,
+            &source.context,
+        ),
         memories: (!history.is_empty()).then_some(history),
         voice: crate::plugins::influencer::voice::VOICE,
         form,
@@ -107,54 +101,50 @@ impl Parts {
 
 pub fn generation_options(temperature: f64, num_ctx: i32, num_predict: i32) -> GenerateOptions {
     GenerateOptions {
-        system: Some(VIBE_SYSTEM_PROMPT.into()),
+        system: Some(TASK.into()),
         temperature: Some(temperature),
         num_predict,
         num_ctx,
         json_mode: false,
-        format_schema: Some(schema()),
+        format_schema: Some(crate::plugins::support::form::observation_schema()),
         format_schema_raw: None,
     }
 }
-pub async fn create(
-    studio: &Studio<'_>,
-    assignment: &Assignment,
-    num_ctx: i32,
-) -> Result<(Option<VibeOutput>, Value)> {
-    let extracted = studio
-        .extract(
-            &assembled_prompt(assignment),
-            &generation_options(VIBE_TEMPERATURE, num_ctx, VIBE_NUM_PREDICT),
-            &VibeParser,
-            |_| None,
-        )
-        .await?;
-    let call = GenerationCall::from(&extracted);
-    let receipt = json!({"model_version":extracted.model,"prompt_version":VIBE_PROMPT_VERSION,
-        "input_hash":assignment.input_hash,"raw_response":extracted.raw_response,
-        "eval_count":extracted.eval_count,"wall_ms":extracted.wall_ms,
-        "input_components":serde_json::from_str::<Value>(&assignment.input_components_json)?,
-        "request_body":extracted.request_body});
-    let Some(reply) = extracted.value else {
-        return Ok((None, receipt));
+/// Read-only preparation shared by the worker and evaluation. No generative decisions.
+pub async fn prepare_assignment(
+    pool: &PgPool,
+    subject: EntityMeta,
+    source: &SourceContext,
+    now: i64,
+) -> Result<(Option<Assignment>, Value)> {
+    let reason = match source.published_at_epoch {
+        Some(published) => source_disposition(&source.context, published, now),
+        None => source_disposition(&source.context, now, now),
     };
+    if let Some(reason) = reason {
+        return Ok((
+            None,
+            json!({"contract":VIBE_PROMPT_VERSION,"source":source,"reason":reason}),
+        ));
+    }
+    let study = memories::load(pool, &subject, source).await?;
+    let history = study
+        .as_ref()
+        .map(|s| memories::select(s, &subject, source))
+        .transpose()?
+        .unwrap_or_default();
+    let input_components_json = json!({"subject":subject,"source":source,
+        "history":history,"memory_study":study,"prompt_version":VIBE_PROMPT_VERSION})
+    .to_string();
+    let input_hash = hash_components(&input_components_json);
     Ok((
-        Some(Generation::called(
-            VibeScore {
-                sentiment: None,
-                hook: Some(fresh::title(&assignment.source, &assignment.subject.name)),
-                vibe_prompt: reply.body,
-                input_components_json: assignment.input_components_json.clone(),
-            },
-            extracted.model,
-            VIBE_PROMPT_VERSION,
-            vec![assignment.source.article_id],
-            Some(assignment.input_hash.clone()),
-            call,
-        )),
-        receipt,
+        Some(Assignment {
+            subject,
+            source: source.clone(),
+            history,
+            input_components_json,
+            input_hash,
+        }),
+        json!({"contract":VIBE_PROMPT_VERSION}),
     ))
 }
-
-#[cfg(test)]
-mod tests;

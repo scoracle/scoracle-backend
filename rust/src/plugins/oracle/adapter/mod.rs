@@ -116,7 +116,7 @@ impl crate::application::queue::outbox::EventReaction for OracleBarrierReaction 
 
     fn kinds(&self) -> &[&'static str] {
         &[
-            crate::plugins::influencer::adapter::VIBE_COMPLETED,
+            crate::plugins::influencer::VIBE_COMPLETED,
             crate::plugins::scout::adapter::RATING_COMPLETED,
             crate::plugins::analyst::adapter::MOMENTUM_COMPLETED,
             crate::plugins::scout::adapter::RATING_DEBOUNCED,

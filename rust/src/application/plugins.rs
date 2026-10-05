@@ -11,7 +11,7 @@ use crate::plugins::analyst::adapter as analyst;
 use crate::plugins::fixture_boxscore::adapter as boxscore;
 use crate::plugins::graph::adapter as graph;
 use crate::plugins::harvester::adapter as harvester;
-use crate::plugins::influencer::adapter as influencer;
+use crate::plugins::influencer;
 use crate::plugins::insider::adapter as insider;
 use crate::plugins::journalist::adapter as journalist;
 use crate::plugins::oracle::adapter as oracle;
@@ -302,7 +302,7 @@ mod tests {
         }
         let momentum_then_oracle = ["analyst.enqueue-momentum", "oracle.completion-barrier"];
         for kind in [
-            crate::plugins::influencer::adapter::VIBE_COMPLETED,
+            crate::plugins::influencer::VIBE_COMPLETED,
             crate::plugins::scout::adapter::RATING_COMPLETED,
         ] {
             assert_eq!(

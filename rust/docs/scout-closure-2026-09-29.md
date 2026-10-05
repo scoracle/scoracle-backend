@@ -594,7 +594,7 @@ Sources: [Ollama client](../src/runtime/providers/ollama.rs),
 [renderer](../src/plugins/assembly.rs), [Studio loop](../src/studio/session.rs).
 The full literal system instructions and user JSON are retained per request in
 the replay, and in [Scout prompt](../src/plugins/scout/prompt.rs) and
-[Influencer prompt](../src/plugins/influencer/cognition/prompt.rs).
+[Influencer prompt](../src/plugins/influencer/prompt.rs).
 
 The earlier installed-template capture adds knowledge-cutoff/date/reasoning
 metadata and a Custom Instructions wrapper. It lacks the system-closing delimiter
@@ -643,8 +643,8 @@ the product heading if it fits 140 characters; otherwise the entity name is used
 Sentiment stays None. Influencer's Studio correction callback always returns None.
 
 Sources: [delivery](../src/plugins/harvester/delivery.rs),
-[adapter](../src/plugins/influencer/adapter/harvester.rs),
-[assembly](../src/plugins/influencer/cognition/mod.rs),
+[adapter](../src/plugins/influencer/mod.rs),
+[assembly](../src/plugins/influencer/prompt.rs),
 [memory policy](../src/plugins/influencer/memories.rs),
 [shared research](../src/plugins/memories.rs),
 [research SQL](../src/plugins/memories/reporting.sql),

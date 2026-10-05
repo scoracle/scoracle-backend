@@ -1,13 +1,9 @@
 //! Influencer source publication and completion coordination.
-pub(crate) mod harvester;
-use crate::application::models::ExecutionCapabilities;
+use super::{prompt::VIBE_NUM_PREDICT, VibeOutput};
 use crate::application::queue::work::Item;
-use crate::plugins::influencer::cognition::{VibeOutput, VIBE_NUM_PREDICT};
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
-use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
 use anyhow::{Context, Result};
-use async_trait::async_trait;
-use sqlx::{PgPool, Postgres, Row, Transaction};
+use sqlx::{Postgres, Row, Transaction};
 
 pub(crate) const VIBE_COMPLETED: &str = "vibe_completed";
 pub(crate) async fn record_vibe_completed(
@@ -36,7 +32,7 @@ const VIBE_LEDGER: LedgerSpec = LedgerSpec {
     product_table: "vibe_scores",
     output_contract_version: VIBE_OUTPUT_CONTRACT_VERSION,
 };
-async fn persist_to_vibe_scores(
+pub(super) async fn persist_to_vibe_scores(
     tx: &mut Transaction<'_, Postgres>,
     item: &Item,
     sport: &str,
@@ -74,7 +70,7 @@ async fn persist_to_vibe_scores(
     Ok(row.get("id"))
 }
 
-async fn record_ledger(
+pub(super) async fn record_ledger(
     pool: &sqlx::PgPool,
     item: &Item,
     sport: &str,
@@ -112,23 +108,4 @@ async fn record_ledger(
     )
     .await;
     Ok(())
-}
-
-pub struct VibeHandler {
-    pool: PgPool,
-    models: ExecutionCapabilities,
-}
-impl VibeHandler {
-    pub fn new(pool: PgPool, models: ExecutionCapabilities) -> Self {
-        Self { pool, models }
-    }
-}
-#[async_trait]
-impl StudioPlugin for VibeHandler {
-    fn manifest(&self) -> &'static PluginManifest {
-        &crate::plugins::influencer::manifest::MANIFEST
-    }
-    async fn execute(&self, item: &Item) -> Result<PluginOutcome> {
-        harvester::execute(&self.pool, &self.models, item).await
-    }
 }

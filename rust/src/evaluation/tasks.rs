@@ -15,7 +15,7 @@ use crate::plugins::graph::adapter::load_graph_article_context;
 use crate::plugins::graph::cognition::{
     build_graph_prompt, graph_opts, GraphCandidate, GraphParser, GRAPH_PROMPT_VERSION,
 };
-use crate::plugins::influencer::cognition::{VibeParser, VIBE_NUM_PREDICT};
+use crate::plugins::influencer::{prompt::VIBE_NUM_PREDICT, VibeParser};
 use crate::plugins::insider::adapter::preview as preview_insider;
 use crate::plugins::insider::cognition::{
     reading_options as insider_options, SourceReply, READING_PROMPT_VERSION,
@@ -666,7 +666,7 @@ impl LensTask for NarrativesTask {
             return Ok(None);
         }
         let corpus = sources.iter().map(CorpusItem::from).collect::<Vec<_>>();
-        let now = crate::plugins::influencer::adapter::harvester::now();
+        let now = crate::plugins::influencer::now();
         let continuity =
             crate::plugins::journalist::memories::load_for_assignment(pool, &subject, &corpus, now)
                 .await?;
@@ -802,10 +802,10 @@ impl LensTask for VibeTask {
         crate::plugins::influencer::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
-        crate::plugins::influencer::cognition::VIBE_PROMPT_VERSION
+        crate::plugins::influencer::prompt::VIBE_PROMPT_VERSION
     }
     fn gen_options(&self, temperature: f64) -> Result<GenerateOptions> {
-        Ok(crate::plugins::influencer::cognition::generation_options(
+        Ok(crate::plugins::influencer::prompt::generation_options(
             temperature,
             0,
             VIBE_NUM_PREDICT,
@@ -834,17 +834,17 @@ impl LensTask for VibeTask {
         let Some(source) = sources.last() else {
             return Ok(None);
         };
-        let (assignment, _) = crate::plugins::influencer::adapter::harvester::prepare_assignment(
+        let (assignment, _) = crate::plugins::influencer::prompt::prepare_assignment(
             pool,
             subject,
             source,
-            crate::plugins::influencer::adapter::harvester::now(),
+            crate::plugins::influencer::now(),
         )
         .await?;
         assignment
             .map(|a| {
                 self.assemble(&serde_json::to_value(
-                    crate::plugins::influencer::cognition::Parts {
+                    crate::plugins::influencer::prompt::Parts {
                         subject: a.subject,
                         source: a.source,
                         history: a.history,
@@ -872,7 +872,7 @@ impl LensTask for VibeTask {
         }
     }
     fn assemble(&self, stored_parts: &serde_json::Value) -> Result<Prepared> {
-        let parts: crate::plugins::influencer::cognition::Parts =
+        let parts: crate::plugins::influencer::prompt::Parts =
             serde_json::from_value(stored_parts.clone())
                 .map_err(|e| anyhow::anyhow!("vibe parts: {e}"))?;
         Ok(Prepared {
@@ -882,8 +882,8 @@ impl LensTask for VibeTask {
             // The Influencer's contract does not vary with the world: one nullable
             // `body` slot, one manual, whatever the source or the history. So the
             // options are the plugin's own, not a per-fixture reconstruction.
-            options: crate::plugins::influencer::cognition::generation_options(
-                crate::plugins::influencer::cognition::VIBE_TEMPERATURE,
+            options: crate::plugins::influencer::prompt::generation_options(
+                crate::plugins::influencer::prompt::VIBE_TEMPERATURE,
                 0,
                 VIBE_NUM_PREDICT,
             ),

@@ -462,7 +462,7 @@ async fn measured_memory(
         );
         return Ok((Vec::new(), limits));
     };
-    let now = crate::plugins::influencer::adapter::harvester::now();
+    let now = crate::plugins::influencer::now();
     // A recent window with an equal earlier one, so the study has something to
     // compare. The split is inside the lookback, which keeps the read current.
     let window = 30 * 86400;

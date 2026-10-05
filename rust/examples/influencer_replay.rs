@@ -1,6 +1,6 @@
 //! Export the production cognition package and check retained replies for form only.
 use anyhow::Result;
-use scoracle_cognition::plugins::influencer::{cognition, memories::HistoryItem};
+use scoracle_cognition::plugins::influencer::{self, memories::HistoryItem, prompt};
 use scoracle_cognition::plugins::{harvester::delivery::SourceContext, meta::EntityMeta};
 use scoracle_cognition::studio::Parser;
 use serde::Deserialize;
@@ -31,7 +31,7 @@ fn main() -> Result<()> {
         if validate {
             let row: Value = serde_json::from_str(&line)?;
             checked += 1;
-            let parsed = cognition::VibeParser
+            let parsed = influencer::VibeParser
                 .parse(row["response"]["message"]["content"].as_str().unwrap_or(""));
             match parsed {
                 Ok(_) if row["response"]["done"] == true => {
@@ -52,17 +52,17 @@ fn main() -> Result<()> {
             }
         } else {
             let case: Case = serde_json::from_str(&line)?;
-            let assignment = cognition::Assignment {
+            let assignment = prompt::Assignment {
                 subject: case.subject,
                 source: case.source,
                 history: case.history,
                 input_components_json: line.clone(),
                 input_hash: hex::encode(Sha256::digest(line.as_bytes())),
             };
-            let opts = cognition::generation_options(
-                cognition::VIBE_TEMPERATURE,
+            let opts = prompt::generation_options(
+                prompt::VIBE_TEMPERATURE,
                 4096,
-                cognition::VIBE_NUM_PREDICT,
+                prompt::VIBE_NUM_PREDICT,
             );
             let backend = scoracle_cognition::runtime::providers::ollama::OllamaClient::with_think(
                 "http://127.0.0.1:11434",
@@ -70,7 +70,7 @@ fn main() -> Result<()> {
                 std::time::Duration::from_secs(120),
                 Some(false),
             )?;
-            let request = backend.request_body(&cognition::assembled_prompt(&assignment), &opts);
+            let request = backend.request_body(&prompt::assembled_prompt(&assignment), &opts);
             writeln!(stdout, "{}", json!({"key":case.key,"request":request}))?;
         }
     }

@@ -30,7 +30,7 @@ pub fn select(
         source.published_at_epoch,
         &[source.article_id],
         |report| {
-            super::cognition::source_disposition(
+            super::prompt::source_disposition(
                 &report.headline,
                 report.reported_at,
                 report.reported_at,

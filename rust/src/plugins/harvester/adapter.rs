@@ -1892,17 +1892,16 @@ mod tests {
                 let mut stale = claimed.clone();
                 stale.claim_token = Some("00000000-0000-0000-0000-000000000001".into());
                 assert_eq!(
-                    crate::plugins::influencer::adapter::harvester::execute_with_backend(
+                    crate::plugins::influencer::execute_with_backend(
                         &pool, &SmokeVibe, 4096, &stale
                     )
                     .await?,
                     PluginOutcome::Superseded
                 );
             }
-            let outcome = crate::plugins::influencer::adapter::harvester::execute_with_backend(
-                &pool, &SmokeVibe, 4096, &claimed,
-            )
-            .await?;
+            let outcome =
+                crate::plugins::influencer::execute_with_backend(&pool, &SmokeVibe, 4096, &claimed)
+                    .await?;
             if claimed.entity_id == i64::from(TEAM) {
                 assert!(matches!(outcome, PluginOutcome::Deferred { .. }));
                 let still_pending: i64 = sqlx::query_scalar(
@@ -1919,10 +1918,8 @@ mod tests {
             .remove(0);
         assert_eq!(resumed.entity_id, i64::from(TEAM));
         assert_eq!(
-            crate::plugins::influencer::adapter::harvester::execute_with_backend(
-                &pool, &SmokeVibe, 4096, &resumed
-            )
-            .await?,
+            crate::plugins::influencer::execute_with_backend(&pool, &SmokeVibe, 4096, &resumed)
+                .await?,
             PluginOutcome::Committed
         );
         let second_status: String = sqlx::query_scalar(
@@ -1953,7 +1950,7 @@ mod tests {
             assert_eq!(receipt["model_version"], "smoke-vibe");
             assert_eq!(
                 receipt["prompt_version"],
-                crate::plugins::influencer::cognition::VIBE_PROMPT_VERSION
+                crate::plugins::influencer::prompt::VIBE_PROMPT_VERSION
             );
             assert!(receipt["input_hash"].as_str().is_some());
         }

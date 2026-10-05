@@ -1,4 +1,6 @@
+use super::prompt::{assembled_prompt, source_disposition, LOOKBACK_SECONDS, SOURCE_BUDGET_BYTES};
 use super::*;
+use crate::studio::model::GenerateOptions;
 use crate::studio::model::{GenerateResult, Inference};
 use crate::studio::Parser;
 use async_trait::async_trait;
@@ -95,7 +97,7 @@ async fn empty_reading_keeps_its_receipt_in_the_same_call() {
 fn the_stored_quality_fixture_is_still_the_rendered_package() {
     // The retained world must rebuild through the production assembler.
     let fixture: Value = serde_json::from_str(include_str!(
-        "../../../../fixtures/quality/vibe/warm-memory-cold-coverage.json"
+        "../../../fixtures/quality/vibe/warm-memory-cold-coverage.json"
     ))
     .unwrap();
     let stored = fixture["user_prompt"].as_str().unwrap();
@@ -114,7 +116,7 @@ fn the_stored_quality_fixture_is_still_the_rendered_package() {
             source: "Example Wire".into(),
             published_at_epoch: Some(1_790_553_600),
         },
-        history: vec![super::super::memories::HistoryItem {
+        history: vec![super::memories::HistoryItem {
             group: None,
             publisher: "Old Wire".into(),
             published_at: "2026-09-25T00:00:00Z".into(),
@@ -189,4 +191,20 @@ fn source_boundaries_reject_stale_future_instructions_and_partial_units() {
         Some("source_budget_exceeded")
     );
     assert_eq!(source_disposition("Morgan said she was sad.", 1, 1), None);
+}
+
+#[tokio::test]
+async fn preparation_rejects_source_before_reading_memory() {
+    let pool = sqlx::postgres::PgPoolOptions::new()
+        .connect_lazy("postgres://localhost/unused")
+        .unwrap();
+    let mut a = assignment();
+    a.source.context.clear();
+    let (prepared, receipt) = prompt::prepare_assignment(&pool, a.subject, &a.source, 1709164800)
+        .await
+        .unwrap();
+    assert!(prepared.is_none());
+    assert_eq!(receipt["reason"], "empty_source");
+    assert_eq!(receipt["source"]["article_id"], a.source.article_id);
+    assert_eq!(receipt["contract"], prompt::VIBE_PROMPT_VERSION);
 }

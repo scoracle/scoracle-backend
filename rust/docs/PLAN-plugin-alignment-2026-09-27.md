@@ -796,3 +796,32 @@ Scout-through-Fixture evidence remains recorded in each owning window above.
 Run database checks serially; Analyst's crash rehearsal needs an empty pending outbox.
 The release baseline capture remains a release task; the generated snapshot was not
 hand-edited or captured from a database containing test configuration.
+
+## October 5 release completed
+
+Alignment implementation commit `5cf7df9d` and verified PostgreSQL 18 baseline
+commit `fd981fd2` were pushed to `codex/harvester-cutover`. Archbox released
+`fd981fd2a19c` at 15:29 UTC using `scripts/hosting/release.sh` (four Go and three
+Rust binaries). Two disposable PostgreSQL 18 databases verified baseline restore,
+migrations 287–289, captured-schema restore and migration no-op before cutover.
+Checksums pass; reference rows equal the prior baseline apart from dump guard tokens.
+
+Production migrations 287–289 applied successfully. API `/health/db` is healthy
+and `/` reports `fd981fd2a19c`; cognition logs the same commit, ten surviving plugins,
+reachable Postgres/model host and Harvester-owned maintenance. Both services and
+rebuild watchers are active; initial service restart counts are zero.
+
+Archbox now uses the surviving ten-stage list, Harvester intake enabled, shadow
+mode off and delivery to Journalist, Influencer, Insider and Scout. Analyst and
+Oracle remain downstream products. The obsolete packet-compile setting is removed.
+The packet scheduling trigger is absent and legacy Editor identity eligibility is
+false. One pending Editor assignment is retained for explicit operator review;
+no retired worker claims it. Historical product and storyline rows were preserved.
+
+Recovery copies of the previous binaries, environment and schema remain on Archbox
+under `~/.local/state/scoracle/releases/20261005-plugin-alignment/`. Disposable
+release/restore databases and scratch build binaries are removed after verification.
+
+The earlier release-preparation list above is now complete. Next work is operational
+observation of source delivery and durable downstream progress; this release does not
+claim new product fidelity acceptance or implement the unavailable extractors.

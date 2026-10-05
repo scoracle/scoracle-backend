@@ -286,3 +286,6 @@
 284_harvester_shared_entity_links
 285_harvester_live_canary_items
 286_harvester_headline_gate
+287_source_performance_player_scope
+288_graph_fixture_extraction_unavailable
+289_retire_editor_authority

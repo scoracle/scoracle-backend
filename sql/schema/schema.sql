@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict Ybey3AA8yFFE4rqAUde5HqwaPiWhQr8TTg4fCVWQ04t92GZWIprKHMQ5qmT9pax
+\restrict nMrJ59v0skhyYFDUKkDyVzpy93seg1j0eCdccckK0ByyczSDDgCyFLVLl5KVzNE
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -5068,23 +5068,26 @@ CREATE FUNCTION public.refresh_source_performance(p_sport text, p_k numeric DEFA
 DECLARE
     v_run timestamptz := clock_timestamp();
 BEGIN
-    DELETE FROM source_performance WHERE sport = p_sport;
+    DELETE FROM public.source_performance WHERE sport = p_sport;
 
     WITH apps AS (
         SELECT player_id, team_id, applied_at
-        FROM transfer_ground_truth WHERE sport = p_sport
+        FROM public.transfer_ground_truth WHERE sport = p_sport
     ),
     attributions AS (
         SELECT r.player_id, r.team_id, s.source, min(r.generated_at) AS first_reported
-        FROM transfer_rumors r
+        FROM public.transfer_rumors r
         CROSS JOIN LATERAL unnest(r.source_names) AS s(source)
-        WHERE r.sport = p_sport
+        WHERE r.sport = p_sport AND r.subject_type = 'player'
+          AND r.is_rumor IS TRUE
         GROUP BY 1, 2, 3
     ),
     pair_advanced AS (
         SELECT player_id, team_id, min(generated_at) AS first_advanced
-        FROM transfer_rumors
-        WHERE sport = p_sport AND stage IN ('advanced_talks', 'here_we_go')
+        FROM public.transfer_rumors
+        WHERE sport = p_sport AND subject_type = 'player'
+          AND is_rumor IS TRUE
+          AND stage IN ('advanced_talks', 'here_we_go')
         GROUP BY 1, 2
     ),
     joined AS (
@@ -5110,7 +5113,7 @@ BEGIN
         FROM joined
         GROUP BY source
     )
-    INSERT INTO source_performance
+    INSERT INTO public.source_performance
         (sport, source, pairs_covered, confirmed_covered, early_confirmed,
          avg_lead_days, best_lead_days, reliability, components, computed_at)
     SELECT p_sport, a.source, a.pairs_covered, a.confirmed_covered, a.early_confirmed,
@@ -5120,8 +5123,7 @@ BEGIN
                'k', p_k,
                'confirm_rate', CASE WHEN a.pairs_covered = 0 THEN NULL
                     ELSE round(a.confirmed_covered::numeric / a.pairs_covered, 3) END,
-               'note', 'outcomes from transfer_ground_truth (both ledgers); lead days '
-                       'signed (negative = pile-on after the move)'),
+               'note', 'player outcomes from transfer_ground_truth; lead days signed'),
            v_run
     FROM agg a;
 
@@ -5134,7 +5136,7 @@ $$;
 -- Name: FUNCTION refresh_source_performance(p_sport text, p_k numeric, OUT sources_written integer); Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON FUNCTION public.refresh_source_performance(p_sport text, p_k numeric, OUT sources_written integer) IS 'Full recompute of the per-source predictive record from transfer_rumors attribution x applied identity moves. Idempotent, set-based, no model calls. reliability = 100 * confirmed/(confirmed + k): n-based belief in the record.';
+COMMENT ON FUNCTION public.refresh_source_performance(p_sport text, p_k numeric, OUT sources_written integer) IS 'Full recompute of player-transfer source accuracy from attributed positive reports and applied player moves. Denials and coach rumor rows are excluded.';
 
 
 --
@@ -5773,50 +5775,7 @@ COMMENT ON FUNCTION public.season_bridge_window(p_sport text) IS 'THE season-end
 CREATE FUNCTION public.settled_transfer_identity_evidence(p_sport text, p_player_id integer, p_team_id integer, p_news_ids bigint[]) RETURNS TABLE(eligible boolean, stats_season integer, article_ids bigint[], source_names text[])
     LANGUAGE sql STABLE
     AS $$
-WITH latest AS (
-    SELECT max(ps.season)::integer AS season
-    FROM public.player_stats ps
-    WHERE ps.sport = p_sport AND ps.player_id = p_player_id
-), same_team_stats AS (
-    SELECT ps.season
-    FROM public.player_stats ps
-    JOIN latest l ON l.season = ps.season
-    WHERE ps.sport = p_sport
-      AND ps.player_id = p_player_id
-      AND ps.team_id = p_team_id
-    LIMIT 1
-), linked_news AS (
-    SELECT DISTINCT n.id, nullif(btrim(n.source), '') AS source
-    FROM public.news_articles n
-    JOIN public.editor_reads er ON er.article_id = n.id AND er.status = 'success'
-    WHERE n.id = ANY(COALESCE(p_news_ids, ARRAY[]::bigint[]))
-      AND er.read->>'story_type' IN ('roster', 'performance', 'transfer')
-      AND EXISTS (
-          SELECT 1
-          FROM jsonb_array_elements(COALESCE(er.resolved->'links', '[]'::jsonb)) link
-          WHERE link->>'sport' = p_sport
-            AND link->>'entity_type' = 'player'
-            AND link->>'entity_id' = p_player_id::text
-      )
-      AND EXISTS (
-          SELECT 1
-          FROM jsonb_array_elements(COALESCE(er.resolved->'links', '[]'::jsonb)) link
-          WHERE link->>'sport' = p_sport
-            AND link->>'entity_type' = 'team'
-            AND link->>'entity_id' = p_team_id::text
-      )
-), evidence AS (
-    SELECT count(DISTINCT lower(source)) FILTER (WHERE source IS NOT NULL) AS source_count,
-           COALESCE(array_agg(id ORDER BY id), ARRAY[]::bigint[]) AS article_ids,
-           COALESCE(array_agg(DISTINCT source ORDER BY source)
-                    FILTER (WHERE source IS NOT NULL), ARRAY[]::text[]) AS source_names
-    FROM linked_news
-)
-SELECT EXISTS (SELECT 1 FROM same_team_stats) AND e.source_count >= 2,
-       (SELECT season FROM same_team_stats),
-       e.article_ids,
-       e.source_names
-FROM evidence e;
+    SELECT false, NULL::integer, ARRAY[]::bigint[], ARRAY[]::text[];
 $$;
 
 
@@ -5824,7 +5783,7 @@ $$;
 -- Name: FUNCTION settled_transfer_identity_evidence(p_sport text, p_player_id integer, p_team_id integer, p_news_ids bigint[]); Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON FUNCTION public.settled_transfer_identity_evidence(p_sport text, p_player_id integer, p_team_id integer, p_news_ids bigint[]) IS 'Read-only nomination gate for current-team reconciliation after rumor heat decays: the player latest-season stats must name the proposed team and the supplied pair corpus must contain exact Editor links from at least two independently named roster, performance, or transfer sources. Returns the retained article IDs for the identity adjudicator.';
+COMMENT ON FUNCTION public.settled_transfer_identity_evidence(p_sport text, p_player_id integer, p_team_id integer, p_news_ids bigint[]) IS 'Retired Editor-based identity authority. Always unavailable; canonical identity requires supported retained evidence.';
 
 
 --
@@ -8372,7 +8331,7 @@ CREATE TABLE public.harvester_fixture_reviews (
     fixture_id integer,
     reviewed_at timestamp with time zone DEFAULT now() NOT NULL,
     input_hash text DEFAULT ''::text NOT NULL,
-    CONSTRAINT harvester_fixture_reviews_status_check CHECK ((status = ANY (ARRAY['no_result'::text, 'quote_not_found'::text, 'invalid_result'::text, 'team_unresolved'::text, 'already_correct'::text, 'corrected'::text, 'created'::text])))
+    CONSTRAINT harvester_fixture_reviews_status_check CHECK ((status = ANY (ARRAY['no_result'::text, 'quote_not_found'::text, 'invalid_result'::text, 'team_unresolved'::text, 'already_correct'::text, 'corrected'::text, 'created'::text, 'extraction_unavailable'::text])))
 );
 
 
@@ -11403,7 +11362,7 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 -- PostgreSQL database dump complete
 --
 
-\unrestrict Ybey3AA8yFFE4rqAUde5HqwaPiWhQr8TTg4fCVWQ04t92GZWIprKHMQ5qmT9pax
+\unrestrict nMrJ59v0skhyYFDUKkDyVzpy93seg1j0eCdccckK0ByyczSDDgCyFLVLl5KVzNE
 
 
 \ir reference-data.sql
@@ -11411,7 +11370,7 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 -- PostgreSQL database dump
 --
 
-\restrict RECcs5dC1ew3tBsguRY89xuyjLuXBGUWgMlTPfSBtDjYr4x3j7Y8df7zaLCoIZJ
+\restrict 2c6JgX8bClBeCxXYTdn9GrFQl3yZeEf4p7JMk7fhpAaKnSf7NPMYwPCTh1oU1SO
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -13417,13 +13376,6 @@ CREATE TRIGGER application_outbox_notify_insert AFTER INSERT ON public.applicati
 
 
 --
--- Name: packets enqueue_voices_on_packet; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER enqueue_voices_on_packet AFTER INSERT ON public.packets FOR EACH ROW EXECUTE FUNCTION public.enqueue_voices_on_packet();
-
-
---
 -- Name: entity_aliases entity_aliases_append_only; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -14530,4 +14482,4 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict RECcs5dC1ew3tBsguRY89xuyjLuXBGUWgMlTPfSBtDjYr4x3j7Y8df7zaLCoIZJ
+\unrestrict 2c6JgX8bClBeCxXYTdn9GrFQl3yZeEf4p7JMk7fhpAaKnSf7NPMYwPCTh1oU1SO

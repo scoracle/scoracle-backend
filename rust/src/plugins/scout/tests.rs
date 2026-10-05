@@ -1,16 +1,22 @@
 //! Service-free tests for the Scout character and its prepared materials.
 //!
 //! Split out of `mod.rs` so the stage module reads as the stage and nothing else.
-//! `super` resolves to the Studio character module.
+//! `super` resolves to the Scout plugin.
 
-use crate::plugins::scout::adapter::{
+use crate::plugins::scout::{
     rating_trigger_type, rating_work_bypasses_debounce, rating_work_input_version,
     rating_work_input_version_for_availability, rating_work_input_version_for_transfer,
     rating_work_is_availability_triggered, rating_work_is_transfer_triggered, rating_work_season,
 };
 use crate::util::hash_components;
 
+use super::parser::*;
+use super::performance::*;
+use super::prompt::{Subject, RATING_NUM_PREDICT};
 use super::*;
+use crate::studio::model::GenerateOptions;
+use crate::studio::Parser;
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 #[test]
 fn unranked_one_appearance_is_not_an_elite_or_declining_profile() {
@@ -788,10 +794,10 @@ fn a_players_world_is_byte_stable() {
     // states the body ceiling and no paragraph ceiling. A plugin that adopts one
     // later changes this line, which is the point of pinning it.
     assert_eq!(
-        crate::plugins::scout::cognition::prose()
+        crate::plugins::scout::parser::prose()
             .dims
             .paragraph_max_chars,
-        crate::plugins::scout::cognition::SCOUT_PARAGRAPH_MAX_CHARS
+        crate::plugins::scout::parser::SCOUT_PARAGRAPH_MAX_CHARS
     );
 }
 

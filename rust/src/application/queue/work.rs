@@ -673,7 +673,7 @@ mod postgres_claim_fencing_tests {
         assert_eq!(independent.entity_id, id + 1);
         assert!(complete(&second, &independent).await.unwrap());
         let mut tx = first.begin().await.unwrap();
-        crate::plugins::scout::adapter::record_rating_completed(&mut tx, &rating, true)
+        crate::plugins::scout::record_rating_completed(&mut tx, &rating, true)
             .await
             .unwrap();
         assert!(complete_in_transaction(&mut tx, &rating).await.unwrap());

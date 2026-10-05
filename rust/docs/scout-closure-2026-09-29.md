@@ -715,9 +715,10 @@ wholesale into the model's memory part. Prior sample/date/season in SkillChange,
 full rows, source receipts, all current reporting, trigger article and notability
 are also not presented wholesale. Stored input_components is not the wire input.
 
-Sources: [adapter](../src/plugins/scout/adapter/mod.rs),
+Sources: [adapter](../src/plugins/scout/mod.rs),
 [profile SQL](../src/plugins/scout/performance.rs),
-[selection/parser](../src/plugins/scout/cognition/mod.rs),
+[selection](../src/plugins/scout/performance.rs),
+[parser](../src/plugins/scout/parser.rs),
 [presentation](../src/plugins/scout/prompt.rs),
 [memory selection](../src/plugins/scout/memories.rs),
 [statistics research](../src/plugins/memories/statistic.rs),

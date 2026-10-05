@@ -1,7 +1,7 @@
 //! DB-free replay of captured Scout assignments through production guards and
 //! bounded correction. Records every returned response, including rejected ones.
 use anyhow::{anyhow, Result};
-use scoracle_cognition::plugins::scout::cognition::RatingRequestParser;
+use scoracle_cognition::plugins::scout::parser::RatingRequestParser;
 use scoracle_cognition::plugins::scout::prompt::Parts;
 use scoracle_cognition::runtime::{config::Config, route::Router};
 use scoracle_cognition::studio::{

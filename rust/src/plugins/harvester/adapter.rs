@@ -2099,7 +2099,7 @@ mod tests {
         assert_eq!(scout_claims.len(), 2);
         for claimed in scout_claims {
             if claimed.entity_id == i64::from(TEAM) {
-                let error = crate::plugins::scout::adapter::harvester::execute_with_backend(
+                let error = crate::plugins::scout::delivery::execute_with_backend(
                     &pool,
                     &MutatingScout {
                         pool: &pool,
@@ -2121,7 +2121,7 @@ mod tests {
                     .bind(ARTICLE).execute(&pool).await?;
             }
             assert_eq!(
-                crate::plugins::scout::adapter::harvester::execute_with_backend(
+                crate::plugins::scout::delivery::execute_with_backend(
                     &pool,
                     &SmokeScout,
                     4096,
@@ -2131,7 +2131,7 @@ mod tests {
                 PluginOutcome::Committed
             );
             assert_eq!(
-                crate::plugins::scout::adapter::harvester::execute_with_backend(
+                crate::plugins::scout::delivery::execute_with_backend(
                     &pool,
                     &SmokeScout,
                     4096,
@@ -2160,7 +2160,7 @@ mod tests {
         .await?;
         assert!(matches!(
             missing,
-            crate::plugins::scout::cognition::RatingBuild::NoStats { .. }
+            crate::plugins::scout::prompt::RatingBuild::NoStats { .. }
         ));
         let scout_statuses: Vec<(i32, String, serde_json::Value)> = sqlx::query_as(
             "SELECT c.entity_id,d.status,d.product_ref FROM public.harvester_assignments d \
@@ -2201,7 +2201,7 @@ mod tests {
             false,
         )
         .await?;
-        let crate::plugins::scout::cognition::RatingBuild::Ready(prepared) = prepared else {
+        let crate::plugins::scout::prompt::RatingBuild::Ready(prepared) = prepared else {
             panic!("source profile disappeared")
         };
         assert_eq!(
@@ -2275,7 +2275,7 @@ mod tests {
             .await?
             .remove(0);
         assert_eq!(
-            crate::plugins::scout::adapter::harvester::execute_with_backend(
+            crate::plugins::scout::delivery::execute_with_backend(
                 &pool,
                 &SmokeScout,
                 4096,
@@ -2354,7 +2354,7 @@ mod tests {
             .await?
             .remove(0);
         assert_eq!(
-            crate::plugins::scout::adapter::harvester::execute_with_backend(
+            crate::plugins::scout::delivery::execute_with_backend(
                 &pool,
                 &SmokeScout,
                 4096,

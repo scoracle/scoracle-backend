@@ -2,7 +2,8 @@
 //! Measurements retain coverage; reported claims retain publisher and date.
 //! These remain separate: neither establishes the cause of the other.
 //! Selection, budgets and freshness belong to this plugin.
-use crate::plugins::scout::cognition::{RatingProfile, Subject};
+use super::performance::RatingProfile;
+use super::prompt::Subject;
 use anyhow::Result;
 use serde::Serialize;
 

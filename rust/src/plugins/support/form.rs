@@ -379,7 +379,7 @@ mod tests {
     use super::*;
     use crate::plugins::analyst::cognition as analyst;
     use crate::plugins::influencer;
-    use crate::plugins::scout::cognition as scout;
+    use crate::plugins::scout::parser as scout;
 
     #[test]
     fn surface_counts_characters_without_cutting_prose() {

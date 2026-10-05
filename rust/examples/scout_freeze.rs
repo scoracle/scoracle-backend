@@ -7,8 +7,8 @@
 //!   ... add -generate to also produce the card via the routed StatsLogic model.
 use anyhow::{anyhow, Result};
 use scoracle_cognition::application::models::Models;
-use scoracle_cognition::plugins::scout::cognition::{RatingBuild, RATING_TEMPERATURE};
 use scoracle_cognition::plugins::scout::prompt::{build_rating_request, RatingReq};
+use scoracle_cognition::plugins::scout::prompt::{RatingBuild, RATING_TEMPERATURE};
 use scoracle_cognition::runtime::config::Config;
 use scoracle_cognition::runtime::db;
 use scoracle_cognition::runtime::route::Router;
@@ -132,8 +132,7 @@ async fn main() -> Result<()> {
             .router
             .for_route(scoracle_cognition::plugins::scout::manifest::ROUTE);
         let studio = Studio::new(backend.as_ref());
-        let out =
-            scoracle_cognition::plugins::scout::cognition::create(&studio, assignment).await?;
+        let out = scoracle_cognition::plugins::scout::create(&studio, assignment).await?;
         println!("=== card ===");
         println!(
             "abstained: {}; skipped_no_stats: {}",

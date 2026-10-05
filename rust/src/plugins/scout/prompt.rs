@@ -2,16 +2,59 @@
 //! Tone lives in local `voice.rs`. Measurements come from `performance.rs`.
 use serde::Serialize;
 
+use super::parser::{self, RatingReply};
+use super::performance::{RatingExclusions, RatingTrajectory};
 use crate::plugins::meta::EntityMeta;
-use crate::plugins::scout::cognition::{
-    self, Assignment, RatingBuild, RatingExclusions, RatingReply, Subject,
-};
 use crate::plugins::scout::memories::Selected;
 use crate::plugins::scout::performance::{self, Profile};
+use crate::studio::model::GenerateOptions;
 use crate::util::hash_components;
 use anyhow::{Context, Result};
 
 pub const RATING_PROMPT_VERSION: &str = "s66-measured-windows";
+
+/// Production rating temperature.
+pub const RATING_TEMPERATURE: f64 = 0.6;
+
+/// Token cap for the compact scouting card.
+pub const RATING_NUM_PREDICT: i32 = 700;
+
+/// Subject of a Scout assignment. Durable identifiers and trigger policy stay in the application.
+/// `sport_name` is the curated sport display name (e.g. "Football (Soccer)") so the model is
+/// never left to guess what a sport id means; empty falls back to the raw id.
+#[derive(Clone, Debug)]
+pub struct Subject {
+    pub entity_type: String,
+    pub entity_name: String,
+    pub sport: String,
+    pub sport_name: String,
+}
+
+/// Application-prepared Scout work. No storage row, queue lease, or concrete model host enters
+/// this contract.
+pub enum RatingBuild {
+    NoStats { season: i32 },
+    Ready(Box<Assignment>),
+}
+
+pub struct Assignment {
+    pub subject: Subject,
+    pub season: i32,
+    pub notability: i32,
+    pub notability_components: serde_json::Value,
+    pub rating_trajectory: RatingTrajectory,
+    pub input_components: String,
+    pub input_hash: String,
+    pub exclusions: RatingExclusions,
+    pub opts: GenerateOptions,
+    /// The prepared world, rendered once. This is what the model reads; it is
+    /// rendered here rather than in `create` so the package measured, hashed and
+    /// sent are the same bytes.
+    pub built_prompt: String,
+    /// The same world, unrendered, so the manual, the response schema and the
+    /// package are derived from one source rather than three.
+    pub parts: crate::plugins::scout::prompt::Parts,
+}
 
 /// Instructions accompanying every prepared Scout world.
 pub const TASK: &str = "\
@@ -76,17 +119,17 @@ impl Parts {
         crate::studio::model::GenerateOptions {
             system: Some(TASK.into()),
             temperature: Some(temperature),
-            num_predict: cognition::RATING_NUM_PREDICT,
+            num_predict: RATING_NUM_PREDICT,
             num_ctx,
             json_mode: false,
-            format_schema: Some(cognition::prose().schema()),
+            format_schema: Some(parser::prose().schema()),
             format_schema_raw: None,
         }
     }
 
     pub fn comparison_directions(
         &self,
-    ) -> std::collections::BTreeMap<String, cognition::RelativeDirection> {
+    ) -> std::collections::BTreeMap<String, performance::RelativeDirection> {
         self.profile
             .values
             .iter()
@@ -104,7 +147,7 @@ impl Parts {
 
     pub fn parse(&self, raw: &str) -> anyhow::Result<Option<RatingReply>> {
         use crate::studio::Parser;
-        cognition::RatingRequestParser::new(
+        parser::RatingRequestParser::new(
             &self.render(),
             &self.comparison_directions(),
             &self.measurement_bands(),
@@ -121,7 +164,7 @@ impl Parts {
             .map(|window| (&window.measure_label, &window.fixture_ids))
             .collect::<Vec<_>>());
         serde_json::json!({"world": self.render(), "prompt_version": RATING_PROMPT_VERSION,
-            "output_contract": cognition::RATING_OUTPUT_CONTRACT_VERSION, "provenance": provenance})
+            "output_contract": parser::RATING_OUTPUT_CONTRACT_VERSION, "provenance": provenance})
         .to_string()
     }
 
@@ -149,7 +192,7 @@ impl Parts {
             voice: &'static str,
             form: Form<'a>,
         }
-        let prose = cognition::prose();
+        let prose = parser::prose();
         let sport = if self.sport_name.trim().is_empty() {
             self.subject.sport.as_str()
         } else {
@@ -211,27 +254,27 @@ pub async fn build_rating_request(
         });
     };
 
-    let off_facet_stat_labels = cognition::drop_off_facet_datapoints(&mut profile);
-    let degenerate_zero_stat_labels = cognition::drop_degenerate_zero_datapoints(&mut profile);
-    let display_tier_stat_labels = cognition::drop_display_tier_datapoints(&mut profile);
+    let off_facet_stat_labels = performance::drop_off_facet_datapoints(&mut profile);
+    let degenerate_zero_stat_labels = performance::drop_degenerate_zero_datapoints(&mut profile);
+    let display_tier_stat_labels = performance::drop_display_tier_datapoints(&mut profile);
     if profile.composite_score.is_none() && profile.breakdown.is_empty() {
         return Ok(RatingBuild::NoStats {
             season: profile.season,
         });
     }
 
-    let base_components = cognition::input_components(&profile);
+    let base_components = performance::input_components(&profile);
     // Old-season profiles must not inherit present employment or availability.
     let historical =
         profile.season != performance::current_season(pool, &req.sport.to_uppercase()).await?;
-    let supports_cross_season = cognition::supports_cross_season_comparison(&profile);
-    let (notability, notability_components) = cognition::compute_notability(&profile);
+    let supports_cross_season = performance::supports_cross_season_comparison(&profile);
+    let (notability, notability_components) = performance::compute_notability(&profile);
     let exclusions = RatingExclusions {
-        budget_truncated_stat_labels: cognition::budget_truncated_stat_labels(&profile.breakdown),
+        budget_truncated_stat_labels: performance::budget_truncated_stat_labels(&profile.breakdown),
         off_facet_stat_labels,
         degenerate_zero_stat_labels,
         display_tier_stat_labels,
-        thin_sample_omitted_stat_labels: cognition::thin_sample_omitted_stat_labels(&profile),
+        thin_sample_omitted_stat_labels: performance::thin_sample_omitted_stat_labels(&profile),
     };
     let rating_trajectory = performance::load_rating_trajectory(
         pool,
@@ -345,10 +388,10 @@ pub async fn build_rating_request(
         .await
         {
             Ok(Some(mut prior)) => {
-                let _ = cognition::drop_off_facet_datapoints(&mut prior);
-                let _ = cognition::drop_degenerate_zero_datapoints(&mut prior);
-                let _ = cognition::drop_display_tier_datapoints(&mut prior);
-                Some(cognition::build_skill_changes(&profile, &prior))
+                let _ = performance::drop_off_facet_datapoints(&mut prior);
+                let _ = performance::drop_degenerate_zero_datapoints(&mut prior);
+                let _ = performance::drop_display_tier_datapoints(&mut prior);
+                Some(performance::build_skill_changes(&profile, &prior))
             }
             Ok(None) => None,
             Err(error) => {
@@ -366,7 +409,7 @@ pub async fn build_rating_request(
         None
     };
     let prompt_profile =
-        cognition::model_prompt_profile(&profile, supports_cross_season, comparisons.as_ref());
+        performance::model_prompt_profile(&profile, supports_cross_season, comparisons.as_ref());
     let form_trend = if with_enrichment {
         rating_trajectory.label.as_ref().map(|label| {
             format!(

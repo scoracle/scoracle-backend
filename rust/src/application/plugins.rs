@@ -15,7 +15,7 @@ use crate::plugins::influencer;
 use crate::plugins::insider::adapter as insider;
 use crate::plugins::journalist::adapter as journalist;
 use crate::plugins::oracle::adapter as oracle;
-use crate::plugins::scout::adapter as scout;
+use crate::plugins::scout;
 use crate::studio::plugin::StudioPlugin;
 use anyhow::{anyhow, Result};
 use sqlx::PgPool;
@@ -294,7 +294,7 @@ mod tests {
         let oracle_only = ["oracle.completion-barrier"];
         for kind in [
             crate::plugins::analyst::adapter::MOMENTUM_COMPLETED,
-            crate::plugins::scout::adapter::RATING_DEBOUNCED,
+            crate::plugins::scout::RATING_DEBOUNCED,
             crate::plugins::journalist::adapter::NARRATIVES_COMPLETED,
             crate::plugins::insider::adapter::TRANSFER_PUBLISHED,
         ] {
@@ -303,7 +303,7 @@ mod tests {
         let momentum_then_oracle = ["analyst.enqueue-momentum", "oracle.completion-barrier"];
         for kind in [
             crate::plugins::influencer::VIBE_COMPLETED,
-            crate::plugins::scout::adapter::RATING_COMPLETED,
+            crate::plugins::scout::RATING_COMPLETED,
         ] {
             assert_eq!(
                 complete.reaction_names(kind),
@@ -312,7 +312,7 @@ mod tests {
             );
         }
         assert_eq!(
-            complete.reaction_names(crate::plugins::scout::adapter::TRANSFER_IDENTITY_APPLIED),
+            complete.reaction_names(crate::plugins::scout::TRANSFER_IDENTITY_APPLIED),
             ["scout.rate-applied-identity"]
         );
     }

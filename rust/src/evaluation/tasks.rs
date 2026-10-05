@@ -30,8 +30,7 @@ use crate::plugins::oracle::cognition::{
     generation_options as oracle_generation_options, Subject as OracleSubject,
     ORACLE_PROMPT_VERSION,
 };
-use crate::plugins::scout::cognition::RatingBuild;
-use crate::plugins::scout::prompt::{build_rating_request, RatingReq};
+use crate::plugins::scout::prompt::{build_rating_request, RatingBuild, RatingReq};
 use crate::runtime::route::RouteKey;
 use crate::studio::model::GenerateOptions;
 use crate::studio::Parser;
@@ -1132,7 +1131,7 @@ impl LensTask for RatingTask {
         crate::plugins::scout::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
-        crate::plugins::scout::cognition::RATING_PROMPT_VERSION
+        crate::plugins::scout::prompt::RATING_PROMPT_VERSION
     }
     fn gen_options(&self, _temperature: f64) -> Result<GenerateOptions> {
         // Scout acceptance needs the selected measurements, so callers must carry
@@ -1168,8 +1167,7 @@ impl LensTask for RatingTask {
                 .map_err(|e| anyhow::anyhow!("rating parts: {e}"))?;
         Ok(Prepared {
             user_prompt: parts.render(),
-            options: parts
-                .generation_options(0, crate::plugins::scout::cognition::RATING_TEMPERATURE),
+            options: parts.generation_options(0, crate::plugins::scout::prompt::RATING_TEMPERATURE),
             parts: Some(stored_parts.clone()),
             should_call: parts.has_measured_profile(),
         })
@@ -1221,7 +1219,7 @@ impl LensTask for RatingTask {
                 display: "abstained — no card".into(),
             };
         };
-        let reply = crate::plugins::scout::cognition::RatingReply {
+        let reply = crate::plugins::scout::parser::RatingReply {
             body: body.to_string(),
         };
         let mut checks = Vec::new();
@@ -1242,7 +1240,7 @@ impl LensTask for RatingTask {
         // `prose_excludes` entries; same list `RatingParser` rejects on in production.
         let banned = crate::plugins::support::guards::first_banned_phrase(
             &reply.body,
-            crate::plugins::scout::cognition::RATING_BODY_BANS,
+            crate::plugins::scout::parser::RATING_BODY_BANS,
         );
         checks.push(PropertyCheck {
             name: "no_banned_phrases".into(),

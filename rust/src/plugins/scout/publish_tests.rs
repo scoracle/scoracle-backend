@@ -1,7 +1,9 @@
 //! Unit and exact-publication tests for the Scout application adapter.
 
+use super::super::performance::RatingExclusions;
+use super::super::prompt::RATING_PROMPT_VERSION;
+use super::super::RatingProduct;
 use super::*;
-use crate::plugins::scout::cognition::{RatingExclusions, RatingProduct, RATING_PROMPT_VERSION};
 use crate::studio::Generation;
 fn rating_product(
     skipped_no_stats: bool,

@@ -265,7 +265,7 @@ impl crate::application::queue::outbox::EventReaction for MomentumReaction {
     fn kinds(&self) -> &[&'static str] {
         &[
             crate::plugins::influencer::VIBE_COMPLETED,
-            crate::plugins::scout::adapter::RATING_COMPLETED,
+            crate::plugins::scout::RATING_COMPLETED,
         ]
     }
 

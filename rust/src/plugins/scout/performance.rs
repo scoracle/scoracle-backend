@@ -1,13 +1,585 @@
 //! Scout performance reads, selected measurements, sample limits, and standing.
 use anyhow::{bail, Context, Result};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use sqlx::{PgPool, Row};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap, HashSet};
 
-use crate::plugins::scout::cognition::{
-    pct_band, relative_direction, sample_appearances, RatingDatapoint, RatingProfile,
-    RatingTrajectory, RelativeDirection, SkillChange, MIN_CROSS_SEASON_APPEARANCES,
-};
+use super::prompt::RATING_PROMPT_VERSION;
+use crate::util::round1;
+
+/// maxStatFacts bounds the breakdown datapoints fed to the prompt.
+pub(crate) const MAX_STAT_FACTS: usize = 14;
+
+/// The appearance count below which a cross-season comparison is not computed.
+///
+/// A sample thinner than this cannot support a direction claim, so the world
+/// states that rather than letting the model infer one from two snapshots.
+pub const MIN_CROSS_SEASON_APPEARANCES: f64 = 10.0;
+
+/// Selection limits for cross-season measurements and held standings.
+pub const MAX_COMPARISON_FACTS: usize = 4;
+pub const MAX_HELD_COMPARISON_FACTS: usize = 2;
+
+/// Whether this sample can support a cross-season comparison at all.
+pub fn supports_cross_season_comparison(p: &RatingProfile) -> bool {
+    sample_appearances(p).is_some_and(|n| n >= MIN_CROSS_SEASON_APPEARANCES)
+}
+
+/// The participation count this profile was computed over.
+///
+/// The stat-definition label varies by source ("Appearances", "Games Played",
+/// "Matches Played"), so every spelling is matched rather than assuming one. A
+/// sample with no recognised participation label is thin by default: a profile
+/// whose size we cannot see is not a profile we will compare across seasons.
+pub fn sample_appearances(p: &RatingProfile) -> Option<f64> {
+    p.sample.iter().find_map(|(label, value)| {
+        matches!(
+            label.trim().to_ascii_lowercase().as_str(),
+            "appearances" | "games played" | "games_played" | "matches played" | "matches_played"
+        )
+        .then_some(*value)
+    })
+}
+
+/// One measured skill. `pct` is an actual eligible-cohort percentile (higher is better).
+/// Missing ranks, measurements and standardized distances remain missing.
+#[derive(Clone, Debug, Default, Deserialize)]
+pub struct RatingDatapoint {
+    /// Identity of the underlying measurement, not merely its display skill label.
+    #[serde(default)]
+    pub measure: String,
+    #[serde(default, deserialize_with = "null_to_default")]
+    pub label: String,
+    #[serde(default)]
+    pub value: Option<f64>,
+    #[serde(default)]
+    /// Raw standardized distance from the peer mean; polarity is applied using `sign`.
+    pub z: Option<f64>,
+    #[serde(default)]
+    pub pct: Option<f64>,
+    #[serde(default, deserialize_with = "null_to_default")]
+    pub in_comp: bool,
+    #[serde(default, deserialize_with = "null_to_default")]
+    pub in_spec: bool,
+    #[serde(default, deserialize_with = "null_to_default")]
+    /// SQL measurement polarity: +1 favors higher raw values, -1 lower values.
+    /// Missing/invalid values have unknown polarity, not neutral quality.
+    pub sign: i32,
+    #[serde(default, deserialize_with = "null_to_default")]
+    pub facet: String,
+    /// Size of the same-measure eligible population the percentile ranked. Missing when
+    /// no comparison population exists.
+    #[serde(default)]
+    pub cohort: Option<f64>,
+    #[serde(default, deserialize_with = "null_tolerant_map")]
+    pub scoped_pct: HashMap<String, f64>,
+}
+
+/// Map a present JSON null to `T::default`.
+fn null_to_default<'de, D, T>(d: D) -> Result<T, D::Error>
+where
+    T: Default + Deserialize<'de>,
+    D: Deserializer<'de>,
+{
+    Ok(Option::<T>::deserialize(d)?.unwrap_or_default())
+}
+
+/// Missing scoped ranks stay absent, never bottom-ranked.
+fn null_tolerant_map<'de, D>(d: D) -> Result<HashMap<String, f64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let opt: Option<HashMap<String, Option<f64>>> = Option::deserialize(d)?;
+    Ok(opt
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|(k, v)| v.map(|v| (k, v)))
+        .collect())
+}
+
+/// Scrubbed rating profile. `composite_score` comes from a numeric column cast to float8; the
+/// breakdown/scoped/modes are JSONB. The breakdown's ARRAY ORDER is preserved (jsonb keeps array
+/// order), which `input_components` relies on while the prompt sorts by percentile.
+#[derive(Clone, Debug)]
+pub struct RatingProfile {
+    pub observed_at: Option<String>,
+    /// Labels come from stat definitions, including units such as Minutes Per Game.
+    pub sample: BTreeMap<String, f64>,
+    pub league_id: Option<i32>,
+    pub entity_type: String,
+    pub season: i32,
+    pub position: String, // players only ("" for teams)
+    pub composite_score: Option<f64>,
+    pub breakdown: Vec<RatingDatapoint>,
+    pub scoped_ranks: HashMap<String, f64>,
+    pub rate_modes: HashMap<String, Vec<RatingDatapoint>>,
+}
+
+/// A per-x (per_36 / per_90 / …) standout — an elite rate-adjusted datapoint. Mirrors `rateStandout`.
+#[derive(Clone, Debug)]
+pub struct RateStandout {
+    pub mode: String,
+    pub label: String,
+    pub measure: String,
+    pub pct: f64,
+}
+
+#[derive(Clone, Debug)]
+pub struct RatingTrajectory {
+    pub key: String,
+    pub label: Option<String>,
+    pub components: serde_json::Value,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct RatingExclusions {
+    pub budget_truncated_stat_labels: Vec<String>,
+    /// Breakdown labels dropped because their facet is the other side of the ball from the
+    /// player's position (NFL only — see `drop_off_facet_datapoints`).
+    pub off_facet_stat_labels: Vec<String>,
+    /// Zero-value, near-average-z usage artifacts (see `drop_degenerate_zero_datapoints`).
+    pub degenerate_zero_stat_labels: Vec<String>,
+    /// Display-tier datapoints — retired from the rating equation (`in_comp=false AND
+    /// in_spec=false`) — excluded from the AI context (see `drop_display_tier_datapoints`).
+    pub display_tier_stat_labels: Vec<String>,
+    /// Datapoints the thin-sample selection withholds in code instead of ordering the
+    /// model to ignore them (see `THIN_SAMPLE_OMITTED_LABEL`).
+    pub thin_sample_omitted_stat_labels: Vec<String>,
+}
+
+// ---------------------------------------------------------------------------
+// Deterministic prompt shaping over stored derived stats.
+// ---------------------------------------------------------------------------
+
+/// Routing distinctiveness (0-100) and its components. Neither this score nor its formula
+/// is writing context. Rate modes contribute only their maximum, independent of ordering.
+pub fn compute_notability(p: &RatingProfile) -> (i32, serde_json::Value) {
+    let mut top_pct = 0.0_f64;
+    let mut elite_count = 0_i64;
+    for d in &p.breakdown {
+        if let Some(pct) = d.pct {
+            top_pct = top_pct.max(pct);
+        }
+        if d.pct.is_some_and(|pct| pct >= 85.0) {
+            elite_count += 1;
+        }
+    }
+    // The per-x lens counts toward the top percentile (an elite-per-36 limited-minutes player
+    // earns a fuller read) but NOT toward elite_count (avoid double-counting one skill across modes).
+    for dps in p.rate_modes.values() {
+        for d in dps {
+            if let Some(pct) = d.pct {
+                top_pct = top_pct.max(pct);
+            }
+        }
+    }
+    let comp = p.composite_score.unwrap_or(50.0); // average T-score anchor when no composite
+    let score = 0.6 * top_pct
+        + (elite_count as f64 * 10.0).min(30.0)
+        + clamp_f(-10.0, 10.0, (comp - 50.0) * 0.4);
+    let n = clamp_f(0.0, 100.0, score).round() as i32;
+    let comps = serde_json::json!({
+        // key renamed from "peak_pct" at s19 (PEAK retirement); formula unchanged.
+        "top_pct": round1(top_pct),
+        "elite_count": elite_count,
+        "composite": round1(comp),
+    });
+    (n, comps)
+}
+
+/// pct_band maps a percentile to its quality TIER — the L8 breakthrough done in code so the model
+/// never maps percentile→quality itself (it just verbalizes the labeled tier). Transient
+/// prompt-shaping (like sigil's trendDir), NOT a stored derived stat. Mirrors `pctBand`.
+pub fn pct_band(pct: f64) -> &'static str {
+    if pct >= 90.0 {
+        "elite"
+    } else if pct >= 75.0 {
+        "strong"
+    } else if pct >= 60.0 {
+        "above average"
+    } else if pct >= 50.0 {
+        "average"
+    } else if pct >= 35.0 {
+        "below average"
+    } else {
+        "poor"
+    }
+}
+
+/// Return at most `MAX_STAT_FACTS` spanning the full percentile range. Keep both ends and sample
+/// the middle evenly so the prompt does not become a top-N highlight reel.
+pub(super) fn ordered_facts(breakdown: &[RatingDatapoint]) -> Vec<RatingDatapoint> {
+    let facts = ordered_facts_unbounded(breakdown);
+    if facts.len() <= MAX_STAT_FACTS {
+        return facts;
+    }
+    const ENDS: usize = 5; // the top and bottom five: elite edges and real liabilities
+    let middle_slots = MAX_STAT_FACTS - (ENDS * 2);
+    let mut keep: Vec<usize> = (0..ENDS).collect();
+    // Even stride across the interior, endpoints excluded (they are already taken).
+    let lo = ENDS;
+    let hi = facts.len() - ENDS;
+    if hi > lo && middle_slots > 0 {
+        let span = hi - lo;
+        for i in 0..middle_slots {
+            // +1/(middle_slots+1) spacing keeps the samples off both seams.
+            let idx = lo + ((i + 1) * span) / (middle_slots + 1);
+            if !keep.contains(&idx) {
+                keep.push(idx);
+            }
+        }
+    }
+    keep.extend((facts.len() - ENDS)..facts.len());
+    keep.sort_unstable();
+    keep.dedup();
+    keep.into_iter().map(|i| facts[i].clone()).collect()
+}
+
+fn ordered_facts_unbounded(breakdown: &[RatingDatapoint]) -> Vec<RatingDatapoint> {
+    let mut facts = breakdown.to_vec();
+    facts.sort_by(|a, b| {
+        b.pct
+            .partial_cmp(&a.pct)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    facts
+}
+
+pub(crate) fn budget_truncated_stat_labels(breakdown: &[RatingDatapoint]) -> Vec<String> {
+    let shown: HashSet<String> = ordered_facts(breakdown)
+        .into_iter()
+        .map(|d| d.label)
+        .collect();
+    breakdown
+        .iter()
+        .filter(|d| !shown.contains(&d.label))
+        .map(|d| d.label.clone())
+        .collect()
+}
+
+/// Select at most five elite (percentile ≥ 80) measurements per rate mode.
+pub(crate) fn collect_rate_standouts(p: &RatingProfile) -> Vec<RateStandout> {
+    let mut modes: Vec<&String> = p.rate_modes.keys().collect();
+    modes.sort();
+
+    let mut out = Vec::new();
+    for m in modes {
+        let mut dps = p.rate_modes[m].clone();
+        dps.sort_by(|a, b| {
+            b.pct
+                .partial_cmp(&a.pct)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        let mut cnt = 0;
+        for d in &dps {
+            let Some(pct) = d.pct.filter(|pct| *pct >= 80.0) else {
+                continue;
+            };
+            out.push(RateStandout {
+                mode: m.clone(),
+                label: d.label.clone(),
+                measure: d.measure.clone(),
+                pct,
+            });
+            cnt += 1;
+            if cnt >= 5 {
+                break;
+            }
+        }
+    }
+    out
+}
+
+/// signed_z is the sign-adjusted z — the one number where "+" is always the good direction
+/// (`format_datapoint_evidence` renders the same value). Unknown polarity must
+/// not manufacture a neutral score or silently invert the measurement.
+fn signed_z(d: &RatingDatapoint) -> Option<f64> {
+    match d.sign {
+        -1 | 1 => d.z.filter(|z| z.is_finite()).map(|z| d.sign as f64 * z),
+        _ => None,
+    }
+}
+
+/// nfl_position_side maps an NFL position to the side of the ball it plays. Both the
+/// abbreviated and spelled-out forms appear in `player_stats.position` ("QB" and
+/// "Quarterback"). `None` — kickers/punters/returners/long snappers, "Unknown", and the
+/// teams' empty string — means no side can be inferred, and the off-facet filter fails
+/// open (keeps everything), matching the harness's fail-closed-by-omission posture.
+fn nfl_position_side(position: &str) -> Option<&'static str> {
+    match position.trim().to_lowercase().as_str() {
+        "qb" | "quarterback" | "rb" | "running back" | "fb" | "fullback" | "wr"
+        | "wide receiver" | "te" | "tight end" | "c" | "center" | "g" | "guard" | "ot"
+        | "offensive tackle" => Some("offense"),
+        "cb" | "cornerback" | "s" | "safety" | "lb" | "linebacker" | "de" | "defensive end"
+        | "dt" | "defensive tackle" => Some("defense"),
+        _ => None,
+    }
+}
+
+/// drop_degenerate_zero_datapoints removes datapoints that are a zero VALUE with a near-average
+/// sign-adjusted z (|z| < 0.5): the entity simply does not do this thing, and not doing it
+/// barely moves the needle — a usage artifact, not scoutable evidence (a WR's "Ground Yards
+/// Responsible: 0 · 1st pct" is not a liability). A zero with a STRONGLY negative z stays: that
+/// is a real absence (a starting QB with zero touchdowns is a finding, not an artifact).
+/// Returns the dropped labels for the exclusions ledger.
+pub(crate) fn drop_degenerate_zero_datapoints(p: &mut RatingProfile) -> Vec<String> {
+    let degenerate = |d: &RatingDatapoint| {
+        d.pct.is_some() && d.value == Some(0.0) && signed_z(d).is_some_and(|z| z.abs() < 0.5)
+    };
+    let dropped: Vec<String> = p
+        .breakdown
+        .iter()
+        .filter(|d| degenerate(d))
+        .map(|d| d.label.clone())
+        .collect();
+    p.breakdown.retain(|d| !degenerate(d));
+    for dps in p.rate_modes.values_mut() {
+        dps.retain(|d| !degenerate(d));
+    }
+    dropped
+}
+
+/// drop_off_facet_datapoints removes breakdown and rate-mode datapoints from the OTHER side
+/// of the ball than the player's position. An offensive player's defensive stat sheet (and
+/// vice versa) is structural noise, not scoutable evidence: a QB's 0th-percentile Tackling is
+/// a category he does not play. Only NFL breakdowns
+/// carry offense/defense facets (NBA and FOOTBALL emit facet="all"), so this no-ops for every
+/// other sport, for teams, and for facet-less rows by construction. Returns the dropped
+/// breakdown labels for the exclusions ledger — the selection is provable, not silent.
+pub(crate) fn drop_off_facet_datapoints(p: &mut RatingProfile) -> Vec<String> {
+    let Some(side) = nfl_position_side(&p.position) else {
+        return Vec::new();
+    };
+    let off_facet =
+        |d: &RatingDatapoint| (d.facet == "offense" || d.facet == "defense") && d.facet != side;
+    let dropped: Vec<String> = p
+        .breakdown
+        .iter()
+        .filter(|d| off_facet(d))
+        .map(|d| d.label.clone())
+        .collect();
+    p.breakdown.retain(|d| !off_facet(d));
+    for dps in p.rate_modes.values_mut() {
+        dps.retain(|d| !off_facet(d));
+    }
+    dropped
+}
+
+/// Remove display-only datapoints (`!in_comp && !in_spec`) from the breakdown and rate modes.
+/// Return dropped labels for provenance.
+pub(crate) fn drop_display_tier_datapoints(p: &mut RatingProfile) -> Vec<String> {
+    let display_tier = |d: &RatingDatapoint| !d.in_comp && !d.in_spec;
+    let dropped: Vec<String> = p
+        .breakdown
+        .iter()
+        .filter(|d| display_tier(d))
+        .map(|d| d.label.clone())
+        .collect();
+    p.breakdown.retain(|d| !display_tier(d));
+    for dps in p.rate_modes.values_mut() {
+        dps.retain(|d| !display_tier(d));
+    }
+    dropped
+}
+
+/// Prior rank of the same measurement. Arithmetic direction is rendered deterministically;
+/// sporting significance belongs to the writer.
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct SkillChange {
+    pub prior_pct: f64,
+    pub prior_season: i32,
+    pub prior_observed_at: Option<String>,
+    pub prior_sample: BTreeMap<String, f64>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RelativeDirection {
+    Rose,
+    Fell,
+    Held,
+}
+
+pub fn relative_direction(delta: f64) -> RelativeDirection {
+    if delta > 1.0 {
+        RelativeDirection::Rose
+    } else if delta < -1.0 {
+        RelativeDirection::Fell
+    } else {
+        RelativeDirection::Held
+    }
+}
+
+/// Thin samples drop the Discipline datapoint in code rather than handing it to the
+/// model with an order to ignore it. Participation totals are already withheld from the
+/// thin-sample sample line, so this is the last selection decision the old evidence
+/// boundary used to delegate to prose. Returns the omitted labels for the ledger.
+pub const THIN_SAMPLE_OMITTED_LABEL: &str = "Discipline";
+
+pub(crate) fn thin_sample_omitted_stat_labels(p: &RatingProfile) -> Vec<String> {
+    if supports_cross_season_comparison(p) {
+        return Vec::new();
+    }
+    p.breakdown
+        .iter()
+        .filter(|datapoint| datapoint.label == THIN_SAMPLE_OMITTED_LABEL)
+        .map(|datapoint| datapoint.label.clone())
+        .collect()
+}
+
+pub(crate) fn model_prompt_profile(
+    profile: &RatingProfile,
+    supports_cross_season: bool,
+    comparisons: Option<&BTreeMap<String, SkillChange>>,
+) -> RatingProfile {
+    let mut prompt_profile = profile.clone();
+    if !supports_cross_season {
+        prompt_profile.composite_score = None;
+        // The thin-sample evidence boundary omits Discipline from the selection itself
+        // (see THIN_SAMPLE_OMITTED_LABEL); participation totals never reach the prompt.
+        prompt_profile.breakdown = ordered_facts_unbounded(&profile.breakdown)
+            .into_iter()
+            .filter(|datapoint| datapoint.label != THIN_SAMPLE_OMITTED_LABEL)
+            .take(2)
+            .collect();
+    } else if let Some(comparisons) = comparisons.filter(|changes| !changes.is_empty()) {
+        let mut ranked = profile
+            .breakdown
+            .iter()
+            .filter_map(|datapoint| {
+                let current_pct = datapoint.pct?;
+                let change = comparisons.get(&datapoint.label)?;
+                Some((
+                    datapoint.label.as_str(),
+                    current_pct,
+                    current_pct - change.prior_pct,
+                ))
+            })
+            .collect::<Vec<_>>();
+        ranked.sort_by(|a, b| {
+            b.2.abs()
+                .partial_cmp(&a.2.abs())
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.0.cmp(b.0))
+        });
+        let mut selected = ranked
+            .iter()
+            .take(MAX_COMPARISON_FACTS)
+            .map(|fact| fact.0)
+            .collect::<HashSet<_>>();
+        let mut held = ranked
+            .iter()
+            .filter(|fact| fact.2.abs() <= 1.0 && !selected.contains(fact.0))
+            .collect::<Vec<_>>();
+        held.sort_by(|a, b| {
+            b.1.partial_cmp(&a.1)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.0.cmp(b.0))
+        });
+        selected.extend(
+            held.into_iter()
+                .take(MAX_HELD_COMPARISON_FACTS)
+                .map(|fact| fact.0),
+        );
+        prompt_profile
+            .breakdown
+            .retain(|datapoint| selected.contains(datapoint.label.as_str()));
+    }
+    prompt_profile
+}
+
+/// Join measurements by skill before rendering. A missing comparison stays unknown;
+/// another skill's direction must not become this one's trajectory.
+pub fn build_skill_changes(
+    current: &RatingProfile,
+    prior: &RatingProfile,
+) -> BTreeMap<String, SkillChange> {
+    if current.league_id != prior.league_id {
+        return BTreeMap::new();
+    }
+    let prior_by_label: HashMap<&str, &RatingDatapoint> = prior
+        .breakdown
+        .iter()
+        .map(|d| (d.label.as_str(), d))
+        .collect();
+    current
+        .breakdown
+        .iter()
+        .filter_map(|d| {
+            let previous = prior_by_label.get(d.label.as_str())?;
+            if d.measure.is_empty() || d.measure != previous.measure {
+                return None;
+            }
+            let prior_pct = previous.pct?;
+            d.pct?;
+            Some((
+                d.label.clone(),
+                SkillChange {
+                    prior_pct,
+                    prior_season: prior.season,
+                    prior_observed_at: prior.observed_at.clone(),
+                    prior_sample: prior.sample.clone(),
+                },
+            ))
+        })
+        .collect()
+}
+
+// ---------------------------------------------------------------------------
+// Canonical material-input JSON and debounce hash. Datapoints retain stored order.
+// ---------------------------------------------------------------------------
+
+/// Return canonical input-components JSON; its SHA-256 is `input_hash`.
+/// `season`/`datapoints` are ALWAYS present; the rest (rate_standouts, composite_score, position)
+/// are conditional. Percentiles are rounded to one decimal.
+pub fn input_components(p: &RatingProfile) -> String {
+    let datapoints: Vec<serde_json::Value> = p
+        .breakdown
+        .iter()
+        .map(|d| serde_json::json!({"label": d.label, "measure":d.measure, "value":d.value, "pct": d.pct.map(round1), "sign":d.sign, "z":d.z, "cohort":d.cohort}))
+        .collect();
+
+    let mut components = serde_json::Map::new();
+    components.insert("datapoints".into(), serde_json::json!(datapoints));
+    components.insert(
+        "prompt_version".into(),
+        serde_json::json!(RATING_PROMPT_VERSION),
+    );
+    components.insert("season".into(), serde_json::json!(p.season));
+    components.insert("sample".into(), serde_json::json!(p.sample));
+    if let Some(date) = &p.observed_at {
+        components.insert("observed_at".into(), serde_json::json!(date));
+    }
+    if let Some(league) = p.league_id {
+        components.insert("league_id".into(), serde_json::json!(league));
+    }
+
+    let rs = collect_rate_standouts(p);
+    if !rs.is_empty() {
+        let rates: Vec<serde_json::Value> = rs
+            .iter()
+            .map(|r| serde_json::json!({"label": r.label, "measure": r.measure, "mode": r.mode, "pct": round1(r.pct)}))
+            .collect();
+        components.insert("rate_standouts".into(), serde_json::json!(rates));
+    }
+    if let Some(c) = p.composite_score {
+        components.insert("composite_score".into(), serde_json::json!(round1(c)));
+    }
+    if !p.position.is_empty() {
+        components.insert("position".into(), serde_json::json!(p.position));
+    }
+    serde_json::Value::Object(components).to_string()
+}
+
+fn clamp_f(lo: f64, hi: f64, v: f64) -> f64 {
+    if v < lo {
+        lo
+    } else if v > hi {
+        hi
+    } else {
+        v
+    }
+}
 
 /// The measured profile, as presented. An absent prior percentile is no supported
 /// direction, which is different from a direction of "no change".

@@ -1,13 +1,11 @@
 //! Source-level Scout review before measured-profile publication.
-use super::{insert_stat_summary, record_ledger, record_rating_completed, LedgerSubject};
-use crate::application::models::ExecutionCapabilities;
+use super::prompt::{RatingBuild, RATING_TEMPERATURE};
+use super::publish::{insert_stat_summary, record_ledger, LedgerSubject};
+use super::{create, record_rating_completed, RatingOutput};
 use crate::application::queue::publication::ClaimPublication;
 use crate::application::queue::work::Item;
 use crate::plugins::harvester::delivery::load_for_character;
 use crate::plugins::harvester::delivery::SourceContext;
-use crate::plugins::scout::cognition::{
-    self as scout, RatingBuild, RatingOutput, RATING_TEMPERATURE,
-};
 use crate::plugins::scout::performance::current_season;
 use crate::plugins::scout::prompt::{build_rating_request, RatingReq};
 use crate::studio::model::Inference;
@@ -169,15 +167,6 @@ async fn decide(
     })
 }
 
-pub(super) async fn execute(
-    pool: &PgPool,
-    models: &ExecutionCapabilities,
-    item: &Item,
-) -> Result<PluginOutcome> {
-    let backend = models.inference(crate::plugins::scout::manifest::ROUTE)?;
-    execute_with_backend(pool, backend.as_ref(), models.voice_num_ctx, item).await
-}
-
 pub(crate) async fn execute_with_backend(
     pool: &PgPool,
     backend: &dyn Inference,
@@ -239,7 +228,7 @@ pub(crate) async fn execute_with_backend(
             });
             assignment.input_components = components.to_string();
             assignment.input_hash = crate::util::hash_components(&assignment.input_components);
-            let mut generated = scout::create(&Studio::new(backend), *assignment).await?;
+            let mut generated = create(&Studio::new(backend), *assignment).await?;
             generated.provenance.input_ids = vec![source.article_id];
             output = Some(generated);
         }

@@ -1,5 +1,5 @@
 //! Select dated, frequency-ranked historical reporting for the fresh assignment.
-use super::cognition::CorpusItem;
+use super::prompt::CorpusItem;
 use crate::plugins::memories::{GroupSummary, HistoryItem, Observation};
 use crate::plugins::meta::EntityMeta;
 use crate::util::utc_timestamp;
@@ -239,7 +239,7 @@ pub async fn load_for_assignment(
     // Determine actual fresh eligibility before spending a study call or fixing
     // its historical cutoff. Deferred/outdated/duplicate deliveries are not the
     // edition's reporting clock.
-    let prepared = super::cognition::prepare(subject.clone(), fresh.to_vec(), &continuity, now)?;
+    let prepared = super::prompt::prepare(subject.clone(), fresh.to_vec(), &continuity, now)?;
     if let Some(before) = prepared
         .selected
         .iter()
@@ -313,7 +313,7 @@ pub async fn load(pool: &PgPool, subject: &EntityMeta, now: i64) -> Result<Conti
           ORDER BY c.article_id, c.created_at DESC, c.id DESC) \
          SELECT * FROM published_reports ORDER BY published_at_epoch DESC NULLS LAST, article_id DESC LIMIT 256")
         .bind(&subject.entity_type).bind(subject.entity_id).bind(&subject.sport)
-        .bind(super::manifest::MANIFEST.id.as_str()).bind(now - super::cognition::LOOKBACK_SECONDS).bind(now)
+        .bind(super::manifest::MANIFEST.id.as_str()).bind(now - super::prompt::LOOKBACK_SECONDS).bind(now)
         .fetch_all(pool).await?;
     let mut published_reports = rows
         .into_iter()

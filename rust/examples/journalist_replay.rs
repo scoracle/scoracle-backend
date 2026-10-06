@@ -1,7 +1,10 @@
 //! Read-only Journalist preparation/articulation replay; no database or publication.
 //! cargo run --example journalist_replay -- INPUT.jsonl OUTPUT.jsonl [OLLAMA_URL [auto|true|false|compare [schema|unconstrained [MODEL]]]]
 use anyhow::{Context, Result};
-use scoracle_cognition::plugins::{journalist::cognition as journalist, meta::EntityMeta};
+use scoracle_cognition::plugins::{
+    journalist::{self, memories::Continuity, prompt},
+    meta::EntityMeta,
+};
 use scoracle_cognition::runtime::providers::ollama::OllamaClient;
 use scoracle_cognition::studio::model::{GenerateOptions, GenerateResult, Inference};
 use scoracle_cognition::studio::Studio;
@@ -67,12 +70,12 @@ impl RecordedModel {
 struct Case {
     name: String,
     subject: EntityMeta,
-    reports: Vec<journalist::CorpusItem>,
+    reports: Vec<prompt::CorpusItem>,
     now: i64,
     #[serde(default)]
     prior_reported: Vec<String>,
     #[serde(default)]
-    memories: Vec<journalist::CorpusItem>,
+    memories: Vec<prompt::CorpusItem>,
     #[serde(default)]
     memory_study: Option<scoracle_cognition::plugins::memories::Study>,
     /// Fresh article id -> storyline id, the exact link the plugin uses to
@@ -132,14 +135,14 @@ async fn main() -> Result<()> {
         .enumerate()
     {
         let case: Case = serde_json::from_str(&line?)?;
-        let memory = journalist::Continuity {
+        let memory = Continuity {
             published_reports: case
                 .memories
                 .into_iter()
                 .chain(
                     case.prior_reported
                         .into_iter()
-                        .map(|context| journalist::CorpusItem {
+                        .map(|context| prompt::CorpusItem {
                             id: 0,
                             title: String::new(),
                             context,
@@ -154,12 +157,12 @@ async fn main() -> Result<()> {
             // the case declares; absent means the boundary rule applies.
             storylines: case.storylines,
         };
-        let assignment = journalist::prepare(case.subject, case.reports, &memory, case.now)
+        let assignment = prompt::prepare(case.subject, case.reports, &memory, case.now)
             .context(case.name.clone())?;
         let base_record = json!({"name":case.name, "input_hash":assignment.input_hash,
             "dispositions":assignment.dispositions.iter().map(|d|json!({"article_id":d.article_id,"reason":d.reason})).collect::<Vec<_>>(),
-            "deferred":assignment.deferred_ids, "prompt":journalist::prompt(&assignment),
-            "system":journalist::system_prompt(&assignment)});
+            "deferred":assignment.deferred_ids, "prompt":prompt::prompt(&assignment),
+            "system":prompt::system_prompt(&assignment)});
         // Alternate which mode runs first to reduce a fixed cache/order advantage.
         let mut order = (0..modes.len()).collect::<Vec<_>>();
         if case_index % 2 == 1 {

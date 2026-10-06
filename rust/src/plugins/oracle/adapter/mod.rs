@@ -120,7 +120,7 @@ impl crate::application::queue::outbox::EventReaction for OracleBarrierReaction 
             crate::plugins::scout::RATING_COMPLETED,
             crate::plugins::analyst::adapter::MOMENTUM_COMPLETED,
             crate::plugins::scout::RATING_DEBOUNCED,
-            crate::plugins::journalist::adapter::NARRATIVES_COMPLETED,
+            crate::plugins::journalist::NARRATIVES_COMPLETED,
             crate::plugins::insider::adapter::TRANSFER_PUBLISHED,
         ]
     }

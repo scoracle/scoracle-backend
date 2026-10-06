@@ -1,23 +1,31 @@
-//! Source-bound Journalist preparation and articulation. The plugin selects complete
-//! attributed reports; SmolLM3 articulates them, never selecting facts or scores.
+//! Complete source admission, reporting continuity and model-input preparation.
 use super::memories;
-pub use super::memories::{Continuity, Selected};
+use super::memories::Continuity;
 use crate::plugins::harvester::delivery::SourceContext;
 use crate::plugins::meta::EntityMeta;
+use crate::plugins::support::source::Reporting;
 use crate::studio::model::GenerateOptions;
-use crate::studio::{Generation, GenerationCall, Parser, Studio};
 use anyhow::{ensure, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use sqlx::PgPool;
 use std::collections::HashSet;
 
-pub mod fresh;
-mod prompt;
+pub(super) const FRESH_TASK: &str =
+    "Articulate each fresh item in its matching report_key, with the supplied voice and form.";
+
+const HISTORY_TASK: &str = "The input is an articulation package.
+meta identifies the entity.
+fresh is the new source-backed reporting; each item has its output report_key.
+memories contains earlier source-backed reporting explicitly attached to a fresh item by report_key.
+voice describes how to articulate it.
+form describes the output structure.
+Articulate each fresh item in its matching report_key, using its attached memories where present. A report with no attached memories is articulated from its fresh item alone. Add no history and no claim that is not supplied.";
+
 /// The current prompt keeps the flat keyed prose map and attaches prior reports
 /// through matching report keys in `memories`.
 pub const NARRATIVES_PROMPT_VERSION: &str = "n96-six-part";
 pub const NUM_PREDICT: i32 = 900;
-pub const NARRATIVES_SYSTEM_PROMPT: &str = prompt::FRESH_TASK;
 pub const NARRATIVES_OUTPUT_CONTRACT_VERSION: &str = "narratives-v11-nested-history";
 pub const LOOKBACK_SECONDS: i64 = 72 * 3600;
 pub const MAX_REPORTS: usize = 3;
@@ -43,20 +51,6 @@ impl From<&SourceContext> for CorpusItem {
         }
     }
 }
-/// One grounded storyline with deterministic impact and evidence provenance.
-#[derive(Clone, Debug)]
-pub struct Narrative {
-    pub title: String,
-    pub body: String,
-    pub impact: i32,
-    pub impact_components: serde_json::Value,
-    pub input_news_ids: Vec<i64>,
-    pub source_count: i32,
-    pub source_names: Vec<String>,
-    pub source_latest_epoch: Option<i64>,
-    pub source_oldest_epoch: Option<i64>,
-}
-
 #[derive(Clone, Debug)]
 pub struct Disposition {
     pub article_id: i64,
@@ -138,7 +132,7 @@ pub fn prepare(
             });
             continue;
         }
-        if render_context(&subject, std::slice::from_ref(&item), &[]).len() > SOURCE_BUDGET_BYTES {
+        if assemble(&subject, std::slice::from_ref(&item), &[]).len() > SOURCE_BUDGET_BYTES {
             dispositions.push(Disposition {
                 article_id: item.id,
                 reason: "complete_report_exceeds_context_budget",
@@ -148,7 +142,7 @@ pub fn prepare(
         let mut candidate = selected.clone();
         candidate.push(item.clone());
         if selected.len() == MAX_REPORTS
-            || render_context(&subject, &candidate, &[]).len() > SOURCE_BUDGET_BYTES
+            || assemble(&subject, &candidate, &[]).len() > SOURCE_BUDGET_BYTES
         {
             deferred_ids.push(item.id);
             continue;
@@ -157,7 +151,7 @@ pub fn prepare(
         selected.push(item);
     }
     let memories = memories::select(memory, &selected, now, |history| {
-        render_context(&subject, &selected, history).len() <= CONTEXT_BUDGET_BYTES
+        assemble(&subject, &selected, history).len() <= CONTEXT_BUDGET_BYTES
     });
     // The world is assembled once and both rendered and hashed from, so the
     // fingerprint always describes the package the model will actually read.
@@ -166,7 +160,7 @@ pub fn prepare(
         &json!({
             "subject": subject, "reports": selected, "version": NARRATIVES_PROMPT_VERSION,
             "memory_source_hash": memory.study.as_ref().map(|s| &s.receipt.input_hash),
-            "fresh_contract": fresh::VERSION, "world": crate::util::hash_components(&rendered),
+            "fresh_contract": FRESH_VERSION, "world": crate::util::hash_components(&rendered),
             "memories": memories,
         })
         .to_string(),
@@ -180,18 +174,6 @@ pub fn prepare(
         deferred_ids,
         input_hash,
     })
-}
-
-/// Compose the model's world from independently prepared components.
-///
-/// Memory is keyed by the same report_key as fresh, so attachment is explicit.
-///
-fn render_context(
-    subject: &EntityMeta,
-    reports: &[CorpusItem],
-    history: &[Option<memories::Selected>],
-) -> String {
-    assemble(subject, reports, history)
 }
 
 /// This plugin's parts, in a form a quality fixture can store.
@@ -219,15 +201,8 @@ impl Parts {
     }
 }
 
-/// The prepared world, before it is rendered.
-///
-/// Returned rather than rendered inline so preparation can measure and hash the
-/// same world the model reads, instead of assembling it again and hoping the two
-/// agree.
-///
-/// Public so the evaluation harness can assemble a stored world through the
-/// plugin's own function rather than a frozen prompt string: these three
-/// arguments *are* the parts, and nothing else is.
+/// Serialize the same reporting package used for budget checks, hashing and
+/// production requests. Stored parts replay through this function too.
 pub fn assemble(
     subject: &EntityMeta,
     reports: &[CorpusItem],
@@ -242,7 +217,7 @@ pub fn assemble(
     #[derive(Serialize)]
     struct Input<'a> {
         meta: crate::plugins::meta::WritingIdentity<'a>,
-        fresh: Vec<fresh::Report<'a>>,
+        fresh: Vec<Report<'a>>,
         #[serde(skip_serializing_if = "Vec::is_empty")]
         memories: Vec<Attached<'a>>,
         voice: &'static str,
@@ -262,7 +237,7 @@ pub fn assemble(
         .collect::<Vec<_>>();
     serde_json::to_string(&Input {
         meta: subject.for_writing(),
-        fresh: fresh::prepare(reports),
+        fresh: fresh_reports(reports),
         memories,
         voice: crate::plugins::journalist::voice::VOICE,
         form: crate::plugins::support::form::journalist_form(reports.len()),
@@ -272,7 +247,7 @@ pub fn assemble(
 
 /// Production and replay use the exact assembled context measured by preparation.
 pub fn prompt(assignment: &Assignment) -> String {
-    render_context(
+    assemble(
         &assignment.subject,
         &assignment.selected,
         &assignment.memories,
@@ -282,12 +257,15 @@ pub fn system_prompt(assignment: &Assignment) -> &'static str {
     // A package where some reports carry history and others do not is a real
     // shape rather than an error. The manual describes history per report, so
     // the history task is selected when any report has one.
-    prompt::task(
-        assignment
-            .memories
-            .iter()
-            .any(|slot| slot.as_ref().is_some_and(|h| !h.is_empty())),
-    )
+    if assignment
+        .memories
+        .iter()
+        .any(|slot| slot.as_ref().is_some_and(|h| !h.is_empty()))
+    {
+        HISTORY_TASK
+    } else {
+        FRESH_TASK
+    }
 }
 pub fn generation_options(assignment: &Assignment, num_ctx: i32) -> GenerateOptions {
     GenerateOptions {
@@ -305,149 +283,59 @@ pub fn generation_options(assignment: &Assignment, num_ctx: i32) -> GenerateOpti
     }
 }
 
-/// Descriptive source activity, not confidence, significance or corroboration.
-fn compute_news_impact(corpus: &[CorpusItem], now: i64) -> (i32, serde_json::Value) {
-    let volume = 60.0 * (1.0 - (-(corpus.len() as f64) / 5.0).exp());
-    let sources = corpus
+const FRESH_VERSION: &str = "journalist-fresh-v8";
+
+#[derive(Serialize)]
+pub(super) struct Report<'a> {
+    /// A request-local writing slot, not a durable source identity.
+    report_key: String,
+    #[serde(flatten)]
+    reporting: Reporting<'a>,
+}
+
+/// Preserve selected order and complete source text. Durable IDs, hashes,
+/// classifications, activity scores and publisher headlines stay in provenance.
+///
+pub(super) fn fresh_reports(reports: &[CorpusItem]) -> Vec<Report<'_>> {
+    reports
         .iter()
-        .map(|s| s.source.to_lowercase())
-        .collect::<HashSet<_>>()
-        .len();
-    let breadth = 25.0_f64.min(sources as f64 * 6.0);
-    let newest = corpus.iter().filter_map(|s| s.published_at_epoch).max();
-    let recency = newest.map_or(0.0, |t| match now.saturating_sub(t) {
-        0..=43200 => 15.0,
-        43201..=86400 => 10.0,
-        86401..=172800 => 5.0,
-        _ => 0.0,
-    });
-    (
-        (volume + breadth + recency).round().clamp(0.0, 100.0) as i32,
-        json!({"policy":"source-activity-v2", "article_count":corpus.len(),
-            "distinct_sources":sources, "volume":volume, "source_breadth":breadth,"recency":recency}),
-    )
-}
-fn source_metadata(corpus: &[CorpusItem]) -> (i32, Vec<String>, Option<i64>, Option<i64>) {
-    let mut source_names = Vec::new();
-    let mut seen_sources = HashSet::new();
-    let mut latest = None;
-    let mut oldest = None;
-    for item in corpus {
-        let source = item.source.trim();
-        if !source.is_empty() && seen_sources.insert(source.to_lowercase()) {
-            source_names.push(source.to_string());
-        }
-        if let Some(epoch) = item.published_at_epoch {
-            latest = Some(latest.map_or(epoch, |current: i64| current.max(epoch)));
-            oldest = Some(oldest.map_or(epoch, |current: i64| current.min(epoch)));
-        }
-    }
-    (corpus.len() as i32, source_names, latest, oldest)
+        .enumerate()
+        .map(|(index, report)| Report {
+            report_key: format!("report_{}", index + 1),
+            reporting: Reporting::new(&report.source, report.published_at_epoch, &report.context),
+        })
+        .collect()
 }
 
-#[derive(Clone, Debug)]
-pub struct NarrativesProduct {
-    pub memory_provenance: serde_json::Value,
-    pub narratives: Vec<Narrative>,
-    pub budget_truncated_ids: Vec<i64>,
-    pub card_score: Option<i16>,
-    pub headline: Option<String>,
+pub struct NarrativesMaterial {
+    pub assignment: Assignment,
+    pub sources: Vec<crate::plugins::harvester::delivery::SourceContext>,
 }
-pub type NarrativesOutput = Generation<NarrativesProduct>;
 
-/// Production and replay share the same strict form parser and source mapping.
-/// This checks shape and surface, not semantic entailment; fidelity is evaluated
-/// against the prepared reports, not inferred from parser success.
-pub struct EditionParser<'a> {
-    pub assignment: &'a Assignment,
-    pub now: i64,
-}
-impl Parser<NarrativesProduct> for EditionParser<'_> {
-    fn parse(&self, raw: &str) -> Result<Option<NarrativesProduct>> {
-        let reply =
-            crate::plugins::support::form::parse_journalist(raw, self.assignment.selected.len())?;
-        let narratives = self
-            .assignment
-            .selected
-            .iter()
-            .zip(reply.narratives)
-            .map(|(item, prose)| {
-                let (impact, impact_components) =
-                    compute_news_impact(std::slice::from_ref(item), self.now);
-                // Historical study lineage is retained separately. It cannot
-                // inflate the fresh-source count, dates, score or delivery IDs.
-                let evidence = std::slice::from_ref(item);
-                let (source_count, source_names, source_latest_epoch, source_oldest_epoch) =
-                    source_metadata(evidence);
-                let title = fresh::opening(item, &self.assignment.subject.name);
-                crate::plugins::support::form::validate_hook(Some(&title))?;
-                Ok(Narrative {
-                    title,
-                    body: prose.text,
-                    impact,
-                    impact_components,
-                    input_news_ids: evidence.iter().map(|r| r.id).collect(),
-                    source_count,
-                    source_names,
-                    source_latest_epoch,
-                    source_oldest_epoch,
-                })
-            })
-            .collect::<Result<Vec<_>>>()?;
-        let headline = narratives.first().map(|narrative| narrative.title.clone());
-        Ok(Some(NarrativesProduct {
-            memory_provenance: json!({"receipt":self.assignment.memory_receipt,"selected":self.assignment.memories}),
-            narratives,
-            budget_truncated_ids: self.assignment.deferred_ids.clone(),
-            card_score: Some(
-                compute_news_impact(&self.assignment.selected, self.now)
-                    .0
-                    .clamp(1, 99) as i16,
-            ),
-            headline,
-        }))
-    }
-}
-pub async fn create(
-    studio: &Studio<'_>,
-    assignment: &Assignment,
+/// One source-only path for every trigger, including old queue revisions. A
+/// trigger cannot select an Editor packet fallback or upgrade a source receipt.
+pub async fn load_narratives_material(
+    pool: &PgPool,
+    subject: EntityMeta,
     now: i64,
-    num_ctx: i32,
-) -> Result<NarrativesOutput> {
-    if assignment.selected.is_empty() {
-        return Ok(Generation::uncalled(
-            NarrativesProduct {
-                memory_provenance: json!({"receipt":assignment.memory_receipt,"selected":assignment.memories}),
-                narratives: Vec::new(),
-                budget_truncated_ids: assignment.deferred_ids.clone(),
-                card_score: None,
-                headline: None,
-            },
-            studio.model_name().to_string(),
-            NARRATIVES_PROMPT_VERSION,
-            Vec::new(),
-            Some(assignment.input_hash.clone()),
-        ));
-    }
-    let output = studio
-        .extract(
-            &prompt(assignment),
-            &generation_options(assignment, num_ctx),
-            &EditionParser { assignment, now },
-            |_| None,
-        )
-        .await?;
-    let call = GenerationCall::from(&output);
-    Ok(Generation::called(
-        output
-            .value
-            .ok_or_else(|| anyhow::anyhow!("missing edition"))?,
-        output.model,
-        NARRATIVES_PROMPT_VERSION,
-        assignment.selected.iter().map(|s| s.id).collect(),
-        Some(assignment.input_hash.clone()),
-        call,
-    ))
+) -> Result<NarrativesMaterial> {
+    let sources = crate::plugins::harvester::delivery::load_for_character(
+        pool,
+        crate::plugins::journalist::manifest::MANIFEST.id.as_str(),
+        &subject.entity_type,
+        subject.entity_id,
+        &subject.sport,
+    )
+    .await?;
+    let fresh = sources.iter().map(CorpusItem::from).collect::<Vec<_>>();
+    let memory = super::memories::load_for_assignment(pool, &subject, &fresh, now).await?;
+    let assignment = prepare(subject, fresh, &memory, now)?;
+    let sources = sources
+        .into_iter()
+        .filter(|s| !assignment.deferred_ids.contains(&s.article_id))
+        .collect();
+    Ok(NarrativesMaterial {
+        assignment,
+        sources,
+    })
 }
-#[cfg(test)]
-mod tests;

@@ -1,4 +1,8 @@
+use super::memories::Continuity;
+use super::prompt::*;
 use super::*;
+use crate::studio::Parser;
+use std::collections::HashSet;
 const NOW: i64 = 1_790_467_200;
 fn subject() -> EntityMeta {
     EntityMeta {
@@ -226,7 +230,7 @@ fn articulation_cannot_change_request_local_source_mapping() {
 #[test]
 fn natural_paraphrase_uses_shared_form_and_preserves_plugin_metadata() {
     let a = prepared(vec![item(1, "Cedar United won 2–1 on Sunday.")]);
-    assert_eq!(system_prompt(&a), NARRATIVES_SYSTEM_PROMPT);
+    assert_eq!(system_prompt(&a), FRESH_TASK);
     let raw = r#"{"report_1":"Wire reports that Cedar United secured a 2–1 victory on Sunday."}"#;
     let p = EditionParser {
         assignment: &a,
@@ -272,7 +276,7 @@ fn fresh_frame_separates_reported_evidence_from_headlines_and_identity() {
     assert_eq!(a.selected[0].id, 71);
     assert_eq!(a.selected[0].title, "Cedar signs world champion");
     // Fresh data has no duplicate identity, history, tone or policy framing.
-    let fresh = serde_json::to_value(fresh::prepare(&a.selected)).unwrap();
+    let fresh = serde_json::to_value(fresh_reports(&a.selected)).unwrap();
     assert_eq!(fresh, frame["fresh"]);
     assert_eq!(fresh.as_array().unwrap().len(), 1);
     // No top-level history array: history belongs to a report, and this one has
@@ -347,7 +351,7 @@ fn historical_instruction_overrides_are_not_admitted_to_articulation() {
     };
     let a = prepare(subject(), vec![item(1, "Cedar won.")], &memory, NOW).unwrap();
     assert!(a.memories.iter().all(Option::is_none));
-    assert_eq!(system_prompt(&a), NARRATIVES_SYSTEM_PROMPT);
+    assert_eq!(system_prompt(&a), FRESH_TASK);
 
     memory.study.as_mut().unwrap().findings[0].reports[0].headline =
         "Cedar announced earlier preparations.".into();

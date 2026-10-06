@@ -23,7 +23,7 @@ use crate::plugins::insider::cognition::{
 use crate::plugins::investigator::cognition::prompt::{
     prose_opts, ProseReadParser, INVESTIGATOR_PROSE_CONTRACT_VERSION,
 };
-use crate::plugins::journalist::cognition::CorpusItem;
+use crate::plugins::journalist::prompt::CorpusItem;
 use crate::plugins::oracle::adapter::load_pillars;
 use crate::plugins::oracle::cognition::{
     assemble_context as assemble_oracle_context, count_sentences,
@@ -614,7 +614,7 @@ pub fn all_task_names() -> &'static [&'static str] {
 // The window that deployed this plugin had no shared-harness coverage at all:
 // `fixtures/quality/narratives/` was empty and "narratives" was absent from
 // `all_task_names()`, so the only gate was a bespoke replay example. Fixtures
-// here store `cognition::Parts` and are rebuilt through the plugin's current
+// here store `journalist::prompt::Parts` and are rebuilt through the plugin's current
 // assembler, so a change to the package is a test failure rather than a stored
 // string that quietly stops matching production.
 // ---------------------------------------------------------------------------
@@ -629,7 +629,7 @@ impl LensTask for NarrativesTask {
         crate::plugins::journalist::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
-        crate::plugins::journalist::cognition::NARRATIVES_PROMPT_VERSION
+        crate::plugins::journalist::prompt::NARRATIVES_PROMPT_VERSION
     }
     fn gen_options(&self, _temperature: f64) -> Result<GenerateOptions> {
         // The system prompt and the response schema both depend on what the world
@@ -670,13 +670,13 @@ impl LensTask for NarrativesTask {
             crate::plugins::journalist::memories::load_for_assignment(pool, &subject, &corpus, now)
                 .await?;
         let assignment =
-            crate::plugins::journalist::cognition::prepare(subject, corpus, &continuity, now)?;
+            crate::plugins::journalist::prompt::prepare(subject, corpus, &continuity, now)?;
         // No selected report is a no-call, not a package with nothing in it.
         if assignment.selected.is_empty() {
             return Ok(None);
         }
         Ok(Some(self.assemble(&serde_json::to_value(
-            crate::plugins::journalist::cognition::Parts {
+            crate::plugins::journalist::prompt::Parts {
                 subject: assignment.subject,
                 reports: assignment.selected,
                 memory: assignment.memories,
@@ -757,7 +757,7 @@ impl LensTask for NarrativesTask {
         }
     }
     fn assemble(&self, stored_parts: &serde_json::Value) -> Result<Prepared> {
-        let parts: crate::plugins::journalist::cognition::Parts =
+        let parts: crate::plugins::journalist::prompt::Parts =
             serde_json::from_value(stored_parts.clone())
                 .map_err(|e| anyhow::anyhow!("narratives parts: {e}"))?;
         let subject = parts.subject.clone();
@@ -767,7 +767,7 @@ impl LensTask for NarrativesTask {
         // and the options from the plugin's own functions. The system prompt
         // depends on whether any report carries history and the schema is keyed
         // by report count, so neither is knowable from the parts alone.
-        let assignment = crate::plugins::journalist::cognition::Assignment {
+        let assignment = crate::plugins::journalist::prompt::Assignment {
             subject,
             selected: reports,
             memories,
@@ -779,8 +779,8 @@ impl LensTask for NarrativesTask {
         Ok(Prepared {
             parts: Some(stored_parts.clone()),
             should_call: !assignment.selected.is_empty(),
-            user_prompt: crate::plugins::journalist::cognition::prompt(&assignment),
-            options: crate::plugins::journalist::cognition::generation_options(&assignment, 0),
+            user_prompt: crate::plugins::journalist::prompt::prompt(&assignment),
+            options: crate::plugins::journalist::prompt::generation_options(&assignment, 0),
         })
     }
     fn stores_parts(&self) -> bool {

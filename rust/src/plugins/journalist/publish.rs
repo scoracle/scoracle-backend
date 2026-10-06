@@ -1,22 +1,12 @@
-//! Journalist evidence preparation, model selection, publication, and durable work coordination.
-//!
-//! The plugin owns source preparation and publication. Studio supplies inference only.
-
-use crate::application::models::ExecutionCapabilities;
-use crate::application::products::EntityKey;
+//! Claim-fenced publication, source dispositions, outbox and ledger.
+use super::prompt::{Disposition, NARRATIVES_OUTPUT_CONTRACT_VERSION, NUM_PREDICT};
+use super::NarrativesOutput;
 use crate::application::queue::publication::ClaimPublication;
 use crate::application::queue::work::Item;
 use crate::evidence::trajectory::DEFAULT_TRAJECTORY;
-use crate::plugins::journalist::cognition::{
-    self as journalist, Assignment, CorpusItem, NarrativesOutput,
-    NARRATIVES_OUTPUT_CONTRACT_VERSION,
-};
-use crate::plugins::meta::EntityMeta;
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
-use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
-use crate::studio::Studio;
+use crate::studio::plugin::PluginOutcome;
 use anyhow::{Context, Result};
-use async_trait::async_trait;
 use serde_json::json;
 use sqlx::{PgPool, Postgres, Row, Transaction};
 
@@ -48,39 +38,6 @@ const NARRATIVES_LEDGER: LedgerSpec = LedgerSpec {
     product_table: "news_summaries",
     output_contract_version: NARRATIVES_OUTPUT_CONTRACT_VERSION,
 };
-
-pub struct NarrativesMaterial {
-    pub assignment: Assignment,
-    pub sources: Vec<crate::plugins::harvester::delivery::SourceContext>,
-}
-
-/// One source-only path for every trigger, including old queue revisions. A
-/// trigger cannot select an Editor packet fallback or upgrade a source receipt.
-pub async fn load_narratives_material(
-    pool: &PgPool,
-    subject: EntityMeta,
-    now: i64,
-) -> Result<NarrativesMaterial> {
-    let sources = crate::plugins::harvester::delivery::load_for_character(
-        pool,
-        crate::plugins::journalist::manifest::MANIFEST.id.as_str(),
-        &subject.entity_type,
-        subject.entity_id,
-        &subject.sport,
-    )
-    .await?;
-    let fresh = sources.iter().map(CorpusItem::from).collect::<Vec<_>>();
-    let memory = super::memories::load_for_assignment(pool, &subject, &fresh, now).await?;
-    let assignment = journalist::prepare(subject, fresh, &memory, now)?;
-    let sources = sources
-        .into_iter()
-        .filter(|s| !assignment.deferred_ids.contains(&s.article_id))
-        .collect();
-    Ok(NarrativesMaterial {
-        assignment,
-        sources,
-    })
-}
 
 async fn insert_narratives(
     tx: &mut Transaction<'_, Postgres>,
@@ -150,15 +107,15 @@ async fn insert_narratives(
     Ok(product_row_ids)
 }
 
-struct LedgerSubject<'a> {
-    entity_type: &'a str,
-    entity_id: i32,
-    sport: &'a str,
-    trigger_type: &'a str,
-    trigger_payload: &'a serde_json::Value,
+pub(super) struct LedgerSubject<'a> {
+    pub(super) entity_type: &'a str,
+    pub(super) entity_id: i32,
+    pub(super) sport: &'a str,
+    pub(super) trigger_type: &'a str,
+    pub(super) trigger_payload: &'a serde_json::Value,
 }
 
-async fn record_ledger(
+pub(super) async fn record_ledger(
     pool: &PgPool,
     subject: &LedgerSubject<'_>,
     product_row_ids: Vec<i64>,
@@ -210,7 +167,7 @@ async fn record_ledger(
                 "num_predict": output.request_body()
                     .and_then(|body| body.pointer("/options/num_predict"))
                     .and_then(|value| value.as_i64())
-                    .unwrap_or(journalist::NUM_PREDICT as i64),
+                    .unwrap_or(NUM_PREDICT as i64),
                 "num_ctx": num_ctx,
             })),
             parser_outcome: if !output.was_called() {
@@ -226,12 +183,12 @@ async fn record_ledger(
     Ok(())
 }
 
-enum Prepared<'a> {
+pub(super) enum Prepared<'a> {
     Debounced,
     Product(&'a NarrativesOutput),
 }
 
-async fn commit_claimed(
+pub(super) async fn commit_claimed(
     pool: &PgPool,
     item: &Item,
     sport: &str,
@@ -239,7 +196,7 @@ async fn commit_claimed(
     trigger_payload: &serde_json::Value,
     prepared: &Prepared<'_>,
     harvester_sources: &[crate::plugins::harvester::delivery::SourceContext],
-    dispositions: &[journalist::Disposition],
+    dispositions: &[Disposition],
 ) -> Result<(PluginOutcome, Vec<i64>)> {
     let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
         return Ok((PluginOutcome::Superseded, Vec::new()));
@@ -351,135 +308,6 @@ async fn commit_claimed(
     Ok((PluginOutcome::Committed, product_row_ids))
 }
 
-pub struct NarrativesHandler {
-    pool: sqlx::PgPool,
-    models: ExecutionCapabilities,
-}
-
-impl NarrativesHandler {
-    pub fn new(pool: sqlx::PgPool, models: ExecutionCapabilities) -> Self {
-        Self { pool, models }
-    }
-}
-
-#[async_trait]
-impl StudioPlugin for NarrativesHandler {
-    fn manifest(&self) -> &'static PluginManifest {
-        &crate::plugins::journalist::manifest::MANIFEST
-    }
-
-    async fn execute(&self, item: &Item) -> Result<PluginOutcome> {
-        let now = now_unix();
-        let subject = EntityMeta {
-            name: crate::evidence::corpus::lookup_entity_name(
-                &self.pool,
-                &item.entity_type,
-                item.entity_id_i32()?,
-                &item.sport,
-            )
-            .await?,
-            entity_type: item.entity_type.clone(),
-            entity_id: item.entity_id_i32()?,
-            sport: item.sport.to_uppercase(),
-        };
-        let material = load_narratives_material(&self.pool, subject, now).await?;
-        let payload = json!({"source":"harvester"});
-        if material.sources.is_empty() {
-            return Ok(commit_claimed(
-                &self.pool,
-                item,
-                &item.sport.to_uppercase(),
-                "periodic",
-                &payload,
-                &Prepared::Debounced,
-                &[],
-                &[],
-            )
-            .await?
-            .0);
-        }
-        let unchanged = crate::application::products::debounce_unchanged(
-            &self.pool,
-            "news_summaries",
-            &EntityKey {
-                entity_type: item.entity_type.clone(),
-                entity_id: item.entity_id_i32()?,
-                sport: item.sport.to_uppercase(),
-                season: None,
-            },
-            &material.assignment.input_hash,
-        )
-        .await?;
-        if unchanged && !material.assignment.selected.is_empty() {
-            return Ok(commit_claimed(
-                &self.pool,
-                item,
-                &item.sport.to_uppercase(),
-                "periodic",
-                &payload,
-                &Prepared::Debounced,
-                &material.sources,
-                &material.assignment.dispositions,
-            )
-            .await?
-            .0);
-        }
-        let backend = self
-            .models
-            .inference(crate::plugins::journalist::manifest::ROUTE)?;
-        let output = journalist::create(
-            &Studio::new(backend.as_ref()),
-            &material.assignment,
-            now,
-            self.models.voice_num_ctx,
-        )
-        .await?;
-        // No fresh reporting completes dispositions without overwriting the last
-        // useful edition with an artificial quiet/zero product.
-        let prepared = if output.narratives.is_empty() {
-            Prepared::Debounced
-        } else {
-            Prepared::Product(&output)
-        };
-        let (outcome, rows) = commit_claimed(
-            &self.pool,
-            item,
-            &item.sport.to_uppercase(),
-            "periodic",
-            &payload,
-            &prepared,
-            &material.sources,
-            &material.assignment.dispositions,
-        )
-        .await?;
-        if matches!(
-            outcome,
-            PluginOutcome::Committed | PluginOutcome::Deferred { .. }
-        ) {
-            record_ledger(
-                &self.pool,
-                &LedgerSubject {
-                    entity_type: &item.entity_type,
-                    entity_id: item.entity_id_i32()?,
-                    sport: &item.sport.to_uppercase(),
-                    trigger_type: "periodic",
-                    trigger_payload: &payload,
-                },
-                rows,
-                &output,
-            )
-            .await?;
-        }
-        Ok(outcome)
-    }
-}
-
-fn now_unix() -> i64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|duration| duration.as_secs() as i64)
-        .unwrap_or(0)
-}
-
 #[cfg(test)]
+#[path = "publish_tests.rs"]
 mod tests;

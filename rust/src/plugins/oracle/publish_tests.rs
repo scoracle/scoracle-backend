@@ -125,7 +125,7 @@ mod postgres_oracle_tests {
         .unwrap();
         let current = claim_one(&pool).await;
         let prepared = Prepared::Product {
-            output: Box::new(crown(Some(74))),
+            output: Box::new(crate::plugins::oracle::tests::created_crown(&pool).await),
             previous_score: Some(61),
         };
         assert_eq!(
@@ -151,11 +151,19 @@ mod postgres_oracle_tests {
         .fetch_one(&pool)
         .await
         .unwrap();
-        assert_eq!(row.0, Some(74));
+        assert_eq!(row.0, Some(75));
         assert_eq!(row.1, Some(61));
-        assert!(row.2.as_deref().unwrap().contains("Test Team"));
-        assert_eq!(row.3.as_deref(), Some("test-oracle-model"));
-        assert_eq!(row.4.as_deref(), Some("oracle-input-hash"));
+        assert!(row.2.as_deref().unwrap().contains("Northbridge FC"));
+        assert_eq!(row.3.as_deref(), Some("test-model"));
+        assert_eq!(row.4.as_deref(), Some("prepared-oracle-hash"));
+        let metrics: (Option<i16>, Option<String>, Option<i16>) = sqlx::query_as(
+            "SELECT convergence, omen, voiced_score FROM sigil_synthesis WHERE sport=$1",
+        )
+        .bind(SPORT)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(metrics, (Some(100), Some("ascendant".into()), Some(75)));
         clean(&pool).await;
     }
 

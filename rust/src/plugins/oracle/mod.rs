@@ -1,4 +1,4 @@
-//! Oracle execution, completion barrier and deterministic crown fields.
+//! Oracle execution, completion barrier and SQL-derived crown fields.
 pub mod manifest;
 mod parser;
 pub mod prompt;
@@ -13,9 +13,7 @@ use crate::studio::{Generation, GenerationCall, Studio};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
 use parser::ReadingParser;
-use prompt::{
-    Assignment, Cards, Readiness, SynthMomentum, SynthRating, SynthVibe, ORACLE_PROMPT_VERSION,
-};
+use prompt::{Assignment, Cards, Readiness, ORACLE_PROMPT_VERSION};
 use publish::{commit_claimed, record_ledger};
 use sqlx::PgPool;
 use tracing::debug;
@@ -33,10 +31,10 @@ pub struct SigilSynthesis {
     pub input_components_json: String,
     /// Optional model-emitted title.
     pub headline: Option<String>,
-    /// Deterministic convergence (1-100) from `pillar_convergence` — NOT model-emitted. `None`
+    /// Deterministic convergence (1-100) from SQL pillar agreement — NOT model-emitted. `None`
     /// for the marker and when no directional pillar pair exists. NOT part of the `input_hash`.
     pub convergence: Option<i32>,
-    /// The computed omen the reading was drawn under (`compute_omen`). `None` for the marker.
+    /// The computed omen the reading was drawn under by SQL. `None` for the marker.
     pub omen: Option<&'static str>,
 }
 
@@ -182,7 +180,7 @@ async fn prepare(pool: &PgPool, models: &ExecutionCapabilities, item: &Item) -> 
         previous_score
     };
     let backend = models.inference(manifest::ROUTE)?;
-    let output = create(&Studio::new(backend.as_ref()), &assignment).await?;
+    let output = create(pool, &Studio::new(backend.as_ref()), &assignment).await?;
     Ok(Prepared::Product {
         output: Box::new(output),
         previous_score,
@@ -221,8 +219,52 @@ impl StudioPlugin for SigilHandler {
     }
 }
 
-/// Create one crown from an explicit, service-free assignment.
-pub async fn create(studio: &Studio<'_>, assignment: &Assignment) -> Result<SigilOutput> {
+/// Create one crown from the selected finished cards and SQL-derived metrics.
+pub async fn create(
+    pool: &PgPool,
+    studio: &Studio<'_>,
+    assignment: &Assignment,
+) -> Result<SigilOutput> {
+    let metrics = if assignment.cards.readiness() == Readiness::Empty {
+        None
+    } else {
+        Some(load_metrics(pool, &assignment.cards).await?)
+    };
+    articulate(studio, assignment, metrics).await
+}
+
+async fn load_metrics(pool: &PgPool, cards: &Cards) -> Result<(i32, Option<i32>, &'static str)> {
+    // Preserve total_cmp selection (including signed zero/NaN); SQL owns the math.
+    let impact = cards
+        .narratives
+        .iter()
+        .max_by(|a, b| a.impact.total_cmp(&b.impact))
+        .map(|n| n.impact);
+    let (score, convergence, omen): (i32, Option<i32>, String) =
+        sqlx::query_as(include_str!("metrics.sql"))
+            .bind(cards.rating.as_ref().map(|r| r.notability))
+            .bind(cards.vibe.as_ref().map(|v| v.sentiment))
+            .bind(impact)
+            .bind(cards.insider.as_ref().map(|i| i.score))
+            .bind(cards.momentum.direction.as_deref())
+            .fetch_one(pool)
+            .await
+            .context("calculate Oracle crown metrics")?;
+    let omen = match omen.as_str() {
+        "ascendant" => "ascendant",
+        "waning" => "waning",
+        "steady" => "steady",
+        "crossroads" => "crossroads",
+        _ => bail!("Oracle SQL returned an unknown omen"),
+    };
+    Ok((score, convergence, omen))
+}
+
+async fn articulate(
+    studio: &Studio<'_>,
+    assignment: &Assignment,
+    metrics: Option<(i32, Option<i32>, &'static str)>,
+) -> Result<SigilOutput> {
     if assignment.cards.readiness() == Readiness::Empty {
         return Ok(Generation::uncalled(
             SigilSynthesis {
@@ -242,10 +284,7 @@ pub async fn create(studio: &Studio<'_>, assignment: &Assignment) -> Result<Sigi
     }
 
     let cards = &assignment.cards;
-    let comparisons =
-        build_pillar_divergence(cards.rating.as_ref(), cards.vibe.as_ref(), &cards.momentum);
-    let convergence = pillar_convergence(&comparisons);
-    let omen = compute_omen(convergence, &cards.momentum);
+    let (score, convergence, omen) = metrics.context("Oracle nonempty cards need SQL metrics")?;
     let prompt = prompt::assemble(&assignment.subject, cards);
     let options = assignment.options.clone();
     let extracted = studio
@@ -275,7 +314,7 @@ pub async fn create(studio: &Studio<'_>, assignment: &Assignment) -> Result<Sigi
 
     Ok(Generation::called(
         SigilSynthesis {
-            score: Some(crown_score(cards)),
+            score: Some(score),
             reading: Some(reading),
             headline: crate::plugins::support::guards::settle_title(
                 "oracle",
@@ -295,182 +334,6 @@ pub async fn create(studio: &Studio<'_>, assignment: &Assignment) -> Result<Sigi
         Some(assignment.input_hash.clone()),
         call,
     ))
-}
-
-/// Deterministic cross-pillar direction comparison handed to the model as a decided fact.
-#[derive(Clone, Debug, PartialEq)]
-pub struct PillarComparison {
-    pub label: String,
-    pub agree: bool,
-}
-
-/// Reduce a value to a direction sign: `None` = not directional (skip the comparison).
-fn trajectory_sign(key: &str) -> Option<i8> {
-    match key {
-        "rising" | "heating_up" => Some(1),
-        "falling" | "cooling_off" => Some(-1),
-        _ => None,
-    }
-}
-
-fn sentiment_sign(sentiment: i32) -> Option<i8> {
-    if sentiment >= 60 {
-        Some(1)
-    } else if sentiment <= 40 {
-        Some(-1)
-    } else {
-        None
-    }
-}
-
-fn sign_word(s: i8) -> &'static str {
-    if s > 0 {
-        "positive"
-    } else {
-        "negative"
-    }
-}
-
-/// build_pillar_divergence emits one comparison per directional pillar pair that is actually
-/// present. Neutral/steady/absent signals produce NO line (a steady lens neither agrees nor
-/// disagrees — the system prompt's own convergence rule). Pure and deterministic; the card is
-/// prompt-only and derives entirely from values already in the input hash, so it can never
-/// trigger a regeneration by itself.
-pub fn build_pillar_divergence(
-    rating: Option<&SynthRating>,
-    vibe: Option<&SynthVibe>,
-    mom: &SynthMomentum,
-) -> Vec<PillarComparison> {
-    let mut out = Vec::new();
-
-    // Momentum is the sole direction signal; the Oracle never reads the raw tracker.
-    let vibe_sign = vibe.and_then(|v| sentiment_sign(v.sentiment));
-    let mom_sign = mom.direction.as_deref().and_then(trajectory_sign);
-    // Profile strength: the LEVEL sign (is this an elite or a weak profile), distinct from the
-    // direction sign. The classic rails conflict the fixtures measure — "strong profile vs
-    // sliding momentum and negative narrative" — is a LEVEL-vs-direction disagreement that
-    // direction pairs alone cannot see. (Narrative heating_up/cooling_off is deliberately NOT
-    // compared: it measures story intensity, not valence — a negative story heating up must
-    // not read as "positive narrative".)
-    let strength_sign = rating.and_then(|r| {
-        if r.notability >= 70 {
-            Some(1i8)
-        } else if r.notability <= 35 {
-            Some(-1i8)
-        } else {
-            None
-        }
-    });
-    let strength_word = |s: i8| if s > 0 { "strong" } else { "weak" };
-    let mut push = |label: String, a: i8, b: i8| {
-        out.push(PillarComparison {
-            label,
-            agree: (i32::from(a) * i32::from(b)) > 0,
-        });
-    };
-
-    if let (Some(v), Some(m)) = (vibe_sign, mom_sign) {
-        push(
-            format!("Vibe ({}) vs Momentum ({})", sign_word(v), sign_word(m)),
-            v,
-            m,
-        );
-    }
-    if let (Some(s), Some(m)) = (strength_sign, mom_sign) {
-        push(
-            format!(
-                "Profile strength ({}) vs Momentum ({})",
-                strength_word(s),
-                sign_word(m)
-            ),
-            s,
-            m,
-        );
-    }
-    if let (Some(s), Some(v)) = (strength_sign, vibe_sign) {
-        push(
-            format!(
-                "Profile strength ({}) vs Vibe ({})",
-                strength_word(s),
-                sign_word(v)
-            ),
-            s,
-            v,
-        );
-    }
-    out
-}
-
-// ---------------------------------------------------------------------------
-// Deterministic omen and convergence: code decides, the model narrates.
-// ---------------------------------------------------------------------------
-
-fn direction_sign(key: &str) -> i32 {
-    match key {
-        "rising" => 1,
-        "falling" => -1,
-        _ => 0,
-    }
-}
-
-/// pillar_convergence turns the deterministic pillar comparisons into a 1-100 agreement number —
-/// a computed measurement, not a model opinion. `round(100·agree/total)` floored at 1; `None` when no directional pair
-/// exists (a quiet spread has nothing to converge on). The floor matches the DB contract
-/// (`sigil_synthesis_convergence_check`: NULL or 1-100) — an all-disagree spread rounds to 0,
-/// which the check rejects and which carries no product meaning beyond 1 (anything ≤ 50 is
-/// already a crossroads to `compute_omen`, faithfully preserving the panel's soft rule).
-pub fn pillar_convergence(comparisons: &[PillarComparison]) -> Option<i32> {
-    if comparisons.is_empty() {
-        return None;
-    }
-    let agree = comparisons.iter().filter(|c| c.agree).count();
-    Some((((agree as f64 / comparisons.len() as f64) * 100.0).round() as i32).max(1))
-}
-
-/// compute_omen decides the reading's direction deterministically:
-/// - a split spread (convergence ≤ 50 — half or more of the directional pairs disagree) is a
-///   `crossroads` regardless of net direction — the contested arc IS the story;
-/// - otherwise Momentum decides alone: positive ⇒
-///   `ascendant`, negative ⇒ `waning`, nothing directional ⇒ `steady`.
-pub fn compute_omen(convergence: Option<i32>, mom: &SynthMomentum) -> &'static str {
-    if let Some(c) = convergence {
-        if c <= 50 {
-            return "crossroads";
-        }
-    }
-    let net = mom.direction.as_deref().map(direction_sign).unwrap_or(0);
-    if net > 0 {
-        "ascendant"
-    } else if net < 0 {
-        "waning"
-    } else {
-        "steady"
-    }
-}
-
-fn crown_score(cards: &Cards) -> i32 {
-    let mut signals = Vec::new();
-    if let Some(rating) = &cards.rating {
-        signals.push(rating.notability.clamp(1, 100));
-    }
-    if let Some(vibe) = &cards.vibe {
-        signals.push(vibe.sentiment.clamp(1, 100));
-    }
-    if let Some(narrative) = cards
-        .narratives
-        .iter()
-        .max_by(|a, b| a.impact.total_cmp(&b.impact))
-    {
-        signals.push(narrative.impact.round().clamp(1.0, 100.0) as i32);
-    }
-    if let Some(insider) = &cards.insider {
-        signals.push(insider.score.clamp(1, 100));
-    }
-    if signals.is_empty() {
-        50
-    } else {
-        (signals.iter().sum::<i32>() as f64 / signals.len() as f64).round() as i32
-    }
 }
 
 #[cfg(test)]

@@ -7,7 +7,7 @@ use super::policy::{self, CHARACTER_ROUTES};
 use crate::plugins::harvester::decision::{
     DecisionModel, DecisionRequest, DecisionResponse, ProbabilityAnswer,
 };
-use crate::plugins::meta::EntityMeta;
+use crate::tools::meta::EntityMeta;
 use crate::util::hash_components;
 use anyhow::{ensure, Result};
 use serde::{Deserialize, Serialize};

@@ -106,16 +106,16 @@ use anyhow::Result;
 use serde_json::json;
 struct Model {
     response: Option<String>,
-    requests: std::sync::Mutex<Vec<(String, crate::studio::model::GenerateOptions)>>,
+    requests: std::sync::Mutex<Vec<(String, crate::harness::model::GenerateOptions)>>,
 }
 
 #[async_trait::async_trait]
-impl crate::studio::model::Inference for Model {
+impl crate::harness::model::Inference for Model {
     async fn generate(
         &self,
         prompt: &str,
-        opts: &crate::studio::model::GenerateOptions,
-    ) -> Result<(crate::studio::model::GenerateResult, serde_json::Value)> {
+        opts: &crate::harness::model::GenerateOptions,
+    ) -> Result<(crate::harness::model::GenerateResult, serde_json::Value)> {
         self.requests
             .lock()
             .unwrap()
@@ -125,7 +125,7 @@ impl crate::studio::model::Inference for Model {
             .clone()
             .ok_or_else(|| anyhow::anyhow!("transport unavailable"))?;
         Ok((
-            crate::studio::model::GenerateResult {
+            crate::harness::model::GenerateResult {
                 response,
                 thinking: String::new(),
                 model: "actual-investigator-model".into(),
@@ -144,7 +144,7 @@ impl crate::studio::model::Inference for Model {
     fn request_body(
         &self,
         prompt: &str,
-        opts: &crate::studio::model::GenerateOptions,
+        opts: &crate::harness::model::GenerateOptions,
     ) -> serde_json::Value {
         json!({"prompt": prompt, "schema": opts.format_schema_raw, "budget": opts.num_predict})
     }
@@ -180,7 +180,7 @@ async fn studio_validates_only_the_page_text_actually_shown() {
     assert!(!requests[0].0.contains("Hidden Club"));
     assert_eq!(
         requests[0].1.num_ctx,
-        crate::studio::model::LOCAL_STAGE_NUM_CTX
+        crate::harness::model::LOCAL_STAGE_NUM_CTX
     );
     assert_eq!(
         requests[0].1.format_schema_raw.as_deref(),

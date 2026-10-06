@@ -1,9 +1,9 @@
 //! Registration policy owned by this plugin.
 
-use crate::application::queue::work::{ClaimPolicy, TaskKey};
-use crate::runtime::route::RouteKey;
-use crate::studio::plugin::{PluginId, PluginManifest, ResourceProfile, ToolGrant};
-use crate::studio::tools::DomainClass;
+use crate::harness::plugin::{PluginId, PluginManifest, ResourceProfile, ToolGrant};
+use crate::harness::queue::work::{ClaimPolicy, TaskKey};
+use crate::harness::route::RouteKey;
+use crate::harness::tools::DomainClass;
 
 const INVESTIGATOR_WEB_DOMAINS: [DomainClass; 1] = [DomainClass::Wikimedia];
 pub const TASK: TaskKey = TaskKey::new("investigate_entity");

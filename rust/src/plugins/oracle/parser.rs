@@ -1,5 +1,5 @@
 //! Served reading decoding and prose guards.
-use crate::studio::Parser;
+use crate::harness::Parser;
 use anyhow::{bail, Result};
 
 pub(super) struct ReadingParser;

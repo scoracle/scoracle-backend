@@ -9,13 +9,13 @@ pub mod delivery;
 pub mod maintenance;
 pub mod policy;
 
-use crate::application::queue::work::{ClaimPolicy, TaskKey};
-use crate::studio::plugin::{PluginId, PluginManifest, ResourceProfile, ToolGrant};
+use crate::harness::plugin::{PluginId, PluginManifest, ResourceProfile, ToolGrant};
+use crate::harness::queue::work::{ClaimPolicy, TaskKey};
 pub use cognition::Article;
 
 pub mod manifest {
     use super::*;
-    use crate::studio::tools::DomainClass;
+    use crate::harness::tools::DomainClass;
 
     pub const TASK: TaskKey = TaskKey::new("harvester");
     const TOOLS: [ToolGrant; 2] = [

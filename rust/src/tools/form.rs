@@ -157,7 +157,7 @@ pub fn parse_observation(raw: &str) -> anyhow::Result<Option<ObservationReply>> 
 
 pub struct ObservationParser;
 
-impl crate::studio::Parser<ObservationReply> for ObservationParser {
+impl crate::harness::Parser<ObservationReply> for ObservationParser {
     fn parse(&self, raw: &str) -> anyhow::Result<Option<ObservationReply>> {
         parse_observation(raw)
     }
@@ -476,7 +476,7 @@ mod tests {
     /// to stop.
     #[test]
     fn every_character_parser_preserves_paragraphs_and_refuses_what_it_did_not_declare() {
-        use crate::studio::Parser;
+        use crate::harness::Parser;
         let paragraphs = "Creation stands out.\n\nThe defensive measures are lower.";
         let card = serde_json::json!({
             "headline": "Morgan Rogers creates chances at an elite level",

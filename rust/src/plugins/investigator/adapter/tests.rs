@@ -1,7 +1,7 @@
 use super::*;
-use crate::application::queue::work::{self, Item};
+use crate::harness::plugin::PluginOutcome;
+use crate::harness::queue::work::{self, Item};
 use crate::plugins::investigator::cognition::{gate::RoleClass, WikidataItem};
-use crate::studio::plugin::PluginOutcome;
 use serde_json::json;
 use sqlx::PgPool;
 const SPORT: &str = "ZZ_INVESTIGATOR";

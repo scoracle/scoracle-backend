@@ -6,10 +6,8 @@
 //! OUTPUT contains publisher text and must stay outside Git. No database or queue is touched.
 use anyhow::{Context, Result};
 use futures::{stream, StreamExt};
-use scoracle_cognition::evidence::fetch::{
-    count_words, domain_of, fetch_article, ArticleHttpStatus,
-};
 use scoracle_cognition::plugins::harvester::Article;
+use scoracle_cognition::tools::fetch::{count_words, domain_of, fetch_article, ArticleHttpStatus};
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;

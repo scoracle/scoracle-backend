@@ -1,7 +1,7 @@
 //! Finished-card retrieval, readiness, request projection and provenance.
-use crate::application::queue::work::Item;
-use crate::evidence::trajectory::DEFAULT_TRAJECTORY;
-use crate::studio::model::GenerateOptions;
+use crate::harness::model::GenerateOptions;
+use crate::harness::queue::work::Item;
+use crate::tools::source::DEFAULT_TRAJECTORY;
 use crate::util::{hash_components, round1};
 use anyhow::{Context, Result};
 use serde::Serialize;
@@ -446,13 +446,9 @@ pub(super) async fn load_assignment(
     num_ctx: i32,
 ) -> Result<Assignment> {
     let entity_id = item.entity_id_i32()?;
-    let name = crate::evidence::corpus::lookup_entity_name(
-        pool,
-        &item.entity_type,
-        entity_id,
-        &item.sport,
-    )
-    .await?;
+    let name =
+        crate::tools::meta::lookup_entity_name(pool, &item.entity_type, entity_id, &item.sport)
+            .await?;
     let sport = item.sport.to_uppercase();
     let (season, cards) = load_pillars(pool, &item.entity_type, entity_id, &sport).await?;
     let (input_components_json, input_hash) = if cards.readiness() == Readiness::Empty {
@@ -524,7 +520,7 @@ pub fn assemble(subject: &Subject, cards: &Cards) -> String {
             source_age_days: n.source_age_days,
         })
         .collect();
-    let meta = crate::plugins::meta::EntityMeta {
+    let meta = crate::tools::meta::EntityMeta {
         name: subject.entity_name.clone(),
         entity_type: subject.entity_type.clone(),
         entity_id: subject.entity_id,
@@ -532,7 +528,7 @@ pub fn assemble(subject: &Subject, cards: &Cards) -> String {
     };
     #[derive(Serialize)]
     struct Input<'a> {
-        meta: crate::plugins::meta::WritingIdentity<'a>,
+        meta: crate::tools::meta::WritingIdentity<'a>,
         fresh: Fresh<'a>,
         voice: &'static str,
         form: serde_json::Value,

@@ -1,8 +1,8 @@
 //! Registration policy owned by this plugin.
 
-use crate::application::queue::work::{ClaimPolicy, TaskKey};
-use crate::studio::plugin::{PluginId, PluginManifest, ResourceProfile, ToolGrant};
-use crate::studio::tools::DomainClass;
+use crate::harness::plugin::{PluginId, PluginManifest, ResourceProfile, ToolGrant};
+use crate::harness::queue::work::{ClaimPolicy, TaskKey};
+use crate::harness::tools::DomainClass;
 
 const BOXSCORE_WEB_DOMAINS: [DomainClass; 1] = [DomainClass::BoxscoreSources];
 pub const TASK: TaskKey = TaskKey::new("fixture_boxscore");

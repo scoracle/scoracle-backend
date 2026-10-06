@@ -1,13 +1,13 @@
 //! DB-free replay of captured Scout assignments through production guards and
 //! bounded correction. Records every returned response, including rejected ones.
 use anyhow::{anyhow, Result};
-use scoracle_cognition::plugins::scout::parser::RatingRequestParser;
-use scoracle_cognition::plugins::scout::prompt::Parts;
-use scoracle_cognition::runtime::{config::Config, route::Router};
-use scoracle_cognition::studio::{
+use scoracle_cognition::harness::{config::Config, route::Router};
+use scoracle_cognition::harness::{
     model::{GenerateOptions, GenerateResult, Inference},
     Parser, Studio,
 };
+use scoracle_cognition::plugins::scout::parser::RatingRequestParser;
+use scoracle_cognition::plugins::scout::prompt::Parts;
 use serde_json::{json, Value};
 use std::{path::Path, sync::Mutex};
 

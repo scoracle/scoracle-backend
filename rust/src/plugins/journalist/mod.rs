@@ -7,12 +7,12 @@ pub mod prompt;
 mod publish;
 pub mod voice;
 
-use crate::application::models::ExecutionCapabilities;
-use crate::application::products::EntityKey;
-use crate::application::queue::work::Item;
-use crate::plugins::meta::EntityMeta;
-use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
-use crate::studio::{Generation, GenerationCall, Studio};
+use crate::harness::models::ExecutionCapabilities;
+use crate::harness::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
+use crate::harness::products::EntityKey;
+use crate::harness::queue::work::Item;
+use crate::harness::{Generation, GenerationCall, Studio};
+use crate::tools::meta::EntityMeta;
 use anyhow::Result;
 use async_trait::async_trait;
 use parser::EditionParser;
@@ -111,7 +111,7 @@ impl StudioPlugin for NarrativesHandler {
     async fn execute(&self, item: &Item) -> Result<PluginOutcome> {
         let now = now_unix();
         let subject = EntityMeta {
-            name: crate::evidence::corpus::lookup_entity_name(
+            name: crate::tools::meta::lookup_entity_name(
                 &self.pool,
                 &item.entity_type,
                 item.entity_id_i32()?,
@@ -138,7 +138,7 @@ impl StudioPlugin for NarrativesHandler {
             .await?
             .0);
         }
-        let unchanged = crate::application::products::debounce_unchanged(
+        let unchanged = crate::harness::products::debounce_unchanged(
             &self.pool,
             "news_summaries",
             &EntityKey {

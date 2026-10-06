@@ -1,7 +1,7 @@
 //! Deterministic Investigator identity data and gates.
 //! Prose extraction below is retained for historical evaluation only; runtime publication
 //! has no inference grant and never consumes it.
-use crate::studio::{Extracted, Studio};
+use crate::harness::{Extracted, Studio};
 use anyhow::Result;
 pub mod gate;
 pub mod prompt;
@@ -33,7 +33,7 @@ pub async fn investigate_prose(
             &prompt,
             &prose_opts(),
             &ProseReadParser,
-            crate::studio::session::structured_correction,
+            crate::harness::session::structured_correction,
         )
         .await?;
     if let Some(read) = result.value.as_mut() {

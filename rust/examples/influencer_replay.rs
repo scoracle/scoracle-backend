@@ -1,8 +1,9 @@
 //! Export the production cognition package and check retained replies for form only.
 use anyhow::Result;
+use scoracle_cognition::harness::Parser;
+use scoracle_cognition::plugins::harvester::delivery::SourceContext;
 use scoracle_cognition::plugins::influencer::{self, memories::HistoryItem, prompt};
-use scoracle_cognition::plugins::{harvester::delivery::SourceContext, meta::EntityMeta};
-use scoracle_cognition::studio::Parser;
+use scoracle_cognition::tools::meta::EntityMeta;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -64,7 +65,7 @@ fn main() -> Result<()> {
                 4096,
                 prompt::VIBE_NUM_PREDICT,
             );
-            let backend = scoracle_cognition::runtime::providers::ollama::OllamaClient::with_think(
+            let backend = scoracle_cognition::harness::providers::ollama::OllamaClient::with_think(
                 "http://127.0.0.1:11434",
                 "alibayram/smollm3:latest",
                 std::time::Duration::from_secs(120),

@@ -1,6 +1,6 @@
 //! The Investigator world transaction: facts, identities, provenance, cooldown, and exact completion.
 use super::*;
-use crate::application::queue::publication::ClaimPublication;
+use crate::harness::queue::publication::ClaimPublication;
 type FactPolicy = HashMap<(String, String), String>;
 
 #[allow(clippy::too_many_arguments)]

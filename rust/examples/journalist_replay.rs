@@ -3,13 +3,11 @@
 //! for the pure SQL source-activity query (no tables or product writes).
 //! cargo run --example journalist_replay -- INPUT.jsonl OUTPUT.jsonl [OLLAMA_URL [auto|true|false|compare [schema|unconstrained [MODEL]]]]
 use anyhow::{Context, Result};
-use scoracle_cognition::plugins::{
-    journalist::{self, memories::Continuity, prompt},
-    meta::EntityMeta,
-};
-use scoracle_cognition::runtime::providers::ollama::OllamaClient;
-use scoracle_cognition::studio::model::{GenerateOptions, GenerateResult, Inference};
-use scoracle_cognition::studio::Studio;
+use scoracle_cognition::harness::model::{GenerateOptions, GenerateResult, Inference};
+use scoracle_cognition::harness::providers::ollama::OllamaClient;
+use scoracle_cognition::harness::Studio;
+use scoracle_cognition::plugins::journalist::{self, memories::Continuity, prompt};
+use scoracle_cognition::tools::meta::EntityMeta;
 use serde::Deserialize;
 use serde_json::json;
 use std::io::{BufRead, BufReader, Write};
@@ -79,7 +77,7 @@ struct Case {
     #[serde(default)]
     memories: Vec<prompt::CorpusItem>,
     #[serde(default)]
-    memory_study: Option<scoracle_cognition::plugins::memories::Study>,
+    memory_study: Option<scoracle_cognition::tools::memories::Study>,
     /// Fresh article id -> storyline id, the exact link the plugin uses to
     /// attach studied history to a report.
     #[serde(default)]

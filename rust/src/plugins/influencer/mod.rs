@@ -5,18 +5,18 @@ pub mod prompt;
 mod publish;
 pub mod voice;
 
-use crate::application::models::ExecutionCapabilities;
-use crate::application::queue::publication::ClaimPublication;
-use crate::application::queue::work::Item;
-use crate::evidence::corpus::lookup_entity_name;
+use crate::harness::model::Inference;
+use crate::harness::models::ExecutionCapabilities;
+use crate::harness::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
+use crate::harness::queue::publication::ClaimPublication;
+use crate::harness::queue::work::Item;
+use crate::harness::{Generation, GenerationCall, Studio};
 use crate::plugins::harvester::delivery::{
     load_for_character, validate_for_publication, SourceContext,
 };
-use crate::plugins::meta::EntityMeta;
-use crate::studio::model::Inference;
-use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
-use crate::studio::{Generation, GenerationCall, Studio};
 pub use crate::tools::form::ObservationParser as VibeParser;
+use crate::tools::meta::lookup_entity_name;
+use crate::tools::meta::EntityMeta;
 use anyhow::{ensure, Result};
 use async_trait::async_trait;
 use prompt::{Assignment, VIBE_NUM_PREDICT, VIBE_PROMPT_VERSION, VIBE_TEMPERATURE};

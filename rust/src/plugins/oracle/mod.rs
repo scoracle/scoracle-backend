@@ -5,11 +5,11 @@ pub mod prompt;
 mod publish;
 pub mod voice;
 
-use crate::application::models::ExecutionCapabilities;
-use crate::application::products::EntityKey;
-use crate::application::queue::work::{self, Item, TaskKey};
-use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
-use crate::studio::{Generation, GenerationCall, Studio};
+use crate::harness::models::ExecutionCapabilities;
+use crate::harness::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
+use crate::harness::products::EntityKey;
+use crate::harness::queue::work::{self, Item, TaskKey};
+use crate::harness::{Generation, GenerationCall, Studio};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
 use parser::ReadingParser;
@@ -121,7 +121,7 @@ impl OracleBarrierReaction {
 }
 
 #[async_trait]
-impl crate::application::queue::outbox::EventReaction for OracleBarrierReaction {
+impl crate::harness::queue::outbox::EventReaction for OracleBarrierReaction {
     fn name(&self) -> &'static str {
         "oracle.completion-barrier"
     }
@@ -137,7 +137,7 @@ impl crate::application::queue::outbox::EventReaction for OracleBarrierReaction 
         ]
     }
 
-    async fn react(&self, event: &crate::application::queue::outbox::Event) -> Result<()> {
+    async fn react(&self, event: &crate::harness::queue::outbox::Event) -> Result<()> {
         enqueue_oracle_if_pillars_settled(
             &self.pool,
             &event.entity_type,
@@ -163,7 +163,7 @@ async fn prepare(pool: &PgPool, models: &ExecutionCapabilities, item: &Item) -> 
     let previous_score = if assignment.cards.readiness() == Readiness::Empty {
         None
     } else {
-        let (previous_score, latest_hash) = crate::application::products::latest_with_hash(
+        let (previous_score, latest_hash) = crate::harness::products::latest_with_hash(
             pool,
             "sigil_synthesis",
             &EntityKey {
@@ -292,7 +292,7 @@ async fn articulate(
             &prompt,
             &options,
             &ReadingParser,
-            crate::studio::session::structured_correction,
+            crate::harness::session::structured_correction,
         )
         .await?;
     let call = GenerationCall::from(&extracted);

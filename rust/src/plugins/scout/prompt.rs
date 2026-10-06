@@ -4,10 +4,10 @@ use serde::Serialize;
 
 use super::parser::{self, RatingReply};
 use super::performance::{RatingExclusions, RatingTrajectory};
-use crate::plugins::meta::EntityMeta;
+use crate::harness::model::GenerateOptions;
 use crate::plugins::scout::memories::Selected;
 use crate::plugins::scout::performance::{self, Profile};
-use crate::studio::model::GenerateOptions;
+use crate::tools::meta::EntityMeta;
 use crate::util::hash_components;
 use anyhow::{Context, Result};
 
@@ -84,7 +84,7 @@ valid when the evidence does not support more.";
 /// Retry the same bounded task without silently changing its content policy.
 pub fn correction(error: &anyhow::Error) -> Option<String> {
     (error.is::<crate::tools::form::SurfaceError>()
-        || error.is::<crate::studio::model::IncompleteOutput>())
+        || error.is::<crate::harness::model::IncompleteOutput>())
     .then(|| format!("{error:#} Return the complete requested JSON within the supplied form limits. Preserve the supplied qualifications and use only the prepared evidence."))
 }
 
@@ -115,8 +115,8 @@ impl Parts {
         &self,
         num_ctx: i32,
         temperature: f64,
-    ) -> crate::studio::model::GenerateOptions {
-        crate::studio::model::GenerateOptions {
+    ) -> crate::harness::model::GenerateOptions {
+        crate::harness::model::GenerateOptions {
             system: Some(TASK.into()),
             temperature: Some(temperature),
             num_predict: RATING_NUM_PREDICT,
@@ -146,7 +146,7 @@ impl Parts {
     }
 
     pub fn parse(&self, raw: &str) -> anyhow::Result<Option<RatingReply>> {
-        use crate::studio::Parser;
+        use crate::harness::Parser;
         parser::RatingRequestParser::new(
             &self.render(),
             &self.comparison_directions(),
@@ -287,7 +287,7 @@ pub async fn build_rating_request(
 
     // Keep the adjudicated records for provenance and select attributed memory from them.
     let (personnel, reported_memory) = if with_enrichment && !historical {
-        let (changes, total) = match crate::evidence::personnel::load_personnel_changes(
+        let (changes, total) = match crate::plugins::scout::sources::load_personnel_changes(
             pool,
             &req.sport,
             &req.entity_type,
@@ -308,7 +308,7 @@ pub async fn build_rating_request(
             }
         };
         let (availability, availability_total) =
-            match crate::evidence::personnel::load_availability_changes(
+            match crate::plugins::scout::sources::load_availability_changes(
                 pool,
                 &req.sport,
                 &req.entity_type,
@@ -345,7 +345,7 @@ pub async fn build_rating_request(
     };
 
     let (current_reports, contested_claims) = if with_enrichment && !historical {
-        match crate::evidence::personnel::load_scout_reports(
+        match crate::plugins::scout::sources::load_scout_reports(
             pool,
             &req.entity_type,
             req.entity_id,
@@ -468,7 +468,7 @@ pub async fn build_rating_request(
         }
     };
     let parts = crate::plugins::scout::prompt::Parts {
-        subject: crate::plugins::meta::EntityMeta {
+        subject: crate::tools::meta::EntityMeta {
             name: subject.entity_name.clone(),
             entity_type: subject.entity_type.clone(),
             entity_id: req.entity_id,
@@ -520,7 +520,7 @@ mod tests {
 
     #[test]
     fn correction_preserves_the_provider_failure_under_context() {
-        let error = anyhow::Error::new(crate::studio::model::IncompleteOutput(
+        let error = anyhow::Error::new(crate::harness::model::IncompleteOutput(
             "incomplete model output (finish reason: length)".into(),
         ))
         .context("model generate");

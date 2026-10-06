@@ -1,7 +1,7 @@
 use super::*;
-use crate::application::queue::work;
+use crate::harness::queue::work;
+use crate::harness::Parser;
 use crate::plugins::graph::cognition::GraphParser;
-use crate::studio::Parser;
 use serde_json::json;
 const SPORT: &str = "ZZ_GRAPH_STUDIO";
 const ARTICLE: i64 = 9_700_001;

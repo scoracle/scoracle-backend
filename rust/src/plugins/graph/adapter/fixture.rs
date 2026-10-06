@@ -1,6 +1,6 @@
 //! Source-grounded fixture-result nomination owned by Graph for Harvester articles.
-use crate::evidence::news::result::parse_result_line;
 use crate::plugins::graph::cognition::GRAPH_PROMPT_VERSION;
+use crate::plugins::graph::result::parse_result_line;
 use anyhow::{ensure, Context, Result};
 use sha2::{Digest, Sha256};
 use sqlx::{PgConnection, Row};

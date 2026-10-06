@@ -1,8 +1,8 @@
 //! Read prepared evidence without inference or publication.
 use anyhow::{bail, ensure, Context, Result};
 use scoracle_cognition::{
-    evidence::personnel::load_scout_reports,
-    runtime::{config::Config, db},
+    harness::{config::Config, db},
+    plugins::scout::sources::load_scout_reports,
 };
 use serde_json::{json, Value};
 

@@ -1,16 +1,16 @@
 //! Source-bound investigation nominations and fixture review receipts.
 //! Generated relations and roles never become canonical facts.
-use crate::application::models::ExecutionCapabilities;
-use crate::application::queue::publication::ClaimPublication;
-use crate::application::queue::work;
-use crate::application::queue::work::Item;
-use crate::evidence::news::slice_quote;
+use crate::harness::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
+use crate::harness::models::ExecutionCapabilities;
+use crate::harness::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
+use crate::harness::queue::publication::ClaimPublication;
+use crate::harness::queue::work;
+use crate::harness::queue::work::Item;
+use crate::harness::{Extracted, Generation, GenerationCall, Studio};
 use crate::plugins::graph::cognition::{
     Assignment, GraphArticle, GraphCandidate, GraphExtraction, GraphPerson, GRAPH_PROMPT_VERSION,
 };
-use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
-use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
-use crate::studio::{Extracted, Generation, GenerationCall, Studio};
+use crate::plugins::graph::quote::slice_quote;
 use crate::util::hash_components;
 use anyhow::{ensure, Context, Result};
 use async_trait::async_trait;
@@ -135,7 +135,7 @@ pub async fn load_graph_article_context(
         let entity_id: i32 = r.get(1);
         let name: String = r.get(2);
         let descriptor =
-            crate::plugins::meta::load_identity_record(pool, &entity_type, entity_id, sport)
+            crate::tools::meta::load_identity_record(pool, &entity_type, entity_id, sport)
                 .await?
                 .unwrap_or_else(|| format!("{name} ({entity_type}; records unavailable)"));
         candidates.push(GraphCandidate {

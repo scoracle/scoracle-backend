@@ -10,12 +10,14 @@ pub mod parser;
 pub mod performance;
 pub mod prompt;
 mod publish;
+pub mod reports;
+pub mod sources;
 pub mod voice;
 
-use crate::application::models::ExecutionCapabilities;
-use crate::application::queue::work::Item;
-use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
-use crate::studio::{Generation, GenerationCall, Studio};
+use crate::harness::models::ExecutionCapabilities;
+use crate::harness::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
+use crate::harness::queue::work::Item;
+use crate::harness::{Generation, GenerationCall, Studio};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use parser::RatingRequestParser;
@@ -39,10 +41,10 @@ pub(crate) async fn record_rating_completed(
     item: &Item,
     has_product: bool,
 ) -> Result<()> {
-    crate::application::queue::outbox::record(
+    crate::harness::queue::outbox::record(
         tx,
         item,
-        crate::application::queue::outbox::NewEvent {
+        crate::harness::queue::outbox::NewEvent {
             kind: if has_product {
                 RATING_COMPLETED
             } else {
@@ -68,7 +70,7 @@ impl RatingIdentityReaction {
 }
 
 #[async_trait]
-impl crate::application::queue::outbox::EventReaction for RatingIdentityReaction {
+impl crate::harness::queue::outbox::EventReaction for RatingIdentityReaction {
     fn name(&self) -> &'static str {
         "scout.rate-applied-identity"
     }
@@ -77,12 +79,12 @@ impl crate::application::queue::outbox::EventReaction for RatingIdentityReaction
         &[TRANSFER_IDENTITY_APPLIED]
     }
 
-    async fn react(&self, event: &crate::application::queue::outbox::Event) -> Result<()> {
+    async fn react(&self, event: &crate::harness::queue::outbox::Event) -> Result<()> {
         let input_version = event
             .source_input_version
             .clone()
             .context("transfer identity rating obligation missing input version")?;
-        crate::application::queue::work::enqueue(
+        crate::harness::queue::work::enqueue(
             &self.pool,
             &Item {
                 stage: crate::plugins::scout::manifest::TASK,
@@ -295,7 +297,7 @@ impl StudioPlugin for RatingHandler {
             None => current_season(pool, &sport).await?,
         };
         let name =
-            crate::evidence::corpus::lookup_entity_name(pool, &item.entity_type, entity_id, &sport)
+            crate::tools::meta::lookup_entity_name(pool, &item.entity_type, entity_id, &sport)
                 .await?;
         let bypass = rating_work_bypasses_debounce(item.input_version.as_deref());
         let trigger_type = rating_trigger_type(item.input_version.as_deref());

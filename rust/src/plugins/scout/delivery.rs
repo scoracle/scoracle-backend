@@ -2,15 +2,15 @@
 use super::prompt::{RatingBuild, RATING_TEMPERATURE};
 use super::publish::{insert_stat_summary, record_ledger, LedgerSubject};
 use super::{create, record_rating_completed, RatingOutput};
-use crate::application::queue::publication::ClaimPublication;
-use crate::application::queue::work::Item;
+use crate::harness::model::Inference;
+use crate::harness::plugin::PluginOutcome;
+use crate::harness::queue::publication::ClaimPublication;
+use crate::harness::queue::work::Item;
+use crate::harness::Studio;
 use crate::plugins::harvester::delivery::load_for_character;
 use crate::plugins::harvester::delivery::SourceContext;
 use crate::plugins::scout::performance::current_season;
 use crate::plugins::scout::prompt::{build_rating_request, RatingReq};
-use crate::studio::model::Inference;
-use crate::studio::plugin::PluginOutcome;
-use crate::studio::Studio;
 use anyhow::{ensure, Result};
 use serde::Serialize;
 use serde_json::json;
@@ -185,8 +185,7 @@ pub(crate) async fn execute_with_backend(
         return Ok(PluginOutcome::Committed);
     };
     let name =
-        crate::evidence::corpus::lookup_entity_name(pool, &item.entity_type, entity_id, &sport)
-            .await?;
+        crate::tools::meta::lookup_entity_name(pool, &item.entity_type, entity_id, &sport).await?;
     let decision = decide(
         &mut *pool.acquire().await?,
         &item.entity_type,

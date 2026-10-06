@@ -1,7 +1,7 @@
 //! Influencer source publication and completion coordination.
 use super::{prompt::VIBE_NUM_PREDICT, VibeOutput};
-use crate::application::queue::work::Item;
-use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
+use crate::harness::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
+use crate::harness::queue::work::Item;
 use anyhow::{Context, Result};
 use sqlx::{Postgres, Row, Transaction};
 
@@ -10,10 +10,10 @@ pub(crate) async fn record_vibe_completed(
     tx: &mut Transaction<'_, Postgres>,
     item: &Item,
 ) -> Result<()> {
-    crate::application::queue::outbox::record(
+    crate::harness::queue::outbox::record(
         tx,
         item,
-        crate::application::queue::outbox::NewEvent {
+        crate::harness::queue::outbox::NewEvent {
             kind: VIBE_COMPLETED,
             entity_type: &item.entity_type,
             entity_id: item.entity_id_i32()?,

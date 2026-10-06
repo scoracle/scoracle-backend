@@ -3,8 +3,8 @@
 //! cargo run --example harvest_shadow -- CORPUS.jsonl SUMMARY.json http://127.0.0.1:8019/v1/systemone
 //! The summary contains hashes, timings, and advisory choices, never publisher text.
 use anyhow::{Context, Result};
+use scoracle_cognition::harness::providers::system_one::SystemOneClient;
 use scoracle_cognition::plugins::harvester::{context, Article};
-use scoracle_cognition::runtime::providers::system_one::SystemOneClient;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;

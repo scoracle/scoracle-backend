@@ -2,9 +2,9 @@
 
 use super::super::*;
 use super::*;
-use crate::application::queue::work::TaskKey;
+use crate::harness::queue::work::TaskKey;
+use crate::harness::Generation;
 use crate::plugins::oracle::SigilSynthesis;
-use crate::studio::Generation;
 
 fn crown(score: Option<i32>) -> SigilOutput {
     Generation::uncalled(

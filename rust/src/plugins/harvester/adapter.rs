@@ -4,13 +4,13 @@
 use super::cognition::Article;
 use super::context::{self, HarvestContext, HeadlineGate};
 use super::policy::CHARACTER_ROUTES;
-use crate::application::queue::publication::ClaimPublication;
-use crate::application::queue::work::Item;
-use crate::application::tools::{ToolLedger, WebBroker};
-use crate::evidence::fetch::{count_words, domain_of, ArticleHttpStatus, FetchedArticle};
+use crate::harness::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
+use crate::harness::queue::publication::ClaimPublication;
+use crate::harness::queue::work::Item;
+use crate::harness::tools::{ToolLedger, WebBroker};
 use crate::plugins::harvester::decision::DecisionModel;
-use crate::plugins::meta::EntityMeta;
-use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
+use crate::tools::fetch::{count_words, domain_of, ArticleHttpStatus, FetchedArticle};
+use crate::tools::meta::EntityMeta;
 use anyhow::{ensure, Context, Result};
 use async_trait::async_trait;
 use sha2::{Digest, Sha256};
@@ -676,7 +676,7 @@ async fn publish(
             .fetch_all(&mut **tx)
             .await?;
             for (entity_type, entity_id) in subjects {
-                crate::application::queue::work::enqueue(
+                crate::harness::queue::work::enqueue(
                     &mut **tx,
                     &Item {
                         stage: crate::plugins::insider::manifest::TASK,
@@ -709,7 +709,7 @@ async fn publish(
             .execute(&mut **tx)
             .await?;
             if enabled {
-                crate::application::queue::work::enqueue(
+                crate::harness::queue::work::enqueue(
                     &mut **tx,
                     &Item {
                         stage: route.destination.task,
@@ -740,7 +740,7 @@ async fn publish(
     .fetch_one(&mut **tx)
     .await?;
     if has_identity_candidates {
-        crate::application::queue::work::enqueue(
+        crate::harness::queue::work::enqueue(
             &mut **tx,
             &Item {
                 stage: crate::plugins::graph::manifest::TASK,
@@ -778,7 +778,7 @@ impl StudioPlugin for HarvesterHandler {
         &super::manifest::MANIFEST
     }
 
-    fn scheduled_operations(&self) -> Vec<Arc<dyn crate::studio::plugin::ScheduledOperation>> {
+    fn scheduled_operations(&self) -> Vec<Arc<dyn crate::harness::plugin::ScheduledOperation>> {
         super::maintenance::operations(self.pool.clone())
     }
 
@@ -908,11 +908,11 @@ impl StudioPlugin for HarvesterHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::application::queue::work;
+    use crate::harness::model::{GenerateOptions, GenerateResult, Inference};
+    use crate::harness::queue::work;
     use crate::plugins::harvester::decision::{
         DecisionRequest, DecisionResponse, ProbabilityAnswer,
     };
-    use crate::studio::model::{GenerateOptions, GenerateResult, Inference};
     use serde_json::json;
     use std::collections::BTreeMap;
     use std::time::Duration;
@@ -2386,8 +2386,7 @@ mod tests {
         assert_eq!(roster_receipt.1["structured_record_id"], roster_record_id);
         assert!(roster_receipt.1["stat_summary_id"].as_i64().is_some());
         let current_reports =
-            crate::evidence::personnel::load_harvester_scout_reports(&pool, "team", TEAM, SPORT)
-                .await?;
+            crate::plugins::scout::sources::load_scout_reports(&pool, "team", TEAM, SPORT).await?;
         assert_eq!(current_reports.len(), 3);
         assert_eq!(current_reports[0].claim.article_id, ROSTER_ARTICLE);
         assert_eq!(current_reports[0].claim.story_type, "roster");
@@ -2403,22 +2402,22 @@ mod tests {
             .contains("Thin RSS description"));
         sqlx::query("UPDATE public.transfer_identity_applications SET status='reverted',reverted_at=now() WHERE id=$1")
             .bind(roster_record_id).execute(&pool).await?;
-        assert!(crate::evidence::personnel::load_harvester_scout_reports(
-            &pool, "team", TEAM, SPORT
-        )
-        .await
-        .is_err());
+        assert!(
+            crate::plugins::scout::sources::load_scout_reports(&pool, "team", TEAM, SPORT)
+                .await
+                .is_err()
+        );
         sqlx::query("UPDATE public.transfer_identity_applications SET status='applied',reverted_at=NULL WHERE id=$1")
             .bind(roster_record_id).execute(&pool).await?;
         sqlx::query("UPDATE public.player_availability SET reverted_at=now() WHERE id=$1")
             .bind(availability_id)
             .execute(&pool)
             .await?;
-        assert!(crate::evidence::personnel::load_harvester_scout_reports(
-            &pool, "team", TEAM, SPORT
-        )
-        .await
-        .is_err());
+        assert!(
+            crate::plugins::scout::sources::load_scout_reports(&pool, "team", TEAM, SPORT)
+                .await
+                .is_err()
+        );
         sqlx::query("UPDATE public.player_availability SET reverted_at=NULL WHERE id=$1")
             .bind(availability_id)
             .execute(&pool)
@@ -2427,11 +2426,11 @@ mod tests {
             .bind(AVAILABILITY_ARTICLE)
             .execute(&pool)
             .await?;
-        assert!(crate::evidence::personnel::load_harvester_scout_reports(
-            &pool, "team", TEAM, SPORT,
-        )
-        .await
-        .is_err());
+        assert!(
+            crate::plugins::scout::sources::load_scout_reports(&pool, "team", TEAM, SPORT,)
+                .await
+                .is_err()
+        );
         sqlx::query("UPDATE public.news_articles SET full_text=$2 WHERE id=$1")
             .bind(AVAILABILITY_ARTICLE)
             .bind(availability_body)

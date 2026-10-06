@@ -5,14 +5,14 @@ pub mod prompt;
 mod publish;
 pub mod voice;
 
-use crate::application::models::ExecutionCapabilities;
-use crate::application::queue::publication::ClaimPublication;
-use crate::application::queue::work::Item;
-use crate::plugins::memories::{HistoryItem, SourceRecord};
-use crate::plugins::meta::EntityMeta;
-use crate::studio::model::Inference;
-use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
-use crate::studio::{Generation, GenerationCall, Studio};
+use crate::harness::model::Inference;
+use crate::harness::models::ExecutionCapabilities;
+use crate::harness::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
+use crate::harness::queue::publication::ClaimPublication;
+use crate::harness::queue::work::Item;
+use crate::harness::{Generation, GenerationCall, Studio};
+use crate::tools::memories::{HistoryItem, SourceRecord};
+use crate::tools::meta::EntityMeta;
 use anyhow::{ensure, Context, Result};
 use async_trait::async_trait;
 use parser::ReplyParser;
@@ -53,10 +53,10 @@ pub(crate) async fn record_transfer_event(
     entity_id: i32,
     input_version: Option<&str>,
 ) -> Result<()> {
-    crate::application::queue::outbox::record(
+    crate::harness::queue::outbox::record(
         tx,
         item,
-        crate::application::queue::outbox::NewEvent {
+        crate::harness::queue::outbox::NewEvent {
             kind,
             entity_type,
             entity_id,
@@ -200,8 +200,8 @@ async fn execute_prepared(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::studio::model::{GenerateResult, Inference};
-    use crate::studio::{model::GenerateOptions, Parser};
+    use crate::harness::model::{GenerateResult, Inference};
+    use crate::harness::{model::GenerateOptions, Parser};
     use async_trait::async_trait;
     use std::{sync::Mutex, time::Duration};
 

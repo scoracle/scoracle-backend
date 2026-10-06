@@ -7,15 +7,15 @@
 //! Plugins register from `COGNITION_STAGES` (default: every registered fleet task).
 
 use anyhow::Result;
-use scoracle_cognition::application::models::Models;
-use scoracle_cognition::application::plugins;
-use scoracle_cognition::application::queue::worker;
-use scoracle_cognition::runtime::buildinfo;
-use scoracle_cognition::runtime::config;
-use scoracle_cognition::runtime::db;
-use scoracle_cognition::runtime::providers::ollama;
-use scoracle_cognition::runtime::providers::openai;
-use scoracle_cognition::runtime::route::Router;
+use scoracle_cognition::harness::buildinfo;
+use scoracle_cognition::harness::config;
+use scoracle_cognition::harness::db;
+use scoracle_cognition::harness::models::Models;
+use scoracle_cognition::harness::providers::ollama;
+use scoracle_cognition::harness::providers::openai;
+use scoracle_cognition::harness::queue::worker;
+use scoracle_cognition::harness::registration;
+use scoracle_cognition::harness::route::Router;
 use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
 
@@ -101,7 +101,7 @@ async fn main() -> Result<()> {
     // Env-driven task selection. The available/default values come from the registered
     // manifest fleet, so a task is not named separately in service configuration.
     let configured_stages = std::env::var("COGNITION_STAGES").ok();
-    let enabled = plugins::enabled_from_config(configured_stages.as_deref())?;
+    let enabled = registration::enabled_from_config(configured_stages.as_deref())?;
 
     // Shared database, routing, budget, and context-window capabilities.
     let models = std::sync::Arc::new(Models {
@@ -112,12 +112,12 @@ async fn main() -> Result<()> {
     // Each plugin owns exactly one enabled queue stage via its manifest; scheduling caps
     // come from the same manifest. The worker validates the fleet (unique ids, unique
     // task ownership) at construction.
-    let handlers = plugins::build(pool.clone(), models.clone(), &enabled)?;
-    let reactions = plugins::build_reactions(pool.clone())?;
+    let handlers = registration::build(pool.clone(), models.clone(), &enabled)?;
+    let reactions = registration::build_reactions(pool.clone())?;
     info!(stages = ?enabled, plugins = handlers.len(), "registered plugins");
     info!(
-        plugins = scoracle_cognition::application::fleet::ALL.len(),
-        ids = scoracle_cognition::application::fleet::ALL
+        plugins = scoracle_cognition::harness::fleet::ALL.len(),
+        ids = scoracle_cognition::harness::fleet::ALL
             .iter()
             .map(|m| m.id.as_str())
             .collect::<Vec<_>>()
@@ -128,7 +128,7 @@ async fn main() -> Result<()> {
     info!(
         voice_num_ctx = cfg.voice_num_ctx,
         pinned = std::env::var("VOICE_NUM_CTX").is_ok(),
-        envelope = if scoracle_cognition::studio::model::small_voice_window(cfg.voice_num_ctx) {
+        envelope = if scoracle_cognition::harness::model::small_voice_window(cfg.voice_num_ctx) {
             "small: reservations ≤700, crown cards capped, journalist corpus 8"
         } else {
             "wide: larger reservations, no card caps, journalist corpus 40"

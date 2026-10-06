@@ -2,10 +2,10 @@
 
 use super::super::*;
 use super::*;
+use crate::harness::model::{GenerateOptions, GenerateResult, Inference};
+use crate::harness::Parser;
 use crate::plugins::analyst::parser::*;
 use crate::plugins::analyst::prompt::*;
-use crate::studio::model::{GenerateOptions, GenerateResult, Inference};
-use crate::studio::Parser;
 use async_trait::async_trait;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -253,8 +253,8 @@ fn lifecycle_assignment(material: bool) -> Assignment {
 /// 256-258. Ordinary test runs compile but ignore these cases; opt in with TEST_DATABASE_URL.
 mod postgres_publication_fencing_tests {
     use super::*;
-    use crate::application::queue::publication::ClaimPublication;
-    use crate::application::queue::work;
+    use crate::harness::queue::publication::ClaimPublication;
+    use crate::harness::queue::work;
     use sqlx::postgres::PgPoolOptions;
     use sqlx::PgPool;
     use std::time::Duration;
@@ -559,16 +559,16 @@ mod postgres_publication_fencing_tests {
         // Fresh connection pool is the restarted recovery owner. No notification
         // was observed and no model/runtime constructor is available here.
         let pool = self::pool().await;
-        let reactions = crate::application::plugins::build_reactions(pool.clone()).unwrap();
+        let reactions = crate::harness::registration::build_reactions(pool.clone()).unwrap();
         assert_eq!(
-            crate::application::queue::outbox::drain(&pool, &reactions, 1)
+            crate::harness::queue::outbox::drain(&pool, &reactions, 1)
                 .await
                 .unwrap(),
             1
         );
         assert_eq!(counts(&pool).await, (1, 0, 1));
         assert_eq!(
-            crate::application::queue::outbox::drain(&pool, &reactions, 1)
+            crate::harness::queue::outbox::drain(&pool, &reactions, 1)
                 .await
                 .unwrap(),
             0

@@ -15,15 +15,15 @@
 //! Wikidata interpretation is deterministic. Unsupported prose evidence cannot authorize writes.
 
 use self::discover::{wikidata_item, wikidata_search, WikidataHit};
-use crate::application::queue::work::Item;
-use crate::application::tools::{ScopedWeb, ToolLedger, WebBroker};
-use crate::evidence::fetch::FetchPolicy;
+use crate::harness::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
+use crate::harness::queue::work::Item;
+use crate::harness::tools::{ScopedWeb, ToolLedger, WebBroker};
 use crate::plugins::investigator::cognition::gate::{
     commons_image_url, decide, display_height, display_weight, nba_headshot_url, wire_date,
     RoleClass, Verdict,
 };
 use crate::plugins::investigator::cognition::WikidataItem;
-use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
+use crate::tools::fetch::FetchPolicy;
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use serde_json::json;

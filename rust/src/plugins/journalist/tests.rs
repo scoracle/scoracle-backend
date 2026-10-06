@@ -1,7 +1,7 @@
 use super::memories::Continuity;
 use super::prompt::*;
 use super::*;
-use crate::studio::Parser;
+use crate::harness::Parser;
 use std::collections::HashSet;
 const NOW: i64 = 1_790_467_200;
 fn subject() -> EntityMeta {
@@ -313,7 +313,7 @@ fn explicit_instruction_overrides_are_dispositioned_before_articulation() {
 
 #[test]
 fn historical_instruction_overrides_are_not_admitted_to_articulation() {
-    use crate::plugins::memories::{Finding, Observation, Receipt, Study};
+    use crate::tools::memories::{Finding, Observation, Receipt, Study};
 
     let mut memory = Continuity {
         study: Some(Study {
@@ -389,7 +389,7 @@ fn headline_length_cannot_displace_the_supported_opening() {
 }
 #[test]
 fn studied_memory_is_served_with_scope_without_inflating_fresh_evidence() {
-    use crate::plugins::memories::{Finding, Observation, PublisherCount, Receipt, Study};
+    use crate::tools::memories::{Finding, Observation, PublisherCount, Receipt, Study};
     let receipt = Receipt {
         version: "reporting-frequency-v1".into(),
         subject: subject(),
@@ -504,7 +504,7 @@ fn studied_memory_is_served_with_scope_without_inflating_fresh_evidence() {
 // The n94 fixtures are all 1:1, which is why the parallel-array defect survived
 // review. These cases are deliberately multi-report: the assemble/articulate
 // test is only meaningful when there is more than one thing to pair.
-use crate::plugins::memories::{Finding, Observation, PublisherCount, Receipt, Study};
+use crate::tools::memories::{Finding, Observation, PublisherCount, Receipt, Study};
 use std::collections::HashMap;
 
 /// A study holding `groups` distinct storyline groups, each closing at `before`.

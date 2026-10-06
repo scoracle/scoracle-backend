@@ -1,11 +1,11 @@
 //! Claim-fenced publication, source dispositions, outbox and ledger.
 use super::prompt::{Disposition, NARRATIVES_OUTPUT_CONTRACT_VERSION, NUM_PREDICT};
 use super::NarrativesOutput;
-use crate::application::queue::publication::ClaimPublication;
-use crate::application::queue::work::Item;
-use crate::evidence::trajectory::DEFAULT_TRAJECTORY;
-use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
-use crate::studio::plugin::PluginOutcome;
+use crate::harness::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
+use crate::harness::plugin::PluginOutcome;
+use crate::harness::queue::publication::ClaimPublication;
+use crate::harness::queue::work::Item;
+use crate::tools::source::DEFAULT_TRAJECTORY;
 use anyhow::{Context, Result};
 use serde_json::json;
 use sqlx::{PgPool, Postgres, Row, Transaction};
@@ -16,10 +16,10 @@ pub(crate) async fn record_narratives_completed(
     tx: &mut Transaction<'_, Postgres>,
     item: &Item,
 ) -> Result<()> {
-    crate::application::queue::outbox::record(
+    crate::harness::queue::outbox::record(
         tx,
         item,
-        crate::application::queue::outbox::NewEvent {
+        crate::harness::queue::outbox::NewEvent {
             kind: NARRATIVES_COMPLETED,
             entity_type: &item.entity_type,
             entity_id: item.entity_id_i32()?,
@@ -143,7 +143,7 @@ pub(super) async fn record_ledger(
         .request_body()
         .and_then(|body| body.pointer("/options/num_ctx"))
         .and_then(|value| value.as_i64())
-        .unwrap_or(crate::studio::model::VOICE_NUM_CTX_PACKET as i64) as i32;
+        .unwrap_or(crate::harness::model::VOICE_NUM_CTX_PACKET as i64) as i32;
     let mut excluded = Vec::new();
     if !output.budget_truncated_ids.is_empty() {
         excluded.push(json!({"reason":"deferred_context_budget",

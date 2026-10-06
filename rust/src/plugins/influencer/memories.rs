@@ -1,11 +1,11 @@
 //! Influencer's request and presentation policy for the shared memory tool.
 use crate::plugins::harvester::delivery::SourceContext;
-use crate::plugins::memories::{ReportingHistory, Study};
-use crate::plugins::meta::EntityMeta;
+use crate::tools::memories::{ReportingHistory, Study};
+use crate::tools::meta::EntityMeta;
 use anyhow::Result;
 use sqlx::PgPool;
 
-pub use crate::plugins::memories::HistoryItem;
+pub use crate::tools::memories::HistoryItem;
 pub const LOOKBACK_SECONDS: i64 = 7 * 86400;
 pub const BUDGET_BYTES: usize = 1200;
 const HISTORY: ReportingHistory = ReportingHistory {
@@ -58,7 +58,7 @@ pub async fn load(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::plugins::memories::{Finding, Observation, Receipt};
+    use crate::tools::memories::{Finding, Observation, Receipt};
     #[test]
     fn history_excludes_current_future_wrong_subject_and_over_budget_reporting() {
         let before = 1790553600;

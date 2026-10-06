@@ -14,8 +14,8 @@ use super::parser::*;
 use super::performance::*;
 use super::prompt::{Subject, RATING_NUM_PREDICT};
 use super::*;
-use crate::studio::model::GenerateOptions;
-use crate::studio::Parser;
+use crate::harness::model::GenerateOptions;
+use crate::harness::Parser;
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 #[test]
@@ -442,7 +442,7 @@ fn world(
     let supports_cross_season = supports_cross_season_comparison(profile);
     let selected = model_prompt_profile(profile, supports_cross_season, comparisons);
     crate::plugins::scout::prompt::Parts {
-        subject: crate::plugins::meta::EntityMeta {
+        subject: crate::tools::meta::EntityMeta {
             name: subject.entity_name.clone(),
             entity_type: subject.entity_type.clone(),
             entity_id: 1,
@@ -502,7 +502,7 @@ fn serialized_request_has_evidence_and_form_but_no_editorial_outline() {
         None,
         &RatingExclusions::default(),
     );
-    let client = crate::runtime::providers::ollama::OllamaClient::new(
+    let client = crate::harness::providers::ollama::OllamaClient::new(
         "http://localhost:11434",
         "offline-test",
         std::time::Duration::from_secs(1),
@@ -510,7 +510,7 @@ fn serialized_request_has_evidence_and_form_but_no_editorial_outline() {
     .unwrap();
     let request = client.request_body(
         &prompt,
-        &crate::studio::model::GenerateOptions {
+        &crate::harness::model::GenerateOptions {
             system: Some(crate::plugins::scout::prompt::TASK.to_string()),
             ..Default::default()
         },
@@ -1578,7 +1578,7 @@ fn comparative_model_profile_keeps_changes_and_strongest_held_anchors() {
 /// No changes ⇒ no section. A heading with nothing under it asserts "nothing moved", which is a
 /// claim the adjudication chain has not made — it may only mean nothing has been adjudicated yet.
 // --- Studio boundary: prepared creation runs without Postgres, queues, or model hosts ---------
-use crate::studio::model::{GenerateResult, Inference};
+use crate::harness::model::{GenerateResult, Inference};
 use async_trait::async_trait;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -1675,7 +1675,7 @@ fn assignment() -> Assignment {
 /// A small world with an elite, source-selected measurement.
 fn scout_parts() -> crate::plugins::scout::prompt::Parts {
     crate::plugins::scout::prompt::Parts {
-        subject: crate::plugins::meta::EntityMeta {
+        subject: crate::tools::meta::EntityMeta {
             name: "Vale Kerr".into(),
             entity_type: "player".into(),
             entity_id: 9,

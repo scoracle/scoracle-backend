@@ -3,10 +3,10 @@ use super::parser::RATING_OUTPUT_CONTRACT_VERSION;
 use super::performance::MAX_STAT_FACTS;
 use super::prompt::RATING_NUM_PREDICT;
 use super::{record_rating_completed, RatingOutput};
-use crate::application::queue::publication::ClaimPublication;
-use crate::application::queue::work::Item;
-use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
-use crate::studio::plugin::PluginOutcome;
+use crate::harness::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
+use crate::harness::plugin::PluginOutcome;
+use crate::harness::queue::publication::ClaimPublication;
+use crate::harness::queue::work::Item;
 use anyhow::{Context, Result};
 use sqlx::{PgPool, Postgres, Row, Transaction};
 

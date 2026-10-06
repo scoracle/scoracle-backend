@@ -8,8 +8,8 @@
 //! RSS remains a secondary discovery channel for names Wikimedia has never heard of; it
 //! reuses the lungs' query shape and proves only that a name recurs, never an identity.
 
-use crate::application::tools::ScopedWeb;
-use crate::evidence::fetch::FetchPolicy;
+use crate::harness::tools::ScopedWeb;
+use crate::tools::fetch::FetchPolicy;
 use anyhow::{anyhow, Context, Result};
 use serde_json::Value;
 

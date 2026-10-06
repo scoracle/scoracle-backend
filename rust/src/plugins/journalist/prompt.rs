@@ -1,9 +1,9 @@
 //! Complete source admission, reporting continuity and model-input preparation.
 use super::memories;
 use super::memories::Continuity;
+use crate::harness::model::GenerateOptions;
 use crate::plugins::harvester::delivery::SourceContext;
-use crate::plugins::meta::EntityMeta;
-use crate::studio::model::GenerateOptions;
+use crate::tools::meta::EntityMeta;
 use crate::tools::source::Reporting;
 use anyhow::{ensure, Result};
 use serde::{Deserialize, Serialize};
@@ -211,12 +211,12 @@ pub fn assemble(
     #[derive(Serialize)]
     struct Attached<'a> {
         report_key: String,
-        history: &'a [crate::plugins::memories::HistoryItem],
-        history_groups: &'a [crate::plugins::memories::GroupSummary],
+        history: &'a [crate::tools::memories::HistoryItem],
+        history_groups: &'a [crate::tools::memories::GroupSummary],
     }
     #[derive(Serialize)]
     struct Input<'a> {
-        meta: crate::plugins::meta::WritingIdentity<'a>,
+        meta: crate::tools::meta::WritingIdentity<'a>,
         fresh: Vec<Report<'a>>,
         #[serde(skip_serializing_if = "Vec::is_empty")]
         memories: Vec<Attached<'a>>,

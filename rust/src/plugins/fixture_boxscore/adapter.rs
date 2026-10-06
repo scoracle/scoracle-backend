@@ -3,12 +3,12 @@
 //! Sources are data-driven through `boxscore_sources`. Retrieval is implemented;
 //! discovery, parser families, and canonical-table promotion are not.
 
-use crate::application::queue::publication::ClaimPublication;
-use crate::application::queue::work::Item;
-use crate::application::tools::{ScopedWeb, ToolLedger, WebBroker};
-use crate::evidence::fetch::{BudgetedFetchError, FetchPolicy};
-use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
-use crate::studio::tools::DomainClass;
+use crate::harness::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
+use crate::harness::queue::publication::ClaimPublication;
+use crate::harness::queue::work::Item;
+use crate::harness::tools::DomainClass;
+use crate::harness::tools::{ScopedWeb, ToolLedger, WebBroker};
+use crate::tools::fetch::{BudgetedFetchError, FetchPolicy};
 use crate::util::truncate;
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
@@ -1244,7 +1244,7 @@ mod tests {
 #[cfg(test)]
 mod publication_tests {
     use super::*;
-    use crate::application::queue::work;
+    use crate::harness::queue::work;
     #[tokio::test]
     #[ignore = "requires isolated TEST_DATABASE_URL; run serially"]
     async fn terminal_acquisition_and_ledger_commit_only_with_exact_claim() {

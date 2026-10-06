@@ -1,7 +1,7 @@
 //! Select dated, frequency-ranked historical reporting for the fresh assignment.
 use super::prompt::CorpusItem;
-use crate::plugins::memories::{GroupSummary, HistoryItem, Observation};
-use crate::plugins::meta::EntityMeta;
+use crate::tools::memories::{GroupSummary, HistoryItem, Observation};
+use crate::tools::meta::EntityMeta;
 use crate::util::utc_timestamp;
 use anyhow::Result;
 use serde::Serialize;
@@ -19,14 +19,14 @@ pub struct Continuity {
     /// self-memory, not studied history: its only consumer is exact fresh-source
     /// deduplication, and it is never presented to a model.
     pub published_reports: Vec<CorpusItem>,
-    pub study: Option<crate::plugins::memories::Study>,
+    pub study: Option<crate::tools::memories::Study>,
     /// Storyline membership for the selected fresh reports, resolved by this
     /// plugin. It is the exact link that attaches studied history to a report;
     /// see [`select`].
     pub storylines: HashMap<i64, i64>,
 }
 
-pub use crate::plugins::memories::Receipt;
+pub use crate::tools::memories::Receipt;
 
 /// The history this plugin selected: the shared items, plus a description of
 /// each group they came from. Both types are the shared ones, so the `history`
@@ -273,7 +273,7 @@ pub async fn load_for_assignment(
         )
         .await?;
         continuity.study = Some(
-            crate::plugins::memories::reporting_scope(
+            crate::tools::memories::reporting_scope(
                 pool,
                 subject,
                 from,

@@ -4,7 +4,7 @@ use super::super::performance::RatingExclusions;
 use super::super::prompt::RATING_PROMPT_VERSION;
 use super::super::RatingProduct;
 use super::*;
-use crate::studio::Generation;
+use crate::harness::Generation;
 fn rating_product(
     skipped_no_stats: bool,
     skipped_unchanged: bool,
@@ -48,7 +48,7 @@ fn an_abstained_card_publishes_a_marker_instead_of_being_debounced() {
 /// 256-259. Ordinary test runs compile but ignore these cases; opt in with TEST_DATABASE_URL.
 mod postgres_publication_fencing_tests {
     use super::*;
-    use crate::application::queue::work;
+    use crate::harness::queue::work;
     use sqlx::postgres::PgPoolOptions;
     use sqlx::PgPool;
     use std::time::Duration;

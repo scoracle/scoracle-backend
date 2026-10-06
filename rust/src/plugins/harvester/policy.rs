@@ -1,6 +1,6 @@
 //! Harvester prepares predicates and governs admission; System 1 only scores.
+use crate::harness::plugin::PluginManifest;
 use crate::plugins::{influencer, insider, journalist, scout};
-use crate::studio::plugin::PluginManifest;
 
 pub struct Predicate {
     pub key: &'static str,

@@ -1,11 +1,11 @@
 //! Exact publication tests for the Journalist application boundary.
 
 use super::*;
-use crate::application::queue::work;
+use crate::harness::queue::work;
+use crate::harness::Generation;
 use crate::plugins::journalist::now_unix;
 use crate::plugins::journalist::{Narrative, NarrativesProduct};
-use crate::plugins::meta::EntityMeta;
-use crate::studio::Generation;
+use crate::tools::meta::EntityMeta;
 use sha2::Digest;
 
 fn edition(narratives: Vec<Narrative>) -> NarrativesOutput {
@@ -684,7 +684,7 @@ mod postgres_publication_fencing_tests {
         .await
         .expect("bind the entity to the storyline");
 
-        let subject = crate::plugins::meta::EntityMeta {
+        let subject = crate::tools::meta::EntityMeta {
             name: "Cedar".into(),
             entity_type: "team".into(),
             entity_id: ENTITY_ID as i32,
@@ -716,7 +716,7 @@ mod postgres_publication_fencing_tests {
         );
 
         // A different subject must not inherit this subject's storyline.
-        let other = crate::plugins::meta::EntityMeta {
+        let other = crate::tools::meta::EntityMeta {
             entity_id: ENTITY_ID as i32 + 1,
             ..subject.clone()
         };

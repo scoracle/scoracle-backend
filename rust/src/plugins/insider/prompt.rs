@@ -1,11 +1,11 @@
 //! Complete source preparation, linked mentions, measured history and model requests.
-use crate::application::queue::work::Item;
+use crate::harness::model::GenerateOptions;
+use crate::harness::queue::work::Item;
 use crate::plugins::harvester::delivery::{
     load_for_character, load_for_insider_subject, SourceContext,
 };
-use crate::plugins::memories::{self as study, HistoryItem, ReportingHistory, SourceRecord};
-use crate::plugins::meta::EntityMeta;
-use crate::studio::model::GenerateOptions;
+use crate::tools::memories::{self as study, HistoryItem, ReportingHistory, SourceRecord};
+use crate::tools::meta::EntityMeta;
 use anyhow::Result;
 use serde::Serialize;
 use sqlx::{PgPool, Row};
@@ -84,8 +84,7 @@ pub(super) async fn load_material(pool: &PgPool, item: &Item) -> Result<Material
         .fetch_one(pool)
         .await?
     } else {
-        crate::evidence::corpus::lookup_entity_name(pool, &item.entity_type, entity_id, &sport)
-            .await?
+        crate::tools::meta::lookup_entity_name(pool, &item.entity_type, entity_id, &sport).await?
     };
     let subject = EntityMeta {
         name,
@@ -254,7 +253,7 @@ pub fn assemble(
 ) -> String {
     #[derive(Serialize)]
     struct Input<'a> {
-        meta: crate::plugins::meta::WritingIdentity<'a>,
+        meta: crate::tools::meta::WritingIdentity<'a>,
         fresh: serde_json::Value,
         #[serde(skip_serializing_if = "Option::is_none")]
         memories: Option<serde_json::Value>,

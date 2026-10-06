@@ -2,8 +2,8 @@
 
 use super::prompt::*;
 use super::*;
-use crate::studio::model::{GenerateResult, Inference};
-use crate::studio::{model::GenerateOptions, Parser};
+use crate::harness::model::{GenerateResult, Inference};
+use crate::harness::{model::GenerateOptions, Parser};
 use async_trait::async_trait;
 use std::sync::Mutex;
 use std::time::Duration;

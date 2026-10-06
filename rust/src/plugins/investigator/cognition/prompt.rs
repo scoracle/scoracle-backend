@@ -13,7 +13,7 @@
 //! | **Reads** | one Wikipedia REST page summary (title + description + extract) |
 //! | **Writes** | nothing — [`super::gate::decide_prose`] and the handler own every write |
 
-use crate::studio::model::GenerateOptions;
+use crate::harness::model::GenerateOptions;
 use crate::util::truncate;
 use serde::Deserialize;
 
@@ -90,7 +90,7 @@ pub struct ProseRead {
 
 pub struct ProseReadParser;
 
-impl crate::studio::Parser<ProseRead> for ProseReadParser {
+impl crate::harness::Parser<ProseRead> for ProseReadParser {
     fn parse(&self, raw: &str) -> anyhow::Result<Option<ProseRead>> {
         let Some(slice) = json_object_slice(raw) else {
             return Ok(None);
@@ -191,7 +191,7 @@ fn json_object_slice(raw: &str) -> Option<&str> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::studio::Parser;
+    use crate::harness::Parser;
 
     #[test]
     fn schema_is_valid_json_and_order_true_in_the_raw_literal() {

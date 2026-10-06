@@ -3,8 +3,8 @@
 //! Output contains IDs, hashes, and probabilities, never headlines or bodies.
 //! cargo run --release --example harvest_headline_calibration -- RUN_ID PER_STRATUM OUTPUT.json LAYA_ENDPOINT
 use anyhow::{ensure, Context, Result};
+use scoracle_cognition::harness::providers::system_one::SystemOneClient;
 use scoracle_cognition::plugins::harvester::{context, Article};
-use scoracle_cognition::runtime::providers::system_one::SystemOneClient;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use sqlx::{PgPool, Row};
@@ -114,7 +114,7 @@ async fn main() -> Result<()> {
             published_at: None,
             feed_rank: row.get("feed_rank"),
             body: String::new(),
-            hypothesis: scoracle_cognition::plugins::meta::EntityMeta {
+            hypothesis: scoracle_cognition::tools::meta::EntityMeta {
                 name: row.get("entity_name"),
                 entity_type: row.get("entity_type"),
                 entity_id: row.get("entity_id"),

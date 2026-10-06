@@ -2,7 +2,7 @@
 //! DATABASE_PRIVATE_URL=... cargo run --release --example harvester_chrome_probe -- RUN_ID [LIMIT]
 //! Publisher URLs and text stay in this process on the database host.
 use anyhow::{Context, Result};
-use scoracle_cognition::evidence::fetch::{count_words, fetch_article};
+use scoracle_cognition::tools::fetch::{count_words, fetch_article};
 use sqlx::PgPool;
 
 #[tokio::main]

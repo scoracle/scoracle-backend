@@ -1,5 +1,5 @@
 //! Strict prose decoding and served-product guards.
-use crate::studio::Parser;
+use crate::harness::Parser;
 use anyhow::{anyhow, Result};
 
 /// Parsed model prose. Direction and conviction are deterministic product fields.

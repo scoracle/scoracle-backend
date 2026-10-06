@@ -3,8 +3,10 @@
 //! Live cases read corpus data without claiming work or publishing products.
 //! Mechanical checks and optional numeric labels complement human review of the generated work.
 
-use crate::application::models::Models;
-use crate::evidence::corpus::lookup_entity_name;
+use crate::harness::model::GenerateOptions;
+use crate::harness::models::Models;
+use crate::harness::route::RouteKey;
+use crate::harness::Parser;
 use crate::plugins::analyst::parser::parse_momentum_reply;
 use crate::plugins::analyst::prompt::load_momentum_context;
 use crate::plugins::graph::adapter::load_graph_article_context;
@@ -27,10 +29,8 @@ use crate::plugins::oracle::prompt::{
     Subject as OracleSubject, ORACLE_PROMPT_VERSION,
 };
 use crate::plugins::scout::prompt::{build_rating_request, RatingBuild, RatingReq};
-use crate::runtime::route::RouteKey;
-use crate::studio::model::GenerateOptions;
-use crate::studio::Parser;
 use crate::tools::guards::count_sentences;
+use crate::tools::meta::lookup_entity_name;
 use crate::util::truncate;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -544,7 +544,7 @@ impl LensTask for NarrativesTask {
         _models: &Models,
         e: &EntitySpec,
     ) -> Result<Option<Prepared>> {
-        let subject = crate::plugins::meta::EntityMeta {
+        let subject = crate::tools::meta::EntityMeta {
             name: lookup_entity_name(pool, &e.entity_type, e.entity_id, &e.sport).await?,
             entity_type: e.entity_type.clone(),
             entity_id: e.entity_id,
@@ -711,7 +711,7 @@ impl LensTask for VibeTask {
         _models: &Models,
         e: &EntitySpec,
     ) -> Result<Option<Prepared>> {
-        let subject = crate::plugins::meta::EntityMeta {
+        let subject = crate::tools::meta::EntityMeta {
             name: lookup_entity_name(pool, &e.entity_type, e.entity_id, &e.sport).await?,
             entity_type: e.entity_type.clone(),
             entity_id: e.entity_id,
@@ -1250,7 +1250,7 @@ impl LensTask for MomentumTask {
         if context.empty() {
             return Ok(None);
         }
-        let subject = crate::plugins::meta::EntityMeta {
+        let subject = crate::tools::meta::EntityMeta {
             name,
             entity_type: e.entity_type.clone(),
             entity_id: e.entity_id,
@@ -2242,7 +2242,7 @@ mod tests {
                 .collect();
             // Index-aligned with `reports`, exactly as production attaches it.
             let slot = crate::plugins::journalist::memories::Selected {
-                items: vec![crate::plugins::memories::HistoryItem {
+                items: vec![crate::tools::memories::HistoryItem {
                     group: None,
                     publisher: "Old Wire".into(),
                     published_at: "2026-09-20T00:00:00Z".into(),

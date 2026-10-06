@@ -56,8 +56,8 @@ pub struct Window {
     pub per_match: Option<f64>,
 }
 
-impl From<&crate::plugins::memories::statistic::Window> for Window {
-    fn from(window: &crate::plugins::memories::statistic::Window) -> Self {
+impl From<&crate::tools::memories::statistic::Window> for Window {
+    fn from(window: &crate::tools::memories::statistic::Window) -> Self {
         Self {
             from: crate::util::utc_timestamp(window.from),
             before: crate::util::utc_timestamp(window.before),
@@ -98,8 +98,8 @@ impl Reported {
     pub fn from_records(
         entity_type: &str,
         entity_id: i32,
-        changes: &[crate::evidence::personnel::PersonnelChange],
-        availability: &[crate::evidence::personnel::AvailabilityChange],
+        changes: &[crate::plugins::scout::sources::PersonnelChange],
+        availability: &[crate::plugins::scout::sources::AvailabilityChange],
         total: usize,
     ) -> Vec<Reported> {
         if total == 0 {
@@ -178,7 +178,7 @@ impl Reported {
     /// The publication time travels with the claim because a claim without one
     /// cannot be placed relative to the season it is being read against. Absent
     /// stays absent rather than becoming "now".
-    pub fn from_claim(claim: &crate::evidence::news::render::MarkedClaim) -> Reported {
+    pub fn from_claim(claim: &crate::plugins::scout::reports::MarkedClaim) -> Reported {
         Reported {
             publisher: claim.claim.source.clone(),
             published_at: claim
@@ -330,9 +330,9 @@ pub(crate) async fn measured_memory(
     let before = now;
     let split = before - window;
     let from = split - window;
-    let study = crate::plugins::memories::statistic::team_matches(
+    let study = crate::tools::memories::statistic::team_matches(
         pool,
-        &crate::plugins::meta::EntityMeta {
+        &crate::tools::meta::EntityMeta {
             name: subject.entity_name.clone(),
             entity_type: subject.entity_type.clone(),
             entity_id,
@@ -497,7 +497,7 @@ mod tests {
 
     #[test]
     fn study_windows_preserve_their_own_bounds_counts_and_missing_averages() {
-        let source = crate::plugins::memories::statistic::Window {
+        let source = crate::tools::memories::statistic::Window {
             from: 0,
             before: 86400,
             fixtures: 4,

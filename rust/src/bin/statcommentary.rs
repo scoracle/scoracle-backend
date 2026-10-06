@@ -5,19 +5,19 @@
 //! path because the live queue is current-season/entity-scoped.
 
 use anyhow::{anyhow, Context, Result};
-use scoracle_cognition::application::models::Models;
-use scoracle_cognition::application::queue::work;
-use scoracle_cognition::evidence::corpus;
+use scoracle_cognition::harness::config::Config;
+use scoracle_cognition::harness::db;
+use scoracle_cognition::harness::models::Models;
+use scoracle_cognition::harness::providers::ollama::OllamaClient;
+use scoracle_cognition::harness::queue::work;
+use scoracle_cognition::harness::route::Router;
 use scoracle_cognition::plugins::scout::prompt::{
     build_rating_request, RatingBuild, RatingReq, RATING_PROMPT_VERSION, RATING_TEMPERATURE,
 };
 use scoracle_cognition::plugins::scout::{
     invoke_rating, rating_work_input_version, RatingOutput, RatingRunContext,
 };
-use scoracle_cognition::runtime::config::Config;
-use scoracle_cognition::runtime::db;
-use scoracle_cognition::runtime::providers::ollama::OllamaClient;
-use scoracle_cognition::runtime::route::Router;
+use scoracle_cognition::tools::meta;
 use sqlx::{PgPool, Postgres, Row};
 use std::time::Duration;
 
@@ -90,7 +90,7 @@ async fn run_single(pool: &sqlx::PgPool, models: &Models, args: &Args) -> Result
         return Err(anyhow!("-entity-id and -sport are required in single mode"));
     }
     let sport = args.sport.to_uppercase();
-    let name = corpus::lookup_entity_name(pool, &args.entity_type, args.entity_id, &sport).await?;
+    let name = meta::lookup_entity_name(pool, &args.entity_type, args.entity_id, &sport).await?;
     let req = RatingReq {
         entity_type: args.entity_type.clone(),
         entity_id: args.entity_id,
@@ -223,7 +223,7 @@ async fn run_corpus(
 }
 
 async fn enqueue_peak_target(pool: &sqlx::PgPool, models: &Models, t: &Target) -> Result<()> {
-    let name = corpus::lookup_entity_name(pool, &t.entity_type, t.entity_id, &t.sport).await?;
+    let name = meta::lookup_entity_name(pool, &t.entity_type, t.entity_id, &t.sport).await?;
     let req = RatingReq {
         entity_type: t.entity_type.clone(),
         entity_id: t.entity_id,
@@ -254,7 +254,7 @@ async fn enqueue_peak_target(pool: &sqlx::PgPool, models: &Models, t: &Target) -
 }
 
 async fn run_target(pool: &sqlx::PgPool, models: &Models, t: &Target) -> Result<RatingOutput> {
-    let name = corpus::lookup_entity_name(pool, &t.entity_type, t.entity_id, &t.sport).await?;
+    let name = meta::lookup_entity_name(pool, &t.entity_type, t.entity_id, &t.sport).await?;
     let req = RatingReq {
         entity_type: t.entity_type.clone(),
         entity_id: t.entity_id,

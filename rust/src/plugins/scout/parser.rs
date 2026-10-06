@@ -1,6 +1,6 @@
 //! Scout response shape and guards against unsupported factual claims.
 use super::performance::RelativeDirection;
-use crate::studio::Parser;
+use crate::harness::Parser;
 use anyhow::Result;
 use std::collections::BTreeMap;
 

@@ -1,8 +1,8 @@
 use super::prompt::{assembled_prompt, source_disposition, LOOKBACK_SECONDS, SOURCE_BUDGET_BYTES};
 use super::*;
-use crate::studio::model::GenerateOptions;
-use crate::studio::model::{GenerateResult, Inference};
-use crate::studio::Parser;
+use crate::harness::model::GenerateOptions;
+use crate::harness::model::{GenerateResult, Inference};
+use crate::harness::Parser;
 use async_trait::async_trait;
 use std::sync::Mutex;
 use std::time::Duration;

@@ -1,10 +1,9 @@
 //! Scoracle Studio (the in-house harness) and its production plugins.
 //!
-//! [`studio`] creates validated products from prepared material through an injected model.
-//! [`plugins`] own prepared cognition, manifests, and preparation/publication adapters.
-//! [`application`] assembles the fleet and supplies shared coordination and queue dispatch.
-//! [`runtime`] supplies routing, transports, configuration and persistence primitives;
-//! [`evidence`] retrieves and prepares shared material. [`evaluation`] uses the same Studio contracts.
+//! [`harness`] registers plugins, coordinates durable work, and supplies inference transports.
+//! [`plugins`] own preparation, validation and publication policy.
+//! [`tools`] supply shared source acquisition, identity and form mechanics.
+//! [`evaluation`] uses the same production contracts.
 //!
 //! The fleet has **ten plugins, six of them accountable characters the seeker meets**:
 //!
@@ -25,18 +24,10 @@
 //! stale current projections without deleting history, and they still carry the configured
 //! model and prompt versions rather than `NULL` provenance.
 
-/// Application adapters and cross-system coordination.
-pub mod application;
-
 /// Offline evaluation and editorial review tools.
 pub mod evaluation;
-/// Shared evidence sources and deterministic story primitives.
-pub mod evidence;
-/// Execution, IO, configuration and provider infrastructure.
-pub mod runtime;
-
-/// Shared inference session and plugin contracts.
-pub mod studio;
+/// Plugin registration, durable execution, IO and model infrastructure.
+pub mod harness;
 
 /// First-party cognition, tools, and domain adapters.
 pub mod plugins;

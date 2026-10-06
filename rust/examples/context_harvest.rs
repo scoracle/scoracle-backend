@@ -2,8 +2,8 @@
 //! cargo run --example context_harvest -- INPUT.jsonl OUTPUT.jsonl [ENDPOINT]
 //! With no endpoint, emit both prepared cascade requests without inference.
 use anyhow::{Context, Result};
+use scoracle_cognition::harness::providers::system_one::SystemOneClient;
 use scoracle_cognition::plugins::harvester::{cognition, context, Article};
-use scoracle_cognition::runtime::providers::system_one::SystemOneClient;
 use serde_json::json;
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, Write};

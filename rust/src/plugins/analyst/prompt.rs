@@ -1,7 +1,7 @@
 //! Finished reading selection, dated study, request projection and provider options.
-use crate::plugins::meta::EntityMeta;
+use crate::harness::model::GenerateOptions;
 use crate::plugins::oracle::prompt as oracle;
-use crate::studio::model::GenerateOptions;
+use crate::tools::meta::EntityMeta;
 use crate::util::{hash_components, round1};
 use anyhow::{Context, Result};
 use serde::Serialize;
@@ -424,7 +424,7 @@ pub fn assemble(
     });
     #[derive(Serialize)]
     struct Input<'a> {
-        meta: crate::plugins::meta::WritingIdentity<'a>,
+        meta: crate::tools::meta::WritingIdentity<'a>,
         fresh: Fresh<'a>,
         voice: &'static str,
         form: serde_json::Value,

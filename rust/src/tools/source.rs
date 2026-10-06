@@ -86,3 +86,6 @@ mod tests {
         ));
     }
 }
+
+/// Default narrative trajectory written by Journalist and Oracle.
+pub const DEFAULT_TRAJECTORY: &str = "developing_story";

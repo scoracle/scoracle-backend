@@ -1,7 +1,7 @@
 //! Graph suggests source-bound investigation requests; relation extraction is unavailable.
 //! Storage, routing, and publication belong to the application.
-use crate::studio::model::GenerateOptions;
-use crate::studio::{Extracted, Parser, Studio};
+use crate::harness::model::GenerateOptions;
+use crate::harness::{Extracted, Parser, Studio};
 use anyhow::Result;
 use serde::Deserialize;
 pub mod prompt;
@@ -35,7 +35,7 @@ pub async fn extract_graph(
             &GraphParser {
                 candidates: &assignment.candidates,
             },
-            crate::studio::session::structured_correction,
+            crate::harness::session::structured_correction,
         )
         .await
         .map(Some)

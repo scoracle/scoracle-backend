@@ -1,13 +1,13 @@
 use super::*;
+use crate::harness::{
+    model::{GenerateOptions, GenerateResult, Inference},
+    Studio,
+};
 use crate::plugins::journalist::{
     self,
     prompt::{self, Assignment},
 };
-use crate::plugins::meta::EntityMeta;
-use crate::studio::{
-    model::{GenerateOptions, GenerateResult, Inference},
-    Studio,
-};
+use crate::tools::meta::EntityMeta;
 use async_trait::async_trait;
 use std::{
     sync::atomic::{AtomicUsize, Ordering},

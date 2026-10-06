@@ -103,16 +103,16 @@ fn prompt_numbers_candidates() {
 use serde_json::json;
 struct Model {
     response: Option<String>,
-    requests: std::sync::Mutex<Vec<(String, crate::studio::model::GenerateOptions)>>,
+    requests: std::sync::Mutex<Vec<(String, crate::harness::model::GenerateOptions)>>,
 }
 
 #[async_trait::async_trait]
-impl crate::studio::model::Inference for Model {
+impl crate::harness::model::Inference for Model {
     async fn generate(
         &self,
         prompt: &str,
-        opts: &crate::studio::model::GenerateOptions,
-    ) -> Result<(crate::studio::model::GenerateResult, serde_json::Value)> {
+        opts: &crate::harness::model::GenerateOptions,
+    ) -> Result<(crate::harness::model::GenerateResult, serde_json::Value)> {
         self.requests
             .lock()
             .unwrap()
@@ -122,7 +122,7 @@ impl crate::studio::model::Inference for Model {
             .clone()
             .ok_or_else(|| anyhow::anyhow!("transport unavailable"))?;
         Ok((
-            crate::studio::model::GenerateResult {
+            crate::harness::model::GenerateResult {
                 response,
                 thinking: String::new(),
                 model: "actual-graph-model".into(),
@@ -141,7 +141,7 @@ impl crate::studio::model::Inference for Model {
     fn request_body(
         &self,
         prompt: &str,
-        opts: &crate::studio::model::GenerateOptions,
+        opts: &crate::harness::model::GenerateOptions,
     ) -> serde_json::Value {
         json!({"prompt": prompt, "schema": opts.format_schema_raw, "budget": opts.num_predict})
     }
@@ -182,7 +182,7 @@ async fn studio_graph_uses_prepared_evidence_and_actual_model_provenance() {
     );
     assert_eq!(
         calls[0].1.num_ctx,
-        crate::studio::model::LOCAL_STAGE_NUM_CTX
+        crate::harness::model::LOCAL_STAGE_NUM_CTX
     );
     assert_eq!(calls[0].1.system.as_deref(), Some(GRAPH_SYSTEM_PROMPT));
 }

@@ -2,7 +2,7 @@
 use super::activity::EditionActivity;
 use super::prompt::{Assignment, CorpusItem};
 use super::{Narrative, NarrativesProduct};
-use crate::studio::Parser;
+use crate::harness::Parser;
 use anyhow::Result;
 use serde_json::json;
 use std::collections::HashSet;

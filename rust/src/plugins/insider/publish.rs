@@ -1,14 +1,14 @@
 //! Claim-fenced rumors, scores, source receipts, completion and ledger.
 use super::prompt::{self, Match, Material};
 use super::{record_transfer_event, Finding, Reply, Status, TRANSFER_PUBLISHED};
-use crate::application::queue::publication::ClaimPublication;
-use crate::application::queue::work::Item;
+use crate::harness::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
+use crate::harness::plugin::PluginOutcome;
+use crate::harness::queue::publication::ClaimPublication;
+use crate::harness::queue::work::Item;
+use crate::harness::Generation;
 use crate::plugins::harvester::delivery::{
     validate_for_publication, validate_insider_subject_for_publication, SourceContext,
 };
-use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
-use crate::studio::plugin::PluginOutcome;
-use crate::studio::Generation;
 use anyhow::{ensure, Context, Result};
 use sqlx::{PgConnection, PgPool, Row};
 use std::collections::BTreeMap;
@@ -134,7 +134,7 @@ async fn insert_rumors(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     material: &Material,
     reply: &Reply,
-    generation: &crate::studio::Generation<Reply>,
+    generation: &crate::harness::Generation<Reply>,
 ) -> Result<Vec<i64>> {
     if material.subject.entity_type == "team" {
         return Ok(Vec::new());
@@ -393,7 +393,7 @@ pub(super) async fn commit(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::plugins::meta::EntityMeta;
+    use crate::tools::meta::EntityMeta;
 
     #[tokio::test]
     #[ignore = "requires TEST_DATABASE_URL; pure read-only SQL, no schema needed"]

@@ -5,11 +5,11 @@ pub mod prompt;
 mod publish;
 pub mod voice;
 
-use crate::application::models::ExecutionCapabilities;
-use crate::application::products::EntityKey;
-use crate::application::queue::work::{self, Item};
-use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
-use crate::studio::{Generation, GenerationCall, Studio};
+use crate::harness::models::ExecutionCapabilities;
+use crate::harness::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
+use crate::harness::products::EntityKey;
+use crate::harness::queue::work::{self, Item};
+use crate::harness::{Generation, GenerationCall, Studio};
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use parser::MomentumParser;
@@ -28,10 +28,10 @@ pub(crate) async fn record_momentum_completed(
     tx: &mut Transaction<'_, Postgres>,
     item: &Item,
 ) -> Result<()> {
-    crate::application::queue::outbox::record(
+    crate::harness::queue::outbox::record(
         tx,
         item,
-        crate::application::queue::outbox::NewEvent {
+        crate::harness::queue::outbox::NewEvent {
             kind: MOMENTUM_COMPLETED,
             entity_type: &item.entity_type,
             entity_id: item.entity_id_i32()?,
@@ -115,7 +115,7 @@ async fn articulate(
     (direction, score): (String, i32),
 ) -> Result<Option<MomentumOutput>> {
     let ctx = &assignment.context;
-    let subject = crate::plugins::meta::EntityMeta {
+    let subject = crate::tools::meta::EntityMeta {
         name: assignment.entity_name.clone(),
         entity_type: assignment.entity_type.clone(),
         entity_id: assignment.entity_id,
@@ -133,7 +133,7 @@ async fn articulate(
             &prompt,
             &opts,
             &MomentumParser,
-            crate::studio::session::structured_correction,
+            crate::harness::session::structured_correction,
         )
         .await?;
     let call = GenerationCall::from(&extracted);
@@ -180,7 +180,7 @@ pub async fn enqueue_momentum_if_needed(
         sport: sport.clone(),
         season: Some(ctx.season),
     };
-    if crate::application::products::debounce_unchanged(
+    if crate::harness::products::debounce_unchanged(
         pool,
         "momentum_summaries",
         &key,
@@ -214,7 +214,7 @@ impl MomentumReaction {
 }
 
 #[async_trait]
-impl crate::application::queue::outbox::EventReaction for MomentumReaction {
+impl crate::harness::queue::outbox::EventReaction for MomentumReaction {
     fn name(&self) -> &'static str {
         "analyst.enqueue-momentum"
     }
@@ -226,7 +226,7 @@ impl crate::application::queue::outbox::EventReaction for MomentumReaction {
         ]
     }
 
-    async fn react(&self, event: &crate::application::queue::outbox::Event) -> Result<()> {
+    async fn react(&self, event: &crate::harness::queue::outbox::Event) -> Result<()> {
         if !enqueue_momentum_if_needed(
             &self.pool,
             &event.entity_type,
@@ -273,13 +273,9 @@ impl StudioPlugin for MomentumHandler {
         let models = &self.models;
         let entity_id = item.entity_id_i32()?;
         let sport = item.sport.to_uppercase();
-        let name = crate::evidence::corpus::lookup_entity_name(
-            pool,
-            &item.entity_type,
-            entity_id,
-            &item.sport,
-        )
-        .await?;
+        let name =
+            crate::tools::meta::lookup_entity_name(pool, &item.entity_type, entity_id, &item.sport)
+                .await?;
         let context =
             prompt::load_momentum_context(pool, &item.entity_type, entity_id, &sport).await?;
         let assignment = Assignment {

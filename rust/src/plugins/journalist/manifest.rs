@@ -1,9 +1,9 @@
 //! Registration policy owned by this plugin.
 
-use crate::application::fleet::MAC_SLOTS;
-use crate::application::queue::work::{ClaimPolicy, TaskKey};
-use crate::runtime::route::RouteKey;
-use crate::studio::plugin::{PluginId, PluginManifest, ResourceProfile, ToolGrant};
+use crate::harness::fleet::MAC_SLOTS;
+use crate::harness::plugin::{PluginId, PluginManifest, ResourceProfile, ToolGrant};
+use crate::harness::queue::work::{ClaimPolicy, TaskKey};
+use crate::harness::route::RouteKey;
 
 pub const TASK: TaskKey = TaskKey::new("narratives");
 pub const ROUTE: RouteKey = RouteKey::new("narrative-logic", "NARRATIVE_LOGIC");

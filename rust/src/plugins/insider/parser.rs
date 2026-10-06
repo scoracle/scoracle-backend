@@ -1,8 +1,8 @@
 //! Exact source spans, named counterparties and served-prose validation.
 use super::prompt::Report;
 use super::{Reply, Status};
-use crate::plugins::meta::EntityMeta;
-use crate::studio::Parser;
+use crate::harness::Parser;
+use crate::tools::meta::EntityMeta;
 use anyhow::{ensure, Result};
 
 pub(super) struct ReplyParser<'a> {

@@ -1,10 +1,10 @@
 //! Claim-fenced product persistence, completion and diagnostic ledger.
 use super::prompt::{MomentumContext, MOMENTUM_NUM_PREDICT};
 use super::{record_momentum_completed, MomentumOutput, MOMENTUM_STEADY_BAND};
-use crate::application::queue::publication::ClaimPublication;
-use crate::application::queue::work::Item;
-use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
-use crate::studio::plugin::PluginOutcome;
+use crate::harness::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
+use crate::harness::plugin::PluginOutcome;
+use crate::harness::queue::publication::ClaimPublication;
+use crate::harness::queue::work::Item;
 use anyhow::{Context, Result};
 use sqlx::{PgPool, Postgres, Row, Transaction};
 

@@ -1,5 +1,5 @@
 //! Non-editorial lifecycle jobs retained when the Editor worker is removed.
-use crate::studio::plugin::ScheduledOperation;
+use crate::harness::plugin::ScheduledOperation;
 use async_trait::async_trait;
 use sqlx::PgPool;
 use std::sync::Arc;

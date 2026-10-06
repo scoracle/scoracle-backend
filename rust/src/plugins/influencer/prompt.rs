@@ -1,8 +1,8 @@
 //! Influencer source admission, memory selection, and exact model input.
 use super::memories;
+use crate::harness::model::GenerateOptions;
 use crate::plugins::harvester::delivery::SourceContext;
-use crate::plugins::meta::EntityMeta;
-use crate::studio::model::GenerateOptions;
+use crate::tools::meta::EntityMeta;
 use crate::util::hash_components;
 use anyhow::Result;
 use serde_json::{json, Value};
@@ -57,7 +57,7 @@ pub fn assemble(
     use serde::Serialize;
     #[derive(Serialize)]
     struct Input<'a> {
-        meta: crate::plugins::meta::WritingIdentity<'a>,
+        meta: crate::tools::meta::WritingIdentity<'a>,
         fresh: crate::tools::source::Reporting<'a>,
         #[serde(skip_serializing_if = "Option::is_none")]
         memories: Option<&'a [super::memories::HistoryItem]>,

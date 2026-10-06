@@ -9,15 +9,15 @@
 //! Mechanical checks are useful, but model adoption requires a human quality review.
 
 use anyhow::{anyhow, Context, Result};
-use scoracle_cognition::application::models::Models;
 use scoracle_cognition::evaluation::judge::VoiceSpec;
 use scoracle_cognition::evaluation::tasks::{
     all_task_names, resolve_task, CaseVerdict, EntitySpec, Expect, Fixture, LensTask,
 };
-use scoracle_cognition::runtime::config::{Config, RouteConfig};
-use scoracle_cognition::runtime::db;
-use scoracle_cognition::runtime::route::Router;
-use scoracle_cognition::studio::model::Inference;
+use scoracle_cognition::harness::config::{Config, RouteConfig};
+use scoracle_cognition::harness::db;
+use scoracle_cognition::harness::model::Inference;
+use scoracle_cognition::harness::models::Models;
+use scoracle_cognition::harness::route::Router;
 use serde_json::Value;
 use sqlx::Row;
 use std::collections::HashMap;
@@ -137,7 +137,7 @@ async fn main() -> Result<()> {
             scoracle_cognition::evaluation::judge::JUDGE_PROMPT_VERSION
         );
         Some(Arc::new(
-            scoracle_cognition::runtime::providers::ollama::OllamaClient::new(
+            scoracle_cognition::harness::providers::ollama::OllamaClient::new(
                 &cfg.ollama_base_url,
                 &judge_model,
                 cfg.ollama_timeout,
@@ -750,9 +750,9 @@ async fn run_capture_assignments(
     cases: &[EvalCase],
     season: Option<i32>,
 ) -> Result<()> {
-    use scoracle_cognition::evidence::corpus::lookup_entity_name;
     use scoracle_cognition::plugins::scout::prompt::{build_rating_request, RatingReq};
     use scoracle_cognition::plugins::scout::prompt::{RatingBuild, RATING_TEMPERATURE};
+    use scoracle_cognition::tools::meta::lookup_entity_name;
     anyhow::ensure!(
         !cases.is_empty(),
         "--capture-assignment needs at least one case"
@@ -1172,7 +1172,7 @@ fn fmt_score(s: &ModelScore, n: usize) -> String {
 /// smoke output, proving the `COGNITION_ROUTE_*` config parsed.
 fn print_route_table(cfg: &RouteConfig) {
     println!("configured route table (role → incumbent [+ candidate]):");
-    for role in scoracle_cognition::application::fleet::inference_routes() {
+    for role in scoracle_cognition::harness::fleet::inference_routes() {
         let incumbent = cfg
             .roles
             .get(&role)
@@ -1296,13 +1296,13 @@ mod tests {
         async fn generate(
             &self,
             _: &str,
-            _: &scoracle_cognition::studio::model::GenerateOptions,
-        ) -> Result<(scoracle_cognition::studio::model::GenerateResult, Value)> {
+            _: &scoracle_cognition::harness::model::GenerateOptions,
+        ) -> Result<(scoracle_cognition::harness::model::GenerateResult, Value)> {
             if self.0 {
                 anyhow::bail!("transport failed");
             }
             Ok((
-                scoracle_cognition::studio::model::GenerateResult {
+                scoracle_cognition::harness::model::GenerateResult {
                     response: "not a card".into(),
                     thinking: String::new(),
                     model: "test".into(),
@@ -1321,7 +1321,7 @@ mod tests {
         fn request_body(
             &self,
             _: &str,
-            _: &scoracle_cognition::studio::model::GenerateOptions,
+            _: &scoracle_cognition::harness::model::GenerateOptions,
         ) -> Value {
             Value::Null
         }

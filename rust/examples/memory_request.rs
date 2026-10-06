@@ -2,7 +2,8 @@
 //! SCORACLE_MEMORY_DATABASE_URL=... SCORACLE_MEMORY_STUDY_BIN=... cargo run
 //! --example memory_request -- REQUEST.json
 use anyhow::{Context, Result};
-use scoracle_cognition::plugins::{memories, meta::EntityMeta};
+use scoracle_cognition::tools::memories;
+use scoracle_cognition::tools::meta::EntityMeta;
 use serde::Deserialize;
 
 #[derive(Deserialize)]

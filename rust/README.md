@@ -4,7 +4,7 @@
 
 Plugins select the evidence, scope, relationships and instructions needed for their work. Postgres stores and queries the world; SQL and DuckDB calculate factual measurements and studies. Rust prepares the model input, invokes the model, accepts the response and publishes the result. Models receive prepared input and never call tools, search or retrieve. Plugins do not prewrite the interpretation or prescribe a conclusion. Harvester is a peer plugin using a System 1 model, currently Laya; System 1 is a model inside that plugin.
 
-**This README is the current architecture authority.** The [harness cleanup plan](docs/PLAN-harness-plugin-cleanup-2026-10-05.md) applies this contract to the audited implementation. The completed [plugin alignment plan](docs/PLAN-plugin-alignment-2026-09-27.md) and dated evaluations remain historical evidence. Planned cleanup is distinct from implementation, product verification and deployment.
+**This README is the current architecture authority.** The completed [harness cleanup plan](docs/PLAN-harness-plugin-cleanup-2026-10-05.md) records the implementation and validation of this contract. The completed [plugin alignment plan](docs/PLAN-plugin-alignment-2026-09-27.md) and dated evaluations remain historical evidence. The [deployment record](docs/harness-cleanup-deployment-2026-10-05.md) records the Archbox release and paused Mac worker; context expansion remains separate.
 
 ## Ownership
 

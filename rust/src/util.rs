@@ -71,6 +71,27 @@ pub(crate) fn hash_components(canonical_json: &str) -> String {
     hex::encode(&digest[..16])
 }
 
+pub(crate) fn utc_timestamp(epoch: i64) -> String {
+    // Gregorian civil date from Unix days; preserve time of day without a timezone dependency.
+    let z = epoch.div_euclid(86400) + 719468;
+    let era = z.div_euclid(146097);
+    let doe = z - era * 146097;
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    let mut y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = mp + if mp < 10 { 3 } else { -9 };
+    y += i64::from(m <= 2);
+    let seconds = epoch.rem_euclid(86400);
+    format!(
+        "{y:04}-{m:02}-{d:02}T{:02}:{:02}:{:02}Z",
+        seconds / 3600,
+        seconds / 60 % 60,
+        seconds % 60
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

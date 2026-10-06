@@ -1,3 +1,6 @@
+# macOS Finder metadata
+.DS_Store
+
 # Python (legacy)
 __pycache__/
 *.pyc

@@ -1,0 +1,399 @@
+//! Ollama HTTP client for the local inference boundary.
+//!
+//! Targets the local Ollama instance (default http://localhost:11434). No external
+//! providers are used in production; all live inference stays in the Rust cognition layer.
+//!
+//! Uses `/api/chat` so reasoning stays separate from visible output. Parsers receive only
+//! `message.content`; separated thinking is retained for inspection.
+
+use crate::util::truncate;
+use anyhow::{anyhow, Context, Result};
+use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
+use std::time::Duration;
+
+/// Additional reasoning budget for think-enabled calls.
+pub const THINK_NUM_PREDICT_HEADROOM: i32 = 600;
+
+#[derive(Clone)]
+pub struct OllamaClient {
+    base_url: String,
+    model: String,
+    http: reqwest::Client,
+    /// Role-keyed thinking preference. `None` omits the field for unsupported models.
+    think: Option<bool>,
+}
+
+use crate::harness::model::IncompleteOutput;
+use crate::harness::model::{GenerateOptions, GenerateResult};
+
+#[derive(Serialize)]
+struct ChatTurn<'a> {
+    role: &'a str,
+    content: Cow<'a, str>,
+}
+
+/// The `/api/chat` request. `GenerateOptions::system` becomes the system turn and the
+/// caller's prompt the user turn — the same template application `/api/generate`'s
+/// `system`/`prompt` pair produced, on the endpoint that can separate thinking.
+#[derive(Serialize)]
+struct GenerateRequest<'a> {
+    model: &'a str,
+    messages: Vec<ChatTurn<'a>>,
+    stream: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    format: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    think: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    options: Option<serde_json::Value>,
+}
+
+/// The POSTed shape when a caller pins schema property order (`format_schema_raw`): identical
+/// to [`GenerateRequest`] except `format` is `RawValue`, serialized byte-for-byte. A separate
+/// struct because `serde_json::to_value` cannot represent `RawValue` — the ledger/inspection
+/// copy keeps flowing through [`GenerateRequest`], whose `Value` form it always stored. For a
+/// caller with only `format_schema`, the wire bytes are identical either way (`Value::to_string`
+/// is the same serialization `.json(&req)` performs).
+#[derive(Serialize)]
+struct GenerateRequestWire<'a> {
+    model: &'a str,
+    messages: Vec<ChatTurn<'a>>,
+    stream: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    format: Option<&'a serde_json::value::RawValue>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    think: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    options: Option<serde_json::Value>,
+}
+
+#[derive(Deserialize, Default)]
+struct ChatTurnOwned {
+    #[serde(default)]
+    content: String,
+    #[serde(default)]
+    thinking: String,
+}
+
+#[derive(Deserialize)]
+struct GenerateResponse {
+    #[serde(default)]
+    done_reason: Option<String>,
+    #[serde(default)]
+    done: Option<bool>,
+    #[serde(default)]
+    model: String,
+    #[serde(default)]
+    message: ChatTurnOwned,
+    #[serde(default)]
+    total_duration: i64, // nanoseconds
+    #[serde(default)]
+    prompt_eval_count: i32,
+    #[serde(default)]
+    eval_count: i32,
+    #[serde(default)]
+    error: String,
+}
+
+impl OllamaClient {
+    /// new builds a client. `base_url` like "http://localhost:11434", `model`
+    /// is the resolved local model tag. A zero timeout defaults to 60s because local models on
+    /// consumer GPUs are typically quick but can spike under load.
+    pub fn new(
+        base_url: impl Into<String>,
+        model: impl Into<String>,
+        timeout: Duration,
+    ) -> Result<Self> {
+        let timeout = if timeout.is_zero() {
+            Duration::from_secs(60)
+        } else {
+            timeout
+        };
+        let http = reqwest::Client::builder()
+            .timeout(timeout)
+            .build()
+            .context("build reqwest client")?;
+        Ok(Self {
+            base_url: base_url.into(),
+            model: model.into(),
+            http,
+            think: None,
+        })
+    }
+
+    /// with_think builds a client with an explicit think preference (the Router's path — the
+    /// role's `ModelSpec.think`). `new` keeps `None` for the offline bins and ping clients.
+    pub fn with_think(
+        base_url: impl Into<String>,
+        model: impl Into<String>,
+        timeout: Duration,
+        think: Option<bool>,
+    ) -> Result<Self> {
+        let mut c = Self::new(base_url, model, timeout)?;
+        c.think = think;
+        Ok(c)
+    }
+
+    pub fn model(&self) -> &str {
+        &self.model
+    }
+
+    /// build_request assembles the `/api/chat` request body for `(prompt, opts)`.
+    /// Single source of truth shared by `generate` (what we actually POST) and
+    /// `request_body` (used by request builders and ledger capture), so stored
+    /// inspection data cannot drift from the sent request shape.
+    fn build_request<'a>(
+        &'a self,
+        prompt: &'a str,
+        opts: &'a GenerateOptions,
+    ) -> GenerateRequest<'a> {
+        let mut options = serde_json::Map::new();
+        if let Some(t) = opts.temperature {
+            options.insert("temperature".into(), serde_json::json!(t));
+        }
+        if opts.num_predict > 0 {
+            // Thinking shares the answer budget, so add its headroom at the client boundary.
+            let headroom = if self.think == Some(true) {
+                THINK_NUM_PREDICT_HEADROOM
+            } else {
+                0
+            };
+            options.insert(
+                "num_predict".into(),
+                serde_json::json!(opts.num_predict + headroom),
+            );
+        }
+        // Always explicit — an omitted num_ctx inherits the MODEL's Modelfile default
+        // (granite4.2: 131072), not the server's. See the GenerateOptions doc.
+        options.insert(
+            "num_ctx".into(),
+            serde_json::json!(if opts.num_ctx > 0 {
+                opts.num_ctx
+            } else {
+                crate::harness::route::resolve_voice_num_ctx(None)
+            }),
+        );
+        let mut messages = Vec::with_capacity(2);
+        if let Some(system) = opts.system.as_deref() {
+            messages.push(ChatTurn {
+                role: "system",
+                content: if self.think == Some(true)
+                    && self.model.to_ascii_lowercase().contains("smollm3")
+                {
+                    Cow::Owned(format!(
+                        "Before the final answer, put your reasoning inside <think> and </think>.\n\n{system}"
+                    ))
+                } else {
+                    Cow::Borrowed(system)
+                },
+            });
+        }
+        messages.push(ChatTurn {
+            role: "user",
+            content: Cow::Borrowed(prompt),
+        });
+        GenerateRequest {
+            model: &self.model,
+            messages,
+            stream: false,
+            format: match (&opts.format_schema, opts.json_mode) {
+                (Some(schema), _) => Some(schema.clone()),
+                (None, true) => Some(serde_json::Value::String("json".to_string())),
+                (None, false) => None,
+            },
+            think: self.think,
+            options: if options.is_empty() {
+                None
+            } else {
+                Some(serde_json::Value::Object(options))
+            },
+        }
+    }
+
+    /// request_body returns the exact JSON body `generate` would POST for
+    /// `(prompt, opts)`. Deterministic request builders use this for inspection,
+    /// ledger capture, and eval fixtures without performing a model call.
+    pub fn request_body(&self, prompt: &str, opts: &GenerateOptions) -> serde_json::Value {
+        serde_json::to_value(self.build_request(prompt, opts)).unwrap_or(serde_json::Value::Null)
+    }
+
+    pub(crate) async fn generate_with_body(
+        &self,
+        prompt: &str,
+        opts: &GenerateOptions,
+    ) -> Result<(GenerateResult, serde_json::Value)> {
+        let req = self.build_request(prompt, opts);
+        let request_body = serde_json::to_value(&req).unwrap_or(serde_json::Value::Null);
+
+        // Order-pinned schemas POST through the RawValue wire shape so the property order the
+        // contract documents is the order the grammar enforces; everything else keeps the
+        // byte-identical `.json(&req)` path it always had.
+        let raw_format: Option<Box<serde_json::value::RawValue>> = match &opts.format_schema_raw {
+            Some(raw) => Some(
+                serde_json::value::RawValue::from_string(raw.clone())
+                    .context("format_schema_raw is not valid JSON")?,
+            ),
+            None => None,
+        };
+
+        let url = format!("{}/api/chat", self.base_url);
+        let request = self.http.post(&url);
+        let request = match &raw_format {
+            Some(raw) => {
+                let wire = GenerateRequestWire {
+                    model: req.model,
+                    messages: req
+                        .messages
+                        .iter()
+                        .map(|m| ChatTurn {
+                            role: m.role,
+                            content: Cow::Borrowed(m.content.as_ref()),
+                        })
+                        .collect(),
+                    stream: req.stream,
+                    format: Some(raw),
+                    think: req.think,
+                    options: req.options.clone(),
+                };
+                let body = serde_json::to_string(&wire).context("serialize wire request")?;
+                request
+                    .header(reqwest::header::CONTENT_TYPE, "application/json")
+                    .body(body)
+            }
+            None => request.json(&req),
+        };
+        let resp = request.send().await.context("ollama request")?;
+
+        let status = resp.status();
+        let raw = resp.text().await.context("read ollama response")?;
+        if !status.is_success() {
+            return Err(anyhow!(
+                "ollama HTTP {}: {}",
+                status.as_u16(),
+                truncate(&raw, 300)
+            ));
+        }
+
+        Ok((Self::decode_response(raw)?, request_body))
+    }
+
+    fn decode_response(raw: String) -> Result<GenerateResult> {
+        let parsed: GenerateResponse = serde_json::from_str(&raw)
+            .with_context(|| format!("decode ollama response (body={})", truncate(&raw, 200)))?;
+        if !parsed.error.is_empty() {
+            return Err(anyhow!("ollama error: {}", parsed.error));
+        }
+        validate_completion(parsed.done_reason.as_deref(), parsed.done)?;
+        let completion_reason = parsed.done_reason.clone();
+
+        Ok(GenerateResult {
+            response: parsed.message.content,
+            thinking: parsed.message.thinking,
+            model: parsed.model,
+            total_duration: Duration::from_nanos(parsed.total_duration.max(0) as u64),
+            prompt_eval_count: parsed.prompt_eval_count,
+            eval_count: parsed.eval_count,
+            completion_reason,
+            raw_response_body: raw,
+        })
+    }
+
+    /// generate performs a single non-streaming completion. We do NOT auto-retry
+    /// — the caller (a stage handler) decides, and the work queue handles backoff.
+    pub async fn generate(&self, prompt: &str, opts: &GenerateOptions) -> Result<GenerateResult> {
+        let (gen, _) = self.generate_with_body(prompt, opts).await?;
+        Ok(gen)
+    }
+
+    /// ping hits /api/tags to verify Ollama is reachable. Cheap — no inference.
+    pub async fn ping(&self) -> Result<()> {
+        let url = format!("{}/api/tags", self.base_url);
+        let resp = self.http.get(&url).send().await.context("ollama ping")?;
+        if !resp.status().is_success() {
+            return Err(anyhow!("ollama ping HTTP {}", resp.status().as_u16()));
+        }
+        Ok(())
+    }
+}
+
+/// A syntactically parseable prefix is not a completed answer. Check the provider's
+/// termination signal before any parser can turn it into a product.
+pub(crate) fn validate_completion(reason: Option<&str>, done: Option<bool>) -> Result<()> {
+    if done == Some(false) || reason.is_some_and(|r| !matches!(r, "stop" | "eos")) {
+        return Err(IncompleteOutput(format!(
+            "incomplete model output (finish reason: {reason:?}, done: {done:?})"
+        ))
+        .into());
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod completion_tests {
+    use super::*;
+    use crate::harness::model::GenerateOptions;
+
+    #[test]
+    fn incomplete_answers_never_reach_product_parsers() {
+        for reason in ["length", "max_tokens", "content_filter", "tool_calls"] {
+            assert!(validate_completion(Some(reason), Some(true)).is_err());
+        }
+        assert!(validate_completion(Some("stop"), Some(false)).is_err());
+        assert!(validate_completion(Some("stop"), Some(true)).is_ok());
+        // Older compatible servers may omit the optional signal.
+        assert!(validate_completion(None, None).is_ok());
+    }
+
+    #[test]
+    fn thinking_cue_is_transport_owned_and_only_present_when_enabled() {
+        let options = GenerateOptions {
+            system: Some("Articulate the package.".into()),
+            num_predict: 900,
+            ..GenerateOptions::default()
+        };
+        let disabled = OllamaClient::with_think(
+            "http://localhost:11434",
+            "model",
+            Duration::from_secs(1),
+            Some(false),
+        )
+        .unwrap()
+        .request_body("source package", &options);
+        assert_eq!(
+            disabled["messages"][0]["content"],
+            "Articulate the package."
+        );
+        assert_eq!(disabled["messages"][1]["content"], "source package");
+        assert_eq!(disabled["options"]["num_predict"], 900);
+
+        let enabled = OllamaClient::with_think(
+            "http://localhost:11434",
+            "alibayram/smollm3",
+            Duration::from_secs(1),
+            Some(true),
+        )
+        .unwrap()
+        .request_body("source package", &options);
+        assert_eq!(
+            enabled["messages"][0]["content"],
+            "Before the final answer, put your reasoning inside <think> and </think>.\n\nArticulate the package."
+        );
+        assert_eq!(enabled["messages"][1]["content"], "source package");
+        assert_eq!(enabled["options"]["num_predict"], 1500);
+        assert_eq!(enabled["think"], true);
+
+        let other_model = OllamaClient::with_think(
+            "http://localhost:11434",
+            "another-model",
+            Duration::from_secs(1),
+            Some(true),
+        )
+        .unwrap()
+        .request_body("source package", &options);
+        assert_eq!(
+            other_model["messages"][0]["content"],
+            "Articulate the package."
+        );
+    }
+}

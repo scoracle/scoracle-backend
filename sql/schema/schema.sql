@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict G5vtiyEKBcQ4CJ8l0meR9ASziXAaEGuW9e9ay83f5TmC4P1biAxb0nVVTQVtWoW
+\restrict nMrJ59v0skhyYFDUKkDyVzpy93seg1j0eCdccckK0ByyczSDDgCyFLVLl5KVzNE
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -1857,6 +1857,61 @@ $$;
 
 
 --
+-- Name: compute_harvester_transfer_heat(integer, integer, text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.compute_harvester_transfer_heat(p_team_id integer, p_subject_id integer, p_sport text, p_subject_type text, OUT heat smallint, OUT components jsonb, OUT news_ids bigint[]) RETURNS record
+    LANGUAGE sql STABLE
+    AS $$
+    WITH corpus AS (
+        SELECT a.id, a.source AS src, COALESCE(a.published_at,a.fetched_at) AS ts
+          FROM public.news_articles a
+          JOIN public.harvester_resolved_links te
+            ON te.article_id=a.id AND te.entity_type='team'
+           AND te.entity_id=p_team_id AND te.sport=p_sport
+          JOIN public.harvester_resolved_links pe
+            ON pe.article_id=a.id AND pe.entity_type=p_subject_type
+           AND pe.entity_id=p_subject_id AND pe.sport=p_sport
+         WHERE a.duplicate_of IS NULL
+           AND a.bucket IS DISTINCT FROM 'non_transfer'
+           AND COALESCE(a.published_at,a.fetched_at) > now() - interval '14 days'
+    ), agg AS (
+        SELECT count(DISTINCT src) AS distinct_sources,
+               count(*) FILTER (WHERE ts > now() - interval '3 days') AS recent3,
+               count(*) AS total, max(ts) AS newest
+          FROM corpus
+    ), calc AS (
+        SELECT *, extract(epoch FROM (now()-newest))/3600.0 AS age_hours,
+               least(1.0,distinct_sources::numeric/5.0) AS volume,
+               recent3::numeric/greatest(total,1) AS recent_frac
+          FROM agg
+    ), fin AS (
+        SELECT *,exp(-age_hours/72.0) AS recency FROM calc
+    )
+    SELECT CASE WHEN total=0 THEN NULL
+                ELSE greatest(0,least(100,
+                     round(100*recency*(0.6*volume+0.4*recent_frac))))::smallint END,
+           CASE WHEN total=0 THEN '{}'::jsonb
+                ELSE jsonb_build_object(
+                    'distinct_sources',distinct_sources,'recent_3d',recent3,
+                    'total_14d',total,'newest_age_hours',round(age_hours::numeric,1),
+                    'volume',round(volume::numeric,3),
+                    'recency',round(recency::numeric,3),
+                    'recent_frac',round(recent_frac::numeric,3),
+                    'identity_source','harvester_resolved_links') END,
+           COALESCE((SELECT array_agg(id ORDER BY ts DESC,id DESC) FROM corpus),'{}'::bigint[])
+      FROM fin;
+$$;
+
+
+--
+-- Name: FUNCTION compute_harvester_transfer_heat(p_team_id integer, p_subject_id integer, p_sport text, p_subject_type text, OUT heat smallint, OUT components jsonb, OUT news_ids bigint[]); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.compute_harvester_transfer_heat(p_team_id integer, p_subject_id integer, p_sport text, p_subject_type text, OUT heat smallint, OUT components jsonb, OUT news_ids bigint[]) IS 'Source-diversity and recency heat from strict Harvester resolved co-mentions; isolated from legacy Editor link ownership.';
+
+
+--
 -- Name: compute_rating(text, integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -2636,6 +2691,82 @@ CREATE FUNCTION public.get_pending_fixtures(p_sport text DEFAULT NULL::text, p_l
     ORDER BY f.start_time ASC
     LIMIT p_limit;
 $$;
+
+
+--
+-- Name: harvester_collapse_exact_title_duplicates(interval, integer); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.harvester_collapse_exact_title_duplicates(p_lookback interval DEFAULT '72:00:00'::interval, p_min_title_len integer DEFAULT 30) RETURNS integer
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_marked integer;
+BEGIN
+    WITH cand AS (
+        SELECT a.id,
+               a.source,
+               a.published_at,
+               a.feed_rank,
+               -- strip punctuation, fold accents, collapse runs of spaces
+               unaccent(lower(regexp_replace(
+                   regexp_replace(a.title, '[^a-zA-Z0-9 ]', '', 'g'), ' +', ' ', 'g'))) AS norm,
+               EXISTS (SELECT 1 FROM public.news_article_entities e
+                        WHERE e.article_id = a.id) AS corpus_visible,
+               EXISTS (SELECT 1 FROM public.harvester_acquisitions ha
+                        WHERE ha.article_id = a.id AND ha.status = 'acquired') AS already_acquired
+          FROM public.news_articles a
+         WHERE a.published_at > now() - p_lookback
+           AND a.title <> ''
+           AND a.duplicate_of IS NULL
+    ),
+    grp AS (
+        SELECT norm
+          FROM cand
+         WHERE length(norm) >= p_min_title_len
+         GROUP BY norm
+        HAVING count(*) > 1
+           AND count(DISTINCT source) > 1     -- cross-source only
+    ),
+    ranked AS (
+        SELECT c.id,
+               c.source,
+               first_value(c.id) OVER w     AS canonical_id,
+               first_value(c.source) OVER w AS canonical_source
+          FROM cand c
+          JOIN grp g ON g.norm = c.norm
+        WINDOW w AS (
+            PARTITION BY c.norm
+            ORDER BY c.corpus_visible DESC,
+                     c.already_acquired    DESC,
+                     c.published_at    ASC,
+                     c.feed_rank       ASC NULLS LAST,
+                     c.id              ASC
+        )
+    )
+    UPDATE public.news_articles a
+       SET duplicate_of = r.canonical_id
+      FROM ranked r
+     WHERE a.id = r.id
+       AND r.id <> r.canonical_id
+       -- Per-PAIR cross-source check, not per-group. A group of {A, A, B} passes the group-level
+       -- `count(DISTINCT source) > 1` test, and without this the second A would be suppressed by
+       -- its own sibling -- exactly the same-source collapse the deleted cosine branch was doing.
+       -- The second A stays canonical; only B's copy is suppressed.
+       AND r.source IS DISTINCT FROM r.canonical_source
+       AND a.duplicate_of IS NULL;
+
+    GET DIAGNOSTICS v_marked = ROW_COUNT;
+    RETURN v_marked;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION harvester_collapse_exact_title_duplicates(p_lookback interval, p_min_title_len integer); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.harvester_collapse_exact_title_duplicates(p_lookback interval, p_min_title_len integer) IS 'Collapse byte-identical cross-source headlines; prefer corpus-visible or Harvester-acquired publisher text, then oldest. No Editor read dependency.';
 
 
 --
@@ -4937,23 +5068,26 @@ CREATE FUNCTION public.refresh_source_performance(p_sport text, p_k numeric DEFA
 DECLARE
     v_run timestamptz := clock_timestamp();
 BEGIN
-    DELETE FROM source_performance WHERE sport = p_sport;
+    DELETE FROM public.source_performance WHERE sport = p_sport;
 
     WITH apps AS (
         SELECT player_id, team_id, applied_at
-        FROM transfer_ground_truth WHERE sport = p_sport
+        FROM public.transfer_ground_truth WHERE sport = p_sport
     ),
     attributions AS (
         SELECT r.player_id, r.team_id, s.source, min(r.generated_at) AS first_reported
-        FROM transfer_rumors r
+        FROM public.transfer_rumors r
         CROSS JOIN LATERAL unnest(r.source_names) AS s(source)
-        WHERE r.sport = p_sport
+        WHERE r.sport = p_sport AND r.subject_type = 'player'
+          AND r.is_rumor IS TRUE
         GROUP BY 1, 2, 3
     ),
     pair_advanced AS (
         SELECT player_id, team_id, min(generated_at) AS first_advanced
-        FROM transfer_rumors
-        WHERE sport = p_sport AND stage IN ('advanced_talks', 'here_we_go')
+        FROM public.transfer_rumors
+        WHERE sport = p_sport AND subject_type = 'player'
+          AND is_rumor IS TRUE
+          AND stage IN ('advanced_talks', 'here_we_go')
         GROUP BY 1, 2
     ),
     joined AS (
@@ -4979,7 +5113,7 @@ BEGIN
         FROM joined
         GROUP BY source
     )
-    INSERT INTO source_performance
+    INSERT INTO public.source_performance
         (sport, source, pairs_covered, confirmed_covered, early_confirmed,
          avg_lead_days, best_lead_days, reliability, components, computed_at)
     SELECT p_sport, a.source, a.pairs_covered, a.confirmed_covered, a.early_confirmed,
@@ -4989,8 +5123,7 @@ BEGIN
                'k', p_k,
                'confirm_rate', CASE WHEN a.pairs_covered = 0 THEN NULL
                     ELSE round(a.confirmed_covered::numeric / a.pairs_covered, 3) END,
-               'note', 'outcomes from transfer_ground_truth (both ledgers); lead days '
-                       'signed (negative = pile-on after the move)'),
+               'note', 'player outcomes from transfer_ground_truth; lead days signed'),
            v_run
     FROM agg a;
 
@@ -5003,7 +5136,7 @@ $$;
 -- Name: FUNCTION refresh_source_performance(p_sport text, p_k numeric, OUT sources_written integer); Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON FUNCTION public.refresh_source_performance(p_sport text, p_k numeric, OUT sources_written integer) IS 'Full recompute of the per-source predictive record from transfer_rumors attribution x applied identity moves. Idempotent, set-based, no model calls. reliability = 100 * confirmed/(confirmed + k): n-based belief in the record.';
+COMMENT ON FUNCTION public.refresh_source_performance(p_sport text, p_k numeric, OUT sources_written integer) IS 'Full recompute of player-transfer source accuracy from attributed positive reports and applied player moves. Denials and coach rumor rows are excluded.';
 
 
 --
@@ -5642,50 +5775,7 @@ COMMENT ON FUNCTION public.season_bridge_window(p_sport text) IS 'THE season-end
 CREATE FUNCTION public.settled_transfer_identity_evidence(p_sport text, p_player_id integer, p_team_id integer, p_news_ids bigint[]) RETURNS TABLE(eligible boolean, stats_season integer, article_ids bigint[], source_names text[])
     LANGUAGE sql STABLE
     AS $$
-WITH latest AS (
-    SELECT max(ps.season)::integer AS season
-    FROM public.player_stats ps
-    WHERE ps.sport = p_sport AND ps.player_id = p_player_id
-), same_team_stats AS (
-    SELECT ps.season
-    FROM public.player_stats ps
-    JOIN latest l ON l.season = ps.season
-    WHERE ps.sport = p_sport
-      AND ps.player_id = p_player_id
-      AND ps.team_id = p_team_id
-    LIMIT 1
-), linked_news AS (
-    SELECT DISTINCT n.id, nullif(btrim(n.source), '') AS source
-    FROM public.news_articles n
-    JOIN public.editor_reads er ON er.article_id = n.id AND er.status = 'success'
-    WHERE n.id = ANY(COALESCE(p_news_ids, ARRAY[]::bigint[]))
-      AND er.read->>'story_type' IN ('roster', 'performance', 'transfer')
-      AND EXISTS (
-          SELECT 1
-          FROM jsonb_array_elements(COALESCE(er.resolved->'links', '[]'::jsonb)) link
-          WHERE link->>'sport' = p_sport
-            AND link->>'entity_type' = 'player'
-            AND link->>'entity_id' = p_player_id::text
-      )
-      AND EXISTS (
-          SELECT 1
-          FROM jsonb_array_elements(COALESCE(er.resolved->'links', '[]'::jsonb)) link
-          WHERE link->>'sport' = p_sport
-            AND link->>'entity_type' = 'team'
-            AND link->>'entity_id' = p_team_id::text
-      )
-), evidence AS (
-    SELECT count(DISTINCT lower(source)) FILTER (WHERE source IS NOT NULL) AS source_count,
-           COALESCE(array_agg(id ORDER BY id), ARRAY[]::bigint[]) AS article_ids,
-           COALESCE(array_agg(DISTINCT source ORDER BY source)
-                    FILTER (WHERE source IS NOT NULL), ARRAY[]::text[]) AS source_names
-    FROM linked_news
-)
-SELECT EXISTS (SELECT 1 FROM same_team_stats) AND e.source_count >= 2,
-       (SELECT season FROM same_team_stats),
-       e.article_ids,
-       e.source_names
-FROM evidence e;
+    SELECT false, NULL::integer, ARRAY[]::bigint[], ARRAY[]::text[];
 $$;
 
 
@@ -5693,7 +5783,7 @@ $$;
 -- Name: FUNCTION settled_transfer_identity_evidence(p_sport text, p_player_id integer, p_team_id integer, p_news_ids bigint[]); Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON FUNCTION public.settled_transfer_identity_evidence(p_sport text, p_player_id integer, p_team_id integer, p_news_ids bigint[]) IS 'Read-only nomination gate for current-team reconciliation after rumor heat decays: the player latest-season stats must name the proposed team and the supplied pair corpus must contain exact Editor links from at least two independently named roster, performance, or transfer sources. Returns the retained article IDs for the identity adjudicator.';
+COMMENT ON FUNCTION public.settled_transfer_identity_evidence(p_sport text, p_player_id integer, p_team_id integer, p_news_ids bigint[]) IS 'Retired Editor-based identity authority. Always unavailable; canonical identity requires supported retained evidence.';
 
 
 --
@@ -7213,7 +7303,7 @@ CREATE TABLE public.application_outbox (
     last_error text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT application_outbox_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
-    CONSTRAINT application_outbox_kind_stage_check CHECK ((((kind = 'vibe_completed'::text) AND (source_stage = 'vibe'::text)) OR ((kind = 'momentum_completed'::text) AND (source_stage = 'momentum'::text)) OR ((kind = 'rating_completed'::text) AND (source_stage = 'rating'::text)) OR ((kind = 'rating_debounced'::text) AND (source_stage = 'rating'::text)) OR ((kind = 'narratives_completed'::text) AND (source_stage = 'narratives'::text)) OR ((kind = 'transfer_published'::text) AND (source_stage = 'transfers'::text))))
+    CONSTRAINT application_outbox_kind_stage_check CHECK ((((kind = 'vibe_completed'::text) AND (source_stage = 'vibe'::text)) OR ((kind = 'momentum_completed'::text) AND (source_stage = 'momentum'::text)) OR ((kind = 'rating_completed'::text) AND (source_stage = 'rating'::text)) OR ((kind = 'rating_debounced'::text) AND (source_stage = 'rating'::text)) OR ((kind = 'narratives_completed'::text) AND (source_stage = 'narratives'::text)) OR ((kind = 'transfer_published'::text) AND (source_stage = 'transfers'::text)) OR ((kind = 'transfer_identity_applied'::text) AND (source_stage = 'transfers'::text))))
 );
 
 
@@ -7221,7 +7311,7 @@ CREATE TABLE public.application_outbox (
 -- Name: TABLE application_outbox; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.application_outbox IS 'Durable post-publication reconciliation for claim-aware seats. Transfer events may fan one team claim out to several player/team Oracle barriers.';
+COMMENT ON TABLE public.application_outbox IS 'Durable post-publication reconciliation for claim-aware seats. Transfer publication and applied-identity events may fan one team claim out to several player/team targets.';
 
 
 --
@@ -7346,7 +7436,7 @@ CREATE TABLE public.candidate_mentions (
 -- Name: TABLE candidate_mentions; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.candidate_mentions IS 'One row per (candidate, article): the evidence trail behind mention_count. quote is code-sliced ±160 chars around the name''s first occurrence in the STORED full_text — the model never emits quotes; editor_descriptor is the ep1 ≤6-word descriptor from the text.';
+COMMENT ON TABLE public.candidate_mentions IS 'One row per candidate/article with a code-sliced exact source quote. Legacy Editor and Harvester Graph both add evidence under the same distinct-article counter; repeated extraction of one article cannot manufacture corroboration.';
 
 
 --
@@ -7379,6 +7469,7 @@ CREATE TABLE public.cognition_ledger (
     context_budget jsonb DEFAULT '{}'::jsonb NOT NULL,
     parser_outcome text NOT NULL,
     generated_at timestamp with time zone DEFAULT now() NOT NULL,
+    plugin_id text,
     CONSTRAINT cognition_ledger_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text, 'article'::text, 'candidate'::text, 'fixture'::text]))),
     CONSTRAINT cognition_ledger_pair_entity_type_check CHECK (((pair_entity_type IS NULL) OR (pair_entity_type = ANY (ARRAY['player'::text, 'team'::text]))))
 );
@@ -7417,6 +7508,13 @@ COMMENT ON COLUMN public.cognition_ledger.excluded_evidence IS 'JSON summary of 
 --
 
 COMMENT ON COLUMN public.cognition_ledger.context_budget IS 'JSON budget telemetry, e.g. available generation tokens and evaluated tokens when a model call happened.';
+
+
+--
+-- Name: COLUMN cognition_ledger.plugin_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.cognition_ledger.plugin_id IS 'Stable ID of the plugin that owned this diagnostic generation; nullable for rolling compatibility and historical unknown stages.';
 
 
 --
@@ -7618,7 +7716,7 @@ CREATE TABLE public.entity_candidates (
 -- Name: TABLE entity_candidates; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.entity_candidates IS 'A nominated name awaiting the Investigator''s verdict. Nominated by the Editor''s resolver (unresolved names[] per the 5.2 rule; refused ties always nominate) — never written directly from a model mention. The queue item is pipeline_work stage investigate_entity, entity_type ''candidate'', entity_id = this id.';
+COMMENT ON TABLE public.entity_candidates IS 'A source-grounded name awaiting Investigator adjudication. Legacy Editor resolver leftovers and Harvester Graph discoveries share the sport/name idempotency key. A Harvester discovery requires an exact name in the retained publisher headline or hash-verified opening; neither a model suggestion nor a candidate row is an authoritative identity link.';
 
 
 --
@@ -8085,6 +8183,384 @@ CREATE TABLE public.graph_extractions (
 --
 
 COMMENT ON TABLE public.graph_extractions IS 'Per-article bookkeeping for the graph extraction stage: debounce anchor (input_hash + prompt_version) and observability (outcome, counts). Bookkeeping, not memory — narrative_events/persons are the durable products.';
+
+
+--
+-- Name: harvester_acquisitions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.harvester_acquisitions (
+    article_id bigint NOT NULL,
+    status text NOT NULL,
+    final_url text,
+    final_domain text,
+    body_sha256 text,
+    body_bytes integer,
+    attempts integer DEFAULT 0 NOT NULL,
+    last_error text,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT harvester_acquisitions_attempts_check CHECK ((attempts >= 0)),
+    CONSTRAINT harvester_acquisitions_body_bytes_check CHECK (((body_bytes IS NULL) OR (body_bytes >= 0))),
+    CONSTRAINT harvester_acquisitions_status_check CHECK ((status = ANY (ARRAY['acquired'::text, 'duplicate'::text, 'retryable_error'::text, 'blocked'::text, 'low_content'::text, 'classification_error'::text])))
+);
+
+
+--
+-- Name: TABLE harvester_acquisitions; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.harvester_acquisitions IS 'Acquisition state per canonical article. The unchanged publisher body has one owner, news_articles.full_text.';
+
+
+--
+-- Name: harvester_assignments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.harvester_assignments (
+    classification_id bigint NOT NULL,
+    plugin_id text NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    reason text,
+    product_ref jsonb,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT harvester_assignments_plugin_id_check CHECK ((plugin_id = ANY (ARRAY['scoracle.character.narrative'::text, 'scoracle.character.vibe'::text, 'scoracle.character.transfers'::text, 'scoracle.character.rating'::text]))),
+    CONSTRAINT harvester_assignments_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'used'::text, 'relevant_but_unused'::text, 'redundant'::text, 'irrelevant'::text, 'abstained'::text, 'error'::text])))
+);
+
+
+--
+-- Name: TABLE harvester_assignments; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.harvester_assignments IS 'Advisory Harvester delivery and character-owned final disposition; pending assignments must be accounted for before cutover acceptance.';
+
+
+--
+-- Name: harvester_classifications; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.harvester_classifications (
+    id bigint NOT NULL,
+    article_id bigint NOT NULL,
+    entity_type text NOT NULL,
+    entity_id integer NOT NULL,
+    sport text NOT NULL,
+    contract_version text NOT NULL,
+    model_revision text NOT NULL,
+    entity_choice text NOT NULL,
+    body_sha256 text NOT NULL,
+    headline text NOT NULL,
+    model_input_start integer NOT NULL,
+    model_input_end integer NOT NULL,
+    model_input_text text NOT NULL,
+    context_start integer NOT NULL,
+    context_end integer NOT NULL,
+    context_text text NOT NULL,
+    distributions jsonb NOT NULL,
+    model_provenance jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT harvester_classifications_check CHECK ((model_input_end >= model_input_start)),
+    CONSTRAINT harvester_classifications_check1 CHECK ((context_end >= context_start)),
+    CONSTRAINT harvester_classifications_context_start_check CHECK ((context_start >= 0)),
+    CONSTRAINT harvester_classifications_entity_choice_check CHECK ((entity_choice = ANY (ARRAY['relevant'::text, 'irrelevant'::text]))),
+    CONSTRAINT harvester_classifications_model_input_start_check CHECK ((model_input_start >= 0))
+);
+
+
+--
+-- Name: TABLE harvester_classifications; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.harvester_classifications IS 'Versioned Laya decisions and exact publisher text per article/query entity. No generated editorial packet; distributions are uncalibrated until validated.';
+
+
+--
+-- Name: harvester_classifications_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.harvester_classifications_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: harvester_classifications_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.harvester_classifications_id_seq OWNED BY public.harvester_classifications.id;
+
+
+--
+-- Name: harvester_entity_mentions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.harvester_entity_mentions (
+    article_id bigint NOT NULL,
+    entity_type text NOT NULL,
+    entity_id integer NOT NULL,
+    sport text NOT NULL,
+    matched_norm text NOT NULL,
+    body_sha256 text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT harvester_entity_mentions_entity_type_check CHECK ((entity_type = ANY (ARRAY['team'::text, 'player'::text, 'person'::text])))
+);
+
+
+--
+-- Name: TABLE harvester_entity_mentions; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.harvester_entity_mentions IS 'Unique exact normalized name-surface matches in publisher text. Candidate identity evidence only; Google query and Laya routing do not write authoritative article links.';
+
+
+--
+-- Name: harvester_fixture_reviews; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.harvester_fixture_reviews (
+    article_id bigint NOT NULL,
+    sport text NOT NULL,
+    contract_version text NOT NULL,
+    model_version text NOT NULL,
+    result_line text DEFAULT ''::text NOT NULL,
+    source_quote text,
+    status text NOT NULL,
+    fixture_id integer,
+    reviewed_at timestamp with time zone DEFAULT now() NOT NULL,
+    input_hash text DEFAULT ''::text NOT NULL,
+    CONSTRAINT harvester_fixture_reviews_status_check CHECK ((status = ANY (ARRAY['no_result'::text, 'quote_not_found'::text, 'invalid_result'::text, 'team_unresolved'::text, 'already_correct'::text, 'corrected'::text, 'created'::text, 'extraction_unavailable'::text])))
+);
+
+
+--
+-- Name: TABLE harvester_fixture_reviews; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.harvester_fixture_reviews IS 'Claim-fenced Graph review of one exact Harvester source for a completed fixture result. A model-suggested result can nominate a fixture only when its line occurs verbatim in the retained publisher headline or hash-verified opening and both team names resolve uniquely. Rejected and empty reviews remain queryable.';
+
+
+--
+-- Name: COLUMN harvester_fixture_reviews.input_hash; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.harvester_fixture_reviews.input_hash IS 'Graph material hash; a changed exact publisher context creates a new immutable review identity instead of overwriting the earlier fixture evidence.';
+
+
+--
+-- Name: harvester_headline_gates; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.harvester_headline_gates (
+    article_id bigint NOT NULL,
+    entity_type text NOT NULL,
+    entity_id integer NOT NULL,
+    sport text NOT NULL,
+    contract_version text NOT NULL,
+    headline text NOT NULL,
+    input_hash text NOT NULL,
+    model_revision text NOT NULL,
+    choice text NOT NULL,
+    admitted boolean NOT NULL,
+    policy_version text NOT NULL,
+    read_threshold double precision NOT NULL,
+    request jsonb NOT NULL,
+    answer jsonb NOT NULL,
+    model_provenance jsonb NOT NULL,
+    raw_response jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT harvester_headline_gates_choice_check CHECK ((choice = ANY (ARRAY['relevant'::text, 'irrelevant'::text]))),
+    CONSTRAINT harvester_headline_gates_read_threshold_check CHECK (((read_threshold >= (0)::double precision) AND (read_threshold <= (1)::double precision)))
+);
+
+
+--
+-- Name: TABLE harvester_headline_gates; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.harvester_headline_gates IS 'Versioned Laya headline-only entity decisions before publisher fetch; negative gates have no acquired body or character assignment.';
+
+
+--
+-- Name: harvester_insider_identity_reviews; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.harvester_insider_identity_reviews (
+    transfer_rumor_id bigint NOT NULL,
+    classification_id bigint NOT NULL,
+    article_id bigint NOT NULL,
+    team_id integer NOT NULL,
+    player_id integer NOT NULL,
+    sport text NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    reason text,
+    application_id bigint,
+    model_version text,
+    prompt_version text,
+    model_raw text,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT harvester_insider_identity_reviews_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'skipped'::text, 'applied'::text, 'rejected'::text, 'failed_closed'::text])))
+);
+
+
+--
+-- Name: TABLE harvester_insider_identity_reviews; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.harvester_insider_identity_reviews IS 'Claim-fenced source-only identity adjudication obligation for each Harvester player transfer verdict. The settled-sources route still depends on Editor links and is not used here; ineligible pairs close with an explicit reason.';
+
+
+--
+-- Name: harvester_insider_pairs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.harvester_insider_pairs (
+    classification_id bigint NOT NULL,
+    subject_type text NOT NULL,
+    subject_id integer NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    product_ref jsonb,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT harvester_insider_pairs_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'rumor'::text, 'cleared'::text, 'abstained'::text]))),
+    CONSTRAINT harvester_insider_pairs_subject_type_check CHECK ((subject_type = ANY (ARRAY['player'::text, 'person'::text])))
+);
+
+
+--
+-- Name: TABLE harvester_insider_pairs; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.harvester_insider_pairs IS 'Claim-fenced Insider verdict per resolved Harvester source/subject pair; no pair is dropped by a prompt cap.';
+
+
+--
+-- Name: harvester_insider_wraps; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.harvester_insider_wraps (
+    team_id integer NOT NULL,
+    sport text NOT NULL,
+    work_version text NOT NULL,
+    entity_type text NOT NULL,
+    entity_id integer NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    score_id bigint,
+    product_ref jsonb,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT harvester_insider_wraps_entity_type_check CHECK ((entity_type = ANY (ARRAY['team'::text, 'player'::text]))),
+    CONSTRAINT harvester_insider_wraps_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'scored'::text, 'skipped'::text, 'superseded'::text])))
+);
+
+
+--
+-- Name: TABLE harvester_insider_wraps; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.harvester_insider_wraps IS 'One claim-fenced Insider scored-board obligation per team/player after Harvester source pair verdicts. Work revision keeps a new source batch distinct, and terminal skipped/scored rows make every wrap auditable.';
+
+
+--
+-- Name: COLUMN harvester_insider_wraps.status; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.harvester_insider_wraps.status IS 'Pending wraps are terminally superseded when a newer Harvester classification reopens the team claim; scored and skipped rows retain their original outcome.';
+
+
+--
+-- Name: harvester_live_canary_items; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.harvester_live_canary_items (
+    run_id bigint NOT NULL,
+    article_id bigint NOT NULL,
+    sport text NOT NULL,
+    enqueued_at timestamp with time zone DEFAULT now() NOT NULL,
+    acquisition_attempts_before integer CONSTRAINT harvester_live_canary_items_acquisition_attempts_befor_not_null NOT NULL,
+    CONSTRAINT harvester_live_canary_items_acquisition_attempts_before_check CHECK ((acquisition_attempts_before >= 0))
+);
+
+
+--
+-- Name: TABLE harvester_live_canary_items; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.harvester_live_canary_items IS 'Durable bounded Harvester live-canary cohort. Successful pipeline_work claims are deleted; compare the acquisition attempt count and updated_at with this enqueue receipt before calling a replay complete.';
+
+
+--
+-- Name: harvester_query_provenance; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.harvester_query_provenance (
+    article_id bigint NOT NULL,
+    entity_type text NOT NULL,
+    entity_id integer NOT NULL,
+    sport text NOT NULL,
+    feed_rank integer,
+    query_terms jsonb DEFAULT '[]'::jsonb NOT NULL,
+    first_seen_at timestamp with time zone DEFAULT now() NOT NULL,
+    last_seen_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT harvester_query_provenance_entity_type_check CHECK ((entity_type = ANY (ARRAY['team'::text, 'player'::text, 'person'::text])))
+);
+
+
+--
+-- Name: TABLE harvester_query_provenance; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.harvester_query_provenance IS 'Every Google entity query that returned a canonical URL; retrieval provenance only, never an authoritative entity link.';
+
+
+--
+-- Name: harvester_resolved_links; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.harvester_resolved_links (
+    article_id bigint NOT NULL,
+    entity_type text NOT NULL,
+    entity_id integer NOT NULL,
+    sport text NOT NULL,
+    matched_norm text NOT NULL,
+    body_sha256 text NOT NULL,
+    opening_sha256 text NOT NULL,
+    resolution_method text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT harvester_resolved_links_entity_type_check CHECK ((entity_type = ANY (ARRAY['team'::text, 'player'::text, 'person'::text]))),
+    CONSTRAINT harvester_resolved_links_resolution_method_check CHECK ((resolution_method = 'unique_canonical_name_v1'::text))
+);
+
+
+--
+-- Name: TABLE harvester_resolved_links; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.harvester_resolved_links IS 'Authoritative identity links only for a unique canonical entity name present in the exact headline or publisher opening delivered to characters. Query provenance and Laya choices are never sufficient.';
+
+
+--
+-- Name: harvester_unresolved_names; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.harvester_unresolved_names (
+    article_id bigint NOT NULL,
+    sport text NOT NULL,
+    matched_norm text NOT NULL,
+    reason text NOT NULL,
+    candidates jsonb NOT NULL,
+    body_sha256 text NOT NULL,
+    opening_sha256 text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT harvester_unresolved_names_reason_check CHECK ((reason = ANY (ARRAY['ambiguous_surface'::text, 'alias_only'::text])))
+);
+
+
+--
+-- Name: TABLE harvester_unresolved_names; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.harvester_unresolved_names IS 'Source-bound, explicit unresolved name surfaces. Shared names and alias-only matches do not become authoritative links or character identities; candidate IDs are review evidence only.';
 
 
 --
@@ -8697,7 +9173,7 @@ CREATE TABLE public.news_article_entities (
 -- Name: TABLE news_article_entities; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.news_article_entities IS 'Which entities an article is about. WRITTEN ONLY by the Editor (editor::write_links), which clears an article''s rows and rewrites them from what it resolved after reading the body. A row''s EXISTENCE is the verdict -- there is no vetted/confidence column, and absence is a denial. Ingest writes nothing here; which entity''s sweep surfaced an article is recorded on news_articles.raw (query_team_id). PLAN-one-rail 8.11.';
+COMMENT ON TABLE public.news_article_entities IS 'Authoritative article/entity links. Editor historically cleared and rewrote its resolved links. Harvester now replaces each article/sport link set with only unique canonical-name links grounded in the retained publisher headline or opening, with body/offset provenance in harvester_resolved_links. Google query provenance and Laya decisions are not links.';
 
 
 --
@@ -10349,7 +10825,7 @@ CREATE TABLE public.transfer_rumors (
     CONSTRAINT transfer_rumors_stage_check CHECK (((stage IS NULL) OR (stage = ANY (ARRAY['speculation'::text, 'concrete_interest'::text, 'advanced_talks'::text, 'here_we_go'::text])))),
     CONSTRAINT transfer_rumors_subject_type_check CHECK ((subject_type = ANY (ARRAY['player'::text, 'person'::text]))),
     CONSTRAINT transfer_rumors_trajectory_check CHECK ((trajectory = ANY (ARRAY['developing_story'::text, 'heating_up'::text, 'cooling_off'::text]))),
-    CONSTRAINT transfer_rumors_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['news_spike'::text, 'periodic'::text, 'manual'::text])))
+    CONSTRAINT transfer_rumors_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['news_spike'::text, 'periodic'::text, 'manual'::text, 'harvester'::text])))
 );
 
 
@@ -10673,6 +11149,13 @@ ALTER TABLE ONLY public.fixtures ALTER COLUMN id SET DEFAULT nextval('public.fix
 
 
 --
+-- Name: harvester_classifications id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_classifications ALTER COLUMN id SET DEFAULT nextval('public.harvester_classifications_id_seq'::regclass);
+
+
+--
 -- Name: insider_scores id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -10879,7 +11362,7 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 -- PostgreSQL database dump complete
 --
 
-\unrestrict G5vtiyEKBcQ4CJ8l0meR9ASziXAaEGuW9e9ay83f5TmC4P1biAxb0nVVTQVtWoW
+\unrestrict nMrJ59v0skhyYFDUKkDyVzpy93seg1j0eCdccckK0ByyczSDDgCyFLVLl5KVzNE
 
 
 \ir reference-data.sql
@@ -10887,7 +11370,7 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 -- PostgreSQL database dump
 --
 
-\restrict 3m0BWNbV2RzOuNnMNogwhX0By6VaMkKqJQgnocIBQcT585dZN5CZYpIp9PVbs7e
+\restrict 2c6JgX8bClBeCxXYTdn9GrFQl3yZeEf4p7JMk7fhpAaKnSf7NPMYwPCTh1oU1SO
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -11128,6 +11611,118 @@ ALTER TABLE ONLY public.fixtures
 
 ALTER TABLE ONLY public.graph_extractions
     ADD CONSTRAINT graph_extractions_pkey PRIMARY KEY (article_id);
+
+
+--
+-- Name: harvester_acquisitions harvester_acquisitions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_acquisitions
+    ADD CONSTRAINT harvester_acquisitions_pkey PRIMARY KEY (article_id);
+
+
+--
+-- Name: harvester_assignments harvester_assignments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_assignments
+    ADD CONSTRAINT harvester_assignments_pkey PRIMARY KEY (classification_id, plugin_id);
+
+
+--
+-- Name: harvester_classifications harvester_classifications_article_id_entity_type_entity_id__key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_classifications
+    ADD CONSTRAINT harvester_classifications_article_id_entity_type_entity_id__key UNIQUE (article_id, entity_type, entity_id, sport, contract_version, model_revision, body_sha256);
+
+
+--
+-- Name: harvester_classifications harvester_classifications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_classifications
+    ADD CONSTRAINT harvester_classifications_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: harvester_entity_mentions harvester_entity_mentions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_entity_mentions
+    ADD CONSTRAINT harvester_entity_mentions_pkey PRIMARY KEY (article_id, entity_type, entity_id, sport, matched_norm);
+
+
+--
+-- Name: harvester_fixture_reviews harvester_fixture_reviews_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_fixture_reviews
+    ADD CONSTRAINT harvester_fixture_reviews_pkey PRIMARY KEY (article_id, sport, contract_version, input_hash);
+
+
+--
+-- Name: harvester_headline_gates harvester_headline_gates_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_headline_gates
+    ADD CONSTRAINT harvester_headline_gates_pkey PRIMARY KEY (article_id, entity_type, entity_id, sport, contract_version, model_revision, input_hash, policy_version);
+
+
+--
+-- Name: harvester_insider_identity_reviews harvester_insider_identity_reviews_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_insider_identity_reviews
+    ADD CONSTRAINT harvester_insider_identity_reviews_pkey PRIMARY KEY (transfer_rumor_id);
+
+
+--
+-- Name: harvester_insider_pairs harvester_insider_pairs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_insider_pairs
+    ADD CONSTRAINT harvester_insider_pairs_pkey PRIMARY KEY (classification_id, subject_type, subject_id);
+
+
+--
+-- Name: harvester_insider_wraps harvester_insider_wraps_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_insider_wraps
+    ADD CONSTRAINT harvester_insider_wraps_pkey PRIMARY KEY (team_id, sport, work_version, entity_type, entity_id);
+
+
+--
+-- Name: harvester_live_canary_items harvester_live_canary_items_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_live_canary_items
+    ADD CONSTRAINT harvester_live_canary_items_pkey PRIMARY KEY (run_id, article_id, sport);
+
+
+--
+-- Name: harvester_query_provenance harvester_query_provenance_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_query_provenance
+    ADD CONSTRAINT harvester_query_provenance_pkey PRIMARY KEY (article_id, entity_type, entity_id, sport);
+
+
+--
+-- Name: harvester_resolved_links harvester_resolved_links_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_resolved_links
+    ADD CONSTRAINT harvester_resolved_links_pkey PRIMARY KEY (article_id, entity_type, entity_id, sport);
+
+
+--
+-- Name: harvester_unresolved_names harvester_unresolved_names_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_unresolved_names
+    ADD CONSTRAINT harvester_unresolved_names_pkey PRIMARY KEY (article_id, sport, matched_norm);
 
 
 --
@@ -11650,14 +12245,70 @@ CREATE INDEX analytics_entity_context_entity_idx ON public.analytics_entity_cont
 -- Name: application_outbox_completion_claim_unique; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX application_outbox_completion_claim_unique ON public.application_outbox USING btree (kind, source_stage, source_claim_token) WHERE (kind <> 'transfer_published'::text);
+CREATE UNIQUE INDEX application_outbox_completion_claim_unique ON public.application_outbox USING btree (kind, source_stage, source_claim_token) WHERE (kind <> ALL (ARRAY['transfer_published'::text, 'transfer_identity_applied'::text]));
 
 
 --
 -- Name: application_outbox_transfer_target_unique; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX application_outbox_transfer_target_unique ON public.application_outbox USING btree (kind, source_stage, source_claim_token, entity_type, entity_id, sport) WHERE (kind = 'transfer_published'::text);
+CREATE UNIQUE INDEX application_outbox_transfer_target_unique ON public.application_outbox USING btree (kind, source_stage, source_claim_token, entity_type, entity_id, sport) WHERE (kind = ANY (ARRAY['transfer_published'::text, 'transfer_identity_applied'::text]));
+
+
+--
+-- Name: harvester_classifications_lookup_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX harvester_classifications_lookup_idx ON public.harvester_classifications USING btree (entity_type, entity_id, sport, created_at DESC);
+
+
+--
+-- Name: harvester_entity_mentions_entity_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX harvester_entity_mentions_entity_idx ON public.harvester_entity_mentions USING btree (entity_type, entity_id, sport, article_id);
+
+
+--
+-- Name: harvester_insider_identity_pending_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX harvester_insider_identity_pending_idx ON public.harvester_insider_identity_reviews USING btree (team_id, sport, transfer_rumor_id) WHERE (status = 'pending'::text);
+
+
+--
+-- Name: harvester_insider_pairs_pending_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX harvester_insider_pairs_pending_idx ON public.harvester_insider_pairs USING btree (classification_id, subject_type, subject_id) WHERE (status = 'pending'::text);
+
+
+--
+-- Name: harvester_insider_wraps_pending_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX harvester_insider_wraps_pending_idx ON public.harvester_insider_wraps USING btree (team_id, sport, work_version, entity_type, entity_id) WHERE (status = 'pending'::text);
+
+
+--
+-- Name: harvester_query_provenance_entity_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX harvester_query_provenance_entity_idx ON public.harvester_query_provenance USING btree (entity_type, entity_id, sport, feed_rank);
+
+
+--
+-- Name: harvester_resolved_links_entity_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX harvester_resolved_links_entity_idx ON public.harvester_resolved_links USING btree (entity_type, entity_id, sport, article_id);
+
+
+--
+-- Name: harvester_unresolved_names_sport_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX harvester_unresolved_names_sport_idx ON public.harvester_unresolved_names USING btree (sport, created_at DESC, reason);
 
 
 --
@@ -12725,13 +13376,6 @@ CREATE TRIGGER application_outbox_notify_insert AFTER INSERT ON public.applicati
 
 
 --
--- Name: packets enqueue_voices_on_packet; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER enqueue_voices_on_packet AFTER INSERT ON public.packets FOR EACH ROW EXECUTE FUNCTION public.enqueue_voices_on_packet();
-
-
---
 -- Name: entity_aliases entity_aliases_append_only; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -13137,6 +13781,190 @@ ALTER TABLE ONLY public.graph_extractions
 
 ALTER TABLE ONLY public.graph_extractions
     ADD CONSTRAINT graph_extractions_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
+
+
+--
+-- Name: harvester_acquisitions harvester_acquisitions_article_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_acquisitions
+    ADD CONSTRAINT harvester_acquisitions_article_id_fkey FOREIGN KEY (article_id) REFERENCES public.news_articles(id) ON DELETE CASCADE;
+
+
+--
+-- Name: harvester_assignments harvester_assignments_classification_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_assignments
+    ADD CONSTRAINT harvester_assignments_classification_id_fkey FOREIGN KEY (classification_id) REFERENCES public.harvester_classifications(id) ON DELETE CASCADE;
+
+
+--
+-- Name: harvester_classifications harvester_classifications_article_id_entity_type_entity_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_classifications
+    ADD CONSTRAINT harvester_classifications_article_id_entity_type_entity_id_fkey FOREIGN KEY (article_id, entity_type, entity_id, sport) REFERENCES public.harvester_query_provenance(article_id, entity_type, entity_id, sport);
+
+
+--
+-- Name: harvester_classifications harvester_classifications_article_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_classifications
+    ADD CONSTRAINT harvester_classifications_article_id_fkey FOREIGN KEY (article_id) REFERENCES public.news_articles(id) ON DELETE CASCADE;
+
+
+--
+-- Name: harvester_entity_mentions harvester_entity_mentions_article_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_entity_mentions
+    ADD CONSTRAINT harvester_entity_mentions_article_id_fkey FOREIGN KEY (article_id) REFERENCES public.news_articles(id) ON DELETE CASCADE;
+
+
+--
+-- Name: harvester_fixture_reviews harvester_fixture_reviews_article_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_fixture_reviews
+    ADD CONSTRAINT harvester_fixture_reviews_article_id_fkey FOREIGN KEY (article_id) REFERENCES public.news_articles(id) ON DELETE CASCADE;
+
+
+--
+-- Name: harvester_fixture_reviews harvester_fixture_reviews_fixture_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_fixture_reviews
+    ADD CONSTRAINT harvester_fixture_reviews_fixture_id_fkey FOREIGN KEY (fixture_id) REFERENCES public.fixtures(id);
+
+
+--
+-- Name: harvester_fixture_reviews harvester_fixture_reviews_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_fixture_reviews
+    ADD CONSTRAINT harvester_fixture_reviews_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
+
+
+--
+-- Name: harvester_headline_gates harvester_headline_gates_article_id_entity_type_entity_id__fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_headline_gates
+    ADD CONSTRAINT harvester_headline_gates_article_id_entity_type_entity_id__fkey FOREIGN KEY (article_id, entity_type, entity_id, sport) REFERENCES public.harvester_query_provenance(article_id, entity_type, entity_id, sport) ON DELETE CASCADE;
+
+
+--
+-- Name: harvester_insider_identity_reviews harvester_insider_identity_reviews_application_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_insider_identity_reviews
+    ADD CONSTRAINT harvester_insider_identity_reviews_application_id_fkey FOREIGN KEY (application_id) REFERENCES public.transfer_identity_applications(id);
+
+
+--
+-- Name: harvester_insider_identity_reviews harvester_insider_identity_reviews_article_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_insider_identity_reviews
+    ADD CONSTRAINT harvester_insider_identity_reviews_article_id_fkey FOREIGN KEY (article_id) REFERENCES public.news_articles(id) ON DELETE CASCADE;
+
+
+--
+-- Name: harvester_insider_identity_reviews harvester_insider_identity_reviews_classification_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_insider_identity_reviews
+    ADD CONSTRAINT harvester_insider_identity_reviews_classification_id_fkey FOREIGN KEY (classification_id) REFERENCES public.harvester_classifications(id) ON DELETE CASCADE;
+
+
+--
+-- Name: harvester_insider_identity_reviews harvester_insider_identity_reviews_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_insider_identity_reviews
+    ADD CONSTRAINT harvester_insider_identity_reviews_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
+
+
+--
+-- Name: harvester_insider_identity_reviews harvester_insider_identity_reviews_transfer_rumor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_insider_identity_reviews
+    ADD CONSTRAINT harvester_insider_identity_reviews_transfer_rumor_id_fkey FOREIGN KEY (transfer_rumor_id) REFERENCES public.transfer_rumors(id) ON DELETE CASCADE;
+
+
+--
+-- Name: harvester_insider_pairs harvester_insider_pairs_classification_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_insider_pairs
+    ADD CONSTRAINT harvester_insider_pairs_classification_id_fkey FOREIGN KEY (classification_id) REFERENCES public.harvester_classifications(id) ON DELETE CASCADE;
+
+
+--
+-- Name: harvester_insider_wraps harvester_insider_wraps_score_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_insider_wraps
+    ADD CONSTRAINT harvester_insider_wraps_score_id_fkey FOREIGN KEY (score_id) REFERENCES public.insider_scores(id);
+
+
+--
+-- Name: harvester_insider_wraps harvester_insider_wraps_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_insider_wraps
+    ADD CONSTRAINT harvester_insider_wraps_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
+
+
+--
+-- Name: harvester_live_canary_items harvester_live_canary_items_article_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_live_canary_items
+    ADD CONSTRAINT harvester_live_canary_items_article_id_fkey FOREIGN KEY (article_id) REFERENCES public.news_articles(id) ON DELETE CASCADE;
+
+
+--
+-- Name: harvester_live_canary_items harvester_live_canary_items_run_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_live_canary_items
+    ADD CONSTRAINT harvester_live_canary_items_run_id_fkey FOREIGN KEY (run_id) REFERENCES public.pipeline_runs(id) ON DELETE CASCADE;
+
+
+--
+-- Name: harvester_query_provenance harvester_query_provenance_article_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_query_provenance
+    ADD CONSTRAINT harvester_query_provenance_article_id_fkey FOREIGN KEY (article_id) REFERENCES public.news_articles(id) ON DELETE CASCADE;
+
+
+--
+-- Name: harvester_resolved_links harvester_resolved_links_article_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_resolved_links
+    ADD CONSTRAINT harvester_resolved_links_article_id_fkey FOREIGN KEY (article_id) REFERENCES public.news_articles(id) ON DELETE CASCADE;
+
+
+--
+-- Name: harvester_unresolved_names harvester_unresolved_names_article_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_unresolved_names
+    ADD CONSTRAINT harvester_unresolved_names_article_id_fkey FOREIGN KEY (article_id) REFERENCES public.news_articles(id) ON DELETE CASCADE;
+
+
+--
+-- Name: harvester_unresolved_names harvester_unresolved_names_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harvester_unresolved_names
+    ADD CONSTRAINT harvester_unresolved_names_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
 
 
 --
@@ -13654,4 +14482,4 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 3m0BWNbV2RzOuNnMNogwhX0By6VaMkKqJQgnocIBQcT585dZN5CZYpIp9PVbs7e
+\unrestrict 2c6JgX8bClBeCxXYTdn9GrFQl3yZeEf4p7JMk7fhpAaKnSf7NPMYwPCTh1oU1SO

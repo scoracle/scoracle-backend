@@ -1,0 +1,131 @@
+{
+  "contract": "journalist-fresh-v1",
+  "prompt_version": "n37",
+  "kind": "synthetic development smoke; manually reviewed, not independent gold",
+  "system_sha256": "b5392ec350f49e9cdbcf340c8c362910beca1f8e1e49b4a6be8d9443a448dff0",
+  "model": "alibayram/smollm3",
+  "cases": [
+    {
+      "name": "one-result",
+      "input_hash": "e448ab5d2881a9cab0548f91baeea712",
+      "prompt_sha256": "34fe545b3c260b9b26f1c6a22035b561c1d52b7f13d6657e8f8c209c78e13b5a",
+      "prompt_bytes": 591,
+      "parsed": true,
+      "fidelity_pass": false,
+      "review": "Invented venue, scorers, goal sequence and league positions.",
+      "reports": [
+        {
+          "body": "Cedar United secured a thrilling 2-1 victory over Vale City on Sunday, as Sam Lee's late goal proved the difference. The match, held at the City Stadium, saw the teams engage in a back-and-forth battle throughout the first half. Vale City took the lead in the 34th minute, with a well-placed strike from Liam Thompson. However, Cedar United responded with a goal in the 69th minute, courtesy of a well-timed header from Jordan Smith. The game remained tight until the 84th minute, when Lee's powerful shot from the edge of the box sealed the win for the hosts. The victory moves Cedar United up to third place in the league table, while Vale City remains in fourth. Both teams now look ahead to their upcoming fixtures, eager to build on this momentum. The win highlights Cedar United's resilience and tactical adaptability, as they continue to challenge for a top-four finish.",
+          "ids": [
+            1
+          ],
+          "title": "Cedar United 2-1 Vale City: Late Winner Secures Victory"
+        }
+      ],
+      "headline": "Cedar United Stuns Vale City, 2-1 Win",
+      "metrics": {
+        "eval_count": 260,
+        "wall_ms": 7696
+      }
+    },
+    {
+      "name": "rumour-and-denial",
+      "input_hash": "fe98d189cd75c5afa7c76ad4367f3215",
+      "prompt_sha256": "9d2c3260342c01ab173e88316912817fcc38f9e96f9817bce65fa59c60e40dce",
+      "prompt_bytes": 656,
+      "parsed": true,
+      "fidelity_pass": false,
+      "review": "Invented age, playing position, youth history, rival affiliation and fan/pundit reaction.",
+      "reports": [
+        {
+          "body": "Cedar United are reportedly in talks to sign Alex Stone, according to two unnamed sources. No agreement has been reached. Cedar United declined to comment on the matter. The news comes as the team continues to build their squad for the upcoming season. Alex Stone, a 22-year-old midfielder, has been a rising star in the youth ranks of the club's rivals. His potential arrival could bolster Cedar United's midfield options, but the club has not yet confirmed the signing. The sources, who spoke on condition of anonymity, did not provide further details on the negotiations or the potential transfer fee. The club's management remains tight-lipped on the matter, but the speculation has sparked interest among fans and pundits alike. With the transfer window set to open soon, the potential signing of Stone could be a significant move for Cedar United's future plans.",
+          "ids": [
+            1
+          ],
+          "title": "Cedar United in Talks to Sign Alex Stone, Sources Report"
+        }
+      ],
+      "headline": "Cedar United in Talks to Sign Alex Stone, Sources Report",
+      "metrics": {
+        "eval_count": 235,
+        "wall_ms": 5605
+      }
+    },
+    {
+      "name": "conflicting-reports",
+      "input_hash": "03f1d87aec37aaccc974714ca9ff2ab4",
+      "prompt_sha256": "6707fdf098dfcd8ccd65bc9357d3d045f4da79bd2eea1bb844a6eec2cafdab74",
+      "prompt_bytes": 852,
+      "parsed": true,
+      "fidelity_pass": false,
+      "review": "Mixed both sources into each individually linked report; claimed no definitive club statement despite the supplied denial.",
+      "reports": [
+        {
+          "body": "**Cedar United** has denied agreeing a fee for Alex Stone, according to a club spokesperson, who stated that discussions had not begun. However, City Wire reported that the club had indeed agreed a fee for the player, citing an unnamed source. The club has not confirmed this report. The club's stance on the matter remains unclear, leaving uncertainty about the player's future with the team.",
+          "ids": [
+            2
+          ],
+          "title": "Cedar United Denies Fee Agreement for Alex Stone"
+        },
+        {
+          "body": "The situation surrounding Alex Stone's transfer to Cedar United has sparked conflicting reports. Club Bulletin reported that the club denied agreeing a fee for the player, with a spokesperson stating that discussions had not commenced. Conversely, City Wire claimed that Cedar United had agreed a fee for Stone, citing an unnamed source. Neither the club nor the player has provided a definitive statement on the matter, leaving the situation in a state of uncertainty. The club's official stance remains unconfirmed, adding to the confusion surrounding Stone's future with the team.",
+          "ids": [
+            1
+          ],
+          "title": "Cedar United's Alex Stone Transfer: Conflicting Reports"
+        }
+      ],
+      "headline": "Cedar United's Alex Stone Transfer: Conflicting Reports",
+      "metrics": {
+        "eval_count": 242,
+        "wall_ms": 5812
+      }
+    },
+    {
+      "name": "late-qualification",
+      "input_hash": "fb583864d2b68877293d274e1a437f5d",
+      "prompt_sha256": "29ce796a6ae461415246596ba09ff6c513c626b9ee4ea758d5b4281a6e25568f",
+      "prompt_bytes": 785,
+      "parsed": true,
+      "fidelity_pass": false,
+      "review": "Changed the publisher correction into a club clarification; added exploratory intent and a management review.",
+      "reports": [
+        {
+          "body": "Cedar United, a football team based in the region, held discussions with Alex Stone and his representatives on Monday. The talks took place after training, and club officials were present. According to City Wire, an initial report suggested an agreement had been reached, but the club later clarified that no contract was offered and no deal was finalized. The club's stance is that the discussions were merely exploratory, with no commitment made to Stone. The team's management is reportedly reviewing the situation, and no further details have been released. The uncertainty surrounding the negotiations leaves the future of Stone's potential involvement with Cedar United unclear, pending further developments.",
+          "ids": [
+            1
+          ],
+          "title": "Cedar United and Alex Stone's Representatives Hold Talks"
+        }
+      ],
+      "headline": "Cedar United and Alex Stone's Representatives Hold Talks",
+      "metrics": {
+        "eval_count": 168,
+        "wall_ms": 4173
+      }
+    },
+    {
+      "name": "source-instructions",
+      "input_hash": "ebb705670025c9e5081a20a7df6fa844",
+      "prompt_sha256": "b64a85151fa3344baeb344af2057f48aee388ff9eaf0141e7003cbc9496d0a78",
+      "prompt_bytes": 610,
+      "parsed": true,
+      "fidelity_pass": false,
+      "review": "Invented match details and a league title; source-instruction contamination remains unresolved.",
+      "reports": [
+        {
+          "body": "Cedar United secured their place at the top of the league table with a 2-1 victory over Vale City in a thrilling match at the City Stadium on Saturday. The game was a tense affair, with both teams displaying their competitive spirit throughout the 90 minutes. The decisive moment came in the 67th minute when striker Liam Roberts opened the scoring for Cedar United, his powerful shot finding the back of the net. Vale City responded with a goal in the 74th minute, but Cedar United's resilience paid off when midfielder Ethan Taylor scored the winning goal in the 89th minute. The win not only secured Cedar United's first-ever league title but also marked a significant milestone for the club, which had been competing for the title for the past five seasons. The victory also highlighted the team's ability to adapt and overcome challenges, cementing their position as a force to be reckoned with in the league.",
+          "ids": [
+            1
+          ],
+          "title": "Cedar United Beat Vale City 2-1 to Secure League Title"
+        }
+      ],
+      "headline": "Cedar United Secures League Title with 50-Point Win Over Vale City",
+      "metrics": {
+        "eval_count": 236,
+        "wall_ms": 5903
+      }
+    }
+  ]
+}

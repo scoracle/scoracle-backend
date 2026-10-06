@@ -9,15 +9,15 @@
 //! Mechanical checks are useful, but model adoption requires a human quality review.
 
 use anyhow::{anyhow, Context, Result};
-use scoracle_cognition::application::models::Models;
 use scoracle_cognition::evaluation::judge::VoiceSpec;
 use scoracle_cognition::evaluation::tasks::{
     all_task_names, resolve_task, CaseVerdict, EntitySpec, Expect, Fixture, LensTask,
 };
-use scoracle_cognition::runtime::config::{Config, RouteConfig};
-use scoracle_cognition::runtime::db;
-use scoracle_cognition::runtime::route::Router;
-use scoracle_cognition::studio::model::Inference;
+use scoracle_cognition::harness::config::{Config, RouteConfig};
+use scoracle_cognition::harness::db;
+use scoracle_cognition::harness::model::Inference;
+use scoracle_cognition::harness::models::Models;
+use scoracle_cognition::harness::route::Router;
 use serde_json::Value;
 use sqlx::Row;
 use std::collections::HashMap;
@@ -137,7 +137,7 @@ async fn main() -> Result<()> {
             scoracle_cognition::evaluation::judge::JUDGE_PROMPT_VERSION
         );
         Some(Arc::new(
-            scoracle_cognition::runtime::providers::ollama::OllamaClient::new(
+            scoracle_cognition::harness::providers::ollama::OllamaClient::new(
                 &cfg.ollama_base_url,
                 &judge_model,
                 cfg.ollama_timeout,
@@ -272,7 +272,6 @@ async fn run_live(cfg: &Config, task: &dyn LensTask, cases: &[EvalCase]) -> Resu
              tasks: {}\n  \
              eval player:237:NBA team:14:NBA            (vibe, label-free quality+throughput A/B)\n  \
              eval player:237:NBA=72                     (+ MAE vs a human label)\n  \
-             eval --inspect memory SPORT TYPE ID MISSION [SEASON [PAIR_TEAM_ID]]\n  \
              eval --inspect reports SPORT TYPE ID\n  \
              eval --inspect identity SPORT PLAYER_ID\n  \
              eval --task oracle --fixtures               (current-contract quality cases)\n  \
@@ -363,15 +362,22 @@ async fn score_backend(
     let mut mae_n = 0usize;
     let mut results: Vec<CaseResult> = Vec::with_capacity(cases.len());
     for case in cases {
-        let opts = task.gen_options_for(EVAL_TEMPERATURE, &case.entity);
-        let prompt = match task.build_prompt(pool, models, &case.entity).await? {
+        let mut prepared = match task.build_request(pool, models, &case.entity).await? {
             Some(p) => p,
             None => {
                 println!("  – {} : no corpus (skipped)", case.entity.key());
                 continue;
             }
         };
-        let gen = match backend.generate(&prompt, &opts).await {
+        if !prepared.should_call {
+            continue;
+        }
+        prepared.options.num_ctx = models.voice_num_ctx;
+        prepared.options.temperature = Some(EVAL_TEMPERATURE);
+        let gen = match backend
+            .generate(&prepared.user_prompt, &prepared.options)
+            .await
+        {
             Ok((g, _request_body)) => g,
             Err(e) => {
                 // Under GPU contention a call can time out in Ollama's queue; skip it rather than
@@ -383,7 +389,7 @@ async fn score_backend(
                 continue;
             }
         };
-        let verdict = task.evaluate(&gen.response, case.label, None);
+        let verdict = task.evaluate_prepared(&prepared, &gen.response, case.label, None);
         if let Some(err) = verdict.abs_err {
             abs_err_sum += err;
             mae_n += 1;
@@ -494,6 +500,7 @@ async fn run_fixtures(
             &mut inc_judge,
             fx,
             replay.is_some(),
+            cfg.voice_num_ctx,
         )
         .await;
         inc_pass += p;
@@ -507,6 +514,7 @@ async fn run_fixtures(
                 &mut cand_judge,
                 fx,
                 replay.is_some(),
+                cfg.voice_num_ctx,
             )
             .await;
             cand_pass += p;
@@ -550,21 +558,40 @@ async fn run_one_fixture(
     judge_agg: &mut JudgeAgg,
     fx: &Fixture,
     historical: bool,
+    num_ctx: i32,
 ) -> (usize, usize) {
-    let mut opts = task.gen_options_for_sport(fx.temperature, &fx.sport);
+    let prepared = match task.prepare_fixture(fx) {
+        Ok(request) => request,
+        Err(error) => {
+            println!("  {label} {} invalid fixture: {error:#}", backend.model());
+            return (0, expected_property_count(&fx.expect) + 1);
+        }
+    };
+    if !prepared.should_call {
+        println!("  {label} {} no-call disposition", backend.model());
+        return (0, 0);
+    }
+    let prompt = &prepared.user_prompt;
+    let mut opts = prepared.options.clone();
+    opts.num_ctx = num_ctx;
     if historical {
         opts.system = Some(fx.system.clone());
     }
-    let gen = match backend.generate(&fx.user_prompt, &opts).await {
+    let gen = match backend.generate(prompt, &opts).await {
         Ok((g, _)) => g,
         Err(e) => {
             println!("  {label} {:<16} generate failed ({e:#})", backend.model());
             return (0, expected_property_count(&fx.expect) + 1);
         }
     };
-    let verdict = task.evaluate(&gen.response, None, Some(&fx.expect));
+    println!("      call: request={} bytes, input={} tokens, output={} tokens, latency={:.2}s, retries=0",
+        prompt.len() + opts.system.as_ref().map_or(0, String::len), gen.prompt_eval_count, gen.eval_count, gen.total_duration.as_secs_f64());
+    let verdict = task.evaluate_prepared(&prepared, &gen.response, None, Some(&fx.expect));
     println!("  {label} {:<16} {}", backend.model(), verdict.display);
     if !verdict.parsed {
+        for check in verdict.checks.iter().filter(|check| !check.pass) {
+            println!("      rejected: {}", check.detail);
+        }
         println!("      raw: {}", fixture_raw_excerpt(&gen.response));
         return (0, expected_property_count(&fx.expect) + 1);
     }
@@ -590,7 +617,9 @@ async fn run_one_fixture(
         match scoracle_cognition::evaluation::judge::judge_reply(
             j.as_ref(),
             task.name(),
-            &fx.user_prompt,
+            // The package the model actually read, which for a parts fixture is
+            // what the plugin's current assembler produced.
+            prompt,
             &gen.response,
             voice,
         )
@@ -665,21 +694,15 @@ impl JudgeAgg {
 }
 
 /// Count authored assertions when generation/parsing fails. Parsing is counted separately.
-/// Resolver inputs (`reader_vetted`, `resolver_surfaces`, `graph_candidate_types`) are not assertions.
+/// Graph candidate types are preparation inputs, not assertions.
 fn expected_property_count(x: &Expect) -> usize {
     let mut n = 0usize;
     n += x.score_min.is_some() as usize;
     n += x.score_max.is_some() as usize;
     n += x.blurb_includes.as_ref().map_or(0, Vec::len);
     n += x.blurb_excludes.as_ref().map_or(0, Vec::len);
-    n += x.narratives_min.is_some() as usize;
-    n += x.narratives_max.is_some() as usize;
-    n += x.title_includes.as_ref().map_or(0, Vec::len);
-    n += x.title_excludes.as_ref().map_or(0, Vec::len);
     n += x.body_includes.as_ref().map_or(0, Vec::len);
     n += x.body_excludes.as_ref().map_or(0, Vec::len);
-    n += x.all_cite_articles.is_some() as usize;
-    n += x.max_article_num.is_some() as usize;
     n += x.transfer_is_rumor.is_some() as usize;
     n += x.transfer_direction.is_some() as usize;
     n += x.transfer_stage.is_some() as usize;
@@ -700,35 +723,18 @@ fn expected_property_count(x: &Expect) -> usize {
     n += x.reading_min_sentences.is_some() as usize;
     n += x.reading_max_sentences.is_some() as usize;
     // One check for the whole synonym set, not one per word.
-    n += x.body_includes_any.is_some() as usize;
     // The graph axes.
     n += x.relations_include.as_ref().map_or(0, Vec::len);
     n += x.relations_exclude.as_ref().map_or(0, Vec::len);
     n += x.relations_max.is_some() as usize;
     n += x.persons_include.as_ref().map_or(0, Vec::len);
     n += x.persons_exclude.as_ref().map_or(0, Vec::len);
-    // The Editor / ArticleReader axes (ep1 + ar6).
-    n += x.article_relevant.is_some() as usize;
-    n += x.key_facts_include.as_ref().map_or(0, Vec::len);
-    n += x.key_facts_exclude.as_ref().map_or(0, Vec::len);
-    n += x.names_include.as_ref().map_or(0, Vec::len);
-    n += x.names_exclude.as_ref().map_or(0, Vec::len);
-    n += x.register_is.is_some() as usize;
-    n += x.story_type_is.is_some() as usize;
     // The investigator's prose axes (ip1).
     n += x.subject_kind_is.is_some() as usize;
     n += x.evidence_includes.as_ref().map_or(0, Vec::len);
     n += (x.evidence_empty == Some(true)) as usize;
     n += x.occupation_includes.as_ref().map_or(0, Vec::len);
     n += x.prose_teams_include.as_ref().map_or(0, Vec::len);
-    n += x.name_kind_is.as_ref().map_or(0, |m| m.len());
-    n += x.name_descriptor_nonempty.as_ref().map_or(0, Vec::len);
-    n += x.result_line_includes.as_ref().map_or(0, Vec::len);
-    n += x.result_line_parses.is_some() as usize;
-    n += x.resolver_links_include.as_ref().map_or(0, Vec::len);
-    n += x.resolver_links_exclude.as_ref().map_or(0, Vec::len);
-    n += x.resolver_unresolved_include.as_ref().map_or(0, Vec::len);
-    n += x.resolver_refused_include.as_ref().map_or(0, Vec::len);
     n
 }
 
@@ -744,9 +750,9 @@ async fn run_capture_assignments(
     cases: &[EvalCase],
     season: Option<i32>,
 ) -> Result<()> {
-    use scoracle_cognition::evidence::corpus::lookup_entity_name;
-    use scoracle_cognition::plugins::scout::adapter::{build_rating_request, RatingReq};
-    use scoracle_cognition::plugins::scout::cognition::{RatingBuild, RATING_TEMPERATURE};
+    use scoracle_cognition::plugins::scout::prompt::{build_rating_request, RatingReq};
+    use scoracle_cognition::plugins::scout::prompt::{RatingBuild, RATING_TEMPERATURE};
+    use scoracle_cognition::tools::meta::lookup_entity_name;
     anyhow::ensure!(
         !cases.is_empty(),
         "--capture-assignment needs at least one case"
@@ -785,43 +791,22 @@ async fn run_capture_assignments(
                     serde_json::json!({"status":"no_stats", "season":season})
                 }
                 RatingBuild::Ready(a) => {
-                    let directions: std::collections::BTreeMap<_, _> = a
-                        .comparison_directions
-                        .iter()
-                        .map(|(k, v)| (k, format!("{v:?}")))
-                        .collect();
                     serde_json::json!({
                         "status":"ready", "subject":{"entity_type":a.subject.entity_type,"entity_name":a.subject.entity_name,"sport":a.subject.sport},
-                        "season":a.season, "comparison_directions":directions,"measurement_bands":a.measurement_bands,
+                        "season":a.season,
                         "notability":a.notability,"notability_components":a.notability_components,
                         "rating_trajectory":{"key":a.rating_trajectory.key,"label":a.rating_trajectory.label,"components":a.rating_trajectory.components},
                         "input_components":serde_json::from_str::<Value>(&a.input_components)?,"input_hash":a.input_hash,
                         "exclusions":{"budget_truncated_stat_labels":a.exclusions.budget_truncated_stat_labels,"off_facet_stat_labels":a.exclusions.off_facet_stat_labels,"degenerate_zero_stat_labels":a.exclusions.degenerate_zero_stat_labels,"display_tier_stat_labels":a.exclusions.display_tier_stat_labels},
-                        "built_prompt":a.built_prompt,
+                        "parts": a.parts, "built_prompt":a.built_prompt,
                         "options":{"system":a.opts.system,"temperature":a.opts.temperature,"num_predict":a.opts.num_predict,"num_ctx":a.opts.num_ctx,"json_mode":a.opts.json_mode,"format_schema":a.opts.format_schema,"format_schema_raw":a.opts.format_schema_raw},
                         "request_body":models.router.for_route(scoracle_cognition::plugins::scout::manifest::ROUTE).request_body(&a.built_prompt, &a.opts)
                     })
                 }
             };
-            // Supplemental provenance read: verify its material fingerprint against
-            // the assignment instead of claiming these separate reads are atomic.
-            let memory_audit = if assignment["status"] == "ready" {
-                use scoracle_cognition::evidence::memories::{self, MemoryRequest, Mission};
-                let mut request =
-                    MemoryRequest::new(Mission::Scout, &e.entity_type, e.entity_id, &e.sport);
-                request.season = assignment["season"].as_i64().map(|s| s as i32);
-                let full = memories::load(&pool, request).await?;
-                let current = full.current_snapshot_view()?;
-                let expected = assignment["input_components"]["memories"].as_str();
-                let full_matches = expected == Some(full.fingerprint()?.as_str());
-                let current_matches = expected == Some(current.fingerprint()?.as_str());
-                serde_json::json!({"full":full,"current_snapshot":current,"full_matches_assignment":full_matches,"current_matches_assignment":current_matches})
-            } else {
-                Value::Null
-            };
             println!(
                 "{}",
-                serde_json::json!({"capture_version":1,"entity":e.key(),"with_enrichment":with_enrichment,"started_unix_ms":started,"finished_unix_ms":std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_millis(),"queue_before":work.map(|s| serde_json::from_str::<Value>(&s)).transpose()?,"assignment":assignment,"supplemental_memory_audit":memory_audit})
+                serde_json::json!({"capture_version":2,"entity":e.key(),"with_enrichment":with_enrichment,"started_unix_ms":started,"finished_unix_ms":std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_millis(),"queue_before":work.map(|s| serde_json::from_str::<Value>(&s)).transpose()?,"assignment":assignment})
             );
         }
     }
@@ -837,8 +822,8 @@ async fn run_capture(cfg: &Config, task: &dyn LensTask, cases: &[EvalCase]) -> R
         )
     })?;
     let (pool, models) = build_dependencies(cfg).await?;
-    let user_prompt = task
-        .build_prompt(&pool, &models, &case.entity)
+    let prepared = task
+        .build_request(&pool, &models, &case.entity)
         .await?
         .ok_or_else(|| anyhow!("no corpus for {} — nothing to capture", case.entity.key()))?;
     let fx = Fixture {
@@ -847,7 +832,8 @@ async fn run_capture(cfg: &Config, task: &dyn LensTask, cases: &[EvalCase]) -> R
         sport: case.entity.sport.clone(),
         prompt_version: task.prompt_version().to_string(),
         system: String::new(),
-        user_prompt,
+        user_prompt: prepared.user_prompt,
+        parts: prepared.parts,
         temperature: EVAL_TEMPERATURE,
         expect: Expect::default(),
         review: Vec::new(),
@@ -939,6 +925,10 @@ async fn run_capture_ledger(cfg: &Config, task: &dyn LensTask, ledger_id: i64) -
         prompt_version,
         system,
         user_prompt,
+        // The ledger stores the request that was sent, not the input that
+        // produced it, so there are no parts to recover here. A task with a parts
+        // assembler needs its fixture authored from the plugin's own types.
+        parts: None,
         temperature,
         expect: Expect::default(),
         review: Vec::new(),
@@ -1009,9 +999,6 @@ async fn build_dependencies(cfg: &Config) -> Result<(sqlx::PgPool, Models)> {
         pool,
         Models {
             router,
-            // Unbounded: an inspection run drives its entity to completion. Nothing here is racing a
-            // worker timeout, and a truncated eval would be a worse artifact than a slow one.
-            handler_budget: Duration::ZERO,
             // The same resolved window production runs — an eval generating in a window the live
             // stage never uses would measure the wrong thing.
             voice_num_ctx: cfg.voice_num_ctx,
@@ -1185,7 +1172,7 @@ fn fmt_score(s: &ModelScore, n: usize) -> String {
 /// smoke output, proving the `COGNITION_ROUTE_*` config parsed.
 fn print_route_table(cfg: &RouteConfig) {
     println!("configured route table (role → incumbent [+ candidate]):");
-    for role in scoracle_cognition::application::fleet::inference_routes() {
+    for role in scoracle_cognition::harness::fleet::inference_routes() {
         let incumbent = cfg
             .roles
             .get(&role)
@@ -1252,9 +1239,7 @@ fn parse_entity(s: &str) -> Result<EntitySpec> {
         ));
     }
     let entity_type = parts[0].to_lowercase();
-    // `article` is live-eval'able too: graph and editor are article-keyed, not entity-keyed. Both
-    // tasks' build_prompt tells you to pass `article:<id>:<SPORT>` — and this check rejected it,
-    // so their live modes were unreachable from the day they were written.
+    // Graph live evaluations use article:<id>:<SPORT> rather than an entity key.
     if entity_type != "player" && entity_type != "team" && entity_type != "article" {
         return Err(anyhow!(
             "bad entity_type in {s:?}; want player|team|article"
@@ -1311,13 +1296,13 @@ mod tests {
         async fn generate(
             &self,
             _: &str,
-            _: &scoracle_cognition::studio::model::GenerateOptions,
-        ) -> Result<(scoracle_cognition::studio::model::GenerateResult, Value)> {
+            _: &scoracle_cognition::harness::model::GenerateOptions,
+        ) -> Result<(scoracle_cognition::harness::model::GenerateResult, Value)> {
             if self.0 {
                 anyhow::bail!("transport failed");
             }
             Ok((
-                scoracle_cognition::studio::model::GenerateResult {
+                scoracle_cognition::harness::model::GenerateResult {
                     response: "not a card".into(),
                     thinking: String::new(),
                     model: "test".into(),
@@ -1336,7 +1321,7 @@ mod tests {
         fn request_body(
             &self,
             _: &str,
-            _: &scoracle_cognition::studio::model::GenerateOptions,
+            _: &scoracle_cognition::harness::model::GenerateOptions,
         ) -> Value {
             Value::Null
         }
@@ -1359,12 +1344,36 @@ mod tests {
                     None,
                     &mut JudgeAgg::default(),
                     &fx,
-                    false
+                    false,
+                    4096
                 )
                 .await,
                 (0, 1)
             );
         }
+    }
+
+    #[tokio::test]
+    async fn prepared_no_call_skips_the_backend() {
+        let task = resolve_task("narratives").unwrap();
+        let fx = load_fixtures(&fixtures_dir("narratives"), Some("no-new-material"))
+            .unwrap()
+            .remove(0);
+        let backend: Arc<dyn Inference> = Arc::new(FailedReply(true));
+        assert_eq!(
+            run_one_fixture(
+                "A",
+                &backend,
+                task.as_ref(),
+                None,
+                &mut JudgeAgg::default(),
+                &fx,
+                false,
+                4096
+            )
+            .await,
+            (0, 0)
+        );
     }
 
     #[test]

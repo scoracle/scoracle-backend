@@ -1,0 +1,38 @@
+{
+  "expect": {
+    "body_includes": [
+      "Jordan Reed",
+      "Cedar Comets"
+    ]
+  },
+  "name": "nba-attribution-basketball-source-under-a-league-namespace",
+  "parts": {
+    "memory": [
+      null
+    ],
+    "reports": [
+      {
+        "context": "The Cedar Comets beat the Vale Stars 108–104 on Monday. Jordan Reed scored 27 points. The team said Reed is questionable for Wednesday because of ankle soreness.",
+        "id": 1,
+        "published_at_epoch": 1790463600,
+        "source": "Court Wire",
+        "title": "Cedar United update 1"
+      }
+    ],
+    "subject": {
+      "entity_id": 7,
+      "entity_type": "team",
+      "name": "Cedar Comets",
+      "sport": "NBA"
+    }
+  },
+  "prompt_version": "n96-six-part",
+  "review": [
+    "The identity part says basketball, not NBA: the sport, not the competition namespace.",
+    "Keep the question mark on Reed's availability; the source says questionable, not ruled out."
+  ],
+  "system": "",
+  "task": "narratives",
+  "temperature": 0.0,
+  "user_prompt": "{\"meta\":{\"name\":\"Cedar Comets\",\"entity_type\":\"team\",\"sport\":\"basketball\"},\"fresh\":[{\"report_key\":\"report_1\",\"publisher\":\"Court Wire\",\"published_at\":\"2026-09-26T23:00:00Z\",\"publisher_excerpt\":\"The Cedar Comets beat the Vale Stars 108–104 on Monday. Jordan Reed scored 27 points. The team said Reed is questionable for Wednesday because of ankle soreness.\"}],\"voice\":\"Clear, restrained and direct.\",\"form\":{\"keys\":[\"report_1\"],\"max_chars\":1200}}"
+}

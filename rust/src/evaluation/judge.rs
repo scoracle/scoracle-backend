@@ -5,8 +5,8 @@
 //! (`COGNITION_JUDGE_MODEL` must be a model serving NO production role; pull it before a
 //! session). Verdicts are advisory eval output, never persisted product truth.
 
-use crate::studio::model::GenerateOptions;
-use crate::studio::model::Inference;
+use crate::harness::model::GenerateOptions;
+use crate::harness::model::Inference;
 use anyhow::Result;
 use serde::Deserialize;
 

@@ -2,11 +2,11 @@
 
 **The Studio provides the room. Plugins bring the cognition. Postgres stores the evolving world. DuckDB studies the world.**
 
-Studio and harness name the same system. Its code home is [`rust/src/studio/`](rust/src/studio/). Every cognitive seat is a plugin with a manifest declaring the live policy the host consumes: identity, durable task ownership, claim policy, inference routes, resources, and grants. Prompt/output contract versions remain with the plugin code and persisted products that actually use them. Studio is the contained room that resolves, budgets, validates, and commits plugin work.
+Studio and harness name the same system. Its code home is [`rust/src/harness/`](rust/src/harness/). Every cognitive seat is a plugin with a manifest declaring the live policy the host consumes: identity, durable task ownership, claim policy, inference routes, resources, and grants. Prompt/output contract versions remain with the plugin code and persisted products that actually use them. Studio is the contained room that resolves, budgets, validates, and commits plugin work.
 
 > **A plugin declares what it may reach; the room decides how the reach happens, records that it happened, and can refuse it.**
 
-**Harness direction lives in the [Studio north star](rust/README.md): shared form, one character voice, compact identity, and only that character's evidence.** Use it when changing prompts, assignments, memories or evaluation. Implementation and rollout details below describe current behavior, not extra permanent harness requirements.
+**Harness direction lives in the [Rust architecture contract](rust/README.md): the harness runs a plugin, the plugin assembles its world using shared or local tools, and the model articulates or classifies supplied input without calling tools. SQL owns the data; Rust owns the cognition.** Share or specialize tools according to which reduces complexity and fragility. Use this contract when changing prompts, context, memories or evaluation; the completed [cleanup plan](rust/docs/PLAN-harness-plugin-cleanup-2026-10-05.md) records the implementation and validation.
 
 ## Start here
 
@@ -22,7 +22,7 @@ The wiki owns shared vocabulary and architecture direction: [Glossary](../scorac
 |---|---|---|
 | Postgres | Durable facts, relationships, evidence provenance, product history, work state, and serving projections. | Store and retrieve versioned state through application adapters. |
 | DuckDB | Analytical studies: trajectories, comparisons, cohorts, and richer derived evidence. | Read a bounded snapshot; return versioned results, coverage, and provenance for publication. |
-| Studio | The contained room for cognition: the plugin registry, lifecycle, budgets, validation, and commit. Plugins define the cognition that happens inside it. | Accept prepared assignments and injected capabilities; no concrete database or queue access in the core; no character behavior in the core. |
+| Studio | The contained room for cognition: the plugin registry, lifecycle, budgets, validation, and commit. Plugins define the cognition that happens inside it. | Bind plugin capabilities and coordinate durable execution; product and context policy stay in plugins. |
 | Application wiring | Acquire evidence, prepare assignments, select models, schedule work, publish results, and serve products. | Own cross-system coordination, credentials, transactions, retries, and resource budgets. |
 
 These are responsibilities, not a requirement for three services or repositories. Keep deployment simple. Analytics must earn its resource cost through useful evidence or reduced database work. Richer studies are a product capability: they give the characters observations they cannot make from today's material alone.
@@ -31,13 +31,12 @@ These are responsibilities, not a requirement for three services or repositories
 
 The architecture above is the migration direction. The checked-in implementation currently has these boundaries:
 
-- **Studio core and migrated seats:** `rust/src/studio/` owns the model contract, generation/provenance types, shared character form, and Analyst, Influencer, Scout, Journalist, Insider, Oracle, Editor, Investigator, and Graph creation. Their assignments run without Postgres, DuckDB, queues, or concrete model-host knowledge. Insider owns pair verdict, identity-adjudication, and wrap contracts; Oracle receives five typed cards and interprets complete, partial, or empty spreads inside Studio.
-- **Plugin contract and fleet registry:** `rust/src/studio/plugin.rs` defines `PluginManifest`, the queue-facing `StudioPlugin` seam, scheduled-operation contract, outcomes, and boot validation. Each package under `rust/src/plugins/<name>/` owns its manifest, typed preparation, cognition policy, correction instructions, publication, durable reactions, and any scheduled operations. `rust/src/application/fleet.rs` is the manifest roster and `rust/src/application/plugins.rs` is the composition root. Manifests own open `RouteKey` declarations, claim/resource policy, and enforced inference/web grants; resolved inference handles and deadlines are injected at construction.
-- **Capabilities and execution:** `rust/src/application/models.rs` resolves only a plugin's declared routes into `ExecutionCapabilities`; cognition cannot reach the global router or database pool. `rust/src/application/tools.rs` supplies the shared fetch broker and enforces web-domain grants when scoped capabilities are constructed. Plugin adapters use ordinary typed preparation functions rather than a provider registry or context-plan interpreter. Operator-started factsweep and historical Rating runs enter explicit plugin-owned non-queue contexts rather than fabricating claims.
-- **Application runtime:** `application/queue/worker.rs` owns generic queue dispatch, lifecycle, timeout, retry, maintenance, and recovery. Plugins own claim policy, durable scheduling and fan-out. A queue invocation accepts one exact claim and reports `PluginOutcome`; claim-fenced publication remains in the plugin adapter, while the worker performs only the reported queue disposition. `application/queue/outbox.rs` is the generic durable event transport and reaction registry.
+- **Harness:** `rust/src/harness/` owns model/generation contracts, plugin manifests and registration, capability binding, routing, scheduling, claim-fenced publication and recovery. `fleet.rs` is the roster; `registration.rs` binds concrete dependencies; `queue/` retains durable work and outbox transport; `providers/` retains model transports.
+- **Plugins:** `rust/src/plugins/<name>/` owns preparation, model input, validation, product policy, publication effects and reactions. All six articulation plugins use local prompt, parser, voice and execution owners. Harvester owns source acquisition/classification and exact attributed delivery; Editor and its obsolete evals are retired.
+- **Shared tools:** `rust/src/tools/` owns acquisition, canonical metadata, bounded memory studies, form decoding and source/prose guards. Inference and external acquisition are limited by each plugin's manifest grants. `factsweep` explicitly refuses before database access; historical extraction evaluations remain offline.
 - **Analytics:** the API maintains Rating cohort and season-change context with DuckDB on startup and every five minutes. Bounded PostgreSQL snapshots feed private computation; source-checked transactions publish changed results and retain prior results on failure. The snapshot CLI provides frozen-input parity checks and explicit publication. SQL rating, event-score and Momentum formulas remain active until separately migrated with parity evidence. See the [SQL contract and source tree](sql/README.md) and [acceptance operations](run_docs/RECOVERY_ANALYTICS_ACCEPTANCE.md). Reuse the existing engines and tests rather than building a competing implementation.
 - **Momentum maintenance:** Go now commits SQL scores, their concurrent serving-projection refresh, and exact dirty-marker acknowledgement together. Failure preserves retryable work and the prior projection; newer markers survive. This recovery fix is deployed on Archbox in `ebac794`, retaining the existing SQL producer; full-load transaction/lock costs remain under observation.
-- **Durability:** migration 256 and `application/queue/work.rs` give each running lease a UUID claim token plus its captured input revision. Migrations 257–261 make Influencer, Analyst, Scout, Journalist, and Insider claim-aware publishers with narrow durable follow-up obligations. Insider preserves partial progress while each pair and identity effect is fenced by the exact team lease; transfer products atomically record per-target Oracle barriers and final completion records the team barrier. Oracle uses the same exact-claim boundary without a new outbox obligation because it is terminal. A stale or superseded execution publishes nothing. Diagnostic ledger writes remain explicitly best-effort after commit. All nine seats now run on the fenced production runtime. A bounded live Rating → Momentum → Sigil canary completed; overnight behavior and live fault-injection acceptance remain; see the [approved plan](../scoracle-wiki/progress_docs/scoracle-backend/2026-09-19_backend-modernization-plan.md).
+- **Durability:** migration 256 and `harness/queue/work.rs` give each running lease a UUID claim token plus its captured input revision. Migrations 257–261 make Influencer, Analyst, Scout, Journalist, and Insider claim-aware publishers with narrow durable follow-up obligations. Insider preserves partial progress while each pair and identity effect is fenced by the exact team lease; transfer products atomically record per-target Oracle barriers and final completion records the team barrier. Oracle uses the same exact-claim boundary without a new outbox obligation because it is terminal. A stale or superseded execution publishes nothing. Diagnostic ledger writes remain explicitly best-effort after commit. All active plugins use the fenced production runtime. A bounded live Rating → Momentum → Sigil canary completed; overnight behavior and live fault-injection acceptance remain; see the [approved plan](../scoracle-wiki/progress_docs/scoracle-backend/2026-09-19_backend-modernization-plan.md).
 
 Workers share per-item PostgreSQL claims across hosts, with broadcast wake-ups and fenced publication. The scheduling repair adds independent outbox dispatch, rotating admission, and claim-time Analyst/Oracle dependency checks; see [shared worker scheduling](run_docs/DEVELOPMENT.md#shared-worker-scheduling).
 
@@ -45,25 +44,9 @@ Update this status as each boundary moves. Old pipeline descriptions in Git hist
 
 ## Creation and serving
 
-The application prepares the material a character needs. The Analyst currently receives form, mood, numeric movement, and prepared sourced memories. The Studio session builds its prompt, calls the selected model with the existing bounded correction policy, and validates the read for application publication. An empty Analyst assignment finishes without a model call or product row; the application still durably completes its claim and Oracle-barrier obligation. Invalid prose fails before publication. Direction and conviction remain deterministic measurements.
+Plugins prepare and scope evidence, call their injected model where needed, validate responses and publish through the harness's exact-claim transaction. Models receive supplied input and never call tools. Insufficient evidence can complete without inference; existing bounded correction, missing-data markers, debounce and partial-progress policies remain plugin-owned.
 
-Influencer receives current packets and rendered sourced memory. Never-scored empty material publishes an uncalled NULL marker; empty material after a prior real score gets one closing quiet read. Unchanged material debounces before memory rendering and model generation, while still offering Momentum work. Latest-row/prior-memory disagreement preserves the existing buried-read exception.
-
-Scout cognition and its typed preparation/publication adapter live together under `plugins/scout/`. The prepared assignment contains only its subject, selected measurements, trajectory, sourced context, prompt, options, and deterministic product fields. A no-stats result atomically publishes its NULL-body marker and the normal Momentum/Oracle obligation. An unchanged assignment publishes no row and records only the Oracle check. Transfer, availability, and packet-triggered reruns still bypass that stats-only debounce.
-
-Journalist cognition and its adapter live under `plugins/journalist/`, preparing a subject, bounded packet corpus, rendered memory/framing, input fingerprint, and options. The plugin owns the brief, prompt, tolerant parser, citation grounding, deterministic impact/source metadata, debounce, claim-aware publication, and durable follow-up obligations.
-
-Oracle lives under `plugins/oracle/` and receives a subject, typed narratives/Rating/Vibe/Momentum/transfer cards, explicit spread readiness, prepared identity, deterministic input components, and resolved inference. Its adapter owns pillar retrieval, the readiness barrier, debounce, exact-claim publication, and diagnostics; cognition owns the brief, calculations, parser/guards, empty marker, and model session.
-
-Insider lives under `plugins/insider/` and owns typed preparation, pair/identity cognition, per-pair partial progress, identity effects, claim policy, publication, and its durable follow-ups. Every current pair publication locks the exact team claim and atomically records its player Oracle barrier; final completion records the team barrier and deletes that lease.
-
-Editor lives under `plugins/editor/` and reads one prepared article assignment (source, title, description, body, hypothesis identities). Its adapter routes retrieval through the shared fetch broker, then owns debounce, SQL resolution, nominations, storyline attachment, and claim-aware publication. Cognition owns the unchanged `ep8` prompt, schema, parser, deterministic judgments, and model session.
-
-Investigator lives under `plugins/investigator/`; its adapter gathers evidence through scoped provider handles and atomically publishes candidate decisions, identities, team mappings, facts, source references, attempt stamps, and exact queue completion. Its operator factsweep uses the same plugin-owned inference boundary without a queue claim.
-
-Graph lives under `plugins/graph/`; cognition owns the unchanged `g5` prompt, parser, vocabulary, and model options, while its adapter owns typed SQL preparation, material debounce, routing, and claim-fenced publication.
-
-Other tasks have their own prerequisites. The Editor extracts evidence from articles; the Investigator verifies identities; the Scout interprets performance; the Journalist reports stories; the Influencer reads emotional charge; the Insider reads transfer developments; the Oracle creates a final reading from the supplied cards. These responsibilities do not imply that every task runs through every character.
+Harvester delivers exact attributed publisher context; characters own product sufficiency and articulation. SQL owns stored measurements and the completed Journalist, Insider, Analyst and Oracle metric calculations. The [Rust contract](rust/README.md) describes each workflow and the [completed cleanup plan](rust/docs/PLAN-harness-plugin-cleanup-2026-10-05.md) records request preservation and parity evidence.
 
 Serving stays precomputed:
 
@@ -81,10 +64,10 @@ The leaderboard owns discovery and hierarchy, including roster scope through `en
 |---|---|
 | `go/` | API, acquisition wiring, maintenance, notifications, authentication, and prepared reads. |
 | `sql/` | Durable schema, migrations, current analytics, triggers, and serving projections. |
-| `rust/src/studio/` | In-house harness, all nine migrated seat assignments, shared form, generation contracts, and the plugin contract (`plugin.rs`) plus fleet manifests (`fleet.rs`). |
-| `rust/src/application/` | Explicit retrieval, routing, publication, and work adapters for migrated seats; each presents its manifest-backed plugin face. |
-| `rust/src/runtime/` | Concrete model transports/routing, configuration, fetching, diagnostics, and exact queue operations. |
-| `rust/src/evidence/`, `rust/src/evaluation/` | Sourced-memory preparation, evidence adapters, offline probes, and evaluation of the same Studio contracts. |
+| `rust/src/harness/` | Registration, model transports, capability binding, durable execution and publication coordination. |
+| `rust/src/plugins/` | Concrete workflows, preparation, validation, publication effects and specialized tools. |
+| `rust/src/tools/` | Shared acquisition, identity, memory studies, form and source mechanics. |
+| `rust/src/evaluation/` | Offline evaluation and replay using production preparation/contracts. |
 | `go/internal/analytics/` | Existing analytical interface and Postgres/DuckDB engines. |
 | `scripts/hosting/` | Release, scheduling, backup, and recovery tooling. |
 | `run_docs/` | Development, endpoint, and operational contracts. |
@@ -100,6 +83,23 @@ Current acquisition includes the Go RSS funnel and Rust evidence/identity/fixtur
 (cd rust && cargo build --bin scoracle-cognition --bin statcommentary --bin factsweep)
 ```
 
+For the full CI runtime checks, create an **empty disposable PostgreSQL 18 database**
+(the tests write destructive fixtures) and run:
+
+```bash
+./scripts/check.sh 'postgres://postgres:postgres@localhost:5432/scoracle_test?sslmode=disable'
+```
+
+This restores the checked-in baseline, verifies zero pending migrations, builds the
+CGO memory-study helper into a temporary directory, and runs the SQL, Rust (including
+ignored database contracts), and Go checks. It never falls back to production database
+environment variables. PostgreSQL 18 client/server, Go with a C compiler, and Rust are
+required. Real-model replays still need Ollama/private corpora and run separately.
+Release builds and health probes do not establish that these contracts pass; run this
+check on the release candidate before using `scripts/hosting/release.sh`. A mandatory
+release gate should be agreed separately, including how a clean candidate is matched
+to its validation result.
+
 Studio's nine migrated seat creation tests, the plugin contract and fleet manifest tests, and application lifecycle tests require no service credentials. Model-quality evaluations and live database integration checks are separate gates. See [rust/README.md](rust/README.md).
 
 Local API startup:
@@ -110,7 +110,7 @@ go build -o bin/scoracle-api ./cmd/api
 ./bin/scoracle-api
 ```
 
-`.env.local` is gitignored; there is no committed `.env` template. Supply `DATABASE_PRIVATE_URL` or `DATABASE_URL` (private URL takes precedence). See [`go/internal/config/config.go`](go/internal/config/config.go) and [`rust/src/runtime/config.rs`](rust/src/runtime/config.rs) for current environment defaults. Model routing is configured through each plugin route's `COGNITION_ROUTE_<SUFFIX>` keys; routing chooses the backend outside Studio. Optional mobile auth uses `JWT_SECRET`; unset auth is unavailable.
+`.env.local` is gitignored; there is no committed `.env` template. Supply `DATABASE_PRIVATE_URL` or `DATABASE_URL` (private URL takes precedence). See [`go/internal/config/config.go`](go/internal/config/config.go) and [`rust/src/harness/config.rs`](rust/src/harness/config.rs) for current environment defaults. Model routing is configured through each plugin route's `COGNITION_ROUTE_<SUFFIX>` keys; routing chooses the backend outside Studio. Optional mobile auth uses `JWT_SECRET`; unset auth is unavailable.
 
 Use the [runbook](run_docs/RUNBOOK.md) and [release tooling](scripts/hosting/README.md) for deployment and rollback. A source commit or local test run does not establish the deployed version.
 

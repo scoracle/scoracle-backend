@@ -1,0 +1,22 @@
+{
+  "expect": {},
+  "name": "no-new-material-nothing-eligible:-no-call,-no-package",
+  "parts": {
+    "memory": [],
+    "reports": [],
+    "subject": {
+      "entity_id": 7,
+      "entity_type": "team",
+      "name": "Cedar United",
+      "sport": "FOOTBALL"
+    }
+  },
+  "prompt_version": "n96-six-part",
+  "review": [
+    "An empty world produces no report. A body here would be an invented story."
+  ],
+  "system": "",
+  "task": "narratives",
+  "temperature": 0.0,
+  "user_prompt": "{\"meta\":{\"name\":\"Cedar United\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\"},\"fresh\":[],\"voice\":\"Clear, restrained and direct.\",\"form\":{\"keys\":[],\"max_chars\":1200}}"
+}

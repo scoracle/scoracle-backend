@@ -1,0 +1,84 @@
+{
+  "articles": 24,
+  "headline_rejections": [],
+  "label_status": "synthetic provisional development expectations",
+  "mismatches": [
+    {
+      "case_id": "football_contract",
+      "extra": [],
+      "missing": [
+        "insider"
+      ]
+    },
+    {
+      "case_id": "football_denial",
+      "extra": [],
+      "missing": [
+        "journalist"
+      ]
+    },
+    {
+      "case_id": "nba_result",
+      "extra": [],
+      "missing": [
+        "scout"
+      ]
+    },
+    {
+      "case_id": "nba_other_team",
+      "extra": [
+        "journalist"
+      ],
+      "missing": []
+    },
+    {
+      "case_id": "nfl_injury",
+      "extra": [
+        "insider"
+      ],
+      "missing": []
+    },
+    {
+      "case_id": "nfl_other_team",
+      "extra": [
+        "insider"
+      ],
+      "missing": []
+    }
+  ],
+  "model_revisions": [
+    "55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851"
+  ],
+  "per_route": {
+    "influencer": {
+      "FN": 0,
+      "FP": 0,
+      "TN": 20,
+      "TP": 4
+    },
+    "insider": {
+      "FN": 1,
+      "FP": 2,
+      "TN": 12,
+      "TP": 9
+    },
+    "journalist": {
+      "FN": 1,
+      "FP": 1,
+      "TN": 7,
+      "TP": 15
+    },
+    "scout": {
+      "FN": 1,
+      "FP": 0,
+      "TN": 18,
+      "TP": 5
+    }
+  },
+  "route_pairs": {
+    "FN": 3,
+    "FP": 3,
+    "TN": 57,
+    "TP": 33
+  }
+}

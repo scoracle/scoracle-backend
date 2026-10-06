@@ -26,15 +26,15 @@ path = "src/bin/eval.rs"
 name = "statcommentary"
 path = "src/bin/statcommentary.rs"
 
-# Nightly dynamic-metadata sweep: adjudicates person affiliations from news
-# evidence, policy-gated, fail-closed.
+# Retained operator command: explicitly unavailable until reporting-based canonical
+# extraction has an evaluated evidence gate. No database access or inference.
 [[bin]]
 name = "factsweep"
 path = "src/bin/factsweep.rs"
 
 [dependencies]
 # Async runtime.
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "time"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "time", "process", "io-util"] }
 
 # Postgres pool + LISTEN/NOTIFY. Runtime query API only (no `query!` macros), so a
 # build needs no live DATABASE_URL; DB is localhost sslmode=disable, so no TLS feature.

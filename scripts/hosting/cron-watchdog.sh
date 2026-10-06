@@ -19,8 +19,12 @@
 #                      <80% of teams covered = ALARM.
 #   voice_output     — per sport: newest vibe_scores.generated_at within 48h
 #                      (the voices are producing, not just queued)
-#   packet_compile   — newest packets.compiled_at within 36h (the rail compiles)
-#   dead_letters     — pipeline_work failed at the attempt cap (>25 = ALARM)
+#   packet_compile   — newest packets.compiled_at within 36h (Editor mode)
+#   harvester_coverage — per sport: swept query teams with a classification (Harvester mode)
+#   harvester_classification — newest classification within 36h (Harvester mode)
+#   dead_letters     — non-Harvester work failed at the attempt cap (>25 = ALARM)
+#   harvester_acquisition_errors — count-only retrieval failures in the latest sweep
+#   harvester_classification_errors — failed Laya calls in the latest sweep
 #   drain_alive      — claimable work exists but NOTHING produced in 30 min
 #                      (a dead/wedged daemon; depth alone is recovery, not failure)
 #   queue_depth      — claimable count sanity bound (>20k = runaway inflow)
@@ -34,6 +38,9 @@
 # Reporting: one pipeline_runs row per run (job='watchdog'; status failed +
 # the alarm lines in error), so `SELECT * FROM pipeline_runs_latest` shows it
 # beside the jobs it watches. Non-zero exit on any alarm (cron surfaces it).
+# Set WATCHDOG_SOURCE_MODE=harvester only when Harvester is the live intake owner.
+# The default remains editor throughout shadowing; the Harvester mode requires
+# migrations 269+ and replaces Editor/packet-specific freshness checks.
 # Optional: set WATCHDOG_ALERT_URL in .env.local (e.g. an ntfy.sh topic) and
 # alarms are POSTed there as plain text.
 #
@@ -52,12 +59,23 @@ set -a
 [ -f .env.local ] && source .env.local
 set +a
 
+SOURCE_MODE="${WATCHDOG_SOURCE_MODE:-editor}"
+case "$SOURCE_MODE" in
+  editor|harvester) ;;
+  *) echo "watchdog: invalid WATCHDOG_SOURCE_MODE=$SOURCE_MODE" >&2; exit 2 ;;
+esac
+
 STAMP="$(date '+%Y-%m-%dT%H:%M:%S%z')"
 
 # One SQL pass; every check emits: name|status|detail.
-RESULT="$(psql "$DATABASE_URL" -X -q -A -t -F'|' <<'SQL'
+RESULT="$(psql "$DATABASE_URL" -X -q -A -t -F'|' -v source_mode="$SOURCE_MODE" <<'SQL'
 WITH ingest AS (
   SELECT max(fetched_at) AS newest FROM news_articles
+),
+latest_pipeline_ingest AS (
+  SELECT started_at,finished_at FROM public.pipeline_runs
+   WHERE job='pipeline' AND finished_at IS NOT NULL
+   ORDER BY started_at DESC LIMIT 1
 ),
 reads AS (
   -- editor_reads is the one-rail Editor's ledger; news_article_readings was the
@@ -78,6 +96,22 @@ reads AS (
     ) per_team
    GROUP BY 1
 ),
+harvester_reads AS (
+  SELECT sport, count(*) AS swept, count(*) FILTER (WHERE read_n > 0) AS read
+    FROM (
+      SELECT q.sport, q.entity_id AS team,
+             count(c.id) AS read_n
+        FROM public.harvester_query_provenance q
+        JOIN latest_pipeline_ingest r
+          ON q.last_seen_at BETWEEN r.started_at AND r.finished_at
+        LEFT JOIN public.harvester_classifications c
+          ON c.article_id=q.article_id AND c.entity_type=q.entity_type
+         AND c.entity_id=q.entity_id AND c.sport=q.sport
+       WHERE q.entity_type='team'
+       GROUP BY q.sport, q.entity_id
+    ) per_team
+   GROUP BY sport
+),
 vibes AS (
   SELECT sport, max(generated_at) AS newest
     FROM vibe_scores GROUP BY 1
@@ -85,9 +119,23 @@ vibes AS (
 pack AS (
   SELECT max(compiled_at) AS newest FROM packets
 ),
+harvest AS (
+  SELECT max(created_at) AS newest FROM public.harvester_classifications
+),
 dead AS (
   SELECT count(*) AS n FROM pipeline_work
-   WHERE status = 'failed' AND attempts >= 5
+   WHERE stage <> 'harvester' AND status = 'failed' AND attempts >= 5
+),
+harvest_errors AS (
+  SELECT count(*) FILTER (WHERE h.status IN ('retryable_error','blocked','low_content')) AS acquisition,
+         count(*) FILTER (WHERE h.status='classification_error') AS classification
+    FROM public.harvester_acquisitions h
+   WHERE EXISTS (
+     SELECT 1 FROM public.harvester_query_provenance q
+     JOIN latest_pipeline_ingest r
+       ON q.last_seen_at BETWEEN r.started_at AND r.finished_at
+     WHERE q.article_id=h.article_id
+   )
 ),
 recent AS (
   SELECT count(*) AS produced FROM cognition_ledger
@@ -134,7 +182,12 @@ UNION ALL
 SELECT 'editor_reads[' || sport || ']',
        CASE WHEN swept = 0 OR read * 100 >= swept * 80 THEN 'OK' ELSE 'ALARM' END,
        read || '/' || swept || ' swept teams have a read'
-  FROM reads
+  FROM reads WHERE :'source_mode'='editor'
+UNION ALL
+SELECT 'harvester_coverage[' || sport || ']',
+       CASE WHEN swept = 0 OR read * 100 >= swept * 80 THEN 'OK' ELSE 'ALARM' END,
+       read || '/' || swept || ' swept query teams have a classification'
+  FROM harvester_reads WHERE :'source_mode'='harvester'
 UNION ALL
 SELECT 'voice_output[' || sport || ']',
        CASE WHEN newest > now() - interval '48 hours' THEN 'OK' ELSE 'ALARM' END,
@@ -144,12 +197,26 @@ UNION ALL
 SELECT 'packet_compile',
        CASE WHEN newest > now() - interval '36 hours' THEN 'OK' ELSE 'ALARM' END,
        'newest packet ' || coalesce(newest::text, 'none')
-  FROM pack
+  FROM pack WHERE :'source_mode'='editor'
+UNION ALL
+SELECT 'harvester_classification',
+       CASE WHEN newest > now() - interval '36 hours' THEN 'OK' ELSE 'ALARM' END,
+       'newest classification ' || coalesce(newest::text, 'none')
+  FROM harvest WHERE :'source_mode'='harvester'
 UNION ALL
 SELECT 'dead_letters',
        CASE WHEN n <= 25 THEN 'OK' ELSE 'ALARM' END,
-       n || ' at attempt cap'
+       n || ' non-Harvester rows at attempt cap'
   FROM dead
+UNION ALL
+SELECT 'harvester_acquisition_errors', 'INFO',
+       acquisition || ' publisher acquisition failures in latest sweep'
+  FROM harvest_errors WHERE :'source_mode'='harvester'
+UNION ALL
+SELECT 'harvester_classification_errors',
+       CASE WHEN classification = 0 THEN 'OK' ELSE 'ALARM' END,
+       classification || ' Laya errors in latest sweep'
+  FROM harvest_errors WHERE :'source_mode'='harvester'
 UNION ALL
 -- A deep queue draining at speed is recovery, not failure (the 08-15 backlog
 -- morning): stall means claimable work exists AND nothing was produced in 30

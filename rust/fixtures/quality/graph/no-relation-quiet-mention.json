@@ -7,11 +7,11 @@
     "relations_max": 0
   },
   "name": "no-relation-quiet-mention",
-  "prompt_version": "g5",
+  "prompt_version": "g7-nominations",
   "task": "graph",
   "temperature": 0.2,
   "user_prompt": "Article source: espn\nPublished: 2026-07-19\nTitle: Five fixtures to watch this weekend\nText: Saturday's slate includes Aston Villa hosting Brentford at Villa Park, with both sides naming unchanged squads from midweek. Kick-off is 15:00 BST.\n\nIdentity context, not event evidence. Distinguish current roles from career history; dated reporting may supersede these records. Unknown means unknown.\nKnown entities (use these numbers):\n1. Aston Villa (team)\n2. Brentford (team)\n\nReturn the JSON now.",
   "review": [
-    "Attach extracted relationships to the correct supplied entities; ordinary mentions do not establish relationships."
+    "Names and score lines are source-bound review requests. Relation, role and fixture fact extraction remain unavailable."
   ]
 }

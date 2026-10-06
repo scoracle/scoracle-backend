@@ -3,57 +3,40 @@
 //! Live cases read corpus data without claiming work or publishing products.
 //! Mechanical checks and optional numeric labels complement human review of the generated work.
 
-use crate::application::models::Models;
-use crate::evidence::corpus::lookup_entity_name;
-use crate::plugins::analyst::adapter::load_momentum_context;
-use crate::plugins::analyst::cognition::{
-    parse_momentum_reply, MOMENTUM_NUM_PREDICT, MOMENTUM_SYSTEM_PROMPT,
-};
-use crate::plugins::editor::adapter::build_editor_prompt_for_eval;
-use crate::plugins::editor::cognition::{
-    derive as editor_derive, editor_opts, EditorRead, EditorReadParser, EDITOR_CONTRACT_VERSION,
-};
+use crate::harness::model::GenerateOptions;
+use crate::harness::models::Models;
+use crate::harness::route::RouteKey;
+use crate::harness::Parser;
+use crate::plugins::analyst::parser::parse_momentum_reply;
+use crate::plugins::analyst::prompt::load_momentum_context;
 use crate::plugins::graph::adapter::load_graph_article_context;
 use crate::plugins::graph::cognition::{
     build_graph_prompt, graph_opts, GraphCandidate, GraphParser, GRAPH_PROMPT_VERSION,
 };
-use crate::plugins::influencer::adapter::load_vibe_context;
-use crate::plugins::influencer::cognition::{
-    build_sentiment_prompt, parse_vibe_reply, VIBE_NUM_PREDICT,
+use crate::plugins::influencer::{prompt::VIBE_NUM_PREDICT, VibeParser};
+use crate::plugins::insider::prompt::preview as preview_insider;
+use crate::plugins::insider::prompt::{
+    options as insider_options, PROMPT_VERSION as INSIDER_PROMPT_VERSION,
 };
-use crate::plugins::insider::adapter::{
-    build_pair_request, load_candidates, team_relationship, PairBuild,
-};
-use crate::plugins::insider::cognition::{
-    transfer_system_prompt, TransferParser, TRANSFER_DEFAULT_MIN_ARTICLES, TRANSFER_NUM_PREDICT,
-};
+use crate::plugins::insider::Reply;
 use crate::plugins::investigator::cognition::prompt::{
     prose_opts, ProseReadParser, INVESTIGATOR_PROSE_CONTRACT_VERSION,
 };
-use crate::plugins::journalist::adapter::load_packet_corpus;
-use crate::plugins::journalist::cognition::{
-    build_narratives_prompt, narratives_format_schema, NarrativesParser, Subject,
-    NARRATIVES_NUM_PREDICT_PACKET, NARRATIVES_SYSTEM_PROMPT,
+use crate::plugins::journalist::prompt::CorpusItem;
+use crate::plugins::oracle::prompt::load_pillars;
+use crate::plugins::oracle::prompt::{
+    assemble as assemble_oracle_context, generation_options as oracle_generation_options,
+    Subject as OracleSubject, ORACLE_PROMPT_VERSION,
 };
-use crate::plugins::oracle::adapter::load_pillars;
-use crate::plugins::oracle::cognition::{
-    build_crown_prompt, build_pillar_divergence, compute_omen, count_sentences,
-    oracle_format_schema, parse_crown_reply, pillar_convergence, ORACLE_NUM_PREDICT,
-    ORACLE_SYSTEM_PROMPT,
-};
-use crate::plugins::scout::adapter::{build_rating_request, RatingReq};
-use crate::plugins::scout::cognition::{
-    RatingBuild, RatingReply, RATING_NUM_PREDICT, RATING_SYSTEM_PROMPT,
-};
-use crate::runtime::route::RouteKey;
-use crate::studio::model::GenerateOptions;
-use crate::studio::Parser;
+use crate::plugins::scout::prompt::{build_rating_request, RatingBuild, RatingReq};
+use crate::tools::guards::count_sentences;
+use crate::tools::meta::lookup_entity_name;
 use crate::util::truncate;
 use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-/// EntitySpec is one entity a case scores. Lives here (not in the bin) so `build_prompt` and the
+/// EntitySpec is one entity a case scores. Lives here (not in the bin) so `build_request` and the
 /// tests can construct it; the bin's CLI parser builds it from `entity_type:id:sport` tokens.
 #[derive(Clone, Debug)]
 pub struct EntitySpec {
@@ -88,7 +71,7 @@ pub struct LensParameters {
 }
 
 /// lens_parameters is the code home for the lens taxonomy — the six public characters plus the
-/// three internal seats (editor, investigator, graph). `operator` carries the character identity
+/// two evaluated internal seats (investigator, graph). `operator` carries the character identity
 /// (the cast locked in wiki/Characters.md, 2026-07-21); the junction's system prompt is that
 /// character's voice, so a voice change is a prompt change, never a rename here.
 ///
@@ -112,8 +95,8 @@ pub fn lens_parameters(name: &str) -> Option<LensParameters> {
         }),
         "vibe" => Some(LensParameters {
             operator: "The Influencer",
-            mandate: "Farm the engagement: find the emotion running through the entity's narratives and ride it into the felt read of the moment.",
-            credibility_guard: "Separate interactable mood from durable truth; the emotion must trace to the corpus — do not invent a narrative hook.",
+            mandate: "Articulate the plugin's supplied publisher reporting with its attribution and qualifications.",
+            credibility_guard: "Express feelings only when supplied by the source. History is context; sentiment remains unknown.",
         }),
         "rating" => Some(LensParameters {
             operator: "The Scout",
@@ -129,11 +112,6 @@ pub fn lens_parameters(name: &str) -> Option<LensParameters> {
             operator: "the Oracle",
             mandate: "Read the available evidence, deliver the entity's reading in the house voice, then render the score earned by its circumstances.",
             credibility_guard: "The mysticism lives in the telling, never the facts — ground every claim in the supplied evidence; invent nothing and expose no internal field or product names.",
-        }),
-        "editor" => Some(LensParameters {
-            operator: "The Editor",
-            mandate: "Read every arrival's full text and describe it richly for the newsroom — shape, names with descriptors, roles, result line, register, facts — so code can derive everything downstream.",
-            credibility_guard: "Describe, never judge: no relevance verdicts, no invented names or results — only what the text contains, with the descriptor copied from the text.",
         }),
         "investigator" => Some(LensParameters {
             operator: "The Investigator",
@@ -189,7 +167,10 @@ impl CaseVerdict {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Expect {
-    // vibe fixture score band (per-case boolean stand-in for the aggregate MAE axis).
+    /// Whether the articulation should pass instead of publish a card.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub abstain: Option<bool>,
+    // Score bands for products that supply a score.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub score_min: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -201,21 +182,6 @@ pub struct Expect {
     pub blurb_includes: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub blurb_excludes: Option<Vec<String>>,
-    // narrative grouping + grounding rubric.
-    /// Count discipline: the model must return at least / at most this many storylines. A quiet or
-    /// hype-only cycle should stay LOW (the system prompt: "A quiet cycle can return one narrative or
-    /// none"; "Ignore vague hype").
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub narratives_min: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub narratives_max: Option<i32>,
-    /// Specificity: at least one returned title contains each string (the real storyline is named).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub title_includes: Option<Vec<String>>,
-    /// Specificity / no-invention: no returned title contains any of these (catches generic
-    /// "Transfer news" titles and wrong-storyline framings).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub title_excludes: Option<Vec<String>>,
     /// Grounding: at least one returned body contains each string (names the who/what/where).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub body_includes: Option<Vec<String>>,
@@ -223,39 +189,10 @@ pub struct Expect {
     /// the corpus only has other teams scheming around them — the system prompt's hardest rule).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub body_excludes: Option<Vec<String>>,
-    /// Voice-direction check (OR-semantics, CASE-INSENSITIVE): at least ONE returned body contains at
-    /// least ONE of these strings. Unlike `body_includes` (every string must appear), this asserts a
-    /// storyline *voiced a direction at all* from a set of acceptable synonyms — the n9 fixtures use it
-    /// for "voiced this as CONTINUING / HEATING / COOLING" where the exact wording is free (the voice is
-    /// a draft, dialed in a later voice-tuning session). A voice-target axis, re-annotated when voice lands.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub body_includes_any: Option<Vec<String>>,
-    /// Grounding: every returned storyline must (`true`) cite ≥1 article number — an uncited storyline
-    /// is ungrounded and dropped downstream.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub all_cite_articles: Option<bool>,
-    /// Citation (n18, OR-semantics, case-insensitive): at least one returned body names at least
-    /// one of these publications — the fixture lists its corpus's `[source]` tags. The register
-    /// weaves the name into prose ("first reported by ESPN"); this axis only asserts a name
-    /// appears, never how.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub sources_any: Option<Vec<String>>,
     /// Edition budget (n18): total sentences across ALL returned bodies must not exceed this.
     /// Counted crudely (terminal .!? runs) — a ceiling against padding, not a style meter.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub total_sentences_max: Option<i32>,
-    /// The Journalist's card_score (n12 busyness verdict, 1-99): the reply must carry one inside
-    /// this band. Authored in the n17 pass — the field had been gate-invisible since n12 (the
-    /// D-T45 rule). A missing card_score FAILS any band check: the fixture asserting the band is
-    /// asserting the verdict exists at all.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub card_score_min: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub card_score_max: Option<i32>,
-    /// Grounding: no cited article number may fall outside `1..=max` — an out-of-range number is an
-    /// invented reference. The fixture sets this to its numbered-corpus length.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_article_num: Option<i32>,
     // transfer false-positive / true-positive rubric.
     /// Transfer adjudication: assert whether the model commits to a served rumor (`true`) or clears
     /// the pair (`false`). `None` in a parsed verdict is the UNKNOWN/fail-closed path and fails
@@ -332,55 +269,6 @@ pub struct Expect {
     /// No player leakage / no invention: no parsed person name may contain any of these.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub persons_exclude: Option<Vec<String>>,
-    // editor / relevance-gate rubric.
-    /// THE relevance verdict — `ArticleEvidence::relevant`, the single field the whole news rail
-    /// gates on. `false` pins an article the Editor must REJECT.
-    ///
-    /// This axis exists because the Editor ran as sole relevance judge with no eval coverage at
-    /// all, and a 2026-07-26 measurement found gemma3:4b rejecting 0.9% against mistral's
-    /// rank-matched 27.4% — passing 26 boxscore stubs, 18 broadcast listings and 46 odds pages
-    /// with ZERO rejections. A gate nobody scores is not a gate.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub article_relevant: Option<bool>,
-    /// Grounding on an ACCEPTED article: each string must appear in the parsed `key_facts`
-    /// (joined). Guards the other direction — a fixture set that only pinned rejections would be
-    /// passed by a model that rejects everything.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub key_facts_include: Option<Vec<String>>,
-    /// No-invention on the facts the Journalist inherits: no parsed `key_fact` may contain any of
-    /// these (e.g. a team name the article never mentions).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub key_facts_exclude: Option<Vec<String>>,
-    /// The fixture prompt's VETTED entity list. `evaluate` hands it to `ArticleEvidenceParser` so
-    /// the real production derivation runs — and it is load-bearing, not decoration: only vetted
-    /// entities' roles count toward the verdict, because the model reliably volunteers extra
-    /// people from the body and an unfiltered vote lets them overturn a correct `opponent`.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub reader_vetted: Option<Vec<String>>,
-    /// DISCOVERY (ar7/C1): each string must appear in the parsed `relevant_entities`. This is the
-    /// axis for the bleed the whole newsroom plan turns on — the Editor read 99 articles mentioning
-    /// Vinicius Junior and linked him in 24 — and until ar7 the field it was supposed to name him
-    /// in had **no definition anywhere in the prompt**: `relevant_entities` appeared exactly once,
-    /// in the JSON template, as `"relevant_entities":["<name>", "..."]`.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub names_include: Option<Vec<String>>,
-    /// PRECISION on the same field: none of these may appear. B4's backfill measured what an
-    /// undefined field collects — `Paris` on a Tour de France story, `Moulin Rouge`, and on a
-    /// mining-stock article the invented `Fortuna Düsseldorf`. Every name that RESOLVES becomes an
-    /// entity link the moment B1 wires this field to the resolver, so discovery and precision have
-    /// to be scored together or ar7 just trades one error class for another.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub names_exclude: Option<Vec<String>>,
-    /// C2: the expected emotional register. Pinned in BOTH directions on purpose — a fixture set
-    /// that only pinned non-neutral cases would be passed by a model that calls everything
-    /// `outrage`, which is the same shape of failure as ar3's 99.1% `relevant:true`.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub register_is: Option<String>,
-    // greenfield editor (ep1) rubric — the fields below score the ep1 contract's additions.
-    /// ep1 topic pin (e.g. a hiring must be `roster` — the §1a ruling). Sparse use: story_type
-    /// discriminates well since the ar5 collapse was fixed, so only rule-bearing cases pin it.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub story_type_is: Option<String>,
     // The Investigator's prose contract (`ip1`) axes — verbatim-quote fields, checked as
     // fragments of what the model copied (containment against the page is the GATE's job;
     // the fixture asserts the model quoted the right things at all).
@@ -395,41 +283,6 @@ pub struct Expect {
     pub occupation_includes: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prose_teams_include: Option<Vec<String>>,
-    /// ep1 discovery kinds: each listed name must be emitted with exactly this `kind_hint`
-    /// (`{"Kyle Shanahan": "person"}`). The kind gate is what routes an unknown coach to
-    /// person-discovery instead of a fuzzy player match (T9), so it is scored, not assumed.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub name_kind_is: Option<std::collections::BTreeMap<String, String>>,
-    /// ep1 descriptors: each listed name must carry a non-empty `descriptor`. The descriptor is
-    /// the 5.2 first-sight nomination trigger, so a bare name here is a lost discovery.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub name_descriptor_nonempty: Option<Vec<String>>,
-    /// ep1 `result_line` substring checks (verbatim-or-empty; an empty expectation is pinned by
-    /// including nothing and asserting `result_line_parses: false`).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub result_line_includes: Option<Vec<String>>,
-    /// Whether the PRODUCTION `derive::parse_result_line` must parse the emitted line. `true`
-    /// pins a completed result the code can consume; `false` pins that no phantom result parses.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub result_line_parses: Option<bool>,
-    /// Fixture-declared `entity_name_surfaces` rows for the resolver simulation: the eval runs
-    /// the PRODUCTION grouping/kind-gate (`derive::group_hits`) against these, with
-    /// case-insensitive name equality standing in for the database's `nrm()` exact match.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub resolver_surfaces: Option<Vec<ResolverSurfaceFx>>,
-    /// Names that must AUTO-LINK given the declared surfaces.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub resolver_links_include: Option<Vec<String>>,
-    /// Names that must NOT auto-link (the Paris case: the surface exists and the kind gate —
-    /// fed by the model's own kind_hint — must refuse it).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub resolver_links_exclude: Option<Vec<String>>,
-    /// Names that must land in `unresolved` — the Investigator's discovery channel.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub resolver_unresolved_include: Option<Vec<String>>,
-    /// Names that must be REFUSED as ambiguous (the namesake tie — never a coin flip).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub resolver_refused_include: Option<Vec<String>>,
     // oracle / persona-reading rubric.
     /// Reading substring checks, matched CASE-INSENSITIVELY (a voice lens varies casing freely;
     /// the jargon-exclusion checks must catch "Convergence" as well as "convergence").
@@ -438,7 +291,7 @@ pub struct Expect {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reading_excludes: Option<Vec<String>>,
     /// The conventions' 2-4 sentence read budget, encoded as fixture validation
-    /// (`oracle::count_sentences`).
+    /// (`guards::count_sentences`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reading_min_sentences: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -449,16 +302,16 @@ pub struct Expect {
     // conviction) are computed by the junction and unit-tested there, not gated here.
 }
 
-/// One fixture-declared surface row for the greenfield editor's resolver simulation — the
-/// database state `derive::group_hits` is scored against.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ResolverSurfaceFx {
-    pub name: String,
-    pub entity_type: String,
-    pub entity_id: i32,
-}
-
 /// Selected evidence plus assertions and review criteria. `system` exists only for historical replay.
+///
+/// `parts` is the plugin's own input, kept so the harness can re-assemble the
+/// package with the plugin's CURRENT assembler. `user_prompt` is the captured
+/// render, retained for review and for the tasks that have no parts yet; a test
+/// asserts the two agree, so a change to a plugin's assembler fails here rather
+/// than silently invalidating a stored string. A plugin that assembles from
+/// parts records them; a plugin whose prompt is still a string records only
+/// `user_prompt`, and a task declares which it is through
+/// [`LensTask::stores_parts`].
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Fixture {
     pub name: String,
@@ -469,6 +322,11 @@ pub struct Fixture {
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub system: String,
     pub user_prompt: String,
+    /// The plugin's input, in the shape its assembler consumes. Present for a
+    /// task whose `stores_parts()` is true; absent for one still holding a
+    /// captured string.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parts: Option<serde_json::Value>,
     pub temperature: f64,
     #[serde(default)]
     pub expect: Expect,
@@ -478,7 +336,7 @@ pub struct Fixture {
 }
 
 /// A lens eval task: the routing + prompt + scoring seam `bin/eval` runs against. Object-safe
-/// (`build_prompt` boxed by `async_trait`), so tasks dispatch through `Box<dyn LensTask>`.
+/// (`build_request` boxed by `async_trait`), so tasks dispatch through `Box<dyn LensTask>`.
 #[async_trait]
 pub trait LensTask: Send + Sync {
     /// Registry key (`"vibe"`, `"oracle"`) — also the `fixtures/quality/<name>/` dir.
@@ -500,38 +358,134 @@ pub trait LensTask: Send + Sync {
     fn prompt_version(&self) -> &'static str;
     /// system + num_predict + json_mode from the stage consts; the caller chooses `temperature`
     /// (live = 0.0; fixture = the authored value).
-    fn gen_options(&self, temperature: f64) -> GenerateOptions;
+    ///
+    /// Fallible because a plugin whose decode contract is a function of the
+    /// prepared world — the Journalist's keyed schema and its history-bearing
+    /// manual — cannot supply one option set. Those plugins return their real
+    /// options from [`LensTask::assemble`] and refuse here, rather than handing
+    /// back a plausible-looking contract that does not match the package.
+    fn gen_options(&self, temperature: f64) -> Result<GenerateOptions>;
     /// Optional per-case override for tasks whose system prompt depends on the live case.
-    fn gen_options_for(&self, temperature: f64, e: &EntitySpec) -> GenerateOptions {
+    fn gen_options_for(&self, temperature: f64, e: &EntitySpec) -> Result<GenerateOptions> {
         self.gen_options_for_sport(temperature, &e.sport)
     }
-    fn gen_options_for_sport(&self, temperature: f64, _sport: &str) -> GenerateOptions {
+    fn gen_options_for_sport(&self, temperature: f64, _sport: &str) -> Result<GenerateOptions> {
         self.gen_options(temperature)
     }
     /// Build the EXACT production user-prompt for an entity. `Ok(None)` = no-corpus skip (the stage
     /// would write a marker without a model call — nothing to score).
-    async fn build_prompt(
+    async fn build_request(
         &self,
         pool: &sqlx::PgPool,
         models: &Models,
         e: &EntitySpec,
-    ) -> Result<Option<String>>;
+    ) -> Result<Option<Prepared>>;
     /// Parse + score one raw reply. Pure/sync/offline. `label` drives the MAE axis (vibe live);
     /// `expect` drives the property axis (fixtures). Both optional and independent.
     fn evaluate(&self, raw: &str, label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict;
+    /// Rebuild this plugin's request from stored fixture `parts`.
+    ///
+    /// The package AND the decode options, because for a plugin whose contract
+    /// depends on the world they are one artifact: replaying a stored prompt
+    /// against a fixed schema tests a request production never sends. The default
+    /// refuses rather than falling back to the stored string, so a plugin without
+    /// an assembler cannot quietly pass on a stale capture.
+    fn assemble(&self, _parts: &serde_json::Value) -> Result<Prepared> {
+        anyhow::bail!(
+            "{} has no parts assembler; its fixtures store a captured prompt",
+            self.name()
+        )
+    }
+    /// Whether this task's fixtures store `parts` rather than only a prompt string.
+    ///
+    /// True means every one of this task's fixtures must carry parts that
+    /// `assemble` rebuilds byte-identically to the stored `user_prompt`. It is a
+    /// declaration, so a plugin that migrates states it rather than leaving the
+    /// harness to guess.
+    fn stores_parts(&self) -> bool {
+        false
+    }
+
+    fn prepare_fixture(&self, fixture: &Fixture) -> Result<Prepared> {
+        anyhow::ensure!(
+            !self.stores_parts() || fixture.parts.is_some(),
+            "{} fixture stores no parts",
+            self.name()
+        );
+        let mut request = if let Some(parts) = &fixture.parts {
+            let request = self.assemble(parts)?;
+            anyhow::ensure!(
+                request.user_prompt == fixture.user_prompt,
+                "{} fixture package drift; recapture from parts",
+                self.name()
+            );
+            request
+        } else {
+            Prepared::captured(
+                fixture.user_prompt.clone(),
+                self.gen_options_for_sport(fixture.temperature, &fixture.sport)?,
+            )
+        };
+        request.options.temperature = Some(fixture.temperature);
+        Ok(request)
+    }
+
+    fn evaluate_prepared(
+        &self,
+        request: &Prepared,
+        raw: &str,
+        label: Option<f64>,
+        expect: Option<&Expect>,
+    ) -> CaseVerdict {
+        let _ = request;
+        self.evaluate(raw, label, expect)
+    }
+}
+
+/// One plugin request rebuilt from a fixture's parts.
+///
+/// Produced by the plugin's own preparation, so the prompt, the manual and the
+/// response schema are the same three artifacts production sends. Keeping them
+/// together is the point: a harness that reassembles the prompt but keeps a
+/// fixed schema has tested a request that does not exist.
+#[derive(Clone, Debug)]
+pub struct Prepared {
+    pub user_prompt: String,
+    pub options: GenerateOptions,
+    pub parts: Option<serde_json::Value>,
+    pub should_call: bool,
+}
+
+impl Prepared {
+    pub fn captured(user_prompt: String, options: GenerateOptions) -> Self {
+        Self {
+            user_prompt,
+            options,
+            parts: None,
+            should_call: true,
+        }
+    }
+}
+
+fn rejected(reason: &str) -> CaseVerdict {
+    CaseVerdict {
+        parsed: false,
+        abs_err: None,
+        checks: vec![],
+        display: reason.into(),
+    }
 }
 
 /// resolve_task maps a task name to its `LensTask`. Adding a task = a new unit struct + one arm.
 pub fn resolve_task(name: &str) -> Option<Box<dyn LensTask>> {
     match name {
+        "narratives" => Some(Box::new(NarrativesTask)),
         "vibe" => Some(Box::new(VibeTask)),
         "oracle" => Some(Box::new(OracleTask)),
-        "narratives" => Some(Box::new(NarrativeTask)),
         "transfer" => Some(Box::new(TransferTask)),
         "rating" => Some(Box::new(RatingTask)),
         "momentum" => Some(Box::new(MomentumTask)),
         "graph" => Some(Box::new(GraphTask)),
-        "editor" => Some(Box::new(EditorTask)),
         "investigator" => Some(Box::new(InvestigatorTask)),
         _ => None,
     }
@@ -540,24 +494,199 @@ pub fn resolve_task(name: &str) -> Option<Box<dyn LensTask>> {
 /// all_task_names lists the registered tasks (for usage output + unknown-task errors).
 pub fn all_task_names() -> &'static [&'static str] {
     &[
+        "narratives",
         "vibe",
         "oracle",
-        "narratives",
         "transfer",
         "rating",
         "momentum",
         "graph",
-        "editor",
         "investigator",
     ]
 }
 
 // ---------------------------------------------------------------------------
-// VibeTask — behavior-preserving port of the original hardcoded eval path.
+// NarrativesTask — the Journalist's own parts, assembler and keyed parser.
+//
+// The window that deployed this plugin had no shared-harness coverage at all:
+// `fixtures/quality/narratives/` was empty and "narratives" was absent from
+// `all_task_names()`, so the only gate was a bespoke replay example. Fixtures
+// here store `journalist::prompt::Parts` and are rebuilt through the plugin's current
+// assembler, so a change to the package is a test failure rather than a stored
+// string that quietly stops matching production.
 // ---------------------------------------------------------------------------
+pub struct NarrativesTask;
 
+#[async_trait]
+impl LensTask for NarrativesTask {
+    fn name(&self) -> &'static str {
+        "narratives"
+    }
+    fn role(&self) -> RouteKey {
+        crate::plugins::journalist::manifest::ROUTE
+    }
+    fn prompt_version(&self) -> &'static str {
+        crate::plugins::journalist::prompt::NARRATIVES_PROMPT_VERSION
+    }
+    fn gen_options(&self, _temperature: f64) -> Result<GenerateOptions> {
+        // The system prompt and the response schema both depend on what the world
+        // holds — the schema is keyed by report count, the manual by whether any
+        // report carries history — so there is no one option set to return here.
+        // `assemble` produces the real request; handing back a fixed one would
+        // let a fixture pass against a contract production never sends.
+        anyhow::bail!(
+            "narratives options depend on the prepared world; assemble a fixture's parts instead"
+        )
+    }
+    async fn build_request(
+        &self,
+        pool: &sqlx::PgPool,
+        _models: &Models,
+        e: &EntitySpec,
+    ) -> Result<Option<Prepared>> {
+        let subject = crate::tools::meta::EntityMeta {
+            name: lookup_entity_name(pool, &e.entity_type, e.entity_id, &e.sport).await?,
+            entity_type: e.entity_type.clone(),
+            entity_id: e.entity_id,
+            sport: e.sport.to_uppercase(),
+        };
+        let sources = crate::plugins::harvester::delivery::load_for_character(
+            pool,
+            crate::plugins::journalist::manifest::MANIFEST.id.as_str(),
+            &subject.entity_type,
+            subject.entity_id,
+            &subject.sport,
+        )
+        .await?;
+        if sources.is_empty() {
+            return Ok(None);
+        }
+        let corpus = sources.iter().map(CorpusItem::from).collect::<Vec<_>>();
+        let now = crate::plugins::influencer::now();
+        let continuity =
+            crate::plugins::journalist::memories::load_for_assignment(pool, &subject, &corpus, now)
+                .await?;
+        let assignment =
+            crate::plugins::journalist::prompt::prepare(subject, corpus, &continuity, now)?;
+        // No selected report is a no-call, not a package with nothing in it.
+        if assignment.selected.is_empty() {
+            return Ok(None);
+        }
+        Ok(Some(self.assemble(&serde_json::to_value(
+            crate::plugins::journalist::prompt::Parts {
+                subject: assignment.subject,
+                reports: assignment.selected,
+                memory: assignment.memories,
+            },
+        )?)?))
+    }
+    fn evaluate(&self, _raw: &str, _label: Option<f64>, _expect: Option<&Expect>) -> CaseVerdict {
+        rejected("Journalist evaluation requires the prepared request")
+    }
+    fn evaluate_prepared(
+        &self,
+        request: &Prepared,
+        raw: &str,
+        _label: Option<f64>,
+        expect: Option<&Expect>,
+    ) -> CaseVerdict {
+        let Some(count) = request
+            .parts
+            .as_ref()
+            .and_then(|p| p["reports"].as_array())
+            .map(Vec::len)
+        else {
+            return rejected("Journalist evaluation requires report parts");
+        };
+        match crate::tools::form::parse_journalist(raw, count) {
+            Ok(reply) => {
+                let bodies = reply
+                    .narratives
+                    .iter()
+                    .map(|report| report.text.as_str())
+                    .collect::<Vec<_>>();
+                let joined = bodies.join("\n\n");
+                let mut checks = Vec::new();
+                if let Some(expect) = expect {
+                    for needle in expect.body_includes.iter().flatten() {
+                        let pass = contains_ci(&joined, needle);
+                        checks.push(PropertyCheck {
+                            name: format!("body includes {needle:?}"),
+                            pass,
+                            detail: String::new(),
+                        });
+                    }
+                    for needle in expect.body_excludes.iter().flatten() {
+                        let pass = !contains_ci(&joined, needle);
+                        checks.push(PropertyCheck {
+                            name: format!("body excludes {needle:?}"),
+                            pass,
+                            detail: String::new(),
+                        });
+                    }
+                    if let Some(max) = expect.total_sentences_max {
+                        let sentences: i32 = bodies
+                            .iter()
+                            .map(|body| crate::tools::guards::count_sentences(body) as i32)
+                            .sum();
+                        checks.push(PropertyCheck {
+                            name: format!("total sentences ≤ {max}"),
+                            pass: sentences <= max,
+                            detail: format!("{sentences} sentences"),
+                        });
+                    }
+                }
+                CaseVerdict {
+                    parsed: true,
+                    abs_err: None,
+                    checks,
+                    display: joined,
+                }
+            }
+            Err(_) => CaseVerdict {
+                parsed: false,
+                abs_err: None,
+                checks: vec![],
+                display: "unparseable".into(),
+            },
+        }
+    }
+    fn assemble(&self, stored_parts: &serde_json::Value) -> Result<Prepared> {
+        let parts: crate::plugins::journalist::prompt::Parts =
+            serde_json::from_value(stored_parts.clone())
+                .map_err(|e| anyhow::anyhow!("narratives parts: {e}"))?;
+        let subject = parts.subject.clone();
+        let reports = parts.reports.clone();
+        let memories = parts.memory.clone();
+        // Rebuild the assignment the parts describe, then take BOTH the package
+        // and the options from the plugin's own functions. The system prompt
+        // depends on whether any report carries history and the schema is keyed
+        // by report count, so neither is knowable from the parts alone.
+        let assignment = crate::plugins::journalist::prompt::Assignment {
+            subject,
+            selected: reports,
+            memories,
+            memory_receipt: None,
+            dispositions: Vec::new(),
+            deferred_ids: Vec::new(),
+            input_hash: String::new(),
+        };
+        Ok(Prepared {
+            parts: Some(stored_parts.clone()),
+            should_call: !assignment.selected.is_empty(),
+            user_prompt: crate::plugins::journalist::prompt::prompt(&assignment),
+            options: crate::plugins::journalist::prompt::generation_options(&assignment, 0),
+        })
+    }
+    fn stores_parts(&self) -> bool {
+        true
+    }
+}
+
+// ---------------------------------------------------------------------------
+// VibeTask — the same source package and score-free parser as production.
+// ---------------------------------------------------------------------------
 pub struct VibeTask;
-
 #[async_trait]
 impl LensTask for VibeTask {
     fn name(&self) -> &'static str {
@@ -567,153 +696,100 @@ impl LensTask for VibeTask {
         crate::plugins::influencer::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
-        // Archived open-prose fixtures; production now uses a finite palette.
-        "v36"
+        crate::plugins::influencer::prompt::VIBE_PROMPT_VERSION
     }
-    fn gen_options(&self, temperature: f64) -> GenerateOptions {
-        crate::plugins::influencer::cognition::generation_options(temperature, 0, VIBE_NUM_PREDICT)
+    fn gen_options(&self, temperature: f64) -> Result<GenerateOptions> {
+        Ok(crate::plugins::influencer::prompt::generation_options(
+            temperature,
+            0,
+            VIBE_NUM_PREDICT,
+        ))
     }
-    async fn build_prompt(
+    async fn build_request(
         &self,
         pool: &sqlx::PgPool,
         _models: &Models,
         e: &EntitySpec,
-    ) -> Result<Option<String>> {
-        let name = lookup_entity_name(pool, &e.entity_type, e.entity_id, &e.sport).await?;
-        let context = load_vibe_context(pool, &e.entity_type, e.entity_id, &name, &e.sport).await?;
-        if context.empty() {
+    ) -> Result<Option<Prepared>> {
+        let subject = crate::tools::meta::EntityMeta {
+            name: lookup_entity_name(pool, &e.entity_type, e.entity_id, &e.sport).await?,
+            entity_type: e.entity_type.clone(),
+            entity_id: e.entity_id,
+            sport: e.sport.to_uppercase(),
+        };
+        let sources = crate::plugins::harvester::delivery::load_for_character(
+            pool,
+            crate::plugins::influencer::manifest::MANIFEST.id.as_str(),
+            &subject.entity_type,
+            subject.entity_id,
+            &subject.sport,
+        )
+        .await?;
+        let Some(source) = sources.last() else {
             return Ok(None);
-        }
-        Ok(Some(build_sentiment_prompt(
-            &e.entity_type,
-            &name,
-            &e.sport,
-            &context.packets,
-            Some(&context.memories.render()?),
-        )))
+        };
+        let (assignment, _) = crate::plugins::influencer::prompt::prepare_assignment(
+            pool,
+            subject,
+            source,
+            crate::plugins::influencer::now(),
+        )
+        .await?;
+        assignment
+            .map(|a| {
+                self.assemble(&serde_json::to_value(
+                    crate::plugins::influencer::prompt::Parts {
+                        subject: a.subject,
+                        source: a.source,
+                        history: a.history,
+                    },
+                )?)
+            })
+            .transpose()
     }
-    fn evaluate(&self, raw: &str, label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
-        match parse_vibe_reply(raw) {
-            Ok((s, hook, v)) => {
-                // Score the prose that production serves, after the shared structural scrub.
-                let v = crate::plugins::support::guards::clean_served_prose(&v);
-                let mut checks = Vec::new();
-                // Contract-level invariants (the MOMENTUM_BANNED_PHRASES shape, folded 08-19):
-                // the HOOK contract and the body's global bans are enforced in production by
-                // `VibeParser`'s guards — the gate asserts the SAME rules, one check each,
-                // instead of the per-fixture `hook_*` expect entries they replaced. (Those
-                // axes carried the v17 D-T45 gate growth; the invariants inherit that duty.)
-                // The gate measures what SHIPS (the review-pass alignment, 2026-08-23):
-                // production runs the hook through `settle_title` — a two-beat overrun
-                // salvages to its first beat and serves — so a raw-hook check was redding
-                // titles the card actually carries, clean. Red only when settlement DROPS
-                // the title; name a salvage in the detail so the prose is still visible.
-                let settled =
-                    crate::plugins::support::guards::settle_title("gate", hook.as_deref());
-                checks.push(PropertyCheck {
-                    name: "hook_contract".into(),
-                    pass: settled.is_some(),
-                    detail: match (&hook, &settled) {
-                        (None, _) => "hook=MISSING".into(),
-                        (Some(h), None) => format!(
-                            "{} (hook={h:?}, unsalvageable — ships titleless)",
-                            crate::plugins::support::guards::hook_violation(h).unwrap_or("dropped")
-                        ),
-                        (Some(h), Some(s)) if s != h.trim() => format!("salvaged to {s:?}"),
-                        (Some(_), Some(_)) => String::new(),
-                    },
-                });
-                checks.push(product_name_check(&v));
-                if let Some(x) = expect {
-                    if let Some(min) = x.score_min {
-                        checks.push(PropertyCheck {
-                            name: "score_ge".into(),
-                            pass: s >= min,
-                            detail: format!("score={s} ≥ {min}"),
-                        });
-                    }
-                    if let Some(max) = x.score_max {
-                        checks.push(PropertyCheck {
-                            name: "score_le".into(),
-                            pass: s <= max,
-                            detail: format!("score={s} ≤ {max}"),
-                        });
-                    }
-                    for s in x.prose_includes.iter().flatten() {
-                        checks.push(PropertyCheck {
-                            name: format!("prose_includes:{s}"),
-                            pass: contains_ci(&v, s),
-                            detail: String::new(),
-                        });
-                    }
-                    for group in x.prose_includes_any.iter().flatten() {
-                        let hit: Vec<&str> = group
-                            .split('|')
-                            .filter(|s| !s.is_empty() && contains_ci(&v, s))
-                            .collect();
-                        checks.push(PropertyCheck {
-                            name: format!("prose_includes_any:[{group}]"),
-                            pass: !hit.is_empty(),
-                            detail: if hit.is_empty() {
-                                "no listed synonym voiced".into()
-                            } else {
-                                format!("voiced {hit:?}")
-                            },
-                        });
-                    }
-                    for s in x.prose_excludes.iter().flatten() {
-                        checks.push(PropertyCheck {
-                            name: format!("prose_excludes:{s}"),
-                            pass: !contains_ci(&v, s),
-                            detail: String::new(),
-                        });
-                    }
-                    let word_count = v.split_whitespace().count() as i32;
-                    if let Some(min) = x.prose_min_words {
-                        checks.push(PropertyCheck {
-                            name: "prose_words_ge".into(),
-                            pass: word_count >= min,
-                            detail: format!("words={word_count} ≥ {min}"),
-                        });
-                    }
-                    if let Some(max) = x.prose_max_words {
-                        checks.push(PropertyCheck {
-                            name: "prose_words_le".into(),
-                            pass: word_count <= max,
-                            detail: format!("words={word_count} ≤ {max}"),
-                        });
-                    }
-                    if let Some(max) = x.total_sentences_max {
-                        let total = sentence_runs(&v);
-                        checks.push(PropertyCheck {
-                            name: "total_sentences_le".into(),
-                            pass: total <= max,
-                            detail: format!("sentences={total} ≤ {max}"),
-                        });
-                    }
-                }
-                CaseVerdict {
-                    parsed: true,
-                    abs_err: label.map(|l| (s as f64 - l).abs()),
-                    checks,
-                    display: match &hook {
-                        Some(h) => format!("score={s} | {h} — {v}"),
-                        None => format!("score={s} | {v}"),
-                    },
-                }
-            }
+    fn evaluate(&self, raw: &str, _label: Option<f64>, _expect: Option<&Expect>) -> CaseVerdict {
+        match VibeParser.parse(raw) {
+            Ok(reply) => CaseVerdict {
+                parsed: true,
+                abs_err: None,
+                checks: vec![],
+                display: reply
+                    .and_then(|reply| reply.body)
+                    .unwrap_or_else(|| "empty reading".into()),
+            },
             Err(_) => CaseVerdict {
                 parsed: false,
                 abs_err: None,
-                checks: Vec::new(),
+                checks: vec![],
                 display: "unparseable".into(),
             },
         }
     }
+    fn assemble(&self, stored_parts: &serde_json::Value) -> Result<Prepared> {
+        let parts: crate::plugins::influencer::prompt::Parts =
+            serde_json::from_value(stored_parts.clone())
+                .map_err(|e| anyhow::anyhow!("vibe parts: {e}"))?;
+        Ok(Prepared {
+            parts: Some(stored_parts.clone()),
+            should_call: true,
+            user_prompt: parts.assemble(),
+            // The Influencer's contract does not vary with the world: one nullable
+            // `body` slot, one manual, whatever the source or the history. So the
+            // options are the plugin's own, not a per-fixture reconstruction.
+            options: crate::plugins::influencer::prompt::generation_options(
+                crate::plugins::influencer::prompt::VIBE_TEMPERATURE,
+                0,
+                VIBE_NUM_PREDICT,
+            ),
+        })
+    }
+    fn stores_parts(&self) -> bool {
+        true
+    }
 }
 
 // ---------------------------------------------------------------------------
-// OracleTask — the crown: reads all five pillar cards + prior reads, then emits {reading, score}.
+// OracleTask — the crown: reads the five finished cards, then emits {reading}.
 // (The panel SigilTask was retired in the crown fold, 2026-07-21.)
 // ---------------------------------------------------------------------------
 
@@ -728,54 +804,43 @@ impl LensTask for OracleTask {
         crate::plugins::oracle::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
-        "or24" // Archived free-text evaluation contract.
+        ORACLE_PROMPT_VERSION
     }
-    fn gen_options(&self, temperature: f64) -> GenerateOptions {
-        GenerateOptions {
-            system: Some(ORACLE_SYSTEM_PROMPT.to_string()),
-            temperature: Some(temperature),
-            num_predict: ORACLE_NUM_PREDICT,
-            num_ctx: 0,
-            json_mode: false,
-            // Grammar-constrained single-field reply, matching the live stage.
-            format_schema: Some(oracle_format_schema()),
-            format_schema_raw: None,
-        }
+    fn gen_options(&self, temperature: f64) -> Result<GenerateOptions> {
+        Ok(oracle_generation_options(temperature, 0))
     }
-    async fn build_prompt(
+    async fn build_request(
         &self,
         pool: &sqlx::PgPool,
         _models: &Models,
         e: &EntitySpec,
-    ) -> Result<Option<String>> {
+    ) -> Result<Option<Prepared>> {
         let name = lookup_entity_name(pool, &e.entity_type, e.entity_id, &e.sport).await?;
         let sport = e.sport.to_uppercase();
         let (_season, cards) = load_pillars(pool, &e.entity_type, e.entity_id, &sport).await?;
         // With no evidence, the stage persists a marker without a model call.
-        if cards.readiness() == crate::plugins::oracle::cognition::Readiness::Empty {
+        if cards.readiness() == crate::plugins::oracle::prompt::Readiness::Empty {
             return Ok(None);
         }
-        // Deterministic convergence + direction, exactly as the live handler.
-        let comparisons =
-            build_pillar_divergence(cards.rating.as_ref(), cards.vibe.as_ref(), &cards.momentum);
-        let convergence = pillar_convergence(&comparisons);
-        let omen = compute_omen(convergence, &cards.momentum);
-        Ok(Some(build_crown_prompt(
-            &e.entity_type,
-            &name,
-            &e.sport,
-            &cards.narratives,
-            cards.rating.as_ref(),
-            cards.vibe.as_ref(),
-            &cards.momentum,
-            &cards.transfers,
-            omen,
-            None,
-            None,
+        Ok(Some(Prepared::captured(
+            assemble_oracle_context(
+                &OracleSubject {
+                    entity_id: e.entity_id,
+                    entity_type: e.entity_type.clone(),
+                    entity_name: name,
+                    sport: e.sport.clone(),
+                },
+                &cards,
+            ),
+            self.gen_options_for(0.0, e)?,
         )))
     }
     fn evaluate(&self, raw: &str, label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
-        let Some(reply) = parse_crown_reply(raw) else {
+        let Some(reading) = serde_json::from_str::<serde_json::Value>(raw)
+            .ok()
+            .and_then(|v| v.get("reading").and_then(|x| x.as_str()).map(str::to_owned))
+            .filter(|s| !s.trim().is_empty())
+        else {
             return CaseVerdict {
                 parsed: false,
                 abs_err: None,
@@ -783,7 +848,6 @@ impl LensTask for OracleTask {
                 display: "unparseable".into(),
             };
         };
-        let reading = reply.reading;
         let sentences = count_sentences(&reading);
         let mut checks = Vec::new();
 
@@ -833,264 +897,21 @@ impl LensTask for OracleTask {
             }
         }
 
-        // The crown now emits the score too: measure it against the labeled expected score.
-        let abs_err = label.map(|l| ((reply.score as f64) - l).abs());
-        CaseVerdict {
-            parsed: true,
-            abs_err,
-            checks,
-            display: format!("score={} | {}", reply.score, reading),
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// NarrativeTask — storyline grouping + grounding (the narrative lens's non-vibe half).
-// ---------------------------------------------------------------------------
-
-pub struct NarrativeTask;
-
-#[async_trait]
-impl LensTask for NarrativeTask {
-    fn name(&self) -> &'static str {
-        "narratives"
-    }
-    fn role(&self) -> RouteKey {
-        crate::plugins::journalist::manifest::ROUTE
-    }
-    fn prompt_version(&self) -> &'static str {
-        "n34" // Archived free-text evaluation contract.
-    }
-    fn gen_options(&self, temperature: f64) -> GenerateOptions {
-        GenerateOptions {
-            system: Some(NARRATIVES_SYSTEM_PROMPT.to_string()),
-            temperature: Some(temperature),
-            // The production envelope, not the legacy 16384/4000 pair: an eval generating in a
-            // window the live stage never runs would measure the wrong thing — and asking the
-            // pinned runner for 16384 evicts it besides.
-            num_predict: NARRATIVES_NUM_PREDICT_PACKET,
-            num_ctx: crate::studio::model::VOICE_NUM_CTX_PACKET,
-            json_mode: false,
-            // Grammar-constrained, matching the live stage (Phase 5).
-            format_schema: Some(narratives_format_schema()),
-            format_schema_raw: None,
-        }
-    }
-    async fn build_prompt(
-        &self,
-        pool: &sqlx::PgPool,
-        _models: &Models,
-        e: &EntitySpec,
-    ) -> Result<Option<String>> {
-        let name = lookup_entity_name(pool, &e.entity_type, e.entity_id, &e.sport).await?;
-        // Reads use the upper-cased sport; the prompt renders the request-case value (build_narratives_request).
-        let sport = e.sport.to_uppercase();
-        // Read the packet corpus used by production.
-        let (corpus, _exclusions, _framing) =
-            load_packet_corpus(pool, &e.entity_type, e.entity_id, &sport, &name).await?;
-        // No corpus ⇒ the stage writes the NULL-narrative marker without a model call — nothing to score.
-        if corpus.is_empty() {
-            return Ok(None);
-        }
-        // Direct builder, mirroring VibeTask/SigilTask: the embedder-only near-duplicate dedup is a
-        // live value-add outside the deterministic prompt contract, so the eval scores the same
-        // grounded prompt on every run.
-        let subject = Subject {
-            entity_type: e.entity_type.clone(),
-            entity_name: name,
-            sport: e.sport.clone(),
-        };
-        Ok(Some(build_narratives_prompt(
-            &subject, &corpus, None, None, None,
-        ))) // evals pin the memory-free, score-context-free production prompt
-    }
-    fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
-        // Compose the stage's tolerant salvager so the eval scores exactly the storylines the pipeline
-        // would keep: Err ⇒ a malformed/truncated reply (unparseable); Ok(Some(empty)) ⇒ a valid
-        // quiet cycle with zero storylines (parsed, but count 0).
-        let doc = match NarrativesParser.parse(raw) {
-            Ok(Some(p)) => p,
-            _ => {
-                return CaseVerdict {
-                    parsed: false,
-                    abs_err: None,
-                    checks: Vec::new(),
-                    display: "unparseable".into(),
-                }
-            }
-        };
-        let items: Vec<(&str, &str, &[i32])> = doc.returned().collect();
-        let n = items.len() as i32;
-        let titles = items
-            .iter()
-            .map(|(t, _, _)| *t)
-            .collect::<Vec<_>>()
-            .join(" ⏐ ");
-        let mut checks = Vec::new();
-
-        if let Some(x) = expect {
-            if let Some(min) = x.narratives_min {
-                checks.push(PropertyCheck {
-                    name: "narratives_ge".into(),
-                    pass: n >= min,
-                    detail: format!("count={n} ≥ {min}"),
-                });
-            }
-            if let Some(max) = x.narratives_max {
-                checks.push(PropertyCheck {
-                    name: "narratives_le".into(),
-                    pass: n <= max,
-                    detail: format!("count={n} ≤ {max}"),
-                });
-            }
-            // Citation OR-check (n18): any body names any listed publication, case-insensitive.
-            if let Some(srcs) = &x.sources_any {
-                let lowered: Vec<String> = items.iter().map(|(_, b, _)| b.to_lowercase()).collect();
-                let hit: Vec<&str> = srcs
-                    .iter()
-                    .filter(|s| {
-                        let needle = s.to_lowercase();
-                        lowered.iter().any(|b| b.contains(&needle))
-                    })
-                    .map(|s| s.as_str())
-                    .collect();
-                checks.push(PropertyCheck {
-                    name: format!("sources_any:[{}]", srcs.join("|")),
-                    pass: !hit.is_empty(),
-                    detail: if hit.is_empty() {
-                        "no body cites any listed publication".to_string()
-                    } else {
-                        format!("cited {}", hit.join(", "))
-                    },
-                });
-            }
-            // Edition-budget ceiling (n18): terminal-punctuation runs across all bodies.
-            if let Some(max) = x.total_sentences_max {
-                let total: i32 = items.iter().map(|(_, b, _)| sentence_runs(b)).sum();
-                checks.push(PropertyCheck {
-                    name: "total_sentences_le".into(),
-                    pass: total <= max,
-                    detail: format!("sentences={total} ≤ {max}"),
-                });
-            }
-            // card_score band (one check per bound, mirroring narratives_min/max). A reply with
-            // no card_score fails the bound outright — asserting a band asserts presence.
-            let score_detail = || match doc.card_score() {
-                Some(s) => format!("card_score={s}"),
-                None => "card_score=MISSING".to_string(),
-            };
-            if let Some(min) = x.card_score_min {
-                checks.push(PropertyCheck {
-                    name: "card_score_ge".into(),
-                    pass: doc.card_score().is_some_and(|s| i32::from(s) >= min),
-                    detail: format!("{} ≥ {min}", score_detail()),
-                });
-            }
-            if let Some(max) = x.card_score_max {
-                checks.push(PropertyCheck {
-                    name: "card_score_le".into(),
-                    pass: doc.card_score().is_some_and(|s| i32::from(s) <= max),
-                    detail: format!("{} ≤ {max}", score_detail()),
-                });
-            }
-            for s in x.title_includes.iter().flatten() {
-                checks.push(PropertyCheck {
-                    name: format!("title_includes:{s}"),
-                    pass: items.iter().any(|(t, _, _)| t.contains(s.as_str())),
-                    detail: format!("titles={titles}"),
-                });
-            }
-            for s in x.title_excludes.iter().flatten() {
-                checks.push(PropertyCheck {
-                    name: format!("title_excludes:{s}"),
-                    pass: !items.iter().any(|(t, _, _)| t.contains(s.as_str())),
-                    detail: format!("titles={titles}"),
-                });
-            }
-            for s in x.body_includes.iter().flatten() {
-                checks.push(PropertyCheck {
-                    name: format!("body_includes:{s}"),
-                    pass: items.iter().any(|(_, b, _)| b.contains(s.as_str())),
-                    detail: String::new(),
-                });
-            }
-            for s in x.body_excludes.iter().flatten() {
-                checks.push(PropertyCheck {
-                    name: format!("body_excludes:{s}"),
-                    pass: !items.iter().any(|(_, b, _)| b.contains(s.as_str())),
-                    detail: String::new(),
-                });
-            }
-            // OR-semantics voice-direction check: at least one body voices at least one acceptable
-            // synonym (case-insensitive — voice varies casing). One check for the whole set, so the
-            // detail names which words satisfied it (or that none did).
-            if let Some(any) = &x.body_includes_any {
-                let lowered: Vec<String> = items.iter().map(|(_, b, _)| b.to_lowercase()).collect();
-                let hit: Vec<&str> = any
-                    .iter()
-                    .filter(|s| {
-                        let needle = s.to_lowercase();
-                        lowered.iter().any(|b| b.contains(&needle))
-                    })
-                    .map(|s| s.as_str())
-                    .collect();
-                checks.push(PropertyCheck {
-                    name: format!("body_includes_any:[{}]", any.join("|")),
-                    pass: !hit.is_empty(),
-                    detail: if hit.is_empty() {
-                        "no listed synonym voiced".into()
-                    } else {
-                        format!("voiced {hit:?}")
-                    },
-                });
-            }
-            if let Some(want) = x.all_cite_articles {
-                // "Every storyline cites ≥1 article." An empty set can never satisfy `true` (there is
-                // nothing grounded to show).
-                let all_cite = !items.is_empty() && items.iter().all(|(_, _, a)| !a.is_empty());
-                let uncited = items.iter().filter(|(_, _, a)| a.is_empty()).count();
-                checks.push(PropertyCheck {
-                    name: "all_cite_articles".into(),
-                    pass: all_cite == want,
-                    detail: format!("{uncited}/{n} storylines cite no article"),
-                });
-            }
-            if let Some(max) = x.max_article_num {
-                let overs: Vec<i32> = items
-                    .iter()
-                    .flat_map(|(_, _, a)| a.iter().copied())
-                    .filter(|&num| num < 1 || num > max)
-                    .collect();
-                checks.push(PropertyCheck {
-                    name: "articles_in_range".into(),
-                    pass: overs.is_empty(),
-                    detail: if overs.is_empty() {
-                        format!("all cited in 1..={max}")
-                    } else {
-                        format!("invented refs {overs:?} (corpus 1..={max})")
-                    },
-                });
-            }
-        }
-
+        let _ = label; // The score is deterministic in production, outside the model reply.
         CaseVerdict {
             parsed: true,
             abs_err: None,
             checks,
-            display: format!("{n} storylines | {titles}"),
+            display: reading,
         }
     }
 }
 
 // ---------------------------------------------------------------------------
-// TransferTask — transfer/trade FP/TP adjudication (fixture-first).
+// TransferTask — source-backed Insider reading and linked move findings.
 // ---------------------------------------------------------------------------
 
 pub struct TransferTask;
-
-fn normalized_token(s: &str) -> String {
-    s.trim().replace(' ', "_").to_lowercase()
-}
 
 #[async_trait]
 impl LensTask for TransferTask {
@@ -1101,176 +922,90 @@ impl LensTask for TransferTask {
         crate::plugins::insider::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
-        "t13" // Archived free-text verdict evaluation contract.
+        INSIDER_PROMPT_VERSION
     }
-    fn gen_options(&self, temperature: f64) -> GenerateOptions {
-        GenerateOptions {
-            // Use gen_options_for_sport for a concrete case.
-            system: Some(transfer_system_prompt("FOOTBALL")),
-            temperature: Some(temperature),
-            num_predict: TRANSFER_NUM_PREDICT,
-            num_ctx: 0,
-            json_mode: true,
-            format_schema: None,
-            format_schema_raw: None,
-        }
+    fn gen_options(&self, temperature: f64) -> Result<GenerateOptions> {
+        let mut options = insider_options(0);
+        options.temperature = Some(temperature);
+        Ok(options)
     }
-    fn gen_options_for_sport(&self, temperature: f64, sport: &str) -> GenerateOptions {
-        let sport = sport.to_uppercase();
-        GenerateOptions {
-            system: Some(transfer_system_prompt(&sport)),
-            temperature: Some(temperature),
-            num_predict: TRANSFER_NUM_PREDICT,
-            num_ctx: 0,
-            json_mode: true,
-            format_schema: None,
-            format_schema_raw: None,
-        }
-    }
-    async fn build_prompt(
+    async fn build_request(
         &self,
         pool: &sqlx::PgPool,
-        models: &Models,
+        _models: &Models,
         e: &EntitySpec,
-    ) -> Result<Option<String>> {
-        if e.entity_type != "team" {
-            anyhow::bail!(
-                "transfer live/capture evals are team-player pairs; got {}",
-                e.key()
-            );
-        }
-        let player_id = e.pair_player_id.ok_or_else(|| {
-            anyhow::anyhow!(
-                "transfer live/capture evals need a pair: use team:<team_id>:player:<player_id>:sport"
-            )
-        })?;
-        let sport = e.sport.to_uppercase();
-        let team_name = lookup_entity_name(pool, "team", e.entity_id, &sport).await?;
-        let candidate = load_candidates(pool, e.entity_id, &sport, TRANSFER_DEFAULT_MIN_ARTICLES)
+    ) -> Result<Option<Prepared>> {
+        let (entity_type, entity_id) = if let Some(player_id) = e.pair_player_id {
+            ("player", player_id)
+        } else {
+            (e.entity_type.as_str(), e.entity_id)
+        };
+        Ok(preview_insider(pool, entity_type, entity_id, &e.sport)
             .await?
-            .into_iter()
-            .find(|c| c.player_id == player_id)
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "player/{player_id} is not a current production transfer candidate for team/{} ({sport})",
-                    e.entity_id
-                )
-            })?;
-
-        let relationship = team_relationship(pool, e.entity_id, player_id, &sport).await?;
-        let capabilities = models.capabilities(&crate::plugins::insider::manifest::MANIFEST)?;
-        match build_pair_request(
-            pool,
-            &capabilities,
-            e.entity_id,
-            &team_name,
-            &candidate,
-            &sport,
-            relationship,
-            0.0,
-        )
-        .await?
-        {
-            PairBuild::Skipped { .. } => Ok(None),
-            PairBuild::Ready(r) => Ok(Some(r.prompt)),
-        }
+            .map(|prompt| Prepared::captured(prompt, insider_options(0))))
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
-        let v = match TransferParser.parse(raw) {
-            Ok(Some(v)) => v,
-            _ => {
-                return CaseVerdict {
-                    parsed: false,
-                    abs_err: None,
-                    checks: Vec::new(),
-                    display: "unparseable".into(),
-                }
-            }
+        let Ok(reply) = serde_json::from_str::<Reply>(raw) else {
+            return rejected("unparseable Insider reading and findings");
         };
-
-        let mut checks = Vec::new();
+        if reply.body.trim().is_empty() {
+            return rejected("empty Insider reading");
+        }
+        let mut checks = vec![product_name_check(&reply.body)];
         if let Some(x) = expect {
             if let Some(want) = x.transfer_is_rumor {
                 checks.push(PropertyCheck {
-                    name: if want {
-                        "transfer_is_rumor".into()
-                    } else {
-                        "transfer_not_rumor".into()
-                    },
-                    pass: v.is_rumor == Some(want),
-                    detail: format!("is_rumor={}", disp_bool(v.is_rumor)),
+                    name: "has_source_linked_move".into(),
+                    pass: reply.findings.iter().any(|f| {
+                        f.status == crate::plugins::insider::Status::Reported
+                            && !reply.findings.iter().any(|later| {
+                                later.counterparty == f.counterparty
+                                    && later.report_index < f.report_index
+                            })
+                    }) == want,
+                    detail: format!("findings={}", reply.findings.len()),
                 });
             }
-            if let Some(want) = x.transfer_direction.as_deref() {
+            if let Some(stage) = x.transfer_stage.as_deref() {
                 checks.push(PropertyCheck {
-                    name: format!("transfer_direction:{want}"),
-                    pass: normalized_token(&v.direction) == normalized_token(want),
-                    detail: format!("direction={}", empty_dash(&v.direction)),
-                });
-            }
-            if let Some(want) = x.transfer_stage.as_deref() {
-                checks.push(PropertyCheck {
-                    name: format!("transfer_stage:{want}"),
-                    pass: normalized_token(&v.stage) == normalized_token(want),
-                    detail: format!("stage={}", empty_dash(&v.stage)),
-                });
-            }
-            for s in x.subject_includes.iter().flatten() {
-                checks.push(PropertyCheck {
-                    name: format!("subject_includes:{s}"),
-                    pass: v.subject.contains(s.as_str()),
-                    detail: format!("subject={}", empty_dash(&v.subject)),
-                });
-            }
-            for s in x.subject_excludes.iter().flatten() {
-                checks.push(PropertyCheck {
-                    name: format!("subject_excludes:{s}"),
-                    pass: !v.subject.contains(s.as_str()),
-                    detail: format!("subject={}", empty_dash(&v.subject)),
-                });
-            }
-            for s in x.summary_includes.iter().flatten() {
-                checks.push(PropertyCheck {
-                    name: format!("summary_includes:{s}"),
-                    pass: v.summary.contains(s.as_str()),
+                    name: format!("stage:{stage}"),
+                    pass: reply
+                        .findings
+                        .iter()
+                        .any(|f| f.stage.as_deref() == Some(stage)),
                     detail: String::new(),
                 });
             }
-            for s in x.summary_excludes.iter().flatten() {
+            for needle in x
+                .subject_includes
+                .iter()
+                .flatten()
+                .chain(x.summary_includes.iter().flatten())
+            {
                 checks.push(PropertyCheck {
-                    name: format!("summary_excludes:{s}"),
-                    pass: !v.summary.contains(s.as_str()),
+                    name: format!("body_includes:{needle}"),
+                    pass: contains_ci(&reply.body, needle),
                     detail: String::new(),
                 });
             }
-            if let Some(min) = x.confidence_min {
+            for needle in x
+                .subject_excludes
+                .iter()
+                .flatten()
+                .chain(x.summary_excludes.iter().flatten())
+            {
                 checks.push(PropertyCheck {
-                    name: "confidence_ge".into(),
-                    pass: v.confidence >= min,
-                    detail: format!("confidence={:.2} ≥ {min:.2}", v.confidence),
-                });
-            }
-            if let Some(max) = x.confidence_max {
-                checks.push(PropertyCheck {
-                    name: "confidence_le".into(),
-                    pass: v.confidence <= max,
-                    detail: format!("confidence={:.2} ≤ {max:.2}", v.confidence),
+                    name: format!("body_excludes:{needle}"),
+                    pass: !contains_ci(&reply.body, needle),
+                    detail: String::new(),
                 });
             }
         }
-
         CaseVerdict {
             parsed: true,
             abs_err: None,
             checks,
-            display: format!(
-                "is_rumor={} subject={} stage={} conf={:.2} | {}",
-                disp_bool(v.is_rumor),
-                empty_dash(&v.subject),
-                empty_dash(&v.stage),
-                v.confidence,
-                v.summary
-            ),
+            display: format!("{} finding(s) | {}", reply.findings.len(), reply.body),
         }
     }
 }
@@ -1291,29 +1026,19 @@ impl LensTask for RatingTask {
         crate::plugins::scout::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
-        // This task replays the archived open-prose s59 fixtures. The production
-        // s60 palette contract is exercised by palette_model_compare.py.
-        "s59"
+        crate::plugins::scout::prompt::RATING_PROMPT_VERSION
     }
-    fn gen_options(&self, temperature: f64) -> GenerateOptions {
-        GenerateOptions {
-            system: Some(RATING_SYSTEM_PROMPT.to_string()),
-            temperature: Some(temperature),
-            num_predict: RATING_NUM_PREDICT,
-            num_ctx: 0,
-            json_mode: false,
-            format_schema: Some(crate::plugins::support::form::with_abstention(
-                crate::plugins::support::form::card_schema(false),
-            )),
-            format_schema_raw: None,
-        }
+    fn gen_options(&self, _temperature: f64) -> Result<GenerateOptions> {
+        // Scout acceptance needs the selected measurements, so callers must carry
+        // parts even though this manual and body schema are constant.
+        anyhow::bail!("rating acceptance requires prepared parts; use `assemble`")
     }
-    async fn build_prompt(
+    async fn build_request(
         &self,
         pool: &sqlx::PgPool,
         models: &Models,
         e: &EntitySpec,
-    ) -> Result<Option<String>> {
+    ) -> Result<Option<Prepared>> {
         let sport = e.sport.to_uppercase();
         let name = lookup_entity_name(pool, &e.entity_type, e.entity_id, &sport).await?;
         let req = RatingReq {
@@ -1327,39 +1052,79 @@ impl LensTask for RatingTask {
         // Live evaluation uses the same evidence assembly as production.
         match build_rating_request(pool, models.voice_num_ctx, &req, 0.0, true).await? {
             RatingBuild::NoStats { .. } => Ok(None),
-            RatingBuild::Ready(r) => Ok(Some(r.built_prompt)),
+            RatingBuild::Ready(r) => Ok(Some(self.assemble(&serde_json::to_value(&r.parts)?)?)),
         }
     }
+    /// Rebuild the production request and retain its measurement context for parsing.
+    fn assemble(&self, stored_parts: &serde_json::Value) -> Result<Prepared> {
+        let parts: crate::plugins::scout::prompt::Parts =
+            serde_json::from_value(stored_parts.clone())
+                .map_err(|e| anyhow::anyhow!("rating parts: {e}"))?;
+        Ok(Prepared {
+            user_prompt: parts.render(),
+            options: parts.generation_options(0, crate::plugins::scout::prompt::RATING_TEMPERATURE),
+            parts: Some(stored_parts.clone()),
+            should_call: parts.has_measured_profile(),
+        })
+    }
+
+    fn stores_parts(&self) -> bool {
+        true
+    }
+    fn evaluate_prepared(
+        &self,
+        request: &Prepared,
+        raw: &str,
+        label: Option<f64>,
+        expect: Option<&Expect>,
+    ) -> CaseVerdict {
+        let validation = request
+            .parts
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Scout evaluation requires parts"))
+            .and_then(|p| {
+                serde_json::from_value::<crate::plugins::scout::prompt::Parts>(p.clone())?
+                    .parse(raw)
+            });
+        let mut verdict = self.evaluate(raw, label, expect);
+        if let Err(error) = validation {
+            verdict.parsed = false;
+            verdict.checks.push(PropertyCheck {
+                name: "production_acceptance".into(),
+                pass: false,
+                detail: error.to_string(),
+            });
+        }
+        verdict
+    }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
-        if raw.trim() == "null" {
+        let map = match crate::tools::form::decode_prose_map(raw, &["body".into()]) {
+            Ok(map) => map,
+            Err(error) => return rejected(&error.to_string()),
+        };
+        let Some(body) = map.get("body") else {
             return CaseVerdict {
                 parsed: true,
                 abs_err: None,
                 checks: vec![PropertyCheck {
                     name: "abstention_requires_evidence_review".into(),
-                    pass: false,
-                    detail: "Valid pass; mechanical checks cannot determine whether withholding the card was warranted.".into(),
+                    pass: expect.is_some_and(|e| e.abstain == Some(true)),
+                    detail: "Valid pass; review whether withholding was warranted.".into(),
                 }],
                 display: "abstained — no card".into(),
             };
-        }
-        // Shape-only parse (NOT `RatingParser`): the gate must see a guard-violating body's
-        // prose and score it red on the invariant checks — production's guards would reject it
-        // before any check could run. Same lists either way (`crate::guards`).
-        let body = crate::plugins::scout::cognition::parse_rating_body(raw);
-        if body.trim().is_empty() {
-            return CaseVerdict {
-                parsed: false,
-                abs_err: None,
-                checks: Vec::new(),
-                display: "unparseable".into(),
-            };
-        }
-        let reply = RatingReply {
-            body,
-            headline: None,
+        };
+        let reply = crate::plugins::scout::parser::RatingReply {
+            body: body.to_string(),
         };
         let mut checks = Vec::new();
+        if let Some(want) = expect.and_then(|e| e.abstain) {
+            checks.push(PropertyCheck {
+                name: "abstain".into(),
+                pass: !want,
+                detail: "Card supplied".into(),
+            });
+        }
         let word_count = reply.body.split_whitespace().count() as i32;
 
         // Contract-level invariant, asserted whether or not this case carries an `expect` (the
@@ -1368,9 +1133,9 @@ impl LensTask for RatingTask {
         checks.push(product_name_check(&reply.body));
         // The brief's decoration bans (` · ` bullets, `**`) — folded 08-19 from per-fixture
         // `prose_excludes` entries; same list `RatingParser` rejects on in production.
-        let banned = crate::plugins::support::guards::first_banned_phrase(
+        let banned = crate::tools::guards::first_banned_phrase(
             &reply.body,
-            crate::plugins::support::guards::RATING_BODY_BANS,
+            crate::plugins::scout::parser::RATING_BODY_BANS,
         );
         checks.push(PropertyCheck {
             name: "no_banned_phrases".into(),
@@ -1450,8 +1215,8 @@ impl LensTask for RatingTask {
 
 pub struct MomentumTask;
 
-// Momentum's prompt contract lives in `crate::plugins::analyst::cognition`; the application adapter maps
-// current Oracle pillar values into that domain. Eval imports both rather than carrying a copy.
+// Momentum preparation lives in `crate::plugins::analyst::prompt`, reading finished Scout
+// and Influencer products plus the dated study. Eval reuses it and the local parser.
 // It USED to carry its own fork ("momentum-eval-v3",
 // a duplicate system prompt, its own parser): a relic from momentum's fixture-first era that
 // silently diverged from production — the eval was measuring a prompt and a parser production
@@ -1466,46 +1231,40 @@ impl LensTask for MomentumTask {
         crate::plugins::analyst::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
-        // Archived open-prose fixtures; production now uses a finite palette.
-        "momentum-s32"
+        crate::plugins::analyst::prompt::MOMENTUM_PROMPT_VERSION
     }
-    fn gen_options(&self, temperature: f64) -> GenerateOptions {
-        GenerateOptions {
-            system: Some(MOMENTUM_SYSTEM_PROMPT.to_string()),
-            temperature: Some(temperature),
-            num_predict: MOMENTUM_NUM_PREDICT,
-            num_ctx: 0,
-            json_mode: false,
-            format_schema: Some(crate::plugins::support::form::card_schema(false)),
-            format_schema_raw: None,
-        }
+    fn gen_options(&self, temperature: f64) -> Result<GenerateOptions> {
+        let mut options = crate::plugins::analyst::prompt::generation_options(0);
+        options.temperature = Some(temperature);
+        Ok(options)
     }
-    async fn build_prompt(
+    async fn build_request(
         &self,
         pool: &sqlx::PgPool,
         _models: &Models,
         e: &EntitySpec,
-    ) -> Result<Option<String>> {
+    ) -> Result<Option<Prepared>> {
         let name = lookup_entity_name(pool, &e.entity_type, e.entity_id, &e.sport).await?;
         let sport = e.sport.to_uppercase();
-        let (context, memories) =
-            load_momentum_context(pool, &e.entity_type, e.entity_id, &sport).await?;
+        let context = load_momentum_context(pool, &e.entity_type, e.entity_id, &sport).await?;
         if context.empty() {
             return Ok(None);
         }
-        // Use the production adapter, including its sourced memory. Omitting this
-        // block silently evaluates a different assignment from the worker.
-        Ok(Some(
-            crate::plugins::analyst::cognition::build_momentum_prompt(
-                &e.entity_type,
-                &name,
-                &e.sport,
+        let subject = crate::tools::meta::EntityMeta {
+            name,
+            entity_type: e.entity_type.clone(),
+            entity_id: e.entity_id,
+            sport: e.sport.clone(),
+        };
+        Ok(Some(Prepared::captured(
+            crate::plugins::analyst::prompt::assemble(
+                &subject,
                 context.rating.as_ref(),
                 context.vibe.as_ref(),
                 &context.snapshot,
-                Some(&memories.render_for_model()?),
             ),
-        ))
+            self.gen_options_for(0.0, e)?,
+        )))
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
         let reply = match parse_momentum_reply(raw) {
@@ -1604,22 +1363,6 @@ impl LensTask for MomentumTask {
     }
 }
 
-fn disp_bool(b: Option<bool>) -> &'static str {
-    match b {
-        Some(true) => "true",
-        Some(false) => "false",
-        None => "unknown",
-    }
-}
-
-fn empty_dash(s: &str) -> &str {
-    if s.trim().is_empty() {
-        "–"
-    } else {
-        s
-    }
-}
-
 /// Case-insensitive substring match, with typographic punctuation AND Latin diacritics folded
 /// to ASCII first.
 ///
@@ -1641,21 +1384,21 @@ fn empty_dash(s: &str) -> &str {
 // The matcher and the global ban vocabularies moved to `crate::guards` (2026-08-19, the
 // eval→guard migration): production parsers and the gate now read the SAME lists — see
 // `guards.rs` for the "one list, one home" ruling and the doc comments that moved with them.
-use crate::plugins::support::guards::contains_ci;
-pub use crate::plugins::support::guards::{MOMENTUM_BANNED_PHRASES, PRODUCT_NAME_BANS};
+use crate::tools::guards::contains_ci;
+pub use crate::tools::guards::{MOMENTUM_BANNED_PHRASES, PRODUCT_NAME_BANS};
 
 // (sentence_runs folded into `guards::count_sentences` 08-19 — one counter for every prose
 // lens; the crude version miscounted decimals as sentence stops.)
 fn sentence_runs(text: &str) -> i32 {
-    crate::plugins::support::guards::count_sentences(text) as i32
+    crate::tools::guards::count_sentences(text) as i32
 }
 
 /// One shared invariant check over a served-prose field: the first product name found, as a
 /// `PropertyCheck` every wired seat pushes unconditionally. For rating the check runs on the
-/// parsed body only. The list lives in [`crate::plugins::support::guards::PRODUCT_NAME_BANS`];
+/// parsed body only. The list lives in [`crate::tools::guards::PRODUCT_NAME_BANS`];
 /// production enforces the same vocabulary.
 fn product_name_check(prose: &str) -> PropertyCheck {
-    let named = crate::plugins::support::guards::first_product_name(prose);
+    let named = crate::tools::guards::first_product_name(prose);
     PropertyCheck {
         name: "no_product_names".into(),
         pass: named.is_none(),
@@ -1686,17 +1429,17 @@ impl LensTask for GraphTask {
     fn prompt_version(&self) -> &'static str {
         GRAPH_PROMPT_VERSION
     }
-    fn gen_options(&self, temperature: f64) -> GenerateOptions {
+    fn gen_options(&self, temperature: f64) -> Result<GenerateOptions> {
         let mut o = graph_opts();
         o.temperature = Some(temperature);
-        o
+        Ok(o)
     }
-    async fn build_prompt(
+    async fn build_request(
         &self,
         pool: &sqlx::PgPool,
         _models: &Models,
         e: &EntitySpec,
-    ) -> Result<Option<String>> {
+    ) -> Result<Option<Prepared>> {
         if e.entity_type != "article" {
             anyhow::bail!(
                 "graph evals are article-keyed: use article:<id>:<SPORT> (got {})",
@@ -1709,12 +1452,15 @@ impl LensTask for GraphTask {
         else {
             return Ok(None);
         };
-        Ok(Some(build_graph_prompt(
-            &article.source,
-            &article.published,
-            &article.title,
-            &article.description,
-            &candidates,
+        Ok(Some(Prepared::captured(
+            build_graph_prompt(
+                &article.source,
+                &article.published,
+                &article.title,
+                &article.description,
+                &candidates,
+            ),
+            self.gen_options_for(0.0, e)?,
         )))
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
@@ -1850,325 +1596,6 @@ impl LensTask for GraphTask {
     }
 }
 
-/// EditorTask — the GREENFIELD Editor's gate (contract ep1, PLAN-one-rail Phase 3.6).
-///
-/// Runs the production `EditorReadParser` (which derives relevance) and the production
-/// derivations: `parse_result_line` on the emitted line, and `group_hits` — the resolver's
-/// kind-gate/grouping core — against fixture-declared surfaces, with case-insensitive name
-/// equality standing in for the database's exact `nrm()` match. So the fixtures score the same
-/// code path production runs, minus only the SQL normalizer.
-pub struct EditorTask;
-
-#[async_trait]
-impl LensTask for EditorTask {
-    fn name(&self) -> &'static str {
-        "editor"
-    }
-    fn role(&self) -> RouteKey {
-        crate::plugins::editor::manifest::ROUTE
-    }
-    fn prompt_version(&self) -> &'static str {
-        EDITOR_CONTRACT_VERSION
-    }
-    fn gen_options(&self, temperature: f64) -> GenerateOptions {
-        let mut o = editor_opts();
-        o.temperature = Some(temperature);
-        o
-    }
-    async fn build_prompt(
-        &self,
-        pool: &sqlx::PgPool,
-        _models: &Models,
-        e: &EntitySpec,
-    ) -> Result<Option<String>> {
-        if e.entity_type != "article" {
-            anyhow::bail!(
-                "editor evals are article-keyed: use article:<id>:<SPORT> (got {})",
-                e.entity_type
-            );
-        }
-        build_editor_prompt_for_eval(pool, i64::from(e.entity_id), &e.sport.to_uppercase()).await
-    }
-    fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
-        let hypothesis: Vec<String> = expect
-            .and_then(|x| x.reader_vetted.clone())
-            .unwrap_or_default();
-        let parsed = EditorReadParser {
-            hypothesis: &hypothesis,
-        }
-        .parse(raw)
-        .ok()
-        .flatten();
-        let Some(read): Option<EditorRead> = parsed else {
-            return CaseVerdict {
-                parsed: false,
-                abs_err: None,
-                checks: Vec::new(),
-                display: "unparseable (fail-closed)".into(),
-            };
-        };
-        let mut checks = Vec::new();
-        if let Some(x) = expect {
-            if let Some(want) = x.article_relevant {
-                checks.push(PropertyCheck {
-                    name: format!("relevant[{want}]"),
-                    pass: read.relevant == want,
-                    detail: format!(
-                        "relevant={} page_kind={:?} roles=[{}] story_type={:?}",
-                        read.relevant,
-                        read.page_kind,
-                        read.entity_roles
-                            .iter()
-                            .map(|r| format!("{}:{}", r.entity, r.role))
-                            .collect::<Vec<_>>()
-                            .join(", "),
-                        read.story_type
-                    ),
-                });
-            }
-            let facts = read.key_facts.join(" | ");
-            if let Some(incl) = &x.key_facts_include {
-                for frag in incl {
-                    checks.push(PropertyCheck {
-                        name: format!("key_fact_present[{frag}]"),
-                        pass: facts.to_lowercase().contains(&frag.to_lowercase()),
-                        detail: truncate(&facts, 160),
-                    });
-                }
-            }
-            if let Some(excl) = &x.key_facts_exclude {
-                for frag in excl {
-                    checks.push(PropertyCheck {
-                        name: format!("key_fact_absent[{frag}]"),
-                        pass: !facts.to_lowercase().contains(&frag.to_lowercase()),
-                        detail: truncate(&facts, 160),
-                    });
-                }
-            }
-            // Discovery, matched against the JOINED name list (the model may write a pinned
-            // surname in full — the resolver sees the whole surface, so score what it sees).
-            let names = read
-                .names
-                .iter()
-                .map(|n| n.name.clone())
-                .collect::<Vec<_>>()
-                .join(" | ");
-            if let Some(incl) = &x.names_include {
-                for frag in incl {
-                    checks.push(PropertyCheck {
-                        name: format!("name_found[{frag}]"),
-                        pass: names.to_lowercase().contains(&frag.to_lowercase()),
-                        detail: truncate(&names, 200),
-                    });
-                }
-            }
-            if let Some(excl) = &x.names_exclude {
-                for frag in excl {
-                    checks.push(PropertyCheck {
-                        name: format!("name_absent[{frag}]"),
-                        pass: !names.to_lowercase().contains(&frag.to_lowercase()),
-                        detail: truncate(&names, 200),
-                    });
-                }
-            }
-            // ep1 kind + descriptor axes — matched per emitted mention whose name CONTAINS the
-            // expected name (same containment logic as name_found).
-            if let Some(kinds) = &x.name_kind_is {
-                for (who, want_kind) in kinds {
-                    let found = read
-                        .names
-                        .iter()
-                        .find(|n| n.name.to_lowercase().contains(&who.to_lowercase()));
-                    checks.push(PropertyCheck {
-                        name: format!("name_kind[{who}={want_kind}]"),
-                        pass: found.is_some_and(|n| n.kind_hint.eq_ignore_ascii_case(want_kind)),
-                        detail: found
-                            .map(|n| format!("{} kind_hint={}", n.name, n.kind_hint))
-                            .unwrap_or_else(|| "name not emitted".into()),
-                    });
-                }
-            }
-            if let Some(who_list) = &x.name_descriptor_nonempty {
-                for who in who_list {
-                    let found = read
-                        .names
-                        .iter()
-                        .find(|n| n.name.to_lowercase().contains(&who.to_lowercase()));
-                    checks.push(PropertyCheck {
-                        name: format!("descriptor_nonempty[{who}]"),
-                        pass: found.is_some_and(|n| !n.descriptor.trim().is_empty()),
-                        detail: found
-                            .map(|n| format!("{} descriptor={:?}", n.name, n.descriptor))
-                            .unwrap_or_else(|| "name not emitted".into()),
-                    });
-                }
-            }
-            if let Some(incl) = &x.result_line_includes {
-                for frag in incl {
-                    checks.push(PropertyCheck {
-                        name: format!("result_line_has[{frag}]"),
-                        pass: read
-                            .result_line
-                            .to_lowercase()
-                            .contains(&frag.to_lowercase()),
-                        detail: format!("result_line={:?}", read.result_line),
-                    });
-                }
-            }
-            if let Some(want) = x.result_line_parses {
-                let parsed_result = editor_derive::parse_result_line(&read.result_line);
-                checks.push(PropertyCheck {
-                    name: format!("result_line_parses[{want}]"),
-                    pass: parsed_result.is_some() == want,
-                    detail: format!(
-                        "result_line={:?} parsed={:?}",
-                        read.result_line, parsed_result
-                    ),
-                });
-            }
-            // Resolver simulation: production group_hits over fixture-declared surfaces.
-            let needs_resolver = x.resolver_links_include.is_some()
-                || x.resolver_links_exclude.is_some()
-                || x.resolver_unresolved_include.is_some()
-                || x.resolver_refused_include.is_some();
-            if needs_resolver {
-                let surfaces = x.resolver_surfaces.clone().unwrap_or_default();
-                let hits: Vec<editor_derive::SurfaceHit> = read
-                    .names
-                    .iter()
-                    .flat_map(|mention| {
-                        surfaces
-                            .iter()
-                            .filter(|s| s.name.eq_ignore_ascii_case(&mention.name))
-                            .map(|s| editor_derive::SurfaceHit {
-                                name: mention.name.clone(),
-                                entity_type: s.entity_type.clone(),
-                                entity_id: s.entity_id,
-                                sport: "FOOTBALL".to_string(),
-                                norm: s.name.to_lowercase(),
-                            })
-                            .collect::<Vec<_>>()
-                    })
-                    .collect();
-                // Per-name verdict through the PRODUCTION grouping: linked | refused |
-                // unresolved | not_emitted. `not_emitted` passes only never-links checks —
-                // a name the model did not emit trivially cannot link.
-                let verdict_for = |who: &str| -> &'static str {
-                    let Some(mention) = read
-                        .names
-                        .iter()
-                        .find(|n| n.name.to_lowercase().contains(&who.to_lowercase()))
-                    else {
-                        return "not_emitted";
-                    };
-                    let r = editor_derive::group_hits(std::slice::from_ref(mention), &hits);
-                    if !r.links.is_empty() {
-                        "linked"
-                    } else if !r.refused_ambiguous.is_empty() {
-                        "refused"
-                    } else {
-                        "unresolved"
-                    }
-                };
-                for (list, want, label) in [
-                    (&x.resolver_links_include, "linked", "resolver_links"),
-                    (
-                        &x.resolver_unresolved_include,
-                        "unresolved",
-                        "resolver_unresolved",
-                    ),
-                    (&x.resolver_refused_include, "refused", "resolver_refused"),
-                ] {
-                    if let Some(incl) = list {
-                        for who in incl {
-                            let got = verdict_for(who);
-                            checks.push(PropertyCheck {
-                                name: format!("{label}[{who}]"),
-                                pass: got == want,
-                                detail: format!("{who} -> {got}"),
-                            });
-                        }
-                    }
-                }
-                if let Some(excl) = &x.resolver_links_exclude {
-                    for who in excl {
-                        let got = verdict_for(who);
-                        checks.push(PropertyCheck {
-                            name: format!("resolver_never_links[{who}]"),
-                            pass: got != "linked",
-                            detail: format!("{who} -> {got}"),
-                        });
-                    }
-                }
-            }
-            if let Some(want) = &x.story_type_is {
-                checks.push(PropertyCheck {
-                    name: format!("story_type[{want}]"),
-                    pass: read.story_type.eq_ignore_ascii_case(want),
-                    detail: format!("story_type={:?}", read.story_type),
-                });
-            }
-            if let Some(want) = &x.register_is {
-                checks.push(PropertyCheck {
-                    name: format!("register[{want}]"),
-                    pass: read.register.eq_ignore_ascii_case(want),
-                    detail: format!(
-                        "register={:?} phrase={:?}",
-                        read.register, read.register_phrase
-                    ),
-                });
-            }
-            if let Some(incl) = &x.blurb_includes {
-                for frag in incl {
-                    checks.push(PropertyCheck {
-                        name: format!("blurb_present[{frag}]"),
-                        pass: read
-                            .evidence_blurb
-                            .to_lowercase()
-                            .contains(&frag.to_lowercase()),
-                        detail: truncate(&read.evidence_blurb, 160),
-                    });
-                }
-            }
-            if let Some(excl) = &x.blurb_excludes {
-                for frag in excl {
-                    checks.push(PropertyCheck {
-                        name: format!("blurb_absent[{frag}]"),
-                        pass: !read
-                            .evidence_blurb
-                            .to_lowercase()
-                            .contains(&frag.to_lowercase()),
-                        detail: truncate(&read.evidence_blurb, 160),
-                    });
-                }
-            }
-        }
-        CaseVerdict {
-            parsed: true,
-            abs_err: None,
-            checks,
-            display: format!(
-                "relevant={} page_kind={:?} names=[{}] result_line={:?} {} key_fact(s) story_type={:?} register={:?}",
-                read.relevant,
-                read.page_kind,
-                truncate(
-                    &read
-                        .names
-                        .iter()
-                        .map(|n| format!("{}<{} {:?}>", n.name, n.kind_hint, n.descriptor))
-                        .collect::<Vec<_>>()
-                        .join(", "),
-                    280
-                ),
-                truncate(&read.result_line, 40),
-                read.key_facts.len(),
-                read.story_type,
-                read.register,
-            ),
-        }
-    }
-}
-
 // ---------------------------------------------------------------------------
 // investigator — the prose-triage contract (`ip1`), fixture-driven (D-T46)
 // ---------------------------------------------------------------------------
@@ -2186,21 +1613,22 @@ impl LensTask for InvestigatorTask {
     fn prompt_version(&self) -> &'static str {
         INVESTIGATOR_PROSE_CONTRACT_VERSION
     }
-    fn gen_options(&self, temperature: f64) -> GenerateOptions {
+    fn gen_options(&self, temperature: f64) -> Result<GenerateOptions> {
         let mut o = prose_opts();
         o.temperature = Some(temperature);
-        o
+        Ok(o)
     }
+
     /// Fixture-driven on purpose: the production prompt is built from a LIVE Wikipedia
     /// search + summary fetch for a candidate row, which is exactly what a frozen fixture
     /// exists to pin down. Capture new fixtures from `acquisition_runs.query_plan` (the
     /// prose arm records every page it read) rather than re-fetching a moving encyclopedia.
-    async fn build_prompt(
+    async fn build_request(
         &self,
         _pool: &sqlx::PgPool,
         _models: &Models,
         _e: &EntitySpec,
-    ) -> Result<Option<String>> {
+    ) -> Result<Option<Prepared>> {
         anyhow::bail!(
             "investigator evals are fixture-driven (eval --task investigator --fixtures); \
              live prompts depend on a Wikipedia fetch — freeze pages into fixtures instead"
@@ -2318,7 +1746,9 @@ mod tests {
 
         // The internal seats carry the cast too — and no longer have to be filed under a rail
         // that never described them.
-        assert_eq!(lens_parameters("editor").unwrap().operator, "The Editor");
+        assert!(lens_parameters("editor").is_none());
+        assert!(resolve_task("editor").is_none());
+        assert!(!all_task_names().contains(&"editor"));
         assert_eq!(
             lens_parameters("investigator").unwrap().operator,
             "The Investigator"
@@ -2336,12 +1766,12 @@ mod tests {
         assert_eq!(e.key(), "team:14:player:237:NBA");
     }
 
-    // --- crown (Oracle) eval: reading + score -------------------------------------
+    // --- crown (Oracle) eval: reading -------------------------------------
 
-    const CROWN_OK: &str = r#"{"reading": "The winger's arc holds under a turning sky; the wind toward Liverpool stirs but nothing has broken. A steady hand on a rising line.", "score": 74}"#;
+    const CROWN_OK: &str = r#"{"reading": "The winger's arc holds under a turning sky; the wind toward Liverpool stirs but nothing has broken. A steady hand on a rising line."}"#;
 
     #[test]
-    fn crown_eval_parses_reading_and_scores_against_label() {
+    fn crown_eval_parses_reading_without_a_model_score() {
         let x = Expect {
             reading_min_sentences: Some(2),
             reading_includes: Some(vec!["Liverpool".into()]),
@@ -2350,7 +1780,7 @@ mod tests {
         let v = OracleTask.evaluate(CROWN_OK, Some(70.0), Some(&x));
         assert!(v.parsed);
         assert!(v.all_checks_pass(), "checks: {:?}", v.checks);
-        assert_eq!(v.abs_err, Some(4.0)); // |74 - 70|
+        assert_eq!(v.abs_err, None);
     }
 
     #[test]
@@ -2374,223 +1804,34 @@ mod tests {
         );
     }
 
-    // --- vibe MAE axis ------------------------------------------------------------
-
     #[test]
-    fn vibe_evaluate_computes_abs_err() {
-        let v = VibeTask.evaluate("SCORE: 30\nVIBE: grim outlook", Some(80.0), None);
-        assert!(v.parsed);
-        assert_eq!(v.abs_err, Some(50.0));
-    }
-
-    #[test]
-    fn vibe_unparseable_has_no_abs_err() {
-        let v = VibeTask.evaluate("no score here at all", Some(80.0), None);
-        assert!(!v.parsed);
-        assert_eq!(v.abs_err, None);
-    }
-
-    #[test]
-    fn vibe_score_band_checks() {
-        let x = Expect {
-            score_max: Some(40),
-            ..Default::default()
-        };
+    fn vibe_evaluation_uses_score_free_production_parser() {
         assert!(VibeTask
-            .evaluate(
-                "SCORE: 30\nHOOK: The slide is real\nVIBE: grim",
-                None,
-                Some(&x)
-            )
+            .evaluate(r#"{"body":"Morgan said she felt hopeful."}"#, None, None)
             .all_checks_pass());
-        assert!(!VibeTask
-            .evaluate(
-                "SCORE: 70\nHOOK: The room is up\nVIBE: bright",
-                None,
-                Some(&x)
-            )
-            .all_checks_pass());
-    }
-
-    #[test]
-    fn vibe_grounding_accepts_equivalent_surface_language() {
-        let x = Expect {
-            prose_includes_any: Some(vec!["goals|hat-trick".into()]),
-            ..Default::default()
-        };
-        assert!(VibeTask
-            .evaluate(
-                "SCORE: 80\nHOOK: Fenn lifts the room\nVIBE: Fenn's hat-trick has the away end singing.",
-                None,
-                Some(&x)
-            )
-            .all_checks_pass());
-    }
-
-    #[test]
-    fn vibe_hook_contract_is_a_global_invariant() {
-        // The hook contract measures what SHIPS (review-pass alignment, 2026-08-23): the
-        // check runs `settle_title`, exactly as `VibeParser` does — a hook-less reply fails,
-        // a clean three-line passes, an unsalvageable violation fails, and a two-beat
-        // overrun that salvages to its first beat PASSES because that beat is the title
-        // the card actually carries.
-        assert!(VibeTask
-            .evaluate("SCORE: 30\nHOOK: The slide is real\nVIBE: grim", None, None)
-            .all_checks_pass());
-        assert!(!VibeTask
-            .evaluate("SCORE: 30\nVIBE: grim", None, None)
-            .all_checks_pass());
-        // A colon hook PASSES since 2026-08-24 — punctuation is voice, and this gate measures
-        // exactly what production enforces, which is now length alone.
-        assert!(VibeTask
-            .evaluate("SCORE: 30\nHOOK: Breaking: a move\nVIBE: grim", None, None)
-            .all_checks_pass());
-        // An overlong hook with no beat to cut is still a failure.
-        assert!(!VibeTask
-            .evaluate(
-                &format!("SCORE: 30\nHOOK: {}\nVIBE: grim", "x".repeat(200)),
-                None,
-                None
-            )
-            .all_checks_pass());
-        assert!(VibeTask
-            .evaluate(
-                "SCORE: 30\nHOOK: The slide is real now, but the room refuses to see it coming\nVIBE: grim",
-                None,
-                None
-            )
-            .all_checks_pass());
-    }
-
-    // --- narrative grouping + grounding rubric ------------------------------------
-
-    // Two clean, grounded storylines over a 3-article corpus.
-    const GROUNDED: &str = r#"{"narratives":[
-        {"title":"Marcus Vale trade demand","body":"Beat writers report Vale privately asked about his future amid coaching friction.","articles":[1,2]},
-        {"title":"Vale's efficient scoring stretch","body":"He is posting top-percentile efficiency over the last five games.","articles":[3]}
-    ]}"#;
-
-    #[test]
-    fn narratives_grounded_reply_passes_grounding_rubric() {
-        let x = Expect {
-            narratives_min: Some(1),
-            narratives_max: Some(6),
-            title_includes: Some(vec!["Vale".into()]),
-            title_excludes: Some(vec!["Transfer news".into()]),
-            all_cite_articles: Some(true),
-            max_article_num: Some(3),
-            ..Default::default()
-        };
-        let v = NarrativeTask.evaluate(GROUNDED, None, Some(&x));
-        assert!(v.parsed);
-        assert!(v.all_checks_pass(), "checks: {:?}", v.checks);
-    }
-
-    #[test]
-    fn narratives_invented_article_reference_fails_range_check() {
-        // Cites article 9 when the corpus only has 3 — an invented reference.
-        let reply = r#"{"narratives":[{"title":"Vale rumor","body":"x","articles":[1,9]}]}"#;
-        let x = Expect {
-            max_article_num: Some(3),
-            ..Default::default()
-        };
-        let v = NarrativeTask.evaluate(reply, None, Some(&x));
-        assert!(v.parsed);
-        assert!(!v.all_checks_pass(), "9 is out of the 1..=3 corpus range");
-    }
-
-    #[test]
-    fn narratives_uncited_storyline_fails_all_cite() {
-        let reply = r#"{"narratives":[{"title":"Vale buzz","body":"vague hype with no article","articles":[]}]}"#;
-        let x = Expect {
-            all_cite_articles: Some(true),
-            ..Default::default()
-        };
-        let v = NarrativeTask.evaluate(reply, None, Some(&x));
-        assert!(!v.all_checks_pass(), "an uncited storyline is ungrounded");
-    }
-
-    #[test]
-    fn narratives_generic_title_and_invented_move_are_caught() {
-        // A generic title AND a fabricated "moving to" storyline the corpus never supports.
-        let reply = r#"{"narratives":[{"title":"Transfer news","body":"Vale is moving to the Kings next week.","articles":[1]}]}"#;
-        let x = Expect {
-            title_excludes: Some(vec!["Transfer news".into()]),
-            body_excludes: Some(vec!["moving to".into()]),
-            ..Default::default()
-        };
-        let v = NarrativeTask.evaluate(reply, None, Some(&x));
-        assert_eq!(
-            v.checks_passed(),
-            0,
-            "both excludes should fire: {:?}",
-            v.checks
+        assert!(VibeTask.evaluate(r#"{"body":null}"#, None, None).parsed);
+        assert!(
+            !VibeTask
+                .evaluate(
+                    r#"{"score":75,"headline":"Hope","body":"Hope."}"#,
+                    None,
+                    None
+                )
+                .parsed
         );
     }
 
-    #[test]
-    fn narratives_body_includes_any_is_or_and_case_insensitive() {
-        // Voice-direction target: passes when ANY one synonym is voiced in ANY body, matched
-        // case-insensitively; fails only when the whole set is absent.
-        let reply = r#"{"narratives":[{"title":"Vale saga","body":"The Kings pursuit is still GATHERING pace after months.","articles":[1]}]}"#;
-        // "gathering" (cased differently) satisfies the heating set even though "surging" is absent.
-        let heating = Expect {
-            body_includes_any: Some(vec!["surging".into(), "gathering".into()]),
-            ..Default::default()
-        };
-        assert!(NarrativeTask
-            .evaluate(reply, None, Some(&heating))
-            .all_checks_pass());
-        // None of the cooling words appear → the OR-check fails.
-        let cooling = Expect {
-            body_includes_any: Some(vec![
-                "cooling".into(),
-                "fizzled".into(),
-                "gone quiet".into(),
-            ]),
-            ..Default::default()
-        };
-        assert!(!NarrativeTask
-            .evaluate(reply, None, Some(&cooling))
-            .all_checks_pass());
-    }
+    // --- one-response Insider reading and source-linked findings ------------------
+
+    const TRUE_TRANSFER: &str = r#"{"body":"Lina Foss is the subject of Everton talks, according to TV2, but a deal is not final.","findings":[{"report_index":0,"counterparty":"Everton","status":"reported","stage":"advanced_talks","evidence_quote":"Everton are in advanced talks to sign Lina Foss"}]}"#;
 
     #[test]
-    fn narratives_quiet_cycle_is_parsed_with_zero_count() {
-        // An empty array is a legitimate quiet cycle — parsed, count 0 (NOT unparseable).
-        let v = NarrativeTask.evaluate(
-            r#"{"narratives":[]}"#,
-            None,
-            Some(&Expect {
-                narratives_max: Some(1),
-                narratives_min: Some(1),
-                ..Default::default()
-            }),
-        );
-        assert!(v.parsed);
-        // max(1) passes (0 ≤ 1); min(1) fails (0 < 1).
-        assert_eq!(v.checks_passed(), 1);
-    }
-
-    #[test]
-    fn narratives_malformed_reply_is_unparseable() {
-        let v = NarrativeTask.evaluate("the news feels grouped today", None, None);
-        assert!(!v.parsed);
-    }
-
-    // --- transfer FP/TP adjudication rubric --------------------------------------
-
-    const TRUE_TRANSFER: &str = r#"{"is_rumor":true,"subject":"Lina Foss","direction":"incoming","stage":"advanced_talks","summary":"Everton are in advanced talks to sign Lina Foss from Brann, according to TV2.","confidence":0.83}"#;
-
-    #[test]
-    fn transfer_true_positive_passes_adjudication_rubric() {
+    fn transfer_true_positive_has_one_source_linked_finding() {
         let x = Expect {
             transfer_is_rumor: Some(true),
-            transfer_direction: Some("incoming".into()),
             transfer_stage: Some("advanced_talks".into()),
             subject_includes: Some(vec!["Lina Foss".into()]),
-            summary_includes: Some(vec!["Everton".into(), "Brann".into()]),
-            confidence_min: Some(0.7),
+            summary_includes: Some(vec!["Everton".into()]),
             ..Default::default()
         };
         let v = TransferTask.evaluate(TRUE_TRANSFER, None, Some(&x));
@@ -2599,33 +1840,20 @@ mod tests {
     }
 
     #[test]
-    fn transfer_live_options_use_sport_specific_noun() {
-        let football = EntitySpec {
-            entity_type: "team".into(),
-            entity_id: 9,
-            sport: "football".into(),
-            pair_player_id: Some(70),
-        };
-        let nba = EntitySpec {
-            entity_type: "team".into(),
-            entity_id: 14,
-            sport: "nba".into(),
-            pair_player_id: Some(237),
-        };
-        let football_system = TransferTask.gen_options_for(0.0, &football).system.unwrap();
-        let nba_system = TransferTask.gen_options_for(0.0, &nba).system.unwrap();
-        assert!(football_system.contains("current transfer"));
-        assert!(nba_system.contains("current trade"));
+    fn transfer_options_declare_one_body_and_findings_reply() {
+        let options = TransferTask.gen_options(0.0).unwrap();
+        assert_eq!(
+            options.format_schema.unwrap()["required"],
+            serde_json::json!(["body", "findings"])
+        );
     }
 
     #[test]
-    fn transfer_false_positive_reply_clears_not_rumor_expect() {
-        let raw = r#"{"is_rumor":false,"subject":"Mika Salo","direction":"unclear","stage":"speculation","summary":"","confidence":0.12}"#;
+    fn transfer_empty_findings_clear_the_move_expectation() {
+        let raw = r#"{"body":"Mika Salo is mentioned, but no move is reported.","findings":[]}"#;
         let x = Expect {
             transfer_is_rumor: Some(false),
             subject_includes: Some(vec!["Mika Salo".into()]),
-            subject_excludes: Some(vec!["Lina Foss".into()]),
-            confidence_max: Some(0.3),
             ..Default::default()
         };
         let v = TransferTask.evaluate(raw, None, Some(&x));
@@ -2634,33 +1862,45 @@ mod tests {
     }
 
     #[test]
-    fn transfer_invented_fee_is_caught_by_summary_excludes() {
-        let raw = r#"{"is_rumor":true,"subject":"Lina Foss","direction":"incoming","stage":"concrete_interest","summary":"Everton want Lina Foss in a £12m move.","confidence":0.74}"#;
+    fn transfer_denial_finding_is_not_a_live_rumor() {
+        let raw = r#"{"body":"TV2 reports that Everton denied talks for Lina Foss.","findings":[{"report_index":0,"counterparty":"Everton","status":"denied","stage":null,"evidence_quote":"Everton denied talks for Lina Foss"}]}"#;
         let x = Expect {
-            transfer_is_rumor: Some(true),
-            summary_excludes: Some(vec!["£12m".into()]),
-            ..Default::default()
-        };
-        let v = TransferTask.evaluate(raw, None, Some(&x));
-        assert!(!v.all_checks_pass());
-    }
-
-    #[test]
-    fn transfer_unknown_commit_fails_boolean_expect() {
-        let raw = r#"{"subject":"Lina Foss","direction":"incoming","stage":"speculation","summary":"","confidence":0.2}"#;
-        let x = Expect {
-            transfer_is_rumor: Some(true),
+            transfer_is_rumor: Some(false),
+            subject_includes: Some(vec!["Lina Foss".into()]),
             ..Default::default()
         };
         let v = TransferTask.evaluate(raw, None, Some(&x));
         assert!(v.parsed);
-        assert!(!v.all_checks_pass());
+        assert!(v.all_checks_pass(), "checks: {:?}", v.checks);
+    }
+
+    #[test]
+    fn transfer_new_denial_supersedes_older_report_in_evaluation() {
+        let raw = r#"{"body":"TV2 reports that Everton denied talks for Lina Foss after an earlier link.","findings":[{"report_index":1,"counterparty":"Everton","status":"reported","stage":"speculation","evidence_quote":"Everton considered Lina Foss"},{"report_index":0,"counterparty":"Everton","status":"denied","stage":null,"evidence_quote":"Everton denied talks for Lina Foss"}]}"#;
+        let x = Expect {
+            transfer_is_rumor: Some(false),
+            ..Default::default()
+        };
+        assert!(TransferTask.evaluate(raw, None, Some(&x)).all_checks_pass());
+    }
+
+    #[test]
+    fn transfer_invented_fee_is_caught_by_body_excludes() {
+        let raw = r#"{"body":"Everton want Lina Foss in a £12m move.","findings":[]}"#;
+        let x = Expect {
+            summary_excludes: Some(vec!["£12m".into()]),
+            ..Default::default()
+        };
+        assert!(!TransferTask.evaluate(raw, None, Some(&x)).all_checks_pass());
     }
 
     #[test]
     fn transfer_malformed_reply_is_unparseable() {
-        let v = TransferTask.evaluate("looks like a rumor", None, None);
-        assert!(!v.parsed);
+        assert!(
+            !TransferTask
+                .evaluate("looks like a rumor", None, None)
+                .parsed
+        );
     }
 
     // --- typographic folding in the property matcher -----------------------------
@@ -2672,8 +1912,7 @@ mod tests {
     #[test]
     fn prose_excludes_matches_across_typographic_apostrophes() {
         // Real ministral-3:14b output from the momentum-s11 fixture gate (curly U+2019).
-        let reply = "READ: The tape holds firm and the samples are thin. \
-                     For now, this isn\u{2019}t a surge\u{2014}just a brief flash of what might come.";
+        let reply = r#"{"blurb":"The tape holds firm and the samples are thin. For now, this isn’t a surge—just a brief flash of what might come."}"#;
         let x = Expect {
             prose_excludes: Some(vec!["isn't a surge".into()]),
             ..Default::default()
@@ -2689,7 +1928,7 @@ mod tests {
 
     #[test]
     fn prose_includes_matches_across_typographic_apostrophes() {
-        let reply = "READ: Harbor City\u{2019}s press is tightening cleanly across the last six.";
+        let reply = r#"{"blurb":"Harbor City’s press is tightening cleanly across the last six."}"#;
         let x = Expect {
             prose_includes: Some(vec!["Harbor City's press".into()]),
             ..Default::default()
@@ -2703,7 +1942,7 @@ mod tests {
 
     // --- rating / stats-lens rubric ---------------------------------------------
 
-    const RATING_REPLY: &str = "An elite rim protector who grades at the 94th percentile in blocks and anchors the paint without fouling. The profile is thinner as a creator, but the defensive identity is clear and valuable.\nHEADLINE: Rim protection defines the matchup";
+    const RATING_REPLY: &str = "An elite rim protector who grades at the 94th percentile in blocks and anchors the paint without fouling. The profile is thinner as a creator, but the defensive identity is clear and valuable.";
 
     #[test]
     fn rating_rubric_scores_specificity_and_prose_richness() {
@@ -2717,7 +1956,11 @@ mod tests {
             prose_max_words: Some(60),
             ..Default::default()
         };
-        let v = RatingTask.evaluate(RATING_REPLY, None, Some(&x));
+        let v = RatingTask.evaluate(
+            &serde_json::json!({"body":RATING_REPLY}).to_string(),
+            None,
+            Some(&x),
+        );
         assert!(v.parsed);
         assert!(v.all_checks_pass(), "checks: {:?}", v.checks);
     }
@@ -2725,16 +1968,16 @@ mod tests {
     #[test]
     fn rating_product_name_ban_is_case_sensitive_and_body_scoped() {
         // Lowercase "peak" is honest English and must not trip the product-name ban.
-        let clean = "Still at the peak of his powers: an elite rim protector at the 94th percentile in blocks who anchors the paint without fouling, and the defensive identity is clear.\nHEADLINE: Rim protection defines the matchup";
-        let v = RatingTask.evaluate(clean, None, None);
+        let clean = "Still at the peak of his powers: an elite rim protector at the 94th percentile in blocks who anchors the paint without fouling, and the defensive identity is clear.";
+        let v = RatingTask.evaluate(&serde_json::json!({"body":clean}).to_string(), None, None);
         assert!(
             v.checks.iter().all(|c| c.pass),
             "clean body tripped: {:?}",
             v.checks
         );
         // An echoed product name in the body is exactly what the check exists to catch.
-        let echo = "His PEAK skill is rim protection and the staff must scheme away from it, forcing the ball to the perimeter.\nHEADLINE: Rim protection defines the matchup";
-        let v = RatingTask.evaluate(echo, None, None);
+        let echo = "His PEAK skill is rim protection and the staff must scheme away from it, forcing the ball to the perimeter.";
+        let v = RatingTask.evaluate(&serde_json::json!({"body":echo}).to_string(), None, None);
         let ban = v
             .checks
             .iter()
@@ -2753,7 +1996,11 @@ mod tests {
             prose_min_words: Some(20),
             ..Default::default()
         };
-        let v = RatingTask.evaluate("PEAK: No standout skill\nAverage profile.", None, Some(&x));
+        let v = RatingTask.evaluate(
+            r#"{"body":"No standout skill. Average profile."}"#,
+            None,
+            Some(&x),
+        );
         assert!(v.parsed);
         // Every expect-driven check fails; the global invariants (no product names, no
         // decoration) rightly pass on this clean-if-thin body, so they are excluded.
@@ -2769,7 +2016,7 @@ mod tests {
 
     #[test]
     fn momentum_parser_extracts_the_read() {
-        let raw = "READ: Recent form is rising while the mood is steady, so the current direction is modestly positive.";
+        let raw = r#"{"blurb":"Recent form is rising while the mood is steady, so the current direction is modestly positive."}"#;
         let parsed = parse_momentum_reply(raw).unwrap();
         assert!(parsed.blurb.contains("form is rising"));
     }
@@ -2785,7 +2032,7 @@ mod tests {
             prose_excludes: Some(vec!["surging".into()]),
             ..Default::default()
         };
-        let raw = "READ: The mood around the club is pulling the profile down despite steadier recent form.";
+        let raw = r#"{"blurb":"The mood around the club is pulling the profile down despite steadier recent form."}"#;
         let v = MomentumTask.evaluate(raw, None, Some(&x));
         assert!(v.parsed);
         assert!(v.all_checks_pass(), "checks: {:?}", v.checks);
@@ -2794,7 +2041,7 @@ mod tests {
     #[test]
     fn momentum_product_names_trip_the_invariant() {
         // The s14-era register itself: exactly what the s15 contract inverts.
-        let raw = "READ: Vibe is pulling the profile down despite a steadier PEAK read.";
+        let raw = r#"{"blurb":"Vibe is pulling the profile down despite a steadier PEAK read."}"#;
         let v = MomentumTask.evaluate(raw, None, None);
         let ban = v
             .checks
@@ -2873,56 +2120,257 @@ mod tests {
         }
     }
 
-    /// Preserve identity resolution, relevance and result extraction coverage.
+    /// F6's gate. A task that declares `stores_parts` must have every fixture
+    /// carry parts, and the plugin's current assembler must rebuild the stored
+    /// `user_prompt` from them byte for byte.
+    ///
+    /// This is what makes a changed package a test failure. Before it, the four
+    /// vibe fixtures were hand-edited when the package changed, and the
+    /// narratives directory was empty — so the harness replayed a string that
+    /// production had stopped building, and said nothing.
     #[test]
-    fn editor_fixtures_cover_resolution_and_extraction() {
-        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/quality/editor");
-        let (mut n, mut rejects, mut accepts) = (0, 0, 0);
-        let (mut refused, mut unresolved, mut never_links, mut result_parses) =
-            (false, false, false, false);
-        for entry in std::fs::read_dir(&dir).expect("read fixtures/editor") {
-            let p = entry.unwrap().path();
-            if p.extension().and_then(|e| e.to_str()) != Some("json") {
+    fn a_parts_fixture_reassembles_to_its_stored_prompt() {
+        let mut checked = 0;
+        for &name in all_task_names() {
+            let task = resolve_task(name).unwrap();
+            if !task.stores_parts() {
                 continue;
             }
-            let text = std::fs::read_to_string(&p).unwrap();
-            let fx: Fixture = serde_json::from_str(&text)
-                .unwrap_or_else(|e| panic!("fixture {} failed to parse: {e}", p.display()));
-            assert_eq!(fx.task, "editor", "{} has wrong task", p.display());
+            let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("fixtures/quality")
+                .join(name);
+            let mut files: Vec<_> = std::fs::read_dir(&dir)
+                .unwrap_or_else(|e| panic!("read {}: {e}", dir.display()))
+                .filter_map(|e| e.ok().map(|e| e.path()))
+                .filter(|p| p.extension().and_then(|s| s.to_str()) == Some("json"))
+                .collect();
+            files.sort();
             assert!(
-                !fx.prompt_version.is_empty(),
-                "{} lacks its captured version",
-                p.display()
+                !files.is_empty(),
+                "{name} declares parts and has no fixtures"
             );
-            n += 1;
-            match fx.expect.article_relevant {
-                Some(false) => rejects += 1,
-                Some(true) => accepts += 1,
-                None => {}
+            for path in files {
+                let fx: Fixture =
+                    serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+                let parts = fx.parts.as_ref().unwrap_or_else(|| {
+                    panic!(
+                        "{} stores no parts; {} declares a parts assembler, so the stored \
+                         prompt cannot be re-derived and a changed package would pass silently",
+                        path.display(),
+                        name
+                    )
+                });
+                let rebuilt = task
+                    .assemble(parts)
+                    .unwrap_or_else(|e| panic!("{} did not assemble: {e:#}", path.display()));
+                assert_eq!(
+                    rebuilt.user_prompt,
+                    fx.user_prompt,
+                    "{}: the plugin's current assembler no longer produces this package. \
+                     The parts are the fixture; recapture the prompt from them.",
+                    path.display()
+                );
+                checked += 1;
             }
-            refused |= fx.expect.resolver_refused_include.is_some();
-            unresolved |= fx.expect.resolver_unresolved_include.is_some();
-            never_links |= fx.expect.resolver_links_exclude.is_some();
-            result_parses |= fx.expect.result_line_parses == Some(true);
         }
-        assert!(n >= 12, "expected at least 12 extraction cases, found {n}");
         assert!(
-            rejects >= 2 && accepts >= 2,
-            "both directions must stay pinned (rejects={rejects}, accepts={accepts})"
+            checked > 0,
+            "no task declares a parts assembler; the gate covers nothing"
         );
-        assert!(refused, "no fixture pins a resolver refusal (namesake tie)");
-        assert!(
-            unresolved,
-            "no fixture pins resolver discovery (coach shape)"
-        );
-        assert!(
-            never_links,
-            "no fixture pins the descriptor/kind gate (place collision)"
-        );
-        assert!(result_parses, "no fixture pins a parsing result_line");
     }
 
-    /// Preserve transfer evidence strengthening and weakening cases.
+    /// A parts fixture's stored prompt is a check, not the input. If the harness
+    /// can silently fall back to it, the gate above proves nothing.
+    ///
+    /// The property is that a parts fixture has exactly one path, and it runs
+    /// the plugin's assembler. A task whose contract varies with the world must
+    /// refuse a world-independent option set, because one would be a second
+    /// path to the same fixtures. A task whose contract does not vary may offer
+    /// one — that set is its real production contract, and the harness already
+    /// used it to build the request.
+    #[test]
+    fn a_parts_fixture_has_exactly_one_path_and_it_runs_the_assembler() {
+        let mut parts_tasks = 0;
+        for &name in all_task_names() {
+            let task = resolve_task(name).unwrap();
+            if !task.stores_parts() {
+                // Without an assembler the stored string is the only path, which
+                // is the state F6 exists to end. These are Windows 4 through 10.
+                assert!(
+                    task.gen_options(0.0).is_ok(),
+                    "{name} has no parts assembler, so its options must come from gen_options"
+                );
+                continue;
+            }
+            parts_tasks += 1;
+            let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("fixtures/quality")
+                .join(name);
+            let fixture = std::fs::read_dir(&path)
+                .unwrap()
+                .filter_map(|e| e.ok().map(|e| e.path()))
+                .find(|p| p.extension().and_then(|s| s.to_str()) == Some("json"))
+                .expect("a parts task has fixtures");
+            let fx: Fixture =
+                serde_json::from_str(&std::fs::read_to_string(&fixture).unwrap()).unwrap();
+            let assembled = task.assemble(fx.parts.as_ref().unwrap()).unwrap();
+            assert_eq!(
+                assembled.user_prompt,
+                fx.user_prompt,
+                "{}: the harness would send a different package than the fixture stores",
+                fixture.display()
+            );
+        }
+        assert!(parts_tasks > 0, "no task declares a parts assembler");
+    }
+
+    /// The Journalist's decode contract is a function of what the world holds:
+    /// the schema is keyed by report count and the manual names history only
+    /// when a report carries it. A fixture that pins one and not the other is a
+    /// contract nothing checks.
+    #[test]
+    fn the_narratives_contract_follows_the_world_it_was_assembled_from() {
+        let base = |reports: usize, history: bool| {
+            let reports: Vec<CorpusItem> = (0..reports)
+                .map(|index| CorpusItem {
+                    id: index as i64 + 1,
+                    title: String::new(),
+                    context: format!("Cedar reported {index}."),
+                    source: "Wire".into(),
+                    published_at_epoch: Some(1_790_553_600),
+                })
+                .collect();
+            // Index-aligned with `reports`, exactly as production attaches it.
+            let slot = crate::plugins::journalist::memories::Selected {
+                items: vec![crate::tools::memories::HistoryItem {
+                    group: None,
+                    publisher: "Old Wire".into(),
+                    published_at: "2026-09-20T00:00:00Z".into(),
+                    reported_headline: "Cedar won earlier".into(),
+                }],
+                groups: vec![],
+            };
+            let memory = reports
+                .iter()
+                .enumerate()
+                .map(|(index, _)| (history && index == 0).then(|| slot.clone()))
+                .collect::<Vec<_>>();
+            serde_json::json!({
+                "subject": {"name":"Cedar Comets","entity_type":"team","entity_id":7,"sport":"NBA"},
+                "reports": reports,
+                "memory": memory,
+            })
+        };
+        let one = NarrativesTask.assemble(&base(1, false)).unwrap();
+        let two = NarrativesTask.assemble(&base(2, false)).unwrap();
+        let warm = NarrativesTask.assemble(&base(1, true)).unwrap();
+
+        // The schema is keyed by report count, so one option set cannot serve
+        // both worlds.
+        assert_ne!(
+            one.options.format_schema, two.options.format_schema,
+            "the response schema must follow the report count"
+        );
+        // The manual names history only when a report carries some.
+        assert_ne!(
+            one.options.system.as_deref(),
+            warm.options.system.as_deref(),
+            "the manual must follow whether history is attached"
+        );
+        // Memory is absent until an attachment exists, and is keyed to its report.
+        assert!(!one.user_prompt.contains(r#""memories""#));
+        assert!(warm
+            .user_prompt
+            .contains(r#""memories":[{"report_key":"report_1""#));
+    }
+
+    #[test]
+    fn prepared_requests_carry_acceptance_context_and_no_call_dispositions() {
+        let mut fx: Fixture = serde_json::from_str(include_str!(
+            "../../fixtures/quality/rating/synthetic-strong.json"
+        ))
+        .unwrap();
+        let request = RatingTask.prepare_fixture(&fx).unwrap();
+        assert!(request.should_call);
+        assert!(
+            RatingTask
+                .evaluate_prepared(
+                    &request,
+                    r#"{"body":"The recorded profile describes measured contributions."}"#,
+                    None,
+                    None
+                )
+                .parsed
+        );
+        assert!(
+            !RatingTask
+                .evaluate_prepared(
+                    &request,
+                    r#"{"body":"He averages 99999 blocks."}"#,
+                    None,
+                    None
+                )
+                .parsed
+        );
+        assert!(
+            !RatingTask
+                .evaluate_prepared(&request, "broken", None, None)
+                .parsed
+        );
+        let pass = RatingTask.evaluate_prepared(&request, r#"{"body":null}"#, None, None);
+        assert!(pass.parsed && !pass.all_checks_pass());
+        fx.user_prompt.push(' ');
+        assert!(RatingTask.prepare_fixture(&fx).is_err());
+        fx.parts = None;
+        assert!(RatingTask.prepare_fixture(&fx).is_err());
+        let mut parts = request.parts.unwrap();
+        parts["profile"]["values"] = serde_json::json!([]);
+        parts["profile"]["composite"] = serde_json::Value::Null;
+        assert!(!RatingTask.assemble(&parts).unwrap().should_call);
+        parts["profile"]["composite"] = serde_json::json!(52.0);
+        assert!(RatingTask.assemble(&parts).unwrap().should_call);
+
+        let mut fx: Fixture = serde_json::from_str(include_str!(
+            "../../fixtures/quality/narratives/distinct-developments.json"
+        ))
+        .unwrap();
+        let request = NarrativesTask.prepare_fixture(&fx).unwrap();
+        assert!(
+            request.parts.as_ref().unwrap()["reports"]
+                .as_array()
+                .unwrap()
+                .len()
+                > 1
+        );
+        assert!(
+            !NarrativesTask
+                .evaluate_prepared(&request, r#"{"report_1":"A report."}"#, None, None)
+                .parsed
+        );
+        let mut raw = serde_json::Map::new();
+        for key in request.options.format_schema.as_ref().unwrap()["required"]
+            .as_array()
+            .unwrap()
+        {
+            raw.insert(key.as_str().unwrap().into(), serde_json::Value::Null);
+        }
+        assert!(
+            NarrativesTask
+                .evaluate_prepared(
+                    &request,
+                    &serde_json::Value::Object(raw).to_string(),
+                    None,
+                    None
+                )
+                .parsed
+        );
+        let parts = fx.parts.as_mut().unwrap();
+        parts["reports"] = serde_json::json!([]);
+        parts["memory"] = serde_json::json!([]);
+        assert!(!NarrativesTask.assemble(parts).unwrap().should_call);
+    }
+
+    /// Preserve transfer evidence, including an explicit denial.
     #[test]
     fn transfer_fixtures_on_disk_parse_and_current_carry_a_steam_fizzle_axis() {
         let dir =
@@ -2939,6 +2387,7 @@ mod tests {
             assert_eq!(fx.task, "transfer", "{} has wrong task", p.display());
             assert!(
                 fx.expect.transfer_stage.is_some()
+                    || fx.expect.transfer_is_rumor == Some(false)
                     || fx.expect.confidence_min.is_some()
                     || fx.expect.confidence_max.is_some(),
                 "current fixture {} carries no steam/fizzle axis (field-name drop?)",
@@ -2958,7 +2407,7 @@ mod scout_abstention_tests {
     use super::*;
     #[test]
     fn a_valid_pass_is_visible_without_being_a_vacuous_quality_pass() {
-        let result = RatingTask.evaluate("null", None, None);
+        let result = RatingTask.evaluate(r#"{"body":null}"#, None, None);
         assert!(result.parsed);
         assert!(result.display.contains("abstained"));
         assert!(result.checks.iter().any(|check| !check.pass));

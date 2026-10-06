@@ -1,0 +1,350 @@
+{
+  "recorded_on": "2026-09-28",
+  "production_writes": false,
+  "scope_note": "Individual read-only requests, not a latency benchmark; counts cover the explicitly selected stored sources.",
+  "chelsea": {
+    "request": {
+      "study": "reporting",
+      "subject": {
+        "name": "Chelsea",
+        "entity_type": "team",
+        "entity_id": 18,
+        "sport": "FOOTBALL"
+      },
+      "from": 1789393725,
+      "before": 1790603325,
+      "limit": 3
+    },
+    "result": {
+      "elapsed_ms": 78,
+      "study": {
+        "findings": [
+          {
+            "article_count": 5,
+            "before": 1790603325,
+            "from": 1789393725,
+            "publisher_count": 5,
+            "publishers": [
+              {
+                "articles": 1,
+                "publisher": "al jazeera"
+              },
+              {
+                "articles": 1,
+                "publisher": "football london"
+              },
+              {
+                "articles": 1,
+                "publisher": "footballmuse.com"
+              },
+              {
+                "articles": 1,
+                "publisher": "goal.com"
+              },
+              {
+                "articles": 1,
+                "publisher": "vodacom soccer"
+              }
+            ],
+            "reports": [
+              {
+                "article_id": 757577,
+                "canonical_id": 757577,
+                "headline": "Xabi Alonso given Morgan Rogers green light as Chelsea's £117m transfer 'problem' scrutinised",
+                "publisher": "Football London",
+                "reported_at": 1790160666,
+                "topic": "storyline/21935"
+              },
+              {
+                "article_id": 722992,
+                "canonical_id": 722992,
+                "headline": "News | Xabi Alonso fires Chelsea warning after Brentford collapse",
+                "publisher": "Vodacom Soccer",
+                "reported_at": 1789809879,
+                "topic": "storyline/21935"
+              }
+            ],
+            "source_ids": [
+              696406,
+              702043,
+              721483,
+              722992,
+              757577
+            ],
+            "topic": "storyline/21935"
+          },
+          {
+            "article_count": 1,
+            "before": 1790603325,
+            "from": 1789393725,
+            "publisher_count": 1,
+            "publishers": [
+              {
+                "articles": 1,
+                "publisher": "bbc"
+              }
+            ],
+            "reports": [
+              {
+                "article_id": 789575,
+                "canonical_id": 789575,
+                "headline": "Highlights - WSL - Chelsea 1-0 Arsenal - Alyssa Thompson scores winner",
+                "publisher": "BBC",
+                "reported_at": 1790544097,
+                "topic": "storyline/27929"
+              }
+            ],
+            "source_ids": [
+              789575
+            ],
+            "topic": "storyline/27929"
+          },
+          {
+            "article_count": 1,
+            "before": 1790603325,
+            "from": 1789393725,
+            "publisher_count": 1,
+            "publishers": [
+              {
+                "articles": 1,
+                "publisher": "the star"
+              }
+            ],
+            "reports": [
+              {
+                "article_id": 789172,
+                "canonical_id": 789172,
+                "headline": "Football: Soccer-Thompson fires Chelsea to 1-0 WSL win over Arsenal",
+                "publisher": "The Star",
+                "reported_at": 1790531820,
+                "topic": "article/789172"
+              }
+            ],
+            "source_ids": [
+              789172
+            ],
+            "topic": "article/789172"
+          }
+        ],
+        "receipt": {
+          "before": 1790603325,
+          "captured_at": 1790603375,
+          "from": 1789393725,
+          "input_hash": "ecdb32e663e887c8aa5e8effd729fc02",
+          "mvcc_snapshot": "904427796:904427796:",
+          "observed_articles": 59,
+          "pair": null,
+          "predicates": [],
+          "subject": {
+            "entity_id": 18,
+            "entity_type": "team",
+            "name": "Chelsea",
+            "sport": "FOOTBALL"
+          },
+          "version": "reporting-frequency-v1"
+        }
+      }
+    }
+  },
+  "chelsea-reece": {
+    "request": {
+      "study": "reporting",
+      "subject": {
+        "name": "Chelsea",
+        "entity_type": "team",
+        "entity_id": 18,
+        "sport": "FOOTBALL"
+      },
+      "pair": {
+        "name": "Reece James",
+        "entity_type": "player",
+        "entity_id": 581220,
+        "sport": "FOOTBALL"
+      },
+      "from": 1789393725,
+      "before": 1790603325,
+      "limit": 3
+    },
+    "result": {
+      "elapsed_ms": 33,
+      "study": {
+        "findings": [],
+        "receipt": {
+          "before": 1790603325,
+          "captured_at": 1790603375,
+          "from": 1789393725,
+          "input_hash": "e84e74edba43250ec613c4f07c20e163",
+          "mvcc_snapshot": "904427796:904427796:",
+          "observed_articles": 0,
+          "pair": {
+            "entity_id": 581220,
+            "entity_type": "player",
+            "name": "Reece James",
+            "sport": "FOOTBALL"
+          },
+          "predicates": [],
+          "subject": {
+            "entity_id": 18,
+            "entity_type": "team",
+            "name": "Chelsea",
+            "sport": "FOOTBALL"
+          },
+          "version": "reporting-frequency-v1"
+        }
+      }
+    }
+  },
+  "chelsea-pair": {
+    "request": {
+      "study": "reporting",
+      "subject": {
+        "name": "Chelsea",
+        "entity_type": "team",
+        "entity_id": 18,
+        "sport": "FOOTBALL"
+      },
+      "pair": {
+        "name": "Morgan Rogers",
+        "entity_type": "player",
+        "entity_id": 4592198,
+        "sport": "FOOTBALL"
+      },
+      "from": 1788011325,
+      "before": 1790603325,
+      "limit": 3
+    },
+    "result": {
+      "elapsed_ms": 152,
+      "study": {
+        "findings": [
+          {
+            "article_count": 2,
+            "before": 1790603325,
+            "from": 1788011325,
+            "publisher_count": 2,
+            "publishers": [
+              {
+                "articles": 1,
+                "publisher": "sky sports"
+              },
+              {
+                "articles": 1,
+                "publisher": "yahoo sports"
+              }
+            ],
+            "reports": [
+              {
+                "article_id": 610590,
+                "canonical_id": 610590,
+                "headline": "Chelsea's Morgan Rogers mocked by Arsenal fans in response to controversial comment",
+                "publisher": "Yahoo Sports",
+                "reported_at": 1788817394,
+                "topic": "requested_pair"
+              },
+              {
+                "article_id": 601487,
+                "canonical_id": 601487,
+                "headline": "Arsenal vs Chelsea | Morgan Rogers fires Chelsea ahead inside 2 mins with 'instinct and precision'!",
+                "publisher": "Sky Sports",
+                "reported_at": 1788709365,
+                "topic": "requested_pair"
+              }
+            ],
+            "source_ids": [
+              601487,
+              610590
+            ],
+            "topic": "requested_pair"
+          }
+        ],
+        "receipt": {
+          "before": 1790603325,
+          "captured_at": 1790603629,
+          "from": 1788011325,
+          "input_hash": "554e661603ed79f6342384bca9e19ed1",
+          "mvcc_snapshot": "904427796:904427796:",
+          "observed_articles": 2,
+          "pair": {
+            "entity_id": 4592198,
+            "entity_type": "player",
+            "name": "Morgan Rogers",
+            "sport": "FOOTBALL"
+          },
+          "predicates": [],
+          "subject": {
+            "entity_id": 18,
+            "entity_type": "team",
+            "name": "Chelsea",
+            "sport": "FOOTBALL"
+          },
+          "version": "reporting-frequency-v1"
+        }
+      }
+    }
+  },
+  "chelsea-xg": {
+    "request": {
+      "study": "team_statistic",
+      "subject": {
+        "name": "Chelsea",
+        "entity_type": "team",
+        "entity_id": 18,
+        "sport": "FOOTBALL"
+      },
+      "metric": "expected_goals_for",
+      "league_id": 8,
+      "season": 2026,
+      "from": 1785419325,
+      "split": 1788011325,
+      "before": 1790603325
+    },
+    "result": {
+      "elapsed_ms": 30,
+      "study": {
+        "captured_at": 1790603629,
+        "coverage": "Stored completed verified fixtures in the requested competition and season; absent measures remain missing. Fixture inventory completeness is not established.",
+        "finding": {
+          "current": {
+            "before": 1790603325,
+            "fixtures": 4,
+            "from": 1788011325,
+            "measured": 4,
+            "per_match": 1.2975,
+            "total": 5.1899999999999995
+          },
+          "fixture_ids": [
+            326266,
+            326126,
+            326273,
+            326238,
+            326336
+          ],
+          "metric": "expected_goals_for",
+          "per_match_change": -0.9325,
+          "percent_change": -41.81614349775786,
+          "previous": {
+            "before": 1788011325,
+            "fixtures": 1,
+            "from": 1785419325,
+            "measured": 1,
+            "per_match": 2.23,
+            "total": 2.23
+          },
+          "unit": "cumulative_total"
+        },
+        "input_hash": "251bfb78f851a9b1313c27bac102de60",
+        "league_id": 8,
+        "measure_label": "Expected Goals For (xG)",
+        "mvcc_snapshot": "904427796:904427796:",
+        "season": 2026,
+        "subject": {
+          "entity_id": 18,
+          "entity_type": "team",
+          "name": "Chelsea",
+          "sport": "FOOTBALL"
+        },
+        "version": "match-statistic-v1"
+      }
+    }
+  }
+}

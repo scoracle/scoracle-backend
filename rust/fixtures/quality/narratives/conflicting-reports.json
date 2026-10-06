@@ -1,0 +1,46 @@
+{
+  "expect": {
+    "body_includes": [
+      "denied",
+      "City Wire"
+    ]
+  },
+  "name": "conflicting-reports-two-sources-that-contradict-each-other",
+  "parts": {
+    "memory": [
+      null,
+      null
+    ],
+    "reports": [
+      {
+        "context": "Cedar United denied agreeing a fee for Alex Stone. A club spokesperson said discussions had not begun.",
+        "id": 2,
+        "published_at_epoch": 1790463600,
+        "source": "Club Bulletin",
+        "title": "Cedar United update 2"
+      },
+      {
+        "context": "Cedar United agreed a fee for Alex Stone, City Wire reports, citing an unnamed source. The club has not confirmed the report.",
+        "id": 1,
+        "published_at_epoch": 1790463600,
+        "source": "City Wire",
+        "title": "Cedar United update 1"
+      }
+    ],
+    "subject": {
+      "entity_id": 7,
+      "entity_type": "team",
+      "name": "Cedar United",
+      "sport": "FOOTBALL"
+    }
+  },
+  "prompt_version": "n96-six-part",
+  "review": [
+    "Two keyed slots, two source positions. Neither may be merged into one settled fact.",
+    "Both reports are unconfirmed; the reading must not resolve the contradiction for the reader."
+  ],
+  "system": "",
+  "task": "narratives",
+  "temperature": 0.0,
+  "user_prompt": "{\"meta\":{\"name\":\"Cedar United\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\"},\"fresh\":[{\"report_key\":\"report_1\",\"publisher\":\"Club Bulletin\",\"published_at\":\"2026-09-26T23:00:00Z\",\"publisher_excerpt\":\"Cedar United denied agreeing a fee for Alex Stone. A club spokesperson said discussions had not begun.\"},{\"report_key\":\"report_2\",\"publisher\":\"City Wire\",\"published_at\":\"2026-09-26T23:00:00Z\",\"publisher_excerpt\":\"Cedar United agreed a fee for Alex Stone, City Wire reports, citing an unnamed source. The club has not confirmed the report.\"}],\"voice\":\"Clear, restrained and direct.\",\"form\":{\"keys\":[\"report_1\",\"report_2\"],\"max_chars\":1200}}"
+}

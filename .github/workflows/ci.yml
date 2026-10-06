@@ -42,22 +42,6 @@ jobs:
           go-version-file: go/go.mod
           cache-dependency-path: go/go.sum
 
-      - name: gofmt (no diffs)
-        working-directory: go
-        run: |
-          unformatted="$(gofmt -l .)"
-          if [ -n "$unformatted" ]; then
-            echo "gofmt needs to run on:"; echo "$unformatted"; exit 1
-          fi
-
-      - name: go vet
-        working-directory: go
-        run: go vet ./...
-
-      - name: go build
-        working-directory: go
-        run: go build ./...
-
       # The schema dump uses psql 18 directives (\restrict/\unrestrict) and a
       # pg18-era dump format, so install a matching client rather than relying on
       # the runner's bundled psql.
@@ -68,30 +52,12 @@ jobs:
           sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
           sudo apt-get install -y postgresql-client-18
 
-      - name: Provision test DB from schema snapshot
-        run: |
-          createdb -h localhost -U postgres scoracle_test
-          ./sql/build.sh "$TEST_DATABASE_URL"
-          ./sql/migrate.sh "$TEST_DATABASE_URL" | tee /tmp/migrations.log
-          grep -q 'done — 0 migration(s) applied' /tmp/migrations.log
-
-      - name: SQL measurement contract
-        run: psql "$TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f sql/tests/253_rating_evidence_contract.sql
-
       - uses: dtolnay/rust-toolchain@stable
 
-      - name: Rust unit and database contracts
+      - name: Runtime and database contracts (same entry point as local checks)
         run: |
-          cargo test --manifest-path rust/Cargo.toml --lib --bins
-          cargo test --manifest-path rust/Cargo.toml --lib -- --ignored --test-threads=1
-
-      - name: validate-stmts (prepared statements register against the schema)
-        working-directory: go
-        run: go run ./cmd/validate-stmts -db "$TEST_DATABASE_URL"
-
-      - name: go test (offline unit + DB-gated integration)
-        working-directory: go
-        run: go test ./... -race
+          createdb -h localhost -U postgres scoracle_test
+          ./scripts/check.sh "$TEST_DATABASE_URL"
 
   shell:
     name: Shell (syntax + ShellCheck)
@@ -125,5 +91,8 @@ jobs:
           (cd sql/schema && sha256sum -c SHA256SUMS)
           expected="$(mktemp)"
           for f in sql/migrations/*.sql; do basename "$f" .sql; done | sort > "$expected"
-          diff -u "$expected" sql/schema/applied-migrations.txt
+          # PostgreSQL's ledger collation and the runner's shell locale order
+          # 042a_* and 042_* differently; compare the captured set, not order.
+          diff -u <(LC_ALL=C sort "$expected") \
+                  <(LC_ALL=C sort sql/schema/applied-migrations.txt)
           # Never regenerate applied history from filenames. Capture a verified database.

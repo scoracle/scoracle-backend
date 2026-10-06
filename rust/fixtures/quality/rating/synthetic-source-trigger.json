@@ -1,0 +1,48 @@
+{
+  "name": "synthetic-source-trigger",
+  "task": "rating",
+  "prompt_version": "s66-measured-windows",
+  "parts": {
+    "memory": {
+      "coverage_limits": [
+        "Recent-fixture measurement windows are not part of this read's scope."
+      ]
+    },
+    "profile": {
+      "composite": null,
+      "limit": {
+        "kind": "unknown_sample",
+        "minimum": 10.0
+      },
+      "observed_at": "2026-09-30",
+      "sample": {},
+      "season": 2026,
+      "sport_name": "Harvester smoke",
+      "supports_cross_season": false,
+      "values": [
+        {
+          "band": "strong",
+          "label": "Scoring",
+          "measure": "points",
+          "percentile": 80.0,
+          "quality_z": 1.0,
+          "value": 20.0
+        }
+      ]
+    },
+    "season": 2026,
+    "sport_name": "Harvester smoke",
+    "subject": {
+      "entity_id": 9690102,
+      "entity_type": "team",
+      "name": "Harvester Test Club",
+      "sport": "ZZ_HARVESTER_SMOKE"
+    }
+  },
+  "user_prompt": "{\"meta\":{\"name\":\"Harvester Test Club\",\"entity_type\":\"team\",\"sport\":\"Harvester smoke\"},\"fresh\":{\"season\":2026,\"values\":[{\"label\":\"Scoring\",\"measure\":\"points\",\"value\":20.0,\"percentile\":80.0,\"band\":\"strong\"}],\"supports_cross_season\":false,\"limit\":{\"kind\":\"unknown_sample\",\"minimum\":10.0}},\"memories\":{\"coverage_limits\":[\"Recent-fixture measurement windows are not part of this read's scope.\"]},\"voice\":\"Observant, direct, specific to the sport and restrained.\",\"form\":{\"keys\":[\"body\"],\"max_chars\":1200}}",
+  "temperature": 0,
+  "expect": {},
+  "review": [
+    "The sample count is unknown. The minimum of 10 is an appearance threshold, not a points threshold or observed sample. No stability or recent form is established."
+  ]
+}

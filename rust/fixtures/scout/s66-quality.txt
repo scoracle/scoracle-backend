@@ -1,0 +1,73 @@
+   Compiling scoracle-cognition v0.0.0 (/Users/scotty/scoracle/scoracle-backend/rust)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.70s
+     Running `target/debug/eval --task rating --fixtures`
+fixtures — task=rating role=stats-logic n=8 dir=/Users/scotty/scoracle/scoracle-backend/rust/fixtures/quality/rating/  incumbent=alibayram/smollm3
+lens — operator=The Scout | mandate=Tell the story of the entity's playing characteristics, expected contributions and supported profile direction. | guard=Interpret supplied measurements together; use metadata as context and preserve the distinction between profile, form and relative standing.
+CURRENT CONTRACT: current system and schema with version-checked frozen evidence.
+Review individual claims and voice; generation varies with model and load.
+
+[synthetic-composite]  (temp=0)
+  Review: The composite has a peer mean of 50. No individual measurements, playing traits, trend or balanced offense/defense are established.
+      call: request=1634 bytes, input=385 tokens, output=226 tokens, latency=3.50s, retries=0
+  A alibayram/smollm3 The Cedar Comets have played 25 games this season, maintaining a composite score of 64.0. This represents a strong overall performance, indicating consistent success across the season. The team's body of work is marked by a robust performance, supported by the cross-season comparison, which suggests a stable and competitive standing. The composite score, calculated relative to the league average, reflects a balanced and effective approach to the game. The team's body of work is characterized by a combination of skill, strategy, and teamwork, all contributing to their current standing. The precise measurement of 64.0 underscores the team's ability to perform at a high level consistently throughout the season. The lack of detailed breakdowns in the provided data suggests that the team's performance is not heavily skewed towards any particular aspect of the game, indicating a well-rounded approach. The team's body of work is supported by the cross-season comparison, which indicates a stable and competitive standing. The team's performance is marked by a robust performance, indicating a strong overall standing in the league.
+      [✓] no_product_names
+      [✓] no_banned_phrases
+
+[synthetic-incompatible]  (temp=0)
+  Review: The prior competition is incompatible. Describe current standing without inventing a comparison, stability or recent form.
+      call: request=1976 bytes, input=480 tokens, output=221 tokens, latency=3.25s, retries=0
+  A alibayram/smollm3 The Cedar Comets' 2026 season has seen a strong performance, particularly in rebounding and assisting. The team has averaged 48 rebounds per game, placing them in the top 10% of teams, while averaging 23 assists per game, ranking them in the top 25%. These statistics suggest a balanced and effective team strategy. The team's composite score of 64.0, based on these metrics, indicates a competitive standing. However, the team's prior season was in a different competition, so no direct comparison is available. The team's performance has been consistent, with no significant changes observed in the current season compared to the previous one. The team's coverage has been thorough, with 25 games played, and the sample size of 30 teams provides a robust basis for these statistics. The team's elite rebounding performance and strong assisting numbers indicate a well-rounded team that can compete at a high level. However, without a direct comparison to the previous season, the extent of improvement or decline remains unknown.
+      rejected: Body uses numeric value 10, which is absent from the retained evidence. Remove it or use the exact supplied measurement.
+      raw: {
+  "body": "The Cedar Comets' 2026 season has seen a strong performance, particularly in rebounding and assisting. The team has averaged 48 rebounds per game, placing them in the top 10% of teams, while averaging 23 assists per game, ranki...
+
+[synthetic-measured-memory]  (temp=0)
+  Review: The current points average is 105 across three measured fixtures out of four. The supplied change is 2; do not turn 105 into the prior average or invent 107. Preserve missing-data coverage.
+  Review: Explicit synthetic windows: previous August 1–30 average 103; current August 30–September 29 average 105. This reconstructs a coherent test comparison, not a historical database receipt.
+      call: request=2372 bytes, input=625 tokens, output=265 tokens, latency=4.04s, retries=0
+  A alibayram/smollm3 The Cedar Comets' performance in the 2026 season has been marked by a strong rebounding and assist per game average. The team's rebounds per game average of 48.0, placing them in the 90th percentile, indicates elite performance. This is a notable improvement from the 80th percentile in the previous season. However, their assists per game average of 23.0, which falls in the 75th percentile, has remained steady at the same level as the previous season, indicating no change in standing. The team's overall composite score is 64.0, reflecting a balanced performance across various metrics. The team has maintained a strong cross-season performance, with current measurements supporting this trend. Additionally, the team has shown a slight increase in points per game, averaging 105.0 in the current measured window, compared to 103.0 in the previous window, indicating a minor improvement. However, one current fixture lacks a points measurement, and the absence of this data is not considered to be zero. The Cedar Comets' performance in the 2026 season has been characterized by a combination of elite rebounding and balanced assist per game averages, supported by strong cross-season performance and a minor improvement in points per game.
+      rejected: Prose totals 1244 characters across 1 slots; allowed range is 1..=1200.
+      raw: {
+  "body": "The Cedar Comets' performance in the 2026 season has been marked by a strong rebounding and assist per game average. The team's rebounds per game average of 48.0, placing them in the 90th percentile, indicates elite performance...
+
+[synthetic-source-trigger]  (temp=0)
+  Review: The sample count is unknown. The minimum of 10 is an appearance threshold, not a points threshold or observed sample. No stability or recent form is established.
+      call: request=1838 bytes, input=433 tokens, output=169 tokens, latency=2.57s, retries=0
+  A alibayram/smollm3 In the 2026 season, the team's scoring performance was notable, with a per-match average of 20 points, placing them at the 80th percentile. This indicates a strong performance, though the exact sample size and limits are unknown. The team's scoring prowess was consistent across the season, as evidenced by the absence of any cross-season support. The team's recent performance has been impressive, but the exact details of their recent games are not available for this report. The team's scoring ability has been a key factor in their overall success, but the full extent of their capabilities remains to be seen. The team's performance has been strong, but the exact sample size and limits are unknown, and the team's scoring ability has been consistent throughout the season.
+      [✓] no_product_names
+      [✓] no_banned_phrases
+
+[synthetic-sparse]  (temp=0)
+  Review: Three stored games describe source coverage, not first games, early-season participation or future potential. No cross-season comparison is supplied.
+      call: request=1901 bytes, input=472 tokens, output=98 tokens, latency=1.56s, retries=0
+  A alibayram/smollm3 The Cedar Comets' 2026 season has seen them play three games, showcasing strong rebounding and assist numbers. They average 48 rebounds per game, placing them in the top 10% of teams, while averaging 23 assists per game, ranking them in the top 75%. These statistics highlight their effectiveness in both rebounding and distributing the ball, contributing to their strong performance in the season so far.
+      rejected: Body calls Rebounds average, but its supplied percentile band is elite. Use the supplied band.
+      raw: {
+  "body": "The Cedar Comets' 2026 season has seen them play three games, showcasing strong rebounding and assist numbers. They average 48 rebounds per game, placing them in the top 10% of teams, while averaging 23 assists per game, rankin...
+
+[synthetic-strong]  (temp=0)
+  Review: Rebounding standing rose; assist standing held. Do not infer ability, tactics, health or recent form from these comparisons.
+      call: request=1952 bytes, input=483 tokens, output=152 tokens, latency=2.32s, retries=0
+  A alibayram/smollm3 The Cedar Comets' 2026 season has seen a strong performance in rebounding, with a per-game average of 48.0 rebounds, placing them in the top 10% of teams. This marks a significant improvement from the previous season, where they were in the top 80%. However, their assist per game average of 23.0 has remained steady at the 75th percentile, indicating a slight plateau in this area. The team's overall composite score of 64.0 reflects a balanced performance across various metrics. The team's elite rebounding prowess and strong assist numbers suggest a well-rounded approach to the game, positioning them favorably in the league standings.
+      rejected: Body uses numeric value 10, which is absent from the retained evidence. Remove it or use the exact supplied measurement.
+      raw: {
+  "body": "The Cedar Comets' 2026 season has seen a strong performance in rebounding, with a per-game average of 48.0 rebounds, placing them in the top 10% of teams. This marks a significant improvement from the previous season, where the...
+
+[synthetic-withdrawn-report]  (temp=0)
+  Review: Preserve Example Wire, September 28, the withdrawal, disputed status and unconfirmed availability. Rebounding standing rose; assist standing held. The report does not alter measurements.
+      call: request=2221 bytes, input=546 tokens, output=183 tokens, latency=2.68s, retries=0
+  A alibayram/smollm3 The Cedar Comets, a basketball team, had a strong season in 2026, playing 25 games. Their performance was characterized by high rebounding efficiency, with 48 rebounds per game placing them in the top 10% of teams. However, their assist-to-rebound ratio was slightly below average, with 23 assists per game ranking them around the 75th percentile. The team's composite score, combining these metrics, was 64.0. The club withdrew an earlier report stating that Morgan Example would miss two weeks, but the current availability remains unconfirmed. The team's performance was consistent across the season, with no significant changes in their percentile rankings. The Cedar Comets' strong rebounding and moderate assist-to-rebound ratio suggest a balanced team strategy, though further analysis is needed to understand the root causes of their performance.
+      rejected: Body uses numeric value 10, which is absent from the retained evidence. Remove it or use the exact supplied measurement.
+      raw: {
+  "body": "The Cedar Comets, a basketball team, had a strong season in 2026, playing 25 games. Their performance was characterized by high rebounding efficiency, with 48 rebounds per game placing them in the top 10% of teams. However, the...
+
+[synthetic-zero-unknown]  (temp=0)
+  Review: Zero turnovers is measured; assists are unknown. Low turnovers do not establish defensive performance or forcing opponent turnovers.
+      call: request=1811 bytes, input=435 tokens, output=163 tokens, latency=2.44s, retries=0
+  A alibayram/smollm3 The Cedar Comets' 2026 season has been marked by a dominant performance in the area of turnovers, with a turnover rate of 0.0 per game, placing them at the elite level. This exceptional statistic indicates a highly efficient and disciplined team. However, the team's assist per game rate remains unmeasured, leaving that aspect of their performance unaccounted for. The composite score of 64.0 reflects their overall performance, suggesting a strong team. The team's performance has been consistent across the season, as evidenced by the supports_cross_season attribute. The Cedar Comets have demonstrated a high level of performance in the 2026 season, particularly in minimizing turnovers, which has contributed to their elite standing in the league.
+      [✓] no_product_names
+      [✓] no_banned_phrases
+
+=== fixture summary — alibayram/smollm3 : 9/14 property checks passed ===
+Mechanical checks do not establish semantic quality; the review criteria remain manual.
+Error: fixture checks failed; see individual outcomes above

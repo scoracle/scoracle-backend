@@ -1,0 +1,62 @@
+{
+  "name": "synthetic-withdrawn-report",
+  "task": "rating",
+  "prompt_version": "s66-measured-windows",
+  "parts": {
+    "memory": {
+      "reported": [
+        {
+          "disputed": true,
+          "published_at": "2026-09-28T00:00:00Z",
+          "publisher": "Example Wire",
+          "reported_headline": "The club withdrew its earlier report that Morgan Example would miss two weeks. Current availability remains unconfirmed.",
+          "withdrawn": true
+        }
+      ]
+    },
+    "profile": {
+      "composite": 64.0,
+      "observed_at": "2026-09-29",
+      "sample": {
+        "Games Played": 25.0
+      },
+      "season": 2026,
+      "sport_name": "Basketball",
+      "supports_cross_season": true,
+      "values": [
+        {
+          "band": "elite",
+          "cohort": 30.0,
+          "label": "Rebounds",
+          "measure": "rebounds per game",
+          "percentile": 90.0,
+          "prior_percentile": 80.0,
+          "value": 48.0
+        },
+        {
+          "band": "strong",
+          "cohort": 30.0,
+          "label": "Assists",
+          "measure": "assists per game",
+          "percentile": 75.0,
+          "prior_percentile": 75.0,
+          "value": 23.0
+        }
+      ]
+    },
+    "season": 2026,
+    "sport_name": "Basketball",
+    "subject": {
+      "entity_id": 7,
+      "entity_type": "team",
+      "name": "Cedar Comets",
+      "sport": "NBA"
+    }
+  },
+  "user_prompt": "{\"meta\":{\"name\":\"Cedar Comets\",\"entity_type\":\"team\",\"sport\":\"Basketball\"},\"fresh\":{\"season\":2026,\"sample\":{\"Games Played\":25.0},\"values\":[{\"label\":\"Rebounds\",\"measure\":\"rebounds per game\",\"value\":48.0,\"percentile\":90.0,\"cohort\":30.0,\"band\":\"elite\",\"prior_percentile\":80.0,\"standing_change\":\"rose\"},{\"label\":\"Assists\",\"measure\":\"assists per game\",\"value\":23.0,\"percentile\":75.0,\"cohort\":30.0,\"band\":\"strong\",\"prior_percentile\":75.0,\"standing_change\":\"held\"}],\"composite\":64.0,\"supports_cross_season\":true},\"memories\":{\"reported\":[{\"publisher\":\"Example Wire\",\"published_at\":\"2026-09-28T00:00:00Z\",\"reported_headline\":\"The club withdrew its earlier report that Morgan Example would miss two weeks. Current availability remains unconfirmed.\",\"withdrawn\":true,\"disputed\":true}]},\"voice\":\"Observant, direct, specific to the sport and restrained.\",\"form\":{\"keys\":[\"body\"],\"max_chars\":1200}}",
+  "temperature": 0,
+  "expect": {},
+  "review": [
+    "Preserve Example Wire, September 28, the withdrawal, disputed status and unconfirmed availability. Rebounding standing rose; assist standing held. The report does not alter measurements."
+  ]
+}

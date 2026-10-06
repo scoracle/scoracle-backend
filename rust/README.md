@@ -1,66 +1,145 @@
-# Studio: the harness contract
+# Studio: the architecture contract
 
-**The harness provides the studio. The plugin provides the paint, brushes, and easel. The model provides the expression.**
+**SQL owns the data. Rust owns the cognition. Everything that performs work is a plugin.** The harness determines runnable work → the plugin assembles its world using shared or local tools → its model performs the bounded job → the plugin validates and publishes to Postgres.
 
-Studio supplies inference, validation, and publication boundaries. A plugin selects the facts and claims that can appear in its product. The model chooses expression within that plugin-owned vocabulary. A model response is never authoritative evidence by itself.
+Plugins select the evidence, scope, relationships and instructions needed for their work. Postgres stores and queries the world; SQL and DuckDB calculate factual measurements and studies. Rust prepares the model input, invokes the model, accepts the response and publishes the result. Models receive prepared input and never call tools, search or retrieve. Plugins do not prewrite the interpretation or prescribe a conclusion. Harvester is a peer plugin using a System 1 model, currently Laya; System 1 is a model inside that plugin.
 
-For the migrated Scout path, the plugin prepares measured statements and approved phrasings. The model returns one phrasing choice per fact. Studio assembles those statements and rejects invalid choices, so a model cannot add a statistic or omit a selected limitation in served prose. Other character products still need their own output plans before this guarantee applies to them.
-
-This is the governing contract for harness work. Propose changes to it explicitly; do not expand the architecture by inference. Implementation gaps and historical plans do not redefine these principles.
+**This README is the current architecture authority.** The completed [harness cleanup plan](docs/PLAN-harness-plugin-cleanup-2026-10-05.md) records the implementation and validation of this contract. The completed [plugin alignment plan](docs/PLAN-plugin-alignment-2026-09-27.md) and dated evaluations remain historical evidence. The [deployment record](docs/harness-cleanup-deployment-2026-10-05.md) records the Archbox release and paused Mac worker; context expansion remains separate.
 
 ## Ownership
 
-- **Postgres remembers:** facts, entity metadata, relationships, source history, products and durable work.
-- **DuckDB studies:** bounded data populations, statistical comparisons, cohorts and trends. Return computed observations with their meaning and limitations.
-- **Plugin adapters prepare and publish:** select relevant evidence, assemble assignments, route calls and persist validated results. Application assembly binds their concrete dependencies.
-- **Studio runs the session:** provide inference, enforce the plugin's finite output plan, and retain provenance. Storage, analytical computation and queue coordination stay outside the core.
+- **Plugins / Rust:** tool calls, evidence selection, scope, context assembly, task and tone instructions, model invocation, validation and publication policy.
+- **Models:** faithful articulation or bounded classification of supplied input; no invented evidence or tool calls.
+- **Harness and host:** plugin registration, runnable work, dependency injection, inference transport, budgets, claim fencing and atomic publication coordination.
+- **Postgres and DuckDB / SQL:** stored evidence, joins, name matching, factual arithmetic and bounded studies with dates, coverage and provenance. Prior prose cannot become measurement evidence. Existing Rust calculations move into SQL with parity checks as their plugins are simplified.
 
-Rich upstream context enables precise selection. Prompt size is not a measure of context quality.
+## Harvester supplies source text
 
-## The model call
+Harvester replaces the legacy Editor's article-summarization role with source acquisition, System 1 filtering, and verbatim context extraction. It does not generate a summary or editorial packet for the characters.
 
-**Shared form + character voice + relevant identity + selected evidence.**
+The current checked-in worker follows this path:
 
-[`form.rs`](src/plugins/support/form.rs) owns the shared publishing format. Each character has one active brief. Metadata supplies who the entity is, its role and the relevant time/season. Evidence supplies what the character can responsibly interpret.
+1. Retain Google candidate provenance, query entity, headline, and publisher identity. Shared `tools/meta.rs` supplies canonical name, entity ID, type and sport. The System 1 model scores explicit headline reference to that supplied identity before publisher acquisition.
+2. Apply Harvester's reading policy. Fetch or reuse usable publisher text only when at least one query entity passes. Acquisition failures remain acquisition outcomes, not negative relevance judgments.
+3. Select the publisher's first three available paragraphs verbatim, with body hash and UTF-8 byte offsets. Score every retained non-whitespace character through windows of at most 100 words and 1,200 bytes. Openings requiring more than eight windows fail visibly.
+4. The System 1 model returns seven scalar predicate scores. Harvester aggregates support across windows and applies its route table to select Journalist, Influencer, Insider and Scout. Source evidence stays separate from subject metadata; no model-selected destination or generated summary is accepted.
+5. Persist exact source context, scores, window coverage and versioned policy under the queue claim. The harness dispatches approved destinations subject to shadow mode and character enrollment. Receiving plugins own product sufficiency and articulation.
 
-| Character | Evidence |
-|---|---|
-| Scout / Rating | Prepared statistics, compatible comparisons, trends and relevant history. |
-| Influencer / Vibe | Attributed stories, emotional evidence and relevant memories. |
-| Journalist | Sourced developments and story continuity. |
-| Insider | Transfer evidence, relationship status and relevant history. |
-| Analyst / Momentum | Scout and Influencer outputs and their relevant memories. |
-| Oracle | The other five finished outputs. |
+The current local contract is `harvest-context-v7`, with `harvest-headline-v3` gates. Reading uses a **0.25** threshold; theme predicates use **0.50**, except performance at **0.70**. These are provisional development policy values, not calibrated accuracy claims. See the [v7 frame and evaluation](docs/harvester-frame-2026-09-27.md) and [source boundary](docs/harvester-plugin-boundary-2026-09-27.md). Google descriptions do not substitute for publisher text. “Verbatim” refers to retained extracted text, not raw HTML.
 
-Analyst and Oracle synthesize their supplied readings. Identity, dates and missing-output status travel with them in a small envelope. Extraction tasks use their own structured schemas rather than the publishing form.
+Harvester has one worker/replay path. The historical packet compiler, choice-response parsing and teacher fields are removed. The [cleanup pass](docs/harvester-cleanup-2026-09-27.md) records other retired tools. Shared subject metadata is available to the other plugins; Harvester's accepted v7 behavior predates the six-part cleanup; the six articulation plugins and shared harness now use the owners below, while Harvester retains its distinct acquisition and classification workflow. A [local Laya/Fastino comparison](docs/harvester-systemone-comparison-2026-10-01.md) retained Laya and the current policy pending fresh reviewed calibration; operational deployment remains separate.
 
-Each publishing character tells the part of the story its evidence supports. A partial profile can be a complete reading. Measured zero and observed absence can be findings; missing measurements or reports remain unknown. Direction requires a supported comparison. Gaps limit the claims rather than obliging the model to fill a complete profile, explain a cause, or invent a trend. Scout's current palette path publishes a no-stats marker when no measured claim can be selected. Its archived open-prose parser still accepts JSON `null` for historical evaluation; production palette compositions must choose every selected fact. Other voices retain their existing output contracts pending migration.
+Older cutover documents describe three-sentence excerpts, broad forwarding, or advisory-only relevance. Those descriptions are historical and do not describe this worker contract. Deployment reports are also dated evidence: verify the actual host revision, migrations, flags, and worker state before claiming the checked-in behavior is live. This README update does not deploy code or release character delivery.
 
-## Evidence and efficiency
+## Plugin structure and tool ownership
 
-- Supply units, season/competition, comparison population, sample coverage and uncertainty when they affect interpretation. Compute arithmetic and trends upstream. Withhold unsupported comparisons. Missing stays unknown; prior prose is not a new fact.
-- Retain full provenance and debugging detail outside the prompt. Send the evidence needed for this reading, once.
-- Budget the complete request and reserved output before calling the model. Keep corrections bounded. Validate format and factual boundaries while leaving expression to the character.
-- Use the same preparation path for production and evaluation. Frozen prompts are replay artifacts, never production defaults. Update or remove tests that enforce retired behavior.
-- Every added input, rule, abstraction or model call must demonstrate a benefit on representative frozen cases. Prefer removing duplication. Measure groundedness, voice, useful specificity, tokens, latency and retries; passing parsers alone is insufficient.
+A plugin owns its `prompt.rs`, `manifest.rs` and execution wiring in `mod.rs`. Each articulation plugin keeps its own small `voice.rs`; plugins without expressive output need none. Shared tools live together; specialized tools live beside their plugin. Scout preparation and rendering are `prompt.rs`; performance SQL, selection and measurements are `performance.rs`; response guards are `parser.rs`; execution is `mod.rs` with local publication/delivery tools; Influencer preparation, execution and publication are `prompt.rs`, `mod.rs` and `publish.rs`. The cleanup plan records the completed ownership moves and their validation.
 
-For implementation and operations, use [development guidance](../run_docs/DEVELOPMENT.md), the [runbook](../run_docs/RUNBOOK.md) and [analytical acceptance](../run_docs/RECOVERY_ANALYTICS_ACCEPTANCE.md). The [September 20 findings](../run_docs/quality-2026-09-20/findings.md) record current gaps separately from this contract.
+| File | Responsibility |
+| --- | --- |
+| `prompt.rs` | The Rust preparation entry point: calls the required tools with plugin-selected scopes, assembles model input and supplies task instructions. It may call local helpers; it need not contain every query or parser. |
+| Local `voice.rs` | The plugin's tone and writing qualities only. |
+| `manifest.rs` | Identity, task ownership, claim policy, inference routes, resource limits and capability grants consumed by the harness. |
+| `mod.rs` | Connects preparation, model execution where needed, validation and claim-fenced publication. |
 
-The [plugin architecture execution plan](docs/plugin-architecture-plan.md) tracks the transition to a durable, domain-independent host with plugin-owned capabilities. It explicitly proposes the ownership changes, preserves publication invariants, and records completed milestones separately from the target architecture.
+Tool calls are Rust code. Model instructions explain how to use the already supplied context. The model neither chooses tools nor requests additional evidence.
 
-## Source map
+**Share a tool when sharing reduces complexity or fragility. Keep a tool plugin-specific when that reduces complexity or fragility.** Sharing is useful for stable mechanisms with compatible callers. A shared tool that accumulates unrelated plugin branches should become smaller shared mechanics plus local functions, or remain local.
 
-`src/studio/` holds the inference session, generation envelope, and plugin/tool contracts. `src/plugins/<name>/` owns each plugin's manifest, prepared cognition, and preparation/publication adapter. `src/plugins/support/` supplies shared form, guards, and resource profiles. The deterministic Boxscore plugin has an adapter and manifest without an inference module.
+For example, Scout and Journalist can share the DuckDB study runner while owning different queries, timeframes and presentation: Scout studies performance; Journalist studies reporting and narrative continuity. A shared verified-source reader can serve multiple characters. Harvester's acquisition and routing tools and Oracle's finished-card reader remain specific to their jobs.
 
-`src/application/` assembles the fleet and supplies shared capability brokers, with generic durable work transport under `application/queue/`. Plugin manifests and reactions own domain scheduling policy and fan-out. `src/evidence/` contains shared concrete loaders used by typed plugin preparation. `src/runtime/` holds configuration, database connections, routing and providers. `src/evaluation/` and the `eval` binary invoke the same plugin code for offline checks, inspection and replay. `statcommentary` and `factsweep` are thin operator entry points into explicit plugin-owned non-queue invocation contexts.
+### Useful shared tools
 
-Keep only active [contract data and quality cases](fixtures/README.md) in `fixtures/`. Historical prompts, generators and captured experiments live in the wiki archive, outside the build.
+| Tool | Responsibility |
+| --- | --- |
+| `meta.rs` | Canonical identity and relevant stored attributes. Reuse identity already loaded by the plugin rather than adding a duplicate DB read. |
+| `memories.rs` | Bounded SQL/DuckDB studies with dates, comparison scope, coverage and provenance. Plugins select the study and how to present its findings. |
+| `fresh.rs` | Read newly available attributed source evidence for the plugin's scope. Reuse Harvester delivery and source presentation, including assignment eligibility and integrity checks. |
+| `linked_entities.rs` | Read entity metadata, co-mention frequency and source references from SQL. Matching covers complete fetched articles; the plugin chooses the relevant scope. |
+| Shared form helpers | Render and decode compatible output structures. Each plugin owns its actual output fields and acceptance rules. |
+
+These are ordinary functions, not model-callable tools or a tool registry. Add a web-search tool when a plugin has a concrete live-retrieval job; Scout already reads source retained by Harvester.
+
+`linked_entities.rs` is one context reader. SQL handles existing name/alias matching, counts and metadata joins. Reuse normalization and lightweight matching; distinguish uncertain identity matches. Count each entity once per canonical article and retain attributed source examples. Co-mentions describe reporting coverage; they do not establish an affiliation or transfer.
+
+### Common execution, different work
+
+Keep the existing `StudioPlugin` trait and `PluginManifest`. Plugin handler structs bind their dependencies; the worker invokes each through the common execution boundary. This provides encapsulation, composition and polymorphism with real consumers.
+
+Harvester and Oracle share that boundary and canonical metadata, while retaining different inputs, tools, model protocols and outputs:
+
+| Plugin | Prepared input and owned job |
+| --- | --- |
+| Harvester | Article/query identities, headline relevance and exact publisher-text windows. Its Rust recipe fetches source, supplies bounded classification questions, interprets scores and persists source/delivery receipts. |
+| Oracle | Selected finished Journalist, Scout, Influencer, Analyst and Insider products, with explicit availability. Its Rust recipe prepares those cards and asks the model for one reading. |
+
+Harvester uses a classification model and needs no voice. Oracle uses its local `voice::VOICE` and owns its finished-card selection. Deterministic plugins and insufficient-evidence outcomes can complete without inference. Articulation has one generation stage; existing bounded structural correction remains available.
+
+`prompt.rs` owns the complete model input: tool calls, scope, selected data, ordering and task instructions. Separate assembly and parts layers are unnecessary. The six articulation worlds render with a plugin-local `Serialize` struct and `serde_json::to_string`. `assembly.rs` is gone. Keep useful measurement types and guards in specialized tools. Harvester keeps its typed classification requests. Existing inference, parser and classification interfaces remain useful where implementations actually differ. Capability grants control acquisition and inference permissions; ordinary context functions need no new grant registry.
+
+### Production folders
+
+Production uses three homes: `harness/` for execution infrastructure, `plugins/` for concrete workflows and specialized tools, and `tools/` for shared tools. Obsolete top-level namespaces and their forwarding exports are removed.
+
+- `plugins/cognition/` is removed: `tools/form.rs` owns form types and decoding; `plugins/harvester/decision.rs` owns the classification protocol.
+- `plugins/support/` is removed: form, guard and source tools live in `tools/`; correction policies live in `harness/session.rs`, and model slot constants live in `harness/fleet.rs`.
+- Flatten each plugin's `adapter/` and `cognition/` layers as its recipe moves into `prompt.rs`. All six articulation plugins now use these local owners. Keep real local tools and publication helpers by responsibility.
+- `tools/memories.rs` owns shared reporting and statistic studies, with one DuckDB runner; its SQL and integration checks stay alongside it. The statistic adapter is folded into the tool. Canonical identity reads and display-name lookup are `tools/meta.rs`.
+- `studio/`, `application/` and `runtime/` are consolidated in `harness/`, retaining queue and provider subfolders. Tool grants and the scoped web broker share `harness/tools.rs`. The `evidence/` namespace is removed: shared acquisition is `tools/fetch.rs`, Scout readers and contested reports are local `sources.rs` and `reports.rs`, and Graph owns quote and result helpers.
+
+Entry points, tests, fixtures, evaluation utilities and documentation remain outside this production flow. A deletion is complete only when callers, exports and superseded paths are removed together; retain source integrity and durable execution behavior.
+
+### Model input and acceptance
+
+**Tone without an invented character is the target.** Describe prose qualities directly. Product names do not require the model to adopt a persona, backstory or motive.
+
+Attach relationships to the evidence they qualify. Dates, sources, compatible comparisons, unknowns and coverage must survive articulation. Missing is different from zero; co-mention frequency is different from independent confirmation. Preparation supplies evidence without prescribing a conclusion.
+
+Keep parsers, factual guards, source integrity, error handling, claim fencing, partial-progress receipts and atomic publication. Retire obsolete prompt composition, palettes and duplicate evaluation paths with their callers. Model requests, responses and full provenance remain inspectable outside the compact model input.
+
+The Influencer model-directed `read_source` pilot and its provider tool-chat path are retired. The [dated evaluation](docs/scout-closure-2026-09-29.md#september-30-read-only-archbox-pilot) remains evidence. The [Journalist replay](docs/HANDOFF-journalist-finish-2026-09-28.md) and [memory studies](docs/journalist-memory-world-2026-09-28.md) record prepared-context behavior and fidelity work.
+
+## Shared memory contract
+
+**Postgres stores the world. DuckDB studies the world. Each plugin chooses its data and scope; the memory contract stays the same.**
+
+Harvester and other source producers enrich the stored world. At preparation time, a plugin requests a study for a particular entity or pair, timeframe and comparison scope. DuckDB computes the findings on demand. The plugin selects and presents relevant findings alongside fresh content, ready for articulation; local memory helpers remain when they simplify that selection.
+
+The shared contract is **request a scope → study the stored evidence → return findings with dates, coverage and provenance**:
+
+- **The plugin owns the request:** which data matters, the historical timeframe, the comparison population and the context budget. Changing a plugin's lookback changes its request, without requiring a new precompute schedule.
+- **The shared study layer owns computation:** filtering, grouping, frequency, ordering and compatible comparisons over a consistent snapshot. Results identify the study version, source records, time bounds, units where applicable, and missing or partial coverage. Source corrections and deletions must invalidate affected reuse.
+- **The plugin's preparation owns context selection:** retain findings and qualifications useful to the current assignment. The shared memory tool supplies studies and receipts; full retrieval bookkeeping stays in provenance.
+- **The LLM owns articulation:** express fresh material in the context of the supplied history. Retrieval, arithmetic and deciding whether reporting is valid have already been handled upstream.
+
+Different plugins request different studies through this boundary. Journalist can request earlier reporting; Influencer can request observed reactions; Insider can request entity-pair reporting frequency and publisher breakdowns; Scout can request xG comparisons across specified match windows. Frequency measures recorded reporting, not independent confirmation. Numerical change retains its sample and comparison basis.
+
+Reuse the stored world, study implementations and provenance where sharing simplifies the work, while keeping each plugin's selection policy local. See the [cross-plugin design](docs/journalist-memory-world-2026-09-28.md#shared-across-plugins) and [on-demand implementation](docs/memory-studies.md) for dated implementation evidence. Reporting and team-stat studies exist; the cleanup plan records the reporting query repair and completed caller migration.
+
+## Evidence, quality, and efficiency
+
+- Compute arithmetic, scores, and comparisons upstream. Supply units, season/competition, comparison population, sample coverage, and uncertainty when they affect meaning.
+- Select memory deliberately and label its provenance. A previous interpretation cannot manufacture a fact or inflate corroboration.
+- Retain full provenance and debugging detail outside the articulation input. Include necessary evidence once and budget the complete request plus reserved output.
+- Use the same active preparation and contract for production and evaluation. Remove superseded prompts, parsers, flags and executable paths with their obsolete callers; preserve historical fixtures and evaluation data.
+- Evaluate models in this order: factual fidelity, articulation quality, voice consistency, concise synthesis, speed/efficiency, and general reasoning only where required. SmolLM3 is the selected articulation model; broad intelligence cannot compensate for an incomplete prepared world.
+- Measure useful coverage, specificity, additions and omissions, voice, tokens, latency, and retries. Valid JSON or a valid palette index alone does not establish product quality.
+- Preserve source integrity, claim fencing, atomic provenance/follow-up publication, idempotency, and recovery when pruning legacy code. Every retained temporary dependency needs a named consumer and removal condition.
+
+## Source map and operations
+
+The current implementation has plugin preparation/publication under `src/plugins/<name>/`, including the six plugin-local voice files. `tools/form.rs` supplies output types, rendering, decoding and structural validation; `tools/guards.rs` supplies served-prose checks; `tools/source.rs` presents intact publisher reporting and detects explicit instruction overrides. Identity lives in `tools/meta.rs`; `tools/memories.rs` supplies the shared DuckDB study runner and compatible studies. Plugins choose datasets and scopes and retain local study or presentation helpers when simpler. These mechanisms use the three production homes described above. The [fleet](src/harness/fleet.rs) excludes Editor; its implementation, evaluation task and obsolete eval fixtures are removed; historical database records remain. Harvester owns surviving source and maintenance work.
+
+`src/harness/` holds fleet registration and dependency binding, generic inference sessions and model/plugin contracts, configuration, database connections, routing, diagnostics and debounce readers. `harness/queue/` owns claim fencing, worker supervision, atomic publication and outbox recovery; `harness/providers/` owns real model transports. `src/tools/` holds shared acquisition, identity, memory studies, form and source presentation. Plugin-specific selection, source validation and product policy stay under `src/plugins/`. `src/evaluation/`, operator binaries, examples and fixtures remain outside the production flow. `statcommentary` is an explicit non-queue entry point. `factsweep` refuses before database access: reporting-based role and affiliation extraction is unavailable. Investigator runtime uses structured Wikimedia evidence without inference; historical prose evaluation remains offline.
+
+Harvester enrollment requires its additive migrations, `HARVESTER_INGEST_ENABLED=1` in Go ingestion, an explicit `COGNITION_STAGES` list containing `harvester`, and `HARVESTER_MODEL_ENDPOINT`. Go intake requires shadow mode off. Apply migrations 287–289 and remove `editor` from the configured stage list for the coordinated release; `HARVESTER_DELIVERY_CHARACTERS` still controls delivery enrollment. Do not infer deployment readiness from compilation or from a historical shadow report.
+
+Use [development guidance](../run_docs/DEVELOPMENT.md), the [runbook](../run_docs/RUNBOOK.md), and [analytical acceptance](../run_docs/RECOVERY_ANALYTICS_ACCEPTANCE.md) for repository operations. [Harvester cutover verification](docs/harvester-cutover-verification-2026-09-27.md) records dated operational evidence. The [cleanup plan](docs/PLAN-harness-plugin-cleanup-2026-10-05.md) records the current responsibility audit and migration sequence.
 
 ## Adding a plugin
 
-Add one package under `src/plugins/<name>/` with its manifest and adapter (plus cognition when it
-uses inference). Add the manifest to `application/fleet.rs`, and bind the adapter's concrete
-dependencies in `application/plugins.rs`; the registry then validates task ownership, route/grant
-consistency, and resource declarations at boot. Add a database migration only when the plugin
-introduces genuinely new persisted domain data—not merely to register code, routes, providers, or
-scheduling policy.
+Add a package under `src/plugins/<name>/` with its manifest, execution in `mod.rs`, and preparation in `prompt.rs` where needed. Register its manifest in `harness/fleet.rs` and bind concrete dependencies in `harness/registration.rs`. The registry validates task ownership, route/grant consistency, and resource declarations at boot.
+
+Write a plugin-owned `prompt.rs` that calls the tools needed for that job, scopes their reads and prepares the model request. Keep a local `voice.rs` when articulation needs one. Share identity, studies, source presentation and form mechanics where sharing simplifies the work; keep other tools local. Add capabilities such as browser retrieval only for operations that need them, without empty parts or alternate instruction paths.
+
+Define context, tools, structure, memory, voice where applicable, and factual boundaries before adding a model call. Add a database migration only for genuinely new persisted domain data. Prefer removing duplication to adding a workflow language, compatibility layer, or new abstraction.

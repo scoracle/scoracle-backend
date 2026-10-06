@@ -1,0 +1,41 @@
+{
+  "status": "fidelity_and_abstention_gates_open",
+  "scope": "20 unchanged development cases plus 12 new synthetic audit cases; no prompt changes during replay; not real-source or human-gold evaluation",
+  "model": "alibayram/smollm3:latest",
+  "endpoint": "/api/chat",
+  "calls": 32,
+  "calls_per_case": 1,
+  "responses_complete": 32,
+  "schema_parsed": 32,
+  "expected_dispositions": {
+    "correct": 19,
+    "incorrect": 13
+  },
+  "nonemotional_sources_rendered_instead_of_abstained": [
+    "schedule",
+    "forecast",
+    "tone",
+    "negated",
+    "other",
+    "old",
+    "uncertain",
+    "history-not-emotion",
+    "conditional-support",
+    "opponent-only",
+    "past-only",
+    "reporter-tone",
+    "quiet-logistics"
+  ],
+  "manual_fidelity_issues": {
+    "anger": "Adds disappointment with results; source only reports fury with performance.",
+    "forecast": "Adds an announcement happening soon without supplied timing.",
+    "other": "Adds delight specifically with performance; source gives no reason for delight."
+  },
+  "new_case_observations": "All 12 new cases preserve supplied speaker attribution, conditionality, negation and qualifications. Paragraph-turns retains the blank line. All five new no-current-emotion cases still produce a body.",
+  "ask_trace": "Assembly asks to articulate reporting faithfully. Form permits null but does not establish an emotional relevance condition. This admits neutral reporting and source-context summaries. Do not mistake source fidelity for Influencer product sufficiency.",
+  "median_prompt_tokens": 358.5,
+  "median_output_tokens": 37.0,
+  "median_wall_seconds": 0.6709028233308345,
+  "max_body_characters": 232,
+  "deployed": false
+}

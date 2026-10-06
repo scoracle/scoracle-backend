@@ -1,7 +1,7 @@
 use super::*;
-use crate::application::queue::work::{self, Item};
+use crate::harness::plugin::PluginOutcome;
+use crate::harness::queue::work::{self, Item};
 use crate::plugins::investigator::cognition::{gate::RoleClass, WikidataItem};
-use crate::studio::plugin::PluginOutcome;
 use serde_json::json;
 use sqlx::PgPool;
 const SPORT: &str = "ZZ_INVESTIGATOR";
@@ -197,7 +197,7 @@ async fn refusal_records_audit_and_completes_without_creating_identity() {
         candidate: c,
         state: "ambiguous".into(),
         resolved: None,
-        plan: json!({"arm":"prose","model":"test-model","contract":"ip1"}),
+        plan: json!({"arm":"wikidata"}),
         reason: "two namesakes".into(),
     };
     assert_eq!(
@@ -205,13 +205,13 @@ async fn refusal_records_audit_and_completes_without_creating_identity() {
         PluginOutcome::Committed
     );
     assert_eq!(count(&pool, "persons").await, 0);
-    let model: String =
+    let model: Option<String> =
         sqlx::query_scalar("SELECT model_version FROM acquisition_runs WHERE candidate_id=$1")
             .bind(i64::from(ID))
             .fetch_one(&pool)
             .await
             .unwrap();
-    assert_eq!(model, "test-model");
+    assert!(model.is_none());
     assert_eq!(
         load_candidate(&pool, ID.into())
             .await
@@ -326,4 +326,44 @@ async fn player_reclaim_fences_facts_ids_and_cooldown() {
     if seeded {
         sqlx::query("DELETE FROM entity_fact_policy WHERE entity_type='player' AND fact_type='date_of_birth'").execute(&pool).await.unwrap();
     }
+}
+
+#[tokio::test]
+#[ignore = "requires isolated TEST_DATABASE_URL; run serially"]
+async fn same_named_person_with_conflicting_team_is_not_merged() {
+    let pool = setup().await;
+    let other_team = ID + 3;
+    sqlx::query("INSERT INTO teams(id,sport,name) VALUES($1,$2,'Other Investigator Club')")
+        .bind(other_team)
+        .bind(SPORT)
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO persons(id,sport,full_name,kind,team_id) VALUES($1,$2,'Riley Example','coach',$3)")
+        .bind(ID).bind(SPORT).bind(other_team).execute(&pool).await.unwrap();
+    sqlx::query("INSERT INTO entity_name_surfaces(entity_type,entity_id,sport,norm,surface_kind) VALUES('person',$1,$2,public.nrm('Riley Example'),'name')")
+        .bind(ID).bind(SPORT).execute(&pool).await.unwrap();
+    let decision = accepted(candidate(&pool).await);
+    let item = claim(&pool, "candidate", "conflict").await;
+    assert_eq!(
+        commit_claimed(&pool, &item, &[], &decision).await.unwrap(),
+        PluginOutcome::Committed
+    );
+    assert_eq!(
+        load_candidate(&pool, ID.into())
+            .await
+            .unwrap()
+            .unwrap()
+            .state,
+        "ambiguous"
+    );
+    let team: i32 = sqlx::query_scalar("SELECT team_id FROM persons WHERE id=$1 AND sport=$2")
+        .bind(ID)
+        .bind(SPORT)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(team, other_team);
+    assert_eq!(count(&pool, "entity_aliases").await, 0);
+    assert_eq!(count(&pool, "entity_facts").await, 0);
 }

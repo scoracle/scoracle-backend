@@ -1,0 +1,231 @@
+{
+  "schema_version": "harvester-disagreement-review-v1",
+  "basis": "71 Codex provisional reviews of prediction-free publisher openings",
+  "warning": "Review priority only; neither recall nor precision can be estimated from this selected sample.",
+  "cases": [
+    {
+      "article_id": 774320,
+      "query_entity": "Chelsea",
+      "model_outcome": "accepted",
+      "ai_provisional_useful": false,
+      "ai_reason": "The opening concerns a general women’s football salary list led by a non-Chelsea player, without a substantive Chelsea development.",
+      "needs_human_adjudication": true
+    },
+    {
+      "article_id": 774298,
+      "query_entity": "Chelsea",
+      "model_outcome": "accepted",
+      "ai_provisional_useful": false,
+      "ai_reason": "The opening concerns ticket sales and viewing logistics for Chelsea’s cup tie, without a substantive Chelsea development.",
+      "needs_human_adjudication": true
+    },
+    {
+      "article_id": 774302,
+      "query_entity": "Chelsea",
+      "model_outcome": "accepted",
+      "ai_provisional_useful": false,
+      "ai_reason": "The opening concerns a short press-conference video listing without reported content, without a substantive Chelsea development.",
+      "needs_human_adjudication": true
+    },
+    {
+      "article_id": 774304,
+      "query_entity": "Chelsea",
+      "model_outcome": "accepted",
+      "ai_provisional_useful": false,
+      "ai_reason": "The opening concerns a short skill video listing without reported context, without a substantive Chelsea development.",
+      "needs_human_adjudication": true
+    },
+    {
+      "article_id": 774306,
+      "query_entity": "Chelsea",
+      "model_outcome": "rejected",
+      "ai_provisional_useful": true,
+      "ai_reason": "The opening is substantively about two Chelsea academy players being shortlisted for a youth award.",
+      "needs_human_adjudication": true
+    },
+    {
+      "article_id": 774321,
+      "query_entity": "Chelsea",
+      "model_outcome": "rejected",
+      "ai_provisional_useful": true,
+      "ai_reason": "The opening is substantively about Cole Palmer’s England absence with pain and discomfort.",
+      "needs_human_adjudication": true
+    },
+    {
+      "article_id": 774322,
+      "query_entity": "Chelsea",
+      "model_outcome": "accepted",
+      "ai_provisional_useful": false,
+      "ai_reason": "The opening concerns a Chelsea player’s personal choice of viewing companions, without a substantive Chelsea development.",
+      "needs_human_adjudication": true
+    },
+    {
+      "article_id": 772391,
+      "query_entity": "Dallas Cowboys",
+      "model_outcome": "accepted",
+      "ai_provisional_useful": false,
+      "ai_reason": "The opening concerns Washington quarterback recovery after a past Cowboys matchup, without a substantive Dallas Cowboys development.",
+      "needs_human_adjudication": true
+    },
+    {
+      "article_id": 772392,
+      "query_entity": "Dallas Cowboys",
+      "model_outcome": "accepted",
+      "ai_provisional_useful": false,
+      "ai_reason": "The opening concerns generic fantasy rankings without a Cowboys development, without a substantive Dallas Cowboys development.",
+      "needs_human_adjudication": true
+    },
+    {
+      "article_id": 772414,
+      "query_entity": "Dallas Cowboys",
+      "model_outcome": "accepted",
+      "ai_provisional_useful": false,
+      "ai_reason": "The opening concerns Thanksgiving streaming availability rather than a team development, without a substantive Dallas Cowboys development.",
+      "needs_human_adjudication": true
+    },
+    {
+      "article_id": 772422,
+      "query_entity": "Dallas Cowboys",
+      "model_outcome": "accepted",
+      "ai_provisional_useful": false,
+      "ai_reason": "The opening concerns a where-to-watch guide without a team development, without a substantive Dallas Cowboys development.",
+      "needs_human_adjudication": true
+    },
+    {
+      "article_id": 769247,
+      "query_entity": "Detroit Pistons",
+      "model_outcome": "accepted",
+      "ai_provisional_useful": false,
+      "ai_reason": "The opening concerns a hypothetical Pistons–Bucks trade idea without a reported negotiation, without a substantive Detroit Pistons development.",
+      "needs_human_adjudication": true
+    },
+    {
+      "article_id": 769263,
+      "query_entity": "Detroit Pistons",
+      "model_outcome": "accepted",
+      "ai_provisional_useful": false,
+      "ai_reason": "The opening concerns the Raptors coaching staff announcement, without a substantive Detroit Pistons development.",
+      "needs_human_adjudication": true
+    },
+    {
+      "article_id": 769269,
+      "query_entity": "Detroit Pistons",
+      "model_outcome": "accepted",
+      "ai_provisional_useful": false,
+      "ai_reason": "The opening concerns a Kings Sabonis trade rumor with only sidebar Pistons mentions, without a substantive Detroit Pistons development.",
+      "needs_human_adjudication": true
+    },
+    {
+      "article_id": 769290,
+      "query_entity": "Detroit Pistons",
+      "model_outcome": "accepted",
+      "ai_provisional_useful": false,
+      "ai_reason": "The opening concerns Lakers management discussing Luka Doncic, without a substantive Detroit Pistons development.",
+      "needs_human_adjudication": true
+    },
+    {
+      "article_id": 769265,
+      "query_entity": "Detroit Pistons",
+      "model_outcome": "accepted",
+      "ai_provisional_useful": false,
+      "ai_reason": "The opening concerns the Grizzlies waiving Russell, with Detroit mentioned in an old trade, without a substantive Detroit Pistons development.",
+      "needs_human_adjudication": true
+    },
+    {
+      "article_id": 769236,
+      "query_entity": "Detroit Pistons",
+      "model_outcome": "rejected",
+      "ai_provisional_useful": true,
+      "ai_reason": "The opening is substantively about Pistons roster fit and possible replacements for Tobias Harris.",
+      "needs_human_adjudication": true
+    },
+    {
+      "article_id": 769239,
+      "query_entity": "Detroit Pistons",
+      "model_outcome": "accepted",
+      "ai_provisional_useful": false,
+      "ai_reason": "The opening concerns a hypothetical Pistons trade pitch without a reported transaction, without a substantive Detroit Pistons development.",
+      "needs_human_adjudication": true
+    },
+    {
+      "article_id": 769241,
+      "query_entity": "Detroit Pistons",
+      "model_outcome": "accepted",
+      "ai_provisional_useful": false,
+      "ai_reason": "The opening concerns a social post pointing to a separate Pistons article without article evidence, without a substantive Detroit Pistons development.",
+      "needs_human_adjudication": true
+    },
+    {
+      "article_id": 769245,
+      "query_entity": "Detroit Pistons",
+      "model_outcome": "rejected",
+      "ai_provisional_useful": true,
+      "ai_reason": "The opening is substantively about reported Kings interest in a possible Duren sign-and-trade.",
+      "needs_human_adjudication": true
+    },
+    {
+      "article_id": 769248,
+      "query_entity": "Detroit Pistons",
+      "model_outcome": "accepted",
+      "ai_provisional_useful": false,
+      "ai_reason": "The opening concerns a hypothetical Warriors–Pistons trade proposal, without a substantive Detroit Pistons development.",
+      "needs_human_adjudication": true
+    },
+    {
+      "article_id": 769250,
+      "query_entity": "Detroit Pistons",
+      "model_outcome": "accepted",
+      "ai_provisional_useful": false,
+      "ai_reason": "The opening concerns former Pistons player Tobias Harris’s housing work away from the team, without a substantive Detroit Pistons development.",
+      "needs_human_adjudication": true
+    },
+    {
+      "article_id": 769275,
+      "query_entity": "Detroit Pistons",
+      "model_outcome": "accepted",
+      "ai_provisional_useful": false,
+      "ai_reason": "The opening concerns Arkansas college recruiting, without a substantive Detroit Pistons development.",
+      "needs_human_adjudication": true
+    },
+    {
+      "article_id": 769254,
+      "query_entity": "Detroit Pistons",
+      "model_outcome": "rejected",
+      "ai_provisional_useful": true,
+      "ai_reason": "The opening is substantively about analysis of a possible Ron Holland rotation change for Detroit.",
+      "needs_human_adjudication": true
+    },
+    {
+      "article_id": 769260,
+      "query_entity": "Detroit Pistons",
+      "model_outcome": "accepted",
+      "ai_provisional_useful": false,
+      "ai_reason": "The opening concerns a Tyler Herro trade proposal rather than a reported Pistons deal, without a substantive Detroit Pistons development.",
+      "needs_human_adjudication": true
+    },
+    {
+      "article_id": 769261,
+      "query_entity": "Detroit Pistons",
+      "model_outcome": "accepted",
+      "ai_provisional_useful": false,
+      "ai_reason": "The opening concerns a Jets–Lions NFL betting preview, without a substantive Detroit Pistons development.",
+      "needs_human_adjudication": true
+    },
+    {
+      "article_id": 769277,
+      "query_entity": "Detroit Pistons",
+      "model_outcome": "accepted",
+      "ai_provisional_useful": false,
+      "ai_reason": "The opening concerns Michigan State basketball roster analysis, without a substantive Detroit Pistons development.",
+      "needs_human_adjudication": true
+    },
+    {
+      "article_id": 769280,
+      "query_entity": "Detroit Pistons",
+      "model_outcome": "accepted",
+      "ai_provisional_useful": false,
+      "ai_reason": "The opening concerns an entertainment feature about actor Rob Lowe, without a substantive Detroit Pistons development.",
+      "needs_human_adjudication": true
+    }
+  ]
+}

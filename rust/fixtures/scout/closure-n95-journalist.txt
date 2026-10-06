@@ -1,0 +1,20 @@
+fixtures — task=narratives role=narrative-logic n=1 dir=/Users/scotty/scoracle/scoracle-backend/rust/fixtures/quality/narratives/  incumbent=alibayram/smollm3
+lens — operator=The Journalist | mandate=Compile the stories swirling around the entity into grounded storylines. | guard=Group what sources actually say; do not inflate vague hype or off-entity noise.
+CURRENT CONTRACT: current system and schema with version-checked frozen evidence.
+Review individual claims and voice; generation varies with model and load.
+
+[distinct-developments-three-independent-developments,-three-keyed-slots]  (temp=0)
+  Review: One development per report_key, in source order. No slot may carry another report's claim.
+  Review: The ankle injury, the appointment and the result are three stories, not one narrative.
+      call: request=933 bytes, input=293 tokens, output=92 tokens, latency=2.80s, retries=0
+  A alibayram/smollm3 Cedar United announced that goalkeeper Kim Park will miss the upcoming match due to an ankle injury. No specific return date was provided.
+
+Cedar United appointed Jo Vale as their new head coach, with a contract that spans two years.
+
+Cedar United secured a 2-1 victory over Vale City in their recent match.
+      [✓] body includes "Kim Park"
+      [✓] body includes "Jo Vale"
+      [✓] body includes "Vale City"
+
+=== fixture summary — alibayram/smollm3 : 4/4 property checks passed ===
+Mechanical checks do not establish semantic quality; the review criteria remain manual.

@@ -6,13 +6,13 @@
 //!   cargo run --example scout_freeze -- -sport NBA -entity-type player -entity-id 56677822
 //!   ... add -generate to also produce the card via the routed StatsLogic model.
 use anyhow::{anyhow, Result};
-use scoracle_cognition::application::models::Models;
-use scoracle_cognition::plugins::scout::adapter::{build_rating_request, RatingReq};
-use scoracle_cognition::plugins::scout::cognition::{RatingBuild, RATING_TEMPERATURE};
-use scoracle_cognition::runtime::config::Config;
-use scoracle_cognition::runtime::db;
-use scoracle_cognition::runtime::route::Router;
-use scoracle_cognition::studio::Studio;
+use scoracle_cognition::harness::config::Config;
+use scoracle_cognition::harness::db;
+use scoracle_cognition::harness::models::Models;
+use scoracle_cognition::harness::route::Router;
+use scoracle_cognition::harness::Studio;
+use scoracle_cognition::plugins::scout::prompt::{build_rating_request, RatingReq};
+use scoracle_cognition::plugins::scout::prompt::{RatingBuild, RATING_TEMPERATURE};
 use std::time::Duration;
 
 #[tokio::main]
@@ -68,16 +68,11 @@ async fn main() -> Result<()> {
     let pool = db::build_pool(&cfg.database_url, cfg.db_max_conns).await?;
     let models = Models {
         router: Router::from_config(&cfg.route, Duration::from_secs(600), 1)?,
-        handler_budget: Duration::ZERO,
         voice_num_ctx: cfg.voice_num_ctx,
     };
-    let name = scoracle_cognition::evidence::corpus::lookup_entity_name(
-        &pool,
-        &entity_type,
-        entity_id,
-        &sport,
-    )
-    .await?;
+    let name =
+        scoracle_cognition::tools::meta::lookup_entity_name(&pool, &entity_type, entity_id, &sport)
+            .await?;
     let req = RatingReq {
         entity_type,
         entity_id,
@@ -124,7 +119,7 @@ async fn main() -> Result<()> {
     );
     println!(
         "=== system prompt ===\n{}\n=== user prompt ===",
-        &*scoracle_cognition::plugins::scout::cognition::RATING_SYSTEM_PROMPT
+        scoracle_cognition::plugins::scout::prompt::TASK
     );
     println!("{}", assignment.built_prompt);
 
@@ -133,8 +128,7 @@ async fn main() -> Result<()> {
             .router
             .for_route(scoracle_cognition::plugins::scout::manifest::ROUTE);
         let studio = Studio::new(backend.as_ref());
-        let out =
-            scoracle_cognition::plugins::scout::cognition::create(&studio, assignment).await?;
+        let out = scoracle_cognition::plugins::scout::create(&studio, assignment).await?;
         println!("=== card ===");
         println!(
             "abstained: {}; skipped_no_stats: {}",

@@ -1,0 +1,55 @@
+{
+  "name": "synthetic-sparse",
+  "task": "rating",
+  "prompt_version": "s66-measured-windows",
+  "parts": {
+    "memory": {},
+    "profile": {
+      "composite": null,
+      "limit": {
+        "appearances": 3.0,
+        "kind": "thin_sample",
+        "minimum": 10.0
+      },
+      "observed_at": "2026-09-29",
+      "sample": {
+        "Games Played": 3.0
+      },
+      "season": 2026,
+      "sport_name": "Basketball",
+      "supports_cross_season": false,
+      "values": [
+        {
+          "band": "elite",
+          "cohort": 30.0,
+          "label": "Rebounds",
+          "measure": "rebounds per game",
+          "percentile": 90.0,
+          "value": 48.0
+        },
+        {
+          "band": "strong",
+          "cohort": 30.0,
+          "label": "Assists",
+          "measure": "assists per game",
+          "percentile": 75.0,
+          "value": 23.0
+        }
+      ]
+    },
+    "season": 2026,
+    "sport_name": "Basketball",
+    "subject": {
+      "entity_id": 7,
+      "entity_type": "team",
+      "name": "Cedar Comets",
+      "sport": "NBA"
+    }
+  },
+  "user_prompt": "{\"meta\":{\"name\":\"Cedar Comets\",\"entity_type\":\"team\",\"sport\":\"Basketball\"},\"fresh\":{\"season\":2026,\"sample\":{\"Games Played\":3.0},\"values\":[{\"label\":\"Rebounds\",\"measure\":\"rebounds per game\",\"value\":48.0,\"percentile\":90.0,\"cohort\":30.0,\"band\":\"elite\"},{\"label\":\"Assists\",\"measure\":\"assists per game\",\"value\":23.0,\"percentile\":75.0,\"cohort\":30.0,\"band\":\"strong\"}],\"supports_cross_season\":false,\"limit\":{\"kind\":\"thin_sample\",\"appearances\":3.0,\"minimum\":10.0}},\"voice\":\"Observant, direct, specific to the sport and restrained.\",\"form\":{\"keys\":[\"body\"],\"max_chars\":1200}}",
+  "temperature": 0,
+  "expect": {},
+  "review": [
+    "Three stored games describe source coverage, not first games, early-season participation or future potential. No cross-season comparison is supplied."
+  ]
+}

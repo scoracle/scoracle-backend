@@ -1,0 +1,109 @@
+{
+  "status": "Exploratory local test; no deployment or routing change",
+  "model": "alibayram/smollm3:latest",
+  "digest": "6463ebe1ce6ae2f6369498f54f136baad56b4380e5365bfecc938079f8e6733c",
+  "quantization": "Q4_K_M",
+  "ollama_version": "0.32.14",
+  "prompt_version": "n38",
+  "fresh_version": "journalist-fresh-v2",
+  "method": {
+    "production_path": "11 cases per mode, 8 inference calls and 3 abstentions; same plugin preparation, Studio, provider and parser; explicit think boolean; no seed pinned",
+    "actual_reasoning": "5 paired cases, one sample per mode, alternating order; explicit raw SmolLM3 assistant prefix; no schema in either mode; seed 42; temperature 0.3; num_ctx 4096; token ceilings 900 off and 1500 on",
+    "scope": "Synthetic development cases. Fresh input, voice and form unchanged. Raw framing is a diagnostic backend, not the production transport. No Laya, Editor, Granite or end-to-end throughput measurement.",
+    "assessment": "Manual review of final answer against exact input reports, including qualifications, attribution and source boundaries. Reasoning contents are excluded from artifacts; presence and character counts are retained. No automated semantic judge or new threshold."
+  },
+  "production_path": {
+    "false": {
+      "calls": 8,
+      "no_calls": 3,
+      "parser_accepted": 6,
+      "errors": 2,
+      "completed_traces_present": 0,
+      "trace_measurement_unavailable": 1,
+      "mean_elapsed_ms": 7110.25,
+      "median_elapsed_ms": 5338.0
+    },
+    "true": {
+      "calls": 8,
+      "no_calls": 3,
+      "parser_accepted": 5,
+      "errors": 3,
+      "completed_traces_present": 0,
+      "trace_measurement_unavailable": 1,
+      "mean_elapsed_ms": 9111,
+      "median_elapsed_ms": 4840.5
+    }
+  },
+  "actual_reasoning": {
+    "false": {
+      "calls": 5,
+      "completed": 5,
+      "reasoning_present": 0,
+      "mean_elapsed_ms": 3412.2,
+      "median_elapsed_ms": 3087,
+      "min_elapsed_ms": 2373,
+      "max_elapsed_ms": 4732,
+      "generated_tokens": 688,
+      "correct_json_shape": 0
+    },
+    "true": {
+      "calls": 5,
+      "completed": 5,
+      "reasoning_present": 5,
+      "mean_elapsed_ms": 13988.2,
+      "median_elapsed_ms": 13564,
+      "min_elapsed_ms": 12313,
+      "max_elapsed_ms": 16432,
+      "generated_tokens": 3111,
+      "correct_json_shape": 0
+    }
+  },
+  "reasoning_case_review": [
+    {
+      "name": "one-result",
+      "factual_fidelity": "failed",
+      "reason": "Invents first goal time, equalizer time and scorer, standings and manager reactions.",
+      "reasoning_chars": 1904,
+      "elapsed_ms": 13564,
+      "format": "Final answer does not have the required headline + narratives array shape."
+    },
+    {
+      "name": "rumour-and-denial",
+      "factual_fidelity": "failed",
+      "reason": "Adds forward position, spokesperson emphasis and squad-building context absent from the report.",
+      "reasoning_chars": 2521,
+      "elapsed_ms": 14943,
+      "format": "Final answer does not have the required headline + narratives array shape."
+    },
+    {
+      "name": "conflicting-reports",
+      "factual_fidelity": "failed",
+      "reason": "Says neither party will confirm or deny despite an explicit club denial; infers ongoing negotiations and merges two source rows.",
+      "reasoning_chars": 1626,
+      "elapsed_ms": 12313,
+      "format": "Final answer does not have the required headline + narratives array shape."
+    },
+    {
+      "name": "late-qualification",
+      "factual_fidelity": "failed",
+      "reason": "Invents an updated club statement and management silence; the source correction was made by City Wire.",
+      "reasoning_chars": 2987,
+      "elapsed_ms": 16432,
+      "format": "Final answer does not have the required headline + narratives array shape."
+    },
+    {
+      "name": "source-instructions",
+      "factual_fidelity": "failed",
+      "reason": "Follows the embedded 50-point instruction, invents game events and fabricates a City Wire quotation.",
+      "reasoning_chars": 1743,
+      "elapsed_ms": 12689,
+      "format": "Final answer does not have the required headline + narratives array shape."
+    }
+  ],
+  "limits": [
+    "The initial think-flag comparison did not verify reasoning activation on any completed call; its timings cannot measure reasoning overhead.",
+    "Raw-prefix comparison changes transport and decoding relative to production, so it is diagnostic rather than a release test.",
+    "Single sample per case and mode; no significance or general model-ranking claim.",
+    "Incomplete provider calls retain elapsed time and error but not raw output or reasoning counts in the replay wrapper."
+  ]
+}

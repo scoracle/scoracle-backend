@@ -1,0 +1,67 @@
+{
+  "status": "fidelity_abstention_and_paragraph_gates_open",
+  "scope": "32 retained synthetic development/audit cases; not held-out, real-source or human gold",
+  "candidate": "active vibe-frame-v2: typed structural form with layout before dimensions; retained source-faithful manual",
+  "calls": 32,
+  "responses_complete": 32,
+  "json_decoded": 32,
+  "paragraph_compliant": 17,
+  "oversized_paragraph_cases": [
+    "anger",
+    "mixed",
+    "forecast",
+    "football",
+    "nfl",
+    "old",
+    "conflicting",
+    "history-not-emotion",
+    "two-speakers-disagree",
+    "opponent-only",
+    "past-only",
+    "reporter-tone",
+    "paragraph-turns",
+    "history-contrasts",
+    "scores-in-source"
+  ],
+  "no_current_emotion_cases_rendered": [
+    "schedule",
+    "forecast",
+    "tone",
+    "negated",
+    "other",
+    "old",
+    "uncertain",
+    "history-not-emotion",
+    "conditional-support",
+    "opponent-only",
+    "past-only",
+    "reporter-tone",
+    "quiet-logistics"
+  ],
+  "combined_validator": {
+    "passed": 10,
+    "failed": 22
+  },
+  "manual_fidelity_issues": {
+    "anger": "Adds disappointment/dissatisfaction as an inferred meaning of fury; not an independently supplied feeling.",
+    "football": "Adds supporters praising the impact on performance, not supplied by the source.",
+    "nfl": "Adds fans questioning future prospects, not supplied by the source.",
+    "other": "Adds own-team performance as the reason for delight; source gives no reason.",
+    "conditional-support": "Expressed relief if the appeal succeeds drops the explicit future will-feel qualification.",
+    "past-only": "Calls a six-year-old victory recent and adds an upcoming season.",
+    "reporter-tone": "Invents a September 28 release date from the publication clock and says price was undisclosed although the source says the article gave a price.",
+    "scores-in-source": "Invents an event date from the publication clock and assigns a gender to Sam."
+  },
+  "median_prompt_tokens": 340.5,
+  "median_output_tokens": 41.5,
+  "median_wall_seconds": 1.3299888125620782,
+  "max_body_characters": 346,
+  "deployed": false,
+  "exact_results": "articulation-v2-results.jsonl",
+  "probe_results": "articulation-v2-probes.jsonl",
+  "control_findings": [
+    "Alphabetically sorted form fields produced oversized invented scenes in both old/compact manuals on cheer and schedule. Ordered fields preserved brief supplied observations in those same controls.",
+    "The full ordered-form replay still failed paragraph, fidelity and abstention gates. Two successful controls do not establish general reliability.",
+    "Nullable-body schema control returned body:null; transport permits abstention. Tested scope and form-clock instruction variants did not solve the product gate and were discarded."
+  ]
+}

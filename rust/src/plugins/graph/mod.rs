@@ -3,3 +3,6 @@
 pub mod adapter;
 pub mod cognition;
 pub mod manifest;
+
+pub(crate) mod quote;
+pub(crate) mod result;

@@ -1,11 +1,30 @@
 {
   "expect": {},
   "name": "clearly-positive",
-  "prompt_version": "v36",
+  "parts": {
+    "history": [],
+    "source": {
+      "article_id": 42,
+      "classification_id": 1,
+      "context": "Supporters of Cedar Comets cheered the win and said they were delighted.",
+      "headline": "clearly-positive fixture",
+      "published_at_epoch": 1790553600,
+      "source": "Example Wire"
+    },
+    "subject": {
+      "entity_id": 7,
+      "entity_type": "team",
+      "name": "Cedar Comets",
+      "sport": "NBA"
+    }
+  },
+  "prompt_version": "vibe-frame-v6-six-part",
+  "review": [
+    "Synthesize fresh and relevant dated history into the emotional charge around the identified subject.",
+    "Preserve supplied speakers, timing, scope and uncertainty.",
+    "Review the reading against the supplied world; noisy intake belongs to Harvester calibration."
+  ],
   "task": "vibe",
   "temperature": 0.0,
-  "user_prompt": "Entity: Player Dario Fenn (FOOTBALL)\n\nThe stories running around them right now (MOOD describes emotional language in the reporting; attribute feelings to the speaker or source shown):\nSTORY: Hat-trick hero seals statement win\nREPORTED:\n- Three goals against the league leaders; the away end sang his name for twenty minutes and pundits are calling it the performance of the season.\nSTORY: Golden Boot race tightens\nREPORTED:\n- His scoring streak has him two behind the leader with momentum firmly on his side.\n",
-  "review": [
-    "Distinguish attributed emotional evidence from reporting tone; do not invent a crowd response."
-  ]
+  "user_prompt": "{\"meta\":{\"name\":\"Cedar Comets\",\"entity_type\":\"team\",\"sport\":\"basketball\"},\"fresh\":{\"publisher\":\"Example Wire\",\"published_at\":\"2026-09-28T00:00:00Z\",\"publisher_excerpt\":\"Supporters of Cedar Comets cheered the win and said they were delighted.\"},\"voice\":\"Emotionally attentive, clear, concise and restrained.\",\"form\":{\"keys\":[\"body\"],\"max_chars\":1200,\"paragraph_max_chars\":140}}"
 }

@@ -295,13 +295,6 @@ impl OllamaClient {
         })
     }
 
-    /// generate performs a single non-streaming completion. We do NOT auto-retry
-    /// — the caller (a stage handler) decides, and the work queue handles backoff.
-    pub async fn generate(&self, prompt: &str, opts: &GenerateOptions) -> Result<GenerateResult> {
-        let (gen, _) = self.generate_with_body(prompt, opts).await?;
-        Ok(gen)
-    }
-
     /// ping hits /api/tags to verify Ollama is reachable. Cheap — no inference.
     pub async fn ping(&self) -> Result<()> {
         let url = format!("{}/api/tags", self.base_url);

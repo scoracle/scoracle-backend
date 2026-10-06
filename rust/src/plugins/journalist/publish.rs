@@ -278,19 +278,13 @@ pub(super) async fn commit_claimed(
         }
     }
     if !harvester_sources.is_empty() {
-        let remaining: i64 = sqlx::query_scalar(
-            "SELECT count(*) FROM public.harvester_assignments d \
-             JOIN public.harvester_classifications c ON c.id=d.classification_id \
-             WHERE d.plugin_id=$1 AND d.status='pending' AND d.reason IS DISTINCT FROM $5 \
-               AND c.entity_type=$2 \
-               AND c.entity_id=$3 AND c.sport=$4",
+        let remaining = crate::plugins::harvester::delivery::undelivered_count(
+            publication.transaction(),
+            crate::plugins::journalist::manifest::MANIFEST.id.as_str(),
+            &item.entity_type,
+            item.entity_id_i32()?,
+            sport,
         )
-        .bind(crate::plugins::journalist::manifest::MANIFEST.id.as_str())
-        .bind(&item.entity_type)
-        .bind(item.entity_id_i32()?)
-        .bind(sport)
-        .bind(crate::plugins::harvester::adapter::DELIVERY_HELD_REASON)
-        .fetch_one(&mut **publication.transaction())
         .await?;
         if remaining > 0 {
             publication.commit_progress().await?;

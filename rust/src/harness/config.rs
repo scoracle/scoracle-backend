@@ -6,6 +6,7 @@
 use crate::harness::route::RouteKey;
 use anyhow::{anyhow, Context, Result};
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::time::Duration;
 
 pub const DEFAULT_OLLAMA_MODEL: &str = "alibayram/smollm3";
@@ -68,7 +69,7 @@ impl Config {
         );
 
         // ≥1: a 0-permit semaphore would block every model call forever.
-        let ollama_max_concurrent = env_usize("OLLAMA_MAX_CONCURRENT", 1)?.max(1);
+        let ollama_max_concurrent = env_num("OLLAMA_MAX_CONCURRENT", 1)?.max(1);
 
         // Resolve the voice window once so handlers in one drain cannot disagree and reload the
         // shared runner between calls.
@@ -79,23 +80,23 @@ impl Config {
             database_url,
             // The default exceeds the sum of stage caps; a pool max is a ceiling, not a
             // preallocation.
-            db_max_conns: env_u32("COGNITION_DB_MAX_CONNS", 25)?,
+            db_max_conns: env_num("COGNITION_DB_MAX_CONNS", 25)?,
             ollama_base_url,
             ollama_model,
             // Ten minutes is the normal model-call budget.
-            ollama_timeout: Duration::from_secs(env_u64("OLLAMA_TIMEOUT_SECONDS", 600)?),
+            ollama_timeout: Duration::from_secs(env_num("OLLAMA_TIMEOUT_SECONDS", 600)?),
             ollama_max_concurrent,
-            safety_net: Duration::from_secs(env_u64("COGNITION_SAFETY_NET_SECONDS", 30)?),
+            safety_net: Duration::from_secs(env_num("COGNITION_SAFETY_NET_SECONDS", 30)?),
             // Thirty-minute stale lease.
-            stale_lease: Duration::from_secs(env_u64("COGNITION_STALE_LEASE_SECONDS", 1800)?),
+            stale_lease: Duration::from_secs(env_num("COGNITION_STALE_LEASE_SECONDS", 1800)?),
             route,
             // Twenty minutes, including time waiting for a busy host; still below stale_lease.
-            handler_timeout: Duration::from_secs(env_u64(
+            handler_timeout: Duration::from_secs(env_num(
                 "COGNITION_HANDLER_TIMEOUT_SECONDS",
                 1200,
             )?),
             // Forty-five-minute no-progress watchdog.
-            watchdog: Duration::from_secs(env_u64("COGNITION_WATCHDOG_SECONDS", 2700)?),
+            watchdog: Duration::from_secs(env_num("COGNITION_WATCHDOG_SECONDS", 2700)?),
             drain_concurrency: match env_opt("COGNITION_DRAIN_CONCURRENCY") {
                 Some(raw) => Some(raw.parse::<usize>().map(|n| n.max(1)).with_context(|| {
                     format!("COGNITION_DRAIN_CONCURRENCY must be an unsigned integer, got {raw:?}")
@@ -269,27 +270,15 @@ fn env_or(key: &str, default: &str) -> String {
     env_opt(key).unwrap_or_else(|| default.to_string())
 }
 
-fn env_u32(key: &str, default: u32) -> Result<u32> {
+fn env_num<T>(key: &str, default: T) -> Result<T>
+where
+    T: FromStr + Send + Sync + 'static,
+    T::Err: std::error::Error + Send + Sync + 'static,
+{
     let Some(raw) = env_opt(key) else {
         return Ok(default);
     };
-    raw.parse::<u32>()
-        .with_context(|| format!("{key} must be an unsigned 32-bit integer, got {raw:?}"))
-}
-
-fn env_u64(key: &str, default: u64) -> Result<u64> {
-    let Some(raw) = env_opt(key) else {
-        return Ok(default);
-    };
-    raw.parse::<u64>()
-        .with_context(|| format!("{key} must be an unsigned integer, got {raw:?}"))
-}
-
-fn env_usize(key: &str, default: usize) -> Result<usize> {
-    let Some(raw) = env_opt(key) else {
-        return Ok(default);
-    };
-    raw.parse::<usize>()
+    raw.parse::<T>()
         .with_context(|| format!("{key} must be an unsigned integer, got {raw:?}"))
 }
 
@@ -301,16 +290,17 @@ mod tests {
     fn env_u32_rejects_invalid_numeric_value() {
         let key = "__SCORACLE_TEST_BAD_U32";
         std::env::set_var(key, "five");
-        let err = env_u32(key, 5).unwrap_err();
+        let err = env_num::<u32>(key, 5).unwrap_err();
         std::env::remove_var(key);
         assert!(format!("{err:#}").contains(key));
     }
 
+    // The type argument is the point: `env_num(key, 60)` would infer i32 and accept "-1".
     #[test]
     fn env_u64_rejects_negative_value() {
         let key = "__SCORACLE_TEST_BAD_U64";
         std::env::set_var(key, "-1");
-        let err = env_u64(key, 60).unwrap_err();
+        let err = env_num::<u64>(key, 60).unwrap_err();
         std::env::remove_var(key);
         assert!(format!("{err:#}").contains(key));
     }

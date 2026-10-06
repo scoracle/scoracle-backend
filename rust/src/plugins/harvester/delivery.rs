@@ -145,6 +145,32 @@ async fn load_on(
     Ok(sources)
 }
 
+/// Undelivered Harvester source contexts still owed to this plugin for this entity,
+/// excluding the delivery-held receipt. A character publishes only once the drain
+/// reaches zero, so every publisher checks this inside its own transaction.
+pub async fn undelivered_count(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    plugin_id: &str,
+    entity_type: &str,
+    entity_id: i32,
+    sport: &str,
+) -> Result<i64> {
+    sqlx::query_scalar(
+        "SELECT count(*) FROM public.harvester_assignments d \
+         JOIN public.harvester_classifications c ON c.id=d.classification_id \
+         WHERE d.plugin_id=$1 AND d.status='pending' AND d.reason IS DISTINCT FROM $5 \
+           AND c.entity_type=$2 AND c.entity_id=$3 AND c.sport=$4",
+    )
+    .bind(plugin_id)
+    .bind(entity_type)
+    .bind(entity_id)
+    .bind(sport)
+    .bind(crate::plugins::harvester::adapter::DELIVERY_HELD_REASON)
+    .fetch_one(&mut **tx)
+    .await
+    .map_err(Into::into)
+}
+
 /// Lock receipts and publisher rows, then re-run the delivery integrity checks
 /// inside the publication transaction. No model or network work occurs here.
 pub async fn validate_for_publication(

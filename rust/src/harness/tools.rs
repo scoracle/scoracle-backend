@@ -49,11 +49,10 @@ impl DomainClass {
     /// Route a URL to its domain class. `None` means the URL belongs to no declared
     /// class — the broker refuses it regardless of grants.
     pub fn domain_of_url(url: &str) -> Option<DomainClass> {
-        let host = host_of(url)?;
-        if is_under(host, "wikidata.org")
-            || is_under(host, "wikipedia.org")
-            || is_under(host, "wikimedia.org")
-        {
+        let host = reqwest::Url::parse(url).ok()?.host_str()?.to_lowercase();
+        // Exact domain or subdomain — `notwikidata.org` is NOT under `wikidata.org`.
+        let under = |domain: &str| host == domain || host.ends_with(&format!(".{domain}"));
+        if under("wikidata.org") || under("wikipedia.org") || under("wikimedia.org") {
             return Some(DomainClass::Wikimedia);
         }
         // Box-score and RSS sources are registered in configuration, not guessed from
@@ -61,19 +60,6 @@ impl DomainClass {
         // sniffing beyond Wikimedia would let a curated URL masquerade as another class.
         None
     }
-}
-
-/// Exact domain or subdomain — `notwikidata.org` is NOT under `wikidata.org`.
-fn is_under(host: &str, domain: &str) -> bool {
-    host == domain || host.ends_with(&format!(".{domain}"))
-}
-
-fn host_of(url: &str) -> Option<&str> {
-    let rest = url
-        .strip_prefix("https://")
-        .or_else(|| url.strip_prefix("http://"))?;
-    let host = rest.split(['/', '?', '#']).next()?;
-    (!host.is_empty()).then_some(host)
 }
 
 /// Why the broker refused a call. Distinct from a fetch failure: the reach never

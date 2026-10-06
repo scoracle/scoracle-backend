@@ -1340,20 +1340,6 @@ func parsePathID(w http.ResponseWriter, r *http.Request, param string, label str
 	return id, true
 }
 
-func requiredIntQuery(w http.ResponseWriter, r *http.Request, key string) (int, bool) {
-	v := strings.TrimSpace(r.URL.Query().Get(key))
-	if v == "" {
-		respond.WriteError(w, http.StatusBadRequest, "MISSING_QUERY_PARAM", fmt.Sprintf("%s query parameter is required", key))
-		return 0, false
-	}
-	n, err := strconv.Atoi(v)
-	if err != nil {
-		respond.WriteError(w, http.StatusBadRequest, "INVALID_QUERY_PARAM", fmt.Sprintf("%s must be an integer", key))
-		return 0, false
-	}
-	return n, true
-}
-
 func optionalIntQuery(w http.ResponseWriter, r *http.Request, key string) (any, bool) {
 	v := strings.TrimSpace(r.URL.Query().Get(key))
 	if v == "" {
@@ -1365,19 +1351,6 @@ func optionalIntQuery(w http.ResponseWriter, r *http.Request, key string) (any, 
 		return nil, false
 	}
 	return n, true
-}
-
-func optionalBoolQuery(w http.ResponseWriter, r *http.Request, key string) (any, bool) {
-	v := strings.TrimSpace(r.URL.Query().Get(key))
-	if v == "" {
-		return nil, true
-	}
-	b, err := strconv.ParseBool(v)
-	if err != nil {
-		respond.WriteError(w, http.StatusBadRequest, "INVALID_QUERY_PARAM", fmt.Sprintf("%s must be a boolean", key))
-		return nil, false
-	}
-	return b, true
 }
 
 func optionalTextQuery(r *http.Request, key string) any {

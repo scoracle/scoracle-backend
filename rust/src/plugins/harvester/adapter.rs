@@ -2067,6 +2067,17 @@ mod tests {
              WHERE team_id=$1 AND player_id=ANY($2) AND sport=$3 AND trigger_type='harvester' AND is_rumor=true ORDER BY player_id"
         ).bind(TEAM).bind(players.as_slice()).bind(SPORT).fetch_all(&pool).await?;
         assert_eq!(rumor_source_ids, vec![ARTICLE; 4]);
+        let reported_heat: Vec<i16> = sqlx::query_scalar(
+            "SELECT heat FROM public.transfer_rumors WHERE sport=$1 AND is_rumor=true ORDER BY player_id",
+        ).bind(SPORT).fetch_all(&pool).await?;
+        assert_eq!(reported_heat, vec![72; 4]);
+        let insider_scores: Vec<i16> = sqlx::query_scalar(
+            "SELECT score FROM public.insider_scores WHERE sport=$1 ORDER BY entity_type,entity_id",
+        )
+        .bind(SPORT)
+        .fetch_all(&pool)
+        .await?;
+        assert_eq!(insider_scores, vec![72, 72, 72, 72, 1, 72, 1]);
         let denial: (bool, i16, Option<String>, Option<String>) = sqlx::query_as(
             "SELECT is_rumor,heat,direction,stage FROM transfer_rumors WHERE sport=$1 AND player_id=$2"
         ).bind(SPORT).bind(9_690_122_i32).fetch_one(&pool).await?;

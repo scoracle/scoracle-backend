@@ -45,12 +45,13 @@ async fn scoped_studies_preserve_frequency_identity_missingness_and_corrections(
     // study only ranks what it is handed.
     let pair_articles: Vec<i64> = sqlx::query_scalar(
         "SELECT DISTINCT e.article_id FROM narrative_events e
+         JOIN news_articles a ON a.id=e.article_id
          WHERE e.sport=$1 AND e.origin='extraction' AND e.predicate=$2
          AND e.subject_type='team' AND e.subject_id=$3
          AND e.object_type='player' AND e.object_id=$4
          AND e.event_date>=to_timestamp(100) AND e.event_date<to_timestamp(200)
          AND strpos(' '||public.nrm(a.title)||' ',' test player ')>0
-         FROM news_articles a WHERE a.id=e.article_id",
+         ORDER BY e.article_id",
     )
     .bind(&subject.sport)
     .bind("trade_rumor")
@@ -64,13 +65,14 @@ async fn scoped_studies_preserve_frequency_identity_missingness_and_corrections(
         .await
         .unwrap();
     assert_eq!(first.receipt.included_articles, 3);
-    // Three articles, two canonical after the repost folds into 101, one
-    // subject-wide group because the study no longer knows about storylines.
-    assert_eq!(first.findings.len(), 1);
-    assert_eq!(first.findings[0].topic, "article/101");
-    assert_eq!(first.findings[0].article_count, 2);
-    assert_eq!(first.findings[0].publisher_count, 2);
-    assert_eq!(first.findings[0].source_ids, vec![101, 102]);
+    // Default topics are per canonical article; the repost folds into 101.
+    assert_eq!(first.findings.len(), 2);
+    for (topic, source) in [("article/101", 101), ("article/102", 102)] {
+        let finding = first.findings.iter().find(|f| f.topic == topic).unwrap();
+        assert_eq!(finding.article_count, 1);
+        assert_eq!(finding.publisher_count, 1);
+        assert_eq!(finding.source_ids, vec![source]);
+    }
     // The same study regrouped by a plugin-supplied topic. Grouping is the
     // plugin's decision; the study runs once either way.
     let storyline = |o: &Observation| Some(format!("storyline/{}", o.canonical_id / 100));
@@ -87,10 +89,11 @@ async fn scoped_studies_preserve_frequency_identity_missingness_and_corrections(
     .await
     .unwrap();
     assert_ne!(grouped.receipt.input_hash, first.receipt.input_hash);
-    assert!(grouped
-        .findings
-        .iter()
-        .all(|f| f.topic.starts_with("storyline/")));
+    assert_eq!(grouped.findings.len(), 1);
+    assert_eq!(grouped.findings[0].topic, "storyline/1");
+    assert_eq!(grouped.findings[0].article_count, 2);
+    assert_eq!(grouped.findings[0].publisher_count, 2);
+    assert_eq!(grouped.findings[0].source_ids, vec![101, 102]);
     let narrower = reporting(&pool, &subject, 115, 200, &[103], 3)
         .await
         .unwrap();

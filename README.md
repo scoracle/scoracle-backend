@@ -100,6 +100,23 @@ Current acquisition includes the Go RSS funnel and Rust evidence/identity/fixtur
 (cd rust && cargo build --bin scoracle-cognition --bin statcommentary --bin factsweep)
 ```
 
+For the full CI runtime checks, create an **empty disposable PostgreSQL 18 database**
+(the tests write destructive fixtures) and run:
+
+```bash
+./scripts/check.sh 'postgres://postgres:postgres@localhost:5432/scoracle_test?sslmode=disable'
+```
+
+This restores the checked-in baseline, verifies zero pending migrations, builds the
+CGO memory-study helper into a temporary directory, and runs the SQL, Rust (including
+ignored database contracts), and Go checks. It never falls back to production database
+environment variables. PostgreSQL 18 client/server, Go with a C compiler, and Rust are
+required. Real-model replays still need Ollama/private corpora and run separately.
+Release builds and health probes do not establish that these contracts pass; run this
+check on the release candidate before using `scripts/hosting/release.sh`. A mandatory
+release gate should be agreed separately, including how a clean candidate is matched
+to its validation result.
+
 Studio's nine migrated seat creation tests, the plugin contract and fleet manifest tests, and application lifecycle tests require no service credentials. Model-quality evaluations and live database integration checks are separate gates. See [rust/README.md](rust/README.md).
 
 Local API startup:

@@ -174,7 +174,7 @@ pub async fn invoke_rating(
         )
         .await?;
         if enqueue_momentum {
-            crate::plugins::analyst::adapter::enqueue_momentum_if_needed(
+            crate::plugins::analyst::enqueue_momentum_if_needed(
                 pool,
                 &req.entity_type,
                 req.entity_id,

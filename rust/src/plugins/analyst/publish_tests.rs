@@ -1,13 +1,9 @@
-//! Unit and lifecycle tests for the Analyst application adapter.
-//!
-//! Split out of `mod.rs` so the stage module reads as the stage and nothing else.
-//! `super` resolves to the application adapter while Studio creation remains independently tested.
+//! Parser, deterministic product fields and exact publication lifecycle checks.
 
+use super::super::*;
 use super::*;
-use crate::plugins::analyst::cognition::{
-    momentum_conviction_from_score, momentum_direction_from_score, parse_momentum_reply,
-    MomentumParser, MOMENTUM_PROMPT_VERSION,
-};
+use crate::plugins::analyst::parser::*;
+use crate::plugins::analyst::prompt::*;
 use crate::studio::model::{GenerateOptions, GenerateResult, Inference};
 use crate::studio::Parser;
 use async_trait::async_trait;
@@ -324,9 +320,9 @@ mod postgres_publication_fencing_tests {
         claimed.remove(0)
     }
 
-    async fn product() -> Prepared {
+    async fn product() -> Option<MomentumOutput> {
         let adapters = LifecycleAdapters::default();
-        prepare(&Studio::new(&adapters), &lifecycle_assignment(true))
+        create(&Studio::new(&adapters), &lifecycle_assignment(true))
             .await
             .expect("prepare momentum product")
     }
@@ -362,7 +358,7 @@ mod postgres_publication_fencing_tests {
         work::enqueue(&pool, &pending("v2")).await.unwrap();
 
         assert_eq!(
-            commit_claimed(&pool, &stale, SPORT, &product().await)
+            commit_claimed(&pool, &stale, SPORT, product().await.as_ref())
                 .await
                 .unwrap(),
             (PluginOutcome::Superseded, None)
@@ -372,7 +368,7 @@ mod postgres_publication_fencing_tests {
         let current = claim_one(&pool).await;
         assert_eq!(current.input_version.as_deref(), Some("v2"));
         assert_eq!(
-            commit_claimed(&pool, &current, SPORT, &product().await)
+            commit_claimed(&pool, &current, SPORT, product().await.as_ref())
                 .await
                 .unwrap()
                 .0,
@@ -407,14 +403,14 @@ mod postgres_publication_fencing_tests {
         assert_ne!(stale.claim_token, current.claim_token);
 
         assert_eq!(
-            commit_claimed(&pool, &stale, SPORT, &product().await)
+            commit_claimed(&pool, &stale, SPORT, product().await.as_ref())
                 .await
                 .unwrap(),
             (PluginOutcome::Superseded, None)
         );
         assert_eq!(counts(&pool).await, (0, 0, 1));
         assert_eq!(
-            commit_claimed(&pool, &current, SPORT, &product().await)
+            commit_claimed(&pool, &current, SPORT, product().await.as_ref())
                 .await
                 .unwrap()
                 .0,
@@ -434,10 +430,10 @@ mod postgres_publication_fencing_tests {
         let current = claim_one(&pool).await;
         let prepared = product().await;
         let expected_hash = match &prepared {
-            Prepared::Product(output) => output.provenance.input_hash.clone(),
-            Prepared::NoMaterial => panic!("expected product"),
+            Some(output) => output.provenance.input_hash.clone(),
+            None => panic!("expected product"),
         };
-        let (outcome, row_id) = commit_claimed(&pool, &current, SPORT, &prepared)
+        let (outcome, row_id) = commit_claimed(&pool, &current, SPORT, prepared.as_ref())
             .await
             .unwrap();
         assert_eq!(outcome, PluginOutcome::Committed);
@@ -485,9 +481,7 @@ mod postgres_publication_fencing_tests {
         work::enqueue(&pool, &pending("empty")).await.unwrap();
         let current = claim_one(&pool).await;
         assert_eq!(
-            commit_claimed(&pool, &current, SPORT, &Prepared::NoMaterial)
-                .await
-                .unwrap(),
+            commit_claimed(&pool, &current, SPORT, None).await.unwrap(),
             (PluginOutcome::Committed, None)
         );
         assert_eq!(counts(&pool).await, (0, 1, 0));
@@ -515,12 +509,12 @@ mod postgres_publication_fencing_tests {
                     .await
                     .unwrap()
                     .expect("current claim");
-                if let Prepared::Product(output) = &prepared {
+                if let Some(output) = &prepared {
                     persist_momentum_summary(publication.transaction(), &current, SPORT, output)
                         .await
                         .unwrap();
                 }
-                crate::plugins::analyst::adapter::record_momentum_completed(
+                crate::plugins::analyst::record_momentum_completed(
                     publication.transaction(),
                     &current,
                 )
@@ -529,7 +523,7 @@ mod postgres_publication_fencing_tests {
                 std::process::exit(86);
             }
             assert_eq!(
-                commit_claimed(&pool, &current, SPORT, &prepared)
+                commit_claimed(&pool, &current, SPORT, prepared.as_ref())
                     .await
                     .unwrap()
                     .0,
@@ -542,7 +536,7 @@ mod postgres_publication_fencing_tests {
         work::enqueue(&pool, &pending("crash")).await.unwrap();
         let crash = |phase: &str| {
             let status = std::process::Command::new(std::env::current_exe().unwrap())
-                .args(["--exact", "plugins::analyst::adapter::tests::postgres_publication_fencing_tests::process_crash_publication_rehearsal", "--ignored", "--nocapture"])
+                .args(["--exact", "plugins::analyst::publish::tests::postgres_publication_fencing_tests::process_crash_publication_rehearsal", "--ignored", "--nocapture"])
                 .env(CHILD, phase).status().unwrap();
             assert_eq!(status.code(), Some(86));
         };

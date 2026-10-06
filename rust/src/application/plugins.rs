@@ -7,7 +7,7 @@
 use crate::application::models::Models;
 use crate::application::queue::work;
 use crate::application::tools::WebBroker;
-use crate::plugins::analyst::adapter as analyst;
+use crate::plugins::analyst;
 use crate::plugins::fixture_boxscore::adapter as boxscore;
 use crate::plugins::graph::adapter as graph;
 use crate::plugins::harvester::adapter as harvester;
@@ -293,7 +293,7 @@ mod tests {
         let complete = build_reactions(pool).unwrap();
         let oracle_only = ["oracle.completion-barrier"];
         for kind in [
-            crate::plugins::analyst::adapter::MOMENTUM_COMPLETED,
+            crate::plugins::analyst::MOMENTUM_COMPLETED,
             crate::plugins::scout::RATING_DEBOUNCED,
             crate::plugins::journalist::NARRATIVES_COMPLETED,
             crate::plugins::insider::TRANSFER_PUBLISHED,

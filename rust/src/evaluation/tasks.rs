@@ -5,8 +5,8 @@
 
 use crate::application::models::Models;
 use crate::evidence::corpus::lookup_entity_name;
-use crate::plugins::analyst::adapter::load_momentum_context;
-use crate::plugins::analyst::cognition::parse_momentum_reply;
+use crate::plugins::analyst::parser::parse_momentum_reply;
+use crate::plugins::analyst::prompt::load_momentum_context;
 use crate::plugins::editor::adapter::build_editor_prompt_for_eval;
 use crate::plugins::editor::cognition::{
     derive as editor_derive, editor_opts, EditorRead, EditorReadParser, EDITOR_CONTRACT_VERSION,
@@ -1321,8 +1321,8 @@ impl LensTask for RatingTask {
 
 pub struct MomentumTask;
 
-// Momentum's prompt contract lives in `crate::plugins::analyst::cognition`; the application adapter maps
-// current Oracle pillar values into that domain. Eval imports both rather than carrying a copy.
+// Momentum preparation lives in `crate::plugins::analyst::prompt`, reading finished Scout
+// and Influencer products plus the dated study. Eval reuses it and the local parser.
 // It USED to carry its own fork ("momentum-eval-v3",
 // a duplicate system prompt, its own parser): a relic from momentum's fixture-first era that
 // silently diverged from production — the eval was measuring a prompt and a parser production
@@ -1337,10 +1337,10 @@ impl LensTask for MomentumTask {
         crate::plugins::analyst::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
-        crate::plugins::analyst::cognition::MOMENTUM_PROMPT_VERSION
+        crate::plugins::analyst::prompt::MOMENTUM_PROMPT_VERSION
     }
     fn gen_options(&self, temperature: f64) -> Result<GenerateOptions> {
-        let mut options = crate::plugins::analyst::cognition::generation_options(0);
+        let mut options = crate::plugins::analyst::prompt::generation_options(0);
         options.temperature = Some(temperature);
         Ok(options)
     }
@@ -1363,7 +1363,7 @@ impl LensTask for MomentumTask {
             sport: e.sport.clone(),
         };
         Ok(Some(Prepared::captured(
-            crate::plugins::analyst::cognition::assemble_context(
+            crate::plugins::analyst::prompt::assemble(
                 &subject,
                 context.rating.as_ref(),
                 context.vibe.as_ref(),

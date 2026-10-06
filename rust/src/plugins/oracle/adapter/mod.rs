@@ -118,7 +118,7 @@ impl crate::application::queue::outbox::EventReaction for OracleBarrierReaction 
         &[
             crate::plugins::influencer::VIBE_COMPLETED,
             crate::plugins::scout::RATING_COMPLETED,
-            crate::plugins::analyst::adapter::MOMENTUM_COMPLETED,
+            crate::plugins::analyst::MOMENTUM_COMPLETED,
             crate::plugins::scout::RATING_DEBOUNCED,
             crate::plugins::journalist::NARRATIVES_COMPLETED,
             crate::plugins::insider::TRANSFER_PUBLISHED,

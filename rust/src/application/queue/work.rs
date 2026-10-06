@@ -698,7 +698,7 @@ mod postgres_claim_fencing_tests {
                 .is_empty()
         );
         let mut tx = second.begin().await.unwrap();
-        crate::plugins::analyst::adapter::record_momentum_completed(&mut tx, &momentum)
+        crate::plugins::analyst::record_momentum_completed(&mut tx, &momentum)
             .await
             .unwrap();
         assert!(complete_in_transaction(&mut tx, &momentum).await.unwrap());

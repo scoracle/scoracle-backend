@@ -377,7 +377,7 @@ pub fn parse_journalist(raw: &str, report_count: usize) -> anyhow::Result<Journa
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::plugins::analyst::cognition as analyst;
+    use crate::plugins::analyst::parser as analyst;
     use crate::plugins::influencer;
     use crate::plugins::scout::parser as scout;
 

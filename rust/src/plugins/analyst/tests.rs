@@ -1,7 +1,9 @@
 //! Exercise prepared cognition and actual provenance without application services.
 
+use super::prompt::*;
 use super::*;
 use crate::studio::model::{GenerateResult, Inference};
+use crate::studio::{model::GenerateOptions, Parser};
 use async_trait::async_trait;
 use std::sync::Mutex;
 use std::time::Duration;

@@ -257,7 +257,7 @@ mod postgres_recovery_tests {
             claim_token: Some("00000000-0000-4000-8000-000000000001".into()),
         };
         let mut tx = pool.begin().await.unwrap();
-        crate::plugins::analyst::adapter::record_momentum_completed(&mut tx, &item)
+        crate::plugins::analyst::record_momentum_completed(&mut tx, &item)
             .await
             .unwrap();
         tx.commit().await.unwrap();
@@ -268,7 +268,7 @@ mod postgres_recovery_tests {
             .unwrap();
         Event {
             id,
-            kind: crate::plugins::analyst::adapter::MOMENTUM_COMPLETED.into(),
+            kind: crate::plugins::analyst::MOMENTUM_COMPLETED.into(),
             entity_type: item.entity_type,
             entity_id: item.entity_id as i32,
             sport: item.sport,
@@ -426,7 +426,7 @@ mod postgres_recovery_tests {
             .unwrap();
             let event = Event {
                 id,
-                kind: crate::plugins::analyst::adapter::MOMENTUM_COMPLETED.into(),
+                kind: crate::plugins::analyst::MOMENTUM_COMPLETED.into(),
                 entity_type: "team".into(),
                 entity_id: 9_600_001,
                 sport: SPORT.into(),

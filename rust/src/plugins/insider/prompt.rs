@@ -274,7 +274,7 @@ pub fn assemble(
         voice: crate::plugins::insider::voice::VOICE,
         form: serde_json::json!({
             "keys": ["body", "findings"],
-            "max_chars": crate::plugins::form::BODY_MAX_CHARS,
+            "max_chars": crate::tools::form::BODY_MAX_CHARS,
             "paragraph_max_chars": null,
             "findings": {
                 "type": "array",

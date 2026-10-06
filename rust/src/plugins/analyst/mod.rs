@@ -133,7 +133,7 @@ async fn articulate(
             &prompt,
             &opts,
             &MomentumParser,
-            crate::plugins::support::prompt::structured_correction,
+            crate::studio::session::structured_correction,
         )
         .await?;
     let call = GenerationCall::from(&extracted);
@@ -142,7 +142,7 @@ async fn articulate(
         .value
         .ok_or_else(|| anyhow!("momentum: parser returned no value"))?;
     let blurb = reply.blurb;
-    let headline = crate::plugins::support::guards::settle_title(
+    let headline = crate::tools::guards::settle_title(
         "analyst",
         Some(&format!("{}: current momentum", assignment.entity_name)),
     );

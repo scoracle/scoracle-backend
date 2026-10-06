@@ -37,7 +37,7 @@ pub fn source_disposition(text: &str, published_at: i64, now: i64) -> Option<&'s
     if published_at > now || now.saturating_sub(published_at) > LOOKBACK_SECONDS {
         return Some("outside_fresh_window");
     }
-    if crate::plugins::support::source::contains_instruction_override(text) {
+    if crate::tools::source::contains_instruction_override(text) {
         return Some("source_instruction_override");
     }
     None
@@ -58,16 +58,16 @@ pub fn assemble(
     #[derive(Serialize)]
     struct Input<'a> {
         meta: crate::plugins::meta::WritingIdentity<'a>,
-        fresh: crate::plugins::support::source::Reporting<'a>,
+        fresh: crate::tools::source::Reporting<'a>,
         #[serde(skip_serializing_if = "Option::is_none")]
         memories: Option<&'a [super::memories::HistoryItem]>,
         voice: &'static str,
         form: serde_json::Value,
     }
-    let form = crate::plugins::form::observation_form();
+    let form = crate::tools::form::observation_form();
     serde_json::to_string(&Input {
         meta: subject.for_writing(),
-        fresh: crate::plugins::support::source::Reporting::new(
+        fresh: crate::tools::source::Reporting::new(
             &source.source,
             source.published_at_epoch,
             &source.context,
@@ -106,7 +106,7 @@ pub fn generation_options(temperature: f64, num_ctx: i32, num_predict: i32) -> G
         num_predict,
         num_ctx,
         json_mode: false,
-        format_schema: Some(crate::plugins::form::observation_schema()),
+        format_schema: Some(crate::tools::form::observation_schema()),
         format_schema_raw: None,
     }
 }

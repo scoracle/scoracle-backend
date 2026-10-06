@@ -3,8 +3,8 @@ use super::memories;
 use super::memories::Continuity;
 use crate::plugins::harvester::delivery::SourceContext;
 use crate::plugins::meta::EntityMeta;
-use crate::plugins::support::source::Reporting;
 use crate::studio::model::GenerateOptions;
+use crate::tools::source::Reporting;
 use anyhow::{ensure, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -112,7 +112,7 @@ pub fn prepare(
         );
         let reason = if item.context.trim().is_empty() || item.source.trim().is_empty() {
             Some("missing_source_material")
-        } else if crate::plugins::support::source::contains_instruction_override(&item.context) {
+        } else if crate::tools::source::contains_instruction_override(&item.context) {
             Some("source_instruction_override")
         } else if item.published_at_epoch.is_none() {
             Some("unknown_publication_time")
@@ -240,7 +240,7 @@ pub fn assemble(
         fresh: fresh_reports(reports),
         memories,
         voice: crate::plugins::journalist::voice::VOICE,
-        form: crate::plugins::form::journalist_form(reports.len()),
+        form: crate::tools::form::journalist_form(reports.len()),
     })
     .expect("journalist world serializes")
 }
@@ -276,7 +276,7 @@ pub fn generation_options(assignment: &Assignment, num_ctx: i32) -> GenerateOpti
         json_mode: false,
         // The package supplies the form to the model; the matching grammar and parser keep
         // publication atomic without adding content direction.
-        format_schema: Some(crate::plugins::form::journalist_schema(
+        format_schema: Some(crate::tools::form::journalist_schema(
             assignment.selected.len(),
         )),
         format_schema_raw: None,

@@ -450,10 +450,10 @@ pub fn assemble(
     .expect("analyst world serializes")
 }
 
-pub fn prose() -> crate::plugins::form::Prose {
-    crate::plugins::form::Prose::new(
+pub fn prose() -> crate::tools::form::Prose {
+    crate::tools::form::Prose::new(
         &["blurb"],
-        crate::plugins::form::Dimensions::new(crate::plugins::form::BODY_MAX_CHARS, None),
+        crate::tools::form::Dimensions::new(crate::tools::form::BODY_MAX_CHARS, None),
     )
 }
 

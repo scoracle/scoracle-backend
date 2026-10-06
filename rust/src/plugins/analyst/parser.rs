@@ -23,11 +23,11 @@ impl Parser<MomentumReply> for MomentumParser {
             )
         })?;
         // Production guards live at the Parser seam; eval can still inspect the raw parse.
-        crate::plugins::form::validate_body(&reply.blurb)?;
-        crate::plugins::form::validate_hook(reply.headline.as_deref())?;
-        if let Some(p) = crate::plugins::support::guards::first_banned_phrase(
+        crate::tools::form::validate_body(&reply.blurb)?;
+        crate::tools::form::validate_hook(reply.headline.as_deref())?;
+        if let Some(p) = crate::tools::guards::first_banned_phrase(
             &reply.blurb,
-            crate::plugins::support::guards::MOMENTUM_BANNED_PHRASES,
+            crate::tools::guards::MOMENTUM_BANNED_PHRASES,
         ) {
             tracing::warn!(
                 guard = "momentum_banned_phrase",
@@ -36,31 +36,30 @@ impl Parser<MomentumReply> for MomentumParser {
             );
             anyhow::bail!("momentum: READ carries banned phrase {p:?}");
         }
-        if let Some(p) = crate::plugins::support::guards::first_product_name(&reply.blurb) {
+        if let Some(p) = crate::tools::guards::first_product_name(&reply.blurb) {
             tracing::warn!(guard = "product_name", name = p, "momentum READ rejected");
             anyhow::bail!("momentum: READ names product {p:?}");
         }
         // Sporting numbers are evidence; internal field citations leak the input contract.
-        if crate::plugins::support::guards::has_bookkeeping_citation(&reply.blurb) {
+        if crate::tools::guards::has_bookkeeping_citation(&reply.blurb) {
             tracing::warn!(guard = "bookkeeping_citation", "momentum READ rejected");
             anyhow::bail!("momentum: READ carries a bookkeeping citation");
         }
         // A bad optional title degrades to NULL without costing the read.
-        reply.headline =
-            crate::plugins::support::guards::settle_title("analyst", reply.headline.as_deref());
+        reply.headline = crate::tools::guards::settle_title("analyst", reply.headline.as_deref());
         Ok(Some(reply))
     }
 }
 
 pub fn parse_momentum_reply(raw: &str) -> Option<MomentumReply> {
     let prose = super::prompt::prose();
-    let map = crate::plugins::form::parse_prose_map(raw, &prose.keys, prose.dims).ok()?;
-    let blurb = crate::plugins::form::normalize_body(map.get("blurb")?);
+    let map = crate::tools::form::parse_prose_map(raw, &prose.keys, prose.dims).ok()?;
+    let blurb = crate::tools::form::normalize_body(map.get("blurb")?);
     if blurb.is_empty() {
         return None;
     }
     // Reject a foreign-script generation so the work item retries.
-    if crate::plugins::support::guards::has_foreign_script(&blurb) {
+    if crate::tools::guards::has_foreign_script(&blurb) {
         return None;
     }
     Some(MomentumReply {

@@ -4,7 +4,7 @@
 mod generation;
 pub mod model;
 pub mod plugin;
-mod session;
+pub mod session;
 pub mod tools;
 
 pub use generation::{Extracted, Generation, GenerationCall, Parser, Provenance};

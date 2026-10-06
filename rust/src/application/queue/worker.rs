@@ -811,7 +811,7 @@ mod test_support {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::plugins::support::resources::ARCHBOX_SLOTS;
+    use crate::application::fleet::ARCHBOX_SLOTS;
     use crate::studio::plugin::{PluginOutcome, StudioPlugin};
 
     #[test]

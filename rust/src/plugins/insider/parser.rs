@@ -13,18 +13,18 @@ pub(super) struct ReplyParser<'a> {
 impl Parser<Reply> for ReplyParser<'_> {
     fn parse(&self, raw: &str) -> Result<Option<Reply>> {
         let mut reply: Reply = serde_json::from_str(raw)?;
-        reply.body = crate::plugins::support::guards::clean_served_prose(
-            &crate::plugins::form::normalize_body(&reply.body),
-        );
-        crate::plugins::form::validate_body(&reply.body)?;
+        reply.body = crate::tools::guards::clean_served_prose(&crate::tools::form::normalize_body(
+            &reply.body,
+        ));
+        crate::tools::form::validate_body(&reply.body)?;
         ensure!(
-            crate::plugins::support::guards::title_names_entity(&reply.body, &self.subject.name),
+            crate::tools::guards::title_names_entity(&reply.body, &self.subject.name),
             "Insider reading does not name the subject"
         );
         ensure!(
-            !crate::plugins::support::guards::has_bookkeeping_citation(&reply.body)
-                && crate::plugins::support::guards::first_product_name(&reply.body).is_none()
-                && !crate::plugins::support::guards::has_foreign_script(&reply.body),
+            !crate::tools::guards::has_bookkeeping_citation(&reply.body)
+                && crate::tools::guards::first_product_name(&reply.body).is_none()
+                && !crate::tools::guards::has_foreign_script(&reply.body),
             "Insider reading violates served prose guard"
         );
         ensure!(

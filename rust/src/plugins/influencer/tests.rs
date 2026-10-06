@@ -153,7 +153,7 @@ fn absence_unknown_and_paragraphs_survive_the_parser() {
 
 #[test]
 fn parser_enforces_paragraph_ceiling_without_truncating_or_splitting() {
-    let paragraph = "é".repeat(crate::plugins::form::PARAGRAPH_MAX_CHARS);
+    let paragraph = "é".repeat(crate::tools::form::PARAGRAPH_MAX_CHARS);
     let body = format!("{paragraph}\n\n{paragraph}");
     let reply = VibeParser
         .parse(&json!({"body":body}).to_string())

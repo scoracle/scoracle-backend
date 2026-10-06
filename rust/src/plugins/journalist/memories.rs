@@ -130,9 +130,10 @@ pub(super) fn select(
         .findings
         .iter()
         .filter(|finding| {
-            !finding.reports.iter().any(|report| {
-                crate::plugins::support::source::contains_instruction_override(&report.headline)
-            })
+            !finding
+                .reports
+                .iter()
+                .any(|report| crate::tools::source::contains_instruction_override(&report.headline))
         })
         .filter(|finding| {
             // History cannot restate fresh reporting, and cannot include it.

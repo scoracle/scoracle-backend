@@ -1,7 +1,7 @@
 //! Registration policy owned by this plugin.
 
+use crate::application::fleet::MAC_SLOTS;
 use crate::application::queue::work::{ClaimPolicy, TaskKey};
-use crate::plugins::support::resources::MAC_SLOTS;
 use crate::runtime::route::RouteKey;
 use crate::studio::plugin::{PluginId, PluginManifest, ResourceProfile, ToolGrant};
 

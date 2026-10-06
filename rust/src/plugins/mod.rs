@@ -2,7 +2,6 @@
 
 pub mod analyst;
 pub mod fixture_boxscore;
-pub mod form;
 pub mod graph;
 pub mod harvester;
 pub mod influencer;
@@ -13,4 +12,3 @@ pub mod memories;
 pub mod meta;
 pub mod oracle;
 pub mod scout;
-pub mod support;

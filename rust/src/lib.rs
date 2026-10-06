@@ -41,5 +41,8 @@ pub mod studio;
 /// First-party cognition, tools, and domain adapters.
 pub mod plugins;
 
+/// Shared form, prose integrity and publisher-source tools.
+pub mod tools;
+
 /// Pure text, rounding, and fingerprint helpers.
 pub mod util;

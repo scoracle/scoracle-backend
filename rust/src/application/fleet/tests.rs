@@ -9,8 +9,8 @@ use crate::studio::tools::DomainClass;
 
 #[test]
 fn production_resource_policy_matches_the_deployment_contract() {
-    let archbox = crate::plugins::support::resources::ARCHBOX_SLOTS;
-    let mac = crate::plugins::support::resources::MAC_SLOTS;
+    let archbox = crate::application::fleet::ARCHBOX_SLOTS;
+    let mac = crate::application::fleet::MAC_SLOTS;
 
     assert_eq!(
         (

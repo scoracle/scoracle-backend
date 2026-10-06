@@ -461,7 +461,7 @@ pub async fn create(studio: &Studio<'_>, assignment: Assignment) -> Result<Ratin
     };
     // The title is the plugin's own, not the model's: it names the entity and the
     // kind of read, which is a fact rather than something to articulate.
-    let headline = crate::plugins::support::guards::settle_title(
+    let headline = crate::tools::guards::settle_title(
         "scout",
         Some(&format!(
             "{}: measured profile",

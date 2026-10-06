@@ -292,7 +292,7 @@ async fn articulate(
             &prompt,
             &options,
             &ReadingParser,
-            crate::plugins::support::prompt::structured_correction,
+            crate::studio::session::structured_correction,
         )
         .await?;
     let call = GenerationCall::from(&extracted);
@@ -300,11 +300,8 @@ async fn articulate(
     let reading = extracted
         .value
         .ok_or_else(|| anyhow!("crown: parser returned no value"))?;
-    crate::plugins::form::validate_body(&reading)?;
-    if !crate::plugins::support::guards::title_names_entity(
-        &reading,
-        &assignment.subject.entity_name,
-    ) {
+    crate::tools::form::validate_body(&reading)?;
+    if !crate::tools::guards::title_names_entity(&reading, &assignment.subject.entity_name) {
         tracing::warn!(guard = "entity_identity", "crown reading rejected");
         bail!(
             "crown: reading does not name entity {:?}",
@@ -316,7 +313,7 @@ async fn articulate(
         SigilSynthesis {
             score: Some(score),
             reading: Some(reading),
-            headline: crate::plugins::support::guards::settle_title(
+            headline: crate::tools::guards::settle_title(
                 "oracle",
                 Some(&format!(
                     "{}: the current picture",

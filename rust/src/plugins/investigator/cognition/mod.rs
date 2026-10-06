@@ -33,7 +33,7 @@ pub async fn investigate_prose(
             &prompt,
             &prose_opts(),
             &ProseReadParser,
-            crate::plugins::support::prompt::structured_correction,
+            crate::studio::session::structured_correction,
         )
         .await?;
     if let Some(read) = result.value.as_mut() {

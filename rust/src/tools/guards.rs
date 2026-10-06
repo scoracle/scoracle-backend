@@ -66,7 +66,7 @@ pub fn first_banned_phrase(prose: &str, list: &[&'static str]) -> Option<&'stati
 }
 
 /// Maximum card-title length in characters.
-const HOOK_MAX_CHARS: usize = crate::plugins::form::HOOK_MAX_CHARS;
+const HOOK_MAX_CHARS: usize = crate::tools::form::HOOK_MAX_CHARS;
 
 /// Return the stable telemetry key when a card title exceeds [`HOOK_MAX_CHARS`]. Colons and
 /// question marks are voice, not violations.
@@ -123,12 +123,6 @@ pub fn title_names_entity(title: &str, entity_name: &str) -> bool {
         }
     }
     !had_long && t.contains(name.trim())
-}
-
-/// Whether prose carries any ASCII digit. Input-side check only: the Analyst's tests assert no
-/// figure reaches her prompt. Not a production guard.
-pub fn has_ascii_digit(s: &str) -> bool {
-    s.bytes().any(|b| b.is_ascii_digit())
 }
 
 /// Whether card-facing English prose contains a non-Latin writing system. Latin diacritics and
@@ -351,14 +345,6 @@ mod tests {
         assert!(contains_ci("Müller and Sánchez", "muller"));
         assert_eq!(fold_for_match("Nikšić ØRSTED ß"), "niksic orsted ss");
     }
-
-    #[test]
-    fn digit_scan() {
-        assert!(has_ascii_digit("trending down 1.1 over five samples"));
-        assert!(!has_ascii_digit(
-            "trending down by one point one over five samples"
-        ));
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -367,7 +353,7 @@ mod tests {
 
 /// Normalize typography only. Content and sentence boundaries belong to the model.
 pub fn clean_served_prose(s: &str) -> String {
-    crate::plugins::form::normalize_body(&crate::util::strip_markdown_emphasis(s))
+    crate::tools::form::normalize_body(&crate::util::strip_markdown_emphasis(s))
 }
 
 /// settle_title applies the card-title contract and returns what should SHIP.

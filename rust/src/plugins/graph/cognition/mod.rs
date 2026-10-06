@@ -35,7 +35,7 @@ pub async fn extract_graph(
             &GraphParser {
                 candidates: &assignment.candidates,
             },
-            crate::plugins::support::prompt::structured_correction,
+            crate::studio::session::structured_correction,
         )
         .await
         .map(Some)

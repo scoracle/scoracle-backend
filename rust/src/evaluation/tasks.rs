@@ -27,10 +27,10 @@ use crate::plugins::oracle::prompt::{
     Subject as OracleSubject, ORACLE_PROMPT_VERSION,
 };
 use crate::plugins::scout::prompt::{build_rating_request, RatingBuild, RatingReq};
-use crate::plugins::support::guards::count_sentences;
 use crate::runtime::route::RouteKey;
 use crate::studio::model::GenerateOptions;
 use crate::studio::Parser;
+use crate::tools::guards::count_sentences;
 use crate::util::truncate;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -598,7 +598,7 @@ impl LensTask for NarrativesTask {
         else {
             return rejected("Journalist evaluation requires report parts");
         };
-        match crate::plugins::form::parse_journalist(raw, count) {
+        match crate::tools::form::parse_journalist(raw, count) {
             Ok(reply) => {
                 let bodies = reply
                     .narratives
@@ -627,9 +627,7 @@ impl LensTask for NarrativesTask {
                     if let Some(max) = expect.total_sentences_max {
                         let sentences: i32 = bodies
                             .iter()
-                            .map(|body| {
-                                crate::plugins::support::guards::count_sentences(body) as i32
-                            })
+                            .map(|body| crate::tools::guards::count_sentences(body) as i32)
                             .sum();
                         checks.push(PropertyCheck {
                             name: format!("total sentences ≤ {max}"),
@@ -1100,7 +1098,7 @@ impl LensTask for RatingTask {
         verdict
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
-        let map = match crate::plugins::form::decode_prose_map(raw, &["body".into()]) {
+        let map = match crate::tools::form::decode_prose_map(raw, &["body".into()]) {
             Ok(map) => map,
             Err(error) => return rejected(&error.to_string()),
         };
@@ -1135,7 +1133,7 @@ impl LensTask for RatingTask {
         checks.push(product_name_check(&reply.body));
         // The brief's decoration bans (` · ` bullets, `**`) — folded 08-19 from per-fixture
         // `prose_excludes` entries; same list `RatingParser` rejects on in production.
-        let banned = crate::plugins::support::guards::first_banned_phrase(
+        let banned = crate::tools::guards::first_banned_phrase(
             &reply.body,
             crate::plugins::scout::parser::RATING_BODY_BANS,
         );
@@ -1386,21 +1384,21 @@ impl LensTask for MomentumTask {
 // The matcher and the global ban vocabularies moved to `crate::guards` (2026-08-19, the
 // eval→guard migration): production parsers and the gate now read the SAME lists — see
 // `guards.rs` for the "one list, one home" ruling and the doc comments that moved with them.
-use crate::plugins::support::guards::contains_ci;
-pub use crate::plugins::support::guards::{MOMENTUM_BANNED_PHRASES, PRODUCT_NAME_BANS};
+use crate::tools::guards::contains_ci;
+pub use crate::tools::guards::{MOMENTUM_BANNED_PHRASES, PRODUCT_NAME_BANS};
 
 // (sentence_runs folded into `guards::count_sentences` 08-19 — one counter for every prose
 // lens; the crude version miscounted decimals as sentence stops.)
 fn sentence_runs(text: &str) -> i32 {
-    crate::plugins::support::guards::count_sentences(text) as i32
+    crate::tools::guards::count_sentences(text) as i32
 }
 
 /// One shared invariant check over a served-prose field: the first product name found, as a
 /// `PropertyCheck` every wired seat pushes unconditionally. For rating the check runs on the
-/// parsed body only. The list lives in [`crate::plugins::support::guards::PRODUCT_NAME_BANS`];
+/// parsed body only. The list lives in [`crate::tools::guards::PRODUCT_NAME_BANS`];
 /// production enforces the same vocabulary.
 fn product_name_check(prose: &str) -> PropertyCheck {
-    let named = crate::plugins::support::guards::first_product_name(prose);
+    let named = crate::tools::guards::first_product_name(prose);
     PropertyCheck {
         name: "no_product_names".into(),
         pass: named.is_none(),

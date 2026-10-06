@@ -41,10 +41,7 @@ pub fn build_graph_prompt(
     if !description.trim().is_empty() {
         b.push_str(&format!("Text: {description}\n"));
     }
-    b.push_str(&format!(
-        "\n{}\nKnown entities (use these numbers):\n",
-        crate::plugins::support::prompt::IDENTITY_CARD_FRAMING
-    ));
+    b.push_str("\nIdentity context, not event evidence. Distinguish current roles from career history; dated reporting may supersede these records. Unknown means unknown.\nKnown entities (use these numbers):\n");
     for (i, c) in candidates.iter().enumerate() {
         b.push_str(&format!("{}. {}\n", i + 1, c.descriptor));
     }

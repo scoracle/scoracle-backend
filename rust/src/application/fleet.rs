@@ -13,6 +13,12 @@ pub use crate::plugins::scout::manifest::MANIFEST as SCOUT;
 use crate::runtime::route::RouteKey;
 use crate::studio::plugin::PluginManifest;
 
+/// Shared slots for models hosted on Archbox. Keep this aligned with the host's
+/// `OLLAMA_NUM_PARALLEL` and configured backend concurrency.
+pub const ARCHBOX_SLOTS: (&str, usize) = ("archbox-3b", 4);
+/// Shared slots for models hosted on the Mac. Slot-group membership must follow routing.
+pub const MAC_SLOTS: (&str, usize) = ("mac-3b", 4);
+
 /// The deployable first-party worker fleet: the six reader-facing characters,
 /// then the internal seats. Registration order in `main.rs` follows the queue's
 /// dependency order instead; this list is the identity roster.

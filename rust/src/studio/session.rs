@@ -2,9 +2,28 @@
 
 use super::model::GenerateOptions;
 use super::{Extracted, Parser};
+use crate::tools::form::SurfaceError;
 use anyhow::{Context, Result};
 #[cfg(test)]
 use std::time::Duration;
+
+pub fn publishing_correction(error: &anyhow::Error) -> Option<String> {
+    if error.is::<SurfaceError>() {
+        return Some(format!(
+            "{error} Rewrite from scratch as one compact paragraph. Keep only the main finding and one supporting detail. Target at most 500 body characters so the complete JSON fits. Do not enumerate every input."
+        ));
+    }
+    if error.is::<crate::studio::model::IncompleteOutput>() {
+        return Some("the response ran out of space. Rewrite from scratch as one compact paragraph. Keep only the main finding and one supporting detail. Target at most 500 body characters so the complete JSON fits. Do not enumerate every input.".to_string());
+    }
+    None
+}
+
+pub fn structured_correction(error: &anyhow::Error) -> Option<String> {
+    error
+        .is::<crate::studio::model::IncompleteOutput>()
+        .then(|| "the response was truncated. Return the complete requested JSON object from scratch, preserving the supplied evidence and schema.".to_string())
+}
 
 pub(super) async fn extract_with_backend<T, P: Parser<T>>(
     backend: &dyn crate::studio::model::Inference,
@@ -95,7 +114,7 @@ mod surface_tests {
             if raw == "null" {
                 return Ok(None);
             }
-            crate::plugins::form::validate_body(raw)?;
+            crate::tools::form::validate_body(raw)?;
             Ok(Some(raw.to_string()))
         }
     }
@@ -112,7 +131,7 @@ mod surface_tests {
             "Evidence",
             &GenerateOptions::default(),
             &BodyParser,
-            crate::plugins::support::prompt::publishing_correction,
+            crate::studio::session::publishing_correction,
         )
         .await
         .unwrap();
@@ -138,7 +157,7 @@ mod surface_tests {
                 "Original evidence",
                 &opts,
                 &BodyParser,
-                crate::plugins::support::prompt::publishing_correction,
+                crate::studio::session::publishing_correction,
             )
             .await
             .unwrap();
@@ -163,7 +182,7 @@ mod surface_tests {
             "Evidence",
             &opts,
             &BodyParser,
-            crate::plugins::support::prompt::publishing_correction,
+            crate::studio::session::publishing_correction,
         )
         .await
         .is_err());
@@ -187,7 +206,7 @@ mod surface_tests {
             "Original evidence",
             &opts,
             &BodyParser,
-            crate::plugins::support::prompt::publishing_correction,
+            crate::studio::session::publishing_correction,
         )
         .await
         .unwrap();
@@ -210,7 +229,7 @@ mod surface_tests {
             "Evidence",
             &GenerateOptions::default(),
             &Structured,
-            crate::plugins::support::prompt::structured_correction,
+            crate::studio::session::structured_correction,
         )
         .await
         .unwrap();

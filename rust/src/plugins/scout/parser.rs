@@ -8,11 +8,11 @@ use std::collections::BTreeMap;
 /// There is no per-paragraph ceiling.
 pub const SCOUT_PARAGRAPH_MAX_CHARS: Option<usize> = None;
 
-pub fn prose() -> crate::plugins::cognition::prose::Prose {
-    crate::plugins::cognition::prose::Prose::new(
+pub fn prose() -> crate::plugins::form::Prose {
+    crate::plugins::form::Prose::new(
         &["body"],
-        crate::plugins::cognition::prose::Dimensions::new(
-            crate::plugins::support::form::BODY_MAX_CHARS,
+        crate::plugins::form::Dimensions::new(
+            crate::plugins::form::BODY_MAX_CHARS,
             SCOUT_PARAGRAPH_MAX_CHARS,
         ),
     )
@@ -82,17 +82,17 @@ impl Parser<RatingReply> for RatingParser {
         // offered to the model and the surface actually accepted come from one
         // declaration, and an undeclared field or a dropped slot is refused.
         let prose = prose();
-        let map = crate::plugins::support::form::decode_prose_map(raw, &prose.keys)?;
+        let map = crate::plugins::form::decode_prose_map(raw, &prose.keys)?;
         // A declined body is this plugin's abstention. It is distinct from a
         // dropped slot, which `decode_prose_map` has already refused.
         let Some(body) = map.get("body").map(clean_commentary) else {
             return Ok(None);
         };
-        let mut prose_only = crate::plugins::support::form::ProseMap::new();
+        let mut prose_only = crate::plugins::form::ProseMap::new();
         prose_only.push("body", Some(body.clone()));
         prose_only
             .validate(prose.dims)
-            .map_err(|e| crate::plugins::support::form::SurfaceError(e.to_string()))?;
+            .map_err(|e| crate::plugins::form::SurfaceError(e.to_string()))?;
         if let Some(p) =
             crate::plugins::support::guards::first_banned_phrase(&body, RATING_BODY_BANS)
         {
@@ -101,7 +101,7 @@ impl Parser<RatingReply> for RatingParser {
                 phrase = p,
                 "rating body rejected"
             );
-            return Err(crate::plugins::support::form::SurfaceError(format!(
+            return Err(crate::plugins::form::SurfaceError(format!(
                 "Body makes the unsupported inference {p:?}; remove that claim and use only retained evidence."
             ))
             .into());
@@ -126,37 +126,37 @@ impl Parser<RatingReply> for RatingRequestParser<'_> {
         if let Some((label, stated, expected)) =
             first_direction_contradiction(&reply.body, self.directions)
         {
-            return Err(crate::plugins::support::form::SurfaceError(format!(
+            return Err(crate::plugins::form::SurfaceError(format!(
                 "Body says {label} {stated}, but the compatible percentile evidence says it {expected}. Keep the supplied arithmetic direction."
             ))
             .into());
         }
         if has_internal_form_contradiction(&reply.body) {
-            return Err(crate::plugins::support::form::SurfaceError(
+            return Err(crate::plugins::form::SurfaceError(
                 "Body describes recent form as both strong/rising and declining/falling. Keep one interpretation supported by the supplied recent-form evidence.".into(),
             )
             .into());
         }
         if let Some(error) = first_measure_association_error(&reply.body) {
-            return Err(crate::plugins::support::form::SurfaceError(error.into()).into());
+            return Err(crate::plugins::form::SurfaceError(error.into()).into());
         }
         if let Some(error) = first_source_shape_error(&reply.body, self.prompt, self.bands) {
-            return Err(crate::plugins::support::form::SurfaceError(error.into()).into());
+            return Err(crate::plugins::form::SurfaceError(error.into()).into());
         }
         if let Some((label, stated, expected)) = first_band_contradiction(&reply.body, self.bands) {
-            return Err(crate::plugins::support::form::SurfaceError(format!(
+            return Err(crate::plugins::form::SurfaceError(format!(
                 "Body calls {label} {stated}, but its supplied percentile band is {expected}. Use the supplied band."
             ))
             .into());
         }
         if let Some(height) = first_unsupported_height(&reply.body, self.prompt) {
-            return Err(crate::plugins::support::form::SurfaceError(format!(
+            return Err(crate::plugins::form::SurfaceError(format!(
                 "Body invents height {height:?}, which is absent from the retained evidence. Remove it."
             ))
             .into());
         }
         if let Some(number) = first_unsupported_number(&reply.body, self.prompt) {
-            return Err(crate::plugins::support::form::SurfaceError(format!(
+            return Err(crate::plugins::form::SurfaceError(format!(
                 "Body uses numeric value {number}, which is absent from the retained evidence. Remove it or use the exact supplied measurement."
             ))
             .into());

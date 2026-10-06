@@ -1101,7 +1101,7 @@ fn request_parser_rewrites_reversed_comparison_direction() {
     let reversed = parser
         .parse(r#"{"body":"Scoring declined relative to peers."}"#)
         .unwrap_err();
-    assert!(reversed.is::<crate::plugins::support::form::SurfaceError>());
+    assert!(reversed.is::<crate::plugins::form::SurfaceError>());
     assert!(reversed.to_string().contains("evidence says it rose"));
 
     let accepted = parser
@@ -1137,7 +1137,7 @@ fn request_parser_rewrites_an_unsourced_height() {
     let error = parser
         .parse(r#"{"body":"The 6'9\" center protects the rim."}"#)
         .unwrap_err();
-    assert!(error.is::<crate::plugins::support::form::SurfaceError>());
+    assert!(error.is::<crate::plugins::form::SurfaceError>());
     assert!(error.to_string().contains("invents height"));
 
     let possessive = parser
@@ -1159,7 +1159,7 @@ fn request_parser_rewrites_numeric_values_absent_from_the_assignment() {
     let invented = parser
         .parse(r#"{"body":"The rating is 3.71 after a 0.44 rise."}"#)
         .unwrap_err();
-    assert!(invented.is::<crate::plugins::support::form::SurfaceError>());
+    assert!(invented.is::<crate::plugins::form::SurfaceError>());
     assert!(invented.to_string().contains("numeric value 3.71"));
 
     let grounded = parser
@@ -1284,7 +1284,7 @@ fn request_parser_preserves_weighted_measures_and_thin_sample_coverage() {
     // sample is bounded by the `limit` in its world rather than by a length the
     // model had to remember. The ceiling is still enforced, and it is the shared
     // one.
-    let long_body = "x".repeat(crate::plugins::support::form::BODY_MAX_CHARS + 1);
+    let long_body = "x".repeat(crate::plugins::form::BODY_MAX_CHARS + 1);
     let oversized = parser
         .parse(&serde_json::json!({"body": long_body}).to_string())
         .unwrap_err();

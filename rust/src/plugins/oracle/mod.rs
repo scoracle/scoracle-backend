@@ -300,7 +300,7 @@ async fn articulate(
     let reading = extracted
         .value
         .ok_or_else(|| anyhow!("crown: parser returned no value"))?;
-    crate::plugins::support::form::validate_body(&reading)?;
+    crate::plugins::form::validate_body(&reading)?;
     if !crate::plugins::support::guards::title_names_entity(
         &reading,
         &assignment.subject.entity_name,

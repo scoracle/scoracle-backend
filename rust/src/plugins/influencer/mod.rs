@@ -9,11 +9,11 @@ use crate::application::models::ExecutionCapabilities;
 use crate::application::queue::publication::ClaimPublication;
 use crate::application::queue::work::Item;
 use crate::evidence::corpus::lookup_entity_name;
+pub use crate::plugins::form::ObservationParser as VibeParser;
 use crate::plugins::harvester::delivery::{
     load_for_character, validate_for_publication, SourceContext,
 };
 use crate::plugins::meta::EntityMeta;
-pub use crate::plugins::support::form::ObservationParser as VibeParser;
 use crate::studio::model::Inference;
 use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
 use crate::studio::{Generation, GenerationCall, Studio};
@@ -111,9 +111,7 @@ pub async fn create(
 /// Source-owned title; articulation cannot invent a headline claim.
 fn title(source: &SourceContext, entity_name: &str) -> String {
     let headline = source.headline.trim();
-    if !headline.is_empty()
-        && headline.chars().count() <= crate::plugins::support::form::HOOK_MAX_CHARS
-    {
+    if !headline.is_empty() && headline.chars().count() <= crate::plugins::form::HOOK_MAX_CHARS {
         headline.to_string()
     } else {
         entity_name.to_string()

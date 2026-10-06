@@ -36,9 +36,7 @@ fn opening(report: &CorpusItem, entity_name: &str) -> String {
         .map(|(index, character)| index + character.len_utf8())
         .unwrap_or(excerpt.len());
     let opening = excerpt[..sentence_end].trim();
-    if !opening.is_empty()
-        && opening.chars().count() <= crate::plugins::support::form::HOOK_MAX_CHARS
-    {
+    if !opening.is_empty() && opening.chars().count() <= crate::plugins::form::HOOK_MAX_CHARS {
         opening.to_string()
     } else {
         entity_name.trim().to_string()
@@ -58,8 +56,7 @@ impl Parser<NarrativesProduct> for EditionParser<'_> {
             self.activity.reports.len() == self.assignment.selected.len(),
             "Journalist activity does not match selected reports"
         );
-        let reply =
-            crate::plugins::support::form::parse_journalist(raw, self.assignment.selected.len())?;
+        let reply = crate::plugins::form::parse_journalist(raw, self.assignment.selected.len())?;
         let narratives = self
             .assignment
             .selected
@@ -75,7 +72,7 @@ impl Parser<NarrativesProduct> for EditionParser<'_> {
                 let (source_count, source_names, source_latest_epoch, source_oldest_epoch) =
                     source_metadata(evidence);
                 let title = opening(item, &self.assignment.subject.name);
-                crate::plugins::support::form::validate_hook(Some(&title))?;
+                crate::plugins::form::validate_hook(Some(&title))?;
                 Ok(Narrative {
                     title,
                     body: prose.text,

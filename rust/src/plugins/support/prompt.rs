@@ -1,6 +1,6 @@
 //! Shared correction policy and identity framing used by active plugins.
 
-use super::form::SurfaceError;
+use crate::plugins::form::SurfaceError;
 
 pub const IDENTITY_CARD_FRAMING: &str = "Identity context, not event evidence. Distinguish current roles from career history; dated reporting may supersede these records. Unknown means unknown.";
 

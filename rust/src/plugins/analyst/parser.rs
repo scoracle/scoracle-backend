@@ -23,8 +23,8 @@ impl Parser<MomentumReply> for MomentumParser {
             )
         })?;
         // Production guards live at the Parser seam; eval can still inspect the raw parse.
-        crate::plugins::support::form::validate_body(&reply.blurb)?;
-        crate::plugins::support::form::validate_hook(reply.headline.as_deref())?;
+        crate::plugins::form::validate_body(&reply.blurb)?;
+        crate::plugins::form::validate_hook(reply.headline.as_deref())?;
         if let Some(p) = crate::plugins::support::guards::first_banned_phrase(
             &reply.blurb,
             crate::plugins::support::guards::MOMENTUM_BANNED_PHRASES,
@@ -54,8 +54,8 @@ impl Parser<MomentumReply> for MomentumParser {
 
 pub fn parse_momentum_reply(raw: &str) -> Option<MomentumReply> {
     let prose = super::prompt::prose();
-    let map = crate::plugins::support::form::parse_prose_map(raw, &prose.keys, prose.dims).ok()?;
-    let blurb = crate::plugins::support::form::normalize_body(map.get("blurb")?);
+    let map = crate::plugins::form::parse_prose_map(raw, &prose.keys, prose.dims).ok()?;
+    let blurb = crate::plugins::form::normalize_body(map.get("blurb")?);
     if blurb.is_empty() {
         return None;
     }

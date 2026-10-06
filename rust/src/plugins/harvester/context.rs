@@ -4,7 +4,7 @@
 //! character-owned decision is represented here.
 use super::cognition::{self, Article, Excerpt};
 use super::policy::{self, CHARACTER_ROUTES};
-use crate::plugins::cognition::decision::{
+use crate::plugins::harvester::decision::{
     DecisionModel, DecisionRequest, DecisionResponse, ProbabilityAnswer,
 };
 use crate::plugins::meta::EntityMeta;

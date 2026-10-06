@@ -1,10 +1,5 @@
-//! Typed predicate scoring without text generation. Plugins own policy.
-//!
-//! This is the Decision-shaped cognition slot's vocabulary: a plugin supplies the
-//! predicates, the model returns only bounded probabilities for those exact
-//! predicates, and the plugin's own validator applies its policy. It lives in the
-//! plugin layer rather than in `studio` because it is a plugin's contract and
-//! not a harness facility, which is why no character plugin found it there.
+//! Harvester predicate requests and probability responses. Harvester owns validation and policy.
+
 use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};

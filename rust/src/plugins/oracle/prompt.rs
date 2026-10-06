@@ -568,13 +568,10 @@ pub fn assemble(subject: &Subject, cards: &Cards) -> String {
     .expect("oracle world serializes")
 }
 
-pub fn prose() -> crate::plugins::cognition::prose::Prose {
-    crate::plugins::cognition::prose::Prose::new(
+pub fn prose() -> crate::plugins::form::Prose {
+    crate::plugins::form::Prose::new(
         &["reading"],
-        crate::plugins::cognition::prose::Dimensions::new(
-            crate::plugins::support::form::ORACLE_READING_MAX_CHARS,
-            None,
-        ),
+        crate::plugins::form::Dimensions::new(crate::plugins::form::ORACLE_READING_MAX_CHARS, None),
     )
 }
 

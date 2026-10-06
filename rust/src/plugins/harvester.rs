@@ -4,6 +4,7 @@
 pub mod adapter;
 pub mod cognition;
 pub mod context;
+pub mod decision;
 pub mod delivery;
 pub mod maintenance;
 pub mod policy;

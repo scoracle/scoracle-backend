@@ -240,7 +240,7 @@ pub fn assemble(
         fresh: fresh_reports(reports),
         memories,
         voice: crate::plugins::journalist::voice::VOICE,
-        form: crate::plugins::support::form::journalist_form(reports.len()),
+        form: crate::plugins::form::journalist_form(reports.len()),
     })
     .expect("journalist world serializes")
 }
@@ -276,7 +276,7 @@ pub fn generation_options(assignment: &Assignment, num_ctx: i32) -> GenerateOpti
         json_mode: false,
         // The package supplies the form to the model; the matching grammar and parser keep
         // publication atomic without adding content direction.
-        format_schema: Some(crate::plugins::support::form::journalist_schema(
+        format_schema: Some(crate::plugins::form::journalist_schema(
             assignment.selected.len(),
         )),
         format_schema_raw: None,

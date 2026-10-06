@@ -64,7 +64,7 @@ pub fn assemble(
         voice: &'static str,
         form: serde_json::Value,
     }
-    let form = crate::plugins::support::form::observation_form();
+    let form = crate::plugins::form::observation_form();
     serde_json::to_string(&Input {
         meta: subject.for_writing(),
         fresh: crate::plugins::support::source::Reporting::new(
@@ -106,7 +106,7 @@ pub fn generation_options(temperature: f64, num_ctx: i32, num_predict: i32) -> G
         num_predict,
         num_ctx,
         json_mode: false,
-        format_schema: Some(crate::plugins::support::form::observation_schema()),
+        format_schema: Some(crate::plugins::form::observation_schema()),
         format_schema_raw: None,
     }
 }

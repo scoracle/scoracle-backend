@@ -1,8 +1,8 @@
 //! First-party capabilities, each owning its cognition and concrete adapters.
 
 pub mod analyst;
-pub mod cognition;
 pub mod fixture_boxscore;
+pub mod form;
 pub mod graph;
 pub mod harvester;
 pub mod influencer;

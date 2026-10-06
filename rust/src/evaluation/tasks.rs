@@ -598,7 +598,7 @@ impl LensTask for NarrativesTask {
         else {
             return rejected("Journalist evaluation requires report parts");
         };
-        match crate::plugins::support::form::parse_journalist(raw, count) {
+        match crate::plugins::form::parse_journalist(raw, count) {
             Ok(reply) => {
                 let bodies = reply
                     .narratives
@@ -1100,7 +1100,7 @@ impl LensTask for RatingTask {
         verdict
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
-        let map = match crate::plugins::support::form::decode_prose_map(raw, &["body".into()]) {
+        let map = match crate::plugins::form::decode_prose_map(raw, &["body".into()]) {
             Ok(map) => map,
             Err(error) => return rejected(&error.to_string()),
         };

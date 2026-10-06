@@ -66,7 +66,7 @@ pub fn first_banned_phrase(prose: &str, list: &[&'static str]) -> Option<&'stati
 }
 
 /// Maximum card-title length in characters.
-const HOOK_MAX_CHARS: usize = crate::plugins::support::form::HOOK_MAX_CHARS;
+const HOOK_MAX_CHARS: usize = crate::plugins::form::HOOK_MAX_CHARS;
 
 /// Return the stable telemetry key when a card title exceeds [`HOOK_MAX_CHARS`]. Colons and
 /// question marks are voice, not violations.
@@ -367,7 +367,7 @@ mod tests {
 
 /// Normalize typography only. Content and sentence boundaries belong to the model.
 pub fn clean_served_prose(s: &str) -> String {
-    crate::plugins::support::form::normalize_body(&crate::util::strip_markdown_emphasis(s))
+    crate::plugins::form::normalize_body(&crate::util::strip_markdown_emphasis(s))
 }
 
 /// settle_title applies the card-title contract and returns what should SHIP.

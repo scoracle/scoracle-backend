@@ -4,6 +4,85 @@
 //! retain the existing parser/storage contracts; they are not section headings.
 //! Voice modules own tone; prompt modules own instructions and content direction.
 
+use serde_json::Value;
+
+/// Reader-facing and readability limits for one plugin's response.
+///
+/// The two numbers are not the same kind of thing, and this plan previously
+/// treated them as one. `total_max_chars` is a product constraint on what a
+/// reader is shown; it is shared and it is not negotiable per plugin.
+/// `paragraph_max_chars` is a writing policy: Influencer enforces 140 today and
+/// Journalist enforces nothing. Forcing 140 onto Journalist, or dropping it from
+/// Influencer, would make one of them worse in order to share a validator, so it
+/// is a parameter and the choice is recorded per plugin.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Dimensions {
+    /// Ceiling across every prose key in the response.
+    pub total_max_chars: usize,
+    /// Ceiling for one paragraph, or `None` when the plugin does not apply one.
+    pub paragraph_max_chars: Option<usize>,
+}
+
+impl Dimensions {
+    /// The shared product ceiling, with a plugin's readability policy.
+    pub const fn new(total_max_chars: usize, paragraph_max_chars: Option<usize>) -> Self {
+        Self {
+            total_max_chars,
+            paragraph_max_chars,
+        }
+    }
+}
+
+/// The Prose slot: a prepared world in, a keyed prose map out.
+#[derive(Clone, Debug)]
+pub struct Prose {
+    /// The plugin's output keys. `["body"]` for Influencer, `report_1..report_N`
+    /// for Journalist, `["body"]` for Scout. The shape is shared; the
+    /// keys are the plugin's.
+    pub keys: Vec<String>,
+    pub dims: Dimensions,
+}
+
+impl Prose {
+    pub fn new(keys: &[&str], dims: Dimensions) -> Self {
+        Self::new_owned(keys.iter().map(|k| (*k).to_string()).collect(), dims)
+    }
+
+    /// For a plugin whose keys are computed rather than written out, such as the
+    /// Journalist's `report_1..report_N`.
+    pub fn new_owned(keys: Vec<String>, dims: Dimensions) -> Self {
+        Self { keys, dims }
+    }
+
+    /// The `form` block a world presents, describing structure only.
+    pub fn form(&self) -> Value {
+        let mut form = serde_json::json!({
+            "keys": self.keys,
+            "max_chars": self.dims.total_max_chars,
+        });
+        if let Some(limit) = self.dims.paragraph_max_chars {
+            form["paragraph_max_chars"] = serde_json::json!(limit);
+        }
+        form
+    }
+
+    /// The permissive JSON shape a response must satisfy. Deliberately
+    /// `additionalProperties: false` over exactly the declared keys so the model
+    /// cannot invent a field the plugin would have to ignore.
+    pub fn schema(&self) -> Value {
+        let mut properties = serde_json::Map::new();
+        for key in &self.keys {
+            properties.insert(key.clone(), serde_json::json!({"type": ["null", "string"]}));
+        }
+        serde_json::json!({
+            "type": "object",
+            "additionalProperties": false,
+            "properties": properties,
+            "required": self.keys,
+        })
+    }
+}
+
 /// Reader-facing dimensions, independent of any model's tokenization or runtime budget.
 pub const HOOK_MAX_CHARS: usize = 140;
 pub const PARAGRAPH_MAX_CHARS: usize = 140;
@@ -30,13 +109,10 @@ pub fn observation_form() -> serde_json::Value {
 ///
 /// A null body is this plugin's abstention, not a dropped slot, and the shared
 /// validator keeps the two distinct.
-pub fn observation_prose() -> crate::plugins::cognition::prose::Prose {
-    crate::plugins::cognition::prose::Prose::new(
+pub fn observation_prose() -> Prose {
+    Prose::new(
         &["body"],
-        crate::plugins::cognition::prose::Dimensions::new(
-            BODY_MAX_CHARS,
-            Some(PARAGRAPH_MAX_CHARS),
-        ),
+        Dimensions::new(BODY_MAX_CHARS, Some(PARAGRAPH_MAX_CHARS)),
     )
 }
 
@@ -196,10 +272,7 @@ impl ProseMap {
     /// A shared mechanism, not a shared policy: `dims` is supplied per plugin, so
     /// the reader-facing body ceiling can be common while the readability
     /// ceiling is each plugin's own recorded decision.
-    pub fn validate(
-        &self,
-        dims: crate::plugins::cognition::prose::Dimensions,
-    ) -> anyhow::Result<()> {
+    pub fn validate(&self, dims: Dimensions) -> anyhow::Result<()> {
         let mut total = 0usize;
         for (key, prose) in self.iter() {
             anyhow::ensure!(
@@ -232,11 +305,7 @@ impl ProseMap {
 }
 
 /// Decode and validate in one step, for a plugin with nothing to prepare.
-pub fn parse_prose_map(
-    raw: &str,
-    keys: &[String],
-    dims: crate::plugins::cognition::prose::Dimensions,
-) -> anyhow::Result<ProseMap> {
+pub fn parse_prose_map(raw: &str, keys: &[String], dims: Dimensions) -> anyhow::Result<ProseMap> {
     let map = decode_prose_map(raw, keys)?;
     map.validate(dims)?;
     Ok(map)
@@ -317,16 +386,13 @@ pub fn normalize_body(body: &str) -> String {
 /// The keys are the plugin's own `report_key` values, in source order. History is
 /// attached per report inside the package rather than presented as a parallel
 /// array, so no pairing decision reaches the model.
-pub fn journalist_prose(report_count: usize) -> crate::plugins::cognition::prose::Prose {
+pub fn journalist_prose(report_count: usize) -> Prose {
     let keys = (1..=report_count)
         .map(|index| format!("report_{index}"))
         .collect::<Vec<_>>();
-    crate::plugins::cognition::prose::Prose::new_owned(
+    Prose::new_owned(
         keys,
-        crate::plugins::cognition::prose::Dimensions::new(
-            BODY_MAX_CHARS,
-            JOURNALIST_PARAGRAPH_MAX_CHARS,
-        ),
+        Dimensions::new(BODY_MAX_CHARS, JOURNALIST_PARAGRAPH_MAX_CHARS),
     )
 }
 
@@ -522,5 +588,38 @@ mod tests {
         assert!(one(r#"{"report_1":"a","report_2":"b"}"#).is_err());
         assert!(one(r#"{"report_1":"a","text":"b"}"#).is_err());
         assert!(one(r#"{"report_1":""}"#).is_err());
+    }
+}
+
+#[cfg(test)]
+mod prose_tests {
+    use super::*;
+
+    #[test]
+    fn the_shared_ceiling_is_a_parameter_and_the_keys_are_the_plugins() {
+        let influencer = Prose::new(&["body"], Dimensions::new(BODY_MAX_CHARS, Some(140)));
+        let journalist = Prose::new(&["report_1"], Dimensions::new(BODY_MAX_CHARS, Some(140)));
+        assert_eq!(influencer.schema()["required"], serde_json::json!(["body"]));
+        assert_eq!(
+            journalist.schema()["required"],
+            serde_json::json!(["report_1"])
+        );
+        // A shared validator, not a shared policy: the same rule set, and the
+        // readability ceiling is each plugin's declaration.
+        assert_eq!(
+            influencer.dims.total_max_chars,
+            journalist.dims.total_max_chars
+        );
+        assert_eq!(influencer.dims.paragraph_max_chars, Some(140));
+    }
+
+    #[test]
+    fn a_response_may_not_carry_a_field_the_plugin_did_not_declare() {
+        let prose = Prose::new(&["headline", "body"], Dimensions::new(1200, Some(140)));
+        let schema = prose.schema();
+        assert_eq!(schema["additionalProperties"], serde_json::json!(false));
+        let keys = schema["properties"].as_object().unwrap();
+        assert_eq!(keys.len(), 2);
+        assert!(keys.contains_key("headline") && keys.contains_key("body"));
     }
 }

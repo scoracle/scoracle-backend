@@ -14,9 +14,9 @@ impl Parser<Reply> for ReplyParser<'_> {
     fn parse(&self, raw: &str) -> Result<Option<Reply>> {
         let mut reply: Reply = serde_json::from_str(raw)?;
         reply.body = crate::plugins::support::guards::clean_served_prose(
-            &crate::plugins::support::form::normalize_body(&reply.body),
+            &crate::plugins::form::normalize_body(&reply.body),
         );
-        crate::plugins::support::form::validate_body(&reply.body)?;
+        crate::plugins::form::validate_body(&reply.body)?;
         ensure!(
             crate::plugins::support::guards::title_names_entity(&reply.body, &self.subject.name),
             "Insider reading does not name the subject"

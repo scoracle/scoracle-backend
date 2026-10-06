@@ -83,7 +83,7 @@ valid when the evidence does not support more.";
 
 /// Retry the same bounded task without silently changing its content policy.
 pub fn correction(error: &anyhow::Error) -> Option<String> {
-    (error.is::<crate::plugins::support::form::SurfaceError>()
+    (error.is::<crate::plugins::form::SurfaceError>()
         || error.is::<crate::studio::model::IncompleteOutput>())
     .then(|| format!("{error:#} Return the complete requested JSON within the supplied form limits. Preserve the supplied qualifications and use only the prepared evidence."))
 }

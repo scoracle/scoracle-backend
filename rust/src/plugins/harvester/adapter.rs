@@ -8,7 +8,7 @@ use crate::application::queue::publication::ClaimPublication;
 use crate::application::queue::work::Item;
 use crate::application::tools::{ToolLedger, WebBroker};
 use crate::evidence::fetch::{count_words, domain_of, ArticleHttpStatus, FetchedArticle};
-use crate::plugins::cognition::decision::DecisionModel;
+use crate::plugins::harvester::decision::DecisionModel;
 use crate::plugins::meta::EntityMeta;
 use crate::studio::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
 use anyhow::{ensure, Context, Result};
@@ -909,7 +909,7 @@ impl StudioPlugin for HarvesterHandler {
 mod tests {
     use super::*;
     use crate::application::queue::work;
-    use crate::plugins::cognition::decision::{
+    use crate::plugins::harvester::decision::{
         DecisionRequest, DecisionResponse, ProbabilityAnswer,
     };
     use crate::studio::model::{GenerateOptions, GenerateResult, Inference};

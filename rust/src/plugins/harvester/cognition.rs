@@ -2,7 +2,7 @@
 //! Harvester owns this contract; tagged character plugins own the final judgment.
 
 use super::policy::{CHARACTER_ROUTES, MAX_THEME_WINDOWS};
-use crate::plugins::cognition::decision::{DecisionRequest, DecisionResponse, PredicateQuestion};
+use crate::plugins::harvester::decision::{DecisionRequest, DecisionResponse, PredicateQuestion};
 use crate::plugins::meta::EntityMeta;
 use anyhow::{ensure, Result};
 use serde::{Deserialize, Serialize};

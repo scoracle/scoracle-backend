@@ -95,7 +95,7 @@ mod surface_tests {
             if raw == "null" {
                 return Ok(None);
             }
-            crate::plugins::support::form::validate_body(raw)?;
+            crate::plugins::form::validate_body(raw)?;
             Ok(Some(raw.to_string()))
         }
     }

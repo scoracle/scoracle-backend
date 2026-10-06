@@ -833,7 +833,7 @@ mod tests {
     }
 
     /// Production's shape after the 2026-08-20 consolidation: every model stage shares the
-    /// archbox card — graph and the Editor at the full group budget, the four voices capped
+    /// archbox card — Graph at the full group budget, the four voices capped
     /// at 2 within it — then the single-slot stages (investigate/transfers/momentum).
     ///
     /// The ceiling arithmetic below is unchanged in KIND (a group still counts once, at its
@@ -846,7 +846,6 @@ mod tests {
     /// production derives, so a re-size of the card's slot budget cannot strand this fixture.
     const LIVE_CAPS: &[StageCap] = &[
         (ARCHBOX_SLOTS.1, CARD), // graph
-        (ARCHBOX_SLOTS.1, CARD), // editor
         (1, None),               // investigate_entity
         (1, None),               // transfers
         (2, CARD),               // narratives
@@ -896,22 +895,21 @@ mod tests {
     fn a_shared_group_lends_idle_slots_and_takes_them_back() {
         let (_, budget) = ARCHBOX_SLOTS;
 
-        // graph idle: the Editor may take the whole card. This is the change — it was pinned to 2
-        // while 5,852 reads queued against a card that was half asleep.
+        // Graph idle: another grouped stage may take the whole card.
         let group_running = 0;
         assert_eq!(
             stage_room(budget, 0, 10).min(budget - group_running),
             budget
         );
 
-        // graph holding 2: the Editor is held to the remainder, never oversubscribing the host.
+        // Graph holding 2: another grouped stage is held to the remainder, never oversubscribing the host.
         let group_running = 2;
         assert_eq!(
             stage_room(budget, 0, 10).min(budget - group_running),
             budget - 2
         );
 
-        // graph holding the whole card: the Editor waits rather than deepening the host's queue.
+        // Graph holding the whole card: another grouped stage waits rather than deepening the host's queue.
         let group_running = budget;
         assert_eq!(stage_room(budget, 0, 10).min(budget - group_running), 0);
     }

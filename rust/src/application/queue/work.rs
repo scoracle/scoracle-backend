@@ -823,7 +823,7 @@ mod claim_order_tests {
         }
         // Ranked ingestion still drains best-first because source rank beats entity grain there.
         assert_eq!(
-            crate::plugins::editor::manifest::MANIFEST
+            crate::plugins::harvester::manifest::MANIFEST
                 .claim_policy
                 .order,
             ClaimOrder::RankedArticles

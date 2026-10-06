@@ -27,7 +27,7 @@
 pub enum DomainClass {
     /// Wikipedia/Wikidata API surfaces (`wikipedia.org`, `wikidata.org`).
     Wikimedia,
-    /// The registered RSS/news corpus the Editor's funnel curates.
+    /// The registered RSS/news corpus.
     NewsRss,
     /// The registered box-score sources configured in `boxscore_sources`.
     BoxscoreSources,

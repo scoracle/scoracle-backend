@@ -60,7 +60,7 @@ pub const PERSON_KINDS: &[&str] = &["coach", "agent", "executive", "family", "ot
 /// The model budget for one extraction call. Temperature 0.2 (tight but a judgment
 /// call, matching scrub adjudication); JSON mode tightens contract adherence.
 ///
-/// Graph shares the Editor's local context size to avoid runner reloads.
+/// Graph retains its local context-size reservation.
 pub fn graph_opts() -> GenerateOptions {
     GenerateOptions {
         system: Some(GRAPH_SYSTEM_PROMPT.to_string()),

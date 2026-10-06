@@ -694,7 +694,7 @@ impl JudgeAgg {
 }
 
 /// Count authored assertions when generation/parsing fails. Parsing is counted separately.
-/// Resolver inputs (`reader_vetted`, `resolver_surfaces`, `graph_candidate_types`) are not assertions.
+/// Graph candidate types are preparation inputs, not assertions.
 fn expected_property_count(x: &Expect) -> usize {
     let mut n = 0usize;
     n += x.score_min.is_some() as usize;
@@ -729,28 +729,12 @@ fn expected_property_count(x: &Expect) -> usize {
     n += x.relations_max.is_some() as usize;
     n += x.persons_include.as_ref().map_or(0, Vec::len);
     n += x.persons_exclude.as_ref().map_or(0, Vec::len);
-    // The Editor / ArticleReader axes (ep1 + ar6).
-    n += x.article_relevant.is_some() as usize;
-    n += x.key_facts_include.as_ref().map_or(0, Vec::len);
-    n += x.key_facts_exclude.as_ref().map_or(0, Vec::len);
-    n += x.names_include.as_ref().map_or(0, Vec::len);
-    n += x.names_exclude.as_ref().map_or(0, Vec::len);
-    n += x.register_is.is_some() as usize;
-    n += x.story_type_is.is_some() as usize;
     // The investigator's prose axes (ip1).
     n += x.subject_kind_is.is_some() as usize;
     n += x.evidence_includes.as_ref().map_or(0, Vec::len);
     n += (x.evidence_empty == Some(true)) as usize;
     n += x.occupation_includes.as_ref().map_or(0, Vec::len);
     n += x.prose_teams_include.as_ref().map_or(0, Vec::len);
-    n += x.name_kind_is.as_ref().map_or(0, |m| m.len());
-    n += x.name_descriptor_nonempty.as_ref().map_or(0, Vec::len);
-    n += x.result_line_includes.as_ref().map_or(0, Vec::len);
-    n += x.result_line_parses.is_some() as usize;
-    n += x.resolver_links_include.as_ref().map_or(0, Vec::len);
-    n += x.resolver_links_exclude.as_ref().map_or(0, Vec::len);
-    n += x.resolver_unresolved_include.as_ref().map_or(0, Vec::len);
-    n += x.resolver_refused_include.as_ref().map_or(0, Vec::len);
     n
 }
 
@@ -1255,9 +1239,7 @@ fn parse_entity(s: &str) -> Result<EntitySpec> {
         ));
     }
     let entity_type = parts[0].to_lowercase();
-    // `article` is live-eval'able too: graph and editor are article-keyed, not entity-keyed. Both
-    // tasks' build_prompt tells you to pass `article:<id>:<SPORT>` — and this check rejected it,
-    // so their live modes were unreachable from the day they were written.
+    // Graph live evaluations use article:<id>:<SPORT> rather than an entity key.
     if entity_type != "player" && entity_type != "team" && entity_type != "article" {
         return Err(anyhow!(
             "bad entity_type in {s:?}; want player|team|article"

@@ -2,7 +2,6 @@
 
 pub mod analyst;
 pub mod cognition;
-pub mod editor;
 pub mod fixture_boxscore;
 pub mod graph;
 pub mod harvester;

@@ -2,7 +2,6 @@
 //! resource policy, scoped web reach, and complete boot registration.
 
 use super::*;
-use crate::plugins::editor::manifest::MANIFEST as EDITOR;
 use crate::studio::plugin::{
     PluginManifest, PluginOutcome, PluginRegistry, StudioPlugin, ToolGrant,
 };
@@ -50,10 +49,6 @@ fn production_resource_policy_matches_the_deployment_contract() {
         (1, None)
     );
     assert_eq!(
-        (EDITOR.resources.rotation_batch, EDITOR.resources.slot_group),
-        (8, Some(archbox))
-    );
-    assert_eq!(
         (GRAPH.resources.rotation_batch, GRAPH.resources.slot_group),
         (8, Some(archbox))
     );
@@ -81,7 +76,6 @@ fn durable_task_identifiers_remain_compatible() {
     assert_eq!(INSIDER.task.as_str(), "transfers");
     assert_eq!(ANALYST.task.as_str(), "momentum");
     assert_eq!(ORACLE.task.as_str(), "sigil");
-    assert_eq!(EDITOR.task.as_str(), "editor");
     assert_eq!(INVESTIGATOR.task.as_str(), "investigate_entity");
     assert_eq!(FIXTURE_BOXSCORE.task.as_str(), "fixture_boxscore");
     assert_eq!(GRAPH.task.as_str(), "graph");
@@ -89,10 +83,10 @@ fn durable_task_identifiers_remain_compatible() {
 
 #[test]
 fn acquisition_web_grants_are_scoped_to_each_plugins_sources() {
-    assert!(EDITOR.grants_web(DomainClass::NewsRss));
-    assert!(EDITOR.grants_web(DomainClass::CuratedArticles));
-    assert!(!EDITOR.grants_web(DomainClass::Wikimedia));
-    assert!(!EDITOR.grants_web(DomainClass::BoxscoreSources));
+    assert!(HARVESTER.grants_web(DomainClass::CuratedArticles));
+    assert!(!HARVESTER.grants_web(DomainClass::NewsRss));
+    assert!(!HARVESTER.grants_web(DomainClass::Wikimedia));
+    assert!(!HARVESTER.grants_web(DomainClass::BoxscoreSources));
 
     assert!(INVESTIGATOR.inference_routes.is_empty());
     assert!(!INVESTIGATOR.tools.contains(&ToolGrant::Inference));
@@ -128,9 +122,11 @@ fn full_and_partial_production_fleets_register() {
 #[test]
 fn harvester_has_independent_identity_and_requires_explicit_enablement() {
     assert_eq!(HARVESTER.task.as_str(), "harvester");
-    assert_ne!(HARVESTER.id, EDITOR.id);
+    assert_ne!(HARVESTER.id.as_str(), "scoracle.internal.editor");
     assert!(!ALL.iter().any(|m| m.task.as_str() == "editor"));
-    assert!(!inference_routes().contains(&crate::plugins::editor::manifest::ROUTE));
+    assert!(!inference_routes()
+        .iter()
+        .any(|route| route.as_str() == "editor"));
     assert!(HARVESTER.tools.contains(&ToolGrant::Classification));
     assert!(HARVESTER.grants_web(DomainClass::CuratedArticles));
     assert!(HARVESTER.inference_routes.is_empty());

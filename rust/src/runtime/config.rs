@@ -231,7 +231,7 @@ fn normalize_base_url(raw: &str) -> String {
 /// `http://localhost:11434=3,http://mac-mini:11434=1`.
 ///
 /// Keyed by host rather than by role because the semaphore models a GPU: the six characters
-/// sharing one machine must share one budget, and the Editor on its own machine must not be
+/// sharing one machine must share one budget, and a model on its own machine must not be
 /// throttled by their traffic. Malformed entries are SKIPPED rather than fatal — a typo here
 /// should cost the default budget, not refuse to boot the pipeline.
 fn parse_backend_concurrency(raw: &str) -> HashMap<String, usize> {

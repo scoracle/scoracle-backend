@@ -1,4 +1,4 @@
-//! Resolve, fetch, and clean publisher pages for the Editor and Investigator.
+//! Resolve, fetch, and clean publisher pages for Harvester and Investigator.
 //! `ARTICLE_READ_CHROME_ENABLED` remains the deployed name of the Chrome fallback switch.
 //!
 //! Acquisition infrastructure used by application adapters; it does not depend on seat logic.

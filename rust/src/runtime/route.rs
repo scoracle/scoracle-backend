@@ -178,7 +178,7 @@ impl Router {
 
 /// governor_for returns the semaphore guarding the host a spec lives on, creating it the first
 /// time that host is seen. Every backend on one `base_url` shares it, so six characters on one
-/// machine share that machine's budget while a Editor on another machine keeps its own.
+/// machine share that machine's budget while a model on another machine keeps its own.
 fn governor_for(
     governors: &mut HashMap<String, Arc<Semaphore>>,
     cfg: &RouteConfig,
@@ -294,8 +294,8 @@ mod tests {
             spec("local-news:latest"),
         ); // same model → shared Arc
         roles.insert(
-            crate::plugins::editor::manifest::ROUTE,
-            spec("editor-model"),
+            crate::plugins::oracle::manifest::ROUTE,
+            spec("oracle-model"),
         ); // distinct → its own Arc
         let cfg = RouteConfig {
             roles,
@@ -310,7 +310,7 @@ mod tests {
         ));
         assert!(!Arc::ptr_eq(
             &router.for_route(crate::plugins::graph::manifest::ROUTE),
-            &router.for_route(crate::plugins::editor::manifest::ROUTE),
+            &router.for_route(crate::plugins::oracle::manifest::ROUTE),
         ));
         assert_eq!(
             router
@@ -320,9 +320,9 @@ mod tests {
         );
         assert_eq!(
             router
-                .for_route(crate::plugins::editor::manifest::ROUTE)
+                .for_route(crate::plugins::oracle::manifest::ROUTE)
                 .model(),
-            "editor-model"
+            "oracle-model"
         );
     }
 
@@ -337,7 +337,10 @@ mod tests {
             crate::plugins::influencer::manifest::ROUTE.as_str(),
             "vibe-logic"
         );
-        assert_eq!(crate::plugins::editor::manifest::ROUTE.as_str(), "editor");
+        assert_eq!(
+            crate::plugins::oracle::manifest::ROUTE.as_str(),
+            "oracle-logic"
+        );
         assert_eq!(
             crate::plugins::insider::manifest::ROUTE.env_suffix(),
             "TRANSFER_LOGIC"
@@ -347,8 +350,8 @@ mod tests {
             "VIBE_LOGIC"
         );
         assert_eq!(
-            crate::plugins::editor::manifest::ROUTE.env_suffix(),
-            "EDITOR"
+            crate::plugins::oracle::manifest::ROUTE.env_suffix(),
+            "ORACLE_LOGIC"
         );
     }
 

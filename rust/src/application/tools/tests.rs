@@ -2,10 +2,9 @@
 //! per-run budget, and the call ledger. No network.
 
 use super::*;
-use crate::application::fleet::{FIXTURE_BOXSCORE, INVESTIGATOR};
+use crate::application::fleet::{FIXTURE_BOXSCORE, HARVESTER, INVESTIGATOR};
 use crate::application::tools::{ScopedWeb, ToolLedger, WebBroker};
 use crate::evidence::fetch::FetchPolicy;
-use crate::plugins::editor::manifest::MANIFEST as EDITOR;
 use crate::studio::plugin::PluginManifest;
 
 fn scope<'a>(
@@ -63,7 +62,7 @@ async fn undeclared_domain_is_refused_before_any_reach() {
     let broker = WebBroker::new(4).unwrap();
     let pool = lazy_pool();
     let ledger = ToolLedger::new();
-    let web = scope(&broker, &pool, &EDITOR, &ledger);
+    let web = scope(&broker, &pool, &HARVESTER, &ledger);
 
     let err = web
         .fetch_for_class(

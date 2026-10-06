@@ -2,7 +2,7 @@
 //!
 //! Two work classes on one stage:
 //!
-//! * `entity_type='candidate'` — a mystery name the Editor's sweep nominated
+//! * `entity_type='candidate'` — a mystery name nominated by source discovery (including historical Editor nominations)
 //!   (`entity_candidates.id`). Discovery → gate → on ACCEPT, resolve to an existing
 //!   entity (alias write, no new row) or create a `persons` row; every write cites a
 //!   `source_documents` row; `acquisition_runs` records the attempt whatever the verdict.

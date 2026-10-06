@@ -1,8 +1,9 @@
 //! Exact publication and five-pillar readiness tests for the Oracle application boundary.
 
+use super::super::*;
 use super::*;
 use crate::application::queue::work::TaskKey;
-use crate::plugins::oracle::cognition::SigilSynthesis;
+use crate::plugins::oracle::SigilSynthesis;
 use crate::studio::Generation;
 
 fn crown(score: Option<i32>) -> SigilOutput {
@@ -21,7 +22,7 @@ fn crown(score: Option<i32>) -> SigilOutput {
             omen: score.map(|_| "crossroads"),
         },
         "test-oracle-model".to_string(),
-        crate::plugins::oracle::cognition::ORACLE_PROMPT_VERSION,
+        crate::plugins::oracle::prompt::ORACLE_PROMPT_VERSION,
         Vec::new(),
         score.map(|_| "oracle-input-hash".to_string()),
     )

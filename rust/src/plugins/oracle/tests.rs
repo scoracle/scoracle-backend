@@ -1,3 +1,4 @@
+use super::prompt::*;
 use super::*;
 use crate::studio::model::{GenerateOptions, GenerateResult, Inference};
 use async_trait::async_trait;

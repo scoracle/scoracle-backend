@@ -1,6 +1,6 @@
 //! Finished reading selection, dated study, request projection and provider options.
 use crate::plugins::meta::EntityMeta;
-use crate::plugins::oracle::adapter as oracle;
+use crate::plugins::oracle::prompt as oracle;
 use crate::studio::model::GenerateOptions;
 use crate::util::{hash_components, round1};
 use anyhow::{Context, Result};

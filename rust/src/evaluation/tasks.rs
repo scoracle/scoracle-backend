@@ -25,13 +25,13 @@ use crate::plugins::investigator::cognition::prompt::{
     prose_opts, ProseReadParser, INVESTIGATOR_PROSE_CONTRACT_VERSION,
 };
 use crate::plugins::journalist::prompt::CorpusItem;
-use crate::plugins::oracle::adapter::load_pillars;
-use crate::plugins::oracle::cognition::{
-    assemble_context as assemble_oracle_context, count_sentences,
-    generation_options as oracle_generation_options, Subject as OracleSubject,
-    ORACLE_PROMPT_VERSION,
+use crate::plugins::oracle::prompt::load_pillars;
+use crate::plugins::oracle::prompt::{
+    assemble as assemble_oracle_context, generation_options as oracle_generation_options,
+    Subject as OracleSubject, ORACLE_PROMPT_VERSION,
 };
 use crate::plugins::scout::prompt::{build_rating_request, RatingBuild, RatingReq};
+use crate::plugins::support::guards::count_sentences;
 use crate::runtime::route::RouteKey;
 use crate::studio::model::GenerateOptions;
 use crate::studio::Parser;
@@ -384,7 +384,7 @@ pub struct Expect {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reading_excludes: Option<Vec<String>>,
     /// The conventions' 2-4 sentence read budget, encoded as fixture validation
-    /// (`oracle::count_sentences`).
+    /// (`guards::count_sentences`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reading_min_sentences: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -732,7 +732,7 @@ impl LensTask for NarrativesTask {
                         let sentences: i32 = bodies
                             .iter()
                             .map(|body| {
-                                crate::plugins::oracle::cognition::count_sentences(body) as i32
+                                crate::plugins::support::guards::count_sentences(body) as i32
                             })
                             .sum();
                         checks.push(PropertyCheck {
@@ -925,7 +925,7 @@ impl LensTask for OracleTask {
         let sport = e.sport.to_uppercase();
         let (_season, cards) = load_pillars(pool, &e.entity_type, e.entity_id, &sport).await?;
         // With no evidence, the stage persists a marker without a model call.
-        if cards.readiness() == crate::plugins::oracle::cognition::Readiness::Empty {
+        if cards.readiness() == crate::plugins::oracle::prompt::Readiness::Empty {
             return Ok(None);
         }
         Ok(Some(Prepared::captured(

@@ -14,7 +14,7 @@ use crate::plugins::harvester::adapter as harvester;
 use crate::plugins::influencer;
 use crate::plugins::insider;
 use crate::plugins::journalist;
-use crate::plugins::oracle::adapter as oracle;
+use crate::plugins::oracle;
 use crate::plugins::scout;
 use crate::studio::plugin::StudioPlugin;
 use anyhow::{anyhow, Result};

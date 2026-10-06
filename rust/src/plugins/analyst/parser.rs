@@ -7,8 +7,6 @@ use anyhow::{anyhow, Result};
 pub struct MomentumReply {
     /// The Analyst's read.
     pub blurb: String,
-    /// Optional card title.
-    pub headline: Option<String>,
 }
 
 pub struct MomentumParser;
@@ -16,7 +14,7 @@ pub struct MomentumParser;
 impl Parser<MomentumReply> for MomentumParser {
     fn parse(&self, raw: &str) -> Result<Option<MomentumReply>> {
         // Keep a bounded raw excerpt so malformed output is diagnosable.
-        let mut reply = parse_momentum_reply(raw).ok_or_else(|| {
+        let reply = parse_momentum_reply(raw).ok_or_else(|| {
             anyhow!(
                 "momentum: invalid response (raw={:?})",
                 crate::util::truncate_bytes(raw.trim(), 160)
@@ -24,7 +22,6 @@ impl Parser<MomentumReply> for MomentumParser {
         })?;
         // Production guards live at the Parser seam; eval can still inspect the raw parse.
         crate::tools::form::validate_body(&reply.blurb)?;
-        crate::tools::form::validate_hook(reply.headline.as_deref())?;
         if let Some(p) = crate::tools::guards::first_banned_phrase(
             &reply.blurb,
             crate::tools::guards::MOMENTUM_BANNED_PHRASES,
@@ -45,8 +42,6 @@ impl Parser<MomentumReply> for MomentumParser {
             tracing::warn!(guard = "bookkeeping_citation", "momentum READ rejected");
             anyhow::bail!("momentum: READ carries a bookkeeping citation");
         }
-        // A bad optional title degrades to NULL without costing the read.
-        reply.headline = crate::tools::guards::settle_title("analyst", reply.headline.as_deref());
         Ok(Some(reply))
     }
 }
@@ -62,8 +57,5 @@ pub fn parse_momentum_reply(raw: &str) -> Option<MomentumReply> {
     if crate::tools::guards::has_foreign_script(&blurb) {
         return None;
     }
-    Some(MomentumReply {
-        blurb,
-        headline: None,
-    })
+    Some(MomentumReply { blurb })
 }

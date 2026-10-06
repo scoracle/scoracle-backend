@@ -203,11 +203,7 @@ impl OllamaClient {
                 (None, false) => None,
             },
             think: self.think,
-            options: if options.is_empty() {
-                None
-            } else {
-                Some(serde_json::Value::Object(options))
-            },
+            options: Some(serde_json::Value::Object(options)),
         }
     }
 

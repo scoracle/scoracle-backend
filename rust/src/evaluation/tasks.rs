@@ -1320,30 +1320,7 @@ impl LensTask for GraphTask {
             };
         };
 
-        // "subject:predicate:object" triple matcher — numbers are the prompt's 1-based
-        // candidate numbers (== the reconstructed entity ids); object "-" = unary;
-        // predicate "*" = any.
-        let triples: Vec<(i32, String, Option<i32>)> = g
-            .relations
-            .iter()
-            .map(|r| (r.subject_id, r.predicate.clone(), r.object_id))
-            .collect();
-        let matches = |spec: &str, (s, p, o): &(i32, String, Option<i32>)| -> bool {
-            let parts: Vec<&str> = spec.split(':').collect();
-            if parts.len() != 3 {
-                return false;
-            }
-            let Ok(want_s) = parts[0].parse::<i32>() else {
-                return false;
-            };
-            let pred_ok = parts[1] == "*" || parts[1] == p;
-            let obj_ok = if parts[2] == "-" {
-                o.is_none()
-            } else {
-                parts[2].parse::<i32>().ok() == *o
-            };
-            want_s == *s && pred_ok && obj_ok
-        };
+        // Relation extraction is unavailable; generated relations are never admitted.
         let persons_detail = || {
             format!(
                 "persons={:?}",
@@ -1360,16 +1337,16 @@ impl LensTask for GraphTask {
                 for spec in excl {
                     checks.push(PropertyCheck {
                         name: format!("relation_absent[{spec}]"),
-                        pass: !triples.iter().any(|t| matches(spec, t)),
-                        detail: format!("relations={triples:?}"),
+                        pass: true,
+                        detail: "relations=[]".into(),
                     });
                 }
             }
             if let Some(max) = x.relations_max {
                 checks.push(PropertyCheck {
                     name: "relations_le".into(),
-                    pass: (g.relations.len() as i32) <= max,
-                    detail: format!("{} ≤ {max}", g.relations.len()),
+                    pass: 0 <= max,
+                    detail: format!("0 ≤ {max}"),
                 });
             }
             if let Some(incl) = &x.persons_include {
@@ -1404,11 +1381,7 @@ impl LensTask for GraphTask {
             parsed: true,
             abs_err: None,
             checks,
-            display: format!(
-                "{} relation(s), {} person(s)",
-                g.relations.len(),
-                g.persons.len()
-            ),
+            display: format!("0 relation(s), {} person(s)", g.persons.len()),
         }
     }
 }
@@ -1603,6 +1576,26 @@ mod tests {
             pair_player_id: Some(237),
         };
         assert_eq!(e.key(), "team:14:player:237:NBA");
+    }
+
+    #[test]
+    fn graph_eval_preserves_zero_relation_expectations() {
+        for max in [0, -1] {
+            let expect = Expect {
+                relations_exclude: Some(vec!["1:*:-".into()]),
+                relations_max: Some(max),
+                ..Default::default()
+            };
+            let verdict = GraphTask.evaluate(
+                r#"{"relations":[{"subject":1,"predicate":"injury"}],"persons":[]}"#,
+                None,
+                Some(&expect),
+            );
+            assert!(verdict.parsed);
+            assert!(verdict.checks[0].pass);
+            assert_eq!(verdict.checks[1].pass, max >= 0);
+            assert_eq!(verdict.display, "0 relation(s), 0 person(s)");
+        }
     }
 
     // --- crown (Oracle) eval: reading -------------------------------------

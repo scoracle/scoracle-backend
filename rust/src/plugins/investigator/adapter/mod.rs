@@ -617,6 +617,6 @@ mod tests;
 
 mod discover;
 mod factsweep;
-pub use factsweep::{run_factsweep, FactsweepRequest, FactsweepRunContext};
+pub use factsweep::run_factsweep;
 mod publish;
 use publish::{commit_claimed, load_fact_policy, policy_allows};

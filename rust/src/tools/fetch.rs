@@ -5,7 +5,6 @@
 
 use anyhow::{anyhow, Context, Result};
 use serde_json::json;
-use sha2::{Digest, Sha256};
 use sqlx::Row;
 use std::process::Command;
 use std::time::Duration;
@@ -106,8 +105,7 @@ fn fetch_with_chrome(raw_url: &str) -> Option<String> {
 }
 
 pub fn content_hash(text: &str) -> String {
-    let digest = Sha256::digest(normalize_space(text).as_bytes());
-    hex::encode(&digest[..16])
+    crate::util::hash_components(&normalize_space(text))
 }
 
 pub fn domain_of(raw_url: &str) -> Option<String> {

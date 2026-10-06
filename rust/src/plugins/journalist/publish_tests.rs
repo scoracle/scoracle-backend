@@ -46,7 +46,8 @@ fn narrative(title: &str, article_id: i64, impact: i32, source: &str) -> Narrati
 /// Ordinary test runs compile but ignore these cases; opt in with TEST_DATABASE_URL.
 mod postgres_publication_fencing_tests {
     use super::*;
-    use sqlx::postgres::PgPoolOptions;
+    use crate::harness::dbtest;
+    use sqlx::PgPool;
     use std::time::Duration;
 
     const SPORT: &str = "ZZ_NARRATIVES_FENCE";
@@ -55,32 +56,16 @@ mod postgres_publication_fencing_tests {
     const ARTICLE_ID: i64 = 9_300_042;
     type NarrativeRow = (String, String, Option<i64>, Option<String>, Option<String>);
 
+    /// Children before parents: the outbox references the work row.
+    const TABLES: &[&str] = &["application_outbox", "news_summaries", "pipeline_work"];
+
     async fn pool() -> PgPool {
-        let url = std::env::var("TEST_DATABASE_URL")
-            .expect("set TEST_DATABASE_URL to an isolated database with migration 260 applied");
-        PgPoolOptions::new()
-            .max_connections(3)
-            .connect(&url)
-            .await
-            .expect("connect TEST_DATABASE_URL")
+        dbtest::pool("an isolated database with migration 260 applied").await
     }
 
     async fn clean(pool: &PgPool) {
-        sqlx::query("DELETE FROM application_outbox WHERE sport = $1")
-            .bind(SPORT)
-            .execute(pool)
-            .await
-            .expect("clean outbox");
-        sqlx::query("DELETE FROM news_summaries WHERE sport = $1")
-            .bind(SPORT)
-            .execute(pool)
-            .await
-            .expect("clean narratives products");
-        sqlx::query("DELETE FROM pipeline_work WHERE sport = $1")
-            .bind(SPORT)
-            .execute(pool)
-            .await
-            .expect("clean work");
+        dbtest::clean(pool, SPORT, TABLES, "Narratives fencing test").await;
+        // The storyline and article blocks key on id, not sport.
         sqlx::query("DELETE FROM storylines WHERE id = $1")
             .bind(STORYLINE_ID)
             .execute(pool)
@@ -91,54 +76,32 @@ mod postgres_publication_fencing_tests {
             .execute(pool)
             .await
             .expect("clean article");
-        sqlx::query(
-            "INSERT INTO sports (id, display_name, current_season) VALUES ($1,$2,2026) \
-             ON CONFLICT (id) DO NOTHING",
-        )
-        .bind(SPORT)
-        .bind("Narratives fencing test")
-        .execute(pool)
-        .await
-        .expect("ensure test sport");
     }
 
     fn pending(revision: &str) -> Item {
-        Item {
-            stage: crate::plugins::journalist::manifest::TASK,
-            entity_type: "team".to_string(),
-            entity_id: ENTITY_ID,
-            sport: SPORT.to_string(),
-            input_version: Some(revision.to_string()),
-            attempts: 0,
-            claim_token: None,
-        }
+        dbtest::item(
+            crate::plugins::journalist::manifest::TASK,
+            SPORT,
+            ENTITY_ID,
+            Some(revision),
+        )
     }
 
     async fn claim_one(pool: &PgPool) -> Item {
-        let mut claimed = work::claim(pool, crate::plugins::journalist::manifest::TASK, 1)
-            .await
-            .expect("claim narratives test row");
-        assert_eq!(claimed.len(), 1);
-        claimed.remove(0)
+        dbtest::claim_one(
+            pool,
+            crate::plugins::journalist::manifest::TASK,
+            "narratives test row",
+        )
+        .await
     }
 
     async fn counts(pool: &PgPool) -> (i64, i64, i64) {
-        let products = sqlx::query_scalar("SELECT count(*) FROM news_summaries WHERE sport = $1")
-            .bind(SPORT)
-            .fetch_one(pool)
-            .await
-            .unwrap();
-        let events = sqlx::query_scalar("SELECT count(*) FROM application_outbox WHERE sport = $1")
-            .bind(SPORT)
-            .fetch_one(pool)
-            .await
-            .unwrap();
-        let work = sqlx::query_scalar("SELECT count(*) FROM pipeline_work WHERE sport = $1")
-            .bind(SPORT)
-            .fetch_one(pool)
-            .await
-            .unwrap();
-        (products, events, work)
+        (
+            dbtest::count(pool, "news_summaries", SPORT).await,
+            dbtest::count(pool, "application_outbox", SPORT).await,
+            dbtest::count(pool, "pipeline_work", SPORT).await,
+        )
     }
 
     #[tokio::test]

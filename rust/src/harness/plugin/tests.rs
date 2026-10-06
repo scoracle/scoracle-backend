@@ -9,7 +9,6 @@ use std::sync::Arc;
 
 const TASK_A: TaskKey = TaskKey::new("test_task_a");
 const TASK_B: TaskKey = TaskKey::new("test_task_b");
-const TASK_MISSING: TaskKey = TaskKey::new("test_task_missing");
 
 const fn manifest(id: &'static str, task: TaskKey) -> PluginManifest {
     PluginManifest {
@@ -41,11 +40,11 @@ impl StudioPlugin for TestPlugin {
 }
 
 #[tokio::test]
-async fn unrelated_task_key_registers_resolves_and_executes_without_kernel_changes() {
+async fn unrelated_task_key_registers_and_executes_without_kernel_changes() {
     const TASK: TaskKey = TaskKey::new("test_unrelated_capability");
     static MANIFEST: PluginManifest = manifest("test.unrelated", TASK);
     let registry = PluginRegistry::new(vec![plugin(&MANIFEST)]).unwrap();
-    let registered = registry.resolve(TASK).expect("open task key registered");
+    let registered = registry.plugins()[0].clone();
     let outcome = registered
         .execute(&Item {
             stage: TASK,
@@ -100,14 +99,12 @@ fn registry_accepts_an_empty_fleet_as_the_idle_scaffold() {
 }
 
 #[test]
-fn registry_resolves_every_registered_task_and_leaves_missing_tasks_unowned() {
+fn registry_keeps_registration_order() {
     static A: PluginManifest = manifest("test.a", TASK_A);
     static B: PluginManifest = manifest("test.b", TASK_B);
     let reg = PluginRegistry::new(vec![plugin(&A), plugin(&B)]).unwrap();
-    for m in [&A, &B] {
-        assert_eq!(reg.resolve(m.task).unwrap().manifest().id, m.id);
-    }
-    assert!(reg.resolve(TASK_MISSING).is_none());
+    let ids: Vec<_> = reg.plugins().iter().map(|p| p.manifest().id).collect();
+    assert_eq!(ids, [A.id, B.id]);
 }
 
 #[test]

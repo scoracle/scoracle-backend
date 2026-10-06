@@ -1,4 +1,5 @@
 use super::*;
+use crate::harness::dbtest;
 use crate::harness::queue::work;
 use crate::harness::Parser;
 use crate::plugins::graph::cognition::GraphParser;
@@ -7,37 +8,32 @@ const SPORT: &str = "ZZ_GRAPH_STUDIO";
 const ARTICLE: i64 = 9_700_001;
 const TEAM: i32 = 9_700_002;
 async fn setup() -> PgPool {
-    let pool = sqlx::postgres::PgPoolOptions::new()
-        .max_connections(3)
-        .connect(&std::env::var("TEST_DATABASE_URL").expect("isolated test database"))
-        .await
-        .unwrap();
-    for table in [
-        "pipeline_work",
-        "graph_extractions",
-        "narrative_events",
-        "narrative_person_mentions",
-        "narrative_persons",
-        "cognition_ledger",
-        "harvester_fixture_reviews",
-        "entity_candidates",
-        "news_article_entities",
-        "fixtures",
-        "entity_name_surfaces",
-        "teams",
-    ] {
-        sqlx::query(&format!("DELETE FROM {table} WHERE sport=$1"))
-            .bind(SPORT)
-            .execute(&pool)
-            .await
-            .unwrap();
-    }
+    let pool = dbtest::pool("an isolated database with the Graph migrations applied").await;
+    dbtest::clean(
+        &pool,
+        SPORT,
+        &[
+            "pipeline_work",
+            "graph_extractions",
+            "narrative_events",
+            "narrative_person_mentions",
+            "narrative_persons",
+            "cognition_ledger",
+            "harvester_fixture_reviews",
+            "entity_candidates",
+            "news_article_entities",
+            "fixtures",
+            "entity_name_surfaces",
+            "teams",
+        ],
+        "Graph tests",
+    )
+    .await;
     sqlx::query("DELETE FROM news_articles WHERE id=$1")
         .bind(ARTICLE)
         .execute(&pool)
         .await
         .unwrap();
-    sqlx::query("INSERT INTO sports(id,display_name,current_season) VALUES($1,'Graph tests',2026) ON CONFLICT DO NOTHING").bind(SPORT).execute(&pool).await.unwrap();
     sqlx::query("INSERT INTO teams(id,sport,name) VALUES($1,$2,'Graph Club')")
         .bind(TEAM)
         .bind(SPORT)
@@ -49,20 +45,20 @@ async fn setup() -> PgPool {
     pool
 }
 async fn claim(pool: &PgPool, revision: &str) -> Item {
-    let pending = Item {
-        stage: crate::plugins::graph::manifest::TASK,
-        entity_type: "article".into(),
-        entity_id: ARTICLE,
-        sport: SPORT.into(),
-        input_version: Some(revision.into()),
-        attempts: 0,
-        claim_token: None,
-    };
+    let mut pending = dbtest::item(
+        crate::plugins::graph::manifest::TASK,
+        SPORT,
+        ARTICLE,
+        Some(revision),
+    );
+    pending.entity_type = "article".into();
     work::enqueue(pool, &pending).await.unwrap();
-    work::claim(pool, crate::plugins::graph::manifest::TASK, 1)
-        .await
-        .unwrap()
-        .remove(0)
+    dbtest::claim_one(
+        pool,
+        crate::plugins::graph::manifest::TASK,
+        "graph test row",
+    )
+    .await
 }
 async fn prepared(pool: &PgPool, raw: &str) -> Prepared {
     let candidates = [GraphCandidate {

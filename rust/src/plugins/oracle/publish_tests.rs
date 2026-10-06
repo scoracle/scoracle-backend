@@ -40,76 +40,40 @@ fn readiness_waits_on_five_pillars_and_never_on_sigil_itself() {
 
 mod postgres_oracle_tests {
     use super::*;
-    use sqlx::postgres::PgPoolOptions;
+    use crate::harness::dbtest;
+    use sqlx::PgPool;
     use std::time::Duration;
 
     const SPORT: &str = "ZZ_ORACLE_FENCE";
     const ENTITY_ID: i64 = 9_300_005;
+    const TABLES: &[&str] = &["sigil_synthesis", "pipeline_work"];
 
     async fn pool() -> PgPool {
-        let url = std::env::var("TEST_DATABASE_URL")
-            .expect("set TEST_DATABASE_URL to an isolated database with migrations through 260");
-        PgPoolOptions::new()
-            .max_connections(3)
-            .connect(&url)
-            .await
-            .expect("connect TEST_DATABASE_URL")
+        dbtest::pool("an isolated database with migrations through 260").await
     }
 
     async fn clean(pool: &PgPool) {
-        sqlx::query("DELETE FROM sigil_synthesis WHERE sport = $1")
-            .bind(SPORT)
-            .execute(pool)
-            .await
-            .unwrap();
-        sqlx::query("DELETE FROM pipeline_work WHERE sport = $1")
-            .bind(SPORT)
-            .execute(pool)
-            .await
-            .unwrap();
-        sqlx::query(
-            "INSERT INTO sports (id, display_name, current_season) VALUES ($1,$2,2026) \
-             ON CONFLICT (id) DO NOTHING",
-        )
-        .bind(SPORT)
-        .bind("Oracle fencing test")
-        .execute(pool)
-        .await
-        .unwrap();
+        dbtest::clean(pool, SPORT, TABLES, "Oracle fencing test").await;
     }
 
     fn pending(stage: TaskKey, revision: &str) -> Item {
-        Item {
-            stage,
-            entity_type: "team".to_string(),
-            entity_id: ENTITY_ID,
-            sport: SPORT.to_string(),
-            input_version: Some(revision.to_string()),
-            attempts: 0,
-            claim_token: None,
-        }
+        dbtest::item(stage, SPORT, ENTITY_ID, Some(revision))
     }
 
     async fn claim_one(pool: &PgPool) -> Item {
-        let mut claimed = work::claim(pool, crate::plugins::oracle::manifest::TASK, 1)
-            .await
-            .unwrap();
-        assert_eq!(claimed.len(), 1);
-        claimed.remove(0)
+        dbtest::claim_one(
+            pool,
+            crate::plugins::oracle::manifest::TASK,
+            "oracle test row",
+        )
+        .await
     }
 
     async fn counts(pool: &PgPool) -> (i64, i64) {
-        let products = sqlx::query_scalar("SELECT count(*) FROM sigil_synthesis WHERE sport = $1")
-            .bind(SPORT)
-            .fetch_one(pool)
-            .await
-            .unwrap();
-        let work = sqlx::query_scalar("SELECT count(*) FROM pipeline_work WHERE sport = $1")
-            .bind(SPORT)
-            .fetch_one(pool)
-            .await
-            .unwrap();
-        (products, work)
+        (
+            dbtest::count(pool, "sigil_synthesis", SPORT).await,
+            dbtest::count(pool, "pipeline_work", SPORT).await,
+        )
     }
 
     #[tokio::test]

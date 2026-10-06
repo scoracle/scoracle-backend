@@ -108,48 +108,10 @@ impl std::fmt::Display for ToolRefusal {
 }
 
 use crate::harness::plugin::PluginManifest;
-use crate::tools::fetch::{BudgetedFetchError, BudgetedFetcher, FetchPolicy, SourceFetch};
+use crate::tools::fetch::{BudgetedFetcher, FetchPolicy, SourceFetch};
 use anyhow::{anyhow, Result};
 use sqlx::PgPool;
 use std::sync::atomic::{AtomicU64, Ordering};
-
-/// One recorded tool call. Provider failures remain distinguishable from model failures.
-#[derive(Clone, Debug)]
-pub struct ToolCall {
-    pub tool: &'static str,
-    pub url: String,
-    pub outcome: &'static str,
-    pub elapsed_ms: u64,
-}
-
-/// Per-run call ledger. The application decides whether to log or persist it; the workspace
-/// guarantees that every attempted provider reach is recorded.
-#[derive(Default)]
-pub struct ToolLedger {
-    calls: std::sync::Mutex<Vec<ToolCall>>,
-}
-
-impl ToolLedger {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    fn record(&self, call: ToolCall) {
-        self.calls.lock().expect("tool ledger poisoned").push(call);
-    }
-
-    pub fn calls(&self) -> Vec<ToolCall> {
-        self.calls.lock().expect("tool ledger poisoned").clone()
-    }
-
-    pub fn len(&self) -> usize {
-        self.calls.lock().expect("tool ledger poisoned").len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-}
 
 /// The process-wide web workspace. One `BudgetedFetcher` owns domain spacing, circuits,
 /// Retry-After holds, caching, and source-document provenance for the entire fleet.
@@ -169,17 +131,11 @@ impl WebBroker {
     }
 
     /// Open one run's web scope. Reach is derived exclusively from the plugin manifest.
-    pub fn scope<'a>(
-        &'a self,
-        pool: &'a PgPool,
-        plugin: &'a PluginManifest,
-        ledger: &'a ToolLedger,
-    ) -> ScopedWeb<'a> {
+    pub fn scope<'a>(&'a self, pool: &'a PgPool, plugin: &'a PluginManifest) -> ScopedWeb<'a> {
         ScopedWeb {
             broker: self,
             pool,
             plugin,
-            ledger,
             calls: AtomicU64::new(0),
         }
     }
@@ -190,7 +146,6 @@ pub struct ScopedWeb<'a> {
     broker: &'a WebBroker,
     pool: &'a PgPool,
     plugin: &'a PluginManifest,
-    ledger: &'a ToolLedger,
     calls: AtomicU64,
 }
 
@@ -245,47 +200,20 @@ impl<'a> ScopedWeb<'a> {
     ) -> Result<SourceFetch> {
         self.check_grant(class, url)?;
         self.check_budget()?;
-        let started = std::time::Instant::now();
         let result = self.broker.fetcher.fetch(self.pool, url, policy).await;
-        let elapsed = started.elapsed();
-        let outcome = match &result {
-            Ok(f) if f.from_cache => "cache_hit",
-            Ok(_) => "fetched",
-            Err(BudgetedFetchError::DomainSkipped { .. }) => "domain_skipped",
-            Err(BudgetedFetchError::Http { .. }) => "http_rejected",
-            Err(BudgetedFetchError::Other(_)) => "transport_failed",
-        };
-        self.ledger.record(ToolCall {
-            tool: "web.fetch",
-            url: url.to_string(),
-            outcome,
-            elapsed_ms: elapsed.as_millis() as u64,
-        });
         result.map_err(|e| anyhow!("{e}"))
     }
 
     /// Fetch one already-curated publisher article for a plugin with this grant.
     /// The provider implementation is intentionally unchanged; this boundary adds the
-    /// manifest gate, run budget, and call ledger around it.
+    /// manifest gate and run budget around it.
     pub async fn fetch_curated_article(
         &self,
         url: &str,
     ) -> Result<crate::tools::fetch::FetchedArticle> {
         self.check_grant(DomainClass::CuratedArticles, url)?;
         self.check_budget()?;
-        let started = std::time::Instant::now();
-        let result = crate::tools::fetch::fetch_article(url).await;
-        self.ledger.record(ToolCall {
-            tool: "web.fetch_curated_article",
-            url: url.to_string(),
-            outcome: if result.is_ok() {
-                "fetched"
-            } else {
-                "transport_failed"
-            },
-            elapsed_ms: started.elapsed().as_millis() as u64,
-        });
-        result
+        crate::tools::fetch::fetch_article(url).await
     }
 }
 

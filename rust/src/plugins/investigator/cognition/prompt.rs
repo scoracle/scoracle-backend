@@ -14,6 +14,7 @@
 //! | **Writes** | nothing — [`super::gate::decide_prose`] and the handler own every write |
 
 use crate::harness::model::GenerateOptions;
+use crate::tools::fetch::normalize_space;
 use crate::util::truncate;
 use serde::Deserialize;
 
@@ -145,12 +146,14 @@ pub fn build_prose_prompt(
     p
 }
 
-fn normalize_space(s: &str) -> String {
-    s.split_whitespace().collect::<Vec<_>>().join(" ")
-}
-
-/// Same brace-matching slice as the Editor's parser — grammar-constrained output should be
-/// bare JSON, but a runner that wraps it must not break the parse.
+/// The first complete JSON object in `raw`, skipping any surrounding prose a
+/// runner may have added.
+///
+/// ponytail: the hand-rolled brace matcher stays. `serde_json`'s streaming
+/// deserializer errors on leading non-JSON bytes rather than skipping to the first
+/// object (verified: `expected value at line 1 column 1`), so it cannot do this job.
+/// The `in_str`/`esc` pair is load-bearing — a bare brace count truncates on any value
+/// containing `}` or a backslash, which is exactly the served-prose input this guards.
 fn json_object_slice(raw: &str) -> Option<&str> {
     let bytes = raw.as_bytes();
     let mut start = None;
@@ -202,6 +205,35 @@ mod tests {
         assert!(k("subject_kind") < k("sought_name_evidence"));
         assert!(k("sought_name_evidence") < k("occupation_phrase"));
         assert!(k("occupation_phrase") < k("team_names"));
+    }
+
+    /// A runner that wraps grammar-constrained JSON in prose must still parse.
+    #[test]
+    fn json_object_slice_skips_surrounding_prose() {
+        assert_eq!(
+            json_object_slice(r#"Here you go: {"a":1} hope that helps"#),
+            Some(r#"{"a":1}"#)
+        );
+        assert_eq!(
+            json_object_slice(r#"{"a":{"b":2}}"#),
+            Some(r#"{"a":{"b":2}}"#)
+        );
+        assert_eq!(
+            json_object_slice(r#"[1,2]"#),
+            None,
+            "an array is not an object"
+        );
+        assert_eq!(json_object_slice("no json here"), None);
+    }
+
+    /// Braces inside string values must not be mistaken for the object's end.
+    #[test]
+    fn json_object_slice_survives_braces_inside_strings() {
+        let raw = r#"prefix {"note":"a } brace","n":1} suffix"#;
+        assert_eq!(
+            json_object_slice(raw),
+            Some(r#"{"note":"a } brace","n":1}"#)
+        );
     }
 
     #[test]

@@ -697,34 +697,19 @@ impl JudgeAgg {
 /// Graph candidate types are preparation inputs, not assertions.
 fn expected_property_count(x: &Expect) -> usize {
     let mut n = 0usize;
-    n += x.score_min.is_some() as usize;
-    n += x.score_max.is_some() as usize;
-    n += x.blurb_includes.as_ref().map_or(0, Vec::len);
-    n += x.blurb_excludes.as_ref().map_or(0, Vec::len);
     n += x.body_includes.as_ref().map_or(0, Vec::len);
     n += x.body_excludes.as_ref().map_or(0, Vec::len);
     n += x.transfer_is_rumor.is_some() as usize;
-    n += x.transfer_direction.is_some() as usize;
     n += x.transfer_stage.is_some() as usize;
     n += x.subject_includes.as_ref().map_or(0, Vec::len);
-    n += x.subject_excludes.as_ref().map_or(0, Vec::len);
     n += x.summary_includes.as_ref().map_or(0, Vec::len);
     n += x.summary_excludes.as_ref().map_or(0, Vec::len);
-    n += x.confidence_min.is_some() as usize;
-    n += x.confidence_max.is_some() as usize;
-    n += x.skill_includes.as_ref().map_or(0, Vec::len);
-    n += x.skill_excludes.as_ref().map_or(0, Vec::len);
-    n += x.prose_includes.as_ref().map_or(0, Vec::len);
-    n += x.prose_excludes.as_ref().map_or(0, Vec::len);
-    n += x.prose_min_words.is_some() as usize;
-    n += x.prose_max_words.is_some() as usize;
     n += x.reading_includes.as_ref().map_or(0, Vec::len);
     n += x.reading_excludes.as_ref().map_or(0, Vec::len);
     n += x.reading_min_sentences.is_some() as usize;
     n += x.reading_max_sentences.is_some() as usize;
     // One check for the whole synonym set, not one per word.
     // The graph axes.
-    n += x.relations_include.as_ref().map_or(0, Vec::len);
     n += x.relations_exclude.as_ref().map_or(0, Vec::len);
     n += x.relations_max.is_some() as usize;
     n += x.persons_include.as_ref().map_or(0, Vec::len);
@@ -1497,10 +1482,12 @@ mod tests {
     #[test]
     fn unparseable_fixture_counts_authored_expectations() {
         let x = Expect {
-            prose_includes: Some(vec!["PEAK".into(), "Vibe".into()]),
-            prose_max_words: Some(80),
+            body_includes: Some(vec!["PEAK".into(), "Vibe".into()]),
+            reading_min_sentences: Some(2),
+            relations_max: Some(3),
             ..Default::default()
         };
-        assert_eq!(expected_property_count(&x), 3);
+        // Two from the include list plus one each for the two scalar axes.
+        assert_eq!(expected_property_count(&x), 4);
     }
 }

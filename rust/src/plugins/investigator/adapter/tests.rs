@@ -1,4 +1,5 @@
 use super::*;
+use crate::harness::dbtest;
 use crate::harness::plugin::PluginOutcome;
 use crate::harness::queue::work::{self, Item};
 use crate::plugins::investigator::cognition::{gate::RoleClass, WikidataItem};
@@ -9,36 +10,32 @@ const ID: i32 = 9_600_001;
 const DOC: i64 = 9_600_002;
 const VENUE_DOC: i64 = 9_600_003;
 async fn setup() -> PgPool {
-    let pool = sqlx::postgres::PgPoolOptions::new()
-        .max_connections(3)
-        .connect(&std::env::var("TEST_DATABASE_URL").expect("isolated test database"))
-        .await
-        .unwrap();
+    let pool = dbtest::pool("an isolated database with the Investigator migrations applied").await;
+    // Not a `sport` column on either side, so this one stays outside the shared helper.
     sqlx::query("DELETE FROM entity_relationships WHERE subject_sport=$1 OR object_sport=$1")
         .bind(SPORT)
         .execute(&pool)
         .await
         .unwrap();
-    for table in [
-        "pipeline_work",
-        "data_fetch_ledger",
-        "entity_candidates",
-        "entity_facts",
-        "entity_aliases",
-        "entity_external_ids",
-        "persons",
-        "players",
-        "fixtures",
-        "teams",
-        "entity_name_surfaces",
-    ] {
-        sqlx::query(&format!("DELETE FROM {table} WHERE sport=$1"))
-            .bind(SPORT)
-            .execute(&pool)
-            .await
-            .unwrap();
-    }
-    sqlx::query("INSERT INTO sports(id, display_name,current_season) VALUES ($1,'Investigator tests',2026) ON CONFLICT DO NOTHING").bind(SPORT).execute(&pool).await.unwrap();
+    dbtest::clean(
+        &pool,
+        SPORT,
+        &[
+            "pipeline_work",
+            "data_fetch_ledger",
+            "entity_candidates",
+            "entity_facts",
+            "entity_aliases",
+            "entity_external_ids",
+            "persons",
+            "players",
+            "fixtures",
+            "teams",
+            "entity_name_surfaces",
+        ],
+        "Investigator tests",
+    )
+    .await;
     sqlx::query("INSERT INTO teams(id,sport,name) VALUES($1,$2,'Investigator Club')")
         .bind(ID)
         .bind(SPORT)
@@ -49,20 +46,20 @@ async fn setup() -> PgPool {
     pool
 }
 async fn claim(pool: &PgPool, kind: &str, revision: &str) -> Item {
-    let item = Item {
-        stage: crate::plugins::investigator::manifest::TASK,
-        entity_type: kind.into(),
-        entity_id: ID.into(),
-        sport: SPORT.into(),
-        input_version: Some(revision.into()),
-        attempts: 0,
-        claim_token: None,
-    };
+    let mut item = dbtest::item(
+        crate::plugins::investigator::manifest::TASK,
+        SPORT,
+        ID.into(),
+        Some(revision),
+    );
+    item.entity_type = kind.into();
     work::enqueue(pool, &item).await.unwrap();
-    work::claim(pool, crate::plugins::investigator::manifest::TASK, 1)
-        .await
-        .unwrap()
-        .remove(0)
+    dbtest::claim_one(
+        pool,
+        crate::plugins::investigator::manifest::TASK,
+        "investigator test row",
+    )
+    .await
 }
 async fn candidate(pool: &PgPool) -> CandidateRow {
     sqlx::query("INSERT INTO entity_candidates(id,idempotency_key,norm_name,sport) VALUES($1,'studio-investigator-test','riley example',$2)").bind(i64::from(ID)).bind(SPORT).execute(pool).await.unwrap();

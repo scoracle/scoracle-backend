@@ -3,6 +3,8 @@
 pub mod buildinfo;
 pub mod config;
 pub mod db;
+#[cfg(test)]
+pub mod dbtest;
 pub mod fleet;
 mod generation;
 pub mod ledger;

@@ -7,14 +7,15 @@ use crate::harness::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
 use crate::harness::queue::publication::ClaimPublication;
 use crate::harness::queue::work::Item;
 use crate::harness::tools::DomainClass;
-use crate::harness::tools::{ScopedWeb, ToolLedger, WebBroker};
-use crate::tools::fetch::{BudgetedFetchError, FetchPolicy};
+use crate::harness::tools::{ScopedWeb, WebBroker};
+use crate::tools::fetch::{domain_of, BudgetedFetchError, FetchPolicy};
+use crate::util::hash_components;
 use crate::util::truncate;
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use reqwest::StatusCode;
 use serde_json::{json, Value};
-use sha2::{Digest, Sha256};
+
 use sqlx::Row;
 use std::time::Duration;
 
@@ -199,8 +200,7 @@ impl StudioPlugin for FixtureBoxscoreHandler {
             .await;
         }
 
-        let ledger = ToolLedger::new();
-        let web = self.web.scope(pool, self.manifest(), &ledger);
+        let web = self.web.scope(pool, self.manifest());
         let fetched = match fetch_source(&web, &plan).await {
             Ok(f) => f,
             Err(FetchOutcome {
@@ -972,17 +972,12 @@ fn merge_raw_labels(
     Value::Object(obj)
 }
 
+/// The 128-bit fingerprint of a canonical JSON pre-image. Identical to
+/// `util::hash_components`; kept as a thin wrapper so the fallback for a value
+/// that cannot be serialized stays at the call site.
 fn boxscore_content_hash(value: &Value) -> String {
     let serialized = serde_json::to_string(value).unwrap_or_else(|_| value.to_string());
-    let digest = Sha256::digest(serialized.as_bytes());
-    hex::encode(&digest[..16])
-}
-
-fn domain_of(raw_url: &str) -> Option<String> {
-    reqwest::Url::parse(raw_url).ok().and_then(|u| {
-        u.host_str()
-            .map(|h| h.trim_start_matches("www.").to_lowercase())
-    })
+    hash_components(&serialized)
 }
 
 /// The queue fingerprint for a fixture box-score demand.
@@ -1234,8 +1229,8 @@ mod tests {
 
     #[test]
     fn content_hash_changes_with_payload() {
-        let a = boxscore_content_hash(&json!({"score": {"home": 1}}));
-        let b = boxscore_content_hash(&json!({"score": {"home": 2}}));
+        let a = hash_components(&json!({"score": {"home": 1}}).to_string());
+        let b = hash_components(&json!({"score": {"home": 2}}).to_string());
         assert_eq!(a.len(), 32);
         assert_ne!(a, b);
     }

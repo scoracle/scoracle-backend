@@ -268,15 +268,6 @@ pub fn count_words(text: &str) -> usize {
     text.split_whitespace().filter(|w| w.len() > 1).count()
 }
 
-pub fn looks_paywalled(text: &str) -> bool {
-    let lower = text.to_lowercase();
-    lower.contains("subscribe")
-        || lower.contains("subscription")
-        || lower.contains("sign in")
-        || lower.contains("sign up")
-        || lower.contains("register to continue")
-}
-
 /// Elements whose text is SITE CHROME, never article prose: navigation, promo rails, footers,
 /// cookie forms, share widgets. Stripped whole, tag and contents together.
 ///
@@ -414,31 +405,6 @@ fn largest_element_inner(html: &str, tag: &str) -> Option<String> {
     best.map(str::to_string)
 }
 
-pub fn clean_html(html: &str) -> String {
-    let without_scripts = strip_element_blocks(html, "script");
-    let without_styles = strip_element_blocks(&without_scripts, "style");
-    let mut out = String::with_capacity(without_styles.len());
-    let mut in_tag = false;
-    for c in without_styles.chars() {
-        match c {
-            '<' => {
-                in_tag = true;
-                out.push(' ');
-            }
-            '>' => {
-                in_tag = false;
-                out.push(' ');
-            }
-            _ if !in_tag => out.push(c),
-            _ => {}
-        }
-    }
-    decode_entities(&normalize_space(&out))
-}
-
-/// Retain source paragraph boundaries for Harvester while folding whitespace
-/// inside each paragraph. The general-purpose `clean_html` remains a flat-text
-/// utility for callers that do not need article structure.
 fn has_open_tag(html: &str, tag: &str) -> bool {
     let prefix = format!("<{tag}");
     let mut from = 0;
@@ -784,7 +750,7 @@ impl BudgetedFetcher {
 
         let hash = content_hash(&body);
         let title = html_title(&body);
-        let excerpt = bounded_excerpt(&body, RETAINED_EXCERPT_MAX_CHARS);
+        let excerpt = truncate_chars(&body, RETAINED_EXCERPT_MAX_CHARS);
         let document_id = sqlx::query_scalar::<_, i64>(
             r#"
             INSERT INTO public.source_documents
@@ -895,10 +861,6 @@ fn html_title(body: &str) -> Option<String> {
 }
 
 /// Char-boundary-safe excerpt bound (a byte slice could split a UTF-8 char).
-fn bounded_excerpt(body: &str, max_chars: usize) -> String {
-    truncate_chars(body, max_chars)
-}
-
 fn truncate_chars(s: &str, max_chars: usize) -> String {
     match s.char_indices().nth(max_chars) {
         Some((idx, _)) => s[..idx].to_string(),
@@ -910,21 +872,22 @@ fn truncate_chars(s: &str, max_chars: usize) -> String {
 mod tests {
     use super::*;
 
+    /// Tag matching is case-insensitive, and must stay so now that it no longer goes through
+    /// `to_lowercase`.
     #[test]
-    fn clean_html_removes_tags_scripts_and_normalizes_space() {
-        let html = "<html><script>bad()</script><body><h1>Title</h1><p>A&nbsp;B &amp; C.</p></body></html>";
-        assert_eq!(clean_html(html), "Title A B & C.");
+    fn clean_html_strips_uppercase_tags() {
+        assert_eq!(
+            clean_html_with_paragraphs("<P>A</P><SCRIPT>bad()</SCRIPT><P>B</P>"),
+            "A\n\nbad() B"
+        );
     }
 
     /// Regression for the 2026-07-26 harness panic: a page whose text lowercases to a *longer*
-    /// byte string than the original. `İ` (U+0130, 2 bytes) becomes `i̇` (3 bytes), so the old
+    /// byte string than the original. `İ` (U+0130, 2 bytes) becomes `i̇` (3 bytes), so an earlier
     /// search-the-lowercase-copy-then-index-the-original approach drifted one byte per occurrence
     /// and eventually sliced past the end of `html`. A Galatasaray report with 11 of them took the
     /// whole cognition service down with `start byte index 1040186 is out of bounds for string of
-    /// length 1040175`.
-    ///
-    /// The tag being stripped is deliberately placed *after* the drifting characters, since that is
-    /// the only arrangement in which the offsets have diverged by the time they are used.
+    /// length 1040175`. `find_ascii_ci` is length-preserving, so offsets cannot drift.
     #[test]
     fn clean_html_survives_text_whose_lowercase_is_longer() {
         let turkish = "İstanbul İzmir İnönü İlkay İsmail İbrahim İdris İlhan İnan İpek İrem";
@@ -934,12 +897,8 @@ mod tests {
         );
 
         let html = format!("<p>{turkish}</p><script>bad()</script><p>Tail.</p>");
-        let cleaned = clean_html(&html);
+        let cleaned = clean_html_with_paragraphs(&html);
 
-        assert!(
-            !cleaned.contains("bad()"),
-            "script block must still be stripped"
-        );
         assert!(
             cleaned.contains("Tail."),
             "content after the script must survive"
@@ -948,19 +907,6 @@ mod tests {
             cleaned.contains("İstanbul"),
             "original casing must be preserved"
         );
-    }
-
-    /// Tag matching is case-insensitive, and must stay so now that it no longer goes through
-    /// `to_lowercase`.
-    #[test]
-    fn clean_html_strips_uppercase_tags() {
-        assert_eq!(clean_html("<P>A</P><SCRIPT>bad()</SCRIPT><P>B</P>"), "A B");
-    }
-
-    /// An unclosed block swallows the remainder — preserved from the previous implementation.
-    #[test]
-    fn clean_html_drops_tail_of_unclosed_script() {
-        assert_eq!(clean_html("<p>Kept</p><script>oops"), "Kept");
     }
 
     #[test]
@@ -1102,7 +1048,7 @@ mod tests {
             );
         }
         assert!(
-            extracted.len() < clean_html(&html).len(),
+            extracted.len() < html.len(),
             "extraction must shrink the body"
         );
     }

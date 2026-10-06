@@ -176,8 +176,8 @@ pub fn compute_notability(p: &RatingProfile) -> (i32, serde_json::Value) {
     let comp = p.composite_score.unwrap_or(50.0); // average T-score anchor when no composite
     let score = 0.6 * top_pct
         + (elite_count as f64 * 10.0).min(30.0)
-        + clamp_f(-10.0, 10.0, (comp - 50.0) * 0.4);
-    let n = clamp_f(0.0, 100.0, score).round() as i32;
+        + ((comp - 50.0) * 0.4).clamp(-10.0, 10.0);
+    let n = score.clamp(0.0, 100.0).round() as i32;
     let comps = serde_json::json!({
         // key renamed from "peak_pct" at s19 (PEAK retirement); formula unchanged.
         "top_pct": round1(top_pct),
@@ -569,16 +569,6 @@ pub fn input_components(p: &RatingProfile) -> String {
         components.insert("position".into(), serde_json::json!(p.position));
     }
     serde_json::Value::Object(components).to_string()
-}
-
-fn clamp_f(lo: f64, hi: f64, v: f64) -> f64 {
-    if v < lo {
-        lo
-    } else if v > hi {
-        hi
-    } else {
-        v
-    }
 }
 
 /// The measured profile, as presented. An absent prior percentile is no supported

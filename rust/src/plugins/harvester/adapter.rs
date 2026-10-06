@@ -7,7 +7,7 @@ use super::policy::CHARACTER_ROUTES;
 use crate::harness::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
 use crate::harness::queue::publication::ClaimPublication;
 use crate::harness::queue::work::Item;
-use crate::harness::tools::{ToolLedger, WebBroker};
+use crate::harness::tools::WebBroker;
 use crate::plugins::harvester::decision::DecisionModel;
 use crate::tools::fetch::{count_words, domain_of, ArticleHttpStatus, FetchedArticle};
 use crate::tools::meta::EntityMeta;
@@ -803,8 +803,7 @@ impl StudioPlugin for HarvesterHandler {
         if gates.iter().all(|gate| !gate.admits_reading()) {
             return publish(&self.pool, item, &source, None, None, &gates, &[]).await;
         }
-        let ledger = ToolLedger::new();
-        let web = self.web.scope(&self.pool, self.manifest(), &ledger);
+        let web = self.web.scope(&self.pool, self.manifest());
         let (body, fetched) = if let Some(body) = source
             .retained_body
             .as_deref()

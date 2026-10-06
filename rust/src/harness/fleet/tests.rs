@@ -106,16 +106,16 @@ fn full_and_partial_production_fleets_register() {
     let registry =
         PluginRegistry::new(fleet.iter().map(|manifest| plugin(manifest)).collect()).unwrap();
     assert_eq!(registry.plugins().len(), fleet.len());
+    let ids: Vec<_> = registry.plugins().iter().map(|p| p.manifest().id).collect();
+    assert_eq!(
+        ids,
+        fleet.iter().map(|m| m.id).collect::<Vec<_>>(),
+        "registration order must be preserved"
+    );
+    // Every fleet member also registers on its own (a partial deployment).
     for manifest in fleet {
-        assert_eq!(
-            registry.resolve(manifest.task).unwrap().manifest().id,
-            manifest.id
-        );
         let partial = PluginRegistry::new(vec![plugin(manifest)]).unwrap();
-        assert_eq!(
-            partial.resolve(manifest.task).unwrap().manifest().id,
-            manifest.id
-        );
+        assert_eq!(partial.plugins()[0].manifest().id, manifest.id);
     }
 }
 

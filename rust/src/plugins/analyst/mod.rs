@@ -56,6 +56,7 @@ pub struct MomentumSummary {
 pub type MomentumOutput = Generation<MomentumSummary>;
 
 /// Deterministic direction from the ±100-scale signed slope average. No snapshot means steady.
+#[cfg(test)]
 pub fn momentum_direction_from_score(momentum_score: Option<f64>) -> &'static str {
     match momentum_score {
         Some(s) if s >= MOMENTUM_STEADY_BAND => "rising",
@@ -66,6 +67,7 @@ pub fn momentum_direction_from_score(momentum_score: Option<f64>) -> &'static st
 
 /// Deterministic ±5 conviction from `momentum_score`. The steady band maps to zero or a one-point
 /// lean; larger absolute scores step through the remaining bands. No snapshot maps to zero.
+#[cfg(test)]
 pub fn momentum_conviction_from_score(momentum_score: Option<f64>) -> i32 {
     let Some(s) = momentum_score else { return 0 };
     let mag = s.abs();
@@ -86,7 +88,16 @@ pub fn momentum_conviction_from_score(momentum_score: Option<f64>) -> i32 {
     sign * step
 }
 
+async fn momentum_metrics(pool: &PgPool, score: Option<f64>) -> Result<(String, i32)> {
+    sqlx::query_as(include_str!("metrics.sql"))
+        .bind(score)
+        .fetch_one(pool)
+        .await
+        .context("calculate Analyst direction and conviction")
+}
+
 pub async fn create(
+    pool: &PgPool,
     studio: &Studio<'_>,
     assignment: &Assignment,
 ) -> Result<Option<MomentumOutput>> {
@@ -94,6 +105,16 @@ pub async fn create(
     if ctx.empty() {
         return Ok(None);
     }
+    let metrics = momentum_metrics(pool, ctx.snapshot.momentum_score).await?;
+    articulate(studio, assignment, metrics).await
+}
+
+async fn articulate(
+    studio: &Studio<'_>,
+    assignment: &Assignment,
+    (direction, score): (String, i32),
+) -> Result<Option<MomentumOutput>> {
+    let ctx = &assignment.context;
     let subject = crate::plugins::meta::EntityMeta {
         name: assignment.entity_name.clone(),
         entity_type: assignment.entity_type.clone(),
@@ -127,8 +148,8 @@ pub async fn create(
     );
     Ok(Some(Generation::called(
         MomentumSummary {
-            direction: momentum_direction_from_score(ctx.snapshot.momentum_score).to_string(),
-            score: momentum_conviction_from_score(ctx.snapshot.momentum_score),
+            direction,
+            score,
             blurb,
             headline,
             season: ctx.season,
@@ -270,7 +291,7 @@ impl StudioPlugin for MomentumHandler {
             voice_num_ctx: models.voice_num_ctx,
         };
         let model = models.inference(crate::plugins::analyst::manifest::ROUTE)?;
-        let prepared = create(&Studio::new(model.as_ref()), &assignment).await?;
+        let prepared = create(pool, &Studio::new(model.as_ref()), &assignment).await?;
         if prepared.is_none() {
             debug!(entity_type = %item.entity_type, entity_id, sport = %item.sport, "momentum: skipped empty context");
         }

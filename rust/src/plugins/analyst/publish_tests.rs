@@ -320,9 +320,9 @@ mod postgres_publication_fencing_tests {
         claimed.remove(0)
     }
 
-    async fn product() -> Option<MomentumOutput> {
+    async fn product(pool: &PgPool) -> Option<MomentumOutput> {
         let adapters = LifecycleAdapters::default();
-        create(&Studio::new(&adapters), &lifecycle_assignment(true))
+        create(pool, &Studio::new(&adapters), &lifecycle_assignment(true))
             .await
             .expect("prepare momentum product")
     }
@@ -358,7 +358,7 @@ mod postgres_publication_fencing_tests {
         work::enqueue(&pool, &pending("v2")).await.unwrap();
 
         assert_eq!(
-            commit_claimed(&pool, &stale, SPORT, product().await.as_ref())
+            commit_claimed(&pool, &stale, SPORT, product(&pool).await.as_ref())
                 .await
                 .unwrap(),
             (PluginOutcome::Superseded, None)
@@ -368,7 +368,7 @@ mod postgres_publication_fencing_tests {
         let current = claim_one(&pool).await;
         assert_eq!(current.input_version.as_deref(), Some("v2"));
         assert_eq!(
-            commit_claimed(&pool, &current, SPORT, product().await.as_ref())
+            commit_claimed(&pool, &current, SPORT, product(&pool).await.as_ref())
                 .await
                 .unwrap()
                 .0,
@@ -403,14 +403,14 @@ mod postgres_publication_fencing_tests {
         assert_ne!(stale.claim_token, current.claim_token);
 
         assert_eq!(
-            commit_claimed(&pool, &stale, SPORT, product().await.as_ref())
+            commit_claimed(&pool, &stale, SPORT, product(&pool).await.as_ref())
                 .await
                 .unwrap(),
             (PluginOutcome::Superseded, None)
         );
         assert_eq!(counts(&pool).await, (0, 0, 1));
         assert_eq!(
-            commit_claimed(&pool, &current, SPORT, product().await.as_ref())
+            commit_claimed(&pool, &current, SPORT, product(&pool).await.as_ref())
                 .await
                 .unwrap()
                 .0,
@@ -428,7 +428,7 @@ mod postgres_publication_fencing_tests {
 
         work::enqueue(&pool, &pending("current")).await.unwrap();
         let current = claim_one(&pool).await;
-        let prepared = product().await;
+        let prepared = product(&pool).await;
         let expected_hash = match &prepared {
             Some(output) => output.provenance.input_hash.clone(),
             None => panic!("expected product"),
@@ -503,7 +503,7 @@ mod postgres_publication_fencing_tests {
         if let Ok(phase) = std::env::var(CHILD) {
             let pool = pool().await;
             let current = claim_one(&pool).await;
-            let prepared = product().await;
+            let prepared = product(&pool).await;
             if phase == "before-commit" {
                 let mut publication = ClaimPublication::begin(&pool, &current)
                     .await

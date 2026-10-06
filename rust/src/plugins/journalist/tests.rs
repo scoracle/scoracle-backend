@@ -44,7 +44,7 @@ fn exact_duplicates_do_not_inflate_activity_and_source_ids_are_plugin_owned() {
     assert_eq!(a.dispositions[0].reason, "already_reported_exact_text");
     let result = EditionParser {
         assignment: &a,
-        now: NOW,
+        activity: &activity::reference(&a.selected, NOW),
     }
     .parse(&reply(&a))
     .unwrap()
@@ -78,7 +78,7 @@ fn complete_conflicting_reports_are_prepared_separately_without_truncation() {
     assert_eq!(frame["fresh"][1]["publisher_excerpt"], text);
     let result = EditionParser {
         assignment: &a,
-        now: NOW,
+        activity: &activity::reference(&a.selected, NOW),
     }
     .parse(&reply(&a))
     .unwrap()
@@ -185,7 +185,7 @@ fn articulation_cannot_supply_scores_ids_or_change_report_count() {
         raw[key] = value;
         assert!(EditionParser {
             assignment: &a,
-            now: NOW
+            activity: &activity::reference(&a.selected, NOW)
         }
         .parse(&raw.to_string())
         .is_err());
@@ -194,13 +194,13 @@ fn articulation_cannot_supply_scores_ids_or_change_report_count() {
     raw["report_1"] = json!([]);
     assert!(EditionParser {
         assignment: &a,
-        now: NOW
+        activity: &activity::reference(&a.selected, NOW)
     }
     .parse(&raw.to_string())
     .is_err());
     assert!(EditionParser {
         assignment: &a,
-        now: NOW
+        activity: &activity::reference(&a.selected, NOW)
     }
     .parse("unfinished {")
     .is_err());
@@ -214,7 +214,7 @@ fn articulation_cannot_change_request_local_source_mapping() {
     let raw = json!({"report_1":"First report.","report_3":"Second report."});
     assert!(EditionParser {
         assignment: &a,
-        now: NOW,
+        activity: &activity::reference(&a.selected, NOW),
     }
     .parse(&raw.to_string())
     .is_err());
@@ -222,7 +222,7 @@ fn articulation_cannot_change_request_local_source_mapping() {
     let swapped = json!({"report_2":"Second report.","report_1":"First report."});
     assert!(EditionParser {
         assignment: &a,
-        now: NOW,
+        activity: &activity::reference(&a.selected, NOW),
     }
     .parse(&swapped.to_string())
     .is_ok());
@@ -234,7 +234,7 @@ fn natural_paraphrase_uses_shared_form_and_preserves_plugin_metadata() {
     let raw = r#"{"report_1":"Wire reports that Cedar United secured a 2–1 victory on Sunday."}"#;
     let p = EditionParser {
         assignment: &a,
-        now: NOW,
+        activity: &activity::reference(&a.selected, NOW),
     }
     .parse(raw)
     .unwrap()
@@ -481,7 +481,7 @@ fn studied_memory_is_served_with_scope_without_inflating_fresh_evidence() {
     );
     let product = EditionParser {
         assignment: &a,
-        now: NOW,
+        activity: &activity::reference(&a.selected, NOW),
     }
     .parse(r#"{"report_1":"Cedar won."}"#)
     .unwrap()

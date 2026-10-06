@@ -1,4 +1,6 @@
-//! Read-only Journalist preparation/articulation replay; no database or publication.
+//! Read-only Journalist preparation/articulation replay; no publication.
+//! Preparation is offline. Articulation also requires JOURNALIST_REPLAY_DATABASE_URL
+//! for the pure SQL source-activity query (no tables or product writes).
 //! cargo run --example journalist_replay -- INPUT.jsonl OUTPUT.jsonl [OLLAMA_URL [auto|true|false|compare [schema|unconstrained [MODEL]]]]
 use anyhow::{Context, Result};
 use scoracle_cognition::plugins::{
@@ -130,6 +132,14 @@ async fn main() -> Result<()> {
                 .collect::<Result<Vec<_>>>()
         })
         .transpose()?;
+    let activity_pool = if models.is_some() {
+        Some(sqlx::postgres::PgPoolOptions::new().max_connections(1).connect(
+            &std::env::var("JOURNALIST_REPLAY_DATABASE_URL")
+                .context("articulation replay needs JOURNALIST_REPLAY_DATABASE_URL for SQL-owned activity")?
+        ).await?)
+    } else {
+        None
+    };
     for (case_index, line) in BufReader::new(std::fs::File::open(&args[1])?)
         .lines()
         .enumerate()
@@ -178,7 +188,15 @@ async fn main() -> Result<()> {
             });
             if let Some(models) = &models {
                 let model = &models[index];
-                match journalist::create(&Studio::new(model), &assignment, case.now, 4096).await {
+                match journalist::create(
+                    activity_pool.as_ref().unwrap(),
+                    &Studio::new(model),
+                    &assignment,
+                    case.now,
+                    4096,
+                )
+                .await
+                {
                     Ok(result) => {
                         record["model"] = json!(result.provenance.model_version);
                         record["called"] = json!(result.was_called());

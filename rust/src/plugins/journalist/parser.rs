@@ -1,4 +1,5 @@
 //! Strict edition parsing and deterministic source metadata.
+use super::activity::EditionActivity;
 use super::prompt::{Assignment, CorpusItem};
 use super::{Narrative, NarrativesProduct};
 use crate::studio::Parser;
@@ -6,28 +7,6 @@ use anyhow::Result;
 use serde_json::json;
 use std::collections::HashSet;
 
-/// Descriptive source activity, not confidence, significance or corroboration.
-fn compute_news_impact(corpus: &[CorpusItem], now: i64) -> (i32, serde_json::Value) {
-    let volume = 60.0 * (1.0 - (-(corpus.len() as f64) / 5.0).exp());
-    let sources = corpus
-        .iter()
-        .map(|s| s.source.to_lowercase())
-        .collect::<HashSet<_>>()
-        .len();
-    let breadth = 25.0_f64.min(sources as f64 * 6.0);
-    let newest = corpus.iter().filter_map(|s| s.published_at_epoch).max();
-    let recency = newest.map_or(0.0, |t| match now.saturating_sub(t) {
-        0..=43200 => 15.0,
-        43201..=86400 => 10.0,
-        86401..=172800 => 5.0,
-        _ => 0.0,
-    });
-    (
-        (volume + breadth + recency).round().clamp(0.0, 100.0) as i32,
-        json!({"policy":"source-activity-v2", "article_count":corpus.len(),
-            "distinct_sources":sources, "volume":volume, "source_breadth":breadth,"recency":recency}),
-    )
-}
 fn source_metadata(corpus: &[CorpusItem]) -> (i32, Vec<String>, Option<i64>, Option<i64>) {
     let mut source_names = Vec::new();
     let mut seen_sources = HashSet::new();
@@ -71,10 +50,14 @@ fn opening(report: &CorpusItem, entity_name: &str) -> String {
 /// against the prepared reports, not inferred from parser success.
 pub struct EditionParser<'a> {
     pub assignment: &'a Assignment,
-    pub now: i64,
+    pub activity: &'a EditionActivity,
 }
 impl Parser<NarrativesProduct> for EditionParser<'_> {
     fn parse(&self, raw: &str) -> Result<Option<NarrativesProduct>> {
+        anyhow::ensure!(
+            self.activity.reports.len() == self.assignment.selected.len(),
+            "Journalist activity does not match selected reports"
+        );
         let reply =
             crate::plugins::support::form::parse_journalist(raw, self.assignment.selected.len())?;
         let narratives = self
@@ -82,9 +65,10 @@ impl Parser<NarrativesProduct> for EditionParser<'_> {
             .selected
             .iter()
             .zip(reply.narratives)
-            .map(|(item, prose)| {
-                let (impact, impact_components) =
-                    compute_news_impact(std::slice::from_ref(item), self.now);
+            .zip(&self.activity.reports)
+            .map(|((item, prose), activity)| {
+                let impact = activity.score;
+                let impact_components = activity.components.clone();
                 // Historical study lineage is retained separately. It cannot
                 // inflate the fresh-source count, dates, score or delivery IDs.
                 let evidence = std::slice::from_ref(item);
@@ -110,11 +94,7 @@ impl Parser<NarrativesProduct> for EditionParser<'_> {
             memory_provenance: json!({"receipt":self.assignment.memory_receipt,"selected":self.assignment.memories}),
             narratives,
             budget_truncated_ids: self.assignment.deferred_ids.clone(),
-            card_score: Some(
-                compute_news_impact(&self.assignment.selected, self.now)
-                    .0
-                    .clamp(1, 99) as i16,
-            ),
+            card_score: Some(self.activity.card_score),
             headline,
         }))
     }

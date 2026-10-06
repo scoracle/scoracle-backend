@@ -1,4 +1,5 @@
 //! Journalist execution: articulate prepared reports and publish under the queue claim.
+mod activity;
 pub mod manifest;
 pub mod memories;
 mod parser;
@@ -45,6 +46,7 @@ pub struct NarrativesProduct {
 pub type NarrativesOutput = Generation<NarrativesProduct>;
 
 pub async fn create(
+    pool: &sqlx::PgPool,
     studio: &Studio<'_>,
     assignment: &Assignment,
     now: i64,
@@ -65,11 +67,15 @@ pub async fn create(
             Some(assignment.input_hash.clone()),
         ));
     }
+    let activity = activity::load(pool, &assignment.selected, now).await?;
     let output = studio
         .extract(
             &prompt::prompt(assignment),
             &prompt::generation_options(assignment, num_ctx),
-            &EditionParser { assignment, now },
+            &EditionParser {
+                assignment,
+                activity: &activity,
+            },
             |_| None,
         )
         .await?;
@@ -162,6 +168,7 @@ impl StudioPlugin for NarrativesHandler {
             .models
             .inference(crate::plugins::journalist::manifest::ROUTE)?;
         let output = create(
+            &self.pool,
             &Studio::new(backend.as_ref()),
             &material.assignment,
             now,

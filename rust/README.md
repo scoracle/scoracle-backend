@@ -83,7 +83,7 @@ The target is three production homes: `harness/` for execution infrastructure, `
 
 - Dissolve `plugins/cognition/`: form types join the shared form tool; classification types belong to Harvester.
 - Dissolve `plugins/support/`: real shared tools join `tools/`; scheduling constants and execution mechanics join the harness.
-- Flatten each plugin's `adapter/` and `cognition/` layers as its recipe moves into `prompt.rs`. Scout, Influencer and Journalist now use these local owners. Keep real local tools and publication helpers by responsibility.
+- Flatten each plugin's `adapter/` and `cognition/` layers as its recipe moves into `prompt.rs`. Scout, Influencer, Journalist and Insider now use these local owners. Keep real local tools and publication helpers by responsibility.
 - Keep one shared `memories.rs` tool with the SQL and checks it uses. A dedicated memory namespace is optional organization, not a required layer; fold its small statistic adapter into the tool. The legacy `evidence::memories` package is gone. Canonical identity reads are `plugins/meta.rs`.
 - Consolidate `studio/`, `application/` and `runtime/` under the harness as their code is simplified. Queue and provider subfolders may remain for substantial concrete mechanisms. Source readers leave `evidence/` for shared or specialized tools.
 

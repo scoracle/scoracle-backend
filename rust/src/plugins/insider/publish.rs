@@ -1,203 +1,27 @@
-//! One Harvester source package, one Insider call, one fenced publication per entity.
-use super::*;
+//! Claim-fenced rumors, scores, source receipts, completion and ledger.
+use super::prompt::{self, Match, Material};
+use super::{record_transfer_event, Finding, Reply, Status, TRANSFER_PUBLISHED};
+use crate::application::queue::publication::ClaimPublication;
+use crate::application::queue::work::Item;
 use crate::plugins::harvester::delivery::{
-    load_for_character, load_for_insider_subject, validate_for_publication,
-    validate_insider_subject_for_publication, SourceContext,
+    validate_for_publication, validate_insider_subject_for_publication, SourceContext,
 };
-use crate::plugins::insider::cognition::{
-    self as insider, ContextMention, ContextReport, SourceFinding, SourceReply, SourceStatus,
-};
-use crate::plugins::memories::{self as study, HistoryItem, ReportingHistory};
-use crate::plugins::meta::EntityMeta;
 use crate::runtime::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
-use crate::studio::model::Inference;
-use crate::studio::Studio;
-use anyhow::ensure;
-use sqlx::Row;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use crate::studio::plugin::PluginOutcome;
+use crate::studio::Generation;
+use anyhow::{ensure, Context, Result};
+use sqlx::{PgPool, Row};
+use std::collections::{BTreeMap, HashSet};
 
-const HISTORY: ReportingHistory = ReportingHistory {
-    lookback_seconds: 90 * 24 * 60 * 60,
-    max_reports: 6,
-    budget_bytes: 1800,
-    grouped: false,
-};
-
-#[derive(Clone)]
-struct Match {
-    name: String,
-    entity_type: String,
-    entity_id: i32,
-}
-
-struct Material {
-    subject: EntityMeta,
-    sources: Vec<SourceContext>,
-    reports: Vec<ContextReport>,
-    mentions: Vec<Vec<Match>>,
-    history: Vec<HistoryItem>,
-    source_records: Vec<study::SourceRecord>,
-}
-
-async fn load_material(pool: &PgPool, item: &Item) -> Result<Material> {
-    let sport = item.sport.to_uppercase();
-    let entity_id = item.entity_id_i32()?;
-    let name: String = if item.entity_type == "person" {
-        sqlx::query_scalar(
-            "SELECT full_name FROM public.persons WHERE id=$1 AND sport=$2 AND kind='coach'",
-        )
-        .bind(entity_id)
-        .bind(&sport)
-        .fetch_one(pool)
-        .await?
+fn direction_for(relationship: &str) -> &'static str {
+    if relationship == "current" {
+        "outgoing"
     } else {
-        crate::evidence::corpus::lookup_entity_name(pool, &item.entity_type, entity_id, &sport)
-            .await?
-    };
-    let subject = EntityMeta {
-        name,
-        entity_type: item.entity_type.clone(),
-        entity_id,
-        sport: sport.clone(),
-    };
-    let sources = if item.entity_type == "team" {
-        load_for_character(
-            pool,
-            crate::plugins::insider::manifest::MANIFEST.id.as_str(),
-            "team",
-            entity_id,
-            &sport,
-        )
-        .await?
-    } else {
-        load_for_insider_subject(pool, &item.entity_type, entity_id, &sport).await?
-    };
-    let article_ids: Vec<i64> = sources.iter().map(|s| s.article_id).collect();
-    let rows = sqlx::query(
-        "SELECT m.article_id,m.entity_type,m.entity_id,COALESCE(t.name,p.name,pp.full_name) AS name \
-         FROM public.harvester_entity_mentions m \
-         LEFT JOIN public.teams t ON m.entity_type='team' AND t.id=m.entity_id AND t.sport=m.sport \
-         LEFT JOIN public.players p ON m.entity_type='player' AND p.id=m.entity_id AND p.sport=m.sport \
-         LEFT JOIN public.persons pp ON m.entity_type='person' AND pp.id=m.entity_id AND pp.sport=m.sport \
-         WHERE m.article_id=ANY($1) AND m.sport=$2 AND (m.entity_type,m.entity_id)<>($3,$4) \
-         ORDER BY m.article_id,m.entity_type,name"
-    ).bind(&article_ids).bind(&sport).bind(&item.entity_type).bind(entity_id).fetch_all(pool).await?;
-    let mut by_article: HashMap<i64, Vec<Match>> = HashMap::new();
-    for row in rows {
-        if let Some(name) = row.get::<Option<String>, _>("name") {
-            let found = by_article.entry(row.get("article_id")).or_default();
-            let mention = Match {
-                name,
-                entity_type: row.get("entity_type"),
-                entity_id: row.get("entity_id"),
-            };
-            if !found
-                .iter()
-                .any(|x| x.entity_type == mention.entity_type && x.entity_id == mention.entity_id)
-            {
-                found.push(mention);
-            }
-        }
+        "incoming"
     }
-    let mut reports = Vec::with_capacity(sources.len());
-    let mut mentions = Vec::with_capacity(sources.len());
-    for source in &sources {
-        let found = by_article.remove(&source.article_id).unwrap_or_default();
-        reports.push(ContextReport {
-            publisher: source.source.clone(),
-            published_at: source.published_at_epoch.map(crate::util::utc_timestamp),
-            headline: source.headline.clone(),
-            publisher_excerpt: source.context.clone(),
-            co_mentions: found
-                .iter()
-                .map(|m| ContextMention {
-                    name: m.name.clone(),
-                    entity_type: m.entity_type.clone(),
-                })
-                .collect(),
-        });
-        mentions.push(found);
-    }
-    let history = load_history(pool, &subject, &sources).await?;
-    let publishers = sources
-        .iter()
-        .map(|source| source.source.clone())
-        .collect::<Vec<_>>();
-    let source_records = study::source_records(pool, &sport, &publishers).await?;
-    Ok(Material {
-        subject,
-        sources,
-        reports,
-        mentions,
-        history,
-        source_records,
-    })
 }
 
-pub(crate) async fn preview(
-    pool: &PgPool,
-    entity_type: &str,
-    entity_id: i32,
-    sport: &str,
-) -> Result<Option<String>> {
-    let item = Item {
-        stage: crate::plugins::insider::manifest::TASK,
-        entity_type: entity_type.into(),
-        entity_id: i64::from(entity_id),
-        sport: sport.into(),
-        input_version: None,
-        attempts: 0,
-        claim_token: None,
-    };
-    let material = load_material(pool, &item).await?;
-    Ok((!material.sources.is_empty()).then(|| {
-        insider::assemble_context(
-            &material.subject,
-            &material.reports,
-            &material.history,
-            &material.source_records,
-        )
-    }))
-}
-
-async fn load_history(
-    pool: &PgPool,
-    subject: &EntityMeta,
-    sources: &[SourceContext],
-) -> Result<Vec<HistoryItem>> {
-    if sources.is_empty() || subject.entity_type == "person" {
-        return Ok(Vec::new());
-    }
-    let before = sources.iter().filter_map(|s| s.published_at_epoch).min();
-    let Some(before) = before else {
-        return Ok(Vec::new());
-    };
-    let excluded: Vec<i64> = sources.iter().map(|s| s.article_id).collect();
-    let prior: Vec<i64> = sqlx::query_scalar(
-        "SELECT DISTINCT u.article_id FROM public.transfer_rumors r \
-         CROSS JOIN LATERAL unnest(r.input_news_ids) AS u(article_id) \
-         WHERE r.sport=$1 AND r.is_rumor IS NOT NULL \
-           AND (($2='team' AND r.team_id=$3) OR ($2='player' AND r.subject_type='player' AND r.player_id=$3)) \
-         ORDER BY u.article_id LIMIT 200"
-    ).bind(&subject.sport).bind(&subject.entity_type).bind(subject.entity_id).fetch_all(pool).await?;
-    if prior.is_empty() {
-        return Ok(Vec::new());
-    }
-    let report = study::reporting_scope(
-        pool,
-        subject,
-        before - HISTORY.lookback_seconds,
-        before,
-        &excluded,
-        HISTORY.max_reports,
-        &prior,
-        None,
-    )
-    .await?;
-    HISTORY.select(&report, subject, Some(before), &excluded, |_| true)
-}
-
-fn counterparty<'a>(material: &'a Material, finding: &SourceFinding) -> Result<&'a Match> {
+fn counterparty<'a>(material: &'a Material, finding: &Finding) -> Result<&'a Match> {
     let expected = if material.subject.entity_type == "team" {
         "subject"
     } else {
@@ -225,8 +49,8 @@ fn counterparty<'a>(material: &'a Material, finding: &SourceFinding) -> Result<&
     Ok(matches[0])
 }
 
-fn activity_score(reply: &SourceReply, sources: &[SourceContext]) -> i16 {
-    let mut by_counterparty: BTreeMap<&str, Vec<&SourceFinding>> = BTreeMap::new();
+fn activity_score(reply: &Reply, sources: &[SourceContext]) -> i16 {
+    let mut by_counterparty: BTreeMap<&str, Vec<&Finding>> = BTreeMap::new();
     for finding in &reply.findings {
         by_counterparty
             .entry(&finding.counterparty)
@@ -237,7 +61,7 @@ fn activity_score(reply: &SourceReply, sources: &[SourceContext]) -> i16 {
         .values()
         .flat_map(|findings| {
             let (lead, run) = current_run(findings);
-            if lead.status == SourceStatus::Reported {
+            if lead.status == Status::Reported {
                 run
             } else {
                 Vec::new()
@@ -265,7 +89,7 @@ fn activity_score(reply: &SourceReply, sources: &[SourceContext]) -> i16 {
     (stage + (publishers.saturating_sub(1) as i32 * 4)).min(99) as i16
 }
 
-fn current_run<'a>(findings: &[&'a SourceFinding]) -> (&'a SourceFinding, Vec<&'a SourceFinding>) {
+fn current_run<'a>(findings: &[&'a Finding]) -> (&'a Finding, Vec<&'a Finding>) {
     let mut ordered = findings.to_vec();
     ordered.sort_by_key(|f| f.report_index);
     let lead = ordered[0];
@@ -279,13 +103,13 @@ fn current_run<'a>(findings: &[&'a SourceFinding]) -> (&'a SourceFinding, Vec<&'
 async fn insert_rumors(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     material: &Material,
-    reply: &SourceReply,
-    generation: &crate::studio::Generation<SourceReply>,
+    reply: &Reply,
+    generation: &crate::studio::Generation<Reply>,
 ) -> Result<Vec<i64>> {
     if material.subject.entity_type == "team" {
         return Ok(Vec::new());
     }
-    let mut groups: BTreeMap<i32, Vec<&SourceFinding>> = BTreeMap::new();
+    let mut groups: BTreeMap<i32, Vec<&Finding>> = BTreeMap::new();
     for finding in &reply.findings {
         let other = counterparty(material, finding)?;
         groups.entry(other.entity_id).or_default().push(finding);
@@ -308,7 +132,7 @@ async fn insert_rumors(
                 epochs.push(epoch);
             }
         }
-        let direction = if lead.status == SourceStatus::Denied {
+        let direction = if lead.status == Status::Denied {
             None
         } else if material.subject.entity_type == "player" {
             let row = sqlx::query(
@@ -343,11 +167,11 @@ async fn insert_rumors(
             }
         };
         let source = &material.sources[lead.report_index];
-        let heat = if lead.status == SourceStatus::Denied {
+        let heat = if lead.status == Status::Denied {
             0
         } else {
             activity_score(
-                &SourceReply {
+                &Reply {
                     body: String::new(),
                     findings: selected.iter().map(|f| (*f).clone()).collect(),
                 },
@@ -375,8 +199,8 @@ async fn insert_rumors(
         .bind(team_id).bind(material.subject.entity_id).bind(&material.subject.sport)
         .bind(payload).bind(heat)
         .bind(serde_json::json!({"source_count":names.len(),"status":lead.status,"stage":lead.stage}))
-        .bind(lead.status == SourceStatus::Reported)
-        .bind(direction.map(crate::plugins::insider::cognition::direction_for))
+        .bind(lead.status == Status::Reported)
+        .bind(direction.map(direction_for))
         .bind(lead.stage.as_deref())
         .bind(format!("{}: {}", source.source, lead.evidence_quote))
         .bind(&source.source).bind(&news_ids)
@@ -390,71 +214,16 @@ async fn insert_rumors(
     Ok(ids)
 }
 
-pub(super) async fn execute(
+pub(super) async fn commit(
     pool: &PgPool,
-    models: &ExecutionCapabilities,
     item: &Item,
+    material: &Material,
+    generation: &Generation<Reply>,
 ) -> Result<PluginOutcome> {
-    let material = load_material(pool, item).await?;
-    if material.sources.is_empty() {
-        let Some(publication) = ClaimPublication::begin(pool, item).await? else {
-            return Ok(PluginOutcome::Superseded);
-        };
-        publication.commit_final().await?;
-        return Ok(PluginOutcome::Committed);
-    }
-    let backend = models.inference(crate::plugins::insider::manifest::ROUTE)?;
-    execute_prepared(pool, backend.as_ref(), models.voice_num_ctx, item, material).await
-}
-
-#[cfg(test)]
-pub(crate) async fn execute_with_backend(
-    pool: &PgPool,
-    backend: &dyn Inference,
-    num_ctx: i32,
-    item: &Item,
-) -> Result<PluginOutcome> {
-    let material = load_material(pool, item).await?;
-    execute_prepared(pool, backend, num_ctx, item, material).await
-}
-
-async fn execute_prepared(
-    pool: &PgPool,
-    backend: &dyn Inference,
-    num_ctx: i32,
-    item: &Item,
-    material: Material,
-) -> Result<PluginOutcome> {
-    let current: bool = sqlx::query_scalar(
-        "SELECT EXISTS (SELECT 1 FROM public.pipeline_work \
-         WHERE stage=$1 AND entity_type=$2 AND entity_id=$3 AND sport=$4 \
-           AND status='running' AND claim_token=$5::uuid \
-           AND running_input_version IS NOT DISTINCT FROM $6)",
-    )
-    .bind(item.stage.as_str())
-    .bind(&item.entity_type)
-    .bind(item.entity_id)
-    .bind(&item.sport)
-    .bind(item.require_claim_token()?)
-    .bind(item.input_version.as_deref())
-    .fetch_one(pool)
-    .await?;
-    if !current {
-        return Ok(PluginOutcome::Superseded);
-    }
-    let generation = insider::create_reading(
-        &Studio::new(backend),
-        &material.subject,
-        &material.reports,
-        &material.history,
-        &material.source_records,
-        num_ctx,
-    )
-    .await?;
     // Resolve every named partner before opening a publication transaction. Unknown
     // or ambiguous co-mentions fail the claim rather than inventing a DB identity.
     for finding in &generation.product.findings {
-        counterparty(&material, finding)?;
+        counterparty(material, finding)?;
     }
     let score = activity_score(&generation.product, &material.sources);
     let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
@@ -482,9 +251,9 @@ async fn execute_prepared(
     }
     let rumor_ids = insert_rumors(
         publication.transaction(),
-        &material,
+        material,
         &generation.product,
-        &generation,
+        generation,
     )
     .await?;
     let score_id = if item.entity_type != "person" {
@@ -529,7 +298,7 @@ async fn execute_prepared(
                 .product
                 .findings
                 .iter()
-                .any(|f| f.report_index == index && f.status == SourceStatus::Reported);
+                .any(|f| f.report_index == index && f.status == Status::Reported);
             let changed = sqlx::query(
                 "UPDATE public.harvester_insider_pairs p SET status=$4,product_ref=$5,updated_at=now() \
                  FROM public.harvester_classifications c \
@@ -563,13 +332,13 @@ async fn execute_prepared(
     publication.commit_final().await?;
     let product_ids = score_id.into_iter().chain(rumor_ids).collect::<Vec<_>>();
     if !product_ids.is_empty() {
-        insert_generation_ledger_best_effort(pool, &generation,
+        insert_generation_ledger_best_effort(pool, generation,
             LedgerSpec {
                 plugin_id: crate::plugins::insider::manifest::MANIFEST.id.as_str(),
                 stage: "transfers", lens: "insider",
                 role: crate::plugins::insider::manifest::ROUTE,
                 product_table: if item.entity_type == "person" { "transfer_rumors" } else { "insider_scores" },
-                output_contract_version: insider::READING_OUTPUT_CONTRACT_VERSION,
+                output_contract_version: prompt::OUTPUT_CONTRACT_VERSION,
             },
             LedgerEvent {
                 entity_type: &item.entity_type, entity_id: item.entity_id_i32()?, sport: &material.subject.sport,
@@ -577,7 +346,7 @@ async fn execute_prepared(
                 product_row_ids: product_ids,
                 included_evidence: serde_json::json!({"article_ids":material.sources.iter().map(|s| s.article_id).collect::<Vec<_>>()}),
                 excluded_evidence: serde_json::json!([]),
-                context_budget: generation.context_budget(serde_json::json!({"num_predict":insider::READING_NUM_PREDICT})),
+                context_budget: generation.context_budget(serde_json::json!({"num_predict":prompt::NUM_PREDICT})),
                 parser_outcome: "parsed",
             }).await;
     }
@@ -587,6 +356,7 @@ async fn execute_prepared(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::plugins::meta::EntityMeta;
 
     #[test]
     fn counterparties_require_one_matching_identity_in_the_delivered_report() {
@@ -607,10 +377,10 @@ mod tests {
                 entity_id: 2,
             }]],
         };
-        let mut finding = SourceFinding {
+        let mut finding = Finding {
             report_index: 0,
             counterparty: "Test Club".into(),
-            status: SourceStatus::Reported,
+            status: Status::Reported,
             stage: Some("speculation".into()),
             evidence_quote: "Publisher quote".into(),
         };
@@ -633,22 +403,22 @@ mod tests {
 
     #[test]
     fn newest_denial_retires_older_reports_without_reusing_stale_corroboration() {
-        let finding = |report_index, status, stage| SourceFinding {
+        let finding = |report_index, status, stage| Finding {
             report_index,
             counterparty: "Cleveland Browns".into(),
             status,
             stage,
             evidence_quote: "Exact source quote".into(),
         };
-        let newest = finding(0, SourceStatus::Reported, Some("concrete_interest".into()));
-        let intervening = finding(1, SourceStatus::Denied, None);
-        let oldest = finding(2, SourceStatus::Reported, Some("speculation".into()));
+        let newest = finding(0, Status::Reported, Some("concrete_interest".into()));
+        let intervening = finding(1, Status::Denied, None);
+        let oldest = finding(2, Status::Reported, Some("speculation".into()));
         let (lead, selected) = current_run(&[&oldest, &newest, &intervening]);
-        assert_eq!(lead.status, SourceStatus::Reported);
+        assert_eq!(lead.status, Status::Reported);
         assert_eq!(selected.len(), 1);
         assert_eq!(selected[0].report_index, 0);
         let (lead, selected) = current_run(&[&oldest, &intervening]);
-        assert_eq!(lead.status, SourceStatus::Denied);
+        assert_eq!(lead.status, Status::Denied);
         assert_eq!(selected.len(), 1);
         assert_eq!(selected[0].report_index, 1);
         let sources = (0..3)
@@ -663,7 +433,7 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(
             activity_score(
-                &SourceReply {
+                &Reply {
                     body: String::new(),
                     findings: vec![oldest.clone(), intervening.clone(), newest],
                 },
@@ -673,7 +443,7 @@ mod tests {
         );
         assert_eq!(
             activity_score(
-                &SourceReply {
+                &Reply {
                     body: String::new(),
                     findings: vec![oldest, intervening],
                 },

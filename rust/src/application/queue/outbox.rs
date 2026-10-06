@@ -351,7 +351,7 @@ mod postgres_recovery_tests {
         let rating_version = "rating:s2026:transfer:77";
 
         let mut rolled_back = pool.begin().await.unwrap();
-        crate::plugins::insider::adapter::record_transfer_event(
+        crate::plugins::insider::record_transfer_event(
             &mut rolled_back,
             &item,
             crate::plugins::scout::TRANSFER_IDENTITY_APPLIED,
@@ -378,7 +378,7 @@ mod postgres_recovery_tests {
             ("team", 9_600_001),
             ("team", 9_600_003),
         ] {
-            crate::plugins::insider::adapter::record_transfer_event(
+            crate::plugins::insider::record_transfer_event(
                 &mut committed,
                 &item,
                 crate::plugins::scout::TRANSFER_IDENTITY_APPLIED,

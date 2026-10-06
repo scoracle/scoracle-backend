@@ -12,7 +12,7 @@ use crate::plugins::fixture_boxscore::adapter as boxscore;
 use crate::plugins::graph::adapter as graph;
 use crate::plugins::harvester::adapter as harvester;
 use crate::plugins::influencer;
-use crate::plugins::insider::adapter as insider;
+use crate::plugins::insider;
 use crate::plugins::journalist;
 use crate::plugins::oracle::adapter as oracle;
 use crate::plugins::scout;
@@ -296,7 +296,7 @@ mod tests {
             crate::plugins::analyst::adapter::MOMENTUM_COMPLETED,
             crate::plugins::scout::RATING_DEBOUNCED,
             crate::plugins::journalist::NARRATIVES_COMPLETED,
-            crate::plugins::insider::adapter::TRANSFER_PUBLISHED,
+            crate::plugins::insider::TRANSFER_PUBLISHED,
         ] {
             assert_eq!(complete.reaction_names(kind), oracle_only, "{kind}");
         }

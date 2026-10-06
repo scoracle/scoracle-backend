@@ -1962,7 +1962,7 @@ mod tests {
                 let mut stale = claimed.clone();
                 stale.claim_token = Some("00000000-0000-0000-0000-000000000002".into());
                 assert_eq!(
-                    crate::plugins::insider::adapter::source::execute_with_backend(
+                    crate::plugins::insider::execute_with_backend(
                         &pool,
                         &insider_backend,
                         4096,
@@ -1972,7 +1972,7 @@ mod tests {
                     PluginOutcome::Superseded
                 );
                 for change_source in [true, false] {
-                    let result = crate::plugins::insider::adapter::source::execute_with_backend(
+                    let result = crate::plugins::insider::execute_with_backend(
                         &pool,
                         &ChangingInsider {
                             pool: &pool,
@@ -2008,7 +2008,7 @@ mod tests {
                 }
             }
             assert_eq!(
-                crate::plugins::insider::adapter::source::execute_with_backend(
+                crate::plugins::insider::execute_with_backend(
                     &pool,
                     &insider_backend,
                     4096,

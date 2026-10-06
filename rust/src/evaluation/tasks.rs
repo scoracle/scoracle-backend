@@ -16,10 +16,11 @@ use crate::plugins::graph::cognition::{
     build_graph_prompt, graph_opts, GraphCandidate, GraphParser, GRAPH_PROMPT_VERSION,
 };
 use crate::plugins::influencer::{prompt::VIBE_NUM_PREDICT, VibeParser};
-use crate::plugins::insider::adapter::preview as preview_insider;
-use crate::plugins::insider::cognition::{
-    reading_options as insider_options, SourceReply, READING_PROMPT_VERSION,
+use crate::plugins::insider::prompt::preview as preview_insider;
+use crate::plugins::insider::prompt::{
+    options as insider_options, PROMPT_VERSION as INSIDER_PROMPT_VERSION,
 };
+use crate::plugins::insider::Reply;
 use crate::plugins::investigator::cognition::prompt::{
     prose_opts, ProseReadParser, INVESTIGATOR_PROSE_CONTRACT_VERSION,
 };
@@ -1027,7 +1028,7 @@ impl LensTask for TransferTask {
         crate::plugins::insider::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
-        READING_PROMPT_VERSION
+        INSIDER_PROMPT_VERSION
     }
     fn gen_options(&self, temperature: f64) -> Result<GenerateOptions> {
         let mut options = insider_options(0);
@@ -1050,7 +1051,7 @@ impl LensTask for TransferTask {
             .map(|prompt| Prepared::captured(prompt, insider_options(0))))
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
-        let Ok(reply) = serde_json::from_str::<SourceReply>(raw) else {
+        let Ok(reply) = serde_json::from_str::<Reply>(raw) else {
             return rejected("unparseable Insider reading and findings");
         };
         if reply.body.trim().is_empty() {
@@ -1062,7 +1063,7 @@ impl LensTask for TransferTask {
                 checks.push(PropertyCheck {
                     name: "has_source_linked_move".into(),
                     pass: reply.findings.iter().any(|f| {
-                        f.status == crate::plugins::insider::cognition::SourceStatus::Reported
+                        f.status == crate::plugins::insider::Status::Reported
                             && !reply.findings.iter().any(|later| {
                                 later.counterparty == f.counterparty
                                     && later.report_index < f.report_index

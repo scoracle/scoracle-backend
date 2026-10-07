@@ -152,11 +152,8 @@ mod tests {
 
     #[tokio::test]
     async fn replay_retains_rejected_response_and_bounded_correction() {
-        // The Scout's declared surface is the shared keyed prose map, and its
-        // recorded non-participation on the paragraph rule means an over-long
-        // body is refused for its TOTAL length.
         let backend = Backend(Mutex::new(vec![
-            json!({"body":"x".repeat(1201)}).to_string(),
+            json!({"body":"His limited playing time explains the numbers."}).to_string(),
             json!({"body":"The measured rebounding is strong."}).to_string(),
         ]));
         let directions = BTreeMap::new();
@@ -182,14 +179,11 @@ mod tests {
             .unwrap();
         let attempts = recording.attempts.lock().unwrap();
         assert_eq!(attempts.len(), 2);
-        // The rejection is the shared body ceiling. The Scout records a
-        // non-participation on the paragraph rule, so an over-long body is
-        // refused for its total length, not for a paragraph.
         assert!(
             attempts[0]["guard_error"]
                 .as_str()
                 .unwrap()
-                .contains("Prose totals 1201 characters"),
+                .contains("unsupported inference \"limited playing time\""),
             "guard error was {:?}",
             attempts[0]["guard_error"]
         );

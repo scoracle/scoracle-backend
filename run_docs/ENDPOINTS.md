@@ -1108,7 +1108,7 @@ Query `scope` defaults to `current_week`; allowed values are `current_week`, `la
 
 `score` and legacy `heat` are the same output's emotional valence: 0 distressing, 25 troubled, 50 mixed/balanced, 75 hopeful, 100 joyful. Unknown emotion produces no new card. Current reads retain the latest valid card at its actual date. New cards freeze source references at publication; legacy cards resolve their retained article IDs. Historical query results expose the latest revision, including its actual generation time and acquisition cutoff; they do not pretend a later correction was available earlier. `snapshots` covers seven days by default or the requested reporting period (`window_days:null`).
 
-Requires migration 290 before the API/worker restart. The period generation build is local and has not passed SmolLM3 factual-fidelity acceptance.
+Migration 290 is applied on Archbox. The period-card API and worker were deployed on October 7 with explicit authorization for experimental output; SmolLM3 factual fidelity remains unaccepted.
 
 ### `GET /api/v1/{sport}/{entityType}/{id}/meta`
 

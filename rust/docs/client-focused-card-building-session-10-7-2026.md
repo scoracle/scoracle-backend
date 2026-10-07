@@ -1,6 +1,6 @@
 # Client-focused card building session — October 7, 2026
 
-Status: Influencer period-card slice implemented; production deployment in progress on October 7, 2026.
+Status: Influencer period-card slice implemented; deployed experimentally to Archbox on October 7, 2026.
 
 ## Implementation and rollout — October 7
 
@@ -10,7 +10,15 @@ Implemented accepted SQL evidence → existing DuckDB selection → one reportin
 
 Focused Rust contract and PostgreSQL/DuckDB publication/idempotency checks, Go historical/current API checks and compilation passed. No broad test sweep was run. The retained single-call SmolLM3 replay passed structure but invented facts. The user explicitly authorized experimental production deployment despite that fidelity failure; this authorization does not change the evaluation result.
 
-Deployment uses the existing Archbox release script, applies migration 290 before restart and enables the Editor Laya source-relevance stage. The Mac worker remains paused. Live release identity and verification results will be recorded here after deployment.
+Deployment uses the existing Archbox release script, applies migration 290 before restart and enables the Editor Laya source-relevance stage. The Mac worker remains paused. Initial release `466fe95f7f16` completed at 14:36 UTC. Live verification exposed a timezone-sensitive source-identity comparison: UTC and Eastern strings representing the same instant were rejected. The shared reader now compares typed PostgreSQL timestamps; its focused regression check accepts equivalent offsets and still rejects actual source/date drift. The follow-up runtime release is `a53cc9934210`, verified through the API build identity and worker startup.
+
+Migration 290 and its ledger entry are applied; the generated schema baseline was recaptured from production and checksums pass. Public `/health/db` is healthy; current and explicit historical Vibe reads work, and an empty requested period returns `current: null` with no snapshots. API, cognition and Laya services are active; the worker registers all 11 stages, including Editor and Vibe. Existing exhausted work requires explicit retry; two Vibe cases were reopened for verification. One legacy Editor article lacks query provenance and remains failed rather than having provenance fabricated.
+
+Live generation verification: retained article `865114` completed Harvester → Editor and wrote classification `14204` under `harvest-context-v9-entity-vibe`. Separately, accepted report `824489` was backfilled under the new entity-relevance policy for FOOTBALL team `274` (Huesca). Resident SmolLM3 made one 25,325 ms call, emitted 263 tokens and published attempt `1` / card `114504`, score 50, season 2026/week 9. The source assignment atomically became `used`. The public Vibe API serves the new card both currently and at `?season=2026&week=9`, including frozen sources and the named valence scale. This verifies execution and persistence, not output quality: the live body is still one long paragraph and its score/emotional reading needs review.
+
+Two older corpus retries remain blocked by genuine changes to publisher metadata; the timezone fix does not waive those integrity checks. Source refresh/reclassification for those historical receipts remains follow-up work. No publisher facts or provenance were invented for verification.
+
+Rollback binaries, prior commit, private configuration, systemd units and release logs are retained at `/mnt/data/backup/scoracle/releases/period-cards-466fe95f/`.
 
 Remaining work: real-source and held-out fidelity review, measured Laya calibration, historical frontend controls, and migration of the remaining products, including Momentum/Oracle dependencies on generated prose. This release implements the first vertical slice, not the complete all-product target.
 
@@ -178,13 +186,13 @@ Compare generation count, input/output tokens, Laya cost, elapsed time and factu
 
 Use real publisher cases alongside focused synthetic controls: positive and negative reporting, mixed emotions, multiple speakers, denials/corrections, quiet periods, missing history, unrelated entities, duplicate reporting, late qualifications and source changes. Parser acceptance checks shape, not truth. Run focused Rust checks, necessary isolated database/API tests and actual model replays; manually review fidelity. Freeze a reviewed evaluation set so each new prompt is not judged only on cases used to tune it.
 
-## Starting map for the fresh session
+## Implementation map
 
 Paths below are relative to the `rust/` workspace unless prefixed with `../`:
 
 - `README.md`: current collection/discovery contract and source/memory boundaries.
-- `src/plugins/influencer/{prompt,mod,memories,parser,publish}.rs`: first product path. Current generation is per article, score is absent, and memory lookup depends on story-index membership.
-- `src/plugins/harvester/{adapter,cognition,context,delivery,policy}.rs` and `src/plugins/editor/`: current acquisition, relevance and routing paths. Checked-in changes are not proof of deployed behavior.
+- `src/plugins/influencer/{prompt,mod,memories,parser,publish}.rs`: deployed first-product path: reporting-period packets, coherent scored cards and accepted-source history without a story-index dependency.
+- `src/plugins/harvester/{adapter,cognition,context,delivery,policy}.rs` and `src/plugins/editor/`: deployed acquisition, relevance and routing paths. A retained real article completed Harvester → Editor and stored a `harvest-context-v9-entity-vibe` receipt after release.
 - `src/tools/memories.rs`, `src/tools/memories/postgres.rs`, `src/tools/memories/reporting.sql`, `src/tools/reader.rs`: existing source collection, analysis bridge and full-text reader.
 - `../go/internal/analytics/duckdb/`: existing reporting, score-history and measurement studies.
 - `src/plugins/analyst/prompt.rs`, `src/plugins/oracle/prompt.rs`: current generated-card dependencies to replace after the pilot.

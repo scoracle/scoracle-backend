@@ -1,0 +1,959 @@
+{
+  "contract": "classifier-qualified-world-diagnostic-v1",
+  "date": "2026-10-07",
+  "status": "packet_compiler_tested_no_model_promoted",
+  "annotation_status": "ai_provisional_not_automatic_extraction_or_independent_gold",
+  "cases": {
+    "sources": 14,
+    "fictional_controls": 12,
+    "retained_reports": 2,
+    "measured_source_windows": 17,
+    "qualified_emotional_sources": 9,
+    "native_no_emotional_sources": 5
+  },
+  "classifier": {
+    "model": "Horizon-Labs/multilingual-emotions-small",
+    "revision": "1bc9627f189e5aa08b00cf525c3c86052067b81e",
+    "scores": "28 independent raw document-window labels, uncalibrated"
+  },
+  "models": [
+    {
+      "tag": "alibayram/smollm3:latest",
+      "digest": "6463ebe1ce6ae2f6369498f54f136baad56b4380e5365bfecc938079f8e6733c",
+      "stored_parameters": 3075098624,
+      "precision": "Q4_K_M"
+    },
+    {
+      "tag": "qwen3:1.7b",
+      "digest": "8f68893c685c3ddff2aa3fffce2aa60a30bb2da65ca488b61fff134a4d1730e7",
+      "stored_parameters": 2031739904,
+      "precision": "Q4_K_M"
+    },
+    {
+      "tag": "smollm2:1.7b",
+      "digest": "cef4a1e09247f018ca0c482ad4c2ce1474aba5e87f245dacf97f07948d05d8b4",
+      "stored_parameters": 1711376384,
+      "precision": "Q8_0"
+    }
+  ],
+  "settings": {
+    "temperature": 0,
+    "seed": 42,
+    "num_ctx": 4096,
+    "num_predict": 400,
+    "think": false,
+    "repair": false
+  },
+  "private_run": "/mnt/data/backup/scoracle/classifier-launch/2026-10-07/qualification-v1/",
+  "inputs_sha256": {
+    "source.jsonl": "2be82f2a66df5ab571df08741c8eb5dbad13aaee0a0d373ca794dd99cf5bd366",
+    "claims.jsonl": "af83cce531e2946d2f711771cdeabfe359fcebd134d7086ef2994620d354154c",
+    "measurements.jsonl": "2c114b5a6b4da94bc7e04eba7393a53ff5c87388a39d34a2dec0d1a060e777cc"
+  },
+  "totals": {
+    "slots": 252,
+    "model_calls": 192,
+    "native_abstentions": 60,
+    "structural_errors": 4
+  },
+  "phases": {
+    "three_inputs": {
+      "slots": 126,
+      "model_calls": 111,
+      "native_abstentions": 15,
+      "structural_errors": 3,
+      "file_sha256": {
+        "results.jsonl": "39f695748ed5c8d7fed28bf51810f50c9a24a2cc03b30e2ad63ca531ad4827c1",
+        "run.log": "b23f35941c7afb68012cdef7fbcf790cafe0b75d8a067d4cf09ed67e96b4760d"
+      },
+      "system_instruction_sha256": "6c44d5ead412708ef45767cd7ef95bf23d38d1eadad798f24cf67c986a01e757",
+      "models": {
+        "alibayram/smollm3:latest": {
+          "qualified": {
+            "structurally_valid": 9,
+            "native_abstentions": 5,
+            "errors": 0,
+            "max_prompt_tokens": 1093,
+            "median_decode_ms": 1148.33
+          },
+          "source_only": {
+            "structurally_valid": 14,
+            "native_abstentions": 0,
+            "errors": 0,
+            "max_prompt_tokens": 797,
+            "median_decode_ms": 902.57
+          },
+          "spectrum": {
+            "structurally_valid": 14,
+            "native_abstentions": 0,
+            "errors": 0,
+            "max_prompt_tokens": 2279,
+            "median_decode_ms": 1154.53
+          }
+        },
+        "qwen3:1.7b": {
+          "qualified": {
+            "structurally_valid": 9,
+            "native_abstentions": 5,
+            "errors": 0,
+            "max_prompt_tokens": 1170,
+            "median_decode_ms": 1151.92
+          },
+          "source_only": {
+            "structurally_valid": 14,
+            "native_abstentions": 0,
+            "errors": 0,
+            "max_prompt_tokens": 790,
+            "median_decode_ms": 966.95
+          },
+          "spectrum": {
+            "structurally_valid": 14,
+            "native_abstentions": 0,
+            "errors": 0,
+            "max_prompt_tokens": 3238,
+            "median_decode_ms": 1299.67
+          }
+        },
+        "smollm2:1.7b": {
+          "qualified": {
+            "structurally_valid": 9,
+            "native_abstentions": 5,
+            "errors": 0,
+            "max_prompt_tokens": 1259,
+            "median_decode_ms": 679.57
+          },
+          "source_only": {
+            "structurally_valid": 14,
+            "native_abstentions": 0,
+            "errors": 0,
+            "max_prompt_tokens": 855,
+            "median_decode_ms": 685.56
+          },
+          "spectrum": {
+            "structurally_valid": 11,
+            "native_abstentions": 0,
+            "errors": 3,
+            "max_prompt_tokens": 3336,
+            "median_decode_ms": 1153.02
+          }
+        }
+      }
+    },
+    "clean_reader": {
+      "slots": 42,
+      "model_calls": 27,
+      "native_abstentions": 15,
+      "structural_errors": 0,
+      "file_sha256": {
+        "results.jsonl": "2b01d72a2cd15b957b35119672339b55f7e44edb13886fa0bad0eef18ad09420",
+        "run.log": "280c48a3c1122d40ebf477b8578d8954e4a0b26928b19d57097dd9248d2dac37"
+      },
+      "system_instruction_sha256": "6c44d5ead412708ef45767cd7ef95bf23d38d1eadad798f24cf67c986a01e757",
+      "models": {
+        "alibayram/smollm3:latest": {
+          "qualified": {
+            "structurally_valid": 9,
+            "native_abstentions": 5,
+            "errors": 0,
+            "max_prompt_tokens": 675,
+            "median_decode_ms": 960.13
+          }
+        },
+        "qwen3:1.7b": {
+          "qualified": {
+            "structurally_valid": 9,
+            "native_abstentions": 5,
+            "errors": 0,
+            "max_prompt_tokens": 656,
+            "median_decode_ms": 1070.76
+          }
+        },
+        "smollm2:1.7b": {
+          "qualified": {
+            "structurally_valid": 9,
+            "native_abstentions": 5,
+            "errors": 0,
+            "max_prompt_tokens": 720,
+            "median_decode_ms": 637.41
+          }
+        }
+      }
+    },
+    "short_instruction": {
+      "slots": 42,
+      "model_calls": 27,
+      "native_abstentions": 15,
+      "structural_errors": 1,
+      "file_sha256": {
+        "results.jsonl": "1bd75681739014f08412ef7666cea1de35f880842474056ee2c34a3814aaa9f1",
+        "run.log": "8176b909c5c7d94e065b0767316ad0197045f5923459c992f1c93a1092382f85"
+      },
+      "system_instruction_sha256": "3fc35b740658caeffabb8a4eab1123b51098424f7f8fb6720ca6407c15f558c8",
+      "models": {
+        "alibayram/smollm3:latest": {
+          "qualified": {
+            "structurally_valid": 9,
+            "native_abstentions": 5,
+            "errors": 0,
+            "max_prompt_tokens": 554,
+            "median_decode_ms": 863.48
+          }
+        },
+        "qwen3:1.7b": {
+          "qualified": {
+            "structurally_valid": 9,
+            "native_abstentions": 5,
+            "errors": 0,
+            "max_prompt_tokens": 536,
+            "median_decode_ms": 680.75
+          }
+        },
+        "smollm2:1.7b": {
+          "qualified": {
+            "structurally_valid": 8,
+            "native_abstentions": 5,
+            "errors": 1,
+            "max_prompt_tokens": 590,
+            "median_decode_ms": 784.63
+          }
+        }
+      }
+    },
+    "supporting_context": {
+      "slots": 42,
+      "model_calls": 27,
+      "native_abstentions": 15,
+      "structural_errors": 0,
+      "file_sha256": {
+        "results.jsonl": "fcbe2e76c4ff60fad21f18490bf21e5028781f7199f16a2ee6f6f7467c1ac5aa",
+        "run.log": "8b78e2a4fc6c2bbde767a28c467db4851c6a3942c81628941f3270b7e444d70a"
+      },
+      "system_instruction_sha256": "3fc35b740658caeffabb8a4eab1123b51098424f7f8fb6720ca6407c15f558c8",
+      "models": {
+        "alibayram/smollm3:latest": {
+          "qualified": {
+            "structurally_valid": 9,
+            "native_abstentions": 5,
+            "errors": 0,
+            "max_prompt_tokens": 576,
+            "median_decode_ms": 915.48
+          }
+        },
+        "qwen3:1.7b": {
+          "qualified": {
+            "structurally_valid": 9,
+            "native_abstentions": 5,
+            "errors": 0,
+            "max_prompt_tokens": 558,
+            "median_decode_ms": 573.84
+          }
+        },
+        "smollm2:1.7b": {
+          "qualified": {
+            "structurally_valid": 9,
+            "native_abstentions": 5,
+            "errors": 0,
+            "max_prompt_tokens": 612,
+            "median_decode_ms": 661.77
+          }
+        }
+      }
+    }
+  },
+  "final_reviews": [
+    {
+      "model": "alibayram/smollm3:latest",
+      "article_id": 818198,
+      "status": "abstained_no_qualified_claims",
+      "packet_sha256": "358fe18c1d633cd48a9e0840730be4ef23e917257fdee30909d3fb02eb4612f8",
+      "product_sha256": "7b22c22122b55c2a111afc19005a96f9a2ad8ba70305d78abfed6bb4af5aa58b",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": []
+      }
+    },
+    {
+      "model": "alibayram/smollm3:latest",
+      "article_id": 829891,
+      "status": "structurally_valid",
+      "packet_sha256": "b5a29c08d85f32297540f4b2cb15d5d576fea44aa8f27201964a4982292e214e",
+      "product_sha256": "f893225e886e253f4c238a09c751d2deb17e5403ac10600d70c44d4fdb067a9f",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": [
+          "Football identities/opponent now match the supporting paragraphs; expressed confidence is a stronger emotional interpretation than the selected denial of fear."
+        ]
+      }
+    },
+    {
+      "model": "alibayram/smollm3:latest",
+      "article_id": -1,
+      "status": "abstained_no_qualified_claims",
+      "packet_sha256": "e93975e615f6380312646059f6ee647775afd4666beed1d9a6c998d499806874",
+      "product_sha256": "7b22c22122b55c2a111afc19005a96f9a2ad8ba70305d78abfed6bb4af5aa58b",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": []
+      },
+      "fictional_output": {
+        "headline": null,
+        "body": null
+      }
+    },
+    {
+      "model": "alibayram/smollm3:latest",
+      "article_id": -2,
+      "status": "structurally_valid",
+      "packet_sha256": "b29ed80ad8a1c7bef9a46222a3ab373b17ac14f4f39472756354e270df0315d6",
+      "product_sha256": "b793389a44a4989547f3efed8651028b1fe68af5c64058e628311aa2bdaafa9a",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": []
+      },
+      "fictional_output": {
+        "body": "Cedar Club player Alex expressed relief and happiness upon receiving the test results, stating, 'I feel relieved and happy now that the test results have arrived.' However, the reporter did not describe how other players or supporters felt about the outcome.",
+        "headline": "Cedar Club Player Alex Expresses Relief and Happiness After Test Results Arrive"
+      }
+    },
+    {
+      "model": "alibayram/smollm3:latest",
+      "article_id": -3,
+      "status": "structurally_valid",
+      "packet_sha256": "5086ba4402cd57c79cd215cfb018802a0a6100711c0c6550a47c94b8b18c26b1",
+      "product_sha256": "0e1178ed27dc6b7b11faa998d541e8fbb2fbd46b4e45e7eb13d175bcff1985f9",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": [
+          "Dismay in headline is a stronger negative emotion than the explicit denial establishes."
+        ]
+      },
+      "fictional_output": {
+        "body": "Cedar Club player Alex expressed dissatisfaction with the situation, stating, \"I am not relieved. I do not feel happy about this.\" However, the reporter did not provide insights into how other players or supporters feel about the matter.",
+        "headline": "Cedar Club Player Alex Expresses Dismay"
+      }
+    },
+    {
+      "model": "alibayram/smollm3:latest",
+      "article_id": -4,
+      "status": "structurally_valid",
+      "packet_sha256": "cd6c569de9d6402e6c75dbc4625b62a95862c9d9c3e6b10bc5b78aad9f5a7668",
+      "product_sha256": "a74375fd088ef7c983a4740ae7c9cd8c58b8144eaf10d61df6d19a0c293498a2",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": []
+      },
+      "fictional_output": {
+        "body": "Cedar Club player Alex expressed a mix of emotions, stating, \"I am hopeful about our next match, but I am worried about the injury. Both feelings are there.\" No other speaker expressed an emotion.",
+        "headline": "Cedar Club Player Alex's Mixed Emotions About Next Match"
+      }
+    },
+    {
+      "model": "alibayram/smollm3:latest",
+      "article_id": -5,
+      "status": "structurally_valid",
+      "packet_sha256": "ae1aa632511f4ca786aabdda82d6058999ad7a9f2a02f95b6f17b04fc744fdcb",
+      "product_sha256": "1b76007713df6f6727cad14028681c7e468ed284e7c70c74a016fe6a87bec1a6",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": [
+          "Historical timing retained in body; headline could state past scope explicitly."
+        ]
+      },
+      "fictional_output": {
+        "body": "On March 2, Cedar Club player Alex expressed hope for the upcoming season, stating, 'I feel hopeful about next season.' However, today's report quotes an old interview, and Alex did not provide a new statement regarding current feelings.",
+        "headline": "Cedar Club Player Alex's Hope for Next Season"
+      }
+    },
+    {
+      "model": "alibayram/smollm3:latest",
+      "article_id": -6,
+      "status": "abstained_no_qualified_claims",
+      "packet_sha256": "b1c5acf57d691ad4627a5e7338b49e752e1753a960d2c6d552684ca73fabb3c9",
+      "product_sha256": "7b22c22122b55c2a111afc19005a96f9a2ad8ba70305d78abfed6bb4af5aa58b",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": []
+      },
+      "fictional_output": {
+        "headline": null,
+        "body": null
+      }
+    },
+    {
+      "model": "alibayram/smollm3:latest",
+      "article_id": -7,
+      "status": "structurally_valid",
+      "packet_sha256": "cb34ab99347a30db794bb0e1e808bff6a2b67058fd40376fd6ae80a7eb49dd92",
+      "product_sha256": "8a4c18d5ec68fe229c30f4887b9da3de12cb0b59c511d4fe7b970fad803ae61a",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": []
+      },
+      "fictional_output": {
+        "body": "After Cedar Club's latest defeat, a supporter named Robin expressed their disappointment with a sarcastic comment, stating, 'Fantastic, another defeat. Just what we needed.' The report attributes this remark to Robin alone.",
+        "headline": "Cedar Club's Defeat Sparks Sarcasm from a Supporter"
+      }
+    },
+    {
+      "model": "alibayram/smollm3:latest",
+      "article_id": -9,
+      "status": "structurally_valid",
+      "packet_sha256": "0d95a0757fbb6789fc4e1850c1b16c23bc257acebbe047dc809ffc64574e00fe",
+      "product_sha256": "6ffaa8ffbde9af198318bb89ed84f170eed6cf5538305a04021b53687ca77fa2",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": [
+          "Correct identities, but unselected Maple emotional claim included from context."
+        ]
+      },
+      "fictional_output": {
+        "body": "Cedar Club player Alex expressed excitement about returning, stating, \"I am excited about returning.\" Maple Club player Robin expressed fear, saying, \"I am afraid of another setback.\" The reporter did not claim that Alex was afraid or Robin was excited.",
+        "headline": "Cedar Club Player Alex Excited About Returning, Maple Club Player Robin Afraid of Setback"
+      }
+    },
+    {
+      "model": "alibayram/smollm3:latest",
+      "article_id": -10,
+      "status": "abstained_no_qualified_claims",
+      "packet_sha256": "23f1a9458979291954cd3661b264373d13bfd34ac895f79853dd51f6500705cb",
+      "product_sha256": "7b22c22122b55c2a111afc19005a96f9a2ad8ba70305d78abfed6bb4af5aa58b",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": []
+      },
+      "fictional_output": {
+        "headline": null,
+        "body": null
+      }
+    },
+    {
+      "model": "alibayram/smollm3:latest",
+      "article_id": -11,
+      "status": "abstained_no_qualified_claims",
+      "packet_sha256": "7c398c21b706af03fe108662356b8ab1b60e3040194c53cd9a1719638d13629d",
+      "product_sha256": "7b22c22122b55c2a111afc19005a96f9a2ad8ba70305d78abfed6bb4af5aa58b",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": []
+      },
+      "fictional_output": {
+        "headline": null,
+        "body": null
+      }
+    },
+    {
+      "model": "alibayram/smollm3:latest",
+      "article_id": -12,
+      "status": "structurally_valid",
+      "packet_sha256": "1d1e43288d91dc7ee6f19ca90ea27b656b5e54c4f5a5e042802b05ba5d703953",
+      "product_sha256": "b1283de45f016f6b86e19423ce6d485ea5d29898a7f25a4025f3e06ba137da5c",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": []
+      },
+      "fictional_output": {
+        "body": "Alex, the Cedar Club player, has expressed ongoing concern about his injury, contradicting the initial claim of relief. The corrected report now reflects this updated information, withdrawing the earlier assertion of relief.",
+        "headline": "Alex's Injury Concerns Remain"
+      }
+    },
+    {
+      "model": "alibayram/smollm3:latest",
+      "article_id": -13,
+      "status": "structurally_valid",
+      "packet_sha256": "e49f2afe00cb8d0a916c8ece50f16167718cb1d28e68283c44e56be27feb5dc6",
+      "product_sha256": "574b2412dcf31e0eea12c6e0dd115248c0a55ed15e2b2908883210b9950d0124",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": []
+      },
+      "fictional_output": {
+        "body": "Cedar Club player Alex expressed hope about the upcoming match, stating, 'I feel hopeful now about our match next month.' No other player's feelings were reported.",
+        "headline": "Cedar Club Player Alex Expresses Hope About Upcoming Match"
+      }
+    },
+    {
+      "model": "smollm2:1.7b",
+      "article_id": 818198,
+      "status": "abstained_no_qualified_claims",
+      "packet_sha256": "358fe18c1d633cd48a9e0840730be4ef23e917257fdee30909d3fb02eb4612f8",
+      "product_sha256": "7b22c22122b55c2a111afc19005a96f9a2ad8ba70305d78abfed6bb4af5aa58b",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": []
+      }
+    },
+    {
+      "model": "smollm2:1.7b",
+      "article_id": 829891,
+      "status": "structurally_valid",
+      "packet_sha256": "b5a29c08d85f32297540f4b2cb15d5d576fea44aa8f27201964a4982292e214e",
+      "product_sha256": "fa6ab378ab392d8560af53c12862b8d807ee5ac7213be5092a3dbcef2db193a7",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": [
+          "Headline/body assert a return to practice absent from the selected evidence and supporting context."
+        ]
+      }
+    },
+    {
+      "model": "smollm2:1.7b",
+      "article_id": -1,
+      "status": "abstained_no_qualified_claims",
+      "packet_sha256": "e93975e615f6380312646059f6ee647775afd4666beed1d9a6c998d499806874",
+      "product_sha256": "7b22c22122b55c2a111afc19005a96f9a2ad8ba70305d78abfed6bb4af5aa58b",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": []
+      },
+      "fictional_output": {
+        "headline": null,
+        "body": null
+      }
+    },
+    {
+      "model": "smollm2:1.7b",
+      "article_id": -2,
+      "status": "structurally_valid",
+      "packet_sha256": "b29ed80ad8a1c7bef9a46222a3ab373b17ac14f4f39472756354e270df0315d6",
+      "product_sha256": "9d2277f7004277e1300c5c8cea01693e9db9a7022699a39740a131ac7c768a15",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": []
+      },
+      "fictional_output": {
+        "headline": "Cedar Club Player Alex Expresses Relief and Happiness",
+        "body": "Cedar Club player Alex said today, \"I feel relieved and happy now that the test results have arrived.\" The reporter did not describe how other players or supporters feel."
+      }
+    },
+    {
+      "model": "smollm2:1.7b",
+      "article_id": -3,
+      "status": "structurally_valid",
+      "packet_sha256": "5086ba4402cd57c79cd215cfb018802a0a6100711c0c6550a47c94b8b18c26b1",
+      "product_sha256": "760772399f08de777aea587c75ed65d5fbe738d7327e28211a6633e586f34561",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": []
+      },
+      "fictional_output": {
+        "headline": "Cedar Club Player Alex Denies Relief",
+        "body": "Cedar Club player Alex said today, \"I am not relieved. I do not feel happy about this.\" The reporter did not describe how other players or supporters feel."
+      }
+    },
+    {
+      "model": "smollm2:1.7b",
+      "article_id": -4,
+      "status": "structurally_valid",
+      "packet_sha256": "cd6c569de9d6402e6c75dbc4625b62a95862c9d9c3e6b10bc5b78aad9f5a7668",
+      "product_sha256": "b1f63c1a3b205e969bfc40d09831f3aa0cd221651d038aef4551fa414f503f09",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": [
+          "Opening merges worry with the match, though the exact quote retains worry about injury."
+        ]
+      },
+      "fictional_output": {
+        "headline": "Cedar Club Player Alex's Emotional State About Next Match",
+        "body": "Cedar Club player Alex expressed both hope and worry about the upcoming match, stating, \"I am hopeful about our next match, but I am worried about the injury. Both feelings are there.\" No other speaker expressed an emotion during the conversation."
+      }
+    },
+    {
+      "model": "smollm2:1.7b",
+      "article_id": -5,
+      "status": "structurally_valid",
+      "packet_sha256": "ae1aa632511f4ca786aabdda82d6058999ad7a9f2a02f95b6f17b04fc744fdcb",
+      "product_sha256": "032723d1a86f8c13dd707d7f88cb513f3a8e37c27715ed264c9ce92fcdfee948",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": [
+          "Historical timing retained in body; headline could state past scope explicitly."
+        ]
+      },
+      "fictional_output": {
+        "headline": "Cedar Club Player Alex's Hope for Next Season",
+        "body": "On March 2, Cedar Club player Alex said, \"I feel hopeful about next season.\" Today's report quotes that old interview. Alex did not give a new statement about current feelings."
+      }
+    },
+    {
+      "model": "smollm2:1.7b",
+      "article_id": -6,
+      "status": "abstained_no_qualified_claims",
+      "packet_sha256": "b1c5acf57d691ad4627a5e7338b49e752e1753a960d2c6d552684ca73fabb3c9",
+      "product_sha256": "7b22c22122b55c2a111afc19005a96f9a2ad8ba70305d78abfed6bb4af5aa58b",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": []
+      },
+      "fictional_output": {
+        "headline": null,
+        "body": null
+      }
+    },
+    {
+      "model": "smollm2:1.7b",
+      "article_id": -7,
+      "status": "structurally_valid",
+      "packet_sha256": "cb34ab99347a30db794bb0e1e808bff6a2b67058fd40376fd6ae80a7eb49dd92",
+      "product_sha256": "21b8bbcb9b508f1456c1c00d31b4e868cbb407f986642d09f17b98df086fc00a",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": []
+      },
+      "fictional_output": {
+        "headline": "Robin's Sarcastic Comment on Cedar Club's Defeat",
+        "body": "After Cedar Club lost again, supporter Robin wrote sarcastically, \"Fantastic, another defeat. Just what we needed.\" The report attributes the comment to Robin alone."
+      }
+    },
+    {
+      "model": "smollm2:1.7b",
+      "article_id": -9,
+      "status": "structurally_valid",
+      "packet_sha256": "0d95a0757fbb6789fc4e1850c1b16c23bc257acebbe047dc809ffc64574e00fe",
+      "product_sha256": "a5259378beefeb91ff62a55e13f2f200c15620d6ed79c123479e09e6c937bca8",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": [
+          "Queries headline does not express excitement; return destination added; unselected Maple emotional claim included."
+        ]
+      },
+      "fictional_output": {
+        "headline": "Cedar Club Player's Queries About Returning",
+        "body": "Cedar Club player Alex expressed excitement about returning to the club, while Maple Club player Robin expressed fear of another setback. The reporter did not claim that Alex was afraid or Robin was excited."
+      }
+    },
+    {
+      "model": "smollm2:1.7b",
+      "article_id": -10,
+      "status": "abstained_no_qualified_claims",
+      "packet_sha256": "23f1a9458979291954cd3661b264373d13bfd34ac895f79853dd51f6500705cb",
+      "product_sha256": "7b22c22122b55c2a111afc19005a96f9a2ad8ba70305d78abfed6bb4af5aa58b",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": []
+      },
+      "fictional_output": {
+        "headline": null,
+        "body": null
+      }
+    },
+    {
+      "model": "smollm2:1.7b",
+      "article_id": -11,
+      "status": "abstained_no_qualified_claims",
+      "packet_sha256": "7c398c21b706af03fe108662356b8ab1b60e3040194c53cd9a1719638d13629d",
+      "product_sha256": "7b22c22122b55c2a111afc19005a96f9a2ad8ba70305d78abfed6bb4af5aa58b",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": []
+      },
+      "fictional_output": {
+        "headline": null,
+        "body": null
+      }
+    },
+    {
+      "model": "smollm2:1.7b",
+      "article_id": -12,
+      "status": "structurally_valid",
+      "packet_sha256": "1d1e43288d91dc7ee6f19ca90ea27b656b5e54c4f5a5e042802b05ba5d703953",
+      "product_sha256": "f0777b89b6761a30a48b20ea5319c7bbbed8a4028a2c1ac4d6742f5665ff3f81",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": []
+      },
+      "fictional_output": {
+        "headline": "Cedar Club Player Alex's Injury Worries",
+        "body": "The first report said Cedar Club player Alex was relieved. That claim was corrected: Alex said today, \"I am still worried about my injury.\" The corrected report withdraws the claim of relief."
+      }
+    },
+    {
+      "model": "smollm2:1.7b",
+      "article_id": -13,
+      "status": "structurally_valid",
+      "packet_sha256": "e49f2afe00cb8d0a916c8ece50f16167718cb1d28e68283c44e56be27feb5dc6",
+      "product_sha256": "08ded4b64fe6e5b9ab6e3df14b7b7e3aab1dc7f886daf9ce60b8a9ed26db0432",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": []
+      },
+      "fictional_output": {
+        "headline": "Cedar Club Player Alex Feels Hopeful About Match Next Month",
+        "body": "Cedar Club player Alex said today, \"I feel hopeful now about our match next month.\" No other person's feeling was reported."
+      }
+    },
+    {
+      "model": "qwen3:1.7b",
+      "article_id": 818198,
+      "status": "abstained_no_qualified_claims",
+      "packet_sha256": "358fe18c1d633cd48a9e0840730be4ef23e917257fdee30909d3fb02eb4612f8",
+      "product_sha256": "7b22c22122b55c2a111afc19005a96f9a2ad8ba70305d78abfed6bb4af5aa58b",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": []
+      }
+    },
+    {
+      "model": "qwen3:1.7b",
+      "article_id": 829891,
+      "status": "structurally_valid",
+      "packet_sha256": "b5a29c08d85f32297540f4b2cb15d5d576fea44aa8f27201964a4982292e214e",
+      "product_sha256": "4697e24c12f9ddf1bf96dc783582984586d067d048ef3475339470792b484531",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": []
+      }
+    },
+    {
+      "model": "qwen3:1.7b",
+      "article_id": -1,
+      "status": "abstained_no_qualified_claims",
+      "packet_sha256": "e93975e615f6380312646059f6ee647775afd4666beed1d9a6c998d499806874",
+      "product_sha256": "7b22c22122b55c2a111afc19005a96f9a2ad8ba70305d78abfed6bb4af5aa58b",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": []
+      },
+      "fictional_output": {
+        "headline": null,
+        "body": null
+      }
+    },
+    {
+      "model": "qwen3:1.7b",
+      "article_id": -2,
+      "status": "structurally_valid",
+      "packet_sha256": "b29ed80ad8a1c7bef9a46222a3ab373b17ac14f4f39472756354e270df0315d6",
+      "product_sha256": "766c631e41ef8ba8d3aec13f013414869d2810744d5210b6fc7954169925b7eb",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": [
+          "Sense of accomplishment added to relief/happiness; test outcome or accomplishment not established."
+        ]
+      },
+      "fictional_output": {
+        "headline": "Cedar Club Player Alex's Relief",
+        "body": "Cedar Club player Alex expressed relief and happiness after receiving test results, but the reporter did not mention how other players or supporters felt. The statement reflects Alex's current emotional state, highlighting a personal sense of accomplishment and satisfaction."
+      }
+    },
+    {
+      "model": "qwen3:1.7b",
+      "article_id": -3,
+      "status": "structurally_valid",
+      "packet_sha256": "5086ba4402cd57c79cd215cfb018802a0a6100711c0c6550a47c94b8b18c26b1",
+      "product_sha256": "862588f9dbaee66f1f138f571ed0eb574e7c4af97aac513e5ceb0b0a0a656858",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": [
+          "Disappointment in headline is stronger than the emotional denial establishes."
+        ]
+      },
+      "fictional_output": {
+        "headline": "Cedar Club Player Alex Expresses Disappointment",
+        "body": "Cedar Club player Alex expressed their feelings today, stating, \"I am not relieved. I do not feel happy about this.\" The reporter did not describe how other players or supporters feel."
+      }
+    },
+    {
+      "model": "qwen3:1.7b",
+      "article_id": -4,
+      "status": "structurally_valid",
+      "packet_sha256": "cd6c569de9d6402e6c75dbc4625b62a95862c9d9c3e6b10bc5b78aad9f5a7668",
+      "product_sha256": "0d807b2abc917db3a3945fe43ebde2f2fc9eb8462f6904308475df4fc7708610",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": [
+          "Worry assigned to next match; injury object omitted."
+        ]
+      },
+      "fictional_output": {
+        "headline": "Cedar Club Player Alex's Mixed Emotions",
+        "body": "Cedar Club player Alex expressed both hope and worry about their next match, highlighting the emotional complexity of the situation. The statement reflects their personal feelings without any additional context or qualifications."
+      }
+    },
+    {
+      "model": "qwen3:1.7b",
+      "article_id": -5,
+      "status": "structurally_valid",
+      "packet_sha256": "ae1aa632511f4ca786aabdda82d6058999ad7a9f2a02f95b6f17b04fc744fdcb",
+      "product_sha256": "c8863a74b683f90fc467b1f966851a435a23b45501bfe6ee5625c9d1a925d8ec",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": []
+      },
+      "fictional_output": {
+        "headline": "Cedar Club Player Alex's Hopeful Statement",
+        "body": "Cedar Club player Alex expressed hope for next season in an interview from March 2. The statement is cited in today's report, but Alex did not provide a new sentiment about current feelings."
+      }
+    },
+    {
+      "model": "qwen3:1.7b",
+      "article_id": -6,
+      "status": "abstained_no_qualified_claims",
+      "packet_sha256": "b1c5acf57d691ad4627a5e7338b49e752e1753a960d2c6d552684ca73fabb3c9",
+      "product_sha256": "7b22c22122b55c2a111afc19005a96f9a2ad8ba70305d78abfed6bb4af5aa58b",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": []
+      },
+      "fictional_output": {
+        "headline": null,
+        "body": null
+      }
+    },
+    {
+      "model": "qwen3:1.7b",
+      "article_id": -7,
+      "status": "structurally_valid",
+      "packet_sha256": "cb34ab99347a30db794bb0e1e808bff6a2b67058fd40376fd6ae80a7eb49dd92",
+      "product_sha256": "711487000f47a76efbb65c935c24812bb3043122d3a31c8c40cfc150f208a701",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": []
+      },
+      "fictional_output": {
+        "headline": "Robin's Sarcasm",
+        "body": "After Cedar Club lost again, supporter Robin wrote sarcastically, \"Fantastic, another defeat. Just what we needed.\" The report attributes the comment to Robin alone."
+      }
+    },
+    {
+      "model": "qwen3:1.7b",
+      "article_id": -9,
+      "status": "structurally_valid",
+      "packet_sha256": "0d95a0757fbb6789fc4e1850c1b16c23bc257acebbe047dc809ffc64574e00fe",
+      "product_sha256": "397b3f1a0f667ad71b86cbb5816ac0ea0905f69745d1abec2efceb645ffede02",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": []
+      },
+      "fictional_output": {
+        "headline": "Cedar Club Player Alex's Excitement",
+        "body": "Cedar Club player Alex expressed excitement about returning, as stated in the source. The statement is direct and unqualified, reflecting Alex's positive sentiment toward the opportunity. The reporter did not make any claim that Alex was afraid or Robin was excited, preserving the exact meaning of the statement."
+      }
+    },
+    {
+      "model": "qwen3:1.7b",
+      "article_id": -10,
+      "status": "abstained_no_qualified_claims",
+      "packet_sha256": "23f1a9458979291954cd3661b264373d13bfd34ac895f79853dd51f6500705cb",
+      "product_sha256": "7b22c22122b55c2a111afc19005a96f9a2ad8ba70305d78abfed6bb4af5aa58b",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": []
+      },
+      "fictional_output": {
+        "headline": null,
+        "body": null
+      }
+    },
+    {
+      "model": "qwen3:1.7b",
+      "article_id": -11,
+      "status": "abstained_no_qualified_claims",
+      "packet_sha256": "7c398c21b706af03fe108662356b8ab1b60e3040194c53cd9a1719638d13629d",
+      "product_sha256": "7b22c22122b55c2a111afc19005a96f9a2ad8ba70305d78abfed6bb4af5aa58b",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": []
+      },
+      "fictional_output": {
+        "headline": null,
+        "body": null
+      }
+    },
+    {
+      "model": "qwen3:1.7b",
+      "article_id": -12,
+      "status": "structurally_valid",
+      "packet_sha256": "1d1e43288d91dc7ee6f19ca90ea27b656b5e54c4f5a5e042802b05ba5d703953",
+      "product_sha256": "15babdc0c8ac3c1cd3555b4ee50a4733217e0538ae41bc78bcde1a90d0583f4c",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": [
+          "Initial reporter claim becomes Alex expressing relief today; wrong speaker/time despite later withdrawal."
+        ]
+      },
+      "fictional_output": {
+        "headline": "Cedar Club Player Alex's Relief Claim",
+        "body": "Cedar Club player Alex expressed relief today, but the claim was later corrected. Alex stated, \"I am still worried about my injury.\" The corrected report withdraws the claim of relief."
+      }
+    },
+    {
+      "model": "qwen3:1.7b",
+      "article_id": -13,
+      "status": "structurally_valid",
+      "packet_sha256": "e49f2afe00cb8d0a916c8ece50f16167718cb1d28e68283c44e56be27feb5dc6",
+      "product_sha256": "8513cb472fbf2eddc84891232f78e8b59ca0f9e9c0d54cd3872fad47f41bba36",
+      "semantic_review": {
+        "status": "ai_provisional",
+        "reviewer": "codex-source-inspection",
+        "concerns": []
+      },
+      "fictional_output": {
+        "headline": "Cedar Club Player Alex's Hopeful Outlook",
+        "body": "Cedar Club player Alex expressed hope for their upcoming match, stating, 'I feel hopeful now about our match next month.' This sentiment reflects their current emotional state, as no other player's feelings were reported."
+      }
+    }
+  ],
+  "verification": {
+    "python_contract_checks_archbox": 5,
+    "local_python_skips_torch_check": true,
+    "rust_source_tests": 4,
+    "existing_review_packets_validated": 400,
+    "every_reported_prompt_plus_output_budget_below_4096": true,
+    "final_model_replies_valid": 27,
+    "final_native_abstentions": 15
+  },
+  "limitations": [
+    "Annotations and semantic inspection are provisional AI work, not gold or automatic qualification accuracy.",
+    "Benchmark is 12 authored controls plus two previously inspected retained sources, not held-out sports accuracy.",
+    "Native abstention is code selection using complete provisional reviews, not model-inferred classification accuracy.",
+    "Only selected emotion evidence is withheld from this expression task; source and full spectra remain retained for other characters.",
+    "Model precision, tokenizers and output lengths differ; latency does not establish a fair size/speed ranking.",
+    "Supporting paragraph context needs a native token-budget check before production integration."
+  ],
+  "operations": {
+    "cognition_worker_restored": true,
+    "api_laya_cognition_services": "active",
+    "production_model_routes_changed": false
+  }
+}

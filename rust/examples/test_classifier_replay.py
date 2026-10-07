@@ -102,6 +102,9 @@ class Coverage(unittest.TestCase):
         reply["message"]["content"] = '{"headline":"Invented","body":null}'
         with self.assertRaisesRegex(ValueError, "inconsistent abstention"):
             decode_reply(reply)
+        reply.update(done_reason="length", message={"content": '{"headline":'})
+        with self.assertRaisesRegex(ValueError, "incomplete generation"):
+            decode_reply(reply)
 
     def test_unknown_training_labels_have_no_gradient(self):
         try:
@@ -118,6 +121,53 @@ class Coverage(unittest.TestCase):
         self.assertGreater(logits.grad[0, 2].item(), 0)
         with self.assertRaisesRegex(ValueError, "no known labels"):
             masked_loss(torch, logits, [[None, None, None]])
+
+    def test_qualified_claims_keep_target_time_denial_and_source_bindings(self):
+        from copy import deepcopy
+        from classifier_articulation import qualified_world, expression_world
+        from classifier_replay import digest
+        schema = json.loads(SCHEMA_PATH.read_text())
+        controls = {item["article_id"]: item for item in map(json.loads, SCHEMA_PATH.with_name("controls.jsonl").read_text().splitlines())}
+        records = list(map(json.loads, SCHEMA_PATH.with_name("qualified-claims-controls.jsonl").read_text().splitlines()))
+        packets = {}
+        for record in records:
+            item = controls[record["article_id"]]
+            measurement = {"article_id": item["article_id"], "status": "measured", "body_sha256": digest(item["body"]),
+                           "coverage": {"truncated": False}, "provenance": {"model": "check", "revision": "check-v1"},
+                           "windows": [{"start": 0, "end": len(item["body"].encode()), "text": item["body"],
+                                        "scores": {"emotion": dict.fromkeys(schema["vectors"]["emotion"]["labels"], 0.1)}}]}
+            packets[item["article_id"]] = qualified_world(item, measurement, record)
+            self.assertNotIn("publisher_text", packets[item["article_id"]]["FRESH EVIDENCE"][0])
+            reader = expression_world(packets[item["article_id"]])
+            self.assertNotIn("CLASSIFIER MEASUREMENTS", reader)
+            self.assertNotIn("CLAIM REVIEW", reader)
+            for claim in reader["QUALIFIED CLAIMS"]:
+                self.assertIn(claim["publisher_text"], item["body"])
+                self.assertNotIn("candidate_dimensions", claim)
+            if item["article_id"] == -3:
+                changed = deepcopy(record)
+                changed["claims"][0]["qualifiers"]["negation"][0]["quote"] = "I am relieved."
+                with self.assertRaisesRegex(ValueError, "exact model-visible"):
+                    qualified_world(item, measurement, changed)
+                changed = deepcopy(record)
+                changed["claims"][0]["qualifiers"]["reported_event_time"] = None
+                with self.assertRaisesRegex(ValueError, "known claim time"):
+                    qualified_world(item, measurement, changed)
+                changed = deepcopy(record)
+                changed["claims"][0]["target_relation"] = "unknown"
+                with self.assertRaisesRegex(ValueError, "needs review"):
+                    qualified_world(item, measurement, changed)
+        for key in (-1, -6, -10, -11):
+            self.assertEqual(packets[key]["QUALIFIED CLAIMS"], [])
+        self.assertEqual(len(packets[-9]["QUALIFIED CLAIMS"]), 1)
+        self.assertEqual(set(packets[-9]["CLASSIFIER MEASUREMENTS"]["windows"][0]["emotion"]), {"excitement"})
+        self.assertEqual(packets[-5]["QUALIFIED CLAIMS"][0]["time_scope"], "historical")
+        self.assertEqual(packets[-13]["QUALIFIED CLAIMS"][0]["time_scope"], "current")
+        self.assertEqual(len(packets[-12]["QUALIFIED CLAIMS"]), 1)
+        self.assertNotIn("relief", packets[-12]["CLASSIFIER MEASUREMENTS"]["windows"][0]["emotion"])
+        self.assertEqual(packets[-12]["SOURCE CONTEXT"][0]["quote"], controls[-12]["body"])
+        self.assertIn("The first report said", expression_world(packets[-12])["SOURCE CONTEXT"][0])
+        self.assertNotIn("counterparty", expression_world(packets[-12])["QUALIFIED CLAIMS"][0])
 
 
 if __name__ == "__main__":

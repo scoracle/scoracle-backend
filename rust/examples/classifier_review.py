@@ -31,6 +31,64 @@ def validate_review_state(status, reviewer, adjudicator, completed, split):
         raise ValueError("train/evaluation split needs adjudicated review")
 
 
+def source_span(body, span):
+    if not isinstance(span, dict) or set(span) != {"start", "end", "quote"}:
+        raise ValueError("source span requires only byte bounds and its literal quote")
+    start, end = span["start"], span["end"]
+    if (type(start) is not int or type(end) is not int or not 0 <= start < end <= len(body)
+            or body[start:end].decode() != span["quote"]):
+        raise ValueError("not an exact model-visible source span")
+    return {key: span[key] for key in ("start", "end", "quote")}
+
+
+def validate_claims(record, item, schema):
+    """Bind reviewed relationships to literal source spans; does not prove their meaning."""
+    if (record["contract"] != "classifier-qualified-claims-v1"
+            or record["article_id"] != item["article_id"] or record["body_sha256"] != digest(item["body"])
+            or record["target"] not in item["query_entities"] or record["complete_source_review"] is not True
+            or record["extraction_usable"] is not True):
+        raise ValueError("complete source-bound claim review with usable extraction required")
+    validate_review_state(record["review_status"], record["reviewer"], record["adjudicator"], 1, "unassigned")
+    body, seen = item["body"].encode(), set()
+    for claim in record["claims"]:
+        if set(claim) != {"evidence", "target_relation", "target_evidence", "kind", "time_scope",
+                          "qualifiers", "candidate_dimensions"}:
+            raise ValueError("claim fields must follow the declared source-bound contract")
+        evidence = source_span(body, claim["evidence"])
+        key = (evidence["start"], evidence["end"])
+        if key in seen:
+            raise ValueError("duplicate claim span; keep its qualifications together")
+        seen.add(key)
+        if (claim["target_relation"] not in ("direct_subject", "other_subject", "unknown")
+                or claim["kind"] not in ("emotion", "emotion_denial", "conditional_emotion",
+                                         "report_denial", "withdrawn", "information")
+                or claim["time_scope"] not in ("current", "historical", "future", "unknown")
+                or set(claim["qualifiers"]) != set(schema["qualifiers"])
+                or len(set(claim["candidate_dimensions"])) != len(claim["candidate_dimensions"])
+                or not set(claim["candidate_dimensions"]) <= set(schema["vectors"]["emotion"]["labels"])):
+            raise ValueError("invalid claim relation, kind, time or dimension schema")
+        for spans in [claim["target_evidence"], *claim["qualifiers"].values()]:
+            if spans is not None:
+                if not isinstance(spans, list) or not spans:
+                    raise ValueError("qualification is unknown or has exact source spans")
+                for span in spans:
+                    source_span(body, span)
+        if claim["target_relation"] == "direct_subject" and not claim["target_evidence"]:
+            raise ValueError("target relationship requires source evidence, not query identity")
+        if claim["kind"] in ("emotion", "emotion_denial") and (
+                not claim["qualifiers"]["speaker"] or not claim["qualifiers"]["subject"]):
+            raise ValueError("emotional claim requires a source-bound speaker and subject")
+        if claim["kind"] in ("emotion_denial", "report_denial") and not claim["qualifiers"]["negation"]:
+            raise ValueError("denial requires its exact negation evidence")
+        if claim["kind"] == "conditional_emotion" and not claim["qualifiers"]["uncertainty"]:
+            raise ValueError("conditional feeling requires qualification evidence")
+        if claim["kind"] == "withdrawn" and not claim["qualifiers"]["source_disagreement"]:
+            raise ValueError("withdrawn claim requires correction evidence")
+        if claim["time_scope"] != "unknown" and not claim["qualifiers"]["reported_event_time"]:
+            raise ValueError("known claim time requires source evidence, not publication time")
+    return record
+
+
 def prepare(item, schema, previously_measured=()):
     windows = source_windows(item["body"], item["windows"])
     units = []
@@ -112,9 +170,9 @@ def validate(record, item, schema, previously_measured=()):
         for evidence in unit["evidence"]:
             start, end = evidence["start"], evidence["end"]
             if (type(start) is not int or type(end) is not int
-                    or not unit["start"] <= start < end <= unit["end"]
-                    or body[start:end].decode() != evidence["quote"]):
+                    or not unit["start"] <= start < end <= unit["end"]):
                 raise ValueError("evidence is not an exact model-visible source span")
+            source_span(body, {key: evidence[key] for key in ("start", "end", "quote")})
             if (unit["labels"].get(evidence["label"]) != 1
                     and unit["ordinal_annotations"].get(evidence["label"]) is None):
                 raise ValueError("evidence must support a reviewed positive label")

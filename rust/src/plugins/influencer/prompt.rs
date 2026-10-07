@@ -2,8 +2,8 @@
 use super::memories;
 use crate::harness::model::GenerateOptions;
 use crate::harness::route::RouteKey;
-use crate::plugins::harvester::delivery::SourceContext;
 use crate::tools::meta::EntityMeta;
+use crate::tools::source::SourceContext;
 use crate::util::hash_components;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};

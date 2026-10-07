@@ -6,11 +6,10 @@ pub const ARTICLE_NUM_CTX: i32 = 32768;
 pub const CONTEXT_BUDGET_BYTES: usize = 24000;
 use crate::harness::model::GenerateOptions;
 use crate::harness::queue::work::Item;
-use crate::plugins::harvester::delivery::{
-    load_for_character, load_for_insider_subject, SourceContext,
-};
+use crate::plugins::harvester::delivery::{load_for_character, load_for_insider_subject};
 use crate::tools::memories::{self as study, HistoryItem, ReportingHistory, SourceRecord};
 use crate::tools::meta::EntityMeta;
+use crate::tools::source::SourceContext;
 use anyhow::Result;
 use serde::Serialize;
 use sqlx::{PgPool, Row};

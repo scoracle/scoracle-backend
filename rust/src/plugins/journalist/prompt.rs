@@ -6,9 +6,9 @@ pub const ARTICLE_NUM_CTX: i32 = 32768;
 use super::memories;
 use super::memories::Continuity;
 use crate::harness::model::GenerateOptions;
-use crate::plugins::harvester::delivery::SourceContext;
 use crate::tools::meta::EntityMeta;
 use crate::tools::source::Reporting;
+use crate::tools::source::SourceContext;
 use anyhow::{ensure, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -311,7 +311,7 @@ pub(super) fn fresh_reports(reports: &[CorpusItem]) -> Vec<Report<'_>> {
 
 pub struct NarrativesMaterial {
     pub assignment: Assignment,
-    pub sources: Vec<crate::plugins::harvester::delivery::SourceContext>,
+    pub sources: Vec<crate::tools::source::SourceContext>,
 }
 
 /// One source-only path for every trigger, including old queue revisions. A

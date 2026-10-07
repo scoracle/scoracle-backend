@@ -8,6 +8,8 @@ Plugins select the evidence, scope, relationships and instructions needed for th
 
 **This README maps the current implementation under the governing wiki contract.** The completed [harness cleanup plan](docs/PLAN-harness-plugin-cleanup-2026-10-05.md) records the implementation and validation of this contract. The completed [plugin alignment plan](docs/PLAN-plugin-alignment-2026-09-27.md) and dated evaluations remain historical evidence. The [deployment record](docs/harness-cleanup-deployment-2026-10-05.md) records the Archbox release and paused Mac worker; context expansion remains separate.
 
+The [Classifier launch](docs/scoracle_classifier_plugin_launch.md) replaces Harvester/Editor intake with an independent measurement plugin. Its source-bound encoder and expression replays are offline today; production registration and delivery cutover remain pending. Shared source windows and the character-facing `SourceContext` live in `tools::source`, outside either intake plugin.
+
 ## Ownership
 
 - **Plugins / Rust:** tool calls, evidence selection, scope, context assembly, task and tone instructions, model invocation, validation and publication policy.

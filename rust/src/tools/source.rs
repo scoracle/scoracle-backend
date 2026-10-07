@@ -5,6 +5,17 @@ use anyhow::{ensure, Result};
 use serde::Serialize;
 use std::borrow::Cow;
 
+/// Retained publisher context consumed by character plugins, independent of intake ownership.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct SourceContext {
+    pub classification_id: i64,
+    pub article_id: i64,
+    pub headline: String,
+    pub context: String,
+    pub source: String,
+    pub published_at_epoch: Option<i64>,
+}
+
 #[derive(Serialize)]
 pub struct Reporting<'a> {
     publisher: &'a str,

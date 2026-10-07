@@ -195,7 +195,7 @@ pub(super) async fn commit_claimed(
     trigger_type: &str,
     trigger_payload: &serde_json::Value,
     prepared: &Prepared<'_>,
-    harvester_sources: &[crate::plugins::harvester::delivery::SourceContext],
+    harvester_sources: &[crate::tools::source::SourceContext],
     dispositions: &[Disposition],
 ) -> Result<(PluginOutcome, Vec<i64>)> {
     let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {

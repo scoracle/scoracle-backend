@@ -7,8 +7,9 @@ use crate::harness::queue::publication::ClaimPublication;
 use crate::harness::queue::work::Item;
 use crate::harness::Generation;
 use crate::plugins::harvester::delivery::{
-    validate_for_publication, validate_insider_subject_for_publication, SourceContext,
+    validate_for_publication, validate_insider_subject_for_publication,
 };
+use crate::tools::source::SourceContext;
 use anyhow::{ensure, Context, Result};
 use sqlx::{PgConnection, PgPool, Row};
 use std::collections::BTreeMap;

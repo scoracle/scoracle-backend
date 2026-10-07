@@ -3,15 +3,7 @@ use anyhow::{ensure, Result};
 use sha2::{Digest, Sha256};
 use sqlx::{PgPool, Row};
 
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct SourceContext {
-    pub classification_id: i64,
-    pub article_id: i64,
-    pub headline: String,
-    pub context: String,
-    pub source: String,
-    pub published_at_epoch: Option<i64>,
-}
+use crate::tools::source::SourceContext;
 
 pub async fn load_for_character(
     pool: &PgPool,

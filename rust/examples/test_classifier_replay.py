@@ -77,6 +77,32 @@ class Coverage(unittest.TestCase):
         self.assertEqual(dataset["train"][0]["labels"][0], 1)
         self.assertIsNone(dataset["train"][0]["labels"][1])
 
+    def test_articulation_world_keeps_spectrum_separate_from_claims(self):
+        from classifier_articulation import world, decode_reply
+        from classifier_replay import digest
+        schema = json.loads(SCHEMA_PATH.read_text())
+        text = 'Cedar player Alex said, "I am not relieved."'
+        item = {"article_id": -99, "source": "synthetic check", "body": text,
+                "query_entities": [{"name": "Cedar Club"}]}
+        measurement = {"article_id": -99, "status": "measured", "body_sha256": digest(text),
+                       "coverage": {"truncated": False}, "provenance": {"model": "check", "revision": "check-v1"},
+                       "windows": [{"start": 0, "end": len(text.encode()), "text": text,
+                                    "scores": {"emotion": dict.fromkeys(schema["vectors"]["emotion"]["labels"], 0.1)}}]}
+        packet = world(item, measurement, True)
+        self.assertEqual(packet["FRESH EVIDENCE"][0]["publisher_text"], text)
+        self.assertFalse(packet["CLASSIFIER MEASUREMENTS"]["calibrated"])
+        self.assertEqual(len(packet["CLASSIFIER MEASUREMENTS"]["windows"][0]["emotion"]), 28)
+        self.assertIn("target relevance", packet["CLASSIFIER MEASUREMENTS"]["unknown"])
+        self.assertNotIn("CLASSIFIER MEASUREMENTS", world(item, measurement, False))
+        measurement["body_sha256"] = "changed"
+        with self.assertRaisesRegex(ValueError, "source-bound"):
+            world(item, measurement, True)
+        reply = {"done": True, "done_reason": "stop", "message": {"content": '{"headline":null,"body":null}'}}
+        self.assertIsNone(decode_reply(reply)["body"])
+        reply["message"]["content"] = '{"headline":"Invented","body":null}'
+        with self.assertRaisesRegex(ValueError, "inconsistent abstention"):
+            decode_reply(reply)
+
     def test_unknown_training_labels_have_no_gradient(self):
         try:
             import torch

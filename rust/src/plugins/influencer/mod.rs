@@ -11,11 +11,10 @@ use crate::harness::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
 use crate::harness::queue::publication::ClaimPublication;
 use crate::harness::queue::work::Item;
 use crate::harness::{Generation, GenerationCall};
-use crate::plugins::harvester::delivery::{
-    load_for_character, validate_for_publication, SourceContext,
-};
+use crate::plugins::harvester::delivery::{load_for_character, validate_for_publication};
 use crate::tools::meta::lookup_entity_name;
 use crate::tools::meta::EntityMeta;
+use crate::tools::source::SourceContext;
 use anyhow::{ensure, Result};
 use async_trait::async_trait;
 pub use parser::VibeParser;

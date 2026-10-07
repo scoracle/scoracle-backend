@@ -1,6 +1,7 @@
 //! Direct accepted-source collection and the existing DuckDB reporting study.
 use super::prompt::{Parts, Period, HISTORY_BUDGET_BYTES, SOURCE_BUDGET_BYTES};
-use crate::plugins::harvester::delivery::{load_accepted, SourceContext};
+use crate::plugins::harvester::delivery::load_accepted;
+use crate::tools::source::SourceContext;
 use crate::tools::{memories, meta::EntityMeta};
 use anyhow::{ensure, Result};
 use serde_json::json;

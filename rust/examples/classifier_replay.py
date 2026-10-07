@@ -21,7 +21,9 @@ def laya_questions():
     return {label: {"type": "noul", "instructions": (
         "The text contains no expressed emotion." if label == "neutral" else
         f"The text expresses {label}, including emotion attributed to a quoted speaker."),
-        "criteria": {"false": "Not expressed", "true": "Expressed"}} for label in LABELS}
+        "criteria": ({"false": "Emotion is expressed", "true": "No emotion is expressed"}
+                     if label == "neutral" else {"false": "Not expressed", "true": "Expressed"})}
+            for label in LABELS}
 
 
 def digest(value):
@@ -69,27 +71,32 @@ def measure(item, tokenizer, model, torch, args, metadata):
             "elapsed_ms": (time.perf_counter() - started) * 1000}
 
 
-def measure_laya(item, agent):
+def laya_input(agent, text, questions):
     from harvest_laya_server import complete_question_tokens
     from laya.common import build_sequence, render_options, serialize_state
+    if agent.tok.mask_token in text:
+        raise ValueError("Laya would replace a literal mask token in the source")
+    state_ids = agent.tok(serialize_state(text), add_special_tokens=False)["input_ids"]
+    for key, question in questions.items():
+        agent._check_question(key, question)
+        internal = agent._to_internal(question)
+        frame, _ = build_sequence(agent.tok, "", internal, max_len=agent.cfg["max_len"],
+                                  head_max_len=agent.cfg["head_max_len"], state_ids=[])
+        if frame != complete_question_tokens(agent.tok, internal, render_options(internal)):
+            raise ValueError("Laya would truncate a question")
+        if len(state_ids) + len(frame) > agent.cfg["max_len"]:
+            raise ValueError("Laya would truncate the source")
+    return state_ids
+
+
+def measure_laya(item, agent):
     started = time.perf_counter()
     windows = source_windows(item["body"], item["windows"])
     tokens = 0
     for window in windows:
         text = window["text"]
-        if agent.tok.mask_token in text:
-            raise ValueError("Laya would replace a literal mask token in the source")
-        state_ids = agent.tok(serialize_state(text), add_special_tokens=False)["input_ids"]
         questions = laya_questions()
-        for key, question in questions.items():
-            agent._check_question(key, question)
-            internal = agent._to_internal(question)
-            frame, _ = build_sequence(agent.tok, "", internal, max_len=agent.cfg["max_len"],
-                                      head_max_len=agent.cfg["head_max_len"], state_ids=[])
-            if frame != complete_question_tokens(agent.tok, internal, render_options(internal)):
-                raise ValueError("Laya would truncate a question")
-            if len(state_ids) + len(frame) > agent.cfg["max_len"]:
-                raise ValueError("Laya would truncate the source")
+        state_ids = laya_input(agent, text, questions)
         response = agent.predict(text, questions)
         values = {label: response["answers"][label]["noul"] for label in LABELS}
         if set(response["answers"]) != set(LABELS) or not all(

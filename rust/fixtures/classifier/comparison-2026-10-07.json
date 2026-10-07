@@ -1,0 +1,4467 @@
+{
+  "measured_date": "2026-10-07",
+  "human_reviewed": false,
+  "calibrated": false,
+  "sample": {
+    "canonical_articles": 40,
+    "publishers": 35,
+    "full_source_windows": 374,
+    "matched_real_excerpts": 20,
+    "synthetic_controls": 8
+  },
+  "notes": [
+    "Matched timing includes the original conflicting neutral question; that label is excluded from quality comparisons. Corrected neutral and choice probes are separate experiments.",
+    "Scores are raw and uncalibrated. Model score scales are not interchangeable.",
+    "Control expectations are designed diagnostics, not independent human gold labels.",
+    "Full-source means every non-whitespace byte of the retained extraction, not certified publisher-body extraction.",
+    "No daily-corpus throughput or GPU performance estimate."
+  ],
+  "models": {
+    "laya": {
+      "model": "laya",
+      "device": "cpu",
+      "threads": 2,
+      "batch_size": 8,
+      "platform": "Linux-6.18.46-1-lts-x86_64-with-glibc2.44",
+      "runtime": {
+        "torch": "2.14.0",
+        "transformers": "5.17.0",
+        "huggingface_hub": "1.33.0",
+        "laya": "0.3.20"
+      },
+      "weights_sha256": "891102d372688fc2a094dac56a384bc537b87c63f21f9f3dac0be2b7cbc8d86c",
+      "revision": "55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851",
+      "labels": [
+        "admiration",
+        "amusement",
+        "anger",
+        "annoyance",
+        "approval",
+        "caring",
+        "confusion",
+        "curiosity",
+        "desire",
+        "disappointment",
+        "disapproval",
+        "disgust",
+        "embarrassment",
+        "excitement",
+        "fear",
+        "gratitude",
+        "grief",
+        "joy",
+        "love",
+        "nervousness",
+        "optimism",
+        "pride",
+        "realization",
+        "relief",
+        "remorse",
+        "sadness",
+        "surprise",
+        "neutral"
+      ],
+      "sdk_config": {
+        "encoder": "answerdotai/ModernBERT-large",
+        "head_layers": 2,
+        "max_len": 512,
+        "head_max_len": 192,
+        "max_prefixes": 6,
+        "act_costs": {
+          "escalate": 0.5
+        },
+        "cost_wrong_act": 3.0,
+        "amp_dtype": "bf16",
+        "model_name": "rl-agent",
+        "temperature": [
+          1.6369030475616455,
+          1.2514300346374512,
+          1.983399510383606
+        ],
+        "temperature_by_options": {
+          "choice:3-5": 1.7601518630981445,
+          "choice:6-10": 1.0000158548355103,
+          "score:3-5": 1.2514300346374512,
+          "noul:2": 1.983399510383606,
+          "choice:11+": 0.10058280825614929,
+          "choice:2": 1.9063563346862793
+        },
+        "training": {
+          "updates": 7313,
+          "epochs_completed": 1,
+          "hours": 1.96,
+          "world_size": 1,
+          "fine_tuned_from_checkpoint": true
+        }
+      },
+      "questions": {
+        "admiration": {
+          "type": "noul",
+          "instructions": "The text expresses admiration, including emotion attributed to a quoted speaker.",
+          "criteria": {
+            "false": "Not expressed",
+            "true": "Expressed"
+          }
+        },
+        "amusement": {
+          "type": "noul",
+          "instructions": "The text expresses amusement, including emotion attributed to a quoted speaker.",
+          "criteria": {
+            "false": "Not expressed",
+            "true": "Expressed"
+          }
+        },
+        "anger": {
+          "type": "noul",
+          "instructions": "The text expresses anger, including emotion attributed to a quoted speaker.",
+          "criteria": {
+            "false": "Not expressed",
+            "true": "Expressed"
+          }
+        },
+        "annoyance": {
+          "type": "noul",
+          "instructions": "The text expresses annoyance, including emotion attributed to a quoted speaker.",
+          "criteria": {
+            "false": "Not expressed",
+            "true": "Expressed"
+          }
+        },
+        "approval": {
+          "type": "noul",
+          "instructions": "The text expresses approval, including emotion attributed to a quoted speaker.",
+          "criteria": {
+            "false": "Not expressed",
+            "true": "Expressed"
+          }
+        },
+        "caring": {
+          "type": "noul",
+          "instructions": "The text expresses caring, including emotion attributed to a quoted speaker.",
+          "criteria": {
+            "false": "Not expressed",
+            "true": "Expressed"
+          }
+        },
+        "confusion": {
+          "type": "noul",
+          "instructions": "The text expresses confusion, including emotion attributed to a quoted speaker.",
+          "criteria": {
+            "false": "Not expressed",
+            "true": "Expressed"
+          }
+        },
+        "curiosity": {
+          "type": "noul",
+          "instructions": "The text expresses curiosity, including emotion attributed to a quoted speaker.",
+          "criteria": {
+            "false": "Not expressed",
+            "true": "Expressed"
+          }
+        },
+        "desire": {
+          "type": "noul",
+          "instructions": "The text expresses desire, including emotion attributed to a quoted speaker.",
+          "criteria": {
+            "false": "Not expressed",
+            "true": "Expressed"
+          }
+        },
+        "disappointment": {
+          "type": "noul",
+          "instructions": "The text expresses disappointment, including emotion attributed to a quoted speaker.",
+          "criteria": {
+            "false": "Not expressed",
+            "true": "Expressed"
+          }
+        },
+        "disapproval": {
+          "type": "noul",
+          "instructions": "The text expresses disapproval, including emotion attributed to a quoted speaker.",
+          "criteria": {
+            "false": "Not expressed",
+            "true": "Expressed"
+          }
+        },
+        "disgust": {
+          "type": "noul",
+          "instructions": "The text expresses disgust, including emotion attributed to a quoted speaker.",
+          "criteria": {
+            "false": "Not expressed",
+            "true": "Expressed"
+          }
+        },
+        "embarrassment": {
+          "type": "noul",
+          "instructions": "The text expresses embarrassment, including emotion attributed to a quoted speaker.",
+          "criteria": {
+            "false": "Not expressed",
+            "true": "Expressed"
+          }
+        },
+        "excitement": {
+          "type": "noul",
+          "instructions": "The text expresses excitement, including emotion attributed to a quoted speaker.",
+          "criteria": {
+            "false": "Not expressed",
+            "true": "Expressed"
+          }
+        },
+        "fear": {
+          "type": "noul",
+          "instructions": "The text expresses fear, including emotion attributed to a quoted speaker.",
+          "criteria": {
+            "false": "Not expressed",
+            "true": "Expressed"
+          }
+        },
+        "gratitude": {
+          "type": "noul",
+          "instructions": "The text expresses gratitude, including emotion attributed to a quoted speaker.",
+          "criteria": {
+            "false": "Not expressed",
+            "true": "Expressed"
+          }
+        },
+        "grief": {
+          "type": "noul",
+          "instructions": "The text expresses grief, including emotion attributed to a quoted speaker.",
+          "criteria": {
+            "false": "Not expressed",
+            "true": "Expressed"
+          }
+        },
+        "joy": {
+          "type": "noul",
+          "instructions": "The text expresses joy, including emotion attributed to a quoted speaker.",
+          "criteria": {
+            "false": "Not expressed",
+            "true": "Expressed"
+          }
+        },
+        "love": {
+          "type": "noul",
+          "instructions": "The text expresses love, including emotion attributed to a quoted speaker.",
+          "criteria": {
+            "false": "Not expressed",
+            "true": "Expressed"
+          }
+        },
+        "nervousness": {
+          "type": "noul",
+          "instructions": "The text expresses nervousness, including emotion attributed to a quoted speaker.",
+          "criteria": {
+            "false": "Not expressed",
+            "true": "Expressed"
+          }
+        },
+        "optimism": {
+          "type": "noul",
+          "instructions": "The text expresses optimism, including emotion attributed to a quoted speaker.",
+          "criteria": {
+            "false": "Not expressed",
+            "true": "Expressed"
+          }
+        },
+        "pride": {
+          "type": "noul",
+          "instructions": "The text expresses pride, including emotion attributed to a quoted speaker.",
+          "criteria": {
+            "false": "Not expressed",
+            "true": "Expressed"
+          }
+        },
+        "realization": {
+          "type": "noul",
+          "instructions": "The text expresses realization, including emotion attributed to a quoted speaker.",
+          "criteria": {
+            "false": "Not expressed",
+            "true": "Expressed"
+          }
+        },
+        "relief": {
+          "type": "noul",
+          "instructions": "The text expresses relief, including emotion attributed to a quoted speaker.",
+          "criteria": {
+            "false": "Not expressed",
+            "true": "Expressed"
+          }
+        },
+        "remorse": {
+          "type": "noul",
+          "instructions": "The text expresses remorse, including emotion attributed to a quoted speaker.",
+          "criteria": {
+            "false": "Not expressed",
+            "true": "Expressed"
+          }
+        },
+        "sadness": {
+          "type": "noul",
+          "instructions": "The text expresses sadness, including emotion attributed to a quoted speaker.",
+          "criteria": {
+            "false": "Not expressed",
+            "true": "Expressed"
+          }
+        },
+        "surprise": {
+          "type": "noul",
+          "instructions": "The text expresses surprise, including emotion attributed to a quoted speaker.",
+          "criteria": {
+            "false": "Not expressed",
+            "true": "Expressed"
+          }
+        },
+        "neutral": {
+          "type": "noul",
+          "instructions": "The text contains no expressed emotion.",
+          "criteria": {
+            "false": "Not expressed",
+            "true": "Expressed"
+          }
+        }
+      },
+      "activation": "sdk-noul-scores",
+      "parameter_count": 421293827,
+      "dtype": "torch.float32",
+      "label_schema_sha256": "ce18323496a6b615563888f386a4026826981e4e1d2961222ebd4010792b9dca",
+      "calibrated": false,
+      "load_ms": 4270.798903889954
+    },
+    "Horizon-Labs/multilingual-emotions-small": {
+      "model": "Horizon-Labs/multilingual-emotions-small",
+      "device": "cpu",
+      "threads": 2,
+      "batch_size": 8,
+      "platform": "Linux-6.18.46-1-lts-x86_64-with-glibc2.44",
+      "runtime": {
+        "torch": "2.14.0",
+        "transformers": "5.17.0",
+        "huggingface_hub": "1.33.0"
+      },
+      "revision": "1bc9627f189e5aa08b00cf525c3c86052067b81e",
+      "labels": [
+        "admiration",
+        "amusement",
+        "anger",
+        "annoyance",
+        "approval",
+        "caring",
+        "confusion",
+        "curiosity",
+        "desire",
+        "disappointment",
+        "disapproval",
+        "disgust",
+        "embarrassment",
+        "excitement",
+        "fear",
+        "gratitude",
+        "grief",
+        "joy",
+        "love",
+        "nervousness",
+        "optimism",
+        "pride",
+        "realization",
+        "relief",
+        "remorse",
+        "sadness",
+        "surprise",
+        "neutral"
+      ],
+      "tokenizer_sha256": "d5d80735cc9dfbbc2a4f3cc7c99300182ffffecd02fe38ab8b528d26c6220800",
+      "parameter_count": 140652316,
+      "dtype": "torch.float32",
+      "activation": "sigmoid",
+      "label_schema_sha256": "ce18323496a6b615563888f386a4026826981e4e1d2961222ebd4010792b9dca",
+      "calibrated": false,
+      "load_ms": 3535.1711120456457
+    },
+    "Pradeep-mahato/ModernBERT-GoEmotions": {
+      "model": "Pradeep-mahato/ModernBERT-GoEmotions",
+      "device": "cpu",
+      "threads": 2,
+      "batch_size": 8,
+      "platform": "Linux-6.18.46-1-lts-x86_64-with-glibc2.44",
+      "runtime": {
+        "torch": "2.14.0",
+        "transformers": "5.17.0",
+        "huggingface_hub": "1.33.0"
+      },
+      "revision": "e7f0a1ccbe10ba1113f39cc6f38733b065cdfb74",
+      "labels": [
+        "admiration",
+        "amusement",
+        "anger",
+        "annoyance",
+        "approval",
+        "caring",
+        "confusion",
+        "curiosity",
+        "desire",
+        "disappointment",
+        "disapproval",
+        "disgust",
+        "embarrassment",
+        "excitement",
+        "fear",
+        "gratitude",
+        "grief",
+        "joy",
+        "love",
+        "nervousness",
+        "optimism",
+        "pride",
+        "realization",
+        "relief",
+        "remorse",
+        "sadness",
+        "surprise",
+        "neutral"
+      ],
+      "tokenizer_sha256": "6a2ebcf90746b775a4a991add9ff39eb9d3ec790b164741e296e7de3bf9ef83e",
+      "parameter_count": 149626396,
+      "dtype": "torch.float32",
+      "activation": "sigmoid",
+      "label_schema_sha256": "ce18323496a6b615563888f386a4026826981e4e1d2961222ebd4010792b9dca",
+      "calibrated": false,
+      "load_ms": 1120.6148732453585
+    },
+    "SamLowe/roberta-base-go_emotions": {
+      "model": "SamLowe/roberta-base-go_emotions",
+      "device": "cpu",
+      "threads": 2,
+      "batch_size": 8,
+      "platform": "Linux-6.18.46-1-lts-x86_64-with-glibc2.44",
+      "runtime": {
+        "torch": "2.14.0",
+        "transformers": "5.17.0",
+        "huggingface_hub": "1.33.0"
+      },
+      "revision": "d75048347613a25d77de8cf6412eaae9fa7b26be",
+      "labels": [
+        "admiration",
+        "amusement",
+        "anger",
+        "annoyance",
+        "approval",
+        "caring",
+        "confusion",
+        "curiosity",
+        "desire",
+        "disappointment",
+        "disapproval",
+        "disgust",
+        "embarrassment",
+        "excitement",
+        "fear",
+        "gratitude",
+        "grief",
+        "joy",
+        "love",
+        "nervousness",
+        "optimism",
+        "pride",
+        "realization",
+        "relief",
+        "remorse",
+        "sadness",
+        "surprise",
+        "neutral"
+      ],
+      "tokenizer_sha256": "3f7e8eed9fba7e6215dcdd6f04246c636b66377ba594c575625656a32a235757",
+      "parameter_count": 124667164,
+      "dtype": "torch.float32",
+      "activation": "sigmoid",
+      "label_schema_sha256": "ce18323496a6b615563888f386a4026826981e4e1d2961222ebd4010792b9dca",
+      "calibrated": false,
+      "load_ms": 630.1387483254075
+    }
+  },
+  "matched_real_excerpt_timings": {
+    "laya": {
+      "items": 20,
+      "total_s": 559.4641424929723,
+      "median_ms": 24827.44849496521,
+      "p95_nearest_rank_ms": 43165.76023912057,
+      "source_windows": 20
+    },
+    "Horizon-Labs/multilingual-emotions-small": {
+      "items": 20,
+      "total_s": 3.310426334384829,
+      "median_ms": 159.33040692470968,
+      "p95_nearest_rank_ms": 232.8422679565847,
+      "source_windows": 20
+    },
+    "Pradeep-mahato/ModernBERT-GoEmotions": {
+      "items": 20,
+      "total_s": 6.824697472620755,
+      "median_ms": 320.84639999084175,
+      "p95_nearest_rank_ms": 530.3475679829717,
+      "source_windows": 20
+    },
+    "SamLowe/roberta-base-go_emotions": {
+      "items": 20,
+      "total_s": 5.349424258805811,
+      "median_ms": 253.60481278039515,
+      "p95_nearest_rank_ms": 380.06635289639235,
+      "source_windows": 20
+    }
+  },
+  "full_source_real_timings": {
+    "Horizon-Labs/multilingual-emotions-small": {
+      "items": 40,
+      "total_s": 60.221017816103995,
+      "median_ms": 728.6137165501714,
+      "p95_nearest_rank_ms": 5688.535283785313,
+      "source_windows": 374
+    },
+    "Pradeep-mahato/ModernBERT-GoEmotions": {
+      "items": 40,
+      "total_s": 136.36711746407673,
+      "median_ms": 1704.5572998467833,
+      "p95_nearest_rank_ms": 11357.399438973516,
+      "source_windows": 374
+    },
+    "SamLowe/roberta-base-go_emotions": {
+      "items": 40,
+      "total_s": 97.82484811451286,
+      "median_ms": 1403.000077465549,
+      "p95_nearest_rank_ms": 7545.844119042158,
+      "source_windows": 374
+    }
+  },
+  "scoped_control_timings": {
+    "noul": {
+      "questions_per_item": 5,
+      "median_ms": 2829.705434385687
+    },
+    "choice": {
+      "questions_per_item": 5,
+      "median_ms": 3610.059345839545
+    }
+  },
+  "raw_run_directory": "Archbox:/mnt/data/backup/scoracle/classifier-launch/2026-10-07/",
+  "files_sha256": {
+    "corpus.jsonl": "e39c6364854fecccb5e2bdb360e4f6986629ebad83dc81042b3d8b1efd40eb96",
+    "windowed-inputs.jsonl": "122bcc5fe37a50dea2d65c95499339f2d15b40bfaa891f24ad94483d67bf1d1f",
+    "matched-inputs.jsonl": "0e2ece824fe6a90c7b0911bcd7c6303f2cd6ae5271bfb81bf5d2414dd3c2f30d",
+    "full-encoder-results.jsonl": "a4b34cd8e0395d1d072719005ceb46a2e21ab975e5fbb077fc544a932f292d02",
+    "matched-results.jsonl": "9794af29f6b9cb0203fa4145959340a1558220a7fcd569f05dcbb94db9b8d979",
+    "scoped-results.jsonl": "cd5adcaa73f0c44ea7b5f1e1e277ccc364f28c287a1941ae96532f8f1acdad15",
+    "choice-results.jsonl": "dd38e1b114f6da107cdea001076152167052089005cae28db78375094332201c",
+    "gpu-probe.json": "0e13d449f7a22cac8f6b52ae001ca32cfde293d6a1258c82791da241414ccc5d",
+    "classifier_replay.original.py": "6ea1df285e9c0647267d9650900c3b660738760fc3b3b8f1370c9d16e66d6392",
+    "laya_scoped_probe.py": "35505b25dfb29de7cdcc5c7690d907363983807ad49633dbcd8d7715ab4a6a5c",
+    "laya_choice_probe.py": "5009dca99ddc9019a5cfac399ee73fc055c84fdff8628de9b659cd6a3314f8ce",
+    "laya-spectrum-questions.json": "e2e6ff904d5b51d29bde74f3eabdec8e4da62296d827117f72736c31081651d5",
+    "laya-choice-questions.json": "505c4788a3d34f3274516315896b229c478dd616c78e9815ff610cfce6589578"
+  },
+  "controls": [
+    {
+      "article_id": -1,
+      "body_sha256": "352f302c9847e2b12fef4eed21ae03261d570c9e99d18c5d65077b8825fba199",
+      "emotion": {
+        "laya": {
+          "scores": {
+            "admiration": 0.0216,
+            "amusement": 0.0202,
+            "anger": 0.02,
+            "annoyance": 0.0566,
+            "approval": 0.2479,
+            "caring": 0.0618,
+            "confusion": 0.0425,
+            "curiosity": 0.0523,
+            "desire": 0.026,
+            "disappointment": 0.044,
+            "disapproval": 0.1101,
+            "disgust": 0.0223,
+            "embarrassment": 0.0394,
+            "excitement": 0.1157,
+            "fear": 0.0708,
+            "gratitude": 0.0312,
+            "grief": 0.0138,
+            "joy": 0.0295,
+            "love": 0.0216,
+            "nervousness": 0.0347,
+            "optimism": 0.0384,
+            "pride": 0.0141,
+            "realization": 0.0452,
+            "relief": 0.0375,
+            "remorse": 0.0015,
+            "sadness": 0.0134,
+            "surprise": 0.0148,
+            "neutral": 0.0815
+          },
+          "raw_logits": null
+        },
+        "Horizon-Labs/multilingual-emotions-small": {
+          "scores": {
+            "admiration": 0.00023985581356100738,
+            "amusement": 6.307174658104486e-07,
+            "anger": 2.0537161162792472e-06,
+            "annoyance": 0.0008015472558327019,
+            "approval": 0.01429473515599966,
+            "caring": 7.207438466139138e-05,
+            "confusion": 2.45856681431178e-05,
+            "curiosity": 9.916578164848033e-06,
+            "desire": 0.0001331920939264819,
+            "disappointment": 0.00020688945369329304,
+            "disapproval": 0.006556097883731127,
+            "disgust": 5.682142045770888e-07,
+            "embarrassment": 2.791499355225824e-06,
+            "excitement": 0.00048083183355629444,
+            "fear": 1.0704112440862446e-07,
+            "gratitude": 1.6099289496196434e-05,
+            "grief": 1.4236487686503096e-06,
+            "joy": 0.001207780442200601,
+            "love": 8.328684657499252e-07,
+            "nervousness": 3.305201516923262e-07,
+            "optimism": 0.006953617092221975,
+            "pride": 5.131952275405638e-05,
+            "realization": 0.001070897444151342,
+            "relief": 6.938513979548588e-05,
+            "remorse": 1.8118369098374387e-06,
+            "sadness": 1.3106387086736504e-07,
+            "surprise": 1.24730217976321e-06,
+            "neutral": 0.9922427535057068
+          },
+          "raw_logits": {
+            "admiration": -8.335232734680176,
+            "amusement": -14.276407241821289,
+            "anger": -13.095857620239258,
+            "annoyance": -7.128164768218994,
+            "approval": -4.233466148376465,
+            "caring": -9.537739753723145,
+            "confusion": -10.613322257995605,
+            "curiosity": -11.521292686462402,
+            "desire": -8.923584938049316,
+            "disappointment": -8.483119010925293,
+            "disapproval": -5.020781993865967,
+            "disgust": -14.380766868591309,
+            "embarrassment": -12.788928985595703,
+            "excitement": -7.639512062072754,
+            "fear": -16.050052642822266,
+            "gratitude": -11.03671932220459,
+            "grief": -13.462285995483398,
+            "joy": -6.717762470245361,
+            "love": -13.99838924407959,
+            "nervousness": -14.922597885131836,
+            "optimism": -4.961515426635742,
+            "pride": -9.877388000488281,
+            "realization": -6.838186740875244,
+            "relief": -9.57576847076416,
+            "remorse": -13.22116756439209,
+            "sadness": -15.847580909729004,
+            "surprise": -13.594526290893555,
+            "neutral": 4.851341247558594
+          }
+        },
+        "Pradeep-mahato/ModernBERT-GoEmotions": {
+          "scores": {
+            "admiration": 0.00013035559095442295,
+            "amusement": 0.00012109291856177151,
+            "anger": 0.0004410271067172289,
+            "annoyance": 0.0005185426562093198,
+            "approval": 0.2828141748905182,
+            "caring": 0.002284945687279105,
+            "confusion": 0.00015825744776520878,
+            "curiosity": 0.0009316004579886794,
+            "desire": 0.009441331960260868,
+            "disappointment": 0.0004497615445870906,
+            "disapproval": 0.002415021415799856,
+            "disgust": 0.0007189736352302134,
+            "embarrassment": 8.533982327207923e-05,
+            "excitement": 0.008007231168448925,
+            "fear": 0.00014196393021848053,
+            "gratitude": 0.00031265904544852674,
+            "grief": 0.00017381673387717456,
+            "joy": 0.0011617097770795226,
+            "love": 0.00012100969615858048,
+            "nervousness": 0.0002810591540765017,
+            "optimism": 0.007204288616776466,
+            "pride": 0.0014210788067430258,
+            "realization": 0.0027641933411359787,
+            "relief": 0.00202795653603971,
+            "remorse": 0.00021354806085582823,
+            "sadness": 9.042090823641047e-05,
+            "surprise": 1.9427219740464352e-05,
+            "neutral": 0.920156717300415
+          },
+          "raw_logits": {
+            "admiration": -8.945114135742188,
+            "amusement": -9.018831253051758,
+            "anger": -7.725963115692139,
+            "annoyance": -7.563969612121582,
+            "approval": -0.9305448532104492,
+            "caring": -6.07912540435791,
+            "confusion": -8.751129150390625,
+            "curiosity": -6.97767448425293,
+            "desire": -4.653172016143799,
+            "disappointment": -7.706343173980713,
+            "disapproval": -6.023629188537598,
+            "disgust": -7.236966609954834,
+            "embarrassment": -9.368783950805664,
+            "excitement": -4.819370746612549,
+            "fear": -8.859795570373535,
+            "gratitude": -8.070084571838379,
+            "grief": -8.65733528137207,
+            "joy": -6.756700038909912,
+            "love": -9.019518852233887,
+            "nervousness": -8.176664352416992,
+            "optimism": -4.925848484039307,
+            "pride": -6.554916858673096,
+            "realization": -5.888238430023193,
+            "relief": -6.198696613311768,
+            "remorse": -8.451435089111328,
+            "sadness": -9.310944557189941,
+            "surprise": -10.84881591796875,
+            "neutral": 2.4444782733917236
+          }
+        },
+        "SamLowe/roberta-base-go_emotions": {
+          "scores": {
+            "admiration": 0.002019207924604416,
+            "amusement": 0.000989127322100103,
+            "anger": 0.0006380575359798968,
+            "annoyance": 0.004517527297139168,
+            "approval": 0.0475953072309494,
+            "caring": 0.0008096039528027177,
+            "confusion": 0.0037161188665777445,
+            "curiosity": 0.001125258975662291,
+            "desire": 0.0010158456861972809,
+            "disappointment": 0.0034233429469168186,
+            "disapproval": 0.01135525107383728,
+            "disgust": 0.0006956870784051716,
+            "embarrassment": 0.00031366400071419775,
+            "excitement": 0.0010474439477548003,
+            "fear": 0.0005237212753854692,
+            "gratitude": 0.0008105162996798754,
+            "grief": 0.00019076514581684023,
+            "joy": 0.0010389185044914484,
+            "love": 0.000585714413318783,
+            "nervousness": 0.00023101914848666638,
+            "optimism": 0.0044924793764948845,
+            "pride": 0.00022713429643772542,
+            "realization": 0.017049888148903847,
+            "relief": 0.00042051164200529456,
+            "remorse": 0.00027229893021285534,
+            "sadness": 0.001014473382383585,
+            "surprise": 0.0005304867518134415,
+            "neutral": 0.9291502237319946
+          },
+          "raw_logits": {
+            "admiration": -6.203028678894043,
+            "amusement": -6.917697906494141,
+            "anger": -7.356443881988525,
+            "annoyance": -5.395262718200684,
+            "approval": -2.996255874633789,
+            "caring": -7.118155479431152,
+            "confusion": -5.591352462768555,
+            "curiosity": -6.788616180419922,
+            "desire": -6.891017436981201,
+            "disappointment": -5.673708438873291,
+            "disapproval": -4.4666547775268555,
+            "disgust": -7.269914627075195,
+            "embarrassment": -8.066874504089355,
+            "excitement": -6.860354423522949,
+            "fear": -7.554027080535889,
+            "gratitude": -7.11702823638916,
+            "grief": -8.564276695251465,
+            "joy": -6.86853551864624,
+            "love": -7.442092418670654,
+            "nervousness": -8.37277889251709,
+            "optimism": -5.400847911834717,
+            "pride": -8.389741897583008,
+            "realization": -4.054414749145508,
+            "relief": -7.773617744445801,
+            "remorse": -8.208337783813477,
+            "sadness": -6.892370700836182,
+            "surprise": -7.541184902191162,
+            "neutral": 2.573709011077881
+          }
+        }
+      },
+      "scoped_noul": {
+        "article_id": -1,
+        "body_sha256": "352f302c9847e2b12fef4eed21ae03261d570c9e99d18c5d65077b8825fba199",
+        "revision": "55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851",
+        "request": {
+          "state": "Cedar Club will train on Tuesday at 10 a.m. The gates open at 9:30. The announcement describes the schedule and makes no statement about anyone's feelings.",
+          "questions": {
+            "neutral": {
+              "type": "noul",
+              "instructions": "The text contains no expressed emotion.",
+              "criteria": {
+                "false": "Emotion is expressed",
+                "true": "No emotion is expressed"
+              }
+            },
+            "entity_relevance": {
+              "type": "noul",
+              "instructions": "The report directly concerns Cedar Club or a person explicitly identified as its player. A report solely about another club is not relevant.",
+              "criteria": {
+                "false": "Not established",
+                "true": "Directly reported"
+              }
+            },
+            "current_optimism": {
+              "type": "noul",
+              "instructions": "The report explicitly attributes current hope or optimism to Alex. An old interview quoted in a new report is not a current feeling.",
+              "criteria": {
+                "false": "Not established",
+                "true": "Explicitly expressed now"
+              }
+            },
+            "current_relief": {
+              "type": "noul",
+              "instructions": "The report explicitly says Alex currently feels relief. An explicit denial does not establish relief.",
+              "criteria": {
+                "false": "Not established",
+                "true": "Explicitly expressed now"
+              }
+            },
+            "emotional_intensity": {
+              "type": "score",
+              "instructions": "How intense is the emotion explicitly expressed in the report? Do not infer a whole fanbase mood.",
+              "criteria": [
+                "No expressed emotion",
+                "Subdued expressed emotion",
+                "Clear expressed emotion",
+                "Very intense expressed emotion"
+              ]
+            }
+          }
+        },
+        "response": {
+          "model": "laya-rl-agent",
+          "answers": {
+            "neutral": {
+              "type": "noul",
+              "noul": 0.2159,
+              "confidence": 0.7841,
+              "answer_confidence": 0.7841,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "entity_relevance": {
+              "type": "noul",
+              "noul": 0.0967,
+              "confidence": 0.9033,
+              "answer_confidence": 0.9033,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "current_optimism": {
+              "type": "noul",
+              "noul": 0.1137,
+              "confidence": 0.8863,
+              "answer_confidence": 0.8863,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "current_relief": {
+              "type": "noul",
+              "noul": 0.0484,
+              "confidence": 0.9516,
+              "answer_confidence": 0.9516,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "emotional_intensity": {
+              "type": "score",
+              "score": 0.5962,
+              "legend": {
+                "0": "No expressed emotion",
+                "1": "Subdued expressed emotion",
+                "2": "Clear expressed emotion",
+                "3": "Very intense expressed emotion"
+              },
+              "probabilities": {
+                "0": 0.5825,
+                "1": 0.256,
+                "2": 0.1442,
+                "3": 0.0173
+              },
+              "confidence": 0.2693,
+              "answer_confidence": 0.5825,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 391,
+            "output_tokens": 0
+          }
+        },
+        "coverage": {
+          "state_tokens": 35,
+          "truncated": false
+        },
+        "elapsed_ms": 2817.5205951556563
+      },
+      "scoped_choice": {
+        "article_id": -1,
+        "body_sha256": "352f302c9847e2b12fef4eed21ae03261d570c9e99d18c5d65077b8825fba199",
+        "revision": "55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851",
+        "request": {
+          "state": "Cedar Club will train on Tuesday at 10 a.m. The gates open at 9:30. The announcement describes the schedule and makes no statement about anyone's feelings.",
+          "questions": {
+            "entity_relevance": {
+              "type": "choice",
+              "instructions": "The report directly concerns Cedar Club or a person explicitly identified as its player. A report solely about another club is not relevant.",
+              "criteria": {
+                "A": "Directly reported",
+                "B": "Not established"
+              }
+            },
+            "current_optimism": {
+              "type": "choice",
+              "instructions": "The report explicitly attributes current hope or optimism to Alex. An old interview quoted in a new report is not a current feeling.",
+              "criteria": {
+                "A": "Explicitly expressed now",
+                "B": "Not established"
+              }
+            },
+            "current_relief": {
+              "type": "choice",
+              "instructions": "The report explicitly says Alex currently feels relief. An explicit denial does not establish relief.",
+              "criteria": {
+                "A": "Explicitly expressed now",
+                "B": "Not established"
+              }
+            },
+            "emotional_intensity": {
+              "type": "score",
+              "instructions": "How intense is the emotion explicitly expressed in the report? Do not infer a whole fanbase mood.",
+              "criteria": [
+                "No expressed emotion",
+                "Subdued expressed emotion",
+                "Clear expressed emotion",
+                "Very intense expressed emotion"
+              ]
+            },
+            "neutral": {
+              "type": "choice",
+              "instructions": "The text contains no expressed emotion.",
+              "criteria": {
+                "A": "No emotion is expressed",
+                "B": "Emotion is expressed"
+              }
+            }
+          }
+        },
+        "response": {
+          "model": "laya-rl-agent",
+          "answers": {
+            "entity_relevance": {
+              "type": "choice",
+              "choice": "A",
+              "probabilities": {
+                "A": 0.563,
+                "B": 0.437
+              },
+              "confidence": 0.0115,
+              "answer_confidence": 0.563,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "current_optimism": {
+              "type": "choice",
+              "choice": "B",
+              "probabilities": {
+                "A": 0.4598,
+                "B": 0.5402
+              },
+              "confidence": 0.0047,
+              "answer_confidence": 0.5402,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "current_relief": {
+              "type": "choice",
+              "choice": "B",
+              "probabilities": {
+                "A": 0.3574,
+                "B": 0.6426
+              },
+              "confidence": 0.0595,
+              "answer_confidence": 0.6426,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "emotional_intensity": {
+              "type": "score",
+              "score": 0.5962,
+              "legend": {
+                "0": "No expressed emotion",
+                "1": "Subdued expressed emotion",
+                "2": "Clear expressed emotion",
+                "3": "Very intense expressed emotion"
+              },
+              "probabilities": {
+                "0": 0.5825,
+                "1": 0.256,
+                "2": 0.1442,
+                "3": 0.0173
+              },
+              "confidence": 0.2693,
+              "answer_confidence": 0.5825,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "neutral": {
+              "type": "choice",
+              "choice": "A",
+              "probabilities": {
+                "A": 0.957,
+                "B": 0.043
+              },
+              "confidence": 0.7442,
+              "answer_confidence": 0.957,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 387,
+            "output_tokens": 0
+          }
+        },
+        "coverage": {
+          "state_tokens": 35,
+          "truncated": false
+        },
+        "elapsed_ms": 3624.022630043328
+      }
+    },
+    {
+      "article_id": -2,
+      "body_sha256": "f593b03df949c26386d9d3d60eb7640b4fc202bd42077253b3ed262bee939207",
+      "emotion": {
+        "laya": {
+          "scores": {
+            "admiration": 0.7742,
+            "amusement": 0.7159,
+            "anger": 0.6316,
+            "annoyance": 0.7139,
+            "approval": 0.5884,
+            "caring": 0.6974,
+            "confusion": 0.7307,
+            "curiosity": 0.1552,
+            "desire": 0.7131,
+            "disappointment": 0.4912,
+            "disapproval": 0.3833,
+            "disgust": 0.7148,
+            "embarrassment": 0.4185,
+            "excitement": 0.3277,
+            "fear": 0.6553,
+            "gratitude": 0.7039,
+            "grief": 0.5966,
+            "joy": 0.9449,
+            "love": 0.8322,
+            "nervousness": 0.5883,
+            "optimism": 0.4136,
+            "pride": 0.4649,
+            "realization": 0.7459,
+            "relief": 0.9098,
+            "remorse": 0.6962,
+            "sadness": 0.6116,
+            "surprise": 0.5802,
+            "neutral": 0.6968
+          },
+          "raw_logits": null
+        },
+        "Horizon-Labs/multilingual-emotions-small": {
+          "scores": {
+            "admiration": 0.0002391476882621646,
+            "amusement": 2.554081902417238e-06,
+            "anger": 1.151130845755688e-06,
+            "annoyance": 1.2223388694110326e-05,
+            "approval": 0.018974242731928825,
+            "caring": 0.00016688572941347957,
+            "confusion": 5.35397048224695e-05,
+            "curiosity": 4.9895588745130226e-05,
+            "desire": 6.070885319786612e-06,
+            "disappointment": 6.780146941309795e-05,
+            "disapproval": 0.0034538470208644867,
+            "disgust": 3.160416781611275e-06,
+            "embarrassment": 8.108578981591563e-07,
+            "excitement": 0.0002142198063666001,
+            "fear": 2.710353101065266e-06,
+            "gratitude": 0.002364865969866514,
+            "grief": 0.0007403306663036346,
+            "joy": 0.823311984539032,
+            "love": 2.0881769160041586e-05,
+            "nervousness": 1.0219864634564146e-06,
+            "optimism": 8.277461893158033e-05,
+            "pride": 0.00018094370898324996,
+            "realization": 0.0017077845986932516,
+            "relief": 0.00979319866746664,
+            "remorse": 4.2728603148134425e-05,
+            "sadness": 2.0712768673547544e-05,
+            "surprise": 1.4023717994859908e-05,
+            "neutral": 0.3509395718574524
+          },
+          "raw_logits": {
+            "admiration": -8.338190078735352,
+            "amusement": -12.877815246582031,
+            "anger": -13.674764633178711,
+            "annoyance": -11.31214714050293,
+            "approval": -3.945516347885132,
+            "caring": -8.698034286499023,
+            "confusion": -9.835033416748047,
+            "curiosity": -9.90552806854248,
+            "desire": -12.01200008392334,
+            "disappointment": -9.598858833312988,
+            "disapproval": -5.664806842803955,
+            "disgust": -12.664803504943848,
+            "embarrassment": -14.025172233581543,
+            "excitement": -8.448293685913086,
+            "fear": -12.818428993225098,
+            "gratitude": -6.044666290283203,
+            "grief": -7.207673072814941,
+            "joy": 1.5389498472213745,
+            "love": -10.776613235473633,
+            "nervousness": -13.793761253356934,
+            "optimism": -9.399306297302246,
+            "pride": -8.617143630981445,
+            "realization": -6.370849132537842,
+            "relief": -4.616225719451904,
+            "remorse": -10.060599327087402,
+            "sadness": -10.78473949432373,
+            "surprise": -11.1747465133667,
+            "neutral": -0.6149117350578308
+          }
+        },
+        "Pradeep-mahato/ModernBERT-GoEmotions": {
+          "scores": {
+            "admiration": 0.0015584825305268168,
+            "amusement": 0.00159299501683563,
+            "anger": 0.0002709375403355807,
+            "annoyance": 0.000557104533072561,
+            "approval": 0.025502733886241913,
+            "caring": 0.012250133790075779,
+            "confusion": 0.00044568677549250424,
+            "curiosity": 0.001229525892995298,
+            "desire": 0.00031687194132246077,
+            "disappointment": 0.003818830708041787,
+            "disapproval": 0.010148914530873299,
+            "disgust": 0.0003469694929663092,
+            "embarrassment": 0.00043216528138145804,
+            "excitement": 0.0020286610815674067,
+            "fear": 0.0003186957910656929,
+            "gratitude": 0.005742223933339119,
+            "grief": 0.0018350956961512566,
+            "joy": 0.3794142007827759,
+            "love": 0.00013778528955299407,
+            "nervousness": 0.0003590190317481756,
+            "optimism": 0.016940003260970116,
+            "pride": 0.001942525734193623,
+            "realization": 0.00927736610174179,
+            "relief": 0.12749846279621124,
+            "remorse": 0.0003131581179331988,
+            "sadness": 0.0012112539261579514,
+            "surprise": 0.0006312314071692526,
+            "neutral": 0.14373749494552612
+          },
+          "raw_logits": {
+            "admiration": -6.462482929229736,
+            "amusement": -6.440545082092285,
+            "anger": -8.213351249694824,
+            "annoyance": -7.4922003746032715,
+            "approval": -3.6431360244750977,
+            "caring": -4.389892578125,
+            "confusion": -7.715448379516602,
+            "curiosity": -6.699896335601807,
+            "desire": -8.056695938110352,
+            "disappointment": -5.5639848709106445,
+            "disapproval": -4.580187797546387,
+            "disgust": -7.965926647186279,
+            "embarrassment": -7.746270179748535,
+            "excitement": -6.198348522186279,
+            "fear": -8.050954818725586,
+            "gratitude": -5.154150009155273,
+            "grief": -6.298821926116943,
+            "joy": -0.4920353591442108,
+            "love": -8.889676094055176,
+            "nervousness": -7.93177604675293,
+            "optimism": -4.060992240905762,
+            "pride": -6.241821765899658,
+            "realization": -4.670856952667236,
+            "relief": -1.9232600927352905,
+            "remorse": -8.068489074707031,
+            "sadness": -6.7148871421813965,
+            "surprise": -7.367206573486328,
+            "neutral": -1.7845882177352905
+          }
+        },
+        "SamLowe/roberta-base-go_emotions": {
+          "scores": {
+            "admiration": 0.007399630267173052,
+            "amusement": 0.005091417580842972,
+            "anger": 0.001607017475180328,
+            "annoyance": 0.009322105906903744,
+            "approval": 0.11033087223768234,
+            "caring": 0.02721923589706421,
+            "confusion": 0.0035361063200980425,
+            "curiosity": 0.0008976737153716385,
+            "desire": 0.0019947609398514032,
+            "disappointment": 0.005193132907152176,
+            "disapproval": 0.018583834171295166,
+            "disgust": 0.0008563574519939721,
+            "embarrassment": 0.001409695716574788,
+            "excitement": 0.006538041401654482,
+            "fear": 0.001297453069128096,
+            "gratitude": 0.009763284586369991,
+            "grief": 0.001710065407678485,
+            "joy": 0.5404946208000183,
+            "love": 0.0015602264320477843,
+            "nervousness": 0.0037398324348032475,
+            "optimism": 0.008069739677011967,
+            "pride": 0.0067081511951982975,
+            "realization": 0.023591451346874237,
+            "relief": 0.09696795046329498,
+            "remorse": 0.0011916108196601272,
+            "sadness": 0.007228225469589233,
+            "surprise": 0.0009920718148350716,
+            "neutral": 0.30830344557762146
+          },
+          "raw_logits": {
+            "admiration": -4.898898124694824,
+            "amusement": -5.275094509124756,
+            "anger": -6.431766986846924,
+            "annoyance": -4.666000843048096,
+            "approval": -2.0873658657073975,
+            "caring": -3.576234817504883,
+            "confusion": -5.641186714172363,
+            "curiosity": -7.014805793762207,
+            "desire": -6.215234279632568,
+            "disappointment": -5.255211353302002,
+            "disapproval": -3.9667046070098877,
+            "disgust": -7.0619659423828125,
+            "embarrassment": -6.5629706382751465,
+            "excitement": -5.023558139801025,
+            "fear": -6.646053791046143,
+            "gratitude": -4.619315147399902,
+            "grief": -6.36951208114624,
+            "joy": 0.16233395040035248,
+            "love": -6.461362838745117,
+            "nervousness": -5.584967613220215,
+            "optimism": -4.8115315437316895,
+            "pride": -4.997701168060303,
+            "realization": -3.722996711730957,
+            "relief": -2.231377601623535,
+            "remorse": -6.73125696182251,
+            "sadness": -4.922507286071777,
+            "surprise": -6.914722442626953,
+            "neutral": -0.8080629110336304
+          }
+        }
+      },
+      "scoped_noul": {
+        "article_id": -2,
+        "body_sha256": "f593b03df949c26386d9d3d60eb7640b4fc202bd42077253b3ed262bee939207",
+        "revision": "55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851",
+        "request": {
+          "state": "Cedar Club player Alex said today, \"I feel relieved and happy now that the test results have arrived.\" The reporter did not describe how other players or supporters feel.",
+          "questions": {
+            "neutral": {
+              "type": "noul",
+              "instructions": "The text contains no expressed emotion.",
+              "criteria": {
+                "false": "Emotion is expressed",
+                "true": "No emotion is expressed"
+              }
+            },
+            "entity_relevance": {
+              "type": "noul",
+              "instructions": "The report directly concerns Cedar Club or a person explicitly identified as its player. A report solely about another club is not relevant.",
+              "criteria": {
+                "false": "Not established",
+                "true": "Directly reported"
+              }
+            },
+            "current_optimism": {
+              "type": "noul",
+              "instructions": "The report explicitly attributes current hope or optimism to Alex. An old interview quoted in a new report is not a current feeling.",
+              "criteria": {
+                "false": "Not established",
+                "true": "Explicitly expressed now"
+              }
+            },
+            "current_relief": {
+              "type": "noul",
+              "instructions": "The report explicitly says Alex currently feels relief. An explicit denial does not establish relief.",
+              "criteria": {
+                "false": "Not established",
+                "true": "Explicitly expressed now"
+              }
+            },
+            "emotional_intensity": {
+              "type": "score",
+              "instructions": "How intense is the emotion explicitly expressed in the report? Do not infer a whole fanbase mood.",
+              "criteria": [
+                "No expressed emotion",
+                "Subdued expressed emotion",
+                "Clear expressed emotion",
+                "Very intense expressed emotion"
+              ]
+            }
+          }
+        },
+        "response": {
+          "model": "laya-rl-agent",
+          "answers": {
+            "neutral": {
+              "type": "noul",
+              "noul": 0.7565,
+              "confidence": 0.7565,
+              "answer_confidence": 0.7565,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "entity_relevance": {
+              "type": "noul",
+              "noul": 0.535,
+              "confidence": 0.535,
+              "answer_confidence": 0.535,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "current_optimism": {
+              "type": "noul",
+              "noul": 0.1341,
+              "confidence": 0.8659,
+              "answer_confidence": 0.8659,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "current_relief": {
+              "type": "noul",
+              "noul": 0.8594,
+              "confidence": 0.8594,
+              "answer_confidence": 0.8594,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "emotional_intensity": {
+              "type": "score",
+              "score": 1.8563,
+              "legend": {
+                "0": "No expressed emotion",
+                "1": "Subdued expressed emotion",
+                "2": "Clear expressed emotion",
+                "3": "Very intense expressed emotion"
+              },
+              "probabilities": {
+                "0": 0.045,
+                "1": 0.1626,
+                "2": 0.6835,
+                "3": 0.1089
+              },
+              "confidence": 0.3246,
+              "answer_confidence": 0.6835,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 386,
+            "output_tokens": 0
+          }
+        },
+        "coverage": {
+          "state_tokens": 34,
+          "truncated": false
+        },
+        "elapsed_ms": 2796.5923971496522
+      },
+      "scoped_choice": {
+        "article_id": -2,
+        "body_sha256": "f593b03df949c26386d9d3d60eb7640b4fc202bd42077253b3ed262bee939207",
+        "revision": "55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851",
+        "request": {
+          "state": "Cedar Club player Alex said today, \"I feel relieved and happy now that the test results have arrived.\" The reporter did not describe how other players or supporters feel.",
+          "questions": {
+            "entity_relevance": {
+              "type": "choice",
+              "instructions": "The report directly concerns Cedar Club or a person explicitly identified as its player. A report solely about another club is not relevant.",
+              "criteria": {
+                "A": "Directly reported",
+                "B": "Not established"
+              }
+            },
+            "current_optimism": {
+              "type": "choice",
+              "instructions": "The report explicitly attributes current hope or optimism to Alex. An old interview quoted in a new report is not a current feeling.",
+              "criteria": {
+                "A": "Explicitly expressed now",
+                "B": "Not established"
+              }
+            },
+            "current_relief": {
+              "type": "choice",
+              "instructions": "The report explicitly says Alex currently feels relief. An explicit denial does not establish relief.",
+              "criteria": {
+                "A": "Explicitly expressed now",
+                "B": "Not established"
+              }
+            },
+            "emotional_intensity": {
+              "type": "score",
+              "instructions": "How intense is the emotion explicitly expressed in the report? Do not infer a whole fanbase mood.",
+              "criteria": [
+                "No expressed emotion",
+                "Subdued expressed emotion",
+                "Clear expressed emotion",
+                "Very intense expressed emotion"
+              ]
+            },
+            "neutral": {
+              "type": "choice",
+              "instructions": "The text contains no expressed emotion.",
+              "criteria": {
+                "A": "No emotion is expressed",
+                "B": "Emotion is expressed"
+              }
+            }
+          }
+        },
+        "response": {
+          "model": "laya-rl-agent",
+          "answers": {
+            "entity_relevance": {
+              "type": "choice",
+              "choice": "A",
+              "probabilities": {
+                "A": 0.7423,
+                "B": 0.2577
+              },
+              "confidence": 0.1768,
+              "answer_confidence": 0.7423,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "current_optimism": {
+              "type": "choice",
+              "choice": "A",
+              "probabilities": {
+                "A": 0.687,
+                "B": 0.313
+              },
+              "confidence": 0.1034,
+              "answer_confidence": 0.687,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "current_relief": {
+              "type": "choice",
+              "choice": "A",
+              "probabilities": {
+                "A": 0.9314,
+                "B": 0.0686
+              },
+              "confidence": 0.6395,
+              "answer_confidence": 0.9314,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "emotional_intensity": {
+              "type": "score",
+              "score": 1.8563,
+              "legend": {
+                "0": "No expressed emotion",
+                "1": "Subdued expressed emotion",
+                "2": "Clear expressed emotion",
+                "3": "Very intense expressed emotion"
+              },
+              "probabilities": {
+                "0": 0.045,
+                "1": 0.1626,
+                "2": 0.6835,
+                "3": 0.1089
+              },
+              "confidence": 0.3246,
+              "answer_confidence": 0.6835,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "neutral": {
+              "type": "choice",
+              "choice": "A",
+              "probabilities": {
+                "A": 0.7453,
+                "B": 0.2547
+              },
+              "confidence": 0.1813,
+              "answer_confidence": 0.7453,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 382,
+            "output_tokens": 0
+          }
+        },
+        "coverage": {
+          "state_tokens": 34,
+          "truncated": false
+        },
+        "elapsed_ms": 3560.3911629877985
+      }
+    },
+    {
+      "article_id": -3,
+      "body_sha256": "2ff0de0e11473797211ed0e24c1332049578aa9bf7d1f618da94331bc63f1364",
+      "emotion": {
+        "laya": {
+          "scores": {
+            "admiration": 0.649,
+            "amusement": 0.9269,
+            "anger": 0.3884,
+            "annoyance": 0.7725,
+            "approval": 0.7664,
+            "caring": 0.9107,
+            "confusion": 0.8915,
+            "curiosity": 0.7708,
+            "desire": 0.9426,
+            "disappointment": 0.8603,
+            "disapproval": 0.8503,
+            "disgust": 0.7967,
+            "embarrassment": 0.5651,
+            "excitement": 0.7931,
+            "fear": 0.8458,
+            "gratitude": 0.8917,
+            "grief": 0.8488,
+            "joy": 0.8315,
+            "love": 0.8764,
+            "nervousness": 0.7425,
+            "optimism": 0.8746,
+            "pride": 0.8306,
+            "realization": 0.8766,
+            "relief": 0.715,
+            "remorse": 0.8495,
+            "sadness": 0.9051,
+            "surprise": 0.9072,
+            "neutral": 0.7502
+          },
+          "raw_logits": null
+        },
+        "Horizon-Labs/multilingual-emotions-small": {
+          "scores": {
+            "admiration": 8.535748929716647e-05,
+            "amusement": 9.022363883559592e-06,
+            "anger": 0.00026558327954262495,
+            "annoyance": 0.00322834518738091,
+            "approval": 0.0059067499823868275,
+            "caring": 0.002020368119701743,
+            "confusion": 0.0022388880606740713,
+            "curiosity": 0.006373036187142134,
+            "desire": 0.0004141709941904992,
+            "disappointment": 0.01414815615862608,
+            "disapproval": 0.12037140130996704,
+            "disgust": 0.0002720806805882603,
+            "embarrassment": 0.0008541986462660134,
+            "excitement": 0.0005662447074428201,
+            "fear": 0.00033491593785583973,
+            "gratitude": 0.0005544429295696318,
+            "grief": 0.006752821151167154,
+            "joy": 0.09907285124063492,
+            "love": 8.387669367948547e-05,
+            "nervousness": 0.0007342229364439845,
+            "optimism": 7.752021338092163e-05,
+            "pride": 7.330990774789825e-05,
+            "realization": 0.0053658862598240376,
+            "relief": 0.0027478416450321674,
+            "remorse": 0.006459914613515139,
+            "sadness": 0.01003454253077507,
+            "surprise": 2.691298141144216e-05,
+            "neutral": 0.4448578953742981
+          },
+          "raw_logits": {
+            "admiration": -9.368577003479004,
+            "amusement": -11.615795135498047,
+            "anger": -8.233316421508789,
+            "annoyance": -5.7325520515441895,
+            "approval": -5.125735282897949,
+            "caring": -6.202453136444092,
+            "confusion": -6.099534511566162,
+            "curiosity": -5.049285888671875,
+            "desire": -7.788817405700684,
+            "disappointment": -4.243921756744385,
+            "disapproval": -1.9889177083969116,
+            "disgust": -8.209139823913574,
+            "embarrassment": -7.064492225646973,
+            "excitement": -7.475917816162109,
+            "fear": -8.001296043395996,
+            "gratitude": -7.496992111206055,
+            "grief": -4.991019248962402,
+            "joy": -2.207568883895874,
+            "love": -9.386078834533691,
+            "nervousness": -7.215963363647461,
+            "optimism": -9.46489429473877,
+            "pride": -9.52074146270752,
+            "realization": -5.222313404083252,
+            "relief": -5.894187927246094,
+            "remorse": -5.035658359527588,
+            "sadness": -4.591636657714844,
+            "surprise": -10.52287483215332,
+            "neutral": -0.22146925330162048
+          }
+        },
+        "Pradeep-mahato/ModernBERT-GoEmotions": {
+          "scores": {
+            "admiration": 0.00021335756173357368,
+            "amusement": 0.00018719601212069392,
+            "anger": 0.0021022132132202387,
+            "annoyance": 0.004746102727949619,
+            "approval": 0.000977521762251854,
+            "caring": 0.0013664293801411986,
+            "confusion": 0.003997579216957092,
+            "curiosity": 0.0012360216351225972,
+            "desire": 0.0006527882069349289,
+            "disappointment": 0.6584298014640808,
+            "disapproval": 0.4744175672531128,
+            "disgust": 0.00019666997832246125,
+            "embarrassment": 0.00044423723011277616,
+            "excitement": 0.0029771248809993267,
+            "fear": 0.0002098668774124235,
+            "gratitude": 0.00032852537697181106,
+            "grief": 0.0007035583257675171,
+            "joy": 0.008455728180706501,
+            "love": 6.837062392150983e-05,
+            "nervousness": 0.005726808216422796,
+            "optimism": 0.0018401036504656076,
+            "pride": 0.000588413851801306,
+            "realization": 0.009228616021573544,
+            "relief": 0.003562652738764882,
+            "remorse": 0.00566073227673769,
+            "sadness": 0.02656278945505619,
+            "surprise": 0.00042000348912552,
+            "neutral": 0.35874760150909424
+          },
+          "raw_logits": {
+            "admiration": -8.452327728271484,
+            "amusement": -8.58316707611084,
+            "anger": -6.162660121917725,
+            "annoyance": -5.34567403793335,
+            "approval": -6.929512023925781,
+            "caring": -6.594186782836914,
+            "confusion": -5.518060684204102,
+            "curiosity": -6.694620609283447,
+            "desire": -7.33360481262207,
+            "disappointment": 0.6563048958778381,
+            "disapproval": -0.10241898149251938,
+            "disgust": -8.53378677368164,
+            "embarrassment": -7.71870756149292,
+            "excitement": -5.813815593719482,
+            "fear": -8.468827247619629,
+            "gratitude": -8.020567893981934,
+            "grief": -7.258656024932861,
+            "joy": -4.7644195556640625,
+            "love": -9.590498924255371,
+            "nervousness": -5.156853675842285,
+            "optimism": -6.296091556549072,
+            "pride": -7.437491416931152,
+            "realization": -4.676174640655518,
+            "relief": -5.633680820465088,
+            "remorse": -5.168525218963623,
+            "sadness": -3.6013219356536865,
+            "surprise": -7.774827480316162,
+            "neutral": -0.5808041095733643
+          }
+        },
+        "SamLowe/roberta-base-go_emotions": {
+          "scores": {
+            "admiration": 0.0012633890146389604,
+            "amusement": 0.0014548473991453648,
+            "anger": 0.005243276711553335,
+            "annoyance": 0.0698757991194725,
+            "approval": 0.01970522478222847,
+            "caring": 0.0046219895593822,
+            "confusion": 0.00518404133617878,
+            "curiosity": 0.0013943803496658802,
+            "desire": 0.0020208756905049086,
+            "disappointment": 0.1600385159254074,
+            "disapproval": 0.21753844618797302,
+            "disgust": 0.00218736263923347,
+            "embarrassment": 0.0023609271738678217,
+            "excitement": 0.0015114184934645891,
+            "fear": 0.0014027440920472145,
+            "gratitude": 0.0005173513782210648,
+            "grief": 0.0013836845755577087,
+            "joy": 0.010078571736812592,
+            "love": 0.0007599786622449756,
+            "nervousness": 0.005525464192032814,
+            "optimism": 0.0024553383700549603,
+            "pride": 0.000622062711045146,
+            "realization": 0.018355799838900566,
+            "relief": 0.004557684063911438,
+            "remorse": 0.0014952401397749782,
+            "sadness": 0.04967746511101723,
+            "surprise": 0.0008556752000004053,
+            "neutral": 0.4323878586292267
+          },
+          "raw_logits": {
+            "admiration": -6.672693252563477,
+            "amusement": -6.531398296356201,
+            "anger": -5.245551586151123,
+            "annoyance": -2.5885987281799316,
+            "approval": -3.9069695472717285,
+            "caring": -5.372297286987305,
+            "confusion": -5.256972789764404,
+            "curiosity": -6.573909759521484,
+            "desire": -6.2022013664245605,
+            "disappointment": -1.6579415798187256,
+            "disapproval": -1.28006911277771,
+            "disgust": -6.12286901473999,
+            "embarrassment": -6.046337127685547,
+            "excitement": -6.493194103240967,
+            "fear": -6.567921161651611,
+            "gratitude": -7.56627082824707,
+            "grief": -6.581620693206787,
+            "joy": -4.58721399307251,
+            "love": -7.181459903717041,
+            "nervousness": -5.19284725189209,
+            "optimism": -6.00703239440918,
+            "pride": -7.381847381591797,
+            "realization": -3.979283332824707,
+            "relief": -5.3863725662231445,
+            "remorse": -6.503972053527832,
+            "sadness": -2.9512500762939453,
+            "surprise": -7.062763690948486,
+            "neutral": -0.27211546897888184
+          }
+        }
+      },
+      "scoped_noul": {
+        "article_id": -3,
+        "body_sha256": "2ff0de0e11473797211ed0e24c1332049578aa9bf7d1f618da94331bc63f1364",
+        "revision": "55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851",
+        "request": {
+          "state": "Cedar Club player Alex said today, \"I am not relieved. I do not feel happy about this.\" The reporter did not describe how other players or supporters feel.",
+          "questions": {
+            "neutral": {
+              "type": "noul",
+              "instructions": "The text contains no expressed emotion.",
+              "criteria": {
+                "false": "Emotion is expressed",
+                "true": "No emotion is expressed"
+              }
+            },
+            "entity_relevance": {
+              "type": "noul",
+              "instructions": "The report directly concerns Cedar Club or a person explicitly identified as its player. A report solely about another club is not relevant.",
+              "criteria": {
+                "false": "Not established",
+                "true": "Directly reported"
+              }
+            },
+            "current_optimism": {
+              "type": "noul",
+              "instructions": "The report explicitly attributes current hope or optimism to Alex. An old interview quoted in a new report is not a current feeling.",
+              "criteria": {
+                "false": "Not established",
+                "true": "Explicitly expressed now"
+              }
+            },
+            "current_relief": {
+              "type": "noul",
+              "instructions": "The report explicitly says Alex currently feels relief. An explicit denial does not establish relief.",
+              "criteria": {
+                "false": "Not established",
+                "true": "Explicitly expressed now"
+              }
+            },
+            "emotional_intensity": {
+              "type": "score",
+              "instructions": "How intense is the emotion explicitly expressed in the report? Do not infer a whole fanbase mood.",
+              "criteria": [
+                "No expressed emotion",
+                "Subdued expressed emotion",
+                "Clear expressed emotion",
+                "Very intense expressed emotion"
+              ]
+            }
+          }
+        },
+        "response": {
+          "model": "laya-rl-agent",
+          "answers": {
+            "neutral": {
+              "type": "noul",
+              "noul": 0.7244,
+              "confidence": 0.7244,
+              "answer_confidence": 0.7244,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "entity_relevance": {
+              "type": "noul",
+              "noul": 0.8009,
+              "confidence": 0.8009,
+              "answer_confidence": 0.8009,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "current_optimism": {
+              "type": "noul",
+              "noul": 0.5934,
+              "confidence": 0.5934,
+              "answer_confidence": 0.5934,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "current_relief": {
+              "type": "noul",
+              "noul": 0.1797,
+              "confidence": 0.8203,
+              "answer_confidence": 0.8203,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "emotional_intensity": {
+              "type": "score",
+              "score": 1.8532,
+              "legend": {
+                "0": "No expressed emotion",
+                "1": "Subdued expressed emotion",
+                "2": "Clear expressed emotion",
+                "3": "Very intense expressed emotion"
+              },
+              "probabilities": {
+                "0": 0.0156,
+                "1": 0.2054,
+                "2": 0.6891,
+                "3": 0.0898
+              },
+              "confidence": 0.3774,
+              "answer_confidence": 0.6891,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 386,
+            "output_tokens": 0
+          }
+        },
+        "coverage": {
+          "state_tokens": 34,
+          "truncated": false
+        },
+        "elapsed_ms": 2829.708393663168
+      },
+      "scoped_choice": {
+        "article_id": -3,
+        "body_sha256": "2ff0de0e11473797211ed0e24c1332049578aa9bf7d1f618da94331bc63f1364",
+        "revision": "55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851",
+        "request": {
+          "state": "Cedar Club player Alex said today, \"I am not relieved. I do not feel happy about this.\" The reporter did not describe how other players or supporters feel.",
+          "questions": {
+            "entity_relevance": {
+              "type": "choice",
+              "instructions": "The report directly concerns Cedar Club or a person explicitly identified as its player. A report solely about another club is not relevant.",
+              "criteria": {
+                "A": "Directly reported",
+                "B": "Not established"
+              }
+            },
+            "current_optimism": {
+              "type": "choice",
+              "instructions": "The report explicitly attributes current hope or optimism to Alex. An old interview quoted in a new report is not a current feeling.",
+              "criteria": {
+                "A": "Explicitly expressed now",
+                "B": "Not established"
+              }
+            },
+            "current_relief": {
+              "type": "choice",
+              "instructions": "The report explicitly says Alex currently feels relief. An explicit denial does not establish relief.",
+              "criteria": {
+                "A": "Explicitly expressed now",
+                "B": "Not established"
+              }
+            },
+            "emotional_intensity": {
+              "type": "score",
+              "instructions": "How intense is the emotion explicitly expressed in the report? Do not infer a whole fanbase mood.",
+              "criteria": [
+                "No expressed emotion",
+                "Subdued expressed emotion",
+                "Clear expressed emotion",
+                "Very intense expressed emotion"
+              ]
+            },
+            "neutral": {
+              "type": "choice",
+              "instructions": "The text contains no expressed emotion.",
+              "criteria": {
+                "A": "No emotion is expressed",
+                "B": "Emotion is expressed"
+              }
+            }
+          }
+        },
+        "response": {
+          "model": "laya-rl-agent",
+          "answers": {
+            "entity_relevance": {
+              "type": "choice",
+              "choice": "A",
+              "probabilities": {
+                "A": 0.8166,
+                "B": 0.1834
+              },
+              "confidence": 0.3125,
+              "answer_confidence": 0.8166,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "current_optimism": {
+              "type": "choice",
+              "choice": "A",
+              "probabilities": {
+                "A": 0.9302,
+                "B": 0.0698
+              },
+              "confidence": 0.6349,
+              "answer_confidence": 0.9302,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "current_relief": {
+              "type": "choice",
+              "choice": "B",
+              "probabilities": {
+                "A": 0.2203,
+                "B": 0.7797
+              },
+              "confidence": 0.2393,
+              "answer_confidence": 0.7797,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "emotional_intensity": {
+              "type": "score",
+              "score": 1.8532,
+              "legend": {
+                "0": "No expressed emotion",
+                "1": "Subdued expressed emotion",
+                "2": "Clear expressed emotion",
+                "3": "Very intense expressed emotion"
+              },
+              "probabilities": {
+                "0": 0.0156,
+                "1": 0.2054,
+                "2": 0.6891,
+                "3": 0.0898
+              },
+              "confidence": 0.3774,
+              "answer_confidence": 0.6891,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "neutral": {
+              "type": "choice",
+              "choice": "A",
+              "probabilities": {
+                "A": 0.7144,
+                "B": 0.2856
+              },
+              "confidence": 0.137,
+              "answer_confidence": 0.7144,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 382,
+            "output_tokens": 0
+          }
+        },
+        "coverage": {
+          "state_tokens": 34,
+          "truncated": false
+        },
+        "elapsed_ms": 3559.871211182326
+      }
+    },
+    {
+      "article_id": -4,
+      "body_sha256": "f0142ae0c293502874d808a1e072b6dd6138927e134d9f7ec8a2cee6b610d417",
+      "emotion": {
+        "laya": {
+          "scores": {
+            "admiration": 0.6718,
+            "amusement": 0.6297,
+            "anger": 0.0651,
+            "annoyance": 0.0611,
+            "approval": 0.451,
+            "caring": 0.2634,
+            "confusion": 0.5566,
+            "curiosity": 0.567,
+            "desire": 0.325,
+            "disappointment": 0.3737,
+            "disapproval": 0.2403,
+            "disgust": 0.0302,
+            "embarrassment": 0.0788,
+            "excitement": 0.1185,
+            "fear": 0.1939,
+            "gratitude": 0.306,
+            "grief": 0.0001,
+            "joy": 0.0872,
+            "love": 0.5756,
+            "nervousness": 0.7716,
+            "optimism": 0.8867,
+            "pride": 0.1393,
+            "realization": 0.3305,
+            "relief": 0.0581,
+            "remorse": 0.1865,
+            "sadness": 0.7159,
+            "surprise": 0.0983,
+            "neutral": 0.6025
+          },
+          "raw_logits": null
+        },
+        "Horizon-Labs/multilingual-emotions-small": {
+          "scores": {
+            "admiration": 3.386593743925914e-05,
+            "amusement": 2.8461004148994107e-06,
+            "anger": 1.4176753211359028e-06,
+            "annoyance": 4.157568037044257e-05,
+            "approval": 0.01079277042299509,
+            "caring": 0.009809793904423714,
+            "confusion": 0.00014173817180562764,
+            "curiosity": 4.113625982427038e-05,
+            "desire": 0.00010546587145654485,
+            "disappointment": 0.01486574299633503,
+            "disapproval": 0.0009351795888505876,
+            "disgust": 3.4875636629294604e-05,
+            "embarrassment": 4.876887032878585e-05,
+            "excitement": 0.0006784590659663081,
+            "fear": 0.007442734204232693,
+            "gratitude": 0.0002221948525402695,
+            "grief": 0.0028449976816773415,
+            "joy": 0.0064903320744633675,
+            "love": 1.2346413313935045e-05,
+            "nervousness": 0.10362983494997025,
+            "optimism": 0.02935435250401497,
+            "pride": 0.000172936255694367,
+            "realization": 0.0013997588539496064,
+            "relief": 0.00043168681440874934,
+            "remorse": 0.0013161428505554795,
+            "sadness": 0.00048139772843569517,
+            "surprise": 1.3557318197854329e-05,
+            "neutral": 0.12963880598545074
+          },
+          "raw_logits": {
+            "admiration": -10.29306697845459,
+            "amusement": -12.76955795288086,
+            "anger": -13.466490745544434,
+            "annoyance": -10.087953567504883,
+            "approval": -4.518027305603027,
+            "caring": -4.614515781402588,
+            "confusion": -8.861387252807617,
+            "curiosity": -10.098579406738281,
+            "desire": -9.157017707824707,
+            "disappointment": -4.193718433380127,
+            "disapproval": -6.973836421966553,
+            "disgust": -10.263687133789062,
+            "embarrassment": -9.928369522094727,
+            "excitement": -7.295007705688477,
+            "fear": -4.8930463790893555,
+            "gratitude": -8.411733627319336,
+            "grief": -5.859344005584717,
+            "joy": -5.030930042266846,
+            "love": -11.302132606506348,
+            "nervousness": -2.1575281620025635,
+            "optimism": -3.498520612716675,
+            "pride": -8.66241455078125,
+            "realization": -6.570054531097412,
+            "relief": -7.747378349304199,
+            "remorse": -6.631732940673828,
+            "sadness": -7.638335227966309,
+            "surprise": -11.20857048034668,
+            "neutral": -1.9041560888290405
+          }
+        },
+        "Pradeep-mahato/ModernBERT-GoEmotions": {
+          "scores": {
+            "admiration": 0.0030455468222498894,
+            "amusement": 0.0002482904528733343,
+            "anger": 0.0007908036350272596,
+            "annoyance": 0.0017087392043322325,
+            "approval": 0.0033519938588142395,
+            "caring": 0.019103672355413437,
+            "confusion": 0.006372015457600355,
+            "curiosity": 0.0015793571947142482,
+            "desire": 0.011274133808910847,
+            "disappointment": 0.04899178072810173,
+            "disapproval": 0.000297851103823632,
+            "disgust": 0.0004558274813462049,
+            "embarrassment": 0.000324396591167897,
+            "excitement": 0.0017156973481178284,
+            "fear": 0.0034808132331818342,
+            "gratitude": 0.00012849309132434428,
+            "grief": 0.0027926431503146887,
+            "joy": 0.004277316853404045,
+            "love": 0.00013942093937657773,
+            "nervousness": 0.07925885170698166,
+            "optimism": 0.36882638931274414,
+            "pride": 0.0008296204614453018,
+            "realization": 0.0008580551366321743,
+            "relief": 0.00024473326629959047,
+            "remorse": 0.0008185507031157613,
+            "sadness": 0.12662678956985474,
+            "surprise": 0.0003767274902202189,
+            "neutral": 0.17311204969882965
+          },
+          "raw_logits": {
+            "admiration": -5.791024684906006,
+            "amusement": -8.300662994384766,
+            "anger": -7.141669750213623,
+            "annoyance": -6.370289325714111,
+            "approval": -5.694842338562012,
+            "caring": -3.9385862350463867,
+            "confusion": -5.049447059631348,
+            "curiosity": -6.449156761169434,
+            "desire": -4.47390604019165,
+            "disappointment": -2.9658701419830322,
+            "disapproval": -8.118618965148926,
+            "disgust": -7.6929402351379395,
+            "embarrassment": -8.033219337463379,
+            "excitement": -6.366218566894531,
+            "fear": -5.6570024490356445,
+            "gratitude": -8.95950698852539,
+            "grief": -5.877970218658447,
+            "joy": -5.450142860412598,
+            "love": -8.877873420715332,
+            "nervousness": -2.4524598121643066,
+            "optimism": -0.5372549295425415,
+            "pride": -7.093712329864502,
+            "realization": -7.059983730316162,
+            "relief": -8.315096855163574,
+            "remorse": -7.107156276702881,
+            "sadness": -1.9311189651489258,
+            "surprise": -7.883611679077148,
+            "neutral": -1.5637301206588745
+          }
+        },
+        "SamLowe/roberta-base-go_emotions": {
+          "scores": {
+            "admiration": 0.007552242837846279,
+            "amusement": 0.0029523810371756554,
+            "anger": 0.0020384660456329584,
+            "annoyance": 0.007874437607824802,
+            "approval": 0.038107503205537796,
+            "caring": 0.30646809935569763,
+            "confusion": 0.016474710777401924,
+            "curiosity": 0.007221029605716467,
+            "desire": 0.012744695879518986,
+            "disappointment": 0.02028415910899639,
+            "disapproval": 0.01259866263717413,
+            "disgust": 0.001704949652776122,
+            "embarrassment": 0.0022651420440524817,
+            "excitement": 0.00789736583828926,
+            "fear": 0.18774372339248657,
+            "gratitude": 0.002243702532723546,
+            "grief": 0.004508797079324722,
+            "joy": 0.011251624673604965,
+            "love": 0.00502818962559104,
+            "nervousness": 0.3428671658039093,
+            "optimism": 0.09161608666181564,
+            "pride": 0.0020915460772812366,
+            "realization": 0.02125096134841442,
+            "relief": 0.013626224361360073,
+            "remorse": 0.00687065627425909,
+            "sadness": 0.0481874942779541,
+            "surprise": 0.0031068972311913967,
+            "neutral": 0.0594649612903595
+          },
+          "raw_logits": {
+            "admiration": -4.878329753875732,
+            "amusement": -5.822186470031738,
+            "anger": -6.193517208099365,
+            "annoyance": -4.836227893829346,
+            "approval": -3.2284915447235107,
+            "caring": -0.8166835308074951,
+            "confusion": -4.0893168449401855,
+            "curiosity": -4.923510551452637,
+            "desire": -4.349813461303711,
+            "disappointment": -3.877422332763672,
+            "disapproval": -4.361485958099365,
+            "disgust": -6.372513294219971,
+            "embarrassment": -6.087850093841553,
+            "excitement": -4.833297252655029,
+            "fear": -1.4647380113601685,
+            "gratitude": -6.097381591796875,
+            "grief": -5.397205829620361,
+            "joy": -4.475927352905273,
+            "love": -5.287654399871826,
+            "nervousness": -0.6505430936813354,
+            "optimism": -2.294060230255127,
+            "pride": -6.167757987976074,
+            "realization": -3.8298730850219727,
+            "relief": -4.282039165496826,
+            "remorse": -4.973601341247559,
+            "sadness": -2.9832684993743896,
+            "surprise": -5.771018981933594,
+            "neutral": -2.761061668395996
+          }
+        }
+      },
+      "scoped_noul": {
+        "article_id": -4,
+        "body_sha256": "f0142ae0c293502874d808a1e072b6dd6138927e134d9f7ec8a2cee6b610d417",
+        "revision": "55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851",
+        "request": {
+          "state": "Cedar Club player Alex said, \"I am hopeful about our next match, but I am worried about the injury. Both feelings are there.\" No other speaker expressed an emotion.",
+          "questions": {
+            "neutral": {
+              "type": "noul",
+              "instructions": "The text contains no expressed emotion.",
+              "criteria": {
+                "false": "Emotion is expressed",
+                "true": "No emotion is expressed"
+              }
+            },
+            "entity_relevance": {
+              "type": "noul",
+              "instructions": "The report directly concerns Cedar Club or a person explicitly identified as its player. A report solely about another club is not relevant.",
+              "criteria": {
+                "false": "Not established",
+                "true": "Directly reported"
+              }
+            },
+            "current_optimism": {
+              "type": "noul",
+              "instructions": "The report explicitly attributes current hope or optimism to Alex. An old interview quoted in a new report is not a current feeling.",
+              "criteria": {
+                "false": "Not established",
+                "true": "Explicitly expressed now"
+              }
+            },
+            "current_relief": {
+              "type": "noul",
+              "instructions": "The report explicitly says Alex currently feels relief. An explicit denial does not establish relief.",
+              "criteria": {
+                "false": "Not established",
+                "true": "Explicitly expressed now"
+              }
+            },
+            "emotional_intensity": {
+              "type": "score",
+              "instructions": "How intense is the emotion explicitly expressed in the report? Do not infer a whole fanbase mood.",
+              "criteria": [
+                "No expressed emotion",
+                "Subdued expressed emotion",
+                "Clear expressed emotion",
+                "Very intense expressed emotion"
+              ]
+            }
+          }
+        },
+        "response": {
+          "model": "laya-rl-agent",
+          "answers": {
+            "neutral": {
+              "type": "noul",
+              "noul": 0.5861,
+              "confidence": 0.5861,
+              "answer_confidence": 0.5861,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "entity_relevance": {
+              "type": "noul",
+              "noul": 0.8004,
+              "confidence": 0.8004,
+              "answer_confidence": 0.8004,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "current_optimism": {
+              "type": "noul",
+              "noul": 0.837,
+              "confidence": 0.837,
+              "answer_confidence": 0.837,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "current_relief": {
+              "type": "noul",
+              "noul": 0.122,
+              "confidence": 0.878,
+              "answer_confidence": 0.878,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "emotional_intensity": {
+              "type": "score",
+              "score": 0.2317,
+              "legend": {
+                "0": "No expressed emotion",
+                "1": "Subdued expressed emotion",
+                "2": "Clear expressed emotion",
+                "3": "Very intense expressed emotion"
+              },
+              "probabilities": {
+                "0": 0.8424,
+                "1": 0.0957,
+                "2": 0.0496,
+                "3": 0.0123
+              },
+              "confidence": 0.5874,
+              "answer_confidence": 0.8424,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 396,
+            "output_tokens": 0
+          }
+        },
+        "coverage": {
+          "state_tokens": 36,
+          "truncated": false
+        },
+        "elapsed_ms": 3018.8877368345857
+      },
+      "scoped_choice": {
+        "article_id": -4,
+        "body_sha256": "f0142ae0c293502874d808a1e072b6dd6138927e134d9f7ec8a2cee6b610d417",
+        "revision": "55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851",
+        "request": {
+          "state": "Cedar Club player Alex said, \"I am hopeful about our next match, but I am worried about the injury. Both feelings are there.\" No other speaker expressed an emotion.",
+          "questions": {
+            "entity_relevance": {
+              "type": "choice",
+              "instructions": "The report directly concerns Cedar Club or a person explicitly identified as its player. A report solely about another club is not relevant.",
+              "criteria": {
+                "A": "Directly reported",
+                "B": "Not established"
+              }
+            },
+            "current_optimism": {
+              "type": "choice",
+              "instructions": "The report explicitly attributes current hope or optimism to Alex. An old interview quoted in a new report is not a current feeling.",
+              "criteria": {
+                "A": "Explicitly expressed now",
+                "B": "Not established"
+              }
+            },
+            "current_relief": {
+              "type": "choice",
+              "instructions": "The report explicitly says Alex currently feels relief. An explicit denial does not establish relief.",
+              "criteria": {
+                "A": "Explicitly expressed now",
+                "B": "Not established"
+              }
+            },
+            "emotional_intensity": {
+              "type": "score",
+              "instructions": "How intense is the emotion explicitly expressed in the report? Do not infer a whole fanbase mood.",
+              "criteria": [
+                "No expressed emotion",
+                "Subdued expressed emotion",
+                "Clear expressed emotion",
+                "Very intense expressed emotion"
+              ]
+            },
+            "neutral": {
+              "type": "choice",
+              "instructions": "The text contains no expressed emotion.",
+              "criteria": {
+                "A": "No emotion is expressed",
+                "B": "Emotion is expressed"
+              }
+            }
+          }
+        },
+        "response": {
+          "model": "laya-rl-agent",
+          "answers": {
+            "entity_relevance": {
+              "type": "choice",
+              "choice": "A",
+              "probabilities": {
+                "A": 0.6244,
+                "B": 0.3756
+              },
+              "confidence": 0.0451,
+              "answer_confidence": 0.6244,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "current_optimism": {
+              "type": "choice",
+              "choice": "A",
+              "probabilities": {
+                "A": 0.9206,
+                "B": 0.0794
+              },
+              "confidence": 0.5998,
+              "answer_confidence": 0.9206,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "current_relief": {
+              "type": "choice",
+              "choice": "A",
+              "probabilities": {
+                "A": 0.676,
+                "B": 0.324
+              },
+              "confidence": 0.0913,
+              "answer_confidence": 0.676,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "emotional_intensity": {
+              "type": "score",
+              "score": 0.2317,
+              "legend": {
+                "0": "No expressed emotion",
+                "1": "Subdued expressed emotion",
+                "2": "Clear expressed emotion",
+                "3": "Very intense expressed emotion"
+              },
+              "probabilities": {
+                "0": 0.8424,
+                "1": 0.0957,
+                "2": 0.0496,
+                "3": 0.0123
+              },
+              "confidence": 0.5874,
+              "answer_confidence": 0.8424,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "neutral": {
+              "type": "choice",
+              "choice": "A",
+              "probabilities": {
+                "A": 0.9448,
+                "B": 0.0552
+              },
+              "confidence": 0.6919,
+              "answer_confidence": 0.9448,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 392,
+            "output_tokens": 0
+          }
+        },
+        "coverage": {
+          "state_tokens": 36,
+          "truncated": false
+        },
+        "elapsed_ms": 3630.913396831602
+      }
+    },
+    {
+      "article_id": -5,
+      "body_sha256": "9f0ad7d6aab00e06e17029bc339fa6f6ae443391f7c1bfb7cc69c225955e6c2b",
+      "emotion": {
+        "laya": {
+          "scores": {
+            "admiration": 0.7007,
+            "amusement": 0.3479,
+            "anger": 0.0328,
+            "annoyance": 0.1394,
+            "approval": 0.6479,
+            "caring": 0.4551,
+            "confusion": 0.214,
+            "curiosity": 0.3123,
+            "desire": 0.5337,
+            "disappointment": 0.0866,
+            "disapproval": 0.3869,
+            "disgust": 0.2437,
+            "embarrassment": 0.0728,
+            "excitement": 0.0622,
+            "fear": 0.051,
+            "gratitude": 0.5823,
+            "grief": 0.0316,
+            "joy": 0.3241,
+            "love": 0.7025,
+            "nervousness": 0.0627,
+            "optimism": 0.8765,
+            "pride": 0.1781,
+            "realization": 0.3541,
+            "relief": 0.0754,
+            "remorse": 0.0661,
+            "sadness": 0.058,
+            "surprise": 0.0549,
+            "neutral": 0.455
+          },
+          "raw_logits": null
+        },
+        "Horizon-Labs/multilingual-emotions-small": {
+          "scores": {
+            "admiration": 6.818148540332913e-05,
+            "amusement": 8.771185662226344e-07,
+            "anger": 1.9497289827086206e-07,
+            "annoyance": 9.437442713533528e-06,
+            "approval": 0.003119873581454158,
+            "caring": 0.0013896854361519217,
+            "confusion": 5.8897523558698595e-05,
+            "curiosity": 0.00014998950064182281,
+            "desire": 0.0012584966607391834,
+            "disappointment": 0.0005551964859478176,
+            "disapproval": 0.023858793079853058,
+            "disgust": 1.1487269375720643e-06,
+            "embarrassment": 1.8609869584906846e-05,
+            "excitement": 0.001145734335295856,
+            "fear": 1.192751278722426e-05,
+            "gratitude": 0.002589337294921279,
+            "grief": 0.0005563396262004972,
+            "joy": 0.007005002349615097,
+            "love": 2.2662927221972495e-05,
+            "nervousness": 8.152297959895805e-05,
+            "optimism": 0.8515746593475342,
+            "pride": 0.0004902000073343515,
+            "realization": 0.006665810942649841,
+            "relief": 0.0008481239783577621,
+            "remorse": 7.320763688767329e-05,
+            "sadness": 8.638111467007548e-06,
+            "surprise": 8.70225721882889e-06,
+            "neutral": 0.5142241716384888
+          },
+          "raw_logits": {
+            "admiration": -9.593269348144531,
+            "amusement": -13.946622848510742,
+            "anger": -15.45040512084961,
+            "annoyance": -11.570816040039062,
+            "approval": -5.766838073730469,
+            "caring": -6.577287197113037,
+            "confusion": -9.739652633666992,
+            "curiosity": -8.804795265197754,
+            "desire": -6.676578044891357,
+            "disappointment": -7.495633125305176,
+            "disapproval": -3.711454391479492,
+            "disgust": -13.676855087280273,
+            "embarrassment": -10.891799926757812,
+            "excitement": -6.770563125610352,
+            "fear": -11.336650848388672,
+            "gratitude": -5.953760623931885,
+            "grief": -7.493575096130371,
+            "joy": -4.954101085662842,
+            "love": -10.694757461547852,
+            "nervousness": -9.414544105529785,
+            "optimism": 1.7470049858093262,
+            "pride": -7.620206832885742,
+            "realization": -5.004075527191162,
+            "relief": -7.0716352462768555,
+            "remorse": -9.522137641906738,
+            "sadness": -11.659317970275879,
+            "surprise": -11.6519193649292,
+            "neutral": 0.056911975145339966
+          }
+        },
+        "Pradeep-mahato/ModernBERT-GoEmotions": {
+          "scores": {
+            "admiration": 0.0037817065604031086,
+            "amusement": 9.181423229165375e-05,
+            "anger": 0.00020639138529077172,
+            "annoyance": 0.0001163526758318767,
+            "approval": 0.009925246238708496,
+            "caring": 0.0013306577457115054,
+            "confusion": 0.0016641736729070544,
+            "curiosity": 0.0013428733218461275,
+            "desire": 0.020303532481193542,
+            "disappointment": 0.004779546055942774,
+            "disapproval": 0.001144095091149211,
+            "disgust": 0.00030062926816754043,
+            "embarrassment": 0.0012190713314339519,
+            "excitement": 0.0017677220748737454,
+            "fear": 0.00022723394795320928,
+            "gratitude": 0.007233376614749432,
+            "grief": 0.0006472791428677738,
+            "joy": 0.0022914251312613487,
+            "love": 0.00011029941379092634,
+            "nervousness": 0.00014473769988399,
+            "optimism": 0.8780381679534912,
+            "pride": 0.004464783705770969,
+            "realization": 0.006048169918358326,
+            "relief": 0.00240107299759984,
+            "remorse": 0.0005635945126414299,
+            "sadness": 0.00046463272883556783,
+            "surprise": 0.000264414498815313,
+            "neutral": 0.4061678349971771
+          },
+          "raw_logits": {
+            "admiration": -5.573791027069092,
+            "amusement": -9.29565143585205,
+            "anger": -8.485529899597168,
+            "annoyance": -9.058768272399902,
+            "approval": -4.602698802947998,
+            "caring": -6.620750427246094,
+            "confusion": -6.396760940551758,
+            "curiosity": -6.611599922180176,
+            "desire": -3.876447916030884,
+            "disappointment": -5.338618755340576,
+            "disapproval": -6.77199649810791,
+            "disgust": -8.109332084655762,
+            "embarrassment": -6.708446025848389,
+            "excitement": -6.336294174194336,
+            "fear": -8.389303207397461,
+            "gratitude": -4.921789646148682,
+            "grief": -7.342085361480713,
+            "joy": -6.076287269592285,
+            "love": -9.112201690673828,
+            "nervousness": -8.840442657470703,
+            "optimism": 1.9739817380905151,
+            "pride": -5.407059669494629,
+            "realization": -5.101933002471924,
+            "relief": -6.029435634613037,
+            "remorse": -7.480611801147461,
+            "sadness": -7.673798561096191,
+            "surprise": -8.237728118896484,
+            "neutral": -0.3798302412033081
+          }
+        },
+        "SamLowe/roberta-base-go_emotions": {
+          "scores": {
+            "admiration": 0.0027267078403383493,
+            "amusement": 0.0016186367720365524,
+            "anger": 0.0009500607848167419,
+            "annoyance": 0.005253647919744253,
+            "approval": 0.027660297229886055,
+            "caring": 0.004874459933489561,
+            "confusion": 0.007217396050691605,
+            "curiosity": 0.0025982351507991552,
+            "desire": 0.04291249439120293,
+            "disappointment": 0.01670052856206894,
+            "disapproval": 0.027234651148319244,
+            "disgust": 0.0007835534051991999,
+            "embarrassment": 0.000514199782628566,
+            "excitement": 0.0015858549159020185,
+            "fear": 0.0011034159688279033,
+            "gratitude": 0.0028367629274725914,
+            "grief": 0.0005013185436837375,
+            "joy": 0.0018965039635077119,
+            "love": 0.0015825725859031081,
+            "nervousness": 0.0006407147157005966,
+            "optimism": 0.5825812220573425,
+            "pride": 0.0006334108766168356,
+            "realization": 0.019865138456225395,
+            "relief": 0.0009064486948773265,
+            "remorse": 0.0018805061699822545,
+            "sadness": 0.002637017285451293,
+            "surprise": 0.0017667111242190003,
+            "neutral": 0.4631105065345764
+          },
+          "raw_logits": {
+            "admiration": -5.90192985534668,
+            "amusement": -6.424551010131836,
+            "anger": -6.958034038543701,
+            "annoyance": -5.243565082550049,
+            "approval": -3.5597071647644043,
+            "caring": -5.318859577178955,
+            "confusion": -4.924017429351807,
+            "curiosity": -5.950321197509766,
+            "desire": -3.104731798171997,
+            "disappointment": -4.075473308563232,
+            "disapproval": -3.575652837753296,
+            "disgust": -7.150887489318848,
+            "embarrassment": -7.572384357452393,
+            "excitement": -6.44504451751709,
+            "fear": -6.8082404136657715,
+            "gratitude": -5.862250804901123,
+            "grief": -7.597767353057861,
+            "joy": -6.265844821929932,
+            "love": -6.44711971282959,
+            "nervousness": -7.352285385131836,
+            "optimism": 0.33337870240211487,
+            "pride": -7.363757610321045,
+            "realization": -3.898723840713501,
+            "relief": -7.005069255828857,
+            "remorse": -6.274332046508789,
+            "sadness": -5.935466289520264,
+            "surprise": -6.336867332458496,
+            "neutral": -0.14782659709453583
+          }
+        }
+      },
+      "scoped_noul": {
+        "article_id": -5,
+        "body_sha256": "9f0ad7d6aab00e06e17029bc339fa6f6ae443391f7c1bfb7cc69c225955e6c2b",
+        "revision": "55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851",
+        "request": {
+          "state": "On March 2, Cedar Club player Alex said, \"I feel hopeful about next season.\" Today's report quotes that old interview. Alex did not give a new statement about current feelings.",
+          "questions": {
+            "neutral": {
+              "type": "noul",
+              "instructions": "The text contains no expressed emotion.",
+              "criteria": {
+                "false": "Emotion is expressed",
+                "true": "No emotion is expressed"
+              }
+            },
+            "entity_relevance": {
+              "type": "noul",
+              "instructions": "The report directly concerns Cedar Club or a person explicitly identified as its player. A report solely about another club is not relevant.",
+              "criteria": {
+                "false": "Not established",
+                "true": "Directly reported"
+              }
+            },
+            "current_optimism": {
+              "type": "noul",
+              "instructions": "The report explicitly attributes current hope or optimism to Alex. An old interview quoted in a new report is not a current feeling.",
+              "criteria": {
+                "false": "Not established",
+                "true": "Explicitly expressed now"
+              }
+            },
+            "current_relief": {
+              "type": "noul",
+              "instructions": "The report explicitly says Alex currently feels relief. An explicit denial does not establish relief.",
+              "criteria": {
+                "false": "Not established",
+                "true": "Explicitly expressed now"
+              }
+            },
+            "emotional_intensity": {
+              "type": "score",
+              "instructions": "How intense is the emotion explicitly expressed in the report? Do not infer a whole fanbase mood.",
+              "criteria": [
+                "No expressed emotion",
+                "Subdued expressed emotion",
+                "Clear expressed emotion",
+                "Very intense expressed emotion"
+              ]
+            }
+          }
+        },
+        "response": {
+          "model": "laya-rl-agent",
+          "answers": {
+            "neutral": {
+              "type": "noul",
+              "noul": 0.4975,
+              "confidence": 0.5025,
+              "answer_confidence": 0.5025,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "entity_relevance": {
+              "type": "noul",
+              "noul": 0.6424,
+              "confidence": 0.6424,
+              "answer_confidence": 0.6424,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "current_optimism": {
+              "type": "noul",
+              "noul": 0.6295,
+              "confidence": 0.6295,
+              "answer_confidence": 0.6295,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "current_relief": {
+              "type": "noul",
+              "noul": 0.0786,
+              "confidence": 0.9214,
+              "answer_confidence": 0.9214,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "emotional_intensity": {
+              "type": "score",
+              "score": 1.7356,
+              "legend": {
+                "0": "No expressed emotion",
+                "1": "Subdued expressed emotion",
+                "2": "Clear expressed emotion",
+                "3": "Very intense expressed emotion"
+              },
+              "probabilities": {
+                "0": 0.0399,
+                "1": 0.2292,
+                "2": 0.6864,
+                "3": 0.0445
+              },
+              "confidence": 0.3774,
+              "answer_confidence": 0.6864,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 406,
+            "output_tokens": 0
+          }
+        },
+        "coverage": {
+          "state_tokens": 38,
+          "truncated": false
+        },
+        "elapsed_ms": 3067.536871880293
+      },
+      "scoped_choice": {
+        "article_id": -5,
+        "body_sha256": "9f0ad7d6aab00e06e17029bc339fa6f6ae443391f7c1bfb7cc69c225955e6c2b",
+        "revision": "55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851",
+        "request": {
+          "state": "On March 2, Cedar Club player Alex said, \"I feel hopeful about next season.\" Today's report quotes that old interview. Alex did not give a new statement about current feelings.",
+          "questions": {
+            "entity_relevance": {
+              "type": "choice",
+              "instructions": "The report directly concerns Cedar Club or a person explicitly identified as its player. A report solely about another club is not relevant.",
+              "criteria": {
+                "A": "Directly reported",
+                "B": "Not established"
+              }
+            },
+            "current_optimism": {
+              "type": "choice",
+              "instructions": "The report explicitly attributes current hope or optimism to Alex. An old interview quoted in a new report is not a current feeling.",
+              "criteria": {
+                "A": "Explicitly expressed now",
+                "B": "Not established"
+              }
+            },
+            "current_relief": {
+              "type": "choice",
+              "instructions": "The report explicitly says Alex currently feels relief. An explicit denial does not establish relief.",
+              "criteria": {
+                "A": "Explicitly expressed now",
+                "B": "Not established"
+              }
+            },
+            "emotional_intensity": {
+              "type": "score",
+              "instructions": "How intense is the emotion explicitly expressed in the report? Do not infer a whole fanbase mood.",
+              "criteria": [
+                "No expressed emotion",
+                "Subdued expressed emotion",
+                "Clear expressed emotion",
+                "Very intense expressed emotion"
+              ]
+            },
+            "neutral": {
+              "type": "choice",
+              "instructions": "The text contains no expressed emotion.",
+              "criteria": {
+                "A": "No emotion is expressed",
+                "B": "Emotion is expressed"
+              }
+            }
+          }
+        },
+        "response": {
+          "model": "laya-rl-agent",
+          "answers": {
+            "entity_relevance": {
+              "type": "choice",
+              "choice": "A",
+              "probabilities": {
+                "A": 0.8614,
+                "B": 0.1386
+              },
+              "confidence": 0.4195,
+              "answer_confidence": 0.8614,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "current_optimism": {
+              "type": "choice",
+              "choice": "A",
+              "probabilities": {
+                "A": 0.7035,
+                "B": 0.2965
+              },
+              "confidence": 0.1231,
+              "answer_confidence": 0.7035,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "current_relief": {
+              "type": "choice",
+              "choice": "A",
+              "probabilities": {
+                "A": 0.5477,
+                "B": 0.4523
+              },
+              "confidence": 0.0066,
+              "answer_confidence": 0.5477,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "emotional_intensity": {
+              "type": "score",
+              "score": 1.7356,
+              "legend": {
+                "0": "No expressed emotion",
+                "1": "Subdued expressed emotion",
+                "2": "Clear expressed emotion",
+                "3": "Very intense expressed emotion"
+              },
+              "probabilities": {
+                "0": 0.0399,
+                "1": 0.2292,
+                "2": 0.6864,
+                "3": 0.0445
+              },
+              "confidence": 0.3774,
+              "answer_confidence": 0.6864,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "neutral": {
+              "type": "choice",
+              "choice": "A",
+              "probabilities": {
+                "A": 0.7894,
+                "B": 0.2106
+              },
+              "confidence": 0.2573,
+              "answer_confidence": 0.7894,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 402,
+            "output_tokens": 0
+          }
+        },
+        "coverage": {
+          "state_tokens": 38,
+          "truncated": false
+        },
+        "elapsed_ms": 3694.4701289758086
+      }
+    },
+    {
+      "article_id": -6,
+      "body_sha256": "1fcea6debca50df93963dfa2ba31e5a49114591ee34b23af68184a908e88cf5b",
+      "emotion": {
+        "laya": {
+          "scores": {
+            "admiration": 0.694,
+            "amusement": 0.6244,
+            "anger": 0.0974,
+            "annoyance": 0.2495,
+            "approval": 0.514,
+            "caring": 0.1072,
+            "confusion": 0.6046,
+            "curiosity": 0.0711,
+            "desire": 0.5289,
+            "disappointment": 0.0617,
+            "disapproval": 0.3083,
+            "disgust": 0.5012,
+            "embarrassment": 0.2161,
+            "excitement": 0.7638,
+            "fear": 0.5451,
+            "gratitude": 0.4311,
+            "grief": 0.0,
+            "joy": 0.8987,
+            "love": 0.2748,
+            "nervousness": 0.24,
+            "optimism": 0.3665,
+            "pride": 0.84,
+            "realization": 0.5031,
+            "relief": 0.2495,
+            "remorse": 0.1407,
+            "sadness": 0.0028,
+            "surprise": 0.135,
+            "neutral": 0.5918
+          },
+          "raw_logits": null
+        },
+        "Horizon-Labs/multilingual-emotions-small": {
+          "scores": {
+            "admiration": 0.008087649941444397,
+            "amusement": 1.645623706281185e-05,
+            "anger": 1.7537863641337026e-06,
+            "annoyance": 2.0903964468743652e-05,
+            "approval": 0.005830981768667698,
+            "caring": 0.0002064417494693771,
+            "confusion": 4.911564974463545e-05,
+            "curiosity": 6.257650238694623e-05,
+            "desire": 3.42750245181378e-05,
+            "disappointment": 6.420665886253119e-05,
+            "disapproval": 0.0014529700856655836,
+            "disgust": 2.951859642053023e-06,
+            "embarrassment": 3.036365114894579e-06,
+            "excitement": 0.0014482401311397552,
+            "fear": 2.2626945792580955e-06,
+            "gratitude": 0.008039209060370922,
+            "grief": 0.00012756671640090644,
+            "joy": 0.7490516901016235,
+            "love": 0.00018945368356071413,
+            "nervousness": 1.9356350549060153e-06,
+            "optimism": 0.0001942051894729957,
+            "pride": 0.024243459105491638,
+            "realization": 0.0007504716631956398,
+            "relief": 0.0003411984071135521,
+            "remorse": 3.53081377397757e-05,
+            "sadness": 3.811729584413115e-06,
+            "surprise": 3.825466137641342e-06,
+            "neutral": 0.2070433497428894
+          },
+          "raw_logits": {
+            "admiration": -4.809296607971191,
+            "amusement": -11.014789581298828,
+            "anger": -13.253731727600098,
+            "annoyance": -10.775550842285156,
+            "approval": -5.138721942901611,
+            "caring": -8.485285758972168,
+            "confusion": -9.921283721923828,
+            "curiosity": -9.679058074951172,
+            "desire": -10.281059265136719,
+            "disappointment": -9.653339385986328,
+            "disapproval": -6.532691478729248,
+            "disgust": -12.733072280883789,
+            "embarrassment": -12.704846382141113,
+            "excitement": -6.535956859588623,
+            "fear": -12.99895191192627,
+            "gratitude": -4.815352916717529,
+            "grief": -8.966743469238281,
+            "joy": 1.0935609340667725,
+            "love": -8.571176528930664,
+            "nervousness": -13.155073165893555,
+            "optimism": -8.546401023864746,
+            "pride": -3.695066213607788,
+            "realization": -7.194057941436768,
+            "relief": -7.982705116271973,
+            "remorse": -10.251361846923828,
+            "sadness": -12.477423667907715,
+            "surprise": -12.47382640838623,
+            "neutral": -1.3428404331207275
+          }
+        },
+        "Pradeep-mahato/ModernBERT-GoEmotions": {
+          "scores": {
+            "admiration": 0.13620543479919434,
+            "amusement": 0.002833486068993807,
+            "anger": 0.000711801287252456,
+            "annoyance": 0.0020432828459888697,
+            "approval": 0.02259244956076145,
+            "caring": 7.421446935040876e-05,
+            "confusion": 0.0015460351714864373,
+            "curiosity": 0.0008882309193722904,
+            "desire": 0.0005437261424958706,
+            "disappointment": 0.0010654543293640018,
+            "disapproval": 0.0006967746303416789,
+            "disgust": 0.000729133898857981,
+            "embarrassment": 0.002318047685548663,
+            "excitement": 0.019974807277321815,
+            "fear": 0.00016566556587349623,
+            "gratitude": 0.012975356541574001,
+            "grief": 0.00021521252347156405,
+            "joy": 0.054089754819869995,
+            "love": 0.00022782859741710126,
+            "nervousness": 4.259641718817875e-05,
+            "optimism": 0.001205194042995572,
+            "pride": 0.8118098974227905,
+            "realization": 0.00225317501462996,
+            "relief": 0.00040507479570806026,
+            "remorse": 0.00034458155278116465,
+            "sadness": 8.562970469938591e-05,
+            "surprise": 0.0011824734974652529,
+            "neutral": 0.3194226026535034
+          },
+          "raw_logits": {
+            "admiration": -1.8471707105636597,
+            "amusement": -5.863409996032715,
+            "anger": -7.246999740600586,
+            "annoyance": -6.191152095794678,
+            "approval": -3.7672879695892334,
+            "caring": -9.508477210998535,
+            "confusion": -6.470514297485352,
+            "curiosity": -7.025390148162842,
+            "desire": -7.516520977020264,
+            "disappointment": -6.843287944793701,
+            "disapproval": -7.2683515548706055,
+            "disgust": -7.222923755645752,
+            "embarrassment": -6.064709186553955,
+            "excitement": -3.893106460571289,
+            "fear": -8.705373764038086,
+            "gratitude": -4.331643104553223,
+            "grief": -8.443669319152832,
+            "joy": -2.8615028858184814,
+            "love": -8.386689186096191,
+            "nervousness": -10.063697814941406,
+            "optimism": -6.719908714294434,
+            "pride": 1.4618135690689087,
+            "realization": -6.093159198760986,
+            "relief": -7.811033725738525,
+            "remorse": -7.972835063934326,
+            "sadness": -9.365392684936523,
+            "surprise": -6.738963603973389,
+            "neutral": -0.7564265727996826
+          }
+        },
+        "SamLowe/roberta-base-go_emotions": {
+          "scores": {
+            "admiration": 0.1586022526025772,
+            "amusement": 0.004002589266747236,
+            "anger": 0.005488972179591656,
+            "annoyance": 0.019372902810573578,
+            "approval": 0.09192141145467758,
+            "caring": 0.008242218755185604,
+            "confusion": 0.001792300958186388,
+            "curiosity": 0.0003908688959199935,
+            "desire": 0.003810739377513528,
+            "disappointment": 0.010018563829362392,
+            "disapproval": 0.01699807681143284,
+            "disgust": 0.0031368734780699015,
+            "embarrassment": 0.009099897928535938,
+            "excitement": 0.032462239265441895,
+            "fear": 0.004145121667534113,
+            "gratitude": 0.020523063838481903,
+            "grief": 0.0036305785179138184,
+            "joy": 0.20469418168067932,
+            "love": 0.0011699069291353226,
+            "nervousness": 0.003042338415980339,
+            "optimism": 0.01306745782494545,
+            "pride": 0.2617790400981903,
+            "realization": 0.04058226943016052,
+            "relief": 0.06454915553331375,
+            "remorse": 0.0017612818628549576,
+            "sadness": 0.003674434032291174,
+            "surprise": 0.006262714043259621,
+            "neutral": 0.2571720778942108
+          },
+          "raw_logits": {
+            "admiration": -1.6686649322509766,
+            "amusement": -5.51680326461792,
+            "anger": -5.199510097503662,
+            "annoyance": -3.924316883087158,
+            "approval": -2.2903969287872314,
+            "caring": -4.7902092933654785,
+            "confusion": -6.322461128234863,
+            "curiosity": -7.846747398376465,
+            "desire": -5.5661139488220215,
+            "disappointment": -4.5932464599609375,
+            "disapproval": -4.057510852813721,
+            "disgust": -5.761386871337891,
+            "embarrassment": -4.690350532531738,
+            "excitement": -3.394676923751831,
+            "fear": -5.4816694259643555,
+            "gratitude": -3.865469455718994,
+            "grief": -5.6147260665893555,
+            "joy": -1.3572096824645996,
+            "love": -6.749660491943359,
+            "nervousness": -5.792081832885742,
+            "optimism": -4.324476718902588,
+            "pride": -1.0367424488067627,
+            "realization": -3.1629953384399414,
+            "relief": -2.6736016273498535,
+            "remorse": -6.3399505615234375,
+            "sadness": -5.602674961090088,
+            "surprise": -5.066859245300293,
+            "neutral": -1.0607190132141113
+          }
+        }
+      },
+      "scoped_noul": {
+        "article_id": -6,
+        "body_sha256": "1fcea6debca50df93963dfa2ba31e5a49114591ee34b23af68184a908e88cf5b",
+        "revision": "55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851",
+        "request": {
+          "state": "Maple Club player Robin said, \"I am delighted and proud of our win.\" This report contains no information about Cedar Club or its players.",
+          "questions": {
+            "neutral": {
+              "type": "noul",
+              "instructions": "The text contains no expressed emotion.",
+              "criteria": {
+                "false": "Emotion is expressed",
+                "true": "No emotion is expressed"
+              }
+            },
+            "entity_relevance": {
+              "type": "noul",
+              "instructions": "The report directly concerns Cedar Club or a person explicitly identified as its player. A report solely about another club is not relevant.",
+              "criteria": {
+                "false": "Not established",
+                "true": "Directly reported"
+              }
+            },
+            "current_optimism": {
+              "type": "noul",
+              "instructions": "The report explicitly attributes current hope or optimism to Alex. An old interview quoted in a new report is not a current feeling.",
+              "criteria": {
+                "false": "Not established",
+                "true": "Explicitly expressed now"
+              }
+            },
+            "current_relief": {
+              "type": "noul",
+              "instructions": "The report explicitly says Alex currently feels relief. An explicit denial does not establish relief.",
+              "criteria": {
+                "false": "Not established",
+                "true": "Explicitly expressed now"
+              }
+            },
+            "emotional_intensity": {
+              "type": "score",
+              "instructions": "How intense is the emotion explicitly expressed in the report? Do not infer a whole fanbase mood.",
+              "criteria": [
+                "No expressed emotion",
+                "Subdued expressed emotion",
+                "Clear expressed emotion",
+                "Very intense expressed emotion"
+              ]
+            }
+          }
+        },
+        "response": {
+          "model": "laya-rl-agent",
+          "answers": {
+            "neutral": {
+              "type": "noul",
+              "noul": 0.6565,
+              "confidence": 0.6565,
+              "answer_confidence": 0.6565,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "entity_relevance": {
+              "type": "noul",
+              "noul": 0.7981,
+              "confidence": 0.7981,
+              "answer_confidence": 0.7981,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "current_optimism": {
+              "type": "noul",
+              "noul": 0.1682,
+              "confidence": 0.8318,
+              "answer_confidence": 0.8318,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "current_relief": {
+              "type": "noul",
+              "noul": 0.0972,
+              "confidence": 0.9028,
+              "answer_confidence": 0.9028,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "emotional_intensity": {
+              "type": "score",
+              "score": 2.1651,
+              "legend": {
+                "0": "No expressed emotion",
+                "1": "Subdued expressed emotion",
+                "2": "Clear expressed emotion",
+                "3": "Very intense expressed emotion"
+              },
+              "probabilities": {
+                "0": 0.0216,
+                "1": 0.0642,
+                "2": 0.6415,
+                "3": 0.2726
+              },
+              "confidence": 0.352,
+              "answer_confidence": 0.6415,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 366,
+            "output_tokens": 0
+          }
+        },
+        "coverage": {
+          "state_tokens": 30,
+          "truncated": false
+        },
+        "elapsed_ms": 2829.7024751082063
+      },
+      "scoped_choice": {
+        "article_id": -6,
+        "body_sha256": "1fcea6debca50df93963dfa2ba31e5a49114591ee34b23af68184a908e88cf5b",
+        "revision": "55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851",
+        "request": {
+          "state": "Maple Club player Robin said, \"I am delighted and proud of our win.\" This report contains no information about Cedar Club or its players.",
+          "questions": {
+            "entity_relevance": {
+              "type": "choice",
+              "instructions": "The report directly concerns Cedar Club or a person explicitly identified as its player. A report solely about another club is not relevant.",
+              "criteria": {
+                "A": "Directly reported",
+                "B": "Not established"
+              }
+            },
+            "current_optimism": {
+              "type": "choice",
+              "instructions": "The report explicitly attributes current hope or optimism to Alex. An old interview quoted in a new report is not a current feeling.",
+              "criteria": {
+                "A": "Explicitly expressed now",
+                "B": "Not established"
+              }
+            },
+            "current_relief": {
+              "type": "choice",
+              "instructions": "The report explicitly says Alex currently feels relief. An explicit denial does not establish relief.",
+              "criteria": {
+                "A": "Explicitly expressed now",
+                "B": "Not established"
+              }
+            },
+            "emotional_intensity": {
+              "type": "score",
+              "instructions": "How intense is the emotion explicitly expressed in the report? Do not infer a whole fanbase mood.",
+              "criteria": [
+                "No expressed emotion",
+                "Subdued expressed emotion",
+                "Clear expressed emotion",
+                "Very intense expressed emotion"
+              ]
+            },
+            "neutral": {
+              "type": "choice",
+              "instructions": "The text contains no expressed emotion.",
+              "criteria": {
+                "A": "No emotion is expressed",
+                "B": "Emotion is expressed"
+              }
+            }
+          }
+        },
+        "response": {
+          "model": "laya-rl-agent",
+          "answers": {
+            "entity_relevance": {
+              "type": "choice",
+              "choice": "A",
+              "probabilities": {
+                "A": 0.6023,
+                "B": 0.3977
+              },
+              "confidence": 0.0304,
+              "answer_confidence": 0.6023,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "current_optimism": {
+              "type": "choice",
+              "choice": "A",
+              "probabilities": {
+                "A": 0.5958,
+                "B": 0.4042
+              },
+              "confidence": 0.0266,
+              "answer_confidence": 0.5958,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "current_relief": {
+              "type": "choice",
+              "choice": "A",
+              "probabilities": {
+                "A": 0.6745,
+                "B": 0.3255
+              },
+              "confidence": 0.0897,
+              "answer_confidence": 0.6745,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "emotional_intensity": {
+              "type": "score",
+              "score": 2.1651,
+              "legend": {
+                "0": "No expressed emotion",
+                "1": "Subdued expressed emotion",
+                "2": "Clear expressed emotion",
+                "3": "Very intense expressed emotion"
+              },
+              "probabilities": {
+                "0": 0.0216,
+                "1": 0.0642,
+                "2": 0.6415,
+                "3": 0.2726
+              },
+              "confidence": 0.352,
+              "answer_confidence": 0.6415,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "neutral": {
+              "type": "choice",
+              "choice": "A",
+              "probabilities": {
+                "A": 0.5814,
+                "B": 0.4186
+              },
+              "confidence": 0.0192,
+              "answer_confidence": 0.5814,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 362,
+            "output_tokens": 0
+          }
+        },
+        "coverage": {
+          "state_tokens": 30,
+          "truncated": false
+        },
+        "elapsed_ms": 3406.823792029172
+      }
+    },
+    {
+      "article_id": -7,
+      "body_sha256": "4dcfe479f4f824dfce23448824877320f2a79702572483def8b97031c0def72c",
+      "emotion": {
+        "laya": {
+          "scores": {
+            "admiration": 0.8901,
+            "amusement": 0.5061,
+            "anger": 0.0855,
+            "annoyance": 0.7028,
+            "approval": 0.7489,
+            "caring": 0.0916,
+            "confusion": 0.0998,
+            "curiosity": 0.0624,
+            "desire": 0.2436,
+            "disappointment": 0.839,
+            "disapproval": 0.1257,
+            "disgust": 0.0652,
+            "embarrassment": 0.0858,
+            "excitement": 0.0315,
+            "fear": 0.0226,
+            "gratitude": 0.0481,
+            "grief": 0.0,
+            "joy": 0.0493,
+            "love": 0.0,
+            "nervousness": 0.0054,
+            "optimism": 0.1538,
+            "pride": 0.0149,
+            "realization": 0.1635,
+            "relief": 0.0508,
+            "remorse": 0.0224,
+            "sadness": 0.0575,
+            "surprise": 0.0584,
+            "neutral": 0.153
+          },
+          "raw_logits": null
+        },
+        "Horizon-Labs/multilingual-emotions-small": {
+          "scores": {
+            "admiration": 0.10848498344421387,
+            "amusement": 0.001109978766180575,
+            "anger": 0.0001272816734854132,
+            "annoyance": 0.0008862299146130681,
+            "approval": 0.006811210885643959,
+            "caring": 0.0008846134296618402,
+            "confusion": 2.5874513085000217e-05,
+            "curiosity": 2.0967172531527467e-05,
+            "desire": 0.0004975254414603114,
+            "disappointment": 0.0016656884690746665,
+            "disapproval": 0.0030236979946494102,
+            "disgust": 0.0013354159891605377,
+            "embarrassment": 0.00022785855981055647,
+            "excitement": 0.000822494097519666,
+            "fear": 9.732668695505708e-05,
+            "gratitude": 0.004496768116950989,
+            "grief": 0.0002746190584730357,
+            "joy": 0.006969687528908253,
+            "love": 6.207156548043713e-05,
+            "nervousness": 7.96164313214831e-05,
+            "optimism": 0.007943369448184967,
+            "pride": 0.0006887383642606437,
+            "realization": 0.0277661494910717,
+            "relief": 0.002044479362666607,
+            "remorse": 5.9032870922237635e-05,
+            "sadness": 0.0001689055934548378,
+            "surprise": 0.00031975764431990683,
+            "neutral": 0.567079484462738
+          },
+          "raw_logits": {
+            "admiration": -2.1063106060028076,
+            "amusement": -6.802303791046143,
+            "anger": -8.96898078918457,
+            "annoyance": -7.027647495269775,
+            "approval": -4.982350826263428,
+            "caring": -7.02947473526001,
+            "confusion": -10.562226295471191,
+            "curiosity": -10.772531509399414,
+            "desire": -7.605366230010986,
+            "disappointment": -6.395849704742432,
+            "disapproval": -5.798246383666992,
+            "disgust": -6.617176055908203,
+            "embarrassment": -8.386557579040527,
+            "excitement": -7.102346420288086,
+            "fear": -9.237339973449707,
+            "gratitude": -5.3998894691467285,
+            "grief": -8.199851036071777,
+            "joy": -4.959190845489502,
+            "love": -9.68716049194336,
+            "nervousness": -9.438210487365723,
+            "optimism": -4.827442646026611,
+            "pride": -7.2799601554870605,
+            "realization": -3.555778741836548,
+            "relief": -6.190565586090088,
+            "remorse": -9.737357139587402,
+            "sadness": -8.686001777648926,
+            "surprise": -8.047627449035645,
+            "neutral": 0.2699451744556427
+          }
+        },
+        "Pradeep-mahato/ModernBERT-GoEmotions": {
+          "scores": {
+            "admiration": 0.02825709618628025,
+            "amusement": 0.041278112679719925,
+            "anger": 0.001946734730154276,
+            "annoyance": 0.0758817195892334,
+            "approval": 0.041607815772295,
+            "caring": 3.844473758363165e-05,
+            "confusion": 0.00022339804854709655,
+            "curiosity": 0.0003495831915643066,
+            "desire": 0.00027149583911523223,
+            "disappointment": 0.020389772951602936,
+            "disapproval": 0.0015436463290825486,
+            "disgust": 0.009411931969225407,
+            "embarrassment": 0.0004460852069314569,
+            "excitement": 0.0005449734744615853,
+            "fear": 0.00017380827921442688,
+            "gratitude": 0.002583483001217246,
+            "grief": 0.0005715425359085202,
+            "joy": 0.002027976792305708,
+            "love": 5.614985184365651e-06,
+            "nervousness": 2.8329821361694485e-05,
+            "optimism": 0.0565374381840229,
+            "pride": 0.0007898324984125793,
+            "realization": 0.010487076826393604,
+            "relief": 0.003268676344305277,
+            "remorse": 0.0026198094710707664,
+            "sadness": 0.00027781023527495563,
+            "surprise": 0.003440355882048607,
+            "neutral": 0.41021648049354553
+          },
+          "raw_logits": {
+            "admiration": -3.5377466678619385,
+            "amusement": -3.145268678665161,
+            "anger": -6.23965311050415,
+            "annoyance": -2.499664306640625,
+            "approval": -3.1369690895080566,
+            "caring": -10.166250228881836,
+            "confusion": -8.406332015991211,
+            "curiosity": -7.958419322967529,
+            "desire": -8.211292266845703,
+            "disappointment": -3.8721213340759277,
+            "disapproval": -6.472063064575195,
+            "disgust": -4.656320571899414,
+            "embarrassment": -7.714554309844971,
+            "excitement": -7.514228343963623,
+            "fear": -8.657383918762207,
+            "gratitude": -5.956029891967773,
+            "grief": -7.466599941253662,
+            "joy": -6.198686599731445,
+            "love": -12.090065956115723,
+            "nervousness": -10.471567153930664,
+            "optimism": -2.8146536350250244,
+            "pride": -7.142899513244629,
+            "realization": -4.547069072723389,
+            "relief": -5.720096111297607,
+            "remorse": -5.942030429840088,
+            "sadness": -8.188294410705566,
+            "surprise": -5.668734073638916,
+            "neutral": -0.3630704879760742
+          }
+        },
+        "SamLowe/roberta-base-go_emotions": {
+          "scores": {
+            "admiration": 0.24639306962490082,
+            "amusement": 0.07637903839349747,
+            "anger": 0.006732353940606117,
+            "annoyance": 0.13743415474891663,
+            "approval": 0.08912062644958496,
+            "caring": 0.0020656029228121042,
+            "confusion": 0.0008573984960094094,
+            "curiosity": 0.0005089857149869204,
+            "desire": 0.001487183035351336,
+            "disappointment": 0.06548989564180374,
+            "disapproval": 0.04246427118778229,
+            "disgust": 0.007522618398070335,
+            "embarrassment": 0.0033036796376109123,
+            "excitement": 0.003444042755290866,
+            "fear": 0.0005454375059343874,
+            "gratitude": 0.0022615455090999603,
+            "grief": 0.0009661935037001967,
+            "joy": 0.029329268261790276,
+            "love": 0.0017355887684971094,
+            "nervousness": 0.0004019842599518597,
+            "optimism": 0.010674268007278442,
+            "pride": 0.005710827652364969,
+            "realization": 0.017531868070364,
+            "relief": 0.004579505883157253,
+            "remorse": 0.0006151141715236008,
+            "sadness": 0.0027882298454642296,
+            "surprise": 0.0013392294058576226,
+            "neutral": 0.2554436922073364
+          },
+          "raw_logits": {
+            "admiration": -1.1179426908493042,
+            "amusement": -2.49259352684021,
+            "anger": -4.994075298309326,
+            "annoyance": -1.8367666006088257,
+            "approval": -2.3244197368621826,
+            "caring": -6.180265426635742,
+            "confusion": -7.0607500076293945,
+            "curiosity": -7.582581520080566,
+            "desire": -6.509383201599121,
+            "disappointment": -2.6581265926361084,
+            "disapproval": -3.1157000064849854,
+            "disgust": -4.882289886474609,
+            "embarrassment": -5.709409236907959,
+            "excitement": -5.667659282684326,
+            "fear": -7.513376712799072,
+            "gratitude": -6.089442729949951,
+            "grief": -6.9411797523498535,
+            "joy": -3.499401330947876,
+            "love": -6.354671478271484,
+            "nervousness": -7.818695545196533,
+            "optimism": -4.5291876792907715,
+            "pride": -5.159664154052734,
+            "realization": -4.026047706604004,
+            "relief": -5.3815741539001465,
+            "remorse": -7.393087387084961,
+            "sadness": -5.879556179046631,
+            "surprise": -6.614320755004883,
+            "neutral": -1.069786548614502
+          }
+        }
+      },
+      "scoped_noul": {
+        "article_id": -7,
+        "body_sha256": "4dcfe479f4f824dfce23448824877320f2a79702572483def8b97031c0def72c",
+        "revision": "55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851",
+        "request": {
+          "state": "After Cedar Club lost again, supporter Robin wrote sarcastically, \"Fantastic, another defeat. Just what we needed.\" The report attributes the comment to Robin alone.",
+          "questions": {
+            "neutral": {
+              "type": "noul",
+              "instructions": "The text contains no expressed emotion.",
+              "criteria": {
+                "false": "Emotion is expressed",
+                "true": "No emotion is expressed"
+              }
+            },
+            "entity_relevance": {
+              "type": "noul",
+              "instructions": "The report directly concerns Cedar Club or a person explicitly identified as its player. A report solely about another club is not relevant.",
+              "criteria": {
+                "false": "Not established",
+                "true": "Directly reported"
+              }
+            },
+            "current_optimism": {
+              "type": "noul",
+              "instructions": "The report explicitly attributes current hope or optimism to Alex. An old interview quoted in a new report is not a current feeling.",
+              "criteria": {
+                "false": "Not established",
+                "true": "Explicitly expressed now"
+              }
+            },
+            "current_relief": {
+              "type": "noul",
+              "instructions": "The report explicitly says Alex currently feels relief. An explicit denial does not establish relief.",
+              "criteria": {
+                "false": "Not established",
+                "true": "Explicitly expressed now"
+              }
+            },
+            "emotional_intensity": {
+              "type": "score",
+              "instructions": "How intense is the emotion explicitly expressed in the report? Do not infer a whole fanbase mood.",
+              "criteria": [
+                "No expressed emotion",
+                "Subdued expressed emotion",
+                "Clear expressed emotion",
+                "Very intense expressed emotion"
+              ]
+            }
+          }
+        },
+        "response": {
+          "model": "laya-rl-agent",
+          "answers": {
+            "neutral": {
+              "type": "noul",
+              "noul": 0.2312,
+              "confidence": 0.7688,
+              "answer_confidence": 0.7688,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "entity_relevance": {
+              "type": "noul",
+              "noul": 0.5546,
+              "confidence": 0.5546,
+              "answer_confidence": 0.5546,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "current_optimism": {
+              "type": "noul",
+              "noul": 0.0585,
+              "confidence": 0.9415,
+              "answer_confidence": 0.9415,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "current_relief": {
+              "type": "noul",
+              "noul": 0.0548,
+              "confidence": 0.9452,
+              "answer_confidence": 0.9452,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "emotional_intensity": {
+              "type": "score",
+              "score": 1.7273,
+              "legend": {
+                "0": "No expressed emotion",
+                "1": "Subdued expressed emotion",
+                "2": "Clear expressed emotion",
+                "3": "Very intense expressed emotion"
+              },
+              "probabilities": {
+                "0": 0.0542,
+                "1": 0.3183,
+                "2": 0.4733,
+                "3": 0.1541
+              },
+              "confidence": 0.1599,
+              "answer_confidence": 0.4733,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 391,
+            "output_tokens": 0
+          }
+        },
+        "coverage": {
+          "state_tokens": 35,
+          "truncated": false
+        },
+        "elapsed_ms": 2133.988414425403
+      },
+      "scoped_choice": {
+        "article_id": -7,
+        "body_sha256": "4dcfe479f4f824dfce23448824877320f2a79702572483def8b97031c0def72c",
+        "revision": "55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851",
+        "request": {
+          "state": "After Cedar Club lost again, supporter Robin wrote sarcastically, \"Fantastic, another defeat. Just what we needed.\" The report attributes the comment to Robin alone.",
+          "questions": {
+            "entity_relevance": {
+              "type": "choice",
+              "instructions": "The report directly concerns Cedar Club or a person explicitly identified as its player. A report solely about another club is not relevant.",
+              "criteria": {
+                "A": "Directly reported",
+                "B": "Not established"
+              }
+            },
+            "current_optimism": {
+              "type": "choice",
+              "instructions": "The report explicitly attributes current hope or optimism to Alex. An old interview quoted in a new report is not a current feeling.",
+              "criteria": {
+                "A": "Explicitly expressed now",
+                "B": "Not established"
+              }
+            },
+            "current_relief": {
+              "type": "choice",
+              "instructions": "The report explicitly says Alex currently feels relief. An explicit denial does not establish relief.",
+              "criteria": {
+                "A": "Explicitly expressed now",
+                "B": "Not established"
+              }
+            },
+            "emotional_intensity": {
+              "type": "score",
+              "instructions": "How intense is the emotion explicitly expressed in the report? Do not infer a whole fanbase mood.",
+              "criteria": [
+                "No expressed emotion",
+                "Subdued expressed emotion",
+                "Clear expressed emotion",
+                "Very intense expressed emotion"
+              ]
+            },
+            "neutral": {
+              "type": "choice",
+              "instructions": "The text contains no expressed emotion.",
+              "criteria": {
+                "A": "No emotion is expressed",
+                "B": "Emotion is expressed"
+              }
+            }
+          }
+        },
+        "response": {
+          "model": "laya-rl-agent",
+          "answers": {
+            "entity_relevance": {
+              "type": "choice",
+              "choice": "A",
+              "probabilities": {
+                "A": 0.7989,
+                "B": 0.2011
+              },
+              "confidence": 0.2758,
+              "answer_confidence": 0.7989,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "current_optimism": {
+              "type": "choice",
+              "choice": "B",
+              "probabilities": {
+                "A": 0.3291,
+                "B": 0.6709
+              },
+              "confidence": 0.086,
+              "answer_confidence": 0.6709,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "current_relief": {
+              "type": "choice",
+              "choice": "B",
+              "probabilities": {
+                "A": 0.4814,
+                "B": 0.5186
+              },
+              "confidence": 0.001,
+              "answer_confidence": 0.5186,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "emotional_intensity": {
+              "type": "score",
+              "score": 1.7273,
+              "legend": {
+                "0": "No expressed emotion",
+                "1": "Subdued expressed emotion",
+                "2": "Clear expressed emotion",
+                "3": "Very intense expressed emotion"
+              },
+              "probabilities": {
+                "0": 0.0542,
+                "1": 0.3183,
+                "2": 0.4733,
+                "3": 0.1541
+              },
+              "confidence": 0.1599,
+              "answer_confidence": 0.4733,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "neutral": {
+              "type": "choice",
+              "choice": "A",
+              "probabilities": {
+                "A": 0.8123,
+                "B": 0.1877
+              },
+              "confidence": 0.3033,
+              "answer_confidence": 0.8123,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 387,
+            "output_tokens": 0
+          }
+        },
+        "coverage": {
+          "state_tokens": 35,
+          "truncated": false
+        },
+        "elapsed_ms": 3596.0960616357625
+      }
+    },
+    {
+      "article_id": -9,
+      "body_sha256": "1c626b8ff3ca4d6d25629f54554bd53083c7b8ea7a8290fa311db6188e70b00d",
+      "emotion": {
+        "laya": {
+          "scores": {
+            "admiration": 0.4166,
+            "amusement": 0.6022,
+            "anger": 0.0856,
+            "annoyance": 0.1427,
+            "approval": 0.2888,
+            "caring": 0.3269,
+            "confusion": 0.3879,
+            "curiosity": 0.1986,
+            "desire": 0.3175,
+            "disappointment": 0.2504,
+            "disapproval": 0.6562,
+            "disgust": 0.1238,
+            "embarrassment": 0.1091,
+            "excitement": 0.8825,
+            "fear": 0.2114,
+            "gratitude": 0.3771,
+            "grief": 0.0146,
+            "joy": 0.2644,
+            "love": 0.0462,
+            "nervousness": 0.1225,
+            "optimism": 0.2829,
+            "pride": 0.5336,
+            "realization": 0.3081,
+            "relief": 0.2196,
+            "remorse": 0.4392,
+            "sadness": 0.0745,
+            "surprise": 0.1221,
+            "neutral": 0.611
+          },
+          "raw_logits": null
+        },
+        "Horizon-Labs/multilingual-emotions-small": {
+          "scores": {
+            "admiration": 1.954292883965536e-06,
+            "amusement": 4.181253189017298e-06,
+            "anger": 9.246475656254916e-07,
+            "annoyance": 1.9688148313434795e-05,
+            "approval": 0.001042669522576034,
+            "caring": 0.0008245917852036655,
+            "confusion": 4.0831724618328735e-05,
+            "curiosity": 0.00021261023357510567,
+            "desire": 5.2486793720163405e-05,
+            "disappointment": 3.1277730158763006e-05,
+            "disapproval": 0.0003277229843661189,
+            "disgust": 2.1127285435795784e-05,
+            "embarrassment": 7.743509922875091e-05,
+            "excitement": 0.005017539486289024,
+            "fear": 0.3825223445892334,
+            "gratitude": 1.239413450093707e-06,
+            "grief": 0.00099691201467067,
+            "joy": 0.00590389734134078,
+            "love": 6.485159246949479e-06,
+            "nervousness": 0.010973297990858555,
+            "optimism": 0.002284708898514509,
+            "pride": 1.014800432130869e-06,
+            "realization": 0.0002833520120475441,
+            "relief": 1.2739747035084292e-05,
+            "remorse": 3.712678517331369e-05,
+            "sadness": 3.7074281863169745e-05,
+            "surprise": 3.599224510253407e-05,
+            "neutral": 0.7157366871833801
+          },
+          "raw_logits": {
+            "admiration": -13.145480155944824,
+            "amusement": -12.384895324707031,
+            "anger": -13.893852233886719,
+            "annoyance": -10.835474014282227,
+            "approval": -6.864927768707275,
+            "caring": -7.099797248840332,
+            "confusion": -10.106010437011719,
+            "curiosity": -8.45583724975586,
+            "desire": -9.854896545410156,
+            "disappointment": -10.372572898864746,
+            "disapproval": -8.023014068603516,
+            "disgust": -10.764924049377441,
+            "embarrassment": -9.46599292755127,
+            "excitement": -5.289785385131836,
+            "fear": -0.478855699300766,
+            "gratitude": -13.600871086120605,
+            "grief": -6.909850597381592,
+            "joy": -5.126221179962158,
+            "love": -11.945987701416016,
+            "nervousness": -4.501256465911865,
+            "optimism": -6.079229354858398,
+            "pride": -13.800817489624023,
+            "realization": -8.168537139892578,
+            "relief": -11.270771026611328,
+            "remorse": -10.20113468170166,
+            "sadness": -10.202549934387207,
+            "surprise": -10.232171058654785,
+            "neutral": 0.92341148853302
+          }
+        },
+        "Pradeep-mahato/ModernBERT-GoEmotions": {
+          "scores": {
+            "admiration": 0.0022038407623767853,
+            "amusement": 0.0010212744819000363,
+            "anger": 0.000397323485231027,
+            "annoyance": 0.0019943176303058863,
+            "approval": 0.015238270163536072,
+            "caring": 0.0005155634135007858,
+            "confusion": 0.0015852261567488313,
+            "curiosity": 0.005064669530838728,
+            "desire": 0.007094661705195904,
+            "disappointment": 0.00645085284486413,
+            "disapproval": 0.0022315343376249075,
+            "disgust": 0.00023909594165161252,
+            "embarrassment": 0.0004806130309589207,
+            "excitement": 0.8887985944747925,
+            "fear": 0.0038658047560602427,
+            "gratitude": 0.0004915953031741083,
+            "grief": 0.00010183278209296986,
+            "joy": 0.05165352299809456,
+            "love": 0.0008897620718926191,
+            "nervousness": 0.001386644784361124,
+            "optimism": 0.005635951645672321,
+            "pride": 0.003538239048793912,
+            "realization": 0.0006797149544581771,
+            "relief": 0.0007193242199718952,
+            "remorse": 0.00011150668433401734,
+            "sadness": 0.00023433123715221882,
+            "surprise": 0.0007117999484762549,
+            "neutral": 0.22707155346870422
+          },
+          "raw_logits": {
+            "admiration": -6.115347385406494,
+            "amusement": -6.885682106018066,
+            "anger": -7.830362319946289,
+            "annoyance": -6.215456962585449,
+            "approval": -4.1685895919799805,
+            "caring": -7.569734573364258,
+            "confusion": -6.445441722869873,
+            "curiosity": -5.280388832092285,
+            "desire": -4.941292762756348,
+            "disappointment": -5.037071228027344,
+            "disapproval": -6.102831840515137,
+            "disgust": -8.338406562805176,
+            "embarrassment": -7.639967441558838,
+            "excitement": 2.0785269737243652,
+            "fear": -5.5517120361328125,
+            "gratitude": -7.617362976074219,
+            "grief": -9.192076683044434,
+            "joy": -2.9101614952087402,
+            "love": -7.0236663818359375,
+            "nervousness": -6.5794806480407715,
+            "optimism": -5.172937393188477,
+            "pride": -5.6405816078186035,
+            "realization": -7.29315710067749,
+            "relief": -7.236478805541992,
+            "remorse": -9.101314544677734,
+            "sadness": -8.358540534973145,
+            "surprise": -7.247001647949219,
+            "neutral": -1.2249212265014648
+          }
+        },
+        "SamLowe/roberta-base-go_emotions": {
+          "scores": {
+            "admiration": 0.009232117794454098,
+            "amusement": 0.010926732793450356,
+            "anger": 0.002174671273678541,
+            "annoyance": 0.0048975166864693165,
+            "approval": 0.03031187504529953,
+            "caring": 0.006059285253286362,
+            "confusion": 0.008861146867275238,
+            "curiosity": 0.00833374448120594,
+            "desire": 0.0076630134135484695,
+            "disappointment": 0.004042905755341053,
+            "disapproval": 0.005673678126186132,
+            "disgust": 0.0028366323094815016,
+            "embarrassment": 0.0023365949746221304,
+            "excitement": 0.267588347196579,
+            "fear": 0.3444613218307495,
+            "gratitude": 0.0010127341374754906,
+            "grief": 0.0016608925070613623,
+            "joy": 0.03509876877069473,
+            "love": 0.004391596186906099,
+            "nervousness": 0.06848147511482239,
+            "optimism": 0.009189525619149208,
+            "pride": 0.0025456631556153297,
+            "realization": 0.016190554946660995,
+            "relief": 0.004420125856995583,
+            "remorse": 0.0007345014601014555,
+            "sadness": 0.006036617327481508,
+            "surprise": 0.0141366021707654,
+            "neutral": 0.19320546090602875
+          },
+          "raw_logits": {
+            "admiration": -4.6757917404174805,
+            "amusement": -4.505556106567383,
+            "anger": -6.1287007331848145,
+            "annoyance": -5.314117431640625,
+            "approval": -3.465435028076172,
+            "caring": -5.100085735321045,
+            "confusion": -4.7171783447265625,
+            "curiosity": -4.779073715209961,
+            "desire": -4.863657474517822,
+            "disappointment": -5.506740570068359,
+            "disapproval": -5.1662278175354,
+            "disgust": -5.862297058105469,
+            "embarrassment": -6.056721210479736,
+            "excitement": -1.0068929195404053,
+            "fear": -0.6434754729270935,
+            "gratitude": -6.894088268280029,
+            "grief": -6.398737907409668,
+            "joy": -3.313859701156616,
+            "love": -5.423661231994629,
+            "nervousness": -2.610252857208252,
+            "optimism": -4.680459022521973,
+            "pride": -5.970815181732178,
+            "realization": -4.107004165649414,
+            "relief": -5.417157173156738,
+            "remorse": -7.215583801269531,
+            "sadness": -5.103856563568115,
+            "surprise": -4.244750499725342,
+            "neutral": -1.4293148517608643
+          }
+        }
+      },
+      "scoped_noul": {
+        "article_id": -9,
+        "body_sha256": "1c626b8ff3ca4d6d25629f54554bd53083c7b8ea7a8290fa311db6188e70b00d",
+        "revision": "55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851",
+        "request": {
+          "state": "Cedar Club player Alex said, \"I am excited about returning.\" Maple Club player Robin said, \"I am afraid of another setback.\" The reporter made no claim that Alex was afraid or Robin was excited.",
+          "questions": {
+            "neutral": {
+              "type": "noul",
+              "instructions": "The text contains no expressed emotion.",
+              "criteria": {
+                "false": "Emotion is expressed",
+                "true": "No emotion is expressed"
+              }
+            },
+            "entity_relevance": {
+              "type": "noul",
+              "instructions": "The report directly concerns Cedar Club or a person explicitly identified as its player. A report solely about another club is not relevant.",
+              "criteria": {
+                "false": "Not established",
+                "true": "Directly reported"
+              }
+            },
+            "current_optimism": {
+              "type": "noul",
+              "instructions": "The report explicitly attributes current hope or optimism to Alex. An old interview quoted in a new report is not a current feeling.",
+              "criteria": {
+                "false": "Not established",
+                "true": "Explicitly expressed now"
+              }
+            },
+            "current_relief": {
+              "type": "noul",
+              "instructions": "The report explicitly says Alex currently feels relief. An explicit denial does not establish relief.",
+              "criteria": {
+                "false": "Not established",
+                "true": "Explicitly expressed now"
+              }
+            },
+            "emotional_intensity": {
+              "type": "score",
+              "instructions": "How intense is the emotion explicitly expressed in the report? Do not infer a whole fanbase mood.",
+              "criteria": [
+                "No expressed emotion",
+                "Subdued expressed emotion",
+                "Clear expressed emotion",
+                "Very intense expressed emotion"
+              ]
+            }
+          }
+        },
+        "response": {
+          "model": "laya-rl-agent",
+          "answers": {
+            "neutral": {
+              "type": "noul",
+              "noul": 0.6463,
+              "confidence": 0.6463,
+              "answer_confidence": 0.6463,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "entity_relevance": {
+              "type": "noul",
+              "noul": 0.7734,
+              "confidence": 0.7734,
+              "answer_confidence": 0.7734,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "current_optimism": {
+              "type": "noul",
+              "noul": 0.6811,
+              "confidence": 0.6811,
+              "answer_confidence": 0.6811,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "current_relief": {
+              "type": "noul",
+              "noul": 0.4468,
+              "confidence": 0.5532,
+              "answer_confidence": 0.5532,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "emotional_intensity": {
+              "type": "score",
+              "score": 1.8872,
+              "legend": {
+                "0": "No expressed emotion",
+                "1": "Subdued expressed emotion",
+                "2": "Clear expressed emotion",
+                "3": "Very intense expressed emotion"
+              },
+              "probabilities": {
+                "0": 0.0416,
+                "1": 0.1117,
+                "2": 0.7646,
+                "3": 0.0821
+              },
+              "confidence": 0.4319,
+              "answer_confidence": 0.7646,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 431,
+            "output_tokens": 0
+          }
+        },
+        "coverage": {
+          "state_tokens": 43,
+          "truncated": false
+        },
+        "elapsed_ms": 3059.3274869024754
+      },
+      "scoped_choice": {
+        "article_id": -9,
+        "body_sha256": "1c626b8ff3ca4d6d25629f54554bd53083c7b8ea7a8290fa311db6188e70b00d",
+        "revision": "55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851",
+        "request": {
+          "state": "Cedar Club player Alex said, \"I am excited about returning.\" Maple Club player Robin said, \"I am afraid of another setback.\" The reporter made no claim that Alex was afraid or Robin was excited.",
+          "questions": {
+            "entity_relevance": {
+              "type": "choice",
+              "instructions": "The report directly concerns Cedar Club or a person explicitly identified as its player. A report solely about another club is not relevant.",
+              "criteria": {
+                "A": "Directly reported",
+                "B": "Not established"
+              }
+            },
+            "current_optimism": {
+              "type": "choice",
+              "instructions": "The report explicitly attributes current hope or optimism to Alex. An old interview quoted in a new report is not a current feeling.",
+              "criteria": {
+                "A": "Explicitly expressed now",
+                "B": "Not established"
+              }
+            },
+            "current_relief": {
+              "type": "choice",
+              "instructions": "The report explicitly says Alex currently feels relief. An explicit denial does not establish relief.",
+              "criteria": {
+                "A": "Explicitly expressed now",
+                "B": "Not established"
+              }
+            },
+            "emotional_intensity": {
+              "type": "score",
+              "instructions": "How intense is the emotion explicitly expressed in the report? Do not infer a whole fanbase mood.",
+              "criteria": [
+                "No expressed emotion",
+                "Subdued expressed emotion",
+                "Clear expressed emotion",
+                "Very intense expressed emotion"
+              ]
+            },
+            "neutral": {
+              "type": "choice",
+              "instructions": "The text contains no expressed emotion.",
+              "criteria": {
+                "A": "No emotion is expressed",
+                "B": "Emotion is expressed"
+              }
+            }
+          }
+        },
+        "response": {
+          "model": "laya-rl-agent",
+          "answers": {
+            "entity_relevance": {
+              "type": "choice",
+              "choice": "A",
+              "probabilities": {
+                "A": 0.6811,
+                "B": 0.3189
+              },
+              "confidence": 0.0968,
+              "answer_confidence": 0.6811,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "current_optimism": {
+              "type": "choice",
+              "choice": "A",
+              "probabilities": {
+                "A": 0.6612,
+                "B": 0.3388
+              },
+              "confidence": 0.0763,
+              "answer_confidence": 0.6612,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "current_relief": {
+              "type": "choice",
+              "choice": "B",
+              "probabilities": {
+                "A": 0.3606,
+                "B": 0.6394
+              },
+              "confidence": 0.0568,
+              "answer_confidence": 0.6394,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "emotional_intensity": {
+              "type": "score",
+              "score": 1.8872,
+              "legend": {
+                "0": "No expressed emotion",
+                "1": "Subdued expressed emotion",
+                "2": "Clear expressed emotion",
+                "3": "Very intense expressed emotion"
+              },
+              "probabilities": {
+                "0": 0.0416,
+                "1": 0.1117,
+                "2": 0.7646,
+                "3": 0.0821
+              },
+              "confidence": 0.4319,
+              "answer_confidence": 0.7646,
+              "action": {
+                "act_probability": 1.0
+              }
+            },
+            "neutral": {
+              "type": "choice",
+              "choice": "A",
+              "probabilities": {
+                "A": 0.6601,
+                "B": 0.3399
+              },
+              "confidence": 0.0752,
+              "answer_confidence": 0.6601,
+              "action": {
+                "act_probability": 1.0
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 427,
+            "output_tokens": 0
+          }
+        },
+        "coverage": {
+          "state_tokens": 43,
+          "truncated": false
+        },
+        "elapsed_ms": 3900.0279777683318
+      }
+    }
+  ],
+  "hardware": {
+    "cpu": "Intel Core i7-7700 @ 3.60GHz",
+    "physical_cores": 4,
+    "hardware_threads": 8,
+    "torch_threads": 2,
+    "gpu": "NVIDIA GeForce GTX 1070 Ti",
+    "gpu_compute_capability": "6.1",
+    "gpu_execution": "installed PyTorch CUDA build kernel probe failed"
+  }
+}

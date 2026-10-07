@@ -88,8 +88,12 @@ async fn load_on(
          c.headline, a.title, COALESCE(a.source, '') AS source, \
          EXTRACT(EPOCH FROM a.published_at)::bigint AS published_at_epoch, \
          a.full_text, c.body_sha256, c.context_start, c.context_end, c.context_text, \
-         c.contract_version, c.model_provenance->'source_identity' AS source_identity, \
-         a.url, a.published_at::text AS published_at \
+         c.contract_version, COALESCE( \
+           (c.model_provenance->'source_identity') - 'published_at' = \
+             jsonb_build_object('source',COALESCE(a.source,''),'url',a.url) \
+           AND c.model_provenance->'source_identity' ? 'published_at' \
+           AND ((c.model_provenance->'source_identity'->>'published_at')::timestamptz \
+             IS NOT DISTINCT FROM a.published_at),false) AS source_identity_matches \
          FROM public.harvester_classifications c \
          LEFT JOIN public.harvester_assignments d ON d.classification_id=c.id AND d.plugin_id=$1 \
          JOIN public.news_articles a ON a.id=c.article_id \
@@ -160,14 +164,8 @@ async fn load_on(
                 | "harvest-context-v8-editor"
                 | "harvest-context-v9-entity-vibe"
         ) {
-            let identity: Option<serde_json::Value> = row.get("source_identity");
             ensure!(
-                identity
-                    == Some(serde_json::json!({
-                        "source": row.get::<String, _>("source"),
-                        "url": row.get::<String, _>("url"),
-                        "published_at": row.get::<Option<String>, _>("published_at"),
-                    })),
+                row.get::<bool, _>("source_identity_matches"),
                 "Harvester source attribution or publication date drift"
             );
         }
@@ -382,10 +380,15 @@ mod tests {
         .execute(&pool)
         .await
         .unwrap();
+        sqlx::query("UPDATE public.news_articles SET published_at='2000-01-01 00:00:00+00' WHERE id=$1")
+            .bind(ARTICLE)
+            .execute(&pool)
+            .await
+            .unwrap();
         sqlx::query(
             "UPDATE public.harvester_classifications c SET contract_version=$2, \
              model_provenance=jsonb_build_object('source_identity',jsonb_build_object( \
-                 'source',a.source,'url',a.url,'published_at',a.published_at::text)) \
+                 'source',a.source,'url',a.url,'published_at','1999-12-31 19:00:00-05')) \
              FROM public.news_articles a WHERE c.article_id=a.id AND c.id=$1",
         )
         .bind(classification_id)

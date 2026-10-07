@@ -1,7 +1,7 @@
 {
   "name": "synthetic-source-trigger",
   "task": "rating",
-  "prompt_version": "s66-measured-windows",
+  "prompt_version": "s68-concise-body",
   "parts": {
     "memory": {
       "coverage_limits": [
@@ -39,7 +39,7 @@
       "sport": "ZZ_HARVESTER_SMOKE"
     }
   },
-  "user_prompt": "{\"meta\":{\"name\":\"Harvester Test Club\",\"entity_type\":\"team\",\"sport\":\"Harvester smoke\"},\"fresh\":{\"season\":2026,\"values\":[{\"label\":\"Scoring\",\"measure\":\"points\",\"value\":20.0,\"percentile\":80.0,\"band\":\"strong\"}],\"supports_cross_season\":false,\"limit\":{\"kind\":\"unknown_sample\",\"minimum\":10.0}},\"memories\":{\"coverage_limits\":[\"Recent-fixture measurement windows are not part of this read's scope.\"]},\"voice\":\"Observant, direct, specific to the sport and restrained.\",\"form\":{\"keys\":[\"body\"],\"max_chars\":1200}}",
+  "user_prompt": "{\"meta\":{\"name\":\"Harvester Test Club\",\"entity_type\":\"team\",\"sport\":\"Harvester smoke\"},\"fresh\":{\"season\":2026,\"values\":[{\"label\":\"Scoring\",\"measure\":\"points\",\"value\":20.0,\"percentile\":80.0,\"band\":\"strong\"}],\"supports_cross_season\":false,\"limit\":{\"kind\":\"unknown_sample\",\"minimum\":10.0}},\"memories\":{\"coverage_limits\":[\"Recent-fixture measurement windows are not part of this read's scope.\"]},\"voice\":\"Observant, direct, specific to the sport and restrained.\",\"form\":{\"keys\":[\"body\"],\"paragraphs\":\"concise\"}}",
   "temperature": 0,
   "expect": {},
   "review": [

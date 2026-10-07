@@ -1,4 +1,9 @@
 //! Complete source preparation, linked mentions, measured history and model requests.
+use crate::harness::route::RouteKey;
+pub const MODEL: RouteKey = RouteKey::new("transfer-logic", "TRANSFER_LOGIC");
+// Reserve room for a bounded full article, instructions, history and output.
+pub const ARTICLE_NUM_CTX: i32 = 32768;
+pub const CONTEXT_BUDGET_BYTES: usize = 24000;
 use crate::harness::model::GenerateOptions;
 use crate::harness::queue::work::Item;
 use crate::plugins::harvester::delivery::{
@@ -13,7 +18,7 @@ use std::collections::HashMap;
 
 const SYSTEM: &str = "Write an attributed transfer or trade reading for the named entity from the supplied publisher reports. The source text establishes what was reported, not whether a move happened. A co-mentioned name is only a candidate subject; do not infer a move from its presence. Preserve denials, uncertainty, source disagreements and report dates. Use prior reports only as history; weigh measured publisher records with their tracked sample sizes, and do not treat missing records as poor reliability. Return one JSON object with body and findings. For each specific reported move or explicit denial involving this entity and a co-mentioned counterparty, give its zero-based report_index, exact counterparty name, status (reported or denied), and an exact continuous evidence_quote from that report's headline or publisher_excerpt. For reported moves, set stage to speculation, concrete_interest, advanced_talks, or here_we_go; for denials, set stage to null. A denial requires an explicit source statement about that move; absence, silence, and unrelated mentions produce no finding. Use [] when there are no supported findings. Do not report completed identity changes from transfer speculation.";
 
-pub const PROMPT_VERSION: &str = "insider-source-v3";
+pub const PROMPT_VERSION: &str = "insider-source-v6-concise-body";
 pub const OUTPUT_CONTRACT_VERSION: &str = "insider-reading-findings-v2";
 pub const NUM_PREDICT: i32 = 1400;
 
@@ -22,7 +27,7 @@ pub fn options(num_ctx: i32) -> GenerateOptions {
         system: Some(SYSTEM.into()),
         temperature: Some(0.3),
         num_predict: NUM_PREDICT,
-        num_ctx,
+        num_ctx: num_ctx.max(ARTICLE_NUM_CTX),
         json_mode: false,
         format_schema: Some(serde_json::json!({
             "type": "object", "additionalProperties": false,
@@ -139,7 +144,7 @@ pub(super) async fn load_material(pool: &PgPool, item: &Item) -> Result<Material
             publisher: source.source.clone(),
             published_at: source.published_at_epoch.map(crate::util::utc_timestamp),
             headline: source.headline.clone(),
-            publisher_excerpt: source.context.clone(),
+            publisher_excerpt: crate::tools::fetch::decode_entities(&source.context),
             co_mentions: found
                 .iter()
                 .map(|m| Mention {
@@ -222,6 +227,7 @@ async fn load_history(
         before,
         &excluded,
         HISTORY.max_reports,
+        2,
         &prior,
         None,
     )
@@ -273,8 +279,7 @@ pub fn assemble(
         voice: crate::plugins::insider::voice::VOICE,
         form: serde_json::json!({
             "keys": ["body", "findings"],
-            "max_chars": crate::tools::form::BODY_MAX_CHARS,
-            "paragraph_max_chars": null,
+            "paragraphs": "concise",
             "findings": {
                 "type": "array",
                 "item_keys": ["report_index", "counterparty", "status", "stage", "evidence_quote"]

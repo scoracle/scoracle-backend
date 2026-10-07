@@ -1,10 +1,10 @@
 {
   "expect": {},
   "name": "ascendant-aligned",
-  "prompt_version": "or26",
+  "prompt_version": "or27-concise-body",
   "task": "oracle",
   "temperature": 0.0,
-  "user_prompt": "{\"meta\":{\"name\":\"Kiana Wells\",\"entity_type\":\"player\",\"sport\":\"basketball\"},\"fresh\":{\"journalist\":[{\"title\":\"Kiana Wells keeps rolling as a defensive anchor\",\"body\":\"A month of dominant rim protection has the rotation built around her; the coverage is admiring and consistent.\",\"trajectory\":\"heating_up\",\"source_count\":3,\"source_age_days\":1}],\"scout\":{\"body\":\"Anchor defender erasing the paint; blocks and altered shots keep climbing.\"},\"influencer\":{\"body\":\"The room is warm and getting warmer — a run of dominant defensive games has the coverage glowing.\"},\"analyst\":{\"body\":\"Performance and the mood around her are moving upward together.\"}},\"voice\":\"Mystic, arcane, knowing, restrained.\",\"form\":{\"keys\":[\"reading\"],\"max_chars\":1200}}",
+  "user_prompt": "{\"meta\":{\"name\":\"Kiana Wells\",\"entity_type\":\"player\",\"sport\":\"basketball\"},\"fresh\":{\"journalist\":[{\"title\":\"Kiana Wells keeps rolling as a defensive anchor\",\"body\":\"A month of dominant rim protection has the rotation built around her; the coverage is admiring and consistent.\",\"trajectory\":\"heating_up\",\"source_count\":3,\"source_age_days\":1}],\"scout\":{\"body\":\"Anchor defender erasing the paint; blocks and altered shots keep climbing.\"},\"influencer\":{\"body\":\"The room is warm and getting warmer — a run of dominant defensive games has the coverage glowing.\"},\"analyst\":{\"body\":\"Performance and the mood around her are moving upward together.\"}},\"voice\":\"Mystic, arcane, knowing, restrained.\",\"form\":{\"keys\":[\"reading\"],\"paragraphs\":\"concise\"}}",
   "review": [
     "Draw a supported connection across the aligned readings without adding facts."
   ]

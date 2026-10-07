@@ -315,7 +315,7 @@ func (s *NewsService) persistArticles(
 			    published_at = COALESCE(EXCLUDED.published_at, news_articles.published_at),
 			    feed_rank   = LEAST(COALESCE(news_articles.feed_rank, EXCLUDED.feed_rank), EXCLUDED.feed_rank)
 			RETURNING id
-		`, hash, a.URL, nullIfEmpty(a.Source), a.Title, nullIfEmpty(a.Description), publishedAt, a.FeedRank, rawProv).Scan(&articleID)
+		`, hash, a.URL, work.NullIfEmpty(a.Source), a.Title, work.NullIfEmpty(a.Description), publishedAt, a.FeedRank, rawProv).Scan(&articleID)
 		if err != nil {
 			return nil, 0, fmt.Errorf("upsert article: %w", err)
 		}
@@ -374,13 +374,6 @@ func (s *NewsService) persistArticles(
 func sha256Hex(s string) string {
 	h := sha256.Sum256([]byte(s))
 	return hex.EncodeToString(h[:])
-}
-
-func nullIfEmpty(s string) interface{} {
-	if s == "" {
-		return nil
-	}
-	return s
 }
 
 func parseArticleDate(s string) time.Time {

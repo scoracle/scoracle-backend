@@ -1,7 +1,7 @@
 {
   "name": "synthetic-withdrawn-report",
   "task": "rating",
-  "prompt_version": "s66-measured-windows",
+  "prompt_version": "s68-concise-body",
   "parts": {
     "memory": {
       "reported": [
@@ -53,7 +53,7 @@
       "sport": "NBA"
     }
   },
-  "user_prompt": "{\"meta\":{\"name\":\"Cedar Comets\",\"entity_type\":\"team\",\"sport\":\"Basketball\"},\"fresh\":{\"season\":2026,\"sample\":{\"Games Played\":25.0},\"values\":[{\"label\":\"Rebounds\",\"measure\":\"rebounds per game\",\"value\":48.0,\"percentile\":90.0,\"cohort\":30.0,\"band\":\"elite\",\"prior_percentile\":80.0,\"standing_change\":\"rose\"},{\"label\":\"Assists\",\"measure\":\"assists per game\",\"value\":23.0,\"percentile\":75.0,\"cohort\":30.0,\"band\":\"strong\",\"prior_percentile\":75.0,\"standing_change\":\"held\"}],\"composite\":64.0,\"supports_cross_season\":true},\"memories\":{\"reported\":[{\"publisher\":\"Example Wire\",\"published_at\":\"2026-09-28T00:00:00Z\",\"reported_headline\":\"The club withdrew its earlier report that Morgan Example would miss two weeks. Current availability remains unconfirmed.\",\"withdrawn\":true,\"disputed\":true}]},\"voice\":\"Observant, direct, specific to the sport and restrained.\",\"form\":{\"keys\":[\"body\"],\"max_chars\":1200}}",
+  "user_prompt": "{\"meta\":{\"name\":\"Cedar Comets\",\"entity_type\":\"team\",\"sport\":\"Basketball\"},\"fresh\":{\"season\":2026,\"sample\":{\"Games Played\":25.0},\"values\":[{\"label\":\"Rebounds\",\"measure\":\"rebounds per game\",\"value\":48.0,\"percentile\":90.0,\"cohort\":30.0,\"band\":\"elite\",\"prior_percentile\":80.0,\"standing_change\":\"rose\"},{\"label\":\"Assists\",\"measure\":\"assists per game\",\"value\":23.0,\"percentile\":75.0,\"cohort\":30.0,\"band\":\"strong\",\"prior_percentile\":75.0,\"standing_change\":\"held\"}],\"composite\":64.0,\"supports_cross_season\":true},\"memories\":{\"reported\":[{\"publisher\":\"Example Wire\",\"published_at\":\"2026-09-28T00:00:00Z\",\"reported_headline\":\"The club withdrew its earlier report that Morgan Example would miss two weeks. Current availability remains unconfirmed.\",\"withdrawn\":true,\"disputed\":true}]},\"voice\":\"Observant, direct, specific to the sport and restrained.\",\"form\":{\"keys\":[\"body\"],\"paragraphs\":\"concise\"}}",
   "temperature": 0,
   "expect": {},
   "review": [

@@ -15,14 +15,6 @@ pub(crate) struct ClaimPublication<'a> {
     item: &'a Item,
 }
 
-/// Durable evidence that a progress checkpoint committed under the exact claim.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct ProgressReceipt(());
-
-/// Durable evidence that the exact claim and all required effects committed together.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct FinalReceipt(());
-
 impl<'a> ClaimPublication<'a> {
     /// Begin a short publication transaction and fence it to the exact lease and input
     /// revision. `None` means the claim was superseded before any domain effect ran.
@@ -45,16 +37,15 @@ impl<'a> ClaimPublication<'a> {
 
     /// Commit a durable checkpoint while leaving the exact claim active. The worker may
     /// subsequently defer it; a later failure does not erase this committed progress.
-    pub(crate) async fn commit_progress(self) -> Result<ProgressReceipt> {
+    pub(crate) async fn commit_progress(self) -> Result<()> {
         self.tx
             .commit()
             .await
-            .context("commit claim progress publication")?;
-        Ok(ProgressReceipt(()))
+            .context("commit claim progress publication")
     }
 
     /// Atomically commit plugin effects and completion of the exact claim.
-    pub(crate) async fn commit_final(mut self) -> Result<FinalReceipt> {
+    pub(crate) async fn commit_final(mut self) -> Result<()> {
         ensure!(
             work::complete_in_transaction(&mut self.tx, self.item).await?,
             "claim changed while its publication transaction held the row lock"
@@ -62,7 +53,6 @@ impl<'a> ClaimPublication<'a> {
         self.tx
             .commit()
             .await
-            .context("commit final claim publication")?;
-        Ok(FinalReceipt(()))
+            .context("commit final claim publication")
     }
 }

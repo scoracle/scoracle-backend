@@ -39,8 +39,9 @@ fn parser_refuses_schema_valid_generated_relations() {
         )
         .unwrap()
         .unwrap();
-    assert!(
-        out.relations.is_empty(),
+    assert_eq!(
+        out,
+        GraphExtraction::default(),
         "schema-valid model output is not a verified relation"
     );
 }
@@ -61,7 +62,7 @@ fn parser_refuses_all_generated_relations() {
         )
         .unwrap()
         .unwrap();
-    assert!(out.relations.is_empty());
+    assert_eq!(out, GraphExtraction::default());
 }
 
 #[test]
@@ -167,7 +168,7 @@ async fn studio_graph_uses_prepared_evidence_and_actual_model_provenance() {
         .unwrap()
         .unwrap();
     assert_eq!(result.model, "actual-graph-model");
-    assert!(result.value.unwrap().relations.is_empty());
+    assert_eq!(result.value.unwrap(), GraphExtraction::default());
     let calls = model.requests.lock().unwrap();
     assert_eq!(calls.len(), 1);
     assert_eq!(

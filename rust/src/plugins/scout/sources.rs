@@ -34,9 +34,8 @@ pub struct AvailabilityChange {
 /// datapoints the report is actually built on.
 pub(crate) const MAX_AVAILABILITY_LINES: usize = 4;
 
-/// One adjudicated personnel change, as the DB describes it — dates already labeled by
-/// `to_char` (the `Mon DD` convention the memory card and 7.10's storyline lens use), names
-/// resolved, nothing rendered. The sentence is built in code (T2: describe, then derive).
+/// One stored personnel change with full UTC reconciliation dates and resolved
+/// names. DuckDB analyzes the snapshot before it becomes model-facing memory.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct PersonnelChange {
     /// `applied` — the move is in force; `reverted` — an earlier applied move was undone.
@@ -114,7 +113,7 @@ pub async fn load_personnel_changes(
                AND a.reverted_at > (SELECT at FROM since)
         )
         SELECT c.kind,
-               to_char(c.at, 'Mon DD') AS date_label,
+               to_char(c.at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS date_label,
                c.event_type,
                COALESCE(pl.name, 'a player') AS player_name,
                told.name AS old_team,
@@ -236,14 +235,14 @@ pub async fn load_availability_changes(
                AND a.reverted_at > (SELECT at FROM since)
         )
         SELECT c.kind,
-               to_char(c.at, 'Mon DD') AS date_label,
+               to_char(c.at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS date_label,
                c.event_kind,
                COALESCE(pl.name, 'a player') AS player_name,
                t.name AS team_name,
                c.team_id,
-               to_char(c.event_date, 'Mon DD') AS event_date_label,
+               to_char(c.event_date, 'YYYY-MM-DD') AS event_date_label,
                CASE WHEN c.expected_return IS NOT NULL
-                    THEN to_char(c.expected_return, 'Mon DD') END AS expected_return_label
+                    THEN to_char(c.expected_return, 'YYYY-MM-DD') END AS expected_return_label
           FROM changes c
           JOIN public.players pl ON pl.id = c.player_id AND pl.sport = $1
           LEFT JOIN public.teams t ON t.id = c.team_id AND t.sport = $1

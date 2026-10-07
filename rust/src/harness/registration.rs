@@ -45,7 +45,7 @@ pub fn enabled_from_config(raw: Option<&str>) -> Result<HashSet<String>> {
         // stages. A host must opt in to the Harvester worker explicitly.
         return Ok(known
             .into_iter()
-            .filter(|s| *s != "harvester")
+            .filter(|s| !matches!(*s, "harvester" | "editor"))
             .map(str::to_owned)
             .collect());
     };
@@ -106,14 +106,21 @@ pub fn build(
         )));
     }
     if enabled.contains("harvester") {
-        let endpoint = std::env::var("HARVESTER_MODEL_ENDPOINT").map_err(|_| {
-            anyhow!("HARVESTER_MODEL_ENDPOINT is required when harvester is enabled")
-        })?;
-        let model = crate::harness::providers::system_one::SystemOneClient::new(endpoint)?;
-        let web = shared_web_workspace(&mut web_workspace)?;
+        let model = crate::plugins::system_one::bind(
+            crate::plugins::harvester::prompt::MODEL_ENDPOINT_ENV,
+        )?;
         handlers.push(Arc::new(harvester::HarvesterHandler::new(
             pool.clone(),
-            Arc::new(model),
+            model,
+        )));
+    }
+    if enabled.contains("editor") {
+        let model =
+            crate::plugins::system_one::bind(crate::plugins::editor::prompt::MODEL_ENDPOINT_ENV)?;
+        let web = shared_web_workspace(&mut web_workspace)?;
+        handlers.push(Arc::new(crate::plugins::editor::EditorHandler::new(
+            pool.clone(),
+            model,
             web,
         )));
     }
@@ -211,9 +218,12 @@ mod tests {
     #[test]
     fn unset_configuration_keeps_harvester_opt_in() {
         let stages = enabled_from_config(None).unwrap();
-        assert_eq!(stages.len() + 1, known_stages().len());
+        assert_eq!(stages.len() + 2, known_stages().len());
         for stage in known_stages() {
-            assert_eq!(stages.contains(stage), stage != "harvester");
+            assert_eq!(
+                stages.contains(stage),
+                !matches!(stage, "harvester" | "editor")
+            );
         }
         assert!(enabled_from_config(Some("harvester"))
             .unwrap()
@@ -242,7 +252,7 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert!(err.contains("headlinez"));
-        assert!(err.contains("editor"));
+        assert!(!err.contains("unknown COGNITION_STAGES value(s): editor"));
         assert!(err.contains("scrub"));
         assert!(err.contains("oracle"));
         assert!(err.contains("narratives"));

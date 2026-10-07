@@ -1,5 +1,7 @@
 # Harvester headline calibration, September 27
 
+> **2026-10-06 governing update:** This dated record preserves its implementation and evaluation evidence. The [current contract](../../../scoracle-wiki/wiki/Architecture/Harness,%20Plugins,%20Tools,%20and%20LLM%20Contract.md) supersedes articulation-only ownership: cheap code owns collection; expensive compute owns discovery. Plugins assemble traceable clues through tools; the LLM reasons across them, discovers what they support and articulates the answer. Historical “plugin owns WHAT/model owns HOW” statements below do not govern new builds.
+
 ## Measurement
 
 The read-only `harvest-headline-relevance-v1` replay sent the target team and Google headline, with no article

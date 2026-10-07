@@ -1,90 +1,162 @@
-//! Export the production cognition package and check retained replies for form only.
-use anyhow::Result;
-use scoracle_cognition::harness::Parser;
-use scoracle_cognition::plugins::harvester::delivery::SourceContext;
-use scoracle_cognition::plugins::influencer::{self, memories::HistoryItem, prompt};
-use scoracle_cognition::tools::meta::EntityMeta;
+//! Read-only current-corpus Influencer replay, with exact inputs and model receipts.
+//! INFLUENCER_REPLAY_DATABASE_URL and SCORACLE_MEMORY_STUDY_BIN are required.
+//! cargo run --example influencer_replay -- CASES.json OUTPUT.jsonl [OLLAMA_URL MODEL]
+//! Recorded evidence needs no database: --recorded INPUT.jsonl OUTPUT.jsonl OLLAMA_URL MODEL
+use anyhow::{ensure, Context, Result};
+use scoracle_cognition::harness::providers::ollama::OllamaClient;
+use scoracle_cognition::plugins::{harvester::delivery, influencer};
+use scoracle_cognition::tools::meta::{lookup_entity_name, EntityMeta};
 use serde::Deserialize;
 use serde_json::{json, Value};
-use sha2::{Digest, Sha256};
-use std::io::{BufRead, Write};
+use std::io::Write;
+use std::time::Duration;
 
 #[derive(Deserialize)]
 struct Case {
-    key: String,
-    subject: EntityMeta,
-    source: SourceContext,
-    #[serde(default)]
-    history: Vec<HistoryItem>,
+    entity_type: String,
+    entity_id: i32,
+    sport: String,
+    article_id: i64,
 }
-fn main() -> Result<()> {
+
+#[tokio::main]
+async fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
-    let validate = args.get(1).is_some_and(|a| a == "--validate");
-    let path = args
-        .get(if validate { 2 } else { 1 })
-        .ok_or_else(|| anyhow::anyhow!("provide a JSONL fixture or --validate response file"))?;
-    let lines = std::io::BufReader::new(std::fs::File::open(path)?);
-    let mut stdout = std::io::stdout().lock();
-    let mut checked = 0;
-    let mut failures = 0;
-    for line in lines.lines() {
-        let line = line?;
-        if validate {
-            let row: Value = serde_json::from_str(&line)?;
-            checked += 1;
-            let parsed = influencer::VibeParser
-                .parse(row["response"]["message"]["content"].as_str().unwrap_or(""));
-            match parsed {
-                Ok(_) if row["response"]["done"] == true => {
-                    writeln!(stdout, "{}: form passed", row["key"])?;
-                }
-                Ok(_) => {
-                    failures += 1;
-                    writeln!(
-                        stdout,
-                        "{}: FAILED (done={})",
-                        row["key"], row["response"]["done"]
-                    )?;
-                }
-                Err(error) => {
-                    failures += 1;
-                    writeln!(stdout, "{}: FAILED ({error})", row["key"])?;
-                }
-            }
-        } else {
-            let case: Case = serde_json::from_str(&line)?;
-            let assignment = prompt::Assignment {
-                subject: case.subject,
-                source: case.source,
-                history: case.history,
-                input_components_json: line.clone(),
-                input_hash: hex::encode(Sha256::digest(line.as_bytes())),
-            };
-            let opts = prompt::generation_options(
-                prompt::VIBE_TEMPERATURE,
-                4096,
-                prompt::VIBE_NUM_PREDICT,
-            );
-            let backend = scoracle_cognition::harness::providers::ollama::OllamaClient::with_think(
-                "http://127.0.0.1:11434",
-                "alibayram/smollm3:latest",
-                std::time::Duration::from_secs(120),
-                Some(false),
-            )?;
-            let request = backend.request_body(&prompt::assembled_prompt(&assignment), &opts);
-            writeln!(stdout, "{}", json!({"key":case.key,"request":request}))?;
-        }
+    if args.get(1).is_some_and(|arg| arg == "--recorded") {
+        ensure!(
+            args.len() == 6,
+            "usage: --recorded INPUT.jsonl OUTPUT.jsonl OLLAMA_URL MODEL"
+        );
+        return replay_recorded(&args[2], &args[3], &args[4], &args[5]).await;
     }
-    if validate {
-        anyhow::ensure!(checked > 0, "no retained replies to validate");
-        writeln!(
-            stdout,
-            "{} passed; {failures} failed; {checked} checked",
-            checked - failures
-        )?;
-        anyhow::ensure!(
-            failures == 0,
-            "{failures} retained replies failed validation"
+    ensure!(
+        args.len() == 3 || args.len() == 5,
+        "usage: influencer_replay CASES.json OUTPUT.jsonl [OLLAMA_URL MODEL]"
+    );
+    let cases: Vec<Case> = serde_json::from_str(&std::fs::read_to_string(&args[1])?)?;
+    let connect: sqlx::postgres::PgConnectOptions = std::env::var("INFLUENCER_REPLAY_DATABASE_URL")
+        .context("INFLUENCER_REPLAY_DATABASE_URL is required")?
+        .parse()?;
+    let pool = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(1)
+        .connect_with(connect.options([
+            ("default_transaction_read_only", "on"),
+            ("statement_timeout", "15000"),
+        ]))
+        .await?;
+    let readonly: String = sqlx::query_scalar("SHOW transaction_read_only")
+        .fetch_one(&pool)
+        .await?;
+    ensure!(
+        readonly == "on",
+        "replay requires read-only database transactions"
+    );
+    let model = if args.len() == 5 {
+        Some(OllamaClient::with_think(
+            &args[3],
+            &args[4],
+            Duration::from_secs(120),
+            Some(false),
+        )?)
+    } else {
+        None
+    };
+    let mut output = std::fs::OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .open(&args[2])?;
+    for case in cases {
+        let now = influencer::now();
+        let mut record = json!({"article_id":case.article_id,"captured_at":now,
+            "prompt_version":influencer::prompt::VIBE_PROMPT_VERSION,"database_read_only":true});
+        let result: Result<()> = async {
+            let subject = EntityMeta {
+                name: lookup_entity_name(&pool, &case.entity_type, case.entity_id, &case.sport)
+                    .await?,
+                entity_type: case.entity_type.clone(),
+                entity_id: case.entity_id,
+                sport: case.sport.clone(),
+            };
+            let sources = delivery::load_for_character(
+                &pool,
+                influencer::manifest::MANIFEST.id.as_str(),
+                &case.entity_type,
+                case.entity_id,
+                &case.sport,
+            )
+            .await?;
+            let source = sources
+                .iter()
+                .find(|s| s.article_id == case.article_id)
+                .context("requested source is not an eligible pending delivery")?;
+            let (assignment, disposition) =
+                influencer::prompt::prepare_assignment(&pool, subject, source, now).await?;
+            record["disposition"] = disposition;
+            record["world"] = serde_json::from_str(&assignment.parts.assemble())?;
+            record["input_components"] = json!(assignment.parts);
+            record["input_hash"] = json!(assignment.input_hash);
+            if let Some(model) = &model {
+                let (product, receipt) = influencer::create(model, &assignment, 4096).await?;
+                record["receipt"] = receipt;
+                record["headline"] = json!(product.as_ref().and_then(|p| p.hook.clone()));
+                record["score"] = json!(product.as_ref().and_then(|p| p.sentiment));
+                record["body"] = json!(product.and_then(|p| p.vibe_prompt.clone()));
+            }
+            Ok(())
+        }
+        .await;
+        if let Err(error) = result {
+            record["error"] = json!(format!("{error:#}"));
+        }
+        writeln!(output, "{record}")?;
+        output.flush()?;
+        println!(
+            "article={} history={} error={}",
+            case.article_id,
+            record["world"]["RELEVANT HISTORY"]
+                .as_array()
+                .map_or(0, Vec::len),
+            record["error"].as_str().unwrap_or("none")
+        );
+    }
+    Ok(())
+}
+
+/// Hold retained evidence constant while exercising the current production creation path.
+async fn replay_recorded(input: &str, output: &str, url: &str, model: &str) -> Result<()> {
+    let model = OllamaClient::with_think(url, model, Duration::from_secs(120), Some(false))?;
+    let mut output = std::fs::OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .open(output)?;
+    for line in std::fs::read_to_string(input)?
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+    {
+        let retained: Value = serde_json::from_str(line)?;
+        let parts: influencer::prompt::Parts =
+            serde_json::from_value(retained["input_components"].clone())?;
+        let assignment = influencer::prompt::Assignment::from_parts(parts)?;
+        let mut record = json!({"article_id":assignment.parts.sources[0].article_id,
+            "name":retained["name"],"review":retained["review"],
+            "recorded_evidence":true,"captured_at":influencer::now(),
+            "prompt_version":influencer::prompt::VIBE_PROMPT_VERSION,
+            "world":serde_json::from_str::<Value>(&assignment.parts.assemble())?});
+        match influencer::create(&model, &assignment, 4096).await {
+            Ok((product, receipt)) => {
+                record["receipt"] = receipt;
+                record["headline"] = json!(product.as_ref().and_then(|p| p.hook.clone()));
+                record["score"] = json!(product.as_ref().and_then(|p| p.sentiment));
+                record["body"] = json!(product.and_then(|p| p.vibe_prompt.clone()));
+            }
+            Err(error) => record["error"] = json!(format!("{error:#}")),
+        }
+        writeln!(output, "{record}")?;
+        output.flush()?;
+        println!(
+            "article={} error={}",
+            assignment.parts.sources[0].article_id,
+            record["error"].as_str().unwrap_or("none")
         );
     }
     Ok(())

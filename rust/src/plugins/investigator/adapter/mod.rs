@@ -17,7 +17,7 @@
 use self::discover::{wikidata_item, wikidata_search, WikidataHit};
 use crate::harness::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
 use crate::harness::queue::work::Item;
-use crate::harness::tools::{ScopedWeb, ToolLedger, WebBroker};
+use crate::harness::tools::{ScopedWeb, WebBroker};
 use crate::plugins::investigator::cognition::gate::{
     commons_image_url, decide, display_height, display_weight, nba_headshot_url, wire_date,
     RoleClass, Verdict,
@@ -64,8 +64,7 @@ impl StudioPlugin for InvestigateEntityHandler {
     async fn execute(&self, item: &Item) -> Result<PluginOutcome> {
         let pool = &self.pool;
         let mut mappings = Vec::new();
-        let ledger = ToolLedger::new();
-        let web = self.web.scope(pool, self.manifest(), &ledger);
+        let web = self.web.scope(pool, self.manifest());
         let decision = match item.entity_type.as_str() {
             "candidate" => investigate_candidate(pool, &web, item, &mut mappings).await?,
             "player" => enrich_player(pool, &web, item, &mut mappings).await?,
@@ -618,6 +617,6 @@ mod tests;
 
 mod discover;
 mod factsweep;
-pub use factsweep::{run_factsweep, FactsweepRequest, FactsweepRunContext};
+pub use factsweep::run_factsweep;
 mod publish;
 use publish::{commit_claimed, load_fact_policy, policy_allows};

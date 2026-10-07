@@ -1,5 +1,7 @@
 # Harvester cutover verification — 2026-09-27
 
+> **2026-10-06 governing update:** This dated record preserves its implementation and evaluation evidence. The [current contract](../../../scoracle-wiki/wiki/Architecture/Harness,%20Plugins,%20Tools,%20and%20LLM%20Contract.md) supersedes articulation-only ownership: cheap code owns collection; expensive compute owns discovery. Plugins assemble traceable clues through tools; the LLM reasons across them, discovers what they support and articulates the answer. Historical “plugin owns WHAT/model owns HOW” statements below do not govern new builds.
+
 ## Production state
 
 The cognition worker is running commit `3d7bcf74` with `HARVESTER_INGEST_ENABLED=1`, `HARVESTER_SHADOW_MODE=1`, and an empty `HARVESTER_DELIVERY_CHARACTERS`. Editor remains the live publisher. The bounded canary briefly disabled shadow publication with character delivery still held, then restored these settings. Both the cognition service and its path watcher are active. The PR checks (Go, schema, shell) and focused Insider parser tests pass.

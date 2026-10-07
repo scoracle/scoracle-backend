@@ -10,3 +10,7 @@ pub mod investigator;
 pub mod journalist;
 pub mod oracle;
 pub mod scout;
+
+pub mod editor;
+pub mod system_one;
+pub mod text_generation;

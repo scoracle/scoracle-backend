@@ -1,4 +1,6 @@
 //! Finished-card retrieval, readiness, request projection and provenance.
+use crate::harness::route::RouteKey;
+pub const MODEL: RouteKey = RouteKey::new("oracle-logic", "ORACLE_LOGIC");
 use crate::harness::model::GenerateOptions;
 use crate::harness::queue::work::Item;
 use crate::tools::source::DEFAULT_TRAJECTORY;
@@ -7,7 +9,7 @@ use anyhow::{Context, Result};
 use serde::Serialize;
 use sqlx::PgPool;
 
-pub const ORACLE_PROMPT_VERSION: &str = "or26";
+pub const ORACLE_PROMPT_VERSION: &str = "or27-concise-body";
 
 pub const ORACLE_SYSTEM_PROMPT: &str = "Synthesize only the five supplied finished character cards into one current reading. Show where they agree or pull apart. A missing card is unknown; do not fill it from memory or guess. These cards may share underlying sources, so repetition is not independent confirmation. Attribute reported claims, preserve qualifications and dates, and do not forecast. Write only the declared JSON reading.";
 
@@ -565,10 +567,7 @@ pub fn assemble(subject: &Subject, cards: &Cards) -> String {
 }
 
 pub fn prose() -> crate::tools::form::Prose {
-    crate::tools::form::Prose::new(
-        &["reading"],
-        crate::tools::form::Dimensions::new(crate::tools::form::ORACLE_READING_MAX_CHARS, None),
-    )
+    crate::tools::form::Prose::new(&["reading"])
 }
 
 #[cfg(test)]

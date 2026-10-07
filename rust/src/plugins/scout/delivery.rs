@@ -322,19 +322,13 @@ pub(crate) async fn execute_with_backend(
         changed.rows_affected() == 1,
         "Scout source assignment changed during call"
     );
-    let remaining: i64 = sqlx::query_scalar(
-        "SELECT count(*) FROM public.harvester_assignments d \
-         JOIN public.harvester_classifications c ON c.id=d.classification_id \
-         WHERE d.plugin_id=$1 AND d.status='pending' AND d.reason IS DISTINCT FROM $5 \
-           AND c.entity_type=$2 \
-           AND c.entity_id=$3 AND c.sport=$4",
+    let remaining = crate::plugins::harvester::delivery::undelivered_count(
+        publication.transaction(),
+        plugin_id,
+        &item.entity_type,
+        entity_id,
+        &sport,
     )
-    .bind(plugin_id)
-    .bind(&item.entity_type)
-    .bind(entity_id)
-    .bind(&sport)
-    .bind(crate::plugins::harvester::adapter::DELIVERY_HELD_REASON)
-    .fetch_one(&mut **publication.transaction())
     .await?;
     if remaining > 0 {
         publication.commit_progress().await?;

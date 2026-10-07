@@ -86,111 +86,24 @@ pub struct Reported {
     pub disputed: Option<bool>,
 }
 
-impl Reported {
-    /// The adjudicated availability and personnel records this plugin loads,
-    /// presented as dated claims.
-    ///
-    /// `kind` matters and travels with the claim: `reverted` means the RECORD
-    /// was wrong and was withdrawn, which is a correction and never a return to
-    /// play. Rendering that as a return is how a withdrawn report becomes a
-    /// cleared player, so it is carried as an explicit retraction flag rather
-    /// than folded into the headline text.
-    pub fn from_records(
-        entity_type: &str,
-        entity_id: i32,
-        changes: &[crate::plugins::scout::sources::PersonnelChange],
-        availability: &[crate::plugins::scout::sources::AvailabilityChange],
-        total: usize,
-    ) -> Vec<Reported> {
-        if total == 0 {
-            return Vec::new();
-        }
-        // Availability first: a player being unavailable is the claim that most
-        // changes what a profile may be read as, and the Scout's job is to say so.
-        let mut out: Vec<Reported> = availability
-            .iter()
-            .map(|change| {
-                let subject = if entity_type == "player" {
-                    "The player".to_string()
-                } else {
-                    change.player_name.clone()
-                };
-                let headline = match change.kind.as_str() {
-                    "opened" => format!(
-                        "{subject} {} ({}) from {}; reported return {}",
-                        change.event_kind,
-                        change.event_date_label,
-                        change.team_name.as_deref().unwrap_or("their club"),
-                        change
-                            .expected_return_label
-                            .as_deref()
-                            .unwrap_or("not stated")
-                    ),
-                    "returned" => format!(
-                        "{subject} available again after {} from {}",
-                        change.event_date_label, change.event_kind
-                    ),
-                    // A withdrawn record is a correction. It is not a return.
-                    _ => format!(
-                        "An earlier {}-report for {subject} dated {} was withdrawn as incorrect; \
-                         it is not evidence of a return",
-                        change.event_kind, change.event_date_label
-                    ),
-                };
-                Reported {
-                    publisher: "Adjudicated record".into(),
-                    published_at: change.date_label.clone(),
-                    reported_headline: headline,
-                    withdrawn: (change.kind == "reverted").then_some(true),
-                    disputed: None,
-                }
-            })
-            .collect();
-        out.extend(changes.iter().map(|change| {
-            let subject = if entity_type == "player" {
-                "The player".to_string()
-            } else {
-                change.player_name.clone()
-            };
-            Reported {
-                publisher: "Adjudicated record".into(),
-                published_at: change.date_label.clone(),
-                reported_headline: match change.kind.as_str() {
-                    "reverted" => format!(
-                        "An earlier recorded move for {subject} to {} was reverted and is not in force",
-                        change.new_team.as_deref().unwrap_or("another club")
-                    ),
-                    _ => format!(
-                        "{subject}'s current club recorded as {}",
-                        change.new_team.as_deref().unwrap_or("a new club")
-                    ),
-                },
-                withdrawn: (change.kind == "reverted").then_some(true),
-                disputed: None,
-            }
-        }));
-        let _ = entity_id;
-        out
+/// Analyze the stored record snapshot with the shared DuckDB memory tool.
+/// Rust supplies scope and presents results; it does not synthesize record claims.
+pub async fn reported_memory(
+    entity_type: &str,
+    changes: &[crate::plugins::scout::sources::PersonnelChange],
+    availability: &[crate::plugins::scout::sources::AvailabilityChange],
+    claims: &[crate::plugins::scout::reports::MarkedClaim],
+) -> Result<Vec<Reported>> {
+    if changes.is_empty() && availability.is_empty() && claims.is_empty() {
+        return Ok(Vec::new());
     }
-
-    /// A publisher claim the plugin selected, carrying its contest mark.
-    ///
-    /// The publication time travels with the claim because a claim without one
-    /// cannot be placed relative to the season it is being read against. Absent
-    /// stays absent rather than becoming "now".
-    pub fn from_claim(claim: &crate::plugins::scout::reports::MarkedClaim) -> Reported {
-        Reported {
-            publisher: claim.claim.source.clone(),
-            published_at: claim
-                .claim
-                .published_at
-                .map(crate::util::utc_timestamp)
-                .unwrap_or_else(|| "unknown".into()),
-            reported_headline: claim.claim.fact.trim().to_string(),
-            withdrawn: None,
-            disputed: None,
-        }
-    }
+    crate::tools::memories::run(&serde_json::json!({
+        "kind": "scout_records", "version": "scout-records-v1",
+        "entity_type": entity_type, "max_reports": Selection::rated().max_reported,
+        "personnel": changes, "availability": availability,
+        "claims": claims.iter().map(|item| &item.claim).collect::<Vec<_>>(),
+    }))
+    .await
 }
 
 /// Plugin policy: how much history the Scout looks at and what it accepts.

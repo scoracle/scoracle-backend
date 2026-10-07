@@ -1,19 +1,18 @@
-//! Tool broker contract tests: deny-by-default grants, URL-derived Wikimedia routing,
-//! per-run budget, and the call ledger. No network.
+//! Tool broker contract tests: deny-by-default grants, URL-derived Wikimedia routing, and the
+//! per-run budget. No network.
 
 use super::*;
 use crate::harness::fleet::{FIXTURE_BOXSCORE, HARVESTER, INVESTIGATOR};
 use crate::harness::plugin::PluginManifest;
-use crate::harness::tools::{ScopedWeb, ToolLedger, WebBroker};
+use crate::harness::tools::{ScopedWeb, WebBroker};
 use crate::tools::fetch::FetchPolicy;
 
 fn scope<'a>(
     broker: &'a WebBroker,
     pool: &'a sqlx::PgPool,
     plugin: &'a PluginManifest,
-    ledger: &'a ToolLedger,
 ) -> ScopedWeb<'a> {
-    broker.scope(pool, plugin, ledger)
+    broker.scope(pool, plugin)
 }
 
 fn lazy_pool() -> sqlx::PgPool {
@@ -61,8 +60,7 @@ fn non_wikimedia_urls_are_not_sniffed_into_a_class() {
 async fn undeclared_domain_is_refused_before_any_reach() {
     let broker = WebBroker::new(4).unwrap();
     let pool = lazy_pool();
-    let ledger = ToolLedger::new();
-    let web = scope(&broker, &pool, &HARVESTER, &ledger);
+    let web = scope(&broker, &pool, &HARVESTER);
 
     let err = web
         .fetch_for_class(
@@ -72,9 +70,8 @@ async fn undeclared_domain_is_refused_before_any_reach() {
         )
         .await
         .unwrap_err();
+    // A grant refusal, not a transport failure: nothing was reached.
     assert!(err.to_string().contains("not granted"), "{err}");
-    // Refusal is not a call: the ledger stays empty.
-    assert!(ledger.is_empty());
 }
 
 #[tokio::test]
@@ -83,27 +80,28 @@ async fn granted_class_passes_the_grant_check() {
     // proves the call was brokered (and recorded) rather than refused at the door.
     let broker = WebBroker::new(4).unwrap();
     let pool = lazy_pool();
-    let ledger = ToolLedger::new();
-    let web = scope(&broker, &pool, &FIXTURE_BOXSCORE, &ledger);
+    let web = scope(&broker, &pool, &FIXTURE_BOXSCORE);
 
-    let result = web
+    // The grant check passes, so the failure comes from the transport, not the door.
+    let err = web
         .fetch_for_class(
             DomainClass::BoxscoreSources,
             "https://127.0.0.1:9/x",
             &no_cache_policy(),
         )
-        .await;
-    assert!(result.is_err());
-    assert_eq!(ledger.len(), 1);
-    assert_eq!(ledger.calls()[0].tool, "web.fetch");
+        .await
+        .unwrap_err();
+    assert!(
+        !err.to_string().contains("not granted"),
+        "a granted class must not be refused at the gate: {err}"
+    );
 }
 
 #[tokio::test]
 async fn wikimedia_grant_cannot_be_spent_on_other_hosts() {
     let broker = WebBroker::new(4).unwrap();
     let pool = lazy_pool();
-    let ledger = ToolLedger::new();
-    let web = scope(&broker, &pool, &INVESTIGATOR, &ledger);
+    let web = scope(&broker, &pool, &INVESTIGATOR);
 
     // fetch_wikimedia derives the class from the URL; a non-Wikimedia URL is refused
     // before any reach.
@@ -115,30 +113,26 @@ async fn wikimedia_grant_cannot_be_spent_on_other_hosts() {
         err.to_string().contains("no declared domain class"),
         "{err}"
     );
-    assert!(ledger.is_empty());
 }
 
 #[tokio::test]
 async fn production_article_provider_refuses_a_plugin_without_the_curated_grant() {
     let broker = WebBroker::new(4).unwrap();
     let pool = lazy_pool();
-    let ledger = ToolLedger::new();
-    let web = scope(&broker, &pool, &crate::harness::fleet::GRAPH, &ledger);
+    let web = scope(&broker, &pool, &crate::harness::fleet::GRAPH);
 
     let error = web
         .fetch_curated_article("https://example.com/article")
         .await
         .unwrap_err();
     assert!(error.to_string().contains("not granted"), "{error}");
-    assert!(ledger.is_empty());
 }
 
 #[tokio::test]
 async fn the_run_budget_stops_further_calls() {
     let broker = WebBroker::new(1).unwrap();
     let pool = lazy_pool();
-    let ledger = ToolLedger::new();
-    let web = scope(&broker, &pool, &FIXTURE_BOXSCORE, &ledger);
+    let web = scope(&broker, &pool, &FIXTURE_BOXSCORE);
 
     // First call is brokered (fails on the lazy pool's transport, but passes the gate).
     let _ = web
@@ -158,26 +152,26 @@ async fn the_run_budget_stops_further_calls() {
         .await
         .unwrap_err();
     assert!(err.to_string().contains("web-call budget"), "{err}");
-    assert_eq!(ledger.len(), 1);
 }
 
 #[tokio::test]
 async fn zero_budget_means_unbounded() {
     let broker = WebBroker::new(0).unwrap();
     let pool = lazy_pool();
-    let ledger = ToolLedger::new();
-    let web = scope(&broker, &pool, &FIXTURE_BOXSCORE, &ledger);
+    let web = scope(&broker, &pool, &FIXTURE_BOXSCORE);
 
+    // Zero means unbounded, so none of these three may be refused on budget grounds.
     for i in 0..3 {
-        let _ = web
+        let err = web
             .fetch_for_class(
                 DomainClass::BoxscoreSources,
                 &format!("https://127.0.0.1:9/{i}"),
                 &no_cache_policy(),
             )
-            .await;
+            .await
+            .unwrap_err();
+        assert!(!err.to_string().contains("web-call budget"), "{err}");
     }
-    assert_eq!(ledger.len(), 3);
 }
 
 #[test]

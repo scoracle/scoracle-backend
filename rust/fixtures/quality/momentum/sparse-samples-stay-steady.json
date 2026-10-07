@@ -1,10 +1,10 @@
 {
   "expect": {},
   "name": "sparse-samples-stay-steady",
-  "prompt_version": "momentum-s34",
+  "prompt_version": "momentum-s36-concise-body",
   "task": "momentum",
   "temperature": 0.0,
-  "user_prompt": "{\"meta\":{\"name\":\"Malik Stone\",\"entity_type\":\"player\",\"sport\":\"basketball\"},\"fresh\":{\"scout\":{\"body\":\"Stone's current statistical sample is too thin to support a directional comparison.\",\"season\":2026,\"generated_at\":\"2026-09-20\"},\"influencer\":{\"body\":\"The limited reporting around Stone carries no settled emotional direction.\",\"generated_at\":\"2026-09-20\"}},\"voice\":\"Detached, decisive, economical.\",\"form\":{\"keys\":[\"blurb\"],\"max_chars\":1200}}",
+  "user_prompt": "{\"meta\":{\"name\":\"Malik Stone\",\"entity_type\":\"player\",\"sport\":\"basketball\"},\"fresh\":{\"scout\":{\"body\":\"Stone's current statistical sample is too thin to support a directional comparison.\",\"season\":2026,\"generated_at\":\"2026-09-20\"},\"influencer\":{\"body\":\"The limited reporting around Stone carries no settled emotional direction.\",\"generated_at\":\"2026-09-20\"}},\"voice\":\"Detached, decisive, economical.\",\"form\":{\"keys\":[\"blurb\"],\"paragraphs\":\"concise\"}}",
   "review": [
     "Treat sparse history as limited evidence, not proof of either stability or a confident directional trend."
   ]

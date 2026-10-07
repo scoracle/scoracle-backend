@@ -11,12 +11,12 @@
       "sport": "FOOTBALL"
     }
   },
-  "prompt_version": "n96-six-part",
+  "prompt_version": "n100-concise-body",
   "review": [
     "An empty world produces no report. A body here would be an invented story."
   ],
   "system": "",
   "task": "narratives",
   "temperature": 0.0,
-  "user_prompt": "{\"meta\":{\"name\":\"Cedar United\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\"},\"fresh\":[],\"voice\":\"Clear, restrained and direct.\",\"form\":{\"keys\":[],\"max_chars\":1200}}"
+  "user_prompt": "{\"meta\":{\"name\":\"Cedar United\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\"},\"fresh\":[],\"voice\":\"Clear, restrained and direct.\",\"form\":{\"keys\":[],\"paragraphs\":\"concise\"}}"
 }

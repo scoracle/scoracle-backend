@@ -83,7 +83,8 @@ fn durable_task_identifiers_remain_compatible() {
 
 #[test]
 fn acquisition_web_grants_are_scoped_to_each_plugins_sources() {
-    assert!(HARVESTER.grants_web(DomainClass::CuratedArticles));
+    assert!(!HARVESTER.grants_web(DomainClass::CuratedArticles));
+    assert!(EDITOR.grants_web(DomainClass::CuratedArticles));
     assert!(!HARVESTER.grants_web(DomainClass::NewsRss));
     assert!(!HARVESTER.grants_web(DomainClass::Wikimedia));
     assert!(!HARVESTER.grants_web(DomainClass::BoxscoreSources));
@@ -106,16 +107,16 @@ fn full_and_partial_production_fleets_register() {
     let registry =
         PluginRegistry::new(fleet.iter().map(|manifest| plugin(manifest)).collect()).unwrap();
     assert_eq!(registry.plugins().len(), fleet.len());
+    let ids: Vec<_> = registry.plugins().iter().map(|p| p.manifest().id).collect();
+    assert_eq!(
+        ids,
+        fleet.iter().map(|m| m.id).collect::<Vec<_>>(),
+        "registration order must be preserved"
+    );
+    // Every fleet member also registers on its own (a partial deployment).
     for manifest in fleet {
-        assert_eq!(
-            registry.resolve(manifest.task).unwrap().manifest().id,
-            manifest.id
-        );
         let partial = PluginRegistry::new(vec![plugin(manifest)]).unwrap();
-        assert_eq!(
-            partial.resolve(manifest.task).unwrap().manifest().id,
-            manifest.id
-        );
+        assert_eq!(partial.plugins()[0].manifest().id, manifest.id);
     }
 }
 
@@ -123,12 +124,15 @@ fn full_and_partial_production_fleets_register() {
 fn harvester_has_independent_identity_and_requires_explicit_enablement() {
     assert_eq!(HARVESTER.task.as_str(), "harvester");
     assert_ne!(HARVESTER.id.as_str(), "scoracle.internal.editor");
-    assert!(!ALL.iter().any(|m| m.task.as_str() == "editor"));
+    assert!(ALL.iter().any(|m| m.task.as_str() == "editor"));
+    assert!(EDITOR.tools.contains(&ToolGrant::Classification));
+    assert!(EDITOR.grants_web(DomainClass::CuratedArticles));
     assert!(!inference_routes()
         .iter()
         .any(|route| route.as_str() == "editor"));
     assert!(HARVESTER.tools.contains(&ToolGrant::Classification));
-    assert!(HARVESTER.grants_web(DomainClass::CuratedArticles));
+    assert!(!HARVESTER.grants_web(DomainClass::CuratedArticles));
+    assert!(EDITOR.grants_web(DomainClass::CuratedArticles));
     assert!(HARVESTER.inference_routes.is_empty());
     assert_eq!(HARVESTER.resources.max_in_flight, 4);
     assert_eq!(HARVESTER.resources.slot_group, None);

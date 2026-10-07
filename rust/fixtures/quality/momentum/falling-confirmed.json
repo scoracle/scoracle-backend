@@ -1,10 +1,10 @@
 {
   "expect": {},
   "name": "falling-confirmed",
-  "prompt_version": "momentum-s34",
+  "prompt_version": "momentum-s36-concise-body",
   "task": "momentum",
   "temperature": 0.0,
-  "user_prompt": "{\"meta\":{\"name\":\"Riverton Athletic\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\"},\"fresh\":{\"scout\":{\"body\":\"Riverton's measured profile has weakened across the current run.\",\"season\":2026,\"generated_at\":\"2026-09-20\"},\"influencer\":{\"body\":\"The feeling around Riverton has cooled as concern replaces patience.\",\"generated_at\":\"2026-09-20\"},\"trajectory\":{\"computed_at\":\"2026-09-20\",\"form\":{\"slope\":-31.0,\"samples\":9,\"from\":\"2026-08-02\",\"through\":\"2026-09-19\"},\"mood\":{\"slope\":-24.0,\"samples\":10,\"from\":\"2026-08-30\",\"through\":\"2026-09-20\"}}},\"voice\":\"Detached, decisive, economical.\",\"form\":{\"keys\":[\"blurb\"],\"max_chars\":1200}}",
+  "user_prompt": "{\"meta\":{\"name\":\"Riverton Athletic\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\"},\"fresh\":{\"scout\":{\"body\":\"Riverton's measured profile has weakened across the current run.\",\"season\":2026,\"generated_at\":\"2026-09-20\"},\"influencer\":{\"body\":\"The feeling around Riverton has cooled as concern replaces patience.\",\"generated_at\":\"2026-09-20\"},\"trajectory\":{\"computed_at\":\"2026-09-20\",\"form\":{\"measure\":\"Scout notability score\",\"slope\":-31.0,\"samples\":9,\"from\":\"2026-08-02\",\"through\":\"2026-09-19\"},\"mood\":{\"measure\":\"Influencer sentiment score\",\"slope\":-24.0,\"samples\":10,\"from\":\"2026-08-30\",\"through\":\"2026-09-20\"}}},\"voice\":\"Detached, decisive, economical.\",\"form\":{\"keys\":[\"blurb\"],\"paragraphs\":\"concise\"}}",
   "review": [
     "Both supplied trajectories fall; preserve that agreement without inventing a tactical or psychological cause."
   ]

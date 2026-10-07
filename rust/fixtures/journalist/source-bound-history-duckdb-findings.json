@@ -1,0 +1,41 @@
+[
+  {
+    "from": 1789393725,
+    "before": 1790599725,
+    "publishers": [
+      {
+        "publisher": "club statement",
+        "articles": 1
+      },
+      {
+        "publisher": "local wire",
+        "articles": 1
+      }
+    ],
+    "topic": "storyline/1",
+    "article_count": 2,
+    "publisher_count": 2,
+    "source_ids": [
+      120,
+      121
+    ],
+    "reports": [
+      {
+        "article_id": 121,
+        "canonical_id": 121,
+        "topic": "storyline/1",
+        "publisher": "Local Wire",
+        "reported_at": 1790430525,
+        "headline": "Cedar United scheduled its 29 September training session for 11:00 at North Field."
+      },
+      {
+        "article_id": 120,
+        "canonical_id": 120,
+        "topic": "storyline/1",
+        "publisher": "Club statement",
+        "reported_at": 1790344125,
+        "headline": "Cedar United scheduled its 29 September training session for 11:00 at North Field."
+      }
+    ]
+  }
+]

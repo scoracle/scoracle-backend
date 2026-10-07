@@ -1,4 +1,6 @@
 //! Finished reading selection, dated study, request projection and provider options.
+use crate::harness::route::RouteKey;
+pub const MODEL: RouteKey = RouteKey::new("momentum-logic", "MOMENTUM_LOGIC");
 use crate::harness::model::GenerateOptions;
 use crate::plugins::oracle::prompt as oracle;
 use crate::tools::meta::EntityMeta;
@@ -7,9 +9,9 @@ use anyhow::{Context, Result};
 use serde::Serialize;
 use sqlx::PgPool;
 
-pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-s34";
+pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-s36-concise-body";
 
-pub const MOMENTUM_SYSTEM_PROMPT: &str = "Synthesize the supplied finished performance and mood readings for this entity. Explain whether they reinforce each other, diverge, or leave the current picture unresolved. The dated trajectory study is a measured change within its own window and sample; do not merge different windows or infer a cause. A missing reading or study is unknown, not a neutral signal. Do not forecast. Write only the declared JSON blurb.";
+pub const MOMENTUM_SYSTEM_PROMPT: &str = "Synthesize the supplied finished performance and mood readings for this entity. Explain whether they reinforce each other, diverge, or leave the current picture unresolved. The dated trajectory study compares reporting-week means of the named stored scores, within its own window and sample. Scout notability measures distinctiveness, not skill; do not merge different windows or infer a cause. A missing reading or study is unknown, not a neutral signal. Do not forecast. Write only the declared JSON blurb.";
 
 /// The Scout card supplied to the Analyst. The reading is already a finished interpretation;
 /// the Analyst should synthesize it, not reconstruct it from the Scout's raw measurements.
@@ -32,21 +34,7 @@ pub struct Mood {
     pub input_hash: Option<String>,
 }
 
-/// One explicitly dated trajectory study. It is supporting evidence for the two finished
-/// readings, not a second set of overlapping labels or a pre-written Analyst verdict.
-#[derive(Clone, Debug, Default)]
-pub struct Snapshot {
-    pub vibe_slope: Option<f64>,
-    pub vibe_samples: i32,
-    pub vibe_window_start: Option<String>,
-    pub vibe_window_end: Option<String>,
-    pub rating_slope: Option<f64>,
-    pub rating_samples: i32,
-    pub rating_window_start: Option<String>,
-    pub rating_window_end: Option<String>,
-    pub momentum_score: Option<f64>,
-    pub generated_at: Option<String>,
-}
+pub use crate::tools::memories::ScoreHistory as Snapshot;
 
 impl Snapshot {
     pub fn empty(&self) -> bool {
@@ -201,64 +189,7 @@ pub async fn load_momentum_snapshot(
     entity_id: i32,
     sport: &str,
 ) -> Result<Snapshot> {
-    #[allow(clippy::type_complexity)]
-    let row: Option<(
-        Option<f64>,
-        i32,
-        Option<String>,
-        Option<String>,
-        Option<f64>,
-        i32,
-        Option<String>,
-        Option<String>,
-        Option<f64>,
-        String,
-    )> = sqlx::query_as(
-        r#"
-        SELECT vibe_slope::float8, vibe_samples,
-               vibe_window_start::date::text, vibe_window_end::date::text,
-               rating_slope::float8, rating_samples,
-               rating_window_start::date::text, rating_window_end::date::text,
-               momentum_score::float8, generated_at::date::text
-        FROM public.latest_momentum_scores_per_entity
-        WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
-        LIMIT 1
-        "#,
-    )
-    .bind(entity_type)
-    .bind(entity_id)
-    .bind(sport)
-    .fetch_optional(pool)
-    .await
-    .with_context(|| format!("load momentum snapshot {entity_type}/{entity_id}"))?;
-
-    Ok(row
-        .map(
-            |(
-                vibe_slope,
-                vibe_samples,
-                vibe_window_start,
-                vibe_window_end,
-                rating_slope,
-                rating_samples,
-                rating_window_start,
-                rating_window_end,
-                momentum_score,
-                generated_at,
-            )| Snapshot {
-                vibe_slope,
-                vibe_samples,
-                vibe_window_start,
-                vibe_window_end,
-                rating_slope,
-                rating_samples,
-                rating_window_start,
-                rating_window_end,
-                momentum_score,
-                generated_at: Some(generated_at),
-            },
-        )
-        .unwrap_or_default())
+    crate::tools::memories::score_history(pool, entity_type, entity_id, sport).await
 }
 
 async fn load_scout_reading(
@@ -371,6 +302,7 @@ struct Reading<'a> {
 
 #[derive(Serialize)]
 struct Rail<'a> {
+    measure: &'static str,
     slope: f64,
     samples: i32,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -406,12 +338,14 @@ pub fn assemble(
     snapshot: &Snapshot,
 ) -> String {
     let form = snapshot.rating_slope.map(|slope| Rail {
+        measure: "Scout notability score",
         slope,
         samples: snapshot.rating_samples,
         from: snapshot.rating_window_start.as_deref(),
         through: snapshot.rating_window_end.as_deref(),
     });
     let mood = snapshot.vibe_slope.map(|slope| Rail {
+        measure: "Influencer sentiment score",
         slope,
         samples: snapshot.vibe_samples,
         from: snapshot.vibe_window_start.as_deref(),
@@ -451,10 +385,7 @@ pub fn assemble(
 }
 
 pub fn prose() -> crate::tools::form::Prose {
-    crate::tools::form::Prose::new(
-        &["blurb"],
-        crate::tools::form::Dimensions::new(crate::tools::form::BODY_MAX_CHARS, None),
-    )
+    crate::tools::form::Prose::new(&["blurb"])
 }
 
 #[cfg(test)]

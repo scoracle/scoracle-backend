@@ -15,7 +15,7 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
-pub const CONTRACT: &str = "harvest-context-v7";
+pub const CONTRACT: &str = "harvest-context-v9-entity-vibe";
 pub const HEADLINE_CONTRACT: &str = "harvest-headline-v3";
 pub use policy::{CHARACTER_ROUTE_POLICY, HEADLINE_POLICY, HEADLINE_READ_THRESHOLD};
 
@@ -142,13 +142,20 @@ fn route_policy() -> Value {
 }
 
 fn select_routes(scores: &BTreeMap<String, f64>) -> Vec<String> {
+    if !scores
+        .get("article_relevance")
+        .is_some_and(|p| *p >= crate::plugins::editor::prompt::RELEVANCE_THRESHOLD)
+    {
+        return Vec::new();
+    }
     CHARACTER_ROUTES
         .iter()
         .filter(|route| {
-            route
-                .predicates
-                .iter()
-                .any(|p| scores.get(p.key).is_some_and(|score| *score >= p.threshold))
+            route.predicates.is_empty()
+                || route
+                    .predicates
+                    .iter()
+                    .any(|p| scores.get(p.key).is_some_and(|score| *score >= p.threshold))
         })
         .map(|route| route.destination.id.to_string())
         .collect()
@@ -158,6 +165,14 @@ fn aggregate(passes: &[ThemePass]) -> BTreeMap<String, f64> {
     let mut scores = BTreeMap::<String, f64>::new();
     for pass in passes {
         for (key, score) in &pass.scores {
+            if key != "article_relevance"
+                && !pass
+                    .scores
+                    .get("article_relevance")
+                    .is_some_and(|p| *p >= crate::plugins::editor::prompt::RELEVANCE_THRESHOLD)
+            {
+                continue;
+            }
             scores
                 .entry(key.clone())
                 .and_modify(|old| *old = old.max(*score))
@@ -188,18 +203,18 @@ impl HarvestContext {
             self.body_sha256 == hex::encode(Sha256::digest(article.body.as_bytes())),
             "publisher body changed"
         );
-        let prepared = cognition::prepare_text(if self.entity_choice == "relevant" {
-            &article.body
-        } else {
-            ""
-        })?;
+        let headline_admitted = self.model_provenance["headline_relevance_probability"]
+            .as_f64()
+            .is_some_and(policy::admits_headline);
+        let prepared = cognition::prepare_text(if headline_admitted { &article.body } else { "" })?;
         ensure!(
             self.context == prepared.character_context,
             "character context is not the exact first three source paragraphs"
         );
         ensure!(
-            self.model_input == self.context,
-            "scored source span differs from delivered context"
+            self.model_input
+                == cognition::full_article(if headline_admitted { &article.body } else { "" }),
+            "scored source span differs from retained article"
         );
         let prov = &self.model_provenance;
         ensure!(
@@ -211,6 +226,8 @@ impl HarvestContext {
                 && prov["headline_read_threshold"] == HEADLINE_READ_THRESHOLD
                 && prov["character_route_policy"] == CHARACTER_ROUTE_POLICY
                 && prov["route_thresholds"] == route_policy()
+                && prov["editor_question_version"]
+                    == crate::plugins::editor::prompt::QUESTION_VERSION
                 && prov["question_set_versions"]
                     == json!({"relevance": cognition::RELEVANCE_QUESTIONS, "character_routing": cognition::CHARACTER_QUESTIONS}),
             "context policy or predicate version changed"
@@ -231,12 +248,22 @@ impl HarvestContext {
         };
         cognition::validate(&request, &response)?;
         ensure!(
-            response.provenance["revision"].as_str() == Some(self.model_revision.as_str()),
-            "context model revision changed"
+            response.provenance["revision"] == prov["headline_model_revision"],
+            "headline model revision changed"
         );
         let admitted = policy::admits_headline(probability);
         ensure!(
-            self.entity_choice == if admitted { "relevant" } else { "irrelevant" },
+            self.entity_choice
+                == if admitted
+                    && self
+                        .predicate_scores
+                        .get("article_relevance")
+                        .is_some_and(|p| *p >= crate::plugins::editor::prompt::RELEVANCE_THRESHOLD)
+                {
+                    "relevant"
+                } else {
+                    "irrelevant"
+                },
             "context admission differs from plugin policy"
         );
         let passes: Vec<ThemePass> = serde_json::from_value(prov["theme_passes"].clone())?;
@@ -271,12 +298,13 @@ impl HarvestContext {
                     raw_response: Value::Null,
                 };
                 cognition::validate(
-                    &cognition::prepare_character_routing(article, input),
+                    &crate::plugins::editor::prompt::prepare(article, input),
                     &theme_response,
                 )?;
                 ensure!(
-                    pass.provenance["model"] == response.provenance["model"]
-                        && pass.provenance["revision"] == response.provenance["revision"],
+                    pass.provenance["model"] == passes[0].provenance["model"]
+                        && pass.provenance["revision"].as_str()
+                            == Some(self.model_revision.as_str()),
                     "context checkpoint changed between stages"
                 );
             }
@@ -316,14 +344,17 @@ pub async fn classify_after_headline(
             "missing publisher body after headline gate"
         );
         for input in &prepared.model_inputs {
-            let request = cognition::prepare_character_routing(article, input);
+            let request = crate::plugins::editor::prompt::prepare(article, input);
             let response = model.evaluate(&request).await?;
             cognition::validate(&request, &response)?;
-            ensure!(
-                gate.response.provenance["model"] == response.provenance["model"]
-                    && gate.response.provenance["revision"] == response.provenance["revision"],
-                "System 1 checkpoint changed within one article"
-            );
+            if let Some(first) = passes.first() {
+                let first: &ThemePass = first;
+                ensure!(
+                    first.provenance["model"] == response.provenance["model"]
+                        && first.provenance["revision"] == response.provenance["revision"],
+                    "Editor checkpoint changed within one article"
+                );
+            }
             passes.push(ThemePass {
                 start: input.start,
                 end: input.end,
@@ -347,12 +378,22 @@ pub async fn classify_after_headline(
         hypothesis: article.hypothesis.clone(),
         feed_rank: article.feed_rank,
         body_sha256: hex::encode(Sha256::digest(article.body.as_bytes())),
-        model_input: prepared.character_context.clone(),
+        model_input: cognition::full_article(if relevant { &article.body } else { "" }),
         context: prepared.character_context,
-        entity_choice: if relevant { "relevant" } else { "irrelevant" }.into(),
+        entity_choice: if relevant
+            && predicate_scores
+                .get("article_relevance")
+                .is_some_and(|p| *p >= crate::plugins::editor::prompt::RELEVANCE_THRESHOLD)
+        {
+            "relevant"
+        } else {
+            "irrelevant"
+        }
+        .into(),
         predicate_scores,
         model_provenance: json!({
-            "relevance": gate.response.provenance, "source_identity": source_identity(article),
+            "relevance": gate.response.provenance, "headline_model_revision": gate.model_revision,
+            "editor_question_version": crate::plugins::editor::prompt::QUESTION_VERSION, "source_identity": source_identity(article),
             "headline_gate_input_hash": gate.input_hash,
             "headline_relevance_probability": gate.relevance_probability(),
             "headline_policy": HEADLINE_POLICY, "headline_read_threshold": HEADLINE_READ_THRESHOLD,
@@ -361,7 +402,11 @@ pub async fn classify_after_headline(
             "question_set_versions": {"relevance": cognition::RELEVANCE_QUESTIONS, "character_routing": cognition::CHARACTER_QUESTIONS},
         }),
         recommended_characters,
-        model_revision: gate.model_revision.clone(),
+        model_revision: passes
+            .first()
+            .and_then(|p| p.provenance["revision"].as_str())
+            .unwrap_or(&gate.model_revision)
+            .to_owned(),
         headline_gate_input_hash: gate.input_hash.clone(),
     };
     result.verify_against(article)?;
@@ -401,7 +446,8 @@ mod tests {
                     .map(|id| {
                         let probability = if id == "relevance" {
                             self.headline
-                        } else if !self.late_only
+                        } else if id == "article_relevance"
+                            || !self.late_only
                             || (id == "player_move" && request.state.contains("LATE_TRANSFER"))
                         {
                             0.8
@@ -464,17 +510,89 @@ mod tests {
         assert_eq!(model.calls.load(Ordering::SeqCst), 2);
     }
     #[test]
+    fn entity_relevance_routes_without_an_emotional_prejudgment() {
+        assert!(select_routes(&BTreeMap::from([("article_relevance".into(), 0.49)])).is_empty());
+        assert_eq!(
+            select_routes(&BTreeMap::from([("article_relevance".into(), 0.5)])),
+            vec!["scoracle.character.vibe"]
+        );
+    }
+
+    #[test]
     fn routes_follow_predicate_specific_thresholds() {
-        let mut scores = BTreeMap::from([("performance".into(), 0.69)]);
-        assert!(select_routes(&scores).is_empty());
+        let mut scores = BTreeMap::from([
+            ("article_relevance".into(), 0.8),
+            ("performance".into(), 0.69),
+        ]);
+        assert_eq!(select_routes(&scores), vec!["scoracle.character.vibe"]);
         scores.insert("performance".into(), 0.70);
-        assert_eq!(select_routes(&scores), vec!["scoracle.character.rating"]);
+        assert_eq!(
+            select_routes(&scores),
+            vec!["scoracle.character.vibe", "scoracle.character.rating"]
+        );
         scores.insert("contract".into(), 0.50);
         assert_eq!(
             select_routes(&scores),
-            vec!["scoracle.character.transfers", "scoracle.character.rating"]
+            vec![
+                "scoracle.character.vibe",
+                "scoracle.character.transfers",
+                "scoracle.character.rating"
+            ]
         );
     }
+    #[tokio::test]
+    async fn headline_and_article_models_have_independent_receipts() {
+        struct Separate;
+        #[async_trait]
+        impl DecisionModel for Separate {
+            async fn evaluate(&self, request: &DecisionRequest) -> Result<DecisionResponse> {
+                let mut reply = Stub::default().evaluate(request).await?;
+                let headline = request.questions.contains_key("relevance");
+                reply.provenance["model"] = json!(if headline {
+                    "headline-model"
+                } else {
+                    "article-model"
+                });
+                reply.provenance["revision"] = json!(if headline { "h1" } else { "e1" });
+                Ok(reply)
+            }
+        }
+        let a = article();
+        let read = classify(&Separate, &a).await.unwrap();
+        assert_eq!(read.model_revision, "e1");
+        assert_eq!(read.model_provenance["headline_model_revision"], "h1");
+        read.verify_against(&a).unwrap();
+    }
+
+    #[test]
+    fn unrelated_window_cannot_supply_emotional_routing() {
+        let passes = vec![
+            ThemePass {
+                start: 0,
+                end: 10,
+                scores: BTreeMap::from([
+                    ("article_relevance".into(), 0.9),
+                    ("emotional_charge".into(), 0.1),
+                ]),
+                provenance: Value::Null,
+            },
+            ThemePass {
+                start: 10,
+                end: 20,
+                scores: BTreeMap::from([
+                    ("article_relevance".into(), 0.1),
+                    ("emotional_charge".into(), 0.99),
+                ]),
+                provenance: Value::Null,
+            },
+        ];
+        assert_eq!(aggregate(&passes)["emotional_charge"], 0.1);
+        assert_eq!(
+            select_routes(&aggregate(&passes)),
+            vec!["scoracle.character.vibe"]
+        );
+    }
+
     #[tokio::test]
     async fn later_source_material_is_scored_and_every_window_is_required() {
         let mut a = article();
@@ -494,7 +612,7 @@ mod tests {
             result.recommended_characters,
             vec!["scoracle.character.transfers"]
         );
-        assert_eq!(result.model_input, result.context);
+        assert_eq!(result.model_input.text, result.context.text);
         let mut missing = result.clone();
         missing.model_provenance["theme_passes"]
             .as_array_mut()
@@ -618,7 +736,7 @@ mod tests {
         let mut a = article();
         a.body.clear();
         assert!(classify(&Stub::default(), &a).await.is_err());
-        a.body = "word ".repeat(901);
+        a.body = "word ".repeat(100 * (policy::MAX_THEME_WINDOWS + 1));
         assert!(classify(&Stub::default(), &a).await.is_err());
     }
     #[tokio::test]

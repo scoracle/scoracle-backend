@@ -1,10 +1,10 @@
 {
   "expect": {},
   "name": "near-empty-quiet-wire",
-  "prompt_version": "or26",
+  "prompt_version": "or27-concise-body",
   "task": "oracle",
   "temperature": 0.0,
-  "user_prompt": "{\"meta\":{\"name\":\"Venezia\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\"},\"fresh\":{\"journalist\":[{\"title\":\"Venezia reports back for preseason\",\"body\":\"The squad returned for preseason testing this week; no further detail has surfaced.\",\"trajectory\":\"developing_story...\",\"source_count\":1,\"source_age_days\":1}]},\"voice\":\"Mystic, arcane, knowing, restrained.\",\"form\":{\"keys\":[\"reading\"],\"max_chars\":1200}}",
+  "user_prompt": "{\"meta\":{\"name\":\"Venezia\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\"},\"fresh\":{\"journalist\":[{\"title\":\"Venezia reports back for preseason\",\"body\":\"The squad returned for preseason testing this week; no further detail has surfaced.\",\"trajectory\":\"developing_story...\",\"source_count\":1,\"source_age_days\":1}]},\"voice\":\"Mystic, arcane, knowing, restrained.\",\"form\":{\"keys\":[\"reading\"],\"paragraphs\":\"concise\"}}",
   "review": [
     "Make a restrained reading of sparse material; missing pillars do not become negative findings."
   ]

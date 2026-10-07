@@ -2,29 +2,40 @@
   "expect": {},
   "name": "quiet-mixed",
   "parts": {
-    "history": [],
-    "source": {
-      "article_id": 42,
-      "classification_id": 1,
-      "context": "Cedar Comets announced that training starts on Tuesday and the team travels on Friday.",
-      "headline": "quiet-mixed fixture",
-      "published_at_epoch": 1790553600,
-      "source": "Example Wire"
-    },
     "subject": {
       "entity_id": 7,
       "entity_type": "team",
       "name": "Cedar Comets",
       "sport": "NBA"
-    }
+    },
+    "period": {
+      "season": 2026,
+      "week": 1,
+      "start": 1790550000,
+      "end": 1791154800,
+      "cutoff": 1790553601
+    },
+    "sources": [
+      {
+        "article_id": 42,
+        "classification_id": 1,
+        "context": "Cedar Comets announced that training starts on Tuesday and the team travels on Friday.",
+        "headline": "Cedar Comets announces training and travel dates",
+        "published_at_epoch": 1790553600,
+        "source": "Example Wire"
+      }
+    ],
+    "history": [],
+    "excluded": []
   },
-  "prompt_version": "vibe-frame-v6-six-part",
+  "prompt_version": "vibe-frame-v19-period-card",
   "review": [
-    "Synthesize fresh and relevant dated history into the emotional charge around the identified subject.",
-    "Preserve supplied speakers, timing, scope and uncertainty.",
-    "Review the reading against the supplied world; noisy intake belongs to Harvester calibration."
+    "Headline and body express one supported reading about the identified subject. Unrelated material supports paired null abstention.",
+    "Preserve speakers, bylines, attribution, timing, scope and uncertainty. Historical headline questions remain questions.",
+    "Read emotional tone across a spectrum, including neutral reporting, intensity and mixed voices. Unreported feelings remain unknown. Dated history may enrich the ongoing story; a routine update neither erases earlier reactions nor proves they persist unchanged. Coverage counts do not establish agreement or mood.",
+    "Headline is at most 140 characters. Body uses concise, complete sentences with meaningful qualifications; assess factual support separately from parser acceptance."
   ],
   "task": "vibe",
   "temperature": 0.0,
-  "user_prompt": "{\"meta\":{\"name\":\"Cedar Comets\",\"entity_type\":\"team\",\"sport\":\"basketball\"},\"fresh\":{\"publisher\":\"Example Wire\",\"published_at\":\"2026-09-28T00:00:00Z\",\"publisher_excerpt\":\"Cedar Comets announced that training starts on Tuesday and the team travels on Friday.\"},\"voice\":\"Emotionally attentive, clear, concise and restrained.\",\"form\":{\"keys\":[\"body\"],\"max_chars\":1200,\"paragraph_max_chars\":140}}"
+  "user_prompt": "{\"TARGET\":{\"entity\":{\"entity_type\":\"team\",\"name\":\"Cedar Comets\",\"sport\":\"basketball\"},\"reporting_end\":\"2026-10-04T23:00:00Z\",\"reporting_start\":\"2026-09-27T23:00:00Z\"},\"RELEVANT HISTORY\":[],\"FRESH EVIDENCE\":[{\"headline\":\"Cedar Comets announces training and travel dates\",\"published_at\":\"2026-09-28T00:00:00Z\",\"publisher\":\"Example Wire\",\"publisher_text\":\"Cedar Comets announced that training starts on Tuesday and the team travels on Friday.\"}]}"
 }

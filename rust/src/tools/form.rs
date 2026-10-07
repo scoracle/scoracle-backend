@@ -1,4 +1,4 @@
-//! Shared output structure, dimensions, decoding shapes and structural parsers.
+//! Shared output structure, decoding shapes and structural parsers.
 //!
 //! The reader sees a hook header and a body. Transport labels and JSON fields below
 //! retain the existing parser/storage contracts; they are not section headings.
@@ -6,64 +6,29 @@
 
 use serde_json::Value;
 
-/// Reader-facing and readability limits for one plugin's response.
-///
-/// The two numbers are not the same kind of thing, and this plan previously
-/// treated them as one. `total_max_chars` is a product constraint on what a
-/// reader is shown; it is shared and it is not negotiable per plugin.
-/// `paragraph_max_chars` is a writing policy: Influencer enforces 140 today and
-/// Journalist enforces nothing. Forcing 140 onto Journalist, or dropping it from
-/// Influencer, would make one of them worse in order to share a validator, so it
-/// is a parameter and the choice is recorded per plugin.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Dimensions {
-    /// Ceiling across every prose key in the response.
-    pub total_max_chars: usize,
-    /// Ceiling for one paragraph, or `None` when the plugin does not apply one.
-    pub paragraph_max_chars: Option<usize>,
-}
-
-impl Dimensions {
-    /// The shared product ceiling, with a plugin's readability policy.
-    pub const fn new(total_max_chars: usize, paragraph_max_chars: Option<usize>) -> Self {
-        Self {
-            total_max_chars,
-            paragraph_max_chars,
-        }
-    }
-}
-
 /// The Prose slot: a prepared world in, a keyed prose map out.
 #[derive(Clone, Debug)]
 pub struct Prose {
-    /// The plugin's output keys. `["body"]` for Influencer, `report_1..report_N`
+    /// The plugin's output keys. `["headline", "body"]` for Influencer, `report_1..report_N`
     /// for Journalist, `["body"]` for Scout. The shape is shared; the
     /// keys are the plugin's.
     pub keys: Vec<String>,
-    pub dims: Dimensions,
 }
 
 impl Prose {
-    pub fn new(keys: &[&str], dims: Dimensions) -> Self {
-        Self::new_owned(keys.iter().map(|k| (*k).to_string()).collect(), dims)
+    pub fn new(keys: &[&str]) -> Self {
+        Self::new_owned(keys.iter().map(|k| (*k).to_string()).collect())
     }
 
     /// For a plugin whose keys are computed rather than written out, such as the
     /// Journalist's `report_1..report_N`.
-    pub fn new_owned(keys: Vec<String>, dims: Dimensions) -> Self {
-        Self { keys, dims }
+    pub fn new_owned(keys: Vec<String>) -> Self {
+        Self { keys }
     }
 
     /// The `form` block a world presents, describing structure only.
     pub fn form(&self) -> Value {
-        let mut form = serde_json::json!({
-            "keys": self.keys,
-            "max_chars": self.dims.total_max_chars,
-        });
-        if let Some(limit) = self.dims.paragraph_max_chars {
-            form["paragraph_max_chars"] = serde_json::json!(limit);
-        }
-        form
+        serde_json::json!({ "keys": self.keys, "paragraphs": "concise" })
     }
 
     /// The permissive JSON shape a response must satisfy. Deliberately
@@ -85,83 +50,6 @@ impl Prose {
 
 /// Reader-facing dimensions, independent of any model's tokenization or runtime budget.
 pub const HOOK_MAX_CHARS: usize = 140;
-pub const PARAGRAPH_MAX_CHARS: usize = 140;
-pub const BODY_MAX_CHARS: usize = 1200;
-pub const ORACLE_READING_MAX_CHARS: usize = BODY_MAX_CHARS;
-
-/// The Journalist's paragraph ceiling, decided by replay rather than assumed.
-///
-/// Influencer's 140 is a writing policy the Journalist does not share: the
-/// Journalist has always validated only the body total, and its reports are
-/// keyed 1:1 with source reports rather than written as short observations. The
-/// value here is what the n94 replay measured; see the alignment plan's F4b.
-/// `None` records a documented non-participation rather than a number neither
-/// plugin was measured against.
-pub const JOURNALIST_PARAGRAPH_MAX_CHARS: Option<usize> = None;
-
-/// Shared observation layout. Plugins supply content scope and factual boundaries
-/// in their assembly instructions, independently of this writing tool.
-pub fn observation_form() -> serde_json::Value {
-    observation_prose().form()
-}
-
-/// The Influencer's declared prose contract: one nullable `body` slot.
-///
-/// A null body is this plugin's abstention, not a dropped slot, and the shared
-/// validator keeps the two distinct.
-pub fn observation_prose() -> Prose {
-    Prose::new(
-        &["body"],
-        Dimensions::new(BODY_MAX_CHARS, Some(PARAGRAPH_MAX_CHARS)),
-    )
-}
-
-/// Nullable, score-free observation body. Domain-specific parsing stays with the
-/// consuming plugin; this schema describes transport shape only.
-pub fn observation_schema() -> serde_json::Value {
-    observation_prose().schema()
-}
-
-#[derive(Clone, Debug, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ObservationReply {
-    pub body: Option<String>,
-}
-
-/// Decode the shared nullable body and enforce its structural contract. Plugins
-/// apply their publication guards to the resulting prose before accepting it.
-///
-/// A thin wrapper over the shared validator: this plugin's slot is `body`, its
-/// dimensions are recorded above, and the emphasis/line-wrap cleanup below is
-/// the one presentation step that remains its own.
-pub fn parse_observation(raw: &str) -> anyhow::Result<Option<ObservationReply>> {
-    let prose = observation_prose();
-    let mut map = decode_prose_map(raw, &prose.keys)?;
-    // Prepare before measuring: emphasis markers are presentation, not prose,
-    // so they must not be charged against this plugin's ceilings.
-    if let Some(body) = map
-        .get("body")
-        .map(|text| normalize_body(&crate::util::strip_markdown_emphasis(text)))
-    {
-        map.replace("body", Some(body));
-    }
-    // A declined slot is this plugin's abstention, distinct from a violation.
-    let Some(body) = map.get("body") else {
-        return Ok(None);
-    };
-    map.validate(prose.dims)?;
-    Ok(Some(ObservationReply {
-        body: Some(body.to_string()),
-    }))
-}
-
-pub struct ObservationParser;
-
-impl crate::harness::Parser<ObservationReply> for ObservationParser {
-    fn parse(&self, raw: &str) -> anyhow::Result<Option<ObservationReply>> {
-        parse_observation(raw)
-    }
-}
 
 /// One plugin's prose response, decoded against the keys that plugin declared.
 ///
@@ -200,16 +88,6 @@ impl ProseMap {
         self.slots.push((key.into(), prose));
     }
 
-    /// Replace a declared slot's prose, keeping its position. Used when a plugin
-    /// prepares its own text between decoding and measuring; appending a second
-    /// entry for the same key would silently double-count it.
-    pub fn replace(&mut self, key: &str, prose: Option<String>) {
-        match self.slots.iter_mut().find(|(k, _)| k == key) {
-            Some(slot) => slot.1 = prose,
-            None => self.push(key, prose),
-        }
-    }
-
     /// The prose for one declared key. A declined slot and a missing key both
     /// read as `None` here; `enforce` is what rejects the missing key.
     pub fn get(&self, key: &str) -> Option<&str> {
@@ -234,9 +112,8 @@ impl ProseMap {
 
 /// Decode `raw` into exactly `keys`, structurally.
 ///
-/// Separate from [`ProseMap::validate`] so a plugin can prepare its own prose
-/// first — the Influencer strips markdown emphasis before anything is measured,
-/// and measuring first would change what its ceilings mean.
+/// Separate from [`ProseMap::validate`] so a plugin can apply its own surface
+/// preparation and field-specific acceptance rules.
 pub fn decode_prose_map(raw: &str, keys: &[String]) -> anyhow::Result<ProseMap> {
     let frame: serde_json::Value = serde_json::from_str(raw)?;
     let object = frame
@@ -266,48 +143,22 @@ pub fn decode_prose_map(raw: &str, keys: &[String]) -> anyhow::Result<ProseMap> 
 }
 
 impl ProseMap {
-    /// Enforce the paragraph and body rules. This is the one implementation of
-    /// them, over whatever the plugin decided to measure.
-    ///
-    /// A shared mechanism, not a shared policy: `dims` is supplied per plugin, so
-    /// the reader-facing body ceiling can be common while the readability
-    /// ceiling is each plugin's own recorded decision.
-    pub fn validate(&self, dims: Dimensions) -> anyhow::Result<()> {
-        let mut total = 0usize;
+    /// Validate nonblank prose; preserve the model’s paragraphs.
+    pub fn validate(&self) -> anyhow::Result<()> {
         for (key, prose) in self.iter() {
             anyhow::ensure!(
                 !prose.trim().is_empty(),
                 "`{key}` is blank; a slot carries prose or is declined"
             );
-            if let Some(limit) = dims.paragraph_max_chars {
-                // Line wrapping is not a paragraph break and is folded here, so
-                // a wrapped long line is measured as the paragraph it is.
-                for (index, paragraph) in normalize_body(prose).split("\n\n").enumerate() {
-                    let chars = paragraph.chars().count();
-                    anyhow::ensure!(
-                        chars <= limit,
-                        "Paragraph {} of `{key}` has {chars} characters; \
-                         maximum is {limit}, including spaces.",
-                        index + 1
-                    );
-                }
-            }
-            total += prose.chars().count();
         }
-        anyhow::ensure!(
-            total <= dims.total_max_chars,
-            "Prose totals {total} characters across {} slots; allowed range is 1..={}.",
-            self.slots.len(),
-            dims.total_max_chars
-        );
         Ok(())
     }
 }
 
 /// Decode and validate in one step, for a plugin with nothing to prepare.
-pub fn parse_prose_map(raw: &str, keys: &[String], dims: Dimensions) -> anyhow::Result<ProseMap> {
+pub fn parse_prose_map(raw: &str, keys: &[String]) -> anyhow::Result<ProseMap> {
     let map = decode_prose_map(raw, keys)?;
-    map.validate(dims)?;
+    map.validate()?;
     Ok(map)
 }
 
@@ -322,29 +173,8 @@ impl std::fmt::Display for SurfaceError {
 impl std::error::Error for SurfaceError {}
 
 pub fn validate_body(body: &str) -> anyhow::Result<()> {
-    let chars = body.chars().count();
-    if body.trim().is_empty() || chars > BODY_MAX_CHARS {
-        return Err(SurfaceError(format!(
-            "Body has {chars} characters; allowed range is 1..={BODY_MAX_CHARS} with nonblank content."
-        ))
-        .into());
-    }
-    Ok(())
-}
-
-/// Observation form for aligned characters. Count normalized prose, including
-/// spaces, without treating a wrapped line as a new paragraph or cutting text.
-pub fn validate_observation_body(body: &str) -> anyhow::Result<()> {
-    validate_body(body)?;
-    for (index, paragraph) in normalize_body(body).split("\n\n").enumerate() {
-        let chars = paragraph.chars().count();
-        if chars > PARAGRAPH_MAX_CHARS {
-            return Err(SurfaceError(format!(
-                "Paragraph {} has {chars} characters; maximum is {PARAGRAPH_MAX_CHARS}, including spaces.",
-                index + 1
-            ))
-            .into());
-        }
+    if body.trim().is_empty() {
+        return Err(SurfaceError("Body must contain nonblank prose.".into()).into());
     }
     Ok(())
 }
@@ -390,10 +220,7 @@ pub fn journalist_prose(report_count: usize) -> Prose {
     let keys = (1..=report_count)
         .map(|index| format!("report_{index}"))
         .collect::<Vec<_>>();
-    Prose::new_owned(
-        keys,
-        Dimensions::new(BODY_MAX_CHARS, JOURNALIST_PARAGRAPH_MAX_CHARS),
-    )
+    Prose::new_owned(keys)
 }
 
 /// Structural writing form: fields, types, counts and dimensions only. Content
@@ -420,7 +247,7 @@ pub struct JournalistReply {
     pub narratives: Vec<JournalistReport>,
 }
 
-/// Decode the keyed reports and enforce this plugin's dimensions.
+/// Decode the keyed reports and enforce this plugin's structural contract.
 ///
 /// The keyed surface is the shared one, so decoding delegates. The report-order
 /// and source-mapping binding stays here because it is this plugin's evidence
@@ -429,7 +256,7 @@ pub struct JournalistReply {
 /// prose back to publication.
 pub fn parse_journalist(raw: &str, report_count: usize) -> anyhow::Result<JournalistReply> {
     let prose = journalist_prose(report_count);
-    let map = parse_prose_map(raw, &prose.keys, prose.dims)?;
+    let map = parse_prose_map(raw, &prose.keys)?;
     Ok(JournalistReply {
         narratives: map
             .iter()
@@ -443,28 +270,28 @@ pub fn parse_journalist(raw: &str, report_count: usize) -> anyhow::Result<Journa
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::harness::Parser;
     use crate::plugins::analyst::parser as analyst;
     use crate::plugins::influencer;
     use crate::plugins::scout::parser as scout;
 
     #[test]
-    fn surface_counts_characters_without_cutting_prose() {
-        assert!(validate_body(&"é".repeat(BODY_MAX_CHARS)).is_ok());
-        assert!(validate_body(&"é".repeat(BODY_MAX_CHARS + 1)).is_err());
+    fn body_validation_preserves_prose_and_refuses_blank_content() {
+        assert!(validate_body(&"é".repeat(2400)).is_ok());
         assert!(validate_body("  ").is_err());
     }
 
     #[test]
-    fn observation_paragraphs_count_unicode_spaces_and_wrapped_lines() {
-        let paragraph = "é".repeat(PARAGRAPH_MAX_CHARS);
-        assert!(validate_observation_body(&format!("{paragraph}\n\n{paragraph}")).is_ok());
-        assert!(validate_observation_body(&format!("{paragraph}é")).is_err());
-        // A single newline wraps one paragraph; only a blank line separates it.
-        let halves = "é".repeat(70);
-        assert!(validate_observation_body(&format!("{halves}\n{halves}")).is_err());
-        assert!(validate_observation_body(&format!("{halves} {halves}")).is_err());
-        assert!(validate_observation_body("  ").is_err());
-        assert!(validate_observation_body(&vec![paragraph; 9].join("\n\n")).is_err());
+    fn observations_preserve_long_paragraphs_and_header_limit() {
+        let paragraph = "é".repeat(300);
+        let reply = influencer::VibeParser.parse(
+            &serde_json::json!({"headline":"Hope","body":format!("{paragraph}\n\n{paragraph}")}).to_string(),
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(reply.body, format!("{paragraph}\n\n{paragraph}"));
+        assert!(validate_hook(Some(&"é".repeat(HOOK_MAX_CHARS))).is_ok());
+        assert!(validate_hook(Some(&"é".repeat(HOOK_MAX_CHARS + 1))).is_err());
     }
 
     /// The Scout moved to the shared keyed map in Window 4, so it no longer
@@ -500,13 +327,11 @@ mod tests {
             scout::RatingParser.parse(&keyed).unwrap().unwrap().body,
             paragraphs
         );
-        let vibe = serde_json::json!({"body": paragraphs}).to_string();
         assert!(influencer::VibeParser
-            .parse(&vibe)
+            .parse(&serde_json::json!({"headline":"Hope","body":paragraphs}).to_string())
             .unwrap()
             .unwrap()
             .body
-            .unwrap()
             .contains("\n\n"));
         // A score the Scout never declared is a violation, not something to strip.
         assert!(scout::RatingParser.parse(&card).is_err());
@@ -530,52 +355,38 @@ mod tests {
     fn the_journalist_declares_only_output_fields_and_limit() {
         let form = journalist_form(1);
         assert_eq!(form["keys"], serde_json::json!(["report_1"]));
-        assert_eq!(form["max_chars"], serde_json::json!(BODY_MAX_CHARS));
+        assert_eq!(form["paragraphs"], "concise");
+        assert!(form.get("max_chars").is_none());
     }
 
     #[test]
-    fn the_two_character_plugins_share_a_validator_and_not_a_policy() {
-        // One implementation, two declarations. The Influencer opts into the
-        // 140-character readability rule; the Journalist records that it does
-        // not, and both are held to the shared body ceiling.
-        let influencer = observation_prose();
-        let journalist = journalist_prose(1);
-        assert_eq!(
-            influencer.dims.total_max_chars,
-            journalist.dims.total_max_chars
-        );
-        assert_eq!(influencer.dims.paragraph_max_chars, Some(140));
-        assert_eq!(
-            journalist.dims.paragraph_max_chars,
-            JOURNALIST_PARAGRAPH_MAX_CHARS
-        );
-        // The grammar offered to the model comes from the enforced declaration.
+    fn character_forms_share_concise_paragraph_guidance() {
+        assert!(influencer::prompt::TASK.contains("paragraphs separated by blank lines"));
         assert_eq!(journalist_schema(2), journalist_prose(2).schema());
     }
 
     #[test]
-    fn a_declined_slot_and_a_missing_slot_stay_distinct_through_the_wrapper() {
-        // A null body is this plugin's abstention and yields no reading; `{}` is
-        // a dropped slot and is a contract violation. They must not collapse.
-        assert!(parse_observation(r#"{"body":null}"#).unwrap().is_none());
-        assert!(parse_observation("{}").is_err());
-        assert!(parse_observation(r#"{"body":""}"#).is_err());
-        assert!(parse_observation(r#"{"body":null,"score":3}"#).is_err());
+    fn a_declined_slot_and_a_missing_slot_stay_distinct() {
+        let keys = Prose::new(&["body"]).keys;
+        let decode = |raw: &str| decode_prose_map(raw, &keys);
+        assert!(decode(r#"{"body":null}"#).unwrap().get("body").is_none());
+        assert!(decode("{}").is_err());
+        assert!(decode(r#"{"body":""}"#).unwrap().validate().is_err());
+        assert!(decode(r#"{"body":null,"score":3}"#).is_err());
     }
 
     #[test]
-    fn emphasis_is_stripped_before_the_ceilings_are_measured() {
-        // A bold run is presentation, not prose. If it were measured first, a
-        // body that fits would be rejected for its markers.
+    fn emphasis_cleanup_preserves_the_reading() {
+        // Markdown emphasis is presentation, not part of the reading.
         let text = "Cedar won.";
         let bold = format!("**{text}**");
         assert!(
-            parse_observation(&serde_json::json!({"body":bold}).to_string())
+            influencer::VibeParser
+                .parse(&serde_json::json!({"headline":"Hope","body":bold}).to_string())
                 .unwrap()
                 .unwrap()
                 .body
-                .as_deref()
-                == Some(text)
+                == text
         );
     }
 
@@ -596,26 +407,19 @@ mod prose_tests {
     use super::*;
 
     #[test]
-    fn the_shared_ceiling_is_a_parameter_and_the_keys_are_the_plugins() {
-        let influencer = Prose::new(&["body"], Dimensions::new(BODY_MAX_CHARS, Some(140)));
-        let journalist = Prose::new(&["report_1"], Dimensions::new(BODY_MAX_CHARS, Some(140)));
+    fn output_keys_belong_to_the_plugins() {
+        let influencer = Prose::new(&["body"]);
+        let journalist = Prose::new(&["report_1"]);
         assert_eq!(influencer.schema()["required"], serde_json::json!(["body"]));
         assert_eq!(
             journalist.schema()["required"],
             serde_json::json!(["report_1"])
         );
-        // A shared validator, not a shared policy: the same rule set, and the
-        // readability ceiling is each plugin's declaration.
-        assert_eq!(
-            influencer.dims.total_max_chars,
-            journalist.dims.total_max_chars
-        );
-        assert_eq!(influencer.dims.paragraph_max_chars, Some(140));
     }
 
     #[test]
     fn a_response_may_not_carry_a_field_the_plugin_did_not_declare() {
-        let prose = Prose::new(&["headline", "body"], Dimensions::new(1200, Some(140)));
+        let prose = Prose::new(&["headline", "body"]);
         let schema = prose.schema();
         assert_eq!(schema["additionalProperties"], serde_json::json!(false));
         let keys = schema["properties"].as_object().unwrap();

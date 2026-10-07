@@ -1,5 +1,7 @@
 # Harness and plugin cleanup — completed
 
+> **2026-10-06 governing update:** This dated record preserves its implementation and evaluation evidence. The [current contract](../../../scoracle-wiki/wiki/Architecture/Harness,%20Plugins,%20Tools,%20and%20LLM%20Contract.md) supersedes articulation-only ownership: cheap code owns collection; expensive compute owns discovery. Plugins assemble traceable clues through tools; the LLM reasons across them, discovers what they support and articulates the answer. Historical “plugin owns WHAT/model owns HOW” statements below do not govern new builds.
+
 Completed October 5, 2026. [rust/README.md](../README.md) owns the current architecture contract. All seven cleanup steps are complete, committed and pushed; implementation checkpoint `0098df4e` is deployed on Archbox. Validation and rollout evidence are recorded below and in the [deployment record](harness-cleanup-deployment-2026-10-05.md).
 
 **SQL owns the data. Rust owns the cognition.** The harness runs a plugin. The plugin calls tools, selects and assembles the world, invokes its model where needed, validates the response and publishes to Postgres. Models articulate or classify supplied input and never call tools.

@@ -1,5 +1,7 @@
-//! Scout preparation, instructions and the selected world the model reads.
 //! Tone lives in local `voice.rs`. Measurements come from `performance.rs`.
+//! Scout preparation, instructions and the selected world the model reads.
+use crate::harness::route::RouteKey;
+pub const MODEL: RouteKey = RouteKey::new("stats-logic", "STATS_LOGIC");
 use serde::Serialize;
 
 use super::parser::{self, RatingReply};
@@ -11,7 +13,7 @@ use crate::tools::meta::EntityMeta;
 use crate::util::hash_components;
 use anyhow::{Context, Result};
 
-pub const RATING_PROMPT_VERSION: &str = "s66-measured-windows";
+pub const RATING_PROMPT_VERSION: &str = "s68-concise-body";
 
 /// Production rating temperature.
 pub const RATING_TEMPERATURE: f64 = 0.6;
@@ -179,9 +181,7 @@ impl Parts {
         #[derive(Serialize)]
         struct Form<'a> {
             keys: &'a [String],
-            max_chars: usize,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            paragraph_max_chars: Option<usize>,
+            paragraphs: &'static str,
         }
         #[derive(Serialize)]
         struct Input<'a> {
@@ -213,8 +213,7 @@ impl Parts {
             voice: crate::plugins::scout::voice::VOICE,
             form: Form {
                 keys: &prose.keys,
-                max_chars: prose.dims.total_max_chars,
-                paragraph_max_chars: prose.dims.paragraph_max_chars,
+                paragraphs: "concise",
             },
         })
         .expect("scout world serializes")
@@ -286,7 +285,7 @@ pub async fn build_rating_request(
     .await?;
 
     // Keep the adjudicated records for provenance and select attributed memory from them.
-    let (personnel, reported_memory) = if with_enrichment && !historical {
+    let (personnel, changes, availability) = if with_enrichment && !historical {
         let (changes, total) = match crate::plugins::scout::sources::load_personnel_changes(
             pool,
             &req.sport,
@@ -328,23 +327,17 @@ pub async fn build_rating_request(
                     (Vec::new(), 0)
                 }
             };
-        let reported = crate::plugins::scout::memories::Reported::from_records(
-            &req.entity_type,
-            req.entity_id,
-            &changes,
-            &availability,
-            total + availability_total,
-        );
         (
             serde_json::json!({"changes": changes, "availability": availability,
                 "total_changes": total, "total_availability": availability_total}),
-            reported,
+            changes,
+            availability,
         )
     } else {
-        (serde_json::Value::Null, Vec::new())
+        (serde_json::Value::Null, Vec::new(), Vec::new())
     };
 
-    let (current_reports, contested_claims) = if with_enrichment && !historical {
+    let (current_reports, memory_claims) = if with_enrichment && !historical {
         match crate::plugins::scout::sources::load_scout_reports(
             pool,
             &req.entity_type,
@@ -353,17 +346,7 @@ pub async fn build_rating_request(
         )
         .await
         {
-            Ok(claims) => {
-                // A marked claim is one another source contradicts. The memory
-                // carries the contradiction rather than dropping the claim,
-                // because "the subject is disputed" is the reader-relevant fact.
-                let contested: Vec<crate::plugins::scout::memories::Reported> = claims
-                    .iter()
-                    .filter(|c| c.marked)
-                    .map(crate::plugins::scout::memories::Reported::from_claim)
-                    .collect();
-                (serde_json::to_value(&claims)?, contested)
-            }
+            Ok(claims) => (serde_json::to_value(&claims)?, claims),
             Err(error) => {
                 return Err(error).context("load verified Harvester Scout reports");
             }
@@ -371,11 +354,10 @@ pub async fn build_rating_request(
     } else {
         (serde_json::Value::Null, Vec::new())
     };
-    let mut reported_memory = reported_memory;
-    for mut claim in contested_claims {
-        claim.disputed = Some(true);
-        reported_memory.push(claim);
-    }
+    let reported_memory =
+        super::memories::reported_memory(&req.entity_type, &changes, &availability, &memory_claims)
+            .await
+            .context("analyze Scout reported memory with DuckDB")?;
 
     let comparisons = if with_enrichment && supports_cross_season {
         match performance::load_rating_profile(

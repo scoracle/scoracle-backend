@@ -61,7 +61,7 @@ async fn scoped_studies_preserve_frequency_identity_missingness_and_corrections(
     .await
     .unwrap();
     assert_eq!(pair_articles, vec![101, 102, 103]);
-    let first = reporting_scope(&pool, &subject, 100, 200, &[], 3, &pair_articles, None)
+    let first = reporting_scope(&pool, &subject, 100, 200, &[], 3, 2, &pair_articles, None)
         .await
         .unwrap();
     assert_eq!(first.receipt.included_articles, 3);
@@ -83,6 +83,7 @@ async fn scoped_studies_preserve_frequency_identity_missingness_and_corrections(
         200,
         &[],
         3,
+        2,
         &pair_articles,
         Some(&storyline),
     )
@@ -104,7 +105,7 @@ async fn scoped_studies_preserve_frequency_identity_missingness_and_corrections(
     .execute(&pool)
     .await
     .unwrap();
-    let changed = reporting_scope(&pool, &subject, 100, 200, &[], 3, &pair_articles, None)
+    let changed = reporting_scope(&pool, &subject, 100, 200, &[], 3, 2, &pair_articles, None)
         .await
         .unwrap();
     assert_ne!(first.receipt.input_hash, changed.receipt.input_hash);
@@ -142,5 +143,124 @@ async fn scoped_studies_preserve_frequency_identity_missingness_and_corrections(
     assert_eq!(missing.finding.current.fixtures, 1);
     assert_eq!(missing.finding.current.measured, 0);
     assert_eq!(missing.finding.per_match_change, None);
+    // Explicit source sets need no extracted narrative event to be studied.
+    sqlx::query("INSERT INTO news_articles VALUES (108,'Test Team announces training','Wire',to_timestamp(150),NULL)")
+        .execute(&pool).await.unwrap();
+    let indexed = reporting_scope(&pool, &subject, 100, 200, &[], 3, 3, &[108], None)
+        .await
+        .unwrap();
+    assert_eq!(indexed.receipt.observed_articles, 1);
+    assert_eq!(indexed.findings[0].source_ids, vec![108]);
+    let default = reporting(&pool, &subject, 100, 200, &[], 3).await.unwrap();
+    assert!(default
+        .findings
+        .iter()
+        .all(|f| !f.source_ids.contains(&108)));
     pool.close().await;
+}
+
+#[tokio::test]
+#[ignore = "requires SCORACLE_MEMORY_STUDY_BIN"]
+async fn duckdb_memory_runner_preserves_samples_records_and_quotes() {
+    let records: Vec<SourceRecord> = run(&serde_json::json!({
+        "kind":"source_records", "version":"publisher-outcomes-v1",
+        "observations":[
+            {"publisher":"Wire","player_id":1,"team_id":2,"confirmed":true},
+            {"publisher":"Wire","player_id":1,"team_id":2,"confirmed":true},
+            {"publisher":"Wire","player_id":3,"team_id":2,"confirmed":false}
+        ]
+    }))
+    .await
+    .unwrap();
+    assert_eq!(
+        records,
+        vec![SourceRecord {
+            publisher: "Wire".into(),
+            confirmed: 1,
+            tracked: 2,
+            reliability: 17
+        }]
+    );
+    let reported: Vec<crate::plugins::scout::memories::Reported> = run(&serde_json::json!({
+        "kind":"scout_records","version":"scout-records-v1","entity_type":"player","max_reports":4,
+        "personnel":[],
+        "availability":[{"kind":"reverted","date_label":"2026-10-05T10:00:00Z",
+            "event_kind":"injury","player_name":"Synthetic Player","event_date_label":"2026-10-01"}],
+        "claims":[{"source":"Wire","fact":"Synthetic Player is not injured.","published_at":1791194400}]
+    })).await.unwrap();
+    assert_eq!(reported.len(), 2);
+    assert_eq!(reported[0].withdrawn, Some(true));
+    assert!(reported[0]
+        .reported_headline
+        .contains("not evidence of a return"));
+    assert_eq!(reported[1].publisher, "Wire");
+    assert_eq!(
+        reported[1].reported_headline,
+        "Synthetic Player is not injured."
+    );
+    assert_eq!(reported[1].disputed, None);
+    let scores: ScoreHistory = run(&serde_json::json!({
+        "kind":"score_history","version":"score-history-v1","before":2000000,"rating_weeks":3,
+        "observations":[
+            {"id":1,"rail":"rating","observed_at":100,"week_start":0,"value":10},
+            {"id":2,"rail":"rating","observed_at":200,"week_start":0,"value":30},
+            {"id":3,"rail":"rating","observed_at":700000,"week_start":604800,"value":30},
+            {"id":1,"rail":"vibe","observed_at":100,"week_start":0,"value":null}
+        ]
+    }))
+    .await
+    .unwrap();
+    assert_eq!(scores.rating_slope, Some(10.0));
+    assert_eq!(scores.rating_samples, 3);
+    assert_eq!(scores.vibe_slope, None);
+}
+
+/// Smoke the live export schemas and helper boundary without mutating history.
+#[tokio::test]
+#[ignore = "requires MEMORY_REPLAY_DATABASE_URL and SCORACLE_MEMORY_STUDY_BIN"]
+async fn live_memory_exports_are_read_only() {
+    let connect: sqlx::postgres::PgConnectOptions = std::env::var("MEMORY_REPLAY_DATABASE_URL")
+        .unwrap()
+        .parse()
+        .unwrap();
+    let pool = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(1)
+        .connect_with(connect.options([
+            ("default_transaction_read_only", "on"),
+            ("statement_timeout", "15000"),
+        ]))
+        .await
+        .unwrap();
+    let readonly: String = sqlx::query_scalar("SHOW transaction_read_only")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(readonly, "on");
+    let scores = score_history(&pool, "team", 7, "NFL").await.unwrap();
+    println!(
+        "live score samples: Scout={}, Influencer={}",
+        scores.rating_samples, scores.vibe_samples
+    );
+    let publisher: Option<(String, String)> = sqlx::query_as(
+        "SELECT sport,source FROM transfer_rumors CROSS JOIN LATERAL unnest(source_names) AS s(source) WHERE subject_type='player' AND is_rumor IS TRUE ORDER BY id DESC LIMIT 1")
+        .fetch_optional(&pool).await.unwrap();
+    if let Some((sport, publisher)) = publisher {
+        let records = source_records(&pool, &sport, &[publisher]).await.unwrap();
+        assert!(records.iter().all(|r| r.confirmed <= r.tracked));
+        println!("live publisher records: {}", records.len());
+    }
+    use crate::plugins::scout::{memories, sources};
+    let (changes, _) = sources::load_personnel_changes(&pool, "FOOTBALL", "team", 3)
+        .await
+        .unwrap();
+    let (availability, _) = sources::load_availability_changes(&pool, "FOOTBALL", "team", 3)
+        .await
+        .unwrap();
+    let claims = sources::load_scout_reports(&pool, "team", 3, "FOOTBALL")
+        .await
+        .unwrap();
+    let reported = memories::reported_memory("team", &changes, &availability, &claims)
+        .await
+        .unwrap();
+    println!("live Scout record observations: {}", reported.len());
 }

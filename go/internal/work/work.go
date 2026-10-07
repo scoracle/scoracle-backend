@@ -90,7 +90,7 @@ func Enqueue(ctx context.Context, q Querier, it Item) error {
 		    claim_token = NULL
 		WHERE pipeline_work.input_version IS DISTINCT FROM EXCLUDED.input_version
 		   OR pipeline_work.status = 'failed'
-	`, string(it.Stage), it.EntityType, it.EntityID, it.Sport, nullIfEmpty(it.InputVersion))
+	`, string(it.Stage), it.EntityType, it.EntityID, it.Sport, NullIfEmpty(it.InputVersion))
 	if err != nil {
 		return fmt.Errorf("enqueue %s %s/%d (%s): %w", it.Stage, it.EntityType, it.EntityID, it.Sport, err)
 	}
@@ -187,8 +187,8 @@ func DeadLetters(ctx context.Context, q Querier) ([]DeadLetter, error) {
 	return out, rows.Err()
 }
 
-// nullIfEmpty maps "" to a SQL NULL so input_version stays NULL rather than ”.
-func nullIfEmpty(s string) any {
+// NullIfEmpty maps "" to a SQL NULL so nullable text columns stay NULL rather than "".
+func NullIfEmpty(s string) any {
 	if s == "" {
 		return nil
 	}

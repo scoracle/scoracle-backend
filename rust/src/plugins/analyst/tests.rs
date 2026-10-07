@@ -205,8 +205,8 @@ async fn model_failure_propagates_without_retry() {
 }
 
 #[tokio::test]
-async fn oversized_prose_produces_no_product() {
-    let model = Model::new(&format!(r#"{{"blurb":"{}"}}"#, "x".repeat(1201)));
+async fn blank_prose_produces_no_product() {
+    let model = Model::new(r#"{"blurb":"  "}"#);
     assert!(create_from_reference(&Studio::new(&model), &assignment())
         .await
         .is_err());

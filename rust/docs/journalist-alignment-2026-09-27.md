@@ -1,5 +1,7 @@
 # Journalist alignment — working handoff
 
+> **2026-10-06 governing update:** This dated record preserves its implementation and evaluation evidence. The [current contract](../../../scoracle-wiki/wiki/Architecture/Harness,%20Plugins,%20Tools,%20and%20LLM%20Contract.md) supersedes articulation-only ownership: cheap code owns collection; expensive compute owns discovery. Plugins assemble traceable clues through tools; the LLM reasons across them, discovers what they support and articulates the answer. Historical “plugin owns WHAT/model owns HOW” statements below do not govern new builds.
+
 Window 2 remains in progress. Base revision: `6b3ae88da7e8fccb9067c1a432566e5ba5460deb`.
 Changes are a local draft; no service, delivery flag or production database was changed.
 Preserve the pre-existing Harvester documentation changes in this working tree.

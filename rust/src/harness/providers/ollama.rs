@@ -203,11 +203,7 @@ impl OllamaClient {
                 (None, false) => None,
             },
             think: self.think,
-            options: if options.is_empty() {
-                None
-            } else {
-                Some(serde_json::Value::Object(options))
-            },
+            options: Some(serde_json::Value::Object(options)),
         }
     }
 
@@ -268,14 +264,22 @@ impl OllamaClient {
         let status = resp.status();
         let raw = resp.text().await.context("read ollama response")?;
         if !status.is_success() {
-            return Err(anyhow!(
-                "ollama HTTP {}: {}",
-                status.as_u16(),
-                truncate(&raw, 300)
-            ));
+            return Err(crate::harness::model::ResponseFailure {
+                error: anyhow!("ollama HTTP {}: {}", status.as_u16(), truncate(&raw, 300)),
+                raw_response_body: raw,
+            }
+            .into());
         }
 
-        Ok((Self::decode_response(raw)?, request_body))
+        Ok((
+            Self::decode_response(raw.clone()).map_err(|error| {
+                crate::harness::model::ResponseFailure {
+                    raw_response_body: raw,
+                    error,
+                }
+            })?,
+            request_body,
+        ))
     }
 
     fn decode_response(raw: String) -> Result<GenerateResult> {
@@ -297,13 +301,6 @@ impl OllamaClient {
             completion_reason,
             raw_response_body: raw,
         })
-    }
-
-    /// generate performs a single non-streaming completion. We do NOT auto-retry
-    /// — the caller (a stage handler) decides, and the work queue handles backoff.
-    pub async fn generate(&self, prompt: &str, opts: &GenerateOptions) -> Result<GenerateResult> {
-        let (gen, _) = self.generate_with_body(prompt, opts).await?;
-        Ok(gen)
     }
 
     /// ping hits /api/tags to verify Ollama is reachable. Cheap — no inference.

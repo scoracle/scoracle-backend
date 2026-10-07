@@ -4,7 +4,12 @@
 // import cycle.
 package model
 
-import "math"
+import (
+	"database/sql"
+	"encoding/json"
+	"fmt"
+	"math"
+)
 
 // Trajectory window constants — the Rust Scout's TRAJECTORY_WINDOW_* values
 // (rust/src/junctions/scout/mod.rs:955-957).
@@ -221,4 +226,36 @@ type EntityContextRow struct {
 	PeerDeltaMedian *float64 `json:"peer_delta_median"`
 	PeerDeltaP25    *float64 `json:"peer_delta_p25"`
 	PeerDeltaP75    *float64 `json:"peer_delta_p75"`
+}
+
+// ParseBundleJSON fills a BundleRow's JSON columns from nullable database text.
+// Both engines decode the identical shape, so the decode lives here rather than
+// being copied into each implementation.
+func ParseBundleJSON(r *BundleRow, breakdown, scopedRanks, scopedScores sql.NullString) error {
+	if breakdown.Valid && breakdown.String != "" && breakdown.String != "[]" {
+		entries := []BreakdownEntry{}
+		if err := json.Unmarshal([]byte(breakdown.String), &entries); err != nil {
+			return fmt.Errorf("breakdown: %w", err)
+		}
+		r.Breakdown = entries
+	}
+	r.ScopedRanks = ParseScopedJSON(scopedRanks)
+	r.ScopedScores = ParseScopedJSON(scopedScores)
+	return nil
+}
+
+// ParseScopedJSON decodes a scoped-score map, treating absent, empty, "{}" and
+// unparseable values alike as "no scoped data".
+func ParseScopedJSON(raw sql.NullString) map[string]*float64 {
+	if !raw.Valid || raw.String == "" || raw.String == "{}" {
+		return nil
+	}
+	scoped := map[string]*float64{}
+	if err := json.Unmarshal([]byte(raw.String), &scoped); err != nil {
+		return nil
+	}
+	if len(scoped) == 0 {
+		return nil
+	}
+	return scoped
 }

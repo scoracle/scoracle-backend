@@ -22,8 +22,3 @@ var (
 	// via -ldflags "-X .../buildinfo.BuildTime=<ts>".
 	BuildTime = "unknown"
 )
-
-// String returns a compact "<commit> (built <buildtime>)" descriptor for logs.
-func String() string {
-	return Commit + " (built " + BuildTime + ")"
-}

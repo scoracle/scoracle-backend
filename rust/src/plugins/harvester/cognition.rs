@@ -116,13 +116,19 @@ pub fn first_paragraphs(body: &str, count: usize) -> Excerpt {
     excerpt(body, content.len(), "available_opening_paragraphs")
 }
 
+/// Exact retained source span, with only outer whitespace excluded.
+pub fn full_article(body: &str) -> Excerpt {
+    excerpt(body, body.trim_start().trim_end().len(), "retained_article")
+}
+
 /// Cover every retained paragraph. Gaps may contain whitespace only; an oversized
 /// opening is a coverage error, never a negative classification.
 pub fn prepare_text(body: &str) -> Result<PreparedText> {
     let character_context = first_paragraphs(body, 3);
     let mut model_inputs = Vec::new();
     let mut cursor = 0;
-    let text = &character_context.text;
+    let full = full_article(body);
+    let text = &full.text;
     while cursor < text.len() {
         cursor += text[cursor..].len() - text[cursor..].trim_start().len();
         if cursor == text.len() {
@@ -130,14 +136,14 @@ pub fn prepare_text(body: &str) -> Result<PreparedText> {
         }
         ensure!(
             model_inputs.len() < MAX_THEME_WINDOWS,
-            "publisher opening exceeds complete scoring budget"
+            "retained article exceeds complete scoring budget"
         );
         let length = bounded_prefix_end(&text[cursor..], 100, 1200);
         ensure!(length > 0, "publisher scoring window is empty");
         model_inputs.push(Excerpt {
             text: text[cursor..cursor + length].into(),
-            start: character_context.start + cursor,
-            end: character_context.start + cursor + length,
+            start: full.start + cursor,
+            end: full.start + cursor + length,
             selection: "verbatim_publisher_window".into(),
         });
         cursor += length;
@@ -328,7 +334,7 @@ mod tests {
     }
 
     #[test]
-    fn laya_never_sees_reporting_after_the_delivered_three_paragraphs() {
+    fn editor_scoring_reads_beyond_the_delivered_opening() {
         let mut a = article();
         a.body = format!(
             "First opening paragraph.\n\nSecond opening paragraph.\n\nThird opening paragraph.\n\n{}",
@@ -341,9 +347,9 @@ mod tests {
             prepared.model_inputs[0].start,
             prepared.character_context.start
         );
-        assert!(prepared.model_inputs[0].end <= prepared.character_context.end);
+        assert!(prepared.model_inputs.last().unwrap().end > prepared.character_context.end);
         assert!(!relevance.state.contains("FOURTH_PARAGRAPH_ONLY"));
-        assert!(!themes.state.contains("FOURTH_PARAGRAPH_ONLY"));
+        assert!(themes.state.contains("FOURTH_PARAGRAPH_ONLY"));
     }
 
     #[test]

@@ -1,0 +1,20 @@
+{
+  "case": "synthetic-multiple-speakers-period-v19",
+  "result": "structurally_valid_factually_failed",
+  "model": "alibayram/smollm3:latest",
+  "thinking": false,
+  "prompt_version": "vibe-frame-v19-period-card",
+  "calls": 1,
+  "score": 50,
+  "input_tokens": 527,
+  "output_tokens": 180,
+  "wall_ms": 10587,
+  "failures": [
+    "Invented a significant change in coaching staff; the sources identify no kind of change.",
+    "Invented likely feelings among players and fans.",
+    "Claimed uncertainty about whether the two explicitly named coaches were the same person.",
+    "One long paragraph instead of concise paragraph structure."
+  ],
+  "decision": "Do not deploy this prompt/model combination. No fixture-specific corrective prompt or extra generation layer added. Real-source and held-out fidelity remain unverified.",
+  "deployment_authorization": "2026-10-07: User explicitly requested experimental production deployment despite the recorded fidelity failure. Evaluation result remains failed."
+}

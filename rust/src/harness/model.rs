@@ -105,3 +105,20 @@ impl std::fmt::Display for IncompleteOutput {
     }
 }
 impl std::error::Error for IncompleteOutput {}
+
+/// Failed provider decoding retains the response for generation-attempt receipts.
+#[derive(Debug)]
+pub struct ResponseFailure {
+    pub raw_response_body: String,
+    pub error: anyhow::Error,
+}
+impl std::fmt::Display for ResponseFailure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.error)
+    }
+}
+impl std::error::Error for ResponseFailure {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(self.error.as_ref())
+    }
+}

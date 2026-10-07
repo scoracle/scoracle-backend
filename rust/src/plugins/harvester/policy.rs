@@ -21,7 +21,7 @@ pub const CHARACTER_ROUTES: &[CharacterRoute] = &[
         destination: &journalist::manifest::MANIFEST, delivery_name: "journalist",
     },
     CharacterRoute {
-        predicates: &[Predicate { key: "emotional_charge", statement: "This text describes someone's actual feelings or emotional reaction about {target}.", threshold: 0.5 }],
+        predicates: &[],
         destination: &influencer::manifest::MANIFEST, delivery_name: "influencer",
     },
     CharacterRoute {
@@ -44,8 +44,9 @@ pub const CHARACTER_ROUTES: &[CharacterRoute] = &[
 /// Provisional, evaluated on development fixtures; not a calibrated probability.
 pub const HEADLINE_POLICY: &str = "explicit-headline-read-p025-v2";
 pub const HEADLINE_READ_THRESHOLD: f64 = 0.25;
-pub const CHARACTER_ROUTE_POLICY: &str = "source-window-predicates-v2";
-pub const MAX_THEME_WINDOWS: usize = 8;
+pub const CHARACTER_ROUTE_POLICY: &str = "source-window-predicates-v3-entity-vibe";
+// ponytail: bounded sequential reads; raise only with measured service capacity.
+pub const MAX_THEME_WINDOWS: usize = 64;
 
 pub fn admits_headline(probability: f64) -> bool {
     probability >= HEADLINE_READ_THRESHOLD

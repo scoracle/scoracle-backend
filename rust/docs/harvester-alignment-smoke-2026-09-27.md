@@ -1,5 +1,7 @@
 # Harvester v6 real-source smoke — September 27, 2026
 
+> **2026-10-06 governing update:** This dated record preserves its implementation and evaluation evidence. The [current contract](../../../scoracle-wiki/wiki/Architecture/Harness,%20Plugins,%20Tools,%20and%20LLM%20Contract.md) supersedes articulation-only ownership: cheap code owns collection; expensive compute owns discovery. Plugins assemble traceable clues through tools; the LLM reasons across them, discovers what they support and articulates the answer. Historical “plugin owns WHAT/model owns HOW” statements below do not govern new builds.
+
 **Worker/acquisition/storage smoke: passed. Selective routing quality: not demonstrated.**
 
 The current local v6 code was compiled on archbox in a separate temporary source directory and exercised against real publisher records and the live Laya service. Production remained on clean checkout `3d7bcf7`, cognition PID `583111`, with shadow mode enabled and character delivery disabled. No deployed binary, service configuration, production queue or production record changed.

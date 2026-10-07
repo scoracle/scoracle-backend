@@ -205,8 +205,6 @@ pub trait ScheduledOperation: Send + Sync {
 /// behavior. An empty registry is the valid idle scaffold.
 pub struct PluginRegistry {
     plugins: Vec<std::sync::Arc<dyn StudioPlugin>>,
-    /// Durable stage string → plugin index.
-    by_task: BTreeMap<&'static str, usize>,
 }
 
 impl PluginRegistry {
@@ -242,6 +240,8 @@ impl PluginRegistry {
                 "plugin registry: {} must declare inference roles and the inference grant together",
                 manifest.id
             );
+            // Duplicate task ownership fails boot. `by_task` is a build-time local only:
+            // nothing resolves a stage through the registry, the worker iterates `plugins()`.
             if let Some(previous) = by_task.insert(manifest.task.as_str(), index) {
                 let prior_owner = plugins[previous].manifest().id.as_str();
                 anyhow::bail!(
@@ -259,14 +259,7 @@ impl PluginRegistry {
         // fleets, so a missing producer is not a boot error; when invalidation arrives it
         // will validate full coverage and cycle-freedom over the enabled graph.
 
-        Ok(Self { plugins, by_task })
-    }
-
-    /// The plugin that owns a durable work stage, or `None` when the fleet was
-    /// registered without it (a partial deployment, e.g. voices-only on the Mac).
-    pub fn resolve(&self, stage: TaskKey) -> Option<&std::sync::Arc<dyn StudioPlugin>> {
-        let index = self.by_task.get(stage.as_str())?;
-        self.plugins.get(*index)
+        Ok(Self { plugins })
     }
 
     /// The registered fleet in registration order.

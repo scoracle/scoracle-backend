@@ -1,4 +1,4 @@
-//! Non-editorial lifecycle jobs retained when the Editor worker is removed.
+//! Source lifecycle jobs owned by headline intake, independent of Editor inference.
 use crate::harness::plugin::ScheduledOperation;
 use async_trait::async_trait;
 use sqlx::PgPool;

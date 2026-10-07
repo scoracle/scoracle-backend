@@ -1,10 +1,10 @@
 {
   "expect": {},
   "name": "three-card-newcomer",
-  "prompt_version": "or26",
+  "prompt_version": "or27-concise-body",
   "task": "oracle",
   "temperature": 0.0,
-  "user_prompt": "{\"meta\":{\"name\":\"Ipswich Town\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\"},\"fresh\":{\"journalist\":[{\"title\":\"Ipswich reshapes its spine after promotion\",\"body\":\"Two confirmed signings have arrived to rebuild the defensive line before the opener.\",\"trajectory\":\"developing_story...\",\"source_count\":3,\"source_age_days\":1}],\"influencer\":{\"body\":\"Cautious optimism around the rebuild; the room likes the business but wants to see it on grass.\"},\"insider\":{\"body\":\"From Fulham to Ipswich Town; confirmed — \\\"The move for Issa Diop is done and the paperwork is filed.\\\"\"}},\"voice\":\"Mystic, arcane, knowing, restrained.\",\"form\":{\"keys\":[\"reading\"],\"max_chars\":1200}}",
+  "user_prompt": "{\"meta\":{\"name\":\"Ipswich Town\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\"},\"fresh\":{\"journalist\":[{\"title\":\"Ipswich reshapes its spine after promotion\",\"body\":\"Two confirmed signings have arrived to rebuild the defensive line before the opener.\",\"trajectory\":\"developing_story...\",\"source_count\":3,\"source_age_days\":1}],\"influencer\":{\"body\":\"Cautious optimism around the rebuild; the room likes the business but wants to see it on grass.\"},\"insider\":{\"body\":\"From Fulham to Ipswich Town; confirmed — \\\"The move for Issa Diop is done and the paperwork is filed.\\\"\"}},\"voice\":\"Mystic, arcane, knowing, restrained.\",\"form\":{\"keys\":[\"reading\"],\"paragraphs\":\"concise\"}}",
   "review": [
     "Use the three supplied readings without implying the missing pillars were also observed."
   ]

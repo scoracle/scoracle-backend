@@ -789,16 +789,11 @@ fn a_players_world_is_byte_stable() {
     // separately rather than pasted into the byte fixture above.
     let tail = world.split(r#""voice":""#).nth(1).unwrap();
     assert!(tail.starts_with("Observant, direct, specific to the sport and restrained."));
-    assert!(tail.contains(r#""form":{"keys":["body"],"max_chars":1200}"#));
-    // The Scout records a non-participation on the paragraph rule, so the form
-    // states the body ceiling and no paragraph ceiling. A plugin that adopts one
-    // later changes this line, which is the point of pinning it.
-    assert_eq!(
-        crate::plugins::scout::parser::prose()
-            .dims
-            .paragraph_max_chars,
-        crate::plugins::scout::parser::SCOUT_PARAGRAPH_MAX_CHARS
-    );
+    assert!(tail.contains(r#""form":{"keys":["body"],"paragraphs":"concise"}"#));
+    assert!(crate::plugins::scout::parser::prose()
+        .form()
+        .get("paragraph_max_chars")
+        .is_none());
 }
 
 #[test]
@@ -1280,15 +1275,13 @@ fn request_parser_preserves_weighted_measures_and_thin_sample_coverage() {
 
     // The retired thin-sample boundary told the model to stay under 800
     // characters. That was an instruction the model was asked to honour, and it
-    // is gone: the shared body ceiling now governs every Scout body, and a thin
-    // sample is bounded by the `limit` in its world rather than by a length the
-    // model had to remember. The ceiling is still enforced, and it is the shared
-    // one.
-    let long_body = "x".repeat(crate::tools::form::BODY_MAX_CHARS + 1);
-    let oversized = parser
-        .parse(&serde_json::json!({"body": long_body}).to_string())
-        .unwrap_err();
-    assert!(oversized.to_string().contains("characters"));
+    // is gone. Thin-sample claim guards remain, while body length is writing guidance.
+    let long_body = "x".repeat(2400);
+    let longer = parser
+        .parse(&serde_json::json!({"body":long_body}).to_string())
+        .unwrap()
+        .unwrap();
+    assert_eq!(longer.body, long_body);
 
     let accepted = parser
         .parse(r#"{"body":"The stored snapshot records 3 appearances and 257 minutes. Discipline ranks poorly."}"#)

@@ -1,11 +1,9 @@
 //! Configured inference routing and the model-call boundary.
 //! Routes sharing a backend share its client and per-host concurrency governor.
 
-use crate::harness::config::{Backend, ModelSpec, RouteConfig};
+use crate::harness::config::{ModelSpec, RouteConfig};
 use crate::harness::model::{GenerateOptions, GenerateResult};
-use crate::harness::providers::ollama::OllamaClient;
-use crate::harness::providers::openai::OpenAiClient;
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -19,25 +17,6 @@ pub fn resolve_voice_num_ctx(raw: Option<&str>) -> i32 {
     raw.and_then(|v| v.trim().parse::<i32>().ok())
         .filter(|n| *n >= 512)
         .unwrap_or(VOICE_NUM_CTX_PACKET)
-}
-
-#[async_trait]
-impl Inference for OpenAiClient {
-    async fn generate(
-        &self,
-        prompt: &str,
-        opts: &GenerateOptions,
-    ) -> Result<(GenerateResult, serde_json::Value)> {
-        OpenAiClient::generate_with_body(self, prompt, opts).await
-    }
-
-    fn model(&self) -> &str {
-        OpenAiClient::model(self)
-    }
-
-    fn request_body(&self, prompt: &str, opts: &GenerateOptions) -> serde_json::Value {
-        OpenAiClient::request_body(self, prompt, opts)
-    }
 }
 
 /// Open, statically registered identity for one configured inference operation.
@@ -64,27 +43,6 @@ impl RouteKey {
 }
 
 use crate::harness::model::Inference;
-
-#[async_trait]
-impl Inference for OllamaClient {
-    async fn generate(
-        &self,
-        prompt: &str,
-        opts: &GenerateOptions,
-    ) -> Result<(GenerateResult, serde_json::Value)> {
-        // Inherent method wins method resolution, but qualify it explicitly to make the
-        // delegation unambiguous (no accidental recursion into the trait method).
-        OllamaClient::generate_with_body(self, prompt, opts).await
-    }
-
-    fn model(&self) -> &str {
-        OllamaClient::model(self)
-    }
-
-    fn request_body(&self, prompt: &str, opts: &GenerateOptions) -> serde_json::Value {
-        OllamaClient::request_body(self, prompt, opts)
-    }
-}
 
 /// Model backend decorated with a shared host semaphore. Inference calls need a permit;
 /// `model` and `request_body` are local.
@@ -213,19 +171,7 @@ fn build_backend(
     if let Some(existing) = built.get(&key) {
         return Ok(Arc::clone(existing));
     }
-    let raw: Arc<dyn Inference> = match spec.backend {
-        Backend::Ollama => Arc::new(
-            OllamaClient::with_think(&spec.base_url, &spec.model, timeout, spec.think)
-                .with_context(|| format!("build ollama backend for {}", spec.model))?,
-        ),
-        // oMLX and anything else speaking `/v1/chat/completions` (D-T41). `think` is deliberately
-        // NOT threaded through: it is an ollama extension, so a role that needs it must stay on
-        // ollama rather than have the flag silently dropped here.
-        Backend::OpenAi => Arc::new(
-            OpenAiClient::new(&spec.base_url, &spec.model, timeout)
-                .with_context(|| format!("build openai backend for {}", spec.model))?,
-        ),
-    };
+    let raw = crate::plugins::text_generation::bind(spec, timeout)?;
     // Wrap in the shared GPU governor before caching — so every role resolving to this model
     // shares both the one backend AND the one concurrency budget.
     let backend: Arc<dyn Inference> = Arc::new(GovernedInference {
@@ -239,6 +185,7 @@ fn build_backend(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::harness::config::Backend;
     use crate::harness::model::small_voice_window;
 
     /// The window resolves from the env override when it is sane, and from the default otherwise

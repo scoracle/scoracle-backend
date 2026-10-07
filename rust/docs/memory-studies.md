@@ -3,15 +3,17 @@
 **Postgres stores the world. DuckDB studies the world. Each plugin chooses its
 data and scope; the request/result contract stays the same.**
 
+Current direction (2026-10-06): all plugin memory analysis uses DuckDB; Postgres exports historical records. The evidence-ID experiment was withdrawn after showing no fidelity improvement. The LLM discovers supported meaning across supplied clues and then articulates it. See the [governing contract](../../../scoracle-wiki/wiki/Architecture/Harness,%20Plugins,%20Tools,%20and%20LLM%20Contract.md) and [current ledger](../../../scoracle-wiki/progress_docs/scoracle-backend/2026-10-06_output-tuning-ledger.md). The dated verification and limits below record the September implementation.
+
 Implemented locally on September 28, 2026. Journalist now requests studied history
 before articulation. No production deployment, data writes, precompute job or
 new memory database was introduced.
 
 ## Shared tool ownership
 
-The September 29 extraction places the shared tool at `plugins/memories.rs`,
-alongside `plugins/meta.rs`. Reporting and match-statistic table adapters live in
-`plugins/memories/` and use the same DuckDB process runner. Journalist and
+The September 29 extraction places the shared tool at `tools/memories.rs`,
+alongside `tools/meta.rs`. Reporting and match-statistic table adapters live in
+`tools/memories/` and use the same DuckDB process runner. Journalist and
 Influencer request this tool directly; the replay examples use the same API.
 Plugin-local `memories.rs` files contain request and presentation policy, not
 another engine. Influencer's dated-report selection and whole-observation budget
@@ -27,13 +29,13 @@ Local extraction verification: `cargo test --lib --offline` passed (529 tests,
 72 ignored); `cargo check --all-targets --offline` and `git diff --check` passed.
 Database/DuckDB integration tests were not rerun for this extraction. No deployment ran.
 
-This extraction preserves the existing datasets. Reporting still supplies only
-headlines, publishers and dates; historical source passages remain the next input
-improvement, not something cognition reconstructs.
+The September extraction preserved the existing datasets and supplied historical
+headlines, publishers and dates. The October Influencer integration below adds
+retained publisher text where whole text fits; cognition never reconstructs it.
 
 ## Request → snapshot → finding → context
 
-`src/plugins/memories.rs` reads a bounded, repeatable-read/read-only Postgres
+`src/tools/memories.rs` reads a bounded, repeatable-read/read-only Postgres
 snapshot for the requested entity and time range. It invokes
 `go/cmd/memory-study`, which uses the **existing Go DuckDB package**. The helper
 receives JSON on stdin, has no database attachment, and returns typed findings.
@@ -45,11 +47,13 @@ The shared boundary comprises scope, named study/version, observed population,
 findings, capture time and source lineage. Study-specific result types retain the
 meaning of the data instead of forcing statistics and reporting into one prose
 field. Other plugins can use these studies or add another study-specific adapter
-without copying the engine or changing the articulation role.
+without copying the engine. The model reasons across the returned clues; the tool does not prewrite its conclusion.
 
 | Request | Scope | Result |
 | --- | --- | --- |
 | `reporting` / `reporting_scope` | Team/player, half-open reporting window, optional entity pair and Graph predicates, excluded fresh IDs, maximum groups | Frequency-ranked groups, distinct canonical article count, publisher-label breakdown, source IDs and representative dated headlines |
+| `source_records` | Stored positive player-transfer attributions and confirmed outcomes | Canonical publisher/player/team counts and the explicitly named smoothed track-record measure |
+| `score_history` | Stored Scout notability and Influencer sentiment, dated reporting weeks | Weekly means, earliest/latest changes, sample counts and missing values |
 | `statistic::team_matches` | Team, registered additive measure, competition, season, start/split/end timestamps | Both windows' fixture/measurement counts, totals, means per match, change and percentage change where supported, fixture IDs |
 
 Timeframes are request parameters. The statistical split is also requested, not a
@@ -61,7 +65,9 @@ scope rather than silently querying the wrong namespace.
 
 ## Frequency means recorded reporting
 
-The reporting selector obtains source articles from extraction-origin Graph events.
+The default reporting selector obtains source articles from extraction-origin Graph events.
+An explicit caller-resolved source set replaces that lookup, so indexed story
+records do not also need an extracted event to reach DuckDB.
 Repeated extraction rows are collapsed. Recorded `duplicate_of` identities prevent
 known reposts from inflating frequency. Sources are normalized by case/whitespace
 for publisher counts; unrecorded syndication and outlet aliases are not inferred.
@@ -103,6 +109,27 @@ counts remain explicit; the output does not declare a trend “skyrocketing,” 
 causes, or manufacture statistical significance. Model prose must preserve these
 supplied measurements and qualifications.
 
+## Influencer integration (October 6)
+
+Influencer chooses `news_articles`, `storyline_articles` and `storyline_entities`
+for context around the fresh article's indexed story and canonical subject. It
+requests 30 days of earlier reporting, excluding the fresh source and its known
+reposts. No matching index means no historical context from this recipe.
+
+Postgres supplies records and index membership. The existing DuckDB reporting
+study deduplicates canonical articles, measures article/publisher coverage and
+selects representative reports. The plugin presents up to three dated reports
+with the measured window and population. Whole retained publisher text is added
+when it fits the combined 4,000-byte memory allowance; otherwise the attributed
+headline remains. Generated summaries, story titles and prior card prose supply
+no emotional evidence. Index membership is context, not verified same-event identity.
+
+The model interprets emotional tone across a spectrum using this reporting and
+the fresh source. Counts describe recorded coverage, not consensus or mood.
+Neutral reporting and unknown feelings remain distinct. Native source IDs,
+snapshot metadata and raw text remain in provenance; selected historical
+sources are checked again inside the fenced publication transaction.
+
 ## Journalist integration
 
 `src/plugins/journalist/memories.rs` currently requests **30 days** before the oldest
@@ -119,7 +146,7 @@ counts and dates do not inflate fresh-source publication metadata or activity sc
 Recent publication history remains a separate 72-hour exact-text deduplication
 input, independent of the analytical lookback.
 
-The prompt remains the articulation task; form owns output shape; tone stays in the
+The prompt owns the discovery and articulation task; form owns output shape; tone stays in the
 voice file. There is one model call, no model memory query and no new generative
 fact-preparation or fact-checking stage.
 

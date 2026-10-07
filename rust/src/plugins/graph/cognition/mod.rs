@@ -41,22 +41,6 @@ pub async fn extract_graph(
         .map(Some)
 }
 
-/// The six-predicate vocabulary — MUST mirror the `narrative_events_predicate_check`
-/// constraint. Grow both together with schema and evaluation evidence.
-pub const PREDICATES: &[&str] = &[
-    "trade_rumor",
-    "trade_confirmed",
-    "injury",
-    "contract_dispute",
-    "praise",
-    "criticism",
-];
-
-/// Person kinds mirror the database constraint. An out-of-vocabulary
-/// role guess maps to "other" rather than dropping the discovery (the promotion gate,
-/// not the extractor, decides who becomes an entity).
-pub const PERSON_KINDS: &[&str] = &["coach", "agent", "executive", "family", "other"];
-
 /// The model budget for one extraction call. Temperature 0.2 (tight but a judgment
 /// call, matching scrub adjudication); JSON mode tightens contract adherence.
 ///
@@ -82,19 +66,6 @@ pub struct GraphCandidate {
     pub descriptor: String,
 }
 
-/// A validated typed relation, subject/object resolved back to (entity_type, entity_id)
-/// — ready for a `narrative_events` row.
-#[derive(Clone, Debug, PartialEq)]
-pub struct GraphRelation {
-    pub subject_type: String,
-    pub subject_id: i32,
-    pub predicate: String,
-    pub object_type: Option<String>,
-    pub object_id: Option<i32>,
-    pub sentiment: Option<f64>,
-    pub confidence: String,
-}
-
 /// A person discovery — a `narrative_persons` candidate (or an evidence increment for
 /// an existing one).
 #[derive(Clone, Debug, PartialEq)]
@@ -105,9 +76,8 @@ pub struct GraphPerson {
     pub team_context_id: Option<i32>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq)]
 pub struct GraphExtraction {
-    pub relations: Vec<GraphRelation>,
     pub persons: Vec<GraphPerson>,
     /// Optional verbatim completed result, validated against source bytes by the adapter.
     pub final_result_line: String,
@@ -122,11 +92,8 @@ pub struct GraphArticle {
     pub description: String,
 }
 
-/// GraphParser validates the model reply against the candidate list and vocabularies.
-/// Fail-closed: no JSON object / unparseable ⇒ `Ok(None)`. Within a parsed body:
-/// out-of-range entity numbers, unknown predicates, unknown confidences, and self-loops
-/// drop THAT entry; sentiment clamps to [-1, 1]; person role guesses outside the
-/// vocabulary map to "other"; empty/duplicate person names drop.
+/// Decode person names and a result line; generated relations and roles are ignored.
+/// No JSON object / unparseable ⇒ `Ok(None)`; empty, duplicate and known names drop.
 pub struct GraphParser<'a> {
     pub candidates: &'a [GraphCandidate],
 }

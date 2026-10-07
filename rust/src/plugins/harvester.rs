@@ -1,4 +1,4 @@
-//! Harvester owns source selection, bounded predicates, admission and routing intent.
+//! Harvester owns headline screening; Editor owns article acquisition and routing.
 //! Worker and replay callers share `context`; Laya supplies probability signals only.
 
 pub mod adapter;
@@ -8,6 +8,7 @@ pub mod decision;
 pub mod delivery;
 pub mod maintenance;
 pub mod policy;
+pub mod prompt;
 
 use crate::harness::plugin::{PluginId, PluginManifest, ResourceProfile, ToolGrant};
 use crate::harness::queue::work::{ClaimPolicy, TaskKey};
@@ -15,21 +16,16 @@ pub use cognition::Article;
 
 pub mod manifest {
     use super::*;
-    use crate::harness::tools::DomainClass;
 
     pub const TASK: TaskKey = TaskKey::new("harvester");
-    const TOOLS: [ToolGrant; 2] = [
-        ToolGrant::WebFetch(&[DomainClass::CuratedArticles]),
-        ToolGrant::Classification,
-    ];
     pub const MANIFEST: PluginManifest = PluginManifest {
         id: PluginId::new("scoracle.internal.harvester"),
         task: TASK,
         claim_policy: ClaimPolicy::RANKED_ARTICLES,
         inference_routes: &[],
-        // Publisher fetches can overlap while the local Laya service serializes
+        // Headline calls can overlap while the local Laya service serializes
         // inference. They do not consume the Mac generative-model slot group.
         resources: ResourceProfile::unbounded_batch(4),
-        tools: &TOOLS,
+        tools: &[ToolGrant::Classification],
     };
 }

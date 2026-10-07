@@ -7,7 +7,6 @@ pub mod voice;
 
 use crate::harness::models::ExecutionCapabilities;
 use crate::harness::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
-use crate::harness::products::EntityKey;
 use crate::harness::queue::work::{self, Item, TaskKey};
 use crate::harness::{Generation, GenerationCall, Studio};
 use anyhow::{anyhow, bail, Context, Result};
@@ -163,17 +162,19 @@ async fn prepare(pool: &PgPool, models: &ExecutionCapabilities, item: &Item) -> 
     let previous_score = if assignment.cards.readiness() == Readiness::Empty {
         None
     } else {
-        let (previous_score, latest_hash) = crate::harness::products::latest_with_hash(
-            pool,
-            "sigil_synthesis",
-            &EntityKey {
-                entity_type: item.entity_type.clone(),
-                entity_id: item.entity_id_i32()?,
-                sport: item.sport.to_uppercase(),
-                season: Some(assignment.season),
-            },
+        let latest: Option<(Option<i16>, Option<String>)> = sqlx::query_as(
+            "SELECT score, input_hash FROM sigil_synthesis \
+             WHERE entity_type = $1 AND entity_id = $2 AND sport = $3 AND season = $4 \
+             ORDER BY generated_at DESC LIMIT 1",
         )
-        .await?;
+        .bind(&item.entity_type)
+        .bind(item.entity_id_i32()?)
+        .bind(item.sport.to_uppercase())
+        .bind(assignment.season)
+        .fetch_optional(pool)
+        .await
+        .with_context(|| format!("latest sigil {}/{}", item.entity_type, item.entity_id))?;
+        let (previous_score, latest_hash) = latest.unwrap_or((None, None));
         if latest_hash.as_deref() == Some(assignment.input_hash.as_str()) {
             return Ok(Prepared::Debounced);
         }

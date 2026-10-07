@@ -1,11 +1,15 @@
 //! Shared memory tool. Plugins choose a study, its source tables and scope.
-//! Reporting and match-statistic adapters share one DuckDB runner and provenance.
+//! All analytical findings come from one DuckDB runner. Postgres export adapters
+//! live in `memories/postgres.rs`; plugins consume studied results.
 //! Postgres exports a consistent bounded slice; the existing Go DuckDB engine
 //! computes findings. This module never publishes facts or calls an LLM.
 use crate::tools::meta::EntityMeta;
 use anyhow::{ensure, Context, Result};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
+
+mod postgres;
+pub use postgres::{reporting_scope, score_history, source_records};
 use std::process::Stdio;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -65,75 +69,23 @@ pub mod statistic {
 
     /// The initial statistic adapter is team match totals in one competition and
     /// season. A plugin must request a registered measure, not infer units from prose.
-    pub async fn team_matches(
-        pool: &PgPool,
-        subject: &EntityMeta,
-        metric: &str,
-        league_id: i32,
-        season: i32,
-        from: i64,
-        split: i64,
-        before: i64,
-    ) -> Result<Study> {
-        ensure!(
-            subject.entity_type == "team" && from < split && split < before,
-            "invalid team statistic scope"
-        );
-        let mut tx = pool.begin().await?;
-        sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
-            .execute(&mut *tx)
-            .await?;
-        sqlx::query("SET LOCAL statement_timeout='15s'")
-            .execute(&mut *tx)
-            .await?;
-        let (mvcc_snapshot,captured_at):(String,i64)=sqlx::query_as("SELECT pg_current_snapshot()::text,floor(extract(epoch FROM transaction_timestamp()))::bigint").fetch_one(&mut *tx).await?;
-        ensure!(
-            before <= captured_at,
-            "statistic window extends into future"
-        );
-        let (unit,measure_label): (String,String)=sqlx::query_as("SELECT COALESCE(unit,''),display_name FROM stat_definitions WHERE sport=$1 AND entity_type='team' AND key_name=$2")
-        .bind(&subject.sport).bind(metric).fetch_optional(&mut *tx).await?.context("unregistered team measure")?;
-        ensure!(
-            unit == "cumulative_total",
-            "match-total study requires a registered additive measure"
-        );
-        let rows:Vec<String>=sqlx::query_scalar(
-        "SELECT jsonb_build_object('fixture_id',f.id,'played_at',floor(extract(epoch FROM f.start_time))::bigint,
-        'value',CASE WHEN (s.stats->>$4) ~ '^-?[0-9]+([.][0-9]+)?$' THEN (s.stats->>$4)::double precision ELSE NULL END)::text
-        FROM fixtures f LEFT JOIN event_team_stats s ON s.fixture_id=f.id AND s.team_id=$2 AND s.sport=f.sport AND s.league_id=$3 AND s.season=$5
-        WHERE f.sport=$1 AND $2 IN (f.home_team_id,f.away_team_id) AND f.league_id=$3 AND f.season=$5
-        AND f.status IN ('completed','seeded') AND COALESCE(f.meta->>'needs_verification','false')<>'true'
-        AND f.start_time>=to_timestamp($6::double precision) AND f.start_time<to_timestamp($7::double precision)
-        ORDER BY f.start_time,f.id LIMIT 20001")
-        .bind(&subject.sport).bind(subject.entity_id).bind(league_id).bind(metric).bind(season).bind(from).bind(before)
-        .fetch_all(&mut *tx).await?;
-        ensure!(rows.len() <= 20000, "statistic population exceeds bound");
-        let observations = rows
-            .iter()
-            .map(|r| serde_json::from_str(r))
-            .collect::<std::result::Result<Vec<_>, _>>()?;
-        tx.commit().await?;
-        let req = Request {
-            kind: "statistic".into(),
-            version: "match-statistic-v1".into(),
-            metric: metric.into(),
-            unit,
-            from,
-            split,
-            before,
-            observations,
-        };
-        let input_hash = crate::util::hash_components(&serde_json::to_string(&(
-            subject,
-            league_id,
-            season,
-            &measure_label,
-            &req,
-        ))?);
-        let finding = super::run(&req).await?;
-        Ok(Study {subject:subject.clone(),measure_label,league_id,season,captured_at,mvcc_snapshot,input_hash,version:req.version,
-        coverage:"Stored completed verified fixtures in the requested competition and season; absent measures remain missing. Fixture inventory completeness is not established.".into(),finding})
-    }
+    pub use super::postgres::team_matches;
+}
+
+/// One explicitly dated trajectory study. It is supporting evidence for the two finished
+/// readings, not a second set of overlapping labels or a pre-written Analyst verdict.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct ScoreHistory {
+    pub vibe_slope: Option<f64>,
+    pub vibe_samples: i32,
+    pub vibe_window_start: Option<String>,
+    pub vibe_window_end: Option<String>,
+    pub rating_slope: Option<f64>,
+    pub rating_samples: i32,
+    pub rating_window_start: Option<String>,
+    pub rating_window_end: Option<String>,
+    pub momentum_score: Option<f64>,
+    pub generated_at: Option<String>,
 }
 
 pub const VERSION: &str = "reporting-frequency-v1";
@@ -225,33 +177,6 @@ pub struct SourceRecord {
     pub reliability: i16,
 }
 
-pub async fn source_records(
-    pool: &PgPool,
-    sport: &str,
-    publishers: &[String],
-) -> Result<Vec<SourceRecord>> {
-    let rows: Vec<(String, i32, i32, i16)> = sqlx::query_as(
-        "SELECT source,confirmed_covered,pairs_covered,reliability \
-         FROM public.source_performance WHERE sport=$1 AND source=ANY($2) \
-         ORDER BY reliability DESC,pairs_covered DESC,source LIMIT 12",
-    )
-    .bind(sport)
-    .bind(publishers)
-    .fetch_all(pool)
-    .await?;
-    Ok(rows
-        .into_iter()
-        .map(
-            |(publisher, confirmed, tracked, reliability)| SourceRecord {
-                publisher,
-                confirmed,
-                tracked,
-                reliability,
-            },
-        )
-        .collect())
-}
-
 /// What one group of observations represents, for a caller that groups.
 ///
 /// The study knows how many articles and publishers a group holds. It does not
@@ -271,11 +196,6 @@ pub struct GroupSummary {
     /// summary can be traced back to specific evidence. Dropping these would
     /// leave a published memory claim with a count and no way to resolve it.
     pub source_ids: Vec<i64>,
-    /// The window end as an epoch, for a plugin deciding which group precedes
-    /// which fresh report. Not presented: `before` is the reader-facing form,
-    /// and a caller must not have to parse a formatted date back to compare it.
-    #[serde(skip)]
-    pub before_epoch: i64,
 }
 
 impl GroupSummary {
@@ -289,7 +209,6 @@ impl GroupSummary {
             distinct_recorded_articles: finding.article_count,
             publisher_article_counts: finding.publishers.clone(),
             source_ids: finding.source_ids.clone(),
-            before_epoch: finding.before,
         }
     }
 }
@@ -386,7 +305,7 @@ pub async fn reporting(
     exclude: &[i64],
     limit: usize,
 ) -> Result<Study> {
-    reporting_scope(pool, subject, from, before, exclude, limit, &[], None).await
+    reporting_scope(pool, subject, from, before, exclude, limit, 2, &[], None).await
 }
 
 /// A plugin-supplied grouping over one loaded observation.
@@ -417,95 +336,6 @@ pub fn apply_topics(req: &mut Request, topic: Topic<'_>) {
 /// `include` is the subject-wide study. Requiring both parties' names in a
 /// headline, or requiring an allowed predicate, is caller policy and stays with
 /// the caller.
-pub async fn reporting_scope(
-    pool: &PgPool,
-    subject: &EntityMeta,
-    from: i64,
-    before: i64,
-    exclude: &[i64],
-    limit: usize,
-    include: &[i64],
-    topic: Option<Topic<'_>>,
-) -> Result<Study> {
-    ensure!(
-        matches!(subject.entity_type.as_str(), "team" | "player") && subject.entity_id > 0,
-        "reporting study requires a canonical team or player; person Graph IDs need reconciliation"
-    );
-    ensure!(
-        include.len() <= 20_000,
-        "included article set exceeds bound; resolve a narrower set"
-    );
-    ensure!(
-        from < before && (1..=20).contains(&limit),
-        "invalid memory scope"
-    );
-    let mut tx = pool.begin().await?;
-    sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
-        .execute(&mut *tx)
-        .await?;
-    sqlx::query("SET LOCAL statement_timeout='15s'")
-        .execute(&mut *tx)
-        .await?;
-    let (mvcc_snapshot, captured_at): (String, i64) = sqlx::query_as(
-        "SELECT pg_current_snapshot()::text,floor(extract(epoch FROM transaction_timestamp()))::bigint",
-    ).fetch_one(&mut *tx).await?;
-    ensure!(
-        before <= captured_at,
-        "reporting window extends into future"
-    );
-    let rows: Vec<String> = sqlx::query_scalar(include_str!("memories/reporting.sql"))
-        .bind(&subject.sport)
-        .bind(&subject.entity_type)
-        .bind(subject.entity_id)
-        .bind(&subject.name)
-        .bind(from)
-        .bind(before)
-        .bind(exclude)
-        .bind(include)
-        .fetch_all(&mut *tx)
-        .await?;
-    ensure!(
-        rows.len() <= 20000,
-        "memory population exceeds bound; narrow the timeframe"
-    );
-    let observations = rows
-        .iter()
-        .map(|r| serde_json::from_str(r))
-        .collect::<std::result::Result<Vec<Observation>, _>>()?;
-    tx.commit().await?;
-    let mut req = Request {
-        version: VERSION.into(),
-        from,
-        before,
-        limit,
-        per_topic: 2,
-        observations,
-    };
-    // Grouping is applied before hashing so the receipt covers the groups the
-    // findings were actually built from, not the study's default grouping.
-    if let Some(topic) = topic {
-        apply_topics(&mut req, topic);
-    }
-    let input_hash =
-        crate::util::hash_components(&serde_json::to_string(&(subject, include, &req))?);
-    let receipt = Receipt {
-        version: VERSION.into(),
-        subject: subject.clone(),
-        from,
-        before,
-        input_hash,
-        captured_at,
-        mvcc_snapshot,
-        observed_articles: req.observations.len(),
-        included_articles: include.len(),
-    };
-    let findings = if req.observations.is_empty() {
-        Vec::new()
-    } else {
-        compute(&req).await?
-    };
-    Ok(Study { receipt, findings })
-}
 
 fn executable() -> std::path::PathBuf {
     if let Some(path) = std::env::var_os("SCORACLE_MEMORY_STUDY_BIN") {
@@ -561,7 +391,7 @@ pub async fn compute(req: &Request) -> Result<Vec<Finding>> {
     Ok(findings)
 }
 
-pub(super) async fn run<T: Serialize, R: serde::de::DeserializeOwned>(req: &T) -> Result<R> {
+pub(crate) async fn run<T: Serialize, R: serde::de::DeserializeOwned>(req: &T) -> Result<R> {
     // Bound embedded-engine concurrency independently of the queue's fan-out.
     static SLOTS: std::sync::LazyLock<tokio::sync::Semaphore> =
         std::sync::LazyLock::new(|| tokio::sync::Semaphore::new(2));

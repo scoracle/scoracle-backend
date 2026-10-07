@@ -1,0 +1,63 @@
+{
+  "reviewed_at": "2026-10-07",
+  "review_method": "Manual reading against the supplied fictional statements. Completion means a finished answer, not factual correctness. No model judge or production verifier.",
+  "purpose": "Test basic source reading before adding the production emotional-card task or output schema.",
+  "system_prompt": "Answer the question using only the supplied reports and history. Keep speakers, dates and qualifications attached to their statements. If an answer about the target is not established, say so. Give a short answer.",
+  "run_command": "python3 rust/examples/plain_context_compare.py /private/tmp/plain-context-results.jsonl --models ministral-3:3b alibayram/smollm3:latest granite4.2:3b",
+  "check_command": "python3 rust/examples/plain_context_compare.py --check",
+  "runs": [
+    {
+      "file": "local-results.jsonl",
+      "host": "User's Mac, local Ollama at localhost:11434",
+      "completed": 15,
+      "attempted": 15,
+      "settings": "Fresh two-message conversation per case; temperature 0, top_p 1, seed 42, context 4096, output budget 2048, think false. No output schema or tools. All five packets are identical across models."
+    },
+    {
+      "file": "ministral-2512-results.jsonl",
+      "host": "Archbox Ollama through localhost:11441 SSH tunnel",
+      "completed": 5,
+      "attempted": 5,
+      "note": "Same checkpoint digest, template and request settings as local Ministral. Outputs differ slightly between hosts. Remote load time dominates wall time; do not interpret this as model generation speed or pool these timings with local timings."
+    }
+  ],
+  "local_findings": {
+    "ministral-3:3b": {
+      "checkpoint": "mistralai/Ministral-3-3B-Instruct-2512",
+      "different-speakers": "Faithful: preserves Morgan's welcome and Riley's concern as separate reactions to the training-time change.",
+      "routine-report": "Faithful: says no emotional reactions are reported and team morale is not established.",
+      "unrelated-target": "Preserves the target boundary, but adds the contradictory parenthetical 'Alex, unnamed' even though Alex is named in the source.",
+      "conditional-relief": "Unsupported interpretation: says Jordan 'remains unsure about current feelings'. The source explicitly denies current relief; it does not report uncertainty. Omits that denial.",
+      "past-reaction-current-silence": "Dates Ellis's hope correctly as October 2. The unknowns say no other reactions are reported during the period; the answer should more clearly distinguish historical hope from the absence of any current reaction."
+    },
+    "alibayram/smollm3:latest": {
+      "different-speakers": "Preserves both speakers and their quoted reactions. Lists possible missing information without asserting motives or outcomes.",
+      "routine-report": "Does not invent an emotion. Wording about 'no unknown aspects' is confused; the packet cannot establish current emotion.",
+      "unrelated-target": "Faithful: does not transfer the Falcons supporter's joy to Cedar Comets.",
+      "conditional-relief": "Unsupported interpretation: labels Jordan's denial of current relief as 'uncertainty about the outcome'. That emotion is not reported. Calls conditional relief a positive emotional reaction rather than clearly separating the hypothetical from the present.",
+      "past-reaction-current-silence": "Keeps Ellis's October 2 date and does not claim hope continues. Could make the absence of a current emotional statement more explicit."
+    },
+    "granite4.2:3b": {
+      "different-speakers": "Preserves the separate reactions. The final sentence about what remains unknown is awkward and unclear.",
+      "routine-report": "Faithful: reports the training time and says emotional reactions are not reported.",
+      "unrelated-target": "Faithful: explicitly separates the Harbor Falcons supporter from Cedar Comets.",
+      "conditional-relief": "Preserves both conditional future relief and the denial of current relief. Does not invent present uncertainty.",
+      "past-reaction-current-silence": "Loses the October 2 date and historical qualification, presenting Ellis's hope without the requested time attachment. Does not explicitly claim continued hope, but blurs history and the reporting period."
+    }
+  },
+  "remote_ministral_findings": {
+    "different-speakers": "Preserves speaker attribution.",
+    "routine-report": "Correctly withholds emotional claims.",
+    "unrelated-target": "Correctly separates the Falcons from Cedar Comets; no 'unnamed' addition in this run.",
+    "conditional-relief": "Same unsupported uncertainty interpretation as the local run.",
+    "past-reaction-current-silence": "Same dated historical hope and incomplete current-unknown wording as the local run."
+  },
+  "conclusion": "No model demonstrated complete fidelity on all five cases. The plain prompt allows all three to withhold feelings from a routine schedule, unlike the earlier production-card experiment. That is evidence that the task influences behavior; it is not proof that JSON, the persona or the schema alone causes fabrication. Conditional meaning and time scope still fail with this simple prompt.",
+  "limits": [
+    "Five short fictional cases, one local generation per model per case; a development probe, not a reliability estimate or model ranking.",
+    "No comparison with native default system prompts; the common explicit system prompt replaces each checkpoint's default system message.",
+    "Thinking is disabled; these results do not evaluate reasoning-enabled operation.",
+    "The 3B labels are model families, not exact parameter equality: SmolLM3 is approximately 3.1B, Granite 4.2 approximately 3.7B, and the Ministral package approximately 3.8B including its vision component.",
+    "This is short prose with a 4096-token context, not the production 32768-token card request. No production behavior or model selection was changed."
+  ]
+}

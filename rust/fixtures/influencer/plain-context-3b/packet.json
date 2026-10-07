@@ -1,0 +1,21 @@
+{
+  "question": "What emotional reactions about Cedar Comets are reported, and what remains unknown?",
+  "target": {
+    "name": "Cedar Comets",
+    "entity_type": "team",
+    "sport": "basketball"
+  },
+  "reporting_period": {
+    "start": "2026-10-05",
+    "end": "2026-10-12"
+  },
+  "reports": [
+    {
+      "publisher": "Fictional Test Wire",
+      "published_at": "2026-10-06",
+      "headline": "Cedar Comets coaches discuss training-time change",
+      "text": "Cedar Comets coaches Morgan and Riley discussed changing training from 10 a.m. to 11 a.m. Morgan said, \"I welcome the change.\" Riley said, \"I am concerned about the change.\" Each spoke only for themself."
+    }
+  ],
+  "history": []
+}

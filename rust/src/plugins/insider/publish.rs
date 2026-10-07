@@ -150,6 +150,8 @@ async fn insert_rumors(
         let mut news_ids = Vec::new();
         let mut names = Vec::new();
         let mut epochs = Vec::new();
+        // ponytail: O(n²) contains-scan over a handful of reports per counterparty.
+        // HashSet if report counts ever grow.
         for finding in &selected {
             let source = &material.sources[finding.report_index];
             if !news_ids.contains(&source.article_id) {

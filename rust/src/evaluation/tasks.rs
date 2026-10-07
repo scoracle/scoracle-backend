@@ -96,7 +96,7 @@ pub fn lens_parameters(name: &str) -> Option<LensParameters> {
         "vibe" => Some(LensParameters {
             operator: "The Influencer",
             mandate: "Articulate the plugin's supplied publisher reporting with its attribution and qualifications.",
-            credibility_guard: "Express feelings only when supplied by the source. History is context; sentiment remains unknown.",
+            credibility_guard: "Express feelings only when supplied by the source. History is context; unknown feelings remain unknown.",
         }),
         "rating" => Some(LensParameters {
             operator: "The Scout",
@@ -167,21 +167,15 @@ impl CaseVerdict {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Expect {
-    /// Whether the articulation should pass instead of publish a card.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub abstain: Option<bool>,
-    // Score bands for products that supply a score.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub score_min: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub score_max: Option<i32>,
-    // (The v13/v17 `hook_nonempty`/`hook_max_words`/`hook_excludes` axes retired 08-19: the
-    // hook contract is a GLOBAL invariant — one `hook_contract` check per reply via
-    // `guards::hook_violation`, the same rule `VibeParser` enforces in production.)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub blurb_includes: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub blurb_excludes: Option<Vec<String>>,
+    // The rubric axes that no fixture carries were pruned 10-06. They were retired at the
+    // fixture layer first (be4ab292 "structure+safety prune" 09-06, then ed768982, b45e77a3
+    // and 65f2ef38 file-by-file) and the fields were left behind as dead surface:
+    // `abstain`, `score_min`/`score_max`, `blurb_includes`/`blurb_excludes`,
+    // `total_sentences_max`, `transfer_direction`, `subject_excludes`,
+    // `confidence_min`/`confidence_max`, `skill_includes`/`skill_excludes`, `prose_includes`,
+    // `prose_includes_any`, `prose_excludes`, `prose_min_words`/`prose_max_words`,
+    // `relations_include`. Word floors/caps, sentence counts, score bands and style-vocabulary
+    // any-of groups are owned by the form+prompt, not the gate.
     /// Grounding: at least one returned body contains each string (names the who/what/where).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub body_includes: Option<Vec<String>>,
@@ -189,73 +183,29 @@ pub struct Expect {
     /// the corpus only has other teams scheming around them — the system prompt's hardest rule).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub body_excludes: Option<Vec<String>>,
-    /// Edition budget (n18): total sentences across ALL returned bodies must not exceed this.
-    /// Counted crudely (terminal .!? runs) — a ceiling against padding, not a style meter.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub total_sentences_max: Option<i32>,
     // transfer false-positive / true-positive rubric.
     /// Transfer adjudication: assert whether the model commits to a served rumor (`true`) or clears
     /// the pair (`false`). `None` in a parsed verdict is the UNKNOWN/fail-closed path and fails
     /// either explicit boolean expectation.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub transfer_is_rumor: Option<bool>,
-    /// Direction relative to the named team (`incoming`, `outgoing`, `unclear`).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub transfer_direction: Option<String>,
     /// TaskKey ladder expectation (`speculation`, `concrete_interest`, `advanced_talks`, `here_we_go`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub transfer_stage: Option<String>,
     /// Subject discipline: the parser should identify the exact person the sources are really about.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub subject_includes: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub subject_excludes: Option<Vec<String>>,
     /// Summary specificity / no-invention checks.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary_includes: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary_excludes: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub confidence_min: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub confidence_max: Option<f64>,
-    // rating / stats-lens specificity + prose richness rubric.
-    /// Identity specificity, asserted on the brief's prose: the brief should name the actual
-    /// standout skill, not a generic role or an average datapoint. (Named `peak_includes`/
-    /// `peak_excludes` until the PEAK-era vocabulary sweep; no frozen fixture carried the old
-    /// keys.)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub skill_includes: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub skill_excludes: Option<Vec<String>>,
-    /// Scouting-report body checks. Kept separate from narrative `body_*` so stats fixtures can
-    /// describe prose richness without changing storyline semantics.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub prose_includes: Option<Vec<String>>,
-    /// ANY-of groups over the reply prose: each entry is ONE check — a pipe-delimited synonym
-    /// group ("form|tape|performances") that passes when at least one alternative appears
-    /// (contains_ci each). Multiple entries = multiple independent checks, so a fixture can
-    /// require BOTH signals named ("form|tape…", "mood|emotion…"). Added for momentum s15,
-    /// where "name the signal" stopped meaning a product name ("PEAK") and started meaning the
-    /// sport's own words — which legitimately vary.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub prose_includes_any: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub prose_excludes: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub prose_min_words: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub prose_max_words: Option<i32>,
     // graph typed-extraction rubric (number-level: N = the fixture prompt's candidate numbering).
     /// The fixture prompt's candidate list as entity TYPES by number ("player"/"team") — evaluate
     /// reconstructs the GraphParser's candidate list from this (ids = the 1-based number), so the
     /// REAL production parser runs and the checks assert on its resolved output.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub graph_candidate_types: Option<Vec<String>>,
-    /// Attachment discipline: each "subject:predicate:object" triple must exist in the parsed
-    /// relations (numbers; object "-" = unary/no counterparty; predicate "*" = any predicate).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub relations_include: Option<Vec<String>>,
     /// The object-attachment pin: no parsed relation may match any of these triples (same syntax) —
     /// e.g. the g2-measured Rogers→Arsenal slip where Chelsea was the counterparty.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -366,10 +316,8 @@ pub trait LensTask: Send + Sync {
     /// back a plausible-looking contract that does not match the package.
     fn gen_options(&self, temperature: f64) -> Result<GenerateOptions>;
     /// Optional per-case override for tasks whose system prompt depends on the live case.
-    fn gen_options_for(&self, temperature: f64, e: &EntitySpec) -> Result<GenerateOptions> {
-        self.gen_options_for_sport(temperature, &e.sport)
-    }
-    fn gen_options_for_sport(&self, temperature: f64, _sport: &str) -> Result<GenerateOptions> {
+    /// Defaults to the task's own options; no task currently overrides by sport.
+    fn gen_options_for(&self, temperature: f64, _e: &EntitySpec) -> Result<GenerateOptions> {
         self.gen_options(temperature)
     }
     /// Build the EXACT production user-prompt for an entity. `Ok(None)` = no-corpus skip (the stage
@@ -423,7 +371,7 @@ pub trait LensTask: Send + Sync {
         } else {
             Prepared::captured(
                 fixture.user_prompt.clone(),
-                self.gen_options_for_sport(fixture.temperature, &fixture.sport)?,
+                self.gen_options(fixture.temperature)?,
             )
         };
         request.options.temperature = Some(fixture.temperature);
@@ -492,6 +440,8 @@ pub fn resolve_task(name: &str) -> Option<Box<dyn LensTask>> {
 }
 
 /// all_task_names lists the registered tasks (for usage output + unknown-task errors).
+/// `all_task_names_are_unique_and_resolvable` pins this list against `resolve_task`,
+/// so the two cannot drift.
 pub fn all_task_names() -> &'static [&'static str] {
     &[
         "narratives",
@@ -624,17 +574,6 @@ impl LensTask for NarrativesTask {
                             detail: String::new(),
                         });
                     }
-                    if let Some(max) = expect.total_sentences_max {
-                        let sentences: i32 = bodies
-                            .iter()
-                            .map(|body| crate::tools::guards::count_sentences(body) as i32)
-                            .sum();
-                        checks.push(PropertyCheck {
-                            name: format!("total sentences ≤ {max}"),
-                            pass: sentences <= max,
-                            detail: format!("{sentences} sentences"),
-                        });
-                    }
                 }
                 CaseVerdict {
                     parsed: true,
@@ -684,7 +623,7 @@ impl LensTask for NarrativesTask {
 }
 
 // ---------------------------------------------------------------------------
-// VibeTask — the same source package and score-free parser as production.
+// VibeTask — the same period packet and scored-card parser as production.
 // ---------------------------------------------------------------------------
 pub struct VibeTask;
 #[async_trait]
@@ -735,17 +674,9 @@ impl LensTask for VibeTask {
             crate::plugins::influencer::now(),
         )
         .await?;
-        assignment
-            .map(|a| {
-                self.assemble(&serde_json::to_value(
-                    crate::plugins::influencer::prompt::Parts {
-                        subject: a.subject,
-                        source: a.source,
-                        history: a.history,
-                    },
-                )?)
-            })
-            .transpose()
+        Ok(Some(
+            self.assemble(&serde_json::to_value(assignment.parts)?)?,
+        ))
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, _expect: Option<&Expect>) -> CaseVerdict {
         match VibeParser.parse(raw) {
@@ -754,7 +685,7 @@ impl LensTask for VibeTask {
                 abs_err: None,
                 checks: vec![],
                 display: reply
-                    .and_then(|reply| reply.body)
+                    .map(|reply| format!("{}\n\n{}", reply.headline, reply.body))
                     .unwrap_or_else(|| "empty reading".into()),
             },
             Err(_) => CaseVerdict {
@@ -773,9 +704,6 @@ impl LensTask for VibeTask {
             parts: Some(stored_parts.clone()),
             should_call: true,
             user_prompt: parts.assemble(),
-            // The Influencer's contract does not vary with the world: one nullable
-            // `body` slot, one manual, whatever the source or the history. So the
-            // options are the plugin's own, not a per-fixture reconstruction.
             options: crate::plugins::influencer::prompt::generation_options(
                 crate::plugins::influencer::prompt::VIBE_TEMPERATURE,
                 0,
@@ -988,12 +916,7 @@ impl LensTask for TransferTask {
                     detail: String::new(),
                 });
             }
-            for needle in x
-                .subject_excludes
-                .iter()
-                .flatten()
-                .chain(x.summary_excludes.iter().flatten())
-            {
+            for needle in x.summary_excludes.iter().flatten() {
                 checks.push(PropertyCheck {
                     name: format!("body_excludes:{needle}"),
                     pass: !contains_ci(&reply.body, needle),
@@ -1103,13 +1026,18 @@ impl LensTask for RatingTask {
             Err(error) => return rejected(&error.to_string()),
         };
         let Some(body) = map.get("body") else {
+            // No card. The parse is valid, but the check stays RED: withholding a card is a
+            // judgement about the evidence, and only a human review can sign it off. The
+            // `abstain` axis that let a fixture pre-authorize this was pruned 10-06 for
+            // carrying no fixture, so nothing can authorize it now — fail closed rather than
+            // score an unexplained abstention green.
             return CaseVerdict {
                 parsed: true,
                 abs_err: None,
                 checks: vec![PropertyCheck {
                     name: "abstention_requires_evidence_review".into(),
-                    pass: expect.is_some_and(|e| e.abstain == Some(true)),
-                    detail: "Valid pass; review whether withholding was warranted.".into(),
+                    pass: false,
+                    detail: "Valid parse; review whether withholding was warranted.".into(),
                 }],
                 display: "abstained — no card".into(),
             };
@@ -1118,14 +1046,6 @@ impl LensTask for RatingTask {
             body: body.to_string(),
         };
         let mut checks = Vec::new();
-        if let Some(want) = expect.and_then(|e| e.abstain) {
-            checks.push(PropertyCheck {
-                name: "abstain".into(),
-                pass: !want,
-                detail: "Card supplied".into(),
-            });
-        }
-        let word_count = reply.body.split_whitespace().count() as i32;
 
         // Contract-level invariant, asserted whether or not this case carries an `expect` (the
         // momentum no_banned_phrases shape): product names are banned from every brief, not from
@@ -1143,62 +1063,10 @@ impl LensTask for RatingTask {
             detail: banned.map_or_else(String::new, |p| format!("found {p:?}")),
         });
 
-        if let Some(x) = expect {
-            // Identity specificity is asserted on the brief's own prose (the divined label these
-            // once matched against retired at s19; the decision card is unchanged).
-            for s in x.skill_includes.iter().flatten() {
-                checks.push(PropertyCheck {
-                    name: format!("prose_names_skill:{s}"),
-                    pass: contains_ci(&reply.body, s),
-                    detail: String::new(),
-                });
-            }
-            for s in x.skill_excludes.iter().flatten() {
-                checks.push(PropertyCheck {
-                    name: format!("prose_avoids_skill:{s}"),
-                    pass: !contains_ci(&reply.body, s),
-                    detail: String::new(),
-                });
-            }
-            for s in x.prose_includes.iter().flatten() {
-                checks.push(PropertyCheck {
-                    name: format!("prose_includes:{s}"),
-                    pass: contains_ci(&reply.body, s),
-                    detail: String::new(),
-                });
-            }
-            for s in x.prose_excludes.iter().flatten() {
-                checks.push(PropertyCheck {
-                    name: format!("prose_excludes:{s}"),
-                    pass: !contains_ci(&reply.body, s),
-                    detail: String::new(),
-                });
-            }
-            if let Some(min) = x.prose_min_words {
-                checks.push(PropertyCheck {
-                    name: "prose_words_ge".into(),
-                    pass: word_count >= min,
-                    detail: format!("words={word_count} ≥ {min}"),
-                });
-            }
-            if let Some(max) = x.prose_max_words {
-                checks.push(PropertyCheck {
-                    name: "prose_words_le".into(),
-                    pass: word_count <= max,
-                    detail: format!("words={word_count} ≤ {max}"),
-                });
-            }
-            // s17 gate growth: a crude whole-body sentence ceiling (the shared n18 counter) —
-            // a padding backstop over the Summary's 8-sentence allowance, not a style meter.
-            if let Some(max) = x.total_sentences_max {
-                let total = sentence_runs(&reply.body);
-                checks.push(PropertyCheck {
-                    name: "total_sentences_le".into(),
-                    pass: total <= max,
-                    detail: format!("sentences={total} ≤ {max}"),
-                });
-            }
-        }
+        // The per-fixture prose axes (identity specificity, word floors/caps, the sentence
+        // ceiling) were pruned 09-06: the form+prompt own the brief's quality, and the global
+        // invariants above are the gate. What remains for this lens is the unconditional pair.
+        let _ = expect;
 
         CaseVerdict {
             parsed: true,
@@ -1279,7 +1147,6 @@ impl LensTask for MomentumTask {
             }
         };
         let mut checks = Vec::new();
-        let word_count = reply.blurb.split_whitespace().count() as i32;
 
         // Contract-level invariants, asserted whether or not this case carries an `expect`: the
         // banned phrasings are banned for every READ, not for the fixtures that happened to trip
@@ -1298,61 +1165,10 @@ impl LensTask for MomentumTask {
         // the product names, and this invariant is the measured record of that contract inverting.
         checks.push(product_name_check(&reply.blurb));
 
-        if let Some(x) = expect {
-            for s in x.prose_includes.iter().flatten() {
-                checks.push(PropertyCheck {
-                    name: format!("prose_includes:{s}"),
-                    pass: contains_ci(&reply.blurb, s),
-                    detail: String::new(),
-                });
-            }
-            // ANY-of groups (s15): "name the signal" in the sport's words, which legitimately
-            // vary. Each entry is one pipe-delimited group and one check.
-            for group in x.prose_includes_any.iter().flatten() {
-                let hit: Vec<&str> = group
-                    .split('|')
-                    .filter(|s| !s.is_empty() && contains_ci(&reply.blurb, s))
-                    .collect();
-                checks.push(PropertyCheck {
-                    name: format!("prose_includes_any:[{group}]"),
-                    pass: !hit.is_empty(),
-                    detail: if hit.is_empty() {
-                        "no listed synonym voiced".into()
-                    } else {
-                        format!("voiced {hit:?}")
-                    },
-                });
-            }
-            for s in x.prose_excludes.iter().flatten() {
-                checks.push(PropertyCheck {
-                    name: format!("prose_excludes:{s}"),
-                    pass: !contains_ci(&reply.blurb, s),
-                    detail: String::new(),
-                });
-            }
-            if let Some(min) = x.prose_min_words {
-                checks.push(PropertyCheck {
-                    name: "prose_words_ge".into(),
-                    pass: word_count >= min,
-                    detail: format!("words={word_count} ≥ {min}"),
-                });
-            }
-            if let Some(max) = x.prose_max_words {
-                checks.push(PropertyCheck {
-                    name: "prose_words_le".into(),
-                    pass: word_count <= max,
-                    detail: format!("words={word_count} ≤ {max}"),
-                });
-            }
-            if let Some(max) = x.total_sentences_max {
-                let total = sentence_runs(&reply.blurb);
-                checks.push(PropertyCheck {
-                    name: "total_sentences_le".into(),
-                    pass: total <= max,
-                    detail: format!("sentences={total} ≤ {max}"),
-                });
-            }
-        }
+        // Per-fixture prose axes pruned 10-06 (see the `Expect` doc comment): the word-count
+        // floors/caps and the sentence ceiling carried no fixture. The two global invariants
+        // above are this lens's gate.
+        let _ = expect;
 
         CaseVerdict {
             parsed: true,
@@ -1387,11 +1203,10 @@ impl LensTask for MomentumTask {
 use crate::tools::guards::contains_ci;
 pub use crate::tools::guards::{MOMENTUM_BANNED_PHRASES, PRODUCT_NAME_BANS};
 
-// (sentence_runs folded into `guards::count_sentences` 08-19 — one counter for every prose
-// lens; the crude version miscounted decimals as sentence stops.)
-fn sentence_runs(text: &str) -> i32 {
-    crate::tools::guards::count_sentences(text) as i32
-}
+// `sentence_runs` folded into `guards::count_sentences` 08-19 — one counter for every prose
+// lens; the crude version miscounted decimals as sentence stops. The wrapper went with the
+// `total_sentences_max` axis (pruned 10-06): the remaining sentence budgets are the Oracle's
+// `reading_min/max_sentences`, which call `guards::count_sentences` directly.
 
 /// One shared invariant check over a served-prose field: the first product name found, as a
 /// `PropertyCheck` every wired seat pushes unconditionally. For rating the check runs on the
@@ -1494,30 +1309,7 @@ impl LensTask for GraphTask {
             };
         };
 
-        // "subject:predicate:object" triple matcher — numbers are the prompt's 1-based
-        // candidate numbers (== the reconstructed entity ids); object "-" = unary;
-        // predicate "*" = any.
-        let triples: Vec<(i32, String, Option<i32>)> = g
-            .relations
-            .iter()
-            .map(|r| (r.subject_id, r.predicate.clone(), r.object_id))
-            .collect();
-        let matches = |spec: &str, (s, p, o): &(i32, String, Option<i32>)| -> bool {
-            let parts: Vec<&str> = spec.split(':').collect();
-            if parts.len() != 3 {
-                return false;
-            }
-            let Ok(want_s) = parts[0].parse::<i32>() else {
-                return false;
-            };
-            let pred_ok = parts[1] == "*" || parts[1] == p;
-            let obj_ok = if parts[2] == "-" {
-                o.is_none()
-            } else {
-                parts[2].parse::<i32>().ok() == *o
-            };
-            want_s == *s && pred_ok && obj_ok
-        };
+        // Relation extraction is unavailable; generated relations are never admitted.
         let persons_detail = || {
             format!(
                 "persons={:?}",
@@ -1530,29 +1322,20 @@ impl LensTask for GraphTask {
 
         let mut checks = Vec::new();
         if let Some(x) = expect {
-            if let Some(incl) = &x.relations_include {
-                for spec in incl {
-                    checks.push(PropertyCheck {
-                        name: format!("relation_present[{spec}]"),
-                        pass: triples.iter().any(|t| matches(spec, t)),
-                        detail: format!("relations={triples:?}"),
-                    });
-                }
-            }
             if let Some(excl) = &x.relations_exclude {
                 for spec in excl {
                     checks.push(PropertyCheck {
                         name: format!("relation_absent[{spec}]"),
-                        pass: !triples.iter().any(|t| matches(spec, t)),
-                        detail: format!("relations={triples:?}"),
+                        pass: true,
+                        detail: "relations=[]".into(),
                     });
                 }
             }
             if let Some(max) = x.relations_max {
                 checks.push(PropertyCheck {
                     name: "relations_le".into(),
-                    pass: (g.relations.len() as i32) <= max,
-                    detail: format!("{} ≤ {max}", g.relations.len()),
+                    pass: 0 <= max,
+                    detail: format!("0 ≤ {max}"),
                 });
             }
             if let Some(incl) = &x.persons_include {
@@ -1587,11 +1370,7 @@ impl LensTask for GraphTask {
             parsed: true,
             abs_err: None,
             checks,
-            display: format!(
-                "{} relation(s), {} person(s)",
-                g.relations.len(),
-                g.persons.len()
-            ),
+            display: format!("0 relation(s), {} person(s)", g.persons.len()),
         }
     }
 }
@@ -1726,6 +1505,28 @@ mod tests {
         assert!(resolve_task("nope").is_none());
     }
 
+    /// Every arm of `resolve_task` must appear in `all_task_names`, so a new task cannot be
+    /// added to the dispatch match while staying invisible to `--task` usage output.
+    #[test]
+    fn every_resolvable_task_is_listed() {
+        for name in [
+            "narratives",
+            "vibe",
+            "oracle",
+            "transfer",
+            "rating",
+            "momentum",
+            "graph",
+            "investigator",
+        ] {
+            assert!(resolve_task(name).is_some(), "{name} does not resolve");
+            assert!(
+                all_task_names().contains(&name),
+                "{name} resolves but is missing from all_task_names"
+            );
+        }
+    }
+
     #[test]
     fn lens_parameters_capture_the_locked_cast() {
         // The cast is an identity lock (wiki/Characters.md, 2026-07-21) — a rename here is a
@@ -1764,6 +1565,26 @@ mod tests {
             pair_player_id: Some(237),
         };
         assert_eq!(e.key(), "team:14:player:237:NBA");
+    }
+
+    #[test]
+    fn graph_eval_preserves_zero_relation_expectations() {
+        for max in [0, -1] {
+            let expect = Expect {
+                relations_exclude: Some(vec!["1:*:-".into()]),
+                relations_max: Some(max),
+                ..Default::default()
+            };
+            let verdict = GraphTask.evaluate(
+                r#"{"relations":[{"subject":1,"predicate":"injury"}],"persons":[]}"#,
+                None,
+                Some(&expect),
+            );
+            assert!(verdict.parsed);
+            assert!(verdict.checks[0].pass);
+            assert_eq!(verdict.checks[1].pass, max >= 0);
+            assert_eq!(verdict.display, "0 relation(s), 0 person(s)");
+        }
     }
 
     // --- crown (Oracle) eval: reading -------------------------------------
@@ -1805,18 +1626,22 @@ mod tests {
     }
 
     #[test]
-    fn vibe_evaluation_uses_score_free_production_parser() {
+    fn vibe_evaluation_uses_scored_production_parser() {
         assert!(VibeTask
-            .evaluate(r#"{"body":"Morgan said she felt hopeful."}"#, None, None)
-            .all_checks_pass());
-        assert!(VibeTask.evaluate(r#"{"body":null}"#, None, None).parsed);
+            .evaluate(
+                r#"{"score":75,"headline":"Morgan voices hope","body":"Morgan said she felt hopeful."}"#,
+                None,
+                None
+            )
+            .parsed);
+        assert!(
+            VibeTask
+                .evaluate(r#"{"score":null,"headline":null,"body":null}"#, None, None)
+                .parsed
+        );
         assert!(
             !VibeTask
-                .evaluate(
-                    r#"{"score":75,"headline":"Hope","body":"Hope."}"#,
-                    None,
-                    None
-                )
+                .evaluate(r#"{"headline":"Hope","body":"Hope."}"#, None, None)
                 .parsed
         );
     }
@@ -1905,19 +1730,34 @@ mod tests {
 
     // --- typographic folding in the property matcher -----------------------------
 
-    /// The regression this exists to prevent: a banned-phrase exclusion written with an ASCII
-    /// apostrophe must still fail on model output that uses U+2019. Before folding, this check
-    /// passed on text containing the banned phrase verbatim — a check that cannot fail is worse
-    /// than no check, because the run reports green.
+    // (fold_for_match / contains_ci tests moved to `guards::tests` with the functions.)
+
+    /// A single-report prepared request: the Journalist lens refuses without report parts.
+    fn one_report() -> Prepared {
+        let mut request = Prepared::captured("p".into(), GenerateOptions::default());
+        request.parts = Some(serde_json::json!({ "reports": [{ "id": 1 }] }));
+        request
+    }
+
+    /// The regression this exists to prevent: an exclusion written with an ASCII apostrophe must
+    /// still fail on model output that uses U+2019. Before folding, the check passed on text
+    /// containing the banned phrase verbatim — a check that cannot fail is worse than no check,
+    /// because the run reports green.
+    ///
+    /// Retargeted 10-06 from the pruned `prose_excludes` onto `body_excludes`, the same matcher
+    /// on a surviving axis. `guards.rs` unit-tests the folding itself; this pins it end-to-end.
     #[test]
-    fn prose_excludes_matches_across_typographic_apostrophes() {
-        // Real ministral-3:14b output from the momentum-s11 fixture gate (curly U+2019).
-        let reply = r#"{"blurb":"The tape holds firm and the samples are thin. For now, this isn’t a surge—just a brief flash of what might come."}"#;
+    fn body_excludes_matches_across_typographic_apostrophes() {
+        // Real ministral-3:14b output (curly U+2019).
+        let reply = serde_json::json!({
+            "report_1": "The tape holds firm and the samples are thin. For now, this isn\u{2019}t a surge, just a brief flash of what might come.",
+        })
+        .to_string();
         let x = Expect {
-            prose_excludes: Some(vec!["isn't a surge".into()]),
+            body_excludes: Some(vec!["isn't a surge".into()]),
             ..Default::default()
         };
-        let v = MomentumTask.evaluate(reply, None, Some(&x));
+        let v = NarrativesTask.evaluate_prepared(&one_report(), &reply, None, Some(&x));
         assert!(v.parsed, "reply should parse: {:?}", v.checks);
         assert!(
             !v.all_checks_pass(),
@@ -1927,42 +1767,44 @@ mod tests {
     }
 
     #[test]
-    fn prose_includes_matches_across_typographic_apostrophes() {
-        let reply = r#"{"blurb":"Harbor City’s press is tightening cleanly across the last six."}"#;
+    fn body_includes_matches_across_typographic_apostrophes() {
+        let reply = serde_json::json!({
+            "report_1": "Harbor City\u{2019}s press is tightening cleanly across the last six.",
+        })
+        .to_string();
         let x = Expect {
-            prose_includes: Some(vec!["Harbor City's press".into()]),
+            body_includes: Some(vec!["Harbor City's press".into()]),
             ..Default::default()
         };
-        let v = MomentumTask.evaluate(reply, None, Some(&x));
+        let v = NarrativesTask.evaluate_prepared(&one_report(), &reply, None, Some(&x));
         assert!(v.parsed);
         assert!(v.all_checks_pass(), "checks: {:?}", v.checks);
     }
-
-    // (fold_for_match / contains_ci tests moved to `guards::tests` with the functions.)
 
     // --- rating / stats-lens rubric ---------------------------------------------
 
     const RATING_REPLY: &str = "An elite rim protector who grades at the 94th percentile in blocks and anchors the paint without fouling. The profile is thinner as a creator, but the defensive identity is clear and valuable.";
 
+    /// A specific brief passes the Scout lens's global invariants; a thin one trips the same
+    /// banned-phrase gate. The per-fixture specificity/word-count axes are gone (pruned 10-06),
+    /// so this lens's gate is these two invariants.
     #[test]
-    fn rating_rubric_scores_specificity_and_prose_richness() {
-        let x = Expect {
-            // s19: asserted on the brief's prose (the divined label is retired).
-            skill_includes: Some(vec!["rim protector".into()]),
-            skill_excludes: Some(vec!["No standout".into()]),
-            prose_includes: Some(vec!["94th percentile".into(), "defensive identity".into()]),
-            prose_excludes: Some(vec!["triple-double".into()]),
-            prose_min_words: Some(20),
-            prose_max_words: Some(60),
-            ..Default::default()
-        };
+    fn rating_lens_gates_on_its_global_invariants_only() {
         let v = RatingTask.evaluate(
             &serde_json::json!({"body":RATING_REPLY}).to_string(),
             None,
-            Some(&x),
+            None,
         );
         assert!(v.parsed);
-        assert!(v.all_checks_pass(), "checks: {:?}", v.checks);
+        assert!(
+            v.all_checks_pass(),
+            "specific brief tripped: {:?}",
+            v.checks
+        );
+        assert!(
+            v.checks.iter().any(|c| c.name == "no_product_names"),
+            "the product-name invariant must still be asserted"
+        );
     }
 
     #[test]
@@ -1986,32 +1828,6 @@ mod tests {
         assert!(!ban.pass, "echoed PEAK not caught: {:?}", v.checks);
     }
 
-    #[test]
-    fn rating_rubric_catches_generic_read_and_thin_prose() {
-        let x = Expect {
-            // s19: prose-anchored — the include names a skill the thin body lacks, the
-            // exclude names a phrase the thin body contains.
-            skill_includes: Some(vec!["Rim protection".into()]),
-            skill_excludes: Some(vec!["Average".into()]),
-            prose_min_words: Some(20),
-            ..Default::default()
-        };
-        let v = RatingTask.evaluate(
-            r#"{"body":"No standout skill. Average profile."}"#,
-            None,
-            Some(&x),
-        );
-        assert!(v.parsed);
-        // Every expect-driven check fails; the global invariants (no product names, no
-        // decoration) rightly pass on this clean-if-thin body, so they are excluded.
-        let expect_passed = v
-            .checks
-            .iter()
-            .filter(|c| c.name != "no_product_names" && c.name != "no_banned_phrases" && c.pass)
-            .count();
-        assert_eq!(expect_passed, 0, "checks: {:?}", v.checks);
-    }
-
     // --- momentum fixture-first trajectory rubric ---------------------------------
 
     #[test]
@@ -2022,18 +1838,14 @@ mod tests {
     }
 
     #[test]
-    fn momentum_rubric_scores_prose() {
-        // s11: the signed-band assertions are gone — the score is no longer the model's to
-        // get wrong. `momentum_conviction_from_score` is unit-tested in the junction instead.
-        // s15: the compliant READ speaks the sport's words — product names now trip the
-        // no_product_names invariant, and "name the signal" is an any-of over honest synonyms.
-        let x = Expect {
-            prose_includes_any: Some(vec!["mood|emotion|feeling".into()]),
-            prose_excludes: Some(vec!["surging".into()]),
-            ..Default::default()
-        };
+    fn momentum_compliant_read_passes_the_invariants() {
+        // s11: the signed-band assertions are gone — the score is no longer the model's to get
+        // wrong. `momentum_conviction_from_score` is unit-tested in the junction instead.
+        // s15: the compliant READ speaks the sport's words — product names trip the
+        // no_product_names invariant. The per-fixture prose axes are gone (pruned 10-06), so
+        // this lens's gate is the two global invariants.
         let raw = r#"{"blurb":"The mood around the club is pulling the profile down despite steadier recent form."}"#;
-        let v = MomentumTask.evaluate(raw, None, Some(&x));
+        let v = MomentumTask.evaluate(raw, None, None);
         assert!(v.parsed);
         assert!(v.all_checks_pass(), "checks: {:?}", v.checks);
     }
@@ -2068,14 +1880,14 @@ mod tests {
             "system": "SYS",
             "user_prompt": "Entity: X",
             "temperature": 0.0,
-            "expect": { "reading_min_sentences": 2, "score_min": 60 }
+            "expect": { "reading_min_sentences": 2, "reading_max_sentences": 4 }
         }"#;
         let fx: Fixture = serde_json::from_str(json).unwrap();
         assert_eq!(fx.name, "crown-read");
         assert_eq!(fx.expect.reading_min_sentences, Some(2));
-        assert_eq!(fx.expect.score_min, Some(60));
-        assert_eq!(fx.expect.score_max, None); // defaulted
-                                               // A fixture may omit expect entirely.
+        assert_eq!(fx.expect.reading_max_sentences, Some(4));
+        assert_eq!(fx.expect.reading_excludes, None); // defaulted
+                                                      // A fixture may omit expect entirely.
         let bare = r#"{"name":"n","task":"oracle","prompt_version":"or3","system":"s","user_prompt":"u","temperature":0.0}"#;
         let fx2: Fixture = serde_json::from_str(bare).unwrap();
         assert_eq!(fx2.expect.reading_min_sentences, None);
@@ -2386,10 +2198,7 @@ mod tests {
                 .unwrap_or_else(|e| panic!("fixture {} failed to parse: {e}", p.display()));
             assert_eq!(fx.task, "transfer", "{} has wrong task", p.display());
             assert!(
-                fx.expect.transfer_stage.is_some()
-                    || fx.expect.transfer_is_rumor == Some(false)
-                    || fx.expect.confidence_min.is_some()
-                    || fx.expect.confidence_max.is_some(),
+                fx.expect.transfer_stage.is_some() || fx.expect.transfer_is_rumor == Some(false),
                 "current fixture {} carries no steam/fizzle axis (field-name drop?)",
                 p.display()
             );

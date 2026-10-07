@@ -1,7 +1,7 @@
 {
   "name": "synthetic-zero-unknown",
   "task": "rating",
-  "prompt_version": "s66-measured-windows",
+  "prompt_version": "s68-concise-body",
   "parts": {
     "memory": {},
     "profile": {
@@ -38,7 +38,7 @@
       "sport": "NBA"
     }
   },
-  "user_prompt": "{\"meta\":{\"name\":\"Cedar Comets\",\"entity_type\":\"team\",\"sport\":\"Basketball\"},\"fresh\":{\"season\":2026,\"sample\":{\"Games Played\":25.0},\"values\":[{\"label\":\"Turnovers\",\"measure\":\"turnovers per game\",\"value\":0.0,\"percentile\":99.0,\"band\":\"elite\"},{\"label\":\"Assists\",\"measure\":\"assists per game\",\"value\":null,\"percentile\":null}],\"composite\":64.0,\"supports_cross_season\":true},\"voice\":\"Observant, direct, specific to the sport and restrained.\",\"form\":{\"keys\":[\"body\"],\"max_chars\":1200}}",
+  "user_prompt": "{\"meta\":{\"name\":\"Cedar Comets\",\"entity_type\":\"team\",\"sport\":\"Basketball\"},\"fresh\":{\"season\":2026,\"sample\":{\"Games Played\":25.0},\"values\":[{\"label\":\"Turnovers\",\"measure\":\"turnovers per game\",\"value\":0.0,\"percentile\":99.0,\"band\":\"elite\"},{\"label\":\"Assists\",\"measure\":\"assists per game\",\"value\":null,\"percentile\":null}],\"composite\":64.0,\"supports_cross_season\":true},\"voice\":\"Observant, direct, specific to the sport and restrained.\",\"form\":{\"keys\":[\"body\"],\"paragraphs\":\"concise\"}}",
   "temperature": 0,
   "expect": {},
   "review": [

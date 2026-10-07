@@ -1,10 +1,10 @@
 {
   "expect": {},
   "name": "crossroads-conflict",
-  "prompt_version": "or26",
+  "prompt_version": "or27-concise-body",
   "task": "oracle",
   "temperature": 0.0,
-  "user_prompt": "{\"meta\":{\"name\":\"Marcus Vale\",\"entity_type\":\"player\",\"sport\":\"basketball\"},\"fresh\":{\"journalist\":[{\"title\":\"Marcus Vale trade demand reported\",\"body\":\"A trade-demand story broke this week and hangs over everything; the front office has not responded publicly.\",\"trajectory\":\"heating_up\",\"source_count\":4,\"source_age_days\":1}],\"scout\":{\"body\":\"Elite two-way production; the numbers have not blinked through the noise.\"},\"influencer\":{\"body\":\"The room has soured — the standoff dominates every thread and the patience is thinning.\"},\"analyst\":{\"body\":\"Feeling is dragging the arc down while the production holds its line.\"}},\"voice\":\"Mystic, arcane, knowing, restrained.\",\"form\":{\"keys\":[\"reading\"],\"max_chars\":1200}}",
+  "user_prompt": "{\"meta\":{\"name\":\"Marcus Vale\",\"entity_type\":\"player\",\"sport\":\"basketball\"},\"fresh\":{\"journalist\":[{\"title\":\"Marcus Vale trade demand reported\",\"body\":\"A trade-demand story broke this week and hangs over everything; the front office has not responded publicly.\",\"trajectory\":\"heating_up\",\"source_count\":4,\"source_age_days\":1}],\"scout\":{\"body\":\"Elite two-way production; the numbers have not blinked through the noise.\"},\"influencer\":{\"body\":\"The room has soured — the standoff dominates every thread and the patience is thinning.\"},\"analyst\":{\"body\":\"Feeling is dragging the arc down while the production holds its line.\"}},\"voice\":\"Mystic, arcane, knowing, restrained.\",\"form\":{\"keys\":[\"reading\"],\"paragraphs\":\"concise\"}}",
   "review": [
     "Preserve disagreement across the supplied pillars rather than forcing unanimous direction."
   ]

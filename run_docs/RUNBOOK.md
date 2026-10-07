@@ -1,11 +1,13 @@
 # Scoracle Backend — Operations Runbook
 
+Platform direction follows the [governing contract](../../scoracle-wiki/wiki/Architecture/Harness,%20Plugins,%20Tools,%20and%20LLM%20Contract.md). Cheap code owns collection; expensive compute owns discovery. This runbook records operations; it does not redefine model reasoning.
+
 For the current Studio recovery and bounded cohort canaries, use [Recovery and analytics acceptance](RECOVERY_ANALYTICS_ACCEPTANCE.md). Its live evidence is recorded separately in the wiki; historical deployment/model descriptions below are not a live inventory.
 
 What you need during an incident or a machine rebuild. Companion to:
 
 - `README.md` — repo entry point, architecture, route/env overview
-- `docs/DEVELOPMENT.md` — development rules and implementation boundaries
+- `DEVELOPMENT.md` — development rules and implementation boundaries
 - `ENDPOINTS.md` — API contracts (authoritative route inventory at the top)
 - `scripts/hosting/README.md` — script reference
 - `../scoracle-wiki/progress_docs/scoracle-backend/SELF_HOSTING_OPS.md` — original strategy / first-time setup

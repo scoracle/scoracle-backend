@@ -8,7 +8,6 @@ package postgres
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 
 	"github.com/albapepper/scoracle-data/internal/analytics/model"
@@ -125,7 +124,7 @@ func (a *Analytics) RatingBundle(ctx context.Context, sport string, season int32
 		if err := rows.Scan(&r.PlayerID, &r.LeagueID, &r.Composite, &r.CompositeRank, &r.CompositeScore, &breakdown, &scopedRanks, &scopedScores); err != nil {
 			return nil, fmt.Errorf("scan rating bundle %s/%d/%s: %w", sport, season, rateMode, err)
 		}
-		if err := parseBundleJSON(&r, breakdown, scopedRanks, scopedScores); err != nil {
+		if err := model.ParseBundleJSON(&r, breakdown, scopedRanks, scopedScores); err != nil {
 			return nil, fmt.Errorf("parse rating bundle %s/%d/%s: %w", sport, season, rateMode, err)
 		}
 		out = append(out, r)
@@ -134,31 +133,4 @@ func (a *Analytics) RatingBundle(ctx context.Context, sport string, season int32
 		return nil, fmt.Errorf("iterate rating bundle %s/%d/%s: %w", sport, season, rateMode, err)
 	}
 	return out, nil
-}
-
-func parseBundleJSON(r *model.BundleRow, breakdown, scopedRanks, scopedScores sql.NullString) error {
-	if breakdown.Valid && breakdown.String != "" && breakdown.String != "[]" {
-		entries := []model.BreakdownEntry{}
-		if err := json.Unmarshal([]byte(breakdown.String), &entries); err != nil {
-			return fmt.Errorf("breakdown: %w", err)
-		}
-		r.Breakdown = entries
-	}
-	r.ScopedRanks = parseScopedJSON(scopedRanks)
-	r.ScopedScores = parseScopedJSON(scopedScores)
-	return nil
-}
-
-func parseScopedJSON(raw sql.NullString) map[string]*float64 {
-	if !raw.Valid || raw.String == "" || raw.String == "{}" {
-		return nil
-	}
-	scoped := map[string]*float64{}
-	if err := json.Unmarshal([]byte(raw.String), &scoped); err != nil {
-		return nil
-	}
-	if len(scoped) == 0 {
-		return nil
-	}
-	return scoped
 }

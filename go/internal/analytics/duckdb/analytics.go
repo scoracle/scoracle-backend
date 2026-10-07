@@ -338,33 +338,6 @@ func (a *Analytics) RatingTrajectory(ctx context.Context, entityType string, ent
 	return model.NewTrajectory(eventsPlayed, series, slope), nil
 }
 
-func parseBundleJSON(r *model.BundleRow, breakdown, scopedRanks, scopedScores sql.NullString) error {
-	if breakdown.Valid && breakdown.String != "" && breakdown.String != "[]" {
-		entries := []model.BreakdownEntry{}
-		if err := json.Unmarshal([]byte(breakdown.String), &entries); err != nil {
-			return fmt.Errorf("breakdown: %w", err)
-		}
-		r.Breakdown = entries
-	}
-	r.ScopedRanks = parseScopedJSON(scopedRanks)
-	r.ScopedScores = parseScopedJSON(scopedScores)
-	return nil
-}
-
-func parseScopedJSON(raw sql.NullString) map[string]*float64 {
-	if !raw.Valid || raw.String == "" || raw.String == "{}" {
-		return nil
-	}
-	scoped := map[string]*float64{}
-	if err := json.Unmarshal([]byte(raw.String), &scoped); err != nil {
-		return nil
-	}
-	if len(scoped) == 0 {
-		return nil
-	}
-	return scoped
-}
-
 // RatingBundle recomputes the migration-253 rating bundle in DuckDB. The
 // measurement expansion is pushed to Postgres verbatim (rating_measurements
 // stays the single source of truth for measurement identity); everything from
@@ -390,7 +363,7 @@ func (a *Analytics) RatingBundle(ctx context.Context, sport string, season int32
 		if err := rows.Scan(&r.PlayerID, &r.LeagueID, &r.Composite, &r.CompositeRank, &r.CompositeScore, &breakdown, &scopedRanks, &scopedScores); err != nil {
 			return nil, fmt.Errorf("scan rating bundle %s/%d/%s: %w", sport, season, rateMode, err)
 		}
-		if err := parseBundleJSON(&r, breakdown, scopedRanks, scopedScores); err != nil {
+		if err := model.ParseBundleJSON(&r, breakdown, scopedRanks, scopedScores); err != nil {
 			return nil, fmt.Errorf("parse rating bundle %s/%d/%s: %w", sport, season, rateMode, err)
 		}
 		out = append(out, r)
@@ -459,22 +432,6 @@ LEFT JOIN peer pr ON pr.league_id = d.league_id AND pr.season = d.season
 ORDER BY d.league_id, d.entity_id
 `
 
-// EntityContext produces the derived season-grain cohort context for a whole
-// (sport, season) cohort — the shape the snapshot batch job writes back to
-// Postgres (migration 255) for memories.rs to read as sourced records.
-func (a *Analytics) EntityContext(ctx context.Context, sport string, season int32, entityType string) ([]model.EntityContextRow, error) {
-	table, idCol, err := contextTable(entityType)
-	if err != nil {
-		return nil, err
-	}
-	if strings.ContainsAny(sport, "'") {
-		return nil, fmt.Errorf("invalid entity context parameter sport=%q", sport)
-	}
-	query := fmt.Sprintf(contextQuery, sqlLiteral(sport), season, table, idCol)
-
-	return a.queryEntityContext(ctx, sport, season, entityType, query)
-}
-
 func (a *Analytics) queryEntityContext(ctx context.Context, sport string, season int32, entityType, query string) ([]model.EntityContextRow, error) {
 	rows, err := a.database.QueryContext(ctx, query)
 	if err != nil {
@@ -499,15 +456,4 @@ func (a *Analytics) queryEntityContext(ctx context.Context, sport string, season
 		return nil, fmt.Errorf("iterate entity context %s/%d/%s: %w", sport, season, entityType, err)
 	}
 	return out, nil
-}
-
-func contextTable(entityType string) (table string, idCol string, err error) {
-	switch entityType {
-	case "player":
-		return "player_stats", "player_id", nil
-	case "team":
-		return "team_stats", "team_id", nil
-	default:
-		return "", "", fmt.Errorf("unsupported entity context type %q", entityType)
-	}
 }

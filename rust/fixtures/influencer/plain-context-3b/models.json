@@ -1,0 +1,345 @@
+[
+  {
+    "model": "alibayram/smollm3:latest",
+    "tag": {
+      "name": "alibayram/smollm3:latest",
+      "model": "alibayram/smollm3:latest",
+      "modified_at": "2026-09-26T22:15:21.979688035-04:00",
+      "size": 1915305999,
+      "digest": "6463ebe1ce6ae2f6369498f54f136baad56b4380e5365bfecc938079f8e6733c",
+      "details": {
+        "parent_model": "/root/.ollama/models/blobs/sha256-048b986bb243c09b5410fc9f73bdc5bf749bf8e24e1a703ca830c1b29b0267f8",
+        "format": "gguf",
+        "family": "smollm3",
+        "families": [
+          "smollm3"
+        ],
+        "parameter_size": "3.1B",
+        "quantization_level": "Q4_K_M",
+        "context_length": 65536,
+        "embedding_length": 2048
+      },
+      "capabilities": [
+        "completion"
+      ]
+    },
+    "show": {
+      "parameters": "stop                           \"<|im_start|>\"\nstop                           \"<|im_end|>\"\ntemperature                    0.2\ntop_p                          0.9",
+      "template": "{# \u2500\u2500\u2500\u2500\u2500 defaults \u2500\u2500\u2500\u2500\u2500 #}\n{%- if enable_thinking is not defined -%}\n{%- set enable_thinking = true -%}\n{%- endif -%}\n\n{# \u2500\u2500\u2500\u2500\u2500 reasoning mode \u2500\u2500\u2500\u2500\u2500 #}\n{%- if enable_thinking -%}\n  {%- set reasoning_mode = \"/think\" -%}\n{%- else -%}\n  {%- set reasoning_mode = \"/no_think\" -%}\n{%- endif -%}\n\n{# \u2500\u2500\u2500\u2500\u2500 header (system message) \u2500\u2500\u2500\u2500\u2500 #}\n{{- \"<|im_start|>system\\n\" -}}\n\n{%- if messages[0].role == \"system\" -%}\n  {%- set system_message = messages[0].content -%}\n  {%- if \"/no_think\" in system_message -%}\n    {%- set reasoning_mode = \"/no_think\" -%}\n  {%- elif \"/think\" in system_message -%}\n    {%- set reasoning_mode = \"/think\" -%}\n  {%- endif -%}\n  {%- set custom_instructions = system_message.replace(\"/no_think\", \"\").replace(\"/think\", \"\").rstrip() -%}\n{%- endif -%}\n\n{%- if \"/system_override\" in system_message -%}\n  {{- custom_instructions.replace(\"/system_override\", \"\").rstrip() -}}\n  {{- \"<|im_end|>\\n\" -}}\n{%- else -%}\n  {{- \"## Metadata\\n\\n\" -}}\n  {{- \"Knowledge Cutoff Date: June 2025\\n\" -}}\n  {%- set today = strftime_now(\"%d %B %Y\") -%}\n  {{- \"Today Date: \" ~ today ~ \"\\n\" -}}\n  {{- \"Reasoning Mode: \" + reasoning_mode + \"\\n\\n\" -}}\n  \n  {{- \"## Custom Instructions\\n\\n\" -}}\n  {%- if custom_instructions -%}\n    {{- custom_instructions + \"\\n\\n\" -}}\n  {%- elif reasoning_mode == \"/think\" -%}\n    {{- \"You are a helpful AI assistant named SmolLM, trained by Hugging Face. Your role as an assistant involves thoroughly exploring questions through a systematic thinking process before providing the final precise and accurate solutions. This requires engaging in a comprehensive cycle of analysis, summarizing, exploration, reassessment, reflection, backtracking, and iteration to develop well-considered thinking process. Please structure your response into two main sections: Thought and Solution using the specified format: <think> Thought section </think> Solution section. In the Thought section, detail your reasoning process in steps. Each step should include detailed considerations such as analysing questions, summarizing relevant findings, brainstorming new ideas, verifying the accuracy of the current steps, refining any errors, and revisiting previous steps. In the Solution section, based on various attempts, explorations, and reflections from the Thought section, systematically present the final solution that you deem correct. The Solution section should be logical, accurate, and concise and detail necessary steps needed to reach the conclusion.\\n\\n\" -}}\n  {%- else -%}\n    {{- \"You are a helpful AI assistant named SmolLM, trained by Hugging Face.\\n\\n\" -}}\n  {%- endif -%}\n\n  {%- if xml_tools or python_tools -%}\n    {{- \"### Tools\\n\\n\" -}}\n    {%- if xml_tools -%}\n      {%- set ns = namespace(xml_tool_string=\"You may call one or more functions to assist with the user query.\\nYou are provided with function signatures within <tools></tools> XML tags:\\n\\n<tools>\\n\") -%}\n      {%- for tool in xml_tools[:] -%} {# The slicing makes sure that xml_tools is a list #}\n        {%- set ns.xml_tool_string = ns.xml_tool_string ~ (tool | string) ~ \"\\n\" -%}\n      {%- endfor -%}\n      {%- set xml_tool_string = ns.xml_tool_string + \"</tools>\\n\\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\\n<tool_call>\\n{\\\"name\\\": <function-name>, \\\"arguments\\\": <args-json-object>}\\n</tool_call>\" -%}\n      {{- xml_tool_string -}}\n    {%- endif -%}\n    {%- if python_tools -%}\n      {%- set ns = namespace(python_tool_string=\"When you send a message containing Python code between '<code>' and '</code>' tags, it will be executed in a stateful Jupyter notebook environment, and you will then be given the output to continued reasoning in an agentic loop.\\n\\nYou can use the following tools in your python code like regular functions:\\n<tools>\\n\") -%}\n      {%- for tool in python_tools[:] -%} {# The slicing makes sure that python_tools is a list #}\n        {%- set ns.python_tool_string = ns.python_tool_string ~ (tool | string) ~ \"\\n\" -%}\n      {%- endfor -%}\n      {%- set python_tool_string = ns.python_tool_string + \"</tools>\\n\\nThe state persists between code executions: so variables that you define in one step are still available thereafter.\" -%}\n      {{- python_tool_string -}}\n    {%- endif -%}\n    {{- \"\\n\\n\" -}}\n    {{- \"<|im_end|>\\n\" -}}\n  {%- endif -%}\n{%- endif -%}\n{# \u2500\u2500\u2500\u2500\u2500 main loop \u2500\u2500\u2500\u2500\u2500 #}\n{%- for message in messages -%}\n    {%- set content = message.content if message.content is string else \"\" -%}\n    {%- if message.role == \"user\" -%}\n        {{ \"<|im_start|>\" + message.role + \"\\n\"  + content + \"<|im_end|>\\n\" }}\n    {%- elif message.role == \"assistant\" -%}\n        {% generation %}\n        {%- if reasoning_mode == \"/think\" -%}\n            {{ \"<|im_start|>assistant\\n\" + content.lstrip(\"\\n\") + \"<|im_end|>\\n\" }}\n        {%- else -%}\n            {{ \"<|im_start|>assistant\\n\" + \"<think>\\n\\n</think>\\n\" + content.lstrip(\"\\n\") + \"<|im_end|>\\n\" }}\n        {%- endif -%}\n        {% endgeneration %}\n    {%- elif message.role == \"tool\" -%}\n    {{ \"<|im_start|>\" + \"user\\n\"  + content + \"<|im_end|>\\n\" }}\n    {%- endif -%}\n{%- endfor -%}\n{# \u2500\u2500\u2500\u2500\u2500 generation prompt \u2500\u2500\u2500\u2500\u2500 #}\n{%- if add_generation_prompt -%}\n    {%- if reasoning_mode == \"/think\" -%}\n        {{ \"<|im_start|>assistant\\n\" }}\n    {%- else -%}\n        {{ \"<|im_start|>assistant\\n\" + \"<think>\\n\\n</think>\\n\"  }}\n    {%- endif -%}\n{%- endif -%}",
+      "details": {
+        "parent_model": "/root/.ollama/models/blobs/sha256-048b986bb243c09b5410fc9f73bdc5bf749bf8e24e1a703ca830c1b29b0267f8",
+        "format": "gguf",
+        "family": "smollm3",
+        "families": [
+          "smollm3"
+        ],
+        "parameter_size": "3.1B",
+        "quantization_level": "Q4_K_M"
+      },
+      "model_info": {
+        "general.architecture": "smollm3",
+        "general.file_type": 15,
+        "general.languages": null,
+        "general.license": "apache-2.0",
+        "general.parameter_count": 3075098624,
+        "general.quantization_version": 2,
+        "general.size_label": "3.1B",
+        "general.type": "model",
+        "smollm3.attention.head_count": 16,
+        "smollm3.attention.head_count_kv": 4,
+        "smollm3.attention.layer_norm_rms_epsilon": 1e-06,
+        "smollm3.block_count": 36,
+        "smollm3.context_length": 65536,
+        "smollm3.embedding_length": 2048,
+        "smollm3.feed_forward_length": 11008,
+        "smollm3.rope.dimension_count": 128,
+        "smollm3.rope.freq_base": 5000000,
+        "smollm3.vocab_size": 128256,
+        "tokenizer.ggml.bos_token_id": 128000,
+        "tokenizer.ggml.eos_token_id": 128012,
+        "tokenizer.ggml.merges": null,
+        "tokenizer.ggml.model": "gpt2",
+        "tokenizer.ggml.padding_token_id": 128012,
+        "tokenizer.ggml.pre": "smaug-bpe",
+        "tokenizer.ggml.token_type": null,
+        "tokenizer.ggml.tokens": null
+      },
+      "capabilities": [
+        "tools",
+        "thinking",
+        "completion"
+      ]
+    },
+    "license": "Apache-2.0",
+    "upstream_model_card": "https://huggingface.co/HuggingFaceTB/SmolLM3-3B",
+    "license_checked": "2026-10-07",
+    "archbox_digest": "6463ebe1ce6ae2f6369498f54f136baad56b4380e5365bfecc938079f8e6733c",
+    "local_tag": {
+      "name": "alibayram/smollm3:latest",
+      "model": "alibayram/smollm3:latest",
+      "modified_at": "2026-09-26T21:31:33.52522738-04:00",
+      "size": 1915305999,
+      "digest": "6463ebe1ce6ae2f6369498f54f136baad56b4380e5365bfecc938079f8e6733c",
+      "details": {
+        "parent_model": "/root/.ollama/models/blobs/sha256-048b986bb243c09b5410fc9f73bdc5bf749bf8e24e1a703ca830c1b29b0267f8",
+        "format": "gguf",
+        "family": "smollm3",
+        "families": [
+          "smollm3"
+        ],
+        "parameter_size": "3.1B",
+        "quantization_level": "Q4_K_M",
+        "context_length": 65536,
+        "embedding_length": 2048
+      },
+      "capabilities": [
+        "completion"
+      ]
+    },
+    "local_template_matches_archbox": true,
+    "local_parameters": "stop                           \"<|im_start|>\"\nstop                           \"<|im_end|>\"\ntemperature                    0.2\ntop_p                          0.9",
+    "local_parameters_text_matches_archbox": true,
+    "parameters_note": "Exact text is retained. Explicit request options override sampling and context defaults; Granite defaults differ in line order only."
+  },
+  {
+    "model": "granite4.2:3b",
+    "tag": {
+      "name": "granite4.2:3b",
+      "model": "granite4.2:3b",
+      "modified_at": "2026-08-25T17:18:17.433899873-04:00",
+      "size": 2244023374,
+      "digest": "7a65e6414ad66ecf95515ba9292530a168d6f97860044ada11809795dca5bdde",
+      "details": {
+        "parent_model": "/Users/runner/.ollama/models/blobs/sha256-e0406663965846ae22a403456eb826ccce5f450840491f71952f18a7cb78e7d5",
+        "format": "gguf",
+        "family": "granite",
+        "families": [
+          "granite"
+        ],
+        "parameter_size": "3.7B",
+        "quantization_level": "Q4_K_M",
+        "context_length": 131072,
+        "embedding_length": 2560
+      },
+      "capabilities": [
+        "completion"
+      ]
+    },
+    "show": {
+      "parameters": "temperature                    1\ntop_p                          0.95\nnum_ctx                        131072",
+      "template": "{%- macro tool_to_json(tool) -%}\n    {%- set ns_tool = namespace(first=true) -%}\n    {{- '{' -}}\n    {%- for k, v in tool.items() -%}\n        {%- if k != 'defer_loading' and k != 'strict' -%}\n            {%- if not ns_tool.first -%}{{- ', ' -}}{%- endif -%}\n            {%- set ns_tool.first = false -%}\n            {{- '\"' ~ k ~ '\": ' ~ (v | tojson(ensure_ascii=False)) -}}\n        {%- endif -%}\n    {%- endfor -%}\n    {{- '}' -}}\n{%- endmacro -%}\n{%- set enable_thinking = enable_thinking if enable_thinking is defined else True %}\n{%- set low_effort = low_effort if low_effort is defined else False %}\n{%- if reasoning_effort is defined and reasoning_effort is not none %}\n    {%- set low_effort = reasoning_effort == \"low\" %}\n{%- endif %}\n{%- set truncate_history_thinking = truncate_history_thinking if truncate_history_thinking is defined else True %}\n\n{%- set ns = namespace(last_user_idx = -1) %}\n{%- set loop_messages = messages %}\n{%- for m in loop_messages %}\n  {%- if m[\"role\"] == \"user\" %}\n    {%- set ns.last_user_idx = loop.index0 %}\n  {%- endif %}\n{%- endfor %}\n\n{%- if messages[0][\"role\"] == \"system\" %}\n    {%- set system_message = messages[0][\"content\"] %}\n    {%- set loop_messages = messages[1:] %}\n{%- else %}\n    {%- set system_message = \"\" %}\n    {%- set loop_messages = messages %}\n{%- endif %}\n{%- if not tools is defined %}\n    {%- set tools = [] %}\n{%- endif %}\n{# Recompute last_user_idx relative to loop_messages after handling system #}\n{%- set ns = namespace(last_user_idx = -1) %}\n{%- for m in loop_messages %}\n  {%- if m[\"role\"] == \"user\" %}\n    {%- set ns.last_user_idx = loop.index0 %}\n  {%- endif %}\n{%- endfor %}\n{%- if system_message is defined %}\n    {{- \"<|im_start|>system\\n\" + system_message }}\n{%- else %}\n    {%- if tools is iterable and tools | length > 0 %}\n        {{- \"<|im_start|>system\\n\" }}\n    {%- endif %}\n{%- endif %}\n{%- if tools is iterable and tools | length > 0 %}\n    {%- if system_message is defined and system_message | length > 0 %}\n        {{- \"\\n\\n\" }}\n    {%- endif %}\n    {{- \"# Tools\\n\\nYou have access to the following functions:\\n\\n\" }}\n    {{- \"<tools>\" }}\n    {%- for tool in tools %}\n        {%- if tool.function is defined %}\n            {%- set tool = tool.function %}\n        {%- endif %}\n        {%- if tool.defer_loading is not defined or not tool.defer_loading %}\n            {{- '\\n' ~ tool_to_json(tool) }}\n        {%- endif %}\n    {%- endfor %}\n    {{- \"\\n</tools>\" }}\n\n    {{- '\\n\\nIf you choose to call a function ONLY reply in the following format with NO suffix:\\n\\n<tool_call>\\n<function=example_function_name>\\n<parameter=example_parameter_1>\\nvalue_1\\n</parameter>\\n<parameter=example_parameter_2>\\nThis is the value for the second parameter\\nthat can span\\nmultiple lines\\n</parameter>\\n</function>\\n</tool_call>\\n\\n<IMPORTANT>\\nReminder:\\n- Function calls MUST follow the specified format: an inner <function=...></function> block must be nested within <tool_call></tool_call> XML tags\\n- Required parameters MUST be specified\\n- You may provide optional reasoning for your function call in natural language BEFORE the function call, but NOT after\\n- If there is no function call available, answer the question like normal with your current knowledge and do not tell the user about function calls\\n</IMPORTANT>' }}\n{%- endif %}\n\n\n{%- if system_message is defined %}\n    {{- '<|im_end|>\\n' }}\n{%- else %}\n    {%- if tools is iterable and tools | length > 0 %}\n        {{- '<|im_end|>\\n' }}\n    {%- endif %}\n{%- endif %}\n\n{%- for message in loop_messages %}\n    {%- if message.role == \"assistant\" %}\n        {# Add reasoning content in to content field for unified processing below. #}\n        {%- if message.reasoning_content is defined and message.reasoning_content is string and message.reasoning_content | trim | length > 0 %}\n            {%- set content = \"<think>\\n\" ~ message.reasoning_content ~ \"\\n</think>\\n\" ~ (message.content | default('', true)) %}\n        {%- else %}\n            {%- set content = message.content | default('', true) %}\n            {%- if content is string -%}\n                {# Allow downstream logic to to take care of broken thought, only handle coherent reasoning here. #}\n                {%- if '<think>' not in content and '</think>' not in content -%}\n                    {%- set content = \"<think></think>\" ~ content -%}\n                {%- endif -%}\n            {%- else -%}\n                {%- set content = content -%}\n            {%- endif -%}\n        {%- endif %}\n        {%- if message.tool_calls is defined and message.tool_calls is iterable and message.tool_calls | length > 0 %}\n            {# Assistant message has tool calls. #}\n            {{- '<|im_start|>assistant\\n' }}\n                {%- set include_content = not (truncate_history_thinking and loop.index0 < ns.last_user_idx) %}\n                {%- if content is string and content | trim | length > 0 %}\n                    {%- if include_content %}\n                        {{- (content | trim) ~ '\\n' -}}\n                    {%- else %}\n                        {%- set c = (content | string) %}\n                        {%- if '</think>' in c %}\n                            {# Keep only content after the last closing think. Also generation prompt causes this. #}\n                            {%- set c = c.split('</think>')[-1] %}\n                        {%- elif '<think>' in c %}\n                            {# If <think> was opened but never closed, drop the trailing think segment #}\n                            {%- set c = c.split('<think>')[0] %}\n                        {%- endif %}\n                        {%- set c = \"<think></think>\" ~ c | trim %}\n                        {%- if c | length > 0 %}\n                            {{- c ~ '\\n' -}}\n                        {%- endif %}\n                    {%- endif %}\n                {%- else %}\n                    {{- \"<think></think>\" -}}\n                {%- endif %}\n                {%- for tool_call in message.tool_calls %}\n                    {%- if tool_call.function is defined %}\n                        {%- set tool_call = tool_call.function %}\n                    {%- endif %}\n                    {{- '<tool_call>\\n<function=' ~ tool_call.name ~ '>\\n' -}}\n                        {%- if tool_call.arguments is defined %}\n                            {%- for args_name, args_value in tool_call.arguments|items %}\n                                {{- '<parameter=' ~ args_name ~ '>\\n' -}}\n                                    {%- set args_value = args_value | tojson | safe if args_value is mapping or (args_value is sequence and args_value is not string) else args_value | string %}\n                                {{- args_value ~ '\\n</parameter>\\n' -}}\n                            {%- endfor %}\n                        {%- endif %}\n                    {{- '</function>\\n</tool_call>\\n' -}}\n                {%- endfor %}\n                {{- '<|im_end|>\\n' }}\n        {%- else %}\n            {# Assistant message doesn't have tool calls. #}\n            {%- if not (truncate_history_thinking and loop.index0 < ns.last_user_idx) %}\n                {{- '<|im_start|>assistant\\n' ~ (content | default('', true) | string | trim) ~ '<|im_end|>\\n' }}\n            {%- else %}\n                {%- set c = (content | default('', true) | string) %}\n                {%- if '<think>' in c and '</think>' in c %}\n                    {%- set c = \"<think></think>\" ~ c.split('</think>')[-1] %}\n                {%- endif %}\n                {%- set c = c | trim %}\n                {%- if c | length > 0 %}\n                    {{- '<|im_start|>assistant\\n' ~ c ~ '<|im_end|>\\n' }}\n                {%- else %}\n                    {{- '<|im_start|>assistant\\n<|im_end|>\\n' }}\n                {%- endif %}\n            {%- endif %}\n        {%- endif %}\n    {%- elif message.role == \"user\" or message.role == \"system\" %}\n        {{- '<|im_start|>' + message.role + '\\n' }}\n        {%- set content = message.content | string %}\n        {%- if message.role == \"user\" and loop.index0 == ns.last_user_idx and low_effort %}\n            {{- content + '\\n\\n{reasoning effort: low}' }}\n        {%- else %}\n            {{- content }}\n        {%- endif %}\n        {{- '<|im_end|>\\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if loop.previtem and loop.previtem.role != \"tool\" %}\n            {{- '<|im_start|>user\\n' }}\n        {%- endif %}\n        {{- '<tool_response>\\n' }}\n        {{- message.content }}\n        {{- '\\n</tool_response>\\n' }}\n        {%- if not loop.last and loop.nextitem.role != \"tool\" %}\n            {{- '<|im_end|>\\n' }}\n        {%- elif loop.last %}\n            {{- '<|im_end|>\\n' }}\n        {%- endif %}\n    {%- else %}\n        {{- '<|im_start|>' + message.role + '\\n' + message.content + '<|im_end|>\\n' }}\n    {%- endif %}\n{%- endfor %}\n\n{%- if add_generation_prompt %}\n    {%- if enable_thinking %}\n        {{- '<|im_start|>assistant\\n<think>\\n' }}\n    {%- else %}\n        {{- '<|im_start|>assistant\\n<think></think>' }}\n    {%- endif %}\n{%- endif %}\n",
+      "details": {
+        "parent_model": "/Users/runner/.ollama/models/blobs/sha256-e0406663965846ae22a403456eb826ccce5f450840491f71952f18a7cb78e7d5",
+        "format": "gguf",
+        "family": "granite",
+        "families": [
+          "granite"
+        ],
+        "parameter_size": "3.7B",
+        "quantization_level": "Q4_K_M"
+      },
+      "model_info": {
+        "general.architecture": "granite",
+        "general.basename": "granite-4.2",
+        "general.file_type": 15,
+        "general.license": "apache-2.0",
+        "general.parameter_count": 3659737600,
+        "general.quantization_version": 2,
+        "general.sampling.temp": 1,
+        "general.sampling.top_p": 0.95,
+        "general.size_label": "3B",
+        "general.type": "model",
+        "granite.attention.head_count": 40,
+        "granite.attention.head_count_kv": 8,
+        "granite.attention.layer_norm_rms_epsilon": 1e-05,
+        "granite.attention.scale": 0.015625,
+        "granite.block_count": 40,
+        "granite.context_length": 131072,
+        "granite.embedding_length": 2560,
+        "granite.embedding_scale": 1,
+        "granite.feed_forward_length": 8192,
+        "granite.logit_scale": 1,
+        "granite.residual_scale": 1,
+        "granite.rope.dimension_count": 64,
+        "granite.rope.freq_base": 10000000,
+        "granite.vocab_size": 100352,
+        "tokenizer.ggml.add_space_prefix": false,
+        "tokenizer.ggml.bos_token_id": 100283,
+        "tokenizer.ggml.eos_token_id": 100257,
+        "tokenizer.ggml.merges": null,
+        "tokenizer.ggml.model": "gpt2",
+        "tokenizer.ggml.padding_token_id": 100257,
+        "tokenizer.ggml.pre": "granite-docling",
+        "tokenizer.ggml.token_type": null,
+        "tokenizer.ggml.tokens": null,
+        "tokenizer.ggml.unknown_token_id": 100269
+      },
+      "capabilities": [
+        "tools",
+        "thinking",
+        "completion"
+      ]
+    },
+    "license": "Apache-2.0",
+    "upstream_model_card": "https://huggingface.co/ibm-granite/granite-4.2-3b",
+    "license_checked": "2026-10-07",
+    "archbox_digest": "7a65e6414ad66ecf95515ba9292530a168d6f97860044ada11809795dca5bdde",
+    "local_tag": {
+      "name": "granite4.2:3b",
+      "model": "granite4.2:3b",
+      "modified_at": "2026-08-25T12:41:24.814105263-04:00",
+      "size": 2244023374,
+      "digest": "7a65e6414ad66ecf95515ba9292530a168d6f97860044ada11809795dca5bdde",
+      "details": {
+        "parent_model": "/Users/runner/.ollama/models/blobs/sha256-e0406663965846ae22a403456eb826ccce5f450840491f71952f18a7cb78e7d5",
+        "format": "gguf",
+        "family": "granite",
+        "families": [
+          "granite"
+        ],
+        "parameter_size": "3.7B",
+        "quantization_level": "Q4_K_M",
+        "context_length": 131072,
+        "embedding_length": 2560
+      },
+      "capabilities": [
+        "completion"
+      ]
+    },
+    "local_template_matches_archbox": true,
+    "local_parameters": "top_p                          0.95\nnum_ctx                        131072\ntemperature                    1",
+    "local_parameters_text_matches_archbox": false,
+    "parameters_note": "Exact text is retained. Explicit request options override sampling and context defaults; Granite defaults differ in line order only."
+  },
+  {
+    "model": "ministral-3:3b",
+    "tag": {
+      "name": "ministral-3:3b",
+      "model": "ministral-3:3b",
+      "modified_at": "2026-08-07T18:51:14.083908257-04:00",
+      "size": 2953840808,
+      "digest": "f04aa1c738f64e13c625b82ae92504fc0260fa6723b509ed1ece0fa188179b1d",
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "mistral3",
+        "families": [
+          "mistral3"
+        ],
+        "parameter_size": "3.8B",
+        "quantization_level": "Q4_K_M",
+        "context_length": 262144,
+        "embedding_length": 3072
+      },
+      "capabilities": [
+        "vision",
+        "completion",
+        "tools"
+      ]
+    },
+    "show": {
+      "parameters": "temperature                    0.15",
+      "template": "{{- $lastUserIndex := -1 }}\n{{- $hasSystemPrompt := false }}\n{{- range $index, $_ := .Messages }}\n{{- if eq .Role \"user\" }}{{ $lastUserIndex = $index }}{{ end }}\n{{- if eq .Role \"system\" }}{{ $hasSystemPrompt = true }}{{ end }}\n{{- end }}\n{{- if not $hasSystemPrompt }}[SYSTEM_PROMPT]You are Ministral-3-3B-Instruct-2512, a Large Language Model (LLM) created by Mistral AI, a French startup headquartered in Paris.\nYou power an AI assistant called Le Chat.\nYour knowledge base was last updated on 2023-10-01.\nThe current date is {{ currentDate }}.\n\nWhen you're not sure about some information or when the user's request requires up-to-date or specific data, you must use the available tools to fetch the information. Do not hesitate to use tools whenever they can provide a more accurate or complete response. If no relevant tools are available, then clearly state that you don't have the information and avoid making up anything.\nIf the user's question is not clear, ambiguous, or does not provide enough context for you to accurately answer the question, you do not try to answer it right away and you rather ask the user to clarify their request (e.g. \"What are some good restaurants around me?\" => \"Where are you?\" or \"When is the next flight to Tokyo\" => \"Where do you travel from?\").\nYou are always very attentive to dates, in particular you try to resolve dates (e.g. \"yesterday\" is {{ yesterdayDate }}) and when asked about information at specific dates, you discard information that is at another date.\nYou follow these instructions in all languages, and always respond to the user in the language they use or request.\nNext sections describe the capabilities that you have.\n\n# WEB BROWSING INSTRUCTIONS\n\nYou cannot perform any web search or access internet to open URLs, links etc. If it seems like the user is expecting you to do so, you clarify the situation and ask the user to copy paste the text directly in the chat.\n\n# MULTI-MODAL INSTRUCTIONS\n\nYou have the ability to read images, but you cannot generate images. You also cannot transcribe audio files or videos.\nYou cannot read nor transcribe audio files or videos.\n\n# TOOL CALLING INSTRUCTIONS\n\nYou may have access to tools that you can use to fetch information or perform actions. You must use these tools in the following situations:\n\n1. When the request requires up-to-date information.\n2. When the request requires specific data that you do not have in your knowledge base.\n3. When the request involves actions that you cannot perform without tools.\n\nAlways prioritize using tools to provide the most accurate and helpful response. If tools are not available, inform the user that you cannot perform the requested action at the moment.[/SYSTEM_PROMPT]\n{{- end }}\n{{- range $index, $_ := .Messages }}\n{{- if eq .Role \"system\" }}[SYSTEM_PROMPT]{{ .Content }}[/SYSTEM_PROMPT]\n{{- else if eq .Role \"user\" }}\n{{- if and (eq $lastUserIndex $index) $.Tools }}[AVAILABLE_TOOLS]{{ $.Tools }}[/AVAILABLE_TOOLS]\n{{- end }}[INST]{{ .Content }}[/INST]\n{{- else if eq .Role \"assistant\" }}\n{{- if .Content }}{{ .Content }}\n{{- if and (not .ToolCalls) (not (eq (len (slice $.Messages $index)) 1)) }}</s>\n{{- end }}\n{{- end }}\n{{- if .ToolCalls }}[TOOL_CALLS]\n{{- range .ToolCalls }}{{ .Function.Name }}[ARGS]{{ .Function.Arguments }}\n{{- end }}</s>\n{{- end }}\n{{- else if eq .Role \"tool\" }}[TOOL_RESULTS]{{ .Content }}[/TOOL_RESULTS]\n{{- end }}\n{{- end }}\n",
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "mistral3",
+        "families": [
+          "mistral3"
+        ],
+        "parameter_size": "3.8B",
+        "quantization_level": "Q4_K_M"
+      },
+      "model_info": {
+        "general.architecture": "mistral3",
+        "general.file_type": 15,
+        "general.parameter_count": 3849090048,
+        "general.quantization_version": 2,
+        "mistral3.attention.head_count": 32,
+        "mistral3.attention.head_count_kv": 8,
+        "mistral3.attention.key_length": 128,
+        "mistral3.attention.layer_norm_rms_epsilon": 1e-05,
+        "mistral3.attention.value_length": 128,
+        "mistral3.block_count": 26,
+        "mistral3.context_length": 262144,
+        "mistral3.embedding_length": 3072,
+        "mistral3.feed_forward_length": 9216,
+        "mistral3.image_token_index": 10,
+        "mistral3.mm.projector_bias": false,
+        "mistral3.mm.projector_hidden_act": "gelu",
+        "mistral3.rope.dimension_count": 128,
+        "mistral3.rope.freq_base": 1000000,
+        "mistral3.rope.scaling.beta_fast": 32,
+        "mistral3.rope.scaling.beta_slow": 1,
+        "mistral3.rope.scaling.factor": 16,
+        "mistral3.rope.scaling.mscale": 1,
+        "mistral3.rope.scaling.mscale_all_dim": 1,
+        "mistral3.rope.scaling.original_context_length": 16384,
+        "mistral3.rope.scaling.type": "yarn",
+        "mistral3.rope.scaling_beta": 0.1,
+        "mistral3.spatial_merge_size": 2,
+        "mistral3.vision.attention.head_count": 16,
+        "mistral3.vision.attention.key_length": 64,
+        "mistral3.vision.block_count": 24,
+        "mistral3.vision.embedding_length": 1024,
+        "mistral3.vision.feed_forward_length": 4096,
+        "mistral3.vision.image_size": 1540,
+        "mistral3.vision.num_channels": 3,
+        "mistral3.vision.patch_size": 14,
+        "mistral3.vision.rope.freq_base": 10000,
+        "mistral3.vocab_size": 131072,
+        "tokenizer.ggml.add_bos_token": true,
+        "tokenizer.ggml.add_eos_token": false,
+        "tokenizer.ggml.add_padding_token": false,
+        "tokenizer.ggml.add_unknown_token": false,
+        "tokenizer.ggml.bos_token_id": 1,
+        "tokenizer.ggml.eos_token_id": 2,
+        "tokenizer.ggml.merges": null,
+        "tokenizer.ggml.model": "gpt2",
+        "tokenizer.ggml.padding_token_id": 11,
+        "tokenizer.ggml.pre": "default",
+        "tokenizer.ggml.scores": null,
+        "tokenizer.ggml.token_type": null,
+        "tokenizer.ggml.tokens": null,
+        "tokenizer.ggml.unknown_token_id": 0
+      },
+      "capabilities": [
+        "completion",
+        "vision",
+        "tools"
+      ]
+    },
+    "license": "Apache-2.0",
+    "upstream_model_card": "https://huggingface.co/mistralai/Ministral-3-3B-Instruct-2512",
+    "license_checked": "2026-10-07",
+    "archbox_digest": "f04aa1c738f64e13c625b82ae92504fc0260fa6723b509ed1ece0fa188179b1d",
+    "local_tag": {
+      "name": "ministral-3:3b",
+      "model": "ministral-3:3b",
+      "modified_at": "2026-08-22T21:26:36.041233085-04:00",
+      "size": 2953840808,
+      "digest": "f04aa1c738f64e13c625b82ae92504fc0260fa6723b509ed1ece0fa188179b1d",
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "mistral3",
+        "families": [
+          "mistral3"
+        ],
+        "parameter_size": "3.8B",
+        "quantization_level": "Q4_K_M",
+        "context_length": 262144,
+        "embedding_length": 3072
+      },
+      "capabilities": [
+        "vision",
+        "completion",
+        "tools"
+      ]
+    },
+    "local_template_matches_archbox": true,
+    "local_parameters": "temperature                    0.15",
+    "local_parameters_text_matches_archbox": true,
+    "parameters_note": "Exact text is retained. Explicit request options override sampling and context defaults; Granite defaults differ in line order only."
+  }
+]

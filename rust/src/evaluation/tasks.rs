@@ -623,7 +623,7 @@ impl LensTask for NarrativesTask {
 }
 
 // ---------------------------------------------------------------------------
-// VibeTask — the same source package and score-free parser as production.
+// VibeTask — the same period packet and scored-card parser as production.
 // ---------------------------------------------------------------------------
 pub struct VibeTask;
 #[async_trait]
@@ -674,7 +674,9 @@ impl LensTask for VibeTask {
             crate::plugins::influencer::now(),
         )
         .await?;
-        assignment.map(|a| self.assemble(&serde_json::to_value(a.parts)?)).transpose()
+        Ok(Some(
+            self.assemble(&serde_json::to_value(assignment.parts)?)?,
+        ))
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, _expect: Option<&Expect>) -> CaseVerdict {
         match VibeParser.parse(raw) {
@@ -702,9 +704,6 @@ impl LensTask for VibeTask {
             parts: Some(stored_parts.clone()),
             should_call: true,
             user_prompt: parts.assemble(),
-            // The Influencer's contract does not vary with the world: paired nullable
-            // headline/body fields, one manual, whatever the source or the history. So the
-            // options are the plugin's own, not a per-fixture reconstruction.
             options: crate::plugins::influencer::prompt::generation_options(
                 crate::plugins::influencer::prompt::VIBE_TEMPERATURE,
                 0,
@@ -1627,26 +1626,22 @@ mod tests {
     }
 
     #[test]
-    fn vibe_evaluation_uses_score_free_production_parser() {
+    fn vibe_evaluation_uses_scored_production_parser() {
         assert!(VibeTask
             .evaluate(
-                r#"{"headline":"Morgan voices hope","body":"Morgan said she felt hopeful."}"#,
+                r#"{"score":75,"headline":"Morgan voices hope","body":"Morgan said she felt hopeful."}"#,
                 None,
                 None
             )
-            .all_checks_pass());
+            .parsed);
         assert!(
             VibeTask
-                .evaluate(r#"{"headline":null,"body":null}"#, None, None)
+                .evaluate(r#"{"score":null,"headline":null,"body":null}"#, None, None)
                 .parsed
         );
         assert!(
             !VibeTask
-                .evaluate(
-                    r#"{"score":75,"headline":"Hope","body":"Hope."}"#,
-                    None,
-                    None
-                )
+                .evaluate(r#"{"headline":"Hope","body":"Hope."}"#, None, None)
                 .parsed
         );
     }

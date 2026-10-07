@@ -1,0 +1,62 @@
+[
+  {
+    "name": "different-speakers",
+    "review": "Preserve Morgan's welcome and Riley's concern separately. No coaching-staff change, collective team mood, motives or performance effects."
+  },
+  {
+    "name": "routine-report",
+    "reports": [
+      {
+        "publisher": "Fictional Test Wire",
+        "published_at": "2026-10-06",
+        "headline": "Cedar Comets Sunday training schedule",
+        "text": "Cedar Comets will train at 11 a.m. on Sunday."
+      }
+    ],
+    "review": "Current emotional reactions are unknown. No invented excitement, professionalism, upcoming season or reasons for the schedule."
+  },
+  {
+    "name": "unrelated-target",
+    "reports": [
+      {
+        "publisher": "Fictional Test Wire",
+        "published_at": "2026-10-06",
+        "headline": "Harbor Falcons supporter expresses joy",
+        "text": "Harbor Falcons supporter Alex said, \"I feel joyful about the Falcons.\""
+      }
+    ],
+    "review": "No emotional reaction about Cedar Comets is established. Do not transfer Alex's affiliation or joy to the requested target."
+  },
+  {
+    "name": "conditional-relief",
+    "reports": [
+      {
+        "publisher": "Fictional Test Wire",
+        "published_at": "2026-10-06",
+        "headline": "Cedar Comets supporter discusses undecided appeal",
+        "text": "Cedar Comets supporter Jordan said, \"I would feel relieved if the appeal succeeds.\" The appeal has not been decided. Jordan added, \"I do not feel relieved yet.\""
+      }
+    ],
+    "review": "Preserve conditional future relief and the explicit denial of current relief. No invented current hope, caution, appeal result or speaker gender."
+  },
+  {
+    "name": "past-reaction-current-silence",
+    "reports": [
+      {
+        "publisher": "Fictional Test Wire",
+        "published_at": "2026-10-06",
+        "headline": "Cedar Comets Sunday training schedule",
+        "text": "Cedar Comets will train at 11 a.m. on Sunday."
+      }
+    ],
+    "history": [
+      {
+        "publisher": "Fictional History Wire",
+        "published_at": "2026-10-02",
+        "headline": "Cedar Comets supporter describes hope",
+        "text": "On October 2, Cedar Comets supporter Ellis said, \"I feel hopeful about the team.\""
+      }
+    ],
+    "review": "Ellis's dated hope can be described as history. Current emotion and any emotional change remain unknown; no collective anticipation or continuing hope."
+  }
+]

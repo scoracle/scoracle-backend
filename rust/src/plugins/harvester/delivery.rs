@@ -380,11 +380,13 @@ mod tests {
         .execute(&pool)
         .await
         .unwrap();
-        sqlx::query("UPDATE public.news_articles SET published_at='2000-01-01 00:00:00+00' WHERE id=$1")
-            .bind(ARTICLE)
-            .execute(&pool)
-            .await
-            .unwrap();
+        sqlx::query(
+            "UPDATE public.news_articles SET published_at='2000-01-01 00:00:00+00' WHERE id=$1",
+        )
+        .bind(ARTICLE)
+        .execute(&pool)
+        .await
+        .unwrap();
         sqlx::query(
             "UPDATE public.harvester_classifications c SET contract_version=$2, \
              model_provenance=jsonb_build_object('source_identity',jsonb_build_object( \

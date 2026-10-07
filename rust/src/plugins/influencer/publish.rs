@@ -42,7 +42,7 @@ pub(super) async fn persist_to_vibe_scores(
     // since F2 (mig 147); the typed INSERT stays the stage's own (Postgres-as-serializer).
     let entity_id = item.entity_id_i32()?;
     let prov = &out.provenance;
-    let parts: super::prompt::Parts = serde_json::from_str(&out.input_components_json)?;
+    let parts = &out.parts;
     let sentiment: Option<i16> = out.sentiment.map(|n| n as i16);
     let row = sqlx::query(
         r#"
@@ -103,11 +103,7 @@ pub(super) async fn record_ledger(
             trigger_payload: serde_json::Value::Null,
             product_row_ids: vec![product_row_id],
             included_evidence: serde_json::json!({
-                "input_components": serde_json::from_str::<serde_json::Value>(
-                    &out.input_components_json
-                ).unwrap_or_else(|_| serde_json::json!({
-                    "raw_input_components": out.input_components_json
-                })),
+                "input_components": out.parts,
                 "sentiment": out.sentiment,
                 "vibe_prompt": &out.vibe_prompt,
                 "hook": &out.hook,

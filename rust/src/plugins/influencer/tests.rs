@@ -86,7 +86,7 @@ async fn period_card_contract() {
             .len(),
         2
     );
-    let world: Value = serde_json::from_str(&prompt::assembled_prompt(&a)).unwrap();
+    let world: Value = serde_json::from_str(&a.parts.assemble()).unwrap();
     assert!(world["FRESH EVIDENCE"][1]["publisher_text"]
         .as_str()
         .unwrap()
@@ -132,6 +132,36 @@ async fn period_card_contract() {
     assert!(receipt.get("error").is_some());
     assert_eq!(receipt["raw_response"], "truncated");
     assert_eq!(broken.calls.load(Ordering::Relaxed), 1);
+
+    // Cleanup must preserve the deployed request and attempt-reuse fingerprint.
+    let retained: Value = serde_json::from_str(include_str!(
+        "../../../fixtures/influencer/period-card-v19-smollm3.jsonl"
+    ))
+    .unwrap();
+    let receipt = &retained["receipt"];
+    let assignment = Assignment::from_parts(
+        serde_json::from_value(receipt["input_components"].clone()).unwrap(),
+    )
+    .unwrap();
+    let backend = crate::harness::providers::ollama::OllamaClient::with_think(
+        "http://localhost:11434",
+        receipt["model_version"].as_str().unwrap(),
+        Duration::from_secs(1),
+        Some(false),
+    )
+    .unwrap();
+    assert_eq!(assignment.parts.assemble(), receipt["packet"]);
+    assert_eq!(
+        backend.request_body(
+            &assignment.parts.assemble(),
+            &prompt::generation_options(VIBE_TEMPERATURE, 4096, VIBE_NUM_PREDICT),
+        ),
+        receipt["request_body"]
+    );
+    assert_eq!(
+        prompt::request_hash(&backend, &assignment, 4096).unwrap(),
+        receipt["input_hash"]
+    );
 }
 
 #[tokio::test]

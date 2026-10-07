@@ -31,7 +31,7 @@ pub struct VibeScore {
     pub sentiment: Option<i32>,
     pub vibe_prompt: Option<String>,
     pub hook: Option<String>,
-    pub input_components_json: String,
+    pub parts: prompt::Parts,
 }
 pub type VibeOutput = Generation<VibeScore>;
 
@@ -75,7 +75,7 @@ pub async fn create(
     num_ctx: i32,
 ) -> Result<(Option<VibeOutput>, Value)> {
     use crate::harness::Parser;
-    let world = prompt::assembled_prompt(assignment);
+    let world = assignment.parts.assemble();
     anyhow::ensure!(
         world.len() <= prompt::SOURCE_BUDGET_BYTES + prompt::HISTORY_BUDGET_BYTES + 2400,
         "Influencer packet exceeds reading budget"
@@ -131,7 +131,7 @@ pub async fn create(
                 sentiment: Some(reply.score),
                 hook: Some(reply.headline),
                 vibe_prompt: Some(reply.body),
-                input_components_json: assignment.input_components_json.clone(),
+                parts: assignment.parts.clone(),
             },
             generated.model,
             VIBE_PROMPT_VERSION,
@@ -174,8 +174,6 @@ pub(crate) async fn execute_with_backend(
     };
     let (assignment, disposition) =
         prompt::prepare_assignment(pool, subject, anchor, now()).await?;
-    let assignment =
-        assignment.ok_or_else(|| anyhow::anyhow!("No usable period evidence: {disposition}"))?;
     let input_hash = prompt::request_hash(backend, &assignment, voice_num_ctx)?;
     // Reuse a completed attempt only for identical evidence, model and contract.
     let previous: Option<(i64, Option<i64>)> = sqlx::query_as(

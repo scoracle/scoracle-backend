@@ -1,0 +1,163 @@
+{
+  "date": "2026-10-07",
+  "status": "investigation_not_production_fix",
+  "scope": "Fictional controls only; raw Ollama request experiments, not end-to-end Rust publication replays; baseline system task was asserted byte-equal to current production TASK. Existing uncommitted code preserved.",
+  "starting_point": "Experimental period-card slice is deployed and operational; v19 structural success still fails factual fidelity. Source identity verification is not semantic claim validation.",
+  "source_inspection": [
+    {
+      "repo": "0xPlaygrounds/rig",
+      "commit": "2d1071e0e0c602f994e9d6cfd8cf5faea6f53650",
+      "path": "crates/rig-agent/src/agent/builder.rs",
+      "bytes": 36004,
+      "url": "https://github.com/0xPlaygrounds/rig/blob/2d1071e0e0c602f994e9d6cfd8cf5faea6f53650/crates/rig-agent/src/agent/builder.rs"
+    },
+    {
+      "repo": "deepset-ai/haystack",
+      "commit": "8d8f3e50d635a0f60e527f36a182d337b6d11602",
+      "path": "haystack/components/builders/prompt_builder.py",
+      "bytes": 11348,
+      "url": "https://github.com/deepset-ai/haystack/blob/8d8f3e50d635a0f60e527f36a182d337b6d11602/haystack/components/builders/prompt_builder.py"
+    },
+    {
+      "repo": "deepset-ai/haystack",
+      "commit": "8d8f3e50d635a0f60e527f36a182d337b6d11602",
+      "path": "haystack/components/evaluators/faithfulness.py",
+      "bytes": 11643,
+      "url": "https://github.com/deepset-ai/haystack/blob/8d8f3e50d635a0f60e527f36a182d337b6d11602/haystack/components/evaluators/faithfulness.py"
+    },
+    {
+      "repo": "microsoft/semantic-kernel",
+      "commit": "cc8a15fa356f02dcb7bc64999392ca02f3167312",
+      "path": "python/samples/concepts/plugins/plugins_from_dir.py",
+      "bytes": 943,
+      "url": "https://github.com/microsoft/semantic-kernel/blob/cc8a15fa356f02dcb7bc64999392ca02f3167312/python/samples/concepts/plugins/plugins_from_dir.py"
+    },
+    {
+      "repo": "run-llama/llama_index",
+      "commit": "cb4c917ffe8ca575075b4869cf0e8bb42a20edb6",
+      "path": "llama-index-core/llama_index/core/prompts/default_prompts.py",
+      "bytes": 21392,
+      "url": "https://github.com/run-llama/llama_index/blob/cb4c917ffe8ca575075b4869cf0e8bb42a20edb6/llama-index-core/llama_index/core/prompts/default_prompts.py"
+    },
+    {
+      "repo": "run-llama/llama_index",
+      "commit": "cb4c917ffe8ca575075b4869cf0e8bb42a20edb6",
+      "path": "llama-index-core/llama_index/core/evaluation/faithfulness.py",
+      "bytes": 7462,
+      "url": "https://github.com/run-llama/llama_index/blob/cb4c917ffe8ca575075b4869cf0e8bb42a20edb6/llama-index-core/llama_index/core/evaluation/faithfulness.py"
+    },
+    {
+      "repo": "run-llama/llama_index",
+      "commit": "cb4c917ffe8ca575075b4869cf0e8bb42a20edb6",
+      "path": "llama-index-core/llama_index/core/query_engine/citation_query_engine.py",
+      "bytes": 21063,
+      "url": "https://github.com/run-llama/llama_index/blob/cb4c917ffe8ca575075b4869cf0e8bb42a20edb6/llama-index-core/llama_index/core/query_engine/citation_query_engine.py"
+    }
+  ],
+  "reuse_decisions": {
+    "Rig": "Keep existing system/context/provider separation. No framework or compatible fact-verification component demonstrated by the inspected builder.",
+    "Haystack": "Borrow claim-by-claim faithfulness review; required prompt-variable validation concerns input presence, not factual truth. Reuse existing offline evaluation home instead of importing Python pipeline.",
+    "Semantic Kernel": "Existing plugin prompt.rs already owns task/input contract. Directory-based prompt plugins supply no factual acceptance gate.",
+    "LlamaIndex": "Numbered-source citations help traceability, not entailment. Do not adopt citation engine or whole-answer binary/refine evaluator as a correctness certificate."
+  },
+  "generation_experiments": {
+    "variants": [
+      "baseline",
+      "support-first",
+      "basis-before-card"
+    ],
+    "calls": 18,
+    "cases_per_variant": 6,
+    "complete_json_responses": 18,
+    "expected_abstentions_per_variant": 4,
+    "correct_abstentions_per_variant": 0,
+    "exact_source_quotes": {
+      "support-first": "8/8",
+      "basis-before-card": "7/7"
+    },
+    "ordering_diagnostic": "support-first was emitted after body; basis-before-card was actually emitted first. Both failures retained.",
+    "controlled_variables": "Same case evidence, model, temperature 0, context 32768, output budget 600, think false. Baseline vs candidate changes both task and output schema; this comparison does not isolate a single causal component. Corrected order renames support to basis.",
+    "manual_case_review": {
+      "retained-unbound": {
+        "expected": "abstain",
+        "baseline": "Invents target affiliation for the coaches; source text does not name Cedar Comets.",
+        "support-first": "Invents leadership change and affiliation despite matching source quotes.",
+        "basis-before-card": "Invents significant coaching-staff change and effects on performance/morale after exact quotations."
+      },
+      "bound-contrasting-speakers": {
+        "expected": "card",
+        "baseline": "Generalizes two individuals to a divided team and possible morale/performance effects.",
+        "support-first": "Contrasting reactions are mostly retained, but score 75 conflicts with the mixed reading.",
+        "basis-before-card": "Preserves individual attribution and contrasting reactions with score 50; small positive control, not proof of general reliability."
+      },
+      "single-supporter-hope": {
+        "expected": "card",
+        "baseline": "Prose preserves narrow attribution; score 50 does not match the hopeful statement.",
+        "support-first": "Score 75 fits hope, but adds anticipation about team performance.",
+        "basis-before-card": "Generalizes Alex to supporters and explicitly describes score 75 as balanced/mixed."
+      },
+      "routine-schedule": {
+        "expected": "abstain",
+        "baseline": "Invents schedule release/upcoming season and publishes score 50 for unknown emotion.",
+        "support-first": "Matches a schedule quotation but still invents upcoming season and publishes unknown emotion.",
+        "basis-before-card": "Returns an empty basis but publishes a score-50 card instead of nulls."
+      },
+      "negated-emotion": {
+        "expected": "abstain",
+        "baseline": "Invents gender, recent performance/victory and a prior headline; unknown feelings become score 50.",
+        "support-first": "Invents gender and performance; denial is quoted as support for a score-50 card.",
+        "basis-before-card": "Same unsupported gender/performance and unknown-emotion card despite copied denial."
+      },
+      "late-qualification": {
+        "expected": "abstain",
+        "baseline": "Invents gender and uses score 50 despite no current stated emotional reaction.",
+        "support-first": "Copies only conditional relief; invents gender and publishes score 50 despite current-relief denial.",
+        "basis-before-card": "Copies conditional relief plus denial, but invents current hope/caution and publishes score 75."
+      }
+    },
+    "decision": "Do not adopt either citation/output-contract variant. Valid source substrings did not prevent unsupported narrative or incorrect abstention.",
+    "limits": "Small hand-reviewed development controls. No held-out real-source accuracy claim.",
+    "latency_median_seconds": {
+      "baseline": 10.657,
+      "support-first": 11.8905,
+      "basis-before-card": 11.7985
+    }
+  },
+  "publication_semantics": "Unsupported or unverified generation should remain a failed durable attempt using the existing receipt/error path; do not mark selected evidence used or erase the previous card. Correct abstention must remain a separate outcome.",
+  "non_solutions": [
+    "More formatting rules",
+    "Quotation substring checks as proof of body truth",
+    "Trusting model-supplied citations as a factual verdict",
+    "Using relevance probability as factual entailment or emotional score",
+    "Requiring every card to be non-null",
+    "Uncalibrated LLM judge as an automatic production gate"
+  ],
+  "production_changes": false,
+  "model_digests": {
+    "alibayram/smollm3:latest": "6463ebe1ce6ae2f6369498f54f136baad56b4380e5365bfecc938079f8e6733c",
+    "granite4.2:3b": "7a65e6414ad66ecf95515ba9292530a168d6f97860044ada11809795dca5bdde"
+  },
+  "claim_audit_prototype": {
+    "pattern": "Haystack-style exhaustive statement extraction and support checking, tested independently of generation using installed Granite; not an automatic production gate.",
+    "prepared_controls": 4,
+    "expected_gates": [
+      "reject unbound target affiliation",
+      "reject unsupported team morale/performance effects",
+      "reject routine schedule with fabricated emotion",
+      "accept faithful individual contrast"
+    ],
+    "completed_verdicts": 0,
+    "initial_attempt": "One retained response ended with done_reason=length after 900 reasoning tokens, empty visible content. Batch interrupted during subsequent work.",
+    "explicit_think_false_retry": "First request timed out at 120 seconds. Batch interrupted during subsequent work. Remaining controls were not evaluated.",
+    "decision": "Inconclusive. No verified detection rate or faithful-card acceptance result. No automatic judge adoption.",
+    "limits": "Installed critic model/transport behavior must be resolved before auditing semantic accuracy; neither failed nor missing verdict is a pass."
+  },
+  "retained_receipts": 20,
+  "artifacts": {
+    "requests": "grounding-investigation-2026-10-07-requests.jsonl",
+    "results": "grounding-investigation-2026-10-07-results.jsonl"
+  },
+  "earlier_recommended_next_step": "Calibrate an exhaustive claim-support audit in existing offline evaluation/judge.rs against human-reviewed real-source cases and deliberate single-claim mutations. Only after evidence supports it, add a fail-closed support check before returning a publishable VibeOutput. This is a proposed additional verification stage, not an implemented or proven cure. It changes the present single-model-call contract and adds inference cost.",
+  "recommended_next_step": "Superseded by user direction: a verifier does not improve generation. Session closed without a demonstrated fidelity solution; user will pursue a different approach in another session. Do not automatically resume this branch.",
+  "session_handoff": "../../docs/client-focused-card-building-session-10-7-2026.md#invented-facts-investigation-handoff--october-7"
+}

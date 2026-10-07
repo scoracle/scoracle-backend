@@ -95,13 +95,11 @@ impl Parts {
 #[derive(Clone, Debug)]
 pub struct Assignment {
     pub parts: Parts,
-    pub input_components_json: String,
     pub input_hash: String,
 }
 
 impl Assignment {
     pub fn from_parts(parts: Parts) -> Result<Self> {
-        let input_components_json = serde_json::to_string(&parts)?;
         // Capture time and excluded history are diagnostic, not generation inputs.
         let input_hash = hash_components(&serde_json::to_string(&(
             &parts.subject,
@@ -114,16 +112,8 @@ impl Assignment {
             TASK,
             schema(),
         ))?);
-        Ok(Self {
-            parts,
-            input_components_json,
-            input_hash,
-        })
+        Ok(Self { parts, input_hash })
     }
-}
-
-pub fn assembled_prompt(assignment: &Assignment) -> String {
-    assignment.parts.assemble()
 }
 
 pub fn source_disposition(text: &str) -> Option<&'static str> {
@@ -156,7 +146,7 @@ pub async fn prepare_assignment(
     subject: EntityMeta,
     source: &SourceContext,
     cutoff: i64,
-) -> Result<(Option<Assignment>, Value)> {
+) -> Result<(Assignment, Value)> {
     let mut tx = pool.begin().await?;
     sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
         .execute(&mut *tx)
@@ -183,7 +173,7 @@ pub async fn prepare_assignment(
     tx.commit().await?;
     let receipt =
         json!({"contract":VIBE_PROMPT_VERSION,"period":parts.period,"excluded":parts.excluded});
-    Ok((Some(Assignment::from_parts(parts)?), receipt))
+    Ok((Assignment::from_parts(parts)?, receipt))
 }
 
 /// The material fingerprint includes the concrete transport request and model settings.
@@ -195,7 +185,7 @@ pub fn request_hash(
     Ok(hash_components(&serde_json::to_string(&(
         &assignment.input_hash,
         backend.request_body(
-            &assembled_prompt(assignment),
+            &assignment.parts.assemble(),
             &generation_options(VIBE_TEMPERATURE, num_ctx, VIBE_NUM_PREDICT),
         ),
     ))?))

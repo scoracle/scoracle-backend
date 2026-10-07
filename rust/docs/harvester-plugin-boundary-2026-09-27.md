@@ -1,5 +1,7 @@
 # Harvester and character plugin boundary
 
+> **2026-10-06 governing update:** This dated record preserves its implementation and evaluation evidence. The [current contract](../../../scoracle-wiki/wiki/Architecture/Harness,%20Plugins,%20Tools,%20and%20LLM%20Contract.md) supersedes articulation-only ownership: cheap code owns collection; expensive compute owns discovery. Plugins assemble traceable clues through tools; the LLM reasons across them, discovers what they support and articulates the answer. Historical “plugin owns WHAT/model owns HOW” statements below do not govern new builds.
+
 The September 27 target contract is: plugins define semantic eligibility and routing intent; the harness validates and dispatches that work; each receiving plugin selects permissible evidence, claims, and output form. Laya supplies bounded probability signals and SmolLM3 supplies articulation. The iOS `ArticulatorAnswerSkill` and `ArticulatorAnswerPlan` are the reference for selected material and explicit unknowns. Its strict selected-answer recipe is still opt-in, so this is a boundary to implement and measure, not a claim that every backend character already enforces semantic fidelity.
 
 ## Intake path

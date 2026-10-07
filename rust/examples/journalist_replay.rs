@@ -162,7 +162,7 @@ async fn main() -> Result<()> {
             study: case.memory_study,
             // The exact link that attaches history to a report. A replay case
             // supplies the study directly, so storyline membership is whatever
-            // the case declares; absent means the boundary rule applies.
+            // the case declares; absent means no history is attached.
             storylines: case.storylines,
         };
         let assignment = prompt::prepare(case.subject, case.reports, &memory, case.now)

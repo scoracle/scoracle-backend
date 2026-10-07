@@ -264,14 +264,22 @@ impl OllamaClient {
         let status = resp.status();
         let raw = resp.text().await.context("read ollama response")?;
         if !status.is_success() {
-            return Err(anyhow!(
-                "ollama HTTP {}: {}",
-                status.as_u16(),
-                truncate(&raw, 300)
-            ));
+            return Err(crate::harness::model::ResponseFailure {
+                error: anyhow!("ollama HTTP {}: {}", status.as_u16(), truncate(&raw, 300)),
+                raw_response_body: raw,
+            }
+            .into());
         }
 
-        Ok((Self::decode_response(raw)?, request_body))
+        Ok((
+            Self::decode_response(raw.clone()).map_err(|error| {
+                crate::harness::model::ResponseFailure {
+                    raw_response_body: raw,
+                    error,
+                }
+            })?,
+            request_body,
+        ))
     }
 
     fn decode_response(raw: String) -> Result<GenerateResult> {

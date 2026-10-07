@@ -83,7 +83,8 @@ fn durable_task_identifiers_remain_compatible() {
 
 #[test]
 fn acquisition_web_grants_are_scoped_to_each_plugins_sources() {
-    assert!(HARVESTER.grants_web(DomainClass::CuratedArticles));
+    assert!(!HARVESTER.grants_web(DomainClass::CuratedArticles));
+    assert!(EDITOR.grants_web(DomainClass::CuratedArticles));
     assert!(!HARVESTER.grants_web(DomainClass::NewsRss));
     assert!(!HARVESTER.grants_web(DomainClass::Wikimedia));
     assert!(!HARVESTER.grants_web(DomainClass::BoxscoreSources));
@@ -123,12 +124,15 @@ fn full_and_partial_production_fleets_register() {
 fn harvester_has_independent_identity_and_requires_explicit_enablement() {
     assert_eq!(HARVESTER.task.as_str(), "harvester");
     assert_ne!(HARVESTER.id.as_str(), "scoracle.internal.editor");
-    assert!(!ALL.iter().any(|m| m.task.as_str() == "editor"));
+    assert!(ALL.iter().any(|m| m.task.as_str() == "editor"));
+    assert!(EDITOR.tools.contains(&ToolGrant::Classification));
+    assert!(EDITOR.grants_web(DomainClass::CuratedArticles));
     assert!(!inference_routes()
         .iter()
         .any(|route| route.as_str() == "editor"));
     assert!(HARVESTER.tools.contains(&ToolGrant::Classification));
-    assert!(HARVESTER.grants_web(DomainClass::CuratedArticles));
+    assert!(!HARVESTER.grants_web(DomainClass::CuratedArticles));
+    assert!(EDITOR.grants_web(DomainClass::CuratedArticles));
     assert!(HARVESTER.inference_routes.is_empty());
     assert_eq!(HARVESTER.resources.max_in_flight, 4);
     assert_eq!(HARVESTER.resources.slot_group, None);

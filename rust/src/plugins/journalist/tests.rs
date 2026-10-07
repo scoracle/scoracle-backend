@@ -126,7 +126,15 @@ fn dates_missing_material_and_oversized_reports_have_distinct_dispositions() {
 fn selected_reports_fit_the_context_budget_and_rest_remain_pending() {
     let a = prepared(
         (1..=4)
-            .map(|id| item(id, &format!("Report {id}. {}", "Detail. ".repeat(270))))
+            .map(|id| {
+                item(
+                    id,
+                    &format!(
+                        "Report {id}. {}",
+                        "Detail. ".repeat(SOURCE_BUDGET_BYTES / 20)
+                    ),
+                )
+            })
             .collect(),
     );
     assert_eq!(a.selected.len(), 2);
@@ -349,6 +357,7 @@ fn historical_instruction_overrides_are_not_admitted_to_articulation() {
         }),
         ..Default::default()
     };
+    memory.storylines.insert(1, 1);
     let a = prepare(subject(), vec![item(1, "Cedar won.")], &memory, NOW).unwrap();
     assert!(a.memories.iter().all(Option::is_none));
     assert_eq!(system_prompt(&a), FRESH_TASK);
@@ -443,6 +452,7 @@ fn studied_memory_is_served_with_scope_without_inflating_fresh_evidence() {
             receipt,
             findings: vec![finding],
         }),
+        storylines: HashMap::from([(1, 1)]),
         ..Default::default()
     };
     let a = prepare(subject(), vec![item(1, "Cedar won.")], &memory, NOW).unwrap();
@@ -617,8 +627,7 @@ fn history_is_attached_by_the_reports_own_storyline_and_not_by_the_model() {
     assert_eq!(attached(2), "storyline/3");
     assert!(!system_prompt(&a).contains("the history that contextualizes"));
 
-    // An unlinked report falls through to the boundary rule, and with three
-    // equally-bounded groups the attachment is unknown rather than guessed.
+    // An unlinked report has no history even when the subject has history.
     memory.storylines = HashMap::from([(1, 2)]);
     let a = prepare(
         subject(),
@@ -632,23 +641,42 @@ fn history_is_attached_by_the_reports_own_storyline_and_not_by_the_model() {
 }
 
 #[test]
-fn an_ambiguous_boundary_resolves_to_no_history_rather_than_a_guess() {
-    // Rule 2 requires exactly one candidate. With several groups closing at the
-    // same boundary the plugin cannot tell which belongs, so it attaches none.
+fn synthetic_history_requires_a_matching_storyline_even_with_one_candidate() {
     let mut memory = Continuity {
-        study: Some(multi_group_study(
-            subject(),
-            &[("storyline/1", 0), ("storyline/2", 0), ("storyline/3", 0)],
-        )),
+        study: Some(multi_group_study(subject(), &[("storyline/1", 0)])),
         ..Default::default()
     };
-    let a = prepare(subject(), vec![item(1, "Cedar won.")], &memory, NOW).unwrap();
-    assert_eq!(group_for(&a, 1), None);
-
-    // Exactly one candidate is unambiguous and does attach.
-    memory.study = Some(multi_group_study(subject(), &[("storyline/1", 0)]));
-    let a = prepare(subject(), vec![item(1, "Cedar won.")], &memory, NOW).unwrap();
-    assert_eq!(group_for(&a, 1), Some("storyline/1"));
+    memory.study.as_mut().unwrap().findings[0].reports[0].headline =
+        "Cedar United scheduled training for 11:00 at North Field.".into();
+    let fresh = vec![item(
+        1,
+        "Cedar United updated training to 10:00. No reason was given.",
+    )];
+    for (storyline, expected) in [
+        (None, None),
+        (Some(2), None),
+        (Some(1), Some("storyline/1")),
+    ] {
+        memory.storylines = storyline
+            .map(|id| HashMap::from([(1, id)]))
+            .unwrap_or_default();
+        let a = prepare(subject(), fresh.clone(), &memory, NOW).unwrap();
+        assert_eq!(group_for(&a, 1), expected);
+        let frame = package(&a);
+        assert_eq!(frame.get("memories").is_some(), expected.is_some());
+        assert_eq!(prompt(&a).contains("11:00"), expected.is_some());
+        assert!(prompt(&a).contains("10:00"));
+        assert!(prompt(&a).contains("No reason was given."));
+        assert!(
+            system_prompt(&a).contains("Add no claim that is not supplied.")
+                || system_prompt(&a).contains("Add no history and no claim that is not supplied.")
+        );
+        assert!(system_prompt(&a).contains("not necessarily its events"));
+        assert!(system_prompt(&a).contains("not evidence"));
+    }
+    let a = prepare(subject(), fresh, &Continuity::default(), NOW).unwrap();
+    assert!(package(&a).get("memories").is_none());
+    assert!(system_prompt(&a).contains("No memories were supplied"));
 }
 
 #[test]

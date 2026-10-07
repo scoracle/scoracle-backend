@@ -23,7 +23,7 @@ pub(crate) async fn record_vibe_completed(
     .await
     .context("record vibe completion outbox")
 }
-pub const VIBE_OUTPUT_CONTRACT_VERSION: &str = "vibe-source-card-v2";
+pub const VIBE_OUTPUT_CONTRACT_VERSION: &str = "vibe-reader-card-v4-scored-period";
 const VIBE_LEDGER: LedgerSpec = LedgerSpec {
     plugin_id: crate::plugins::influencer::manifest::MANIFEST.id.as_str(),
     stage: "vibe",
@@ -42,6 +42,7 @@ pub(super) async fn persist_to_vibe_scores(
     // since F2 (mig 147); the typed INSERT stays the stage's own (Postgres-as-serializer).
     let entity_id = item.entity_id_i32()?;
     let prov = &out.provenance;
+    let parts: super::prompt::Parts = serde_json::from_str(&out.input_components_json)?;
     let sentiment: Option<i16> = out.sentiment.map(|n| n as i16);
     let row = sqlx::query(
         r#"
@@ -49,8 +50,14 @@ pub(super) async fn persist_to_vibe_scores(
             entity_type, entity_id, sport,
             trigger_type, trigger_payload,
             sentiment, prompt, hook, input_news_ids,
-            model_version, prompt_version, input_hash
-        ) VALUES ($1,$2,$3,'periodic','null'::jsonb,$4,$5,$6,$7,$8,$9,$10)
+            model_version, prompt_version, input_hash, week_season, week_no,
+            reporting_start, reporting_end, evidence_cutoff, scoring_version, source_references
+        ) VALUES ($1,$2,$3,'periodic','null'::jsonb,$4,$5,$6,$7,$8,$9,$10,$11,$12,
+            to_timestamp($13::double precision),to_timestamp($14::double precision),
+            to_timestamp($15::double precision),$16,
+            (SELECT COALESCE(jsonb_agg(jsonb_build_object('id',a.id,'publisher',a.source,'url',a.url,
+                'published_at',a.published_at) ORDER BY a.id),'[]'::jsonb)
+             FROM news_articles a WHERE a.id=ANY($7)))
         RETURNING id
         "#,
     )
@@ -64,6 +71,12 @@ pub(super) async fn persist_to_vibe_scores(
     .bind(prov.model_version.as_str())
     .bind(prov.prompt_version)
     .bind(prov.input_hash.as_deref())
+    .bind(parts.period.season)
+    .bind(parts.period.week)
+    .bind(parts.period.start)
+    .bind(parts.period.end)
+    .bind(parts.period.cutoff)
+    .bind(super::prompt::SCORE_VERSION)
     .fetch_one(&mut **tx)
     .await
     .context("persist vibe")?;

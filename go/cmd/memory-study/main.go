@@ -39,6 +39,39 @@ func run() error {
 		return err
 	}
 	defer engine.Close(ctx)
+	if kind.Kind == "source_records" {
+		var req duckdb.SourceRecordsRequest
+		if err = json.Unmarshal(data, &req); err != nil {
+			return err
+		}
+		findings, err := engine.StudySourceRecords(ctx, req)
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(os.Stdout).Encode(findings)
+	}
+	if kind.Kind == "scout_records" {
+		var req duckdb.ScoutRecordsRequest
+		if err = json.Unmarshal(data, &req); err != nil {
+			return err
+		}
+		findings, err := engine.StudyScoutRecords(ctx, req)
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(os.Stdout).Encode(findings)
+	}
+	if kind.Kind == "score_history" {
+		var req duckdb.ScoreHistoryRequest
+		if err = json.Unmarshal(data, &req); err != nil {
+			return err
+		}
+		finding, err := engine.StudyScoreHistory(ctx, req)
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(os.Stdout).Encode(finding)
+	}
 	if kind.Kind == "statistic" {
 		var req duckdb.StatisticRequest
 		if err = json.Unmarshal(data, &req); err != nil {

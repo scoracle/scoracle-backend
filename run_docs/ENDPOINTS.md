@@ -1,5 +1,7 @@
 # Scoracle API Endpoints
 
+The [governing contract](../../scoracle-wiki/wiki/Architecture/Harness,%20Plugins,%20Tools,%20and%20LLM%20Contract.md) defines upstream evidence and cognition: tools collect traceable clues; the LLM discovers supported meaning and articulates products. This document owns serving contracts; requests consume prepared products.
+
 > Last updated: 2026-08-22 (Drop 3b — the heat contract is COMPLETE: `heat` is the ONE number key on every board row and profile voice card (native scale); the old per-voice key zoo (`score`, board `impact`-as-score, `card_score`) no longer serves. Rank expressions are product-owned: the vibes board ranks by emotional CHARGE (`ABS(sentiment−50)` — a 3-meltdown outranks a 90-euphoria), the momentum boards default to biggest MOVERS (`ABS(slope)`, either direction; `?direction=up|down` filters one side). From drop 3a: `/stories` + `/story/{id}` serve the Journalist's `recap` + packet `routing_tags`. From drop 2: boards carry `headline` and no prose bodies; profile cards carry `{headline, body, heat}`.)
 
 Single public API base URL:
@@ -17,9 +19,9 @@ The only source of truth is `go/internal/api/server.go`. Every route wired there
 | `GET /api/v1/{sport}/{entityType}/{id}/stats` | season Composite rating + per-event series + `available_seasons` |
 | `GET /api/v1/{sport}/{entityType}/{id}/rating` | model-written stat read + rating trajectory metadata (was `/special`) |
 | `GET /api/v1/{sport}/{entityType}/{id}/momentum` | Rating × Vibe trajectory (was `/trends`) |
-| `GET /api/v1/{sport}/{entityType}/{id}/vibe` | **The Influencer's emotional read** — `current: {headline, body, heat, …}` where **`heat` IS the sentiment (1-100), renamed on the wire per the drop-3b heat contract; `current` carries NO `sentiment` key** (readers that kept the old key silently read null — the articulator's `profile_slice` did until 2026-08-26). `snapshots[]` (the 7-day window) keeps `sentiment` as its per-row key. `current: null` (200, never 404) when the entity has never been scored. **Restored 2026-08-22.** |
+| `GET /api/v1/{sport}/{entityType}/{id}/vibe` | The latest complete Influencer reading at any age: `current: {id, headline, body, heat, generated_at, sources, …}`. `heat` is nullable; score-free cards remain readable. `sources[]` carries article ID, publisher, URL and publication date. `current: null` (200) when no complete card exists. `snapshots[]` retains seven days of scored history and does not select the current card. |
 | `GET /api/v1/{sport}/{entityType}/{id}/sigil` | Sigil crown synthesis — `{headline, body, heat}` + omen/convergence (was per-entity `/vibes`) |
-| `GET /api/v1/{sport}/{entityType}/{id}/vibe` | the Influencer's Vibe card — `current: {headline, body, heat}` (`heat` = the sentiment number; see the row above) + the 7-day `snapshots[]` feed (route restored 2026-08-22; absent since the O14 rename handed `/vibes` to `/sigil`) |
+| `GET /api/v1/{sport}/{entityType}/{id}/vibe` | The latest complete Influencer reading at any age: `current: {id, headline, body, heat, generated_at, sources, …}`. `heat` is nullable; score-free cards remain readable. `sources[]` carries article ID, publisher, URL and publication date. `current: null` (200) when no complete card exists. `snapshots[]` retains seven days of scored history and does not select the current card. |
 | `GET /api/v1/{sport}/{entityType}/{id}/news` | scoped model narratives `{headline, body}` with source freshness and trajectory markers |
 | `GET /api/v1/{sport}/{entityType}/{id}/transfers` | scoped vetted rumor heat, per-pair `headline`s + the Insider's `wire_read`; source freshness and trajectory markers |
 | `GET /api/v1/{sport}/{entityType}/{id}/meta` | per-entity identity (page header); 404 if unknown |
@@ -1092,25 +1094,21 @@ Query `scope` defaults to `current_week`; allowed values are `current_week`, `la
 ```
 `transfers`: vetted (`is_rumor`, per-pair `heat > 0`), latest per pair in the selected scope, ranked by heat (top 25); each row's `headline` is the Insider's one-sentence wire line. Top-level `heat` + `wire_read` are the Insider's latest wrap (wire-busyness score + prose read); both null when the wire was never wrapped. (`card_score` retired from serving with drop 3b.)
 
-**`GET /api/v1/{sport}/{entityType}/{id}/vibe`** — the Influencer's **Vibe card**,
-restored to its own route 2026-08-22 (it had been readable only inside the Analyst's
-`/momentum` payload since the O14 rename handed the `/vibes` path to `/sigil`).
-Serve-latest, matching `/sigil`: `current` is the latest scored generation at ANY age,
-timestamped client-side; an entity never scored serves `current: null` with a **200**
-(never a 404) and the card renders its empty state. `snapshots` is the 7-day feed —
-each read carries its prose, latest first — so the card is self-sufficient in one
-request; the season-length sparkline stays on `/momentum`.
+**`GET /api/v1/{sport}/{entityType}/{id}/vibe`** serves the latest saved complete card, including older unscored legacy cards. Add both `season` and `week` (1–60) to select the latest saved revision in an existing sport reporting-calendar week. Empty periods return `current: null` with HTTP 200; no inference runs on reads. Historical selection never borrows a card from a different period.
+
 ```json
-{ "page": "vibe", "sport": "football", "entity_type": "team", "entity_id": 18,
-  "current": {"heat": 58, "headline": "...", "body": "...",
-              "trigger_type": "periodic", "generated_at": "...",
-              "model_version": "...", "prompt_version": "..."},
-  "window_days": 7,
-  "snapshots": [
-    {"sentiment": 58, "generated_at": "...", "trigger_type": "periodic", "headline": "...", "body": "..."}
-  ] }
+{"page":"vibe","sport":"football","entity_type":"team","entity_id":18,
+ "current":{"id":123,"score":0,"heat":0,"score_scale":"emotional-valence-v1",
+   "headline":"...","body":"First paragraph.\n\nSecond paragraph.",
+   "season":2026,"week":1,"reporting_start":"...","reporting_end":"...",
+   "evidence_cutoff":"...","generated_at":"...","input_hash":"...",
+   "model_version":"...","prompt_version":"...","sources":[]},
+ "season":null,"week":null,"window_days":7,"snapshots":[]}
 ```
-`current` follows the voice-card contract: `{headline, body, heat}` — the hook, the felt read, and the sentiment (1-100) under the uniform number key (drop 3b; the raw `sentiment` key no longer serves on the card — snapshots keep it as time-series data). `headline` is null on rows predating the hook contract (mig 180/v13). `snapshots` is `[]` when the week was quiet.
+
+`score` and legacy `heat` are the same output's emotional valence: 0 distressing, 25 troubled, 50 mixed/balanced, 75 hopeful, 100 joyful. Unknown emotion produces no new card. Current reads retain the latest valid card at its actual date. New cards freeze source references at publication; legacy cards resolve their retained article IDs. Historical query results expose the latest revision, including its actual generation time and acquisition cutoff; they do not pretend a later correction was available earlier. `snapshots` covers seven days by default or the requested reporting period (`window_days:null`).
+
+Requires migration 290 before the API/worker restart. The period generation build is local and has not passed SmolLM3 factual-fidelity acceptance.
 
 ### `GET /api/v1/{sport}/{entityType}/{id}/meta`
 

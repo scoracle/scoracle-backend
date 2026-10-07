@@ -77,6 +77,10 @@ pub async fn create(
 ) -> Result<Generation<Reply>> {
     ensure!(!reports.is_empty(), "Insider needs a verified source");
     let world = prompt::assemble(subject, reports, history, source_records);
+    ensure!(
+        world.len() <= prompt::CONTEXT_BUDGET_BYTES,
+        "Insider article package exceeds reading budget"
+    );
     let hash = crate::util::hash_components(&world);
     let extracted = studio
         .extract(

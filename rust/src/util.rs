@@ -66,7 +66,7 @@ pub fn round1(x: f64) -> f64 {
 }
 
 /// Stable 128-bit debounce fingerprint of a canonical JSON pre-image.
-pub(crate) fn hash_components(canonical_json: &str) -> String {
+pub fn hash_components(canonical_json: &str) -> String {
     let digest = Sha256::digest(canonical_json.as_bytes());
     hex::encode(&digest[..16])
 }

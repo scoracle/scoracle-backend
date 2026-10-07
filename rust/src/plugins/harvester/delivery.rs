@@ -28,6 +28,7 @@ pub async fn load_for_character(
         entity_id,
         sport,
         false,
+        None,
     )
     .await
 }
@@ -48,6 +49,27 @@ pub async fn load_for_insider_subject(
         entity_id,
         sport,
         true,
+        None,
+    )
+    .await
+}
+
+/// Accepted entity evidence, independent of generated stories and delivery completion.
+pub async fn load_accepted(
+    connection: &mut sqlx::PgConnection,
+    subject: &crate::tools::meta::EntityMeta,
+    from: i64,
+    before: i64,
+    cutoff: i64,
+) -> Result<Vec<SourceContext>> {
+    load_on(
+        connection,
+        crate::plugins::influencer::manifest::MANIFEST.id.as_str(),
+        &subject.entity_type,
+        subject.entity_id,
+        &subject.sport,
+        false,
+        Some((from, before, cutoff)),
     )
     .await
 }
@@ -59,6 +81,7 @@ async fn load_on(
     entity_id: i32,
     sport: &str,
     insider_subject: bool,
+    scope: Option<(i64, i64, i64)>,
 ) -> Result<Vec<SourceContext>> {
     let rows = sqlx::query(
         "SELECT DISTINCT ON (c.article_id) c.id AS classification_id, c.article_id, \
@@ -68,15 +91,25 @@ async fn load_on(
          c.contract_version, c.model_provenance->'source_identity' AS source_identity, \
          a.url, a.published_at::text AS published_at \
          FROM public.harvester_classifications c \
-         JOIN public.harvester_assignments d ON d.classification_id=c.id \
+         LEFT JOIN public.harvester_assignments d ON d.classification_id=c.id AND d.plugin_id=$1 \
          JOIN public.news_articles a ON a.id=c.article_id \
-         WHERE d.plugin_id=$1 AND d.reason IS DISTINCT FROM $5 AND c.sport=$4 \
-           AND ((d.status='pending' AND c.entity_type=$2 AND c.entity_id=$3) \
-             OR ($6 AND EXISTS ( \
+         WHERE d.reason IS DISTINCT FROM $5 AND c.sport=$4 \
+           AND (($7::bigint IS NOT NULL AND c.entity_type=$2 AND c.entity_id=$3 \
+             AND c.entity_choice='relevant' AND c.created_at<=to_timestamp($9::double precision) \
+             AND NOT EXISTS (SELECT 1 FROM harvester_classifications newer \
+               WHERE newer.article_id=c.article_id AND newer.sport=c.sport \
+               AND newer.entity_type=c.entity_type AND newer.entity_id=c.entity_id \
+               AND (newer.created_at,newer.id)>(c.created_at,c.id) \
+               AND newer.created_at<=to_timestamp($9::double precision)) \
+             AND a.fetched_at<=to_timestamp($9::double precision) \
+             AND COALESCE(a.published_at,a.fetched_at)>=to_timestamp($7::double precision) \
+             AND COALESCE(a.published_at,a.fetched_at)<to_timestamp($8::double precision)) \
+             OR ($7::bigint IS NULL AND d.status='pending' AND c.entity_type=$2 AND c.entity_id=$3) \
+             OR ($6 AND d.plugin_id=$1 AND EXISTS ( \
                SELECT 1 FROM public.harvester_insider_pairs p \
                 WHERE p.classification_id=c.id AND p.subject_type=$2 \
                   AND p.subject_id=$3 AND p.status='pending'))) \
-         ORDER BY c.article_id, c.created_at DESC, c.id DESC",
+         ORDER BY c.article_id, c.created_at DESC, c.id DESC LIMIT 20001",
     )
     .bind(plugin_id)
     .bind(entity_type)
@@ -84,8 +117,15 @@ async fn load_on(
     .bind(sport)
     .bind(super::adapter::DELIVERY_HELD_REASON)
     .bind(insider_subject)
+    .bind(scope.map(|s| s.0))
+    .bind(scope.map(|s| s.1))
+    .bind(scope.map(|s| s.2))
     .fetch_all(connection)
     .await?;
+    ensure!(
+        rows.len() <= 20000,
+        "accepted source population exceeds bound"
+    );
     let mut sources = Vec::with_capacity(rows.len());
     for row in rows {
         let body: Option<String> = row.get("full_text");
@@ -115,7 +155,10 @@ async fn load_on(
         // binds attribution and date through delivery, not only the body and title.
         if matches!(
             row.get::<String, _>("contract_version").as_str(),
-            "harvest-context-v6" | "harvest-context-v7"
+            "harvest-context-v6"
+                | "harvest-context-v7"
+                | "harvest-context-v8-editor"
+                | "harvest-context-v9-entity-vibe"
         ) {
             let identity: Option<serde_json::Value> = row.get("source_identity");
             ensure!(
@@ -128,6 +171,11 @@ async fn load_on(
                 "Harvester source attribution or publication date drift"
             );
         }
+        let context = if crate::tools::reader::needs_article(plugin_id) {
+            crate::tools::reader::read(body).text
+        } else {
+            context
+        };
         sources.push(SourceContext {
             classification_id: row.get("classification_id"),
             article_id: row.get("article_id"),
@@ -233,6 +281,7 @@ async fn validate_on(
         entity_id,
         sport,
         insider_subject,
+        None,
     )
     .await?;
     for source in sources {

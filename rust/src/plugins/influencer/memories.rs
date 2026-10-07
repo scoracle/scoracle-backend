@@ -1,123 +1,179 @@
-//! Influencer's request and presentation policy for the shared memory tool.
-use crate::plugins::harvester::delivery::SourceContext;
-use crate::tools::memories::{ReportingHistory, Study};
-use crate::tools::meta::EntityMeta;
-use anyhow::Result;
-use sqlx::PgPool;
+//! Direct accepted-source collection and the existing DuckDB reporting study.
+use super::prompt::{Parts, Period, HISTORY_BUDGET_BYTES, SOURCE_BUDGET_BYTES};
+use crate::plugins::harvester::delivery::{load_accepted, SourceContext};
+use crate::tools::{memories, meta::EntityMeta};
+use anyhow::{ensure, Result};
+use serde_json::json;
+use sqlx::{Postgres, Transaction};
 
-pub use crate::tools::memories::HistoryItem;
-pub const LOOKBACK_SECONDS: i64 = 7 * 86400;
-pub const BUDGET_BYTES: usize = 1200;
-const HISTORY: ReportingHistory = ReportingHistory {
-    lookback_seconds: LOOKBACK_SECONDS,
-    max_reports: 2,
-    budget_bytes: BUDGET_BYTES,
-    // The Influencer presents history as a short list of dated headlines and
-    // supplies no grouping, so the shared item omits `group` entirely rather
-    // than presenting the study's one-article-per-observation default as if it
-    // meant something.
-    grouped: false,
-};
-
-pub fn select(
-    study: &Study,
-    subject: &EntityMeta,
-    source: &SourceContext,
-) -> Result<Vec<HistoryItem>> {
-    HISTORY.select(
-        study,
-        subject,
-        source.published_at_epoch,
-        &[source.article_id],
-        |report| {
-            super::prompt::source_disposition(
-                &report.headline,
-                report.reported_at,
-                report.reported_at,
-            )
-            .is_none()
-        },
-    )
-}
+pub const LOOKBACK_SECONDS: i64 = 30 * 86400;
 
 pub async fn load(
-    pool: &PgPool,
-    subject: &EntityMeta,
-    source: &SourceContext,
-) -> Result<Option<Study>> {
-    HISTORY
-        .load(
-            pool,
-            subject,
-            source.published_at_epoch,
-            &[source.article_id],
-        )
-        .await
+    tx: &mut Transaction<'_, Postgres>,
+    subject: EntityMeta,
+    period: Period,
+) -> Result<Parts> {
+    let before = period.end.min(period.cutoff);
+    let candidates = load_accepted(
+        tx,
+        &subject,
+        period.start - LOOKBACK_SECONDS,
+        before,
+        period.cutoff,
+    )
+    .await?;
+    let ids: Vec<i64> = candidates.iter().map(|s| s.article_id).collect();
+    let stored_canonical: Vec<(i64, i64)> =
+        sqlx::query_as("SELECT id,COALESCE(duplicate_of,id) FROM news_articles WHERE id=ANY($1)")
+            .bind(&ids)
+            .fetch_all(&mut **tx)
+            .await?;
+    let stored_canonical: std::collections::HashMap<i64, i64> =
+        stored_canonical.into_iter().collect();
+    // A duplicate flag alone must not erase a changed title or late qualification.
+    let mut copies = std::collections::HashMap::new();
+    let canonical: std::collections::HashMap<i64, i64> = candidates
+        .iter()
+        .map(|s| {
+            let root = *copies
+                .entry((
+                    stored_canonical[&s.article_id],
+                    s.headline.as_str(),
+                    s.context.as_str(),
+                ))
+                .or_insert(s.article_id);
+            (s.article_id, root)
+        })
+        .collect();
+    let observations = candidates
+        .iter()
+        .filter_map(|s| {
+            Some(memories::Observation {
+                article_id: s.article_id,
+                canonical_id: *canonical.get(&s.article_id)?,
+                topic: format!("article/{}", *canonical.get(&s.article_id)?),
+                publisher: s.source.clone(),
+                reported_at: s.published_at_epoch?,
+                headline: s.headline.clone(),
+            })
+        })
+        .collect();
+    let findings = if ids.is_empty() {
+        vec![]
+    } else {
+        memories::compute(&memories::Request {
+            version: memories::VERSION.into(),
+            from: period.start - LOOKBACK_SECONDS,
+            before,
+            limit: 20,
+            per_topic: 1,
+            observations,
+        })
+        .await?
+    };
+    let selected: Vec<i64> = findings
+        .iter()
+        .flat_map(|f| &f.reports)
+        .map(|r| r.article_id)
+        .collect();
+    let mut parts = Parts {
+        subject,
+        period,
+        sources: vec![],
+        history: vec![],
+        excluded: vec![],
+    };
+    let (mut fresh_bytes, mut history_bytes) = (0, 0);
+    for source in candidates {
+        let fresh = source
+            .published_at_epoch
+            .is_some_and(|t| t >= parts.period.start);
+        let reason = super::prompt::source_disposition(&source.context)
+            .or_else(|| {
+                source
+                    .published_at_epoch
+                    .is_none()
+                    .then_some("publication_date_unavailable")
+            })
+            .or_else(|| (!selected.contains(&source.article_id)).then_some("study_selection"));
+        let size = serde_json::to_vec(&source)?.len();
+        let budget_exceeded = if fresh {
+            fresh_bytes + size > SOURCE_BUDGET_BYTES
+        } else {
+            history_bytes + size > HISTORY_BUDGET_BYTES
+        };
+        let reason = reason.or(budget_exceeded.then_some("packet_budget_exceeded"));
+        if let Some(reason) = reason {
+            // Fail visibly rather than publish a period that silently lost a denial.
+            // Historical exclusions remain explicit in the retained packet receipt.
+            let known_copy = canonical.get(&source.article_id).is_some_and(|root| {
+                canonical
+                    .iter()
+                    .any(|(id, r)| r == root && selected.contains(id))
+            });
+            ensure!(
+                !fresh || (reason == "study_selection" && known_copy),
+                "Influencer deferred article {}: {}",
+                source.article_id,
+                reason
+            );
+            parts.excluded.push(
+                json!({"article_id":source.article_id,"classification_id":source.classification_id,
+                "in_period":fresh,"reason":if known_copy && reason=="study_selection" {"known_copy"} else {reason}}),
+            );
+        } else if fresh {
+            fresh_bytes += size;
+            parts.sources.push(source);
+        } else {
+            history_bytes += size;
+            parts.history.push(source);
+        }
+    }
+    let retained: Vec<i64> = parts
+        .sources
+        .iter()
+        .chain(&parts.history)
+        .map(|s| s.article_id)
+        .collect();
+    for copy in parts
+        .excluded
+        .iter()
+        .filter(|e| e["reason"] == "known_copy" && e["in_period"] == true)
+    {
+        let id = copy["article_id"].as_i64().unwrap();
+        let root = canonical[&id];
+        ensure!(
+            canonical
+                .iter()
+                .any(|(id, r)| *r == root && retained.contains(id)),
+            "Influencer deferred copy {id}: canonical source was excluded"
+        );
+    }
+    Ok(parts)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::tools::memories::{Finding, Observation, Receipt};
-    #[test]
-    fn history_excludes_current_future_wrong_subject_and_over_budget_reporting() {
-        let before = 1790553600;
-        let subject = EntityMeta {
-            name: "Club".into(),
-            sport: "FOOTBALL".into(),
-            entity_type: "team".into(),
-            entity_id: 7,
-        };
-        let source = SourceContext {
-            classification_id: 1,
-            article_id: 10,
-            headline: "Fresh".into(),
-            context: "Fresh".into(),
-            source: "Wire".into(),
-            published_at_epoch: Some(before),
-        };
-        let observation = |id, time, headline: &str| Observation {
-            article_id: id,
-            canonical_id: id,
-            topic: "article".into(),
-            publisher: "Old Wire".into(),
-            reported_at: time,
-            headline: headline.into(),
-        };
-        let mut study = Study {
-            receipt: Receipt {
-                version: "test".into(),
-                subject: subject.clone(),
-                from: before - LOOKBACK_SECONDS,
-                before,
-                input_hash: "test".into(),
-                captured_at: before,
-                mvcc_snapshot: "test".into(),
-                observed_articles: 5,
-                included_articles: 0,
-                // no include list,
-            },
-            findings: vec![Finding {
-                from: before - LOOKBACK_SECONDS,
-                before,
-                topic: "article".into(),
-                article_count: 5,
-                publisher_count: 1,
-                publishers: vec![],
-                source_ids: vec![],
-                reports: vec![
-                    observation(10, before - 1, "Current source cannot become history"),
-                    observation(11, before, "Future cannot become history"),
-                    observation(12, before - LOOKBACK_SECONDS - 1, "Too old"),
-                    observation(13, before - 1, &"x".repeat(BUDGET_BYTES + 1)),
-                    observation(14, before - 1, "Club announced training"),
-                ],
-            }],
-        };
-        let selected = select(&study, &subject, &source).unwrap();
-        assert_eq!(selected.len(), 1);
-        assert_eq!(selected[0].reported_headline, "Club announced training");
-        study.receipt.subject.entity_id = 8;
-        assert!(select(&study, &subject, &source).is_err());
-    }
+/// Recheck every supplied receipt under the claim-fenced publication transaction.
+pub async fn validate(tx: &mut Transaction<'_, Postgres>, parts: &Parts) -> Result<()> {
+    let sources: Vec<&SourceContext> = parts.sources.iter().chain(&parts.history).collect();
+    let ids: Vec<i64> = sources.iter().map(|s| s.classification_id).collect();
+    sqlx::query(
+        "SELECT c.id FROM harvester_classifications c JOIN news_articles a ON a.id=c.article_id
+        WHERE c.id=ANY($1) ORDER BY c.id FOR SHARE OF c,a",
+    )
+    .bind(ids)
+    .fetch_all(&mut **tx)
+    .await?;
+    let current = load_accepted(
+        tx,
+        &parts.subject,
+        parts.period.start - LOOKBACK_SECONDS,
+        parts.period.end.min(parts.period.cutoff),
+        super::now(),
+    )
+    .await?;
+    ensure!(
+        sources.iter().all(|s| current.contains(s)),
+        "Influencer source changed during generation"
+    );
+    Ok(())
 }

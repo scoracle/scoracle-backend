@@ -2,6 +2,8 @@
 
 Repo-local implementation guidance for `scoracle-backend`. Start with `README.md`, then use this file when adding endpoints, migrations, SQL contracts, or backend code.
 
+The [governing contract](../../scoracle-wiki/wiki/Architecture/Harness,%20Plugins,%20Tools,%20and%20LLM%20Contract.md) defines the cognitive boundary: cheap code owns collection; expensive compute owns discovery. Plugins assemble traceable clues through tools; the LLM reasons across them, discovers supported meaning and articulates the answer. Documentation consolidation to about five guides is deferred to a subsequent session. Dated plans and evaluation records are optional evidence, not additional startup doctrine.
+
 ## Design Rules
 
 1. Postgres owns durable world state, provenance, products, work state, and serving projections.
@@ -14,13 +16,13 @@ Repo-local implementation guidance for `scoracle-backend`. Start with `README.md
 
 ## Dependency and migration boundaries
 
-Plugins prepare typed assignments and supply models with selected evidence; models never call tools. The harness binds declared inference and acquisition capabilities. Keep prompt construction, parsing and product assembly testable with injected models. `Generation<T>` carries provenance; errors reach the durable worker, and plugin effects commit through the harness's claim-fenced publication transaction.
+Plugins prepare typed assignments and supply models with clues, relationships, measurements and explicit limits, empowering discovery rather than prescribing the conclusion. Current models receive prepared tool results and do not call tools. The harness binds declared inference and acquisition capabilities. Keep prompt construction, parsing and product assembly testable with injected models. `Generation<T>` carries provenance; errors reach the durable worker, and plugin effects commit through the harness's claim-fenced publication transaction.
 
 A migration slice preserves the existing material, hash, prompt, and output meaning before adding richer evidence. Then version any intentional analytical or character-contract change and evaluate its value. Preserve missingness, coverage, measurement origin, and snapshot provenance; missing data must not silently become zero.
 
 One producer owns each live output during cutover. Migration 256 establishes queue acknowledgement ownership: a running item has a unique claim token and captured input revision, and every complete/fail/defer/release must match both. Migrations 257–261 apply the publication pattern to Influencer, Analyst, Scout, Journalist, and Insider: infer without a transaction, then lock the exact claim and commit any product plus required provenance and the seat's narrow durable follow-up intent. A superseded execution publishes nothing. Insider preserves bounded partial progress: each pair or identity effect rechecks the exact team lease, served pairs atomically record distinct player Oracle barriers, and final completion records the team barrier while deleting the claim. Analyst `NoMaterial`, Scout debounce, Journalist debounce, and cleared transfer pairs commit no product but preserve their required lifecycle semantics. Scout's no-stats marker follows the normal Momentum path; Journalist's no-corpus or called-empty edition writes one marker. Journalist also commits all chapter rows and storyline progression atomically. Optional diagnostic ledger writes remain best-effort after commit and are not proof of durability. Bind dependencies when constructing a plugin. Its sole `execute(Item)` entry point must report a durable `PluginOutcome` (committed, deferred with its progress guarantee, or superseded); the worker performs the queue operation and never completes successful work or dispatches a best-effort follow-up. A defer without durable progress falls to the retry ladder. Harvester, Investigator, and Graph atomically publish their retained effects and exact completion; terminal Oracle needs no outbox. Use the approved wiki modernization plan for live acceptance and analytical gates.
 
-Update the README and wiki data-flow implementation status with each migrated boundary. Use the current [Rust architecture contract](../rust/README.md) and completed [cleanup plan](../rust/docs/PLAN-harness-plugin-cleanup-2026-10-05.md) for ownership and validation.
+Update the README and wiki data-flow implementation status with each migrated boundary. Use the governing contract for ownership and the backend overview for current implementation. Validate each change through its production preparation path.
 
 ## Shared worker scheduling
 

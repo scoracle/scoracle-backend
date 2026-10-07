@@ -10,10 +10,10 @@
     "transfer_is_rumor": false
   },
   "name": "explicit-denial-clears-prior-rumor",
-  "prompt_version": "insider-source-v3",
+  "prompt_version": "insider-source-v6-concise-body",
   "task": "transfer",
   "temperature": 0.0,
-  "user_prompt": "{\"meta\":{\"name\":\"Lina Foss\",\"entity_type\":\"player\",\"sport\":\"FOOTBALL\"},\"fresh\":{\"reports\":[{\"publisher\":\"TV2\",\"headline\":\"Everton deny talks for Lina Foss\",\"publisher_excerpt\":\"Everton denied talks to sign Lina Foss after earlier reports linked the player with the club.\",\"co_mentions\":[{\"name\":\"Everton\",\"entity_type\":\"team\"}]}]},\"voice\":\"Informed, alert, measured.\",\"form\":{\"keys\":[\"body\",\"findings\"],\"max_chars\":1200,\"paragraph_max_chars\":null,\"findings\":{\"type\":\"array\",\"item_keys\":[\"report_index\",\"counterparty\",\"status\",\"stage\",\"evidence_quote\"]}}}",
+  "user_prompt": "{\"meta\":{\"name\":\"Lina Foss\",\"entity_type\":\"player\",\"sport\":\"FOOTBALL\"},\"fresh\":{\"reports\":[{\"publisher\":\"TV2\",\"headline\":\"Everton deny talks for Lina Foss\",\"publisher_excerpt\":\"Everton denied talks to sign Lina Foss after earlier reports linked the player with the club.\",\"co_mentions\":[{\"name\":\"Everton\",\"entity_type\":\"team\"}]}]},\"voice\":\"Informed, alert, measured.\",\"form\":{\"keys\":[\"body\",\"findings\"],\"findings\":{\"type\":\"array\",\"item_keys\":[\"report_index\",\"counterparty\",\"status\",\"stage\",\"evidence_quote\"]},\"paragraphs\":\"concise\"}}",
   "review": [
     "A source-grounded denied finding has stage null and clears the earlier reported move. Silence alone does not."
   ],

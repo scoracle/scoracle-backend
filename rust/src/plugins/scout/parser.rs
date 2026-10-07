@@ -4,18 +4,10 @@ use crate::harness::Parser;
 use anyhow::Result;
 use std::collections::BTreeMap;
 
-/// Scout supplies the title and enforces a 1,200-character body ceiling.
-/// There is no per-paragraph ceiling.
-pub const SCOUT_PARAGRAPH_MAX_CHARS: Option<usize> = None;
+/// Scout supplies the header; prose validation preserves complete paragraphs.
 
 pub fn prose() -> crate::tools::form::Prose {
-    crate::tools::form::Prose::new(
-        &["body"],
-        crate::tools::form::Dimensions::new(
-            crate::tools::form::BODY_MAX_CHARS,
-            SCOUT_PARAGRAPH_MAX_CHARS,
-        ),
-    )
+    crate::tools::form::Prose::new(&["body"])
 }
 
 /// Output contract captured separately in the diagnostic ledger.
@@ -91,7 +83,7 @@ impl Parser<RatingReply> for RatingParser {
         let mut prose_only = crate::tools::form::ProseMap::new();
         prose_only.push("body", Some(body.clone()));
         prose_only
-            .validate(prose.dims)
+            .validate()
             .map_err(|e| crate::tools::form::SurfaceError(e.to_string()))?;
         if let Some(p) = crate::tools::guards::first_banned_phrase(&body, RATING_BODY_BANS) {
             tracing::warn!(

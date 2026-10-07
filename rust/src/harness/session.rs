@@ -9,14 +9,9 @@ use std::time::Duration;
 
 pub fn publishing_correction(error: &anyhow::Error) -> Option<String> {
     if error.is::<SurfaceError>() {
-        return Some(format!(
-            "{error} Rewrite from scratch as one compact paragraph. Keep only the main finding and one supporting detail. Target at most 500 body characters so the complete JSON fits. Do not enumerate every input."
-        ));
+        return Some(format!("{error} Return the complete requested JSON with nonblank prose in concise paragraphs, preserving the supplied evidence and schema."));
     }
-    if error.is::<crate::harness::model::IncompleteOutput>() {
-        return Some("the response ran out of space. Rewrite from scratch as one compact paragraph. Keep only the main finding and one supporting detail. Target at most 500 body characters so the complete JSON fits. Do not enumerate every input.".to_string());
-    }
-    None
+    structured_correction(error)
 }
 
 pub fn structured_correction(error: &anyhow::Error) -> Option<String> {
@@ -147,7 +142,7 @@ mod surface_tests {
             num_predict: 700,
             ..Default::default()
         };
-        for first in ["x".repeat(1201), "length".into()] {
+        for first in [" ".into(), "length".into()] {
             let backend = Backend(Mutex::new(vec![
                 first,
                 "The measured creation is strong.".into(),
@@ -167,14 +162,14 @@ mod surface_tests {
                 .starts_with("Original evidence\nOutput correction:"));
             assert!(result
                 .built_prompt
-                .contains("Target at most 500 body characters"));
+                .contains("preserving the supplied evidence and schema"));
             assert_eq!(result.request_body["num_ctx"], 4096);
             assert_eq!(result.request_body["num_predict"], 700);
         }
         let backend = Backend(Mutex::new(vec![
-            "x".repeat(1201),
-            "x".repeat(1201),
-            "x".repeat(1201),
+            " ".into(),
+            " ".into(),
+            " ".into(),
             "unused".into(),
         ]));
         assert!(extract_with_backend(
@@ -197,8 +192,8 @@ mod surface_tests {
             ..Default::default()
         };
         let backend = Backend(Mutex::new(vec![
-            "x".repeat(1201),
-            "x".repeat(1201),
+            " ".into(),
+            " ".into(),
             "The measured creation is strong.".into(),
         ]));
         let result = extract_with_backend(

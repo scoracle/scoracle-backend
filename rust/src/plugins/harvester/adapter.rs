@@ -52,7 +52,6 @@ fn delivery_characters() -> Result<HashSet<&'static str>> {
 pub struct HarvesterHandler {
     pool: PgPool,
     model: Arc<dyn DecisionModel>,
-    web: Arc<WebBroker>,
 }
 
 struct Source {
@@ -74,8 +73,8 @@ struct Query {
 }
 
 impl HarvesterHandler {
-    pub fn new(pool: PgPool, model: Arc<dyn DecisionModel>, web: Arc<WebBroker>) -> Self {
-        Self { pool, model, web }
+    pub fn new(pool: PgPool, model: Arc<dyn DecisionModel>) -> Self {
+        Self { pool, model }
     }
 }
 
@@ -547,7 +546,11 @@ async fn publish(
     // Identity extraction is grounded in a publisher opening that passed the
     // entity gate. Unrelated Google results cannot nominate graph identities.
     if !shadow_mode {
-        if let Some(relevant_context) = contexts.iter().find(|c| c.entity_choice == "relevant") {
+        if let Some(relevant_context) = contexts.iter().find(|c| {
+            c.predicate_scores
+                .get("article_relevance")
+                .is_some_and(|p| *p >= crate::plugins::editor::prompt::RELEVANCE_THRESHOLD)
+        }) {
             let opening = relevant_context.context.text.as_str();
             record_identity_candidates(
                 tx,
@@ -722,12 +725,24 @@ async fn publish(
                     },
                 )
                 .await?;
+                if route.delivery_name == "influencer" {
+                    sqlx::query("UPDATE pipeline_work SET available_at=GREATEST(available_at,NOW()+INTERVAL '60 seconds')
+                        WHERE stage='vibe' AND entity_type=$1 AND entity_id=$2 AND sport=$3 AND status='pending'")
+                        .bind(&context.hypothesis.entity_type).bind(context.hypothesis.entity_id)
+                        .bind(&context.hypothesis.sport).execute(&mut **tx).await?;
+                }
             }
         }
     }
     // Graph receives exact name-surface candidates as well as historical
     // resolved links, then makes its own evidence decision.
-    if shadow_mode || !contexts.iter().any(|c| c.entity_choice == "relevant") {
+    if shadow_mode
+        || !contexts.iter().any(|c| {
+            c.predicate_scores
+                .get("article_relevance")
+                .is_some_and(|p| *p >= crate::plugins::editor::prompt::RELEVANCE_THRESHOLD)
+        })
+    {
         publication.commit_final().await?;
         return Ok(PluginOutcome::Committed);
     }
@@ -800,108 +815,215 @@ impl StudioPlugin for HarvesterHandler {
             let headline = article(&source, query, item.entity_id, "");
             gates.push(context::classify_headline(self.model.as_ref(), &headline).await?);
         }
-        if gates.iter().all(|gate| !gate.admits_reading()) {
-            return publish(&self.pool, item, &source, None, None, &gates, &[]).await;
-        }
-        let web = self.web.scope(&self.pool, self.manifest());
-        let (body, fetched) = if let Some(body) = source
-            .retained_body
-            .as_deref()
-            .filter(|x| has_usable_paragraph_opening(x))
-        {
-            (clean_body(body), None)
-        } else {
-            let fetch_url = source.publisher_url.as_deref().unwrap_or(&source.url);
-            match web.fetch_curated_article(fetch_url).await {
-                Ok(fetched) => (clean_body(&fetched.text), Some(fetched)),
-                Err(error) => {
-                    let final_url =
-                        http_article_status(&error).map(|status| status.final_url.as_str());
-                    let final_domain = final_url.and_then(domain_of);
-                    return record_retryable_error(
-                        &self.pool,
-                        item,
-                        &source,
-                        &gates,
-                        acquisition_failure_status(&error),
-                        &format!("{error:#}"),
-                        None,
-                        final_url,
-                        final_domain.as_deref(),
-                    )
-                    .await;
-                }
-            }
+        publish_headlines(&self.pool, item, &source, &gates).await
+    }
+}
+
+fn editor_input_version(gates: &[HeadlineGate]) -> String {
+    let inputs: Vec<_> = gates
+        .iter()
+        .map(|g| (&g.hypothesis, &g.input_hash, &g.model_revision))
+        .collect();
+    format!(
+        "editor:{}",
+        crate::util::hash_components(
+            &serde_json::to_string(&inputs).expect("headline identities serialize")
+        )
+    )
+}
+
+async fn publish_headlines(
+    pool: &PgPool,
+    item: &Item,
+    source: &Source,
+    gates: &[HeadlineGate],
+) -> Result<PluginOutcome> {
+    let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
+        return Ok(PluginOutcome::Superseded);
+    };
+    let tx = publication.transaction();
+    lock_source(tx, item.entity_id, source).await?;
+    store_headline_gates(tx, source, item.entity_id, gates).await?;
+    if gates.iter().any(HeadlineGate::admits_reading) {
+        crate::harness::queue::work::enqueue(
+            &mut **tx,
+            &Item {
+                stage: crate::plugins::editor::manifest::TASK,
+                entity_type: "article".into(),
+                entity_id: item.entity_id,
+                sport: item.sport.clone(),
+                input_version: Some(editor_input_version(gates)),
+                attempts: 0,
+                claim_token: None,
+            },
+        )
+        .await?;
+    }
+    publication.commit_final().await?;
+    Ok(PluginOutcome::Committed)
+}
+
+async fn load_headline_gates(
+    pool: &PgPool,
+    source: &Source,
+    queries: &[Query],
+    article_id: i64,
+) -> Result<Vec<HeadlineGate>> {
+    let mut gates = Vec::with_capacity(queries.len());
+    for query in queries {
+        let headline = article(source, query, article_id, "");
+        let request = super::prompt::prepare(&headline)?;
+        let input_hash = crate::util::hash_components(&serde_json::to_string(&request)?);
+        let row = sqlx::query("SELECT model_revision, request, answer, model_provenance, raw_response FROM public.harvester_headline_gates WHERE article_id=$1 AND entity_type=$2 AND entity_id=$3 AND sport=$4 AND contract_version=$5 AND input_hash=$6 AND policy_version=$7 ORDER BY created_at DESC, model_revision DESC LIMIT 1")
+            .bind(article_id).bind(&query.entity_type).bind(query.entity_id).bind(&query.sport)
+            .bind(context::HEADLINE_CONTRACT).bind(&input_hash).bind(context::HEADLINE_POLICY).fetch_one(pool).await?;
+        let gate = HeadlineGate {
+            article_id,
+            headline: source.title.clone(),
+            hypothesis: headline.hypothesis,
+            request: serde_json::from_value(row.get("request"))?,
+            input_hash,
+            model_revision: row.get("model_revision"),
+            response: super::decision::DecisionResponse {
+                answers: std::collections::BTreeMap::from([(
+                    "relevance".into(),
+                    serde_json::from_value(row.get("answer"))?,
+                )]),
+                provenance: row.get("model_provenance"),
+                raw_response: row.get("raw_response"),
+            },
         };
-        if count_words(&body) < 20 {
-            return record_retryable_error(
-                &self.pool,
-                item,
-                &source,
-                &gates,
-                "low_content",
-                "publisher returned too little article text",
-                Some(&body),
-                fetched.as_ref().map(|article| article.final_url.as_str()),
-                fetched
-                    .as_ref()
-                    .and_then(|article| article.final_domain.as_deref()),
-            )
-            .await;
-        }
-        if !has_usable_paragraph_opening(&body) {
-            return record_retryable_error(
-                &self.pool,
-                item,
-                &source,
-                &gates,
-                "low_content",
-                "publisher opening lacks thirty words across preserved paragraphs",
-                Some(&body),
-                fetched.as_ref().map(|article| article.final_url.as_str()),
-                fetched
-                    .as_ref()
-                    .and_then(|article| article.final_domain.as_deref()),
-            )
-            .await;
-        }
-        let mut contexts = Vec::with_capacity(queries.len());
-        for (query, gate) in queries.iter().zip(&gates) {
-            if !gate.admits_reading() {
-                continue;
+        gate.verify_against(&article(source, query, article_id, ""))?;
+        gates.push(gate);
+    }
+    Ok(gates)
+}
+
+/// Shared acquisition/publication plumbing; Editor owns this stage's model and policy.
+pub(crate) async fn execute_editor(
+    pool: &PgPool,
+    model: &dyn DecisionModel,
+    web: &Arc<WebBroker>,
+    manifest: &'static PluginManifest,
+    item: &Item,
+) -> Result<PluginOutcome> {
+    item.require_claim_token()?;
+    ensure!(
+        item.stage == crate::plugins::editor::manifest::TASK && item.entity_type == "article",
+        "Editor requires an article claim"
+    );
+    let source = load_source(pool, item.entity_id)
+        .await?
+        .context("claimed article disappeared")?;
+    if source.duplicate_of.is_some() {
+        return publish(pool, item, &source, None, None, &[], &[]).await;
+    }
+    let queries = load_queries(pool, item.entity_id, &item.sport).await?;
+    let gates = load_headline_gates(pool, &source, &queries, item.entity_id).await?;
+    ensure!(
+        item.input_version.as_deref() == Some(editor_input_version(&gates).as_str()),
+        "Editor intake changed; rerun headline screening before reading"
+    );
+    if gates.iter().all(|g| !g.admits_reading()) {
+        return publish(pool, item, &source, None, None, &gates, &[]).await;
+    }
+    let web = web.scope(pool, manifest);
+    let (body, fetched) = if let Some(body) = source
+        .retained_body
+        .as_deref()
+        .filter(|x| has_usable_paragraph_opening(x))
+    {
+        (clean_body(body), None)
+    } else {
+        let fetch_url = source.publisher_url.as_deref().unwrap_or(&source.url);
+        match web.fetch_curated_article(fetch_url).await {
+            Ok(fetched) => (clean_body(&fetched.text), Some(fetched)),
+            Err(error) => {
+                let final_url = http_article_status(&error).map(|status| status.final_url.as_str());
+                let final_domain = final_url.and_then(domain_of);
+                return record_retryable_error(
+                    pool,
+                    item,
+                    &source,
+                    &gates,
+                    acquisition_failure_status(&error),
+                    &format!("{error:#}"),
+                    None,
+                    final_url,
+                    final_domain.as_deref(),
+                )
+                .await;
             }
-            let article = article(&source, query, item.entity_id, &body);
-            match context::classify_after_headline(self.model.as_ref(), &article, gate).await {
-                Ok(context) => contexts.push(context),
-                Err(error) => {
-                    return record_retryable_error(
-                        &self.pool,
-                        item,
-                        &source,
-                        &gates,
-                        "classification_error",
-                        &format!("{error:#}"),
-                        Some(&body),
-                        fetched.as_ref().map(|article| article.final_url.as_str()),
-                        fetched
-                            .as_ref()
-                            .and_then(|article| article.final_domain.as_deref()),
-                    )
-                    .await
-                }
-            }
         }
-        publish(
-            &self.pool,
+    };
+    if count_words(&body) < 20 {
+        return record_retryable_error(
+            pool,
             item,
             &source,
-            Some(&body),
-            fetched.as_ref(),
             &gates,
-            &contexts,
+            "low_content",
+            "publisher returned too little article text",
+            Some(&body),
+            fetched.as_ref().map(|article| article.final_url.as_str()),
+            fetched
+                .as_ref()
+                .and_then(|article| article.final_domain.as_deref()),
         )
-        .await
+        .await;
     }
+    if !has_usable_paragraph_opening(&body) {
+        return record_retryable_error(
+            pool,
+            item,
+            &source,
+            &gates,
+            "low_content",
+            "publisher opening lacks thirty words across preserved paragraphs",
+            Some(&body),
+            fetched.as_ref().map(|article| article.final_url.as_str()),
+            fetched
+                .as_ref()
+                .and_then(|article| article.final_domain.as_deref()),
+        )
+        .await;
+    }
+    let mut contexts = Vec::with_capacity(queries.len());
+    for (query, gate) in queries.iter().zip(&gates) {
+        if !gate.admits_reading() {
+            continue;
+        }
+        let article = article(&source, query, item.entity_id, &body);
+        match context::classify_after_headline(model, &article, gate).await {
+            Ok(context) => contexts.push(context),
+            Err(error) => {
+                return record_retryable_error(
+                    pool,
+                    item,
+                    &source,
+                    &gates,
+                    "classification_error",
+                    &format!("{error:#}"),
+                    Some(&body),
+                    fetched.as_ref().map(|article| article.final_url.as_str()),
+                    fetched
+                        .as_ref()
+                        .and_then(|article| article.final_domain.as_deref()),
+                )
+                .await
+            }
+        }
+    }
+    publish(
+        pool,
+        item,
+        &source,
+        Some(&body),
+        fetched.as_ref(),
+        &gates,
+        &contexts,
+    )
+    .await
 }
 
 #[cfg(test)]
@@ -997,7 +1119,6 @@ mod tests {
         themes: &'static [&'static str],
     }
 
-    struct SmokeVibe;
     struct SmokeInsider(std::sync::Mutex<Vec<String>>);
     struct SmokeScout;
 
@@ -1168,58 +1289,16 @@ mod tests {
     }
 
     #[async_trait]
-    impl Inference for SmokeVibe {
-        async fn generate(
-            &self,
-            prompt: &str,
-            options: &GenerateOptions,
-        ) -> Result<(GenerateResult, serde_json::Value)> {
-            ensure!(
-                prompt.contains("Supporters cheered the announcement at the ground")
-                    || prompt.contains("supporters cheered the plans for the next community event")
-            );
-            ensure!(!prompt.contains("Thin RSS description"));
-            ensure!(options
-                .format_schema
-                .as_ref()
-                .is_some_and(|s| s["properties"]["body"]["type"].is_array()));
-            let response = if prompt.contains("\"name\":\"Harvester Test Club\"") {
-                r#"{"body":"Supporters cheered the community announcement at the ground."}"#
-            } else {
-                r#"{"body":null}"#
-            };
-            Ok((
-                GenerateResult {
-                    response: response.into(),
-                    thinking: String::new(),
-                    model: "smoke-vibe".into(),
-                    total_duration: Duration::from_millis(5),
-                    prompt_eval_count: 10,
-                    eval_count: 8,
-                    completion_reason: Some("stop".into()),
-                    raw_response_body: response.into(),
-                },
-                json!({"source_prompt": prompt}),
-            ))
-        }
-
-        fn model(&self) -> &str {
-            "smoke-vibe"
-        }
-
-        fn request_body(&self, prompt: &str, _options: &GenerateOptions) -> serde_json::Value {
-            json!({"source_prompt": prompt})
-        }
-    }
-
-    #[async_trait]
     impl DecisionModel for SmokeLaya {
         async fn evaluate(&self, request: &DecisionRequest) -> Result<DecisionResponse> {
             let answers = request
                 .questions
                 .keys()
                 .map(|key| {
-                    let choice = if key == "relevance" || self.themes.contains(&key.as_str()) {
+                    let choice = if key == "relevance"
+                        || key == "article_relevance"
+                        || self.themes.contains(&key.as_str())
+                    {
                         "relevant"
                     } else {
                         "irrelevant"
@@ -1325,11 +1404,7 @@ mod tests {
             .await?
             .remove(0);
         ensure!(claimed.entity_id == ARTICLE, "test claimed another article");
-        let handler = HarvesterHandler::new(
-            pool.clone(),
-            Arc::new(HeadlineRejectLaya),
-            Arc::new(WebBroker::new(0)?),
-        );
+        let handler = HarvesterHandler::new(pool.clone(), Arc::new(HeadlineRejectLaya));
         assert_eq!(handler.execute(&claimed).await?, PluginOutcome::Committed);
         let (choice, state, probability): (String, String, f64) = sqlx::query_as(
             "SELECT choice,request->>'state',(answer->>'noul')::float8 \
@@ -1379,26 +1454,31 @@ mod tests {
             .bind(TEAM).bind(SPORT).execute(&pool).await?;
         let body = "The club returned to training on Monday morning after its weekend match. The coaching staff supervised the session at the training ground.\n\nThe players worked together before the next scheduled match later this week.\n\nThe session ended at noon.";
         let cases: &[(&[&str], &str, &[(&str, bool)], &[&str])] = &[
-            // Selected material stays held when delivery is disabled.
             (
                 &["narrative"],
                 "",
-                &[("scoracle.character.narrative", true)],
+                &[
+                    ("scoracle.character.narrative", true),
+                    ("scoracle.character.vibe", true),
+                ],
                 &[],
             ),
-            // Enabling Influencer cannot create eligibility; disabling Journalist
-            // cannot erase its pending source receipt.
             (
                 &["narrative", "fitness"],
                 "influencer,scout",
                 &[
                     ("scoracle.character.narrative", true),
+                    ("scoracle.character.vibe", false),
                     ("scoracle.character.rating", false),
                 ],
-                &["rating"],
+                &["rating", "vibe"],
             ),
-            // Even fully enabled delivery cannot route a negative theme pass.
-            (&[], "journalist,influencer,insider,scout", &[], &[]),
+            (
+                &[],
+                "journalist,influencer,insider,scout",
+                &[("scoracle.character.vibe", false)],
+                &["vibe"],
+            ),
         ];
         for (index, (themes, enabled, expected_receipts, expected_tasks)) in
             cases.iter().enumerate()
@@ -1434,12 +1514,21 @@ mod tests {
                 .remove(0);
             assert_eq!(claim.entity_id, article_id);
             std::env::set_var("HARVESTER_DELIVERY_CHARACTERS", enabled);
-            let handler = HarvesterHandler::new(
+            let handler = HarvesterHandler::new(pool.clone(), Arc::new(SmokeLaya { themes }));
+            assert_eq!(handler.execute(&claim).await?, PluginOutcome::Committed);
+            let editor_claim = work::claim(&pool, crate::plugins::editor::manifest::TASK, 1)
+                .await?
+                .remove(0);
+            assert_eq!(editor_claim.entity_id, article_id);
+            let editor = crate::plugins::editor::EditorHandler::new(
                 pool.clone(),
                 Arc::new(SmokeLaya { themes }),
                 Arc::new(WebBroker::new(0)?),
             );
-            assert_eq!(handler.execute(&claim).await?, PluginOutcome::Committed);
+            assert_eq!(
+                editor.execute(&editor_claim).await?,
+                PluginOutcome::Committed
+            );
             let receipts: Vec<(String, bool)> = sqlx::query_as(
                 "SELECT d.plugin_id,COALESCE(d.reason=$2,false) FROM public.harvester_assignments d JOIN public.harvester_classifications c ON c.id=d.classification_id WHERE c.article_id=$1 ORDER BY d.plugin_id",
             ).bind(article_id).bind(DELIVERY_HELD_REASON).fetch_all(&pool).await?;
@@ -1666,7 +1755,6 @@ mod tests {
                     "fitness",
                 ],
             }),
-            Arc::new(WebBroker::new(0)?),
         );
         // Source attribution must not change between preparation and publication.
         let source = load_source(&pool, ARTICLE).await?.unwrap();
@@ -1700,6 +1788,18 @@ mod tests {
             .await?;
         std::env::set_var("HARVESTER_SHADOW_MODE", "1");
         assert_eq!(handler.execute(&claimed).await?, PluginOutcome::Committed);
+        let editor = crate::plugins::editor::EditorHandler::new(
+            pool.clone(),
+            handler.model.clone(),
+            Arc::new(WebBroker::new(0)?),
+        );
+        let editor_claim = work::claim(&pool, crate::plugins::editor::manifest::TASK, 1)
+            .await?
+            .remove(0);
+        assert_eq!(
+            editor.execute(&editor_claim).await?,
+            PluginOutcome::Committed
+        );
         let shadow_assignments: i64 = sqlx::query_scalar(
             "SELECT count(*) FROM public.harvester_assignments d JOIN public.harvester_classifications c ON c.id=d.classification_id WHERE c.article_id=$1"
         ).bind(ARTICLE).fetch_one(&pool).await?;
@@ -1716,6 +1816,17 @@ mod tests {
                 handler.execute(&live_claim).await?,
                 PluginOutcome::Committed
             );
+            let editor_claim = work::claim(&pool, crate::plugins::editor::manifest::TASK, 1)
+                .await?
+                .remove(0);
+            assert_eq!(
+                editor.execute(&editor_claim).await?,
+                PluginOutcome::Committed
+            );
+            assert_eq!(
+                editor.execute(&editor_claim).await?,
+                PluginOutcome::Superseded
+            );
             assert_eq!(
                 handler.execute(&live_claim).await?,
                 PluginOutcome::Superseded
@@ -1730,12 +1841,20 @@ mod tests {
             sqlx::query(mutation).bind(ARTICLE).execute(&pool).await?;
             work::enqueue(&pool, &claimed).await?;
             let revised_claim = work::claim(&pool, super::super::manifest::TASK, 1).await?.remove(0);
-            let error = handler.execute(&revised_claim).await.unwrap_err();
+            assert_eq!(handler.execute(&revised_claim).await?, PluginOutcome::Committed);
+            let editor_claim = work::claim(&pool, crate::plugins::editor::manifest::TASK, 1).await?.remove(0);
+            let error = editor.execute(&editor_claim).await.unwrap_err();
             assert!(error.to_string().contains("existing Harvester receipt differs"));
+            // Mirror the worker's failure transition before requeuing restored evidence.
+            assert!(work::fail(&pool, &editor_claim, &error.to_string(), Duration::ZERO, 5).await?);
             sqlx::query("UPDATE public.news_articles SET title='Harvester Test Club announces community event',source='Example Wire' WHERE id=$1")
                 .bind(ARTICLE).execute(&pool).await?;
-            // Failure rolls back receipt effects and leaves the claim usable.
-            assert_eq!(handler.execute(&revised_claim).await?, PluginOutcome::Committed);
+            // Failure rolls back Editor receipt effects. A restored headline needs a new intake intent.
+            work::enqueue(&pool, &claimed).await?;
+            let intake = work::claim(&pool, super::super::manifest::TASK, 1).await?.remove(0);
+            assert_eq!(handler.execute(&intake).await?, PluginOutcome::Committed);
+            let restored = work::claim(&pool, crate::plugins::editor::manifest::TASK, 1).await?.remove(0);
+            assert_eq!(editor.execute(&restored).await?, PluginOutcome::Committed);
         }
         let classifications: Vec<(i32, String, String, String)> = sqlx::query_as(
             "SELECT entity_id,entity_choice,context_text,headline FROM public.harvester_classifications WHERE article_id=$1 ORDER BY entity_id"
@@ -1842,117 +1961,6 @@ mod tests {
         let scout_work: i64 = sqlx::query_scalar("SELECT count(*) FROM public.pipeline_work WHERE stage='rating' AND entity_id IN ($1,$2) AND sport=$3")
             .bind(TEAM).bind(OTHER_TEAM).bind(SPORT).fetch_one(&pool).await?;
         assert_eq!(scout_work, 2);
-        // Two verified sources for one entity must produce two dispositions.
-        let second_body = "Harvester Test Club supporters cheered the plans for the next community event. The organizers invited local families. The club expects a large turnout.";
-        sqlx::query("INSERT INTO public.news_articles(id,url_hash,url,source,title,full_text) VALUES($1,$2,$3,$4,$5,$6)")
-            .bind(SECOND_ARTICLE).bind("harvester-smoke-9690104")
-            .bind("https://example.test/harvester-smoke-second").bind("Example Wire")
-            .bind("Harvester Test Club plans another event").bind(second_body)
-            .execute(&pool).await?;
-        sqlx::query("INSERT INTO public.harvester_query_provenance(article_id,entity_type,entity_id,sport,feed_rank) VALUES($1,'team',$2,$3,1)")
-            .bind(SECOND_ARTICLE).bind(TEAM).bind(SPORT).execute(&pool).await?;
-        let second_classification: i64 = sqlx::query_scalar(
-            "INSERT INTO public.harvester_classifications \
-             (article_id,entity_type,entity_id,sport,contract_version,model_revision,entity_choice, \
-              body_sha256,headline,model_input_start,model_input_end,model_input_text, \
-              context_start,context_end,context_text,distributions,model_provenance) \
-             VALUES ($1,'team',$2,$3,'harvest-context-v1','smoke-laya','relevant', \
-                     $4,'Harvester Test Club plans another event',0,$5,$6,0,$5,$6,'{}'::jsonb,'{}'::jsonb) RETURNING id"
-        ).bind(SECOND_ARTICLE).bind(TEAM).bind(SPORT)
-            .bind(hex::encode(Sha256::digest(second_body.as_bytes())))
-            .bind(second_body.len() as i32).bind(second_body)
-            .fetch_one(&pool).await?;
-        sqlx::query(
-            "INSERT INTO public.harvester_assignments(classification_id,plugin_id) VALUES($1,$2)",
-        )
-        .bind(second_classification)
-        .bind(crate::plugins::influencer::manifest::MANIFEST.id.as_str())
-        .execute(&pool)
-        .await?;
-        work::enqueue(
-            &pool,
-            &Item {
-                stage: crate::plugins::influencer::manifest::TASK,
-                entity_type: "team".into(),
-                entity_id: i64::from(TEAM),
-                sport: SPORT.into(),
-                input_version: Some(format!("harvest-context-v1:c{second_classification}")),
-                attempts: 0,
-                claim_token: None,
-            },
-        )
-        .await?;
-        for (index, claimed) in work::claim(&pool, crate::plugins::influencer::manifest::TASK, 2)
-            .await?
-            .into_iter()
-            .enumerate()
-        {
-            if index == 0 {
-                let mut stale = claimed.clone();
-                stale.claim_token = Some("00000000-0000-0000-0000-000000000001".into());
-                assert_eq!(
-                    crate::plugins::influencer::execute_with_backend(
-                        &pool, &SmokeVibe, 4096, &stale
-                    )
-                    .await?,
-                    PluginOutcome::Superseded
-                );
-            }
-            let outcome =
-                crate::plugins::influencer::execute_with_backend(&pool, &SmokeVibe, 4096, &claimed)
-                    .await?;
-            if claimed.entity_id == i64::from(TEAM) {
-                assert!(matches!(outcome, PluginOutcome::Deferred { .. }));
-                let still_pending: i64 = sqlx::query_scalar(
-                    "SELECT count(*) FROM public.harvester_assignments WHERE classification_id=$1 AND status='pending'"
-                ).bind(second_classification).fetch_one(&pool).await?;
-                assert_eq!(still_pending, 1);
-                assert!(work::defer(&pool, &claimed, Duration::ZERO, "next source").await?);
-            } else {
-                assert_eq!(outcome, PluginOutcome::Committed);
-            }
-        }
-        let resumed = work::claim(&pool, crate::plugins::influencer::manifest::TASK, 1)
-            .await?
-            .remove(0);
-        assert_eq!(resumed.entity_id, i64::from(TEAM));
-        assert_eq!(
-            crate::plugins::influencer::execute_with_backend(&pool, &SmokeVibe, 4096, &resumed)
-                .await?,
-            PluginOutcome::Committed
-        );
-        let second_status: String = sqlx::query_scalar(
-            "SELECT status FROM public.harvester_assignments WHERE classification_id=$1",
-        )
-        .bind(second_classification)
-        .fetch_one(&pool)
-        .await?;
-        assert_eq!(second_status, "used");
-        let vibes: Vec<(i32, String, serde_json::Value)> = sqlx::query_as(
-            "SELECT c.entity_id,d.status,d.product_ref FROM public.harvester_assignments d \
-             JOIN public.harvester_classifications c ON c.id=d.classification_id \
-             WHERE c.article_id=$1 AND d.plugin_id=$2 ORDER BY c.entity_id",
-        )
-        .bind(ARTICLE)
-        .bind(crate::plugins::influencer::manifest::MANIFEST.id.as_str())
-        .fetch_all(&pool)
-        .await?;
-        assert_eq!(vibes.len(), 2);
-        assert_eq!(vibes[0].0, TEAM);
-        assert_eq!(vibes[0].1, "used");
-        assert!(vibes[0].2["vibe_score_id"].as_i64().is_some());
-        assert_eq!(vibes[1].0, OTHER_TEAM);
-        assert_eq!(vibes[1].1, "abstained");
-        assert!(vibes[1].2["vibe_score_id"].is_null());
-        for (_, _, provenance) in vibes {
-            let receipt = &provenance["articulation"];
-            assert_eq!(receipt["model_version"], "smoke-vibe");
-            assert_eq!(
-                receipt["prompt_version"],
-                crate::plugins::influencer::prompt::VIBE_PROMPT_VERSION
-            );
-            assert!(receipt["input_hash"].as_str().is_some());
-        }
         let insider_backend = SmokeInsider(std::sync::Mutex::new(Vec::new()));
         let insider_work = work::claim(&pool, crate::plugins::insider::manifest::TASK, 7).await?;
         assert_eq!(insider_work.len(), 7);

@@ -1,5 +1,7 @@
 # Harness cleanup deployment — October 5, 2026
 
+> **2026-10-06 governing update:** This dated record preserves its implementation and evaluation evidence. The [current contract](../../../scoracle-wiki/wiki/Architecture/Harness,%20Plugins,%20Tools,%20and%20LLM%20Contract.md) supersedes articulation-only ownership: cheap code owns collection; expensive compute owns discovery. Plugins assemble traceable clues through tools; the LLM reasons across them, discovers what they support and articulates the answer. Historical “plugin owns WHAT/model owns HOW” statements below do not govern new builds.
+
 User authorized commit, push and deployment; context work is deferred to a separate session.
 
 Runtime release: `0098df4ef07a9045b416d68bafc62d30956fca27` on `codex/harvester-cutover`, pushed to origin. The validated cleanup commit is `0098df4e`.

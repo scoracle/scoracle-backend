@@ -1,4 +1,8 @@
 //! Complete source admission, reporting continuity and model-input preparation.
+use crate::harness::route::RouteKey;
+pub const MODEL: RouteKey = RouteKey::new("narrative-logic", "NARRATIVE_LOGIC");
+// Reserve room for a bounded full article, instructions, history and output.
+pub const ARTICLE_NUM_CTX: i32 = 32768;
 use super::memories;
 use super::memories::Continuity;
 use crate::harness::model::GenerateOptions;
@@ -12,7 +16,7 @@ use sqlx::PgPool;
 use std::collections::HashSet;
 
 pub(super) const FRESH_TASK: &str =
-    "Articulate each fresh item in its matching report_key, with the supplied voice and form.";
+    "Articulate each fresh item in its matching report_key, with the supplied voice and form. Use only the supplied reporting. Preserve attribution, uncertainty and report dates; published_at dates a report, not necessarily its events. No memories were supplied, so add no history. Voice and form are writing instructions, not evidence. Add no claim that is not supplied.";
 
 const HISTORY_TASK: &str = "The input is an articulation package.
 meta identifies the entity.
@@ -20,16 +24,16 @@ fresh is the new source-backed reporting; each item has its output report_key.
 memories contains earlier source-backed reporting explicitly attached to a fresh item by report_key.
 voice describes how to articulate it.
 form describes the output structure.
-Articulate each fresh item in its matching report_key, using its attached memories where present. A report with no attached memories is articulated from its fresh item alone. Add no history and no claim that is not supplied.";
+Articulate each fresh item in its matching report_key, using its attached memories where present. A report with no attached memories is articulated from its fresh item alone. Preserve attribution, uncertainty and report dates; published_at dates a report, not necessarily its events. Article counts measure stored reporting, not independent confirmation. Voice and form are writing instructions, not evidence. Add no history and no claim that is not supplied.";
 
 /// The current prompt keeps the flat keyed prose map and attaches prior reports
 /// through matching report keys in `memories`.
-pub const NARRATIVES_PROMPT_VERSION: &str = "n96-six-part";
+pub const NARRATIVES_PROMPT_VERSION: &str = "n100-concise-body";
 pub const NUM_PREDICT: i32 = 900;
 pub const NARRATIVES_OUTPUT_CONTRACT_VERSION: &str = "narratives-v11-nested-history";
 pub const LOOKBACK_SECONDS: i64 = 72 * 3600;
 pub const MAX_REPORTS: usize = 3;
-pub const SOURCE_BUDGET_BYTES: usize = 6000;
+pub const SOURCE_BUDGET_BYTES: usize = 24000;
 pub const CONTEXT_BUDGET_BYTES: usize = SOURCE_BUDGET_BYTES + memories::BUDGET_BYTES;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -185,9 +189,7 @@ pub fn prepare(
 /// the harness only chooses the JSON.
 ///
 /// `memory` is index-aligned with `reports` — the same attachment production
-/// resolved, so a stored fixture exercises the nesting rather than describing
-/// it. `GroupSummary::before_epoch` is not serialized and does not reach the
-/// model, so it does not survive the round trip; nothing rendered here reads it.
+/// resolved, so a stored fixture exercises the nesting rather than describing it.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Parts {
     pub subject: EntityMeta,
@@ -272,7 +274,7 @@ pub fn generation_options(assignment: &Assignment, num_ctx: i32) -> GenerateOpti
         system: Some(system_prompt(assignment).to_string()),
         temperature: Some(0.0),
         num_predict: NUM_PREDICT,
-        num_ctx,
+        num_ctx: num_ctx.max(ARTICLE_NUM_CTX),
         json_mode: false,
         // The package supplies the form to the model; the matching grammar and parser keep
         // publication atomic without adding content direction.

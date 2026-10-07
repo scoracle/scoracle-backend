@@ -1,10 +1,10 @@
 {
   "expect": {},
   "name": "mixed-peak-up-vibe-down",
-  "prompt_version": "momentum-s34",
+  "prompt_version": "momentum-s36-concise-body",
   "task": "momentum",
   "temperature": 0.0,
-  "user_prompt": "{\"meta\":{\"name\":\"Jalen Rowe\",\"entity_type\":\"player\",\"sport\":\"basketball\"},\"fresh\":{\"scout\":{\"body\":\"Rowe's measured profile is improving, led by more efficient creation.\",\"season\":2026,\"generated_at\":\"2026-09-20\"},\"influencer\":{\"body\":\"The mood around Rowe is cooling despite the stronger statistical work.\",\"generated_at\":\"2026-09-20\"},\"trajectory\":{\"computed_at\":\"2026-09-20\",\"form\":{\"slope\":12.0,\"samples\":6,\"from\":\"2026-08-15\",\"through\":\"2026-09-19\"},\"mood\":{\"slope\":-11.0,\"samples\":6,\"from\":\"2026-08-30\",\"through\":\"2026-09-20\"}}},\"voice\":\"Detached, decisive, economical.\",\"form\":{\"keys\":[\"blurb\"],\"max_chars\":1200}}",
+  "user_prompt": "{\"meta\":{\"name\":\"Jalen Rowe\",\"entity_type\":\"player\",\"sport\":\"basketball\"},\"fresh\":{\"scout\":{\"body\":\"Rowe's measured profile is improving, led by more efficient creation.\",\"season\":2026,\"generated_at\":\"2026-09-20\"},\"influencer\":{\"body\":\"The mood around Rowe is cooling despite the stronger statistical work.\",\"generated_at\":\"2026-09-20\"},\"trajectory\":{\"computed_at\":\"2026-09-20\",\"form\":{\"measure\":\"Scout notability score\",\"slope\":12.0,\"samples\":6,\"from\":\"2026-08-15\",\"through\":\"2026-09-19\"},\"mood\":{\"measure\":\"Influencer sentiment score\",\"slope\":-11.0,\"samples\":6,\"from\":\"2026-08-30\",\"through\":\"2026-09-20\"}}},\"voice\":\"Detached, decisive, economical.\",\"form\":{\"keys\":[\"blurb\"],\"paragraphs\":\"concise\"}}",
   "review": [
     "Recognize that performance rises while sentiment falls; a near-flat combined reading must not erase the disagreement."
   ]

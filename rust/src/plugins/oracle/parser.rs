@@ -7,7 +7,7 @@ pub(super) struct ReadingParser;
 impl Parser<String> for ReadingParser {
     fn parse(&self, raw: &str) -> Result<Option<String>> {
         let prose = super::prompt::prose();
-        let map = crate::tools::form::parse_prose_map(raw, &prose.keys, prose.dims)?;
+        let map = crate::tools::form::parse_prose_map(raw, &prose.keys)?;
         let Some(reading) = map.get("reading") else {
             return Ok(None);
         };

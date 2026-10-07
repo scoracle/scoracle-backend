@@ -5,8 +5,10 @@
 -- memories::apply_topics, and a plugin that needs a narrower candidate set
 -- passes it as the include list.
 WITH candidates AS (
+  SELECT unnest($8::bigint[]) AS article_id WHERE cardinality($8::bigint[])>0
+  UNION
   SELECT DISTINCT e.article_id FROM narrative_events e
-  WHERE e.sport=$1 AND e.origin='extraction'
+  WHERE cardinality($8::bigint[])=0 AND e.sport=$1 AND e.origin='extraction'
   AND ((e.subject_type=$2 AND e.subject_id=$3) OR (e.object_type=$2 AND e.object_id=$3))
   AND e.event_date>=to_timestamp($5::double precision)
   AND e.event_date<to_timestamp($6::double precision)
@@ -21,9 +23,6 @@ WITH candidates AS (
   AND NOT (COALESCE(a.duplicate_of,a.id)=ANY($7::bigint[]))
   AND NOT EXISTS(SELECT 1 FROM news_articles f WHERE f.id=ANY($7::bigint[])
       AND COALESCE(f.duplicate_of,f.id)=COALESCE(a.duplicate_of,a.id))
-  -- A caller-resolved candidate set narrows before the bound is applied, so a
-  -- narrow request over a wide window is not truncated by the population guard.
-  AND (cardinality($8::bigint[])=0 OR a.id=ANY($8::bigint[]))
   AND COALESCE(a.source,'')<>'' AND a.title<>''
   AND EXISTS(SELECT 1 FROM surfaces s WHERE s.norm<>'' AND
   strpos(' '||public.nrm(a.title)||' ', ' '||s.norm||' ')>0)

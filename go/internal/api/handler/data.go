@@ -733,25 +733,11 @@ func (h *Handler) GetSportWeeks(w http.ResponseWriter, r *http.Request) {
 	h.serveStatementJSON(w, r, "sport_weeks", dataCacheKey(r), cache.TTLNews, false, sport, season)
 }
 
-// GetEntityVibe returns the entity's VIBE product — The Influencer's emotional
-// read. ONE `current` object in the Drop 2 voice-card shape ({headline, body} +
-// score), plus the 7-day snapshot window so a client can render the card from a
-// single request.
-//
-// This route was absent between the O14 convergence rename — which handed the
-// per-entity /vibes path to the Oracle's /sigil — and its restoration here. The
-// Influencer never stopped writing: her rows land in vibe_scores on every
-// milestone, periodic and news-spike trigger, and the vibes leaderboard has been
-// serving them the whole time. What was missing was a per-entity door, leaving
-// her card readable only by digging into the *Analyst's* /momentum payload at
-// vibes.snapshots[0]. Every other voice has its own route; so does she now.
-//
-// Serve-latest, matching /sigil: the latest scored row at ANY age, timestamped
-// client-side rather than hidden behind a freshness window. An entity never
-// scored serves `current: null` with a 200 — the card renders its empty state,
-// exactly as the momentum vibes panel already does. Never a 404.
-// @Summary Get the entity Vibe (The Influencer's emotional read)
-// @Description The entity's Vibe card — the Influencer's headline and body with her sentiment score (1-100), plus the last 7 days of snapshots. `current` is null when the entity has never been scored; the response is still 200.
+// GetEntityVibe serves saved current or reporting-period cards without inference.
+// @Summary Get the entity Vibe
+// @Description Latest saved Vibe card, or latest revision for season/week. Empty periods return current:null. score and legacy heat belong to the same output.
+// @Param season query int false "Reporting season (requires week)"
+// @Param week query int false "Reporting week, 1-60 (requires season)"
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
@@ -774,7 +760,19 @@ func (h *Handler) GetEntityVibe(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	h.serveStatementJSON(w, r, "entity_vibe", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id)
+	season, ok := optionalIntQuery(w, r, "season")
+	if !ok {
+		return
+	}
+	week, ok := optionalIntQuery(w, r, "week")
+	if !ok {
+		return
+	}
+	if (season == nil) != (week == nil) || (week != nil && (week.(int) < 1 || week.(int) > 60)) {
+		respond.WriteError(w, http.StatusBadRequest, "INVALID_QUERY_PARAM", "season and week (1-60) must be supplied together")
+		return
+	}
+	h.serveStatementJSON(w, r, "entity_vibe", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id, season, week)
 }
 
 // GetEntitySigil returns the entity's SIGIL product — ONE `current` object

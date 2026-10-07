@@ -1,0 +1,154 @@
+{
+  "prompt_version": "vibe-frame-v18-direct-context",
+  "model": "alibayram/smollm3:latest",
+  "model_digest": "6463ebe1ce6ae2f6369498f54f136baad56b4380e5365bfecc938079f8e6733c",
+  "parameter_size": "3.1B",
+  "quantization": "Q4_K_M",
+  "scope": "Live local inference over 25 retained synthetic fixture cases, using the production Influencer assembler, generation settings and parser; no database or publication.",
+  "settings": {
+    "temperature": 0.0,
+    "num_ctx": 32768,
+    "num_predict": 600,
+    "think": false
+  },
+  "structural_results": {
+    "cases": 25,
+    "completed_cards": 20,
+    "provider_truncations": 5,
+    "expected_abstentions": 3,
+    "correct_abstentions": 0
+  },
+  "conclusion": "Not ready: emotional blends can be expressed, but repeated unsupported facts and failed abstention remain. Structural acceptance is not evidence fidelity.",
+  "reasoning_diagnostic": {
+    "completed_responses_with_thinking_despite_false": [],
+    "template_behavior": "Installed SmolLM3 template defaults enable_thinking to true and recognizes /no_think in the system message. A separate explicit-marker probe completed without thinking but retained factual inventions.",
+    "probe_file": "direct-context-v18-no-think-probe.json"
+  },
+  "cases": [
+    {
+      "name": "unbound-contrast",
+      "completed": true,
+      "review": "Invents a significant Cedar Comets leadership change and affiliations for unbound coaches; should abstain."
+    },
+    {
+      "name": "routine-update",
+      "completed": true,
+      "review": "Invents management silence and curiosity among fans and supporters."
+    },
+    {
+      "name": "sparse-quote",
+      "completed": true,
+      "review": "Invents first public comment, performance/prospects framing and a potential positive trajectory."
+    },
+    {
+      "name": "unrelated-subject",
+      "completed": true,
+      "review": "Writes an absence card instead of paired nulls for unrelated Messi reporting."
+    },
+    {
+      "name": "question-history",
+      "completed": false,
+      "review": "Incomplete output; provider rejected finish reason length."
+    },
+    {
+      "name": "bound-contrast",
+      "completed": true,
+      "review": "Preserves opposing reactions but invents continuing debate and uncertain future performance."
+    },
+    {
+      "name": "role-provided",
+      "completed": true,
+      "review": "Keeps Ellis’s hope attributed and preserves the single-supporter scope."
+    },
+    {
+      "name": "byline-and-qualification",
+      "completed": true,
+      "review": "Keeps Reed’s qualified satisfaction but adds an unsupported conclusion about the team’s future uncertainty."
+    },
+    {
+      "name": "headline-binds-subject",
+      "completed": true,
+      "review": "Preserves appointment and pride, then invents the team looking forward to Lane’s leadership."
+    },
+    {
+      "name": "subject-link/baseline",
+      "completed": true,
+      "review": "Same unbound-source affiliation and leadership fabrication as unbound-contrast; should abstain."
+    },
+    {
+      "name": "subject-link/clue",
+      "completed": true,
+      "review": "Invents leadership as the object of the change and treats Riley as affiliated to Cedar Comets."
+    },
+    {
+      "name": "speaker-role/baseline",
+      "completed": true,
+      "review": "Invents first public comment, performance/prospects framing and positive trajectory."
+    },
+    {
+      "name": "speaker-role/clue",
+      "completed": true,
+      "review": "Misidentifies Synthetic Wire as a basketball team and generalizes one supporter’s hope."
+    },
+    {
+      "name": "headline-label/baseline",
+      "completed": true,
+      "review": "Invents first public comment, performance/prospects framing and positive trajectory."
+    },
+    {
+      "name": "headline-label/clue",
+      "completed": false,
+      "review": "Incomplete output; provider rejected finish reason length."
+    },
+    {
+      "name": "sunday-event/baseline",
+      "completed": true,
+      "review": "Turns unspecified Sunday preparation into a game, invents Morgan’s absence and waiting fans/analysts."
+    },
+    {
+      "name": "sunday-event/clue",
+      "completed": false,
+      "review": "Incomplete output; provider rejected finish reason length."
+    },
+    {
+      "name": "relief-with-apprehension",
+      "completed": false,
+      "review": "Incomplete output; provider rejected finish reason length."
+    },
+    {
+      "name": "pride-with-disappointment",
+      "completed": true,
+      "review": "Expresses coexisting pride and stronger disappointment, but introduces wording into a direct quote."
+    },
+    {
+      "name": "tentative-hope-after-setback",
+      "completed": false,
+      "review": "Incomplete output; provider rejected finish reason length."
+    },
+    {
+      "name": "memory-to-fresh-change",
+      "completed": true,
+      "review": "Connects apprehension to restrained relief, but wrongly calls Friday the previous day to Sunday."
+    },
+    {
+      "name": "clearly-negative",
+      "completed": true,
+      "review": "Invents lack of effort/strategy, stadium details and fans questioning commitment."
+    },
+    {
+      "name": "clearly-positive",
+      "completed": true,
+      "review": "Invents banners, chants, stadium atmosphere, renewed hope and future victories."
+    },
+    {
+      "name": "quiet-mixed",
+      "completed": true,
+      "review": "Invents an upcoming competitive season, management activity and the team’s commitment."
+    },
+    {
+      "name": "warm-memory-cold-coverage",
+      "completed": true,
+      "review": "Turns a dated individual quote into a recent supporters announcement and invents commitment/readiness."
+    }
+  ]
+}

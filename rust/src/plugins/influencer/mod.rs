@@ -1,24 +1,24 @@
-//! One verified publisher source per product, with atomic source disposition.
+//! Verified fresh reporting and attributed history, with atomic publication.
 pub mod manifest;
 pub mod memories;
+mod parser;
 pub mod prompt;
 mod publish;
-pub mod voice;
 
 use crate::harness::model::Inference;
 use crate::harness::models::ExecutionCapabilities;
 use crate::harness::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
 use crate::harness::queue::publication::ClaimPublication;
 use crate::harness::queue::work::Item;
-use crate::harness::{Generation, GenerationCall, Studio};
+use crate::harness::{Generation, GenerationCall};
 use crate::plugins::harvester::delivery::{
     load_for_character, validate_for_publication, SourceContext,
 };
-pub use crate::tools::form::ObservationParser as VibeParser;
 use crate::tools::meta::lookup_entity_name;
 use crate::tools::meta::EntityMeta;
 use anyhow::{ensure, Result};
 use async_trait::async_trait;
+pub use parser::VibeParser;
 use prompt::{Assignment, VIBE_NUM_PREDICT, VIBE_PROMPT_VERSION, VIBE_TEMPERATURE};
 pub(crate) use publish::VIBE_COMPLETED;
 use publish::{persist_to_vibe_scores, record_ledger, record_vibe_completed};
@@ -68,85 +68,86 @@ impl StudioPlugin for VibeHandler {
     }
 }
 
+/// One model call. Retain malformed responses too; publication decides success.
 pub async fn create(
-    studio: &Studio<'_>,
+    backend: &dyn Inference,
     assignment: &Assignment,
     num_ctx: i32,
 ) -> Result<(Option<VibeOutput>, Value)> {
-    let extracted = studio
-        .extract(
-            &prompt::assembled_prompt(assignment),
-            &prompt::generation_options(VIBE_TEMPERATURE, num_ctx, VIBE_NUM_PREDICT),
-            &VibeParser,
-            |_| None,
-        )
-        .await?;
-    let call = GenerationCall::from(&extracted);
-    let receipt = json!({"model_version":extracted.model,"prompt_version":VIBE_PROMPT_VERSION,
-        "input_hash":assignment.input_hash,"raw_response":extracted.raw_response,
-        "eval_count":extracted.eval_count,"wall_ms":extracted.wall_ms,
-        "input_components":serde_json::from_str::<Value>(&assignment.input_components_json)?,
-        "request_body":extracted.request_body});
-    let Some(reply) = extracted.value else {
+    use crate::harness::Parser;
+    let world = prompt::assembled_prompt(assignment);
+    anyhow::ensure!(
+        world.len() <= prompt::SOURCE_BUDGET_BYTES + prompt::HISTORY_BUDGET_BYTES + 2400,
+        "Influencer packet exceeds reading budget"
+    );
+    let input_hash = prompt::request_hash(backend, assignment, num_ctx)?;
+    let options = prompt::generation_options(VIBE_TEMPERATURE, num_ctx, VIBE_NUM_PREDICT);
+    let mut receipt = json!({"model_version":backend.model(),"prompt_version":VIBE_PROMPT_VERSION,
+        "scoring_version":prompt::SCORE_VERSION,"input_hash":input_hash,
+        "packet":world,"input_components":assignment.parts,
+        "request_body":backend.request_body(&world,&options)});
+    if assignment.parts.sources.is_empty() {
+        receipt["reason"] = json!("no_fresh_evidence");
+        return Ok((None, receipt));
+    }
+    let (generated, request) = match backend.generate(&world, &options).await {
+        Ok(result) => result,
+        Err(error) => {
+            if let Some(failure) = error.downcast_ref::<crate::harness::model::ResponseFailure>() {
+                receipt["raw_response_body"] = json!(failure.raw_response_body);
+            }
+            receipt["error"] = json!(format!("{error:#}"));
+            return Ok((None, receipt));
+        }
+    };
+    receipt["request_body"] = request.clone();
+    receipt["raw_response"] = json!(generated.response);
+    receipt["raw_response_body"] = json!(generated.raw_response_body);
+    receipt["eval_count"] = json!(generated.eval_count);
+    receipt["prompt_eval_count"] = json!(generated.prompt_eval_count);
+    receipt["wall_ms"] = json!(generated.total_duration.as_millis() as u64);
+    let reply = match VibeParser.parse(&generated.response) {
+        Ok(reply) => reply,
+        Err(error) => {
+            receipt["error"] = json!(format!("{error:#}"));
+            return Ok((None, receipt));
+        }
+    };
+    let Some(reply) = reply else {
         return Ok((None, receipt));
     };
+    let mut source_ids: Vec<i64> = assignment
+        .parts
+        .sources
+        .iter()
+        .chain(&assignment.parts.history)
+        .map(|s| s.article_id)
+        .collect();
+    source_ids.sort_unstable();
+    source_ids.dedup();
     Ok((
         Some(Generation::called(
             VibeScore {
-                sentiment: None,
-                hook: Some(title(&assignment.source, &assignment.subject.name)),
-                vibe_prompt: reply.body,
+                sentiment: Some(reply.score),
+                hook: Some(reply.headline),
+                vibe_prompt: Some(reply.body),
                 input_components_json: assignment.input_components_json.clone(),
             },
-            extracted.model,
+            generated.model,
             VIBE_PROMPT_VERSION,
-            vec![assignment.source.article_id],
-            Some(assignment.input_hash.clone()),
-            call,
+            source_ids,
+            Some(input_hash),
+            GenerationCall {
+                built_prompt: world,
+                request_body: request,
+                eval_count: Some(generated.eval_count),
+                wall_ms: Some(generated.total_duration.as_millis() as u64),
+            },
         )),
         receipt,
     ))
 }
 
-/// Source-owned title; articulation cannot invent a headline claim.
-fn title(source: &SourceContext, entity_name: &str) -> String {
-    let headline = source.headline.trim();
-    if !headline.is_empty() && headline.chars().count() <= crate::tools::form::HOOK_MAX_CHARS {
-        headline.to_string()
-    } else {
-        entity_name.to_string()
-    }
-}
-
-struct Evaluation {
-    output: Option<VibeOutput>,
-    provenance: Value,
-}
-async fn articulate_one(
-    pool: &PgPool,
-    backend: &dyn Inference,
-    voice_num_ctx: i32,
-    item: &Item,
-    source: &SourceContext,
-) -> Result<Evaluation> {
-    let subject = EntityMeta {
-        name: lookup_entity_name(pool, &item.entity_type, item.entity_id_i32()?, &item.sport)
-            .await?,
-        entity_type: item.entity_type.clone(),
-        entity_id: item.entity_id_i32()?,
-        sport: item.sport.to_uppercase(),
-    };
-    let (assignment, mut provenance) =
-        prompt::prepare_assignment(pool, subject, source, now()).await?;
-    let output = if let Some(assignment) = assignment {
-        let (output, receipt) = create(&Studio::new(backend), &assignment, voice_num_ctx).await?;
-        provenance["articulation"] = receipt;
-        output
-    } else {
-        None
-    };
-    Ok(Evaluation { output, provenance })
-}
 pub(crate) async fn execute_with_backend(
     pool: &PgPool,
     backend: &dyn Inference,
@@ -155,11 +156,9 @@ pub(crate) async fn execute_with_backend(
 ) -> Result<PluginOutcome> {
     let entity_id = item.entity_id_i32()?;
     let sport = item.sport.to_uppercase();
-    let plugin_id = crate::plugins::influencer::manifest::MANIFEST.id.as_str();
-    let sources = load_for_character(pool, plugin_id, &item.entity_type, entity_id, &sport).await?;
-    // Process oldest first so the latest published reading reflects the freshest
-    // source after a multi-source backlog drains.
-    let Some(source) = sources.last() else {
+    let plugin_id = manifest::MANIFEST.id.as_str();
+    let pending = load_for_character(pool, plugin_id, &item.entity_type, entity_id, &sport).await?;
+    let Some(anchor) = pending.last() else {
         let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
             return Ok(PluginOutcome::Superseded);
         };
@@ -167,47 +166,125 @@ pub(crate) async fn execute_with_backend(
         publication.commit_final().await?;
         return Ok(PluginOutcome::Committed);
     };
-    let evaluation = articulate_one(pool, backend, voice_num_ctx, item, source).await?;
-    let output = evaluation.output.as_ref();
+    let subject = EntityMeta {
+        name: lookup_entity_name(pool, &item.entity_type, entity_id, &sport).await?,
+        entity_type: item.entity_type.clone(),
+        entity_id,
+        sport: sport.clone(),
+    };
+    let (assignment, disposition) =
+        prompt::prepare_assignment(pool, subject, anchor, now()).await?;
+    let assignment =
+        assignment.ok_or_else(|| anyhow::anyhow!("No usable period evidence: {disposition}"))?;
+    let input_hash = prompt::request_hash(backend, &assignment, voice_num_ctx)?;
+    // Reuse a completed attempt only for identical evidence, model and contract.
+    let previous: Option<(i64, Option<i64>)> = sqlx::query_as(
+        "SELECT id,product_id FROM vibe_card_attempts WHERE input_hash=$1 AND model_version=$2
+         AND outcome IN ('published','abstained') ORDER BY id DESC LIMIT 1",
+    )
+    .bind(&input_hash)
+    .bind(backend.model())
+    .fetch_optional(pool)
+    .await?;
+    let (output, attempt_id) = if let Some((id, _)) = previous {
+        (None, id)
+    } else {
+        let (output, receipt) = create(backend, &assignment, voice_num_ctx).await?;
+        let attempt_id:i64=sqlx::query_scalar(
+            "INSERT INTO vibe_card_attempts(entity_type,entity_id,sport,input_hash,model_version,receipt,outcome)
+             VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id")
+            .bind(&item.entity_type).bind(entity_id).bind(&sport).bind(&input_hash)
+            .bind(backend.model()).bind(&receipt).bind(if receipt.get("error").is_some(){"failed"}else{"generated"})
+            .fetch_one(pool).await?;
+        ensure!(
+            receipt.get("error").is_none(),
+            "Influencer attempt {attempt_id} failed: {}",
+            receipt["error"]
+        );
+        (output, attempt_id)
+    };
     let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
         return Ok(PluginOutcome::Superseded);
     };
+    memories::validate(publication.transaction(), &assignment.parts).await?;
+    let product_id = if let Some(output) = &output {
+        Some(persist_to_vibe_scores(publication.transaction(), item, &sport, output).await?)
+    } else {
+        previous.and_then(|p| p.1)
+    };
+    let selected: Vec<i64> = assignment
+        .parts
+        .sources
+        .iter()
+        .map(|s| s.classification_id)
+        .collect();
+    let copies: Vec<i64> = assignment
+        .parts
+        .excluded
+        .iter()
+        .filter(|e| e["reason"] == "known_copy" && e["in_period"] == true)
+        .filter_map(|e| e["classification_id"].as_i64())
+        .collect();
+    let covered: Vec<SourceContext> = pending
+        .iter()
+        .filter(|s| {
+            selected.contains(&s.classification_id) || copies.contains(&s.classification_id)
+        })
+        .cloned()
+        .collect();
+    ensure!(
+        !covered.is_empty(),
+        "Influencer packet covers no pending work"
+    );
     validate_for_publication(
         publication.transaction(),
         plugin_id,
         &item.entity_type,
         entity_id,
         &sport,
-        std::slice::from_ref(source),
+        &covered,
     )
     .await?;
-    let product_row_id = if let Some(output) = output {
-        Some(persist_to_vibe_scores(publication.transaction(), item, &sport, output).await?)
-    } else {
-        None
-    };
-    let changed = sqlx::query(
-        "UPDATE public.harvester_assignments SET status=$3, reason=$4, product_ref=$5, updated_at=NOW() \
-         WHERE classification_id=$1 AND plugin_id=$2 AND status='pending' \
-           AND reason IS DISTINCT FROM 'delivery_held'",
+    let ids: Vec<i64> = covered.iter().map(|s| s.classification_id).collect();
+    let changed=sqlx::query(
+        "UPDATE harvester_assignments SET status=CASE WHEN classification_id=ANY($5) THEN 'redundant' ELSE $3 END,
+         reason=NULL,product_ref=$4,updated_at=NOW() WHERE classification_id=ANY($1)
+         AND plugin_id=$2 AND status='pending' AND reason IS DISTINCT FROM 'delivery_held'")
+        .bind(&ids).bind(plugin_id).bind(if product_id.is_some(){"used"}else{"abstained"})
+        .bind(json!({"vibe_score_id":product_id,"attempt_id":attempt_id,"input_hash":input_hash,
+            "reused_attempt":previous.is_some(),"disposition":disposition}))
+        .bind(copies).execute(&mut **publication.transaction()).await?;
+    ensure!(
+        changed.rows_affected() == ids.len() as u64,
+        "Influencer assignments changed during generation"
+    );
+    // Older receipts for the same covered article are superseded work, not new evidence.
+    sqlx::query(
+        "UPDATE harvester_assignments d SET status='relevant_but_unused',
+        reason='superseded_source_receipt',updated_at=NOW()
+        FROM harvester_classifications old WHERE old.id=d.classification_id AND d.plugin_id=$1
+        AND d.status='pending' AND d.reason IS DISTINCT FROM 'delivery_held'
+        AND EXISTS (SELECT 1 FROM harvester_classifications covered WHERE covered.id=ANY($2)
+            AND covered.article_id=old.article_id AND covered.sport=old.sport
+            AND covered.entity_type=old.entity_type AND covered.entity_id=old.entity_id
+            AND (covered.created_at,covered.id)>(old.created_at,old.id))",
     )
-    .bind(source.classification_id)
     .bind(plugin_id)
-    .bind(if output.is_some() { "used" } else { "abstained" })
-    .bind(if output.is_some() { None } else { Some("Influencer passed on this source") })
-    .bind({
-        let mut provenance = evaluation.provenance;
-        if let Some(id) = product_row_id {
-            provenance["vibe_score_id"] = json!(id);
-        }
-        provenance
-    })
+    .bind(&ids)
     .execute(&mut **publication.transaction())
     .await?;
-    ensure!(
-        changed.rows_affected() == 1,
-        "Influencer source assignment changed during call"
-    );
+    if previous.is_none() {
+        sqlx::query("UPDATE vibe_card_attempts SET product_id=$2,outcome=$3 WHERE id=$1")
+            .bind(attempt_id)
+            .bind(product_id)
+            .bind(if product_id.is_some() {
+                "published"
+            } else {
+                "abstained"
+            })
+            .execute(&mut **publication.transaction())
+            .await?;
+    }
     let remaining = crate::plugins::harvester::delivery::undelivered_count(
         publication.transaction(),
         plugin_id,
@@ -218,20 +295,21 @@ pub(crate) async fn execute_with_backend(
     .await?;
     if remaining > 0 {
         publication.commit_progress().await?;
-        if let (Some(id), Some(output)) = (product_row_id, output) {
-            record_ledger(pool, item, &sport, id, output).await?;
-        }
-        return Ok(PluginOutcome::deferred(
-            format!("{remaining} Harvester source contexts remain for Influencer"),
-            Duration::from_secs(1),
-        ));
+    } else {
+        record_vibe_completed(publication.transaction(), item).await?;
+        publication.commit_final().await?;
     }
-    record_vibe_completed(publication.transaction(), item).await?;
-    publication.commit_final().await?;
-    if let (Some(id), Some(output)) = (product_row_id, output) {
+    if let (Some(id), Some(output)) = (product_id, output.as_ref()) {
         record_ledger(pool, item, &sport, id, output).await?;
     }
-    Ok(PluginOutcome::Committed)
+    Ok(if remaining > 0 {
+        PluginOutcome::deferred(
+            format!("{remaining} sources await another period packet"),
+            Duration::from_secs(1),
+        )
+    } else {
+        PluginOutcome::Committed
+    })
 }
 
 #[cfg(test)]

@@ -1,8 +1,8 @@
 # SQL: the durable world
 
-**Postgres preserves trustworthy facts and durable results. DuckDB computes studies. Studio interprets the evidence.**
+**Postgres stores historical records and durable results. DuckDB computes studies. Plugins assemble clues through tools; the LLM discovers supported meaning and articulates the answer inside the harness.**
 
-Keep identity, source observations, provenance, constraints, product history and indexed serving projections here. Postgres also owns exact work leases and atomic publication. Application code selects evidence and schedules work; Studio owns prompt composition and character judgment. Cheap indexed lookups can stay in SQL. Move analytical scans when their measured workload benefits from DuckDB.
+Keep identity, source observations, provenance, constraints, product history and indexed serving projections here. Postgres also owns exact work leases and atomic publication. Application code selects evidence and schedules work; plugin `prompt.rs` owns context assembly and instructions; the model owns discovery and articulation. Cheap indexed lookups can stay in SQL. Move analytical scans when their measured workload benefits from DuckDB.
 
 One computation has one active producer. The API maintains Rating cohort/season-change context with DuckDB on startup and every five minutes. It exports bounded consistent inputs, skips unchanged hashes, and atomically publishes results with a source-checked receipt. Failure retains the last complete result. Historical corrections and deleted members are included. The existing SQL rating, event-score and Momentum formulas remain active until separately migrated with parity evidence.
 

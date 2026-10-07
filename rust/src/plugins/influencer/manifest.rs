@@ -3,10 +3,9 @@
 use crate::harness::fleet::MAC_SLOTS;
 use crate::harness::plugin::{PluginId, PluginManifest, ResourceProfile, ToolGrant};
 use crate::harness::queue::work::{ClaimPolicy, TaskKey};
-use crate::harness::route::RouteKey;
 
 pub const TASK: TaskKey = TaskKey::new("vibe");
-pub const ROUTE: RouteKey = RouteKey::new("vibe-logic", "VIBE_LOGIC");
+pub use super::prompt::MODEL as ROUTE;
 
 pub const MANIFEST: PluginManifest = PluginManifest {
     id: PluginId::new("scoracle.character.vibe"),

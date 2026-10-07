@@ -48,7 +48,7 @@ impl Parser<MomentumReply> for MomentumParser {
 
 pub fn parse_momentum_reply(raw: &str) -> Option<MomentumReply> {
     let prose = super::prompt::prose();
-    let map = crate::tools::form::parse_prose_map(raw, &prose.keys, prose.dims).ok()?;
+    let map = crate::tools::form::parse_prose_map(raw, &prose.keys).ok()?;
     let blurb = crate::tools::form::normalize_body(map.get("blurb")?);
     if blurb.is_empty() {
         return None;

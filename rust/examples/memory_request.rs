@@ -72,7 +72,7 @@ async fn main() -> Result<()> {
             let topic: Option<memories::Topic<'_>> = group_by_canonical_block.then_some(&by_block);
             serde_json::to_value(
                 memories::reporting_scope(
-                    &pool, &subject, from, before, &exclude, limit, &include, topic,
+                    &pool, &subject, from, before, &exclude, limit, 2, &include, topic,
                 )
                 .await?,
             )?

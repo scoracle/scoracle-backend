@@ -1,10 +1,10 @@
 {
   "expect": {},
   "name": "rising-confirmed",
-  "prompt_version": "momentum-s34",
+  "prompt_version": "momentum-s36-concise-body",
   "task": "momentum",
   "temperature": 0.0,
-  "user_prompt": "{\"meta\":{\"name\":\"Deshawn Carter\",\"entity_type\":\"player\",\"sport\":\"basketball\"},\"fresh\":{\"scout\":{\"body\":\"Carter's creation and finishing are strengthening together across the current sample.\",\"season\":2026,\"generated_at\":\"2026-09-20\"},\"influencer\":{\"body\":\"The mood around Carter is emphatically positive and still warming.\",\"generated_at\":\"2026-09-20\"},\"trajectory\":{\"computed_at\":\"2026-09-20\",\"form\":{\"slope\":22.0,\"samples\":10,\"from\":\"2026-08-08\",\"through\":\"2026-09-19\"},\"mood\":{\"slope\":33.0,\"samples\":12,\"from\":\"2026-08-30\",\"through\":\"2026-09-20\"}}},\"voice\":\"Detached, decisive, economical.\",\"form\":{\"keys\":[\"blurb\"],\"max_chars\":1200}}",
+  "user_prompt": "{\"meta\":{\"name\":\"Deshawn Carter\",\"entity_type\":\"player\",\"sport\":\"basketball\"},\"fresh\":{\"scout\":{\"body\":\"Carter's creation and finishing are strengthening together across the current sample.\",\"season\":2026,\"generated_at\":\"2026-09-20\"},\"influencer\":{\"body\":\"The mood around Carter is emphatically positive and still warming.\",\"generated_at\":\"2026-09-20\"},\"trajectory\":{\"computed_at\":\"2026-09-20\",\"form\":{\"measure\":\"Scout notability score\",\"slope\":22.0,\"samples\":10,\"from\":\"2026-08-08\",\"through\":\"2026-09-19\"},\"mood\":{\"measure\":\"Influencer sentiment score\",\"slope\":33.0,\"samples\":12,\"from\":\"2026-08-30\",\"through\":\"2026-09-20\"}}},\"voice\":\"Detached, decisive, economical.\",\"form\":{\"keys\":[\"blurb\"],\"paragraphs\":\"concise\"}}",
   "review": [
     "Both supplied trajectories rise; the synthesis should preserve that agreement without forecasting results."
   ]

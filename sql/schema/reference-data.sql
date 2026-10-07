@@ -2,10 +2,10 @@
 -- PostgreSQL database dump
 --
 
-\restrict jLssnT55dwFh4Kxv9wGGOR3NnFnetDvvnizhAhcNCbSaaWrrAm930hLq7df6roo
+\restrict NTMDRwZZaDaIGCwGycZu6HJq1Yk8Rnz4N4u16kQ8YiuuzZ8Z67VqKgJthNAoEmC
 
--- Dumped from database version 18.6
--- Dumped by pg_dump version 18.6
+-- Dumped from database version 18.6 (Homebrew)
+-- Dumped by pg_dump version 18.6 (Homebrew)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -33,16 +33,16 @@ INSERT INTO public.sports (id, display_name, api_base_url, current_season, is_ac
 -- PostgreSQL database dump complete
 --
 
-\unrestrict jLssnT55dwFh4Kxv9wGGOR3NnFnetDvvnizhAhcNCbSaaWrrAm930hLq7df6roo
+\unrestrict NTMDRwZZaDaIGCwGycZu6HJq1Yk8Rnz4N4u16kQ8YiuuzZ8Z67VqKgJthNAoEmC
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict 0zHzEXZ409c49evOwi9DTzSLKmGc3rYUgNQV1nuuCixKNRnKKEgfqWPIztK78tT
+\restrict vhgraFcMqQdeWxa2gibjFJXRvNSLVl14Cg4GweQJJCxiI8u5vRS12EFLLZ9jhbx
 
--- Dumped from database version 18.6
--- Dumped by pg_dump version 18.6
+-- Dumped from database version 18.6 (Homebrew)
+-- Dumped by pg_dump version 18.6 (Homebrew)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -72,16 +72,16 @@ INSERT INTO public.leagues (id, sport, name, country, logo_url, sportmonks_id, i
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 0zHzEXZ409c49evOwi9DTzSLKmGc3rYUgNQV1nuuCixKNRnKKEgfqWPIztK78tT
+\unrestrict vhgraFcMqQdeWxa2gibjFJXRvNSLVl14Cg4GweQJJCxiI8u5vRS12EFLLZ9jhbx
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict 4G7ueATG854J63gIWEfx1lk9HwibhWe7SJHhT02UaOuWymvFI7yqgwFsnuCdWcN
+\restrict igZMXp7d90Djmmeive7XyrtAxfwwD12VWgcc1ZaoF4a9q5P5qrPRca1TYVPKESz
 
--- Dumped from database version 18.6
--- Dumped by pg_dump version 18.6
+-- Dumped from database version 18.6 (Homebrew)
+-- Dumped by pg_dump version 18.6 (Homebrew)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -153,16 +153,16 @@ SELECT pg_catalog.setval('public.provider_seasons_id_seq', 40, true);
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 4G7ueATG854J63gIWEfx1lk9HwibhWe7SJHhT02UaOuWymvFI7yqgwFsnuCdWcN
+\unrestrict igZMXp7d90Djmmeive7XyrtAxfwwD12VWgcc1ZaoF4a9q5P5qrPRca1TYVPKESz
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict 0FzS3dMSma2CIen4TrLUUYYCbhsZXRkbtnZEYpU9YZJ4rXFd8Bc6sh2EwedeNRa
+\restrict b9Uz6XVbOy2TRCupIND8Z1bq4woMmv7Wtqph1xz8hs0LavgiZzv2dbfjG7lIVmX
 
--- Dumped from database version 18.6
--- Dumped by pg_dump version 18.6
+-- Dumped from database version 18.6 (Homebrew)
+-- Dumped by pg_dump version 18.6 (Homebrew)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -751,16 +751,16 @@ SELECT pg_catalog.setval('public.stat_definitions_id_seq', 1358, true);
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 0FzS3dMSma2CIen4TrLUUYYCbhsZXRkbtnZEYpU9YZJ4rXFd8Bc6sh2EwedeNRa
+\unrestrict b9Uz6XVbOy2TRCupIND8Z1bq4woMmv7Wtqph1xz8hs0LavgiZzv2dbfjG7lIVmX
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict xbyUQs6CExk3wzXw0jVpbCVq1mLmjlLaWo7xgXBHs24X1Chd1gmN642ktTVqAhZ
+\restrict hEljLTaYg6y6PATNQhaPD27g2qj2jHh5rjJdLf0EEnxia5zblraSsHjt60MTMMG
 
--- Dumped from database version 18.6
--- Dumped by pg_dump version 18.6
+-- Dumped from database version 18.6 (Homebrew)
+-- Dumped by pg_dump version 18.6 (Homebrew)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -790,16 +790,16 @@ INSERT INTO public.rate_modes (sport, mode, suffix, denom_key, formula, unit, ro
 -- PostgreSQL database dump complete
 --
 
-\unrestrict xbyUQs6CExk3wzXw0jVpbCVq1mLmjlLaWo7xgXBHs24X1Chd1gmN642ktTVqAhZ
+\unrestrict hEljLTaYg6y6PATNQhaPD27g2qj2jHh5rjJdLf0EEnxia5zblraSsHjt60MTMMG
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict gtzcN3uoL1ab97rnabFoA5Lg7kjKA4wbzHuCRGXIqO3JysuvCfKOQA4tt3yNNyg
+\restrict wbceJxb8v8bBrW4IJxfbcsZFEMqngI9ynCT3e1m6SVYApm3app4sRu18lk1VQIm
 
--- Dumped from database version 18.6
--- Dumped by pg_dump version 18.6
+-- Dumped from database version 18.6 (Homebrew)
+-- Dumped by pg_dump version 18.6 (Homebrew)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -828,16 +828,16 @@ INSERT INTO public.rating_thresholds (sport, stat_key, min_value) VALUES
 -- PostgreSQL database dump complete
 --
 
-\unrestrict gtzcN3uoL1ab97rnabFoA5Lg7kjKA4wbzHuCRGXIqO3JysuvCfKOQA4tt3yNNyg
+\unrestrict wbceJxb8v8bBrW4IJxfbcsZFEMqngI9ynCT3e1m6SVYApm3app4sRu18lk1VQIm
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict 3XQWHFVIZpMe1eFCslFkZnGdghvpA6xMDIDFbWcJcIvemvopN2Z5oT5FRIVCWsd
+\restrict XdmLAU0LVf5M3Jr2adbC0eRytbeQFTDZ0qakGGEgAnMmt27gHSJarmyeha32lfw
 
--- Dumped from database version 18.6
--- Dumped by pg_dump version 18.6
+-- Dumped from database version 18.6 (Homebrew)
+-- Dumped by pg_dump version 18.6 (Homebrew)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -1030,16 +1030,16 @@ INSERT INTO public.stat_templates (sport, position_group, stat_key, sort_order, 
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 3XQWHFVIZpMe1eFCslFkZnGdghvpA6xMDIDFbWcJcIvemvopN2Z5oT5FRIVCWsd
+\unrestrict XdmLAU0LVf5M3Jr2adbC0eRytbeQFTDZ0qakGGEgAnMmt27gHSJarmyeha32lfw
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict We9riPFFZuHYCO7kYi9KFvtrPnsyX51GyDb8CRB6PwAex9x38Qz9BDicDnq6gvy
+\restrict umX2adRYcn4YJdoLCirP0UNPjFGMDbZRA5WUd5ajZvMt9H77FTahud3GUppJTQo
 
--- Dumped from database version 18.6
--- Dumped by pg_dump version 18.6
+-- Dumped from database version 18.6 (Homebrew)
+-- Dumped by pg_dump version 18.6 (Homebrew)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -1074,16 +1074,16 @@ INSERT INTO public.entity_fact_policy (entity_type, fact_type, tier) VALUES
 -- PostgreSQL database dump complete
 --
 
-\unrestrict We9riPFFZuHYCO7kYi9KFvtrPnsyX51GyDb8CRB6PwAex9x38Qz9BDicDnq6gvy
+\unrestrict umX2adRYcn4YJdoLCirP0UNPjFGMDbZRA5WUd5ajZvMt9H77FTahud3GUppJTQo
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict ma5gxetvVP2TLjLFuT6lzW28zInYEZgL1AlNWse4vclCwk0slGUipV9SsRWfy2V
+\restrict IPKLoOXXbCXZt4bE5l6OeYbzXL4FmWP5MufA8iRC16KZfImhJ4GrNp9lN20jIAa
 
--- Dumped from database version 18.6
--- Dumped by pg_dump version 18.6
+-- Dumped from database version 18.6 (Homebrew)
+-- Dumped by pg_dump version 18.6 (Homebrew)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -1111,16 +1111,16 @@ INSERT INTO public.transfer_identity_thresholds (sport, min_heat, min_determinis
 -- PostgreSQL database dump complete
 --
 
-\unrestrict ma5gxetvVP2TLjLFuT6lzW28zInYEZgL1AlNWse4vclCwk0slGUipV9SsRWfy2V
+\unrestrict IPKLoOXXbCXZt4bE5l6OeYbzXL4FmWP5MufA8iRC16KZfImhJ4GrNp9lN20jIAa
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict Tfm6BRZvIhfTesT9KhhkY6e6BeJCXirlqbyRPM3Ac1vStXv4t29oChgmJ2xuFZh
+\restrict jlFZxTNtRvfPqut27FblIndXKpUnaRb6P7k0psrWmIZL6QxGp67jMkoOY7P7d2c
 
--- Dumped from database version 18.6
--- Dumped by pg_dump version 18.6
+-- Dumped from database version 18.6 (Homebrew)
+-- Dumped by pg_dump version 18.6 (Homebrew)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -1152,16 +1152,16 @@ INSERT INTO public.stage_routing_subscriptions (tag, stage, entity_type, note, c
 -- PostgreSQL database dump complete
 --
 
-\unrestrict Tfm6BRZvIhfTesT9KhhkY6e6BeJCXirlqbyRPM3Ac1vStXv4t29oChgmJ2xuFZh
+\unrestrict jlFZxTNtRvfPqut27FblIndXKpUnaRb6P7k0psrWmIZL6QxGp67jMkoOY7P7d2c
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict rM7FENhbdZGWKHyxB6zA4C51SMy39Q3Rf5cRc1G11Pr7SAR39q3EnPFnkhu9Sq6
+\restrict yOb3plNahU42QrvuCqqvrrhgPMVfx9S5JH01LMtPUGuCQCKJnwQThohpd1uYa0l
 
--- Dumped from database version 18.6
--- Dumped by pg_dump version 18.6
+-- Dumped from database version 18.6 (Homebrew)
+-- Dumped by pg_dump version 18.6 (Homebrew)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -1192,4 +1192,4 @@ SELECT pg_catalog.setval('public.boxscore_sources_id_seq', 7, true);
 -- PostgreSQL database dump complete
 --
 
-\unrestrict rM7FENhbdZGWKHyxB6zA4C51SMy39Q3Rf5cRc1G11Pr7SAR39q3EnPFnkhu9Sq6
+\unrestrict yOb3plNahU42QrvuCqqvrrhgPMVfx9S5JH01LMtPUGuCQCKJnwQThohpd1uYa0l

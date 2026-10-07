@@ -96,7 +96,7 @@ pub fn lens_parameters(name: &str) -> Option<LensParameters> {
         "vibe" => Some(LensParameters {
             operator: "The Influencer",
             mandate: "Articulate the plugin's supplied publisher reporting with its attribution and qualifications.",
-            credibility_guard: "Express feelings only when supplied by the source. History is context; sentiment remains unknown.",
+            credibility_guard: "Express feelings only when supplied by the source. History is context; unknown feelings remain unknown.",
         }),
         "rating" => Some(LensParameters {
             operator: "The Scout",
@@ -674,17 +674,7 @@ impl LensTask for VibeTask {
             crate::plugins::influencer::now(),
         )
         .await?;
-        assignment
-            .map(|a| {
-                self.assemble(&serde_json::to_value(
-                    crate::plugins::influencer::prompt::Parts {
-                        subject: a.subject,
-                        source: a.source,
-                        history: a.history,
-                    },
-                )?)
-            })
-            .transpose()
+        assignment.map(|a| self.assemble(&serde_json::to_value(a.parts)?)).transpose()
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, _expect: Option<&Expect>) -> CaseVerdict {
         match VibeParser.parse(raw) {
@@ -693,7 +683,7 @@ impl LensTask for VibeTask {
                 abs_err: None,
                 checks: vec![],
                 display: reply
-                    .and_then(|reply| reply.body)
+                    .map(|reply| format!("{}\n\n{}", reply.headline, reply.body))
                     .unwrap_or_else(|| "empty reading".into()),
             },
             Err(_) => CaseVerdict {
@@ -712,8 +702,8 @@ impl LensTask for VibeTask {
             parts: Some(stored_parts.clone()),
             should_call: true,
             user_prompt: parts.assemble(),
-            // The Influencer's contract does not vary with the world: one nullable
-            // `body` slot, one manual, whatever the source or the history. So the
+            // The Influencer's contract does not vary with the world: paired nullable
+            // headline/body fields, one manual, whatever the source or the history. So the
             // options are the plugin's own, not a per-fixture reconstruction.
             options: crate::plugins::influencer::prompt::generation_options(
                 crate::plugins::influencer::prompt::VIBE_TEMPERATURE,
@@ -1639,9 +1629,17 @@ mod tests {
     #[test]
     fn vibe_evaluation_uses_score_free_production_parser() {
         assert!(VibeTask
-            .evaluate(r#"{"body":"Morgan said she felt hopeful."}"#, None, None)
+            .evaluate(
+                r#"{"headline":"Morgan voices hope","body":"Morgan said she felt hopeful."}"#,
+                None,
+                None
+            )
             .all_checks_pass());
-        assert!(VibeTask.evaluate(r#"{"body":null}"#, None, None).parsed);
+        assert!(
+            VibeTask
+                .evaluate(r#"{"headline":null,"body":null}"#, None, None)
+                .parsed
+        );
         assert!(
             !VibeTask
                 .evaluate(

@@ -273,8 +273,8 @@ pub fn count_words(text: &str) -> usize {
 /// and byline reach the model as `Title` in the user prompt already, so losing them costs nothing
 /// and dropping page furniture is worth far more.
 const NON_CONTENT_TAGS: &[&str] = &[
-    "script", "style", "nav", "header", "footer", "aside", "form", "noscript", "svg", "iframe",
-    "button", "select", "textarea", "template", "figure",
+    "head", "script", "style", "nav", "header", "footer", "aside", "form", "noscript", "svg",
+    "iframe", "button", "select", "textarea", "template", "figure",
 ];
 
 /// Phrases that mark site furniture in the tail of a publisher page.
@@ -477,6 +477,17 @@ fn strip_element_blocks(html: &str, tag: &str) -> String {
     let close = format!("</{tag}>");
     let mut pos = 0usize;
     while let Some(start) = find_ascii_ci(html, &open, pos) {
+        // Tag names need a boundary: <head> must not match <header>.
+        if !html
+            .as_bytes()
+            .get(start + open.len())
+            .is_some_and(|byte| byte.is_ascii_whitespace() || matches!(byte, b'>' | b'/'))
+        {
+            let end = start + open.len();
+            out.push_str(&html[pos..end]);
+            pos = end;
+            continue;
+        }
         out.push_str(&html[pos..start]);
         // An unclosed block swallows the rest of the document, as before: better to drop a
         // trailing tail than to emit raw script source as article text.
@@ -492,14 +503,74 @@ fn strip_element_blocks(html: &str, tag: &str) -> String {
     out
 }
 
-fn decode_entities(s: &str) -> String {
-    s.replace("&nbsp;", " ")
-        .replace("&amp;", "&")
-        .replace("&quot;", "\"")
-        .replace("&#39;", "'")
-        .replace("&apos;", "'")
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
+/// Decode common publisher punctuation and numeric HTML references once.
+/// Unknown or invalid references remain intact; decoding does not edit language.
+pub(crate) fn decode_entities(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut rest = s;
+    while let Some(start) = rest.find('&') {
+        out.push_str(&rest[..start]);
+        rest = &rest[start..];
+        let end = rest
+            .as_bytes()
+            .iter()
+            .take(32)
+            .position(|byte| *byte == b';');
+        let decoded = end.and_then(|end| {
+            let entity = &rest[1..end];
+            match entity {
+                "nbsp" => Some(' '),
+                "amp" => Some('&'),
+                "quot" => Some('"'),
+                "apos" => Some('\''),
+                "lt" => Some('<'),
+                "gt" => Some('>'),
+                "lsquo" => Some('‘'),
+                "rsquo" => Some('’'),
+                "ldquo" => Some('“'),
+                "rdquo" => Some('”'),
+                "ndash" => Some('–'),
+                "mdash" => Some('—'),
+                "hellip" => Some('…'),
+                "bull" => Some('•'),
+                "prime" => Some('′'),
+                "Prime" => Some('″'),
+                "copy" => Some('©'),
+                "reg" => Some('®'),
+                "trade" => Some('™'),
+                "euro" => Some('€'),
+                "pound" => Some('£'),
+                _ => {
+                    let number = entity.strip_prefix('#')?;
+                    let value = if let Some(hex) = number
+                        .strip_prefix('x')
+                        .or_else(|| number.strip_prefix('X'))
+                    {
+                        if hex.is_empty() || !hex.bytes().all(|b| b.is_ascii_hexdigit()) {
+                            return None;
+                        }
+                        u32::from_str_radix(hex, 16).ok()?
+                    } else {
+                        if number.is_empty() || !number.bytes().all(|b| b.is_ascii_digit()) {
+                            return None;
+                        }
+                        number.parse().ok()?
+                    };
+                    char::from_u32(value)
+                        .filter(|c| !c.is_control() || matches!(c, '\n' | '\r' | '\t'))
+                }
+            }
+        });
+        if let Some(character) = decoded {
+            out.push(character);
+            rest = &rest[end.unwrap() + 1..];
+        } else {
+            out.push('&');
+            rest = &rest[1..];
+        }
+    }
+    out.push_str(rest);
+    out
 }
 
 pub fn normalize_space(s: &str) -> String {
@@ -869,6 +940,20 @@ fn truncate_chars(s: &str, max_chars: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn publisher_cleanup_decodes_language_without_inventing_it() {
+        let encoded = "That&rsquo;s OK.\n\n&ldquo;I&#x27;d rather have energy&rdquo; &mdash; not anger. &#8212; &amp;rsquo; &unknown; &#0; &#xD800;";
+        assert_eq!(
+            decode_entities(encoded),
+            "That’s OK.\n\n“I'd rather have energy” — not anger. — &rsquo; &unknown; &#0; &#xD800;"
+        );
+        let html = "<head><title>Site title</title></head><header>By Writer</header><p>“Might return,” said the player.</p>";
+        let no_head = strip_element_blocks(html, "head");
+        assert!(!no_head.contains("Site title"));
+        assert!(no_head.contains("<header>By Writer</header>"));
+        assert!(extract_article_text(html).contains("“Might return,” said the player."));
+    }
 
     /// Tag matching is case-insensitive, and must stay so now that it no longer goes through
     /// `to_lowercase`.

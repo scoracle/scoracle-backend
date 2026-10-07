@@ -1,0 +1,70 @@
+{
+  "question": "How did the legacy Influencer present data, and what modular projects provide useful patterns?",
+  "legacy_sources": [
+    {
+      "commit": "25393480",
+      "date": "2026-06-26",
+      "path": "go/internal/ml/vibe.go",
+      "finding": "Entity line; latest subject-specific narrative titles/bodies with impact; transfer activity; plain-text SCORE/VIBE response; no generation when both narrative and heat collections are empty."
+    },
+    {
+      "commit": "4804b580",
+      "date": "2026-07-22",
+      "path": "rust/src/vibe.rs",
+      "finding": "Adds previous vibe and relational memory as readable sections; SCORE/HOOK/VIBE response; no output schema."
+    },
+    {
+      "commit": "ef97fd93",
+      "date": "2026-08-25",
+      "finding": "Ollama endpoint changes from generate to chat, before the September 22 plugin migration."
+    },
+    {
+      "commit": "36e6b582",
+      "date": "2026-09-22",
+      "finding": "Studio becomes a plugin-based harness."
+    }
+  ],
+  "controls": [
+    {
+      "file": "ministral-v18-matched-control.jsonl",
+      "cases": 4,
+      "changed": "Only model, from alibayram/smollm3:latest to ministral-3:3b.",
+      "result": "Unsupported details persist. Quiet scheduling acquires invented dates/season context; unrelated reporting produces a card rather than nulls. Pride/disappointment acquires unsupported relief and teammate-emotion wording."
+    },
+    {
+      "file": "ministral-v18-readable-control.jsonl",
+      "cases": 4,
+      "changed": "Only user evidence presentation, from compact JSON to labeled text.",
+      "result": "Unsupported details persist; readable presentation alone is not a demonstrated cure."
+    },
+    {
+      "file": "legacy-v23-ministral-replay.jsonl",
+      "cases": 2,
+      "changed": "Historical fixture system/evidence and legacy generate endpoint replayed on installed Ministral. Multiple factors differ from current path.",
+      "result": "The richer legacy material produces a different felt-read style; outputs drift from the requested plain-text format and exaggerate the quiet case. This does not recreate or disprove historical production quality."
+    }
+  ],
+  "interpretation": "The task and evidence contract changed, along with output constraints, inference settings and transport. Current failures do not isolate plugin architecture as a cause or establish that 3B models cannot perform the intended task. Recover a genuinely successful historical production request as the next controlled baseline.",
+  "github_references": [
+    {
+      "project": "Rig",
+      "source": "https://github.com/0xPlaygrounds/rig/blob/main/crates/rig-agent/src/agent/builder.rs",
+      "pattern": "Separate system preamble, static/dynamic context and tools behind provider-independent orchestration."
+    },
+    {
+      "project": "Haystack",
+      "source": "https://github.com/deepset-ai/haystack/blob/main/haystack/components/builders/prompt_builder.py",
+      "pattern": "Explicit document collection to prompt rendering to generation component flow."
+    },
+    {
+      "project": "Semantic Kernel",
+      "source": "https://github.com/microsoft/semantic-kernel/blob/main/python/samples/concepts/plugins/plugins_from_dir.py",
+      "pattern": "Prompt plugins own their templates and accept explicit input variables; runtime invokes them."
+    },
+    {
+      "project": "LlamaIndex",
+      "source": "https://github.com/run-llama/llama_index/blob/main/llama-index-core/llama_index/core/prompts/default_prompts.py",
+      "pattern": "Clearly delimit supplied context and put the concrete query immediately after it."
+    }
+  ]
+}

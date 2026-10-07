@@ -1,5 +1,7 @@
 # Classifier spectrum comparison — October 7, 2026
 
+**Later launch decision:** the user excluded Laya from the launch bank after this comparison. The active replay now supports additional trained vector families; historical Laya scripts/receipts remain archived. See the [current vector contract and execution ledger](scoracle_classifier_plugin_launch.md#downstream-vector-contract--october-7-update).
+
 Laya can implement a continuous Classifier spectrum without generating text. The installed English checkpoint is not yet a reliable sole gatekeeper: this comparison found negation, target and time errors, including with the documented alternative question format. Compact emotion specialists were much faster in this CPU configuration, but their document emotion vectors do not solve relevance or attribution by themselves.
 
 **Decision:** carry Horizon small and SamLowe forward as emotion baselines; keep Laya as a candidate for a small, reviewed set of scoped predicates. Select relevance/topic separately. No model has established Scoracle accuracy or calibration, and no production Classifier stage has been deployed. Development and the bench are on `main`.
@@ -59,7 +61,7 @@ Four extra questions asked about Cedar relevance, Alex's current optimism, Alex'
 
 Scoping improved relief negation substantially, but did not resolve historical/current confusion or reliable entity relevance. The ordinal score also gave the explicit mixed-emotion control only .232 on the 0–3 scale. Changing the question schema alone did not establish a trustworthy gatekeeper.
 
-The original Laya **neutral** predicate contained conflicting answer descriptions. Its original score is retained but excluded from quality conclusions. Corrected wording was run separately on all 28 matched inputs. Even then, the routine schedule scored .216 for no expressed emotion, while Alex's happy/relieved quote scored .757. With `choice`, the corresponding scores were .957 and .745. The replay now fixes that wording and its small contract check covers it. SDK confidence, answer confidence and vendor calibration claims are not Scoracle reliability measurements.
+The original Laya **neutral** predicate contained conflicting answer descriptions. Its original score is retained but excluded from quality conclusions. Corrected wording was run separately on all 28 matched inputs. Even then, the routine schedule scored .216 for no expressed emotion, while Alex's happy/relieved quote scored .757. With `choice`, the corresponding scores were .957 and .745. The corrected replay was preserved as `classifier_replay.neutral-v2.py`; Laya helpers were subsequently removed from the active launch bench. SDK confidence, answer confidence and vendor calibration claims are not Scoracle reliability measurements.
 
 ## Source quality and what follows
 
@@ -97,4 +99,4 @@ $PY classifier_replay.original.py matched-inputs.jsonl fresh-matched-results.jso
   --device cpu --threads 2 --batch-size 8 --max-tokens 512
 ```
 
-That archived script intentionally reproduces the original neutral wording; use the current tracked replay for corrected future runs. The archived `laya_scoped_probe.py` and `laya_choice_probe.py` preserve the separate follow-up experiments and exact question files; choose fresh output filenames before repeating them.
+That archived script intentionally reproduces the original neutral wording. The archived `laya_scoped_probe.py` and `laya_choice_probe.py` preserve the separate follow-up experiments and exact question files; their `classifier_replay` import refers to the preserved corrected-neutral helper version. Choose fresh output filenames before repeating them. The current tracked replay excludes Laya.

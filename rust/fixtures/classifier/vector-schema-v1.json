@@ -1,0 +1,117 @@
+{
+  "version": "classifier-vectors-v1",
+  "vectors": {
+    "emotion": {
+      "scope": "document_window",
+      "consumers": ["influencer"],
+      "meaning": "Expression present in this text, including attributed or historical emotion; not automatically the target's current emotion.",
+      "labels": {
+        "admiration": "Admiration or respect is expressed.",
+        "amusement": "Amusement is expressed.",
+        "anger": "Anger is expressed.",
+        "annoyance": "Annoyance is expressed.",
+        "approval": "Approval is expressed.",
+        "caring": "Care or concern for someone is expressed.",
+        "confusion": "Confusion is expressed.",
+        "curiosity": "Curiosity is expressed.",
+        "desire": "Desire is expressed.",
+        "disappointment": "Disappointment is expressed.",
+        "disapproval": "Disapproval is expressed.",
+        "disgust": "Disgust is expressed.",
+        "embarrassment": "Embarrassment is expressed.",
+        "excitement": "Excitement is expressed.",
+        "fear": "Fear is expressed.",
+        "gratitude": "Gratitude is expressed.",
+        "grief": "Grief is expressed.",
+        "joy": "Joy is expressed.",
+        "love": "Love is expressed.",
+        "nervousness": "Nervousness or apprehension is expressed.",
+        "optimism": "Hope or optimism is expressed.",
+        "pride": "Pride is expressed.",
+        "realization": "Realization is expressed.",
+        "relief": "Relief is expressed, rather than explicitly denied.",
+        "remorse": "Remorse is expressed.",
+        "sadness": "Sadness is expressed.",
+        "surprise": "Surprise is expressed.",
+        "neutral": "The complete window has no expressed emotion; unknown or unclear feelings are not automatically neutral."
+      }
+    },
+    "relevance": {
+      "scope": "target_window",
+      "consumers": ["journalist", "insider", "influencer", "scout"],
+      "meaning": "Relationship of the supplied target to the reporting; query provenance or a name mention alone is not direct relevance.",
+      "labels": {
+        "direct_subject": "The target is a direct subject of a reported event, assertion or attributed reaction.",
+        "opponent_context": "The target appears as an opponent or contextual counterparty in another subject's reporting.",
+        "incidental_mention": "The target is mentioned incidentally, including unrelated navigation or related links."
+      }
+    },
+    "topic": {
+      "scope": "target_window",
+      "consumers": ["journalist", "insider", "influencer", "scout"],
+      "meaning": "What is reported about the supplied target, including uncertain or denied reporting. Topic presence does not confirm the event.",
+      "labels": {
+        "match_event": "A specific match, game result or in-game event involves the target.",
+        "performance": "Performance, statistics or tactical play involving the target is discussed.",
+        "availability": "Injury, fitness, suspension or availability involving the target is discussed.",
+        "player_move": "Transfer, trade, signing or departure involving the target is discussed.",
+        "contract": "A contract, extension, option or release involving the target is discussed.",
+        "staffing": "A coach or staff appointment, departure or role change involving the target is discussed.",
+        "discipline": "A disciplinary or legal matter involving the target is discussed.",
+        "off_field": "An off-field personal or organizational event involving the target is discussed.",
+        "routine": "Routine scheduling, training or administrative information involving the target is supplied.",
+        "league_context": "League or competition context explicitly connected to the target is supplied."
+      }
+    },
+    "discourse": {
+      "scope": "document_window",
+      "consumers": ["journalist", "insider", "influencer", "scout"],
+      "meaning": "Independent forms of reporting present in the text; none is a truth or source-reliability judgment.",
+      "labels": {
+        "reported_assertion": "A source asserts an event, result or state as reported information.",
+        "attributed_quote": "A statement is attributed to an identifiable speaker or source.",
+        "opinion": "Opinion or evaluation is expressed.",
+        "speculation": "A possibility, rumor or uncertain scenario is discussed.",
+        "prediction": "A future outcome is predicted.",
+        "explicit_denial": "A specific claim or feeling is explicitly denied; silence is not a denial.",
+        "correction": "A previous claim or record is explicitly corrected or withdrawn."
+      }
+    },
+    "temporal": {
+      "scope": "document_window",
+      "consumers": ["journalist", "insider", "influencer", "scout"],
+      "meaning": "Explicit temporal framing in the source. Publication time does not supply a missing event or emotion date.",
+      "labels": {
+        "current_reference": "An event or feeling is explicitly framed as current or recent relative to the report.",
+        "historical_reference": "An event, interview or feeling is explicitly framed as historical.",
+        "future_reference": "An event, schedule or possibility is explicitly framed as future."
+      }
+    }
+  },
+  "ordinal_vectors": {
+    "affect.valence": {
+      "scope": "target_window", "minimum": 0, "maximum": 100,
+      "anchors": {"0": "strongly distressing", "25": "troubled", "50": "supported balanced or mixed emotion", "75": "hopeful", "100": "strongly joyful"},
+      "meaning": "Attributed target emotion with speaker and time retained. Unknown feelings are null, not 50. No automatic conversion from GoEmotions scores."
+    },
+    "affect.intensity": {
+      "scope": "target_window", "minimum": 0, "maximum": 3,
+      "anchors": {"0": "explicitly no expressed emotion", "1": "subdued", "2": "clear", "3": "very intense"},
+      "meaning": "Strength of attributed target emotion, separate from valence and relevance. Unknown is null, not 0."
+    },
+    "move.negotiation_stage": {
+      "scope": "target_window", "minimum": 0, "maximum": 3,
+      "anchors": {"0": "speculation", "1": "concrete_interest", "2": "advanced_talks", "3": "here_we_go"},
+      "meaning": "Stage explicitly reported for a specific target/counterparty move. A denial or absent move is null; this score never establishes a completed identity change."
+    }
+  },
+  "qualifiers": ["speaker", "subject", "counterparty", "reported_event_time", "negation", "uncertainty", "source_disagreement"],
+  "structured_inputs": {
+    "source": "Canonical IDs, retained text and hashes, exact byte spans, publisher, URL, report timestamp and duplicate references.",
+    "scout": "Existing measured performance values, percentiles, cohort/sample limits and adjudicated availability/personnel records.",
+    "insider": "Existing resolved identity links and publisher outcome records, with tracked/confirmed sample sizes.",
+    "analyst": "Existing dated performance/mood score histories and computed trajectories.",
+    "oracle": "The five finished character products and their missingness/provenance."
+  },
+  "review_contract": "Labels are null (unreviewed/unknown), 0 (reviewed absent) or 1 (reviewed present). Every positive label needs an exact supporting span. Scores remain independent, uncalibrated model measurements until calibration is established."
+}

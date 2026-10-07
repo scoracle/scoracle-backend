@@ -1,5 +1,7 @@
 # Harvester cleanup — September 27, 2026
 
+> **October 7 retirement:** This is a historical experiment record. Its binary annotation/scoring, trace-manifest and Fastino adapter tools were removed for the [Classifier launch](scoracle_classifier_plugin_launch.md). Commands below describe the old experiment; their source is recoverable from commit `5c956402`.
+
 > **2026-10-06 governing update:** This dated record preserves its implementation and evaluation evidence. The [current contract](../../../scoracle-wiki/wiki/Architecture/Harness,%20Plugins,%20Tools,%20and%20LLM%20Contract.md) supersedes articulation-only ownership: cheap code owns collection; expensive compute owns discovery. Plugins assemble traceable clues through tools; the LLM reasons across them, discovers what they support and articulates the answer. Historical “plugin owns WHAT/model owns HOW” statements below do not govern new builds.
 
 Retention rule: keep a component only when it has a concrete current consumer or

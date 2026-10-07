@@ -1,0 +1,42 @@
+{
+  "purpose": "Mechanical training and checkpoint replay only; eight fictional controls use deliberately artificial labels. This is not gold or sports accuracy evidence.",
+  "models": {
+    "horizon": {
+      "base_model": "Horizon-Labs/multilingual-emotions-small",
+      "base_revision": "1bc9627f189e5aa08b00cf525c3c86052067b81e",
+      "checkpoint_weights_sha256": "81ac8862154d7496d31b76806ff3ea0eb1f9f3b073eb7a859860a938bab6e1cc",
+      "identical_frozen_encoder_tensors": 134,
+      "native_nonpersistent_buffers_omitted": [],
+      "training_units": 8,
+      "epochs": 1,
+      "training_loss": [
+        1.4600704908370972
+      ],
+      "replay_receipts": 8,
+      "presence_dimensions": 13,
+      "all_finite": true,
+      "no_truncation": true,
+      "calibrated": false
+    },
+    "samlowe": {
+      "base_model": "SamLowe/roberta-base-go_emotions",
+      "base_revision": "d75048347613a25d77de8cf6412eaae9fa7b26be",
+      "checkpoint_weights_sha256": "4272dc3e1320564833c1334363768e636d16ae2e0511cb3ed359267edded2f07",
+      "identical_frozen_encoder_tensors": 197,
+      "native_nonpersistent_buffers_omitted": [
+        "roberta.embeddings.position_ids"
+      ],
+      "training_units": 8,
+      "epochs": 1,
+      "training_loss": [
+        0.6821317076683044
+      ],
+      "replay_receipts": 8,
+      "presence_dimensions": 13,
+      "all_finite": true,
+      "no_truncation": true,
+      "calibrated": false
+    }
+  },
+  "approved_private_source_copy_hashes_verified": true
+}

@@ -1,0 +1,50 @@
+{
+  "contract": "classifier-review-preparation-v2",
+  "canonical_sources": 400,
+  "publishers": 314,
+  "previously_measured_sources": 40,
+  "new_unmeasured_sources": 360,
+  "source_bytes": 2082928,
+  "max_source_bytes": 73424,
+  "windows": 3699,
+  "max_windows_per_source": 116,
+  "query_target_count": 773,
+  "query_targets_by_sport": {
+    "NBA": 187,
+    "NFL": 215,
+    "FOOTBALL": 371
+  },
+  "review_units_by_scope": {
+    "document_window": 3699,
+    "target_window": 7963
+  },
+  "review_status": {
+    "ai_provisional": 12,
+    "pending": 11650
+  },
+  "presence_annotations": 244081,
+  "ordinal_annotations": 23889,
+  "ai_provisional_presence_annotations": 25,
+  "adjudicated_annotations": 0,
+  "training_units": 0,
+  "dev_units": 0,
+  "test_units": 0,
+  "publication_date_min": "2026-08-06T16:37:49-04:00",
+  "publication_date_max": "2026-10-07T00:46:51-04:00",
+  "schema_sha256": "78a61fbb6a7753dd19da0c0be43b6fae543d84f4439da63b9be1636a24c5779e",
+  "files": {
+    "corpus-400.jsonl": "0400472bfa38600705ed465d802fcd0fb737d3da82c53be89970131b2653829a",
+    "source-400.jsonl": "b92c6def09bfd1fac3b5450df834208c206a15a45721ce7c685d3b55734d35b2",
+    "review-400-v2.jsonl": "f0cb275f6b508477c65379a77830f2b1f73759962784dfa3f50e6f5d7228946f",
+    "review-400-provisional-v2.jsonl": "495a11b64f2db38cf43f9eedf80b77596203380fc1ba40bb94caaad0bc002b49",
+    "seed-provisional.py": "b1406232b7a4bbd0d52695667273617f6693eed16c9343a665479d7f00271cb6"
+  },
+  "window_equivalence": "Exact text and UTF-8 ranges equal the earlier complete Harvester-based export; new windows omit legacy selection metadata.",
+  "limits": [
+    "Source-only stratified sample of already retained publisher text, not representative gold or an accuracy set.",
+    "Syndication groups and temporal splits remain unassigned.",
+    "All ordinal annotations and unfilled presence annotations remain unknown.",
+    "AI suggestions are not independently reviewed gold and are barred from training/evaluation.",
+    "Long-source preparation is complete; model token coverage of the 400-source corpus is not yet measured."
+  ]
+}

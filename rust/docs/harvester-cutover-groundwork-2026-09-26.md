@@ -1,5 +1,7 @@
 # Harvester cutover groundwork — September 26, 2026
 
+> **October 7 retirement:** This is a historical experiment record. Its binary annotation/scoring, trace-manifest and Fastino adapter tools were removed for the [Classifier launch](scoracle_classifier_plugin_launch.md). Commands below describe the old experiment; their source is recoverable from commit `5c956402`.
+
 Status: historical Phase 0 evidence and annotation groundwork. The active cutover
 contract is packet-free `harvest-context-v1`; Laya decisions are advisory and all
 acquired news stays eligible for character review. Stories and Editor are both

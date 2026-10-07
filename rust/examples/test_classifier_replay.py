@@ -2,7 +2,7 @@ import unittest
 import json
 
 from classifier_replay import SCHEMA_PATH, head_labels, model_text, source_windows, validate_head
-from classifier_review import prepare, validate
+from classifier_review import prepare, training_rows, validate
 
 
 class Coverage(unittest.TestCase):
@@ -35,9 +35,10 @@ class Coverage(unittest.TestCase):
         unit = record["units"][1]
         self.assertIn(text, unit["model_text"])
         unit["labels"]["topic.match_event"] = 1
-        with self.assertRaisesRegex(ValueError, "named reviewer"):
+        with self.assertRaisesRegex(ValueError, "pending row"):
             validate(record, item, schema)
         unit["reviewer"] = "synthetic contract check"
+        unit["review_status"] = "reviewed"
         with self.assertRaisesRegex(ValueError, "supporting evidence"):
             validate(record, item, schema)
         unit["evidence"] = [{"label": "topic.match_event", "start": 0, "end": len(text.encode()),
@@ -53,6 +54,44 @@ class Coverage(unittest.TestCase):
         unit["ordinal_annotations"]["affect.valence"] = 50
         with self.assertRaisesRegex(ValueError, "ordinal annotation lacks"):
             validate(record, item, schema)
+        unit["ordinal_annotations"]["affect.valence"] = None
+        unit["review_status"] = "ai_provisional"
+        unit["reviewer"] = "codex-ai-provisional"
+        self.assertEqual(validate(record, item, schema), 1)
+        record["split"] = "train"
+        record["syndication_group"] = "synthetic-result"
+        with self.assertRaisesRegex(ValueError, "AI labels cannot enter"):
+            validate(record, item, schema)
+        unit["review_status"] = "adjudicated"
+        unit["adjudicator"] = unit["reviewer"]
+        with self.assertRaisesRegex(ValueError, "independent adjudicator"):
+            validate(record, item, schema)
+        unit["reviewer"] = "synthetic contract check"
+        unit["adjudicator"] = "separate synthetic contract check"
+        validate(record, item, schema)
+        with self.assertRaisesRegex(ValueError, "usable extraction"):
+            training_rows([record], schema, ["topic"])
+        record["extraction_review"].update(usable=True, reviewer="synthetic extraction check")
+        dataset = training_rows([record], schema, ["topic"])
+        self.assertEqual(len(dataset["train"]), 1)
+        self.assertEqual(dataset["train"][0]["labels"][0], 1)
+        self.assertIsNone(dataset["train"][0]["labels"][1])
+
+    def test_unknown_training_labels_have_no_gradient(self):
+        try:
+            import torch
+        except ImportError:
+            self.skipTest("uses the existing Archbox torch runtime")
+        from classifier_train import masked_loss
+        logits = torch.tensor([[0.0, 9.0, 0.0]], requires_grad=True)
+        loss = masked_loss(torch, logits, [[1, None, 0]])
+        loss.backward()
+        self.assertAlmostEqual(loss.item(), 0.693147, places=5)
+        self.assertLess(logits.grad[0, 0].item(), 0)
+        self.assertEqual(logits.grad[0, 1].item(), 0)
+        self.assertGreater(logits.grad[0, 2].item(), 0)
+        with self.assertRaisesRegex(ValueError, "no known labels"):
+            masked_loss(torch, logits, [[None, None, None]])
 
 
 if __name__ == "__main__":

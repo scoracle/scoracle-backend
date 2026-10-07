@@ -9,7 +9,26 @@ import json
 import math
 from pathlib import Path
 
-from classifier_replay import SCHEMA_PATH, digest, model_text, source_windows
+from classifier_replay import SCHEMA_PATH, digest, head_labels, model_text, source_windows
+
+
+def validate_review_state(status, reviewer, adjudicator, completed, split):
+    if status not in ("pending", "ai_provisional", "reviewed", "adjudicated"):
+        raise ValueError("unknown review status")
+    if status == "pending":
+        if completed or reviewer is not None or adjudicator is not None:
+            raise ValueError("pending row has labels or reviewer")
+    elif not isinstance(reviewer, str) or not reviewer.strip() or not completed:
+        raise ValueError("reviewed row needs a named reviewer and decisions")
+    if status == "adjudicated":
+        if not isinstance(adjudicator, str) or not adjudicator.strip() or adjudicator == reviewer:
+            raise ValueError("independent adjudicator required")
+    elif adjudicator is not None:
+        raise ValueError("premature adjudicator")
+    if status == "ai_provisional" and (reviewer != "codex-ai-provisional" or split != "unassigned"):
+        raise ValueError("AI labels cannot enter a train/evaluation split")
+    if split != "unassigned" and status != "adjudicated":
+        raise ValueError("train/evaluation split needs adjudicated review")
 
 
 def prepare(item, schema, previously_measured=()):
@@ -27,8 +46,9 @@ def prepare(item, schema, previously_measured=()):
                                          for label in schema["vectors"][family]["labels"]},
                               "ordinal_annotations": {name: None for name, vector in schema["ordinal_vectors"].items()
                                                       if vector["scope"] == scope},
-                              "reviewer": None, "evidence": [], "notes": None})
-    return {"contract": "classifier-review-v1", "article_id": item["article_id"],
+                              "review_status": "pending", "reviewer": None, "adjudicator": None,
+                              "evidence": [], "notes": None})
+    return {"contract": "classifier-review-v2", "article_id": item["article_id"],
             "body_sha256": digest(item["body"]), "schema_version": schema["version"],
             "schema_sha256": digest(json.dumps(schema, sort_keys=True)),
             "source": {key: value for key, value in item.items() if key not in ("body", "windows")},
@@ -76,6 +96,10 @@ def validate(record, item, schema, previously_measured=()):
         if any(value is not None and (type(value) is not int or value not in (0, 1))
                for value in unit["labels"].values()):
             raise ValueError("review labels must be null, 0 or 1")
+        completed = sum(value is not None for value in unit["labels"].values()) + sum(
+            value is not None for value in unit["ordinal_annotations"].values())
+        validate_review_state(unit["review_status"], unit["reviewer"], unit["adjudicator"],
+                              completed, (record["split"] or "unassigned") if completed else "unassigned")
         if unit["reviewer"] is None:
             if (any(value is not None for value in unit["labels"].values())
                     or any(value is not None for value in unit["ordinal_annotations"].values()) or unit["evidence"]):
@@ -104,6 +128,43 @@ def validate(record, item, schema, previously_measured=()):
     return reviewed
 
 
+def load_review(source, review, schema, prior):
+    items = [json.loads(line) for line in source.read_text().splitlines() if line.strip()]
+    records = [json.loads(line) for line in review.read_text().splitlines() if line.strip()]
+    if not items or len({item["article_id"] for item in items}) != len(items) or len(records) != len(items):
+        raise ValueError("unique canonical sources and matching review packets required")
+    groups, bodies = {}, {}
+    for record, item in zip(records, items, strict=True):
+        validate(record, item, schema, prior)
+        split = record["split"]
+        if split is not None:
+            for ledger, key in ((groups, record["syndication_group"]), (bodies, record["body_sha256"])):
+                if ledger.setdefault(key, split) != split:
+                    raise ValueError("syndicated or identical sources leak across splits")
+    return records
+
+
+def training_rows(records, schema, families):
+    mapping = head_labels(schema, families)
+    scope = schema["vectors"][families[0]]["scope"]
+    result = {split: [] for split in ("train", "dev", "test")}
+    for record in records:
+        if record["split"] is None:
+            continue
+        if record["extraction_review"]["usable"] is not True:
+            raise ValueError("split source needs reviewed usable extraction")
+        for unit in record["units"]:
+            if unit["scope"] != scope:
+                continue
+            labels = [unit["labels"][f"{family}.{label}"] for family, label in mapping.values()]
+            if all(label is None for label in labels):
+                continue
+            if unit["review_status"] != "adjudicated":
+                raise ValueError("training/evaluation requires independently adjudicated labels")
+            result[record["split"]].append({"text": unit["model_text"], "labels": labels})
+    return result
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("source", type=Path)
@@ -114,24 +175,14 @@ def main():
     args = parser.parse_args()
     schema = json.loads(args.schema.read_text())
     prior = {row["article_id"] for row in map(json.loads, args.prior_manifest.read_text().splitlines())}
-    items = [json.loads(line) for line in args.source.read_text().splitlines() if line.strip()]
-    if not items or len({item["article_id"] for item in items}) != len(items):
-        parser.error("nonempty canonical source IDs must be unique")
     if args.validate:
-        records = [json.loads(line) for line in args.review.read_text().splitlines() if line.strip()]
-        if len(records) != len(items):
-            parser.error("review packet count differs from source")
-        reviewed = sum(validate(record, item, schema, prior) for record, item in zip(records, items, strict=True))
-        splits = {}
-        for record in records:
-            split = record["split"]
-            group = record["syndication_group"]
-            if split is not None and group in splits and splits[group] != split:
-                parser.error("syndicated sources leak across splits")
-            if split is not None:
-                splits[group] = split
+        records = load_review(args.source, args.review, schema, prior)
+        reviewed = sum(unit["review_status"] != "pending" for record in records for unit in record["units"])
         print(f"Validated {len(records)} source packets; {reviewed} units have a named reviewer. This does not verify review independence or accuracy.")
     else:
+        items = [json.loads(line) for line in args.source.read_text().splitlines() if line.strip()]
+        if not items or len({item["article_id"] for item in items}) != len(items):
+            parser.error("nonempty canonical source IDs must be unique")
         with args.review.open("x") as output:
             for item in items:
                 record = prepare(item, schema, prior)

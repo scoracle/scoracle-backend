@@ -1,5 +1,7 @@
-//! Source presentation shared by articulation plugins. Selection, titles and
+//! Verbatim source windows and presentation shared by intake and character plugins.
+//! Selection, titles and
 //! durable source identity remain with the consuming plugin and its provenance.
+use anyhow::{ensure, Result};
 use serde::Serialize;
 use std::borrow::Cow;
 
@@ -25,6 +27,72 @@ impl<'a> Reporting<'a> {
             },
         }
     }
+}
+
+/// Exact, half-open UTF-8 byte range into the unchanged retained source.
+#[derive(Serialize)]
+pub struct SourceWindow {
+    pub text: String,
+    pub start: usize,
+    pub end: usize,
+}
+
+/// Cover all non-whitespace source text in 100-word/1200-byte windows.
+/// Exceeding the caller's budget fails rather than silently dropping evidence.
+pub fn windows(body: &str, max_windows: usize) -> Result<Vec<SourceWindow>> {
+    ensure!(max_windows > 0, "source window budget must be positive");
+    let mut result = Vec::new();
+    let mut cursor = 0;
+    while cursor < body.len() {
+        cursor += body[cursor..].len() - body[cursor..].trim_start().len();
+        if cursor == body.len() {
+            break;
+        }
+        ensure!(
+            result.len() < max_windows,
+            "retained article exceeds complete scoring budget"
+        );
+        let length = bounded_prefix_end(&body[cursor..], 100, 1200);
+        ensure!(length > 0, "publisher scoring window is empty");
+        result.push(SourceWindow {
+            text: body[cursor..cursor + length].into(),
+            start: cursor,
+            end: cursor + length,
+        });
+        cursor += length;
+    }
+    Ok(result)
+}
+
+fn bounded_prefix_end(content: &str, max_words: usize, max_bytes: usize) -> usize {
+    let mut end = content.len().min(max_bytes);
+    while !content.is_char_boundary(end) {
+        end -= 1;
+    }
+    let mut in_word = false;
+    let mut words = 0;
+    let mut last_boundary = 0;
+    for (i, c) in content[..end].char_indices() {
+        if c.is_whitespace() {
+            in_word = false;
+            last_boundary = i;
+        } else if !in_word {
+            if words == max_words {
+                end = i;
+                break;
+            }
+            words += 1;
+            in_word = true;
+        }
+    }
+    if end < content.len()
+        && !content[end..].starts_with(char::is_whitespace)
+        && !content[..end].ends_with(char::is_whitespace)
+        && last_boundary > 0
+    {
+        end = last_boundary;
+    }
+    content[..end].trim_end().len()
 }
 
 /// Mechanical detection of explicit attempts to override the writing contract.
@@ -61,6 +129,28 @@ pub fn contains_instruction_override(source: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn windows_preserve_unicode_complete_coverage_and_explicit_budget() {
+        let body = format!(
+            "  {}\n\nLate denial: not today.  ",
+            "Équipe played. ".repeat(4000)
+        );
+        assert!(windows(&body, 64).is_err());
+        assert!(windows(&body, 0).is_err());
+        let complete = windows(&body, 256).unwrap();
+        let mut cursor = 0;
+        for window in complete {
+            assert!(body[cursor..window.start].chars().all(char::is_whitespace));
+            assert_eq!(&body[window.start..window.end], window.text);
+            assert!(window.text.split_whitespace().count() <= 100);
+            assert!(window.text.len() <= 1200);
+            cursor = window.end;
+        }
+        assert_eq!(cursor, body.trim_end().len());
+        let unbroken = "é".repeat(1500);
+        assert_eq!(windows(&unbroken, 3).unwrap().len(), 3);
+    }
 
     #[test]
     fn rendering_decodes_quotes_but_retains_the_original_source() {

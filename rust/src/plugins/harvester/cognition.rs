@@ -44,37 +44,6 @@ pub struct PreparedText {
     pub character_context: Excerpt,
 }
 
-fn bounded_prefix_end(content: &str, max_words: usize, max_bytes: usize) -> usize {
-    let mut end = content.len().min(max_bytes);
-    while !content.is_char_boundary(end) {
-        end -= 1;
-    }
-    let mut in_word = false;
-    let mut words = 0;
-    let mut last_boundary = 0;
-    for (i, c) in content[..end].char_indices() {
-        if c.is_whitespace() {
-            in_word = false;
-            last_boundary = i;
-        } else if !in_word {
-            if words == max_words {
-                end = i;
-                break;
-            }
-            words += 1;
-            in_word = true;
-        }
-    }
-    if end < content.len()
-        && !content[end..].starts_with(char::is_whitespace)
-        && !content[..end].ends_with(char::is_whitespace)
-        && last_boundary > 0
-    {
-        end = last_boundary;
-    }
-    content[..end].trim_end().len()
-}
-
 fn excerpt(body: &str, end: usize, selection: &str) -> Excerpt {
     let start = body.len() - body.trim_start().len();
     let content = &body[start..];
@@ -124,33 +93,17 @@ pub fn full_article(body: &str) -> Excerpt {
 /// Cover every retained paragraph. Gaps may contain whitespace only; an oversized
 /// opening is a coverage error, never a negative classification.
 pub fn prepare_text(body: &str) -> Result<PreparedText> {
-    let character_context = first_paragraphs(body, 3);
-    let mut model_inputs = Vec::new();
-    let mut cursor = 0;
-    let full = full_article(body);
-    let text = &full.text;
-    while cursor < text.len() {
-        cursor += text[cursor..].len() - text[cursor..].trim_start().len();
-        if cursor == text.len() {
-            break;
-        }
-        ensure!(
-            model_inputs.len() < MAX_THEME_WINDOWS,
-            "retained article exceeds complete scoring budget"
-        );
-        let length = bounded_prefix_end(&text[cursor..], 100, 1200);
-        ensure!(length > 0, "publisher scoring window is empty");
-        model_inputs.push(Excerpt {
-            text: text[cursor..cursor + length].into(),
-            start: full.start + cursor,
-            end: full.start + cursor + length,
-            selection: "verbatim_publisher_window".into(),
-        });
-        cursor += length;
-    }
     Ok(PreparedText {
-        model_inputs,
-        character_context,
+        model_inputs: crate::tools::source::windows(body, MAX_THEME_WINDOWS)?
+            .into_iter()
+            .map(|window| Excerpt {
+                text: window.text,
+                start: window.start,
+                end: window.end,
+                selection: "verbatim_publisher_window".into(),
+            })
+            .collect(),
+        character_context: first_paragraphs(body, 3),
     })
 }
 

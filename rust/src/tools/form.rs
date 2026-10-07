@@ -285,7 +285,7 @@ mod tests {
     fn observations_preserve_long_paragraphs_and_header_limit() {
         let paragraph = "é".repeat(300);
         let reply = influencer::VibeParser.parse(
-            &serde_json::json!({"headline":"Hope","body":format!("{paragraph}\n\n{paragraph}")}).to_string(),
+            &serde_json::json!({"score":75,"headline":"Hope","body":format!("{paragraph}\n\n{paragraph}")}).to_string(),
         )
         .unwrap()
         .unwrap();
@@ -328,14 +328,16 @@ mod tests {
             paragraphs
         );
         assert!(influencer::VibeParser
-            .parse(&serde_json::json!({"headline":"Hope","body":paragraphs}).to_string())
+            .parse(&card)
             .unwrap()
             .unwrap()
             .body
             .contains("\n\n"));
         // A score the Scout never declared is a violation, not something to strip.
         assert!(scout::RatingParser.parse(&card).is_err());
-        assert!(influencer::VibeParser.parse(&card).is_err());
+        assert!(influencer::VibeParser
+            .parse(&serde_json::json!({"headline":"Hope","body":paragraphs}).to_string())
+            .is_err());
         // Truncation is an error everywhere, never a partial card.
         for truncated in [
             "{\"body\":\"unfinished",
@@ -382,7 +384,7 @@ mod tests {
         let bold = format!("**{text}**");
         assert!(
             influencer::VibeParser
-                .parse(&serde_json::json!({"headline":"Hope","body":bold}).to_string())
+                .parse(&serde_json::json!({"score":75,"headline":"Hope","body":bold}).to_string())
                 .unwrap()
                 .unwrap()
                 .body

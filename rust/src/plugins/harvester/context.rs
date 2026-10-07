@@ -610,7 +610,7 @@ mod tests {
         assert_eq!(model.calls.load(Ordering::SeqCst), 1 + inputs.len());
         assert_eq!(
             result.recommended_characters,
-            vec!["scoracle.character.transfers"]
+            vec!["scoracle.character.vibe", "scoracle.character.transfers"]
         );
         assert_eq!(result.model_input.text, result.context.text);
         let mut missing = result.clone();

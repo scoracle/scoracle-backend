@@ -8,6 +8,8 @@ use sqlx::{PgConnection, PgPool, Postgres, Row, Transaction};
 pub const POLICY_VERSION: &str = "journalist-classifier-v1";
 pub const INFLUENCER_POLICY_VERSION: &str = "influencer-classifier-v1";
 const INFLUENCER: &str = crate::plugins::influencer::manifest::MANIFEST.id.as_str();
+pub const INSIDER_POLICY_VERSION: &str = "insider-classifier-v1";
+const INSIDER: &str = crate::plugins::insider::manifest::MANIFEST.id.as_str();
 const JOURNALIST: &str = crate::plugins::journalist::manifest::MANIFEST.id.as_str();
 
 /// Retain an unresolved obligation until a separately evaluated policy releases it.
@@ -26,7 +28,11 @@ pub(crate) async fn record(tx: &mut Transaction<'_, Postgres>, id: i64) -> Resul
     for (plugin, policy) in [
         (JOURNALIST, POLICY_VERSION),
         (INFLUENCER, INFLUENCER_POLICY_VERSION),
+        (INSIDER, INSIDER_POLICY_VERSION),
     ] {
+        if record.target["entity_type"] == "person" && plugin != INSIDER {
+            continue;
+        }
         sqlx::query("UPDATE classifier_deliveries d SET status='superseded',reason='newer_measurement',updated_at=now()
         FROM classifier_measurements old,classifier_measurements current
         WHERE current.id=$1 AND old.id=d.measurement_id AND old.id<current.id
@@ -142,6 +148,7 @@ async fn load_on(
     let policy = match plugin {
         JOURNALIST => POLICY_VERSION,
         INFLUENCER => INFLUENCER_POLICY_VERSION,
+        INSIDER => INSIDER_POLICY_VERSION,
         _ => anyhow::bail!("unsupported Classifier character"),
     };
     let rows=sqlx::query("SELECT m.id,d.policy_version,d.status,
@@ -178,6 +185,13 @@ async fn load_on(
         );
         let id = row.get("id");
         let (source, record, _) = load_measurement_on(connection, id).await?;
+        if row.get::<String, _>("status") == "pending" {
+            ensure!(
+                super::identity::candidates(connection, sport, &source).await?
+                    == source.provenance["identity_candidates"],
+                "Classifier canonical identity changed"
+            );
+        }
         if !articles.insert(source.article_id) {
             continue;
         }
@@ -207,6 +221,10 @@ pub async fn validate_for_publication(
     sources: &[SourceContext],
 ) -> Result<()> {
     lock_sources(tx, plugin, sport, sources).await?;
+    for source in sources {
+        let (native, _, _) = load_measurement_on(tx, source.classification_id).await?;
+        super::identity::validate(tx, sport, &native).await?;
+    }
     let current = load_on(
         tx,
         plugin,

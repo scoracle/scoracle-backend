@@ -125,7 +125,7 @@ impl StudioPlugin for TransferHandler {
         if item
             .input_version
             .as_deref()
-            .is_some_and(|version| version.starts_with("harvest-context-v"))
+            .is_some_and(|version| version.starts_with(crate::plugins::classifier::CONTRACT))
         {
             let material = prompt::load_material(&self.pool, item).await?;
             if material.sources.is_empty() {
@@ -240,6 +240,7 @@ mod tests {
             sport: "NFL".into(),
         };
         let report = prompt::Report {
+            classifier_world: None,
             publisher: "Wire".into(),
             published_at: None,
             headline: "Browns pursue Jordan Sample".into(),
@@ -267,6 +268,7 @@ mod tests {
             sport: "NFL".into(),
         };
         let reports = [prompt::Report {
+            classifier_world: None,
             publisher: "Wire".into(),
             published_at: None,
             headline: "Browns pursue Jordan Sample".into(),
@@ -292,6 +294,7 @@ mod tests {
             sport: "NFL".into(),
         };
         let reports = [prompt::Report {
+            classifier_world: None,
             publisher: "Wire".into(),
             published_at: None,
             headline: "Browns deny Jordan Sample talks".into(),
@@ -315,3 +318,6 @@ mod tests {
             .is_err());
     }
 }
+
+#[cfg(test)]
+mod delivery_tests;

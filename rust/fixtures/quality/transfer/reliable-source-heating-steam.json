@@ -17,7 +17,7 @@
     "transfer_stage": "advanced_talks"
   },
   "name": "reliable-source-heating-steam",
-  "prompt_version": "insider-source-v6-concise-body",
+  "prompt_version": "insider-source-v7-classifier-world",
   "task": "transfer",
   "temperature": 0.0,
   "user_prompt": "{\"meta\":{\"name\":\"Mateus Andrade\",\"entity_type\":\"player\",\"sport\":\"FOOTBALL\"},\"fresh\":{\"reports\":[{\"publisher\":\"Fabrizio Romano\",\"headline\":\"Bayern in active talks with Flamengo for Andrade\",\"publisher_excerpt\":\"Bayern and Flamengo are negotiating the fee, with personal terms already agreed on a five-year deal for the winger.\",\"co_mentions\":[{\"name\":\"Bayern Munich\",\"entity_type\":\"team\"},{\"name\":\"Flamengo\",\"entity_type\":\"team\"}]},{\"publisher\":\"Kicker\",\"headline\":\"Bayern make Andrade their priority, open formal talks\",\"publisher_excerpt\":\"Bayern's board have opened formal negotiations with Flamengo and see the Brazilian as their top target.\",\"co_mentions\":[{\"name\":\"Bayern Munich\",\"entity_type\":\"team\"},{\"name\":\"Flamengo\",\"entity_type\":\"team\"}]}]},\"memories\":{\"prior_reports\":[],\"source_records\":[{\"publisher\":\"Fabrizio Romano\",\"confirmed\":28,\"tracked\":33,\"reliability\":86},{\"publisher\":\"Kicker\",\"confirmed\":18,\"tracked\":26,\"reliability\":71}]},\"voice\":\"Informed, alert, measured.\",\"form\":{\"keys\":[\"body\",\"findings\"],\"findings\":{\"type\":\"array\",\"item_keys\":[\"report_index\",\"counterparty\",\"status\",\"stage\",\"evidence_quote\"]},\"paragraphs\":\"concise\"}}",

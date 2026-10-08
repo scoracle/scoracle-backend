@@ -553,6 +553,11 @@ pub(crate) async fn setup_disposable(pool: &sqlx::PgPool) -> Result<()> {
             source text,published_at timestamptz,full_text text,duplicate_of bigint,feed_rank integer);
         CREATE TABLE IF NOT EXISTS harvester_query_provenance(article_id bigint REFERENCES news_articles(id),
             entity_type text,entity_id integer,sport text,feed_rank integer,PRIMARY KEY(article_id,entity_type,entity_id,sport));
+        CREATE TABLE IF NOT EXISTS players(id integer,sport text,name text,PRIMARY KEY(id,sport));
+        CREATE TABLE IF NOT EXISTS persons(id integer,sport text,full_name text,kind text,team_id integer,PRIMARY KEY(id,sport));
+        CREATE TABLE IF NOT EXISTS entity_name_surfaces(sport text,entity_type text,entity_id integer,norm text,surface_kind text);
+        ALTER TABLE entity_name_surfaces ADD COLUMN IF NOT EXISTS surface_kind text;
+        CREATE OR REPLACE FUNCTION public.nrm(text) RETURNS text LANGUAGE sql IMMUTABLE AS $$SELECT lower($1)$$;
         CREATE TABLE IF NOT EXISTS sports(id text PRIMARY KEY,display_name text,current_season integer);")
         .execute(pool).await?;
     for (version, migration) in [
@@ -600,15 +605,42 @@ pub(crate) async fn setup_disposable(pool: &sqlx::PgPool) -> Result<()> {
             "294_classifier_influencer_delivery",
             include_str!("../../../../sql/migrations/294_classifier_influencer_delivery.sql"),
         ),
+        (
+            "261_insider_publication_outbox",
+            include_str!("../../../../sql/migrations/261_insider_publication_outbox.sql"),
+        ),
+        (
+            "295_classifier_insider_delivery",
+            include_str!("../../../../sql/migrations/295_classifier_insider_delivery.sql"),
+        ),
     ] {
         let applied: bool =
             sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version=$1)")
                 .bind(version)
                 .fetch_one(pool)
                 .await?;
-        // Reapply the new delivery migration while its local implementation is being developed.
-        if !applied || version == "294_classifier_influencer_delivery" {
+        // A newer schema may already contain person claims; never replay the old article-only constraint.
+        if !applied && version == "109_pipeline_work_article_stage" {
+            let article_supported: bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM pg_constraint
+                WHERE conrelid='pipeline_work'::regclass AND conname='pipeline_work_entity_type_check'
+                AND pg_get_constraintdef(oid) LIKE '%article%')").fetch_one(pool).await?;
+            if article_supported {
+                sqlx::query(
+                    "INSERT INTO schema_migrations(version) VALUES($1) ON CONFLICT DO NOTHING",
+                )
+                .bind(version)
+                .execute(pool)
+                .await?;
+                continue;
+            }
+        }
+        // Reapply only the newest dispatch implementation while developing it.
+        if !applied || version == "295_classifier_insider_delivery" {
             sqlx::raw_sql(migration).execute(pool).await?;
+            sqlx::query("INSERT INTO schema_migrations(version) VALUES($1) ON CONFLICT DO NOTHING")
+                .bind(version)
+                .execute(pool)
+                .await?;
         }
     }
     Ok(())

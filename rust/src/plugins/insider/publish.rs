@@ -6,9 +6,7 @@ use crate::harness::plugin::PluginOutcome;
 use crate::harness::queue::publication::ClaimPublication;
 use crate::harness::queue::work::Item;
 use crate::harness::Generation;
-use crate::plugins::harvester::delivery::{
-    validate_for_publication, validate_insider_subject_for_publication,
-};
+use crate::plugins::classifier::delivery::validate_for_publication;
 use crate::tools::source::SourceContext;
 use anyhow::{ensure, Context, Result};
 use sqlx::{PgConnection, PgPool, Row};
@@ -226,7 +224,7 @@ async fn insert_rumors(
               is_rumor,direction,stage,model_summary,source_attribution,input_news_ids, \
               model_version,prompt_version,rumor_updated_at,source_count,source_names, \
               source_latest_at,source_oldest_at,input_hash,subject_type) \
-             VALUES($1,$2,$3,'harvester',$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14, \
+             VALUES($1,$2,$3,'classifier',$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14, \
                     COALESCE(to_timestamp($15::double precision),now()),$16,$17, \
                     to_timestamp($15::double precision),to_timestamp($18::double precision),$19,$20) \
              RETURNING id"
@@ -263,26 +261,15 @@ pub(super) async fn commit(
     let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
         return Ok(PluginOutcome::Superseded);
     };
-    if item.entity_type == "team" {
-        validate_for_publication(
-            publication.transaction(),
-            crate::plugins::insider::manifest::MANIFEST.id.as_str(),
-            "team",
-            item.entity_id_i32()?,
-            &material.subject.sport,
-            &material.sources,
-        )
-        .await?;
-    } else {
-        validate_insider_subject_for_publication(
-            publication.transaction(),
-            &item.entity_type,
-            item.entity_id_i32()?,
-            &material.subject.sport,
-            &material.sources,
-        )
-        .await?;
-    }
+    validate_for_publication(
+        publication.transaction(),
+        crate::plugins::insider::manifest::MANIFEST.id.as_str(),
+        &item.entity_type,
+        item.entity_id_i32()?,
+        &material.subject.sport,
+        &material.sources,
+    )
+    .await?;
     let score = activity_score(
         publication.transaction(),
         &generation.product,
@@ -320,43 +307,18 @@ pub(super) async fn commit(
             .findings
             .iter()
             .any(|f| f.report_index == index);
-        if item.entity_type == "team" {
-            let changed = sqlx::query(
-                "UPDATE public.harvester_assignments SET status=$3,reason=$4,product_ref=$5,updated_at=now() \
-                 WHERE classification_id=$1 AND plugin_id=$2 AND status='pending'"
-            ).bind(source.classification_id).bind(crate::plugins::insider::manifest::MANIFEST.id.as_str())
-                .bind(if has_finding { "used" } else { "abstained" })
-                .bind(if has_finding { None } else { Some("No source-grounded move for this team") })
-                .bind(serde_json::json!({"score_id":score_id,"rumor_ids":rumor_ids}))
-                .execute(&mut **publication.transaction()).await?;
-            ensure!(
-                changed.rows_affected() == 1,
-                "Insider assignment changed during call"
-            );
-        } else {
-            let has_reported = generation
-                .product
-                .findings
-                .iter()
-                .any(|f| f.report_index == index && f.status == Status::Reported);
-            let changed = sqlx::query(
-                "UPDATE public.harvester_insider_pairs p SET status=$4,product_ref=$5,updated_at=now() \
-                 FROM public.harvester_classifications c \
-                 WHERE p.classification_id=c.id AND c.article_id=$1 AND c.sport=$6 \
-                   AND p.subject_type=$2 AND p.subject_id=$3 AND p.status='pending'"
-            ).bind(source.article_id).bind(&item.entity_type).bind(item.entity_id_i32()?)
-                .bind(if has_reported { "rumor" } else { "cleared" })
-                .bind(serde_json::json!({
-                    "score_id":score_id,"rumor_ids":rumor_ids,"body":generation.product.body,
-                    "model_version":generation.provenance.model_version,
-                    "input_hash":generation.provenance.input_hash,
-                })).bind(&material.subject.sport)
-                .execute(&mut **publication.transaction()).await?;
-            ensure!(
-                changed.rows_affected() >= 1,
-                "Insider subject obligation changed during call"
-            );
-        }
+        let changed = sqlx::query(
+            "UPDATE public.classifier_deliveries SET status=$3,reason=$4,product_ref=$5,updated_at=now()
+             WHERE measurement_id=$1 AND plugin_id=$2 AND status='pending' AND production_eligible")
+            .bind(source.classification_id).bind(crate::plugins::insider::manifest::MANIFEST.id.as_str())
+            .bind(if has_finding {"used"} else {"abstained"})
+            .bind(if has_finding {None} else {Some("No source-grounded move for this entity")})
+            .bind(serde_json::json!({"score_id":score_id,"rumor_ids":rumor_ids}))
+            .execute(&mut **publication.transaction()).await?;
+        ensure!(
+            changed.rows_affected() == 1,
+            "Insider obligation changed during call"
+        );
     }
     if let Some(score_id) = score_id {
         record_transfer_event(
@@ -382,7 +344,7 @@ pub(super) async fn commit(
             },
             LedgerEvent {
                 entity_type: &item.entity_type, entity_id: item.entity_id_i32()?, sport: &material.subject.sport,
-                pair_entity: None, trigger_type: "harvester", trigger_payload: serde_json::json!({}),
+                pair_entity: None, trigger_type: "classifier", trigger_payload: serde_json::json!({}),
                 product_row_ids: product_ids,
                 included_evidence: serde_json::json!({"article_ids":material.sources.iter().map(|s| s.article_id).collect::<Vec<_>>()}),
                 excluded_evidence: serde_json::json!([]),

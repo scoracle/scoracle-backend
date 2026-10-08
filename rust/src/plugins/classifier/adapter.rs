@@ -128,10 +128,16 @@ impl StudioPlugin for AcquireHandler {
         let key = input_hash(&before)?;
         let mut source = before.clone();
         if source.body.trim().is_empty() {
-            let cached: Option<String> = sqlx::query_scalar("SELECT source::text FROM public.classifier_sources WHERE article_id=$1 AND sport=$2 AND input_hash=$3 ORDER BY id DESC LIMIT 1")
-                .bind(item.entity_id).bind(&item.sport).bind(&key).fetch_optional(&self.pool).await?;
+            let cached: Option<String> = sqlx::query_scalar("SELECT source::text FROM public.classifier_sources WHERE article_id=$1 AND sport=$2 AND source->>'url'=$3 ORDER BY id DESC LIMIT 1")
+                .bind(item.entity_id).bind(&item.sport).bind(before.provenance["url"].as_str()).fetch_optional(&self.pool).await?;
             if let Some(cached) = cached {
-                source = serde_json::from_str(&cached)?;
+                let cached: Source = serde_json::from_str(&cached)?;
+                source.body = cached.body;
+                for key in ["publisher_url", "publisher_domain"] {
+                    if let Some(value) = cached.provenance.get(key) {
+                        source.provenance.insert(key.into(), value.clone());
+                    }
+                }
             } else {
                 let url = before.provenance["url"].as_str().context("publisher URL")?;
                 let fetched = self
@@ -152,13 +158,29 @@ impl StudioPlugin for AcquireHandler {
             !source.body.trim().is_empty(),
             "publisher acquisition yielded no source text"
         );
+        let identities =
+            super::identity::candidates(&mut *self.pool.acquire().await?, &item.sport, &source)
+                .await?;
+        for candidate in identities.as_array().unwrap() {
+            if !source.query_entities.iter().any(|q| {
+                q["entity_type"] == candidate["entity_type"]
+                    && q["entity_id"] == candidate["entity_id"]
+            }) {
+                source.query_entities.push(candidate.clone());
+            }
+        }
+        source
+            .provenance
+            .insert("identity_candidates".into(), identities);
+        let identity_hash = hash(&source.provenance["identity_candidates"].to_string());
         let Some(mut publication) = ClaimPublication::begin(&self.pool, item).await? else {
             return Ok(PluginOutcome::Superseded);
         };
+        super::identity::validate(publication.transaction(), &item.sport, &source).await?;
         fence_source(&self.pool, item, &before, &mut publication).await?;
-        let source_id: i64 = sqlx::query_scalar("INSERT INTO public.classifier_sources(article_id,sport,input_hash,body_sha256,source,discovery_version) VALUES($1,$2,$3,$4,$5::jsonb,public.classifier_discovery_version($1,$2)) ON CONFLICT(article_id,sport,input_hash,body_sha256) DO UPDATE SET discovery_version=EXCLUDED.discovery_version RETURNING id")
+        let source_id: i64 = sqlx::query_scalar("INSERT INTO public.classifier_sources(article_id,sport,input_hash,body_sha256,source,discovery_version,identity_hash) VALUES($1,$2,$3,$4,$5::jsonb,public.classifier_discovery_version($1,$2),$6) ON CONFLICT(article_id,sport,input_hash,body_sha256,identity_hash) DO UPDATE SET discovery_version=EXCLUDED.discovery_version RETURNING id")
             .bind(item.entity_id).bind(&item.sport).bind(&key).bind(hash(&source.body))
-            .bind(serde_json::to_string(&source)?).fetch_one(&mut **publication.transaction()).await?;
+            .bind(serde_json::to_string(&source)?).bind(identity_hash).fetch_one(&mut **publication.transaction()).await?;
         work::enqueue(
             &mut **publication.transaction(),
             &Item {
@@ -374,6 +396,7 @@ pub(crate) async fn execute_model(
                 return Ok(PluginOutcome::Superseded);
             };
             fence_source(pool, item, &before, &mut publication).await?;
+            super::identity::validate(publication.transaction(), &item.sport, &source).await?;
             super::delivery::record(publication.transaction(), id).await?;
             publication.commit_progress().await?;
             continue;
@@ -382,7 +405,12 @@ pub(crate) async fn execute_model(
         let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
             return Ok(PluginOutcome::Superseded);
         };
-        if let Err(error) = fence_source(pool, item, &before, &mut publication).await {
+        let fence = async {
+            fence_source(pool, item, &before, &mut publication).await?;
+            super::identity::validate(publication.transaction(), &item.sport, &source).await
+        }
+        .await;
+        if let Err(error) = fence {
             // Retain the attempt against its immutable historical source, never current evidence.
             receipt["status"] = json!("error");
             receipt["error"] = json!(format!("{error:#}; previous result: {}", receipt["error"]));

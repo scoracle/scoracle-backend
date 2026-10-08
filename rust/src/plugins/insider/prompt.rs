@@ -6,18 +6,17 @@ pub const ARTICLE_NUM_CTX: i32 = 32768;
 pub const CONTEXT_BUDGET_BYTES: usize = 24000;
 use crate::harness::model::GenerateOptions;
 use crate::harness::queue::work::Item;
-use crate::plugins::harvester::delivery::{load_for_character, load_for_insider_subject};
+use crate::plugins::classifier::{adapter::load_measurement, delivery::load_for_character};
 use crate::tools::memories::{self as study, HistoryItem, ReportingHistory, SourceRecord};
 use crate::tools::meta::EntityMeta;
 use crate::tools::source::SourceContext;
-use anyhow::Result;
+use anyhow::{ensure, Context, Result};
 use serde::Serialize;
-use sqlx::{PgPool, Row};
-use std::collections::HashMap;
+use sqlx::PgPool;
 
-const SYSTEM: &str = "Write an attributed transfer or trade reading for the named entity from the supplied publisher reports. The source text establishes what was reported, not whether a move happened. A co-mentioned name is only a candidate subject; do not infer a move from its presence. Preserve denials, uncertainty, source disagreements and report dates. Use prior reports only as history; weigh measured publisher records with their tracked sample sizes, and do not treat missing records as poor reliability. Return one JSON object with body and findings. For each specific reported move or explicit denial involving this entity and a co-mentioned counterparty, give its zero-based report_index, exact counterparty name, status (reported or denied), and an exact continuous evidence_quote from that report's headline or publisher_excerpt. For reported moves, set stage to speculation, concrete_interest, advanced_talks, or here_we_go; for denials, set stage to null. A denial requires an explicit source statement about that move; absence, silence, and unrelated mentions produce no finding. Use [] when there are no supported findings. Do not report completed identity changes from transfer speculation.";
+const SYSTEM: &str = "Write an attributed transfer or trade reading for the named entity from the supplied publisher reports. The source text establishes what was reported, not whether a move happened. A co-mentioned name is only a candidate subject; do not infer a move from its presence. Preserve denials, uncertainty, source disagreements and report dates. Classifier worlds contain proposed literal claim relationships, not independent confirmation. Unassessed signals and unknown relationships remain unresolved; read them with the complete publisher text. Use prior reports only as history; weigh measured publisher records with their tracked sample sizes, and do not treat missing records as poor reliability. Return one JSON object with body and findings. For each specific reported move or explicit denial involving this entity and a co-mentioned counterparty, give its zero-based report_index, exact counterparty name, status (reported or denied), and an exact continuous evidence_quote from that report's headline or publisher_excerpt. For reported moves, set stage to speculation, concrete_interest, advanced_talks, or here_we_go; for denials, set stage to null. A denial requires an explicit source statement about that move; absence, silence, and unrelated mentions produce no finding. Use [] when there are no supported findings. Do not report completed identity changes from transfer speculation.";
 
-pub const PROMPT_VERSION: &str = "insider-source-v6-concise-body";
+pub const PROMPT_VERSION: &str = "insider-source-v7-classifier-world";
 pub const OUTPUT_CONTRACT_VERSION: &str = "insider-reading-findings-v2";
 pub const NUM_PREDICT: i32 = 1400;
 
@@ -96,50 +95,46 @@ pub(super) async fn load_material(pool: &PgPool, item: &Item) -> Result<Material
         entity_id,
         sport: sport.clone(),
     };
-    let sources = if item.entity_type == "team" {
-        load_for_character(
-            pool,
-            crate::plugins::insider::manifest::MANIFEST.id.as_str(),
-            "team",
-            entity_id,
-            &sport,
-        )
-        .await?
-    } else {
-        load_for_insider_subject(pool, &item.entity_type, entity_id, &sport).await?
-    };
-    let article_ids: Vec<i64> = sources.iter().map(|s| s.article_id).collect();
-    let rows = sqlx::query(
-        "SELECT m.article_id,m.entity_type,m.entity_id,COALESCE(t.name,p.name,pp.full_name) AS name \
-         FROM public.harvester_entity_mentions m \
-         LEFT JOIN public.teams t ON m.entity_type='team' AND t.id=m.entity_id AND t.sport=m.sport \
-         LEFT JOIN public.players p ON m.entity_type='player' AND p.id=m.entity_id AND p.sport=m.sport \
-         LEFT JOIN public.persons pp ON m.entity_type='person' AND pp.id=m.entity_id AND pp.sport=m.sport \
-         WHERE m.article_id=ANY($1) AND m.sport=$2 AND (m.entity_type,m.entity_id)<>($3,$4) \
-         ORDER BY m.article_id,m.entity_type,name"
-    ).bind(&article_ids).bind(&sport).bind(&item.entity_type).bind(entity_id).fetch_all(pool).await?;
-    let mut by_article: HashMap<i64, Vec<Match>> = HashMap::new();
-    for row in rows {
-        if let Some(name) = row.get::<Option<String>, _>("name") {
-            let found = by_article.entry(row.get("article_id")).or_default();
-            let mention = Match {
-                name,
-                entity_type: row.get("entity_type"),
-                entity_id: row.get("entity_id"),
-            };
-            if !found
-                .iter()
-                .any(|x| x.entity_type == mention.entity_type && x.entity_id == mention.entity_id)
-            {
-                found.push(mention);
-            }
-        }
-    }
+    let sources = load_for_character(
+        pool,
+        crate::plugins::insider::manifest::MANIFEST.id.as_str(),
+        &item.entity_type,
+        entity_id,
+        &sport,
+    )
+    .await?;
+    ensure!(
+        sources.iter().all(|s| s
+            .published_at_epoch
+            .is_some_and(|t| t <= crate::plugins::influencer::now())),
+        "Insider publication time unresolved; source work remains pending"
+    );
     let mut reports = Vec::with_capacity(sources.len());
     let mut mentions = Vec::with_capacity(sources.len());
     for source in &sources {
-        let found = by_article.remove(&source.article_id).unwrap_or_default();
+        let (native, _, _) = load_measurement(pool, source.classification_id).await?;
+        let found = native.provenance["identity_candidates"]
+            .as_array()
+            .context("native identities missing")?
+            .iter()
+            .filter(|candidate| {
+                candidate["entity_type"] != item.entity_type || candidate["entity_id"] != entity_id
+            })
+            .map(|candidate| {
+                Ok(Match {
+                    name: candidate["name"].as_str().context("native name")?.into(),
+                    entity_type: candidate["entity_type"]
+                        .as_str()
+                        .context("native type")?
+                        .into(),
+                    entity_id: i32::try_from(
+                        candidate["entity_id"].as_i64().context("native id")?,
+                    )?,
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
         reports.push(Report {
+            classifier_world: source.classifier_world.clone(),
             publisher: source.source.clone(),
             published_at: source.published_at_epoch.map(crate::util::utc_timestamp),
             headline: source.headline.clone(),
@@ -242,6 +237,8 @@ pub struct Mention {
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Report {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub classifier_world: Option<serde_json::Value>,
     pub publisher: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub published_at: Option<String>,
@@ -301,6 +298,7 @@ mod tests {
             sport: "NFL".into(),
         };
         let report = Report {
+            classifier_world: None,
             publisher: "Wire".into(),
             published_at: Some("2026-10-02".into()),
             headline: "Browns consider Jordan Sample".into(),

@@ -151,14 +151,14 @@ async fn classifier_journalist_delivery_publication_and_recovery() -> Result<()>
             .await?
             .is_empty()
     );
-    let held:i64=sqlx::query_scalar("SELECT count(*) FROM classifier_deliveries WHERE measurement_id=ANY($1) AND status='held' AND NOT production_eligible")
+    let held:i64=sqlx::query_scalar("SELECT count(*) FROM classifier_deliveries WHERE plugin_id='scoracle.character.narrative' AND measurement_id=ANY($1) AND status='held' AND NOT production_eligible")
         .bind(&measurements).fetch_one(&pool).await?;
     assert_eq!(
         held, 5,
         "unassessed measurements never automatically release character work"
     );
     assert!(
-        sqlx::query("UPDATE classifier_deliveries SET status='pending' WHERE measurement_id=$1")
+        sqlx::query("UPDATE classifier_deliveries SET status='pending' WHERE plugin_id='scoracle.character.narrative' AND measurement_id=$1")
             .bind(measurements[0])
             .execute(&pool)
             .await
@@ -166,7 +166,7 @@ async fn classifier_journalist_delivery_publication_and_recovery() -> Result<()>
         "database rejects an ineligible pending obligation"
     );
     // Release fictional controls only. This is a plumbing fixture, not a model/policy qualification.
-    sqlx::query("UPDATE classifier_deliveries SET status='pending',production_eligible=true,reason='fictional_control' WHERE measurement_id=ANY($1)")
+    sqlx::query("UPDATE classifier_deliveries SET status='pending',production_eligible=true,reason='fictional_control' WHERE plugin_id='scoracle.character.narrative' AND measurement_id=ANY($1)")
         .bind(&measurements).execute(&pool).await?;
     let subject = EntityMeta {
         name: "Équipe".into(),
@@ -190,7 +190,7 @@ async fn classifier_journalist_delivery_publication_and_recovery() -> Result<()>
             .starts_with(classifier::CONTRACT),
         "ready delivery must dispatch atomically"
     );
-    sqlx::query("UPDATE classifier_deliveries SET reason=reason,production_eligible=true WHERE measurement_id=ANY($1)")
+    sqlx::query("UPDATE classifier_deliveries SET reason=reason,production_eligible=true WHERE plugin_id='scoracle.character.narrative' AND measurement_id=ANY($1)")
         .bind(&measurements).execute(&pool).await?;
     // Unchanged ready updates preserve this exact live lease.
     let token: String = sqlx::query_scalar(
@@ -302,7 +302,7 @@ async fn classifier_journalist_delivery_publication_and_recovery() -> Result<()>
     .await
     .is_err());
     assert_eq!(dbtest::count(&pool, "news_summaries", SPORT).await, 0);
-    let ready:i64=sqlx::query_scalar("SELECT count(*) FROM classifier_deliveries WHERE measurement_id=ANY($1) AND status='pending'")
+    let ready:i64=sqlx::query_scalar("SELECT count(*) FROM classifier_deliveries WHERE plugin_id='scoracle.character.narrative' AND measurement_id=ANY($1) AND status='pending'")
         .bind(&measurements).fetch_one(&pool).await?;
     assert_eq!(ready, 5);
     sqlx::raw_sql("ALTER TABLE news_summaries DROP CONSTRAINT reject_fixture_product")
@@ -368,7 +368,7 @@ async fn classifier_journalist_delivery_publication_and_recovery() -> Result<()>
     assert_eq!(voice.0.load(Ordering::SeqCst), 2);
     let memory = journalist::memories::load(&pool, &subject, journalist::now_unix()).await?;
     assert_eq!(memory.published_reports.len(), 4);
-    let unresolved:(String,bool,Option<String>)=sqlx::query_as("SELECT status,production_eligible,reason FROM classifier_deliveries WHERE measurement_id=$1")
+    let unresolved:(String,bool,Option<String>)=sqlx::query_as("SELECT status,production_eligible,reason FROM classifier_deliveries WHERE plugin_id='scoracle.character.narrative' AND measurement_id=$1")
         .bind(*measurements.last().unwrap()).fetch_one(&pool).await?;
     assert_eq!(
         unresolved,

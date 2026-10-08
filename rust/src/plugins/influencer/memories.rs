@@ -1,6 +1,6 @@
 //! Direct accepted-source collection and the existing DuckDB reporting study.
 use super::prompt::{Parts, Period, HISTORY_BUDGET_BYTES, SOURCE_BUDGET_BYTES};
-use crate::plugins::harvester::delivery::load_accepted;
+use crate::plugins::classifier::delivery::load_accepted;
 use crate::tools::source::SourceContext;
 use crate::tools::{memories, meta::EntityMeta};
 use anyhow::{ensure, Result};
@@ -41,6 +41,7 @@ pub async fn load(
                     stored_canonical[&s.article_id],
                     s.headline.as_str(),
                     s.context.as_str(),
+                    serde_json::to_string(&s.classifier_world).expect("world serializes"),
                 ))
                 .or_insert(s.article_id);
             (s.article_id, root)
@@ -155,21 +156,25 @@ pub async fn load(
 
 /// Recheck every supplied receipt under the claim-fenced publication transaction.
 pub async fn validate(tx: &mut Transaction<'_, Postgres>, parts: &Parts) -> Result<()> {
-    let sources: Vec<&SourceContext> = parts.sources.iter().chain(&parts.history).collect();
-    let ids: Vec<i64> = sources.iter().map(|s| s.classification_id).collect();
-    sqlx::query(
-        "SELECT c.id FROM harvester_classifications c JOIN news_articles a ON a.id=c.article_id
-        WHERE c.id=ANY($1) ORDER BY c.id FOR SHARE OF c,a",
+    let sources: Vec<SourceContext> = parts
+        .sources
+        .iter()
+        .chain(&parts.history)
+        .cloned()
+        .collect();
+    crate::plugins::classifier::delivery::lock_sources(
+        tx,
+        super::manifest::MANIFEST.id.as_str(),
+        &parts.subject.sport,
+        &sources,
     )
-    .bind(ids)
-    .fetch_all(&mut **tx)
     .await?;
     let current = load_accepted(
         tx,
         &parts.subject,
         parts.period.start - LOOKBACK_SECONDS,
         parts.period.end.min(parts.period.cutoff),
-        super::now(),
+        parts.period.cutoff,
     )
     .await?;
     ensure!(

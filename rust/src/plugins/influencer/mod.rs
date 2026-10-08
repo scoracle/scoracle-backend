@@ -11,7 +11,7 @@ use crate::harness::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
 use crate::harness::queue::publication::ClaimPublication;
 use crate::harness::queue::work::Item;
 use crate::harness::{Generation, GenerationCall};
-use crate::plugins::harvester::delivery::{load_for_character, validate_for_publication};
+use crate::plugins::classifier::delivery::{load_for_character, validate_for_publication};
 use crate::tools::meta::lookup_entity_name;
 use crate::tools::meta::EntityMeta;
 use crate::tools::source::SourceContext;
@@ -157,6 +157,39 @@ pub(crate) async fn execute_with_backend(
     let sport = item.sport.to_uppercase();
     let plugin_id = manifest::MANIFEST.id.as_str();
     let pending = load_for_character(pool, plugin_id, &item.entity_type, entity_id, &sport).await?;
+    let unknown: Vec<_> = pending
+        .iter()
+        .filter(|s| s.published_at_epoch.is_none())
+        .cloned()
+        .collect();
+    if !unknown.is_empty() {
+        let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
+            return Ok(PluginOutcome::Superseded);
+        };
+        validate_for_publication(
+            publication.transaction(),
+            plugin_id,
+            &item.entity_type,
+            entity_id,
+            &sport,
+            &unknown,
+        )
+        .await?;
+        let ids: Vec<_> = unknown.iter().map(|s| s.classification_id).collect();
+        sqlx::query("UPDATE classifier_deliveries SET status='held',production_eligible=false,
+            reason='unknown_publication_time',updated_at=now() WHERE measurement_id=ANY($1) AND plugin_id=$2")
+            .bind(ids).bind(plugin_id).execute(&mut **publication.transaction()).await?;
+        if unknown.len() == pending.len() {
+            record_vibe_completed(publication.transaction(), item).await?;
+            publication.commit_final().await?;
+            return Ok(PluginOutcome::Committed);
+        }
+        publication.commit_progress().await?;
+    }
+    let pending: Vec<_> = pending
+        .into_iter()
+        .filter(|s| s.published_at_epoch.is_some())
+        .collect();
     let Some(anchor) = pending.last() else {
         let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
             return Ok(PluginOutcome::Superseded);
@@ -244,9 +277,9 @@ pub(crate) async fn execute_with_backend(
     .await?;
     let ids: Vec<i64> = covered.iter().map(|s| s.classification_id).collect();
     let changed=sqlx::query(
-        "UPDATE harvester_assignments SET status=CASE WHEN classification_id=ANY($5) THEN 'redundant' ELSE $3 END,
-         reason=NULL,product_ref=$4,updated_at=NOW() WHERE classification_id=ANY($1)
-         AND plugin_id=$2 AND status='pending' AND reason IS DISTINCT FROM 'delivery_held'")
+        "UPDATE classifier_deliveries SET status=CASE WHEN measurement_id=ANY($5) THEN 'redundant' ELSE $3 END,
+         reason=NULL,product_ref=$4,updated_at=NOW() WHERE measurement_id=ANY($1)
+         AND plugin_id=$2 AND status='pending' AND production_eligible")
         .bind(&ids).bind(plugin_id).bind(if product_id.is_some(){"used"}else{"abstained"})
         .bind(json!({"vibe_score_id":product_id,"attempt_id":attempt_id,"input_hash":input_hash,
             "reused_attempt":previous.is_some(),"disposition":disposition}))
@@ -255,21 +288,6 @@ pub(crate) async fn execute_with_backend(
         changed.rows_affected() == ids.len() as u64,
         "Influencer assignments changed during generation"
     );
-    // Older receipts for the same covered article are superseded work, not new evidence.
-    sqlx::query(
-        "UPDATE harvester_assignments d SET status='relevant_but_unused',
-        reason='superseded_source_receipt',updated_at=NOW()
-        FROM harvester_classifications old WHERE old.id=d.classification_id AND d.plugin_id=$1
-        AND d.status='pending' AND d.reason IS DISTINCT FROM 'delivery_held'
-        AND EXISTS (SELECT 1 FROM harvester_classifications covered WHERE covered.id=ANY($2)
-            AND covered.article_id=old.article_id AND covered.sport=old.sport
-            AND covered.entity_type=old.entity_type AND covered.entity_id=old.entity_id
-            AND (covered.created_at,covered.id)>(old.created_at,old.id))",
-    )
-    .bind(plugin_id)
-    .bind(&ids)
-    .execute(&mut **publication.transaction())
-    .await?;
     if previous.is_none() {
         sqlx::query("UPDATE vibe_card_attempts SET product_id=$2,outcome=$3 WHERE id=$1")
             .bind(attempt_id)
@@ -282,7 +300,7 @@ pub(crate) async fn execute_with_backend(
             .execute(&mut **publication.transaction())
             .await?;
     }
-    let remaining = crate::plugins::harvester::delivery::undelivered_count(
+    let remaining = crate::plugins::classifier::delivery::undelivered_count(
         publication.transaction(),
         plugin_id,
         &item.entity_type,

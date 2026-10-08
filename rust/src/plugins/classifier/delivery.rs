@@ -6,6 +6,8 @@ use serde_json::{json, Value};
 use sqlx::{PgConnection, PgPool, Postgres, Row, Transaction};
 
 pub const POLICY_VERSION: &str = "journalist-classifier-v1";
+pub const INFLUENCER_POLICY_VERSION: &str = "influencer-classifier-v1";
+const INFLUENCER: &str = crate::plugins::influencer::manifest::MANIFEST.id.as_str();
 const JOURNALIST: &str = crate::plugins::journalist::manifest::MANIFEST.id.as_str();
 
 /// Retain an unresolved obligation until a separately evaluated policy releases it.
@@ -21,21 +23,26 @@ pub(crate) async fn record(tx: &mut Transaction<'_, Postgres>, id: i64) -> Resul
     } else {
         "target_selection_unresolved"
     };
-    sqlx::query("UPDATE classifier_deliveries d SET status='superseded',reason='newer_measurement',updated_at=now()
+    for (plugin, policy) in [
+        (JOURNALIST, POLICY_VERSION),
+        (INFLUENCER, INFLUENCER_POLICY_VERSION),
+    ] {
+        sqlx::query("UPDATE classifier_deliveries d SET status='superseded',reason='newer_measurement',updated_at=now()
         FROM classifier_measurements old,classifier_measurements current
         WHERE current.id=$1 AND old.id=d.measurement_id AND old.id<current.id
         AND d.plugin_id=$2 AND d.status IN ('held','pending')
         AND old.article_id=current.article_id AND old.sport=current.sport
         AND (old.receipt->'target'->>'entity_type',old.receipt->'target'->>'entity_id')=(current.receipt->'target'->>'entity_type',current.receipt->'target'->>'entity_id')")
-        .bind(id).bind(JOURNALIST).execute(&mut **tx).await?;
-    sqlx::query("INSERT INTO classifier_deliveries(measurement_id,plugin_id,policy_version,reason)
+        .bind(id).bind(plugin).execute(&mut **tx).await?;
+        sqlx::query("INSERT INTO classifier_deliveries(measurement_id,plugin_id,policy_version,reason)
         SELECT $1,$2,$3,$4 WHERE NOT EXISTS (
             SELECT 1 FROM classifier_deliveries d JOIN classifier_measurements newer ON newer.id=d.measurement_id
             WHERE d.plugin_id=$2 AND newer.id>$1 AND newer.article_id=$5 AND newer.sport=$6
             AND (newer.receipt->'target'->>'entity_type',newer.receipt->'target'->>'entity_id')=($7::jsonb->>'entity_type',$7::jsonb->>'entity_id')) ON CONFLICT DO NOTHING")
-        .bind(id).bind(JOURNALIST).bind(POLICY_VERSION).bind(reason).bind(source.article_id)
+        .bind(id).bind(plugin).bind(policy).bind(reason).bind(source.article_id)
         .bind(record.target["sport"].as_str().context("delivery sport")?)
         .bind(record.target.to_string()).execute(&mut **tx).await?;
+    }
     Ok(())
 }
 
@@ -67,7 +74,7 @@ pub async fn load_for_character(
         entity_type,
         entity_id,
         sport,
-        None,
+        Population::Pending,
     )
     .await
 }
@@ -87,9 +94,34 @@ pub async fn load_used(
         entity_type,
         entity_id,
         sport,
-        Some((from, before)),
+        Population::Used(from, before),
     )
     .await
+}
+
+/// Accepted reporting for one period, including previously consumed historical evidence.
+pub async fn load_accepted(
+    connection: &mut PgConnection,
+    subject: &crate::tools::meta::EntityMeta,
+    from: i64,
+    before: i64,
+    cutoff: i64,
+) -> Result<Vec<SourceContext>> {
+    load_on(
+        connection,
+        INFLUENCER,
+        &subject.entity_type,
+        subject.entity_id,
+        &subject.sport,
+        Population::Accepted(from, before, cutoff),
+    )
+    .await
+}
+
+enum Population {
+    Pending,
+    Used(i64, i64),
+    Accepted(i64, i64, i64),
 }
 
 async fn load_on(
@@ -98,21 +130,37 @@ async fn load_on(
     entity_type: &str,
     entity_id: i32,
     sport: &str,
-    history: Option<(i64, i64)>,
+    population: Population,
 ) -> Result<Vec<SourceContext>> {
-    let rows=sqlx::query("SELECT m.id,d.policy_version,
+    let (mode, from, before, cutoff) = match population {
+        Population::Pending => ("pending", None, None, None),
+        Population::Used(from, before) => ("used", Some(from), Some(before), None),
+        Population::Accepted(from, before, cutoff) => {
+            ("accepted", Some(from), Some(before), Some(cutoff))
+        }
+    };
+    let policy = match plugin {
+        JOURNALIST => POLICY_VERSION,
+        INFLUENCER => INFLUENCER_POLICY_VERSION,
+        _ => anyhow::bail!("unsupported Classifier character"),
+    };
+    let rows=sqlx::query("SELECT m.id,d.policy_version,d.status,
         EXTRACT(EPOCH FROM (s.source->>'published_at')::timestamptz)::bigint AS published_at_epoch,
         COALESCE(s.discovery_version=public.classifier_discovery_version(s.article_id,s.sport),false) AS current_source
         FROM classifier_deliveries d JOIN classifier_measurements m ON m.id=d.measurement_id
         JOIN classifier_sources s ON s.id=m.source_id
         WHERE d.plugin_id=$1 AND m.sport=$4 AND m.status='source_bound_provisional'
         AND m.receipt->'target'->>'entity_type'=$2 AND m.receipt->'target'->>'entity_id'=$3::text
-        AND d.production_eligible AND (($5::bigint IS NULL AND d.status='pending')
-            OR ($5::bigint IS NOT NULL AND d.status='used' AND d.updated_at>=to_timestamp($5::double precision)
-                AND d.updated_at<to_timestamp($6::double precision)))
+        AND d.production_eligible AND (($5='pending' AND d.status='pending')
+            OR ($5='used' AND d.status='used' AND d.updated_at>=to_timestamp($6::double precision)
+                AND d.updated_at<to_timestamp($7::double precision))
+            OR ($5='accepted' AND d.status IN ('pending','used','abstained','redundant')
+                AND floor(extract(epoch FROM m.created_at))<=$8
+                AND (s.source->>'published_at')::timestamptz>=to_timestamp($6::double precision)
+                AND (s.source->>'published_at')::timestamptz<to_timestamp($7::double precision)))
         ORDER BY published_at_epoch DESC NULLS LAST,m.id DESC LIMIT 20001")
         .bind(plugin).bind(entity_type).bind(entity_id.to_string()).bind(sport)
-        .bind(history.map(|h|h.0)).bind(history.map(|h|h.1)).fetch_all(&mut *connection).await?;
+        .bind(mode).bind(from).bind(before).bind(cutoff).fetch_all(&mut *connection).await?;
     ensure!(
         rows.len() <= 20000,
         "Classifier character population exceeds bound"
@@ -121,11 +169,11 @@ async fn load_on(
     let mut articles = std::collections::HashSet::new();
     for row in rows {
         ensure!(
-            row.get::<String, _>("policy_version") == POLICY_VERSION,
+            row.get::<String, _>("policy_version") == policy,
             "unsupported character delivery policy"
         );
         ensure!(
-            history.is_some() || row.get::<bool, _>("current_source"),
+            row.get::<String, _>("status") != "pending" || row.get::<bool, _>("current_source"),
             "Classifier delivery source changed; acquisition must reconcile it"
         );
         let id = row.get("id");
@@ -158,6 +206,29 @@ pub async fn validate_for_publication(
     sport: &str,
     sources: &[SourceContext],
 ) -> Result<()> {
+    lock_sources(tx, plugin, sport, sources).await?;
+    let current = load_on(
+        tx,
+        plugin,
+        entity_type,
+        entity_id,
+        sport,
+        Population::Pending,
+    )
+    .await?;
+    ensure!(
+        sources.iter().all(|s| current.contains(s)),
+        "Classifier evidence or delivery changed during articulation"
+    );
+    Ok(())
+}
+
+pub(crate) async fn lock_sources(
+    tx: &mut Transaction<'_, Postgres>,
+    plugin: &str,
+    sport: &str,
+    sources: &[SourceContext],
+) -> Result<()> {
     if sources.is_empty() {
         return Ok(());
     }
@@ -180,11 +251,6 @@ pub async fn validate_for_publication(
     sqlx::query("SELECT measurement_id FROM classifier_deliveries WHERE measurement_id=ANY($1) AND plugin_id=$2
         ORDER BY measurement_id FOR UPDATE NOWAIT")
         .bind(&ids).bind(plugin).fetch_all(&mut **tx).await?;
-    let current = load_on(tx, plugin, entity_type, entity_id, sport, None).await?;
-    ensure!(
-        sources.iter().all(|s| current.contains(s)),
-        "Classifier evidence or delivery changed during articulation"
-    );
     Ok(())
 }
 

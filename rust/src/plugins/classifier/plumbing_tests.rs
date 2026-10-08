@@ -376,7 +376,7 @@ async fn durable_acquisition_swap_reuse_retry_and_claim_fence() -> Result<()> {
     assert_eq!(rows.len(), 2);
     assert_eq!(rows[0].1, "model-a");
     assert_eq!(rows[1].1, "model-b");
-    let statuses:Vec<String>=sqlx::query_scalar("SELECT d.status FROM classifier_deliveries d JOIN classifier_measurements m ON m.id=d.measurement_id WHERE m.article_id=1 ORDER BY m.id")
+    let statuses:Vec<String>=sqlx::query_scalar("SELECT d.status FROM classifier_deliveries d JOIN classifier_measurements m ON m.id=d.measurement_id WHERE m.article_id=1 AND d.plugin_id='scoracle.character.narrative' ORDER BY m.id")
         .fetch_all(&pool).await?;
     assert_eq!(statuses, vec!["superseded", "held"]);
     for (id, _) in rows {
@@ -596,6 +596,10 @@ pub(crate) async fn setup_disposable(pool: &sqlx::PgPool) -> Result<()> {
             "293_classifier_character_delivery",
             include_str!("../../../../sql/migrations/293_classifier_character_delivery.sql"),
         ),
+        (
+            "294_classifier_influencer_delivery",
+            include_str!("../../../../sql/migrations/294_classifier_influencer_delivery.sql"),
+        ),
     ] {
         let applied: bool =
             sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version=$1)")
@@ -603,7 +607,7 @@ pub(crate) async fn setup_disposable(pool: &sqlx::PgPool) -> Result<()> {
                 .fetch_one(pool)
                 .await?;
         // Reapply the new delivery migration while its local implementation is being developed.
-        if !applied || version == "293_classifier_character_delivery" {
+        if !applied || version == "294_classifier_influencer_delivery" {
             sqlx::raw_sql(migration).execute(pool).await?;
         }
     }

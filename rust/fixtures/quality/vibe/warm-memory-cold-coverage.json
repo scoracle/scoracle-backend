@@ -37,7 +37,7 @@
     ],
     "excluded": []
   },
-  "prompt_version": "vibe-frame-v19-period-card",
+  "prompt_version": "vibe-frame-v20-classifier-world",
   "review": [
     "Headline and body express one supported reading about the identified subject. Unrelated material supports paired null abstention.",
     "Preserve speakers, bylines, attribution, timing, scope and uncertainty. Historical headline questions remain questions.",

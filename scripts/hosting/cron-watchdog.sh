@@ -1,245 +1,48 @@
 #!/usr/bin/env bash
-# Freshness watchdog — the alarm the Aug 2026 silent-starvation week did not have.
-#
-# The failure this exists to catch: every part of the machine "runs" (cron
-# green, daemon up, API serving) while production is actually dead — articles
-# stored but never read (the D-T21 cap collision), voices failing against a
-# sick GPU lane (the oMLX memory-pressure week), a queue quietly dead-lettering.
-# Each check reads the DATA, not the process list: data freshness is the only
-# signal that cannot lie about whether the pipeline produced anything.
-#
-# Checks (each one line in the log, OK or ALARM):
-#   ingest_recency   — newest news_articles.fetched_at within 26h (sweep ran)
-#   editor_reads     — per sport: of yesterday's SWEPT TEAMS, the share with at
-#                      least one editor_reads row. Team coverage, not article
-#                      share: the D-T21 cap deliberately reads only ~10 of a
-#                      team's articles a day (NFL sweeps ~70/team, so article
-#                      share sits at ~15% BY DESIGN). The failure this hunts is
-#                      whole teams at zero — the Aug 7-14 starvation signature.
-#                      <80% of teams covered = ALARM.
-#   voice_output     — per sport: newest vibe_scores.generated_at within 48h
-#                      (the voices are producing, not just queued)
-#   packet_compile   — newest packets.compiled_at within 36h (Editor mode)
-#   harvester_coverage — per sport: swept query teams with a classification (Harvester mode)
-#   harvester_classification — newest classification within 36h (Harvester mode)
-#   dead_letters     — non-Harvester work failed at the attempt cap (>25 = ALARM)
-#   harvester_acquisition_errors — count-only retrieval failures in the latest sweep
-#   harvester_classification_errors — failed Laya calls in the latest sweep
-#   drain_alive      — claimable work exists but NOTHING produced in 30 min
-#                      (a dead/wedged daemon; depth alone is recovery, not failure)
-#   queue_depth      — claimable count sanity bound (>20k = runaway inflow)
-#   stuck_running    — 'running' rows untouched >2h (orphans of a crashed claim;
-#                      recovery has its own 60s task, so this firing means the
-#                      recovery itself is broken — the 08-23 fetch-panic shape)
-#   stage_starved    — per voice seat: >200 claimable rows while its product
-#                      table has been silent 6h (one dead seat behind a humming
-#                      aggregate — the 08-23 rating/sigil slot-starvation shape)
-#
-# Reporting: one pipeline_runs row per run (job='watchdog'; status failed +
-# the alarm lines in error), so `SELECT * FROM pipeline_runs_latest` shows it
-# beside the jobs it watches. Non-zero exit on any alarm (cron surfaces it).
-# Set WATCHDOG_SOURCE_MODE=harvester only when Harvester is the live intake owner.
-# The default remains editor throughout shadowing; the Harvester mode requires
-# migrations 269+ and replaces Editor/packet-specific freshness checks.
-# Optional: set WATCHDOG_ALERT_URL in .env.local (e.g. an ntfy.sh topic) and
-# alarms are POSTed there as plain text.
-#
-# Cron: twice daily. Cognition runs continuously since the 2026-08-20
-# consolidation (work-driven, no duty cycle — empty queue is the rest window),
-# so there is no on-hours constraint; drain_alive only fires when claimable
-# work exists but nothing was produced in 30 min, which a running daemon with
-# an empty queue never trips:
-#   30 8,20 * * * .../cron-watchdog.sh >> .../logs/watchdog.log 2>&1
-
+# Data freshness and durable Classifier work. A deliberate pause is not starvation.
+# WATCHDOG_MODE=paused|acquire|classifier overrides detection for a remote worker.
 set -euo pipefail
-cd /home/sheneveld/scoracle/scoracle-backend
-
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$ROOT"
 set -a
-# shellcheck source=/dev/null
-[ -f .env.local ] && source .env.local
+[ ! -f .env.local ] || source .env.local
 set +a
-
-SOURCE_MODE="${WATCHDOG_SOURCE_MODE:-editor}"
-case "$SOURCE_MODE" in
-  editor|harvester) ;;
-  *) echo "watchdog: invalid WATCHDOG_SOURCE_MODE=$SOURCE_MODE" >&2; exit 2 ;;
-esac
-
+DB="${1:-${DATABASE_PRIVATE_URL:-${DATABASE_URL:-}}}"
+[ -n "$DB" ] || { echo "watchdog: database URL required" >&2; exit 1; }
+MODE="${WATCHDOG_MODE:-}"
+if [ -z "$MODE" ]; then
+    MODE=paused
+    if systemctl --user -q is-active scoracle-classifier-source.service; then MODE=acquire; fi
+    if systemctl --user -q is-active scoracle-cognition.service; then MODE=classifier; fi
+fi
+case "$MODE" in paused|acquire|classifier) ;; *) echo "watchdog: invalid WATCHDOG_MODE=$MODE" >&2; exit 2 ;; esac
 STAMP="$(date '+%Y-%m-%dT%H:%M:%S%z')"
-
-# One SQL pass; every check emits: name|status|detail.
-RESULT="$(psql "$DATABASE_URL" -X -q -A -t -F'|' -v source_mode="$SOURCE_MODE" <<'SQL'
-WITH ingest AS (
-  SELECT max(fetched_at) AS newest FROM news_articles
-),
-latest_pipeline_ingest AS (
-  SELECT started_at,finished_at FROM public.pipeline_runs
-   WHERE job='pipeline' AND finished_at IS NOT NULL
-   ORDER BY started_at DESC LIMIT 1
-),
-reads AS (
-  -- editor_reads is the one-rail Editor's ledger; news_article_readings was the
-  -- legacy rail's (dropped in mig 224). Checking the dead table made this alarm
-  -- fire forever on a healthy pipeline (Aug 15-16, 2026). Counted per TEAM, not
-  -- per article: the D-T21 cap holds article share at ~15% for high-volume
-  -- sports on purpose, but a swept team with ZERO reads is the starvation bug.
-  SELECT sport, count(*) AS swept, count(*) FILTER (WHERE read_n > 0) AS read
-    FROM (
-      SELECT a.raw->>'query_sport' AS sport,
-             a.raw->>'query_team_id' AS team,
-             count(er.article_id) AS read_n
-        FROM news_articles a
-        LEFT JOIN editor_reads er ON er.article_id = a.id
-       WHERE a.fetched_at BETWEEN now() - interval '36 hours' AND now() - interval '12 hours'
-         AND a.raw ? 'query_team_id' AND a.raw ? 'query_sport'
-       GROUP BY 1, 2
-    ) per_team
-   GROUP BY 1
-),
-harvester_reads AS (
-  SELECT sport, count(*) AS swept, count(*) FILTER (WHERE read_n > 0) AS read
-    FROM (
-      SELECT q.sport, q.entity_id AS team,
-             count(c.id) AS read_n
-        FROM public.harvester_query_provenance q
-        JOIN latest_pipeline_ingest r
-          ON q.last_seen_at BETWEEN r.started_at AND r.finished_at
-        LEFT JOIN public.harvester_classifications c
-          ON c.article_id=q.article_id AND c.entity_type=q.entity_type
-         AND c.entity_id=q.entity_id AND c.sport=q.sport
-       WHERE q.entity_type='team'
-       GROUP BY q.sport, q.entity_id
-    ) per_team
-   GROUP BY sport
-),
-vibes AS (
-  SELECT sport, max(generated_at) AS newest
-    FROM vibe_scores GROUP BY 1
-),
-pack AS (
-  SELECT max(compiled_at) AS newest FROM packets
-),
-harvest AS (
-  SELECT max(created_at) AS newest FROM public.harvester_classifications
-),
-dead AS (
-  SELECT count(*) AS n FROM pipeline_work
-   WHERE stage <> 'harvester' AND status = 'failed' AND attempts >= 5
-),
-harvest_errors AS (
-  SELECT count(*) FILTER (WHERE h.status IN ('retryable_error','blocked','low_content')) AS acquisition,
-         count(*) FILTER (WHERE h.status='classification_error') AS classification
-    FROM public.harvester_acquisitions h
-   WHERE EXISTS (
-     SELECT 1 FROM public.harvester_query_provenance q
-     JOIN latest_pipeline_ingest r
-       ON q.last_seen_at BETWEEN r.started_at AND r.finished_at
-     WHERE q.article_id=h.article_id
-   )
-),
-recent AS (
-  SELECT count(*) AS produced FROM cognition_ledger
-   WHERE generated_at > now() - interval '30 minutes'
-),
-claimable AS (
-  SELECT count(*) AS n, min(available_at) AS oldest FROM pipeline_work
-   WHERE status IN ('pending','failed') AND attempts < 5
-     AND available_at < now()
-),
--- 'running' rows untouched for hours are orphans of a crashed claim (the 08-23 fetch-panic
--- night left 38 of them for four hours). Recovery runs on its own 60s task now, so anything
--- stale past 2h means recovery itself is broken — the alarm behind the alarm.
-stuck AS (
-  SELECT count(*) AS n, min(updated_at) AS oldest FROM pipeline_work
-   WHERE status = 'running' AND updated_at < now() - interval '2 hours'
-),
--- Per-SEAT starvation: drain_alive is blind to one dead stage while the rest produce (the
--- 08-23 shape: rating 10 cards/12h against 928 ready, sigil 0 against 4,245, everything else
--- humming). A seat with a real queue whose PRODUCT table has been silent for 6h is starved,
--- whatever the aggregate says.
-stage_prod AS (
-  SELECT s.stage, s.claimable, p.newest
-    FROM (
-      SELECT stage, count(*) AS claimable FROM pipeline_work
-       WHERE status IN ('pending','failed') AND attempts < 5 AND available_at < now()
-       GROUP BY stage
-    ) s
-    LEFT JOIN (
-      SELECT 'narratives' AS stage, max(generated_at) AS newest FROM news_summaries
-      UNION ALL SELECT 'vibe',      max(generated_at) FROM vibe_scores
-      UNION ALL SELECT 'rating',    max(generated_at) FROM stat_summaries
-      UNION ALL SELECT 'momentum',  max(generated_at) FROM momentum_summaries
-      UNION ALL SELECT 'transfers', max(generated_at) FROM transfer_rumors
-      UNION ALL SELECT 'sigil',     max(generated_at) FROM sigil_synthesis
-    ) p ON p.stage = s.stage
-   WHERE s.stage IN ('narratives','vibe','rating','momentum','transfers','sigil')
+RESULT="$(psql "$DB" -X -q -A -t -F'|' -v ON_ERROR_STOP=1 -v mode="$MODE" <<'SQL'
+WITH active_work AS (
+    SELECT * FROM pipeline_work WHERE
+      (:'mode'='acquire' AND stage='classifier_acquire') OR
+      (:'mode'='classifier' AND stage IN ('classifier_acquire','classifier','graph','investigate_entity',
+        'fixture_boxscore','rating','vibe','narratives','transfers','momentum','sigil'))
+), queue AS (
+    SELECT count(*) FILTER(WHERE status IN ('pending','failed') AND attempts<5 AND available_at<=now()) AS ready,
+        count(*) FILTER(WHERE status='failed' AND attempts>=5) AS dead,
+        count(*) FILTER(WHERE status='running' AND updated_at<now()-interval '2 hours') AS stuck
+    FROM active_work
+), progress AS (
+    SELECT GREATEST((SELECT max(created_at) FROM classifier_sources),
+        (SELECT max(created_at) FROM classifier_measurements),
+        (SELECT max(generated_at) FROM cognition_ledger)) AS newest
 )
-SELECT 'ingest_recency',
-       CASE WHEN newest > now() - interval '26 hours' THEN 'OK' ELSE 'ALARM' END,
-       'newest article ' || coalesce(newest::text, 'none')
-  FROM ingest
-UNION ALL
-SELECT 'editor_reads[' || sport || ']',
-       CASE WHEN swept = 0 OR read * 100 >= swept * 80 THEN 'OK' ELSE 'ALARM' END,
-       read || '/' || swept || ' swept teams have a read'
-  FROM reads WHERE :'source_mode'='editor'
-UNION ALL
-SELECT 'harvester_coverage[' || sport || ']',
-       CASE WHEN swept = 0 OR read * 100 >= swept * 80 THEN 'OK' ELSE 'ALARM' END,
-       read || '/' || swept || ' swept query teams have a classification'
-  FROM harvester_reads WHERE :'source_mode'='harvester'
-UNION ALL
-SELECT 'voice_output[' || sport || ']',
-       CASE WHEN newest > now() - interval '48 hours' THEN 'OK' ELSE 'ALARM' END,
-       'newest vibe ' || coalesce(newest::text, 'none')
-  FROM vibes
-UNION ALL
-SELECT 'packet_compile',
-       CASE WHEN newest > now() - interval '36 hours' THEN 'OK' ELSE 'ALARM' END,
-       'newest packet ' || coalesce(newest::text, 'none')
-  FROM pack WHERE :'source_mode'='editor'
-UNION ALL
-SELECT 'harvester_classification',
-       CASE WHEN newest > now() - interval '36 hours' THEN 'OK' ELSE 'ALARM' END,
-       'newest classification ' || coalesce(newest::text, 'none')
-  FROM harvest WHERE :'source_mode'='harvester'
-UNION ALL
-SELECT 'dead_letters',
-       CASE WHEN n <= 25 THEN 'OK' ELSE 'ALARM' END,
-       n || ' non-Harvester rows at attempt cap'
-  FROM dead
-UNION ALL
-SELECT 'harvester_acquisition_errors', 'INFO',
-       acquisition || ' publisher acquisition failures in latest sweep'
-  FROM harvest_errors WHERE :'source_mode'='harvester'
-UNION ALL
-SELECT 'harvester_classification_errors',
-       CASE WHEN classification = 0 THEN 'OK' ELSE 'ALARM' END,
-       classification || ' Laya errors in latest sweep'
-  FROM harvest_errors WHERE :'source_mode'='harvester'
-UNION ALL
--- A deep queue draining at speed is recovery, not failure (the 08-15 backlog
--- morning): stall means claimable work exists AND nothing was produced in 30
--- minutes — a dead or wedged daemon, whatever the depth.
-SELECT 'drain_alive',
-       CASE WHEN c.n = 0 OR r.produced > 0 THEN 'OK' ELSE 'ALARM' END,
-       r.produced || ' products/30m vs ' || c.n || ' claimable (oldest ' || coalesce(c.oldest::text, 'n/a') || ')'
-  FROM claimable c, recent r
-UNION ALL
-SELECT 'queue_depth',
-       CASE WHEN n <= 20000 THEN 'OK' ELSE 'ALARM' END,
-       n || ' claimable'
-  FROM claimable
-UNION ALL
-SELECT 'stuck_running',
-       CASE WHEN n = 0 THEN 'OK' ELSE 'ALARM' END,
-       n || ' running rows untouched >2h (oldest ' || coalesce(oldest::text, 'n/a') || ')'
-  FROM stuck
-UNION ALL
-SELECT 'stage_starved[' || stage || ']',
-       CASE WHEN claimable <= 200 OR newest > now() - interval '6 hours' THEN 'OK' ELSE 'ALARM' END,
-       claimable || ' claimable, newest product ' || coalesce(newest::text, 'none')
-  FROM stage_prod;
+SELECT 'ingest_recency',CASE WHEN max(fetched_at)>now()-interval '26 hours' THEN 'OK' ELSE 'ALARM' END,
+    'newest discovery '||coalesce(max(fetched_at)::text,'none') FROM news_articles
+UNION ALL SELECT 'worker_mode','INFO',:'mode'
+UNION ALL SELECT 'queue_depth','INFO',ready||' claimable; retained backlog is expected' FROM queue
+UNION ALL SELECT 'held_deliveries','INFO',count(*)||' held; no automatic policy promotion'
+    FROM classifier_deliveries WHERE status='held'
+UNION ALL SELECT 'dead_letters',CASE WHEN dead=0 THEN 'OK' ELSE 'ALARM' END,dead||' active-stage rows at attempt cap' FROM queue
+UNION ALL SELECT 'stuck_running',CASE WHEN stuck=0 THEN 'OK' ELSE 'ALARM' END,stuck||' active claims older than 2 hours' FROM queue
+UNION ALL SELECT 'drain_alive',CASE WHEN ready=0 OR newest>now()-interval '30 minutes' THEN 'OK' ELSE 'ALARM' END,
+    ready||' claimable; newest progress '||coalesce(newest::text,'none') FROM queue,progress WHERE :'mode'<>'paused';
 SQL
 )"
 
@@ -258,7 +61,7 @@ if [ "$NALARMS" -gt 0 ]; then
   STATUS=failed
   ERR_SQL="'$(echo "$ALARMS" | tr '\n' ';' | sed "s/'/''/g")'"
 fi
-psql "$DATABASE_URL" -X -q -c "INSERT INTO pipeline_runs (job, started_at, finished_at, status, attempted, failed, error)
+psql "$DB" -X -q -c "INSERT INTO pipeline_runs (job, started_at, finished_at, status, attempted, failed, error)
       VALUES ('watchdog', now(), now(), '$STATUS', $CHECKS, $NALARMS, $ERR_SQL);"
 
 if [ "$NALARMS" -gt 0 ]; then

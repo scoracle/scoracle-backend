@@ -25,9 +25,9 @@
 #   scripts/hosting/restore-drill.sh /mnt/data/backup/scoracle/scoracle-<date>.dump
 #
 # Env overrides: DB_HOST DB_PORT DB_USER DB_NAME (source/comparison DB) PGPASSWORD
-#   RESTORE_SOURCE_MODE=harvester migrates the throwaway restore to current schema,
-#                         then checks Harvester storage/functions. This supports a
-#                         pre-cutover backup; editor remains the default.
+#   RESTORE_SOURCE_MODE=classifier (default) migrates the throwaway restore to current schema,
+#                         then checks native Classifier storage/functions. This supports a
+#                         pre-cutover backup; editor/harvester are historical inspection modes.
 #   SKIP_STMT_CHECK=1  skip the prepared-statement boot check (e.g. when the dump
 #                      predates the current binary's schema and you only want the
 #                      structural/row checks).
@@ -52,9 +52,9 @@ DB_HOST=${DB_HOST:-localhost}
 DB_PORT=${DB_PORT:-5432}
 DB_USER=${DB_USER:-scoracle}
 DB_NAME=${DB_NAME:-scoracle}
-RESTORE_SOURCE_MODE=${RESTORE_SOURCE_MODE:-editor}
+RESTORE_SOURCE_MODE=${RESTORE_SOURCE_MODE:-classifier}
 case "$RESTORE_SOURCE_MODE" in
-    editor|harvester) ;;
+    editor|harvester|classifier) ;;
     *) echo "invalid RESTORE_SOURCE_MODE=$RESTORE_SOURCE_MODE" >&2; exit 2 ;;
 esac
 
@@ -88,7 +88,7 @@ if ! pg_restore -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$RESTORE_DB" \
     exit 1
 fi
 
-if [ "$RESTORE_SOURCE_MODE" = "harvester" ]; then
+if [ "$RESTORE_SOURCE_MODE" != "editor" ]; then
     BEFORE_MAX=$(rq "SELECT max(version) FROM public.schema_migrations")
     echo "-> restored snapshot ledger latest = $BEFORE_MAX; migrating throwaway database"
     "$SCRIPT_DIR/../../sql/migrate.sh" \
@@ -176,7 +176,7 @@ if [ "$RESTORE_SOURCE_MODE" = "editor" ]; then
     if [ "$(rq "SELECT count(*) FROM pg_trigger WHERE tgrelid=to_regclass('public.packets') AND tgname='enqueue_voices_on_packet' AND NOT tgisinternal")" -lt 1 ]; then
         note_fail "trigger missing from restore: enqueue_voices_on_packet on packets"
     fi
-else
+elif [ "$RESTORE_SOURCE_MODE" = "harvester" ]; then
     for fn in harvester_collapse_exact_title_duplicates compute_harvester_transfer_heat; do
         if [ "$(rq "SELECT count(*) FROM pg_proc WHERE proname='$fn'")" -lt 1 ]; then
             note_fail "function missing from restore: $fn()"
@@ -187,6 +187,9 @@ else
             note_fail "Harvester table or primary key missing from restore: $t"
         fi
     done
+else
+    "$SCRIPT_DIR/verify-classifier.sh" "host=$DB_HOST port=$DB_PORT user=$DB_USER dbname=$RESTORE_DB"
+
 fi
 if [ "$(rq "SELECT count(*) FROM pg_trigger WHERE tgrelid=to_regclass('public.event_box_scores') AND tgname='trg_detect_team_change' AND NOT tgisinternal")" -lt 1 ]; then
     note_fail "trigger missing from restore: trg_detect_team_change on event_box_scores"

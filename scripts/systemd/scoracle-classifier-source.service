@@ -1,0 +1,21 @@
+[Unit]
+Description=Scoracle Classifier publisher acquisition (no inference)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+WorkingDirectory=__SCORACLE_REPO_ROOT__
+EnvironmentFile=-__SCORACLE_REPO_ROOT__/.env.local
+# Force this after EnvironmentFile: an old cognition stage list cannot enable AI.
+ExecStart=/usr/bin/env COGNITION_STAGES=classifier_acquire __SCORACLE_REPO_ROOT__/rust/bin/scoracle-cognition
+Restart=always
+RestartSec=3
+KillSignal=SIGINT
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=scoracle-classifier-source
+
+[Install]
+WantedBy=default.target

@@ -13,6 +13,7 @@
 #
 # Usage:
 #   scripts/hosting/release.sh                 # full release (build + install + restart + verify)
+#   scripts/hosting/release.sh --keep-cognition-paused # preserve the pause
 #   scripts/hosting/release.sh --build-only    # build + place binaries only (no live changes)
 #
 # Env:
@@ -44,13 +45,31 @@ command -v cargo >/dev/null || { echo "release.sh: cargo not found (looked in \$
 command -v go    >/dev/null || { echo "release.sh: go not found in \$PATH" >&2; exit 127; }
 
 BUILD_ONLY=0
+KEEP_COGNITION_PAUSED=0
+COGNITION_WAS_ACTIVE=0
+SOURCE_WAS_ACTIVE=0
 for arg in "$@"; do
     case "$arg" in
         --build-only) BUILD_ONLY=1 ;;
+        --keep-cognition-paused) KEEP_COGNITION_PAUSED=1 ;;
         -h|--help) sed -n '2,28p' "${BASH_SOURCE[0]}"; exit 0 ;;
         *) echo "release.sh: unknown argument '$arg'" >&2; exit 2 ;;
     esac
 done
+
+# Preflight before any placement/service change. Installing a release never starts
+# previously paused cognition. The source worker has its own independent lifecycle.
+if [ "$BUILD_ONLY" -eq 0 ]; then
+    if systemctl --user -q is-active scoracle-cognition.service; then COGNITION_WAS_ACTIVE=1; fi
+    if systemctl --user -q is-active scoracle-classifier-source.service; then SOURCE_WAS_ACTIVE=1; fi
+    if [ "$KEEP_COGNITION_PAUSED" -eq 1 ] && [ "$COGNITION_WAS_ACTIVE" -eq 1 ]; then
+        echo "release.sh: stop cognition before requesting a paused release" >&2; exit 1
+    fi
+    if [ "$COGNITION_WAS_ACTIVE" -eq 0 ] && systemctl --user -q is-active scoracle-cognition.path; then
+        echo "release.sh: disable the cognition watcher while cognition is paused" >&2; exit 1
+    fi
+    "$REPO_ROOT/scripts/hosting/verify-classifier.sh"
+fi
 
 # --- Resolve the commit + build time to stamp -----------------------------
 COMMIT="$(git -C "$REPO_ROOT" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)"
@@ -220,24 +239,21 @@ fi
 # verification above — the API is healthy and serving from precomputed tables; a
 # failed cognition daemon is logged loudly and aborts THIS script so a 1-success-
 # followed-by-silent-cognition-down state can't pass silently.
-echo "==> restarting scoracle-cognition"
-systemctl --user restart scoracle-cognition.service
-# Brief settle window: the worker connects to Postgres + Ollama on boot; an
-# immediate is-active could race the very first start. Give it the same 30s the
-# API gets, but poll is-active every 1s.
-COGNITION_UP=0
-for _ in $(seq 1 30); do
-    if systemctl --user --quiet is-active scoracle-cognition.service 2>/dev/null; then
-        COGNITION_UP=1
-        break
-    fi
-    sleep 1
-done
-if [ "$COGNITION_UP" -ne 1 ]; then
-    echo "ERROR: scoracle-cognition is not active after restart" >&2
-    systemctl --user --no-pager status scoracle-cognition || true
-    journalctl --user -u scoracle-cognition --no-pager -n 40 || true
-    exit 1
+if [ "$SOURCE_WAS_ACTIVE" -eq 1 ]; then
+    systemctl --user restart scoracle-classifier-source.service
+    systemctl --user --quiet is-active scoracle-classifier-source.service
+fi
+if [ "$COGNITION_WAS_ACTIVE" -eq 1 ]; then
+    echo "==> restarting previously active cognition"
+    systemctl --user restart scoracle-cognition.service
+    COGNITION_UP=0
+    for _ in $(seq 1 30); do
+        if systemctl --user --quiet is-active scoracle-cognition.service; then COGNITION_UP=1; break; fi
+        sleep 1
+    done
+    [ "$COGNITION_UP" -eq 1 ] || { echo "ERROR: cognition failed to restart" >&2; exit 1; }
+else
+    echo "==> cognition remains paused; source acquisition requires explicit enablement"
 fi
 
 echo "==> release complete @ ${COMMIT}"

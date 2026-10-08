@@ -9,7 +9,7 @@
 #                 promoted through finalize_fixture(). Idempotent and
 #                 self-healing — a missed night is still in the gap tomorrow.
 #   -mode ingest  the daily Google News RSS sweep that writes news_articles
-#                 and enqueues the Editor's read in the same transaction.
+#                 and enqueues native Classifier acquisition in the same transaction.
 #
 # Google does the news relevancy work, the feeds detect their own events, and
 # every curation stage is drained from the durable pipeline_work queue by the
@@ -21,7 +21,7 @@
 # pipeline binary can resolve DATABASE_* (no OLLAMA_* needed — Go does no
 # model calls).
 #
-# Cron schedule — data first (fresh fixtures for the Editor), news at 02:00:
+# Cron schedule — data first (fresh fixture data), news at 02:00:
 #   30 1 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-pipeline.sh -mode data
 #   0  2 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-pipeline.sh -mode ingest
 #

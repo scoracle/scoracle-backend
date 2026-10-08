@@ -94,20 +94,22 @@ async fn classifier_insider_identity_and_publication() -> Result<()> {
     sqlx::query("DELETE FROM news_articles WHERE id=1011")
         .execute(&pool)
         .await?;
-    sqlx::query("INSERT INTO sports VALUES($1,'Fictional Insider',2026) ON CONFLICT DO NOTHING")
+    sqlx::query("INSERT INTO sports(id,display_name,current_season) VALUES($1,'Fictional Insider',2026) ON CONFLICT DO NOTHING")
         .bind(SPORT)
         .execute(&pool)
         .await?;
-    sqlx::query("INSERT INTO teams VALUES(11,$1,'Équipe') ON CONFLICT DO NOTHING")
-        .bind(SPORT)
-        .execute(&pool)
-        .await?;
-    sqlx::query("INSERT INTO players VALUES(12,$1,'Jordan Sample') ON CONFLICT DO NOTHING")
+    sqlx::query("INSERT INTO teams(id,sport,name) VALUES(11,$1,'Équipe') ON CONFLICT DO NOTHING")
         .bind(SPORT)
         .execute(&pool)
         .await?;
     sqlx::query(
-        "INSERT INTO persons VALUES(13,$1,'Coach Morgan','coach',11) ON CONFLICT DO NOTHING",
+        "INSERT INTO players(id,sport,name) VALUES(12,$1,'Jordan Sample') ON CONFLICT DO NOTHING",
+    )
+    .bind(SPORT)
+    .execute(&pool)
+    .await?;
+    sqlx::query(
+        "INSERT INTO persons(id,sport,full_name,kind,team_id) VALUES(13,$1,'Coach Morgan','coach',11) ON CONFLICT DO NOTHING",
     )
     .bind(SPORT)
     .execute(&pool)
@@ -118,7 +120,7 @@ async fn classifier_insider_identity_and_publication() -> Result<()> {
         ("person", 13, "coach morgan", "name"),
         ("player", 12, "j sample", "alias"),
     ] {
-        sqlx::query("INSERT INTO entity_name_surfaces VALUES($1,$2,$3,public.nrm($4),$5)")
+        sqlx::query("INSERT INTO entity_name_surfaces(sport,entity_type,entity_id,norm,surface_kind) VALUES($1,$2,$3,public.nrm($4),$5)")
             .bind(SPORT)
             .bind(kind)
             .bind(id)
@@ -127,9 +129,9 @@ async fn classifier_insider_identity_and_publication() -> Result<()> {
             .execute(&pool)
             .await?;
     }
-    sqlx::query("INSERT INTO news_articles(id,url,title,source,published_at,full_text,feed_rank) VALUES(1011,'https://example.invalid/insider','Move denied','Fixture Wire',now()-interval '1 hour',$1,1)")
+    sqlx::query("INSERT INTO news_articles(id,url_hash,url,title,source,published_at,full_text,feed_rank) VALUES(1011,md5('https://example.invalid/insider'),'https://example.invalid/insider','Move denied','Fixture Wire',now()-interval '1 hour',$1,1)")
         .bind("Équipe denied a possible move for Jordan Sample in talks. Coach Morgan denied a possible move for Équipe in talks. J Sample is an alias only. Later correction: no move.").execute(&pool).await?;
-    sqlx::query("INSERT INTO harvester_query_provenance VALUES(1011,'team',11,$1,1)")
+    sqlx::query("INSERT INTO harvester_query_provenance(article_id,entity_type,entity_id,sport,feed_rank) VALUES(1011,'team',11,$1,1)")
         .bind(SPORT)
         .execute(&pool)
         .await?;
@@ -173,7 +175,7 @@ async fn classifier_insider_identity_and_publication() -> Result<()> {
             )
             .await?;
             sqlx::query(
-                "INSERT INTO entity_name_surfaces VALUES($1,'player',99,'jordan sample','name')",
+                "INSERT INTO entity_name_surfaces(sport,entity_type,entity_id,norm,surface_kind) VALUES($1,'player',99,'jordan sample','name')",
             )
             .bind(SPORT)
             .execute(&pool)
@@ -216,7 +218,15 @@ async fn classifier_insider_identity_and_publication() -> Result<()> {
         .bind(SPORT).fetch_one(&pool).await?;
     assert_eq!(denied, 2, "denials never become active moves");
     assert_eq!(dbtest::count(&pool, "application_outbox", SPORT).await, 2);
-    assert_eq!(dbtest::count(&pool, "pipeline_work", SPORT).await, 0);
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT count(*) FROM pipeline_work WHERE sport=$1 AND stage='transfers'"
+        )
+        .bind(SPORT)
+        .fetch_one(&pool)
+        .await?,
+        0
+    );
     let used:i64=sqlx::query_scalar("SELECT count(*) FROM classifier_deliveries d JOIN classifier_measurements m ON m.id=d.measurement_id WHERE m.article_id=1011 AND d.plugin_id=$1 AND d.status='used'")
         .bind(plugin).fetch_one(&pool).await?;
     assert_eq!(used, 3);

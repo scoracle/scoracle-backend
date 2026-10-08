@@ -284,17 +284,30 @@ func TestClassifierRSSAcquisition(t *testing.T) {
         CREATE TABLE IF NOT EXISTS harvester_query_provenance(article_id bigint REFERENCES news_articles(id),
             entity_type text,entity_id integer,sport text,feed_rank integer,query_terms jsonb,last_seen_at timestamptz,
             PRIMARY KEY(article_id,entity_type,entity_id,sport));
-        INSERT INTO teams VALUES(1,'INTAKE_TEST','Test Club') ON CONFLICT DO NOTHING;
+        CREATE TABLE IF NOT EXISTS sports(id text PRIMARY KEY,display_name text,current_season integer);
+        INSERT INTO sports(id,display_name,current_season) VALUES('INTAKE_TEST','Intake fixture',2026) ON CONFLICT DO NOTHING;
+        INSERT INTO teams(id,sport,name) VALUES(1,'INTAKE_TEST','Test Club') ON CONFLICT DO NOTHING;
     `); err != nil {
 		t.Fatal(err)
 	}
 	for _, migration := range []string{"102_pipeline_work.sql", "109_pipeline_work_article_stage.sql", "256_pipeline_work_claim_fencing.sql", "291_classifier_plumbing.sql", "292_classifier_acquisition_intake.sql"} {
+		version := strings.TrimSuffix(migration, ".sql")
+		var applied bool
+		if err := pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version=$1)", version).Scan(&applied); err != nil {
+			t.Fatal(err)
+		}
+		if applied {
+			continue
+		}
 		body, err := os.ReadFile(filepath.Join("../../../sql/migrations", migration))
 		if err != nil {
 			t.Fatal(err)
 		}
 		if _, err := pool.Exec(ctx, string(body)); err != nil {
 			t.Fatalf("%s: %v", migration, err)
+		}
+		if _, err := pool.Exec(ctx, "INSERT INTO schema_migrations(version) VALUES($1) ON CONFLICT DO NOTHING", version); err != nil {
+			t.Fatal(err)
 		}
 	}
 	article := Article{URL: "https://example.test/classifier-intake", Title: "Test Club report", Source: "Example", FeedRank: 3}

@@ -483,7 +483,7 @@ The committed production schema, reference data and migrations 291–296 restore
 
 Harvester and Editor are removed from the first-party runtime roster, registration and model bindings. Explicit old stage lists fail at boot. Historical code and immutable finished receipts remain available for archived experiments/history; active consumers do not route through them. Classifier source acquisition and inference have distinct manifests, grants and concurrency. The daemon resolves enabled stages before building its model topology, so acquisition-only boot does not initialize or ping any model host.
 
-Verification: 371 active Rust tests and all-targets compilation pass. Analyst/Oracle need no plugin change because their existing native product/reaction contracts pass the full-schema checks above.
+Verification: 371 active Rust tests and all-targets compilation pass. The real Go RSS acquisition check also passes against the fully restored production schema and migrations 291–296, preserving the installed discovery function instead of replaying old queue constraints. Go ingestion, database and API handler package checks pass. Analyst/Oracle need no plugin change because their existing native product/reaction contracts pass the full-schema checks above.
 
 ### Deferred accuracy qualification and production acceptance
 

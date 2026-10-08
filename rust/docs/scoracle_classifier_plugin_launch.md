@@ -2,7 +2,7 @@
 
 ## Launch concept: measure a spectrum, then let characters express it
 
-**Status:** Production cognition remains paused; daily RSS discovery continues. This session now focuses on plumbing and replaceable model plugins. Correctness calibration, independent accuracy evaluation and model selection belong to a separate dedicated session. Native source acquisition, Classifier registration, model routing and durable receipts are implemented and checked in isolation — October 8, 2026.
+**Status:** Plumbing is ready for a paused production rollout. Native source acquisition, swappable inference, all consumers, deployment and recovery are verified, including a seven-binary Archbox build. Production cognition remains paused and daily RSS continues. Correctness calibration, independent accuracy evaluation and model promotion remain in the dedicated session — October 8, 2026.
 
 **Placement:** After Google News RSS discovery and native full-source acquisition
 
@@ -14,7 +14,7 @@
 
 ---
 
-## Remaining plumbing — priority 1, October 8
+## Plumbing readiness — priority 1, October 8
 
 Production cognition remains paused. Build and verify the replacement flow before enabling it; daily RSS discovery must keep accumulating data. Model accuracy and calibration are a separate session.
 
@@ -22,9 +22,9 @@ Production cognition remains paused. Build and verify the replacement flow befor
 2. [x] Complete the fixed measurement envelope: all 51 presence dimensions, three ordinals, qualified claims, explicit unknowns and source/model/schema provenance. This establishes the plumbing contract; model support and accuracy remain separate.
 3. [x] Complete the swappable generative adapter and fail-closed admission. Native llama.cpp verifies the exact complete input and has been checked with two installed models; tuning stays in `classifier/prompt.rs`. Protocols lacking exact admission are refused before generation. Specialized Laya/Kev/GLiNER heads remain experimental, outside this plumbing release; adding a qualified head protocol is later model work, not an implicit production fallback. No model is promoted.
 4. [x] Verify downstream dependencies. All four direct characters and Graph pass native full-schema publication/recovery checks. Analyst/Oracle and outbox crash recovery pass. Native source-owned canonical mentions feed existing SQL maintenance without model-derived event authority. Harvester/Editor are retired from deployment registration.
-5. [ ] Exercise the complete flow through duplicate discovery, backlog replay, worker restarts, retries and model swaps. Deploy acquisition independently first; resume production cognition only after the replacement is ready and the pause is lifted.
+5. [x] Exercise duplicate discovery, backlog replay, worker restarts, retries, model swaps and complete-input refusal. Verify the native production schema and all consumers, exact durable-data dump/restore, API statement registration, paused release/watchdog behavior and the Linux build/runtime contracts. All seven binaries build from committed code on Archbox; rendered units validate. Production activation remains separate.
 
-Current implementation: independent workers, immutable snapshots, attempt receipts, claim fencing, RSS producer wiring, backlog replay and the complete measurement envelope are checked locally. Exact tokenizer admission now works through the native llama.cpp adapter. Native consumers and source-owned maintenance are verified. Deployment/recovery scripts and Linux build qualification are the final boundary. No production replacement has been enabled.
+Current implementation: independent workers, immutable snapshots, attempt receipts, claim fencing, RSS producer wiring, backlog replay and the complete measurement envelope are checked locally. Exact tokenizer admission now works through the native llama.cpp adapter. Native consumers and source-owned maintenance are verified. Deployment/recovery tooling and Linux qualification pass. The next production action is backup → migrate 291–298 → deploy matching binaries with cognition paused → enable independent source acquisition. Inference and policy release remain deferred until qualification and the pause is lifted. No production replacement has been enabled.
 
 ## Execution ledger
 
@@ -65,12 +65,13 @@ The tracked plan is this file; the original was supplied from Downloads. The use
 - [ ] Train and compare the additional heads on Horizon/SamLowe backbones; retain the existing emotion checkpoints as baselines. Evaluate each signal family before choosing a deployment checkpoint.
 - [ ] Phase 3: held-out quality/calibration, real-corpus CPU/GPU throughput, and evidence/attribution checks.
 - [ ] Validate the spectrum-derived gate against reviewed downstream usefulness; distinguish per-character abstention from item-wide no action and preserve failures/unknowns and retained evidence.
-- [ ] Replace the two intake stages with one Classifier stage; retain versioned measurements separately from routing and source evidence. Run source/publication checks and a direct production cutover when the selected slice works.
+- [x] Replace Harvester/Editor runtime intake with Classifier acquisition and inference; retain versioned measurements separately from routing and source evidence. Full native source/publication checks pass.
+- [ ] Activate production inference after model/policy qualification and an explicit lifting of the cognition pause.
 - [x] Complete an independent 60-call Classifier-to-expression diagnostic with source-bound emotion vectors; compare source-only and spectrum inputs on eight controls plus two retained reports across three articulators. Preserve failed replies and AI provisional semantic review; no model promoted.
 - [x] Bind claim relationships and qualifications to exact source spans; select emotional evidence independently of Harvester and keep full score/source receipts.
 - [x] Test source-only, raw-spectrum and qualified packets on 12 fictional controls plus two retained reports; inspect fidelity and distinguish model replies from native abstentions. Preserve 192 calls, 60 native abstentions and four failed replies across four stages; fix lost correction/identity context.
 - [x] Build the independent native qualification boundary and emotional world compiler; verify exact source/target/request binding, retain failed replies and prepare full-source requests for all 400 retained articles. This is offline contract verification, not automatic extraction accuracy or a registered worker.
-- [ ] Complete fidelity review and real-source evaluation before promoting an articulation model or replacing production intake.
+- [ ] Complete fidelity review and real-source evaluation before promoting an articulation model or enabling production inference.
 
 First implementation decision: reuse the existing retained-source export and Python/PyTorch model tooling for the Phase 1 bench. No classifier framework, generated summaries, invented calibration mapping, or automatic emotional interpretation from score maxima.
 
@@ -400,7 +401,7 @@ cargo run --example classifier_model -- SOURCES.jsonl RECEIPTS.jsonl
 
 Live Mac native-server smoke: the same fictional source was submitted through llama.cpp b11496 with the already-installed `qwen3:4b` and `granite4.2:3b` GGUF files. Preflight/consumed input counts matched exactly: **1,194/1,194** and **1,233/1,233** tokens, respectively. Both reached EOS without truncation; both replies were structurally rejected because they declared unusable/incomplete extraction. Exact requests, preflight and failed replies are retained under `/private/tmp/classifier-native-{qwen,granite}-proof-20261008.jsonl`. The live Ollama route was refused before generation with missing-tokenizer evidence. These are runtime/coverage/error checks, not accuracy results or model promotion. The isolated native servers were stopped afterward. Serve one configured model alias with `/props`, `/slots`, `/apply-template`, `/tokenize` and `/completion` available; disable context shifting. See the [native server reference](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md).
 
-Changing the route selects another model; tuning stays in `prompt.rs`. The runner preserves replies and failures in a new receipt file and does not score semantic accuracy. Durable integration check: `TEST_DATABASE_URL=<disposable classifier_test database> cargo test --lib durable_acquisition_swap_reuse_retry_and_claim_fence -- --ignored --nocapture` against an empty disposable database whose name begins `classifier_test`. The check creates its minimal discovery tables and applies real migrations 102/109/256, the existing publication-outbox migrations and Classifier migrations 291–296. It verifies acquisition → queue → inference → storage → typed consumer reads, artifact-aware reuse, failure/retry survival, unknown-revision behavior, changed source rejection and lease fencing.
+Changing the route selects another model; tuning stays in `prompt.rs`. The runner preserves replies and failures in a new receipt file and does not score semantic accuracy. Durable integration check: `TEST_DATABASE_URL=<disposable classifier_test database> cargo test --lib durable_acquisition_swap_reuse_retry_and_claim_fence -- --ignored --nocapture` against an empty disposable database whose name begins `classifier_test`. The check creates its minimal discovery tables and applies real migrations 102/109/256, the existing publication-outbox migrations and Classifier acquisition/delivery migrations through 298; the Journalist flow applies product migration 297 after creating its domain fixture. It verifies acquisition → queue → inference → storage → typed consumer reads, artifact-aware reuse, failure/retry survival, unknown-revision behavior, changed source rejection and lease fencing.
 
 ### Journalist delivery boundary — October 8
 
@@ -419,7 +420,7 @@ TEST_DATABASE_URL=<disposable classifier_test database> \
 cargo test --lib classifier_journalist_delivery_publication_and_recovery -- --ignored --nocapture
 ```
 
-All four direct character boundaries are implemented and verified locally. Their old delivery readers and routing thresholds are not a fallback for the new Classifier. Verify their replacements before removing the remaining Harvester/Editor registration and delivery code, then check Analyst/Oracle reactions and serving compatibility.
+All four direct character boundaries are implemented and verified. Their replacements, subsequent Harvester/Editor runtime retirement and Analyst/Oracle/serving qualification are recorded below. There is no active legacy delivery fallback.
 
 ### Influencer delivery boundary — October 8
 
@@ -517,3 +518,9 @@ Historical benchmark references checked October 7, 2026. These do not commit the
 - [SamLowe/roberta-base-go_emotions](https://huggingface.co/SamLowe/roberta-base-go_emotions) — widely used GoEmotions reference checkpoint; license and comparison figures noted in the Horizon card.
 - [Horizon-Labs/multilingual-emotions-base](https://huggingface.co/Horizon-Labs/multilingual-emotions-base) — 308M Apache 2.0 comparison model.
 - [answerdotai/ModernBERT-base](https://huggingface.co/answerdotai/ModernBERT-base) — 149M base encoder, Apache 2.0, 8,192-token maximum sequence support.
+
+## Final plumbing acceptance — October 8
+
+Commit `681b279aa18f` builds all four Go and three Rust release binaries on Archbox through the actual release script, using a private staging checkout and redirected binary directory. The rendered cognition/source units pass `systemd-analyze --user verify`. Linux runs all 371 active Rust checks and the real Go/DuckDB memory-helper preservation check successfully. The tested staging tree and logs remain at `/tmp/scoracle-classifier-qualification.XvgOXN` on Archbox. No live checkout, binary, service, cron, model or delivery policy was changed. Production API remains active; cognition and its watcher remain inactive. Daily RSS is intact.
+
+All requested plumbing work is complete and committed per plugin boundary. Apply migrations 291–298 before matching binaries; use the paused cutover in the hosting runbook. A supported generative model can be swapped through the Classifier prompt/route without changing downstream contracts. Specialized protocols and semantic qualification are separate model work. Real deliveries remain held until independently evaluated policy release; deployment never supplies a calibration threshold.

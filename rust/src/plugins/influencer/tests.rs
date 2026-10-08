@@ -232,8 +232,8 @@ async fn period_card_flow() -> Result<()> {
     for id in 1001..1006_i64 {
         let report = if id == 1004 { 1002 } else { id };
         sqlx::query(
-            "INSERT INTO news_articles(id,url,title,source,published_at,full_text,feed_rank)
-            VALUES($1,$2,$3,'Fixture Wire',to_timestamp($4::double precision),$5,1)",
+            "INSERT INTO news_articles(id,url_hash,url,title,source,published_at,full_text,feed_rank)
+            VALUES($1,md5($2),$2,$3,'Fixture Wire',to_timestamp($4::double precision),$5,1)",
         )
         .bind(id)
         .bind(format!("https://example.invalid/vibe/{id}"))
@@ -391,7 +391,15 @@ async fn period_card_flow() -> Result<()> {
             .len(),
         3
     );
-    assert_eq!(dbtest::count(&pool, "pipeline_work", SPORT).await, 1);
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT count(*) FROM pipeline_work WHERE sport=$1 AND stage='vibe'"
+        )
+        .bind(SPORT)
+        .fetch_one(&pool)
+        .await?,
+        1
+    );
     sqlx::raw_sql("ALTER TABLE application_outbox DROP CONSTRAINT reject_vibe_fixture")
         .execute(&pool)
         .await?;

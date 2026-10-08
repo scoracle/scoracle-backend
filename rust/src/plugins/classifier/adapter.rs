@@ -117,7 +117,10 @@ impl StudioPlugin for AcquireHandler {
         &super::manifest::ACQUIRE_MANIFEST
     }
     fn scheduled_operations(&self) -> Vec<Arc<dyn crate::harness::plugin::ScheduledOperation>> {
-        vec![Arc::new(Replay(self.pool.clone()))]
+        acquisition_replay(
+            &self.pool,
+            std::env::var("CLASSIFIER_REPLAY_BACKLOG").ok().as_deref(),
+        )
     }
     async fn execute(&self, item: &Item) -> Result<PluginOutcome> {
         ensure!(
@@ -216,6 +219,18 @@ impl StudioPlugin for AcquireHandler {
         .await?;
         publication.commit_final().await?;
         Ok(PluginOutcome::Committed)
+    }
+}
+
+// Controlled calibration runs must not silently enqueue the whole retained corpus.
+pub(super) fn acquisition_replay(
+    pool: &PgPool,
+    setting: Option<&str>,
+) -> Vec<Arc<dyn crate::harness::plugin::ScheduledOperation>> {
+    if setting == Some("true") {
+        vec![Arc::new(Replay(pool.clone()))]
+    } else {
+        vec![]
     }
 }
 

@@ -13,8 +13,7 @@ async fn classifier_graph_complete_source_nominations_and_recovery() -> Result<(
     let pool = dbtest::pool("disposable classifier_test database").await;
     classifier::plumbing_tests::setup_disposable(&pool).await?;
     sqlx::raw_sql(
-        "CREATE OR REPLACE FUNCTION public.nrm(text) RETURNS text LANGUAGE sql IMMUTABLE AS $$SELECT trim(lower(regexp_replace($1,'[^[:alnum:]]+',' ','g')))$$;
-        ALTER TABLE teams ADD COLUMN IF NOT EXISTS city text;
+        "ALTER TABLE teams ADD COLUMN IF NOT EXISTS city text;
         ALTER TABLE teams ADD COLUMN IF NOT EXISTS country text;
         ALTER TABLE teams ADD COLUMN IF NOT EXISTS venue_name text;
         ALTER TABLE teams ADD COLUMN IF NOT EXISTS conference text;
@@ -75,8 +74,8 @@ async fn classifier_graph_complete_source_nominations_and_recovery() -> Result<(
             .await?;
         sqlx::query("INSERT INTO entity_name_surfaces(sport,entity_type,entity_id,norm,surface_kind) VALUES($1,'team',$2,public.nrm($3),'name')").bind(SPORT).bind(id).bind(name).execute(&pool).await?;
     }
-    let body = format!("Cedar Club reported a possible move. {}\nRiley Example denied it. Cedar Club 2–1 Birch Club \nLater correction: no move.","Publisher detail. ".repeat(90));
-    sqlx::query("INSERT INTO news_articles(id,url,title,source,full_text,published_at) VALUES($1,'https://example.invalid/graph-native','Exact publisher headline','Fixture Wire',$2,now()-interval '1 day')").bind(ARTICLE).bind(&body).execute(&pool).await?;
+    let body = format!("Cedar Club reported a possible move. {} Riley Example denied it. Cedar Club 2–1 Birch Club \nLater correction: no move.","Publisher detail. ".repeat(90));
+    sqlx::query("INSERT INTO news_articles(id,url_hash,url,title,source,full_text,published_at) VALUES($1,md5('https://example.invalid/graph-native'),'https://example.invalid/graph-native','Exact publisher headline','Fixture Wire',$2,now()-interval '1 day')").bind(ARTICLE).bind(&body).execute(&pool).await?;
     sqlx::query("INSERT INTO harvester_query_provenance(article_id,entity_type,entity_id,sport) VALUES($1,'team',1041,$2)").bind(ARTICLE).bind(SPORT).execute(&pool).await?;
     sqlx::query("SELECT classifier_enqueue_acquisition($1,$2)")
         .bind(ARTICLE)
@@ -118,12 +117,15 @@ async fn classifier_graph_complete_source_nominations_and_recovery() -> Result<(
         input_hash: hash_components(&build_graph_input_components(&article, &candidates)),
         extracted: Box::new(extracted),
     };
-    let claim = dbtest::claim_one(
-        &pool,
-        crate::plugins::graph::manifest::TASK,
-        "Graph native source",
-    )
-    .await;
+    let mut claim = None;
+    for item in work::claim(&pool, crate::plugins::graph::manifest::TASK, 10000).await? {
+        if item.sport == SPORT {
+            claim = Some(item);
+        } else {
+            work::release(&pool, &item).await?;
+        }
+    }
+    let claim = claim.context("Graph native source claim")?;
     assert_eq!(
         claim.input_version.as_deref().unwrap().split(':').next(),
         Some("classifier-source")

@@ -181,6 +181,16 @@ impl StudioPlugin for AcquireHandler {
         let source_id: i64 = sqlx::query_scalar("INSERT INTO public.classifier_sources(article_id,sport,input_hash,body_sha256,source,discovery_version,identity_hash) VALUES($1,$2,$3,$4,$5::jsonb,public.classifier_discovery_version($1,$2),$6) ON CONFLICT(article_id,sport,input_hash,body_sha256,identity_hash) DO UPDATE SET discovery_version=EXCLUDED.discovery_version RETURNING id")
             .bind(item.entity_id).bind(&item.sport).bind(&key).bind(hash(&source.body))
             .bind(serde_json::to_string(&source)?).bind(identity_hash).fetch_one(&mut **publication.transaction()).await?;
+        sqlx::query("DELETE FROM public.news_article_entities WHERE article_id=$1 AND sport=$2")
+            .bind(item.entity_id)
+            .bind(&item.sport)
+            .execute(&mut **publication.transaction())
+            .await?;
+        sqlx::query("INSERT INTO public.news_article_entities(article_id,entity_type,entity_id,sport,classifier_source_id)
+            SELECT $1, c->>'entity_type', (c->>'entity_id')::integer,$2,$3
+            FROM jsonb_array_elements($4::jsonb) c")
+            .bind(item.entity_id).bind(&item.sport).bind(source_id).bind(&source.provenance["identity_candidates"])
+            .execute(&mut **publication.transaction()).await?;
         work::enqueue(
             &mut **publication.transaction(),
             &Item {

@@ -276,11 +276,16 @@ async fn durable_acquisition_swap_reuse_retry_and_claim_fence() -> Result<()> {
         .execute(&pool)
         .await?;
     let source = source();
+    sqlx::query("INSERT INTO sports(id,display_name,current_season) VALUES('TEST','Acquisition fixture',2026) ON CONFLICT DO NOTHING").execute(&pool).await?;
     sqlx::query(
         "INSERT INTO teams(id,sport,name) VALUES(1,'TEST','Équipe') ON CONFLICT DO NOTHING",
     )
     .execute(&pool)
     .await?;
+    sqlx::query("DELETE FROM entity_name_surfaces WHERE sport='TEST'")
+        .execute(&pool)
+        .await?;
+    sqlx::query("INSERT INTO entity_name_surfaces(sport,entity_type,entity_id,norm,surface_kind) VALUES('TEST','team',1,public.nrm('Équipe'),'name')").execute(&pool).await?;
     sqlx::query("INSERT INTO news_articles(id,url_hash,url,title,source,full_text) VALUES(1,md5($1),$1,$2,$3,$4)")
         .bind(source.provenance["url"].as_str())
         .bind(source.provenance["title"].as_str())
@@ -341,6 +346,9 @@ async fn durable_acquisition_swap_reuse_retry_and_claim_fence() -> Result<()> {
     assert_eq!(replay().fetch_one(&pool).await?, 0);
     let mut classify = crate::harness::dbtest::claim_one(&pool, manifest::TASK, "classifier").await;
     let source_id = classify.input_version.clone().unwrap();
+    let identities: Vec<(String,i32,i64)> = sqlx::query_as("SELECT entity_type,entity_id,classifier_source_id FROM news_article_entities WHERE article_id=1 AND sport='TEST'")
+        .fetch_all(&pool).await?;
+    assert_eq!(identities, vec![("team".into(), 1, source_id.parse()?)]);
     let a = Model::new("model-a", Backend::Ollama);
     assert_eq!(
         adapter::execute_model(&pool, &classify, &a).await?,
@@ -561,7 +569,9 @@ pub(crate) async fn setup_disposable(pool: &sqlx::PgPool) -> Result<()> {
         DO $fixture$ BEGIN IF to_regprocedure('public.nrm(text)') IS NULL THEN
             EXECUTE 'CREATE FUNCTION public.nrm(text) RETURNS text LANGUAGE sql IMMUTABLE AS $body$SELECT lower($1)$body$';
         END IF; END $fixture$;
-        CREATE TABLE IF NOT EXISTS sports(id text PRIMARY KEY,display_name text,current_season integer);")
+        CREATE TABLE IF NOT EXISTS sports(id text PRIMARY KEY,display_name text,current_season integer);
+        CREATE TABLE IF NOT EXISTS news_article_entities(article_id bigint REFERENCES news_articles(id) ON DELETE CASCADE,
+            entity_type text,entity_id integer,sport text,created_at timestamptz DEFAULT now(),PRIMARY KEY(article_id,entity_type,entity_id,sport));")
         .execute(pool).await?;
     for (version, migration) in [
         (
@@ -619,6 +629,10 @@ pub(crate) async fn setup_disposable(pool: &sqlx::PgPool) -> Result<()> {
         (
             "296_classifier_scout_delivery",
             include_str!("../../../../sql/migrations/296_classifier_scout_delivery.sql"),
+        ),
+        (
+            "298_classifier_article_identities",
+            include_str!("../../../../sql/migrations/298_classifier_article_identities.sql"),
         ),
     ] {
         let applied: bool =

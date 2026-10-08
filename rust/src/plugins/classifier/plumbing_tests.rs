@@ -281,7 +281,7 @@ async fn durable_acquisition_swap_reuse_retry_and_claim_fence() -> Result<()> {
     )
     .execute(&pool)
     .await?;
-    sqlx::query("INSERT INTO news_articles(id,url,title,source,full_text) VALUES(1,$1,$2,$3,$4)")
+    sqlx::query("INSERT INTO news_articles(id,url_hash,url,title,source,full_text) VALUES(1,md5($1),$1,$2,$3,$4)")
         .bind(source.provenance["url"].as_str())
         .bind(source.provenance["title"].as_str())
         .bind(&source.source)
@@ -550,14 +550,17 @@ pub(crate) async fn setup_disposable(pool: &sqlx::PgPool) -> Result<()> {
     sqlx::raw_sql("CREATE TABLE IF NOT EXISTS schema_migrations(version text PRIMARY KEY);
         CREATE TABLE IF NOT EXISTS teams(id integer,sport text,name text,PRIMARY KEY(id,sport));
         CREATE TABLE IF NOT EXISTS news_articles(id bigint PRIMARY KEY,url text NOT NULL,title text NOT NULL,
-            source text,published_at timestamptz,full_text text,duplicate_of bigint,feed_rank integer);
+            source text,published_at timestamptz,full_text text,duplicate_of bigint,feed_rank integer,url_hash text);
+        ALTER TABLE news_articles ADD COLUMN IF NOT EXISTS url_hash text;
         CREATE TABLE IF NOT EXISTS harvester_query_provenance(article_id bigint REFERENCES news_articles(id),
             entity_type text,entity_id integer,sport text,feed_rank integer,PRIMARY KEY(article_id,entity_type,entity_id,sport));
         CREATE TABLE IF NOT EXISTS players(id integer,sport text,name text,PRIMARY KEY(id,sport));
         CREATE TABLE IF NOT EXISTS persons(id integer,sport text,full_name text,kind text,team_id integer,PRIMARY KEY(id,sport));
         CREATE TABLE IF NOT EXISTS entity_name_surfaces(sport text,entity_type text,entity_id integer,norm text,surface_kind text);
         ALTER TABLE entity_name_surfaces ADD COLUMN IF NOT EXISTS surface_kind text;
-        CREATE OR REPLACE FUNCTION public.nrm(text) RETURNS text LANGUAGE sql IMMUTABLE AS $$SELECT lower($1)$$;
+        DO $fixture$ BEGIN IF to_regprocedure('public.nrm(text)') IS NULL THEN
+            EXECUTE 'CREATE FUNCTION public.nrm(text) RETURNS text LANGUAGE sql IMMUTABLE AS $body$SELECT lower($1)$body$';
+        END IF; END $fixture$;
         CREATE TABLE IF NOT EXISTS sports(id text PRIMARY KEY,display_name text,current_season integer);")
         .execute(pool).await?;
     for (version, migration) in [

@@ -89,8 +89,14 @@ async fn classifier_journalist_delivery_publication_and_recovery() -> Result<()>
         CREATE TABLE IF NOT EXISTS narrative_events(article_id bigint,sport text,origin text,subject_type text,subject_id integer,
             object_type text,object_id integer,event_date timestamptz);
         CREATE TABLE IF NOT EXISTS entity_name_surfaces(sport text,entity_type text,entity_id integer,norm text);
-        CREATE OR REPLACE FUNCTION public.nrm(text) RETURNS text LANGUAGE sql IMMUTABLE AS $$SELECT lower($1)$$;")
+")
         .execute(&pool).await?;
+    sqlx::raw_sql(include_str!(
+        "../../../../sql/migrations/297_classifier_journalist_product.sql"
+    ))
+    .execute(&pool)
+    .await?;
+    sqlx::raw_sql("ALTER TABLE application_outbox DROP CONSTRAINT IF EXISTS reject_fixture_event; ALTER TABLE news_summaries DROP CONSTRAINT IF EXISTS reject_fixture_product").execute(&pool).await?;
     for table in ["application_outbox", "news_summaries", "pipeline_work"] {
         sqlx::query(&format!("DELETE FROM {table} WHERE sport=$1"))
             .bind(SPORT)
@@ -120,8 +126,8 @@ async fn classifier_journalist_delivery_publication_and_recovery() -> Result<()>
     for id in 991..996 {
         let source = plumbing_tests::source();
         sqlx::query(
-            "INSERT INTO news_articles(id,url,title,source,published_at,full_text,feed_rank)
-            VALUES($1,$2,$3,'Fixture Wire',to_timestamp($4::double precision),$5,1)",
+            "INSERT INTO news_articles(id,url_hash,url,title,source,published_at,full_text,feed_rank)
+            VALUES($1,md5($2),$2,$3,'Fixture Wire',to_timestamp($4::double precision),$5,1)",
         )
         .bind(id)
         .bind(format!("https://example.invalid/{id}"))
@@ -343,7 +349,15 @@ async fn classifier_journalist_delivery_publication_and_recovery() -> Result<()>
     .await
     .is_err());
     assert_eq!(dbtest::count(&pool, "news_summaries", SPORT).await, 3);
-    assert_eq!(dbtest::count(&pool, "pipeline_work", SPORT).await, 1);
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT count(*) FROM pipeline_work WHERE sport=$1 AND stage='narratives'"
+        )
+        .bind(SPORT)
+        .fetch_one(&pool)
+        .await?,
+        1
+    );
     sqlx::raw_sql("ALTER TABLE application_outbox DROP CONSTRAINT reject_fixture_event")
         .execute(&pool)
         .await?;
@@ -364,7 +378,15 @@ async fn classifier_journalist_delivery_publication_and_recovery() -> Result<()>
     );
     assert_eq!(dbtest::count(&pool, "news_summaries", SPORT).await, 4);
     assert_eq!(dbtest::count(&pool, "application_outbox", SPORT).await, 1);
-    assert_eq!(dbtest::count(&pool, "pipeline_work", SPORT).await, 0);
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT count(*) FROM pipeline_work WHERE sport=$1 AND stage='narratives'"
+        )
+        .bind(SPORT)
+        .fetch_one(&pool)
+        .await?,
+        0
+    );
     assert_eq!(voice.0.load(Ordering::SeqCst), 2);
     let memory = journalist::memories::load(&pool, &subject, journalist::now_unix()).await?;
     assert_eq!(memory.published_reports.len(), 4);

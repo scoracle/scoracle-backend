@@ -4,9 +4,13 @@
 
 **Status:** Qualified claim-packet compiler tested across 14 sources and three articulators; 192 model calls retained, no model promoted. Automatic qualification, gold labels, additional heads and production cutover remain — October 7, 2026
 
-**Placement:** Immediately after RSS fetch  
-**First goal:** Replace generation-based gatekeeping with evidence-linked, graded signals  
-**Model strategy:** Start with compact task specialists; evaluate a roughly 149M encoder before considering larger models
+**Placement:** After Google News RSS discovery and native full-source acquisition
+
+**First goal:** Replace separate intake relevance gates with a reusable spectrum of attributed evidence
+
+**Model strategy:** Accuracy first; choose classifier and qualification resources from measured quality, then evaluate cost and throughput
+
+**Governing target:** [Target design — October 7, 2026](#target-design--october-7-2026). Relevance is derived from the complete spectrum of supported downstream evidence. No useful signal means no new character work; unknown or failed measurement is never absence. This target supersedes earlier model-size and separate-gate assumptions.
 
 ---
 
@@ -19,10 +23,12 @@ The tracked plan is this file; the original was supplied from Downloads. The use
 - [x] Phase 1: source-bound 40-item replay of three compact emotion encoders; matched four-model comparison on 20 opening windows plus eight synthetic controls. Full vectors, exact input windows, checkpoint identities, timings and limitations retained.
 - [x] Exclude Laya from the launch bank at the user's instruction; preserve its historical comparison receipts. The live Harvester/Editor runtime is unchanged until Classifier cutover.
 - [x] Map all six character plugins' actual material contracts; define 51 independent presence dimensions, three ordinal annotations and exact-span claim qualifiers. Prepare and validate a source-only 40-item review pilot with all annotations unknown.
+- [x] Document the governing deconstruct → retain → build → discover/express → serve architecture, spectrum-derived relevance, per-character no-action decisions and explicit unknown/failure states. Remove superseded fixed-size and separate-admission design assumptions.
 - [x] Export and prepare 400 retained sources (314 publishers, 3,699 complete source windows) for Phase 2 review.
 - [ ] Phase 2: independently reviewed 300–500 item gold set, with source-group/time splits and ambiguous/unknown labels.
 - [ ] Train and compare the additional heads on Horizon/SamLowe backbones; retain the existing emotion checkpoints as baselines. Evaluate each signal family before choosing a deployment checkpoint.
 - [ ] Phase 3: held-out quality/calibration, real-corpus CPU/GPU throughput, and evidence/attribution checks.
+- [ ] Validate the spectrum-derived gate against reviewed downstream usefulness; distinguish per-character abstention from item-wide no action and preserve failures/unknowns and retained evidence.
 - [ ] Replace the two intake stages with one Classifier stage; retain versioned measurements separately from routing and source evidence. Run source/publication checks and a direct production cutover when the selected slice works.
 - [x] Complete an independent 60-call Classifier-to-expression diagnostic with source-bound emotion vectors; compare source-only and spectrum inputs on eight controls plus two retained reports across three articulators. Preserve failed replies and AI provisional semantic review; no model promoted.
 - [x] Bind claim relationships and qualifications to exact source spans; select emotional evidence independently of Harvester and keep full score/source receipts.
@@ -157,257 +163,173 @@ All five Python checks pass in Archbox's installed runtime; local Python skips t
 
 Private run directory: `/mnt/data/backup/scoracle/classifier-launch/2026-10-07/qualification-v1/` on Archbox, with a local counterpart under `/private/tmp/scoracle-classifier-launch-20261007/qualification-v1/`. `reader-v2`, `reader-v3` and `context-v4` retain the follow-ups without overwriting earlier failures. Next: independently review extraction/relationships, fit/compare missing heads and validate automatic span/relationship extraction; then evaluate held-out real-source expression and integrate the independent Classifier stage.
 
-## The idea
+## Target design — October 7, 2026
 
-Scoracle’s news world is not binary. A story can be partly relevant to a team, strongly relevant to one player, mostly factual with a small speculative edge, emotionally hopeful and anxious at once, and more useful to one character than another. Reducing that to yes/no, positive/neutral/negative, or one assigned writer throws away the shape of the story.
+This is the governing target for the Classifier launch. It incorporates the user's clarified design and supersedes the earlier assumption that classification should be a cheap preliminary gate, a fixed model-size target, and the separate Harvester/Editor admission path. The execution ledger above records what is actually implemented; this section records what the finished product must do.
 
-The Classifier plugin should preserve that shape. It receives the fetched corpus and measures it across useful dimensions, returning structured signals with evidence and uncertainty. Plugins then select and frame the measured world for their jobs. Character models articulate what that world supports.
+### Deconstruct, retain, build, discover and express
 
-> **Intent selects the world.**  
-> **Plugins define the world.**  
-> **Tools provide its elements and rules.**  
-> **AI builds and expresses within it.**
+Classification is valuable intelligence work. The Classifier deconstructs publisher reporting into a spectrum of source-backed signals and relationships. SQL retains that measured world. Rust builds the evidence payload for each character. Character AI discovers what the supplied evidence supports and expresses a useful reading. SQL and Go retain and serve the finished products.
 
-For this launch, the Classifier is a plugin that measures the incoming world after RSS. It is not a replacement writer and it does not author summaries. Its job is to create a richer, queryable layer between fetched source material and character cognition.
+The same reporting can support several different jobs. An availability update can matter to Scout without expressing emotion. A denied transfer can matter to Insider and Journalist even though no transfer happened. A report can contain both hope and worry, expressed by different people at different times. Accurate deconstruction lets every character work from those distinctions instead of reconstructing them independently from a pile of articles.
 
-## Why change the gatekeeper
+The central design decision is:
 
-The Editor and Harvester experiments exposed a mismatch: generation was being asked to decide what the world contains. A generative model can summarize and assign, but it can also complete a plausible sports narrative when the evidence is thin. That makes its output difficult to treat as a reliable boundary for every downstream character.
+> **Relevance is derived from the spectrum of evidence needed downstream. A complete, usable measurement with no supported signal for any character produces no new character work.**
 
-A classifier has a narrower contract. It estimates labels or scores for supplied text. It does not independently invent a game result or quote. Its mistakes are still possible—misclassification, bias, weak domain transfer, poor calibration—but the failure surface is more inspectable: we can see the score, label, excerpt, model version, and threshold that drove a decision.
+The binary decision to do work is a projection of that richer record. There is no separate AI yes/no relevance test before the Classifier and no delegation to Harvester or Editor. Target relevance is still measured inside the spectrum: direct subject, opponent context and incidental mention distinguish whose reporting a signal belongs to.
 
-The goal is not to make every score authoritative. The goal is to represent uncertainty explicitly and keep the original evidence close to every derived signal.
+### End-to-end ownership
 
-## Proposed flow
-
-```text
-RSS fetch
-  → normalize and deduplicate source items
-  → Classifier plugin measures each item
-  → persist scores, evidence spans, provenance, and model versions
-  → character plugins select the slices they need
-  → compact articulator expresses the supplied world
+```mermaid
+flowchart TD
+    G[Google News RSS: discovery and ranking] --> F[Native acquisition: full publisher source]
+    F --> C[Independent Classifier: spectrum and qualified claims]
+    C --> S[(SQL: source, measurements and provenance)]
+    S --> R[Rust: select evidence and build each character world]
+    T[Structured stats, fixtures and dated history] --> R
+    R --> E{Supported evidence for this character?}
+    E -->|Yes| A[AI: discover supported meaning and express it]
+    E -->|Complete measurement, none useful| N[No new character call; source and scores retained]
+    E -->|Unknown or incomplete| U[Visible unresolved state; existing review or retry work]
+    A --> V[Native validation and atomic publication]
+    V --> P[(SQL: finished products and history)]
+    P --> API[Go: queries, cache and API]
+    API --> Client[Client]
 ```
 
-The Classifier runs once per canonical story (or per relevant excerpt), not once for each character. It should preserve the original article and produce reusable measurements. The harness chooses which classifier resources to invoke; the plugin declares its model, label schema, thresholds, and output contract. A character plugin can then request different score slices without rerunning the same broad inference.
+| Stage | Responsibility | Intelligence and cost boundary |
+|---|---|---|
+| Google News / Go RSS intake | Discover and rank candidate reporting; retain query, rank, URL, publisher and candidate identity. | Reuse Google's discovery signal without a model call in intake. A search match is a candidate, not proof of target relevance. Native network and ingest work still exists. |
+| Native acquisition | Resolve publisher URLs, fetch or reuse full text, normalize and deduplicate, retain canonical IDs and exact source bytes. | Ordinary code owns collection. Failed extraction and publisher furniture remain quality issues, not negative relevance. |
+| Classifier AI | Measure independent signals and identify source-supported claims and their relationships, qualifications and time. | Spend intelligence where semantic understanding is necessary. An encoder, LLM or measured combination may serve this job. |
+| SQL and native analytics | Store source and derived records separately; query history, count, aggregate and calculate bounded factual measurements. | Reuse evidence and arithmetic. A stored AI interpretation remains an interpretation; SQL does not turn it into a verified fact. |
+| Rust character plugins | Select each character's scope, useful signals, exact supporting source, compatible history, statistics, limits and instructions. | Deterministic preparation builds a coherent world without prewriting the model's conclusion. |
+| Character AI | Reason across that world, discover supported relationships or patterns, and express the character's reading. | This is the second semantic stage. The model reads prepared evidence; it does not retrieve more material or invent missing facts. |
+| SQL + Go serving | Retain accepted products, query them, cache and serve them to clients. | Client reads reuse saved work. Normal product requests do not repeat classification or character inference. |
 
-This follows Scoracle’s current boundary: the harness selects plugins; plugins determine which tools, SQL tables, context, memories, voice, and resources enter an inference; the LLM articulates the supplied world rather than assembling or reconstructing it.
+“Cheap” and “expensive” describe where the architecture concentrates work, not measured prices or fixed resource promises. Acquisition, storage and analytics have costs too. Classification quality comes first; runtime cost and throughput are measured on the real workload.
 
-## A spectrum-shaped record
+### Spectrum-derived relevance
 
-A first-pass record might look like this:
+“Nothing registers” means **no supported, actionable evidence under the evaluated policy for the processed target and downstream character scope**. It does not mean every raw score equals zero. Independent sigmoid heads generally produce nonzero numbers, and different dimensions need different evaluated interpretations. A high generic emotion score can describe someone other than the target or an old quotation. A low emotion score can accompany important factual reporting.
 
-```json
-{
-  "item_id": "news_4821",
-  "model_set": "classifier-bank-v0",
-  "scores": {
-    "entity_relevance": {
-      "detroit_pistons": 0.98,
-      "cade_cunningham": 0.73
-    },
-    "topics": {
-      "performance": 0.89,
-      "injury": 0.11,
-      "transaction": 0.02
-    },
-    "discourse": {
-      "reported_fact": 0.81,
-      "opinion": 0.42,
-      "speculation": 0.17
-    },
-    "emotion": {
-      "optimism": 0.64,
-      "excitement": 0.51,
-      "concern": 0.38,
-      "disappointment": 0.05
-    }
-  },
-  "evidence": [
-    {
-      "dimension": "emotion.optimism",
-      "text": "The team has won four of its last five games...",
-      "start": 214,
-      "end": 260
-    }
-  ],
-  "coverage": {
-    "input_tokens": 612,
-    "truncated": false
-  },
-  "provenance": {
-    "source_id": "rss_source_12",
-    "published_at": "2026-10-07T14:00:00Z",
-    "classifier_version": "classifier-bank-v0"
-  }
-}
+Rust applies explicit, versioned selection rules over the measured spectrum and qualified source evidence. These rules check the target relationship, signal meaning, source support, time, qualification and the character's actual job. They produce scheduling decisions without asking another model to repeat a binary relevance judgment. Keep the dimensions and decisions inspectable; do not collapse them into one global confidence number.
+
+Two scopes matter:
+
+- **Character scope:** no eligible emotional evidence can mean no Influencer call while the same source still serves Scout or Journalist. Each character chooses its own slice.
+- **Item/target scope:** no new character work is warranted only when every applicable consumer has a complete, usable measurement for its required signals and none has eligible evidence. This conclusion applies to the processed scope; it does not declare the article irrelevant to every other entity or future use.
+
+| Measured situation | Required disposition |
+|---|---|
+| Supported signal with the necessary target, time and qualification | Make it available to the relevant character. Coalesce with its other evidence and avoid duplicate calls when the prepared world has not changed. |
+| Complete usable measurement; no eligible signal for this character | Record the disposition and omit that character call. Preserve the source, vectors and other characters' eligibility. |
+| Complete usable measurement; no eligible signal for any applicable consumer in scope | No new character work. Keep the retained record available for history, aggregation, audit and future remeasurement. |
+| Untrained family, uncertain relationship, insufficient support or missing time required by the task | Keep the affected value or disposition unknown/unresolved. Do not turn it into zero, neutral or a completed “nothing useful” decision. |
+| Fetch failure, unusable extraction, unsupported labels, changed source, missing windows, truncation or inference failure | Record the failure and use existing durable work/retry mechanics where appropriate. Never publish an all-zero replacement result. |
+
+There is no need to manufacture a character card to say nothing happened. There is also no need to call an articulator merely to confirm the compiler's completed no-evidence decision. An unresolved input can prevent a call without becoming evidence of absence.
+
+Weak signals can still contribute to a later reporting-period study even when they do not trigger an immediate character call. No action means no new generation now, not deletion from the measured world. Mixed evidence, denials and corrections are meaningful signals; their polarity must survive selection.
+
+### Examples that define the gate
+
+These are design controls, not claims about measured model accuracy or numeric scores.
+
+| Source situation | Spectrum and relationships | Downstream consequence |
+|---|---|---|
+| A target player is unavailable; no emotion is expressed. | Target availability/reporting evidence is present; attributed emotion may be absent. | Scout and possibly Journalist can use it. An emotion-only absence cannot discard the article. |
+| A different club's player celebrates while the queried club is an incidental mention. | Emotion is present in the document; subject/target relationships bind it to the other club. | Do not assign that joy to the queried club. Evaluate other resolved targets within the actual processing scope. |
+| “Alex denies agreeing to a move.” | Move topic, explicit denial and attributed subject are present. | Insider/Journalist can express the denial; no completed transfer or roster change is inferred. |
+| Alex expressed hope in an old interview. | Optimism, attributed speaker and historical event-time evidence are present. | Keep it as dated history where appropriate; it does not establish current target mood. |
+| A relief claim is withdrawn and replaced by Alex's current worry. | Correction, withdrawn claim, current worry and their source relationships are distinct. | Preserve the full supporting context and select the current claim; never revive the withdrawn feeling. |
+| The complete source contains no evidence useful to any applicable character for the processed target. | Required signal families and relationships were measured successfully; all character selections are empty. | Retain the receipt and skip new character work. |
+| Only the emotion head ran, or the publisher returned an interstitial. | Required relevance/topic/relationship evidence or usable source coverage is missing. | Unknown/incomplete, never a successful “nothing registered” result. |
+
+### The reusable measured world
+
+The [vector schema](../fixtures/classifier/vector-schema-v1.json) remains the concrete vocabulary: **51 independent presence dimensions, three target ordinals and seven claim qualifiers**. The dimensions include relevance, topic, emotion, discourse and temporal framing. The qualifiers bind speaker, subject, counterparty, reported event time, negation, uncertainty and source disagreement to exact source spans. A presence vector alone does not extract these relationships.
+
+Every measured record needs enough information to distinguish support, absence, ambiguity and failure:
+
+- Canonical article/source IDs, original retained text and hash, publisher, URL, report date, query provenance and known duplicate references.
+- Exact complete input windows and byte ranges; model-visible coverage, token counts and explicit truncation or acquisition failures.
+- Model/head/tokenizer and schema versions, input scope, supplied target identity where relevant, original scores and calibration status. Missing or untrained dimensions stay unknown.
+- Exact source claims and supporting qualifier/identity spans, including competing or withdrawn statements. Literal matching proves source binding; relationship correctness requires separate evaluation.
+- Target- and character-specific selection decisions, their policy versions and reasons. A decision never overwrites the underlying measurement.
+- Native statistical inputs, dates, samples, cohorts and calculation provenance kept distinguishable from semantic model outputs.
+
+Document/window measurements may be reused across characters. Target-conditioned measurements remain bound to their particular target. Reuse unchanged source/model/scope results instead of independently reclassifying the article for each character; recompute when the actual source, scope, head or model version changes. Do not pretend one document-wide vector represents every player in it.
+
+Classification records describe reporting and its evidence. Topic presence does not confirm an injury or transfer, model confidence does not measure a person's emotional intensity, and report time does not supply missing event time. Confirmed identity changes and trusted structured records retain their own native acceptance rules.
+
+### Rust prepares; AI discovers and expresses
+
+The character plugin chooses its world from measured evidence, history and trusted structured records. It supplies the selected exact claims, complete supporting source paragraphs, named relationships, relevant dates and qualifications, and meaningful gaps or disagreement. The world carries evidence and constraints without prescribing a headline, sentiment or conclusion.
+
+Keep two views of this work:
+
+- **Audit/selection view:** original scores, scope, hashes, model versions, review status, source bindings, explicit unknowns and policy decisions. SQL and Rust use this record for selection, studies and reproducibility.
+- **Expression view:** supported source wording and relationships, relevant history, task instructions, and native statistical measurements needed by that character. Raw text-label probabilities, checkpoint hashes and provisional review bookkeeping are not prose clues. Trusted performance values, percentiles and computed trends can still be legitimate numerical evidence.
+
+Do not replace the original evidence with an intermediate generated summary. Preserve the supporting paragraph when a quotation depends on an antecedent, denial, correction or identity elsewhere in that paragraph. Validate the actual token budget before inference; oversized evidence needs a visible disposition rather than silent clipping or an invented summary.
+
+Character AI has room to discover meaning across the supplied evidence, including supported mixtures, tensions and changes over time. Its job extends beyond paraphrasing, but its claims must remain traceable to that world. Native acceptance checks structure, source integrity, qualifications and product-specific constraints before atomic publication. Structural validity alone does not prove semantic fidelity.
+
+The downstream dependency order remains:
+
+```mermaid
+flowchart TD
+    W[Measured evidence + selected history and structured data] --> J[Journalist]
+    W --> I[Insider]
+    W --> V[Influencer]
+    W --> S[Scout]
+    S --> A[Analyst: Scout + Influencer + dated computed trends]
+    V --> A
+    J --> O[Oracle: five finished character cards]
+    I --> O
+    V --> O
+    S --> O
+    A --> O
 ```
 
-The values above illustrate a shape, not a claim about an actual Pistons story. In production, store raw model scores as scores, not as calibrated probabilities unless calibration has been measured. Keep model outputs separate from policy decisions such as “send to Vibe” or “drop as irrelevant.” Those decisions should be explicit, versioned rules over the signal vector.
+Each character owns its inference and accepted product. Analyst studies finished Scout/Influencer readings and native trajectories. Oracle synthesizes five finished cards and their explicit missingness and provenance. Repeated cards based on one article are not independent confirmation.
 
-### Design rules for useful spectrums
+### Quality first; choose compute from evidence
 
-- **Keep independent dimensions independent.** An article can score high for both optimism and concern. Multi-label outputs are more faithful than forcing one winning label.
-- **Keep neutral/unknown distinct from low signal.** “No detected emotion” is not the same as “neutral article,” and missing coverage is not zero relevance.
-- **Retain the score vector.** Thresholding can happen later. A score like 0.43 may matter for a trend, even if it does not trigger a single-item action.
-- **Attach evidence.** Where feasible, store the sentence or span that contributed to a signal. Scores without source support are hard to inspect and unsafe to turn into prose.
-- **Represent uncertainty honestly.** Scores from an uncalibrated model are ranking signals, not truth percentages. Track model, tokenizer, label schema, thresholds, and calibration set versions.
-- **Support opposing and mixed signals.** A player story can contain confidence and doubt, praise and criticism, or a positive result with concern about the process.
-- **Preserve time.** A single item describes one moment; the Vibe or Momentum character needs a time series over classified items, with decay and source weighting applied by the consuming plugin.
-- **Keep source stance separate from emotion.** The article may report a quote expressing anger without the reporter endorsing that emotion. Discourse, quoted speaker, and target should be separate dimensions where possible.
+The target does not require an LLM, an encoder-only bank, a particular parameter count or a particular inference cost. Classification and relationship extraction need serious semantic accuracy. Choose the smallest measured implementation that meets the job, and use a stronger resource when the evidence shows the smaller one fails. A roughly 149M encoder is a benchmark candidate, not a design ceiling. Smaller articulators are also candidates rather than a promised consequence.
 
-## The classifier bank: specialized measurements, not one magic model
+Evaluate signal detection, target/time/qualification accuracy, evidence extraction, calibration, native no-action decisions and downstream expression separately. Fast scoring and successful JSON cannot substitute for those checks. Spend compute on reusable deconstruction and evidence-based discovery; keep collection, arithmetic, persistence, payload assembly and serving in native tools.
 
-“Classifier” describes a role in the harness, not necessarily one neural network. A bank can begin with a small number of independent measurements and grow only when evaluation shows a gap.
+Prune anything that does not serve this contract: the standalone headline relevance gate, the Harvester/Editor classification/routing dependency, generated editorial intermediates, obsolete review formats, unsupported score conversions and unused experiment machinery. Retain reusable acquisition/source tools, canonical identities, history, source validation, durable work receipts, claim fencing and atomic publication. Do not keep a legacy fallback through the old plugins in the finished Classifier design.
 
-| Measurement | Useful output | Likely consumer | Notes |
-|---|---|---|---|
-| Entity relevance | Per-entity score, entity mention spans | Every character | Combine deterministic entity matching with a compact ranker/classifier; alias and opponent handling are domain-specific. |
-| Topic | Multi-label scores: injury, performance, transaction, coaching, roster, off-court, league context | Journalist, Scout, Insider | Taxonomy should reflect Scoracle’s actual character jobs. |
-| Emotion / affect | Multi-label emotion scores, optional valence and intensity | Vibe, Momentum | General emotion labels are a starting vocabulary, not a finished sports-fan taxonomy. |
-| Discourse / claim type | Reporting, quote, opinion, speculation, rumor, prediction | Journalist, Insider | Classify the article’s framing, not whether its claims are true. |
-| Source reliability | Source identity and historical reliability features | Insider, harness policy | Primarily a data and history calculation; do not ask a generic emotion encoder to infer trustworthiness from prose alone. |
-| Character routing | Per-character suitability scores | Harness queue selection | Prefer rules over measured dimensions initially; train a dedicated classifier from reviewed Scoracle decisions later. |
-| Evidence selection | Sentence relevance or span scores | All characters | A smaller sentence ranker can surface support without asking the articulator to reread the whole corpus. |
+### What is built and what remains
 
-A compact classifier bank can be a mix of learned and deterministic tools. Exact player/team aliases, RSS metadata, published timestamps, source history, database joins, and duplicate fingerprints are often better handled in Rust/SQL than by a model. The neural classifier should focus on semantic distinctions that rules handle poorly.
+| Capability | October 7 state |
+|---|---|
+| Complete source windows and source/checkpoint-bound emotion measurements | Implemented and tested offline. Emotion presence is not independently validated current-target attribution or sports calibration. |
+| Qualified claim validation, character evidence selection and supporting-context compiler | Implemented and tested offline using provisional AI annotations. Empty eligible emotional selections can abstain natively. |
+| Automatic source claim/relationship extraction | Not implemented or validated as a production capability. Literal span checks do not establish semantic extraction accuracy. |
+| Additional presence heads and target ordinals | Schema/review/training preparation exists; real-source fitting, independent gold and held-out validation remain pending. Missing values stay unknown. |
+| All-consumer spectrum-derived no-action policy | Target design, not a demonstrated production gate. The current emotion-focused abstention test does not establish item-wide irrelevance. |
+| Articulation model selection | Three candidates tested; fidelity errors remain and no model is promoted. |
+| Independent production Classifier storage, registration and delivery | Pending. Production still depends on Harvester/Editor. |
 
-## Why a roughly 149M model is plausible
+### Acceptance and remaining execution
 
-A 149M encoder is small beside a 3B generative model and is built for classification rather than open-ended completion. ModernBERT-base is 149M parameters, Apache 2.0, and supports sequences up to 8,192 tokens. A 141M multilingual emotion model built on mmBERT-small is also Apache 2.0. These are credible starting sizes for testing whether one or more encoders can measure Scoracle’s daily corpus quickly on the available CPU/GPU setup.
+1. **Review the real evidence.** Independently review extraction and claim/target/time/qualification relationships in the prepared 400-source packet. Resolve source groups and time cohorts before fitting or evaluation; provisional annotations remain distinct from gold.
+2. **Validate the full required spectrum.** Fit/compare missing families and evaluate automatic claim qualification. Measure per-family false positives/negatives, ambiguity, calibration and complete-source coverage. Unvalidated families cannot supply a successful no-signal judgment.
+3. **Test the derived gate.** Measure missed useful reporting and unnecessary character calls against independently reviewed character selections. Include availability without emotion, other-entity emotion, denials, corrections, historical claims, weak accumulated evidence, duplicates and every unknown/failure condition in the table above. Verify that a no-action disposition preserves source and measurements.
+4. **Evaluate the actual runtime.** Measure complete-article and target-scoped throughput, peak bursts, CPU/GPU behavior, budgets, reuse and changed-version remeasurement on the real corpus. Do not extrapolate the opening-window benchmark into daily production capacity.
+5. **Replace intake directly on main.** Register the independent Classifier, persist its versioned records and change character queries to its own delivery contract. Reuse native mechanics without calling or importing Harvester/Editor. Remove their scheduling, model bindings and obsolete delivery path together when the replacement works. The user does not require a prolonged shadow rollout; failures remain visible through ordinary durable work mechanics.
+6. **Accept expression on held-out worlds.** Compare candidate articulators on the same supported inputs, examining factual and emotional support, attribution, time, denial/correction handling, missingness, usefulness, format and token limits. Preserve failed attempts. Keep model choice open until fidelity is demonstrated.
 
-The number of articles alone does not establish throughput. Runtime depends on average token length, truncation/chunking, batch size, hardware, precision, inference engine, and how many classifier heads run per item. At 8,000–9,000 items/day, the average arrival is only about 0.09–0.10 items/second over a full day, but the actual RSS batch may arrive in bursts and articles can be much longer than social posts. Benchmark with actual Scoracle text and batch shapes before claiming a speed target.
-
-A reasonable prototype should measure:
-
-- wall-clock time for the full daily corpus and for peak fetch batches;
-- items/second and tokens/second by article length bucket;
-- CPU-only and available GPU inference, including memory use;
-- latency and throughput with dynamic batching;
-- cost of chunking longer articles and deduplicating near-identical stories;
-- quality and calibration on a manually reviewed Scoracle sample.
-
-The same architectural shift could allow smaller character articulators. If the plugin supplies structured measurements and source excerpts, the character model no longer needs to discover every topic, infer the emotional mix, route articles, and reconstruct the facts in one pass. That is a hypothesis to validate: compare the current character model with smaller models on identical, evidence-bounded inputs and judge factual support, voice, and usefulness separately.
-
-## Models to put on the test bench
-
-The list below is a starting bench, not a leaderboard. Hugging Face cards describe different datasets, label schemes, and evaluation setups, so the reported scores are not directly comparable. For Scoracle, domain fit and calibration on real sports reporting matter more than a high score on Reddit or a small six-class benchmark.
-
-| Candidate | Size / license | What it offers | Watch-outs | Suggested role |
-|---|---|---|---|---|
-| [Horizon-Labs/multilingual-emotions-small](https://huggingface.co/Horizon-Labs/multilingual-emotions-small) | 141M; Apache 2.0 | 28 independent GoEmotions labels; multi-label sigmoid outputs; ONNX availability; compact and multilingual. | Trained on GoEmotions Reddit comments plus translated data. Its own card reports modest macro-F1 and weak rare labels; sports journalism is a domain shift. | **First emotion-vector baseline**, especially if multilingual flexibility or ONNX deployment matters. |
-| [HR26kk/modernbert-emotion-classifier](https://huggingface.co/HR26kk/modernbert-emotion-classifier) | ModernBERT-base backbone, 149M; Apache 2.0 | Six labels (sadness, joy, love, anger, fear, surprise); card reports 92.25% accuracy and 87.02 macro-F1 on its benchmark. | Single-label/six-class framing is too narrow for the spectrum goal; benchmark is dair-ai/emotion, not sports news. Card shows limited adoption. | **149M speed/quality baseline**, but adapt output to multi-label before treating it as the desired design. |
-| [Pradeep-mahato/ModernBERT-GoEmotions](https://huggingface.co/Pradeep-mahato/ModernBERT-GoEmotions) | ModernBERT-base backbone, 149M; Apache 2.0 | 27 emotions plus neutral; independent sigmoid scores; multi-label; easy Transformers use. | Short-text GoEmotions domain; limited adoption; card does not establish sports-news performance or calibrated scores. | **Direct 149M multi-label comparator** to Horizon’s 141M model. |
-| [Hidden-States/roberta-base-goemotions](https://huggingface.co/Hidden-States/roberta-base-goemotions) | RoBERTa-base, about 125M; Apache 2.0 | GoEmotions multi-label model; reports macro-F1 0.56 and micro-F1 0.62 on its test setup; useful alternate training approach. | Metrics are model-card claims and may not share identical splits/evaluation; still Reddit-domain labels and no sports validation. | **Strong baseline comparator** for whether ModernBERT materially improves the task. |
-| [SamLowe/roberta-base-go_emotions](https://huggingface.co/SamLowe/roberta-base-go_emotions) | RoBERTa-base, about 125M; MIT | Widely used GoEmotions multi-label baseline; Horizon’s comparison reports tuned GoEmotions macro-F1 around 0.519. | MIT rather than Apache 2.0; Reddit-domain mismatch; verify exact output and calibration conventions. | **Reference baseline** if the project accepts MIT for evaluation. |
-| [Horizon-Labs/multilingual-emotions-base](https://huggingface.co/Horizon-Labs/multilingual-emotions-base) | 308M; Apache 2.0 | Same 28-label family at a larger size; its card reports improved GoEmotions and BRIGHTER results over its small sibling. | Larger than the 149M target; same source-domain limitations; only test if quality gains justify extra compute. | **Quality ceiling comparison**, not first deployment choice. |
-
-### Read the benchmark claims carefully
-
-- HR26kk’s reported 92.25% accuracy is on a six-class emotion benchmark. It should not be compared directly with 28-label multi-label macro-F1.
-- Horizon’s card reports 0.494 GoEmotions macro-F1 at tuned thresholds for its released 141M checkpoint, and shows that its comparison models can score differently depending on dataset and threshold. The card also notes weaker performance on rare labels and modest annotation agreement.
-- The ModernBERT-GoEmotions model card warns that emotion labels are subjective and scores should be treated as probabilistic signals, not ground truth.
-- Model popularity is useful for ecosystem confidence, but not proof that a classifier will understand sports fan affect or long-form reporting.
-
-## Don’t mistake a score for a spectrum
-
-A probability vector is a useful raw material, but it is not automatically a reliable spectrum. A model may be overconfident, underconfident, or consistently miscalibrated for sports language. The plugin should preserve raw logits/probabilities and derive operational score bands only after evaluation.
-
-A practical interpretation layer might use:
-
-- **raw score:** output exactly as produced by the model;
-- **calibrated score:** optional adjusted value learned on reviewed Scoracle examples;
-- **evidence strength:** whether a sentence or span supports this dimension;
-- **coverage:** how much of the source was inspected and whether it was truncated;
-- **policy band:** a versioned routing rule such as low / review / high, derived from score plus evidence and source conditions.
-
-The user-facing world can remain continuous even if a queue needs a threshold. Do not discard the vector after making the routing decision.
-
-## A Scoracle-specific label system
-
-General-purpose labels are useful for bootstrapping, but the platform likely needs a sports-specific affect vocabulary. Start by reviewing outputs from existing models, then decide which distinctions actually improve Vibe and Momentum. A first candidate set could include:
-
-- **positive energy:** optimism, excitement, pride, relief, admiration;
-- **negative energy:** disappointment, frustration, anger, concern, fear;
-- **mixed or changing state:** uncertainty, tension, cautious optimism, resignation;
-- **intensity:** subdued ↔ intense;
-- **trajectory:** improving ↔ worsening ↔ stable, computed from timestamped signals rather than guessed from one article;
-- **stance/source:** reporter assertion, attributed quote, fan reaction, pundit opinion, speculation.
-
-Do not force labels such as “fanbase mood” from a single article unless the text actually represents fan reaction. A reporter’s tone, a quoted coach’s confidence, and the collective fan mood are different entities and should be represented separately.
-
-## Evidence-bounded articulation
-
-The character LLM should receive a compact, coherent world assembled by its plugin:
-
-1. the relevant measured spectrum and its time window;
-2. the source excerpts that support the important signals;
-3. source identity, timestamp, and discourse/attribution information;
-4. explicit gaps or disagreement, such as “emotion evidence is mixed” or “no reliable injury update found”;
-5. the character’s voice and output form.
-
-The articulator should not be asked to recompute the classification. It should express the supplied world. If the evidence is incomplete, the plugin should pass that incompleteness into context rather than asking the model to fill it. Keep factual claims traceable to source excerpts or trusted structured data.
-
-## Evaluation plan
-
-### Phase 1: corpus sample, no integration
-
-Take 20–50 representative RSS items across teams and story types. Include straight reporting, opinion, quoted emotion, speculation, injury reports, transactions, game recaps, duplicates, and low-relevance league stories. Run the candidate emotion models and inspect their full score vectors and evidence windows.
-
-### Phase 2: Scoracle gold set
-
-Build a reviewed set of roughly 300–500 items. Annotate multiple labels per item, evidence spans, target (player/team/source), stance, and “not enough evidence.” Let annotators mark ambiguity rather than forcing a crisp label. Keep the test split separate from any fine-tuning data.
-
-### Phase 3: score the properties that matter
-
-- per-label precision, recall, and macro-F1;
-- ranking quality (does a higher score generally mean stronger reviewed evidence?);
-- calibration (Brier score or reliability plots where labels support it);
-- evidence-span precision and coverage;
-- disagreement and ambiguity rates;
-- robustness to negation, sarcasm, quotes, headlines, and duplicated syndication;
-- sports/team/player relevance and topic-routing quality;
-- throughput over a real 8,000–9,000 item corpus;
-- downstream character factual support and usefulness.
-
-A model should not win solely by producing more labels. Evaluate false positives because fabricated emotional color is also a form of distortion. For the character stage, count unsupported factual claims and unsupported emotional claims separately.
-
-### Phase 4: shadow mode
-
-Run the plugin beside the current flow without changing downstream behavior. Compare its vectors and proposed routing against reviewed outcomes. Log model version, thresholds, article coverage, and processing time. Only promote a classifier dimension after it demonstrates stable value on the Scoracle set.
-
-### Phase 5: narrow production rollout
-
-Start with one proven signal family—likely relevance/topic or emotion—then expand. Keep a fallback path for model errors and preserve the raw article. Do not make a low-confidence prediction silently erase an item from the world.
-
-## Operational contract
-
-Each classifier result should carry:
-
-- canonical item ID and source IDs;
-- classifier/plugin version and model revision hash;
-- label schema version;
-- raw scores and calibrated scores, if any;
-- evidence spans or sentence IDs where available;
-- input token count, chunking strategy, and coverage/truncation status;
-- timestamps and runtime metadata;
-- explicit error/unknown state distinct from all-zero scores.
-
-Store source articles and derived measurements separately. Derived scores can be recomputed when a model or schema changes. Keep model inference out of the system-of-record meaning of the source itself: the article remains the evidence; the classifier output is a versioned interpretation.
-
-## What success looks like
-
-The launch is successful when Scoracle can process its daily fetched corpus predictably and characters receive a better-shaped world than a pile of undifferentiated articles. The system should retain useful gradations, show why a signal exists, preserve mixed evidence, and allow each plugin to choose what matters for its own purpose.
-
-The central shift is simple:
-
-> **The gatekeeper stops writing reality. It measures dimensions of the supplied reality.**
-
-Then the character is free to be expressive while remaining bounded by a world built from source material, structured data, and inspectable signals.
+Success is a reusable measured world that makes character work more accurate and avoids inference where there is no supported job to do. It preserves useful gradations and uncertainty while giving each character a clear, evidence-backed scope in which to discover and express meaning.
 
 ## Sources
 
-Model cards and specifications checked October 7, 2026:
+Historical benchmark references checked October 7, 2026. These do not commit the target design to a model or parameter count:
 
 - [Horizon-Labs/multilingual-emotions-small](https://huggingface.co/Horizon-Labs/multilingual-emotions-small) — 141M, Apache 2.0, 28 GoEmotions labels, benchmark table, data and limitations.
 - [HR26kk/modernbert-emotion-classifier](https://huggingface.co/HR26kk/modernbert-emotion-classifier) — Apache 2.0, 149M ModernBERT-base, six-label task and reported benchmark.

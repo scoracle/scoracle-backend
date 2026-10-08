@@ -10,6 +10,8 @@ Plugins select the evidence, scope, relationships and instructions needed for th
 
 The [Classifier launch](docs/scoracle_classifier_plugin_launch.md) replaces Harvester/Editor intake with an independent measurement plugin. Its source-bound encoder and expression replays are offline today; production registration and delivery cutover remain pending. Shared source windows and the character-facing `SourceContext` live in `tools::source`, outside either intake plugin.
 
+The [governing Classifier target design](docs/scoracle_classifier_plugin_launch.md#target-design--october-7-2026) is Google discovery → native source acquisition → AI deconstruction → SQL retention/measurement → Rust character worlds → AI discovery/expression → SQL + Go serving. Relevance and character eligibility are derived from the measured spectrum and qualified evidence, without a separate AI yes/no admission test. Complete measurements with no supported downstream signal produce no new character work; unknown, incomplete or failed measurements never become absence. Classification quality comes first; model size and inference cost remain measured choices.
+
 ## Ownership
 
 - **Plugins / Rust:** tool calls, evidence selection, scope, context assembly, task and tone instructions, model invocation, validation and publication policy.

@@ -6,6 +6,26 @@ from classifier_review import prepare, training_rows, validate
 
 
 class Coverage(unittest.TestCase):
+    def test_source_selection_binds_exact_repeated_unicode_and_rejects_drift(self):
+        from classifier_infer import bind_selection, source_units
+        body = 'Équipe won. Équipe won. But not today.'
+        units = source_units(body)
+        self.assertEqual(''.join(units), body)
+        claim = {'evidence': {'first': 1, 'last': 1}, 'target_evidence': None,
+                 'qualifiers': {'speaker': [{'first': 0, 'last': 1}]}}
+        raw = json.dumps({'claims': [claim]})
+        bound = json.loads(bind_selection(raw, body, units))['claims'][0]
+        self.assertEqual(bound['evidence'], {'quote': 'Équipe won. ', 'occurrence': 1})
+        self.assertEqual(bound['qualifiers']['speaker'][0]['quote'], 'Équipe won. Équipe won. ')
+        with self.assertRaisesRegex(ValueError, 'drift'):
+            bind_selection(raw, body + 'changed', units)
+        for selection in ({'first': 2, 'last': 1}, {'first': -1, 'last': 0},
+                          {'first': 0, 'last': len(units)}, {'first': True, 'last': 1},
+                          {'first': 0, 'last': 0, 'quote': 'invented'}):
+            claim['evidence'] = selection
+            with self.assertRaises(ValueError):
+                bind_selection(json.dumps({'claims': [claim]}), body, units)
+
     def test_decision_reference_keeps_time_and_failures_separate(self):
         from classifier_decision_accuracy import expected, scores
         from classifier_gliner import quote, source_coverage
@@ -42,13 +62,17 @@ class Coverage(unittest.TestCase):
             self.assertEqual(set(bank), set(labels))
             self.assertIn("no expressed emotion", bank["neutral"]["instructions"])
             self.assertEqual(bank["neutral"]["type"], form)
-        form = proposal_schema({"output_contract": {"emotion_labels": labels, "claims": [{
+        request = {"output_contract": {"emotion_labels": labels, "claims": [{
             "target_relation": ["unknown"], "kind": ["information"], "time_scope": ["unknown"],
-            "qualifiers": {key: None for key in schema["qualifiers"]}}]}})
+            "qualifiers": {key: None for key in schema["qualifiers"]}}]}}
+        form = proposal_schema(request)
         qualifiers = form["properties"]["claims"]["items"]["properties"]["qualifiers"]
         self.assertEqual(set(qualifiers["required"]), set(schema["qualifiers"]))
         emotion_enum = form["properties"]["claims"]["items"]["properties"]["candidate_dimensions"]["items"]["enum"]
         self.assertEqual(emotion_enum, list(labels))
+        selected = proposal_schema(request, 3)['properties']['claims']['items']['properties']['evidence']
+        self.assertEqual(selected['required'], ['first', 'last'])
+        self.assertEqual(selected['properties']['last']['maximum'], 2)
 
     def test_accuracy_requires_the_frozen_relationship_and_qualifiers(self):
         from classifier_accuracy import matches

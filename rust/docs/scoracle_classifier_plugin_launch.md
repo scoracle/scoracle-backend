@@ -558,3 +558,59 @@ The production acceptance receipt, migration/preflight/statement/build/release l
 before/after binary hashes are retained in the same release directory. The source worker
 can be enabled separately after the intended acquisition scope is authorized; model inference
 and downstream policy release still require qualification and lifting the cognition pause.
+
+## Controlled calibration, chunk 1 — October 8
+
+Priority is a reliable, fast Classifier before character model selection. After Classifier
+qualification, compare the Granite incumbent with Ministral 3:3B-instruct on the same
+supported character inputs. No character model was changed or benchmarked in this chunk.
+
+The offline chunk uses eight existing controls and four retained reports selected by
+ascending canonical article ID, independently of model verdicts. Native preparation emits
+16 requests across their retained candidate targets. Frozen-reference scoring covers its
+one specified target per body; four additional target attempts remain separate diagnostics.
+These sources were already measured. Their source-only references are AI provisional,
+not independently adjudicated gold or a fresh held-out set.
+
+The existing inference runner now has an experimental `--source-candidates` option. It
+numbers punctuation-delimited source units without changing or omitting any source text.
+The model selects inclusive unit ranges for claims and their speaker/subject/target/time
+links. Native Python copies those exact ranges into the existing quote/occurrence proposal;
+Rust still applies the unchanged qualification boundary. Original model replies, converted
+proposals, selected units, exact input tokens, runtime identities and failed attempts are
+retained. This protocol is offline only and does not implement a production model route.
+
+| Candidate | Retained attempts | Complete inference | Native accepted | Median on the same four controls |
+|---|---:|---:|---:|---:|
+| Qwen3:4b | 16 | 13 | 0 | 17.3 s |
+| Ministral-3:3b | 4 | 4 | 0 | 19.4 s |
+
+Both ran on local Mac Metal through the installed Ollama 0.40.1 native llama.cpp runner,
+with complete GPU residency, context 16,384, output reservation 3,072, temperature zero,
+seed 42 and disabled thinking. Timings include input preparation/preflight and inference,
+excluding model loading. These are single passes, not Archbox throughput qualification.
+The Ministral challenger was bounded to repeated-speaker/time, denied-quotation,
+conditional-emotion and footer-instruction controls; its failures prevent expansion.
+
+Source selection removes generated evidence text but does not establish semantic support.
+Qwen leaves complete-review/usability assertions invalid on all 13 completed attempts and
+exhausts output on three targets of the longest report. Raw controls still misattribute the
+other speaker, turn denied quotations into emotion, treat withdrawn delight as current,
+and select publisher furniture. Ministral fails complete review on one control and omits
+required uncertainty, target or time evidence on the others. Accepted frozen checkpoints
+are 0/14 for Qwen and 0/6 for Ministral; native rejection counts as failure. The full presence
+spectrum and ordinals remain unqualified. Neither model is promoted.
+
+Four real-source review packets validate with all labels pending and all bodies marked as
+previously measured. The existing training check reports zero eligible train/dev/test
+units. Independently review these relationships and required family labels before fitting
+or accepting a faster specialist; reserve fresh source groups for held-out evaluation.
+Do not repeat the unchanged generative protocol across the backlog or derive an absence
+threshold from these failures. The production drain and real delivery release remain paused.
+
+Machine-readable metadata: [calibration-chunk1-2026-10-08.json](../fixtures/classifier/calibration-chunk1-2026-10-08.json).
+Private complete sources, raw replies, native receipts, hashes, failure logs and pending
+review packets: `/private/tmp/classifier-calibration-chunk1-20261008/` (mode 0700).
+Eight Python contract checks pass; the existing torch-dependent check is skipped locally.
+The new check covers complete source preservation, repeated Unicode quotes, invalid ranges,
+source drift and constrained selection schema. No database, queue or production policy was changed.

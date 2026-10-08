@@ -21,11 +21,15 @@ def call(url, path, payload=None):
         return json.load(response)
 
 
-def proposal_schema(request):
+def proposal_schema(request, selection=None):
     contract = request["output_contract"]
     quote = {"type": "object", "additionalProperties": False, "required": ["quote", "occurrence"],
              "properties": {"quote": {"type": "string", "minLength": 1},
                             "occurrence": {"type": "integer", "minimum": 0}}}
+    if selection is not None:
+        quote = {"type": "object", "additionalProperties": False, "required": ["first", "last"],
+                 "properties": {key: {"type": "integer", "minimum": 0, "maximum": selection - 1}
+                                for key in ("first", "last")}}
     spans = {"anyOf": [{"type": "null"}, {"type": "array", "minItems": 1, "items": quote}]}
     properties = {"evidence": quote, "target_evidence": spans,
                   "candidate_dimensions": {"type": "array", "items": {
@@ -47,6 +51,51 @@ def proposal_schema(request):
 def request_hash(request):
     return hashlib.sha256(json.dumps(request, ensure_ascii=False, sort_keys=True,
                                      separators=(",", ":")).encode()).hexdigest()
+
+
+def source_units(body):
+    # ponytail: punctuation units, not linguistic parsing; contiguous ranges retain cross-unit claims.
+    ends = [match.end() for match in re.finditer(r'[.!?][\"\u201d\u2019]?\s+|\n+', body)] + [len(body)]
+    units, start = [], 0
+    for end in ends:
+        if end > start:
+            units.append(body[start:end])
+            start = end
+    if not units or ''.join(units) != body:
+        raise ValueError('complete nonempty source required')
+    return units
+
+
+def bind_selection(raw, body, units):
+    if ''.join(units) != body:
+        raise ValueError('source candidate drift')
+    proposal = json.loads(raw)
+    offsets = [0]
+    for unit in units:
+        offsets.append(offsets[-1] + len(unit))
+
+    def quote(selection):
+        if not isinstance(selection, dict) or set(selection) != {'first', 'last'}:
+            raise ValueError('exact source unit range required')
+        first, last = selection['first'], selection['last']
+        if type(first) is not int or type(last) is not int or not 0 <= first <= last < len(units):
+            raise ValueError('invalid source unit range')
+        start, end = offsets[first], offsets[last + 1]
+        text, cursor, occurrence = body[start:end], 0, 0
+        while (found := body.find(text, cursor)) >= 0:
+            if found == start:
+                return {'quote': text, 'occurrence': occurrence}
+            cursor, occurrence = found + len(text), occurrence + 1
+        raise ValueError('range is not a non-overlapping literal occurrence')
+
+    def spans(value):
+        return None if value is None else [quote(span) for span in value]
+
+    for claim in proposal['claims']:
+        claim['evidence'] = quote(claim['evidence'])
+        claim['target_evidence'] = spans(claim['target_evidence'])
+        claim['qualifiers'] = {key: spans(value) for key, value in claim['qualifiers'].items()}
+    return json.dumps(proposal, ensure_ascii=False, allow_nan=False)
 
 
 def budget(tokens, output, context):
@@ -101,6 +150,8 @@ def main():
     parser.add_argument("--ollama", default="http://127.0.0.1:11434")
     parser.add_argument("--context", type=int, default=8192)
     parser.add_argument("--output-tokens", type=int, default=3072)
+    parser.add_argument("--source-candidates", action="store_true",
+                        help="experimental source-unit selection; native qualification still required")
     args = parser.parse_args()
     requests = [json.loads(line) for line in args.requests.read_text().splitlines() if line.strip()]
     if not requests or len({(row["article_id"], json.dumps(row["target"], sort_keys=True))
@@ -147,13 +198,29 @@ def main():
                     started = time.perf_counter()
                     try:
                         native = row["request"]
+                        units = source_units(native['input']['body']) if args.source_candidates else None
+                        schema = proposal_schema(native, None if units is None else len(units))
                         user = json.dumps({"input": native["input"], "output_contract": native["output_contract"]},
                                           ensure_ascii=False)
-                        messages = [{"role": "system", "content": native["system"]},
+                        system = native['system']
+                        if units is not None:
+                            system = system.split('Return only')[0] + (
+                                'Return only JSON following output_schema. The numbered source_units concatenate to '
+                                'the complete original body. Select exact contiguous ranges using inclusive first/last '
+                                'unit IDs for claims and every qualifier. Select the smallest range containing the '
+                                'complete statement and its qualification. Never generate evidence text. Reuse a '
+                                'range for speaker/subject/target evidence only when it explicitly supports that link. '
+                                'Set extraction_usable=false for interstitials or publisher furniture without reporting. '
+                                'Set complete_source_review=false if the entire source cannot be examined.')
+                            user = json.dumps({'input': {key: value for key, value in native['input'].items() if key != 'body'},
+                                'source_units': [{'id': i, 'text': text} for i, text in enumerate(units)],
+                                'output_schema': schema}, ensure_ascii=False)
+                            receipt['selection_protocol'] = 'classifier-source-units-v1'
+                            receipt['source_units'] = units
+                        messages = [{"role": "system", "content": system},
                                     {"role": "user", "content": user}]
-                        schema = proposal_schema(native)
                         prompt = render(show["template"], messages, args.renderer)
-                        if native["system"] not in prompt or user not in prompt:
+                        if system not in prompt or user not in prompt:
                             raise ValueError("chat template omitted or changed source/system input")
                         tokens = call(url, "/tokenize", {"content": prompt, "add_special": True,
                                                        "parse_special": True})["tokens"]
@@ -170,6 +237,9 @@ def main():
                         complete(response)
                         if response["tokens_evaluated"] != len(tokens):
                             raise ValueError("generated prompt token count differs from exact preflight")
+                        if units is not None:
+                            receipt['raw_model_response'] = receipt['raw_response']
+                            receipt['raw_response'] = bind_selection(receipt['raw_response'], native['input']['body'], units)
                         receipt["inference_status"] = "complete"
                     except Exception as error:
                         receipt["inference_error"] = f"{type(error).__name__}: {error}"

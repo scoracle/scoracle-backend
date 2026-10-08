@@ -1,0 +1,194 @@
+{
+  "contract": "classifier-controlled-calibration-chunk-v1",
+  "date": "2026-10-08",
+  "decision": "neither model qualifies; no expansion or promotion",
+  "production_eligible": false,
+  "production_drains": "paused",
+  "priority": "Qualify a reliable fast Classifier first; compare the Granite incumbent and Ministral 3:3B-instruct for characters afterward.",
+  "source_bodies": 12,
+  "qwen_target_requests": 16,
+  "frozen_reference_targets": 12,
+  "source_article_ids": [
+    -201,
+    -202,
+    -203,
+    -204,
+    -205,
+    -206,
+    -207,
+    -208,
+    720882,
+    778602,
+    778878,
+    781800
+  ],
+  "source_sha256": "d4fcfd2e9b3a21fde5e4bf0e7080dc3f455ef6f1be7f3d854ffa25a07d337aa2",
+  "reference_sha256": "7d4e57ce68d8f6ca06c7d5e0a726900ac7e2b939957a2d2c1e7922e8ba660409",
+  "request_sha256": "fdbef73de0dce375fce616d3bc9a92271bec145e03bcf82a857b36b6d5700ca9",
+  "runner_sha256": "1b06883da2b9222edf10228dae01d9fdb7932e8afee4a01fee3464b8ecca6dfb",
+  "selection_protocol": "classifier-source-units-v1",
+  "runtime": "installed Ollama 0.40.1 native llama.cpp runner on local Mac Metal; full GPU residency verified",
+  "context": 16384,
+  "reserved_output_tokens": 3072,
+  "temperature": 0,
+  "seed": 42,
+  "models": {
+    "qwen3:4b": {
+      "revision": "359d7dd4bcdab3d86b87d73ac27966f4dbb9f5efdfcc75d34a8764a09474fae7",
+      "attempts": 16,
+      "inference_complete": 13,
+      "native_accepted": 0,
+      "native_errors": {
+        "complete source-bound qualification with usable extraction required": 13,
+        "qualification inference did not complete": 3
+      },
+      "common_four_control_median_ms": 17323.9,
+      "frozen_checkpoint_results": {
+        "fresh_real": {
+          "cases": 4,
+          "native_accepted": 0,
+          "inference_complete": 3,
+          "usability": {
+            "correct": 1,
+            "evaluated": 4
+          },
+          "focused_checkpoints": {
+            "passed": 0,
+            "evaluated": 3
+          },
+          "no_target_emotion": {
+            "correct": 0,
+            "evaluated": 3
+          }
+        },
+        "fresh_control": {
+          "cases": 8,
+          "native_accepted": 0,
+          "inference_complete": 8,
+          "usability": {
+            "correct": 4,
+            "evaluated": 8
+          },
+          "focused_checkpoints": {
+            "passed": 0,
+            "evaluated": 11
+          },
+          "no_target_emotion": {
+            "correct": 0,
+            "evaluated": 5
+          }
+        },
+        "existing_diagnostic": {
+          "cases": 0,
+          "native_accepted": 0,
+          "inference_complete": 0,
+          "usability": {
+            "correct": 0,
+            "evaluated": 0
+          },
+          "focused_checkpoints": {
+            "passed": 0,
+            "evaluated": 0
+          },
+          "no_target_emotion": {
+            "correct": 0,
+            "evaluated": 0
+          }
+        }
+      },
+      "reply_sha256": "47789c4599350d894e9228b84de7640311cf02f912005dc21d78356b4853c119",
+      "native_sha256": "fd834a9433436cfd05a4476cd958e0ab57712e71be190a3e520a76d172a32fed"
+    },
+    "ministral-3:3b": {
+      "revision": "f04aa1c738f64e13c625b82ae92504fc0260fa6723b509ed1ece0fa188179b1d",
+      "attempts": 4,
+      "inference_complete": 4,
+      "native_accepted": 0,
+      "native_errors": {
+        "complete source-bound qualification with usable extraction required": 1,
+        "claim requires uncertainty evidence": 1,
+        "known claim time requires source evidence": 1,
+        "target relationship requires source evidence": 1
+      },
+      "common_four_control_median_ms": 19430.1,
+      "frozen_checkpoint_results": {
+        "fresh_real": {
+          "cases": 0,
+          "native_accepted": 0,
+          "inference_complete": 0,
+          "usability": {
+            "correct": 0,
+            "evaluated": 0
+          },
+          "focused_checkpoints": {
+            "passed": 0,
+            "evaluated": 0
+          },
+          "no_target_emotion": {
+            "correct": 0,
+            "evaluated": 0
+          }
+        },
+        "fresh_control": {
+          "cases": 4,
+          "native_accepted": 0,
+          "inference_complete": 4,
+          "usability": {
+            "correct": 3,
+            "evaluated": 4
+          },
+          "focused_checkpoints": {
+            "passed": 0,
+            "evaluated": 6
+          },
+          "no_target_emotion": {
+            "correct": 0,
+            "evaluated": 2
+          }
+        },
+        "existing_diagnostic": {
+          "cases": 0,
+          "native_accepted": 0,
+          "inference_complete": 0,
+          "usability": {
+            "correct": 0,
+            "evaluated": 0
+          },
+          "focused_checkpoints": {
+            "passed": 0,
+            "evaluated": 0
+          },
+          "no_target_emotion": {
+            "correct": 0,
+            "evaluated": 0
+          }
+        }
+      },
+      "reply_sha256": "96541da43178b17d87800558abef7ab8bcd4971266661ffacb75a7afee32c931",
+      "native_sha256": "5e29cd5167f06b6f1792dfaf57ef24811820cadc773347eac2ba91899eb24c23"
+    }
+  },
+  "review_packet": {
+    "real_sources": 4,
+    "pending": true,
+    "previously_measured": true,
+    "eligible_training_units": 0,
+    "eligible_dev_units": 0,
+    "eligible_test_units": 0,
+    "sha256": "b2b5420802834f4c3346871fd85d3f76d5631aae7c82975740ffebbddc82ec82"
+  },
+  "private_receipts": "/private/tmp/classifier-calibration-chunk1-20261008",
+  "checks": {
+    "python_contract_checks_passed": 8,
+    "torch_dependent_check_skipped": 1,
+    "pending_review_packets_validated": 4
+  },
+  "limitations": [
+    "Previously measured diagnostics with AI provisional references; no independent gold or held-out accuracy claim.",
+    "Native rejection makes frozen checkpoints fail; source spans alone do not prove attribution, time, denial or completeness.",
+    "One pass per target on Mac; neither Archbox latency nor production throughput qualified.",
+    "Presence families and ordinals remain unqualified; this experiment only tests claim selection.",
+    "Four extra target attempts retained outside the frozen-reference scoring.",
+    "No database writes, queue drain, character benchmark or production promotion."
+  ]
+}

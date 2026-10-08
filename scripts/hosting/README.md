@@ -75,9 +75,14 @@ its native server URL. Prompt/settings remain in `rust/src/plugins/classifier/pr
 Ollama/OpenAI routes without exact tokenizer admission fail before Classifier generation;
 experimental specialized head protocols are not production adapters.
 
-When source acquisition is authorized, enable `scoracle-classifier-source.service`.
-Keep cognition and its watcher disabled until model and delivery policies are qualified
-and the pause is lifted. All real Classifier deliveries start held; deployment never
+The October 8 cutover keeps acquisition, cognition and its watcher disabled for
+controlled-chunk calibration. `CLASSIFIER_REPLAY_BACKLOG=false` is configured in
+production; only the exact value `true` enables startup and periodic full-corpus replay.
+RSS still enqueues new discovery, so disabling replay does not limit an active worker's
+queue. Use selected frozen source packets for calibration while workers remain stopped.
+When full source acquisition is authorized, choose the replay setting explicitly and
+enable `scoracle-classifier-source.service`. Keep cognition and its watcher disabled
+until model and delivery policies are qualified and the pause is lifted. All real Classifier deliveries start held; deployment never
 promotes them. Watchdog detects paused/acquire/classifier mode from active services;
 `WATCHDOG_MODE` overrides detection for another host. Paused backlog and held policies
 are informational; active retrieval stalls and dead letters are alarms.

@@ -2,7 +2,7 @@
 
 ## Launch concept: measure a spectrum, then let characters express it
 
-**Status:** Plumbing is ready for a paused production rollout. Native source acquisition, swappable inference, all consumers, deployment and recovery are verified, including a seven-binary Archbox build. Production cognition remains paused and daily RSS continues. Correctness calibration, independent accuracy evaluation and model promotion remain in the dedicated session — October 8, 2026.
+**Status:** The Classifier plumbing is deployed to production with acquisition and cognition paused. Migrations 291–298 and all seven matching binaries are installed; the API is healthy and daily RSS continues. The user paused the full drain to calibrate on controlled backlog chunks. Correctness calibration, independent accuracy evaluation and model promotion remain in the dedicated session — October 8, 2026.
 
 **Placement:** After Google News RSS discovery and native full-source acquisition
 
@@ -18,13 +18,13 @@
 
 Production cognition remains paused. Build and verify the replacement flow before enabling it; daily RSS discovery must keep accumulating data. Model accuracy and calibration are a separate session.
 
-1. [x] Connect RSS discovery to `classifier_acquire`; replay retained discovery idempotently. Duplicate sweeps/replays preserve leases, retry backoff and parked failures, and skip unchanged acquired sources. Acquisition runs independently of inference. Implemented and verified locally; production activation remains pending.
+1. [x] Connect RSS discovery to `classifier_acquire`; replay retained discovery idempotently. Duplicate sweeps/replays preserve leases, retry backoff and parked failures, and skip unchanged acquired sources. Acquisition runs independently of inference. Implemented, verified and deployed; acquisition remains disabled for controlled-chunk calibration.
 2. [x] Complete the fixed measurement envelope: all 51 presence dimensions, three ordinals, qualified claims, explicit unknowns and source/model/schema provenance. This establishes the plumbing contract; model support and accuracy remain separate.
 3. [x] Complete the swappable generative adapter and fail-closed admission. Native llama.cpp verifies the exact complete input and has been checked with two installed models; tuning stays in `classifier/prompt.rs`. Protocols lacking exact admission are refused before generation. Specialized Laya/Kev/GLiNER heads remain experimental, outside this plumbing release; adding a qualified head protocol is later model work, not an implicit production fallback. No model is promoted.
 4. [x] Verify downstream dependencies. All four direct characters and Graph pass native full-schema publication/recovery checks. Analyst/Oracle and outbox crash recovery pass. Native source-owned canonical mentions feed existing SQL maintenance without model-derived event authority. Harvester/Editor are retired from deployment registration.
 5. [x] Exercise duplicate discovery, backlog replay, worker restarts, retries, model swaps and complete-input refusal. Verify the native production schema and all consumers, exact durable-data dump/restore, API statement registration, paused release/watchdog behavior and the Linux build/runtime contracts. All seven binaries build from committed code on Archbox; rendered units validate. Production activation remains separate.
 
-Current implementation: independent workers, immutable snapshots, attempt receipts, claim fencing, RSS producer wiring, backlog replay and the complete measurement envelope are checked locally. Exact tokenizer admission now works through the native llama.cpp adapter. Native consumers and source-owned maintenance are verified. Deployment/recovery tooling and Linux qualification pass. The next production action is backup → migrate 291–298 → deploy matching binaries with cognition paused → enable independent source acquisition. Inference and policy release remain deferred until qualification and the pause is lifted. No production replacement has been enabled.
+Current implementation: independent workers, immutable snapshots, attempt receipts, claim fencing, RSS producer wiring, backlog replay and the complete measurement envelope are checked locally. Exact tokenizer admission now works through the native llama.cpp adapter. Native consumers and source-owned maintenance are verified. Deployment/recovery tooling and Linux qualification pass. Production backup, migrations 291–298 and matching binary deployment are complete. Acquisition, cognition and its watcher remain disabled at the user’s instruction. Automatic acquisition replay now requires the exact setting `CLASSIFIER_REPLAY_BACKLOG=true`; production sets it to `false`. Calibration uses controlled frozen-source chunks before any worker drain resumes. Inference and policy release remain deferred until qualification and the pause is lifted.
 
 ## Execution ledger
 
@@ -382,7 +382,7 @@ Prune anything that does not serve this contract: the standalone headline releva
 
 The model returns the fixed literal-quote proposal with optional sparse measurements. Native Classifier owns UTF-8 span binding, validation and the typed `Source`/`Record`/`Measurements` consumer contract. `load_measurement` binds receipts to the acquired source table and reconstructs both claims and the stored envelope from the retained reply; even source-valid altered claims are rejected. Every receipt has all 51 presence dimensions and three ordinals, source hash, full byte extent, target and schema version. Unsupported values remain null. Raw presence values are [0,1] without a calibrated absence/presence interpretation; ordinals use integer schema anchors. Positive presence and every known ordinal require exact evidence. Calibration is `unassessed`; receipts remain provisional. Journalist, Influencer and Insider now read Classifier delivery records in the local implementation. Scout now reads Classifier delivery as well; Analyst/Oracle still consume the existing finished products. None of this has been deployed.
 
-Migration [291_classifier_plumbing.sql](../../sql/migrations/291_classifier_plumbing.sql) adds source snapshots and attempt receipts. [292_classifier_acquisition_intake.sql](../../sql/migrations/292_classifier_acquisition_intake.sql) adds shared discovery revision/enqueue/replay functions. The updated Go RSS collector atomically retains metadata, candidate-query edges and acquisition intent; it no longer requires Harvester flags or queues Harvester. Acquisition replays retained discovery at startup and periodically in 1,000-item batches, preserving unchanged active/failed work and skipping acquired revisions. `COGNITION_STAGES=classifier_acquire` retains sources and queues classification without inference. These changes are not deployed.
+Migration [291_classifier_plumbing.sql](../../sql/migrations/291_classifier_plumbing.sql) adds source snapshots and attempt receipts. [292_classifier_acquisition_intake.sql](../../sql/migrations/292_classifier_acquisition_intake.sql) adds shared discovery revision/enqueue/replay functions. The updated Go RSS collector atomically retains metadata, candidate-query edges and acquisition intent; it no longer requires Harvester flags or queues Harvester. Acquisition replays retained discovery at startup and periodically in 1,000-item batches, preserving unchanged active/failed work and skipping acquired revisions. `COGNITION_STAGES=classifier_acquire` retains sources and queues classification without inference. The matching schema and binaries are deployed; acquisition remains disabled.
 
 Deployment order: apply migrations 291/292/293/294/295/296, then install the matching Go producer and Rust worker. Preserve the production cognition pause. Separately enabled acquisition is the first activation target; character cognition stays paused until the remaining flow is ready. Do not use the existing full-release script unchanged: it restarts cognition.
 
@@ -524,3 +524,37 @@ Historical benchmark references checked October 7, 2026. These do not commit the
 Commit `681b279aa18f` builds all four Go and three Rust release binaries on Archbox through the actual release script, using a private staging checkout and redirected binary directory. The rendered cognition/source units pass `systemd-analyze --user verify`. Linux runs all 371 active Rust checks and the real Go/DuckDB memory-helper preservation check successfully. The tested staging tree and logs remain at `/tmp/scoracle-classifier-qualification.XvgOXN` on Archbox. No live checkout, binary, service, cron, model or delivery policy was changed. Production API remains active; cognition and its watcher remain inactive. Daily RSS is intact.
 
 All requested plumbing work is complete and committed per plugin boundary. Apply migrations 291–298 before matching binaries; use the paused cutover in the hosting runbook. A supported generative model can be swapped through the Classifier prompt/route without changing downstream contracts. Specialized protocols and semantic qualification are separate model work. Real deliveries remain held until independently evaluated policy release; deployment never supplies a calibration threshold.
+
+
+## Paused production cutover — October 8
+
+Deployed commit `1c2906dc1746` on Archbox through `release.sh --keep-cognition-paused`.
+The 3.2 GB pre-cutover custom-format database backup completed, its SHA-256 was checked,
+and `pg_restore --list` read its catalog successfully; this is not a full restore drill.
+Previous configuration, crontab and all seven binaries are retained beside it at
+`/mnt/data/backup/scoracle/releases/classifier-launch-20261008/`.
+
+All eight migrations 291–298 applied successfully. Every API prepared statement registers
+against production; the running API reports the deployed commit and `/health/db` is healthy.
+The stage configuration now names Classifier and the existing downstream tasks instead of
+Harvester/Editor, with `DERIVE_WORKER_ENABLED=false`.
+
+Before acquisition was enabled, the user requested a pause of the full drain for deliberate
+calibration using controlled backlog chunks. Acquisition, cognition and its watcher are
+inactive and disabled. No worker journal entries, acquisition work, Classifier sources,
+measurements or deliveries were created during the cutover. Daily RSS cron is byte-for-byte
+unchanged; 66,529 retained article/sport discoveries remain available for controlled selection.
+
+Automatic startup/periodic corpus replay is disabled by default and only the exact value
+`CLASSIFIER_REPLAY_BACKLOG=true` enables it. Production explicitly sets `false`. A focused
+check covers unset, disabled and invalid settings plus explicit enablement; all 372 active
+Rust tests pass. This switch only controls replay: daily RSS still enqueues new discoveries,
+and an active source worker drains its existing queue. Keep workers stopped and use selected
+frozen source packets for calibration; a future chunked worker run needs an explicit scope,
+not merely a replay setting or a concurrency limit. No calibration model, policy threshold,
+real-evidence release or full backlog drain was promoted by deployment.
+
+The production acceptance receipt, migration/preflight/statement/build/release logs and
+before/after binary hashes are retained in the same release directory. The source worker
+can be enabled separately after the intended acquisition scope is authorized; model inference
+and downstream policy release still require qualification and lifting the cognition pause.

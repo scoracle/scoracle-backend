@@ -4,7 +4,7 @@ use scoracle_cognition::{
     harness::{config::Config, db},
     plugins::scout::sources::load_scout_reports,
 };
-use serde_json::{json, Value};
+use serde_json::Value;
 
 pub async fn run(cfg: &Config, args: &[String]) -> Result<()> {
     let Some((kind, args)) = args.split_first() else {
@@ -28,17 +28,7 @@ pub async fn run(cfg: &Config, args: &[String]) -> Result<()> {
     let output: Value = match kind.as_str() {
         "reports" => {
             let claims = load_scout_reports(&pool, &args[1], args[2].parse()?, &sport).await?;
-            json!(claims
-                .into_iter()
-                .map(|marked| json!({
-                    "article_id": marked.claim.article_id,
-                    "source": marked.claim.source,
-                    "fact": marked.claim.fact,
-                    "published_at": marked.claim.published_at,
-                    "story_type": marked.claim.story_type,
-                    "contested": marked.marked,
-                }))
-                .collect::<Vec<_>>())
+            serde_json::to_value(claims)?
         }
         "identity" => {
             let player: i32 = args[1].parse().context("player ID must be an integer")?;

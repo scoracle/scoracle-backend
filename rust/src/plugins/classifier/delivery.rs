@@ -9,6 +9,8 @@ pub const POLICY_VERSION: &str = "journalist-classifier-v1";
 pub const INFLUENCER_POLICY_VERSION: &str = "influencer-classifier-v1";
 const INFLUENCER: &str = crate::plugins::influencer::manifest::MANIFEST.id.as_str();
 pub const INSIDER_POLICY_VERSION: &str = "insider-classifier-v1";
+pub const SCOUT_POLICY_VERSION: &str = "scout-classifier-v1";
+const SCOUT: &str = crate::plugins::scout::manifest::MANIFEST.id.as_str();
 const INSIDER: &str = crate::plugins::insider::manifest::MANIFEST.id.as_str();
 const JOURNALIST: &str = crate::plugins::journalist::manifest::MANIFEST.id.as_str();
 
@@ -29,6 +31,7 @@ pub(crate) async fn record(tx: &mut Transaction<'_, Postgres>, id: i64) -> Resul
         (JOURNALIST, POLICY_VERSION),
         (INFLUENCER, INFLUENCER_POLICY_VERSION),
         (INSIDER, INSIDER_POLICY_VERSION),
+        (SCOUT, SCOUT_POLICY_VERSION),
     ] {
         if record.target["entity_type"] == "person" && plugin != INSIDER {
             continue;
@@ -149,9 +152,10 @@ async fn load_on(
         JOURNALIST => POLICY_VERSION,
         INFLUENCER => INFLUENCER_POLICY_VERSION,
         INSIDER => INSIDER_POLICY_VERSION,
+        SCOUT => SCOUT_POLICY_VERSION,
         _ => anyhow::bail!("unsupported Classifier character"),
     };
-    let rows=sqlx::query("SELECT m.id,d.policy_version,d.status,
+    let rows=sqlx::query("SELECT m.id,d.policy_version,d.status,d.selection,
         EXTRACT(EPOCH FROM (s.source->>'published_at')::timestamptz)::bigint AS published_at_epoch,
         COALESCE(s.discovery_version=public.classifier_discovery_version(s.article_id,s.sport),false) AS current_source
         FROM classifier_deliveries d JOIN classifier_measurements m ON m.id=d.measurement_id
@@ -195,6 +199,12 @@ async fn load_on(
         if !articles.insert(source.article_id) {
             continue;
         }
+        let mut presented = world(&record);
+        if plugin == SCOUT {
+            presented["selection"] = row
+                .get::<Option<Value>, _>("selection")
+                .unwrap_or(Value::Null);
+        }
         sources.push(SourceContext {
             classification_id: id,
             article_id: source.article_id,
@@ -205,7 +215,7 @@ async fn load_on(
             context: source.body,
             source: source.source,
             published_at_epoch: row.get("published_at_epoch"),
-            classifier_world: Some(world(&record)),
+            classifier_world: Some(presented),
         });
     }
     Ok(sources)

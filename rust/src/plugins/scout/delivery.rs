@@ -7,7 +7,7 @@ use crate::harness::plugin::PluginOutcome;
 use crate::harness::queue::publication::ClaimPublication;
 use crate::harness::queue::work::Item;
 use crate::harness::Studio;
-use crate::plugins::harvester::delivery::load_for_character;
+use crate::plugins::classifier::delivery::load_for_character;
 use crate::plugins::scout::performance::current_season;
 use crate::plugins::scout::prompt::{build_rating_request, RatingReq};
 use crate::tools::source::SourceContext;
@@ -17,10 +17,10 @@ use serde_json::json;
 use sqlx::{PgConnection, PgPool};
 use std::time::Duration;
 
-const POLICY_VERSION: &str = "scout-source-v4-durable-evidence";
+const POLICY_VERSION: &str = "scout-source-v5-classifier-world";
 
 /// Only a source-linked structured record can turn roster/availability reporting
-/// into a Scout rating trigger. A Harvester tag or model quote alone is not enough.
+/// into a Scout rating trigger. A Classifier proposal or model quote alone is not enough.
 pub(crate) async fn structured_record(
     connection: &mut PgConnection,
     sport: &str,
@@ -36,7 +36,7 @@ pub(crate) async fn structured_record(
                    AND evidence->'identity_evidence_article_ids' @> jsonb_build_array($4::bigint) \
                    AND (($2='player' AND player_id=$3) OR \
                         ($2='team' AND (old_team_id=$3 OR new_team_id=$3))) \
-                 ORDER BY applied_at DESC,id DESC LIMIT 1 FOR SHARE",
+                 ORDER BY applied_at DESC,id DESC LIMIT 1 FOR SHARE NOWAIT",
         )
         .bind(sport)
         .bind(entity_type)
@@ -50,7 +50,7 @@ pub(crate) async fn structured_record(
                    AND source_article_id=$4 \
                    AND (($2='player' AND player_id=$3) OR \
                         ($2='team' AND team_id=$3)) \
-                 ORDER BY applied_at DESC,id DESC LIMIT 1 FOR SHARE",
+                 ORDER BY applied_at DESC,id DESC LIMIT 1 FOR SHARE NOWAIT",
         )
         .bind(sport)
         .bind(entity_type)
@@ -79,38 +79,6 @@ struct SourceDecision {
     provenance: serde_json::Value,
 }
 
-fn performance_supported(contract: &str, scores: &serde_json::Value) -> bool {
-    // Only the current receipt has the measured scalar vocabulary. Old receipts
-    // without source-linked records remain unavailable, never a guessed negative.
-    contract == crate::plugins::harvester::context::CONTRACT
-        && crate::plugins::harvester::policy::CHARACTER_ROUTES
-            .iter()
-            .filter(|route| route.destination.id == crate::plugins::scout::manifest::MANIFEST.id)
-            .flat_map(|route| route.predicates)
-            .find(|predicate| predicate.key == "performance")
-            .is_some_and(|predicate| {
-                scores[predicate.key].as_f64().is_some_and(|score| {
-                    score.is_finite() && score <= 1.0 && score >= predicate.threshold
-                })
-            })
-}
-
-fn select_kind(
-    performance: bool,
-    roster: Option<i64>,
-    availability: Option<i64>,
-) -> (SourceKind, Option<i64>) {
-    if let Some(id) = roster {
-        (SourceKind::Roster, Some(id))
-    } else if let Some(id) = availability {
-        (SourceKind::Availability, Some(id))
-    } else if performance {
-        (SourceKind::Performance, None)
-    } else {
-        (SourceKind::None, None)
-    }
-}
-
 async fn decide(
     connection: &mut PgConnection,
     entity_type: &str,
@@ -118,52 +86,42 @@ async fn decide(
     sport: &str,
     source: &SourceContext,
 ) -> Result<SourceDecision> {
-    let (contract, scores, provenance): (String, serde_json::Value, serde_json::Value) = sqlx::query_as(
-        "SELECT contract_version, distributions, model_provenance FROM public.harvester_classifications WHERE id=$1 FOR SHARE",
-    ).bind(source.classification_id).fetch_one(&mut *connection).await?;
-    let identity_resolved = sqlx::query_scalar::<_, i64>(
-        "SELECT l.article_id FROM public.harvester_resolved_links l \
-         JOIN public.harvester_classifications c ON c.id=$5 AND c.article_id=l.article_id \
-         WHERE l.article_id=$1 AND l.entity_type=$2 AND l.entity_id=$3 AND l.sport=$4 \
-           AND l.body_sha256=c.body_sha256 FOR SHARE OF l",
+    let (native, _, _) = crate::plugins::classifier::adapter::load_measurement_on(
+        connection,
+        source.classification_id,
     )
-    .bind(source.article_id)
-    .bind(entity_type)
-    .bind(entity_id)
-    .bind(sport)
-    .bind(source.classification_id)
-    .fetch_optional(&mut *connection)
-    .await?
-    .is_some();
-    let roster = structured_record(
+    .await?;
+    let identity_resolved = native.provenance["identity_candidates"]
+        .as_array()
+        .is_some_and(|candidates| {
+            candidates.iter().any(|candidate| {
+                candidate["entity_type"] == entity_type && candidate["entity_id"] == entity_id
+            })
+        });
+    let selected = source
+        .classifier_world
+        .as_ref()
+        .and_then(|world| world["selection"]["kind"].as_str());
+    let kind = match selected {
+        Some("performance") => SourceKind::Performance,
+        Some("roster") => SourceKind::Roster,
+        Some("availability") => SourceKind::Availability,
+        _ => SourceKind::None,
+    };
+    let structured_record = structured_record(
         connection,
         sport,
         entity_type,
         entity_id,
         source.article_id,
-        SourceKind::Roster,
+        kind,
     )
     .await?;
-    let availability = structured_record(
-        connection,
-        sport,
-        entity_type,
-        entity_id,
-        source.article_id,
-        SourceKind::Availability,
-    )
-    .await?;
-    let (kind, structured_record) = select_kind(
-        performance_supported(&contract, &scores),
-        roster,
-        availability,
-    );
     Ok(SourceDecision {
         kind,
         identity_resolved,
         structured_record,
-        provenance: json!({"policy": POLICY_VERSION, "contract": contract,
-            "scores": scores, "harvester": provenance}),
+        provenance: json!({"policy": POLICY_VERSION, "classifier_world": source.classifier_world}),
     })
 }
 
@@ -198,8 +156,21 @@ pub(crate) async fn execute_with_backend(
     let corroborating_record = decision.structured_record;
     // Preserve a complete attributed source unit; no model extracts a new quote.
     let quote = &source.context;
+    let input_invalid = if !source
+        .published_at_epoch
+        .is_some_and(|date| date <= crate::plugins::influencer::now())
+    {
+        Some("Publication time unresolved")
+    } else if crate::plugins::influencer::prompt::source_disposition(&source.context).is_some()
+        || serde_json::to_vec(source)?.len() > 24000
+    {
+        Some("Complete source input unavailable or exceeds reading budget")
+    } else {
+        None
+    };
     let mut output: Option<RatingOutput> = None;
-    if identity_resolved
+    if input_invalid.is_none()
+        && identity_resolved
         && (decision.kind == SourceKind::Performance || corroborating_record.is_some())
     {
         let season = current_season(pool, &sport).await?;
@@ -216,15 +187,22 @@ pub(crate) async fn execute_with_backend(
         {
             let mut components: serde_json::Value =
                 serde_json::from_str(&assignment.input_components)?;
-            components["harvester_trigger"] = json!({
+            components["classifier_trigger"] = json!({
                 "source_decision": decision.provenance,
                 "article_id": source.article_id,
                 "classification_id": source.classification_id,
-                "source_role": "trigger_only",
+                "source_role": "attributed_reporting",
                 "scout_kind": match decision.kind { SourceKind::Performance => "performance", SourceKind::Roster => "roster", SourceKind::Availability => "availability", SourceKind::None => "none" },
                 "source_quote": quote,
                 "structured_record_id": corroborating_record,
             });
+            assignment.parts.reporting = vec![source.clone()];
+            assignment.built_prompt = assignment.parts.render();
+            assignment.opts = assignment
+                .parts
+                .generation_options(voice_num_ctx, RATING_TEMPERATURE);
+            components["world"] =
+                serde_json::from_str::<serde_json::Value>(&assignment.built_prompt)?;
             assignment.input_components = components.to_string();
             assignment.input_hash = crate::util::hash_components(&assignment.input_components);
             let mut generated = create(&Studio::new(backend), *assignment).await?;
@@ -232,12 +210,10 @@ pub(crate) async fn execute_with_backend(
             output = Some(generated);
         }
     }
-    let status = if output.is_some() {
-        "used"
-    } else {
-        "relevant_but_unused"
-    };
-    let reason = if !identity_resolved {
+    let status = if output.is_some() { "used" } else { "held" };
+    let reason = if let Some(reason) = input_invalid {
+        Some(reason)
+    } else if !identity_resolved {
         Some("No independently resolved article-to-entity link")
     } else if decision.kind == SourceKind::None {
         Some("Unavailable: no current performance predicate or applied source-linked roster/availability record")
@@ -249,7 +225,7 @@ pub(crate) async fn execute_with_backend(
     let trigger_payload = json!({
         "source_article_id": source.article_id,
         "classification_id": source.classification_id,
-        "source_role": "trigger_only",
+        "source_role": "attributed_reporting",
         "identity_resolved": identity_resolved,
         "structured_record_id": corroborating_record,
         "scout_kind": match decision.kind {
@@ -261,7 +237,7 @@ pub(crate) async fn execute_with_backend(
     let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
         return Ok(PluginOutcome::Superseded);
     };
-    crate::plugins::harvester::delivery::validate_for_publication(
+    crate::plugins::classifier::delivery::validate_for_publication(
         publication.transaction(),
         plugin_id,
         &item.entity_type,
@@ -299,14 +275,14 @@ pub(crate) async fn execute_with_backend(
         None
     };
     let changed = sqlx::query(
-        "UPDATE public.harvester_assignments SET status=$3,reason=$4,product_ref=$5,updated_at=now() \
-         WHERE classification_id=$1 AND plugin_id=$2 AND status='pending' \
-           AND reason IS DISTINCT FROM 'delivery_held'",
+        "UPDATE public.classifier_deliveries SET status=$3,production_eligible=($3<>'held'),reason=$4,product_ref=$5,updated_at=now() \
+         WHERE measurement_id=$1 AND plugin_id=$2 AND status='pending' \
+           AND production_eligible",
     )
     .bind(source.classification_id).bind(plugin_id).bind(status).bind(reason)
     .bind(json!({
         "source_article_id": source.article_id,
-        "source_role": "trigger_only",
+        "source_role": "attributed_reporting",
         "identity_resolved": identity_resolved,
         "structured_record_id": corroborating_record,
         "source_decision": decision.provenance,
@@ -322,7 +298,7 @@ pub(crate) async fn execute_with_backend(
         changed.rows_affected() == 1,
         "Scout source assignment changed during call"
     );
-    let remaining = crate::plugins::harvester::delivery::undelivered_count(
+    let remaining = crate::plugins::classifier::delivery::undelivered_count(
         publication.transaction(),
         plugin_id,
         &item.entity_type,
@@ -348,7 +324,7 @@ pub(crate) async fn execute_with_backend(
             .await?;
         }
         return Ok(PluginOutcome::deferred(
-            format!("{remaining} Harvester source contexts remain for Scout"),
+            format!("{remaining} Classifier source contexts remain for Scout"),
             Duration::from_secs(1),
         ));
     }
@@ -372,40 +348,5 @@ pub(crate) async fn execute_with_backend(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn triggers_use_current_policy_or_applied_records_without_a_model() {
-        let contract = crate::plugins::harvester::context::CONTRACT;
-        assert!(performance_supported(
-            contract,
-            &json!({"performance": 0.7})
-        ));
-        for scores in [
-            json!({}),
-            json!({"performance": 0.69}),
-            json!({"performance": 1.1}),
-            json!({"fitness": 1.0}),
-        ] {
-            assert!(!performance_supported(contract, &scores));
-        }
-        assert!(!performance_supported(
-            "harvest-context-v1",
-            &json!({"performance": 1.0})
-        ));
-        assert_eq!(
-            select_kind(true, None, None),
-            (SourceKind::Performance, None)
-        );
-        assert_eq!(
-            select_kind(false, Some(7), None),
-            (SourceKind::Roster, Some(7))
-        );
-        assert_eq!(
-            select_kind(false, None, Some(9)),
-            (SourceKind::Availability, Some(9))
-        );
-        assert_eq!(select_kind(false, None, None), (SourceKind::None, None));
-    }
-}
+#[path = "delivery_tests.rs"]
+mod delivery_tests;

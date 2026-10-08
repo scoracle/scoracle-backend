@@ -276,9 +276,11 @@ impl StudioPlugin for RatingHandler {
     }
 
     async fn execute(&self, item: &Item) -> Result<PluginOutcome> {
-        if item.input_version.as_deref().is_some_and(|version| {
-            version.starts_with(crate::plugins::harvester::context::CONTRACT)
-        }) {
+        if item
+            .input_version
+            .as_deref()
+            .is_some_and(|version| version.starts_with(crate::plugins::classifier::CONTRACT))
+        {
             let backend = self.models.inference(manifest::ROUTE)?;
             return delivery::execute_with_backend(
                 &self.pool,

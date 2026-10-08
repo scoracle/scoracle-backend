@@ -11,9 +11,9 @@ use crate::plugins::scout::memories::Selected;
 use crate::plugins::scout::performance::{self, Profile};
 use crate::tools::meta::EntityMeta;
 use crate::util::hash_components;
-use anyhow::{Context, Result};
+use anyhow::{ensure, Context, Result};
 
-pub const RATING_PROMPT_VERSION: &str = "s68-concise-body";
+pub const RATING_PROMPT_VERSION: &str = "s69-classifier-world";
 
 /// Production rating temperature.
 pub const RATING_TEMPERATURE: f64 = 0.6;
@@ -81,7 +81,7 @@ Honor any limit. Sample counts describe source coverage, not playing time or
 when a season began. Keep reports attributed and dated; a withdrawal retracts
 its claim and does not establish recovery. Do not infer a cause, role, tactics,
 fitness or future outcome from a measurement or report. A short or null body is
-valid when the evidence does not support more.";
+valid when the evidence does not support more. reporting preserves complete attributed publisher text and proposed Classifier relationships, including unknowns. These reports do not establish a completed move, fitness outcome or cause. Keep source claims distinct from measured facts.";
 
 /// Retry the same bounded task without silently changing its content policy.
 pub fn correction(error: &anyhow::Error) -> Option<String> {
@@ -93,6 +93,8 @@ pub fn correction(error: &anyhow::Error) -> Option<String> {
 /// Fixture-replayable selected world. Wire order is the field order of [`Input`].
 #[derive(Clone, Debug, Serialize, serde::Deserialize)]
 pub struct Parts {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub reporting: Vec<crate::tools::source::SourceContext>,
     pub subject: EntityMeta,
     #[serde(default)]
     pub sport_name: String,
@@ -122,7 +124,11 @@ impl Parts {
             system: Some(TASK.into()),
             temperature: Some(temperature),
             num_predict: RATING_NUM_PREDICT,
-            num_ctx,
+            num_ctx: if self.reporting.is_empty() {
+                num_ctx
+            } else {
+                num_ctx.max(32768)
+            },
             json_mode: false,
             format_schema: Some(parser::prose().schema()),
             format_schema_raw: None,
@@ -187,6 +193,8 @@ impl Parts {
         struct Input<'a> {
             meta: Meta<'a>,
             fresh: &'a Profile,
+            #[serde(skip_serializing_if = "Vec::is_empty")]
+            reporting: Vec<serde_json::Value>,
             #[serde(skip_serializing_if = "Option::is_none")]
             memories: Option<&'a Selected>,
             voice: &'static str,
@@ -209,6 +217,17 @@ impl Parts {
                 sport,
             },
             fresh: &self.profile,
+            reporting: self
+                .reporting
+                .iter()
+                .map(|source| {
+                    serde_json::json!({
+                        "headline":source.headline,"publisher":source.source,
+                        "published_at":source.published_at_epoch.map(crate::util::utc_timestamp),
+                        "publisher_text":source.context,"classifier_world":source.classifier_world
+                    })
+                })
+                .collect(),
             memories,
             voice: crate::plugins::scout::voice::VOICE,
             form: Form {
@@ -337,25 +356,23 @@ pub async fn build_rating_request(
         (serde_json::Value::Null, Vec::new(), Vec::new())
     };
 
-    let (current_reports, memory_claims) = if with_enrichment && !historical {
-        match crate::plugins::scout::sources::load_scout_reports(
+    let reporting = if with_enrichment && !historical {
+        crate::plugins::scout::sources::load_scout_reports(
             pool,
             &req.entity_type,
             req.entity_id,
             &req.sport,
         )
-        .await
-        {
-            Ok(claims) => (serde_json::to_value(&claims)?, claims),
-            Err(error) => {
-                return Err(error).context("load verified Harvester Scout reports");
-            }
-        }
+        .await?
     } else {
-        (serde_json::Value::Null, Vec::new())
+        vec![]
     };
+    ensure!(
+        serde_json::to_vec(&reporting)?.len() <= 24000,
+        "Scout full reporting population exceeds reading budget"
+    );
     let reported_memory =
-        super::memories::reported_memory(&req.entity_type, &changes, &availability, &memory_claims)
+        super::memories::reported_memory(&req.entity_type, &changes, &availability, &[])
             .await
             .context("analyze Scout reported memory with DuckDB")?;
 
@@ -405,7 +422,7 @@ pub async fn build_rating_request(
     let mut components: serde_json::Value = serde_json::from_str(&base_components)?;
     components["skill_changes"] = serde_json::json!(comparisons);
     components["personnel"] = serde_json::json!(personnel);
-    components["current_reports"] = serde_json::json!(current_reports);
+    components["current_reports"] = serde_json::json!(reporting);
     components["recent_form"] = serde_json::json!(form_trend);
     let sport_name: String =
         sqlx::query_scalar("SELECT display_name FROM public.sports WHERE id = $1")
@@ -450,6 +467,7 @@ pub async fn build_rating_request(
         }
     };
     let parts = crate::plugins::scout::prompt::Parts {
+        reporting,
         subject: crate::tools::meta::EntityMeta {
             name: subject.entity_name.clone(),
             entity_type: subject.entity_type.clone(),

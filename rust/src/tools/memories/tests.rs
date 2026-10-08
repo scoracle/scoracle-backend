@@ -259,8 +259,12 @@ async fn live_memory_exports_are_read_only() {
     let claims = sources::load_scout_reports(&pool, "team", 3, "FOOTBALL")
         .await
         .unwrap();
-    let reported = memories::reported_memory("team", &changes, &availability, &claims)
+    let reported = memories::reported_memory("team", &changes, &availability, &[])
         .await
         .unwrap();
-    println!("live Scout record observations: {}", reported.len());
+    println!(
+        "live Scout record observations: {}, complete Classifier reports: {}",
+        reported.len(),
+        claims.len()
+    );
 }

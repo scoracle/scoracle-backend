@@ -1,7 +1,7 @@
 {
   "name": "synthetic-sparse",
   "task": "rating",
-  "prompt_version": "s68-concise-body",
+  "prompt_version": "s69-classifier-world",
   "parts": {
     "memory": {},
     "profile": {

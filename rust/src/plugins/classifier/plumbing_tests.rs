@@ -613,6 +613,10 @@ pub(crate) async fn setup_disposable(pool: &sqlx::PgPool) -> Result<()> {
             "295_classifier_insider_delivery",
             include_str!("../../../../sql/migrations/295_classifier_insider_delivery.sql"),
         ),
+        (
+            "296_classifier_scout_delivery",
+            include_str!("../../../../sql/migrations/296_classifier_scout_delivery.sql"),
+        ),
     ] {
         let applied: bool =
             sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version=$1)")
@@ -635,7 +639,7 @@ pub(crate) async fn setup_disposable(pool: &sqlx::PgPool) -> Result<()> {
             }
         }
         // Reapply only the newest dispatch implementation while developing it.
-        if !applied || version == "295_classifier_insider_delivery" {
+        if !applied || version == "296_classifier_scout_delivery" {
             sqlx::raw_sql(migration).execute(pool).await?;
             sqlx::query("INSERT INTO schema_migrations(version) VALUES($1) ON CONFLICT DO NOTHING")
                 .bind(version)

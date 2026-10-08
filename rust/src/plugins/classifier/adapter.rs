@@ -449,7 +449,7 @@ pub async fn load_measurement(
     load_measurement_on(&mut *pool.acquire().await?, id).await
 }
 
-pub(super) async fn load_measurement_on(
+pub(crate) async fn load_measurement_on(
     connection: &mut sqlx::PgConnection,
     id: i64,
 ) -> Result<(Source, Record, super::Measurements)> {

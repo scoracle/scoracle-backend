@@ -1,8 +1,7 @@
 //! Structured personnel changes and attributed availability reports for current evidence.
 
 use anyhow::{ensure, Context, Result};
-use sha2::{Digest, Sha256};
-use sqlx::{PgPool, Row};
+use sqlx::PgPool;
 
 /// An adjudicated absence, return or withdrawal. Withdrawing an incorrect
 /// record does not establish recovery; preserve those events separately.
@@ -296,134 +295,75 @@ const MAX_SCOUT_CLAIMS: usize = 6;
 /// the transfer corpus freshness boundary while the claim cap continues to bind prompt size.
 const SCOUT_REPORT_LOOKBACK_HOURS: i64 = 14 * 24;
 
-/// Read the Scout's own accepted Harvester sources. These are publisher quotes,
-/// never Editor key facts or packet prose. Recheck the retained bytes on read so
-/// a later article edit cannot silently become current evidence.
+/// Previously accepted native reporting; structured claims remain tied to applied records.
 pub async fn load_scout_reports(
     pool: &PgPool,
     entity_type: &str,
     entity_id: i32,
     sport: &str,
-) -> Result<Vec<crate::plugins::scout::reports::MarkedClaim>> {
-    use crate::plugins::scout::reports::{mark_contested, RenderClaim};
-
-    if entity_type != "player" && entity_type != "team" {
-        return Ok(Vec::new());
-    }
-    let rows = sqlx::query(
-        "SELECT c.article_id,c.headline,c.context_text,c.context_start,c.context_end, \
-                c.body_sha256,a.title,a.full_text,COALESCE(a.source,'') AS source, \
-                EXTRACT(EPOCH FROM COALESCE(a.published_at,a.fetched_at))::bigint AS published_at, \
-                d.product_ref->>'source_quote' AS source_quote, \
-                d.product_ref->>'source_kind' AS source_kind, \
-                availability.kind AS availability_kind, \
-                (availability.status='applied' AND availability.reverted_at IS NULL) AS availability_applied, \
-                (availability.source_article_id=c.article_id AND availability.sport=c.sport AND \
-                 ((c.entity_type='player' AND availability.player_id=c.entity_id) OR \
-                  (c.entity_type='team' AND availability.team_id=c.entity_id))) AS availability_entity_matches, \
-                (transfer.status='applied' AND transfer.reverted_at IS NULL) AS transfer_applied, \
-                (transfer.sport=c.sport AND \
-                 ((c.entity_type='player' AND transfer.player_id=c.entity_id) OR \
-                  (c.entity_type='team' AND c.entity_id IN (transfer.old_team_id,transfer.new_team_id)))) AS transfer_entity_matches, \
-                transfer.evidence->'identity_evidence_article_ids' @> jsonb_build_array(c.article_id) AS transfer_source_matches \
-         FROM public.harvester_assignments d \
-         JOIN public.harvester_classifications c ON c.id=d.classification_id \
-         JOIN public.news_articles a ON a.id=c.article_id \
-         LEFT JOIN public.player_availability availability \
-           ON availability.id=NULLIF(d.product_ref->>'structured_record_id','')::bigint \
-         LEFT JOIN public.transfer_identity_applications transfer \
-           ON transfer.id=NULLIF(d.product_ref->>'structured_record_id','')::bigint \
-         WHERE d.plugin_id=$1 AND d.status='used' AND c.entity_type=$2 \
-           AND c.entity_id=$3 AND c.sport=$4 \
-           AND COALESCE(a.published_at,a.fetched_at) >= now()-make_interval(hours=>$5::int) \
-         ORDER BY COALESCE(a.published_at,a.fetched_at) DESC,c.article_id DESC \
-         LIMIT $6",
+) -> Result<Vec<crate::tools::source::SourceContext>> {
+    let now = crate::plugins::influencer::now();
+    let plugin = super::manifest::MANIFEST.id.as_str();
+    let sources = crate::plugins::classifier::delivery::load_used(
+        pool,
+        plugin,
+        entity_type,
+        entity_id,
+        sport,
+        now - SCOUT_REPORT_LOOKBACK_HOURS * 3600,
+        now + 1,
     )
-    .bind(crate::plugins::scout::manifest::MANIFEST.id.as_str())
-    .bind(entity_type)
-    .bind(entity_id)
-    .bind(sport)
-    .bind(SCOUT_REPORT_LOOKBACK_HOURS as i32)
-    .bind(MAX_SCOUT_CLAIMS as i64)
-    .fetch_all(pool)
-    .await
-    .with_context(|| format!("load Harvester Scout reports {entity_type}/{entity_id}"))?;
-    let mut claims = Vec::new();
-    for row in rows {
-        let article_id: i64 = row.get("article_id");
-        let body: Option<String> = row.get("full_text");
-        let body =
-            body.with_context(|| format!("Scout Harvester body missing for {article_id}"))?;
-        let hash: String = row.get("body_sha256");
-        let start: i32 = row.get("context_start");
-        let end: i32 = row.get("context_end");
-        let context: String = row.get("context_text");
-        let headline: String = row.get("headline");
-        let title: String = row.get("title");
-        ensure!(
-            headline == title,
-            "Scout Harvester headline drift for {article_id}"
-        );
-        ensure!(
-            hex::encode(Sha256::digest(body.as_bytes())) == hash,
-            "Scout Harvester body drift for {article_id}"
-        );
-        ensure!(
-            start >= 0
-                && end >= start
-                && body.get(start as usize..end as usize) == Some(context.as_str()),
-            "Scout Harvester opening drift for {article_id}"
-        );
-        let quote: Option<String> = row.get("source_quote");
-        let kind: Option<String> = row.get("source_kind");
-        let (Some(quote), Some(kind)) = (quote, kind) else {
+    .await?;
+    let mut accepted = Vec::new();
+    for mut source in sources {
+        if !source
+            .published_at_epoch
+            .is_some_and(|date| date >= now - SCOUT_REPORT_LOOKBACK_HOURS * 3600 && date <= now)
+        {
             continue;
+        }
+        let product:serde_json::Value=sqlx::query_scalar("SELECT product_ref FROM classifier_deliveries WHERE measurement_id=$1 AND plugin_id=$2")
+            .bind(source.classification_id).bind(plugin).fetch_one(pool).await?;
+        let kind = match product["source_kind"].as_str() {
+            Some("performance") => super::delivery::SourceKind::Performance,
+            Some("roster") => super::delivery::SourceKind::Roster,
+            Some("availability") => super::delivery::SourceKind::Availability,
+            _ => anyhow::bail!("Scout accepted source kind unavailable"),
         };
-        ensure!(
-            !quote.trim().is_empty() && (headline.contains(&quote) || context.contains(&quote)),
-            "Scout Harvester source quote drift for {article_id}"
-        );
-        ensure!(
-            matches!(kind.as_str(), "performance" | "roster" | "availability"),
-            "Scout Harvester source kind invalid for {article_id}"
-        );
-        let story_type = if kind == "availability" {
-            let availability_kind: Option<String> = row.get("availability_kind");
-            let availability_kind = availability_kind.with_context(|| {
-                format!("Scout structured availability missing for {article_id}")
-            })?;
-            let availability_applied: Option<bool> = row.get("availability_applied");
-            let availability_entity_matches: Option<bool> = row.get("availability_entity_matches");
-            ensure!(
-                availability_applied == Some(true) && availability_entity_matches == Some(true),
-                "Scout structured availability no longer applied for {article_id}"
-            );
-            ensure!(
-                matches!(availability_kind.as_str(), "injury" | "suspension"),
-                "Scout structured availability kind invalid for {article_id}"
-            );
-            availability_kind
-        } else if kind == "roster" {
-            let transfer_applied: Option<bool> = row.get("transfer_applied");
-            let transfer_entity_matches: Option<bool> = row.get("transfer_entity_matches");
-            let source_matches: Option<bool> = row.get("transfer_source_matches");
-            ensure!(
-                transfer_applied == Some(true)
-                    && transfer_entity_matches == Some(true)
-                    && source_matches == Some(true),
-                "Scout structured roster evidence no longer applied for {article_id}"
-            );
-            kind
-        } else {
-            kind
-        };
-        claims.push(RenderClaim {
-            article_id,
-            source: row.get("source"),
-            fact: quote,
-            published_at: row.get("published_at"),
-            story_type,
-        });
+        if kind != super::delivery::SourceKind::Performance {
+            let id = product["structured_record_id"]
+                .as_i64()
+                .context("Scout structured reference missing")?;
+            let query = if kind == super::delivery::SourceKind::Availability {
+                "SELECT status='applied' AND reverted_at IS NULL,reverted_at IS NOT NULL
+                    FROM player_availability WHERE id=$1 AND sport=$2 AND source_article_id=$5
+                    AND (($3='player' AND player_id=$4) OR ($3='team' AND team_id=$4))"
+            } else {
+                "SELECT status='applied' AND reverted_at IS NULL,reverted_at IS NOT NULL
+                    FROM transfer_identity_applications WHERE id=$1 AND sport=$2
+                    AND evidence->'identity_evidence_article_ids' @> jsonb_build_array($5::bigint)
+                    AND (($3='player' AND player_id=$4) OR ($3='team' AND $4 IN (old_team_id,new_team_id)))"
+            };
+            let (applied, withdrawn): (bool, bool) = sqlx::query_as(query)
+                .bind(id)
+                .bind(sport)
+                .bind(entity_type)
+                .bind(entity_id)
+                .bind(source.article_id)
+                .fetch_optional(pool)
+                .await?
+                .context("Scout structured ownership changed")?;
+            source
+                .classifier_world
+                .as_mut()
+                .context("Scout world missing")?["structured_record"] =
+                serde_json::json!({"currently_applied":applied,"withdrawn":withdrawn});
+        }
+        accepted.push(source);
     }
-    Ok(mark_contested(&claims))
+    ensure!(
+        accepted.len() <= MAX_SCOUT_CLAIMS,
+        "Scout complete reporting population exceeds limit"
+    );
+    Ok(accepted)
 }

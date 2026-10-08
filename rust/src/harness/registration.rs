@@ -11,7 +11,6 @@ use crate::harness::tools::WebBroker;
 use crate::plugins::analyst;
 use crate::plugins::fixture_boxscore::adapter as boxscore;
 use crate::plugins::graph::adapter as graph;
-use crate::plugins::harvester::adapter as harvester;
 use crate::plugins::influencer;
 use crate::plugins::insider;
 use crate::plugins::journalist;
@@ -45,12 +44,7 @@ pub fn enabled_from_config(raw: Option<&str>) -> Result<HashSet<String>> {
         // stages. Intake replacements require explicit enablement while cognition is paused.
         return Ok(known
             .into_iter()
-            .filter(|s| {
-                !matches!(
-                    *s,
-                    "harvester" | "editor" | "classifier" | "classifier_acquire"
-                )
-            })
+            .filter(|s| !matches!(*s, "classifier" | "classifier_acquire"))
             .map(str::to_owned)
             .collect());
     };
@@ -123,25 +117,6 @@ pub fn build(
         handlers.push(Arc::new(graph::GraphHandler::new(
             pool.clone(),
             models.capabilities(&crate::plugins::graph::manifest::MANIFEST)?,
-        )));
-    }
-    if enabled.contains("harvester") {
-        let model = crate::plugins::system_one::bind(
-            crate::plugins::harvester::prompt::MODEL_ENDPOINT_ENV,
-        )?;
-        handlers.push(Arc::new(harvester::HarvesterHandler::new(
-            pool.clone(),
-            model,
-        )));
-    }
-    if enabled.contains("editor") {
-        let model =
-            crate::plugins::system_one::bind(crate::plugins::editor::prompt::MODEL_ENDPOINT_ENV)?;
-        let web = shared_web_workspace(&mut web_workspace)?;
-        handlers.push(Arc::new(crate::plugins::editor::EditorHandler::new(
-            pool.clone(),
-            model,
-            web,
         )));
     }
     // Structured discovery uses only the scoped web broker.
@@ -236,21 +211,19 @@ mod tests {
     };
 
     #[test]
-    fn unset_configuration_keeps_harvester_opt_in() {
+    fn unset_configuration_keeps_classifier_opt_in() {
         let stages = enabled_from_config(None).unwrap();
-        assert_eq!(stages.len() + 4, known_stages().len());
+        assert_eq!(stages.len() + 2, known_stages().len());
         for stage in known_stages() {
             assert_eq!(
                 stages.contains(stage),
-                !matches!(
-                    stage,
-                    "harvester" | "editor" | "classifier" | "classifier_acquire"
-                )
+                !matches!(stage, "classifier" | "classifier_acquire")
             );
         }
-        assert!(enabled_from_config(Some("harvester"))
+        assert!(enabled_from_config(Some("harvester,editor")).is_err());
+        assert!(enabled_from_config(Some("classifier_acquire"))
             .unwrap()
-            .contains("harvester"));
+            .contains("classifier_acquire"));
     }
 
     #[test]

@@ -83,11 +83,12 @@ fn durable_task_identifiers_remain_compatible() {
 
 #[test]
 fn acquisition_web_grants_are_scoped_to_each_plugins_sources() {
-    assert!(!HARVESTER.grants_web(DomainClass::CuratedArticles));
-    assert!(EDITOR.grants_web(DomainClass::CuratedArticles));
-    assert!(!HARVESTER.grants_web(DomainClass::NewsRss));
-    assert!(!HARVESTER.grants_web(DomainClass::Wikimedia));
-    assert!(!HARVESTER.grants_web(DomainClass::BoxscoreSources));
+    assert!(CLASSIFIER_ACQUIRE.grants_web(DomainClass::CuratedArticles));
+    assert!(!CLASSIFIER
+        .tools
+        .iter()
+        .any(|g| matches!(g, ToolGrant::WebFetch(_))));
+    assert!(!CLASSIFIER_ACQUIRE.tools.contains(&ToolGrant::Inference));
 
     assert!(INVESTIGATOR.inference_routes.is_empty());
     assert!(!INVESTIGATOR.tools.contains(&ToolGrant::Inference));
@@ -121,27 +122,18 @@ fn full_and_partial_production_fleets_register() {
 }
 
 #[test]
-fn harvester_has_independent_identity_and_requires_explicit_enablement() {
-    assert_eq!(HARVESTER.task.as_str(), "harvester");
-    assert_ne!(HARVESTER.id.as_str(), "scoracle.internal.editor");
-    assert!(ALL.iter().any(|m| m.task.as_str() == "editor"));
-    assert!(EDITOR.tools.contains(&ToolGrant::Classification));
-    assert!(EDITOR.grants_web(DomainClass::CuratedArticles));
-    assert!(!inference_routes()
+fn classifier_replaces_retired_intake_in_the_deployable_fleet() {
+    assert_eq!(CLASSIFIER.task.as_str(), "classifier");
+    assert_eq!(CLASSIFIER_ACQUIRE.task.as_str(), "classifier_acquire");
+    assert!(!ALL
         .iter()
-        .any(|route| route.as_str() == "editor"));
-    assert!(HARVESTER.tools.contains(&ToolGrant::Classification));
-    assert!(!HARVESTER.grants_web(DomainClass::CuratedArticles));
-    assert!(EDITOR.grants_web(DomainClass::CuratedArticles));
-    assert!(HARVESTER.inference_routes.is_empty());
-    assert_eq!(HARVESTER.resources.max_in_flight, 4);
-    assert_eq!(HARVESTER.resources.slot_group, None);
-    assert!(ALL.iter().any(|m| m.id == HARVESTER.id));
+        .any(|m| matches!(m.task.as_str(), "harvester" | "editor")));
+    assert!(ALL.iter().any(|m| m.id == CLASSIFIER.id));
+    assert!(ALL.iter().any(|m| m.id == CLASSIFIER_ACQUIRE.id));
+    assert!(crate::harness::registration::enabled_from_config(Some("harvester,editor")).is_err());
     assert!(!crate::harness::registration::enabled_from_config(None)
         .unwrap()
-        .contains("harvester"));
-    assert!(crate::harness::registration::enabled_from_config(Some("harvester")).is_ok());
-    PluginRegistry::new(vec![plugin(&HARVESTER)]).unwrap();
+        .contains("classifier"));
 }
 
 struct ManifestPlugin(&'static PluginManifest);

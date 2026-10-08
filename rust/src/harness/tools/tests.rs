@@ -2,7 +2,7 @@
 //! per-run budget. No network.
 
 use super::*;
-use crate::harness::fleet::{FIXTURE_BOXSCORE, HARVESTER, INVESTIGATOR};
+use crate::harness::fleet::{CLASSIFIER, FIXTURE_BOXSCORE, INVESTIGATOR};
 use crate::harness::plugin::PluginManifest;
 use crate::harness::tools::{ScopedWeb, WebBroker};
 use crate::tools::fetch::FetchPolicy;
@@ -60,7 +60,7 @@ fn non_wikimedia_urls_are_not_sniffed_into_a_class() {
 async fn undeclared_domain_is_refused_before_any_reach() {
     let broker = WebBroker::new(4).unwrap();
     let pool = lazy_pool();
-    let web = scope(&broker, &pool, &HARVESTER);
+    let web = scope(&broker, &pool, &CLASSIFIER);
 
     let err = web
         .fetch_for_class(

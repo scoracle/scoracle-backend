@@ -27,7 +27,17 @@ async fn main() -> Result<()> {
         )
         .init();
 
-    let cfg = config::Config::from_env()?;
+    let mut cfg = config::Config::from_env()?;
+    let configured_stages = std::env::var("COGNITION_STAGES").ok();
+    let enabled = registration::enabled_from_config(configured_stages.as_deref())?;
+    // Acquisition-only workers have no inference routes or model-host dependency.
+    let routes: Vec<_> = scoracle_cognition::harness::fleet::ALL
+        .iter()
+        .filter(|m| enabled.contains(m.task.as_str()))
+        .flat_map(|m| m.inference_routes.iter().copied())
+        .collect();
+    cfg.route.roles.retain(|key, _| routes.contains(key));
+    cfg.route.candidates.retain(|key, _| routes.contains(key));
     info!(
         model = %cfg.ollama_model,
         commit = buildinfo::COMMIT,
@@ -108,11 +118,6 @@ async fn main() -> Result<()> {
         .collect();
     routes.sort();
     info!(hosts = hosts.len(), routes = %routes.join(" "), "resolved model topology");
-
-    // Env-driven task selection. The available/default values come from the registered
-    // manifest fleet, so a task is not named separately in service configuration.
-    let configured_stages = std::env::var("COGNITION_STAGES").ok();
-    let enabled = registration::enabled_from_config(configured_stages.as_deref())?;
 
     // Shared database, routing, budget, and context-window capabilities.
     let models = std::sync::Arc::new(Models {

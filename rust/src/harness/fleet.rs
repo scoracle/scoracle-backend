@@ -6,10 +6,8 @@ pub use crate::plugins::analyst::manifest::MANIFEST as ANALYST;
 pub use crate::plugins::classifier::manifest::{
     ACQUIRE_MANIFEST as CLASSIFIER_ACQUIRE, MANIFEST as CLASSIFIER,
 };
-pub use crate::plugins::editor::manifest::MANIFEST as EDITOR;
 pub use crate::plugins::fixture_boxscore::manifest::MANIFEST as FIXTURE_BOXSCORE;
 pub use crate::plugins::graph::manifest::MANIFEST as GRAPH;
-pub use crate::plugins::harvester::manifest::MANIFEST as HARVESTER;
 pub use crate::plugins::influencer::manifest::MANIFEST as INFLUENCER;
 pub use crate::plugins::insider::manifest::MANIFEST as INSIDER;
 pub use crate::plugins::investigator::manifest::MANIFEST as INVESTIGATOR;
@@ -26,15 +24,13 @@ pub const MAC_SLOTS: (&str, usize) = ("mac-3b", 4);
 /// The deployable first-party worker fleet: the six reader-facing characters,
 /// then the internal seats. Registration order in `main.rs` follows the queue's
 /// dependency order instead; this list is the identity roster.
-pub const ALL: [&PluginManifest; 13] = [
+pub const ALL: [&PluginManifest; 11] = [
     &JOURNALIST,
     &INFLUENCER,
     &SCOUT,
     &INSIDER,
     &ANALYST,
     &ORACLE,
-    &HARVESTER,
-    &EDITOR,
     &INVESTIGATOR,
     &FIXTURE_BOXSCORE,
     &GRAPH,

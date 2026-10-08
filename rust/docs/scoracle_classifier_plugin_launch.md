@@ -479,6 +479,12 @@ The fictional native check verifies complete-body delivery, exact names, invente
 
 The committed production schema, reference data and migrations 291–296 restore successfully into isolated Postgres. All five Analyst publication/recovery checks, six Oracle publication/barrier checks and four durable outbox recovery checks pass against that full schema, including process-crash rehearsals. Their established product and serving contracts need no replacement adapter. Read-only production verification: API active; cognition service and watcher inactive/disabled. October 8 RSS fetched 8,512 fresh articles across 206 team feeds with zero failures; the daily ingest cron remains scheduled.
 
+### Deployable intake retirement — October 8
+
+Harvester and Editor are removed from the first-party runtime roster, registration and model bindings. Explicit old stage lists fail at boot. Historical code and immutable finished receipts remain available for archived experiments/history; active consumers do not route through them. Classifier source acquisition and inference have distinct manifests, grants and concurrency. The daemon resolves enabled stages before building its model topology, so acquisition-only boot does not initialize or ping any model host.
+
+Verification: 371 active Rust tests and all-targets compilation pass. Analyst/Oracle need no plugin change because their existing native product/reaction contracts pass the full-schema checks above.
+
 ### Deferred accuracy qualification and production acceptance
 
 These accuracy tasks belong to the dedicated calibration session. They do not block implementation or testing of the plumbing. The current Rust suite has 371 passing active tests; all five explicitly run disposable-database flow checks also pass. Production cognition remains paused until deployment is explicitly resumed.

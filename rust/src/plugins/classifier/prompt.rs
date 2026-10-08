@@ -75,14 +75,6 @@ pub fn prepare(source: &Source, target: &Value) -> Result<(String, GenerateOptio
     ))
 }
 
-pub fn check_budget(
-    prompt: &str,
-    options: &GenerateOptions,
-    prepared: &crate::harness::model::PreparedRequest,
-) -> Result<()> {
-    prepared.verify_input(prompt, options)
-}
-
 fn output_schema(request: &Value) -> Result<Value> {
     let contract = &request["output_contract"];
     let quote = json!({"type":"object", "additionalProperties":false, "required":["quote","occurrence"],

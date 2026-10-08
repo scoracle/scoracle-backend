@@ -264,10 +264,10 @@ fn bind_list(body: &str, quotes: Option<Vec<Quote>>) -> Result<Option<Vec<Span>>
 }
 
 /// Decode one complete reply. Semantic correctness still requires independent review.
-pub fn qualify(source: &Source, target: &Value, raw: &str) -> Result<Record> {
+pub fn qualify(source: &Source, target: &Value, raw: &str) -> Result<(Record, Measurements)> {
     check_target(source, target)?;
     let proposal: Proposal = serde_json::from_str(raw).context("qualification reply contract")?;
-    measurements(source, target, proposal.measurements)?;
+    let measured = measurements(source, target, proposal.measurements)?;
     let mut claims = Vec::new();
     for claim in proposal.claims {
         claims.push(Claim {
@@ -297,7 +297,7 @@ pub fn qualify(source: &Source, target: &Value, raw: &str) -> Result<Record> {
         claims,
     };
     validate(source, &record)?;
-    Ok(record)
+    Ok((record, measured))
 }
 
 fn span_valid(body: &str, span: &Span) -> Result<()> {

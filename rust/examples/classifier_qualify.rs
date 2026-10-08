@@ -95,7 +95,7 @@ fn main() -> Result<()> {
                         == reply.request_sha256,
                     "source, target or qualification request drift"
                 );
-                let record = classifier::qualify(source, &reply.target, &reply.raw_response)?;
+                let (record, _) = classifier::qualify(source, &reply.target, &reply.raw_response)?;
                 let world = classifier::emotional_world(source, &record)?;
                 receipt["qualification"] = serde_json::to_value(record)?;
                 receipt["selection"] = world;

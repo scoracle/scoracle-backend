@@ -194,29 +194,26 @@ impl StudioPlugin for AcquireHandler {
             FROM jsonb_array_elements($4::jsonb) c")
             .bind(item.entity_id).bind(&item.sport).bind(source_id).bind(&source.provenance["identity_candidates"])
             .execute(&mut **publication.transaction()).await?;
-        work::enqueue(
-            &mut **publication.transaction(),
-            &Item {
-                stage: super::manifest::TASK,
-                input_version: Some(source_id.to_string()),
-                claim_token: None,
-                attempts: 0,
-                ..item.clone()
-            },
-        )
-        .await?;
         // Source-bound investigation nominations need acquired text, not calibrated scores.
-        work::enqueue(
-            &mut **publication.transaction(),
-            &Item {
-                stage: crate::plugins::graph::manifest::TASK,
-                input_version: Some(format!("classifier-source:{source_id}")),
-                claim_token: None,
-                attempts: 0,
-                ..item.clone()
-            },
-        )
-        .await?;
+        for (stage, version) in [
+            (super::manifest::TASK, source_id.to_string()),
+            (
+                crate::plugins::graph::manifest::TASK,
+                format!("classifier-source:{source_id}"),
+            ),
+        ] {
+            work::enqueue(
+                &mut **publication.transaction(),
+                &Item {
+                    stage,
+                    input_version: Some(version),
+                    claim_token: None,
+                    attempts: 0,
+                    ..item.clone()
+                },
+            )
+            .await?;
+        }
         publication.commit_final().await?;
         Ok(PluginOutcome::Committed)
     }
@@ -299,7 +296,7 @@ pub async fn measure(model: &dyn Inference, source: &Source, target: &Value) -> 
             &prepared.request
         )?);
         receipt["preflight"] = serde_json::to_value(&prepared.coverage)?;
-        prompt::check_budget(&built, &options, &prepared)?;
+        prepared.verify_input(&built, &options)?;
         receipt["input_coverage"] = json!("complete_source_submitted");
         let (generated, sent) = model.generate_prepared(&built, &options, &prepared).await?;
         receipt["raw_response"] = json!(generated.raw_response_body);
@@ -332,9 +329,7 @@ pub async fn measure(model: &dyn Inference, source: &Source, target: &Value) -> 
             revision == model.revision().await?,
             "Classifier model artifact changed during inference"
         );
-        let qualified = qualify(source, target, &generated.response)?;
-        let proposed: super::Proposal = serde_json::from_str(&generated.response)?;
-        let measured = super::measurements(source, target, proposed.measurements)?;
+        let (qualified, measured) = qualify(source, target, &generated.response)?;
         receipt["selection"] = emotional_world(source, &qualified)?;
         receipt["qualification"] = serde_json::to_value(qualified)?;
         receipt["measurements"] = serde_json::to_value(measured)?;
@@ -414,7 +409,7 @@ pub(crate) async fn execute_model(
         let reused = if revision.is_some() {
             let (built, options) = prompt::prepare(&source, target)?;
             match model.prepare(&built, &options).await {
-                Ok(prepared) if prompt::check_budget(&built, &options, &prepared).is_ok() => {
+                Ok(prepared) if prepared.verify_input(&built, &options).is_ok() => {
                     let key = request_hash(model, &source, target, &revision, &prepared.request)?;
                     sqlx::query_scalar::<_,i64>("SELECT id FROM public.classifier_measurements WHERE article_id=$1 AND sport=$2 AND request_hash=$3 AND status='source_bound_provisional' AND receipt->>'tokenizer_coverage_verified'='true' ORDER BY id DESC LIMIT 1")
                         .bind(item.entity_id).bind(&item.sport).bind(&key).fetch_optional(pool).await?
@@ -506,13 +501,11 @@ pub(crate) async fn load_measurement_on(
     );
     let record: Record = serde_json::from_value(receipt["qualification"].clone())?;
     let response = receipt["response"].as_str().context("measurement reply")?;
-    let qualified = qualify(&source, &receipt["target"], response)?;
+    let (qualified, measured) = qualify(&source, &receipt["target"], response)?;
     ensure!(
         serde_json::to_value(&qualified)? == serde_json::to_value(&record)?,
         "qualification differs from retained model reply"
     );
-    let proposal: super::Proposal = serde_json::from_str(response)?;
-    let measured = super::measurements(&source, &record.target, proposal.measurements)?;
     ensure!(
         serde_json::to_value(&measured)? == receipt["measurements"],
         "measurement envelope drift"

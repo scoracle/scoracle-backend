@@ -69,7 +69,9 @@ fn source_qualification_and_world_contract() {
         }
         quotes(&source.body, &mut reply["claims"]);
         let proposal = json!({"complete_source_review": true, "extraction_usable": true, "claims": reply["claims"]});
-        let bound = qualify(&source, &record.target, &proposal.to_string()).unwrap();
+        let (bound, measured) = qualify(&source, &record.target, &proposal.to_string()).unwrap();
+        assert_eq!(measured.body_sha256, record.body_sha256);
+        assert_eq!(measured.target, record.target);
         assert_eq!(
             serde_json::to_value(&bound).unwrap(),
             serde_json::to_value(&record).unwrap()

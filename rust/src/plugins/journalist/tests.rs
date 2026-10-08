@@ -14,6 +14,7 @@ fn subject() -> EntityMeta {
 }
 fn item(id: i64, context: &str) -> CorpusItem {
     CorpusItem {
+        classifier_world: None,
         id,
         title: format!("Cedar United report {id}"),
         context: context.into(),
@@ -148,6 +149,36 @@ fn prior_sourced_text_prevents_republication_without_becoming_new_evidence() {
     let a = prepare(subject(), vec![item(1, "Cedar won.")], &memory, NOW).unwrap();
     assert!(a.selected.is_empty());
     assert_eq!(a.dispositions[0].reason, "already_reported_exact_text");
+}
+
+#[test]
+fn classifier_relationships_survive_preparation_and_invalidate_exact_copy_reuse() {
+    let mut report = item(1, "Cedar denied the move.");
+    report.classifier_world = Some(json!({"qualified_claims":[{
+        "publisher_text":"Cedar denied the move.","kind":"report_denial",
+        "target_relation":"unknown","time_scope":"unknown",
+        "qualifiers":{"negation":["denied"],"speaker":null}}],"signals_unassessed":true}));
+    let original = prepared(vec![report.clone()]);
+    let packet: serde_json::Value = serde_json::from_str(&prompt(&original)).unwrap();
+    assert_eq!(
+        packet["fresh"][0]["classifier_world"],
+        report.classifier_world.clone().unwrap()
+    );
+    let mut memory = Continuity::default();
+    memory.published_reports.push(report.clone());
+    assert!(prepare(subject(), vec![report.clone()], &memory, NOW)
+        .unwrap()
+        .selected
+        .is_empty());
+    report.classifier_world.as_mut().unwrap()["qualified_claims"][0]["target_relation"] =
+        json!("direct_subject");
+    let changed = prepare(subject(), vec![report], &memory, NOW).unwrap();
+    assert_eq!(
+        changed.selected.len(),
+        1,
+        "changed relationships are new material even when source text is unchanged"
+    );
+    assert_ne!(original.input_hash, changed.input_hash);
 }
 #[test]
 fn identity_content_attribution_and_date_are_fingerprinted() {

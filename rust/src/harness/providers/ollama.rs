@@ -139,6 +139,33 @@ impl OllamaClient {
         &self.model
     }
 
+    /// Resolve a mutable local tag to its current manifest digest for measurement reuse.
+    pub async fn revision(&self) -> Result<String> {
+        let response = self
+            .http
+            .get(format!("{}/api/tags", self.base_url))
+            .send()
+            .await
+            .context("resolve Ollama artifact")?
+            .error_for_status()?
+            .json::<serde_json::Value>()
+            .await?;
+        let name = if self.model.contains(':') {
+            self.model.clone()
+        } else {
+            format!("{}:latest", self.model)
+        };
+        response["models"]
+            .as_array()
+            .context("Ollama model inventory")?
+            .iter()
+            .find(|row| row["name"].as_str() == Some(name.as_str()))
+            .and_then(|row| row["digest"].as_str())
+            .filter(|digest| !digest.is_empty())
+            .map(str::to_owned)
+            .with_context(|| format!("Ollama artifact absent: {name}"))
+    }
+
     /// build_request assembles the `/api/chat` request body for `(prompt, opts)`.
     /// Single source of truth shared by `generate` (what we actually POST) and
     /// `request_body` (used by request builders and ledger capture), so stored
@@ -338,6 +365,12 @@ mod completion_tests {
         }
         assert!(validate_completion(Some("stop"), Some(false)).is_err());
         assert!(validate_completion(Some("stop"), Some(true)).is_ok());
+        let wrapped = anyhow::Error::new(crate::harness::model::ResponseFailure {
+            raw_response_body: "raw incomplete reply".into(),
+            error: IncompleteOutput("length".into()).into(),
+        });
+        assert!(crate::harness::model::is_incomplete_output(&wrapped));
+        assert!(crate::harness::session::structured_correction(&wrapped).is_some());
         // Older compatible servers may omit the optional signal.
         assert!(validate_completion(None, None).is_ok());
     }

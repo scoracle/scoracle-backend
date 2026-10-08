@@ -4463,5 +4463,782 @@
     "gpu": "NVIDIA GeForce GTX 1070 Ti",
     "gpu_compute_capability": "6.1",
     "gpu_execution": "installed PyTorch CUDA build kernel probe failed"
+  },
+  "gpu_followup": {
+    "raw_run_directory": "/mnt/data/backup/scoracle/classifier-launch/2026-10-07/gpu-v1/",
+    "human_reviewed": false,
+    "calibrated": false,
+    "notes": [
+      "Controlled float32 baseline; Laya autocast disabled. Optimized precision has not been compared.",
+      "Opening test processes one article per call; batch size does not represent cross-article throughput.",
+      "Full test batches up to four windows within each article, retains complete declared source coverage.",
+      "Further inference paused for GitHub implementation research; hosted Jev not tested."
+    ],
+    "runs": {
+      "matched-gpu.jsonl": {
+        "sha256": "186837c7d4e907e34d0163b7ce7a2fa5768f3e482bf8ed066fb1c2645713f293",
+        "receipt_count": 112,
+        "status_counts": {
+          "measured": 112
+        },
+        "models": {
+          "Horizon-Labs/multilingual-emotions-small": {
+            "real_source_count": 20,
+            "real_window_count": 20,
+            "median_ms": 12.008157558739185,
+            "sum_item_medians_ms": 240.60906190425158,
+            "provenance": {
+              "model": "Horizon-Labs/multilingual-emotions-small",
+              "revision": "1bc9627f189e5aa08b00cf525c3c86052067b81e",
+              "tokenizer_sha256": "d5d80735cc9dfbbc2a4f3cc7c99300182ffffecd02fe38ab8b528d26c6220800",
+              "device": "cuda",
+              "batch_size": 8,
+              "threads": 2,
+              "warmup": 1,
+              "repeats": 3,
+              "runtime": {
+                "torch": "2.14.0+cu126",
+                "transformers": "5.17.0",
+                "huggingface_hub": "1.33.0"
+              },
+              "gpu": {
+                "name": "NVIDIA GeForce GTX 1070 Ti",
+                "capability": [
+                  6,
+                  1
+                ],
+                "archs": [
+                  "sm_50",
+                  "sm_60",
+                  "sm_70",
+                  "sm_75",
+                  "sm_80",
+                  "sm_86",
+                  "sm_90"
+                ],
+                "cuda": "12.6"
+              }
+            }
+          },
+          "SamLowe/roberta-base-go_emotions": {
+            "real_source_count": 20,
+            "real_window_count": 20,
+            "median_ms": 11.370465159416199,
+            "sum_item_medians_ms": 236.2315384671092,
+            "provenance": {
+              "model": "SamLowe/roberta-base-go_emotions",
+              "revision": "d75048347613a25d77de8cf6412eaae9fa7b26be",
+              "tokenizer_sha256": "3f7e8eed9fba7e6215dcdd6f04246c636b66377ba594c575625656a32a235757",
+              "device": "cuda",
+              "batch_size": 8,
+              "threads": 2,
+              "warmup": 1,
+              "repeats": 3,
+              "runtime": {
+                "torch": "2.14.0+cu126",
+                "transformers": "5.17.0",
+                "huggingface_hub": "1.33.0"
+              },
+              "gpu": {
+                "name": "NVIDIA GeForce GTX 1070 Ti",
+                "capability": [
+                  6,
+                  1
+                ],
+                "archs": [
+                  "sm_50",
+                  "sm_60",
+                  "sm_70",
+                  "sm_75",
+                  "sm_80",
+                  "sm_86",
+                  "sm_90"
+                ],
+                "cuda": "12.6"
+              }
+            }
+          },
+          "Pradeep-mahato/ModernBERT-GoEmotions": {
+            "real_source_count": 20,
+            "real_window_count": 20,
+            "median_ms": 17.952183494344354,
+            "sum_item_medians_ms": 356.67441552504897,
+            "provenance": {
+              "model": "Pradeep-mahato/ModernBERT-GoEmotions",
+              "revision": "e7f0a1ccbe10ba1113f39cc6f38733b065cdfb74",
+              "tokenizer_sha256": "6a2ebcf90746b775a4a991add9ff39eb9d3ec790b164741e296e7de3bf9ef83e",
+              "device": "cuda",
+              "batch_size": 8,
+              "threads": 2,
+              "warmup": 1,
+              "repeats": 3,
+              "runtime": {
+                "torch": "2.14.0+cu126",
+                "transformers": "5.17.0",
+                "huggingface_hub": "1.33.0"
+              },
+              "gpu": {
+                "name": "NVIDIA GeForce GTX 1070 Ti",
+                "capability": [
+                  6,
+                  1
+                ],
+                "archs": [
+                  "sm_50",
+                  "sm_60",
+                  "sm_70",
+                  "sm_75",
+                  "sm_80",
+                  "sm_86",
+                  "sm_90"
+                ],
+                "cuda": "12.6"
+              }
+            }
+          },
+          "laya": {
+            "real_source_count": 20,
+            "real_window_count": 20,
+            "median_ms": 791.6846217121929,
+            "sum_item_medians_ms": 16578.398257959634,
+            "provenance": {
+              "model": "laya",
+              "revision": "55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851",
+              "weights_sha256": "891102d372688fc2a094dac56a384bc537b87c63f21f9f3dac0be2b7cbc8d86c",
+              "tokenizer_sha256": "f64652c0d4292921662f8a34068ed38c9db4a8e78daae667eaff88a30494ef8b",
+              "device": "cuda",
+              "batch_size": 8,
+              "threads": 2,
+              "warmup": 1,
+              "repeats": 3,
+              "runtime": {
+                "torch": "2.14.0+cu126",
+                "transformers": "5.17.0",
+                "huggingface_hub": "1.33.0",
+                "laya": "0.3.20"
+              },
+              "gpu": {
+                "name": "NVIDIA GeForce GTX 1070 Ti",
+                "capability": [
+                  6,
+                  1
+                ],
+                "archs": [
+                  "sm_50",
+                  "sm_60",
+                  "sm_70",
+                  "sm_75",
+                  "sm_80",
+                  "sm_86",
+                  "sm_90"
+                ],
+                "cuda": "12.6"
+              }
+            }
+          }
+        }
+      },
+      "full-gpu.jsonl": {
+        "sha256": "2d24b3d7d0f7773b625db03f6611bcc432b9a4a6b54a71de83bdb89d763a8f90",
+        "receipt_count": 192,
+        "status_counts": {
+          "measured": 192
+        },
+        "models": {
+          "Horizon-Labs/multilingual-emotions-small": {
+            "real_source_count": 40,
+            "real_window_count": 374,
+            "median_ms": 41.94750706665218,
+            "sum_item_medians_ms": 2802.7417259290814,
+            "provenance": {
+              "model": "Horizon-Labs/multilingual-emotions-small",
+              "revision": "1bc9627f189e5aa08b00cf525c3c86052067b81e",
+              "tokenizer_sha256": "d5d80735cc9dfbbc2a4f3cc7c99300182ffffecd02fe38ab8b528d26c6220800",
+              "device": "cuda",
+              "batch_size": 4,
+              "threads": 2,
+              "warmup": 1,
+              "repeats": 1,
+              "runtime": {
+                "torch": "2.14.0+cu126",
+                "transformers": "5.17.0",
+                "huggingface_hub": "1.33.0"
+              },
+              "gpu": {
+                "name": "NVIDIA GeForce GTX 1070 Ti",
+                "capability": [
+                  6,
+                  1
+                ],
+                "archs": [
+                  "sm_50",
+                  "sm_60",
+                  "sm_70",
+                  "sm_75",
+                  "sm_80",
+                  "sm_86",
+                  "sm_90"
+                ],
+                "cuda": "12.6"
+              }
+            }
+          },
+          "SamLowe/roberta-base-go_emotions": {
+            "real_source_count": 40,
+            "real_window_count": 374,
+            "median_ms": 50.72200810536742,
+            "sum_item_medians_ms": 3617.5508638843894,
+            "provenance": {
+              "model": "SamLowe/roberta-base-go_emotions",
+              "revision": "d75048347613a25d77de8cf6412eaae9fa7b26be",
+              "tokenizer_sha256": "3f7e8eed9fba7e6215dcdd6f04246c636b66377ba594c575625656a32a235757",
+              "device": "cuda",
+              "batch_size": 4,
+              "threads": 2,
+              "warmup": 1,
+              "repeats": 1,
+              "runtime": {
+                "torch": "2.14.0+cu126",
+                "transformers": "5.17.0",
+                "huggingface_hub": "1.33.0"
+              },
+              "gpu": {
+                "name": "NVIDIA GeForce GTX 1070 Ti",
+                "capability": [
+                  6,
+                  1
+                ],
+                "archs": [
+                  "sm_50",
+                  "sm_60",
+                  "sm_70",
+                  "sm_75",
+                  "sm_80",
+                  "sm_86",
+                  "sm_90"
+                ],
+                "cuda": "12.6"
+              }
+            }
+          },
+          "Pradeep-mahato/ModernBERT-GoEmotions": {
+            "real_source_count": 40,
+            "real_window_count": 374,
+            "median_ms": 70.78954204916954,
+            "sum_item_medians_ms": 4922.532011754811,
+            "provenance": {
+              "model": "Pradeep-mahato/ModernBERT-GoEmotions",
+              "revision": "e7f0a1ccbe10ba1113f39cc6f38733b065cdfb74",
+              "tokenizer_sha256": "6a2ebcf90746b775a4a991add9ff39eb9d3ec790b164741e296e7de3bf9ef83e",
+              "device": "cuda",
+              "batch_size": 4,
+              "threads": 2,
+              "warmup": 1,
+              "repeats": 1,
+              "runtime": {
+                "torch": "2.14.0+cu126",
+                "transformers": "5.17.0",
+                "huggingface_hub": "1.33.0"
+              },
+              "gpu": {
+                "name": "NVIDIA GeForce GTX 1070 Ti",
+                "capability": [
+                  6,
+                  1
+                ],
+                "archs": [
+                  "sm_50",
+                  "sm_60",
+                  "sm_70",
+                  "sm_75",
+                  "sm_80",
+                  "sm_86",
+                  "sm_90"
+                ],
+                "cuda": "12.6"
+              }
+            }
+          },
+          "laya": {
+            "real_source_count": 40,
+            "real_window_count": 374,
+            "median_ms": 4739.405828295276,
+            "sum_item_medians_ms": 338989.6268802695,
+            "provenance": {
+              "model": "laya",
+              "revision": "55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851",
+              "weights_sha256": "891102d372688fc2a094dac56a384bc537b87c63f21f9f3dac0be2b7cbc8d86c",
+              "tokenizer_sha256": "f64652c0d4292921662f8a34068ed38c9db4a8e78daae667eaff88a30494ef8b",
+              "device": "cuda",
+              "batch_size": 4,
+              "threads": 2,
+              "warmup": 1,
+              "repeats": 1,
+              "runtime": {
+                "torch": "2.14.0+cu126",
+                "transformers": "5.17.0",
+                "huggingface_hub": "1.33.0",
+                "laya": "0.3.20"
+              },
+              "gpu": {
+                "name": "NVIDIA GeForce GTX 1070 Ti",
+                "capability": [
+                  6,
+                  1
+                ],
+                "archs": [
+                  "sm_50",
+                  "sm_60",
+                  "sm_70",
+                  "sm_75",
+                  "sm_80",
+                  "sm_86",
+                  "sm_90"
+                ],
+                "cuda": "12.6"
+              }
+            }
+          }
+        }
+      },
+      "laya-choice-gpu.jsonl": {
+        "sha256": "a6e4144b2c3d37bb3cc127c9058c25af02a036c8735c9eadb1502c7ea567f100",
+        "receipt_count": 28,
+        "status_counts": {
+          "measured": 28
+        },
+        "models": {
+          "laya": {
+            "real_source_count": 20,
+            "real_window_count": 20,
+            "median_ms": 792.502942495048,
+            "sum_item_medians_ms": 16627.059400081635,
+            "provenance": {
+              "model": "laya",
+              "revision": "55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851",
+              "weights_sha256": "891102d372688fc2a094dac56a384bc537b87c63f21f9f3dac0be2b7cbc8d86c",
+              "tokenizer_sha256": "f64652c0d4292921662f8a34068ed38c9db4a8e78daae667eaff88a30494ef8b",
+              "device": "cuda",
+              "batch_size": 8,
+              "threads": 2,
+              "warmup": 1,
+              "repeats": 3,
+              "runtime": {
+                "torch": "2.14.0+cu126",
+                "transformers": "5.17.0",
+                "huggingface_hub": "1.33.0",
+                "laya": "0.3.20"
+              },
+              "gpu": {
+                "name": "NVIDIA GeForce GTX 1070 Ti",
+                "capability": [
+                  6,
+                  1
+                ],
+                "archs": [
+                  "sm_50",
+                  "sm_60",
+                  "sm_70",
+                  "sm_75",
+                  "sm_80",
+                  "sm_86",
+                  "sm_90"
+                ],
+                "cuda": "12.6"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "decision_followup_2026_10_08": {
+    "contract": "classifier-decision-full-source-experiment-v1",
+    "date": "2026-10-08",
+    "source_sha256": "1d67addb33dec89c5de72874cb9620c8e6ce7c8eece92d343733307b8e4025b8",
+    "reference_sha256": "b41013b3a27314ffca3bd243b8da6a0a4a36ed8e536ebb9cafdcf4fbd7a7470e",
+    "decision_request_sha256": "166f43bae8deb9c61a52655f58b6cd2cc4baa7407def262d589eec9316e4191d",
+    "cases": 32,
+    "old_controls": 12,
+    "fresh_controls": 8,
+    "fresh_real": 12,
+    "presence_dimensions": 51,
+    "ordinal_anchor_tasks": 3,
+    "diagnostic_predicates": 6,
+    "source_usability_task": 1,
+    "models": [
+      {
+        "model": "Laya",
+        "receipts": "laya-decisions.jsonl",
+        "revision": "22265007700297ba9e128297e82540cf28c5d7d4",
+        "hardware": "Apple M4 Metal",
+        "precision": "Q8_0",
+        "complete": 32,
+        "cases": 32,
+        "real_cases": 12,
+        "real_median_inference_ms": 12642.080541700125,
+        "real_total_inference_ms": 157339.89091636613,
+        "real_median_end_to_end_ms": 12731.178646208718,
+        "accuracy": {
+          "receipt_sha256": "d3c6a163ed0c7a6eda19cecc1ff0d46222eaa80d5aa14a41195f1ce64a0d2359",
+          "fresh_control": {
+            "cases": 8,
+            "diagnostic_correct": 18,
+            "diagnostic_evaluated": 48,
+            "usable_correct": 6,
+            "usable_evaluated": 8,
+            "no_current_target_emotion_correct": 0,
+            "no_current_target_emotion_evaluated": 0,
+            "always_absent_correct": 41,
+            "confusion": {
+              "tp": 4,
+              "fp": 27,
+              "tn": 14,
+              "fn": 3,
+              "failed": 0
+            }
+          },
+          "fresh_real": {
+            "cases": 12,
+            "diagnostic_correct": 0,
+            "diagnostic_evaluated": 0,
+            "usable_correct": 9,
+            "usable_evaluated": 11,
+            "no_current_target_emotion_correct": 6,
+            "no_current_target_emotion_evaluated": 8,
+            "always_absent_correct": 0,
+            "confusion": {
+              "tp": 0,
+              "fp": 0,
+              "tn": 0,
+              "fn": 0,
+              "failed": 0
+            }
+          },
+          "existing_diagnostic": {
+            "cases": 12,
+            "diagnostic_correct": 0,
+            "diagnostic_evaluated": 0,
+            "usable_correct": 10,
+            "usable_evaluated": 12,
+            "no_current_target_emotion_correct": 0,
+            "no_current_target_emotion_evaluated": 0,
+            "always_absent_correct": 0,
+            "confusion": {
+              "tp": 0,
+              "fp": 0,
+              "tn": 0,
+              "fn": 0,
+              "failed": 0
+            }
+          }
+        },
+        "production_eligible": false,
+        "declared_source_revision": "7b928d828b7b0e022f929d9bd2e44165aa270148"
+      },
+      {
+        "model": "Kev 0.8B",
+        "receipts": "kev-decisions.jsonl",
+        "revision": "e551e319d483ff57e1ff208924b349d397cffc1c",
+        "hardware": "Apple M4 Metal",
+        "precision": "Q8_0",
+        "complete": 32,
+        "cases": 32,
+        "real_cases": 12,
+        "real_median_inference_ms": 7297.032604459673,
+        "real_total_inference_ms": 90388.0917080678,
+        "real_median_end_to_end_ms": 7340.070125181228,
+        "accuracy": {
+          "receipt_sha256": "80a0212428915d8331ec41de7d6381e5cd168135d5b8ed1e29063f44d139a76c",
+          "fresh_control": {
+            "cases": 8,
+            "diagnostic_correct": 39,
+            "diagnostic_evaluated": 48,
+            "usable_correct": 1,
+            "usable_evaluated": 8,
+            "no_current_target_emotion_correct": 0,
+            "no_current_target_emotion_evaluated": 0,
+            "always_absent_correct": 41,
+            "confusion": {
+              "tp": 2,
+              "fp": 4,
+              "tn": 37,
+              "fn": 5,
+              "failed": 0
+            }
+          },
+          "fresh_real": {
+            "cases": 12,
+            "diagnostic_correct": 0,
+            "diagnostic_evaluated": 0,
+            "usable_correct": 10,
+            "usable_evaluated": 11,
+            "no_current_target_emotion_correct": 6,
+            "no_current_target_emotion_evaluated": 8,
+            "always_absent_correct": 0,
+            "confusion": {
+              "tp": 0,
+              "fp": 0,
+              "tn": 0,
+              "fn": 0,
+              "failed": 0
+            }
+          },
+          "existing_diagnostic": {
+            "cases": 12,
+            "diagnostic_correct": 0,
+            "diagnostic_evaluated": 0,
+            "usable_correct": 2,
+            "usable_evaluated": 12,
+            "no_current_target_emotion_correct": 0,
+            "no_current_target_emotion_evaluated": 0,
+            "always_absent_correct": 0,
+            "confusion": {
+              "tp": 0,
+              "fp": 0,
+              "tn": 0,
+              "fn": 0,
+              "failed": 0
+            }
+          }
+        },
+        "production_eligible": false,
+        "declared_source_revision": "bf75a6a8848ea6960ff2ed108d9ed44c2941174f"
+      },
+      {
+        "model": "Intern-Decision 0.8B",
+        "receipts": "intern-decisions.jsonl",
+        "revision": "85a0cc5a99d67ea8d56dfe98115689212867171d",
+        "hardware": "GTX 1070 Ti CUDA 12.6",
+        "precision": "float32",
+        "complete": 32,
+        "cases": 32,
+        "real_cases": 12,
+        "real_median_inference_ms": 2455.685362685472,
+        "real_total_inference_ms": 29865.52160512656,
+        "real_median_end_to_end_ms": 2470.958100631833,
+        "accuracy": {
+          "receipt_sha256": "456e21f7fe0599c557f384872833eab5299040de1ddf40e37018bb831f90a703",
+          "fresh_control": {
+            "cases": 8,
+            "diagnostic_correct": 41,
+            "diagnostic_evaluated": 48,
+            "usable_correct": 1,
+            "usable_evaluated": 8,
+            "no_current_target_emotion_correct": 0,
+            "no_current_target_emotion_evaluated": 0,
+            "always_absent_correct": 41,
+            "confusion": {
+              "tp": 0,
+              "fp": 0,
+              "tn": 41,
+              "fn": 7,
+              "failed": 0
+            }
+          },
+          "fresh_real": {
+            "cases": 12,
+            "diagnostic_correct": 0,
+            "diagnostic_evaluated": 0,
+            "usable_correct": 9,
+            "usable_evaluated": 11,
+            "no_current_target_emotion_correct": 6,
+            "no_current_target_emotion_evaluated": 8,
+            "always_absent_correct": 0,
+            "confusion": {
+              "tp": 0,
+              "fp": 0,
+              "tn": 0,
+              "fn": 0,
+              "failed": 0
+            }
+          },
+          "existing_diagnostic": {
+            "cases": 12,
+            "diagnostic_correct": 0,
+            "diagnostic_evaluated": 0,
+            "usable_correct": 0,
+            "usable_evaluated": 12,
+            "no_current_target_emotion_correct": 0,
+            "no_current_target_emotion_evaluated": 0,
+            "always_absent_correct": 0,
+            "confusion": {
+              "tp": 0,
+              "fp": 0,
+              "tn": 0,
+              "fn": 0,
+              "failed": 0
+            }
+          }
+        },
+        "production_eligible": false
+      },
+      {
+        "model": "GLiNER2.5 base",
+        "receipts": "gliner-base-v2.jsonl",
+        "revision": "ca906247640776a07753514055be9726f9080ead",
+        "hardware": "GTX 1070 Ti CUDA 12.6",
+        "precision": "float32",
+        "complete": 32,
+        "cases": 32,
+        "real_cases": 12,
+        "real_median_inference_ms": 578.6321279592812,
+        "real_total_inference_ms": 7449.940571095794,
+        "real_median_end_to_end_ms": 586.1850420478731,
+        "accuracy": {
+          "receipt_sha256": "f4d16c4cf568b13cbcf02a39ded9a79105cc616ed715fc6eaa5f3fdf2eb6b4d5",
+          "fresh_control": {
+            "cases": 8,
+            "diagnostic_correct": 39,
+            "diagnostic_evaluated": 48,
+            "usable_correct": 7,
+            "usable_evaluated": 8,
+            "no_current_target_emotion_correct": 0,
+            "no_current_target_emotion_evaluated": 0,
+            "always_absent_correct": 41,
+            "confusion": {
+              "tp": 4,
+              "fp": 6,
+              "tn": 35,
+              "fn": 3,
+              "failed": 0
+            }
+          },
+          "fresh_real": {
+            "cases": 12,
+            "diagnostic_correct": 0,
+            "diagnostic_evaluated": 0,
+            "usable_correct": 10,
+            "usable_evaluated": 11,
+            "no_current_target_emotion_correct": 7,
+            "no_current_target_emotion_evaluated": 8,
+            "always_absent_correct": 0,
+            "confusion": {
+              "tp": 0,
+              "fp": 0,
+              "tn": 0,
+              "fn": 0,
+              "failed": 0
+            }
+          },
+          "existing_diagnostic": {
+            "cases": 12,
+            "diagnostic_correct": 0,
+            "diagnostic_evaluated": 0,
+            "usable_correct": 11,
+            "usable_evaluated": 12,
+            "no_current_target_emotion_correct": 0,
+            "no_current_target_emotion_evaluated": 0,
+            "always_absent_correct": 0,
+            "confusion": {
+              "tp": 0,
+              "fp": 0,
+              "tn": 0,
+              "fn": 0,
+              "failed": 0
+            }
+          }
+        },
+        "production_eligible": false,
+        "maximum_peak_cuda_bytes": 2741508608
+      },
+      {
+        "model": "GLiNER2.5 multi-Decide",
+        "receipts": "gliner-decide.jsonl",
+        "revision": "a35a0cd3b7a0f00f2effc576f454cd48fa98aa5f",
+        "hardware": "GTX 1070 Ti CUDA 12.6",
+        "precision": "float32",
+        "complete": 32,
+        "cases": 32,
+        "real_cases": 12,
+        "real_median_inference_ms": 978.6219995003194,
+        "real_total_inference_ms": 11892.28027453646,
+        "real_median_end_to_end_ms": 987.1570703107864,
+        "accuracy": {
+          "receipt_sha256": "4caa72d0c6cea733b322aa906930c86064d805d0d80b4172a771c69e49458063",
+          "fresh_control": {
+            "cases": 8,
+            "diagnostic_correct": 35,
+            "diagnostic_evaluated": 48,
+            "usable_correct": 0,
+            "usable_evaluated": 8,
+            "no_current_target_emotion_correct": 0,
+            "no_current_target_emotion_evaluated": 0,
+            "always_absent_correct": 41,
+            "confusion": {
+              "tp": 1,
+              "fp": 7,
+              "tn": 34,
+              "fn": 6,
+              "failed": 0
+            }
+          },
+          "fresh_real": {
+            "cases": 12,
+            "diagnostic_correct": 0,
+            "diagnostic_evaluated": 0,
+            "usable_correct": 3,
+            "usable_evaluated": 11,
+            "no_current_target_emotion_correct": 8,
+            "no_current_target_emotion_evaluated": 8,
+            "always_absent_correct": 0,
+            "confusion": {
+              "tp": 0,
+              "fp": 0,
+              "tn": 0,
+              "fn": 0,
+              "failed": 0
+            }
+          },
+          "existing_diagnostic": {
+            "cases": 12,
+            "diagnostic_correct": 0,
+            "diagnostic_evaluated": 0,
+            "usable_correct": 0,
+            "usable_evaluated": 12,
+            "no_current_target_emotion_correct": 0,
+            "no_current_target_emotion_evaluated": 0,
+            "always_absent_correct": 0,
+            "confusion": {
+              "tp": 0,
+              "fp": 0,
+              "tn": 0,
+              "fn": 0,
+              "failed": 0
+            }
+          }
+        },
+        "production_eligible": false,
+        "maximum_peak_cuda_bytes": 4523313152
+      }
+    ],
+    "production_eligible": false,
+    "llama_cpp_release": "b11496",
+    "llama_cpp_macos_archive_sha256": "0eeb3bdef43d6b0ab28fb1b8aeacca8b2bb590cc76ca05c53ef0ac5e9850eebf",
+    "ollama_version": "0.40.1",
+    "timing_limitations": "One sequential pass, no repeated throughput trial; hardware/precision/tasks differ. GLiNER scores include native claim extraction; decision models score 61 predicates/choices. Preflight excluded from inference timings.",
+    "qualification_smoke": {
+      "qwen3:1.7b": {
+        "cases": 5,
+        "complete_inference": 5,
+        "native_accepted": 0,
+        "receipt_sha256": "c19b9ceef2e4b990ca9aa5e91454121d5aa7395ceceb319c71eb01d50e932cdf",
+        "production_eligible": false
+      },
+      "ministral-3:3b": {
+        "cases": 5,
+        "complete_inference": 4,
+        "native_accepted": 0,
+        "receipt_sha256": "aceba8e28ff6914c2efe6437dcf381e61e1d48cbc558120a973f61636ff7f8f1",
+        "production_eligible": false
+      }
+    },
+    "vector_schema_sha256": "4502d59153f052bfce2d76ef62559d99257923d1889dd4adf7130758a6cc7882",
+    "runner_sha256": {
+      "classifier_decision.py": "262814bddce622426fe9ff50766493870fc8749745f8bedccb897fb6cdf40f1e",
+      "classifier_gliner.py": "0f44087cb81429f9fd5c2ff7d3fd0323ac5f92ca6e3657e5c1def72fb9f432ee",
+      "classifier_decision_accuracy.py": "783a1f62063754a509c7f085f0b684b0b0fba37c13e29f2a7cb4f66bb6c6689c",
+      "classifier_infer.py": "af055dbc2f6c6d2ae40963a970156c834ff52f3ff8320e694f30fcc6a2ccbb29"
+    }
   }
 }

@@ -26,7 +26,7 @@
       "sport": "FOOTBALL"
     }
   },
-  "prompt_version": "n100-concise-body",
+  "prompt_version": "n101-classifier-world",
   "review": [
     "Articulate the supplied result and its scorer; add no significance the source does not carry.",
     "Keep the source's attribution and keep the result factual."

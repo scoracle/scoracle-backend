@@ -23,15 +23,15 @@ import (
 
 // Stage names the derivation step a work item belongs to. Go enqueues exactly
 // these three from its ingest/listener/reconciler paths; Rust drains them (and
-// enqueues its own inter-stage handoffs). StageHarvester is ARTICLE-keyed
+// enqueues its own inter-stage handoffs). StageClassifierAcquire is ARTICLE-keyed
 // (entity_type='article', entity_id=news_articles.id); the rest are per-entity
 // (player/team).
 type Stage string
 
 const (
 
-	// StageHarvester consumes each canonical article and all of its query provenance.
-	StageHarvester Stage = "harvester"
+	// StageClassifierAcquire acquires complete source text before any model admission.
+	StageClassifierAcquire Stage = "classifier_acquire"
 	// StageRating is enqueued by the percentile listener on significant rating
 	// movement. (Named "peak" until mig 221 retired the concept.)
 	StageRating Stage = "rating"

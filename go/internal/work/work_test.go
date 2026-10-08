@@ -96,11 +96,11 @@ func TestEnqueueDedups(t *testing.T) {
 	pool := testPool(t)
 
 	for i := 0; i < 3; i++ {
-		if err := Enqueue(ctx, pool, item(StageHarvester, 1, "v1")); err != nil {
+		if err := Enqueue(ctx, pool, item(StageClassifierAcquire, 1, "v1")); err != nil {
 			t.Fatalf("enqueue: %v", err)
 		}
 	}
-	status, inputVersion, n := rowState(t, pool, StageHarvester, 1)
+	status, inputVersion, n := rowState(t, pool, StageClassifierAcquire, 1)
 	if n != 1 {
 		t.Fatalf("want 1 row after duplicate enqueues, got %d", n)
 	}
@@ -151,10 +151,10 @@ func TestDeadLettersReportsParkedRows(t *testing.T) {
 	ctx := context.Background()
 	pool := testPool(t)
 
-	if err := Enqueue(ctx, pool, item(StageHarvester, 42, "")); err != nil {
+	if err := Enqueue(ctx, pool, item(StageClassifierAcquire, 42, "")); err != nil {
 		t.Fatalf("enqueue dead: %v", err)
 	}
-	if err := Enqueue(ctx, pool, item(StageHarvester, 43, "")); err != nil {
+	if err := Enqueue(ctx, pool, item(StageClassifierAcquire, 43, "")); err != nil {
 		t.Fatalf("enqueue retryable: %v", err)
 	}
 	if _, err := pool.Exec(ctx, `
@@ -162,7 +162,7 @@ func TestDeadLettersReportsParkedRows(t *testing.T) {
 		   SET status='failed', attempts=1, last_error='boom',
 		       available_at = NOW() + INTERVAL '100 years'
 		 WHERE stage=$1 AND entity_id=$2 AND sport=$3`,
-		string(StageHarvester), 42, testSport); err != nil {
+		string(StageClassifierAcquire), 42, testSport); err != nil {
 		t.Fatalf("park dead row: %v", err)
 	}
 	if _, err := pool.Exec(ctx, `
@@ -170,7 +170,7 @@ func TestDeadLettersReportsParkedRows(t *testing.T) {
 		   SET status='failed', attempts=1, last_error='transient',
 		       available_at = NOW() + INTERVAL '1 minute'
 		 WHERE stage=$1 AND entity_id=$2 AND sport=$3`,
-		string(StageHarvester), 43, testSport); err != nil {
+		string(StageClassifierAcquire), 43, testSport); err != nil {
 		t.Fatalf("mark retryable row: %v", err)
 	}
 

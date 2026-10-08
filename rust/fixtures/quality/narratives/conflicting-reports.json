@@ -34,7 +34,7 @@
       "sport": "FOOTBALL"
     }
   },
-  "prompt_version": "n100-concise-body",
+  "prompt_version": "n101-classifier-world",
   "review": [
     "Two keyed slots, two source positions. Neither may be merged into one settled fact.",
     "Both reports are unconfirmed; the reading must not resolve the contradiction for the reader."

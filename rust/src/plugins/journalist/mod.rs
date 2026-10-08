@@ -123,7 +123,7 @@ impl StudioPlugin for NarrativesHandler {
             sport: item.sport.to_uppercase(),
         };
         let material = prompt::load_narratives_material(&self.pool, subject, now).await?;
-        let payload = json!({"source":"harvester"});
+        let payload = json!({"source":"classifier"});
         if material.sources.is_empty() {
             return Ok(commit_claimed(
                 &self.pool,

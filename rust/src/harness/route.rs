@@ -53,6 +53,30 @@ struct GovernedInference {
 
 #[async_trait]
 impl Inference for GovernedInference {
+    async fn revision(&self) -> Result<Option<String>> {
+        self.inner.revision().await
+    }
+    async fn prepare(
+        &self,
+        prompt: &str,
+        opts: &GenerateOptions,
+    ) -> Result<crate::harness::model::PreparedRequest> {
+        self.inner.prepare(prompt, opts).await
+    }
+    async fn generate_prepared(
+        &self,
+        prompt: &str,
+        opts: &GenerateOptions,
+        prepared: &crate::harness::model::PreparedRequest,
+    ) -> Result<(GenerateResult, serde_json::Value)> {
+        let _permit = self
+            .gpu
+            .acquire()
+            .await
+            .map_err(|e| anyhow!("gpu governor semaphore closed: {e}"))?;
+        self.inner.generate_prepared(prompt, opts, prepared).await
+    }
+
     async fn generate(
         &self,
         prompt: &str,
@@ -415,10 +439,17 @@ mod tests {
         });
         let opts = GenerateOptions::default();
         let mut handles = Vec::new();
-        for _ in 0..n {
+        for index in 0..n {
             let g = Arc::clone(&governed);
             let o = opts.clone();
-            handles.push(tokio::spawn(async move { g.generate("x", &o).await }));
+            handles.push(tokio::spawn(async move {
+                if index % 2 == 0 {
+                    let prepared = g.prepare("x", &o).await?;
+                    g.generate_prepared("x", &o, &prepared).await
+                } else {
+                    g.generate("x", &o).await
+                }
+            }));
         }
         for h in handles {
             h.await.unwrap().unwrap();

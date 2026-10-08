@@ -1,7 +1,8 @@
 //! Model values and transport contract; concrete adapters live in harness/providers.
 
-use anyhow::Result;
+use anyhow::{ensure, Context, Result};
 use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
 /// Context window used by local model stages. Roles sharing one loaded runner must use the same
@@ -74,11 +75,91 @@ pub struct GenerateResult {
     pub raw_response_body: String,
 }
 
+/// Prepared wire request plus exact tokenizer evidence when the provider exposes it.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PreparedRequest {
+    pub request: serde_json::Value,
+    pub coverage: Option<InputCoverage>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct InputCoverage {
+    pub rendered_prompt: String,
+    pub token_ids: Vec<i32>,
+    pub context: i32,
+    pub provider: serde_json::Value,
+}
+
+impl PreparedRequest {
+    pub fn verify_input(&self, prompt: &str, opts: &GenerateOptions) -> Result<()> {
+        let prepared = self;
+        let coverage = prepared
+            .coverage
+            .as_ref()
+            .context("exact tokenizer evidence required")?;
+        ensure!(
+            !coverage.token_ids.is_empty() && coverage.token_ids.iter().all(|id| *id >= 0),
+            "invalid input token IDs"
+        );
+        ensure!(
+            coverage.rendered_prompt.contains(prompt)
+                && opts
+                    .system
+                    .as_ref()
+                    .is_none_or(|system| coverage.rendered_prompt.contains(system)),
+            "complete input missing from rendered template"
+        );
+        ensure!(
+            opts.num_ctx > 0 && opts.num_predict > 0 && coverage.context > 0,
+            "invalid input/output reservation"
+        );
+        let reserved = prepared.request["n_predict"]
+            .as_u64()
+            .or_else(|| prepared.request["options"]["num_predict"].as_u64())
+            .or_else(|| prepared.request["max_tokens"].as_u64())
+            .context("explicit transport output reservation required")?;
+        ensure!(
+            reserved >= opts.num_predict as u64,
+            "transport reduced the requested output reservation"
+        );
+        ensure!(coverage.token_ids.len() as u64+reserved <= coverage.context.min(opts.num_ctx) as u64,
+        "complete input plus reserved output exceeds actual model context; no source was clipped");
+        Ok(())
+    }
+}
+
 /// Inference — the model-call backend, the genuine swap point. `OllamaClient` is the first
 /// impl; a `dyn Inference` is what a plugin-owned route resolves to. `generate` returns the exact
 /// wire body it POSTed; `request_body` remains for no-call deterministic builders.
 #[async_trait]
 pub trait Inference: Send + Sync {
+    /// Immutable loaded artifact identity when the provider exposes one. Without it,
+    /// consumers retain provenance but must not reuse a mutable model tag's results.
+    async fn revision(&self) -> Result<Option<String>> {
+        Ok(None)
+    }
+
+    /// Providers with native tokenization prepare the exact token-ID wire request here.
+    async fn prepare(&self, prompt: &str, opts: &GenerateOptions) -> Result<PreparedRequest> {
+        Ok(PreparedRequest {
+            request: self.request_body(prompt, opts),
+            coverage: None,
+        })
+    }
+
+    async fn generate_prepared(
+        &self,
+        prompt: &str,
+        opts: &GenerateOptions,
+        prepared: &PreparedRequest,
+    ) -> Result<(GenerateResult, serde_json::Value)> {
+        anyhow::ensure!(
+            prepared.request == self.request_body(prompt, opts),
+            "prepared model request drift"
+        );
+        self.generate(prompt, opts).await
+    }
+
     /// generate performs one non-streaming completion. No auto-retry — the work queue owns
     /// backoff (the boundary the host already enforces), and returns the exact
     /// transport request body sent with the result.
@@ -91,8 +172,7 @@ pub trait Inference: Send + Sync {
     /// model returns the concrete model id, for provenance (`model_version`).
     fn model(&self) -> &str;
 
-    /// request_body returns the exact transport request body `generate` would POST for
-    /// `(prompt, opts)`.
+    /// Local request description. For tokenizing providers, `prepare` returns the final wire body.
     fn request_body(&self, prompt: &str, opts: &GenerateOptions) -> serde_json::Value;
 }
 
@@ -105,6 +185,11 @@ impl std::fmt::Display for IncompleteOutput {
     }
 }
 impl std::error::Error for IncompleteOutput {}
+
+/// Provider diagnostic wrappers must preserve the bounded completion-rewrite signal.
+pub fn is_incomplete_output(error: &anyhow::Error) -> bool {
+    error.chain().any(|cause| cause.is::<IncompleteOutput>())
+}
 
 /// Failed provider decoding retains the response for generation-attempt receipts.
 #[derive(Debug)]

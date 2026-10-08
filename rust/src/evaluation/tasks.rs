@@ -2045,6 +2045,7 @@ mod tests {
         let base = |reports: usize, history: bool| {
             let reports: Vec<CorpusItem> = (0..reports)
                 .map(|index| CorpusItem {
+                    classifier_world: None,
                     id: index as i64 + 1,
                     title: String::new(),
                     context: format!("Cedar reported {index}."),

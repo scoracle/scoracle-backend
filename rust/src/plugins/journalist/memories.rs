@@ -295,6 +295,7 @@ pub async fn load(pool: &PgPool, subject: &EntityMeta, now: i64) -> Result<Conti
     let mut published_reports = rows
         .into_iter()
         .map(|r| CorpusItem {
+            classifier_world: None,
             id: r.get("article_id"),
             title: r.get("headline"),
             context: r.get("context_text"),
@@ -302,6 +303,20 @@ pub async fn load(pool: &PgPool, subject: &EntityMeta, now: i64) -> Result<Conti
             published_at_epoch: r.get("published_at_epoch"),
         })
         .collect::<Vec<_>>();
+    published_reports.extend(
+        crate::plugins::classifier::delivery::load_used(
+            pool,
+            super::manifest::MANIFEST.id.as_str(),
+            &subject.entity_type,
+            subject.entity_id,
+            &subject.sport,
+            now - super::prompt::LOOKBACK_SECONDS,
+            now + 1,
+        )
+        .await?
+        .iter()
+        .map(CorpusItem::from),
+    );
     published_reports.sort_by(|a, b| {
         b.published_at_epoch
             .cmp(&a.published_at_epoch)

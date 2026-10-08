@@ -14,6 +14,9 @@ pub struct SourceContext {
     pub context: String,
     pub source: String,
     pub published_at_epoch: Option<i64>,
+    /// Native, source-bound relationships; absent on historical intake receipts.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub classifier_world: Option<serde_json::Value>,
 }
 
 #[derive(Serialize)]

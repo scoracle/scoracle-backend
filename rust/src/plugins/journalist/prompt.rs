@@ -16,7 +16,7 @@ use sqlx::PgPool;
 use std::collections::HashSet;
 
 pub(super) const FRESH_TASK: &str =
-    "Articulate each fresh item in its matching report_key, with the supplied voice and form. Use only the supplied reporting. Preserve attribution, uncertainty and report dates; published_at dates a report, not necessarily its events. No memories were supplied, so add no history. Voice and form are writing instructions, not evidence. Add no claim that is not supplied.";
+    "Articulate each fresh item in its matching report_key, with the supplied voice and form. Use only the supplied reporting. Preserve attribution, uncertainty and report dates; published_at dates a report, not necessarily its events. No memories were supplied, so add no history. classifier_world supplies proposed source-bound relationships, not independent confirmation. Unknown relationships remain unresolved. Read its literal claims with the complete publisher excerpt. Voice and form are writing instructions, not evidence. Add no claim that is not supplied.";
 
 const HISTORY_TASK: &str = "The input is an articulation package.
 meta identifies the entity.
@@ -24,11 +24,11 @@ fresh is the new source-backed reporting; each item has its output report_key.
 memories contains earlier source-backed reporting explicitly attached to a fresh item by report_key.
 voice describes how to articulate it.
 form describes the output structure.
-Articulate each fresh item in its matching report_key, using its attached memories where present. A report with no attached memories is articulated from its fresh item alone. Preserve attribution, uncertainty and report dates; published_at dates a report, not necessarily its events. Article counts measure stored reporting, not independent confirmation. Voice and form are writing instructions, not evidence. Add no history and no claim that is not supplied.";
+Articulate each fresh item in its matching report_key, using its attached memories where present. A report with no attached memories is articulated from its fresh item alone. Preserve attribution, uncertainty and report dates; published_at dates a report, not necessarily its events. Article counts measure stored reporting, not independent confirmation. classifier_world supplies proposed source-bound relationships, not independent confirmation. Unknown relationships remain unresolved. Read its literal claims with the complete publisher excerpt. Voice and form are writing instructions, not evidence. Add no history and no claim that is not supplied.";
 
 /// The current prompt keeps the flat keyed prose map and attaches prior reports
 /// through matching report keys in `memories`.
-pub const NARRATIVES_PROMPT_VERSION: &str = "n100-concise-body";
+pub const NARRATIVES_PROMPT_VERSION: &str = "n101-classifier-world";
 pub const NUM_PREDICT: i32 = 900;
 pub const NARRATIVES_OUTPUT_CONTRACT_VERSION: &str = "narratives-v11-nested-history";
 pub const LOOKBACK_SECONDS: i64 = 72 * 3600;
@@ -43,10 +43,13 @@ pub struct CorpusItem {
     pub context: String,
     pub source: String,
     pub published_at_epoch: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub classifier_world: Option<serde_json::Value>,
 }
 impl From<&SourceContext> for CorpusItem {
     fn from(s: &SourceContext) -> Self {
         Self {
+            classifier_world: s.classifier_world.clone(),
             id: s.article_id,
             title: s.headline.clone(),
             context: s.context.clone(),
@@ -106,7 +109,14 @@ pub fn prepare(
     let mut seen = memory
         .published_reports
         .iter()
-        .map(|r| r.context.clone())
+        .map(|r| {
+            (
+                r.context.clone(),
+                r.classifier_world
+                    .as_ref()
+                    .map(serde_json::Value::to_string),
+            )
+        })
         .collect::<HashSet<_>>();
     let mut ids = HashSet::new();
     for item in corpus {
@@ -124,7 +134,12 @@ pub fn prepare(
             Some("future_publication_time")
         } else if now.saturating_sub(item.published_at_epoch.unwrap()) > LOOKBACK_SECONDS {
             Some("outdated_report")
-        } else if seen.contains(&item.context) {
+        } else if seen.contains(&(
+            item.context.clone(),
+            item.classifier_world
+                .as_ref()
+                .map(serde_json::Value::to_string),
+        )) {
             Some("already_reported_exact_text")
         } else {
             None
@@ -151,7 +166,12 @@ pub fn prepare(
             deferred_ids.push(item.id);
             continue;
         }
-        seen.insert(item.context.clone());
+        seen.insert((
+            item.context.clone(),
+            item.classifier_world
+                .as_ref()
+                .map(serde_json::Value::to_string),
+        ));
         selected.push(item);
     }
     let memories = memories::select(memory, &selected, now, |history| {
@@ -285,7 +305,7 @@ pub fn generation_options(assignment: &Assignment, num_ctx: i32) -> GenerateOpti
     }
 }
 
-const FRESH_VERSION: &str = "journalist-fresh-v8";
+const FRESH_VERSION: &str = "journalist-fresh-v9-classifier";
 
 #[derive(Serialize)]
 pub(super) struct Report<'a> {
@@ -293,6 +313,8 @@ pub(super) struct Report<'a> {
     report_key: String,
     #[serde(flatten)]
     reporting: Reporting<'a>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    classifier_world: Option<&'a serde_json::Value>,
 }
 
 /// Preserve selected order and complete source text. Durable IDs, hashes,
@@ -305,6 +327,7 @@ pub(super) fn fresh_reports(reports: &[CorpusItem]) -> Vec<Report<'_>> {
         .map(|(index, report)| Report {
             report_key: format!("report_{}", index + 1),
             reporting: Reporting::new(&report.source, report.published_at_epoch, &report.context),
+            classifier_world: report.classifier_world.as_ref(),
         })
         .collect()
 }
@@ -321,7 +344,7 @@ pub async fn load_narratives_material(
     subject: EntityMeta,
     now: i64,
 ) -> Result<NarrativesMaterial> {
-    let sources = crate::plugins::harvester::delivery::load_for_character(
+    let sources = crate::plugins::classifier::delivery::load_for_character(
         pool,
         crate::plugins::journalist::manifest::MANIFEST.id.as_str(),
         &subject.entity_type,

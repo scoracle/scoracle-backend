@@ -3,6 +3,9 @@
 use crate::harness::plugin::PluginManifest;
 use crate::harness::route::RouteKey;
 pub use crate::plugins::analyst::manifest::MANIFEST as ANALYST;
+pub use crate::plugins::classifier::manifest::{
+    ACQUIRE_MANIFEST as CLASSIFIER_ACQUIRE, MANIFEST as CLASSIFIER,
+};
 pub use crate::plugins::editor::manifest::MANIFEST as EDITOR;
 pub use crate::plugins::fixture_boxscore::manifest::MANIFEST as FIXTURE_BOXSCORE;
 pub use crate::plugins::graph::manifest::MANIFEST as GRAPH;
@@ -23,7 +26,7 @@ pub const MAC_SLOTS: (&str, usize) = ("mac-3b", 4);
 /// The deployable first-party worker fleet: the six reader-facing characters,
 /// then the internal seats. Registration order in `main.rs` follows the queue's
 /// dependency order instead; this list is the identity roster.
-pub const ALL: [&PluginManifest; 11] = [
+pub const ALL: [&PluginManifest; 13] = [
     &JOURNALIST,
     &INFLUENCER,
     &SCOUT,
@@ -35,6 +38,8 @@ pub const ALL: [&PluginManifest; 11] = [
     &INVESTIGATOR,
     &FIXTURE_BOXSCORE,
     &GRAPH,
+    &CLASSIFIER_ACQUIRE,
+    &CLASSIFIER,
 ];
 
 /// Configured inference routes contributed by the statically linked plugin roster.

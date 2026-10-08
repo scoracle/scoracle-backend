@@ -12,7 +12,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"os"
 	"regexp"
 	"sort"
 	"strings"
@@ -140,7 +139,7 @@ const defaultRSSBaseURL = "https://news.google.com/rss/search"
 // NewsService fetches entity news from Google News RSS.
 //
 // When constructed with a non-nil pool, matched articles are persisted to
-// news_articles (with Harvester work enqueued in the same transaction).
+// news_articles (with native acquisition enqueued in the same transaction).
 // That populates the long-term corpus consumed by the cognition layer.
 type NewsService struct {
 	httpClient *http.Client
@@ -173,20 +172,9 @@ func isTeamEntity(entityType string) bool {
 	return strings.EqualFold(strings.TrimSpace(entityType), "team")
 }
 
-// Harvester intake requires its schema and worker before enrollment.
-func harvesterIngestEnabled() bool { return os.Getenv("HARVESTER_INGEST_ENABLED") == "1" }
-
-// GetEntityNews sweeps Google News RSS for one entity and persists what it
-// matched. entityType/entityID drive the write-through (news_articles + the
-// Harvester work, in one transaction); pass entityType="" / entityID=0 to fetch
-// without persisting.
-//
-// The first return is the article IDs HANDED TO THE EDITOR on this call. With the
-// per-entity daily cap armed that can be fewer than "freshly inserted" — an article
-// can be inserted and kept while its read is withheld. `Funnel.ReadsWithheld`
-// carries the difference. It is informational — persistArticles already enqueues
-// the read in its own transaction — and it is nil when write-through is skipped
-// or the persist failed.
+// GetEntityNews sweeps Google News RSS and atomically persists discovery plus
+// native Classifier acquisition work. With no entity identity it only fetches.
+// The first return contains article IDs whose acquisition was newly queued or revised.
 //
 // The second return is the fetch funnel for this entity: how much of the query
 // grid ran and what each filter stage discarded. It is returned even on error,
@@ -205,13 +193,13 @@ func (s *NewsService) GetEntityNews(
 	}
 
 	// Write-through: persist the matched articles (persistArticles also enqueues
-	// Harvester work in-txn). Non-fatal — a failed persist must not break the
-	// sweep; the caller logs and moves on.
+	// Classifier acquisition in-txn). The caller counts and reports persistence
+	// failures and continues the remaining teams in the sweep.
 	var affected []int64
 	if s.pool != nil && entityType != "" && entityID > 0 && len(matched) > 0 {
 		ids, withheld, perr := s.persistArticles(ctx, sport, entityType, entityID, matched)
 		if perr != nil {
-			s.logger.Warn("persist failed", "sport", sport, "entity_type", entityType, "entity_id", entityID, "error", perr)
+			return nil, funnel, fmt.Errorf("persist RSS discovery: %w", perr)
 		} else {
 			affected = ids
 			// D-T21: the cap's bite belongs in the funnel, not only in its own log line —
@@ -224,35 +212,15 @@ func (s *NewsService) GetEntityNews(
 	return affected, funnel, nil
 }
 
-// persistArticles writes the articles this sweep found, and nothing else.
-//
-// PLAN-one-rail 8.11: Go does not write `news_article_entities` at all any more. It used to insert
-// a "query hypothesis" link at confidence 0.95 for the entity whose sweep found the article —
-// which read as the corpus being populated at ingest, but no consumer on the packet rail ever saw
-// those rows: every one of them (the Journalist's corpus, the Insider's pairs, the graph, the SQL
-// rollups) filtered on `vetted IS TRUE`, and only the Editor sets that. The rows were write
-// amplification with a side effect — they gave the Editor's link write a second author to
-// reconcile with, which is the shape that silently lost articles' whole link sets (8.10).
-//
-// The hypothesis is not lost, because it was never really a link: which entity's sweep surfaced an
-// article is recorded in `news_articles.raw` (`q`, `lane`, `edition`, `window`, `query_team_id`,
-// `query_sport`) on INSERT, and the Harvester reads it from there. One writer per fact.
-//
-// So ingest's job is now exactly: write the article, enqueue the read. Google ranked it, Harvester
-// decides what it is about.
-//
-// Errors are returned to the caller but don't break the response path — the caller logs and moves
-// on. The returned slice is the article IDs freshly inserted this call (a re-seen URL is omitted)
-// handed to Harvester. The retained second return is zero; the Editor read cap is retired.
+// persistArticles retains every RSS query edge and queues native source acquisition.
+// Query provenance supplies candidate identities, never a relevance decision.
+// The second return is retained for the retired read-cap API and is always zero.
 func (s *NewsService) persistArticles(
 	ctx context.Context,
 	sport, primaryEntityType string,
 	primaryEntityID int,
 	articles []Article,
 ) ([]int64, int, error) {
-	if !harvesterIngestEnabled() || os.Getenv("HARVESTER_SHADOW_MODE") == "1" {
-		return nil, 0, fmt.Errorf("Editor intake is retired; enable HARVESTER_INGEST_ENABLED=1 with shadow mode off after deploying Harvester")
-	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, 0, err
@@ -261,8 +229,8 @@ func (s *NewsService) persistArticles(
 
 	sportUpper := strings.ToUpper(sport)
 
-	var needHarvester []int64
-	seenHarvester := make(map[int64]bool)
+	var discovered []int64
+	seen := make(map[int64]bool)
 
 	for _, a := range articles {
 		if a.URL == "" || a.Title == "" {
@@ -328,8 +296,7 @@ func (s *NewsService) persistArticles(
 		if err != nil {
 			return nil, 0, fmt.Errorf("encode harvester query: %w", err)
 		}
-		var firstEntityHit bool
-		err = tx.QueryRow(ctx, `
+		_, err = tx.Exec(ctx, `
 			INSERT INTO public.harvester_query_provenance
 			    (article_id, entity_type, entity_id, sport, feed_rank, query_terms)
 			VALUES ($1, $2, $3, $4, $5, jsonb_build_array($6::jsonb))
@@ -339,35 +306,30 @@ func (s *NewsService) persistArticles(
 			                       THEN harvester_query_provenance.query_terms
 			                       ELSE harvester_query_provenance.query_terms || EXCLUDED.query_terms END,
 			    last_seen_at = NOW()
-			RETURNING (xmax = 0)
-		`, articleID, primaryEntityType, primaryEntityID, sportUpper, a.FeedRank, hit).Scan(&firstEntityHit)
+		`, articleID, primaryEntityType, primaryEntityID, sportUpper, a.FeedRank, hit)
 		if err != nil {
 			return nil, 0, fmt.Errorf("upsert harvester query provenance: %w", err)
 		}
-		if firstEntityHit && !seenHarvester[articleID] {
-			seenHarvester[articleID] = true
-			needHarvester = append(needHarvester, articleID)
+		if !seen[articleID] {
+			seen[articleID] = true
+			discovered = append(discovered, articleID)
 		}
 	}
 
-	for _, id := range needHarvester {
-		var entities int
-		if err := tx.QueryRow(ctx,
-			"SELECT count(*) FROM public.harvester_query_provenance WHERE article_id = $1", id,
-		).Scan(&entities); err != nil {
-			return nil, 0, fmt.Errorf("count harvester query entities: %w", err)
+	var queued []int64
+	for _, id := range discovered {
+		var changed bool
+		if err := tx.QueryRow(ctx, "SELECT public.classifier_enqueue_acquisition($1,$2)", id, sportUpper).Scan(&changed); err != nil {
+			return nil, 0, fmt.Errorf("queue Classifier acquisition: %w", err)
 		}
-		if err := work.Enqueue(ctx, tx, work.Item{
-			Stage: work.StageHarvester, EntityType: "article", EntityID: int(id),
-			Sport: sportUpper, InputVersion: fmt.Sprintf("harvest-context-v7:q%d", entities),
-		}); err != nil {
-			return nil, 0, err
+		if changed {
+			queued = append(queued, id)
 		}
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return nil, 0, err
 	}
-	return needHarvester, 0, nil
+	return queued, 0, nil
 
 }
 

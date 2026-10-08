@@ -195,19 +195,19 @@ pub(super) async fn commit_claimed(
     trigger_type: &str,
     trigger_payload: &serde_json::Value,
     prepared: &Prepared<'_>,
-    harvester_sources: &[crate::tools::source::SourceContext],
+    classifier_sources: &[crate::tools::source::SourceContext],
     dispositions: &[Disposition],
 ) -> Result<(PluginOutcome, Vec<i64>)> {
     let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
         return Ok((PluginOutcome::Superseded, Vec::new()));
     };
-    crate::plugins::harvester::delivery::validate_for_publication(
+    crate::plugins::classifier::delivery::validate_for_publication(
         publication.transaction(),
         crate::plugins::journalist::manifest::MANIFEST.id.as_str(),
         &item.entity_type,
         item.entity_id_i32()?,
         sport,
-        harvester_sources,
+        classifier_sources,
     )
     .await?;
     let product_row_ids = match prepared {
@@ -225,7 +225,7 @@ pub(super) async fn commit_claimed(
             .await?
         }
     };
-    if !harvester_sources.is_empty() {
+    if !classifier_sources.is_empty() {
         let cited: std::collections::HashSet<i64> = match prepared {
             Prepared::Debounced => std::collections::HashSet::new(),
             Prepared::Product(output) => output
@@ -234,12 +234,24 @@ pub(super) async fn commit_claimed(
                 .flat_map(|narrative| narrative.input_news_ids.iter().copied())
                 .collect(),
         };
-        for source in harvester_sources {
+        for source in classifier_sources {
             let reason = dispositions
                 .iter()
                 .find(|d| d.article_id == source.article_id)
                 .map(|d| d.reason);
-            let status = if reason == Some("already_reported_exact_text")
+            let unresolved = matches!(
+                reason,
+                Some(
+                    "unknown_publication_time"
+                        | "future_publication_time"
+                        | "missing_source_material"
+                        | "source_instruction_override"
+                        | "complete_report_exceeds_context_budget"
+                )
+            );
+            let status = if unresolved {
+                "held"
+            } else if reason == Some("already_reported_exact_text")
                 || (reason.is_none() && matches!(prepared, Prepared::Debounced))
             {
                 "redundant"
@@ -259,10 +271,10 @@ pub(super) async fn commit_claimed(
                 Prepared::Debounced => Vec::new(),
             };
             let changed = sqlx::query(
-                "UPDATE public.harvester_assignments SET status=$3, reason=$4, \
-                 product_ref=$5, updated_at=NOW() \
-                 WHERE classification_id=$1 AND plugin_id=$2 AND status='pending' \
-                   AND reason IS DISTINCT FROM 'delivery_held'",
+                "UPDATE public.classifier_deliveries SET status=$3, reason=$4, \
+                 product_ref=$5, production_eligible=CASE WHEN $3='held' THEN false ELSE production_eligible END, updated_at=NOW() \
+                 WHERE measurement_id=$1 AND plugin_id=$2 AND status='pending' \
+                   AND production_eligible",
             )
             .bind(source.classification_id)
             .bind(crate::plugins::journalist::manifest::MANIFEST.id.as_str())
@@ -277,8 +289,8 @@ pub(super) async fn commit_claimed(
             );
         }
     }
-    if !harvester_sources.is_empty() {
-        let remaining = crate::plugins::harvester::delivery::undelivered_count(
+    if !classifier_sources.is_empty() {
+        let remaining = crate::plugins::classifier::delivery::undelivered_count(
             publication.transaction(),
             crate::plugins::journalist::manifest::MANIFEST.id.as_str(),
             &item.entity_type,
@@ -290,7 +302,7 @@ pub(super) async fn commit_claimed(
             publication.commit_progress().await?;
             return Ok((
                 PluginOutcome::deferred(
-                    format!("{remaining} Harvester sources remain for Journalist"),
+                    format!("{remaining} Classifier sources remain for Journalist"),
                     std::time::Duration::from_secs(1),
                 ),
                 product_row_ids,
@@ -305,3 +317,7 @@ pub(super) async fn commit_claimed(
 #[cfg(test)]
 #[path = "publish_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../classifier/delivery_tests.rs"]
+mod classifier_delivery_tests;

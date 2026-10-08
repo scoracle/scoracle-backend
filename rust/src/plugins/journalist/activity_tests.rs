@@ -73,6 +73,7 @@ async fn empty_selection_and_activity_failure_never_call_the_model() {
     assert_eq!(model.0.load(Ordering::SeqCst), 0);
     let a = assignment(
         vec![CorpusItem {
+            classifier_world: None,
             id: 1,
             title: String::new(),
             context: "Cedar won.".into(),
@@ -116,6 +117,7 @@ async fn sql_activity_matches_legacy_formula_and_served_product() {
         for epoch in epochs {
             let corpus = (0..count)
                 .map(|i| CorpusItem {
+                    classifier_world: None,
                     id: i + 1,
                     title: String::new(),
                     context: format!("Report {i}."),
@@ -144,6 +146,7 @@ async fn sql_activity_matches_legacy_formula_and_served_product() {
         .iter()
         .enumerate()
         .map(|(i, &epoch)| CorpusItem {
+            classifier_world: None,
             id: i as i64 + 1,
             title: String::new(),
             context: format!("Report {i}."),
@@ -157,6 +160,7 @@ async fn sql_activity_matches_legacy_formula_and_served_product() {
     );
     let a = assignment(
         vec![CorpusItem {
+            classifier_world: None,
             id: 1,
             title: "Cedar result".into(),
             context: "Cedar won.".into(),

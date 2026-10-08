@@ -167,6 +167,7 @@ async fn load_on(
             context
         };
         sources.push(SourceContext {
+            classifier_world: None,
             classification_id: row.get("classification_id"),
             article_id: row.get("article_id"),
             headline,

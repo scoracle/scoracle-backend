@@ -416,6 +416,7 @@ mod tests {
         ];
         let sources = (0..32)
             .map(|i| SourceContext {
+                classifier_world: None,
                 classification_id: i,
                 article_id: i,
                 headline: String::new(),
@@ -624,6 +625,7 @@ mod tests {
         assert_eq!(selected[0].report_index, 1);
         let sources = (0..3)
             .map(|article_id| SourceContext {
+                classifier_world: None,
                 classification_id: article_id,
                 article_id,
                 headline: String::new(),

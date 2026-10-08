@@ -15,8 +15,7 @@ pub fn publishing_correction(error: &anyhow::Error) -> Option<String> {
 }
 
 pub fn structured_correction(error: &anyhow::Error) -> Option<String> {
-    error
-        .is::<crate::harness::model::IncompleteOutput>()
+    crate::harness::model::is_incomplete_output(error)
         .then(|| "the response was truncated. Return the complete requested JSON object from scratch, preserving the supplied evidence and schema.".to_string())
 }
 

@@ -63,7 +63,7 @@
       "sport": "FOOTBALL"
     }
   },
-  "prompt_version": "n100-concise-body",
+  "prompt_version": "n101-classifier-world",
   "review": [
     "The update reads against the attached history: 10:00 replaces the previously reported 11:00.",
     "Memory is explicitly attached by report_key, so the reading uses the correct prior report."

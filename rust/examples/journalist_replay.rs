@@ -151,6 +151,7 @@ async fn main() -> Result<()> {
                     case.prior_reported
                         .into_iter()
                         .map(|context| prompt::CorpusItem {
+                            classifier_world: None,
                             id: 0,
                             title: String::new(),
                             context,

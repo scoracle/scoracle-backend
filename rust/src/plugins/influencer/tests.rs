@@ -40,6 +40,7 @@ impl Inference for Model {
 #[tokio::test]
 async fn period_card_contract() {
     let source = |id, text: &str| SourceContext {
+        classifier_world: None,
         classification_id: id,
         article_id: id,
         headline: "Club reporting".into(),

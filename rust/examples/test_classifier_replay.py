@@ -6,6 +6,64 @@ from classifier_review import prepare, training_rows, validate
 
 
 class Coverage(unittest.TestCase):
+    def test_decision_reference_keeps_time_and_failures_separate(self):
+        from classifier_decision_accuracy import expected, scores
+        from classifier_gliner import quote, source_coverage
+        ref = {"checks": [{"relation": "direct_subject", "kind": ["emotion"], "time": ["historical"]},
+                          {"relation": "other_subject", "kind": ["emotion"], "time": ["current"]}]}
+        truth = expected(ref)
+        self.assertTrue(truth["historical_emotion"])
+        self.assertFalse(truth["current_emotion"])
+        self.assertEqual(scores({"status": "error"}), ({}, None))
+        self.assertEqual(quote("éé Alex Alex", {"start": 8, "end": 12, "text": "Alex"}),
+                         {"quote": "Alex", "occurrence": 1})
+        with self.assertRaises(ValueError):
+            source_coverage("Complete late denial.", "Complete")
+        with self.assertRaises(ValueError):
+            quote("Alex", {"start": 0, "end": 5, "text": "Alex."})
+
+    def test_model_bound_qualification_refuses_overflow_and_incomplete_generation(self):
+        from classifier_infer import budget, complete, proposal_schema, request_hash
+        from classifier_replay import laya_questions
+        budget([1, 2], 3, 5)
+        with self.assertRaisesRegex(ValueError, "exceeds context"):
+            budget([1, 2, 3], 3, 5)
+        for response in ({"stop": False, "stop_type": "eos", "truncated": False},
+                         {"stop": True, "stop_type": "limit", "truncated": False},
+                         {"stop": True, "stop_type": "eos", "truncated": True}, {}):
+            with self.assertRaisesRegex(ValueError, "incomplete generation"):
+                complete(response)
+        self.assertEqual(complete({"stop": True, "stop_type": "eos", "truncated": False, "content": "{}"}), "{}")
+        self.assertEqual(request_hash({"é": "value", "b": 1}), request_hash({"b": 1, "é": "value"}))
+        schema = json.loads(SCHEMA_PATH.read_text())
+        labels = schema["vectors"]["emotion"]["labels"]
+        for form in ("noul", "choice"):
+            bank = laya_questions(labels, form)
+            self.assertEqual(set(bank), set(labels))
+            self.assertIn("no expressed emotion", bank["neutral"]["instructions"])
+            self.assertEqual(bank["neutral"]["type"], form)
+        form = proposal_schema({"output_contract": {"emotion_labels": labels, "claims": [{
+            "target_relation": ["unknown"], "kind": ["information"], "time_scope": ["unknown"],
+            "qualifiers": {key: None for key in schema["qualifiers"]}}]}})
+        qualifiers = form["properties"]["claims"]["items"]["properties"]["qualifiers"]
+        self.assertEqual(set(qualifiers["required"]), set(schema["qualifiers"]))
+        emotion_enum = form["properties"]["claims"]["items"]["properties"]["candidate_dimensions"]["items"]["enum"]
+        self.assertEqual(emotion_enum, list(labels))
+
+    def test_accuracy_requires_the_frozen_relationship_and_qualifiers(self):
+        from classifier_accuracy import matches
+        check = {"start": 10, "end": 30, "relation": "other_subject", "kind": ["emotion"],
+                 "time": ["historical"], "speaker": "Mira", "qualifier": "reported_event_time"}
+        claim = {"evidence": {"start": 10, "end": 30}, "target_relation": "other_subject",
+                 "kind": "emotion", "time_scope": "historical", "qualifiers": {
+                     "speaker": [{"quote": "Mira"}], "reported_event_time": [{"quote": "Last year"}]}}
+        self.assertTrue(matches(claim, check))
+        claim["target_relation"] = "direct_subject"
+        self.assertFalse(matches(claim, check))
+        claim["target_relation"] = "other_subject"
+        claim["qualifiers"]["reported_event_time"] = None
+        self.assertFalse(matches(claim, check))
+
     def test_exact_unicode_bytes_and_missing_qualification(self):
         text = "Équipe won.\n\nBut not today."
         encoded = [{"start": 0, "end": 12, "text": "Équipe won."},

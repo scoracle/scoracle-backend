@@ -63,6 +63,17 @@ async fn main() -> Result<()> {
             .copied()
             .unwrap_or(cfg.ollama_max_concurrent);
         let (kind, pinged) = match backend {
+            config::Backend::LlamaCpp => (
+                "llamacpp",
+                scoracle_cognition::harness::providers::llama::LlamaClient::new(
+                    *host,
+                    &cfg.ollama_model,
+                    cfg.ollama_timeout,
+                    Some(false),
+                )?
+                .ping()
+                .await,
+            ),
             config::Backend::Ollama => (
                 "ollama",
                 ollama::OllamaClient::new(*host, &cfg.ollama_model, cfg.ollama_timeout)?

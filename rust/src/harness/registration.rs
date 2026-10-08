@@ -42,10 +42,15 @@ pub fn enabled_from_config(raw: Option<&str>) -> Result<HashSet<String>> {
     let known = known_stages();
     let Some(raw) = raw else {
         // New schema, model endpoint, and character delivery are deployed in
-        // stages. A host must opt in to the Harvester worker explicitly.
+        // stages. Intake replacements require explicit enablement while cognition is paused.
         return Ok(known
             .into_iter()
-            .filter(|s| !matches!(*s, "harvester" | "editor"))
+            .filter(|s| {
+                !matches!(
+                    *s,
+                    "harvester" | "editor" | "classifier" | "classifier_acquire"
+                )
+            })
             .map(str::to_owned)
             .collect());
     };
@@ -97,6 +102,21 @@ pub fn build(
 ) -> Result<Vec<Arc<dyn StudioPlugin>>> {
     let mut handlers: Vec<Arc<dyn StudioPlugin>> = Vec::new();
     let mut web_workspace: Option<Arc<WebBroker>> = None;
+
+    if enabled.contains("classifier_acquire") {
+        let web = shared_web_workspace(&mut web_workspace)?;
+        handlers.push(Arc::new(
+            crate::plugins::classifier::adapter::AcquireHandler::new(pool.clone(), web),
+        ));
+    }
+    if enabled.contains("classifier") {
+        handlers.push(Arc::new(
+            crate::plugins::classifier::adapter::ClassifierHandler::new(
+                pool.clone(),
+                models.capabilities(&crate::plugins::classifier::manifest::MANIFEST)?,
+            ),
+        ));
+    }
 
     // Graph reviews publisher text without Editor-derived evidence.
     if enabled.contains("graph") {
@@ -218,11 +238,14 @@ mod tests {
     #[test]
     fn unset_configuration_keeps_harvester_opt_in() {
         let stages = enabled_from_config(None).unwrap();
-        assert_eq!(stages.len() + 2, known_stages().len());
+        assert_eq!(stages.len() + 4, known_stages().len());
         for stage in known_stages() {
             assert_eq!(
                 stages.contains(stage),
-                !matches!(stage, "harvester" | "editor")
+                !matches!(
+                    stage,
+                    "harvester" | "editor" | "classifier" | "classifier_acquire"
+                )
             );
         }
         assert!(enabled_from_config(Some("harvester"))

@@ -31,7 +31,7 @@
       "sport": "FOOTBALL"
     }
   },
-  "prompt_version": "n100-concise-body",
+  "prompt_version": "n101-classifier-world",
   "review": [
     "Preserve the rumour qualification: reported, not agreed, and the club declined to comment.",
     "A body that states a completed signing fails, even though the source names a player."

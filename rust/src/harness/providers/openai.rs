@@ -162,57 +162,58 @@ impl OpenAiClient {
         let status = resp.status();
         let raw = resp.text().await.context("read openai response")?;
 
-        // A refusal carries its reason in the body, and that reason is the useful part — oMLX's
-        // `prefill_memory_exceeded` names the guard and the ceiling it hit. Surface it verbatim
-        // rather than just the status code.
-        if !status.is_success() {
-            if let Ok(parsed) = serde_json::from_str::<ChatResponse>(&raw) {
-                if let Some(e) = parsed.error {
-                    return Err(anyhow!(
-                        "openai HTTP {} [{}]: {}",
-                        status.as_u16(),
-                        e.code,
-                        truncate(&e.message, 300)
-                    ));
+        let decoded = (|| -> Result<GenerateResult> {
+            // A refusal carries its reason in the body, and that reason is the useful part — oMLX's
+            // `prefill_memory_exceeded` names the guard and the ceiling it hit. Surface it verbatim
+            // rather than just the status code.
+            if !status.is_success() {
+                if let Ok(parsed) = serde_json::from_str::<ChatResponse>(&raw) {
+                    if let Some(e) = parsed.error {
+                        return Err(anyhow!(
+                            "openai HTTP {} [{}]: {}",
+                            status.as_u16(),
+                            e.code,
+                            truncate(&e.message, 300)
+                        ));
+                    }
                 }
+                return Err(anyhow!(
+                    "openai HTTP {}: {}",
+                    status.as_u16(),
+                    truncate(&raw, 300)
+                ));
             }
-            return Err(anyhow!(
-                "openai HTTP {}: {}",
-                status.as_u16(),
-                truncate(&raw, 300)
-            ));
-        }
 
-        let parsed: ChatResponse = serde_json::from_str(&raw)
-            .with_context(|| format!("decode openai response (body={})", truncate(&raw, 200)))?;
-        if let Some(e) = parsed.error {
-            return Err(anyhow!("openai error [{}]: {}", e.code, e.message));
-        }
-        let choice = parsed.choices.into_iter().next().ok_or_else(|| {
-            anyhow!(
-                "openai response had no choices (body={})",
-                truncate(&raw, 200)
-            )
-        })?;
-        crate::harness::providers::ollama::validate_completion(
-            choice.finish_reason.as_deref(),
-            None,
-        )?;
-        let completion_reason = choice.finish_reason.clone();
-        let content = choice.message.content;
+            let parsed: ChatResponse = serde_json::from_str(&raw).with_context(|| {
+                format!("decode openai response (body={})", truncate(&raw, 200))
+            })?;
+            if let Some(e) = parsed.error {
+                return Err(anyhow!("openai error [{}]: {}", e.code, e.message));
+            }
+            let choice = parsed.choices.into_iter().next().ok_or_else(|| {
+                anyhow!(
+                    "openai response had no choices (body={})",
+                    truncate(&raw, 200)
+                )
+            })?;
+            crate::harness::providers::ollama::validate_completion(
+                choice.finish_reason.as_deref(),
+                None,
+            )?;
+            let completion_reason = choice.finish_reason.clone();
+            let content = choice.message.content;
 
-        // Prefer the server's own timing; fall back to wall clock so `total_duration` is never a
-        // silent zero on a server that omits `usage.total_time`.
-        let total_duration = parsed
-            .usage
-            .as_ref()
-            .and_then(|u| u.total_time)
-            .filter(|s| *s > 0.0)
-            .map(Duration::from_secs_f64)
-            .unwrap_or_else(|| started.elapsed());
+            // Prefer the server's own timing; fall back to wall clock so `total_duration` is never a
+            // silent zero on a server that omits `usage.total_time`.
+            let total_duration = parsed
+                .usage
+                .as_ref()
+                .and_then(|u| u.total_time)
+                .filter(|s| *s > 0.0)
+                .map(Duration::from_secs_f64)
+                .unwrap_or_else(|| started.elapsed());
 
-        Ok((
-            GenerateResult {
+            Ok(GenerateResult {
                 response: content,
                 // The OpenAI-compatible path (oMLX) has no thinking channel; empty by contract.
                 thinking: String::new(),
@@ -229,10 +230,14 @@ impl OpenAiClient {
                     .map(|u| u.completion_tokens)
                     .unwrap_or(0),
                 completion_reason,
-                raw_response_body: raw,
-            },
-            request_body,
-        ))
+                raw_response_body: raw.clone(),
+            })
+        })();
+        let result = decoded.map_err(|error| crate::harness::model::ResponseFailure {
+            raw_response_body: raw.clone(),
+            error,
+        })?;
+        Ok((result, request_body))
     }
 
     /// ping lists models to verify the server is reachable. Cheap — no inference.

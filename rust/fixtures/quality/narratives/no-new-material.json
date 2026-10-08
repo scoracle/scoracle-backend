@@ -11,7 +11,7 @@
       "sport": "FOOTBALL"
     }
   },
-  "prompt_version": "n100-concise-body",
+  "prompt_version": "n101-classifier-world",
   "review": [
     "An empty world produces no report. A body here would be an invented story."
   ],

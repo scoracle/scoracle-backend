@@ -29,115 +29,61 @@ const GRAPH_LEDGER: LedgerSpec = LedgerSpec {
     output_contract_version: "graph-extraction-v1",
 };
 
-/// load_graph_article_context loads one article plus resolved links and Harvester
-/// name-match candidates (players with identity-card descriptors, teams by name) — the
-/// shared deterministic prefix of the probe, the eval lens, and the stage handler.
-/// `Ok(None)` when the article is missing or has no linked entities (nothing to extract
-/// against — the fail-closed empty path).
+/// Read complete, current native acquisition; model measurements grant no factual authority.
+async fn load_source(
+    conn: &mut sqlx::PgConnection,
+    article_id: i64,
+    sport: &str,
+) -> Result<Option<crate::plugins::classifier::Source>> {
+    let row = sqlx::query("SELECT s.source::text,s.body_sha256 FROM public.classifier_sources s JOIN public.news_articles a ON a.id=s.article_id WHERE s.article_id=$1 AND s.sport=$2 AND a.duplicate_of IS NULL AND s.discovery_version=public.classifier_discovery_version($1,$2) ORDER BY s.id DESC LIMIT 1")
+        .bind(article_id).bind(sport).fetch_optional(&mut *conn).await?;
+    let Some(row) = row else { return Ok(None) };
+    let source: crate::plugins::classifier::Source = serde_json::from_str(row.get(0))?;
+    ensure!(
+        source.article_id == article_id
+            && !source.body.trim().is_empty()
+            && hex::encode(Sha256::digest(source.body.as_bytes())) == row.get::<String, _>(1),
+        "Graph source snapshot hash mismatch"
+    );
+    ensure!(
+        crate::plugins::classifier::identity::candidates(conn, sport, &source).await?
+            == source.provenance["identity_candidates"],
+        "Graph canonical candidates changed"
+    );
+    Ok(Some(source))
+}
+
 pub async fn load_graph_article_context(
     pool: &PgPool,
     article_id: i64,
     sport: &str,
 ) -> Result<Option<(GraphArticle, Vec<GraphCandidate>)>> {
-    // `duplicate_of IS NULL` makes a stale queue row or a
-    // hand-enqueued repair fall through the same `Ok(None)` path as a missing article rather than
-    // spending a model call on something the dedup sweep already suppressed.
-    // Exact publisher context only. Generated Editor summaries are not evidence.
-    let row = sqlx::query(
-        r#"
-        SELECT COALESCE(a.source, 'unknown'), a.published_at::date::text,
-               COALESCE(h.headline, a.title),
-               COALESCE(
-                   h.context_text,
-                   a.description,
-                   ''
-               ), h.body_sha256, h.context_start, h.context_end, a.full_text,
-               a.title
-        FROM news_articles a
-        LEFT JOIN LATERAL (
-            SELECT c.headline, c.context_text, c.body_sha256,
-                   c.context_start, c.context_end
-            FROM public.harvester_classifications c
-            WHERE c.article_id=a.id AND c.sport=$2
-            ORDER BY c.created_at DESC, c.id DESC
-            LIMIT 1
-        ) h ON true
-        WHERE a.id = $1 AND a.duplicate_of IS NULL
-        "#,
-    )
-    .bind(article_id)
-    .bind(sport)
-    .fetch_optional(pool)
-    .await
-    .context("load graph article")?;
-    let Some(row) = row else { return Ok(None) };
-    let context_hash: Option<String> = row.get(4);
-    if let Some(hash) = context_hash {
-        let body: String = row
-            .get::<Option<String>, _>(7)
-            .context("Graph Harvester article has no retained publisher body")?;
-        let start: i32 = row.get(5);
-        let end: i32 = row.get(6);
-        let source_text: String = row.get(3);
-        let headline: String = row.get(2);
-        let title: String = row.get(8);
-        ensure!(
-            start >= 0
-                && end >= start
-                && hex::encode(Sha256::digest(body.as_bytes())) == hash
-                && body.get(start as usize..end as usize) == Some(source_text.as_str())
-                && headline == title,
-            "Graph Harvester source hash or byte range drift"
-        );
-    }
+    let source = load_source(&mut *pool.acquire().await?, article_id, sport)
+        .await?
+        .context("Graph requires current complete Classifier acquisition")?;
     let article = GraphArticle {
-        source: row.get(0),
-        published: row.get::<Option<String>, _>(1).unwrap_or_default(),
-        title: row.get(2),
-        description: row.get(3),
+        source: source.source.clone(),
+        published: source.published_at.clone().unwrap_or_default(),
+        title: source.provenance["title"]
+            .as_str()
+            .unwrap_or_default()
+            .into(),
+        description: source.body.clone(),
     };
-
-    let cand_rows = sqlx::query(
-        r#"
-        SELECT e.entity_type, e.entity_id,
-               COALESCE(p.name, t.name, pp.full_name, '?') AS name,
-               COALESCE(ct.name, '') AS current_club
-        FROM (
-            SELECT article_id, entity_type, entity_id, sport
-              FROM public.news_article_entities
-             WHERE article_id=$1 AND sport=$2
-            UNION
-            SELECT article_id, entity_type, entity_id, sport
-              FROM public.harvester_entity_mentions
-             WHERE article_id=$1 AND sport=$2
-        ) e
-        LEFT JOIN players p ON e.entity_type='player' AND p.id=e.entity_id AND p.sport=e.sport
-        LEFT JOIN teams t ON e.entity_type='team' AND t.id=e.entity_id AND t.sport=e.sport
-        LEFT JOIN persons pp ON e.entity_type='person' AND pp.id=e.entity_id AND pp.sport=e.sport
-        LEFT JOIN player_current_identity pci
-               ON e.entity_type='player' AND pci.player_id=e.entity_id AND pci.sport=e.sport
-        LEFT JOIN teams ct ON ct.id=pci.team_id AND ct.sport=e.sport
-        WHERE e.article_id=$1 AND e.sport=$2
-        ORDER BY e.entity_type, e.entity_id
-        "#,
-    )
-    .bind(article_id)
-    .bind(sport)
-    .fetch_all(pool)
-    .await
-    .context("load graph candidates")?;
-    if cand_rows.is_empty() {
-        return Ok(None);
-    }
     let mut candidates = Vec::new();
-    for r in cand_rows {
-        let entity_type: String = r.get(0);
-        let entity_id: i32 = r.get(1);
-        let name: String = r.get(2);
+    for c in source.provenance["identity_candidates"]
+        .as_array()
+        .context("Graph native identities")?
+    {
+        let entity_type = c["entity_type"]
+            .as_str()
+            .context("Graph candidate kind")?
+            .to_owned();
+        let entity_id = i32::try_from(c["entity_id"].as_i64().context("Graph candidate ID")?)?;
         let descriptor =
             crate::tools::meta::load_identity_record(pool, &entity_type, entity_id, sport)
                 .await?
-                .unwrap_or_else(|| format!("{name} ({entity_type}; records unavailable)"));
+                .context("Graph canonical identity disappeared")?;
         candidates.push(GraphCandidate {
             entity_type,
             entity_id,
@@ -163,6 +109,8 @@ pub fn build_graph_input_components(
         "candidates": cands,
         "description": article.description,
         "title": article.title,
+        "source": article.source,
+        "published": article.published,
     })
     .to_string()
 }
@@ -262,9 +210,18 @@ async fn commit_claimed(pool: &PgPool, item: &Item, prepared: &Prepared) -> Resu
         let sport = item.sport.to_uppercase();
         let model = &extracted.model;
         // Hold the source stable and revalidate after inference, before any side effect.
-        sqlx::query("SELECT id FROM news_articles WHERE id=$1 FOR SHARE")
+        sqlx::query("SELECT id FROM news_articles WHERE id=$1 FOR SHARE NOWAIT")
             .bind(article_id)
             .fetch_optional(&mut **publication.transaction())
+            .await?;
+        sqlx::query("SELECT p.article_id FROM public.harvester_query_provenance p JOIN public.teams t ON p.entity_type='team' AND t.id=p.entity_id AND t.sport=p.sport WHERE p.article_id=$1 AND p.sport=$2 FOR SHARE OF p,t NOWAIT")
+            .bind(article_id).bind(&sport).fetch_all(&mut **publication.transaction()).await?;
+        sqlx::query("SELECT id FROM public.classifier_sources WHERE article_id=$1 AND sport=$2 FOR SHARE NOWAIT")
+            .bind(article_id).bind(&sport).fetch_all(&mut **publication.transaction()).await?;
+        let source = load_source(&mut **publication.transaction(), article_id, &sport)
+            .await?
+            .context("Graph source no longer current")?;
+        crate::plugins::classifier::identity::validate(publication.transaction(), &sport, &source)
             .await?;
         let current = load_graph_article_context(pool, article_id, &sport)
             .await?
@@ -275,8 +232,7 @@ async fn commit_claimed(pool: &PgPool, item: &Item, prepared: &Prepared) -> Resu
         );
         let (outcome, persons) = extraction_parts(extracted);
         for person in persons {
-            nominate_harvester_person(publication.transaction(), article_id, &sport, person)
-                .await?;
+            nominate_person(publication.transaction(), article_id, &sport, person).await?;
         }
         if let Some(graph) = extracted.value.as_ref() {
             fixture::review(
@@ -385,63 +341,34 @@ async fn record_diagnostics(
         .await;
 }
 
-/// Graph owns the unknown-person handoff for Harvester articles. A model-suggested
-/// name only becomes an Investigator candidate when it is independently anchored
-/// to the exact publisher headline or hash-verified opening. This is an investigation request,
-/// never an authoritative article/entity link.
-async fn nominate_harvester_person(
+/// Exact source names become investigation requests, never authoritative identities.
+async fn nominate_person(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     article_id: i64,
     sport: &str,
     person: &GraphPerson,
 ) -> Result<()> {
-    let row = sqlx::query(
-        "SELECT c.context_text,c.context_start,c.context_end,c.body_sha256,a.full_text, \
-                c.headline,a.title, \
-                strpos(' ' || public.nrm(c.context_text) || ' ', \
-                       ' ' || public.nrm($3) || ' ') > 0 AS name_in_opening, \
-                strpos(' ' || public.nrm(c.headline) || ' ', \
-                       ' ' || public.nrm($3) || ' ') > 0 AS name_in_headline \
-         FROM public.harvester_classifications c \
-         JOIN public.news_articles a ON a.id=c.article_id \
-         WHERE c.article_id=$1 AND c.sport=$2 \
-         ORDER BY c.created_at DESC,c.id DESC LIMIT 1",
-    )
-    .bind(article_id)
-    .bind(sport)
-    .bind(&person.name)
-    .fetch_optional(&mut **tx)
-    .await?;
-    let Some(row) = row else {
-        return Ok(());
-    };
-    let opening: String = row.get("context_text");
-    let body: String = row
-        .get::<Option<String>, _>("full_text")
-        .context("Harvester Graph nomination has no retained publisher body")?;
-    let start: i32 = row.get("context_start");
-    let end: i32 = row.get("context_end");
-    let hash: String = row.get("body_sha256");
-    let headline: String = row.get("headline");
-    let article_title: String = row.get("title");
-    ensure!(
-        start >= 0
-            && end >= start
-            && hex::encode(Sha256::digest(body.as_bytes())) == hash
-            && body.get(start as usize..end as usize) == Some(opening.as_str())
-            && headline == article_title,
-        "Harvester Graph nomination source hash or byte range drift"
-    );
-    let source_span = if row.get::<bool, _>("name_in_opening") {
-        &opening
-    } else if row.get::<bool, _>("name_in_headline") {
-        &headline
-    } else {
-        return Ok(());
-    };
-    let Some(quote) = slice_quote(source_span, &person.name) else {
-        return Ok(());
-    };
+    let source = load_source(&mut **tx, article_id, sport)
+        .await?
+        .context("Graph nomination source disappeared")?;
+    let headline = source.provenance["title"].as_str().unwrap_or_default();
+    let mut quote = None;
+    for text in [&source.body, headline] {
+        let matches: bool = sqlx::query_scalar(
+            "SELECT strpos(' ' || public.nrm($1) || ' ', ' ' || public.nrm($2) || ' ') > 0",
+        )
+        .bind(text)
+        .bind(&person.name)
+        .fetch_one(&mut **tx)
+        .await?;
+        if matches {
+            quote = slice_quote(text, &person.name);
+            if quote.is_some() {
+                break;
+            }
+        }
+    }
+    let Some(quote) = quote else { return Ok(()) };
     let known: bool = sqlx::query_scalar(
         "SELECT EXISTS(SELECT 1 FROM public.entity_name_surfaces \
          WHERE sport=$1 AND norm=public.nrm($2))",

@@ -22,7 +22,7 @@ Relation extraction is unavailable. Return relations=[]; do not infer predicates
 Return ONLY JSON:
 {"relations":[],"persons":[{"name":"exact source name","kind":"other","team_context":null}],"final_result_line":""}"#;
 
-pub const GRAPH_PROMPT_VERSION: &str = "g7-nominations";
+pub const GRAPH_PROMPT_VERSION: &str = "g8-classifier-source";
 
 /// build_graph_prompt lays out the article + numbered candidates (1-indexed, matching
 /// the reply contract).

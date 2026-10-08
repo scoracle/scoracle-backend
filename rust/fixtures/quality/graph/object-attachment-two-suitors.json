@@ -17,7 +17,7 @@
     ]
   },
   "name": "object-attachment-two-suitors",
-  "prompt_version": "g7-nominations",
+  "prompt_version": "g8-classifier-source",
   "task": "graph",
   "temperature": 0.2,
   "user_prompt": "Article source: skysports\nPublished: 2026-07-19\nTitle: Chelsea agree \u00a3117m deal for Morgan Rogers\nText: Chelsea have agreed a \u00a3117m fee with Aston Villa for Morgan Rogers, with personal terms expected to be completed this week. Arsenal had pushed hard for the England midfielder earlier in the window but are now out of the race. Blues head coach Enzo Maresca is said to view Rogers as the final piece of his midfield rebuild.\n\nIdentity context, not event evidence. Distinguish current roles from career history; dated reporting may supersede these records. Unknown means unknown.\nKnown entities (use these numbers):\n1. Morgan Rogers (player, currently at Aston Villa)\n2. Chelsea (team)\n3. Arsenal (team)\n\nReturn the JSON now.",

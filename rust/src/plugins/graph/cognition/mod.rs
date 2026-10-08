@@ -28,6 +28,10 @@ pub async fn extract_graph(
         &a.description,
         &assignment.candidates,
     );
+    anyhow::ensure!(
+        prompt.len() <= 24_000 && !crate::tools::source::contains_instruction_override(&prompt),
+        "Graph complete source is unsafe or exceeds input budget"
+    );
     studio
         .extract(
             &prompt,
@@ -50,7 +54,7 @@ pub fn graph_opts() -> GenerateOptions {
         system: Some(GRAPH_SYSTEM_PROMPT.to_string()),
         temperature: Some(0.2),
         num_predict: 768,
-        num_ctx: 4096,
+        num_ctx: 32768,
         json_mode: true,
         format_schema: None,
         format_schema_raw: None,

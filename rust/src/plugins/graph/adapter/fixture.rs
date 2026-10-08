@@ -1,9 +1,8 @@
-//! Source-grounded fixture-result nomination owned by Graph for Harvester articles.
+//! Source-grounded fixture-result nomination owned by Graph from complete native acquisition.
 use crate::plugins::graph::cognition::GRAPH_PROMPT_VERSION;
 use crate::plugins::graph::result::parse_result_line;
-use anyhow::{ensure, Context, Result};
-use sha2::{Digest, Sha256};
-use sqlx::{PgConnection, Row};
+use anyhow::{Context, Result};
+use sqlx::PgConnection;
 
 pub(super) async fn review(
     conn: &mut PgConnection,
@@ -13,38 +12,11 @@ pub(super) async fn review(
     model_version: &str,
     result_line: &str,
 ) -> Result<Option<&'static str>> {
-    let source = sqlx::query(
-        "SELECT c.headline,c.context_text,c.context_start,c.context_end,c.body_sha256, \
-                a.title,a.full_text \
-         FROM public.harvester_classifications c \
-         JOIN public.news_articles a ON a.id=c.article_id \
-         WHERE c.article_id=$1 AND c.sport=$2 \
-         ORDER BY c.created_at DESC,c.id DESC LIMIT 1",
-    )
-    .bind(article_id)
-    .bind(sport)
-    .fetch_optional(&mut *conn)
-    .await?;
-    let Some(source) = source else {
-        return Ok(None);
-    };
-    let headline: String = source.get("headline");
-    let opening: String = source.get("context_text");
-    let body: String = source
-        .get::<Option<String>, _>("full_text")
-        .context("Harvester fixture review has no retained publisher body")?;
-    let start: i32 = source.get("context_start");
-    let end: i32 = source.get("context_end");
-    let hash: String = source.get("body_sha256");
-    let title: String = source.get("title");
-    ensure!(
-        start >= 0
-            && end >= start
-            && hex::encode(Sha256::digest(body.as_bytes())) == hash
-            && body.get(start as usize..end as usize) == Some(opening.as_str())
-            && headline == title,
-        "Harvester fixture review source hash or byte range drift"
-    );
+    let source = super::load_source(conn, article_id, sport)
+        .await?
+        .context("Graph fixture source disappeared")?;
+    let headline = source.provenance["title"].as_str().unwrap_or_default();
+    let opening = &source.body;
 
     let mut quote = None;
     let fixture_id = Option::<i32>::None;

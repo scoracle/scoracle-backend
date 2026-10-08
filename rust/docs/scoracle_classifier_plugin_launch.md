@@ -435,7 +435,7 @@ SCORACLE_MEMORY_STUDY_BIN=<built go/cmd/memory-study> \
 cargo test --lib plugins::influencer::tests::period_card_flow -- --ignored --nocapture
 ```
 
-Verification: 372 active library checks and `cargo check --all-targets` pass. Explicitly run acquisition, Journalist delivery and Influencer period-card database checks pass against disposable Postgres, using the existing Go/DuckDB helper. No production deployment or real-evidence release occurred. Next: Analyst/Oracle and internal intake dependency checks.
+Verification: 372 active library checks and `cargo check --all-targets` pass. Explicitly run acquisition, Journalist delivery and Influencer period-card database checks pass against disposable Postgres, using the existing Go/DuckDB helper. No production deployment or real-evidence release occurred. Analyst/Oracle and internal intake dependency checks are recorded below.
 
 ### Insider delivery boundary — October 8
 
@@ -465,6 +465,19 @@ cargo test --lib classifier_scout_selection_records_and_publication -- --ignored
 ```
 
 The five-source fictional check tests null/missing selection rejection, undated holding, complete reporting plus a measured sample, independent availability support, changed record rejection, outbox rollback/retry, backlog recovery and unresolved-source holding. No real measurements are promoted. Remaining launch work: Analyst/Oracle reactions and serving, internal intake reader retirement and migration/deployment/recovery verification.
+
+### Graph and downstream recovery — October 8
+
+Graph now receives a source-snapshot work revision atomically with native acquisition. It reads the complete, current Classifier source and exact canonical identity candidates, independently of model scores. Source/body hashes, discovery changes, identities and publication leases are rechecked. Missing acquisition and oversized or unsafe complete input fail visibly. Person names must occur in the publisher text before becoming Investigator requests; score lines remain review nominations with `extraction_unavailable`, never verified fixture results. The existing review table retains its historical name. Prompt contract: `g8-classifier-source`.
+
+```sh
+TEST_DATABASE_URL=<disposable classifier_test database> \
+cargo test --lib classifier_graph_complete_source_nominations_and_recovery -- --ignored --nocapture
+```
+
+The fictional native check verifies complete-body delivery, exact names, invented-name rejection, source drift, rollback of nominations with publication, idempotent completion and corrupted-source rejection. The obsolete Harvester-backed Graph checks are replaced by this native boundary check; parser and quote checks remain.
+
+The committed production schema, reference data and migrations 291–296 restore successfully into isolated Postgres. All five Analyst publication/recovery checks, six Oracle publication/barrier checks and four durable outbox recovery checks pass against that full schema, including process-crash rehearsals. Their established product and serving contracts need no replacement adapter. Read-only production verification: API active; cognition service and watcher inactive/disabled. October 8 RSS fetched 8,512 fresh articles across 206 team feeds with zero failures; the daily ingest cron remains scheduled.
 
 ### Deferred accuracy qualification and production acceptance
 

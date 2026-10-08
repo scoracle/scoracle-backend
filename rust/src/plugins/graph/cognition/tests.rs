@@ -181,10 +181,7 @@ async fn studio_graph_uses_prepared_evidence_and_actual_model_provenance() {
             &assignment.candidates
         )
     );
-    assert_eq!(
-        calls[0].1.num_ctx,
-        crate::harness::model::LOCAL_STAGE_NUM_CTX
-    );
+    assert_eq!(calls[0].1.num_ctx, 32768);
     assert_eq!(calls[0].1.system.as_deref(), Some(GRAPH_SYSTEM_PROMPT));
 }
 #[tokio::test]

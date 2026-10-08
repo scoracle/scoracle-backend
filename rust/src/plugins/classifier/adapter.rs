@@ -192,6 +192,18 @@ impl StudioPlugin for AcquireHandler {
             },
         )
         .await?;
+        // Source-bound investigation nominations need acquired text, not calibrated scores.
+        work::enqueue(
+            &mut **publication.transaction(),
+            &Item {
+                stage: crate::plugins::graph::manifest::TASK,
+                input_version: Some(format!("classifier-source:{source_id}")),
+                claim_token: None,
+                attempts: 0,
+                ..item.clone()
+            },
+        )
+        .await?;
         publication.commit_final().await?;
         Ok(PluginOutcome::Committed)
     }

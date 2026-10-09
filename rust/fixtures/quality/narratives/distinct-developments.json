@@ -8,11 +8,6 @@
   },
   "name": "distinct-developments-three-independent-developments,-three-keyed-slots",
   "parts": {
-    "memory": [
-      null,
-      null,
-      null
-    ],
     "reports": [
       {
         "context": "Cedar United said goalkeeper Kim Park will miss the next match with an ankle injury. No return date was given.",
@@ -43,7 +38,7 @@
       "sport": "FOOTBALL"
     }
   },
-  "prompt_version": "n101-classifier-world",
+  "prompt_version": "n102-fresh-only-json",
   "review": [
     "One development per report_key, in source order. No slot may carry another report's claim.",
     "The ankle injury, the appointment and the result are three stories, not one narrative."
@@ -51,5 +46,5 @@
   "system": "",
   "task": "narratives",
   "temperature": 0.0,
-  "user_prompt": "{\"meta\":{\"name\":\"Cedar United\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\"},\"fresh\":[{\"report_key\":\"report_1\",\"publisher\":\"City Wire\",\"published_at\":\"2026-09-26T23:00:00Z\",\"publisher_excerpt\":\"Cedar United said goalkeeper Kim Park will miss the next match with an ankle injury. No return date was given.\"},{\"report_key\":\"report_2\",\"publisher\":\"City Wire\",\"published_at\":\"2026-09-26T23:00:00Z\",\"publisher_excerpt\":\"Cedar United appointed Jo Vale as head coach on Monday. Her contract lasts two years.\"},{\"report_key\":\"report_3\",\"publisher\":\"City Wire\",\"published_at\":\"2026-09-26T23:00:00Z\",\"publisher_excerpt\":\"Cedar United won 2–1 against Vale City on Sunday.\"}],\"voice\":\"Clear, restrained and direct.\",\"form\":{\"keys\":[\"report_1\",\"report_2\",\"report_3\"],\"paragraphs\":\"concise\"}}"
+  "user_prompt": "{\"meta\":{\"name\":\"Cedar United\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\"},\"voice\":\"Clear, restrained and direct.\",\"fresh\":[{\"report_key\":\"report_1\",\"publisher\":\"City Wire\",\"published_at\":\"2026-09-26T23:00:00Z\",\"publisher_excerpt\":\"Cedar United said goalkeeper Kim Park will miss the next match with an ankle injury. No return date was given.\"},{\"report_key\":\"report_2\",\"publisher\":\"City Wire\",\"published_at\":\"2026-09-26T23:00:00Z\",\"publisher_excerpt\":\"Cedar United appointed Jo Vale as head coach on Monday. Her contract lasts two years.\"},{\"report_key\":\"report_3\",\"publisher\":\"City Wire\",\"published_at\":\"2026-09-26T23:00:00Z\",\"publisher_excerpt\":\"Cedar United won 2–1 against Vale City on Sunday.\"}]}"
 }

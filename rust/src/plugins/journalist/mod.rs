@@ -1,5 +1,6 @@
 //! Journalist execution: articulate prepared reports and publish under the queue claim.
 mod activity;
+pub mod fresh;
 pub mod manifest;
 pub mod memories;
 mod parser;
@@ -55,7 +56,7 @@ pub async fn create(
     if assignment.selected.is_empty() {
         return Ok(Generation::uncalled(
             NarrativesProduct {
-                memory_provenance: json!({"receipt":assignment.memory_receipt,"selected":assignment.memories}),
+                memory_provenance: json!({"receipt":null,"selected":[]}),
                 narratives: Vec::new(),
                 budget_truncated_ids: assignment.deferred_ids.clone(),
                 card_score: None,

@@ -22,6 +22,7 @@ use crate::plugins::insider::Reply;
 use crate::plugins::investigator::cognition::prompt::{
     prose_opts, ProseReadParser, INVESTIGATOR_PROSE_CONTRACT_VERSION,
 };
+#[cfg(test)]
 use crate::plugins::journalist::prompt::CorpusItem;
 use crate::plugins::oracle::prompt::load_pillars;
 use crate::plugins::oracle::prompt::{
@@ -479,11 +480,7 @@ impl LensTask for NarrativesTask {
         crate::plugins::journalist::prompt::NARRATIVES_PROMPT_VERSION
     }
     fn gen_options(&self, _temperature: f64) -> Result<GenerateOptions> {
-        // The system prompt and the response schema both depend on what the world
-        // holds — the schema is keyed by report count, the manual by whether any
-        // report carries history — so there is no one option set to return here.
-        // `assemble` produces the real request; handing back a fixed one would
-        // let a fixture pass against a contract production never sends.
+        // The response schema depends on the prepared report count.
         anyhow::bail!(
             "narratives options depend on the prepared world; assemble a fixture's parts instead"
         )
@@ -500,24 +497,13 @@ impl LensTask for NarrativesTask {
             entity_id: e.entity_id,
             sport: e.sport.to_uppercase(),
         };
-        let sources = crate::plugins::harvester::delivery::load_for_character(
+        let material = crate::plugins::journalist::prompt::load_narratives_material(
             pool,
-            crate::plugins::journalist::manifest::MANIFEST.id.as_str(),
-            &subject.entity_type,
-            subject.entity_id,
-            &subject.sport,
+            subject,
+            crate::plugins::influencer::now(),
         )
         .await?;
-        if sources.is_empty() {
-            return Ok(None);
-        }
-        let corpus = sources.iter().map(CorpusItem::from).collect::<Vec<_>>();
-        let now = crate::plugins::influencer::now();
-        let continuity =
-            crate::plugins::journalist::memories::load_for_assignment(pool, &subject, &corpus, now)
-                .await?;
-        let assignment =
-            crate::plugins::journalist::prompt::prepare(subject, corpus, &continuity, now)?;
+        let assignment = material.assignment;
         // No selected report is a no-call, not a package with nothing in it.
         if assignment.selected.is_empty() {
             return Ok(None);
@@ -526,7 +512,6 @@ impl LensTask for NarrativesTask {
             crate::plugins::journalist::prompt::Parts {
                 subject: assignment.subject,
                 reports: assignment.selected,
-                memory: assignment.memories,
             },
         )?)?))
     }
@@ -596,16 +581,10 @@ impl LensTask for NarrativesTask {
                 .map_err(|e| anyhow::anyhow!("narratives parts: {e}"))?;
         let subject = parts.subject.clone();
         let reports = parts.reports.clone();
-        let memories = parts.memory.clone();
-        // Rebuild the assignment the parts describe, then take BOTH the package
-        // and the options from the plugin's own functions. The system prompt
-        // depends on whether any report carries history and the schema is keyed
-        // by report count, so neither is knowable from the parts alone.
+        // Replay the production payload and the report-count-specific schema.
         let assignment = crate::plugins::journalist::prompt::Assignment {
             subject,
             selected: reports,
-            memories,
-            memory_receipt: None,
             dispositions: Vec::new(),
             deferred_ids: Vec::new(),
             input_hash: String::new(),
@@ -2036,10 +2015,7 @@ mod tests {
         assert!(parts_tasks > 0, "no task declares a parts assembler");
     }
 
-    /// The Journalist's decode contract is a function of what the world holds:
-    /// the schema is keyed by report count and the manual names history only
-    /// when a report carries it. A fixture that pins one and not the other is a
-    /// contract nothing checks.
+    /// Report count controls the schema; legacy history cannot change the payload or task.
     #[test]
     fn the_narratives_contract_follows_the_world_it_was_assembled_from() {
         let base = |reports: usize, history: bool| {
@@ -2084,17 +2060,10 @@ mod tests {
             one.options.format_schema, two.options.format_schema,
             "the response schema must follow the report count"
         );
-        // The manual names history only when a report carries some.
-        assert_ne!(
-            one.options.system.as_deref(),
-            warm.options.system.as_deref(),
-            "the manual must follow whether history is attached"
-        );
-        // Memory is absent until an attachment exists, and is keyed to its report.
-        assert!(!one.user_prompt.contains(r#""memories""#));
-        assert!(warm
-            .user_prompt
-            .contains(r#""memories":[{"report_key":"report_1""#));
+        assert_eq!(one.options.system, warm.options.system);
+        assert_eq!(one.user_prompt, warm.user_prompt);
+        assert!(!warm.user_prompt.contains(r#""memories""#));
+        assert!(!warm.user_prompt.contains(r#""form""#));
     }
 
     #[test]

@@ -1,0 +1,37 @@
+{
+  "expect": {
+    "body_includes": [
+      "10:00"
+    ],
+    "body_excludes": [
+      "11:00"
+    ]
+  },
+  "name": "synthetic-training-time-fresh-only",
+  "parts": {
+    "reports": [
+      {
+        "context": "Cedar United confirmed an updated start time of 10:00 for its training session on 29 September. The venue remains North Field. The club gave no reason for the update.",
+        "id": 220,
+        "published_at_epoch": 1790599725,
+        "source": "Club statement",
+        "title": "Cedar United confirms updated training time"
+      }
+    ],
+    "subject": {
+      "entity_id": 7,
+      "entity_type": "team",
+      "name": "Cedar United",
+      "sport": "FOOTBALL"
+    }
+  },
+  "prompt_version": "n102-fresh-only-json",
+  "review": [
+    "Report the supplied 10:00 start, 29 September date and North Field venue.",
+    "The club supplied no reason; do not infer one or invent a previous start time."
+  ],
+  "system": "",
+  "task": "narratives",
+  "temperature": 0.0,
+  "user_prompt": "{\"meta\":{\"name\":\"Cedar United\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\"},\"voice\":\"Clear, restrained and direct.\",\"fresh\":[{\"report_key\":\"report_1\",\"publisher\":\"Club statement\",\"published_at\":\"2026-09-28T12:48:45Z\",\"publisher_excerpt\":\"Cedar United confirmed an updated start time of 10:00 for its training session on 29 September. The venue remains North Field. The club gave no reason for the update.\"}]}"
+}

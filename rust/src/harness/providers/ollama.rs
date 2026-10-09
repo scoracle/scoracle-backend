@@ -176,6 +176,7 @@ impl OllamaClient {
         opts: &'a GenerateOptions,
     ) -> GenerateRequest<'a> {
         let mut options = serde_json::Map::new();
+        options.insert("num_gpu".into(), serde_json::json!(99));
         if let Some(t) = opts.temperature {
             options.insert("temperature".into(), serde_json::json!(t));
         }

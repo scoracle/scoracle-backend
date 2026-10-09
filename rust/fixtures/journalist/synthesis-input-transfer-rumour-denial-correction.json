@@ -1,0 +1,28 @@
+{
+  "meta": {
+    "name": "Cedar United",
+    "entity_type": "team",
+    "sport": "FOOTBALL"
+  },
+  "voice": "Clear, restrained and direct.",
+  "fresh": [
+    {
+      "report_key": "report_1",
+      "publisher": "City Wire",
+      "published_at": "2026-10-08T17:00:00Z",
+      "publisher_excerpt": "City Wire corrected its earlier 8 October report about Cedar United and Alex Stone. Its original source clarified that the conversation concerned possible interest, not an agreed transfer fee. City Wire withdrew the claim that a fee had been agreed.\n\nAs of this correction, no formal offer, signed contract or completed move was confirmed. Stone remains registered with Northbridge. City Wire did not provide a transfer fee or a timetable for any future discussions."
+    },
+    {
+      "report_key": "report_2",
+      "publisher": "Club Bulletin",
+      "published_at": "2026-10-08T15:00:00Z",
+      "publisher_excerpt": "A Cedar United spokesperson told Club Bulletin on 8 October that the club had not agreed a fee for Alex Stone and had made no formal offer to Northbridge. The spokesperson confirmed that Cedar representatives had spoken with Stone’s agent on 7 October, describing the conversation as preliminary.\n\nThe spokesperson declined to say whether Cedar would pursue a deal. Northbridge provided no comment. The denial concerned an agreed fee; it did not deny that the preliminary conversation took place."
+    },
+    {
+      "report_key": "report_3",
+      "publisher": "City Wire",
+      "published_at": "2026-10-08T13:00:00Z",
+      "publisher_excerpt": "City Wire reported on 8 October that Cedar United had agreed a transfer fee with Northbridge for striker Alex Stone, citing one unnamed person familiar with discussions. The person said personal terms had not been settled. Neither club confirmed the account.\n\nStone remains registered with Northbridge. City Wire could not independently verify the alleged fee agreement. No signed contract or completed transfer was reported."
+    }
+  ]
+}

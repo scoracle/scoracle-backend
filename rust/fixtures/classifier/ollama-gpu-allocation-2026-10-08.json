@@ -1,0 +1,32 @@
+{
+  "scope": "Existing Classifier candidate allocation probe only; no inference, source reads, publication, or qualification",
+  "host": "archbox",
+  "gpu": {
+    "name": "NVIDIA GeForce GTX 1070 Ti",
+    "memory_mib": 8192
+  },
+  "backend": "ollama",
+  "model": "qwen3:1.7b",
+  "options": {
+    "num_ctx": 16384,
+    "num_gpu": 99
+  },
+  "parallel_slots": 4,
+  "cache": "f16 (current default)",
+  "success": false,
+  "error": "CUDA out of memory allocating 7168 MiB KV cache after offloading 29/29 layers",
+  "proposed_cache_trial": {
+    "OLLAMA_FLASH_ATTENTION": "1",
+    "OLLAMA_KV_CACHE_TYPE": "q8_0",
+    "tested": false,
+    "applied": false,
+    "blocker": "Remote account requires a sudo password to write the Ollama system-service override; isolated trial cannot read the service-owned model directory."
+  },
+  "native_classifier_ollama_admission": {
+    "ready": false,
+    "reason": "Exact tokenizer evidence is required by PreparedRequest::verify_input; native Ollama prepare currently returns no coverage. Installed Ollama /api/tokenize probe returns HTTP 404."
+  },
+  "workers_remain_paused": true,
+  "qualified": false,
+  "resident_models_after_probe": []
+}

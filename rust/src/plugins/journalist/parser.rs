@@ -66,8 +66,6 @@ impl Parser<NarrativesProduct> for EditionParser<'_> {
             .map(|((item, prose), activity)| {
                 let impact = activity.score;
                 let impact_components = activity.components.clone();
-                // Historical study lineage is retained separately. It cannot
-                // inflate the fresh-source count, dates, score or delivery IDs.
                 let evidence = std::slice::from_ref(item);
                 let (source_count, source_names, source_latest_epoch, source_oldest_epoch) =
                     source_metadata(evidence);
@@ -88,7 +86,7 @@ impl Parser<NarrativesProduct> for EditionParser<'_> {
             .collect::<Result<Vec<_>>>()?;
         let headline = narratives.first().map(|narrative| narrative.title.clone());
         Ok(Some(NarrativesProduct {
-            memory_provenance: json!({"receipt":self.assignment.memory_receipt,"selected":self.assignment.memories}),
+            memory_provenance: json!({"receipt":null,"selected":[]}),
             narratives,
             budget_truncated_ids: self.assignment.deferred_ids.clone(),
             card_score: Some(self.activity.card_score),

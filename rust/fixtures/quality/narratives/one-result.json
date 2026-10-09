@@ -7,9 +7,6 @@
   },
   "name": "one-result-single-result,-named-scorer",
   "parts": {
-    "memory": [
-      null
-    ],
     "reports": [
       {
         "context": "Cedar United beat Vale City 2–1 on Sunday. Sam Lee scored the winner in the 84th minute.",
@@ -26,7 +23,7 @@
       "sport": "FOOTBALL"
     }
   },
-  "prompt_version": "n101-classifier-world",
+  "prompt_version": "n102-fresh-only-json",
   "review": [
     "Articulate the supplied result and its scorer; add no significance the source does not carry.",
     "Keep the source's attribution and keep the result factual."
@@ -34,5 +31,5 @@
   "system": "",
   "task": "narratives",
   "temperature": 0.0,
-  "user_prompt": "{\"meta\":{\"name\":\"Cedar United\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\"},\"fresh\":[{\"report_key\":\"report_1\",\"publisher\":\"City Wire\",\"published_at\":\"2026-09-26T23:00:00Z\",\"publisher_excerpt\":\"Cedar United beat Vale City 2–1 on Sunday. Sam Lee scored the winner in the 84th minute.\"}],\"voice\":\"Clear, restrained and direct.\",\"form\":{\"keys\":[\"report_1\"],\"paragraphs\":\"concise\"}}"
+  "user_prompt": "{\"meta\":{\"name\":\"Cedar United\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\"},\"voice\":\"Clear, restrained and direct.\",\"fresh\":[{\"report_key\":\"report_1\",\"publisher\":\"City Wire\",\"published_at\":\"2026-09-26T23:00:00Z\",\"publisher_excerpt\":\"Cedar United beat Vale City 2–1 on Sunday. Sam Lee scored the winner in the 84th minute.\"}]}"
 }

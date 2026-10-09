@@ -1,0 +1,16 @@
+{
+  "meta": {
+    "name": "Cedar United",
+    "entity_type": "team",
+    "sport": "FOOTBALL"
+  },
+  "voice": "Clear, restrained and direct.",
+  "fresh": [
+    {
+      "report_key": "report_1",
+      "publisher": "City Wire",
+      "published_at": "2026-09-26T23:00:00Z",
+      "publisher_excerpt": "Cedar United are reportedly in talks to sign Alex Stone, according to two unnamed sources. No agreement has been reached. Cedar United declined to comment."
+    }
+  ]
+}

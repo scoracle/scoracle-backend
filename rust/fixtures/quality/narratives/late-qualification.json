@@ -11,9 +11,6 @@
   },
   "name": "late-qualification-late-correction-in-the-same-source",
   "parts": {
-    "memory": [
-      null
-    ],
     "reports": [
       {
         "context": "Cedar United held discussions with Alex Stone and his representatives on Monday. The talks took place after training, with club officials present. City Wire initially described the talks as an agreement, but later corrected its report: no contract was offered and no deal was reached.",
@@ -30,7 +27,7 @@
       "sport": "FOOTBALL"
     }
   },
-  "prompt_version": "n101-classifier-world",
+  "prompt_version": "n102-fresh-only-json",
   "review": [
     "The correction is the report: no contract was offered and no deal was reached.",
     "An earlier sentence in the same source called this an agreement; dropping the correction is a meaning-loss failure."
@@ -38,5 +35,5 @@
   "system": "",
   "task": "narratives",
   "temperature": 0.0,
-  "user_prompt": "{\"meta\":{\"name\":\"Cedar United\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\"},\"fresh\":[{\"report_key\":\"report_1\",\"publisher\":\"City Wire\",\"published_at\":\"2026-09-26T23:00:00Z\",\"publisher_excerpt\":\"Cedar United held discussions with Alex Stone and his representatives on Monday. The talks took place after training, with club officials present. City Wire initially described the talks as an agreement, but later corrected its report: no contract was offered and no deal was reached.\"}],\"voice\":\"Clear, restrained and direct.\",\"form\":{\"keys\":[\"report_1\"],\"paragraphs\":\"concise\"}}"
+  "user_prompt": "{\"meta\":{\"name\":\"Cedar United\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\"},\"voice\":\"Clear, restrained and direct.\",\"fresh\":[{\"report_key\":\"report_1\",\"publisher\":\"City Wire\",\"published_at\":\"2026-09-26T23:00:00Z\",\"publisher_excerpt\":\"Cedar United held discussions with Alex Stone and his representatives on Monday. The talks took place after training, with club officials present. City Wire initially described the talks as an agreement, but later corrected its report: no contract was offered and no deal was reached.\"}]}"
 }

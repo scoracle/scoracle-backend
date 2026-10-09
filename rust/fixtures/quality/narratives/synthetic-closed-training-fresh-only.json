@@ -1,0 +1,34 @@
+{
+  "expect": {
+    "body_includes": [
+      "supporters"
+    ]
+  },
+  "name": "synthetic-closed-training-fresh-only",
+  "parts": {
+    "reports": [
+      {
+        "context": "Cedar United confirmed that its training session on 29 September will be closed to supporters. The club gave no reason for the decision.",
+        "id": 210,
+        "published_at_epoch": 1790599725,
+        "source": "Club statement",
+        "title": "Cedar United closes training"
+      }
+    ],
+    "subject": {
+      "entity_id": 7,
+      "entity_type": "team",
+      "name": "Cedar United",
+      "sport": "FOOTBALL"
+    }
+  },
+  "prompt_version": "n102-fresh-only-json",
+  "review": [
+    "Attribute the closed session on 29 September to the club statement.",
+    "The club supplied no reason; do not infer a cause, prior supporter access or prior venue."
+  ],
+  "system": "",
+  "task": "narratives",
+  "temperature": 0.0,
+  "user_prompt": "{\"meta\":{\"name\":\"Cedar United\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\"},\"voice\":\"Clear, restrained and direct.\",\"fresh\":[{\"report_key\":\"report_1\",\"publisher\":\"Club statement\",\"published_at\":\"2026-09-28T12:48:45Z\",\"publisher_excerpt\":\"Cedar United confirmed that its training session on 29 September will be closed to supporters. The club gave no reason for the decision.\"}]}"
+}

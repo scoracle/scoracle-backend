@@ -18,3 +18,16 @@ Seven damaged converted Scout fixtures have been retired from the active suite. 
 `eval --capture --task <task> <entity>` emits a current case skeleton. Add expectations and review criteria before keeping it. `--capture-ledger` emits a historical request skeleton; use `--replay-fixtures DIR` for explicit frozen-prompt replay with current provider options. Complete Scout assignment capture/replay uses `--capture-assignment --task rating` (optionally `--season YEAR`) and `--replay-assignment FILE`. Current Scout captures are version 2 and include prepared parts; version-1 captures require recapture. Aligned current-contract fixtures cannot fall back to a bare prompt.
 
 Read-only inspection now lives under `eval --inspect reports` and `identity`; run `eval` for arguments.
+
+Journalist's active `quality/narratives` cases now use `n102-fresh-only-json`: only
+`meta`, `voice` and `fresh` reach the model, with one fixed instruction. Historical
+n101 quality cases are preserved under `journalist/history-quality-n101/` for later
+work; their expectations require history and do not apply to this pilot. Current
+training cases explicitly forbid inventing a prior timetable or a reason the club
+has not given. Production and fixture replay use the same assembler and JSON parser.
+
+[Journalist synthesis comparison](journalist/synthesis-comparison-2026-10-08.md)
+retains two fictional three-article payloads and 18 Ollama replies from Ministral,
+Granite4.2 and SmolLM3. Its combined report is experimental; production report slots
+are unchanged. The adjacent GPU concurrency receipt records four simultaneous
+Granite requests. These are calibration evidence, not passing launch benchmarks.

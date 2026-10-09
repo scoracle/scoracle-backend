@@ -1,0 +1,190 @@
+{
+  "scope": "Experimental Journalist synthesis: two fictional three-article worlds, three repetitions per model; no production publication",
+  "instruction": "Synthesize fresh into one concise news report about meta, using voice as tone; preserve attribution, event dates and qualifications, and return only JSON with a report string.",
+  "options": {
+    "temperature": 0,
+    "num_ctx": 32768,
+    "num_predict": 900,
+    "num_gpu": 99
+  },
+  "think": false,
+  "production_contract_changed": false,
+  "production_config_changed": false,
+  "source": "Rust journalist_replay preparation; complete source excerpts checked against case inputs",
+  "case_names": [
+    "transfer-rumour-denial-correction",
+    "result-coach-availability"
+  ],
+  "total_calls": 18,
+  "complete_and_valid_json": 18,
+  "timing_method": "Wall time for each /api/chat request after an explicit model load; median of three repetitions per payload. Model load measured separately. Request order alternates the two payloads; later runs can benefit from prefix caching.",
+  "runtime_note": "Initial default Ministral allocation offloaded 26/27 layers; temporary num_gpu=99 verified 27/27 and equal size/size_vram. All timed calls requested the same GPU setting; one model resident at a time.",
+  "models": [
+    {
+      "model": "ministral-3:3b",
+      "digest": "316262d960e27504463e6270bd8c1e8665c957ef2cff620ba333af9e1480df63",
+      "details": {
+        "family": "mistral3",
+        "parameter_size": "3.8B",
+        "quantization_level": "Q4_K_M"
+      },
+      "load_ms": 2930.364,
+      "runtime": {
+        "name": "ministral-3:3b",
+        "digest": "316262d960e27504463e6270bd8c1e8665c957ef2cff620ba333af9e1480df63",
+        "size": 10283846204,
+        "size_vram": 10283846204,
+        "context_length": 32768,
+        "runner": "llamacpp"
+      },
+      "cases": {
+        "transfer-rumour-denial-correction": {
+          "median_ms": 2367.864,
+          "run_ms": [
+            7763.367,
+            2367.864,
+            2299.628
+          ],
+          "output_tokens": [
+            250,
+            82,
+            82
+          ],
+          "different_outputs": 2
+        },
+        "result-coach-availability": {
+          "median_ms": 4945.521,
+          "run_ms": [
+            5840.364,
+            4894.348,
+            4945.521
+          ],
+          "output_tokens": [
+            189,
+            189,
+            189
+          ],
+          "different_outputs": 1
+        }
+      }
+    },
+    {
+      "model": "granite4.2:3b",
+      "digest": "7a65e6414ad66ecf95515ba9292530a168d6f97860044ada11809795dca5bdde",
+      "details": {
+        "family": "granite",
+        "parameter_size": "3.7B",
+        "quantization_level": "Q4_K_M"
+      },
+      "load_ms": 3114.077,
+      "runtime": {
+        "name": "granite4.2:3b",
+        "digest": "7a65e6414ad66ecf95515ba9292530a168d6f97860044ada11809795dca5bdde",
+        "size": 8313666272,
+        "size_vram": 8313666272,
+        "context_length": 32768,
+        "runner": "llamacpp"
+      },
+      "cases": {
+        "transfer-rumour-denial-correction": {
+          "median_ms": 2906.18,
+          "run_ms": [
+            4762.599,
+            2906.18,
+            2835.916
+          ],
+          "output_tokens": [
+            161,
+            116,
+            116
+          ],
+          "different_outputs": 2
+        },
+        "result-coach-availability": {
+          "median_ms": 4259.532,
+          "run_ms": [
+            5470.332,
+            4259.532,
+            4165.725
+          ],
+          "output_tokens": [
+            165,
+            165,
+            165
+          ],
+          "different_outputs": 1
+        }
+      }
+    },
+    {
+      "model": "alibayram/smollm3:latest",
+      "digest": "6463ebe1ce6ae2f6369498f54f136baad56b4380e5365bfecc938079f8e6733c",
+      "details": {
+        "family": "smollm3",
+        "parameter_size": "3.1B",
+        "quantization_level": "Q4_K_M"
+      },
+      "load_ms": 2345.718,
+      "runtime": {
+        "name": "alibayram/smollm3:latest",
+        "digest": "6463ebe1ce6ae2f6369498f54f136baad56b4380e5365bfecc938079f8e6733c",
+        "size": 7396948704,
+        "size_vram": 7396948704,
+        "context_length": 32768,
+        "runner": "llamacpp"
+      },
+      "cases": {
+        "transfer-rumour-denial-correction": {
+          "median_ms": 3354.015,
+          "run_ms": [
+            4359.671,
+            3354.015,
+            3318.428
+          ],
+          "output_tokens": [
+            155,
+            155,
+            155
+          ],
+          "different_outputs": 1
+        },
+        "result-coach-availability": {
+          "median_ms": 3897.611,
+          "run_ms": [
+            4594.053,
+            3861.351,
+            3897.611
+          ],
+          "output_tokens": [
+            181,
+            181,
+            181
+          ],
+          "different_outputs": 1
+        }
+      }
+    }
+  ],
+  "agent_quality_observations": {
+    "ministral-3:3b": [
+      "All three mixed-development replies changed an 84th-minute winning goal to stoppage time and an injury suffered during Tuesday training to missing that training session.",
+      "The mixed-development replies added a forecast that the coaching appointment may redefine momentum; the evidence supplied no forecast or sustained trend.",
+      "Tone and internal meta wording leaked into every reply. The first transfer reply added ongoing talks and suggested both clubs clarified the situation although Northbridge gave no comment.",
+      "Transfer output shortened substantially after the first run despite temperature zero; the later replies omitted the explicit withdrawal and the preliminary-conversation date."
+    ],
+    "granite4.2:3b": [
+      "The first transfer reply claimed Club Bulletin confirmed no pursuit of a deal, while the club explicitly declined to say whether it would pursue one.",
+      "The two subsequent transfer replies retained the unconfirmed move, preliminary conversation, withdrawn agreement and Northbridge silence more accurately.",
+      "All mixed-development replies preserved the 84th minute, injury timing and unknown return date, and placed the appointment after the match. The wording \"including the winning goal\" following Park’s full-match participation is awkward; it still names Lee as the scorer.",
+      "Publisher attribution is incomplete in the mixed-development reply. A valid JSON result does not establish full factual fidelity."
+    ],
+    "alibayram/smollm3:latest": [
+      "All three transfer replies asserted both Cedar and Northbridge denied a formal agreement. The sources supplied a Cedar denial and no Northbridge comment.",
+      "The transfer replies gave an unsupported causal explanation for the reporting confusion and failed to name the explicit City Wire withdrawal clearly.",
+      "The mixed-development replies preserved the supplied score, scorer, 84th minute, appointment, full-match participation and future absence; no new injury cause or forecast was added.",
+      "The three repeats produced identical content for each payload. Publisher attribution is limited in the mixed-development reply."
+    ]
+  },
+  "status": "not qualified",
+  "records": "synthesis-comparison-2026-10-08.jsonl"
+}

@@ -2,7 +2,55 @@
 
 ## Launch concept: measure a spectrum, then let characters express it
 
-**Status:** The Classifier plumbing is deployed to production with acquisition and cognition paused. Migrations 291–298 and all seven matching binaries are installed; the API is healthy and daily RSS continues. The user paused the full drain to calibrate on controlled backlog chunks. Correctness calibration, independent accuracy evaluation and model promotion remain in the dedicated session — October 8, 2026.
+**Status — October 9, 2026:** The user authorized deploying the current build, then explicitly chose to wait for a reliable Classifier before new consumer output. The deployed Classifier plumbing includes migrations 291–298; the API is healthy and daily RSS continues. The fresh-only Journalist build and GPU concurrency changes are being released. No Classifier/extractor combination has passed qualification. Journalist's existing source-bound delivery gate remains intact; inference workers and full-backlog drain stay paused while the next model work proceeds.
+
+**Next model step:** Find a reliable **classifier and extractor combination**. Treat fast emotion/presence scoring and exact claim/speaker/target/time extraction as separately evaluated capabilities; neither a valid JSON response nor a fast document score proves the other. Keep the fixed SQL/source contract and swap the models behind it.
+
+**Production scope:** Journalist first, using `meta + voice + fresh`, one instruction
+and one JSON payload. Memories and form instructions remain excluded. Character
+inference uses Ollama on GPU with four shared slots and a consistent context
+window. Classifier may use CPU only after measured complete-pipeline capacity for
+approximately 8,500 articles/day and quality checks; Ollama remains preferred.
+The earlier full-backlog drain pause is not automatically lifted by this release.
+
+**Output corpus:** Retain versioned input/source identities, exact requests, raw
+replies, parsed products, completions, errors and model/prompt revisions. Publisher
+source snapshots and canonical SQL facts remain authoritative. Generated reports
+stored in SQL remain generated reports: do not feed them back as fresh source facts
+or call them verified training labels. Use captured outputs as reviewable training
+candidates; record corrections/acceptance separately and keep source groups and
+held-out evaluation out of training. The generation ledger already captures these
+artifacts, with best-effort writes; audit corpus completeness before training.
+
+### Immediate release and next calibration work
+
+1. [x] Implement Journalist's fresh-only JSON assembly and retain native source,
+   claim, product and outbox validation. Verify 369 library checks and examples.
+2. [x] Compare Ministral 3:3B, Granite4.2:3B and SmolLM3 on identical three-article
+   payloads. Retain all 18 outputs/timings and factual failures. Verify four
+   simultaneous Granite4.2 GPU requests. This supports deployment preparation,
+   not a claim that the models are accurate.
+3. [ ] Release the current source and matching production binaries; verify API
+   health, commit identity and preserved worker pause. GPU residency has been
+   checked in controlled replay; verify it again on eventual worker activation.
+4. [x] Keep new consumer generation waiting for reliable Classifier evidence,
+   as explicitly chosen October 9. Do not add a temporary source-only bypass.
+   Keep failures and unknown results distinct from absence; do not promote failed
+   candidates or fabricated measurements through the delivery gate.
+5. [ ] Qualify a classifier/extractor pair on controlled full-source chunks:
+   attribution, negation, corrections, event time, target relationships, unknowns
+   and exact supporting spans. Prefer a small fast scoring model if it meets the
+   required dimensions, paired with an independently reliable extractor. Keep
+   raw scores and uncertainty; training and calibration do not precede reviewed
+   evidence of the required behavior.
+6. [ ] Measure complete-pipeline CPU/GPU throughput, including full-source tails,
+   target fan-out, retries, acquisition and persistence. CPU Qwen3 1.7B took
+   65.1 seconds for one short control and failed qualification; compact CPU
+   emotion heads are promising but do not replace extraction. Resolve native
+   Ollama exact-input admission before promoting that Classifier transport.
+7. [ ] Accumulate the consumer-output corpus with source-bound receipts, review
+   corrections, and test replay/rollback. Expand to other characters after the
+   Journalist path is working; resume the full backlog only deliberately.
 
 **Placement:** After Google News RSS discovery and native full-source acquisition
 
@@ -16,7 +64,11 @@
 
 ## Plumbing readiness — priority 1, October 8
 
-Production cognition remains paused. Build and verify the replacement flow before enabling it; daily RSS discovery must keep accumulating data. Model accuracy and calibration are a separate session.
+The plumbing below is implemented and deployed. October 9 authorization permits
+releasing the current build while preserving inactive inference and acquisition.
+Daily RSS discovery continues. The user explicitly chose to wait for reliable
+Classifier evidence before new consumer generation. Classifier correctness is the
+next priority, with a reliable classifier/extractor combination still to be selected.
 
 1. [x] Connect RSS discovery to `classifier_acquire`; replay retained discovery idempotently. Duplicate sweeps/replays preserve leases, retry backoff and parked failures, and skip unchanged acquired sources. Acquisition runs independently of inference. Implemented, verified and deployed; acquisition remains disabled for controlled-chunk calibration.
 2. [x] Complete the fixed measurement envelope: all 51 presence dimensions, three ordinals, qualified claims, explicit unknowns and source/model/schema provenance. This establishes the plumbing contract; model support and accuracy remain separate.
@@ -113,7 +165,7 @@ Each downstream world must preserve the source excerpts, evidence scope, model/h
 
 | Character / real implementation | Required world | Where it comes from |
 |---|---|---|
-| Journalist — `plugins/journalist/prompt.rs`, `memories.rs` | Fresh events/results, targets, attributed reporting, denial/correction/uncertainty, report dates and specifically attached history | Classifier relevance/topic/discourse/time measurements plus exact source claims; existing source-backed continuity. |
+| Journalist — `plugins/journalist/prompt.rs`, `fresh.rs` | Current source reporting, targets, attribution, denial/correction/uncertainty and report dates | Identity from `tools/meta.rs`, tone from `voice.rs` and complete reporting from `fresh.rs`; history is temporarily excluded for the n102 pilot. |
 | Insider — `plugins/insider/prompt.rs`, `mod.rs` | Moves/contracts/staffing, counterparty, reported versus denied claim, negotiation stage, source disagreement, dated history and publisher outcome record | Classified evidence and exact quotes plus existing resolved identity links and tracked/confirmed publisher samples. A move score never mutates a roster. |
 | Influencer — `plugins/influencer/prompt.rs` | Named speaker/target emotion, supported mixtures, valence, intensity, timing and change during a reporting period | Emotion vectors plus attributed spans and explicit time, followed by validated period aggregation. Unknown is neither neutral nor valence 50; one speaker is not the fanbase. |
 | Scout — `plugins/scout/prompt.rs`, `sources.rs`, `performance.rs` | Performance measurements and their percentile/cohort/sample limits; availability/personnel changes; relevant attributed news | Keep existing deterministic/statistical measurements and adjudicated records; add scored reporting slices. Do not classify a percentile, fitness outcome or completed transfer into existence. |
@@ -614,3 +666,173 @@ review packets: `/private/tmp/classifier-calibration-chunk1-20261008/` (mode 070
 Eight Python contract checks pass; the existing torch-dependent check is skipped locally.
 The new check covers complete source preservation, repeated Unicode quotes, invalid ranges,
 source drift and constrained selection schema. No database, queue or production policy was changed.
+
+## Journalist fresh-only JSON pilot — 2026-10-08
+
+Focus on Journalist alone before applying this pattern to the other characters.
+Rust loads SQL-backed identity and source receipts, admits complete current reports,
+and compiles `meta`, `voice` and `fresh` into one JSON input. The model receives
+that payload and one fixed instruction; it has no database or tool access.
+
+- `tools/meta.rs`: the subject's writing identity, without database IDs.
+- `plugins/journalist/voice.rs`: tone only.
+- `plugins/journalist/fresh.rs`: publisher, publication date, complete excerpt and
+  any supplied Classifier relationships, with a request-local `report_key`.
+- `plugins/journalist/prompt.rs`: the one assembler, used for budget checks,
+  fingerprints, production and fixture replay.
+
+The exact input example is [fresh-input-n102.json](../fixtures/journalist/fresh-input-n102.json).
+The fixed instruction lives in `prompt.rs::TASK`. A response has this shape:
+
+```json
+{"report_1":"City Wire reports that Cedar United are in talks to sign Alex Stone, citing two unnamed sources. No agreement has been reached, and the club declined to comment."}
+```
+
+This response is an illustrative paraphrase, not a required phrase or a model
+quality verdict. The model returns prose in each corresponding report slot; Rust
+keeps article IDs, source receipts, deterministic activity and publication writes.
+
+Memories and form instructions are absent from the input. Historical studies and
+storyline lookups are no longer called by production preparation or live evaluation.
+Historical code is retained for later work. The existing JSON grammar, parser and
+publication guards still enforce output structure. Native publication bookkeeping
+still reads previously used source receipts to prevent duplicate reporting; those
+receipts never become model context. Complete excerpts are not shortened to fit:
+oversized reports receive a disposition and excess eligible reports remain pending.
+
+Prompt version: `n102-fresh-only-json`. Active quality fixtures were rebuilt through
+the Rust assembler. Two history-dependent n101 fixtures were preserved separately;
+the fresh-only training fixtures now forbid inventing a previous timetable, prior
+supporter access or an unexplained cause. Other character prompts are unchanged.
+
+Verification: 369 Rust library checks pass, with 57 integration/environment checks
+ignored in the ordinary suite; all examples compile. The disposable PostgreSQL
+Journalist delivery/publication/recovery test passes, including deduplication,
+claim fencing and source revision recovery. This change is local; production
+workers and the backlog drain remain paused.
+
+Controlled local replay used the installed `granite4.2:3b` tag (3.7B, Q4_K_M).
+With the initial fixed instruction, default reasoning completed 5/8 model calls;
+three hit the output limit. The same eight inputs and instruction completed 8/8
+with reasoning disabled: median elapsed time fell from 21.0 seconds to 1.6 seconds.
+The empty-evidence case made no call in either run. Initial no-reasoning replies
+still exposed task/tone wording once and omitted a supplied event day once.
+
+The final instruction describes `voice` as tone and `fresh` as the only evidence.
+Four focused no-reasoning probes all completed (median 1.3 seconds), without the
+observed task/tone leakage and with the tested event day retained. A final default-
+reasoning probe also completed, but took 12.2 seconds and emitted 1912 reasoning
+characters. This is a runtime choice to calibrate, not a production route change.
+
+Agent read-through still finds inconsistent explicit publisher attribution in
+standalone prose; native source metadata remains intact. Several replies largely
+copy the evidence. Parser success and these reused fictional controls do not
+qualify broader writing quality or a Classifier model. Production settings,
+deliveries, trained weights and the other characters are unchanged.
+
+Exact final requests, provider replies, completions and timings:
+[fresh-n102-granite4.2-3b.jsonl](../fixtures/journalist/fresh-n102-granite4.2-3b.jsonl).
+The [calibration receipt](../fixtures/journalist/fresh-n102-calibration-2026-10-08.json)
+separates initial and final instructions, completion checks and quality observations.
+Failed replay calls now retain provider metrics and partial content for debugging;
+a fixture check verifies incomplete JSON content survives capture without reasoning
+being mixed into the returned prose.
+
+## Ollama GPU concurrency and synthesis comparison — 2026-10-08
+
+The user's target backend is Ollama for all six characters and for Classifier.
+Characters share one GPU-resident model, rather than six separate model copies;
+retain the existing Mac character / Archbox internal-stage placement to avoid
+eviction between the two workloads. No model has been promoted and both worker
+hosts remain paused.
+
+The shared native Ollama request builder now sends `options.num_gpu=99`, matching
+the controlled Classifier runner. Default Ministral allocation had left one layer
+on CPU; this setting loaded all 27 layers onto GPU. Requesting GPU offload still
+requires residency and capacity verification for each proposed model deployment.
+
+The paused Mac worker settings now use `OLLAMA_MAX_CONCURRENT=4`,
+`COGNITION_BACKEND_CONCURRENCY="http://localhost:11434=4"`, and
+`VOICE_NUM_CTX=32768`, matching Ollama's four slots and the complete-article
+character context floor. Existing model selections were preserved; the original
+worker environment is backed up as `.env.local.bak-20261008-gpu-concurrency`.
+Ollama already keeps its single resident model indefinitely. This source change
+has not been deployed into the paused worker binary.
+
+Four simultaneous fictional synthesis requests to `granite4.2:3b` completed in
+16.72 seconds as one batch (individual times 15.57–16.70 seconds). Server evidence
+shows four occupied slots, 32,768 tokens per slot, 41/41 layers offloaded and no
+truncation. `/api/ps` reports equal total/VRAM size before and after the batch.
+The [concurrency receipt](../fixtures/journalist/gpu-concurrency-2026-10-08.json)
+retains every request and response. This tests transport capacity, not the six
+plugin semantics or sustained production throughput.
+
+The [three-model comparison](../fixtures/journalist/synthesis-comparison-2026-10-08.md)
+contains the complete two three-article inputs, unedited outputs and timings.
+All 18 calls completed with valid JSON, but all three models showed factual or
+attribution errors. Granite4.2 is a candidate for the next controlled calibration
+chunk, not a launch-qualified choice. Combined `{"report":...}` synthesis is an
+experimental output contract; production still maps each source report key to
+its report and retains the existing provenance guards.
+
+Classifier's Ollama migration has two measured blockers:
+
+- Archbox's 8 GB GPU cannot allocate four 16K-context Qwen3 1.7B slots with its
+  current f16 KV cache: the cache alone requests 7,168 MiB. All model layers
+  offloaded before context allocation failed; no CPU fallback or source clipping
+  was accepted. A proposed q8 cache trial needs administrator access and has not
+  run. The remote account requires a sudo password; no system settings changed.
+- Native Ollama preparation does not supply the exact tokenizer evidence that
+  Classifier requires. Installed `/api/tokenize` returns 404. Preserve complete
+  input admission and consumed-token verification when implementing the Ollama
+  path; do not disable those guards or call the existing direct llama.cpp
+  completion path an Ollama API migration.
+
+The [Classifier allocation receipt](../fixtures/classifier/ollama-gpu-allocation-2026-10-08.json)
+records the failed allocation and unapplied cache trial separately from quality.
+The library passes 369 checks (57 ignored) and all examples compile. Backlog drain,
+production publication and model qualification remain pending.
+
+### Placement clarification: Classifier CPU is conditional — 2026-10-08
+
+Character inference stays on GPU. The user permits Classifier to stay on CPU if
+it can reliably process approximately 8,500 complete articles daily and leave
+adequate capacity for the other services. Ollama remains the preferred runtime.
+This supersedes requiring GPU placement for Classifier itself; no production
+model or route changed.
+
+8,500 articles/day averages one article every 10.16 seconds. Capacity must count
+all target checks, full-source windows, measurement heads, retries and persistence
+per article, and absorb the actual arrival bursts. As a planning margin, twice
+that average capacity is about one completed article every 5.08 seconds; this is
+a proposed calibration target, not a measured throughput result.
+
+The existing 40-source, two-thread Archbox CPU emotion-head measurements average
+1.51 seconds per article for Horizon, 2.45 for SamLowe and 3.41 for ModernBERT.
+They establish a plausible CPU direction for small models, but do not perform
+the complete claim/target/time/qualification extraction and cannot qualify daily
+pipeline capacity or accuracy. Their sample p95 values are 5.69, 7.55 and 11.36
+seconds respectively; neither long-source tails nor additional work disappear
+when averaging the sample.
+
+A new bounded CPU probe used the existing Ollama-managed Qwen3 1.7B checkpoint
+on Archbox's i7-7700, two threads, `num_gpu=0`, context 16,384 and output budget
+3,072. A 155-byte fictional schedule required 1,442 template/input tokens and
+397 output tokens. Exact preflight IDs matched consumed input, completion was
+not truncated, and `/api/ps` confirmed zero VRAM allocation. Inference took
+65.10 seconds, excluding a 5.08-second model load. At that one-control pace,
+one request per article would imply only about 1,327 articles/day; this arithmetic
+is not a representative daily throughput benchmark.
+
+The result also fails native qualification: it marks the short usable source as
+incomplete/unusable and invents embarrassment, excitement and realization for a
+routine schedule. CPU placement is therefore not accepted for this candidate and
+configuration. Thread/batch optimization and different models remain unmeasured.
+The probe uses the existing bound llama.cpp tokenizer/completion path managed by
+Ollama, not a completed native Ollama API migration. Full request, preflight,
+response, timings and native rejection are retained in the
+[CPU probe receipt](../fixtures/classifier/cpu-probe-2026-10-08.json).
+
+Production services remain inactive, the temporary CPU model was unloaded, and
+the character GPU settings are unchanged. Do not make character requests CPU
+requests when qualifying a future Classifier-only CPU override.

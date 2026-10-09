@@ -3,10 +3,12 @@
 //! for the pure SQL source-activity query (no tables or product writes).
 //! cargo run --example journalist_replay -- INPUT.jsonl OUTPUT.jsonl [OLLAMA_URL [auto|true|false|compare [schema|unconstrained [MODEL]]]]
 use anyhow::{Context, Result};
-use scoracle_cognition::harness::model::{GenerateOptions, GenerateResult, Inference};
+use scoracle_cognition::harness::model::{
+    GenerateOptions, GenerateResult, Inference, ResponseFailure,
+};
 use scoracle_cognition::harness::providers::ollama::OllamaClient;
 use scoracle_cognition::harness::Studio;
-use scoracle_cognition::plugins::journalist::{self, memories::Continuity, prompt};
+use scoracle_cognition::plugins::journalist::{self, prompt};
 use scoracle_cognition::tools::meta::EntityMeta;
 use serde::Deserialize;
 use serde_json::json;
@@ -36,13 +38,13 @@ impl Inference for RecordedModel {
             "elapsed_ms": started.elapsed().as_millis(),
         });
         match &result {
-            Ok((response, _)) => {
-                let mut raw: serde_json::Value = serde_json::from_str(&response.raw_response_body)?;
-                raw["message"].as_object_mut().unwrap().remove("thinking");
-                record["response"] = raw;
-                record["thinking_chars"] = json!(response.thinking.chars().count());
+            Ok((response, _)) => record_response(&mut record, &response.raw_response_body),
+            Err(error) => {
+                record["error"] = json!(format!("{error:#}"));
+                if let Some(failure) = error.downcast_ref::<ResponseFailure>() {
+                    record_response(&mut record, &failure.raw_response_body);
+                }
             }
-            Err(error) => record["error"] = json!(format!("{error:#}")),
         }
         self.calls.lock().unwrap().push(record);
         result
@@ -54,6 +56,26 @@ impl Inference for RecordedModel {
         self.inner.request_body(prompt, &self.options(options))
     }
 }
+// Preserve incomplete replies and provider metrics, keeping reasoning out of prose.
+fn record_response(record: &mut serde_json::Value, body: &str) {
+    match serde_json::from_str::<serde_json::Value>(body) {
+        Ok(mut raw) => {
+            if let Some(message) = raw
+                .get_mut("message")
+                .and_then(serde_json::Value::as_object_mut)
+            {
+                let thinking = message.remove("thinking");
+                record["thinking_chars"] = json!(thinking
+                    .as_ref()
+                    .and_then(|v| v.as_str())
+                    .map_or(0, |t| t.chars().count()));
+            }
+            record["response"] = raw;
+        }
+        Err(_) => record["raw_response_body"] = json!(body),
+    }
+}
+
 impl RecordedModel {
     fn options(&self, options: &GenerateOptions) -> GenerateOptions {
         let mut options = options.clone();
@@ -74,14 +96,8 @@ struct Case {
     now: i64,
     #[serde(default)]
     prior_reported: Vec<String>,
-    #[serde(default)]
-    memories: Vec<prompt::CorpusItem>,
-    #[serde(default)]
-    memory_study: Option<scoracle_cognition::tools::memories::Study>,
-    /// Fresh article id -> storyline id, the exact link the plugin uses to
-    /// attach studied history to a report.
-    #[serde(default)]
-    storylines: std::collections::HashMap<i64, i64>,
+    #[serde(default, alias = "memories")]
+    published_reports: Vec<prompt::CorpusItem>,
 }
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -143,35 +159,28 @@ async fn main() -> Result<()> {
         .enumerate()
     {
         let case: Case = serde_json::from_str(&line?)?;
-        let memory = Continuity {
-            published_reports: case
-                .memories
-                .into_iter()
-                .chain(
-                    case.prior_reported
-                        .into_iter()
-                        .map(|context| prompt::CorpusItem {
-                            classifier_world: None,
-                            id: 0,
-                            title: String::new(),
-                            context,
-                            source: String::new(),
-                            published_at_epoch: None,
-                        }),
-                )
-                .collect(),
-            study: case.memory_study,
-            // The exact link that attaches history to a report. A replay case
-            // supplies the study directly, so storyline membership is whatever
-            // the case declares; absent means no history is attached.
-            storylines: case.storylines,
-        };
-        let assignment = prompt::prepare(case.subject, case.reports, &memory, case.now)
+        let published_reports = case
+            .published_reports
+            .into_iter()
+            .chain(
+                case.prior_reported
+                    .into_iter()
+                    .map(|context| prompt::CorpusItem {
+                        classifier_world: None,
+                        id: 0,
+                        title: String::new(),
+                        context,
+                        source: String::new(),
+                        published_at_epoch: None,
+                    }),
+            )
+            .collect::<Vec<_>>();
+        let assignment = prompt::prepare(case.subject, case.reports, &published_reports, case.now)
             .context(case.name.clone())?;
         let base_record = json!({"name":case.name, "input_hash":assignment.input_hash,
             "dispositions":assignment.dispositions.iter().map(|d|json!({"article_id":d.article_id,"reason":d.reason})).collect::<Vec<_>>(),
             "deferred":assignment.deferred_ids, "prompt":prompt::prompt(&assignment),
-            "system":prompt::system_prompt(&assignment)});
+            "system":prompt::TASK});
         // Alternate which mode runs first to reduce a fixed cache/order advantage.
         let mut order = (0..modes.len()).collect::<Vec<_>>();
         if case_index % 2 == 1 {
@@ -218,4 +227,25 @@ async fn main() -> Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn failed_provider_reply_keeps_partial_content_metrics_and_completion_reason() {
+        let mut record = json!({});
+        record_response(
+            &mut record,
+            r#"{"done_reason":"length","eval_count":900,"message":{"content":"{\"report_1\":","thinking":"fixture reasoning"}}"#,
+        );
+        assert_eq!(record["response"]["done_reason"], "length");
+        assert_eq!(record["response"]["eval_count"], 900);
+        assert_eq!(record["response"]["message"]["content"], "{\"report_1\":");
+        assert!(record["response"]["message"].get("thinking").is_none());
+        assert_eq!(record["thinking_chars"], 17);
+        record_response(&mut record, "HTTP failure without JSON");
+        assert_eq!(record["raw_response_body"], "HTTP failure without JSON");
+    }
 }

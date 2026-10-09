@@ -1,0 +1,312 @@
+{
+  "scope": "Four simultaneous fictional Journalist synthesis requests; no DB or production publication",
+  "model": "granite4.2:3b",
+  "runtime_before": [
+    {
+      "name": "granite4.2:3b",
+      "model": "granite4.2:3b",
+      "size": 8313666272,
+      "digest": "7a65e6414ad66ecf95515ba9292530a168d6f97860044ada11809795dca5bdde",
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "granite",
+        "families": [
+          "granite"
+        ],
+        "parameter_size": "3.7B",
+        "quantization_level": "Q4_K_M"
+      },
+      "expires_at": "2026-10-08T23:03:33.068411-04:00",
+      "size_vram": 8313666272,
+      "context_length": 32768,
+      "runner": "llamacpp"
+    }
+  ],
+  "runtime_after": [
+    {
+      "name": "granite4.2:3b",
+      "model": "granite4.2:3b",
+      "size": 8313666272,
+      "digest": "7a65e6414ad66ecf95515ba9292530a168d6f97860044ada11809795dca5bdde",
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "granite",
+        "families": [
+          "granite"
+        ],
+        "parameter_size": "3.7B",
+        "quantization_level": "Q4_K_M"
+      },
+      "expires_at": "2026-10-08T23:03:49.797147-04:00",
+      "size_vram": 8313666272,
+      "context_length": 32768,
+      "runner": "llamacpp"
+    }
+  ],
+  "wall_ms": 16723.215,
+  "calls": [
+    {
+      "slot": 1,
+      "elapsed_ms": 16701.919,
+      "request": {
+        "model": "granite4.2:3b",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Synthesize fresh into one concise news report about meta, using voice as tone; preserve attribution, event dates and qualifications, and return only JSON with a report string."
+          },
+          {
+            "role": "user",
+            "content": "{\"meta\":{\"name\":\"Cedar United\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\"},\"voice\":\"Clear, restrained and direct.\",\"fresh\":[{\"report_key\":\"report_1\",\"publisher\":\"City Wire\",\"published_at\":\"2026-10-08T17:00:00Z\",\"publisher_excerpt\":\"City Wire corrected its earlier 8 October report about Cedar United and Alex Stone. Its original source clarified that the conversation concerned possible interest, not an agreed transfer fee. City Wire withdrew the claim that a fee had been agreed.\\n\\nAs of this correction, no formal offer, signed contract or completed move was confirmed. Stone remains registered with Northbridge. City Wire did not provide a transfer fee or a timetable for any future discussions.\"},{\"report_key\":\"report_2\",\"publisher\":\"Club Bulletin\",\"published_at\":\"2026-10-08T15:00:00Z\",\"publisher_excerpt\":\"A Cedar United spokesperson told Club Bulletin on 8 October that the club had not agreed a fee for Alex Stone and had made no formal offer to Northbridge. The spokesperson confirmed that Cedar representatives had spoken with Stone’s agent on 7 October, describing the conversation as preliminary.\\n\\nThe spokesperson declined to say whether Cedar would pursue a deal. Northbridge provided no comment. The denial concerned an agreed fee; it did not deny that the preliminary conversation took place.\"},{\"report_key\":\"report_3\",\"publisher\":\"City Wire\",\"published_at\":\"2026-10-08T13:00:00Z\",\"publisher_excerpt\":\"City Wire reported on 8 October that Cedar United had agreed a transfer fee with Northbridge for striker Alex Stone, citing one unnamed person familiar with discussions. The person said personal terms had not been settled. Neither club confirmed the account.\\n\\nStone remains registered with Northbridge. City Wire could not independently verify the alleged fee agreement. No signed contract or completed transfer was reported.\"}]}"
+          }
+        ],
+        "stream": false,
+        "think": false,
+        "format": {
+          "type": "object",
+          "properties": {
+            "report": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "report"
+          ],
+          "additionalProperties": false
+        },
+        "options": {
+          "temperature": 0,
+          "num_ctx": 32768,
+          "num_predict": 900,
+          "num_gpu": 99
+        },
+        "keep_alive": "5m"
+      },
+      "response": {
+        "model": "granite4.2:3b",
+        "created_at": "2026-10-09T02:58:49.797017Z",
+        "message": {
+          "role": "assistant",
+          "content": "{\n  \"report\": \"On October 8, 2026, City Wire corrected an earlier report stating Cedar United and Northbridge had agreed a transfer fee for striker Alex Stone. The correction notes the original claim was based on an unnamed source and that no formal offer, signed contract, or confirmed fee existed. City Wire withdrew any assertion of an agreed fee. On the same day, Club Bulletin reported that Cedar United’s spokesperson confirmed the club had not agreed a fee and made no formal offer, noting preliminary discussion with Stone’s agent on October 7, but declined to comment on pursuing a deal. No timeline or fee amount was provided. The correction and bulletin statements align: there is no confirmed transfer agreement, fee, or move. Alex Stone remains registered with Northbridge. All reports are based on statements from unnamed or limited sources; no independent verification or club confirmation of a fee or offer was provided.\"\n}"
+        },
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 16700674375,
+        "load_duration": 9072459,
+        "prompt_eval_count": 447,
+        "prompt_eval_cached_count": 0,
+        "prompt_eval_duration": 2372144000,
+        "eval_count": 188,
+        "eval_duration": 13163661000
+      }
+    },
+    {
+      "slot": 2,
+      "elapsed_ms": 16105.877,
+      "request": {
+        "model": "granite4.2:3b",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Synthesize fresh into one concise news report about meta, using voice as tone; preserve attribution, event dates and qualifications, and return only JSON with a report string."
+          },
+          {
+            "role": "user",
+            "content": "{\"meta\":{\"name\":\"Cedar United\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\"},\"voice\":\"Clear, restrained and direct.\",\"fresh\":[{\"report_key\":\"report_1\",\"publisher\":\"Training Wire\",\"published_at\":\"2026-10-08T17:00:00Z\",\"publisher_excerpt\":\"Cedar United said on Thursday, 8 October, that goalkeeper Kim Park would miss the next league match on Sunday, 11 October, because of an ankle injury suffered in Tuesday’s training session. The club supplied no return date and did not name a replacement goalkeeper.\\n\\nThe report concerned Park’s availability for the upcoming match. It did not say that he had missed the previous Sunday’s win, and it did not link the injury to Jo Vale’s appointment or to a change in training methods.\"},{\"report_key\":\"report_2\",\"publisher\":\"Club Bulletin\",\"published_at\":\"2026-10-08T15:00:00Z\",\"publisher_excerpt\":\"Cedar United announced on Monday, 5 October, that Jo Vale had been appointed head coach on a two-year contract. Her first training session with the squad was scheduled for Tuesday, 6 October.\\n\\nThe club gave no explanation for the appointment and did not announce a tactical change. Vale was not the head coach during Sunday’s victory over Vale City. The announcement included no prediction about upcoming results.\"},{\"report_key\":\"report_3\",\"publisher\":\"Match Wire\",\"published_at\":\"2026-10-08T13:00:00Z\",\"publisher_excerpt\":\"Cedar United beat Vale City 2–1 on Sunday, 4 October. Forward Sam Lee scored the winning goal in the 84th minute after the teams were level at 1–1. Goalkeeper Kim Park started and played the entire match.\\n\\nThe win was Cedar’s second in its last five league matches. Match Wire supplied no league position or season points total. The report did not assess whether the result represented a sustained change in performance.\"}]}"
+          }
+        ],
+        "stream": false,
+        "think": false,
+        "format": {
+          "type": "object",
+          "properties": {
+            "report": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "report"
+          ],
+          "additionalProperties": false
+        },
+        "options": {
+          "temperature": 0,
+          "num_ctx": 32768,
+          "num_predict": 900,
+          "num_gpu": 99
+        },
+        "keep_alive": "5m"
+      },
+      "response": {
+        "model": "granite4.2:3b",
+        "created_at": "2026-10-09T02:58:49.201149Z",
+        "message": {
+          "role": "assistant",
+          "content": "{\n  \"report\": \"On Thursday, 8 October, Cedar United announced that goalkeeper Kim Park will miss the next league match on Sunday, 11 October, due to an ankle injury sustained during Tuesday’s training session. The club provided no return date or replacement goalkeeper. This follows a 2–1 victory over Vale City on Sunday, 4 October, where Park started and played the entire match, including the winning goal by Sam Lee in the 84th minute. Earlier on Monday, 5 October, the club appointed Jo Vale as head coach on a two-year contract, with the first training session scheduled for Tuesday, 6 October. Vale was not the head coach during Sunday’s victory over Vale City. No tactical changes or performance assessments were included in any reports.\"\n\n}"
+        },
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 16104731166,
+        "load_duration": 8733666,
+        "prompt_eval_count": 471,
+        "prompt_eval_cached_count": 0,
+        "prompt_eval_duration": 2313529000,
+        "eval_count": 165,
+        "eval_duration": 13764731000
+      }
+    },
+    {
+      "slot": 3,
+      "elapsed_ms": 15573.354,
+      "request": {
+        "model": "granite4.2:3b",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Synthesize fresh into one concise news report about meta, using voice as tone; preserve attribution, event dates and qualifications, and return only JSON with a report string."
+          },
+          {
+            "role": "user",
+            "content": "{\"meta\":{\"name\":\"Cedar United\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\"},\"voice\":\"Clear, restrained and direct.\",\"fresh\":[{\"report_key\":\"report_1\",\"publisher\":\"City Wire\",\"published_at\":\"2026-10-08T17:00:00Z\",\"publisher_excerpt\":\"City Wire corrected its earlier 8 October report about Cedar United and Alex Stone. Its original source clarified that the conversation concerned possible interest, not an agreed transfer fee. City Wire withdrew the claim that a fee had been agreed.\\n\\nAs of this correction, no formal offer, signed contract or completed move was confirmed. Stone remains registered with Northbridge. City Wire did not provide a transfer fee or a timetable for any future discussions.\"},{\"report_key\":\"report_2\",\"publisher\":\"Club Bulletin\",\"published_at\":\"2026-10-08T15:00:00Z\",\"publisher_excerpt\":\"A Cedar United spokesperson told Club Bulletin on 8 October that the club had not agreed a fee for Alex Stone and had made no formal offer to Northbridge. The spokesperson confirmed that Cedar representatives had spoken with Stone’s agent on 7 October, describing the conversation as preliminary.\\n\\nThe spokesperson declined to say whether Cedar would pursue a deal. Northbridge provided no comment. The denial concerned an agreed fee; it did not deny that the preliminary conversation took place.\"},{\"report_key\":\"report_3\",\"publisher\":\"City Wire\",\"published_at\":\"2026-10-08T13:00:00Z\",\"publisher_excerpt\":\"City Wire reported on 8 October that Cedar United had agreed a transfer fee with Northbridge for striker Alex Stone, citing one unnamed person familiar with discussions. The person said personal terms had not been settled. Neither club confirmed the account.\\n\\nStone remains registered with Northbridge. City Wire could not independently verify the alleged fee agreement. No signed contract or completed transfer was reported.\"}]}"
+          }
+        ],
+        "stream": false,
+        "think": false,
+        "format": {
+          "type": "object",
+          "properties": {
+            "report": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "report"
+          ],
+          "additionalProperties": false
+        },
+        "options": {
+          "temperature": 0,
+          "num_ctx": 32768,
+          "num_predict": 900,
+          "num_gpu": 99
+        },
+        "keep_alive": "5m"
+      },
+      "response": {
+        "model": "granite4.2:3b",
+        "created_at": "2026-10-09T02:58:48.668561Z",
+        "message": {
+          "role": "assistant",
+          "content": "{\n  \"report\": \"On October 8, 2026, City Wire reported a possible transfer interest between Cedar United and Northbridge involving striker Alex Stone. The correction clarified that no formal offer, signed contract, or agreed transfer fee had been confirmed. Cedar United stated it had not agreed a fee and made no formal offer, while the club’s spokesperson noted preliminary discussion with Stone’s agent on October 7. Northbridge had no comment. No transfer was finalized or verified. The correction followed initial reporting that implied an agreed fee, which City Wire withdrew. Club Bulletin corroborated Cedar’s position, confirming only a preliminary conversation occurred and no fee was agreed. All parties remain in their current registrations and no move has been confirmed.\"\n\n}"
+        },
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 15572243208,
+        "load_duration": 8483125,
+        "prompt_eval_count": 447,
+        "prompt_eval_cached_count": 0,
+        "prompt_eval_duration": 1138262000,
+        "eval_count": 155,
+        "eval_duration": 14405769000
+      }
+    },
+    {
+      "slot": 4,
+      "elapsed_ms": 16178.467,
+      "request": {
+        "model": "granite4.2:3b",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Synthesize fresh into one concise news report about meta, using voice as tone; preserve attribution, event dates and qualifications, and return only JSON with a report string."
+          },
+          {
+            "role": "user",
+            "content": "{\"meta\":{\"name\":\"Cedar United\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\"},\"voice\":\"Clear, restrained and direct.\",\"fresh\":[{\"report_key\":\"report_1\",\"publisher\":\"Training Wire\",\"published_at\":\"2026-10-08T17:00:00Z\",\"publisher_excerpt\":\"Cedar United said on Thursday, 8 October, that goalkeeper Kim Park would miss the next league match on Sunday, 11 October, because of an ankle injury suffered in Tuesday’s training session. The club supplied no return date and did not name a replacement goalkeeper.\\n\\nThe report concerned Park’s availability for the upcoming match. It did not say that he had missed the previous Sunday’s win, and it did not link the injury to Jo Vale’s appointment or to a change in training methods.\"},{\"report_key\":\"report_2\",\"publisher\":\"Club Bulletin\",\"published_at\":\"2026-10-08T15:00:00Z\",\"publisher_excerpt\":\"Cedar United announced on Monday, 5 October, that Jo Vale had been appointed head coach on a two-year contract. Her first training session with the squad was scheduled for Tuesday, 6 October.\\n\\nThe club gave no explanation for the appointment and did not announce a tactical change. Vale was not the head coach during Sunday’s victory over Vale City. The announcement included no prediction about upcoming results.\"},{\"report_key\":\"report_3\",\"publisher\":\"Match Wire\",\"published_at\":\"2026-10-08T13:00:00Z\",\"publisher_excerpt\":\"Cedar United beat Vale City 2–1 on Sunday, 4 October. Forward Sam Lee scored the winning goal in the 84th minute after the teams were level at 1–1. Goalkeeper Kim Park started and played the entire match.\\n\\nThe win was Cedar’s second in its last five league matches. Match Wire supplied no league position or season points total. The report did not assess whether the result represented a sustained change in performance.\"}]}"
+          }
+        ],
+        "stream": false,
+        "think": false,
+        "format": {
+          "type": "object",
+          "properties": {
+            "report": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "report"
+          ],
+          "additionalProperties": false
+        },
+        "options": {
+          "temperature": 0,
+          "num_ctx": 32768,
+          "num_predict": 900,
+          "num_gpu": 99
+        },
+        "keep_alive": "5m"
+      },
+      "response": {
+        "model": "granite4.2:3b",
+        "created_at": "2026-10-09T02:58:49.273299Z",
+        "message": {
+          "role": "assistant",
+          "content": "{\n  \"report\": \"On Thursday, 8 October, Cedar United announced that goalkeeper Kim Park will miss the next league match on Sunday, 11 October, due to an ankle injury sustained during Tuesday’s training session. The club provided no return date or replacement goalkeeper. This follows a 2–1 victory over Vale City on Sunday, 4 October, where Park started and played the entire match, including the winning goal by Sam Lee in the 84th minute. Earlier on Monday, 5 October, the club appointed Jo Vale as head coach on a two-year contract, with the first training session scheduled for Tuesday, 6 October. Vale was not the head coach during Sunday’s victory over Vale City. No tactical changes or performance assessments were included in any reports.\"\n\n}"
+        },
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 16176897625,
+        "load_duration": 8019916,
+        "prompt_eval_count": 471,
+        "prompt_eval_cached_count": 0,
+        "prompt_eval_duration": 1937403000,
+        "eval_count": 165,
+        "eval_duration": 11899451000
+      }
+    }
+  ],
+  "quality_qualified": false,
+  "server_evidence": {
+    "offloaded_layers": "41/41",
+    "n_seq_max": 4,
+    "n_slots": 4,
+    "context_per_slot": 32768,
+    "simultaneous_tasks": [
+      {
+        "slot": 3,
+        "task": 0,
+        "input_tokens": 471
+      },
+      {
+        "slot": 2,
+        "task": 1,
+        "input_tokens": 447
+      },
+      {
+        "slot": 1,
+        "task": 2,
+        "input_tokens": 471
+      },
+      {
+        "slot": 0,
+        "task": 3,
+        "input_tokens": 447
+      }
+    ],
+    "all_four_completed_without_truncation": true
+  },
+  "worker_config": {
+    "OLLAMA_MAX_CONCURRENT": 4,
+    "COGNITION_BACKEND_CONCURRENCY": "http://localhost:11434=4",
+    "VOICE_NUM_CTX": 32768,
+    "worker_started": false,
+    "models_promoted": false
+  }
+}

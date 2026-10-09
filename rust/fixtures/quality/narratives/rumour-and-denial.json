@@ -12,9 +12,6 @@
   },
   "name": "rumour-and-denial-rumour-with-its-denial-intact",
   "parts": {
-    "memory": [
-      null
-    ],
     "reports": [
       {
         "context": "Cedar United are reportedly in talks to sign Alex Stone, according to two unnamed sources. No agreement has been reached. Cedar United declined to comment.",
@@ -31,7 +28,7 @@
       "sport": "FOOTBALL"
     }
   },
-  "prompt_version": "n101-classifier-world",
+  "prompt_version": "n102-fresh-only-json",
   "review": [
     "Preserve the rumour qualification: reported, not agreed, and the club declined to comment.",
     "A body that states a completed signing fails, even though the source names a player."
@@ -39,5 +36,5 @@
   "system": "",
   "task": "narratives",
   "temperature": 0.0,
-  "user_prompt": "{\"meta\":{\"name\":\"Cedar United\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\"},\"fresh\":[{\"report_key\":\"report_1\",\"publisher\":\"City Wire\",\"published_at\":\"2026-09-26T23:00:00Z\",\"publisher_excerpt\":\"Cedar United are reportedly in talks to sign Alex Stone, according to two unnamed sources. No agreement has been reached. Cedar United declined to comment.\"}],\"voice\":\"Clear, restrained and direct.\",\"form\":{\"keys\":[\"report_1\"],\"paragraphs\":\"concise\"}}"
+  "user_prompt": "{\"meta\":{\"name\":\"Cedar United\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\"},\"voice\":\"Clear, restrained and direct.\",\"fresh\":[{\"report_key\":\"report_1\",\"publisher\":\"City Wire\",\"published_at\":\"2026-09-26T23:00:00Z\",\"publisher_excerpt\":\"Cedar United are reportedly in talks to sign Alex Stone, according to two unnamed sources. No agreement has been reached. Cedar United declined to comment.\"}]}"
 }

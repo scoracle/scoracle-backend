@@ -53,7 +53,7 @@ fn assignment(corpus: Vec<CorpusItem>, now: i64) -> Assignment {
             sport: "FOOTBALL".into(),
         },
         corpus,
-        &journalist::memories::Continuity::default(),
+        &[],
         now,
     )
     .unwrap()

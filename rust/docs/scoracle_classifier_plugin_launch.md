@@ -2,7 +2,7 @@
 
 ## Launch concept: measure a spectrum, then let characters express it
 
-**Status — October 9, 2026:** The user authorized deploying the current build, then explicitly chose to wait for a reliable Classifier before new consumer output. The deployed Classifier plumbing includes migrations 291–298; the API is healthy and daily RSS continues. The fresh-only Journalist build and GPU concurrency changes are being released. No Classifier/extractor combination has passed qualification. Journalist's existing source-bound delivery gate remains intact; inference workers and full-backlog drain stay paused while the next model work proceeds.
+**Status — October 9, 2026:** The current build is deployed from `04169fff4c12`. All seven Archbox binaries were rebuilt and placed; the running API reports that commit and is healthy. The matching Mac standby worker is installed, with its embedded commit and fresh-only prompt verified. The user explicitly chose to wait for a reliable Classifier before new consumer output. Migrations 291–298 remain verified, and daily RSS continues. No Classifier/extractor combination has passed qualification. Journalist's existing source-bound delivery gate remains intact; inference workers, acquisition and full-backlog drain stay paused while the next model work proceeds.
 
 **Next model step:** Find a reliable **classifier and extractor combination**. Treat fast emotion/presence scoring and exact claim/speaker/target/time extraction as separately evaluated capabilities; neither a valid JSON response nor a fast document score proves the other. Keep the fixed SQL/source contract and swap the models behind it.
 
@@ -30,7 +30,7 @@ artifacts, with best-effort writes; audit corpus completeness before training.
    payloads. Retain all 18 outputs/timings and factual failures. Verify four
    simultaneous Granite4.2 GPU requests. This supports deployment preparation,
    not a claim that the models are accurate.
-3. [ ] Release the current source and matching production binaries; verify API
+3. [x] Release the current source and matching production binaries; verify API
    health, commit identity and preserved worker pause. GPU residency has been
    checked in controlled replay; verify it again on eventual worker activation.
 4. [x] Keep new consumer generation waiting for reliable Classifier evidence,
@@ -69,6 +69,27 @@ releasing the current build while preserving inactive inference and acquisition.
 Daily RSS discovery continues. The user explicitly chose to wait for reliable
 Classifier evidence before new consumer generation. Classifier correctness is the
 next priority, with a reliable classifier/extractor combination still to be selected.
+
+October 9 release verification: `release.sh --keep-cognition-paused` built all four
+Go and three Rust binaries from `04169fff4c12`; the native schema preflight passed.
+The active API reports that commit, and `/health/db` reports a healthy connection.
+The existing consumer smoke suite passed 18/18 checks locally and 18/18 through
+`https://api.scoracle.com`, including product reads and production-origin CORS.
+Acquisition, cognition and its watcher remain inactive; the watcher/cognition
+remain disabled. `DERIVE_WORKER_ENABLED=false` and `CLASSIFIER_REPLAY_BACKLOG=false`
+are unchanged. The 6,455 pending acquisition items were preserved, and no
+Classifier deliveries existed at the deployment check. No new consumer output or
+model qualification is claimed by this release.
+
+Archbox rollback binaries, unit files and the prior environment are retained at
+`/home/sheneveld/.local/state/scoracle/releases/20261009-04169fff/`.
+The Mac launcher now points to
+`/Users/scotty/scoracle-worker/releases/journalist-fresh-20261009-04169fff/scoracle-cognition`;
+the release manifest verifies the source commit, binary hash and `n102-fresh-only-json`.
+The prior launcher is saved as `run-worker.sh.bak-20261009-04169fff`, and the Mac
+worker is not registered/running. Its cached build stamp initially resolved to
+`unknown` under restricted execution; regenerating the stamp during the authorized
+build produced the verified commit. No worker started during placement.
 
 1. [x] Connect RSS discovery to `classifier_acquire`; replay retained discovery idempotently. Duplicate sweeps/replays preserve leases, retry backoff and parked failures, and skip unchanged acquired sources. Acquisition runs independently of inference. Implemented, verified and deployed; acquisition remains disabled for controlled-chunk calibration.
 2. [x] Complete the fixed measurement envelope: all 51 presence dimensions, three ordinals, qualified claims, explicit unknowns and source/model/schema provenance. This establishes the plumbing contract; model support and accuracy remain separate.

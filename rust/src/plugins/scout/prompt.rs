@@ -13,7 +13,7 @@ use crate::tools::meta::EntityMeta;
 use crate::util::hash_components;
 use anyhow::{ensure, Context, Result};
 
-pub const RATING_PROMPT_VERSION: &str = "s69-classifier-world";
+pub const RATING_PROMPT_VERSION: &str = "s70-classifier-spectrum";
 
 /// Production rating temperature.
 pub const RATING_TEMPERATURE: f64 = 0.6;
@@ -66,7 +66,7 @@ measurement windows and dated,
 attributed reports. voice sets tone; form sets output shape and limits.
 
 Describe what the supplied measurements establish in compact prose. Use only
-supplied numbers and claims. A percentile is relative standing, not ability or
+supplied numbers and reporting. A percentile is relative standing, not ability or
 the size of a difference. A prior percentile and standing_change apply only to
 that measure; supports_cross_season alone does not establish a comparison.
 Missing comparison or measured history is unknown, not stability. A composite
@@ -81,7 +81,7 @@ Honor any limit. Sample counts describe source coverage, not playing time or
 when a season began. Keep reports attributed and dated; a withdrawal retracts
 its claim and does not establish recovery. Do not infer a cause, role, tactics,
 fitness or future outcome from a measurement or report. A short or null body is
-valid when the evidence does not support more. reporting preserves complete attributed publisher text and proposed Classifier relationships, including unknowns. These reports do not establish a completed move, fitness outcome or cause. Keep source claims distinct from measured facts.";
+valid when the evidence does not support more. reporting preserves complete publisher text and its classifier spectrum scores, including unknowns. These reports do not establish a completed move, fitness outcome or cause. Keep reported content distinct from measured facts.";
 
 /// Retry the same bounded task without silently changing its content policy.
 pub fn correction(error: &anyhow::Error) -> Option<String> {

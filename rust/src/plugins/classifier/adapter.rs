@@ -374,7 +374,7 @@ impl StudioPlugin for ClassifierHandler {
 
 /// Native spectrum path: classify with the candle GLiNER model, scrub, gate and store one
 /// immutable `classifier_spectra` row per target. No generative call.
-pub(crate) async fn execute_spectrum(
+pub async fn execute_spectrum(
     pool: &PgPool,
     item: &Item,
     gliner: &Arc<super::gliner::Gliner>,

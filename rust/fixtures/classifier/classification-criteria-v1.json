@@ -1,0 +1,34 @@
+{
+  "version": "classification-criteria-v1",
+  "note": "Classifier classification stage only. Scores a flat spectrum; extraction is a separate stage. The character plugin remains the final authority on discovery and expression.",
+  "spectrum": {
+    "emotion": { "exclude": ["neutral"], "why": "Apathy is neither influence nor a narrative signal." },
+    "topic": {},
+    "temporal": {},
+    "relevance": {}
+  },
+  "removed": {
+    "discourse": "Removed 2026-10-11. Declarations of denial/correction are better served by the memory system than by a classifier bucket; keep the Classifier job simple and efficient."
+  },
+  "characters": {
+    "scout": {
+      "mode": "any",
+      "criteria": { "topic.availability": 70, "topic.player_move": 80, "topic.staffing": 80, "topic.off_field": 70 },
+      "note": "Nomination only; Scout requires an applied structured record before it acts. No analysis. off_field is included because off-field events can become availability."
+    },
+    "insider": {
+      "mode": "any",
+      "criteria": { "topic.player_move": 80, "topic.contract": 80, "topic.staffing": 80, "topic.discipline": 80 }
+    },
+    "influencer": {
+      "mode": "any",
+      "criteria": { "emotion.*": 50, "topic.off_field": 70 },
+      "note": "emotional_charge: any defined emotion above threshold. In practice a narrative-vs-procedural filter; Influencer abstains when no reading is supported. off_field flows here per user instruction."
+    },
+    "journalist": {
+      "mode": "all",
+      "criteria": { "relevance.direct_subject": 50, "temporal.current_reference": 50, "extraction_usable.true": 50 },
+      "note": "Intentionally broad: the whole relevant current scope."
+    }
+  }
+}

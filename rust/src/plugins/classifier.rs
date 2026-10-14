@@ -2,6 +2,7 @@
 //! Model-independent source contract, validation and expression preparation.
 pub mod adapter;
 pub mod delivery;
+pub mod gliner;
 pub(crate) mod identity;
 pub mod manifest;
 pub mod prompt;

@@ -22,6 +22,7 @@ pub struct AcquireHandler {
 pub struct ClassifierHandler {
     pool: PgPool,
     models: ExecutionCapabilities,
+    gliner: Option<Arc<super::gliner::Gliner>>,
 }
 impl AcquireHandler {
     pub fn new(pool: PgPool, web: Arc<WebBroker>) -> Self {
@@ -29,8 +30,16 @@ impl AcquireHandler {
     }
 }
 impl ClassifierHandler {
-    pub fn new(pool: PgPool, models: ExecutionCapabilities) -> Self {
-        Self { pool, models }
+    pub fn new(
+        pool: PgPool,
+        models: ExecutionCapabilities,
+        gliner: Option<Arc<super::gliner::Gliner>>,
+    ) -> Self {
+        Self {
+            pool,
+            models,
+            gliner,
+        }
     }
 }
 
@@ -355,9 +364,112 @@ impl StudioPlugin for ClassifierHandler {
         &super::manifest::MANIFEST
     }
     async fn execute(&self, item: &Item) -> Result<PluginOutcome> {
+        if let Some(gliner) = &self.gliner {
+            return execute_spectrum(&self.pool, item, gliner).await;
+        }
         let model = self.models.inference(prompt::MODEL)?;
         execute_model(&self.pool, item, model.as_ref()).await
     }
+}
+
+/// Native spectrum path: classify with the candle GLiNER model, scrub, gate and store one
+/// immutable `classifier_spectra` row per target. No generative call.
+pub(crate) async fn execute_spectrum(
+    pool: &PgPool,
+    item: &Item,
+    gliner: &Arc<super::gliner::Gliner>,
+) -> Result<PluginOutcome> {
+    ensure!(
+        item.stage == super::manifest::TASK && item.entity_type == "article",
+        "wrong Classifier task"
+    );
+    let source_id: i64 = item
+        .input_version
+        .as_deref()
+        .context("Classifier requires acquired source revision")?
+        .parse()?;
+    let row = sqlx::query("SELECT source::text,input_hash FROM public.classifier_sources WHERE id=$1 AND article_id=$2 AND sport=$3")
+        .bind(source_id).bind(item.entity_id).bind(&item.sport).fetch_one(pool).await?;
+    let source: Source = serde_json::from_str(row.get::<&str, _>(0))?;
+    let before = discovery(pool, item).await?;
+    if input_hash(&before)? != row.get::<String, _>(1) {
+        let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
+            return Ok(PluginOutcome::Superseded);
+        };
+        fence_source(pool, item, &before, &mut publication).await?;
+        let revision: String =
+            sqlx::query_scalar("SELECT public.classifier_discovery_version($1,$2)")
+                .bind(item.entity_id)
+                .bind(&item.sport)
+                .fetch_one(&mut **publication.transaction())
+                .await?;
+        work::enqueue(
+            &mut **publication.transaction(),
+            &Item {
+                stage: super::manifest::ACQUIRE_TASK,
+                input_version: Some(revision),
+                claim_token: None,
+                attempts: 0,
+                ..item.clone()
+            },
+        )
+        .await?;
+        publication.commit_final().await?;
+        return Ok(PluginOutcome::Committed);
+    }
+
+    let window_texts: Vec<String> = crate::tools::source::windows(&source.body, 256)?
+        .into_iter()
+        .map(|window| window.text)
+        .collect();
+    let scrubbed = crate::tools::source::scrub(&source.body);
+    let clean_sha256 = hash(&scrubbed.text);
+    for target in &source.query_entities {
+        let target_name = target["name"].as_str().context("target name")?.to_string();
+        let gliner = gliner.clone();
+        let windows = window_texts.clone();
+        let spectrum = tokio::task::spawn_blocking(move || {
+            let mut aggregated: std::collections::BTreeMap<String, f32> = Default::default();
+            for text in &windows {
+                for (criterion, value) in gliner.spectrum(text, &target_name)? {
+                    let slot = aggregated.entry(criterion).or_insert(0.0);
+                    if value > *slot {
+                        *slot = value;
+                    }
+                }
+            }
+            Ok::<_, anyhow::Error>(aggregated)
+        })
+        .await??;
+        let gate = super::gliner::gate(&spectrum)?;
+        let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
+            return Ok(PluginOutcome::Superseded);
+        };
+        fence_source(pool, item, &before, &mut publication).await?;
+        super::identity::validate(publication.transaction(), &item.sport, &source).await?;
+        let spectrum_id: i64 = sqlx::query_scalar("INSERT INTO public.classifier_spectra(source_id,article_id,sport,target,model,criteria_version,scrub_version,clean_text,clean_sha256,spectrum,gate) VALUES($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb) ON CONFLICT (article_id,sport,target,model,criteria_version) DO UPDATE SET gate=EXCLUDED.gate RETURNING id")
+            .bind(source_id).bind(item.entity_id).bind(&item.sport).bind(target.to_string())
+            .bind(super::gliner::MODEL_ID).bind(super::gliner::CRITERIA_VERSION).bind("scrub-v1")
+            .bind(&scrubbed.text).bind(&clean_sha256)
+            .bind(serde_json::to_string(&spectrum)?).bind(serde_json::to_string(&gate)?)
+            .fetch_one(&mut **publication.transaction()).await?;
+        // One obligation per character whose bucket fired; a complete measurement with no eligible
+        // signal creates none (the plan's no-action disposition).
+        for (character, fires) in &gate {
+            if *fires {
+                sqlx::query("INSERT INTO public.classifier_spectrum_deliveries(spectrum_id,character) VALUES($1,$2) ON CONFLICT DO NOTHING")
+                    .bind(spectrum_id).bind(character)
+                    .execute(&mut **publication.transaction()).await?;
+            }
+        }
+        publication.commit_progress().await?;
+    }
+    let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
+        return Ok(PluginOutcome::Superseded);
+    };
+    fence_source(pool, item, &before, &mut publication).await?;
+    publication.commit_final().await?;
+    Ok(PluginOutcome::Committed)
 }
 
 pub(crate) async fn execute_model(

@@ -104,10 +104,18 @@ pub fn build(
         ));
     }
     if enabled.contains("classifier") {
+        // Native candle model when deployed; otherwise the legacy generative path stays available.
+        let gliner = match std::env::var("CLASSIFIER_MODEL_DIR") {
+            Ok(dir) => Some(Arc::new(
+                crate::plugins::classifier::gliner::Gliner::load(&dir)?,
+            )),
+            Err(_) => None,
+        };
         handlers.push(Arc::new(
             crate::plugins::classifier::adapter::ClassifierHandler::new(
                 pool.clone(),
                 models.capabilities(&crate::plugins::classifier::manifest::MANIFEST)?,
+                gliner,
             ),
         ));
     }

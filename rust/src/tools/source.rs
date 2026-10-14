@@ -140,9 +140,175 @@ pub fn contains_instruction_override(source: &str) -> bool {
     .any(|marker| normalized.contains(marker))
 }
 
+/// A dropped source run and why, retained for scrub audit.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct Removed {
+    pub reason: &'static str,
+    pub source: (usize, usize),
+}
+
+/// A scrubbed reading body mapped back to the unchanged retained source.
+/// `spans` holds `(clean_start, clean_end, source_start, source_end)` per kept line.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct Scrub {
+    pub text: String,
+    pub spans: Vec<(usize, usize, usize, usize)>,
+    pub removed: Vec<Removed>,
+}
+
+/// Publisher furniture removed inline: case-insensitive ASCII substring markers.
+const FURNITURE: &[&str] = &[
+    "skip advertisement",
+    "skip ad",
+    "advertisement",
+    "link copied to clipboard",
+    "link copied",
+    "share on facebook",
+    "share on twitter",
+    "share on pinterest",
+    "share on flipboard",
+    "share via email",
+    "subscribe",
+    "sign up",
+    "newsletter",
+    "unlock the latest",
+    "direct to your inbox",
+    "add us as a preferred source",
+    "add as a preferred source",
+    "player stats",
+    "click here",
+    "audio version of this",
+    "offers audio versions",
+    "email print",
+    "print email",
+];
+
+fn strip_furniture(line: &str) -> String {
+    let mut out = line.to_string();
+    for marker in FURNITURE {
+        loop {
+            let position = out.to_lowercase().find(marker);
+            let Some(position) = position else { break };
+            out.replace_range(position..position + marker.len(), " ");
+        }
+    }
+    out
+}
+
+fn normalize_whitespace(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut pending_space = false;
+    for character in s.chars() {
+        let whitespace = character.is_whitespace()
+            || matches!(character, '\u{00a0}' | '\u{200b}' | '\u{200c}' | '\u{200d}');
+        if whitespace {
+            pending_space = true;
+        } else {
+            if pending_space && !out.is_empty() {
+                out.push(' ');
+            }
+            pending_space = false;
+            out.push(character);
+        }
+    }
+    out
+}
+
+fn letter_count(s: &str) -> usize {
+    s.chars().filter(|character| character.is_alphabetic()).count()
+}
+
+/// Decode entities and drop furniture, keeping a map to the retained source.
+/// The retained source is never destroyed: dropped runs are recorded and the caller keeps it.
+/// Markers are stripped inline so surrounding prose survives; a line is dropped only when nothing
+/// real remains.
+pub fn scrub(body: &str) -> Scrub {
+    let mut scrub = Scrub {
+        text: String::new(),
+        spans: Vec::new(),
+        removed: Vec::new(),
+    };
+    let mut normalized_body = String::new();
+    let mut cursor = 0;
+    for line in body.split_inclusive('\n') {
+        let start = cursor;
+        let end = cursor + line.len();
+        cursor = end;
+        let stripped = strip_furniture(line.trim_end_matches('\n'));
+        let normalized = normalize_whitespace(&crate::tools::fetch::decode_entities(&stripped));
+        if !normalized_body.is_empty() {
+            normalized_body.push(' ');
+        }
+        normalized_body.push_str(&normalized);
+        if letter_count(&normalized) < 3 {
+            if !line.trim().is_empty() {
+                scrub.removed.push(Removed {
+                    reason: if normalized.is_empty() {
+                        "furniture"
+                    } else {
+                        "nontext"
+                    },
+                    source: (start, end),
+                });
+            }
+            continue;
+        }
+        if !scrub.text.is_empty() {
+            scrub.text.push_str("\n\n");
+        }
+        let clean_start = scrub.text.len();
+        scrub.text.push_str(&normalized);
+        scrub.spans.push((clean_start, scrub.text.len(), start, end));
+    }
+    if scrub.text.is_empty() && letter_count(&normalized_body) >= 3 {
+        // Never store empty evidence for a body that had prose: fall back to the normalized body.
+        scrub.text = normalized_body.trim().to_string();
+        scrub.spans = vec![(0, scrub.text.len(), 0, body.len())];
+        scrub.removed.push(Removed {
+            reason: "scrub_empty_fallback",
+            source: (0, body.len()),
+        });
+    }
+    scrub
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn scrub_decodes_entities_drops_furniture_and_maps_to_source() {
+        let body = "Hello  world&#x27;s\n\nSkip Advertisement\n\nReal prose sentence.";
+        let scrubbed = scrub(body);
+        assert_eq!(scrubbed.text, "Hello world's\n\nReal prose sentence.");
+        assert_eq!(scrubbed.removed.len(), 1);
+        assert_eq!(scrubbed.removed[0].reason, "furniture");
+        let (clean_start, clean_end, source_start, _) = scrubbed.spans[0];
+        assert_eq!(&scrubbed.text[clean_start..clean_end], "Hello world's");
+        assert_eq!(&body[source_start..source_start + 12], "Hello  world");
+        assert_eq!(
+            scrubbed.spans.last().map(|s| s.1),
+            Some(scrubbed.text.len())
+        );
+    }
+
+    #[test]
+    fn scrub_strips_inline_markers_but_keeps_prose() {
+        let scrubbed = scrub("Big news today. Subscribe to our newsletter for more.");
+        assert!(!scrubbed.text.contains("newsletter"));
+        assert!(!scrubbed.text.contains("Subscribe") && !scrubbed.text.contains("subscribe"));
+        assert!(scrubbed.text.contains("Big news today."));
+    }
+
+    #[test]
+    fn scrub_keeps_non_latin_prose_and_never_returns_empty_for_prose() {
+        let scrubbed = scrub("Équipe a joué hier.\n\nL'entraîneur a parlé.");
+        assert!(scrubbed.text.contains("Équipe a joué hier."));
+        assert!(scrubbed.text.contains("L'entraîneur a parlé."));
+        let tiny = scrub("Subscribe\n\nSign up");
+        assert!(tiny.text.is_empty());
+        assert!(!tiny.removed.is_empty());
+    }
 
     #[test]
     fn windows_preserve_unicode_complete_coverage_and_explicit_budget() {

@@ -6,6 +6,8 @@
 
 **Next model step:** Find a reliable **classifier and extractor combination**. Treat fast emotion/presence scoring and exact claim/speaker/target/time extraction as separately evaluated capabilities; neither a valid JSON response nor a fast document score proves the other. Keep the fixed SQL/source contract and swap the models behind it.
 
+**October 10 direction:** Ponytail lite. Diagnose local runtime failures before code changes; no refactoring during investigation. Work toward a scoring/extraction cascade serving the native Classifier contract, then character inputs assembled by `prompt.rs` from `meta`, `voice` and `fresh`. Memories and form instructions are deferred. See [local diagnosis and pathway](#local-inference-diagnosis-and-cascade-pathway--october-10).
+
 **Production scope:** Journalist first, using `meta + voice + fresh`, one instruction
 and one JSON payload. Memories and form instructions remain excluded. Character
 inference uses Ollama on GPU with four shared slots and a consistent context
@@ -189,7 +191,7 @@ Each downstream world must preserve the source excerpts, evidence scope, model/h
 | Journalist — `plugins/journalist/prompt.rs`, `fresh.rs` | Current source reporting, targets, attribution, denial/correction/uncertainty and report dates | Identity from `tools/meta.rs`, tone from `voice.rs` and complete reporting from `fresh.rs`; history is temporarily excluded for the n102 pilot. |
 | Insider — `plugins/insider/prompt.rs`, `mod.rs` | Moves/contracts/staffing, counterparty, reported versus denied claim, negotiation stage, source disagreement, dated history and publisher outcome record | Classified evidence and exact quotes plus existing resolved identity links and tracked/confirmed publisher samples. A move score never mutates a roster. |
 | Influencer — `plugins/influencer/prompt.rs` | Named speaker/target emotion, supported mixtures, valence, intensity, timing and change during a reporting period | Emotion vectors plus attributed spans and explicit time, followed by validated period aggregation. Unknown is neither neutral nor valence 50; one speaker is not the fanbase. |
-| Scout — `plugins/scout/prompt.rs`, `sources.rs`, `performance.rs` | Performance measurements and their percentile/cohort/sample limits; availability/personnel changes; relevant attributed news | Keep existing deterministic/statistical measurements and adjudicated records; add scored reporting slices. Do not classify a percentile, fitness outcome or completed transfer into existence. |
+| Scout — `plugins/scout/prompt.rs`, `sources.rs`, `performance.rs` | Native performance statistics and their percentile/cohort/sample limits; article evidence of roster and availability changes only | Performance comes from the existing box-score/statistics path, independently of article classification. Select reporting about trades, injuries, recovery and suspensions; do not use reported performance analysis as a Scout trigger or classify fitness or a completed transfer into existence. |
 | Analyst — `plugins/analyst/prompt.rs`, `tools/memories.rs` | Finished Scout/Influencer readings, dated score histories, window/sample sizes and computed trajectories | Existing products and deterministic history calculations. No separate RSS momentum label is required. |
 | Oracle — `plugins/oracle/prompt.rs` | The five finished character cards, agreement/conflict, missing products and shared provenance | Existing downstream synthesis inputs. Do not treat repeated cards sharing one article as independent confirmation. |
 
@@ -580,6 +582,220 @@ These accuracy tasks belong to the dedicated calibration session. They do not bl
 
 Success is a reusable measured world that makes character work more accurate and avoids inference where there is no supported job to do. It preserves useful gradations and uncertainty while giving each character a clear, evidence-backed scope in which to discover and express meaning.
 
+## Local inference diagnosis and cascade pathway — October 10
+
+### Verified runtime failure, before code changes
+
+The investigated entry point is the existing offline `classifier_model` example,
+using the unchanged fictional acquisition fixture at
+`/private/tmp/scoracle-classifier-plumbing-source-20261008.jsonl`. No production
+database, worker or delivery was activated. The local Ollama service reports
+0.40.1 and responds normally; sandbox-denied localhost access was separately
+resolved before drawing conclusions about the service.
+
+The complete production path is RSS discovery → `classifier_acquire` queue claim
+→ native acquisition/canonical candidate resolution → immutable
+`classifier_sources` snapshot → `classifier` claim →
+`ClassifierHandler::execute`/`execute_model` → plugin-selected inference route →
+`adapter::measure` → `prompt::prepare` → artifact lookup → provider preparation
+→ `PreparedRequest::verify_input` → governed generation → consumed-token,
+completion and artifact checks → native `qualify`/UTF-8 source binding →
+claim-fenced measurement storage → independent character deliveries. Failures
+are stored before returning to the worker's retry policy. The offline example
+exercises the same `measure` boundary, without queue/storage/publication writes.
+
+| Replay on the same input | Observed result | Cause |
+| --- | --- | --- |
+| Default route | `Ollama artifact absent: qwen3:1.7b`; no generation | The default tag is absent from this Mac's installed model inventory. |
+| Installed `qwen3:4b`, Ollama backend | `exact tokenizer evidence required`; no generation | `OllamaClient` uses the default `Inference::prepare`, which returns `coverage: None`. Classifier requires exact complete-input proof. |
+| Installed `qwen3:4b`, existing llama.cpp backend | 1,194 preflight and consumed tokens; EOS; no truncation; 45.891 seconds reported inference time | Transport/input admission works. The model sets both complete review and usability false, so native qualification correctly rejects it. |
+
+Private diagnostic receipts are
+`/private/tmp/classifier-diagnosis-{default,installed,native}-20261010.jsonl`;
+the isolated native server log is
+`/private/tmp/classifier-diagnosis-native-server-20261010.log`. The original
+failures remain retained. This does not qualify Qwen or prove corpus accuracy.
+
+**Smallest transport remedy:** use the already implemented native adapter and an
+installed model alias for controlled Classifier investigation. No Rust change,
+new dependency, automatic fallback or relaxed input guard is required. The
+tested local recipe is below; the server must be running for the replay. Use a
+new output filename on every run because the runner preserves earlier receipts.
+
+```sh
+# Terminal 1: isolated native server, using the existing installed Qwen weights.
+/private/tmp/scoracle-classifier-local-20261008/llama-b11496/llama-b11496/llama-server \
+  --model /Users/scotty/.ollama/models/blobs/sha256-3e4cb14174460404e7a233e531675303b2fbf7749c02f91864fe311ab6344e4f \
+  --alias qwen3:4b --ctx-size 16384 --parallel 1 --gpu-layers 99 \
+  --no-context-shift --host 127.0.0.1 --port 11438
+
+# Terminal 2: existing native Classifier path; no production writes.
+COGNITION_ROUTE_CLASSIFIER=qwen3:4b \
+COGNITION_ROUTE_CLASSIFIER_BACKEND=llamacpp \
+COGNITION_ROUTE_CLASSIFIER_BASE_URL=http://127.0.0.1:11438 \
+COGNITION_ROUTE_CLASSIFIER_THINK=false \
+cargo run --example classifier_model -- SOURCE.jsonl NEW_RECEIPTS.jsonl
+```
+
+These are investigation settings, not deployment defaults or a model promotion.
+They resolve the two observed pre-generation blockers. The same source still
+fails model qualification; overriding false flags or treating its unknown
+measurements as zero would conceal that failure. The temporary server was stopped
+after the diagnostic replay. Native Ollama exact-input support remains a separate
+transport task if the deployment must use its public API for Classifier.
+
+### A. Scoring/extraction cascade into the existing native contract
+
+1. Acquire and retain the full publisher source once. Preserve canonical targets,
+   dates, source bytes and all coverage failures independently of inference.
+2. Measure the fixed spectrum with a replaceable scoring model. Retain every
+   supported family, raw scores, explicit unknowns, checkpoint identity and exact
+   complete-source/window coverage. The existing experimental
+   `classifier_gliner.py --classification-only` is a candidate evaluator, not a
+   production adapter or a qualified gate.
+3. Extract exact claim/target/speaker/time/qualification relationships with a
+   separately evaluated extractor. A score cannot supply those relationships.
+   Initially run extraction for the controlled qualification bank; only skip it
+   later where reviewed spectrum policies establish complete absence of useful
+   evidence for every applicable character. Missing dimensions and uncertain
+   target relationships continue to extraction or remain unresolved.
+4. Bind extractor output through the existing `Proposal` → `Record` →
+   `Measurements` boundary. Positive native measurements and known ordinals
+   require exact supporting spans. Keep unbound scoring-model output as diagnostic
+   provenance rather than inventing evidence to fill the consumer envelope.
+5. Apply versioned per-character selection to the retained spectrum and qualified
+   claims. Reuse `classifier_deliveries`, dispatch, retries and publication fences.
+   `delivery::record` currently holds every new receipt; evaluated release rules
+   are still missing. `load_measurement` already returns the spectrum, but the
+   character presentation currently forwards claims and discards those numeric
+   measurements. Use them in native selection; expose relevant supported evidence
+   and qualifications in `fresh` without making characters reinterpret raw scores.
+
+Acceptance: a frozen source bank covering target confusion, mixed emotions,
+negation, corrections, historical/future claims, availability without emotion,
+publisher furniture and full-source tails. Check scoring and extraction separately,
+then missed useful character evidence and unnecessary calls. An inference error,
+unknown measurement or rejected extraction never completes a no-action decision.
+Measure complete cascade throughput and target fan-out before choosing CPU/GPU
+placement. No threshold or checkpoint is accepted by this pathway alone.
+
+### Eight-category CPU scoring trial — October 10
+
+The user requested CPU first and approximately eight independent content scores,
+with the categories chosen from the character plugins. The experimental
+[routing spectrum](../fixtures/classifier/routing-spectrum-v1.json) measures:
+
+| Content signal | Candidate character use |
+| --- | --- |
+| Emotion / reactions | Influencer; Journalist for reportable reactions |
+| Player moves / roster | Insider; Scout after applied source-linked roster records; Journalist |
+| Availability: injury, recovery, suspension | Scout after applied source-linked availability records; Journalist |
+| Performance / form / tactical roles | Journalist; no Scout article trigger |
+| Contracts | Insider when supporting a specific move; otherwise Journalist |
+| Coaching / staffing / leadership | Insider for supported coach moves; Journalist for broader leadership developments |
+| Match / competition events | Journalist; Graph can independently review literal result lines |
+| Club / off-field context | Journalist: governance, finances, facilities, conduct, community and identity |
+
+Journalist's current job is concise source-grounded news across these signals,
+not only a narrow storyline category. Narrative is its output, rather than a
+required ninth topic. Analyst consumes Scout/Influencer products; Oracle consumes
+finished character cards. Neither needs an article-level classification lane.
+Graph reviews source names and result lines independently of this character
+spectrum. These mappings describe candidate evidence, not new release rules.
+
+**Scout scope correction:** its performance measurements already arrive through
+the native box-score/statistics path. Classifier reporting supplies only roster
+and availability context: transfers/trades, injuries, recovery and suspensions.
+Other people's performance analysis must neither trigger Scout nor determine
+whether its statistics-driven work runs. The trial fixture retains its original
+candidate mapping for reproducibility; its Scout `performance` entry is superseded
+by this instruction. The existing native delivery path still supports a legacy
+`performance` selection; it is not an accepted release policy and must be removed
+from article-trigger selection before activation. Standalone staffing and contracts
+do not become Scout triggers without a supported roster/availability change.
+
+The trial reused the existing classification-only evaluator and pinned
+`fastino/gliner2.5-base-v1` checkpoint
+`ca906247640776a07753514055be9726f9080ead` (193,581,591 parameters), float32,
+CPU only, two threads, on Archbox's i7-7700. The evaluator also retained its
+usability and diagnostic heads; it generated no claim structures. Twelve
+[fictional controls](../fixtures/classifier/routing-controls-v1.jsonl) and twelve
+previously retained real sources all produced complete, finite eight-label
+vectors with checked full-source coverage. The checks validate execution, not
+semantic completeness. Source-free [results](../fixtures/classifier/routing-cpu-trial-2026-10-10.json)
+retain every control score, exact schema/checkpoint identities and article timings.
+Publisher bodies and raw receipts remain private on Archbox at
+`/mnt/data/backup/scoracle/classifier-launch/2026-10-10/eight-cpu-v1/`.
+
+Median per-source scoring wall time was 1.05 seconds for controls and 2.71 seconds
+for real sources (real mean 2.90 seconds; maximum 5.23 seconds). These timings
+exclude model startup, acquisition, extraction, target fan-out, persistence and
+retries; they do not establish production throughput. No quantization, new
+dependency, production route or worker activation was needed.
+
+Quality still fails useful controls: routine ticket-office information scored
+64.3 for emotion and 95.7 for club context; suspension scored only 34.7 for
+availability; a mixed injury/transfer/emotion report scored 4.7 for availability.
+The historical denied-move control retained a strong move-topic score, but also
+scored 81.2 for emotion without expressed feeling. These are uncalibrated model
+scores on authored diagnostic controls, not independently reviewed accuracy or
+event probabilities. No threshold is accepted and no model is promoted.
+
+Next model work stays CPU-first: assemble independently reviewed positive,
+negative and mixed examples for each category, hold out source groups, compare
+a trained fixed multi-label head, and calibrate label scores. Moving this same
+checkpoint to GPU would not repair its semantic errors. Separately qualify exact
+target/speaker/time/denial/correction extraction before native character selection.
+The native 51-presence/three-ordinal contract is unchanged; these eight coarse
+experimental scores are not substituted for qualified measurements or absence.
+
+### B. Initial character payload: meta + voice + fresh
+
+`prompt.rs` owns assembly and task instructions; shared `tools/meta.rs` supplies
+canonical identity; local `voice.rs` supplies tone; local `fresh.rs` owns the
+character's current evidence selection/presentation. Keep native output schemas,
+parsers and transactional publication validation while deferring model-facing
+memories and form instructions. Do not create a shared assembler with character
+branches. Bump each changed prompt version/input identity so old attempts cannot
+be reused after a payload change.
+
+| Character | Current boundary | Next scoped change |
+| --- | --- | --- |
+| Journalist | Already assembles exactly `meta`, `voice`, `fresh` through its local `fresh.rs`; Classifier receipt checks remain. | Use as the first controlled end-to-end path. Release real deliveries only after Classifier and selection qualification. |
+| Influencer | Period packet uses `TARGET`, `RELEVANT HISTORY`, `FRESH EVIDENCE`; task embeds tone/output instructions. | Add local voice/fresh presentation and the three-key payload. Retain period bounds, literal attribution, supported valence and unknown/abstention behavior. Defer historical reporting in the model input. |
+| Insider | Has meta/voice/fresh plus optional memories and form; preparation queries historical studies. | Move current report presentation into local `fresh.rs`, omit history/form inputs and unnecessary history loading. Preserve canonical counterparties, denial/correction handling, source quotes and native findings validation. |
+| Scout | Has meta/voice/fresh plus memory/form/relationship context; requires supported canonical records and measured statistics. | Put current measured profile, required sample limits and selected attributed reporting in local fresh presentation. Omit memory/form inputs without removing record eligibility or hardware/context budgets. Reporting alone must not mutate roster/availability facts. |
+| Analyst | Already has the three principal keys, but fresh includes historical score trajectory. | Retain current supported Scout/Influencer products; defer historical trajectory input/loading. Keep missing-product and score/publication behavior explicit. |
+| Oracle | Reads finished character products; includes meta/voice/fresh and form. | Move finished-product presentation into local `fresh.rs`, omit form input. Preserve pillar availability and freshness; it does not read Classifier directly. |
+
+October 10 validation: the existing `journalist_replay` ran both fictional
+three-report synthesis fixtures through production preparation, local Ollama
+`granite4.2:3b` with thinking disabled, and the production parser. Both calls
+reached `stop` and returned three accepted reports, with exactly `meta`, `voice`
+and `fresh` in each actual request. Wall times were 12.807 and 5.923 seconds;
+input/output counts were 454/280 and 478/208. Responses preserve attribution and
+the reported denial/correction in these controls, but this bounded check does not
+establish held-out fidelity or resolve how an edition should present withdrawn
+older reporting alongside its correction. Private preparation/live receipts are
+`/private/tmp/journalist-diagnosis-{prepared,live}-20261010.jsonl`. An empty
+disposable database served only the read-only source-activity calculation; no
+products, deliveries or outbox entries were written. The database was stopped and
+the test model unloaded afterward.
+
+The Classifier model-swap/failure test and all 16 Journalist unit tests pass.
+The durable Classifier database test remained ignored; production queue delivery,
+publication recovery and model accuracy were not requalified in this investigation.
+Only this plan changed; the existing experimental Python edits remain untouched.
+
+Implement one character at a time after the Classifier path qualifies. For each,
+check every assembler caller, generation settings, attempt hashes, parsers,
+publication dependencies, replay examples and current fixtures. Validate exact
+payload keys and complete evidence, run the production assembler/parser in a
+bounded fictional replay, inspect the actual response for unsupported assertions,
+then exercise source drift and atomic delivery/product/outbox completion in an
+isolated database. Keep historical fixtures as historical evidence. Memories and
+form design, backlog activation and deployment are outside this initial slice.
+
 ## Sources
 
 Historical benchmark references checked October 7, 2026. These do not commit the target design to a model or parameter count:
@@ -857,3 +1073,227 @@ response, timings and native rejection are retained in the
 Production services remain inactive, the temporary CPU model was unloaded, and
 the character GPU settings are unchanged. Do not make character requests CPU
 requests when qualifying a future Classifier-only CPU override.
+
+## Classification-first spectrum pass — October 10, 2026
+
+The user set the priority as **classification before extraction**. The design is a cascade:
+score every article against a flat criteria set, threshold it, then run extraction and character
+enqueue only on the material that clears. The classifier does not extract; extraction stays a
+separate, later stage. This supersedes the previous single generative pass that asked one model
+to review the whole source, emit qualified claims and score every dimension at once — the
+overloaded contract that failed qualification in every prior attempt.
+
+### The criteria set and output
+
+Each article receives one flat `criterion: 0-100` spectrum. The criteria are the
+`vector-schema-v1` presence families (emotion 28, topic 10, discourse 7, temporal 3, relevance 3),
+plus `diagnostic.*` and `extraction_usable`. Names are the contract the character thresholds bind
+to; the user's aliases (`player_move`/transfer, `availability`/injury, `discipline`/suspension) are
+documentation, not new dimensions.
+
+### Method and artifacts
+
+The calibration used **offline Python prototypes** (windowed spectrum, per-criterion distributions,
+gate pass-rates, `max|mean|fires` aggregation). They were the design reference only and have been
+removed from the repository; no Python is added to the project. The native model now lives in
+`src/plugins/classifier/gliner.rs` (see below). Receipts remain under Archbox
+`/mnt/data/backup/scoracle/classifier-spike-20261009/` (mode 0700), including `spectrum-400b.jsonl`
+and `calib-400.json`.
+
+### Throughput
+
+- GPU (GTX 1070 Ti, torch 2.14 `cu126`, `gpu-v1` venv): 400 articles / 1,023 s ≈ 2.6 s/article over
+  all windows.
+- CPU (i7-7700, 8 threads): 40 sources / 228 s ≈ 4.8 s/article, classification-only.
+
+Stage-1 scoring is CPU-viable for ~8,500 articles/day on one worker with a second for burst margin,
+leaving the GPU free for character inference. This is a stage-1 measurement; it excludes extraction,
+target fan-out and persistence.
+
+### Calibration findings
+
+1. **Ranking is usable; absolute scores are not.** Native keyword-proxy precision: `player_move`
+   P@10 1.00 / base 0.62; `availability` P@10 0.90 / base 0.59; `discipline` P@10 0.80 / base 0.27.
+   The top-ranked articles are the correct ones (transfer stories, injuries, arrests/suspensions);
+   the score axis saturates near 90-100.
+2. **Generic dimensions carry no gate information.** `relevance.direct_subject` median 100 (query
+   provenance already guarantees the target is named), `topic.match_event` 94, `topic.league_context`
+   88, `discourse.attributed_quote` 89, `temporal.current_reference` 97. Sparse, discriminating
+   dimensions: `topic.discipline` 4, `topic.availability` 21, `topic.staffing` 23,
+   `topic.player_move` 47; most emotion labels (grief/disgust/fear/remorse) are sparse.
+3. **Aggregation must be per-criterion.** `max` suits localized event criteria (one strong mention
+   matters); `mean`/`fires` suit diffuse emotion/discourse. `fires` is too strict for events
+   (localized mentions vanish; `insider` p90 becomes 0).
+4. **Percentile routing, not fixed cutoffs.** Because scores cluster, a per-character score
+   percentile both sets the operating point and controls character-call volume deterministically.
+
+### Provisional routing (candidate, not policy)
+
+| Character | Criteria | p90 cutoff (`max`) |
+|---|---|---|
+| Insider | player_move, contract, staffing, discipline | 5 |
+| Scout (historical candidate, superseded below) | availability, player_move, staffing | 6 |
+| Influencer | emotion.* (exclude neutral/admiration) | 75 |
+| Journalist | reported_assertion, attributed_quote, explicit_denial, correction | 83 |
+
+Scout holds its own box-score performance data and is not gated on reported performance or match
+coverage (user instruction, October 10). Its article signals are roster and availability changes,
+including trades, injuries, recovery and suspensions (`topic.discipline` where participation is
+affected). Standalone staffing is not a Scout trigger. Merging `player_move` into Scout currently makes it fire on ~60% of
+articles at ≥70 under `max`; it needs a tighter cutoff or a required-signal rule before release.
+
+### Release scaling
+
+End goal: each character sees the entire relevant scope of the day. Suggested release approach: gate
+at the measured precision knee, **record near-miss articles** (firing but below the cutoff) so
+coverage can expand later without reclassification, and cap per-character daily volume as a safety
+valve (overflow queues to the next cycle rather than dropping). Thresholds move toward completeness
+as character-inference capacity allows. No score is promoted to production policy by this
+calibration.
+
+### Open
+
+- Independently reviewed evidence for precision/recall; the keyword proxy establishes monotonicity,
+  not correctness.
+- Per-criterion aggregation policy and the exact per-character thresholds and budgets.
+- Body-quality pass for the gallery/interstitial sources already flagged (residual furniture ≈3% of
+  bytes; `extraction_usable` is the cheap gate for them).
+- Wire the spectrum stage into the paused Classifier worker; extraction remains a separate stage.
+
+## Bucket design and discourse removal — October 11, 2026
+
+User instructions this date: collapse emotion into a single **emotional_charge** bucket (any one of a
+defined set of emotions; `neutral` excluded), and **remove discourse** from the Classifier because the
+coming memory system will be a better source of denial/correction than anything built here. Keep the
+Classifier's job simple and efficient.
+
+### Narrative versus procedural
+
+Lumping emotion was expected to be lossy; the measurement shows what the bucket actually separates.
+Across the 400 retained sources, procedural content scores low and narrative content scores high on
+the lumped emotion maximum:
+
+- Box scores, live trackers, lineups, weather/referee headers and game recaps: **22–28**.
+- Narrative reporting: **90+** (median 93).
+
+So `emotional_charge` is in practice a **narrative-versus-procedural filter**, not a happy/sad
+discriminator. That is safe because Influencer already abstains (`{"score":null}`) when the supplied
+evidence cannot support a reading; over-routing costs a cheap call that returns nothing, not a wrong
+product. The character remains the final authority on discovery and expression, which is the whole
+point of a coarse gate.
+
+### Discourse removed
+
+The discourse family (`reported_assertion`, `attributed_quote`, `opinion`, `speculation`,
+`prediction`, `explicit_denial`, `correction`) is removed from the Classifier. Two reasons:
+
+- **Routing redundancy:** 81% of articles containing a denial, and 64% containing a correction, are
+  already captured by the topic buckets. A denied move still contains `player_move`.
+- **Unreliability:** the classifier over-fires both buckets (235–343 of 400 above 0.5 versus 25–36
+  articles that actually contain the words). Gating on them would be redundant and noisy.
+
+Denial and correction belong to the memory system. The classifier scores topics, emotion, temporal
+framing and relevance only. Ordinal vectors and the diagnostic predicates are also dropped from this
+stage: the cascade gate is coarse, and ordinals/denial need their own trained heads later.
+
+### Revised buckets
+
+Defined in [classification-criteria-v1.json](../fixtures/classifier/classification-criteria-v1.json),
+which now drives both `classifier_spectrum.py` and `classifier_calibrate.py`:
+
+| Character | Bucket (mode, threshold) |
+|---|---|
+| Scout | any of `availability`≥70, `player_move`≥80, `staffing`≥80 — **nomination only**, structured record still required |
+| Insider | any of `player_move`, `contract`, `staffing`, `discipline` ≥80 |
+| Influencer | `emotional_charge` = any emotion (excluding `neutral`) ≥50 |
+| Journalist | all of `direct_subject`≥50, `current_reference`≥50, `extraction_usable`≥50 — intentionally broad |
+| Analyst / Oracle | none; downstream of finished products |
+
+The spectrum families are now emotion (minus `neutral`), topic, temporal and relevance, plus
+`extraction_usable`. The native classifier (`src/plugins/classifier/gliner.rs`) builds this schema and
+omits ordinals and diagnostics. The 400-source re-run completed in
+**492 s (~1.2 s/article on the GTX 1070 Ti)** — roughly twice as fast as the full-family pass, since
+discourse, ordinals and diagnostics are no longer scored. Receipts: `spectrum-crit-400.jsonl`.
+
+Routing volumes on the 400-source (target-dense, per-team) sample: Scout 238, Insider 209, Influencer
+381, Journalist 399. These overstate the daily stream because the sample is per-team feeds where most
+narrative touches a topic. `emotional_charge` excluded 19 procedural articles — box scores, game
+recaps, live trackers and highlights — while keeping narrative reporting, matching the
+narrative-versus-procedural finding. Topic calibration held under the reduced schema: AUC
+`contract` 0.90, `availability` 0.88, `player_move` 0.78, `discipline` 0.73; precision at ≥70 was
+availability 0.89, player_move 0.91, contract 0.83, discipline 0.71.
+
+`emotional_charge` calibration: AUC 0.750 against the independent Horizon multilingual-emotions
+encoder (n=40 overlap, Spearman 0.53 — a different architecture trained for emotion, so this is a
+cross-model check rather than a proxy), and AUC 0.766 against an emotional-lexicon label over all 400
+(base rate 0.61). Precision at ≥50/70/85 was 0.63/0.66/0.69. It sits in the same band as the weaker
+topic buckets (`discipline` 0.73, `player_move` 0.78): a coarse narrative-versus-procedural filter,
+not a fine emotion detector, which is sufficient because Influencer abstains.
+
+### Canonical ordering and why it is not a binary gate
+
+The user confirmed the ordering: **RSS fetch → classification spectrum scoring → extraction →
+character gating**. The spectrum is scored and **saved for every article**; nothing is discarded at
+classification time. Extraction runs only if a spectrum threshold is reached. Character gating runs
+after extraction, from the same saved spectrum plus the extracted evidence.
+
+This is deliberately not the relevance gate that failed before. The earlier design asked a model a
+binary "is this relevant?" question that discarded the article. Here:
+
+1. The score is computed and retained first, independent of any threshold.
+2. The threshold is a deterministic comparison against the saved scores — inspectable, adjustable,
+   no second model, no yes/no prompt.
+3. Every downstream decision ("extract?", "which character?") is a projection of the same saved
+   spectrum. A wrong threshold is re-projected, never re-classified.
+
+The extraction threshold is a **cost gate, tuned to high recall** — the union of the character
+buckets ("might any character want this?"). A false negative there starves every character at once,
+which is worse than any per-character miss, so it errs toward extracting. Because the spectrum is
+retained, lowering the threshold later extracts the backlog without re-scoring. This is the plan's
+governing rule made concrete: the binary decision to do work is a projection of the richer record.
+
+Extraction is **document-scoped and performed once**: literal claims (speaker, subject, kind, event
+time, negation/uncertainty, exact spans) are target-independent. Target relation (direct / opponent /
+incidental) is resolved per target natively, from canonical identities and the claim spans. One
+expensive pass, many cheap per-target reads.
+
+### Memory record and save method — October 11, 2026
+
+The extracted material is the source of truth for later work and the substrate for the memory
+system (DuckDB). The save method is therefore locked as follows.
+
+**One immutable row per `(article, target)`**, written atomically with its spectrum and versions —
+so a row either has its score and its text or it does not exist. No join can drift.
+
+- **Wide typed spectrum columns** (44: `emotion_*` 27, `topic_*` 10, `temporal_*` 3, `relevance_*` 3,
+  `extraction_usable`), plus four derived `bucket_*` columns, so DuckDB sorts and filters by score
+  directly. The model is served the same record as JSON.
+- **`clean_text` and `span_map`** co-located with the scores: the scrubbed prose and its mapping back
+  to the retained source, so any quote resolves to canonical byte offsets.
+- **`removed`** log, for scrub audit.
+- **Versions in the row** (`criteria`, `model`, `extraction`, `window`, `scrub`) — the join identity,
+  so two extractions of one article never mix.
+- **Facts vs interpretations:** `clean_text`, spans, dates and canonical entities are facts; `claims`
+  carry `review_status`. Memory reads either, never conflating them.
+- **Text duplication across targets is accepted** for query simplicity; DuckDB compresses it.
+- The character context JSON is a **view** of this record, not the record.
+
+Verified on the 400 retained sources: 400 rows, 44 spectrum columns, DuckDB 1.5.6 loads the JSONL,
+and `ORDER BY topic_player_move DESC` returns the supporting `clean_text` in one query. Bucket counts
+from the table match the router (Insider 209, Scout 230, Influencer 381, Journalist 400).
+
+**Scrub moved into Rust** (`tools::source::scrub`): decodes HTML references, strips furniture inline
+(so surrounding prose survives), keeps a clean→source span map, records dropped runs, and never
+returns empty evidence for a body that had prose. Three library checks pass. This replaces the
+prototype regex scrub. The Rust scrub in `tools::source::scrub` is the project implementation; the
+offline Python prototype was removed with the rest of the calibration tooling.
+
+**Resolved:** the Classifier model now runs from Rust via `candle` (pure Rust, no Python, no ONNX
+Runtime). `src/plugins/classifier/gliner.rs` reproduces gliner2's schema layout, runs the DeBERTa-v2
+encoder and the shared classifier head, and was **differential-tested against gliner2**: `input_ids`
+and all marker positions match exactly and scores match to ~1e-6. One candle limitation was worked
+around config-only: candle sizes its (unused, `position_biased_input=false`) absolute `position_ids`
+from `max_position_embeddings` and narrows them to the sequence length, so a >512 sequence overflows;
+handing it headroom in `max_position_embeddings` and pinning `max_relative_positions` to the trained
+512 fixes it without a crate patch. The llama.cpp decision-model route was evaluated and rejected
+(Julia-1 AUC ~0.55–0.61, saturated).

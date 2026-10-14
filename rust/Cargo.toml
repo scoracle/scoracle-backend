@@ -49,7 +49,7 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "nat
 futures = "0.3"
 
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde_json = { version = "1", features = ["preserve_order"] }
 anyhow = "1"
 async-trait = "0.1"
 
@@ -58,3 +58,12 @@ sha2 = "0.10"
 hex = "0.4"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Native Classifier inference (GLiNER2.5 encoder + classification head). Pure Rust, no Python
+# or C++ runtime at deploy time. The schema layout is reproduced and differential-tested.
+candle-core = "0.11"
+candle-nn = "0.11"
+candle-transformers = "0.11"
+tokenizers = "0.23"
+safetensors = "0.8"
+regex = "1"

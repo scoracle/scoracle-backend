@@ -49,30 +49,43 @@ fn text_words(text: &str) -> Vec<String> {
     word_splitter().find_iter(text).map(|m| m.as_str().to_lowercase()).collect()
 }
 
+/// The ordered classification schema, matching gliner2's iteration of `vector-schema-v1.json`.
+/// Order is part of the layout contract (it fixes token positions and therefore the classifier
+/// scores), so it is pinned here rather than taken from a map whose iteration order is
+/// alphabetical. `schema_order_matches_the_vector_schema` guards against drift.
+const SCHEMA_ORDER: &[(&str, &[&str])] = &[
+    ("emotion", &["admiration", "amusement", "anger", "annoyance", "approval", "caring", "confusion", "curiosity", "desire", "disappointment", "disapproval", "disgust", "embarrassment", "excitement", "fear", "gratitude", "grief", "joy", "love", "nervousness", "optimism", "pride", "realization", "relief", "remorse", "sadness", "surprise"]),
+    ("topic", &["match_event", "performance", "availability", "player_move", "contract", "staffing", "discipline", "off_field", "routine", "league_context"]),
+    ("temporal", &["current_reference", "historical_reference", "future_reference"]),
+    ("relevance", &["direct_subject", "opponent_context", "incidental_mention"]),
+];
+
 /// Reproduce `classifier_gliner.make_schema(spectrum=..., extras=false)` for one target:
 /// the spectrum families in order, then `extraction_usable`.
 fn classifications(target: &str) -> Result<Vec<Classification>> {
     let vectors: Value = serde_json::from_str(VECTORS)?;
-    let criteria: Value = serde_json::from_str(CRITERIA)?;
     let mut result = Vec::new();
-    for (family, spec) in criteria["spectrum"].as_object().context("criteria spectrum")? {
-        let labels_spec = vectors["vectors"][family]["labels"].as_object().context("family labels")?;
-        let exclude: HashSet<&str> = spec["exclude"].as_array().map(|a| a.iter().filter_map(|v| v.as_str()).collect()).unwrap_or_default();
-        let scope = if vectors["vectors"][family]["scope"].as_str() == Some("target_window") {
+    for (family, labels) in SCHEMA_ORDER {
+        let spec = &vectors["vectors"][family];
+        let scope = if spec["scope"].as_str() == Some("target_window") {
             format!(" About candidate target {target}.")
         } else {
             String::new()
         };
-        let mut labels = Vec::new();
-        let mut descriptions = BTreeMap::new();
-        for (label, description) in labels_spec {
-            if exclude.contains(label.as_str()) {
-                continue;
-            }
-            labels.push(label.clone());
-            descriptions.insert(label.clone(), format!("{}{}", description.as_str().context("description")?, scope));
+        let descriptions = spec["labels"].as_object().context("family labels")?;
+        let mut label_descriptions = BTreeMap::new();
+        for label in labels.iter() {
+            let description = descriptions
+                .get(*label)
+                .and_then(|value| value.as_str())
+                .with_context(|| format!("missing description for {family}.{label}"))?;
+            label_descriptions.insert((*label).to_string(), format!("{description}{scope}"));
         }
-        result.push(Classification { task: family.clone(), labels, label_descriptions: descriptions });
+        result.push(Classification {
+            task: (*family).to_string(),
+            labels: labels.iter().map(|label| (*label).to_string()).collect(),
+            label_descriptions,
+        });
     }
     result.push(Classification {
         task: "extraction_usable".into(),
@@ -247,6 +260,21 @@ mod tests {
         assert!(gate["scout"], "availability 75 >= 70");
         assert!(!gate["insider"], "no move/contract/staffing/discipline");
         assert!(!gate["journalist"], "journalist requires all of direct_subject/current/usable");
+    }
+
+    #[test]
+    fn schema_order_matches_the_vector_schema() {
+        let vectors: Value = serde_json::from_str(VECTORS).unwrap();
+        for (family, labels) in SCHEMA_ORDER {
+            let expected: HashSet<&str> = vectors["vectors"][family]["labels"]
+                .as_object()
+                .unwrap()
+                .keys()
+                .map(String::as_str)
+                .collect();
+            let got: HashSet<&str> = labels.iter().copied().collect();
+            assert!(got.is_subset(&expected), "{family} labels drifted from vector-schema");
+        }
     }
 
     #[test]

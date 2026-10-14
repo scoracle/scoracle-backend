@@ -6,7 +6,7 @@ pub const ARTICLE_NUM_CTX: i32 = 32768;
 pub const CONTEXT_BUDGET_BYTES: usize = 24000;
 use crate::harness::model::GenerateOptions;
 use crate::harness::queue::work::Item;
-use crate::plugins::classifier::{adapter::load_measurement, delivery::load_for_character};
+use crate::plugins::classifier::{delivery::load_for_character, delivery::load_spectrum_source};
 use crate::tools::memories::{self as study, HistoryItem, ReportingHistory, SourceRecord};
 use crate::tools::meta::EntityMeta;
 use crate::tools::source::SourceContext;
@@ -112,7 +112,7 @@ pub(super) async fn load_material(pool: &PgPool, item: &Item) -> Result<Material
     let mut reports = Vec::with_capacity(sources.len());
     let mut mentions = Vec::with_capacity(sources.len());
     for source in &sources {
-        let (native, _, _) = load_measurement(pool, source.classification_id).await?;
+        let native = load_spectrum_source(pool, source.classification_id).await?;
         let found = native.provenance["identity_candidates"]
             .as_array()
             .context("native identities missing")?

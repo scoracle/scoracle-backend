@@ -86,7 +86,7 @@ async fn decide(
     sport: &str,
     source: &SourceContext,
 ) -> Result<SourceDecision> {
-    let (native, _, _) = crate::plugins::classifier::adapter::load_measurement_on(
+    let native = crate::plugins::classifier::delivery::load_spectrum_source_on(
         connection,
         source.classification_id,
     )
@@ -98,15 +98,21 @@ async fn decide(
                 candidate["entity_type"] == entity_type && candidate["entity_id"] == entity_id
             })
         });
-    let selected = source
-        .classifier_world
-        .as_ref()
-        .and_then(|world| world["selection"]["kind"].as_str());
-    let kind = match selected {
-        Some("performance") => SourceKind::Performance,
-        Some("roster") => SourceKind::Roster,
-        Some("availability") => SourceKind::Availability,
-        _ => SourceKind::None,
+    // The spectrum gate, not a generative selection, decides Scout's kind.
+    let kind = match source.classifier_world.as_ref() {
+        Some(world) => {
+            let score = |key: &str| {
+                world["spectrum"].get(key).and_then(|value| value.as_f64()).unwrap_or(0.0) * 100.0
+            };
+            if score("topic.availability") >= 70.0 {
+                SourceKind::Availability
+            } else if score("topic.player_move") >= 80.0 || score("topic.staffing") >= 80.0 {
+                SourceKind::Roster
+            } else {
+                SourceKind::None
+            }
+        }
+        None => SourceKind::None,
     };
     let structured_record = structured_record(
         connection,

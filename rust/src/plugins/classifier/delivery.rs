@@ -1,5 +1,5 @@
 //! Native character obligations and source-bound reads. No score thresholds.
-use super::{adapter::load_measurement_on, Record};
+use super::{adapter::load_measurement_on, Source};
 use crate::tools::source::SourceContext;
 use anyhow::{ensure, Context, Result};
 use serde_json::{json, Value};
@@ -53,21 +53,6 @@ pub(crate) async fn record(tx: &mut Transaction<'_, Postgres>, id: i64) -> Resul
         .bind(record.target.to_string()).execute(&mut **tx).await?;
     }
     Ok(())
-}
-
-/// Presentation omits byte arithmetic, scores and durable IDs; qualifiers stay literal.
-fn world(record: &Record) -> Value {
-    fn text(spans: &Option<Vec<super::Span>>) -> Option<Vec<&str>> {
-        spans
-            .as_ref()
-            .map(|spans| spans.iter().map(|s| s.quote.as_str()).collect())
-    }
-    json!({"qualified_claims":record.claims.iter().map(|claim| json!({
-        "publisher_text":claim.evidence.quote,"target_relation":claim.target_relation,
-        "target_evidence":text(&claim.target_evidence),"kind":claim.kind,"time_scope":claim.time_scope,
-        "qualifiers":claim.qualifiers.iter().map(|(key,spans)| (key,text(spans)))
-            .collect::<std::collections::BTreeMap<_,_>>()
-    })).collect::<Vec<_>>(),"signals_unassessed":true})
 }
 
 pub async fn load_for_character(
@@ -133,6 +118,35 @@ enum Population {
     Accepted(i64, i64, i64),
 }
 
+/// The routing-gate character key for a plugin id.
+fn character_key(plugin: &str) -> Result<&'static str> {
+    match plugin {
+        JOURNALIST => Ok("journalist"),
+        INFLUENCER => Ok("influencer"),
+        INSIDER => Ok("insider"),
+        SCOUT => Ok("scout"),
+        _ => anyhow::bail!("unsupported Classifier character"),
+    }
+}
+
+/// The retained source behind a spectrum row, for identity validation and publication locks.
+pub(crate) async fn load_spectrum_source_on(
+    connection: &mut PgConnection,
+    spectrum_id: i64,
+) -> Result<Source> {
+    let row = sqlx::query("SELECT s.source::text FROM classifier_spectra x JOIN classifier_sources s ON s.id=x.source_id WHERE x.id=$1")
+        .bind(spectrum_id)
+        .fetch_one(connection)
+        .await
+        .context("load spectrum source")?;
+    Ok(serde_json::from_str(row.get::<&str, _>(0))?)
+}
+
+/// Pool convenience for the retained source behind a spectrum row.
+pub async fn load_spectrum_source(pool: &PgPool, spectrum_id: i64) -> Result<Source> {
+    load_spectrum_source_on(&mut *pool.acquire().await?, spectrum_id).await
+}
+
 async fn load_on(
     connection: &mut PgConnection,
     plugin: &str,
@@ -148,29 +162,24 @@ async fn load_on(
             ("accepted", Some(from), Some(before), Some(cutoff))
         }
     };
-    let policy = match plugin {
-        JOURNALIST => POLICY_VERSION,
-        INFLUENCER => INFLUENCER_POLICY_VERSION,
-        INSIDER => INSIDER_POLICY_VERSION,
-        SCOUT => SCOUT_POLICY_VERSION,
-        _ => anyhow::bail!("unsupported Classifier character"),
-    };
-    let rows=sqlx::query("SELECT m.id,d.policy_version,d.status,d.selection,
+    let character = character_key(plugin)?;
+    let rows=sqlx::query("SELECT x.id,x.spectrum::text AS spectrum,x.gate::text AS gate,x.clean_text,d.status,
         EXTRACT(EPOCH FROM (s.source->>'published_at')::timestamptz)::bigint AS published_at_epoch,
+        s.source::text AS source,
         COALESCE(s.discovery_version=public.classifier_discovery_version(s.article_id,s.sport),false) AS current_source
-        FROM classifier_deliveries d JOIN classifier_measurements m ON m.id=d.measurement_id
-        JOIN classifier_sources s ON s.id=m.source_id
-        WHERE d.plugin_id=$1 AND m.sport=$4 AND m.status='source_bound_provisional'
-        AND m.receipt->'target'->>'entity_type'=$2 AND m.receipt->'target'->>'entity_id'=$3::text
-        AND d.production_eligible AND (($5='pending' AND d.status='pending')
+        FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id
+        JOIN classifier_sources s ON s.id=x.source_id
+        WHERE d.character=$1 AND x.sport=$4
+        AND x.target->>'entity_type'=$2 AND x.target->>'entity_id'=$3::text
+        AND (($5='pending' AND d.status='pending')
             OR ($5='used' AND d.status='used' AND d.updated_at>=to_timestamp($6::double precision)
                 AND d.updated_at<to_timestamp($7::double precision))
-            OR ($5='accepted' AND d.status IN ('pending','used','abstained','redundant')
-                AND floor(extract(epoch FROM m.created_at))<=$8
+            OR ($5='accepted' AND d.status IN ('pending','used','abstained')
+                AND floor(extract(epoch FROM x.created_at))<=$8
                 AND (s.source->>'published_at')::timestamptz>=to_timestamp($6::double precision)
                 AND (s.source->>'published_at')::timestamptz<to_timestamp($7::double precision)))
-        ORDER BY published_at_epoch DESC NULLS LAST,m.id DESC LIMIT 20001")
-        .bind(plugin).bind(entity_type).bind(entity_id.to_string()).bind(sport)
+        ORDER BY published_at_epoch DESC NULLS LAST,x.id DESC LIMIT 20001")
+        .bind(character).bind(entity_type).bind(entity_id.to_string()).bind(sport)
         .bind(mode).bind(from).bind(before).bind(cutoff).fetch_all(&mut *connection).await?;
     ensure!(
         rows.len() <= 20000,
@@ -179,17 +188,14 @@ async fn load_on(
     let mut sources = Vec::with_capacity(rows.len());
     let mut articles = std::collections::HashSet::new();
     for row in rows {
+        let status: String = row.get("status");
         ensure!(
-            row.get::<String, _>("policy_version") == policy,
-            "unsupported character delivery policy"
-        );
-        ensure!(
-            row.get::<String, _>("status") != "pending" || row.get::<bool, _>("current_source"),
+            status != "pending" || row.get::<bool, _>("current_source"),
             "Classifier delivery source changed; acquisition must reconcile it"
         );
-        let id = row.get("id");
-        let (source, record, _) = load_measurement_on(connection, id).await?;
-        if row.get::<String, _>("status") == "pending" {
+        let id: i64 = row.get("id");
+        let source: Source = serde_json::from_str(row.get::<&str, _>("source"))?;
+        if status == "pending" {
             ensure!(
                 super::identity::candidates(connection, sport, &source).await?
                     == source.provenance["identity_candidates"],
@@ -199,12 +205,6 @@ async fn load_on(
         if !articles.insert(source.article_id) {
             continue;
         }
-        let mut presented = world(&record);
-        if plugin == SCOUT {
-            presented["selection"] = row
-                .get::<Option<Value>, _>("selection")
-                .unwrap_or(Value::Null);
-        }
         sources.push(SourceContext {
             classification_id: id,
             article_id: source.article_id,
@@ -212,10 +212,13 @@ async fn load_on(
                 .as_str()
                 .context("source headline")?
                 .into(),
-            context: source.body,
+            context: row.get("clean_text"),
             source: source.source,
             published_at_epoch: row.get("published_at_epoch"),
-            classifier_world: Some(presented),
+            classifier_world: Some(json!({
+                "spectrum": serde_json::from_str::<Value>(row.get::<&str, _>("spectrum"))?,
+                "gate": serde_json::from_str::<Value>(row.get::<&str, _>("gate"))?,
+            })),
         });
     }
     Ok(sources)
@@ -232,7 +235,7 @@ pub async fn validate_for_publication(
 ) -> Result<()> {
     lock_sources(tx, plugin, sport, sources).await?;
     for source in sources {
-        let (native, _, _) = load_measurement_on(tx, source.classification_id).await?;
+        let native = load_spectrum_source_on(tx, source.classification_id).await?;
         super::identity::validate(tx, sport, &native).await?;
     }
     let current = load_on(
@@ -260,6 +263,7 @@ pub(crate) async fn lock_sources(
     if sources.is_empty() {
         return Ok(());
     }
+    let character = character_key(plugin)?;
     let articles: Vec<_> = sources.iter().map(|s| s.article_id).collect();
     let ids: Vec<_> = sources.iter().map(|s| s.classification_id).collect();
     sqlx::query("SELECT id FROM news_articles WHERE id=ANY($1) ORDER BY id FOR SHARE NOWAIT")
@@ -270,15 +274,15 @@ pub(crate) async fn lock_sources(
         WHERE p.article_id=ANY($1) AND p.sport=$2 ORDER BY p.article_id,p.entity_id FOR SHARE OF p,t NOWAIT")
         .bind(&articles).bind(sport).fetch_all(&mut **tx).await?;
     sqlx::query(
-        "SELECT m.id FROM classifier_measurements m JOIN classifier_sources s ON s.id=m.source_id
-        WHERE m.id=ANY($1) ORDER BY m.id FOR SHARE OF m,s NOWAIT",
+        "SELECT x.id FROM classifier_spectra x JOIN classifier_sources s ON s.id=x.source_id
+        WHERE x.id=ANY($1) ORDER BY x.id FOR SHARE OF x,s NOWAIT",
     )
     .bind(&ids)
     .fetch_all(&mut **tx)
     .await?;
-    sqlx::query("SELECT measurement_id FROM classifier_deliveries WHERE measurement_id=ANY($1) AND plugin_id=$2
-        ORDER BY measurement_id FOR UPDATE NOWAIT")
-        .bind(&ids).bind(plugin).fetch_all(&mut **tx).await?;
+    sqlx::query("SELECT spectrum_id FROM classifier_spectrum_deliveries WHERE spectrum_id=ANY($1) AND character=$2
+        ORDER BY spectrum_id FOR UPDATE NOWAIT")
+        .bind(&ids).bind(character).fetch_all(&mut **tx).await?;
     Ok(())
 }
 
@@ -289,8 +293,8 @@ pub async fn undelivered_count(
     entity_id: i32,
     sport: &str,
 ) -> Result<i64> {
-    Ok(sqlx::query_scalar("SELECT count(*) FROM classifier_deliveries d JOIN classifier_measurements m ON m.id=d.measurement_id
-        WHERE d.plugin_id=$1 AND d.status='pending' AND d.production_eligible AND m.sport=$4
-        AND m.receipt->'target'->>'entity_type'=$2 AND m.receipt->'target'->>'entity_id'=$3::text")
-        .bind(plugin).bind(entity_type).bind(entity_id.to_string()).bind(sport).fetch_one(&mut **tx).await?)
+    Ok(sqlx::query_scalar("SELECT count(*) FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id
+        WHERE d.character=$1 AND d.status='pending' AND x.sport=$4
+        AND x.target->>'entity_type'=$2 AND x.target->>'entity_id'=$3::text")
+        .bind(character_key(plugin)?).bind(entity_type).bind(entity_id.to_string()).bind(sport).fetch_one(&mut **tx).await?)
 }

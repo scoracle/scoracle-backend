@@ -5,7 +5,7 @@ use serde_json::{json, Value};
 use std::collections::BTreeMap;
 
 const CRITERIA: &str = include_str!("../../../fixtures/classifier/classification-criteria-v1.json");
-pub const CRITERIA_VERSION: &str = "classification-criteria-v2";
+pub const CRITERIA_VERSION: &str = "classification-criteria-v4";
 pub const MODEL_ID: &str = "ggml-org/Kev-0.8B-GGUF";
 
 /// HTTP client for the decision-model server. Cheap to clone; the transport is the swap point.
@@ -96,17 +96,17 @@ mod tests {
         let mut spectrum = BTreeMap::new();
         spectrum.insert("emotional_charge".to_string(), 80.0);
         spectrum.insert("availability".to_string(), 60.0);
-        spectrum.insert("relevance.direct_subject".to_string(), 40.0);
+        spectrum.insert("relevance.direct_subject".to_string(), 70.0);
         let gate = gate(&spectrum).unwrap();
-        assert!(gate["influencer"]);
-        assert!(gate["scout"]);
+        assert!(gate["influencer"], "emotional_charge 80 >= 50");
+        assert!(gate["scout"], "availability 60 >= 50");
+        assert!(gate["journalist"], "direct_subject 70 >= 50");
         assert!(!gate["insider"], "no movement/staffing");
-        assert!(!gate["journalist"], "relevance below threshold");
     }
 
     #[test]
-    fn criteria_declares_five_questions() {
+    fn criteria_declares_six_questions() {
         let criteria: Value = serde_json::from_str(CRITERIA).unwrap();
-        assert_eq!(criteria["questions"].as_object().unwrap().len(), 5);
+        assert_eq!(criteria["questions"].as_object().unwrap().len(), 6);
     }
 }

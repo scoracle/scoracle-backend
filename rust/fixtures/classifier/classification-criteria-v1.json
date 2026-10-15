@@ -1,16 +1,9 @@
 {
-  "version": "classification-criteria-v2",
-  "note": "Classifier stage-1 spectrum: five coarse buckets scored by a System-1 decision model (Kev). The character model unpacks nuance (which emotion, attribution, time) from the complete source text; the classifier only routes. One call per article via llama.cpp /v1/systemone.",
+  "version": "classification-criteria-v4",
+  "note": "Classifier stage-1 spectrum: coarse buckets scored by a System-1 decision model (Kev) via llama.cpp /v1/systemone, one call per article. Relevance is asked as independent binary questions, never a forced 3-way ranking (which yields inauthentic mid-range scores). The character model resolves relationship, attribution and time from the complete source text.",
   "questions": {
-    "relevance": {
-      "type": "choice",
-      "instructions": "Relationship of the candidate target to this reporting.",
-      "criteria": {
-        "direct_subject": "the target is a direct subject of a reported event, assertion or reaction",
-        "opponent_context": "the target is an opponent or contextual counterparty in another subject's reporting",
-        "incidental_mention": "the target is only mentioned incidentally"
-      }
-    },
+    "relevance.direct_subject": { "type": "noul", "instructions": "Is the candidate target a direct subject of the reported event, assertion or reaction — not a passing mention?" },
+    "relevance.opponent_context": { "type": "noul", "instructions": "Is the candidate target an opponent or contextual counterparty in another subject's reporting?" },
     "emotional_charge": { "type": "noul", "instructions": "Does the text carry emotional charge — hope, anger, joy, worry, relief or frustration — rather than flat reporting? Apathy is not emotional charge." },
     "availability": { "type": "noul", "instructions": "Does this report discuss the target's physical availability — injury, fitness or suspension?" },
     "movement": { "type": "noul", "instructions": "Is a transfer, trade, signing or departure involving the target discussed?" },
@@ -20,6 +13,6 @@
     "influencer": { "mode": "any", "criteria": { "emotional_charge": 50 } },
     "scout": { "mode": "any", "criteria": { "availability": 50, "movement": 50, "staffing": 50 }, "note": "Nomination only; Scout still requires an applied structured record." },
     "insider": { "mode": "any", "criteria": { "movement": 50, "staffing": 50 } },
-    "journalist": { "mode": "any", "criteria": { "relevance.direct_subject": 50 }, "note": "Broad: any reporting whose target is a direct subject." }
+    "journalist": { "mode": "all", "criteria": { "relevance.direct_subject": 50 }, "note": "Broad: reporting whose target is a direct subject. The character refines relationship from the text." }
   }
 }

@@ -317,11 +317,10 @@ pub async fn execute_spectrum(
 
     let scrubbed = crate::tools::source::scrub(&source.body);
     let clean_sha256 = hash(&scrubbed.text);
-    // Score the scrubbed prose (furniture removed), not the raw acquisition.
-    let window_texts: Vec<String> = crate::tools::source::windows(&scrubbed.text, 1024)?
-        .into_iter()
-        .map(|window| window.text)
-        .collect();
+    // Score the scrubbed prose, bounded so an oversized (gallery/furniture) body cannot
+    // monopolize the classifier. `coverage` records the disposition explicitly.
+    let (windows, covered) = crate::tools::source::windows_bounded(&scrubbed.text, 64);
+    let window_texts: Vec<String> = windows.into_iter().map(|window| window.text).collect();
     for target in &source.query_entities {
         let target_name = target["name"].as_str().context("target name")?.to_string();
         let gliner = gliner.clone();
@@ -340,6 +339,7 @@ pub async fn execute_spectrum(
         })
         .await??;
         let gate = super::gliner::gate(&spectrum)?;
+        let gate_doc = json!({"characters": &gate, "coverage": if covered { "complete" } else { "oversized_bounded" }});
         let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
             return Ok(PluginOutcome::Superseded);
         };
@@ -349,7 +349,7 @@ pub async fn execute_spectrum(
             .bind(source_id).bind(item.entity_id).bind(&item.sport).bind(target.to_string())
             .bind(super::gliner::MODEL_ID).bind(super::gliner::CRITERIA_VERSION).bind("scrub-v1")
             .bind(&scrubbed.text).bind(&clean_sha256)
-            .bind(serde_json::to_string(&spectrum)?).bind(serde_json::to_string(&gate)?)
+            .bind(serde_json::to_string(&spectrum)?).bind(gate_doc.to_string())
             .fetch_one(&mut **publication.transaction()).await?;
         // One obligation per character whose bucket fired; a complete measurement with no eligible
         // signal creates none (the plan's no-action disposition).

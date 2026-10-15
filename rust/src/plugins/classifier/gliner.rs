@@ -174,11 +174,22 @@ impl Gliner {
     /// Load the tokenizer, encoder config and weights from `dir` (fastino/gliner2.5-base layout:
     /// `encoder_config/config.json`, `tokenizer.json`, `model.safetensors`).
     pub fn load(dir: &str) -> Result<Self> {
-        // Metal on macOS; CPU elsewhere or if Metal is unavailable.
-        #[cfg(target_os = "macos")]
-        let device = Device::new_metal(0).unwrap_or(Device::Cpu);
-        #[cfg(not(target_os = "macos"))]
-        let device = Device::Cpu;
+        // CPU by default: candle's Metal backend lacks the layer-norm kernel DeBERTa uses
+        // ("no metal implementation for layer-norm"). CLASSIFIER_DEVICE=metal opts in on macOS
+        // for when candle supports it.
+        let device = match std::env::var("CLASSIFIER_DEVICE").as_deref() {
+            Ok("metal") => {
+                #[cfg(target_os = "macos")]
+                {
+                    Device::new_metal(0)?
+                }
+                #[cfg(not(target_os = "macos"))]
+                {
+                    anyhow::bail!("CLASSIFIER_DEVICE=metal is macOS-only");
+                }
+            }
+            _ => Device::Cpu,
+        };
         let tokenizer = Tokenizer::from_file(format!("{dir}/tokenizer.json")).map_err(|e| anyhow::anyhow!("tokenizer: {e}"))?;
         let mut config_value: Value = serde_json::from_str(&std::fs::read_to_string(format!("{dir}/encoder_config/config.json")).context("encoder config")?)?;
         let trained = config_value["max_position_embeddings"].as_i64().unwrap_or(512);

@@ -78,6 +78,31 @@ pub fn windows(body: &str, max_windows: usize) -> Result<Vec<SourceWindow>> {
     Ok(result)
 }
 
+/// Like [`windows`], but returns up to `max_windows` and reports whether the whole body was
+/// covered. An oversized source is bounded rather than failing; the caller records the
+/// disposition explicitly instead of silently clipping.
+pub fn windows_bounded(body: &str, max_windows: usize) -> (Vec<SourceWindow>, bool) {
+    let mut result = Vec::new();
+    let mut cursor = 0;
+    while cursor < body.len() && result.len() < max_windows {
+        cursor += body[cursor..].len() - body[cursor..].trim_start().len();
+        if cursor == body.len() {
+            break;
+        }
+        let length = bounded_prefix_end(&body[cursor..], 100, 1200);
+        if length == 0 {
+            break;
+        }
+        result.push(SourceWindow {
+            text: body[cursor..cursor + length].into(),
+            start: cursor,
+            end: cursor + length,
+        });
+        cursor += length;
+    }
+    (result, cursor >= body.len())
+}
+
 fn bounded_prefix_end(content: &str, max_words: usize, max_bytes: usize) -> usize {
     let mut end = content.len().min(max_bytes);
     while !content.is_char_boundary(end) {

@@ -1,0 +1,340 @@
+{
+  "date": "2026-10-10",
+  "contract": "classifier-routing-spectrum-v1",
+  "model": "fastino/gliner2.5-base-v1",
+  "production_eligible": false,
+  "calibrated": false,
+  "hardware": "Intel i7-7700",
+  "device": "cpu",
+  "threads": 2,
+  "classification_only": true,
+  "extra_evaluator_tasks": [
+    "extraction_usable",
+    "diagnostic"
+  ],
+  "schema_sha256": "fd77b383ccb64bf428d0054d29699c02be276cbcb6723cdc9892d797b8641e16",
+  "private_run_directory": "/mnt/data/backup/scoracle/classifier-launch/2026-10-10/eight-cpu-v1",
+  "scope": "Scoring only; no extraction, canonical target selection, queue, database, calibration or independently reviewed real-source accuracy.",
+  "controls": {
+    "complete": 12,
+    "median_ms": 1050.4885846748948,
+    "mean_ms": 1057.4752869627748,
+    "max_ms": 1147.8027678094804,
+    "total_ms": 12689.703443553299,
+    "receipts_sha256": "29d2ae048e153397b139316a23dcaebabe7ca3aaeb67ef9bcdbb36fb34750c12",
+    "items": [
+      {
+        "body_sha256": "80a5290030c246bcf3960d140480bd0adb5bb421b5fd472b7e27559b0a6a81cc",
+        "input_tokens": 571,
+        "elapsed_ms": 1147.8027678094804,
+        "control": "emotion",
+        "expected_content_labels": [
+          "emotion"
+        ],
+        "scores_0_100": {
+          "emotion": 99.3,
+          "player_moves": 0.0,
+          "availability": 0.0,
+          "performance": 0.9,
+          "contracts": 0.0,
+          "staffing": 0.2,
+          "competition": 0.7,
+          "club_context": 9.6
+        }
+      },
+      {
+        "body_sha256": "8c673406526ad0a972ab8c5fa30475f15491da9efeb7e99236f51beb3517ef56",
+        "input_tokens": 572,
+        "elapsed_ms": 1059.9118960089982,
+        "control": "transfer",
+        "expected_content_labels": [
+          "player_moves"
+        ],
+        "scores_0_100": {
+          "emotion": 62.6,
+          "player_moves": 89.4,
+          "availability": 0.5,
+          "performance": 25.5,
+          "contracts": 74.2,
+          "staffing": 1.1,
+          "competition": 2.1,
+          "club_context": 58.7
+        }
+      },
+      {
+        "body_sha256": "4e6cfbfac9ae1e09c59dec3bdd4eabcd64577a88bf828997c8e5055a2b654c34",
+        "input_tokens": 574,
+        "elapsed_ms": 1088.079375680536,
+        "control": "injury",
+        "expected_content_labels": [
+          "availability"
+        ],
+        "scores_0_100": {
+          "emotion": 9.4,
+          "player_moves": 0.1,
+          "availability": 99.2,
+          "performance": 6.7,
+          "contracts": 0.0,
+          "staffing": 0.3,
+          "competition": 0.3,
+          "club_context": 1.7
+        }
+      },
+      {
+        "body_sha256": "93072f291d25b0a1ce80ba35f88dc7d75465dc1c4c4f2af3697037fb4ff57aad",
+        "input_tokens": 573,
+        "elapsed_ms": 1098.5538652166724,
+        "control": "suspension",
+        "expected_content_labels": [
+          "availability"
+        ],
+        "scores_0_100": {
+          "emotion": 78.1,
+          "player_moves": 0.1,
+          "availability": 34.7,
+          "performance": 45.4,
+          "contracts": 0.1,
+          "staffing": 0.6,
+          "competition": 16.5,
+          "club_context": 52.4
+        }
+      },
+      {
+        "body_sha256": "6a51c51213d60f565288e73e0cd80c2644773f31da9e199fa2d8f3d45a1c8f69",
+        "input_tokens": 590,
+        "elapsed_ms": 1131.7274677567184,
+        "control": "narrative",
+        "expected_content_labels": [
+          "club_context"
+        ],
+        "scores_0_100": {
+          "emotion": 52.9,
+          "player_moves": 0.1,
+          "availability": 0.0,
+          "performance": 5.3,
+          "contracts": 0.0,
+          "staffing": 0.1,
+          "competition": 64.7,
+          "club_context": 98.9
+        }
+      },
+      {
+        "body_sha256": "86f88d932fdf1d10ce9eee812ac3fd3a3b6e59ccb2c43c53535d4d21476ab2a7",
+        "input_tokens": 578,
+        "elapsed_ms": 1077.570116147399,
+        "control": "performance",
+        "expected_content_labels": [
+          "performance",
+          "competition"
+        ],
+        "scores_0_100": {
+          "emotion": 30.8,
+          "player_moves": 1.5,
+          "availability": 0.3,
+          "performance": 97.5,
+          "contracts": 0.1,
+          "staffing": 1.5,
+          "competition": 17.7,
+          "club_context": 9.9
+        }
+      },
+      {
+        "body_sha256": "bb7126b572745074a19cce304d0796eabcd6c7eac2e6a168d54f957bee3d38c9",
+        "input_tokens": 580,
+        "elapsed_ms": 1041.0652733407915,
+        "control": "competition",
+        "expected_content_labels": [
+          "competition"
+        ],
+        "scores_0_100": {
+          "emotion": 62.9,
+          "player_moves": 0.1,
+          "availability": 0.1,
+          "performance": 25.5,
+          "contracts": 0.0,
+          "staffing": 0.3,
+          "competition": 97.9,
+          "club_context": 2.7
+        }
+      },
+      {
+        "body_sha256": "64ec574300c5020d5a068fefe09d053d5a12d21d14a2cbd35916a1b09ceb4faa",
+        "input_tokens": 580,
+        "elapsed_ms": 1013.4378848597407,
+        "control": "contract",
+        "expected_content_labels": [
+          "contracts"
+        ],
+        "scores_0_100": {
+          "emotion": 37.7,
+          "player_moves": 0.3,
+          "availability": 0.4,
+          "performance": 6.6,
+          "contracts": 99.4,
+          "staffing": 0.6,
+          "competition": 2.5,
+          "club_context": 44.0
+        }
+      },
+      {
+        "body_sha256": "de64544fc04205f9943536af3abc92cb8ec4e6b81ab2ce386c1e0d978f39fd71",
+        "input_tokens": 574,
+        "elapsed_ms": 983.2106777466834,
+        "control": "management",
+        "expected_content_labels": [
+          "staffing"
+        ],
+        "scores_0_100": {
+          "emotion": 49.3,
+          "player_moves": 0.3,
+          "availability": 0.2,
+          "performance": 4.7,
+          "contracts": 0.0,
+          "staffing": 98.5,
+          "competition": 1.2,
+          "club_context": 7.9
+        }
+      },
+      {
+        "body_sha256": "8603f95b4429628841b99a6d64bf01f6cfe786fc7444f141663c922592f710e0",
+        "input_tokens": 583,
+        "elapsed_ms": 1029.3552218936384,
+        "control": "routine",
+        "expected_content_labels": [],
+        "scores_0_100": {
+          "emotion": 64.3,
+          "player_moves": 0.3,
+          "availability": 1.8,
+          "performance": 3.2,
+          "contracts": 0.1,
+          "staffing": 1.8,
+          "competition": 4.6,
+          "club_context": 95.7
+        }
+      },
+      {
+        "body_sha256": "5007479f3d29c2e493eafb9b112925b6a6d736b819fb66e4e90da829be98705a",
+        "input_tokens": 575,
+        "elapsed_ms": 990.2307563461363,
+        "control": "mixed",
+        "expected_content_labels": [
+          "emotion",
+          "player_moves",
+          "availability"
+        ],
+        "scores_0_100": {
+          "emotion": 99.2,
+          "player_moves": 70.7,
+          "availability": 4.7,
+          "performance": 5.1,
+          "contracts": 0.1,
+          "staffing": 0.1,
+          "competition": 0.7,
+          "club_context": 25.3
+        }
+      },
+      {
+        "body_sha256": "ce7ee058116f4363d385a9fc62f0123caa565958f8f51f84a9a14e91172c3871",
+        "input_tokens": 583,
+        "elapsed_ms": 1028.758140746504,
+        "control": "denied_historical",
+        "expected_content_labels": [
+          "player_moves"
+        ],
+        "scores_0_100": {
+          "emotion": 81.2,
+          "player_moves": 87.8,
+          "availability": 2.8,
+          "performance": 2.4,
+          "contracts": 0.1,
+          "staffing": 0.5,
+          "competition": 8.0,
+          "club_context": 89.3
+        }
+      }
+    ]
+  },
+  "model_provenance": {
+    "checkpoint": "/mnt/data/backup/scoracle/classifier-launch/2026-10-07/cache/hub/models--fastino--gliner2.5-base-v1/snapshots/ca906247640776a07753514055be9726f9080ead",
+    "revision": "ca906247640776a07753514055be9726f9080ead",
+    "torch": "2.14.0+cu126",
+    "transformers": "5.17.0",
+    "dtype": "torch.float32",
+    "device": "cpu/2-threads",
+    "parameters": 193581591,
+    "span_threshold": 0.5,
+    "classification_threshold": 0,
+    "gliner2": "2.0.0",
+    "production_eligible": false
+  },
+  "real_sources": {
+    "complete": 12,
+    "median_ms": 2713.985027046874,
+    "mean_ms": 2895.4328229883686,
+    "max_ms": 5226.319006644189,
+    "total_ms": 34745.19387586042,
+    "receipts_sha256": "be28948722241592b532f355398b272a5b6c44e03afe0364258b08763e6a9333",
+    "items": [
+      {
+        "body_sha256": "a0f85e2eecd1e377e058c2adb0510159e896c6c6a4d674ec7665fa1a0b8b0eba",
+        "input_tokens": 769,
+        "elapsed_ms": 1664.3784050829709
+      },
+      {
+        "body_sha256": "45d15dc9e935a2e3d2877253bbc6e44bd223bc38d874b9e84ca2d35bd9a4994f",
+        "input_tokens": 846,
+        "elapsed_ms": 1950.4317571409047
+      },
+      {
+        "body_sha256": "66e60e3a3c1f5b574d0b03f495357592d8d4af8aa198b1aab603739677df6ed7",
+        "input_tokens": 953,
+        "elapsed_ms": 2372.6432849653065
+      },
+      {
+        "body_sha256": "7b51a45003bbea97b6a8df3383075c39ca75b8fa89ff61b970f2018b5bf69f53",
+        "input_tokens": 690,
+        "elapsed_ms": 1375.3892350941896
+      },
+      {
+        "body_sha256": "62d8bd37ddbce0620aa894ec4d086a65599c136b816a8fae89e4f67646b675ce",
+        "input_tokens": 1158,
+        "elapsed_ms": 3085.474426858127
+      },
+      {
+        "body_sha256": "65eff7940473d2fda3507a0a3fe1518fcdf1e1feb34c3e4ac1488f28016f1782",
+        "input_tokens": 1337,
+        "elapsed_ms": 4132.5111128389835
+      },
+      {
+        "body_sha256": "22a535ffbe22e8c1f3956de377528a3818373ead214813cf1d113b9a7d46dae3",
+        "input_tokens": 1128,
+        "elapsed_ms": 2976.278391201049
+      },
+      {
+        "body_sha256": "c1b1f118c2eb13289cd3cec9d5a74dec235338c99d4ad22cf4af70e80660bca2",
+        "input_tokens": 1012,
+        "elapsed_ms": 2451.6916628926992
+      },
+      {
+        "body_sha256": "f095513baabb2fbf1b6ea31129b0b01da366b887ff48cba6eae1c58c7916c269",
+        "input_tokens": 1440,
+        "elapsed_ms": 4512.1444361284375
+      },
+      {
+        "body_sha256": "f87a4dcb3bf202c066961e3038a77b0469b6f1460c457f27613ff855120058f4",
+        "input_tokens": 829,
+        "elapsed_ms": 1794.1378150135279
+      },
+      {
+        "body_sha256": "105c8ee1f125e209ec21c9f4325a6b2b383d7fea2c3734a30cd4664e0c345ccb",
+        "input_tokens": 1532,
+        "elapsed_ms": 5226.319006644189
+      },
+      {
+        "body_sha256": "9e84b4ceed515f02458ccecdc87b9670c5db994fbb34f8a80e71e01276a6ca3e",
+        "input_tokens": 1176,
+        "elapsed_ms": 3203.7943420000374
+      }
+    ]
+  }
+}

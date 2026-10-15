@@ -104,12 +104,10 @@ pub fn build(
         ));
     }
     if enabled.contains("classifier") {
-        // The native model is required; CLASSIFIER_MODEL_DIR points at the GLiNER artifact.
-        let dir = std::env::var("CLASSIFIER_MODEL_DIR")
-            .map_err(|_| anyhow::anyhow!("CLASSIFIER_MODEL_DIR is required to enable the classifier stage"))?;
-        let gliner = Arc::new(crate::plugins::classifier::gliner::Gliner::load(&dir)?);
+        // CLASSIFIER_URL points at the llama.cpp decision-model server (/v1/systemone).
+        let decision = crate::plugins::classifier::decision::Decision::from_env()?;
         handlers.push(Arc::new(
-            crate::plugins::classifier::adapter::ClassifierHandler::new(pool.clone(), gliner),
+            crate::plugins::classifier::adapter::ClassifierHandler::new(pool.clone(), decision),
         ));
     }
 

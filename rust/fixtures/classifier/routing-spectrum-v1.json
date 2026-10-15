@@ -1,0 +1,29 @@
+{
+  "version": "classifier-routing-spectrum-v1",
+  "production_eligible": false,
+  "meaning": "Independent article-content scores, not calibrated probabilities, target relevance or event truth. Denied, speculative and historical reporting still contains its topic; extraction qualifies it before routing.",
+  "vectors": {
+    "spectrum": {
+      "scope": "document_window",
+      "labels": {
+        "emotion": "Reporting contains expressed feelings, emotional reactions, sentiment or fan mood, including attributed, denied or historical feelings. Routine facts alone are not emotion.",
+        "player_moves": "Reporting discusses a player joining, leaving, being traded, loaned or recruited by a team, including transfer rumours or denials.",
+        "availability": "Reporting discusses injury, illness, recovery, fitness, medical assessment, suspension or disciplinary eligibility affecting participation.",
+        "performance": "Reporting describes player or team sporting performance, statistics, form, contributions, playing roles or tactical adjustments. A fixture schedule alone is not performance evidence.",
+        "contracts": "Reporting discusses employment contracts, extensions, renewals, salary, wages, release clauses or contract expiry.",
+        "staffing": "Reporting discusses coaches, managers, executives or ownership making personnel or leadership decisions, appointments, dismissals or organizational changes. A coach merely supplying a quote is not sufficient.",
+        "competition": "Reporting discusses match events or results, fixtures, opponents, standings, draws, qualification, tournaments or competition rules. Routine ticket-office logistics alone are not competition reporting.",
+        "club_context": "Reporting discusses substantive club or athlete developments outside playing performance: off-field conduct, finances, governance, facilities, community issues, identity or rivalries. Routine opening hours, ads and ticket collection instructions alone are not substantive developments."
+      }
+    }
+  },
+  "ordinal_vectors": {},
+  "qualifiers": [],
+  "character_use": {
+    "influencer": ["emotion"],
+    "insider": ["player_moves", "contracts", "staffing"],
+    "scout": ["performance", "player_moves", "availability"],
+    "journalist": ["emotion", "player_moves", "availability", "performance", "contracts", "staffing", "competition", "club_context"]
+  },
+  "routing_limits": "Candidate evidence only. Insider needs a supported move/denial; standalone contracts and staffing may only serve Journalist. Scout needs an explicit selected kind, measured profile and applied source-linked roster/availability records when applicable. Analyst and Oracle consume finished cards; Graph independently reviews source names and result lines."
+}

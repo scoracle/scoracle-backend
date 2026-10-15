@@ -61,13 +61,3 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # Native Classifier inference (GLiNER2.5 encoder + classification head). Pure Rust, no Python
 # or C++ runtime at deploy time. The schema layout is reproduced and differential-tested.
-candle-core = "0.11"
-candle-nn = "0.11"
-candle-transformers = "0.11"
-tokenizers = "0.23"
-safetensors = "0.8"
-regex = "1"
-
-# Metal acceleration is macOS-only; the Linux release build must not pull it in.
-[target.'cfg(target_os = "macos")'.dependencies]
-candle-core = { version = "0.11", features = ["metal"] }

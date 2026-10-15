@@ -19,7 +19,7 @@ pub struct AcquireHandler {
 }
 pub struct ClassifierHandler {
     pool: PgPool,
-    gliner: Arc<super::gliner::Gliner>,
+    decision: super::decision::Decision,
 }
 impl AcquireHandler {
     pub fn new(pool: PgPool, web: Arc<WebBroker>) -> Self {
@@ -27,8 +27,8 @@ impl AcquireHandler {
     }
 }
 impl ClassifierHandler {
-    pub fn new(pool: PgPool, gliner: Arc<super::gliner::Gliner>) -> Self {
-        Self { pool, gliner }
+    pub fn new(pool: PgPool, decision: super::decision::Decision) -> Self {
+        Self { pool, decision }
     }
 }
 
@@ -265,16 +265,16 @@ impl StudioPlugin for ClassifierHandler {
         &super::manifest::MANIFEST
     }
     async fn execute(&self, item: &Item) -> Result<PluginOutcome> {
-        execute_spectrum(&self.pool, item, &self.gliner).await
+        execute_spectrum(&self.pool, item, &self.decision).await
     }
 }
 
-/// Native spectrum path: classify with the candle GLiNER model, scrub, gate and store one
-/// immutable `classifier_spectra` row per target. No generative call.
+/// Classifier stage 1: score the five-bucket spectrum with the System-1 decision model, scrub,
+/// gate and store one immutable `classifier_spectra` row per target. One call per article.
 pub async fn execute_spectrum(
     pool: &PgPool,
     item: &Item,
-    gliner: &Arc<super::gliner::Gliner>,
+    decision: &super::decision::Decision,
 ) -> Result<PluginOutcome> {
     ensure!(
         item.stage == super::manifest::TASK && item.entity_type == "article",
@@ -317,29 +317,23 @@ pub async fn execute_spectrum(
 
     let scrubbed = crate::tools::source::scrub(&source.body);
     let clean_sha256 = hash(&scrubbed.text);
-    // Score the scrubbed prose, bounded so an oversized (gallery/furniture) body cannot
-    // monopolize the classifier. `coverage` records the disposition explicitly.
-    let (windows, covered) = crate::tools::source::windows_bounded(&scrubbed.text, 64);
-    let window_texts: Vec<String> = windows.into_iter().map(|window| window.text).collect();
     for target in &source.query_entities {
-        let target_name = target["name"].as_str().context("target name")?.to_string();
-        let gliner = gliner.clone();
-        let windows = window_texts.clone();
-        let spectrum = tokio::task::spawn_blocking(move || {
-            let mut aggregated: std::collections::BTreeMap<String, f32> = Default::default();
-            for text in &windows {
-                for (criterion, value) in gliner.spectrum(text, &target_name)? {
-                    let slot = aggregated.entry(criterion).or_insert(0.0);
-                    if value > *slot {
-                        *slot = value;
-                    }
-                }
+        let target_name = target["name"].as_str().context("target name")?;
+        // One pass over the whole article; only an oversized body falls back to its first window,
+        // recorded explicitly as a coverage disposition.
+        let (spectrum, coverage) = match decision.spectrum(&scrubbed.text, target_name).await {
+            Ok(spectrum) => (spectrum, "complete"),
+            Err(_) => {
+                let window = crate::tools::source::windows_bounded(&scrubbed.text, 1)
+                    .0
+                    .into_iter()
+                    .next()
+                    .context("empty scrubbed source")?;
+                (decision.spectrum(&window.text, target_name).await?, "oversized_first_window")
             }
-            Ok::<_, anyhow::Error>(aggregated)
-        })
-        .await??;
-        let gate = super::gliner::gate(&spectrum)?;
-        let gate_doc = json!({"characters": &gate, "coverage": if covered { "complete" } else { "oversized_bounded" }});
+        };
+        let gate = super::decision::gate(&spectrum)?;
+        let gate_doc = json!({"characters": &gate, "coverage": coverage});
         let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
             return Ok(PluginOutcome::Superseded);
         };
@@ -347,7 +341,7 @@ pub async fn execute_spectrum(
         super::identity::validate(publication.transaction(), &item.sport, &source).await?;
         let spectrum_id: i64 = sqlx::query_scalar("INSERT INTO public.classifier_spectra(source_id,article_id,sport,target,model,criteria_version,scrub_version,clean_text,clean_sha256,spectrum,gate) VALUES($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb) ON CONFLICT (article_id,sport,target,model,criteria_version) DO UPDATE SET gate=EXCLUDED.gate RETURNING id")
             .bind(source_id).bind(item.entity_id).bind(&item.sport).bind(target.to_string())
-            .bind(super::gliner::MODEL_ID).bind(super::gliner::CRITERIA_VERSION).bind("scrub-v1")
+            .bind(super::decision::MODEL_ID).bind(super::decision::CRITERIA_VERSION).bind("scrub-v1")
             .bind(&scrubbed.text).bind(&clean_sha256)
             .bind(serde_json::to_string(&spectrum)?).bind(gate_doc.to_string())
             .fetch_one(&mut **publication.transaction()).await?;

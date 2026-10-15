@@ -1,7 +1,7 @@
-//! Native Classifier: the retained source contract and the candle spectrum model.
+//! Native Classifier: the retained source contract and the decision-model spectrum.
 pub mod adapter;
+pub mod decision;
 pub mod delivery;
-pub mod gliner;
 pub(crate) mod identity;
 pub mod manifest;
 use serde::{Deserialize, Serialize};

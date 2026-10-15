@@ -1297,3 +1297,36 @@ from `max_position_embeddings` and narrows them to the sequence length, so a >51
 handing it headroom in `max_position_embeddings` and pinning `max_relative_positions` to the trained
 512 fixes it without a crate patch. The llama.cpp decision-model route was evaluated and rejected
 (Julia-1 AUC ~0.55–0.61, saturated).
+
+## Classifier launch — complete, October 14, 2026
+
+The Classifier is native Rust and live in production.
+
+**Shipped.** `src/plugins/classifier/gliner.rs` runs GLiNER2.5 entirely in Rust via candle (schema
+layout + DeBERTa-v2 encoder + shared classifier head). It is differential-tested against gliner2:
+`input_ids` and every marker position match exactly and scores match to ~1e-6. The worker path
+(`adapter::execute_spectrum`) scrubs the source (`tools::source::scrub`), scores each clean-text
+window, evaluates the `classification-criteria-v1` gate, and writes one immutable
+`classifier_spectra` row per `(article, target)` plus a `classifier_spectrum_deliveries` obligation
+for each fired character. Migrations 299–301 add the spectrum, the obligations and the dispatch.
+
+**Retired.** The generative path is gone: `classifier/prompt.rs`, `measure`/`execute_model`/
+`request_hash`/`load_measurement`, the measurement-based delivery `record`, the entire generative
+qualification contract in `classifier.rs` (`Record`/`Measurements`/`qualify`/`validate`/
+`emotional_world`/`measurements`/`bind`/`paragraphs`/…), the classifier inference route and tool, and
+the obsolete examples and delivery tests. The Classifier now requires `CLASSIFIER_MODEL_DIR` and has
+no generative fallback.
+
+**Placed.** Mac = Classifier (Metal); Archbox = characters (Ollama GPU). The candle Metal feature is
+target-scoped so the Linux build is unaffected. Acquisition uses the per-domain budgeted fetch
+(spacing, 429/Retry-After holds, circuit breaker). Character prompts describe the spectrum
+(Influencer/Insider/Scout), versions bumped.
+
+**Production.** Migrations 299–301 applied; `CLASSIFIER_MODEL_DIR` set; `scoracle-classifier-source`
+and `scoracle-cognition` active and enabled on Archbox. Real backlog spectra confirmed (per-target,
+sensible: `match_event`/`direct_subject` high on game reports; gate → per-character obligations).
+
+**Remaining (calibration, not plumbing).** Threshold tuning on real spectra (procedural pages firing
+`match_event`), the large backlog drain on CPU, and the future extraction stage (which re-adds a
+qualification contract when it is actually built). The measured spectrum, its provenance and the
+routing gate are the durable product.

@@ -74,7 +74,11 @@ fn complete_conflicting_reports_are_prepared_separately_without_truncation() {
     let voice_at = rendered.find(r#""voice":"#).unwrap();
     assert!(voice_at < fresh_at);
     let frame: serde_json::Value = serde_json::from_str(&rendered).unwrap();
-    assert_eq!(frame["fresh"][1]["publisher_excerpt"], text);
+    assert_eq!(a.deferred_ids, vec![1]);
+    let next = prepared(vec![item(1, &text)]);
+    let next_frame: serde_json::Value = serde_json::from_str(&prompt(&next)).unwrap();
+    assert_eq!(next_frame["fresh"][0]["publisher_excerpt"], text);
+    assert_eq!(frame["fresh"].as_array().unwrap().len(), 1);
     let result = EditionParser {
         assignment: &a,
         activity: &activity::reference(&a.selected, NOW),
@@ -82,7 +86,7 @@ fn complete_conflicting_reports_are_prepared_separately_without_truncation() {
     .parse(&reply(&a))
     .unwrap()
     .unwrap();
-    assert_eq!(result.narratives.len(), 2);
+    assert_eq!(result.narratives.len(), 1);
     assert_eq!(result.narratives[0].source_names, vec!["Other Wire"]);
     assert_eq!(result.narratives[0].input_news_ids, vec![2]);
 }
@@ -136,8 +140,9 @@ fn selected_reports_fit_the_context_budget_and_rest_remain_pending() {
             })
             .collect(),
     );
-    assert_eq!(a.selected.len(), 2);
-    assert_eq!(a.deferred_ids.len(), 2);
+    assert_eq!(a.selected.len(), 1);
+    assert_eq!(a.deferred_ids.len(), 3);
+    assert!(prompt(&a).len() <= SOURCE_BUDGET_BYTES);
     assert!(a.dispositions.is_empty());
 }
 #[test]
@@ -146,6 +151,19 @@ fn prior_sourced_text_prevents_republication_without_becoming_new_evidence() {
     let a = prepare(subject(), vec![item(1, "Cedar won.")], &published, NOW).unwrap();
     assert!(a.selected.is_empty());
     assert_eq!(a.dispositions[0].reason, "already_reported_exact_text");
+}
+
+#[test]
+fn an_rss_target_without_canonical_source_identity_is_held_before_generation() {
+    let mut report = item(1, "A fantasy column about other players.");
+    report.classifier_world =
+        Some(json!({"target_identity_resolved":false,"spectrum":{"journalist":99}}));
+    let assignment = prepared(vec![report]);
+    assert!(assignment.selected.is_empty());
+    assert_eq!(
+        assignment.dispositions[0].reason,
+        "unresolved_target_identity"
+    );
 }
 
 #[test]
@@ -238,7 +256,9 @@ fn articulation_cannot_supply_scores_ids_or_change_report_count() {
 
 #[test]
 fn articulation_cannot_change_request_local_source_mapping() {
-    let a = prepared(vec![item(1, "First report."), item(2, "Second report.")]);
+    // Retained multi-report packets must still enforce their original source mapping.
+    let mut a = prepared(vec![item(1, "First report.")]);
+    a.selected.push(item(2, "Second report."));
     // A report renamed out of its slot is a source-mapping violation: the key
     // is what binds returned prose to a selected report.
     let raw = json!({"report_1":"First report.","report_3":"Second report."});
@@ -256,6 +276,29 @@ fn articulation_cannot_change_request_local_source_mapping() {
     }
     .parse(&swapped.to_string())
     .is_ok());
+}
+
+#[test]
+fn declined_slots_preserve_the_following_reports_source_identity() {
+    let mut assignment = prepared(vec![item(1, "Unrelated reporting.")]);
+    assignment
+        .selected
+        .push(item(2, "Cedar United denied the move."));
+    let parser = EditionParser {
+        assignment: &assignment,
+        activity: &activity::reference(&assignment.selected, NOW),
+    };
+    let product = parser
+        .parse(r#"{"report_1":null,"report_2":"Wire reports that Cedar United denied the move."}"#)
+        .unwrap()
+        .unwrap();
+    assert_eq!(product.narratives.len(), 1);
+    assert_eq!(product.narratives[0].input_news_ids, vec![2]);
+    let empty = parser
+        .parse(r#"{"report_1":null,"report_2":null}"#)
+        .unwrap()
+        .unwrap();
+    assert!(empty.narratives.is_empty());
 }
 #[test]
 fn natural_paraphrase_preserves_native_output_contract_and_plugin_metadata() {

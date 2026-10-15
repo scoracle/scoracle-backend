@@ -17,21 +17,27 @@ if [ -z "$MODE" ]; then
 fi
 case "$MODE" in paused|acquire|classifier) ;; *) echo "watchdog: invalid WATCHDOG_MODE=$MODE" >&2; exit 2 ;; esac
 STAMP="$(date '+%Y-%m-%dT%H:%M:%S%z')"
-RESULT="$(psql "$DB" -X -q -A -t -F'|' -v ON_ERROR_STOP=1 -v mode="$MODE" -v stages="${COGNITION_STAGES:-classifier,graph,investigate_entity,fixture_boxscore,rating,vibe,narratives,transfers,momentum,sigil}" <<'SQL'
+RESULT="$(psql "$DB" -X -q -A -t -F'|' -v ON_ERROR_STOP=1 -v mode="$MODE" -v stages="${COGNITION_STAGES-graph,investigate_entity,fixture_boxscore,rating,vibe,narratives,transfers,momentum,sigil}" <<'SQL'
 WITH active_work AS (
     SELECT * FROM pipeline_work WHERE
       (:'mode'='acquire' AND stage='classifier_acquire') OR
-      (:'mode'='classifier' AND (stage='classifier_acquire' OR stage=ANY(string_to_array(:'stages',','))))
+      (:'mode'='classifier' AND (stage='classifier_acquire' OR stage=ANY(regexp_split_to_array(lower(btrim(:'stages')),'\s*,\s*'))))
 ), queue AS (
     SELECT count(*) FILTER(WHERE status IN ('pending','failed') AND attempts<5 AND available_at<=now()) AS ready,
         count(*) FILTER(WHERE status='failed' AND attempts>=5) AS dead,
         count(*) FILTER(WHERE status='running' AND updated_at<now()-interval '2 hours') AS stuck
     FROM active_work
+), stage_queue AS (
+    SELECT stage,count(*) FILTER(WHERE status IN ('pending','failed') AND attempts<5
+        AND available_at<=now()) AS ready FROM active_work GROUP BY stage
 ), progress AS (
-    SELECT GREATEST((SELECT max(created_at) FROM classifier_sources),
-        (SELECT max(created_at) FROM classifier_measurements),
-        (SELECT max(created_at) FROM classifier_spectra),
-        (SELECT max(generated_at) FROM cognition_ledger)) AS newest
+    SELECT stage,max(completed_at) AS newest FROM (
+        SELECT stage,completed_at FROM pipeline_stage_progress
+        UNION ALL
+        SELECT CASE character WHEN 'journalist' THEN 'narratives' WHEN 'influencer' THEN 'vibe'
+            WHEN 'insider' THEN 'transfers' WHEN 'scout' THEN 'rating' END,updated_at
+        FROM classifier_spectrum_deliveries WHERE status IN ('used','abstained','held','redundant')
+    ) successful GROUP BY stage
 )
 SELECT 'ingest_recency',CASE WHEN max(fetched_at)>now()-interval '26 hours' THEN 'OK' ELSE 'ALARM' END,
     'newest discovery '||coalesce(max(fetched_at)::text,'none') FROM news_articles
@@ -41,8 +47,10 @@ UNION ALL SELECT 'held_deliveries','INFO',count(*)||' held; no automatic policy 
     FROM classifier_spectrum_deliveries WHERE status='held'
 UNION ALL SELECT 'dead_letters',CASE WHEN dead=0 THEN 'OK' ELSE 'ALARM' END,dead||' active-stage rows at attempt cap' FROM queue
 UNION ALL SELECT 'stuck_running',CASE WHEN stuck=0 THEN 'OK' ELSE 'ALARM' END,stuck||' active claims older than 2 hours' FROM queue
-UNION ALL SELECT 'drain_alive',CASE WHEN ready=0 OR newest>now()-interval '30 minutes' THEN 'OK' ELSE 'ALARM' END,
-    ready||' claimable; newest progress '||coalesce(newest::text,'none') FROM queue,progress WHERE :'mode'<>'paused';
+UNION ALL SELECT 'drain_alive:'||q.stage,
+    CASE WHEN q.ready=0 OR p.newest>now()-interval '30 minutes' THEN 'OK' ELSE 'ALARM' END,
+    q.ready||' claimable; newest successful progress '||coalesce(p.newest::text,'none')
+    FROM stage_queue q LEFT JOIN progress p USING(stage) WHERE :'mode'<>'paused';
 SQL
 )"
 

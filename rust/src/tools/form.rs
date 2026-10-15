@@ -50,6 +50,7 @@ impl Prose {
 
 /// Reader-facing dimensions, independent of any model's tokenization or runtime budget.
 pub const HOOK_MAX_CHARS: usize = 140;
+pub const JOURNALIST_REPORT_MAX_CHARS: usize = 1200;
 
 /// One plugin's prose response, decoded against the keys that plugin declared.
 ///
@@ -235,12 +236,16 @@ pub fn journalist_form(report_count: usize) -> serde_json::Value {
 /// Generated from the same declaration the validator enforces, so the grammar
 /// offered to the model and the surface actually accepted cannot drift.
 pub fn journalist_schema(report_count: usize) -> serde_json::Value {
-    journalist_prose(report_count).schema()
+    let mut schema = journalist_prose(report_count).schema();
+    for property in schema["properties"].as_object_mut().unwrap().values_mut() {
+        property["maxLength"] = serde_json::json!(JOURNALIST_REPORT_MAX_CHARS);
+    }
+    schema
 }
 
 #[derive(Clone, Debug, serde::Deserialize)]
 pub struct JournalistReport {
-    pub text: String,
+    pub text: Option<String>,
 }
 
 pub struct JournalistReply {
@@ -257,12 +262,16 @@ pub struct JournalistReply {
 pub fn parse_journalist(raw: &str, report_count: usize) -> anyhow::Result<JournalistReply> {
     let prose = journalist_prose(report_count);
     let map = parse_prose_map(raw, &prose.keys)?;
+    anyhow::ensure!(
+        map.iter()
+            .all(|(_, text)| text.chars().count() <= JOURNALIST_REPORT_MAX_CHARS),
+        "Journalist report exceeds the reading budget"
+    );
     Ok(JournalistReply {
         narratives: map
-            .iter()
-            .map(|(_, text)| JournalistReport {
-                text: text.to_string(),
-            })
+            .slots
+            .into_iter()
+            .map(|(_, text)| JournalistReport { text })
             .collect(),
     })
 }
@@ -364,7 +373,14 @@ mod tests {
     #[test]
     fn character_forms_share_concise_paragraph_guidance() {
         assert!(influencer::prompt::TASK.contains("paragraphs separated by blank lines"));
-        assert_eq!(journalist_schema(2), journalist_prose(2).schema());
+        assert_eq!(
+            journalist_schema(2)["required"],
+            journalist_prose(2).schema()["required"]
+        );
+        assert_eq!(
+            journalist_schema(2)["properties"]["report_1"]["maxLength"],
+            JOURNALIST_REPORT_MAX_CHARS
+        );
     }
 
     #[test]
@@ -401,6 +417,10 @@ mod tests {
         assert!(one(r#"{"report_1":"a","report_2":"b"}"#).is_err());
         assert!(one(r#"{"report_1":"a","text":"b"}"#).is_err());
         assert!(one(r#"{"report_1":""}"#).is_err());
+        assert!(one(
+            &serde_json::json!({"report_1":"x".repeat(JOURNALIST_REPORT_MAX_CHARS+1)}).to_string()
+        )
+        .is_err());
     }
 }
 

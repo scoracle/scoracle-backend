@@ -538,7 +538,7 @@ impl LensTask for NarrativesTask {
                 let bodies = reply
                     .narratives
                     .iter()
-                    .map(|report| report.text.as_str())
+                    .filter_map(|report| report.text.as_deref())
                     .collect::<Vec<_>>();
                 let joined = bodies.join("\n\n");
                 let mut checks = Vec::new();
@@ -635,7 +635,7 @@ impl LensTask for VibeTask {
             entity_id: e.entity_id,
             sport: e.sport.to_uppercase(),
         };
-        let sources = crate::plugins::harvester::delivery::load_for_character(
+        let sources = crate::plugins::classifier::delivery::load_for_character(
             pool,
             crate::plugins::influencer::manifest::MANIFEST.id.as_str(),
             &subject.entity_type,
@@ -643,7 +643,12 @@ impl LensTask for VibeTask {
             &subject.sport,
         )
         .await?;
-        let Some(source) = sources.last() else {
+        let Some(source) = sources.iter().rev().find(|source| {
+            !source
+                .classifier_world
+                .as_ref()
+                .is_some_and(|world| world["target_identity_resolved"] == false)
+        }) else {
             return Ok(None);
         };
         let (assignment, _) = crate::plugins::influencer::prompt::prepare_assignment(
@@ -681,7 +686,7 @@ impl LensTask for VibeTask {
                 .map_err(|e| anyhow::anyhow!("vibe parts: {e}"))?;
         Ok(Prepared {
             parts: Some(stored_parts.clone()),
-            should_call: true,
+            should_call: !parts.sources.is_empty() && parts.hold_reason().is_none(),
             user_prompt: parts.assemble(),
             options: crate::plugins::influencer::prompt::generation_options(
                 crate::plugins::influencer::prompt::VIBE_TEMPERATURE,
@@ -849,7 +854,7 @@ impl LensTask for TransferTask {
         };
         Ok(preview_insider(pool, entity_type, entity_id, &e.sport)
             .await?
-            .map(|prompt| Prepared::captured(prompt, insider_options(0))))
+            .map(|(prompt, options)| Prepared::captured(prompt, options)))
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
         let Ok(reply) = serde_json::from_str::<Reply>(raw) else {

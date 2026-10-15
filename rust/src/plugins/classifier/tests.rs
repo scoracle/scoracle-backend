@@ -74,6 +74,30 @@ async fn publisher_to_spectrum_to_character_is_complete_and_revision_bound() -> 
         "The publisher supplied complete evidence. ".repeat(100)
     );
     let html = format!("<!doctype html><html><head><script>tracking()</script></head><body><nav>Buy now</nav><article><p>{prose}</p></article></body></html>");
+    // Keep the optimized identity scan exactly equivalent to the old canonical-name rules.
+    let mut connection = pool.acquire().await?;
+    let old = include_str!("../../../../sql/migrations/295_classifier_insider_delivery.sql")
+        .split("ALTER TABLE public.classifier_sources")
+        .next()
+        .unwrap()
+        .replace("BEGIN;", "")
+        .replace(
+            "public.classifier_identity_candidates",
+            "pg_temp.identity_before",
+        );
+    sqlx::raw_sql(&old).execute(&mut *connection).await?;
+    for body in [
+        Some(prose.clone()),
+        Some("Cedar FClub is not Cedar FC".into()),
+        Some("Morgan Vale and Maple United".repeat(10000)),
+        Some(String::new()),
+        None,
+    ] {
+        let same: bool = sqlx::query_scalar("SELECT pg_temp.identity_before($1,$2,$3)=public.classifier_identity_candidates($1,$2,$3)")
+            .bind(SPORT).bind("Cedar FC update").bind(body).fetch_one(&mut *connection).await?;
+        assert!(same, "identity prefilter changed canonical matches");
+    }
+    drop(connection);
     sqlx::query("INSERT INTO news_articles(id,url,title,source,full_text,published_at) VALUES($1,'https://example.invalid/kev','Cedar FC injury','Fixture Wire',$2,now())")
         .bind(ARTICLE).bind(html).execute(&pool).await?;
     sqlx::query("INSERT INTO harvester_query_provenance(article_id,entity_type,entity_id,sport) VALUES($1,'team',910415,$2)")
@@ -186,11 +210,25 @@ async fn publisher_to_spectrum_to_character_is_complete_and_revision_bound() -> 
             .unwrap();
         source_ids.push(item.input_version.clone());
         if revision == 1 {
+            let completed: Option<String> = sqlx::query_scalar(
+                "SELECT completed_at::text FROM pipeline_stage_progress WHERE stage='classifier'",
+            )
+            .fetch_optional(&pool)
+            .await?;
             let error = adapter::execute_spectrum(&pool, &item, &decision)
                 .await
                 .unwrap_err();
             assert!(format!("{error:#}").contains("500"));
             received.recv_timeout(std::time::Duration::from_secs(10))?;
+            let after_error: Option<String> = sqlx::query_scalar(
+                "SELECT completed_at::text FROM pipeline_stage_progress WHERE stage='classifier'",
+            )
+            .fetch_optional(&pool)
+            .await?;
+            assert_eq!(
+                completed, after_error,
+                "error receipts are not successful queue progress"
+            );
         }
         adapter::execute_spectrum(&pool, &item, &decision).await?;
         let request = if revision == 2 {
@@ -261,9 +299,6 @@ async fn publisher_to_spectrum_to_character_is_complete_and_revision_bound() -> 
             );
         }
     }
-    let mut shutdown = std::net::TcpStream::connect(address)?;
-    shutdown.write_all(b"GET /shutdown HTTP/1.1\r\nHost: localhost\r\n\r\n")?;
-    server.join().unwrap();
     sqlx::query("UPDATE news_articles SET full_text='Transfer news. Sorry, this blog is currently unavailable. Back to Home.' WHERE id=$1")
         .bind(ARTICLE).execute(&pool).await?;
     sqlx::query("SELECT classifier_enqueue_acquisition($1,$2)")
@@ -425,5 +460,61 @@ async fn publisher_to_spectrum_to_character_is_complete_and_revision_bound() -> 
             "character acknowledgements must not consume an obligation twice"
         );
     }
+    // A new-only Classifier delivery reaches evaluation even without a legacy Harvester row.
+    sqlx::query("UPDATE news_articles SET published_at=NULL WHERE id=$1")
+        .bind(ARTICLE)
+        .execute(&pool)
+        .await?;
+    sqlx::query("SELECT classifier_enqueue_acquisition($1,$2)")
+        .bind(ARTICLE)
+        .bind(SPORT)
+        .execute(&pool)
+        .await?;
+    let item = work::claim(&pool, manifest::ACQUIRE_TASK, 100)
+        .await?
+        .into_iter()
+        .find(|i| i.sport == SPORT)
+        .unwrap();
+    acquire.execute(&item).await?;
+    let item = work::claim(&pool, manifest::TASK, 100)
+        .await?
+        .into_iter()
+        .find(|i| i.sport == SPORT)
+        .unwrap();
+    adapter::execute_spectrum(&pool, &item, &decision).await?;
+    assert!(
+        received.try_recv().is_err(),
+        "publication metadata must reuse the same model request"
+    );
+    use crate::evaluation::tasks::{EntitySpec, LensTask, VibeTask};
+    let models = crate::harness::models::Models {
+        router: crate::harness::route::Router::from_config(
+            &crate::harness::config::RouteConfig {
+                roles: Default::default(),
+                candidates: Default::default(),
+                backend_concurrency: Default::default(),
+            },
+            std::time::Duration::from_secs(1),
+            1,
+        )?,
+        voice_num_ctx: 32768,
+    };
+    let result = VibeTask
+        .build_request(
+            &pool,
+            &models,
+            &EntitySpec {
+                entity_type: "team".into(),
+                entity_id: 910415,
+                sport: SPORT.into(),
+                pair_player_id: None,
+            },
+        )
+        .await;
+    assert!(result.err().is_some_and(|error| error.to_string().contains("publication date unavailable")),
+        "evaluation must see the Classifier-only source and report its unresolved date, not skip an empty legacy corpus");
+    let mut shutdown = std::net::TcpStream::connect(address)?;
+    shutdown.write_all(b"GET /shutdown HTTP/1.1\r\nHost: localhost\r\n\r\n")?;
+    server.join().unwrap();
     Ok(())
 }

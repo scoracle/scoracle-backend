@@ -112,6 +112,14 @@ pub(crate) async fn setup_disposable(pool: &sqlx::PgPool) -> Result<()> {
             "304_classifier_article_spectrum",
             include_str!("../../../../sql/migrations/304_classifier_article_spectrum.sql"),
         ),
+        (
+            "305_classifier_identity_prefill",
+            include_str!("../../../../sql/migrations/305_classifier_identity_prefill.sql"),
+        ),
+        (
+            "306_pipeline_stage_progress",
+            include_str!("../../../../sql/migrations/306_pipeline_stage_progress.sql"),
+        ),
     ] {
         let applied: bool =
             sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version=$1)")

@@ -332,7 +332,19 @@ pub(super) async fn commit(
         )
         .await?;
     }
-    publication.commit_final().await?;
+    let remaining = crate::plugins::classifier::delivery::undelivered_count(
+        publication.transaction(),
+        crate::plugins::insider::manifest::MANIFEST.id.as_str(),
+        &item.entity_type,
+        item.entity_id_i32()?,
+        &material.subject.sport,
+    )
+    .await?;
+    if remaining > 0 {
+        publication.commit_progress().await?;
+    } else {
+        publication.commit_final().await?;
+    }
     let product_ids = score_id.into_iter().chain(rumor_ids).collect::<Vec<_>>();
     if !product_ids.is_empty() {
         insert_generation_ledger_best_effort(pool, generation,
@@ -353,7 +365,14 @@ pub(super) async fn commit(
                 parser_outcome: "parsed",
             }).await;
     }
-    Ok(PluginOutcome::Committed)
+    Ok(if remaining > 0 {
+        PluginOutcome::deferred(
+            "more complete Insider reports remain",
+            std::time::Duration::from_secs(1),
+        )
+    } else {
+        PluginOutcome::Committed
+    })
 }
 
 #[cfg(test)]
@@ -526,6 +545,7 @@ mod tests {
     #[test]
     fn counterparties_require_one_matching_identity_in_the_delivered_report() {
         let mut material = Material {
+            held: vec![],
             subject: EntityMeta {
                 name: "Jordan Sample".into(),
                 entity_type: "player".into(),

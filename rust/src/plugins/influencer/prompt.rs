@@ -12,7 +12,7 @@ use sqlx::PgPool;
 
 pub const MODEL: RouteKey = RouteKey::new("vibe-logic", "VIBE_LOGIC");
 pub const ARTICLE_NUM_CTX: i32 = 32768;
-pub const VIBE_PROMPT_VERSION: &str = "vibe-frame-v22-article-spectrum";
+pub const VIBE_PROMPT_VERSION: &str = "vibe-frame-v23-period-holds";
 pub const SCORE_VERSION: &str = "emotional-valence-v1";
 pub const VIBE_TEMPERATURE: f64 = 0.0;
 pub const VIBE_NUM_PREDICT: i32 = 600;
@@ -58,6 +58,17 @@ pub struct Parts {
 }
 
 impl Parts {
+    pub fn hold_reason(&self) -> Option<&str> {
+        self.excluded
+            .iter()
+            .find(|entry| entry["in_period"] == true && entry["reason"] != "known_copy")
+            .map(|entry| {
+                entry["reason"]
+                    .as_str()
+                    .unwrap_or("incomplete_reporting_period")
+            })
+    }
+
     pub fn assemble(&self) -> String {
         let reporting = |sources: &[SourceContext]| -> Vec<Value> {
             sources

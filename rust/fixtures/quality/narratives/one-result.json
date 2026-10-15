@@ -23,7 +23,7 @@
       "sport": "FOOTBALL"
     }
   },
-  "prompt_version": "n103-article-spectrum",
+  "prompt_version": "n104-bounded-report",
   "review": [
     "Articulate the supplied result and its scorer; add no significance the source does not carry.",
     "Keep the source's attribution and keep the result factual.",

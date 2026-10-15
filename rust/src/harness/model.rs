@@ -203,6 +203,19 @@ pub(crate) fn validate_completion(reason: Option<&str>, done: Option<bool>) -> R
     Ok(())
 }
 
+/// A complete reply rejected by a plugin parser retains its exact attempt for review.
+#[derive(Debug)]
+pub struct RejectedReply {
+    pub raw_response_body: String,
+    pub request_body: serde_json::Value,
+    pub built_prompt: String,
+}
+impl std::fmt::Display for RejectedReply {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("model reply rejected")
+    }
+}
+
 /// Failed provider decoding retains the response for generation-attempt receipts.
 #[derive(Debug)]
 pub struct ResponseFailure {

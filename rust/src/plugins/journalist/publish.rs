@@ -243,6 +243,7 @@ pub(super) async fn commit_claimed(
                 reason,
                 Some(
                     "unknown_publication_time"
+                        | "unresolved_target_identity"
                         | "future_publication_time"
                         | "missing_source_material"
                         | "source_instruction_override"

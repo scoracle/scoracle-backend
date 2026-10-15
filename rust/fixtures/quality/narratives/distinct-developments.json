@@ -38,7 +38,7 @@
       "sport": "FOOTBALL"
     }
   },
-  "prompt_version": "n103-article-spectrum",
+  "prompt_version": "n104-bounded-report",
   "review": [
     "One development per report_key, in source order. No slot may carry another report's claim.",
     "The ankle injury, the appointment and the result are three stories, not one narrative.",

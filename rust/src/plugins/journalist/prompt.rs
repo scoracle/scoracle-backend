@@ -12,13 +12,13 @@ use serde_json::json;
 use sqlx::PgPool;
 use std::collections::HashSet;
 
-pub const TASK: &str = "Write concise news reports about meta, using voice as tone and fresh as the only evidence; preserve attribution, event dates and qualifications. Classifier scores measure article usefulness, not relevance or facts about the named entity. Return only JSON mapping each report_key to its report text.";
+pub const TASK: &str = "For each fresh report, write two or three short, attributed sentences, at most 1200 characters, only when the publisher text contains substantive news or analysis about the entity in meta. Use voice as tone and fresh as the only evidence. Preserve attribution, event dates, denials and qualifications. Never assign a player to the target team or infer a relationship from proximity, a query, or classifier scores. Scores measure article usefulness, not target relevance or verified facts. For unrelated reporting, rankings-only tables, schedules or navigation, decline that slot with null. Return only JSON mapping every supplied report_key to its report text or null.";
 
-pub const NARRATIVES_PROMPT_VERSION: &str = "n103-article-spectrum";
+pub const NARRATIVES_PROMPT_VERSION: &str = "n104-bounded-report";
 pub const NUM_PREDICT: i32 = 900;
-pub const NARRATIVES_OUTPUT_CONTRACT_VERSION: &str = "narratives-v12-fresh-only";
+pub const NARRATIVES_OUTPUT_CONTRACT_VERSION: &str = "narratives-v13-bounded-slots";
 pub const LOOKBACK_SECONDS: i64 = 72 * 3600;
-pub const MAX_REPORTS: usize = 3;
+pub const MAX_REPORTS: usize = 1;
 pub const SOURCE_BUDGET_BYTES: usize = 24000;
 
 #[derive(Clone, Debug)]
@@ -75,7 +75,13 @@ pub fn prepare(
             item.id > 0 && ids.insert(item.id),
             "duplicate or invalid article identity"
         );
-        let reason = if item.context.trim().is_empty() || item.source.trim().is_empty() {
+        let reason = if item
+            .classifier_world
+            .as_ref()
+            .is_some_and(|world| world["target_identity_resolved"] == false)
+        {
+            Some("unresolved_target_identity")
+        } else if item.context.trim().is_empty() || item.source.trim().is_empty() {
             Some("missing_source_material")
         } else if crate::tools::source::contains_instruction_override(&item.context) {
             Some("source_instruction_override")

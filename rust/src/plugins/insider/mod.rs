@@ -85,7 +85,7 @@ pub async fn create(
     let extracted = studio
         .extract(
             &world,
-            &prompt::options(num_ctx),
+            &prompt::options_for_reports(num_ctx, subject, reports),
             &ReplyParser { subject, reports },
             |_| None,
         )
@@ -128,13 +128,6 @@ impl StudioPlugin for TransferHandler {
             .is_some_and(|version| version.starts_with(crate::plugins::classifier::CONTRACT))
         {
             let material = prompt::load_material(&self.pool, item).await?;
-            if material.sources.is_empty() {
-                let Some(publication) = ClaimPublication::begin(&self.pool, item).await? else {
-                    return Ok(PluginOutcome::Superseded);
-                };
-                publication.commit_final().await?;
-                return Ok(PluginOutcome::Committed);
-            }
             let backend = self.models.inference(manifest::ROUTE)?;
             return execute_prepared(
                 &self.pool,
@@ -178,7 +171,42 @@ async fn execute_prepared(
     if !current {
         return Ok(PluginOutcome::Superseded);
     }
-    let generation = create(
+    if !material.held.is_empty() || material.sources.is_empty() {
+        let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
+            return Ok(PluginOutcome::Superseded);
+        };
+        let held: Vec<_> = material
+            .held
+            .iter()
+            .map(|(source, _)| source.clone())
+            .collect();
+        crate::plugins::classifier::delivery::validate_for_publication(
+            publication.transaction(),
+            manifest::MANIFEST.id.as_str(),
+            &item.entity_type,
+            item.entity_id_i32()?,
+            &material.subject.sport,
+            &held,
+        )
+        .await?;
+        for (source, reason) in &material.held {
+            crate::plugins::classifier::delivery::settle(
+                publication.transaction(),
+                manifest::MANIFEST.id.as_str(),
+                &[source.classification_id],
+                "held",
+                Some(reason),
+                serde_json::json!({"model_called":false}),
+            )
+            .await?;
+        }
+        if material.sources.is_empty() {
+            publication.commit_final().await?;
+            return Ok(PluginOutcome::Committed);
+        }
+        publication.commit_progress().await?;
+    }
+    let generation = match create(
         &Studio::new(backend),
         &material.subject,
         &material.reports,
@@ -186,7 +214,62 @@ async fn execute_prepared(
         &material.source_records,
         num_ctx,
     )
-    .await?;
+    .await
+    {
+        Ok(generation) => generation,
+        Err(error) => {
+            let Some(rejected) = error.downcast_ref::<crate::harness::model::RejectedReply>()
+            else {
+                return Err(error);
+            };
+            let receipt = serde_json::json!({"model":backend.model(),"prompt_version":prompt::PROMPT_VERSION,
+                "error":format!("{error:#}"),"raw_response_body":rejected.raw_response_body,
+                "request":rejected.request_body,"prompt":rejected.built_prompt});
+            let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
+                return Ok(PluginOutcome::Superseded);
+            };
+            crate::plugins::classifier::delivery::validate_for_publication(
+                publication.transaction(),
+                manifest::MANIFEST.id.as_str(),
+                &item.entity_type,
+                item.entity_id_i32()?,
+                &material.subject.sport,
+                &material.sources,
+            )
+            .await?;
+            let ids: Vec<_> = material
+                .sources
+                .iter()
+                .map(|s| s.classification_id)
+                .collect();
+            crate::plugins::classifier::delivery::settle(
+                publication.transaction(),
+                manifest::MANIFEST.id.as_str(),
+                &ids,
+                "held",
+                Some("model_reply_rejected"),
+                serde_json::json!({"rejected_attempt":receipt}),
+            )
+            .await?;
+            let remaining = crate::plugins::classifier::delivery::undelivered_count(
+                publication.transaction(),
+                manifest::MANIFEST.id.as_str(),
+                &item.entity_type,
+                item.entity_id_i32()?,
+                &material.subject.sport,
+            )
+            .await?;
+            if remaining > 0 {
+                publication.commit_progress().await?;
+                return Ok(PluginOutcome::deferred(
+                    "rejected Insider article held; more reports remain",
+                    std::time::Duration::from_secs(1),
+                ));
+            }
+            publication.commit_final().await?;
+            return Ok(PluginOutcome::Committed);
+        }
+    };
     publish::commit(pool, item, &material, &generation).await
 }
 
@@ -249,6 +332,41 @@ mod tests {
     }
 
     #[test]
+    fn oversized_prose_and_findings_are_rejected_even_without_native_schema_enforcement() {
+        let subject = EntityMeta {
+            name: "Jordan Sample".into(),
+            entity_type: "player".into(),
+            entity_id: 1,
+            sport: "NFL".into(),
+        };
+        let reports = [prompt::Report {
+            classifier_world: None,
+            publisher: "Wire".into(),
+            published_at: None,
+            headline: "Movement".into(),
+            publisher_excerpt: "Jordan Sample is considering a move.".into(),
+            co_mentions: vec![],
+        }];
+        let parser = ReplyParser {
+            subject: &subject,
+            reports: &reports,
+        };
+        let too_long = serde_json::json!({"body":format!("Jordan Sample {}","x".repeat(prompt::BODY_MAX_CHARS)),"findings":[]});
+        assert!(parser
+            .parse(&too_long.to_string())
+            .unwrap_err()
+            .to_string()
+            .contains("body exceeds"));
+        let too_many = serde_json::json!({"body":"Jordan Sample is considering a move.","findings":(0..3).map(|i|
+            serde_json::json!({"report_index":0,"counterparty":format!("Club {i}"),"status":"reported","stage":"speculation","evidence_quote":"considering a move"})).collect::<Vec<_>>()});
+        assert!(parser
+            .parse(&too_many.to_string())
+            .unwrap_err()
+            .to_string()
+            .contains("too many findings"));
+    }
+
+    #[test]
     fn rejects_a_finding_without_an_exact_publisher_quote() {
         let subject = EntityMeta {
             name: "Jordan Sample".into(),
@@ -307,4 +425,3 @@ mod tests {
             .is_err());
     }
 }
-

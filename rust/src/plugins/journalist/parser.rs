@@ -63,24 +63,26 @@ impl Parser<NarrativesProduct> for EditionParser<'_> {
             .iter()
             .zip(reply.narratives)
             .zip(&self.activity.reports)
-            .map(|((item, prose), activity)| {
-                let impact = activity.score;
-                let impact_components = activity.components.clone();
-                let evidence = std::slice::from_ref(item);
-                let (source_count, source_names, source_latest_epoch, source_oldest_epoch) =
-                    source_metadata(evidence);
-                let title = opening(item, &self.assignment.subject.name);
-                crate::tools::form::validate_hook(Some(&title))?;
-                Ok(Narrative {
-                    title,
-                    body: prose.text,
-                    impact,
-                    impact_components,
-                    input_news_ids: evidence.iter().map(|r| r.id).collect(),
-                    source_count,
-                    source_names,
-                    source_latest_epoch,
-                    source_oldest_epoch,
+            .filter_map(|((item, prose), activity)| {
+                prose.text.map(|body| {
+                    let impact = activity.score;
+                    let impact_components = activity.components.clone();
+                    let evidence = std::slice::from_ref(item);
+                    let (source_count, source_names, source_latest_epoch, source_oldest_epoch) =
+                        source_metadata(evidence);
+                    let title = opening(item, &self.assignment.subject.name);
+                    crate::tools::form::validate_hook(Some(&title))?;
+                    Ok(Narrative {
+                        title,
+                        body,
+                        impact,
+                        impact_components,
+                        input_news_ids: evidence.iter().map(|r| r.id).collect(),
+                        source_count,
+                        source_names,
+                        source_latest_epoch,
+                        source_oldest_epoch,
+                    })
                 })
             })
             .collect::<Result<Vec<_>>>()?;

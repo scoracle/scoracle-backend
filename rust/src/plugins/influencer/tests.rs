@@ -169,3 +169,25 @@ async fn period_card_contract() {
     assert_ne!(with_world.input_hash, assignment.input_hash);
 }
 
+#[tokio::test]
+async fn an_incomplete_period_never_calls_the_model() {
+    let mut parts: prompt::Parts = serde_json::from_value(
+        serde_json::from_str::<Value>(include_str!(
+            "../../../fixtures/influencer/period-card-v19-smollm3.jsonl"
+        ))
+        .unwrap()["receipt"]["input_components"]
+            .clone(),
+    )
+    .unwrap();
+    parts.excluded.push(json!({"article_id":999,"classification_id":999,"in_period":true,"reason":"packet_budget_exceeded"}));
+    let model = Model {
+        calls: AtomicUsize::new(0),
+        reply: "must not be used",
+    };
+    let (output, receipt) = create(&model, &Assignment::from_parts(parts).unwrap(), 32768)
+        .await
+        .unwrap();
+    assert!(output.is_none());
+    assert_eq!(model.calls.load(Ordering::Relaxed), 0);
+    assert_eq!(receipt["reason"], "incomplete_reporting_period");
+}

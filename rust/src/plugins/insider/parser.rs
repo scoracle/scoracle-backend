@@ -18,6 +18,10 @@ impl Parser<Reply> for ReplyParser<'_> {
         ));
         crate::tools::form::validate_body(&reply.body)?;
         ensure!(
+            reply.body.chars().count() <= super::prompt::BODY_MAX_CHARS,
+            "Insider body exceeds the reading budget"
+        );
+        ensure!(
             crate::tools::guards::title_names_entity(&reply.body, &self.subject.name),
             "Insider reading does not name the subject"
         );
@@ -28,7 +32,7 @@ impl Parser<Reply> for ReplyParser<'_> {
             "Insider reading violates served prose guard"
         );
         ensure!(
-            reply.findings.len() <= self.reports.len() * 8,
+            reply.findings.len() <= super::prompt::MAX_FINDINGS.min(self.reports.len() * 8),
             "too many findings"
         );
         let mut seen = std::collections::HashSet::new();
@@ -56,7 +60,8 @@ impl Parser<Reply> for ReplyParser<'_> {
             );
             ensure!(
                 !finding.evidence_quote.trim().is_empty()
-                    && finding.evidence_quote.chars().count() <= 500
+                    && finding.evidence_quote.chars().count()
+                        <= super::prompt::EVIDENCE_QUOTE_MAX_CHARS
                     && (report.headline.contains(&finding.evidence_quote)
                         || report.publisher_excerpt.contains(&finding.evidence_quote)),
                 "finding quote is not an exact publisher span"

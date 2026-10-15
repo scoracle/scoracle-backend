@@ -27,7 +27,7 @@
       "sport": "FOOTBALL"
     }
   },
-  "prompt_version": "n103-article-spectrum",
+  "prompt_version": "n104-bounded-report",
   "review": [
     "The correction is the report: no contract was offered and no deal was reached.",
     "An earlier sentence in the same source called this an agreement; dropping the correction is a meaning-loss failure.",

@@ -25,7 +25,7 @@
       "sport": "FOOTBALL"
     }
   },
-  "prompt_version": "n103-article-spectrum",
+  "prompt_version": "n104-bounded-report",
   "review": [
     "Report the supplied 10:00 start, 29 September date and North Field venue.",
     "The club supplied no reason; do not infer one or invent a previous start time.",

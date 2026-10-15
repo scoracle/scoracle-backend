@@ -18,7 +18,8 @@ BEGIN
         '297_classifier_journalist_product','298_classifier_article_identities',
         '299_classifier_spectra','300_classifier_spectrum_deliveries','301_classifier_spectrum_dispatch',
         '302_classifier_source_revisions','303_classifier_spectrum_consumption',
-        '304_classifier_article_spectrum'] LOOP
+        '304_classifier_article_spectrum','305_classifier_identity_prefill',
+        '306_pipeline_stage_progress'] LOOP
         IF NOT EXISTS(SELECT 1 FROM public.schema_migrations m WHERE m.version=migration_version) THEN
             RAISE EXCEPTION 'Missing migration %; migrate before placing binaries',migration_version;
         END IF;
@@ -32,10 +33,15 @@ BEGIN
         AND tgname='classifier_spectrum_delivery_dispatch' AND NOT tgisinternal AND tgenabled IN ('O','A')) THEN
         RAISE EXCEPTION 'Classifier delivery dispatch trigger missing or disabled';
     END IF;
+    IF NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgrelid='public.pipeline_work'::regclass
+        AND tgname='pipeline_record_completion' AND NOT tgisinternal AND tgenabled IN ('O','A')) THEN
+        RAISE EXCEPTION 'Pipeline successful-stage completion trigger missing or disabled';
+    END IF;
 END $$;
 SELECT classifier_source_id FROM public.news_article_entities LIMIT 0;
 SELECT source_id FROM public.classifier_source_heads LIMIT 0;
 SELECT request_hash,receipt FROM public.classifier_spectra LIMIT 0;
+SELECT stage,completed_at FROM public.pipeline_stage_progress LIMIT 0;
 SELECT status,count(*) AS deliveries FROM public.classifier_spectrum_deliveries GROUP BY status ORDER BY status;
 SELECT stage,status,count(*) AS work FROM public.pipeline_work
     WHERE stage IN ('classifier_acquire','classifier','graph','harvester','editor')

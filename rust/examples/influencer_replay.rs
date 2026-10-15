@@ -4,7 +4,7 @@
 //! Recorded evidence needs no database: --recorded INPUT.jsonl OUTPUT.jsonl MODEL_URL MODEL
 use anyhow::{ensure, Context, Result};
 use scoracle_cognition::harness::providers::llama::LlamaClient;
-use scoracle_cognition::plugins::{harvester::delivery, influencer};
+use scoracle_cognition::plugins::{classifier::delivery, influencer};
 use scoracle_cognition::tools::meta::{lookup_entity_name, EntityMeta};
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -87,7 +87,13 @@ async fn main() -> Result<()> {
             .await?;
             let source = sources
                 .iter()
-                .find(|s| s.article_id == case.article_id)
+                .find(|s| {
+                    s.article_id == case.article_id
+                        && !s
+                            .classifier_world
+                            .as_ref()
+                            .is_some_and(|world| world["target_identity_resolved"] == false)
+                })
                 .context("requested source is not an eligible pending delivery")?;
             let (assignment, disposition) =
                 influencer::prompt::prepare_assignment(&pool, subject, source, now).await?;

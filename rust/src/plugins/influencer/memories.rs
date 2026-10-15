@@ -78,6 +78,16 @@ pub async fn load(
         .flat_map(|f| &f.reports)
         .map(|r| r.article_id)
         .collect();
+    pack(subject, period, candidates, &canonical, &selected)
+}
+
+fn pack(
+    subject: EntityMeta,
+    period: Period,
+    candidates: Vec<SourceContext>,
+    canonical: &std::collections::HashMap<i64, i64>,
+    selected: &[i64],
+) -> Result<Parts> {
     let mut parts = Parts {
         subject,
         period,
@@ -106,19 +116,12 @@ pub async fn load(
         };
         let reason = reason.or(budget_exceeded.then_some("packet_budget_exceeded"));
         if let Some(reason) = reason {
-            // Fail visibly rather than publish a period that silently lost a denial.
-            // Historical exclusions remain explicit in the retained packet receipt.
+            // Fresh exclusions hold the whole period; never publish an omitted denial.
             let known_copy = canonical.get(&source.article_id).is_some_and(|root| {
                 canonical
                     .iter()
                     .any(|(id, r)| r == root && selected.contains(id))
             });
-            ensure!(
-                !fresh || (reason == "study_selection" && known_copy),
-                "Influencer deferred article {}: {}",
-                source.article_id,
-                reason
-            );
             parts.excluded.push(
                 json!({"article_id":source.article_id,"classification_id":source.classification_id,
                 "in_period":fresh,"reason":if known_copy && reason=="study_selection" {"known_copy"} else {reason}}),
@@ -139,17 +142,17 @@ pub async fn load(
         .collect();
     for copy in parts
         .excluded
-        .iter()
+        .iter_mut()
         .filter(|e| e["reason"] == "known_copy" && e["in_period"] == true)
     {
         let id = copy["article_id"].as_i64().unwrap();
         let root = canonical[&id];
-        ensure!(
-            canonical
-                .iter()
-                .any(|(id, r)| *r == root && retained.contains(id)),
-            "Influencer deferred copy {id}: canonical source was excluded"
-        );
+        if !canonical
+            .iter()
+            .any(|(id, r)| *r == root && retained.contains(id))
+        {
+            copy["reason"] = json!("canonical_source_excluded");
+        }
     }
     Ok(parts)
 }
@@ -182,4 +185,65 @@ pub async fn validate(tx: &mut Transaction<'_, Postgres>, parts: &Parts) -> Resu
         "Influencer source changed during generation"
     );
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    #[test]
+    fn an_overflowing_denial_holds_the_whole_period_but_old_exclusions_do_not() {
+        let source = |id, date, text: String| SourceContext {
+            article_id: id,
+            classification_id: id,
+            headline: "Cedar reporting".into(),
+            context: text,
+            source: "Wire".into(),
+            published_at_epoch: Some(date),
+            classifier_world: None,
+        };
+        let subject = EntityMeta {
+            name: "Cedar".into(),
+            entity_type: "team".into(),
+            entity_id: 1,
+            sport: "NFL".into(),
+        };
+        let period = Period {
+            season: 2026,
+            week: 1,
+            start: 100,
+            end: 200,
+            cutoff: 190,
+        };
+        let roots = HashMap::from([(1, 1), (2, 2)]);
+        let parts = pack(
+            subject.clone(),
+            period.clone(),
+            vec![
+                source(1, 110, "Hopeful reporting. ".repeat(800)),
+                source(2, 120, "The club denied that report. ".repeat(600)),
+            ],
+            &roots,
+            &[1, 2],
+        )
+        .unwrap();
+        assert_eq!(parts.sources.len(), 1);
+        assert_eq!(parts.excluded[0]["article_id"], 2);
+        assert_eq!(parts.hold_reason(), Some("packet_budget_exceeded"));
+        let historical = pack(
+            subject,
+            period,
+            vec![
+                source(1, 90, "Old context. ".repeat(500)),
+                source(2, 120, "A complete current denial.".into()),
+            ],
+            &roots,
+            &[1, 2],
+        )
+        .unwrap();
+        assert!(historical.hold_reason().is_none());
+        assert_eq!(historical.sources[0].article_id, 2);
+        assert_eq!(historical.excluded[0]["in_period"], false);
+    }
 }

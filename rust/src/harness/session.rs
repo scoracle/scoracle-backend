@@ -33,7 +33,18 @@ pub(super) async fn extract_with_backend<T, P: Parser<T>>(
                 .generate(&built_prompt, opts)
                 .await
                 .context("model generate")?;
-            let value = parser.parse(&gen.response)?;
+            let value =
+                parser
+                    .parse(&gen.response)
+                    .with_context(|| super::model::RejectedReply {
+                        raw_response_body: if gen.raw_response_body.is_empty() {
+                            gen.response.clone()
+                        } else {
+                            gen.raw_response_body.clone()
+                        },
+                        request_body: request_body.clone(),
+                        built_prompt: built_prompt.clone(),
+                    })?;
             Ok::<_, anyhow::Error>((gen, request_body, value))
         }
         .await;
@@ -111,6 +122,33 @@ mod surface_tests {
             crate::tools::form::validate_body(raw)?;
             Ok(Some(raw.to_string()))
         }
+    }
+
+    #[tokio::test]
+    async fn a_rejected_complete_reply_retains_its_attempt_and_original_error_type() {
+        let backend = Backend(Mutex::new(vec![" ".into(), "unused".into()]));
+        let error = extract_with_backend(
+            &backend,
+            "Complete evidence",
+            &GenerateOptions::default(),
+            &BodyParser,
+            |_| None,
+        )
+        .await
+        .err()
+        .unwrap();
+        assert!(error.is::<SurfaceError>());
+        let rejected = error
+            .downcast_ref::<super::super::model::RejectedReply>()
+            .unwrap();
+        assert_eq!(rejected.raw_response_body, " ");
+        assert_eq!(rejected.built_prompt, "Complete evidence");
+        assert_eq!(rejected.request_body["prompt"], "Complete evidence");
+        assert_eq!(
+            backend.0.lock().unwrap().len(),
+            1,
+            "parser rejection must not add a model call"
+        );
     }
 
     #[tokio::test]

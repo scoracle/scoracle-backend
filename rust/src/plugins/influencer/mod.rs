@@ -85,6 +85,11 @@ pub async fn create(
         "scoring_version":prompt::SCORE_VERSION,"input_hash":input_hash,
         "packet":world,"input_components":assignment.parts,
         "request_body":backend.request_body(&world,&options)});
+    if let Some(reason) = assignment.parts.hold_reason() {
+        receipt["reason"] = json!("incomplete_reporting_period");
+        receipt["hold_reason"] = json!(reason);
+        return Ok((None, receipt));
+    }
     if assignment.parts.sources.is_empty() {
         receipt["reason"] = json!("no_fresh_evidence");
         return Ok((None, receipt));
@@ -157,12 +162,15 @@ pub(crate) async fn execute_with_backend(
     let sport = item.sport.to_uppercase();
     let plugin_id = manifest::MANIFEST.id.as_str();
     let pending = load_for_character(pool, plugin_id, &item.entity_type, entity_id, &sport).await?;
-    let unknown: Vec<_> = pending
-        .iter()
-        .filter(|s| s.published_at_epoch.is_none())
-        .cloned()
-        .collect();
-    if !unknown.is_empty() {
+    let unresolved = |source: &SourceContext| {
+        source.published_at_epoch.is_none()
+            || source
+                .classifier_world
+                .as_ref()
+                .is_some_and(|world| world["target_identity_resolved"] == false)
+    };
+    let held: Vec<_> = pending.iter().filter(|s| unresolved(s)).cloned().collect();
+    if !held.is_empty() {
         let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
             return Ok(PluginOutcome::Superseded);
         };
@@ -172,30 +180,33 @@ pub(crate) async fn execute_with_backend(
             &item.entity_type,
             entity_id,
             &sport,
-            &unknown,
+            &held,
         )
         .await?;
-        let ids: Vec<_> = unknown.iter().map(|s| s.classification_id).collect();
-        crate::plugins::classifier::delivery::settle(
-            publication.transaction(),
-            plugin_id,
-            &ids,
-            "held",
-            Some("unknown_publication_time"),
-            json!({}),
-        )
-        .await?;
-        if unknown.len() == pending.len() {
+        for source in &held {
+            let reason = if source.published_at_epoch.is_none() {
+                "unknown_publication_time"
+            } else {
+                "unresolved_target_identity"
+            };
+            crate::plugins::classifier::delivery::settle(
+                publication.transaction(),
+                plugin_id,
+                &[source.classification_id],
+                "held",
+                Some(reason),
+                json!({}),
+            )
+            .await?;
+        }
+        if held.len() == pending.len() {
             record_vibe_completed(publication.transaction(), item).await?;
             publication.commit_final().await?;
             return Ok(PluginOutcome::Committed);
         }
         publication.commit_progress().await?;
     }
-    let pending: Vec<_> = pending
-        .into_iter()
-        .filter(|s| s.published_at_epoch.is_some())
-        .collect();
+    let pending: Vec<_> = pending.into_iter().filter(|s| !unresolved(s)).collect();
     let Some(anchor) = pending.last() else {
         let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
             return Ok(PluginOutcome::Superseded);
@@ -212,6 +223,62 @@ pub(crate) async fn execute_with_backend(
     };
     let (assignment, disposition) =
         prompt::prepare_assignment(pool, subject, anchor, now()).await?;
+    if assignment.parts.hold_reason().is_some() {
+        let period = &assignment.parts.period;
+        let held: Vec<_> = pending
+            .iter()
+            .filter(|source| {
+                source.published_at_epoch.is_some_and(|date| {
+                    date >= period.start && date < period.end && date <= period.cutoff
+                })
+            })
+            .cloned()
+            .collect();
+        ensure!(
+            !held.is_empty(),
+            "Influencer period hold covers no pending work"
+        );
+        let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
+            return Ok(PluginOutcome::Superseded);
+        };
+        validate_for_publication(
+            publication.transaction(),
+            plugin_id,
+            &item.entity_type,
+            entity_id,
+            &sport,
+            &held,
+        )
+        .await?;
+        let ids: Vec<_> = held.iter().map(|s| s.classification_id).collect();
+        crate::plugins::classifier::delivery::settle(
+            publication.transaction(),
+            plugin_id,
+            &ids,
+            "held",
+            Some("incomplete_reporting_period"),
+            json!({"model_called":false,"disposition":disposition}),
+        )
+        .await?;
+        let remaining = crate::plugins::classifier::delivery::undelivered_count(
+            publication.transaction(),
+            plugin_id,
+            &item.entity_type,
+            entity_id,
+            &sport,
+        )
+        .await?;
+        if remaining > 0 {
+            publication.commit_progress().await?;
+            return Ok(PluginOutcome::deferred(
+                "other reporting periods remain",
+                Duration::from_secs(1),
+            ));
+        }
+        record_vibe_completed(publication.transaction(), item).await?;
+        publication.commit_final().await?;
+        return Ok(PluginOutcome::Committed);
+    }
     let input_hash = prompt::request_hash(backend, &assignment, voice_num_ctx)?;
     // Reuse a completed attempt only for identical evidence, model and contract.
     let previous: Option<(i64, Option<i64>)> = sqlx::query_as(

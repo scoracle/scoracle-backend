@@ -178,6 +178,15 @@ impl StudioPlugin for NarrativesHandler {
         .await?;
         // No fresh reporting completes dispositions without overwriting the last
         // useful edition with an artificial quiet/zero product.
+        let mut dispositions = material.assignment.dispositions.clone();
+        if output.was_called() && output.narratives.is_empty() {
+            dispositions.extend(material.assignment.selected.iter().map(|report| {
+                prompt::Disposition {
+                    article_id: report.id,
+                    reason: "no_target_reporting",
+                }
+            }));
+        }
         let prepared = if output.narratives.is_empty() {
             Prepared::Debounced
         } else {
@@ -191,7 +200,7 @@ impl StudioPlugin for NarrativesHandler {
             &payload,
             &prepared,
             &material.sources,
-            &material.assignment.dispositions,
+            &dispositions,
         )
         .await?;
         if matches!(

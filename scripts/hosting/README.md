@@ -91,7 +91,7 @@ the same `/v1/models` and `/v1/systemone` typed-probability contract. Calibrate 
 questions and cutoffs for the replacement in the criteria fixture and release the matching
 worker; changing a model does not make Kev's thresholds valid for it. Model fingerprints,
 exact requests and criteria versions separate retained measurements and caches.
-Apply migrations 302–304 before
+Apply migrations 302–306 before
 the matching worker: it retains request/reply receipts, source heads and separate spectra
 for changed sources, and supersedes pending HTML/partial measurements.
 
@@ -120,7 +120,25 @@ Journalist 60, Influencer 50, Scout 60 and Insider 70. See
 A failed/oversized decision creates an error receipt and retries through the existing durable
 queue; it cannot score only the opening and dispatch character work as complete evidence.
 Watchdog detects paused/acquire/classifier mode from active services; `WATCHDOG_MODE`
-overrides detection for another host.
+overrides detection for another host. Migration 306 records successful claim completion
+atomically, including legitimate no-product outcomes. The watchdog checks each active stage
+separately; acquisition, error receipts and another character cannot hide stalled work.
+
+Character packets retain complete articles. Insider processes one complete article at a time, oldest first, and leaves
+additional obligations pending; a single unfit source is explicitly held. Native output and
+parsing both limit its body to 1,200 characters, with two source-bound findings and
+500-character exact quotes; canonical names
+constrain the counterparty choices. A complete reply rejected by the Insider parser is
+retained with its exact request and source, held explicitly, and leaves later articles
+processable. Transport and server failures still use the normal durable retry path. Influencer holds an
+incomplete reporting period with its exclusion receipt, preserving a potentially omitted denial
+rather than publishing a partial period. Other periods remain processable. Journalist writes one
+report per call within the existing 900-token budget; unrelated reporting can be declined with
+null and is recorded as abstained. Prose is limited to 1,200 characters in both native schema
+and parser. Journalist, Influencer and Insider hold RSS targets absent from the acquired
+canonical identity snapshot before inference. Nickname-only references can therefore be held
+unresolved; these holds preserve the source and need evidence/identity reconciliation. Held sources require an explicit evidence/policy repair, not
+blind retries. The Classifier itself still rejects oversized inputs without clipping them.
 
 Recovery keeps stored discovery/sources/receipts, replays acquisition idempotently and
 uses normal retry/lease/outbox recovery. Stop the source worker to pause retrieval;

@@ -1,0 +1,370 @@
+{
+  "date": "2026-10-15",
+  "model": "ggml-org/Kev-0.8B-GGUF@sha256:27278f34eb3273bceea4c053dc50dd61a5161da21a718c4aacdf8fd5830771d0",
+  "criteria": "classification-criteria-v4",
+  "plumbing_commit": "3e0e1e11",
+  "quality_scope": "development diagnostics; 12 synthetic controls plus 9 source-reviewed, AI-labelled real cases, deliberately weighted toward unrelated targets and unavailable pages; not independently reviewed or representative accuracy",
+  "quality": {
+    "common_predicates": 105,
+    "six_baseline_errors": 12,
+    "five_unchanged_errors": 12,
+    "five_verbose_scoped_errors": 16,
+    "five_target_named_errors": 16,
+    "four_original_merged_errors_of_84": 12,
+    "four_verbose_scoped_errors_of_84": 16,
+    "baseline_false_topic_character_nominations": 12,
+    "require_direct_subject_false_topic_character_nominations": 1,
+    "baseline_missed_topic_character_nominations": 4,
+    "require_direct_subject_missed_topic_character_nominations": 4
+  },
+  "hardware": {
+    "host": "Archbox",
+    "gpu": "GTX 1070 Ti, 8 GB",
+    "requests_per_run": 24,
+    "questions_per_request": 6,
+    "client_concurrency": 4,
+    "slot_context": 8192,
+    "order": [
+      "four-a",
+      "eight-a",
+      "eight-b",
+      "four-b"
+    ],
+    "four_slot_seconds": [
+      26.5227554883,
+      26.539760896
+    ],
+    "eight_slot_seconds": [
+      15.1364690559,
+      14.5716846129
+    ],
+    "failed_requests": 0,
+    "threshold_crossings_vs_four_a": 0,
+    "max_probability_delta_vs_four_a": 0.00637490383734,
+    "eight_slot_live_gpu_mib": 2335
+  },
+  "private_receipts": {
+    "prompt_cases": "/private/tmp/kev-ablation-cases.jsonl",
+    "prompt_results": [
+      "/private/tmp/kev-ablation-results.jsonl",
+      "/private/tmp/kev-ablation2-results.jsonl"
+    ],
+    "hardware": "Archbox /home/sheneveld/tmp/kev-hardware-{four-a,eight-a,eight-b,four-b}.jsonl",
+    "archive": "Archbox /mnt/data/backup/scoracle/classifier-calibration/2026-10-15"
+  },
+  "file_hashes": {
+    "kev-ablation-cases.jsonl": "472d3e6b5abdc8187e752e549e6c440704f84fa0aada9d84bff78b2768230f18",
+    "kev-ablation-results.jsonl": "fe9ce56650d6fb97d26256ec7c06afe92368bdfb9977f61811092dff28a7463b",
+    "kev-ablation2-results.jsonl": "29f3bc3f9018d0d791e230598fa66be43fd5dfeb59e781a6b3f85c14f93fe7a4",
+    "kev-hardware-cases.jsonl": "97022f951292f1250a9e7490c5ef6a6babd288d3dbf749a25168966547abc659",
+    "kev-hardware-replay.py": "ae702538d8ba523d20b29f2826d2ac9ed9004a70c8463a3bb45effa530923d70"
+  },
+  "pilot_metrics": {
+    "five": {
+      "cases": 21,
+      "labels": 105,
+      "mistakes": 12,
+      "brier": 0.13012242188140657,
+      "request_errors": 0
+    },
+    "literal-five": {
+      "cases": 21,
+      "labels": 105,
+      "mistakes": 16,
+      "brier": 0.12700401953725945,
+      "request_errors": 0
+    },
+    "original-four": {
+      "cases": 21,
+      "labels": 84,
+      "mistakes": 12,
+      "brier": 0.1423777555720432,
+      "request_errors": 0
+    },
+    "scoped-five": {
+      "cases": 21,
+      "labels": 105,
+      "mistakes": 16,
+      "brier": 0.14538953072858404,
+      "request_errors": 0
+    },
+    "scoped-four": {
+      "cases": 21,
+      "labels": 84,
+      "mistakes": 16,
+      "brier": 0.15385185879430813,
+      "request_errors": 0
+    },
+    "six": {
+      "cases": 21,
+      "labels": 105,
+      "mistakes": 12,
+      "brier": 0.13018603778330795,
+      "request_errors": 0
+    }
+  },
+  "candidate_prompt_changes": {
+    "five": {
+      "omit": [
+        "relevance.opponent_context"
+      ],
+      "instructions": {}
+    },
+    "scoped-five": {
+      "omit": [
+        "relevance.opponent_context"
+      ],
+      "instructions": {
+        "relevance.direct_subject": "Does this article contain substantive reporting about the candidate target, rather than only a passing mention, navigation link or unrelated recommendation?",
+        "emotional_charge": "Does the article express hope, anger, joy, worry, relief or frustration about the candidate target or its players or supporters? Ignore feelings about unrelated teams and navigation or related-story links.",
+        "availability": "Does the article discuss injury, fitness or suspension affecting the candidate target or a player on the candidate team? Ignore unrelated teams and navigation or related-story links.",
+        "movement": "Does the article discuss a transfer, trade, signing or departure involving the candidate target or a player joining or leaving the candidate team? Ignore unrelated teams and navigation or related-story links.",
+        "staffing": "Does the article discuss a coaching or staff appointment, dismissal or role change involving the candidate target? Ignore unrelated teams and navigation or related-story links."
+      }
+    },
+    "scoped-four": {
+      "omit": [
+        "relevance.opponent_context",
+        "movement",
+        "staffing"
+      ],
+      "instructions": {
+        "relevance.direct_subject": "Does this article contain substantive reporting about the candidate target, rather than only a passing mention, navigation link or unrelated recommendation?",
+        "emotional_charge": "Does the article express hope, anger, joy, worry, relief or frustration about the candidate target or its players or supporters? Ignore feelings about unrelated teams and navigation or related-story links.",
+        "availability": "Does the article discuss injury, fitness or suspension affecting the candidate target or a player on the candidate team? Ignore unrelated teams and navigation or related-story links.",
+        "personnel": "Does the article discuss a player transfer, trade, signing or departure, or a coaching or staff appointment, dismissal or role change, involving the candidate target or its team? Ignore unrelated teams and navigation or related-story links."
+      }
+    },
+    "literal-five": {
+      "omit": [
+        "relevance.opponent_context"
+      ],
+      "instructions": {
+        "relevance.direct_subject": "Is {target} a direct subject of the reported event, assertion or reaction \u2014 not a passing mention?",
+        "emotional_charge": "Does the text express hope, anger, joy, worry, relief or frustration about {target}?",
+        "availability": "Does the report discuss an injury, fitness issue or suspension for {target} or its players?",
+        "movement": "Does the report discuss a transfer, trade, signing or departure involving {target}?",
+        "staffing": "Does the report discuss a coaching or staff appointment, sacking or role change at {target}?"
+      }
+    },
+    "original-four": {
+      "omit": [
+        "relevance.opponent_context",
+        "movement",
+        "staffing"
+      ],
+      "instructions": {
+        "personnel": "Does this report discuss a transfer, trade, signing or departure, or a coaching or staff appointment, sacking or role change involving the candidate target?"
+      }
+    }
+  },
+  "production_window": [
+    {
+      "at": "2026-10-15T14:07:52.237121-04:00",
+      "seconds_since_eight": 297.237121,
+      "completed_since_eight": 41,
+      "started_and_finished_since_eight": 41,
+      "mean_targets_new_complete": 7.853658536585366
+    },
+    {
+      "native_since_eight": 384,
+      "articles_touched": 45,
+      "avg_ms": 1244,
+      "median_ms": 1368,
+      "p95_ms": 2049.7,
+      "first": "2026-10-15T14:02:59.009087-04:00",
+      "last": "2026-10-15T14:07:51.99559-04:00"
+    },
+    {
+      "now": "2026-10-15T14:07:52.268004-04:00",
+      "stage": "classifier_acquire",
+      "status": "failed",
+      "n": 234,
+      "max_attempts": 3
+    },
+    {
+      "now": "2026-10-15T14:07:52.268004-04:00",
+      "stage": "classifier",
+      "status": "pending",
+      "n": 13148,
+      "max_attempts": 0
+    },
+    {
+      "now": "2026-10-15T14:07:52.268004-04:00",
+      "stage": "classifier",
+      "status": "running",
+      "n": 6,
+      "max_attempts": 0
+    },
+    {
+      "now": "2026-10-15T14:07:52.268004-04:00",
+      "stage": "classifier_acquire",
+      "status": "running",
+      "n": 4,
+      "max_attempts": 1
+    },
+    {
+      "now": "2026-10-15T14:07:52.268004-04:00",
+      "stage": "classifier_acquire",
+      "status": "pending",
+      "n": 30556,
+      "max_attempts": 0
+    },
+    {
+      "errors_since_eight": 0,
+      "last": null
+    }
+  ],
+  "routing_volume_comparison": [
+    {
+      "threshold": 50,
+      "character": "influencer",
+      "current_nominations": 272,
+      "with_relevance_requirement": 101,
+      "scored_targets": 2614
+    },
+    {
+      "threshold": 50,
+      "character": "insider",
+      "current_nominations": 403,
+      "with_relevance_requirement": 135,
+      "scored_targets": 2614
+    },
+    {
+      "threshold": 50,
+      "character": "journalist",
+      "current_nominations": 756,
+      "with_relevance_requirement": 756,
+      "scored_targets": 2614
+    },
+    {
+      "threshold": 50,
+      "character": "scout",
+      "current_nominations": 1282,
+      "with_relevance_requirement": 414,
+      "scored_targets": 2614
+    },
+    {
+      "threshold": 60,
+      "character": "influencer",
+      "current_nominations": 272,
+      "with_relevance_requirement": 54,
+      "scored_targets": 2614
+    },
+    {
+      "threshold": 60,
+      "character": "insider",
+      "current_nominations": 403,
+      "with_relevance_requirement": 66,
+      "scored_targets": 2614
+    },
+    {
+      "threshold": 60,
+      "character": "journalist",
+      "current_nominations": 756,
+      "with_relevance_requirement": 325,
+      "scored_targets": 2614
+    },
+    {
+      "threshold": 60,
+      "character": "scout",
+      "current_nominations": 1282,
+      "with_relevance_requirement": 151,
+      "scored_targets": 2614
+    },
+    {
+      "threshold": 65,
+      "character": "influencer",
+      "current_nominations": 272,
+      "with_relevance_requirement": 37,
+      "scored_targets": 2614
+    },
+    {
+      "threshold": 65,
+      "character": "insider",
+      "current_nominations": 403,
+      "with_relevance_requirement": 42,
+      "scored_targets": 2614
+    },
+    {
+      "threshold": 65,
+      "character": "journalist",
+      "current_nominations": 756,
+      "with_relevance_requirement": 212,
+      "scored_targets": 2614
+    },
+    {
+      "threshold": 65,
+      "character": "scout",
+      "current_nominations": 1282,
+      "with_relevance_requirement": 85,
+      "scored_targets": 2614
+    },
+    {
+      "threshold": 70,
+      "character": "influencer",
+      "current_nominations": 272,
+      "with_relevance_requirement": 22,
+      "scored_targets": 2614
+    },
+    {
+      "threshold": 70,
+      "character": "insider",
+      "current_nominations": 403,
+      "with_relevance_requirement": 18,
+      "scored_targets": 2614
+    },
+    {
+      "threshold": 70,
+      "character": "journalist",
+      "current_nominations": 756,
+      "with_relevance_requirement": 125,
+      "scored_targets": 2614
+    },
+    {
+      "threshold": 70,
+      "character": "scout",
+      "current_nominations": 1282,
+      "with_relevance_requirement": 46,
+      "scored_targets": 2614
+    },
+    {
+      "topic": "staffing",
+      "targets": 238,
+      "direct_subject_below_50": 158,
+      "direct_subject_below_60": 197
+    },
+    {
+      "topic": "availability",
+      "targets": 1054,
+      "direct_subject_below_50": 724,
+      "direct_subject_below_60": 943
+    },
+    {
+      "topic": "movement",
+      "targets": 212,
+      "direct_subject_below_50": 134,
+      "direct_subject_below_60": 176
+    },
+    {
+      "topic": "emotional_charge",
+      "targets": 272,
+      "direct_subject_below_50": 171,
+      "direct_subject_below_60": 218
+    }
+  ],
+  "user_preference": "Reduce SmolLM3 calls, accepting some missed stories.",
+  "projections": {
+    "assumptions": "8500 new distinct classifiable articles each day; continuous capacity and comparable source lengths; no character generation time included; five-minute window is provisional",
+    "required_articles_per_hour": 354.1666666666667,
+    "current_mix_articles_per_hour": 496.5732392489429,
+    "earlier_heavy_mix_articles_per_hour": 397.07378312243515,
+    "daily_8500_hours_current_mix": 17.11731387872629,
+    "daily_8500_hours_heavy_mix": 21.40660089205406,
+    "queue_rows": 43948,
+    "queue_days_without_arrivals_current_mix": 3.6876064232463865,
+    "queue_days_without_arrivals_heavy_mix": 4.611653411784274,
+    "queue_days_with_8500_daily_current_mix": 12.858722975083886,
+    "queue_days_with_8500_daily_heavy_mix": 42.677458145069124
+  }
+}

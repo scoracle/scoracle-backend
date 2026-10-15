@@ -286,7 +286,7 @@ impl StudioPlugin for ClassifierHandler {
     }
 }
 
-/// Classifier stage 1: score the five-bucket spectrum with the System-1 decision model, scrub,
+/// Classifier stage 1: score the spectrum with the System-1 decision model, scrub,
 /// gate and store one immutable `classifier_spectra` row per target. One call per article.
 pub async fn execute_spectrum(
     pool: &PgPool,

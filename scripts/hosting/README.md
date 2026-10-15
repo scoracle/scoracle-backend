@@ -76,8 +76,9 @@ live in `rust/src/plugins/classifier/decision.rs` and
 `fixtures/classifier/classification-criteria-v1.json`. The retired GLiNER/candle model and the
 generative `COGNITION_ROUTE_CLASSIFIER_*` settings are gone.
 
-The October 15 native path uses `scoracle-kev.service` on Archbox with four
-8,192-token decision slots. Install the CUDA-compatible `llama-server` at
+The October 15 native path uses `scoracle-kev.service` on Archbox with eight
+8,192-token decision slots and four concurrent article workers. The extra native slots let
+all six questions share one article prefill instead of splitting across two groups. Install the CUDA-compatible `llama-server` at
 `~/.local/bin/scoracle-llama-server` and `Kev-0.8B-Q8_0.gguf` in `~/models/`.
 `run-classifier-model.sh` hashes the GGUF and uses that fingerprint as its serving alias;
 the client rejects an unversioned or different-model alias. Apply migrations 302–303 before

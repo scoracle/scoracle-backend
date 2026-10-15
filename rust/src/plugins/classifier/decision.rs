@@ -1,5 +1,5 @@
 //! Classifier stage 1: a System-1 decision model over llama.cpp `/v1/systemone`.
-//! One call per article scores the five calibrated buckets; the character model unpacks nuance.
+//! One call per (article, target) scores six provisional predicates; characters unpack nuance.
 use anyhow::{ensure, Context, Result};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
@@ -58,7 +58,7 @@ impl Decision {
         Ok(model_identity(&json!({"model":models[0]["id"]}))?.to_string())
     }
 
-    /// Score the five buckets for one `(article, target)`. Returns `criterion -> 0..100`.
+    /// Score one `(article, target)`. Returns `criterion -> 0..100`.
     pub async fn spectrum(&self, body: &str, target: &str) -> Result<Measurement> {
         let payload = request(body, target)?;
         let started = std::time::Instant::now();

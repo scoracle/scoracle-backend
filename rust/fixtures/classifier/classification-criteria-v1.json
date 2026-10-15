@@ -1,6 +1,6 @@
 {
   "version": "classification-criteria-v4",
-  "note": "Classifier stage-1 spectrum: coarse buckets scored by a System-1 decision model (Kev) via llama.cpp /v1/systemone, one call per article. Relevance is asked as independent binary questions, never a forced 3-way ranking (which yields inauthentic mid-range scores). The character model resolves relationship, attribution and time from the complete source text.",
+  "note": "Classifier stage-1 spectrum: provisional buckets scored by a System-1 decision model (Kev) via llama.cpp /v1/systemone, one call per (article, target). Relevance is asked as independent binary questions, never a forced 3-way ranking (which yields inauthentic mid-range scores). The character model resolves relationship, attribution and time from the complete source text.",
   "questions": {
     "relevance.direct_subject": { "type": "noul", "instructions": "Is the candidate target a direct subject of the reported event, assertion or reaction — not a passing mention?" },
     "relevance.opponent_context": { "type": "noul", "instructions": "Is the candidate target an opponent or contextual counterparty in another subject's reporting?" },

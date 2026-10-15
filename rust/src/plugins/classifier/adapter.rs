@@ -141,18 +141,24 @@ impl StudioPlugin for AcquireHandler {
                 }
             } else {
                 let url = before.provenance["url"].as_str().context("publisher URL")?;
+                // Budgeted fetch: per-domain spacing, 429/Retry-After holds and a circuit breaker,
+                // instead of hammering a publisher that is throttling us.
                 let fetched = self
                     .web
                     .scope(&self.pool, self.manifest())
-                    .fetch_curated_article(url)
+                    .fetch_for_class(
+                        crate::harness::tools::DomainClass::CuratedArticles,
+                        url,
+                        &crate::tools::fetch::FetchPolicy::default(),
+                    )
                     .await?;
-                source.body = fetched.text.replace('\0', "");
+                source.body = fetched.body.replace('\0', "");
                 source
                     .provenance
                     .insert("publisher_url".into(), json!(fetched.final_url));
                 source
                     .provenance
-                    .insert("publisher_domain".into(), json!(fetched.final_domain));
+                    .insert("publisher_domain".into(), json!(fetched.domain));
             }
         }
         ensure!(

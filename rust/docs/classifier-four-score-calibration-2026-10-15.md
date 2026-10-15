@@ -338,3 +338,107 @@ handling. Fix character packet/output budgets before enabling character consumpt
 successful native character publication after correcting these failures, Graph qualification,
 other repository subsystems and a full production-database restore drill. This audit changes
 no implementation code; the character enrollment rollback is recorded operationally above.
+
+## Audit resolution — production releases `ebe05a4c` and `f25a6f65`
+
+The five scoped findings are resolved in code and deployed. Migrations 305–306 are applied.
+Acquisition and Kev remain active on Archbox; `classifier,narratives,vibe,rating,transfers`
+are enabled in cognition, with character inference on the existing native Mac SmolLM3 route.
+Graph, the fetch cadence and the four Classifier questions/cutoffs are unchanged.
+
+1. **Packet failures no longer strand the affected entity.** Insider reads one complete
+   article at a time, oldest first, retaining other obligations for subsequent passes.
+   Oversized, undated and unresolved-target sources are held explicitly. Influencer holds
+   an incomplete reporting period with its exclusion receipt instead of repeatedly failing
+   the entity or silently omitting a denial. Other periods can proceed. Complete Insider
+   replies rejected by the parser are also held per article, with their exact request,
+   complete prompt and raw response retained in the delivery's diagnostic receipt. They
+   are neither negative evidence nor published products. Provider/transport failures still
+   retry normally. All holds and publications retain the existing claim/source/identity fences.
+2. **Native output is bounded.** Journalist writes one report per call, at most 1,200
+   characters, within its existing 900-token budget. Declined slots retain their position;
+   a null first slot cannot shift the next report onto the wrong article. A model decline
+   is recorded as abstained. Insider's existing 1,400-token budget now covers a body of at
+   most 1,200 characters and two findings, with exact quotes bounded to 500 characters.
+   Influencer also bounds its body to 1,200 characters inside the existing 600-token
+   budget. Both exact retained output-limit cases passed native replay with complete
+   parsed replies at 272 and 322 tokens; their full source/history hashes matched the
+   stored Classifier sources. Native schemas and Rust parsers enforce the same limits. Counterparty choices are
+   constrained to supplied canonical names and report indices; exact source-span checking
+   remains mandatory. No incomplete native response is accepted.
+3. **Identity scanning is faster without changing matching semantics.** Normalize the
+   complete source once and check full names only when their first word occurs in it.
+   Ambiguity and canonical-name checks remain unchanged. On four large retained sources
+   encountered in the live reconciliation queue, the old function took 6,071 ms and the
+   new one 929 ms, about 6.5 times faster for this selected query workload. Results were
+   identical; the test also covered eight shorter sources and synthetic boundary/null
+   cases. This is not a sustained end-to-end throughput claim. Historical character reads
+   no longer recompute current-source state that they do not enforce.
+4. **Monitoring follows successful progress per enabled stage.** A transactionally recorded
+   queue completion and explicit delivery dispositions provide stage-specific progress.
+   Acquisition, error receipts or another character cannot mask a stopped Classifier.
+   Stage normalization and an explicitly empty stage list match worker configuration.
+5. **Current-corpus evaluation uses Classifier deliveries.** Both the Influencer task and
+   replay entry point use the production delivery reader. A disposable database test
+   proves that a Classifier-only source is seen and its unresolved date diagnosed rather
+   than skipped as an empty legacy corpus. Current Insider preview uses the same bounded
+   source preparation and native output schema as production.
+
+Real-model replay exposed unsupported target attachments in unrelated RSS matches.
+Journalist, Influencer and Insider now hold targets absent from the acquired canonical
+identity snapshot before inference. The shared reader supplies that identity result;
+RSS query provenance and a high usefulness score cannot establish an entity relationship.
+Influencer's accepted reporting/history uses the same identity scope. Scout already had
+its independent identity and structured-record requirements. Nickname-only or otherwise
+unresolved stories can therefore be held: this deliberately favors fewer unsupported calls,
+retains the source, and does not label the article irrelevant or false.
+
+The read-only native replay completed Journalist output and a grounded Influencer packet;
+it also demonstrated why bounded, complete Insider replies with invalid quotes must remain
+held. The early temporary example initially lacked the explicit path to the existing Go
+memory-study helper; that diagnostic setup was corrected. No helper or model runtime was
+missing from the standard production layout, and no Python inference runtime was added.
+These selected replays qualify mechanics, not representative semantic accuracy.
+
+The first post-release database check at **17:21:09 Eastern** recorded three newly used
+Journalist source obligations, fifteen abstentions and forty-eight identity holds. Influencer
+recorded twelve period holds and twelve identity holds; Scout retained its existing factual
+admission holds. The first Insider rejected-reply hold contained both the raw response and
+request. No new character failure was present in that check. All 1,720 v5 article spectra
+at that boundary retained complete four-score coverage. Historical capped failures and
+unavailable/oversized acquisitions remain visible; only failed current Classifier-derived
+character work with pending current-source obligations was requeued for the new contracts.
+
+**Validation:** 385 runnable library tests, 17 binary tests, the disposable source-to-character
+integration test, release/launcher self-check and expanded watchdog SQL checks passed.
+Regression cases cover period overflow/late denial, complete-article deferral, identity-result
+parity, slot abstention/source mapping, schema/parser bounds, retained parser rejections,
+receipt reuse, stale-source fencing, successful-progress isolation and new-only evaluation.
+Environment-dependent tests outside these selected integration runs remain ignored.
+
+The final release check at **17:40:02 Eastern**, after the Influencer-bound restart at
+17:34:20, found new consumed obligations for Journalist (25), Influencer (11) and Insider
+(3), alongside explicit abstentions and holds. All 1,826 v5 article spectra had complete
+four-score coverage. No new output-limit failure was present after that restart. All three
+services were active. Thirty-one rejected Insider attempts retained both their request and
+raw response. These counts describe source obligations, not independent articles or accuracy.
+
+Two Insider entities separately reached the existing 20,000-row publisher-history export
+limit during this release window. Those failures remain visible and retryable; this audit
+fix does not silently truncate that reliability history or relax its guard. Historical queue
+failures and Scout's existing independent-record admission limits are also retained.
+
+The production checkout contains pre-existing local changes and retains its older Git HEAD;
+boot-time embedded Git/build metadata therefore does not identify this source-overlay release.
+The restricted archive records the actual local code commit, installed binary SHA-256 and
+181 verified source/configuration/fixture hashes. The manifest records five reviewed host
+variants limited to comments and tests, with both committed and deployed hashes; production
+logic matches the committed fixes. The installed artifact and running process match the
+release binary, SHA-256 `da92e2301fa8799175daf7fd6846770b604253da6d48137ea7bc816bae45537f`.
+No remote reset or unrelated-edit cleanup was performed.
+
+**Remaining limits:** large/inaccessible inputs and unresolved identities require evidence
+repair or later calibration. A held/rejected reply is not ground truth for tuning Kev.
+Representative human-reviewed accuracy, multi-day throughput and Graph qualification remain
+separate work. Character consumption is resumed with these explicit boundaries, not a claim
+that every retained source or model reply is usable.

@@ -22,9 +22,8 @@ WorkingDirectory=__SCORACLE_REPO_ROOT__
 EnvironmentFile=-__SCORACLE_REPO_ROOT__/.env.local
 # Native acquisition and Classifier replace Harvester/Editor. Model routes and
 # evaluated delivery policies must be configured before cognition is resumed.
-# The Classifier runs a native candle model and requires CLASSIFIER_MODEL_DIR in
-# .env.local (the GLiNER artifact directory); the daemon refuses to start with the
-# classifier stage enabled and no model path.
+# The Classifier is stage 1: a llama.cpp System-1 decision model (Kev) via CLASSIFIER_URL
+# (/v1/systemone). The daemon refuses to start the classifier stage without it.
 # EnvironmentFile overrides Environment; keep COGNITION_STAGES in .env.local
 # aligned with this set. The separate source service forces acquisition-only.
 # Keep DERIVE_WORKER_ENABLED=false so Go never claims these stages.

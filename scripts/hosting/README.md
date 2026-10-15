@@ -70,11 +70,11 @@ and `--build-only`; build-only without redirection still replaces live files.
 Update `.env.local` so `COGNITION_STAGES` matches the new cognition unit: classifier,
 graph, investigate_entity, fixture_boxscore and the six existing character task names.
 Acquisition is owned by the separate source unit. To enable the Classifier, set
-`CLASSIFIER_MODEL_DIR` to the deployed GLiNER artifact directory (`encoder_config/`,
-`tokenizer.json`, `model.safetensors`); the daemon loads it natively with candle (Metal on
-macOS, CPU elsewhere) and refuses to start the classifier stage without it. The model,
-schema layout and gate live in `rust/src/plugins/classifier/gliner.rs`. The generative
-`COGNITION_ROUTE_CLASSIFIER_*` settings and `classifier/prompt.rs` are retired.
+`CLASSIFIER_URL` to the llama.cpp server exposing `/v1/systemone` (the Kev decision model);
+the daemon refuses to start the classifier stage without it. The spectrum, questions and gate
+live in `rust/src/plugins/classifier/decision.rs` and
+`fixtures/classifier/classification-criteria-v1.json`. The retired GLiNER/candle model and the
+generative `COGNITION_ROUTE_CLASSIFIER_*` settings are gone.
 
 The October 8 cutover keeps acquisition, cognition and its watcher disabled for
 controlled-chunk calibration. `CLASSIFIER_REPLAY_BACKLOG=false` is configured in

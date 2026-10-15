@@ -10,7 +10,7 @@ pub const MANIFEST: PluginManifest = PluginManifest {
     task: TASK,
     claim_policy: ClaimPolicy::RANKED_ARTICLES,
     inference_routes: &[],
-    resources: ResourceProfile::unbounded_batch(4),
+    resources: ResourceProfile::unbounded_batch(4).batched(4),
     tools: &[],
 };
 pub const ACQUIRE_MANIFEST: PluginManifest = PluginManifest {
@@ -18,6 +18,6 @@ pub const ACQUIRE_MANIFEST: PluginManifest = PluginManifest {
     task: ACQUIRE_TASK,
     claim_policy: ClaimPolicy::RANKED_ARTICLES,
     inference_routes: &[],
-    resources: ResourceProfile::unbounded_batch(4),
+    resources: ResourceProfile::unbounded_batch(4).batched(4),
     tools: &[ToolGrant::WebFetch(&[DomainClass::CuratedArticles])],
 };

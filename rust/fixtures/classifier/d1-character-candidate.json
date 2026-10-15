@@ -1,0 +1,57 @@
+{
+  "version": "classification-criteria-v5-d1-candidate-1",
+  "note": "Frozen development candidate: per-role question selection minimizes 2*false nominations+misses; ties use lower Brier score. Not a production release or independent accuracy claim.",
+  "questions": {
+    "journalist": {
+      "type": "noul",
+      "instructions": "Does this article contain substantive sports reporting about a meaningful development or ongoing storyline, rather than schedules, tickets, statistics tables, navigation or an unavailable page?"
+    },
+    "influencer": {
+      "type": "noul",
+      "instructions": "For the sport supplied in state, would the article give an emotional-reaction analyst useful material about expressed feelings or reactions?",
+      "criteria": {
+        "true": "Hope, anger, joy, worry, relief, frustration, pride or disappointment expressed by the author, a quoted speaker or reported reactions. Any intensity or mixture of emotions can count; mere absence of emotion does not.",
+        "false": "Flat factual reporting with no expressed emotion or reaction. Emotional words appear only in menus, advertisements or unrelated recommended stories. Apathy alone does not qualify. Content unrelated to the supplied sport does not qualify."
+      }
+    },
+    "scout": {
+      "type": "noul",
+      "instructions": "For the sport supplied in state, would the article give a scout useful information about player availability or roster changes?",
+      "criteria": {
+        "true": "Current-at-reporting-time injury, fitness, recovery, return, rest, suspension, selection availability, transfer or trade information useful to evaluating a player or roster.",
+        "false": "Only game performance, normal preparation or tactical changes; old career events without a current availability or roster update; topic labels or unrelated links. Content unrelated to the supplied sport does not qualify."
+      }
+    },
+    "insider": {
+      "type": "noul",
+      "instructions": "Does this article discuss transfers, trades, signings, departures or coaching changes?"
+    }
+  },
+  "characters": {
+    "journalist": {
+      "mode": "all",
+      "criteria": {
+        "journalist": 70
+      }
+    },
+    "influencer": {
+      "mode": "all",
+      "criteria": {
+        "influencer": 60
+      }
+    },
+    "scout": {
+      "mode": "all",
+      "criteria": {
+        "scout": 85
+      },
+      "note": "Nomination only; Scout still requires an applied source-linked structured record."
+    },
+    "insider": {
+      "mode": "all",
+      "criteria": {
+        "insider": 60
+      }
+    }
+  }
+}

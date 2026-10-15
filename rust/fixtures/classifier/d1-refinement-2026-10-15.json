@@ -1,0 +1,328 @@
+{
+  "date": "2026-10-15",
+  "model": "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402",
+  "quantization": "Q4_K_M",
+  "native_endpoint": "llama.cpp /v1/systemone",
+  "private_archive": "/mnt/data/backup/scoracle/classifier-calibration/2026-10-15",
+  "development_experiment": {
+    "seconds": 80.2695212252438,
+    "development": [
+      {
+        "bank": "mixed",
+        "cases": 37,
+        "labels": 148,
+        "failures": 0,
+        "cutoffs": {
+          "journalist": 70,
+          "influencer": 45,
+          "scout": 60,
+          "insider": 60
+        },
+        "roles": {
+          "journalist": {
+            "cutoff": 70,
+            "false_positives": 1,
+            "misses": 3,
+            "cost": 5,
+            "brier": 0.1151304002232911
+          },
+          "influencer": {
+            "cutoff": 45,
+            "false_positives": 0,
+            "misses": 3,
+            "cost": 3,
+            "brier": 0.08716436662840657
+          },
+          "scout": {
+            "cutoff": 60,
+            "false_positives": 2,
+            "misses": 1,
+            "cost": 5,
+            "brier": 0.06368798313944785
+          },
+          "insider": {
+            "cutoff": 60,
+            "false_positives": 2,
+            "misses": 0,
+            "cost": 4,
+            "brier": 0.0525152450940276
+          }
+        },
+        "false_positives": 5,
+        "misses": 7,
+        "cost": 17
+      },
+      {
+        "bank": "explicit",
+        "cases": 37,
+        "labels": 148,
+        "failures": 0,
+        "cutoffs": {
+          "journalist": 90,
+          "influencer": 60,
+          "scout": 90,
+          "insider": 90
+        },
+        "roles": {
+          "journalist": {
+            "cutoff": 90,
+            "false_positives": 0,
+            "misses": 10,
+            "cost": 10,
+            "brier": 0.2055031913330461
+          },
+          "influencer": {
+            "cutoff": 60,
+            "false_positives": 0,
+            "misses": 4,
+            "cost": 4,
+            "brier": 0.0865206052942113
+          },
+          "scout": {
+            "cutoff": 90,
+            "false_positives": 1,
+            "misses": 2,
+            "cost": 4,
+            "brier": 0.07651212649209492
+          },
+          "insider": {
+            "cutoff": 90,
+            "false_positives": 2,
+            "misses": 1,
+            "cost": 5,
+            "brier": 0.12239579801425385
+          }
+        },
+        "false_positives": 3,
+        "misses": 17,
+        "cost": 23
+      },
+      {
+        "bank": "utility",
+        "cases": 37,
+        "labels": 148,
+        "failures": 0,
+        "cutoffs": {
+          "journalist": 85,
+          "influencer": 60,
+          "scout": 85,
+          "insider": 85
+        },
+        "roles": {
+          "journalist": {
+            "cutoff": 85,
+            "false_positives": 1,
+            "misses": 10,
+            "cost": 12,
+            "brier": 0.18701396339842927
+          },
+          "influencer": {
+            "cutoff": 60,
+            "false_positives": 0,
+            "misses": 3,
+            "cost": 3,
+            "brier": 0.05263595982166857
+          },
+          "scout": {
+            "cutoff": 85,
+            "false_positives": 0,
+            "misses": 2,
+            "cost": 2,
+            "brier": 0.07197262937979189
+          },
+          "insider": {
+            "cutoff": 85,
+            "false_positives": 2,
+            "misses": 0,
+            "cost": 4,
+            "brier": 0.10733297504900062
+          }
+        },
+        "false_positives": 3,
+        "misses": 15,
+        "cost": 21
+      }
+    ],
+    "selection_rule": "minimize 2*false_positive+miss on available development sources; equal costs prefer fewer false positives then fewer misses then higher cutoff; do not inspect heldout responses before freezing"
+  },
+  "frozen_private_candidate": {
+    "sha256": "3ea734a16646636ddf2c9af8729f53c55bac8e879fa8bc39672be7c29945d8f7",
+    "roles": {
+      "journalist": "mixed",
+      "influencer": "utility",
+      "scout": "utility",
+      "insider": "mixed"
+    },
+    "cutoffs": {
+      "journalist": 70,
+      "influencer": 60,
+      "scout": 85,
+      "insider": 60
+    },
+    "development_cases": 41,
+    "source_guard_exclusions": 4,
+    "heldout_cases": 12,
+    "heldout_predictions_inspected": false
+  },
+  "frozen_comparison": {
+    "seconds_all_models": 52.076922800857574,
+    "transport_errors": 0,
+    "results": [
+      {
+        "model": "d1",
+        "cohort": "development",
+        "cases": 37,
+        "labels": 148,
+        "false_positives": 3,
+        "misses": 8,
+        "errors": 11,
+        "cost": 14,
+        "roles": {
+          "journalist": {
+            "false_positives": 1,
+            "misses": 3,
+            "brier": 0.11432986833957454
+          },
+          "influencer": {
+            "false_positives": 0,
+            "misses": 3,
+            "brier": 0.05315634315821138
+          },
+          "scout": {
+            "false_positives": 0,
+            "misses": 2,
+            "brier": 0.07211584644666832
+          },
+          "insider": {
+            "false_positives": 2,
+            "misses": 0,
+            "brier": 0.05194119587443502
+          }
+        },
+        "brier": 0.07288581345472231
+      },
+      {
+        "model": "d1",
+        "cohort": "heldout",
+        "cases": 12,
+        "labels": 48,
+        "false_positives": 3,
+        "misses": 0,
+        "errors": 3,
+        "cost": 6,
+        "roles": {
+          "journalist": {
+            "false_positives": 2,
+            "misses": 0,
+            "brier": 0.12605082164701273
+          },
+          "influencer": {
+            "false_positives": 1,
+            "misses": 0,
+            "brier": 0.061177536317791624
+          },
+          "scout": {
+            "false_positives": 0,
+            "misses": 0,
+            "brier": 0.05723925150805972
+          },
+          "insider": {
+            "false_positives": 0,
+            "misses": 0,
+            "brier": 0.03151079901975268
+          }
+        },
+        "brier": 0.06899460212315418
+      },
+      {
+        "model": "kev",
+        "cohort": "development",
+        "cases": 37,
+        "labels": 148,
+        "false_positives": 5,
+        "misses": 9,
+        "errors": 14,
+        "cost": 19,
+        "roles": {
+          "journalist": {
+            "false_positives": 2,
+            "misses": 4,
+            "brier": 0.18517625693503673
+          },
+          "influencer": {
+            "false_positives": 0,
+            "misses": 2,
+            "brier": 0.10589928358375897
+          },
+          "scout": {
+            "false_positives": 2,
+            "misses": 2,
+            "brier": 0.14725402233869123
+          },
+          "insider": {
+            "false_positives": 1,
+            "misses": 1,
+            "brier": 0.11091193108108219
+          }
+        },
+        "brier": 0.13731037348464228
+      },
+      {
+        "model": "kev",
+        "cohort": "heldout",
+        "cases": 12,
+        "labels": 48,
+        "false_positives": 1,
+        "misses": 1,
+        "errors": 2,
+        "cost": 3,
+        "roles": {
+          "journalist": {
+            "false_positives": 1,
+            "misses": 0,
+            "brier": 0.12912155079781093
+          },
+          "influencer": {
+            "false_positives": 0,
+            "misses": 0,
+            "brier": 0.08852504218636591
+          },
+          "scout": {
+            "false_positives": 0,
+            "misses": 0,
+            "brier": 0.1083167459915667
+          },
+          "insider": {
+            "false_positives": 0,
+            "misses": 1,
+            "brier": 0.13428095181063338
+          }
+        },
+        "brier": 0.11506107269659423
+      }
+    ],
+    "bank_frozen_before_heldout_inference": true,
+    "labels": "coding-agent provisional labels; twelve selected sources, not representative independent human-reviewed accuracy"
+  },
+  "selection_policy": {
+    "false_nomination_cost": 2,
+    "miss_cost": 1,
+    "per_role_candidate_selection": "minimum development cost; ties use lower Brier score",
+    "holdout_used_for_further_tuning": false
+  },
+  "confirmed_user_rubric": "Journalist prioritizes reported stories and analysis; statistics-only pages are negative examples.",
+  "source_group_check": {
+    "method": "seven-word shingle Jaccard overlap between each held-out body and development sources",
+    "maximum_observed": 0.12467866323907455,
+    "review": "maximum is common Flashscore navigation; no same-story duplicate identified"
+  },
+  "decision": "Keep current Kev live; retain d1 as a native challenger. Frozen d1 did not beat the incumbent on precision-weighted held-out cost.",
+  "production_changes": false,
+  "limitations": [
+    "coding-agent labels, not independently human-adjudicated",
+    "only twelve held-out articles and 48 correlated role labels",
+    "selected already-retained sources; not representative full RSS production accuracy",
+    "d1 candidate optimized on a larger development set than the incumbent policy",
+    "timings of the interleaved comparison are not isolated model throughput"
+  ]
+}

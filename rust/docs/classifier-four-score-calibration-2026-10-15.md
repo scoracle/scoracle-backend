@@ -61,6 +61,8 @@ Kev with its improved questions: each makes 23 errors at the common cutoff. Prom
 operating points must be evaluated for each model. d1-omni-600M also ran natively but made
 more errors in the initial development comparison and did not justify promotion.
 
+A [later d1 refinement](classifier-d1-refinement-2026-10-15.md) tests native yes/no descriptions, per-role operating points and a frozen candidate on twelve separate source articles. It retains d1 as a challenger and leaves Kev live.
+
 The provisional Kev cutoffs are Journalist 60, Influencer 50, Scout 60, Insider 70.
 On the original set they yield seven false nominations and nine missed nominations.
 On the additional ten they yield four false nominations and no misses. After the explicit

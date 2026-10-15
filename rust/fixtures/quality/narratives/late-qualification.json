@@ -27,10 +27,11 @@
       "sport": "FOOTBALL"
     }
   },
-  "prompt_version": "n102-fresh-only-json",
+  "prompt_version": "n103-article-spectrum",
   "review": [
     "The correction is the report: no contract was offered and no deal was reached.",
-    "An earlier sentence in the same source called this an agreement; dropping the correction is a meaning-loss failure."
+    "An earlier sentence in the same source called this an agreement; dropping the correction is a meaning-loss failure.",
+    "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified."
   ],
   "system": "",
   "task": "narratives",

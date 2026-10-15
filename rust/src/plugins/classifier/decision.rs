@@ -1,11 +1,11 @@
 //! Classifier stage 1: a System-1 decision model over llama.cpp `/v1/systemone`.
-//! One call per (article, target) scores six provisional predicates; characters unpack nuance.
+//! One call per article scores four provisional character needs; characters unpack nuance.
 use anyhow::{ensure, Context, Result};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
 
 const CRITERIA: &str = include_str!("../../../fixtures/classifier/classification-criteria-v1.json");
-pub const CRITERIA_VERSION: &str = "classification-criteria-v4";
+pub const CRITERIA_VERSION: &str = "classification-criteria-v5-article";
 pub const MODEL_ID: &str = "ggml-org/Kev-0.8B-GGUF";
 
 pub struct Measurement {
@@ -13,6 +13,17 @@ pub struct Measurement {
     pub model: String,
     pub request_hash: String,
     pub receipt: Value,
+}
+
+impl Measurement {
+    pub(crate) fn from_receipt(receipt: Value) -> Result<Self> {
+        Ok(Self {
+            spectrum: decode(&receipt["response"])?,
+            model: model_identity(&receipt["response"])?.to_string(),
+            request_hash: super::hash(&receipt["request"].to_string()),
+            receipt,
+        })
+    }
 }
 
 /// HTTP client for the decision-model server. Cheap to clone; the transport is the swap point.
@@ -58,9 +69,9 @@ impl Decision {
         Ok(model_identity(&json!({"model":models[0]["id"]}))?.to_string())
     }
 
-    /// Score one `(article, target)`. Returns `criterion -> 0..100`.
-    pub async fn spectrum(&self, body: &str, target: &str) -> Result<Measurement> {
-        let payload = request(body, target)?;
+    /// Score one complete article, independent of candidate target count. Returns `criterion -> 0..100`.
+    pub async fn spectrum(&self, body: &str, sport: &str) -> Result<Measurement> {
+        let payload = request(body, sport)?;
         let started = std::time::Instant::now();
         let response = self
             .client
@@ -74,15 +85,10 @@ impl Decision {
         (|| {
             ensure!(status.is_success(), "classifier decision HTTP {status}");
             let response: Value = serde_json::from_str(&raw)?;
-            let spectrum = decode(&response)?;
-            let model = model_identity(&response)?.to_string();
-            Ok(Measurement {
-                spectrum,
-                model,
-                request_hash: super::hash(&payload.to_string()),
-                receipt: json!({"request":payload,"response":response,"endpoint":self.url,
-                    "elapsed_ms":started.elapsed().as_millis()}),
-            })
+            Measurement::from_receipt(
+                json!({"request":payload,"response":response,"endpoint":self.url,
+                "elapsed_ms":started.elapsed().as_millis()}),
+            )
         })()
         .map_err(|error| {
             crate::harness::model::ResponseFailure {
@@ -94,9 +100,9 @@ impl Decision {
     }
 }
 
-pub(crate) fn request(body: &str, target: &str) -> Result<Value> {
+pub(crate) fn request(body: &str, sport: &str) -> Result<Value> {
     let criteria: Value = serde_json::from_str(CRITERIA)?;
-    Ok(json!({"state":{"target":target,"body":body},"questions":criteria["questions"]}))
+    Ok(json!({"state":{"sport":sport,"body":body},"questions":criteria["questions"]}))
 }
 
 fn model_identity(response: &Value) -> Result<&str> {
@@ -181,20 +187,24 @@ mod tests {
     #[test]
     fn gate_fires_per_bucket() {
         let mut spectrum = BTreeMap::new();
-        spectrum.insert("emotional_charge".to_string(), 80.0);
-        spectrum.insert("availability".to_string(), 60.0);
-        spectrum.insert("relevance.direct_subject".to_string(), 70.0);
+        spectrum.insert("influencer".to_string(), 50.0);
+        spectrum.insert("scout".to_string(), 60.0);
+        spectrum.insert("journalist".to_string(), 70.0);
         let gate = gate(&spectrum).unwrap();
-        assert!(gate["influencer"], "emotional_charge 80 >= 50");
-        assert!(gate["scout"], "availability 60 >= 50");
-        assert!(gate["journalist"], "direct_subject 70 >= 50");
-        assert!(!gate["insider"], "no movement/staffing");
+        assert!(gate["influencer"], "Influencer 50 >= 50");
+        assert!(gate["scout"], "Scout 60 >= 60");
+        assert!(gate["journalist"], "Journalist 70 >= 60");
+        assert!(!gate["insider"], "no Insider score");
+        spectrum.insert("insider".to_string(), 69.9);
+        assert!(!super::gate(&spectrum).unwrap()["insider"]);
+        spectrum.insert("insider".to_string(), 70.0);
+        assert!(super::gate(&spectrum).unwrap()["insider"]);
     }
 
     #[test]
-    fn criteria_declares_six_questions() {
+    fn criteria_declares_four_article_questions() {
         let criteria: Value = serde_json::from_str(CRITERIA).unwrap();
-        assert_eq!(criteria["questions"].as_object().unwrap().len(), 6);
+        assert_eq!(criteria["questions"].as_object().unwrap().len(), 4);
         assert_eq!(criteria["version"], CRITERIA_VERSION);
     }
 
@@ -208,20 +218,20 @@ mod tests {
             .map(|key| (key.clone(), json!({"type":"noul", "noul":0.75})))
             .collect();
         let response = json!({"answers":answers});
-        assert_eq!(decode(&response).unwrap()["movement"], 75.0);
+        assert_eq!(decode(&response).unwrap()["insider"], 75.0);
         for invalid in [json!(null), json!(-0.1), json!(1.1), json!("0.75")] {
             let mut response = response.clone();
-            response["answers"]["movement"]["noul"] = invalid;
+            response["answers"]["insider"]["noul"] = invalid;
             assert!(decode(&response).is_err());
         }
         let mut missing = response.clone();
         missing["answers"]
             .as_object_mut()
             .unwrap()
-            .remove("movement");
+            .remove("insider");
         assert!(decode(&missing).is_err());
         let mut wrong_type = response;
-        wrong_type["answers"]["movement"]["type"] = json!("choice");
+        wrong_type["answers"]["insider"]["type"] = json!("choice");
         assert!(decode(&wrong_type).is_err());
     }
 

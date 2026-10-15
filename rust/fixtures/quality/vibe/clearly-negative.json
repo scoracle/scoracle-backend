@@ -28,12 +28,13 @@
     "history": [],
     "excluded": []
   },
-  "prompt_version": "vibe-frame-v21-classifier-spectrum",
+  "prompt_version": "vibe-frame-v22-article-spectrum",
   "review": [
     "Headline and body express one supported reading about the identified subject. Unrelated material supports paired null abstention.",
     "Preserve speakers, bylines, attribution, timing, scope and uncertainty. Historical headline questions remain questions.",
     "Read emotional tone across a spectrum, including neutral reporting, intensity and mixed voices. Unreported feelings remain unknown. Dated history may enrich the ongoing story; a routine update neither erases earlier reactions nor proves they persist unchanged. Coverage counts do not establish agreement or mood.",
-    "Headline is at most 140 characters. Body uses concise, complete sentences with meaningful qualifications; assess factual support separately from parser acceptance."
+    "Headline is at most 140 characters. Body uses concise, complete sentences with meaningful qualifications; assess factual support separately from parser acceptance.",
+    "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified."
   ],
   "task": "vibe",
   "temperature": 0.0,

@@ -23,10 +23,11 @@
       "sport": "NBA"
     }
   },
-  "prompt_version": "n102-fresh-only-json",
+  "prompt_version": "n103-article-spectrum",
   "review": [
     "The identity part says basketball, not NBA: the sport, not the competition namespace.",
-    "Keep the question mark on Reed's availability; the source says questionable, not ruled out."
+    "Keep the question mark on Reed's availability; the source says questionable, not ruled out.",
+    "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified."
   ],
   "system": "",
   "task": "narratives",

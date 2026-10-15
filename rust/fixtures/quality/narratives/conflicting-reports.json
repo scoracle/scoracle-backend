@@ -30,10 +30,11 @@
       "sport": "FOOTBALL"
     }
   },
-  "prompt_version": "n102-fresh-only-json",
+  "prompt_version": "n103-article-spectrum",
   "review": [
     "Two keyed slots, two source positions. Neither may be merged into one settled fact.",
-    "Both reports are unconfirmed; the reading must not resolve the contradiction for the reader."
+    "Both reports are unconfirmed; the reading must not resolve the contradiction for the reader.",
+    "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified."
   ],
   "system": "",
   "task": "narratives",

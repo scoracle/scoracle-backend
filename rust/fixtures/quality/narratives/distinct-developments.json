@@ -38,10 +38,11 @@
       "sport": "FOOTBALL"
     }
   },
-  "prompt_version": "n102-fresh-only-json",
+  "prompt_version": "n103-article-spectrum",
   "review": [
     "One development per report_key, in source order. No slot may carry another report's claim.",
-    "The ankle injury, the appointment and the result are three stories, not one narrative."
+    "The ankle injury, the appointment and the result are three stories, not one narrative.",
+    "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified."
   ],
   "system": "",
   "task": "narratives",

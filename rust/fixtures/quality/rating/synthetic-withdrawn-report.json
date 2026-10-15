@@ -1,7 +1,7 @@
 {
   "name": "synthetic-withdrawn-report",
   "task": "rating",
-  "prompt_version": "s70-classifier-spectrum",
+  "prompt_version": "s71-article-spectrum",
   "parts": {
     "memory": {
       "reported": [
@@ -57,6 +57,7 @@
   "temperature": 0,
   "expect": {},
   "review": [
-    "Preserve Example Wire, September 28, the withdrawal, disputed status and unconfirmed availability. Rebounding standing rose; assist standing held. The report does not alter measurements."
+    "Preserve Example Wire, September 28, the withdrawal, disputed status and unconfirmed availability. Rebounding standing rose; assist standing held. The report does not alter measurements.",
+    "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified."
   ]
 }

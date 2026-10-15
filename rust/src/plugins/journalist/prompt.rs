@@ -12,9 +12,9 @@ use serde_json::json;
 use sqlx::PgPool;
 use std::collections::HashSet;
 
-pub const TASK: &str = "Write concise news reports about meta, using voice as tone and fresh as the only evidence; preserve attribution, event dates and qualifications, and return only JSON mapping each report_key to its report text.";
+pub const TASK: &str = "Write concise news reports about meta, using voice as tone and fresh as the only evidence; preserve attribution, event dates and qualifications. Classifier scores measure article usefulness, not relevance or facts about the named entity. Return only JSON mapping each report_key to its report text.";
 
-pub const NARRATIVES_PROMPT_VERSION: &str = "n102-fresh-only-json";
+pub const NARRATIVES_PROMPT_VERSION: &str = "n103-article-spectrum";
 pub const NUM_PREDICT: i32 = 900;
 pub const NARRATIVES_OUTPUT_CONTRACT_VERSION: &str = "narratives-v12-fresh-only";
 pub const LOOKBACK_SECONDS: i64 = 72 * 3600;

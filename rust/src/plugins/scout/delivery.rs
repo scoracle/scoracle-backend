@@ -17,7 +17,7 @@ use serde_json::json;
 use sqlx::{PgConnection, PgPool};
 use std::time::Duration;
 
-const POLICY_VERSION: &str = "scout-source-v6-kev-spectrum";
+const POLICY_VERSION: &str = "scout-source-v7-article-spectrum";
 
 /// Only a source-linked structured record can turn roster/availability reporting
 /// into a Scout rating trigger. A Classifier proposal or model quote alone is not enough.
@@ -79,18 +79,11 @@ struct SourceDecision {
     provenance: serde_json::Value,
 }
 
-fn source_kind(world: Option<&serde_json::Value>) -> SourceKind {
-    let Some(world) = world else {
-        return SourceKind::None;
-    };
-    let score = |key: &str| world["spectrum"][key].as_f64().unwrap_or(0.0);
-    if score("availability") >= 70.0 {
-        SourceKind::Availability
-    } else if score("movement") >= 80.0 || score("staffing") >= 80.0 {
-        SourceKind::Roster
-    } else {
-        SourceKind::None
-    }
+fn source_eligible(world: Option<&serde_json::Value>) -> bool {
+    world
+        .and_then(|world| world["spectrum"]["scout"].as_f64())
+        .unwrap_or(0.0)
+        >= 70.0
 }
 
 async fn decide(
@@ -112,17 +105,26 @@ async fn decide(
                 candidate["entity_type"] == entity_type && candidate["entity_id"] == entity_id
             })
         });
-    // The spectrum gate, not a generative selection, decides Scout's kind.
-    let kind = source_kind(source.classifier_world.as_ref());
-    let structured_record = structured_record(
-        connection,
-        sport,
-        entity_type,
-        entity_id,
-        source.article_id,
-        kind,
-    )
-    .await?;
+    // The article score nominates review; the applied record establishes its factual kind.
+    let (mut kind, mut structured_record) = (SourceKind::None, None);
+    if source_eligible(source.classifier_world.as_ref()) {
+        for candidate in [SourceKind::Availability, SourceKind::Roster] {
+            if let Some(record) = self::structured_record(
+                connection,
+                sport,
+                entity_type,
+                entity_id,
+                source.article_id,
+                candidate,
+            )
+            .await?
+            {
+                kind = candidate;
+                structured_record = Some(record);
+                break;
+            }
+        }
+    }
     Ok(SourceDecision {
         kind,
         identity_resolved,
@@ -354,16 +356,16 @@ pub(crate) async fn execute_with_backend(
 mod tests {
     use super::*;
     #[test]
-    fn kev_scores_use_flat_names_and_the_original_0_to_100_scale() {
-        for (spectrum, expected) in [
-            (json!({"availability":70.0}), SourceKind::Availability),
-            (json!({"availability":69.9}), SourceKind::None),
-            (json!({"movement":80.0}), SourceKind::Roster),
-            (json!({"staffing":80.0}), SourceKind::Roster),
-            (json!({"movement":0.9}), SourceKind::None),
-        ] {
-            assert_eq!(source_kind(Some(&json!({"spectrum":spectrum}))), expected);
+    fn article_score_nominates_scout_without_claiming_an_applied_change() {
+        for (score, expected) in [(70.0, true), (69.9, false), (0.9, false)] {
+            assert_eq!(
+                source_eligible(Some(&json!({"spectrum":{"scout":score}}))),
+                expected
+            );
         }
-        assert_eq!(source_kind(None), SourceKind::None);
+        assert!(!source_eligible(None));
+        assert!(!source_eligible(Some(
+            &json!({"spectrum":{"availability":99}})
+        )));
     }
 }

@@ -13,7 +13,7 @@ use crate::tools::meta::EntityMeta;
 use crate::util::hash_components;
 use anyhow::{ensure, Context, Result};
 
-pub const RATING_PROMPT_VERSION: &str = "s70-classifier-spectrum";
+pub const RATING_PROMPT_VERSION: &str = "s71-article-spectrum";
 
 /// Production rating temperature.
 pub const RATING_TEMPERATURE: f64 = 0.6;
@@ -81,7 +81,7 @@ Honor any limit. Sample counts describe source coverage, not playing time or
 when a season began. Keep reports attributed and dated; a withdrawal retracts
 its claim and does not establish recovery. Do not infer a cause, role, tactics,
 fitness or future outcome from a measurement or report. A short or null body is
-valid when the evidence does not support more. reporting preserves complete publisher text and its classifier spectrum scores, including unknowns. These reports do not establish a completed move, fitness outcome or cause. Keep reported content distinct from measured facts.";
+valid when the evidence does not support more. reporting preserves complete publisher text and its article-level classifier spectrum scores, including unknowns; these scores do not establish relevance to the named entity. These reports do not establish a completed move, fitness outcome or cause. Keep reported content distinct from measured facts.";
 
 /// Retry the same bounded task without silently changing its content policy.
 pub fn correction(error: &anyhow::Error) -> Option<String> {

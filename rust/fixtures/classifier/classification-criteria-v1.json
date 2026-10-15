@@ -1,18 +1,49 @@
 {
-  "version": "classification-criteria-v4",
-  "note": "Classifier stage-1 spectrum: provisional buckets scored by a System-1 decision model (Kev) via llama.cpp /v1/systemone, one call per (article, target). Relevance is asked as independent binary questions, never a forced 3-way ranking (which yields inauthentic mid-range scores). The character model resolves relationship, attribution and time from the complete source text.",
+  "version": "classification-criteria-v5-article",
+  "note": "One complete-article measurement, independent of target count. Four provisional 0\u2013100 routing scores; characters establish entity relevance and supported facts from the full source. Thresholds favor fewer character reviews and are not calibrated accuracy claims.",
   "questions": {
-    "relevance.direct_subject": { "type": "noul", "instructions": "Is the candidate target a direct subject of the reported event, assertion or reaction — not a passing mention?" },
-    "relevance.opponent_context": { "type": "noul", "instructions": "Is the candidate target an opponent or contextual counterparty in another subject's reporting?" },
-    "emotional_charge": { "type": "noul", "instructions": "Does the text carry emotional charge — hope, anger, joy, worry, relief or frustration — rather than flat reporting? Apathy is not emotional charge." },
-    "availability": { "type": "noul", "instructions": "Does this report discuss the target's physical availability — injury, fitness or suspension?" },
-    "movement": { "type": "noul", "instructions": "Is a transfer, trade, signing or departure involving the target discussed?" },
-    "staffing": { "type": "noul", "instructions": "Does this report discuss a coaching or staff appointment, sacking or role change?" }
+    "journalist": {
+      "type": "noul",
+      "instructions": "Does this article contain substantive sports news or analysis?"
+    },
+    "influencer": {
+      "type": "noul",
+      "instructions": "Does this article express emotion, such as hope, anger, joy, worry, relief or frustration?"
+    },
+    "scout": {
+      "type": "noul",
+      "instructions": "Does this article discuss current player availability, injury, fitness, suspension, transfer or trade news?"
+    },
+    "insider": {
+      "type": "noul",
+      "instructions": "Does this article discuss transfers, trades, signings, departures or coaching changes?"
+    }
   },
   "characters": {
-    "influencer": { "mode": "any", "criteria": { "emotional_charge": 50 } },
-    "scout": { "mode": "any", "criteria": { "availability": 50, "movement": 50, "staffing": 50 }, "note": "Nomination only; Scout still requires an applied structured record." },
-    "insider": { "mode": "any", "criteria": { "movement": 50, "staffing": 50 } },
-    "journalist": { "mode": "all", "criteria": { "relevance.direct_subject": 50 }, "note": "Broad: reporting whose target is a direct subject. The character refines relationship from the text." }
+    "journalist": {
+      "mode": "all",
+      "criteria": {
+        "journalist": 60
+      }
+    },
+    "influencer": {
+      "mode": "all",
+      "criteria": {
+        "influencer": 50
+      }
+    },
+    "scout": {
+      "mode": "all",
+      "criteria": {
+        "scout": 60
+      },
+      "note": "Nomination only; Scout still requires an applied source-linked structured record."
+    },
+    "insider": {
+      "mode": "all",
+      "criteria": {
+        "insider": 70
+      }
+    }
   }
 }

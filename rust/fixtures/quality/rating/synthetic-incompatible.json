@@ -1,7 +1,7 @@
 {
   "name": "synthetic-incompatible",
   "task": "rating",
-  "prompt_version": "s70-classifier-spectrum",
+  "prompt_version": "s71-article-spectrum",
   "parts": {
     "memory": {
       "coverage_limits": [
@@ -49,6 +49,7 @@
   "temperature": 0,
   "expect": {},
   "review": [
-    "The prior competition is incompatible. Describe current standing without inventing a comparison, stability or recent form."
+    "The prior competition is incompatible. Describe current standing without inventing a comparison, stability or recent form.",
+    "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified."
   ]
 }

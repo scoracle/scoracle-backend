@@ -1,0 +1,203 @@
+{
+  "date": "2026-10-15",
+  "criteria_version": "classification-criteria-v5-article",
+  "scores": [
+    "journalist",
+    "influencer",
+    "scout",
+    "insider"
+  ],
+  "cutoffs": {
+    "journalist": 60,
+    "influencer": 50,
+    "scout": 60,
+    "insider": 70
+  },
+  "model": "ggml-org/Kev-0.8B-GGUF@sha256:27278f34eb3273bceea4c053dc50dd61a5161da21a718c4aacdf8fd5830771d0",
+  "article_workers": 4,
+  "native_decision_slots": 8,
+  "context_per_decision_slot": 8192,
+  "cutover": "2026-10-15T15:09:26-04:00",
+  "private_archive": "/mnt/data/backup/scoracle/classifier-calibration/2026-10-15",
+  "quality": {
+    "labels_assigned_by": "coding agent; not independently adjudicated",
+    "original_cases": 28,
+    "additional_source_stress_cases": 10,
+    "labels": 152,
+    "common_cutoff": 60,
+    "kev_verbose": {
+      "errors": 44,
+      "false_positives": 15,
+      "misses": 29,
+      "brier": 0.18601126066539483
+    },
+    "kev_improved": {
+      "errors": 23,
+      "false_positives": 11,
+      "misses": 12,
+      "brier": 0.1613787778968123
+    },
+    "d1_3b_verbose": {
+      "errors": 23,
+      "false_positives": 11,
+      "misses": 12,
+      "brier": 0.10978979273541668
+    },
+    "d1_3b_improved": {
+      "errors": 26,
+      "false_positives": 18,
+      "misses": 8,
+      "brier": 0.13010353673559186
+    },
+    "kev_selected_cutoffs_after_unavailable_guard": {
+      "labels": 136,
+      "false_positives": 2,
+      "misses": 9
+    },
+    "limitations": [
+      "small selected development set",
+      "no independent or representative accuracy claim",
+      "model scores are not empirically calibrated probabilities"
+    ]
+  },
+  "native_only_256_article_repeats": {
+    "kev_seconds": [
+      119.9361,
+      119.94
+    ],
+    "d1_3b_seconds": [
+      214.5738,
+      215.469
+    ],
+    "errors": 0,
+    "excludes": [
+      "acquisition",
+      "persistence",
+      "character generation"
+    ]
+  },
+  "live_classifier_only_window": {
+    "from": "2026-10-15T15:10:07.013272-04:00",
+    "to": "2026-10-15T15:12:40.799742-04:00",
+    "seconds": 153.78647,
+    "completed_articles": 308,
+    "articles_per_second": 2.002776967310583,
+    "daily_8500_minutes": 70.73511877705629,
+    "initial": {
+      "now": "2026-10-15T15:10:07.013272-04:00",
+      "articles": 68,
+      "first": "2026-10-15T15:09:27.722408-04:00",
+      "last": "2026-10-15T15:10:06.855554-04:00",
+      "native_calls": 68,
+      "cache_hits": 0,
+      "mean_native_ms": 2130.573529411765,
+      "p95_native_ms": 4710.699999999999,
+      "four_scores": 68,
+      "complete": 68
+    },
+    "final": {
+      "now": "2026-10-15T15:12:40.799742-04:00",
+      "articles": 376,
+      "first": "2026-10-15T15:09:27.722408-04:00",
+      "last": "2026-10-15T15:12:40.176826-04:00",
+      "native_calls": 376,
+      "cache_hits": 0,
+      "mean_native_ms": 1921.7898936170213,
+      "p95_native_ms": 3853.25,
+      "four_scores": 376,
+      "complete": 376
+    },
+    "warning": "short observation; successful retained articles only, acquisition failures and oversized contexts are not completed"
+  },
+  "later_live_proof": {
+    "now": "2026-10-15T15:15:07.346258-04:00",
+    "articles": 560,
+    "first": "2026-10-15T15:09:27.722408-04:00",
+    "last": "2026-10-15T15:15:07.181284-04:00",
+    "native_calls": 560,
+    "cache_hits": 0,
+    "mean_native_ms": 2294.475,
+    "p95_native_ms": 4776.399999999998,
+    "four_scores": 560,
+    "complete": 560
+  },
+  "acquisition_observation": {
+    "minutes": 30,
+    "articles": 279,
+    "articles_per_hour": 558,
+    "daily_8500_hours": 15.232974910394265,
+    "backlog_articles_approx": 30000,
+    "backlog_hours_no_arrivals": 53.763440860215056,
+    "backlog_days_with_8500_daily": 6.132461161079314
+  },
+  "graph_native_probe": {
+    "model": "same native SmolLM3 GGUF as Mac",
+    "production_rust_client": true,
+    "gpu_memory_mib": {
+      "kev_plus_graph": 6653,
+      "d1_plus_graph": 7151,
+      "kev_plus_four_graph_slots": 6641
+    },
+    "gpu_total_mib": 8192,
+    "single_slot_context": 32768,
+    "four_slots_context_each": 8192,
+    "single_slot_runs": [
+      {
+        "classifier": "Kev",
+        "seconds": 127.6003183,
+        "inspected_sources": 16,
+        "skips": 1,
+        "model_calls": 15,
+        "generation_errors": 5,
+        "parsed_replies_with_source_absent_spans": 2
+      },
+      {
+        "classifier": "d1-3B",
+        "seconds": 128.194483121,
+        "inspected_sources": 16,
+        "skips": 1,
+        "model_calls": 15,
+        "generation_errors": 2,
+        "parsed_replies_with_source_absent_spans": 7
+      }
+    ],
+    "four_slot_run": {
+      "seconds": 89.989617568,
+      "inspected_sources": 16,
+      "skips": 2,
+      "model_calls": 14,
+      "generation_errors": 3,
+      "parsed_replies_with_source_absent_spans": 5
+    },
+    "limitations": [
+      "single-attempt generation without Studio corrections or publication",
+      "source cohorts changed between different-model probes",
+      "source snapshots or candidates can change between same-article probes",
+      "exact substring support is necessary but not sufficient for correct people or results",
+      "Graph not qualified or moved into production"
+    ]
+  },
+  "discarded_graph_driver": {
+    "files": [
+      "exploration-kev-baseline.jsonl",
+      "exploration-kev-shared-graph.jsonl",
+      "exploration-d1-3B-shared-graph.jsonl"
+    ],
+    "reason": "temporary Python tokenizer omitted parse_special=true; use production Rust Graph probe instead"
+  },
+  "release": {
+    "migration": "304_classifier_article_spectrum",
+    "smoke_controls": 12,
+    "smoke_transport_errors": 0,
+    "library_tests_passed": 376,
+    "binary_tests_passed": 17,
+    "isolated_article_to_character_integration": "passed",
+    "graph_and_characters_enabled": false,
+    "fetch_cadence_changed": false
+  },
+  "cleanup": {
+    "retired_python_venv_removed_gib_approx": 5.6,
+    "checkpoint_preserved": true,
+    "database_history_preserved": true
+  }
+}

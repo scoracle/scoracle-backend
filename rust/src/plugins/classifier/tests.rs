@@ -54,8 +54,22 @@ async fn publisher_to_spectrum_to_character_is_complete_and_revision_bound() -> 
         .bind(SPORT).execute(&pool).await?;
     sqlx::query("INSERT INTO entity_name_surfaces(sport,entity_type,entity_id,norm,surface_kind) VALUES($1,'person',910416,'morgan vale','name')")
         .bind(SPORT).execute(&pool).await?;
+    sqlx::query(
+        "INSERT INTO teams(id,sport,name) VALUES(910417,$1,'Maple United') ON CONFLICT DO NOTHING",
+    )
+    .bind(SPORT)
+    .execute(&pool)
+    .await?;
+    sqlx::query(
+        "INSERT INTO players(id,sport,name) VALUES(910418,$1,'Alex Reed') ON CONFLICT DO NOTHING",
+    )
+    .bind(SPORT)
+    .execute(&pool)
+    .await?;
+    sqlx::query("INSERT INTO entity_name_surfaces(sport,entity_type,entity_id,norm,surface_kind) VALUES($1,'player',910418,'alex reed','name')")
+        .bind(SPORT).execute(&pool).await?;
     let prose = format!(
-        "Cedar FC reported an injury. Morgan Vale explained the update. {} A final correction says the player is available.",
+        "Cedar FC reported an injury to Alex Reed before playing Maple United. Morgan Vale explained the update. {} A final correction says the player is available.",
         "The publisher supplied complete evidence. ".repeat(100)
     );
     let html = format!("<!doctype html><html><head><script>tracking()</script></head><body><nav>Buy now</nav><article><p>{prose}</p></article></body></html>");
@@ -64,12 +78,14 @@ async fn publisher_to_spectrum_to_character_is_complete_and_revision_bound() -> 
     sqlx::query("INSERT INTO harvester_query_provenance(article_id,entity_type,entity_id,sport) VALUES($1,'team',910415,$2)")
         .bind(ARTICLE).bind(SPORT).execute(&pool).await?;
 
+    sqlx::query("INSERT INTO harvester_query_provenance(article_id,entity_type,entity_id,sport) VALUES($1,'team',910417,$2)")
+        .bind(ARTICLE).bind(SPORT).execute(&pool).await?;
     let listener = TcpListener::bind("127.0.0.1:0")?;
     let address = listener.local_addr()?;
     let (requests, received) = std::sync::mpsc::channel();
     let server = std::thread::spawn(move || {
         let mut request_number = 0;
-        while request_number < 3 {
+        loop {
             let (mut socket, _) = listener.accept().unwrap();
             socket
                 .set_read_timeout(Some(std::time::Duration::from_secs(10)))
@@ -85,6 +101,9 @@ async fn publisher_to_spectrum_to_character_is_complete_and_revision_bound() -> 
                 }
             };
             let headers = String::from_utf8_lossy(&bytes[..header_end]);
+            if headers.starts_with("GET /shutdown ") {
+                break;
+            }
             if headers.starts_with("GET /v1/models ") {
                 let body = serde_json::json!({"data":[{"id":format!("{}@sha256:{}",decision::MODEL_ID,"0".repeat(64))}]}).to_string();
                 write!(socket, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len()).unwrap();
@@ -136,13 +155,17 @@ async fn publisher_to_spectrum_to_character_is_complete_and_revision_bound() -> 
     let decision = decision::Decision::new(format!("http://{address}/"))?;
     let acquire = adapter::AcquireHandler::new(pool.clone(), Arc::new(WebBroker::new(0)?));
     let mut source_ids = Vec::new();
-    for revision in 0..2 {
+    for revision in 0..3 {
         if revision == 1 {
             sqlx::query("UPDATE news_articles SET full_text=$2 WHERE id=$1")
                 .bind(ARTICLE)
                 .bind(format!("{prose} Additional publisher update."))
                 .execute(&pool)
                 .await?;
+        }
+        if revision == 2 {
+            sqlx::query("UPDATE harvester_query_provenance SET feed_rank=7 WHERE article_id=$1 AND entity_id=910415")
+                .bind(ARTICLE).execute(&pool).await?;
         }
         sqlx::query("SELECT classifier_enqueue_acquisition($1,$2)")
             .bind(ARTICLE)
@@ -169,8 +192,25 @@ async fn publisher_to_spectrum_to_character_is_complete_and_revision_bound() -> 
             received.recv_timeout(std::time::Duration::from_secs(10))?;
         }
         adapter::execute_spectrum(&pool, &item, &decision).await?;
-        let request = received.recv_timeout(std::time::Duration::from_secs(10))?;
-        assert_eq!(request["questions"].as_object().unwrap().len(), 6);
+        let request = if revision == 2 {
+            assert!(
+                received.try_recv().is_err(),
+                "RSS metadata changes must reuse the exact article measurement"
+            );
+            let receipt: String = sqlx::query_scalar("SELECT receipt::text FROM classifier_spectra WHERE source_id=$1 AND target->>'entity_type'='article'")
+                .bind(item.input_version.as_deref().unwrap().parse::<i64>()?).fetch_one(&pool).await?;
+            let receipt: Value = serde_json::from_str(&receipt)?;
+            assert_eq!(receipt["cache_hit"], true);
+            receipt["request"].clone()
+        } else {
+            received.recv_timeout(std::time::Duration::from_secs(10))?
+        };
+        assert_eq!(request["questions"].as_object().unwrap().len(), 4);
+        assert_eq!(request["state"]["sport"], SPORT);
+        assert!(
+            request["state"].get("target").is_none(),
+            "article inference must not depend on a target"
+        );
         let sent = request["state"]["body"].as_str().unwrap();
         assert!(sent.contains("A final correction says the player is available."));
         assert!(!sent.contains('<') && !sent.contains("tracking()") && !sent.contains("Buy now"));
@@ -201,23 +241,58 @@ async fn publisher_to_spectrum_to_character_is_complete_and_revision_bound() -> 
             adapter::execute_spectrum(&pool, &repeat, &decision).await?;
             assert!(
                 received.try_recv().is_err(),
-                "a committed target must not call Kev again"
+                "a committed article must not call Kev again for any target"
             );
             let count: i64 =
                 sqlx::query_scalar("SELECT count(*) FROM classifier_spectra WHERE sport=$1")
                     .bind(SPORT)
                     .fetch_one(&pool)
                     .await?;
-            assert_eq!(count, 1, "retry must reuse the same spectrum");
+            assert_eq!(
+                count, 3,
+                "one article spectrum and two RSS-subject projections"
+            );
+            let player_deliveries: i64 = sqlx::query_scalar("SELECT count(*) FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id WHERE x.sport=$1 AND x.target->>'entity_type'='player'")
+                .bind(SPORT).fetch_one(&pool).await?;
+            assert_eq!(
+                player_deliveries, 0,
+                "incidental canonical mentions must not fan out character work"
+            );
         }
     }
+    let mut shutdown = std::net::TcpStream::connect(address)?;
+    shutdown.write_all(b"GET /shutdown HTTP/1.1\r\nHost: localhost\r\n\r\n")?;
     server.join().unwrap();
+    sqlx::query("UPDATE news_articles SET full_text='Transfer news. Sorry, this blog is currently unavailable. Back to Home.' WHERE id=$1")
+        .bind(ARTICLE).execute(&pool).await?;
+    sqlx::query("SELECT classifier_enqueue_acquisition($1,$2)")
+        .bind(ARTICLE)
+        .bind(SPORT)
+        .execute(&pool)
+        .await?;
+    let unavailable = work::claim(&pool, manifest::ACQUIRE_TASK, 100)
+        .await?
+        .into_iter()
+        .find(|i| i.sport == SPORT)
+        .unwrap();
+    let error = acquire.execute(&unavailable).await.unwrap_err();
+    assert!(error.to_string().contains("no available article text"));
+    // Restore the discovery bytes for the remaining publication-fence checks.
+    sqlx::query("UPDATE news_articles SET full_text=$2 WHERE id=$1")
+        .bind(ARTICLE)
+        .bind(format!("{prose} Additional publisher update."))
+        .execute(&pool)
+        .await?;
     assert_ne!(source_ids[0], source_ids[1]);
+    assert_ne!(source_ids[1], source_ids[2]);
     let count: i64 = sqlx::query_scalar("SELECT count(*) FROM classifier_spectra WHERE sport=$1")
         .bind(SPORT)
         .fetch_one(&pool)
         .await?;
-    assert_eq!(count, 2, "changed sources retain both immutable spectra");
+    assert_eq!(
+        count, 9,
+        "changed sources retain article measurements and projections"
+    );
     use sqlx::Row;
     let rows = sqlx::query(
         "SELECT receipt::text,request_hash,clean_text,model FROM classifier_spectra WHERE sport=$1",
@@ -260,7 +335,7 @@ async fn publisher_to_spectrum_to_character_is_complete_and_revision_bound() -> 
         .ends_with("Additional publisher update."));
     let pending: i64 = sqlx::query_scalar("SELECT count(*) FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id WHERE x.sport=$1 AND d.status='pending'").bind(SPORT).fetch_one(&pool).await?;
     assert_eq!(
-        pending, 4,
+        pending, 8,
         "only the newest spectrum can dispatch each character"
     );
     let invalid = sqlx::query("INSERT INTO classifier_spectra(source_id,article_id,sport,target,model,criteria_version,scrub_version,clean_text,clean_sha256,spectrum,gate,request_hash,receipt)
@@ -293,7 +368,7 @@ async fn publisher_to_spectrum_to_character_is_complete_and_revision_bound() -> 
     );
     sqlx::query("UPDATE classifier_source_heads SET source_id=$2 WHERE article_id=$1 AND sport=$3")
         .bind(ARTICLE)
-        .bind(source_ids[1].as_deref().unwrap().parse::<i64>()?)
+        .bind(source_ids[2].as_deref().unwrap().parse::<i64>()?)
         .bind(SPORT)
         .execute(&pool)
         .await?;

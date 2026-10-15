@@ -10,7 +10,7 @@ use std::{collections::BTreeMap, time::Instant};
 #[derive(Deserialize)]
 struct Case {
     id: String,
-    target: String,
+    sport: String,
     body: String,
     #[serde(default)]
     expected: BTreeMap<String, bool>,
@@ -39,7 +39,7 @@ async fn main() -> Result<()> {
         let model = model.clone();
         async move {
             let started = Instant::now();
-            let spectrum = model.spectrum(&case.body, &case.target).await;
+            let spectrum = model.spectrum(&case.body, &case.sport).await;
             (case, spectrum, started.elapsed().as_secs_f64())
         }
     }))
@@ -65,7 +65,7 @@ async fn main() -> Result<()> {
                 latencies.push(elapsed);
                 println!(
                     "{}",
-                    json!({"id":case.id,"target":case.target,"seconds":elapsed,
+                    json!({"id":case.id,"sport":case.sport,"seconds":elapsed,
                     "spectrum":spectrum,"gate":gate,"expected":case.expected,
                     "model":measurement.model,"request_hash":measurement.request_hash})
                 );

@@ -17,7 +17,8 @@ BEGIN
         '295_classifier_insider_delivery','296_classifier_scout_delivery',
         '297_classifier_journalist_product','298_classifier_article_identities',
         '299_classifier_spectra','300_classifier_spectrum_deliveries','301_classifier_spectrum_dispatch',
-        '302_classifier_source_revisions','303_classifier_spectrum_consumption'] LOOP
+        '302_classifier_source_revisions','303_classifier_spectrum_consumption',
+        '304_classifier_article_spectrum'] LOOP
         IF NOT EXISTS(SELECT 1 FROM public.schema_migrations m WHERE m.version=migration_version) THEN
             RAISE EXCEPTION 'Missing migration %; migrate before placing binaries',migration_version;
         END IF;

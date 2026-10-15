@@ -1,5 +1,7 @@
 # Native Kev calibration and capacity — October 15, 2026
 
+Historical per-target baseline, superseded by the [four-score article implementation](classifier-four-score-calibration-2026-10-15.md). Statements about the current bank below describe the earlier experiment.
+
 Plumbing committed as `3e0e1e11`. Calibration uses the native Kev GGUF on Archbox's
 GTX 1070 Ti; the retired Laya/Python/GLiNER measurements are historical experiments.
 The [machine-readable receipt](../fixtures/classifier/native-calibration-2026-10-15.json)
@@ -138,3 +140,14 @@ Longer articles, acquisition failures, retries and input changes can extend comp
 Acquisition was around 10–11 articles/minute before the benchmark and continues separately;
 it is not currently the measured limiting stage. Failed acquisition rows remain retained
 for retry and cannot be promised a successful completion date.
+
+## Updated target
+
+This is the historical per-target baseline. See the [four-score article report](classifier-four-score-calibration-2026-10-15.md) for the later implementation and measurements.
+
+The user prioritizes the most impactful narratives and requires daily Classifier work
+around 1–2 hours. The per-target baseline above does not meet that requirement. At the
+observed 384 target evaluations per 297 seconds, one evaluation per article would take
+about 1.8 hours for 8,500 articles, before acquisition and persistence. Test an article-level
+impact/topic pass before expanding targets, and compare native decision models on that
+same task. This projection is not a qualified article-level implementation or throughput result.

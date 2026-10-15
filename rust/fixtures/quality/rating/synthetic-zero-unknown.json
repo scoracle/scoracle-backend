@@ -1,7 +1,7 @@
 {
   "name": "synthetic-zero-unknown",
   "task": "rating",
-  "prompt_version": "s70-classifier-spectrum",
+  "prompt_version": "s71-article-spectrum",
   "parts": {
     "memory": {},
     "profile": {
@@ -42,6 +42,7 @@
   "temperature": 0,
   "expect": {},
   "review": [
-    "Zero turnovers is measured; assists are unknown. Low turnovers do not establish defensive performance or forcing opponent turnovers."
+    "Zero turnovers is measured; assists are unknown. Low turnovers do not establish defensive performance or forcing opponent turnovers.",
+    "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified."
   ]
 }

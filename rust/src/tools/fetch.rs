@@ -13,6 +13,13 @@ const ARTICLE_FETCH_TIMEOUT: Duration = Duration::from_secs(20);
 /// The floor under which a fetched body is not worth a model call — and the threshold that
 /// triggers the headless-Chrome fallback inside [`fetch_article`].
 pub const ARTICLE_MIN_WORDS: usize = 80;
+
+/// Publisher status text is not article evidence, even when surrounding menus clear the word floor.
+pub fn article_unavailable(text: &str) -> bool {
+    normalize_space(text)
+        .to_ascii_lowercase()
+        .contains("sorry, this blog is currently unavailable")
+}
 const ARTICLE_FETCH_USER_AGENT: &str =
     "Mozilla/5.0 (compatible; ScoracleBot/1.0; +https://scoracle.com)";
 const GOOGLE_NEWS_BATCH_URL: &str =
@@ -1236,6 +1243,16 @@ mod tests {
     /// The measured 2026-08-09 case: a real page is ~2/3 site furniture, and the old whole-page
     /// clean handed all of it to the model. Pins BOTH halves of the contract — the furniture goes,
     /// and the prose survives intact.
+    #[test]
+    fn unavailable_blog_status_is_not_article_evidence() {
+        assert!(article_unavailable(
+            "Transfer news. SORRY, this blog is\ncurrently unavailable. Back to Home."
+        ));
+        assert!(!article_unavailable(
+            "The blog was unavailable yesterday; the club announced a signing today."
+        ));
+    }
+
     #[test]
     fn extract_article_text_drops_site_furniture_and_keeps_the_prose() {
         let prose = "Barcelona were beaten by Udinese in the final minute of the Friuli Venezia \

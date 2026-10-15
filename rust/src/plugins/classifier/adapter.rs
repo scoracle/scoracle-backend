@@ -315,12 +315,13 @@ pub async fn execute_spectrum(
         return Ok(PluginOutcome::Committed);
     }
 
-    let window_texts: Vec<String> = crate::tools::source::windows(&source.body, 256)?
+    let scrubbed = crate::tools::source::scrub(&source.body);
+    let clean_sha256 = hash(&scrubbed.text);
+    // Score the scrubbed prose (furniture removed), not the raw acquisition.
+    let window_texts: Vec<String> = crate::tools::source::windows(&scrubbed.text, 1024)?
         .into_iter()
         .map(|window| window.text)
         .collect();
-    let scrubbed = crate::tools::source::scrub(&source.body);
-    let clean_sha256 = hash(&scrubbed.text);
     for target in &source.query_entities {
         let target_name = target["name"].as_str().context("target name")?.to_string();
         let gliner = gliner.clone();

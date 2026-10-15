@@ -353,6 +353,4 @@ pub(crate) async fn execute_with_backend(
     Ok(PluginOutcome::Committed)
 }
 
-#[cfg(test)]
-#[path = "delivery_tests.rs"]
-mod delivery_tests;
+

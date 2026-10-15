@@ -5,7 +5,6 @@ pub mod delivery;
 pub mod gliner;
 pub(crate) mod identity;
 pub mod manifest;
-pub mod prompt;
 use anyhow::{ensure, Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -242,7 +241,6 @@ fn check_target(source: &Source, target: &Value) -> Result<()> {
     Ok(())
 }
 
-pub use prompt::{request, VERSION as PROMPT_VERSION};
 
 fn bind(body: &str, quote: Quote) -> Result<Span> {
     ensure!(!quote.quote.trim().is_empty(), "empty source quote");

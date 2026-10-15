@@ -104,19 +104,12 @@ pub fn build(
         ));
     }
     if enabled.contains("classifier") {
-        // Native candle model when deployed; otherwise the legacy generative path stays available.
-        let gliner = match std::env::var("CLASSIFIER_MODEL_DIR") {
-            Ok(dir) => Some(Arc::new(
-                crate::plugins::classifier::gliner::Gliner::load(&dir)?,
-            )),
-            Err(_) => None,
-        };
+        // The native model is required; CLASSIFIER_MODEL_DIR points at the GLiNER artifact.
+        let dir = std::env::var("CLASSIFIER_MODEL_DIR")
+            .map_err(|_| anyhow::anyhow!("CLASSIFIER_MODEL_DIR is required to enable the classifier stage"))?;
+        let gliner = Arc::new(crate::plugins::classifier::gliner::Gliner::load(&dir)?);
         handlers.push(Arc::new(
-            crate::plugins::classifier::adapter::ClassifierHandler::new(
-                pool.clone(),
-                models.capabilities(&crate::plugins::classifier::manifest::MANIFEST)?,
-                gliner,
-            ),
+            crate::plugins::classifier::adapter::ClassifierHandler::new(pool.clone(), gliner),
         ));
     }
 

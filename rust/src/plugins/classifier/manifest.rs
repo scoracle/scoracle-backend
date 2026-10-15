@@ -1,4 +1,4 @@
-//! Classifier registration; acquisition and inference remain separately runnable.
+//! Classifier registration; acquisition and native classification run independently.
 use crate::harness::plugin::{PluginId, PluginManifest, ResourceProfile, ToolGrant};
 use crate::harness::queue::work::{ClaimPolicy, TaskKey};
 use crate::harness::tools::DomainClass;
@@ -9,9 +9,9 @@ pub const MANIFEST: PluginManifest = PluginManifest {
     id: PluginId::new("scoracle.internal.classifier"),
     task: TASK,
     claim_policy: ClaimPolicy::RANKED_ARTICLES,
-    inference_routes: &[super::prompt::MODEL],
+    inference_routes: &[],
     resources: ResourceProfile::unbounded_batch(1),
-    tools: &[ToolGrant::Inference],
+    tools: &[],
 };
 pub const ACQUIRE_MANIFEST: PluginManifest = PluginManifest {
     id: PluginId::new("scoracle.internal.classifier.source"),

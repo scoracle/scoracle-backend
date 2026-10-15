@@ -318,6 +318,3 @@ pub(super) async fn commit_claimed(
 #[path = "publish_tests.rs"]
 mod tests;
 
-#[cfg(test)]
-#[path = "../classifier/delivery_tests.rs"]
-mod classifier_delivery_tests;

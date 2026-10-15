@@ -154,17 +154,6 @@ impl StudioPlugin for TransferHandler {
     }
 }
 
-#[cfg(test)]
-pub(crate) async fn execute_with_backend(
-    pool: &PgPool,
-    backend: &dyn Inference,
-    num_ctx: i32,
-    item: &Item,
-) -> Result<PluginOutcome> {
-    let material = prompt::load_material(pool, item).await?;
-    execute_prepared(pool, backend, num_ctx, item, material).await
-}
-
 async fn execute_prepared(
     pool: &PgPool,
     backend: &dyn Inference,
@@ -319,5 +308,3 @@ mod tests {
     }
 }
 
-#[cfg(test)]
-mod delivery_tests;

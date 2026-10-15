@@ -62,12 +62,11 @@ impl Config {
         // These fields are also the per-role route defaults.
         let ollama_base_url = env_or("OLLAMA_BASE_URL", "http://localhost:11434");
         let ollama_model = env_or("OLLAMA_MODEL", DEFAULT_OLLAMA_MODEL);
-        let mut route = RouteConfig::from_env(
+        let route = RouteConfig::from_env(
             &ollama_model,
             &ollama_base_url,
             &crate::harness::fleet::inference_routes(),
         );
-        crate::plugins::classifier::prompt::configure(&mut route, &ollama_base_url);
 
         // ≥1: a 0-permit semaphore would block every model call forever.
         let ollama_max_concurrent = env_num("OLLAMA_MAX_CONCURRENT", 1)?.max(1);

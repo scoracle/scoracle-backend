@@ -33,13 +33,6 @@ fn source_qualification_and_world_contract() {
     let mut packets = BTreeMap::new();
     for (source, record) in controls() {
         validate(&source, &record).unwrap();
-        let prepared = request(&source, &record.target).unwrap();
-        assert_eq!(prepared["input"]["body"], source.body);
-        assert_eq!(
-            prepared["source_identity"]["body_sha256"],
-            record.body_sha256
-        );
-        assert!(!prepared.to_string().contains("review_focus"));
         // Turn retained fictional annotations into model-shaped replies to test the native
         // boundary. This is a contract check, not an extraction accuracy measurement.
         let mut reply = serde_json::to_value(&record).unwrap();

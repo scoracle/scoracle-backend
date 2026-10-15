@@ -174,6 +174,10 @@ impl Gliner {
     /// Load the tokenizer, encoder config and weights from `dir` (fastino/gliner2.5-base layout:
     /// `encoder_config/config.json`, `tokenizer.json`, `model.safetensors`).
     pub fn load(dir: &str) -> Result<Self> {
+        // Metal on macOS; CPU elsewhere or if Metal is unavailable.
+        #[cfg(target_os = "macos")]
+        let device = Device::new_metal(0).unwrap_or(Device::Cpu);
+        #[cfg(not(target_os = "macos"))]
         let device = Device::Cpu;
         let tokenizer = Tokenizer::from_file(format!("{dir}/tokenizer.json")).map_err(|e| anyhow::anyhow!("tokenizer: {e}"))?;
         let mut config_value: Value = serde_json::from_str(&std::fs::read_to_string(format!("{dir}/encoder_config/config.json")).context("encoder config")?)?;

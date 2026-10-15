@@ -1,59 +1,14 @@
 //! Native character obligations and source-bound reads. No score thresholds.
-use super::{adapter::load_measurement_on, Source};
+use super::Source;
 use crate::tools::source::SourceContext;
 use anyhow::{ensure, Context, Result};
 use serde_json::{json, Value};
 use sqlx::{PgConnection, PgPool, Postgres, Row, Transaction};
 
-pub const POLICY_VERSION: &str = "journalist-classifier-v1";
-pub const INFLUENCER_POLICY_VERSION: &str = "influencer-classifier-v1";
 const INFLUENCER: &str = crate::plugins::influencer::manifest::MANIFEST.id.as_str();
-pub const INSIDER_POLICY_VERSION: &str = "insider-classifier-v1";
-pub const SCOUT_POLICY_VERSION: &str = "scout-classifier-v1";
 const SCOUT: &str = crate::plugins::scout::manifest::MANIFEST.id.as_str();
 const INSIDER: &str = crate::plugins::insider::manifest::MANIFEST.id.as_str();
 const JOURNALIST: &str = crate::plugins::journalist::manifest::MANIFEST.id.as_str();
-
-/// Retain an unresolved obligation until a separately evaluated policy releases it.
-/// Replays cannot reopen completed work or revive an older measurement.
-pub(crate) async fn record(tx: &mut Transaction<'_, Postgres>, id: i64) -> Result<()> {
-    let (source, record, _) = load_measurement_on(tx, id).await?;
-    let reason = if record
-        .claims
-        .iter()
-        .any(|c| c.target_relation == "direct_subject")
-    {
-        "calibration_unassessed"
-    } else {
-        "target_selection_unresolved"
-    };
-    for (plugin, policy) in [
-        (JOURNALIST, POLICY_VERSION),
-        (INFLUENCER, INFLUENCER_POLICY_VERSION),
-        (INSIDER, INSIDER_POLICY_VERSION),
-        (SCOUT, SCOUT_POLICY_VERSION),
-    ] {
-        if record.target["entity_type"] == "person" && plugin != INSIDER {
-            continue;
-        }
-        sqlx::query("UPDATE classifier_deliveries d SET status='superseded',reason='newer_measurement',updated_at=now()
-        FROM classifier_measurements old,classifier_measurements current
-        WHERE current.id=$1 AND old.id=d.measurement_id AND old.id<current.id
-        AND d.plugin_id=$2 AND d.status IN ('held','pending')
-        AND old.article_id=current.article_id AND old.sport=current.sport
-        AND (old.receipt->'target'->>'entity_type',old.receipt->'target'->>'entity_id')=(current.receipt->'target'->>'entity_type',current.receipt->'target'->>'entity_id')")
-        .bind(id).bind(plugin).execute(&mut **tx).await?;
-        sqlx::query("INSERT INTO classifier_deliveries(measurement_id,plugin_id,policy_version,reason)
-        SELECT $1,$2,$3,$4 WHERE NOT EXISTS (
-            SELECT 1 FROM classifier_deliveries d JOIN classifier_measurements newer ON newer.id=d.measurement_id
-            WHERE d.plugin_id=$2 AND newer.id>$1 AND newer.article_id=$5 AND newer.sport=$6
-            AND (newer.receipt->'target'->>'entity_type',newer.receipt->'target'->>'entity_id')=($7::jsonb->>'entity_type',$7::jsonb->>'entity_id')) ON CONFLICT DO NOTHING")
-        .bind(id).bind(plugin).bind(policy).bind(reason).bind(source.article_id)
-        .bind(record.target["sport"].as_str().context("delivery sport")?)
-        .bind(record.target.to_string()).execute(&mut **tx).await?;
-    }
-    Ok(())
-}
 
 pub async fn load_for_character(
     pool: &PgPool,

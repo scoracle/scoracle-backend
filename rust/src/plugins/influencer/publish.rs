@@ -23,7 +23,7 @@ pub(crate) async fn record_vibe_completed(
     .await
     .context("record vibe completion outbox")
 }
-pub const VIBE_OUTPUT_CONTRACT_VERSION: &str = "vibe-reader-card-v4-scored-period";
+pub const VIBE_OUTPUT_CONTRACT_VERSION: &str = "vibe-reader-card-v5-bounded-period";
 const VIBE_LEDGER: LedgerSpec = LedgerSpec {
     plugin_id: crate::plugins::influencer::manifest::MANIFEST.id.as_str(),
     stage: "vibe",

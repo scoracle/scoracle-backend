@@ -191,3 +191,14 @@ async fn an_incomplete_period_never_calls_the_model() {
     assert_eq!(model.calls.load(Ordering::Relaxed), 0);
     assert_eq!(receipt["reason"], "incomplete_reporting_period");
 }
+
+#[test]
+fn output_prose_cannot_exceed_the_native_budget_contract() {
+    let oversized =
+        json!({"score":75,"headline":"Hope","body":"x".repeat(prompt::BODY_MAX_CHARS+1)});
+    assert!(VibeParser.parse(&oversized.to_string()).is_err());
+    assert_eq!(
+        prompt::schema()["oneOf"][0]["properties"]["body"]["maxLength"],
+        prompt::BODY_MAX_CHARS
+    );
+}

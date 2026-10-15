@@ -44,6 +44,10 @@ impl Parser<VibeReply> for VibeParser {
         validate_hook(Some(&headline))?;
         let body = normalize_body(&crate::util::strip_markdown_emphasis(body));
         validate_body(&body)?;
+        ensure!(
+            body.chars().count() <= super::prompt::BODY_MAX_CHARS,
+            "Influencer body exceeds the reading budget"
+        );
         Ok(Some(VibeReply {
             score,
             headline,

@@ -1,7 +1,7 @@
 //! scoracle-cognition — the Rust Cognition Harness service binary.
 //!
-//! A durable `pipeline_work` queue consumer plus an Ollama client, wired to a
-//! LISTEN/NOTIFY drain loop. On boot it connects, verifies Ollama, recovers stale
+//! A durable `pipeline_work` queue consumer plus a llama.cpp client, wired to a
+//! LISTEN/NOTIFY drain loop. On boot it connects, verifies the model hosts, recovers stale
 //! leases, and drains each REGISTERED stage to empty; with no handlers it idles.
 //!
 //! Plugins register from `COGNITION_STAGES` (default: every registered fleet task).
@@ -11,7 +11,6 @@ use scoracle_cognition::harness::buildinfo;
 use scoracle_cognition::harness::config;
 use scoracle_cognition::harness::db;
 use scoracle_cognition::harness::models::Models;
-use scoracle_cognition::harness::providers::ollama;
 use scoracle_cognition::harness::providers::openai;
 use scoracle_cognition::harness::queue::worker;
 use scoracle_cognition::harness::registration;
@@ -39,7 +38,7 @@ async fn main() -> Result<()> {
     cfg.route.roles.retain(|key, _| routes.contains(key));
     cfg.route.candidates.retain(|key, _| routes.contains(key));
     info!(
-        model = %cfg.ollama_model,
+        model = %cfg.model_name,
         commit = buildinfo::COMMIT,
         built = buildinfo::BUILD_TIME,
         "scoracle-cognition starting",
@@ -53,7 +52,7 @@ async fn main() -> Result<()> {
     // failure by far is that machine being asleep — which should be one obvious WARN at boot
     // rather than a slow trickle of failed items an hour later. Still non-fatal: a host that
     // comes back mid-run heals on the next claim.
-    // Ping each host with ITS backend's protocol: an oMLX host 404s an ollama-style ping and
+    // Ping each host with ITS backend's protocol: an oMLX host 404s a llama.cpp-style ping and
     // the boot line then cries wolf about a healthy server (observed at the D-T47 cutover).
     let mut hosts: Vec<(&str, config::Backend)> = cfg
         .route
@@ -71,28 +70,22 @@ async fn main() -> Result<()> {
             .backend_concurrency
             .get(*host)
             .copied()
-            .unwrap_or(cfg.ollama_max_concurrent);
+            .unwrap_or(cfg.model_max_concurrent);
         let (kind, pinged) = match backend {
             config::Backend::LlamaCpp => (
                 "llamacpp",
                 scoracle_cognition::harness::providers::llama::LlamaClient::new(
                     *host,
-                    &cfg.ollama_model,
-                    cfg.ollama_timeout,
+                    &cfg.model_name,
+                    cfg.model_timeout,
                     Some(false),
                 )?
                 .ping()
                 .await,
             ),
-            config::Backend::Ollama => (
-                "ollama",
-                ollama::OllamaClient::new(*host, &cfg.ollama_model, cfg.ollama_timeout)?
-                    .ping()
-                    .await,
-            ),
             config::Backend::OpenAi => (
                 "openai",
-                openai::OpenAiClient::new(*host, &cfg.ollama_model, cfg.ollama_timeout)?
+                openai::OpenAiClient::new(*host, &cfg.model_name, cfg.model_timeout)?
                     .ping()
                     .await,
             ),
@@ -121,7 +114,7 @@ async fn main() -> Result<()> {
 
     // Shared database, routing, budget, and context-window capabilities.
     let models = std::sync::Arc::new(Models {
-        router: Router::from_config(&cfg.route, cfg.ollama_timeout, cfg.ollama_max_concurrent)?,
+        router: Router::from_config(&cfg.route, cfg.model_timeout, cfg.model_max_concurrent)?,
         voice_num_ctx: cfg.voice_num_ctx,
     });
 

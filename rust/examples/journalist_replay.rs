@@ -1,12 +1,12 @@
 //! Read-only Journalist preparation/articulation replay; no publication.
 //! Preparation is offline. Articulation also requires JOURNALIST_REPLAY_DATABASE_URL
 //! for the pure SQL source-activity query (no tables or product writes).
-//! cargo run --example journalist_replay -- INPUT.jsonl OUTPUT.jsonl [OLLAMA_URL [auto|true|false|compare [schema|unconstrained [MODEL]]]]
+//! cargo run --example journalist_replay -- INPUT.jsonl OUTPUT.jsonl [MODEL_URL [auto|true|false|compare [schema|unconstrained [MODEL]]]]
 use anyhow::{Context, Result};
 use scoracle_cognition::harness::model::{
     GenerateOptions, GenerateResult, Inference, ResponseFailure,
 };
-use scoracle_cognition::harness::providers::ollama::OllamaClient;
+use scoracle_cognition::harness::providers::llama::LlamaClient;
 use scoracle_cognition::harness::Studio;
 use scoracle_cognition::plugins::journalist::{self, prompt};
 use scoracle_cognition::tools::meta::EntityMeta;
@@ -19,7 +19,7 @@ use std::time::{Duration, Instant};
 // Observe the production provider without changing its request, output or parser.
 // Keep final content and reasoning measurements; do not put reasoning into prose.
 struct RecordedModel {
-    inner: OllamaClient,
+    inner: LlamaClient,
     unconstrained: bool,
     calls: Mutex<Vec<serde_json::Value>>,
 }
@@ -104,7 +104,7 @@ async fn main() -> Result<()> {
     let args = std::env::args().collect::<Vec<_>>();
     anyhow::ensure!(
         (3..=7).contains(&args.len()),
-        "usage: journalist_replay INPUT.jsonl OUTPUT.jsonl [OLLAMA_URL [auto|true|false|compare [schema|unconstrained [MODEL]]]]"
+        "usage: journalist_replay INPUT.jsonl OUTPUT.jsonl [MODEL_URL [auto|true|false|compare [schema|unconstrained [MODEL]]]]"
     );
     let mut output = std::fs::OpenOptions::new()
         .create_new(true)
@@ -133,7 +133,7 @@ async fn main() -> Result<()> {
                 .iter()
                 .map(|&think| {
                     Ok(RecordedModel {
-                        inner: OllamaClient::with_think(
+                        inner: LlamaClient::new(
                             url,
                             model,
                             Duration::from_secs(120),

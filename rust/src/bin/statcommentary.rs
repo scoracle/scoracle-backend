@@ -8,7 +8,7 @@ use anyhow::{anyhow, Context, Result};
 use scoracle_cognition::harness::config::Config;
 use scoracle_cognition::harness::db;
 use scoracle_cognition::harness::models::Models;
-use scoracle_cognition::harness::providers::ollama::OllamaClient;
+use scoracle_cognition::harness::providers::llama::LlamaClient;
 use scoracle_cognition::harness::queue::work;
 use scoracle_cognition::harness::route::Router;
 use scoracle_cognition::plugins::scout::prompt::{
@@ -58,17 +58,20 @@ async fn main() -> Result<()> {
     let cfg = Config::from_env()?;
 
     if args.mode == "backfill" {
-        let ollama =
-            OllamaClient::new(&cfg.ollama_base_url, &cfg.ollama_model, cfg.ollama_timeout)?;
-        ollama
-            .ping()
-            .await
-            .context("ollama must be reachable for statcommentary backfill")?;
+        LlamaClient::new(
+            &cfg.model_base_url,
+            &cfg.model_name,
+            cfg.model_timeout,
+            None,
+        )?
+        .ping()
+        .await
+        .context("llama.cpp must be reachable for statcommentary backfill")?;
     }
 
     let pool = db::build_pool(&cfg.database_url, cfg.db_max_conns).await?;
     let models = Models {
-        router: Router::from_config(&cfg.route, cfg.ollama_timeout, cfg.ollama_max_concurrent)?,
+        router: Router::from_config(&cfg.route, cfg.model_timeout, cfg.model_max_concurrent)?,
         // The same resolved window the service runs (4096 packet envelope unless VOICE_NUM_CTX
         // pins it) — a backfill asking for the legacy 16384 would evict the pinned production
         // runner on every alternation with the drain.

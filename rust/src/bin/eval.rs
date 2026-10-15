@@ -41,7 +41,7 @@ struct EvalCase {
     label: Option<f64>,
 }
 
-/// CaseResult is one backend's scored answer for one case: the task's verdict plus Ollama's perf
+/// CaseResult is one backend's scored answer for one case: the task's verdict plus the model's perf
 /// metrics for the call.
 #[derive(Clone, Debug)]
 struct CaseResult {
@@ -137,10 +137,11 @@ async fn main() -> Result<()> {
             scoracle_cognition::evaluation::judge::JUDGE_PROMPT_VERSION
         );
         Some(Arc::new(
-            scoracle_cognition::harness::providers::ollama::OllamaClient::new(
-                &cfg.ollama_base_url,
+            scoracle_cognition::harness::providers::llama::LlamaClient::new(
+                &cfg.model_base_url,
                 &judge_model,
-                cfg.ollama_timeout,
+                cfg.model_timeout,
+                None,
             )?,
         ))
     } else {
@@ -264,7 +265,7 @@ fn parse_args(argv: impl Iterator<Item = String>) -> Result<Args> {
 // ---------------------------------------------------------------------------
 
 async fn run_live(cfg: &Config, task: &dyn LensTask, cases: &[EvalCase]) -> Result<()> {
-    // No cases → just show what the config resolves to (zero-DB, zero-Ollama) + how to run.
+    // No cases → just show what the config resolves to (zero-DB, zero-model) + how to run.
     if cases.is_empty() {
         print_route_table(&cfg.route);
         println!(
@@ -339,7 +340,7 @@ async fn run_live(cfg: &Config, task: &dyn LensTask, cases: &[EvalCase]) -> Resu
         n: cases.len(),
     });
 
-    println!("\n=== throughput (Ollama eval tokens / generation time) ===");
+    println!("\n=== throughput (eval tokens / generation time) ===");
     print_throughput(incumbent.model(), &inc_results);
     if let (Some(c), Some(cr)) = (candidate.as_ref(), cand_results.as_ref()) {
         print_throughput(c.model(), cr);
@@ -380,7 +381,7 @@ async fn score_backend(
         {
             Ok((g, _request_body)) => g,
             Err(e) => {
-                // Under GPU contention a call can time out in Ollama's queue; skip it rather than
+                // Under GPU contention a call can time out in the server's queue; skip it rather than
                 // abort the whole batch (a partial A/B is still useful).
                 println!(
                     "  ! {} : generate failed ({e:#}) — skipped",
@@ -438,7 +439,7 @@ async fn run_fixtures(
     replay: Option<&Path>,
 ) -> Result<()> {
     // Router-only: fixtures require no database or application dependencies.
-    let router = Router::from_config(&cfg.route, cfg.ollama_timeout, 1)?;
+    let router = Router::from_config(&cfg.route, cfg.model_timeout, 1)?;
     let incumbent = router.for_route(task.role());
     let candidate = router.candidate_for(task.role());
 
@@ -979,7 +980,7 @@ fn fixture_raw_excerpt(raw: &str) -> String {
 /// Single-flight, so the GPU governor is moot; pin 1.
 async fn build_dependencies(cfg: &Config) -> Result<(sqlx::PgPool, Models)> {
     let pool = db::build_pool(&cfg.database_url, cfg.db_max_conns).await?;
-    let router = Router::from_config(&cfg.route, cfg.ollama_timeout, 1)?;
+    let router = Router::from_config(&cfg.route, cfg.model_timeout, 1)?;
     Ok((
         pool,
         Models {

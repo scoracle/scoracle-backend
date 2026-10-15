@@ -48,7 +48,7 @@ impl Inference for Recording<'_> {
 }
 
 pub async fn run(cfg: &Config, path: &Path) -> Result<()> {
-    let router = Router::from_config(&cfg.route, cfg.ollama_timeout, 1)?;
+    let router = Router::from_config(&cfg.route, cfg.model_timeout, 1)?;
     let backend = router.for_route(scoracle_cognition::plugins::scout::manifest::ROUTE);
     for line in std::fs::read_to_string(path)?
         .lines()

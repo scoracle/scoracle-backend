@@ -503,10 +503,11 @@ fn serialized_request_has_evidence_and_form_but_no_editorial_outline() {
         None,
         &RatingExclusions::default(),
     );
-    let client = crate::harness::providers::ollama::OllamaClient::new(
+    let client = crate::harness::providers::llama::LlamaClient::new(
         "http://localhost:11434",
         "offline-test",
         std::time::Duration::from_secs(1),
+        None,
     )
     .unwrap();
     let request = client.request_body(

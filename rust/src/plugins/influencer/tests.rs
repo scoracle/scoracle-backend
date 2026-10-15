@@ -144,7 +144,7 @@ async fn period_card_contract() {
         serde_json::from_value(receipt["input_components"].clone()).unwrap(),
     )
     .unwrap();
-    let backend = crate::harness::providers::ollama::OllamaClient::with_think(
+    let backend = crate::harness::providers::llama::LlamaClient::new(
         "http://localhost:11434",
         receipt["model_version"].as_str().unwrap(),
         Duration::from_secs(1),

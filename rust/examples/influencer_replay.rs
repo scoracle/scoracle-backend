@@ -1,9 +1,9 @@
 //! Read-only current-corpus Influencer replay, with exact inputs and model receipts.
 //! INFLUENCER_REPLAY_DATABASE_URL and SCORACLE_MEMORY_STUDY_BIN are required.
-//! cargo run --example influencer_replay -- CASES.json OUTPUT.jsonl [OLLAMA_URL MODEL]
-//! Recorded evidence needs no database: --recorded INPUT.jsonl OUTPUT.jsonl OLLAMA_URL MODEL
+//! cargo run --example influencer_replay -- CASES.json OUTPUT.jsonl [MODEL_URL MODEL]
+//! Recorded evidence needs no database: --recorded INPUT.jsonl OUTPUT.jsonl MODEL_URL MODEL
 use anyhow::{ensure, Context, Result};
-use scoracle_cognition::harness::providers::ollama::OllamaClient;
+use scoracle_cognition::harness::providers::llama::LlamaClient;
 use scoracle_cognition::plugins::{harvester::delivery, influencer};
 use scoracle_cognition::tools::meta::{lookup_entity_name, EntityMeta};
 use serde::Deserialize;
@@ -25,13 +25,13 @@ async fn main() -> Result<()> {
     if args.get(1).is_some_and(|arg| arg == "--recorded") {
         ensure!(
             args.len() == 6,
-            "usage: --recorded INPUT.jsonl OUTPUT.jsonl OLLAMA_URL MODEL"
+            "usage: --recorded INPUT.jsonl OUTPUT.jsonl MODEL_URL MODEL"
         );
         return replay_recorded(&args[2], &args[3], &args[4], &args[5]).await;
     }
     ensure!(
         args.len() == 3 || args.len() == 5,
-        "usage: influencer_replay CASES.json OUTPUT.jsonl [OLLAMA_URL MODEL]"
+        "usage: influencer_replay CASES.json OUTPUT.jsonl [MODEL_URL MODEL]"
     );
     let cases: Vec<Case> = serde_json::from_str(&std::fs::read_to_string(&args[1])?)?;
     let connect: sqlx::postgres::PgConnectOptions = std::env::var("INFLUENCER_REPLAY_DATABASE_URL")
@@ -52,7 +52,7 @@ async fn main() -> Result<()> {
         "replay requires read-only database transactions"
     );
     let model = if args.len() == 5 {
-        Some(OllamaClient::with_think(
+        Some(LlamaClient::new(
             &args[3],
             &args[4],
             Duration::from_secs(120),
@@ -124,7 +124,7 @@ async fn main() -> Result<()> {
 
 /// Hold retained evidence constant while exercising the current production creation path.
 async fn replay_recorded(input: &str, output: &str, url: &str, model: &str) -> Result<()> {
-    let model = OllamaClient::with_think(url, model, Duration::from_secs(120), Some(false))?;
+    let model = LlamaClient::new(url, model, Duration::from_secs(120), Some(false))?;
     let mut output = std::fs::OpenOptions::new()
         .create_new(true)
         .write(true)

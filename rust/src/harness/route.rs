@@ -123,7 +123,7 @@ impl Router {
         // One governor per distinct host, created on first sight of that host.
         let mut governors: HashMap<String, Arc<Semaphore>> = HashMap::new();
         // Cache keyed by the spec's identity, so two roles naming the same model get the same
-        // backend Arc rather than two clients hammering one Ollama.
+        // backend Arc rather than two clients hammering one llama.cpp server.
         let mut built: HashMap<String, Arc<dyn Inference>> = HashMap::new();
         let mut incumbents = HashMap::with_capacity(cfg.roles.len());
         for (role, spec) in &cfg.roles {
@@ -243,14 +243,14 @@ mod tests {
 
     fn spec(model: &str) -> ModelSpec {
         ModelSpec {
-            backend: Backend::Ollama,
+            backend: Backend::LlamaCpp,
             model: model.to_string(),
             base_url: "http://localhost:11434".to_string(),
             think: None,
         }
     }
 
-    // OllamaClient::new only builds a reqwest client (no network), so from_config is testable
+    // LlamaClient::new only builds a reqwest client (no network), so from_config is testable
     // offline; these lock the L2 invariants without an env var (which would race other tests).
 
     #[test]
@@ -479,7 +479,7 @@ mod tests {
 
     fn spec_on(model: &str, base_url: &str) -> ModelSpec {
         ModelSpec {
-            backend: Backend::Ollama,
+            backend: Backend::LlamaCpp,
             model: model.to_string(),
             base_url: base_url.to_string(),
             think: None,

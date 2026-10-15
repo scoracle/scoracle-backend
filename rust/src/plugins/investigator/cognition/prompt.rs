@@ -40,7 +40,7 @@ Example, for sought name "Airious Bailey" on a page opening "Airious \"Ace\" Bai
 Return strict JSON only; the keys, their order and the allowed values are enforced for you."#;
 
 /// Field order is part of the contract: a raw literal is posted byte-for-byte,
-/// because a schema that travels as a `serde_json::Value` reaches Ollama alphabetized.
+/// because a schema that travels as a `serde_json::Value` reaches the server alphabetized.
 /// `subject_kind` first — the cheap triage — then pure extraction. Enums and bounds here
 /// do not consume context tokens.
 pub const INVESTIGATOR_PROSE_SCHEMA_RAW: &str = r#"{
@@ -200,7 +200,7 @@ mod tests {
     fn schema_is_valid_json_and_order_true_in_the_raw_literal() {
         let v: serde_json::Value = serde_json::from_str(INVESTIGATOR_PROSE_SCHEMA_RAW).unwrap();
         assert_eq!(v["required"].as_array().unwrap().len(), 4);
-        // The raw literal is what Ollama receives; assert the byte order directly.
+        // The raw literal is what the server receives; assert the byte order directly.
         let k = |s: &str| INVESTIGATOR_PROSE_SCHEMA_RAW.find(s).unwrap();
         assert!(k("subject_kind") < k("sought_name_evidence"));
         assert!(k("sought_name_evidence") < k("occupation_phrase"));

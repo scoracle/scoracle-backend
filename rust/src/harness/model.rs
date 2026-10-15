@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
 /// Context window used by local model stages. Roles sharing one loaded runner must use the same
-/// size or Ollama reloads it between calls.
+/// size or the server reloads it between calls.
 pub const LOCAL_STAGE_NUM_CTX: i32 = 4096;
 
 /// Context window shared by every character voice: prompt, evidence, and output reservation.
@@ -18,9 +18,9 @@ pub fn small_voice_window(num_ctx: i32) -> bool {
     num_ctx <= VOICE_NUM_CTX_PACKET
 }
 
-/// GenerateOptions tunes a single call. Defaults mean "let Ollama default."
+/// GenerateOptions tunes a single call. Defaults mean "let the server default."
 ///
-/// `temperature` is an `Option` on purpose: `None` omits the field (Ollama uses
+/// `temperature` is an `Option` on purpose: `None` omits the field (the server uses
 /// its own default, ~0.8, NON-deterministic) and `Some(t)` sends exactly `t` —
 /// INCLUDING `Some(0.0)`. `num_predict` is still omitted when `<= 0`.
 ///
@@ -35,15 +35,15 @@ pub struct GenerateOptions {
     pub num_predict: i32,
     pub num_ctx: i32,
     pub json_mode: bool, // sets format="json"
-    /// A JSON schema for Ollama's constrained decoding (`format: <schema>`), supported since
-    /// Ollama 0.5. Takes precedence over `json_mode`. This is a GRAMMAR guarantee on output
+    /// A JSON schema for constrained decoding (`format: <schema>`). Takes precedence over
+    /// `json_mode`. This is a GRAMMAR guarantee on output
     /// shape — required keys cannot be omitted, no prose can leak around the object — versus
     /// `json_mode`'s "some valid JSON" and free-text's "hopefully JSON" (the narratives
     /// balanced-brace salvager exists because of the latter).
     pub format_schema: Option<serde_json::Value>,
     /// The same schema as VERBATIM JSON text, for stages whose contract pins the PROPERTY ORDER
     /// (PLAN-one-rail §1a: order IS the contract). `serde_json::Value` is BTreeMap-backed, so a
-    /// schema that travels as a `Value` reaches Ollama with its properties ALPHABETIZED — the
+    /// schema that travels as a `Value` reaches the server with its properties ALPHABETIZED — the
     /// grammar then forces emission in that accidental order, whatever the documented contract
     /// says. When set, this string is POSTed byte-for-byte as `format` (taking precedence over
     /// `format_schema`); callers should set `format_schema` too, since ledger/eval capture
@@ -128,7 +128,7 @@ impl PreparedRequest {
     }
 }
 
-/// Inference — the model-call backend, the genuine swap point. `OllamaClient` is the first
+/// Inference — the model-call backend, the genuine swap point. `LlamaClient` is the first
 /// impl; a `dyn Inference` is what a plugin-owned route resolves to. `generate` returns the exact
 /// wire body it POSTed; `request_body` remains for no-call deterministic builders.
 #[async_trait]
@@ -191,6 +191,18 @@ pub fn is_incomplete_output(error: &anyhow::Error) -> bool {
     error.chain().any(|cause| cause.is::<IncompleteOutput>())
 }
 
+/// A syntactically parseable prefix is not a completed answer. Check the provider's
+/// termination signal before any parser can turn it into a product.
+pub(crate) fn validate_completion(reason: Option<&str>, done: Option<bool>) -> Result<()> {
+    if done == Some(false) || reason.is_some_and(|r| !matches!(r, "stop" | "eos")) {
+        return Err(IncompleteOutput(format!(
+            "incomplete model output (finish reason: {reason:?}, done: {done:?})"
+        ))
+        .into());
+    }
+    Ok(())
+}
+
 /// Failed provider decoding retains the response for generation-attempt receipts.
 #[derive(Debug)]
 pub struct ResponseFailure {
@@ -205,5 +217,27 @@ impl std::fmt::Display for ResponseFailure {
 impl std::error::Error for ResponseFailure {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         Some(self.error.as_ref())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn incomplete_answers_never_reach_product_parsers() {
+        for reason in ["length", "max_tokens", "content_filter", "tool_calls"] {
+            assert!(validate_completion(Some(reason), Some(true)).is_err());
+        }
+        assert!(validate_completion(Some("stop"), Some(false)).is_err());
+        assert!(validate_completion(Some("stop"), Some(true)).is_ok());
+        let wrapped = anyhow::Error::new(ResponseFailure {
+            raw_response_body: "raw incomplete reply".into(),
+            error: IncompleteOutput("length".into()).into(),
+        });
+        assert!(is_incomplete_output(&wrapped));
+        assert!(crate::harness::session::structured_correction(&wrapped).is_some());
+        // Older compatible servers may omit the optional signal.
+        assert!(validate_completion(None, None).is_ok());
     }
 }

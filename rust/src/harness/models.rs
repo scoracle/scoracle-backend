@@ -71,7 +71,7 @@ mod tests {
                 (
                     route,
                     ModelSpec {
-                        backend: Backend::Ollama,
+                        backend: Backend::LlamaCpp,
                         model: "test-model".to_string(),
                         base_url: "http://127.0.0.1:1".to_string(),
                         think: None,

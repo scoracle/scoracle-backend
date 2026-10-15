@@ -9,25 +9,25 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use std::time::Duration;
 
-pub const DEFAULT_OLLAMA_MODEL: &str = "alibayram/smollm3";
+pub const DEFAULT_MODEL: &str = "alibayram/smollm3";
 
 #[derive(Clone, Debug)]
 pub struct Config {
     pub database_url: String,
     pub db_max_conns: u32,
-    pub ollama_base_url: String,
-    pub ollama_model: String,
-    pub ollama_timeout: Duration,
+    pub model_base_url: String,
+    pub model_name: String,
+    pub model_timeout: Duration,
     /// Fallback governor budget for a host absent from `COGNITION_BACKEND_CONCURRENCY`.
     /// Defaults to one and is clamped to at least one.
-    pub ollama_max_concurrent: usize,
+    pub model_max_concurrent: usize,
     /// Periodic drain even without a NOTIFY (Go worker default: 30s).
     pub safety_net: Duration,
     /// A `running` row idle longer than this is recovered to `pending`. It must exceed any
     /// single item's processing budget so a slow-but-alive worker is not stolen.
     pub stale_lease: Duration,
-    /// Route-to-model map. Every plugin-contributed route defaults to `ollama_model` on
-    /// `ollama_base_url`; `COGNITION_ROUTE_*` overrides individual routes.
+    /// Route-to-model map. Every plugin-contributed route defaults to `model_name` on
+    /// `model_base_url`; `COGNITION_ROUTE_*` overrides individual routes.
     pub route: RouteConfig,
     /// Per-item ceiling on one stage handler run. A wedged await inside a handler (model
     /// call, DB acquire) fails the item after this long instead of stalling the drain. Zero
@@ -60,16 +60,16 @@ impl Config {
             .ok_or_else(|| anyhow!("DATABASE_PRIVATE_URL or DATABASE_URL must be set"))?;
 
         // These fields are also the per-role route defaults.
-        let ollama_base_url = env_or("OLLAMA_BASE_URL", "http://localhost:11434");
-        let ollama_model = env_or("OLLAMA_MODEL", DEFAULT_OLLAMA_MODEL);
+        let model_base_url = env_or("MODEL_BASE_URL", "http://localhost:8080");
+        let model_name = env_or("MODEL_NAME", DEFAULT_MODEL);
         let route = RouteConfig::from_env(
-            &ollama_model,
-            &ollama_base_url,
+            &model_name,
+            &model_base_url,
             &crate::harness::fleet::inference_routes(),
         );
 
         // ≥1: a 0-permit semaphore would block every model call forever.
-        let ollama_max_concurrent = env_num("OLLAMA_MAX_CONCURRENT", 1)?.max(1);
+        let model_max_concurrent = env_num("MODEL_MAX_CONCURRENT", 1)?.max(1);
 
         // Resolve the voice window once so handlers in one drain cannot disagree and reload the
         // shared runner between calls.
@@ -81,11 +81,11 @@ impl Config {
             // The default exceeds the sum of stage caps; a pool max is a ceiling, not a
             // preallocation.
             db_max_conns: env_num("COGNITION_DB_MAX_CONNS", 25)?,
-            ollama_base_url,
-            ollama_model,
+            model_base_url,
+            model_name,
             // Ten minutes is the normal model-call budget.
-            ollama_timeout: Duration::from_secs(env_num("OLLAMA_TIMEOUT_SECONDS", 600)?),
-            ollama_max_concurrent,
+            model_timeout: Duration::from_secs(env_num("MODEL_TIMEOUT_SECONDS", 600)?),
+            model_max_concurrent,
             safety_net: Duration::from_secs(env_num("COGNITION_SAFETY_NET_SECONDS", 30)?),
             // Thirty-minute stale lease.
             stale_lease: Duration::from_secs(env_num("COGNITION_STALE_LEASE_SECONDS", 1800)?),
@@ -112,18 +112,17 @@ impl Config {
 /// `/v1/chat/completions` protocol, not a vendor, and cannot carry `num_ctx` or `think`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Backend {
-    Ollama,
     OpenAi,
     LlamaCpp,
 }
 
 impl Backend {
-    /// Parse `COGNITION_ROUTE_<ROLE>_BACKEND`. Unknown values fall back to Ollama.
+    /// Parse `COGNITION_ROUTE_<ROLE>_BACKEND`. Unknown values fall back to llama.cpp.
     pub fn from_env_str(raw: &str) -> Self {
         match raw.trim().to_ascii_lowercase().as_str() {
             "openai" | "omlx" | "mlx" => Backend::OpenAi,
             "llama" | "llamacpp" | "llama.cpp" => Backend::LlamaCpp,
-            _ => Backend::Ollama,
+            _ => Backend::LlamaCpp,
         }
     }
 }
@@ -151,7 +150,7 @@ pub struct RouteConfig {
     /// Per-BACKEND concurrency budget, keyed by `base_url` — the machine's budget, not the
     /// role's. Six characters sharing one host share one entry, which is the point: the
     /// semaphore models a physical GPU, so it must be keyed by the thing that has the GPU.
-    /// Any `base_url` absent here falls back to `OLLAMA_MAX_CONCURRENT`.
+    /// Any `base_url` absent here falls back to `MODEL_MAX_CONCURRENT`.
     pub backend_concurrency: HashMap<String, usize>,
 }
 
@@ -174,7 +173,7 @@ impl RouteConfig {
             let key = format!("COGNITION_ROUTE_{}", role.env_suffix());
             // A role's host: its own override, else the shared default. Trailing slashes are
             // trimmed so `http://mac:11434` and `http://mac:11434/` are ONE backend, not two
-            // clients hammering one Ollama (the cache key is the string).
+            // clients hammering one llama.cpp server (the cache key is the string).
             let role_base = normalize_base_url(
                 &env_opt(&format!("{key}_BASE_URL")).unwrap_or_else(|| base_url.to_string()),
             );
@@ -183,7 +182,7 @@ impl RouteConfig {
                 ModelSpec {
                     backend: env_opt(&format!("{key}_BACKEND"))
                         .map(|v| Backend::from_env_str(&v))
-                        .unwrap_or(Backend::Ollama),
+                        .unwrap_or(Backend::LlamaCpp),
                     model: env_or(&key, default_model),
                     base_url: role_base.clone(),
                     think: parse_think(&format!("{key}_THINK")),
@@ -198,7 +197,7 @@ impl RouteConfig {
                         backend: env_opt(&format!("{key}_CANDIDATE_BACKEND"))
                             .or_else(|| env_opt(&format!("{key}_BACKEND")))
                             .map(|v| Backend::from_env_str(&v))
-                            .unwrap_or(Backend::Ollama),
+                            .unwrap_or(Backend::LlamaCpp),
                         model: candidate_model,
                         // A challenger defaults to its role's host, not the global one, so
                         // A/B-ing a remote role does not silently pull the challenger local.

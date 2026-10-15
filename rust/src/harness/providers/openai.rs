@@ -5,13 +5,13 @@
 //! Targets `POST {base_url}/v1/chat/completions`. Works against any OpenAI-compatible server;
 //! oMLX is the one it was measured against.
 //!
-//! ## Differences from ollama that callers must know
+//! ## Differences from llama.cpp that callers must know
 //!
 //! 1. `num_ctx` has no equivalent and is dropped; `max_tokens` bounds output only.
 //! 2. Schema options are not sent because the measured server's grammar path corrupts output;
 //!    fail-closed parsers enforce the wire contracts instead.
-//! 3. `think` is not sent. It is an Ollama extension; a reasoning model behind an
-//!    OpenAI-compatible server exposes no such switch. Roles that need it must stay on ollama.
+//! 3. `think` is not sent. It is a llama.cpp extension; a reasoning model behind an
+//!    OpenAI-compatible server exposes no such switch. Roles that need it must stay on llama.cpp.
 
 use crate::harness::model::{GenerateOptions, GenerateResult};
 use crate::util::truncate;
@@ -129,7 +129,7 @@ impl OpenAiClient {
             messages,
             stream: false,
             temperature: opts.temperature,
-            // Same rule as the ollama path: omitted when unset, so the server's own default applies.
+            // Same rule as the llama.cpp path: omitted when unset, so the server's own default applies.
             max_tokens: (opts.num_predict > 0).then_some(opts.num_predict),
         }
     }
@@ -196,7 +196,7 @@ impl OpenAiClient {
                     truncate(&raw, 200)
                 )
             })?;
-            crate::harness::providers::ollama::validate_completion(
+            crate::harness::model::validate_completion(
                 choice.finish_reason.as_deref(),
                 None,
             )?;

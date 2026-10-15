@@ -213,3 +213,128 @@ passes with changed-body remeasurement, RSS-rank-only response reuse, multiple R
 incidental identity suppression, failed-response retention, unavailable-source rejection,
 stale-source fences and exactly-once character dispositions. Character prompt fixtures
 have updated contract versions, not a new live generation qualification.
+
+
+## Production rollout and scoped Ponytail audit
+
+### Release status at 15:48 Eastern
+
+Commit `7ec86bc7` removes the client-side Kev name restriction. The same strict native
+protocol accepts any named SHA-256 model alias, while model changes during work still
+fail publication. Exact requests, question versions and model fingerprints continue
+separating receipts and caches. The existing native launcher supports
+`CLASSIFIER_MODEL_FILE` and `CLASSIFIER_MODEL_NAME` through the optional systemd file
+`~/.config/scoracle/classifier-model.env`; Kev remains the default. A replacement still
+requires compatible native typed probabilities, its own calibration and capacity checks.
+This is model independence within llama.cpp's decision protocol, not automatic support
+for every inference API or automatic promotion of a new model.
+
+The release binary was built on Archbox and installed atomically. Kev, publisher acquisition
+and Classifier remain enabled. The Mac's native SmolLM3 endpoint and tunnel passed health
+checks. A short release of `narratives,vibe,rating,transfers` was rolled back to the prior
+`COGNITION_STAGES=classifier` after real character jobs failed their reading/output budgets.
+No new character output was verified. Pending deliveries and failed attempts remain retained;
+Scout explicitly held six sources during the initial check. Graph remains unenrolled.
+
+At 15:45:52, all 1,612 retained v5 article spectra had exactly four scores and complete
+coverage; none used a target in the model request or an unexpected model identity. This
+is integrity evidence, not evidence of narrative accuracy or complete character delivery.
+The earlier 71-minute successful-scoring extrapolation is not a current backlog-completion
+forecast: many remaining source revisions require reacquisition before scoring, and the
+new live inspection shows slow identity/discovery reconciliation queries. RSS cadence is
+unchanged. Do not describe this release as a healthy end-to-end character pipeline yet.
+
+Validation: 376 runnable library tests and 17 binary tests passed. The disposable database
+article-to-character test passed with a non-Kev model alias, including receipt reuse,
+changed-body inference, stale-source fences and exactly-once settlement. The release/launcher
+self-check passed for Kev defaults and replacement-model configuration. The existing
+watchdog SQL tests passed in a separate disposable database; an additional audit reproduction
+below demonstrates a monitoring case they do not cover.
+
+### Scoped audit report
+
+**What this repo does:** RSS discovery feeds durable publisher acquisition and a native
+four-score Classifier. Character plugins consume source-bound obligations to build their
+products. This audit covers the October 15 Classifier changes, touched delivery paths,
+native provider changes, release scripts and their immediate callers; the assumed load is
+8,500 articles/day, four decision requests concurrently, eight native decision slots and
+four shared Mac generation slots.
+
+**Must fix before releasing character consumption:**
+
+1. **One oversized packet can stop an entity's character work.**
+   - **What this is:** Influencer builds a period packet in
+     `src/plugins/influencer/memories.rs:101`; Insider assembles all delivered reports in
+     `src/plugins/insider/prompt.rs:98` and rejects the whole package in
+     `src/plugins/insider/mod.rs:79`.
+   - **Problem:** The initial production check recorded five Influencer packet-budget
+     failures and three Insider package-budget failures. The same input retries without
+     reducing the packet or settling its offending obligations; after five failures that
+     entity's task stops retrying until another event or operator intervention.
+   - **Fix:** Pack bounded units of complete articles and retain overflow for another pass.
+     Explicitly hold a single article that cannot fit; Influencer needs a recorded period
+     hold if removing that article would omit a denial or change the period's meaning.
+   - **If we skip it:** Fresh articles keep accumulating behind the same failing packet.
+     Raising the model's context alone does not remove these smaller byte limits.
+
+2. **The current Journalist generation budget failed the native release smoke.**
+   - **What this is:** `src/plugins/journalist/prompt.rs:18` allows 900 generated tokens for
+     up to three reports, with complete-output enforcement in the native client.
+   - **Problem:** The first two live Journalist jobs failed with native output-limit errors.
+     Updated prompt fixtures and parser tests did not qualify generation with SmolLM3;
+     those attempts produced no verified character product.
+   - **Fix:** Replay those exact retained packets, make the report count/output budget fit
+     the native contract, and require complete parsed outputs before re-enrollment. Keep
+     the incomplete-output rejection; accepting truncated JSON is not a fix.
+   - **If we skip it:** The same jobs spend generation time and back off without publishing.
+
+**Should fix:**
+
+3. **Repeated identity scans make reconciliation much slower than inference.**
+   - **What this is:** `sql/migrations/302_classifier_source_revisions.sql:13` recomputes
+     canonical candidates inside discovery versions. Source acquisition calls it twice;
+     `src/plugins/classifier/delivery.rs:145` also computes it per returned source, then
+     line 177 separately recomputes candidates, including for later publication checks.
+   - **Problem:** Live reconciliation calls took about 1.5 seconds before character release
+     and 2.2 seconds under the smoke load; inspected Kev calls in that window were often
+     under one second. Historical/used reads also compute current-source state they do
+     not enforce. The native-only benchmark cannot establish total backlog throughput.
+   - **Fix:** Profile the canonical-candidate query and reuse a validated result within the
+     same transaction; avoid current-source scans for immutable historical reads. Preserve
+     the source and canonical-identity fences across inference.
+   - **If we skip it:** Database reconciliation consumes the time saved by fast inference,
+     particularly while rebuilding stale source revisions and reading character history.
+
+4. **Acquisition can mask a stopped Classifier in the watchdog.**
+   - **What this is:** `scripts/hosting/cron-watchdog.sh:30` combines acquisition,
+     measurement, spectrum and generation timestamps into one progress timestamp.
+   - **Problem:** In a disposable reproduction, ready Classifier work with no Classifier
+     progress reported `OK drain_alive` solely because acquisition was fresh. Error
+     measurements can also count as progress. Existing watchdog tests do not cover this.
+   - **Fix:** Check successful progress separately for each enabled stage with ready work,
+     and add the acquisition-active/Classifier-stalled case to the existing SQL self-check.
+   - **If we skip it:** A partial pipeline outage can look alive while its queue grows.
+
+5. **Current-corpus Influencer evaluation still reads retired Harvester deliveries.**
+   - **What this is:** `src/evaluation/tasks.rs:638` and
+     `examples/influencer_replay.rs:7` select sources through the old delivery reader;
+     production uses `plugins::classifier::delivery`.
+   - **Problem:** An entity with only new Classifier obligations can disappear from live
+     evaluation, or the evaluation can anchor an old article absent from production's
+     eligible population. Recorded-packet replay is a separate path and is unaffected.
+   - **Fix:** Switch both current-corpus entry points to the same Classifier delivery reader
+     and verify a new-only fixture is included before using these tools for promotion.
+   - **If we skip it:** A model can look qualified on inputs that do not match production.
+
+The broad Harvester/Editor tree is not wholly dead: reader utilities, the legacy current-
+corpus evaluation paths and explicit historical replays still reference it. Deleting the
+whole tree now would break callers. Migrate the current-corpus readers first, then retire
+obsolete replay adapters deliberately; historical measurements need not be deleted.
+
+**Verdict:** Kev's native four-score Classifier is deployed with model-independent identity
+handling. Fix character packet/output budgets before enabling character consumption again.
+
+**Not checked:** A representative human-labeled accuracy set, sustained multi-day throughput,
+successful native character publication after correcting these failures, Graph qualification,
+other repository subsystems and a full production-database restore drill. This audit changes
+no implementation code; the character enrollment rollback is recorded operationally above.

@@ -245,7 +245,7 @@ mod tests {
         ModelSpec {
             backend: Backend::LlamaCpp,
             model: model.to_string(),
-            base_url: "http://localhost:11434".to_string(),
+            base_url: "http://localhost:8080".to_string(),
             think: None,
         }
     }
@@ -474,8 +474,8 @@ mod tests {
     // The topology split: one governor per HOST.
     // ---------------------------------------------------------------------------
 
-    const ARCHBOX: &str = "http://localhost:11434";
-    const MAC: &str = "http://mac-mini:11434";
+    const ARCHBOX: &str = "http://localhost:8080";
+    const MAC: &str = "http://mac-mini:8080";
 
     fn spec_on(model: &str, base_url: &str) -> ModelSpec {
         ModelSpec {

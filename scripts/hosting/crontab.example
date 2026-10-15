@@ -139,7 +139,7 @@ TZ=America/New_York
 # vibe→sigil, composite_shift→sigil, both via the durable pipeline_work queue).
 # This nightly run is the BACKSTOP only: it enqueues current-season entities whose
 # Sigil is missing or stale for the derive worker to drain (no inline synthesis, no
-# unchanged-Sigil duplicates, no Ollama). -limit caps items enqueued per run.
+# unchanged-Sigil duplicates, no llama-server). -limit caps items enqueued per run.
 0 5 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-vibesynth.sh -mode nightly -limit 500 >> /home/sheneveld/scoracle/scoracle-backend/logs/vibesynth.log 2>&1
 # Dynamic-metadata adjudication sweep (factsweep): person affiliations from news
 # evidence, policy-gated, fail-closed. After statcommentary, before the morning.

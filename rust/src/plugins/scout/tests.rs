@@ -504,7 +504,7 @@ fn serialized_request_has_evidence_and_form_but_no_editorial_outline() {
         &RatingExclusions::default(),
     );
     let client = crate::harness::providers::llama::LlamaClient::new(
-        "http://localhost:11434",
+        "http://localhost:8080",
         "offline-test",
         std::time::Duration::from_secs(1),
         None,

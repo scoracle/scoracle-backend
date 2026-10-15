@@ -42,7 +42,7 @@ export SCORACLE_MEMORY_STUDY_BIN="$SCRATCH/scoracle-memory-study"
 )
 cargo fmt --manifest-path rust/Cargo.toml -- --check
 cargo test --manifest-path rust/Cargo.toml --lib --bins
-# Real-model replays require local Ollama and private sample corpora.
+# Real-model replays require a local llama-server and private sample corpora.
 cargo test --manifest-path rust/Cargo.toml --lib --bins -- --ignored --skip local_real_model --test-threads=1
 (
     cd go

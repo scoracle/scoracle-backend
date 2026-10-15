@@ -16,8 +16,8 @@ What you need during an incident or a machine rebuild. Companion to:
 `go/internal/config/config.go` for env, `scripts/hosting/crontab.example` for cron,
 `scripts/hosting/release.sh` for the build). Where a doc and the code disagree, the code wins.
 
-Prod runs on **archbox** (Arch desktop): Postgres 18 (system unit), Ollama (the small busy-work
-model, `systemd --user`), the Go API (`systemd --user`, `scoracle-api.service`), the Rust
+Prod runs on **archbox** (Arch desktop): Postgres 18 (system unit), llama.cpp (`llama-server`,
+the small busy-work model, `systemd --user`), the Go API (`systemd --user`, `scoracle-api.service`), the Rust
 Cognition Harness daemon (`systemd --user`, `scoracle-cognition.service`), cron jobs, and a
 Cloudflare Tunnel exposing `api.scoracle.com`.
 
@@ -43,7 +43,7 @@ SQL-only maintenance/notification workers.
                              │                 statcommentary        rating, momentum, sigil
                              │                  (cron batch)
                              ▼
-                    Ollama (archbox 1070 Ti — §1.1)
+                    llama-server (archbox 1070 Ti — §1.1)
 ```
 
 ### 1.1 Model topology — one machine, one model, model-agnostic by design
@@ -58,7 +58,7 @@ to audition a candidate).
 
 | Machine | Hardware | Model | Seats |
 |---|---|---|---|
-| **archbox** | 1070 Ti @ 135W (Ollama, `localhost:11434`, 4 parallel slots) | `ministral-3:3b` | ALL of them: Editor (`editor`), Investigator (`investigator`), Graph (`emotional-news`), Journalist (`narrative-logic`), Insider (`transfer-logic`), Influencer (`vibe-logic`), Analyst (`momentum-logic`), Scout (`stats-logic`), Oracle (`oracle-logic`) |
+| **archbox** | 1070 Ti @ 135W (llama-server, `localhost:8080`, 4 parallel slots) | `ministral-3:3b` | ALL of them: Editor (`editor`), Investigator (`investigator`), Graph (`emotional-news`), Journalist (`narrative-logic`), Insider (`transfer-logic`), Influencer (`vibe-logic`), Analyst (`momentum-logic`), Scout (`stats-logic`), Oracle (`oracle-logic`) |
 
 The Mac mini lane (ministral-3:8b) was retired from production 2026-08-20; the
 machine remains a standalone LLM/agent box, not attached to the pipeline.
@@ -308,7 +308,7 @@ go run ./cmd/work dead-letters [cap]     # pipeline_work past the retry cap + fi
 ```
 
 If `dead-letters` shows stuck work: inspect the row's last error, fix the cause (often a transient
-Ollama timeout or a bad provider payload), then `requeue-stale` (for leased rows) or re-enqueue. A
+model timeout or a bad provider payload), then `requeue-stale` (for leased rows) or re-enqueue. A
 cron exit `1` with `dead-letters` non-empty is the signal something needs a human.
 
 ---
@@ -338,8 +338,8 @@ curl -s localhost:8000/ | grep commit     # what commit is actually running
 systemctl --user status scoracle-api      # process state
 journalctl --user -u scoracle-api -f      # API + workers (journal)
 
-# Is Ollama up?
-curl -s localhost:11434/api/tags
+# Is llama-server up?
+curl -s localhost:8080/health
 
 # Did last night's batch jobs finish?
 psql "$DATABASE_PRIVATE_URL" -c "SELECT * FROM pipeline_runs_latest;"
@@ -355,11 +355,12 @@ Common incidents:
   migration (`sql/migrate.sh`), or roll the binary back (§3). Check `journalctl` for the failing
   prepared statement.
 - **Derived products stale** → check `cmd/work status` / `dead-letters`; check `scoracle-cognition`
-  service health and Ollama reachability; a cold model load can time out, then retry/re-drain.
+  service health and llama-server reachability; a cold model load can time out, then retry/re-drain.
 - **GPU thrash** → lower the slot budget: drop `COGNITION_BACKEND_CONCURRENCY`'s localhost
-  count and the systemd drop-in's `OLLAMA_NUM_PARALLEL` together (the three-knob rule in
-  `rust/src/stage.rs`). `OLLAMA_MAX_CONCURRENT` is inert here — it is only the fallback cap
-  for a host NOT listed in `COGNITION_BACKEND_CONCURRENCY`.
+  count and the llama-server `--parallel` slot count together (they must match; the slot groups
+  in `rust/src/harness/fleet.rs` size themselves from the same budget). `MODEL_MAX_CONCURRENT`
+  is inert here — it is only the fallback cap for a host NOT listed in
+  `COGNITION_BACKEND_CONCURRENCY`.
 
 ---
 
@@ -368,7 +369,7 @@ Common incidents:
 Full first-time setup + rationale: `../scoracle-wiki/progress_docs/scoracle-backend/SELF_HOSTING_OPS.md`. Mechanics:
 `scripts/hosting/README.md`. Short path:
 
-1. Install Postgres 18, Ollama + the busy-work model (§1.1), Go toolchain, Rust toolchain.
+1. Install Postgres 18, llama.cpp (`llama-server`) + the busy-work model (§1.1), Go toolchain, Rust toolchain.
 2. Clone the repo; create `.env.local` — **the only env file** (see §11.1 for the key list).
 3. Restore the latest **off-disk/off-site** dump (§4) and `sql/migrate.sh` it to the latest schema.
 4. `scripts/hosting/install.sh` (renders systemd units), `loginctl enable-linger sheneveld`,
@@ -397,7 +398,7 @@ The consolidation merged both files, dropped **17 dead keys** and rotated three 
 and deliberately absent — the rail derives everything from Google News queries now, so no
 third-party provider credential is needed at all: `API_SPORTS_KEY`, `BALLDONTLIE_API_KEY`,
 `SPORTMONKS_API_TOKEN`, all nine `TWITTER_*`, plus legacy toggles `NEWS_SCRUB_VIA_QUEUE`,
-`CACHE_BACKEND`, `CACHE_WARMUP_ENABLED`, `OLLAMA_KEEP_ALIVE`, `OLLAMA_SHORT_TIMEOUT_SECONDS`.
+`CACHE_BACKEND`, `CACHE_WARMUP_ENABLED`.
 
 **The 42 live keys**, by group:
 
@@ -409,8 +410,8 @@ third-party provider credential is needed at all: `API_SPORTS_KEY`, `BALLDONTLIE
 | Auth | `JWT_SECRET`, `JWT_ACCESS_TTL_MINUTES`, `JWT_REFRESH_TTL_DAYS`, `FIREBASE_CREDENTIALS_FILE` |
 | Rate limiting | `RATE_LIMIT_ENABLED`, `RATE_LIMIT_REQUESTS`, `RATE_LIMIT_WINDOW`, `RATE_LIMIT_INTERNAL_KEY` |
 | Cache | `CACHE_ENABLED` |
-| Ollama | `OLLAMA_BASE_URL`, `OLLAMA_MODEL`, `OLLAMA_TIMEOUT_SECONDS`, `OLLAMA_MAX_CONCURRENT` |
-| Cognition | `COGNITION_STAGES`, `COGNITION_BACKEND_CONCURRENCY`, `COGNITION_HANDLER_TIMEOUT_SECONDS`, `COGNITION_ARTICLE_READ_TOP_K`, `DERIVE_WORKER_ENABLED`, and the per-role routes `COGNITION_ROUTE_<ROLE>` (9 model keys today; the `_BASE_URL`/`_BACKEND` suffixes are unset since the single-box consolidation — every role rides the default `localhost:11434`) |
+| Model | `MODEL_BASE_URL`, `MODEL_NAME`, `MODEL_TIMEOUT_SECONDS`, `MODEL_MAX_CONCURRENT` |
+| Cognition | `COGNITION_STAGES`, `COGNITION_BACKEND_CONCURRENCY`, `COGNITION_HANDLER_TIMEOUT_SECONDS`, `COGNITION_ARTICLE_READ_TOP_K`, `DERIVE_WORKER_ENABLED`, and the per-role routes `COGNITION_ROUTE_<ROLE>` (9 model keys today; the `_BASE_URL`/`_BACKEND` suffixes are unset since the single-box consolidation — every role rides the default `localhost:8080`) |
 
 `COGNITION_ROUTE_*` keys are built at runtime by `format!("COGNITION_ROUTE_{}", role.env_suffix())`
 (`rust/src/config.rs:265`), so a plain grep for them finds nothing — **do not "clean them up" as
@@ -453,9 +454,9 @@ These surfaced during the audit and are pre-launch work (see `../scoracle-wiki/p
   Sigils. Run larger reconciliation passes (`vibesynth -mode nightly` with a higher `-limit`) before launch.
 - **F-040** — pick the off-SITE backup target (cloud/NAS); mechanism is ready via
   `OFFHOST_BACKUP_DIR`.
-- **F-035** — CLOSED (superseded) 2026-08-20: the drop-in exists with `OLLAMA_MAX_LOADED_MODELS=1`
-  and `OLLAMA_NUM_PARALLEL` deliberately at the slot budget (4, the three-knob rule) — the
-  original `NUM_PARALLEL=1` prescription predates concurrent slots and would collapse the card.
+- **F-035** — CLOSED (superseded) 2026-08-20: the drop-in exists with the llama-server's
+  parallel slots deliberately at the slot budget (4) — the original single-slot prescription
+  predates concurrent slots and would collapse the card.
 - **F-046 🟠 (security) — reopened and largely closed 2026-08-01.** The 2026-06-24 plan was never
   executed: rotation never happened and the history purge never ran, so **the leaked archbox
   `scoracle` Postgres password was still the live one** as of 2026-08-01. It then got worse — a

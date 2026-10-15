@@ -20,11 +20,11 @@ OUT="$OUT_DIR/${TASK}-${MODEL//[:\/]/_}-${STAMP}.log"
 
 cd "$REPO/rust" || exit 1
 
-# OLLAMA_TIMEOUT_SECONDS is NOT optional: the default is 60s (config.rs) and two fixtures exceed
+# MODEL_TIMEOUT_SECONDS is NOT optional: the default is 60s (config.rs) and two fixtures exceed
 # it, so omitting it reports failures that are the harness timing out rather than the model losing.
 export DATABASE_URL="postgres://unused/unused"
-export OLLAMA_BASE_URL="http://127.0.0.1:11434"
-export OLLAMA_TIMEOUT_SECONDS=600
+export MODEL_BASE_URL="http://127.0.0.1:8080"
+export MODEL_TIMEOUT_SECONDS=600
 
 {
     if [ -n "$CANDIDATE" ]; then

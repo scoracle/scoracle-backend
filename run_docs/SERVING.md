@@ -101,7 +101,7 @@ SELECT stage, entity_type, entity_id, attempts, last_error
 **The sharp edge:** an unreachable backend fails in milliseconds, so a dead dependency burns
 items as fast as the ramp allows. Roughly **43 minutes of downtime on something a stage depends
 on will permanently dead-letter that stage's whole queue.** This was measured on 2026-08-24:
-202 narratives items failed in one burst when archbox briefly could not reach the Mac's ollama;
+202 narratives items failed in one burst when archbox briefly could not reach the Mac's llama-server;
 they survived only because the outage was short.
 
 This is the single strongest argument for the topology in §5.
@@ -142,8 +142,8 @@ other stage in it, which is how the Editor's drain is stopped from starving the 
 **A. One worker, remote model calls** (what production ran until 2026-08-24)
 
 ```
-archbox: worker ──HTTP──► Mac ollama     (narratives, vibe)
-         worker ──local─► own ollama     (everything else)
+archbox: worker ──HTTP──► Mac llama-server  (narratives, vibe)
+         worker ──local─► own llama-server  (everything else)
 ```
 
 Every cross-machine call is a per-item network dependency. If the Mac blinks, the *item* is
@@ -153,9 +153,9 @@ doing work; it is only a GPU on the end of a wire.
 **B. N workers, local model calls** (recommended)
 
 ```
-archbox: worker ──local─► own ollama  ─┐
-Mac:     worker ──local─► own ollama  ─┼──► same pipeline_work
-host N:  worker ──local─► own ollama  ─┘
+archbox: worker ──local─► own llama-server  ─┐
+Mac:     worker ──local─► own llama-server  ─┼──► same pipeline_work
+host N:  worker ──local─► own llama-server  ─┘
 ```
 
 Each worker only ever talks to its own GPU. A machine going away costs its leases (auto
@@ -165,7 +165,7 @@ is config.
 Topology B also **removes the need** for a per-backend circuit breaker or cross-host failover:
 there is no cross-machine model call left to fail.
 
-The one thing B does not fix: a worker's **local** ollama can still die and still burn item
+The one thing B does not fix: a worker's **local** llama-server can still die and still burn item
 attempts. That is worth addressing on its own (do not spend an item's lives on infrastructure
 failure), independent of topology.
 
@@ -175,12 +175,12 @@ failure), independent of topology.
 
 ### Prerequisites
 
-1. **The machine has a GPU and its own ollama**, serving the same model tag the roles name
+1. **The machine has a GPU and its own llama-server**, serving the same model tag the roles name
    (currently `granite4.2:3b` since 2026-08-25 — see
    `run_docs/2026-08-25_resident-model-switch-granite.md`; check
    `COGNITION_ROUTE_*` on an existing host, and note every role MUST carry an
    explicit `COGNITION_ROUTE_<ROLE>_THINK` on granite).
-   Verify: `curl -s localhost:11434/api/tags`.
+   Verify: `curl -s localhost:8080/health`.
 2. **Postgres accepts connections from it.** On the DB host (`archbox`):
 
    ```bash
@@ -254,13 +254,13 @@ failure), independent of topology.
    DATABASE_URL=postgresql://scoracle:<pw>@<db-host>:5432/scoracle?sslmode=require
 
    # Point at the LOCAL GPU. This is the whole point of topology B.
-   OLLAMA_BASE_URL=http://localhost:11434
+   MODEL_BASE_URL=http://localhost:8080
 
    # Same stage list as the other workers — every worker is interchangeable.
    COGNITION_STAGES=graph,editor,investigate_entity,narratives,vibe,rating,transfers,momentum,sigil
 
    # Size this host's governor for ITS card.
-   COGNITION_BACKEND_CONCURRENCY="http://localhost:11434=4"
+   COGNITION_BACKEND_CONCURRENCY="http://localhost:8080=4"
    ```
 
    **Do NOT set any `COGNITION_ROUTE_<ROLE>_BASE_URL`.** That is what creates the remote model

@@ -172,7 +172,7 @@ impl RouteConfig {
         for &role in routes {
             let key = format!("COGNITION_ROUTE_{}", role.env_suffix());
             // A role's host: its own override, else the shared default. Trailing slashes are
-            // trimmed so `http://mac:11434` and `http://mac:11434/` are ONE backend, not two
+            // trimmed so `http://mac:8080` and `http://mac:8080/` are ONE backend, not two
             // clients hammering one llama.cpp server (the cache key is the string).
             let role_base = normalize_base_url(
                 &env_opt(&format!("{key}_BASE_URL")).unwrap_or_else(|| base_url.to_string()),
@@ -230,7 +230,7 @@ fn normalize_base_url(raw: &str) -> String {
 
 /// parse_backend_concurrency reads `COGNITION_BACKEND_CONCURRENCY` — a comma-separated
 /// `<base_url>=<permits>` list, e.g.
-/// `http://localhost:11434=3,http://mac-mini:11434=1`.
+/// `http://localhost:8080=3,http://mac-mini:8080=1`.
 ///
 /// Keyed by host rather than by role because the semaphore models a GPU: the six characters
 /// sharing one machine must share one budget, and a model on its own machine must not be
@@ -310,9 +310,9 @@ mod tests {
 
     #[test]
     fn backend_concurrency_parses_a_two_host_split() {
-        let m = parse_backend_concurrency("http://localhost:11434=3, http://mac-mini:11434=1");
-        assert_eq!(m.get("http://localhost:11434"), Some(&3));
-        assert_eq!(m.get("http://mac-mini:11434"), Some(&1));
+        let m = parse_backend_concurrency("http://localhost:8080=3, http://mac-mini:8080=1");
+        assert_eq!(m.get("http://localhost:8080"), Some(&3));
+        assert_eq!(m.get("http://mac-mini:8080"), Some(&1));
         assert_eq!(m.len(), 2);
     }
 
@@ -342,9 +342,9 @@ mod tests {
     fn backend_concurrency_key_matches_the_normalized_base_url() {
         // The budget is looked up by the spec's base_url, so both sides must normalize the
         // same way -- otherwise a trailing slash silently drops the host to the default budget.
-        let m = parse_backend_concurrency("http://mac-mini:11434/=2");
+        let m = parse_backend_concurrency("http://mac-mini:8080/=2");
         assert_eq!(
-            m.get(&normalize_base_url("http://mac-mini:11434")),
+            m.get(&normalize_base_url("http://mac-mini:8080")),
             Some(&2)
         );
     }
@@ -352,9 +352,9 @@ mod tests {
     #[test]
     fn normalize_base_url_collapses_trailing_slashes_and_padding() {
         assert_eq!(
-            normalize_base_url("  http://mac:11434/  "),
-            "http://mac:11434"
+            normalize_base_url("  http://mac:8080/  "),
+            "http://mac:8080"
         );
-        assert_eq!(normalize_base_url("http://mac:11434"), "http://mac:11434");
+        assert_eq!(normalize_base_url("http://mac:8080"), "http://mac:8080");
     }
 }

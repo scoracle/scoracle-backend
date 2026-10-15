@@ -18,7 +18,7 @@
 #
 # Cron strips the environment to almost nothing — no shell env, no .env.local.
 # This wrapper rebuilds shell state from .env.local (the only env file) so the
-# pipeline binary can resolve DATABASE_* (no OLLAMA_* needed — Go does no
+# pipeline binary can resolve DATABASE_* (no MODEL_* needed — Go does no
 # model calls).
 #
 # Cron schedule — data first (fresh fixture data), news at 02:00:

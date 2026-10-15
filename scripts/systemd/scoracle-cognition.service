@@ -3,9 +3,9 @@ Description=Scoracle Cognition Harness (Rust pipeline_work consumer)
 After=network-online.target
 Wants=network-online.target
 # Unlimited automatic restarts — same rationale as scoracle-api: the worker fails
-# fast when Postgres or Ollama is unavailable and we WANT it back the instant they
+# fast when Postgres or llama-server is unavailable and we WANT it back the instant they
 # return. Disabling the rapid-crash backstop (StartLimitIntervalSec=0) is deliberate
-# so a Postgres/Ollama restart can never wedge the daemon permanently into a failed
+# so a Postgres/llama-server restart can never wedge the daemon permanently into a failed
 # state. (StartLimitIntervalSec belongs in [Unit], not [Service].)
 StartLimitIntervalSec=0
 
@@ -16,7 +16,7 @@ Type=simple
 WorkingDirectory=__SCORACLE_REPO_ROOT__
 # ONE env file (consolidated 2026-08-01, RUNBOOK 11.1). There is no .env any more.
 # The Rust crate reads os::env directly (it does NOT load .env.local itself), so this
-# file is how the daemon gets DATABASE_PRIVATE_URL + OLLAMA_* — the same file
+# file is how the daemon gets DATABASE_PRIVATE_URL + MODEL_* — the same file
 # scoracle-api reads, so both processes see one config. Do not re-add a second file:
 # the old .env/.env.local overlay made a key's value depend on load order.
 EnvironmentFile=-__SCORACLE_REPO_ROOT__/.env.local

@@ -10,7 +10,7 @@
 # schedule fired. Real-time convergence (news vibe→sigil, composite_shift→sigil) keeps
 # the corpus warm between runs; this is the backstop that fills coverage gaps.
 #
-# Because it only enqueues, this run needs ONLY the database (no Ollama / GPU). -limit
+# Because it only enqueues, this run needs ONLY the database (no llama-server / GPU). -limit
 # caps the number of items enqueued per run.
 #
 # Off-peak (05:00) avoids statcommentary (03:00) and lands after a six-hour RSS

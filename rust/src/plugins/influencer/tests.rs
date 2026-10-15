@@ -145,7 +145,7 @@ async fn period_card_contract() {
     )
     .unwrap();
     let backend = crate::harness::providers::llama::LlamaClient::new(
-        "http://localhost:11434",
+        "http://localhost:8080",
         receipt["model_version"].as_str().unwrap(),
         Duration::from_secs(1),
         Some(false),

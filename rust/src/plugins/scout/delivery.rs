@@ -17,7 +17,7 @@ use serde_json::json;
 use sqlx::{PgConnection, PgPool};
 use std::time::Duration;
 
-const POLICY_VERSION: &str = "scout-source-v5-classifier-world";
+const POLICY_VERSION: &str = "scout-source-v6-kev-spectrum";
 
 /// Only a source-linked structured record can turn roster/availability reporting
 /// into a Scout rating trigger. A Classifier proposal or model quote alone is not enough.
@@ -79,6 +79,20 @@ struct SourceDecision {
     provenance: serde_json::Value,
 }
 
+fn source_kind(world: Option<&serde_json::Value>) -> SourceKind {
+    let Some(world) = world else {
+        return SourceKind::None;
+    };
+    let score = |key: &str| world["spectrum"][key].as_f64().unwrap_or(0.0);
+    if score("availability") >= 70.0 {
+        SourceKind::Availability
+    } else if score("movement") >= 80.0 || score("staffing") >= 80.0 {
+        SourceKind::Roster
+    } else {
+        SourceKind::None
+    }
+}
+
 async fn decide(
     connection: &mut PgConnection,
     entity_type: &str,
@@ -99,21 +113,7 @@ async fn decide(
             })
         });
     // The spectrum gate, not a generative selection, decides Scout's kind.
-    let kind = match source.classifier_world.as_ref() {
-        Some(world) => {
-            let score = |key: &str| {
-                world["spectrum"].get(key).and_then(|value| value.as_f64()).unwrap_or(0.0) * 100.0
-            };
-            if score("topic.availability") >= 70.0 {
-                SourceKind::Availability
-            } else if score("topic.player_move") >= 80.0 || score("topic.staffing") >= 80.0 {
-                SourceKind::Roster
-            } else {
-                SourceKind::None
-            }
-        }
-        None => SourceKind::None,
-    };
+    let kind = source_kind(source.classifier_world.as_ref());
     let structured_record = structured_record(
         connection,
         sport,
@@ -280,30 +280,27 @@ pub(crate) async fn execute_with_backend(
     } else {
         None
     };
-    let changed = sqlx::query(
-        "UPDATE public.classifier_deliveries SET status=$3,production_eligible=($3<>'held'),reason=$4,product_ref=$5,updated_at=now() \
-         WHERE measurement_id=$1 AND plugin_id=$2 AND status='pending' \
-           AND production_eligible",
+    crate::plugins::classifier::delivery::settle(
+        publication.transaction(),
+        plugin_id,
+        &[source.classification_id],
+        status,
+        reason,
+        json!({
+            "source_article_id": source.article_id,
+            "source_role": "attributed_reporting",
+            "identity_resolved": identity_resolved,
+            "structured_record_id": corroborating_record,
+            "source_decision": decision.provenance,
+            "source_kind": match decision.kind {
+                SourceKind::None => "none", SourceKind::Performance => "performance",
+                SourceKind::Roster => "roster", SourceKind::Availability => "availability",
+            },
+            "source_quote": quote,
+            "stat_summary_id": product_row_id,
+        }),
     )
-    .bind(source.classification_id).bind(plugin_id).bind(status).bind(reason)
-    .bind(json!({
-        "source_article_id": source.article_id,
-        "source_role": "attributed_reporting",
-        "identity_resolved": identity_resolved,
-        "structured_record_id": corroborating_record,
-        "source_decision": decision.provenance,
-        "source_kind": match decision.kind {
-            SourceKind::None => "none", SourceKind::Performance => "performance",
-            SourceKind::Roster => "roster", SourceKind::Availability => "availability",
-        },
-        "source_quote": quote,
-        "stat_summary_id": product_row_id,
-    }))
-    .execute(&mut **publication.transaction()).await?;
-    ensure!(
-        changed.rows_affected() == 1,
-        "Scout source assignment changed during call"
-    );
+    .await?;
     let remaining = crate::plugins::classifier::delivery::undelivered_count(
         publication.transaction(),
         plugin_id,
@@ -353,4 +350,20 @@ pub(crate) async fn execute_with_backend(
     Ok(PluginOutcome::Committed)
 }
 
-
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn kev_scores_use_flat_names_and_the_original_0_to_100_scale() {
+        for (spectrum, expected) in [
+            (json!({"availability":70.0}), SourceKind::Availability),
+            (json!({"availability":69.9}), SourceKind::None),
+            (json!({"movement":80.0}), SourceKind::Roster),
+            (json!({"staffing":80.0}), SourceKind::Roster),
+            (json!({"movement":0.9}), SourceKind::None),
+        ] {
+            assert_eq!(source_kind(Some(&json!({"spectrum":spectrum}))), expected);
+        }
+        assert_eq!(source_kind(None), SourceKind::None);
+    }
+}

@@ -17,12 +17,11 @@ if [ -z "$MODE" ]; then
 fi
 case "$MODE" in paused|acquire|classifier) ;; *) echo "watchdog: invalid WATCHDOG_MODE=$MODE" >&2; exit 2 ;; esac
 STAMP="$(date '+%Y-%m-%dT%H:%M:%S%z')"
-RESULT="$(psql "$DB" -X -q -A -t -F'|' -v ON_ERROR_STOP=1 -v mode="$MODE" <<'SQL'
+RESULT="$(psql "$DB" -X -q -A -t -F'|' -v ON_ERROR_STOP=1 -v mode="$MODE" -v stages="${COGNITION_STAGES:-classifier,graph,investigate_entity,fixture_boxscore,rating,vibe,narratives,transfers,momentum,sigil}" <<'SQL'
 WITH active_work AS (
     SELECT * FROM pipeline_work WHERE
       (:'mode'='acquire' AND stage='classifier_acquire') OR
-      (:'mode'='classifier' AND stage IN ('classifier_acquire','classifier','graph','investigate_entity',
-        'fixture_boxscore','rating','vibe','narratives','transfers','momentum','sigil'))
+      (:'mode'='classifier' AND (stage='classifier_acquire' OR stage=ANY(string_to_array(:'stages',','))))
 ), queue AS (
     SELECT count(*) FILTER(WHERE status IN ('pending','failed') AND attempts<5 AND available_at<=now()) AS ready,
         count(*) FILTER(WHERE status='failed' AND attempts>=5) AS dead,
@@ -31,6 +30,7 @@ WITH active_work AS (
 ), progress AS (
     SELECT GREATEST((SELECT max(created_at) FROM classifier_sources),
         (SELECT max(created_at) FROM classifier_measurements),
+        (SELECT max(created_at) FROM classifier_spectra),
         (SELECT max(generated_at) FROM cognition_ledger)) AS newest
 )
 SELECT 'ingest_recency',CASE WHEN max(fetched_at)>now()-interval '26 hours' THEN 'OK' ELSE 'ALARM' END,
@@ -38,7 +38,7 @@ SELECT 'ingest_recency',CASE WHEN max(fetched_at)>now()-interval '26 hours' THEN
 UNION ALL SELECT 'worker_mode','INFO',:'mode'
 UNION ALL SELECT 'queue_depth','INFO',ready||' claimable; retained backlog is expected' FROM queue
 UNION ALL SELECT 'held_deliveries','INFO',count(*)||' held; no automatic policy promotion'
-    FROM classifier_deliveries WHERE status='held'
+    FROM classifier_spectrum_deliveries WHERE status='held'
 UNION ALL SELECT 'dead_letters',CASE WHEN dead=0 THEN 'OK' ELSE 'ALARM' END,dead||' active-stage rows at attempt cap' FROM queue
 UNION ALL SELECT 'stuck_running',CASE WHEN stuck=0 THEN 'OK' ELSE 'ALARM' END,stuck||' active claims older than 2 hours' FROM queue
 UNION ALL SELECT 'drain_alive',CASE WHEN ready=0 OR newest>now()-interval '30 minutes' THEN 'OK' ELSE 'ALARM' END,

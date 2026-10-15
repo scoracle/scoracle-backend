@@ -10,7 +10,7 @@ pub const MANIFEST: PluginManifest = PluginManifest {
     task: TASK,
     claim_policy: ClaimPolicy::RANKED_ARTICLES,
     inference_routes: &[],
-    resources: ResourceProfile::unbounded_batch(4).batched(4),
+    resources: ResourceProfile::grouped(4, crate::harness::fleet::ARCHBOX_SLOTS).batched(4),
     tools: &[],
 };
 pub const ACQUIRE_MANIFEST: PluginManifest = PluginManifest {

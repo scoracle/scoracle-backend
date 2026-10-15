@@ -307,18 +307,19 @@ pub(super) async fn commit(
             .findings
             .iter()
             .any(|f| f.report_index == index);
-        let changed = sqlx::query(
-            "UPDATE public.classifier_deliveries SET status=$3,reason=$4,product_ref=$5,updated_at=now()
-             WHERE measurement_id=$1 AND plugin_id=$2 AND status='pending' AND production_eligible")
-            .bind(source.classification_id).bind(crate::plugins::insider::manifest::MANIFEST.id.as_str())
-            .bind(if has_finding {"used"} else {"abstained"})
-            .bind(if has_finding {None} else {Some("No source-grounded move for this entity")})
-            .bind(serde_json::json!({"score_id":score_id,"rumor_ids":rumor_ids}))
-            .execute(&mut **publication.transaction()).await?;
-        ensure!(
-            changed.rows_affected() == 1,
-            "Insider obligation changed during call"
-        );
+        crate::plugins::classifier::delivery::settle(
+            publication.transaction(),
+            crate::plugins::insider::manifest::MANIFEST.id.as_str(),
+            &[source.classification_id],
+            if has_finding { "used" } else { "abstained" },
+            if has_finding {
+                None
+            } else {
+                Some("No source-grounded move for this entity")
+            },
+            serde_json::json!({"score_id":score_id,"rumor_ids":rumor_ids}),
+        )
+        .await?;
     }
     if let Some(score_id) = score_id {
         record_transfer_event(

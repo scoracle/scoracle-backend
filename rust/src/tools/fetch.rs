@@ -137,15 +137,7 @@ async fn resolve_google_news_article_url(
         .into());
     }
     let html = response.text().await.context("read google news wrapper")?;
-    let resolved_id = html_attr(&html, "data-n-a-id").unwrap_or(article_id);
-    let Some(timestamp) = html_attr(&html, "data-n-a-ts").and_then(|v| v.parse::<i64>().ok())
-    else {
-        return Err(anyhow!("Google News wrapper lacks resolver timestamp"));
-    };
-    let Some(signature) = html_attr(&html, "data-n-a-sg") else {
-        return Err(anyhow!("Google News wrapper lacks resolver signature"));
-    };
-    let payload = google_news_resolve_payload(&resolved_id, timestamp, &signature);
+    let payload = google_news_wrapper_payload(article_id, &html)?;
     let response = client
         .post(GOOGLE_NEWS_BATCH_URL)
         .header(
@@ -192,6 +184,16 @@ fn html_attr(html: &str, attr: &str) -> Option<String> {
     let start = html.find(&needle)? + needle.len();
     let end = html[start..].find('"')?;
     Some(decode_entities(&html[start..start + end]))
+}
+
+fn google_news_wrapper_payload(article_id: String, html: &str) -> Result<String> {
+    let id = html_attr(html, "data-n-a-id").unwrap_or(article_id);
+    let timestamp = html_attr(html, "data-n-a-ts")
+        .and_then(|value| value.parse::<i64>().ok())
+        .context("Google News wrapper lacks resolver timestamp")?;
+    let signature =
+        html_attr(html, "data-n-a-sg").context("Google News wrapper lacks resolver signature")?;
+    Ok(google_news_resolve_payload(&id, timestamp, &signature))
 }
 
 fn google_news_resolve_payload(article_id: &str, timestamp: i64, signature: &str) -> String {
@@ -757,9 +759,33 @@ impl BudgetedFetcher {
         url: &str,
         policy: &FetchPolicy,
     ) -> std::result::Result<SourceFetch, BudgetedFetchError> {
+        let fetched = self.fetch_request(pool, url, policy, None).await?;
+        let Some(article_id) = google_news_article_id(url) else {
+            return Ok(fetched);
+        };
+        // Resolve the wrapper under Google's budget, then spend the publisher's own budget.
+        let payload = google_news_wrapper_payload(article_id, &fetched.body)
+            .map_err(BudgetedFetchError::Other)?;
+        let resolved = self
+            .fetch_request(pool, GOOGLE_NEWS_BATCH_URL, policy, Some(&payload))
+            .await?;
+        let publisher = parse_google_news_resolver_response(&resolved.body)
+            .filter(|url| domain_of(url).as_deref() != Some("news.google.com"))
+            .context("Google News resolver returned no publisher URL")
+            .map_err(BudgetedFetchError::Other)?;
+        self.fetch_request(pool, &publisher, policy, None).await
+    }
+
+    async fn fetch_request(
+        &self,
+        pool: &sqlx::PgPool,
+        url: &str,
+        policy: &FetchPolicy,
+        form_payload: Option<&str>,
+    ) -> std::result::Result<SourceFetch, BudgetedFetchError> {
         let domain = domain_of(url).unwrap_or_else(|| "unknown".to_string());
 
-        if policy.cache_ttl > Duration::ZERO {
+        if form_payload.is_none() && policy.cache_ttl > Duration::ZERO {
             if let Some(hit) = self
                 .cached(pool, url, policy.cache_ttl)
                 .await
@@ -782,7 +808,11 @@ impl BudgetedFetcher {
         }
 
         let sent_at = Instant::now();
-        let resp = match self.client.get(url).send().await {
+        let request = match form_payload {
+            Some(payload) => self.client.post(url).form(&[("f.req", payload)]),
+            None => self.client.get(url),
+        };
+        let resp = match request.send().await {
             Ok(resp) => resp,
             Err(e) => {
                 state.record_failure(sent_at, None);
@@ -877,6 +907,16 @@ impl BudgetedFetcher {
         .await
         .context("probe source_documents cache")?;
         let Some(row) = row else { return Ok(None) };
+        let body = row
+            .get::<Option<String>, _>("retained_excerpt")
+            .unwrap_or_default();
+        let hash = row
+            .get::<Option<String>, _>("content_hash")
+            .unwrap_or_default();
+        // The provenance excerpt can be shorter than the fetched page; never call it complete.
+        if content_hash(&body) != hash {
+            return Ok(None);
+        }
         let final_url: Option<String> = row.get("final_url");
         let final_url = final_url.unwrap_or_else(|| url.to_string());
         Ok(Some(SourceFetch {
@@ -885,12 +925,8 @@ impl BudgetedFetcher {
             final_url,
             domain: row.get("domain"),
             http_status: row.get::<Option<i32>, _>("http_status").unwrap_or(200) as u16,
-            content_hash: row
-                .get::<Option<String>, _>("content_hash")
-                .unwrap_or_default(),
-            body: row
-                .get::<Option<String>, _>("retained_excerpt")
-                .unwrap_or_default(),
+            content_hash: hash,
+            body,
             from_cache: true,
         }))
     }
@@ -1009,6 +1045,109 @@ mod tests {
             Some("1784915408")
         );
         assert_eq!(html_attr(html, "data-n-a-sg").as_deref(), Some("A&B"));
+        assert_eq!(
+            google_news_wrapper_payload("fallback".into(), html).unwrap(),
+            google_news_resolve_payload("CBMiabc", 1784915408, "A&B")
+        );
+        assert!(google_news_wrapper_payload("id".into(), "<html>Consent</html>").is_err());
+        assert!(google_news_wrapper_payload(
+            "id".into(),
+            r#"<div data-n-a-ts="invalid" data-n-a-sg="signature">"#
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn google_news_resolver_preserves_the_publisher_url() {
+        let response = json!([[
+            "wrb.fr",
+            "Fbv4je",
+            json!(["garturlres", "https://publisher.example/report?a=1&b=2"]).to_string()
+        ]]);
+        assert_eq!(
+            parse_google_news_resolver_response(&format!(")]}}'\n{response}")),
+            Some("https://publisher.example/report?a=1&b=2".into())
+        );
+        assert!(parse_google_news_resolver_response("consent required").is_none());
+    }
+
+    #[tokio::test]
+    #[ignore = "requires a disposable classifier_test database via TEST_DATABASE_URL"]
+    async fn cached_publisher_excerpt_must_match_the_complete_document() -> Result<()> {
+        let pool = publisher_test_pool().await?;
+        let url = "https://example.invalid/kev-cache-integrity";
+        sqlx::query("DELETE FROM source_documents WHERE url=$1")
+            .bind(url)
+            .execute(&pool)
+            .await?;
+        sqlx::query("INSERT INTO source_documents(url,content_hash,http_status,retained_excerpt) VALUES($1,$2,200,$3)")
+            .bind(url).bind(content_hash("Complete article. Later correction.")).bind("Complete article.")
+            .execute(&pool).await?;
+        let fetcher = BudgetedFetcher::new()?;
+        assert!(fetcher
+            .cached(&pool, url, Duration::from_secs(60))
+            .await?
+            .is_none());
+        sqlx::query("UPDATE source_documents SET retained_excerpt='Complete article. Later correction.' WHERE url=$1")
+            .bind(url).execute(&pool).await?;
+        assert_eq!(
+            fetcher
+                .cached(&pool, url, Duration::from_secs(60))
+                .await?
+                .unwrap()
+                .body,
+            "Complete article. Later correction."
+        );
+        Ok(())
+    }
+
+    async fn publisher_test_pool() -> Result<sqlx::PgPool> {
+        let pool = crate::harness::dbtest::pool("disposable classifier_test database").await;
+        let database: String = sqlx::query_scalar("SELECT current_database()")
+            .fetch_one(&pool)
+            .await?;
+        anyhow::ensure!(
+            database.starts_with("classifier_test"),
+            "disposable database required"
+        );
+        sqlx::raw_sql("CREATE TABLE IF NOT EXISTS source_documents(id bigserial PRIMARY KEY,url text NOT NULL,
+            final_url text,domain text,fetched_at timestamptz NOT NULL DEFAULT now(),content_hash text,
+            http_status integer,title text,retained_excerpt text,headers jsonb NOT NULL DEFAULT '{}'::jsonb)")
+            .execute(&pool).await?;
+        Ok(pool)
+    }
+
+    #[tokio::test]
+    #[ignore = "local_real_model: requires disposable TEST_DATABASE_URL, TEST_PUBLISHER_URL and TEST_CLASSIFIER_URL"]
+    async fn live_google_news_fetch_and_native_kev_use_publisher_prose() -> Result<()> {
+        let pool = publisher_test_pool().await?;
+        let url = std::env::var("TEST_PUBLISHER_URL")?;
+        assert!(
+            google_news_article_id(&url).is_some(),
+            "Google News wrapper required"
+        );
+        let fetched = BudgetedFetcher::new()?
+            .fetch(&pool, &url, &FetchPolicy::default())
+            .await
+            .map_err(|error| anyhow!("{error}"))?;
+        assert_ne!(fetched.domain.as_deref(), Some("news.google.com"));
+        let prose = extract_article_text(&fetched.body);
+        assert!(count_words(&prose) >= ARTICLE_MIN_WORDS);
+        assert!(!prose.trim_start().starts_with('<'));
+        let scrubbed = crate::tools::source::scrub(&prose);
+        let measured = crate::plugins::classifier::decision::Decision::new(std::env::var(
+            "TEST_CLASSIFIER_URL",
+        )?)?
+        .spectrum(&scrubbed.text, "Arsenal")
+        .await?;
+        assert_eq!(measured.spectrum.len(), 6);
+        assert_eq!(measured.receipt["request"]["state"]["body"], scrubbed.text);
+        eprintln!(
+            "{}",
+            json!({"publisher":fetched.domain,"source_bytes":scrubbed.text.len(),
+            "model":measured.model,"questions":measured.spectrum.len()})
+        );
+        Ok(())
     }
 
     // --- Budgeted fetcher (4.2): the pure budget mechanics, no network -------------------

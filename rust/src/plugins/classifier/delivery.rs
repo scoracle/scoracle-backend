@@ -74,7 +74,7 @@ enum Population {
 }
 
 /// The routing-gate character key for a plugin id.
-fn character_key(plugin: &str) -> Result<&'static str> {
+pub(crate) fn character_key(plugin: &str) -> Result<&'static str> {
     match plugin {
         JOURNALIST => Ok("journalist"),
         INFLUENCER => Ok("influencer"),
@@ -82,6 +82,27 @@ fn character_key(plugin: &str) -> Result<&'static str> {
         SCOUT => Ok("scout"),
         _ => anyhow::bail!("unsupported Classifier character"),
     }
+}
+
+/// Acknowledge the same obligations that supplied a character's source packet.
+/// Call inside its claim-fenced product publication transaction.
+pub(crate) async fn settle(
+    connection: &mut PgConnection,
+    plugin: &str,
+    spectrum_ids: &[i64],
+    status: &str,
+    reason: Option<&str>,
+    product_ref: Value,
+) -> Result<()> {
+    let changed = sqlx::query("UPDATE classifier_spectrum_deliveries SET status=$3,reason=$4,
+        product_ref=$5,updated_at=now() WHERE spectrum_id=ANY($1) AND character=$2 AND status='pending'")
+        .bind(spectrum_ids).bind(character_key(plugin)?).bind(status).bind(reason).bind(product_ref)
+        .execute(connection).await?;
+    ensure!(
+        changed.rows_affected() == spectrum_ids.len() as u64,
+        "Classifier spectrum obligations changed during character work"
+    );
+    Ok(())
 }
 
 /// The retained source behind a spectrum row, for identity validation and publication locks.
@@ -121,7 +142,8 @@ async fn load_on(
     let rows=sqlx::query("SELECT x.id,x.spectrum::text AS spectrum,x.gate::text AS gate,x.clean_text,d.status,
         EXTRACT(EPOCH FROM (s.source->>'published_at')::timestamptz)::bigint AS published_at_epoch,
         s.source::text AS source,
-        COALESCE(s.discovery_version=public.classifier_discovery_version(s.article_id,s.sport),false) AS current_source
+        COALESCE(s.discovery_version=public.classifier_discovery_version(s.article_id,s.sport),false)
+            AND EXISTS(SELECT 1 FROM classifier_source_heads h WHERE h.article_id=s.article_id AND h.sport=s.sport AND h.source_id=s.id) AS current_source
         FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id
         JOIN classifier_sources s ON s.id=x.source_id
         WHERE d.character=$1 AND x.sport=$4

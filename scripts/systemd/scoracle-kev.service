@@ -1,0 +1,18 @@
+[Unit]
+Description=Scoracle Kev Classifier (native llama.cpp, four decision slots)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Environment=LD_LIBRARY_PATH=%h/cuda/targets/x86_64-linux/lib:%h/gcc13/lib
+ExecStart=__SCORACLE_REPO_ROOT__/scripts/hosting/run-classifier-model.sh
+Restart=always
+RestartSec=3
+LimitCORE=0
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

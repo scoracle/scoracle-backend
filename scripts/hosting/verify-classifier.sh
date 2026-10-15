@@ -15,7 +15,9 @@ BEGIN
     FOREACH migration_version IN ARRAY ARRAY['291_classifier_plumbing','292_classifier_acquisition_intake',
         '293_classifier_character_delivery','294_classifier_influencer_delivery',
         '295_classifier_insider_delivery','296_classifier_scout_delivery',
-        '297_classifier_journalist_product','298_classifier_article_identities'] LOOP
+        '297_classifier_journalist_product','298_classifier_article_identities',
+        '299_classifier_spectra','300_classifier_spectrum_deliveries','301_classifier_spectrum_dispatch',
+        '302_classifier_source_revisions','303_classifier_spectrum_consumption'] LOOP
         IF NOT EXISTS(SELECT 1 FROM public.schema_migrations m WHERE m.version=migration_version) THEN
             RAISE EXCEPTION 'Missing migration %; migrate before placing binaries',migration_version;
         END IF;
@@ -25,13 +27,15 @@ BEGIN
        OR to_regprocedure('public.classifier_identity_candidates(text,text,text)') IS NULL THEN
         RAISE EXCEPTION 'Classifier native acquisition functions missing';
     END IF;
-    IF NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgrelid='public.classifier_deliveries'::regclass
-        AND tgname='classifier_delivery_dispatch' AND NOT tgisinternal AND tgenabled IN ('O','A')) THEN
+    IF NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgrelid='public.classifier_spectrum_deliveries'::regclass
+        AND tgname='classifier_spectrum_delivery_dispatch' AND NOT tgisinternal AND tgenabled IN ('O','A')) THEN
         RAISE EXCEPTION 'Classifier delivery dispatch trigger missing or disabled';
     END IF;
 END $$;
 SELECT classifier_source_id FROM public.news_article_entities LIMIT 0;
-SELECT status,count(*) AS deliveries FROM public.classifier_deliveries GROUP BY status ORDER BY status;
+SELECT source_id FROM public.classifier_source_heads LIMIT 0;
+SELECT request_hash,receipt FROM public.classifier_spectra LIMIT 0;
+SELECT status,count(*) AS deliveries FROM public.classifier_spectrum_deliveries GROUP BY status ORDER BY status;
 SELECT stage,status,count(*) AS work FROM public.pipeline_work
     WHERE stage IN ('classifier_acquire','classifier','graph','harvester','editor')
     GROUP BY stage,status ORDER BY stage,status;

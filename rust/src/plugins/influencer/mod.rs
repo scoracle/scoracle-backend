@@ -176,9 +176,15 @@ pub(crate) async fn execute_with_backend(
         )
         .await?;
         let ids: Vec<_> = unknown.iter().map(|s| s.classification_id).collect();
-        sqlx::query("UPDATE classifier_deliveries SET status='held',production_eligible=false,
-            reason='unknown_publication_time',updated_at=now() WHERE measurement_id=ANY($1) AND plugin_id=$2")
-            .bind(ids).bind(plugin_id).execute(&mut **publication.transaction()).await?;
+        crate::plugins::classifier::delivery::settle(
+            publication.transaction(),
+            plugin_id,
+            &ids,
+            "held",
+            Some("unknown_publication_time"),
+            json!({}),
+        )
+        .await?;
         if unknown.len() == pending.len() {
             record_vibe_completed(publication.transaction(), item).await?;
             publication.commit_final().await?;
@@ -276,18 +282,32 @@ pub(crate) async fn execute_with_backend(
     )
     .await?;
     let ids: Vec<i64> = covered.iter().map(|s| s.classification_id).collect();
-    let changed=sqlx::query(
-        "UPDATE classifier_deliveries SET status=CASE WHEN measurement_id=ANY($5) THEN 'redundant' ELSE $3 END,
-         reason=NULL,product_ref=$4,updated_at=NOW() WHERE measurement_id=ANY($1)
-         AND plugin_id=$2 AND status='pending' AND production_eligible")
-        .bind(&ids).bind(plugin_id).bind(if product_id.is_some(){"used"}else{"abstained"})
-        .bind(json!({"vibe_score_id":product_id,"attempt_id":attempt_id,"input_hash":input_hash,
-            "reused_attempt":previous.is_some(),"disposition":disposition}))
-        .bind(copies).execute(&mut **publication.transaction()).await?;
-    ensure!(
-        changed.rows_affected() == ids.len() as u64,
-        "Influencer assignments changed during generation"
-    );
+    let product_ref = json!({"vibe_score_id":product_id,"attempt_id":attempt_id,"input_hash":input_hash,
+        "reused_attempt":previous.is_some(),"disposition":disposition});
+    let (duplicates, selected): (Vec<_>, Vec<_>) =
+        ids.into_iter().partition(|id| copies.contains(id));
+    crate::plugins::classifier::delivery::settle(
+        publication.transaction(),
+        plugin_id,
+        &selected,
+        if product_id.is_some() {
+            "used"
+        } else {
+            "abstained"
+        },
+        None,
+        product_ref.clone(),
+    )
+    .await?;
+    crate::plugins::classifier::delivery::settle(
+        publication.transaction(),
+        plugin_id,
+        &duplicates,
+        "redundant",
+        None,
+        product_ref,
+    )
+    .await?;
     if previous.is_none() {
         sqlx::query("UPDATE vibe_card_attempts SET product_id=$2,outcome=$3 WHERE id=$1")
             .bind(attempt_id)

@@ -129,37 +129,40 @@ impl StudioPlugin for AcquireHandler {
         let key = input_hash(&before)?;
         let mut source = before.clone();
         if source.body.trim().is_empty() {
-            let cached: Option<String> = sqlx::query_scalar("SELECT source::text FROM public.classifier_sources WHERE article_id=$1 AND sport=$2 AND source->>'url'=$3 ORDER BY id DESC LIMIT 1")
-                .bind(item.entity_id).bind(&item.sport).bind(before.provenance["url"].as_str()).fetch_optional(&self.pool).await?;
-            if let Some(cached) = cached {
-                let cached: Source = serde_json::from_str(&cached)?;
-                source.body = cached.body;
-                for key in ["publisher_url", "publisher_domain"] {
-                    if let Some(value) = cached.provenance.get(key) {
-                        source.provenance.insert(key.into(), value.clone());
-                    }
-                }
-            } else {
-                let url = before.provenance["url"].as_str().context("publisher URL")?;
-                // Budgeted fetch: per-domain spacing, 429/Retry-After holds and a circuit breaker,
-                // instead of hammering a publisher that is throttling us.
-                let fetched = self
-                    .web
-                    .scope(&self.pool, self.manifest())
-                    .fetch_for_class(
-                        crate::harness::tools::DomainClass::CuratedArticles,
-                        url,
-                        &crate::tools::fetch::FetchPolicy::default(),
-                    )
-                    .await?;
-                source.body = fetched.body.replace('\0', "");
-                source
+            let url = before.provenance["url"].as_str().context("publisher URL")?;
+            // Budgeted fetch: per-domain spacing, 429/Retry-After holds and a circuit breaker,
+            // instead of hammering a publisher that is throttling us.
+            let fetched = self
+                .web
+                .scope(&self.pool, self.manifest())
+                .fetch_for_class(
+                    crate::harness::tools::DomainClass::CuratedArticles,
+                    url,
+                    &crate::tools::fetch::FetchPolicy::default(),
+                )
+                .await?;
+            source.body =
+                crate::tools::fetch::extract_article_text(&fetched.body).replace('\0', "");
+            source
+                .provenance
+                .insert("publisher_url".into(), json!(fetched.final_url));
+            source
+                .provenance
+                .insert("publisher_domain".into(), json!(fetched.domain));
+        }
+        if source.body.trim_start().starts_with('<') {
+            source.body = crate::tools::fetch::extract_article_text(&source.body).replace('\0', "");
+        }
+        if before.body.trim().is_empty() {
+            ensure!(
+                !source
                     .provenance
-                    .insert("publisher_url".into(), json!(fetched.final_url));
-                source
-                    .provenance
-                    .insert("publisher_domain".into(), json!(fetched.domain));
-            }
+                    .get("publisher_domain")
+                    .is_some_and(|domain| domain == "news.google.com")
+                    && crate::tools::fetch::count_words(&source.body)
+                        >= crate::tools::fetch::ARTICLE_MIN_WORDS,
+                "publisher acquisition requires article prose, not a wrapper or unavailable page"
+            );
         }
         ensure!(
             !source.body.trim().is_empty(),
@@ -169,10 +172,12 @@ impl StudioPlugin for AcquireHandler {
             super::identity::candidates(&mut *self.pool.acquire().await?, &item.sport, &source)
                 .await?;
         for candidate in identities.as_array().unwrap() {
-            if !source.query_entities.iter().any(|q| {
-                q["entity_type"] == candidate["entity_type"]
-                    && q["entity_id"] == candidate["entity_id"]
-            }) {
+            if matches!(candidate["entity_type"].as_str(), Some("team" | "player"))
+                && !source.query_entities.iter().any(|q| {
+                    q["entity_type"] == candidate["entity_type"]
+                        && q["entity_id"] == candidate["entity_id"]
+                })
+            {
                 source.query_entities.push(candidate.clone());
             }
         }
@@ -188,6 +193,19 @@ impl StudioPlugin for AcquireHandler {
         let source_id: i64 = sqlx::query_scalar("INSERT INTO public.classifier_sources(article_id,sport,input_hash,body_sha256,source,discovery_version,identity_hash) VALUES($1,$2,$3,$4,$5::jsonb,public.classifier_discovery_version($1,$2),$6) ON CONFLICT(article_id,sport,input_hash,body_sha256,identity_hash) DO UPDATE SET discovery_version=EXCLUDED.discovery_version RETURNING id")
             .bind(item.entity_id).bind(&item.sport).bind(&key).bind(hash(&source.body))
             .bind(serde_json::to_string(&source)?).bind(identity_hash).fetch_one(&mut **publication.transaction()).await?;
+        sqlx::query("INSERT INTO public.classifier_source_heads(article_id,sport,source_id) VALUES($1,$2,$3)
+            ON CONFLICT(article_id,sport) DO UPDATE SET source_id=EXCLUDED.source_id")
+            .bind(item.entity_id).bind(&item.sport).bind(source_id)
+            .execute(&mut **publication.transaction()).await?;
+        // The revision's canonical names must see the newly selected publisher body.
+        sqlx::query("UPDATE classifier_sources SET discovery_version=public.classifier_discovery_version($1,$2) WHERE id=$3")
+            .bind(item.entity_id).bind(&item.sport).bind(source_id)
+            .execute(&mut **publication.transaction()).await?;
+        sqlx::query("UPDATE public.classifier_spectrum_deliveries d SET status='superseded',updated_at=now()
+            FROM public.classifier_spectra x WHERE x.id=d.spectrum_id AND x.article_id=$1 AND x.sport=$2
+            AND x.source_id<>$3 AND d.status='pending'")
+            .bind(item.entity_id).bind(&item.sport).bind(source_id)
+            .execute(&mut **publication.transaction()).await?;
         sqlx::query("DELETE FROM public.news_article_entities WHERE article_id=$1 AND sport=$2")
             .bind(item.entity_id)
             .bind(&item.sport)
@@ -258,7 +276,6 @@ impl crate::harness::plugin::ScheduledOperation for Replay {
     }
 }
 
-
 #[async_trait]
 impl StudioPlugin for ClassifierHandler {
     fn manifest(&self) -> &'static PluginManifest {
@@ -289,7 +306,27 @@ pub async fn execute_spectrum(
         .bind(source_id).bind(item.entity_id).bind(&item.sport).fetch_one(pool).await?;
     let source: Source = serde_json::from_str(row.get::<&str, _>(0))?;
     let before = discovery(pool, item).await?;
-    if input_hash(&before)? != row.get::<String, _>(1) {
+    let current: Option<i64> = sqlx::query_scalar(
+        "SELECT source_id FROM classifier_source_heads WHERE article_id=$1 AND sport=$2",
+    )
+    .bind(item.entity_id)
+    .bind(&item.sport)
+    .fetch_optional(pool)
+    .await?;
+    if current != Some(source_id) {
+        let Some(publication) = ClaimPublication::begin(pool, item).await? else {
+            return Ok(PluginOutcome::Superseded);
+        };
+        publication.commit_final().await?;
+        return Ok(PluginOutcome::Committed);
+    }
+    if input_hash(&before)? != row.get::<String, _>(1)
+        || source.body.trim_start().starts_with('<')
+        || source
+            .provenance
+            .get("publisher_domain")
+            .is_some_and(|domain| domain == "news.google.com")
+    {
         let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
             return Ok(PluginOutcome::Superseded);
         };
@@ -316,35 +353,80 @@ pub async fn execute_spectrum(
     }
 
     let scrubbed = crate::tools::source::scrub(&source.body);
+    ensure!(!scrubbed.text.trim().is_empty(), "empty scrubbed source");
     let clean_sha256 = hash(&scrubbed.text);
+    let model = decision.identity().await?;
     for target in &source.query_entities {
+        if !matches!(target["entity_type"].as_str(), Some("team" | "player")) {
+            continue; // Person identities remain Graph evidence, not character subjects.
+        }
         let target_name = target["name"].as_str().context("target name")?;
-        // One pass over the whole article; only an oversized body falls back to its first window,
-        // recorded explicitly as a coverage disposition.
-        let (spectrum, coverage) = match decision.spectrum(&scrubbed.text, target_name).await {
-            Ok(spectrum) => (spectrum, "complete"),
-            Err(_) => {
-                let window = crate::tools::source::windows_bounded(&scrubbed.text, 1)
-                    .0
-                    .into_iter()
-                    .next()
-                    .context("empty scrubbed source")?;
-                (decision.spectrum(&window.text, target_name).await?, "oversized_first_window")
+        let request_hash =
+            hash(&super::decision::request(&scrubbed.text, target_name)?.to_string());
+        let retained: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM classifier_spectra
+            WHERE source_id=$1 AND target=$2::jsonb AND model=$3 AND criteria_version=$4
+            AND scrub_version='scrub-v2-publisher' AND request_hash=$5)",
+        )
+        .bind(source_id)
+        .bind(target.to_string())
+        .bind(&model)
+        .bind(super::decision::CRITERIA_VERSION)
+        .bind(&request_hash)
+        .fetch_one(pool)
+        .await?;
+        if retained {
+            continue; // Spectrum and obligations already committed atomically before a retry.
+        }
+        // An incomplete source cannot authorize character work, even when its opening scores well.
+        let measurement = match decision.spectrum(&scrubbed.text, target_name).await {
+            Ok(measurement) => measurement,
+            Err(error) => {
+                let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
+                    return Ok(PluginOutcome::Superseded);
+                };
+                fence_source(pool, item, &before, &mut publication).await?;
+                let request = super::decision::request(&scrubbed.text, target_name)?;
+                let receipt = json!({"status":"error","production_eligible":false,"request":request,
+                    "error":format!("{error:#}"),"raw_response":error.downcast_ref::<crate::harness::model::ResponseFailure>()
+                        .map(|failure| &failure.raw_response_body)});
+                sqlx::query("INSERT INTO classifier_measurements(source_id,article_id,sport,request_hash,status,receipt)
+                    VALUES($1,$2,$3,$4,'error',$5::jsonb)")
+                    .bind(source_id).bind(item.entity_id).bind(&item.sport).bind(hash(&request.to_string()))
+                    .bind(receipt.to_string()).execute(&mut **publication.transaction()).await?;
+                publication.commit_progress().await?;
+                return Err(error);
             }
         };
-        let gate = super::decision::gate(&spectrum)?;
-        let gate_doc = json!({"characters": &gate, "coverage": coverage});
+        ensure!(
+            measurement.model == model,
+            "Classifier serving model changed during work"
+        );
+        let gate = super::decision::gate(&measurement.spectrum)?;
+        let gate_doc = json!({"characters": &gate, "coverage": "complete"});
         let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
             return Ok(PluginOutcome::Superseded);
         };
         fence_source(pool, item, &before, &mut publication).await?;
+        let head: i64 = sqlx::query_scalar("SELECT source_id FROM classifier_source_heads WHERE article_id=$1 AND sport=$2 FOR SHARE")
+            .bind(item.entity_id).bind(&item.sport).fetch_one(&mut **publication.transaction()).await?;
+        ensure!(
+            head == source_id,
+            "Classifier acquired source changed during inference"
+        );
         super::identity::validate(publication.transaction(), &item.sport, &source).await?;
-        let spectrum_id: i64 = sqlx::query_scalar("INSERT INTO public.classifier_spectra(source_id,article_id,sport,target,model,criteria_version,scrub_version,clean_text,clean_sha256,spectrum,gate) VALUES($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb) ON CONFLICT (article_id,sport,target,model,criteria_version) DO UPDATE SET gate=EXCLUDED.gate RETURNING id")
+        let spectrum_id: i64 = sqlx::query_scalar("INSERT INTO public.classifier_spectra(source_id,article_id,sport,target,model,criteria_version,scrub_version,clean_text,clean_sha256,spectrum,gate,request_hash,receipt) VALUES($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb,$12,$13::jsonb) ON CONFLICT (source_id,target,model,criteria_version,scrub_version,request_hash) DO UPDATE SET gate=classifier_spectra.gate RETURNING id")
             .bind(source_id).bind(item.entity_id).bind(&item.sport).bind(target.to_string())
-            .bind(super::decision::MODEL_ID).bind(super::decision::CRITERIA_VERSION).bind("scrub-v1")
+            .bind(&measurement.model).bind(super::decision::CRITERIA_VERSION).bind("scrub-v2-publisher")
             .bind(&scrubbed.text).bind(&clean_sha256)
-            .bind(serde_json::to_string(&spectrum)?).bind(gate_doc.to_string())
+            .bind(serde_json::to_string(&measurement.spectrum)?).bind(gate_doc.to_string())
+            .bind(&measurement.request_hash).bind(measurement.receipt.to_string())
             .fetch_one(&mut **publication.transaction()).await?;
+        sqlx::query("UPDATE public.classifier_spectrum_deliveries d SET status='superseded',updated_at=now()
+            FROM public.classifier_spectra x WHERE x.id=d.spectrum_id AND x.article_id=$1 AND x.sport=$2
+            AND x.target=$3::jsonb AND x.id<>$4 AND d.status='pending'")
+            .bind(item.entity_id).bind(&item.sport).bind(target.to_string()).bind(spectrum_id)
+            .execute(&mut **publication.transaction()).await?;
         // One obligation per character whose bucket fired; a complete measurement with no eligible
         // signal creates none (the plan's no-action disposition).
         for (character, fires) in &gate {
@@ -363,5 +445,3 @@ pub async fn execute_spectrum(
     publication.commit_final().await?;
     Ok(PluginOutcome::Committed)
 }
-
-

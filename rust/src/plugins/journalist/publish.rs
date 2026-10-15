@@ -270,23 +270,15 @@ pub(super) async fn commit_claimed(
                     .collect::<Vec<_>>(),
                 Prepared::Debounced => Vec::new(),
             };
-            let changed = sqlx::query(
-                "UPDATE public.classifier_deliveries SET status=$3, reason=$4, \
-                 product_ref=$5, production_eligible=CASE WHEN $3='held' THEN false ELSE production_eligible END, updated_at=NOW() \
-                 WHERE measurement_id=$1 AND plugin_id=$2 AND status='pending' \
-                   AND production_eligible",
+            crate::plugins::classifier::delivery::settle(
+                publication.transaction(),
+                crate::plugins::journalist::manifest::MANIFEST.id.as_str(),
+                &[source.classification_id],
+                status,
+                reason,
+                serde_json::json!({"news_summary_ids": row_refs}),
             )
-            .bind(source.classification_id)
-            .bind(crate::plugins::journalist::manifest::MANIFEST.id.as_str())
-            .bind(status)
-            .bind(reason)
-            .bind(serde_json::json!({"news_summary_ids": row_refs}))
-            .execute(&mut **publication.transaction())
             .await?;
-            anyhow::ensure!(
-                changed.rows_affected() == 1,
-                "Journalist source assignment changed during call"
-            );
         }
     }
     if !classifier_sources.is_empty() {
@@ -317,4 +309,3 @@ pub(super) async fn commit_claimed(
 #[cfg(test)]
 #[path = "publish_tests.rs"]
 mod tests;
-

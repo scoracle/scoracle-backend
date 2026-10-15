@@ -76,17 +76,38 @@ live in `rust/src/plugins/classifier/decision.rs` and
 `fixtures/classifier/classification-criteria-v1.json`. The retired GLiNER/candle model and the
 generative `COGNITION_ROUTE_CLASSIFIER_*` settings are gone.
 
-The October 8 cutover keeps acquisition, cognition and its watcher disabled for
-controlled-chunk calibration. `CLASSIFIER_REPLAY_BACKLOG=false` is configured in
-production; only the exact value `true` enables startup and periodic full-corpus replay.
-RSS still enqueues new discovery, so disabling replay does not limit an active worker's
-queue. Use selected frozen source packets for calibration while workers remain stopped.
-When full source acquisition is authorized, choose the replay setting explicitly and
-enable `scoracle-classifier-source.service`. Keep cognition and its watcher disabled
-until model and delivery policies are qualified and the pause is lifted. All real Classifier deliveries start held; deployment never
-promotes them. Watchdog detects paused/acquire/classifier mode from active services;
-`WATCHDOG_MODE` overrides detection for another host. Paused backlog and held policies
-are informational; active retrieval stalls and dead letters are alarms.
+The October 15 native path uses `scoracle-kev.service` on Archbox with four
+8,192-token decision slots. Install the CUDA-compatible `llama-server` at
+`~/.local/bin/scoracle-llama-server` and `Kev-0.8B-Q8_0.gguf` in `~/models/`.
+`run-classifier-model.sh` hashes the GGUF and uses that fingerprint as its serving alias;
+the client rejects an unversioned or different-model alias. Apply migrations 302–303 before
+the matching worker: it retains request/reply receipts, source heads and separate spectra
+for changed sources, and supersedes pending HTML/partial measurements.
+
+`CLASSIFIER_URL=http://127.0.0.1:8081` is independent of character routing.
+All generative routes should use SmolLM3 on the Mac via native llama.cpp, with one
+shared four-slot budget (32,768 tokens per SmolLM3 slot). The deployed loopback SSH tunnel is
+`127.0.0.1:18080` on Archbox to `127.0.0.1:8080` on the Mac; set
+`MODEL_BASE_URL=http://127.0.0.1:18080`, `MODEL_NAME=alibayram/smollm3`, and
+`COGNITION_BACKEND_CONCURRENCY=http://127.0.0.1:18080=4`. Remove obsolete per-route
+host/backend overrides. During plumbing verification, `COGNITION_STAGES=classifier`
+runs decision work while character work remains queued. Enable the full task list when
+that work is ready to run. `CLASSIFIER_REPLAY_BACKLOG=true` explicitly enables acquisition
+backlog replay; RSS continues to enqueue newly discovered articles independently.
+
+On the Mac, `com.scoracle.smollm3` and `com.scoracle.model-tunnel` in
+`~/Library/LaunchAgents/` keep the loopback server and SSH forwarding alive.
+The tunnel also exposes Archbox Kev locally at `127.0.0.1:18081` for read-only replays.
+The October 15 cutover retained a focused Classifier backup at
+`/home/sheneveld/tmp/classifier-before302-20261015.dump` on Archbox (about 2 GB).
+Workers are running the tested October 15 source snapshot; its archive and binary hashes
+are retained in `/home/sheneveld/tmp/kev-native-deployment-20261015.sha256`.
+
+Calibration follows plumbing qualification. The six questions and thresholds are unchanged.
+A failed/oversized decision creates an error receipt and retries through the existing durable
+queue; it cannot score only the opening and dispatch character work as complete evidence.
+Watchdog detects paused/acquire/classifier mode from active services; `WATCHDOG_MODE`
+overrides detection for another host.
 
 Recovery keeps stored discovery/sources/receipts, replays acquisition idempotently and
 uses normal retry/lease/outbox recovery. Stop the source worker to pause retrieval;

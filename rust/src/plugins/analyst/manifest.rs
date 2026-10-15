@@ -12,6 +12,6 @@ pub const MANIFEST: PluginManifest = PluginManifest {
     claim_policy: ClaimPolicy::TEAMS_FIRST
         .gated_by(&["rating", "vibe"], &["rating_completed", "vibe_completed"]),
     inference_routes: &[ROUTE],
-    resources: ResourceProfile::unbounded_batch(1),
+    resources: ResourceProfile::grouped(1, crate::harness::fleet::MAC_SLOTS),
     tools: &[ToolGrant::Inference],
 };

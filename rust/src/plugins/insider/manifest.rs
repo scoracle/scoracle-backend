@@ -11,6 +11,6 @@ pub const MANIFEST: PluginManifest = PluginManifest {
     task: TASK,
     claim_policy: ClaimPolicy::TEAMS_FIRST,
     inference_routes: &[ROUTE],
-    resources: ResourceProfile::unbounded_batch(1),
+    resources: ResourceProfile::grouped(1, crate::harness::fleet::MAC_SLOTS),
     tools: &[ToolGrant::Inference],
 };

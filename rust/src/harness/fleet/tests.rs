@@ -28,7 +28,7 @@ fn production_resource_policy_matches_the_deployment_contract() {
     );
     assert_eq!(
         (SCOUT.resources.max_in_flight, SCOUT.resources.slot_group),
-        (2, Some(archbox))
+        (2, Some(mac))
     );
     assert_eq!(
         (ORACLE.resources.max_in_flight, ORACLE.resources.slot_group),
@@ -39,18 +39,26 @@ fn production_resource_policy_matches_the_deployment_contract() {
             INSIDER.resources.max_in_flight,
             INSIDER.resources.slot_group
         ),
-        (1, None)
+        (1, Some(mac))
     );
     assert_eq!(
         (
             ANALYST.resources.max_in_flight,
             ANALYST.resources.slot_group
         ),
-        (1, None)
+        (1, Some(mac))
     );
     assert_eq!(
         (GRAPH.resources.rotation_batch, GRAPH.resources.slot_group),
-        (8, Some(archbox))
+        (8, Some(mac))
+    );
+    assert_eq!(
+        (
+            CLASSIFIER.resources.max_in_flight,
+            CLASSIFIER.resources.rotation_batch,
+            CLASSIFIER.resources.slot_group
+        ),
+        (4, 4, Some(archbox))
     );
     assert_eq!(
         (

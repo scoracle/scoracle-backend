@@ -322,8 +322,8 @@ pub async fn load_scout_reports(
         {
             continue;
         }
-        let product:serde_json::Value=sqlx::query_scalar("SELECT product_ref FROM classifier_deliveries WHERE measurement_id=$1 AND plugin_id=$2")
-            .bind(source.classification_id).bind(plugin).fetch_one(pool).await?;
+        let product:serde_json::Value=sqlx::query_scalar("SELECT product_ref FROM classifier_spectrum_deliveries WHERE spectrum_id=$1 AND character=$2")
+            .bind(source.classification_id).bind(crate::plugins::classifier::delivery::character_key(plugin)?).fetch_one(pool).await?;
         let kind = match product["source_kind"].as_str() {
             Some("performance") => super::delivery::SourceKind::Performance,
             Some("roster") => super::delivery::SourceKind::Roster,

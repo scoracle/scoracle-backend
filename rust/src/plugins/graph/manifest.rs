@@ -1,6 +1,6 @@
 //! Registration policy owned by this plugin.
 
-use crate::harness::fleet::ARCHBOX_SLOTS;
+use crate::harness::fleet::MAC_SLOTS;
 use crate::harness::plugin::{PluginId, PluginManifest, ResourceProfile, ToolGrant};
 use crate::harness::queue::work::{ClaimPolicy, TaskKey};
 
@@ -12,6 +12,6 @@ pub const MANIFEST: PluginManifest = PluginManifest {
     task: TASK,
     claim_policy: ClaimPolicy::FIFO,
     inference_routes: &[ROUTE],
-    resources: ResourceProfile::grouped(ARCHBOX_SLOTS.1, ARCHBOX_SLOTS).batched(8),
+    resources: ResourceProfile::grouped(MAC_SLOTS.1, MAC_SLOTS).batched(8),
     tools: &[ToolGrant::Inference],
 };

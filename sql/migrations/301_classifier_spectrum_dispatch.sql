@@ -9,17 +9,17 @@ DECLARE
     target_type text;
     target_id integer;
     league text;
-    stage text;
+    work_stage text;
     revision text;
 BEGIN
     IF NEW.status <> 'pending' THEN RETURN NEW; END IF;
-    stage := CASE NEW.character
+    work_stage := CASE NEW.character
         WHEN 'journalist' THEN 'narratives'
         WHEN 'insider' THEN 'transfers'
         WHEN 'scout' THEN 'rating'
         WHEN 'influencer' THEN 'vibe'
         ELSE NULL END;
-    IF stage IS NULL THEN
+    IF work_stage IS NULL THEN
         RAISE EXCEPTION 'Classifier spectrum character is not wired: %', NEW.character;
     END IF;
     SELECT x.target->>'entity_type', (x.target->>'entity_id')::integer, x.sport
@@ -30,7 +30,7 @@ BEGIN
     END IF;
     revision := 'classifier-spectrum-v1:' || NEW.character || ':s' || NEW.spectrum_id;
     INSERT INTO public.pipeline_work(stage,entity_type,entity_id,sport,input_version)
-    VALUES(stage,target_type,target_id,league,revision)
+    VALUES(work_stage,target_type,target_id,league,revision)
     ON CONFLICT(stage,entity_type,entity_id,sport) DO UPDATE SET
         status='pending',attempts=0,input_version=EXCLUDED.input_version,
         available_at=CASE WHEN pipeline_work.status='pending' THEN pipeline_work.available_at ELSE now() END,

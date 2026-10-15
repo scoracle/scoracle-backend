@@ -1,4 +1,4 @@
-//! Read-only Kev calibration and throughput replay. No database writes or character dispatch.
+//! Read-only native decision calibration and throughput replay. No database writes or character dispatch.
 //! CLASSIFIER_URL=http://localhost:8081 cargo run --release --example classifier_replay -- cases.jsonl 4
 use anyhow::{ensure, Context, Result};
 use futures::{stream, StreamExt};

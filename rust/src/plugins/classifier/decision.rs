@@ -6,7 +6,6 @@ use std::collections::BTreeMap;
 
 const CRITERIA: &str = include_str!("../../../fixtures/classifier/classification-criteria-v1.json");
 pub const CRITERIA_VERSION: &str = "classification-criteria-v5-article";
-pub const MODEL_ID: &str = "ggml-org/Kev-0.8B-GGUF";
 
 pub struct Measurement {
     pub spectrum: BTreeMap<String, f64>,
@@ -64,7 +63,7 @@ impl Decision {
             .context("decision model inventory")?;
         ensure!(
             models.len() == 1,
-            "Classifier requires one loaded Kev model"
+            "Classifier requires one loaded decision model"
         );
         Ok(model_identity(&json!({"model":models[0]["id"]}))?.to_string())
     }
@@ -109,13 +108,16 @@ fn model_identity(response: &Value) -> Result<&str> {
     let model = response["model"]
         .as_str()
         .context("decision model identity")?;
-    let prefix = format!("{MODEL_ID}@sha256:");
-    let fingerprint = model
-        .strip_prefix(&prefix)
-        .context("Classifier requires the fingerprinted Kev model alias")?;
+    let (name, fingerprint) = model
+        .rsplit_once("@sha256:")
+        .context("Classifier requires a fingerprinted decision model alias")?;
     ensure!(
-        fingerprint.len() == 64 && fingerprint.bytes().all(|c| c.is_ascii_hexdigit()),
-        "invalid Kev weights fingerprint"
+        !name.is_empty()
+            && !name.chars().any(char::is_whitespace)
+            && !name.contains('@')
+            && fingerprint.len() == 64
+            && fingerprint.bytes().all(|c| c.is_ascii_hexdigit()),
+        "invalid decision model weights fingerprint"
     );
     Ok(model)
 }
@@ -236,10 +238,20 @@ mod tests {
     }
 
     #[test]
-    fn model_identity_requires_the_actual_kev_weights_fingerprint() {
-        let model = format!("{MODEL_ID}@sha256:{}", "0".repeat(64));
-        assert_eq!(model_identity(&json!({"model":model})).unwrap(), model);
-        for wrong in ["laya", MODEL_ID, "", "ggml-org/Kev-0.8B-GGUF@sha256:short"] {
+    fn model_identity_accepts_replaceable_fingerprinted_models() {
+        for name in ["ggml-org/Kev-0.8B-GGUF", "LiquidAI/d1-3B-GGUF"] {
+            let model = format!("{name}@sha256:{}", "0".repeat(64));
+            assert_eq!(model_identity(&json!({"model":model})).unwrap(), model);
+        }
+        for wrong in [
+            "laya".to_string(),
+            String::new(),
+            "model@sha256:short".to_string(),
+            format!("@sha256:{}", "0".repeat(64)),
+            format!("model name@sha256:{}", "0".repeat(64)),
+            format!("model@sha256:{}", "g".repeat(64)),
+            format!("model@other@sha256:{}", "0".repeat(64)),
+        ] {
             assert!(model_identity(&json!({"model":wrong})).is_err());
         }
     }

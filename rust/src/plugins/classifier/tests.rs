@@ -22,6 +22,7 @@ async fn publisher_to_spectrum_to_character_is_complete_and_revision_bound() -> 
     };
     const SPORT: &str = "ZZ_KEV_PLUMBING";
     const ARTICLE: i64 = 910415;
+    const MODEL_ID: &str = "LiquidAI/d1-3B-GGUF";
     let pool = dbtest::pool("disposable classifier_test database").await;
     plumbing_tests::setup_disposable(&pool).await?;
     sqlx::query("DELETE FROM pipeline_work WHERE sport=$1")
@@ -105,7 +106,7 @@ async fn publisher_to_spectrum_to_character_is_complete_and_revision_bound() -> 
                 break;
             }
             if headers.starts_with("GET /v1/models ") {
-                let body = serde_json::json!({"data":[{"id":format!("{}@sha256:{}",decision::MODEL_ID,"0".repeat(64))}]}).to_string();
+                let body = serde_json::json!({"data":[{"id":format!("{MODEL_ID}@sha256:{}","0".repeat(64))}]}).to_string();
                 write!(socket, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len()).unwrap();
                 continue;
             }
@@ -142,7 +143,7 @@ async fn publisher_to_spectrum_to_character_is_complete_and_revision_bound() -> 
                 .keys()
                 .map(|key| (key.clone(), serde_json::json!({"type":"noul","noul":0.75})))
                 .collect();
-            let body = serde_json::json!({"model":format!("{}@sha256:{}", decision::MODEL_ID, "0".repeat(64)),"answers":answers}).to_string();
+            let body = serde_json::json!({"model":format!("{MODEL_ID}@sha256:{}", "0".repeat(64)),"answers":answers}).to_string();
             let status = if request_number == 1 {
                 "500 Internal Server Error"
             } else {

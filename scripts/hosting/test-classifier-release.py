@@ -11,7 +11,7 @@ with tempfile.TemporaryDirectory(prefix="classifier-release-check-") as director
     root = Path(directory)
     for name in ("scripts/hosting", "scripts/systemd", "go", "rust/target/debug", "bins", "units", "mock"):
         (root / name).mkdir(parents=True)
-    for name in ("release.sh", "install.sh", "verify-classifier.sh"):
+    for name in ("release.sh", "install.sh", "verify-classifier.sh", "run-classifier-model.sh"):
         shutil.copy2(SOURCE / "scripts/hosting" / name, root / "scripts/hosting" / name)
     for source in (SOURCE / "scripts/systemd").glob("*"):
         if source.is_file(): shutil.copy2(source, root / "scripts/systemd" / source.name)
@@ -64,4 +64,18 @@ esac''',
     assert "restart scoracle-cognition.service" in calls
     calls = run(["--build-only"], 0)
     assert not calls and not (root / "calls").read_text()
-print("Paused/source-only release, preflight/build failure, active restart and build-only checks pass.")
+    native = root / ".local/bin/scoracle-llama-server"
+    native.parent.mkdir(parents=True)
+    native.write_text('#!/usr/bin/env bash\nprintf "%s\\n" "$@"\n')
+    native.chmod(0o755)
+    for settings, model, name in [
+        ({}, str(root / "models/Kev-0.8B-Q8_0.gguf"), "ggml-org/Kev-0.8B-GGUF"),
+        ({"CLASSIFIER_MODEL_FILE": "/models/new model.gguf", "CLASSIFIER_MODEL_NAME": "LiquidAI/d1-3B-GGUF"},
+         "/models/new model.gguf", "LiquidAI/d1-3B-GGUF"),
+    ]:
+        clean_env = {k: v for k, v in env.items() if k not in ("CLASSIFIER_MODEL_FILE", "CLASSIFIER_MODEL_NAME")}
+        result = subprocess.run(["bash", str(root / "scripts/hosting/run-classifier-model.sh")],
+                                env={**clean_env, "HOME": str(root), **settings}, capture_output=True, text=True, check=True)
+        assert result.stdout.splitlines()[:4] == ["-m", model, "--alias", name + "@sha256:fixturehash"]
+    assert "EnvironmentFile=-%h/.config/scoracle/classifier-model.env" in (root / "units/scoracle-kev.service").read_text()
+print("Model swap/default launcher, paused/source-only release, preflight/build failure, active restart and build-only checks pass.")

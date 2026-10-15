@@ -78,10 +78,20 @@ generative `COGNITION_ROUTE_CLASSIFIER_*` settings are gone.
 
 The October 15 native path uses `scoracle-kev.service` on Archbox with eight
 8,192-token decision slots and four concurrent article workers. The extra native slots let
-all six questions share one article prefill instead of splitting across two groups. Install the CUDA-compatible `llama-server` at
+the four questions share each article prefill. Install the CUDA-compatible `llama-server` at
 `~/.local/bin/scoracle-llama-server` and `Kev-0.8B-Q8_0.gguf` in `~/models/`.
 `run-classifier-model.sh` hashes the GGUF and uses that fingerprint as its serving alias;
-the client rejects an unversioned or different-model alias. Apply migrations 302–303 before
+the client requires a named SHA-256 alias and rejects a model change during a request.
+Kev is the default, not a client restriction. To swap a qualified native decision model,
+set `CLASSIFIER_MODEL_FILE=/absolute/path/to/model.gguf` and
+`CLASSIFIER_MODEL_NAME=publisher/model-name` in
+`~/.config/scoracle/classifier-model.env`, then restart `scoracle-kev.service`.
+Keep that service name for compatibility with existing operations. The server must expose
+the same `/v1/models` and `/v1/systemone` typed-probability contract. Calibrate the four
+questions and cutoffs for the replacement in the criteria fixture and release the matching
+worker; changing a model does not make Kev's thresholds valid for it. Model fingerprints,
+exact requests and criteria versions separate retained measurements and caches.
+Apply migrations 302–304 before
 the matching worker: it retains request/reply receipts, source heads and separate spectra
 for changed sources, and supersedes pending HTML/partial measurements.
 
@@ -104,7 +114,9 @@ The October 15 cutover retained a focused Classifier backup at
 Workers are running the tested October 15 source snapshot; its archive and binary hashes
 are retained in `/home/sheneveld/tmp/kev-native-deployment-20261015.sha256`.
 
-Calibration follows plumbing qualification. The six questions and thresholds are unchanged.
+The production bank has four article-level questions with provisional cutoffs of
+Journalist 60, Influencer 50, Scout 60 and Insider 70. See
+`rust/docs/classifier-four-score-calibration-2026-10-15.md` for calibration and throughput.
 A failed/oversized decision creates an error receipt and retries through the existing durable
 queue; it cannot score only the opening and dispatch character work as complete evidence.
 Watchdog detects paused/acquire/classifier mode from active services; `WATCHDOG_MODE`
